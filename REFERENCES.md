@@ -1807,3 +1807,39 @@ and storage design were not adopted. The findings preserve the previous
 unsupported Daemon land classification, numeric indestructibility flags,
 Critter exceptions, missing Deathwing graphic, and remaining unknowns:
 [complete catalog audit](docs/WAR2_EXE_FINDINGS.md#complete-base-unit-catalog-audit-2026-10-04).
+
+### Warcraft II button rims and footprint selection (2026-10-04)
+
+The same MAINDAT/WAR2.EXE fingerprints and pinned Wargus checkout above
+apply. REZDAT.WAR SHA-256 is
+`d0fe7edd4f89f60c64bca786a944387578635d8483bc2ff165d06306bb432246`.
+Native GFUs 354/355 and REZDAT GFUs 0/1 were decoded and inspected; no
+WAR2.EXE disassembly or retail runtime was used.
+
+User-supplied 640×480 screenshots, received on 2026-10-04, are local
+references rather than downloaded images. Distribution/version and source
+URLs are unknown. Original files and SHA-256:
+
+- `/Users/igor/Desktop/2603_4a56c8cd0a4d8.jpg` (human group selection):
+  `0b9e17abe5fc3769372f45aba7eb46cebcc13e4f8355c18513c67590ed9f15bd`.
+- `/Users/igor/Desktop/2603_4a56c8ccf27af.jpg` (orc ship selection):
+  `d019e26ca95653539e1511a6e7a97e5a040dd0881d2b0120db723674d21e861c`.
+- `/Users/igor/Desktop/2603_4a56c8cc93c15.jpg` (human barracks selection):
+  `90aba5346e893d120c719bd5b8a364d24191143be98ed65735a64d85c6b7f059`.
+
+The images establish bright icon rims outside the native 46×38 picture,
+framed info/progress panels, colored Menu buttons, and sprite occlusion
+of selected rectangles. Exact uncompressed RGB/hover dispatch is unknown.
+The user's explicit selection rule uses tile footprints even where
+reference selection BoxSize differs.
+
+Stratagus master
+[unit_draw.cpp](https://raw.githubusercontent.com/Wargus/stratagus/master/src/unit/unit_draw.cpp)
+(`CUnit::Draw` draws selection before the body) and
+[unittype.cpp](https://raw.githubusercontent.com/Wargus/stratagus/master/src/unit/unittype.cpp)
+(`DrawUnitType`, canvas-to-tile centering formula) were read on 2026-10-04.
+These are unversioned references, not copied implementation or retail
+executable evidence. DOOM `reference/DOOM/r_things.c` was consulted for
+sorted sprite drawing. Detailed native offsets, corrected hypotheses and
+tests are in the
+[HUD/selection correction](docs/WAR2_EXE_FINDINGS.md#button-decorations-and-footprint-selection-correction-2026-10-04).

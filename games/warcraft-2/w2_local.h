@@ -81,6 +81,7 @@ typedef struct {
 
 typedef struct {
     spritesheet_t menu_button, minimap, info, buttons, resource, status, filler, icons, resource_icons;
+    spritesheet_t menu_widgets;
     bitmapfont_t font, small_font;
     bool orc;
     bool ready;
@@ -90,5 +91,6 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art);
 void w2_free_menu_art(w2_menu_art_t *art);
 bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art);
 void w2_free_hud_art(w2_hud_art_t *art);
+void w2_draw_selection(const unitoverlaycontext_t *ctx);
 
 #endif

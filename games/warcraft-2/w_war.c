@@ -362,7 +362,7 @@ bool w2_decode_grp(const w2_blob_t *entry, const uint32_t palette[256],
         out->lumps[i].indices = image;
         out->cells[i].rect = (irect_t){ 0, 0, box_w, box_h };
         out->cells[i].bounds = bounds;
-        out->cells[i].ground_point = (ivec2_t){ box_w / 2, box_h };
+        out->cells[i].ground_point = (ivec2_t){ box_w / 2, box_h / 2 };
     }
     int phase_count = 1;
     if (!install_directions(out, count, directional, &phase_count)) {

@@ -12,8 +12,8 @@
  * measured MAINDAT pieces. */
 
 enum {
-    IT_MENU, IT_MAPFRAME, IT_MAP, IT_INFO, IT_PANEL,
-    IT_RESOURCE, IT_STATUS, IT_FILLER, IT_GOLD, IT_LUMBER, IT_OIL,
+    IT_MENUBACK, IT_MAPFRAME, IT_MAP, IT_INFO, IT_PANEL,
+    IT_RESOURCE, IT_STATUS, IT_FILLER, IT_MENU, IT_GOLD, IT_LUMBER, IT_OIL, IT_TRAIN,
     IT_CMD, IT_SLOT = IT_CMD + 9, IT_COUNT = IT_SLOT + 9
 };
 
@@ -88,6 +88,19 @@ static int page;
 static uint32_t command_id;
 static bool laid_out;
 
+void w2_draw_selection(const unitoverlaycontext_t *ctx) {
+    const mobj_t *unit = ctx->unit;
+    if (!(unit->traits & MF_SELECTABLE) || !P_MobjIsSelected(unit) || unit->hp <= 0) return;
+    isize2_t footprint = mobjinfo[unit->type_id].w2.footprint;
+    fvec2_t corner = fvec2_sub(fixed3_xy_to_fvec2(unit->core.position),
+                              (fvec2_t){footprint.w * 0.5f, footprint.h * 0.5f});
+    fvec2_t screen;
+    R_MapToScreen(ctx->app, &level, corner.x, corner.y, &screen.x, &screen.y);
+    V_DrawRectOutline((irect_t){(int)lroundf(screen.x), (int)lroundf(screen.y),
+                               footprint.w * ctx->app->cell.w, footprint.h * ctx->app->cell.h},
+                      V_NearestIndex(0xff00fc00u));
+}
+
 static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void on_slot(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -139,12 +152,6 @@ static void draw_stat(ivec2_t anchor, const char *label, const char *value) {
     draw_ink(anchor.x - V_TextWidth(&art.font, label), anchor.y, text);
 }
 
-static void draw_icon(int frame, int x, int y) {
-    if (frame < 0 || frame >= art.icons.numlumps || !art.icons.cells) return;
-    irect_t dst = { x, y, art.icons.cells[frame].rect.w, art.icons.cells[frame].rect.h };
-    R_DrawSprite(&art.icons, frame, -1, NULL, &dst, 0, 16);
-}
-
 static void pretty_name(const char *src, char *dst, size_t n) {
     bool cap = true;
     size_t o = 0;
@@ -178,10 +185,12 @@ static void layout(void) {
         for (int s = 0; s < MS_STATES; ++s) items[i].look[s].cell = -1;
     }
     items[IT_MENU].kind = MI_BUTTON;
+    items[IT_MENU].visible = true;
     items[IT_MENU].enabled = true;
+    items[IT_MENU].rect = (irect_t){24, 2, 128, 20};
     items[IT_MENU].routine = on_menu;
     snprintf(items[IT_MENU].text, sizeof(items[IT_MENU].text), "Menu (F10)");
-    items[IT_MENU].inset = (ivec2_t){ 24, 2 };
+    items[IT_MENU].align = MALIGN_CENTER;
     items[IT_MENU].ink = 0xffffe84au;
     items[IT_PANEL].anchor = MANCHOR_GROW;
     items[IT_PANEL].stretch = true;
@@ -203,6 +212,9 @@ static void layout(void) {
     items[IT_INFO].ownerdraw = draw_info;
     items[IT_RESOURCE].ownerdraw = draw_resources;
     items[IT_STATUS].ownerdraw = draw_status;
+    items[IT_TRAIN].rect = (irect_t){110, 241, 46, 38};
+    items[IT_TRAIN].frame.outer = 0xff000000u;
+    items[IT_TRAIN].frame.inner = 0xfffcfcfcu;
     static const int col_x[3] = { 9, 65, 121 };
     static const int cmd_y[3] = { 340, 387, 434 };
     static const int slot_y[3] = { 169, 223, 277 };
@@ -212,11 +224,13 @@ static void layout(void) {
         *cmd = (menuitem_t){
             .kind = MI_BUTTON, .routine = on_command,
             .rect = { col_x[i % 3], cmd_y[i / 3], 46, 38 },
+            .frame = {0xff000000u, 0xfffcfcfcu}, .color = 0xff00fc00u,
         };
         *slot = (menuitem_t){
             .kind = MI_BUTTON, .id = i, .routine = on_slot,
             .ownerdraw = draw_slot,
             .rect = { col_x[i % 3], slot_y[i / 3], 46, 38 },
+            .frame = {0xff000000u, 0xfffcfcfcu}, .color = 0xff00fc00u,
         };
         for (int s = 0; s < MS_STATES; ++s) {
             cmd->look[s].cell = -1;
@@ -319,7 +333,6 @@ static void apply_commands(void) {
         item->hotkey = cmd->key;
         item->tooltip = cmd->tip;
         item->opaque = false;
-        item->border = 0xff000000u;
     }
 }
 
@@ -355,10 +368,19 @@ static void refresh(menu_t *menu) {
     else if (own && !(own->traits & MF_MOBILE)) fill_train(own);
     else if (own) fill_mobile(own, orc_side());
     apply_commands();
+    int info_frame = count == 1 ? 1 : 0;
+    bool training = count == 1 && portrait->production && portrait->production->queue_count;
+    if (training) info_frame = 3;
+    for (int s = 0; s < MS_STATES; ++s) items[IT_INFO].look[s].cell = info_frame;
+    items[IT_TRAIN].visible = training;
+    items[IT_TRAIN].sheet = &art.icons;
+    int train_icon = training ? icon_of(portrait->production->actor_id - 1) : -1;
+    for (int s = 0; s < MS_STATES; ++s) items[IT_TRAIN].look[s].cell = train_icon;
     for (int i = 0; i < 9; ++i) {
         menuitem_t *slot = &items[IT_SLOT + i];
-        bool show = count > 1 && slot_unit[i];
-        slot->visible = slot->enabled = show;
+        bool show = count > 0 && slot_unit[i];
+        slot->visible = show;
+        slot->enabled = show && count > 1;
         int frame = -1;
         if (show) frame = icon_of((int)slot_unit[i]->type_id - 1);
         slot->sheet = show && art.icons.numlumps ? &art.icons : NULL;
@@ -603,7 +625,6 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     if (portrait_count != 1 || !portrait) return;
     int pud = (int)portrait->type_id - 1;
     if (pud < 0 || pud >= W2_TYPE_COUNT) return;
-    draw_icon(icon_of(pud), rect.x + 9, rect.y + 9);
     char name[64], hp[32];
     const mobjinfo_t *type = &mobjinfo[portrait->type_id];
     if (type->label) snprintf(name, sizeof(name), "%s", type->label);
@@ -675,7 +696,6 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
         int completed = prod->time_ms > 0 ? (prod->time_ms - prod->time_left_ms) * 100 / prod->time_ms : 0;
         if (completed < 0) completed = 0;
         if (completed > 100) completed = 100;
-        draw_icon(icon_of(prod->actor_id - 1), rect.x + 110, rect.y + 81);
         V_FillRect((irect_t){rect.x + 12, rect.y + 153, 152 * completed / 100, 14},
                    V_NearestIndex(0xff306404u));
         snprintf(hp, sizeof(hp), "%d%% Complete", completed);
@@ -722,7 +742,7 @@ static void draw_status(const menu_t *menu, const menuitem_t *item, irect_t rect
 static void draw_slot(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     (void)menu;
     const mobj_t *unit = slot_unit[item->id];
-    if (!unit || unit->owner != consoleplayer || unit->max_hp <= 0) return;
+    if (portrait_count == 1 || !unit || unit->owner != consoleplayer || unit->max_hp <= 0) return;
     irect_t bar = {rect.x - 1, rect.y + 42, 50, 7};
     V_FillRect(bar, V_NearestIndex(0xff000000u));
     int fill = unit->hp * (bar.w - 2) / unit->max_hp;
@@ -738,7 +758,8 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
     }
     snprintf(root_copy, sizeof(root_copy), "%s", data_root && data_root[0] ? data_root : "data/WAR2");
     w2_load_hud_art(root_copy, pud ? pud->era : 0, orc_side(), &art);
-    use_sheet(&items[IT_MENU], &art.menu_button);
+    use_sheet(&items[IT_MENUBACK], &art.menu_button);
+    use_sheet(&items[IT_MENU], &art.menu_widgets);
     use_sheet(&items[IT_MAPFRAME], &art.minimap);
     use_sheet(&items[IT_INFO], &art.info);
     use_sheet(&items[IT_PANEL], &art.buttons);
@@ -747,7 +768,10 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
     use_sheet(&items[IT_FILLER], &art.filler);
     items[IT_MENU].font = art.font.sprite.numlumps ? &art.font : NULL;
     items[IT_MENU].ink = 0;
-    for (int s = 0; s < MS_STATES; ++s) items[IT_MENU].look[s].palette = 1;
+    for (int s = 0; s < MS_STATES; ++s) {
+        items[IT_MENU].look[s].cell = s == MS_PUSHED ? 5 : 4;
+        items[IT_MENU].look[s].palette = 1;
+    }
     for (int i = IT_GOLD; i <= IT_OIL; ++i) items[i].sheet = &art.resource_icons;
     items[IT_MENU].fill = items[IT_MENU].sheet ? 0 : 0xff18242du;
     hud.app = app;

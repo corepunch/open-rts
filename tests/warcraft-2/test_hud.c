@@ -67,6 +67,60 @@ static bool save_bmp(const char *path) {
     return ok;
 }
 
+static int test_button_frames(menu_t *menu) {
+    int icons = 0;
+    for (int i = 0; i < menu->numitems; ++i) {
+        const menuitem_t *item = &menu->items[i];
+        if (!item->visible || !item->frame.outer) continue;
+        irect_t r = M_MenuItemRect(menu, item);
+        CHECK(r.w == 46 && r.h == 38);
+        CHECK(screens[0].pixels[(r.y - 2) * 640 + r.x - 2] == V_NearestIndex(0xff000000u));
+        CHECK(screens[0].pixels[(r.y - 1) * 640 + r.x - 1] == V_NearestIndex(0xfffcfcfcu));
+        CHECK(screens[0].pixels[(r.y + r.h) * 640 + r.x + r.w] == V_NearestIndex(0xfffcfcfcu));
+        ++icons;
+    }
+    CHECK(icons > 0);
+    return 0;
+}
+
+static int test_info_layouts(menu_t *menu, mobj_t *worker) {
+    mobj_t *other = NULL, *hall = NULL;
+    for (int i = 0; i < hudview.unit_count; ++i) {
+        mobj_t *unit = hudview.units[i];
+        if (unit != worker && unit->owner == consoleplayer) other = unit;
+        if (unit->owner == consoleplayer && unit->type_id == MT_TOWN_HALL) hall = unit;
+    }
+    CHECK(other && hall);
+    P_MobjSetSelected(other, true);
+    M_MenuDrawer(menu);
+    RTS_RUN(test_button_frames(menu));
+    int portraits = 0;
+    for (int i = 0; i < menu->numitems; ++i) {
+        const menuitem_t *item = &menu->items[i];
+        if (item->visible && item->kind == MI_BUTTON && item->frame.outer && item->rect.y < 336)
+            ++portraits;
+        if (item->rect.x == 0 && item->rect.y == 160) CHECK(item->look[MS_NORMAL].cell == 0);
+    }
+    CHECK(portraits == 2);
+    P_MobjSetSelected(other, false);
+    P_MobjSetSelected(worker, false);
+    P_MobjSetSelected(hall, true);
+    CHECK(G_BuildOrder(hall, 3));
+    M_MenuDrawer(menu);
+    RTS_RUN(test_button_frames(menu));
+    bool training = false;
+    for (int i = 0; i < menu->numitems; ++i) {
+        const menuitem_t *item = &menu->items[i];
+        if (item->rect.x == 0 && item->rect.y == 160) CHECK(item->look[MS_NORMAL].cell == 3);
+        if (item->rect.x == 110 && item->rect.y == 241) training = item->visible && item->frame.outer;
+    }
+    CHECK(training);
+    P_MobjSetSelected(hall, false);
+    P_MobjSetSelected(worker, true);
+    M_MenuDrawer(menu);
+    return 0;
+}
+
 static int test_hud(const char *capture, bool orc) {
     G_InitGame();
     P_InitThinkers();
@@ -114,7 +168,9 @@ static int test_hud(const char *capture, bool orc) {
             bool button = false;
             for (int i = 0; i < menu->numitems; ++i) {
                 const menuitem_t *it = &menu->items[i];
-                if (it->visible && it->kind == MI_BUTTON && it->rect.y >= 340 && irect_contains(it->rect, (ivec2_t){x,y}))
+                irect_t occupied = it->rect;
+                if (it->frame.outer) occupied = (irect_t){occupied.x - 2, occupied.y - 2, occupied.w + 4, occupied.h + 4};
+                if (it->visible && it->kind == MI_BUTTON && it->rect.y >= 340 && irect_contains(occupied, (ivec2_t){x,y}))
                     button = true;
             }
             if (button) continue;
@@ -133,6 +189,20 @@ static int test_hud(const char *capture, bool orc) {
     CHECK(native.small_font.glyph_size.h < native.font.glyph_size.h);
     CHECK(native.font.sprite.source_palette[2] == tiles.palette[246]);
     CHECK(native.font.sprite.source_palette[13] == tiles.palette[192]);
+    CHECK(native.info.numlumps == 4 && native.menu_widgets.numlumps == 50);
+    CHECK(memcmp(native.info.lumps[1].indices, native.info.lumps[2].indices, 176 * 176) == 0);
+    CHECK(memcmp(native.info.lumps[0].indices, native.info.lumps[1].indices, 176 * 176) != 0);
+    CHECK(memcmp(native.info.lumps[1].indices, native.info.lumps[3].indices, 176 * 176) != 0);
+    RTS_RUN(test_button_frames(menu));
+    for (int i = 0; i < menu->numitems; ++i) {
+        const menuitem_t *item = &menu->items[i];
+        if (item->rect.x == 24 && item->rect.y == 2) {
+            CHECK(item->sheet && item->look[MS_NORMAL].cell == 4 && item->look[MS_PUSHED].cell == 5);
+            CHECK(item->sheet->cells[4].rect.w == 128 && item->sheet->cells[4].rect.h == 20);
+        }
+        if (item->rect.x == 0 && item->rect.y == 160) CHECK(item->look[MS_NORMAL].cell == 1);
+    }
+    RTS_RUN(test_info_layouts(menu, worker_unit));
     RTS_RUN(test_minimap(menu, &tiles, worker_unit));
     if (capture) CHECK(save_bmp(capture));
     /* A neutral mine must produce a context harvest command, not an attack. */

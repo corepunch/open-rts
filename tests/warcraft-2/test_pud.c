@@ -48,6 +48,8 @@ static int test_alamo(void) {
     RTS_CHECK(W_LoadAssets("data/WAR2", &level, "footman", &tileset, &footman), "alamo", "assets");
     RTS_CHECK(tileset.count > 16, "alamo", "megatiles");
     RTS_CHECK(footman.numlumps == 60, "alamo", "footman lumps");
+    RTS_CHECK(ivec2_equal(footman.cells[0].ground_point, (ivec2_t){36, 36}),
+              "alamo", "center the native 72x72 canvas on the footprint");
     RTS_CHECK(footman.spritedef.numframes >= 5 &&
               footman.spritedef.spriteframes[0].rotations == 8, "alamo", "footman facings");
 

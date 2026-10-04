@@ -112,35 +112,6 @@ static bool decode_gfu(const w2_blob_t *entry, const uint32_t palette[256],
     return false;
 }
 
-/* The info plate is one GFU frame seated in the max box. Untouched pixels
- * stay index 0, which the plate keeps opaque so the map does not show through. */
-static bool decode_gfu_plate(const w2_blob_t *entry, const uint32_t palette[256],
-                             spritesheet_t *out) {
-    memset(out, 0, sizeof(*out));
-    if (!entry || entry->size < 14) return false;
-    int count = (int)u16_at(entry->data);
-    int max_w = (int)u16_at(entry->data + 2);
-    int max_h = (int)u16_at(entry->data + 4);
-    if (count < 1 || entry->size < 6u + (size_t)count * 8u ||
-        max_w < 1 || max_h < 1 || max_w > 2048 || max_h > 2048) return false;
-    unsigned xoff, yoff, width, height, offset;
-    if (!gfu_header(entry, 0, &xoff, &yoff, &width, &height, &offset)) return false;
-    uint8_t *pixels = calloc((size_t)max_w * (size_t)max_h, 1);
-    if (!pixels) return false;
-    if (width && height) {
-        for (unsigned y = 0; y < height; ++y) {
-            unsigned dy = yoff + y;
-            if (dy >= (unsigned)max_h) break;
-            unsigned row = width;
-            if (xoff >= (unsigned)max_w) continue;
-            if (xoff + row > (unsigned)max_w) row = (unsigned)max_w - xoff;
-            memcpy(pixels + (size_t)dy * (size_t)max_w + xoff,
-                   entry->data + offset + (size_t)y * width, row);
-        }
-    }
-    return install_raw(out, pixels, max_w, max_h, palette);
-}
-
 static void font_rle(uint8_t *dst, int pitch, int width, int height,
                      const uint8_t *sp, const uint8_t *end) {
     int x = 0, y = 0;
@@ -288,10 +259,10 @@ static bool load_img_entry(const w2_archive_t *arc, int index, const uint32_t pa
 }
 
 static bool load_gfu_entry(const w2_archive_t *arc, int index, const uint32_t palette[256],
-                           spritesheet_t *out, bool plate) {
+                           spritesheet_t *out) {
     w2_blob_t blob = { 0 };
     if (!take_entry(arc, index, &blob)) return false;
-    bool ok = plate ? decode_gfu_plate(&blob, palette, out) : decode_gfu(&blob, palette, out);
+    bool ok = decode_gfu(&blob, palette, out);
     if (!ok) fprintf(stderr, "warcraft-2: entry %d failed\n", index);
     w2_blob_free(&blob);
     return ok;
@@ -311,6 +282,7 @@ void w2_free_menu_art(w2_menu_art_t *art) {
 void w2_free_hud_art(w2_hud_art_t *art) {
     if (!art) return;
     R_FreeSprite(&art->menu_button);
+    R_FreeSprite(&art->menu_widgets);
     R_FreeSprite(&art->minimap);
     R_FreeSprite(&art->info);
     R_FreeSprite(&art->buttons);
@@ -335,8 +307,8 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     w2_blob_free(&pal);
     if (!colors) fprintf(stderr, "warcraft-2: entry 14 failed\n");
     bool widgets = colors &&
-        load_gfu_entry(&rez, 0, palette, &art->widgets[0], false) &&
-        load_gfu_entry(&rez, 1, palette, &art->widgets[1], false);
+        load_gfu_entry(&rez, 0, palette, &art->widgets[0]) &&
+        load_gfu_entry(&rez, 1, palette, &art->widgets[1]);
     bool panels = colors &&
         load_img_entry(&rez, 3, palette, &art->panel[0]) &&
         load_img_entry(&rez, 4, palette, &art->panel[1]);
@@ -377,7 +349,7 @@ bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art) {
     if (colors) {
         for (int i = 0; i < 6; ++i)
             plates = load_img_entry(&arc, chrome[i] + side, palette, slots[i]) && plates;
-        info = load_gfu_entry(&arc, 354 + side, palette, &art->info, true);
+        info = load_gfu_entry(&arc, 354 + side, palette, &art->info);
         w2_blob_t icons = { 0 };
         int icon_i = icon_entry(era);
         if (take_entry(&arc, icon_i, &icons))
@@ -385,9 +357,18 @@ bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art) {
         if (!icon_ok) fprintf(stderr, "warcraft-2: entry %d failed\n", icon_i);
         w2_blob_free(&icons);
         font = load_font(&arc, 282, &art->font) && load_font(&arc, 283, &art->small_font);
-        plates = load_gfu_entry(&arc, 187, palette, &art->resource_icons, false) && plates;
+        plates = load_gfu_entry(&arc, 187, palette, &art->resource_icons) && plates;
     }
     w2_archive_close(&arc);
-    art->ready = plates && info && icon_ok && font;
+    bool widgets = false;
+    w2_archive_t rez;
+    if (open_data(&rez, root, "REZDAT.WAR")) {
+        w2_blob_t pal = {0};
+        widgets = take_entry(&rez, 14, &pal) && w2_decode_palette(&pal, palette) &&
+            load_gfu_entry(&rez, side, palette, &art->menu_widgets);
+        w2_blob_free(&pal);
+        w2_archive_close(&rez);
+    }
+    art->ready = plates && info && icon_ok && font && widgets;
     return art->ready;
 }

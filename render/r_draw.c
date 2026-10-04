@@ -1082,7 +1082,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     R_DrawSprite(sprite, frame, u->core.render_remap, NULL, &dst,
                  flip, u->core.render_intensity);
     }
-    if (game_info && game_info->draw_overlays) return;
+    if (game_info && (game_info->draw_underlays || game_info->draw_overlays)) return;
     bool selected = P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE);
     if (selected) {
         if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS) {
@@ -1106,8 +1106,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
 
 static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *units,
                                  int unit_count, const spritecache_t *cache,
-                                 const gameinfo_t *game_info) {
-    if (!game_info || !game_info->draw_overlays) return;
+                                 const gameinfo_t *game_info, unitoverlaydrawf_t draw) {
+    if (!game_info || !draw) return;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = units[i];
         if (!unit || !P_VisibleToPlayer(unit) || !(unit->traits & MF_RENDERABLE)) continue;
@@ -1118,15 +1118,18 @@ static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *
         R_MapPositionToScreen(app, map, unit->core.position, &ctx.anchor.x, &ctx.anchor.y);
         unit_screen_rect_for_view(app, map, unit, NULL, cache, game_info, 0,
                                   NULL, &ctx.bounds, NULL, NULL, NULL, NULL, NULL);
-        game_info->draw_overlays(&ctx);
+        draw(&ctx);
     }
 }
 
 void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
+    render_unit_overlays(app, &level, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_underlays : NULL);
     for (int i = 0; i < unit_count; ++i)
         render_unit_sprite(app, &level, units[i], fallback_sprite, cache, game_info, ticks);
-    render_unit_overlays(app, &level, units, unit_count, cache, game_info);
+    render_unit_overlays(app, &level, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_overlays : NULL);
 }
 
 static int compare_draw_commands(const void *a, const void *b) {
@@ -1179,6 +1182,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
                           mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                           const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
     if (!app || !map) return;
+    render_unit_overlays(app, map, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_underlays : NULL);
     int overlay_count = 0;
     if (map->render_capabilities & MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS) {
         for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
@@ -1200,7 +1205,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         for (int i = 0; i < unit_count; ++i) {
             render_unit_sprite(app, map, units[i], fallback_sprite, cache, game_info, ticks);
         }
-        render_unit_overlays(app, map, units, unit_count, cache, game_info);
+        render_unit_overlays(app, map, units, unit_count, cache, game_info,
+                             game_info ? game_info->draw_overlays : NULL);
         return;
     }
 
@@ -1273,7 +1279,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         }
     }
     free(commands);
-    render_unit_overlays(app, map, units, unit_count, cache, game_info);
+    render_unit_overlays(app, map, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_overlays : NULL);
 }
 
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *effect,

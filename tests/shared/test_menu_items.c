@@ -309,6 +309,27 @@ static int drawing(void) {
     menu.itemOn = BUTTON;
     draw();
     CHECK(pixel(30, 0) == 2 && pixel(33, 5) == 2 && pixel(34, 5) == MARKER);
+    /* Picture rims sit outside the artwork. Focus and a pending world target
+     * mark the outer rim; pressing does not overwrite the picture's edge. */
+    items[BUTTON].rect = (irect_t){30, 10, 4, 6};
+    items[BUTTON].frame.outer = 0xff040404u;
+    items[BUTTON].frame.inner = 0xff050505u;
+    items[BUTTON].color = 0xff060606u;
+    menu.itemOn = -1;
+    draw();
+    CHECK(pixel(28, 8) == 4 && pixel(29, 9) == 5 && pixel(30, 10) == 1);
+    CHECK(pixel(35, 17) == 4 && pixel(34, 16) == 5 && pixel(33, 15) == 1);
+    menu.target = &items[BUTTON];
+    draw();
+    CHECK(pixel(28, 8) == 6 && pixel(29, 9) == 5 && pixel(30, 10) == 2);
+    menu.target = NULL;
+    menu.held = &items[BUTTON];
+    draw();
+    CHECK(pixel(28, 8) == 6 && pixel(30, 10) == 3);
+    menu.held = NULL;
+    items[BUTTON].enabled = false;
+    draw();
+    CHECK(pixel(28, 8) == 4 && pixel(30, 10) == 1);
     V_FreeScreen();
     return 0;
 }

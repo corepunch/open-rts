@@ -394,7 +394,7 @@ static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     if (item->kind == MI_CHECK && item->value) return MS_PUSHED;
     if (!item_live(item)) return MS_NORMAL;
     if (menu->held == item) return MS_PUSHED;
-    return item == focused(menu) ? MS_FOCUS : MS_NORMAL;
+    return item == focused(menu) || menu->target == item ? MS_FOCUS : MS_NORMAL;
 }
 
 static void draw_picture(const menuitem_t *item, menustate_t state, irect_t rect) {
@@ -509,9 +509,17 @@ static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
     if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     menustate_t state = item_state(menu, item);
     draw_picture(item, state, rect);
+    if (item->frame.outer)
+        V_DrawRectOutline((irect_t){rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4},
+                          V_NearestIndex(item->frame.outer));
+    if (item->frame.inner)
+        V_DrawRectOutline((irect_t){rect.x - 1, rect.y - 1, rect.w + 2, rect.h + 2},
+                          V_NearestIndex(item->frame.inner));
     if (item->border) V_DrawRectOutline(rect, V_NearestIndex(item->border));
     if (is_button(item) && item->color && state != MS_NORMAL)
-        V_DrawRectOutline(rect, V_NearestIndex(item->color));
+        V_DrawRectOutline(item->frame.outer ?
+                          (irect_t){rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4} : rect,
+                          V_NearestIndex(item->color));
     if (item->ownerdraw) item->ownerdraw(menu, item, rect);
     else if (is_button(item)) draw_text(item, state, rect, false);
 }

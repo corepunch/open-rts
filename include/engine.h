@@ -664,7 +664,9 @@ struct gameinfo_s {
     int null_state;
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
-    unitoverlaydrawf_t draw_overlays; /* Replaces the engine selection and health overlay. */
+    /* Either callback replaces the engine selection and health overlay. */
+    unitoverlaydrawf_t draw_underlays; /* Ground marks drawn before all world sprites. */
+    unitoverlaydrawf_t draw_overlays; /* Marks drawn after all world sprites. */
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
     bool select_any; /* With nothing of yours selected, a click can inspect any unit. */
     bool f10_menu; /* F10 opens the control panel instead of the resource cheat. */
@@ -2162,6 +2164,7 @@ struct menuitem_s {
     int link, step;
     uint32_t fill;   /* 0xAARRGGBB behind the item; 0 draws none */
     uint32_t border; /* 0xAARRGGBB outline around the item; 0 draws none */
+    struct { uint32_t outer, inner; } frame; /* Two rims outside the picture rect. */
     uint32_t color;  /* list selection, scroll bar or plain button focus outline */
     const char *tooltip; /* shown while the pointer rests on the item */
     menuanim_t anim;

@@ -127,7 +127,9 @@ A mobile GRP whose frame count is a positive multiple of 5 is directional.
 Five authored facings fill eight slots, counter-clockwise from north:
 N, NW (flip), W (flip), SW (flip), S, SE, E, NE. West-side slots set
 `RTS_FRAME_FLIP_X`. Other GRPs are one frame and one rotation. Buildings use
-frame 0. The ground point is the bottom center of the max box.
+frame 0. The ground point is the center of the native max box, so the
+canvas is centered on the tile footprint. The former bottom-center pivot
+was incorrect; see the HUD/selection correction in `WAR2_EXE_FINDINGS.md`.
 
 **Team color.** GRP pixels use the red ramp at palette indices 208, 209, 210,
 211, brightest first. Their RGB is `(164,0,0)`, `(124,0,0)`, `(92,4,0)`,
@@ -193,17 +195,22 @@ left. The map viewport is `{176, 16, 448, 448}`.
 | Resource bar | 287 / 288 | 448×16 |
 | Status bar | 291 / 292 | 448×16 |
 | Right filler | 289 / 290 | 16×480 |
-| Info plate | 354 / 355, GFU frame 0 | 176×176 |
+| Info plate | 354 / 355, GFU frames 0–3 | 176×176 |
 
-The info plate is composited into the max box. Untouched pixels stay index 0,
-and that index stays opaque on chrome. Icons are GRP entry 356 (forest,
+All four info frames already fill the native box. Frame 0 is plain stone;
+frames 1 and 2 share the bordered panel; frame 3 adds a progress-bar frame.
+The HUD uses 0 for no/group selection, 1 for a single selection, and 3
+while training. Index 0 stays opaque on chrome. Icons are GRP entry 356 (forest,
 palette 2), 357 (winter, palette 18), or 358 (wasteland and swamp, palette
 10): 186 frames, max 46×38. Era 1 uses palette 18, era 2 or 3 uses palette
 10, otherwise palette 2. Command icons above 185 are not in this archive.
 
 **Menus.** REZDAT entry 14 is the widget palette. Entries 0 and 1 are the
-human and orc widget GFUs: 50 frames, max 300×164. Small buttons are frames
-10 and 11 (106×28). Large buttons are frames 16 and 17 (224×28). Panel images
+human and orc widget GFUs: 50 frames, max 300×164. Thin buttons are frames
+4 and 5 (128×20) for the HUD Menu button at (24,2). The HUD loads these
+from REZDAT with palette 14 and remaps their colors into the world palette.
+The game-menu small buttons are frames 10 and 11 (106×28). Large buttons
+are frames 16 and 17 (224×28). Panel images
 are entries 3 and 4, 256×288. The title backdrop is entry 13, 640×480. The
 title puts Start and Quit on the left. In a level, F10 or Escape opens the
 game menu on panel 1 at x 0, y 96, with the buttons from Wargus

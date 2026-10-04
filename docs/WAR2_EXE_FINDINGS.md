@@ -1,5 +1,82 @@
 # Warcraft II gathering and HUD evidence (2026-10-04)
 
+## Button decorations and footprint selection correction (2026-10-04)
+
+The MAINDAT and WAR2.EXE fingerprints below still apply. WAR2.EXE was not
+disassembled in this correction. REZDAT.WAR SHA-256:
+`d0fe7edd4f89f60c64bca786a944387578635d8483bc2ff165d06306bb432246`.
+The three supplied 640×480 JPEGs are recorded in `REFERENCES.md`; their
+distribution/version is unknown and JPEG compression prevents exact palette
+identification from their pixels.
+
+**Confirmed native records:** MAINDAT GFUs 354/355 contain four full
+176×176 frames at origin (0,0). Frame 0 starts at decoded entry offset 38
+and is plain stone. Frames 1/2 alias offset 31014 and carry the surrounding
+info-panel rim. Frame 3 at offset 61990 also contains the progress-bar
+surround. The previous first-frame-only plate decoder discarded these
+authored decorations. Decode all frames with the existing GFU decoder;
+choose 0 for empty/group selection, 1 for single selection, and 3 for
+training. The separate max-box composition is unnecessary for these full
+native frames and has been removed.
+
+REZDAT human/orc GFUs 0/1 contain the blue/red 128×20 thin button in frames
+4/5 (normal/pressed), at decoded offsets 6342/8902. Palette 14 supplies
+their colors. The supplied screenshots place the Menu control at (24,2);
+the MAINDAT 293/294 stone backing is a separate 176×24 image. Previously
+we drew only that backing and the text. Draw the REZDAT button on it, with
+the existing indexed palette remapping and shared menu state dispatch.
+
+**Confirmed screenshot geometry:** command icons occupy 46×38 rectangles
+at the existing (9/65/121,340/387/434) positions. A bright one-pixel rim
+lies one pixel outside the icon: the first command's upper-left rim is
+(8,339). The surrounding dark edge adds another pixel, yielding a 50×42
+decoration extent at (7,338). Group/single portraits and the training
+icon use the same surround. The screenshots show a green active-command
+rim. open-rts draws these rims in shared `hud/m_menu.c` from table fields,
+including focus, press, and a command waiting for a world target. It uses
+native-palette black/white/green; exact pre-compression RGB values and
+retail hover/press dispatch remain unknown. All icon pixels remain native
+GRP pixels, and native Menu pressed artwork is used directly.
+
+**Disproven sprite placement:** the former GRP pivot `(width/2,height)`
+shifted each sprite above the simulation footprint by half its native
+canvas height. A 72×72 worker's selection then appeared below its body.
+Stratagus `src/unit/unittype.cpp::DrawUnitType` centers its sprite canvas
+on the occupied tiles: subtract `(sprite_size - tile_size)/2` from the
+tile origin. With our object already stored at the footprint center,
+the equivalent pivot is `(width/2,height/2)`. This is a reference-derived
+placement correction, checked against the supplied centered building
+selection; it is not a WAR2.EXE instruction trace. Native canvas and
+frame pixel data, bearings, and team remaps are unchanged. Carrier GRPs
+use the same loader and pivot rule.
+
+**Explicit user presentation contract:** draw selection before all world
+sprites, using `mobjinfo[type].w2.footprint * app.cell`, centered on the
+object's planar position. Do not use the GRP canvas, opaque bounds, or
+the reference `BoxSize`. Thus a Ballista still selects 1×1 tiles despite
+its 63×63 reference box; ships select 2×2, barracks 3×3, and halls 4×4.
+This overrides any reference selection-size differences. The shared
+renderer runs the existing overlay callback family in a ground pass before
+world sprites; Warcraft II supplies the native footprint rule there.
+Sprite rectangles and floating health bars are suppressed for this game,
+matching the supplied HUD-only health presentation. Hidden/invisible
+objects do not draw marks. The global thinker/object ownership is unchanged;
+DOOM `r_things.c` was consulted for its sorted sprite drawing separation.
+
+Reproduction (headless):
+
+```sh
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_hud /private/tmp/w2-human.bmp /private/tmp/w2-orc.bmp
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_selection
+```
+
+HUD tests cover both races, native menu states, all four info frames,
+single/group portraits, and training decorations. The selection regression
+independently checks 1×1/2×2/3×3/4×4 extents, camera/cell scaling, hidden
+objects, and sprite occlusion through both world draw entry points. The
+PUD test checks the native Footman's 72×72 canvas pivot at (36,36).
+
 This investigation uses the retail DOS data in `data/WAR2`. It does **not**
 claim an instruction trace of WAR2.EXE or a complete pixel comparison against
 a running retail game. The executable is DOS4GW/LE; no r2 installation or
@@ -170,7 +247,8 @@ Blizzard's DOS manual also explicitly identifies owned minimap units and
 buildings as green. It lists gold, lumber, oil and food in the resource
 bar; the previous synthetic score zero was removed. Wargus `widgets.lua`
 uses 46×38 command icons with a black border and the same artwork through
-hover/click; no separately drawn state artwork is introduced here.
+hover/click. The supplied retail screenshots now supersede that reference
+for icon rims; see the correction below.
 
 **Still unverified / incomplete 1:1 claim.** The original executable's
 minimap sampling and viewport marker remain untraced. Food alignment,
