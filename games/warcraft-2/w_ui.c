@@ -272,10 +272,12 @@ void w2_free_menu_art(w2_menu_art_t *art) {
     if (!art) return;
     for (int i = 0; i < 2; ++i) {
         R_FreeSprite(&art->widgets[i]);
-        R_FreeSprite(&art->panel[i]);
+        for (int k = 0; k < W2_PANELS; ++k) R_FreeSprite(&art->panel[i][k]);
     }
     R_FreeSprite(&art->title);
+    R_FreeSprite(&art->dimmed);
     HU_FreeFont(&art->font);
+    HU_FreeFont(&art->small_font);
     memset(art, 0, sizeof(*art));
 }
 
@@ -309,15 +311,22 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     bool widgets = colors &&
         load_gfu_entry(&rez, 0, palette, &art->widgets[0]) &&
         load_gfu_entry(&rez, 1, palette, &art->widgets[1]);
-    bool panels = colors &&
-        load_img_entry(&rez, 3, palette, &art->panel[0]) &&
-        load_img_entry(&rez, 4, palette, &art->panel[1]);
+    bool panels = colors;
+    for (int k = 0; k < W2_PANELS && panels; ++k)
+        panels = load_img_entry(&rez, 3 + 2 * k, palette, &art->panel[0][k]) &&
+                 load_img_entry(&rez, 4 + 2 * k, palette, &art->panel[1][k]);
     bool title = colors && load_img_entry(&rez, 13, palette, &art->title);
+    /* The dimmed title has its own palette (entry 16); popups sit on it. */
+    w2_blob_t dim_pal = { 0 };
+    uint32_t dim_colors[256];
+    if (take_entry(&rez, 16, &dim_pal) && w2_decode_palette(&dim_pal, dim_colors))
+        load_img_entry(&rez, 15, dim_colors, &art->dimmed);
+    w2_blob_free(&dim_pal);
     w2_archive_close(&rez);
     w2_archive_t maindat;
     bool font = false;
     if (open_data(&maindat, root, "MAINDAT.WAR")) {
-        font = load_font(&maindat, 282, &art->font);
+        font = load_font(&maindat, 282, &art->font) && load_font(&maindat, 283, &art->small_font);
         w2_archive_close(&maindat);
     }
     art->ready = widgets && panels && title && font;
