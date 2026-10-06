@@ -495,6 +495,8 @@ express.
 ```text
 driver/w_image.c              W_LoadImage — engine BMP/PCX decoding
 hud/m_menu.c                  items: input, focus, text, targets, drawing
+hud/m_net.c                   shared multiplayer screens: create, browse, join, lobby chat
+game/g_save.c                 Doom-style saved games for every game but Dark Colony
 hud/m_main.c                  front end: M_* lifecycle, fallback screen
 hud/hu_bar.c                  shared HUD pieces: counters, clock, product
                               list, route book
@@ -538,6 +540,25 @@ generated animation table. Medic, Mechanic and Karoch support capabilities run
 through ordinary mobj state actions with class-restricted allied targets.
 The executable findings distinguish these supported behaviors from unfinished
 special abilities, attachment types and native HUD pages.
+
+## Saved games and multiplayer screens
+
+`game/g_save.c` saves as Doom's `p_saveg.c` does: the menu sets `g_savefile`
+(or `g_loadfile` and the map to reload), and the driver saves or restores
+between tics. The level loads from its map first; the save holds what play
+changes: each mobj with pointers turned into ids, resources, research, vents,
+sight, the clock, the AI and HUD text. A save is checksummed, tied to the map
+file and the game tables, and refused if either differs. A game with more state
+defines `G_SaveExtraSize`, `G_SaveExtra` and `G_LoadExtra` (Warcraft II stores
+its dice and campaign progress). Dark Colony keeps its own saver because it also
+archives mission scripts and skirmish setups.
+
+`hud/m_net.c` is the multiplayer UI over the `I_*` menu transport. A game
+calls `M_NetOpen` with a `netui_t`: its art and font, a style callback for the
+buttons and labels, the maps a host can offer and label text. The module owns
+the flow (create game, LAN browser, address entry, lobby with chat, launch).
+`M_MenuMultiplayer` gives the plain fallback front ends (KKnD, 7th Legion) a
+Multiplayer button, and Warcraft II dresses the same screens in its REZDAT panel.
 
 ## Menu lifecycle versus HUD
 

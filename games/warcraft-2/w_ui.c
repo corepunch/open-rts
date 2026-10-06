@@ -132,15 +132,17 @@ static void font_rle(uint8_t *dst, int pitch, int width, int height,
 
 static bool decode_font(const w2_blob_t *entry, const uint32_t colours[256], bitmapfont_t *font) {
     memset(font, 0, sizeof(*font));
-    for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
+    for (int i = 0; i < 256; ++i) font->glyph_index[i] = -1;
+    font->glyph_limit = 256; /* the retail font carries CP866 Cyrillic past ASCII */
     if (!entry || entry->size < 8 || memcmp(entry->data, "FONT ", 5) != 0) return false;
-    int count = (int)entry->data[5] - 32;
+    /* Byte 5 is the last character, inclusive: the Russian fonts end on 'я' (0xef). */
+    int count = (int)entry->data[5] - 32 + 1;
     int max_w = entry->data[6];
     int max_h = entry->data[7];
     if (count < 1 || count > 256 || max_w < 1 || max_h < 1 || max_w > 128 || max_h > 128)
         return false;
     if (entry->size < 8u + (size_t)count * 4u) return false;
-    if (!R_AllocSpriteCells(&font->sprite, 96)) return false;
+    if (!R_AllocSpriteCells(&font->sprite, count + 1)) return false;
     uint32_t palette[256] = { 0 };
     static const uint8_t white[] = {239, 246, 246, 246, 104, 239, 239, 239};
     static const uint8_t yellow[] = {246, 200, 199, 197, 192, 239, 104, 239};
@@ -164,8 +166,8 @@ static bool decode_font(const w2_blob_t *entry, const uint32_t colours[256], bit
     for (int i = 0; i < 256; ++i) map->indices[i] = (uint8_t)i;
     for (int i = 1; i <= 8; ++i) map->indices[i] = (uint8_t)(i + 8);
     int cell = 0;
-    int indexed = count < 96 ? count : 96;
-    for (int i = 0; i < indexed && cell < 96; ++i) {
+    int indexed = count;
+    for (int i = 0; i < indexed && cell < count + 1; ++i) {
         int ch = 32 + i;
         unsigned offset = u32_at(entry->data + 8 + (size_t)i * 4u);
         if (!offset || offset + 4 > entry->size) {
@@ -202,7 +204,7 @@ static bool decode_font(const w2_blob_t *entry, const uint32_t colours[256], bit
         font->glyph_width[ch] = (uint8_t)advance;
         cell++;
     }
-    if (font->glyph_index[' '] < 0 && cell < 96) {
+    if (font->glyph_index[' '] < 0 && cell < count + 1) {
         int gap = max_w / 2;
         if (gap < 1) gap = 1;
         uint8_t *blank = calloc((size_t)gap * (size_t)max_h, 1);

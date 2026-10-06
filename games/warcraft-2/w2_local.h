@@ -94,6 +94,21 @@ bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud);
 
 enum { W2_PANEL_GAME, W2_PANEL_OPTIONS, W2_PANEL_FILE, W2_PANEL_DIALOG, W2_PANEL_SCENARIO, W2_PANELS };
 
+/* Dialog text (w_str.c): STRDAT entries that the menus read. */
+enum {
+    STR_TITLE = 3, STR_MAIN_MENU = 4, STR_MULTIPLAYER = 5, STR_CAMPAIGN = 6, STR_GAME_MENU = 7,
+    STR_HELP_MENU = 8, STR_CUSTOM_MENU = 9, STR_OPTIONS = 10, STR_SOUND = 11, STR_SPEED = 13,
+    STR_QUIT = 14, STR_RESTART = 15, STR_WIN = 20, STR_LOSE = 21, STR_SAVE = 26, STR_LOAD = 27,
+    STR_MESSAGES = 40, STR_SETUP = 44, STR_SETUP_VALUES = 45, STR_HELP_SCREEN = 47,
+    STR_OBJECTIVES = 52, STR_LEVELS = 53, STR_DISPATCH = 54, STR_CREDITS_BUTTON = 56,
+    STR_CREDITS = 57, STR_KEYS = 59, STR_CONNECTION = 60, STR_PICK = 62
+};
+typedef struct { char text[160]; int mark_at, mark_len; } w2_text_t;
+bool w2_strings_load(const char *root);
+void w2_strings_free(void);
+bool w2_label(int entry, int index, w2_text_t *out);
+size_t w2_label_lines(int entry, int first, int last, char *out, size_t size);
+
 /* Menu chrome is REZDAT. The in-game panel is MAINDAT. Each screen owns a font. */
 typedef struct {
     spritesheet_t widgets[2]; /* 0 human, 1 orc */

@@ -582,7 +582,7 @@ int V_TextWidth(const bitmapfont_t *font, const char *text) {
             continue;
         }
         unsigned char ch = *p;
-        if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
+        if (ch >= (font->glyph_limit ? font->glyph_limit : 128) || font->glyph_index[ch] < 0) ch = '?';
         line_width += glyph_advance(font, ch);
     }
     return line_width > width ? line_width : width;
@@ -602,7 +602,7 @@ static void draw_glyphs(ivec2_t at, const bitmapfont_t *font, const char *text,
             continue;
         }
         unsigned char ch = *p;
-        if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
+        if (ch >= (font->glyph_limit ? font->glyph_limit : 128) || font->glyph_index[ch] < 0) ch = '?';
         int frame = font->glyph_index[ch];
         int advance = glyph_advance(font, ch) * scale;
         if (frame >= 0 && frame < font->sprite.numlumps) {

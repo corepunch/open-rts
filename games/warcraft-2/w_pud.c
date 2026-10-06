@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /* PUD sections are tag + u32 length. Unknown sections are skipped. Movement
  * comes from SQM: bit 0x80 is forest (impassable to land and sea), bit 0x40
@@ -128,7 +129,15 @@ bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path
     if (level < 1 || level > W2_CAMPAIGN_LEVELS || !D_UserDirectory()[0]) return false;
     char name[64], archive_path[1100];
     snprintf(name, sizeof(name), "campaign-level%02d%c.pud", level, orc ? 'o' : 'h');
-    M_PathJoin(path, size, D_UserDirectory(), name);
+    /* The driver joins a relative map to the data root, so hand it an absolute path. */
+    char directory[1100];
+    if (D_UserDirectory()[0] != '/' && getcwd(directory, sizeof(directory))) {
+        char joined[1100];
+        M_PathJoin(joined, sizeof(joined), directory, D_UserDirectory());
+        M_PathJoin(path, size, joined, name);
+    } else {
+        M_PathJoin(path, size, D_UserDirectory(), name);
+    }
     snprintf(archive_path, sizeof(archive_path), "%s/DATA/MAINDAT.WAR", root ? root : "data/WAR2");
     w2_archive_t arc;
     if (!w2_archive_open(&arc, archive_path)) return false;

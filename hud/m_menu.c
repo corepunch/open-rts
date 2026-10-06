@@ -472,13 +472,19 @@ static void draw_text(const menuitem_t *item, menustate_t state, irect_t rect, b
      * capital that matches, else the first small letter ("Scenario Objectives",
      * "Select Scenario"). */
     const char *key = NULL;
-    if (item->hotkey_ink && item->hotkey > 0 && item->hotkey < 128 && isalpha((int)item->hotkey)) {
+    int key_length = 1;
+    if (item->hotkey_ink && item->mark_len > 0 &&
+        item->mark_at + item->mark_len <= (int)strlen(item->text)) {
+        key = item->text + item->mark_at; /* the game marked its own span */
+        key_length = item->mark_len;
+    } else if (item->hotkey_ink && item->hotkey > 0 && item->hotkey < 128 && isalpha((int)item->hotkey)) {
         key = strchr(item->text, toupper((int)item->hotkey));
         if (!key) key = strchr(item->text, tolower((int)item->hotkey));
     }
     if (key && ink != item->hotkey_ink) {
-        char prefix[sizeof(item->text)], letter[2] = {*key, 0};
+        char prefix[sizeof(item->text)], letter[sizeof(item->text)];
         snprintf(prefix, sizeof(prefix), "%.*s", (int)(key - item->text), item->text);
+        snprintf(letter, sizeof(letter), "%.*s", key_length, key);
         uint8_t key_tint[256];
         V_DrawText((ivec2_t){at.x + V_TextWidth(font, prefix), at.y}, font, letter,
                    text_remap(item, font, state, item->hotkey_ink, key_tint));

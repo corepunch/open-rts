@@ -43,8 +43,11 @@ int main(void) {
     event.key.keysym.sym = SDLK_RETURN;
     CHECK(D_MenuResponder(&app,&event,NULL) && !menuactive && !menumap);
     M_StartControlPanel(&app);
-    event.key.keysym.sym = SDLK_DOWN;
-    CHECK(D_MenuResponder(&app,&event,NULL));
+    /* Down walks the buttons, which may include Multiplayer, to Quit. */
+    for (int step = 0; step < 4 && strcmp(currentmenu->items[currentmenu->itemOn].text, "QUIT GAME"); ++step) {
+        event.key.keysym.sym = SDLK_DOWN;
+        CHECK(D_MenuResponder(&app,&event,NULL));
+    }
     event.key.keysym.sym = SDLK_RETURN;
     CHECK(D_MenuResponder(&app,&event,NULL) && !menuactive && !app.running);
     M_Shutdown();

@@ -49,8 +49,8 @@ bool w2_archive_open(w2_archive_t *arc, const char *path) {
     }
     int count = read_u16_le(file.bytes + 4);
     int type = read_u16_le(file.bytes + 6);
-    /* MAINDAT is type 1000. REZDAT is type 3000. The entry records match. */
-    if (count <= 0 || (type != 1000 && type != 3000) ||
+    /* MAINDAT is type 1000. REZDAT is type 3000. STRDAT is type 4000. The entry records match. */
+    if (count <= 0 || (type != 1000 && type != 3000 && type != 4000) ||
         file.size < 8u + (size_t)count * 4u) {
         fprintf(stderr, "warcraft-2: %s has %d entries of type %d\n", path, count, type);
         W_FreeFile(&file);

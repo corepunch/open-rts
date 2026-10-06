@@ -352,6 +352,16 @@ load_level:
         objects = P_ListMobjs(); units = objects.items; unit_count = objects.count;
         R_InitSprites(data_root, &level, units, unit_count, &decoration_sprites);
     }
+#else
+    if (g_loadfile[0]) {
+        if (!G_LoadGame(g_loadfile, &app, &ai, &hud_text)) {
+            HU_PushMessage(&hud_text, "Could not restore saved game", 5000);
+        }
+        g_loadfile[0] = '\0';
+        P_FreeMobjList(&objects);
+        objects = P_ListMobjs(); units = objects.items; unit_count = objects.count;
+        R_InitSprites(data_root, &level, units, unit_count, &decoration_sprites);
+    }
 #endif
     if (check_only || screenshot_only) {
         if (screenshot_only) {
@@ -486,6 +496,12 @@ load_level:
             bool saved = DC_SaveGame(dc_savefile, dc_savename, &app, &ai, &hud_text);
             HU_PushMessage(&hud_text, saved ? "Game saved" : "Could not save game", 5000);
             dc_savefile[0] = '\0';
+        }
+#else
+        if (g_savefile[0]) {
+            bool saved = G_SaveGame(g_savefile, g_savename, &app, &ai, &hud_text);
+            HU_PushMessage(&hud_text, saved ? "Game saved" : "Could not save game", 5000);
+            g_savefile[0] = '\0';
         }
 #endif
         if (!menuactive) G_CameraMove(&app, frame_dt);
