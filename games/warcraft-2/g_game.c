@@ -69,6 +69,7 @@ void G_InitGame(void) {
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
     if (!w2_load_pud(path, out)) return false;
+    W2_VictoryReset();
     const w2_pud_t *pud = out->native_data;
     /* Single player watches the OWNR 5 slot. Sight and allegiance both read
      * consoleplayer after this returns. */
@@ -98,6 +99,7 @@ void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
 }
 
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
-    (void)map; (void)units; (void)unit_count;
+    (void)map;
+    if (units && unit_count) W2_CheckVictory(units, *unit_count);
     return G_ProductionTicker(dt);
 }

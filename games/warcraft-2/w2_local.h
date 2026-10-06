@@ -75,6 +75,8 @@ bool w2_campaign_infos(const char *root, bool orc, w2_pud_info_t infos[W2_CAMPAI
 bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path, size_t size);
 /* The next level load starts every playing side with this much (0 keeps the map's). */
 void W2_SetStartResources(int mode);
+/* The end-of-scenario screen (m_menu.c): continue the campaign, restart or leave. */
+void W2_ShowResult(bool victory);
 int w2_spawn_units(void);
 bool w2_init_resources(level_t *map);
 bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256], int era,

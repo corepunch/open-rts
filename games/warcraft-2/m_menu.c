@@ -187,16 +187,18 @@ enum {
     A_SELECT, A_START, A_CANCEL, A_RESOURCES,
     A_HUMAN, A_ORC,
     A_LIST, A_PICK_OK, A_PICK_CANCEL,
-    A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK
+    A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK,
+    A_NEXT, A_RESTART, A_QUIT
 };
 typedef enum { PICK_SCENARIO, PICK_HUMAN, PICK_ORC } pickmode_t;
 
 static screen_t single_screen, setup_screen, campaign_screen, pick_screen, credits_screen,
-                options_screen;
+                options_screen, result_screen;
 static char data_root[1024];
 static app_t *front_app;
 static char scenario[64];
-static int resources_mode;
+static int resources_mode, launch_resources;
+static int campaign_orc, campaign_level; /* campaign_level 0: not in a campaign */
 static char launch_path[1200];
 static pickmode_t pick_mode;
 static struct { char file[64]; char label[48]; w2_pud_info_t info; } entries[MAX_SCENARIOS];
@@ -492,9 +494,39 @@ static void open_pick(pickmode_t mode) {
 
 static void start_level(const char *path, bool apply_resources) {
     snprintf(launch_path, sizeof(launch_path), "%s", path);
-    W2_SetStartResources(apply_resources ? resources_mode : 0);
+    launch_resources = apply_resources ? resources_mode : 0;
+    W2_SetStartResources(launch_resources);
     menumap = launch_path;
     M_ClearMenus();
+}
+
+/* The end of a scenario (Wargus ActionVictory/ActionDefeat): a won campaign
+ * level offers the next one; a lost scenario can restart. */
+void W2_ShowResult(bool victory) {
+    screen_t *s = &result_screen;
+    screen_begin(s, NULL, NULL);
+    int race = button_race = side();
+    irect_t box = add_panel(s, &art.panel[race][W2_PANEL_DIALOG]);
+    add_label(s, (irect_t){box.x, box.y + 16, box.w, 24}, victory ? "Victory!" : "Defeat",
+              MALIGN_CENTER, false);
+    int y = box.y + box.h - 44;
+    if (victory) {
+        bool more = campaign_level > 0 && campaign_level < W2_CAMPAIGN_LEVELS;
+        add_label(s, (irect_t){box.x, box.y + 44, box.w, 20},
+                  campaign_level >= W2_CAMPAIGN_LEVELS ? "The campaign is won" : "Mission accomplished",
+                  MALIGN_CENTER, true);
+        add_button(s, (irect_t){box.x + (box.w - 106) / 2, y, 106, 28}, "Continue", SDLK_RETURN,
+                   more ? A_NEXT : A_QUIT);
+    } else {
+        add_label(s, (irect_t){box.x, box.y + 44, box.w, 20}, "Your forces have been destroyed",
+                  MALIGN_CENTER, true);
+        add_button(s, (irect_t){box.x + 24, y, 106, 28}, "Restart", SDLK_r, A_RESTART);
+        add_button(s, (irect_t){box.x + box.w - 130, y, 106, 28}, "Quit", SDLK_q, A_QUIT);
+    }
+    button_race = 1;
+    s->menu.itemOn = -1;
+    if (front_app) s->menu.app = front_app;
+    M_SetupNextMenu(&s->menu);
 }
 
 /* Credits: the engine's own, then what it follows. */
@@ -618,6 +650,7 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     case A_START: {
         char path[1200];
         snprintf(path, sizeof(path), "%s", scenario);
+        campaign_level = 0;
         start_level(path, true);
         break;
     }
@@ -635,6 +668,8 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
             open_setup();
         } else if (w2_extract_campaign_level(data_root, atoi(entries[row].file),
                                              pick_mode == PICK_ORC, launch_path, sizeof(launch_path))) {
+            campaign_orc = pick_mode == PICK_ORC;
+            campaign_level = atoi(entries[row].file);
             start_level(launch_path, false);
         } else {
             M_StartMessage("The campaign level could not be read.");
@@ -659,6 +694,27 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         options_refresh(&options_screen);
         break;
     case A_OPTIONS_OK: options_escape(&options_screen.menu); break;
+    case A_NEXT:
+        if (campaign_level < W2_CAMPAIGN_LEVELS &&
+            w2_extract_campaign_level(data_root, campaign_level + 1, campaign_orc, launch_path,
+                                      sizeof(launch_path))) {
+            ++campaign_level;
+            start_level(launch_path, false);
+        } else {
+            menuleave = true;
+            M_ClearMenus();
+        }
+        break;
+    case A_RESTART:
+        W2_SetStartResources(launch_resources);
+        menumap = launch_path;
+        M_ClearMenus();
+        break;
+    case A_QUIT:
+        campaign_level = 0;
+        menuleave = true;
+        M_ClearMenus();
+        break;
     default: break;
     }
 }
@@ -672,7 +728,7 @@ bool G_InitMenus(app_t *app, const char *root) {
     front_app = app;
     snprintf(data_root, sizeof(data_root), "%s", root && root[0] ? root : g_game_default_root);
     scenario[0] = '\0';
-    resources_mode = 0;
+    resources_mode = launch_resources = campaign_level = 0;
     if (!w2_load_menu_art(root, &art))
         fprintf(stderr, "warcraft-2: menu art was not loaded\n");
     return true;

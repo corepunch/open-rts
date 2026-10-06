@@ -175,7 +175,44 @@ int main(void) {
     press(SDLK_ESCAPE);
     CHECK(click("Scenario Objectives") && find("OK") && click("OK"));
     CHECK(find("Return to Game"));
+    press(SDLK_ESCAPE); /* closes the game menu */
+    CHECK(!menuactive || click("Return to Game"));
     P_FreeLevel(&level);
+
+    /* Victory: with no opponent left the campaign offers its next level; losing offers a restart. */
+    for (int round = 0; round < 3; ++round) {
+        M_ClearMenus();
+        P_InitThinkers();
+        if (round == 0) { /* enter the campaign through the menus, as a player would */
+            M_StartControlPanel(&app);
+            CHECK(click("Single Player Game") && click("Campaign Game") && click("Human Campaign") && click("OK"));
+            CHECK(!menuactive && menumap);
+        }
+        CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
+        CHECK(P_LoadThings(NULL) > 0);
+        mobjlist_t all = P_ListMobjs();
+        const w2_pud_t *map = level.native_data;
+        for (int i = 0; i < all.count; ++i) {
+            mobj_t *unit = all.items[i];
+            bool foe = unit->owner < 8 && unit->owner != consoleplayer &&
+                       (map->owners[unit->owner] == 4 || map->owners[unit->owner] == 5);
+            if (round == 2 ? unit->owner == consoleplayer : foe) unit->remove = true;
+        }
+        menumap = NULL;
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        CHECK(menuactive);
+        if (round == 2) {
+            CHECK(find("Defeat") && click("Restart") && menumap && !menuactive);
+        } else if (round == 0) {
+            CHECK(find("Victory!") && click("Continue") && menumap && strstr(menumap, "level02h"));
+        } else {
+            CHECK(find("Victory!"));
+        }
+        P_FreeMobjList(&all);
+        P_FreeLevel(&level);
+        menumap = NULL;
+        W2_VictoryReset();
+    }
     M_Shutdown();
     puts("PASS: Warcraft II title, single player, setup, scenario and campaign pickers, credits");
     return 0;
