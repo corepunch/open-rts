@@ -199,17 +199,27 @@ typedef enum {
 
 #define W2_TYPE_COUNT (NUMMOBJTYPES - 1)
 #define W2_MOBJ_COUNT NUMMOBJTYPES
-#define W2_SPRITE_COUNT (W2_TYPE_COUNT + 4)
+/* Sprites: one per type, the four carrier sheets, then the shared site art
+ * (MAINDAT land construction site, destroyed site, small destroyed site). */
+#define W2_SPRITE_CONSTRUCTION (W2_TYPE_COUNT + 4)
+#define W2_SPRITE_RUBBLE (W2_TYPE_COUNT + 5)
+#define W2_SPRITE_SMALL_RUBBLE (W2_TYPE_COUNT + 6)
+#define W2_SPRITE_COUNT (W2_TYPE_COUNT + 7)
 #define W2_WORK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + ((pud) - 2) * 8)
 #define W2_WAIT_STATE(pud) (W2_WORK_STATE(pud) + 7)
 #define W2_CARRY_STATE(variant) (1 + W2_TYPE_COUNT * 2 + 16 + (variant) * 2)
 /* Per type: attack windup, hit and recovery, then fall, rest and decay. */
 #define W2_ATTACK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + 16 + 8 + (pud) * 6)
 #define W2_DEATH_STATE(pud) (W2_ATTACK_STATE(pud) + 3)
-#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2 + 16 + 8 + W2_TYPE_COUNT * 6)
+/* Per structure: the Wargus construction stages (site, framework, the
+ * type's own half-built frame). */
+#define W2_BUILD_STATE(pud) (1 + W2_TYPE_COUNT * 2 + 16 + 8 + W2_TYPE_COUNT * 6 + (pud) * 3)
+#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2 + 16 + 8 + W2_TYPE_COUNT * 9)
 
-/* Gameplay animation groups the engine reads (see state_t.group). */
-enum { W2_GROUP_STAND = 0, W2_GROUP_WALK = 2, W2_GROUP_ATTACK = 3, W2_GROUP_DEATH = 4, W2_GROUP_WORK = 5 };
+/* Gameplay animation groups the engine reads (see state_t.group). Group 6
+ * is the engine's "under construction": such a unit is not ready. */
+enum { W2_GROUP_STAND = 0, W2_GROUP_WALK = 2, W2_GROUP_ATTACK = 3, W2_GROUP_DEATH = 4, W2_GROUP_WORK = 5,
+       W2_GROUP_BUILD = 6 };
 
 /* Research, in the pinned Wargus upgrade order. Product type of
  * RTS_PRODUCT_UPGRADE products and the index of W2_Upgrade(). */
@@ -230,6 +240,14 @@ enum {
     W2_UI_ARROW1, W2_UI_ARROW2, W2_UI_THROWING_AXE1, W2_UI_THROWING_AXE2,
     W2_UI_HUMAN_SHIELD1, W2_UI_HUMAN_SHIELD2, W2_UI_ORC_SHIELD1, W2_UI_ORC_SHIELD2,
     W2_UI_KEEP, W2_UI_CASTLE, W2_UI_STRONGHOLD, W2_UI_FORTRESS,
+    /* Structures a worker builds; the orc building follows its human twin. */
+    W2_UI_FARM, W2_UI_PIG_FARM, W2_UI_HUMAN_BARRACKS, W2_UI_ORC_BARRACKS,
+    W2_UI_TOWN_HALL, W2_UI_GREAT_HALL, W2_UI_ELVEN_LUMBER_MILL, W2_UI_TROLL_LUMBER_MILL,
+    W2_UI_HUMAN_BLACKSMITH, W2_UI_ORC_BLACKSMITH, W2_UI_HUMAN_WATCH_TOWER, W2_UI_ORC_WATCH_TOWER,
+    W2_UI_HUMAN_SHIPYARD, W2_UI_ORC_SHIPYARD, W2_UI_HUMAN_FOUNDRY, W2_UI_ORC_FOUNDRY,
+    W2_UI_HUMAN_REFINERY, W2_UI_ORC_REFINERY, W2_UI_INVENTOR, W2_UI_ALCHEMIST,
+    W2_UI_STABLES, W2_UI_OGRE_MOUND, W2_UI_MAGE_TOWER, W2_UI_TEMPLE_OF_THE_DAMNED,
+    W2_UI_CHURCH, W2_UI_ALTAR_OF_STORMS, W2_UI_GRYPHON_AVIARY, W2_UI_DRAGON_ROOST,
     W2_UI_COUNT
 };
 

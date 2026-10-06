@@ -210,8 +210,9 @@ static int test_range_and_orders(void) {
     return 0;
 }
 
-/* A melee unit razes a structure from the cell beside its footprint, and
- * the rubble stops blocking the ground. */
+/* A melee unit razes a structure from the cell beside its footprint. The
+ * ground clears at once; the rubble (Wargus destroyed-place, two frames of
+ * 200 cycles) lies there a while and then vanishes. */
 static int test_building_destroyed(void) {
     fixture();
     mobj_t *grunt = spawn(MT_GRUNT, 7, 8, 0);
@@ -220,11 +221,27 @@ static int test_building_destroyed(void) {
     farm->hp = 20;
     CHECK(level.cell_solid[L_Index(&level, 8, 8)] && level.blocked[L_Index(&level, 9, 9)]);
     CHECK(P_InAttackRange(grunt, farm));
-    for (int i = 0; i < 400 && find_id(farm_id); ++i) tick(1);
-    CHECK(!find_id(farm_id));
+    for (int i = 0; i < 400 && farm->hp > 0; ++i) tick(1);
+    CHECK(farm->hp == 0 && find_id(farm_id) == farm);
+    CHECK(farm->core.state_id == W2_DEATH_STATE(MT_FARM - 1) && group_of(farm) == W2_GROUP_DEATH);
+    CHECK(farm->core.sprite_id == W2_SPRITE_RUBBLE && farm->core.frame == 0);
+    CHECK(!strcmp(farm->core.sprite_name, "destroyed-site"));
+    tick(1);
     CHECK(!level.cell_solid[L_Index(&level, 8, 8)] && !level.cell_solid[L_Index(&level, 9, 9)]);
     CHECK(!level.blocked[L_Index(&level, 8, 8)] && !level.blocked[L_Index(&level, 9, 9)]);
-    CHECK(!grunt->attack.target && grunt->hp == grunt->max_hp);
+    CHECK(!P_MobjById(farm_id) && grunt->hp == grunt->max_hp);
+    CHECK(!grunt->attack.target || grunt->attack.target == farm); /* A corpse, not a target. */
+    tick(200);
+    CHECK(find_id(farm_id) == farm && farm->core.frame == 1); /* The second rubble frame. */
+    tick(190);
+    CHECK(find_id(farm_id) == farm);
+    tick(12);
+    CHECK(!find_id(farm_id) && !grunt->attack.target);
+    /* A one-cell footprint uses the small sheet; sea structures the water frames. */
+    CHECK(states[W2_DEATH_STATE(MT_HUMAN_WALL - 1)].sprite == W2_SPRITE_SMALL_RUBBLE);
+    CHECK(states[W2_DEATH_STATE(MT_HUMAN_OIL_PLATFORM - 1)].frame == 2 &&
+          states[W2_DEATH_STATE(MT_HUMAN_OIL_PLATFORM - 1) + 1].frame == 3);
+    CHECK(states[W2_DEATH_STATE(MT_TOWN_HALL - 1)].tics == 200 && states[W2_DEATH_STATE(MT_TOWN_HALL - 1) + 1].nextstate == 0);
     /* A diagonal neighbour of a four-cell hall reaches it too; two cells off does not. */
     mobj_t *hall = spawn(MT_TOWN_HALL, 12, 12, 1);
     mobj_t *ogre = spawn(MT_OGRE, 11, 11, 0);

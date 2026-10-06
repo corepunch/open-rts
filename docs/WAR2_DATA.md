@@ -255,15 +255,36 @@ Mega index 0 is a real tile (the fog tile), not a missing graphic.
 
 These are engine choices, not traced `WAR2.EXE` behavior.
 
-- A placed building appears at once and marks its footprint. Walls show
-  their icon and are not spawned.
+- Construction follows Wargus `constructions.lua` and the Stratagus build
+  order: the worker walks to a free cell beside the footprint, pays the
+  `mobjinfo[]` price on arrival, and steps inside (hidden, unselectable,
+  not a target). The site shows MAINDAT entry 252 (land construction site,
+  64x64) frame 0 to 25%, frame 1 to 50%, then the type's own second GRP
+  frame. Hit points rise from one to full over `costs.time` seconds, with
+  the retail `% Complete` panel and a Cancel button that refunds the whole
+  price and lets the builder out. The cursor cell is the footprint's
+  top-left. Footprints need plain land with nothing standing on them; shore
+  buildings need water beside them; halls keep three clear cells from a
+  gold mine (Wargus `BuildingRules` distance). Walls show their icon and are
+  not built. Oil platforms, hall upgrades and map furniture are not placed.
+- A destroyed structure leaves the era's destroyed-site sheet (MAINDAT 121
+  forest, 163 winter, 191 wasteland; 189/190/188 for one-cell footprints;
+  frames 2 and 3 over water) for two frames of 200 tics, as Wargus
+  `animations-destroyed-place`, while the ground clears at once.
+- The computer player is the shared engine AI with a Warcraft interface:
+  computer and player PUD slots other than the console player's, a goal
+  ladder after Wargus `ai/land_attack.lua` (workers, farms, barracks,
+  soldiers, mill, smithy, first research, tower, keep, stables, knights),
+  sites found by spiral search around the hall with a free ring of cells,
+  and workers sent gold-first with every third on lumber to the deposit
+  nearest their depot. Workers never join defense rallies or attack waves.
 - Patrol, stand ground, and repair set a status line and do not issue an
   order. Save, load, and options are not stored.
 - The advanced build page is shown only when the player owns a lumber mill
   (PUD 76 or 77) or a keep, stronghold, castle, or fortress (PUD 88–91).
 - Training spends gold and lumber atomically when its tic command executes.
-  Building placement still spends directly from the HUD and is not ready
-  for lock-step multiplayer. Costs follow the authored `mobjinfo[]` catalog.
+  Building placement and cancellation are tic commands too (`TC_CONSTRUCT`),
+  so they replay in lock step. Costs follow the authored `mobjinfo[]` catalog.
 - Harvest uses ordinary mobj thinkers, native axe/carrier graphics, finite
   deposits, owned reachable depots, repeated trips and a Return Goods command.
   Lumber progress is private to each worker and finishes on chop 51, as
@@ -277,14 +298,17 @@ These are engine choices, not traced `WAR2.EXE` behavior.
   (`W2_WALK_TICS`). Both are presentation choices.
 - Deathwing (archive name fire-breeze, PUD type 35) has GRP entries `{0,0,0,0}`. No graphic is
   borrowed.
-- Which GRP frame is construction versus damage. Frame 0 is the intact
-  picture used for the standing state.
+- Whether retail draws a damage frame. Frame 0 is the intact picture and
+  frame 1 the half-built one (Wargus `main` frame 1 at 50%); every
+  buildable structure's GRP holds exactly those two.
 - Retail attack recovery and sight blocking. This slice sets no `MF_ATTACK`.
   Sight of 0 becomes 1, then sight is clamped to 10, so the oil patch and
   circle of power are visible. On `ALAMO` the camera starts on the human.
 - Retail oil extraction and exact bonus/depletion accounting.
 - Exact minimap rendering, command visual states and complete HUD pixel fidelity.
-- Retail construction, patrol, stand ground, repair, and wall placement.
+- Retail patrol, stand ground, repair, and wall placement. Retail
+  construction timing is taken from the Wargus `time` cost in seconds; the
+  builder's entry and exit positions are engine choices.
 - Whether expansion swamp entries 438–441 differ from wasteland. This file
   does not contain them.
 

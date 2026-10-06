@@ -857,7 +857,8 @@ typedef enum {
     TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
     TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT, TC_RETURN_GOODS,
-    TC_MAX = TC_RETURN_GOODS
+    TC_CONSTRUCT, /* units[0] builds `product` at position; product 0 cancels the site in units. */
+    TC_MAX = TC_CONSTRUCT
 } ticorder_t;
 
 typedef struct {
@@ -883,6 +884,10 @@ bool G_NetSignature(const char *map_path, uint32_t *signature);
 bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
                      fvec2_t position, uint32_t target);
 bool G_BuildOrder(mobj_t *producer, int product);
+/* Send one builder to put up actor type `type` with its top-left cell at
+ * `cell`, or cancel a site under construction (TC_CONSTRUCT). */
+bool G_ConstructOrder(mobj_t *builder, int type, ivec2_t cell);
+bool G_CancelConstructionOrder(mobj_t *site);
 bool G_PathOrder(mobj_t *const *units, int count, const waypoints_t *path);
 
 
@@ -1960,6 +1965,13 @@ typedef struct AiGameInterface {
      * Optional; the default is is_base. Games whose drop-offs are a small
      * subset of their buildings (Dark Reign, KKnD) widen it to all structures. */
     bool (*is_anchor)(const mobj_t *unit);
+    /* Optional. Units a game's own jobs occupy (Warcraft builders on their
+     * way to a site): the economy, defense and attack waves leave them alone. */
+    bool (*is_busy)(const mobj_t *unit);
+    /* Optional. Gives an idle harvester its job and returns whether an order
+     * went out. The default sends it to the nearest free, reachable vent;
+     * games with several resources balance their workers here. */
+    bool (*assign_harvester)(level_t *map, int owner, mobj_t *unit);
 } AiGameInterface;
 
 typedef enum {

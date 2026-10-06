@@ -305,12 +305,15 @@ static bool decode_grp_frame(const uint8_t *blob, size_t size, int index,
 static bool install_directions(spritesheet_t *sprite, int count, bool directional,
                                int *phases) {
     bool five = directional && count >= 5 && count % 5 == 0;
-    int frame_count = five ? count / 5 : 1;
+    int frame_count = five ? count / 5 : count;
     int rotations = five ? 8 : 1;
     if (!R_InitSpriteDef(sprite, frame_count, rotations)) return false;
     if (!five) {
-        *phases = 1;
-        return R_InstallSpriteLump(sprite, 0, 0, 0, false);
+        /* Undirected art (structures, site sheets): every picture is a frame. */
+        for (int frame = 0; frame < count; ++frame)
+            if (!R_InstallSpriteLump(sprite, frame, 0, frame, false)) return false;
+        *phases = count;
+        return true;
     }
     static const int slot_lump[8] = { 0, 1, 2, 3, 4, 3, 2, 1 };
     static const bool slot_flip[8] = { false, true, true, true, false, false, false, false };

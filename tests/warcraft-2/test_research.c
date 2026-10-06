@@ -115,7 +115,7 @@ static int test_catalog(void) {
     fixture();
     StaticProductDefinition products[64];
     CHECK(G_ModelGetProducts(NULL, 0, products, 64) == W2_UI_COUNT - 1);
-    int research = 0, halls = 0;
+    int research = 0, halls = 0, sites = 0;
     for (int i = 0; i < W2_UI_COUNT - 1; ++i) {
         const StaticProductDefinition *p = &products[i];
         CHECK(p->ui_id == i + 1 && product(p->ui_id) == G_ModelProductByClassType(NULL, p->product_class, p->product_type));
@@ -133,11 +133,19 @@ static int test_catalog(void) {
             CHECK(p->cost == cost->resources[0] && W2_ProductLumber(p) == cost->resources[1] &&
                   W2_ProductOil(p) == cost->resources[2] && G_ModelProductTrainingTimeMs(p) == cost->time * 1000);
             CHECK(G_ModelActorIdForProduct(p) == p->product_type && p->maker_count == 1);
-            CHECK(mobjinfo[p->product_type].w2.footprint.w == mobjinfo[p->makers[0]].w2.footprint.w);
-            ++halls;
+            if (actor_types[p->makers[0] - 1].traits & MF_MOBILE) {
+                /* A worker's structure: the orc twin follows its human one. */
+                CHECK(W2_Buildable((uint16_t)p->product_type));
+                CHECK(p->makers[0] == (p->faction ? MT_PEON : MT_PEASANT));
+                CHECK(p->ui_id % 2 == (p->faction ? W2_UI_PIG_FARM % 2 : W2_UI_FARM % 2));
+                ++sites;
+            } else {
+                CHECK(mobjinfo[p->product_type].w2.footprint.w == mobjinfo[p->makers[0]].w2.footprint.w);
+                ++halls;
+            }
         }
     }
-    CHECK(research == W2_UPGRADE_COUNT - 1 && halls == 4);
+    CHECK(research == W2_UPGRADE_COUNT - 1 && halls == 4 && sites == 28);
     CHECK(product(W2_UI_KEEP)->cost == 2000 && W2_ProductLumber(product(W2_UI_KEEP)) == 1000 &&
           W2_ProductOil(product(W2_UI_KEEP)) == 200);
     CHECK(product(W2_UI_CASTLE)->cost == 2500 && W2_ProductOil(product(W2_UI_CASTLE)) == 500);

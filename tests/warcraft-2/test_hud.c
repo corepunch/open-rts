@@ -218,6 +218,81 @@ static int test_research_buttons(menu_t *menu, mobjlist_t *units, mobj_t *worker
     return 0;
 }
 
+/* The build page sends the worker off with a construct command; the site it
+ * raises offers only Cancel and shows the progress panel. */
+static int test_construction_buttons(menu_t *menu, app_t *app, mobjlist_t *units, mobj_t *worker, bool orc) {
+    for (int i = 0; i < units->count; ++i) P_MobjSetSelected(units->items[i], false);
+    P_MobjSetSelected(worker, true);
+    W2_InterruptHarvest(worker);
+    worker->harvest.phase = HARVEST_PHASE_NONE;
+    worker->harvest.target = -1;
+    M_MenuDrawer(menu);
+    const menuitem_t *page = command_slot(menu, 6);
+    CHECK(page && page->visible && page->hotkey == SDLK_b);
+    uint16_t farm = orc ? MT_PIG_FARM : MT_FARM;
+    /* A clear 2x2 spot near the worker, reached through the camera. */
+    ivec2_t at = fvec2_cell(fixed3_xy_to_fvec2(worker->core.position)), cell = {-1, -1};
+    for (int dy = -4; dy <= 4 && cell.x < 0; ++dy)
+        for (int dx = -4; dx <= 4 && cell.x < 0; ++dx)
+            if ((dx || dy) && W2_CanPlace(farm, (ivec2_t){at.x + dx, at.y + dy}, worker)) cell = (ivec2_t){at.x + dx, at.y + dy};
+    CHECK(cell.x >= 0);
+    SDL_Event key = {.type = SDL_KEYDOWN};
+    key.key.keysym.sym = SDLK_b;
+    netactive = true;
+    CHECK(t_hud_event(menu, app, units->items, units->count, &key));
+    M_MenuDrawer(menu);
+    const menuitem_t *farm_button = command_slot(menu, 0);
+    CHECK(farm_button->visible && farm_button->hotkey == SDLK_f && farm_button->look[MS_NORMAL].cell == (orc ? 39 : 38));
+    key.key.keysym.sym = SDLK_f;
+    CHECK(t_hud_event(menu, app, units->items, units->count, &key));
+    CHECK(menu->target == farm_button);
+    fvec2_t screen;
+    R_MapToScreen(app, &level, cell.x + 0.5f, cell.y + 0.5f, &screen.x, &screen.y);
+    SDL_Event click = {.type = SDL_MOUSEBUTTONDOWN};
+    click.button.button = SDL_BUTTON_LEFT;
+    click.button.x = (int)screen.x;
+    click.button.y = (int)screen.y;
+    CHECK(t_hud_event(menu, app, units->items, units->count, &click));
+    CHECK(!menu->target);
+    ticcmd_t command;
+    G_BuildTiccmd(&command);
+    netactive = false;
+    CHECK(command.order == TC_CONSTRUCT && command.product == farm && command.count == 1 && command.units[0] == worker->id);
+    CHECK((command.position.x >> FIXED_FRAC_BITS) == cell.x && (command.position.y >> FIXED_FRAC_BITS) == cell.y);
+    int *stock = level.player_resources[consoleplayer];
+    int gold = stock[0], lumber = stock[1];
+    G_RunTiccmd(consoleplayer, &command);
+    CHECK(worker->w2.build_phase == W2_BUILD_TO_SITE);
+    for (int i = 0; i < 900 && worker->w2.build_phase == W2_BUILD_TO_SITE; ++i) P_Ticker();
+    mobj_t *site = P_MobjById(worker->w2.site);
+    CHECK(site && W2_UnderConstruction(site) && stock[0] == gold - 500 && stock[1] == lumber - 250);
+    relist(units);
+    P_MobjSetSelected(site, true);
+    M_MenuDrawer(menu);
+    const menuitem_t *cancel = command_slot(menu, 8);
+    CHECK(cancel && cancel->visible && cancel->look[MS_NORMAL].cell == 91 && cancel->hotkey == SDLK_ESCAPE);
+    CHECK(!strcmp(cancel->tooltip, "Cancel construction") && !command_slot(menu, 0)->visible);
+    CHECK(!P_MobjIsSelected(worker)); /* The builder inside left the selection. */
+    CHECK(!training_slot(menu)->visible);
+    for (int i = 0; i < menu->numitems; ++i)
+        if (menu->items[i].rect.x == 0 && menu->items[i].rect.y == 160) CHECK(menu->items[i].look[MS_NORMAL].cell == 3);
+    key.key.keysym.sym = SDLK_ESCAPE;
+    netactive = true;
+    CHECK(t_hud_event(menu, app, units->items, units->count, &key));
+    G_BuildTiccmd(&command);
+    netactive = false;
+    CHECK(command.order == TC_CONSTRUCT && command.product == 0 && command.units[0] == site->id);
+    uint32_t site_id = site->id;
+    G_RunTiccmd(consoleplayer, &command);
+    CHECK(!P_MobjById(site_id) && stock[0] == gold && stock[1] == lumber);
+    CHECK(worker->w2.build_phase == W2_BUILD_NONE && (worker->traits & MF_SELECTABLE));
+    P_RunThinkers();
+    relist(units);
+    P_MobjSetSelected(worker, true);
+    M_MenuDrawer(menu);
+    return 0;
+}
+
 static int test_hud(const char *capture, bool orc) {
     G_InitGame();
     P_InitThinkers();
@@ -302,6 +377,8 @@ static int test_hud(const char *capture, bool orc) {
     RTS_RUN(test_info_layouts(menu, worker_unit));
     RTS_RUN(test_research_buttons(menu, &units, worker_unit, orc));
     RTS_RUN(test_minimap(menu, &tiles, worker_unit));
+    /* Last: the simulated minute of walking changes the ground. */
+    RTS_RUN(test_construction_buttons(menu, &app, &units, worker_unit, orc));
     if (capture) CHECK(save_bmp(capture));
     /* A neutral mine must produce a context harvest command, not an attack. */
     int mine_hit = -1;
@@ -353,6 +430,6 @@ static int test_hud(const char *capture, bool orc) {
 int main(int argc, char **argv) {
     RTS_RUN(test_hud(argc > 1 ? argv[1] : NULL, false));
     RTS_RUN(test_hud(argc > 2 ? argv[2] : NULL, true));
-    puts("PASS: native human/orc HUD pixels, minimap terrain/footprints, resource icons, fonts, anchors, research and upgrade buttons");
+    puts("PASS: native human/orc HUD pixels, minimap terrain/footprints, resource icons, fonts, anchors, research, upgrade and construction buttons");
     return 0;
 }

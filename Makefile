@@ -105,9 +105,10 @@ all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/
 .SECONDARY:
 
 SHARED_MODEL_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c'))
-# Warcraft has its own menu and worker rules, and no skirmish AI yet. Run the
-# applicable shared renderer/navigation/UI/combat suites.
-W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ai*' ! -name 'test_simple_menu.c'))
+# Warcraft has its own menu and its own worker rules (the generic vent suite
+# drives the engine harvester); every other shared suite applies, the
+# computer player included.
+W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_simple_menu.c' ! -name 'test_ai_vents.c'))
 
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))

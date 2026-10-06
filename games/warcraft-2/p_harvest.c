@@ -53,7 +53,7 @@ static resourcevent_t *deposit(const mobj_t *unit) {
 
 /* Approach the actual footprint, never the blocked building centre. The
  * nav component check excludes banks and trees behind an enclosing wall. */
-static bool approach(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay) {
+bool w2_approach(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay) {
     fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
     bool found = false;
     float distance = 0;
@@ -87,7 +87,7 @@ static bool approach(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay) {
 static bool go_to_deposit(mobj_t *unit, resourcevent_t *vent) {
     fvec2_t bay;
     if (!P_VentOpenTo(&level, vent, unit) ||
-        !approach(unit, vent->cell, vent->footprint, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
+        !w2_approach(unit, vent->cell, vent->footprint, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
     unit->movement.order_id = 0;
     unit->harvest.phase = HARVEST_PHASE_TO_MINE;
     return true;
@@ -120,7 +120,7 @@ bool W2_ReturnGoods(mobj_t *unit) {
         ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(base->core.position),
                                          (fvec2_t){size.w * 0.5f, size.h * 0.5f}));
         fvec2_t at;
-        if (!approach(unit, cell, size, &at)) continue;
+        if (!w2_approach(unit, cell, size, &at)) continue;
         float d = fvec2_distance_squared(from, at);
         if (best && d >= distance) continue;
         best = base;
@@ -144,7 +144,7 @@ bool W2_HarvestOrder(mobj_t *unit, fvec2_t goal) {
         resourcevent_t *vent = &level.resource_vents[i];
         if (!P_ResourceVentContainsCell(vent, fvec2_cell(goal)) || !P_VentOpenTo(&level, vent, unit)) continue;
         fvec2_t bay;
-        if (!approach(unit, vent->cell, vent->footprint, &bay)) return false;
+        if (!w2_approach(unit, vent->cell, vent->footprint, &bay)) return false;
         W2_InterruptHarvest(unit);
         unit->attack.target = NULL;
         unit->harvest.target = i;
@@ -167,7 +167,7 @@ static bool next_tree(mobj_t *unit, fvec2_t origin) {
         resourcevent_t *vent = &level.resource_vents[i];
         if (!vent->active || vent->resource_type != 1) continue;
         float d = fvec2_distance_squared(origin, vent->attachment);
-        if ((best >= 0 && d >= distance) || !approach(unit, vent->cell, vent->footprint, &bay)) continue;
+        if ((best >= 0 && d >= distance) || !w2_approach(unit, vent->cell, vent->footprint, &bay)) continue;
         best = i;
         distance = d;
     }

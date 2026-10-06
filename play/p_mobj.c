@@ -1023,7 +1023,7 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
 static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
 #ifdef RTS_GAME_WARCRAFT_2
-    return W2_TickHarvest(unit);
+    return W2_TickHarvest(unit) || W2_TickBuild(unit);
 #endif
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
         unit->harvest.phase == HARVEST_PHASE_NONE || unit->harvest.target < 0) {
