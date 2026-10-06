@@ -373,7 +373,7 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
         snprintf(slot->name, sizeof(slot->name), "%s", name);
         cache->count++;
     }
-    if (!w2_load_carriers(&arc, palette, cache)) ok = false;
+    if (!w2_load_shared_sprites(&arc, palette, era, cache)) ok = false;
     w2_archive_close(&arc);
     if (!R_BindSprites(cache, &game_info)) ok = false;
     return ok;
@@ -410,16 +410,23 @@ bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud) {
     return R_BindSprites(cache, &game_info);
 }
 
-bool w2_load_carriers(const w2_archive_t *arc, const uint32_t palette[256], spritecache_t *cache) {
-    static const char *const names[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber" };
-    static const int entries[] = { 124, 122, 125, 123 };
-    for (int i = 0; i < 4; ++i) {
+/* Carrier sheets, and the site art every structure shares: the land
+ * construction site (MAINDAT 252) and the destroyed site in its era
+ * (121 forest, 163 winter, 191 wasteland and swamp; 189/190/188 small). */
+bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256], int era,
+                            spritecache_t *cache) {
+    static const char *const names[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber",
+                                         "construction-site", "destroyed-site", "small-destroyed-site" };
+    static const int rubble[4] = { 121, 163, 191, 191 }, small[4] = { 189, 190, 188, 188 };
+    if (era < 0 || era > 3) era = 0;
+    const int entries[] = { 124, 122, 125, 123, 252, rubble[era], small[era] };
+    for (int i = 0; i < 7; ++i) {
         if (R_CacheFind(cache, names[i])) continue;
         if (cache->count >= MAX_DECORATION_SPRITES) return false;
         cachedsprite_t *slot = &cache->entries[cache->count];
         w2_blob_t blob = {0};
         bool ok = w2_archive_extract(arc, entries[i], &blob) &&
-                  w2_decode_grp(&blob, palette, &slot->sprite, true, NULL);
+                  w2_decode_grp(&blob, palette, &slot->sprite, i < 4, NULL);
         w2_blob_free(&blob);
         if (!ok) { R_FreeSprite(&slot->sprite); return false; }
         w2_install_team_colors(&slot->sprite, palette);

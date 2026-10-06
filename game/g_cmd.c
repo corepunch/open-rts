@@ -81,6 +81,19 @@ bool G_BuildOrder(mobj_t *producer, int product) {
     return G_QueueTiccmd(&cmd);
 }
 
+bool G_ConstructOrder(mobj_t *builder, int type, ivec2_t cell) {
+    if (!builder || builder->owner != consoleplayer || type <= 0) return false;
+    ticcmd_t cmd = { .order = TC_CONSTRUCT, .product = type, .count = 1, .units = { builder->id },
+                     .position = fixed3_from_fvec2(fvec2_cell_center(cell), 0) };
+    return G_QueueTiccmd(&cmd);
+}
+
+bool G_CancelConstructionOrder(mobj_t *site) {
+    if (!site || site->owner != consoleplayer) return false;
+    ticcmd_t cmd = { .order = TC_CONSTRUCT, .product = 0, .count = 1, .units = { site->id } };
+    return G_QueueTiccmd(&cmd);
+}
+
 void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     if (!cmd || cmd->order == TC_NONE || (unsigned)cmd->order > TC_MAX || cmd->count > MAXCOMMANDUNITS ||
         player < 0 || player >= RTS_MODEL_MAX_PLAYERS) return;
@@ -145,7 +158,18 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         for (int i = 0; i < count; ++i) W2_ReturnGoods(units[i]);
         return;
     }
+    if (cmd->order == TC_CONSTRUCT) {
+        if (cmd->product == 0) {
+            for (int i = 0; i < count; ++i) W2_CancelConstruction(units[i]);
+            return;
+        }
+        ivec2_t cell = {cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS};
+        if (cmd->product > 0 && cmd->product <= UINT16_MAX)
+            W2_ConstructOrder(units[0], (uint16_t)cmd->product, cell);
+        return;
+    }
 #endif
+    if (cmd->order == TC_CONSTRUCT) return;
     if (cmd->order == TC_ATTACK) {
         bool eligible = false;
         for (int i = 0; i < count; ++i) eligible |= P_CanTarget(units[i], target);
@@ -157,7 +181,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
 #ifdef RTS_GAME_WARCRAFT_2
     if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK ||
         cmd->order == TC_PATH || cmd->order == TC_WAYPOINT)
-        for (int i = 0; i < count; ++i) W2_InterruptHarvest(units[i]);
+        for (int i = 0; i < count; ++i) { W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]); }
 #endif
     if (cmd->order == TC_MODE) {
         for (int i = 0; i < count; ++i) {
@@ -234,7 +258,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
                    cmd->position.y >> FIXED_FRAC_BITS) && cmd->order != TC_ATTACK) return;
 #ifdef RTS_GAME_WARCRAFT_2
     if (cmd->order == TC_ORDER)
-        for (int i = 0; i < count; ++i) W2_InterruptHarvest(units[i]);
+        for (int i = 0; i < count; ++i) { W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]); }
 #endif
     for (int i = 0; i < count; ++i) {
         units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;

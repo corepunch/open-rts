@@ -1821,17 +1821,18 @@ static int stand_state(int pud) { return 1 + pud * 2; }
  * count: stand, four walk frames, then the attack frames and the death
  * frames (Wargus anim.lua: footman 25..40 / 45..55, archer 25..30 / 35..45,
  * knight adds two decay frames, peasants chop with five frames). Timings
- * are the Wargus waits. Art without those frames (siege, ships, buildings)
- * attacks in its stand frame and vanishes when destroyed. */
+ * are the Wargus waits. Art without those frames (siege, ships) attacks in
+ * its stand frame and vanishes when destroyed. Structures hold two frames,
+ * the finished building and its half-built picture; they leave rubble. */
 /* Logical frames (rows of five facings) in each type's forest MAINDAT GRP,
  * so the state rows exist before any art loads; w2_limit_walk rebuilds
  * them from the decoded sheet. Reserved and art-less slots are zero. */
 static const uint8_t w2_phases[W2_TYPE_COUNT] = {
     12, 12, 13, 13, 4, 4, 14, 14, 10, 12, 16, 13, 14, 14, 13, 15, 13, 13, 10, 12,
     10, 13, 13, 14, 16, 12, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 3, 3,
-    4, 2, 13, 10, 14, 1, 12, 12, 0, 14, 14, 13, 14, 12, 0, 14, 15, 2, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1,
+    4, 2, 13, 10, 14, 1, 12, 12, 0, 14, 14, 13, 14, 12, 0, 14, 15, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 3, 3, 2, 2, 2, 2, 2, 1, 0, 0, 2, 2, 2, 2,
     1, 1, 1, 0, 0,
 };
 _Static_assert(sizeof(w2_phases) == W2_TYPE_COUNT, "phase table");
@@ -1845,6 +1846,8 @@ static void build_combat_states(int pud, int phases) {
     int hit_first = 0, hit_count = 0, hit_frame = 0, recover_frame = 0;
     int windup_tics = 3, hit_tics = 5, recover_tics = 10;
     int fall_first = 0, fall_count = 0;
+    int art_frames = phases;
+    if (structure) phases = 1; /* A structure's extra frame is construction, not an attack row. */
     if (phases >= 12) { /* Melee rows: three windup frames, the blow, then stand. */
         hit_first = 5; hit_count = 3; hit_frame = 8; recover_frame = 0;
         fall_first = 9; fall_count = phases - 9;
@@ -1874,12 +1877,30 @@ static void build_combat_states(int pud, int phases) {
     };
     unit->missilestate = unit->damage > 0 ? attack : 0;
     if (structure) {
-        /* Rubble clears the ground the next tic; the engine then removes it. */
+        /* Wargus animations-destroyed-place: two rubble frames of 200 cycles
+         * each on the shared destroyed-site sheet (frames 2 and 3 over
+         * water), then the corpse vanishes. The ground clears at once. */
+        bool small = unit->w2.footprint.w <= 1 && unit->w2.footprint.h <= 1;
+        bool water = !small && unit->w2.domain == W2_DOMAIN_SEA;
+        int sprite = small ? W2_SPRITE_SMALL_RUBBLE : W2_SPRITE_RUBBLE;
         states[death] = (state_t){
-            .sprite = pud, .frame = 0, .count = 1, .tics = 1,
-            .action = A_W2_Collapse, .nextstate = 0, .group = W2_GROUP_DEATH,
+            .sprite = sprite, .frame = water ? 2 : 0, .count = 1, .tics = 200,
+            .action = A_W2_Collapse, .nextstate = death + 1, .group = W2_GROUP_DEATH,
+        };
+        states[death + 1] = (state_t){
+            .sprite = sprite, .frame = water ? 3 : 1, .count = 1, .tics = 200,
+            .nextstate = 0, .group = W2_GROUP_DEATH,
         };
         unit->deathstate = death;
+        /* Wargus construction-land: the site for the first quarter, its
+         * framework to the half, then the type's own half-built frame. */
+        int build = W2_BUILD_STATE(pud);
+        for (int stage = 0; stage < 3; ++stage)
+            states[build + stage] = (state_t){
+                .sprite = stage < 2 ? W2_SPRITE_CONSTRUCTION : pud,
+                .frame = stage < 2 ? stage : (art_frames >= 2 ? 1 : 0), .count = 1,
+                .tics = -1, .nextstate = build + stage, .group = W2_GROUP_BUILD,
+            };
     } else if (fall_count >= 3) {
         /* Two falling frames, a long rest on the ground, then the decay
          * frames (knights, ogres) before the corpse is removed. */
@@ -1960,6 +1981,9 @@ void w2_build_info(void) {
         };
     }
     static const char *const carriers[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber" };
+    sprnames[W2_SPRITE_CONSTRUCTION] = "construction-site";
+    sprnames[W2_SPRITE_RUBBLE] = "destroyed-site";
+    sprnames[W2_SPRITE_SMALL_RUBBLE] = "small-destroyed-site";
     for (int i = 0; i < 4; ++i) {
         int stand = W2_CARRY_STATE(i);
         sprnames[W2_TYPE_COUNT + i] = carriers[i];

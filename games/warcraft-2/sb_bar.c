@@ -19,7 +19,7 @@ enum {
 
 enum {
     CK_NONE, CK_MOVE, CK_STOP, CK_ATTACK, CK_PATROL, CK_STAND,
-    CK_REPAIR, CK_HARVEST, CK_RETURN, CK_PAGE, CK_CANCEL, CK_TRAIN, CK_PLACE
+    CK_REPAIR, CK_HARVEST, CK_RETURN, CK_PAGE, CK_CANCEL, CK_TRAIN, CK_PLACE, CK_CANCEL_BUILD
 };
 
 typedef struct {
@@ -295,6 +295,11 @@ static void put_research(int slot, int first_ui, SDL_Keycode key) {
 
 static void fill_train(const mobj_t *unit) {
     int type = unit->type_id;
+    /* A site offers only to stop: the price comes back and the builder steps out. */
+    if (W2_UnderConstruction(unit)) {
+        put_cmd(8, CK_CANCEL_BUILD, 91, 0, 0, 0, 0, SDLK_ESCAPE, "Cancel construction");
+        return;
+    }
     /* Wargus check-no-research: a busy building offers no more research. */
     bool busy = unit->production && unit->production->queue_count > 0;
     if (type == 75 || type == 89 || type == 91 || type == 76 || type == 90 || type == 92) {
@@ -417,7 +422,7 @@ static void refresh(menu_t *menu) {
     apply_commands();
     int info_frame = count == 1 ? 1 : 0;
     bool training = count == 1 && portrait->production && portrait->production->queue_count;
-    if (training) info_frame = 3;
+    if (training || (count == 1 && W2_UnderConstruction(portrait))) info_frame = 3;
     for (int s = 0; s < MS_STATES; ++s) items[IT_INFO].look[s].cell = info_frame;
     items[IT_TRAIN].visible = training;
     items[IT_TRAIN].sheet = &art.icons;
@@ -448,18 +453,6 @@ static void refresh(menu_t *menu) {
         snprintf(status_line, sizeof(status_line), "%s", note);
 }
 
-static bool foot_clear(int x, int y, isize2_t foot) {
-    for (int yy = 0; yy < foot.h; ++yy)
-        for (int xx = 0; xx < foot.w; ++xx) {
-            int cx = x + xx, cy = y + yy;
-            if (!L_Contains(&level, cx, cy)) return false;
-            int index = L_Index(&level, cx, cy);
-            if (!level.cell_terrain || level.cell_terrain[index] != 0) return false;
-            if (level.cell_solid && level.cell_solid[index]) return false;
-        }
-    return true;
-}
-
 static fvec2_t cursor_goal(const menu_t *menu) {
     cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
     return (fvec2_t){ cell.x + 0.5f, cell.y + 0.5f };
@@ -482,10 +475,11 @@ static void order_at(const menu_t *menu, int kind) {
                      hudview.units, hudview.unit_count, goal, 0);
 }
 
+/* The selected worker is sent to build; the price is paid when it arrives
+ * (W2_ConstructOrder). The cursor cell is the footprint's top-left. */
 static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
     int pud = cmd->arg;
-    if (pud < 0 || pud >= W2_TYPE_COUNT || !mobjinfo[pud + 1].name ||
-        (mobjinfo[pud + 1].w2.flags & W2_SKIP)) {
+    if (pud < 0 || pud >= W2_TYPE_COUNT || !W2_Buildable((uint16_t)(pud + 1))) {
         set_note("Walls are not built.");
         M_MenuTarget(menu, NULL);
         return;
@@ -496,33 +490,23 @@ static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
         M_MenuTarget(menu, NULL);
         return;
     }
+    mobj_t *builder = NULL;
+    for (int i = 0; i < hudview.unit_count && !builder; ++i) {
+        mobj_t *unit = hudview.units[i];
+        if (unit && P_MobjIsSelected(unit) && unit->owner == consoleplayer && unit->hp > 0 &&
+            !unit->remove && (unit->traits & MF_HARVESTER)) builder = unit;
+    }
     cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
-    isize2_t foot = mobjinfo[pud + 1].w2.footprint;
-    if (!foot_clear(cell.x, cell.y, foot)) {
+    if (!builder || !W2_CanPlace((uint16_t)(pud + 1), (ivec2_t){cell.x, cell.y}, builder) ||
+        !G_ConstructOrder(builder, pud + 1, (ivec2_t){cell.x, cell.y})) {
         set_note("Cannot build there.");
         M_MenuTarget(menu, item);
         return;
     }
-    fvec2_t at = { cell.x + foot.w * 0.5f, cell.y + foot.h * 0.5f };
-    mobj_t *built = P_SpawnMobj(fixed3_from_fvec2(at, 0), (uint16_t)(pud + 1));
-    if (!built) {
-        set_note("Cannot build there.");
-        M_MenuTarget(menu, item);
-        return;
-    }
-    built->owner = consoleplayer;
-    built->team = consoleplayer < 8 ? consoleplayer : 8;
-    built->allegiance = ALLEGIANCE_PLAYER;
-    built->core.angle = ANG270;
-    w2_mark_footprint(cell.x, cell.y, foot);
-    res[0] -= cmd->gold;
-    res[1] -= cmd->wood;
-    res[2] -= cmd->oil;
-    if (hudview.sprites)
-        w2_cache_unit_sprite(root_copy, (spritecache_t *)hudview.sprites, pud);
+    S_Bark(&builder, 1, SE_ACK, true);
     set_note("");
-    if (res[0] >= cmd->gold && res[1] >= cmd->wood && res[2] >= cmd->oil)
-        M_MenuTarget(menu, item);
+    page = 0;
+    M_MenuTarget(menu, NULL);
 }
 
 static void train_product(mobj_t *producer, const cmd_t *cmd) {
@@ -585,6 +569,12 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         page = 0;
         M_MenuTarget(menu, NULL);
         break;
+    case CK_CANCEL_BUILD: {
+        mobj_t *own = NULL;
+        living_selected(&own);
+        if (own && !G_CancelConstructionOrder(own)) set_note("Cannot cancel.");
+        break;
+    }
     case CK_TRAIN: {
         mobj_t *own = NULL;
         living_selected(&own);
@@ -711,7 +701,14 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     if (filled > 0)
         V_FillRect((irect_t){ rect.x + 9, rect.y + 52, filled > 2 ? filled - 2 : 0, 5 },
                    V_NearestIndex(0xff00fc00u));
-    if (type->w2.flags & W2_MOBILE) {
+    bool site = W2_UnderConstruction(portrait);
+    if (site) {
+        /* Retail: the bar fills as the structure rises; no number. */
+        V_FillRect((irect_t){rect.x + 12, rect.y + 153, 152 * W2_BuildProgress(portrait) / 100, 14},
+                   V_NearestIndex(0xff306404u));
+        const char *label = "% Complete";
+        draw_ink(rect.x + 12 + (152 - V_TextWidth(&art.font, label)) / 2, rect.y + 154, label);
+    } else if (type->w2.flags & W2_MOBILE) {
         snprintf(hp, sizeof(hp), "Level %d", type->w2.level);
         draw_ink(rect.x + 154 - V_TextWidth(&art.font, "Level "), rect.y + 41, hp);
         snprintf(hp, sizeof(hp), "%d", type->w2.armor);

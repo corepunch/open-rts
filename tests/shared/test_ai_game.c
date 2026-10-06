@@ -18,12 +18,20 @@ int main(void) {
     CHECK(rts_game_model_load(model, &config));
     AiContext *ai = rts_game_model_ai(model);
     CHECK(ai && ai->game && G_AiInterface());
-    int human_credits = level.player_resources[0][0];
+    /* The human watches consoleplayer (Warcraft's ALAMO puts it in slot 1);
+     * the enemy judged is the computer slot that bought the most, since a
+     * crowded map (ALAMO seats six) starves some of its players. */
+    int human_owner = consoleplayer;
+    int human_credits = level.player_resources[human_owner][0];
     for (int t = 0; t < 30 * 60 * 10; ++t) CHECK(rts_game_model_tick(model, RTS_FIXED_DT));
-    const AiStats *human = P_AiStats(ai, 0), *enemy = P_AiStats(ai, 1);
+    const AiStats *human = P_AiStats(ai, human_owner), *enemy = NULL;
+    for (int owner = 0; owner < AI_MAX_TEAMS; ++owner) {
+        const AiStats *stats = P_AiStats(ai, owner);
+        if (owner != human_owner && stats->thinks > 0 && (!enemy || stats->purchases > enemy->purchases)) enemy = stats;
+    }
     CHECK(human->thinks == 0 && human->purchases == 0);
-    CHECK(level.player_resources[0][0] >= human_credits);
-    CHECK(enemy->thinks > 0);
+    CHECK(level.player_resources[human_owner][0] >= human_credits);
+    CHECK(enemy && enemy->thinks > 0);
     if (kknd) {
         CHECK(enemy->purchases == 0 && enemy->waves == 0); /* No producer, no structure. */
     } else {

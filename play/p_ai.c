@@ -70,11 +70,15 @@ static bool ai_is_anchor(const AiContext *ctx, const mobj_t *u) {
     return ai_is_base(ctx, u);
 }
 
-static bool is_idle_slug(const mobj_t *u, int owner) {
+static bool ai_is_busy(const AiContext *ctx, const mobj_t *u) {
+    return ctx && ctx->game && ctx->game->is_busy && ctx->game->is_busy(u);
+}
+
+static bool is_idle_slug(const AiContext *ctx, const mobj_t *u, int owner) {
     return u && u->hp > 0 && !u->remove &&
            u->owner == owner &&
            (u->traits & MF_HARVESTER) != 0 &&
-           u->harvest.phase == HARVEST_PHASE_NONE;
+           u->harvest.phase == HARVEST_PHASE_NONE && !ai_is_busy(ctx, u);
 }
 
 static bool vent_occupied_by_team(const AiTeamState *team, int vent_index) {
@@ -105,7 +109,13 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
 
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *u = units[i];
-        if (!is_idle_slug(u, owner)) continue;
+        if (!is_idle_slug(ctx, u, owner)) continue;
+        if (ctx->game && ctx->game->assign_harvester) {
+            if (!ctx->game->assign_harvester(map, owner, u)) continue;
+            team->stats.harvest_orders++;
+            ai_emit(ctx, AI_EVENT_HARVEST_ASSIGNED, owner, -1);
+            continue;
+        }
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
 
         fvec2_t position = fixed3_xy_to_fvec2(u->core.position);
@@ -215,6 +225,9 @@ static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,
             if (defender->hp <= 0 || defender->remove) continue;
             if (defender->owner != owner) continue;
             if ((defender->traits & MF_ATTACK) == 0) continue;
+            /* Cowards (Warcraft workers) and units on a game job never rally. */
+            if ((defender->traits & MF_NOAUTOTARGET) || ai_is_busy(ctx, defender)) continue;
+            if (ctx->game && !(defender->traits & MF_MOBILE)) continue;
             if (defender->harvest.phase != HARVEST_PHASE_NONE) continue;
             /* Fresh spawns never "arrive"; in game mode idle means no order. */
             if (ctx->game ? !P_HasMoveOrder(defender) : defender->movement.order_arrived) {
@@ -350,6 +363,7 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
         mobj_t *u = units[i];
         if (!ai_unit_alive(u) || u->owner != owner) continue;
         if ((u->traits & (MF_ATTACK | MF_MOBILE)) != (MF_ATTACK | MF_MOBILE)) continue;
+        if ((u->traits & MF_NOAUTOTARGET) || ai_is_busy(ctx, u)) continue;
         if (u->harvest.phase != HARVEST_PHASE_NONE || P_HasMoveOrder(u)) continue;
         if (u->attack.target && ai_unit_alive(u->attack.target)) continue;
         idle[idle_count++] = u;
