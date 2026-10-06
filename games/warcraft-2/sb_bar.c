@@ -781,5 +781,6 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
 }
 
 void G_ShutdownHUD(void) {
+    hudview = (hudview_t){0};
     w2_free_hud_art(&art);
 }

@@ -158,6 +158,7 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
 }
 
 void G_ShutdownHUD(void) {
+    hudview = (hudview_t){0};
 }
 
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
