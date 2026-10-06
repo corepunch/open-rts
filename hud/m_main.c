@@ -103,6 +103,18 @@ void M_MenuQuitGame(menu_t *menu, menuitem_t *item, menuaction_t action) {
 
 /* A table with a Begin Level button: it resumes inside a level. */
 menu_t *M_SimpleControlPanel(menu_t *menu) {
+    /* Before any level loads there is no palette to match the menu's colours
+     * into, so boot uses a 6x7x6 colour cube with a grey tail. */
+    static uint32_t boot_palette[256];
+    if (!boot_palette[255]) {
+        for (int i = 0; i < 252; ++i)
+            boot_palette[i] = 0xff000000u | (uint32_t)(i / 42 * 51) << 16 |
+                              (uint32_t)(i / 6 % 7 * 255 / 6) << 8 | (uint32_t)(i % 6 * 51);
+        for (int i = 252; i < 256; ++i)
+            boot_palette[i] = 0xff000000u | (uint32_t)(i - 251) * 0x333333u;
+    }
+    if (!level.width && !menu->palette) menu->palette = boot_palette;
+    else if (level.width && menu->palette == boot_palette) menu->palette = NULL;
     menu->modal = true;
     menu->escape = menu_escape;
     menu->held = NULL;

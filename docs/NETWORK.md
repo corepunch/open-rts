@@ -110,7 +110,7 @@ participate in the deterministic world checksum; local drafts/saved lists do not
   OS-assigned port, so multiple clients can run on one machine. A custom server
   port goes in the join address, e.g. `--join 192.168.1.10:25029`.
 - `--players 2..4`: number of players including the host; host-only.
-- `--software`: software renderer. Dark Colony already defaults to it.
+- `--software`: present the framebuffer through SDL's software renderer.
 - `--dup 1..9`, `--extratic`: Doom input sampling/redundancy options. The host
   distributes them to clients. Default `ticdup` is 1 at 30 simulation Hz.
 - `--help`: shared engine usage. Named options can appear before or after the
