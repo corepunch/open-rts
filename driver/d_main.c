@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     consoleplayer = doomcom->consoleplayer;
     bool check_only = false, screenshot_only = false;
     const char *screenshot_path = NULL;
-    bool software_renderer = strcmp(g_game_id, "dark-colony") == 0;
+    bool software_renderer = false;
     int check_tics = 0, positional = 0;
     isize2_t window = {0, 0};
     const char *paths[3] = {NULL, NULL, NULL};
@@ -209,8 +209,8 @@ int main(int argc, char **argv) {
             renderer_destroy(&renderer);
             return 1;
         }
-        if ((!strcmp(g_game_id, "dark-colony") || !strcmp(g_game_id, "dark-reign")) &&
-            !paths[1] && !netgame) M_StartControlPanel(&app);
+        /* Every game boots to its main menu unless a map was given. */
+        if (!paths[1] && !netgame) M_StartControlPanel(&app);
     }
     /* No level, thinkers, mission or sidebar exists while choosing New Game. */
 main_menu:
