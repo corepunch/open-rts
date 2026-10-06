@@ -229,6 +229,17 @@ void w2_mark_footprint(int x, int y, isize2_t foot) {
         }
 }
 
+void w2_clear_footprint(int x, int y, isize2_t foot) {
+    for (int yy = 0; yy < foot.h; ++yy)
+        for (int xx = 0; xx < foot.w; ++xx) {
+            int cx = x + xx, cy = y + yy;
+            if (!L_Contains(&level, cx, cy)) continue;
+            int index = L_Index(&level, cx, cy);
+            level.cell_solid[index] = 0;
+            level.blocked[index] = level.cell_terrain && level.cell_terrain[index] != 0;
+        }
+}
+
 static uint8_t allegiance_for(const w2_pud_t *pud, uint8_t player) {
     if (player < 8 && player == (uint8_t)consoleplayer) return ALLEGIANCE_PLAYER;
     if (player >= 8) return ALLEGIANCE_NEUTRAL;

@@ -290,8 +290,8 @@ These are engine choices, not traced `WAR2.EXE` behavior.
 
 ## Checks
 
-`make test-warcraft-2` is not part of `make test`, because CI has no
-`data/WAR2`.
+`make test-warcraft-2` runs as part of `make test`; `data/WAR2` is tracked
+like the other games' data.
 
 ```
 env SDL_VIDEODRIVER=dummy make test-warcraft-2

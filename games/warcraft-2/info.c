@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "warcraft-2.h"
 #include "info.h"
 #include "w2_local.h"
 
@@ -1816,10 +1817,96 @@ gameinfo_t game_info;
 
 static int stand_state(int pud) { return 1 + pud * 2; }
 
+/* Attack and death rows follow the retail GRP layout, decoded by phase
+ * count: stand, four walk frames, then the attack frames and the death
+ * frames (Wargus anim.lua: footman 25..40 / 45..55, archer 25..30 / 35..45,
+ * knight adds two decay frames, peasants chop with five frames). Timings
+ * are the Wargus waits. Art without those frames (siege, ships, buildings)
+ * attacks in its stand frame and vanishes when destroyed. */
+/* Logical frames (rows of five facings) in each type's forest MAINDAT GRP,
+ * so the state rows exist before any art loads; w2_limit_walk rebuilds
+ * them from the decoded sheet. Reserved and art-less slots are zero. */
+static const uint8_t w2_phases[W2_TYPE_COUNT] = {
+    12, 12, 13, 13, 4, 4, 14, 14, 10, 12, 16, 13, 14, 14, 13, 15, 13, 13, 10, 12,
+    10, 13, 13, 14, 16, 12, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 3, 3,
+    4, 2, 13, 10, 14, 1, 12, 12, 0, 14, 14, 13, 14, 12, 0, 14, 15, 2, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1,
+    1, 1, 1, 0, 0,
+};
+_Static_assert(sizeof(w2_phases) == W2_TYPE_COUNT, "phase table");
+
+static void build_combat_states(int pud, int phases) {
+    mobjinfo_t *unit = &mobjinfo[pud + 1];
+    int stand = stand_state(pud);
+    int attack = W2_ATTACK_STATE(pud), death = W2_DEATH_STATE(pud);
+    bool structure = (unit->w2.flags & W2_STRUCTURE) != 0;
+    bool worker = (unit->w2.flags & W2_HARVEST) != 0;
+    int hit_first = 0, hit_count = 0, hit_frame = 0, recover_frame = 0;
+    int windup_tics = 3, hit_tics = 5, recover_tics = 10;
+    int fall_first = 0, fall_count = 0;
+    if (phases >= 12) { /* Melee rows: three windup frames, the blow, then stand. */
+        hit_first = 5; hit_count = 3; hit_frame = 8; recover_frame = 0;
+        fall_first = 9; fall_count = phases - 9;
+        if (worker) { recover_frame = 9; fall_first = 10; fall_count = 3; }
+        else if (phases == 13) { fall_first = 10; fall_count = 3; }
+    } else if (phases == 10) { /* Archer rows: draw, loose, a long rest. */
+        hit_first = 5; hit_count = 1; hit_frame = 6; windup_tics = 10; hit_tics = 10; recover_tics = 44;
+        fall_first = 7; fall_count = 3;
+    } else if (phases == 4) { /* Siege: wind, loose, reload. */
+        hit_first = 2; hit_count = 1; hit_frame = 3; windup_tics = 25; hit_tics = 125; recover_tics = 49;
+    } else if (phases == 3) { /* Ships: no windup art, a long reload. */
+        hit_first = 1; hit_count = 1; hit_frame = 2; windup_tics = 10; hit_tics = 10; recover_tics = 40;
+    } else { /* Single-frame art, such as towers. */
+        windup_tics = 1; hit_tics = 1; recover_tics = 58;
+    }
+    states[attack] = (state_t){
+        .sprite = pud, .frame = hit_first, .count = hit_count > 0 ? hit_count : 1,
+        .tics = windup_tics, .nextstate = attack + 1, .group = W2_GROUP_ATTACK,
+    };
+    states[attack + 1] = (state_t){
+        .sprite = pud, .frame = hit_frame, .count = 1, .tics = hit_tics,
+        .action = A_W2_Attack, .nextstate = attack + 2, .group = W2_GROUP_ATTACK,
+    };
+    states[attack + 2] = (state_t){
+        .sprite = pud, .frame = recover_frame, .count = 1, .tics = recover_tics,
+        .nextstate = stand, .group = W2_GROUP_ATTACK,
+    };
+    unit->missilestate = unit->damage > 0 ? attack : 0;
+    if (structure) {
+        /* Rubble clears the ground the next tic; the engine then removes it. */
+        states[death] = (state_t){
+            .sprite = pud, .frame = 0, .count = 1, .tics = 1,
+            .action = A_W2_Collapse, .nextstate = 0, .group = W2_GROUP_DEATH,
+        };
+        unit->deathstate = death;
+    } else if (fall_count >= 3) {
+        /* Two falling frames, a long rest on the ground, then the decay
+         * frames (knights, ogres) before the corpse is removed. */
+        states[death] = (state_t){
+            .sprite = pud, .frame = fall_first, .count = 2, .tics = 3,
+            .nextstate = death + 1, .group = W2_GROUP_DEATH,
+        };
+        states[death + 1] = (state_t){
+            .sprite = pud, .frame = fall_first + 2, .count = 1, .tics = 100,
+            .nextstate = fall_count > 3 ? death + 2 : 0, .group = W2_GROUP_DEATH,
+        };
+        if (fall_count > 3)
+            states[death + 2] = (state_t){
+                .sprite = pud, .frame = fall_first + 3, .count = fall_count - 3, .tics = 200,
+                .nextstate = 0, .group = W2_GROUP_DEATH,
+            };
+        unit->deathstate = death;
+    } else {
+        unit->deathstate = 0; /* No death art: the engine removes it at once. */
+    }
+}
+
 void w2_limit_walk(int pud, int phases) {
     if (pud < 0 || pud >= W2_TYPE_COUNT) return;
     int stand = stand_state(pud);
     int walk = stand + 1;
+    build_combat_states(pud, phases);
     if (phases < 2) {
         mobjinfo[pud + 1].seestate = stand;
         return;
@@ -1838,20 +1925,24 @@ void w2_build_info(void) {
     for (int pud = 0; pud < W2_TYPE_COUNT; ++pud) {
         mobjinfo_t *unit = &mobjinfo[pud + 1];
         bool mobile = (unit->w2.flags & W2_MOBILE) != 0;
+        bool fighter = (unit->w2.attributes & W2_CAN_ATTACK) && unit->damage > 0;
         int stand = stand_state(pud);
         int walk = stand + 1;
         sprnames[pud] = unit->name;
+        /* Fighters glance around every few tics (Doom's A_Look cadence). */
         states[stand] = (state_t){
-            .sprite = pud, .frame = 0, .count = 1, .tics = -1,
-            .nextstate = stand, .group = 0,
+            .sprite = pud, .frame = 0, .count = 1, .tics = fighter ? 4 : -1,
+            .action = fighter ? A_Look : NULL,
+            .nextstate = stand, .group = W2_GROUP_STAND,
         };
         states[walk] = (state_t){
             .sprite = pud, .frame = 1, .count = 4, .tics = W2_WALK_TICS,
             .action = mobile ? A_Chase : NULL,
-            .nextstate = walk, .group = 2,
+            .nextstate = walk, .group = W2_GROUP_WALK,
         };
         unit->spawnstate = stand;
         unit->seestate = mobile ? walk : stand;
+        build_combat_states(pud, w2_phases[pud]);
     }
     static const int chop_frames[] = { 5, 6, 7, 8, 9, 5, 5 };
     static const int chop_tics[] = { 3, 3, 3, 5, 3, 7, 1 };

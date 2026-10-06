@@ -31,6 +31,12 @@ static void fill_actors(void) {
         if (src->w2.flags & W2_AIR) traits |= MF_FLY;
         if (src->w2.flags & W2_HARVEST) traits |= MF_HARVESTER;
         if (src->w2.store_mask) traits |= MF_RESOURCE_BASE;
+        /* Fighters look for enemies; cowards (workers) hit only what they
+         * are sent at. Towers stand and shoot like turrets. */
+        if ((src->w2.attributes & W2_CAN_ATTACK) && src->damage > 0) {
+            traits |= MF_ATTACK;
+            if (src->w2.attributes & W2_COWARD) traits |= MF_NOAUTOTARGET;
+        }
         uint8_t move = 0;
         if (!(src->w2.flags & W2_STRUCTURE)) {
             if (src->w2.flags & W2_AIR) move = 3;
@@ -47,6 +53,7 @@ static void fill_actors(void) {
             .sight = { .day = sight, .night = sight, .airborne = (src->w2.flags & W2_AIR) != 0 },
             .attack = { .range = src->w2.attack_range, .damage = src->damage },
             .move_class = move,
+            .footprint = src->w2.footprint,
         };
         for (int resource = 0; resource < 3; ++resource)
             dst->harvest.resources[resource].capacity = src->w2.gather[resource].capacity;
@@ -57,6 +64,7 @@ void G_InitGame(void) {
     w2_build_info();
     fill_actors();
     w2_init_products();
+    W2_SeedCombat(0x9E3779B9u);
 }
 
 bool G_DoLoadLevel(const char *path, level_t *out) {

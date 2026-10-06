@@ -268,7 +268,7 @@ but a complete 1:1 retail match must not be claimed from these tests.
 | Warcraft hid its state/type tables behind static game-prefixed storage | Uses `states`, `mobjinfo`, `sprnames` and shared stable mobj ownership, as Dark Colony/Doom do. Carrier definitions are built from native GRPs by the loader. |
 | Empty `VER`/`ERA` sections could read payload byte zero without a span | Both now require nonempty payloads. |
 | Building placement still directly spawns/spends from the HUD | **Remaining P1:** move construction into deterministic tic commands before Warcraft multiplayer is supported. Dark Colony queues simulation work separately from HUD input. |
-| Combat flags/actions and campaign AI remain absent | **Remaining P1:** displayed Attack is not a playable combat implementation. Warcraft has no skirmish AI features; combat/AI shared suites are not enabled for this game. |
+| Combat flags/actions and campaign AI remain absent | Fighters carry `MF_ATTACK` and attack/death state rows built from the retail GRP phase layout with the Wargus waits; damage is Stratagus' `CalculateDamageStats` roll with research applied; range is Warcraft's tile distance to the target footprint (shared `mobjtype_t.footprint`); destroyed buildings free their cells. Research (sword/axe, arrow/throwing axe, shield lines) and hall upgrades (keep/castle, stronghold/fortress) run through the shared production queue with the pinned Wargus costs, times and dependencies. `test_combat`, `test_research`, the shared retaliation suite and HUD button checks cover it. **Remaining P1:** no skirmish AI features; AI shared suites stay excluded. |
 | Patrol, stand ground, repair, save/load/options are visible placeholders | **Remaining P2:** no retail behavior is claimed; Dark Colony has real native menu actions and mission state. |
 | Exact retail delays, minimap and several HUD states lack original-runtime evidence | **Remaining P2:** native asset tests and a Wargus layout are insufficient to certify complete 1:1 fidelity. |
 
@@ -288,8 +288,9 @@ stumps, repeat gathering, cargo retargeting, orders, invalid moves, missing
 or destroyed depots, tree competition, multiple miners, enclosed deposits,
 player-wide bonuses and atomic
 training costs. The Warcraft target also runs shared facing, speed,
-image, menu-item, navigation, video and waypoint tests. Tests that require
-Warcraft combat/AI or the engine fallback menu are excluded explicitly.
+image, menu-item, navigation, retaliation, video and waypoint tests. Tests
+that require Warcraft skirmish AI or the engine fallback menu are excluded
+explicitly.
 LAN tests require permission to bind local sockets in restricted runners.
 
 ## Complete base unit catalog audit (2026-10-04)
