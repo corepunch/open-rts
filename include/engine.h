@@ -2293,7 +2293,8 @@ void M_MenuQuitGame(menu_t *menu, menuitem_t *item, menuaction_t action);
 menu_t *M_SimpleControlPanel(menu_t *menu);
 
 /* What the HUD shows. The driver sets it before the HUD takes an event,
- * ticks or draws. */
+ * ticks or draws. Its pointers are borrowed, so G_ShutdownHUD clears it
+ * before their owners free them. */
 typedef struct {
     mobj_t *const *units;
     int unit_count;

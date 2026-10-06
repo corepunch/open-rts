@@ -612,6 +612,7 @@ menu_t *G_InitHUD(app_t *app, const char *root) {
 }
 
 void G_ShutdownHUD(void) {
+    hudview = (hudview_t){0};
     for (int i = 0; i < 15; ++i) R_FreeSprite(&drhud.images[i]);
     if (drhud.icons)
         for (int i = 0; i < dr_menu_product_count; ++i) R_FreeSprite(&drhud.icons[i]);
