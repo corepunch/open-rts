@@ -670,6 +670,7 @@ struct gameinfo_s {
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
     bool select_any; /* With nothing of yours selected, a click can inspect any unit. */
     bool f10_menu; /* F10 opens the control panel instead of the resource cheat. */
+    bool instant_turn; /* Units snap to a new facing instead of turning over time. */
     harvestdropoffmatchf_t harvest_dropoff_matches;
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */

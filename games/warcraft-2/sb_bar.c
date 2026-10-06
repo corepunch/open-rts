@@ -699,8 +699,9 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
         if (completed > 100) completed = 100;
         V_FillRect((irect_t){rect.x + 12, rect.y + 153, 152 * completed / 100, 14},
                    V_NearestIndex(0xff306404u));
-        snprintf(hp, sizeof(hp), "%d%% Complete", completed);
-        draw_ink(rect.x + 50, rect.y + 154, hp);
+        /* The native bar shows progress only by fill; the label has no number. */
+        const char *label = "% Complete";
+        draw_ink(rect.x + 12 + (152 - V_TextWidth(&art.font, label)) / 2, rect.y + 154, label);
     }
 }
 

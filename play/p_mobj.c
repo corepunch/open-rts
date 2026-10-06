@@ -208,6 +208,11 @@ static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourceven
 }
 
 static bool turn_unit_toward(mobj_t *unit, angle_t desired, int dt_ms) {
+    if (gameinfo && gameinfo->instant_turn) {
+        unit->core.angle = desired;
+        unit->movement.turn_timer_ms = 0;
+        return true;
+    }
     if (unit->info && unit->info->turn_step) {
         angle_t step = unit->info->turn_step;
         int32_t delta = (int32_t)(desired - unit->core.angle);

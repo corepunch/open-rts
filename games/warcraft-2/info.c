@@ -1891,6 +1891,7 @@ void w2_build_info(void) {
         .right_click_orders = true,
         .select_any = true,
         .f10_menu = true,
+        .instant_turn = true,
     };
 }
 
