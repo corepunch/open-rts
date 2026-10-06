@@ -4,11 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Title and the in-level game menu sit on the left. The title uses the
- * REZDAT screen; the game menu uses panel 1, not the centered Wargus box. */
+/* The title is REZDAT entry 13 with the retail five-button column: 224x28
+ * buttons at x 208, rows from y 240 every 36 pixels, below the top-left logo.
+ * The in-level game menu uses panel 1 on the left, not the centred Wargus box. */
 
 enum {
-    TITLE_START, TITLE_QUIT, TITLE_COUNT
+    TITLE_SINGLE, TITLE_MULTI, TITLE_INTRO, TITLE_CREDITS, TITLE_EXIT, TITLE_COUNT
 };
 enum {
     GAME_PANEL, GAME_LABEL, GAME_SAVE, GAME_LOAD, GAME_OPTIONS, GAME_HELP,
@@ -18,20 +19,24 @@ enum {
 static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void end_scenario(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action);
 
 static w2_menu_art_t art;
+#define TITLE_BUTTON(row, label, key, action, note) { \
+        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = key, \
+        .rect = { 208, 240 + 36 * (row), 224, 28 }, .text = label, \
+        .align = MALIGN_CENTER, .ink = 0xffffe84au, .routine = action, .userdata = note }
 static menuitem_t title_items[TITLE_COUNT] = {
-    [TITLE_START] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true,
-        .rect = { 16, 200, 224, 28 }, .text = "START GAME", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = M_MenuBeginLevel,
-    },
-    [TITLE_QUIT] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true,
-        .rect = { 16, 248, 224, 28 }, .text = "QUIT GAME", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = M_MenuQuitGame,
-    },
+    [TITLE_SINGLE] = TITLE_BUTTON(0, "Single Player Game", SDLK_s, single_player, NULL),
+    [TITLE_MULTI] = TITLE_BUTTON(1, "Multi Player Game", SDLK_m, menu_note,
+                                 "Start a network game with --host or --join."),
+    [TITLE_INTRO] = TITLE_BUTTON(2, "Replay Introduction", SDLK_r, menu_note,
+                                 "The introduction is not played in this build."),
+    [TITLE_CREDITS] = TITLE_BUTTON(3, "Show Credits", SDLK_h, menu_note,
+                                   "Credits are not shown in this build."),
+    [TITLE_EXIT] = TITLE_BUTTON(4, "Exit Program", SDLK_x, M_MenuQuitGame, NULL),
 };
+#undef TITLE_BUTTON
 static menuitem_t game_items[GAME_COUNT] = {
     [GAME_PANEL] = { .visible = true, .opaque = true, .rect = { 0, 96, 256, 288 } },
     [GAME_LABEL] = {
@@ -87,6 +92,11 @@ static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action == MA_ACTIVATE && item->userdata) M_StartMessage(item->userdata);
 }
 
+/* Not M_MenuBeginLevel itself: the simple panel relabels that button. */
+static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    M_MenuBeginLevel(menu, item, action);
+}
+
 static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)item;
     if (action == MA_ACTIVATE && level.width) M_ClearMenus();
@@ -115,7 +125,13 @@ static void bind_widget(menuitem_t *item, const spritesheet_t *sheet, int normal
     item->sheet = sheet && sheet->numlumps > pressed ? sheet : NULL;
     item->opaque = true;
     item->font = art.font.sprite.numlumps ? &art.font : NULL;
+    /* Yellow text with a white hotkey letter; all white under the pointer,
+     * and pressed text sits one pixel right and down. */
     item->ink = 0xffffe84au;
+    item->hotkey_ink = 0xffffffffu;
+    item->look[MS_FOCUS].ink = 0xffffffffu;
+    item->look[MS_PUSHED].ink = 0xffffffffu;
+    item->look[MS_PUSHED].shift = (ivec2_t){1, 1};
     item->align = MALIGN_CENTER;
     item->stretch = false;
     item->fill = item->sheet ? 0 : 0xff18242du;
@@ -139,8 +155,9 @@ menu_t *G_ControlPanel(app_t *app, bool inlevel) {
     (void)app;
     const bitmapfont_t *font = art.font.sprite.numlumps ? &art.font : NULL;
     if (!inlevel) {
-        bind_widget(&title_items[TITLE_START], &art.widgets[0], 16, 17);
-        bind_widget(&title_items[TITLE_QUIT], &art.widgets[0], 16, 17);
+        /* The front end is drawn as the orc side (Wargus SetDefaultRaceView). */
+        for (int i = 0; i < TITLE_COUNT; ++i)
+            bind_widget(&title_items[i], &art.widgets[1], 16, 17);
         title_menu.background = art.title.numlumps ? &art.title : NULL;
         title_menu.palette = art.title.numlumps ? art.title.source_palette : NULL;
         return M_SimpleControlPanel(&title_menu);

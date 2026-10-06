@@ -2119,6 +2119,8 @@ typedef struct {
     irect_t part; /* a rectangle of that cell; empty means all of it */
     int palette;  /* palette map of the sheet and of the font, or -1 */
     const bitmapfont_t *font; /* text in this state; NULL uses the item's font */
+    uint32_t ink; /* text colour in this state; 0 uses the item's ink */
+    ivec2_t shift; /* text offset in this state, such as a pressed button's */
 } menulook_t;
 
 /* Where text sits in its rect. A zero width or height centres on that edge. */
@@ -2173,6 +2175,7 @@ struct menuitem_s {
     int light;   /* 1..15 darkens the picture, in sixteenths; 0 is full light */
     const bitmapfont_t *font;
     uint32_t ink; /* 0xAARRGGBB text colour; 0 draws through the palette map */
+    uint32_t hotkey_ink; /* the hotkey's first letter in the text; 0 leaves it */
     char text[128];
     /* Long text wrapped in the rect, in the font's own colours. A list shows
      * it while it has no rows. */

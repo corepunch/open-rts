@@ -1,5 +1,6 @@
 #include "engine.h"
 
+#include <ctype.h>
 #include <string.h>
 
 static char message[256];
@@ -422,10 +423,10 @@ static const bitmapfont_t *state_font(const menuitem_t *item, menustate_t state)
 /* Text takes its colour from the ink, or from the state's palette map; a
  * font with its own palette is matched into the screen's. */
 static const uint8_t *text_remap(const menuitem_t *item, const bitmapfont_t *font,
-                                 menustate_t state, uint8_t tint[256]) {
+                                 menustate_t state, uint32_t ink, uint8_t tint[256]) {
     const uint32_t *colours = font->sprite.source_palette;
-    if (item->ink) {
-        V_ModulateRemap(tint, colours, item->ink);
+    if (ink) {
+        V_ModulateRemap(tint, colours, ink);
         return tint;
     }
     const uint8_t *row = R_PaletteMap(&font->sprite, item->look[state].palette);
@@ -461,9 +462,27 @@ static void draw_text(const menuitem_t *item, menustate_t state, irect_t rect, b
         return;
     }
     uint8_t tint[256];
-    const uint8_t *remap = text_remap(item, font, state, tint);
+    const menulook_t *look = &item->look[state];
+    uint32_t ink = look->ink ? look->ink : item->ink;
+    const uint8_t *remap = text_remap(item, font, state, ink, tint);
     ivec2_t at = text_origin(item, rect, (isize2_t){V_TextWidth(font, item->text), font->glyph_size.h});
+    at = ivec2_add(at, look->shift);
     V_DrawText(at, font, item->text, remap);
+    /* The hotkey's letter is redrawn over itself in its own colour: the first
+     * capital that matches, else the first small letter ("Scenario Objectives",
+     * "Select Scenario"). */
+    const char *key = NULL;
+    if (item->hotkey_ink && item->hotkey > 0 && item->hotkey < 128 && isalpha((int)item->hotkey)) {
+        key = strchr(item->text, toupper((int)item->hotkey));
+        if (!key) key = strchr(item->text, tolower((int)item->hotkey));
+    }
+    if (key && ink != item->hotkey_ink) {
+        char prefix[sizeof(item->text)], letter[2] = {*key, 0};
+        snprintf(prefix, sizeof(prefix), "%.*s", (int)(key - item->text), item->text);
+        uint8_t key_tint[256];
+        V_DrawText((ivec2_t){at.x + V_TextWidth(font, prefix), at.y}, font, letter,
+                   text_remap(item, font, state, item->hotkey_ink, key_tint));
+    }
     /* Engine behaviour: the field being edited ends in an underscore. */
     if (caret && font->glyph_index['_'] >= 0)
         V_DrawText((ivec2_t){at.x + V_TextWidth(font, item->text), at.y}, font, "_", remap);
@@ -486,7 +505,7 @@ static void draw_list(const menu_t *menu, const menuitem_t *item, irect_t rect) 
             if (selected && item->color) V_FillRect(line, V_NearestIndex(item->color));
             if (font && item->row)
                 V_DrawText(ivec2_add((ivec2_t){line.x, line.y}, item->inset), font,
-                           item->row(item, row), text_remap(item, font, state, tint));
+                           item->row(item, row), text_remap(item, font, state, item->ink, tint));
         }
     }
     if (item->ownerdraw) item->ownerdraw(menu, item, rect);
