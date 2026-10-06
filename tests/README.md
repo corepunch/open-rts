@@ -10,6 +10,8 @@ tests/
     dark-reign/          — Dark Reign headless model tests (auto-discovered test_*.c)
     7legion/             — 7th Legion headless model tests (auto-discovered test_*.c)
     kknd/                — KKnD headless model tests (auto-discovered test_*.c)
+    warcraft-2/          — Warcraft II headless model tests (auto-discovered test_*.c)
+    shared/              — Engine suites every game links and runs (nav, video, menus, retaliation...)
     cross-game/          — Dual-plugin / cross-game integration tests (e.g., test_model_commands.c)
     test_dark_colony_sprite_layout.c — Sprite layout data alignment test
 ```
@@ -31,6 +33,7 @@ make test-dark-colony
 make test-dark-reign
 make test-7legion
 make test-kknd
+make test-warcraft-2
 
 # Run model command lifecycle tests across games
 make test-model-commands

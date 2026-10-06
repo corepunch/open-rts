@@ -476,32 +476,69 @@ bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
     return !P_IsAlly(attacker, victim) && P_CanDamage(attacker, victim);
 }
 
+/* The cells an actor stands on: its footprint around its centre, or the
+ * one cell under a point actor. */
+static irect_t mobj_cells(const mobj_t *unit) {
+    fvec2_t centre = fixed3_xy_to_fvec2(unit->core.position);
+    isize2_t foot = unit->info ? unit->info->footprint : (isize2_t){0, 0};
+    if (foot.w <= 0 || foot.h <= 0) {
+        ivec2_t cell = fvec2_cell(centre);
+        return (irect_t){cell.x, cell.y, 1, 1};
+    }
+    return (irect_t){(int)floorf(centre.x - foot.w * 0.5f + 0.001f),
+                     (int)floorf(centre.y - foot.h * 0.5f + 0.001f), foot.w, foot.h};
+}
+
+/* Range to a footprint is Warcraft's tile distance: the gap between the two
+ * cell rectangles, so every neighbouring cell is one away. Point targets keep
+ * the centre distance that the other games tune their weapons by. */
+static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, float range) {
+    if (target->info && target->info->footprint.w > 0 && target->info->footprint.h > 0) {
+        irect_t a = mobj_cells(attacker), b = mobj_cells(target);
+        int dx = b.x > a.x + a.w - 1 ? b.x - (a.x + a.w - 1) :
+                 a.x > b.x + b.w - 1 ? a.x - (b.x + b.w - 1) : 0;
+        int dy = b.y > a.y + a.h - 1 ? b.y - (a.y + a.h - 1) :
+                 a.y > b.y + b.h - 1 ? a.y - (b.y + b.h - 1) : 0;
+        return (float)(dx > dy ? dx : dy) <= range;
+    }
+    return fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
+                                  fixed3_xy_to_fvec2(attacker->core.position)) <= range * range;
+}
+
+bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
+    if (!attacker || !target) return false;
+    return within_attack_range(attacker, target, mobj_attack_range(attacker));
+}
+
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
     if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         mobj_attack_damage(attacker) == 0)
         return NULL;
-    float range2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
+    float range = mobj_attack_range(attacker);
     mobj_t *target = attacker->attack.target;
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
         P_CanTarget(attacker, target) &&
-        fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
-                               fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
+        within_attack_range(attacker, target, range))
         return target;
     if (attacker->traits & MF_NOAUTOTARGET) return NULL;
     target = NULL;
+    float best2 = range * range + 1.0f;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
+        /* Neutral things (mines, critters) are attacked only on order. */
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
+            candidate->allegiance == ALLEGIANCE_NEUTRAL ||
             !P_CanTarget(attacker, candidate) ||
-            !P_VisibleTo(attacker, candidate)) continue;
+            !P_VisibleTo(attacker, candidate) ||
+            !within_attack_range(attacker, candidate, range)) continue;
         float dist2 = fvec2_distance_squared(
             fixed3_xy_to_fvec2(candidate->core.position),
             fixed3_xy_to_fvec2(attacker->core.position));
-        if (dist2 <= range2) { range2 = dist2; target = candidate; }
+        if (!target || dist2 < best2) { best2 = dist2; target = candidate; }
     }
     return target;
 }
@@ -1207,8 +1244,7 @@ static void tick_actor(mobj_t *u) {
             enemy && !enemy->remove && enemy->hp > 0 && !P_IsAlly(u, enemy) &&
             P_VisibleTo(u, enemy)) {
             fvec2_t goal = fixed3_xy_to_fvec2(enemy->core.position);
-            float range = mobj_attack_range(u);
-            if (fvec2_distance_squared(fixed3_xy_to_fvec2(u->core.position), goal) > range * range &&
+            if (!within_attack_range(u, enemy, mobj_attack_range(u)) &&
                 (!moving || !ivec2_equal(fvec2_cell(u->movement.goal), fvec2_cell(goal))))
                 moving = P_MoveUnitTo(map, u, goal);
         }

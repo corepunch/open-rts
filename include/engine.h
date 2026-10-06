@@ -239,6 +239,7 @@ typedef struct blob_s {
 #endif
 #define MAX_PATH_CELLS 4096
 #define RTS_TICRATE 30
+#define RTS_MAX_UPGRADE_TYPES 106
 #define WORLD_CLOCK_MS 66 /* DC.EXE's default environment clock. */
 #define FIXED_DT (1.0f / RTS_TICRATE)
 
@@ -434,11 +435,13 @@ typedef struct level_s {
     void *mission;
     void (*destroy_mission)(void *);
     struct nav_s *nav; /* Planner cache (p_nav.c); validates itself against blocked[]. */
+    /* Research tiers by actor type and owner: Dark Colony's DEPEND rows,
+     * Warcraft's weapon and shield lines. Part of the lockstep checksum. */
+    struct { uint8_t weapon, armor; } upgrades[RTS_MAX_UPGRADE_TYPES][8];
 #ifdef RTS_GAME_DARK_COLONY
     uint8_t alliance_offers[2][8];
     uint32_t peace[8];
     struct dc_weapons_s *weapons;
-    struct { uint8_t weapon, armor; } upgrades[106][8];
     struct { uint8_t selected, queued; } purchases[8][110]; /* Native DEPEND rows. */
     int exo_income[8]; /* Credits per 16 native ticks while the base stands (team +0xe1c). */
 #endif
@@ -598,6 +601,9 @@ typedef struct mobjtype_s {
     uint16_t native_type_id;
     uint8_t move_class; /* Terrain speed class (see terrainspeeds_t); 0 = plain. */
     actionf_p1 damage_action;
+    /* Cells the actor occupies. Attack range is measured to this rectangle
+     * in tiles, as Warcraft does; zero keeps the centre-distance rule. */
+    isize2_t footprint;
 } mobjtype_t;
 
 /* A state is a run of `count` consecutive sprite frames sharing one action,
@@ -1335,6 +1341,8 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type);
 bool P_SetMobjState(mobj_t *unit, int state_id);
 bool P_TickMobjState(mobj_t *unit);
 bool P_Attack(mobj_t *attacker);
+/* Whether target lies within attacker's weapon range (see mobjtype_t.footprint). */
+bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target);
 void P_DamageMobj(mobj_t *target, mobj_t *source, int damage);
 angle_t P_PointToAngle(float dx, float dy);
 void P_AngleToVec(angle_t angle, float *dx, float *dy);

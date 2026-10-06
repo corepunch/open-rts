@@ -68,6 +68,7 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
                              mobj_t *const *units, int unit_count, spritecache_t *cache);
 int w2_era_palette(int era);
 void w2_mark_footprint(int x, int y, isize2_t foot);
+void w2_clear_footprint(int x, int y, isize2_t foot);
 bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud);
 
 /* Menu chrome is REZDAT. The in-game panel is MAINDAT. Each screen owns a font. */

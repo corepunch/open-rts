@@ -117,6 +117,12 @@ irect_t G_WorldViewport(const app_t *app) {
     return (irect_t){176 * scale, 16 * scale, w > 0 ? w : 1, h > 0 ? h : 1};
 }
 
+/* Art for a type that first appears mid-game, such as an upgraded hall. */
+void W2_EnsureUnitSprite(int pud) {
+    if (hudview.sprites && root_copy[0])
+        w2_cache_unit_sprite(root_copy, (spritecache_t *)hudview.sprites, pud);
+}
+
 static int icon_of(int pud) {
     if (pud < 0 || pud >= W2_TYPE_COUNT || unit_icon[pud] == 0xff) return -1;
     return unit_icon[pud];
@@ -269,14 +275,54 @@ static void fill_page(const bld_t *page_in, bool orc) {
     }
 }
 
+/* A catalog product as a command, priced from the catalog. */
+static void put_product(int slot, int ui, SDL_Keycode key, const char *tip) {
+    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
+    if (!product) return;
+    put_cmd(slot, CK_TRAIN, product->icon_frame, ui, product->cost,
+            W2_ProductLumber(product), W2_ProductOil(product), key, tip ? tip : product->label);
+}
+
+/* The next tier of a research line, while one is open to the player. */
+static void put_research(int slot, int first_ui, SDL_Keycode key) {
+    for (int ui = first_ui; ui <= first_ui + 1; ++ui) {
+        const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
+        if (!product || !G_ModelProductAvailable(NULL, consoleplayer, product)) continue;
+        put_product(slot, ui, key, NULL);
+        return;
+    }
+}
+
 static void fill_train(const mobj_t *unit) {
     int type = unit->type_id;
+    /* Wargus check-no-research: a busy building offers no more research. */
+    bool busy = unit->production && unit->production->queue_count > 0;
     if (type == 75 || type == 89 || type == 91 || type == 76 || type == 90 || type == 92) {
         bool orc = type == 76 || type == 90 || type == 92;
         int pud = orc ? 3 : 2;
         const int *cost = mobjinfo[pud + 1].w2.costs.resources;
         put_cmd(0, CK_TRAIN, icon_of(pud), orc ? 4 : 3, cost[0], cost[1], cost[2], SDLK_p,
                 orc ? "Train peon" : "Train peasant");
+        static const struct { int type, ui; } halls[] = {
+            { MT_TOWN_HALL, W2_UI_KEEP }, { MT_KEEP, W2_UI_CASTLE },
+            { MT_GREAT_HALL, W2_UI_STRONGHOLD }, { MT_STRONGHOLD, W2_UI_FORTRESS },
+        };
+        for (int i = 0; i < 4 && !busy; ++i) {
+            const StaticProductDefinition *product = G_ModelProductByUIId(NULL, halls[i].ui);
+            if (halls[i].type == type && product && G_ModelProductAvailable(NULL, consoleplayer, product))
+                put_product(1, halls[i].ui, SDLK_u, NULL);
+        }
+        return;
+    }
+    if (type == MT_HUMAN_BLACKSMITH || type == MT_ORC_BLACKSMITH) {
+        bool orc = type == MT_ORC_BLACKSMITH;
+        if (busy) return;
+        put_research(0, orc ? W2_UI_AXE1 : W2_UI_SWORD1, SDLK_w);
+        put_research(1, orc ? W2_UI_ORC_SHIELD1 : W2_UI_HUMAN_SHIELD1, SDLK_a);
+        return;
+    }
+    if (type == MT_ELVEN_LUMBER_MILL || type == MT_TROLL_LUMBER_MILL) {
+        if (!busy) put_research(0, type == MT_TROLL_LUMBER_MILL ? W2_UI_THROWING_AXE1 : W2_UI_ARROW1, SDLK_u);
         return;
     }
     if (type != 61 && type != 62) return;
@@ -375,7 +421,14 @@ static void refresh(menu_t *menu) {
     for (int s = 0; s < MS_STATES; ++s) items[IT_INFO].look[s].cell = info_frame;
     items[IT_TRAIN].visible = training;
     items[IT_TRAIN].sheet = &art.icons;
-    int train_icon = training ? icon_of(portrait->production->actor_id - 1) : -1;
+    int train_icon = -1;
+    if (training) {
+        const production_t *prod = portrait->production;
+        const StaticProductDefinition *product = G_ModelProductByClassType(
+            NULL, prod->product_class, prod->product_type);
+        train_icon = prod->product_class == RTS_PRODUCT_UNIT ? icon_of(prod->actor_id - 1) :
+                     product ? product->icon_frame : -1;
+    }
     for (int s = 0; s < MS_STATES; ++s) items[IT_TRAIN].look[s].cell = train_icon;
     for (int i = 0; i < 9; ++i) {
         menuitem_t *slot = &items[IT_SLOT + i];

@@ -128,8 +128,9 @@ static inline int rts_find_decoration_with_sprite(const RtsRenderSnapshot *snaps
  * event or the frame. */
 static inline bool t_hud_event(menu_t *hud, app_t *app, mobj_t *const *units, int unit_count,
                                const SDL_Event *event) {
-    hudview.units = units;
-    hudview.unit_count = unit_count;
+    /* Replace the whole view: a sprite cache or message log from an earlier
+     * draw may be freed by now, and the HUD reads them while refreshing. */
+    hudview = (hudview_t){.units = units, .unit_count = unit_count};
     return hud && M_MenuResponder(hud, app, event);
 }
 

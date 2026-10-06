@@ -1,5 +1,6 @@
 #include "t_local.h"
 #include "warcraft-2.h"
+#include "info.h"
 #include "w2_local.h"
 
 #define CHECK(c) RTS_CHECK(c, "Warcraft II HUD", #c)
@@ -121,6 +122,102 @@ static int test_info_layouts(menu_t *menu, mobj_t *worker) {
     return 0;
 }
 
+static const menuitem_t *command_slot(const menu_t *menu, int slot) {
+    static const int col_x[3] = { 9, 65, 121 }, cmd_y[3] = { 340, 387, 434 };
+    for (int i = 0; i < menu->numitems; ++i) {
+        const menuitem_t *it = &menu->items[i];
+        if (it->kind == MI_BUTTON && it->rect.x == col_x[slot % 3] && it->rect.y == cmd_y[slot / 3]) return it;
+    }
+    return NULL;
+}
+
+static const menuitem_t *training_slot(const menu_t *menu) {
+    for (int i = 0; i < menu->numitems; ++i)
+        if (menu->items[i].rect.x == 110 && menu->items[i].rect.y == 241) return &menu->items[i];
+    return NULL;
+}
+
+static void relist(mobjlist_t *units) {
+    P_FreeMobjList(units);
+    *units = P_ListMobjs();
+    hudview.units = units->items;
+    hudview.unit_count = units->count;
+}
+
+/* A blacksmith offers the next weapon and shield tiers, hides them while it
+ * researches, and the hall offers its upgrade once the barracks stands. */
+static int test_research_buttons(menu_t *menu, mobjlist_t *units, mobj_t *worker, bool orc) {
+    for (int i = 0; i < units->count; ++i) P_MobjSetSelected(units->items[i], false);
+    fvec2_t at = fvec2_add(fixed3_xy_to_fvec2(worker->core.position), (fvec2_t){3, 3});
+    mobj_t *smith = P_SpawnMobj(fixed3_from_fvec2(at, 0), orc ? MT_ORC_BLACKSMITH : MT_HUMAN_BLACKSMITH);
+    CHECK(smith);
+    smith->owner = (uint8_t)consoleplayer;
+    smith->team = (uint8_t)consoleplayer;
+    smith->allegiance = ALLEGIANCE_PLAYER;
+    relist(units);
+    P_MobjSetSelected(smith, true);
+    M_MenuDrawer(menu);
+    const menuitem_t *weapon = command_slot(menu, 0), *shield = command_slot(menu, 1), *third = command_slot(menu, 2);
+    CHECK(weapon && shield && third && weapon->visible && shield->visible && !third->visible);
+    CHECK(weapon->look[MS_NORMAL].cell == (orc ? 120 : 117) && shield->look[MS_NORMAL].cell == (orc ? 168 : 165));
+    CHECK(weapon->tooltip && !strcmp(weapon->tooltip, orc ? "Upgrade battle axe" : "Upgrade sword"));
+    CHECK(shield->tooltip && !strcmp(shield->tooltip, "Upgrade shield"));
+    RTS_RUN(test_button_frames(menu));
+    int *stock = level.player_resources[consoleplayer];
+    int gold = stock[0], lumber = stock[1];
+    stock[0] = 1000;
+    stock[1] = 500;
+    CHECK(G_BuildOrder(smith, orc ? W2_UI_AXE1 : W2_UI_SWORD1));
+    CHECK(smith->production && smith->production->product_class == RTS_PRODUCT_UPGRADE);
+    CHECK(stock[0] == (orc ? 500 : 200) && stock[1] == (orc ? 400 : 500));
+    M_MenuDrawer(menu);
+    CHECK(!command_slot(menu, 0)->visible && !command_slot(menu, 1)->visible);
+    const menuitem_t *training = training_slot(menu);
+    CHECK(training && training->visible && training->look[MS_NORMAL].cell == (orc ? 120 : 117));
+    W2_ApplyUpgrade(consoleplayer, orc ? W2_UPGRADE_AXE1 : W2_UPGRADE_SWORD1);
+    P_FreeMobjProduction(smith);
+    M_MenuDrawer(menu);
+    CHECK(!training_slot(menu)->visible);
+    CHECK(command_slot(menu, 0)->visible && command_slot(menu, 0)->look[MS_NORMAL].cell == (orc ? 121 : 118));
+    CHECK(command_slot(menu, 1)->visible && command_slot(menu, 1)->look[MS_NORMAL].cell == (orc ? 168 : 165));
+    level.upgrades[orc ? MT_GRUNT : MT_FOOTMAN][consoleplayer].weapon = 0;
+    P_MobjSetSelected(smith, false);
+    /* The map's town hall: its keep button needs a human barracks. */
+    mobj_t *hall = NULL;
+    for (int i = 0; i < units->count; ++i)
+        if (units->items[i]->owner == consoleplayer && units->items[i]->type_id == MT_TOWN_HALL) hall = units->items[i];
+    CHECK(hall);
+    const StaticProductDefinition *keep = G_ModelProductByUIId(NULL, W2_UI_KEEP);
+    bool has_barracks = G_ModelHasActorType(NULL, consoleplayer, MT_HUMAN_BARRACKS);
+    CHECK(G_ModelProductAvailable(NULL, consoleplayer, keep) == has_barracks);
+    P_FreeMobjProduction(hall); /* A hall still training offers no upgrade. */
+    P_MobjSetSelected(hall, true);
+    M_MenuDrawer(menu);
+    CHECK(command_slot(menu, 0)->visible && command_slot(menu, 1)->visible == has_barracks);
+    mobj_t *barracks = NULL;
+    if (!has_barracks) {
+        barracks = P_SpawnMobj(fixed3_from_fvec2(fvec2_add(at, (fvec2_t){4, 0}), 0), MT_HUMAN_BARRACKS);
+        CHECK(barracks);
+        barracks->owner = (uint8_t)consoleplayer;
+        barracks->team = (uint8_t)consoleplayer;
+        barracks->allegiance = ALLEGIANCE_PLAYER;
+        relist(units);
+        M_MenuDrawer(menu);
+    }
+    const menuitem_t *upgrade = command_slot(menu, 1);
+    CHECK(upgrade->visible && upgrade->look[MS_NORMAL].cell == 66 && !strcmp(upgrade->tooltip, "Upgrade to keep"));
+    P_MobjSetSelected(hall, false);
+    stock[0] = gold;
+    stock[1] = lumber;
+    P_RemoveMobj(smith);
+    if (barracks) P_RemoveMobj(barracks);
+    P_RunThinkers();
+    relist(units);
+    P_MobjSetSelected(worker, true);
+    M_MenuDrawer(menu);
+    return 0;
+}
+
 static int test_hud(const char *capture, bool orc) {
     G_InitGame();
     P_InitThinkers();
@@ -203,6 +300,7 @@ static int test_hud(const char *capture, bool orc) {
         if (item->rect.x == 0 && item->rect.y == 160) CHECK(item->look[MS_NORMAL].cell == 1);
     }
     RTS_RUN(test_info_layouts(menu, worker_unit));
+    RTS_RUN(test_research_buttons(menu, &units, worker_unit, orc));
     RTS_RUN(test_minimap(menu, &tiles, worker_unit));
     if (capture) CHECK(save_bmp(capture));
     /* A neutral mine must produce a context harvest command, not an attack. */
@@ -255,6 +353,6 @@ static int test_hud(const char *capture, bool orc) {
 int main(int argc, char **argv) {
     RTS_RUN(test_hud(argc > 1 ? argv[1] : NULL, false));
     RTS_RUN(test_hud(argc > 2 ? argv[2] : NULL, true));
-    puts("PASS: native human/orc HUD pixels, minimap terrain/footprints, resource icons, fonts and anchors");
+    puts("PASS: native human/orc HUD pixels, minimap terrain/footprints, resource icons, fonts, anchors, research and upgrade buttons");
     return 0;
 }

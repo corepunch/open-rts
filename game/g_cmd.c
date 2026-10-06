@@ -270,12 +270,12 @@ uint32_t G_Consistency(void) {
             HASH(level.purchases[owner][row].selected);
             HASH(level.purchases[owner][row].queued);
         }
-    for (int type = 0; type < 106; ++type)
+#endif
+    for (int type = 0; type < RTS_MAX_UPGRADE_TYPES; ++type)
         for (int owner = 0; owner < 8; ++owner) {
             HASH(level.upgrades[type][owner].weapon);
             HASH(level.upgrades[type][owner].armor);
         }
-#endif
     for (int i = 0; i < level.resource_vent_count; ++i) {
         HASH(level.resource_vents[i].amount); HASH(level.resource_vents[i].active);
     }

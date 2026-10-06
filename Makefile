@@ -105,9 +105,9 @@ all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/
 .SECONDARY:
 
 SHARED_MODEL_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c'))
-# Warcraft has its own menu and worker rules; combat and skirmish AI are not
-# implemented yet. Run the applicable shared renderer/navigation/UI suites.
-W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ai*' ! -name 'test_retaliation.c' ! -name 'test_simple_menu.c'))
+# Warcraft has its own menu and worker rules, and no skirmish AI yet. Run the
+# applicable shared renderer/navigation/UI/combat suites.
+W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ai*' ! -name 'test_simple_menu.c'))
 
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))
@@ -294,7 +294,7 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
+test: test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-warcraft-2 test-model-commands test-layout test-loaders
 
 # The C catalog includes private decoders; exclude their separate objects.
 LOADER_CATALOG_SOURCES := $(sort $(shell find tests -maxdepth 1 -name 'loader_catalog.c'))

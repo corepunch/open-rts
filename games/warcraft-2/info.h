@@ -203,6 +203,34 @@ typedef enum {
 #define W2_WORK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + ((pud) - 2) * 8)
 #define W2_WAIT_STATE(pud) (W2_WORK_STATE(pud) + 7)
 #define W2_CARRY_STATE(variant) (1 + W2_TYPE_COUNT * 2 + 16 + (variant) * 2)
-#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2 + 16 + 8)
+/* Per type: attack windup, hit and recovery, then fall, rest and decay. */
+#define W2_ATTACK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + 16 + 8 + (pud) * 6)
+#define W2_DEATH_STATE(pud) (W2_ATTACK_STATE(pud) + 3)
+#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2 + 16 + 8 + W2_TYPE_COUNT * 6)
+
+/* Gameplay animation groups the engine reads (see state_t.group). */
+enum { W2_GROUP_STAND = 0, W2_GROUP_WALK = 2, W2_GROUP_ATTACK = 3, W2_GROUP_DEATH = 4, W2_GROUP_WORK = 5 };
+
+/* Research, in the pinned Wargus upgrade order. Product type of
+ * RTS_PRODUCT_UPGRADE products and the index of W2_Upgrade(). */
+typedef enum {
+    W2_UPGRADE_NONE = 0,
+    W2_UPGRADE_SWORD1, W2_UPGRADE_SWORD2,
+    W2_UPGRADE_AXE1, W2_UPGRADE_AXE2,
+    W2_UPGRADE_ARROW1, W2_UPGRADE_ARROW2,
+    W2_UPGRADE_THROWING_AXE1, W2_UPGRADE_THROWING_AXE2,
+    W2_UPGRADE_HUMAN_SHIELD1, W2_UPGRADE_HUMAN_SHIELD2,
+    W2_UPGRADE_ORC_SHIELD1, W2_UPGRADE_ORC_SHIELD2,
+    W2_UPGRADE_COUNT
+} w2_upgrade_id_t;
+
+/* Catalog ui_ids: units 1..10, then research and hall upgrades. */
+enum {
+    W2_UI_SWORD1 = 11, W2_UI_SWORD2, W2_UI_AXE1, W2_UI_AXE2,
+    W2_UI_ARROW1, W2_UI_ARROW2, W2_UI_THROWING_AXE1, W2_UI_THROWING_AXE2,
+    W2_UI_HUMAN_SHIELD1, W2_UI_HUMAN_SHIELD2, W2_UI_ORC_SHIELD1, W2_UI_ORC_SHIELD2,
+    W2_UI_KEEP, W2_UI_CASTLE, W2_UI_STRONGHOLD, W2_UI_FORTRESS,
+    W2_UI_COUNT
+};
 
 #endif
