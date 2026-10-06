@@ -171,6 +171,10 @@ int main(void) {
     CHECK(game_speed != speed);
     press(SDLK_ESCAPE);
     CHECK(find("Return to Game"));
+    CHECK(click("Help") && find("OK"));
+    press(SDLK_ESCAPE);
+    CHECK(click("Scenario Objectives") && find("OK") && click("OK"));
+    CHECK(find("Return to Game"));
     P_FreeLevel(&level);
     M_Shutdown();
     puts("PASS: Warcraft II title, single player, setup, scenario and campaign pickers, credits");

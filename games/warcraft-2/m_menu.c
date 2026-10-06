@@ -32,6 +32,7 @@ static void end_scenario(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void show_credits(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action);
 
 static w2_menu_art_t art;
 #define TITLE_BUTTON(row, label, key, action, note) { \
@@ -74,13 +75,13 @@ static menuitem_t game_items[GAME_COUNT] = {
     [GAME_HELP] = {
         .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_F1,
         .rect = { 16, 208, 224, 28 }, .text = "Help", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = menu_note,
+        .ink = 0xffffe84au, .routine = open_text, .id = 1,
         .userdata = "Left click selects. Drag selects your units. Right click clears the selection. A click away from your units orders them. F10 opens this menu. WASD pans.",
     },
     [GAME_OBJECTIVES] = {
         .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_o,
         .rect = { 16, 244, 224, 28 }, .text = "Scenario Objectives", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = menu_note,
+        .ink = 0xffffe84au, .routine = open_text, .id = 2,
         .userdata = "Defeat the opposing side.",
     },
     [GAME_END] = {
@@ -567,6 +568,28 @@ static void open_options_screen(menu_t *back, bool inlevel) {
     add_button(s, (irect_t){x + 91, y + 208, 106, 28}, "OK", SDLK_o, A_OPTIONS_OK);
     button_race = 1;
     options_refresh(s);
+    show(&s->menu);
+}
+
+/* Help and Scenario Objectives: a panel over the level with wrapped text. */
+static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    bool help = item->id == 1;
+    int race = side();
+    screen_t *s = &options_screen;
+    options_return = menu;
+    screen_begin(s, NULL, options_escape);
+    irect_t box = add_panel(s, &art.panel[race][help ? W2_PANEL_OPTIONS : W2_PANEL_DIALOG]);
+    button_race = race;
+    add_label(s, (irect_t){box.x, box.y + 11, box.w, 20}, help ? "Help" : "Scenario Objectives",
+              MALIGN_CENTER, false);
+    menuitem_t *prose = screen_add(s, MI_STATIC, (irect_t){box.x + 16, box.y + 40, box.w - 32,
+                                                         box.h - 90});
+    prose->font = large();
+    prose->prose = item->userdata;
+    add_button(s, (irect_t){box.x + (box.w - 106) / 2, box.y + box.h - 44, 106, 28}, "OK", SDLK_o,
+               A_OPTIONS_OK);
+    button_race = 1;
     show(&s->menu);
 }
 
