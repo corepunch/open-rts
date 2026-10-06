@@ -16,23 +16,31 @@ void M_StopMessage(void) {
 /* ── geometry ───────────────────────────────────────────────────────────── */
 
 static isize2_t screen_size(const menu_t *menu) {
-    if (menu->app && menu->app->win.w > 0) return menu->app->win;
-    if (screens[0].w > 0) return (isize2_t){screens[0].w, screens[0].h};
-    return menu->size;
+    isize2_t size = menu->size;
+    if (menu->app && menu->app->win.w > 0) size = menu->app->win;
+    else if (screens[0].w > 0) size = (isize2_t){screens[0].w, screens[0].h};
+    int scale = R_UIScale(menu->app);
+    return (isize2_t){size.w / scale, size.h / scale};
 }
 
 irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item) {
     irect_t r = item->rect;
-    if ((!item->anchor && !menu->stretch) || menu->size.w <= 0 || menu->size.h <= 0) return r;
-    isize2_t screen = screen_size(menu);
-    if (menu->stretch)
-        return (irect_t){r.x * screen.w / menu->size.w, r.y * screen.h / menu->size.h,
-                         r.w * screen.w / menu->size.w, r.h * screen.h / menu->size.h};
-    int dx = screen.w - menu->size.w, dy = screen.h - menu->size.h;
-    if (item->anchor & MANCHOR_RIGHT) r.x += dx;
-    if (item->anchor & MANCHOR_BOTTOM) r.y += dy;
-    if (item->anchor & MANCHOR_GROW) r.h += dy;
-    return r;
+    if (menu->size.w > 0 && menu->size.h > 0) {
+        isize2_t screen = screen_size(menu);
+        if (menu->stretch)
+            r = (irect_t){r.x * screen.w / menu->size.w, r.y * screen.h / menu->size.h,
+                           r.w * screen.w / menu->size.w, r.h * screen.h / menu->size.h};
+        else {
+            int dx = screen.w - menu->size.w, dy = screen.h - menu->size.h;
+            if (item->anchor & MANCHOR_RIGHT) r.x += dx;
+            if (item->anchor & MANCHOR_BOTTOM) r.y += dy;
+            if (item->anchor & MANCHOR_GROW) r.h += dy;
+            if (item->anchor & MANCHOR_WIDE) r.w += dx;
+        }
+    }
+    int scale = R_UIScale(menu->app), drawing = V_GetDrawScale();
+    return (irect_t){r.x * scale / drawing, r.y * scale / drawing,
+                     r.w * scale / drawing, r.h * scale / drawing};
 }
 
 static bool item_live(const menuitem_t *item) {
@@ -293,7 +301,7 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
     menu->held = hit;
     if (hit->kind == MI_LIST)
         select_row(menu, hit, hit->first_row + (menu->cursor.y - M_MenuItemRect(menu, hit).y) /
-                   (hit->row_height > 0 ? hit->row_height : 1));
+                   ((hit->row_height > 0 ? hit->row_height : 1) * R_UIScale(app)));
     else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
     else if (hit->kind == MI_MINIMAP) {
         S_StartUISound(UI_SOUND_CLICK);
@@ -393,7 +401,7 @@ static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     if (item->kind == MI_CHECK && item->value) return MS_PUSHED;
     if (!item_live(item)) return MS_NORMAL;
     if (menu->held == item) return MS_PUSHED;
-    return item == focused(menu) ? MS_FOCUS : MS_NORMAL;
+    return item == focused(menu) || menu->target == item ? MS_FOCUS : MS_NORMAL;
 }
 
 static void draw_picture(const menuitem_t *item, menustate_t state, irect_t rect) {
@@ -443,7 +451,7 @@ static void draw_text(const menuitem_t *item, menustate_t state, irect_t rect, b
         ivec2_t at = text_origin(item, rect, (isize2_t){(int)strlen(item->text) * 6, 7});
         V_DrawSmallText((irect_t){at.x, at.y, rect.w - item->inset.x, 7}, item->text,
                         item->ink ? item->ink : 0xffdce6dcu,
-                        (isize2_t){screens[0].w, screens[0].h});
+                        V_DrawSize());
         return;
     }
     if (item->prose) {
@@ -508,9 +516,17 @@ static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
     if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     menustate_t state = item_state(menu, item);
     draw_picture(item, state, rect);
+    if (item->frame.outer)
+        V_DrawRectOutline((irect_t){rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4},
+                          V_NearestIndex(item->frame.outer));
+    if (item->frame.inner)
+        V_DrawRectOutline((irect_t){rect.x - 1, rect.y - 1, rect.w + 2, rect.h + 2},
+                          V_NearestIndex(item->frame.inner));
     if (item->border) V_DrawRectOutline(rect, V_NearestIndex(item->border));
     if (is_button(item) && item->color && state != MS_NORMAL)
-        V_DrawRectOutline(rect, V_NearestIndex(item->color));
+        V_DrawRectOutline(item->frame.outer ?
+                          (irect_t){rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4} : rect,
+                          V_NearestIndex(item->color));
     if (item->ownerdraw) item->ownerdraw(menu, item, rect);
     else if (is_button(item)) draw_text(item, state, rect, false);
 }
@@ -532,7 +548,7 @@ static void draw_content(const menu_t *menu, const menuitem_t *item) {
 }
 
 static void draw_message(void) {
-    isize2_t space = {screens[0].w, screens[0].h};
+    isize2_t space = V_DrawSize();
     irect_t box = {space.w / 8, space.h / 3, space.w * 3 / 4, space.h / 3};
     V_FillRect(box, V_NearestIndex(0xff0c1216u));
     V_DrawRectOutline(box, V_NearestIndex(0xffdce6dcu));
@@ -563,6 +579,9 @@ static void draw_message(void) {
  * scroll bars draw over them, and the tooltip over everything. A layer item
  * starts the same again over all that came before it. */
 void M_MenuDrawer(menu_t *menu) {
+    int previous = V_GetDrawScale();
+    irect_t clip = V_GetClip();
+    V_SetDrawScale(R_UIScale(menu->app));
     if (menu->refresh) menu->refresh(menu);
     if (menu->palette) I_SetPalette(menu->palette);
     if (menu->background && menu->background->numlumps) {
@@ -577,4 +596,6 @@ void M_MenuDrawer(menu_t *menu) {
     const menuitem_t *hover = M_MenuHover(menu);
     if (hover && hover->tooltip && menu->drawtip) menu->drawtip(menu, hover);
     if (menu->modal && message[0]) draw_message();
+    V_SetDrawScale(previous);
+    V_SetClip(clip);
 }

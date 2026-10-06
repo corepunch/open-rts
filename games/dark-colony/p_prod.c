@@ -836,6 +836,9 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count
             spawned = true;
             producer = units[i];
             dc_advance_production_queue(producer);
+            /* The last finished unit frees the queue. */
+            production = producer->production;
+            if (!production) break;
         }
     }
     return spawned;

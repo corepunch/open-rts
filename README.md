@@ -194,6 +194,16 @@ colors without duplicating terrain tiles. It does not
 require OpenGL or palette shaders. SDL handles presentation of the completed
 framebuffer to the window.
 
+All games default to a 1280×960 window with the HUD and menus enlarged 2×.
+Terrain and world sprites stay at native pixel size, so the larger window shows
+twice as much world in each direction. Resizing changes the world framebuffer;
+the UI uses whole-number scaling based on the window size. `--window 640x480`
+uses the native UI size.
+
+This engine presentation feature is guarded by `RTS_NATIVE_WORLD`, enabled by
+default in the Makefile. To restore the fixed 640×480 framebuffer and whole-frame
+window scaling, rebuild with `make clean` followed by `make NATIVE_WORLD=0`.
+
 If the map renders the same tile everywhere on a particular machine (Metal/GPU driver bug),
 force the SDL software renderer:
 

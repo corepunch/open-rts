@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
     strcpy(map_name, map_arg);
 
     renderer_t renderer;
-    app_t app = { .win = { 640, 480 } };
+    app_t app = { .win = { DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT } };
     isize2_t window_size = window.w > 0 ? window : app.win;
     app.show_grid = false;
     app.running = true;
@@ -331,9 +331,11 @@ load_level:
     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
     S_Start(&level, data_root);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag/order, right deselect, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: %s, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
-           level.decoration_count, level.resource_vent_count);
+           level.decoration_count, level.resource_vent_count,
+           gameinfo && gameinfo->right_click_orders ? "left select/drag, right order" : "left select/drag/order, right deselect",
+           (gameinfo && gameinfo->f10_menu) ? "F10 menu" : "F10 +100 resources");
 
     menu_t *hud = G_InitHUD(&app, data_root);
     AiContext ai;
@@ -375,7 +377,7 @@ load_level:
 
             R_DrawGridOverlay(&app, &level);
             R_DrawFog(&app, &level);
-            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (hud) M_MenuDrawer(hud);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
@@ -427,13 +429,17 @@ load_level:
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (D_MenuResponder(&app, &e, hud)) {
                 if (menumap || menuleave || !app.running) break;
                 continue;
             }
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
                 e.key.keysym.sym == SDLK_F10) {
+                if (gameinfo && gameinfo->f10_menu) {
+                    M_StartControlPanel(&app);
+                    continue;
+                }
                 if (netgame) continue;
                 level.player_resources[consoleplayer][0] += 100;
                 HU_PushMessage(&hud_text, "CHEAT: +100 RESOURCES", 2000);
@@ -540,7 +546,7 @@ load_level:
             HU_Ticker(&hud_text, FIXED_DT);
             HU_Ticker(&chat_text, FIXED_DT);
             if (hud) {
-                hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+                hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
                 if (hud->ticker) hud->ticker(hud);
                 else M_MenuTicker(hud);
             }
@@ -577,7 +583,7 @@ load_level:
         R_DrawFog(&app, &level);
         if (app.dragging_select)
             V_DrawRectOutline(app.selection_rect, V_NearestIndex(0xff62e0a1u));
-        hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+        hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
         if (hud) M_MenuDrawer(hud);
         M_Drawer(&app);
         renderer_end_frame(&renderer);
@@ -646,7 +652,13 @@ help:
            "  --sprite <path>        Default sprite asset\n"
            "  --software            Use the software renderer\n"
            "  --nosound             Disable sound effects\n"
-           "  --window <WxH>         Initial window size, e.g. 1280x960; default 640x480\n"
+           "  --window <WxH>         Initial window size (default "
+#ifdef RTS_NATIVE_WORLD
+           "1280x960"
+#else
+           "640x480"
+#endif
+           ")\n"
            "  --check | --screenshot <file.bmp>   Offline smoke check\n"
            "  --net-check <tics>     Run a bounded headless simulation\n"
            "  --net <1..4> <peers...>  Legacy manual peer setup\n"

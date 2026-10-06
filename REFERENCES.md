@@ -1661,3 +1661,185 @@ existing r2/r2ghidra `reverse/dc-exe-r2ghidra/all-instructions.txt`:
 `0x43de94`, `0x4387d7` (race/phase direct-hit penalty), with the native
 `*.RMP` banks. No external source was used.
 [Findings, hashes and commands](docs/DC_EXE_FINDINGS.md#night-terrain-selector-and-daynight-direct-hit-damage-2026-10-02).
+
+### Dark Colony larger sight and fog performance (2026-10-03)
+
+Retail executable fingerprint above; fresh C extraction from `0x483fbc`,
+existing r2/r2ghidra listings at `0x446240..0x44625e` (day/night radius),
+`0x418b54` (sight cadence), and `0x418c55..0x418c8f` (independent base income).
+The executable is available in the primary checkout at
+`/Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE`. The larger radius and
+30 Hz refresh are requested engine behavior.
+[Evidence, corrected doubling defect, native parent rule and benchmarks](docs/DC_EXE_FINDINGS.md#sight-radius-audit-and-fast-fog-refresh-2026-10-03).
+
+The user-provided [Warcraft 2000: Nuclear Epidemic source](https://github.com/agend/warcraft-2000-nuclear-epidemic),
+local `/Users/igor/Developer/warcraft-2000-nuclear-epidemic`, commit
+`018cf4b7c7c502ebe51505ea3dd5588e8ae32e48`: `fog.cpp` (`LoadFog`,
+`ShowSuperFluentFog32_160`, `ShowSuperFog`, `ProcessFog`) and `Nation.cpp`
+(`OneObject::MakePreProcess`). Used as a performance comparison for palette
+lookups, uniform-tile fast paths and direct framebuffer writes. Its scalar
+vision diffusion and spot stamping are not Dark Colony visibility rules.
+
+The later user revision restores retail sight distances and sets fog refresh
+to 10 Hz; the 2x distance and 30 Hz policy in the preceding entries is
+superseded. The C extractor now emits only the verified 317-node native tree.
+[Current policy and checks](docs/DC_EXE_FINDINGS.md#current-fog-policy-retail-distances-and-10-hz-refresh-2026-10-03).
+
+### Warcraft II PUD and MAINDAT (2026-10-03)
+
+Retail `data/WAR2/DATA/MAINDAT.WAR` (10,403,193 bytes, SHA-256
+`791bae4480d564f017122a82c9481dabd952424151f2b5d20245793e654ad3bb`) and the
+eight loose PUDs under `data/WAR2/`. `WAR2.EXE` (878,119 bytes, SHA-256
+`a2b4b2118ec6355371b58134be8c7331d1facc5989e7188a1d1bb68fd1f26671`, 22 May
+1997) was not disassembled.
+
+[Wargus](https://github.com/Wargus/wargus) checkout `reference/wargus`, commit
+`cde1a0718a0058cc651ecd56ff8149fc39f624e9`. GPL-2. Used as a format and stats
+reference (`pud.cpp`, `wartool.cpp`, `scripts/stratagus.lua`
+`DefinePlayerColorIndex(208, 4)`, `scripts/*/units.lua`). Source was not
+copied.
+
+[war2tools](https://github.com/war2/war2tools) `libwar2/sprites.c` (MIT) was
+read for GRP entry numbers. Its single player-RGB table matches winter blue,
+not the forest palette, and is not used for remaps. See
+`docs/WAR2_DATA.md`.
+
+[Warcraft 2000: Nuclear Epidemic](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic)
+checkout `reference/warcraft2000`, commit
+`4d12ad3e62ba03c59b2dbec2a989f58d744018ee`. This is a later pin than the fog
+comparison checkout `018cf4b7` recorded above. `Build.cpp` does not load PUD
+or `MAINDAT.WAR`; that map format was not adopted. License unclear; behavioral
+reference only.
+
+### Warcraft II gathering and native HUD (2026-10-04)
+
+The same WAR2.EXE and MAINDAT fingerprints above apply. WAR2.EXE was
+identified as DOS4GW/LE, but was not disassembled or run. Native MAINDAT
+carrier GRPs 122–125 have 65 records each; UI GFU 187, FONT 282/283 and
+existing human/orc chrome were decoded directly. Local
+`reference/DOOM/p_tick.c` was consulted for ordinary thinker ownership.
+
+The pinned Wargus checkout above supplies `pud.cpp` (`UNIT.Data * 2500`),
+`wartool.h` (carrier GRP entry numbers; trailing 25 is a repair-frame
+combination, not the GRP count), `scripts/{human,orc}/units.lua` and
+`anim.lua` (worker waits/poses and production improvements),
+`scripts/tilesets/*.lua` (removed-tree megatile 126), `scripts/fonts.lua`
+(native ink ramps), `scripts/ui.lua` and `scripts/human/ui_pandora.lua`
+(HUD coordinates). Used as references, not copied implementations. Delay
+and full HUD fidelity remain unverified against retail executable behavior.
+
+The pinned Warcraft 2000 checkout above was also compared directly:
+`Nature.cpp` (`TakeResource`, `FindNearestBase`, `TakeResLink`, `ShowRMap`),
+`Build.cpp` (`CreateBuilding`), `Interface.cpp` (`GSSetup800`) and
+`mapa.cpp` (`CreateMiniMap`, `DrawMiniMarker`). Its typed gathering/return
+phases and owned depot checks informed the comparison. Its 160-pixel HUD,
+48×40 icons, resource multipliers/taxation and map format were not adopted.
+Retargeting and placement-payment pitfalls are recorded in the findings.
+
+[Stratagus minimap source](https://raw.githubusercontent.com/Wargus/stratagus/master/src/map/minimap.cpp)
+and [font source](https://raw.githubusercontent.com/Wargus/stratagus/master/src/video/font.cpp)
+were read as primary reference code on 2026-10-04 (unversioned master,
+not the pinned local Wargus tree). `GetTileGraphicPixel` supplies native
+sampling coordinates and precision; `DrawUnitOn` supplies footprint and
+player-color conventions. This does not establish WAR2.EXE behavior.
+[Stratagus panel content source](https://raw.githubusercontent.com/Wargus/stratagus/master/src/ui/contenttype.cpp)
+was also read from master on 2026-10-04: `CContentTypeText::Draw` and
+formatted text use the width before `~|` as an alignment anchor. The HUD
+now uses that rule with Wargus's stat/production/level coordinates.
+
+Blizzard's primary published guides, accessed 2026-10-04:
+
+- [Peasant/Peon](https://classic.battle.net/war2/units/peasant.shtml):
+  worker stats, 51 chops, private competing-worker progress.
+- [Resources](https://classic.battle.net/war2/basic/): 100 gold per trip,
+  hall upgrades increase income.
+- [Town management](https://classic.battle.net/war2/gs/town.shtml) and
+  [offense](https://classic.battle.net/war2/gs/offense.shtml): replacement
+  depots and loss of income improvements when upgraded halls are destroyed.
+- [Footman](https://classic.battle.net/war2/units/footman.shtml),
+  [Catapult/Ballista](https://classic.battle.net/war2/units/catapult.shtml),
+  [Destroyer](https://classic.battle.net/war2/units/destroyer.shtml),
+  [Battleship](https://classic.battle.net/war2/units/battleship.shtml),
+  [Submarine](https://classic.battle.net/war2/units/submarine.shtml),
+  [Mage](https://classic.battle.net/war2/units/mage.shtml): displayed
+  damage ranges/armor; the guide takes precedence over reference mismatches.
+- [Combat mechanics](https://classic.battle.net/war2/basic/combat.shtml):
+  basic/piercing distinction. Combat itself remains unimplemented here.
+
+The Blizzard Battle.net Edition manual mirror
+([PDF](https://downloads.war2.ru/war2/Info%20%26%20Media%20content/Documents/War2BNE_Manual_EN.pdf))
+was read as supplemental context. Attempts to inspect the
+[Blizzard-hosted screenshot](https://bnetcmsus-a.akamaihd.net/cms/page_media/16/16CBPD0W69JA1706136010943.jpg)
+and external DOS screenshot galleries did not yield viewable pixels in
+this session. No retail screenshot dimensions/colors were inferred from
+search-result descriptions. The original Blizzard-authored DOS
+[manual transcript](https://oldgamesdownload.com/manual/warcraft-ii-tides-of-darkness-dos-mac-windows-manual-english/)
+(mirror, pages 6–7) identifies owned minimap units/buildings as green and
+the resource fields as gold, lumber, oil and food. The previously drawn
+score zero has no basis in that description and was removed. Exact pixel
+alignment and minimap sampling remain unverified against retail. The report records the native
+evidence, corrected hypotheses, review findings and reproducible tests:
+[WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md).
+
+### Warcraft II complete base unit catalog (2026-10-04)
+
+The same local pins and retail fingerprints above apply; WAR2.EXE was not
+disassembled. Wargus `pud.cpp::UnitScriptNames` and
+`scripts/{human,orc}/units.lua`, `scripts/units.lua` were read for all 105
+native slots (100 defined, five reserved) and base numerical/capability
+definitions. `scripts/spells.lua::DefineVariables` supplies global Level
+and Mana defaults; Ogre Mage's Level is a variable table with Value 2.
+Authored C literals in `games/warcraft-2/info.c` own these values; the C
+regression independently audits the pinned tables. No Lua or reference
+balance configuration is loaded at runtime.
+
+Blizzard's [Mage](https://classic.battle.net/war2/units/mage.shtml) and
+[Death Knight](https://classic.battle.net/war2/units/deathknight.shtml)
+guides give maximum mana 255 and initial mana 85, overriding Wargus's 84.
+The [Catapult/Ballista guide](https://classic.battle.net/war2/units/catapult.shtml)
+gives armor 0, overriding Wargus Ballista armor 5. These primary pages were
+accessed 2026-10-04. The shared initial-mana override for other casters is
+an inference; reference timing is not certified retail executable behavior.
+
+Warcraft 2000's `MapDiscr.h::GeneralObject` and `Visuals` were compared for
+grouped cost/time, mana, resource and damage capabilities. Their numbers
+and storage design were not adopted. The findings preserve the previous
+unsupported Daemon land classification, numeric indestructibility flags,
+Critter exceptions, missing Deathwing graphic, and remaining unknowns:
+[complete catalog audit](docs/WAR2_EXE_FINDINGS.md#complete-base-unit-catalog-audit-2026-10-04).
+
+### Warcraft II button rims and footprint selection (2026-10-04)
+
+The same MAINDAT/WAR2.EXE fingerprints and pinned Wargus checkout above
+apply. REZDAT.WAR SHA-256 is
+`d0fe7edd4f89f60c64bca786a944387578635d8483bc2ff165d06306bb432246`.
+Native GFUs 354/355 and REZDAT GFUs 0/1 were decoded and inspected; no
+WAR2.EXE disassembly or retail runtime was used.
+
+User-supplied 640×480 screenshots, received on 2026-10-04, are local
+references rather than downloaded images. Distribution/version and source
+URLs are unknown. Original files and SHA-256:
+
+- `/Users/igor/Desktop/2603_4a56c8cd0a4d8.jpg` (human group selection):
+  `0b9e17abe5fc3769372f45aba7eb46cebcc13e4f8355c18513c67590ed9f15bd`.
+- `/Users/igor/Desktop/2603_4a56c8ccf27af.jpg` (orc ship selection):
+  `d019e26ca95653539e1511a6e7a97e5a040dd0881d2b0120db723674d21e861c`.
+- `/Users/igor/Desktop/2603_4a56c8cc93c15.jpg` (human barracks selection):
+  `90aba5346e893d120c719bd5b8a364d24191143be98ed65735a64d85c6b7f059`.
+
+The images establish bright icon rims outside the native 46×38 picture,
+framed info/progress panels, colored Menu buttons, and sprite occlusion
+of selected rectangles. Exact uncompressed RGB/hover dispatch is unknown.
+The user's explicit selection rule uses tile footprints even where
+reference selection BoxSize differs.
+
+Stratagus master
+[unit_draw.cpp](https://raw.githubusercontent.com/Wargus/stratagus/master/src/unit/unit_draw.cpp)
+(`CUnit::Draw` draws selection before the body) and
+[unittype.cpp](https://raw.githubusercontent.com/Wargus/stratagus/master/src/unit/unittype.cpp)
+(`DrawUnitType`, canvas-to-tile centering formula) were read on 2026-10-04.
+These are unversioned references, not copied implementation or retail
+executable evidence. DOOM `reference/DOOM/r_things.c` was consulted for
+sorted sprite drawing. Detailed native offsets, corrected hypotheses and
+tests are in the
+[HUD/selection correction](docs/WAR2_EXE_FINDINGS.md#button-decorations-and-footprint-selection-correction-2026-10-04).

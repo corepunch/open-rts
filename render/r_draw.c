@@ -100,7 +100,15 @@ static void screen_to_map_grid_point(const app_t *app, const level_t *map, int s
 }
 
 void R_RefreshViewport(app_t *app) {
+#ifdef RTS_NATIVE_WORLD
+    if (!app || !app->window) return;
+    isize2_t size;
+    SDL_GetWindowSize(app->window, &size.w, &size.h);
+    V_AllocScreen(size.w, size.h);
+    if (screens[0].w == size.w && screens[0].h == size.h) app->win = size;
+#else
     (void)app;
+#endif
 }
 
 void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry) {
@@ -1082,7 +1090,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     R_DrawSprite(sprite, frame, u->core.render_remap, NULL, &dst,
                  flip, u->core.render_intensity);
     }
-    if (game_info && game_info->draw_overlays) return;
+    if (game_info && (game_info->draw_underlays || game_info->draw_overlays)) return;
     bool selected = P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE);
     if (selected) {
         if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS) {
@@ -1106,8 +1114,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
 
 static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *units,
                                  int unit_count, const spritecache_t *cache,
-                                 const gameinfo_t *game_info) {
-    if (!game_info || !game_info->draw_overlays) return;
+                                 const gameinfo_t *game_info, unitoverlaydrawf_t draw) {
+    if (!game_info || !draw) return;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = units[i];
         if (!unit || !P_VisibleToPlayer(unit) || !(unit->traits & MF_RENDERABLE)) continue;
@@ -1118,15 +1126,18 @@ static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *
         R_MapPositionToScreen(app, map, unit->core.position, &ctx.anchor.x, &ctx.anchor.y);
         unit_screen_rect_for_view(app, map, unit, NULL, cache, game_info, 0,
                                   NULL, &ctx.bounds, NULL, NULL, NULL, NULL, NULL);
-        game_info->draw_overlays(&ctx);
+        draw(&ctx);
     }
 }
 
 void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
+    render_unit_overlays(app, &level, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_underlays : NULL);
     for (int i = 0; i < unit_count; ++i)
         render_unit_sprite(app, &level, units[i], fallback_sprite, cache, game_info, ticks);
-    render_unit_overlays(app, &level, units, unit_count, cache, game_info);
+    render_unit_overlays(app, &level, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_overlays : NULL);
 }
 
 static int compare_draw_commands(const void *a, const void *b) {
@@ -1179,6 +1190,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
                           mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                           const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
     if (!app || !map) return;
+    render_unit_overlays(app, map, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_underlays : NULL);
     int overlay_count = 0;
     if (map->render_capabilities & MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS) {
         for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
@@ -1200,7 +1213,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         for (int i = 0; i < unit_count; ++i) {
             render_unit_sprite(app, map, units[i], fallback_sprite, cache, game_info, ticks);
         }
-        render_unit_overlays(app, map, units, unit_count, cache, game_info);
+        render_unit_overlays(app, map, units, unit_count, cache, game_info,
+                             game_info ? game_info->draw_overlays : NULL);
         return;
     }
 
@@ -1273,7 +1287,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         }
     }
     free(commands);
-    render_unit_overlays(app, map, units, unit_count, cache, game_info);
+    render_unit_overlays(app, map, units, unit_count, cache, game_info,
+                         game_info ? game_info->draw_overlays : NULL);
 }
 
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *effect,
@@ -1322,6 +1337,21 @@ static void order_selected_at(app_t *app, const level_t *map,
                               game_info, mouse.x, mouse.y, -1);
     bool attack = target >= 0 && units[target]->owner != consoleplayer && units[target]->hp > 0;
     ticorder_t order = TC_ORDER;
+    if (attack) {
+        for (int v = 0; v < map->resource_vent_count; ++v) {
+            const resourcevent_t *vent = &map->resource_vents[v];
+            if (vent->source_id != units[target]->id) continue;
+            for (int i = 0; i < unit_count; ++i) {
+                const mobj_t *unit = units[i];
+                if (!P_MobjIsSelected(unit) || unit->owner != consoleplayer ||
+                    !(unit->traits & MF_HARVESTER) || !P_VentOpenTo(map, vent, unit)) continue;
+                goal = vent->attachment;
+                attack = false;
+                break;
+            }
+            if (!attack) break;
+        }
+    }
 #ifdef RTS_GAME_DARK_COLONY
     for (int i = 0; i < unit_count; ++i)
         if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->move_only) {
@@ -1409,6 +1439,16 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 app->selection_rect = (irect_t){0};
                 int picked = box ? -1 : R_PickUnit(app, map, units, unit_count,
                     fallback_sprite, cache, game_info, bx, by, consoleplayer);
+                if (!box && !additive && picked < 0 && game_info && game_info->select_any) {
+                    bool own = false;
+                    for (int i = 0; i < unit_count; ++i)
+                        if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer &&
+                            units[i]->hp > 0)
+                            own = true;
+                    if (!own)
+                        picked = R_PickUnit(app, map, units, unit_count, fallback_sprite, cache,
+                                            game_info, bx, by, -1);
+                }
                 if (!box && !additive && picked < 0 &&
                     !(game_info && game_info->right_click_orders)) {
                     for (int i = 0; i < unit_count; ++i) {
@@ -1475,12 +1515,15 @@ void R_ClampCamera(app_t *app, const level_t *map, int viewport_w, int viewport_
 
     float map_w = (float)map->width * (float)app_cell_w(app);
     float map_h = (float)map->height * (float)app_cell_h(app);
+    /* A left-hand panel shifts the visible map. Origin 0 keeps the old clamp. */
+    float left = (float)G_WorldViewport(app).x;
     if (map_w <= (float)viewport_w) {
-        app->cam.x = ((float)viewport_w - map_w) * 0.5f;
+        app->cam.x = left + ((float)viewport_w - map_w) * 0.5f;
     } else {
-        float min_x = (float)viewport_w - map_w;
+        float min_x = left + (float)viewport_w - map_w;
+        float max_x = left;
         if (app->cam.x < min_x) app->cam.x = min_x;
-        if (app->cam.x > 0.0f) app->cam.x = 0.0f;
+        if (app->cam.x > max_x) app->cam.x = max_x;
     }
     if (map_h <= (float)viewport_h) {
         app->cam.y = ((float)viewport_h - map_h) * 0.5f;

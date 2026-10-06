@@ -201,7 +201,7 @@ static inline bool frect_intersects(frect_t a, frect_t b) {
 typedef struct app_s {
     SDL_Window *window;
     SDL_Renderer *renderer; /* Present only. Drawing goes through screens[0]. */
-    isize2_t win; /* Logical draw size. The OS window may be a different size. */
+    isize2_t win; /* Framebuffer size; native-world builds follow the OS window. */
     isize2_t cell;
     fvec2_t  cam;
     bool show_grid;
@@ -291,7 +291,7 @@ enum {
 
 #define SIGHT_EXPLORED UINT32_C(0x80000000)
 typedef struct {
-    uint32_t *cells; /* Current team bits and persistent local exploration. */
+    uint32_t *cells; /* Team sight in bits 23..30, explored in 31, detector teams in 0..7. */
     uint32_t allies[8];
 } sightmap_t;
 
@@ -664,8 +664,12 @@ struct gameinfo_s {
     int null_state;
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
-    unitoverlaydrawf_t draw_overlays; /* Replaces the engine selection and health overlay. */
+    /* Either callback replaces the engine selection and health overlay. */
+    unitoverlaydrawf_t draw_underlays; /* Ground marks drawn before all world sprites. */
+    unitoverlaydrawf_t draw_overlays; /* Marks drawn after all world sprites. */
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
+    bool select_any; /* With nothing of yours selected, a click can inspect any unit. */
+    bool f10_menu; /* F10 opens the control panel instead of the resource cheat. */
     harvestdropoffmatchf_t harvest_dropoff_matches;
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
@@ -845,8 +849,8 @@ void A_Attack(mobj_t *unit);
 typedef enum {
     TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
-    TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT,
-    TC_MAX = TC_CHAT
+    TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT, TC_RETURN_GOODS,
+    TC_MAX = TC_RETURN_GOODS
 } ticorder_t;
 
 typedef struct {
@@ -1136,6 +1140,28 @@ extern hudtext_t chat_text;
 #define SCREENWIDTH  640
 #define SCREENHEIGHT 480
 
+#ifdef RTS_NATIVE_WORLD
+#define DEFAULT_WINDOW_WIDTH  (SCREENWIDTH * 2)
+#define DEFAULT_WINDOW_HEIGHT (SCREENHEIGHT * 2)
+#else
+#define DEFAULT_WINDOW_WIDTH  SCREENWIDTH
+#define DEFAULT_WINDOW_HEIGHT SCREENHEIGHT
+#endif
+
+static inline int R_UIScale(const app_t *app) {
+#ifdef RTS_NATIVE_WORLD
+    if (app) {
+        int scale = app->win.w / SCREENWIDTH;
+        int vertical = app->win.h / SCREENHEIGHT;
+        if (scale > vertical) scale = vertical;
+        if (scale > 0) return scale;
+    }
+#else
+    (void)app;
+#endif
+    return 1;
+}
+
 enum {
     V_FLIP_X = 1u << 0,
     V_FLIP_Y = 1u << 1,
@@ -1156,6 +1182,10 @@ extern uint32_t vpalette[256];
 void V_AllocScreen(int w, int h);
 void V_FreeScreen(void);
 void V_BeginFrame(uint32_t clear_argb);
+/* Drawing coordinates are logical UI pixels while a menu is being drawn. */
+void V_SetDrawScale(int scale);
+int V_GetDrawScale(void);
+isize2_t V_DrawSize(void);
 void I_SetPalette(const uint32_t argb[256]);
 bool I_ReadScreen(uint8_t *dst);
 uint8_t V_NearestIndex(uint32_t argb);
@@ -1253,6 +1283,7 @@ bool L_IsWalkable(const level_t *map, int x, int y);
 int L_MoveSpeed(const level_t *map, int move_class, int x, int y);
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
 void P_NavFree(level_t *map);
+bool P_NavReachable(const level_t *map, int move_class, ivec2_t from, ivec2_t to);
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);
@@ -2097,8 +2128,8 @@ enum {
 };
 
 /* On a screen larger than menu->size a rect keeps its top-left place, or
- * follows the right or bottom edge, or grows by the extra height. */
-enum { MANCHOR_RIGHT = 1, MANCHOR_BOTTOM = 2, MANCHOR_GROW = 4 };
+ * follows the right or bottom edge, or grows by the extra height/width. */
+enum { MANCHOR_RIGHT = 1, MANCHOR_BOTTOM = 2, MANCHOR_GROW = 4, MANCHOR_WIDE = 8 };
 
 /* MA_ACTIVATE: clicked, its hotkey pressed, or Enter while focused or
  * edited; a check box has already changed. MA_SECONDARY: clicked with the
@@ -2159,6 +2190,7 @@ struct menuitem_s {
     int link, step;
     uint32_t fill;   /* 0xAARRGGBB behind the item; 0 draws none */
     uint32_t border; /* 0xAARRGGBB outline around the item; 0 draws none */
+    struct { uint32_t outer, inner; } frame; /* Two rims outside the picture rect. */
     uint32_t color;  /* list selection, scroll bar or plain button focus outline */
     const char *tooltip; /* shown while the pointer rests on the item */
     menuanim_t anim;
@@ -2211,7 +2243,7 @@ void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(menu_t *menu);
 /* The item with this id, or NULL. */
 menuitem_t *M_MenuFind(const menu_t *menu, int id);
-/* Where the item is on the screen. */
+/* Framebuffer pixels for input; logical drawing pixels inside M_MenuDrawer. */
 irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item);
 /* The live item under the pointer, or the focus of a modal screen. */
 menuitem_t *M_MenuHover(const menu_t *menu);
@@ -2266,6 +2298,7 @@ typedef struct {
     int unit_count;
     const spritecache_t *sprites;
     const hudtext_t *messages;
+    const tileset_t *tileset; /* Borrowed native terrain for minimap drawing. */
 } hudview_t;
 extern hudview_t hudview;
 

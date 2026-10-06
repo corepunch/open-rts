@@ -1,9 +1,6 @@
 #include "engine.h"
 #include "p_sight_data.h"
 #include <stdlib.h>
-#ifdef RTS_GAME_DARK_COLONY
-#include "dark-colony.h"
-#endif
 
 bool P_InitSight(void) {
     if (level.width <= 0 || level.height <= 0 ||
@@ -17,30 +14,36 @@ bool P_InitSight(void) {
 }
 
 static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborne, bool detector) {
-    if (!level.sight.cells || radius < 1 || radius > 10) return;
+    if (!level.sight.cells || radius < 1 || radius > SIGHT_MAX_RADIUS) return;
     uint32_t explored = mask & level.sight.allies[consoleplayer] ? SIGHT_EXPLORED : 0;
+#ifdef RTS_GAME_DARK_COLONY
+    /* Low eight bits hold this pass's detector teams. They share the cell
+     * footprint, including near-only cells, without scanning every object
+     * from every visited tile. Current sight remains in bits 23..30. */
+    if (detector) explored |= mask >> 23;
+#else
+    (void)detector;
+#endif
+    int distance = radius * radius;
+    bool clipped = origin.x < radius || origin.y < radius ||
+        origin.x >= level.width - radius || origin.y >= level.height - radius;
+    int base = L_Index(&level, origin.x, origin.y);
     /* DC.EXE 0x4458d0: a blocked branch ends after revealing its own cell.
      * The near-only flag suppresses current sight at depth >= 2, but still
      * allows the local player to discover terrain. Flying sight skips pruning. */
     for (size_t i = 0; i < sizeof(sightnodes) / sizeof(*sightnodes);) {
         ivec2_t offset = sightnodes[i].offset;
-        if (offset.x * offset.x + offset.y * offset.y > radius * radius) {
+        if (sightnodes[i].distance > distance) {
             i = sightnodes[i].end;
             continue;
         }
-        ivec2_t cell = ivec2_add(origin, offset);
-        if (!L_Contains(&level, cell.x, cell.y)) { i = sightnodes[i].end; continue; }
-        int index = L_Index(&level, cell.x, cell.y);
+        if (clipped) {
+            ivec2_t cell = ivec2_add(origin, offset);
+            if (!L_Contains(&level, cell.x, cell.y)) { i = sightnodes[i].end; continue; }
+        }
+        int index = base + offset.y * level.width + offset.x;
         uint16_t flags = level.tile_flags ? level.tile_flags[index] : MAP_SIGHT_PASS;
         level.sight.cells[index] |= explored;
-#ifdef RTS_GAME_DARK_COLONY
-        if (detector) {
-            mobj_t *mine = DC_Occupant(cell, false, true);
-            if (mine) mine->detected_by |= mask;
-        }
-#else
-        (void)detector;
-#endif
         if (!(flags & MAP_SIGHT_NEAR) || sightnodes[i].depth < 2)
             level.sight.cells[index] |= mask;
         i = airborne || (flags & MAP_SIGHT_PASS) ? i + 1 : sightnodes[i].end;
@@ -55,10 +58,6 @@ void P_UpdateSight(void) {
     if (!level.sight.cells) return;
     size_t count = (size_t)level.width * level.height;
     for (size_t i = 0; i < count; ++i) level.sight.cells[i] &= SIGHT_EXPLORED;
-#ifdef RTS_GAME_DARK_COLONY
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
-        ((mobj_t *)th)->detected_by = 0;
-#endif
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;
         if (actor->remove || actor->hp <= 0 || !actor->info || actor->team >= 8) continue;
@@ -72,6 +71,17 @@ void P_UpdateSight(void) {
                      actor->info->sight.airborne || (actor->traits & MF_FLY),
                      actor->traits & MF_DETECTOR);
     }
+#ifdef RTS_GAME_DARK_COLONY
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        mobj_t *actor = (mobj_t *)th;
+        actor->detected_by = 0;
+        if (actor->remove || actor->hp <= 0 || !(actor->traits & MF_LANDMINE) ||
+            (actor->traits & (MF_NOBLOCKMAP | MF_MISSILE | MF_FLY))) continue;
+        ivec2_t cell = fvec2_cell(fixed3_xy_to_fvec2(actor->core.position));
+        actor->detected_by = L_Contains(&level, cell.x, cell.y) ?
+            (level.sight.cells[L_Index(&level, cell.x, cell.y)] & 255) << 23 : 0;
+    }
+#endif
 }
 
 int P_SightBrightness(const level_t *map, ivec2_t cell) {

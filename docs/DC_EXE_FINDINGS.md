@@ -7487,3 +7487,268 @@ r2 -q -e bin.cache=true -A -c 'pd 40 @ 0x40a7a8' -c 'pd 60 @ 0x44ee68' -c 'pd 40
 | JUNGLE.RMP | `386a427f1141f198f0d03abc9dae0fd76ae790cbaa478601002fe8069a4a1a56` |
 | ATLANTIS.RMP | `5d7f64c5a62f1d9b171504993bffa9cf3300cb6208603c2cd1c2caf9c0225ce0` |
 | HTRAIN.RMP | `f0bd17a7db3bf917154023b015f62e28c83ab9ff6a5dc284eadc8873e89629df` |
+
+## Sight radius audit and fast fog refresh (2026-10-03)
+
+Evidence: retail DC.EXE SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566272 bytes, read from `/Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE`
+because this worktree does not contain the executable. The previously captured
+r2/r2ghidra `all-instructions.txt`, `fog-timing.txt`, and `dc_exe.c` were
+cross-checked with a fresh C extraction of the executable's sight trees. No
+fresh decompiler run was available in this worktree. The installed native data
+at `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` has SHA-256
+`1ab3498ce5f3d7127f1d28acbd1a25e6ace97b248f3a0270e364a24d6944e34b`;
+this differs from the earlier report's GAMESTAT fingerprint, so the two files
+must not be described as byte-identical.
+
+**Confirmed retail:** sight belongs to each unit type. GAMESTAT columns
+OBS_DAY/OBS_NIGHT feed type `+0x14`/`+0x10`. Instructions at
+`0x446240..0x44625e` multiply these by day/night weights, add, and shift right
+by eight. Trooper is 7/4 cells, Grey is 4/7, Exploiter is 6/4, Scout is 8/8,
+and Cyborg is 10/10. Thus a Trooper's full daytime diameter is fourteen cells;
+seven is its radius. Ground terrain pruning can reduce visible coverage even
+inside that circle. There is no confirmed extra retail doubling. The original
+report's DOTT-based radius hypothesis remains disproven.
+
+**Confirmed defect in engine commit `c7f6ad8`:** doubling the authored numbers
+made a daytime Trooper request radius 14 and a Cyborg request 20, but
+`reveal_sight()` rejected any radius above 10. These observers contributed no
+sight, rather than enlarged sight. Restoring the native C literals makes all
+nonzero authored day/night pairs agree with the committed GAMESTAT fixture;
+`test_fog` checks every such actor type. The expanded footprint is now applied
+explicitly after native interpolation: `2 * ((weight*night +
+(256-weight)*day) >> 8)`. This is **requested engine behavior**, including its
+integer rounding, rather than a claim about DC.EXE.
+
+**Confirmed tree relationship:** a fresh extraction from root table `0x483fbc`
+revalidates all ten native trees (5, 13, 29, 49, 81, 113, 149, 197, 253, 317
+cells). All 316 edges of the largest tree match this rule: with
+`depth = max(abs(x),abs(y))`, each parent component is
+`sign(c) * floor((2*abs(c)*(depth-1)+depth)/(2*depth))`. Every smaller tree has
+the same parent edges and depths. The extractor verifies this relationship
+before generating a single traversal out to radius 20 (1257 cells), with
+precomputed squared distances and subtree ends. Radii 1..10 retain the native
+occlusion topology; applying the same rule to 11..20 is an **engine extension**.
+The executable does not supply a radius-20 tree. The earlier 317-entry runtime
+limit is superseded by this explicitly requested extension.
+
+**Confirmed retail cadence:** `0x418b54` tests game `+0x94c` against `0x0f`,
+then calls visibility clear `0x441a20` and reveal `0x446158`. At default
+66 ms native ticks this is about 1.056 seconds between updates. Base income
+independently tests the same mask at `0x418c55`; `0x418c79..0x418c8f` adds
+team `+0x19b4` to credits `+0xbac` when city slot `+0xbd4` exists. Yesterday's
+shared four-tick engine block accelerated both fog and income by four.
+Dark Colony fog now refreshes each 30 Hz simulation tic (33.3 ms), while income
+retains sixteen native ticks. This faster visibility is **requested engine
+behavior**. Other plugins keep their existing refresh cadence.
+
+**Optimization and rendering equivalence:** the sight loop computes its base
+cell index once, avoids bounds checks for fully interior circles (as retail's
+specialized traversals do), and uses generated squared distances. Detector
+teams occupy the visibility cell's otherwise unused low eight bits for one
+pass; mines resolve those bits once after all observers. This removes the
+old detector-cell × object-list search while preserving near-only terrain,
+blocked branches, flying detection, alliances, and loss of detection on death.
+These low bits are engine storage, not retail occupancy metadata.
+
+Fog drawing now writes palette indices directly into the composed framebuffer.
+The native 17×17×32 integer interpolation table replaces per-pixel divisions;
+fully clear tiles are skipped, black tiles use row fills with the palette's
+actual black index, and other uniform tiles use one palette lookup. Partial
+edges retain vertical truncation followed by horizontal truncation. There is
+no viewport light-buffer allocation or full-buffer copy per frame. Regression
+comparisons check every framebuffer pixel for four cell sizes (including
+23×37), four camera offsets, map edges, alternating visible/explored/hidden
+cells, HUD exclusion, and a palette whose black index is not zero. Existing
+RMP tint behavior is unchanged.
+
+**Source comparison:** the user-provided Warcraft 2000 checkout
+`018cf4b7c7c502ebe51505ea3dd5588e8ae32e48` uses `fog.cpp:LoadFog`,
+`ShowSuperFluentFog32_160`, and `ShowSuperFog` for indexed lookup tables,
+flat-tile fast paths and direct screen writes. Those are the applicable speed
+ideas. `ProcessFog` diffuses and quantizes a 256×256 scalar field, and
+`Nation.cpp:OneObject::MakePreProcess` stamps selected vision spots. That is a
+different visibility algorithm; importing it would lose DC terrain pruning
+and discrete current/explored masks. No Warcraft assembly or coefficients
+were copied.
+
+**Measured locally, optimized C build:** the optional `test_fog` benchmark uses
+800 observers on a 128×128 map and 200 warm passes. The original radius-10 pass
+was 0.782 ms; the optimized equivalent footprint was 0.353 ms, and radius 20
+(about four times the area) was 1.173 ms. Making all 800 radius-10 observers
+detectors was also 0.353 ms. The mixed clear/explored/hidden 1920×1080 frame
+(including the excluded sidebar) fell from 2.078 ms to 0.544 ms. These are
+microbenchmark observations, not whole-game frame-rate promises. No timing
+threshold is imposed by tests.
+
+Reproduce the extraction and focused checks:
+
+```sh
+make build/dc_sight_gen build/bin/tests/dark-colony/test_fog
+build/dc_sight_gen /Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE 20 > /private/tmp/dc-sight-20.h
+cmp play/p_sight_data.h /private/tmp/dc-sight-20.h
+env SDL_VIDEODRIVER=dummy OPEN_RTS_BENCH_FOG=1 build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN01.MAP SPRITES/TROOPER1.SPR --screenshot /private/tmp/dc-fog-world.bmp
+```
+
+The explicit map argument is required for a world screenshot; without it the
+current front end screenshots its startup/menu screen. Native object memory,
+status-dependent sight shrinkage, and special observer eligibility retain the
+fidelity boundaries documented above; this work does not establish those as
+retail-equivalent.
+
+**Final verification:** `make` builds all four game binaries without new
+warnings; all four headless `--check` runs succeed, and the explicit HUMAN01
+world screenshot was inspected. The four game test suites ran 119 binaries:
+117 exited successfully (including intentional skips). Two Dark Colony tests
+also fail when relinked with the original HEAD versions of `g_game.c`,
+`p_sight.c`, `p_tick.c`, and `r_fog.c`: `test_drop_fin_states` expects
+SLUGDEPLOY14 to finish at state 288 but receives 289 (remove=0, tics=5), and
+`test_menu` fails to host its LAN lobby (menuactive=1, netgame=0, players=1,
+no map). These are pre-existing failures, not fog regressions. Temporary
+diagnostic logging was confined to scratch test copies and removed from the
+runtime source. The final focused fog test and deterministic regenerated-header
+comparison both pass after all edits.
+
+### Human02 launch checkout and independent clocks (2026-10-03)
+
+**Confirmed engine reproduction:** the user's black Human02 screenshot came
+from the primary checkout's older build. At investigation time, primary
+`/Users/igor/Developer/open-rts` was at `6c9fd45`, while this chat's worktree
+contained the verified fog fix `b0405e9`. Running the primary binary with
+`data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR --screenshot`
+reproduces the black world. The same command in the fixed worktree shows the
+base, terrain, beacon and approaching dropship. Primary still combined the
+four-native-tick fog and income updates, and its doubled building/beacon
+radii exceeded the old traversal's radius-10 bound. No additional fog-render
+or simulation-clock defect was found in the fixed build.
+
+Temporary logs in the fixed build show 1283 player-visible cells after Human02
+load, rising to 1379 after its first scripted dropship spawn. The base at
+(54,55) and beacon at (64,52) are visible immediately. At speed 100, a real
+SDL-driver `--net-check 100` run logged base-income calls before completion of
+simulation tics 32, 64 and 96, at wall times 1167, 2234 and 3300 ms. Each adds
+three credits; successive calls are about 1066 ms apart. Process startup time
+accounts for the first timestamp. Logging was removed after verification.
+
+**Clock distinction:** `driver/d_net.c:I_GetTime/TryRunTics` schedules 30
+simulation tics per second at speed 100; the simulation does not run once per
+second. `play/p_tick.c` maps cumulative simulation tics to the existing 66 ms
+native environment clock, which advances about 15.15 times per second. Base
+income runs every sixteen of those native tics, about once per second. Fog
+refresh runs each simulation tic independently. Neither RTS_TICRATE,
+WORLD_CLOCK_MS nor the game-speed multiplier was changed to accelerate fog.
+The user's conditional request for a ten-Hz simulation therefore requires no
+clock change: the current simulation already runs at thirty Hz.
+
+`test_fog:check_human02` now loads the actual scenario, checks the initial 1283
+visible cells and both base/beacon cells, then runs 120 simulation tics. It
+checks visibility, exactly one level-time advance per tic, the native
+phase-clock advance, and all intermediate credit totals (three payouts,
+nine credits over four simulated seconds). This catches both an entirely
+black opening and income coupled to the faster fog cadence.
+
+The verified fog commit and this regression were brought into the primary
+checkout while preserving its separate production changes. Reproduce with:
+
+```sh
+cd /Users/igor/Developer/open-rts
+make build/bin/dark-colony build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR --screenshot /private/tmp/dc-human02-fixed.bmp
+make dark-colony-human02
+```
+
+### Current fog policy: retail distances and 10 Hz refresh (2026-10-03)
+
+**User-requested revision:** this supersedes the 2x radius and 30 Hz fog
+refresh described above. Actor OBS_DAY/OBS_NIGHT values now reach traversal
+without an additional scale. Trooper therefore sees seven cells by day and
+four at night; Grey sees four/seven. Day/night interpolation, terrain
+occlusion, flying and detector rules retain the established retail behavior.
+The generated traversal is again the native radius-10 tree (317 nodes), with
+precomputed squared distances. The unused radius-20 extension and its optional
+generator argument were removed; regenerate with `build/dc_sight_gen DC.EXE`
+without a radius argument. Earlier commands containing `20` document the
+superseded implementation and do not apply to the current extractor.
+
+Fog refresh now runs every third 30 Hz simulation tic, at completed tics
+3, 6, 9 and so on: 10 Hz at normal game speed. Startup and explicit alliance
+updates still rebuild visibility immediately. This changes neither the
+simulation tic rate, the 66 ms native environment clock, nor base income's
+sixteen-native-tic cadence. Palette/interpolation lookup tables, direct
+framebuffer drawing, uniform-tile fast paths and linear detector resolution
+remain in place.
+
+**Verified engine observation:** Human02 initially reveals 411 cells at the
+retail distances, with its Exo-Ctr and landing beacon visible. This replaces
+the earlier engine observation of 1283 cells under doubled coverage; neither
+number is claimed to be a separately measured retail screenshot count.
+`test_fog` now checks delayed visibility on tics one/two and the refresh on
+tic three, all subsequent refresh boundaries through tic 64, unscaled
+Trooper/Grey sight reversal, all ten native circle counts and the actual
+Human02 opening. Its 120-tic mission check still pays three three-credit
+installments over four simulated seconds and advances the native day clock
+by sixty ticks. Fog and support-combat tests, all-game build, Human02 smoke
+check and a visually inspected world screenshot pass.
+
+### Preserve the corrected Brozaar mining cycle in tests (2026-10-03)
+
+**Confirmed engine regression:** `3e2ca75` changed the alien Brozaar/Slug
+(`MT_SLUG`, faction 1 product row 21, UI ID 46) from an endlessly repeating
+`S_SLUG_DEPLOY1` to `S_SLUG_DEPLOY1 -> S_SLUG_WORK1 -> S_SLUG_WORK1`.
+The old FIN regression still expected deploy to return to itself. Temporary
+logging reproduced state 289 (`S_SLUG_WORK1`), logical frame 251, five tics,
+remove=0, against its obsolete expected state 288 (`S_SLUG_DEPLOY1`). The
+failure reported in the fog verification above was a stale test expectation,
+not a reason to restore the incorrect mining animation. The earlier commit's
+message reverses the human/alien names; the product table identifies Slug as
+the alien Brozaar and `MT_EXPLOITER` as the human Exploiter.
+
+**Confirmed asset mapping:** `ANIMATE/SLUG.FIN` labels `SLUGDEPLOY14` as native
+frames 147–160 and `SLUGRETRACT14` as 161–174. `SPRITES/SLUG.SPR` has 90 cells,
+so these become logical frames 237–250 and 251–264. The corrected engine work
+state deliberately uses the second range with its existing 14-frame, 66-tic
+cycle; the separate retract state uses the same frames and ends at `S_NULL`.
+The corrected regression independently compares all work-state FIN layers,
+pixels and durations, as well as the deploy-to-work and work-to-work exits.
+No runtime states, native assets, timing or harvesting behavior changed.
+**Unknown:** this test does not establish that retail mining dispatch selects
+the label named `SLUGRETRACT14`; it preserves the user's previously corrected
+engine mining presentation.
+
+Fingerprints remain unchanged: `SLUG.FIN` SHA-256
+`f1b813f0607aab425b57011f19f16110d8c5b33179691d08dd4b9558afb87d6b`,
+`SLUG.SPR` SHA-256
+`15f8f25029981f001b9e963f0efeb27e25769a46801a986e544ea63f926c73cc`,
+and retail `DC.EXE` SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+No new executable behavior was inferred.
+
+The live vent regression now issues a real harvest order for each race,
+waits for its deploy-to-work transition, then checks two complete work cycles
+frame by frame through `P_Ticker`, including mining phase and vent attachment.
+This protects both the Brozaar correction and the Exploiter's existing
+logical frames 102–103 with two/four-tic timing. Reproduce:
+
+```sh
+make dc-info-conv build/bin/tests/dark-colony/test_drop_fin_states build/bin/tests/dark-colony/test_vent_states
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/SLUG.FIN
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_drop_fin_states
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_vent_states
+```
+
+**Confirmed test-environment issue:** the previously reported multiplayer
+menu failure occurs without permission to create its local UDP sockets.
+Running `test_menu` with local socket access passes LAN creation, browse,
+direct join, cancellation and the four-player lobby check. This requires
+appropriate test-runner permissions, not a game-code workaround or a skip.
+
+**Verification:** `env SDL_VIDEODRIVER=dummy make -j4 test test-network`
+passes with local socket access: 121 game test binaries (including intentional
+skips), all 13 network modes, four loader fixtures, both model-command tests,
+the sprite-layout check, and all three generated-state comparisons. The
+Brozaar deploy/work FIN pixel check and both live harvester work cycles pass.
+Temporary diagnostic logging was removed before the complete run.

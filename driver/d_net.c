@@ -157,7 +157,10 @@ static void GetPackets(void) {
 
 void D_CheckNetGame(uint32_t signature) {
     netbuffer = &doomcom->data;
-    consoleplayer = doomcom->consoleplayer;
+    /* A net game takes its seat from the lobby. Single player keeps the slot
+     * the map chose: Warcraft II's human is often not player 0, and replacing
+     * that here hid every unit after the screenshot path had already returned. */
+    if (netgame) consoleplayer = doomcom->consoleplayer;
     ticdup = doomcom->ticdup;
     gametic = maketic = skiptics = frameon = oldnettics = 0;
     memset(localcmds, 0, sizeof(localcmds));
@@ -179,12 +182,19 @@ void D_CheckNetGame(uint32_t signature) {
     netready = !netgame;
     netactive = true;
     neterror[0] = '\0';
-    int node = 1;
-    for (int player = 0; player < doomcom->numplayers; ++player) {
-        int n = player == consoleplayer ? 0 : node++;
-        nodeforplayer[player] = n;
-        playerfornode[n] = player;
-        nodeingame[n] = playeringame[player] = true;
+    if (!netgame) {
+        /* One local seat. Its map slot can be anywhere in 0..7. */
+        nodeforplayer[0] = 0;
+        playerfornode[0] = 0;
+        nodeingame[0] = playeringame[0] = true;
+    } else {
+        int node = 1;
+        for (int player = 0; player < doomcom->numplayers; ++player) {
+            int n = player == consoleplayer ? 0 : node++;
+            nodeforplayer[player] = n;
+            playerfornode[n] = player;
+            nodeingame[n] = playeringame[player] = true;
+        }
     }
     gametime = oldentertics = I_GetTime();
     for (int n = 0; n < doomcom->numnodes; ++n) lastreceived[n] = SDL_GetTicks64();
@@ -234,7 +244,7 @@ void NetUpdate(void) {
         if (maketic - start > BACKUPTICS) {
             snprintf(neterror, sizeof(neterror), "Network command history exhausted"); return;
         }
-        *netbuffer = (doomdata_t){ .player = (uint8_t)consoleplayer,
+        *netbuffer = (doomdata_t){ .player = (uint8_t)(netgame ? consoleplayer : 0),
             .starttic = (uint8_t)start, .numtics = (uint8_t)(maketic - start),
             .retransmitfrom = (uint8_t)nettics[node] };
         for (int i = start; i < maketic; ++i)
@@ -291,7 +301,8 @@ bool D_RunTiccmds(void) {
     }
     consistancy[slot] = G_Consistency();
     for (int player = 0; player < doomcom->numplayers; ++player)
-        if (playeringame[player]) G_RunTiccmd(player, &netcmds[player][slot]);
+        if (playeringame[player])
+            G_RunTiccmd(netgame ? player : consoleplayer, &netcmds[player][slot]);
     return true;
 }
 

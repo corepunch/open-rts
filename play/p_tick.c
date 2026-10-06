@@ -114,12 +114,14 @@ void P_Ticker(void) {
             day->weight = day->phase ? 256 : 0;
         }
     }
-    /* DC.EXE 0x418b54's mask pass runs every sixteen native tics. */
-    if (clock != before && (clock & 3) == 0) {
-        P_UpdateSight();
 #ifdef RTS_GAME_DARK_COLONY
+    /* Requested fog refresh: 10 Hz on the unchanged 30 Hz simulation clock. */
+    if ((leveltime + 1) % (RTS_TICRATE / 10) == 0) P_UpdateSight();
+    /* DC.EXE 0x418c52: base income retains its sixteen-native-tic cadence. */
+    if (clock != before && (clock & 15) == 0)
         DC_TickIncome();
+#else
+    if (clock != before && (clock & 3) == 0) P_UpdateSight();
 #endif
-    }
     leveltime++;
 }

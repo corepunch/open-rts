@@ -12,6 +12,7 @@ static uint8_t *owned_pixels;
 static bool palette_set;
 static bool clip_set;
 static irect_t clip_rect;
+static int draw_scale = 1;
 static uint8_t identity_map[256];
 static bool identity_ready;
 
@@ -84,6 +85,24 @@ void V_BeginFrame(uint32_t clear_argb) {
     uint8_t index = palette_set ? V_NearestIndex(clear_argb) : 0;
     memset(screens[0].pixels, index, (size_t)screens[0].w * (size_t)screens[0].h);
     clip_set = false;
+    draw_scale = 1;
+}
+
+void V_SetDrawScale(int scale) {
+    draw_scale = scale > 0 ? scale : 1;
+}
+
+int V_GetDrawScale(void) {
+    return draw_scale;
+}
+
+isize2_t V_DrawSize(void) {
+    return (isize2_t){screens[0].w / draw_scale, screens[0].h / draw_scale};
+}
+
+static irect_t scale_rect(irect_t r) {
+    return (irect_t){r.x * draw_scale, r.y * draw_scale,
+                     r.w * draw_scale, r.h * draw_scale};
 }
 
 void I_SetPalette(const uint32_t argb[256]) {
@@ -259,13 +278,14 @@ void V_SetClip(irect_t next) {
         clip_rect = (irect_t){0};
         return;
     }
-    clip_rect = next;
+    clip_rect = scale_rect(next);
     clip_set = true;
 }
 
 irect_t V_GetClip(void) {
-    if (!clip_set) return (irect_t){0, 0, screens[0].w, screens[0].h};
-    return clip_rect;
+    irect_t r = clip_set ? clip_rect : (irect_t){0, 0, screens[0].w, screens[0].h};
+    return (irect_t){r.x / draw_scale, r.y / draw_scale,
+                     r.w / draw_scale, r.h / draw_scale};
 }
 
 static bool screen_bounds(irect_t *bounds) {
@@ -302,14 +322,12 @@ static bool intersect_bounds(irect_t r, irect_t *out) {
 }
 
 void V_DrawPoint(ivec2_t p, uint8_t color) {
-    irect_t pixel = {p.x, p.y, 1, 1}, clipped;
-    if (!intersect_bounds(pixel, &clipped)) return;
-    screens[0].pixels[(size_t)p.y * (size_t)screens[0].w + (size_t)p.x] = color;
+    V_FillRect((irect_t){p.x, p.y, 1, 1}, color);
 }
 
 void V_FillRect(irect_t r, uint8_t color) {
     irect_t area;
-    if (!intersect_bounds(r, &area)) return;
+    if (!intersect_bounds(scale_rect(r), &area)) return;
     for (int y = 0; y < area.h; ++y) {
         memset(screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x),
                color, (size_t)area.w);
@@ -421,6 +439,7 @@ static void blit_block(ivec2_t at, const uint8_t *src, isize2_t size, int src_pi
 
 static void blit_scaled(irect_t dst_rect, const uint8_t *src, isize2_t size, int src_pitch,
                         uint32_t flags, const blit_t *blit) {
+    dst_rect = scale_rect(dst_rect);
     if (!src || size.w <= 0 || size.h <= 0 || src_pitch <= 0 ||
         dst_rect.w <= 0 || dst_rect.h <= 0) return;
     if (dst_rect.w == size.w && dst_rect.h == size.h) {
@@ -445,7 +464,7 @@ static void blit_scaled(irect_t dst_rect, const uint8_t *src, isize2_t size, int
 void V_DrawBlock(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
                  const uint8_t *remap, uint32_t flags) {
     blit_t blit = {.remap = remap, .opaque = (flags & V_OPAQUE) != 0};
-    blit_block(at, src, size, src_pitch, flags, &blit);
+    blit_scaled((irect_t){at.x, at.y, size.w, size.h}, src, size, src_pitch, flags, &blit);
 }
 
 void V_DrawBlockScaled(irect_t dst_rect, const uint8_t *src, isize2_t size, int src_pitch,
@@ -458,14 +477,14 @@ void V_DrawBlockTranslucent(ivec2_t at, const uint8_t *src, isize2_t size, int s
                             const uint8_t *table, uint32_t flags) {
     if (!table) return;
     blit_t blit = {.table = table};
-    blit_block(at, src, size, src_pitch, flags, &blit);
+    blit_scaled((irect_t){at.x, at.y, size.w, size.h}, src, size, src_pitch, flags, &blit);
 }
 
 void V_DrawSilhouetteColormap(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
                               const uint8_t *colormap, uint32_t flags) {
     if (!colormap) return;
     blit_t blit = {.colormap = colormap};
-    blit_block(at, src, size, src_pitch, flags, &blit);
+    blit_scaled((irect_t){at.x, at.y, size.w, size.h}, src, size, src_pitch, flags, &blit);
 }
 
 static bool sprite_source(const spritesheet_t *sprite, int frame, const irect_t *src,
@@ -700,6 +719,7 @@ void V_DrawSmallText(irect_t box, const char *text, uint32_t argb, isize2_t spac
         {7,8,0x70,8,7},{0x61,0x51,0x49,0x45,0x43},
     };
     uint8_t color = V_NearestIndex(argb);
+    isize2_t size = V_DrawSize();
     for (int n = 0; text[n] && n * 6 + 5 <= width; ++n) {
         int ch = toupper((unsigned char)text[n]);
         int glyph = ch >= '0' && ch <= '9' ? ch - '0' :
@@ -714,9 +734,9 @@ void V_DrawSmallText(irect_t box, const char *text, uint32_t argb, isize2_t spac
         for (int x = 0; x < 5; ++x)
             for (int y = 0; y < 7; ++y)
                 if (bits[x] & (1u << y)) {
-                    irect_t pixel = { (point.x + n * 6 + x) * screens[0].w / space.w,
-                        (point.y + y) * screens[0].h / space.h,
-                        screens[0].w / space.w, screens[0].h / space.h };
+                    irect_t pixel = { (point.x + n * 6 + x) * size.w / space.w,
+                        (point.y + y) * size.h / space.h,
+                        size.w / space.w, size.h / space.h };
                     if (pixel.w < 1) pixel.w = 1;
                     if (pixel.h < 1) pixel.h = 1;
                     V_FillRect(pixel, color);

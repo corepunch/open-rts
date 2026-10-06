@@ -207,7 +207,9 @@ int main(void) {
         {"SCGM", "SCGMDIE0", S_SCGM_DIE1, S_SCGM_CORPSE},
         {"EXPL", "EXPLDIE0", S_EXPL_DIE1, S_EXPL_CORPSE},
         {"EXPL", "EXPLDEPLOY14", S_EXPL_DEPLOY1, S_EXPL_WORK1},
-        {"SLUG", "SLUGDEPLOY14", S_SLUG_DEPLOY1, S_SLUG_DEPLOY1},
+        {"SLUG", "SLUGDEPLOY14", S_SLUG_DEPLOY1, S_SLUG_WORK1},
+        /* Preserve the corrected mining cycle's authored frames. */
+        {"SLUG", "SLUGRETRACT14", S_SLUG_WORK1, S_SLUG_WORK1},
         {"SLUG", "SLUGRETRACT14", S_SLUG_RETRACT1, S_NULL},
         {"TURR", "TURRDIE0", S_TURR_DIE1, S_NULL},
         {"TONG", "TONGDIE0", S_TONG_DIE1, S_NULL},

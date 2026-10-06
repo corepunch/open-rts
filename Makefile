@@ -11,6 +11,11 @@ PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 CPPFLAGS += -Iinclude -Itests
+# Keep native world pixels while enlarging the HUD and menus.
+NATIVE_WORLD ?= 1
+ifeq ($(NATIVE_WORLD),1)
+CPPFLAGS += -DRTS_NATIVE_WORLD
+endif
 DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
@@ -45,6 +50,7 @@ DR_GAME_SOURCES   := $(sort $(shell find games/dark-reign  -name '*.c'))
 DC_GAME_SOURCES   := $(sort $(shell find games/dark-colony -name '*.c'))
 SL_GAME_SOURCES   := $(sort $(shell find games/7legion     -name '*.c'))
 KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
+W2_GAME_SOURCES   := $(sort $(shell find games/warcraft-2   -name '*.c'))
 
 # ── model engine sources (headless: no SDL display entry point or HUD) ───────
 MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render hud sound -name '*.c' ! -name 'd_main.c'))
@@ -61,8 +67,8 @@ DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
-        test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
-        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
+        test-warcraft-2 test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
+        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd warcraft-2 \
 		kknd-check anim-extract dc-info-conv dr-info-gen dr-units-extract dark-reign-units 7legion-units 7legion-info-gen kknd-info-gen test-info-gen \
 		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help
 
@@ -92,20 +98,25 @@ $(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony,-DRTS_WORLD
 $(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN))
 $(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
+$(eval $(call GAME_TARGET,warcraft-2,$(W2_GAME_SOURCES),warcraft-2,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2))
 
-all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd
+all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2
 
 .SECONDARY:
 
 SHARED_MODEL_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c'))
+# Warcraft has its own menu and worker rules; combat and skirmish AI are not
+# implemented yet. Run the applicable shared renderer/navigation/UI suites.
+W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ai*' ! -name 'test_retaliation.c' ! -name 'test_simple_menu.c'))
 
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))
+$(1)_SHARED_TEST_SOURCES := $(if $(4),$(4),$(SHARED_MODEL_TEST_SOURCES))
 $(1)_TEST_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$$($(1)_TEST_SOURCES))
-$(1)_TEST_OBJS += $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(SHARED_MODEL_TEST_SOURCES))
+$(1)_TEST_OBJS += $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$$($(1)_SHARED_TEST_SOURCES))
 $(1)_TEST_ENGINE_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(MODEL_ENGINE_SOURCES) $(2))
 $(1)_TEST_BINS := $$(patsubst tests/$(1)/%.c,$(BIN_DIR)/tests/$(1)/%,$$($(1)_TEST_SOURCES))
-$(1)_TEST_BINS += $$(patsubst tests/shared/%.c,$(BIN_DIR)/tests/$(1)/%,$(SHARED_MODEL_TEST_SOURCES))
+$(1)_TEST_BINS += $$(patsubst tests/shared/%.c,$(BIN_DIR)/tests/$(1)/%,$$($(1)_SHARED_TEST_SOURCES))
 $(BUILD_DIR)/model-test-$(1)/%.o: %.c Makefile
 	@mkdir -p $$(dir $$@)
 	$(CC) $(CPPFLAGS) $(3) -I./games/$(1) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
@@ -124,6 +135,7 @@ $(eval $(call MODEL_TESTS_FOR_GAME,dark-colony,$(DC_GAME_SOURCES),-DRTS_WORLD_Y_
 $(eval $(call MODEL_TESTS_FOR_GAME,dark-reign,$(DR_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN))
 $(eval $(call MODEL_TESTS_FOR_GAME,7legion,$(SL_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_7LEGION))
 $(eval $(call MODEL_TESTS_FOR_GAME,kknd,$(KKND_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_KKND))
+$(eval $(call MODEL_TESTS_FOR_GAME,warcraft-2,$(W2_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2,$(W2_SHARED_TEST_SOURCES)))
 
 # ── DC layout test ───────────────────────────────────────────────────────────
 DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
@@ -268,6 +280,11 @@ dark-colony-human03: $(BIN_DIR)/dark-colony
 kknd: $(BIN_DIR)/kknd
 	$(BIN_DIR)/kknd
 
+warcraft-2: $(BIN_DIR)/warcraft-2
+	$(BIN_DIR)/warcraft-2
+
+# Retail data/WAR2 is not on CI. Keep test-warcraft-2 off the default test target.
+
 kknd-check: $(BIN_DIR)/kknd
 	env SDL_VIDEODRIVER=dummy $(BIN_DIR)/kknd --check
 
@@ -333,7 +350,7 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Build:"
-	@echo "  all                  Build all four game binaries (default)"
+	@echo "  all                  Build all five game binaries (default)"
 	@echo "  clean                Remove build directory"
 	@echo ""
 	@echo "Run games:"
@@ -346,6 +363,7 @@ help:
 	@echo "  dark-colony-human02  Dark Colony HUMAN02 scenario"
 	@echo "  7legion              7th Legion"
 	@echo "  kknd                 KKnD"
+	@echo "  warcraft-2           Warcraft II (data/WAR2/ALAMO.PUD)"
 	@echo ""
 	@echo "Tools:"
 	@echo "  dc-info-conv         Build the FIN/SPR inspector and state exporter"
@@ -360,6 +378,7 @@ help:
 	@echo "  test                 Run all headless tests"
 	@echo "  test-info-gen        Verify generated info.c and info.h files are current"
 	@echo "  kknd-check           Headless smoke check for KKnD"
+	@echo "  test-warcraft-2      Worker, native HUD and PUD tests (needs data/WAR2)"
 	@echo ""
 	@echo "Smoke tests (headless):"
 	@echo "  env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check"
