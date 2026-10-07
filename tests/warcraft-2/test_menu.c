@@ -114,9 +114,11 @@ int main(void) {
         CHECK(currentmenu->itemOn >= 0);
     }
 
-    /* Title -> Single Player: campaigns, custom game and load, labelled by the retail dialogs. */
+    /* Blizzard's manual separates New Campaign from race selection. */
     CHECK(click(S(4, 1)));
-    CHECK(find(S(6, 1)) && find(S(6, 2)) && find(S(9, 4)) && find(S(27, 1)));
+    CHECK(find("New Campaign") && find(S(9, 4)) && find(S(27, 3)));
+    CHECK(!find(S(6, 1)) && !find(S(6, 2)) && !kind(MI_LIST, 0));
+    CHECK(currentmenu->numitems == 4);
     draw("2-single");
     CHECK(click(S(9, 4)));
     CHECK(find(S(9, 2)) && find(S(62, 9)) && find(S(62, 2)));
@@ -229,29 +231,24 @@ int main(void) {
     CHECK(find(S(45, 11)));
     draw("5-setup-low");
     CHECK(click(S(62, 2)));
-    CHECK(find(S(6, 1)));
+    CHECK(find("New Campaign"));
 
-    /* Campaign: both races list levels, named by STRDAT, that load from MAINDAT. */
-    CHECK(click(S(6, 1)));
-    list = NULL;
-    for (int i = 0; i < currentmenu->numitems; ++i)
-        if (currentmenu->items[i].kind == MI_LIST) list = &currentmenu->items[i];
-    CHECK(list && list->rows == W2_CAMPAIGN_LEVELS);
-    CHECK(!strcmp(list->row(list, 0), S(53, 36)));
+    /* Race choice offers three native buttons, without a mission browser. */
+    CHECK(click("New Campaign"));
+    CHECK(find(S(6, 1)) && find(S(6, 2)) && find(S(6, 3)));
+    CHECK(currentmenu->numitems == 3 && !kind(MI_LIST, 0) && !kind(MI_SCROLLBAR, 0));
     draw("6-campaign");
     press(SDLK_ESCAPE);
-    CHECK(find(S(6, 2)));
-    CHECK(click(S(6, 2)));
-    CHECK(!strcmp(list->row(list, 0), S(53, 35)) || true);
-    press(SDLK_ESCAPE);
-    CHECK(find(S(6, 2)));
+    CHECK(find("New Campaign") && !menumap);
+    CHECK(click("New Campaign") && click(S(6, 3)));
+    CHECK(find("New Campaign") && !menumap);
 
     /* No saves yet: Load opens an empty list and Escape returns. */
-    CHECK(click(S(27, 1)));
+    CHECK(click(S(27, 3)));
     CHECK(find(S(27, 3)));
     draw("6b-load");
     press(SDLK_ESCAPE);
-    CHECK(find(S(6, 1)));
+    CHECK(find("New Campaign"));
     press(SDLK_ESCAPE);
     CHECK(find(S(4, 1)));
 
@@ -284,15 +281,19 @@ int main(void) {
     CHECK(!menuactive && menumap && strstr(menumap, "PUD"));
     menumap = NULL;
 
-    /* A campaign level is extracted from MAINDAT and launched by absolute path. */
-    M_StartControlPanel(&app);
-    CHECK(click(S(4, 1)));
-    CHECK(click(S(6, 1)));
-    CHECK(click(S(62, 1)));
-    CHECK(!menuactive && menumap && menumap[0] == '/');
-    w2_pud_info_t info;
-    CHECK(w2_pud_info(menumap, &info) && info.width > 0);
-    menumap = NULL;
+    /* Either race begins at mission one, extracted through the ordinary PUD path. */
+    for (int orc = 0; orc < 2; ++orc) {
+        M_StartControlPanel(&app);
+        CHECK(click(S(4, 1)) && click("New Campaign"));
+        CHECK(click(S(6, orc ? 1 : 2)));
+        CHECK(!menuactive && menumap && menumap[0] == '/');
+        CHECK(strstr(menumap, orc ? "level01o.pud" : "level01h.pud"));
+        w2_pud_info_t info;
+        CHECK(w2_pud_info(menumap, &info) && info.width == 32 && info.height == 32);
+        for (int i = 0; i < 8; ++i)
+            if (info.owners[i] == 5) CHECK(info.sides[i] == orc);
+        menumap = NULL;
+    }
 
     /* A chosen stock replaces the map's for one load of the playing sides. */
     P_InitThinkers();
@@ -353,7 +354,7 @@ int main(void) {
         P_InitThinkers();
         if (round == 0) { /* enter the campaign through the menus, as a player would */
             M_StartControlPanel(&app);
-            CHECK(click(S(4, 1)) && click(S(6, 2)) && click(S(62, 1)));
+            CHECK(click(S(4, 1)) && click("New Campaign") && click(S(6, 2)));
             CHECK(!menuactive && menumap);
         }
         CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));

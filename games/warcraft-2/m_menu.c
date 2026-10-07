@@ -15,9 +15,10 @@
  * buttons at x 208, rows from y 240 every 36 pixels, below the top-left logo.
  * The in-level game menu uses panel 1 on the left, not the centred Wargus box.
  *
- * Most other screens follow Wargus scripts/guichan.lua and menus/options.lua:
- * single player, game setup, scenario and campaign pickers, credits and the
- * options box. Screens are built when opened, so each starts from fresh state.
+ * Single-player campaign entry follows Blizzard's manual: New Campaign,
+ * race selection, then mission one. Wargus's mission selector is not retail
+ * behavior. Other screens still need retail layout verification.
+ * Screens are built when opened, so each starts from fresh state.
  * The scenario picker uses the user's BNE screenshot layout over setup,
  * with DOS REZDAT artwork. Other popups use the dimmed title (REZDAT 15). */
 
@@ -191,17 +192,16 @@ typedef struct { menu_t menu; menuitem_t items[SCREEN_ITEMS]; } screen_t;
 enum {
     A_STANDARD = 1, A_LOAD, A_PREVIOUS,
     A_SELECT, A_START, A_CANCEL, A_RESOURCES,
-    A_HUMAN, A_ORC,
+    A_CAMPAIGN, A_HUMAN, A_ORC,
     A_LIST, A_PICK_OK, A_PICK_CANCEL,
     A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK,
     A_NEXT, A_RESTART, A_QUIT,
     A_SAVE_OK, A_DELETE, A_FILE_CANCEL, A_NAME, A_TYPE, A_SIZE, A_DIRECTORY
 };
-typedef enum { PICK_SCENARIO, PICK_HUMAN, PICK_ORC } pickmode_t;
 typedef struct { const char *text; int at, len; } label_t;
 typedef struct { char path[1200]; saveinfo_t info; } saveentry_t;
 
-static screen_t single_screen, setup_screen, pick_screen, credits_screen, options_screen,
+static screen_t single_screen, campaign_screen, setup_screen, pick_screen, credits_screen, options_screen,
                 result_screen, file_screen;
 static char data_root[1024];
 static app_t *front_app;
@@ -209,7 +209,6 @@ static char scenario[1200];
 static int resources_mode, launch_resources;
 static int campaign_orc, campaign_level; /* campaign_level 0: not in a campaign */
 static char launch_path[1200];
-static pickmode_t pick_mode;
 static struct { char file[1200]; char label[160]; w2_pud_info_t info; bool directory; int archive; } entries[MAX_SCENARIOS];
 static int entry_count, pick_detail_item;
 static char pick_directory[1024];
@@ -335,7 +334,7 @@ static void open_title(void) {
 
 static void open_single(void);
 static void open_setup(void);
-static void open_pick(pickmode_t mode);
+static void open_scenario(void);
 static void open_file(bool save, menu_t *back);
 
 static void escape_to_title(menu_t *menu) { (void)menu; open_title(); }
@@ -344,23 +343,32 @@ static void escape_to_setup(menu_t *menu) { (void)menu; open_setup(); }
 
 static const spritesheet_t *backdrop(void) { return &art.title; }
 
-/* Single Player: STRDAT NewCampaign (Orc, Human, Previous) with Custom Game and Load Game. */
+/* The manual names New Campaign separately from the race-selection screen.
+ * Its visible label is absent from the identified DOS dialog tables. */
 static void open_single(void) {
     screen_begin(&single_screen, backdrop(), escape_to_title);
     button_race = 1;
-    add_label(&single_screen, (irect_t){208, 206, 224, 28}, L(STR_MAIN_MENU, 1, "Single Player"),
-              MALIGN_CENTER, false);
-    add_button(&single_screen, (irect_t){208, 240, 224, 28}, L(STR_CAMPAIGN, 1, "Orc Campaign"),
-               SDLK_o, A_ORC);
-    add_button(&single_screen, (irect_t){208, 276, 224, 28}, L(STR_CAMPAIGN, 2, "Human Campaign"),
-               SDLK_h, A_HUMAN);
-    add_button(&single_screen, (irect_t){208, 312, 224, 28}, L(STR_CUSTOM_MENU, 4, "Custom Game"),
-               SDLK_c, A_STANDARD);
-    add_button(&single_screen, (irect_t){208, 348, 224, 28}, L(STR_LOAD, 1, "Load Game"),
+    add_button(&single_screen, (irect_t){208, 240, 224, 28}, LIT("New Campaign"),
+               SDLK_n, A_CAMPAIGN);
+    add_button(&single_screen, (irect_t){208, 276, 224, 28}, L(STR_LOAD, 3, "Load Game"),
                SDLK_l, A_LOAD);
-    add_button(&single_screen, (irect_t){208, 384, 224, 28}, L(STR_CAMPAIGN, 3, "Previous Menu"),
+    add_button(&single_screen, (irect_t){208, 312, 224, 28}, L(STR_CUSTOM_MENU, 4, "Custom Scenario"),
+               SDLK_c, A_STANDARD);
+    add_button(&single_screen, (irect_t){208, 348, 224, 28}, L(STR_CAMPAIGN, 3, "Previous Menu"),
                SDLK_ESCAPE, A_PREVIOUS);
     show(&single_screen.menu);
+}
+
+static void open_campaign(void) {
+    screen_begin(&campaign_screen, backdrop(), escape_to_single);
+    button_race = 1;
+    add_button(&campaign_screen, (irect_t){208, 240, 224, 28}, L(STR_CAMPAIGN, 1, "Orc Campaign"),
+               SDLK_o, A_ORC);
+    add_button(&campaign_screen, (irect_t){208, 276, 224, 28}, L(STR_CAMPAIGN, 2, "Human Campaign"),
+               SDLK_h, A_HUMAN);
+    add_button(&campaign_screen, (irect_t){208, 312, 224, 28}, L(STR_CAMPAIGN, 3, "Previous Menu"),
+               SDLK_ESCAPE, A_PREVIOUS);
+    show(&campaign_screen.menu);
 }
 
 /* Scenario info line for the setup and picker screens. */
@@ -478,14 +486,13 @@ static void level_title(int level, bool orc, char *out, size_t size) {
 static void pick_changed(screen_t *s, int row) {
     char line[160] = "";
     if (row >= 0 && row < entry_count) {
-        if (pick_mode == PICK_SCENARIO && !entries[row].directory) {
+        if (!entries[row].directory) {
             int players = 0;
             for (int i = 0; i < 8; ++i)
                 players += entries[row].info.owners[i] == 4 || entries[row].info.owners[i] == 5;
             snprintf(line, sizeof(line), "%d x %d\n%d %s", entries[row].info.width,
                      entries[row].info.height, players, players == 1 ? "player" : "players");
-        } else if (!entries[row].directory)
-            snprintf(line, sizeof(line), "%d x %d", entries[row].info.width, entries[row].info.height);
+        }
     }
     set_text(s, pick_detail_item, "%s", line);
     int ok = 0;
@@ -545,7 +552,6 @@ static void open_scenario(void) {
     s->menu.held = s->menu.keyheld = s->menu.dropdown = NULL;
     s->menu.escape = escape_to_setup;
     button_race = 1;
-    pick_mode = PICK_SCENARIO;
     if (scenario_type) scan_scenarios(pick_directory, 32 * size_filter, true);
     else {
         entry_count = 0;
@@ -620,66 +626,23 @@ static void open_scenario(void) {
     show(&s->menu);
 }
 
-/* Select scenario or a campaign's levels, on the dimmed title. */
-static void open_pick(pickmode_t mode) {
-    if (mode == PICK_SCENARIO) { open_scenario(); return; }
-    pick_mode = mode;
-    entry_count = 0;
-    memset(entries, 0, sizeof(entries));
-    {
-        w2_pud_info_t levels[W2_CAMPAIGN_LEVELS];
-        w2_campaign_infos(data_root, mode == PICK_ORC, levels);
-        for (int i = 0; i < W2_CAMPAIGN_LEVELS; ++i) {
-            if (!levels[i].width) continue;
-            entries[entry_count].info = levels[i];
-            snprintf(entries[entry_count].file, sizeof(entries[0].file), "%d", i + 1);
-            level_title(i + 1, mode == PICK_ORC, entries[entry_count].label,
-                        sizeof(entries[0].label));
-            ++entry_count;
-        }
-    }
-    screen_t *s = &pick_screen;
-    screen_begin(s, &art.dimmed, escape_to_single);
-    button_race = 1;
-    irect_t box = add_panel(s, &art.panel[1][W2_PANEL_SCENARIO]);
-    int x = box.x, y = box.y;
-    label_t title = mode == PICK_HUMAN ? L(STR_CAMPAIGN, 2, "Human Campaign") :
-                                         L(STR_CAMPAIGN, 1, "Orc Campaign");
-    add_label(s, (irect_t){x, y + 8, box.w, 24}, title, MALIGN_CENTER, false);
-    menuitem_t *list = screen_add(s, MI_LIST, (irect_t){x + 16, y + 40, 300, 216});
-    list->id = A_LIST;
-    list->routine = front_action;
-    list->font = large();
-    list->ink = YELLOW;
-    list->look[MS_PUSHED].ink = WHITE;
-    list->color = 0xff5a3c14u;
-    list->row_height = 18;
-    list->row = pick_row;
-    list->inset = (ivec2_t){4, 1};
-    list->value = -1;
-    int list_index = last_item(s);
-    menuitem_t *bar = screen_add(s, MI_SCROLLBAR, (irect_t){x + 322, y + 40, 12, 216});
-    bar->link = list_index;
-    bar->color = 0xffb89040u;
-    M_MenuSetRows(&s->items[list_index], entry_count);
-    pick_detail_item = last_item(s) + 1;
-    add_label(s, (irect_t){x + 16, y + 286, 320, 16}, LIT(""), MALIGN_LEFT, true);
-    add_button(s, (irect_t){x + 48, y + 318, 106, 28}, L(STR_PICK, 1, "OK"), SDLK_o, A_PICK_OK);
-    add_button(s, (irect_t){x + 198, y + 318, 106, 28}, L(STR_PICK, 2, "Cancel"), SDLK_ESCAPE,
-               A_PICK_CANCEL);
-    s->items[list_index].value = entry_count ? 0 : -1;
-    M_MenuSetRows(&s->items[list_index], entry_count);
-    s->menu.itemOn = list_index;
-    pick_changed(s, s->items[list_index].value);
-    show(&s->menu);
-}
-
 static void start_level(const char *path, bool apply_resources) {
     snprintf(launch_path, sizeof(launch_path), "%s", path);
     launch_resources = apply_resources ? resources_mode : 0;
     W2_SetStartResources(launch_resources);
     menumap = launch_path;
     M_ClearMenus();
+}
+
+static void start_campaign(bool orc) {
+    char path[sizeof(launch_path)];
+    if (!w2_extract_campaign_level(data_root, 1, orc, path, sizeof(path))) {
+        M_StartMessage("The campaign level could not be read.");
+        return;
+    }
+    campaign_orc = orc;
+    campaign_level = 1;
+    start_level(path, false);
 }
 
 /* Credits are the retail text. */
@@ -1052,33 +1015,27 @@ static void accept_pick(void) {
     menuitem_t *list = M_MenuFind(&pick_screen.menu, A_LIST);
     int row = list ? list->value : -1;
     if (row < 0 || row >= entry_count) return;
-    if (pick_mode == PICK_SCENARIO) {
-        if (entries[row].directory) {
-            snprintf(pick_directory, sizeof(pick_directory), "%s", entries[row].file);
-            open_scenario();
+    if (entries[row].directory) {
+        snprintf(pick_directory, sizeof(pick_directory), "%s", entries[row].file);
+        open_scenario();
+        return;
+    }
+    if (entries[row].archive) {
+        char name[64];
+        snprintf(name, sizeof(name), "scenario-%d.pud", entries[row].archive);
+        if (!w2_extract_map(data_root, entries[row].archive, name, scenario, sizeof(scenario))) {
+            M_StartMessage("The scenario could not be read.");
             return;
         }
-        if (entries[row].archive) {
-            char name[64];
-            snprintf(name, sizeof(name), "scenario-%d.pud", entries[row].archive);
-            if (!w2_extract_map(data_root, entries[row].archive, name, scenario, sizeof(scenario))) {
-                M_StartMessage("The scenario could not be read.");
-                return;
-            }
-        } else snprintf(scenario, sizeof(scenario), "%s", entries[row].file);
-        open_setup();
-    } else if (w2_extract_campaign_level(data_root, atoi(entries[row].file), pick_mode == PICK_ORC,
-                                        launch_path, sizeof(launch_path))) {
-        campaign_orc = pick_mode == PICK_ORC;
-        campaign_level = atoi(entries[row].file);
-        start_level(launch_path, false);
-    } else M_StartMessage("The campaign level could not be read.");
+    } else snprintf(scenario, sizeof(scenario), "%s", entries[row].file);
+    open_setup();
 }
 
 static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu;
     if (action != MA_ACTIVATE && !((item->kind == MI_LIST || item->kind == MI_DROPDOWN) && action == MA_CHANGE)) return;
     switch (item->id) {
+    case A_CAMPAIGN: open_campaign(); break;
     case A_STANDARD: open_setup(); break;
     case A_LOAD: open_file(false, &single_screen.menu); break;
     case A_PREVIOUS: {
@@ -1086,7 +1043,7 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         if (current && current->escape) current->escape(current);
         break;
     }
-    case A_SELECT: open_pick(PICK_SCENARIO); break;
+    case A_SELECT: open_scenario(); break;
     case A_TYPE: scenario_type = item->value; open_scenario(); break;
     case A_SIZE: size_filter = item->value; open_scenario(); break;
     case A_DIRECTORY:
@@ -1105,8 +1062,8 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     }
     case A_CANCEL: open_single(); break;
-    case A_HUMAN: open_pick(PICK_HUMAN); break;
-    case A_ORC: open_pick(PICK_ORC); break;
+    case A_HUMAN: start_campaign(false); break;
+    case A_ORC: start_campaign(true); break;
     case A_LIST:
         if (currentmenu == &pick_screen.menu) {
             if (action == MA_ACTIVATE) accept_pick();

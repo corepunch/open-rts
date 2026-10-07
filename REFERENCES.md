@@ -1,5 +1,18 @@
 # Reverse Engineering References
 
+### Warcraft II single-player campaign entry (2026-10-07)
+
+Blizzard's [Battle.net Edition manual, printed page 6](https://downloads.war2.ru/war2/Info%20%26%20Media%20content/Documents/War2BNE_Manual_EN.pdf)
+was read for the Single Player → New Campaign → race selection → briefing
+→ first mission sequence. This is a Blizzard-authored document hosted by a
+mirror, not a verified pixel/layout reference. The similarly titled
+[manual transcript](https://oldgamesdownload.com/manual/warcraft-ii-tides-of-darkness-dos-mac-windows-manual-english/)
+contains Battle.net Edition material; its title alone does not prove DOS
+edition behavior. Wargus `scripts/menus/campaign.lua::RunCampaignSubmenu`
+is a reimplementation's mission selector, not evidence that retail exposes
+all campaign missions on entry. The new user screenshot and native findings
+are recorded in [WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md#single-player-campaign-entry-correction-2026-10-07).
+
 ### Warcraft II scenario picker reference (2026-10-07)
 
 User-provided `/Users/igor/Desktop/Screenshot 2026-10-07 at 12.00.30.jpg`
