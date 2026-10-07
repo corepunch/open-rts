@@ -1843,3 +1843,24 @@ executable evidence. DOOM `reference/DOOM/r_things.c` was consulted for
 sorted sprite drawing. Detailed native offsets, corrected hypotheses and
 tests are in the
 [HUD/selection correction](docs/WAR2_EXE_FINDINGS.md#button-decorations-and-footprint-selection-correction-2026-10-04).
+
+### Warcraft II native sound bank (2026-10-07)
+
+The pinned [Wargus](https://github.com/Wargus/wargus/tree/cde1a0718a0058cc651ecd56ff8149fc39f624e9)
+checkout supplies `wartool.h` archive indices, `wartool.cpp::ConvertWav`,
+`scripts/sound.lua` sound groups/remaps, and `scripts/{human,orc}/{units,anim}.lua`
+event and animation assignments. GPL-2 source is reference only; the C
+loader and event tables are independently implemented from format facts.
+The pinned [Warcraft 2000](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic/tree/4d12ad3e62ba03c59b2dbec2a989f58d744018ee)
+`GameSound.cpp` is a behavioral comparison for grouped WAVs, viewport
+panning and visibility filtering; no source or game-specific constants
+were copied. Local `reference/DOOM/s_sound.c` supplies the sound/channel
+ownership comparison; the existing Dark Colony sound implementation
+supplies the actual shared mixer and event path.
+
+Native `data/WAR2/DATA/SFXDAT.SUD` SHA-256:
+`05645c6efb4f38acbff955b20bfd06a6da42942434f37f771f7c792f1e62fb95`
+(6,809,845 bytes; WAR type 5000, 293 entries). MAINDAT entry 432 supplies
+the UI click; its existing fingerprint above applies. See
+`docs/WAR2_EXE_FINDINGS.md`, “Native sound playback”, for the mappings,
+verification commands, disproven SNDDAT assumption and retail unknowns.

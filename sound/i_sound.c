@@ -95,18 +95,19 @@ void I_ShutdownSound(void) {
     mixbuffer = NULL;
 }
 
-sfxsample_t *I_LoadSample(const char *path) {
-    if (!device) return NULL;
+static sfxsample_t *load_sample(SDL_RWops *source) {
+    if (!source) return NULL;
     SDL_AudioSpec wav;
     Uint8 *bytes = NULL;
     Uint32 size = 0;
-    if (!SDL_LoadWAV(path, &wav, &bytes, &size)) {
-        fprintf(stderr, "warning: sound %s: %s\n", path, SDL_GetError());
-        return NULL;
-    }
+    if (!SDL_LoadWAV_RW(source, 1, &wav, &bytes, &size)) return NULL;
     SDL_AudioCVT cvt;
     if (SDL_BuildAudioCVT(&cvt, wav.format, wav.channels, wav.freq,
                           AUDIO_S16SYS, 1, spec.freq) < 0) {
+        SDL_FreeWAV(bytes);
+        return NULL;
+    }
+    if (!size || size > INT32_MAX / (unsigned)(cvt.len_mult > 0 ? cvt.len_mult : 1)) {
         SDL_FreeWAV(bytes);
         return NULL;
     }
@@ -129,6 +130,18 @@ sfxsample_t *I_LoadSample(const char *path) {
     sample->data = (int16_t *)cvt.buf;
     sample->length = (uint32_t)(cvt.needed ? cvt.len_cvt : cvt.len) / sizeof(int16_t);
     return sample;
+}
+
+sfxsample_t *I_LoadSample(const char *path) {
+    if (!device) return NULL;
+    sfxsample_t *sample = load_sample(SDL_RWFromFile(path, "rb"));
+    if (!sample) fprintf(stderr, "warning: sound %s: %s\n", path, SDL_GetError());
+    return sample;
+}
+
+sfxsample_t *I_LoadSampleMemory(const void *bytes, size_t size) {
+    if (!device || !bytes || !size || size > INT32_MAX) return NULL;
+    return load_sample(SDL_RWFromConstMem(bytes, (int)size));
 }
 
 void I_FreeSample(sfxsample_t *sample) {

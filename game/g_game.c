@@ -308,6 +308,7 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
                                              (fvec2_t){ gx, gy });
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
     model_emit_build_completion(active_model, new_unit, producer, product);
+    S_Bark(&new_unit, 1, SE_READY, false);
     if (use_special_release)
         order_barracks_exit_spacing(new_unit, producer, gx, gy);
     return true;
