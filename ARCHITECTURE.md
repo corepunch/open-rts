@@ -651,7 +651,9 @@ on the default level are explicit open-rts startup policies.
 
 ## Sound
 
-`sound/` follows Doom: `s_sound.c` owns sound channels, the listener and
+`sound/` is an engine subsystem linked into every game, alongside `play/`,
+`render/` and `hud/`. It follows Doom: `s_sound.c` owns sample caching,
+sound channels, the listener and
 origin tracking; `i_sound.c` is the platform layer, an SDL audio callback that
 mixes samples converted at load to 16-bit mono. The simulation starts sounds
 the way Doom's `P_` code does (`S_ActorSound(actor, SE_DEATH)` in
@@ -664,6 +666,15 @@ table (`S_AddSfx`), maps actor events to sfx ids, and runs per-frame ambience.
 Like Hexen's SNDINFO `$random`, an sfx can be a group whose members play in
 turn with a random cursor; a group's priority orders barks. Games without a
 `soundinfo_t` are silent.
+
+Games supply native sound names, archive bytes, event assignments and native
+parameters. They call the engine's `S_` API; only the engine calls the platform
+`I_` sample/mixer API. Loose WAV names are loaded by `S_Init`; archive loaders
+pass extracted WAV bytes to `S_LoadSound`. The engine converts, owns and frees
+every sample, including partial initialization failures. Games never assign
+sample pointers or create a mixer. The synthetic-WAV regression in
+`tests/shared/test_sound.c` exercises this boundary under every game build
+without any retail data; per-game tests verify native sound definitions.
 
 Rules the engine applies for every game:
 
@@ -678,12 +689,17 @@ Rules the engine applies for every game:
   sees, so fog cannot be heard through.
 - Playback never reads or writes simulation state or the gameplay RNG
   (`S_Random` is separate), so lockstep peers may hear different things.
-  `--check`, `--screenshot`, `--net-check`, model tests and `--nosound` never
-  open an audio device, and every `S_` call is then a no-op.
+  `--check`, `--screenshot`, `--net-check`, ordinary model tests and `--nosound`
+  never open an audio device, and playback calls are then no-ops. Audio
+  regressions explicitly initialize SDL's dummy audio driver.
 
 Dark Colony's tables come from `SOUND/SOUND2.DAT`, `SOUND/SLIST.DAT` and the
 tileset's `.AMB`; see `games/dark-colony/sounds.c` and the sound section of
 `docs/DC_EXE_FINDINGS.md`.
+
+Warcraft II supplies WAV entries from `SFXDAT.SUD` and `MAINDAT.WAR` through
+the same engine API; see `games/warcraft-2/sounds.c`. Neither game's sound
+implementation depends on the other game directory.
 
 ## Determinism and future networking
 

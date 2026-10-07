@@ -1394,7 +1394,7 @@ typedef struct sfxinfo_s {
     int numlinks;
     int next;           /* Group cursor: the member the next play uses. */
     bool norepeat;      /* Group re-rolls its cursor away from the last member. */
-    struct sfxsample_s *data; /* Owned by S_Shutdown, including init-loaded samples. */
+    struct sfxsample_s *data; /* Engine-owned sample; games use S_LoadSound. */
 } sfxinfo_t;
 
 /* Actor events a game maps to sounds. */
@@ -1425,7 +1425,7 @@ typedef enum {
 
 /* A game's sound definition, referenced by gameinfo_t.sound. */
 typedef struct soundinfo_s {
-    /* Registers sfx; may fill S_Sfx(id)->data from native archives.
+    /* Registers sfx; may supply native WAV bytes through S_LoadSound.
      * False frees partial samples and leaves the game silent. */
     bool (*init)(const char *data_root);
     /* Per-level data such as tileset ambience. */
@@ -1450,6 +1450,9 @@ void S_Shutdown(void);
 /* Game tables add sfx in order; returns the id (ids start at 1), or 0. */
 int S_AddSfx(const sfxinfo_t *sfx);
 sfxinfo_t *S_Sfx(int id);
+/* Loads an uncached sample from native WAV bytes. The engine owns the decoded
+ * sample; callers retain the input. Groups and already loaded ids are rejected. */
+bool S_LoadSound(int id, const void *bytes, size_t size);
 /* Stops world sounds and loads the level's own sound data. */
 void S_Start(const level_t *map, const char *data_root);
 /* Positional sound following origin; NULL origin plays at full volume. */

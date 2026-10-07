@@ -4,8 +4,7 @@
 #include "engine.h"
 
 #define NUMCHANNELS 32
-/* DC.EXE sets an 11025 Hz primary buffer; mixing at twice that resamples its
- * 8000..22050 Hz samples with less aliasing. */
+/* Engine output rate; native WAV rates are converted during loading. */
 #define MIXRATE 22050
 
 struct sfxsample_s {

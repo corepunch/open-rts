@@ -502,3 +502,26 @@ tests passed, as did both games' headless `--check`. The Warcraft native
 menu BMP was rendered and visually inspected. Playback validation used the
 SDL dummy audio driver; this does not constitute a listening comparison
 against the original game.
+
+### Engine audio ownership clarification (2026-10-07)
+
+The playback system belongs to the engine's `sound/` directory. Dark Colony
+is a client of it, as is Warcraft II; there is no cross-game implementation
+dependency. Warcraft's native loader now passes WAV bytes to `S_LoadSound`
+instead of calling `I_LoadSampleMemory` and assigning a mixer sample pointer.
+The engine validates the sfx slot and owns decoding, caching and cleanup.
+This follows the `S_`/`I_` split in the local Doom reference. The sound
+behavior and native assignments above are unchanged.
+
+Generic channel, bark, visibility, attenuation, invalid-WAV and lifecycle
+tests now live in `tests/shared/test_sound.c`, using a synthetic WAV with
+no retail assets. They run for all five game builds through Makefile source
+discovery. Native Dark Colony tests retain SOUND2/SLIST/GAMESTAT/AMB evidence;
+Warcraft tests retain archive playback, event mappings and partial-bank
+failure recovery. Run `build/bin/tests/<game>/test_sound` with dummy SDL
+video/audio drivers for the shared ownership checks.
+
+**Ownership refactor verification:** all five game binaries build, the
+shared synthetic-WAV suite passes under every game, all 23 Warcraft II and
+68 Dark Colony regression executables pass, and both games' headless smoke
+checks pass. No game source calls the I_ sound/sample API.

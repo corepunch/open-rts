@@ -55,6 +55,13 @@ sfxinfo_t *S_Sfx(int id) {
     return id > 0 && id <= numsfx ? &sfxtable[id] : NULL;
 }
 
+bool S_LoadSound(int id, const void *bytes, size_t size) {
+    sfxinfo_t *sfx = S_Sfx(id);
+    if (!sfx || sfx->numlinks || sfx->data) return false;
+    sfx->data = I_LoadSampleMemory(bytes, size);
+    return sfx->data != NULL;
+}
+
 bool S_Init(const char *data_root) {
     if (initialized) return true;
     game = gameinfo ? gameinfo->sound : NULL;
