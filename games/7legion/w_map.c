@@ -94,16 +94,15 @@ bool sl_load_map(const char *map_path, level_t *out) {
     }
     const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
     uint16_t key = 30000;
-    /* MAPT is decoded in file order by legion.exe, but its world access is
-       column-major: file cell (x,y) is displayed at world index (x*128+y).
-       Keeping that native addressing is what makes coast/road transitions
-       meet in the correct direction. */
-    for (int y = 0; y < H; ++y) {
-        for (int x = 0; x < W; ++x) {
-            int source_i = y * W + x;
-            int output_i = y * W + x;
+    /* Retail MAPT/MAPOVL/MAPL use x*128+y; engine levels use y*width+x.
+       Decode in native file order so the rolling key and coordinate XORs
+       remain aligned. See docs/7LEGION_EXE_FINDINGS.md. */
+    for (int x = 0; x < W; ++x) {
+        for (int y = 0; y < H; ++y) {
+            int source_i = x * H + y;
+            int output_i = L_Index(out, x, y);
             uint16_t stored = read_u16_le(tile_bytes + (size_t)source_i * 2);
-            out->tile_ids[output_i] = (uint16_t)((stored ^ key) - x);
+            out->tile_ids[output_i] = (uint16_t)((stored ^ key) - y);
             key--;
         }
     }
@@ -120,10 +119,10 @@ bool sl_load_map(const char *map_path, level_t *out) {
             out->tile_overlays[0] = calloc((size_t)W * H, sizeof(uint16_t));
             if (out->tile_overlays[0]) {
                 const uint8_t *p = (const uint8_t *)overlay.bytes;
-                for (int y = 0; y < H; ++y) {
-                    for (int x = 0; x < W; ++x) {
-                        int source_i = y * W + x;
-                        int output_i = y * W + x;
+                for (int x = 0; x < W; ++x) {
+                    for (int y = 0; y < H; ++y) {
+                        int source_i = x * H + y;
+                        int output_i = L_Index(out, x, y);
                         out->tile_overlays[0][output_i] =
                             (uint16_t)(read_u16_le(p + (size_t)source_i * 2) & 0xffu);
                     }
@@ -141,11 +140,12 @@ bool sl_load_map(const char *map_path, level_t *out) {
         if (W_ReadFile(land_path, &land)) {
             if (land.size == (size_t)W * H) {
                 const uint8_t *values = (const uint8_t *)land.bytes;
-                for (int y = 0; y < H; ++y) {
-                    for (int x = 0; x < W; ++x) {
-                        int source_i = y * W + x;
-                        int output_i = y * W + x;
-                        out->blocked[output_i] = (values[source_i] ^ y) != 0;
+                for (int x = 0; x < W; ++x) {
+                    for (int y = 0; y < H; ++y) {
+                        int source_i = x * H + y;
+                        int output_i = L_Index(out, x, y);
+                        /* Retail ground movement accepts decoded land value 1. */
+                        out->blocked[output_i] = (values[source_i] ^ x) != 1;
                     }
                 }
             }

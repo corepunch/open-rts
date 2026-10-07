@@ -352,3 +352,127 @@ Asset SHA-256 fingerprints:
 | ROCKMECH | `42121cbda29b70848d6178f7bd80a600ec1e4cdcfb0849b36848939763028514` |
 | TRUCK | `279196008d54f32c0db86102686b4bacda0b9eecab12fd66833aa0fabe342848` |
 | MOBBASE | `69f68e2c65b92d467e5196502ff5ef36bd12023b790b79fa569282eab3dd39e9` |
+
+## Terrain coordinate audit (2026-10-07)
+
+**Confirmed: native map layers are column-major, `i = x*128+y`.** The
+user-supplied open-rts screenshot showed disconnected shoreline tiles and
+starting units over water. This was an engine regression, not evidence that
+retail rotates or flips individual tile images. Commit `497c7b9` converted
+native storage into engine row-major storage; `d2344b4` removed the transpose
+from all three layers while leaving the column-major comment behind.
+
+The executable is the same SHA-256
+`a312f7b50a940e5a0ec737cf8923c1d03f552f9c9111c62c72546bbb46f6c154`
+as the sprite audit. LLVM `objdump` was used because r2/r2ghidra was unavailable
+on this host. The existing PE/toolchain fingerprint applies. Evidence chain:
+
+- Loads at `0x402d07..0x402d4c` pass the MAPT filename buffer `0x70e600`
+  and destination `0x773450`, MAPL name `0x6df100` and destination
+  `0x8352f0`, and MAPOVL name `0x85a740` and destination `0x84a500`
+  to `0x408360`.
+- Decoder `0x438f50..0x438fa3` loops over outer `dx` and inner `si`,
+  both 0..127, indexing `dx*128+si`. With `key=30000` decremented once
+  per cell, MAPT becomes `(stored_word ^ key) - si`; MAPL becomes
+  `stored_byte ^ dl`. Encoder `0x438ef0..0x438f43` performs the inverse
+  add/XOR. Another decode appears at `0x437ead..0x437f12`.
+- Terrain submission `0x41de31..0x41de7a` supplies camera coordinates
+  `0x7168ce`/`0x71693e`, MAPT `0x773450` and tile handle `0x859520`
+  to queue function `0x4937f0`. It emits type 5; dispatcher
+  `0x49628d..0x4962b7` calls renderer `0x4967e0`.
+- **Axis proof:** `0x496847..0x496867` indexes
+  `(camera_x + horizontal_index)*128 + camera_y + vertical_index`.
+  Horizontal advancement `0x4968fc..0x496901` increments that first
+  index and adds 64 destination bytes (32 pixels at 16 bits). Row advancement
+  `0x496928..0x49692d` adds `0xa000` bytes (32 rows at 640 pixels,
+  16 bits) and increments the second index. Thus x really is the outer
+  map index; this is not merely a decompiler variable-name assumption.
+- The renderer uses the full unsigned 16-bit tile ID. Blits `0x49a4e0`
+  and `0x49a530` resolve tile data through its offset table, with default
+  or translated palettes. The inspected path does not split rotation or
+  flip bits out of MAPT. `0x49a4e0..0x49a528` reads pixels sequentially.
+- MAPL lookup `0x454ac7..0x454ae6` converts object x/y fields
+  `0x67fe28`/`0x67fe2c` by `>>21` (16.16 pixels to 32-pixel cells),
+  then indexes `x*128+y`. MAPOVL accesses `0x452d6e..0x452d77` and
+  `0x452dda..0x452e06` use the same outer-index shift by seven.
+  The latter path reads/increments the high byte while preserving the low
+  byte; its complete gameplay meaning is **unknown here**. This correction
+  retains the existing low-byte-only overlay representation.
+
+The loader now decodes in native file order and writes all three layers using
+`L_Index`, the engine's `y*width+x`. Equivalently, at world `(x,y)`:
+
+```
+i = x*128+y
+MAPT tile = (u16_le(MAPT + 2*i) ^ (30000-i)) - y
+MAPL value = MAPL[i] ^ x
+MAPOVL word = u16_le(MAPOVL + 2*i)
+```
+
+**Confirmed: the basic ground-movement test accepts MAPL value 1, not 0.**
+`0x43ccc9..0x43cceb` initializes a candidate flag to one, reads the
+column-major MAPL byte, and clears the flag unless the byte equals one.
+`0x43cd7a` accepts a surviving candidate; intervening occupancy checks can
+also clear it. The equality test repeats at `0x43d0df..0x43d0fa` and
+`0x43d247..0x43d264`. The engine had blocked every nonzero byte, making
+water passable and ordinary land blocked. With the coordinate fix alone,
+`test_playable` failed "unit moved"; using decoded value 1 as walkable
+restores movement and harvesting. Special retail paths (including value 4
+at `0x43cd88`) depend on additional object state and are **not implemented
+or claimed complete** by this simple ground mask. Building placement at
+`0x421c8a..0x421c9b` accepts 1/2; that is a different rule.
+
+Native asset checks, independent of the engine loader:
+
+| World cell | MAPT byte offset | Stored word | Key | Tile | MAPL decoded | MAPOVL word |
+|---|---:|---:|---:|---:|---:|---:|
+| (84,74) | `0x5494` | `0x4ec6` | `0x4ae6` | 982 | 1 | 0 |
+| (74,84) | `0x4aa8` | `0x4e4f` | `0x4fdc` | 319 | 0 | 0 |
+| (80,70) | `0x508c` | `0x4f1d` | `0x4cea` | 945 | 1 | 0 |
+| (70,80) | `0x46a0` | `0x52e5` | `0x51e0` | 693 | 0 | 0 |
+| (10,42) | `0x0a54` | `0x7162` | `0x7006` | 314 | 64 | `0x3801` |
+| (22,19) | `0x1626` | `0x69c4` | `0x6a1d` | 966 | 129 | `0xd501` |
+| (26,28) | `0x1a38` | `0x68a6` | `0x6814` | 150 | 129 | `0xd601` |
+
+Other checked overlays: (17,42) tile 314, land 64, overlay `0xc401`;
+(25,18) tile 1002, land 64, overlay `0x5701`; (27,35) tile 966,
+land 64, overlay `0xc801`. Decoded MAPL.000 histogram: 13,600 zeroes,
+2,491 ones, 277 values of 64, one 128, fourteen 129, one 192. Meanings
+of the higher flags and any retail startup normalization remain **unknown**;
+no flag-clearing guess was added.
+
+**Verification:** `test_map_layout` checks seven asymmetric landmarks,
+overlays and ground passability. Linking that test against the unchanged
+loader fails at (84,74), tile 319 instead of 982. All 7th Legion gameplay
+and shared tests pass except `test_net_menu`'s LAN label assertion; that same
+failure is reproduced with the unchanged loader. Full `make` and the explicit
+mission smoke test succeed. The game screenshot now starts on continuous
+land. A temporary C diagnostic assembled the loaded native tile pixels for
+world cells x=60..91, y=66..97: the coastline is continuous in both axes,
+without any pixel flips. Temporary diagnostics were removed from the loader.
+The earlier preservation-only loader comparison did not validate map
+orientation: preserving the old row-major storage retained this bug.
+
+Reproduction:
+
+```sh
+objdump -d --x86-asm-syntax=intel --start-address=0x438ef0 --stop-address=0x438fb0 data/7LEGION/legion.exe
+objdump -d --x86-asm-syntax=intel --start-address=0x4967e0 --stop-address=0x496950 data/7LEGION/legion.exe
+objdump -d --x86-asm-syntax=intel --start-address=0x43ccc5 --stop-address=0x43ce1f data/7LEGION/legion.exe
+make build/bin/tests/7legion/test_map_layout
+env SDL_VIDEODRIVER=dummy build/bin/tests/7legion/test_map_layout
+env SDL_VIDEODRIVER=dummy make test-7legion
+make
+env SDL_VIDEODRIVER=dummy build/bin/7legion data/7LEGION DATA/MAPT.000 --check
+env SDL_VIDEODRIVER=dummy build/bin/7legion data/7LEGION DATA/MAPT.000 --screenshot /private/tmp/7legion-terrain.bmp
+```
+
+Pass the mission explicitly for screenshots; without it this binary captures
+the main menu. Asset SHA-256 fingerprints:
+
+| Asset under data/7LEGION | SHA-256 |
+|---|---|
+| DATA/MAPT.000 | `4d128beb93ef4fa56b1988c6c387d28845da0058b8763d97bef6f98b6c064ebc` |
+| DATA/MAPL.000 | `e34f522501d187e2b330756a7ea0926e959b6bc26a6ad9a4eda1424ee65ba559` |
+| DATA/MAPOVL.000 | `a2b61cb5f79117d95e5a2b8ef4973bae03e713666d75072fd3b39009c4c93ebb` |
+| GFX/TILES2.BIM | `5dc58e231dbf544e5f05c22f3379f6695ec0b336fddecbdf4efb68566dba5bf9` |
