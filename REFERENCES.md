@@ -1685,6 +1685,22 @@ to 10 Hz; the 2x distance and 30 Hz policy in the preceding entries is
 superseded. The C extractor now emits only the verified 317-node native tree.
 [Current policy and checks](docs/DC_EXE_FINDINGS.md#current-fog-policy-retail-distances-and-10-hz-refresh-2026-10-03).
 
+### Warcraft II vehicle movement (2026-10-07)
+
+Compared the pinned [Wargus human animation scripts](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/anim.lua)
+and [orc animation scripts](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/orc/anim.lua)
+for siege, ships, submarines and scout aircraft. Movement frame operands
+establish separate 0/1 siege and flying-machine cycles and single-pose ships
+and zeppelins. Script source was not copied; C state ranges use those values.
+
+Compared [Warcraft 2000 Nation.cpp](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic/blob/4d12ad3e62ba03c59b2dbec2a989f58d744018ee/Nation.cpp)
+(`LoadAnimation`, `LoadCurAnm`, land movement) and
+[Water.cpp](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic/blob/4d12ad3e62ba03c59b2dbec2a989f58d744018ee/Water.cpp)
+(water movement's `AnmGoKind` selection). Behavioral reference only; its
+animation format is different. Native GRP verification, the disproven
+row-count heuristic, and remaining timing/combat limitations are recorded
+in `docs/WAR2_EXE_FINDINGS.md`, “Vehicle movement frames”.
+
 ### Warcraft II PUD and MAINDAT (2026-10-03)
 
 Retail `data/WAR2/DATA/MAINDAT.WAR` (10,403,193 bytes, SHA-256

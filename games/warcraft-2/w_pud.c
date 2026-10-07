@@ -412,7 +412,7 @@ static bool load_named_sprite(const w2_archive_t *arc, const uint32_t palette[25
     int matched = w2_install_team_colors(out, palette);
     if (matched < 4)
         fprintf(stderr, "warcraft-2: palette matched %d/4 red team shades\n", matched);
-    w2_limit_walk(pud, phases ? *phases : 1);
+    w2_build_states(pud, phases ? *phases : 1);
     return true;
 }
 
