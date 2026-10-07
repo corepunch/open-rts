@@ -125,7 +125,8 @@ static unsigned state_flags(const menuitem_t *item, menustate_t state) {
     unsigned flags = item->flags & 0xffffu;
     if (state == MS_DISABLED) flags |= 0x0002;
     if (state == MS_PUSHED) flags |= 0x4000 | 0x0080;
-    if (state == MS_FOCUS) flags |= item->kind == MI_BUTTON ? 0x0080 : 0x1000;
+    /* 0x0080 selects white text. 0x1000 is the focus rim (0x5e810, colour 0xfb). */
+    if (state == MS_FOCUS) flags |= item->kind == MI_BUTTON ? 0x0080 | 0x1000 : 0x1000;
     return flags;
 }
 
@@ -140,6 +141,7 @@ static void draw_button(const menuitem_t *item, menustate_t state, irect_t rect,
     if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     M_MenuDrawPicture(item, state, rect);
     if (W2_ITEM_KIND(item->flags) == 1) V_DrawRectOutline(rect, 0xf7);
+    if (flags & 0x1000) V_DrawRectOutline(rect, 0xfb);
     if (!item->text[0]) return;
     int shift = flags & 0x4000 ? 3 : 1; /* 0x88cf4 / 0x88cf8 */
     ivec2_t centre = {rect.x + shift + (rect.w + 1) / 2, rect.y + shift + (rect.h + 1) / 2};

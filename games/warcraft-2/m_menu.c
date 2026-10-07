@@ -17,7 +17,8 @@
  * the mission briefing, then the map. In-game popups are the REZDAT dialogs
  * named by the game menu's result switch. Screens are built when opened.
  * A popup over a level leaves the background empty so the map shows; the
- * front end uses the title, or the dimmed title behind a full-screen page. */
+ * front end uses the title, or the dimmed title behind a full-screen page.
+ * A mission briefing uses that mission's MAINDAT introscreen. */
 
 static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -37,6 +38,9 @@ static void open_briefing(void);
 static void open_engine_net(void);
 
 static w2_menu_art_t art;
+/* The briefing button borrows the widget pixels and reads them in the
+ * introscreen palette. art.widgets keeps palette 14 for the menus. */
+static spritesheet_t brief_button;
 
 static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu;
@@ -67,17 +71,23 @@ static int side(void) {
     return pud->sides[consoleplayer] == 1 ? 1 : 0;
 }
 
-/* A button's cells are runs of three equal-size frames in the REZDAT widget
- * sheet: disabled, normal, pressed. Wargus widgets.lua picks the normal and
- * pressed frame of the last run of that size (gm-half 10/11, gm-full 16/17). */
-static bool widget_cells(const spritesheet_t *sheet, isize2_t size, int *normal, int *pressed) {
+/* A button's cells are runs of three equal-size frames: disabled, normal,
+ * pressed. Menus take the last run, the chrome drawn for palette 14.
+ * `first` takes the earliest run. On a 106×28 button that run is indices
+ * 0x06–0x0e: a gray bevel in introscreen palettes 367 and 368, VGA blue
+ * in palette 14. The briefing picture uses 367/368. */
+static bool widget_cells(const spritesheet_t *sheet, isize2_t size, bool first,
+                         int *normal, int *pressed) {
     if (!sheet) return false;
     int found = -1;
     for (int i = 0; i + 2 < sheet->numlumps; ++i) {
         bool run = true;
         for (int k = 0; k < 3; ++k)
             run = run && sheet->cells[i + k].rect.w == size.w && sheet->cells[i + k].rect.h == size.h;
-        if (run) { found = i; i += 2; }
+        if (!run) continue;
+        found = i;
+        if (first) break;
+        i += 2;
     }
     if (found < 0) return false;
     *normal = found + 1;
@@ -113,7 +123,7 @@ static void bind_widget(menuitem_t *item, const spritesheet_t *sheet, int normal
 
 static void bind_button(menuitem_t *item, const spritesheet_t *sheet) {
     int normal = 0, pressed = 0;
-    bool framed = widget_cells(sheet, (isize2_t){item->rect.w, item->rect.h}, &normal, &pressed);
+    bool framed = widget_cells(sheet, (isize2_t){item->rect.w, item->rect.h}, false, &normal, &pressed);
     bind_widget(item, framed ? sheet : NULL, normal, pressed);
 }
 
@@ -663,9 +673,23 @@ static void briefing_escape(menu_t *menu) {
     else show(&stats_screen.menu);
 }
 
+/* Five introscreens. The split is the Wargus campaign scripts' grouping:
+ * orc 1–4, 5–7, 8–10, 11–12, 13–14 and human 1–4, 5–6, 7–10, 11–12, 13–14.
+ * WAR2.EXE's briefing opener only selects scene 3082/3083. */
+static int briefing_band(int level) {
+    static const int last[2][5] = {{4, 6, 10, 12, 14}, {4, 7, 10, 12, 14}};
+    const int *ends = last[brief_orc ? 1 : 0];
+    if (level < 1) level = 1;
+    for (int band = 0; band < 5; ++band)
+        if (level <= ends[band]) return band;
+    return 4;
+}
+
 static void open_briefing(void) {
     button_race = brief_orc ? 1 : 0;
-    if (!native_scene(&brief_screen, brief_orc ? 3083 : 3082, &art.dimmed, NULL, briefing_escape)) return;
+    const spritesheet_t *backdrop = &art.briefing[button_race][briefing_band(brief_level)];
+    if (!backdrop->numlumps) backdrop = &art.dimmed;
+    if (!native_scene(&brief_screen, brief_orc ? 3083 : 3082, backdrop, NULL, briefing_escape)) return;
     int side_index = (brief_orc ? 1 : 0);
     w2_label_copy(64 + 2 * (brief_level - 1) + side_index, 0, briefing_text, sizeof(briefing_text));
     menuitem_t *body = M_MenuFind(&brief_screen.menu, 1);
@@ -675,6 +699,25 @@ static void open_briefing(void) {
     if (goals) { goals->prose = objective_text; goals->text[0] = '\0'; }
     menuitem_t *title = M_MenuFind(&brief_screen.menu, -5);
     if (title) level_title(brief_level, brief_orc, title->text, sizeof(title->text));
+    /* Colour 2 indexes 0xc8, a parchment brown in palettes 367/368 and the
+     * menu's gold in palette 14. The reference lettering is white, which is
+     * colour 4 (0xf6 on both). Captions take colour 4 when flag 0x8000 is set. */
+    for (int i = 0; i < brief_screen.menu.numitems; ++i)
+        if (brief_screen.items[i].kind == MI_STATIC) brief_screen.items[i].flags |= 0x8000;
+    menuitem_t *cont = M_MenuFind(&brief_screen.menu, -2);
+    if (cont) {
+        int normal = 0, pressed = 0;
+        isize2_t size = {cont->rect.w, cont->rect.h};
+        if (widget_cells(&art.widgets[button_race], size, true, &normal, &pressed)) {
+            brief_button = art.widgets[button_race];
+            memcpy(brief_button.palette, backdrop->source_palette, sizeof(brief_button.palette));
+            memcpy(brief_button.source_palette, backdrop->source_palette, sizeof(brief_button.source_palette));
+            bind_widget(cont, &brief_button, normal, pressed);
+        }
+        /* Colour 2 is unreadable on the dark bevel, so the label stays hot. */
+        cont->flags |= 0x0080;
+        brief_screen.menu.itemOn = (int)(cont - brief_screen.items);
+    }
     wire(&brief_screen, briefing_action);
     show(&brief_screen.menu);
 }

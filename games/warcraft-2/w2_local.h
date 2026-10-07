@@ -150,6 +150,10 @@ typedef struct {
      * 384x256, message 288x128, scenario 352x352. */
     spritesheet_t panel[2][W2_PANELS];
     spritesheet_t title, dimmed; /* REZDAT 13 and the darker 15 behind popups */
+    /* Five mission introscreens per race. Human palette 367, images
+     * 369/375/376/377/378. Orc palette 368, images 370–374. Orc image 370
+     * is the Zul'Dare scroll. */
+    spritesheet_t briefing[2][5];
     spritesheet_t results[2][2]; /* race; victory/defeat images and their native palettes */
     bitmapfont_t font, small_font, tiny_font; /* MAINDAT 281, 282, 283 */
     bool ready;

@@ -280,6 +280,8 @@ void w2_free_menu_art(w2_menu_art_t *art) {
     }
     R_FreeSprite(&art->title);
     R_FreeSprite(&art->dimmed);
+    for (int race = 0; race < 2; ++race)
+        for (int band = 0; band < 5; ++band) R_FreeSprite(&art->briefing[race][band]);
     HU_FreeFont(&art->font);
     HU_FreeFont(&art->small_font);
     HU_FreeFont(&art->tiny_font);
@@ -343,6 +345,21 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
                        load_img_entry(&maindat, 359 + offset, colors, &art->results[race][result]);
                 w2_blob_free(&colors_blob);
             }
+        /* Human 369,375–378 share palette 367. Orc 370–374 share 368. */
+        static const int brief_image[2][5] = {
+            {369, 375, 376, 377, 378},
+            {370, 371, 372, 373, 374},
+        };
+        for (int race = 0; race < 2 && assets; ++race) {
+            w2_blob_t colors_blob = {0};
+            uint32_t colors[256];
+            assets = take_entry(&maindat, 367 + race, &colors_blob) &&
+                     w2_decode_palette(&colors_blob, colors);
+            w2_blob_free(&colors_blob);
+            for (int band = 0; band < 5 && assets; ++band)
+                assets = load_img_entry(&maindat, brief_image[race][band], colors,
+                                        &art->briefing[race][band]);
+        }
         w2_archive_close(&maindat);
     }
     art->ready = widgets && panels && title && assets;

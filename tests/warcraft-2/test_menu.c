@@ -332,6 +332,12 @@ int main(void) {
         CHECK(click(S(4, 1)) && click(N(1)));
         CHECK(click(S(6, orc ? 1 : 2)));
         CHECK(menuactive);
+        CHECK(currentmenu->background && currentmenu->background->frame_size.w == 640 &&
+              currentmenu->background->frame_size.h == 480);
+        CHECK(currentmenu->palette && (currentmenu->palette[0xf6] & 0xffffffu) == 0xfcf8f0u);
+        CHECK((currentmenu->palette[0xc8] & 0xffffffu) == (orc ? 0x601810u : 0xc4a06cu));
+        CHECK(M_MenuFind(currentmenu, -2)->look[MS_NORMAL].cell == 1);
+        CHECK(M_MenuFind(currentmenu, 1)->flags & 0x8000);
         draw(orc ? "6d-brief-orc" : "6c-brief-human");
         CHECK(click(S(orc ? 55 : 54, 1)));
         CHECK(!menuactive && menumap && menumap[0] == '/');

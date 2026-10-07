@@ -1508,9 +1508,9 @@ advance (glyph width + 1) and the dialog colour map, and honours
 `first_row`. Briefing index is `64 + 2*(level−1) + (orc ? 1 : 0)`, string
 0. Human chrome is REZDAT 82 (prose at 72,80 320×200; title 12,28 480×20);
 orc chrome is 83 (prose 264,80 320×200; title 224,28 400×20). Objectives
-caption is at 372,306 and the body at 372,330 252×108. The portrait
-resource is unknown; both briefings use the dimmed title. Continue uses
-the chosen side's widget sheet.
+caption is at 372,306 and the body at 372,330 252×108. Continue uses
+the chosen side's widget sheet. The picture behind that chrome is the
+mission introscreen, recorded below. The dimmed title was a stand-in.
 
 **Confirmed navigation, from the result switches.** Game menu 3044
 (`0x48dfc`, window 272,96 256×288, panel GAME): 1 save 3063, 2 load 3064
@@ -1605,9 +1605,75 @@ transfer was not implemented.
 **Unknown.** The rest of `0x64548`'s multiply. The rest of focus-rim
 `0x5de94`. Whether fog, mouse style and minimap info exist beyond the
 dialog. Writers of `0x8127a` and `0x80331`. Confirm OK past the openers.
-3042's list filler. The briefing portrait. Baud, COM and IRQ tables.
+3042's list filler. Which instruction selects a mission's introscreen.
+Baud, COM and IRQ tables.
 Which of 3059–3062 a given participant count selects. HUD command-chrome
 frames.
+
+## Mission briefing picture (2026-10-07)
+
+**Evidence.** Static analysis of the same inner image, plus the installed
+MAINDAT/REZDAT bytes and the user's Zul'Dare reference. Retail was not run.
+The reference is an English capture of the orc mission-1 scroll (table,
+candle, unrolled scroll, knuckle-guard dagger, white lettering, dark
+Continue button with a yellow rim). This install's strings stay the Russian
+STRDAT text.
+
+**Confirmed: the opener does not name a picture.** `0x4c364` runs when
+`word[0x80004] − 1192` is below 28. It adds the race byte `0x8032f` to
+`0xC0A` (scene 3082 human, 3083 orc), sets the callback to `0x4c2fc` and
+`edx` to 4, then calls `0x58bec` and `0x59060`. Both scenes' serialized
+picture id at `+0x10` is 0, so `0x58ad4` does not call `0x5b810` for the
+root. `0x4c2fc` is a message handler, not a loader: message 9 with control
+id ≤ 0 calls `0x4c13c`, id 1 calls `0x4c270`, and message 8 calls `0x58ff8`
+only after two globals pass a threshold. Campaign flow `0x296c8` calls
+`0x29dcc` (the act-map selector, REZDAT 3019–3026) and only then `0x4c364`.
+`0x21b84` writes `word[0x802da]` after the briefing returns. None of those
+is the scroll.
+
+**Disproven as the image table.** Dword immediates 369–378 around `0x3b4e0`
+through `0x3b952` are dialog control and string ids (`0x3ca30`, `0x596b0`,
+`0x39e70`). There is no packed table of 370,371,372,373,374 or
+369,375,376,377,378 in the inner image.
+
+**Confirmed picture for orc mission 1.** MAINDAT image 370 decoded with
+palette 368 is that scroll. Palette 368 index `0xf6` is `#fcf8f0` and index
+`0xc8` is `#601810`. Human mission 1 is the paired book, image 369 with
+palette 367 (`0xc8` is `#c4a06c`, `0xf6` is the same white). The other
+eight images are 371–374 (orc, palette 368) and 375–378 (human, palette
+367), the same pairs wartool names `introscreen2`–`introscreen5`.
+
+**Inferred level bands.** The Wargus campaign scripts, not an instruction
+in this executable, assign the five pictures: orc missions 1–4, 5–7, 8–10,
+11–12, 13–14 and human 1–4, 5–6, 7–10, 11–12, 13–14. The engine uses that
+grouping. A traced retail rule would replace it.
+
+**Confirmed button pixels.** The first 106×28 run in REZDAT widget sheets
+0 and 1 (frames 0–2) uses indices `0x06`–`0x0e`. In palettes 367 and 368
+those indices are a gray ramp (`0x06` `#989898` down to `0x0e` `#0c0c0c`).
+In menu palette 14 the same indices are VGA colours and `0x0e` is
+`#0000fc`. The last 106×28 run is the menu chrome, which is correct on
+palette 14 and wrong on 367/368. The reference Continue button is the gray
+bevel plus the focus rim. `0x5e77c` draws colour `0xf7` when the kind is 1,
+then colour `0xfb` when flag `0x1000` is set (`0x5e810`). Both `0xf7`
+(`#a0a0a4`) and `0xfb` (`#fcfc00`) match across palettes 14, 367 and 368.
+The briefing button is frames 0–2, read in the introscreen palette so those
+indices are not nearest-mapped out of palette 14. Menus keep the last run.
+
+**Confirmed text colour on this picture.** Front-end colour 2 is
+`c8 c7 c5 c0 ef`. On palette 368 that is dark parchment, and those indices
+are used by the scroll, so they cannot be recoloured. Colour 4 is
+`f6 f6 6c 68 ef`; `0xf6` is `#fcf8f0` on palettes 14, 16, 367 and 368.
+Sampled reference lettering is that white. Briefing records do not carry
+flag `0x8000` (the caption bit that selects colour 4). The briefing sets
+it on its static controls, and sets `0x0080` on Continue, because colour 2
+is unreadable on the bevel. The prose and title rectangles stay the DOS
+records. The dotted line in the reference is one moment of a longer string;
+the screen draws the whole STRDAT briefing.
+
+**Superseded.** "The portrait resource is unknown; both briefings use the
+dimmed title." The dimmed title is REZDAT 15, the menu parchment, and it
+was only a stand-in.
 
 Reproduce the screens with `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
 and `env SDL_VIDEODRIVER=dummy W2_MENU_SHOTS=/private/tmp/w2-ui-shots
