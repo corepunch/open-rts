@@ -2201,6 +2201,8 @@ struct menuitem_s {
     bool visible, enabled;
     SDL_Keycode hotkey; /* activates the item while it is enabled */
     bool quiet;   /* activates without the click sound */
+    bool release; /* a button: pressed shows on the way down, activates when the
+                   * mouse button or key comes up over it */
     /* The picture is drawn at the rect origin plus the cell's displacement. */
     const spritesheet_t *sheet;
     menulook_t look[MS_STATES];
@@ -2250,6 +2252,9 @@ struct menu_s {
     bool stretch;     /* rects scale with the screen instead of anchoring */
     int itemOn;       /* focused item, or -1 */
     menuitem_t *held; /* pressed by the mouse */
+    bool over;        /* the pointer is still on held */
+    menuitem_t *keyheld;   /* a release button pressed by keycode */
+    SDL_Keycode keycode;
     menuitem_t *target;  /* waiting for a click on the world */
     menuitem_t *editing; /* a HUD text field that has the keyboard */
     ivec2_t cursor;   /* the pointer, in screen pixels */

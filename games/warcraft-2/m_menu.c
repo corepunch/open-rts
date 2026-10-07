@@ -149,6 +149,7 @@ static bool widget_cells(const spritesheet_t *sheet, isize2_t size, int *normal,
 static void bind_widget(menuitem_t *item, const spritesheet_t *sheet, int normal, int pressed) {
     item->sheet = sheet && sheet->numlumps > pressed ? sheet : NULL;
     item->opaque = true;
+    item->release = true;
     item->font = art.font.sprite.numlumps ? &art.font : NULL;
     /* Yellow text with a white hotkey letter; all white under the pointer,
      * and pressed text sits one pixel right and down. */

@@ -190,6 +190,15 @@ static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
     scroll_to(list, (menu->cursor.y - r.y) * list->rows / r.h - page_rows(list) / 2);
 }
 
+static void activate(menu_t *menu, menuitem_t *item);
+
+static void press_key(menu_t *menu, menuitem_t *item, SDL_Keycode key) {
+    if (item->release && item->kind == MI_BUTTON) {
+        menu->keyheld = item;
+        menu->keycode = key;
+    } else activate(menu, item);
+}
+
 static void activate(menu_t *menu, menuitem_t *item) {
     if (item->kind == MI_CHECK && !item->group) item->value = !item->value;
     else if (item->kind == MI_CHECK)
@@ -211,10 +220,19 @@ static bool hotkey(menu_t *menu, const SDL_Event *event) {
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
         if (!item->enabled || !item->hotkey || item->hotkey != event->key.keysym.sym) continue;
-        activate(menu, item);
+        press_key(menu, item, event->key.keysym.sym);
         return true;
     }
     return false;
+}
+
+/* The key of a release button shows it pressed; its release activates it. */
+static bool key_up(menu_t *menu, const SDL_Event *event) {
+    menuitem_t *item = menu->keyheld;
+    if (!item || event->key.keysym.sym != menu->keycode) return false;
+    menu->keyheld = NULL;
+    if (item->enabled) activate(menu, item);
+    return true;
 }
 
 static bool key_down(menu_t *menu, const SDL_Event *event) {
@@ -232,10 +250,14 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
         if (!event->key.repeat && menu->escape) menu->escape(menu);
     } else if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) && focus->kind == MI_LIST) {
         select_row(menu, focus, focus->value < 0 ? 0 : focus->value + (key == SDLK_UP ? -1 : 1));
-    } else if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB) {
-        focus_step(menu, key == SDLK_UP || (key == SDLK_TAB && (event->key.keysym.mod & KMOD_SHIFT)) ? -1 : 1);
+    } else if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB ||
+               ((key == SDLK_LEFT || key == SDLK_RIGHT) && !typing)) {
+        bool back = key == SDLK_UP || key == SDLK_LEFT ||
+                    (key == SDLK_TAB && (event->key.keysym.mod & KMOD_SHIFT));
+        if (back && menu->itemOn < 0) menu->itemOn = 0;
+        focus_step(menu, back ? -1 : 1);
     } else if ((key == SDLK_RETURN || key == SDLK_KP_ENTER || (key == SDLK_SPACE && !typing)) && !event->key.repeat) {
-        if (item_live(focus)) activate(menu, focus);
+        if (item_live(focus)) press_key(menu, focus, key);
     } else if (key == SDLK_BACKSPACE) {
         type_text(menu, focus, NULL, true);
     }
@@ -271,6 +293,7 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
     /* A modal screen keeps its focus while the pointer is off every item. */
     menuitem_t *hit = item_at(menu, menu->cursor);
     if (hit || !menu->modal) menu->itemOn = hit ? (int)(hit - menu->items) : -1;
+    menu->over = hit && hit == menu->held;
     if (motion) return menu->modal;
     bool left = event->button.button == SDL_BUTTON_LEFT;
     if (!menu->modal && menu->target && down && event->button.button == SDL_BUTTON_RIGHT) {
@@ -293,13 +316,20 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
         }
     }
     bool taken = menu->modal || visible_at(menu, menu->cursor) || (left && !down && menu->held);
+    menuitem_t *pressed = menu->held;
     if (left) menu->held = NULL;
+    if (left && !down && pressed && pressed->release && pressed->kind == MI_BUTTON) {
+        if (pressed == hit) activate(menu, pressed);
+        return true;
+    }
     if (!down || !hit) return taken;
     if (!left) {
         if (event->button.button == SDL_BUTTON_RIGHT) call_routine(menu, hit, MA_SECONDARY);
         return true;
     }
     menu->held = hit;
+    menu->over = true;
+    if (hit->release && hit->kind == MI_BUTTON) return true;
     if (hit->kind == MI_LIST)
         select_row(menu, hit, hit->first_row + (menu->cursor.y - M_MenuItemRect(menu, hit).y) /
                    ((hit->row_height > 0 ? hit->row_height : 1) * R_UIScale(app)));
@@ -354,6 +384,7 @@ bool M_MenuResponder(menu_t *menu, app_t *app, const SDL_Event *event) {
     }
     bool taken = menu->modal;
     if (event->type == SDL_KEYDOWN) taken = key_down(menu, event);
+    else if (event->type == SDL_KEYUP) taken = key_up(menu, event) || menu->modal;
     else if (event->type == SDL_TEXTINPUT && menu->modal)
         type_text(menu, focused(menu), event->text.text, false);
     else if (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN ||
@@ -401,7 +432,9 @@ void M_MenuTicker(menu_t *menu) {
 static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     if (item->kind == MI_CHECK && item->value) return MS_PUSHED;
     if (!item_live(item)) return MS_NORMAL;
-    if (menu->held == item) return MS_PUSHED;
+    if (menu->keyheld == item) return MS_PUSHED;
+    if (menu->held == item &&
+        (!item->release || menu->over)) return MS_PUSHED;
     return item == focused(menu) || menu->target == item ? MS_FOCUS : MS_NORMAL;
 }
 
