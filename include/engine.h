@@ -893,8 +893,12 @@ bool G_CancelConstructionOrder(mobj_t *site);
 bool G_PathOrder(mobj_t *const *units, int count, const waypoints_t *path);
 
 
-#define MAXPLAYERS 4
+/* Eight seats, not Doom's four: Warcraft II person slots and the resource,
+ * sight and alliance rows are already eight. Nodes and players are one to
+ * one, so this stays inside MAXNETNODES. */
+#define MAXPLAYERS 8
 #define MAXNETNODES 8
+_Static_assert(MAXPLAYERS <= MAXNETNODES, "one network node per player");
 #define BACKUPTICS 12
 #define DOOMCOM_ID UINT32_C(0x12345678)
 #define NCMD_EXIT UINT32_C(0x80000000)
@@ -2363,7 +2367,9 @@ void M_Shutdown(void);
 
 /* The shared multiplayer screens (hud/m_net.c): create a game, browse or join
  * one, lobby with chat, then launch. The transport is the I_* layer; a game
- * supplies only its look and the maps a host may offer. */
+ * supplies its look, the maps a host may offer, and the races a player may
+ * pick. Each joined player owns their own race. The host picks the map and
+ * starts once every player is ready. */
 typedef struct {
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette with the background; NULL keeps the menu's default */
@@ -2381,19 +2387,31 @@ typedef struct {
     int (*map_count)(void);
     const char *(*map_path)(int index);  /* relative to the data root, as menumap is */
     const char *(*map_title)(int index);
-    int max_players; /* 2..8; 0 means 4 */
+    int max_players; /* 2..MAXPLAYERS; 0 means 4 */
     const char *text[16]; /* NETTEXT_* labels; NULL entries keep the English default */
     /* 0 opens create/join. 1 opens the host page and 2 the session browser;
      * Escape from that page is Previous Menu. Later pages still fall back
      * to create/join. */
     int first;
+    /* 0 hides per-player race. 2..8 is how many races race_name can name. */
+    int race_count;
+    const char *(*race_name)(int index);
+    /* Person slots on a map. The host's player count cannot exceed it.
+     * NULL leaves the count under max_players only. */
+    int (*map_players)(int index);
+    /* Map's own race for a lobby seat (0..race_count-1), or -1. */
+    int (*slot_race)(int map_index, int player);
+    /* Called as the lobby launches, after M_NetPlayerRace is valid. */
+    void (*commit)(void);
 } netui_t;
 enum {
     NETTEXT_TITLE, NETTEXT_CREATE, NETTEXT_JOIN, NETTEXT_PREVIOUS, NETTEXT_START, NETTEXT_CANCEL,
     NETTEXT_SCENARIO, NETTEXT_PLAYERS, NETTEXT_REFRESH, NETTEXT_ADDRESS, NETTEXT_CONNECT,
-    NETTEXT_SESSIONS, NETTEXT_COUNT
+    NETTEXT_SESSIONS, NETTEXT_READY, NETTEXT_UNREADY, NETTEXT_YOU, NETTEXT_OPEN, NETTEXT_COUNT
 };
 void M_NetOpen(app_t *app, const netui_t *ui);
+/* Race a seat chose in the lobby that just launched, or -1. */
+int M_NetPlayerRace(int player);
 /* Menu routine for a plain Multiplayer button of a fallback front end. */
 void M_MenuMultiplayer(menu_t *menu, menuitem_t *item, menuaction_t action);
 

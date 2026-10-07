@@ -329,11 +329,18 @@ int main(void) {
     CHECK(find(S(38, 3)) && find(S(38, 1)));
     draw("8-multiplayer");
     CHECK(click(S(38, 3)));
+    {
+        menuitem_t *list = kind(MI_LIST, 0);
+        CHECK(list && list->rows >= 28 && list->row && !strcmp(list->row(list, 0), S(63, 22)));
+    }
     CHECK(find(S(62, 9)));
-    CHECK(kind(MI_LIST, 0) && kind(MI_LIST, 0)->rows == 8);
     draw("9-host");
+    CHECK(click(S(38, 3)));
+    CHECK(find(S(45, 19)) && I_NetMenuSession());
+    draw("9b-lobby");
     press(SDLK_ESCAPE);
-    CHECK(find(S(38, 3)) && find(S(38, 1)));
+    press(SDLK_ESCAPE);
+    CHECK(find(S(38, 5)) && find(S(38, 3)));
     CHECK(click(S(38, 1)));
     CHECK(find(S(38, 5)) && !find(S(38, 3)));
     draw("10-browse");
@@ -543,6 +550,51 @@ int main(void) {
         P_FreeLevel(&level);
         menumap = NULL;
         W2_VictoryReset();
+    }
+
+    /* A two-player load moves scenario 240's person slots onto seats 0 and 1. */
+    {
+        bool saved_net = netgame;
+        int saved_players = doomcom->numplayers;
+        int saved_console = consoleplayer;
+        netgame = false;
+        P_InitThinkers();
+        CHECK(G_DoLoadLevel("data/WAR2/scenario-240.pud", &level));
+        const w2_pud_t *pud = level.native_data;
+        int was = 0;
+        bool peon = false;
+        for (int i = 0; i < pud->unit_count; ++i) {
+            if (pud->units[i].player == 5) ++was;
+            if (pud->units[i].x == 7 && pud->units[i].y == 11)
+                peon = pud->units[i].type == 3 && pud->units[i].player == 5;
+        }
+        CHECK(peon && was == 2);
+        P_FreeLevel(&level);
+        int races[8] = {0, 1, -1, -1, -1, -1, -1, -1};
+        w2_set_net_races(races);
+        netgame = true;
+        doomcom->numplayers = 2;
+        consoleplayer = 0;
+        CHECK(G_DoLoadLevel("data/WAR2/scenario-240.pud", &level));
+        pud = level.native_data;
+        CHECK(pud->owners[0] == 5 && pud->owners[1] == 5);
+        CHECK(pud->sides[0] == 0 && pud->sides[1] == 1);
+        bool human = false, orc = false;
+        int now = 0, left5 = 0, left6 = 0;
+        for (int i = 0; i < pud->unit_count; ++i) {
+            const w2_pud_unit_t *unit = &pud->units[i];
+            if (unit->player == 0) ++now;
+            if (unit->player == 5) ++left5;
+            if (unit->player == 6) ++left6;
+            if (unit->x == 7 && unit->y == 11) human = unit->player == 0 && unit->type == 2;
+            if (unit->x == 85 && unit->y == 83) orc = unit->player == 1 && unit->type == 3;
+        }
+        CHECK(human && orc && now == was && !left5 && !left6);
+        w2_set_net_races(NULL);
+        netgame = saved_net;
+        doomcom->numplayers = saved_players;
+        consoleplayer = saved_console;
+        P_FreeLevel(&level);
     }
     M_Shutdown();
     puts("PASS: Warcraft II STRDAT menus, single player, setup, pickers, credits, multiplayer, options, save names, results");

@@ -367,8 +367,10 @@ static int size_index(const w2_pud_info_t *info) {
  * (0x17618). Custom ones are the data directory's *.PUD files, found as
  * plain files (0x177e8 searches with attribute 0) and named by their
  * lowercased file name (0x5f0d1). */
-static void scan_custom(void) {
-    entry_count = 0;
+/* append keeps the scenarios already listed and adds only multi-person maps. */
+static void scan_custom(bool append) {
+    int base = entry_count;
+    if (!append) entry_count = base = 0;
     DIR *dir = opendir(data_root);
     if (!dir) return;
     struct dirent *ent;
@@ -381,13 +383,14 @@ static void scan_custom(void) {
         if (stat(path, &st) || !S_ISREG(st.st_mode)) continue;
         memset(&entries[entry_count], 0, sizeof(entries[0]));
         if (!w2_pud_info(path, &entries[entry_count].info)) continue;
+        if (append && scenario_players(&entries[entry_count].info) < 2) continue;
         snprintf(entries[entry_count].file, sizeof(entries[0].file), "%s", ent->d_name);
         for (size_t i = 0; i <= len && i < sizeof(entries[0].label); ++i)
             entries[entry_count].label[i] = (char)tolower((unsigned char)ent->d_name[i]);
         ++entry_count;
     }
     closedir(dir);
-    qsort(entries, (size_t)entry_count, sizeof(entries[0]), compare_entries);
+    qsort(entries + base, (size_t)(entry_count - base), sizeof(entries[0]), compare_entries);
 }
 
 static void scan_builtin(void) {
@@ -417,11 +420,6 @@ static bool chosen_entry(int row) {
     return row >= 0 && row < entry_count &&
            (entries[row].archive ? entries[row].archive == chosen.archive :
                                    !chosen.archive && !strcasecmp(entries[row].file, chosen.file));
-}
-
-static int custom_count(void) {
-    scan_custom();
-    return entry_count;
 }
 
 /* The setup's scenario line (0x13e84): the type, then the name. */
@@ -501,7 +499,7 @@ static void open_scenario(void) {
     s->menu.held = s->menu.keyheld = s->menu.dropdown = NULL;
     s->menu.escape = escape_to_setup;
     button_race = 1;
-    if (scenario_type) scan_custom(); else scan_builtin();
+    if (scenario_type) scan_custom(false); else scan_builtin();
     if (size_filter) {
         int kept = 0;
         for (int i = 0; i < entry_count; ++i) {
@@ -568,6 +566,7 @@ static void set_launch_path(const char *path) {
 }
 
 static void start_level(const char *path, bool apply_resources) {
+    w2_set_net_races(NULL);
     set_launch_path(path);
     launch_resources = apply_resources ? resources_mode : 0;
     W2_SetStartResources(launch_resources);
@@ -1222,12 +1221,50 @@ bool G_LoadExtra(const void *data, size_t size) {
 
 /* ── multiplayer: the engine's screens in Warcraft II dress ───────────────── */
 
-static int net_map_count(void) { return custom_count(); }
+/* Built-in scenarios both peers can name, then loose maps with room for two. */
+static void scan_net(void) {
+    scan_builtin();
+    int kept = 0;
+    for (int i = 0; i < entry_count; ++i) {
+        if (scenario_players(&entries[i].info) < 2) continue;
+        entries[kept] = entries[i];
+        snprintf(entries[kept].file, sizeof(entries[kept].file), "scenario-%d.pud", entries[kept].archive);
+        ++kept;
+    }
+    entry_count = kept;
+    scan_custom(true);
+}
+
+static int net_map_count(void) {
+    scan_net();
+    return entry_count;
+}
 static const char *net_map_path(int index) {
     return index >= 0 && index < entry_count ? entries[index].file : "";
 }
 static const char *net_map_title(int index) {
     return index >= 0 && index < entry_count ? entries[index].label : "";
+}
+static const char *net_race_name(int index) {
+    return L(STR_SETUP_VALUES, index ? 20 : 19, index ? "Orc" : "Human").text;
+}
+static int net_map_players(int index) {
+    return index >= 0 && index < entry_count ? scenario_players(&entries[index].info) : 0;
+}
+/* The seat-th person slot, in ascending slot order, and that slot's side. */
+static int net_slot_race(int map_index, int player) {
+    if (map_index < 0 || map_index >= entry_count || player < 0) return -1;
+    int seen = 0;
+    for (int i = 0; i < 16; ++i) {
+        if (entries[map_index].info.owners[i] != 5) continue;
+        if (seen++ == player) return entries[map_index].info.sides[i] == 1 ? 1 : 0;
+    }
+    return -1;
+}
+static void net_commit(void) {
+    int races[8];
+    for (int i = 0; i < 8; ++i) races[i] = M_NetPlayerRace(i);
+    w2_set_net_races(races);
 }
 static void net_style_button(menuitem_t *item) {
     bind_button(item, &art.widgets[1]);
@@ -1278,7 +1315,8 @@ static void open_engine_net(int first) {
         .style_button = net_style_button, .style_label = net_style_label, .style_list = net_style_list,
         .back = net_back, .drawitem = w2_draw_item, .first = first,
         .map_count = net_map_count, .map_path = net_map_path, .map_title = net_map_title,
-        .max_players = 8,
+        .max_players = 8, .race_count = 2, .race_name = net_race_name,
+        .map_players = net_map_players, .slot_race = net_slot_race, .commit = net_commit,
     };
     for (int i = 0; i < NETTEXT_COUNT; ++i) ui.text[i] = net_text[i][0] ? net_text[i] : NULL;
     M_NetOpen(front_app, &ui);

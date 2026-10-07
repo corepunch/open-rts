@@ -1457,8 +1457,10 @@ screens. `menuitem_t.flags` carries the record flags and native kind
 (`W2_ITEM_FLAGS`). Setup is MUDDAT 6001; only Resources is applied by the
 engine, so race, opponents, terrain and units are shown disabled at Map
 Default. Custom files are sorted by name (findfirst order is directory order).
-Multiplayer's host and browse pages are still the engine screens, not
+Multiplayer's host, browse and lobby pages are the engine screens, not
 3080/6013. The retail path up to them is 3042 then 3075, recorded below.
+The lobby's per-player race and ready flag are an implementation choice
+shared with Dark Colony's lobby, not a trace of 6013.
 `netui_t.style_list` gives its lists the native rows, rims and a scroll bar
 drawing its own arrows (`W2_ITEM_ARROWS`).
 
@@ -1561,6 +1563,33 @@ engine host page and session browser (`netui_t.first`). Escape from that
 page returns to 3075, then to 3042. Retail setup 3080/6013 and name
 dialog 3087 are not used. The engine pages are not restyled into those
 records.
+
+**Implementation choice: the shared lobby.** This is not a WAR2.EXE
+instruction trace. Create still offers a map and a player count; Join
+still browses the LAN. Once both are in the lobby, each joined player
+owns that seat's race and a ready flag, the same split Dark Colony uses.
+The host publishes 16 bytes (eight races, then eight ready flags) with
+`I_SetNetSetup`. A joiner publishes two bytes (its race, its ready flag)
+with `I_SetNetChoice`. The host's Start stays disabled until every
+reserved seat has joined and every joined player is ready. Warcraft II
+names the two races from STRDAT 45 indices 19 and 20 (Human, Orc). Map
+Default stays on the single-player setup. The host list is MAINDAT
+220–247, every one of which has at least two person slots (owner 5),
+then loose `*.PUD` files with two or more person slots. A built-in map
+is offered as `scenario-<entry>.pud`. `G_DoLoadLevel` reads that name
+back: a path that is already a PUD loads directly, and `scenario-N.pud`
+extracts MAINDAT entry N when it is not. The player count starts at the
+map's person-slot count and cannot go past that count or the engine's
+eight seats. A seat's first race is
+that person slot's SIDE byte, person slots taken in ascending order.
+When the lobby launches, the game copies `M_NetPlayerRace` before the
+transport wipes the session. On a net load those races are applied after
+the PUD is read: person slot p moves onto seat p, a person slot past
+the player count becomes a computer (owner 4), and a paired unit type
+swaps when the seat's race is Human or Orc and differs from the type.
+Gold mines, critters, heroes without a pair, and the other unpaired
+types stay. Fog, cheats, resources, terrain, units and placement from
+record 6013 are not in this lobby.
 
 **Still not these records.** HUD dialogs 3033–3039. The in-game panel
 keeps its current command buttons; 3037/3038 were not aligned and icons

@@ -3,6 +3,10 @@
 #include "info.h"
 #include "w2_local.h"
 
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+
 static mobjtype_t actor_storage[W2_TYPE_COUNT];
 
 const char *const g_game_id = "warcraft-2";
@@ -68,8 +72,36 @@ void G_InitGame(void) {
     W2_SeedCombat(0x9E3779B9u);
 }
 
+/* scenario-220.pud names a MAINDAT entry. A file that is already a PUD loads as it is. */
+static const char *loadable_map(const char *path, char *extracted, size_t size) {
+    struct stat st;
+    w2_pud_info_t info;
+    /* A missing scenario-N.pud is a MAINDAT name, not a failed open. */
+    if (!path || (stat(path, &st) == 0 && S_ISREG(st.st_mode) && w2_pud_info(path, &info)))
+        return path;
+    const char *base = M_FileName(path);
+    int entry = 0;
+    char tail = 0;
+    if (!base || sscanf(base, "scenario-%d.pud%c", &entry, &tail) != 1 ||
+        entry < W2_FIRST_SCENARIO || entry >= W2_FIRST_SCENARIO + W2_SCENARIOS)
+        return path;
+    size_t dir_len = (size_t)(base - path);
+    while (dir_len && path[dir_len - 1] == '/') --dir_len;
+    char root[1100];
+    if (!dir_len) snprintf(root, sizeof(root), ".");
+    else if (dir_len >= sizeof(root)) return path;
+    else {
+        memcpy(root, path, dir_len);
+        root[dir_len] = '\0';
+    }
+    return w2_extract_map(root, entry, base, extracted, size) ? extracted : path;
+}
+
 bool G_DoLoadLevel(const char *path, level_t *out) {
-    if (!w2_load_pud(path, out)) return false;
+    char extracted[1200];
+    const char *load = loadable_map(path, extracted, sizeof(extracted));
+    if (!load || !w2_load_pud(load, out)) return false;
+    w2_apply_net_seats(out);
     if (!w2_init_mission(out)) { P_FreeLevel(out); return false; }
     const w2_pud_t *pud = out->native_data;
     /* Single player watches the OWNR 5 slot. Sight and allegiance both read
