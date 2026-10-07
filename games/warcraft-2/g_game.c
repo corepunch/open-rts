@@ -51,6 +51,7 @@ static void fill_actors(void) {
             .speed = (src->w2.flags & W2_MOBILE) ? src->w2.speed / W2_SPEED_DIVISOR : 0.0f,
             .max_hp = hp,
             .sight = { .day = sight, .night = sight, .airborne = (src->w2.flags & W2_AIR) != 0 },
+            .sight_from_footprint = (src->w2.flags & W2_STRUCTURE) != 0,
             .attack = { .range = src->w2.attack_range, .damage = src->damage },
             .move_class = move,
             .footprint = src->w2.footprint,

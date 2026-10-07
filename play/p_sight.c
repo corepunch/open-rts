@@ -67,9 +67,23 @@ void P_UpdateSight(void) {
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
         ivec2_t origin = {actor->core.position.x >> FIXED_FRAC_BITS, actor->core.position.y >> FIXED_FRAC_BITS};
-        reveal_sight(origin, radius, UINT32_C(0x40000000) >> actor->team,
-                     actor->info->sight.airborne || (actor->traits & MF_FLY),
-                     actor->traits & MF_DETECTOR);
+        uint32_t mask = UINT32_C(0x40000000) >> actor->team;
+        bool airborne = actor->info->sight.airborne || (actor->traits & MF_FLY);
+        isize2_t foot = actor->info->footprint;
+        if (actor->info->sight_from_footprint && foot.w > 0 && foot.h > 0) {
+            /* Warcraft measures sight from the building's edge. */
+            fvec2_t centre = fixed3_xy_to_fvec2(actor->core.position);
+            ivec2_t corner = {(int)floorf(centre.x - foot.w * 0.5f + 0.001f),
+                              (int)floorf(centre.y - foot.h * 0.5f + 0.001f)};
+            for (int y = 0; y < foot.h; ++y)
+                for (int x = 0; x < foot.w; ++x) {
+                    ivec2_t cell = {corner.x + x, corner.y + y};
+                    if (L_Contains(&level, cell.x, cell.y))
+                        reveal_sight(cell, radius, mask, airborne, actor->traits & MF_DETECTOR);
+                }
+            continue;
+        }
+        reveal_sight(origin, radius, mask, airborne, actor->traits & MF_DETECTOR);
     }
 #ifdef RTS_GAME_DARK_COLONY
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {

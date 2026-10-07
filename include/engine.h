@@ -604,6 +604,7 @@ typedef struct mobjtype_s {
     /* Cells the actor occupies. Attack range is measured to this rectangle
      * in tiles, as Warcraft does; zero keeps the centre-distance rule. */
     isize2_t footprint;
+    bool sight_from_footprint; /* Sight spreads from every footprint cell, not the centre. */
 } mobjtype_t;
 
 /* A state is a run of `count` consecutive sprite frames sharing one action,
