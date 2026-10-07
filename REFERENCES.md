@@ -1711,6 +1711,27 @@ to 10 Hz; the 2x distance and 30 Hz policy in the preceding entries is
 superseded. The C extractor now emits only the verified 317-node native tree.
 [Current policy and checks](docs/DC_EXE_FINDINGS.md#current-fog-policy-retail-distances-and-10-hz-refresh-2026-10-03).
 
+### Warcraft II forest removal (2026-10-07)
+
+The pinned Wargus `scripts/tilesets/wargus/{summer,winter,wasteland,swamp}.lua`
+definitions identify the forest mixed groups and narrow-tree specials;
+see [winter.lua](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/tilesets/wargus/winter.lua).
+The update behavior lives in Wargus's Stratagus dependency, now checked out
+at `reference/stratagus`, commit `3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc`:
+[map.cpp](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/map/map.cpp)
+(`ClearWoodTile`, `FixNeighbors`, `FixTile`),
+[tileset.cpp](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/map/tileset.cpp)
+(`getTileBySurrounding`), and
+[script_tileset.cpp](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/map/script_tileset.cpp)
+(corner-mask table construction). GPL-2; used to establish behavior and
+tile-format values, with an independent C implementation in open-rts.
+
+The pinned [Warcraft 2000 Nature.cpp](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic/blob/4d12ad3e62ba03c59b2dbec2a989f58d744018ee/Nature.cpp)
+(`TakeResource`, `CreateSurface`) separately confirms updates to all surfaces
+sharing a depleted resource. Its resource-corner map is different and was
+not adopted. Detailed findings and remaining retail unknowns are in
+`docs/WAR2_EXE_FINDINGS.md`, “Forest borders after harvesting”.
+
 ### Warcraft II vehicle movement (2026-10-07)
 
 Compared the pinned [Wargus human animation scripts](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/anim.lua)

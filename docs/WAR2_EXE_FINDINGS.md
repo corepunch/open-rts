@@ -393,6 +393,81 @@ The imported picker was rendered at 640×480 and 1280×960 and inspected,
 including custom/built-in filters and directory navigation. These are
 engine/data-contract checks, not comparison against an executed retail game.
 
+## Forest borders after harvesting (2026-10-07)
+
+**Confirmed engine defect:** the user screenshot `Screenshot 2026-10-07 at
+09.41.45.jpg` shows a square stump tile inside unchanged winter tree art.
+This is an open-rts screenshot, not evidence from a retail executable.
+`p_harvest.c::exhaust` replaced only the harvested cell with megatile 126.
+A temporary diagnostic on a solid forest fixture printed unchanged `0070`
+in all eight neighboring cells after the center became runtime slot `09e0`.
+
+**Confirmed reference behavior:** Wargus defines forest solid PUD slots
+`0x70..0x7f`, mixed slots `0x700..0x7df`, and special graphic tiles 121
+(top of a narrow tree), 122 (middle), 123 (bottom), 126 (removed tree).
+Its Stratagus engine's `CMap::ClearWoodTile` clears the harvested field and
+calls `FixNeighbors`. That routine visits E, W, S, N, NW, SW, NE, SE in
+order, so diagonal corrections see the updated cardinal borders.
+`FixTile` selects art with `CTileset::getTileBySurrounding`; a field with no
+valid tree shape loses forest/blocking flags and its resource value.
+
+The corner mask uses SW=1, SE=2, NE=4, NW=8. Forest/ground group masks in
+ascending PUD group order are `{8,4,12,1,9,5,13,2,10,6,14,3,11,7}`; solid
+forest has mask 15. The current tile's NW corner requires the north tile's
+SW and west tile's NE; the other corners use the corresponding touching
+pairs. Off-map neighbors supply mask 15. Narrow top/middle/bottom trees
+have masks `3|32`, `15|32|16`, `12|16`. A bottom tree below or top tree above
+can connect to adjoining side corners. With no corner intersections, tree
+art above/below selects a narrow bottom/top/middle, or neither clears the
+fragment. These are reference-derived rules, not pixel-shape guesses.
+
+**Native data:** the existing MAINDAT fingerprint below applies; no
+WAR2.EXE instructions were examined. All four supported era decoders expose
+the mixed forest groups and special megatiles above. The native 42-byte
+mapping records continue to choose each era's art; the new runtime slots
+`0x9e1..0x9e3` expose megatiles 121..123 which have no ordinary PUD slots.
+`0x9e0` remains the removed-tree slot. No generated tile pictures or inferred
+pixel masks are used.
+
+**Warcraft 2000 comparison:** `Nature.cpp::TakeResource` calls
+`CreateSurface` on the four surfaces sharing a depleted resource corner.
+`CreateSurface` forms a four-bit mask from `ramap`, looks up
+`RDS[rk].Tiles[mask][variant]`, unlocks empty ground and calls `ClearRender`
+when its tile changes. This corroborates rebuilding neighboring surfaces,
+but its corner-resource grid and random tile variants are not Warcraft II's
+tile-resource model and were not adopted.
+
+**Implementation and checks:** `w2_remove_tree` updates the eight neighbors
+using their current forest corners. Cleared fragments also deactivate and
+zero their lumber deposits and clear terrain blocking (preserving separate
+solid blockers). Valid edge tiles retain their remaining lumber. The
+harvesting tests now use an actual two-column grove: a bottom cut also
+removes its unsupported top; a neighboring column remains harvestable.
+The existing navigation snapshot detects the changed blocked grid.
+
+`test_forest` fails before the fix and checks the exact eight replacement
+slots, unchanged distant tiles, narrow columns, repeated cuts, resource
+deactivation, all four map corners, and native tile lookup in every era.
+Reproduce a winter old/new BMP (single-cell replacement on the left,
+corrected neighbors on the right) with:
+
+```
+make build/bin/tests/warcraft-2/test_forest
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_forest /private/tmp/w2-forest.bmp
+```
+
+Verification: `make`, the forest and harvest tests, headless Warcraft II
+`--check`, and ALAMO screenshot passed. The native winter comparison was
+visually inspected: the square cut becomes a continuous forest boundary.
+23/25 Warcraft II test binaries passed; the same pre-existing `test_menu`
+and `test_net_menu` failures recorded above remain.
+
+**Disproven:** changing only the harvested tile, or basing the replacement
+solely on neighboring forest occupancy, suffices; corner shape matters.
+**Unknown:** the exact retail WAR2.EXE update order, variant selection and
+fragment-resource accounting. The implementation follows the named reference
+engine, without claiming an executable trace or retail pixel equivalence.
+
 ## Vehicle movement frames (2026-10-07)
 
 The MAINDAT and WAR2.EXE fingerprints recorded below still apply. This

@@ -19,7 +19,7 @@ static void fixture(bool orc) {
     level.blocked = calloc((size_t)cells, 1);
     level.cell_solid = calloc((size_t)cells, 1);
     level.cell_terrain = calloc((size_t)cells, 1);
-    level.resource_vents = calloc(3, sizeof(*level.resource_vents));
+    level.resource_vents = calloc(5, sizeof(*level.resource_vents));
     level.speeds = calloc(1, sizeof(*level.speeds));
     level.speeds->class_count = 2;
     level.speeds->terrain[1][0] = 100;
@@ -54,6 +54,19 @@ static void tree(ivec2_t cell) {
 
 static void tick(int count) { while (count-- > 0) P_Ticker(); }
 
+/* A two-column grove has two harvests: removing a bottom tile also clears
+ * its unsupported top. Two isolated horizontal tiles are not valid trees. */
+static void grove(void) {
+    tree((ivec2_t){12, 10});
+    tree((ivec2_t){13, 10});
+    tree((ivec2_t){12, 9});
+    tree((ivec2_t){13, 9});
+    level.tile_ids[L_Index(&level, 12, 10)] = 0x710;
+    level.tile_ids[L_Index(&level, 13, 10)] = 0x700;
+    level.tile_ids[L_Index(&level, 12, 9)] = 0x770;
+    level.tile_ids[L_Index(&level, 13, 9)] = 0x730;
+}
+
 static int test_gold(bool orc) {
     fixture(orc);
     mine(125);
@@ -76,8 +89,7 @@ static int test_gold(bool orc) {
 
 static int test_lumber(void) {
     fixture(false);
-    tree((ivec2_t){12, 10});
-    tree((ivec2_t){13, 10});
+    grove();
     CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){12.5f, 10.5f}));
     for (int i = 0; i < 2000 && worker_unit->w2.chops < 50; ++i) tick(1);
     CHECK(worker_unit->w2.chops == 50);
@@ -153,8 +165,7 @@ static int test_recovery(void) {
 
 static int test_competition(void) {
     fixture(false);
-    tree((ivec2_t){12, 10});
-    tree((ivec2_t){13, 10});
+    grove();
     mobj_t *second = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10.5f, 11.5f}, 0), 3);
     second->owner = 0;
     CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){12.5f, 10.5f}));
