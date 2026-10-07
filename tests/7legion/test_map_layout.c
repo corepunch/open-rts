@@ -7,6 +7,11 @@ int main(void) {
     RTS_CHECK(map.width == 128 && map.height == 128 && map.tile_overlay_count == 1,
               "7legion terrain", "native layer dimensions");
 
+    RTS_CHECK(map.tile_ids[84 * 128 + 74] == 982 &&
+              map.tile_overlays[0][10 * 128 + 42] == 1 &&
+              map.blocked[84 * 128 + 74] == 0,
+              "7legion terrain", "layers retain native column-major storage");
+
     /* Off-diagonal retail landmarks distinguish x*128+y from y*128+x.
        Values were checked against the executable decoder and raw file bytes;
        see docs/7LEGION_EXE_FINDINGS.md, terrain coordinate audit. */
@@ -39,6 +44,25 @@ int main(void) {
         }
     }
     P_FreeLevel(&map);
+
+    /* A rectangular level catches accidental width/height stride swaps;
+       sight must reach the world cell, and projection/input stay upright. */
+    level = (level_t){.width = 19, .height = 11};
+    consoleplayer = 0;
+    RTS_CHECK(P_InitSight(), "7legion terrain", "allocate sight");
+    P_RevealSight((ivec2_t){14, 3}, 2, UINT32_C(0x40000000), false);
+    RTS_CHECK(P_SightBrightness(&level, (ivec2_t){15, 3}) == 16 &&
+              P_SightBrightness(&level, (ivec2_t){14, 4}) == 16 &&
+              P_SightBrightness(&level, (ivec2_t){3, 9}) == 0,
+              "7legion terrain", "sight uses native cell addresses");
+    app_t app = {.cell = {32, 32}, .cam = {17, -9}};
+    float sx, sy;
+    R_MapToScreen(&app, &level, 14.5f, 3.5f, &sx, &sy);
+    RTS_CHECK(sx == 481 && sy == 103 &&
+              ivec2_equal(R_ScreenToMapGrid(&app, &level, (int)sx, (int)sy),
+                          (ivec2_t){14, 3}),
+              "7legion terrain", "native world projects upright and picks the same cell");
+    P_FreeLevel(&level);
     puts("PASS: 7legion terrain, overlays and passability match seven retail landmarks");
     return 0;
 }

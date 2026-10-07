@@ -125,12 +125,13 @@ static struct nav_s *nav_for(const level_t *map) {
 }
 
 static void build_regions(const level_t *map, int cls, struct nav_s *nav, navlayer_t *layer) {
-    int w = nav->width, h = nav->height, total = w * h;
+    int total = nav->width * nav->height;
     int *queue = malloc((size_t)total * sizeof(*queue));
     if (!queue) return;
     uint16_t next = 1;
     for (int start = 0; start < total; ++start) {
-        if (layer->region[start] || !passable(map, cls, start % w, start / w)) continue;
+        ivec2_t cell = L_Cell(map, start);
+        if (layer->region[start] || !passable(map, cls, cell.x, cell.y)) continue;
         if (next == UINT16_MAX) { /* Merge overflow into the last region; still sound for rejection. */
             layer->region[start] = next;
             continue;
@@ -139,11 +140,11 @@ static void build_regions(const level_t *map, int cls, struct nav_s *nav, navlay
         queue[tail++] = start;
         layer->region[start] = next;
         while (head < tail) {
-            int cur = queue[head++], x = cur % w, y = cur / w;
+            cell = L_Cell(map, queue[head++]);
             for (int d = 0; d < 8; ++d) {
                 int dx = neighbor[d][0], dy = neighbor[d][1];
-                if (!step_allowed(map, cls, x, y, dx, dy)) continue;
-                int ni = (y + dy) * w + x + dx;
+                if (!step_allowed(map, cls, cell.x, cell.y, dx, dy)) continue;
+                int ni = L_Index(map, cell.x + dx, cell.y + dy);
                 if (layer->region[ni]) continue;
                 layer->region[ni] = next;
                 queue[tail++] = ni;
@@ -152,7 +153,6 @@ static void build_regions(const level_t *map, int cls, struct nav_s *nav, navlay
         ++next;
     }
     free(queue);
-    (void)h;
 }
 
 static navlayer_t *layer_for(const level_t *map, struct nav_s *nav, int cls) {
@@ -171,7 +171,7 @@ static navlayer_t *layer_for(const level_t *map, struct nav_s *nav, int cls) {
             for (int d = 0; d < 8 && !near; ++d)
                 near = L_Contains(map, x + neighbor[d][0], y + neighbor[d][1]) &&
                        !passable(map, cls, x + neighbor[d][0], y + neighbor[d][1]);
-            layer->near_wall[y * nav->width + x] = near;
+            layer->near_wall[L_Index(map, x, y)] = near;
         }
     build_regions(map, cls, nav, layer);
     layer->built = true;
@@ -279,13 +279,12 @@ static bool cell_usable(const level_t *map, int cls, int x, int y, float radius)
 static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *layer,
                    const uint8_t *soft, float radius, ivec2_t start, ivec2_t goal,
                    int *goal_index) {
-    int w = nav->width;
     if (++nav->generation == 0) {
-        memset(nav->stamp, 0, (size_t)w * nav->height * sizeof(*nav->stamp));
+        memset(nav->stamp, 0, (size_t)nav->width * nav->height * sizeof(*nav->stamp));
         nav->generation = 1;
     }
     nav->heap_count = 0;
-    int s = start.y * w + start.x, t = goal.y * w + goal.x;
+    int s = L_Index(map, start.x, start.y), t = L_Index(map, goal.x, goal.y);
     nav->stamp[s] = nav->generation;
     nav->g[s] = 0;
     nav->parent[s] = -1;
@@ -299,11 +298,11 @@ static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *l
         nav->closed[cur] = 1;
         ++stats.expansions;
         if (cur == t) { *goal_index = cur; return true; }
-        int x = cur % w, y = cur / w;
+        ivec2_t cell = L_Cell(map, cur);
         for (int d = 0; d < 8; ++d) {
             int dx = neighbor[d][0], dy = neighbor[d][1];
-            if (!step_allowed(map, cls, x, y, dx, dy)) continue;
-            int nx = x + dx, ny = y + dy, ni = ny * w + nx;
+            if (!step_allowed(map, cls, cell.x, cell.y, dx, dy)) continue;
+            int nx = cell.x + dx, ny = cell.y + dy, ni = L_Index(map, nx, ny);
             if (ni != t && !cell_usable(map, cls, nx, ny, radius)) continue;
             int speed = L_MoveSpeed(map, cls, nx, ny);
             int step = (dx && dy ? COST_DIAGONAL : COST_STRAIGHT) +
@@ -388,13 +387,13 @@ bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from, f
     /* Keep the destination cell centre: an off-centre goal can invalidate the
      * incoming diagonal even though both endpoints fit. String pulling removes
      * this last bend only when the entire shortcut is clear. */
-    int length = 0, w = nav->width;
+    int length = 0;
     for (int c = goal_index; c != -1; c = nav->parent[c]) ++length;
     fvec2_t *chain = malloc((size_t)(length + 1) * sizeof(*chain));
     if (!chain) return false;
     int i = length;
     for (int c = goal_index; c != -1; c = nav->parent[c])
-        chain[--i] = fvec2_cell_center((ivec2_t){c % w, c / w});
+        chain[--i] = fvec2_cell_center(L_Cell(map, c));
     chain[length++] = goal;
     out->goal = goal;
 
@@ -442,7 +441,7 @@ int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, 
     int slot = total;
     for (int c = index; c != -1; c = nav->parent[c]) {
         --slot;
-        if (slot < max_path) out_path[slot] = (cell_t){c % nav->width, c / nav->width};
+        if (slot < max_path) out_path[slot] = L_Cell(map, c);
     }
     return total < max_path ? total : max_path;
 }

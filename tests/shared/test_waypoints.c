@@ -44,7 +44,7 @@ int main(void) {
     consoleplayer = 0;
     CHECK(follow(actor,WP_ONCE) == 0);
     actor->traits |= MF_FLY;
-    for (int x = 0; x < level.width; ++x) level.blocked[7*level.width+x] = 1;
+    for (int x = 0; x < level.width; ++x) level.blocked[L_Index(&level, x, 7)] = 1;
     CHECK(follow(actor,WP_ONCE) == 0); /* Flying routes cross an impassable row. */
     memset(level.blocked,0,(size_t)level.width*level.height);
     actor->traits &= ~MF_FLY;

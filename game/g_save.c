@@ -70,7 +70,11 @@ static bool save_signature(const char *path, uint32_t *signature) {
     if (!W_ReadFile(path, &file)) return false;
     uint32_t hash = checksum(file.bytes, file.size);
     W_FreeFile(&file);
-    int shape[] = {num_actor_types, gameinfo ? gameinfo->state_count : 0, (int)sizeof(mobj_t)};
+    int shape[] = {num_actor_types, gameinfo ? gameinfo->state_count : 0, (int)sizeof(mobj_t)
+#ifdef RTS_GAME_7LEGION
+        , 1 /* Native column-major grids; reject older row-major save bodies. */
+#endif
+    };
     *signature = (hash ^ checksum(shape, sizeof(shape))) * UINT32_C(16777619);
     return true;
 }

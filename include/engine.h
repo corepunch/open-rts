@@ -1299,6 +1299,7 @@ void HU_PushMessage(hudtext_t *hud, const char *text, int ttl_ms);
 void HU_Ticker(hudtext_t *hud, float dt);
 
 int L_Index(const level_t *map, int x, int y);
+ivec2_t L_Cell(const level_t *map, int index);
 bool L_Contains(const level_t *map, int x, int y);
 bool L_IsWalkable(const level_t *map, int x, int y);
 /* Speed percentage for a movement class at a cell; 0 means impassable. */
