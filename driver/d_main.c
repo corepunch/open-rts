@@ -365,7 +365,10 @@ load_level:
                                  &decoration_sprites, gameinfo, SDL_GetTicks());
 
             R_DrawGridOverlay(&app, &level);
-            R_DrawFog(&app, &level);
+            if (gameinfo->draw_fog)
+            gameinfo->draw_fog(&app, &level, &tileset);
+        else
+            R_DrawFogTiles(&app, &level, &tileset);
             hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (hud) M_MenuDrawer(hud);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
@@ -575,7 +578,10 @@ load_level:
                              &decoration_sprites, gameinfo, SDL_GetTicks());
 
         R_DrawGridOverlay(&app, &level);
-        R_DrawFog(&app, &level);
+        if (gameinfo->draw_fog)
+            gameinfo->draw_fog(&app, &level, &tileset);
+        else
+            R_DrawFogTiles(&app, &level, &tileset);
         if (app.dragging_select)
             V_DrawRectOutline(app.selection_rect, V_NearestIndex(0xff62e0a1u));
         hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};

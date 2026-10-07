@@ -1952,6 +1952,146 @@ void w2_build_states(int pud, int phases) {
     unit->seestate = mobile ? walk : stand;
 }
 
+/* ── Tile-based fog of war ────────────────────────────────────────────── */
+
+/* Wargus TiledFogTable: an 8-neighbor bitmask reduced to 4 bits selects one
+ * of the first 16 tileset tiles.  Bits: 0=top-left, 1=top, 2=top-right,
+ * 3=left, 4=right, 5=bottom-left, 6=bottom, 7=bottom-right. The table
+ * collapses these 256 possibilities into 16 tile frames. */
+static const int tiled_fog_table[16] = {
+     0, 11, 10, 2, 13, 6, 14, 3,
+    12, 15,  4, 1,  8, 9,  7, 0,
+};
+
+enum { W2_FOG_VISIBLE, W2_FOG_EXPLORED, W2_FOG_UNEXPLORED };
+
+static int w2_cell_fog(const level_t *map, int x, int y) {
+    if (!map->sight.cells) return W2_FOG_VISIBLE;
+    if (!L_Contains(map, x, y)) return W2_FOG_UNEXPLORED;
+    uint32_t bits = map->sight.cells[L_Index(map, x, y)];
+    if (!(bits & SIGHT_EXPLORED)) return W2_FOG_UNEXPLORED;
+    return (bits & map->sight.allies[consoleplayer]) ? W2_FOG_VISIBLE : W2_FOG_EXPLORED;
+}
+
+static int w2_fog_index(const level_t *map, int cx, int cy, int threshold) {
+    int tl = w2_cell_fog(map, cx - 1, cy - 1) >= threshold;
+    int t  = w2_cell_fog(map, cx,     cy - 1) >= threshold;
+    int tr = w2_cell_fog(map, cx + 1, cy - 1) >= threshold;
+    int l  = w2_cell_fog(map, cx - 1, cy    ) >= threshold;
+    int r  = w2_cell_fog(map, cx + 1, cy    ) >= threshold;
+    int bl = w2_cell_fog(map, cx - 1, cy + 1) >= threshold;
+    int b  = w2_cell_fog(map, cx,     cy + 1) >= threshold;
+    int br = w2_cell_fog(map, cx + 1, cy + 1) >= threshold;
+    int v = 0;
+    if (t || l || tl) v |= 1;
+    if (t || r || tr) v |= 2;
+    if (b || l || bl) v |= 4;
+    if (b || r || br) v |= 8;
+    return v;
+}
+
+static void w2_draw_fog_tile(const tileset_t *tileset, int tile, int dx, int dy,
+                             int cell_w, int cell_h, bool black) {
+    if (tile < 0 || tile >= tileset->count || !tileset->indices) return;
+    const uint8_t *src = tileset->indices + (size_t)tile * tileset->tile_w * tileset->tile_h;
+    uint8_t black_idx = V_NearestIndex(0xff000000u);
+    for (int py = 0; py < cell_h; ++py) {
+        int sy = py * tileset->tile_h / cell_h;
+        int screen_y = dy + py;
+        if (screen_y < 0 || screen_y >= screens[0].h) continue;
+        uint8_t *row = screens[0].pixels + (size_t)screen_y * screens[0].w;
+        for (int px = 0; px < cell_w; ++px) {
+            int sx = px * tileset->tile_w / cell_w;
+            uint8_t pixel = src[sy * tileset->tile_w + sx];
+            if (pixel) continue;
+            int screen_x = dx + px;
+            if (screen_x < 0 || screen_x >= screens[0].w) continue;
+            if (black)
+                row[screen_x] = black_idx;
+            else
+                row[screen_x] = V_NearestIndex(
+                    ((uint32_t)((vpalette[row[screen_x]] >> 16 & 255) * 160 / 255) << 16) |
+                    ((uint32_t)((vpalette[row[screen_x]] >>  8 & 255) * 160 / 255) <<  8) |
+                    ((uint32_t)((vpalette[row[screen_x]]       & 255) * 160 / 255)) |
+                    0xff000000u);
+        }
+    }
+}
+
+static void w2_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset) {
+    if (!map->sight.cells || !screens[0].pixels || tileset->count < 16) return;
+    int cell_w = app->cell.w > 0 ? app->cell.w : TILE_W;
+    int cell_h = app->cell.h > 0 ? app->cell.h : TILE_H;
+    irect_t view = G_WorldViewport(app);
+    int origin = view.x < 0 ? 0 : view.x;
+    int width = view.w;
+    if (width > screens[0].w - origin) width = screens[0].w - origin;
+    int height = app->win.h < screens[0].h ? app->win.h : screens[0].h;
+    uint8_t black = V_NearestIndex(0xff000000u);
+
+    /* Pass 1: unexplored cells solid black, explored cells darkened. */
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            int state = w2_cell_fog(map, x, y);
+            if (state == W2_FOG_VISIBLE) continue;
+            float sx, sy;
+            R_GridToScreen(app, (float)x, (float)y, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= height) continue;
+            if (state == W2_FOG_UNEXPLORED) {
+                V_FillRect((irect_t){ dx, dy, cell_w, cell_h }, black);
+            } else {
+                for (int py = 0; py < cell_h; ++py) {
+                    int screen_y = dy + py;
+                    if (screen_y < 0 || screen_y >= height) continue;
+                    uint8_t *row = screens[0].pixels + (size_t)screen_y * screens[0].w;
+                    int x0 = dx < origin ? origin : dx;
+                    int x1 = dx + cell_w > origin + width ? origin + width : dx + cell_w;
+                    for (int screen_x = x0; screen_x < x1; ++screen_x)
+                        row[screen_x] = V_NearestIndex(
+                            ((uint32_t)((vpalette[row[screen_x]] >> 16 & 255) * 160 / 255) << 16) |
+                            ((uint32_t)((vpalette[row[screen_x]] >>  8 & 255) * 160 / 255) <<  8) |
+                            ((uint32_t)((vpalette[row[screen_x]]       & 255) * 160 / 255)) |
+                            0xff000000u);
+                }
+            }
+        }
+    }
+
+    /* Pass 2: shroud edges — explored/visible cells bordering unexplored. */
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            if (w2_cell_fog(map, x, y) == W2_FOG_UNEXPLORED) continue;
+            int v = w2_fog_index(map, x, y, W2_FOG_UNEXPLORED);
+            if (!v) continue;
+            int tile = tiled_fog_table[v];
+            float sx, sy;
+            R_GridToScreen(app, (float)x, (float)y, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= height) continue;
+            w2_draw_fog_tile(tileset, tile, dx, dy, cell_w, cell_h, true);
+        }
+    }
+
+    /* Pass 3: fog edges — visible cells bordering explored-not-visible. */
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            if (w2_cell_fog(map, x, y) != W2_FOG_VISIBLE) continue;
+            int v = w2_fog_index(map, x, y, W2_FOG_EXPLORED);
+            if (!v) continue;
+            int tile = tiled_fog_table[v];
+            float sx, sy;
+            R_GridToScreen(app, (float)x, (float)y, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= height) continue;
+            w2_draw_fog_tile(tileset, tile, dx, dy, cell_w, cell_h, false);
+        }
+    }
+}
+
 void w2_build_info(void) {
     memset(sprnames, 0, sizeof(sprnames));
     memset(states, 0, sizeof(states));
@@ -2016,6 +2156,7 @@ void w2_build_info(void) {
         .f10_menu = true,
         .instant_turn = true,
         .sound = &w2_soundinfo,
+        .draw_fog = w2_draw_fog,
     };
 }
 

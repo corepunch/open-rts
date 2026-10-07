@@ -682,6 +682,7 @@ struct gameinfo_s {
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
     const struct soundinfo_s *sound; /* NULL: the game has no sounds yet. */
+    void (*draw_fog)(app_t *app, const struct level_s *map, const tileset_t *tileset);
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */
@@ -1373,6 +1374,7 @@ bool P_VisibleTo(const mobj_t *observer, const mobj_t *target);
 int P_SightBrightness(const level_t *map, ivec2_t cell);
 int R_FogSample(const int corners[4], ivec2_t pixel);
 void R_DrawFog(app_t *app, const level_t *map);
+void R_DrawFogTiles(app_t *app, const level_t *map, const tileset_t *tileset);
 void R_FreeSprite(spritesheet_t *sprite);
 void HU_FreeFont(bitmapfont_t *font);
 void R_FreeSpriteCache(spritecache_t *cache);
