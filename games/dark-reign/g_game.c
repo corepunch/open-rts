@@ -988,7 +988,134 @@ const dr_skirmish_t *DR_LevelSkirmish(void) {
     return current_valid ? &current : NULL;
 }
 
+/* ── FOGTILE.FOG — native fog of war tiles ─────────────────────────────── */
+
+#define DR_FOG_TILES 81
+#define DR_FOG_W     24
+#define DR_FOG_H     24
+
+static uint8_t dr_fogtiles[DR_FOG_TILES][DR_FOG_H][DR_FOG_W];
+static bool dr_fogtiles_loaded;
+
+static bool load_fogtiles(const char *root) {
+    if (dr_fogtiles_loaded) return true;
+    char path[256];
+    M_PathJoin(path, sizeof(path), root, "graphics/FOGTILE.FOG");
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    uint32_t hdr[3];
+    if (fread(hdr, 4, 3, f) != 3 || hdr[0] != 0x54474f46u) { fclose(f); return false; }
+    uint32_t sizes[DR_FOG_TILES];
+    if (fread(sizes, 4, DR_FOG_TILES, f) != DR_FOG_TILES) { fclose(f); return false; }
+    for (int i = 0; i < DR_FOG_TILES; ++i) {
+        uint8_t buf[512];
+        if (sizes[i] > sizeof(buf)) { fclose(f); return false; }
+        if (fread(buf, 1, sizes[i], f) != sizes[i]) { fclose(f); return false; }
+        const uint8_t *p = buf;
+        for (int y = 0; y < DR_FOG_H; ++y) {
+            int x = 0;
+            for (;;) {
+                uint8_t b = *p++;
+                int type = b >> 6;
+                int len = b & 0x3f;
+                if (type == 3) break;
+                for (int j = 0; j < len && x < DR_FOG_W; ++j)
+                    dr_fogtiles[i][y][x++] = (uint8_t)type;
+            }
+            while (x < DR_FOG_W) dr_fogtiles[i][y][x++] = 0;
+        }
+    }
+    fclose(f);
+    dr_fogtiles_loaded = true;
+    return true;
+}
+
+enum { DR_FOGST_VISIBLE, DR_FOGST_EXPLORED, DR_FOGST_UNEXPLORED };
+
+static int dr_cell_fog(const level_t *map, int x, int y) {
+    if (!map->sight.cells) return DR_FOGST_VISIBLE;
+    if (!L_Contains(map, x, y)) return DR_FOGST_UNEXPLORED;
+    uint32_t bits = map->sight.cells[L_Index(map, x, y)];
+    if (!(bits & SIGHT_EXPLORED)) return DR_FOGST_UNEXPLORED;
+    return (bits & map->sight.allies[consoleplayer]) ? DR_FOGST_VISIBLE : DR_FOGST_EXPLORED;
+}
+
+static void dr_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset) {
+    (void)tileset;
+    if (!map->sight.cells || !screens[0].pixels) return;
+    if (!dr_fogtiles_loaded) load_fogtiles(g_game_default_root);
+    if (!dr_fogtiles_loaded) return;
+    int cell_w = app->cell.w > 0 ? app->cell.w : 24;
+    int cell_h = app->cell.h > 0 ? app->cell.h : 24;
+    irect_t view = G_WorldViewport(app);
+    int origin = view.x < 0 ? 0 : view.x;
+    if (origin > screens[0].w) origin = screens[0].w;
+    int width = view.w;
+    if (width > screens[0].w - origin) width = screens[0].w - origin;
+    if (width < 0) width = 0;
+    int scr_h = app->win.h < screens[0].h ? app->win.h : screens[0].h;
+    uint8_t black = V_NearestIndex(0xff000000u);
+
+    for (int gy = 0; gy < map->height; ++gy) {
+        for (int gx = 0; gx < map->width; ++gx) {
+            float sx, sy;
+            R_GridToScreen(app, (float)gx, (float)gy, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= scr_h) continue;
+
+            int c  = dr_cell_fog(map, gx, gy);
+            int n  = gy > 0 ? dr_cell_fog(map, gx, gy - 1) : DR_FOGST_UNEXPLORED;
+            int s  = gy < map->height - 1 ? dr_cell_fog(map, gx, gy + 1) : DR_FOGST_UNEXPLORED;
+            int w  = gx > 0 ? dr_cell_fog(map, gx - 1, gy) : DR_FOGST_UNEXPLORED;
+            int e  = gx < map->width - 1 ? dr_cell_fog(map, gx + 1, gy) : DR_FOGST_UNEXPLORED;
+            int nw = (gx > 0 && gy > 0) ? dr_cell_fog(map, gx - 1, gy - 1) : DR_FOGST_UNEXPLORED;
+            int ne = (gx < map->width - 1 && gy > 0) ? dr_cell_fog(map, gx + 1, gy - 1) : DR_FOGST_UNEXPLORED;
+            int sw_c = (gx > 0 && gy < map->height - 1) ? dr_cell_fog(map, gx - 1, gy + 1) : DR_FOGST_UNEXPLORED;
+            int se_c = (gx < map->width - 1 && gy < map->height - 1) ? dr_cell_fog(map, gx + 1, gy + 1) : DR_FOGST_UNEXPLORED;
+
+            /* Quadrant states: max of this cell and its two edge + one corner neighbor. */
+            int q_nw = c; if (n > q_nw) q_nw = n; if (w > q_nw) q_nw = w; if (nw > q_nw) q_nw = nw;
+            int q_ne = c; if (n > q_ne) q_ne = n; if (e > q_ne) q_ne = e; if (ne > q_ne) q_ne = ne;
+            int q_sw = c; if (s > q_sw) q_sw = s; if (w > q_sw) q_sw = w; if (sw_c > q_sw) q_sw = sw_c;
+            int q_se = c; if (s > q_se) q_se = s; if (e > q_se) q_se = e; if (se_c > q_se) q_se = se_c;
+
+            int tile_idx = q_sw + q_se * 3 + q_nw * 9 + q_ne * 27;
+            if (tile_idx == 0) continue;
+
+            const uint8_t (*tile)[DR_FOG_W] = dr_fogtiles[tile_idx];
+            for (int py = 0; py < cell_h; ++py) {
+                int screen_y = dy + py;
+                if (screen_y < 0 || screen_y >= scr_h) continue;
+                uint8_t *row = screens[0].pixels + (size_t)screen_y * screens[0].w;
+                int ty = py * DR_FOG_H / cell_h;
+                for (int px = 0; px < cell_w; ++px) {
+                    int screen_x = dx + px;
+                    if (screen_x < origin || screen_x >= origin + width) continue;
+                    int tx = px * DR_FOG_W / cell_w;
+                    uint8_t t = tile[ty][tx];
+                    if (t == 2)
+                        row[screen_x] = black;
+                    else if (t == 1 && ((screen_x ^ screen_y) & 1))
+                        row[screen_x] = black;
+                }
+            }
+        }
+    }
+}
+
+static gameinfo_t dr_runtime_info;
+static state_t dr_runtime_states[NUMSTATES];
+
 void G_InitGame(void) {
+    static bool initialized;
+    if (initialized) return;
+    memcpy(dr_runtime_states, states, sizeof(dr_runtime_states));
+    dr_runtime_info = game_info;
+    dr_runtime_info.states = dr_runtime_states;
+    dr_runtime_info.draw_fog = dr_draw_fog;
+    gameinfo = &dr_runtime_info;
+    initialized = true;
 }
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
