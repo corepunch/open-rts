@@ -1,5 +1,18 @@
 # Reverse Engineering References
 
+### Warcraft II scenario picker reference (2026-10-07)
+
+User-provided `/Users/igor/Desktop/Screenshot 2026-10-07 at 12.00.30.jpg`
+shows the English Battle.net Edition scenario modal over setup. Its
+fingerprint, measured layout, DOS/Battle.net differences and outstanding
+native scene-import requirement are recorded in
+[WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md#scenario-picker-controls-and-screenshot-comparison-2026-10-07).
+The existing pinned [Wargus wartool catalog](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/wartool.h)
+supplies GFU widget indices, menu FONT names, and skirmish PUD indices
+220–247, cross-checked against local retail records. Its source was not
+copied. Local Doom `m_menu.c` supplies the menu input/lifecycle comparison.
+No new web source or generated UI artwork was used.
+
 Keep these links handy when touching loaders, tile animation, map objects, or
 plugin-specific behavior.
 

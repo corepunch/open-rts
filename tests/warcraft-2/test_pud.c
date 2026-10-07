@@ -176,7 +176,7 @@ static int test_ui_art(void) {
               sheet_wh(&menu.widgets[1], 11, 106, 28) &&
               sheet_wh(&menu.widgets[1], 17, 224, 28), "ui", "widgets");
     RTS_CHECK(menu.font.glyph_index[(unsigned)'M'] >= 0 &&
-              menu.font.glyph_width[(unsigned)'M'] == 11 &&
+              menu.font.glyph_width[(unsigned)'M'] == 14 && menu.font.glyph_size.h == 17 &&
               menu.font.glyph_width[(unsigned)' '] > 0, "ui", "font");
     int frame = menu.font.glyph_index[(unsigned)'M'];
     const uint8_t *ink_px = menu.font.sprite.lumps[frame].indices;

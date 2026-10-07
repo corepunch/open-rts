@@ -131,6 +131,7 @@ static void build(void) {
     M_MenuSetRows(&items[LIST], 10);
     menu.itemOn = 0;
     menu.held = NULL;
+    menu.dropdown = NULL;
     menu.escape = escape;
     memset(activated, 0, sizeof(activated));
     memset(changed, 0, sizeof(changed));
@@ -241,6 +242,59 @@ static int lists(void) {
     CHECK(list->first_row == 1);
     M_MenuSetRows(list, 3);
     CHECK(list->first_row == 0);
+    menu.itemOn = LIST;
+    M_MenuSetRows(list, 10);
+    key(SDLK_END);
+    CHECK(list->value == 9 && list->first_row == 6);
+    key(SDLK_PAGEUP);
+    CHECK(list->value == 5);
+    key(SDLK_HOME);
+    CHECK(list->value == 0 && list->first_row == 0);
+    SDL_Event double_click = {.button = {.type = SDL_MOUSEBUTTONDOWN,
+        .button = SDL_BUTTON_LEFT, .x = 1, .y = 23, .clicks = 2}};
+    M_MenuResponder(&menu, &app, &double_click);
+    CHECK(list->value == 1 && activated[LIST] == 1);
+    return 0;
+}
+
+static int dropdowns(void) {
+    build();
+    menuitem_t *choice = &items[FIELD];
+    choice->kind = MI_DROPDOWN;
+    choice->rows = 10;
+    choice->row_height = 2;
+    choice->popup_rows = 3;
+    choice->row = row;
+    choice->value = 0;
+    /* The popup overlaps the list; a choice must not activate that list. */
+    click(1, 13);
+    CHECK(menu.dropdown == choice);
+    key(SDLK_END);
+    CHECK(menu.dropdown_row == 9 && choice->first_row == 7 && choice->value == 0);
+    key(SDLK_ESCAPE);
+    CHECK(!menu.dropdown && choice->value == 0 && !escaped);
+    click(1, 13);
+    key(SDLK_DOWN);
+    key(SDLK_RETURN);
+    CHECK(!menu.dropdown && choice->value == 1 && changed[FIELD] == 1);
+    click(1, 13);
+    click(1, 20);
+    CHECK(!menu.dropdown && choice->value == 2 && !changed[LIST]);
+    click(1, 13);
+    click(5, 2);
+    CHECK(!menu.dropdown && !activated[BUTTON]);
+    /* Disabled choices do not open. */
+    choice->enabled = false;
+    click(1, 13);
+    CHECK(!menu.dropdown);
+    choice->enabled = true;
+    /* A popup near the bottom opens upward, inside the screen. */
+    choice->rect.y = W - 4;
+    click(1, W - 3);
+    CHECK(menu.dropdown == choice);
+    key(SDLK_HOME);
+    click(1, W - 9);
+    CHECK(!menu.dropdown && choice->value == 0);
     return 0;
 }
 
@@ -330,6 +384,10 @@ static int drawing(void) {
     items[BUTTON].enabled = false;
     draw();
     CHECK(pixel(28, 8) == 4 && pixel(30, 10) == 1);
+    items[BUTTON].disabled_look = true;
+    items[BUTTON].look[MS_DISABLED].cell = 1;
+    draw();
+    CHECK(pixel(30, 10) == 2);
     V_FreeScreen();
     return 0;
 }
@@ -558,6 +616,7 @@ int main(void) {
     RTS_RUN(hud_targets());
     RTS_RUN(layout());
     RTS_RUN(lists());
+    RTS_RUN(dropdowns());
     RTS_RUN(animation());
     RTS_RUN(hud_input());
     RTS_RUN(drawing());

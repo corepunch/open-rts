@@ -75,6 +75,7 @@ enum { W2_CAMPAIGN_ENTRY = 192, W2_CAMPAIGN_LEVELS = 14 };
 /* One archive read for the whole campaign; a level that is absent has width 0. */
 bool w2_campaign_infos(const char *root, bool orc, w2_pud_info_t infos[W2_CAMPAIGN_LEVELS]);
 bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path, size_t size);
+bool w2_extract_map(const char *root, int entry, const char *name, char *path, size_t size);
 /* The next level load starts every playing side with this much (0 keeps the map's). */
 void W2_SetStartResources(int mode);
 /* The end-of-scenario screen (m_menu.c): continue the campaign, restart or leave. */

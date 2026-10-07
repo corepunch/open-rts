@@ -2153,12 +2153,12 @@ bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
  * text, waits for map targets and draws. */
 typedef enum {
     MI_STATIC, /* a picture, text or ownerdraw that takes no input */
-    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR,
+    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR, MI_DROPDOWN,
     MI_MINIMAP /* the level in small: a click or drag centres the world view there */
 } menuitemkind_t;
 
 /* How an item looks in one state. */
-typedef enum { MS_NORMAL, MS_FOCUS, MS_PUSHED, MS_STATES } menustate_t;
+typedef enum { MS_NORMAL, MS_FOCUS, MS_PUSHED, MS_DISABLED, MS_STATES } menustate_t;
 typedef struct {
     int cell;     /* of the item's sheet; negative draws no picture */
     irect_t part; /* a rectangle of that cell; empty means all of it */
@@ -2218,6 +2218,7 @@ struct menuitem_s {
     menulook_t look[MS_STATES];
     bool opaque; /* the sheet has no colour key: write its index 0 */
     bool stretch; /* scale the source picture to the item's rectangle */
+    bool disabled_look; /* use authored MS_DISABLED art; otherwise keep MS_NORMAL */
     bool layer;   /* a popup: it draws over every earlier item, text included */
     int light;   /* 1..15 darkens the picture, in sixteenths; 0 is full light */
     const bitmapfont_t *font;
@@ -2240,6 +2241,10 @@ struct menuitem_s {
     /* A scroll bar shows and drags the list at index link. A button with a
      * step scrolls the list or prose at index link by that much. */
     int link, step;
+    /* Native scrollbar knob and dropdown arrow, from the item's sheet.
+     * A thumb with a nonempty part uses that fixed size instead of a fill. */
+    menulook_t thumb, arrow[MS_STATES];
+    int popup_rows; /* dropdown: maximum visible choices; zero shows all */
     uint32_t fill;   /* 0xAARRGGBB behind the item; 0 draws none */
     uint32_t border; /* 0xAARRGGBB outline around the item; 0 draws none */
     struct { uint32_t outer, inner; } frame; /* Two rims outside the picture rect. */
@@ -2267,6 +2272,8 @@ struct menu_s {
     SDL_Keycode keycode;
     menuitem_t *target;  /* waiting for a click on the world */
     menuitem_t *editing; /* a HUD text field that has the keyboard */
+    menuitem_t *dropdown; /* open choices, drawn and hit-tested above the screen */
+    int dropdown_row; /* pending choice; Escape leaves value untouched */
     ivec2_t cursor;   /* the pointer, in screen pixels */
     int wheel;        /* for MA_WHEEL */
     SDL_Keymod keymod; /* modifiers of the key that activated an item */

@@ -181,13 +181,56 @@ static menuitem_t *linked(const menu_t *menu, const menuitem_t *item) {
     return item->link >= 0 && item->link < menu->numitems ? &menu->items[item->link] : NULL;
 }
 
+static irect_t dropdown_rect(const menu_t *menu) {
+    const menuitem_t *item = menu->dropdown;
+    irect_t r = M_MenuItemRect(menu, item);
+    int rows = item->popup_rows > 0 && item->popup_rows < item->rows ? item->popup_rows : item->rows;
+    int height = item->row_height * R_UIScale(menu->app) / V_GetDrawScale();
+    isize2_t size = screen_size(menu);
+    int bottom = size.h * R_UIScale(menu->app) / V_GetDrawScale();
+    int room = bottom - r.y - r.h;
+    bool above = room < height && r.y > room;
+    if (above) room = r.y;
+    if (height <= 0) return (irect_t){0};
+    if (rows > room / height) rows = room / height;
+    if (rows < 1) rows = 1;
+    r.y = above ? r.y - rows * height : r.y + r.h;
+    r.h = rows * height;
+    return r;
+}
+
+static void dropdown_view(menu_t *menu) {
+    menuitem_t *item = menu->dropdown;
+    int height = item->row_height * R_UIScale(menu->app) / V_GetDrawScale();
+    if (height <= 0) return;
+    int rows = dropdown_rect(menu).h / height;
+    if (menu->dropdown_row < item->first_row) item->first_row = menu->dropdown_row;
+    if (menu->dropdown_row >= item->first_row + rows) item->first_row = menu->dropdown_row - rows + 1;
+}
+
+static void dropdown_accept(menu_t *menu) {
+    menuitem_t *item = menu->dropdown;
+    int row = menu->dropdown_row;
+    menu->dropdown = NULL;
+    menu->held = NULL;
+    if (item && row >= 0 && row < item->rows && row != item->value) {
+        item->value = row;
+        call_routine(menu, item, MA_CHANGE);
+    }
+}
+
 /* The visible range centres on the pointer, as Dark Colony's scroll bars do
  * (DC.EXE 0x42805f..0x4280d6). */
 static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
     menuitem_t *list = linked(menu, bar);
     irect_t r = M_MenuItemRect(menu, bar);
     if (!list || r.h <= 0) return;
-    scroll_to(list, (menu->cursor.y - r.y) * list->rows / r.h - page_rows(list) / 2);
+    if (bar->thumb.part.h > 0) {
+        int travel = r.h - bar->thumb.part.h * R_UIScale(menu->app);
+        int last = list->rows - page_rows(list);
+        if (travel > 0 && last > 0)
+            scroll_to(list, (menu->cursor.y - r.y - bar->thumb.part.h * R_UIScale(menu->app) / 2) * last / travel);
+    } else scroll_to(list, (menu->cursor.y - r.y) * list->rows / r.h - page_rows(list) / 2);
 }
 
 static void activate(menu_t *menu, menuitem_t *item);
@@ -200,6 +243,13 @@ static void press_key(menu_t *menu, menuitem_t *item, SDL_Keycode key) {
 }
 
 static void activate(menu_t *menu, menuitem_t *item) {
+    if (item->kind == MI_DROPDOWN) {
+        if (item->rows <= 0 || item->row_height <= 0) return;
+        menu->dropdown = item;
+        menu->dropdown_row = item->value >= 0 ? item->value : 0;
+        dropdown_view(menu);
+        return;
+    }
     if (item->kind == MI_CHECK && !item->group) item->value = !item->value;
     else if (item->kind == MI_CHECK)
         for (int i = 0; i < menu->numitems; ++i) {
@@ -240,6 +290,24 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
     menuitem_t *focus = focused(menu);
     bool typing = menu->modal && item_live(focus) && focus->kind == MI_TEXTFIELD;
     menu->keymod = event->key.keysym.mod;
+    if (menu->dropdown) {
+        if (key == SDLK_ESCAPE || key == SDLK_TAB) {
+            menu->dropdown = NULL;
+            menu->held = NULL;
+            if (key == SDLK_TAB) focus_step(menu, event->key.keysym.mod & KMOD_SHIFT ? -1 : 1);
+        } else if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+            if (!event->key.repeat) dropdown_accept(menu);
+        } else {
+            int row = menu->dropdown_row;
+            if (key == SDLK_UP) --row;
+            if (key == SDLK_DOWN) ++row;
+            if (key == SDLK_HOME) row = 0;
+            if (key == SDLK_END) row = menu->dropdown->rows - 1;
+            if (row >= 0 && row < menu->dropdown->rows) menu->dropdown_row = row;
+            dropdown_view(menu);
+        }
+        return true;
+    }
     if (!typing && hotkey(menu, event)) return true;
     if (!menu->modal) {
         if (key != SDLK_ESCAPE || event->key.repeat || !menu->target) return false;
@@ -248,8 +316,19 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
     }
     if (key == SDLK_ESCAPE) {
         if (!event->key.repeat && menu->escape) menu->escape(menu);
-    } else if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) && focus->kind == MI_LIST) {
-        select_row(menu, focus, focus->value < 0 ? 0 : focus->value + (key == SDLK_UP ? -1 : 1));
+    } else if (item_live(focus) && focus->kind == MI_LIST &&
+               (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_HOME || key == SDLK_END ||
+                key == SDLK_PAGEUP || key == SDLK_PAGEDOWN)) {
+        int row = focus->value < 0 ? 0 : focus->value;
+        if (key == SDLK_UP) --row;
+        if (key == SDLK_DOWN) ++row;
+        if (key == SDLK_HOME) row = 0;
+        if (key == SDLK_END) row = focus->rows - 1;
+        if (key == SDLK_PAGEUP) row -= page_rows(focus);
+        if (key == SDLK_PAGEDOWN) row += page_rows(focus);
+        if (row < 0) row = 0;
+        if (row >= focus->rows) row = focus->rows - 1;
+        select_row(menu, focus, row);
     } else if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB ||
                ((key == SDLK_LEFT || key == SDLK_RIGHT) && !typing)) {
         bool back = key == SDLK_UP || key == SDLK_LEFT ||
@@ -282,6 +361,21 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
     R_WindowToRenderPt(app, motion ? event->motion.x : event->button.x,
                        motion ? event->motion.y : event->button.y,
                        &menu->cursor.x, &menu->cursor.y);
+    if (menu->dropdown) {
+        menuitem_t *item = menu->dropdown;
+        irect_t popup = dropdown_rect(menu);
+        bool inside = irect_contains(popup, menu->cursor);
+        if (inside) {
+            int row = item->first_row + (menu->cursor.y - popup.y) /
+                      (item->row_height * R_UIScale(app));
+            if (row < item->rows) menu->dropdown_row = row;
+        }
+        if (down) {
+            if (event->button.button == SDL_BUTTON_LEFT && inside) dropdown_accept(menu);
+            else { menu->dropdown = NULL; menu->held = NULL; }
+        }
+        return true;
+    }
     if (motion && menu->held && menu->held->kind == MI_SCROLLBAR) {
         drag_scrollbar(menu, menu->held);
         return true;
@@ -330,9 +424,14 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
     menu->held = hit;
     menu->over = true;
     if (hit->release && hit->kind == MI_BUTTON) return true;
-    if (hit->kind == MI_LIST)
-        select_row(menu, hit, hit->first_row + (menu->cursor.y - M_MenuItemRect(menu, hit).y) /
-                   ((hit->row_height > 0 ? hit->row_height : 1) * R_UIScale(app)));
+    if (hit->kind == MI_LIST) {
+        int row = hit->first_row + (menu->cursor.y - M_MenuItemRect(menu, hit).y) /
+                  ((hit->row_height > 0 ? hit->row_height : 1) * R_UIScale(app));
+        if (row >= 0 && row < hit->rows) {
+            select_row(menu, hit, row);
+            if (event->button.clicks > 1) activate(menu, hit);
+        }
+    }
     else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
     else if (hit->kind == MI_MINIMAP) {
         S_StartUISound(UI_SOUND_CLICK);
@@ -345,6 +444,14 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
 /* The wheel scrolls a list or prose: the one on a modal screen, the one under
  * the pointer on a HUD. Over any other live HUD item it goes to the routine. */
 static bool wheel(menu_t *menu, int delta) {
+    if (menu->dropdown) {
+        int row = menu->dropdown_row - delta;
+        if (row < 0) row = 0;
+        if (row >= menu->dropdown->rows) row = menu->dropdown->rows - 1;
+        menu->dropdown_row = row;
+        dropdown_view(menu);
+        return true;
+    }
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
         if (!item->visible ||
@@ -430,6 +537,7 @@ void M_MenuTicker(menu_t *menu) {
 /* ── drawing ────────────────────────────────────────────────────────────── */
 
 static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
+    if (!item->enabled && item->kind != MI_STATIC && item->disabled_look) return MS_DISABLED;
     if (item->kind == MI_CHECK && item->value) return MS_PUSHED;
     if (!item_live(item)) return MS_NORMAL;
     if (menu->keyheld == item) return MS_PUSHED;
@@ -541,10 +649,12 @@ static void draw_list(const menu_t *menu, const menuitem_t *item, irect_t rect) 
             menustate_t state = selected ? MS_PUSHED : MS_NORMAL;
             const bitmapfont_t *font = state_font(item, state);
             irect_t line = {rect.x, rect.y + i * item->row_height, rect.w, item->row_height};
+            draw_picture(item, state, line);
             if (selected && item->color) V_FillRect(line, V_NearestIndex(item->color));
             if (font && item->row)
                 V_DrawText(ivec2_add((ivec2_t){line.x, line.y}, item->inset), font,
-                           item->row(item, row), text_remap(item, font, state, item->ink, tint));
+                           item->row(item, row), text_remap(item, font, state,
+                           item->look[state].ink ? item->look[state].ink : item->ink, tint));
         }
     }
     if (item->ownerdraw) item->ownerdraw(menu, item, rect);
@@ -555,6 +665,16 @@ static void draw_list(const menu_t *menu, const menuitem_t *item, irect_t rect) 
 static void draw_scrollbar(const menu_t *menu, const menuitem_t *item, irect_t bar) {
     if (item->link < 0 || item->link >= menu->numitems) return;
     const menuitem_t *list = &menu->items[item->link];
+    if (item->sheet && item->thumb.part.h > 0) {
+        draw_picture(item, item_state(menu, item), bar);
+        int last = list->rows - page_rows(list);
+        int top = last > 0 ? (bar.h - item->thumb.part.h) * list->first_row / last : 0;
+        irect_t dst = {bar.x + (bar.w - item->thumb.part.w) / 2, bar.y + top,
+                       item->thumb.part.w, item->thumb.part.h};
+        R_DrawSprite(item->sheet, item->thumb.cell, item->thumb.palette, &item->thumb.part,
+                     &dst, item->opaque ? V_OPAQUE : 0, 16);
+        return;
+    }
     if (list->rows <= 0 || list->row_height <= 0) return;
     int end = list->first_row + list->rect.h / list->row_height;
     if (end > list->rows) end = list->rows;
@@ -565,7 +685,7 @@ static void draw_scrollbar(const menu_t *menu, const menuitem_t *item, irect_t b
 }
 
 static bool is_button(const menuitem_t *item) {
-    return item->kind == MI_BUTTON || item->kind == MI_CHECK;
+    return item->kind == MI_BUTTON || item->kind == MI_CHECK || item->kind == MI_DROPDOWN;
 }
 
 static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
@@ -574,6 +694,13 @@ static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
     if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     menustate_t state = item_state(menu, item);
     draw_picture(item, state, rect);
+    if (item->kind == MI_DROPDOWN) {
+        const menulook_t *arrow = &item->arrow[state];
+        if (item->sheet && arrow->part.w > 0) {
+            irect_t dst = {rect.x + rect.w - arrow->part.w, rect.y, arrow->part.w, arrow->part.h};
+            R_DrawSprite(item->sheet, arrow->cell, arrow->palette, &arrow->part, &dst, V_OPAQUE, 16);
+        }
+    }
     if (item->frame.outer)
         V_DrawRectOutline((irect_t){rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4},
                           V_NearestIndex(item->frame.outer));
@@ -586,7 +713,16 @@ static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
                           (irect_t){rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4} : rect,
                           V_NearestIndex(item->color));
     if (item->ownerdraw) item->ownerdraw(menu, item, rect);
-    else if (is_button(item)) draw_text(item, state, rect, false);
+    else if (is_button(item)) {
+        menuitem_t text = *item;
+        if (item->kind == MI_DROPDOWN && item->row && item->value >= 0 && item->value < item->rows)
+            snprintf(text.text, sizeof(text.text), "%s", item->row(item, item->value));
+        irect_t clip = V_GetClip();
+        if (item->kind == MI_DROPDOWN)
+            V_SetClip((irect_t){rect.x, rect.y, rect.w - item->arrow[state].part.w, rect.h});
+        draw_text(&text, state, rect, false);
+        V_SetClip(clip);
+    }
 }
 
 static void draw_content(const menu_t *menu, const menuitem_t *item) {
@@ -650,6 +786,14 @@ void M_MenuDrawer(menu_t *menu) {
         for (end = start + 1; end < menu->numitems && !menu->items[end].layer; ++end) {}
         for (int i = start; i < end; ++i) draw_chrome(menu, &menu->items[i]);
         for (int i = start; i < end; ++i) draw_content(menu, &menu->items[i]);
+    }
+    if (menu->dropdown && item_live(menu->dropdown)) {
+        menuitem_t popup = *menu->dropdown;
+        popup.value = menu->dropdown_row;
+        irect_t rect = dropdown_rect(menu);
+        if (popup.fill) V_FillRect(rect, V_NearestIndex(popup.fill));
+        draw_list(menu, &popup, rect);
+        if (popup.border) V_DrawRectOutline(rect, V_NearestIndex(popup.border));
     }
     const menuitem_t *hover = M_MenuHover(menu);
     if (hover && hover->tooltip && menu->drawtip) menu->drawtip(menu, hover);
