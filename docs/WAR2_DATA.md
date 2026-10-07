@@ -45,7 +45,15 @@ opaque; sprite palettes clear it.
 Swamp reuses wasteland because this `MAINDAT` has no entries 438–441. The map
 table is `0x9E` groups of 16 `u16` megatile indices (`42` bytes each). Lookup
 slot `(group << 4) | sub` selects that megatile when the index is in range.
-Megas 0–15 are raw 32×32 copies of the minitile blob. Later megas are 16
+Megas 0–15 are raw 32×32 copies of the minitile blob and are the shroud
+masks, identical in forest, winter and wasteland. Index 0 is the hole.
+Index 239 is black (`0,0,0` in every era palette) and forms the stipple:
+tile 10 is the top-left corner, 11 top-right, 12 bottom-left, 13
+bottom-right, 2 the top edge, 8 the bottom, 4 the left and 6 the right.
+Tile 0 is entirely index 0. The corner bits that select them are
+top-right=1, top-left=2, bottom-right=4, bottom-left=8, the same reduction
+Stratagus uses for `TiledFogTable`. Explored ground keeps that black
+stipple on even `x + y` instead of blending the terrain darker. Later megas are 16
 `u16` minitile refs: pixel offset `(ref & 0xFFFC) * 16`, bit 1 flips X, bit 0
 flips Y. An `ALAMO` cell in MTXM `0x50..0x5f` does not match a cell in
 `0x70..0x7f`. The screenshot shows distinct summer grass, pines, rock, and dirt.
