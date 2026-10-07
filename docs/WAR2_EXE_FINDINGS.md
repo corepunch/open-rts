@@ -685,3 +685,87 @@ env SDL_VIDEODRIVER=dummy make test-warcraft-2
 env SDL_VIDEODRIVER=dummy W2_MENU_SHOTS=/private/tmp build/bin/tests/warcraft-2/test_menu
 env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
 ```
+
+## Single-player campaign entry correction (2026-10-07)
+
+**Source and correction.** The user's second screenshot,
+`Screenshot 2026-10-07 at 13.10.15.jpg`, SHA-256
+`cab6de19f435ec47d0e906f0ffc25bbf6cefb31ebb32df457ac1d644e76bbb6f`,
+shows our Orc campaign list, not a retail reference. Its native panel and
+font did not establish native behavior: `open_pick(PICK_ORC)` authored a
+14-mission browser with a generic brown highlight and rectangular scrollbar.
+The previous scenario-picker change did not correct that screen. The
+comment claiming other front-end screens followed Wargus was particularly
+misleading for retail fidelity. Wargus's pinned `RunCampaignSubmenu` is its
+own campaign/unlock selector and cannot establish the retail entry flow.
+
+**Confirmed published behavior.** Blizzard's Battle.net Edition manual,
+printed page 6 (PDF page index 5, URL recorded in REFERENCES.md), specifies
+Single Player Game → New Campaign → race selection → assignment briefing →
+first mission. It does not direct the player to a campaign mission browser.
+This establishes the target flow for the Battle.net Edition reference;
+exact DOS/Battle.net screen differences and button positions remain unknown.
+
+**Confirmed native text/data.** The same WAR2.EXE/STRDAT/REZDAT/MAINDAT
+fingerprints recorded above apply. Temporary `OPEN_RTS_DEBUG_W2_SINGLE`
+logging printed decoded dialog labels. STRDAT entry 6 string 0 is the
+internal name `NewCampaign`; strings 1/2/3 are the localized Orc Campaign,
+Human Campaign and Previous Menu labels. STRDAT 27/3 is the load-screen
+label; 27/1 is only its Load action, which the previous single-player screen
+incorrectly reused. STRDAT 9/4 supplies the localized custom-scenario label.
+No visible New Campaign label was identified in these dialog records.
+The engine uses the manual's English label as an explicit fallback and
+retains native localized labels for the other controls. It does not display
+the internal `NewCampaign` identifier as a caption or invent a translation.
+
+Static investigation also found STRDAT entry 1 to be an 8,828-byte general
+string table with native u16 count 428, including unit names and orders.
+The current loader's 96-string limit rejects it; temporarily raising that
+limit decoded it but did not reveal the missing New Campaign caption.
+That temporary change and all diagnostic logging were removed. Supporting
+that general table is separate work; its exclusion is not evidence of a
+missing dialog scene. STRDAT entries 64/65 contain the two first-mission
+briefing texts, and the pinned wartool catalog corroborates alternating
+human/orc briefing records. The existing 160-byte `w2_text_t` would truncate
+long briefings. No briefing layout or narration dispatch was verified.
+
+**Runtime investigation boundary.** Before the user instructed us not to
+run retail, DOSBox was launched against a disposable copy of the installed
+DOS data. Only the animated Blizzard introduction was observed; no retail
+menu was reached or captured. Both retail emulator processes were confirmed
+absent after the user's instruction. No further retail execution, CD-key
+entry, or licensing workaround was performed. Introduction observations
+supply no evidence about single-player layout. Subsequent verification runs
+only open-rts and its own headless tests.
+
+**Implementation.** Single Player now has New Campaign, Load Game, Custom
+Scenario and Previous Menu. New Campaign opens only the three native race
+choice/back buttons. Selecting either race extracts its first campaign PUD
+through the existing loader and records campaign level 1. The campaign
+browser, pick-mode enum and campaign-specific scenario-list branches were
+removed. The true scenario picker retains its native dropdown/list controls.
+Menus use the existing engine-owned Doom-style menu transitions and escape
+callbacks; no per-game responder or drawer was introduced.
+
+**Unknown / incomplete fidelity.** These screens reuse the existing native
+REZDAT title and full-button column geometry; their final placement/order,
+English fallback localization and complete Battle.net artwork were not
+verified against retail pixels. Native scene records are still not imported.
+Race selection currently starts mission one directly: the manual's briefing
+and campaign chapter screens/narration remain unimplemented. This is a
+correction of the known wrong browser and entry structure, not certification
+of full retail equivalence. Do not replace the missing briefing with another
+invented screen or present the open-rts screenshot as retail proof.
+
+**Verification.** `make` completes without new warnings; all 24 Warcraft II
+regression executables pass with `SDL_VIDEODRIVER=dummy` and local UDP
+permitted. The focused menu regression asserts four single-player controls,
+three race-selection buttons, no list/scrollbar on either screen, both back
+paths, mission-one extraction for both races with native 32x32 dimensions
+and player side, and subsequent human mission-two progression. Existing
+scenario controls, save/load, results and shared widget tests still pass.
+Open-rts headless `--check` passes. The two corrected front-end screens were
+rendered as BMPs and inspected; this verifies engine output, not pixel
+identity to retail. Reproduce with `make`, `env SDL_VIDEODRIVER=dummy make
+test-warcraft-2` (allow local UDP), and `env SDL_VIDEODRIVER=dummy
+W2_MENU_SHOTS=/private/tmp build/bin/tests/warcraft-2/test_menu`.
