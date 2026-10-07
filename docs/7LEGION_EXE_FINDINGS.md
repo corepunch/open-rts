@@ -201,3 +201,154 @@ production sidebar are engine features, not reproductions of retail mission AI
 or interface scripts. `env SDL_VIDEODRIVER=dummy make test-7legion` verifies
 all attack-capable types acquire nearby targets, respect range and cooldown,
 deal damage through `P_Ticker`, and maintain enemy production goals.
+
+## Sprite direction mapping audit (2026-10-07)
+
+**Confirmed: the current eight-block heuristic does not reproduce retail
+sprite selection.** This is a comparison/investigation, not a runtime fix.
+`sl_load_bim_sprite` interprets any usable frame count divisible by eight as
+`8` directions and `count / 8` animation frames; everything else becomes
+nondirectional. Native block `d` is installed in engine rotation `(8-d)%8`.
+`render/r_draw.c::sprite_rotation_for_frame` starts north and proceeds
+counterclockwise, so this assumes native blocks start north and proceed
+clockwise. Neither the count heuristic nor that compass convention came from
+native metadata. All current states select logical frame zero.
+
+Temporary `OPEN_RTS_DEBUG_BIM` logging at the loader's definition construction
+confirmed the following actual selections; it was removed after the audit.
+The columns are native BIM lump indices for engine-facing N/E/S/W at logical
+frame zero, not assertions about the direction depicted by those images.
+
+| Asset | Usable lumps | Engine directions / stride | Selected N / E / S / W |
+|---|---:|---|---|
+| LTROOP.BIM | 344 | 8 / 43 | 0 / 86 / 172 / 258 |
+| SLAVEN1.BIM | 232 | 8 / 29 | 0 / 58 / 116 / 174 |
+| SPIDER.BIM | 96 | 8 / 12 | 0 / 24 / 48 / 72 |
+| TANKBASE.BIM | 33 | 1 / 33 | 0 / 0 / 0 / 0 |
+| ROCKMECH.BIM | 64 | 8 / 8 | 0 / 16 / 32 / 48 |
+| TRUCK.BIM | 32 | 8 / 4 | 0 / 8 / 16 / 24 |
+| MOBBASE.BIM | 32 | 8 / 4 | 0 / 8 / 16 / 24 |
+
+### Retail instruction evidence
+
+Executable fingerprint is the `a312f7b5...6f6c154` SHA-256 recorded above.
+PE linker version is 4.20, entry point RVA `0x9e370`, timestamp
+1997-09-01 01:56:04 UTC. A Microsoft Visual C++ 4.2 toolchain is **inferred**
+from the linker metadata, not proved. Inspected draw routines use stack
+arguments, EBP frames and caller stack cleanup. `r2`/r2ghidra were unavailable
+in this environment; LLVM `objdump` supplied full discovery disassembly and
+bounded instruction windows. No decompiler signatures were assumed.
+
+Below, `a` is the integer part of the native angle field (raw value `>>16`),
+not an engine BAM angle; `p` is the object's animation field at
+`0x680466 + object_index*0x6d0`. Formulas describe the inspected branches,
+not complete animation dispatch or timing.
+
+- **LTROOP, confirmed:** `0x427b30` reads the LTROOP handle `0x6dd2d4`.
+  At `0x427ca2..0x427ccc`, the `p == -1` branch selects
+  `312 + 2*((((a+2)>>2)+8)&15) + (byte[0x680480+object_offset]&1)`.
+  The `p == 99` branch at `0x427d20..0x427d43` uses the same 16 directions
+  without the final parity bit. The ordinary branch at
+  `0x427d67..0x427d85` uses `12*((((a+2)>>2)+6)&15) + p`.
+  Thus 344/8 = 43 is not a native animation stride, and one uniform mapping
+  cannot cover even this file's different animation ranges.
+- **SLAVEN1, confirmed branch/asset pairing:** the routine at `0x428c70`
+  chooses handle `0x6683bc` by default and `0x70db1c` when the side lookup
+  equals 1. Loads `0x412f5e..0x412f84` link the first to
+  `GFX\\slaven2.bim` (string `0x4b7210`); loads
+  `0x412faf..0x412fd0` link the second to `GFX\\slaven1.bim`
+  (string `0x4b71f0`). For SLAVEN1, `p == -1` and `p == 99` select
+  `176 + (((a>>2)+7)&15)` at `0x428e1c..0x428e2b` and
+  `0x428e70..0x428e7f`; ordinary animation uses
+  `12*((((a+4)>>3)+3)&7) + p` at `0x428cee..0x428d04` and
+  `0x428ed2..0x428edf`. The SLAVEN2 counterpart uses
+  `200 + (((a>>1)+12)&31)` for the first two branches and
+  `72 + 16*((((a+4)>>3)+3)&7) + p` for ordinary animation.
+  The later death branch has further direction/range arithmetic; its complete
+  state semantics remain **unknown**. The existing engine's generic Slave
+  actor identity is still not established by this branch comparison.
+- **SPIDER, confirmed:** `0x4298b5..0x4298cb` computes
+  `d = ((((a+4)>>3)+3)&7)`; `0x42990b..0x429916` selects `12*d+p`.
+  Handle `0x6ccad4` reaches the draw call at `0x429964..0x42996c`.
+  Eight blocks of twelve agree with the file's 96 lumps, but our loader omits
+  the native angle transform. Matching counts alone does not verify facing.
+- **TRUCK, confirmed:** `0x426fe2..0x42700e` selects
+  `((raw_angle>>17)+16-(type==1 ? 8 : 4))&31`.
+  The `type==1` branch passes that value directly as the frame of Truck
+  handle `0x6dd2e4` at `0x42709d..0x4270b2`. It has 32 directional images,
+  not eight blocks of four temporal frames. **Correction to the earlier
+  vehicle-render table:** sharing routine `0x426f30` does not prove that
+  both carrier and truck use Truck artwork. The other branch uses a different
+  handle (`0x70d824`), whose asset was not resolved here.
+- **MOBBASE, confirmed:** `0x4281cd..0x4281f4` selects
+  `((raw_angle>>17)+8)&31` and passes it directly to handle `0x804308`
+  at `0x428217..0x428234` in the side-zero branch. Again this is 32
+  directions, not eight animation blocks.
+- **ROCKMECH, confirmed multipart use:** `0x429b32..0x429b3d` computes
+  `((a>>1)+11)&31`; `0x429c04..0x429c0e` adds 32 when the signed object
+  word at `0x67fea8+object_offset` exceeds 30. The result reaches the
+  Rockmech handle `0x6e5c20` at `0x429c26..0x429c3e`.
+  The load at `0x412433..0x412454` uses string `0x4b7450`,
+  `GFX\\rockmech.bim`. This is a 32-direction part with two banks, not
+  eight directions with eight temporal frames. A separate body uses
+  `20*((((body_angle+4)>>3)+3)&7)+p` and handle `0x6dd2e0`
+  at `0x429b96..0x429bfc`; its load at `0x412340..0x412366` names
+  `GFX\\mech1leg.bim` (string `0x4b7488`). The precise gameplay meaning
+  of the bank-switch word and the current engine actor's native identity
+  remain **unknown**; do not guess a damage threshold meaning.
+- **TANKBASE, confirmed engine failure / unknown retail use:** all angles
+  select frame zero because 33 is not divisible by eight. No executable
+  link to this asset was established; the previously documented placeholder
+  warning remains. Do not silently discard its extra image or declare it a
+  verified 32-direction native tank without tracing the actual tank asset.
+
+**Unknown:** the complete conversion from native angle fields to our BAM
+compass convention, animation-state semantics/timing, and all faction/actor
+branches. The `0x4b9e48`/`0x4b9e68` eight-entry movement component tables
+were inspected, but were not linked through to the render-angle fields in
+this audit; they are not sufficient to establish that conversion.
+
+**Implementation consequence:** replace the file-length heuristic with
+verified per-sequence native frame definitions, then map native angles to
+engine rotations at load time. Keep decoded pixels and native lump numbers.
+Do not apply a global quarter-turn offset: it would leave incorrect strides,
+missing direction resolutions, mixed sequences and multipart actors broken.
+The earlier representation-cleanup assertion only proved preservation of old
+loader behavior; it did not validate that behavior against retail.
+
+### Reproduction and source limits
+
+External source URLs and version provenance are in `REFERENCES.md`,
+“7th Legion sprite direction audit”. The Quick converter corroborates the
+leading offset table and scanline spans, but has no direction/animation
+metadata; its sparse-frame first-word-as-width interpretation is not authority
+for the engine's validated relative pixel-data offset. The iiEveOfPeace
+repository is a disproven lead: its description mentions 7th Legion but its
+actual source reads Relic SGA/Chunky data and its example opens Dawn of War.
+No usable compass mapping was found online in this search.
+
+Reproduce retail formulas, for example:
+
+```sh
+objdump -d --x86-asm-syntax=intel --start-address=0x427b30 --stop-address=0x427e30 data/7LEGION/legion.exe
+objdump -d --x86-asm-syntax=intel --start-address=0x426f30 --stop-address=0x427198 data/7LEGION/legion.exe
+objdump -d --x86-asm-syntax=intel --start-address=0x428140 --stop-address=0x4282a0 data/7LEGION/legion.exe
+objdump -d --x86-asm-syntax=intel --start-address=0x428c70 --stop-address=0x428f70 data/7LEGION/legion.exe
+objdump -d --x86-asm-syntax=intel --start-address=0x429870 --stop-address=0x429c50 data/7LEGION/legion.exe
+env SDL_VIDEODRIVER=dummy make test-loader-7legion
+```
+
+Loader fixture verification passed after removal of temporary diagnostics.
+All seven catalog files decoded successfully. No runtime mapping was changed.
+
+Asset SHA-256 fingerprints:
+
+| BIM | SHA-256 |
+|---|---|
+| LTROOP | `a0e15061af26974f76beb0421114fc73868d49692d27d2c8e34e2bac3651a55d` |
+| SLAVEN1 | `dc2354c06b951181d691578a77da86056b99b45d38ea158d80baa30defc1d720` |
+| SPIDER | `8a799af1d64e95c15382d77ac88872b3f4b1d149523b0ab6d99f7a8e2754483e` |
+| TANKBASE | `6708aab0fdef84c7b1a8a00d4964f96f62b89f1b7b53852f310831c1990ed413` |
+| ROCKMECH | `42121cbda29b70848d6178f7bd80a600ec1e4cdcfb0849b36848939763028514` |
+| TRUCK | `279196008d54f32c0db86102686b4bacda0b9eecab12fd66833aa0fabe342848` |
+| MOBBASE | `69f68e2c65b92d467e5196502ff5ef36bd12023b790b79fa569282eab3dd39e9` |

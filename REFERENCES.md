@@ -2018,3 +2018,27 @@ WAR2.EXE result selection at VA 0x48318 are preserved in
 [`docs/WAR2_EXE_FINDINGS.md`](docs/WAR2_EXE_FINDINGS.md#campaign-startup-native-units-and-result-transition-2026-10-07).
 The user-provided 13:29 screenshot is open-rts output, not retail evidence;
 its hash is recorded there. No retail execution or CD-key workaround was used.
+
+### 7th Legion sprite direction audit (2026-10-07)
+
+- [Quick converter pack, by Mikhail Beschetnov / Terminus](https://www.extractor.ru/files/cfdacdbdcacba1c5c80c105bf89453f3/),
+  [source archive](https://www.extractor.ru/download/quick_pack.zip):
+  inspected `Quick7Legionbim/src/Quick7Legionbim.dpr` (archive timestamp
+  2002-02-18, version advertised as 0.9). Archive SHA-256:
+  `2bcfe7fcc6ea8773191274659919b9c37b6f6df8e3610785b2372a1bc2f69fa2`.
+  Corroborates sequential BIM offset-table extraction and sparse scanline
+  spans; supplies no direction order or animation grouping. Its sparse first
+  word handling differs from our checked data-offset interpretation. Source
+  was read, not executed or copied into the engine.
+- [btigi/iiEveOfPeace](https://github.com/btigi/iiEveOfPeace/tree/bd5237f36216939af864b6a7a3cd2d83b84a1655):
+  **disproven sprite-reference lead**. Although its description names 7th
+  Legion, this revision contains Relic SGA/Chunky readers and a Dawn of War
+  example, with no BIM decoder or direction mapping.
+- Retail `data/7LEGION/legion.exe`, SHA-256
+  `a312f7b50a940e5a0ec737cf8923c1d03f552f9c9111c62c72546bbb46f6c154`,
+  supplied the actual per-sequence indexing evidence. The 8/16/32 direction
+  distinctions, offsets, strides, multipart Rockmech drawing, seven-asset
+  loader comparison, unknown compass conversion and reproduction commands
+  are preserved in `docs/7LEGION_EXE_FINDINGS.md`, “Sprite direction mapping
+  audit”. This audit disproves the current universal eight-block heuristic;
+  it does not yet implement its replacement.
