@@ -40,7 +40,7 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
             continue;
         }
         unsigned char ch = *p;
-        if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
+        if (ch >= (font->glyph_limit ? font->glyph_limit : 128) || font->glyph_index[ch] < 0) ch = '?';
         int advance = font->glyph_width[ch] > 0 ?
             font->glyph_width[ch] : font->glyph_size.w;
         line_width += advance * scale;

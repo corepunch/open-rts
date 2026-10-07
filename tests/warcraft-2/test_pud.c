@@ -168,8 +168,8 @@ static int test_ui_art(void) {
     w2_hud_art_t hud = { 0 };
     RTS_CHECK(w2_load_menu_art("data/WAR2", &menu), "ui", "menu art");
     RTS_CHECK(sheet_wh(&menu.title, 0, 640, 480), "ui", "title");
-    RTS_CHECK(sheet_wh(&menu.panel[0], 0, 256, 288) &&
-              sheet_wh(&menu.panel[1], 0, 256, 288), "ui", "panels");
+    RTS_CHECK(sheet_wh(&menu.panel[0][0], 0, 256, 288) &&
+              sheet_wh(&menu.panel[1][0], 0, 256, 288), "ui", "panels");
     RTS_CHECK(menu.widgets[0].numlumps >= 18 && menu.widgets[1].numlumps >= 18 &&
               sheet_wh(&menu.widgets[0], 10, 106, 28) &&
               sheet_wh(&menu.widgets[0], 16, 224, 28) &&

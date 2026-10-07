@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /* PUD sections are tag + u32 length. Unknown sections are skipped. Movement
  * comes from SQM: bit 0x80 is forest (impassable to land and sea), bit 0x40
@@ -54,6 +55,104 @@ static bool take_section(const uint8_t **p, const uint8_t *end,
     *length = len;
     *p += 8 + len;
     return true;
+}
+
+/* Menu-chosen starting stock, per Wargus wc2.lua: gold, lumber, oil. */
+static int start_resources;
+
+void W2_SetStartResources(int mode) { start_resources = mode; }
+
+static void apply_start_resources(level_t *out, const w2_pud_t *pud) {
+    static const int stock[5][3] = {
+        { 0, 0, 0 }, { 2000, 1000, 1000 }, { 5000, 2000, 2000 },
+        { 10000, 5000, 5000 }, { 30000, 15000, 10000 },
+    };
+    int mode = start_resources;
+    start_resources = 0; /* One load only: restarts and --map keep the map's own. */
+    if (mode < 1 || mode > 4) return;
+    for (int i = 0; i < 8; ++i)
+        if (pud->owners[i] == 4 || pud->owners[i] == 5)
+            for (int r = 0; r < 3; ++r) out->player_resources[i][r] = stock[mode][r];
+}
+
+bool w2_pud_info_bytes(const uint8_t *data, size_t size, w2_pud_info_t *out) {
+    memset(out, 0, sizeof(*out));
+    const uint8_t *p = data, *end = data + size, *payload;
+    uint32_t length;
+    if (!take_section(&p, end, &payload, &length) || !tag_is(data, "TYPE") ||
+        length < 8 || memcmp(payload, "WAR2 MAP", 8) != 0) return false;
+    while (p < end) {
+        const uint8_t *header = p;
+        if (!take_section(&p, end, &payload, &length)) break;
+        if (tag_is(header, "DESC")) {
+            memcpy(out->description, payload, length < 32 ? length : 32);
+        } else if (tag_is(header, "DIM ") && length >= 4) {
+            out->width = read_u16_le(payload);
+            out->height = read_u16_le(payload + 2);
+        } else if ((tag_is(header, "ERA ") || tag_is(header, "ERAX")) && length >= 1) {
+            out->era = payload[0] < 4 ? payload[0] : 0;
+        } else if (tag_is(header, "OWNR")) {
+            memcpy(out->owners, payload, length < 16 ? length : 16);
+        } else if (tag_is(header, "SIDE")) {
+            memcpy(out->sides, payload, length < 16 ? length : 16);
+        }
+    }
+    return out->width > 0 && out->height > 0;
+}
+
+bool w2_pud_info(const char *path, w2_pud_info_t *out) {
+    blob_t file;
+    if (!W_ReadFile(path, &file)) return false;
+    bool ok = w2_pud_info_bytes(file.bytes, file.size, out);
+    W_FreeFile(&file);
+    return ok;
+}
+
+bool w2_campaign_infos(const char *root, bool orc, w2_pud_info_t infos[W2_CAMPAIGN_LEVELS]) {
+    char archive_path[1100];
+    memset(infos, 0, sizeof(*infos) * W2_CAMPAIGN_LEVELS);
+    snprintf(archive_path, sizeof(archive_path), "%s/DATA/MAINDAT.WAR", root ? root : "data/WAR2");
+    w2_archive_t arc;
+    if (!w2_archive_open(&arc, archive_path)) return false;
+    bool any = false;
+    for (int level = 0; level < W2_CAMPAIGN_LEVELS; ++level) {
+        w2_blob_t blob = { 0 };
+        if (!w2_archive_extract(&arc, W2_CAMPAIGN_ENTRY + 2 * level + (orc ? 1 : 0), &blob)) continue;
+        any = w2_pud_info_bytes(blob.data, blob.size, &infos[level]) || any;
+        w2_blob_free(&blob);
+    }
+    w2_archive_close(&arc);
+    return any;
+}
+
+bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path, size_t size) {
+    if (level < 1 || level > W2_CAMPAIGN_LEVELS || !D_UserDirectory()[0]) return false;
+    char name[64], archive_path[1100];
+    snprintf(name, sizeof(name), "campaign-level%02d%c.pud", level, orc ? 'o' : 'h');
+    /* The driver joins a relative map to the data root, so hand it an absolute path. */
+    char directory[1100];
+    if (D_UserDirectory()[0] != '/' && getcwd(directory, sizeof(directory))) {
+        char joined[1100];
+        M_PathJoin(joined, sizeof(joined), directory, D_UserDirectory());
+        M_PathJoin(path, size, joined, name);
+    } else {
+        M_PathJoin(path, size, D_UserDirectory(), name);
+    }
+    snprintf(archive_path, sizeof(archive_path), "%s/DATA/MAINDAT.WAR", root ? root : "data/WAR2");
+    w2_archive_t arc;
+    if (!w2_archive_open(&arc, archive_path)) return false;
+    w2_blob_t blob = { 0 };
+    int entry = W2_CAMPAIGN_ENTRY + 2 * (level - 1) + (orc ? 1 : 0);
+    w2_pud_info_t info;
+    bool ok = w2_archive_extract(&arc, entry, &blob) && w2_pud_info_bytes(blob.data, blob.size, &info);
+    if (ok) {
+        FILE *file = fopen(path, "wb");
+        ok = file && fwrite(blob.data, 1, blob.size, file) == blob.size;
+        if (file && fclose(file)) ok = false;
+    }
+    w2_blob_free(&blob);
+    w2_archive_close(&arc);
+    return ok;
 }
 
 bool w2_load_pud(const char *path, level_t *out) {
@@ -214,6 +313,7 @@ bool w2_load_pud(const char *path, level_t *out) {
     out->native_data = pud;
     out->destroy_native_data = destroy_pud;
     W_FreeFile(&file);
+    apply_start_resources(out, pud);
     if (!w2_init_resources(out)) { P_FreeLevel(out); return false; }
     return true;
 }

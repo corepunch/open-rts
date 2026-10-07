@@ -926,6 +926,7 @@ extern gamesettings_t gamesettings;
 const char *D_UserDirectory(void);
 void D_LoadSettings(void);
 bool D_SaveSettings(int speed);
+
 extern int nettics[MAXNETNODES];
 extern ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
 extern char neterror[256];
@@ -1125,8 +1126,9 @@ typedef struct spritecache_s {
 
 typedef struct bitmapfont_s {
     spritesheet_t sprite;
-    int glyph_index[128];
-    uint8_t glyph_width[128];
+    int glyph_index[256];
+    uint8_t glyph_width[256];
+    int glyph_limit; /* glyphs a game defines: 0 means ASCII (128); bytes past it draw '?' */
     isize2_t glyph_size;
     int line_h;
     int draw_divisor;
@@ -2035,6 +2037,19 @@ typedef struct AiContext {
     int events_dropped;
 } AiContext;
 
+/* Saved games, as in Doom: the menu sets g_savefile (or g_loadfile and the
+ * map to load first) and the driver saves or restores between tics. A game
+ * with state beyond the level and its mobjs defines the three hooks. */
+typedef struct { char name[33], map[1024]; } saveinfo_t;
+extern char g_savefile[1200], g_loadfile[1200], g_savename[33];
+bool G_SaveInfo(const char *path, saveinfo_t *info);
+bool G_SaveGame(const char *path, const char *name, const app_t *app, const AiContext *ai,
+                const hudtext_t *hud);
+bool G_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud);
+size_t G_SaveExtraSize(void);
+void G_SaveExtra(void *out);
+bool G_LoadExtra(const void *data, size_t size);
+
 /* Appends a goal to a plan (ignored when full). */
 void P_AiPlanAdd(AiPlan *plan, int product, int count);
 /* Default AiGameInterface.player_level: every non-human owner is a NORMAL
@@ -2196,6 +2211,7 @@ struct menuitem_s {
     const bitmapfont_t *font;
     uint32_t ink; /* 0xAARRGGBB text colour; 0 draws through the palette map */
     uint32_t hotkey_ink; /* the hotkey's first letter in the text; 0 leaves it */
+    int mark_at, mark_len; /* with mark_len > 0, this span of the text takes hotkey_ink instead */
     char text[128];
     /* Long text wrapped in the rect, in the font's own colours. A list shows
      * it while it has no rows. */
@@ -2309,6 +2325,34 @@ bool D_MenuResponder(app_t *app, const SDL_Event *event, menu_t *hud);
 void M_Drawer(const app_t *app);
 void M_Ticker(void);
 void M_Shutdown(void);
+
+/* The shared multiplayer screens (hud/m_net.c): create a game, browse or join
+ * one, lobby with chat, then launch. The transport is the I_* layer; a game
+ * supplies only its look and the maps a host may offer. */
+typedef struct {
+    const spritesheet_t *background;
+    const uint32_t *palette; /* screen palette with the background; NULL keeps the menu's default */
+    const bitmapfont_t *font;
+    const spritesheet_t *panel; /* centred behind the screens' controls; NULL draws a plain box */
+    /* Styles a button or label the module just placed: its rect and text are
+     * set. NULL leaves the engine's plain look. */
+    void (*style_button)(menuitem_t *item);
+    void (*style_label)(menuitem_t *item);
+    void (*back)(app_t *app); /* Previous Menu from the first screen */
+    int (*map_count)(void);
+    const char *(*map_path)(int index);  /* relative to the data root, as menumap is */
+    const char *(*map_title)(int index);
+    int max_players; /* 2..8; 0 means 4 */
+    const char *text[16]; /* NETTEXT_* labels; NULL entries keep the English default */
+} netui_t;
+enum {
+    NETTEXT_TITLE, NETTEXT_CREATE, NETTEXT_JOIN, NETTEXT_PREVIOUS, NETTEXT_START, NETTEXT_CANCEL,
+    NETTEXT_SCENARIO, NETTEXT_PLAYERS, NETTEXT_REFRESH, NETTEXT_ADDRESS, NETTEXT_CONNECT,
+    NETTEXT_SESSIONS, NETTEXT_COUNT
+};
+void M_NetOpen(app_t *app, const netui_t *ui);
+/* Menu routine for a plain Multiplayer button of a fallback front end. */
+void M_MenuMultiplayer(menu_t *menu, menuitem_t *item, menuaction_t action);
 
 /* The engine fallback front end of games without a native one. */
 void M_MenuBeginLevel(menu_t *menu, menuitem_t *item, menuaction_t action);

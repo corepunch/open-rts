@@ -81,3 +81,7 @@ void A_W2_Collapse(mobj_t *unit) {
     w2_clear_footprint((int)floorf(centre.x - foot.w * 0.5f + 0.001f),
                        (int)floorf(centre.y - foot.h * 0.5f + 0.001f), foot);
 }
+
+/* Saved games keep the combat dice (m_menu.c writes them with the campaign). */
+uint32_t W2_CombatState(void) { return w2_rng; }
+void W2_SetCombatState(uint32_t state) { w2_rng = state; }

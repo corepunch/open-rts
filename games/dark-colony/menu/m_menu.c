@@ -975,7 +975,7 @@ static bool join_session(const char *address) {
     client_race = -1;
     client_ready = false;
     memset(lobby_ready, 0, sizeof(lobby_ready));
-    if (!I_JoinNetGame("dark-colony", copy)) { network_failure(); return true; }
+    if (!I_JoinNetGame(g_game_id, copy)) { network_failure(); return true; }
     waiting = true;
     return load_screen(CONNECT);
 }
@@ -1092,13 +1092,13 @@ static void activate(app_t *app, int id) {
         } else if (id == 5) {
             network_notice[0] = '\0';
             ok = load_screen(BROWSE);
-            if (ok && !I_OpenNetBrowser("dark-colony")) network_failure();
+            if (ok && !I_OpenNetBrowser(g_game_id)) network_failure();
         }
     } else if (page == BROWSE) {
         if (id == 4) { I_CancelNetGame(); ok = load_screen(NETWORK); }
         else if (id == 17) {
             network_notice[0] = '\0';
-            if (!I_OpenNetBrowser("dark-colony")) network_failure();
+            if (!I_OpenNetBrowser(g_game_id)) network_failure();
             selected_server[0] = '\0';
             items[0].first_row = 0;
         } else if (id == 18) { I_CancelNetGame(); ok = load_screen(CONNECT); }
@@ -1144,7 +1144,7 @@ static void activate(app_t *app, int id) {
                 uint8_t setup[LAN_SETUP_SIZE];
                 skirmish.seed = (uint8_t)SDL_GetTicks();
                 memset(lobby_ready, 0, sizeof(lobby_ready));
-                if (I_HostNetGame("dark-colony", maps[selectedmap].title, maps[selectedmap].path, active_players()) &&
+                if (I_HostNetGame(g_game_id, maps[selectedmap].title, maps[selectedmap].path, active_players()) &&
                     I_SetNetSetup(setup, pack_setup(setup))) waiting = true;
                 else network_failure();
             }

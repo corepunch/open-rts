@@ -44,8 +44,14 @@ int W2_BuildProgress(const mobj_t *site);   /* Percent complete. */
 bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out);
 bool W2_CountsAs(uint16_t type, uint16_t wanted); /* A keep is a town hall or better. */
 
+/* Victory and defeat (games/warcraft-2/p_victory.c). */
+void W2_VictoryReset(void);
+void W2_CheckVictory(mobj_t *const *units, int count);
+
 /* Combat (games/warcraft-2/p_combat.c). */
 void W2_SeedCombat(uint32_t seed);
+uint32_t W2_CombatState(void);
+void W2_SetCombatState(uint32_t state);
 uint32_t W2_SyncRand(void);
 int W2_PiercingDamage(const mobj_t *unit);
 int W2_Armor(const mobj_t *unit);
