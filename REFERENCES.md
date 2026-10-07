@@ -2066,3 +2066,32 @@ pixels are already upright. `reference/DOOM/p_maputl.c` was consulted for
 direct block-grid addressing. See the “Preserve native storage” subsection
 in `docs/7LEGION_EXE_FINDINGS.md` for the implementation, save compatibility,
 pixel-equivalence check and remaining sprite-mapping limitation.
+
+### Warcraft II gameplay feature audit (2026-10-07)
+
+Local pinned source comparisons for this audit:
+
+- [Wargus spells](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/spells.lua),
+  [missiles](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/missiles.lua),
+  human/orc `units.lua`, `anim.lua`, `upgrade.lua`, `buttons.lua`, `icons.lua`,
+  `ui.lua`, `sound.lua`, `stratagus.lua`, `wartool.h`, and `pud.cpp`: gameplay
+  parameters, dependencies, native effect/status/sound indices, resource
+  reserves, transport restrictions and HUD decoration positions.
+- [Pinned Stratagus source](https://github.com/Wargus/stratagus/tree/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src):
+  `action/action_repair.cpp`, `action_train.cpp`, `action_research.cpp`,
+  `action_upgradeto.cpp`, `action_built.cpp`, `actions.cpp`; `unit/unit.cpp`;
+  `missile/missile.cpp`, `missile_pointtopointbounce.cpp`,
+  `missile_pointotpointwithhit.cpp`, `missile_deathcoil.cpp`,
+  `missile_flameshield.cpp`, `missile_whirlwind.cpp`, `missile_stay.cpp`;
+  `spell/spell_adjustvital.cpp`, `spell_spawnmissile.cpp`, `spell_summon.cpp`,
+  `spell_demolish.cpp`, and `animation/animation_wait.cpp`: damage, burn
+  thresholds, repair payment/progress, delayed impacts, spell lifetimes,
+  corpse/area selection, supply-at-release and time-cost conversion.
+- Native MAINDAT entries 323–351 were decoded directly. Existing MAINDAT,
+  SFXDAT and WAR2.EXE fingerprints above apply. No retail process, new
+  executable trace, PNG game asset, or runtime Lua dependency was used.
+
+See [the audit and remaining gaps](docs/WAR2_EXE_FINDINGS.md#in-game-feature-audit-against-pinned-wargus-2026-10-07)
+for confirmed source facts, native frame-count corrections, implementation
+consequences, tests and unimplemented areas. Reference behavior does not
+establish exact DOS retail behavior.

@@ -19,12 +19,39 @@
 
 static bool worker(const mobj_t *unit) {
     return unit && !unit->remove && unit->hp > 0 &&
-        (unit->type_id == MT_PEASANT || unit->type_id == MT_PEON);
+        (mobjinfo[unit->type_id].w2.flags & W2_HARVEST);
+}
+
+/* Oil platforms replace an oil patch at exactly its authored footprint. */
+static resourcevent_t *oil_patch(ivec2_t cell) {
+    for (int i = 0; i < level.resource_vent_count; ++i) {
+        resourcevent_t *vent = &level.resource_vents[i];
+        mobj_t *source = P_MobjById(vent->source_id);
+        if (vent->active && vent->amount > 0 && vent->resource_type == 2 &&
+            vent->cell.x == cell.x && vent->cell.y == cell.y && source && source->type_id == MT_OIL_PATCH)
+            return vent;
+    }
+    return NULL;
+}
+
+void W2_RestoreOilPatch(mobj_t *site) {
+    if (site->type_id != MT_HUMAN_OIL_PLATFORM && site->type_id != MT_ORC_OIL_PLATFORM) return;
+    for (int i = 0; i < level.resource_vent_count; ++i) {
+        resourcevent_t *vent = &level.resource_vents[i];
+        if (vent->source_id != site->id || vent->amount <= 0) continue;
+        mobj_t *patch = P_SpawnMobj(site->core.position, MT_OIL_PATCH);
+        if (patch) {
+            patch->owner = patch->team = 15;
+            patch->allegiance = ALLEGIANCE_NEUTRAL;
+            vent->source_id = patch->id;
+            w2_mark_footprint(vent->cell.x, vent->cell.y, vent->footprint);
+            W2_EnsureUnitSprite(MT_OIL_PATCH - 1);
+        }
+        return;
+    }
 }
 
 static bool alive(const mobj_t *unit) { return unit && !unit->remove && unit->hp > 0; }
-
-static int build_ms(uint16_t type) { return mobjinfo[type].w2.costs.time * 1000; }
 
 /* Keeps and castles stand in for the town hall they grew from. */
 bool W2_CountsAs(uint16_t type, uint16_t wanted) {
@@ -42,24 +69,24 @@ bool W2_Buildable(uint16_t type) {
     if (type == 0 || type >= NUMMOBJTYPES || !mobjinfo[type].name) return false;
     const w2_stats_t *s = &mobjinfo[type].w2;
     if ((s->flags & (W2_STRUCTURE | W2_SKIP)) != W2_STRUCTURE || s->costs.time <= 0) return false;
+    if (type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM) return true;
     if (s->gives_mask || (s->attributes & W2_NEUTRAL)) return false;
     /* Upgraded halls grow out of a hall; platforms are a tanker's job;
      * the portal, runestone and circle are map furniture. */
     if ((s->flags & W2_HALL) && type != MT_TOWN_HALL && type != MT_GREAT_HALL) return false;
-    if (type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM) return false;
     if (type == MT_DARK_PORTAL || type == MT_RUNESTONE || type == MT_CIRCLE_OF_POWER) return false;
     return true;
 }
 
 bool W2_UnderConstruction(const mobj_t *unit) {
     return alive(unit) && unit->type_id < NUMMOBJTYPES &&
-        (mobjinfo[unit->type_id].w2.flags & W2_STRUCTURE) && unit->w2.build_left_ms > 0;
+        (mobjinfo[unit->type_id].w2.flags & W2_STRUCTURE) && unit->w2.build_left_tics > 0;
 }
 
 int W2_BuildProgress(const mobj_t *site) {
-    if (!site || site->w2.build_time_ms <= 0) return 100;
-    int left = site->w2.build_left_ms < 0 ? 0 : site->w2.build_left_ms;
-    return (site->w2.build_time_ms - left) * 100 / site->w2.build_time_ms;
+    if (!site || site->w2.build_tics <= 0) return 100;
+    int left = site->w2.build_left_tics < 0 ? 0 : site->w2.build_left_tics;
+    return (site->w2.build_tics - left) * 100 / site->w2.build_tics;
 }
 
 static ivec2_t structure_cell(const mobj_t *unit) {
@@ -95,6 +122,13 @@ static bool cell_is_water(int x, int y) {
 
 bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
     if (!W2_Buildable(type)) return false;
+    bool platform = type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM;
+    if (builder) {
+        uint16_t maker = type == MT_HUMAN_OIL_PLATFORM ? MT_HUMAN_OIL_TANKER : MT_ORC_OIL_TANKER;
+        if (platform ? builder->type_id != maker :
+            builder->type_id != MT_PEASANT && builder->type_id != MT_PEON) return false;
+    }
+    if (platform) return oil_patch(cell) != NULL;
     const w2_stats_t *s = &mobjinfo[type].w2;
     isize2_t foot = s->footprint;
     if (foot.w <= 0 || foot.h <= 0) return false;
@@ -169,7 +203,10 @@ bool W2_ConstructOrder(mobj_t *builder, uint16_t type, ivec2_t cell) {
     if (!worker(builder) || builder->owner >= 8 || !W2_CanPlace(type, cell, builder)) return false;
     const int *price = mobjinfo[type].w2.costs.resources, *stock = level.player_resources[builder->owner];
     for (int r = 0; r < 3; ++r) if (stock[r] < price[r]) return false;
+    W2_InterruptRepair(builder);
     W2_InterruptHarvest(builder);
+    builder->w2.carrier = 0;
+    builder->w2.stand_ground = false;
     builder->attack.target = NULL;
     builder->harvest.target = -1;
     builder->harvest.base = NULL;
@@ -199,6 +236,11 @@ static bool start_site(mobj_t *unit) {
     fvec2_t centre = { cell.x + foot.w * 0.5f, cell.y + foot.h * 0.5f };
     mobj_t *site = P_SpawnMobj(fixed3_from_fvec2(centre, 0), type);
     if (!site) return false;
+    if (type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM) {
+        resourcevent_t *vent = oil_patch(cell);
+        P_RemoveMobj(P_MobjById(vent->source_id));
+        vent->source_id = site->id;
+    }
     for (int r = 0; r < 3; ++r) stock[r] -= price[r];
     site->owner = unit->owner;
     site->team = unit->team;
@@ -206,8 +248,8 @@ static bool start_site(mobj_t *unit) {
     site->core.angle = ANG270;
     site->harvest.target = -1;
     site->hp = 1;
-    site->w2.build_time_ms = build_ms(type);
-    site->w2.build_left_ms = site->w2.build_time_ms;
+    site->w2.build_tics = mobjinfo[type].w2.costs.time * 6;
+    site->w2.build_left_tics = site->w2.build_tics;
     site->w2.builder = unit->id;
     w2_mark_footprint(cell.x, cell.y, foot);
     P_SetMobjState(site, W2_BUILD_STATE(type - 1));
@@ -223,17 +265,35 @@ static bool start_site(mobj_t *unit) {
 }
 
 /* Hit points track the time spent: one at the start, full at the end. */
-static int hp_at(const mobj_t *site, int left_ms) {
-    int total = site->w2.build_time_ms;
+static int hp_at(const mobj_t *site, int left) {
+    int total = site->w2.build_tics;
     if (total <= 0) return site->max_hp;
-    if (left_ms < 0) left_ms = 0;
-    return 1 + (int)((int64_t)(site->max_hp - 1) * (total - left_ms) / total);
+    if (left < 0) left = 0;
+    return 1 + (int)((int64_t)(site->max_hp - 1) * (total - left) / total);
 }
 
-static void finish_site(mobj_t *site) {
-    site->w2.build_left_ms = 0;
-    site->w2.builder = 0;
-    P_SetMobjState(site, mobjinfo[site->type_id].spawnstate);
+void w2_advance_build(mobj_t *site, int ticks) {
+    int before = hp_at(site, site->w2.build_left_tics);
+    site->w2.build_left_tics -= ticks;
+    site->hp += hp_at(site, site->w2.build_left_tics) - before;
+    if (site->hp > site->max_hp) site->hp = site->max_hp;
+    if (site->w2.build_left_tics <= 0) {
+        mobj_t *builder = P_MobjById(site->w2.builder);
+        site->w2.build_left_tics = 0;
+        site->w2.builder = 0;
+        P_SetMobjState(site, mobjinfo[site->type_id].spawnstate);
+        if (builder) {
+            S_Bark(&builder, 1, SE_WORK_COMPLETE, false);
+            release(builder);
+            if (mobjinfo[site->type_id].w2.gives_mask)
+                W2_HarvestOrder(builder, fixed3_xy_to_fvec2(site->core.position));
+        }
+        return;
+    }
+    int percent = W2_BuildProgress(site);
+    int stage = percent < 25 ? 0 : percent < 50 ? 1 : 2;
+    int state = W2_BUILD_STATE(site->type_id - 1) + stage;
+    if (site->core.state_id != state) P_SetMobjState(site, state);
 }
 
 bool W2_TickBuild(mobj_t *unit) {
@@ -255,22 +315,7 @@ bool W2_TickBuild(mobj_t *unit) {
         release(unit);
         return true;
     }
-    int dt_ms = (int)lroundf(FIXED_DT * 1000.0f);
-    int before = hp_at(site, site->w2.build_left_ms);
-    site->w2.build_left_ms -= dt_ms;
-    int after = hp_at(site, site->w2.build_left_ms);
-    site->hp += after - before;
-    if (site->hp > site->max_hp) site->hp = site->max_hp;
-    if (site->w2.build_left_ms <= 0) {
-        finish_site(site);
-        S_Bark(&unit, 1, SE_WORK_COMPLETE, false);
-        release(unit);
-        return true;
-    }
-    int percent = W2_BuildProgress(site);
-    int stage = percent < 25 ? 0 : percent < 50 ? 1 : 2;
-    int state = W2_BUILD_STATE(site->type_id - 1) + stage;
-    if (site->core.state_id != state) P_SetMobjState(site, state);
+    w2_advance_build(site, 1);
     return true;
 }
 
@@ -280,10 +325,11 @@ bool W2_CancelConstruction(mobj_t *site) {
     const int *price = mobjinfo[site->type_id].w2.costs.resources;
     for (int r = 0; r < 3; ++r) level.player_resources[site->owner][r] += price[r];
     mobj_t *builder = P_MobjById(site->w2.builder);
-    site->w2.build_left_ms = 0;
+    site->w2.build_left_tics = 0;
     site->w2.builder = 0;
     if (builder && builder->w2.site == site->id) release(builder);
     w2_clear_footprint(structure_cell(site).x, structure_cell(site).y, mobjinfo[site->type_id].w2.footprint);
+    W2_RestoreOilPatch(site);
     P_RemoveMobj(site);
     return true;
 }

@@ -865,6 +865,8 @@ markers preserve authored zero although the current engine projects HP 1.
 The engine's speed divisor and sight clamp remain presentation choices.
 The HUD reads base levels, food and prices from the table; training reads
 `Costs.time` as seconds rather than deriving a duration from gold cost.
+**Superseded by the 2026-10-07 audit:** that seconds conversion was incorrect;
+the pinned reference uses six cycles per cost unit, now implemented below.
 Gathering reads capacity and entry waits; depot choice reads storage masks;
 income reads living owned structures' catalog improvements.
 
@@ -1694,3 +1696,277 @@ passes. The menu test opens Multiplayer onto create and join, then the
 host page, the lobby Start button, and the session browser. It also walks
 both briefings, options, screen, sound, speed, help, key pages, tips,
 objectives, end-mission, the restart confirm, and both load layouts.
+
+## In-game feature audit against pinned Wargus (2026-10-07)
+
+**Scope and evidence boundary.** This is an implementation audit, not a
+certification of complete Warcraft II or Wargus parity. The native roster's
+105 PUD slots and its populated capability fields did **not** mean those
+capabilities were implemented. Before this change, ranged attacks applied
+instant damage, spell names had no casting implementation, repairs and
+patrol/stand-ground buttons were unavailable, only twelve combat researches
+were actionable, tankers did not gather oil, and transports did not carry
+units. Campaign objectives after mission one still require implementation.
+
+No retail executable was executed or newly disassembled in this audit.
+The WAR2.EXE and MAINDAT fingerprints recorded above still identify the
+installed edition; no new executable function address is claimed. Behavior
+below is **confirmed in the pinned reference source**, independently
+implemented in C, and tested against the installed native assets. It is not
+therefore confirmed as DOS executable behavior. Wargus commit
+`cde1a0718a0058cc651ecd56ff8149fc39f624e9` and Stratagus commit
+`3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc` were inspected locally.
+
+### Coverage and remaining work
+
+| System | Implemented and checked in this change | Remaining parity gaps |
+|---|---|---|
+| Combat | Traveling native projectiles, delayed impact, splash, bouncing fireballs/gryphon hammers/dragon breath, target-domain masks, minimum ranges, cloak detection, invulnerability, bloodlust damage | Catapult parabolic presentation, attack-ground orders, tile-wall/rock destruction, exact missile pixel anchors and obstruction rules |
+| Spells | All 19 base spell/action entries have player cast orders, release-frame dispatch, mana/research checks and their effects; native sound and buff artwork | Wargus AI/autocast policies, exact summoned-unit dropout placement, exact area-selection/pixel trajectories, retail timings |
+| Research | 48 paid research entries: 24 weapon/armor tiers and 24 distinct technologies; archer/knight transformations, range/sight/marksmanship/regeneration, spell unlocks, siege and naval bonuses, hero combat modifiers | Campaign-specific allowed/researched technology initialization; detailed upgraded-unit panel/training presentation |
+| Training | 28 trainable land/air/naval base types plus four research conversions, prerequisites, food at release, 200 mobile-unit limit, research/upgrade cancellation/refunds, tower transformations, six-cycle time-cost conversion | Total/building limits, native producer exit placement under congestion, production-clock rounding and first-cycle phase |
+| Buildings | Damage fire, paid allied repair, extra-worker construction assistance, tic-based construction, building/tower upgrades, platform placement/cancellation/destruction | Native oil-well construction stages, all shoreline separation/placement rules |
+| Economy | Gold/lumber behavior retained; oil reserves from PUD, tanker/platform/depot cycle, refinery bonus, typed cargo, exhausted reserves, restored oil patches | Tanker loaded sprite variants and platform pumping animation; naval AI economy |
+| Transports | Six land passengers, movement to a nearby carrier, hide while aboard, unload to free shore cells, sinking kills passengers, saveable carrier references | Automatic choice of a landing shore from an inland unload click, passenger portraits/selective unloading, allied-owner boarding |
+| Orders/UI | Repair, patrol, stand ground, spell selection, board/unload, cancel production, mana/current research damage display, native status decorations | Complete native command layout/hotkeys, richer failed-order feedback, attack-ground, autocast toggles |
+| Persistence/network | New commands go through ticcmd; research, buffs, mana, casts, repairs, cargo links, effects and RNG survive saves and enter consistency hashes | Multiplayer end-of-match/diplomacy parity and cross-platform determinism certification |
+| Campaigns | Existing mission-one construction objectives retained | Later mission triggers, rescues, regions, mission tech restrictions, scripted reinforcements/AI, expansion campaign support |
+| Computer players | Existing land economy/attack planner continues passing its ten-minute regression | Naval/air forces and spell research/casting strategies; campaign AI scripts |
+
+The table deliberately does not equate a working manual spell or a complete
+catalog with full game parity. Existing findings about native menu/result
+layout and untraced retail timing remain applicable.
+
+### Native effects: indices and disproven frame-count assumption
+
+`wartool.h` maps MAINDAT entries 324–351 to the following effects. Native GRP
+headers, decoded by `w2_decode_grp`, establish these temporal frame counts:
+
+| Entry | Effect | Frames | Stored facings |
+|---|---|---:|---:|
+| 324 | Lightning | 6 | 5 |
+| 325 | Gryphon hammer | 3 | 5 |
+| 326 | Dragon breath | 1 | 5 |
+| 327 | Fireball | 1 | 5 |
+| 328 | Flame shield | 6 | 1 |
+| 329 | Blizzard | 4 | 1 |
+| 330 | Death and decay | 8 | 1 |
+| 331 | Big cannon | 4 | 5 |
+| 332 | Exorcism | 6 | 1 |
+| 333 | Healing | 6 | 1 |
+| 334 | Touch of death / death coil | 6 | 5 |
+| 335 | Rune | 4 | 1 |
+| 336 | Whirlwind | 4 | 1 |
+| 337 | Catapult rock | 3 | 5 |
+| 338 | Ballista bolt | 1 | 5 |
+| 339 | Arrow | 1 | 5 |
+| 340 | Axe | 3 | 5 |
+| 341 | Submarine missile | 1 | 5 |
+| 342 | Turtle missile | 1 | 5 |
+| 343 | Small fire | 6 | 1 |
+| 344 | Big fire | 10 | 1 |
+| 345 | Impact | 6 | 1 |
+| 346 | Normal spell | 6 | 1 |
+| 347 | Explosion | 16 | 1 |
+| 348 | Small cannon | 3 | 5 |
+| 349 | Cannon explosion | 4 | 1 |
+| 350 | Cannon-tower explosion | 4 | 1 |
+| 351 | Daemon fire | 3 | 5 |
+
+**Disproven:** copying exported Wargus `Frames` blindly is safe for all
+native effects. Its scripts specify ten frames for exorcism/healing/impact
+and twenty for explosion, while the installed GRPs have 6/6/6/16. The
+implementation uses native bounds and tests every entry; five authored
+facings use the existing loader's mirrored rotation definitions. No PNG,
+new renderer-native callback, or duplicate pixel storage is introduced.
+MAINDAT GFU 323 supplies five 16x16 bloodlust/haste/slow/invisibility/armor
+icons, in that order (`wartool.h`, `scripts/ui.lua`). These remain HUD-owned
+images; world decorations use the reference offsets 0/16/16/32/48 plus the
+sprite's (1,1) offset, scaled with the world tile size.
+
+Each projectile, fire, rune, shield segment and vision marker is an ordinary
+allocated `MT_W2_EFFECT` mobj in `thinkercap`. Its source is Doom's ordinary
+`target` reference, its destination/subject is saved mobj data, and one
+one-tic action advances it. Native unit IDs remain unchanged. No effect pool
+or separate ticker owns effects. Shooter removal clears the borrowed source
+pointer safely; a stored damage snapshot keeps an in-flight weapon harmful.
+
+`missiles.lua` establishes speeds in pixels/cycle: arrows/axes 32, siege
+rock/bolt 8, small cannon 22, most other moving shots 16. These are divided
+by the native 32-pixel tile size at the planar movement boundary. Range-zero
+shots hit the selected target at arrival; range-positive shots use footprint
+distance and splash divisors from the table. `missile_pointotpointwithhit.cpp`
+(the filename has that spelling) keeps lightning/blizzard/touch on frame
+zero in flight, plays the hit frames on arrival, and deals damage at the
+end. Bounce continuation is `(tile_width + tile_height) * 3 / 4`, or 1.5
+tiles here. Exact parabolic trajectories remain unimplemented.
+
+### Damage fire and repair
+
+`scripts/missiles.lua` and `unit.cpp::HitUnit_Burning` establish the fire
+thresholds: at least 75% HP has no fire; 50% through below 75% uses small
+fire; below 50% uses big fire. Integer percent is HP*100/maxHP. The source
+places fire at the building center minus one tile vertically; the engine
+represents this with world z=1 so depth sorting remains tied to the building.
+The animation rechecks its size/removal at cycle boundaries. Repeated hits
+reuse the same fire mobj; healing or destruction ends it. Unfinished sites
+are excluded.
+
+`action_repair.cpp::RepairUnit` uses the **target's** RepairHp/RepairCosts and
+the worker's player resources. Worker repair follows the authored seven
+poses `{5,6,7,8,9,5,5}` and waits `{3,3,3,5,3,7,1}`, totaling 25 cycles.
+The final pose applies four HP for the catalog's gold/wood/oil cost. Range,
+ownership, depletion, destruction and command interruption are checked.
+The final partial repair is still a paid cycle. Assistance to a building
+under construction uses `ProgressHp(100 * RepairCycle)`: helpers accumulate
+time spent working and contribute it at their animation boundary. This
+advances the same tic counter as the primary builder and preserves damage
+already taken. Stratagus's default `ResourcesMultiBuildersMultiplier=0`
+(`unit.cpp`) makes this assistance free. Whichever worker finishes the
+site releases its primary builder and restores its finished state once.
+New build, harvest, repair, board and spell orders cancel incompatible jobs.
+
+### Spell behavior
+
+| Spell | Mana | Range | Implemented effect / reference duration in cycles |
+|---|---:|---:|---|
+| Holy vision | 70 | unlimited | 12-tile sight/detection revealer, TTL 25 |
+| Healing | 6/HP | 6 | Bulk healing up to missing HP and available mana |
+| Exorcism | 4/HP | 10 | Bulk damage to an undead unit |
+| Eye of Kilrogg | 70 | 6 | Owned eye, TTL 765 |
+| Bloodlust | 50 | 6 | Doubles basic and piercing damage before armor, 1000 |
+| Runes | 200 | 10 | Five cross-shaped traps, 50 damage, TTL 2000 |
+| Fireball | 100 | 8 | 20 damage, five bounce segments |
+| Slow | 50 | 10 | Half movement speed / doubled state waits, 1000 |
+| Flame shield | 50 | 6 | Five orbiting effects, one damage, TTL 600/607/614/621/628 |
+| Invisibility | 200 | 6 | Hidden from opponents, ends on attack/cast, 2000 |
+| Polymorph | 200 | 10 | Stable object becomes neutral critter; orders/buffs cleared |
+| Blizzard | 25 | 12 | Repeating five fields with eleven delayed shards each |
+| Death coil | 100 | 10 | Split 50 damage over nearby organic enemies, heal caster at impact |
+| Haste | 50 | 6 | Double movement speed / halved state waits, cancels slow, 1000 |
+| Raise dead | 50 | 6 | Repeating corpse consumption, owned skeleton TTL 3600 |
+| Whirlwind | 100 | 12 | Wandering damage effect, TTL 800 |
+| Unholy armor | 100 | 6 | Sacrifice half current HP, invulnerability 500; volatile units die |
+| Death and decay | 25 | 12 | Repeating five fields with eleven delayed effects each |
+| Demolish | 0 | 1 | 400 damage in footprint range three, self destruction, clears forest |
+
+Costs, ranges and status durations come from `scripts/spells.lua`. Mana
+regeneration follows `action/actions.cpp`; the previously documented native
+initial 85 overrides Wargus's 84. `spell_adjustvital.cpp` confirms mana per
+restored/damaged hit point: this is not six mana for a whole heal.
+`spell_spawnmissile.cpp` selects death-coil enemies in a 5x5 area, nearest
+the caster first, distributes a total 50 damage, and gives the remainder
+to the final target. `missile_deathcoil.cpp` returns the missile's damage
+amount to a surviving caster. `spell_summon.cpp` searches a 3x3 square for
+non-building corpses; an initial circular/organic-only interpretation was
+corrected. Corpse consumption and summon expiry use normal thinker removal;
+unholy armor cannot make a temporary summon permanent.
+
+Runes can hurt their owner as well as allies (`CanHitOwner=true`); they
+check at Sleep=5. Flame shield uses `missile_flameshield.cpp`'s 36 authored
+circle positions and one hit every eight TTL cycles, excluding its bearer.
+Whirlwind uses the reference TTL damage and 100-cycle direction-change
+conditions, though its exact pixel-center selection remains a parity gap.
+Blizzard/decay use five fields, eleven shards, delays 16/8, and synchronous
+0–9 damage rolls. Retail RNG and exact area sampling are still untraced.
+Effects honor target domains and invulnerability; manually cast healing and
+buffs can affect valid enemies, as the reference's cast conditions permit.
+
+Native spell sound IDs are SFXDAT 98–114 (`wartool.h` / `sound.lua`), plus
+existing fireball/explosion samples. Impact sounds use 64 (fireball), 67
+(arrow), and 31 (explosion). The sound regression now verifies 202 decoded
+samples and the unchanged 35 voice groups.
+
+### Research, production, oil and transports
+
+The paid research table now covers all 48 priced technologies in the pinned
+human/orc upgrade tables. Free baseline spell permissions are available on
+the corresponding caster; the 24 distinct technology bits coexist with the
+existing numerical weapon/armor tiers. Research transforms living archers,
+axethrowers, knights and ogres in place and converts newly produced ones,
+preserving object addresses. Numerical combat modifiers include the exact
+hero/demolition/attack-peasant apply-to lists from the reference, rather than
+silently restricting a research to regular infantry.
+
+Training checks the authored dependencies (including both smith and mill
+for siege engines, and stables/mound plus smith for cavalry). Stratagus
+`action_train.cpp` checks food **at completed-unit release**, not at queue
+purchase: the paid queue waits for supply, without banking negative elapsed
+time to release later units instantly. Unfinished farms do not supply food.
+`stratagus.lua` sets a 200-mobile-unit limit and 100% train/research/upgrade
+refunds; these are implemented. The existing full construction refund is a
+separately documented retail choice, not silently changed to Wargus's 75%.
+
+**Disproven and corrected:** the old catalog note that treats
+`Costs.time` as seconds describes our engine, not the pinned Stratagus
+conversion. `action_train.cpp`, `action_research.cpp` and
+`action_upgradeto.cpp` advance their counters after `Wait=30/6` plus the next
+execution cycle; `action_built.cpp` uses cost*600 and progress 100 per cycle
+at speed factor 100. A baseline cost unit is therefore roughly six cycles,
+not thirty. Construction now counts those cycles directly: the cost-100
+farm takes exactly 600 unassisted tics, with the 25% stage at tic 150.
+Training, research and upgrade costs convert to 200 milliseconds per cost
+unit at 30 Hz. Their shared production clock still rounds each tick to
+milliseconds; exact reference first-cycle/retry phase remains a gap.
+The construction regression now uses siege attackers: the previous three
+grunts do not overcome the corrected farm growth before it completes.
+This is an intentional time-basis correction, not a combat damage change.
+
+PUD UNIT types 86/87 (platforms), 92 (mine) and 93 (oil patch) all use
+`data*2500` reserves (`pud.cpp` lines 324–326). Tankers have resource-2
+capacity 100, resource/depot waits 100, and use the common hidden-entry
+state path. Platforms can only replace a live oil patch at its 3x3 origin;
+a land worker cannot build one and a tanker cannot build land structures.
+The deposit slot/remaining amount stays level-owned while its source id
+changes from patch to platform or back. Cancellation/destruction restores
+a patch with its remaining oil, per `BuildingRules.ontop` ReplaceOnDie /
+ReplaceOnBuild. Exhaustion removes the source without restoring oil.
+Owned completed shipyards/refineries accept the cargo; a completed refinery
+raises oil income to 125. The completed platform's builder begins gathering.
+
+Wargus `MaxOnBoard=6` and `CanTransport={LandUnit,only}` establish capacity
+and passenger domain. This implementation currently boards the owner's own
+units. Passengers remain individually allocated mobjs with carrier IDs,
+stop revealing independent sight, are hidden/non-colliding while aboard,
+and die if the carrier disappears. Unloading checks walkable, unoccupied
+cells adjacent to the ship. A blocked passenger stays aboard; no arbitrary
+teleport to a distant free cell is used. Transport and cast command fields
+are serialized/checksummed along with research and combat RNG. Old save
+layouts are rejected by the existing engine size/version checks.
+
+### Reproduction and verification
+
+Run all tests with `SDL_VIDEODRIVER=dummy`:
+
+```sh
+make
+make build/bin/tests/warcraft-2/test_features
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_features
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --screenshot /private/tmp/open-rts-warcraft-2.bmp
+```
+
+`test_features` checks fire thresholds and lifetime, paid repairs and
+interruption, free construction assistance, delayed/surviving-shooter
+projectiles, domain/detector rules,
+research conversion/hero bonuses/cancellation, the 19 spell branches,
+transport capacity/unloading/sinking, platform construction/restoration,
+oil income, and all 28 native effect GRP frame counts. `test_save` checks
+research, mana, buffs, cast/repair/carrier IDs and an in-flight projectile
+alongside prior state. Catalog/research tests compare native unit metadata
+and all priced reference research rows. HUD checks include the five native
+16x16 status icons; sound tests decode the additional spell/impact samples.
+The existing AI test runs ten simulated minutes. LAN-menu tests require
+permission to bind local UDP sockets; their sandbox failure is independent
+of the gameplay assertions and passes when socket access is allowed.
+
+Verification on 2026-10-07: all 29 Warcraft II regression programs passed;
+the ten-minute AI simulation made 24 purchases, launched four waves and
+completed 13 harvest assignments. All five game binaries built, and the
+Dark Colony/Dark Reign command regressions passed. AddressSanitizer and
+UndefinedBehaviorSanitizer reported no errors in `test_features`. Headless
+ALAMO smoke verification loaded 64 units, 2,798 resource vents, 372 terrain
+tiles and 60 footman frames. Human/orc HUD captures and an in-game ALAMO
+capture were visually checked. These checks cover the implementations
+listed above, not the unimplemented features in the coverage matrix.

@@ -13,7 +13,8 @@ bool w2_init_resources(level_t *map) {
     for (int i = 0; i < map->width * map->height; ++i)
         count += map->cell_terrain[i] == 2;
     for (int i = 0; i < pud->unit_count; ++i)
-        count += pud->units[i].type == 92;
+        count += pud->units[i].type == 92 || pud->units[i].type == 93 ||
+                 pud->units[i].type == 86 || pud->units[i].type == 87;
     map->resource_vents = calloc((size_t)count, sizeof(*map->resource_vents));
     if (count && !map->resource_vents) return false;
     for (int y = 0; y < map->height; ++y)
@@ -30,7 +31,7 @@ bool w2_init_resources(level_t *map) {
 
 static bool worker(const mobj_t *unit) {
     return unit && !unit->remove && unit->hp > 0 &&
-        (unit->type_id == MT_PEASANT || unit->type_id == MT_PEON);
+        (mobjinfo[unit->type_id].w2.flags & W2_HARVEST);
 }
 
 int W2_ResourceIncome(int owner, int resource) {
@@ -38,7 +39,7 @@ int W2_ResourceIncome(int owner, int resource) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *base = (const mobj_t *)th;
-        if (base->remove || base->hp <= 0 || base->owner != owner) continue;
+        if (base->remove || base->hp <= 0 || base->owner != owner || W2_UnderConstruction(base)) continue;
         if (resource < 0 || resource >= 3 || base->type_id >= NUMMOBJTYPES) continue;
         int value = mobjinfo[base->type_id].w2.income[resource];
         if (value > bonus) bonus = value;
@@ -111,7 +112,7 @@ bool W2_ReturnGoods(mobj_t *unit) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *base = (mobj_t *)th;
-        if (base->remove || base->hp <= 0 || base->owner != unit->owner) continue;
+        if (base->remove || base->hp <= 0 || base->owner != unit->owner || W2_UnderConstruction(base)) continue;
         int pud = base->type_id - 1;
         if (pud < 0 || pud >= W2_TYPE_COUNT) continue;
         const w2_stats_t *type = &mobjinfo[base->type_id].w2;
@@ -128,6 +129,9 @@ bool W2_ReturnGoods(mobj_t *unit) {
         distance = d;
     }
     W2_InterruptHarvest(unit);
+    W2_InterruptRepair(unit); W2_InterruptBuild(unit);
+    unit->w2.carrier = 0;
+    unit->w2.stand_ground = false;
     P_ClearMove(unit);
     unit->attack.target = NULL;
     unit->harvest.base = best;
@@ -146,6 +150,9 @@ bool W2_HarvestOrder(mobj_t *unit, fvec2_t goal) {
         fvec2_t bay;
         if (!w2_approach(unit, vent->cell, vent->footprint, &bay)) return false;
         W2_InterruptHarvest(unit);
+        W2_InterruptRepair(unit); W2_InterruptBuild(unit);
+        unit->w2.carrier = 0;
+        unit->w2.stand_ground = false;
         unit->attack.target = NULL;
         unit->harvest.target = i;
         unit->harvest.base = NULL;
@@ -200,7 +207,8 @@ static void wait_inside(mobj_t *unit, int phase) {
     unit->traits &= ~(MF_RENDERABLE | MF_SELECTABLE | MF_MOBILE);
     unit->traits |= MF_NOBLOCKMAP;
     P_MobjSetHidden(unit, true);
-    P_SetMobjState(unit, W2_WAIT_STATE(unit->type_id - 1));
+    P_SetMobjState(unit, unit->harvest.resource_type == 2 ?
+        W2_TANK_WAIT_STATE(unit->type_id - 1) : W2_WAIT_STATE(unit->type_id - 1));
 }
 
 bool W2_TickHarvest(mobj_t *unit) {
@@ -250,7 +258,7 @@ bool W2_TickHarvest(mobj_t *unit) {
             go_to_deposit(unit, vent);
             return false;
         }
-        if (vent->resource_type == 0) wait_inside(unit, HARVEST_PHASE_MINING);
+        if (vent->resource_type != 1) wait_inside(unit, HARVEST_PHASE_MINING);
         else {
             fvec2_t delta = fvec2_sub(vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
             unit->core.angle = angle_from_screen_vector(delta.x, delta.y);
@@ -275,7 +283,7 @@ bool W2_TickHarvest(mobj_t *unit) {
 }
 
 void W2_WorkerPose(mobj_t *unit) {
-    if (!worker(unit)) return;
+    if (!worker(unit) || (unit->type_id != MT_PEASANT && unit->type_id != MT_PEON)) return;
     int group = gameinfo->states[unit->core.state_id].group;
     if (group != 0 && group != 2) return;
     int pud = unit->type_id - 1;

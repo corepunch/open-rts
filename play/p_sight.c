@@ -1,4 +1,7 @@
 #include "engine.h"
+#ifdef RTS_GAME_WARCRAFT_2
+#include "warcraft-2.h"
+#endif
 #include "p_sight_data.h"
 #include <stdlib.h>
 
@@ -14,7 +17,10 @@ bool P_InitSight(void) {
 }
 
 static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborne, bool detector) {
-    if (!level.sight.cells || radius < 1 || radius > SIGHT_MAX_RADIUS) return;
+    if (!level.sight.cells || radius < 1) return;
+#ifndef RTS_GAME_WARCRAFT_2
+    if (radius > SIGHT_MAX_RADIUS) return;
+#endif
     uint32_t explored = mask & level.sight.allies[consoleplayer] ? SIGHT_EXPLORED : 0;
 #ifdef RTS_GAME_DARK_COLONY
     /* Low eight bits hold this pass's detector teams. They share the cell
@@ -81,6 +87,10 @@ void P_UpdateSight(void) {
         if (actor->remove || actor->hp <= 0 || !actor->info || actor->team >= 8) continue;
         int radius = (level.daylight.weight * actor->info->sight.night +
                       (256 - level.daylight.weight) * actor->info->sight.day) >> 8;
+#ifdef RTS_GAME_WARCRAFT_2
+        if (actor->w2.boarded) continue;
+        radius = W2_SightRange(actor);
+#endif
         /* Engine default for games whose sight stats have not yet been ported. */
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
@@ -132,6 +142,9 @@ static uint32_t object_sight(const mobj_t *mobj) {
 
 bool P_VisibleToPlayer(const mobj_t *mobj) {
     if (!mobj || mobj->remove || P_MobjIsHidden(mobj)) return false;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (!W2_VisibleTo(mobj, consoleplayer)) return false;
+#endif
 #ifdef RTS_GAME_DARK_COLONY
     if ((mobj->traits & MF_LANDMINE) && mobj->owner != consoleplayer &&
         !(mobj->detected_by & level.sight.allies[consoleplayer])) return false;
@@ -142,6 +155,9 @@ bool P_VisibleToPlayer(const mobj_t *mobj) {
 
 bool P_VisibleTo(const mobj_t *observer, const mobj_t *target) {
     if (!target || target->remove) return false;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (!observer || !W2_VisibleTo(target, observer->owner)) return false;
+#endif
 #ifdef RTS_GAME_DARK_COLONY
     if ((target->traits & MF_LANDMINE) && observer && target->owner != observer->owner &&
         (observer->team >= 8 || !(target->detected_by & level.sight.allies[observer->team]))) return false;

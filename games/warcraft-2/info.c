@@ -518,7 +518,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_OIL_TANKER] = { /* PUD 26: unit-human-oil-tanker */
         .doomednum = 27, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 0,
         .name = "human-tanker", .label = "Oil Tanker",
-        .w2 = {.projectile = "missile-none", .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = "missile-none", .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
             .grp = {59, 0, 0, 0}, .speed = 10, .armor = 10,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -538,7 +538,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_OIL_TANKER] = { /* PUD 27: unit-orc-oil-tanker */
         .doomednum = 28, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 0,
         .name = "orc-tanker", .label = "Oil Tanker",
-        .w2 = {.projectile = "missile-none", .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = "missile-none", .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
             .grp = {60, 0, 0, 0}, .speed = 10, .armor = 10,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -2091,6 +2091,11 @@ void w2_build_info(void) {
     states[0] = (state_t){
         .tics = -1, .nextstate = 0,
     };
+    mobjinfo[MT_W2_EFFECT] = (mobjinfo_t){.name = "warcraft-effect", .spawnhealth = 1,
+        .spawnstate = W2_EFFECT_STATE};
+    states[W2_EFFECT_STATE] = (state_t){.sprite = W2_EFFECT_SPRITE, .tics = 1,
+        .count = 1, .action = A_W2_Effect, .nextstate = W2_EFFECT_STATE};
+    for (int i = 0; i < W2_FX_COUNT; ++i) sprnames[W2_EFFECT_SPRITE + i] = w2_effects[i].name;
     for (int pud = 0; pud < W2_TYPE_COUNT; ++pud) {
         mobjinfo_t *unit = &mobjinfo[pud + 1];
         bool fighter = (unit->w2.attributes & W2_CAN_ATTACK) && unit->damage > 0;
@@ -2120,8 +2125,21 @@ void w2_build_info(void) {
             .sprite = pud, .count = 1, .tics = mobjinfo[pud + 1].w2.gather[0].resource_wait,
             .nextstate = stand_state(pud), .group = 5,
         };
+        for (int i = 0; i < 7; ++i) {
+            int repair = W2_REPAIR_STATE(pud);
+            states[repair + i] = (state_t){
+                .sprite = pud, .frame = chop_frames[i], .count = 1,
+                .action = i == 6 ? A_W2_Repair : NULL,
+                .tics = chop_tics[i], .nextstate = i == 6 ? stand_state(pud) : repair + i + 1,
+                .group = W2_GROUP_WORK,
+            };
+        }
     }
     static const char *const carriers[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber" };
+    for (int pud = 26; pud <= 27; ++pud)
+        states[W2_TANK_WAIT_STATE(pud)] = (state_t){.sprite = pud, .count = 1,
+            .tics = mobjinfo[pud + 1].w2.gather[2].resource_wait,
+            .nextstate = stand_state(pud), .group = W2_GROUP_WORK};
     sprnames[W2_SPRITE_CONSTRUCTION] = "construction-site";
     sprnames[W2_SPRITE_RUBBLE] = "destroyed-site";
     sprnames[W2_SPRITE_SMALL_RUBBLE] = "small-destroyed-site";
@@ -2144,6 +2162,7 @@ void w2_build_info(void) {
         .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
         .selection_marker = { .style = SELECTION_STYLE_DEFAULT },
         .draw_underlays = w2_draw_selection,
+        .draw_overlays = w2_draw_buffs,
         .right_click_orders = true,
         .select_any = true,
         .f10_menu = true,

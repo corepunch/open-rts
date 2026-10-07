@@ -14,17 +14,18 @@
 #define U RTS_PRODUCT_UNIT
 #define R RTS_PRODUCT_UPGRADE
 #define B RTS_PRODUCT_BUILDING
-static StaticProductDefinition W2_PRODUCTS[] = {
+static int w2_product_count;
+static StaticProductDefinition W2_PRODUCTS[256] = {
     { 1, 1, "Footman",    0, 0, U, MT_FOOTMAN, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
     { 2, 2, "Grunt",      0, 0, U, MT_GRUNT, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
     { 3, 3, "Peasant",    0, 0, U, MT_PEASANT, 0, {0}, 0, {MT_TOWN_HALL, MT_KEEP, MT_CASTLE}, 3 },
     { 4, 4, "Peon",       0, 0, U, MT_PEON, 0, {0}, 0, {MT_GREAT_HALL, MT_STRONGHOLD, MT_FORTRESS}, 3 },
-    { 5, 5, "Archer",     0, 0, U, MT_ARCHER, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
-    { 6, 6, "Axethrower", 0, 0, U, MT_AXETHROWER, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
-    { 7, 7, "Ballista",   0, 0, U, MT_BALLISTA, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
-    { 8, 8, "Catapult",   0, 0, U, MT_CATAPULT, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
-    { 9, 9, "Knight",     0, 0, U, MT_KNIGHT, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
-    { 10, 10, "Ogre",     0, 0, U, MT_OGRE, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
+    { 5, 5, "Archer",     0, 0, U, MT_ARCHER, 0, {MT_ELVEN_LUMBER_MILL}, 1, {MT_HUMAN_BARRACKS}, 1 },
+    { 6, 6, "Axethrower", 0, 0, U, MT_AXETHROWER, 0, {MT_TROLL_LUMBER_MILL}, 1, {MT_ORC_BARRACKS}, 1 },
+    { 7, 7, "Ballista",   0, 0, U, MT_BALLISTA, 0, {MT_HUMAN_BLACKSMITH, MT_ELVEN_LUMBER_MILL}, 2, {MT_HUMAN_BARRACKS}, 1 },
+    { 8, 8, "Catapult",   0, 0, U, MT_CATAPULT, 0, {MT_ORC_BLACKSMITH, MT_TROLL_LUMBER_MILL}, 2, {MT_ORC_BARRACKS}, 1 },
+    { 9, 9, "Knight",     0, 0, U, MT_KNIGHT, 0, {MT_STABLES, MT_HUMAN_BLACKSMITH}, 2, {MT_HUMAN_BARRACKS}, 1 },
+    { 10, 10, "Ogre",     0, 0, U, MT_OGRE, 0, {MT_OGRE_MOUND, MT_ORC_BLACKSMITH}, 2, {MT_ORC_BARRACKS}, 1 },
     /* Research: the maker is the upgrade table's building. */
     { 11, W2_UI_SWORD1, "Upgrade sword", 0, 0, R, W2_UPGRADE_SWORD1, 0, {0}, 0, {MT_HUMAN_BLACKSMITH}, 1 },
     { 12, W2_UI_SWORD2, "Upgrade sword", 0, 0, R, W2_UPGRADE_SWORD2, 0, {0}, 0, {MT_HUMAN_BLACKSMITH}, 1 },
@@ -88,30 +89,78 @@ static StaticProductDefinition W2_PRODUCTS[] = {
  * applies, and the types it applies to. Icons are the level researched. */
 static const w2_upgrade_t W2_UPGRADES[W2_UPGRADE_COUNT] = {
     [W2_UPGRADE_SWORD1] = { "upgrade-sword1", 117, 200, 800, 0, 0, false, 1, 2,
-        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN} },
+        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN, MT_DEMOLITION_SQUAD, MT_DANATH, MT_LOTHAR, MT_UTHER_LIGHTBRINGER, MT_TURALYON, MT_ATTACK_PEASANT} },
     [W2_UPGRADE_SWORD2] = { "upgrade-sword2", 118, 250, 2400, 0, 0, false, 2, 2,
-        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN} },
+        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN, MT_DEMOLITION_SQUAD, MT_DANATH, MT_LOTHAR, MT_UTHER_LIGHTBRINGER, MT_TURALYON, MT_ATTACK_PEASANT} },
     [W2_UPGRADE_AXE1] = { "upgrade-battle-axe1", 120, 200, 500, 100, 0, false, 1, 2,
-        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE} },
+        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE, MT_GOBLIN_SAPPERS, MT_KARGATH_BLADEFIST, MT_GROM_HELLSCREAM, MT_DENTARG, MT_CHOGALL} },
     [W2_UPGRADE_AXE2] = { "upgrade-battle-axe2", 121, 250, 1500, 300, 0, false, 2, 2,
-        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE} },
+        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE, MT_GOBLIN_SAPPERS, MT_KARGATH_BLADEFIST, MT_GROM_HELLSCREAM, MT_DENTARG, MT_CHOGALL} },
     [W2_UPGRADE_ARROW1] = { "upgrade-arrow1", 125, 200, 300, 300, 0, false, 1, 1,
-        MT_ELVEN_LUMBER_MILL, {MT_ARCHER, MT_RANGER} },
+        MT_ELVEN_LUMBER_MILL, {MT_ARCHER, MT_RANGER, MT_ALLERIA} },
     [W2_UPGRADE_ARROW2] = { "upgrade-arrow2", 126, 250, 900, 500, 0, false, 2, 1,
-        MT_ELVEN_LUMBER_MILL, {MT_ARCHER, MT_RANGER} },
+        MT_ELVEN_LUMBER_MILL, {MT_ARCHER, MT_RANGER, MT_ALLERIA} },
     [W2_UPGRADE_THROWING_AXE1] = { "upgrade-throwing-axe1", 128, 200, 300, 300, 0, false, 1, 1,
-        MT_TROLL_LUMBER_MILL, {MT_AXETHROWER, MT_BERSERKER} },
+        MT_TROLL_LUMBER_MILL, {MT_AXETHROWER, MT_BERSERKER, MT_ZULJIN} },
     [W2_UPGRADE_THROWING_AXE2] = { "upgrade-throwing-axe2", 129, 250, 900, 500, 0, false, 2, 1,
-        MT_TROLL_LUMBER_MILL, {MT_AXETHROWER, MT_BERSERKER} },
+        MT_TROLL_LUMBER_MILL, {MT_AXETHROWER, MT_BERSERKER, MT_ZULJIN} },
     [W2_UPGRADE_HUMAN_SHIELD1] = { "upgrade-human-shield1", 165, 200, 300, 300, 0, true, 1, 2,
-        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN} },
+        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN, MT_DEMOLITION_SQUAD, MT_DANATH, MT_LOTHAR, MT_UTHER_LIGHTBRINGER, MT_TURALYON, MT_ATTACK_PEASANT} },
     [W2_UPGRADE_HUMAN_SHIELD2] = { "upgrade-human-shield2", 166, 250, 900, 500, 0, true, 2, 2,
-        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN} },
+        MT_HUMAN_BLACKSMITH, {MT_FOOTMAN, MT_KNIGHT, MT_PALADIN, MT_DEMOLITION_SQUAD, MT_DANATH, MT_LOTHAR, MT_UTHER_LIGHTBRINGER, MT_TURALYON, MT_ATTACK_PEASANT} },
     [W2_UPGRADE_ORC_SHIELD1] = { "upgrade-orc-shield1", 168, 200, 300, 300, 0, true, 1, 2,
-        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE} },
+        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE, MT_GOBLIN_SAPPERS, MT_KARGATH_BLADEFIST, MT_GROM_HELLSCREAM, MT_DENTARG, MT_CHOGALL} },
     [W2_UPGRADE_ORC_SHIELD2] = { "upgrade-orc-shield2", 169, 250, 900, 500, 0, true, 2, 2,
-        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE} },
+        MT_ORC_BLACKSMITH, {MT_GRUNT, MT_OGRE, MT_OGRE_MAGE, MT_GOBLIN_SAPPERS, MT_KARGATH_BLADEFIST, MT_GROM_HELLSCREAM, MT_DENTARG, MT_CHOGALL} },
+#define DAMAGE(id, name, icon, time, gold, wood, oil, armor, tier, bonus, maker, ...) \
+    [id] = {name, icon, time, gold, wood, oil, armor, tier, bonus, maker, {__VA_ARGS__}}
+    DAMAGE(W2_UPGRADE_BALLISTA1, "upgrade-ballista1", 140, 250, 1500, 0, 0, false, 1, 15, MT_HUMAN_BLACKSMITH, MT_BALLISTA),
+    DAMAGE(W2_UPGRADE_BALLISTA2, "upgrade-ballista2", 141, 250, 4000, 0, 0, false, 2, 15, MT_HUMAN_BLACKSMITH, MT_BALLISTA),
+    DAMAGE(W2_UPGRADE_CATAPULT1, "upgrade-catapult1", 138, 250, 1500, 0, 0, false, 1, 15, MT_ORC_BLACKSMITH, MT_CATAPULT),
+    DAMAGE(W2_UPGRADE_CATAPULT2, "upgrade-catapult2", 139, 250, 4000, 0, 0, false, 2, 15, MT_ORC_BLACKSMITH, MT_CATAPULT),
+    DAMAGE(W2_UPGRADE_HUMAN_CANNON1, "upgrade-human-ship-cannon1", 145, 200, 700, 100, 1000, false, 1, 5, MT_HUMAN_FOUNDRY, MT_HUMAN_DESTROYER, MT_BATTLESHIP, MT_GNOMISH_SUBMARINE),
+    DAMAGE(W2_UPGRADE_HUMAN_CANNON2, "upgrade-human-ship-cannon2", 146, 250, 2000, 250, 3000, false, 2, 5, MT_HUMAN_FOUNDRY, MT_HUMAN_DESTROYER, MT_BATTLESHIP, MT_GNOMISH_SUBMARINE),
+    DAMAGE(W2_UPGRADE_ORC_CANNON1, "upgrade-orc-ship-cannon1", 148, 200, 700, 100, 1000, false, 1, 5, MT_ORC_FOUNDRY, MT_ORC_DESTROYER, MT_OGRE_JUGGERNAUGHT, MT_GIANT_TURTLE),
+    DAMAGE(W2_UPGRADE_ORC_CANNON2, "upgrade-orc-ship-cannon2", 149, 250, 2000, 250, 3000, false, 2, 5, MT_ORC_FOUNDRY, MT_ORC_DESTROYER, MT_OGRE_JUGGERNAUGHT, MT_GIANT_TURTLE),
+    DAMAGE(W2_UPGRADE_HUMAN_SHIP_ARMOR1, "upgrade-human-ship-armor1", 154, 200, 500, 500, 0, true, 1, 5, MT_HUMAN_FOUNDRY, MT_HUMAN_DESTROYER, MT_BATTLESHIP, MT_HUMAN_TRANSPORT),
+    DAMAGE(W2_UPGRADE_HUMAN_SHIP_ARMOR2, "upgrade-human-ship-armor2", 155, 250, 1500, 900, 0, true, 2, 5, MT_HUMAN_FOUNDRY, MT_HUMAN_DESTROYER, MT_BATTLESHIP, MT_HUMAN_TRANSPORT),
+    DAMAGE(W2_UPGRADE_ORC_SHIP_ARMOR1, "upgrade-orc-ship-armor1", 151, 200, 500, 500, 0, true, 1, 5, MT_ORC_FOUNDRY, MT_ORC_DESTROYER, MT_OGRE_JUGGERNAUGHT, MT_ORC_TRANSPORT),
+    DAMAGE(W2_UPGRADE_ORC_SHIP_ARMOR2, "upgrade-orc-ship-armor2", 152, 250, 1500, 900, 0, true, 2, 5, MT_ORC_FOUNDRY, MT_ORC_DESTROYER, MT_OGRE_JUGGERNAUGHT, MT_ORC_TRANSPORT),
+#undef DAMAGE
+    /* Zero bonus denotes a distinct technology, not a weapon/armor tier. */
+#define TECH(id, name, icon, time, gold, maker, unit) \
+    [id] = {name, icon, time, gold, 0, 0, false, 1, 0, maker, {unit}}
+    TECH(W2_UPGRADE_RANGER, "upgrade-ranger", 6, 250, 1500, MT_ELVEN_LUMBER_MILL, MT_RANGER),
+    TECH(W2_UPGRADE_BERSERKER, "upgrade-berserker", 7, 250, 1500, MT_TROLL_LUMBER_MILL, MT_BERSERKER),
+    TECH(W2_UPGRADE_PALADIN, "upgrade-paladin", 10, 250, 1000, MT_CHURCH, MT_PALADIN),
+    TECH(W2_UPGRADE_OGRE_MAGE, "upgrade-ogre-mage", 11, 250, 1000, MT_ALTAR_OF_STORMS, MT_OGRE_MAGE),
+    TECH(W2_UPGRADE_LONGBOW, "upgrade-longbow", 132, 250, 2000, MT_ELVEN_LUMBER_MILL, MT_RANGER),
+    TECH(W2_UPGRADE_LIGHT_AXES, "upgrade-light-axes", 135, 250, 2000, MT_TROLL_LUMBER_MILL, MT_BERSERKER),
+    TECH(W2_UPGRADE_RANGER_SCOUTING, "upgrade-ranger-scouting", 133, 250, 1500, MT_ELVEN_LUMBER_MILL, MT_RANGER),
+    TECH(W2_UPGRADE_BERSERKER_SCOUTING, "upgrade-berserker-scouting", 136, 250, 1500, MT_TROLL_LUMBER_MILL, MT_BERSERKER),
+    TECH(W2_UPGRADE_MARKSMANSHIP, "upgrade-ranger-marksmanship", 134, 250, 2500, MT_ELVEN_LUMBER_MILL, MT_RANGER),
+    TECH(W2_UPGRADE_REGENERATION, "upgrade-berserker-regeneration", 137, 250, 3000, MT_TROLL_LUMBER_MILL, MT_BERSERKER),
+    TECH(W2_UPGRADE_HEALING, "upgrade-healing", 107, 200, 1000, MT_CHURCH, MT_PALADIN),
+    TECH(W2_UPGRADE_EXORCISM, "upgrade-exorcism", 110, 200, 2000, MT_CHURCH, MT_PALADIN),
+    TECH(W2_UPGRADE_FLAME_SHIELD, "upgrade-flame-shield", 100, 100, 1000, MT_MAGE_TOWER, MT_MAGE),
+    TECH(W2_UPGRADE_SLOW, "upgrade-slow", 94, 100, 500, MT_MAGE_TOWER, MT_MAGE),
+    TECH(W2_UPGRADE_INVISIBILITY, "upgrade-invisibility", 95, 200, 2500, MT_MAGE_TOWER, MT_MAGE),
+    TECH(W2_UPGRADE_POLYMORPH, "upgrade-polymorph", 115, 200, 2000, MT_MAGE_TOWER, MT_MAGE),
+    TECH(W2_UPGRADE_BLIZZARD, "upgrade-blizzard", 105, 200, 2000, MT_MAGE_TOWER, MT_MAGE),
+    TECH(W2_UPGRADE_BLOODLUST, "upgrade-bloodlust", 112, 100, 1000, MT_ALTAR_OF_STORMS, MT_OGRE_MAGE),
+    TECH(W2_UPGRADE_RUNES, "upgrade-runes", 97, 150, 1000, MT_ALTAR_OF_STORMS, MT_OGRE_MAGE),
+    TECH(W2_UPGRADE_RAISE_DEAD, "upgrade-raise-dead", 114, 100, 1500, MT_TEMPLE_OF_THE_DAMNED, MT_DEATH_KNIGHT),
+    TECH(W2_UPGRADE_WHIRLWIND, "upgrade-whirlwind", 104, 150, 1500, MT_TEMPLE_OF_THE_DAMNED, MT_DEATH_KNIGHT),
+    TECH(W2_UPGRADE_HASTE, "upgrade-haste", 96, 100, 500, MT_TEMPLE_OF_THE_DAMNED, MT_DEATH_KNIGHT),
+    TECH(W2_UPGRADE_UNHOLY_ARMOR, "upgrade-unholy-armor", 98, 200, 2500, MT_TEMPLE_OF_THE_DAMNED, MT_DEATH_KNIGHT),
+    TECH(W2_UPGRADE_DEATH_AND_DECAY, "upgrade-death-and-decay", 108, 200, 2000, MT_TEMPLE_OF_THE_DAMNED, MT_DEATH_KNIGHT),
+#undef TECH
 };
+
+bool W2_HasResearch(int owner, int id) {
+    return owner >= 0 && owner < 8 && id > 0 && id < W2_UPGRADE_COUNT &&
+        (level.w2_research[owner] & (UINT64_C(1) << id));
+}
 
 const w2_upgrade_t *W2_Upgrade(int id) {
     return id > 0 && id < W2_UPGRADE_COUNT ? &W2_UPGRADES[id] : NULL;
@@ -120,6 +169,7 @@ const w2_upgrade_t *W2_Upgrade(int id) {
 /* The tier the owner has of this upgrade's line, read off its first type. */
 int W2_UpgradeLevel(int owner, const w2_upgrade_t *upgrade) {
     if (!upgrade || owner < 0 || owner >= 8 || !upgrade->units[0]) return 0;
+    if (!upgrade->bonus) return W2_HasResearch(owner, (int)(upgrade - W2_UPGRADES));
     return upgrade->armor ? level.upgrades[upgrade->units[0]][owner].armor :
                             level.upgrades[upgrade->units[0]][owner].weapon;
 }
@@ -127,7 +177,13 @@ int W2_UpgradeLevel(int owner, const w2_upgrade_t *upgrade) {
 void W2_ApplyUpgrade(int owner, int id) {
     const w2_upgrade_t *upgrade = W2_Upgrade(id);
     if (!upgrade || owner < 0 || owner >= 8) return;
-    for (int i = 0; i < 4 && upgrade->units[i]; ++i) {
+    level.w2_research[owner] |= UINT64_C(1) << id;
+    if (!upgrade->bonus) {
+        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
+            if (th->function == P_MobjThinker) W2_UpgradeUnit((mobj_t *)th);
+        return;
+    }
+    for (size_t i = 0; i < sizeof(upgrade->units) / sizeof(*upgrade->units) && upgrade->units[i]; ++i) {
         uint8_t *tier = upgrade->armor ? &level.upgrades[upgrade->units[i]][owner].armor :
                                          &level.upgrades[upgrade->units[i]][owner].weapon;
         if (*tier < upgrade->tier) *tier = (uint8_t)upgrade->tier;
@@ -143,7 +199,13 @@ bool W2_TransformUnit(mobj_t *unit, uint16_t type) {
     int hp = unit->hp > 0 ? unit->hp : 1;
     unit->type_id = type;
     unit->info = &actor_types[type - 1];
+    unit->speed = unit->info->speed;
+    if (!unit->w2.mana && to->w2.mana.max) unit->w2.mana = to->w2.mana.initial;
     unit->traits = (unit->traits & (MF_SELECTED | MF_DONTDRAW)) | unit->info->traits;
+    if (unit->w2.boarded) {
+        unit->traits &= ~(MF_RENDERABLE | MF_SELECTABLE | MF_MOBILE);
+        unit->traits |= MF_NOBLOCKMAP;
+    }
     unit->max_hp = to->spawnhealth > 0 ? to->spawnhealth : 1;
     unit->hp = hp * unit->max_hp / old_max;
     if (unit->hp < 1) unit->hp = 1;
@@ -154,8 +216,40 @@ bool W2_TransformUnit(mobj_t *unit, uint16_t type) {
     return true;
 }
 
+void W2_UpgradeUnit(mobj_t *unit) {
+    if (!unit || unit->remove || unit->hp <= 0) return;
+    static const struct { int research; uint16_t from, to; } conversions[] = {
+        {W2_UPGRADE_RANGER, MT_ARCHER, MT_RANGER}, {W2_UPGRADE_BERSERKER, MT_AXETHROWER, MT_BERSERKER},
+        {W2_UPGRADE_PALADIN, MT_KNIGHT, MT_PALADIN}, {W2_UPGRADE_OGRE_MAGE, MT_OGRE, MT_OGRE_MAGE},
+    };
+    for (size_t i = 0; i < sizeof(conversions) / sizeof(*conversions); ++i)
+        if (unit->type_id == conversions[i].from && W2_HasResearch(unit->owner, conversions[i].research))
+            W2_TransformUnit(unit, conversions[i].to);
+}
+
+float W2_AttackRange(const mobj_t *unit) {
+    if (!unit || !unit->info) return 0;
+    bool human = unit->type_id == MT_ARCHER || unit->type_id == MT_RANGER;
+    bool orc = unit->type_id == MT_AXETHROWER || unit->type_id == MT_BERSERKER;
+    return unit->info->attack.range +
+        ((human && W2_HasResearch(unit->owner, W2_UPGRADE_LONGBOW)) ||
+         (orc && W2_HasResearch(unit->owner, W2_UPGRADE_LIGHT_AXES)));
+}
+
+int W2_SightRange(const mobj_t *unit) {
+    if (unit->type_id == MT_W2_EFFECT && unit->w2.cast.spell == W2_SPELL_VISION) return 12;
+    int radius = mobjinfo[unit->type_id].w2.sight;
+    if (unit->type_id == MT_ARCHER || unit->type_id == MT_RANGER) {
+        radius += W2_HasResearch(unit->owner, W2_UPGRADE_LONGBOW);
+        radius += 3 * W2_HasResearch(unit->owner, W2_UPGRADE_RANGER_SCOUTING);
+    }
+    if (unit->type_id == MT_AXETHROWER || unit->type_id == MT_BERSERKER)
+        radius += 3 * W2_HasResearch(unit->owner, W2_UPGRADE_BERSERKER_SCOUTING);
+    return radius;
+}
+
 static int product_count(void) {
-    return (int)(sizeof(W2_PRODUCTS) / sizeof(W2_PRODUCTS[0]));
+    return w2_product_count;
 }
 
 static const w2_upgrade_t *product_upgrade(const StaticProductDefinition *product) {
@@ -181,6 +275,38 @@ static bool owner_has(int owner, uint16_t type) {
 }
 
 void w2_init_products(void) {
+    w2_product_count = W2_UI_COUNT - 1;
+    for (int id = W2_UPGRADE_BALLISTA1; id < W2_UPGRADE_COUNT; ++id) {
+        const w2_upgrade_t *u = W2_Upgrade(id);
+        W2_PRODUCTS[w2_product_count++] = (StaticProductDefinition){
+            .ui_id = 100 + id, .label = u->name, .product_class = RTS_PRODUCT_UPGRADE,
+            .product_type = id, .makers = {u->maker}, .maker_count = 1};
+    }
+    static const struct { uint16_t unit, maker, requires; int icon; } extra[] = {
+        {MT_MAGE, MT_MAGE_TOWER, 0, 14}, {MT_DEATH_KNIGHT, MT_TEMPLE_OF_THE_DAMNED, 0, 15},
+        {MT_DEMOLITION_SQUAD, MT_INVENTOR, 0, 12}, {MT_GOBLIN_SAPPERS, MT_ALCHEMIST, 0, 13},
+        {MT_FLYING_MACHINE, MT_INVENTOR, MT_ELVEN_LUMBER_MILL, 28}, {MT_ZEPPELIN, MT_ALCHEMIST, MT_TROLL_LUMBER_MILL, 29},
+        {MT_GRYPHON_RIDER, MT_GRYPHON_AVIARY, 0, 30}, {MT_DRAGON, MT_DRAGON_ROOST, 0, 31},
+        {MT_HUMAN_OIL_TANKER, MT_HUMAN_SHIPYARD, 0, 18}, {MT_ORC_OIL_TANKER, MT_ORC_SHIPYARD, 0, 19},
+        {MT_HUMAN_TRANSPORT, MT_HUMAN_SHIPYARD, MT_HUMAN_FOUNDRY, 20}, {MT_ORC_TRANSPORT, MT_ORC_SHIPYARD, MT_ORC_FOUNDRY, 21},
+        {MT_HUMAN_DESTROYER, MT_HUMAN_SHIPYARD, 0, 22}, {MT_ORC_DESTROYER, MT_ORC_SHIPYARD, 0, 23},
+        {MT_BATTLESHIP, MT_HUMAN_SHIPYARD, MT_HUMAN_FOUNDRY, 24}, {MT_OGRE_JUGGERNAUGHT, MT_ORC_SHIPYARD, MT_ORC_FOUNDRY, 25},
+        {MT_GNOMISH_SUBMARINE, MT_HUMAN_SHIPYARD, MT_INVENTOR, 26}, {MT_GIANT_TURTLE, MT_ORC_SHIPYARD, MT_ALCHEMIST, 27},
+        {MT_HUMAN_GUARD_TOWER, MT_HUMAN_WATCH_TOWER, MT_ELVEN_LUMBER_MILL, 75},
+        {MT_ORC_GUARD_TOWER, MT_ORC_WATCH_TOWER, MT_TROLL_LUMBER_MILL, 77},
+        {MT_HUMAN_CANNON_TOWER, MT_HUMAN_WATCH_TOWER, MT_HUMAN_BLACKSMITH, 76},
+        {MT_ORC_CANNON_TOWER, MT_ORC_WATCH_TOWER, MT_ORC_BLACKSMITH, 78},
+        {MT_HUMAN_OIL_PLATFORM, MT_HUMAN_OIL_TANKER, 0, 54},
+        {MT_ORC_OIL_PLATFORM, MT_ORC_OIL_TANKER, 0, 55},
+    };
+    for (size_t i = 0; i < sizeof(extra) / sizeof(*extra); ++i) {
+        int type = extra[i].unit;
+        W2_PRODUCTS[w2_product_count++] = (StaticProductDefinition){
+            .ui_id = 200 + type, .label = mobjinfo[type].label, .icon_frame = extra[i].icon,
+            .product_class = (mobjinfo[type].w2.flags & W2_STRUCTURE) ? RTS_PRODUCT_BUILDING : RTS_PRODUCT_UNIT,
+            .product_type = type, .makers = {extra[i].maker}, .maker_count = 1,
+            .prerequisites = {extra[i].requires}, .prerequisite_count = extra[i].requires ? 1 : 0};
+    }
     for (int i = 0; i < product_count(); ++i) {
         StaticProductDefinition *product = &W2_PRODUCTS[i];
         /* The SITE rows pad their prerequisite list with zero. */
@@ -230,6 +356,22 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
     /* Research goes one tier at a time and never repeats. */
     const w2_upgrade_t *upgrade = product_upgrade(product);
     if (upgrade && W2_UpgradeLevel(owner, upgrade) != upgrade->tier - 1) return false;
+    if (upgrade) {
+        int id = product->product_type;
+        if ((id == W2_UPGRADE_RANGER || id == W2_UPGRADE_LONGBOW || id == W2_UPGRADE_RANGER_SCOUTING || id == W2_UPGRADE_MARKSMANSHIP) &&
+            (!owner_has(owner, MT_KEEP) || (id != W2_UPGRADE_RANGER && !W2_HasResearch(owner, W2_UPGRADE_RANGER)))) return false;
+        if ((id == W2_UPGRADE_BERSERKER || id == W2_UPGRADE_LIGHT_AXES || id == W2_UPGRADE_BERSERKER_SCOUTING || id == W2_UPGRADE_REGENERATION) &&
+            (!owner_has(owner, MT_STRONGHOLD) || (id != W2_UPGRADE_BERSERKER && !W2_HasResearch(owner, W2_UPGRADE_BERSERKER)))) return false;
+        if ((id == W2_UPGRADE_HEALING || id == W2_UPGRADE_EXORCISM) && !W2_HasResearch(owner, W2_UPGRADE_PALADIN)) return false;
+        if ((id == W2_UPGRADE_BLOODLUST || id == W2_UPGRADE_RUNES) && !W2_HasResearch(owner, W2_UPGRADE_OGRE_MAGE)) return false;
+        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+            const mobj_t *maker = (const mobj_t *)th;
+            if (th->function == P_MobjThinker && maker->owner == owner && maker->hp > 0 && !maker->remove &&
+                maker->production && maker->production->queue_count &&
+                maker->production->product_class == RTS_PRODUCT_UPGRADE &&
+                maker->production->product_type == id) return false;
+        }
+    }
     for (int i = 0; i < product->prerequisite_count; ++i)
         if (!owner_has(owner, (uint16_t)product->prerequisites[i])) return false;
     if (product->maker_count <= 0) return true;
@@ -259,9 +401,9 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *info,
 
 int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     const w2_upgrade_t *upgrade = product_upgrade(product);
-    if (upgrade) return upgrade->time * 1000;
+    if (upgrade) return w2_cost_ms(upgrade->time);
     if (!product) return 0;
-    return mobjinfo[product->product_type].w2.costs.time * 1000;
+    return w2_cost_ms(mobjinfo[product->product_type].w2.costs.time);
 }
 
 /* Units leave the engine's queue as new actors. Research and hall upgrades
@@ -271,7 +413,24 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product,
                                    uint16_t actor_id) {
     (void)model; (void)actor_id;
-    if (!producer || !product || product->product_class == RTS_PRODUCT_UNIT) return false;
+    if (!producer || !product) return false;
+    if (product->product_class == RTS_PRODUCT_UNIT) {
+        int used = 0, supply = 0, units = 0;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *unit = (mobj_t *)th;
+            if (th->function != P_MobjThinker || unit->remove || unit->hp <= 0 ||
+                unit->owner != producer->owner || unit->type_id > W2_TYPE_COUNT) continue;
+            const w2_stats_t *stats = &mobjinfo[unit->type_id].w2;
+            used += stats->food.demand;
+            if (!W2_UnderConstruction(unit)) supply += stats->food.supply;
+            if (!(stats->flags & W2_STRUCTURE)) ++units;
+        }
+        /* Stratagus action_train checks supply when releasing a completed
+         * unit. Keep the paid queue waiting until a farm becomes available. */
+        bool blocked = units >= 200 || used + mobjinfo[actor_id].w2.food.demand > supply;
+        if (blocked && producer->production) producer->production->time_left_ms = 0;
+        return blocked;
+    }
     if (product->product_class == RTS_PRODUCT_UPGRADE)
         W2_ApplyUpgrade(producer->owner, product->product_type);
     else
@@ -320,6 +479,21 @@ bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *produ
     if (stock[1] < lumber || stock[2] < oil || !G_QueueProduct(producer, product)) return false;
     stock[1] -= lumber;
     stock[2] -= oil;
+    return true;
+}
+
+bool W2_CancelProduction(mobj_t *producer) {
+    production_t *queue = producer ? producer->production : NULL;
+    if (!queue || queue->queue_count <= 0 || producer->owner >= 8) return false;
+    const StaticProductDefinition *product = G_ModelProductByClassType(NULL, queue->product_class, queue->product_type);
+    if (!product) return false;
+    int *stock = level.player_resources[producer->owner];
+    /* Wargus refund factors for train, research and upgrade-to are 100%. */
+    stock[0] += product->cost;
+    stock[1] += W2_ProductLumber(product);
+    stock[2] += W2_ProductOil(product);
+    if (--queue->queue_count == 0) P_FreeMobjProduction(producer);
+    else queue->time_left_ms = queue->time_ms;
     return true;
 }
 

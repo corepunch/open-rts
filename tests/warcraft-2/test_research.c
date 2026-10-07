@@ -90,6 +90,7 @@ static int audit_reference(void) {
         int time = 0, gold = 0, lumber = 0, oil = 0;
         CHECK(costs && sscanf(costs, "{ %d , %d , %d , %d", &time, &gold, &lumber, &oil) == 4);
         CHECK(time == upgrade->time && gold == upgrade->gold && lumber == upgrade->lumber && oil == upgrade->oil);
+        if (!upgrade->bonus) { ++audited; continue; } /* Distinct technologies are exercised by test_features. */
         /* The modifier row names the stat and the first unit it applies to. */
         char modifier[96];
         snprintf(modifier, sizeof(modifier), "DefineModifier(\"%s\"", upgrade->name);
@@ -113,17 +114,19 @@ static int audit_reference(void) {
 
 static int test_catalog(void) {
     fixture();
-    StaticProductDefinition products[64];
-    CHECK(G_ModelGetProducts(NULL, 0, products, 64) == W2_UI_COUNT - 1);
+    StaticProductDefinition products[256];
+    int count = G_ModelGetProducts(NULL, 0, products, 256);
+    CHECK(count == W2_UI_COUNT - 1 + W2_UPGRADE_COUNT - W2_UPGRADE_BALLISTA1 + 24);
     int research = 0, halls = 0, sites = 0;
-    for (int i = 0; i < W2_UI_COUNT - 1; ++i) {
+    for (int i = 0; i < count; ++i) {
         const StaticProductDefinition *p = &products[i];
-        CHECK(p->ui_id == i + 1 && product(p->ui_id) == G_ModelProductByClassType(NULL, p->product_class, p->product_type));
+        if (i < W2_UI_COUNT - 1) CHECK(p->ui_id == i + 1);
+        CHECK(product(p->ui_id) == G_ModelProductByClassType(NULL, p->product_class, p->product_type));
         if (p->product_class == RTS_PRODUCT_UPGRADE) {
             const w2_upgrade_t *upgrade = W2_Upgrade(p->product_type);
             CHECK(upgrade && p->cost == upgrade->gold && W2_ProductLumber(p) == upgrade->lumber &&
                   W2_ProductOil(p) == upgrade->oil && p->icon_frame == upgrade->icon);
-            CHECK(G_ModelProductTrainingTimeMs(p) == upgrade->time * 1000);
+            CHECK(G_ModelProductTrainingTimeMs(p) == upgrade->time * 200);
             CHECK(p->maker_count == 1 && p->makers[0] == upgrade->maker);
             CHECK(G_ModelActorIdForProduct(p) == upgrade->units[0] && upgrade->units[0]);
             CHECK(upgrade->tier == 1 || W2_Upgrade(p->product_type - 1)->tier == upgrade->tier - 1);
@@ -131,13 +134,17 @@ static int test_catalog(void) {
         } else if (p->product_class == RTS_PRODUCT_BUILDING) {
             const w2_cost_t *cost = &mobjinfo[p->product_type].w2.costs;
             CHECK(p->cost == cost->resources[0] && W2_ProductLumber(p) == cost->resources[1] &&
-                  W2_ProductOil(p) == cost->resources[2] && G_ModelProductTrainingTimeMs(p) == cost->time * 1000);
+                  W2_ProductOil(p) == cost->resources[2] && G_ModelProductTrainingTimeMs(p) == cost->time * 200);
             CHECK(G_ModelActorIdForProduct(p) == p->product_type && p->maker_count == 1);
             if (actor_types[p->makers[0] - 1].traits & MF_MOBILE) {
                 /* A worker's structure: the orc twin follows its human one. */
                 CHECK(W2_Buildable((uint16_t)p->product_type));
-                CHECK(p->makers[0] == (p->faction ? MT_PEON : MT_PEASANT));
-                CHECK(p->ui_id % 2 == (p->faction ? W2_UI_PIG_FARM % 2 : W2_UI_FARM % 2));
+                if (mobjinfo[p->product_type].w2.domain == W2_DOMAIN_SEA)
+                    CHECK(p->makers[0] == MT_HUMAN_OIL_TANKER || p->makers[0] == MT_ORC_OIL_TANKER);
+                else {
+                    CHECK(p->makers[0] == (p->faction ? MT_PEON : MT_PEASANT));
+                    CHECK(p->ui_id % 2 == (p->faction ? W2_UI_PIG_FARM % 2 : W2_UI_FARM % 2));
+                }
                 ++sites;
             } else {
                 CHECK(mobjinfo[p->product_type].w2.footprint.w == mobjinfo[p->makers[0]].w2.footprint.w);
@@ -145,7 +152,7 @@ static int test_catalog(void) {
             }
         }
     }
-    CHECK(research == W2_UPGRADE_COUNT - 1 && halls == 4 && sites == 28);
+    CHECK(research == W2_UPGRADE_COUNT - 1 && halls == 8 && sites == 30);
     CHECK(product(W2_UI_KEEP)->cost == 2000 && W2_ProductLumber(product(W2_UI_KEEP)) == 1000 &&
           W2_ProductOil(product(W2_UI_KEEP)) == 200);
     CHECK(product(W2_UI_CASTLE)->cost == 2500 && W2_ProductOil(product(W2_UI_CASTLE)) == 500);
@@ -176,14 +183,14 @@ static int test_research(void) {
     CHECK(order(smith, W2_UI_SWORD1));
     CHECK(stock[0] == 9200 && stock[1] == 1000);
     CHECK(smith->production->product_class == RTS_PRODUCT_UPGRADE &&
-          smith->production->product_type == W2_UPGRADE_SWORD1 && smith->production->time_ms == 200000);
+          smith->production->product_type == W2_UPGRADE_SWORD1 && smith->production->time_ms == 40000);
     /* One research at a time, and the same one cannot be queued twice. */
     CHECK(!G_PlayerBuildProduct(smith, product(W2_UI_HUMAN_SHIELD1)) && stock[0] == 9200);
     CHECK(!G_PlayerBuildProduct(smith, product(W2_UI_SWORD1)) && smith->production->queue_count == 1);
     CHECK(!available(0, W2_UI_SWORD2));
-    produce(150, idle, smith);
+    produce(30, idle, smith);
     CHECK(smith->production && level.upgrades[MT_FOOTMAN][0].weapon == 0);
-    produce(60, idle, smith);
+    produce(12, idle, smith);
     CHECK(!smith->production);
     CHECK(level.upgrades[MT_FOOTMAN][0].weapon == 1 && level.upgrades[MT_KNIGHT][0].weapon == 1 &&
           level.upgrades[MT_PALADIN][0].weapon == 1);
@@ -240,15 +247,18 @@ static int test_hall_upgrades(void) {
     CHECK(order(hall, 3) && stock[0] == 2000);
     CHECK(!G_PlayerBuildProduct(hall, product(W2_UI_KEEP)) && stock[0] == 2000);
     produce(50, idle, hall);
+    CHECK(hall->production); /* Paid training waits for food at release. */
+    spawn(MT_FARM, 26, 20, 0);
+    produce(1, idle, hall);
     CHECK(!hall->production && stock[0] == 2000);
     hall->hp = 600;
     CHECK(order(hall, W2_UI_KEEP) && stock[0] == 0 && stock[1] == 0 && stock[2] == 0);
-    CHECK(hall->production->product_class == RTS_PRODUCT_BUILDING && hall->production->time_ms == 200000);
+    CHECK(hall->production->product_class == RTS_PRODUCT_BUILDING && hall->production->time_ms == 40000);
     stock[0] = 400;
     CHECK(!G_PlayerBuildProduct(hall, product(3)) && stock[0] == 400);
-    produce(150, idle, hall);
+    produce(30, idle, hall);
     CHECK(hall->type_id == MT_TOWN_HALL && hall->production);
-    produce(60, idle, hall);
+    produce(12, idle, hall);
     CHECK(P_MobjById(hall_id) == hall && !hall->production);
     CHECK(hall->type_id == MT_KEEP && hall->info == &actor_types[MT_KEEP - 1]);
     CHECK(hall->max_hp == 1400 && hall->hp == 700);

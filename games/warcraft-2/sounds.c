@@ -4,6 +4,16 @@
  * See docs/WAR2_EXE_FINDINGS.md for evidence and remaining unknowns. */
 #include "w2_local.h"
 
+/* SFXDAT entries in wartool.h; spell names are assigned in sound.lua. */
+const int w2_spell_sounds[W2_SPELL_COUNT] = {
+    [W2_SPELL_VISION] = 105, [W2_SPELL_HEAL] = 104, [W2_SPELL_EXORCISM] = 101,
+    [W2_SPELL_EYE] = 108, [W2_SPELL_BLOODLUST] = 98, [W2_SPELL_RUNES] = 112,
+    [W2_SPELL_FIREBALL] = 65, [W2_SPELL_SLOW] = 110, [W2_SPELL_FLAME_SHIELD] = 102,
+    [W2_SPELL_INVISIBILITY] = 107, [W2_SPELL_POLYMORPH] = 109, [W2_SPELL_BLIZZARD] = 106,
+    [W2_SPELL_DEATH_COIL] = 100, [W2_SPELL_HASTE] = 103, [W2_SPELL_WHIRLWIND] = 114,
+    [W2_SPELL_UNHOLY_ARMOR] = 113, [W2_SPELL_DECAY] = 99, [W2_SPELL_DEMOLISH] = 31,
+};
+
 enum {
     S_CLICK = 1, S_NATIVE_END = 293,
     S_HUMAN_SELECT = S_NATIVE_END, S_ORC_SELECT, S_HUMAN_ACK, S_ORC_ACK,
@@ -172,6 +182,8 @@ static bool load_sample(const w2_archive_t *archive, int entry, int id, const ch
 
 static bool w2_sound_init(const char *root) {
     bool used[S_NATIVE_END] = {[S_CLICK] = true, [40] = true, [41] = true, [42] = true};
+    for (int i = 1; i < W2_SPELL_COUNT; ++i) if (w2_spell_sounds[i]) used[w2_spell_sounds[i]] = true;
+    used[64] = used[67] = true; /* Fireball and arrow impacts. */
     for (int type = 1; type < NUMMOBJTYPES; ++type) {
         const unitsounds_t *s = &unitsounds[type];
         const int ids[] = {s->select, s->ack, s->attack, s->death, s->ready};

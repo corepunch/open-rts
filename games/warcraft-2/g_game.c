@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-static mobjtype_t actor_storage[W2_TYPE_COUNT];
+static mobjtype_t actor_storage[NUMMOBJTYPES - 1];
 
 const char *const g_game_id = "warcraft-2";
 const char *const g_game_name = "Warcraft II";
@@ -19,7 +19,7 @@ const int g_cell_h = TILE_H;
 const uint16_t g_debug_enemy_type = 2;
 const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types = actor_storage;
-const int num_actor_types = W2_TYPE_COUNT;
+const int num_actor_types = NUMMOBJTYPES - 1;
 
 static void fill_actors(void) {
     for (int pud = 0; pud < W2_TYPE_COUNT; ++pud) {
@@ -59,10 +59,13 @@ static void fill_actors(void) {
             .attack = { .range = src->w2.attack_range, .damage = src->damage },
             .move_class = move,
             .footprint = src->w2.footprint,
+            .damage_action = W2_Burning,
         };
         for (int resource = 0; resource < 3; ++resource)
             dst->harvest.resources[resource].capacity = src->w2.gather[resource].capacity;
     }
+    actor_storage[MT_W2_EFFECT - 1] = (mobjtype_t){.id = MT_W2_EFFECT,
+        .name = "warcraft-effect", .max_hp = 1, .traits = MF_RENDERABLE | MF_NOBLOCKMAP};
 }
 
 void G_InitGame(void) {

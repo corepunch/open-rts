@@ -438,6 +438,9 @@ typedef struct level_s {
     /* Research tiers by actor type and owner: Dark Colony's DEPEND rows,
      * Warcraft's weapon and shield lines. Part of the lockstep checksum. */
     struct { uint8_t weapon, armor; } upgrades[RTS_MAX_UPGRADE_TYPES][8];
+#ifdef RTS_GAME_WARCRAFT_2
+    uint64_t w2_research[8];
+#endif
 #ifdef RTS_GAME_DARK_COLONY
     uint8_t alliance_offers[2][8];
     uint32_t peace[8];
@@ -860,7 +863,10 @@ typedef enum {
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
     TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT, TC_RETURN_GOODS,
     TC_CONSTRUCT, /* units[0] builds `product` at position; product 0 cancels the site in units. */
-    TC_MAX = TC_CONSTRUCT
+    TC_REPAIR, TC_STAND_GROUND, TC_SPELL,
+    TC_BOARD, TC_UNLOAD,
+    TC_CANCEL_PRODUCTION,
+    TC_MAX = TC_CANCEL_PRODUCTION
 } ticorder_t;
 
 typedef struct {
@@ -1359,6 +1365,7 @@ bool P_TickMobjState(mobj_t *unit);
 bool P_Attack(mobj_t *attacker);
 /* Whether target lies within attacker's weapon range (see mobjtype_t.footprint). */
 bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target);
+irect_t P_MobjCells(const mobj_t *unit);
 void P_DamageMobj(mobj_t *target, mobj_t *source, int damage);
 angle_t P_PointToAngle(float dx, float dy);
 void P_AngleToVec(angle_t angle, float *dx, float *dy);

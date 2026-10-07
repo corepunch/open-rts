@@ -300,6 +300,7 @@ void w2_free_hud_art(w2_hud_art_t *art) {
     R_FreeSprite(&art->filler);
     R_FreeSprite(&art->icons);
     R_FreeSprite(&art->resource_icons);
+    R_FreeSprite(&art->spell_icons);
     HU_FreeFont(&art->font);
     HU_FreeFont(&art->small_font);
     memset(art, 0, sizeof(*art));
@@ -400,6 +401,7 @@ bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art) {
         w2_blob_free(&icons);
         font = load_font(&arc, 282, &art->font) && load_font(&arc, 283, &art->small_font);
         plates = load_gfu_entry(&arc, 187, palette, &art->resource_icons) && plates;
+        plates = load_gfu_entry(&arc, 323, palette, &art->spell_icons) && plates;
     }
     w2_archive_close(&arc);
     bool widgets = false;

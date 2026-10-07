@@ -19,7 +19,8 @@ enum {
 
 enum {
     CK_NONE, CK_MOVE, CK_STOP, CK_ATTACK, CK_PATROL, CK_STAND,
-    CK_REPAIR, CK_HARVEST, CK_RETURN, CK_PAGE, CK_CANCEL, CK_TRAIN, CK_PLACE, CK_CANCEL_BUILD
+    CK_REPAIR, CK_HARVEST, CK_RETURN, CK_PAGE, CK_CANCEL, CK_TRAIN, CK_PLACE, CK_CANCEL_BUILD, CK_SPELL,
+    CK_BOARD, CK_UNLOAD, CK_CANCEL_PRODUCTION
 };
 
 typedef struct {
@@ -99,6 +100,24 @@ void w2_draw_selection(const unitoverlaycontext_t *ctx) {
     V_DrawRectOutline((irect_t){(int)lroundf(screen.x), (int)lroundf(screen.y),
                                footprint.w * ctx->app->cell.w, footprint.h * ctx->app->cell.h},
                       V_NearestIndex(0xff00fc00u));
+}
+
+void w2_draw_buffs(const unitoverlaycontext_t *ctx) {
+    const mobj_t *unit = ctx->unit;
+    if (unit->hp <= 0 || unit->type_id > W2_TYPE_COUNT || !art.spell_icons.numlumps) return;
+    isize2_t foot = mobjinfo[unit->type_id].w2.footprint;
+    fvec2_t corner = fvec2_sub(fixed3_xy_to_fvec2(unit->core.position),
+                              (fvec2_t){foot.w * 0.5f, foot.h * 0.5f});
+    fvec2_t screen;
+    R_MapToScreen(ctx->app, &level, corner.x, corner.y, &screen.x, &screen.y);
+    /* Wargus ui.lua sprite-spell offsets, scaled with the world tile. */
+    static const int columns[W2_BUFF_COUNT] = {0, 1, 1, 2, 3};
+    for (int i = 0; i < W2_BUFF_COUNT; ++i) if (unit->w2.buffs[i]) {
+        irect_t rect = {(int)screen.x + (columns[i] * 16 + 1) * ctx->app->cell.w / TILE_W,
+            (int)screen.y + ctx->app->cell.h / TILE_H,
+            16 * ctx->app->cell.w / TILE_W, 16 * ctx->app->cell.h / TILE_H};
+        R_DrawSprite(&art.spell_icons, i, -1, NULL, &rect, 0, 16);
+    }
 }
 
 static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -279,71 +298,39 @@ static void fill_page(const bld_t *page_in, bool orc) {
 static void put_product(int slot, int ui, SDL_Keycode key, const char *tip) {
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
     if (!product) return;
+    static char labels[9][80];
+    if (!strncmp(product->label, "upgrade-", 8)) pretty_name(product->label, labels[slot], sizeof(labels[slot]));
+    else snprintf(labels[slot], sizeof(labels[slot]), "%s", product->label);
     put_cmd(slot, CK_TRAIN, product->icon_frame, ui, product->cost,
-            W2_ProductLumber(product), W2_ProductOil(product), key, tip ? tip : product->label);
-}
-
-/* The next tier of a research line, while one is open to the player. */
-static void put_research(int slot, int first_ui, SDL_Keycode key) {
-    for (int ui = first_ui; ui <= first_ui + 1; ++ui) {
-        const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
-        if (!product || !G_ModelProductAvailable(NULL, consoleplayer, product)) continue;
-        put_product(slot, ui, key, NULL);
-        return;
-    }
+            W2_ProductLumber(product), W2_ProductOil(product), key, tip ? tip : labels[slot]);
 }
 
 static void fill_train(const mobj_t *unit) {
-    int type = unit->type_id;
-    /* A site offers only to stop: the price comes back and the builder steps out. */
     if (W2_UnderConstruction(unit)) {
         put_cmd(8, CK_CANCEL_BUILD, 91, 0, 0, 0, 0, SDLK_ESCAPE, "Cancel construction");
         return;
     }
-    /* Wargus check-no-research: a busy building offers no more research. */
-    bool busy = unit->production && unit->production->queue_count > 0;
-    if (type == 75 || type == 89 || type == 91 || type == 76 || type == 90 || type == 92) {
-        bool orc = type == 76 || type == 90 || type == 92;
-        int pud = orc ? 3 : 2;
-        const int *cost = mobjinfo[pud + 1].w2.costs.resources;
-        put_cmd(0, CK_TRAIN, icon_of(pud), orc ? 4 : 3, cost[0], cost[1], cost[2], SDLK_p,
-                orc ? "Train peon" : "Train peasant");
-        static const struct { int type, ui; } halls[] = {
-            { MT_TOWN_HALL, W2_UI_KEEP }, { MT_KEEP, W2_UI_CASTLE },
-            { MT_GREAT_HALL, W2_UI_STRONGHOLD }, { MT_STRONGHOLD, W2_UI_FORTRESS },
-        };
-        for (int i = 0; i < 4 && !busy; ++i) {
-            const StaticProductDefinition *product = G_ModelProductByUIId(NULL, halls[i].ui);
-            if (halls[i].type == type && product && G_ModelProductAvailable(NULL, consoleplayer, product))
-                put_product(1, halls[i].ui, SDLK_u, NULL);
+    StaticProductDefinition products[256];
+    int count = G_ModelGetProducts(NULL, unit->owner, products, 256), slot = 0;
+    bool busy = unit->production && unit->production->queue_count;
+    for (int i = 0; i < count && slot < 9; ++i) {
+        const StaticProductDefinition *p = &products[i];
+        bool maker = false;
+        for (int j = 0; j < p->maker_count; ++j) maker |= p->makers[j] == unit->type_id;
+        if (!maker || (busy && p->product_class != RTS_PRODUCT_UNIT) ||
+            !G_ModelProductAvailable(NULL, unit->owner, p)) continue;
+        SDL_Keycode key = SDLK_1 + slot;
+        if (p->ui_id == 3 || p->ui_id == 4) key = SDLK_p;
+        if (p->ui_id >= W2_UI_KEEP && p->ui_id <= W2_UI_FORTRESS) key = SDLK_u;
+        if (p->product_class == RTS_PRODUCT_UPGRADE && p->product_type < W2_UPGRADE_BALLISTA1) {
+            const w2_upgrade_t *u = W2_Upgrade(p->product_type);
+            key = u->armor ? SDLK_a : u->maker == MT_ELVEN_LUMBER_MILL || u->maker == MT_TROLL_LUMBER_MILL ? SDLK_u : SDLK_w;
         }
-        return;
+        put_product(slot, p->ui_id, key, NULL);
+        if (p->product_class == RTS_PRODUCT_UNIT) shown[slot].icon = icon_of(p->product_type - 1);
+        ++slot;
     }
-    if (type == MT_HUMAN_BLACKSMITH || type == MT_ORC_BLACKSMITH) {
-        bool orc = type == MT_ORC_BLACKSMITH;
-        if (busy) return;
-        put_research(0, orc ? W2_UI_AXE1 : W2_UI_SWORD1, SDLK_w);
-        put_research(1, orc ? W2_UI_ORC_SHIELD1 : W2_UI_HUMAN_SHIELD1, SDLK_a);
-        return;
-    }
-    if (type == MT_ELVEN_LUMBER_MILL || type == MT_TROLL_LUMBER_MILL) {
-        if (!busy) put_research(0, type == MT_TROLL_LUMBER_MILL ? W2_UI_THROWING_AXE1 : W2_UI_ARROW1, SDLK_u);
-        return;
-    }
-    if (type != 61 && type != 62) return;
-    bool orc = type == 62;
-    static const int human_pud[] = { 0, 8, 4, 6 };
-    static const int human_ui[] = { 1, 5, 7, 9 };
-    static const SDL_Keycode keys[] = { SDLK_f, SDLK_a, SDLK_b, SDLK_k };
-    static const char *human_tip[] = { "Train footman", "Train archer", "Train ballista", "Train knight" };
-    static const char *orc_tip[] = { "Train grunt", "Train axethrower", "Train catapult", "Train ogre" };
-    for (int i = 0; i < 4; ++i) {
-        int pud = human_pud[i] + (orc ? 1 : 0);
-        int ui = human_ui[i] + (orc ? 1 : 0);
-        const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
-        put_cmd(i, CK_TRAIN, icon_of(pud), ui, product ? product->cost : 0, W2_ProductLumber(product), 0,
-                keys[i], orc ? orc_tip[i] : human_tip[i]);
-    }
+    if (busy) put_cmd(8, CK_CANCEL_PRODUCTION, 91, 0, 0, 0, 0, SDLK_ESCAPE, "Cancel current production");
 }
 
 static void fill_mobile(const mobj_t *unit, bool orc) {
@@ -352,6 +339,15 @@ static void fill_mobile(const mobj_t *unit, bool orc) {
     put_cmd(1, CK_STOP, orc ? 167 : 164, 0, 0, 0, 0, SDLK_s, "Stop");
     put_cmd(2, CK_ATTACK, orc ? 119 : 116, 0, 0, 0, 0, SDLK_a, "Attack");
     if (harvest) {
+        if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA) {
+            put_cmd(4, CK_HARVEST, 86, 0, 0, 0, 0, SDLK_h, "Harvest oil");
+            if (unit->harvest.cargo)
+                put_cmd(5, CK_RETURN, orc ? 90 : 89, 0, 0, 0, 0, SDLK_g, "Return oil");
+            int type = orc ? MT_ORC_OIL_PLATFORM : MT_HUMAN_OIL_PLATFORM;
+            const int *cost = mobjinfo[type].w2.costs.resources;
+            put_cmd(6, CK_PLACE, orc ? 55 : 54, type - 1, cost[0], cost[1], cost[2], SDLK_b, "Build oil platform");
+            return;
+        }
         put_cmd(3, CK_REPAIR, 85, 0, 0, 0, 0, SDLK_r, "Repair");
         put_cmd(4, CK_HARVEST, 86, 0, 0, 0, 0, SDLK_h, "Harvest");
         if (unit->harvest.cargo)
@@ -359,10 +355,19 @@ static void fill_mobile(const mobj_t *unit, bool orc) {
         put_cmd(6, CK_PAGE, 87, 1, 0, 0, 0, SDLK_b, "Build basic structure");
         if (advanced_ok())
             put_cmd(7, CK_PAGE, 88, 2, 0, 0, 0, SDLK_v, "Build advanced structure");
+        put_cmd(8, CK_BOARD, orc ? 21 : 20, 0, 0, 0, 0, SDLK_o, "Board transport");
         return;
     }
     put_cmd(3, CK_PATROL, orc ? 179 : 178, 0, 0, 0, 0, SDLK_p, "Patrol");
     put_cmd(4, CK_STAND, orc ? 181 : 180, 0, 0, 0, 0, SDLK_t, "Stand ground");
+    if (mobjinfo[unit->type_id].w2.transport_capacity)
+        put_cmd(6, CK_UNLOAD, orc ? 163 : 162, 0, 0, 0, 0, SDLK_u, "Unload");
+    else if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_LAND)
+        put_cmd(6, CK_BOARD, orc ? 21 : 20, 0, 0, 0, 0, SDLK_b, "Board transport");
+    for (int spell = 1; spell < W2_SPELL_COUNT; ++spell) if (W2_CanCast(unit, spell)) {
+        put_cmd(5, CK_PAGE, w2_spells[spell].icon, 3, 0, 0, 0, SDLK_c, "Spells");
+        break;
+    }
 }
 
 static void apply_commands(void) {
@@ -415,7 +420,16 @@ static void refresh(menu_t *menu) {
     }
     if (page == 2 && !advanced_ok()) page = 0;
     memset(shown, 0, sizeof(shown));
-    if (own && page == 1) fill_page(basic_page, orc_side());
+    if (own && page == 3) {
+        int slot = 0;
+        for (int spell = 1; spell < W2_SPELL_COUNT && slot < 8; ++spell) if (W2_CanCast(own, spell)) {
+            const w2_spell_t *def = &w2_spells[spell];
+            put_cmd(slot, CK_SPELL, def->icon, spell, 0, 0, 0, SDLK_1 + slot, def->label);
+            ++slot;
+        }
+        put_cmd(8, CK_CANCEL, 91, 0, 0, 0, 0, SDLK_ESCAPE, "Cancel");
+    }
+    else if (own && page == 1) fill_page(basic_page, orc_side());
     else if (own && page == 2) fill_page(advanced_page, orc_side());
     else if (own && !(own->traits & MF_MOBILE)) fill_train(own);
     else if (own) fill_mobile(own, orc_side());
@@ -460,6 +474,23 @@ static fvec2_t cursor_goal(const menu_t *menu) {
 
 static void order_at(const menu_t *menu, int kind) {
     fvec2_t goal = cursor_goal(menu);
+    if (kind == CK_REPAIR || kind == CK_BOARD) {
+        int hit = R_PickUnit(menu->app, &level, hudview.units, hudview.unit_count, NULL,
+                             hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
+        if (hit >= 0) G_SelectedTiccmd(kind == CK_REPAIR ? TC_REPAIR : TC_BOARD, hudview.units, hudview.unit_count, goal,
+                                      hudview.units[hit]->id);
+        return;
+    }
+    if (kind == CK_PATROL) {
+        mobj_t *own = NULL;
+        living_selected(&own);
+        if (own) {
+            waypoints_t route = {.count = 2, .mode = WP_LOOP,
+                .points = {fvec2_cell(fixed3_xy_to_fvec2(own->core.position)), fvec2_cell(goal)}};
+            G_PathOrder(hudview.units, hudview.unit_count, &route);
+        }
+        return;
+    }
     if (kind == CK_ATTACK) {
         int hit = R_PickUnit(menu->app, &level, hudview.units, hudview.unit_count, NULL,
                              hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
@@ -471,7 +502,7 @@ static void order_at(const menu_t *menu, int kind) {
         G_SelectedTiccmd(TC_MOVE, hudview.units, hudview.unit_count, goal, 0);
         return;
     }
-    G_SelectedTiccmd(kind == CK_HARVEST ? TC_HARVEST : TC_MOVE,
+    G_SelectedTiccmd(kind == CK_HARVEST ? TC_HARVEST : kind == CK_UNLOAD ? TC_UNLOAD : TC_MOVE,
                      hudview.units, hudview.unit_count, goal, 0);
 }
 
@@ -544,14 +575,32 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (slot < 0 || slot >= 9) return;
     const cmd_t *cmd = &shown[slot];
     if (action == MA_TARGET) {
-        if (cmd->kind == CK_PLACE) place_building(menu, item, cmd);
-        else if (cmd->kind == CK_MOVE || cmd->kind == CK_ATTACK || cmd->kind == CK_HARVEST)
+        if (cmd->kind == CK_SPELL) {
+            int hit = R_PickUnit(menu->app, &level, hudview.units, hudview.unit_count, NULL,
+                                 hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
+            ticcmd_t order = {.order = TC_SPELL, .product = cmd->arg,
+                .position = fixed3_from_fvec2(cursor_goal(menu), 0),
+                .target = hit >= 0 ? hudview.units[hit]->id : 0};
+            for (int i = 0; i < hudview.unit_count && order.count < MAXCOMMANDUNITS; ++i) {
+                mobj_t *unit = hudview.units[i];
+                if (P_MobjIsSelected(unit) && unit->owner == consoleplayer && W2_CanCast(unit, cmd->arg))
+                    order.units[order.count++] = unit->id;
+            }
+            G_QueueTiccmd(&order);
+        }
+        else if (cmd->kind == CK_PLACE) place_building(menu, item, cmd);
+        else if (cmd->kind == CK_MOVE || cmd->kind == CK_ATTACK || cmd->kind == CK_HARVEST ||
+                 cmd->kind == CK_REPAIR || cmd->kind == CK_PATROL || cmd->kind == CK_BOARD || cmd->kind == CK_UNLOAD)
             order_at(menu, cmd->kind);
         return;
     }
     if (action != MA_ACTIVATE || !cmd->kind) return;
     switch (cmd->kind) {
-    case CK_MOVE: case CK_ATTACK: case CK_HARVEST: case CK_PLACE:
+    case CK_CANCEL_PRODUCTION:
+        G_SelectedTiccmd(TC_CANCEL_PRODUCTION, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        break;
+    case CK_MOVE: case CK_ATTACK: case CK_HARVEST: case CK_PLACE: case CK_REPAIR: case CK_PATROL: case CK_SPELL:
+    case CK_BOARD: case CK_UNLOAD:
         M_MenuTarget(menu, item);
         break;
     case CK_STOP:
@@ -581,9 +630,9 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         train_product(own, cmd);
         break;
     }
-    case CK_PATROL: set_note("Patrol is not available."); break;
-    case CK_STAND: set_note("Stand ground is not available."); break;
-    case CK_REPAIR: set_note("Repair is not available."); break;
+    case CK_STAND:
+        G_SelectedTiccmd(TC_STAND_GROUND, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        break;
     default: break;
     }
 }
@@ -596,7 +645,7 @@ static void food_counts(int *used, int *have) {
         if (!unit || unit->remove || unit->hp <= 0 || unit->owner != consoleplayer) continue;
         pud = (int)unit->type_id - 1;
         if (pud < 0 || pud >= W2_TYPE_COUNT) continue;
-        *have += mobjinfo[unit->type_id].w2.food.supply;
+        if (!W2_UnderConstruction(unit)) *have += mobjinfo[unit->type_id].w2.food.supply;
         *used += mobjinfo[unit->type_id].w2.food.demand;
     }
 }
@@ -684,7 +733,8 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     if (portrait->owner >= 8) {
         for (int i = 0; i < level.resource_vent_count; ++i) {
             if (level.resource_vents[i].source_id != portrait->id) continue;
-            snprintf(hp, sizeof(hp), "Gold: %d", level.resource_vents[i].amount);
+            snprintf(hp, sizeof(hp), "%s: %d", level.resource_vents[i].resource_type == 2 ? "Oil" : "Gold",
+                     level.resource_vents[i].amount);
             draw_ink(rect.x + 88 - V_TextWidth(&art.font, hp) / 2, rect.y + 86, hp);
         }
         return;
@@ -711,18 +761,20 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     } else if (type->w2.flags & W2_MOBILE) {
         snprintf(hp, sizeof(hp), "Level %d", type->w2.level);
         draw_ink(rect.x + 154 - V_TextWidth(&art.font, "Level "), rect.y + 41, hp);
-        snprintf(hp, sizeof(hp), "%d", type->w2.armor);
+        snprintf(hp, sizeof(hp), "%d", W2_Armor(portrait));
         draw_stat((ivec2_t){rect.x + 100, rect.y + 71}, "Armor", hp);
         if (type->damage) {
-            snprintf(hp, sizeof(hp), "%d-%d", type->w2.damage_min, type->damage);
+            int bonus = W2_PiercingDamage(portrait) - type->w2.piercing_damage;
+            if (bonus) snprintf(hp, sizeof(hp), "%d-%d +%d", type->w2.damage_min, type->damage, bonus);
+            else snprintf(hp, sizeof(hp), "%d-%d", type->w2.damage_min, type->damage);
             draw_stat((ivec2_t){rect.x + 100, rect.y + 86}, "Damage", hp);
         }
-        snprintf(hp, sizeof(hp), "%d", type->w2.attack_range);
+        snprintf(hp, sizeof(hp), "%d", (int)W2_AttackRange(portrait));
         draw_stat((ivec2_t){rect.x + 100, rect.y + 102}, "Range", hp);
-        snprintf(hp, sizeof(hp), "%d", type->w2.sight);
+        snprintf(hp, sizeof(hp), "%d", W2_SightRange(portrait));
         draw_stat((ivec2_t){rect.x + 100, rect.y + 118}, "Sight", hp);
-        snprintf(hp, sizeof(hp), "%d", type->w2.speed);
-        draw_stat((ivec2_t){rect.x + 100, rect.y + 133}, "Speed", hp);
+        snprintf(hp, sizeof(hp), "%d", type->w2.mana.max ? portrait->w2.mana : type->w2.speed);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 133}, type->w2.mana.max ? "Mana" : "Speed", hp);
     } else if (type->w2.flags & W2_HALL) {
         draw_ink(rect.x + 16, rect.y + 71, "Production");
         int gold = W2_ResourceIncome(portrait->owner, 0) - 100;

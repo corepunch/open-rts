@@ -220,6 +220,8 @@ static int test_income_and_training(void) {
     P_RemoveMobj(keep);
     P_RemoveMobj(mill);
     CHECK(W2_ResourceIncome(0, 0) == 100 && W2_ResourceIncome(0, 1) == 100);
+    mill = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20, 10}, 0), MT_ELVEN_LUMBER_MILL);
+    mill->owner = 0;
     mobj_t *barracks = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20, 5}, 0), 61);
     barracks->owner = 0;
     const StaticProductDefinition *archer = G_ModelProductByUIId(NULL, 5);

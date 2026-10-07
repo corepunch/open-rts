@@ -158,7 +158,8 @@ static int test_research_buttons(menu_t *menu, mobjlist_t *units, mobj_t *worker
     P_MobjSetSelected(smith, true);
     M_MenuDrawer(menu);
     const menuitem_t *weapon = command_slot(menu, 0), *shield = command_slot(menu, 1), *third = command_slot(menu, 2);
-    CHECK(weapon && shield && third && weapon->visible && shield->visible && !third->visible);
+    CHECK(weapon && shield && third && weapon->visible && shield->visible && third->visible);
+    CHECK(third->look[MS_NORMAL].cell == (orc ? 138 : 140));
     CHECK(weapon->look[MS_NORMAL].cell == (orc ? 120 : 117) && shield->look[MS_NORMAL].cell == (orc ? 168 : 165));
     CHECK(weapon->tooltip && !strcmp(weapon->tooltip, orc ? "Upgrade battle axe" : "Upgrade sword"));
     CHECK(shield->tooltip && !strcmp(shield->tooltip, "Upgrade shield"));
@@ -349,7 +350,8 @@ static int test_hud(const char *capture, bool orc) {
             CHECK(screens[0].pixels[y * 640 + x] == native.buttons.lumps[0].indices[(y - 336) * 176 + x]);
             ++compared;
         }
-    CHECK(compared > 10000);
+    CHECK(compared > 176 * 144 / 4);
+    CHECK(command_slot(menu, 8)->visible && !strcmp(command_slot(menu, 8)->tooltip, "Board transport"));
     for (int frame = 0; frame < 3; ++frame) {
         const spritecell_t *cell = &native.resource_icons.cells[frame];
         for (int y = 0; y < cell->rect.h; ++y)
@@ -362,6 +364,9 @@ static int test_hud(const char *capture, bool orc) {
     CHECK(native.font.sprite.source_palette[2] == tiles.palette[246]);
     CHECK(native.font.sprite.source_palette[13] == tiles.palette[192]);
     CHECK(native.info.numlumps == 4 && native.menu_widgets.numlumps == 50);
+    CHECK(native.spell_icons.numlumps == W2_BUFF_COUNT);
+    for (int i = 0; i < W2_BUFF_COUNT; ++i)
+        CHECK(native.spell_icons.cells[i].rect.w == 16 && native.spell_icons.cells[i].rect.h == 16);
     CHECK(memcmp(native.info.lumps[1].indices, native.info.lumps[2].indices, 176 * 176) == 0);
     CHECK(memcmp(native.info.lumps[0].indices, native.info.lumps[1].indices, 176 * 176) != 0);
     CHECK(memcmp(native.info.lumps[1].indices, native.info.lumps[3].indices, 176 * 176) != 0);

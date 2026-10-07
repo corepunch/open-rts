@@ -509,12 +509,12 @@ int main(void) {
             }
             mobj_t *barracks = P_SpawnMobj(fixed3_zero(), orc ? MT_ORC_BARRACKS : MT_HUMAN_BARRACKS);
             CHECK(barracks); barracks->owner = consoleplayer;
-            barracks->w2.build_left_ms = 1;
+            barracks->w2.build_left_tics = 1;
             P_FreeMobjList(&all);
             all = P_ListMobjs();
             for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
             CHECK(!menuactive); /* unfinished buildings cannot complete the objective */
-            barracks->w2.build_left_ms = 0;
+            barracks->w2.build_left_tics = 0;
         }
         for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
         CHECK(menuactive);

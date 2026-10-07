@@ -2,10 +2,15 @@
 #define __W2_LOCAL__
 
 #include "engine.h"
+#include "warcraft-2.h"
 #include "info.h"
 
 #include <stddef.h>
 #include <stdint.h>
+
+/* Stratagus advances a time-cost unit every six 30 Hz cycles. */
+static inline int w2_cost_ms(int cost) { return cost * 6 * 1000 / RTS_TICRATE; }
+void w2_advance_build(mobj_t *site, int ticks);
 
 #define W2_TILE_LOOKUP 0x9E0
 /* Native special megatiles have no PUD slots. Append runtime slots. */
@@ -51,6 +56,16 @@ void w2_build_info(void);
 extern const soundinfo_t w2_soundinfo;
 void A_W2_Chop(mobj_t *actor);
 void w2_init_products(void);
+typedef struct {
+    const char *name;
+    int frames, sleep, speed, range, splash, impact, bounces;
+    bool directional;
+} w2_effect_t;
+extern const w2_effect_t w2_effects[W2_FX_COUNT];
+void A_W2_Effect(mobj_t *effect);
+mobj_t *w2_spawn_effect(mobj_t *source, int kind, fixed3_t position);
+bool w2_fire_projectile(mobj_t *source, mobj_t *target);
+extern const int w2_spell_sounds[W2_SPELL_COUNT];
 void w2_build_states(int pud, int phases);
 int w2_pud_named(const char *name);
 
@@ -161,7 +176,7 @@ typedef struct {
 
 typedef struct {
     spritesheet_t menu_button, minimap, info, buttons, resource, status, filler, icons, resource_icons;
-    spritesheet_t menu_widgets;
+    spritesheet_t menu_widgets, spell_icons;
     bitmapfont_t font, small_font;
     bool orc;
     bool ready;
@@ -181,5 +196,6 @@ void w2_free_menu_art(w2_menu_art_t *art);
 bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art);
 void w2_free_hud_art(w2_hud_art_t *art);
 void w2_draw_selection(const unitoverlaycontext_t *ctx);
+void w2_draw_buffs(const unitoverlaycontext_t *ctx);
 
 #endif

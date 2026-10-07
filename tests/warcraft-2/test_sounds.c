@@ -47,7 +47,7 @@ static int test_samples(void) {
         loaded++;
     }
     printf("Warcraft II: %d native WAV samples and %d sound groups verified\n", loaded, groups);
-    REQUIRE(loaded == 185 && groups == 35, "load each referenced native sample once");
+    REQUIRE(loaded == 202 && groups == 35, "load each referenced native sample once, including spells and impacts");
     return 0;
 }
 

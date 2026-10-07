@@ -460,10 +460,11 @@ int w2_spawn_units(void) {
         unit->allegiance = allegiance_for(pud, rec->player);
         unit->core.angle = ANG270;
         if (info->w2.flags & W2_STRUCTURE) w2_mark_footprint(rec->x, rec->y, foot);
-        if (rec->type == 92 && L_Contains(&level, rec->x + foot.w - 1, rec->y + foot.h - 1))
+        if ((rec->type == 92 || rec->type == 93 || rec->type == 86 || rec->type == 87) &&
+            L_Contains(&level, rec->x + foot.w - 1, rec->y + foot.h - 1))
             level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
                 .cell = {rec->x, rec->y}, .attachment = at, .footprint = foot,
-                .amount = rec->data * 2500, .rate = 100, .resource_type = 0,
+                .amount = rec->data * 2500, .rate = 100, .resource_type = rec->type == 92 ? 0 : 2,
                 .active = rec->data > 0, .source_id = unit->id,
             };
         spawned++;
@@ -615,17 +616,20 @@ bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256]
     static const int rubble[4] = { 121, 163, 191, 191 }, small[4] = { 189, 190, 188, 188 };
     if (era < 0 || era > 3) era = 0;
     const int entries[] = { 124, 122, 125, 123, 252, rubble[era], small[era] };
-    for (int i = 0; i < 7; ++i) {
-        if (R_CacheFind(cache, names[i])) continue;
+    for (int i = 0; i < 7 + W2_FX_COUNT; ++i) {
+        const char *name = i < 7 ? names[i] : w2_effects[i - 7].name;
+        int entry = i < 7 ? entries[i] : 324 + i - 7;
+        bool directional = i < 7 ? i < 4 : w2_effects[i - 7].directional;
+        if (R_CacheFind(cache, name)) continue;
         if (cache->count >= MAX_DECORATION_SPRITES) return false;
         cachedsprite_t *slot = &cache->entries[cache->count];
         w2_blob_t blob = {0};
-        bool ok = w2_archive_extract(arc, entries[i], &blob) &&
-                  w2_decode_grp(&blob, palette, &slot->sprite, i < 4, NULL);
+        bool ok = w2_archive_extract(arc, entry, &blob) &&
+                  w2_decode_grp(&blob, palette, &slot->sprite, directional, NULL);
         w2_blob_free(&blob);
         if (!ok) { R_FreeSprite(&slot->sprite); return false; }
         w2_install_team_colors(&slot->sprite, palette);
-        snprintf(slot->name, sizeof(slot->name), "%s", names[i]);
+        snprintf(slot->name, sizeof(slot->name), "%s", name);
         ++cache->count;
     }
     return true;

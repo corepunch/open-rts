@@ -27,6 +27,13 @@ int main(void) {
     fixed3_t at = first->core.position;
     first->hp = 17;
     first->target = other;
+    first->w2.mana = 123;
+    first->w2.buffs[W2_BUFF_HASTE] = 456;
+    first->w2.cast.spell = W2_SPELL_HASTE;
+    first->w2.cast.target = other->id;
+    first->w2.repair.target = other->id;
+    first->w2.carrier = other->id;
+    level.w2_research[consoleplayer] = UINT64_C(1) << W2_UPGRADE_DEATH_AND_DECAY;
     level.player_resources[consoleplayer][0] = 1234;
     leveltime = 321;
     W2_SeedCombat(777);
@@ -34,6 +41,13 @@ int main(void) {
     uint32_t dice = W2_CombatState();
     int count = list.count;
     P_FreeMobjList(&list);
+    mobj_t *shot = w2_spawn_effect(first, W2_FX_ARROW, first->core.position);
+    CHECK(shot);
+    shot->w2.fx.end = other->core.position;
+    shot->w2.fx.subject = other->id;
+    shot->w2.fx.basic = 12;
+    uint32_t shot_id = shot->id;
+    ++count;
 
     app_t app = {.win = {640, 480}, .cam = {12.5f, 30.0f}};
     AiContext ai;
@@ -65,6 +79,12 @@ int main(void) {
     CHECK(level.player_resources[consoleplayer][0] == 1234 && leveltime == 321);
     CHECK(app.cam.x == 12.5f && app.cam.y == 30.0f);
     CHECK(W2_CombatState() == dice);
+    CHECK(first->w2.mana == 123 && first->w2.buffs[W2_BUFF_HASTE] == 456);
+    CHECK(first->w2.cast.spell == W2_SPELL_HASTE && first->w2.cast.target == other_id);
+    CHECK(first->w2.repair.target == other_id && first->w2.carrier == other_id);
+    CHECK(W2_HasResearch(consoleplayer, W2_UPGRADE_DEATH_AND_DECAY));
+    shot = by_id(shot_id);
+    CHECK(shot && shot->target == first && shot->w2.fx.subject == other_id && shot->w2.fx.basic == 12);
 
     /* A damaged file is refused rather than misread. */
     FILE *file = fopen(path, "r+b");

@@ -35,7 +35,7 @@ static int research_bonus(const mobj_t *unit, bool armor) {
     for (int id = 1; id < W2_UPGRADE_COUNT; ++id) {
         const w2_upgrade_t *upgrade = W2_Upgrade(id);
         if (!upgrade || upgrade->armor != armor || upgrade->tier > tier) continue;
-        for (int i = 0; i < 4 && upgrade->units[i]; ++i)
+        for (size_t i = 0; i < sizeof(upgrade->units) / sizeof(*upgrade->units) && upgrade->units[i]; ++i)
             if (upgrade->units[i] == unit->type_id) { bonus += upgrade->bonus; break; }
     }
     return bonus;
@@ -43,7 +43,9 @@ static int research_bonus(const mobj_t *unit, bool armor) {
 
 int W2_PiercingDamage(const mobj_t *unit) {
     if (!unit || unit->type_id == 0 || unit->type_id >= NUMMOBJTYPES) return 0;
-    return mobjinfo[unit->type_id].w2.piercing_damage + research_bonus(unit, false);
+    int bonus = (unit->type_id == MT_ARCHER || unit->type_id == MT_RANGER) &&
+                W2_HasResearch(unit->owner, W2_UPGRADE_MARKSMANSHIP) ? 3 : 0;
+    return mobjinfo[unit->type_id].w2.piercing_damage + research_bonus(unit, false) + bonus;
 }
 
 int W2_Armor(const mobj_t *unit) {
@@ -56,19 +58,30 @@ int W2_Armor(const mobj_t *unit) {
 int W2_AttackDamage(const mobj_t *attacker, const mobj_t *target, uint32_t roll) {
     if (!attacker || !target || attacker->type_id == 0 || attacker->type_id >= NUMMOBJTYPES) return 0;
     int basic = mobjinfo[attacker->type_id].w2.basic_damage;
+    int piercing = W2_PiercingDamage(attacker);
+    if (attacker->w2.buffs[W2_BUFF_BLOODLUST]) { basic *= 2; piercing *= 2; }
     int damage = basic - W2_Armor(target);
     if (damage < 1) damage = 1;
-    damage += W2_PiercingDamage(attacker);
+    damage += piercing;
     damage -= (int)(roll % (uint32_t)((damage + 2) / 2));
     return damage < 1 ? 1 : damage;
 }
 
 /* The blow of the attack row: the target may have moved since the windup. */
 void A_W2_Attack(mobj_t *unit) {
+    if (unit && unit->w2.cast.spell) { A_W2_Cast(unit); return; }
     mobj_t *target = unit ? unit->attack.target : NULL;
     if (!target || target->remove || target->hp <= 0 || unit->hp <= 0 ||
         !P_CanTarget(unit, target) || !P_InAttackRange(unit, target)) return;
+    if (W2_CanCast(unit, W2_SPELL_DEMOLISH)) {
+        unit->w2.cast.spell = W2_SPELL_DEMOLISH;
+        unit->w2.cast.position = unit->core.position;
+        A_W2_Cast(unit);
+        return;
+    }
     S_ActorSound(unit, SE_ATTACK);
+    unit->w2.buffs[W2_BUFF_INVISIBLE] = 0;
+    if (w2_fire_projectile(unit, target)) return;
     P_DamageMobj(target, unit, W2_AttackDamage(unit, target, W2_SyncRand()));
 }
 
@@ -80,6 +93,7 @@ void A_W2_Collapse(mobj_t *unit) {
     fvec2_t centre = fixed3_xy_to_fvec2(unit->core.position);
     w2_clear_footprint((int)floorf(centre.x - foot.w * 0.5f + 0.001f),
                        (int)floorf(centre.y - foot.h * 0.5f + 0.001f), foot);
+    W2_RestoreOilPatch(unit);
 }
 
 /* Saved games keep the combat dice (m_menu.c writes them with the campaign). */

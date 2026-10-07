@@ -237,7 +237,7 @@ static int test_reference(void) {
     char *p = strstr(mapping, "const char *UnitScriptNames[]");
     CHECK(p && (p = strchr(p, '{')));
     int audited = 0;
-    for (int type = 1; type < NUMMOBJTYPES; ++type) {
+    for (int type = 1; type <= W2_TYPE_COUNT; ++type) {
         CHECK((p = strchr(p, '"')));
         char *end = strchr(++p, '"');
         CHECK(end && end - p < 128);
@@ -263,9 +263,9 @@ static int test_reference(void) {
 static int test_roster(void) {
     G_InitGame();
     P_InitThinkers();
-    CHECK(NUMMOBJTYPES == 106 && gameinfo->mobj_type_count == NUMMOBJTYPES);
+    CHECK(W2_TYPE_COUNT == 105 && NUMMOBJTYPES == 107 && gameinfo->mobj_type_count == NUMMOBJTYPES);
     int defined = 0, reserved = 0, spawnable = 0;
-    for (int type = 1; type < NUMMOBJTYPES; ++type) {
+    for (int type = 1; type <= W2_TYPE_COUNT; ++type) {
         const mobjinfo_t *info = &mobjinfo[type];
         CHECK(info->doomednum == type);
         if (!info->name) { CHECK(info->w2.flags == W2_SKIP); ++reserved; continue; }
@@ -290,7 +290,7 @@ static int test_roster(void) {
     CHECK(mobjinfo[MT_MAGE].w2.mana.max == 255 && mobjinfo[MT_MAGE].w2.mana.initial == 85);
     CHECK(mobjinfo[MT_HUMAN_TRANSPORT].w2.transport_capacity == 6);
     const StaticProductDefinition *footman = G_ModelProductByUIId(NULL, 1);
-    CHECK(footman && footman->cost == 600 && G_ModelProductTrainingTimeMs(footman) == 60000);
+    CHECK(footman && footman->cost == 600 && G_ModelProductTrainingTimeMs(footman) == 12000);
     CHECK(mobjinfo[MT_FOOTMAN].w2.basic_damage == 6 && mobjinfo[MT_FOOTMAN].w2.piercing_damage == 3);
     puts("PASS: 105 PUD slots, 100 named definitions, five reserved slots, 96 spawnable types and stat-backed production");
     return 0;

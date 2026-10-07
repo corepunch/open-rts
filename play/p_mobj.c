@@ -39,10 +39,15 @@ mobj_t *P_MobjById(uint32_t id) {
 bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *unit) {
     (void)map;
     if (!vent || !vent->active || vent->amount <= 0) return false;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (!unit || vent->resource_type < 0 || vent->resource_type >= 3 ||
+        !mobjinfo[unit->type_id].w2.gather[vent->resource_type].capacity) return false;
+#endif
     if (!vent->source_id) return true;
     const mobj_t *source = P_MobjById(vent->source_id);
 #ifdef RTS_GAME_WARCRAFT_2
     if (source && source->type_id == MT_GOLD_MINE) return true;
+    if (source && (source->type_id == MT_OIL_PATCH || W2_UnderConstruction(source))) return false;
 #endif
     return source && unit && P_IsAlly(source, unit);
 }
@@ -109,6 +114,9 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
 }
 
 static float mobj_attack_range(const mobj_t *unit) {
+#ifdef RTS_GAME_WARCRAFT_2
+    return W2_AttackRange(unit);
+#endif
 #ifdef RTS_GAME_DARK_COLONY
     if (unit && (unit->type_id == MT_THUNDERBOLT || unit->type_id == MT_ATRIL))
         return unit->info->attack.range + DC_WeaponLevel(unit) * 2;
@@ -319,6 +327,12 @@ bool P_SetMobjStateFrame(mobj_t *unit, int state_id, int frame) {
         unit->core.state_id = state_id;
         unit->core.state_frame = frame;
         unit->core.tics = P_StateTics(state, frame);
+#ifdef RTS_GAME_WARCRAFT_2
+        if (unit->core.tics > 0) {
+            if (unit->w2.buffs[W2_BUFF_SLOW]) unit->core.tics *= 2;
+            if (unit->w2.buffs[W2_BUFF_HASTE] && unit->core.tics > 1) unit->core.tics /= 2;
+        }
+#endif
         apply_state_visuals(game_info, &unit->core, state, false);
         debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
                           unit->type_id, unit->core.state_id, unit->core.sprite_id,
@@ -401,6 +415,9 @@ mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type) {
 #endif
     P_ApplyActorTypeDefaults(mobj, mobj_type(type));
     P_InitMobj(gameinfo, mobj);
+#ifdef RTS_GAME_WARCRAFT_2
+    if (type < NUMMOBJTYPES) mobj->w2.mana = mobjinfo[type].w2.mana.initial;
+#endif
     if (gameinfo && type < gameinfo->mobj_type_count)
         mobj->missile.damage = gameinfo->mobjinfo[type].damage;
     mobj->thinker.function = P_MobjThinker;
@@ -453,6 +470,10 @@ void P_AngleToVec(angle_t angle, float *dx, float *dy) {
 }
 
 static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
+#ifdef RTS_GAME_WARCRAFT_2
+    if (!(mobjinfo[attacker->type_id].w2.target_mask & (1 << mobjinfo[victim->type_id].w2.domain)) ||
+        (mobjinfo[victim->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return false;
+#endif
     if ((attacker->traits & MF_LANDMINE) && (victim->traits & MF_FLY)) return false;
     const mobjtype_t *shot = attacker->info ?
         mobj_type(attacker->info->attack.projectile_type) : NULL;
@@ -478,7 +499,7 @@ bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* The cells an actor stands on: its footprint around its centre, or the
  * one cell under a point actor. */
-static irect_t mobj_cells(const mobj_t *unit) {
+irect_t P_MobjCells(const mobj_t *unit) {
     fvec2_t centre = fixed3_xy_to_fvec2(unit->core.position);
     isize2_t foot = unit->info ? unit->info->footprint : (isize2_t){0, 0};
     if (foot.w <= 0 || foot.h <= 0) {
@@ -493,8 +514,11 @@ static irect_t mobj_cells(const mobj_t *unit) {
  * cell rectangles, so every neighbouring cell is one away. Point targets keep
  * the centre distance that the other games tune their weapons by. */
 static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, float range) {
+#ifdef RTS_GAME_WARCRAFT_2
+    if (W2_Distance(attacker, target) < mobjinfo[attacker->type_id].w2.min_attack_range) return false;
+#endif
     if (target->info && target->info->footprint.w > 0 && target->info->footprint.h > 0) {
-        irect_t a = mobj_cells(attacker), b = mobj_cells(target);
+        irect_t a = P_MobjCells(attacker), b = P_MobjCells(target);
         int dx = b.x > a.x + a.w - 1 ? b.x - (a.x + a.w - 1) :
                  a.x > b.x + b.w - 1 ? a.x - (b.x + b.w - 1) : 0;
         int dy = b.y > a.y + a.h - 1 ? b.y - (a.y + a.h - 1) :
@@ -511,6 +535,9 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
 }
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+#ifdef RTS_GAME_WARCRAFT_2
+    if (attacker->w2.cast.spell || attacker->w2.repair.target || attacker->w2.carrier) return NULL;
+#endif
     if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
     if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         mobj_attack_damage(attacker) == 0)
@@ -545,6 +572,10 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
 
 void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (!target || target->remove || target->hp <= 0 || damage <= 0) return;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (target->w2.buffs[W2_BUFF_ARMOR] ||
+        (mobjinfo[target->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return;
+#endif
     target->hp -= damage;
     if (target->info && target->info->damage_action) target->info->damage_action(target);
     if (target->owner == consoleplayer && source && source->owner != consoleplayer)
@@ -797,6 +828,9 @@ void A_Attack(mobj_t *unit) {
 }
 
 void A_Look(mobj_t *unit) {
+#ifdef RTS_GAME_WARCRAFT_2
+    if (unit && (unit->w2.cast.spell || unit->w2.repair.target)) return;
+#endif
     if (!unit || unit->hp <= 0 || !(unit->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         unit->attack.cooldown_left_ms > 0 || !gameinfo ||
         unit->type_id >= gameinfo->mobj_type_count) return;
@@ -1023,7 +1057,7 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
 static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
 #ifdef RTS_GAME_WARCRAFT_2
-    return W2_TickHarvest(unit) || W2_TickBuild(unit);
+    return W2_TickRepair(unit) || W2_TickHarvest(unit) || W2_TickBuild(unit);
 #endif
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
         unit->harvest.phase == HARVEST_PHASE_NONE || unit->harvest.target < 0) {
@@ -1221,6 +1255,14 @@ static void tick_actor(mobj_t *u) {
     int dt_ms = (int)lroundf(dt * 1000.0f);
     u->core.momentum = fixed3_zero();
     if (u->remove) return;
+#ifdef RTS_GAME_WARCRAFT_2
+    W2_UpgradeUnit(u);
+    W2_TickSpells(u);
+    if (u->hp > 0 && W2_TickTransport(u)) return;
+    if (u->hp > 0 && u->hp < u->max_hp && leveltime % (2 * RTS_TICRATE) == 0 &&
+        (u->type_id == MT_AXETHROWER || u->type_id == MT_BERSERKER) &&
+        W2_HasResearch(u->owner, W2_UPGRADE_REGENERATION)) ++u->hp;
+#endif
     if (u->core.state_id <= 0) P_InitMobj(game_info, u);
     P_TickMobjState(u);
     if (u->remove || u->hp <= 0) return;
@@ -1240,6 +1282,9 @@ static void tick_actor(mobj_t *u) {
         const state_t *s = state_at(game_info, u->core.state_id);
         bool in_attack = s && s->group == 3;
         mobj_t *enemy = u->attack.target;
+#ifdef RTS_GAME_WARCRAFT_2
+        if (u->w2.stand_ground || u->w2.cast.spell || u->w2.carrier) enemy = NULL;
+#endif
         if (!in_attack && (u->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
             enemy && !enemy->remove && enemy->hp > 0 && !P_IsAlly(u, enemy) &&
             P_VisibleTo(u, enemy)) {
@@ -1365,6 +1410,9 @@ static void tick_actor(mobj_t *u) {
 
 void P_MobjThinker(mobj_t *mobj) {
     if (mobj->remove) { P_RemoveMobj(mobj); return; }
+#ifdef RTS_GAME_WARCRAFT_2
+    if (mobj->type_id == MT_W2_EFFECT) { P_TickMobjState(mobj); return; }
+#endif
     if (mobj->traits & MF_MISSILE) {
         tick_missile(mobj);
         return;

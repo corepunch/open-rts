@@ -100,7 +100,7 @@ static int test_catalog(void) {
     CHECK(W2_Buildable(MT_FARM) && W2_Buildable(MT_TOWN_HALL) && W2_Buildable(MT_HUMAN_SHIPYARD) &&
           W2_Buildable(MT_ORC_WATCH_TOWER) && W2_Buildable(MT_DRAGON_ROOST));
     CHECK(!W2_Buildable(MT_KEEP) && !W2_Buildable(MT_FORTRESS) && !W2_Buildable(MT_GOLD_MINE) &&
-          !W2_Buildable(MT_HUMAN_WALL) && !W2_Buildable(MT_HUMAN_OIL_PLATFORM) && !W2_Buildable(MT_FOOTMAN) &&
+          !W2_Buildable(MT_HUMAN_WALL) && W2_Buildable(MT_HUMAN_OIL_PLATFORM) && !W2_Buildable(MT_FOOTMAN) &&
           !W2_Buildable(MT_DARK_PORTAL) && !W2_Buildable(MT_CIRCLE_OF_POWER) && !W2_Buildable(0));
     CHECK(W2_CountsAs(MT_KEEP, MT_TOWN_HALL) && W2_CountsAs(MT_CASTLE, MT_KEEP) && W2_CountsAs(MT_FORTRESS, MT_GREAT_HALL));
     CHECK(!W2_CountsAs(MT_TOWN_HALL, MT_KEEP) && !W2_CountsAs(MT_KEEP, MT_GREAT_HALL) && W2_CountsAs(MT_FARM, MT_FARM));
@@ -173,7 +173,7 @@ static int test_build_cycle(void) {
     CHECK(bay.x >= 7 && bay.x <= 11 && bay.y >= 7 && bay.y <= 11); /* Beside the footprint. */
     int ticks = 0;
     while (ticks < 4000 && W2_BuildProgress(site) < 25) { tick(1); ++ticks; }
-    CHECK(ticks >= 700 && ticks <= 800); /* A farm takes 100 seconds. */
+    CHECK(ticks == 150); /* Cost 100: 600 reference cycles (20 seconds). */
     CHECK(site->core.state_id == W2_BUILD_STATE(MT_FARM - 1) + 1 && site->core.frame == 1 &&
           site->core.sprite_id == W2_SPRITE_CONSTRUCTION);
     CHECK(site->hp >= 95 && site->hp <= 105);
@@ -182,7 +182,7 @@ static int test_build_cycle(void) {
           site->core.frame == 1 && !strcmp(site->core.sprite_name, "farm"));
     CHECK(hidden(peasant) && W2_UnderConstruction(site));
     while (ticks < 4000 && W2_UnderConstruction(site)) { tick(1); ++ticks; }
-    CHECK(ticks >= 2950 && ticks <= 3100);
+    CHECK(ticks == 600);
     CHECK(site->hp == 400 && site->core.state_id == mobjinfo[MT_FARM].spawnstate && site->w2.builder == 0);
     CHECK(G_ModelHasActorType(NULL, 0, MT_FARM));
     CHECK(!hidden(peasant) && (peasant->traits & (MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE)) &&
@@ -230,20 +230,19 @@ static int test_cancel_and_orders(void) {
     return 0;
 }
 
-/* Razing a site frees its builder; the builder inside cannot be hit. A
- * rising farm gains four hit points a second, about one grunt's worth of
- * blows, so it takes a party to pull one down. */
+/* Razing a site frees its builder; the builder inside cannot be hit.
+ * Siege damage must overcome the corrected 600-cycle farm construction. */
 static int test_site_destroyed(void) {
     fixture();
     mobj_t *peasant = spawn(MT_PEASANT, 3, 3, 0);
-    mobj_t *grunts[3];
-    for (int i = 0; i < 3; ++i) grunts[i] = spawn(MT_GRUNT, 13 + i, 14, 1);
+    mobj_t *attackers[3];
+    for (int i = 0; i < 3; ++i) attackers[i] = spawn(MT_CATAPULT, 13 + i, 14, 1);
     CHECK(W2_ConstructOrder(peasant, MT_FARM, (ivec2_t){8, 8}));
     mobj_t *site = arrive(peasant);
     CHECK(site && hidden(peasant));
-    CHECK(!P_CanTarget(grunts[0], peasant) && P_CanTarget(grunts[0], site));
+    CHECK(!P_CanTarget(attackers[0], peasant) && P_CanTarget(attackers[0], site));
     uint32_t site_id = site->id;
-    ticcmd_t attack = {.order = TC_ATTACK, .count = 3, .units = {grunts[0]->id, grunts[1]->id, grunts[2]->id},
+    ticcmd_t attack = {.order = TC_ATTACK, .count = 3, .units = {attackers[0]->id, attackers[1]->id, attackers[2]->id},
                        .target = site_id, .position = site->core.position};
     G_RunTiccmd(1, &attack);
     for (int i = 0; i < 900 && P_MobjById(site_id); ++i) tick(1);

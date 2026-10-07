@@ -146,6 +146,9 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         if (unit->remove || unit->hp <= 0) continue;
         if (unit->id == cmd->target) target = unit;
         if (unit->owner != player) continue;
+#ifdef RTS_GAME_WARCRAFT_2
+        if (unit->w2.boarded) continue;
+#endif
         for (unsigned i = 0; i < cmd->count; ++i) {
             if (unit->id != cmd->units[i]) continue;
             units[count++] = unit;
@@ -154,6 +157,32 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     }
     if (!count) return;
 #ifdef RTS_GAME_WARCRAFT_2
+    if (cmd->order == TC_CANCEL_PRODUCTION) {
+        for (int i = 0; i < count; ++i) W2_CancelProduction(units[i]);
+        return;
+    }
+    if (cmd->order == TC_BOARD || cmd->order == TC_UNLOAD) {
+        for (int i = 0; i < count; ++i) {
+            if (cmd->order == TC_BOARD) W2_BoardOrder(units[i], target);
+            else W2_UnloadOrder(units[i], fixed3_xy_to_fvec2(cmd->position));
+        }
+        return;
+    }
+    if (cmd->order == TC_SPELL) {
+        for (int i = 0; i < count; ++i) W2_CastOrder(units[i], cmd->product, target, cmd->position);
+        return;
+    }
+    if (cmd->order == TC_REPAIR) {
+        for (int i = 0; i < count; ++i) W2_RepairOrder(units[i], target);
+        return;
+    }
+    if (cmd->order == TC_STAND_GROUND) {
+        ticcmd_t stop = *cmd;
+        stop.order = TC_STOP;
+        G_RunTiccmd(player, &stop);
+        for (int i = 0; i < count; ++i) units[i]->w2.stand_ground = true;
+        return;
+    }
     if (cmd->order == TC_RETURN_GOODS) {
         for (int i = 0; i < count; ++i) W2_ReturnGoods(units[i]);
         return;
@@ -170,6 +199,9 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     }
 #endif
     if (cmd->order == TC_CONSTRUCT) return;
+#ifndef RTS_GAME_WARCRAFT_2
+    if (cmd->order >= TC_REPAIR) return;
+#endif
     if (cmd->order == TC_ATTACK) {
         bool eligible = false;
         for (int i = 0; i < count; ++i) eligible |= P_CanTarget(units[i], target);
@@ -181,7 +213,13 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
 #ifdef RTS_GAME_WARCRAFT_2
     if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK ||
         cmd->order == TC_PATH || cmd->order == TC_WAYPOINT)
-        for (int i = 0; i < count; ++i) { W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]); }
+        for (int i = 0; i < count; ++i) {
+            W2_InterruptRepair(units[i]); W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]);
+            units[i]->w2.stand_ground = false;
+            units[i]->w2.cast.spell = 0;
+            if (!units[i]->w2.boarded) units[i]->w2.carrier = 0;
+            units[i]->w2.unloading = false;
+        }
 #endif
     if (cmd->order == TC_MODE) {
         for (int i = 0; i < count; ++i) {
@@ -258,7 +296,13 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
                    cmd->position.y >> FIXED_FRAC_BITS) && cmd->order != TC_ATTACK) return;
 #ifdef RTS_GAME_WARCRAFT_2
     if (cmd->order == TC_ORDER)
-        for (int i = 0; i < count; ++i) { W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]); }
+        for (int i = 0; i < count; ++i) {
+            W2_InterruptRepair(units[i]); W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]);
+            units[i]->w2.stand_ground = false;
+            units[i]->w2.cast.spell = 0;
+            if (!units[i]->w2.boarded) units[i]->w2.carrier = 0;
+            units[i]->w2.unloading = false;
+        }
 #endif
     for (int i = 0; i < count; ++i) {
         units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;
@@ -281,6 +325,10 @@ uint32_t G_Consistency(void) {
     uint32_t hash = UINT32_C(2166136261);
 #define HASH(v) hash = hash_value(hash, (uint32_t)(v))
     HASH(leveltime); HASH(paused); HASH(game_speed); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
+#ifdef RTS_GAME_WARCRAFT_2
+    HASH(W2_CombatState());
+    for (int p = 0; p < 8; ++p) { HASH(level.w2_research[p]); HASH(level.w2_research[p] >> 32); }
+#endif
     for (int p = 0; p < RTS_MODEL_MAX_PLAYERS; ++p)
         for (int r = 0; r < RTS_MAX_RESOURCES; ++r) HASH(level.player_resources[p][r]);
 #ifdef RTS_GAME_DARK_COLONY

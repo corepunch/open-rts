@@ -1232,14 +1232,15 @@ static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action) {
 }
 
 /* The campaign, the dice and the launch survive a save, so a loaded campaign level goes on. */
-typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resources; } extra_t;
+typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resources; uint64_t research[8]; } extra_t;
 
 size_t G_SaveExtraSize(void) { return sizeof(extra_t); }
 
 void G_SaveExtra(void *out) {
     const w2_mission_t *mission = level.mission;
     extra_t extra = {W2_CombatState(), mission && mission->campaign.orc,
-                    mission ? mission->campaign.number : 0, launch_resources};
+                    mission ? mission->campaign.number : 0, launch_resources, {0}};
+    memcpy(extra.research, level.w2_research, sizeof(extra.research));
     memcpy(out, &extra, sizeof(extra));
 }
 
@@ -1249,6 +1250,7 @@ bool G_LoadExtra(const void *data, size_t size) {
     memcpy(&extra, data, sizeof(extra));
     if (extra.campaign_level < 0 || extra.campaign_level > W2_CAMPAIGN_LEVELS) return false;
     W2_SetCombatState(extra.dice);
+    memcpy(level.w2_research, extra.research, sizeof(level.w2_research));
     w2_mission_t *mission = level.mission;
     if (!mission) return false;
     mission->campaign = (w2_campaign_t){extra.campaign_level, extra.campaign_orc != 0};
