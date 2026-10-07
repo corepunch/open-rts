@@ -2042,3 +2042,19 @@ its hash is recorded there. No retail execution or CD-key workaround was used.
   are preserved in `docs/7LEGION_EXE_FINDINGS.md`, “Sprite direction mapping
   audit”. This audit disproves the current universal eight-block heuristic;
   it does not yet implement its replacement.
+
+### 7th Legion terrain coordinate audit (2026-10-07)
+
+Retail `data/7LEGION/legion.exe` (SHA-256
+`a312f7b50a940e5a0ec737cf8923c1d03f552f9c9111c62c72546bbb46f6c154`)
+and installed `DATA/MAPT.000`, `MAPL.000`, `MAPOVL.000`, `GFX/TILES2.BIM`
+are the primary evidence. Decoder `0x438f50`, ground renderer `0x4967e0`
+and movement check `0x43ccc5` establish column-major `x*128+y` storage,
+MAPT `(stored ^ (30000-i))-y`, MAPL `stored^x`, and basic ground value 1.
+LLVM `objdump` was the available disassembler. See
+`docs/7LEGION_EXE_FINDINGS.md`, “Terrain coordinate audit”, for the load/draw
+chain, landmark bytes, hashes, corrected hypothesis and reproduction commands.
+The user's `Screenshot 2026-10-07 at 09.33.45.jpg` is evidence of the broken
+open-rts output, not a retail screenshot or authority for native behavior.
+The corrected engine screenshot and temporary C coastline render were visual
+verification only; no new external reference or generated asset was used.
