@@ -24,6 +24,24 @@ static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborn
 #else
     (void)detector;
 #endif
+#ifdef RTS_GAME_WARCRAFT_2
+    /* Stratagus ProceedSimpleRadial: a cell is inside when
+     * dx^2 + dy^2 < (radius + 1)^2. The Dark Colony ray table stops at
+     * radius^2 and keeps only (0, ±radius) and (±radius, 0) on each axis.
+     * All four of that cell's shroud corners are hidden, TiledFogTable[15]
+     * is the empty mask, and the cell stays fully lit. */
+    int limit = (radius + 1) * (radius + 1);
+    for (int dy = -radius; dy <= radius; ++dy) {
+        int dy2 = dy * dy;
+        for (int dx = -radius; dx <= radius; ++dx) {
+            if (dx * dx + dy2 >= limit) continue;
+            ivec2_t cell = {origin.x + dx, origin.y + dy};
+            if (!L_Contains(&level, cell.x, cell.y)) continue;
+            level.sight.cells[L_Index(&level, cell.x, cell.y)] |= explored | mask;
+        }
+    }
+    return;
+#endif
     int distance = radius * radius;
     bool clipped = origin.x < radius || origin.y < radius ||
         origin.x >= level.width - radius || origin.y >= level.height - radius;

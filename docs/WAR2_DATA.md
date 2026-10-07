@@ -304,6 +304,14 @@ These are engine choices, not traced `WAR2.EXE` behavior.
 - Training spends gold and lumber atomically when its tic command executes.
   Building placement and cancellation are tic commands too (`TC_CONSTRUCT`),
   so they replay in lock step. Costs follow the authored `mobjinfo[]` catalog.
+- Sight uses the Stratagus simple-radial circle: a cell at `(dx, dy)` is
+  seen when `dx² + dy² < (radius + 1)²` (`ProceedSimpleRadial` in
+  `reference/stratagus/src/map/fov.cpp`). The Dark Colony ray table stops
+  at `radius²` and keeps only `(0, ±radius)` and `(±radius, 0)` on the
+  axes. Each of those cells has every shroud corner hidden, so
+  `TiledFogTable[15]` selects megatile 0, the empty mask, and the cell
+  stays fully lit: a square in the black or in the explored stipple, and
+  a one-cell cap on the circle. Forests still do not block sight.
 - Harvest uses ordinary mobj thinkers, native axe/carrier graphics, finite
   deposits, owned reachable depots, repeated trips and a Return Goods command.
   Lumber progress is private to each worker and finishes on chop 51, as
