@@ -43,6 +43,7 @@ static const char *R(int resource, int index) {
 
 static const char *S(int entry, int index) { return R(4000 + entry, index); }
 static const char *N(int index) { return R(2047, index); }
+static const char *D(int index) { return R(2000, index); } /* MUDDAT 6001's captions */
 
 static menuitem_t *find(const char *text) {
     for (int i = 0; currentmenu && i < currentmenu->numitems; ++i) {
@@ -124,60 +125,60 @@ int main(void) {
     CHECK(!find(S(6, 1)) && !find(S(6, 2)) && !kind(MI_LIST, 0));
     CHECK(currentmenu->numitems == 5 && M_MenuFind(currentmenu, -3)->rect.y == 348);
     draw("2-single");
+    /* Custom Scenario is MUDDAT 6001; its first scenario is built-in 220. */
     CHECK(click(N(3)));
-    CHECK(find(S(9, 2)) && find(S(62, 9)) && find(S(62, 2)));
-    CHECK(find(S(40, 31)) && find(S(45, 6)));
+    CHECK(find(D(1)) && find(D(2)) && find(D(3)));
+    CHECK(M_MenuFind(currentmenu, 2)->rect.x == 400 && M_MenuFind(currentmenu, 3)->rect.y == 368);
+    char line[256];
+    snprintf(line, sizeof(line), "%s\n%s", S(45, 0), S(63, 22));
+    CHECK(!strcmp(M_MenuFind(currentmenu, 11)->text, line));
+    CHECK(M_MenuFind(currentmenu, 4)->enabled && M_MenuFind(currentmenu, 4)->rows == 4);
+    CHECK(!M_MenuFind(currentmenu, 10)->enabled && M_MenuFind(currentmenu, 10)->value == 2);
+    CHECK(!M_MenuFind(currentmenu, 5)->visible);
     draw("3-setup");
 
-    /* The scenario picker lists the retail PUDs and returns the pick. */
-    CHECK(click(S(62, 9)));
+    /* The picker: built-in names from STRDAT 63, no Players filter in single player. */
+    CHECK(click(D(2)));
     CHECK(find(S(62, 1)) && find(S(62, 2)));
-    menuitem_t *list = NULL;
-    for (int i = 0; i < currentmenu->numitems; ++i)
-        if (currentmenu->items[i].kind == MI_LIST) list = &currentmenu->items[i];
-    CHECK(list && list->rows >= 8);
-    CHECK(list->id == 1 && list->rect.x == 166 && list->rect.y == 186 && list->rect.h == 112);
+    menuitem_t *list = kind(MI_LIST, 0);
+    CHECK(list && list->id == 1 && list->rows == 28 && list->value == 0);
+    CHECK(!strcmp(list->row(list, 0), S(63, 22)) && !strcmp(list->row(list, 27), S(63, 49)));
+    CHECK(list->rect.x == 168 && list->rect.y == 188 && list->rect.w == 296 && list->rect.h == 108);
+    CHECK(!M_MenuFind(currentmenu, 4)->visible && M_MenuFind(currentmenu, 2)->rows == 2);
+    CHECK(!strcmp(M_MenuFind(currentmenu, 5)->text, S(63, 22)));
     CHECK(M_MenuFind(currentmenu, -2)->rect.x == 188 && M_MenuFind(currentmenu, -3)->rect.x == 332);
     draw("4-scenario");
-    /* Every row's unlettered right edge must be the decoded native bar,
-     * including the selected row: no generic highlight fill replaces it. */
+    /* A row's bar is native frame 46 cropped to the row, not stretched. */
     w2_menu_art_t native = {0};
     CHECK(w2_load_menu_art("data/WAR2", &native));
     CHECK(native.font.glyph_size.h == 17 && native.small_font.glyph_size.h == 14);
-    const spritecell_t *capital = &native.font.sprite.cells[native.font.glyph_index['M']];
-    const spritecell_t *descender = &native.font.sprite.cells[native.font.glyph_index['p']];
-    CHECK(capital->rect.h == 17 && capital->bounds.y == 0 && capital->bounds.h == 12);
-    CHECK(descender->rect.h == 17 && descender->bounds.y == 4 && descender->bounds.h == 12);
-    irect_t caption = V_TextBounds(&native.font, "M M");
-    CHECK(caption.y == 0 && caption.h == 12);
-    caption = V_TextBounds(&native.font, "Mp");
-    CHECK(caption.y == 0 && caption.h == 16);
-    irect_t list_rect = M_MenuItemRect(currentmenu, list);
     const spritesheet_t *widgets = &native.widgets[1];
-    CHECK(widgets->cells[46].rect.w == list_rect.w);
     for (int row = 0; row < 6; ++row)
-        for (int y = 2; y < 17; ++y)
-            for (int x = 250; x < 298; ++x) {
-                uint8_t actual = screens[0].pixels[(list_rect.y + row * 18 + y) * 640 + list_rect.x + x];
+        for (int y = 0; y < 18; ++y)
+            for (int x = 270; x < 296; ++x) {
+                uint8_t actual = screens[0].pixels[(list->rect.y + row * 18 + y) * 640 + list->rect.x + x];
                 uint8_t expected = widgets->lumps[46].indices[y * 300 + x];
                 CHECK(vpalette[actual] == widgets->source_palette[expected]);
             }
-    /* The native capital has 12 occupied rows; its RLE skips the last two
-     * rows of its 14-pixel record. A 28-pixel button leaves eight on each side. */
-    menuitem_t centered = {.kind = MI_BUTTON, .visible = true, .rect = {0, 0, 106, 28},
-                            .font = &native.font, .align = MALIGN_CENTER, .text = "M"};
-    menu_t fixture = {.items = &centered, .numitems = 1, .itemOn = -1};
+    /* WAR2.EXE 0x5e83c: a 28-pixel button centres MAINDAT 282's 14-pixel
+     * cell at 1 + 29/2, so its 12-row capital leaves eight rows each side. */
+    menuitem_t centered = {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {0, 0, 106, 28},
+                            .flags = W2_ITEM_FLAGS(2, 0x0218), .text = "M"};
+    menu_t fixture = {.items = &centered, .numitems = 1, .itemOn = -1, .drawitem = w2_draw_item};
     V_BeginFrame(0xff0101ffu);
     uint8_t blank = screens[0].pixels[0];
     M_MenuDrawer(&fixture);
-    int first = 28, last = -1;
+    int first = 28, last = -1, left = 106, right = -1;
     for (int y = 0; y < 28; ++y)
         for (int x = 0; x < 106; ++x)
             if (screens[0].pixels[y * 640 + x] != blank) {
                 if (y < first) first = y;
                 if (y > last) last = y;
+                if (x < left) left = x;
+                if (x > right) right = x;
             }
     CHECK(first == 8 && last == 19);
+    CHECK(left == 49 && right == 58); /* 1 + 107/2 - (10 + 1 + 1)/2, plus the glyph's offset 1 */
     w2_free_menu_art(&native);
     /* The same popup has matching draw/input geometry at UI scale two. */
     app.win = (isize2_t){1280, 960};
@@ -192,10 +193,8 @@ int main(void) {
     CHECK(!currentmenu->dropdown && scaled_choice->value == 0);
     app.win = (isize2_t){640, 480};
     V_AllocScreen(640, 480);
-    menuitem_t *type_choice = M_MenuFind(currentmenu, 2);
+    /* 128 x 128 keeps only the large built-in maps; the info lines follow the pick. */
     menuitem_t *size_choice = M_MenuFind(currentmenu, 3);
-    CHECK(type_choice && size_choice && M_MenuFind(currentmenu, 4));
-    /* Filters are real popups; Escape leaves their committed value intact. */
     irect_t choice_rect = M_MenuItemRect(currentmenu, size_choice);
     click_at(choice_rect.x + 5, choice_rect.y + 5);
     CHECK(currentmenu->dropdown == size_choice);
@@ -203,61 +202,65 @@ int main(void) {
     press(SDLK_END);
     press(SDLK_RETURN);
     list = kind(MI_LIST, 0);
-    /* Browse the native DATA directory: it contains no loose PUDs. */
-    menuitem_t *directory = kind(MI_LIST, 0);
-    int data_row = -1;
-    for (int i = 0; i < directory->rows; ++i)
-        if (!strcmp(directory->row(directory, i), "DATA/")) data_row = i;
-    CHECK(data_row >= 0);
-    currentmenu->itemOn = (int)(directory - currentmenu->items);
-    press(SDLK_HOME);
-    for (int i = 0; i < data_row; ++i) press(SDLK_DOWN);
-    press(SDLK_RETURN);
-    CHECK(kind(MI_LIST, 0)->rows == 1 && !strcmp(kind(MI_LIST, 0)->row(kind(MI_LIST, 0), 0), ".."));
-    draw("4c-empty-folder");
-    press(SDLK_HOME);
-    press(SDLK_RETURN);
-    list = kind(MI_LIST, 0);
-    CHECK(list && M_MenuFind(currentmenu, 3)->value == 4);
-    for (int i = 0; i < list->rows; ++i) {
-        const char *name = list->row(list, i);
-        if (!strchr(name, '/')) CHECK(!strcmp(name, "DRAGON") || !strcmp(name, "ICEBRDGE"));
-    }
-    size_choice = M_MenuFind(currentmenu, 3);
-    choice_rect = M_MenuItemRect(currentmenu, size_choice);
-    click_at(choice_rect.x + 5, choice_rect.y + 5);
-    press(SDLK_HOME);
-    press(SDLK_RETURN);
-    type_choice = M_MenuFind(currentmenu, 2);
-    choice_rect = M_MenuItemRect(currentmenu, type_choice);
-    click_at(choice_rect.x + 5, choice_rect.y + 5);
-    press(SDLK_HOME);
-    press(SDLK_RETURN);
-    list = kind(MI_LIST, 0);
-    CHECK(list && list->rows == 28 && M_MenuFind(currentmenu, 4)->enabled);
-    CHECK(M_MenuFind(currentmenu, 4)->rows == 9);
-    draw("4b-built-in");
-    /* Choose a native archive map, then reopen the custom picker. */
+    CHECK(list->rows > 0 && list->rows < 28 && M_MenuFind(currentmenu, 3)->value == 4);
+    CHECK(list->value == -1 && !M_MenuFind(currentmenu, 6)->text[0] && !M_MenuFind(currentmenu, -2)->enabled);
+    currentmenu->itemOn = (int)(list - currentmenu->items);
     press(SDLK_DOWN);
-    CHECK(click(S(62, 1)));
-    CHECK(find(S(9, 2)) && find(S(9, 2))->enabled);
-    CHECK(click(S(62, 9)));
-    type_choice = M_MenuFind(currentmenu, 2);
+    CHECK(list->value >= 0 && !strcmp(M_MenuFind(currentmenu, 6)->text, S(63, 9)));
+    /* Custom scenarios are the loose PUD files only: lowercase names, no folders. */
+    menuitem_t *type_choice = M_MenuFind(currentmenu, 2);
     choice_rect = M_MenuItemRect(currentmenu, type_choice);
     click_at(choice_rect.x + 5, choice_rect.y + 5);
     press(SDLK_END);
     press(SDLK_RETURN);
     list = kind(MI_LIST, 0);
+    CHECK(list && list->rows == 2);
+    CHECK(!strcmp(list->row(list, 0), "dragon.pud") && !strcmp(list->row(list, 1), "icebrdge.pud"));
+    size_choice = M_MenuFind(currentmenu, 3);
+    choice_rect = M_MenuItemRect(currentmenu, size_choice);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_HOME);
+    press(SDLK_RETURN);
+    list = kind(MI_LIST, 0);
+    CHECK(list && list->rows == 8 && list->value == -1 && !M_MenuFind(currentmenu, -2)->enabled);
+    for (int i = 0; i < list->rows; ++i) CHECK(!strchr(list->row(list, i), '/'));
+    draw("4c-custom");
+    currentmenu->itemOn = (int)(list - currentmenu->items);
     press(SDLK_DOWN);
-    CHECK(list->value >= 0);
+    CHECK(list->value >= 0 && !strcmp(list->row(list, 0), "alamo.pud"));
+    press(SDLK_HOME);
+    CHECK(list->value == 0);
+    CHECK(M_MenuFind(currentmenu, 6)->text[0] && M_MenuFind(currentmenu, 7)->text[0]);
     CHECK(click(S(62, 1)));
-    CHECK(find(S(9, 2)));
+    snprintf(line, sizeof(line), "%s\n%s", S(45, 1), "alamo.pud");
+    CHECK(!strcmp(M_MenuFind(currentmenu, 11)->text, line));
+    /* Back to the built-in list: choose the second map. */
+    CHECK(click(D(2)));
+    type_choice = M_MenuFind(currentmenu, 2);
+    choice_rect = M_MenuItemRect(currentmenu, type_choice);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_HOME);
+    press(SDLK_RETURN);
+    list = kind(MI_LIST, 0);
+    CHECK(list && list->rows == 28);
+    draw("4b-built-in");
+    currentmenu->itemOn = (int)(list - currentmenu->items);
+    press(SDLK_HOME);
+    press(SDLK_DOWN);
+    CHECK(click(S(62, 1)));
+    snprintf(line, sizeof(line), "%s\n%s", S(45, 0), S(63, 23));
+    CHECK(!strcmp(M_MenuFind(currentmenu, 11)->text, line));
 
-    /* Resources cycle through the presets. */
-    CHECK(click(S(45, 10)));
-    CHECK(find(S(45, 11)));
+    /* Resources are a native dropdown. */
+    menuitem_t *resources = M_MenuFind(currentmenu, 4);
+    choice_rect = M_MenuItemRect(currentmenu, resources);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    CHECK(currentmenu->dropdown == resources);
+    press(SDLK_DOWN);
+    press(SDLK_RETURN);
+    CHECK(M_MenuFind(currentmenu, 4)->value == 1);
     draw("5-setup-low");
-    CHECK(click(S(62, 2)));
+    CHECK(click(D(3)));
     CHECK(find(N(1)));
 
     /* Race choice offers three native buttons, without a mission browser. */
@@ -305,8 +308,8 @@ int main(void) {
     /* Starting a scenario hands its path to the driver and closes the menu. */
     CHECK(click(S(4, 1)));
     CHECK(click(N(3)));
-    CHECK(click(S(9, 2)));
-    CHECK(!menuactive && menumap && strstr(menumap, "PUD"));
+    CHECK(click(D(1)));
+    CHECK(!menuactive && menumap && strstr(menumap, "scenario-221.pud"));
     menumap = NULL;
 
     /* Either race begins at mission one, extracted through the ordinary PUD path. */

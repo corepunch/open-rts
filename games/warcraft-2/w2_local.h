@@ -72,6 +72,8 @@ bool w2_pud_info_bytes(const uint8_t *data, size_t size, w2_pud_info_t *out);
 bool w2_pud_info(const char *path, w2_pud_info_t *out);
 /* Campaign levels are MAINDAT entries 192.. (human even, orc odd). */
 enum { W2_CAMPAIGN_ENTRY = 192, W2_CAMPAIGN_LEVELS = 14 };
+/* The built-in (skirmish) scenarios, MAINDAT 220..247. */
+enum { W2_FIRST_SCENARIO = 220, W2_SCENARIOS = 28 };
 typedef struct { int number; bool orc; } w2_campaign_t;
 typedef struct {
     w2_campaign_t campaign;
@@ -112,7 +114,7 @@ enum {
     STR_QUIT = 14, STR_RESTART = 15, STR_WIN = 20, STR_LOSE = 21, STR_SAVE = 26, STR_LOAD = 27,
     STR_MESSAGES = 40, STR_SETUP = 44, STR_SETUP_VALUES = 45, STR_HELP_SCREEN = 47,
     STR_OBJECTIVES = 52, STR_LEVELS = 53, STR_DISPATCH = 54, STR_CREDITS_BUTTON = 56,
-    STR_CREDITS = 57, STR_KEYS = 59, STR_CONNECTION = 60, STR_PICK = 62
+    STR_CREDITS = 57, STR_KEYS = 59, STR_CONNECTION = 60, STR_PICK = 62, STR_SCENARIOS = 63
 };
 typedef struct { char text[160]; int mark_at, mark_len; } w2_text_t;
 bool w2_strings_load(const char *root);
@@ -136,7 +138,7 @@ typedef struct {
     spritesheet_t panel[2][W2_PANELS];
     spritesheet_t title, dimmed; /* REZDAT 13 and the darker 15 behind popups */
     spritesheet_t results[2][2]; /* race; victory/defeat images and their native palettes */
-    bitmapfont_t font, small_font;
+    bitmapfont_t font, small_font, tiny_font; /* MAINDAT 281, 282, 283 */
     bool ready;
 } w2_menu_art_t;
 
@@ -149,6 +151,15 @@ typedef struct {
 } w2_hud_art_t;
 
 bool w2_load_menu_art(const char *root, w2_menu_art_t *art);
+
+/* A dialog item's flags: the native record's u16 flags, its native kind above. */
+#define W2_ITEM_FLAGS(kind, flags) ((unsigned)(kind) << 16 | ((flags) & 0xffffu))
+#define W2_ITEM_KIND(flags) ((int)((flags) >> 16 & 0xffu))
+/* A scroll bar that draws its own arrows (no arrow buttons beside it). */
+#define W2_ITEM_ARROWS 0x01000000u
+/* Draws a menu item as WAR2.EXE does; the menus' menu_t.drawitem. */
+void w2_dialog_art(const w2_menu_art_t *art);
+bool w2_draw_item(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect);
 void w2_free_menu_art(w2_menu_art_t *art);
 bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art);
 void w2_free_hud_art(w2_hud_art_t *art);

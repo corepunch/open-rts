@@ -1304,3 +1304,89 @@ env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check --map "$PWD/build/test-us
 # With the unchanged inner image and disposable r2 toolchain prepared:
 /private/tmp/war2-analysis-tools/prefix/bin/r2 -q -e bin.cache=true -e bin.relocs.apply=true -A -c 'pdf @ 0x48318' -c q reverse/war2-exe-r2ghidra/war2-inner.mz
 ```
+
+## Native dialog drawing, scenario picker and custom setup (2026-10-07)
+
+**Evidence.** Static analysis only of the unchanged inner LE image
+(`reverse/war2-exe-r2ghidra/war2-inner.mz`, WAR2.EXE fingerprint above) with
+the disposable r2 toolchain; retail was not run. Addresses are code VAs.
+User reference: Battle.net Edition screenshots of Custom Game Setup and the
+scenario picker; the installed data is the localized DOS edition.
+
+**Confirmed: one text routine for every control.** Draw handlers are table
+`0x5dd70`, indexed by native kind: buttons `0x5e83c`, left/centre/right
+captions `0x5ed78`/`0x5eda4`/`0x5ede8`, scroll bar `0x5ebd8`, list `0x5a9ec`,
+dropdown `0x5b5e8`→`0x5b4d0`. All call `0x5e148(item, x, y)` with an alignment
+byte at `0x995c6` (low nibble 1 left / 2 centre / 4 right, high nibble 1 top /
+2 centre). Layout `0x4fee8`: block width is the widest line, height is
+`lines × (FONT byte 7 + 3)`; horizontal centre subtracts width/2, vertical
+centre subtracts `(height − 3)/2`. Every line starts at the block's left x.
+Glyph walk `0x50108` / widths `0x4fbcc`: advance = glyph width + x offset + 1,
+space = FONT byte 6 / 2 + 1. Our decoder's advances lack that one pixel.
+Glyph pixel n writes colour map[n]; n = 0 writes palette index 0.
+
+| Control | Native placement |
+|---|---|
+| Button | mode `0x22` at `left + s + (w+1)/2`, `top + s + (h+1)/2`; s = 1, pressed (`0x4000`) 3 (`0x88cf8`/`0x88cf4`). Kind 1 (default) adds a `0xf7` rim (`0x5e77c`) |
+| Caption 9/10/11 | top-aligned at left / `left+(w−1)/2` / `left+w−1` |
+| List | rims `0x5dfa8`: outer `0xf8`, inner `0xfb` focused (`0x1000`) else 0; rows of frame 46 from `left+2, top+2`, cropped not stretched; text mode `0x11` at row `+2,+2`, cut until it fits the control width; selected colour 4, normal 2 |
+| Dropdown (closed) | frame 46/45 at `+2,+2` cropped to `w−4 × row`; arrow frame 32/31 at `left+w−1−arrowW, top+1`; rims on `w × (row+4)`; text at `+4,+4` |
+| Scroll bar | arrows 29/30 (28 disabled) and 32/33 (31); track 42/41 (frame y offset 20); knob 40. Knob position routine `0x64548` untraced |
+
+Row height and widget metrics are the widget frames' sizes (`0x5910c`):
+row = frame 45 height (18), arrow = frame 28 (19×20), knob = frame 40.
+Lists keep `(h − 3)/row` whole rows and their scroll bar (ID `id ^ 0x8000`)
+spans the list at `right+1` (`0x5ae28`).
+
+**Confirmed fonts and colours.** Dialog redraw `0x58e8c` selects MAINDAT 282
+for every control; flag `0x0800` picks 281 and `0x0400` 283 (`0x5e148`,
+fonts loaded at `0x2913c`). Colour: flag `0x0002` (disabled) → 5, `0x0080`
+→ 4, else 2; captions with `0x8000` → 4. Maps (`0x10c20`, front-end mode):
+2 = c8 c7 c5 c0 ef, 4 = f6 f6 6c 68 ef, 5 = 6c 6c 69 66 ef, 3 = bf bf a8 a7 ef.
+Flag `0x0008` is visibility: `0x5a568` clears `0x0008`/`0x4000` to hide.
+
+**Superseded.** The earlier glyph-bounds centring (`V_TextBounds`, "M at rows
+8–19 with FONT 281") was an authored rule, not the executable's. Using 281 as
+the front-end font came from the Battle.net screenshot; the DOS executable
+uses 282 unless a record sets `0x0800`. Measured Battle.net button text
+matches 281 (132 px "Select Scenario") while its dropdown text matches 282:
+that edition's records differ and do not describe the DOS game.
+
+**Confirmed picker contents (`0x1755c`, REZDAT 89).** Type table `0x812a8`:
+built-in (fill `0x1768c`, ≤28), custom (`0x177e8`, ≤512), saved (`0x178bc`,
+≤32). Dropdown strings are STRDAT 63 (`0x173b4`): type 0..1 (single player;
+multiplayer adds 2), size 5..9, players 10..12. Built-in names are STRDAT
+63/22..49 for MAINDAT 220..247 (`0x17618`; players/size pairs table
+`0x16dc0`). Custom scenarios come from `findfirst("*.PUD")` with attribute 0
+(`0x4c5bc`, `0x5f0f0`) — plain files, **no directories** — named by the
+lowercased file name (`0x5f0d1`). Players = slots with owner 5. The size
+filter (`0x16e00`) keeps unknown sizes; the players filter applies only in
+multiplayer (`0x1714c`). Outside multiplayer, handler `0x14bc8` hides control
+4 and caption 9. Info lines (`0x16ed4`): ID 5 = PUD description (custom) or
+name, ID 6 = 63/(size+5), ID 7 = 63/(players+12); OK disabled without a pick.
+
+**Confirmed custom setup.** Single player loads **MUDDAT 6001** (`0x15d58`,
+`0x1771`); multiplayer loads 3080 or 6013. Dropdown contents are STRDAT 45
+(`0x14f70`): race 19/20/10 (default 2, Map Default), opponents 10 + 26..32,
+resources 10..13, terrain 10 + 21..23, units 10/18, placement 17/16 (hidden).
+ID 11 is `"%s\n%s"` of 45/type and the scenario name (`0x13e84`). The initial
+scenario is built-in 0.
+
+**Implementation.** `menu_t.drawitem` lets a game draw each item; the engine
+keeps input and layout. `games/warcraft-2/w_dialog.c` ports the handlers above
+and is installed on every Warcraft II screen, including the shared network
+screens. `menuitem_t.flags` carries the record flags and native kind
+(`W2_ITEM_FLAGS`). Setup is MUDDAT 6001; only Resources is applied by the
+engine, so race, opponents, terrain and units are shown disabled at Map
+Default. Custom files are sorted by name (findfirst order is directory order).
+Multiplayer still uses the engine's network screens, not 3080/6013 and the
+picker's multiplayer mode; their host page ("Выбор миссии" with a Players
+button) has no retail counterpart. `netui_t.style_list` gives its lists the
+native rows, rims and a scroll bar drawing its own arrows (`W2_ITEM_ARROWS`).
+
+**Verification.** `make`; `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
+(25 pass); shared menu tests for the other four games; `--check` for all five
+binaries. `test_menu` checks the 6001/89 geometry and labels, built-in names,
+custom file-only listing, info lines, cropped row frames and a button's text
+at rows 8–19 / columns 49–58 per `0x5e83c`. Picker, setup and popup BMPs from
+`W2_MENU_SHOTS` were inspected.

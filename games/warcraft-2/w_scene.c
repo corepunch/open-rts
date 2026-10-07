@@ -33,7 +33,7 @@ bool w2_decode_scene(const w2_blob_t *blob, menuitem_t *items, int capacity, int
         menuitem_t *item = &items[at / RECORD_SIZE];
         *item = (menuitem_t){.kind = kinds[kind], .id = (int16_t)read_u16_le(record + 26),
                             .visible = (flags & 8) != 0, .enabled = (flags & 16) != 0,
-                            .link = -1};
+                            .link = -1, .flags = W2_ITEM_FLAGS(kind, flags)};
         item->rect = at ? (irect_t){window.x + read_u16_le(record + 4),
                                     window.y + read_u16_le(record + 6),
                                     read_u16_le(record + 12), read_u16_le(record + 14)} : window;

@@ -282,6 +282,7 @@ void w2_free_menu_art(w2_menu_art_t *art) {
     R_FreeSprite(&art->dimmed);
     HU_FreeFont(&art->font);
     HU_FreeFont(&art->small_font);
+    HU_FreeFont(&art->tiny_font);
     memset(art, 0, sizeof(*art));
 }
 
@@ -330,7 +331,8 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     w2_archive_t maindat;
     bool assets = false;
     if (open_data(&maindat, root, "MAINDAT.WAR")) {
-        assets = load_font(&maindat, 281, &art->font) && load_font(&maindat, 282, &art->small_font);
+        assets = load_font(&maindat, 281, &art->font) && load_font(&maindat, 282, &art->small_font) &&
+                 load_font(&maindat, 283, &art->tiny_font);
         for (int result = 0; result < 2 && assets; ++result)
             for (int race = 0; race < 2 && assets; ++race) {
                 int offset = result * 2 + race;

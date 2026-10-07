@@ -125,7 +125,6 @@ typedef struct { menu_t menu; menuitem_t items[SCREEN_ITEMS]; } screen_t;
 
 enum {
     A_STANDARD = 1, A_LOAD, A_PREVIOUS,
-    A_SELECT, A_START, A_CANCEL, A_RESOURCES,
     A_CAMPAIGN, A_LIST,
     A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK,
     A_SAVE_OK, A_DELETE, A_FILE_CANCEL, A_NAME
@@ -137,13 +136,13 @@ static screen_t title_screen, game_screen, single_screen, campaign_screen, setup
                 result_screen, stats_screen, file_screen;
 static char data_root[1024];
 static app_t *front_app;
-static char scenario[1200];
 static int resources_mode, launch_resources;
 static char launch_path[1200];
-static struct { char file[1200]; char label[160]; w2_pud_info_t info; bool directory; int archive; } entries[MAX_SCENARIOS];
+static struct { char file[1200]; char label[160]; w2_pud_info_t info; int archive; } entries[MAX_SCENARIOS];
 static int entry_count;
-static char pick_directory[1024];
-static int scenario_type = 1, size_filter, player_filter;
+/* The setup's scenario: a MAINDAT entry, or a file in the data directory. */
+static struct { int archive; char file[1200]; char name[160]; } chosen;
+static int scenario_type, size_filter;
 static menu_t *options_return, *file_return;
 static int button_race = 1; /* widget art of the screen being built; the front end is orc */
 static int volume_item, speed_item;
@@ -191,6 +190,7 @@ static void screen_begin(screen_t *screen, const spritesheet_t *background,
     screen->menu.modal = true;
     screen->menu.itemOn = -1;
     screen->menu.escape = escape;
+    screen->menu.drawitem = w2_draw_item;
     if (background && background->numlumps) {
         screen->menu.background = background;
         screen->menu.palette = background->source_palette;
@@ -242,6 +242,8 @@ static menuitem_t *add_label(screen_t *screen, irect_t rect, label_t text, int a
     item->ink = 0;
     for (int i = 0; i < MS_STATES; ++i) item->look[i].palette = 1;
     item->align = align;
+    item->flags = W2_ITEM_FLAGS(align & MALIGN_HCENTER ? 10 : align & MALIGN_RIGHT ? 11 : 9,
+                                0x0008 | (small_font ? 0 : 0x0800));
     snprintf(item->text, sizeof(item->text), "%s", text.text);
     return item;
 }
@@ -270,6 +272,7 @@ static menuitem_t *add_button(screen_t *screen, irect_t rect, label_t text, SDL_
     item->routine = front_action;
     apply_label(item, text);
     bind_button(item, &art.widgets[button_race]);
+    item->flags = W2_ITEM_FLAGS(2, 0x0218);
     return item;
 }
 
@@ -323,120 +326,14 @@ static void open_campaign(void) {
     show(&campaign_screen.menu);
 }
 
-/* Scenario info line for the setup and picker screens. */
-static void describe(const w2_pud_info_t *info, char *out, size_t size) {
-    static const int era_strings[4] = {21, 22, 23, 0};
-    static const char *const era_fallback[4] = {"Forest", "Winter", "Wasteland", "Swamp"};
-    int era = info->era & 3;
-    label_t name = L(STR_SETUP_VALUES, era_strings[era], era_fallback[era]);
-    snprintf(out, size, "%s%s%d x %d, %s", info->description, info->description[0] ? " - " : "",
-             info->width, info->height, name.text);
-}
-
-static label_t owner_type(int owner) {
-    switch (owner) {
-    case 4: return L(STR_SETUP_VALUES, 6, "Computer");
-    case 5: return L(STR_MESSAGES, 31, "You");
-    default: return LIT("");
-    }
-}
-
-static label_t resource_name(int mode) {
-    static const char *const fallback[NUM_RESOURCES] = {"Map Default", "Low", "Medium", "High"};
-    return L(STR_SETUP_VALUES, 10 + mode, fallback[mode]);
-}
-
-/* Custom game setup: the map decides the sides; the starting resources are the one
- * setting the player owns (retail's Resources row). */
-static void open_setup(void) {
-    if (!scenario[0]) snprintf(scenario, sizeof(scenario), "%s", g_game_default_map);
-    char path[1200], line[160];
-    w2_pud_info_t info;
-    if (scenario[0] == '/') snprintf(path, sizeof(path), "%s", scenario);
-    else M_PathJoin(path, sizeof(path), data_root, scenario);
-    bool known = w2_pud_info(path, &info);
-    screen_begin(&setup_screen, backdrop(), escape_to_single);
-    button_race = 1;
-    screen_t *s = &setup_screen;
-    add_label(s, (irect_t){330, 34, 310, 24}, L(STR_CUSTOM_MENU, 4, "Custom Game"), MALIGN_CENTER,
-              false);
-    int row = 0;
-    for (int i = 0; known && i < 8; ++i) {
-        label_t type = owner_type(info.owners[i]);
-        if (!type.text[0]) continue;
-        int y = 110 + row++ * 22;
-        snprintf(line, sizeof(line), "%d", i + 1);
-        add_label(s, (irect_t){344, y, 40, 16}, LIT(line), MALIGN_LEFT, true);
-        add_label(s, (irect_t){390, y, 140, 16}, type, MALIGN_LEFT, true);
-        label_t race = info.sides[i] == 0 ? L(STR_SETUP_VALUES, 19, "Human") :
-                       info.sides[i] == 1 ? L(STR_SETUP_VALUES, 20, "Orc") : LIT("-");
-        add_label(s, (irect_t){540, y, 90, 16}, race, MALIGN_LEFT, true);
-    }
-    add_label(s, (irect_t){16, 224, 224, 16}, L(STR_SETUP, 7, "Resources:"), MALIGN_LEFT, true);
-    add_button(s, (irect_t){16, 244, 224, 28}, resource_name(resources_mode), SDLK_r, A_RESOURCES);
-    s->items[last_item(s)].hotkey_ink = 0;
-    add_label(s, (irect_t){16, 360, 120, 20}, L(STR_SETUP, 11, "Scenario:"), MALIGN_LEFT, false);
-    snprintf(line, sizeof(line), "%.*s", (int)strcspn(scenario, "."), scenario);
-    add_label(s, (irect_t){16, 384, 370, 20}, LIT(line), MALIGN_LEFT, false);
-    if (known) describe(&info, line, sizeof(line)); else snprintf(line, sizeof(line), "?");
-    add_label(s, (irect_t){16, 408, 370, 40}, LIT(line), MALIGN_LEFT, true);
-    add_button(s, (irect_t){400, 360, 224, 28}, L(STR_PICK, 9, "Select Scenario"), SDLK_e, A_SELECT);
-    menuitem_t *start = add_button(s, (irect_t){400, 396, 224, 28}, L(STR_CUSTOM_MENU, 2, "Start Game"),
-                                   SDLK_s, A_START);
-    start->enabled = known;
-    add_button(s, (irect_t){400, 432, 224, 28}, L(STR_PICK, 2, "Cancel"), SDLK_c, A_CANCEL);
-    show(&s->menu);
+/* STRDAT keeps each campaign map's name: pairs of human then orc after the objectives. */
+static void level_title(int level, bool orc, char *out, size_t size) {
+    label_t title = L(STR_LEVELS, 35 + 2 * (level - 1) + (orc ? 1 : 0), "");
+    snprintf(out, size, "%s", title.text[0] ? title.text : M_va("%d", level));
 }
 
 static int compare_entries(const void *a, const void *b) {
     return strcasecmp(((const char *)a), ((const char *)b)); /* file is the first member */
-}
-
-static int scenario_players(const w2_pud_info_t *info) {
-    int players = 0;
-    for (int i = 0; i < 8; ++i) players += info->owners[i] == 4 || info->owners[i] == 5;
-    return players;
-}
-
-static void scan_scenarios(const char *directory, int size, bool folders) {
-    entry_count = 0;
-    if (folders && directory[0]) {
-        memset(&entries[entry_count], 0, sizeof(entries[0]));
-        const char *slash = strrchr(directory, '/');
-        snprintf(entries[entry_count].file, sizeof(entries[0].file), "%.*s",
-                 slash ? (int)(slash - directory) : 0, directory);
-        snprintf(entries[entry_count].label, sizeof(entries[0].label), "..");
-        entries[entry_count++].directory = true;
-    }
-    char base[1200];
-    M_PathJoin(base, sizeof(base), data_root, directory);
-    DIR *dir = opendir(base);
-    if (!dir) return;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) && entry_count < MAX_SCENARIOS) {
-        size_t len = strlen(ent->d_name);
-        if (ent->d_name[0] == '.' || len >= sizeof(entries[0].file)) continue;
-        char path[1200];
-        M_PathJoin(path, sizeof(path), base, ent->d_name);
-        struct stat st;
-        if (stat(path, &st)) continue;
-        bool folder = S_ISDIR(st.st_mode);
-        if (folder && !folders) continue;
-        if (!folder && (len < 5 || strcasecmp(ent->d_name + len - 4, ".pud"))) continue;
-        memset(&entries[entry_count], 0, sizeof(entries[0]));
-        if (!folder && !w2_pud_info(path, &entries[entry_count].info)) continue;
-        if (!folder && size && (entries[entry_count].info.width != size ||
-                               entries[entry_count].info.height != size)) continue;
-        if (!folder && player_filter && scenario_players(&entries[entry_count].info) != player_filter) continue;
-        entries[entry_count].directory = folder;
-        snprintf(entries[entry_count].file, sizeof(entries[0].file), "%s%s%s", directory,
-                 directory[0] ? "/" : "", ent->d_name);
-        snprintf(entries[entry_count].label, sizeof(entries[0].label), "%.*s%s",
-                 (int)len - (folder ? 0 : 4), ent->d_name, folder ? "/" : "");
-        ++entry_count;
-    }
-    closedir(dir);
-    qsort(entries, (size_t)entry_count, sizeof(entries[0]), compare_entries);
 }
 
 static const char *pick_row(const menuitem_t *item, int row) {
@@ -444,102 +341,208 @@ static const char *pick_row(const menuitem_t *item, int row) {
     return row >= 0 && row < entry_count ? entries[row].label : "";
 }
 
-/* STRDAT keeps each campaign map's name: pairs of human then orc after the objectives. */
-static void level_title(int level, bool orc, char *out, size_t size) {
-    label_t title = L(STR_LEVELS, 35 + 2 * (level - 1) + (orc ? 1 : 0), "");
-    snprintf(out, size, "%s", title.text[0] ? title.text : M_va("%d", level));
+/* Dropdown choices: strings of one STRDAT table, in the native order. */
+typedef struct { int entry, count; int index[8]; const char *fallback[8]; } choices_t;
+
+static const char *choice_row(const menuitem_t *item, int row) {
+    const choices_t *choices = item->userdata;
+    if (!choices || row < 0 || row >= choices->count) return "";
+    return L(choices->entry, choices->index[row], choices->fallback[row]).text;
+}
+
+/* Scenario picker contents (0x16ed4, 0x171bc, 0x173b4): single player offers
+ * built-in and custom scenarios; Players is the multiplayer filter. */
+static const choices_t scenario_types = {STR_SCENARIOS, 2, {0, 1}, {"Built-in scenario", "Custom scenario"}};
+static const choices_t map_sizes = {STR_SCENARIOS, 5, {5, 6, 7, 8, 9},
+                                    {"Any size", "32 x 32", "64 x 64", "96 x 96", "128 x 128"}};
+/* Custom game setup dropdowns (0x14f70), by native control ID. */
+static const choices_t setup_races = {STR_SETUP_VALUES, 3, {19, 20, 10}, {"Human", "Orc", "Map Default"}};
+static const choices_t setup_opponents = {STR_SETUP_VALUES, 8, {10, 26, 27, 28, 29, 30, 31, 32},
+    {"Map Default", "1 Opponent", "2 Opponents", "3 Opponents", "4 Opponents", "5 Opponents",
+     "6 Opponents", "7 Opponents"}};
+static const choices_t setup_resources = {STR_SETUP_VALUES, NUM_RESOURCES, {10, 11, 12, 13},
+                                          {"Map Default", "Low", "Medium", "High"}};
+static const choices_t setup_terrain = {STR_SETUP_VALUES, 4, {10, 21, 22, 23},
+                                        {"Map Default", "Forest", "Winter", "Wasteland"}};
+static const choices_t setup_units = {STR_SETUP_VALUES, 2, {10, 18}, {"Map Default", "One Peasant Only"}};
+static const choices_t setup_placement = {STR_SETUP_VALUES, 2, {17, 16}, {"Random", "Fixed"}};
+
+/* The native list and dropdown rows are REZDAT widget frames 45/46, one
+ * frame high (0x5910c reads the row height from frame 45). */
+static void native_rows(menuitem_t *item) {
+    item->sheet = &art.widgets[1];
+    item->disabled_look = true;
+    item->row_height = art.widgets[1].numlumps > 45 ? art.widgets[1].cells[45].rect.h : 18;
+}
+
+static void bind_choice(menuitem_t *item, const choices_t *choices, int value, menuroutine_t routine) {
+    native_rows(item);
+    item->routine = routine;
+    item->row = choice_row;
+    item->userdata = choices;
+    item->rows = choices->count;
+    item->value = value;
+    item->popup_rows = 6;
+}
+
+/* Native player count: the slots a person plays (owner 5). */
+static int scenario_players(const w2_pud_info_t *info) {
+    int players = 0;
+    for (int i = 0; i < 8; ++i) players += info->owners[i] == 5;
+    return players;
+}
+
+/* 0x16e00: 32/64/96/128 are sizes 1..4; anything else matches every filter. */
+static int size_index(const w2_pud_info_t *info) {
+    return info->width == info->height && info->width % 32 == 0 && info->width <= 128 ? info->width / 32 : 0;
+}
+
+/* Built-in scenarios are MAINDAT 220..247 with names STRDAT 63/22..49
+ * (0x17618). Custom ones are the data directory's *.PUD files, found as
+ * plain files (0x177e8 searches with attribute 0) and named by their
+ * lowercased file name (0x5f0d1). */
+static void scan_custom(void) {
+    entry_count = 0;
+    DIR *dir = opendir(data_root);
+    if (!dir) return;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) && entry_count < MAX_SCENARIOS) {
+        size_t len = strlen(ent->d_name);
+        if (len < 5 || len >= sizeof(entries[0].file) || strcasecmp(ent->d_name + len - 4, ".pud")) continue;
+        char path[1200];
+        M_PathJoin(path, sizeof(path), data_root, ent->d_name);
+        struct stat st;
+        if (stat(path, &st) || !S_ISREG(st.st_mode)) continue;
+        memset(&entries[entry_count], 0, sizeof(entries[0]));
+        if (!w2_pud_info(path, &entries[entry_count].info)) continue;
+        snprintf(entries[entry_count].file, sizeof(entries[0].file), "%s", ent->d_name);
+        for (size_t i = 0; i <= len && i < sizeof(entries[0].label); ++i)
+            entries[entry_count].label[i] = (char)tolower((unsigned char)ent->d_name[i]);
+        ++entry_count;
+    }
+    closedir(dir);
+    qsort(entries, (size_t)entry_count, sizeof(entries[0]), compare_entries);
+}
+
+static void scan_builtin(void) {
+    entry_count = 0;
+    char path[1200];
+    M_PathJoin(path, sizeof(path), data_root, "DATA/MAINDAT.WAR");
+    w2_archive_t archive;
+    if (!w2_archive_open(&archive, path)) return;
+    for (int i = 0; i < W2_SCENARIOS; ++i) {
+        w2_blob_t blob = {0};
+        w2_pud_info_t info;
+        bool ok = w2_archive_extract(&archive, W2_FIRST_SCENARIO + i, &blob) &&
+                  w2_pud_info_bytes(blob.data, blob.size, &info);
+        w2_blob_free(&blob);
+        if (!ok) continue;
+        memset(&entries[entry_count], 0, sizeof(entries[0]));
+        entries[entry_count].info = info;
+        entries[entry_count].archive = W2_FIRST_SCENARIO + i;
+        snprintf(entries[entry_count].label, sizeof(entries[0].label), "%s",
+                 L(STR_SCENARIOS, 22 + i, info.description).text);
+        ++entry_count;
+    }
+    w2_archive_close(&archive);
+}
+
+static bool chosen_entry(int row) {
+    return row >= 0 && row < entry_count &&
+           (entries[row].archive ? entries[row].archive == chosen.archive :
+                                   !chosen.archive && !strcasecmp(entries[row].file, chosen.file));
+}
+
+static int custom_count(void) {
+    scan_custom();
+    return entry_count;
+}
+
+/* The setup's scenario line (0x13e84): the type, then the name. */
+static void describe_choice(char *out, size_t size) {
+    snprintf(out, size, "%s\n%s", L(STR_SETUP_VALUES, chosen.archive ? 0 : 1,
+             chosen.archive ? "Built-in scenario" : "Custom scenario").text, chosen.name);
+}
+
+static void setup_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void pick_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+
+/* Custom game setup is MUDDAT 6001 in single player (0x15d58). Only the
+ * starting resources are carried into the game; the other choices show
+ * the map's own settings and stay disabled until the engine applies them. */
+static void open_setup(void) {
+    if (!chosen.name[0]) {
+        scan_builtin();
+        if (entry_count) {
+            chosen.archive = entries[0].archive;
+            snprintf(chosen.name, sizeof(chosen.name), "%s", entries[0].label);
+        }
+    }
+    button_race = 1;
+    screen_t *s = &setup_screen;
+    if (!native_scene(s, 6001, backdrop(), NULL, escape_to_single)) return;
+    static const struct { int id; const choices_t *choices; } dropdowns[] = {
+        {10, &setup_races}, {7, &setup_opponents}, {4, &setup_resources},
+        {8, &setup_terrain}, {6, &setup_units}, {5, &setup_placement},
+    };
+    for (size_t i = 0; i < sizeof(dropdowns) / sizeof(dropdowns[0]); ++i) {
+        menuitem_t *item = M_MenuFind(&s->menu, dropdowns[i].id);
+        if (!item) continue;
+        bool resources = dropdowns[i].id == 4;
+        bind_choice(item, dropdowns[i].choices, resources ? resources_mode : dropdowns[i].id == 10 ? 2 : 0,
+                    setup_action);
+        item->enabled = resources && item->enabled;
+    }
+    menuitem_t *line = M_MenuFind(&s->menu, 11);
+    if (line) describe_choice(line->text, sizeof(line->text));
+    for (int i = 1; i < s->menu.numitems; ++i) {
+        menuitem_t *item = &s->items[i];
+        if (item->kind != MI_BUTTON) continue;
+        item->routine = setup_action;
+        item->hotkey = item->id == 2 ? SDLK_s : item->id == 3 ? SDLK_e : SDLK_ESCAPE;
+    }
+    show(&s->menu);
 }
 
 static void pick_changed(screen_t *s, int row) {
     for (int id = 5; id <= 7; ++id) M_MenuFind(&s->menu, id)->text[0] = '\0';
-    if (row >= 0 && row < entry_count) {
-        if (!entries[row].directory) {
-            int players = scenario_players(&entries[row].info);
-            menuitem_t *dimensions = M_MenuFind(&s->menu, 5);
-            snprintf(dimensions->text, sizeof(dimensions->text), "%d x %d", entries[row].info.width,
-                     entries[row].info.height);
-            menuitem_t *count = M_MenuFind(&s->menu, 6);
-            snprintf(count->text, sizeof(count->text), "%d %s", players, players == 1 ? "player" : "players");
-        }
+    bool live = row >= 0 && row < entry_count;
+    if (live) {
+        const w2_pud_info_t *info = &entries[row].info;
+        snprintf(M_MenuFind(&s->menu, 5)->text, sizeof(s->items[0].text), "%s",
+                 entries[row].archive ? entries[row].label : info->description);
+        int size = size_index(info), players = scenario_players(info);
+        if (size) snprintf(M_MenuFind(&s->menu, 6)->text, sizeof(s->items[0].text), "%s",
+                           L(STR_SCENARIOS, size + 5, map_sizes.fallback[size]).text);
+        if (players) snprintf(M_MenuFind(&s->menu, 7)->text, sizeof(s->items[0].text), "%s",
+                              L(STR_SCENARIOS, players + 12, M_va("%d players", players)).text);
     }
-    M_MenuFind(&s->menu, -2)->enabled = row >= 0 && row < entry_count;
+    M_MenuFind(&s->menu, -2)->enabled = live;
 }
 
-static const char *choice_row(const menuitem_t *item, int row) {
-    static const char *const types[] = {"Built-in scenario", "Custom scenario"};
-    static const char *const sizes[] = {"Any size", "32 x 32", "64 x 64", "96 x 96", "128 x 128"};
-    static const char *const players[] = {"Any players", "1 player", "2 players", "3 players", "4 players",
-                                         "5 players", "6 players", "7 players", "8 players"};
-    if (item->id == 2) return types[row];
-    if (item->id == 3) return sizes[row];
-    return players[row];
-}
-
-static void native_rows(menuitem_t *item) {
-    item->sheet = &art.widgets[1];
-    item->font = large();
-    item->opaque = item->stretch = true;
-    item->ink = item->look[MS_PUSHED].ink = 0;
-    item->row_height = 18;
-    item->inset = (ivec2_t){4, 1};
-    item->border = YELLOW;
-    for (int i = 0; i < MS_STATES; ++i) {
-        item->look[i].cell = 46;
-        item->look[i].palette = i == MS_PUSHED ? 0 : 1;
-    }
-}
-
-static void bind_choice(menuitem_t *item, int rows, int value) {
-    native_rows(item);
-    item->disabled_look = true;
-    item->routine = pick_action;
-    item->row = choice_row;
-    item->rows = rows;
-    item->value = value;
-    item->popup_rows = 6;
-    item->border = 0xff848484u;
-    item->look[MS_FOCUS].palette = 0;
-    item->look[MS_DISABLED].cell = 45;
-    for (int i = 0; i < MS_STATES; ++i)
-        item->arrow[i] = (menulook_t){.cell = i == MS_DISABLED ? 31 : i == MS_PUSHED ? 33 : 32,
-                                     .part = {0, 0, 19, 20}};
-}
-
+/* REZDAT 89 over the setup screen, which stays visible and inert. */
 static void open_scenario(void) {
     screen_t *s = &pick_screen;
     *s = setup_screen;
     s->menu.items = s->items;
     for (int i = 0; i < s->menu.numitems; ++i) {
+        if (s->items[i].enabled) s->items[i].disabled_look = false;
         s->items[i].enabled = false;
-        s->items[i].disabled_look = false;
         s->items[i].hotkey = 0;
         s->items[i].id = 0;
+        s->items[i].routine = NULL;
     }
     s->menu.held = s->menu.keyheld = s->menu.dropdown = NULL;
     s->menu.escape = escape_to_setup;
     button_race = 1;
-    if (scenario_type) scan_scenarios(pick_directory, 32 * size_filter, true);
-    else {
-        entry_count = 0;
-        char path[1200];
-        M_PathJoin(path, sizeof(path), data_root, "DATA/MAINDAT.WAR");
-        w2_archive_t archive;
-        if (w2_archive_open(&archive, path)) {
-            for (int i = 220; i < 248; ++i) {
-                w2_blob_t blob = {0};
-                w2_pud_info_t info;
-                bool ok = w2_archive_extract(&archive, i, &blob) && w2_pud_info_bytes(blob.data, blob.size, &info);
-                w2_blob_free(&blob);
-                if (!ok || (size_filter && (info.width != 32 * size_filter || info.height != 32 * size_filter)) ||
-                    (player_filter && scenario_players(&info) != player_filter)) continue;
-                memset(&entries[entry_count], 0, sizeof(entries[0]));
-                entries[entry_count].info = info;
-                entries[entry_count].archive = i;
-                snprintf(entries[entry_count].label, sizeof(entries[0].label), "%s", info.description);
-                ++entry_count;
-            }
-            w2_archive_close(&archive);
+    if (scenario_type) scan_custom(); else scan_builtin();
+    if (size_filter) {
+        int kept = 0;
+        for (int i = 0; i < entry_count; ++i) {
+            int size = size_index(&entries[i].info);
+            if (!size || size == size_filter) entries[kept++] = entries[i];
         }
+        entry_count = kept;
     }
     int panel_index = s->menu.numitems;
     if (!append_scene(s, 3089, &art.panel[1][W2_PANEL_SCENARIO])) return;
@@ -550,36 +553,38 @@ static void open_scenario(void) {
     menuitem_t *list = M_MenuFind(&s->menu, 1);
     if (!type || !size || !players || !ok || !cancel || !bar || !list ||
         !M_MenuFind(&s->menu, 5) || !M_MenuFind(&s->menu, 6) || !M_MenuFind(&s->menu, 7)) return;
-    bind_choice(type, 2, scenario_type);
-    bind_choice(size, 5, size_filter);
-    bind_choice(players, 9, player_filter);
+    bind_choice(type, &scenario_types, scenario_type, pick_action);
+    bind_choice(size, &map_sizes, size_filter, pick_action);
+    /* Outside multiplayer 0x14bc8 hides the Players filter and its caption (ID 9). */
+    players->visible = players->enabled = false;
+    if (M_MenuFind(&s->menu, 9)) M_MenuFind(&s->menu, 9)->visible = false;
+    /* 0x5ae28: whole rows two pixels inside the control; the scroll bar
+     * (ID 0x8001) is the list's height, one arrow wide, against its right. */
+    irect_t control = list->rect;
     native_rows(list);
+    int rows = (control.h - 3) / list->row_height;
+    control.h = rows * list->row_height + 4;
+    list->rect = (irect_t){control.x + 2, control.y + 2, control.w - 4, rows * list->row_height};
     list->routine = pick_action;
     list->row = pick_row;
-    list->value = entry_count ? 0 : -1;
+    list->value = -1;
     for (int i = 0; i < entry_count; ++i)
-        if (!strcasecmp(entries[i].file, scenario)) list->value = i;
+        if (chosen_entry(i)) list->value = i;
     int list_index = (int)(list - s->items);
     list->first_row = list->value < 0 ? 0 : list->value;
     M_MenuSetRows(list, entry_count);
-    /* Kind 7 is a hidden scrollbar placeholder in the resource. Construct
-     * the composite from the native list rectangle and authored arrow size. */
-    irect_t arrow_rect = art.widgets[1].cells[29].rect;
+    isize2_t arrow = {art.widgets[1].cells[28].rect.w, art.widgets[1].cells[28].rect.h};
     bar->visible = bar->enabled = true;
-    bar->rect = (irect_t){list->rect.x + list->rect.w, list->rect.y + arrow_rect.h,
-                          arrow_rect.w, list->rect.h - 2 * arrow_rect.h};
+    bar->rect = (irect_t){control.x + control.w, control.y + arrow.h, arrow.w, control.h - 2 * arrow.h};
     bar->sheet = &art.widgets[1];
     bar->link = list_index;
-    bar->opaque = bar->stretch = true;
-    bar->thumb = (menulook_t){.cell = 40, .part = {0, 0, 17, 17}};
-    for (int i = 0; i < MS_STATES; ++i) bar->look[i].cell = 42;
+    bar->thumb = (menulook_t){.cell = 40, .part = art.widgets[1].cells[40].rect};
     for (int i = 0; i < 2; ++i) {
-        menuitem_t *arrow = screen_add(s, MI_BUTTON,
-            (irect_t){bar->rect.x, list->rect.y + (list->rect.h - arrow_rect.h) * i,
-                       arrow_rect.w, arrow_rect.h});
-        bind_widget(arrow, &art.widgets[1], i ? 32 : 29, i ? 33 : 30);
-        arrow->link = list_index;
-        arrow->step = i ? 1 : -1;
+        menuitem_t *step = screen_add(s, MI_BUTTON,
+            (irect_t){bar->rect.x, control.y + (control.h - arrow.h) * i, arrow.w, arrow.h});
+        bind_widget(step, &art.widgets[1], i ? 32 : 29, i ? 33 : 30);
+        step->link = list_index;
+        step->step = i ? 1 : -1;
     }
     ok->routine = cancel->routine = pick_action;
     ok->hotkey = SDLK_RETURN;
@@ -959,10 +964,7 @@ bool G_LoadExtra(const void *data, size_t size) {
 
 /* ── multiplayer: the engine's screens in Warcraft II dress ───────────────── */
 
-static int net_map_count(void) {
-    scan_scenarios("", 0, false);
-    return entry_count;
-}
+static int net_map_count(void) { return custom_count(); }
 static const char *net_map_path(int index) {
     return index >= 0 && index < entry_count ? entries[index].file : "";
 }
@@ -972,6 +974,19 @@ static const char *net_map_title(int index) {
 static void net_style_button(menuitem_t *item) {
     bind_button(item, &art.widgets[1]);
     if (item->mark_len == 0) item->hotkey_ink = 0;
+}
+/* The network screens' lists take the native list's rows, rims and bar (0x5ae28). */
+static void net_style_list(menuitem_t *list, menuitem_t *bar) {
+    irect_t control = list->rect;
+    native_rows(list);
+    int rows = (control.h - 3) / list->row_height;
+    control.h = rows * list->row_height + 4;
+    list->rect = (irect_t){control.x + 2, control.y + 2, control.w - 4, rows * list->row_height};
+    list->font = small();
+    bar->sheet = &art.widgets[1];
+    bar->flags = W2_ITEM_FLAGS(7, 0x0018) | W2_ITEM_ARROWS;
+    bar->rect = (irect_t){control.x + control.w, control.y, art.widgets[1].cells[28].rect.w, control.h};
+    bar->thumb = (menulook_t){.cell = 40, .part = art.widgets[1].cells[40].rect};
 }
 static void net_style_label(menuitem_t *item) {
     item->font = large();
@@ -1004,7 +1019,9 @@ static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action
     net_word(NETTEXT_SESSIONS, 38, 5);
     netui_t ui = {
         .background = &art.dimmed, .font = large(), .panel = &art.panel[1][W2_PANEL_SCENARIO],
-        .style_button = net_style_button, .style_label = net_style_label, .back = net_back,
+        .style_button = net_style_button, .style_label = net_style_label, .style_list = net_style_list,
+        .back = net_back,
+        .drawitem = w2_draw_item,
         .map_count = net_map_count, .map_path = net_map_path, .map_title = net_map_title,
         .max_players = 8,
     };
@@ -1016,20 +1033,36 @@ static void accept_pick(void) {
     menuitem_t *list = M_MenuFind(&pick_screen.menu, 1);
     int row = list ? list->value : -1;
     if (row < 0 || row >= entry_count) return;
-    if (entries[row].directory) {
-        snprintf(pick_directory, sizeof(pick_directory), "%s", entries[row].file);
-        open_scenario();
-        return;
-    }
-    if (entries[row].archive) {
+    chosen.archive = entries[row].archive;
+    snprintf(chosen.file, sizeof(chosen.file), "%s", entries[row].file);
+    snprintf(chosen.name, sizeof(chosen.name), "%s", entries[row].label);
+    open_setup();
+}
+
+/* Start Game: a built-in scenario is extracted first, as campaign maps are. */
+static void start_chosen(void) {
+    char path[1200];
+    if (chosen.archive) {
         char name[64];
-        snprintf(name, sizeof(name), "scenario-%d.pud", entries[row].archive);
-        if (!w2_extract_map(data_root, entries[row].archive, name, scenario, sizeof(scenario))) {
+        snprintf(name, sizeof(name), "scenario-%d.pud", chosen.archive);
+        if (!w2_extract_map(data_root, chosen.archive, name, path, sizeof(path))) {
             M_StartMessage("The scenario could not be read.");
             return;
         }
-    } else snprintf(scenario, sizeof(scenario), "%s", entries[row].file);
-    open_setup();
+    } else snprintf(path, sizeof(path), "%s", chosen.file);
+    W2_SetCampaign(0, false);
+    start_level(path, true);
+}
+
+static void setup_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (item->kind == MI_DROPDOWN) {
+        if (action == MA_CHANGE && item->id == 4) resources_mode = item->value;
+        return;
+    }
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 2) start_chosen();
+    else if (item->id == 3) open_scenario();
+    else if (item->id == 1 && menu->escape) menu->escape(menu);
 }
 
 static void single_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -1055,7 +1088,6 @@ static void pick_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     case 2: scenario_type = item->value; open_scenario(); break;
     case 3: size_filter = item->value; open_scenario(); break;
-    case 4: player_filter = item->value; open_scenario(); break;
     case -2: accept_pick(); break;
     case -3: if (menu->escape) menu->escape(menu); break;
     default: break;
@@ -1074,19 +1106,6 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         if (current && current->escape) current->escape(current);
         break;
     }
-    case A_SELECT: open_scenario(); break;
-    case A_RESOURCES:
-        resources_mode = (resources_mode + 1) % NUM_RESOURCES;
-        apply_label(item, resource_name(resources_mode));
-        break;
-    case A_START: {
-        char path[1200];
-        snprintf(path, sizeof(path), "%s", scenario);
-        W2_SetCampaign(0, false);
-        start_level(path, true);
-        break;
-    }
-    case A_CANCEL: open_single(); break;
     case A_LIST:
         if (saving && item->value >= 0 && item->value < save_count)
             snprintf(file_screen.items[name_item].text, sizeof(file_screen.items[0].text), "%s",
@@ -1128,14 +1147,13 @@ static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action) {
 bool G_InitMenus(app_t *app, const char *root) {
     front_app = app;
     snprintf(data_root, sizeof(data_root), "%s", root && root[0] ? root : g_game_default_root);
-    scenario[0] = '\0';
-    pick_directory[0] = '\0';
-    scenario_type = 1;
-    size_filter = player_filter = 0;
+    memset(&chosen, 0, sizeof(chosen));
+    scenario_type = size_filter = 0;
     resources_mode = launch_resources = 0;
     W2_SetCampaign(0, false);
     if (!w2_load_menu_art(root, &art))
         fprintf(stderr, "warcraft-2: menu art was not loaded\n");
+    w2_dialog_art(&art);
     if (!w2_strings_load(root))
         fprintf(stderr, "warcraft-2: dialog text was not loaded; using built-in labels\n");
     return true;

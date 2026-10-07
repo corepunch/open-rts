@@ -2256,6 +2256,7 @@ struct menuitem_s {
     menuanim_t anim;
     menuroutine_t routine;
     menudraw_t ownerdraw; /* native content drawn after the standard picture */
+    unsigned flags; /* the game's own, such as a native dialog record's; the engine ignores them */
     const void *userdata;
 };
 
@@ -2293,6 +2294,10 @@ struct menu_s {
     void (*drawtip)(const menu_t *menu, const menuitem_t *item);
     /* Ticks an animated item spends on its current frame; NULL means one. */
     int (*frametics)(const menuitem_t *item);
+    /* Draws a visible item entirely, as the game's own executable does, in
+     * drawing pixels; false leaves it to the engine. An open dropdown's
+     * choices come as an MI_LIST copy of it whose value is the pending row. */
+    bool (*drawitem)(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect);
     bool lifted;      /* the button that went down on a target is still down */
     void *owner;
 };
@@ -2306,6 +2311,8 @@ void M_MenuAnimate(menuitem_t *item, menuanimmode_t mode);
 /* Set a list's row count and keep its scroll position inside it. */
 void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(menu_t *menu);
+/* The item's picture for that state, as the engine draws it. */
+void M_MenuDrawPicture(const menuitem_t *item, menustate_t state, irect_t rect);
 /* The item with this id, or NULL. */
 menuitem_t *M_MenuFind(const menu_t *menu, int id);
 /* Framebuffer pixels for input; logical drawing pixels inside M_MenuDrawer. */
@@ -2363,6 +2370,10 @@ typedef struct {
      * set. NULL leaves the engine's plain look. */
     void (*style_button)(menuitem_t *item);
     void (*style_label)(menuitem_t *item);
+    /* Restyles a list and the scroll bar beside it, both placed already. */
+    void (*style_list)(menuitem_t *list, menuitem_t *bar);
+    /* The game draws the screens' items itself; see menu_t.drawitem. */
+    bool (*drawitem)(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect);
     void (*back)(app_t *app); /* Previous Menu from the first screen */
     int (*map_count)(void);
     const char *(*map_path)(int index);  /* relative to the data root, as menumap is */
