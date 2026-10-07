@@ -1954,10 +1954,10 @@ void w2_build_states(int pud, int phases) {
 
 /* ── Tile-based fog of war ────────────────────────────────────────────── */
 
-/* Wargus TiledFogTable: an 8-neighbor bitmask reduced to 4 bits selects one
- * of the first 16 tileset tiles.  Bits: 0=top-left, 1=top, 2=top-right,
- * 3=left, 4=right, 5=bottom-left, 6=bottom, 7=bottom-right. The table
- * collapses these 256 possibilities into 16 tile frames. */
+/* Megatiles 0..15 are the native shroud masks. Index 0 is the hole and
+ * index 239 is black. Stratagus TiledFogTable selects one mask from the
+ * four corners that a hidden neighbor touches:
+ * bit 0 top-right, bit 1 top-left, bit 2 bottom-right, bit 3 bottom-left. */
 static const int tiled_fog_table[16] = {
      0, 11, 10, 2, 13, 6, 14, 3,
     12, 15,  4, 1,  8, 9,  7, 0,
@@ -1973,25 +1973,27 @@ static int w2_cell_fog(const level_t *map, int x, int y) {
     return (bits & map->sight.allies[consoleplayer]) ? W2_FOG_VISIBLE : W2_FOG_EXPLORED;
 }
 
-static int w2_fog_index(const level_t *map, int cx, int cy, int threshold) {
-    int tl = w2_cell_fog(map, cx - 1, cy - 1) >= threshold;
-    int t  = w2_cell_fog(map, cx,     cy - 1) >= threshold;
-    int tr = w2_cell_fog(map, cx + 1, cy - 1) >= threshold;
-    int l  = w2_cell_fog(map, cx - 1, cy    ) >= threshold;
-    int r  = w2_cell_fog(map, cx + 1, cy    ) >= threshold;
-    int bl = w2_cell_fog(map, cx - 1, cy + 1) >= threshold;
-    int b  = w2_cell_fog(map, cx,     cy + 1) >= threshold;
-    int br = w2_cell_fog(map, cx + 1, cy + 1) >= threshold;
+static int w2_fog_index(const level_t *map, int cx, int cy, int match) {
+    int tl = w2_cell_fog(map, cx - 1, cy - 1) == match;
+    int t  = w2_cell_fog(map, cx,     cy - 1) == match;
+    int tr = w2_cell_fog(map, cx + 1, cy - 1) == match;
+    int l  = w2_cell_fog(map, cx - 1, cy    ) == match;
+    int r  = w2_cell_fog(map, cx + 1, cy    ) == match;
+    int bl = w2_cell_fog(map, cx - 1, cy + 1) == match;
+    int b  = w2_cell_fog(map, cx,     cy + 1) == match;
+    int br = w2_cell_fog(map, cx + 1, cy + 1) == match;
     int v = 0;
-    if (t || l || tl) v |= 1;
-    if (t || r || tr) v |= 2;
-    if (b || l || bl) v |= 4;
-    if (b || r || br) v |= 8;
+    if (t || r || tr) v |= 1;
+    if (t || l || tl) v |= 2;
+    if (b || r || br) v |= 4;
+    if (b || l || bl) v |= 8;
     return v;
 }
 
+/* `solid` paints every mask pixel. Explored fog keeps only the mask's
+ * even (x + y) phase, the same stipple the native edge art already uses. */
 static void w2_draw_fog_tile(const tileset_t *tileset, int tile, int dx, int dy,
-                             int cell_w, int cell_h, bool black) {
+                             int cell_w, int cell_h, bool solid) {
     if (tile < 0 || tile >= tileset->count || !tileset->indices) return;
     const uint8_t *src = tileset->indices + (size_t)tile * tileset->tile_w * tileset->tile_h;
     uint8_t black_idx = V_NearestIndex(0xff000000u);
@@ -2002,18 +2004,11 @@ static void w2_draw_fog_tile(const tileset_t *tileset, int tile, int dx, int dy,
         uint8_t *row = screens[0].pixels + (size_t)screen_y * screens[0].w;
         for (int px = 0; px < cell_w; ++px) {
             int sx = px * tileset->tile_w / cell_w;
-            uint8_t pixel = src[sy * tileset->tile_w + sx];
-            if (pixel) continue;
+            if (!src[sy * tileset->tile_w + sx]) continue;
+            if (!solid && ((px + py) & 1)) continue;
             int screen_x = dx + px;
             if (screen_x < 0 || screen_x >= screens[0].w) continue;
-            if (black)
-                row[screen_x] = black_idx;
-            else
-                row[screen_x] = V_NearestIndex(
-                    ((uint32_t)((vpalette[row[screen_x]] >> 16 & 255) * 160 / 255) << 16) |
-                    ((uint32_t)((vpalette[row[screen_x]] >>  8 & 255) * 160 / 255) <<  8) |
-                    ((uint32_t)((vpalette[row[screen_x]]       & 255) * 160 / 255)) |
-                    0xff000000u);
+            row[screen_x] = black_idx;
         }
     }
 }
@@ -2029,7 +2024,7 @@ static void w2_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset
     int height = app->win.h < screens[0].h ? app->win.h : screens[0].h;
     uint8_t black = V_NearestIndex(0xff000000u);
 
-    /* Pass 1: unexplored cells solid black, explored cells darkened. */
+    /* Pass 1: unexplored cells solid black, explored cells stippled. */
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             int state = w2_cell_fog(map, x, y);
@@ -2049,17 +2044,14 @@ static void w2_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset
                     int x0 = dx < origin ? origin : dx;
                     int x1 = dx + cell_w > origin + width ? origin + width : dx + cell_w;
                     for (int screen_x = x0; screen_x < x1; ++screen_x)
-                        row[screen_x] = V_NearestIndex(
-                            ((uint32_t)((vpalette[row[screen_x]] >> 16 & 255) * 160 / 255) << 16) |
-                            ((uint32_t)((vpalette[row[screen_x]] >>  8 & 255) * 160 / 255) <<  8) |
-                            ((uint32_t)((vpalette[row[screen_x]]       & 255) * 160 / 255)) |
-                            0xff000000u);
+                        if (((screen_x - dx + py) & 1) == 0)
+                            row[screen_x] = black;
                 }
             }
         }
     }
 
-    /* Pass 2: shroud edges — explored/visible cells bordering unexplored. */
+    /* Pass 2: shroud edges — seen cells bordering unexplored. */
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             if (w2_cell_fog(map, x, y) == W2_FOG_UNEXPLORED) continue;
@@ -2075,7 +2067,8 @@ static void w2_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset
         }
     }
 
-    /* Pass 3: fog edges — visible cells bordering explored-not-visible. */
+    /* Pass 3: fog edges — visible cells bordering explored ground.
+     * Unexplored corners stay on the solid shroud mask from pass 2. */
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             if (w2_cell_fog(map, x, y) != W2_FOG_VISIBLE) continue;
