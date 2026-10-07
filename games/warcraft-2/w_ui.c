@@ -275,6 +275,7 @@ void w2_free_menu_art(w2_menu_art_t *art) {
     if (!art) return;
     for (int i = 0; i < 2; ++i) {
         R_FreeSprite(&art->widgets[i]);
+        for (int k = 0; k < 2; ++k) R_FreeSprite(&art->results[i][k]);
         for (int k = 0; k < W2_PANELS; ++k) R_FreeSprite(&art->panel[i][k]);
     }
     R_FreeSprite(&art->title);
@@ -327,12 +328,22 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     w2_blob_free(&dim_pal);
     w2_archive_close(&rez);
     w2_archive_t maindat;
-    bool font = false;
+    bool assets = false;
     if (open_data(&maindat, root, "MAINDAT.WAR")) {
-        font = load_font(&maindat, 281, &art->font) && load_font(&maindat, 282, &art->small_font);
+        assets = load_font(&maindat, 281, &art->font) && load_font(&maindat, 282, &art->small_font);
+        for (int result = 0; result < 2 && assets; ++result)
+            for (int race = 0; race < 2 && assets; ++race) {
+                int offset = result * 2 + race;
+                w2_blob_t colors_blob = {0};
+                uint32_t colors[256];
+                assets = take_entry(&maindat, 363 + offset, &colors_blob) &&
+                       w2_decode_palette(&colors_blob, colors) &&
+                       load_img_entry(&maindat, 359 + offset, colors, &art->results[race][result]);
+                w2_blob_free(&colors_blob);
+            }
         w2_archive_close(&maindat);
     }
-    art->ready = widgets && panels && title && font;
+    art->ready = widgets && panels && title && assets;
     return art->ready;
 }
 

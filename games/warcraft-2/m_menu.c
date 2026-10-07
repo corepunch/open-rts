@@ -26,6 +26,7 @@ static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void end_scenario(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void single_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void result_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void show_credits(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -127,19 +128,17 @@ enum {
     A_SELECT, A_START, A_CANCEL, A_RESOURCES,
     A_CAMPAIGN, A_LIST,
     A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK,
-    A_NEXT, A_RESTART, A_QUIT,
     A_SAVE_OK, A_DELETE, A_FILE_CANCEL, A_NAME
 };
 typedef struct { const char *text; int at, len; } label_t;
 typedef struct { char path[1200]; saveinfo_t info; } saveentry_t;
 
 static screen_t title_screen, game_screen, single_screen, campaign_screen, setup_screen, pick_screen, credits_screen, options_screen,
-                result_screen, file_screen;
+                result_screen, stats_screen, file_screen;
 static char data_root[1024];
 static app_t *front_app;
 static char scenario[1200];
 static int resources_mode, launch_resources;
-static int campaign_orc, campaign_level; /* campaign_level 0: not in a campaign */
 static char launch_path[1200];
 static struct { char file[1200]; char label[160]; w2_pud_info_t info; bool directory; int archive; } entries[MAX_SCENARIOS];
 static int entry_count;
@@ -590,8 +589,15 @@ static void open_scenario(void) {
     show(&s->menu);
 }
 
-static void start_level(const char *path, bool apply_resources) {
+static void set_launch_path(const char *path) {
+    if (path == launch_path) return;
+    size_t root = strlen(data_root);
+    if (!strncmp(path, data_root, root) && path[root] == '/') path += root + 1;
     snprintf(launch_path, sizeof(launch_path), "%s", path);
+}
+
+static void start_level(const char *path, bool apply_resources) {
+    set_launch_path(path);
     launch_resources = apply_resources ? resources_mode : 0;
     W2_SetStartResources(launch_resources);
     menumap = launch_path;
@@ -604,8 +610,7 @@ static void start_campaign(bool orc) {
         M_StartMessage("The campaign level could not be read.");
         return;
     }
-    campaign_orc = orc;
-    campaign_level = 1;
+    W2_SetCampaign(1, orc);
     start_level(path, false);
 }
 
@@ -706,10 +711,14 @@ static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action) {
     } else {
         snprintf(title, sizeof(title), "%s %s", L(STR_OBJECTIVES, 2, "Scenario").text,
                  L(STR_OBJECTIVES, 3, "Objectives").text);
-        char level[160] = "";
-        if (campaign_level > 0) level_title(campaign_level, campaign_orc, level, sizeof(level));
-        label_t goal = L(STR_LEVELS, 34, (const char *)item->userdata);
-        snprintf(objective_text, sizeof(objective_text), "%s%s%s", level, level[0] ? "\n\n" : "",
+        char level_name[160] = "";
+        const w2_mission_t *mission = level.mission;
+        if (mission && mission->campaign.number > 0)
+            level_title(mission->campaign.number, mission->campaign.orc, level_name, sizeof(level_name));
+        int objective = mission && mission->campaign.number ?
+                        2 * (mission->campaign.number - 1) + mission->campaign.orc : 34;
+        label_t goal = L(STR_LEVELS, objective, (const char *)item->userdata);
+        snprintf(objective_text, sizeof(objective_text), "%s%s%s", level_name, level_name[0] ? "\n\n" : "",
                  goal.text + (goal.text[0] == '-'));
         body = objective_text;
     }
@@ -727,30 +736,57 @@ static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action) {
 /* The end of a scenario: a won campaign level offers the next one; a lost scenario can restart. */
 void W2_ShowResult(bool victory) {
     screen_t *s = &result_screen;
-    screen_begin(s, NULL, NULL);
     int race = button_race = side();
-    irect_t box = add_panel(s, &art.panel[race][W2_PANEL_OPTIONS]);
-    int x = box.x, y = box.y;
-    if (victory) {
-        bool more = campaign_level > 0 && campaign_level < W2_CAMPAIGN_LEVELS;
-        add_label(s, (irect_t){x, y + 24, box.w, 24}, L(STR_WIN, 3, "Victory!"), MALIGN_CENTER, false);
-        add_label(s, (irect_t){x, y + 60, box.w, 24}, L(STR_WIN, 4, "You are victorious!"),
-                  MALIGN_CENTER, false);
-        add_button(s, (irect_t){x + 32, y + 168, 224, 28}, L(STR_DISPATCH, 1, "Continue"),
-                   SDLK_RETURN, more ? A_NEXT : A_QUIT);
-    } else {
-        add_label(s, (irect_t){x, y + 24, box.w, 24}, L(STR_LOSE, 2, "Defeat"), MALIGN_CENTER, false);
-        add_label(s, (irect_t){x, y + 60, box.w, 24}, L(STR_LOSE, 3, "in this battle!"),
-                  MALIGN_CENTER, false);
-        add_button(s, (irect_t){x + 32, y + 140, 224, 28}, L(STR_RESTART, 1, "Restart"), SDLK_r,
-                   A_RESTART);
-        add_button(s, (irect_t){x + 32, y + 180, 224, 28}, L(STR_CUSTOM_MENU, 6, "Quit"), SDLK_q,
-                   A_QUIT);
+    w2_mission_t *mission = level.mission;
+    if (mission) { mission->done = true; mission->victory = victory; }
+    if (!native_scene(s, victory ? 3057 : 3058, NULL, &art.panel[race][W2_PANEL_DIALOG], NULL)) return;
+    for (int i = 1; i < s->menu.numitems; ++i) {
+        menuitem_t *item = &s->items[i];
+        if (item->kind != MI_BUTTON) continue;
+        item->routine = result_action;
+        item->hotkey = item->id == -2 ? SDLK_RETURN : SDLK_F11;
     }
     button_race = 1;
-    s->menu.itemOn = -1;
-    if (front_app) s->menu.app = front_app;
-    M_SetupNextMenu(&s->menu);
+    show(&s->menu);
+}
+
+static void result_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    w2_mission_t *mission = level.mission;
+    if (!mission) return;
+    if (menu == &result_screen.menu) {
+        if (item->id == 1) { open_save(menu, item, action); return; }
+        int race = button_race = side();
+        if (!native_scene(&stats_screen, 3059, &art.results[race][mission->victory ? 0 : 1], NULL, NULL)) return;
+        menuitem_t *result = M_MenuFind(&stats_screen.menu, 1);
+        if (result) apply_label(result, L(mission->victory ? STR_WIN : STR_LOSE, 1, ""));
+        menuitem_t *next = M_MenuFind(&stats_screen.menu, -2);
+        if (next) { next->routine = result_action; next->hotkey = SDLK_RETURN; }
+        button_race = 1;
+        show(&stats_screen.menu);
+        return;
+    }
+    if (item->id != -2) return;
+    w2_campaign_t campaign = mission->campaign;
+    if (!mission->victory) {
+        W2_SetCampaign(campaign.number, campaign.orc);
+        W2_SetStartResources(launch_resources);
+        set_launch_path(level.map_path);
+        menumap = launch_path;
+    } else if (campaign.number > 0 && campaign.number < W2_CAMPAIGN_LEVELS) {
+        char path[sizeof(launch_path)];
+        if (!w2_extract_campaign_level(data_root, campaign.number + 1, campaign.orc, path, sizeof(path))) {
+            M_StartMessage("The campaign level could not be read.");
+            return;
+        }
+        W2_SetCampaign(campaign.number + 1, campaign.orc);
+        start_level(path, false);
+        return;
+    } else {
+        W2_SetCampaign(0, false);
+        menuleave = true;
+    }
+    M_ClearMenus();
 }
 
 /* ── saved games (engine g_save.c, as Doom's) ────────────────────────────── */
@@ -875,10 +911,7 @@ static void file_activate(void) {
         return;
     }
     /* The driver loads the map first, then restores into it. */
-    size_t root = strlen(data_root);
-    const char *relative = !strncmp(info.map, data_root, root) && info.map[root] == '/' ?
-                           info.map + root + 1 : info.map;
-    snprintf(launch_path, sizeof(launch_path), "%s", relative);
+    set_launch_path(info.map);
     snprintf(g_loadfile, sizeof(g_loadfile), "%s", saves[row].path);
     menumap = launch_path;
     M_ClearMenus();
@@ -904,7 +937,9 @@ typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resourc
 size_t G_SaveExtraSize(void) { return sizeof(extra_t); }
 
 void G_SaveExtra(void *out) {
-    extra_t extra = {W2_CombatState(), campaign_orc, campaign_level, launch_resources};
+    const w2_mission_t *mission = level.mission;
+    extra_t extra = {W2_CombatState(), mission && mission->campaign.orc,
+                    mission ? mission->campaign.number : 0, launch_resources};
     memcpy(out, &extra, sizeof(extra));
 }
 
@@ -914,8 +949,10 @@ bool G_LoadExtra(const void *data, size_t size) {
     memcpy(&extra, data, sizeof(extra));
     if (extra.campaign_level < 0 || extra.campaign_level > W2_CAMPAIGN_LEVELS) return false;
     W2_SetCombatState(extra.dice);
-    campaign_orc = extra.campaign_orc != 0;
-    campaign_level = extra.campaign_level;
+    w2_mission_t *mission = level.mission;
+    if (!mission) return false;
+    mission->campaign = (w2_campaign_t){extra.campaign_level, extra.campaign_orc != 0};
+    W2_VictoryReset();
     launch_resources = extra.launch_resources;
     return true;
 }
@@ -1045,7 +1082,7 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     case A_START: {
         char path[1200];
         snprintf(path, sizeof(path), "%s", scenario);
-        campaign_level = 0;
+        W2_SetCampaign(0, false);
         start_level(path, true);
         break;
     }
@@ -1079,27 +1116,6 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         options_refresh(&options_screen);
         break;
     case A_OPTIONS_OK: options_escape(&options_screen.menu); break;
-    case A_NEXT:
-        if (campaign_level < W2_CAMPAIGN_LEVELS &&
-            w2_extract_campaign_level(data_root, campaign_level + 1, campaign_orc, launch_path,
-                                      sizeof(launch_path))) {
-            ++campaign_level;
-            start_level(launch_path, false);
-        } else {
-            menuleave = true;
-            M_ClearMenus();
-        }
-        break;
-    case A_RESTART:
-        W2_SetStartResources(launch_resources);
-        menumap = launch_path;
-        M_ClearMenus();
-        break;
-    case A_QUIT:
-        campaign_level = 0;
-        menuleave = true;
-        M_ClearMenus();
-        break;
     default: break;
     }
 }
@@ -1116,7 +1132,8 @@ bool G_InitMenus(app_t *app, const char *root) {
     pick_directory[0] = '\0';
     scenario_type = 1;
     size_filter = player_filter = 0;
-    resources_mode = launch_resources = campaign_level = 0;
+    resources_mode = launch_resources = 0;
+    W2_SetCampaign(0, false);
     if (!w2_load_menu_art(root, &art))
         fprintf(stderr, "warcraft-2: menu art was not loaded\n");
     if (!w2_strings_load(root))

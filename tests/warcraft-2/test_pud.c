@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 static int count_terrain(uint8_t kind) {
     int count = 0;
@@ -205,10 +207,89 @@ static int test_ui_art(void) {
     return 0;
 }
 
+static int test_campaign_records(void) {
+    mkdir("build/test-user", 0777);
+    setenv("OPEN_RTS_USER_DIR", "build/test-user", 1);
+    G_InitGame();
+    for (int number = 1; number <= W2_CAMPAIGN_LEVELS; ++number) {
+        for (int orc = 0; orc < 2; ++orc) {
+            char path[1200];
+            RTS_CHECK(w2_extract_campaign_level("data/WAR2", number, orc, path, sizeof(path)), "campaign records", "extract");
+            P_InitThinkers();
+            W2_SetCampaign(number, orc);
+            RTS_CHECK(G_DoLoadLevel(path, &level), "campaign records", "load");
+            const w2_pud_t *pud = level.native_data;
+            int expected = 0, troops = 0, workers = 0;
+            for (int i = 0; i < pud->unit_count; ++i) {
+                const w2_pud_unit_t *record = &pud->units[i];
+                if (record->type >= W2_TYPE_COUNT) continue;
+                const mobjinfo_t *info = &mobjinfo[record->type + 1];
+                expected += info->name && !(info->w2.flags & W2_SKIP);
+                troops += record->type == 0 || record->type == 1;
+                workers += record->type == 2 || record->type == 3;
+            }
+            RTS_CHECK(P_LoadThings(NULL) == expected, "campaign records", "exact native spawn count");
+            mobjlist_t units = P_ListMobjs();
+            RTS_CHECK(units.count == expected, "campaign records", "no additional startup units");
+            bool *matched = calloc((size_t)pud->unit_count, sizeof(bool));
+            RTS_CHECK(matched, "campaign records", "allocate matches");
+            for (int i = 0; i < units.count; ++i) {
+                const mobj_t *unit = units.items[i];
+                bool found = false;
+                for (int j = 0; j < pud->unit_count; ++j) {
+                    const w2_pud_unit_t *record = &pud->units[j];
+                    if (matched[j] || unit->type_id != record->type + 1 || unit->owner != record->player) continue;
+                    isize2_t foot = mobjinfo[unit->type_id].w2.footprint;
+                    fvec2_t position = {record->x + foot.w * 0.5f, record->y + foot.h * 0.5f};
+                    if (fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position), position) != 0) continue;
+                    matched[j] = found = true;
+                    break;
+                }
+                RTS_CHECK(found, "campaign records", "unit type, owner and position match one native UNIT record");
+            }
+            if (number <= 2) fprintf(stderr, "campaign %d %s: records=%d spawned=%d infantry=%d workers=%d era=%d player=%d\n",
+                number, orc ? "orc" : "human", pud->unit_count, units.count, troops, workers, pud->era, consoleplayer);
+            free(matched);
+            P_FreeMobjList(&units);
+            P_FreeLevel(&level);
+        }
+    }
+    puts("PASS: all 28 campaign maps spawn only native UNIT records, with exact types, owners and positions");
+    /* A native terrain map with an empty UNIT section stays empty. The
+     * driver smoke check also uses this fixture to exercise its startup. */
+    blob_t file;
+    RTS_CHECK(W_ReadFile("build/test-user/campaign-level01o.pud", &file), "empty map", "read native fixture");
+    size_t at = 0;
+    while (at + 8 <= file.size) {
+        size_t length = read_u32_le(file.bytes + at + 4);
+        RTS_CHECK(length <= file.size - at - 8, "empty map", "valid native section");
+        if (!memcmp(file.bytes + at, "UNIT", 4)) {
+            memmove(file.bytes + at + 8, file.bytes + at + 8 + length, file.size - at - 8 - length);
+            memset(file.bytes + at + 4, 0, 4);
+            file.size -= length;
+            break;
+        }
+        at += 8 + length;
+    }
+    RTS_CHECK(at + 8 <= file.size, "empty map", "UNIT section found");
+    const char *empty_path = "build/test-user/empty-campaign.pud";
+    FILE *empty = fopen(empty_path, "wb");
+    RTS_CHECK(empty && fwrite(file.bytes, 1, file.size, empty) == file.size, "empty map", "write fixture");
+    RTS_CHECK(fclose(empty) == 0, "empty map", "close fixture");
+    W_FreeFile(&file);
+    W2_SetCampaign(0, false);
+    P_InitThinkers();
+    RTS_CHECK(G_DoLoadLevel(empty_path, &level) && P_LoadThings(NULL) == 0, "empty map", "no automatic units");
+    RTS_CHECK(count_units() == 0, "empty map", "thinker list stays empty");
+    P_FreeLevel(&level);
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(test_alamo());
     RTS_RUN(test_channel());
     RTS_RUN(test_ui_art());
+    RTS_RUN(test_campaign_records());
     printf("warcraft-2 pud tests passed\n");
     return 0;
 }

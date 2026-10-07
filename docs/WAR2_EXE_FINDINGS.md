@@ -1159,3 +1159,148 @@ rendered as BMPs and inspected; this verifies engine output, not pixel
 identity to retail. Reproduce with `make`, `env SDL_VIDEODRIVER=dummy make
 test-warcraft-2` (allow local UDP), and `env SDL_VIDEODRIVER=dummy
 W2_MENU_SHOTS=/private/tmp build/bin/tests/warcraft-2/test_menu`.
+## Campaign startup, native units and result transition (2026-10-07)
+
+**Evidence boundary.** The user's `Screenshot 2026-10-07 at 13.29.41.jpg`
+(SHA-256 `c6408ce3e98f350f7aac65cbb056ce75b2bfeee681499798964242d9914fabc8`)
+shows open-rts, not retail Warcraft II. Its premature victory and oversized
+dialog are engine defects, not evidence of retail behavior. Retail was not
+executed. Static findings use the same 878,119-byte WAR2.EXE fingerprint
+`a2b4b2118ec6355371b58134be8c7331d1facc5989e7188a1d1bb68fd1f26671`
+and unchanged inner LE image/toolchain documented below. Native archive
+fingerprints recorded elsewhere in this document continue to apply.
+
+**Confirmed defects.** The old `p_victory.c::alive` counted buildings and
+harvesters only. Mission one's enemies consist of infantry, so it reported
+victory while the enemies were alive. It also applied elimination to a
+construction objective. The old result popup was an authored 288x256 options
+panel and skipped the actual result screen. Its next-level action passed
+`launch_path` as both source and destination of `snprintf`; this overlap is
+undefined and can destroy the queued filename. The driver independently
+created six invented actors whenever native startup spawned zero objects.
+That fallback is now removed, including for other games using the driver.
+Defeat restart also used the last menu launch buffer, which could refer to a
+different map after direct loading. It now queues the active `level.map_path`
+using the same data-root normalization as ordinary launches and save loading.
+
+**Confirmed native map contents.** MAINDAT 192/193 are human/Orc mission one;
+194/195 are human/Orc mission two, corroborated by pinned Wargus `wartool.h`.
+Each PUD `UNIT` record is eight bytes: u16 tile x/y at +0/+2, type at +4,
+owner at +5, u16 data at +6. Start locations 94/95 are markers, not actors.
+Coordinates below are the record's top-left tile, before footprint centring.
+
+Orc mission one is a native winter 32x32 map with 14 records and 12 actors:
+
+| Owner | Native type | Positions |
+|---|---|---|
+| 0 (player) | Peon 3 | (25,18) |
+| 0 | Great Hall 75 | (22,22) |
+| 0 | Grunt 1 | (18,23), (28,24), (20,27) |
+| 0 | Pig Farm 59 | (27,26) |
+| 1 | Footman 0 | (22,2), (2,17) |
+| 1 | Archer 8 | (11,6), (2,29) |
+| 15 | Gold Mine 92 | (5,3), (26,13), data 2 and 4 |
+| 1 / 0 | Human / Orc start markers 94 / 95 | (13,7) / (22,21) |
+
+Orc mission two is also winter: 40 records, 37 actors, nine player-owned
+grunts (UNIT indices 23–29, 34, 38), one peon at (50,58), Great Hall at
+(41,56), farms at (48,54)/(40,54). Sharp Axe type 53, owner 2, is at
+(51,14); the Circle of Power type 100, owner 15, is at (2,40). Other
+infantry belong to opposing/rescuable owners. Thus a larger army in mission
+two is native placement, not justification to remove or replace actors.
+Human mission one has 14 records/12 actors; human mission two 46/44.
+The regression compares the complete actor multiset of all 28 campaign maps
+against native records, with exact type, owner and footprint-centred position.
+No startup actor is synthesized. A derived test fixture with an empty UNIT
+section also remains empty through both the loader and real engine driver.
+
+**Confirmed objective evidence; implementation consequence.** STRDAT 53
+indices 0/1 both require four farms and a barracks. Pinned Wargus
+`campaigns/{human,orc}/level01*_c.sms` tests the corresponding type counts
+against 4/1 and defeats the player at total unit count zero. Its generic
+`SinglePlayerTriggers` likewise counts all units, not only buildings/workers.
+The engine now counts surviving owned non-neutral actors and checks the
+first campaign's race-specific building objective. It requires construction
+to finish before satisfying that objective; that completion detail is an
+implementation interpretation, not a traced retail instruction. Campaign
+identity and outcome belong to `level.mission`, freed by the level owner;
+the queued next campaign is consumed on load. Save extras retain their
+existing 16-byte representation and restore the active mission identity.
+The objectives menu now selects STRDAT 53 at `2*(mission-1)+orc`, instead
+of displaying generic objective 34 for every campaign mission.
+
+**Reference comparison.** Wargus's Orc mission two uses rescue/return-to-circle
+conditions, and mission three requires a shipyard and four oil platforms.
+These disprove a universal campaign elimination condition. Wargus loads the
+converted campaign map; its separate custom-game `CreateUnit` wrapper can
+add peasant-start units and is not copied into our native startup.
+Warcraft 2000's `mapa.cpp::PostLoadExtendedMap` (line 641 in the pinned tree)
+reads its own unit count, then type/owner/x/y and calls `CreateUnit` once per
+record. Its MPF format is different and supplies no Warcraft II PUD layout
+or campaign-objective evidence. `Nation.cpp::WinnerControl` (3262) counts
+existing non-UFO objects on both sides; `mapa.cpp::ShowWinner` (1509) displays
+an outcome when either count is zero. This is a comparison of ownership and
+counting behavior only. No reference source was copied.
+
+**Confirmed native result scenes.** REZDAT 57/resource 3057 is the victory
+acknowledgement, linked to STR resource 4020. Root (256,176), 288x128;
+Congratulations and You Won occupy (288,192)/(288,212), each 224x18.
+Save button ID 1 is (288,234), 224x28; default Victory button ID -2 is
+(288,268), 224x28. REZDAT 58/resource 3058 supplies defeat. Both now use
+the matching native 288x128 dialog panel rather than the options panel.
+
+REZDAT 59/resource 3059 supplies the 640x480 two-row result scene, 31
+records, STR resource 4022. Its Continue ID -2 is (456,448), 106x28.
+Result/rank/score headings are at y60; runtime result ID 1 is (12,80),
+192x50. Player slots IDs 4/5 are (40,236)/(40,340), 560x36. Seven native
+column headings IDs 71–77 are at x=`4+90*column`, y180, 90x18; runtime
+statistics start at x=`10+90*column`, y212/y316, 80x24. These rectangles
+are loaded from native records, not recreated by an authored table.
+
+Static result routine VA **0x48318** loads byte **0x8032d** at **0x48354**
+and selects resources 3059/3060/3061/3062 at **0x4835e/0x4836a/0x48376/
+0x4837d**, for values <=2/<=4/<=6/larger. It calls scene loader **0x58bec**
+at **0x48382**, then **0x59060** at **0x48391** with handler **0x4822c**.
+Interpreting that byte as participant count is inferred from the row counts;
+the exact producer of the byte is not yet traced. Code VA maps to original
+file offset `VA + 0x4a6a4` as documented in the static-analysis section.
+
+MAINDAT images 359/360/361/362 and palettes 363/364/365/366 are respectively
+human victory, Orc victory, human defeat and Orc defeat, corroborated by
+the pinned extractor catalog. The engine decodes these native images with
+their own palettes. Acknowledgement now opens the result scene; only its
+Continue action queues mission two or a restart/return. Next-level extraction
+uses a separate local path buffer. Engine screenshots of both victory
+backgrounds were inspected; they establish engine rendering, not exact
+retail pixel identity.
+
+**Unknown / incomplete.** Mission 2–14 rescue, region and target objectives
+are not implemented; they deliberately cannot fall through to generic
+victory, though losing all owned actors still causes defeat. Briefings,
+chapter transitions and final campaign ending remain incomplete. Runtime
+result fields for player names, historical counters, score and rank remain
+unbound; only the outcome is populated. The engine currently selects the
+two-row stats scene rather than tracing the retail participant-count field.
+Retail palette composition for controls over the result artwork and full
+result callback behavior are unverified. Do not claim that native scene
+decoding alone implements all scene behavior or proves pixel equivalence.
+
+**Verification / reproduction.** `make` succeeds; all 25 Warcraft II
+regression executables pass headlessly with local UDP allowed. `test_menu`
+checks both first missions stay active at startup, unfinished barracks do
+not win, completed 4-farm/1-barracks objectives win, acknowledgement opens
+native stats, and Continue loads the correct second mission for each race.
+It also checks skirmish victory/defeat transitions. `test_pud` checks all
+28 native campaign actor multisets and creates the empty-map fixture.
+Headless checks of the per-game Dark Reign, Dark Colony and 7th Legion
+binaries also pass after removing the shared driver's empty-map fallback.
+
+```sh
+make
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy W2_MENU_SHOTS=/private/tmp build/bin/tests/warcraft-2/test_menu
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check --map "$PWD/build/test-user/empty-campaign.pud"
+# With the unchanged inner image and disposable r2 toolchain prepared:
+/private/tmp/war2-analysis-tools/prefix/bin/r2 -q -e bin.cache=true -e bin.relocs.apply=true -A -c 'pdf @ 0x48318' -c q reverse/war2-exe-r2ghidra/war2-inner.mz
+```
