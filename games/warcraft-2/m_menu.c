@@ -4,7 +4,6 @@
 #include "w2_local.h"
 
 #include <dirent.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,12 +13,11 @@
 /* Native dialog geometry comes from REZDAT linked records; assets come from
  * its GFUs and bitmaps. Callback dispatch and dynamic contents belong here.
  *
- * Single-player campaign entry follows Blizzard's manual: New Campaign,
- * race selection, then mission one. Wargus's mission selector is not retail
- * behavior. Other screens still need retail layout verification.
- * Screens are built when opened, so each starts from fresh state.
- * Rendering flags and complete retail screen flow still need static tracing.
- * Other popups use the dimmed title (REZDAT 15). */
+ * Single-player campaign entry follows the executable: New Campaign, race,
+ * the mission briefing, then the map. In-game popups are the REZDAT dialogs
+ * named by the game menu's result switch. Screens are built when opened.
+ * A popup over a level leaves the background empty so the map shows; the
+ * front end uses the title, or the dimmed title behind a full-screen page. */
 
 static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -29,10 +27,16 @@ static void single_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void result_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void show_credits(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action);
-static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_help_menu(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_objectives(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_end_menu(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_save(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_briefing(void);
+static void open_connection(void);
+static void open_viewgame(void);
+static void open_engine_net(int first);
 
 static w2_menu_art_t art;
 
@@ -117,23 +121,15 @@ static void bind_button(menuitem_t *item, const spritesheet_t *sheet) {
 
 /* ── the front-end screens ───────────────────────────────────────────────── */
 
-#define YELLOW 0xffffe84au
-#define WHITE 0xffffffffu
 enum { SCREEN_ITEMS = 80, MAX_SCENARIOS = 128, MAX_SAVES = 64 };
 
 typedef struct { menu_t menu; menuitem_t items[SCREEN_ITEMS]; } screen_t;
 
-enum {
-    A_STANDARD = 1, A_LOAD, A_PREVIOUS,
-    A_CAMPAIGN, A_LIST,
-    A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK,
-    A_SAVE_OK, A_DELETE, A_FILE_CANCEL, A_NAME
-};
 typedef struct { const char *text; int at, len; } label_t;
 typedef struct { char path[1200]; saveinfo_t info; } saveentry_t;
 
 static screen_t title_screen, game_screen, single_screen, campaign_screen, setup_screen, pick_screen, credits_screen, options_screen,
-                result_screen, stats_screen, file_screen;
+                result_screen, stats_screen, file_screen, dialog_screen, brief_screen, net_screen;
 static char data_root[1024];
 static app_t *front_app;
 static int resources_mode, launch_resources;
@@ -145,16 +141,26 @@ static struct { int archive; char file[1200]; char name[160]; } chosen;
 static int scenario_type, size_filter;
 static menu_t *options_return, *file_return;
 static int button_race = 1; /* widget art of the screen being built; the front end is orc */
-static int volume_item, speed_item;
 static saveentry_t saves[MAX_SAVES];
 static int save_count, name_item;
 static bool saving;
-static char credits_text[3072], help_text[4096], objective_text[512];
-
-static const struct { const char *name; int percent; } speeds[] = {
-    { "50%", 50 }, { "75%", 75 }, { "100%", 100 }, { "150%", 150 }, { "200%", 200 },
-};
-enum { NUM_SPEEDS = sizeof(speeds) / sizeof(speeds[0]), NUM_RESOURCES = 4 };
+static char credits_text[3072], briefing_text[4096], objective_text[2048];
+static char method_name[3][160], method_desc[512];
+enum { NUM_RESOURCES = 4 };
+/* Engine ranges on the native sliders. Sound and music are gamesettings;
+ * CD, mouse and keyboard speeds are stored only. Fog, mouse style and the
+ * minimap lines are the screen dialog's radios, stored and not applied. */
+static int saved_sound, saved_music, saved_speed, saved_cd, cd_volume = 10;
+static int mouse_speed = 10, key_speed = 10;
+static int speech_on = 1, ack_on = 1, building_on = 1, cd_music_on = 1;
+static int mouse_style, fog_mode, map_info, show_tips = 1, key_page, net_dialog;
+static char modem_line[3][40];
+static int modem_tone = 1;
+enum { CONFIRM_SURRENDER = 1, CONFIRM_RESTART, CONFIRM_MENU, CONFIRM_QUIT, CONFIRM_LOBBY, CONFIRM_CUSTOM };
+static int confirm_kind;
+static bool brief_from_menu, brief_orc;
+static int brief_level;
+static menu_t *dialog_return;
 static char net_text[NETTEXT_COUNT][160];
 
 /* Text comes from STRDAT when the data has it, and from the fallback if not. */
@@ -165,7 +171,6 @@ static label_t L(int entry, int index, const char *fallback) {
     if (w2_label(entry, index, text)) return (label_t){text->text, text->mark_at, text->mark_len};
     return (label_t){fallback, 0, 0};
 }
-#define LIT(s) ((label_t){(s), 0, 0})
 
 static void apply_label(menuitem_t *item, label_t text) {
     snprintf(item->text, sizeof(item->text), "%s", text.text);
@@ -176,6 +181,9 @@ static void apply_label(menuitem_t *item, label_t text) {
 static const bitmapfont_t *large(void) { return art.font.sprite.numlumps ? &art.font : NULL; }
 static const bitmapfont_t *small(void) {
     return art.small_font.sprite.numlumps ? &art.small_font : large();
+}
+static const bitmapfont_t *tiny(void) {
+    return art.tiny_font.sprite.numlumps ? &art.tiny_font : small();
 }
 
 static void show(menu_t *menu) {
@@ -218,9 +226,15 @@ static bool append_scene(screen_t *screen, int entry, const spritesheet_t *panel
     screen->menu.numitems += count;
     for (int i = first + 1; i < screen->menu.numitems; ++i) {
         menuitem_t *item = &screen->items[i];
-        item->font = large();
+        unsigned rec = item->flags;
         for (int state = 0; state < MS_STATES; ++state) item->look[state].palette = 1;
+        item->disabled_look = true;
         if (item->kind == MI_BUTTON) bind_button(item, &art.widgets[button_race]);
+        else if (item->kind == MI_CHECK || item->kind == MI_SLIDER || item->kind == MI_LIST ||
+                 item->kind == MI_DROPDOWN || item->kind == MI_SCROLLBAR || item->kind == MI_TEXTFIELD)
+            item->sheet = &art.widgets[button_race];
+        /* 0x0800 is MAINDAT 281, 0x0400 is 283, otherwise the dialog font 282. */
+        item->font = rec & 0x0800 ? large() : rec & 0x0400 ? tiny() : small();
     }
     menuitem_t *window = &screen->items[first];
     window->sheet = panel && panel->numlumps ? panel : NULL;
@@ -235,56 +249,8 @@ static bool native_scene(screen_t *screen, int entry, const spritesheet_t *backg
     return append_scene(screen, entry, panel);
 }
 
-static menuitem_t *add_label(screen_t *screen, irect_t rect, label_t text, int align,
-                             bool small_font) {
-    menuitem_t *item = screen_add(screen, MI_STATIC, rect);
-    item->font = small_font ? small() : large();
-    item->ink = 0;
-    for (int i = 0; i < MS_STATES; ++i) item->look[i].palette = 1;
-    item->align = align;
-    item->flags = W2_ITEM_FLAGS(align & MALIGN_HCENTER ? 10 : align & MALIGN_RIGHT ? 11 : 9,
-                                0x0008 | (small_font ? 0 : 0x0800));
-    snprintf(item->text, sizeof(item->text), "%s", text.text);
-    return item;
-}
-
-/* The panel's own size centres it on the 640x480 screen. */
-static irect_t add_panel(screen_t *screen, const spritesheet_t *sheet) {
-    isize2_t size = sheet->numlumps ? (isize2_t){sheet->cells[0].rect.w, sheet->cells[0].rect.h}
-                                    : (isize2_t){0, 0};
-    irect_t where = {(640 - size.w) / 2, (480 - size.h) / 2, size.w, size.h};
-    menuitem_t *item = screen_add(screen, MI_STATIC, where);
-    item->sheet = sheet->numlumps ? sheet : NULL;
-    item->opaque = true;
-    for (int state = 0; state < MS_STATES; ++state) item->look[state].cell = item->sheet ? 0 : -1;
-    return where;
-}
-
-static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void campaign_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void pick_action(menu_t *menu, menuitem_t *item, menuaction_t action);
-
-static menuitem_t *add_button(screen_t *screen, irect_t rect, label_t text, SDL_Keycode key,
-                              int id) {
-    menuitem_t *item = screen_add(screen, MI_BUTTON, rect);
-    item->hotkey = key;
-    item->id = id;
-    item->routine = front_action;
-    apply_label(item, text);
-    bind_button(item, &art.widgets[button_race]);
-    item->flags = W2_ITEM_FLAGS(2, 0x0218);
-    return item;
-}
-
-static void set_text(screen_t *screen, int index, const char *format, ...) __attribute__((format(printf, 3, 4)));
-static void set_text(screen_t *screen, int index, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    vsnprintf(screen->items[index].text, sizeof(screen->items[index].text), format, args);
-    va_end(args);
-}
-
-static int last_item(const screen_t *screen) { return screen->menu.numitems - 1; }
 
 static void open_title(void) {
     /* The front end's own first screen: G_ControlPanel builds it. */
@@ -609,32 +575,141 @@ static void start_level(const char *path, bool apply_resources) {
     M_ClearMenus();
 }
 
-static void start_campaign(bool orc) {
+static const spritesheet_t *game_panel(void) { return &art.panel[button_race][W2_PANEL_GAME]; }
+
+static void wire(screen_t *s, menuroutine_t routine) {
+    for (int i = 1; i < s->menu.numitems; ++i) {
+        menuitem_t *item = &s->items[i];
+        if (item->kind == MI_BUTTON || item->kind == MI_CHECK || item->kind == MI_SLIDER ||
+            item->kind == MI_LIST || item->kind == MI_TEXTFIELD)
+            item->routine = routine;
+    }
+}
+
+static void hide_id(screen_t *s, int id) {
+    menuitem_t *item = M_MenuFind(&s->menu, id);
+    if (item) item->visible = item->enabled = false;
+}
+
+/* Grab width is two 20px caps plus the 17px knob, so the engine's drag
+ * centre sits on the knob drawn between the caps. */
+enum { SLIDER_GRAB = 57 };
+
+static void bind_slider(menuitem_t *item, int min, int max, int value) {
+    if (!item) return;
+    if (value < min) value = min;
+    if (value > max) value = max;
+    item->range.min = min;
+    item->range.max = max;
+    item->value = value;
+    item->thumb.cell = 40;
+    item->thumb.part = (irect_t){0, 0, SLIDER_GRAB, 17};
+}
+
+static void link_bar(screen_t *s, menuitem_t *list, int bar_id) {
+    menuitem_t *bar = M_MenuFind(&s->menu, bar_id);
+    if (!list || !bar) return;
+    bar->flags |= W2_ITEM_ARROWS;
+    bar->sheet = &art.widgets[button_race];
+    bar->link = (int)(list - s->items);
+    if (art.widgets[button_race].numlumps > 40)
+        bar->thumb = (menulook_t){.cell = 40, .part = art.widgets[button_race].cells[40].rect};
+}
+
+static void set_radio(menu_t *menu, int group, int on_id, int off_id, bool on_first) {
+    menuitem_t *on = M_MenuFind(menu, on_id), *off = M_MenuFind(menu, off_id);
+    if (on) { on->group = group; on->value = on_first; }
+    if (off) { off->group = group; off->value = !on_first; }
+}
+
+static void remember_settings(void) {
+    saved_sound = gamesettings.sound;
+    saved_music = gamesettings.music;
+    saved_speed = game_speed;
+    saved_cd = cd_volume;
+}
+
+static void restore_settings(void) {
+    gamesettings.sound = saved_sound;
+    gamesettings.music = saved_music;
+    cd_volume = saved_cd;
+    S_SetVolume(saved_sound * 10);
+    D_SetGameSpeed(saved_speed);
+}
+
+static void show_parent(menu_t *menu) {
+    (void)menu;
+    show(options_return);
+}
+
+static void show_dialog(menu_t *menu) {
+    (void)menu;
+    show(dialog_return);
+}
+
+/* STRDAT 64+ is one briefing string per side, human then orc. */
+static void begin_briefed_level(void) {
     char path[sizeof(launch_path)];
-    if (!w2_extract_campaign_level(data_root, 1, orc, path, sizeof(path))) {
+    if (!w2_extract_campaign_level(data_root, brief_level, brief_orc, path, sizeof(path))) {
         M_StartMessage("The campaign level could not be read.");
         return;
     }
-    W2_SetCampaign(1, orc);
+    W2_SetCampaign(brief_level, brief_orc);
     start_level(path, false);
 }
 
-/* Credits are the retail text. */
+static void briefing_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)menu;
+    if (action == MA_ACTIVATE && item->id == -2) begin_briefed_level();
+}
+
+static void briefing_escape(menu_t *menu) {
+    (void)menu;
+    if (brief_from_menu) open_campaign();
+    else show(&stats_screen.menu);
+}
+
+static void open_briefing(void) {
+    button_race = brief_orc ? 1 : 0;
+    if (!native_scene(&brief_screen, brief_orc ? 3083 : 3082, &art.dimmed, NULL, briefing_escape)) return;
+    int side_index = (brief_orc ? 1 : 0);
+    w2_label_copy(64 + 2 * (brief_level - 1) + side_index, 0, briefing_text, sizeof(briefing_text));
+    menuitem_t *body = M_MenuFind(&brief_screen.menu, 1);
+    if (body) { body->prose = briefing_text; body->text[0] = '\0'; }
+    w2_label_copy(STR_LEVELS, 2 * (brief_level - 1) + side_index, objective_text, sizeof(objective_text));
+    menuitem_t *goals = M_MenuFind(&brief_screen.menu, -4);
+    if (goals) { goals->prose = objective_text; goals->text[0] = '\0'; }
+    menuitem_t *title = M_MenuFind(&brief_screen.menu, -5);
+    if (title) level_title(brief_level, brief_orc, title->text, sizeof(title->text));
+    wire(&brief_screen, briefing_action);
+    show(&brief_screen.menu);
+}
+
+static void start_campaign(bool orc) {
+    brief_level = 1;
+    brief_orc = orc;
+    brief_from_menu = true;
+    open_briefing();
+}
+
+/* Credits are REZDAT 84 over the title. The prose is STRDAT 57. */
+static void credits_back(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_credits_screen(void) {
-    w2_text_t text;
-    if (w2_label(STR_CREDITS, 0, &text)) snprintf(credits_text, sizeof(credits_text), "%s", text.text);
-    else snprintf(credits_text, sizeof(credits_text),
-                  "open-rts\nAn open reimplementation of classic real-time strategy engines.\n\n"
-                  "Warcraft II: Tides of Darkness was made by Blizzard Entertainment.");
-    screen_t *s = &credits_screen;
-    screen_begin(s, &art.dimmed, escape_to_title);
     button_race = 1;
-    menuitem_t *prose = screen_add(s, MI_STATIC, (irect_t){80, 30, 480, 370});
-    prose->font = large();
-    prose->prose = credits_text;
-    add_button(s, (irect_t){208, 420, 224, 28}, L(STR_CAMPAIGN, 3, "Previous Menu"), SDLK_ESCAPE,
-               A_PREVIOUS);
-    show(&s->menu);
+    if (!w2_label_copy(STR_CREDITS, 0, credits_text, sizeof(credits_text)))
+        snprintf(credits_text, sizeof(credits_text),
+                 "open-rts\nAn open reimplementation of classic real-time strategy engines.\n\n"
+                 "Warcraft II: Tides of Darkness was made by Blizzard Entertainment.");
+    if (!native_scene(&credits_screen, 3084, &art.title, NULL, escape_to_title)) return;
+    menuitem_t *body = M_MenuFind(&credits_screen.menu, 1);
+    if (body) { body->prose = credits_text; body->text[0] = '\0'; }
+    wire(&credits_screen, credits_back);
+    show(&credits_screen.menu);
+}
+
+static void credits_back(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)item;
+    if (action == MA_ACTIVATE) escape_to_title(menu);
 }
 
 static void show_credits(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -642,21 +717,9 @@ static void show_credits(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action == MA_ACTIVATE) open_credits_screen();
 }
 
-/* Options: sound volume and game speed, saved with the engine settings. */
-static int speed_index(void) {
-    int best = 2;
-    for (int i = 0; i < NUM_SPEEDS; ++i)
-        if (abs(speeds[i].percent - game_speed) < abs(speeds[best].percent - game_speed)) best = i;
-    return best;
-}
+/* ── in-game dialogs: the game menu's result switch ──────────────────────── */
 
-static void draw_volume(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    (void)menu; (void)item;
-    uint8_t color = V_NearestIndex(YELLOW);
-    V_DrawRectOutline(rect, color);
-    int filled = (rect.w - 4) * gamesettings.sound / 10;
-    if (filled > 0) V_FillRect((irect_t){rect.x + 2, rect.y + 2, filled, rect.h - 4}, color);
-}
+static int playing(void) { return level.width != 0; }
 
 static void options_escape(menu_t *menu) {
     (void)menu;
@@ -664,31 +727,118 @@ static void options_escape(menu_t *menu) {
     show(options_return);
 }
 
-static void options_refresh(screen_t *s) {
-    set_text(s, volume_item, "%s: %d%%", L(STR_SOUND, 9, "Sound Volume").text, gamesettings.sound * 10);
-    set_text(s, speed_item, "%s: %s", L(STR_SPEED, 4, "Game Speed").text, speeds[speed_index()].name);
+static void options_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void sound_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void speed_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void screen_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+
+static void sound_cancel(menu_t *menu) {
+    (void)menu;
+    restore_settings();
+    show_dialog(menu);
+}
+
+static void open_sound(void) {
+    remember_settings();
+    dialog_return = &options_screen.menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&dialog_screen, 3048, playing() ? NULL : &art.dimmed, game_panel(), sound_cancel)) return;
+    menu_t *m = &dialog_screen.menu;
+    bind_slider(M_MenuFind(m, 1), 0, 10, gamesettings.music);
+    bind_slider(M_MenuFind(m, 2), 0, 10, gamesettings.sound);
+    bind_slider(M_MenuFind(m, 3), 0, 10, cd_volume);
+    menuitem_t *cd = M_MenuFind(m, 7), *speech = M_MenuFind(m, 4);
+    menuitem_t *ack = M_MenuFind(m, 5), *builds = M_MenuFind(m, 6);
+    if (cd) cd->value = cd_music_on;
+    if (speech) speech->value = speech_on;
+    if (ack) ack->value = ack_on;
+    if (builds) builds->value = building_on;
+    wire(&dialog_screen, sound_action);
+    show(m);
+}
+
+static void open_speed(void) {
+    remember_settings();
+    dialog_return = &options_screen.menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&dialog_screen, 3050, playing() ? NULL : &art.dimmed, game_panel(), sound_cancel)) return;
+    menu_t *m = &dialog_screen.menu;
+    bind_slider(M_MenuFind(m, 1), 10, 200, game_speed);
+    bind_slider(M_MenuFind(m, 2), 0, 10, mouse_speed);
+    bind_slider(M_MenuFind(m, 3), 0, 10, key_speed);
+    wire(&dialog_screen, speed_action);
+    show(m);
+}
+
+static void open_screen_dialog(void) {
+    dialog_return = &options_screen.menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&dialog_screen, 3049, playing() ? NULL : &art.dimmed, game_panel(), show_dialog)) return;
+    menu_t *m = &dialog_screen.menu;
+    set_radio(m, 1, 5, 4, mouse_style == 0);
+    set_radio(m, 2, 1, 2, fog_mode == 0);
+    set_radio(m, 3, 7, 8, map_info == 0);
+    wire(&dialog_screen, screen_action);
+    show(m);
+}
+
+static void sound_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (item->kind == MI_SLIDER && action == MA_CHANGE) {
+        if (item->id == 1) gamesettings.music = item->value;
+        else if (item->id == 2) { gamesettings.sound = item->value; S_SetVolume(item->value * 10); }
+        else if (item->id == 3) cd_volume = item->value;
+        return;
+    }
+    if (action != MA_ACTIVATE || item->kind == MI_CHECK) return;
+    if (item->id == -2) {
+        menuitem_t *cd = M_MenuFind(menu, 7), *speech = M_MenuFind(menu, 4);
+        menuitem_t *ack = M_MenuFind(menu, 5), *builds = M_MenuFind(menu, 6);
+        if (cd) cd_music_on = cd->value;
+        if (speech) speech_on = speech->value;
+        if (ack) ack_on = ack->value;
+        if (builds) building_on = builds->value;
+        D_SaveSettings(game_speed);
+        show_dialog(menu);
+    } else if (item->id == -3) sound_cancel(menu);
+}
+
+static void speed_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (item->kind == MI_SLIDER && action == MA_CHANGE && item->id == 1) D_SetGameSpeed(item->value);
+    if (action != MA_ACTIVATE) return;
+    if (item->id == -2) {
+        menuitem_t *mouse = M_MenuFind(menu, 2), *keys = M_MenuFind(menu, 3);
+        if (mouse) mouse_speed = mouse->value;
+        if (keys) key_speed = keys->value;
+        D_SaveSettings(game_speed);
+        show_dialog(menu);
+    } else if (item->id == -3) sound_cancel(menu);
+}
+
+static void screen_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE || item->kind == MI_CHECK) return;
+    if (item->id == -2) {
+        menuitem_t *mouse = M_MenuFind(menu, 5), *fog = M_MenuFind(menu, 1), *info = M_MenuFind(menu, 7);
+        if (mouse) mouse_style = mouse->value ? 0 : 1;
+        if (fog) fog_mode = fog->value ? 0 : 1;
+        if (info) map_info = info->value ? 0 : 1;
+    }
+    if (item->id == -2 || item->id == -3) show_dialog(menu);
+}
+
+static void options_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 1) open_sound();
+    else if (item->id == 2) open_speed();
+    else if (item->id == 3) open_screen_dialog();
+    else if (item->id == -3) options_escape(menu);
 }
 
 static void open_options_screen(menu_t *back, bool inlevel) {
     options_return = back;
-    screen_t *s = &options_screen;
-    screen_begin(s, inlevel ? NULL : &art.dimmed, options_escape);
-    int race = button_race = inlevel ? side() : 1;
-    irect_t box = add_panel(s, &art.panel[race][W2_PANEL_OPTIONS]);
-    int x = box.x, y = box.y;
-    add_label(s, (irect_t){x, y + 11, box.w, 20}, L(STR_OPTIONS, 5, "Game Options"), MALIGN_CENTER, false);
-    add_label(s, (irect_t){x + 16, y + 44, 256, 20}, LIT(""), MALIGN_LEFT, false);
-    volume_item = last_item(s);
-    menuitem_t *bar = screen_add(s, MI_STATIC, (irect_t){x + 16, y + 68, 256, 18});
-    bar->ownerdraw = draw_volume;
-    add_button(s, (irect_t){x + 16, y + 96, 106, 28}, LIT("-"), SDLK_LEFT, A_LOWER);
-    add_button(s, (irect_t){x + 166, y + 96, 106, 28}, LIT("+"), SDLK_RIGHT, A_RAISE);
-    add_button(s, (irect_t){x + 32, y + 148, 224, 28}, LIT(""), SDLK_g, A_SPEED);
-    speed_item = last_item(s);
-    add_button(s, (irect_t){x + 91, y + 208, 106, 28}, L(STR_SOUND, 1, "OK"), SDLK_o, A_OPTIONS_OK);
-    button_race = 1;
-    options_refresh(s);
-    show(&s->menu);
+    button_race = inlevel ? side() : 1;
+    if (!native_scene(&options_screen, 3047, inlevel ? NULL : &art.dimmed, game_panel(), options_escape)) return;
+    wire(&options_screen, options_action);
+    show(&options_screen.menu);
 }
 
 static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -696,46 +846,176 @@ static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action == MA_ACTIVATE) open_options_screen(menu, true);
 }
 
-/* Help (the retail key list) and Scenario Objectives: a panel over the level with text. */
-static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    if (action != MA_ACTIVATE) return;
-    bool help = item->id == 4;
-    int race = side();
-    screen_t *s = &options_screen;
-    options_return = menu;
-    screen_begin(s, NULL, options_escape);
-    irect_t box = add_panel(s, &art.panel[race][W2_PANEL_OPTIONS]);
-    button_race = race;
-    const char *body;
-    char title[160];
-    if (help) {
-        snprintf(title, sizeof(title), "%s", L(STR_HELP_MENU, 4, "Help").text);
-        if (!w2_label_lines(STR_KEYS, 0, 41, help_text, sizeof(help_text)))
-            snprintf(help_text, sizeof(help_text), "%s", (const char *)item->userdata);
-        body = help_text;
-    } else {
-        snprintf(title, sizeof(title), "%s %s", L(STR_OBJECTIVES, 2, "Scenario").text,
-                 L(STR_OBJECTIVES, 3, "Objectives").text);
-        char level_name[160] = "";
-        const w2_mission_t *mission = level.mission;
-        if (mission && mission->campaign.number > 0)
-            level_title(mission->campaign.number, mission->campaign.orc, level_name, sizeof(level_name));
-        int objective = mission && mission->campaign.number ?
-                        2 * (mission->campaign.number - 1) + mission->campaign.orc : 34;
-        label_t goal = L(STR_LEVELS, objective, (const char *)item->userdata);
-        snprintf(objective_text, sizeof(objective_text), "%s%s%s", level_name, level_name[0] ? "\n\n" : "",
-                 goal.text + (goal.text[0] == '-'));
-        body = objective_text;
+/* Help menu 3045, then the key pages (3086) or the tips dialog (3077). */
+static void fill_key_page(void) {
+    screen_t *s = &dialog_screen;
+    menuitem_t *lines[16];
+    int n = 0, top = s->menu.numitems ? s->items[0].rect.y + 30 : 0;
+    for (int i = 1; i < s->menu.numitems && n < 16; ++i) {
+        menuitem_t *line = &s->items[i];
+        if (line->kind != MI_STATIC || line->rect.y < top || line->rect.h > 24) continue;
+        lines[n++] = line;
     }
-    add_label(s, (irect_t){box.x, box.y + 11, box.w, 20}, LIT(title), MALIGN_CENTER, false);
-    menuitem_t *prose = screen_add(s, MI_STATIC, (irect_t){box.x + 16, box.y + 40, box.w - 32,
-                                                         box.h - 96});
-    prose->font = large();
-    prose->prose = body;
-    add_button(s, (irect_t){box.x + (box.w - 106) / 2, box.y + box.h - 44, 106, 28},
-               L(STR_SOUND, 1, "OK"), SDLK_o, A_OPTIONS_OK);
-    button_race = 1;
-    show(&s->menu);
+    for (int a = 1; a < n; ++a) {
+        menuitem_t *key = lines[a];
+        int b = a;
+        while (b > 0 && lines[b - 1]->rect.y > key->rect.y) { lines[b] = lines[b - 1]; --b; }
+        lines[b] = key;
+    }
+    if (n > 13) n = 13;
+    if (key_page < 0) key_page = 0;
+    if (key_page > 3) key_page = 3;
+    for (int i = 0; i < n; ++i) {
+        int index = key_page * 13 + i;
+        w2_text_t text;
+        if (index < 42 && w2_label(STR_KEYS, index, &text))
+            snprintf(lines[i]->text, sizeof(lines[i]->text), "%s", text.text);
+        else lines[i]->text[0] = '\0';
+    }
+}
+
+static void key_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)menu;
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 1) { if (key_page > 0) --key_page; }
+    else if (item->id == 2) { if (key_page < 3) ++key_page; }
+    else { show_dialog(menu); return; }
+    fill_key_page();
+}
+
+static void open_key_help(void) {
+    dialog_return = &options_screen.menu;
+    button_race = playing() ? side() : 1;
+    key_page = 0;
+    if (!native_scene(&dialog_screen, 3086, playing() ? NULL : &art.dimmed,
+                      &art.panel[button_race][W2_PANEL_SCENARIO], show_dialog)) return;
+    fill_key_page();
+    wire(&dialog_screen, key_action);
+    show(&dialog_screen.menu);
+}
+
+static void remember_tips(void) {
+    menuitem_t *box = M_MenuFind(&dialog_screen.menu, 2);
+    if (box && box->kind == MI_CHECK) show_tips = box->value;
+}
+
+static void tips_escape(menu_t *menu) {
+    remember_tips();
+    show_dialog(menu);
+}
+
+static void tips_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 2) { show_tips = item->value; return; }
+    if (item->id == -2 || item->id == -3) tips_escape(menu);
+}
+
+static void open_tips(void) {
+    dialog_return = &options_screen.menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&dialog_screen, 3077, playing() ? NULL : &art.dimmed,
+                      &art.panel[button_race][W2_PANEL_OPTIONS], tips_escape)) return;
+    menuitem_t *box = M_MenuFind(&dialog_screen.menu, 2);
+    if (box) box->value = show_tips;
+    wire(&dialog_screen, tips_action);
+    show(&dialog_screen.menu);
+}
+
+static void help_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 1) open_key_help();
+    else if (item->id == 2) open_tips();
+    else if (item->id == -3) show_parent(menu);
+}
+
+static void open_help_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)item;
+    if (action != MA_ACTIVATE) return;
+    options_return = menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&options_screen, 3045, playing() ? NULL : &art.dimmed, game_panel(), show_parent)) return;
+    wire(&options_screen, help_action);
+    show(&options_screen.menu);
+}
+
+static void open_objectives(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)item;
+    if (action != MA_ACTIVATE) return;
+    options_return = menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&options_screen, 3081, playing() ? NULL : &art.dimmed, game_panel(), show_parent)) return;
+    const w2_mission_t *mission = level.mission;
+    int index = mission && mission->campaign.number > 0
+                    ? 2 * (mission->campaign.number - 1) + (mission->campaign.orc ? 1 : 0) : 34;
+    w2_label_copy(STR_LEVELS, index, objective_text, sizeof(objective_text));
+    menuitem_t *body = M_MenuFind(&options_screen.menu, -4);
+    if (body) { body->prose = objective_text; body->text[0] = '\0'; }
+    wire(&options_screen, help_action);
+    show(&options_screen.menu);
+}
+
+/* End Mission opens 3046. Bytes 0x8127a and 0x80331 choose which of the three
+ * overlapping buttons stays; who writes them was not traced. A network game
+ * shows the lobby return, a custom scenario its reload, otherwise restart. */
+static void confirm_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_confirm(int resource);
+
+static void end_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == -3) { show_parent(menu); return; }
+    int resource = 0;
+    switch (item->id) {
+    case 1: resource = 3055; confirm_kind = CONFIRM_SURRENDER; break;
+    case 2: resource = 3052; confirm_kind = CONFIRM_RESTART; break;
+    case 3: resource = 3056; confirm_kind = CONFIRM_MENU; break;
+    case 4: resource = 3051; confirm_kind = CONFIRM_QUIT; break;
+    case 5: resource = 3053; confirm_kind = CONFIRM_LOBBY; break;
+    case 6: resource = 3054; confirm_kind = CONFIRM_CUSTOM; break;
+    default: return;
+    }
+    open_confirm(resource);
+}
+
+static void open_end_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)item;
+    if (action != MA_ACTIVATE) return;
+    options_return = menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&options_screen, 3046, playing() ? NULL : &art.dimmed, game_panel(), show_parent)) return;
+    const w2_mission_t *mission = level.mission;
+    int number = mission ? mission->campaign.number : 0;
+    bool custom = chosen.file[0] && !chosen.archive && number == 0;
+    if (netgame) { hide_id(&options_screen, 2); hide_id(&options_screen, 6); }
+    else if (custom) { hide_id(&options_screen, 2); hide_id(&options_screen, 5); }
+    else { hide_id(&options_screen, 5); hide_id(&options_screen, 6); }
+    wire(&options_screen, end_action);
+    show(&options_screen.menu);
+}
+
+static void reload_level(void) {
+    const w2_mission_t *mission = level.mission;
+    if (mission) W2_SetCampaign(mission->campaign.number, mission->campaign.orc);
+    W2_SetStartResources(launch_resources);
+    set_launch_path(level.map_path);
+    menumap = launch_path;
+    M_ClearMenus();
+}
+
+static void confirm_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == -3) { show_dialog(menu); return; }
+    if (item->id != -2) return;
+    if (confirm_kind == CONFIRM_QUIT) M_MenuQuitGame(menu, item, action);
+    else if (confirm_kind == CONFIRM_RESTART || confirm_kind == CONFIRM_CUSTOM) reload_level();
+    else end_scenario(menu, item, action);
+}
+
+static void open_confirm(int resource) {
+    dialog_return = &options_screen.menu;
+    button_race = playing() ? side() : 1;
+    if (!native_scene(&dialog_screen, resource, playing() ? NULL : &art.dimmed, game_panel(), show_dialog)) return;
+    wire(&dialog_screen, confirm_action);
+    show(&dialog_screen.menu);
 }
 
 /* The end of a scenario: a won campaign level offers the next one; a lost scenario can restart. */
@@ -779,13 +1059,10 @@ static void result_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         set_launch_path(level.map_path);
         menumap = launch_path;
     } else if (campaign.number > 0 && campaign.number < W2_CAMPAIGN_LEVELS) {
-        char path[sizeof(launch_path)];
-        if (!w2_extract_campaign_level(data_root, campaign.number + 1, campaign.orc, path, sizeof(path))) {
-            M_StartMessage("The campaign level could not be read.");
-            return;
-        }
-        W2_SetCampaign(campaign.number + 1, campaign.orc);
-        start_level(path, false);
+        brief_level = campaign.number + 1;
+        brief_orc = campaign.orc;
+        brief_from_menu = false;
+        open_briefing();
         return;
     } else {
         W2_SetCampaign(0, false);
@@ -822,70 +1099,50 @@ static const char *save_row(const menuitem_t *item, int row) {
 
 static void file_escape(menu_t *menu) {
     (void)menu;
-    if (file_return == &game_screen.menu) show(&game_screen.menu);
+    if (playing() && file_return) show(file_return);
     else open_single();
 }
 
+static void file_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+
+/* Save is REZDAT 63. Load is 64 over a level and 65 on the front end. */
 static void open_file(bool save, menu_t *back) {
     saving = save;
     file_return = back;
     scan_saves();
-    bool inlevel = back == &game_screen.menu;
-    int race = button_race = inlevel ? side() : 1;
+    bool inlevel = playing();
+    button_race = inlevel ? side() : 1;
+    int resource = save ? 3063 : inlevel ? 3064 : 3065;
+    const spritesheet_t *panel = resource == 3065 ? NULL : &art.panel[button_race][W2_PANEL_FILE];
     screen_t *s = &file_screen;
-    screen_begin(s, inlevel ? NULL : &art.dimmed, file_escape);
-    irect_t box = add_panel(s, &art.panel[race][W2_PANEL_FILE]);
-    int x = box.x, y = box.y;
-    add_label(s, (irect_t){x, y + 11, box.w, 20},
-              save ? L(STR_SAVE, 4, "Save Game") : L(STR_LOAD, 3, "Load Game"), MALIGN_CENTER, false);
-    menuitem_t *list = screen_add(s, MI_LIST, (irect_t){x + 16, y + 40, 330, 120});
-    list->id = A_LIST;
-    list->routine = front_action;
-    list->font = large();
-    list->ink = YELLOW;
-    list->look[MS_PUSHED].ink = WHITE;
-    list->color = 0xff5a3c14u;
-    list->row_height = 18;
-    list->row = save_row;
-    list->inset = (ivec2_t){4, 1};
-    list->value = -1;
-    int list_index = last_item(s);
-    menuitem_t *bar = screen_add(s, MI_SCROLLBAR, (irect_t){x + 352, y + 40, 12, 120});
-    bar->link = list_index;
-    bar->color = 0xffb89040u;
-    M_MenuSetRows(&s->items[list_index], save_count);
-    if (save) {
-        menuitem_t *field = screen_add(s, MI_TEXTFIELD, (irect_t){x + 16, y + 172, 348, 20});
-        field->id = A_NAME;
-        field->routine = front_action;
-        field->font = large();
-        field->ink = WHITE;
-        field->fill = 0xff0c1216u;
-        field->border = YELLOW;
-        field->align = MALIGN_LEFT;
-        field->inset = (ivec2_t){4, 1};
-        field->maxchars = 32;
-        name_item = last_item(s);
-        s->menu.itemOn = name_item;
-        add_button(s, (irect_t){x + 16, y + 212, 106, 28}, L(STR_SAVE, 1, "Save"), SDLK_RETURN, A_SAVE_OK);
-        add_button(s, (irect_t){x + 139, y + 212, 106, 28}, L(STR_SAVE, 2, "Delete"), SDLK_DELETE, A_DELETE);
-        add_button(s, (irect_t){x + 262, y + 212, 106, 28}, L(STR_SAVE, 3, "Cancel"), SDLK_ESCAPE,
-                   A_FILE_CANCEL);
-    } else {
-        name_item = -1;
-        s->menu.itemOn = list_index;
-        add_button(s, (irect_t){x + 72, y + 212, 106, 28}, L(STR_LOAD, 1, "Load"), SDLK_RETURN, A_SAVE_OK);
-        add_button(s, (irect_t){x + 206, y + 212, 106, 28}, L(STR_LOAD, 2, "Cancel"), SDLK_ESCAPE,
-                   A_FILE_CANCEL);
+    if (!native_scene(s, resource, inlevel ? NULL : &art.dimmed, panel, file_escape)) return;
+    menuitem_t *list = M_MenuFind(&s->menu, 1);
+    if (list) {
+        native_rows(list);
+        list->row = save_row;
+        list->value = -1;
+        M_MenuSetRows(list, save_count);
+        link_bar(s, list, (int16_t)0x8001);
     }
+    name_item = -1;
+    if (save) {
+        menuitem_t *field = M_MenuFind(&s->menu, 2);
+        if (field) {
+            field->maxchars = 32;
+            name_item = (int)(field - s->items);
+            s->menu.itemOn = name_item;
+        }
+    } else if (list) s->menu.itemOn = (int)(list - s->items);
+    wire(s, file_action);
+    menuitem_t *ok = M_MenuFind(&s->menu, -2);
+    if (ok) ok->hotkey = SDLK_RETURN;
     button_race = 1;
     show(&s->menu);
 }
 
 static int file_selection(void) {
-    for (int i = 0; i < file_screen.menu.numitems; ++i)
-        if (file_screen.items[i].id == A_LIST) return file_screen.items[i].value;
-    return -1;
+    menuitem_t *list = M_MenuFind(&file_screen.menu, 1);
+    return list ? list->value : -1;
 }
 
 static bool valid_save_name(const char *name) {
@@ -899,6 +1156,7 @@ static bool valid_save_name(const char *name) {
 static void file_activate(void) {
     int row = file_selection();
     if (saving) {
+        if (name_item < 0) return;
         const char *name = file_screen.items[name_item].text;
         if (!valid_save_name(name)) {
             M_StartMessage("Use letters, numbers, spaces, hyphens or underscores.");
@@ -993,7 +1251,7 @@ static void net_style_label(menuitem_t *item) {
 }
 static void net_back(app_t *app) {
     (void)app;
-    open_title();
+    open_viewgame();
 }
 
 static void net_word(int id, int entry, int index) {
@@ -1003,9 +1261,7 @@ static void net_word(int id, int entry, int index) {
     }
 }
 
-static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu; (void)item;
-    if (action != MA_ACTIVATE) return;
+static void open_engine_net(int first) {
     memset(net_text, 0, sizeof(net_text));
     net_word(NETTEXT_TITLE, STR_MAIN_MENU, 2);
     net_word(NETTEXT_CREATE, 38, 3);
@@ -1020,13 +1276,141 @@ static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action
     netui_t ui = {
         .background = &art.dimmed, .font = large(), .panel = &art.panel[1][W2_PANEL_SCENARIO],
         .style_button = net_style_button, .style_label = net_style_label, .style_list = net_style_list,
-        .back = net_back,
-        .drawitem = w2_draw_item,
+        .back = net_back, .drawitem = w2_draw_item, .first = first,
         .map_count = net_map_count, .map_path = net_map_path, .map_title = net_map_title,
         .max_players = 8,
     };
     for (int i = 0; i < NETTEXT_COUNT; ++i) ui.text[i] = net_text[i][0] ? net_text[i] : NULL;
     M_NetOpen(front_app, &ui);
+}
+
+/* STRDAT 60 names the three connection methods. Rows are copied out of L()'s
+ * ring because the list draws every row at once. Descriptions are 60/5..7. */
+static const char *method_row(const menuitem_t *item, int row) {
+    (void)item;
+    return row >= 0 && row < 3 ? method_name[row] : "";
+}
+
+static void connection_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void open_link(int resource);
+
+static void open_connection(void) {
+    button_race = 1;
+    if (!native_scene(&net_screen, 3042, backdrop(), NULL, escape_to_title)) return;
+    for (int i = 0; i < 3; ++i) {
+        w2_text_t text;
+        method_name[i][0] = '\0';
+        if (w2_label(STR_CONNECTION, 2 + i, &text))
+            snprintf(method_name[i], sizeof(method_name[i]), "%s", text.text);
+    }
+    menuitem_t *list = M_MenuFind(&net_screen.menu, 1);
+    if (list) {
+        native_rows(list);
+        list->row = method_row;
+        list->value = -1;
+        M_MenuSetRows(list, 3);
+    }
+    menuitem_t *desc = M_MenuFind(&net_screen.menu, 2);
+    if (desc) { desc->text[0] = '\0'; desc->prose = NULL; }
+    wire(&net_screen, connection_action);
+    show(&net_screen.menu);
+}
+
+static void connection_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (item->id == 1 && action == MA_CHANGE) {
+        menuitem_t *desc = M_MenuFind(&net_screen.menu, 2);
+        if (desc && item->value >= 0 && item->value < 3) {
+            w2_label_copy(STR_CONNECTION, 5 + item->value, method_desc, sizeof(method_desc));
+            desc->prose = method_desc;
+            desc->text[0] = '\0';
+        }
+        return;
+    }
+    if (action != MA_ACTIVATE) return;
+    if (item->id == -3) { escape_to_title(menu); return; }
+    if (item->id != -2) return;
+    menuitem_t *list = M_MenuFind(&net_screen.menu, 1);
+    int row = list ? list->value : -1;
+    if (row == 0) open_link(3073);
+    else if (row == 1) open_link(3072);
+    else if (row == 2) open_viewgame();
+}
+
+static void take_modem_config(void) {
+    menu_t *m = &dialog_screen.menu;
+    for (int id = 1; id <= 3; ++id) {
+        menuitem_t *field = M_MenuFind(m, id);
+        if (field && field->kind == MI_TEXTFIELD)
+            snprintf(modem_line[id - 1], sizeof(modem_line[id - 1]), "%s", field->text);
+    }
+    menuitem_t *tone = M_MenuFind(m, 4);
+    if (tone) modem_tone = tone->value ? 1 : 0;
+}
+
+static void apply_modem_config(void) {
+    menu_t *m = &dialog_screen.menu;
+    for (int id = 1; id <= 3; ++id) {
+        menuitem_t *field = M_MenuFind(m, id);
+        if (field && field->kind == MI_TEXTFIELD)
+            snprintf(field->text, sizeof(field->text), "%s", modem_line[id - 1]);
+    }
+    set_radio(m, 1, 4, 5, modem_tone != 0);
+}
+
+static void link_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+
+static void link_escape(menu_t *menu) {
+    (void)menu;
+    if (net_dialog == 3074) open_link(3073);
+    else open_connection();
+}
+
+static void link_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)menu;
+    if (action != MA_ACTIVATE || item->kind != MI_BUTTON) return;
+    if (item->id == 7 && net_dialog == 3073) { open_link(3074); return; }
+    if (item->id == -2 && net_dialog == 3074) { take_modem_config(); open_link(3073); return; }
+    if (item->id == -2 && (net_dialog == 3072 || net_dialog == 3073)) {
+        M_StartMessage("This connection is not available.");
+        return;
+    }
+    if (item->id == -3) link_escape(&dialog_screen.menu);
+}
+
+/* Direct link 3072 and modem 3073 are display records. COM, baud and IRQ
+ * lists are not in STRDAT, so the dropdowns stay empty. 3074 stores its
+ * fields and returns to the modem page. */
+static void open_link(int resource) {
+    net_dialog = resource;
+    button_race = 1;
+    if (!native_scene(&dialog_screen, resource, backdrop(), NULL, link_escape)) return;
+    if (resource == 3074) apply_modem_config();
+    wire(&dialog_screen, link_action);
+    show(&dialog_screen.menu);
+}
+
+static void view_escape(menu_t *menu) { (void)menu; open_connection(); }
+
+static void view_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)menu;
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 3) open_engine_net(1);
+    else if (item->id == 1) open_engine_net(2);
+    else if (item->id == 4) open_connection();
+}
+
+static void open_viewgame(void) {
+    button_race = 1;
+    if (!native_scene(&net_screen, 3075, backdrop(), NULL, view_escape)) return;
+    menuitem_t *list = M_MenuFind(&net_screen.menu, 6);
+    if (list) { native_rows(list); list->rows = 0; list->value = -1; }
+    wire(&net_screen, view_action);
+    show(&net_screen.menu);
+}
+
+static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)menu; (void)item;
+    if (action == MA_ACTIVATE) open_connection();
 }
 
 static void accept_pick(void) {
@@ -1094,49 +1478,23 @@ static void pick_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     }
 }
 
-static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+static void file_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu;
-    if (action != MA_ACTIVATE && !((item->kind == MI_LIST || item->kind == MI_DROPDOWN) && action == MA_CHANGE)) return;
-    switch (item->id) {
-    case A_CAMPAIGN: open_campaign(); break;
-    case A_STANDARD: open_setup(); break;
-    case A_LOAD: open_file(false, &single_screen.menu); break;
-    case A_PREVIOUS: {
-        menu_t *current = currentmenu;
-        if (current && current->escape) current->escape(current);
-        break;
-    }
-    case A_LIST:
-        if (saving && item->value >= 0 && item->value < save_count)
+    if (item->id == 1 && action == MA_CHANGE) {
+        if (saving && name_item >= 0 && item->value >= 0 && item->value < save_count)
             snprintf(file_screen.items[name_item].text, sizeof(file_screen.items[0].text), "%s",
                      saves[item->value].info.name);
-        break;
-    case A_SAVE_OK: file_activate(); break;
-    case A_NAME: file_activate(); break;
-    case A_DELETE: {
+        return;
+    }
+    if (action != MA_ACTIVATE) return;
+    if (item->id == -2 || item->id == 2 || (item->id == 1 && item->kind == MI_LIST)) file_activate();
+    else if (item->id == 3) {
         int row = file_selection();
         if (saving && row >= 0 && row < save_count) {
             remove(saves[row].path);
             open_file(true, file_return);
         }
-        break;
-    }
-    case A_FILE_CANCEL: file_escape(&file_screen.menu); break;
-    case A_LOWER:
-    case A_RAISE:
-        gamesettings.sound += item->id == A_RAISE ? 1 : -1;
-        if (gamesettings.sound < 0) gamesettings.sound = 0;
-        if (gamesettings.sound > 10) gamesettings.sound = 10;
-        S_SetVolume(gamesettings.sound * 10);
-        options_refresh(&options_screen);
-        break;
-    case A_SPEED:
-        D_SetGameSpeed(speeds[(speed_index() + 1) % NUM_SPEEDS].percent);
-        options_refresh(&options_screen);
-        break;
-    case A_OPTIONS_OK: options_escape(&options_screen.menu); break;
-    default: break;
-    }
+    } else if (item->id == -3) file_escape(&file_screen.menu);
 }
 
 static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -1178,8 +1536,8 @@ menu_t *G_ControlPanel(app_t *app, bool inlevel) {
         }
         return M_SimpleControlPanel(&screen->menu);
     }
-    const menuroutine_t routines[] = {NULL, open_save, open_load, open_options, open_text,
-                                     open_text, end_scenario};
+    const menuroutine_t routines[] = {NULL, open_save, open_load, open_options, open_help_menu,
+                                     open_objectives, open_end_menu};
     const SDL_Keycode keys[] = {0, SDLK_F11, SDLK_F12, SDLK_F5, SDLK_F1, SDLK_o, SDLK_e};
     for (int i = 1; i < screen->menu.numitems; ++i) {
         menuitem_t *item = &screen->items[i];
@@ -1187,8 +1545,6 @@ menu_t *G_ControlPanel(app_t *app, bool inlevel) {
         if (item->id != -3 && (item->id < 1 || item->id > 6)) continue;
         item->routine = item->id == -3 ? return_to_game : routines[item->id];
         item->hotkey = item->id == -3 ? SDLK_ESCAPE : keys[item->id];
-        if (item->id == 4) item->userdata = "F10 opens this menu. WASD pans.";
-        if (item->id == 5) item->userdata = "Defeat the opposing side.";
     }
     return &screen->menu;
 }

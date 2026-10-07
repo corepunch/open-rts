@@ -267,9 +267,15 @@ static void build_connect(void) {
     button(ID_CANCEL, (irect_t){x + 198, y + 318, 106, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
 }
 
+/* The page Warcraft asked to open is the root: Escape leaves the lobby. */
+static bool net_root(void) {
+    return page == PAGE_MAIN || (ui.first == 1 && page == PAGE_HOST) ||
+           (ui.first == 2 && page == PAGE_BROWSE);
+}
+
 static void escape(menu_t *menu) {
     (void)menu;
-    if (page == PAGE_MAIN) {
+    if (net_root()) {
         if (ui.back) ui.back(net_app);
         else M_ClearMenus();
         return;
@@ -467,7 +473,11 @@ void M_NetOpen(app_t *app, const netui_t *style) {
     selected_game = -1;
     waiting = hosting = false;
     if (players > max_players()) players = max_players();
-    open_page(PAGE_MAIN);
+    if (ui.first == 1) open_page(PAGE_HOST);
+    else if (ui.first == 2) {
+        open_page(PAGE_BROWSE);
+        if (!I_OpenNetBrowser(g_game_id)) failure();
+    } else open_page(PAGE_MAIN);
 }
 
 /* ── the fallback front end's Multiplayer button ────────────────────────── */

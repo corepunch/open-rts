@@ -194,10 +194,128 @@ static void draw_dropdown(const menuitem_t *item, irect_t rect, unsigned flags) 
                   item->row(item, item->value), disabled ? 5 : 2, 0, 0);
 }
 
+/* Checkbox 0x5e8cc and radio 0x5e990. A checked box is MS_PUSHED even at
+ * rest, so the pressed frame follows the pointer, and the on/off frame
+ * follows the value. Text is mode 0x21 at the measured frame width plus 4:
+ * checkbox frame 22, radio frame 27 (0x5910c). */
+static bool item_focused(const menu_t *menu, const menuitem_t *item) {
+    return menu && menu->itemOn >= 0 && menu->itemOn < menu->numitems &&
+           &menu->items[menu->itemOn] == item;
+}
+
+static bool pointer_down(const menu_t *menu, const menuitem_t *item) {
+    return menu && (menu->keyheld == item || (menu->held == item && menu->over));
+}
+
+static void draw_check(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect) {
+    bool radio = W2_ITEM_KIND(item->flags) == 3;
+    bool disabled = state == MS_DISABLED;
+    bool pressed = pointer_down(menu, item);
+    int on = item->value ? 1 : 0;
+    int frame = radio ? (disabled ? 0x17 : pressed ? on * 2 + 0x19 : on * 2 + 0x18)
+                      : (disabled ? 0x12 : pressed ? on * 2 + 0x14 : on * 2 + 0x13);
+    draw_frame(item->sheet, frame, (ivec2_t){rect.x, rect.y}, (isize2_t){rect.w, rect.h});
+    int indent = frame_size(item->sheet, radio ? 0x1b : 0x16).w + 4;
+    if (item->text[0])
+        draw_text(font_for(item->flags), TEXT_LEFT | TEXT_VCENTER,
+                  (ivec2_t){rect.x + indent, rect.y + (rect.h + 1) / 2}, item->text,
+                  disabled ? 5 : 2, item->mark_at, item->mark_len);
+    if (item_focused(menu, item)) V_DrawRectOutline(rect, 0xf7);
+}
+
+/* Horizontal slider 0x5ea8c. Caps are frames 34..39, the track is 43/44
+ * placed at the cap width (the sheet's x offset of 20, which the loader does
+ * not keep), and the knob is frame 40. 0x64548's travel starts as
+ * (right − left) − knob − 2×cap; its value multiply was not traced. The grab
+ * is two caps plus the 17px knob so the engine's drag centre matches a knob
+ * drawn between the caps. */
+static void draw_hslider(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect) {
+    bool disabled = state == MS_DISABLED;
+    bool pressed = !disabled && pointer_down(menu, item);
+    int enabled = disabled ? 0 : 1;
+    int down = pressed ? 1 : 0;
+    isize2_t cap = frame_size(item->sheet, 0x22);
+    if (cap.w <= 0) cap = (isize2_t){20, 19};
+    draw_frame(item->sheet, 0x22 + enabled + down, (ivec2_t){rect.x, rect.y}, cap);
+    if (rect.w > 2 * cap.w)
+        draw_frame(item->sheet, 0x2b + enabled, (ivec2_t){rect.x + cap.w, rect.y},
+                   (isize2_t){rect.w - 2 * cap.w, cap.h});
+    draw_frame(item->sheet, 0x25 + enabled + down, (ivec2_t){rect.x + rect.w - cap.w, rect.y}, cap);
+    if (!disabled) {
+        isize2_t knob = frame_size(item->sheet, 0x28);
+        if (knob.w <= 0) knob = (isize2_t){17, 17};
+        int grab = item->thumb.part.w > 0 ? item->thumb.part.w : cap.w * 2 + knob.w;
+        int span = item->range.max - item->range.min;
+        int value = item->value;
+        if (value < item->range.min) value = item->range.min;
+        if (value > item->range.max) value = item->range.max;
+        int travel = rect.w - grab;
+        int thumb = rect.x + (span > 0 && travel > 0 ? travel * (value - item->range.min) / span : 0);
+        draw_frame(item->sheet, 0x28,
+                   (ivec2_t){thumb + (grab - knob.w) / 2, rect.y + (cap.h - knob.h) / 2}, knob);
+    }
+    if (item_focused(menu, item)) V_DrawRectOutline(rect, 0xfb);
+}
+
+/* Text field 0x5ed24. The save name's flags are 0x0018, so it has no 0xfb
+ * focus rim (that needs 0x8000 and 0x1000). The caret is ours because this
+ * drawer replaces the engine's. */
+static void draw_field(const menu_t *menu, const menuitem_t *item, irect_t rect, unsigned flags) {
+    bool focus = item_focused(menu, item);
+    if ((item->flags & 0x8000) && focus) V_DrawRectOutline(rect, 0xfb);
+    const bitmapfont_t *font = font_for(flags);
+    if (!font) return;
+    char shown[140];
+    snprintf(shown, sizeof(shown), "%s%s", item->text, focus ? "_" : "");
+    draw_text(font, TEXT_LEFT | TEXT_VCENTER, (ivec2_t){rect.x + 3, rect.y + (rect.h + 1) / 2},
+              shown, flags & 0x0002 ? 5 : 2, 0, 0);
+}
+
+/* Long text uses the dialog advance (glyph width + 1) and the dialog colour
+ * maps. The engine's wrapped text does neither. first_row scrolls by lines. */
+static void draw_prose(const menuitem_t *item, irect_t rect, unsigned flags) {
+    const bitmapfont_t *font = font_for(flags);
+    const char *text = item->prose;
+    if (!font || !text || !*text || rect.w <= 0 || rect.h <= 0) return;
+    irect_t clip = V_GetClip();
+    V_SetClip(rect);
+    int line_h = font->glyph_size.h + LINE_GAP;
+    int skip = item->first_row > 0 ? item->first_row : 0;
+    int y = rect.y;
+    int colour = text_colour(flags, true);
+    const char *p = text;
+    while (*p) {
+        const char *end = p, *space = NULL;
+        int width = 0;
+        while (*end && *end != '\n') {
+            int step = advance(font, (unsigned char)*end);
+            if (end > p && width + step > rect.w) break;
+            if (*end == ' ') space = end;
+            width += step;
+            ++end;
+        }
+        const char *draw_end = end, *next = end;
+        if (*end == '\n') next = end + 1;
+        else if (*end && space) { draw_end = space; next = space + 1; }
+        if (next == p) next = p + 1;
+        if (skip > 0) --skip;
+        else if (y + font->glyph_size.h <= rect.y + rect.h) {
+            char line[256];
+            size_t n = (size_t)(draw_end - p);
+            if (n >= sizeof(line)) n = sizeof(line) - 1;
+            memcpy(line, p, n);
+            line[n] = '\0';
+            draw_text(font, TEXT_TOP | TEXT_LEFT, (ivec2_t){rect.x, y}, line, colour, 0, 0);
+            y += line_h;
+        } else break;
+        p = next;
+    }
+    V_SetClip(clip);
+}
+
 /* 0x5ebd8, between its arrows (buttons of their own, unless the bar has
- * W2_ITEM_ARROWS). The
- * track's frame starts below the up arrow; the knob's position routine
- * 0x64548 is not traced, so it moves evenly over the track. */
+ * W2_ITEM_ARROWS). The track's frame starts below the up arrow. The knob
+ * moves evenly over the track; 0x64548's vertical multiply was not traced. */
 static void draw_scrollbar(const menu_t *menu, const menuitem_t *item, irect_t rect, unsigned flags) {
     bool disabled = flags & 0x0002;
     if (item->flags & W2_ITEM_ARROWS) {
@@ -218,14 +336,24 @@ static void draw_scrollbar(const menu_t *menu, const menuitem_t *item, irect_t r
 }
 
 bool w2_draw_item(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect) {
-    if (!art || item->prose || item->ownerdraw) return false;
+    if (!art || item->ownerdraw) return false;
     unsigned flags = state_flags(item, state);
     switch (item->kind) {
     case MI_BUTTON:
         draw_button(item, state, rect, flags);
         return true;
     case MI_STATIC:
-        draw_caption(item, rect, flags);
+        if (item->prose) draw_prose(item, rect, flags);
+        else draw_caption(item, rect, flags);
+        return true;
+    case MI_CHECK:
+        draw_check(menu, item, state, rect);
+        return true;
+    case MI_SLIDER:
+        draw_hslider(menu, item, state, rect);
+        return true;
+    case MI_TEXTFIELD:
+        draw_field(menu, item, rect, flags);
         return true;
     case MI_LIST:
         if (!item->sheet) return false;

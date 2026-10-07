@@ -369,12 +369,15 @@ retains native IDs, geometry and label slots; no retained parallel scene
 graph or new per-game input/drawing loop is introduced. Main, race choice,
 in-game menu and picker consume these records. `MI_SLIDER` adds the missing
 shared control with bounded drag/key input and authored track/thumb art.
-All present native kinds have an engine representation. Other front-end
-screens remain authored; the extra single-player screen, setup, options,
-save/load, briefing flow and multiplayer need further native integration.
-Font/colour flags, default-button semantics and composite widget details
-remain unknown. Loading all records is not a pixel-identity certificate for
-all scenes, and Wargus rendering its own Lua menus cannot supply one.
+All present native kinds have an engine representation. Loading all records
+is not a pixel-identity certificate for all scenes, and Wargus rendering its
+own Lua menus cannot supply one.
+
+**Correction.** The sentence that left the other front-end screens authored
+is superseded by “Retail dialog screens” below. Font and colour flags, the
+default-button rim, and the checkbox, radio, slider and field drawers are
+traced there. Single Player, setup, options, save/load, briefings, credits
+and the connection list now open their own REZDAT or MUDDAT records.
 
 Reproduce with `make`, `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
 (local UDP permitted for network-menu tests), and `env SDL_VIDEODRIVER=dummy
@@ -1379,10 +1382,10 @@ screens. `menuitem_t.flags` carries the record flags and native kind
 (`W2_ITEM_FLAGS`). Setup is MUDDAT 6001; only Resources is applied by the
 engine, so race, opponents, terrain and units are shown disabled at Map
 Default. Custom files are sorted by name (findfirst order is directory order).
-Multiplayer still uses the engine's network screens, not 3080/6013 and the
-picker's multiplayer mode; their host page ("Выбор миссии" with a Players
-button) has no retail counterpart. `netui_t.style_list` gives its lists the
-native rows, rims and a scroll bar drawing its own arrows (`W2_ITEM_ARROWS`).
+Multiplayer's host and browse pages are still the engine screens, not
+3080/6013. The retail path up to them is 3042 then 3075, recorded below.
+`netui_t.style_list` gives its lists the native rows, rims and a scroll bar
+drawing its own arrows (`W2_ITEM_ARROWS`).
 
 **Verification.** `make`; `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
 (25 pass); shared menu tests for the other four games; `--check` for all five
@@ -1390,3 +1393,117 @@ binaries. `test_menu` checks the 6001/89 geometry and labels, built-in names,
 custom file-only listing, info lines, cropped row frames and a button's text
 at rows 8–19 / columns 49–58 per `0x5e83c`. Picker, setup and popup BMPs from
 `W2_MENU_SHOTS` were inspected.
+
+## Retail dialog screens (2026-10-07)
+
+**Evidence.** Static analysis of the same inner LE image. Retail was not
+run. Dialog geometry below was decoded from this install's REZDAT with
+`w2_load_scene` (windows are absolute; children are window-relative in the
+file and stored absolute). Widget frames were read from the drawers. This
+is not a claim of pixel identity with a running DOS session.
+
+**Confirmed widget frames.** Checkbox `0x5e8cc`: flag `0x0002` selects
+frame 18; flag `0x4000` selects `state*2+20`, otherwise `state*2+19`.
+Unchecked rest is 19, checked rest is 21, disabled is 18. Radio `0x5e990`:
+disabled is 23; pressed adds `0x19` to `state*2` (25 off, 27 on) and the
+rest path adds `0x18` (24 off, 26 on). Caption x is the width of frame 22
+(checkbox) or 27 (radio) plus 4, mode `0x21`. Horizontal slider `0x5ea8c`
+uses caps 34/35/36 and 37/38/39 (`0x22`/`0x25` plus enabled plus pressed),
+track 43 disabled / 44 enabled at x plus the cap width, and knob 40. The
+sheet's track x-offset of 20 is not stored by the GRP loader, so the drawer
+adds the cap width itself. Text field `0x5ed24` draws rim `0xfb` only when
+flag `0x8000` is set and the control is focused. Save's field is `0x0018`,
+so it has no rim; the caret is an underscore while that field is focused.
+
+**Confirmed, then untraced: knob travel `0x64548`.** For kind 6 the prefix
+is `(right−left) − knob_width − 1 − 2×cap_width` (globals `0xa7e44` and
+`0xa7e3e`). The multiply that turns a value into a pixel was not traced.
+The grab width of 57 is an implementation choice: two 20px caps plus the
+17px knob, so the engine drag centre matches a knob drawn inside that grab.
+It is not a constant from the executable. Focus rims are the control rect
+in `0xf7` (check) or `0xfb` (slider); the rest of `0x5de94` was not traced.
+
+**Confirmed text.** Long strings (credits STRDAT 57, briefings 64+,
+objectives 53) do not fit `w2_text_t`. `w2_label_copy` keeps the same
+hotkey strip and writes a caller buffer. Wrapped prose uses the dialog
+advance (glyph width + 1) and the dialog colour map, and honours
+`first_row`. Briefing index is `64 + 2*(level−1) + (orc ? 1 : 0)`, string
+0. Human chrome is REZDAT 82 (prose at 72,80 320×200; title 12,28 480×20);
+orc chrome is 83 (prose 264,80 320×200; title 224,28 400×20). Objectives
+caption is at 372,306 and the body at 372,330 252×108. The portrait
+resource is unknown; both briefings use the dimmed title. Continue uses
+the chosen side's widget sheet.
+
+**Confirmed navigation, from the result switches.** Game menu 3044
+(`0x48dfc`, window 272,96 256×288, panel GAME): 1 save 3063, 2 load 3064
+in a level and 3065 when no level is loaded (retail tests a front-end
+dword; `level.width == 0` is the stand-in), 3 options 3047, 4 help 3045,
+5 objectives 3081, 6 end 3046, −3 closes. Options 3047 (`0x48f6c`): 1
+sound 3048, 2 speed 3050, 3 screen 3049. Help 3045 (`0x48ec4`): 1 key
+pages 3086, 2 tips 3077, −3 back. End 3046 (`0x49014`): 1 confirm 3055,
+3 confirm 3056, 4 confirm 3051. Results 2, 5 and 6 share `0x49380`, which
+picks 3053, 3054 or 3052 from bytes `0x8127a` and `0x80331`. Init
+`0x490f4` hides the two overlapping y=136 buttons that do not apply.
+Who writes those bytes was not traced. A network game shows id 5, a
+custom file shows id 6, otherwise id 2. That mapping is inferred from
+the labels.
+
+**Inferred confirm actions.** The openers are confirmed; the OK handlers
+past them were not. OK on 3055, 3056 and 3053 leaves the match. OK on
+3052 and 3054 reloads the current map. OK on 3051 quits. Cancel returns
+to 3046.
+
+**Record layouts that the menus now open.** Sound 3048 and speed 3050 are
+212×18 sliders (ids 1/2/3) with tiny min/max captions (`0x0400`). Sound
+checks 7, 4, 5, 6 have flags `0x0218` and no group. Screen 3049 radios
+have flags `0x0a18` in three groups (5/4, 1/2, 7/8). Flag `0x0200` is on
+those radios; it is not a font bit and not the checked state. Sound and
+speed sliders apply on change and revert on cancel. Screen radios, mouse
+speed and keyboard speed are stored on OK and are not applied: there is
+no fog toggle, mouse-style switch or minimap-info switch in the engine.
+CD volume is stored the same way. Tips 3077 (256,112 288×256, OPTIONS
+panel, STRDAT 41) has a checkbox and an empty body id −10; entry 41 has
+five short strings and no tip pages, so Next does nothing and no tip is
+shown at startup. Key help 3086 (224,64 352×352, SCENARIO panel) has
+thirteen caption lines filled from STRDAT 59, 13 per page. Objectives
+3081 fills id −4 from STRDAT 53; a skirmish uses index 34. Save 3063
+(208,112 384×256, FILE panel) has a disabled scrollbar (`0x0008`, id
+−32767). In-level load 3064 enables that bar (`0x0018`). Front-end load
+3065 is the full 640×480 screen with no file panel. Credits 3084 (opener
+`0x4c570`) is the title plus STRDAT 57 in id 1 at 140,80 360×280.
+
+**Connection entry.** Multiplayer opens 3042 (loaded at `0x4d107`): list
+id 1 at 28,274 240×96 and description id 2. STRDAT 60 supplies the three
+method names at indices 2/3/4 and the descriptions at 5/6/7. Modem opens
+3073, direct link opens 3072, and IPX opens viewgame 3075. That branch is
+inferred from the strings and the child layouts; the list-fill routine
+itself was not disassembled. COM, baud and IRQ tables are not in STRDAT
+and were not found as ASCII in the inner image, so those dropdowns stay
+empty. Connect on 3072/3073 reports that the link is unavailable. Modem
+config 3074 stores three fields and a tone/pulse pair and returns to
+3073; it sends no modem commands. Viewgame's Create and Join open the
+engine host page and session browser (`netui_t.first`). Escape from that
+page returns to 3075, then to 3042. Retail setup 3080/6013 and name
+dialog 3087 are not used. The engine pages are not restyled into those
+records.
+
+**Still not these records.** HUD dialogs 3033–3039. The in-game panel
+keeps its current command buttons; 3037/3038 were not aligned and icons
+were not resized. Message filters 3066/3067, message boxes 3068–3071,
+3076, 3078, 3079, 3085 and 3088/3090 are not opened. Serial and modem
+transfer was not implemented.
+
+**Unknown.** The rest of `0x64548`'s multiply. The rest of focus-rim
+`0x5de94`. Whether fog, mouse style and minimap info exist beyond the
+dialog. Writers of `0x8127a` and `0x80331`. Confirm OK past the openers.
+3042's list filler. The briefing portrait. Baud, COM and IRQ tables.
+Which of 3059–3062 a given participant count selects. HUD command-chrome
+frames.
+
+Reproduce the screens with `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
+and `env SDL_VIDEODRIVER=dummy W2_MENU_SHOTS=/private/tmp/w2-ui-shots
+build/bin/tests/warcraft-2/test_menu`. `build/bin/warcraft-2 --check`
+passes. The menu test walks the connection list, modem, modem config,
+direct link, viewgame, both briefings, options, screen, sound, speed,
+help, key pages, tips, objectives, end-mission, the restart confirm, and
+both load layouts.

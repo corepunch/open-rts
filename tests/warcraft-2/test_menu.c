@@ -71,6 +71,13 @@ static bool click_at(int x, int y) {
     return true;
 }
 
+static bool click_id(int id) {
+    menuitem_t *item = currentmenu ? M_MenuFind(currentmenu, id) : NULL;
+    if (!item || !item->visible || !item->enabled) return false;
+    irect_t r = M_MenuItemRect(currentmenu, item);
+    return click_at(r.x + r.w / 2, r.y + r.h / 2);
+}
+
 static bool click(const char *text) {
     menuitem_t *item = find(text);
     if (!item || !item->enabled) return false;
@@ -288,8 +295,37 @@ int main(void) {
     press(SDLK_ESCAPE);
     CHECK(find(S(4, 1)));
 
-    /* Multiplayer is the engine's screens: create offers the maps, join browses. */
+    /* Connection methods, then the game list. Create and Join are the engine pages. */
     CHECK(click(S(4, 2)));
+    {
+        menuitem_t *list = M_MenuFind(currentmenu, 1);
+        CHECK(list && list->rows == 3);
+        irect_t r = M_MenuItemRect(currentmenu, list);
+        click_at(r.x + 8, r.y + list->row_height / 2);
+        CHECK(list->value == 0);
+        draw("8a-connect");
+        CHECK(click(S(5, 1)));
+        draw("8b-modem");
+        CHECK(click_id(7));
+        draw("8c-modem-config");
+        press(SDLK_ESCAPE);
+        press(SDLK_ESCAPE);
+        CHECK(find(S(5, 1)));
+        list = M_MenuFind(currentmenu, 1);
+        CHECK(list);
+        r = M_MenuItemRect(currentmenu, list);
+        click_at(r.x + 8, r.y + list->row_height + list->row_height / 2);
+        CHECK(list->value == 1 && click(S(5, 1)));
+        draw("8d-direct");
+        press(SDLK_ESCAPE);
+        CHECK(find(S(5, 1)));
+        list = M_MenuFind(currentmenu, 1);
+        CHECK(list);
+        r = M_MenuItemRect(currentmenu, list);
+        click_at(r.x + 8, r.y + 2 * list->row_height + list->row_height / 2);
+        CHECK(list->value == 2);
+    }
+    CHECK(click(S(5, 1)));
     CHECK(find(S(38, 3)) && find(S(38, 1)));
     draw("8-multiplayer");
     CHECK(click(S(38, 3)));
@@ -297,10 +333,12 @@ int main(void) {
     CHECK(kind(MI_LIST, 0) && kind(MI_LIST, 0)->rows == 8);
     draw("9-host");
     press(SDLK_ESCAPE);
-    CHECK(find(S(38, 3)));
+    CHECK(find(S(38, 3)) && find(S(38, 1)));
     CHECK(click(S(38, 1)));
-    CHECK(find(S(38, 5)));
+    CHECK(find(S(38, 5)) && !find(S(38, 3)));
     draw("10-browse");
+    press(SDLK_ESCAPE);
+    CHECK(find(S(38, 1)));
     press(SDLK_ESCAPE);
     press(SDLK_ESCAPE);
     CHECK(find(S(4, 1)));
@@ -317,6 +355,9 @@ int main(void) {
         M_StartControlPanel(&app);
         CHECK(click(S(4, 1)) && click(N(1)));
         CHECK(click(S(6, orc ? 1 : 2)));
+        CHECK(menuactive);
+        draw(orc ? "6d-brief-orc" : "6c-brief-human");
+        CHECK(click(S(orc ? 55 : 54, 1)));
         CHECK(!menuactive && menumap && menumap[0] == '/');
         CHECK(strstr(menumap, orc ? "level01o.pud" : "level01h.pud"));
         w2_pud_info_t info;
@@ -356,28 +397,67 @@ int main(void) {
     gamesettings.sound = 10;
     M_StartControlPanel(&app);
     CHECK(currentmenu->items[0].rect.x == 272 && currentmenu->items[0].rect.y == 96);
-    CHECK(find(S(7, 1)) && click(S(7, 4)));
-    CHECK(find(S(10, 5)) && find("-") && find("+"));
-    CHECK(click("-"));
-    CHECK(gamesettings.sound == 9 && snd_volume == 90);
+    CHECK(find(S(7, 1)));
+    draw("11-game-menu");
+    CHECK(click(S(7, 4)));
+    CHECK(find(S(10, 5)));
+    draw("11a-options");
+    CHECK(click_id(3));
+    draw("11b-screen");
+    press(SDLK_ESCAPE);
+    CHECK(find(S(10, 5)) && click_id(1));
+    draw("11c-sound");
+    {
+        menuitem_t *slider = M_MenuFind(currentmenu, 2);
+        CHECK(slider && slider->kind == MI_SLIDER);
+        irect_t r = M_MenuItemRect(currentmenu, slider);
+        click_at(r.x + 4, r.y + r.h / 2);
+    }
+    CHECK(gamesettings.sound < 10 && snd_volume == gamesettings.sound * 10);
+    press(SDLK_ESCAPE);
+    CHECK(find(S(10, 5)));
     int speed = game_speed;
-    menuitem_t *speed_button = NULL;
-    for (int i = 0; i < currentmenu->numitems; ++i)
-        if (currentmenu->items[i].kind == MI_BUTTON && !strncmp(currentmenu->items[i].text, S(13, 4), 8))
-            speed_button = &currentmenu->items[i];
-    CHECK(speed_button);
-    irect_t where = M_MenuItemRect(currentmenu, speed_button);
-    click_at(where.x + 5, where.y + 5);
+    CHECK(click_id(2));
+    draw("11d-speed");
+    {
+        menuitem_t *slider = M_MenuFind(currentmenu, 1);
+        CHECK(slider && slider->kind == MI_SLIDER);
+        irect_t r = M_MenuItemRect(currentmenu, slider);
+        click_at(r.x + 4, r.y + r.h / 2);
+    }
     CHECK(game_speed != speed);
     press(SDLK_ESCAPE);
-    CHECK(find(S(7, 1)));
-    CHECK(click(S(7, 5)) && find(S(11, 1)));
     press(SDLK_ESCAPE);
-    CHECK(click(S(7, 6)) && find(S(11, 1)) && click(S(11, 1)));
+    CHECK(find(S(7, 1)));
+    CHECK(click(S(7, 5)) && find(S(8, 1)));
+    draw("11e-help");
+    CHECK(click_id(1));
+    draw("11f-keys");
+    press(SDLK_ESCAPE);
+    CHECK(find(S(8, 1)) && click_id(2));
+    draw("11g-tips");
+    press(SDLK_ESCAPE);
+    CHECK(find(S(8, 1)));
+    press(SDLK_ESCAPE);
+    CHECK(find(S(7, 1)));
+    CHECK(click(S(7, 6)) && find(S(52, 1)));
+    draw("11h-objectives");
+    press(SDLK_ESCAPE);
+    CHECK(find(S(7, 1)) && click_id(6));
+    draw("11i-end");
+    CHECK(click_id(2));
+    draw("11j-confirm");
+    press(SDLK_ESCAPE);
+    press(SDLK_ESCAPE);
+    CHECK(find(S(7, 1)));
+    CHECK(click_id(2));
+    draw("11k-load");
+    press(SDLK_ESCAPE);
     CHECK(find(S(7, 1)));
 
     /* Save names a file for the driver; Load offers it again and sets the load. */
     CHECK(click(S(7, 2)) && find(S(26, 4)));
+    draw("11l-save");
     menuitem_t *name = NULL;
     for (int i = 0; i < currentmenu->numitems; ++i)
         if (currentmenu->items[i].kind == MI_TEXTFIELD) name = &currentmenu->items[i];
@@ -401,6 +481,7 @@ int main(void) {
         if (campaign) { /* enter the campaign through the menus, as a player would */
             M_StartControlPanel(&app);
             CHECK(click(S(4, 1)) && click(N(1)) && click(S(6, orc ? 1 : 2)));
+            CHECK(menuactive && click(S(orc ? 55 : 54, 1)));
             CHECK(!menuactive && menumap);
         }
         CHECK(G_DoLoadLevel(campaign ? menumap : "data/WAR2/ALAMO.PUD", &level));
@@ -444,7 +525,10 @@ int main(void) {
             CHECK(find(S(20, 3)) && click(S(20, 1)) && !menumap && menuactive);
             CHECK(currentmenu->numitems == 31 && currentmenu->background);
             draw(orc ? "12-orc-victory" : "12-victory");
-            CHECK(click(S(22, 1)) && menumap && menumap[0] == '/' && strstr(menumap, orc ? "level02o" : "level02h"));
+            CHECK(click(S(22, 1)) && menuactive && !menumap);
+            draw(orc ? "13-brief-orc" : "13-brief-human");
+            CHECK(click(S(orc ? 55 : 54, 1)) && menumap && menumap[0] == '/' &&
+                  strstr(menumap, orc ? "level02o" : "level02h"));
             P_FreeMobjList(&all);
             CHECK(G_DoLoadLevel(menumap, &level) && ((w2_mission_t *)level.mission)->campaign.number == 2);
             CHECK(((w2_mission_t *)level.mission)->campaign.orc == orc);

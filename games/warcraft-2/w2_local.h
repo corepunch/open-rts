@@ -121,6 +121,8 @@ bool w2_strings_load(const char *root);
 void w2_strings_free(void);
 bool w2_label(int entry, int index, w2_text_t *out);
 bool w2_resource_label(int resource, int index, w2_text_t *out);
+/* One string, without w2_text_t's 160-byte limit. Briefings and credits need it. */
+size_t w2_label_copy(int entry, int index, char *out, size_t size);
 size_t w2_label_lines(int entry, int first, int last, char *out, size_t size);
 
 /* REZDAT dialogs are linked 72-byte records. Decode directly into the engine

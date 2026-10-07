@@ -2383,6 +2383,10 @@ typedef struct {
     const char *(*map_title)(int index);
     int max_players; /* 2..8; 0 means 4 */
     const char *text[16]; /* NETTEXT_* labels; NULL entries keep the English default */
+    /* 0 opens create/join. 1 opens the host page and 2 the session browser;
+     * Escape from that page is Previous Menu. Later pages still fall back
+     * to create/join. */
+    int first;
 } netui_t;
 enum {
     NETTEXT_TITLE, NETTEXT_CREATE, NETTEXT_JOIN, NETTEXT_PREVIOUS, NETTEXT_START, NETTEXT_CANCEL,

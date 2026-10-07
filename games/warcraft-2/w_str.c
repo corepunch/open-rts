@@ -39,6 +39,53 @@ void w2_strings_free(void) {
     }
 }
 
+static const uint8_t *raw_string(int resource, int index) {
+    int bank = resource / 1000 == 4 ? 0 : resource / 1000 == 2 ? 1 : -1;
+    int entry = resource % 1000;
+    if (bank < 0 || entry < 0 || entry >= MAX_ENTRIES || index < 0) return NULL;
+    w2_blob_t *blob = &blobs[bank][entry];
+    if (!blob->data) {
+        if (!w2_archive_extract(&archives[bank], entry, blob) || blob->size < 2) return NULL;
+        const uint8_t *data = blob->data;
+        int count = read_u16_le(data);
+        if (count > MAX_STRINGS || blob->size < 2 + (size_t)count * 2) return NULL;
+        for (int i = 0; i < count; ++i) {
+            size_t at = read_u16_le(data + 2 + i * 2);
+            if (at >= blob->size || !memchr(data + at, 0, blob->size - at)) break;
+            dialogs[bank][entry].text[i] = data + at;
+            ++dialogs[bank][entry].count;
+        }
+    }
+    if (index >= dialogs[bank][entry].count) return NULL;
+    return dialogs[bank][entry].text[index];
+}
+
+/* Drop the leading hotkey byte and the 0x04..0x01 highlight. A tab becomes
+ * four spaces. mark_at and mark_len may be NULL when the caller only wants
+ * the prose. */
+static size_t copy_string(const uint8_t *s, char *out, size_t size, int *mark_at, int *mark_len) {
+    if (mark_at) *mark_at = 0;
+    if (mark_len) *mark_len = 0;
+    if (!out || size == 0) return 0;
+    out[0] = '\0';
+    if (!s) return 0;
+    bool marked = strchr((const char *)s, 4) != NULL;
+    if (marked || (s[0] && s[0] < 0x20)) ++s;
+    size_t n = 0;
+    int at = 0, len = 0;
+    for (; *s && n + 1 < size; ++s) {
+        if (*s == 4) at = (int)n;
+        else if (*s == 1) len = (int)n - at;
+        else if (*s == '\t') for (int k = 0; k < 4 && n + 1 < size; ++k) out[n++] = ' ';
+        else if (*s >= 0x20 || *s == '\n') out[n++] = (char)*s;
+    }
+    out[n] = '\0';
+    if (len < 0) len = 0;
+    if (mark_at) *mark_at = at;
+    if (mark_len) *mark_len = len;
+    return n;
+}
+
 bool w2_label(int entry, int index, w2_text_t *out) {
     if (entry < 0 || entry >= MAX_ENTRIES) {
         memset(out, 0, sizeof(*out));
@@ -49,37 +96,16 @@ bool w2_label(int entry, int index, w2_text_t *out) {
 
 bool w2_resource_label(int resource, int index, w2_text_t *out) {
     memset(out, 0, sizeof(*out));
-    int bank = resource / 1000 == 4 ? 0 : resource / 1000 == 2 ? 1 : -1;
-    int entry = resource % 1000;
-    if (bank < 0 || entry < 0 || entry >= MAX_ENTRIES || index < 0) return false;
-    w2_blob_t *blob = &blobs[bank][entry];
-    if (!blob->data) {
-        if (!w2_archive_extract(&archives[bank], entry, blob) || blob->size < 2) return false;
-        const uint8_t *data = blob->data;
-        int count = read_u16_le(data);
-        if (count > MAX_STRINGS || blob->size < 2 + (size_t)count * 2) return false;
-        for (int i = 0; i < count; ++i) {
-            size_t at = read_u16_le(data + 2 + i * 2);
-            if (at >= blob->size || !memchr(data + at, 0, blob->size - at)) break;
-            dialogs[bank][entry].text[i] = data + at;
-            ++dialogs[bank][entry].count;
-        }
+    return copy_string(raw_string(resource, index), out->text, sizeof(out->text),
+                       &out->mark_at, &out->mark_len) > 0;
+}
+
+size_t w2_label_copy(int entry, int index, char *out, size_t size) {
+    if (entry < 0 || entry >= MAX_ENTRIES) {
+        if (out && size) out[0] = '\0';
+        return 0;
     }
-    if (index >= dialogs[bank][entry].count) return false;
-    const uint8_t *s = dialogs[bank][entry].text[index];
-    bool marked = strchr((const char *)s, 4) != NULL;
-    if (marked || (s[0] && s[0] < 0x20)) ++s;
-    size_t n = 0;
-    out->mark_at = 0;
-    for (; *s && n + 1 < sizeof(out->text); ++s) {
-        if (*s == 4) out->mark_at = (int)n;
-        else if (*s == 1) out->mark_len = (int)n - out->mark_at;
-        else if (*s == '\t') for (int k = 0; k < 4 && n + 1 < sizeof(out->text); ++k) out->text[n++] = ' ';
-        else if (*s >= 0x20 || *s == '\n') out->text[n++] = (char)*s;
-    }
-    out->text[n] = '\0';
-    if (out->mark_len < 0) out->mark_len = 0;
-    return n > 0;
+    return copy_string(raw_string(4000 + entry, index), out, size, NULL, NULL);
 }
 
 /* Several strings of one entry as one text, a line each. */
