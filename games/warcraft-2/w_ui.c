@@ -112,22 +112,24 @@ static bool decode_gfu(const w2_blob_t *entry, const uint32_t palette[256],
     return false;
 }
 
-static void font_rle(uint8_t *dst, int pitch, int width, int height,
-                     const uint8_t *sp, const uint8_t *end) {
-    int x = 0, y = 0;
+static irect_t font_rle(uint8_t *dst, int pitch, int width, int height,
+                        const uint8_t *sp, const uint8_t *end) {
+    int x = 0, y = 0, top = height, bottom = 0;
     while (sp < end && y < height) {
         unsigned ctrl = *sp++;
         x += (int)((ctrl >> 3) & 0x1fu);
-        while (x >= width) {
-            x -= width;
-            if (++y >= height) return;
-        }
-        if (x >= 0 && x < width) dst[y * pitch + x] = (uint8_t)((ctrl & 7u) + 1);
+        y += x / width;
+        x %= width;
+        if (y >= height) break;
+        dst[y * pitch + x] = (uint8_t)((ctrl & 7u) + 1);
+        if (y < top) top = y;
+        bottom = y + 1;
         if (++x >= width) {
             x -= width;
-            if (++y >= height) return;
+            ++y;
         }
     }
+    return bottom > top ? (irect_t){0, top, width, bottom - top} : (irect_t){0};
 }
 
 static bool decode_font(const w2_blob_t *entry, const uint32_t colours[256], bitmapfont_t *font) {
@@ -194,12 +196,11 @@ static bool decode_font(const w2_blob_t *entry, const uint32_t colours[256], bit
         uint8_t *image = calloc((size_t)advance * (size_t)max_h, 1);
         if (!image) break;
         int room = max_h - yoff;
-        if (room > 0)
-            font_rle(image + (size_t)yoff * (size_t)advance + xoff, advance, width,
-                     height < room ? height : room, gp + 4, entry->data + entry->size);
+        irect_t bounds = font_rle(image + (size_t)yoff * (size_t)advance + xoff, advance, width,
+                                  height < room ? height : room, gp + 4, entry->data + entry->size);
         font->sprite.lumps[cell].indices = image;
         font->sprite.cells[cell].rect = (irect_t){0, 0, advance, max_h};
-        font->sprite.cells[cell].bounds = font->sprite.cells[cell].rect;
+        font->sprite.cells[cell].bounds = (irect_t){xoff, yoff + bounds.y, bounds.w, bounds.h};
         font->glyph_index[ch] = cell;
         font->glyph_width[ch] = (uint8_t)advance;
         cell++;

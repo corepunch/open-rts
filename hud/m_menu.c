@@ -233,6 +233,25 @@ static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
     } else scroll_to(list, (menu->cursor.y - r.y) * list->rows / r.h - page_rows(list) / 2);
 }
 
+static void slider_value(menu_t *menu, menuitem_t *item, int64_t value) {
+    if (item->range.max <= item->range.min) return;
+    if (value < item->range.min) value = item->range.min;
+    if (value > item->range.max) value = item->range.max;
+    if (item->value == value) return;
+    item->value = (int)value;
+    call_routine(menu, item, MA_CHANGE);
+}
+
+static void drag_slider(menu_t *menu, menuitem_t *item) {
+    irect_t rect = M_MenuItemRect(menu, item);
+    int width = item->thumb.part.w * R_UIScale(menu->app);
+    int travel = rect.w - width;
+    if (travel <= 0) return;
+    int64_t span = (int64_t)item->range.max - item->range.min;
+    slider_value(menu, item, item->range.min +
+                 (menu->cursor.x - rect.x - width / 2) * span / travel);
+}
+
 static void activate(menu_t *menu, menuitem_t *item);
 
 static void press_key(menu_t *menu, menuitem_t *item, SDL_Keycode key) {
@@ -316,6 +335,14 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
     }
     if (key == SDLK_ESCAPE) {
         if (!event->key.repeat && menu->escape) menu->escape(menu);
+    } else if (item_live(focus) && focus->kind == MI_SLIDER &&
+               (key == SDLK_LEFT || key == SDLK_RIGHT || key == SDLK_HOME || key == SDLK_END)) {
+        int64_t value = focus->value;
+        if (key == SDLK_LEFT) --value;
+        if (key == SDLK_RIGHT) ++value;
+        if (key == SDLK_HOME) value = focus->range.min;
+        if (key == SDLK_END) value = focus->range.max;
+        slider_value(menu, focus, value);
     } else if (item_live(focus) && focus->kind == MI_LIST &&
                (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_HOME || key == SDLK_END ||
                 key == SDLK_PAGEUP || key == SDLK_PAGEDOWN)) {
@@ -380,6 +407,10 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
         drag_scrollbar(menu, menu->held);
         return true;
     }
+    if (motion && menu->held && menu->held->kind == MI_SLIDER) {
+        drag_slider(menu, menu->held);
+        return true;
+    }
     if (motion && menu->held && menu->held->kind == MI_MINIMAP) {
         minimap_centre(menu, menu->held);
         return true;
@@ -433,6 +464,7 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
         }
     }
     else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
+    else if (hit->kind == MI_SLIDER) drag_slider(menu, hit);
     else if (hit->kind == MI_MINIMAP) {
         S_StartUISound(UI_SOUND_CLICK);
         minimap_centre(menu, hit);
@@ -606,7 +638,9 @@ static void draw_text(const menuitem_t *item, menustate_t state, irect_t rect, b
     const menulook_t *look = &item->look[state];
     uint32_t ink = look->ink ? look->ink : item->ink;
     const uint8_t *remap = text_remap(item, font, state, ink, tint);
-    ivec2_t at = text_origin(item, rect, (isize2_t){V_TextWidth(font, item->text), font->glyph_size.h});
+    irect_t bounds = V_TextBounds(font, item->text);
+    ivec2_t at = text_origin(item, rect, (isize2_t){bounds.w, bounds.h});
+    if (item->align & (MALIGN_VCENTER | MALIGN_BOTTOM)) at.y -= bounds.y;
     at = ivec2_add(at, look->shift);
     V_DrawText(at, font, item->text, remap);
     /* The hotkey's letter is redrawn over itself in its own colour: the first
@@ -688,8 +722,24 @@ static bool is_button(const menuitem_t *item) {
     return item->kind == MI_BUTTON || item->kind == MI_CHECK || item->kind == MI_DROPDOWN;
 }
 
+static void draw_slider(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    draw_picture(item, item_state(menu, item), rect);
+    int64_t span = (int64_t)item->range.max - item->range.min;
+    int width = item->thumb.part.w;
+    if (span <= 0 || width <= 0 || width > rect.w) return;
+    int64_t value = item->value;
+    if (value < item->range.min) value = item->range.min;
+    if (value > item->range.max) value = item->range.max;
+    irect_t thumb = {rect.x + (int)((rect.w - width) * (value - item->range.min) / span),
+                     rect.y + (rect.h - item->thumb.part.h) / 2, width, item->thumb.part.h};
+    if (item->sheet)
+        R_DrawSprite(item->sheet, item->thumb.cell, item->thumb.palette, &item->thumb.part,
+                     &thumb, item->opaque ? V_OPAQUE : 0, 16);
+    else V_FillRect(thumb, V_NearestIndex(item->color));
+}
+
 static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
-    if (!item->visible || item->kind == MI_LIST || item->kind == MI_SCROLLBAR) return;
+    if (!item->visible || item->kind == MI_LIST || item->kind == MI_SCROLLBAR || item->kind == MI_SLIDER) return;
     irect_t rect = M_MenuItemRect(menu, item);
     if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     menustate_t state = item_state(menu, item);
@@ -728,10 +778,11 @@ static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
 static void draw_content(const menu_t *menu, const menuitem_t *item) {
     if (!item->visible || is_button(item)) return;
     irect_t rect = M_MenuItemRect(menu, item);
-    if (item->kind == MI_LIST || item->kind == MI_SCROLLBAR) {
+    if (item->kind == MI_LIST || item->kind == MI_SCROLLBAR || item->kind == MI_SLIDER) {
         if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
         if (item->kind == MI_LIST) draw_list(menu, item, rect);
-        else draw_scrollbar(menu, item, rect);
+        else if (item->kind == MI_SCROLLBAR) draw_scrollbar(menu, item, rect);
+        else draw_slider(menu, item, rect);
         if (item->border) V_DrawRectOutline(rect, V_NearestIndex(item->border));
         return;
     }

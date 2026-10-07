@@ -611,6 +611,103 @@ static int layout(void) {
     return 0;
 }
 
+/* Native glyph rectangles can include leading and trailing blank rows. The
+ * caption's authored extent, not that storage canvas, is what gets centred. */
+static int text_alignment(void) {
+    build();
+    V_AllocScreen(W, W);
+    uint32_t palette[256];
+    for (int i = 0; i < 256; ++i) palette[i] = 0xff000000u | (uint32_t)i * 0x010101u;
+    I_SetPalette(palette);
+    uint8_t pixels[12] = {0, 0, 0, 0, 9, 9, 9, 9, 0, 0, 0, 0};
+    spritecell_t cell = {.rect = {0, 0, 2, 6}, .bounds = {0, 2, 2, 2}, .displacement = {0, 1}};
+    spritelump_t lump = {pixels};
+    bitmapfont_t padded = font;
+    padded.sprite.cells = &cell;
+    padded.sprite.lumps = &lump;
+    padded.glyph_size = (isize2_t){2, 6};
+    padded.line_h = 6;
+    padded.native_origin = true;
+    memcpy(padded.sprite.source_palette, palette, sizeof(palette));
+    for (int i = 0; i < 128; ++i) {
+        padded.glyph_index[i] = 0;
+        padded.glyph_width[i] = 3;
+    }
+    irect_t bounds = V_TextBounds(&padded, "a\na");
+    CHECK(bounds.w == 3 && bounds.y == 3 && bounds.h == 8);
+    for (int i = 1; i < NUMITEMS; ++i) items[i].visible = false;
+    menuitem_t *button = &items[BUTTON];
+    button->sheet = NULL;
+    button->font = &padded;
+    button->rect = (irect_t){10, 10, 10, 10};
+    button->align = MALIGN_CENTER;
+    strcpy(button->text, "a");
+    menu.itemOn = -1;
+    draw();
+    CHECK(pixel(13, 13) == MARKER && pixel(13, 14) == 9 && pixel(13, 15) == 9 && pixel(13, 16) == MARKER);
+    button->look[MS_PUSHED].shift = (ivec2_t){1, 1};
+    menu.held = button;
+    draw();
+    CHECK(pixel(14, 14) == MARKER && pixel(14, 15) == 9 && pixel(14, 16) == 9 && pixel(14, 17) == MARKER);
+    menu.held = NULL;
+    button->align = MALIGN_BOTTOM;
+    draw();
+    CHECK(pixel(10, 17) == MARKER && pixel(10, 18) == 9 && pixel(10, 19) == 9);
+    button->align = MALIGN_LEFT;
+    draw();
+    CHECK(pixel(10, 12) == MARKER && pixel(10, 13) == 9 && pixel(10, 14) == 9);
+    button->align = MALIGN_CENTER;
+    strcpy(button->text, "a\na");
+    draw();
+    CHECK(pixel(13, 10) == MARKER && pixel(13, 11) == 9 && pixel(13, 12) == 9);
+    CHECK(pixel(13, 17) == 9 && pixel(13, 18) == 9 && pixel(13, 19) == MARKER);
+    V_FreeScreen();
+    return 0;
+}
+
+static int sliders(void) {
+    build();
+    for (int i = 1; i < NUMITEMS; ++i) items[i].visible = false;
+    menuitem_t *slider = &items[BUTTON];
+    *slider = (menuitem_t){.kind = MI_SLIDER, .visible = true, .enabled = true,
+                           .rect = {10, 10, 41, 5}, .range = {-2, 2}, .value = 0,
+                           .routine = routine, .sheet = &sheet, .stretch = true,
+                           .thumb = {.cell = 0, .part = {0, 0, 1, 1}, .palette = -1}};
+    for (int i = 0; i < MS_STATES; ++i) slider->look[i] = (menulook_t){.cell = 1, .palette = -1};
+    click(10, 12);
+    CHECK(slider->value == -2);
+    mouse(SDL_MOUSEBUTTONDOWN, 30, 12);
+    CHECK(slider->value == 0 && menu.held == slider);
+    mouse(SDL_MOUSEMOTION, 63, 12);
+    CHECK(slider->value == 2);
+    mouse(SDL_MOUSEMOTION, 0, 12);
+    CHECK(slider->value == -2);
+    mouse(SDL_MOUSEBUTTONUP, 0, 12);
+    CHECK(!menu.held && changed[BUTTON] == 4 && activated[BUTTON] == 0);
+    menu.itemOn = BUTTON;
+    key(SDLK_END);
+    CHECK(slider->value == 2 && menu.itemOn == BUTTON);
+    key(SDLK_LEFT);
+    CHECK(slider->value == 1);
+    key(SDLK_HOME);
+    CHECK(slider->value == -2);
+    key(SDLK_RIGHT);
+    CHECK(slider->value == -1);
+    V_AllocScreen(W, W);
+    uint32_t palette[256];
+    for (int i = 0; i < 256; ++i) palette[i] = 0xff000000u | (uint32_t)i;
+    I_SetPalette(palette);
+    memcpy(sheet.source_palette, palette, sizeof(palette));
+    slider->value = 0;
+    draw();
+    CHECK(pixel(29, 12) == 2 && pixel(30, 12) == 1 && pixel(31, 12) == 2);
+    slider->enabled = false;
+    click(50, 12);
+    CHECK(slider->value == 0);
+    V_FreeScreen();
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(input());
     RTS_RUN(hud_targets());
@@ -620,6 +717,8 @@ int main(void) {
     RTS_RUN(animation());
     RTS_RUN(hud_input());
     RTS_RUN(drawing());
+    RTS_RUN(text_alignment());
+    RTS_RUN(sliders());
     puts("PASS: menu items focus, activate, check, type, scroll, animate, target, edit, anchor, align, layer and draw");
     return 0;
 }

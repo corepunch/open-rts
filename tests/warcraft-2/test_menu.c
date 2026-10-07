@@ -92,6 +92,7 @@ int main(void) {
     M_StartControlPanel(&app);
     CHECK(menuactive);
     CHECK(find(S(4, 1)) && find(S(4, 2)) && find(S(4, 5)));
+    CHECK(currentmenu->numitems == 6 && M_MenuFind(currentmenu, 1)->rect.x == 208);
     draw("1-title");
 
     /* A button is pressed on the way down and acts on release; arrows move focus. */
@@ -132,12 +133,22 @@ int main(void) {
     for (int i = 0; i < currentmenu->numitems; ++i)
         if (currentmenu->items[i].kind == MI_LIST) list = &currentmenu->items[i];
     CHECK(list && list->rows >= 8);
+    CHECK(list->id == 1 && list->rect.x == 166 && list->rect.y == 186 && list->rect.h == 112);
+    CHECK(M_MenuFind(currentmenu, -2)->rect.x == 188 && M_MenuFind(currentmenu, -3)->rect.x == 332);
     draw("4-scenario");
     /* Every row's unlettered right edge must be the decoded native bar,
      * including the selected row: no generic highlight fill replaces it. */
     w2_menu_art_t native = {0};
     CHECK(w2_load_menu_art("data/WAR2", &native));
     CHECK(native.font.glyph_size.h == 17 && native.small_font.glyph_size.h == 14);
+    const spritecell_t *capital = &native.font.sprite.cells[native.font.glyph_index['M']];
+    const spritecell_t *descender = &native.font.sprite.cells[native.font.glyph_index['p']];
+    CHECK(capital->rect.h == 17 && capital->bounds.y == 0 && capital->bounds.h == 12);
+    CHECK(descender->rect.h == 17 && descender->bounds.y == 4 && descender->bounds.h == 12);
+    irect_t caption = V_TextBounds(&native.font, "M M");
+    CHECK(caption.y == 0 && caption.h == 12);
+    caption = V_TextBounds(&native.font, "Mp");
+    CHECK(caption.y == 0 && caption.h == 16);
     irect_t list_rect = M_MenuItemRect(currentmenu, list);
     const spritesheet_t *widgets = &native.widgets[1];
     CHECK(widgets->cells[46].rect.w == list_rect.w);
@@ -148,12 +159,28 @@ int main(void) {
                 uint8_t expected = widgets->lumps[46].indices[y * 300 + x];
                 CHECK(vpalette[actual] == widgets->source_palette[expected]);
             }
+    /* The native capital has 12 occupied rows; its RLE skips the last two
+     * rows of its 14-pixel record. A 28-pixel button leaves eight on each side. */
+    menuitem_t centered = {.kind = MI_BUTTON, .visible = true, .rect = {0, 0, 106, 28},
+                            .font = &native.font, .align = MALIGN_CENTER, .text = "M"};
+    menu_t fixture = {.items = &centered, .numitems = 1, .itemOn = -1};
+    V_BeginFrame(0xff0101ffu);
+    uint8_t blank = screens[0].pixels[0];
+    M_MenuDrawer(&fixture);
+    int first = 28, last = -1;
+    for (int y = 0; y < 28; ++y)
+        for (int x = 0; x < 106; ++x)
+            if (screens[0].pixels[y * 640 + x] != blank) {
+                if (y < first) first = y;
+                if (y > last) last = y;
+            }
+    CHECK(first == 8 && last == 19);
     w2_free_menu_art(&native);
     /* The same popup has matching draw/input geometry at UI scale two. */
     app.win = (isize2_t){1280, 960};
     V_AllocScreen(1280, 960);
     draw("4d-picker-2x");
-    menuitem_t *scaled_choice = kind(MI_DROPDOWN, 1);
+    menuitem_t *scaled_choice = M_MenuFind(currentmenu, 3);
     irect_t scaled_rect = M_MenuItemRect(currentmenu, scaled_choice);
     click_at(scaled_rect.x + 10, scaled_rect.y + 10);
     CHECK(currentmenu->dropdown == scaled_choice);
@@ -162,9 +189,9 @@ int main(void) {
     CHECK(!currentmenu->dropdown && scaled_choice->value == 0);
     app.win = (isize2_t){640, 480};
     V_AllocScreen(640, 480);
-    menuitem_t *type_choice = kind(MI_DROPDOWN, 0);
-    menuitem_t *size_choice = kind(MI_DROPDOWN, 1);
-    CHECK(type_choice && size_choice && kind(MI_DROPDOWN, 2));
+    menuitem_t *type_choice = M_MenuFind(currentmenu, 2);
+    menuitem_t *size_choice = M_MenuFind(currentmenu, 3);
+    CHECK(type_choice && size_choice && M_MenuFind(currentmenu, 4));
     /* Filters are real popups; Escape leaves their committed value intact. */
     irect_t choice_rect = M_MenuItemRect(currentmenu, size_choice);
     click_at(choice_rect.x + 5, choice_rect.y + 5);
@@ -174,48 +201,45 @@ int main(void) {
     press(SDLK_RETURN);
     list = kind(MI_LIST, 0);
     /* Browse the native DATA directory: it contains no loose PUDs. */
-    menuitem_t *directory = kind(MI_DROPDOWN, 2);
+    menuitem_t *directory = kind(MI_LIST, 0);
     int data_row = -1;
     for (int i = 0; i < directory->rows; ++i)
-        if (!strcmp(directory->row(directory, i), "DATA")) data_row = i;
+        if (!strcmp(directory->row(directory, i), "DATA/")) data_row = i;
     CHECK(data_row >= 0);
-    choice_rect = M_MenuItemRect(currentmenu, directory);
-    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    currentmenu->itemOn = (int)(directory - currentmenu->items);
     press(SDLK_HOME);
     for (int i = 0; i < data_row; ++i) press(SDLK_DOWN);
     press(SDLK_RETURN);
-    CHECK(kind(MI_LIST, 0)->rows == 0 && !find(S(62, 1))->enabled);
+    CHECK(kind(MI_LIST, 0)->rows == 1 && !strcmp(kind(MI_LIST, 0)->row(kind(MI_LIST, 0), 0), ".."));
     draw("4c-empty-folder");
-    directory = kind(MI_DROPDOWN, 2);
-    choice_rect = M_MenuItemRect(currentmenu, directory);
-    click_at(choice_rect.x + 5, choice_rect.y + 5);
     press(SDLK_HOME);
     press(SDLK_RETURN);
     list = kind(MI_LIST, 0);
-    CHECK(list && kind(MI_DROPDOWN, 1)->value == 4);
+    CHECK(list && M_MenuFind(currentmenu, 3)->value == 4);
     for (int i = 0; i < list->rows; ++i) {
         const char *name = list->row(list, i);
         if (!strchr(name, '/')) CHECK(!strcmp(name, "DRAGON") || !strcmp(name, "ICEBRDGE"));
     }
-    size_choice = kind(MI_DROPDOWN, 1);
+    size_choice = M_MenuFind(currentmenu, 3);
     choice_rect = M_MenuItemRect(currentmenu, size_choice);
     click_at(choice_rect.x + 5, choice_rect.y + 5);
     press(SDLK_HOME);
     press(SDLK_RETURN);
-    type_choice = kind(MI_DROPDOWN, 0);
+    type_choice = M_MenuFind(currentmenu, 2);
     choice_rect = M_MenuItemRect(currentmenu, type_choice);
     click_at(choice_rect.x + 5, choice_rect.y + 5);
     press(SDLK_HOME);
     press(SDLK_RETURN);
     list = kind(MI_LIST, 0);
-    CHECK(list && list->rows == 28 && !kind(MI_DROPDOWN, 2)->enabled);
+    CHECK(list && list->rows == 28 && M_MenuFind(currentmenu, 4)->enabled);
+    CHECK(M_MenuFind(currentmenu, 4)->rows == 9);
     draw("4b-built-in");
     /* Choose a native archive map, then reopen the custom picker. */
     press(SDLK_DOWN);
     CHECK(click(S(62, 1)));
     CHECK(find(S(9, 2)) && find(S(9, 2))->enabled);
     CHECK(click(S(62, 9)));
-    type_choice = kind(MI_DROPDOWN, 0);
+    type_choice = M_MenuFind(currentmenu, 2);
     choice_rect = M_MenuItemRect(currentmenu, type_choice);
     click_at(choice_rect.x + 5, choice_rect.y + 5);
     press(SDLK_END);
@@ -236,7 +260,8 @@ int main(void) {
     /* Race choice offers three native buttons, without a mission browser. */
     CHECK(click("New Campaign"));
     CHECK(find(S(6, 1)) && find(S(6, 2)) && find(S(6, 3)));
-    CHECK(currentmenu->numitems == 3 && !kind(MI_LIST, 0) && !kind(MI_SCROLLBAR, 0));
+    CHECK(currentmenu->numitems == 4 && !kind(MI_LIST, 0) && !kind(MI_SCROLLBAR, 0));
+    CHECK(M_MenuFind(currentmenu, 1)->rect.y == 240 && M_MenuFind(currentmenu, -3)->rect.y == 312);
     draw("6-campaign");
     press(SDLK_ESCAPE);
     CHECK(find("New Campaign") && !menumap);
@@ -313,6 +338,7 @@ int main(void) {
     CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
     gamesettings.sound = 10;
     M_StartControlPanel(&app);
+    CHECK(currentmenu->items[0].rect.x == 272 && currentmenu->items[0].rect.y == 96);
     CHECK(find(S(7, 1)) && click(S(7, 4)));
     CHECK(find(S(10, 5)) && find("-") && find("+"));
     CHECK(click("-"));

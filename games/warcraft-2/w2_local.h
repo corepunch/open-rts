@@ -112,6 +112,13 @@ void w2_strings_free(void);
 bool w2_label(int entry, int index, w2_text_t *out);
 size_t w2_label_lines(int entry, int first, int last, char *out, size_t size);
 
+/* REZDAT dialogs are linked 72-byte records. Decode directly into the engine
+ * table; item zero is the window, children retain signed native control IDs.
+ * Rendering art, radio groups, ranges, contents and callbacks are bound by
+ * the caller: those runtime values are absent from the serialized records. */
+bool w2_decode_scene(const w2_blob_t *blob, menuitem_t *items, int capacity, int *count);
+bool w2_load_scene(const char *root, int entry, menuitem_t *items, int capacity, int *count);
+
 /* Menu chrome is REZDAT. The in-game panel is MAINDAT. Each screen owns a font. */
 typedef struct {
     spritesheet_t widgets[2]; /* 0 human, 1 orc */

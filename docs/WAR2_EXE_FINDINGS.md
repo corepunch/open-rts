@@ -1,5 +1,211 @@
 # Warcraft II gathering and HUD evidence (2026-10-04)
 
+## Native dialog resources and button text bounds (2026-10-07)
+
+**Correction of the absence hypothesis.** The assertion that Warcraft II has
+only UI pictures in WAR archives and all layout in the executable is
+disproven for the installed DOS data. REZDAT entries 33–90 contain 58 linked
+dialog resources, comprising 636 child controls. Wargus's extractor catalog
+does not extract these entries, and its Lua menus construct their own
+layouts. Absence from that extractor is not absence from the game data.
+This finding supersedes earlier statements here that native scene records
+had not been identified. It does not establish the Battle.net MPQ format.
+
+**Provenance / investigation boundary.** The same WAR2.EXE and MAINDAT
+fingerprints recorded below apply. REZDAT SHA-256 is
+`d0fe7edd4f89f60c64bca786a944387578635d8483bc2ff165d06306bb432246`;
+STRDAT SHA-256 is
+`5ba75d38613852be7137c5ec4035578977eb75ce5adc37d219875ba308ce2c26`.
+Only archive bytes and reference sources were examined in this correction;
+the retail executable was neither launched nor disassembled. The user's
+instruction prohibits further retail execution. C probes printed every
+resource's size, record words, child kinds and dialog strings. The retained
+`tests/warcraft-2/test_ui_scenes.c` reproduces the catalog and decoder checks.
+
+**Confirmed serialized structure.** Every identified dialog is a multiple
+of 72 (`0x48`) bytes. Record zero is kind zero; its child link is 72. Each
+child's sibling link visits the next record, and the last is zero. Rectangles,
+kind numbers, signed IDs, picture IDs and string references are stored in
+these records, independently of executable callbacks.
+
+| Record offset | Native value / observed role |
+|---|---|
+| `+0x00` | u32 next sibling offset, relative to resource start |
+| `+0x04`, `+0x06` | u16 left/top; child coordinates are relative to window |
+| `+0x08`, `+0x0a` | u16 right/bottom; do not reconstruct extents from these |
+| `+0x0c`, `+0x0e` | u16 explicit width/height |
+| `+0x10` | u32 picture resource; scenario window has 3012, matching REZDAT 12 |
+| `+0x14` | u32 one-based string slot; root slot 1 is the internal dialog name |
+| `+0x18`, `+0x1a` | u16 flags and signed 16-bit control ID |
+| `+0x1c` | u32 native kind |
+| `+0x30` | duplicate window extent in the root |
+| `+0x3c` | root string resource; 4004 selects STRDAT 4, for example |
+| `+0x40` | root first-child offset |
+
+The remaining fields' complete runtime meanings are unknown. Most serialized
+callback/state fields are zero. Some root right/bottom values are local
+extents despite nonzero origins; using the explicit size avoids the wrong
+width. Visibility bit `0x0008` and enable bit `0x0010` are working
+interpretations consistent across the catalog, not executable-proven flags.
+The adapter copies those bits; tests check that copy against raw records.
+
+Kind interpretation, inferred from strings and geometry across dialogs:
+1 default button, 2 button, 3 radio, 4 checkbox, 6 horizontal slider,
+7 scrollbar companion, 8 text field, 9 left text, 10 centered text,
+11 right text, 12 list, 13 dropdown. Type 5 does not occur in this data.
+Radio grouping, slider ranges/current values, list rows, dropdown choices,
+default activation, font/colour flags, palette switching and picture-resource
+dispatch still require runtime configuration or static executable tracing.
+Do not promote the likely font flags `0x0400` / `0x0800` to verified rules.
+
+**Concrete native layouts.** Main Menu is REZDAT 41, WAR file offset
+`0x003c2bb0`, decoded size 432. It references STRDAT 4 and contains five
+224×28 buttons at x208, y240/276/312/348/384, with IDs 1/2/3/4/-3 and
+string slots 2–6. NewCampaign is entry 43, file offset `0x003c2f18`, size
+288: three buttons of that size at x208, y240/276/312, IDs 1/2/-3, STRDAT
+6 slots 2–4. No four-button New Campaign/Load/Custom/Previous dialog was
+identified among these 58 resources. Its absence here does not prove that
+the executable never composes or changes a screen.
+
+Game Menu entry 44 places its 256×288 window at (272,96), not (0,96).
+Its controls retain local positions, e.g. Save (16,40), Options (16,74),
+Help (16,108), Objectives (16,142), End (16,176), Return (16,248).
+These correct both the previous horizontal placement and guessed row gaps.
+
+Scenario entry 89 is at WAR file offset `0x003cd890`, decoded size 1080.
+Its window is (144,64), 352×352, picture resource 3012, STRDAT resource
+4062. Local controls include OK (-2) at (44,318), Cancel (-3) at
+(188,318), both 106×28; list (1) at (22,122), 300×112; dropdowns
+type (2) at (138,38), players (4) at (138,66), size (3) at (138,94),
+all 204×24. The text in STRDAT 62 slots 6–8 identifies Type, Players,
+Map. The middle control is therefore bound to player-count choices in
+open-rts, rather than the earlier BNE-derived directory selector. The exact
+retail filtering callback remains untraced. Custom directories and a parent
+entry are engine filesystem behavior through the list.
+
+The hidden kind-7 record has ID `0x8001`, flags zero, and a 38×38
+placeholder rectangle. Our adapter builds its scrollbar from the list's
+explicit rectangle and native GFU arrow dimensions. This is an inferred
+composite, not confirmation of the retail construction formula. The BNE
+JPEG places/orders controls differently and does not override DOS resource
+geometry. In particular, the previous y50 panel shift, widened directory
+dropdown, reordered OK/Cancel and combined detail label were authored
+approximations; they are removed for the DOS picker.
+
+**Complete discovered catalog.** Counts include the root. STR column is
+the zero-based STRDAT entry; a dash means no serialized string resource.
+
+| REZDAT | STR | Dialog | Origin; size | Records |
+|---|---|---|---|---|
+|33|0|TEXTBOX|176,464; 448×16|8|
+|34|–|Top text|176,0; 448×16|4|
+|35|43|INFOBOX|176,0; 448×16|6|
+|36|–|Right text|624,0; 16×480|2|
+|37|–|Unit info|0,160; 176×176|28|
+|38|–|Command buttons|0,336; 176×144|10|
+|39|2|STAT_F10_DLG|0,0; 176×24|5|
+|40|3|Title|0,0; 640×480|2|
+|41|4|MainMenu|0,0; 640×480|6|
+|42|5|MultiPlayer|0,0; 640×480|6|
+|43|6|NewCampaign|0,0; 640×480|4|
+|44|7|GameMenu|272,96; 256×288|9|
+|45|8|HelpMenu|272,96; 256×288|5|
+|46|9|GameMenu|272,96; 256×288|9|
+|47|10|Options|272,96; 256×288|6|
+|48|11|SND_DLG|272,96; 256×288|20|
+|49|12|Screen|272,96; 256×288|13|
+|50|13|Speed|272,96; 256×288|16|
+|51–56|14–19|Quit / Restart|272,96; 256×288|6 each|
+|57|20|Win_Mission|256,176; 288×128|5|
+|58|21|Lose_Mission|256,176; 288×128|4|
+|59–62|22–25|Mission_Stats|0,0; 640×480|31/47/63/78|
+|63|26|Savegame|208,112; 384×256|8|
+|64|27|Loadgame|208,112; 384×256|6|
+|65|28|Loadgame|0,0; 640×480|6|
+|66|29|Ally_Filters|272,132; 256×224|19|
+|67|30|Message_Filters|272,132; 256×224|20|
+|68|31|Ok_Cancel_Dialog|256,176; 288×128|4|
+|69|32|BigOK|192,88; 288×256|3|
+|70|33|Ok_Cancel_Dialog|256,176; 288×128|3|
+|71|34|Cancel_Dialog|256,176; 288×128|3|
+|72|35|DirectLink|0,0; 640×480|13|
+|73|36|Modem|0,0; 640×480|16|
+|74|37|ModemConfig|0,0; 640×480|14|
+|75|38|Viewgame|0,0; 640×480|10|
+|76|39|dialog|0,0; 640×480|3|
+|77|41|Tips_Dialog|256,112; 288×256|6|
+|78|48|Connect|176,176; 288×128|6|
+|79|49|CMsg|144,64; 352×352|5|
+|80|44|Custom setup|0,0; 640×480|51|
+|81|52|Objectives|272,96; 256×288|5|
+|82–83|54–55|Human / Orc_Dispatch|0,0; 640×480|6 each|
+|84|56|Credits|0,0; 640×480|3|
+|85|46|dialog|192,96; 256×288|12|
+|86|47|HelpScreen|224,64; 352×352|18|
+|87|51|Game_Name_Dialog|256,176; 288×128|5|
+|88|–|Two centered texts|0,0; 640×480|3|
+|89|62|Scenario picker|144,64; 352×352|15|
+|90|–|Text|0,0; 640×480|2|
+
+Dispatch 82/83 also stores Continue at (456,448), 106×28; prose area
+(72,80), 320×200; objectives (372,330), 252×108; level title
+(12,28), 480×20; Objectives caption (372,306), 252×18. The serialized
+background resource is zero; its runtime assignment/narration is unknown.
+
+**Button centering.** FONT 281 has a 17-pixel canvas. `M`'s descriptor is
+14×14 at (0,0), but its RLE emits only 12 occupied rows; the last two
+descriptor rows are skipped. `p` has descriptor height 13 at y4 and emits
+12 rows. The previous loader gave every glyph the full 17-pixel bounds,
+which placed button text above its visual center. The intermediate
+hypothesis “descriptor height equals occupied height” was also disproven.
+Temporary `OPEN_RTS_DEBUG_W2_ALIGN` logging printed descriptor and RLE span
+values; it was removed after verification.
+
+The decoder now records vertical bounds while consuming native RLE commands,
+without scanning pixels or introducing an offset. Shared `V_TextBounds`
+unions those bounds across the actual caption, including native displacement
+and newlines. Shared menu vertical/bottom alignment uses that result;
+top-aligned text keeps its native origin, and authored pressed shifts follow
+alignment. This is the user's requested centering behavior; the retail
+text-placement formula is not executable-proven. A native `M` in a 28-high
+button occupies rows 8–19, leaving eight rows above and below.
+
+Decoded font pixels, cell rectangles, advances and palettes are unchanged.
+An FNV byte comparison against the pre-change loader gave matching hashes
+`7e61c028e244c6ad` (281) and `e6492cfdf472397b` (282), each with 209
+cells. Hash input: glyph indices, advances, source palette, each cell
+rectangle and its indexed pixel storage; seed 1469598103934665603, multiplier
+1099511628211. Bounds metadata is intentionally excluded because that is
+the corrected value. A distinct-background pixel test disproved the concern
+that black shadows were merely hidden by a black test background.
+
+**Implementation and remaining fidelity.** `w_scene.c` validates record
+spans/links before decoding directly into the final engine item table. It
+retains native IDs, geometry and label slots; no retained parallel scene
+graph or new per-game input/drawing loop is introduced. Main, race choice,
+in-game menu and picker consume these records. `MI_SLIDER` adds the missing
+shared control with bounded drag/key input and authored track/thumb art.
+All present native kinds have an engine representation. Other front-end
+screens remain authored; the extra single-player screen, setup, options,
+save/load, briefing flow and multiplayer need further native integration.
+Font/colour flags, default-button semantics and composite widget details
+remain unknown. Loading all records is not a pixel-identity certificate for
+all scenes, and Wargus rendering its own Lua menus cannot supply one.
+
+Reproduce with `make`, `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
+(local UDP permitted for network-menu tests), and `env SDL_VIDEODRIVER=dummy
+W2_MENU_SHOTS=/private/tmp build/bin/tests/warcraft-2/test_menu`. The native
+catalog test checks all 58 imports plus malformed lengths, links and
+capacity; shared tests exercise slider endpoints, dragging, keyboard input,
+disabled input, authored drawing and text alignment.
+
+Verification at this checkpoint: `make` and all 25 Warcraft II regression
+executables pass without new warnings, as do shared menu-item tests for
+Dark Reign, Dark Colony, 7th Legion and KKnD. Open-rts `--check` passes.
+The imported picker was rendered at 640×480 and 1280×960 and inspected,
+including custom/built-in filters and directory navigation. These are
+engine/data-contract checks, not comparison against an executed retail game.
+
 ## Vehicle movement frames (2026-10-07)
 
 The MAINDAT and WAR2.EXE fingerprints recorded below still apply. This
