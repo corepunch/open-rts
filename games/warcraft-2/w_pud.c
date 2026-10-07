@@ -126,9 +126,15 @@ bool w2_campaign_infos(const char *root, bool orc, w2_pud_info_t infos[W2_CAMPAI
 }
 
 bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path, size_t size) {
-    if (level < 1 || level > W2_CAMPAIGN_LEVELS || !D_UserDirectory()[0]) return false;
-    char name[64], archive_path[1100];
+    if (level < 1 || level > W2_CAMPAIGN_LEVELS) return false;
+    char name[64];
     snprintf(name, sizeof(name), "campaign-level%02d%c.pud", level, orc ? 'o' : 'h');
+    return w2_extract_map(root, W2_CAMPAIGN_ENTRY + 2 * (level - 1) + (orc ? 1 : 0), name, path, size);
+}
+
+bool w2_extract_map(const char *root, int entry, const char *name, char *path, size_t size) {
+    if (!D_UserDirectory()[0]) return false;
+    char archive_path[1100];
     /* The driver joins a relative map to the data root, so hand it an absolute path. */
     char directory[1100];
     if (D_UserDirectory()[0] != '/' && getcwd(directory, sizeof(directory))) {
@@ -142,7 +148,6 @@ bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path
     w2_archive_t arc;
     if (!w2_archive_open(&arc, archive_path)) return false;
     w2_blob_t blob = { 0 };
-    int entry = W2_CAMPAIGN_ENTRY + 2 * (level - 1) + (orc ? 1 : 0);
     w2_pud_info_t info;
     bool ok = w2_archive_extract(&arc, entry, &blob) && w2_pud_info_bytes(blob.data, blob.size, &info);
     if (ok) {

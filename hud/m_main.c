@@ -11,13 +11,20 @@ const char *menumap;
 menu_t *currentmenu;
 
 void M_SetupNextMenu(menu_t *menu) {
+    if (currentmenu) {
+        currentmenu->dropdown = NULL;
+        currentmenu->held = currentmenu->keyheld = NULL;
+    }
     currentmenu = menu;
     menuactive = menu != NULL;
 }
 
 void M_ClearMenus(void) {
     menuactive = false;
-    if (currentmenu) currentmenu->held = NULL;
+    if (currentmenu) {
+        currentmenu->dropdown = NULL;
+        currentmenu->held = currentmenu->keyheld = NULL;
+    }
     SDL_StopTextInput();
 }
 

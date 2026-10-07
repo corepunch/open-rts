@@ -49,6 +49,13 @@ static menuitem_t *find(const char *text) {
     return NULL;
 }
 
+static menuitem_t *kind(menuitemkind_t type, int ordinal) {
+    for (int i = 0; i < currentmenu->numitems; ++i)
+        if (currentmenu->items[i].visible && currentmenu->items[i].kind == type && !ordinal--)
+            return &currentmenu->items[i];
+    return NULL;
+}
+
 static bool click_at(int x, int y) {
     SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
     event.button.button = SDL_BUTTON_LEFT;
@@ -124,6 +131,94 @@ int main(void) {
         if (currentmenu->items[i].kind == MI_LIST) list = &currentmenu->items[i];
     CHECK(list && list->rows >= 8);
     draw("4-scenario");
+    /* Every row's unlettered right edge must be the decoded native bar,
+     * including the selected row: no generic highlight fill replaces it. */
+    w2_menu_art_t native = {0};
+    CHECK(w2_load_menu_art("data/WAR2", &native));
+    CHECK(native.font.glyph_size.h == 17 && native.small_font.glyph_size.h == 14);
+    irect_t list_rect = M_MenuItemRect(currentmenu, list);
+    const spritesheet_t *widgets = &native.widgets[1];
+    CHECK(widgets->cells[46].rect.w == list_rect.w);
+    for (int row = 0; row < 6; ++row)
+        for (int y = 2; y < 17; ++y)
+            for (int x = 250; x < 298; ++x) {
+                uint8_t actual = screens[0].pixels[(list_rect.y + row * 18 + y) * 640 + list_rect.x + x];
+                uint8_t expected = widgets->lumps[46].indices[y * 300 + x];
+                CHECK(vpalette[actual] == widgets->source_palette[expected]);
+            }
+    w2_free_menu_art(&native);
+    /* The same popup has matching draw/input geometry at UI scale two. */
+    app.win = (isize2_t){1280, 960};
+    V_AllocScreen(1280, 960);
+    draw("4d-picker-2x");
+    menuitem_t *scaled_choice = kind(MI_DROPDOWN, 1);
+    irect_t scaled_rect = M_MenuItemRect(currentmenu, scaled_choice);
+    click_at(scaled_rect.x + 10, scaled_rect.y + 10);
+    CHECK(currentmenu->dropdown == scaled_choice);
+    press(SDLK_END);
+    press(SDLK_ESCAPE);
+    CHECK(!currentmenu->dropdown && scaled_choice->value == 0);
+    app.win = (isize2_t){640, 480};
+    V_AllocScreen(640, 480);
+    menuitem_t *type_choice = kind(MI_DROPDOWN, 0);
+    menuitem_t *size_choice = kind(MI_DROPDOWN, 1);
+    CHECK(type_choice && size_choice && kind(MI_DROPDOWN, 2));
+    /* Filters are real popups; Escape leaves their committed value intact. */
+    irect_t choice_rect = M_MenuItemRect(currentmenu, size_choice);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    CHECK(currentmenu->dropdown == size_choice);
+    draw("4a-size-popup");
+    press(SDLK_END);
+    press(SDLK_RETURN);
+    list = kind(MI_LIST, 0);
+    /* Browse the native DATA directory: it contains no loose PUDs. */
+    menuitem_t *directory = kind(MI_DROPDOWN, 2);
+    int data_row = -1;
+    for (int i = 0; i < directory->rows; ++i)
+        if (!strcmp(directory->row(directory, i), "DATA")) data_row = i;
+    CHECK(data_row >= 0);
+    choice_rect = M_MenuItemRect(currentmenu, directory);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_HOME);
+    for (int i = 0; i < data_row; ++i) press(SDLK_DOWN);
+    press(SDLK_RETURN);
+    CHECK(kind(MI_LIST, 0)->rows == 0 && !find(S(62, 1))->enabled);
+    draw("4c-empty-folder");
+    directory = kind(MI_DROPDOWN, 2);
+    choice_rect = M_MenuItemRect(currentmenu, directory);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_HOME);
+    press(SDLK_RETURN);
+    list = kind(MI_LIST, 0);
+    CHECK(list && kind(MI_DROPDOWN, 1)->value == 4);
+    for (int i = 0; i < list->rows; ++i) {
+        const char *name = list->row(list, i);
+        if (!strchr(name, '/')) CHECK(!strcmp(name, "DRAGON") || !strcmp(name, "ICEBRDGE"));
+    }
+    size_choice = kind(MI_DROPDOWN, 1);
+    choice_rect = M_MenuItemRect(currentmenu, size_choice);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_HOME);
+    press(SDLK_RETURN);
+    type_choice = kind(MI_DROPDOWN, 0);
+    choice_rect = M_MenuItemRect(currentmenu, type_choice);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_HOME);
+    press(SDLK_RETURN);
+    list = kind(MI_LIST, 0);
+    CHECK(list && list->rows == 28 && !kind(MI_DROPDOWN, 2)->enabled);
+    draw("4b-built-in");
+    /* Choose a native archive map, then reopen the custom picker. */
+    press(SDLK_DOWN);
+    CHECK(click(S(62, 1)));
+    CHECK(find(S(9, 2)) && find(S(9, 2))->enabled);
+    CHECK(click(S(62, 9)));
+    type_choice = kind(MI_DROPDOWN, 0);
+    choice_rect = M_MenuItemRect(currentmenu, type_choice);
+    click_at(choice_rect.x + 5, choice_rect.y + 5);
+    press(SDLK_END);
+    press(SDLK_RETURN);
+    list = kind(MI_LIST, 0);
     press(SDLK_DOWN);
     CHECK(list->value >= 0);
     CHECK(click(S(62, 1)));
@@ -171,6 +266,7 @@ int main(void) {
     draw("8-multiplayer");
     CHECK(click(S(38, 3)));
     CHECK(find(S(62, 9)));
+    CHECK(kind(MI_LIST, 0) && kind(MI_LIST, 0)->rows == 8);
     draw("9-host");
     press(SDLK_ESCAPE);
     CHECK(find(S(38, 3)));

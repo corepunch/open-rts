@@ -588,3 +588,100 @@ video/audio drivers for the shared ownership checks.
 shared synthetic-WAV suite passes under every game, all 23 Warcraft II and
 68 Dark Colony regression executables pass, and both games' headless smoke
 checks pass. No game source calls the I_ sound/sample API.
+## Scenario picker controls and screenshot comparison (2026-10-07)
+
+**Sources.** The user supplied `/Users/igor/Desktop/Screenshot 2026-10-07 at
+12.00.30.jpg`, 1290x968, SHA-256
+`1a2bd92f8884822c589b62995f55527b68d1b13bcd1e4dfeb4967e3784a0a7fb`.
+Its logo identifies Battle.net Edition; the installed localized DOS data is a
+different edition. WAR2.EXE retains fingerprint
+`a2b4b2118ec6355371b58134be8c7331d1facc5989e7188a1d1bb68fd1f26671`;
+it was not disassembled or run for this change. REZDAT.WAR SHA-256 is
+`d0fe7edd4f89f60c64bca786a944387578635d8483bc2ff165d06306bb432246`;
+STRDAT.WAR is `5ba75d38613852be7137c5ec4035578977eb75ce5adc37d219875ba308ce2c26`.
+MAINDAT's fingerprint and the pinned Wargus provenance remain as recorded
+below and in REFERENCES.md.
+
+**Confirmed native records.** REZDAT's header at offsets 4/6 reports 91
+entries, type 3000. Native GFUs 0/1 contain 50 widgets in this distribution.
+Orc frame 46 is a 300x18 red list/pulldown bar; 45 is its disabled artwork.
+Frames 29/30 are normal/pressed up arrows, 32/33 down arrows (19x20),
+28/31 their disabled states, 40 the 17x17 knob, and 41/42 the disabled/normal
+19x124 vertical track. No folder-up frames 50–52 exist in this GFU, although
+the pinned Wargus catalog describes them for other distributions. REZDAT 12
+is the 352x352 orc scenario panel. MAINDAT FONT 281 is 17x17, with M advance
+14; FONT 282 is 14x14, with M advance 11. The front end previously used 282
+as its large font. Gameplay HUD fonts are separate and unchanged.
+
+**Confirmed scenario data.** MAINDAT entries 220–247 are 28 valid PUDs,
+matching the pinned `wartool.h` skirmish range. Entry 220's DESC is
+"Gold separates east from west", matching the map description behind the
+reference dialog. Header DIM/OWNR supply dimensions and playing-slot count
+(owners 4/5); extracted archive scenarios load through the ordinary PUD
+path. The eight loose scenarios remain available under Custom scenario.
+
+**Screenshot-derived layout, not executable-derived behavior.** Normalizing
+the supplied image to 640x480 gives the centered 352-pixel panel at roughly
+(144,50). The picker now uses that placement, type/size/directory selectors,
+six 18-pixel list rows at (166,186), native arrows and knob, dimensions/player
+count, Cancel on the left and OK on the right. Setup remains visible behind
+the modal panel and cannot receive clicks or hotkeys. Directory names carry
+a slash because no verified folder icon was found in these DOS widgets.
+Directories are listed even under a size filter, so filtering cannot trap
+navigation. Built-in maps and custom directories are distinct functional
+sources; empty directories disable OK. These are implemented engine behavior,
+not a claim about the retail executable's dispatch or sorting.
+
+The shared engine now owns dropdown popup drawing, hit testing, pending
+selection, keyboard/wheel input, Escape/outside-click cancellation, native
+list-row pictures, authored disabled states, fixed-size scrollbar knobs,
+Home/End/Page navigation, and double-click list activation. A dropdown draws
+over the complete screen, clips its label before the arrow, and consumes
+outside clicks. Menu transitions discard popup/pressed input. This keeps
+games as tables and action routines, consistent with the existing Doom menu
+lifecycle; `reference/DOOM/m_menu.c` was consulted for selection, Enter,
+Escape, and menu transitions, not Warcraft widget layout.
+
+**Disproven assumptions.** Native chrome alone did not make the old generic
+list faithful: its brown selection fill and bare rectangular scrollbar
+replaced artwork already present in REZDAT. Using the game font as the menu
+font also reduced text size. The localized multiplayer test failure seen
+during the initial run was caused by denied UDP socket creation in the
+sandbox, not a missing STRDAT label; it passes with local sockets allowed.
+
+**Unknown / incomplete fidelity.** No Battle.net MPQ or executable exists
+in the inspected data tree. No verified native scene-layout record was
+identified or imported. This change loads native graphics/fonts and PUDs at
+runtime but authors the control layout in C. REZDAT records beyond the
+identified graphics were not comprehensively classified. English Battle.net
+logo, localization, folder artwork, cursor placement, exact RGB/geometry,
+race/opponent setup controls, and retail dropdown/scroll dispatch still need
+the corresponding edition's files and further verification. The parent
+setup is the current engine setup, not a pixel-exact Battle.net scene. Do not
+replace these unknowns with screenshot-generated assets or tuned constants.
+
+**Verification.** `make` builds all five binaries without new warnings.
+All 24 `test-warcraft-2` executables pass with SDL's dummy driver and local
+UDP permitted. Shared menu tests also pass for the other four games.
+`test_menu` compares 4,320 unlettered list pixels against decoded GFU 46,
+including the selected row, and checks native font dimensions, 128x128
+filtering, empty DATA-directory browsing, all 28 built-in maps, archive-map
+selection, and normal launch/campaign behavior. Shared tests cover popup
+overlap, cancel-without-commit, outside-click consumption, disabled input/art,
+upward opening, and keyboard/double-click list activation. The picker also
+renders and accepts popup input at 1280x960 (UI scale two); multiplayer still
+lists only the original eight loose PUDs, independent of picker filters.
+Headless check and
+gameplay BMP generation pass. Picker, open size popup, built-in list and
+empty-folder BMPs were rendered and visually inspected. These checks certify
+native asset rendering and engine controls, not whole-screen equivalence to
+the supplied JPEG.
+
+Reproduce:
+
+```sh
+make
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy W2_MENU_SHOTS=/private/tmp build/bin/tests/warcraft-2/test_menu
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+```

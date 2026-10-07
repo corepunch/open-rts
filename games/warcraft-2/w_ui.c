@@ -328,7 +328,7 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     w2_archive_t maindat;
     bool font = false;
     if (open_data(&maindat, root, "MAINDAT.WAR")) {
-        font = load_font(&maindat, 282, &art->font) && load_font(&maindat, 283, &art->small_font);
+        font = load_font(&maindat, 281, &art->font) && load_font(&maindat, 282, &art->small_font);
         w2_archive_close(&maindat);
     }
     art->ready = widgets && panels && title && font;
