@@ -1821,11 +1821,11 @@ static int stand_state(int pud) { return 1 + pud * 2; }
  * count: stand, four walk frames, then the attack frames and the death
  * frames (Wargus anim.lua: footman 25..40 / 45..55, archer 25..30 / 35..45,
  * knight adds two decay frames, peasants chop with five frames). Timings
- * are the Wargus waits. Art without those frames (siege, ships) attacks in
- * its stand frame and vanishes when destroyed. Structures hold two frames,
+ * are the Wargus waits. Siege and ships have separate short layouts.
+ * Structures hold two frames,
  * the finished building and its half-built picture; they leave rubble. */
 /* Logical frames (rows of five facings) in each type's forest MAINDAT GRP,
- * so the state rows exist before any art loads; w2_limit_walk rebuilds
+ * so the state rows exist before any art loads; w2_build_states rebuilds
  * them from the decoded sheet. Reserved and art-less slots are zero. */
 static const uint8_t w2_phases[W2_TYPE_COUNT] = {
     12, 12, 13, 13, 4, 4, 14, 14, 10, 12, 16, 13, 14, 14, 13, 15, 13, 13, 10, 12,
@@ -1923,18 +1923,33 @@ static void build_combat_states(int pud, int phases) {
     }
 }
 
-void w2_limit_walk(int pud, int phases) {
+void w2_build_states(int pud, int phases) {
     if (pud < 0 || pud >= W2_TYPE_COUNT) return;
+    mobjinfo_t *unit = &mobjinfo[pud + 1];
     int stand = stand_state(pud);
     int walk = stand + 1;
     build_combat_states(pud, phases);
-    if (phases < 2) {
-        mobjinfo[pud + 1].seestate = stand;
-        return;
+    int first = 1, count = 4;
+    /* Wargus Move scripts: vehicles do not share infantry's rows 1..4.
+     * GRP row count includes attack/death art and cannot select a cycle. */
+    if (unit->w2.flags & W2_SEA || pud + 1 == MT_ZEPPELIN ||
+        pud + 1 == MT_EYE_OF_KILROGG) {
+        first = 0;
+        count = 1;
+    } else if (pud + 1 == MT_BALLISTA || pud + 1 == MT_CATAPULT ||
+               pud + 1 == MT_FLYING_MACHINE) {
+        first = 0;
+        count = 2;
     }
-    int count = phases - 1;
-    if (count > 4) count = 4;
-    states[walk].count = count;
+    if (phases <= first) { first = 0; count = 1; }
+    else if (count > phases - first) count = phases - first;
+    bool mobile = (unit->w2.flags & W2_MOBILE) != 0;
+    states[walk] = (state_t){
+        .sprite = pud, .frame = first, .count = count, .tics = W2_WALK_TICS,
+        .action = mobile ? A_Chase : NULL,
+        .nextstate = walk, .group = W2_GROUP_WALK,
+    };
+    unit->seestate = mobile ? walk : stand;
 }
 
 void w2_build_info(void) {
@@ -1945,10 +1960,8 @@ void w2_build_info(void) {
     };
     for (int pud = 0; pud < W2_TYPE_COUNT; ++pud) {
         mobjinfo_t *unit = &mobjinfo[pud + 1];
-        bool mobile = (unit->w2.flags & W2_MOBILE) != 0;
         bool fighter = (unit->w2.attributes & W2_CAN_ATTACK) && unit->damage > 0;
         int stand = stand_state(pud);
-        int walk = stand + 1;
         sprnames[pud] = unit->name;
         /* Fighters glance around every few tics (Doom's A_Look cadence). */
         states[stand] = (state_t){
@@ -1956,14 +1969,8 @@ void w2_build_info(void) {
             .action = fighter ? A_Look : NULL,
             .nextstate = stand, .group = W2_GROUP_STAND,
         };
-        states[walk] = (state_t){
-            .sprite = pud, .frame = 1, .count = 4, .tics = W2_WALK_TICS,
-            .action = mobile ? A_Chase : NULL,
-            .nextstate = walk, .group = W2_GROUP_WALK,
-        };
         unit->spawnstate = stand;
-        unit->seestate = mobile ? walk : stand;
-        build_combat_states(pud, w2_phases[pud]);
+        w2_build_states(pud, w2_phases[pud]);
     }
     static const int chop_frames[] = { 5, 6, 7, 8, 9, 5, 5 };
     static const int chop_tics[] = { 3, 3, 3, 5, 3, 7, 1 };

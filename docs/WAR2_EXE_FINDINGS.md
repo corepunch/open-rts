@@ -1,5 +1,68 @@
 # Warcraft II gathering and HUD evidence (2026-10-04)
 
+## Vehicle movement frames (2026-10-07)
+
+The MAINDAT and WAR2.EXE fingerprints recorded below still apply. This
+investigation decoded native GRPs and compared the pinned Wargus and Warcraft
+2000 sources; WAR2.EXE was not disassembled or run.
+
+**Confirmed reference behavior:** Wargus `scripts/human/anim.lua` and
+`scripts/orc/anim.lua` select these `Move` pictures. Divide Wargus frame
+operands by five to obtain our logical frame (five facings per row):
+
+| Units | Wargus Move operands | Logical movement frames |
+|---|---|---|
+| Ballista, catapult | 0, 5 | 0, 1 |
+| Both tankers, transports, destroyers, battleship, juggernaught | 0 | 0 |
+| Gnomish submarine, giant turtle | 0 | 0 |
+| Flying machine (`animations-balloon`) | 5, 0 | 0, 1, repeating |
+| Zeppelin, Eye of Kilrogg (`animations-eye-of-vision`) | 0 | 0 |
+
+Siege movement uses the same poses in both EnhancedEffects branches; the
+enhanced branch adds a turn wait. Surface ships use operands 5 and 10 for
+**death**, while submarines/turtles use those operands for **attack**.
+Ballista/catapult attack uses operands 10 and 15. None belongs in movement.
+
+**Confirmed defect:** `w2_limit_walk` assumed frame 1 followed by
+`min(phases - 1, 4)` pictures was a walk cycle. Temporary diagnostics on the
+native ALAMO asset load printed `ballista: phases=4 frame=1 count=3`.
+Thus a rolling siege unit showed rows 1, 2, 3 (including firing art) and a
+three-row ship showed rows 1, 2 (sinking/attack art) instead of row 0.
+Before loading art, every mobile type incorrectly had four frames starting
+at 1. **Disproven:** GRP row count determines movement sequence semantics.
+Native examples are MAINDAT entries 49/50 (ballista/catapult), 59 (human
+tanker), and 41 (battleship). The five-facing decode itself was unchanged.
+
+**Implementation:** `w2_build_states` authors the vehicle movement ranges
+above both at initialization and after GRP loading. Single-pose vehicles
+retain a looping movement state with `A_Chase`, separate from standing.
+Native frame counts bound ranges but no longer define vehicle animation.
+Infantry retains its existing rows 1–4. The flying machine uses a cyclic
+0/1 sequence; Wargus starts at 1 and has uneven waits within its move script.
+
+**Warcraft 2000 comparison:** `Nation.cpp::OneObject::LoadAnimation` selects
+`MoreAnimation` by `WhatFor` and `Kind`; land movement in `Nation.cpp` and
+water movement in `Water.cpp` call `LoadAnimation(1, AnmGoKind, 0)`.
+`LoadCurAnm` then selects one of five directions and mirrors the other
+three. This confirms purpose-specific movement selection in that reference,
+but its different asset format does not establish Warcraft II frame numbers.
+
+**Remaining limits:** exact retail movement timing and speed conversion are
+unknown. This correction preserves the existing four-tic presentation cadence
+and movement speed; it does not reproduce Wargus's move/wait script timing,
+enhanced turning pauses, or bobbing. The existing combat builder also groups
+three-row surface ships with submarines and four-row scouts with siege;
+those attack/death classifications remain a separate known limitation.
+
+**Reproduce:** `env SDL_VIDEODRIVER=dummy make test-warcraft-2` includes
+`test_movement`: 17 types, three complete state cycles and return to stand,
+before and after native GRP loading, plus eight-direction availability for
+every selected movement row. The new test failed on the old frame selection.
+Verification: `make`, the movement regression, headless `--check`, and an
+ALAMO world screenshot passed. Of 24 Warcraft II test binaries, 22 passed;
+`test_menu` (`find(S(38, 5))`) and `test_net_menu` (English LAN labels)
+failed identically when relinked with the original pre-fix state builder.
+
 ## Button decorations and footprint selection correction (2026-10-04)
 
 The MAINDAT and WAR2.EXE fingerprints below still apply. WAR2.EXE was not
