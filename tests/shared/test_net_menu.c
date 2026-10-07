@@ -76,11 +76,10 @@ static int host_lobby(app_t *app, int ready_fd, int done_fd) {
     M_NetOpen(app, &ui);
     CHECK(click_text(app, "Create Game") && click_text(app, "Create Game") && I_NetMenuSession());
     CHECK(write(ready_fd, "R", 1) == 1);
-    CHECK(click_text(app, "Ready"));
+    CHECK(click_text(app, "Start"));
     uint64_t deadline = SDL_GetTicks64() + 10000;
     while (!menumap && SDL_GetTicks64() < deadline) {
         M_Ticker();
-        if (!menumap) click_text(app, "Start");
         SDL_Delay(1);
     }
     CHECK(menumap && !strcmp(menumap, "first.map"));
@@ -112,7 +111,7 @@ static int join_lobby(app_t *app, int ready_fd, int done_fd) {
     CHECK(games > 0 && click_list_row(app, 0) && click_text(app, "Join Game"));
     deadline = SDL_GetTicks64() + 5000;
     do { M_Ticker(); SDL_Delay(1); } while (!has_text("Orc") && SDL_GetTicks64() < deadline);
-    CHECK(click_text(app, "Orc") && click_text(app, "Ready"));
+    CHECK(click_text(app, "Orc") && click_text(app, "Start"));
     deadline = SDL_GetTicks64() + 10000;
     while (!menumap && SDL_GetTicks64() < deadline) { M_Ticker(); SDL_Delay(1); }
     CHECK(menumap && !strcmp(menumap, "first.map"));
@@ -185,9 +184,9 @@ int main(void) {
     /* Previous Menu leaves to the game's own screen. */
     CHECK(click_text(&app, "Previous Menu") && backed && !menuactive);
 
-    /* A second session: each player readies a race, then the host starts. */
+    /* A second session: each player presses Start, and the game begins. */
     CHECK(lobby_race(&app) == 0);
     M_Shutdown();
-    puts("PASS: shared network menu creates, browses, joins and readies a race");
+    puts("PASS: shared network menu creates, browses, joins and starts when every player has");
     return 0;
 }

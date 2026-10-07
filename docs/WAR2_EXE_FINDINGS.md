@@ -1458,9 +1458,10 @@ screens. `menuitem_t.flags` carries the record flags and native kind
 engine, so race, opponents, terrain and units are shown disabled at Map
 Default. Custom files are sorted by name (findfirst order is directory order).
 Multiplayer's host, browse and lobby pages are the engine screens, not
-3080/6013. The retail path up to them is 3042 then 3075, recorded below.
-The lobby's per-player race and ready flag are an implementation choice
-shared with Dark Colony's lobby, not a trace of 6013.
+3080/6013. Retail reaches them through 3042 then 3075, recorded below.
+This build skips that connection list: Multiplayer opens TCP create and
+join directly. The lobby's per-player race and Start press are an
+implementation choice shared with Dark Colony's lobby, not a trace of 6013.
 `netui_t.style_list` gives its lists the native rows, rims and a scroll bar
 drawing its own arrows (`W2_ITEM_ARROWS`).
 
@@ -1549,31 +1550,35 @@ thirteen caption lines filled from STRDAT 59, 13 per page. Objectives
 3065 is the full 640×480 screen with no file panel. Credits 3084 (opener
 `0x4c570`) is the title plus STRDAT 57 in id 1 at 140,80 360×280.
 
-**Connection entry.** Multiplayer opens 3042 (loaded at `0x4d107`): list
-id 1 at 28,274 240×96 and description id 2. STRDAT 60 supplies the three
-method names at indices 2/3/4 and the descriptions at 5/6/7. Modem opens
-3073, direct link opens 3072, and IPX opens viewgame 3075. That branch is
-inferred from the strings and the child layouts; the list-fill routine
-itself was not disassembled. COM, baud and IRQ tables are not in STRDAT
-and were not found as ASCII in the inner image, so those dropdowns stay
-empty. Connect on 3072/3073 reports that the link is unavailable. Modem
-config 3074 stores three fields and a tone/pulse pair and returns to
-3073; it sends no modem commands. Viewgame's Create and Join open the
-engine host page and session browser (`netui_t.first`). Escape from that
-page returns to 3075, then to 3042. Retail setup 3080/6013 and name
-dialog 3087 are not used. The engine pages are not restyled into those
-records.
+**Connection entry.** Retail Multiplayer opens 3042 (loaded at `0x4d107`):
+list id 1 at 28,274 240×96 and description id 2. STRDAT 60 supplies the
+three method names at indices 2/3/4 and the descriptions at 5/6/7. Modem
+opens 3073, direct link opens 3072, and IPX opens viewgame 3075. That
+branch is inferred from the strings and the child layouts; the list-fill
+routine itself was not disassembled. COM, baud and IRQ tables are not in
+STRDAT and were not found as ASCII in the inner image. Retail setup
+3080/6013 and name dialog 3087 are not used.
+
+**Superseded as the menu path.** Those connection screens were opened, and
+Connect on 3072/3073 reported that the link was unavailable. Modem config
+3074 stored three fields and a tone/pulse pair and returned to 3073. That
+path is not the TCP game. Multiplayer now opens the engine create/join
+page. Create still chooses the map and the player count; Join browses the
+LAN or takes an address. Escape from those pages returns to create/join,
+and Previous Menu returns to the title. The engine pages are not restyled
+into 3075 or 6013.
 
 **Implementation choice: the shared lobby.** This is not a WAR2.EXE
 instruction trace. Create still offers a map and a player count; Join
 still browses the LAN. Once both are in the lobby, each joined player
-owns that seat's race and a ready flag, the same split Dark Colony uses.
-The host publishes 16 bytes (eight races, then eight ready flags) with
-`I_SetNetSetup`. A joiner publishes two bytes (its race, its ready flag)
-with `I_SetNetChoice`. The host's Start stays disabled until every
-reserved seat has joined and every joined player is ready. Warcraft II
-names the two races from STRDAT 45 indices 19 and 20 (Human, Orc). Map
-Default stays on the single-player setup. The host list is MAINDAT
+owns that seat's race and presses Start, the same split Dark Colony uses
+for its ready check. The host publishes 16 bytes (eight races, then eight
+Start flags) with `I_SetNetSetup`. A joiner publishes two bytes (its race,
+its Start flag) with `I_SetNetChoice`. The host calls `I_LaunchNetGame`
+when every reserved seat has joined and every joined player has pressed
+Start. There is no second host-only Start. Warcraft II names the two
+races from STRDAT 45 indices 19 and 20 (Human, Orc). The Start label is
+STRDAT 9 index 2. Map Default stays on the single-player setup. The host list is MAINDAT
 220–247, every one of which has at least two person slots (owner 5),
 then loose `*.PUD` files with two or more person slots. A built-in map
 is offered as `scenario-<entry>.pud`. `G_DoLoadLevel` reads that name
@@ -1607,7 +1612,7 @@ frames.
 Reproduce the screens with `env SDL_VIDEODRIVER=dummy make test-warcraft-2`
 and `env SDL_VIDEODRIVER=dummy W2_MENU_SHOTS=/private/tmp/w2-ui-shots
 build/bin/tests/warcraft-2/test_menu`. `build/bin/warcraft-2 --check`
-passes. The menu test walks the connection list, modem, modem config,
-direct link, viewgame, both briefings, options, screen, sound, speed,
-help, key pages, tips, objectives, end-mission, the restart confirm, and
-both load layouts.
+passes. The menu test opens Multiplayer onto create and join, then the
+host page, the lobby Start button, and the session browser. It also walks
+both briefings, options, screen, sound, speed, help, key pages, tips,
+objectives, end-mission, the restart confirm, and both load layouts.

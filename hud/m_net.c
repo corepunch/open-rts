@@ -8,9 +8,10 @@
 /* The multiplayer screens every game shares, lifted from Dark Colony's LAN
  * lobby: create a game (map, players), browse the LAN or type an address to
  * join, wait in a lobby with chat, then launch. With races, each player owns
- * their seat's race and a ready flag, the same split Dark Colony uses for its
- * own lobby. Sessions run on the I_* menu transport; the poll in the ticker
- * moves a joiner or host into the level. */
+ * their seat's race and presses Start. The match begins when every joined
+ * player has, the same rule Dark Colony uses for its ready check. Sessions
+ * run on the I_* menu transport; the poll in the ticker moves a joiner or
+ * host into the level. */
 
 enum { PAGE_MAIN, PAGE_HOST, PAGE_LOBBY, PAGE_BROWSE, PAGE_CONNECT };
 enum {
@@ -348,7 +349,7 @@ static void paint_lobby(void) {
     }
     if (ready_item >= 0)
         snprintf(items[ready_item].text, sizeof(items[0].text), "%s",
-                 ready[local_slot()] ? word(NETTEXT_UNREADY) : word(NETTEXT_READY));
+                 ready[local_slot()] ? word(NETTEXT_UNREADY) : word(NETTEXT_START));
     if (start_item >= 0) {
         bool full = doomcom && I_NetPlayerCount() == doomcom->numplayers;
         bool armed = full;
@@ -392,22 +393,19 @@ static void build_lobby(void) {
     status_item = net_menu.numitems;
     label((irect_t){x + 16, y + field_y + 22, BOX_W - 32, 22}, "", MALIGN_LEFT);
     items[status_item].prose = status;
-    ready_item = -1;
+    /* With races, both players press the same Start. The host launches once
+     * every joined player has. Without races, only the host has Start. */
+    ready_item = start_item = -1;
     if (race_count() > 0) {
-        button(ID_READY, (irect_t){x + 16, y + buttons_y, 106, 28}, word(NETTEXT_READY), SDLK_r);
+        button(ID_READY, (irect_t){x + 16, y + buttons_y, 106, 28}, word(NETTEXT_START), SDLK_s);
         ready_item = net_menu.numitems - 1;
-    }
-    if (hosting) {
-        int start_x = race_count() > 0 ? x + 130 : x + 48;
-        button(ID_START, (irect_t){start_x, y + buttons_y, 106, 28}, word(NETTEXT_START), SDLK_RETURN);
+        button(ID_CANCEL, (irect_t){x + 230, y + buttons_y, 106, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
+    } else if (hosting) {
+        button(ID_START, (irect_t){x + 48, y + buttons_y, 106, 28}, word(NETTEXT_START), SDLK_RETURN);
         start_item = net_menu.numitems - 1;
         items[start_item].enabled = false;
-        button(ID_CANCEL, (irect_t){x + 244, y + buttons_y, 96, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
-    } else if (race_count() > 0) {
-        start_item = -1;
-        button(ID_CANCEL, (irect_t){x + 230, y + buttons_y, 106, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
+        button(ID_CANCEL, (irect_t){x + 198, y + buttons_y, 106, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
     } else {
-        start_item = -1;
         button(ID_CANCEL, (irect_t){x + 123, y + buttons_y, 106, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
     }
     paint_lobby();
@@ -656,11 +654,13 @@ static void ticker(menu_t *menu) {
                     for (int i = 0; armed && i < doomcom->numplayers; ++i) armed = ready[i];
                 if (!full) set_status("Waiting for players: %d/%d", I_NetPlayerCount(), doomcom->numplayers);
                 else if (race_count() > 0 && !armed)
-                    set_status("All %d players joined.\nEach player readies, then start.", doomcom->numplayers);
+                    set_status("All %d players joined.\nThe game starts when everyone has.", doomcom->numplayers);
+                else if (race_count() > 0) set_status("Starting the game.");
                 else set_status("All %d players joined.\nStart the game when ready.", doomcom->numplayers);
+                if (race_count() > 0 && armed) I_LaunchNetGame();
                 if (start_item >= 0) items[start_item].enabled = armed;
             } else {
-                set_status(race_count() > 0 ? "Choose your race, then ready." :
+                set_status(race_count() > 0 ? "Choose your race, then start.\nThe game starts when everyone has." :
                            "Joined %s\nWaiting for the host to start", I_NetMap());
             }
             if (I_NetChatCount() != last_chat) refresh_log();

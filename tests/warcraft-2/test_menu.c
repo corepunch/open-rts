@@ -295,38 +295,9 @@ int main(void) {
     press(SDLK_ESCAPE);
     CHECK(find(S(4, 1)));
 
-    /* Connection methods, then the game list. Create and Join are the engine pages. */
+    /* Multiplayer opens TCP create and join. Create picks a map, then the lobby. */
     CHECK(click(S(4, 2)));
-    {
-        menuitem_t *list = M_MenuFind(currentmenu, 1);
-        CHECK(list && list->rows == 3);
-        irect_t r = M_MenuItemRect(currentmenu, list);
-        click_at(r.x + 8, r.y + list->row_height / 2);
-        CHECK(list->value == 0);
-        draw("8a-connect");
-        CHECK(click(S(5, 1)));
-        draw("8b-modem");
-        CHECK(click_id(7));
-        draw("8c-modem-config");
-        press(SDLK_ESCAPE);
-        press(SDLK_ESCAPE);
-        CHECK(find(S(5, 1)));
-        list = M_MenuFind(currentmenu, 1);
-        CHECK(list);
-        r = M_MenuItemRect(currentmenu, list);
-        click_at(r.x + 8, r.y + list->row_height + list->row_height / 2);
-        CHECK(list->value == 1 && click(S(5, 1)));
-        draw("8d-direct");
-        press(SDLK_ESCAPE);
-        CHECK(find(S(5, 1)));
-        list = M_MenuFind(currentmenu, 1);
-        CHECK(list);
-        r = M_MenuItemRect(currentmenu, list);
-        click_at(r.x + 8, r.y + 2 * list->row_height + list->row_height / 2);
-        CHECK(list->value == 2);
-    }
-    CHECK(click(S(5, 1)));
-    CHECK(find(S(38, 3)) && find(S(38, 1)));
+    CHECK(find(S(38, 3)) && find(S(38, 1)) && find(S(5, 2)));
     draw("8-multiplayer");
     CHECK(click(S(38, 3)));
     {
@@ -336,17 +307,15 @@ int main(void) {
     CHECK(find(S(62, 9)));
     draw("9-host");
     CHECK(click(S(38, 3)));
-    CHECK(find(S(45, 19)) && I_NetMenuSession());
+    CHECK(find(S(45, 19)) && find(S(9, 2)) && I_NetMenuSession());
     draw("9b-lobby");
     press(SDLK_ESCAPE);
-    press(SDLK_ESCAPE);
-    CHECK(find(S(38, 5)) && find(S(38, 3)));
+    CHECK(find(S(38, 3)) && find(S(38, 1)) && !I_NetMenuSession());
     CHECK(click(S(38, 1)));
     CHECK(find(S(38, 5)) && !find(S(38, 3)));
     draw("10-browse");
     press(SDLK_ESCAPE);
     CHECK(find(S(38, 1)));
-    press(SDLK_ESCAPE);
     press(SDLK_ESCAPE);
     CHECK(find(S(4, 1)));
 
