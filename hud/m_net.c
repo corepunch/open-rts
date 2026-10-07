@@ -190,6 +190,7 @@ static void build_host(void) {
     menuitem_t *bar = add(MI_SCROLLBAR, 0, (irect_t){x + 322, y + 40, 12, 180}, "");
     bar->link = list_item;
     bar->color = 0xffb89040u;
+    if (ui.style_list) ui.style_list(&items[list_item], bar);
     button(ID_PLAYERS, (irect_t){x + 64, y + 236, 224, 28}, "", SDLK_p);
     players_item = net_menu.numitems - 1;
     players_text(items[players_item].text, sizeof(items[players_item].text));
@@ -242,6 +243,7 @@ static void build_browse(void) {
     menuitem_t *bar = add(MI_SCROLLBAR, 0, (irect_t){x + 322, y + 40, 12, 180}, "");
     bar->link = list_item;
     bar->color = 0xffb89040u;
+    if (ui.style_list) ui.style_list(&items[list_item], bar);
     button(ID_REFRESH, (irect_t){x + 16, y + 236, 106, 28}, word(NETTEXT_REFRESH), SDLK_r);
     button(ID_DIRECT, (irect_t){x + 130, y + 236, 106, 28}, word(NETTEXT_ADDRESS), SDLK_a);
     button(ID_JOIN, (irect_t){x + 48, y + 318, 106, 28}, word(NETTEXT_JOIN), SDLK_j);
@@ -285,6 +287,7 @@ static void open_page(int next) {
     net_menu.held = NULL;
     net_menu.editing = NULL;
     net_menu.escape = escape;
+    net_menu.drawitem = ui.drawitem;
     net_menu.background = ui.background && ui.background->numlumps ? ui.background : NULL;
     net_menu.palette = net_menu.background ? ui.palette ? ui.palette : ui.background->source_palette : NULL;
     status_item = list_item = log_item = chat_item = start_item = players_item = -1;

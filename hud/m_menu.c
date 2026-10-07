@@ -578,7 +578,7 @@ static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     return item == focused(menu) || menu->target == item ? MS_FOCUS : MS_NORMAL;
 }
 
-static void draw_picture(const menuitem_t *item, menustate_t state, irect_t rect) {
+void M_MenuDrawPicture(const menuitem_t *item, menustate_t state, irect_t rect) {
     const menulook_t *look = &item->look[state];
     if (!item->sheet || look->cell < 0 || look->cell >= item->sheet->numlumps) return;
     const spritecell_t *cell = &item->sheet->cells[look->cell];
@@ -683,7 +683,7 @@ static void draw_list(const menu_t *menu, const menuitem_t *item, irect_t rect) 
             menustate_t state = selected ? MS_PUSHED : MS_NORMAL;
             const bitmapfont_t *font = state_font(item, state);
             irect_t line = {rect.x, rect.y + i * item->row_height, rect.w, item->row_height};
-            draw_picture(item, state, line);
+            M_MenuDrawPicture(item, state, line);
             if (selected && item->color) V_FillRect(line, V_NearestIndex(item->color));
             if (font && item->row)
                 V_DrawText(ivec2_add((ivec2_t){line.x, line.y}, item->inset), font,
@@ -700,7 +700,7 @@ static void draw_scrollbar(const menu_t *menu, const menuitem_t *item, irect_t b
     if (item->link < 0 || item->link >= menu->numitems) return;
     const menuitem_t *list = &menu->items[item->link];
     if (item->sheet && item->thumb.part.h > 0) {
-        draw_picture(item, item_state(menu, item), bar);
+        M_MenuDrawPicture(item, item_state(menu, item), bar);
         int last = list->rows - page_rows(list);
         int top = last > 0 ? (bar.h - item->thumb.part.h) * list->first_row / last : 0;
         irect_t dst = {bar.x + (bar.w - item->thumb.part.w) / 2, bar.y + top,
@@ -723,7 +723,7 @@ static bool is_button(const menuitem_t *item) {
 }
 
 static void draw_slider(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    draw_picture(item, item_state(menu, item), rect);
+    M_MenuDrawPicture(item, item_state(menu, item), rect);
     int64_t span = (int64_t)item->range.max - item->range.min;
     int width = item->thumb.part.w;
     if (span <= 0 || width <= 0 || width > rect.w) return;
@@ -743,7 +743,7 @@ static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
     irect_t rect = M_MenuItemRect(menu, item);
     if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     menustate_t state = item_state(menu, item);
-    draw_picture(item, state, rect);
+    M_MenuDrawPicture(item, state, rect);
     if (item->kind == MI_DROPDOWN) {
         const menulook_t *arrow = &item->arrow[state];
         if (item->sheet && arrow->part.w > 0) {
@@ -835,16 +835,28 @@ void M_MenuDrawer(menu_t *menu) {
     }
     for (int start = 0, end; start < menu->numitems; start = end) {
         for (end = start + 1; end < menu->numitems && !menu->items[end].layer; ++end) {}
-        for (int i = start; i < end; ++i) draw_chrome(menu, &menu->items[i]);
-        for (int i = start; i < end; ++i) draw_content(menu, &menu->items[i]);
+        bool own[end - start];
+        for (int i = start; i < end; ++i) {
+            const menuitem_t *item = &menu->items[i];
+            own[i - start] = item->visible && menu->drawitem &&
+                             menu->drawitem(menu, item, item_state(menu, item), M_MenuItemRect(menu, item));
+            if (!own[i - start]) draw_chrome(menu, item);
+        }
+        for (int i = start; i < end; ++i)
+            if (!own[i - start]) draw_content(menu, &menu->items[i]);
     }
     if (menu->dropdown && item_live(menu->dropdown)) {
         menuitem_t popup = *menu->dropdown;
         popup.value = menu->dropdown_row;
         irect_t rect = dropdown_rect(menu);
-        if (popup.fill) V_FillRect(rect, V_NearestIndex(popup.fill));
-        draw_list(menu, &popup, rect);
-        if (popup.border) V_DrawRectOutline(rect, V_NearestIndex(popup.border));
+        menuitem_t list = popup;
+        list.kind = MI_LIST;
+        list.rect = rect;
+        if (!menu->drawitem || !menu->drawitem(menu, &list, MS_FOCUS, rect)) {
+            if (popup.fill) V_FillRect(rect, V_NearestIndex(popup.fill));
+            draw_list(menu, &popup, rect);
+            if (popup.border) V_DrawRectOutline(rect, V_NearestIndex(popup.border));
+        }
     }
     const menuitem_t *hover = M_MenuHover(menu);
     if (hover && hover->tooltip && menu->drawtip) menu->drawtip(menu, hover);
