@@ -180,9 +180,7 @@ static bool next_tree(mobj_t *unit, fvec2_t origin) {
 static void exhaust(resourcevent_t *vent) {
     vent->active = false;
     if (vent->resource_type == 1) {
-        int cell = L_Index(&level, vent->cell.x, vent->cell.y);
-        level.cell_terrain[cell] = level.blocked[cell] = 0;
-        level.tile_ids[cell] = W2_TILE_LOOKUP; /* Native removed-tree megatile 126. */
+        w2_remove_tree(vent->cell);
     } else {
         mobj_t *mine = P_MobjById(vent->source_id);
         if (!mine) return;

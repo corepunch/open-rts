@@ -194,7 +194,7 @@ bool w2_decode_tileset(const w2_archive_t *arc, int era, tileset_t *out) {
     int count = (int)(mega.size / 32u);
     size_t pixels = (size_t)count * 32u * 32u;
     uint8_t *indices = calloc(pixels, 1);
-    int *lookup = malloc((size_t)(W2_TILE_LOOKUP + 1) * sizeof(int));
+    int *lookup = malloc((size_t)W2_TILE_COUNT * sizeof(int));
     if (!indices || !lookup) {
         free(indices);
         free(lookup);
@@ -225,9 +225,13 @@ bool w2_decode_tileset(const w2_archive_t *arc, int era, tileset_t *out) {
         }
     }
     out->indices = indices;
-    lookup[W2_TILE_LOOKUP] = 126; /* All four native tilesets: removed-tree. */
+    /* Wargus tileset specials, shared by all four native eras. */
+    lookup[W2_TILE_REMOVED_TREE] = 126;
+    lookup[W2_TILE_TREE_TOP] = 121;
+    lookup[W2_TILE_TREE_MIDDLE] = 122;
+    lookup[W2_TILE_TREE_BOTTOM] = 123;
     out->tile_lookup = lookup;
-    out->tile_lookup_count = W2_TILE_LOOKUP + 1;
+    out->tile_lookup_count = W2_TILE_COUNT;
     out->count = count;
     out->tile_w = 32;
     out->tile_h = 32;

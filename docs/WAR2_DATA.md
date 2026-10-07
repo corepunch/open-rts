@@ -50,6 +50,13 @@ Megas 0–15 are raw 32×32 copies of the minitile blob. Later megas are 16
 flips Y. An `ALAMO` cell in MTXM `0x50..0x5f` does not match a cell in
 `0x70..0x7f`. The screenshot shows distinct summer grass, pines, rock, and dirt.
 
+Harvested forests rebuild neighboring tree edges from the native mixed
+groups at `0x700..0x7df`. Runtime slots `0x9e0..0x9e3` expose the removed,
+top, middle and bottom single-tree megatiles (126, 121, 122, 123). Unsupported
+fragments lose their lumber and blocking too. See “Forest borders after
+harvesting” in [the findings](WAR2_EXE_FINDINGS.md) for the reference-derived
+corner rules and regression commands.
+
 **PUD.** Sections are `char tag[4]; uint32 length`. `TYPE` is `WAR2 MAP`.
 Unknown sections are skipped. All eight loose maps are `VER` `0x11` (17).
 The loader also accepts `0x13` and rejects any other version when `VER` is

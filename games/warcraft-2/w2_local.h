@@ -8,6 +8,12 @@
 #include <stdint.h>
 
 #define W2_TILE_LOOKUP 0x9E0
+/* Native special megatiles have no PUD slots. Append runtime slots. */
+enum {
+    W2_TILE_REMOVED_TREE = W2_TILE_LOOKUP,
+    W2_TILE_TREE_TOP, W2_TILE_TREE_MIDDLE, W2_TILE_TREE_BOTTOM,
+    W2_TILE_COUNT,
+};
 /* Stratagus Speed is not cells per second. This divisor is an engine
  * presentation choice so a footman (Speed 10) walks at 1.25 cells/s. */
 #define W2_SPEED_DIVISOR 8.0f
@@ -92,6 +98,7 @@ void W2_SetStartResources(int mode);
 void W2_ShowResult(bool victory);
 int w2_spawn_units(void);
 bool w2_init_resources(level_t *map);
+void w2_remove_tree(ivec2_t cell);
 bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256], int era,
                             spritecache_t *cache);
 /* A free cell beside a footprint that the unit can reach (p_harvest.c). */
