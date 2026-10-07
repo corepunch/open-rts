@@ -72,6 +72,14 @@ bool w2_pud_info_bytes(const uint8_t *data, size_t size, w2_pud_info_t *out);
 bool w2_pud_info(const char *path, w2_pud_info_t *out);
 /* Campaign levels are MAINDAT entries 192.. (human even, orc odd). */
 enum { W2_CAMPAIGN_ENTRY = 192, W2_CAMPAIGN_LEVELS = 14 };
+typedef struct { int number; bool orc; } w2_campaign_t;
+typedef struct {
+    w2_campaign_t campaign;
+    bool done, victory;
+    int countdown;
+} w2_mission_t;
+void W2_SetCampaign(int number, bool orc);
+bool w2_init_mission(level_t *map);
 /* One archive read for the whole campaign; a level that is absent has width 0. */
 bool w2_campaign_infos(const char *root, bool orc, w2_pud_info_t infos[W2_CAMPAIGN_LEVELS]);
 bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path, size_t size);
@@ -127,6 +135,7 @@ typedef struct {
      * 384x256, message 288x128, scenario 352x352. */
     spritesheet_t panel[2][W2_PANELS];
     spritesheet_t title, dimmed; /* REZDAT 13 and the darker 15 behind popups */
+    spritesheet_t results[2][2]; /* race; victory/defeat images and their native palettes */
     bitmapfont_t font, small_font;
     bool ready;
 } w2_menu_art_t;

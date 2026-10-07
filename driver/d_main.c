@@ -288,27 +288,6 @@ load_level:
     mobjlist_t objects = P_ListMobjs();
     mobj_t **units = objects.items;
     int unit_count = objects.count;
-    if (unit_count <= 0 && !netgame) {
-        int cx = level.width / 2;
-        int cy = level.height / 2;
-        const mobjtype_t *fallback_type = num_actor_types > 0 ? actor_types : NULL;
-        for (int i = 0; i < 6; ++i) {
-            mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(fvec2_cell_center(
-                (ivec2_t){ cx + i % 3, cy + i / 3 }), 0),
-                fallback_type ? fallback_type->id : 0);
-            if (!unit) break;
-            unit->owner = 0;
-            P_MobjSetSelected(unit, i == 0);
-            if (!fallback_type) {
-                unit->traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
-                snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", sprite_name);
-            }
-        }
-        P_FreeMobjList(&objects);
-        objects = P_ListMobjs();
-        units = objects.items;
-        unit_count = objects.count;
-    }
     apply_actor_defaults(units, unit_count);
     for (int i = 0; i < unit_count; ++i)
         if (units[i]->owner != consoleplayer) P_MobjSetSelected(units[i], false);

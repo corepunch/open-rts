@@ -1974,3 +1974,26 @@ Native `data/WAR2/DATA/SFXDAT.SUD` SHA-256:
 the UI click; its existing fingerprint above applies. See
 `docs/WAR2_EXE_FINDINGS.md`, “Native sound playback”, for the mappings,
 verification commands, disproven SNDDAT assumption and retail unknowns.
+### Warcraft II campaign startup and results (2026-10-07)
+
+The pinned [Wargus tree](https://github.com/Wargus/wargus/tree/cde1a0718a0058cc651ecd56ff8149fc39f624e9)
+supplies campaign entry numbers and result image/palette pairs in `wartool.h`,
+PUD UNIT parsing in `pud.cpp`, campaign construction/rescue objectives in
+`campaigns/{human,orc}/level01*_c.sms`, `level02*_c.sms` and `level03*_c.sms`,
+and the acknowledgement/result distinction in `scripts/stratagus.lua`
+(`ActionVictory`, `SinglePlayerTriggers`) and `scripts/menus/results.lua`.
+`scripts/wc2.lua::CreateUnit` distinguishes its custom peasant-start additions
+from native campaign placement; those additions are not reproduced.
+
+The pinned [Warcraft 2000 tree](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic/tree/4d12ad3e62ba03c59b2dbec2a989f58d744018ee)
+supplies the comparison in `mapa.cpp::PostLoadExtendedMap`, `ShowWinner`,
+and `Nation.cpp::WinnerControl`. Its native MPF format and elimination
+logic do not establish Warcraft II PUD or campaign objective semantics.
+References are behavioral/format evidence only; no GPL source is copied.
+
+Native map manifests, the corrected premature-victory hypothesis, dialog
+3057/3058/3059 rectangles, MAINDAT 359–366 artwork/palettes, and static
+WAR2.EXE result selection at VA 0x48318 are preserved in
+[`docs/WAR2_EXE_FINDINGS.md`](docs/WAR2_EXE_FINDINGS.md#campaign-startup-native-units-and-result-transition-2026-10-07).
+The user-provided 13:29 screenshot is open-rts output, not retail evidence;
+its hash is recorded there. No retail execution or CD-key workaround was used.

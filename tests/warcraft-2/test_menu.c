@@ -320,6 +320,17 @@ int main(void) {
         CHECK(w2_pud_info(menumap, &info) && info.width == 32 && info.height == 32);
         for (int i = 0; i < 8; ++i)
             if (info.owners[i] == 5) CHECK(info.sides[i] == orc);
+        P_InitThinkers();
+        CHECK(G_DoLoadLevel(menumap, &level));
+        CHECK(((w2_mission_t *)level.mission)->campaign.number == 1);
+        CHECK(((w2_mission_t *)level.mission)->campaign.orc == (orc != 0));
+        CHECK(P_LoadThings(NULL) > 0);
+        mobjlist_t initial = P_ListMobjs();
+        menumap = NULL;
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(initial.items, initial.count);
+        CHECK(!menuactive); /* no enemy base is not the construction objective */
+        P_FreeMobjList(&initial);
+        P_FreeLevel(&level);
         menumap = NULL;
     }
 
@@ -377,34 +388,69 @@ int main(void) {
     g_savefile[0] = '\0';
     P_FreeLevel(&level);
 
-    /* Victory: with no opponent left the campaign offers its next level; losing offers a restart. */
-    for (int round = 0; round < 3; ++round) {
+    /* Campaign construction victory and skirmish results pass through the
+     * native acknowledgement, then the result screen, before loading a map. */
+    for (int round = 0; round < 4; ++round) {
+        bool campaign = round < 2, orc = round == 1, defeat = round == 3;
         M_ClearMenus();
         P_InitThinkers();
-        if (round == 0) { /* enter the campaign through the menus, as a player would */
+        W2_SetCampaign(0, false);
+        if (campaign) { /* enter the campaign through the menus, as a player would */
             M_StartControlPanel(&app);
-            CHECK(click(S(4, 1)) && click(N(1)) && click(S(6, 2)));
+            CHECK(click(S(4, 1)) && click(N(1)) && click(S(6, orc ? 1 : 2)));
             CHECK(!menuactive && menumap);
         }
-        CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
+        CHECK(G_DoLoadLevel(campaign ? menumap : "data/WAR2/ALAMO.PUD", &level));
         CHECK(P_LoadThings(NULL) > 0);
         mobjlist_t all = P_ListMobjs();
         const w2_pud_t *map = level.native_data;
-        for (int i = 0; i < all.count; ++i) {
+        for (int i = 0; !campaign && i < all.count; ++i) {
             mobj_t *unit = all.items[i];
             bool foe = unit->owner < 8 && unit->owner != consoleplayer &&
                        (map->owners[unit->owner] == 4 || map->owners[unit->owner] == 5);
-            if (round == 2 ? unit->owner == consoleplayer : foe) unit->remove = true;
+            if (defeat ? unit->owner == consoleplayer : foe) unit->remove = true;
         }
         menumap = NULL;
+        if (campaign) {
+            for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+            CHECK(!menuactive);
+            int farms = 0;
+            int farm_type = orc ? MT_PIG_FARM : MT_FARM;
+            for (int i = 0; i < all.count; ++i) farms += all.items[i]->owner == consoleplayer && all.items[i]->type_id == farm_type;
+            for (; farms < 4; ++farms) {
+                mobj_t *farm = P_SpawnMobj(fixed3_zero(), farm_type);
+                CHECK(farm); farm->owner = consoleplayer;
+            }
+            mobj_t *barracks = P_SpawnMobj(fixed3_zero(), orc ? MT_ORC_BARRACKS : MT_HUMAN_BARRACKS);
+            CHECK(barracks); barracks->owner = consoleplayer;
+            barracks->w2.build_left_ms = 1;
+            P_FreeMobjList(&all);
+            all = P_ListMobjs();
+            for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+            CHECK(!menuactive); /* unfinished buildings cannot complete the objective */
+            barracks->w2.build_left_ms = 0;
+        }
         for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
         CHECK(menuactive);
-        if (round == 2) {
-            CHECK(find(S(21, 2)) && click(S(15, 1)) && menumap && !menuactive);
-        } else if (round == 0) {
-            CHECK(find(S(20, 3)) && click(S(54, 1)) && menumap && strstr(menumap, "level02h"));
+        if (defeat) {
+            CHECK(find(S(21, 2)) && click(S(21, 1)) && !menumap && menuactive);
+            CHECK(currentmenu->numitems == 31 && currentmenu->background);
+            CHECK(click(S(22, 1)) && menumap && !menuactive);
+            CHECK(!strcmp(menumap, "ALAMO.PUD")); /* restart the active map, not the previous campaign */
+        } else if (campaign) {
+            CHECK(find(S(20, 3)) && click(S(20, 1)) && !menumap && menuactive);
+            CHECK(currentmenu->numitems == 31 && currentmenu->background);
+            draw(orc ? "12-orc-victory" : "12-victory");
+            CHECK(click(S(22, 1)) && menumap && menumap[0] == '/' && strstr(menumap, orc ? "level02o" : "level02h"));
+            P_FreeMobjList(&all);
+            CHECK(G_DoLoadLevel(menumap, &level) && ((w2_mission_t *)level.mission)->campaign.number == 2);
+            CHECK(((w2_mission_t *)level.mission)->campaign.orc == orc);
+            CHECK(P_LoadThings(NULL) > 0);
+            all = P_ListMobjs();
         } else {
-            CHECK(find(S(20, 3)));
+            CHECK(find(S(20, 3)) && click(S(20, 1)) && menuactive && !menumap);
+            CHECK(click(S(22, 1)) && menuleave && !menuactive);
+            menuleave = false;
         }
         P_FreeMobjList(&all);
         P_FreeLevel(&level);
