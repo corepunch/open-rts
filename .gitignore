@@ -53,6 +53,7 @@ dkms.conf
 /build
 /dist
 /reverse/dc-exe-r2ghidra/
+/reverse/war2-exe-r2ghidra/
 /reverse/dr-hud/
 /reference/
 .DS_Store

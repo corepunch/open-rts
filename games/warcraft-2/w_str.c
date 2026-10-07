@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* STRDAT.WAR is the retail dialog text. Entry n is a string table: a u16
+/* STRDAT.WAR and SNDDAT.WAR carry retail dialog text. A string table is a u16
  * count, that many u16 offsets, then NUL-terminated CP866 strings. String 0
  * names the dialog. A string that carries a highlight (0x04 starts it, 0x01
  * ends it) or a control byte starts with the hotkey byte, which is dropped:
@@ -12,49 +12,61 @@
 
 enum { MAX_ENTRIES = 128, MAX_STRINGS = 96 };
 
-static w2_archive_t archive;
-static bool loaded;
-static struct { int count; const uint8_t *text[MAX_STRINGS]; } dialogs[MAX_ENTRIES];
-static w2_blob_t blobs[MAX_ENTRIES];
+static w2_archive_t archives[2];
+static struct { int count; const uint8_t *text[MAX_STRINGS]; } dialogs[2][MAX_ENTRIES];
+static w2_blob_t blobs[2][MAX_ENTRIES];
 
 bool w2_strings_load(const char *root) {
     w2_strings_free();
     char path[1100];
     snprintf(path, sizeof(path), "%s/DATA/STRDAT.WAR", root && root[0] ? root : "data/WAR2");
-    if (!w2_archive_open(&archive, path)) return false;
-    loaded = true;
-    for (int e = 0; e < archive.count && e < MAX_ENTRIES; ++e) {
-        if (!w2_archive_extract(&archive, e, &blobs[e])) continue;
-        const uint8_t *data = blobs[e].data;
-        size_t size = blobs[e].size;
-        if (size < 2) continue;
-        int count = data[0] | data[1] << 8;
-        if (count > MAX_STRINGS || size < 2 + (size_t)count * 2) continue;
-        int good = 0;
-        for (int i = 0; i < count; ++i) {
-            size_t at = data[2 + i * 2] | data[3 + i * 2] << 8;
-            if (at >= size || !memchr(data + at, 0, size - at)) break;
-            dialogs[e].text[i] = data + at;
-            ++good;
-        }
-        dialogs[e].count = good;
+    if (!w2_archive_open(&archives[0], path)) return false;
+    snprintf(path, sizeof(path), "%s/DATA/SNDDAT.WAR", root && root[0] ? root : "data/WAR2");
+    if (!w2_archive_open(&archives[1], path)) {
+        w2_strings_free();
+        return false;
     }
     return true;
 }
 
 void w2_strings_free(void) {
-    for (int e = 0; e < MAX_ENTRIES; ++e) {
-        w2_blob_free(&blobs[e]);
-        dialogs[e].count = 0;
+    for (int bank = 0; bank < 2; ++bank) {
+        for (int e = 0; e < MAX_ENTRIES; ++e) {
+            w2_blob_free(&blobs[bank][e]);
+            dialogs[bank][e].count = 0;
+        }
+        w2_archive_close(&archives[bank]);
     }
-    if (loaded) w2_archive_close(&archive);
-    loaded = false;
 }
 
 bool w2_label(int entry, int index, w2_text_t *out) {
+    if (entry < 0 || entry >= MAX_ENTRIES) {
+        memset(out, 0, sizeof(*out));
+        return false;
+    }
+    return w2_resource_label(4000 + entry, index, out);
+}
+
+bool w2_resource_label(int resource, int index, w2_text_t *out) {
     memset(out, 0, sizeof(*out));
-    if (entry < 0 || entry >= MAX_ENTRIES || index < 0 || index >= dialogs[entry].count) return false;
-    const uint8_t *s = dialogs[entry].text[index];
+    int bank = resource / 1000 == 4 ? 0 : resource / 1000 == 2 ? 1 : -1;
+    int entry = resource % 1000;
+    if (bank < 0 || entry < 0 || entry >= MAX_ENTRIES || index < 0) return false;
+    w2_blob_t *blob = &blobs[bank][entry];
+    if (!blob->data) {
+        if (!w2_archive_extract(&archives[bank], entry, blob) || blob->size < 2) return false;
+        const uint8_t *data = blob->data;
+        int count = read_u16_le(data);
+        if (count > MAX_STRINGS || blob->size < 2 + (size_t)count * 2) return false;
+        for (int i = 0; i < count; ++i) {
+            size_t at = read_u16_le(data + 2 + i * 2);
+            if (at >= blob->size || !memchr(data + at, 0, blob->size - at)) break;
+            dialogs[bank][entry].text[i] = data + at;
+            ++dialogs[bank][entry].count;
+        }
+    }
+    if (index >= dialogs[bank][entry].count) return false;
+    const uint8_t *s = dialogs[bank][entry].text[index];
     bool marked = strchr((const char *)s, 4) != NULL;
     if (marked || (s[0] && s[0] < 0x20)) ++s;
     size_t n = 0;

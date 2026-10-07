@@ -1918,6 +1918,42 @@ The local Doom `m_menu.c` remains the lifecycle/table reference; the game
 feeds the shared engine menu table rather than introducing a separate
 responder or drawer. Retail Warcraft II was not run in this investigation.
 
+### Warcraft II static DOS UI analysis (2026-10-07)
+
+The disposable local toolchain uses matching
+[radare2 6.2.2](https://github.com/radareorg/radare2/tree/ad27058877024389292fddf12e1db6e13824ba34)
+and [r2ghidra 6.2.2](https://github.com/radareorg/r2ghidra/tree/1b5cba403c4c8751db8434f6790d5e0f132038f4),
+built and installed only under `/private/tmp/war2-analysis-tools/prefix`.
+The plugin's native decompiler requires no Java installation. Its packaged
+ghidra-native dependency is
+[`483ae94bcbc661a77667e52f1eff75928cb6aa2e`](https://github.com/radareorg/ghidra-native/tree/483ae94bcbc661a77667e52f1eff75928cb6aa2e),
+with the pinned r2ghidra patches. Tool source was not copied into open-rts.
+The pinned radare2 `libr/bin/p/bin_le.c` and LE loader were inspected for
+inner-MZ identification and in-memory fixup handling.
+
+Open Watcom's unversioned
+[`exe16m.h`](https://raw.githubusercontent.com/open-watcom/open-watcom-v2/master/bld/watcom/h/exe16m.h)
+and [`exeflat.h`](https://raw.githubusercontent.com/open-watcom/open-watcom-v2/master/bld/watcom/h/exeflat.h)
+were read on 2026-10-07 to verify DOS/16M BW header links and LE fields.
+The [Ghidra LX/LE loader](https://github.com/yetmorecode/ghidra-lx-loader)
+was evaluated as an alternative; it was not installed or used. radare2 /
+r2ghidra remains the project's primary analysis path. Current release pages
+were checked; matching 6.2.2 versions were deliberately selected rather than
+mixing radare2 6.2.4 with the 6.2.2 plugin.
+
+Static WAR2.EXE UI traces establish resource 6007 for Single Player, leading
+to MUDDAT entry 7 and SNDDAT string resource 2047. The pinned Wargus
+`wartool.h` archive declarations independently identify type 6000 as
+MUDDAT and 2000 as SNDDAT; its movie extraction list omits dialog entries
+7 and 13. Local MUDDAT SHA-256:
+`e009678457408b593c5705e505b50dc2be518a7097999f2a8da98dcb6811f473`;
+SNDDAT SHA-256:
+`a1015e38f45ac58578f2979164c603912c7ef501750e46e0c0389e4aa3dbddba`.
+See [the executable findings](docs/WAR2_EXE_FINDINGS.md#static-dos-executable-analysis-toolchain-2026-10-07)
+for the unchanged inner-image hash, header chain, address mapping, concrete
+UI routine addresses, decompiler limitations and reproduction commands.
+No retail execution, CD key or runtime trace was used.
+
 ### Warcraft II native sound bank (2026-10-07)
 
 The pinned [Wargus](https://github.com/Wargus/wargus/tree/cde1a0718a0058cc651ecd56ff8149fc39f624e9)

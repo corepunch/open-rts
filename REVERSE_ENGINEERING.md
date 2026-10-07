@@ -1,7 +1,7 @@
 # Reverse Engineering Games
 
 Use this workflow when reproducing behavior or metadata from the original game
-executables. It applies to Dark Colony, Dark Reign and 7th Legion.
+executables. It applies to Dark Colony, Dark Reign, 7th Legion and Warcraft II.
 
 ## Source of truth
 
@@ -39,8 +39,8 @@ Do this even when no code is changed or the implementation is deferred.
 ## Fingerprint the toolchain
 
 Do this once per executable before interpreting substantial decompiler output.
-Inspect the PE and Rich headers, linker metadata, imports, and a few representative
-functions:
+Inspect the native executable headers, linker metadata, imports, and a few
+representative functions. For PE files, include the Rich header:
 
 ```sh
 rabin2 -I data/DCOLONY/DC.EXE
@@ -55,6 +55,18 @@ prologue and epilogue shapes, frame-pointer use, stack alignment, and runtime
 helper calls. Compiler idioms affect how r2ghidra reconstructs parameters and
 locals. For example, a register-heavy convention may be a Watcom convention,
 not game logic.
+
+For a bound DOS executable, identify the loader chain before analysis. A first
+MZ header can belong to DOS/16M rather than the game's 32-bit image; do not
+interpret its relocation bytes at `+0x3c` as a valid `e_lfanew`. Follow native
+BW `next_header_pos` links to the inner MZ, then its LE header. Extract an
+unchanged analysis copy and record the original offset, fingerprint and
+virtual-to-file mapping. Warcraft II's verified chain is documented in
+`docs/WAR2_EXE_FINDINGS.md`. Use `bin.cache=true` and
+`bin.relocs.apply=true` for static LE relocation analysis; verify relocated
+pointers against their fixups rather than trusting a summary metadata flag.
+This workflow does not require executing the original program. The user's
+Warcraft II instruction specifically prohibits retail execution.
 
 ## Broad-to-narrow workflow
 

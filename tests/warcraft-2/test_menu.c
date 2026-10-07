@@ -33,13 +33,16 @@ static void draw(const char *shot) {
     }
 }
 
-/* Labels come from STRDAT, as the menus read them. */
-static const char *S(int entry, int index) {
+/* Labels come from native resource banks, as the menus read them. */
+static const char *R(int resource, int index) {
     static w2_text_t ring[8];
     static int next;
     w2_text_t *text = &ring[next++ & 7];
-    return w2_label(entry, index, text) ? text->text : "?";
+    return w2_resource_label(resource, index, text) ? text->text : "?";
 }
+
+static const char *S(int entry, int index) { return R(4000 + entry, index); }
+static const char *N(int index) { return R(2047, index); }
 
 static menuitem_t *find(const char *text) {
     for (int i = 0; currentmenu && i < currentmenu->numitems; ++i) {
@@ -115,13 +118,13 @@ int main(void) {
         CHECK(currentmenu->itemOn >= 0);
     }
 
-    /* Blizzard's manual separates New Campaign from race selection. */
+    /* Retail resource 6007 separates Single Player from race selection. */
     CHECK(click(S(4, 1)));
-    CHECK(find("New Campaign") && find(S(9, 4)) && find(S(27, 3)));
+    CHECK(find(N(1)) && find(N(2)) && find(N(3)) && find(N(4)));
     CHECK(!find(S(6, 1)) && !find(S(6, 2)) && !kind(MI_LIST, 0));
-    CHECK(currentmenu->numitems == 4);
+    CHECK(currentmenu->numitems == 5 && M_MenuFind(currentmenu, -3)->rect.y == 348);
     draw("2-single");
-    CHECK(click(S(9, 4)));
+    CHECK(click(N(3)));
     CHECK(find(S(9, 2)) && find(S(62, 9)) && find(S(62, 2)));
     CHECK(find(S(40, 31)) && find(S(45, 6)));
     draw("3-setup");
@@ -255,25 +258,25 @@ int main(void) {
     CHECK(find(S(45, 11)));
     draw("5-setup-low");
     CHECK(click(S(62, 2)));
-    CHECK(find("New Campaign"));
+    CHECK(find(N(1)));
 
     /* Race choice offers three native buttons, without a mission browser. */
-    CHECK(click("New Campaign"));
+    CHECK(click(N(1)));
     CHECK(find(S(6, 1)) && find(S(6, 2)) && find(S(6, 3)));
     CHECK(currentmenu->numitems == 4 && !kind(MI_LIST, 0) && !kind(MI_SCROLLBAR, 0));
     CHECK(M_MenuFind(currentmenu, 1)->rect.y == 240 && M_MenuFind(currentmenu, -3)->rect.y == 312);
     draw("6-campaign");
     press(SDLK_ESCAPE);
-    CHECK(find("New Campaign") && !menumap);
-    CHECK(click("New Campaign") && click(S(6, 3)));
-    CHECK(find("New Campaign") && !menumap);
+    CHECK(find(N(1)) && !menumap);
+    CHECK(click(N(1)) && click(S(6, 3)));
+    CHECK(find(N(1)) && !menumap);
 
     /* No saves yet: Load opens an empty list and Escape returns. */
-    CHECK(click(S(27, 3)));
+    CHECK(click(N(2)));
     CHECK(find(S(27, 3)));
     draw("6b-load");
     press(SDLK_ESCAPE);
-    CHECK(find("New Campaign"));
+    CHECK(find(N(1)));
     press(SDLK_ESCAPE);
     CHECK(find(S(4, 1)));
 
@@ -301,7 +304,7 @@ int main(void) {
 
     /* Starting a scenario hands its path to the driver and closes the menu. */
     CHECK(click(S(4, 1)));
-    CHECK(click(S(9, 4)));
+    CHECK(click(N(3)));
     CHECK(click(S(9, 2)));
     CHECK(!menuactive && menumap && strstr(menumap, "PUD"));
     menumap = NULL;
@@ -309,7 +312,7 @@ int main(void) {
     /* Either race begins at mission one, extracted through the ordinary PUD path. */
     for (int orc = 0; orc < 2; ++orc) {
         M_StartControlPanel(&app);
-        CHECK(click(S(4, 1)) && click("New Campaign"));
+        CHECK(click(S(4, 1)) && click(N(1)));
         CHECK(click(S(6, orc ? 1 : 2)));
         CHECK(!menuactive && menumap && menumap[0] == '/');
         CHECK(strstr(menumap, orc ? "level01o.pud" : "level01h.pud"));
@@ -380,7 +383,7 @@ int main(void) {
         P_InitThinkers();
         if (round == 0) { /* enter the campaign through the menus, as a player would */
             M_StartControlPanel(&app);
-            CHECK(click(S(4, 1)) && click("New Campaign") && click(S(6, 2)));
+            CHECK(click(S(4, 1)) && click(N(1)) && click(S(6, 2)));
             CHECK(!menuactive && menumap);
         }
         CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
