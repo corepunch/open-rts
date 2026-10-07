@@ -1886,6 +1886,38 @@ sorted sprite drawing. Detailed native offsets, corrected hypotheses and
 tests are in the
 [HUD/selection correction](docs/WAR2_EXE_FINDINGS.md#button-decorations-and-footprint-selection-correction-2026-10-04).
 
+### Warcraft II serialized dialog resources (2026-10-07)
+
+The pinned Wargus checkout above was consulted at
+[`wartool.h`](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/wartool.h)
+(`Todo[]` and widget rectangles),
+[`wartool.cpp`](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/wartool.cpp)
+(WAR and image/font conversion), and
+[`scripts/guichan.lua`](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/guichan.lua)
+(`RunSinglePlayerTypeMenu`, explicitly authored button positions).
+These are format and Wargus-behavior references, not retail scene-layout
+authority; no GPL implementation was copied. The extractor's REZDAT catalog
+omits the native dialog resources at indices 33–90.
+
+The user supplied an archive/asset summary citing current
+[`wartool.cpp`](https://raw.githubusercontent.com/Wargus/wargus/master/wartool.cpp)
+and [ModdingWiki's Warcraft II page](https://moddingwiki.shikadi.net/wiki/Warcraft_II),
+both read on 2026-10-07. Its explicitly inferred absence of layout resources
+is contradicted by the local REZDAT bytes. A menu's lack of documented
+editability does not establish absence of serialized rectangles and controls.
+The user's other MPQ/man-page links were not used to establish DOS layout.
+
+REZDAT SHA-256 `d0fe7edd4f89f60c64bca786a944387578635d8483bc2ff165d06306bb432246`
+and STRDAT SHA-256 `5ba75d38613852be7137c5ec4035578977eb75ce5adc37d219875ba308ce2c26`
+identify the inspected Russian DOS data. Native records are independently
+decoded in C; exact offsets, complete 58-dialog catalog, confirmed fields,
+inferred kind/flag meanings, corrected font-bound hypotheses and remaining
+retail unknowns are documented in
+[`docs/WAR2_EXE_FINDINGS.md`](docs/WAR2_EXE_FINDINGS.md#native-dialog-resources-and-button-text-bounds-2026-10-07).
+The local Doom `m_menu.c` remains the lifecycle/table reference; the game
+feeds the shared engine menu table rather than introducing a separate
+responder or drawer. Retail Warcraft II was not run in this investigation.
+
 ### Warcraft II native sound bank (2026-10-07)
 
 The pinned [Wargus](https://github.com/Wargus/wargus/tree/cde1a0718a0058cc651ecd56ff8149fc39f624e9)

@@ -588,6 +588,31 @@ int V_TextWidth(const bitmapfont_t *font, const char *text) {
     return line_width > width ? line_width : width;
 }
 
+irect_t V_TextBounds(const bitmapfont_t *font, const char *text) {
+    if (!font || !text) return (irect_t){0};
+    int top = 0, bottom = 0, line = 0;
+    bool found = false;
+    int divisor = font->draw_divisor > 0 ? font->draw_divisor : 1;
+    int line_h = font->line_h > 0 ? font->line_h : font->glyph_size.h;
+    for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
+        if (*p == '\r' || *p == ' ') continue;
+        if (*p == '\n') { line += line_h; continue; }
+        unsigned char ch = *p;
+        if (ch >= (font->glyph_limit ? font->glyph_limit : 128) || font->glyph_index[ch] < 0) ch = '?';
+        int frame = font->glyph_index[ch];
+        if (frame < 0 || frame >= font->sprite.numlumps) continue;
+        const spritecell_t *cell = &font->sprite.cells[frame];
+        irect_t bounds = cell->bounds.w > 0 && cell->bounds.h > 0 ? cell->bounds :
+                          (irect_t){0, 0, cell->rect.w, cell->rect.h};
+        int y = line + (font->native_origin ? cell->displacement.y + bounds.y / divisor : 0);
+        int end = y + (bounds.h + divisor - 1) / divisor;
+        if (!found || y < top) top = y;
+        if (!found || end > bottom) bottom = end;
+        found = true;
+    }
+    return (irect_t){0, top, V_TextWidth(font, text), found ? bottom - top : font->glyph_size.h};
+}
+
 static void draw_glyphs(ivec2_t at, const bitmapfont_t *font, const char *text,
                         const uint8_t *remap, int scale) {
     if (!font || !font->sprite.lumps || !text || scale <= 0) return;

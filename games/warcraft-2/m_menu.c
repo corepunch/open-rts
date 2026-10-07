@@ -11,24 +11,15 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-/* The title is REZDAT entry 13 with the retail five-button column: 224x28
- * buttons at x 208, rows from y 240 every 36 pixels, below the top-left logo.
- * The in-level game menu uses panel 1 on the left, not the centred Wargus box.
+/* Native dialog geometry comes from REZDAT linked records; assets come from
+ * its GFUs and bitmaps. Callback dispatch and dynamic contents belong here.
  *
  * Single-player campaign entry follows Blizzard's manual: New Campaign,
  * race selection, then mission one. Wargus's mission selector is not retail
  * behavior. Other screens still need retail layout verification.
  * Screens are built when opened, so each starts from fresh state.
- * The scenario picker uses the user's BNE screenshot layout over setup,
- * with DOS REZDAT artwork. Other popups use the dimmed title (REZDAT 15). */
-
-enum {
-    TITLE_SINGLE, TITLE_MULTI, TITLE_INTRO, TITLE_CREDITS, TITLE_EXIT, TITLE_COUNT
-};
-enum {
-    GAME_PANEL, GAME_LABEL, GAME_SAVE, GAME_LOAD, GAME_OPTIONS, GAME_HELP,
-    GAME_OBJECTIVES, GAME_END, GAME_RETURN, GAME_COUNT
-};
+ * Rendering flags and complete retail screen flow still need static tracing.
+ * Other popups use the dimmed title (REZDAT 15). */
 
 static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -42,65 +33,6 @@ static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action);
 
 static w2_menu_art_t art;
-#define TITLE_BUTTON(row, label, key, action, note) { \
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = key, \
-        .rect = { 208, 240 + 36 * (row), 224, 28 }, .text = label, \
-        .align = MALIGN_CENTER, .ink = 0xffffe84au, .routine = action, .userdata = note }
-static menuitem_t title_items[TITLE_COUNT] = {
-    [TITLE_SINGLE] = TITLE_BUTTON(0, "Single Player Game", SDLK_s, single_player, NULL),
-    [TITLE_MULTI] = TITLE_BUTTON(1, "Multi Player Game", SDLK_m, open_multiplayer, NULL),
-    [TITLE_INTRO] = TITLE_BUTTON(2, "Replay Introduction", SDLK_r, menu_note,
-                                 "The introduction is not played in this build."),
-    [TITLE_CREDITS] = TITLE_BUTTON(3, "Show Credits", SDLK_h, show_credits, NULL),
-    [TITLE_EXIT] = TITLE_BUTTON(4, "Exit Program", SDLK_x, M_MenuQuitGame, NULL),
-};
-#undef TITLE_BUTTON
-static menuitem_t game_items[GAME_COUNT] = {
-    [GAME_PANEL] = { .visible = true, .opaque = true, .rect = { 0, 96, 256, 288 } },
-    [GAME_LABEL] = {
-        .visible = true, .rect = { 0, 107, 256, 20 }, .text = "Game Menu",
-        .align = MALIGN_CENTER, .ink = 0xffffe84au,
-    },
-    [GAME_SAVE] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_F11,
-        .rect = { 16, 136, 106, 28 }, .text = "Save", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = open_save,
-    },
-    [GAME_LOAD] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_F12,
-        .rect = { 134, 136, 106, 28 }, .text = "Load", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = open_load,
-    },
-    [GAME_OPTIONS] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_F5,
-        .rect = { 16, 172, 224, 28 }, .text = "Options", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = open_options,
-    },
-    [GAME_HELP] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_F1,
-        .rect = { 16, 208, 224, 28 }, .text = "Help", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = open_text, .id = 1,
-        .userdata = "Left click selects. Drag selects your units. Right click clears the selection. A click away from your units orders them. F10 opens this menu. WASD pans.",
-    },
-    [GAME_OBJECTIVES] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_o,
-        .rect = { 16, 244, 224, 28 }, .text = "Scenario Objectives", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = open_text, .id = 2,
-        .userdata = "Defeat the opposing side.",
-    },
-    [GAME_END] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_e,
-        .rect = { 16, 280, 224, 28 }, .text = "End Scenario", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = end_scenario,
-    },
-    [GAME_RETURN] = {
-        .kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_ESCAPE,
-        .rect = { 16, 344, 224, 28 }, .text = "Return to Game", .align = MALIGN_CENTER,
-        .ink = 0xffffe84au, .routine = return_to_game,
-    },
-};
-static menu_t title_menu = { .items = title_items, .numitems = TITLE_COUNT };
-static menu_t game_menu = { .items = game_items, .numitems = GAME_COUNT };
 
 static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu;
@@ -192,16 +124,15 @@ typedef struct { menu_t menu; menuitem_t items[SCREEN_ITEMS]; } screen_t;
 enum {
     A_STANDARD = 1, A_LOAD, A_PREVIOUS,
     A_SELECT, A_START, A_CANCEL, A_RESOURCES,
-    A_CAMPAIGN, A_HUMAN, A_ORC,
-    A_LIST, A_PICK_OK, A_PICK_CANCEL,
+    A_CAMPAIGN, A_LIST,
     A_LOWER, A_RAISE, A_SPEED, A_OPTIONS_OK,
     A_NEXT, A_RESTART, A_QUIT,
-    A_SAVE_OK, A_DELETE, A_FILE_CANCEL, A_NAME, A_TYPE, A_SIZE, A_DIRECTORY
+    A_SAVE_OK, A_DELETE, A_FILE_CANCEL, A_NAME
 };
 typedef struct { const char *text; int at, len; } label_t;
 typedef struct { char path[1200]; saveinfo_t info; } saveentry_t;
 
-static screen_t single_screen, campaign_screen, setup_screen, pick_screen, credits_screen, options_screen,
+static screen_t title_screen, game_screen, single_screen, campaign_screen, setup_screen, pick_screen, credits_screen, options_screen,
                 result_screen, file_screen;
 static char data_root[1024];
 static app_t *front_app;
@@ -210,11 +141,9 @@ static int resources_mode, launch_resources;
 static int campaign_orc, campaign_level; /* campaign_level 0: not in a campaign */
 static char launch_path[1200];
 static struct { char file[1200]; char label[160]; w2_pud_info_t info; bool directory; int archive; } entries[MAX_SCENARIOS];
-static int entry_count, pick_detail_item;
+static int entry_count;
 static char pick_directory[1024];
-static int scenario_type = 1, size_filter;
-static char directories[MAX_SCENARIOS][1024];
-static int directory_count;
+static int scenario_type = 1, size_filter, player_filter;
 static menu_t *options_return, *file_return;
 static int button_race = 1; /* widget art of the screen being built; the front end is orc */
 static int volume_item, speed_item;
@@ -280,6 +209,32 @@ static menuitem_t *screen_add(screen_t *screen, menuitemkind_t kind, irect_t rec
     return item;
 }
 
+static bool append_scene(screen_t *screen, int entry, const spritesheet_t *panel) {
+    int first = screen->menu.numitems, count;
+    if (!w2_load_scene(data_root, entry, screen->items + first, SCREEN_ITEMS - first, &count)) {
+        fprintf(stderr, "warcraft-2: cannot load native dialog %d\n", entry);
+        return false;
+    }
+    screen->menu.numitems += count;
+    for (int i = first + 1; i < screen->menu.numitems; ++i) {
+        menuitem_t *item = &screen->items[i];
+        item->font = large();
+        for (int state = 0; state < MS_STATES; ++state) item->look[state].palette = 1;
+        if (item->kind == MI_BUTTON) bind_button(item, &art.widgets[button_race]);
+    }
+    menuitem_t *window = &screen->items[first];
+    window->sheet = panel && panel->numlumps ? panel : NULL;
+    window->opaque = true;
+    for (int state = 0; state < MS_STATES; ++state) window->look[state].cell = window->sheet ? 0 : -1;
+    return true;
+}
+
+static bool native_scene(screen_t *screen, int entry, const spritesheet_t *background,
+                         const spritesheet_t *panel, void (*escape)(menu_t *)) {
+    screen_begin(screen, background, escape);
+    return append_scene(screen, entry, panel);
+}
+
 static menuitem_t *add_label(screen_t *screen, irect_t rect, label_t text, int align,
                              bool small_font) {
     menuitem_t *item = screen_add(screen, MI_STATIC, rect);
@@ -304,6 +259,8 @@ static irect_t add_panel(screen_t *screen, const spritesheet_t *sheet) {
 }
 
 static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void campaign_action(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void pick_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 
 static menuitem_t *add_button(screen_t *screen, irect_t rect, label_t text, SDL_Keycode key,
                               int id) {
@@ -360,14 +317,13 @@ static void open_single(void) {
 }
 
 static void open_campaign(void) {
-    screen_begin(&campaign_screen, backdrop(), escape_to_single);
     button_race = 1;
-    add_button(&campaign_screen, (irect_t){208, 240, 224, 28}, L(STR_CAMPAIGN, 1, "Orc Campaign"),
-               SDLK_o, A_ORC);
-    add_button(&campaign_screen, (irect_t){208, 276, 224, 28}, L(STR_CAMPAIGN, 2, "Human Campaign"),
-               SDLK_h, A_HUMAN);
-    add_button(&campaign_screen, (irect_t){208, 312, 224, 28}, L(STR_CAMPAIGN, 3, "Previous Menu"),
-               SDLK_ESCAPE, A_PREVIOUS);
+    if (!native_scene(&campaign_screen, 43, backdrop(), NULL, escape_to_single)) return;
+    for (int i = 1; i < campaign_screen.menu.numitems; ++i) {
+        menuitem_t *item = &campaign_screen.items[i];
+        item->routine = campaign_action;
+        item->hotkey = item->id == 1 ? SDLK_o : item->id == 2 ? SDLK_h : SDLK_ESCAPE;
+    }
     show(&campaign_screen.menu);
 }
 
@@ -440,8 +396,22 @@ static int compare_entries(const void *a, const void *b) {
     return strcasecmp(((const char *)a), ((const char *)b)); /* file is the first member */
 }
 
+static int scenario_players(const w2_pud_info_t *info) {
+    int players = 0;
+    for (int i = 0; i < 8; ++i) players += info->owners[i] == 4 || info->owners[i] == 5;
+    return players;
+}
+
 static void scan_scenarios(const char *directory, int size, bool folders) {
     entry_count = 0;
+    if (folders && directory[0]) {
+        memset(&entries[entry_count], 0, sizeof(entries[0]));
+        const char *slash = strrchr(directory, '/');
+        snprintf(entries[entry_count].file, sizeof(entries[0].file), "%.*s",
+                 slash ? (int)(slash - directory) : 0, directory);
+        snprintf(entries[entry_count].label, sizeof(entries[0].label), "..");
+        entries[entry_count++].directory = true;
+    }
     char base[1200];
     M_PathJoin(base, sizeof(base), data_root, directory);
     DIR *dir = opendir(base);
@@ -461,6 +431,7 @@ static void scan_scenarios(const char *directory, int size, bool folders) {
         if (!folder && !w2_pud_info(path, &entries[entry_count].info)) continue;
         if (!folder && size && (entries[entry_count].info.width != size ||
                                entries[entry_count].info.height != size)) continue;
+        if (!folder && player_filter && scenario_players(&entries[entry_count].info) != player_filter) continue;
         entries[entry_count].directory = folder;
         snprintf(entries[entry_count].file, sizeof(entries[0].file), "%s%s%s", directory,
                  directory[0] ? "/" : "", ent->d_name);
@@ -484,28 +455,28 @@ static void level_title(int level, bool orc, char *out, size_t size) {
 }
 
 static void pick_changed(screen_t *s, int row) {
-    char line[160] = "";
+    for (int id = 5; id <= 7; ++id) M_MenuFind(&s->menu, id)->text[0] = '\0';
     if (row >= 0 && row < entry_count) {
         if (!entries[row].directory) {
-            int players = 0;
-            for (int i = 0; i < 8; ++i)
-                players += entries[row].info.owners[i] == 4 || entries[row].info.owners[i] == 5;
-            snprintf(line, sizeof(line), "%d x %d\n%d %s", entries[row].info.width,
-                     entries[row].info.height, players, players == 1 ? "player" : "players");
+            int players = scenario_players(&entries[row].info);
+            menuitem_t *dimensions = M_MenuFind(&s->menu, 5);
+            snprintf(dimensions->text, sizeof(dimensions->text), "%d x %d", entries[row].info.width,
+                     entries[row].info.height);
+            menuitem_t *count = M_MenuFind(&s->menu, 6);
+            snprintf(count->text, sizeof(count->text), "%d %s", players, players == 1 ? "player" : "players");
         }
     }
-    set_text(s, pick_detail_item, "%s", line);
-    int ok = 0;
-    for (int i = 0; i < s->menu.numitems; ++i) if (s->items[i].id == A_PICK_OK) ok = i;
-    s->items[ok].enabled = row >= 0 && row < entry_count;
+    M_MenuFind(&s->menu, -2)->enabled = row >= 0 && row < entry_count;
 }
 
 static const char *choice_row(const menuitem_t *item, int row) {
     static const char *const types[] = {"Built-in scenario", "Custom scenario"};
     static const char *const sizes[] = {"Any size", "32 x 32", "64 x 64", "96 x 96", "128 x 128"};
-    if (item->id == A_TYPE) return types[row];
-    if (item->id == A_SIZE) return sizes[row];
-    return directories[row][0] ? directories[row] : data_root;
+    static const char *const players[] = {"Any players", "1 player", "2 players", "3 players", "4 players",
+                                         "5 players", "6 players", "7 players", "8 players"};
+    if (item->id == 2) return types[row];
+    if (item->id == 3) return sizes[row];
+    return players[row];
 }
 
 static void native_rows(menuitem_t *item) {
@@ -522,12 +493,10 @@ static void native_rows(menuitem_t *item) {
     }
 }
 
-static void add_choice(screen_t *s, irect_t rect, int id, int rows, int value) {
-    menuitem_t *item = screen_add(s, MI_DROPDOWN, rect);
+static void bind_choice(menuitem_t *item, int rows, int value) {
     native_rows(item);
     item->disabled_look = true;
-    item->routine = front_action;
-    item->id = id;
+    item->routine = pick_action;
     item->row = choice_row;
     item->rows = rows;
     item->value = value;
@@ -548,6 +517,7 @@ static void open_scenario(void) {
         s->items[i].enabled = false;
         s->items[i].disabled_look = false;
         s->items[i].hotkey = 0;
+        s->items[i].id = 0;
     }
     s->menu.held = s->menu.keyheld = s->menu.dropdown = NULL;
     s->menu.escape = escape_to_setup;
@@ -564,7 +534,8 @@ static void open_scenario(void) {
                 w2_pud_info_t info;
                 bool ok = w2_archive_extract(&archive, i, &blob) && w2_pud_info_bytes(blob.data, blob.size, &info);
                 w2_blob_free(&blob);
-                if (!ok || (size_filter && (info.width != 32 * size_filter || info.height != 32 * size_filter))) continue;
+                if (!ok || (size_filter && (info.width != 32 * size_filter || info.height != 32 * size_filter)) ||
+                    (player_filter && scenario_players(&info) != player_filter)) continue;
                 memset(&entries[entry_count], 0, sizeof(entries[0]));
                 entries[entry_count].info = info;
                 entries[entry_count].archive = i;
@@ -574,53 +545,49 @@ static void open_scenario(void) {
             w2_archive_close(&archive);
         }
     }
-    directory_count = 1;
-    directories[0][0] = '\0';
-    if (pick_directory[0]) {
-        snprintf(directories[directory_count++], sizeof(directories[0]), "%s", pick_directory);
-    }
-    for (int i = 0; scenario_type && i < entry_count && directory_count < MAX_SCENARIOS; ++i)
-        if (entries[i].directory)
-            snprintf(directories[directory_count++], sizeof(directories[0]), "%s", entries[i].file);
-    irect_t box = add_panel(s, &art.panel[1][W2_PANEL_SCENARIO]);
-    box.y = 50; /* 640x480 coordinates measured from the user's BNE reference. */
-    s->items[last_item(s)].rect = box;
-    s->items[last_item(s)].layer = true;
-    int x = box.x, y = box.y;
-    add_label(s, (irect_t){x, y + 5, box.w, 24}, LIT("Select scenario"), MALIGN_CENTER, false);
-    add_label(s, (irect_t){x + 80, y + 36, 48, 20}, LIT("Type:"), MALIGN_RIGHT, false);
-    add_choice(s, (irect_t){x + 136, y + 36, 204, 20}, A_TYPE, 2, scenario_type);
-    add_label(s, (irect_t){x + 32, y + 84, 96, 20}, LIT("Map size:"), MALIGN_RIGHT, false);
-    add_choice(s, (irect_t){x + 136, y + 84, 204, 20}, A_SIZE, 5, size_filter);
-    add_choice(s, (irect_t){x + 22, y + 110, 240, 20}, A_DIRECTORY, directory_count, pick_directory[0] ? 1 : 0);
-    s->items[last_item(s)].enabled = scenario_type != 0;
-    menuitem_t *list = screen_add(s, MI_LIST, (irect_t){x + 22, y + 136, 300, 108});
+    int panel_index = s->menu.numitems;
+    if (!append_scene(s, 89, &art.panel[1][W2_PANEL_SCENARIO])) return;
+    s->items[panel_index].layer = true;
+    menuitem_t *type = M_MenuFind(&s->menu, 2), *size = M_MenuFind(&s->menu, 3);
+    menuitem_t *players = M_MenuFind(&s->menu, 4), *ok = M_MenuFind(&s->menu, -2);
+    menuitem_t *cancel = M_MenuFind(&s->menu, -3), *bar = M_MenuFind(&s->menu, (int16_t)0x8001);
+    menuitem_t *list = M_MenuFind(&s->menu, 1);
+    if (!type || !size || !players || !ok || !cancel || !bar || !list ||
+        !M_MenuFind(&s->menu, 5) || !M_MenuFind(&s->menu, 6) || !M_MenuFind(&s->menu, 7)) return;
+    bind_choice(type, 2, scenario_type);
+    bind_choice(size, 5, size_filter);
+    bind_choice(players, 9, player_filter);
     native_rows(list);
-    list->id = A_LIST;
-    list->routine = front_action;
+    list->routine = pick_action;
     list->row = pick_row;
     list->value = entry_count ? 0 : -1;
     for (int i = 0; i < entry_count; ++i)
         if (!strcasecmp(entries[i].file, scenario)) list->value = i;
-    int list_index = last_item(s);
+    int list_index = (int)(list - s->items);
     list->first_row = list->value < 0 ? 0 : list->value;
     M_MenuSetRows(list, entry_count);
-    menuitem_t *bar = screen_add(s, MI_SCROLLBAR, (irect_t){x + 322, y + 156, 19, 68});
+    /* Kind 7 is a hidden scrollbar placeholder in the resource. Construct
+     * the composite from the native list rectangle and authored arrow size. */
+    irect_t arrow_rect = art.widgets[1].cells[29].rect;
+    bar->visible = bar->enabled = true;
+    bar->rect = (irect_t){list->rect.x + list->rect.w, list->rect.y + arrow_rect.h,
+                          arrow_rect.w, list->rect.h - 2 * arrow_rect.h};
     bar->sheet = &art.widgets[1];
     bar->link = list_index;
     bar->opaque = bar->stretch = true;
     bar->thumb = (menulook_t){.cell = 40, .part = {0, 0, 17, 17}};
     for (int i = 0; i < MS_STATES; ++i) bar->look[i].cell = 42;
     for (int i = 0; i < 2; ++i) {
-        menuitem_t *arrow = screen_add(s, MI_BUTTON, (irect_t){x + 322, y + 136 + 88 * i, 19, 20});
+        menuitem_t *arrow = screen_add(s, MI_BUTTON,
+            (irect_t){bar->rect.x, list->rect.y + (list->rect.h - arrow_rect.h) * i,
+                       arrow_rect.w, arrow_rect.h});
         bind_widget(arrow, &art.widgets[1], i ? 32 : 29, i ? 33 : 30);
         arrow->link = list_index;
         arrow->step = i ? 1 : -1;
     }
-    pick_detail_item = last_item(s) + 1;
-    add_label(s, (irect_t){x + 6, y + 272, 330, 40}, LIT(""), MALIGN_LEFT, false);
-    add_button(s, (irect_t){x + 44, y + 318, 106, 28}, L(STR_PICK, 2, "Cancel"), SDLK_ESCAPE, A_PICK_CANCEL);
-    add_button(s, (irect_t){x + 188, y + 318, 106, 28}, L(STR_PICK, 1, "OK"), SDLK_o, A_PICK_OK);
+    ok->routine = cancel->routine = pick_action;
+    ok->hotkey = SDLK_RETURN;
+    cancel->hotkey = SDLK_ESCAPE;
     s->menu.itemOn = list_index;
     pick_changed(s, list->value);
     show(&s->menu);
@@ -725,7 +692,7 @@ static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action) {
 /* Help (the retail key list) and Scenario Objectives: a panel over the level with text. */
 static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action != MA_ACTIVATE) return;
-    bool help = item->id == 1;
+    bool help = item->id == 4;
     int race = side();
     screen_t *s = &options_screen;
     options_return = menu;
@@ -817,7 +784,7 @@ static const char *save_row(const menuitem_t *item, int row) {
 
 static void file_escape(menu_t *menu) {
     (void)menu;
-    if (file_return == &game_menu) show(&game_menu);
+    if (file_return == &game_screen.menu) show(&game_screen.menu);
     else open_single();
 }
 
@@ -825,7 +792,7 @@ static void open_file(bool save, menu_t *back) {
     saving = save;
     file_return = back;
     scan_saves();
-    bool inlevel = back == &game_menu;
+    bool inlevel = back == &game_screen.menu;
     int race = button_race = inlevel ? side() : 1;
     screen_t *s = &file_screen;
     screen_begin(s, inlevel ? NULL : &art.dimmed, file_escape);
@@ -1012,7 +979,7 @@ static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action
 }
 
 static void accept_pick(void) {
-    menuitem_t *list = M_MenuFind(&pick_screen.menu, A_LIST);
+    menuitem_t *list = M_MenuFind(&pick_screen.menu, 1);
     int row = list ? list->value : -1;
     if (row < 0 || row >= entry_count) return;
     if (entries[row].directory) {
@@ -1031,6 +998,28 @@ static void accept_pick(void) {
     open_setup();
 }
 
+static void campaign_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 1 || item->id == 2) start_campaign(item->id == 1);
+    else if (item->id == -3 && menu->escape) menu->escape(menu);
+}
+
+static void pick_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE && action != MA_CHANGE) return;
+    switch (item->id) {
+    case 1:
+        if (action == MA_ACTIVATE) accept_pick();
+        else pick_changed(&pick_screen, item->value);
+        break;
+    case 2: scenario_type = item->value; open_scenario(); break;
+    case 3: size_filter = item->value; open_scenario(); break;
+    case 4: player_filter = item->value; open_scenario(); break;
+    case -2: accept_pick(); break;
+    case -3: if (menu->escape) menu->escape(menu); break;
+    default: break;
+    }
+}
+
 static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu;
     if (action != MA_ACTIVATE && !((item->kind == MI_LIST || item->kind == MI_DROPDOWN) && action == MA_CHANGE)) return;
@@ -1044,12 +1033,6 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     }
     case A_SELECT: open_scenario(); break;
-    case A_TYPE: scenario_type = item->value; open_scenario(); break;
-    case A_SIZE: size_filter = item->value; open_scenario(); break;
-    case A_DIRECTORY:
-        snprintf(pick_directory, sizeof(pick_directory), "%s", directories[item->value]);
-        open_scenario();
-        break;
     case A_RESOURCES:
         resources_mode = (resources_mode + 1) % NUM_RESOURCES;
         apply_label(item, resource_name(resources_mode));
@@ -1062,23 +1045,11 @@ static void front_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     }
     case A_CANCEL: open_single(); break;
-    case A_HUMAN: start_campaign(false); break;
-    case A_ORC: start_campaign(true); break;
     case A_LIST:
-        if (currentmenu == &pick_screen.menu) {
-            if (action == MA_ACTIVATE) accept_pick();
-            else pick_changed(&pick_screen, item->value);
-        }
-        else if (saving && item->value >= 0 && item->value < save_count)
+        if (saving && item->value >= 0 && item->value < save_count)
             snprintf(file_screen.items[name_item].text, sizeof(file_screen.items[0].text), "%s",
                      saves[item->value].info.name);
         break;
-    case A_PICK_OK: accept_pick(); break;
-    case A_PICK_CANCEL: {
-        menu_t *current = currentmenu;
-        if (current && current->escape) current->escape(current);
-        break;
-    }
     case A_SAVE_OK: file_activate(); break;
     case A_NAME: file_activate(); break;
     case A_DELETE: {
@@ -1139,7 +1110,7 @@ bool G_InitMenus(app_t *app, const char *root) {
     scenario[0] = '\0';
     pick_directory[0] = '\0';
     scenario_type = 1;
-    size_filter = 0;
+    size_filter = player_filter = 0;
     resources_mode = launch_resources = campaign_level = 0;
     if (!w2_load_menu_art(root, &art))
         fprintf(stderr, "warcraft-2: menu art was not loaded\n");
@@ -1148,51 +1119,38 @@ bool G_InitMenus(app_t *app, const char *root) {
     return true;
 }
 
-static void title_text(menuitem_t *item, int index, const char *fallback) {
-    apply_label(item, L(STR_MAIN_MENU, index, fallback));
-}
-
 menu_t *G_ControlPanel(app_t *app, bool inlevel) {
     front_app = app;
-    const bitmapfont_t *font = art.font.sprite.numlumps ? &art.font : NULL;
+    button_race = inlevel ? side() : 1;
+    screen_t *screen = inlevel ? &game_screen : &title_screen;
+    if (!native_scene(screen, inlevel ? 44 : 41, inlevel ? NULL : &art.title,
+                      inlevel ? &art.panel[button_race][W2_PANEL_GAME] : NULL,
+                      inlevel ? game_escape : NULL)) return NULL;
     if (!inlevel) {
-        /* The front end is drawn as the orc side (Wargus SetDefaultRaceView). */
-        title_text(&title_items[TITLE_SINGLE], 1, "Single Player Game");
-        title_text(&title_items[TITLE_MULTI], 2, "Multi Player Game");
-        title_text(&title_items[TITLE_INTRO], 3, "Replay Introduction");
-        title_text(&title_items[TITLE_CREDITS], 4, "Show Credits");
-        title_text(&title_items[TITLE_EXIT], 5, "Exit Program");
-        for (int i = 0; i < TITLE_COUNT; ++i)
-            bind_button(&title_items[i], &art.widgets[1]);
-        title_menu.background = art.title.numlumps ? &art.title : NULL;
-        title_menu.palette = art.title.numlumps ? art.title.source_palette : NULL;
-        return M_SimpleControlPanel(&title_menu);
+        const menuroutine_t routines[] = {NULL, single_player, open_multiplayer, menu_note, show_credits};
+        const SDL_Keycode keys[] = {0, SDLK_s, SDLK_m, SDLK_r, SDLK_h};
+        for (int i = 1; i < screen->menu.numitems; ++i) {
+            menuitem_t *item = &screen->items[i];
+            if (item->id != -3 && (item->id < 1 || item->id > 4)) continue;
+            item->routine = item->id == -3 ? M_MenuQuitGame : routines[item->id];
+            item->hotkey = item->id == -3 ? SDLK_x : keys[item->id];
+            if (item->id == 3) item->userdata = "The introduction is not played in this build.";
+        }
+        return M_SimpleControlPanel(&screen->menu);
     }
-    int race = side();
-    game_items[GAME_PANEL].sheet = art.panel[race][W2_PANEL_GAME].numlumps ?
-        &art.panel[race][W2_PANEL_GAME] : NULL;
-    game_items[GAME_PANEL].opaque = true;
-    for (int s = 0; s < MS_STATES; ++s)
-        game_items[GAME_PANEL].look[s].cell = game_items[GAME_PANEL].sheet ? 0 : -1;
-    game_items[GAME_LABEL].font = font;
-    apply_label(&game_items[GAME_LABEL], L(STR_GAME_MENU, 8, "Game Menu"));
-    static const struct { int item, index; const char *fallback; } labels[] = {
-        { GAME_SAVE, 2, "Save" }, { GAME_LOAD, 3, "Load" }, { GAME_OPTIONS, 4, "Options" },
-        { GAME_HELP, 5, "Help" }, { GAME_OBJECTIVES, 6, "Scenario Objectives" },
-        { GAME_END, 7, "End Scenario" }, { GAME_RETURN, 1, "Return to Game" },
-    };
-    for (size_t i = 0; i < sizeof(labels) / sizeof(*labels); ++i) {
-        apply_label(&game_items[labels[i].item], L(STR_GAME_MENU, labels[i].index, labels[i].fallback));
-        bind_button(&game_items[labels[i].item], &art.widgets[race]);
+    const menuroutine_t routines[] = {NULL, open_save, open_load, open_options, open_text,
+                                     open_text, end_scenario};
+    const SDL_Keycode keys[] = {0, SDLK_F11, SDLK_F12, SDLK_F5, SDLK_F1, SDLK_o, SDLK_e};
+    for (int i = 1; i < screen->menu.numitems; ++i) {
+        menuitem_t *item = &screen->items[i];
+        if (item->kind != MI_BUTTON) continue;
+        if (item->id != -3 && (item->id < 1 || item->id > 6)) continue;
+        item->routine = item->id == -3 ? return_to_game : routines[item->id];
+        item->hotkey = item->id == -3 ? SDLK_ESCAPE : keys[item->id];
+        if (item->id == 4) item->userdata = "F10 opens this menu. WASD pans.";
+        if (item->id == 5) item->userdata = "Defeat the opposing side.";
     }
-    game_menu.background = NULL;
-    game_menu.palette = NULL;
-    game_menu.modal = true;
-    game_menu.escape = game_escape;
-    game_menu.held = NULL;
-    game_menu.itemOn = -1;
-    game_menu.target = NULL;
-    return &game_menu;
+    return &screen->menu;
 }
 
 void G_ShutdownMenus(void) {

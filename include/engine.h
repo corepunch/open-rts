@@ -1232,6 +1232,8 @@ void V_DrawSpriteCellScaled(irect_t dst, const spritesheet_t *sheet, int cell,
                             const irect_t *src, const uint8_t *remap, uint32_t flags);
 
 int V_TextWidth(const bitmapfont_t *font, const char *text);
+/* Horizontal advance and authored vertical glyph extent, relative to origin. */
+irect_t V_TextBounds(const bitmapfont_t *font, const char *text);
 /* Existing engine fallback glyphs, positioned in the supplied logical space. */
 void V_DrawSmallText(irect_t box, const char *text, uint32_t argb, isize2_t space);
 void V_DrawText(ivec2_t at, const bitmapfont_t *font, const char *text, const uint8_t *remap);
@@ -2153,7 +2155,7 @@ bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
  * text, waits for map targets and draws. */
 typedef enum {
     MI_STATIC, /* a picture, text or ownerdraw that takes no input */
-    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR, MI_DROPDOWN,
+    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR, MI_DROPDOWN, MI_SLIDER,
     MI_MINIMAP /* the level in small: a click or drag centres the world view there */
 } menuitemkind_t;
 
@@ -2233,6 +2235,7 @@ struct menuitem_s {
     ivec2_t inset; /* text origin inside the rect */
     int maxchars;
     int value; /* check: set; list: selected row, or -1 */
+    struct { int min, max; } range; /* horizontal slider's inclusive limits */
     int group; /* check: nonzero makes it one of a set where exactly one is set */
     /* A list asks for its rows; first_row is the scroll position, in rows for
      * a list and in lines for prose. */
