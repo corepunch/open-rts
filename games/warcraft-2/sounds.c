@@ -1,5 +1,5 @@
 /* Native WAV entries and event assignments from Wargus wartool.h and
- * scripts/sound.lua; independently implemented over the Dark Colony mixer.
+ * scripts/sound.lua; independently implemented over the engine sound system.
  * IDs 2..292 are SFXDAT.SUD entries; 1 is MAINDAT.WAR's UI click (432).
  * See docs/WAR2_EXE_FINDINGS.md for evidence and remaining unknowns. */
 #include "w2_local.h"
@@ -163,11 +163,11 @@ static bool load_sample(const w2_archive_t *archive, int entry, int id, const ch
     w2_blob_t wav;
     if (!w2_archive_extract(archive, entry, &wav)) return false;
     sfxinfo_t *sfx = S_Sfx(id);
-    sfx->data = I_LoadSampleMemory(wav.data, wav.size);
     snprintf(sfx->name, sizeof(sfx->name), "%s#%d", name, entry);
+    bool ok = S_LoadSound(id, wav.data, wav.size);
     w2_blob_free(&wav);
-    if (!sfx->data) fprintf(stderr, "warcraft-2: cannot decode sound %s\n", sfx->name);
-    return sfx->data != NULL;
+    if (!ok) fprintf(stderr, "warcraft-2: cannot decode sound %s\n", sfx->name);
+    return ok;
 }
 
 static bool w2_sound_init(const char *root) {

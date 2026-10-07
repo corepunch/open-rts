@@ -1,7 +1,5 @@
-/* Dark Colony sound tables and the engine's sound rules, on SDL's dummy
- * audio driver: SOUND2.DAT objects, SLIST.DAT category groups and bark
- * priorities, weapon sounds through GAMESTAT, tileset ambience, distance
- * cutoff, and barks only for the owning player. */
+/* Dark Colony native sound tables. Shared playback rules are exercised by
+ * tests/shared/test_sound.c, independently of these retail assets. */
 #include "engine.h"
 #include "info.h"
 #include "dark-colony.h"
@@ -44,47 +42,12 @@ static int test_tables(void) {
     mobj_t engineer = unit_of(43, 0);
     REQUIRE(group_is(dc_soundinfo.actor_sound(&engineer, SE_DEPLOY), (const int[]){100}, 1),
             "engineer DPY is ENGDPLY");
-    return 0;
-}
-
-static int test_barks(void) {
-    mobj_t trooper = unit_of(0, 0), psychic = unit_of(12, 0);
-    sfxinfo_t *trooper_ack = S_Sfx(dc_soundinfo.actor_sound(&trooper, SE_ACK));
-    sfxinfo_t *psychic_ack = S_Sfx(dc_soundinfo.actor_sound(&psychic, SE_ACK));
-    REQUIRE(trooper_ack && psychic_ack && trooper_ack->priority == 4 && psychic_ack->priority == 3,
-            "ACK priorities come from SLIST");
-    mobj_t *units[2] = {&trooper, &psychic};
-
-    /* The lower priority number answers; its group cursor moves on. */
-    trooper_ack->next = psychic_ack->next = 0;
-    S_Bark(units, 2, SE_ACK, true);
-    REQUIRE(psychic_ack->next != 0 && trooper_ack->next == 0, "the psychic answers before the trooper");
-
-    /* Another player's unit never answers the local player. */
-    psychic.owner = 1;
-    trooper_ack->next = psychic_ack->next = 0;
-    S_Bark(units, 2, SE_ACK, true);
-    REQUIRE(psychic_ack->next == 0 && trooper_ack->next != 0, "only the owner's unit answers");
-
-    /* Unselected units stay quiet when only the selection answers. */
-    trooper.traits = 0;
-    trooper_ack->next = 0;
-    S_Bark(units, 2, SE_ACK, true);
-    REQUIRE(trooper_ack->next == 0, "an unselected unit stays quiet");
-    return 0;
-}
-
-static int test_distance(void) {
-    level_t saved = level;
-    level.width = level.height = 256;
-    app_t app = { .win = {640, 480}, .cell = {32, 32} };
-    S_UpdateSounds(&app, NULL);
-    int near = S_StartSoundAt((fvec2_t){10.0f, 248.0f}, DC_SFX(97));
-    int far = S_StartSoundAt((fvec2_t){250.0f, 10.0f}, DC_SFX(80));
-    REQUIRE(near, "a sound in view plays");
-    REQUIRE(!far, "a sound past DC's -80 dB cutoff is dropped");
-    S_StopAllSounds();
-    level = saved;
+    mobj_t psychic = unit_of(12, 0);
+    REQUIRE(S_Sfx(dc_soundinfo.actor_sound(&trooper, SE_ACK))->priority == 4 &&
+            S_Sfx(dc_soundinfo.actor_sound(&psychic, SE_ACK))->priority == 3,
+            "native ACK priorities come from SLIST");
+    REQUIRE(dc_soundinfo.rolloff == 0.5f && dc_soundinfo.cutoff == 8000,
+            "DC supplies its native distance attenuation and cutoff");
     return 0;
 }
 
@@ -114,10 +77,8 @@ int main(void) {
     consoleplayer = 0;
     REQUIRE(S_Init("data/DCOLONY"), "sound starts on the dummy audio driver");
     RTS_RUN(test_tables());
-    RTS_RUN(test_barks());
-    RTS_RUN(test_distance());
     RTS_RUN(test_ambience());
     S_Shutdown();
-    puts("PASS: Dark Colony sound tables, bark priority and ownership, distance cutoff, ambience");
+    puts("PASS: Dark Colony native sound tables, priorities, attenuation and ambience");
     return 0;
 }
