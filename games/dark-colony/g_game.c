@@ -638,6 +638,11 @@ bool DC_TakeSkirmish(const char *map, dc_skirmish_t *setup) {
     return matches;
 }
 
+static void dc_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset) {
+    (void)tileset;
+    R_DrawFog(app, map);
+}
+
 void G_InitGame(void) {
     static bool initialized;
     gameinfo = &runtime_info;
@@ -647,6 +652,7 @@ void G_InitGame(void) {
     runtime_info = game_info;
     runtime_info.states = runtime_states;
     runtime_info.sound = &dc_soundinfo;
+    runtime_info.draw_fog = dc_draw_fog;
     initialized = true;
 }
 

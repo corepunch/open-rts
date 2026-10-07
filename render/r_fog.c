@@ -1,5 +1,6 @@
 #include "engine.h"
 
+#include <math.h>
 #include <string.h>
 
 /* DC.EXE 0x44ecd0/0x44ee68: quantize each vertical interpolation first,
@@ -133,6 +134,164 @@ void R_DrawFog(app_t *app, const level_t *map) {
                         row[x] = fogmap[samples[(x - tile_x) * 32 / app->cell.w]][row[x]];
                 }
             }
+        }
+    }
+}
+
+/* ── Tile-based fog of war ────────────────────────────────────────────── */
+
+enum { FOG_VISIBLE, FOG_EXPLORED, FOG_UNEXPLORED };
+
+static int cell_fog_state(const level_t *map, int x, int y) {
+    if (!map->sight.cells) return FOG_VISIBLE;
+    if (!L_Contains(map, x, y)) return FOG_UNEXPLORED;
+    int idx = L_Index(map, x, y);
+    uint32_t bits = map->sight.cells[idx];
+    if (!(bits & SIGHT_EXPLORED)) return FOG_UNEXPLORED;
+    return (bits & map->sight.allies[consoleplayer]) ? FOG_VISIBLE : FOG_EXPLORED;
+}
+
+/* 16 procedural 32x32 fog masks — one per combination of fogged corners.
+ * Bit 0 = TL, 1 = TR, 2 = BL, 3 = BR.  1 = fogged pixel, 0 = clear. */
+#define FOG_TILE_SIZE 32
+static uint8_t fog_masks[16][FOG_TILE_SIZE * FOG_TILE_SIZE];
+static bool fog_masks_ready;
+
+static void generate_fog_masks(void) {
+    if (fog_masks_ready) return;
+    int r2 = FOG_TILE_SIZE * FOG_TILE_SIZE / 2;
+    for (int mask = 0; mask < 16; ++mask) {
+        uint8_t *tile = fog_masks[mask];
+        for (int py = 0; py < FOG_TILE_SIZE; ++py) {
+            for (int px = 0; px < FOG_TILE_SIZE; ++px) {
+                bool fogged = false;
+                if (mask & 1) fogged |= px * px + py * py < r2;
+                if (mask & 2) fogged |= (FOG_TILE_SIZE - 1 - px) * (FOG_TILE_SIZE - 1 - px) + py * py < r2;
+                if (mask & 4) fogged |= px * px + (FOG_TILE_SIZE - 1 - py) * (FOG_TILE_SIZE - 1 - py) < r2;
+                if (mask & 8) fogged |= (FOG_TILE_SIZE - 1 - px) * (FOG_TILE_SIZE - 1 - px) +
+                                        (FOG_TILE_SIZE - 1 - py) * (FOG_TILE_SIZE - 1 - py) < r2;
+                tile[py * FOG_TILE_SIZE + px] = fogged ? 1 : 0;
+            }
+        }
+    }
+    fog_masks_ready = true;
+}
+
+/* Build a 4-bit corner mask: which corners of cell (cx,cy) border a cell
+ * in state >= threshold (FOG_EXPLORED or FOG_UNEXPLORED). */
+static int fog_corner_mask(const level_t *map, int cx, int cy, int threshold) {
+    int mask = 0;
+    bool n = cell_fog_state(map, cx, cy - 1) >= threshold;
+    bool s = cell_fog_state(map, cx, cy + 1) >= threshold;
+    bool w = cell_fog_state(map, cx - 1, cy) >= threshold;
+    bool e = cell_fog_state(map, cx + 1, cy) >= threshold;
+    bool nw = cell_fog_state(map, cx - 1, cy - 1) >= threshold;
+    bool ne = cell_fog_state(map, cx + 1, cy - 1) >= threshold;
+    bool sw = cell_fog_state(map, cx - 1, cy + 1) >= threshold;
+    bool se = cell_fog_state(map, cx + 1, cy + 1) >= threshold;
+    if (n || w || nw) mask |= 1;
+    if (n || e || ne) mask |= 2;
+    if (s || w || sw) mask |= 4;
+    if (s || e || se) mask |= 8;
+    return mask;
+}
+
+static void apply_fog_mask(const uint8_t *mask_tile, int tile_size,
+                           int sx, int sy, int cell_w, int cell_h,
+                           uint8_t color, bool use_color) {
+    for (int py = 0; py < cell_h; ++py) {
+        int my = py * tile_size / cell_h;
+        int screen_y = sy + py;
+        if (screen_y < 0 || screen_y >= screens[0].h) continue;
+        uint8_t *row = screens[0].pixels + (size_t)screen_y * screens[0].w;
+        for (int px = 0; px < cell_w; ++px) {
+            int mx = px * tile_size / cell_w;
+            if (!mask_tile[my * tile_size + mx]) continue;
+            int screen_x = sx + px;
+            if (screen_x < 0 || screen_x >= screens[0].w) continue;
+            if (use_color)
+                row[screen_x] = color;
+            else
+                row[screen_x] = fogmap[10][row[screen_x]];
+        }
+    }
+}
+
+void R_DrawFogTiles(app_t *app, const level_t *map, const tileset_t *tileset) {
+    if (!map->sight.cells || !screens[0].pixels) return;
+    generate_fog_masks();
+    ensure_fogmap();
+    (void)tileset;
+    int cell_w = app->cell.w > 0 ? app->cell.w : CELL_W;
+    int cell_h = app->cell.h > 0 ? app->cell.h : CELL_H;
+    irect_t view = G_WorldViewport(app);
+    int origin = view.x < 0 ? 0 : view.x;
+    if (origin > screens[0].w) origin = screens[0].w;
+    int width = view.w;
+    if (width > screens[0].w - origin) width = screens[0].w - origin;
+    if (width < 0) width = 0;
+    int height = app->win.h < screens[0].h ? app->win.h : screens[0].h;
+    uint8_t black = V_NearestIndex(0xff000000u);
+
+    /* Pass 1: fill unexplored cells black, darken explored cells. */
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            int state = cell_fog_state(map, x, L_ScreenY(map, y));
+            if (state == FOG_VISIBLE) continue;
+            float sx, sy;
+            R_GridToScreen(app, (float)x, (float)y, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= height) continue;
+            if (state == FOG_UNEXPLORED) {
+                irect_t r = { dx, dy, cell_w, cell_h };
+                V_FillRect(r, black);
+            } else {
+                for (int py = 0; py < cell_h; ++py) {
+                    int screen_y = dy + py;
+                    if (screen_y < 0 || screen_y >= height) continue;
+                    uint8_t *row = screens[0].pixels + (size_t)screen_y * screens[0].w;
+                    int x0 = dx < origin ? origin : dx;
+                    int x1 = dx + cell_w > origin + width ? origin + width : dx + cell_w;
+                    for (int screen_x = x0; screen_x < x1; ++screen_x)
+                        row[screen_x] = fogmap[10][row[screen_x]];
+                }
+            }
+        }
+    }
+
+    /* Pass 2: smooth shroud edges on explored/visible cells. */
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            int wy = L_ScreenY(map, y);
+            int state = cell_fog_state(map, x, wy);
+            if (state == FOG_UNEXPLORED) continue;
+            int mask = fog_corner_mask(map, x, wy, FOG_UNEXPLORED);
+            if (!mask) continue;
+            float sx, sy;
+            R_GridToScreen(app, (float)x, (float)y, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= height) continue;
+            apply_fog_mask(fog_masks[mask], FOG_TILE_SIZE,
+                           dx, dy, cell_w, cell_h, black, true);
+        }
+    }
+
+    /* Pass 3: smooth fog edges on visible cells. */
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            int wy = L_ScreenY(map, y);
+            if (cell_fog_state(map, x, wy) != FOG_VISIBLE) continue;
+            int mask = fog_corner_mask(map, x, wy, FOG_EXPLORED);
+            if (!mask) continue;
+            float sx, sy;
+            R_GridToScreen(app, (float)x, (float)y, &sx, &sy);
+            int dx = (int)sx, dy = (int)sy;
+            if (dx + cell_w <= origin || dx >= origin + width ||
+                dy + cell_h <= 0 || dy >= height) continue;
+            apply_fog_mask(fog_masks[mask], FOG_TILE_SIZE,
+                           dx, dy, cell_w, cell_h, 0, false);
         }
     }
 }
