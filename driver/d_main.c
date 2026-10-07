@@ -366,9 +366,9 @@ load_level:
 
             R_DrawGridOverlay(&app, &level);
             if (gameinfo->draw_fog)
-            gameinfo->draw_fog(&app, &level, &tileset);
-        else
-            R_DrawFogTiles(&app, &level, &tileset);
+                gameinfo->draw_fog(&app, &level, &tileset);
+            else
+                R_DrawFogTiles(&app, &level, &tileset);
             hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (hud) M_MenuDrawer(hud);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
