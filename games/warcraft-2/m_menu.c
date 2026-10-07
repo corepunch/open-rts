@@ -25,6 +25,7 @@ static void menu_note(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void return_to_game(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void end_scenario(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void single_player(menu_t *menu, menuitem_t *item, menuaction_t action);
+static void single_action(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void show_credits(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_options(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_text(menu_t *menu, menuitem_t *item, menuaction_t action);
@@ -300,25 +301,21 @@ static void escape_to_setup(menu_t *menu) { (void)menu; open_setup(); }
 
 static const spritesheet_t *backdrop(void) { return &art.title; }
 
-/* The manual names New Campaign separately from the race-selection screen.
- * Its visible label is absent from the identified DOS dialog tables. */
 static void open_single(void) {
-    screen_begin(&single_screen, backdrop(), escape_to_title);
     button_race = 1;
-    add_button(&single_screen, (irect_t){208, 240, 224, 28}, LIT("New Campaign"),
-               SDLK_n, A_CAMPAIGN);
-    add_button(&single_screen, (irect_t){208, 276, 224, 28}, L(STR_LOAD, 3, "Load Game"),
-               SDLK_l, A_LOAD);
-    add_button(&single_screen, (irect_t){208, 312, 224, 28}, L(STR_CUSTOM_MENU, 4, "Custom Scenario"),
-               SDLK_c, A_STANDARD);
-    add_button(&single_screen, (irect_t){208, 348, 224, 28}, L(STR_CAMPAIGN, 3, "Previous Menu"),
-               SDLK_ESCAPE, A_PREVIOUS);
+    if (!native_scene(&single_screen, 6007, backdrop(), NULL, escape_to_title)) return;
+    for (int i = 1; i < single_screen.menu.numitems; ++i) {
+        menuitem_t *item = &single_screen.items[i];
+        item->hotkey = item->id == 1 ? SDLK_n : item->id == 2 ? SDLK_l :
+                       item->id == 3 ? SDLK_c : SDLK_ESCAPE;
+        item->routine = single_action;
+    }
     show(&single_screen.menu);
 }
 
 static void open_campaign(void) {
     button_race = 1;
-    if (!native_scene(&campaign_screen, 43, backdrop(), NULL, escape_to_single)) return;
+    if (!native_scene(&campaign_screen, 3043, backdrop(), NULL, escape_to_single)) return;
     for (int i = 1; i < campaign_screen.menu.numitems; ++i) {
         menuitem_t *item = &campaign_screen.items[i];
         item->routine = campaign_action;
@@ -546,7 +543,7 @@ static void open_scenario(void) {
         }
     }
     int panel_index = s->menu.numitems;
-    if (!append_scene(s, 89, &art.panel[1][W2_PANEL_SCENARIO])) return;
+    if (!append_scene(s, 3089, &art.panel[1][W2_PANEL_SCENARIO])) return;
     s->items[panel_index].layer = true;
     menuitem_t *type = M_MenuFind(&s->menu, 2), *size = M_MenuFind(&s->menu, 3);
     menuitem_t *players = M_MenuFind(&s->menu, 4), *ok = M_MenuFind(&s->menu, -2);
@@ -998,6 +995,14 @@ static void accept_pick(void) {
     open_setup();
 }
 
+static void single_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 1) open_campaign();
+    else if (item->id == 2) open_file(false, &single_screen.menu);
+    else if (item->id == 3) open_setup();
+    else if (item->id == -3 && menu->escape) menu->escape(menu);
+}
+
 static void campaign_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action != MA_ACTIVATE) return;
     if (item->id == 1 || item->id == 2) start_campaign(item->id == 1);
@@ -1123,7 +1128,7 @@ menu_t *G_ControlPanel(app_t *app, bool inlevel) {
     front_app = app;
     button_race = inlevel ? side() : 1;
     screen_t *screen = inlevel ? &game_screen : &title_screen;
-    if (!native_scene(screen, inlevel ? 44 : 41, inlevel ? NULL : &art.title,
+    if (!native_scene(screen, inlevel ? 3044 : 3041, inlevel ? NULL : &art.title,
                       inlevel ? &art.panel[button_race][W2_PANEL_GAME] : NULL,
                       inlevel ? game_escape : NULL)) return NULL;
     if (!inlevel) {

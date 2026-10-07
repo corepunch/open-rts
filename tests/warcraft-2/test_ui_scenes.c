@@ -69,7 +69,37 @@ int main(void) {
     }
     CHECK(kinds == 0x3fde); /* types 1–4 and 6–13 occur; no type 5 in these scenes */
     w2_archive_close(&archive);
+    CHECK(w2_archive_open(&archive, "data/WAR2/DATA/MUDDAT.CUD") && archive.count == 19);
+    const int entries[] = {7, 13};
+    for (int i = 0; i < 2; ++i) {
+        w2_blob_t blob;
+        CHECK(w2_archive_extract(&archive, entries[i], &blob));
+        menuitem_t items[80];
+        int count;
+        CHECK(w2_load_scene("data/WAR2", 6000 + entries[i], items, 80, &count));
+        CHECK(count == (int)(blob.size / 72));
+        CHECK(read_u32_le(blob.data + 60) == (unsigned)(2047 + i));
+        for (int j = 1; j < count; ++j) {
+            unsigned slot = read_u32_le(blob.data + j * 72 + 20);
+            w2_text_t label;
+            if (slot) {
+                CHECK(w2_resource_label(2047 + i, (int)slot - 1, &label));
+                CHECK(!strcmp(items[j].text, label.text));
+            }
+        }
+        if (!i) {
+            CHECK(blob.size == 360 && count == 5);
+            CHECK(archive.offsets[7] == 0x11b9a8);
+            CHECK(items[1].id == 1 && items[2].id == 2 && items[3].id == 3 && items[4].id == -3);
+            CHECK(items[1].rect.x == 208 && items[1].rect.y == 240);
+            CHECK(items[4].rect.y == 348 && items[4].rect.w == 224 && items[4].rect.h == 28);
+        }
+        printf("Native MUDDAT scene %d: %zu bytes, %d records, STR resource %u\n",
+               entries[i], blob.size, count, read_u32_le(blob.data + 60));
+        w2_blob_free(&blob);
+    }
+    w2_archive_close(&archive);
     w2_strings_free();
-    printf("PASS: 58 native Warcraft II dialogs, %d controls, linked 72-byte records and original menu/scenario geometry\n", controls);
+    printf("PASS: 60 native Warcraft II dialogs, %d REZDAT controls, linked records and original Single Player/menu/scenario geometry\n", controls);
     return 0;
 }

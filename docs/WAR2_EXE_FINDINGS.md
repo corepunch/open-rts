@@ -1,5 +1,189 @@
 # Warcraft II gathering and HUD evidence (2026-10-04)
 
+## Static DOS executable analysis toolchain (2026-10-07)
+
+**Confirmed / boundary.** Retail Warcraft II was not executed. The user
+explicitly prohibits it because no CD key is available. Static analysis uses
+radare2 6.2.2 (`ad27058877024389292fddf12e1db6e13824ba34`) and r2ghidra
+6.2.2 (`1b5cba403c4c8751db8434f6790d5e0f132038f4`). The matching versions
+were built for macOS arm64 under `/private/tmp/war2-analysis-tools`, installed
+only to its `prefix` directory. r2ghidra embeds the native Ghidra decompiler;
+Java and a full Ghidra installation are unnecessary. Its packaged dependency
+is ghidra-native `483ae94bcbc661a77667e52f1eff75928cb6aa2e`, with the
+r2ghidra distribution patches, and zlib 1.3.1
+`51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf`. x86 Sleigh specifications and
+the plugin are installed in that prefix. Configure alone does not fetch its
+dependencies: run `make -C subprojects` before `make`.
+
+**Confirmed executable chain.** Original `data/WAR2/WAR2.EXE` is 878,119
+bytes, SHA-256
+`a2b4b2118ec6355371b58134be8c7331d1facc5989e7188a1d1bb68fd1f26671`.
+The first MZ belongs to the bound DOS loader. Its page count 123 and final
+page length 116 locate the first BW header at
+`(123 - 1) * 512 + 116 = 0xf474`. The Open Watcom DOS/16M structure
+defines the 32-bit `next_header_pos` at BW `+0x1c`. Native links are:
+
+| Original file offset | Header / next link |
+|---|---|
+| `0x000000` | bound loader MZ; extent `0xf474` |
+| `0x00f474` | BW; next header `0x1e0c4` |
+| `0x01e0c4` | BW; next header `0x352a4` |
+| `0x0352a4` | game MZ; `e_lfanew = 0x2a50` |
+| `0x037cf4` | game LE header |
+
+The first MZ's bytes at `+0x3c` are not the game's LE pointer. Directly
+using them misses the game image. Initial P3/compression speculation from
+incidental signature matches is **disproven as the required extraction
+path**: following the actual header links exposes the LE image without
+decompression, header edits or execution. No general claim about every
+bound-loader component's encoding is made.
+
+An unchanged copy starting at `0x352a4` has 660,355 bytes and SHA-256
+`8ee7971db360e2d3b5bc8089a80e75acb979473f06360bce0a5982a472f7d4f0`.
+radare2 identifies it as little-endian LE, x86/80386, 32 bits, two objects,
+124 pages of 4096 bytes. The LE OS field says OS/2; this is header metadata,
+not evidence that the bound DOS game must run under OS/2. Object one starts
+at virtual `0x10000`, object two at `0x80000`; entry EIP `0x501f8` in
+object one therefore maps to virtual `0x601f8`. Stack object two has ESP
+`0x2b300`. Data pages start at inner-file `0x25400`. For file-backed pages:
+
+- Code original-file offset = virtual address + `0x4a6a4`.
+- Data original-file offset = virtual address + `0x476a4`.
+- Data from virtual `0x8f000` through `0xab300` is zero-filled and has no
+  corresponding original-file bytes.
+
+The LE header has a `0x226a6`-byte fixup section. Although `iI` summarizes
+`relocs false`, applying fixups in the analysis cache produces relocated
+data/code pointers and `RELOC 32` annotations. That summary is therefore
+**disproven as evidence that this binary has no relocation information**.
+Addresses below refer to the relocated virtual image, not file offsets.
+
+**Confirmed first UI traces.** A broad static pass identifies 2,033 functions.
+The assembly and successful focused r2ghidra output establish:
+
+| Virtual routine / instruction | Native behavior |
+|---|---|
+| `0x4ccc4`, resource instruction `0x4ccdd` | Main Menu loads 3041, confirming REZDAT 41 |
+| `0x4d1f0`, instruction `0x4d1f7` | New Campaign loads 3043, confirming REZDAT 43 |
+| `0x4928d` | Game Menu resource immediate 3044 |
+| `0x1755c`, instruction `0x175b4` | Scenario picker loads 3089, confirming REZDAT 89 |
+| `0x58bec` | loads a resource via `0x5f7d0` / `0x5f788`, resolves root string resource `+0x3c`, then calls `0x58ad4` |
+| `0x58ad4` | relocates sibling links `+0x00`, root child link `+0x40`, resolves string slot `+0x14`, installs handlers `+0x24` / `+0x28`, stores child's root pointer `+0x2c` |
+| `0x59060` | runs the dialog event loop and returns the result from virtual global `0xa7e34` |
+
+`0x58ad4` reads the **16-bit** kind at `+0x1c` (the catalog's upper
+halfword is zero). Handler tables are at `0x595c0` and `0x5dd70`, indexed
+by native kind. Positive picture IDs at `+0x10` go through `0x5b810`;
+negative values refer to another record relative to the resource root and
+set flag `0x20`. It sets root flag `0x04` and initialized-record flags
+`0x41`. This confirms linked layout/string fields independently of the
+archive-only inference. It does not yet prove all drawing/input flag meanings.
+
+**Confirmed geometry mutation / unresolved effect.** At `0x58b03`,
+`0x58b16`, `0x58b29`, `0x58b3c`, loading kinds 3, 4, 6, 7 respectively
+sets bottom = top + global word `0xa7e42`, bottom = top + `0xa7e3a`,
+bottom = top + `0xa7e40`, or right = left + `0xa7e4a`. The globals'
+initialization and their relationship to explicit width/height remain
+untraced. Do not use the serialized 38×38 scrollbar placeholder as final
+retail geometry or introduce guessed constants for these values.
+
+**Single Player path / confirmed additional archive.** Main Menu result 1 calls
+`0x4cb8c`, then `0x4ce2c`. At `0x4ce31` the latter loads resource
+**6007**, not a discovered REZDAT 33–90 record. Results 1/2/3 lead to
+`0x4d1f0` (native race choice), `0x4a194`, and `0x123dc` / `0x16068`.
+The resource lookup at `0x5fb24` selects an archive by resource number,
+then indexes its offset table after subtracting that bank's native base.
+Wargus's archive declarations identify bank 6000 as MUDDAT.CUD, bank 2000
+as SNDDAT.WAR. Local headers confirm those types. MUDDAT entry 7 is the
+actual SinglePlayer dialog, not a movie. This supersedes treating absence
+from REZDAT as absence of the retail screen.
+
+MUDDAT SHA-256 is
+`e009678457408b593c5705e505b50dc2be518a7097999f2a8da98dcb6811f473`;
+SNDDAT SHA-256 is
+`a1015e38f45ac58578f2979164c603912c7ef501750e46e0c0389e4aa3dbddba`.
+MUDDAT has 19 entries; SNDDAT has 49. Entry 7 at MUDDAT file offset
+`0x11b9a8` is a raw 360-byte dialog (five 72-byte records), root
+(0,0), 640×480, string resource **2047**, child IDs 1/2/3/-3, each
+kind 2 and flag `0x0218`. Buttons are 224×28 at x208,
+y240/276/312/348. SNDDAT entry 47's root string is `SinglePlayer`;
+its four CP866 captions decode to «Новая кампания», «Прочитать игру»,
+«Миссия пользователя», «Предыдущее меню». open-rts now loads these
+records and captions directly, preserving native IDs. The engine's existing
+navigation actions and keyboard bindings remain engine behavior; every
+retail callback and key-binding rule has not been ported.
+
+Entry 13 at MUDDAT file offset `0x11bb14` is a raw 4392-byte dialog,
+61 records, root (0,0), 640×480, string resource **2048** (root name
+`dialog`). Its localized title is «Установки сетевой игры». At
+`0x15dd3` the executable loads resource 6013. The native control groups are:
+
+| Controls | Native rectangle / flags |
+|---|---|
+| Text fields IDs 12–19 | x200, y48 + 24×row, 388×18; `0x0018` |
+| Player label ID20 / dropdowns IDs21–27 | x36, first label y48 then dropdowns y68 + 24×row, 156×18; `0x8008` / `0x8018` |
+| Checkboxes IDs36–42 | x10, y72 + 24×row, 18×20; `0x0018` |
+| Scenario / Start / Cancel buttons IDs3/2/1 | x400, y368/404/440, 224×28; `0x0218` |
+| Dropdown IDs10/7/9 | x44, y274/324/374, 124×24; `0x0018` |
+| Dropdown IDs4/8/5 | x224, same y positions, 144×24; `0x0018` |
+| Dropdown ID6 | (404,274), 180×24; `0x0018` |
+| Scenario description ID11 | (8,424), 380×52; `0x8008` |
+| Title / Ready captions, ID-1 | (160,8), 320×20 / (4,26), 480×14; `0x8808` / `0x8008` |
+| Race / Fog / Cheats captions, ID-1 | x40, y256/306/356, 128×18; `0x8008` |
+| Resources / Terrain / Placement captions, ID-1 | x220, same y positions, 160×18; `0x8008` |
+| Units / Scenario captions, ID-1 | (400,256), 160×18 / (16,402), 106×18; `0x8008` |
+| Runtime text IDs28–35 / 43–50 | x616 / x596, y48 + 24×row, 18×18; `0x0008` |
+
+This adds two confirmed dialogs and 64 children to the earlier REZDAT
+catalog: **60 dialogs, 700 child controls**. The adapter accepts resource
+IDs in banks 3000/6000 and captions in banks 4000/2000. Strings decode on
+first use so movie/music entries are not needlessly decoded as text. Both
+MUDDAT dialogs pass native record/string tests; resource 6013's runtime
+player and option bindings remain unported. Temporary env-gated C logging
+printed all IDs, kinds, flags, rectangles and captions, then was removed.
+
+**Calling convention / decompiler limitation.** At `0x175b4` / `0x175bf`
+the scenario resource enters in EAX, the dialog argument in EDX and callback
+address `0x17530` in EBX. `0x58bec` preserves EBX/EDX for the following
+event-loop call. Register passing and preserved-register returns are
+confirmed at these sites; a Watcom register convention is **inferred**, not
+a proven compiler version. The stock decompiler labels routines
+`__fastcall`, loses several call arguments, reports artificial 64-bit
+`CONCAT44` returns and sometimes indexes halfword fields through int
+pointers. These are analysis artifacts. Reconcile every proposed port
+with exact instructions; the C-like dump is a discovery aid, not compilable
+or authoritative source. Font/color selection and button baseline formulas
+still require tracing the native draw-handler table.
+
+**Reproduction / verification.** The original hash remained unchanged. Only
+analysis copies and in-memory fixup caches were modified. Dumps remain in
+ignored `reverse/war2-exe-r2ghidra/`, never committed:
+
+```sh
+mkdir -p reverse/war2-exe-r2ghidra
+dd if=data/WAR2/WAR2.EXE of=reverse/war2-exe-r2ghidra/war2-inner.mz bs=217764 skip=1
+rabin2 -I -S -e reverse/war2-exe-r2ghidra/war2-inner.mz
+r2 -q -e scr.color=0 -e bin.cache=true -e bin.relocs.apply=true -A \
+  -c 'afl' -c 'pdf @ 0x58ad4' -c q reverse/war2-exe-r2ghidra/war2-inner.mz
+r2 -q -e scr.color=0 -e bin.cache=true -e bin.relocs.apply=true \
+  -e r2ghidra.sleighhome=/private/tmp/war2-analysis-tools/prefix/lib/radare2/6.2.2/r2ghidra_sleigh \
+  -A -c 'pdg @ 0x58ad4' -c q reverse/war2-exe-r2ghidra/war2-inner.mz
+```
+
+Use the disposable prefix's `bin` on PATH for these commands. Focused
+decompilation of the loader, record initializer and Single Player dispatcher
+completed successfully; no retail launch or runtime trace was involved.
+The complete function dump also completed, with two decompiler failures
+reporting unresolved instructions at `r0x80010101` and `r0x00000716`.
+These are unresolved analysis boundaries, not valid game routine addresses;
+the three focused UI routines decompiled without those errors. `make`, all
+25 headless Warcraft II tests (with localhost UDP enabled), and the game
+`--check` passed. The native Single Player BMP was rendered by the engine
+and visually inspected after conversion to a temporary PNG; no runtime PNG
+asset or loader was introduced. The restricted first menu test failed at
+its localhost-hosting assertion, then passed with localhost networking
+enabled; this was a test environment restriction rather than a menu defect.
+
 ## Native dialog resources and button text bounds (2026-10-07)
 
 **Correction of the absence hypothesis.** The assertion that Warcraft II has

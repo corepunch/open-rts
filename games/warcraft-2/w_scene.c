@@ -42,8 +42,7 @@ bool w2_decode_scene(const w2_blob_t *blob, menuitem_t *items, int capacity, int
         /* The root string is an internal dialog name, never a caption. */
         unsigned slot = read_u32_le(record + 20);
         w2_text_t label;
-        if (at && strings >= 4000 && strings < 5000 && slot &&
-            w2_label((int)strings - 4000, (int)slot - 1, &label)) {
+        if (at && slot && w2_resource_label((int)strings, (int)slot - 1, &label)) {
             snprintf(item->text, sizeof(item->text), "%.*s", (int)sizeof(item->text) - 1, label.text);
             item->mark_at = label.mark_at;
             item->mark_len = label.mark_len;
@@ -53,14 +52,16 @@ bool w2_decode_scene(const w2_blob_t *blob, menuitem_t *items, int capacity, int
     return true;
 }
 
-bool w2_load_scene(const char *root, int entry, menuitem_t *items, int capacity, int *count) {
+bool w2_load_scene(const char *root, int resource, menuitem_t *items, int capacity, int *count) {
     char path[1200];
-    M_PathJoin(path, sizeof(path), root, "DATA/REZDAT.WAR");
-    w2_archive_t archive;
     *count = 0;
+    int bank = resource / 1000;
+    if (bank != 3 && bank != 6) return false;
+    M_PathJoin(path, sizeof(path), root, bank == 3 ? "DATA/REZDAT.WAR" : "DATA/MUDDAT.CUD");
+    w2_archive_t archive;
     if (!w2_archive_open(&archive, path)) return false;
     w2_blob_t blob = {0};
-    bool ok = w2_archive_extract(&archive, entry, &blob) &&
+    bool ok = w2_archive_extract(&archive, resource % 1000, &blob) &&
               w2_decode_scene(&blob, items, capacity, count);
     w2_blob_free(&blob);
     w2_archive_close(&archive);
