@@ -641,7 +641,7 @@ usage:
 help:
     printf("Usage: %s [options] [data-root [map [sprite]]]\n"
            "  --host                 Host a game (you are player 1)\n"
-           "  --players <2..4>       Players to wait for; default 2\n"
+           "  --players <2..%d>       Players to wait for; default 2\n"
            "  --join <host[:port]>   Join; receive the host's map and player slot\n"
            "  --port <1..65535>      Local UDP port; host 5029, client automatic\n"
            "  --map <path>           Map relative to data root; chosen by host\n"
@@ -662,8 +662,8 @@ help:
            ")\n"
            "  --check | --screenshot <file.bmp>   Offline smoke check\n"
            "  --net-check <tics>     Run a bounded headless simulation\n"
-           "  --net <1..4> <peers...>  Legacy manual peer setup\n"
+           "  --net <1..%d> <peers...>  Legacy manual peer setup\n"
            "  --dup <1..9> --extratic  Doom command timing/redundancy\n",
-           argv[0], g_game_default_root);
+           argv[0], MAXPLAYERS, g_game_default_root, MAXPLAYERS);
     return 0;
 }

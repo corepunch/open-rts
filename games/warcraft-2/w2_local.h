@@ -67,6 +67,10 @@ int w2_grp_entry(const mobjinfo_t *unit, int era, int archive_count);
 int w2_install_team_colors(spritesheet_t *sprite, const uint32_t palette[256]);
 
 bool w2_load_pud(const char *path, level_t *out);
+/* Eight lobby races, -1 for an empty seat. NULL clears them. */
+void w2_set_net_races(const int *races);
+/* In a net game, move person slots onto seats 0..numplayers-1 and apply races. */
+void w2_apply_net_seats(level_t *map);
 
 /* What a scenario's header says, read without loading the map. */
 typedef struct {

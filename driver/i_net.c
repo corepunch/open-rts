@@ -573,7 +573,8 @@ bool I_InitNetwork(int *argc, char **argv) {
     }
     return true;
 usage:
-    snprintf(neterror, sizeof(neterror), "Usage: --host [--players 2..4] [--port 5029] | --join host[:port] | --net <1..4> <peer[:port]> ...; --dup 1..9 --extratic");
+    snprintf(neterror, sizeof(neterror), "Usage: --host [--players 2..%d] [--port 5029] | --join host[:port] | --net <1..%d> <peer[:port]> ...; --dup 1..9 --extratic",
+             MAXPLAYERS, MAXPLAYERS);
     return false;
 }
 

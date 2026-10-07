@@ -109,7 +109,10 @@ participate in the deterministic world checksum; local drafts/saved lists do not
 - `--port PORT`: local UDP port. Hosts default to **5029**; joiners use an
   OS-assigned port, so multiple clients can run on one machine. A custom server
   port goes in the join address, e.g. `--join 192.168.1.10:25029`.
-- `--players 2..4`: number of players including the host; host-only.
+- `--players 2..8`: number of players including the host; host-only.
+  Dark Colony's screen still reserves two to four through its player-type
+  controls. Warcraft II's lobby starts at the map's person-slot count and
+  will not go above that count or this limit.
 - `--software`: present the framebuffer through SDL's software renderer.
 - `--dup 1..9`, `--extratic`: Doom input sampling/redundancy options. The host
   distributes them to clients. Default `ticdup` is 1 at 30 simulation Hz.

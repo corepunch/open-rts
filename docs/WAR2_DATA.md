@@ -160,7 +160,11 @@ class 0 and use `blocked[]`.
 `D_CheckNetGame` keeps that slot. Replacing it with the lobby seat (always 0
 in single player) left the window on an empty player: ALAMO then showed
 3000/1000/1000 and 0/0 food, the human start stayed explored, and none of
-its units were drawn. Allegiance, sight, and selection use that slot.
+its units were drawn. In a net game the lobby seats are 0..numplayers−1, which
+are not the map's person slots. The load permutes each person slot onto a
+seat, turns any person slot past that into a computer, and swaps paired unit
+types when that seat's lobby race differs from the slot's side. Allegiance,
+sight, and selection use that slot.
 Critters are not selectable. With none of your units selected, one click can
 inspect any other unit, including a gold mine. A drag still selects only
 your units.

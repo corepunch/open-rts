@@ -59,8 +59,107 @@ static bool take_section(const uint8_t **p, const uint8_t *end,
 
 /* Menu-chosen starting stock, per Wargus wc2.lua: gold, lumber, oil. */
 static int start_resources;
+/* Lobby races copied before the session setup is wiped. -1 is unset. */
+static int net_races[MAXPLAYERS];
+static bool net_races_set;
 
 void W2_SetStartResources(int mode) { start_resources = mode; }
+
+void w2_set_net_races(const int *races) {
+    net_races_set = races != NULL;
+    for (int i = 0; i < MAXPLAYERS; ++i) net_races[i] = races ? races[i] : -1;
+}
+
+/* Human is the even type of each pair. The human wall is PUD 103, not 102. */
+static int paired_race(uint8_t type, uint8_t *twin) {
+    if (type == 103 || type == 104) {
+        *twin = type == 103 ? 104 : 103;
+        return type == 104;
+    }
+    static const uint8_t human[] = {
+        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32,
+        38, 40, 42, 44, 46, 50, 52, 58, 60, 62, 64, 66, 68, 70, 72,
+        74, 76, 78, 80, 82, 84, 86, 88, 90, 94, 96, 98
+    };
+    for (size_t i = 0; i < sizeof(human); ++i)
+        if (type == human[i] || type == (uint8_t)(human[i] + 1)) {
+            *twin = (uint8_t)(type ^ 1);
+            return type & 1;
+        }
+    return -1;
+}
+
+static void point_at_start(level_t *out, const w2_pud_t *pud) {
+    out->camera = (fvec2_t){ (float)out->width * 0.5f, (float)out->height * 0.5f };
+    if (!pud || pud->view_player < 0) return;
+    for (int i = 0; i < pud->unit_count; ++i) {
+        const w2_pud_unit_t *unit = &pud->units[i];
+        if (unit->player != (uint8_t)pud->view_player) continue;
+        if (unit->type != 94 && unit->type != 95) continue;
+        out->camera = (fvec2_t){ unit->x + 0.5f, unit->y + 0.5f };
+        return;
+    }
+}
+
+/* Network seats are 0..numplayers-1. A PUD's person slots are whichever
+ * OWNR entries are 5, so move those slots onto the seats and park the
+ * slots that used to occupy 0..n-1 in the holes that move leaves. */
+void w2_apply_net_seats(level_t *out) {
+    if (!netgame || !doomcom || doomcom->numplayers < 2 || !out) return;
+    w2_pud_t *pud = out->native_data;
+    if (!pud) return;
+    int person[16], person_count = 0;
+    for (int i = 0; i < 16; ++i)
+        if (pud->owners[i] == 5) person[person_count++] = i;
+    int seats = doomcom->numplayers > MAXPLAYERS ? MAXPLAYERS : doomcom->numplayers;
+    int n = seats < person_count ? seats : person_count;
+    if (n < 1) return;
+
+    int dest[16];
+    for (int i = 0; i < 16; ++i) dest[i] = -1;
+    for (int p = 0; p < n; ++p) dest[person[p]] = p;
+    bool taken[16] = {0};
+    for (int i = 0; i < 16; ++i)
+        if (dest[i] >= 0) taken[dest[i]] = true;
+    int spare[16], spare_count = 0;
+    for (int d = 0; d < 16; ++d)
+        if (!taken[d]) spare[spare_count++] = d;
+    int spare_at = 0;
+    for (int i = 0; i < 16; ++i)
+        if (dest[i] < 0) dest[i] = spare[spare_at++];
+
+    uint8_t owners[16], sides[16];
+    int resources[8][RTS_MAX_RESOURCES];
+    memcpy(owners, pud->owners, sizeof(owners));
+    memcpy(sides, pud->sides, sizeof(sides));
+    memcpy(resources, out->player_resources, sizeof(resources));
+    for (int src = 0; src < 16; ++src) {
+        int d = dest[src];
+        pud->owners[d] = owners[src];
+        pud->sides[d] = sides[src];
+        if (d >= 8) continue;
+        if (src < 8) memcpy(out->player_resources[d], resources[src], sizeof(resources[src]));
+        else memset(out->player_resources[d], 0, sizeof(out->player_resources[d]));
+    }
+    for (int p = n; p < person_count; ++p) pud->owners[dest[person[p]]] = 4;
+
+    for (int i = 0; i < pud->unit_count; ++i) {
+        w2_pud_unit_t *unit = &pud->units[i];
+        if (unit->player >= 16) continue;
+        int seat = dest[unit->player];
+        unit->player = (uint8_t)seat;
+        int want = net_races_set && seat < n ? net_races[seat] : -1;
+        uint8_t twin;
+        int have = paired_race(unit->type, &twin);
+        if ((want == 0 || want == 1) && have >= 0 && have != want) unit->type = twin;
+    }
+    for (int seat = 0; seat < n; ++seat) {
+        int want = net_races_set ? net_races[seat] : -1;
+        if (want == 0 || want == 1) pud->sides[seat] = (uint8_t)want;
+    }
+    if (consoleplayer >= 0 && consoleplayer < MAXPLAYERS) pud->view_player = consoleplayer;
+    point_at_start(out, pud);
+}
 
 static void apply_start_resources(level_t *out, const w2_pud_t *pud) {
     static const int stock[5][3] = {
@@ -304,16 +403,7 @@ bool w2_load_pud(const char *path, level_t *out) {
         }
     }
     out->has_camera = true;
-    out->camera = (fvec2_t){ (float)width * 0.5f, (float)height * 0.5f };
-    if (pud->view_player >= 0) {
-        for (int i = 0; i < pud->unit_count; ++i) {
-            const w2_pud_unit_t *unit = &pud->units[i];
-            if (unit->player != pud->view_player) continue;
-            if (unit->type != 94 && unit->type != 95) continue;
-            out->camera = (fvec2_t){ unit->x + 0.5f, unit->y + 0.5f };
-            break;
-        }
-    }
+    point_at_start(out, pud);
     snprintf(out->map_path, sizeof(out->map_path), "%s", path);
     out->native_data = pud;
     out->destroy_native_data = destroy_pud;
