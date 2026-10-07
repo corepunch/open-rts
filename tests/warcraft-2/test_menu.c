@@ -339,6 +339,26 @@ int main(void) {
         CHECK(M_MenuFind(currentmenu, -2)->look[MS_NORMAL].cell == 1);
         CHECK(M_MenuFind(currentmenu, 1)->flags & 0x8000);
         draw(orc ? "6d-brief-orc" : "6c-brief-human");
+        /* Font 282's drop shadow is ink 5, colour-map entry 0xef. That index
+         * is black on the menu palette and parchment on 367/368. The letter
+         * is 0xf6; the pixel under it is index 0, the black the menu colour
+         * matches to, not 0xef. */
+        {
+            menuitem_t *body = M_MenuFind(currentmenu, 1);
+            int black = 0, wood = 0, white = 0;
+            CHECK((vpalette[0] & 0xffffffu) == 0);
+            CHECK((vpalette[0xef] & 0xffffffu) != 0);
+            for (int y = body->rect.y; y < body->rect.y + body->rect.h - 1; ++y)
+                for (int x = body->rect.x; x < body->rect.x + body->rect.w - 1; ++x) {
+                    uint8_t pixel = screens[0].pixels[y * screens[0].w + x];
+                    if (pixel != 0xf6) continue;
+                    white++;
+                    uint8_t under = screens[0].pixels[(y + 1) * screens[0].w + (x + 1)];
+                    if (under == 0) black++;
+                    if (under == 0xef) wood++;
+                }
+            CHECK(white > 50 && black > 40 && wood == 0);
+        }
         CHECK(click(S(orc ? 55 : 54, 1)));
         CHECK(!menuactive && menumap && menumap[0] == '/');
         CHECK(strstr(menumap, orc ? "level01o.pud" : "level01h.pud"));

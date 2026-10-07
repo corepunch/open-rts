@@ -1671,6 +1671,18 @@ is unreadable on the bevel. The prose and title rectangles stay the DOS
 records. The dotted line in the reference is one moment of a longer string;
 the screen draws the whole STRDAT briefing.
 
+**Confirmed shadow index.** `0x67768` writes `map[ink]`, and colour 4's last
+byte is `0xef`. FONT 282 (the prose and Continue label) puts its drop shadow
+in ink 5: the bottom rows of a glyph are that ink. Palettes 2, 10, 14, 16
+and 18 store black at `0xef`. Palette 368 stores `#806c50` there (2 pixels
+in image 370) and palette 367 stores `#989824` (0 pixels in image 369).
+Index 0 is `#000000` on both. `0x68` and `0x6c` are `#6c6c6c` and `#9c9c9c`
+on the menu palette and wood colours on 367/368, and the pictures use those
+indices, so the palette slots stay. Text matches the menu RGB into the
+screen palette: black lands on index 0, the two greys on `0x08` and `0x04`.
+FONT 281 (title and objectives) has almost no ink 5; its edge is ink 4, the
+grey, not a second black.
+
 **Superseded.** "The portrait resource is unknown; both briefings use the
 dimmed title." The dimmed title is REZDAT 15, the menu parchment, and it
 was only a stand-in.

@@ -20,7 +20,10 @@ void w2_dialog_art(const w2_menu_art_t *menu_art) { art = menu_art; }
 
 /* Font colour maps 0x99580 (2), 0x99560 (3), 0x99568 (4), 0x99570 (5), as
  * 0x10c20 fills them for the front end. A glyph pixel n indexes map[n]; the
- * decoder stores n + 1, and n = 0 writes palette index 0. */
+ * decoder stores n + 1, and n = 0 writes palette index 0. On the menu palette
+ * the last entry, 0xef, is black: font 282's drop shadow is ink 5. Briefing
+ * palettes 367 and 368 keep that index for the picture (tan and olive), so
+ * the shadow is matched to the menu colour, which lands on index 0. */
 static const uint8_t colour_maps[6][6] = {
     [2] = {0, 0xc8, 0xc7, 0xc5, 0xc0, 0xef},
     [3] = {0, 0xbf, 0xbf, 0xa8, 0xa7, 0xef},
@@ -30,13 +33,25 @@ static const uint8_t colour_maps[6][6] = {
 
 static const uint8_t *colour_remap(int colour) {
     static uint8_t remaps[6][256];
-    static bool built;
-    if (!built) {
-        for (int c = 0; c < 6; ++c)
-            for (int n = 0; n < 6; ++n) remaps[c][n + 1] = colour_maps[c][n];
-        built = true;
+    static uint32_t stamp[6];
+    static uint8_t ready[6];
+    colour = colour >= 2 && colour <= 5 ? colour : 2;
+    const uint32_t *ui = art && (art->widgets[0].source_palette[0xf6] & 0xffffffu) == 0x00fcf8f0u
+                         ? art->widgets[0].source_palette : NULL;
+    uint32_t sig = ui ? 0x9e3779b9u : 1u;
+    for (int n = 0; n < 6; ++n)
+        sig = (sig ^ (vpalette[colour_maps[colour][n]] & 0xffffffu)) * 16777619u;
+    if (ready[colour] && stamp[colour] == sig) return remaps[colour];
+    memset(remaps[colour], 0, sizeof(remaps[colour]));
+    for (int n = 0; n < 6; ++n) {
+        uint8_t index = colour_maps[colour][n];
+        if (ui && (vpalette[index] & 0xffffffu) != (ui[index] & 0xffffffu))
+            index = V_NearestIndex(ui[index]);
+        remaps[colour][n + 1] = index;
     }
-    return remaps[colour >= 2 && colour <= 5 ? colour : 2];
+    stamp[colour] = sig;
+    ready[colour] = 1;
+    return remaps[colour];
 }
 
 /* Flag 0x0800 picks MAINDAT 281 and 0x0400 MAINDAT 283; otherwise the dialog
