@@ -71,6 +71,8 @@ static void press(SDL_Keycode key) {
     SDL_Event event = {.type = SDL_KEYDOWN};
     event.key.keysym.sym = key;
     M_Responder(&app, &event, false);
+    event.type = SDL_KEYUP;
+    M_Responder(&app, &event, false);
 }
 
 int main(void) {
@@ -84,6 +86,26 @@ int main(void) {
     CHECK(menuactive);
     CHECK(find(S(4, 1)) && find(S(4, 2)) && find(S(4, 5)));
     draw("1-title");
+
+    /* A button is pressed on the way down and acts on release; arrows move focus. */
+    {
+        menuitem_t *single = find(S(4, 1));
+        irect_t r = M_MenuItemRect(currentmenu, single);
+        SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
+        event.button.button = SDL_BUTTON_LEFT;
+        event.button.x = r.x + r.w / 2;
+        event.button.y = r.y + r.h / 2;
+        M_Responder(&app, &event, false);
+        CHECK(currentmenu->held == single && currentmenu->over && find(S(4, 1)) && !find(S(6, 1)));
+        event.button.x = 1;
+        event.button.y = 1;
+        event.type = SDL_MOUSEBUTTONUP;
+        M_Responder(&app, &event, false);
+        CHECK(find(S(4, 1)) && !find(S(6, 1)));
+        currentmenu->itemOn = -1;
+        press(SDLK_DOWN);
+        CHECK(currentmenu->itemOn >= 0);
+    }
 
     /* Title -> Single Player: campaigns, custom game and load, labelled by the retail dialogs. */
     CHECK(click(S(4, 1)));
