@@ -2058,3 +2058,11 @@ The user's `Screenshot 2026-10-07 at 09.33.45.jpg` is evidence of the broken
 open-rts output, not a retail screenshot or authority for native behavior.
 The corrected engine screenshot and temporary C coastline render were visual
 verification only; no new external reference or generated asset was used.
+
+The follow-up native-storage revision retains those column-major arrays at
+runtime through `L_Index`/`L_Cell`, removing the initial load-time transpose.
+The same retail renderer evidence rules out a framebuffer transpose: tile
+pixels are already upright. `reference/DOOM/p_maputl.c` was consulted for
+direct block-grid addressing. See the “Preserve native storage” subsection
+in `docs/7LEGION_EXE_FINDINGS.md` for the implementation, save compatibility,
+pixel-equivalence check and remaining sprite-mapping limitation.

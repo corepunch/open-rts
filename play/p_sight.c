@@ -41,7 +41,7 @@ static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborn
             ivec2_t cell = ivec2_add(origin, offset);
             if (!L_Contains(&level, cell.x, cell.y)) { i = sightnodes[i].end; continue; }
         }
-        int index = base + offset.y * level.width + offset.x;
+        int index = base + L_Index(&level, offset.x, offset.y);
         uint16_t flags = level.tile_flags ? level.tile_flags[index] : MAP_SIGHT_PASS;
         level.sight.cells[index] |= explored;
         if (!(flags & MAP_SIGHT_NEAR) || sightnodes[i].depth < 2)

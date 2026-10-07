@@ -476,3 +476,52 @@ the main menu. Asset SHA-256 fingerprints:
 | DATA/MAPL.000 | `e34f522501d187e2b330756a7ea0926e959b6bc26a6ad9a4eda1424ee65ba559` |
 | DATA/MAPOVL.000 | `a2b61cb5f79117d95e5a2b8ef4973bae03e713666d75072fd3b39009c4c93ebb` |
 | GFX/TILES2.BIM | `5dc58e231dbf544e5f05c22f3379f6695ec0b336fddecbdf4efb68566dba5bf9` |
+
+### Preserve native storage instead of transposing at load (2026-10-07)
+
+**Implementation revision requested by the user:** retain the column-major
+cell order established above. The first terrain correction used a load-time
+transpose into the engine's old row-major convention. That bridge is now
+removed. In the 7th Legion build, `L_Index(map,x,y)` is `x*height+y` and
+`L_Cell` performs its inverse. MAPT, MAPOVL and the ground mask retain native
+cell order; the necessary byte decoding/decryption and ground-value test are
+unchanged. This does not introduce a second map representation. Pathfinding
+regions, search parents, reconstruction and fog offsets now use the same
+addressing helpers. Other games retain their existing storage and coordinates.
+
+**Disproven proposed remedy:** a final framebuffer flip/rotation is not the
+missing conversion. Column-major cell storage does not transpose the pixels
+inside a tile. The traced retail renderer advances horizontally for native
+x, vertically for y, and copies upright tile pixels. A framebuffer transpose
+would also transpose those pixels, sprite artwork and any already-drawn UI.
+The screenshot with native storage is byte-identical to the corrected
+load-transpose implementation. Sprite frame selection remains independently
+unresolved as documented in the sprite audit; no global image transform can
+replace its different sequence strides, angle formulas and direction counts.
+
+`reference/DOOM/p_maputl.c` uses direct block-grid addressing at object link
+and unlink sites. We retain that direct indexing model through the existing
+map helper; the verified 7th Legion column-major order is the reason its
+formula differs from Doom's row-major blockmap. There is no new renderer
+callback, per-level coordinate configuration or framebuffer pass.
+
+Saves contain raw blocked/fog arrays, so the 7th Legion save signature now
+includes a layout revision. Older row-major saves are rejected rather than
+silently restoring transposed collision/visibility. Other games' signatures
+are unchanged. Path-search tie-breaking uses native cell indices and can
+choose a different equal-cost route; the navigation behavior tests pass.
+
+Verification: seven retail landmarks and direct native array offsets pass;
+a rectangular 19x11 fixture verifies fog offsets and screen-to-world picking.
+`make`, the explicit mission smoke test, Dark Colony navigation, fog and
+waypoint tests pass. All 7th Legion tests pass except the previously reproduced
+network-menu LAN assertion. Comparing the before/after explicit-mission BMPs
+with `cmp` reports no differences. No pixel assets or sprite definitions were
+changed. Reuse the terrain reproduction commands above; additionally:
+
+```sh
+make build/bin/tests/dark-colony/test_nav build/bin/tests/dark-colony/test_fog build/bin/tests/dark-colony/test_waypoints
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_nav
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_waypoints
+```

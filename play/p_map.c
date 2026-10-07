@@ -14,7 +14,19 @@ static uint32_t next_move_order_id(void) {
 }
 
 int L_Index(const level_t *map, int x, int y) {
+#ifdef RTS_GAME_7LEGION
+    return x * map->height + y;
+#else
     return y * map->width + x;
+#endif
+}
+
+ivec2_t L_Cell(const level_t *map, int index) {
+#ifdef RTS_GAME_7LEGION
+    return (ivec2_t){index / map->height, index % map->height};
+#else
+    return (ivec2_t){index % map->width, index / map->width};
+#endif
 }
 
 bool L_Contains(const level_t *map, int x, int y) {

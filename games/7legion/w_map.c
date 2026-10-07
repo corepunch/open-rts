@@ -94,15 +94,14 @@ bool sl_load_map(const char *map_path, level_t *out) {
     }
     const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
     uint16_t key = 30000;
-    /* Retail MAPT/MAPOVL/MAPL use x*128+y; engine levels use y*width+x.
-       Decode in native file order so the rolling key and coordinate XORs
-       remain aligned. See docs/7LEGION_EXE_FINDINGS.md. */
+    /* Keep retail column-major storage (x*128+y). L_Index uses that same
+       layout throughout simulation and rendering. Only decode the file bytes.
+       See docs/7LEGION_EXE_FINDINGS.md. */
     for (int x = 0; x < W; ++x) {
         for (int y = 0; y < H; ++y) {
             int source_i = x * H + y;
-            int output_i = L_Index(out, x, y);
             uint16_t stored = read_u16_le(tile_bytes + (size_t)source_i * 2);
-            out->tile_ids[output_i] = (uint16_t)((stored ^ key) - y);
+            out->tile_ids[source_i] = (uint16_t)((stored ^ key) - y);
             key--;
         }
     }
@@ -122,8 +121,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
                 for (int x = 0; x < W; ++x) {
                     for (int y = 0; y < H; ++y) {
                         int source_i = x * H + y;
-                        int output_i = L_Index(out, x, y);
-                        out->tile_overlays[0][output_i] =
+                        out->tile_overlays[0][source_i] =
                             (uint16_t)(read_u16_le(p + (size_t)source_i * 2) & 0xffu);
                     }
                 }
@@ -143,9 +141,8 @@ bool sl_load_map(const char *map_path, level_t *out) {
                 for (int x = 0; x < W; ++x) {
                     for (int y = 0; y < H; ++y) {
                         int source_i = x * H + y;
-                        int output_i = L_Index(out, x, y);
                         /* Retail ground movement accepts decoded land value 1. */
-                        out->blocked[output_i] = (values[source_i] ^ x) != 1;
+                        out->blocked[source_i] = (values[source_i] ^ x) != 1;
                     }
                 }
             }
