@@ -2369,8 +2369,9 @@ void M_Shutdown(void);
 /* The shared multiplayer screens (hud/m_net.c): create a game, browse or join
  * one, lobby with chat, then launch. The transport is the I_* layer; a game
  * supplies its look, the maps a host may offer, and the races a player may
- * pick. Each joined player owns their own race. The host picks the map and
- * starts once every player is ready. */
+ * pick. Each joined player owns their own race and presses Start. The match
+ * begins when every joined player has. Without races, the host starts once
+ * every seat has joined. */
 typedef struct {
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette with the background; NULL keeps the menu's default */

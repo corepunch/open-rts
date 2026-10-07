@@ -34,9 +34,7 @@ static void open_save(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_briefing(void);
-static void open_connection(void);
-static void open_viewgame(void);
-static void open_engine_net(int first);
+static void open_engine_net(void);
 
 static w2_menu_art_t art;
 
@@ -129,7 +127,7 @@ typedef struct { const char *text; int at, len; } label_t;
 typedef struct { char path[1200]; saveinfo_t info; } saveentry_t;
 
 static screen_t title_screen, game_screen, single_screen, campaign_screen, setup_screen, pick_screen, credits_screen, options_screen,
-                result_screen, stats_screen, file_screen, dialog_screen, brief_screen, net_screen;
+                result_screen, stats_screen, file_screen, dialog_screen, brief_screen;
 static char data_root[1024];
 static app_t *front_app;
 static int resources_mode, launch_resources;
@@ -145,7 +143,6 @@ static saveentry_t saves[MAX_SAVES];
 static int save_count, name_item;
 static bool saving;
 static char credits_text[3072], briefing_text[4096], objective_text[2048];
-static char method_name[3][160], method_desc[512];
 enum { NUM_RESOURCES = 4 };
 /* Engine ranges on the native sliders. Sound and music are gamesettings;
  * CD, mouse and keyboard speeds are stored only. Fog, mouse style and the
@@ -153,9 +150,7 @@ enum { NUM_RESOURCES = 4 };
 static int saved_sound, saved_music, saved_speed, saved_cd, cd_volume = 10;
 static int mouse_speed = 10, key_speed = 10;
 static int speech_on = 1, ack_on = 1, building_on = 1, cd_music_on = 1;
-static int mouse_style, fog_mode, map_info, show_tips = 1, key_page, net_dialog;
-static char modem_line[3][40];
-static int modem_tone = 1;
+static int mouse_style, fog_mode, map_info, show_tips = 1, key_page;
 enum { CONFIRM_SURRENDER = 1, CONFIRM_RESTART, CONFIRM_MENU, CONFIRM_QUIT, CONFIRM_LOBBY, CONFIRM_CUSTOM };
 static int confirm_kind;
 static bool brief_from_menu, brief_orc;
@@ -1219,7 +1214,11 @@ bool G_LoadExtra(const void *data, size_t size) {
     return true;
 }
 
-/* ── multiplayer: the engine's screens in Warcraft II dress ───────────────── */
+/* ── multiplayer: TCP create, join and lobby ───────────────────────────────
+ * Retail opens a connection list (modem, direct link, IPX) before create and
+ * join. This build is TCP only, so Multiplayer opens create and join at once.
+ * A joined game waits in the shared lobby; the match starts when every player
+ * has pressed Start. */
 
 /* Built-in scenarios both peers can name, then loose maps with room for two. */
 static void scan_net(void) {
@@ -1288,7 +1287,7 @@ static void net_style_label(menuitem_t *item) {
 }
 static void net_back(app_t *app) {
     (void)app;
-    open_viewgame();
+    open_title();
 }
 
 static void net_word(int id, int entry, int index) {
@@ -1298,7 +1297,7 @@ static void net_word(int id, int entry, int index) {
     }
 }
 
-static void open_engine_net(int first) {
+static void open_engine_net(void) {
     memset(net_text, 0, sizeof(net_text));
     net_word(NETTEXT_TITLE, STR_MAIN_MENU, 2);
     net_word(NETTEXT_CREATE, 38, 3);
@@ -1313,7 +1312,7 @@ static void open_engine_net(int first) {
     netui_t ui = {
         .background = &art.dimmed, .font = large(), .panel = &art.panel[1][W2_PANEL_SCENARIO],
         .style_button = net_style_button, .style_label = net_style_label, .style_list = net_style_list,
-        .back = net_back, .drawitem = w2_draw_item, .first = first,
+        .back = net_back, .drawitem = w2_draw_item,
         .map_count = net_map_count, .map_path = net_map_path, .map_title = net_map_title,
         .max_players = 8, .race_count = 2, .race_name = net_race_name,
         .map_players = net_map_players, .slot_race = net_slot_race, .commit = net_commit,
@@ -1322,133 +1321,9 @@ static void open_engine_net(int first) {
     M_NetOpen(front_app, &ui);
 }
 
-/* STRDAT 60 names the three connection methods. Rows are copied out of L()'s
- * ring because the list draws every row at once. Descriptions are 60/5..7. */
-static const char *method_row(const menuitem_t *item, int row) {
-    (void)item;
-    return row >= 0 && row < 3 ? method_name[row] : "";
-}
-
-static void connection_action(menu_t *menu, menuitem_t *item, menuaction_t action);
-static void open_link(int resource);
-
-static void open_connection(void) {
-    button_race = 1;
-    if (!native_scene(&net_screen, 3042, backdrop(), NULL, escape_to_title)) return;
-    for (int i = 0; i < 3; ++i) {
-        w2_text_t text;
-        method_name[i][0] = '\0';
-        if (w2_label(STR_CONNECTION, 2 + i, &text))
-            snprintf(method_name[i], sizeof(method_name[i]), "%s", text.text);
-    }
-    menuitem_t *list = M_MenuFind(&net_screen.menu, 1);
-    if (list) {
-        native_rows(list);
-        list->row = method_row;
-        list->value = -1;
-        M_MenuSetRows(list, 3);
-    }
-    menuitem_t *desc = M_MenuFind(&net_screen.menu, 2);
-    if (desc) { desc->text[0] = '\0'; desc->prose = NULL; }
-    wire(&net_screen, connection_action);
-    show(&net_screen.menu);
-}
-
-static void connection_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    if (item->id == 1 && action == MA_CHANGE) {
-        menuitem_t *desc = M_MenuFind(&net_screen.menu, 2);
-        if (desc && item->value >= 0 && item->value < 3) {
-            w2_label_copy(STR_CONNECTION, 5 + item->value, method_desc, sizeof(method_desc));
-            desc->prose = method_desc;
-            desc->text[0] = '\0';
-        }
-        return;
-    }
-    if (action != MA_ACTIVATE) return;
-    if (item->id == -3) { escape_to_title(menu); return; }
-    if (item->id != -2) return;
-    menuitem_t *list = M_MenuFind(&net_screen.menu, 1);
-    int row = list ? list->value : -1;
-    if (row == 0) open_link(3073);
-    else if (row == 1) open_link(3072);
-    else if (row == 2) open_viewgame();
-}
-
-static void take_modem_config(void) {
-    menu_t *m = &dialog_screen.menu;
-    for (int id = 1; id <= 3; ++id) {
-        menuitem_t *field = M_MenuFind(m, id);
-        if (field && field->kind == MI_TEXTFIELD)
-            snprintf(modem_line[id - 1], sizeof(modem_line[id - 1]), "%s", field->text);
-    }
-    menuitem_t *tone = M_MenuFind(m, 4);
-    if (tone) modem_tone = tone->value ? 1 : 0;
-}
-
-static void apply_modem_config(void) {
-    menu_t *m = &dialog_screen.menu;
-    for (int id = 1; id <= 3; ++id) {
-        menuitem_t *field = M_MenuFind(m, id);
-        if (field && field->kind == MI_TEXTFIELD)
-            snprintf(field->text, sizeof(field->text), "%s", modem_line[id - 1]);
-    }
-    set_radio(m, 1, 4, 5, modem_tone != 0);
-}
-
-static void link_action(menu_t *menu, menuitem_t *item, menuaction_t action);
-
-static void link_escape(menu_t *menu) {
-    (void)menu;
-    if (net_dialog == 3074) open_link(3073);
-    else open_connection();
-}
-
-static void link_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu;
-    if (action != MA_ACTIVATE || item->kind != MI_BUTTON) return;
-    if (item->id == 7 && net_dialog == 3073) { open_link(3074); return; }
-    if (item->id == -2 && net_dialog == 3074) { take_modem_config(); open_link(3073); return; }
-    if (item->id == -2 && (net_dialog == 3072 || net_dialog == 3073)) {
-        M_StartMessage("This connection is not available.");
-        return;
-    }
-    if (item->id == -3) link_escape(&dialog_screen.menu);
-}
-
-/* Direct link 3072 and modem 3073 are display records. COM, baud and IRQ
- * lists are not in STRDAT, so the dropdowns stay empty. 3074 stores its
- * fields and returns to the modem page. */
-static void open_link(int resource) {
-    net_dialog = resource;
-    button_race = 1;
-    if (!native_scene(&dialog_screen, resource, backdrop(), NULL, link_escape)) return;
-    if (resource == 3074) apply_modem_config();
-    wire(&dialog_screen, link_action);
-    show(&dialog_screen.menu);
-}
-
-static void view_escape(menu_t *menu) { (void)menu; open_connection(); }
-
-static void view_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu;
-    if (action != MA_ACTIVATE) return;
-    if (item->id == 3) open_engine_net(1);
-    else if (item->id == 1) open_engine_net(2);
-    else if (item->id == 4) open_connection();
-}
-
-static void open_viewgame(void) {
-    button_race = 1;
-    if (!native_scene(&net_screen, 3075, backdrop(), NULL, view_escape)) return;
-    menuitem_t *list = M_MenuFind(&net_screen.menu, 6);
-    if (list) { native_rows(list); list->rows = 0; list->value = -1; }
-    wire(&net_screen, view_action);
-    show(&net_screen.menu);
-}
-
 static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu; (void)item;
-    if (action == MA_ACTIVATE) open_connection();
+    if (action == MA_ACTIVATE) open_engine_net();
 }
 
 static void accept_pick(void) {
