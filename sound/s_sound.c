@@ -45,6 +45,12 @@ int S_AddSfx(const sfxinfo_t *sfx) {
     return numsfx;
 }
 
+static void free_sfx(void) {
+    for (int i = 1; i <= numsfx; ++i) I_FreeSample(sfxtable[i].data);
+    memset(sfxtable, 0, sizeof(sfxtable));
+    numsfx = 0;
+}
+
 sfxinfo_t *S_Sfx(int id) {
     return id > 0 && id <= numsfx ? &sfxtable[id] : NULL;
 }
@@ -56,11 +62,12 @@ bool S_Init(const char *data_root) {
     if (!I_InitSound()) return false;
     numsfx = 0;
     if (!game->init(data_root)) {
+        free_sfx();
         I_ShutdownSound();
         return false;
     }
     for (int i = 1; i <= numsfx; ++i) {
-        if (!sfxtable[i].name[0]) continue;
+        if (!sfxtable[i].name[0] || sfxtable[i].data) continue;
         char path[1024];
         M_PathJoin(path, sizeof(path), data_root, sfxtable[i].name);
         sfxtable[i].data = I_LoadSample(path);
@@ -74,11 +81,7 @@ bool S_Init(const char *data_root) {
 void S_Shutdown(void) {
     if (!initialized) return;
     S_StopAllSounds();
-    for (int i = 1; i <= numsfx; ++i) {
-        I_FreeSample(sfxtable[i].data);
-        sfxtable[i].data = NULL;
-    }
-    numsfx = 0;
+    free_sfx();
     I_ShutdownSound();
     listener = NULL;
     initialized = false;

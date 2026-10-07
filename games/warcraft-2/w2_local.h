@@ -42,6 +42,8 @@ typedef struct {
     int view_player;
 } w2_pud_t;
 void w2_build_info(void);
+extern const soundinfo_t w2_soundinfo;
+void A_W2_Chop(mobj_t *actor);
 void w2_init_products(void);
 void w2_limit_walk(int pud, int phases);
 int w2_pud_named(const char *name);

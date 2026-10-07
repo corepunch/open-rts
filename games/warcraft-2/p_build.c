@@ -263,6 +263,7 @@ bool W2_TickBuild(mobj_t *unit) {
     if (site->hp > site->max_hp) site->hp = site->max_hp;
     if (site->w2.build_left_ms <= 0) {
         finish_site(site);
+        S_Bark(&unit, 1, SE_WORK_COMPLETE, false);
         release(unit);
         return true;
     }

@@ -276,6 +276,7 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
         W2_ApplyUpgrade(producer->owner, product->product_type);
     else
         W2_TransformUnit(producer, (uint16_t)product->product_type);
+    S_Bark(&producer, 1, SE_RESEARCH_COMPLETE, false);
     production_t *production = producer->production;
     if (production) {
         if (--production->queue_count > 0) production->time_left_ms = production->time_ms;

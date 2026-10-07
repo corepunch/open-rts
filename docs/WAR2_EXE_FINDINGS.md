@@ -407,3 +407,98 @@ The final lossy/reordered network run completed 550 tics with 296 packets
 dropped, 145 duplicated and 130 reordered. Human/orc HUD captures were
 rendered and inspected at 640×480. These outcomes verify this engine's
 implementation; they do not remove the original-runtime unknowns above.
+
+## Native sound playback (2026-10-07)
+
+**Evidence and scope.** WAR2.EXE SHA-256 remains
+`a2b4b2118ec6355371b58134be8c7331d1facc5989e7188a1d1bb68fd1f26671`;
+this task did not disassemble or execute it. The reference pins in
+`REFERENCES.md` apply. These are confirmed archive facts and reference
+assignments, not a claim of verified retail sound dispatch.
+
+**Confirmed native data.** `DATA/SFXDAT.SUD` is 6,809,845 bytes, SHA-256
+`05645c6efb4f38acbff955b20bfd06a6da42942434f37f771f7c792f1e62fb95`.
+Its header is WAR magic 0x19 at offset 0, 293 entries at offset 4 and
+archive type 5000 at offset 6; its first record starts at 0x49c.
+The existing WAR extractor handles these records unchanged once type 5000
+is accepted. All 184 referenced SFX records decode as RIFF WAVs, as does
+MAINDAT entry 432 (the 1,524-byte UI click). The sample bytes are read from
+the native archive, decoded in memory, and freed after conversion to the
+shared mixer's mono signed-16 representation. There are no extracted
+runtime files or reference-checkout dependencies.
+
+**Disproven initial assumption.** SNDDAT.WAR is not the gameplay sound
+bank. Wargus `wartool.h` places gameplay effects/voices in SFXDAT.SUD,
+UI click/highclick/statsthump at MAINDAT entries 432/435/436, and campaign
+speech in SNDDAT.WAR. `wartool.cpp::ConvertWav` preserves the extracted
+WAV bytes; no additional codec or guessed raw-PCM header is required.
+
+**Confirmed reference assignments.** Wargus `wartool.h`,
+`scripts/sound.lua`, and `scripts/{human,orc}/units.lua` establish the
+entry identities, group membership and type/event assignments authored in
+`games/warcraft-2/sounds.c`. Examples (zero-based native entry indices):
+
+- Human selection: 5,7,9,11,13,15; orc selection: 6,8,10,12,14,16.
+  Human acknowledgements: 32,34,36,38; orc: 33,35,37,39.
+- Peasant selection: 271–274, acknowledgements: 275–278, ready: 263.
+  Peon selection/acknowledgements share the grunt voice, but ready is 115.
+- Swords: 60–62; bow throw: 66; axe throw: 77; peasant attack: 81;
+  lightning: 111; touch of darkness: 112; catapult/ballista: 55.
+- Building destruction: 52–54; chopping: 56–59; ship sinking: 51.
+  Dragon/Deathwing deaths use explosion 31, not orc infantry death 50.
+  Eye of Kilrogg has selection click but no assigned acknowledgement/death.
+- Buildings retain their distinct selection samples (e.g. farm 74,
+  pig farm 75, blacksmith 69). Worker construction completion uses human
+  peasant 42 or orc 41; research completion uses player-side 40 or 41.
+- The base bank ends at 292; it lacks expansion hero voices. The authored
+  hero assignments use Wargus's explicit non-expansion mappings, including
+  Teron selection sharing basic orc voices and acknowledgement using the
+  death knight. No guessed sound aliases are used.
+- `scripts/{human,orc}/anim.lua` puts tree-chopping on source frame 40,
+  which is logical frame 8 after the five-direction GRP conversion. The
+  fourth state of the existing seven-state work cycle now invokes
+  `A_W2_Chop`; attack audio uses the existing attack action event.
+
+**Reference comparison / implementation policy.** Warcraft 2000
+`GameSound.cpp::LoadSounds` and `PlayEffect` group WAV alternatives and
+keep playback state separate from game simulation. `AddWarEffect` and
+`AddWorkEffect` check visibility and pan relative to the viewport. Its
+DirectSound buffers, fog thresholds, pan/attenuation constants and RNG
+are not Warcraft II rules and were not imported. Dark Colony's shared
+`sound/s_sound.c` and `sound/i_sound.c` provide sample ownership, channel
+handles, stereo positioning, volume, ownership-filtered barks, fog checks
+for enemy world sounds, origin unlinking and level/shutdown cleanup.
+Original Doom `s_sound.c` was consulted for the sound/channel ownership
+boundary. No second mixer, simulation storage or sound RNG was added.
+
+Native samples live only in the engine sfx table. Initialization failures
+free partially loaded samples before closing the audio device, so a retry
+starts with a clean table. Training, construction and research completion
+use the shared single-voice bark channel; level start stops old playback.
+
+**Unknown / deliberately not inferred.** Retail annoyance thresholds,
+under-attack warning cooldowns, distance attenuation, per-sample limits,
+hero expansion dispatch, and tower attack assignments remain unknown.
+The existing engine group randomization/no-repeat and voice interruption
+are engine policy, not proven Warcraft II behavior. Warcraft retains shared
+stereo panning with no new distance curve. Wargus itself marks ship attack
+assignments uncertain; its fireball-throw assignment is used as reference
+behavior, not retail proof. Music, campaign narration, annoyance escalation,
+alerts, and sounds for unimplemented spells/transport are not implemented.
+
+**Reproduction.** Build and run `build/bin/tests/warcraft-2/test_sounds`
+with SDL video/audio dummy drivers. It checks 185 loaded WAVs and 35 groups,
+plays/stops every loaded sample, checks voice/weapon/building assignments,
+volume, fog, ownership, unchanged combat RNG, level cleanup, malformed WAV
+rejection, partial-load failure/retry, shutdown/reinitialization and nosound.
+Temporary `OPEN_RTS_DEBUG_W2_SOUND` logging recorded archive name, entry,
+extracted size, RIFF signature and decode result; it was removed after
+verification. The native menu screenshot also renders correctly.
+
+**Verification outcome.** `make -j4 all` passed without compiler warnings;
+all 22 `test-warcraft-2` executables passed (the network menu tests require
+local UDP socket permission). Warcraft II and Dark Colony dummy-audio sound
+tests passed, as did both games' headless `--check`. The Warcraft native
+menu BMP was rendered and visually inspected. Playback validation used the
+SDL dummy audio driver; this does not constitute a listening comparison
+against the original game.

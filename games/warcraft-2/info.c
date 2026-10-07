@@ -1972,6 +1972,7 @@ void w2_build_info(void) {
         for (int i = 0; i < 7; ++i)
             states[start + i] = (state_t){
                 .sprite = pud, .frame = chop_frames[i], .count = 1,
+                .action = i == 3 ? A_W2_Chop : NULL,
                 .tics = chop_tics[i], .nextstate = i == 6 ? stand_state(pud) : start + i + 1,
                 .group = 5,
             };
@@ -2007,6 +2008,7 @@ void w2_build_info(void) {
         .select_any = true,
         .f10_menu = true,
         .instant_turn = true,
+        .sound = &w2_soundinfo,
     };
 }
 

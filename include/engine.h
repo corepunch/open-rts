@@ -1385,7 +1385,7 @@ void R_FreeSpriteCache(spritecache_t *cache);
 
 /* One playable sound, or a Hexen SNDINFO-style random group of them. */
 typedef struct sfxinfo_s {
-    char name[64];      /* Data-root-relative sample path; empty for a group. */
+    char name[64];      /* Relative WAV path, or label if data is already decoded. */
     int priority;       /* Bark priority: lower wins (DC SLIST); 0 for samples. */
     int instances;      /* Simultaneous plays allowed; 0 is unlimited. */
     int volume;         /* Attenuation in centibels, <= 0 (DirectSound units). */
@@ -1394,7 +1394,7 @@ typedef struct sfxinfo_s {
     int numlinks;
     int next;           /* Group cursor: the member the next play uses. */
     bool norepeat;      /* Group re-rolls its cursor away from the last member. */
-    struct sfxsample_s *data;
+    struct sfxsample_s *data; /* Owned by S_Shutdown, including init-loaded samples. */
 } sfxinfo_t;
 
 /* Actor events a game maps to sounds. */
@@ -1408,6 +1408,10 @@ typedef enum {
     SE_EXPLODE,  /* A missile's impact. */
     SE_ATTACKED, /* A local player's object took damage (alert). */
     SE_ACTIVE,   /* Looping sound while the actor exists (engines, drills). */
+    SE_READY,    /* Bark: a trained unit is ready. */
+    SE_WORK_COMPLETE,
+    SE_RESEARCH_COMPLETE,
+    SE_WORK,     /* A worker's tool strikes its resource. */
     NUMSOUNDEVENTS
 } soundevent_t;
 
@@ -1421,7 +1425,8 @@ typedef enum {
 
 /* A game's sound definition, referenced by gameinfo_t.sound. */
 typedef struct soundinfo_s {
-    /* Registers the sfx table with S_AddSfx; false leaves the game silent. */
+    /* Registers sfx; may fill S_Sfx(id)->data from native archives.
+     * False frees partial samples and leaves the game silent. */
     bool (*init)(const char *data_root);
     /* Per-level data such as tileset ambience. */
     void (*level_start)(const level_t *map, const char *data_root);
@@ -1482,6 +1487,8 @@ typedef struct sfxsample_s sfxsample_t;
 bool I_InitSound(void);
 void I_ShutdownSound(void);
 sfxsample_t *I_LoadSample(const char *path);
+/* Decodes an in-memory WAV; the input remains owned by the caller. */
+sfxsample_t *I_LoadSampleMemory(const void *bytes, size_t size);
 void I_FreeSample(sfxsample_t *sample);
 int I_StartSound(const sfxsample_t *sample, int left, int right, bool loop);
 void I_UpdateSoundParams(int handle, int left, int right);
