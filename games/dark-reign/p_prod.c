@@ -10,14 +10,14 @@
 static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
 #define BUILD(ui_, label_, cost_, type_, p0_, p1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
-      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_FG_CONSTRUCTION_CREW }, 1 }
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_FG_CONSTRUCTION_CREW }, 1, {0}, false }
 #define UNIT(ui_, label_, cost_, type_, p0_, p1_, m0_, m1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), \
-      { (m0_), (m1_) }, ((m1_) == 0 ? 1 : 2) }
+      { (m0_), (m1_) }, ((m1_) == 0 ? 1 : 2), {0}, false }
 #define BUILD_IMP(ui_, label_, cost_, type_, p0_, p1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
-      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_IMP_CONSTRUCTION_CREW }, 1 }
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_IMP_CONSTRUCTION_CREW }, 1, {0}, false }
     BUILD(10001, "FG HQ 1", 750, 10001, 0, 0),
     BUILD(10002, "FG HQ 2", 1000, 10002, 10004, 10006),
     BUILD(10003, "FG HQ 3", 1250, 10003, 10005, 10007),
@@ -40,7 +40,7 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     BUILD(10041, "Small Vertical Bridge", 100, 10041, 0, 0),
     BUILD(10042, "Small Centre Bridge", 150, 10042, 0, 0),
     { 11, 11, "Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 11, 0,
-      { 10001 }, 1, { MT_FG_HQ1, MT_FG_HQ2, MT_FG_HQ3 }, 3 },
+      { 10001 }, 1, { MT_FG_HQ1, MT_FG_HQ2, MT_FG_HQ3 }, 3, {0}, false },
     UNIT(9, "Raider", 150, 9, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(10, "Mercenary", 300, 10, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(8, "Sniper", 700, 8, 10005, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
@@ -84,7 +84,7 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     BUILD_IMP(11019, "Imp Launch Pad", 2500, 11019, 0, 0),
     BUILD_IMP(11020, "Imp Power Generator", 2000, 11020, 0, 0),
     { 1005, 1005, "Imp Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 1005, 0,
-      { 11001 }, 1, { MT_IMP_HQ1, MT_IMP_HQ2, MT_IMP_HQ3 }, 3 },
+      { 11001 }, 1, { MT_IMP_HQ1, MT_IMP_HQ2, MT_IMP_HQ3 }, 3, {0}, false },
     UNIT(1002, "Guardian", 150, 1002, 11004, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),
     UNIT(1003, "Bion", 350, 1003, 11004, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),
     UNIT(1004, "Exterminator", 500, 1004, 11005, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),

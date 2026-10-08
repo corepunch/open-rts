@@ -570,7 +570,10 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         }
         unit->core.momentum = fixed3_zero();
 
-        if (!P_MoveUnitTo(map, unit, vent->attachment)) continue;
+        fvec2_t bay = vent->attachment;
+        if (!P_CheckPosition(map, unit, bay.x, bay.y) &&
+            !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) continue;
+        if (!P_MoveUnitTo(map, unit, bay)) continue;
         unit->attack.target = NULL;
         unit->harvest.target = vent_index;
         unit->harvest.timer_ms = 0;

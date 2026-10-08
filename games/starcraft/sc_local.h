@@ -9,11 +9,14 @@ typedef struct {
     uint32_t flags;
     isize2_t placement;
     int sight, orders, race, minerals, gas, portrait;
+    int build_time, damage, range, cooldown;
 } sc_unit_t;
 extern const sc_unit_t sc_units[SC_TYPES];
 extern char sc_names[SC_TYPES][16];
 extern uint32_t sc_palette[256];
 bool sc_read(const char *root, const char *name, blob_t *out);
+void sc_asset_path(char *out, size_t size, const char *root, const char *name);
+bool sc_briefing(const char *path, char *text, size_t text_size, char *objectives, size_t objectives_size);
 bool sc_load_graphics(const char *root, const level_t *map, spritecache_t *cache);
 bool sc_load_tiles(const char *root, const level_t *map, tileset_t *out);
 bool sc_load_chk(const char *path, level_t *out);

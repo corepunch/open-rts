@@ -3,11 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 uint32_t sc_palette[256];
-bool sc_read(const char *root,const char *name,blob_t *out) {
-    char path[2048];
-    snprintf(path,sizeof(path),"%s/native/%s",root,name);
+void sc_asset_path(char *path,size_t size,const char *root,const char *name) {
+    snprintf(path,size,"%s/native/%s",root,name);
     for(char *p=path+strlen(root)+1;*p;p++) { if(*p=='\\') *p='/'; *p=(char)tolower((unsigned char)*p); }
+    if(access(path,R_OK)==0)return;
+    snprintf(path,size,"%s/install/%s",root,name);
+    for(char *p=path+strlen(root)+1;*p;p++) { if(*p=='\\') *p='/'; *p=(char)tolower((unsigned char)*p); }
+}
+bool sc_read(const char *root,const char *name,blob_t *out) {
+    char path[2048];sc_asset_path(path,sizeof(path),root,name);
     return W_ReadFile(path,out);
 }
 bool sc_decode_grp(const blob_t *file,const uint32_t *palette,bool turns,spritesheet_t *out) {
@@ -163,13 +169,14 @@ static void animation(const blob_t *script,unsigned start,int type,int head,bool
         const uint8_t *arg=script->bytes+at; at+=len;
         if(op==0||op==1) { frame=read_u16_le(arg); if(turns) frame/=17; if(frame>=numframes) break; }
         else if(op==5||op==6) {
-            for(int i=0;i<n;i++) if(visited[i]==here) { if(last>=0) states[last].nextstate=ids[i]; return; }
+            for(int i=0;i<n;i++) if(visited[i]==here) { if(last>=0) states[last].nextstate=group==3?1+type*2:ids[i]; return; }
             if(n==128||next_state>=SC_STATES) break;
             int id=n?next_state++:head;
             int ticks=arg[0]; if(ticks<1) ticks=1;
             /* Native script waits count 24 Hz frames; engine ticks are 30 Hz. */
             ticks=(ticks*RTS_TICRATE+12)/24;
             states[id]=(state_t){.sprite=type,.frame=frame,.tics=ticks,.group=group,.nextstate=head};
+            states[id].action=group==3?(n==0?A_Attack:NULL):group==2?A_Chase:A_Look;
             if(last>=0) states[last].nextstate=id;
             visited[n]=here; ids[n++]=id; last=id;
         } else if(op==7) at=read_u16_le(arg);
@@ -178,7 +185,7 @@ static void animation(const blob_t *script,unsigned start,int type,int head,bool
         else if(op==0x16||op==0x30) break;
     }
     if(last<0 && frame<numframes) states[head].frame=frame;
-    if(last>=0) { states[last].nextstate=last; states[last].tics=-1; }
+    if(last>=0) { states[last].nextstate=group==3?1+type*2:last; if(group!=3) states[last].tics=1; }
 }
 
 /* Native subunit1 + images.dat special-overlay LOL coordinates. Layer
@@ -242,7 +249,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
     /* The original disc has 386 image indices (772 bytes); Stargus's
      * 7-byte row formula is for the expanded Brood War table. */
     unsigned ns=sprites.size==2081?386:130+((unsigned)sprites.size-520)/7;
-    next_state=1+SC_TYPES*2;
+    next_state=1+SC_TYPES*3;
     int loaded=0; unsigned image_ids[SC_TYPES];
     for(int i=0;i<SC_TYPES;i++) {
         unsigned f=units.bytes[i]; if(f>=nf) goto done;
@@ -271,6 +278,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         if(!init) init=animation_start(&script,scriptid,0);
         animation(&script,init,i,1+i*2,turns,0,sheet->spritedef.numframes);
         animation(&script,animation_start(&script,scriptid,11),i,2+i*2,turns,2,sheet->spritedef.numframes);
+        animation(&script,animation_start(&script,scriptid,2),i,1+SC_TYPES*2+i,turns,3,sheet->spritedef.numframes);
     }
     spritesheet_t ramp={0}; char ramp_path[2048];
     snprintf(ramp_path,sizeof(ramp_path),"%s/native/game/tunit.pcx",root);

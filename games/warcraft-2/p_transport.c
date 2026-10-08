@@ -90,7 +90,7 @@ bool W2_TickTransport(mobj_t *unit) {
             ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(ship->core.position),
                                                (fvec2_t){foot.w * 0.5f, foot.h * 0.5f}));
             fvec2_t bay;
-            if (!w2_approach(unit, cell, foot, &bay) || !P_MoveUnitTo(&level, unit, bay)) unit->w2.carrier = 0;
+            if (!P_ApproachFootprint(unit, cell, foot, &bay) || !P_MoveUnitTo(&level, unit, bay)) unit->w2.carrier = 0;
         }
     }
     if (unit->w2.unloading && !P_HasMoveOrder(unit)) {

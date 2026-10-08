@@ -313,6 +313,8 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
 #endif
     for (int i = 0; i < count; ++i) {
+        if (gameinfo && gameinfo->right_click_orders)
+            units[i]->move_only = cmd->order == TC_MOVE;
         units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;
         units[i]->harvest.target = -1;
         units[i]->harvest.base = NULL;

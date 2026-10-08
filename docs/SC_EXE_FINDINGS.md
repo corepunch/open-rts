@@ -314,3 +314,155 @@ sight rules. SCM/SCX archives still require the existing import tool to extract
 `staredit/scenario.chk`; no runtime MPQ dependency was introduced. These
 limitations supersede the earlier catalog-only status without asserting that
 loading a campaign map makes its mission playable.
+
+## Shared gameplay and single-player flow (2026-10-08)
+
+This section supersedes the initial inspection-only limitations above for basic
+orders, harvesting, construction, training and front-end navigation. No new
+retail executable disassembly or execution was performed; the executable
+fingerprint remains `16cd8f0d1098f8bcd0625d5e13964c2facf2df4874636acb01c2e0bfb062b2f5`.
+
+Additional SHA-256 inputs:
+
+- `native/arr/units.dat`: `dc7b8b59bb14a3ba67829926ad50e8d363032a351299e5087f790ed09616619d`.
+- `native/arr/weapons.dat`: `03551df8800a01ec1e99e3648ece6deb83c054588f52967ba76c1d85c92be461`.
+- `install/rez/glucmpgn.bin`: `4f10cfbf9444c04be74de9cab223f46254ae76bd8cca99c1484af4c6550fa472`.
+- `install/campaign/terran/terran01/staredit/scenario.chk`:
+  `4b0e5009c4ae80cfb4cb13ede30842db0aa05bb3be2eedad695fb093fa5786f6`.
+
+### Confirmed asset data
+
+Stargus `src/kaitai/units_dat.ksy` defines the ground weapon in column 17,
+build time in column 42 and worker/depot flags at `0x8`/`0x1000`. The weapons
+file is 42 bytes per logical record, stored as parallel columns. With N records,
+maximum range is u32 at `13*N + 4*id`, damage u16 at `28*N + 2*id`, and cooldown
+u8 at `32*N + id`. Marine: 6 damage, 128 pixels, 15 frames; SCV: 5 damage,
+10 pixels, 15 frames. Build/cooldown frame counts convert at 24 Hz, following
+the existing visual compiler and Stargus `UnitsConverter.cpp`. These values
+are extracted offline into `units.inc`, never loaded as runtime balance.
+The engine's cell-footprint range rounds pixel ranges up to whole cells.
+
+Stargus worker scripts specify an eight-unit cargo capacity for minerals and
+gas. Native CHK UNIT resources are u32 at record +20; minerals are native types
+176..178 and geysers 188. Refineries, extractors and assimilators are types
+110, 149 and 157. The shared construction path replaces the geyser object,
+retains its resource amount and transfers the vent to the completed building.
+Raw geysers cannot be gathered. Exhausted mineral patches release their occupied
+cells through ordinary deferred mobj removal. Gas buildings remain in place.
+
+Terran 01 has 46 spawned objects. TRIG record 3 starts with condition type 12
+(elapsed time), comparator 0 (at least), amount 0. Its Set Resources action is
+type 26, player 1, amount 40, resource type 0 (minerals), modifier 7 (set).
+The loader applies only direct-player Set Resources actions in unconditional
+or zero-elapsed-time initialization triggers. This is not a general trigger
+interpreter. The earlier assumption that an empty economy hook implied no
+starting economy data is disproven.
+
+The missing campaign dialog is in **install**, not native: `rez/glucmpgn.bin`.
+Native assets retain precedence; asset lookup falls back to the installer tree.
+The sequence now exposes Registry (`glulogin.bin`), New ID (`glunewch.bin`),
+episode selection (`glucmpgn.bin`) and briefing (`glurdyt.bin`) before Start.
+Registry names currently last for the session. Saved/custom games are not
+implemented. Episode buttons choose their first CHK. The briefing currently
+uses the Terran layout; race-specific layouts and playback remain work to do.
+
+MBRF uses 2400-byte records, 16 20-byte conditions and 64 32-byte actions.
+Action type is +26 and string ID +4; STR offsets are one-based u16 table entries.
+Action 4 supplies objectives and action 8 transmission text. Terran 01's string
+13 is Find Raynor / Build a Barracks / Train 10 Marines; strings 15, 16, 17 are
+the three transmissions. Text is scrollable; Replay resets its scroll.
+Portrait/voice timing, episode title cards and tutorial branching are not yet
+played by a briefing interpreter.
+
+Dialog flag `0x10` enables the responsive bounds at +54..60. Following PyMS's
+`responsive_box`, the latter pair supplies the extent relative to the response
+origin. Example: briefing Start control 13 has artwork `(417,240,217,240)`,
+response `(18,39,202,160)`, text offset `(60,140)`. Using artwork bounds for
+hit testing lets Start intercept Cancel. The shared menu now has independent
+hit bounds. Newlines in campaign labels must survive decoding. Explicit text
+offsets are honored directly rather than adding whole-artwork centering again;
+this interpretation is supported by the readable asset composition, but the
+retail alignment routine has not been disassembled.
+
+### Confirmed engine defects and implementation consequences
+
+The console item covers 640x480. Temporary diagnostic output demonstrated
+`world click consumed=1` with its original settings and `=0` with decorative
+pass-through enabled. This was an input dispatch defect, not a sprite definition
+or pathfinder defect. A shared menu flag fixes world clicks while retaining the
+full native console image. Regression coverage includes actual selection and
+right-click command dispatch through the HUD and world responders.
+
+Combat uses ordinary `A_Look`/`A_Chase`/`A_Attack` state actions and the shared
+thinker loop, consistent with Doom `p_mobj.c`'s entry-action and spawn contracts.
+IScript GroundAttackInit (header slot 2) supplies visual frames. Finite attack
+paths return to standing; damage currently occurs on the entry action rather
+than interpreting IScript weapon opcodes. Native ground weapon damage/range/
+cooldowns are available; independent air weapons, turret weapon routing,
+projectiles, armor/shields, spells and many faction rules remain incomplete.
+Movement retains the previously explicit three-cells/second engine pacing.
+
+Construction and training use engine product queues, multi-resource payment,
+prerequisites, footprint reservations and ordinary mobj spawning. Worker builds
+must reach a free perimeter cell before the timer advances. The approach helper
+is also used by Warcraft II harvesting, repair, transport and building callers.
+Construction art/staged hit points, supply, add-ons, creep/power and race-specific
+worker consumption/release are not implemented by this shared queue path.
+Available command cards cover worker structures, Terran production and basic
+Protoss production; Zerg larva/morph production is still absent. These are
+explicit engine capabilities, not claims of complete retail gameplay fidelity.
+
+The initial sprite load already owns all 228 DAT slots. Reloading it after each
+production would append another catalog and reset every object's state. Repeated
+`R_InitSprites` now reuses the complete cache; a regression checks both count and
+state preservation.
+
+### Fog: shared semantics, unverified retail geometry
+
+StarCraft and DC both need unexplored, explored and currently visible regions.
+That does not establish identical retail visibility algorithms. The DC native
+ray table ends at radius 10, while StarCraft DAT sight reaches 11; its old use
+silently granted those units **no sight**. StarCraft now uses the engine radial
+FOV path already used by Warcraft II, selected through game data, and retains
+its full DAT radius. DC keeps its verified native ray/terrain rules. StarCraft
+height, cliff and detector/cloak rules remain unverified. The catalog alone
+intentionally reveals the whole map.
+
+`R_DrawMinimapFog` applies shared visibility and palette darkening to each game's
+native minimap terrain before markers. Unexplored is black, explored is dim,
+visible is unchanged. Existing `P_VisibleToPlayer` suppresses hidden unit markers.
+SC previously drew every marker and all terrain. WC2 previously masked shroud
+but left explored terrain fully bright; it now dims explored terrain too. DC
+uses the shared palette quantization instead of its separate RGB formula.
+The pass converts menu coordinates and clipping to framebuffer pixels before
+shading. A temporary diagnostic printed `scale=2 rect=6,348 128x128
+screen=1280x960`: applying those logical coordinates directly to the framebuffer
+left the minimap unshaded. The regression now checks every pixel in 2x blocks
+as well as the unscaled output.
+Stargus also explicitly configures minimap fog in `scripts/stratagus.lua`, but
+its opacity values are not taken as evidence of Blizzard's renderer.
+
+### Reproduce
+
+```
+make build/sc_catalog
+build/sc_catalog data/STARCRAFT/native > /private/tmp/sc-units.inc
+cmp /private/tmp/sc-units.inc games/starcraft/units.inc
+env SDL_VIDEODRIVER=dummy make test-starcraft
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --screenshot /private/tmp/starcraft.bmp
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --map install/campaign/terran/terran01/staredit/scenario.chk --screenshot /private/tmp/starcraft-game.bmp
+```
+
+`test_play` checks hauling/depletion, refinery/gas, costs, worker approach and
+construction, training, attack/move commands, radius-11 sight and minimap fog.
+`test_native` checks the real input route, menu sequence, native briefing strings,
+repeat sprite initialization and screenshots under `/private/tmp/starcraft-*`.
+Shared `test_menu_items` covers decorative input and responsive rectangles;
+`test_minimap_fog` covers shroud, dimming, visibility, clipping and bounds.
+
+Verification: `make all`, all three StarCraft test executables, and 17 focused
+Warcraft II / Dark Colony / 7th Legion / KKnD / Dark Reign regressions passed.
+The broader suites also exposed Warcraft II navigation, Dark Colony Human01
+corner movement and LAN/menu failures. The same failures were reproduced in
+an untouched `git archive HEAD` checkout; they are not claimed as repaired here.

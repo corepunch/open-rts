@@ -703,6 +703,7 @@ static void draw_minimap(const menu_t *menu, const menuitem_t *item, irect_t rec
             V_DrawPoint((ivec2_t){ rect.x + px, rect.y + py }, color);
         }
     }
+    R_DrawMinimapFog(&level, rect);
     for (int i = 0; i < hudview.unit_count; ++i) {
         const mobj_t *unit = hudview.units[i];
         int pud;

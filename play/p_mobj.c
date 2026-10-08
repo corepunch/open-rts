@@ -49,7 +49,7 @@ bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *
     if (source && source->type_id == MT_GOLD_MINE) return true;
     if (source && (source->type_id == MT_OIL_PATCH || W2_UnderConstruction(source))) return false;
 #endif
-    return source && unit && P_IsAlly(source, unit);
+    return source && unit && (source->allegiance == ALLEGIANCE_NEUTRAL || P_IsAlly(source, unit));
 }
 
 /* A deposit structure's vent covers a 3x3 footprint centred on it so that a
@@ -186,6 +186,12 @@ static bool send_harvester_home(level_t *map, mobj_t *unit) {
         if (base->remove || base->hp <= 0) continue;
         if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
         fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
+        if ((!gameinfo || !gameinfo->harvest_dropoff_matches) && base->info &&
+            base->info->footprint.w > 0) {
+            irect_t bounds = P_MobjCells(base);
+            if (!P_ApproachFootprint(unit, (ivec2_t){bounds.x, bounds.y},
+                                    (isize2_t){bounds.w, bounds.h}, &base_position)) continue;
+        }
         if (gameinfo && gameinfo->harvest_dropoff_matches &&
             !gameinfo->harvest_dropoff_matches(unit, unit->harvest.resource_type,
                                               base, &base_position)) continue;
@@ -209,7 +215,10 @@ static bool send_harvester_home(level_t *map, mobj_t *unit) {
 
 static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
     if (!map || !unit || !vent) return false;
-    if (!P_MoveUnitTo(map, unit, vent->attachment)) return false;
+    fvec2_t bay = vent->attachment;
+    if (!P_CheckPosition(map, unit, bay.x, bay.y) &&
+        !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) return false;
+    if (!P_MoveUnitTo(map, unit, bay)) return false;
     unit->movement.order_id = 0;
     unit->harvest.phase = HARVEST_PHASE_TO_MINE;
     return true;
@@ -1220,7 +1229,13 @@ static bool update_unit_harvest(level_t *map,
     float vent_radius = P_ResourceVentRadius(vent);
     if (vent_radius > interaction_radius) interaction_radius = vent_radius;
     if (P_HasMoveOrder(unit)) return false;
-    if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
+    if (vent->source_id && vent->footprint.w > 0 && vent->footprint.h > 0) {
+        /* P_ApproachFootprint selects a cell on this same perimeter. */
+        irect_t perimeter = {vent->cell.x - 1, vent->cell.y - 1,
+                            vent->footprint.w + 2, vent->footprint.h + 2};
+        if (!unit->movement.order_arrived ||
+            !irect_contains(perimeter, fvec2_cell(fixed3_xy_to_fvec2(unit->core.position)))) return false;
+    } else if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
         return false;
 
     P_ClearMove(unit);
@@ -1238,10 +1253,17 @@ static bool update_unit_harvest(level_t *map,
     while (unit->harvest.timer_ms >= RTS_HARVEST_INTERVAL_MS && vent->amount > 0) {
         unit->harvest.timer_ms -= RTS_HARVEST_INTERVAL_MS;
         int take = vent->rate;
+        int capacity = mobj_harvest_capacity(unit);
+        if (capacity > 0 && take > capacity - unit->harvest.cargo)
+            take = capacity - unit->harvest.cargo;
         if (take > vent->amount) take = vent->amount;
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
         vent->amount -= take;
+        if (vent->amount <= 0) {
+            vent->active = false;
+            if (vent->exhausts_source) P_RemoveMobj(P_MobjById(vent->source_id));
+        }
         if (mobj_harvest_capacity(unit) > 0)
             unit->harvest.cargo += take;
         else

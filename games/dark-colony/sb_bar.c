@@ -286,17 +286,10 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
         for (int px = 0; px < clip.w; ++px) {
             int gx = px * map->width / clip.w;
             uint32_t color = map->cell_colors ? map->cell_colors[L_Index(map, gx, gy)] : 0xff202820u;
-            uint8_t r = (uint8_t)(color >> 16);
-            uint8_t g = (uint8_t)(color >> 8);
-            uint8_t b = (uint8_t)color;
-            int light = P_SightBrightness(map, (ivec2_t){gx, gy});
-            V_DrawPoint((ivec2_t){clip.x + px, clip.y + py},
-                        V_NearestIndex(0xff000000u |
-                                       ((uint32_t)(r * light / 16) << 16) |
-                                       ((uint32_t)(g * light / 16) << 8) |
-                                       (uint32_t)(b * light / 16)));
+            V_DrawPoint((ivec2_t){clip.x + px, clip.y + py}, V_NearestIndex(color));
         }
     }
+    R_DrawMinimapFog(map, clip);
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         if (!P_SightBrightness(map, vent->cell)) continue;

@@ -13,15 +13,15 @@
  * type ids match the actor table in g_game.c.
  */
 static const StaticProductDefinition SL_PRODUCTS[] = {
-    { 1, 1, "Trooper",     150, 0, RTS_PRODUCT_UNIT, 1, 0, {0}, 0, {7, MT_BARRACKS}, 2 },
-    { 2, 2, "Slave",       100, 0, RTS_PRODUCT_UNIT, 2, 0, {0}, 0, {7}, 1 },
-    { 3, 3, "Spider Mech", 600, 0, RTS_PRODUCT_UNIT, 3, 0, {0}, 0, {7, MT_ROBOT_FACTORY}, 2 },
-    { 4, 4, "Tank",        800, 0, RTS_PRODUCT_UNIT, 4, 0, {0}, 0, {7, MT_TANK_FACTORY}, 2 },
-    { 5, 5, "Rock Mech",  1200, 0, RTS_PRODUCT_UNIT, 5, 0, {0}, 0, {7, MT_ROBOT_FACTORY}, 2 },
-    { 6, 6, "Truck",       400, 0, RTS_PRODUCT_UNIT, 6, 0, {0}, 0, {7, MT_TANK_FACTORY}, 2 },
+    { 1, 1, "Trooper",     150, 0, RTS_PRODUCT_UNIT, 1, 0, {0}, 0, {7, MT_BARRACKS}, 2, {0}, false },
+    { 2, 2, "Slave",       100, 0, RTS_PRODUCT_UNIT, 2, 0, {0}, 0, {7}, 1, {0}, false },
+    { 3, 3, "Spider Mech", 600, 0, RTS_PRODUCT_UNIT, 3, 0, {0}, 0, {7, MT_ROBOT_FACTORY}, 2, {0}, false },
+    { 4, 4, "Tank",        800, 0, RTS_PRODUCT_UNIT, 4, 0, {0}, 0, {7, MT_TANK_FACTORY}, 2, {0}, false },
+    { 5, 5, "Rock Mech",  1200, 0, RTS_PRODUCT_UNIT, 5, 0, {0}, 0, {7, MT_ROBOT_FACTORY}, 2, {0}, false },
+    { 6, 6, "Truck",       400, 0, RTS_PRODUCT_UNIT, 6, 0, {0}, 0, {7, MT_TANK_FACTORY}, 2, {0}, false },
 #define SL_BUILDING(native, type, asset, name, hp, cost, ticks, w, h) \
-    {MT_##type, MT_##type, name, cost, 0, RTS_PRODUCT_BUILDING, MT_##type, 0, \
-     {0}, 0, {MT_MOBILE_BASE, MT_BASE}, 2},
+    { MT_##type, MT_##type, name, cost, 0, RTS_PRODUCT_BUILDING, MT_##type, 0, \
+     {0}, 0, {MT_MOBILE_BASE, MT_BASE}, 2, {0}, false },
 #include "buildings.inc"
 #undef SL_BUILDING
 };

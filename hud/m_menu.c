@@ -63,17 +63,26 @@ menuitem_t *M_MenuFind(const menu_t *menu, int id) {
     return NULL;
 }
 
+static irect_t hit_rect(const menu_t *menu, const menuitem_t *item) {
+    if (item->hitbox.w <= 0 || item->hitbox.h <= 0) return M_MenuItemRect(menu, item);
+    menuitem_t hit = *item;
+    hit.rect = item->hitbox;
+    hit.rect.x += item->rect.x;
+    hit.rect.y += item->rect.y;
+    return M_MenuItemRect(menu, &hit);
+}
+
 static menuitem_t *item_at(const menu_t *menu, ivec2_t point) {
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
-        if (item_live(item) && irect_contains(M_MenuItemRect(menu, item), point)) return item;
+        if (!item->passthrough && item_live(item) && irect_contains(hit_rect(menu, item), point)) return item;
     }
     return NULL;
 }
 
 static bool visible_at(const menu_t *menu, ivec2_t point) {
     for (int i = 0; i < menu->numitems; ++i)
-        if (menu->items[i].visible && irect_contains(M_MenuItemRect(menu, &menu->items[i]), point))
+        if (!menu->items[i].passthrough && menu->items[i].visible && irect_contains(M_MenuItemRect(menu, &menu->items[i]), point))
             return true;
     return false;
 }

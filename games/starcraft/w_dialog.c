@@ -19,6 +19,7 @@ bool sc_decode_dialog(const blob_t *b,sc_dialog_t *out) {
         c->rect=(irect_t){out->rect.x+read_u16_le(p+4),out->rect.y+read_u16_le(p+6),read_u16_le(p+12),read_u16_le(p+14)};
         if(c->rect.w<1||c->rect.h<1)return false;
         c->text_offset=(ivec2_t){read_u16_le(p+70),read_u16_le(p+72)};
+        if(c->flags&0x10) c->hitbox=(irect_t){read_u16_le(p+54),read_u16_le(p+56),read_u16_le(p+58),read_u16_le(p+60)};
         unsigned str=read_u32_le(p+20);
         if(str) {
             if(str>=b->size||!memchr(b->bytes+str,0,b->size-str)) return false;
@@ -28,7 +29,7 @@ bool sc_decode_dialog(const blob_t *b,sc_dialog_t *out) {
             for(;*text&&n<127;text++) {
                 if((unsigned char)*text==4) c->mark_at=n;
                 else if((unsigned char)*text==1) c->mark_len=n-c->mark_at;
-                else if((unsigned char)*text>=32) c->text[n++]=*text;
+                else if((unsigned char)*text>=32||*text=='\n') c->text[n++]=*text;
             }
         }
         unsigned smk=read_u32_le(p+66);

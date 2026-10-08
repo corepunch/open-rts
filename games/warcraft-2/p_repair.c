@@ -35,7 +35,7 @@ static bool approach(mobj_t *worker, const mobj_t *target) {
     ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
                                       (fvec2_t){foot.w * 0.5f, foot.h * 0.5f}));
     fvec2_t bay;
-    return w2_approach(worker, cell, foot, &bay) && P_MoveUnitTo(&level, worker, bay);
+    return P_ApproachFootprint(worker, cell, foot, &bay) && P_MoveUnitTo(&level, worker, bay);
 }
 
 bool W2_RepairOrder(mobj_t *worker, mobj_t *target) {

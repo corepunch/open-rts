@@ -38,6 +38,8 @@ bool sc_load_chk(const char *path,level_t *out) {
         } else if(!memcmp(tag,"OWNR",4)) {
             if(size!=12) goto bad;
             owners=data;
+        } else if(!memcmp(tag,"TRIG",4)||!memcmp(tag,"MBRF",4)) {
+            if(size%2400) goto bad;
         } else if(!memcmp(tag,"UNIT",4)) {
             if(size%36) goto bad;
             for(size_t i=0;i<size;i+=36)
@@ -72,6 +74,25 @@ bool sc_load_chk(const char *path,level_t *out) {
     for(size_t at=0;at<file->size;) {
         const uint8_t *tag=file->bytes+at,*data=tag+8;
         size_t size=read_u32_le(tag+4);
+        /* Initial elapsed-time triggers supply campaign starting resources.
+         * Other conditions/actions require the future mission interpreter. */
+        if(!memcmp(tag,"TRIG",4)) for(size_t t=0;t<size;t+=2400) {
+            bool initial=true,condition=false;
+            for(int c=0;c<16;c++) {
+                const uint8_t *v=data+t+c*20;
+                if(!v[15])continue;
+                condition=true;
+                if(v[15]!=22 && !(v[15]==12&&v[14]==0&&read_u32_le(v+8)==0))initial=false;
+            }
+            if(!initial||!condition)continue;
+            for(int a=0;a<64;a++) {
+                const uint8_t *v=data+t+320+a*32;
+                unsigned player=read_u32_le(v+16),resource=read_u16_le(v+24),amount=read_u32_le(v+20);
+                if(v[26]!=26||v[27]!=7||(v[28]&2)||player>=8||resource>2||amount>INT_MAX)continue;
+                if(resource==0||resource==2)out->player_resources[player][0]=(int)amount;
+                if(resource==1||resource==2)out->player_resources[player][1]=(int)amount;
+            }
+        }
         if(!memcmp(tag,"UNIT",4)) for(size_t i=0;i<size;i+=36) {
             if(read_u16_le(data+i+8)==214&&data[i+16]==consoleplayer) {
                 out->has_camera=true;
@@ -103,7 +124,7 @@ static mobj_t *spawn_thing(unsigned type,ivec2_t pixel,uint8_t owner) {
             ivec2_t cell=ivec2_add(origin,(ivec2_t){x,y});
             if(L_Contains(&level,cell.x,cell.y)) {
                 int index=L_Index(&level,cell.x,cell.y);
-                level.blocked[index]=level.cell_solid[index]=1;
+                level.cell_solid[index]=2;
             }
         }
     }
@@ -124,6 +145,19 @@ int sc_spawn_things(void) {
             mobj_t *mo=spawn_thing(type,pixel,u[16]);
             if(!mo) return count;
             if(read_u16_le(u+14)&2) mo->hp=mo->max_hp*u[17]/100;
+            if((type>=176&&type<=178)||type==188||type==110||type==149||type==157) {
+                resourcevent_t *vents=realloc(level.resource_vents,
+                    (size_t)(level.resource_vent_count+1)*sizeof(*vents));
+                if(!vents) return count;
+                level.resource_vents=vents;
+                irect_t bounds=P_MobjCells(mo);
+                vents[level.resource_vent_count++]=(resourcevent_t){
+                    .cell={bounds.x,bounds.y},.footprint={bounds.w,bounds.h},
+                    .attachment=fixed3_xy_to_fvec2(mo->core.position),
+                    .amount=(int)read_u32_le(u+20),.rate=8,.active=type!=188,
+                    .exhausts_source=type>=176&&type<=178,
+                    .resource_type=type>=176&&type<=178?0:1,.source_id=mo->id};
+            }
             ++count;
         }
         if(!memcmp(tag,"THG2",4)) for(size_t i=0;i<size;i+=10) {
@@ -137,4 +171,30 @@ int sc_spawn_things(void) {
         at+=8+size;
     }
     return count;
+}
+
+bool sc_briefing(const char *path,char *text,size_t text_size,char *objectives,size_t objectives_size) {
+    blob_t b={0};if(!text_size||!objectives_size||!W_ReadFile(path,&b))return false;
+    *text=*objectives=0;
+    const uint8_t *strings=NULL,*brief=NULL;size_t strings_size=0,brief_size=0;
+    bool ok=false;
+    for(size_t p=0;p<b.size;) {
+        if(b.size-p<8)goto done;
+        size_t n=read_u32_le(b.bytes+p+4);if(n>b.size-p-8)goto done;
+        if(!memcmp(b.bytes+p,"STR ",4)){strings=b.bytes+p+8;strings_size=n;}
+        if(!memcmp(b.bytes+p,"MBRF",4)){brief=b.bytes+p+8;brief_size=n;}
+        p+=8+n;
+    }
+    if(!strings||strings_size<2||2u+read_u16_le(strings)*2u>strings_size||brief_size%2400)goto done;
+    for(size_t t=0;t<brief_size;t+=2400)for(int a=0;a<64;a++) {
+        const uint8_t *v=brief+t+320+a*32;unsigned id=read_u32_le(v+4);
+        if((v[28]&2)||!id||id>read_u16_le(strings)||(v[26]!=4&&v[26]!=8))continue;
+        unsigned off=read_u16_le(strings+id*2);
+        if(off>=strings_size||!memchr(strings+off,0,strings_size-off))goto done;
+        char *dst=v[26]==4?objectives:text;size_t cap=v[26]==4?objectives_size:text_size;
+        size_t len=strlen(dst);
+        if(len<cap-1)snprintf(dst+len,cap-len,"%s%s",len?"\n\n":"",strings+off);
+    }
+    ok=true;
+done: W_FreeFile(&b);return ok;
 }

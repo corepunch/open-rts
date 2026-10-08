@@ -55,6 +55,25 @@ static void ensure_fogmap(void) {
     fogmap_ready = true;
 }
 
+/* Apply the same explored/current visibility to any game's minimap terrain.
+ * Games draw native terrain first and visible markers afterwards. */
+void R_DrawMinimapFog(const level_t *map, irect_t rect) {
+    if (!screens[0].pixels || map->width <= 0 || map->height <= 0 || rect.w <= 0 || rect.h <= 0) return;
+    ensure_fogmap();
+    int scale = V_GetDrawScale();
+    irect_t clip = V_GetClip();
+    clip = (irect_t){clip.x * scale, clip.y * scale, clip.w * scale, clip.h * scale};
+    for (int y = 0; y < rect.h * scale; ++y) for (int x = 0; x < rect.w * scale; ++x) {
+        ivec2_t pixel = ivec2_add((ivec2_t){rect.x * scale, rect.y * scale}, (ivec2_t){x, y});
+        if (!irect_contains(clip, pixel) || pixel.x < 0 || pixel.y < 0 ||
+            pixel.x >= screens[0].w || pixel.y >= screens[0].h) continue;
+        ivec2_t cell = {x / scale * map->width / rect.w,
+                       L_ScreenY(map, y / scale * map->height / rect.h)};
+        uint8_t *p = &screens[0].pixels[pixel.y * screens[0].w + pixel.x];
+        *p = fogmap[P_SightBrightness(map, cell)][*p];
+    }
+}
+
 void R_DrawFog(app_t *app, const level_t *map) {
     if (!map->sight.cells || !screens[0].pixels || app->cell.w <= 0 || app->cell.h <= 0) return;
     ensure_fogmap();

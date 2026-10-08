@@ -380,9 +380,10 @@ typedef struct resourcevent_s {
     int amount;
     int rate;
     bool active;
+    bool exhausts_source; /* Remove a finite patch when its contents run out. */
     int resource_type; /* 0-based index into player_resources[][resource_type] */
     /* Structure that yields this deposit (mobj id), or 0 for a terrain vent.
-       Only the structure's allies may harvest it; it closes when the
+       Neutral deposits or the structure's allies may harvest it; it closes when the
        structure dies. Kept by P_SyncDepositStructures. */
     uint32_t source_id;
 } resourcevent_t;
@@ -607,6 +608,7 @@ typedef struct mobjtype_s {
     /* Cells the actor occupies. Attack range is measured to this rectangle
      * in tiles, as Warcraft does; zero keeps the centre-distance rule. */
     isize2_t footprint;
+    uint16_t build_on_type; /* A refinery replaces this native resource object. */
     bool sight_from_footprint; /* Sight spreads from every footprint cell, not the centre. */
     /* Optional row-major foundation: ' ' ignores a cell, '=' needs clear
      * ground but leaves it passable, 'x' blocks it. NULL fills the rectangle. */
@@ -682,6 +684,7 @@ struct gameinfo_s {
     unitoverlaydrawf_t draw_underlays; /* Ground marks drawn before all world sprites. */
     unitoverlaydrawf_t draw_overlays; /* Marks drawn after all world sprites. */
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
+    bool radial_sight; /* Simple radial FOV; otherwise use the native DC ray table. */
     bool select_any; /* With nothing of yours selected, a click can inspect any unit. */
     bool f10_menu; /* F10 opens the control panel instead of the resource cheat. */
     bool instant_turn; /* Units snap to a new facing instead of turning over time. */
@@ -1400,6 +1403,7 @@ bool P_VisibleTo(const mobj_t *observer, const mobj_t *target);
 int P_SightBrightness(const level_t *map, ivec2_t cell);
 int R_FogSample(const int corners[4], ivec2_t pixel);
 void R_DrawFog(app_t *app, const level_t *map);
+void R_DrawMinimapFog(const level_t *map, irect_t rect);
 void R_DrawFogTiles(app_t *app, const level_t *map, const tileset_t *tileset);
 void R_FreeSprite(spritesheet_t *sprite);
 void HU_FreeFont(bitmapfont_t *font);
@@ -1603,9 +1607,12 @@ typedef struct {
     int prerequisite_count;
     int makers[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
     int maker_count;
+    int extra_costs[RTS_MAX_RESOURCES - 1];
+    bool worker_build;
 } StaticProductDefinition;
 
 bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, ivec2_t cell);
+bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay);
 
 typedef struct {
     RtsGameCommandKind kind;
@@ -2237,9 +2244,11 @@ typedef void (*menuroutine_t)(menu_t *menu, menuitem_t *item, menuaction_t actio
 typedef void (*menudraw_t)(const menu_t *menu, const menuitem_t *item, irect_t rect);
 
 struct menuitem_s {
+    bool passthrough; /* Decorative artwork does not consume world input. */
     menuitemkind_t kind;
     int id;       /* the game's name for it, such as a native control ID */
     irect_t rect; /* in the menu's coordinates; see anchor */
+    irect_t hitbox; /* Optional input area relative to rect; artwork keeps rect. */
     int anchor;
     bool visible, enabled;
     SDL_Keycode hotkey; /* activates the item while it is enabled */

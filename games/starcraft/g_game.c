@@ -17,11 +17,16 @@ void G_InitGame(void) {
         const sc_unit_t *u=&sc_units[i];
         bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5);
         actors[i]=(mobjtype_t){.id=i+1,.native_type_id=i,.name=u->name,.sprite_name=sc_names[i],
-            .traits=MF_SELECTABLE|MF_RENDERABLE|(mobile?MF_MOBILE:0)|((u->flags&4)?MF_FLY:0),
+            .traits=MF_SELECTABLE|MF_RENDERABLE|(mobile?MF_MOBILE:0)|((u->flags&4)?MF_FLY:0)|
+                (u->damage?MF_ATTACK:0)|((u->flags&8)?MF_HARVESTER:0)|((u->flags&0x1000)?MF_RESOURCE_BASE:0),
             /* Catalog movement uses engine pacing; retail movement opcodes are not simulated. */
             .speed=mobile?3.0f:0,.max_hp=u->hp>0?u->hp:1,.sight={.day=u->sight,.night=u->sight},
+            .attack={.damage=u->damage,.range=(u->range+31)/32,.cooldown_ms=(u->cooldown*1000+23)/24},
+            .harvest={.resources={{.capacity=8},{.capacity=8}}},
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};
     }
+    /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
+    actors[110].build_on_type=actors[149].build_on_type=actors[157].build_on_type=189;
 }
 bool G_DoLoadLevel(const char *path,level_t *out) {
     if(strcmp(M_FileName(path),"catalog")) return sc_load_chk(path,out);
@@ -69,6 +74,8 @@ int P_LoadThings(const char *path) {
     return count;
 }
 bool R_InitSprites(const char *root,const level_t *map,mobj_t *const *mobjs,int count,spritecache_t *cache) {
+    /* The first load includes every DAT type; production borrows that cache. */
+    if(cache->count>=SC_TYPES)return true;
     if(!sc_load_graphics(root,map,cache)) return false;
     for(int i=0;i<count;i++) P_SetMobjState(mobjs[i],mobjinfo[mobjs[i]->type_id].spawnstate);
     return true;
@@ -77,7 +84,7 @@ void G_MissionTicker(level_t *map,mobj_t *const *mobjs,int *count,hudtext_t *hud
     (void)map;(void)mobjs;(void)count;(void)hud;(void)dt;
 }
 bool G_UpdateProduction(level_t *map,mobj_t *const *units,int *count,float dt) {
-    (void)map;(void)units;(void)count;(void)dt; return false;
+    (void)map;(void)units;(void)count; return G_ProductionTicker(dt);
 }
 irect_t G_WorldViewport(const app_t *app) {
     return (irect_t){0,0,app->win.w,app->win.h-128*app->win.h/480};

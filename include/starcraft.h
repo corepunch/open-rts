@@ -8,7 +8,7 @@ bool sc_decode_grp(const blob_t *file, const uint32_t *palette, bool turns, spri
 typedef struct { char path[128]; ivec2_t offset; unsigned flags; } sc_movie_ref_t;
 typedef struct {
     int id, type; unsigned flags;
-    irect_t rect; ivec2_t text_offset;
+    irect_t rect, hitbox; ivec2_t text_offset;
     char text[128]; int hotkey, mark_at, mark_len;
     sc_movie_ref_t movies[SC_CONTROL_MOVIES]; int movie_count;
 } sc_control_t;

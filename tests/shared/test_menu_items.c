@@ -747,7 +747,27 @@ static int target_preview(void) {
     return 0;
 }
 
+static int decorative_input(void) {
+    build();menu.modal=false;
+    for(int i=0;i<NUMITEMS;i++)items[i].visible=false;
+    items[BUTTON]=(menuitem_t){.kind=MI_STATIC,.visible=true,.passthrough=true,.rect={0,0,W,W}};
+    SDL_Event event={.type=SDL_MOUSEBUTTONDOWN};
+    event.button.button=SDL_BUTTON_LEFT;event.button.x=5;event.button.y=5;
+    CHECK(!M_MenuResponder(&menu,&app,&event));
+    items[BUTTON].passthrough=false;
+    CHECK(M_MenuResponder(&menu,&app,&event));
+    items[BUTTON]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,.rect={0,0,W,W},
+        .hitbox={10,10,20,20},.routine=routine};
+    activated[BUTTON]=0;
+    M_MenuResponder(&menu,&app,&event);CHECK(!activated[BUTTON]);
+    event.button.x=15;event.button.y=15;
+    M_MenuResponder(&menu,&app,&event);CHECK(activated[BUTTON]==1);
+    menu.modal=true;
+    return 0;
+}
+
 int main(void) {
+    RTS_RUN(decorative_input());
     RTS_RUN(input());
     RTS_RUN(hud_targets());
     RTS_RUN(layout());

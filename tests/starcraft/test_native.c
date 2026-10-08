@@ -73,10 +73,43 @@ int main(void) {
     CHECK(M_Init(&app,root));menu_t *front=G_ControlPanel(&app,false);CHECK(front&&front->numitems==10);
     M_StartControlPanel(&app);M_MenuDrawer(front);CHECK(save("/private/tmp/starcraft-main-menu.bmp"));
     menuitem_t *start=M_MenuFind(front,3);CHECK(start&&start->routine);
-    start->routine(front,start,MA_ACTIVATE);CHECK(menumap&&!strcmp(menumap,g_game_default_map)&&!menuactive);
+    start->routine(front,start,MA_ACTIVATE);CHECK(menuactive&&!menumap&&currentmenu!=front);
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-registry.bmp"));
+    menuitem_t *next=M_MenuFind(currentmenu,6);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,3)->kind==MI_TEXTFIELD);
+    next=M_MenuFind(currentmenu,1);next->routine(currentmenu,next,MA_ACTIVATE);
+    next=M_MenuFind(currentmenu,4);next->routine(currentmenu,next,MA_ACTIVATE);
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-campaign.bmp"));
+    next=M_MenuFind(currentmenu,7);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,65525)->prose&&strstr(M_MenuFind(currentmenu,65525)->prose,"Train 10 Marines"));
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-briefing.bmp"));
+    next=M_MenuFind(currentmenu,13);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(menumap&&!strcmp(menumap,g_game_default_map)&&!menuactive);
     menu_t *hud=G_InitHUD(&app,root);CHECK(hud);
     hudview=(hudview_t){.units=units.items,.unit_count=units.count,.sprites=&cache,.tileset=&tiles};
     P_MobjSetSelected(unit,true);M_CentreView(&app,fixed3_xy_to_fvec2(unit->core.position));
+    SDL_Event click={.type=SDL_MOUSEBUTTONDOWN};click.button.button=SDL_BUTTON_LEFT;click.button.x=320;click.button.y=100;
+    CHECK(!M_MenuResponder(hud,&app,&click));
+    /* Exercise the real HUD/world dispatch, not only P_MoveUnitTo. */
+    ivec2_t point={-1,-1};
+    for(int y=0;y<340&&point.x<0;y+=2)for(int x=0;x<640&&point.x<0;x+=2)
+        if(R_PickUnit(&app,&level,units.items,units.count,&fallback,&cache,gameinfo,x,y,consoleplayer)==0)
+            point=(ivec2_t){x,y};
+    CHECK(point.x>=0);P_MobjSetSelected(unit,false);
+    click.button.x=point.x;click.button.y=point.y;
+    CHECK(!M_MenuResponder(hud,&app,&click));
+    G_Responder(&app,&level,units.items,units.count,&fallback,&cache,gameinfo,&click);
+    click.type=SDL_MOUSEBUTTONUP;
+    CHECK(!M_MenuResponder(hud,&app,&click));
+    G_Responder(&app,&level,units.items,units.count,&fallback,&cache,gameinfo,&click);
+    CHECK(P_MobjIsSelected(unit));
+    click.type=SDL_MOUSEBUTTONDOWN;click.button.button=SDL_BUTTON_RIGHT;
+    click.button.x=point.x+64;click.button.y=point.y;
+    CHECK(!M_MenuResponder(hud,&app,&click));
+    netactive=true;G_Responder(&app,&level,units.items,units.count,&fallback,&cache,gameinfo,&click);
+    ticcmd_t order;G_BuildTiccmd(&order);netactive=false;
+    CHECK(order.order==TC_ORDER&&order.count==1&&order.units[0]==unit->id);
+    G_RunTiccmd(consoleplayer,&order);CHECK(P_HasMoveOrder(unit));
     V_BeginFrame(0xff000000);R_DrawLevel(&app,&level,&tiles);R_RenderPlayerView(&app,&level,&tiles,units.items,units.count,&fallback,&cache,gameinfo,0);
     M_MenuDrawer(hud);CHECK(save("/private/tmp/starcraft-selected-marine.bmp"));
     bool minimap=false,portrait=false,move=false;
@@ -87,6 +120,9 @@ int main(void) {
         if(it->rect.x==505&&it->rect.y==358){CHECK(it->visible&&it->sheet&&it->look[0].cell==228);move=true;}
     }
     CHECK(minimap&&portrait&&move);
+    int cached=cache.count,state=unit->core.state_id;
+    CHECK(R_InitSprites(root,&level,units.items,units.count,&cache));
+    CHECK(cache.count==cached&&unit->core.state_id==state);
     menu_t *pause=G_ControlPanel(&app,true);CHECK(pause&&M_MenuFind(pause,65533));
     M_MenuDrawer(pause);CHECK(save("/private/tmp/starcraft-pause.bmp"));
     P_MobjSetSelected(unit,false);P_MobjSetSelected(units.items[106],true);

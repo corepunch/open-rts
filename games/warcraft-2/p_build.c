@@ -211,7 +211,7 @@ void W2_InterruptBuild(mobj_t *unit) {
 static bool walk_to_site(mobj_t *unit) {
     isize2_t foot = mobjinfo[unit->w2.build_type].w2.footprint;
     fvec2_t bay;
-    if (!w2_approach(unit, unit->w2.build_cell, foot, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
+    if (!P_ApproachFootprint(unit, unit->w2.build_cell, foot, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
     unit->movement.order_id = 0;
     return true;
 }

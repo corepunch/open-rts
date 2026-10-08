@@ -52,43 +52,10 @@ static resourcevent_t *deposit(const mobj_t *unit) {
     return index >= 0 && index < level.resource_vent_count ? &level.resource_vents[index] : NULL;
 }
 
-/* Approach the actual footprint, never the blocked building centre. The
- * nav component check excludes banks and trees behind an enclosing wall. */
-bool w2_approach(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay) {
-    fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
-    bool found = false;
-    float distance = 0;
-    for (int y = -1; y <= size.h; ++y)
-        for (int x = -1; x <= size.w; ++x) {
-            if (x >= 0 && y >= 0 && x < size.w && y < size.h) continue;
-            ivec2_t candidate = ivec2_add(cell, (ivec2_t){x, y});
-            fvec2_t at = fvec2_cell_center(candidate);
-            float d = fvec2_distance_squared(from, at);
-            if ((found && d >= distance) || !P_CheckPosition(&level, unit, at.x, at.y)) continue;
-            bool occupied = false;
-            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-                if (th->function != P_MobjThinker) continue;
-                const mobj_t *other = (const mobj_t *)th;
-                if (other == unit || other->remove || other->hp <= 0 || !(other->traits & MF_MOBILE)) continue;
-                float radius = P_MobjRadius(unit) + P_MobjRadius(other);
-                if (fvec2_distance_squared(at, fixed3_xy_to_fvec2(other->core.position)) < radius * radius) {
-                    occupied = true;
-                    break;
-                }
-            }
-            if (occupied) continue;
-            if (!P_NavReachable(&level, P_MobjMoveClass(unit), fvec2_cell(from), candidate)) continue;
-            *bay = at;
-            distance = d;
-            found = true;
-        }
-    return found;
-}
-
 static bool go_to_deposit(mobj_t *unit, resourcevent_t *vent) {
     fvec2_t bay;
     if (!P_VentOpenTo(&level, vent, unit) ||
-        !w2_approach(unit, vent->cell, vent->footprint, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
+        !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
     unit->movement.order_id = 0;
     unit->harvest.phase = HARVEST_PHASE_TO_MINE;
     return true;
@@ -121,7 +88,7 @@ bool W2_ReturnGoods(mobj_t *unit) {
         ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(base->core.position),
                                          (fvec2_t){size.w * 0.5f, size.h * 0.5f}));
         fvec2_t at;
-        if (!w2_approach(unit, cell, size, &at)) continue;
+        if (!P_ApproachFootprint(unit, cell, size, &at)) continue;
         float d = fvec2_distance_squared(from, at);
         if (best && d >= distance) continue;
         best = base;
@@ -148,7 +115,7 @@ bool W2_HarvestOrder(mobj_t *unit, fvec2_t goal) {
         resourcevent_t *vent = &level.resource_vents[i];
         if (!P_ResourceVentContainsCell(vent, fvec2_cell(goal)) || !P_VentOpenTo(&level, vent, unit)) continue;
         fvec2_t bay;
-        if (!w2_approach(unit, vent->cell, vent->footprint, &bay)) return false;
+        if (!P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) return false;
         W2_InterruptHarvest(unit);
         W2_InterruptRepair(unit); W2_InterruptBuild(unit);
         unit->w2.carrier = 0;
@@ -174,7 +141,7 @@ static bool next_tree(mobj_t *unit, fvec2_t origin) {
         resourcevent_t *vent = &level.resource_vents[i];
         if (!vent->active || vent->resource_type != 1) continue;
         float d = fvec2_distance_squared(origin, vent->attachment);
-        if ((best >= 0 && d >= distance) || !w2_approach(unit, vent->cell, vent->footprint, &bay)) continue;
+        if ((best >= 0 && d >= distance) || !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) continue;
         best = i;
         distance = d;
     }

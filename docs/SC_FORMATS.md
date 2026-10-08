@@ -620,3 +620,12 @@ wireframe randomization, retail map/pathing semantics, sound playback, and
 Brood War/Remastered compatibility. Follow [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md)
 when executable investigation begins; no StarCraft function addresses were
 established in this work.
+
+### Gameplay integration follow-up (2026-10-08)
+
+The initial inspection-only scope is superseded for basic orders, economic
+queues and menu navigation. See [the shared gameplay findings](SC_EXE_FINDINGS.md#shared-gameplay-and-single-player-flow-2026-10-08)
+for the new weapons/build-time columns, initialization resources, MBRF text,
+responsive input bounds, sprite cache lifecycle and shared minimap fog. That
+section also distinguishes the implemented engine behavior from still-unverified
+retail simulation and campaign rules.

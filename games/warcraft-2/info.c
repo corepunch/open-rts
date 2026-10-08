@@ -2231,6 +2231,7 @@ void w2_build_info(void) {
         .draw_underlays = w2_draw_selection,
         .draw_overlays = w2_draw_buffs,
         .right_click_orders = true,
+        .radial_sight = true,
         .select_any = true,
         .f10_menu = true,
         .instant_turn = true,

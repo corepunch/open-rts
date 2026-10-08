@@ -325,6 +325,23 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
 
     new_unit->core.position = fixed3_with_xy(new_unit->core.position,
                                              (fvec2_t){ gx, gy });
+    if (building && actor_type->build_on_type) {
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *source = (mobj_t *)th;
+            if (source->remove || source->type_id != actor_type->build_on_type) continue;
+            irect_t bounds = P_MobjCells(source);
+            if (!ivec2_equal((ivec2_t){bounds.x, bounds.y}, site)) continue;
+            for (int v = 0; v < level.resource_vent_count; ++v) {
+                resourcevent_t *vent = &level.resource_vents[v];
+                if (vent->source_id != source->id) continue;
+                vent->source_id = new_unit->id;
+                vent->active = vent->amount > 0;
+            }
+            P_RemoveMobj(source);
+            break;
+        }
+    }
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
     if (product->product_class == RTS_PRODUCT_BUILDING) P_SyncBuildingBlocking();
     model_emit_build_completion(active_model, new_unit, producer, product);
@@ -385,27 +402,40 @@ static void advance_model_production_queue(mobj_t *producer) {
     }
 }
 
+static bool afford_product(int owner, const StaticProductDefinition *product) {
+    if (product->cost < 0 || level.player_resources[owner][0] < product->cost) return false;
+    for (int r = 1; r < RTS_MAX_RESOURCES; ++r)
+        if (product->extra_costs[r-1] < 0 || level.player_resources[owner][r] < product->extra_costs[r-1]) return false;
+    return true;
+}
+
+static void pay_product(int owner, const StaticProductDefinition *product) {
+    level.player_resources[owner][0] -= product->cost;
+    for (int r = 1; r < RTS_MAX_RESOURCES; ++r)
+        level.player_resources[owner][r] -= product->extra_costs[r-1];
+}
+
 bool G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product) {
     if (!producer || producer->owner >= RTS_MODEL_MAX_PLAYERS || !product || product->cost < 0)
         return false;
     int owner = producer->owner;
     if (!producer_accepts(producer, owner, product) ||
         !G_ModelProductAvailable(active_model, owner, product)) return false;
-    if (level.player_resources[owner][0] < product->cost) return false;
+    if (!afford_product(owner, product)) return false;
 
     uint16_t actor_id = G_ModelActorIdForProduct(product);
     if (actor_id == 0 || !P_ActorType(actor_id)) return false;
 
     if (G_ModelProductTrainingTimeMs(product) > 0) {
         if (!enqueue_product(producer, product, actor_id)) return false;
-        level.player_resources[owner][0] -= product->cost;
+        pay_product(owner, product);
         return true;
     }
 
     model_emit_event(active_model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                      product->product_class, product->product_type);
     if (!spawn_finished_product(product, producer)) return false;
-    level.player_resources[owner][0] -= product->cost;
+    pay_product(owner, product);
     return true;
 }
 
@@ -416,12 +446,21 @@ bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, iv
         !P_CanPlaceBuilding(G_ModelActorIdForProduct(product), cell, NULL) ||
         !producer_accepts(producer, producer->owner, product) ||
         !G_ModelProductAvailable(active_model, producer->owner, product) ||
-        product->cost < 0 || level.player_resources[producer->owner][0] < product->cost)
+        !afford_product(producer->owner, product))
         return false;
+    if (product->worker_build) {
+        const mobjtype_t *type = P_ActorType(G_ModelActorIdForProduct(product));
+        fvec2_t bay;
+        if (!type || !P_ApproachFootprint(producer, cell, type->footprint, &bay) ||
+            !P_MoveUnitTo(&level, producer, bay)) return false;
+        producer->attack.target = NULL;
+        producer->harvest.phase = HARVEST_PHASE_NONE;
+        producer->harvest.target = -1;
+    }
     if (!enqueue_product(producer, product, G_ModelActorIdForProduct(product))) return false;
     producer->production->placed = true;
     producer->production->cell = cell;
-    level.player_resources[producer->owner][0] -= product->cost;
+    pay_product(producer->owner, product);
     return true;
 }
 
@@ -463,6 +502,15 @@ bool G_ProductionTicker(float dt) {
             spawned = true;
             advance_model_production_queue(producer);
             continue;
+        }
+        const StaticProductDefinition *pending = G_ModelProductByClassType(active_model,
+            production->product_class, production->product_type);
+        if (production->placed && pending && pending->worker_build) {
+            fvec2_t bay;
+            const mobjtype_t *type = P_ActorType(production->actor_id);
+            if (!type || P_HasMoveOrder(producer) ||
+                !P_ApproachFootprint(producer, production->cell, type->footprint, &bay) ||
+                !fvec2_near(fixed3_xy_to_fvec2(producer->core.position), bay, 0.001f)) continue;
         }
         production->time_left_ms -= elapsed_ms;
         while (production->queue_count > 0 && production->time_left_ms <= 0) {

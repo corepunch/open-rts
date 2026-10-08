@@ -122,7 +122,6 @@ void w2_remove_tree(ivec2_t cell);
 bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256], int era,
                             spritecache_t *cache);
 /* A free cell beside a footprint that the unit can reach (p_harvest.c). */
-bool w2_approach(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay);
 bool w2_load_assets(const char *data_root, const level_t *map, const char *sprite_name,
                     tileset_t *tileset, spritesheet_t *unit_sprite);
 bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
