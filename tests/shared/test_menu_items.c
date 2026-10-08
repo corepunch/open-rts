@@ -363,6 +363,19 @@ static int drawing(void) {
     menu.itemOn = BUTTON;
     draw();
     CHECK(pixel(30, 0) == 2 && pixel(33, 5) == 2 && pixel(34, 5) == MARKER);
+    uint8_t offset_pixels[] = {3};
+    spritecell_t offset_cell = {.rect = {0, 0, 1, 1}, .displacement = {2, 1}};
+    spritelump_t offset_lump = {offset_pixels};
+    spritesheet_t offset_sheet = {.cells = &offset_cell, .lumps = &offset_lump,
+        .numlumps = 1, .frame_size = {4, 4}};
+    memcpy(offset_sheet.source_palette, palette, sizeof(palette));
+    items[BUTTON].sheet = &offset_sheet;
+    items[BUTTON].rect = (irect_t){30, 0, 8, 8};
+    items[BUTTON].look[MS_FOCUS].cell = 0;
+    draw();
+    CHECK(pixel(34, 2) == 3 && pixel(35, 3) == 3 && pixel(33, 2) == MARKER);
+    items[BUTTON].sheet = &sheet;
+    items[BUTTON].look[MS_FOCUS].cell = 1;
     /* Picture rims sit outside the artwork. Focus and a pending world target
      * mark the outer rim; pressing does not overwrite the picture's edge. */
     items[BUTTON].rect = (irect_t){30, 10, 4, 6};

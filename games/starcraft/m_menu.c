@@ -306,13 +306,6 @@ static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int v
     i->drawtarget=routine==product?HU_DrawProductPlacement:NULL;
     for(int s=0;s<MS_STATES;s++)i->look[s].cell=icon;
 }
-static void align_grp_cells(spritesheet_t *sheet) {
-    for(int i=0;i<sheet->numlumps;i++) {
-        spritecell_t *cell=&sheet->cells[i];
-        cell->displacement=ivec2_sub(
-            (ivec2_t){sheet->frame_size.w/2,sheet->frame_size.h/2},cell->ground_point);
-    }
-}
 static void refresh(menu_t *menu) {
     (void)menu;mobj_t *selected=NULL;
     selection_count=0;
@@ -439,7 +432,6 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     if(!W_LoadIndexedSheet(path,&console))return NULL;
     if(!grp(root,"unit/wirefram/wirefram.grp",console.palette,&wireframe)||
        !grp(root,"unit/cmdbtns/cmdicons.grp",console.palette,&icons))return NULL;
-    align_grp_cells(&icons);
     if(!palette_from(root,"game/tunit.pcx",&console,0)||
        !palette_from(root,"game/tunit.pcx",&widgets,0)||
        !palette_from(root,"game/tunit.pcx",&panel,0)||

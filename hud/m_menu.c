@@ -594,7 +594,15 @@ void M_MenuDrawPicture(const menuitem_t *item, menustate_t state, irect_t rect) 
     const spritecell_t *cell = &item->sheet->cells[look->cell];
     irect_t src = look->part.w > 0 ? look->part : cell->rect;
     irect_t dst = {rect.x + cell->displacement.x, rect.y + cell->displacement.y, src.w, src.h};
-    if (item->stretch) dst = rect;
+    if (item->stretch && look->part.w <= 0 &&
+        item->sheet->frame_size.w > 0 && item->sheet->frame_size.h > 0) {
+        dst = (irect_t){
+            rect.x + cell->displacement.x * rect.w / item->sheet->frame_size.w,
+            rect.y + cell->displacement.y * rect.h / item->sheet->frame_size.h,
+            src.w * rect.w / item->sheet->frame_size.w,
+            src.h * rect.h / item->sheet->frame_size.h,
+        };
+    } else if (item->stretch) dst = rect;
     R_DrawSprite(item->sheet, look->cell, look->palette, &src, &dst,
                  item->opaque ? V_OPAQUE : 0, item->light ? item->light : 16);
 }

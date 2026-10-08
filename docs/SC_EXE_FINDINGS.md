@@ -410,9 +410,11 @@ selection panel. `unit/wirefram/wirefram.grp` has 228 64x64 frames, matching the
 `type_id - 1` wireframe frame for each small selection icon, lays the twelve
 slots out left-to-right across those native positions, and keeps the command
 glyph sheet for the command card. GRP frames store cropped pixels plus their
-authored canvas offset; the command card now applies that offset within each
-36x34 slot so glyphs keep their native alignment. A single selection continues
-to use the full-size native wireframe and stats.
+authored canvas offset; the GRP loader retains it on every frame, and shared
+menu drawing applies it at native size or scales it with the frame canvas. This
+keeps all GRP-backed menu pictures aligned, including command glyphs in their
+36x34 slots and scaled wireframes in the selection list. A single selection
+continues to use the full-size native wireframe and stats.
 
 The console item covers 640x480. Temporary diagnostic output demonstrated
 `world click consumed=1` with its original settings and `=0` with decorative

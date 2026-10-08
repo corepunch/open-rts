@@ -32,9 +32,11 @@ static int dialog_test(void) {
     return 0;
 }
 static int malformed_grp(void) {
-    uint8_t bytes[]={1,0,2,0,1,0,0,0,2,1,14,0,0,0,2,0,0x42,7};
+    uint8_t bytes[]={1,0,4,0,3,0,2,1,2,1,14,0,0,0,2,0,0x42,7};
     blob_t b={.bytes=bytes,.size=sizeof(bytes)};uint32_t pal[256]={0};spritesheet_t s={0};
-    CHECK(sc_decode_grp(&b,pal,false,&s));CHECK(s.lumps[0].indices[0]==7&&s.lumps[0].indices[1]==7);R_FreeSprite(&s);
+    CHECK(sc_decode_grp(&b,pal,false,&s));CHECK(s.lumps[0].indices[0]==7&&s.lumps[0].indices[1]==7);
+    CHECK(ivec2_equal(s.cells[0].displacement,(ivec2_t){2,1}));
+    CHECK(ivec2_equal(s.cells[0].ground_point,(ivec2_t){0,0}));R_FreeSprite(&s);
     b.size--;CHECK(!sc_decode_grp(&b,pal,false,&s));
     b.size=sizeof(bytes);bytes[16]=0;CHECK(!sc_decode_grp(&b,pal,false,&s));return 0;
 }
