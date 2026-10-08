@@ -467,7 +467,7 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     }
     sc_start_tip(&level,start_tip,sizeof(start_tip));
     tip_item=hud.numitems++;
-    huditems[tip_item]=(menuitem_t){.kind=MI_STATIC,.visible=false,.rect={58,190,300,112},
+    huditems[tip_item]=(menuitem_t){.kind=MI_STATIC,.visible=false,.passthrough=true,.rect={58,190,300,112},
         .font=&gamefonts[0],.prose=start_tip,.opaque=false};
     return &hud;
 }
