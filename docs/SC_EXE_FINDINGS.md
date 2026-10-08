@@ -386,6 +386,25 @@ retail alignment routine has not been disassembled.
 
 ### Confirmed engine defects and implementation consequences
 
+Terran 01's `OWNR` chunk identifies player slot 1 as the human (`consoleplayer`
+is set to 1 from owner value 6). The shared single-player `D_PlayerIsHuman`
+check previously treated only slot 0 as human. As a result, the generic AI
+could assign economy orders to the local player's SCVs on this map. The check
+now uses `consoleplayer` in single player and the network player range in
+multiplayer. This corrects the observed immediate worker movement at startup.
+The CHK `UNIT` records do not encode initial movement orders; workers remain
+idle until the player orders them or game behavior gives them a target.
+
+The Terran 01 `STR ` table also contains a `TIP` entry with the opening
+selection instructions shown in the user-provided retail screenshot. The HUD
+now finds that labeled string in the loaded map and displays it at startup.
+The screenshot places the tip near logical screen coordinate (58, 190), which
+is the HUD position used here. The precise retail trigger and lifetime for this
+generic tip have not been established. The StarCraft selection panel now shows
+up to nine native `cmdicons.grp` unit icons for a multi-unit selection, with
+click-to-select behavior matching Warcraft II's existing nine-slot grid. A
+single selection continues to use the native wireframe and stats.
+
 The console item covers 640x480. Temporary diagnostic output demonstrated
 `world click consumed=1` with its original settings and `=0` with decorative
 pass-through enabled. This was an input dispatch defect, not a sprite definition

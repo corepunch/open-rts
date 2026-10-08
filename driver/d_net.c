@@ -54,7 +54,7 @@ int ExpandTics(int low) {
 }
 
 bool D_PlayerIsHuman(int owner) {
-    return owner == 0 || (netgame && owner >= 0 && owner < doomcom->numplayers);
+    return netgame ? owner >= 0 && owner < doomcom->numplayers : owner == consoleplayer;
 }
 
 static void HSendPacket(int node, uint32_t flags) {

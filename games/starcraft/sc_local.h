@@ -20,6 +20,7 @@ bool sc_briefing(const char *path, char *text, size_t text_size, char *objective
 bool sc_load_graphics(const char *root, const level_t *map, spritecache_t *cache);
 bool sc_load_tiles(const char *root, const level_t *map, tileset_t *out);
 bool sc_load_chk(const char *path, level_t *out);
+bool sc_start_tip(const level_t *map, char *text, size_t size);
 int sc_spawn_things(void);
 bool sc_portrait(const char *root,int id,char *path,size_t size);
 bool sc_dialog(const char *root,const char *path,sc_dialog_t *out);

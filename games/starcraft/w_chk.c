@@ -10,6 +10,58 @@ static void free_chk(void *data) {
     free(file);
 }
 
+bool sc_start_tip(const level_t *map, char *text, size_t size) {
+    if (!text || !size) return false;
+    text[0] = '\0';
+    const blob_t *file = map ? map->mission : NULL;
+    if (!file) return false;
+    for (size_t at = 0; at + 8 <= file->size;) {
+        const uint8_t *tag = file->bytes + at;
+        size_t chunk_size = read_u32_le(tag + 4);
+        if (chunk_size > file->size - at - 8) return false;
+        if (!memcmp(tag, "STR ", 4)) {
+            const uint8_t *strings = tag + 8;
+            if (chunk_size < 2) return false;
+            unsigned count = read_u16_le(strings);
+            if (count > (chunk_size - 2) / 2) return false;
+            size_t table_size = 2 + (size_t)count * 2;
+            for (unsigned id = 1; id <= count; ++id) {
+                size_t offset = read_u16_le(strings + id * 2);
+                if (offset < table_size || offset >= chunk_size) continue;
+                const char *line = (const char *)strings + offset;
+                size_t available = chunk_size - offset;
+                const char *end = memchr(line, '\0', available);
+                if (!end) continue;
+                while (line < end && (*line == ' ' || *line == '\t' || *line == '\r' || *line == '\n')) ++line;
+                if (end - line < 3 || memcmp(line, "TIP", 3) ||
+                    (line + 3 < end && line[3] != ' ' && line[3] != '\t' && line[3] != '\r' && line[3] != '\n')) continue;
+                if (size < 5) return false;
+                text[0] = 'T'; text[1] = 'I'; text[2] = 'P'; text[3] = '\n';
+                size_t written = 4;
+                line += 3;
+                while (line < end && (*line == ' ' || *line == '\t' || *line == '\r' || *line == '\n')) ++line;
+                while (line < end && written + 1 < size) {
+                    while (line < end && (*line == ' ' || *line == '\t' || *line == '\r')) ++line;
+                    while (line < end && *line != '\n' && written + 1 < size)
+                        text[written++] = *line++;
+                    if (line < end && *line == '\n') {
+                        while (written && text[written - 1] == ' ') --written;
+                        if (written + 1 >= size) break;
+                        text[written++] = '\n';
+                        ++line;
+                    }
+                }
+                while (written && (text[written - 1] == '\n' || text[written - 1] == ' ')) --written;
+                text[written] = '\0';
+                return written > 0;
+            }
+            return false;
+        }
+        at += 8 + chunk_size;
+    }
+    return false;
+}
+
 bool sc_load_chk(const char *path,level_t *out) {
     static const char *const tilesets[]={
         "badlands","platform","install","ashworld","jungle","desert","ice","twilight"

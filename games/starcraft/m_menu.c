@@ -9,7 +9,7 @@ typedef struct { sc_control_t native; spritesheet_t image; movie_t movies[SC_CON
 static spritesheet_t background, console, wireframe, icons, widgets, panel;
 static bitmapfont_t fonts[4], gamefonts[4];
 static artwork_t art[SC_DIALOG_CONTROLS];
-static menuitem_t items[SC_DIALOG_CONTROLS], pauseitems[SC_DIALOG_CONTROLS], huditems[160];
+static menuitem_t items[SC_DIALOG_CONTROLS], pauseitems[SC_DIALOG_CONTROLS], huditems[176];
 static menu_t front={.items=items,.size={640,480},.stretch=true,.modal=true};
 static menu_t pausemenu={.items=pauseitems,.size={640,480},.stretch=true,.modal=true};
 static menu_t hud={.items=huditems,.size={640,480},.stretch=true};
@@ -24,8 +24,11 @@ static screen_t registry, new_id, campaign, briefing;
 static char player_name[32]="Player", campaign_map[256];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
-static int portrait_item, portrait_id=-1;
+static int portrait_item, portrait_id=-1, tip_item;
 static int selected_id=-1, selection_start, command_start, wire_item, name_item, hp_item;
+static int selection_icon_start, selection_count;
+static mobj_t *selection_units[9];
+static char start_tip[512];
 static int catalog_index, build_page, resource_start;
 static void native_path(char *out,size_t size,const char *root,const char *name) {
     sc_asset_path(out,size,root,name);
@@ -95,6 +98,14 @@ static void help(menu_t *m,menuitem_t *i,menuaction_t a) {
 }
 static void open_menu(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)i;if(a==MA_ACTIVATE)M_StartControlPanel(m->app);
+}
+static void select_slot(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;
+    if(action!=MA_ACTIVATE||item->id<0||item->id>=selection_count)return;
+    mobj_t *unit=selection_units[item->id];
+    if(!unit||unit->remove||unit->hp<=0)return;
+    for(int i=0;i<hudview.unit_count;i++)P_MobjSetSelected(hudview.units[i],false);
+    P_MobjSetSelected(unit,true);
 }
 static bool draw_front(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect) {
     (void)menu;
@@ -295,7 +306,13 @@ static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int v
 }
 static void refresh(menu_t *menu) {
     (void)menu;mobj_t *selected=NULL;
-    for(int i=0;i<hudview.unit_count;i++)if(P_MobjIsSelected(hudview.units[i])){selected=hudview.units[i];break;}
+    selection_count=0;
+    memset(selection_units,0,sizeof(selection_units));
+    for(int i=0;i<hudview.unit_count;i++)if(P_MobjIsSelected(hudview.units[i])&&hudview.units[i]->hp>0) {
+        if(!selected)selected=hudview.units[i];
+        if(selection_count<(int)(sizeof(selection_units)/sizeof(selection_units[0])))
+            selection_units[selection_count++]=hudview.units[i];
+    }
     int id_now=selected?selected->type_id-1:-1;
     if(id_now!=selected_id){build_page=0;hud.target=NULL;}
     selected_id=id_now;
@@ -304,6 +321,8 @@ static void refresh(menu_t *menu) {
     for(int i=selection_start;i<command_start;i++)huditems[i].visible=false;
     for(int i=0;i<9;i++)huditems[command_start+i].visible=false;
     huditems[portrait_item].visible=false;
+    for(int i=0;i<9;i++)huditems[selection_icon_start+i].visible=false;
+    huditems[tip_item].visible=start_tip[0];
     if(!selected)return;
     catalog_index=selected_id;
     int id=sc_units[selected_id].portrait;
@@ -315,8 +334,16 @@ static void refresh(menu_t *menu) {
     huditems[portrait_item].visible=portrait.sheet.numlumps>0;
     huditems[name_item].visible=true;snprintf(huditems[name_item].text,128,"%s",sc_units[selected_id].name);
     huditems[hp_item].visible=true;snprintf(huditems[hp_item].text,128,"%d/%d",selected->hp,sc_units[selected_id].hp);
-    huditems[wire_item].visible=selected_id<wireframe.numlumps;
+    huditems[wire_item].visible=selection_count==1&&selected_id<wireframe.numlumps;
+    huditems[name_item].visible=selection_count==1;
+    huditems[hp_item].visible=selection_count==1;
     for(int s=0;s<MS_STATES;s++)huditems[wire_item].look[s].cell=selected_id;
+    if(selection_count>1)for(int i=0;i<selection_count;i++) {
+        menuitem_t *icon=&huditems[selection_icon_start+i];
+        icon->visible=icon->enabled=true;
+        int frame=(int)selection_units[i]->type_id-1;
+        for(int s=0;s<MS_STATES;s++)icon->look[s].cell=frame;
+    }
     if(selected->production) snprintf(huditems[hp_item].text,128,"%s %d%%",
         selected->production->placed?"Building":"Training",
         100-selected->production->time_left_ms*100/selected->production->time_ms);
@@ -432,6 +459,16 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     /* Catalog shortcuts are input-only; retail HUD artwork remains unobscured. */
     for(int i=0;i<2;i++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,
         .hotkey=i?SDLK_RIGHTBRACKET:SDLK_LEFTBRACKET,.value=i?1:-1,.routine=focus};
+    selection_icon_start=hud.numitems;
+    for(int i=0;i<9;i++) {
+        ivec2_t cell={(i%3)*36,(i/3)*37};
+        huditems[hud.numitems++]=(menuitem_t){.id=i,.kind=MI_BUTTON,.visible=false,.enabled=false,
+            .rect={168+cell.x,396+cell.y,36,34},.sheet=&icons,.routine=select_slot,.opaque=false};
+    }
+    sc_start_tip(&level,start_tip,sizeof(start_tip));
+    tip_item=hud.numitems++;
+    huditems[tip_item]=(menuitem_t){.kind=MI_STATIC,.visible=false,.rect={58,190,300,112},
+        .font=&gamefonts[0],.prose=start_tip,.opaque=false};
     return &hud;
 }
 void G_ShutdownHUD(void) {
