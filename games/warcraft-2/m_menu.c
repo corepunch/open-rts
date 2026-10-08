@@ -35,6 +35,7 @@ static void open_save(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_multiplayer(menu_t *menu, menuitem_t *item, menuaction_t action);
 static void open_briefing(void);
+static bool return_to_net;
 static void open_engine_net(void);
 
 static w2_menu_art_t art;
@@ -1055,12 +1056,49 @@ static void open_confirm(int resource) {
     show(&dialog_screen.menu);
 }
 
-/* The end of a scenario: a won campaign level offers the next one; a lost scenario can restart. */
+/* Score scene 3059. Escape continues, as 0x4822c closes that scene into the
+ * same state change as its Continue control. */
+static void open_stats(bool victory);
+static void result_escape(menu_t *menu) {
+    if (menu != &stats_screen.menu) return;
+    menuitem_t *next = M_MenuFind(menu, -2);
+    if (next) result_action(menu, next, MA_ACTIVATE);
+}
+
+static void same_briefing(int level, bool orc) {
+    brief_level = level;
+    brief_orc = orc;
+    brief_from_menu = false;
+    open_briefing();
+}
+
+static void leave_match(void) {
+    return_to_net = netgame;
+    W2_SetCampaign(0, false);
+    menuleave = true;
+    M_ClearMenus();
+}
+
+static void open_stats(bool victory) {
+    int race = button_race = side();
+    if (!native_scene(&stats_screen, 3059, &art.results[race][victory ? 0 : 1], NULL, result_escape)) return;
+    menuitem_t *result = M_MenuFind(&stats_screen.menu, 1);
+    if (result) apply_label(result, L(victory ? STR_WIN : STR_LOSE, 1, ""));
+    menuitem_t *next = M_MenuFind(&stats_screen.menu, -2);
+    if (next) { next->routine = result_action; next->hotkey = SDLK_RETURN; }
+    button_race = 1;
+    show(&stats_screen.menu);
+}
+
+/* Acknowledgement 3057/3058, then the score scene. A network game skips the
+ * acknowledgement: 0x46874 and 0x469b4 return before loading 3057/3058 when
+ * byte 0x8127a is set. */
 void W2_ShowResult(bool victory) {
     screen_t *s = &result_screen;
     int race = button_race = side();
     w2_mission_t *mission = level.mission;
     if (mission) { mission->done = true; mission->victory = victory; }
+    if (netgame) { open_stats(victory); return; }
     if (!native_scene(s, victory ? 3057 : 3058, NULL, &art.panel[race][W2_PANEL_DIALOG], NULL)) return;
     for (int i = 1; i < s->menu.numitems; ++i) {
         menuitem_t *item = &s->items[i];
@@ -1078,34 +1116,21 @@ static void result_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (!mission) return;
     if (menu == &result_screen.menu) {
         if (item->id == 1) { open_save(menu, item, action); return; }
-        int race = button_race = side();
-        if (!native_scene(&stats_screen, 3059, &art.results[race][mission->victory ? 0 : 1], NULL, NULL)) return;
-        menuitem_t *result = M_MenuFind(&stats_screen.menu, 1);
-        if (result) apply_label(result, L(mission->victory ? STR_WIN : STR_LOSE, 1, ""));
-        menuitem_t *next = M_MenuFind(&stats_screen.menu, -2);
-        if (next) { next->routine = result_action; next->hotkey = SDLK_RETURN; }
-        button_race = 1;
-        show(&stats_screen.menu);
+        open_stats(mission->victory);
         return;
     }
     if (item->id != -2) return;
+    /* 0x29794. Network (0x8127a) and custom (0x80331) go to state 4.
+     * A campaign win advances unless it is the last mission (state 9).
+     * A campaign loss keeps the mission id and returns through state 5. */
     w2_campaign_t campaign = mission->campaign;
-    if (!mission->victory) {
-        W2_SetCampaign(campaign.number, campaign.orc);
-        W2_SetStartResources(launch_resources);
-        set_launch_path(level.map_path);
-        menumap = launch_path;
-    } else if (campaign.number > 0 && campaign.number < W2_CAMPAIGN_LEVELS) {
-        brief_level = campaign.number + 1;
-        brief_orc = campaign.orc;
-        brief_from_menu = false;
-        open_briefing();
+    if (!netgame && campaign.number > 0 &&
+        (!mission->victory || campaign.number < W2_CAMPAIGN_LEVELS)) {
+        int next = mission->victory ? campaign.number + 1 : campaign.number;
+        same_briefing(next, campaign.orc);
         return;
-    } else {
-        W2_SetCampaign(0, false);
-        menuleave = true;
     }
-    M_ClearMenus();
+    leave_match();
 }
 
 /* ── saved games (engine g_save.c, as Doom's) ────────────────────────────── */
@@ -1477,6 +1502,13 @@ bool G_InitMenus(app_t *app, const char *root) {
 
 menu_t *G_ControlPanel(app_t *app, bool inlevel) {
     front_app = app;
+    /* State 4 with byte 0x8127a calls 0x1201c, which opens network scene
+     * 3075. The TCP create/join page is that screen in this build. */
+    if (!inlevel && return_to_net) {
+        return_to_net = false;
+        open_engine_net();
+        return currentmenu;
+    }
     button_race = inlevel ? side() : 1;
     screen_t *screen = inlevel ? &game_screen : &title_screen;
     if (!native_scene(screen, inlevel ? 3044 : 3041, inlevel ? NULL : &art.title,

@@ -2207,3 +2207,101 @@ Reproduce with `env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_hud`;
 `OPEN_RTS_PREVIEW_BMP=/private/tmp/war2-preview.bmp` saves the native preview.
 The test checks distinct valid/blocked tint pixels and an unchanged simulation
 checksum, then executes the existing worker construction flow.
+
+## Post-game destination (2026-10-08)
+
+This corrects the earlier result-scene note that Continue "queues mission
+two or a restart/return." A finished custom game does not reload the map.
+Retail was not executed. Addresses are code VAs in the unchanged inner LE
+image `reverse/war2-exe-r2ghidra/war2-inner.mz`. There is no replay prompt
+anywhere in this state machine. Wargus `scripts/menus/results.lua` adds
+"Save Replay"; that button is Stratagus-only and is not copied.
+
+**Confirmed: acknowledgement, then the score scene.** Victory opener
+`0x46874` returns immediately, with state word `0x8fe18` set to 6, when
+byte `0x8127a` is nonzero. Otherwise it loads dialog 3057 (`0xbf1`) and
+sets state 6 when the modal result is `-2` (Victory) or `1` (Save, unless
+dword `0xa7e34` is `-3`). Defeat opener `0x469b4` sets state 7 before the
+dialog. The same network byte skips dialog 3058 (`0xbf2`); the state is
+already 7, and the modal result is not inspected. Score opener `0x48318`
+still selects scenes 3059–3062. Its handler `0x4822c` treats a control id
+`<= 0` as Continue: Continue is `-2`, and that path calls `0x48078` and
+closes the scene. Control id 1 does not. Escape on the score scene is the
+same close. The body of `0x48078` was not re-read.
+
+**Confirmed: where Continue goes.** The main loop is `0x29840`. State 6
+calls `0x29794(1)` and state 7 calls `0x29794(0)`. `0x29794` shows the
+score scene unless byte `0x8196f` bit `0x20` is set. No writer of that bit
+was found; the engine leaves it unset, so the score scene is shown.
+
+- Byte `0x8127a` (network) or byte `0x80331` (custom scenario) sends both
+  a win and a loss to state 4. Neither counter is incremented.
+- A campaign victory compares word `0x80004` with byte `0x8032f` + 1218.
+  Equal selects state 9. Otherwise it selects state 5. Both campaign-victory
+  arms then add 2 to words `0x80326` and `0x80004`.
+- A campaign defeat calls `0x34668` and selects state 5. The counters stay
+  put. `0x34668` only copies dword `0x80812` to `0x80602`, and only when
+  the game is not network, not custom, and the state word is 7.
+
+State 5 stores 3 and returns to the loop. State 3 is `0x296c8`: unless
+byte `0x8196f` bit `0x20`, byte `0x8127a`, byte `0x81f55`, or byte
+`0x80331` is set, it calls `0x29dcc` and then briefing `0x4c364`. State 9
+calls `0x21a48` and then stores state 4. State 4 is `0x4069c`. It clears
+byte `0x80331`. While the state word remains 4 it calls `0x1201c` when
+byte `0x8127a` is set, and otherwise calls `0x4ccc4`, which loads main
+menu 3041.
+
+`0x1201c`, while byte `0xa71b5` is clear, loads dialog 3075 (`0xc03`).
+The modal result is left in `eax`. Result 4 clears byte `0x8127a`, sets
+byte `0xa71b5` to 1, and returns. The state-4 loop then sees the network
+byte clear and calls `0x4ccc4`. Other 3075 results stay inside `0x1201c`.
+Which on-screen control produces result 4 was not mapped. Byte `0x81f55`
+was not identified.
+
+**Inferred.** Fourteen campaign maps per race and a counter step of 2 make
+`word 0x80004 == byte 0x8032f + 1218` the last mission of that race. The
+initializer of `0x80004` was not re-traced, so the engine keeps its
+existing mission index and treats mission 14 as last. The two-row scene
+3059 is still the only score scene the engine loads.
+
+**Engine adaptation, distinct from the executable.** Retail `0x46048`
+sets state 7 at once when `0x45fc8` returns 0 for the local slot in byte
+`0x8032c` (unless byte `0x8196d` bit 1 is set). Byte `0x8196c` bit `0x80`
+also forces state 7. The rest of `0x46048` walks eight slots and the
+16-byte table at `0x804ba`; that table was not fully traced. Lockstep
+cannot drop one machine and keep the others simulating. A network match
+therefore stays up on every machine until fewer than two person or
+computer sides still have a unit. Each machine then shows victory when
+the local player is one of the survivors, and defeat otherwise. Nobody
+left alive is a defeat for every machine. A two-player game ends when one
+side is gone, which is the retail moment. A free-for-all waits until one
+side remains. Single-player local defeat is still immediate. The score
+scene stays up while a network game keeps simulating. The first Continue
+quits that session, so the other machines take the existing network-error
+path back to the title. They can open Multiplayer again from there.
+
+**Implementation.** Single-player still shows 3057 or 3058, then 3059.
+Network games skip the acknowledgement. Continue then does one of:
+
+- campaign win before mission 14: the next mission's briefing, then that
+  map. The chapter map `0x29dcc` is not implemented.
+- campaign loss, including mission 14: the same mission's briefing, then
+  that map. The mission index does not advance.
+- campaign win on mission 14: the title. The ending `0x21a48` is not
+  implemented.
+- custom or skirmish win or loss, including ALAMO: the title. This
+  replaces the old defeat reload.
+- network win or loss: the finished session is torn down and the TCP
+  create/join page opens. That page is dialog 3075 in this build.
+  Previous Menu there returns to the title, which is the result-4 exit.
+  There is no replay of the match.
+
+Campaign missions 2–14 still have no win condition, so a win cannot be
+reached on those maps. Losing every owned unit still opens the defeat
+path. The in-game End Mission dialog 3046 is a different path and was
+not changed: it restarts, reloads a custom map, or leaves, and it does
+not show the score scene.
+
+```sh
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_menu
+```
