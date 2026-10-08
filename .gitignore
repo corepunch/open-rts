@@ -52,6 +52,7 @@ Mkfile.old
 dkms.conf
 /build
 /dist
+data/
 /reverse/dc-exe-r2ghidra/
 /reverse/war2-exe-r2ghidra/
 /reverse/dr-hud/
