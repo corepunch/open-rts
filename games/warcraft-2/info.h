@@ -25,6 +25,18 @@ enum {
     W2_CAN_HARVEST = 1 << 18,
 };
 
+typedef enum {
+    W2_FX_CRITTER_EXPLOSION = -2, /* Catalog-only; no runtime effect. */
+    W2_FX_NONE = -1,
+    W2_FX_LIGHTNING, W2_FX_HAMMER, W2_FX_DRAGON, W2_FX_FIREBALL,
+    W2_FX_FLAME_SHIELD, W2_FX_BLIZZARD, W2_FX_DECAY, W2_FX_BIG_CANNON,
+    W2_FX_EXORCISM, W2_FX_HEAL, W2_FX_TOUCH, W2_FX_RUNE, W2_FX_WHIRLWIND,
+    W2_FX_ROCK, W2_FX_BOLT, W2_FX_ARROW, W2_FX_AXE, W2_FX_SUB, W2_FX_TURTLE,
+    W2_FX_SMALL_FIRE, W2_FX_BIG_FIRE, W2_FX_IMPACT, W2_FX_SPELL, W2_FX_EXPLOSION,
+    W2_FX_CANNON, W2_FX_CANNON_EXPLOSION, W2_FX_TOWER_EXPLOSION, W2_FX_DAEMON,
+    W2_FX_COUNT
+} w2_effect_id_t;
+
 typedef struct { int time; int resources[3]; } w2_cost_t;
 typedef struct {
     int capacity, step, resource_wait, depot_wait;
@@ -49,7 +61,7 @@ typedef struct {
     int points, priority, annoyance, level, decay, transport_capacity;
     int domain, target_mask, store_mask, gives_mask, income[3];
     w2_gather_t gather[3];
-    const char *projectile;
+    w2_effect_id_t projectile;
     w2_spell_id_t spells[6];
     bool innate_spells; /* Available without research. */
 } w2_stats_t;
@@ -208,15 +220,6 @@ typedef enum {
 #define W2_SPRITE_RUBBLE (W2_TYPE_COUNT + 5)
 #define W2_SPRITE_SMALL_RUBBLE (W2_TYPE_COUNT + 6)
 #define W2_EFFECT_SPRITE (W2_TYPE_COUNT + 7)
-enum {
-    W2_FX_LIGHTNING, W2_FX_HAMMER, W2_FX_DRAGON, W2_FX_FIREBALL,
-    W2_FX_FLAME_SHIELD, W2_FX_BLIZZARD, W2_FX_DECAY, W2_FX_BIG_CANNON,
-    W2_FX_EXORCISM, W2_FX_HEAL, W2_FX_TOUCH, W2_FX_RUNE, W2_FX_WHIRLWIND,
-    W2_FX_ROCK, W2_FX_BOLT, W2_FX_ARROW, W2_FX_AXE, W2_FX_SUB, W2_FX_TURTLE,
-    W2_FX_SMALL_FIRE, W2_FX_BIG_FIRE, W2_FX_IMPACT, W2_FX_SPELL, W2_FX_EXPLOSION,
-    W2_FX_CANNON, W2_FX_CANNON_EXPLOSION, W2_FX_TOWER_EXPLOSION, W2_FX_DAEMON,
-    W2_FX_COUNT
-};
 #define W2_TANK_FULL_SPRITE (W2_EFFECT_SPRITE + W2_FX_COUNT)
 #define W2_NAVAL_SITE_SPRITE (W2_TANK_FULL_SPRITE + 2)
 #define W2_SPRITE_COUNT (W2_NAVAL_SITE_SPRITE + 8)

@@ -102,6 +102,9 @@ static int projectiles(void) {
     P_RemoveMobj(ballista); /* Shooter's removal cannot erase the in-flight shot. */
     tick(30); CHECK(farm->hp < farm->max_hp);
     mobj_t *foot = spawn(MT_FOOTMAN, (fvec2_t){5, 5}, 0);
+    CHECK(!w2_fire_projectile(foot, enemy));
+    mobj_t *mage = spawn(MT_MAGE, (fvec2_t){4, 8}, 0);
+    CHECK(w2_fire_projectile(mage, enemy) && effect(W2_FX_LIGHTNING)); /* Effect zero is a real projectile. */
     mobj_t *flyer = spawn(MT_DRAGON, (fvec2_t){6, 5}, 1);
     CHECK(!P_CanTarget(foot, flyer) && P_CanTarget(archer, flyer));
     mobj_t *sub = spawn(MT_GNOMISH_SUBMARINE, (fvec2_t){15, 15}, 1);

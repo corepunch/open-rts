@@ -82,25 +82,21 @@ void W2_Burning(mobj_t *unit) {
 
 bool w2_fire_projectile(mobj_t *source, mobj_t *target) {
     const w2_stats_t *stats = &mobjinfo[source->type_id].w2;
-    if (!stats->projectile || !strcmp(stats->projectile, "missile-none")) return false;
-    for (int kind = 0; kind < W2_FX_COUNT; ++kind) {
-        if (strcmp(stats->projectile, w2_effects[kind].name)) continue;
-        mobj_t *shot = w2_spawn_effect(source, kind, source->core.position);
-        if (!shot) return true; /* An allocation failure must not turn into a hitscan. */
-        shot->w2.fx.subject = target->id;
-        shot->w2.fx.end = target->core.position;
-        shot->w2.fx.basic = stats->basic_damage;
-        shot->w2.fx.piercing = W2_PiercingDamage(source);
-        if (source->w2.buffs[W2_BUFF_BLOODLUST]) {
-            shot->w2.fx.basic *= 2;
-            shot->w2.fx.piercing *= 2;
-        }
-        shot->w2.fx.mask = stats->target_mask;
-        fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
-                                  fixed3_xy_to_fvec2(source->core.position));
-        shot->core.angle = P_PointToAngle(delta.x, delta.y);
-        return true;
+    if (stats->projectile == W2_FX_NONE) return false;
+    mobj_t *shot = w2_spawn_effect(source, stats->projectile, source->core.position);
+    if (!shot) return true; /* An unavailable effect must not turn into a hitscan. */
+    shot->w2.fx.subject = target->id;
+    shot->w2.fx.end = target->core.position;
+    shot->w2.fx.basic = stats->basic_damage;
+    shot->w2.fx.piercing = W2_PiercingDamage(source);
+    if (source->w2.buffs[W2_BUFF_BLOODLUST]) {
+        shot->w2.fx.basic *= 2;
+        shot->w2.fx.piercing *= 2;
     }
+    shot->w2.fx.mask = stats->target_mask;
+    fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
+                              fixed3_xy_to_fvec2(source->core.position));
+    shot->core.angle = P_PointToAngle(delta.x, delta.y);
     return true;
 }
 

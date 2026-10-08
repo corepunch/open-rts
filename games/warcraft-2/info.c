@@ -24,7 +24,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_FOOTMAN] = { /* PUD 0: unit-footman */
         .doomednum = 1, .spawnhealth = 60, .speed = 1, .radius = 16, .damage = 9,
         .name = "footman", .label = "Footman",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {45, 0, 0, 0}, .speed = 10, .armor = 2,
             .basic_damage = 6, .piercing_damage = 3, .damage_min = 2,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -41,7 +41,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GRUNT] = { /* PUD 1: unit-grunt */
         .doomednum = 2, .spawnhealth = 60, .speed = 1, .radius = 16, .damage = 9,
         .name = "grunt", .label = "Grunt",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {46, 0, 0, 0}, .speed = 10, .armor = 2,
             .basic_damage = 6, .piercing_damage = 3, .damage_min = 2,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -58,7 +58,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_PEASANT] = { /* PUD 2: unit-peasant */
         .doomednum = 3, .spawnhealth = 30, .speed = 1, .radius = 16, .damage = 5,
         .name = "peasant", .label = "Peasant",
-        .w2 = {.projectile = "missile-none", .flags = HARV, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HARV, .footprint = {1, 1}, .box = {31, 31},
             .grp = {47, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 2, .damage_min = 1,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -79,7 +79,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_PEON] = { /* PUD 3: unit-peon */
         .doomednum = 4, .spawnhealth = 30, .speed = 1, .radius = 16, .damage = 5,
         .name = "peon", .label = "Peon",
-        .w2 = {.projectile = "missile-none", .flags = HARV, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HARV, .footprint = {1, 1}, .box = {31, 31},
             .grp = {48, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 2, .damage_min = 1,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -100,7 +100,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_BALLISTA] = { /* PUD 4: unit-ballista */
         .doomednum = 5, .spawnhealth = 110, .speed = 0, .radius = 16, .damage = 80,
         .name = "ballista", .label = "Ballista",
-        .w2 = {.projectile = "missile-ballista-bolt", .flags = LAND, .footprint = {1, 1}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_BOLT, .flags = LAND, .footprint = {1, 1}, .box = {63, 63},
             .grp = {49, 0, 0, 0}, .speed = 5, .armor = 0,
             .basic_damage = 80, .piercing_damage = 0, .damage_min = 25,
             .sight = 9, .attack_range = 8, .min_attack_range = 2,
@@ -117,7 +117,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CATAPULT] = { /* PUD 5: unit-catapult */
         .doomednum = 6, .spawnhealth = 110, .speed = 0, .radius = 16, .damage = 80,
         .name = "catapult", .label = "Catapult",
-        .w2 = {.projectile = "missile-catapult-rock", .flags = LAND, .footprint = {1, 1}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_ROCK, .flags = LAND, .footprint = {1, 1}, .box = {63, 63},
             .grp = {50, 0, 0, 0}, .speed = 5, .armor = 0,
             .basic_damage = 80, .piercing_damage = 0, .damage_min = 25,
             .sight = 9, .attack_range = 8, .min_attack_range = 2,
@@ -134,7 +134,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_KNIGHT] = { /* PUD 6: unit-knight */
         .doomednum = 7, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 12,
         .name = "knight", .label = "Knight",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {51, 0, 0, 0}, .speed = 13, .armor = 4,
             .basic_damage = 8, .piercing_damage = 4, .damage_min = 2,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -151,7 +151,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_OGRE] = { /* PUD 7: unit-ogre */
         .doomednum = 8, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 12,
         .name = "ogre", .label = "Ogre",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {52, 0, 0, 0}, .speed = 13, .armor = 4,
             .basic_damage = 8, .piercing_damage = 4, .damage_min = 2,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -168,7 +168,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ARCHER] = { /* PUD 8: unit-archer */
         .doomednum = 9, .spawnhealth = 40, .speed = 1, .radius = 16, .damage = 9,
         .name = "archer", .label = "Archer",
-        .w2 = {.projectile = "missile-arrow", .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
+        .w2 = {.projectile = W2_FX_ARROW, .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
             .grp = {53, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 6, .damage_min = 3,
             .sight = 5, .attack_range = 4, .min_attack_range = 0,
@@ -185,7 +185,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_AXETHROWER] = { /* PUD 9: unit-axethrower */
         .doomednum = 10, .spawnhealth = 40, .speed = 1, .radius = 16, .damage = 9,
         .name = "axethrower", .label = "Troll Axethrower",
-        .w2 = {.projectile = "missile-axe", .flags = LAND, .footprint = {1, 1}, .box = {36, 36},
+        .w2 = {.projectile = W2_FX_AXE, .flags = LAND, .footprint = {1, 1}, .box = {36, 36},
             .grp = {54, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 6, .damage_min = 3,
             .sight = 5, .attack_range = 4, .min_attack_range = 0,
@@ -202,7 +202,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_MAGE] = { /* PUD 10: unit-mage */
         .doomednum = 11, .spawnhealth = 60, .speed = 1, .radius = 16, .damage = 9,
         .name = "mage", .label = "Mage",
-        .w2 = {.projectile = "missile-lightning", .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
+        .w2 = {.projectile = W2_FX_LIGHTNING, .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
             .grp = {55, 0, 0, 0}, .speed = 8, .armor = 0,
             .basic_damage = 0, .piercing_damage = 9, .damage_min = 5,
             .sight = 9, .attack_range = 2, .min_attack_range = 0,
@@ -227,7 +227,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DEATH_KNIGHT] = { /* PUD 11: unit-death-knight */
         .doomednum = 12, .spawnhealth = 60, .speed = 1, .radius = 16, .damage = 9,
         .name = "death-knight", .label = "Death Knight",
-        .w2 = {.projectile = "missile-touch-of-death", .flags = LAND, .footprint = {1, 1}, .box = {39, 39},
+        .w2 = {.projectile = W2_FX_TOUCH, .flags = LAND, .footprint = {1, 1}, .box = {39, 39},
             .grp = {58, 0, 0, 0}, .speed = 8, .armor = 0,
             .basic_damage = 0, .piercing_damage = 9, .damage_min = 5,
             .sight = 9, .attack_range = 3, .min_attack_range = 0,
@@ -252,7 +252,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_PALADIN] = { /* PUD 12: unit-paladin */
         .doomednum = 13, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 12,
         .name = "paladin", .label = "Paladin",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {51, 0, 0, 0}, .speed = 13, .armor = 4,
             .basic_damage = 8, .piercing_damage = 4, .damage_min = 2,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -271,7 +271,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_OGRE_MAGE] = { /* PUD 13: unit-ogre-mage */
         .doomednum = 14, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 12,
         .name = "ogre-mage", .label = "Ogre Mage",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {52, 0, 0, 0}, .speed = 13, .armor = 4,
             .basic_damage = 8, .piercing_damage = 4, .damage_min = 2,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -290,7 +290,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DEMOLITION_SQUAD] = { /* PUD 14: unit-dwarves */
         .doomednum = 15, .spawnhealth = 40, .speed = 1, .radius = 16, .damage = 6,
         .name = "dwarves", .label = "Demolition Squad",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {32, 32},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {32, 32},
             .grp = {33, 0, 0, 0}, .speed = 11, .armor = 0,
             .basic_damage = 4, .piercing_damage = 2, .damage_min = 1,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -308,7 +308,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GOBLIN_SAPPERS] = { /* PUD 15: unit-goblin-sappers */
         .doomednum = 16, .spawnhealth = 40, .speed = 1, .radius = 16, .damage = 6,
         .name = "goblin-sappers", .label = "Goblin Sappers",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {37, 37},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {37, 37},
             .grp = {34, 0, 0, 0}, .speed = 11, .armor = 0,
             .basic_damage = 4, .piercing_damage = 2, .damage_min = 1,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -326,7 +326,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ATTACK_PEASANT] = { /* PUD 16: unit-attack-peasant */
         .doomednum = 17, .spawnhealth = 30, .speed = 1, .radius = 16, .damage = 5,
         .name = "attack-peasant", .label = "Peasant",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {47, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 2, .damage_min = 1,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -343,7 +343,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ATTACK_PEON] = { /* PUD 17: unit-attack-peon */
         .doomednum = 18, .spawnhealth = 30, .speed = 1, .radius = 16, .damage = 5,
         .name = "attack-peon", .label = "Peon",
-        .w2 = {.projectile = "missile-none", .flags = HARV, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HARV, .footprint = {1, 1}, .box = {31, 31},
             .grp = {48, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 2, .damage_min = 1,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -364,7 +364,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_RANGER] = { /* PUD 18: unit-ranger */
         .doomednum = 19, .spawnhealth = 50, .speed = 1, .radius = 16, .damage = 9,
         .name = "ranger", .label = "Ranger",
-        .w2 = {.projectile = "missile-arrow", .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
+        .w2 = {.projectile = W2_FX_ARROW, .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
             .grp = {53, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 6, .damage_min = 3,
             .sight = 6, .attack_range = 4, .min_attack_range = 0,
@@ -381,7 +381,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_BERSERKER] = { /* PUD 19: unit-berserker */
         .doomednum = 20, .spawnhealth = 50, .speed = 1, .radius = 16, .damage = 9,
         .name = "berserker", .label = "Berserker",
-        .w2 = {.projectile = "missile-axe", .flags = LAND, .footprint = {1, 1}, .box = {36, 36},
+        .w2 = {.projectile = W2_FX_AXE, .flags = LAND, .footprint = {1, 1}, .box = {36, 36},
             .grp = {54, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 3, .piercing_damage = 6, .damage_min = 3,
             .sight = 6, .attack_range = 4, .min_attack_range = 0,
@@ -398,7 +398,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ALLERIA] = { /* PUD 20: unit-female-hero */
         .doomednum = 21, .spawnhealth = 120, .speed = 1, .radius = 16, .damage = 28,
         .name = "female-hero", .label = "Alleria",
-        .w2 = {.projectile = "missile-arrow", .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
+        .w2 = {.projectile = W2_FX_ARROW, .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
             .grp = {53, 0, 0, 0}, .speed = 10, .armor = 5,
             .basic_damage = 10, .piercing_damage = 18, .damage_min = 9,
             .sight = 9, .attack_range = 7, .min_attack_range = 0,
@@ -415,7 +415,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_TERON_GOREFIEND] = { /* PUD 21: unit-evil-knight */
         .doomednum = 22, .spawnhealth = 180, .speed = 1, .radius = 16, .damage = 16,
         .name = "evil-knight", .label = "Teron Gorefiend",
-        .w2 = {.projectile = "missile-touch-of-death", .flags = LAND, .footprint = {1, 1}, .box = {39, 39},
+        .w2 = {.projectile = W2_FX_TOUCH, .flags = LAND, .footprint = {1, 1}, .box = {39, 39},
             .grp = {58, 0, 0, 0}, .speed = 8, .armor = 2,
             .basic_damage = 0, .piercing_damage = 16, .damage_min = 8,
             .sight = 9, .attack_range = 4, .min_attack_range = 0,
@@ -440,7 +440,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_KURDRAN] = { /* PUD 22: unit-flying-angel */
         .doomednum = 23, .spawnhealth = 250, .speed = 1, .radius = 16, .damage = 25,
         .name = "flying-angel", .label = "Kurdran and Sky'ree",
-        .w2 = {.projectile = "missile-griffon-hammer", .flags = FLY, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_HAMMER, .flags = FLY, .footprint = {2, 2}, .box = {63, 63},
             .grp = {35, 0, 0, 0}, .speed = 14, .armor = 6,
             .basic_damage = 0, .piercing_damage = 25, .damage_min = 13,
             .sight = 9, .attack_range = 5, .min_attack_range = 0,
@@ -457,7 +457,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DENTARG] = { /* PUD 23: unit-fad-man */
         .doomednum = 24, .spawnhealth = 300, .speed = 1, .radius = 16, .damage = 24,
         .name = "fad-man", .label = "Dentarg",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {52, 0, 0, 0}, .speed = 13, .armor = 8,
             .basic_damage = 18, .piercing_damage = 6, .damage_min = 3,
             .sight = 6, .attack_range = 1, .min_attack_range = 0,
@@ -476,7 +476,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_KHADGAR] = { /* PUD 24: unit-white-mage */
         .doomednum = 25, .spawnhealth = 120, .speed = 1, .radius = 16, .damage = 16,
         .name = "white-mage", .label = "Khadgar",
-        .w2 = {.projectile = "missile-lightning", .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
+        .w2 = {.projectile = W2_FX_LIGHTNING, .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
             .grp = {55, 0, 0, 0}, .speed = 8, .armor = 3,
             .basic_damage = 0, .piercing_damage = 16, .damage_min = 8,
             .sight = 9, .attack_range = 6, .min_attack_range = 0,
@@ -501,7 +501,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GROM_HELLSCREAM] = { /* PUD 25: unit-beast-cry */
         .doomednum = 26, .spawnhealth = 240, .speed = 1, .radius = 16, .damage = 22,
         .name = "beast-cry", .label = "Grom Hellscream",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {54, 0, 0, 0}, .speed = 10, .armor = 8,
             .basic_damage = 16, .piercing_damage = 6, .damage_min = 3,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -518,7 +518,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_OIL_TANKER] = { /* PUD 26: unit-human-oil-tanker */
         .doomednum = 27, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 0,
         .name = "human-tanker", .label = "Oil Tanker",
-        .w2 = {.projectile = "missile-none", .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
             .grp = {59, 0, 0, 0}, .speed = 10, .armor = 10,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -538,7 +538,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_OIL_TANKER] = { /* PUD 27: unit-orc-oil-tanker */
         .doomednum = 28, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 0,
         .name = "orc-tanker", .label = "Oil Tanker",
-        .w2 = {.projectile = "missile-none", .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
             .grp = {60, 0, 0, 0}, .speed = 10, .armor = 10,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -558,7 +558,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_TRANSPORT] = { /* PUD 28: unit-human-transport */
         .doomednum = 29, .spawnhealth = 150, .speed = 1, .radius = 16, .damage = 0,
         .name = "human-transport", .label = "Transport",
-        .w2 = {.projectile = "missile-none", .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
             .grp = {39, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -575,7 +575,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_TRANSPORT] = { /* PUD 29: unit-orc-transport */
         .doomednum = 30, .spawnhealth = 150, .speed = 1, .radius = 16, .damage = 0,
         .name = "orc-transport", .label = "Transport",
-        .w2 = {.projectile = "missile-none", .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
             .grp = {40, 0, 0, 0}, .speed = 10, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 1, .min_attack_range = 0,
@@ -592,7 +592,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_DESTROYER] = { /* PUD 30: unit-human-destroyer */
         .doomednum = 31, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 35,
         .name = "human-destroyer", .label = "Elven Destroyer",
-        .w2 = {.projectile = "missile-small-cannon", .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {61, 0, 0, 0}, .speed = 10, .armor = 10,
             .basic_damage = 35, .piercing_damage = 0, .damage_min = 2,
             .sight = 8, .attack_range = 4, .min_attack_range = 0,
@@ -609,7 +609,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_DESTROYER] = { /* PUD 31: unit-orc-destroyer */
         .doomednum = 32, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 35,
         .name = "orc-destroyer", .label = "Troll Destroyer",
-        .w2 = {.projectile = "missile-small-cannon", .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {62, 0, 0, 0}, .speed = 10, .armor = 10,
             .basic_damage = 35, .piercing_damage = 0, .damage_min = 2,
             .sight = 8, .attack_range = 4, .min_attack_range = 0,
@@ -626,7 +626,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_BATTLESHIP] = { /* PUD 32: unit-battleship */
         .doomednum = 33, .spawnhealth = 150, .speed = 0, .radius = 16, .damage = 130,
         .name = "battleship", .label = "Battleship",
-        .w2 = {.projectile = "missile-big-cannon", .flags = SHIP, .footprint = {2, 2}, .box = {70, 70},
+        .w2 = {.projectile = W2_FX_BIG_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {70, 70},
             .grp = {41, 0, 0, 0}, .speed = 6, .armor = 15,
             .basic_damage = 130, .piercing_damage = 0, .damage_min = 50,
             .sight = 8, .attack_range = 6, .min_attack_range = 0,
@@ -643,7 +643,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_OGRE_JUGGERNAUGHT] = { /* PUD 33: unit-ogre-juggernaught */
         .doomednum = 34, .spawnhealth = 150, .speed = 0, .radius = 16, .damage = 130,
         .name = "juggernaught", .label = "Ogre Juggernaught",
-        .w2 = {.projectile = "missile-big-cannon", .flags = SHIP, .footprint = {2, 2}, .box = {70, 70},
+        .w2 = {.projectile = W2_FX_BIG_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {70, 70},
             .grp = {42, 0, 0, 0}, .speed = 6, .armor = 15,
             .basic_damage = 130, .piercing_damage = 0, .damage_min = 50,
             .sight = 8, .attack_range = 6, .min_attack_range = 0,
@@ -661,7 +661,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DEATHWING] = { /* PUD 35: unit-fire-breeze */
         .doomednum = 36, .spawnhealth = 800, .speed = 1, .radius = 16, .damage = 35,
         .name = "fire-breeze", .label = "Deathwing",
-        .w2 = {.projectile = "missile-dragon-breath", .flags = FLY, .footprint = {2, 2}, .box = {71, 71},
+        .w2 = {.projectile = W2_FX_DRAGON, .flags = FLY, .footprint = {2, 2}, .box = {71, 71},
             .grp = {0, 0, 0, 0}, .speed = 14, .armor = 10,
             .basic_damage = 10, .piercing_damage = 25, .damage_min = 13,
             .sight = 9, .attack_range = 5, .min_attack_range = 0,
@@ -680,7 +680,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GNOMISH_SUBMARINE] = { /* PUD 38: unit-human-submarine */
         .doomednum = 39, .spawnhealth = 60, .speed = 0, .radius = 16, .damage = 50,
         .name = "gnome-submarine", .label = "Gnomish Submarine",
-        .w2 = {.projectile = "missile-submarine-missile", .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_SUB, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {43, 0, 182, 526}, .speed = 7, .armor = 0,
             .basic_damage = 50, .piercing_damage = 0, .damage_min = 10,
             .sight = 5, .attack_range = 4, .min_attack_range = 0,
@@ -697,7 +697,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GIANT_TURTLE] = { /* PUD 39: unit-orc-submarine */
         .doomednum = 40, .spawnhealth = 60, .speed = 0, .radius = 16, .damage = 50,
         .name = "giant-turtle", .label = "Giant Turtle",
-        .w2 = {.projectile = "missile-turtle-missile", .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_TURTLE, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {44, 0, 183, 527}, .speed = 7, .armor = 0,
             .basic_damage = 50, .piercing_damage = 0, .damage_min = 10,
             .sight = 5, .attack_range = 4, .min_attack_range = 0,
@@ -714,7 +714,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_FLYING_MACHINE] = { /* PUD 40: unit-balloon */
         .doomednum = 41, .spawnhealth = 150, .speed = 2, .radius = 16, .damage = 0,
         .name = "balloon", .label = "Gnomish Flying Machine",
-        .w2 = {.projectile = "missile-none", .flags = BALLOON, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BALLOON, .footprint = {2, 2}, .box = {63, 63},
             .grp = {38, 0, 0, 0}, .speed = 17, .armor = 2,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 9, .attack_range = 1, .min_attack_range = 0,
@@ -731,7 +731,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ZEPPELIN] = { /* PUD 41: unit-zeppelin */
         .doomednum = 42, .spawnhealth = 150, .speed = 2, .radius = 16, .damage = 0,
         .name = "zeppelin", .label = "Goblin Zeppelin",
-        .w2 = {.projectile = "missile-none", .flags = BALLOON, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BALLOON, .footprint = {2, 2}, .box = {63, 63},
             .grp = {63, 0, 0, 0}, .speed = 17, .armor = 2,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 9, .attack_range = 1, .min_attack_range = 0,
@@ -748,7 +748,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GRYPHON_RIDER] = { /* PUD 42: unit-gryphon-rider */
         .doomednum = 43, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 16,
         .name = "gryphon-rider", .label = "Gryphon Rider",
-        .w2 = {.projectile = "missile-griffon-hammer", .flags = FLY, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_HAMMER, .flags = FLY, .footprint = {2, 2}, .box = {63, 63},
             .grp = {35, 0, 0, 0}, .speed = 14, .armor = 5,
             .basic_damage = 0, .piercing_damage = 16, .damage_min = 8,
             .sight = 6, .attack_range = 4, .min_attack_range = 0,
@@ -765,7 +765,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DRAGON] = { /* PUD 43: unit-dragon */
         .doomednum = 44, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 16,
         .name = "dragon", .label = "Dragon",
-        .w2 = {.projectile = "missile-dragon-breath", .flags = FLY, .footprint = {2, 2}, .box = {71, 71},
+        .w2 = {.projectile = W2_FX_DRAGON, .flags = FLY, .footprint = {2, 2}, .box = {71, 71},
             .grp = {36, 0, 0, 0}, .speed = 14, .armor = 5,
             .basic_damage = 0, .piercing_damage = 16, .damage_min = 8,
             .sight = 6, .attack_range = 4, .min_attack_range = 0,
@@ -782,7 +782,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_TURALYON] = { /* PUD 44: unit-knight-rider */
         .doomednum = 45, .spawnhealth = 180, .speed = 1, .radius = 16, .damage = 19,
         .name = "knight-rider", .label = "Turalyon",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {51, 0, 0, 0}, .speed = 13, .armor = 10,
             .basic_damage = 14, .piercing_damage = 5, .damage_min = 3,
             .sight = 6, .attack_range = 1, .min_attack_range = 0,
@@ -801,7 +801,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_EYE_OF_KILROGG] = { /* PUD 45: unit-eye-of-vision */
         .doomednum = 46, .spawnhealth = 100, .speed = 5, .radius = 16, .damage = 1,
         .name = "eye-of-kilrogg", .label = "Eye of Kilrogg",
-        .w2 = {.projectile = "missile-none", .flags = FLY, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = FLY, .footprint = {1, 1}, .box = {31, 31},
             .grp = {37, 0, 0, 0}, .speed = 42, .armor = 0,
             .basic_damage = 1, .piercing_damage = 0, .damage_min = 1,
             .sight = 3, .attack_range = 1, .min_attack_range = 0,
@@ -818,7 +818,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DANATH] = { /* PUD 46: unit-arthor-literios */
         .doomednum = 47, .spawnhealth = 220, .speed = 1, .radius = 16, .damage = 23,
         .name = "arthor-literios", .label = "Danath",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {45, 0, 0, 0}, .speed = 10, .armor = 8,
             .basic_damage = 15, .piercing_damage = 8, .damage_min = 4,
             .sight = 6, .attack_range = 1, .min_attack_range = 0,
@@ -835,7 +835,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_KARGATH_BLADEFIST] = { /* PUD 47: unit-quick-blade */
         .doomednum = 48, .spawnhealth = 240, .speed = 1, .radius = 16, .damage = 22,
         .name = "quick-blade", .label = "Korgath Bladefist",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {46, 0, 0, 0}, .speed = 10, .armor = 8,
             .basic_damage = 16, .piercing_damage = 6, .damage_min = 3,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -853,7 +853,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CHOGALL] = { /* PUD 49: unit-double-head */
         .doomednum = 50, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 15,
         .name = "double-head", .label = "Cho'gall",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {52, 0, 0, 0}, .speed = 13, .armor = 0,
             .basic_damage = 10, .piercing_damage = 5, .damage_min = 3,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -873,7 +873,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_LOTHAR] = { /* PUD 50: unit-wise-man */
         .doomednum = 51, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 12,
         .name = "wise-man", .label = "Lothar",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {51, 0, 0, 0}, .speed = 13, .armor = 4,
             .basic_damage = 8, .piercing_damage = 4, .damage_min = 2,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -890,7 +890,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GULDAN] = { /* PUD 51: unit-ice-bringer */
         .doomednum = 52, .spawnhealth = 40, .speed = 1, .radius = 16, .damage = 3,
         .name = "ice-bringer", .label = "Gul'dan",
-        .w2 = {.projectile = "missile-touch-of-death", .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
+        .w2 = {.projectile = W2_FX_TOUCH, .flags = LAND, .footprint = {1, 1}, .box = {33, 33},
             .grp = {58, 0, 0, 0}, .speed = 8, .armor = 0,
             .basic_damage = 0, .piercing_damage = 3, .damage_min = 2,
             .sight = 8, .attack_range = 3, .min_attack_range = 0,
@@ -915,7 +915,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_UTHER_LIGHTBRINGER] = { /* PUD 52: unit-man-of-light */
         .doomednum = 53, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 12,
         .name = "man-of-light", .label = "Uther Lightbringer",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {42, 42},
             .grp = {51, 0, 0, 0}, .speed = 13, .armor = 4,
             .basic_damage = 8, .piercing_damage = 4, .damage_min = 2,
             .sight = 5, .attack_range = 1, .min_attack_range = 0,
@@ -934,7 +934,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ZULJIN] = { /* PUD 53: unit-sharp-axe */
         .doomednum = 54, .spawnhealth = 120, .speed = 1, .radius = 16, .damage = 28,
         .name = "sharp-axe", .label = "Zuljin",
-        .w2 = {.projectile = "missile-axe", .flags = LAND, .footprint = {1, 1}, .box = {36, 36},
+        .w2 = {.projectile = W2_FX_AXE, .flags = LAND, .footprint = {1, 1}, .box = {36, 36},
             .grp = {54, 0, 0, 0}, .speed = 10, .armor = 5,
             .basic_damage = 10, .piercing_damage = 18, .damage_min = 9,
             .sight = 9, .attack_range = 5, .min_attack_range = 0,
@@ -952,7 +952,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_SKELETON] = { /* PUD 55: unit-skeleton */
         .doomednum = 56, .spawnhealth = 40, .speed = 1, .radius = 16, .damage = 9,
         .name = "skeleton", .label = "Skeleton",
-        .w2 = {.projectile = "missile-none", .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = LAND, .footprint = {1, 1}, .box = {31, 31},
             .grp = {69, 0, 0, 0}, .speed = 8, .armor = 0,
             .basic_damage = 6, .piercing_damage = 3, .damage_min = 2,
             .sight = 3, .attack_range = 1, .min_attack_range = 0,
@@ -969,7 +969,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DAEMON] = { /* PUD 56: unit-daemon */
         .doomednum = 57, .spawnhealth = 60, .speed = 1, .radius = 16, .damage = 12,
         .name = "daemon", .label = "Daemon",
-        .w2 = {.projectile = "missile-daemon-fire", .flags = FLY, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_DAEMON, .flags = FLY, .footprint = {1, 1}, .box = {31, 31},
             .grp = {70, 0, 0, 0}, .speed = 14, .armor = 3,
             .basic_damage = 10, .piercing_damage = 2, .damage_min = 1,
             .sight = 5, .attack_range = 3, .min_attack_range = 0,
@@ -986,7 +986,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CRITTER] = { /* PUD 57: unit-critter */
         .doomednum = 58, .spawnhealth = 5, .speed = 0, .radius = 16, .damage = 0,
         .name = "critter", .label = "Critter",
-        .w2 = {.projectile = "missile-critter-explosion", .flags = CRIT, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_CRITTER_EXPLOSION, .flags = CRIT, .footprint = {1, 1}, .box = {31, 31},
             .grp = {64, 66, 65, 65}, .speed = 3, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 2, .attack_range = 1, .min_attack_range = 0,
@@ -1003,7 +1003,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_FARM] = { /* PUD 58: unit-farm */
         .doomednum = 59, .spawnhealth = 400, .speed = 0, .radius = 16, .damage = 0,
         .name = "farm", .label = "Farm",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {92, 134, 173, 479}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1020,7 +1020,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_PIG_FARM] = { /* PUD 59: unit-pig-farm */
         .doomednum = 60, .spawnhealth = 400, .speed = 0, .radius = 16, .damage = 0,
         .name = "pig-farm", .label = "Pig Farm",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {93, 135, 174, 480}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 2, .attack_range = 0, .min_attack_range = 0,
@@ -1037,7 +1037,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_BARRACKS] = { /* PUD 60: unit-human-barracks */
         .doomednum = 61, .spawnhealth = 800, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-barracks", .label = "Barracks",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {94, 136, 94, 481}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1054,7 +1054,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_BARRACKS] = { /* PUD 61: unit-orc-barracks */
         .doomednum = 62, .spawnhealth = 800, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-barracks", .label = "Barracks",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {95, 137, 95, 482}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1071,7 +1071,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CHURCH] = { /* PUD 62: unit-church */
         .doomednum = 63, .spawnhealth = 700, .speed = 0, .radius = 16, .damage = 0,
         .name = "church", .label = "Church",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {96, 138, 96, 483}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1088,7 +1088,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ALTAR_OF_STORMS] = { /* PUD 63: unit-altar-of-storms */
         .doomednum = 64, .spawnhealth = 700, .speed = 0, .radius = 16, .damage = 0,
         .name = "altar-of-storms", .label = "Altar of Storms",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {97, 139, 97, 484}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1105,7 +1105,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_WATCH_TOWER] = { /* PUD 64: unit-human-watch-tower */
         .doomednum = 65, .spawnhealth = 100, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-watch-tower", .label = "Scout Tower",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {98, 140, 98, 485}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 9, .attack_range = 0, .min_attack_range = 0,
@@ -1122,7 +1122,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_WATCH_TOWER] = { /* PUD 65: unit-orc-watch-tower */
         .doomednum = 66, .spawnhealth = 100, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-watch-tower", .label = "Watch Tower",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {99, 141, 99, 486}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 9, .attack_range = 0, .min_attack_range = 0,
@@ -1139,7 +1139,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_STABLES] = { /* PUD 66: unit-stables */
         .doomednum = 67, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "stables", .label = "Stables",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {104, 146, 104, 491}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1156,7 +1156,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_OGRE_MOUND] = { /* PUD 67: unit-ogre-mound */
         .doomednum = 68, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "ogre-mound", .label = "Ogre Mound",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {105, 147, 105, 492}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1173,7 +1173,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_INVENTOR] = { /* PUD 68: unit-inventor */
         .doomednum = 69, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "inventor", .label = "Gnomish Inventor",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {90, 132, 90, 477}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1190,7 +1190,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ALCHEMIST] = { /* PUD 69: unit-alchemist */
         .doomednum = 70, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "alchemist", .label = "Goblin Alchemist",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {91, 133, 91, 478}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1207,7 +1207,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GRYPHON_AVIARY] = { /* PUD 70: unit-gryphon-aviary */
         .doomednum = 71, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "gryphon-aviary", .label = "Gryphon Aviary",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {88, 130, 88, 475}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1224,7 +1224,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DRAGON_ROOST] = { /* PUD 71: unit-dragon-roost */
         .doomednum = 72, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "dragon-roost", .label = "Dragon Roost",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {89, 131, 89, 476}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1241,7 +1241,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_SHIPYARD] = { /* PUD 72: unit-human-shipyard */
         .doomednum = 73, .spawnhealth = 1100, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-shipyard", .label = "Shipyard",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {108, 150, 108, 495}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1258,7 +1258,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_SHIPYARD] = { /* PUD 73: unit-orc-shipyard */
         .doomednum = 74, .spawnhealth = 1100, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-shipyard", .label = "Shipyard",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {109, 151, 109, 496}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1275,7 +1275,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_TOWN_HALL] = { /* PUD 74: unit-town-hall */
         .doomednum = 75, .spawnhealth = 1200, .speed = 0, .radius = 16, .damage = 0,
         .name = "town-hall", .label = "Town Hall",
-        .w2 = {.projectile = "missile-none", .flags = HALL, .footprint = {4, 4}, .box = {126, 126},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HALL, .footprint = {4, 4}, .box = {126, 126},
             .grp = {100, 142, 100, 487}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1292,7 +1292,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GREAT_HALL] = { /* PUD 75: unit-great-hall */
         .doomednum = 76, .spawnhealth = 1200, .speed = 0, .radius = 16, .damage = 0,
         .name = "great-hall", .label = "Great Hall",
-        .w2 = {.projectile = "missile-none", .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
             .grp = {101, 143, 101, 488}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1309,7 +1309,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ELVEN_LUMBER_MILL] = { /* PUD 76: unit-elven-lumber-mill */
         .doomednum = 77, .spawnhealth = 600, .speed = 0, .radius = 16, .damage = 0,
         .name = "elven-lumber-mill", .label = "Elven Lumber Mill",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {102, 144, 175, 489}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1326,7 +1326,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_TROLL_LUMBER_MILL] = { /* PUD 77: unit-troll-lumber-mill */
         .doomednum = 78, .spawnhealth = 600, .speed = 0, .radius = 16, .damage = 0,
         .name = "troll-lumber-mill", .label = "Troll Lumber Mill",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {103, 145, 176, 490}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1343,7 +1343,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_FOUNDRY] = { /* PUD 78: unit-human-foundry */
         .doomednum = 79, .spawnhealth = 750, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-foundry", .label = "Foundry",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {110, 152, 110, 497}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1360,7 +1360,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_FOUNDRY] = { /* PUD 79: unit-orc-foundry */
         .doomednum = 80, .spawnhealth = 750, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-foundry", .label = "Foundry",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {111, 153, 111, 498}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1377,7 +1377,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_MAGE_TOWER] = { /* PUD 80: unit-mage-tower */
         .doomednum = 81, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "mage-tower", .label = "Mage Tower",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {84, 160, 84, 505}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1394,7 +1394,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_TEMPLE_OF_THE_DAMNED] = { /* PUD 81: unit-temple-of-the-damned */
         .doomednum = 82, .spawnhealth = 500, .speed = 0, .radius = 16, .damage = 0,
         .name = "temple-of-the-damned", .label = "Temple of the Damned",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {85, 161, 85, 506}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1411,7 +1411,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_BLACKSMITH] = { /* PUD 82: unit-human-blacksmith */
         .doomednum = 83, .spawnhealth = 775, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-blacksmith", .label = "Blacksmith",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {106, 148, 106, 493}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1428,7 +1428,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_BLACKSMITH] = { /* PUD 83: unit-orc-blacksmith */
         .doomednum = 84, .spawnhealth = 775, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-blacksmith", .label = "Blacksmith",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {107, 149, 107, 494}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1445,7 +1445,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_REFINERY] = { /* PUD 84: unit-human-refinery */
         .doomednum = 85, .spawnhealth = 600, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-refinery", .label = "Oil Refinery",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {112, 154, 112, 499}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1462,7 +1462,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_REFINERY] = { /* PUD 85: unit-orc-refinery */
         .doomednum = 86, .spawnhealth = 600, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-refinery", .label = "Oil Refinery",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {113, 155, 113, 500}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1479,7 +1479,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_OIL_PLATFORM] = { /* PUD 86: unit-human-oil-platform */
         .doomednum = 87, .spawnhealth = 650, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-oil-platform", .label = "Oil Platform",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {114, 156, 177, 501}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1496,7 +1496,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_OIL_PLATFORM] = { /* PUD 87: unit-orc-oil-platform */
         .doomednum = 88, .spawnhealth = 650, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-oil-platform", .label = "Oil Platform",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {115, 157, 178, 502}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1513,7 +1513,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_KEEP] = { /* PUD 88: unit-keep */
         .doomednum = 89, .spawnhealth = 1400, .speed = 0, .radius = 16, .damage = 0,
         .name = "keep", .label = "Keep",
-        .w2 = {.projectile = "missile-none", .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
             .grp = {86, 128, 86, 473}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 3, .attack_range = 0, .min_attack_range = 0,
@@ -1530,7 +1530,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_STRONGHOLD] = { /* PUD 89: unit-stronghold */
         .doomednum = 90, .spawnhealth = 1400, .speed = 0, .radius = 16, .damage = 0,
         .name = "stronghold", .label = "Stronghold",
-        .w2 = {.projectile = "missile-none", .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
             .grp = {87, 129, 87, 474}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 2, .attack_range = 0, .min_attack_range = 0,
@@ -1547,7 +1547,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CASTLE] = { /* PUD 90: unit-castle */
         .doomednum = 91, .spawnhealth = 1600, .speed = 0, .radius = 16, .damage = 0,
         .name = "castle", .label = "Castle",
-        .w2 = {.projectile = "missile-none", .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
             .grp = {116, 158, 116, 503}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 6, .attack_range = 0, .min_attack_range = 0,
@@ -1564,7 +1564,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_FORTRESS] = { /* PUD 91: unit-fortress */
         .doomednum = 92, .spawnhealth = 1600, .speed = 0, .radius = 16, .damage = 0,
         .name = "fortress", .label = "Fortress",
-        .w2 = {.projectile = "missile-none", .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
+        .w2 = {.projectile = W2_FX_NONE, .flags = HALL, .footprint = {4, 4}, .box = {127, 127},
             .grp = {117, 159, 117, 504}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 6, .attack_range = 0, .min_attack_range = 0,
@@ -1581,7 +1581,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_GOLD_MINE] = { /* PUD 92: unit-gold-mine */
         .doomednum = 93, .spawnhealth = 25500, .speed = 0, .radius = 16, .damage = 0,
         .name = "gold-mine", .label = "Gold Mine",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {119, 162, 179, 511}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1598,7 +1598,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_OIL_PATCH] = { /* PUD 93: unit-oil-patch */
         .doomednum = 94, .spawnhealth = 0, .speed = 0, .radius = 16, .damage = 0,
         .name = "oil-patch", .label = "Oil Patch",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {3, 3}, .box = {95, 95},
             .grp = {118, 118, 180, 515}, .speed = 0, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 0, .attack_range = 0, .min_attack_range = 0,
@@ -1615,7 +1615,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_START_LOCATION] = { /* PUD 94: unit-human-start-location */
         .doomednum = 95, .spawnhealth = 0, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-start", .label = "Start Location",
-        .w2 = {.projectile = "missile-none", .flags = W2_SKIP, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = W2_SKIP, .footprint = {1, 1}, .box = {31, 31},
             .grp = {164, 0, 0, 0}, .speed = 0, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 0, .attack_range = 0, .min_attack_range = 0,
@@ -1632,7 +1632,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_START_LOCATION] = { /* PUD 95: unit-orc-start-location */
         .doomednum = 96, .spawnhealth = 0, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-start", .label = "Start Location",
-        .w2 = {.projectile = "missile-none", .flags = W2_SKIP, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = W2_SKIP, .footprint = {1, 1}, .box = {31, 31},
             .grp = {165, 0, 0, 0}, .speed = 0, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 0, .attack_range = 0, .min_attack_range = 0,
@@ -1649,7 +1649,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_GUARD_TOWER] = { /* PUD 96: unit-human-guard-tower */
         .doomednum = 97, .spawnhealth = 130, .speed = 0, .radius = 16, .damage = 16,
         .name = "human-guard-tower", .label = "Guard Tower",
-        .w2 = {.projectile = "missile-arrow", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_ARROW, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {80, 169, 80, 507}, .speed = 0, .armor = 20,
             .basic_damage = 4, .piercing_damage = 12, .damage_min = 6,
             .sight = 9, .attack_range = 6, .min_attack_range = 0,
@@ -1666,7 +1666,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_GUARD_TOWER] = { /* PUD 97: unit-orc-guard-tower */
         .doomednum = 98, .spawnhealth = 130, .speed = 0, .radius = 16, .damage = 16,
         .name = "orc-guard-tower", .label = "Guard Tower",
-        .w2 = {.projectile = "missile-arrow", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_ARROW, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {81, 170, 81, 508}, .speed = 0, .armor = 20,
             .basic_damage = 4, .piercing_damage = 12, .damage_min = 6,
             .sight = 9, .attack_range = 6, .min_attack_range = 0,
@@ -1683,7 +1683,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_CANNON_TOWER] = { /* PUD 98: unit-human-cannon-tower */
         .doomednum = 99, .spawnhealth = 160, .speed = 0, .radius = 16, .damage = 50,
         .name = "human-cannon-tower", .label = "Cannon Tower",
-        .w2 = {.projectile = "missile-small-cannon", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_CANNON, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {82, 171, 82, 509}, .speed = 0, .armor = 20,
             .basic_damage = 50, .piercing_damage = 0, .damage_min = 20,
             .sight = 9, .attack_range = 7, .min_attack_range = 2,
@@ -1700,7 +1700,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_CANNON_TOWER] = { /* PUD 99: unit-orc-cannon-tower */
         .doomednum = 100, .spawnhealth = 160, .speed = 0, .radius = 16, .damage = 50,
         .name = "orc-cannon-tower", .label = "Cannon Tower",
-        .w2 = {.projectile = "missile-small-cannon", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_CANNON, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {83, 172, 83, 510}, .speed = 0, .armor = 20,
             .basic_damage = 50, .piercing_damage = 0, .damage_min = 20,
             .sight = 9, .attack_range = 7, .min_attack_range = 2,
@@ -1717,7 +1717,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CIRCLE_OF_POWER] = { /* PUD 100: unit-circle-of-power */
         .doomednum = 101, .spawnhealth = 0, .speed = 0, .radius = 16, .damage = 0,
         .name = "circle-of-power", .label = "Circle of Power",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {166, 166, 166, 525}, .speed = 0, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 0, .attack_range = 0, .min_attack_range = 0,
@@ -1734,7 +1734,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_DARK_PORTAL] = { /* PUD 101: unit-dark-portal */
         .doomednum = 102, .spawnhealth = 5000, .speed = 0, .radius = 16, .damage = 0,
         .name = "dark-portal", .label = "Dark Portal",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {4, 4}, .box = {127, 127},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {4, 4}, .box = {127, 127},
             .grp = {167, 184, 185, 513}, .speed = 0, .armor = 0,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 0, .min_attack_range = 0,
@@ -1752,7 +1752,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_RUNESTONE] = { /* PUD 102: unit-runestone */
         .doomednum = 103, .spawnhealth = 5000, .speed = 0, .radius = 16, .damage = 0,
         .name = "runestone", .label = "Runestone",
-        .w2 = {.projectile = "missile-none", .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
+        .w2 = {.projectile = W2_FX_NONE, .flags = BLD, .footprint = {2, 2}, .box = {63, 63},
             .grp = {181, 186, 181, 514}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 4, .attack_range = 0, .min_attack_range = 0,
@@ -1770,7 +1770,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_HUMAN_WALL] = { /* PUD 103: unit-human-wall */
         .doomednum = 104, .spawnhealth = 40, .speed = 0, .radius = 16, .damage = 0,
         .name = "human-wall", .label = "Wall",
-        .w2 = {.projectile = "missile-none", .flags = W2_SKIP | BLD, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = W2_SKIP | BLD, .footprint = {1, 1}, .box = {31, 31},
             .grp = {0, 0, 0, 0}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1787,7 +1787,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ORC_WALL] = { /* PUD 104: unit-orc-wall */
         .doomednum = 105, .spawnhealth = 40, .speed = 0, .radius = 16, .damage = 0,
         .name = "orc-wall", .label = "Wall",
-        .w2 = {.projectile = "missile-none", .flags = W2_SKIP | BLD, .footprint = {1, 1}, .box = {31, 31},
+        .w2 = {.projectile = W2_FX_NONE, .flags = W2_SKIP | BLD, .footprint = {1, 1}, .box = {31, 31},
             .grp = {0, 0, 0, 0}, .speed = 0, .armor = 20,
             .basic_damage = 0, .piercing_damage = 0, .damage_min = 0,
             .sight = 1, .attack_range = 0, .min_attack_range = 0,
@@ -1848,7 +1848,7 @@ static void build_combat_states(int pud, int phases) {
     int windup_tics = 3, hit_tics = 5, recover_tics = 10;
     int fall_first = 0, fall_count = 0;
     int art_frames = phases;
-    bool death_knight = unit->w2.projectile && !strcmp(unit->w2.projectile, "missile-touch-of-death");
+    bool death_knight = unit->w2.projectile == W2_FX_TOUCH;
     if (structure) phases = 1; /* A structure's extra frame is construction, not an attack row. */
     if (death_knight) { /* Wargus death-knight, evil-knight and ice-bringer. */
         hit_first = 5; hit_count = 2; windup_tics = 5;
@@ -1859,7 +1859,7 @@ static void build_combat_states(int pud, int phases) {
         if (worker) { recover_frame = 9; fall_first = 10; fall_count = 3; }
         else if (phases == 13) { fall_first = 10; fall_count = 3; }
         if (!worker) recover_tics = 11; /* Includes the final wait 1. */
-        if (unit->w2.projectile && !strcmp(unit->w2.projectile, "missile-axe")) {
+        if (unit->w2.projectile == W2_FX_AXE) {
             hit_tics = 12;
             recover_tics = 53; /* Axethrower, berserker and Zul'jin: 52+1. */
         }
@@ -1871,7 +1871,7 @@ static void build_combat_states(int pud, int phases) {
     } else if ((unit->w2.flags & W2_SEA) && !(unit->w2.attributes & W2_PERMANENT_CLOAK)) {
         /* Surface ships fire in frame 0. Rows 1 and 2 are sinking art. */
         windup_tics = 0;
-        hit_tics = unit->w2.projectile && !strcmp(unit->w2.projectile, "missile-big-cannon") ? 229 : 119;
+        hit_tics = unit->w2.projectile == W2_FX_BIG_CANNON ? 229 : 119;
         recover_tics = 1;
     } else { /* Single-frame art, such as towers. */
         windup_tics = 1; hit_tics = 1; recover_tics = 58;

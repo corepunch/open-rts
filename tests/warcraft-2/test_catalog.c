@@ -126,10 +126,14 @@ static int audit_unit(mobjinfo_t *unit, char *text) {
     CHECK(s->gives_mask == (given ? (!strncmp(given, "\"gold\"", 6) ? 1 :
                                   !strncmp(given, "\"wood\"", 6) ? 2 : 4) : 0));
     char *projectile = field(text, "Missile");
-    CHECK(projectile && *projectile == '"' && s->projectile);
+    CHECK(projectile && *projectile == '"');
+    CHECK(s->projectile >= W2_FX_CRITTER_EXPLOSION && s->projectile < W2_FX_COUNT);
+    const char *projectile_name = s->projectile == W2_FX_NONE ? "missile-none" :
+        s->projectile == W2_FX_CRITTER_EXPLOSION ? "missile-critter-explosion" :
+        w2_effects[s->projectile].name;
     char *projectile_end = strchr(projectile + 1, '"');
-    CHECK(projectile_end && strlen(s->projectile) == (size_t)(projectile_end - projectile - 1));
-    CHECK(!strncmp(s->projectile, projectile + 1, (size_t)(projectile_end - projectile - 1)));
+    CHECK(projectile_end && strlen(projectile_name) == (size_t)(projectile_end - projectile - 1));
+    CHECK(!strncmp(projectile_name, projectile + 1, (size_t)(projectile_end - projectile - 1)));
     CHECK(s->target_mask == (boolean(text, "CanTargetLand") ? W2_TARGET_LAND : 0) +
                             (boolean(text, "CanTargetSea") ? W2_TARGET_SEA : 0) +
                             (boolean(text, "CanTargetAir") ? W2_TARGET_AIR : 0));

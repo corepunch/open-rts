@@ -2239,3 +2239,16 @@ were read as format references for response bounds, text offsets and animation
 header indices. No Python tool was added or executed. See the dated shared
 gameplay section in `docs/SC_EXE_FINDINGS.md` for byte offsets, hashes, confirmed
 behavior, rejected hypotheses and remaining unknowns.
+
+### Warcraft II runtime identifier audit (2026-10-08)
+
+The existing pinned Wargus
+[`human/units.lua`](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/units.lua),
+[`orc/units.lua`](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/orc/units.lua)
+and [`missiles.lua`](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/missiles.lua)
+were inspected locally to establish projectile-name provenance and the distinct,
+currently unsupported critter-explosion definition. These names are reference
+metadata, not native asset IDs or a runtime Lua dependency. The C audit retains
+the name mapping while simulation uses enums. See the runtime identifier audit
+in `docs/WAR2_EXE_FINDINGS.md`; no new executable analysis or asset generation
+was performed.

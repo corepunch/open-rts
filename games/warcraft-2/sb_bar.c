@@ -301,7 +301,8 @@ static void put_product(int slot, int ui, SDL_Keycode key, const char *tip) {
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
     if (!product) return;
     static char labels[9][80];
-    if (!strncmp(product->label, "upgrade-", 8)) pretty_name(product->label, labels[slot], sizeof(labels[slot]));
+    if (product->product_class == RTS_PRODUCT_UPGRADE && product->product_type >= W2_UPGRADE_BALLISTA1)
+        pretty_name(product->label, labels[slot], sizeof(labels[slot]));
     else snprintf(labels[slot], sizeof(labels[slot]), "%s", product->label);
     put_cmd(slot, CK_TRAIN, product->icon_frame, ui, product->cost,
             W2_ProductLumber(product), W2_ProductOil(product), key, tip ? tip : labels[slot]);

@@ -558,9 +558,11 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
     w2_blob_free(&pal);
     bool ok = true;
     for (int i = 0; i < unit_count; ++i) {
-        const char *name = units[i] ? units[i]->core.sprite_name : NULL;
-        int type = w2_pud_named(name);
-        if (type < 0 || R_CacheFind(cache, name)) continue;
+        const mobj_t *unit = units[i];
+        if (!unit || unit->type_id == 0 || unit->type_id > W2_TYPE_COUNT) continue;
+        int type = unit->type_id - 1;
+        const char *name = mobjinfo[unit->type_id].name;
+        if (!name || R_CacheFind(cache, name)) continue;
         if (cache->count >= MAX_DECORATION_SPRITES) { ok = false; break; }
         cachedsprite_t *slot = &cache->entries[cache->count];
         memset(slot, 0, sizeof(*slot));

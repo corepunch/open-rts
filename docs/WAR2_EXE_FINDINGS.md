@@ -2305,3 +2305,58 @@ not show the score scene.
 ```sh
 env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_menu
 ```
+
+## Runtime identifier audit (2026-10-08)
+
+This is a C implementation and pinned reference-source audit, not a new
+WAR2.EXE trace. The executable/native archive fingerprints above are unchanged;
+the retail program was not executed. Reference revision remains Wargus
+`cde1a0718a0058cc651ecd56ff8149fc39f624e9`.
+
+- **Confirmed source provenance:** `scripts/{human,orc}/units.lua::Missile`
+  supplies names such as `missile-none`, `missile-arrow` and
+  `missile-touch-of-death`; `CanCastSpell` supplies the spell names previously
+  retained in the C unit rosters. These are Wargus script identifiers, not
+  identifiers read from native PUD UNIT records or MAINDAT GRPs. The C runtime
+  loads neither Lua nor the reference catalog; optional regression tests parse
+  the pinned source as an independent audit.
+- **Confirmed implementation change:** all 100 defined C unit records now
+  store `w2_effect_id_t` projectile IDs. `W2_FX_NONE` preserves the melee/no-shot
+  case. Existing effect IDs remain 0..27, with their current MAINDAT entry
+  mapping `324 + id`; lightning remains ID zero. Firing indexes the effect
+  directly, and death-knight, axe-thrower and large-cannon attack timing selects
+  the same families by ID. No asset pixels, native indices or waits changed.
+- **Preserved limitation:** `scripts/missiles.lua::missile-critter-explosion`
+  is a distinct Wargus definition sharing `missiles/explosion.png`. Our old
+  string scan found no corresponding runtime effect. Its catalog-only enum
+  value remains outside the decoded effect range, so requesting it still
+  produces neither a shot nor a fallback melee hit. This audit does not infer
+  a native critter death effect or add a guessed sprite/timing alias; retail
+  behavior remains **unknown**.
+- **Confirmed additional unnecessary lookup:** runtime unit sprite loading
+  scanned names to rediscover PUD types already present in `mobj_t.type_id`.
+  It now uses that type and the canonical catalog name for the existing shared
+  sprite cache. Name-to-type lookup remains at the external sprite-name input.
+  Research command formatting now selects catalog-derived labels by numeric
+  product class and upgrade range, rather than an `upgrade-` label prefix.
+  Explicitly authored labels retain their spelling and case. Research ownership,
+  prerequisites and completion already use enum IDs.
+- **Remaining text fields:** unit/effect names serve the shared sprite cache,
+  diagnostics and source audit; spell names serve the optional source audit;
+  upgrade names also supply display labels. Display strings, archive chunk
+  tags and file paths remain text. None dispatches spell/projectile/research
+  gameplay by string identity.
+
+Reproduce the catalog mapping, effect-zero/no-projectile cases, projectile
+impacts, attack/death rows, hero casting, sprite loading and HUD checks with:
+
+```sh
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+```
+
+Verification passed for the 100-definition reference audit, combat, gameplay
+effects, heroes, movement, research, HUD and save tests. The ALAMO smoke check
+still reports 372 terrain tiles and 60 footman frames; its BMP is byte-identical
+to the unchanged baseline capture. The menu, shared-nav and shared-net-menu
+failures previously reproduced on unchanged source remain separate limitations.
