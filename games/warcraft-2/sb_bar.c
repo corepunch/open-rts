@@ -128,6 +128,7 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect);
 static void draw_resources(const menu_t *menu, const menuitem_t *item, irect_t rect);
 static void draw_status(const menu_t *menu, const menuitem_t *item, irect_t rect);
 static void draw_slot(const menu_t *menu, const menuitem_t *item, irect_t rect);
+static void draw_placement(const menu_t *menu, const menuitem_t *item, irect_t rect);
 
 irect_t G_WorldViewport(const app_t *app) {
     int scale = R_UIScale(app);
@@ -249,6 +250,7 @@ static void layout(void) {
         menuitem_t *slot = &items[IT_SLOT + i];
         *cmd = (menuitem_t){
             .kind = MI_BUTTON, .routine = on_command,
+            .drawtarget = draw_placement,
             .rect = { col_x[i % 3], cmd_y[i / 3], 46, 38 },
             .frame = {0xff000000u, 0xfffcfcfcu}, .color = 0xff00fc00u,
         };
@@ -418,6 +420,7 @@ static void refresh(menu_t *menu) {
     if (id != command_id) {
         command_id = id;
         page = 0;
+        M_MenuTarget(menu, NULL);
     }
     if (page == 2 && !advanced_ok()) page = 0;
     memset(shown, 0, sizeof(shown));
@@ -507,6 +510,27 @@ static void order_at(const menu_t *menu, int kind) {
                      hudview.units, hudview.unit_count, goal, 0);
 }
 
+static mobj_t *selected_builder(void) {
+    for (int i = 0; i < hudview.unit_count; ++i) {
+        mobj_t *unit = hudview.units[i];
+        if (unit && P_MobjIsSelected(unit) && unit->owner == consoleplayer && unit->hp > 0 &&
+            !unit->remove && (unit->traits & MF_HARVESTER)) return unit;
+    }
+    return NULL;
+}
+
+/* Native art is cached here; targeting and footprint drawing are shared. */
+static void draw_placement(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    (void)rect;
+    const cmd_t *cmd = &shown[item - &items[IT_CMD]];
+    uint16_t type = (uint16_t)(cmd->arg + 1);
+    if (cmd->kind != CK_PLACE || !W2_Buildable(type)) return;
+    mobj_t *builder = selected_builder();
+    if (!builder) return;
+    W2_EnsureUnitSprite(type - 1);
+    HU_DrawPlacement(menu, type, builder);
+}
+
 /* The selected worker is sent to build; the price is paid when it arrives
  * (W2_ConstructOrder). The cursor cell is the footprint's top-left. */
 static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
@@ -522,12 +546,7 @@ static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
         M_MenuTarget(menu, NULL);
         return;
     }
-    mobj_t *builder = NULL;
-    for (int i = 0; i < hudview.unit_count && !builder; ++i) {
-        mobj_t *unit = hudview.units[i];
-        if (unit && P_MobjIsSelected(unit) && unit->owner == consoleplayer && unit->hp > 0 &&
-            !unit->remove && (unit->traits & MF_HARVESTER)) builder = unit;
-    }
+    mobj_t *builder = selected_builder();
     cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
     if (!builder || !W2_CanPlace((uint16_t)(pud + 1), (ivec2_t){cell.x, cell.y}, builder) ||
         !G_ConstructOrder(builder, pud + 1, (ivec2_t){cell.x, cell.y})) {

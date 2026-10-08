@@ -86,6 +86,7 @@ static void call_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
 
 void M_MenuTarget(menu_t *menu, menuitem_t *item) {
     menu->target = item;
+    if (!item) menu->placement.builder = 0;
 }
 
 void M_MenuEdit(menu_t *menu, menuitem_t *item) {
@@ -829,6 +830,17 @@ void M_MenuDrawer(menu_t *menu) {
     V_SetDrawScale(R_UIScale(menu->app));
     if (menu->refresh) menu->refresh(menu);
     if (menu->palette) I_SetPalette(menu->palette);
+    if (!menu->modal && item_live(menu->target) && menu->target->drawtarget) {
+        V_SetDrawScale(1);
+        irect_t view = G_WorldViewport(menu->app);
+        if (irect_contains(view, menu->cursor) && !visible_at(menu, menu->cursor)) {
+            V_SetClip(view);
+            menu->target->drawtarget(menu, menu->target, view);
+        }
+        V_SetDrawScale(previous);
+        V_SetClip(clip);
+        V_SetDrawScale(R_UIScale(menu->app));
+    }
     if (menu->background && menu->background->numlumps) {
         irect_t dst = menu->background->cells[0].rect;
         R_DrawSprite(menu->background, 0, -1, NULL, &dst, V_OPAQUE, 16);

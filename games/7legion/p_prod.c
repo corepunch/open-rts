@@ -8,16 +8,22 @@
 
 /*
  * 7th Legion production table.
- * Mobile Base (type 7) is the sole producer — it builds all units.
+ * The Mobile Base bootstraps construction; a completed Base also builds.
+ * Existing mobile-base unit production remains available to the AI.
  * type ids match the actor table in g_game.c.
  */
 static const StaticProductDefinition SL_PRODUCTS[] = {
-    { 1, 1, "Trooper",     150, 0, RTS_PRODUCT_UNIT, 1, 0, {0}, 0, {7}, 1 },
+    { 1, 1, "Trooper",     150, 0, RTS_PRODUCT_UNIT, 1, 0, {0}, 0, {7, MT_BARRACKS}, 2 },
     { 2, 2, "Slave",       100, 0, RTS_PRODUCT_UNIT, 2, 0, {0}, 0, {7}, 1 },
-    { 3, 3, "Spider Mech", 600, 0, RTS_PRODUCT_UNIT, 3, 0, {0}, 0, {7}, 1 },
-    { 4, 4, "Tank",        800, 0, RTS_PRODUCT_UNIT, 4, 0, {0}, 0, {7}, 1 },
-    { 5, 5, "Rock Mech",  1200, 0, RTS_PRODUCT_UNIT, 5, 0, {0}, 0, {7}, 1 },
-    { 6, 6, "Truck",       400, 0, RTS_PRODUCT_UNIT, 6, 0, {0}, 0, {7}, 1 },
+    { 3, 3, "Spider Mech", 600, 0, RTS_PRODUCT_UNIT, 3, 0, {0}, 0, {7, MT_ROBOT_FACTORY}, 2 },
+    { 4, 4, "Tank",        800, 0, RTS_PRODUCT_UNIT, 4, 0, {0}, 0, {7, MT_TANK_FACTORY}, 2 },
+    { 5, 5, "Rock Mech",  1200, 0, RTS_PRODUCT_UNIT, 5, 0, {0}, 0, {7, MT_ROBOT_FACTORY}, 2 },
+    { 6, 6, "Truck",       400, 0, RTS_PRODUCT_UNIT, 6, 0, {0}, 0, {7, MT_TANK_FACTORY}, 2 },
+#define SL_BUILDING(native, type, asset, name, hp, cost, ticks, w, h) \
+    {MT_##type, MT_##type, name, cost, 0, RTS_PRODUCT_BUILDING, MT_##type, 0, \
+     {0}, 0, {MT_MOBILE_BASE, MT_BASE}, 2},
+#include "buildings.inc"
+#undef SL_BUILDING
 };
 
 static int product_count(void) {
@@ -79,6 +85,16 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
 
 int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     if (!product) return 0;
+    /* Engine pacing: native build counters advance once per engine tic.
+     * The original executable's production cadence is not yet verified. */
+    if (product->product_class == RTS_PRODUCT_BUILDING) {
+        switch (product->product_type) {
+#define SL_BUILDING(native, type, asset, name, hp, cost, ticks, w, h) \
+        case MT_##type: return (ticks * 1000 + RTS_TICRATE - 1) / RTS_TICRATE;
+#include "buildings.inc"
+#undef SL_BUILDING
+        }
+    }
     return product->cost * 10;
 }
 

@@ -119,7 +119,8 @@ int main(void) {
     P_MobjSetSelected(rig, true);
     click.button.x = 458; click.button.y = 74;
     CHECK(t_hud_event(bar, &app, objects.items, objects.count, &click));
-    CHECK(level.player_resources[0][0] == 2950);
+    CHECK(bar->target && !rig->production);
+    CHECK(level.player_resources[0][0] == 3700); /* Paid after selecting a site. */
     SDL_Event release = click;
     release.type = SDL_MOUSEBUTTONUP;
     CHECK(t_hud_event(bar, &app, objects.items, objects.count, &release));

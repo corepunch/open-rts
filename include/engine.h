@@ -411,7 +411,7 @@ typedef struct level_s {
     terrainspeeds_t *speeds;
     uint8_t *cell_terrain; /* Game terrain id per cell, indexes speeds->terrain. */
     uint8_t *cell_effect;  /* Overlay effect id per cell (0..7), 255 = none. */
-    uint8_t *cell_solid;   /* Impassable to every class (walls, solid footprints). */
+    uint8_t *cell_solid;   /* Impassable to every class; 7legion reserves bit 1 for live buildings. */
     uint16_t *tile_flags;
     sightmap_t sight;
     daylight_t daylight;
@@ -608,6 +608,10 @@ typedef struct mobjtype_s {
      * in tiles, as Warcraft does; zero keeps the centre-distance rule. */
     isize2_t footprint;
     bool sight_from_footprint; /* Sight spreads from every footprint cell, not the centre. */
+    /* Optional row-major foundation: ' ' ignores a cell, '=' needs clear
+     * ground but leaves it passable, 'x' blocks it. NULL fills the rectangle. */
+    const char *foundation;
+    bool corner_anchor; /* Native object position is the footprint's top-left. */
 } mobjtype_t;
 
 /* A state is a run of `count` consecutive sprite frames sharing one action,
@@ -715,6 +719,8 @@ struct production_s {
     bool blocked;
     bool release_active;
     bool release_ready;
+    bool placed;
+    ivec2_t cell; /* Chosen building site, retained through production. */
 };
 
 #include "mobj_data.h" // per-game object fields (needs m_vec types above)
@@ -1226,6 +1232,7 @@ void V_SetClip(irect_t clip);
 irect_t V_GetClip(void);
 
 void V_FillRect(irect_t r, uint8_t color);
+void V_FillRectTranslucent(irect_t r, uint32_t argb);
 void V_DrawLine(ivec2_t a, ivec2_t b, uint8_t color);
 void V_DrawPoint(ivec2_t p, uint8_t color);
 void V_DrawRectOutline(irect_t r, uint8_t color);
@@ -1337,6 +1344,13 @@ int R_PickUnit(const app_t *app, const level_t *map, mobj_t *const *units, int u
 void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cache);
 void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
+void R_DrawBuildingPreview(app_t *app, uint16_t type, ivec2_t cell, int team,
+                           const spritecache_t *cache);
+const mobjtype_t *P_ActorType(uint16_t type);
+fvec2_t P_BuildingPosition(uint16_t type, ivec2_t cell);
+bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder);
+bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder);
+void P_SyncBuildingBlocking(void);
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,
                         mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                         const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
@@ -1590,6 +1604,8 @@ typedef struct {
     int makers[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
     int maker_count;
 } StaticProductDefinition;
+
+bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, ivec2_t cell);
 
 typedef struct {
     RtsGameCommandKind kind;
@@ -2271,6 +2287,9 @@ struct menuitem_s {
     menuanim_t anim;
     menuroutine_t routine;
     menudraw_t ownerdraw; /* native content drawn after the standard picture */
+    /* While targeting the world: draw in framebuffer pixels, clipped to the
+     * world viewport (rect). Hidden while the cursor is over the HUD. */
+    menudraw_t drawtarget;
     unsigned flags; /* the game's own, such as a native dialog record's; the engine ignores them */
     const void *userdata;
 };
@@ -2290,6 +2309,7 @@ struct menu_s {
     menuitem_t *keyheld;   /* a release button pressed by keycode */
     SDL_Keycode keycode;
     menuitem_t *target;  /* waiting for a click on the world */
+    struct { uint32_t builder; int product; } placement;
     menuitem_t *editing; /* a HUD text field that has the keyboard */
     menuitem_t *dropdown; /* open choices, drawn and hit-tested above the screen */
     int dropdown_row; /* pending choice; Escape leaves value untouched */
@@ -2444,14 +2464,20 @@ extern hudview_t hudview;
 /* The HUD of games without a native one; their tables place these. */
 void HU_DrawCounter(const menu_t *menu, const menuitem_t *item, irect_t rect); /* resource item->value */
 void HU_DrawClock(const menu_t *menu, const menuitem_t *item, irect_t rect);   /* level time */
-/* A list of what the selected building makes: a row click buys it. */
+/* A selected producer's products: units queue immediately; buildings target a site. */
 void HU_ProductList(menu_t *menu, menuitem_t *item, menuaction_t action);
+void HU_DrawPlacement(const menu_t *menu, uint16_t type, const mobj_t *builder);
+void HU_BuildProduct(menu_t *menu, menuitem_t *item, mobj_t *producer,
+                     const StaticProductDefinition *product);
+void HU_PlaceProduct(menu_t *menu, menuitem_t *item, menuaction_t action);
+void HU_DrawProductPlacement(const menu_t *menu, const menuitem_t *item, irect_t rect);
 void HU_DrawProducts(const menu_t *menu, const menuitem_t *item, irect_t rect);
 /* The next page of the product list at item->link. */
 void HU_ProductPage(menu_t *menu, menuitem_t *item, menuaction_t action);
 void HU_DrawProductPage(const menu_t *menu, const menuitem_t *item, irect_t rect);
 /* Keeps the product lists of a menu in step with the selection. */
 void HU_RefreshProducts(menu_t *menu);
+void HU_InitProducts(menu_t *menu, const char *root);
 
 /* A route being drawn on the map, and the routes kept for later. */
 enum { MAXSAVEDPATHS = 30 };

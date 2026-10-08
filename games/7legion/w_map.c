@@ -137,12 +137,15 @@ bool sl_load_map(const char *map_path, level_t *out) {
         blob_t land;
         if (W_ReadFile(land_path, &land)) {
             if (land.size == (size_t)W * H) {
+                out->cell_terrain = malloc((size_t)W * H);
+                if (!out->cell_terrain) { W_FreeFile(&land); P_FreeLevel(out); return false; }
                 const uint8_t *values = (const uint8_t *)land.bytes;
                 for (int x = 0; x < W; ++x) {
                     for (int y = 0; y < H; ++y) {
                         int source_i = x * H + y;
                         /* Retail ground movement accepts decoded land value 1. */
                         out->blocked[source_i] = (values[source_i] ^ x) != 1;
+                        out->cell_terrain[source_i] = values[source_i] ^ x;
                     }
                 }
             }

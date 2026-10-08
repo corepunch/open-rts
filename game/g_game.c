@@ -72,15 +72,8 @@ static void model_emit_build_completion(RtsGameModel *model, const mobj_t *unit,
                      unit, producer, product->product_class, product->product_type);
 }
 
-static const mobjtype_t *plugin_actor_type_by_id(uint16_t type_id) {
-    for (int i = 0; i < num_actor_types; ++i) {
-        if (actor_types[i].id == type_id) return (const mobjtype_t *)&actor_types[i];
-    }
-    return NULL;
-}
-
 static const mobjtype_t *plugin_actor_type_for_unit(const mobj_t *unit) {
-    const mobjtype_t *type = plugin_actor_type_by_id(unit ? unit->type_id : 0);
+    const mobjtype_t *type = P_ActorType(unit ? unit->type_id : 0);
     if (type) return type;
     if (!unit) return NULL;
     for (int i = 0; i < num_actor_types; ++i) {
@@ -268,8 +261,30 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     if (!product || !producer) return false;
 
     uint16_t actor_id = G_ModelActorIdForProduct(product);
-    const mobjtype_t *actor_type = plugin_actor_type_by_id(actor_id);
+    const mobjtype_t *actor_type = P_ActorType(actor_id);
     if (actor_id == 0 || !actor_type) return false;
+
+    bool building = product->product_class == RTS_PRODUCT_BUILDING && actor_type->footprint.w > 0;
+    ivec2_t site = {0};
+    if (building) {
+        if (producer->production && producer->production->placed) {
+            site = producer->production->cell;
+            if (!P_CanPlaceBuilding(actor_id, site, producer)) return false;
+        } else {
+            /* Computer production uses the same foundation rules as a click. */
+            ivec2_t origin = fvec2_cell(fixed3_xy_to_fvec2(producer->core.position));
+            bool found = false;
+            int limit = level.width > level.height ? level.width : level.height;
+            for (int r = 1; r <= limit && !found; ++r)
+                for (int y = -r; y <= r && !found; ++y)
+                    for (int x = -r; x <= r && !found; ++x) {
+                        if (abs(x) != r && abs(y) != r) continue;
+                        site = ivec2_add(origin, (ivec2_t){x, y});
+                        found = P_CanPlaceBuilding(actor_id, site, producer);
+                    }
+            if (!found) return false;
+        }
+    }
 
     mobj_t *new_unit = P_SpawnMobj(fixed3_zero(), actor_id);
     if (!new_unit) return false;
@@ -291,7 +306,11 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     float gx = 0.0f;
     float gy = 0.0f;
     bool use_special_release = false;
-    if (G_ModelSpecialReleaseSpawnPoint(active_model, producer, product, new_unit, &gx, &gy)) {
+    if (building) {
+        fvec2_t at = P_BuildingPosition(actor_id, site);
+        gx = at.x;
+        gy = at.y;
+    } else if (G_ModelSpecialReleaseSpawnPoint(active_model, producer, product, new_unit, &gx, &gy)) {
         /* The FIN release has already placed the actor at this authored
          * point. Adjacent foundation cells must not reject the handoff. */
         if (!L_IsWalkable(&level, (int)floorf(gx), (int)floorf(gy))) {
@@ -307,6 +326,7 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     new_unit->core.position = fixed3_with_xy(new_unit->core.position,
                                              (fvec2_t){ gx, gy });
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
+    if (product->product_class == RTS_PRODUCT_BUILDING) P_SyncBuildingBlocking();
     model_emit_build_completion(active_model, new_unit, producer, product);
     S_Bark(&new_unit, 1, SE_READY, false);
     if (use_special_release)
@@ -320,7 +340,7 @@ static bool enqueue_product(mobj_t *producer,
     production_t *production = P_EnsureMobjProduction(producer);
     if (!production) return false;
     if (production->queue_count > 0) {
-        if (production->actor_id != actor_id ||
+        if (production->placed || production->actor_id != actor_id ||
             production->product_type != product->product_type ||
             production->product_class != (uint8_t)product->product_class ||
             production->queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
@@ -374,7 +394,7 @@ bool G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product) {
     if (level.player_resources[owner][0] < product->cost) return false;
 
     uint16_t actor_id = G_ModelActorIdForProduct(product);
-    if (actor_id == 0 || !plugin_actor_type_by_id(actor_id)) return false;
+    if (actor_id == 0 || !P_ActorType(actor_id)) return false;
 
     if (G_ModelProductTrainingTimeMs(product) > 0) {
         if (!enqueue_product(producer, product, actor_id)) return false;
@@ -386,6 +406,22 @@ bool G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product) {
                      product->product_class, product->product_type);
     if (!spawn_finished_product(product, producer)) return false;
     level.player_resources[owner][0] -= product->cost;
+    return true;
+}
+
+bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, ivec2_t cell) {
+    if (!producer || producer->owner < 0 || producer->owner >= MAXPLAYERS ||
+        !product || product->product_class != RTS_PRODUCT_BUILDING ||
+        (producer->production && producer->production->queue_count) ||
+        !P_CanPlaceBuilding(G_ModelActorIdForProduct(product), cell, NULL) ||
+        !producer_accepts(producer, producer->owner, product) ||
+        !G_ModelProductAvailable(active_model, producer->owner, product) ||
+        product->cost < 0 || level.player_resources[producer->owner][0] < product->cost)
+        return false;
+    if (!enqueue_product(producer, product, G_ModelActorIdForProduct(product))) return false;
+    producer->production->placed = true;
+    producer->production->cell = cell;
+    level.player_resources[producer->owner][0] -= product->cost;
     return true;
 }
 

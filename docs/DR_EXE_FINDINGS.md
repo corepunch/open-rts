@@ -1153,3 +1153,38 @@ drops, the decoded `shell/SHELL.RLI`/`SHELL.RLD`, `shell/SHELLCFG.H` and
   and Closed teams start empty, a chosen side swaps the authored units
   (construction crew, infantry, transporters, medium tank), team members ally,
   and the credits field replaces each team's `SetCredit`.
+
+## Placement foundations (2026-10-08)
+
+No executable was examined for this addition. **Confirmed native data:**
+`deftxt/OVLEFF.TXT` DefineOvlEffect records name each RSPR canvas, width, height
+and row-major effect pairs. Effect 3 blocks movement; effect 2 is a passable
+bay; -1 leaves the cell untouched. Existing `w_map.c::resolve_effects` and
+`apply_effects` establish these meanings. BUILD.TXT SetBuildingImages supplies
+the associated terrain/body/top-layer composite. Its native object position
+is the canvas's top-left (the existing composite ground_point is zero).
+For example `nfhqt1l0.spr` is 5×6 with two empty upper rows; a sprite's pixel
+size is not a substitute for its foundation mask. The matching actor catalog
+now records these native dimensions/masks and corner anchoring.
+
+**Requested engine behavior:** HUD building buttons select a world location
+before payment. The shared preview draws the native composite and tints required
+cells; both blocking cells and passable bays must be free of another building
+or ground unit for placement. Empty cells do not constrain placement. Pending
+construction reserves its site, completion revalidates it, and AI automatic
+placement uses the same predicate. Original bridge/water special placement,
+retail construction timing are not newly inferred. Native Dark Reign path/docking behavior is left intact; the
+new generic footprint mask is a placement rule, not a wholesale replacement
+of Dark Reign's map effects.
+
+The old actor-only `_d`, `_imp` and `_t` building sprite aliases did not name
+retail images. Confirmed `BUILD.TXT` SetBuildingImages records for decoys,
+Imperium bridges and Togran bridges use the same un-suffixed bodies as their
+counterparts (for example `fh1_decoy`, `SmallHorizontalBridge`, and
+`TogranSmallHorizontalBridge1`). The generated state table already had these
+native filenames. The actor table now uses those same names and masks so
+on-demand preview loading succeeds without inventing an alias resolver.
+
+`env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_building_placement`
+checks placement/payment/completion; `test_mission_hud` verifies the native
+HUD now remains in location selection before charging for an Imperium HQ.

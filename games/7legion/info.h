@@ -39,6 +39,15 @@ typedef enum {
     SPR_ROCKMECH,
     SPR_TRUCK,
     SPR_MOBBASE,
+    SPR_BASE,
+    SPR_POWER,
+    SPR_BARRACKS,
+    SPR_WALL,
+    SPR_HOSPITAL,
+    SPR_TANK_FACTORY,
+    SPR_RESEARCH,
+    SPR_REPAIR,
+    SPR_ROBOT_FACTORY,
     NUMSPRITES
 } spritenum_t;
 
@@ -55,6 +64,15 @@ typedef enum {
     S_ROCKMECH_FIRE,
     S_TRUCK_STND,
     S_MOBBASE_STND,
+    S_BASE_STND,
+    S_POWER_STND,
+    S_BARRACKS_STND,
+    S_WALL_STND,
+    S_HOSPITAL_STND,
+    S_TANK_FACTORY_STND,
+    S_RESEARCH_STND,
+    S_REPAIR_STND,
+    S_ROBOT_FACTORY_STND,
     NUMSTATES
 } statenum_t;
 
@@ -67,6 +85,15 @@ enum {
     MT_ROCK_MECH,
     MT_TRUCK,
     MT_MOBILE_BASE,
+    MT_BASE,
+    MT_POWER,
+    MT_BARRACKS,
+    MT_WALL,
+    MT_HOSPITAL,
+    MT_TANK_FACTORY,
+    MT_RESEARCH,
+    MT_REPAIR,
+    MT_ROBOT_FACTORY,
     NUMMOBJTYPES,
 };
 

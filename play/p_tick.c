@@ -90,6 +90,7 @@ void P_FreeMobjList(mobjlist_t *list) {
 }
 
 void P_Ticker(void) {
+    P_SyncBuildingBlocking();
     P_NavRunPlans(&level);
     P_RunThinkers();
     P_SyncDepositStructures(&level);

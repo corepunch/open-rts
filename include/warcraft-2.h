@@ -58,6 +58,7 @@ void W2_EnsureUnitSprite(int pud); /* HUD: load art for a type that appeared mid
 enum { W2_BUILD_NONE = 0, W2_BUILD_TO_SITE = 1, W2_BUILD_WORKING = 2 };
 bool W2_Buildable(uint16_t type);          /* A structure a worker can place. */
 bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder);
+bool W2_BuildCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder);
 bool W2_ConstructOrder(mobj_t *builder, uint16_t type, ivec2_t cell);
 bool W2_TickBuild(mobj_t *unit);
 void W2_InterruptBuild(mobj_t *unit);       /* A new order drops a walk to a site. */

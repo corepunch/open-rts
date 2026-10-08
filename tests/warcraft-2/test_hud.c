@@ -222,6 +222,7 @@ static int test_research_buttons(menu_t *menu, mobjlist_t *units, mobj_t *worker
 /* The build page sends the worker off with a construct command; the site it
  * raises offers only Cancel and shows the progress panel. */
 static int test_construction_buttons(menu_t *menu, app_t *app, mobjlist_t *units, mobj_t *worker, bool orc) {
+    hudview_t view = hudview;
     for (int i = 0; i < units->count; ++i) P_MobjSetSelected(units->items[i], false);
     P_MobjSetSelected(worker, true);
     W2_InterruptHarvest(worker);
@@ -249,6 +250,34 @@ static int test_construction_buttons(menu_t *menu, app_t *app, mobjlist_t *units
     CHECK(menu->target == farm_button);
     fvec2_t screen;
     R_MapToScreen(app, &level, cell.x + 0.5f, cell.y + 0.5f, &screen.x, &screen.y);
+    SDL_Event motion = {.type = SDL_MOUSEMOTION};
+    motion.motion.x = (int)screen.x;
+    motion.motion.y = (int)screen.y;
+    t_hud_event(menu, app, units->items, units->count, &motion);
+    hudview.sprites = view.sprites;
+    hudview.tileset = view.tileset;
+    CHECK(farm_button->drawtarget);
+    /* Native art and tint are drawn without allocating a simulation mobj. */
+    uint32_t checksum = G_Consistency();
+    V_SetDrawScale(1);
+    V_FillRect(G_WorldViewport(app), V_NearestIndex(0xff808080u));
+    uint8_t background = screens[0].pixels[(int)screen.y * screens[0].w + (int)screen.x];
+    M_MenuDrawer(menu);
+    uint8_t green = screens[0].pixels[(int)screen.y * screens[0].w + (int)screen.x];
+    CHECK(green != background && G_Consistency() == checksum);
+    int blocked = L_Index(&level, cell.x, cell.y);
+    uint8_t solid = level.cell_solid[blocked];
+    level.cell_solid[blocked] = 1;
+    V_FillRect(G_WorldViewport(app), V_NearestIndex(0xff808080u));
+    M_MenuDrawer(menu);
+    CHECK(screens[0].pixels[(int)screen.y * screens[0].w + (int)screen.x] != green);
+    level.cell_solid[blocked] = solid;
+    if (getenv("OPEN_RTS_PREVIEW_BMP")) {
+        R_DrawLevel(app, &level, hudview.tileset);
+        R_RenderPlayerView(app, &level, hudview.tileset, units->items, units->count, NULL, hudview.sprites, gameinfo, 0);
+        M_MenuDrawer(menu);
+        CHECK(save_bmp(getenv("OPEN_RTS_PREVIEW_BMP")));
+    }
     SDL_Event click = {.type = SDL_MOUSEBUTTONDOWN};
     click.button.button = SDL_BUTTON_LEFT;
     click.button.x = (int)screen.x;
@@ -383,6 +412,8 @@ static int test_hud(const char *capture, bool orc) {
     RTS_RUN(test_research_buttons(menu, &units, worker_unit, orc));
     RTS_RUN(test_minimap(menu, &tiles, worker_unit));
     /* Last: the simulated minute of walking changes the ground. */
+    hudview.sprites = &sprites;
+    hudview.tileset = &tiles;
     RTS_RUN(test_construction_buttons(menu, &app, &units, worker_unit, orc));
     if (capture) CHECK(save_bmp(capture));
     /* A neutral mine must produce a context harvest command, not an attack. */

@@ -10,6 +10,15 @@ const char *const sprnames[NUMSPRITES] = {
     "GFX/ROCKMECH.BIM",
     "GFX/TRUCK.BIM",
     "GFX/MOBBASE.BIM",
+    "bt_base",
+    "bt_power",
+    "bt_barracks",
+    "bt_wall",
+    "bt_hospital",
+    "bt_tank",
+    "bt_randd",
+    "bt_repair",
+    "bt_robot",
 };
 
 const state_t states[NUMSTATES] = {
@@ -25,6 +34,15 @@ const state_t states[NUMSTATES] = {
     [S_ROCKMECH_FIRE] = { SPR_ROCKMECH, 0, 1, 1, A_Attack, S_ROCKMECH_STND, 3, NULL },
     [S_TRUCK_STND] = { SPR_TRUCK, 0, 1, -1, NULL, S_TRUCK_STND, 0, NULL },
     [S_MOBBASE_STND] = { SPR_MOBBASE, 0, 1, -1, NULL, S_MOBBASE_STND, 0, NULL },
+    [S_BASE_STND] = { SPR_BASE, 0, 1, -1, NULL, S_BASE_STND, 0, NULL },
+    [S_POWER_STND] = { SPR_POWER, 0, 1, -1, NULL, S_POWER_STND, 0, NULL },
+    [S_BARRACKS_STND] = { SPR_BARRACKS, 0, 1, -1, NULL, S_BARRACKS_STND, 0, NULL },
+    [S_WALL_STND] = { SPR_WALL, 0, 1, -1, NULL, S_WALL_STND, 0, NULL },
+    [S_HOSPITAL_STND] = { SPR_HOSPITAL, 0, 1, -1, NULL, S_HOSPITAL_STND, 0, NULL },
+    [S_TANK_FACTORY_STND] = { SPR_TANK_FACTORY, 0, 1, -1, NULL, S_TANK_FACTORY_STND, 0, NULL },
+    [S_RESEARCH_STND] = { SPR_RESEARCH, 0, 1, -1, NULL, S_RESEARCH_STND, 0, NULL },
+    [S_REPAIR_STND] = { SPR_REPAIR, 0, 1, -1, NULL, S_REPAIR_STND, 0, NULL },
+    [S_ROBOT_FACTORY_STND] = { SPR_ROBOT_FACTORY, 0, 1, -1, NULL, S_ROBOT_FACTORY_STND, 0, NULL },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -81,6 +99,51 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .deathstate = S_NULL, .xdeathstate = S_NULL,
         .radius = 16, .height = 32, .mass = 100,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
+    { // MT_BASE
+        .doomednum = 1000 + 0, .spawnstate = S_BASE_STND, .spawnhealth = 3000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_POWER
+        .doomednum = 1000 + 2, .spawnstate = S_POWER_STND, .spawnhealth = 750,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_BARRACKS
+        .doomednum = 1000 + 5, .spawnstate = S_BARRACKS_STND, .spawnhealth = 950,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_WALL
+        .doomednum = 1000 + 6, .spawnstate = S_WALL_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_HOSPITAL
+        .doomednum = 1000 + 8, .spawnstate = S_HOSPITAL_STND, .spawnhealth = 750,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TANK_FACTORY
+        .doomednum = 1000 + 9, .spawnstate = S_TANK_FACTORY_STND, .spawnhealth = 1800,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_RESEARCH
+        .doomednum = 1000 + 11, .spawnstate = S_RESEARCH_STND, .spawnhealth = 1100,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_REPAIR
+        .doomednum = 1000 + 12, .spawnstate = S_REPAIR_STND, .spawnhealth = 850,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_ROBOT_FACTORY
+        .doomednum = 1000 + 13, .spawnstate = S_ROBOT_FACTORY_STND, .spawnhealth = 2000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
     },
 };
 

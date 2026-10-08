@@ -506,6 +506,10 @@ irect_t P_MobjCells(const mobj_t *unit) {
         ivec2_t cell = fvec2_cell(centre);
         return (irect_t){cell.x, cell.y, 1, 1};
     }
+    if (unit->info->corner_anchor) {
+        ivec2_t cell = fvec2_cell(centre);
+        return (irect_t){cell.x, cell.y, foot.w, foot.h};
+    }
     return (irect_t){(int)floorf(centre.x - foot.w * 0.5f + 0.001f),
                      (int)floorf(centre.y - foot.h * 0.5f + 0.001f), foot.w, foot.h};
 }

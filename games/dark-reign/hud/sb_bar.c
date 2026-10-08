@@ -183,6 +183,7 @@ static void update_selection(void) {
     mobj_t *u = selection();
     uint32_t id = u ? u->id : 0;
     if (drhud.production_selection == id) return;
+    M_MenuTarget(&hud, NULL);
     drhud.production_selection = id;
     drhud.production_page = 0;
 }
@@ -277,11 +278,12 @@ static void turn_page(menu_t *menu, menuitem_t *item, menuaction_t event) {
 }
 
 static void product(menu_t *menu, menuitem_t *item, menuaction_t event) {
+    if (event == MA_TARGET) { HU_PlaceProduct(menu, item, event); return; }
     if (event == MA_WHEEL) { turn_page(menu, item, event); return; }
     if (event != MA_ACTIVATE) return;
     const StaticProductDefinition *p = item->userdata;
     mobj_t *producer = p ? producer_for(p) : NULL;
-    if (enabled(p, producer)) G_BuildOrder(producer, p->ui_id);
+    if (enabled(p, producer)) HU_BuildProduct(menu, item, producer, p);
 }
 
 static void select_path(menu_t *menu, menuitem_t *item, menuaction_t event) {
@@ -561,7 +563,8 @@ static bool build_table(void) {
     items[GRID] = (menuitem_t){.rect = grid_rect, .fill = 0xff000000u, .link = -1};
     for (int i = 0; i < SLOTS; ++i) {
         items[ICONS + i] = (menuitem_t){.font = &drhud.fonts[FONT_TEXT], .inset = {-5, 2}, .link = -1};
-        items[SLOT + i] = (menuitem_t){.kind = MI_BUTTON, .routine = product, .link = -1};
+        items[SLOT + i] = (menuitem_t){.kind = MI_BUTTON, .routine = product, .link = -1,
+                                     .drawtarget = HU_DrawProductPlacement};
     }
     items[PREVIOUS] = (menuitem_t){.kind = MI_BUTTON, .rect = {448, 316, 22, 22}, .enabled = true,
                                    .routine = turn_page, .link = -1};
@@ -584,6 +587,7 @@ static bool build_table(void) {
 
 menu_t *G_InitHUD(app_t *app, const char *root) {
     G_ShutdownHUD();
+    HU_InitProducts(&hud, root);
     bool ok = true;
     for (int i = 0; ok && i < 15; ++i) {
         char path[1024];

@@ -56,6 +56,85 @@ void HU_DrawClock(const menu_t *menu, const menuitem_t *item, irect_t rect) {
 enum { PRODUCT_LIST_MAX = 64 };
 
 static uint32_t producer_id;
+static char product_root[1024];
+
+void HU_InitProducts(menu_t *menu, const char *root) {
+    snprintf(product_root, sizeof(product_root), "%s", root ? root : g_game_default_root);
+    producer_id = 0;
+    M_MenuTarget(menu, NULL);
+}
+
+void HU_DrawPlacement(const menu_t *menu, uint16_t type, const mobj_t *builder) {
+    const mobjtype_t *actor = P_ActorType(type);
+    if (!actor || !builder) return;
+    ivec2_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
+    isize2_t foot = actor->footprint;
+    bool clear = true;
+    for (int y = 0; y < foot.h; ++y)
+        for (int x = 0; x < foot.w; ++x) {
+            if (actor->foundation && actor->foundation[y * foot.w + x] == ' ') continue;
+            clear &= P_BuildingCellClear(type, ivec2_add(cell, (ivec2_t){x, y}), builder);
+        }
+    bool rule_blocked = clear && !P_CanPlaceBuilding(type, cell, builder);
+    R_DrawBuildingPreview(menu->app, type, cell, builder->team, hudview.sprites);
+    for (int y = 0; y < foot.h; ++y)
+        for (int x = 0; x < foot.w; ++x) {
+            if (actor->foundation && actor->foundation[y * foot.w + x] == ' ') continue;
+            ivec2_t at = ivec2_add(cell, (ivec2_t){x, y});
+            fvec2_t corner, opposite;
+            R_MapToScreen(menu->app, &level, at.x, at.y, &corner.x, &corner.y);
+            R_MapToScreen(menu->app, &level, at.x + 1, at.y + 1, &opposite.x, &opposite.y);
+            irect_t rect = {(int)lroundf(fminf(corner.x, opposite.x)), (int)lroundf(fminf(corner.y, opposite.y)),
+                            menu->app->cell.w, menu->app->cell.h};
+            bool valid = !rule_blocked && P_BuildingCellClear(type, at, builder);
+            /* Stratagus DrawBuildingCursor uses opacity 95/255. */
+            V_FillRectTranslucent(rect, valid ? 0x5f00ff00u : 0x5fff0000u);
+        }
+}
+
+void HU_DrawProductPlacement(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    (void)item; (void)rect;
+    const StaticProductDefinition *p = G_ModelProductByUIId(NULL, menu->placement.product);
+    mobj_t *builder = P_MobjById(menu->placement.builder);
+    if (p && builder && P_MobjIsSelected(builder))
+        HU_DrawPlacement(menu, G_ModelActorIdForProduct(p), builder);
+}
+
+void HU_BuildProduct(menu_t *menu, menuitem_t *item, mobj_t *producer,
+                     const StaticProductDefinition *product) {
+    uint16_t type = G_ModelActorIdForProduct(product);
+    if (product->product_class != RTS_PRODUCT_BUILDING ||
+        (producer->info && producer->info->deploy.type == type)) {
+        G_BuildOrder(producer, product->ui_id);
+        return;
+    }
+    if (producer->production && producer->production->queue_count) return;
+    const mobjtype_t *actor = P_ActorType(type);
+    if (!actor) return;
+    if (hudview.sprites && !R_CacheLookup(hudview.sprites, actor->sprite_name)) {
+        mobj_t image = {.type_id = type, .info = actor};
+        snprintf(image.core.sprite_name, sizeof(image.core.sprite_name), "%s", actor->sprite_name);
+        mobj_t *images[] = {&image};
+        if (!R_InitSprites(product_root, &level, images, 1, (spritecache_t *)hudview.sprites)) return;
+        R_BindSprites((spritecache_t *)hudview.sprites, gameinfo);
+    }
+    M_MenuTarget(menu, item);
+    menu->placement.builder = producer->id;
+    menu->placement.product = product->ui_id;
+}
+
+void HU_PlaceProduct(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_TARGET) return;
+    mobj_t *builder = P_MobjById(menu->placement.builder);
+    const StaticProductDefinition *p = G_ModelProductByUIId(NULL, menu->placement.product);
+    if (!builder || builder->hp <= 0 || builder->remove || !P_MobjIsSelected(builder) || !p) return;
+    ivec2_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
+    if ((builder->production && builder->production->queue_count) ||
+        level.player_resources[builder->owner][0] < p->cost ||
+        !G_ModelProductAvailable(NULL, builder->owner, p) ||
+        !P_CanPlaceBuilding(G_ModelActorIdForProduct(p), cell, builder) ||
+        !G_ConstructOrder(builder, p->ui_id, cell)) M_MenuTarget(menu, item);
+}
 
 static mobj_t *selected_producer(void) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
@@ -102,7 +181,10 @@ void HU_RefreshProducts(menu_t *menu) {
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *list = &menu->items[i];
         if (list->routine != HU_ProductList) continue;
-        if (id != producer_id) list->first_row = 0;
+        if (id != producer_id) {
+            list->first_row = 0;
+            M_MenuTarget(menu, NULL);
+        }
         list->rows = production_list(producer, products);
         if (list->first_row >= list->rows) list->first_row = 0;
     }
@@ -110,7 +192,7 @@ void HU_RefreshProducts(menu_t *menu) {
 }
 
 void HU_ProductList(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu;
+    if (action == MA_TARGET) { HU_PlaceProduct(menu, item, action); return; }
     if (action != MA_CHANGE) return;
     StaticProductDefinition products[PRODUCT_LIST_MAX];
     mobj_t *producer = selected_producer();
@@ -118,7 +200,7 @@ void HU_ProductList(menu_t *menu, menuitem_t *item, menuaction_t action) {
     int index = item->value;
     item->value = -1;
     if (index >= 0 && index < count && product_enabled(producer, &products[index]))
-        G_BuildOrder(producer, products[index].ui_id);
+        HU_BuildProduct(menu, item, producer, &products[index]);
 }
 
 static void small_text(ivec2_t at, const char *text, int width, uint32_t argb) {

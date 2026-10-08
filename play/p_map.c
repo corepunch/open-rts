@@ -34,7 +34,8 @@ bool L_Contains(const level_t *map, int x, int y) {
 }
 
 bool L_IsWalkable(const level_t *map, int x, int y) {
-    return L_Contains(map, x, y) && (!map->blocked || map->blocked[L_Index(map, x, y)] == 0);
+    return L_Contains(map, x, y) && (!map->blocked || map->blocked[L_Index(map, x, y)] == 0) &&
+        (!map->cell_solid || !map->cell_solid[L_Index(map, x, y)]);
 }
 
 /* Speed percentage for a movement class at a cell (0 = impassable). Class 0 is the

@@ -525,3 +525,66 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_nav
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_fog
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_waypoints
 ```
+
+## Building placement and terrain-tile composites (2026-10-08)
+
+Evidence: retail `data/7LEGION/legion.exe`, SHA-256
+`a312f7b50a940e5a0ec737cf8923c1d03f552f9c9111c62c72546bbb46f6c154`,
+PE32 x86 (1997-09-01). Analysis used the local radare2/r2ghidra toolchain;
+`reverse/7legion-placement/` contains disposable disassembly, not source.
+
+**Confirmed:** `0x4218a0` checks placement using 516-byte descriptors at
+`0x4bb7b0 + (native_type - 1000) * 516`. The earlier stats table address
+`0x4bb7c0` points sixteen bytes into this same record. Side is selected from
+`0x6df140 + player * 2`. Width is a uint16 at descriptor `+8+side*2`, height
+at `+12+side*2`. Tile IDs are uint16 at `+64+side*200+y*20+x*2` (ten columns,
+ten rows per side); `0xffff` skips a tile. When the first tile immediately
+after the nominal height is 6, the checker includes that extra foundation
+row. The preview at `0x45fcb0` uses the same layout and draws with the image
+handle at `0x859520`; its cursor origin subtracts half the nominal dimensions.
+The land checks at `0x421c8a..0x421c9b` accept MAPL values 1 and 2, whereas
+mobile ground movement accepts 1. Other original occupancy and overlay checks
+exist; their full rules and build-distance/economy prerequisites remain unknown.
+
+**Confirmed image ownership:** `0x410206..0x41023b` selects `GFX/tiles%d.bim`
+from terrain word `0x70db34`, or `GFX/tiles.bim` for zero. At `0x4102b5` the
+path at `0x4dd918` is passed to `0x4081a0`, and `0x4102c2` stores the resulting
+handle at `0x859520`; `0x4102dc` prepares its tiles through `0x408730`.
+Building art is consequently a composite of native 32×32 **terrain tiles**.
+`GFX/BUILD.BIM` is separately loaded at `0x4110a2` into `0x668ca4`.
+**Disproven:** neither BUILD.BIM nor DATA/build.dat supplies the completed
+building tile atlas. DATA/build.dat is a text producer/unit relationship file
+(read during startup around `0x402868`); barracks produce troops, tank factories
+produce vehicles/trucks, robot factories produce mechs. The exact construction
+scaffold animation from BUILD.BIM is not implemented here.
+
+The initial runtime catalog uses the nine verified passive core structures:
+Base, Power Plant, Barracks, Wall, Hospital, Tank Factory, Research Centre,
+Repair Bay and Robot Factory. Their side-zero footprint sizes including the
+foundation row are 5×4, 5×4, 4×3, 1×1, 4×4, 4×4, 4×4, 3×3 and 5×4.
+Health, cost and build counters are authored C values in `buildings.inc`,
+using the existing stuff.dat override procedure; geometry pixels are read
+from checked PE spans at load time. First Base tile is 1; Wall uses 1157.
+The native tile composite test compares the Base's first tile byte-for-byte
+and renders all nine buildings. All tiles in these nine layouts are present.
+Other descriptor records include unfinished-looking defaults (radar repeats
+1157; silo/shield repeat terrain tiles), and armed structures need their
+separate weapon/animation rules; these are not advertised as completed units.
+
+**Requested engine behavior, not a retail claim:** the current single-faction
+slice uses side zero for its buildings. The Mobile Base and completed Base
+provide the construction catalog; barracks/factories also make the supported
+mobile units. A building product enters location selection, pays on a valid
+click, reserves that footprint, and materializes there when production
+finishes. Build counters advance at the engine's 30 Hz rate; the retail build
+counter cadence, power/research/healing/repair abilities and faction selection
+are still unknown or unimplemented. The shared cursor uses the top-left tile,
+matching the requested Warcraft-style interaction, rather than reproducing
+7th Legion's centered cursor. New buildings block movement until removed.
+
+Reproduce: `make 7legion-units` prints both native layout variants and stats;
+`env SDL_VIDEODRIVER=dummy build/bin/tests/7legion/test_building_art` checks the
+composites, and `test_building_placement` checks terrain, occupied cells,
+reservation, cancellation, tic commands, completion and removal. Set
+`OPEN_RTS_BUILDINGS_BMP=/private/tmp/7legion-buildings.bmp` on the art test to
+inspect the nine native composites.

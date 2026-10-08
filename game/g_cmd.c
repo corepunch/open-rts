@@ -82,7 +82,7 @@ bool G_BuildOrder(mobj_t *producer, int product) {
 }
 
 bool G_ConstructOrder(mobj_t *builder, int type, ivec2_t cell) {
-    if (!builder || builder->owner != consoleplayer || type <= 0) return false;
+    if (!builder || builder->owner != consoleplayer || type < 0) return false;
     ticcmd_t cmd = { .order = TC_CONSTRUCT, .product = type, .count = 1, .units = { builder->id },
                      .position = fixed3_from_fvec2(fvec2_cell_center(cell), 0) };
     return G_QueueTiccmd(&cmd);
@@ -156,6 +156,14 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
+#ifndef RTS_GAME_WARCRAFT_2
+    if (cmd->order == TC_CONSTRUCT) {
+        const StaticProductDefinition *product = G_ModelProductByUIId(NULL, cmd->product);
+        ivec2_t cell = {cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS};
+        G_PlaceProduct(units[0], product, cell);
+        return;
+    }
+#endif
 #ifdef RTS_GAME_WARCRAFT_2
     if (cmd->order == TC_CANCEL_PRODUCTION) {
         for (int i = 0; i < count; ++i) W2_CancelProduction(units[i]);
@@ -384,6 +392,8 @@ uint32_t G_Consistency(void) {
             HASH(u->production->actor_id); HASH(u->production->queue_count);
             HASH(u->production->time_left_ms); HASH(u->production->release_active);
             HASH(u->production->release_ready);
+            HASH(u->production->placed);
+            HASH(u->production->cell.x); HASH(u->production->cell.y);
         }
     }
 #undef HASH

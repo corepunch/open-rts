@@ -124,6 +124,11 @@ static const info_entry_t entries[] = {
     MOBILE("ROCK_MECH", "ROCKMECH", "GFX/ROCKMECH.BIM", "5", 800, 3, 70, "|MF_ATTACK"),
     MOBILE("TRUCK", "TRUCK", "GFX/TRUCK.BIM", "6", 200, 5, 0, "|MF_HARVESTER"),
     MOBILE("MOBILE_BASE", "MOBBASE", "GFX/MOBBASE.BIM", "7", 1000, 3, 0, ""),
+#define SL_BUILDING(native, type, asset, label, hp, cost, ticks, w, h) \
+    {#type, #type, asset, "1000 + " #native, hp, 0, 0, 0, 0, 0, \
+     "MF_SELECTABLE|MF_RENDERABLE"},
+#include "../games/7legion/buildings.inc"
+#undef SL_BUILDING
 };
 
 int main(int argc, char **argv) {
@@ -134,7 +139,8 @@ int main(int argc, char **argv) {
     int count = (int)(sizeof(entries) / sizeof(*entries));
     for (int i = 0; i < count; ++i) {
         char path[1024];
-        snprintf(path, sizeof(path), "%s/%s", argv[1], entries[i].asset);
+        snprintf(path, sizeof(path), "%s/%s", argv[1],
+                 entries[i].speed ? entries[i].asset : "legion.exe");
         if (access(path, R_OK) != 0) {
             fprintf(stderr, "7legion_info_gen: missing native asset %s: %s\n", path, strerror(errno));
             return 1;

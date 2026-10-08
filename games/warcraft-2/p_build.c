@@ -115,6 +115,25 @@ static bool cell_is_land(int x, int y) {
     return true;
 }
 
+bool W2_BuildCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder) {
+    if (!W2_Buildable(type) || !L_Contains(&level, cell.x, cell.y)) return false;
+    /* Platforms are checked as a whole against their exact oil patch. */
+    if (type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM) return true;
+    int index = L_Index(&level, cell.x, cell.y);
+    int terrain = level.cell_terrain ? level.cell_terrain[index] : 0;
+    bool shore = (mobjinfo[type].w2.attributes & W2_SHORE_BUILDING) != 0;
+    if (level.cell_solid && level.cell_solid[index]) return false;
+    if (shore ? terrain != 1 && terrain != 3 : terrain != 0) return false;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *other = (const mobj_t *)th;
+        if (other == builder || !alive(other) || (other->traits & (MF_MISSILE | MF_NOBLOCKMAP | MF_FLY))) continue;
+        if (other->type_id >= NUMMOBJTYPES || (mobjinfo[other->type_id].w2.flags & W2_STRUCTURE)) continue;
+        if (ivec2_equal(cell, fvec2_cell(fixed3_xy_to_fvec2(other->core.position)))) return false;
+    }
+    return true;
+}
+
 bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
     if (!W2_Buildable(type)) return false;
     bool platform = type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM;
@@ -131,15 +150,12 @@ bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
     bool shore = false;
     for (int y = 0; y < foot.h; ++y)
         for (int x = 0; x < foot.w; ++x) {
-            if (!L_Contains(&level, cell.x + x, cell.y + y)) return false;
+            if (!W2_BuildCellClear(type, ivec2_add(cell, (ivec2_t){x, y}), builder)) return false;
             int index = L_Index(&level, cell.x + x, cell.y + y);
             int terrain = level.cell_terrain ? level.cell_terrain[index] : 0;
-            if (level.cell_solid && level.cell_solid[index]) return false;
-            if (shore_building ? terrain != 1 && terrain != 3 : terrain != 0) return false;
             shore |= terrain == 3;
         }
     if (shore_building && !shore) return false;
-    irect_t rect = { cell.x, cell.y, foot.w, foot.h };
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (const mobj_t *)th;
@@ -156,8 +172,6 @@ bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
                 return false;
             continue; /* Its cells are solid already. */
         }
-        ivec2_t at = fvec2_cell(fixed3_xy_to_fvec2(other->core.position));
-        if (irect_contains(rect, at)) return false; /* Someone stands on the site. */
     }
     return true;
 }

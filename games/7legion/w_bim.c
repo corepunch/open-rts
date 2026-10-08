@@ -334,7 +334,74 @@ bool sl_load_assets(const char *data_root, const level_t *map,
     return true;
 }
 
+/* The retail building descriptor is a 516-byte .data record. Its two tile
+ * layouts have ten uint16 columns per row; side zero is this game's current
+ * playable faction. 0x4102b5 loads TILES*.BIM, 0x45fcb0 draws these indices. */
+static bool sl_load_building(const char *root, const level_t *map, int native,
+                             const uint32_t palette[256], spritesheet_t *out) {
+    blob_t exe = {0};
+    tileset_t tiles = {0};
+    char path[1024];
+    M_PathJoin(path, sizeof(path), root, "legion.exe");
+    if (!W_ReadFile(path, &exe)) return false;
+    const uint8_t *data = (const uint8_t *)exe.bytes, *record = NULL;
+    if (exe.size < 64) goto fail;
+    size_t pe = read_u32_le(data + 0x3c);
+    if (pe > exe.size || exe.size - pe < 24 || memcmp(data + pe, "PE\0\0", 4)) goto fail;
+    size_t sections = pe + 24 + read_u16_le(data + pe + 20);
+    size_t count = read_u16_le(data + pe + 6);
+    if (sections > exe.size || count > (exe.size - sections) / 40) goto fail;
+    uint32_t rva = 0xbb7b0 + native * 516;
+    for (size_t i = 0; i < count; ++i) {
+        const uint8_t *s = data + sections + i * 40;
+        uint32_t va = read_u32_le(s + 12), size = read_u32_le(s + 16);
+        size_t raw = read_u32_le(s + 20);
+        if (rva < va || rva - va > size || size - (rva - va) < 516) continue;
+        raw += rva - va;
+        if (raw > exe.size || exe.size - raw < 516) goto fail;
+        record = data + raw;
+        break;
+    }
+    if (!record) goto fail;
+    isize2_t footprint = {read_u16_le(record + 8), read_u16_le(record + 12)};
+    if (footprint.w <= 0 || footprint.w > 10 || footprint.h <= 0 || footprint.h > 10) goto fail;
+    if (footprint.h < 10 && read_u16_le(record + 64 + footprint.h * 20) == 6) footprint.h++;
+    M_PathJoin(path, sizeof(path), root, map->tileset_name);
+    if (!sl_load_bim_tileset(path, palette, &tiles)) goto fail;
+    out->frame_size = (isize2_t){footprint.w * TILE_W, footprint.h * TILE_H};
+    out->cells = calloc(1, sizeof(*out->cells));
+    out->lumps = calloc(1, sizeof(*out->lumps));
+    out->numlumps = 1;
+    if (!out->cells || !out->lumps) goto fail;
+    size_t pixels = (size_t)out->frame_size.w * out->frame_size.h;
+    out->lumps[0].indices = calloc(pixels, 1);
+    if (!out->lumps[0].indices) goto fail;
+    out->cells[0].rect = out->cells[0].bounds = (irect_t){0, 0, out->frame_size.w, out->frame_size.h};
+    memcpy(out->palette, palette, sizeof(out->palette));
+    memcpy(out->source_palette, palette, sizeof(out->source_palette));
+    out->indexed = true;
+    for (int y = 0; y < footprint.h; ++y)
+        for (int x = 0; x < footprint.w; ++x) {
+            int tile = read_u16_le(record + 64 + y * 20 + x * 2);
+            if (tile >= tiles.count) goto fail;
+            for (int row = 0; row < TILE_H; ++row)
+                memcpy(out->lumps[0].indices + (size_t)(y * TILE_H + row) * out->frame_size.w + x * TILE_W,
+                       tiles.indices + (size_t)tile * TILE_W * TILE_H + row * TILE_W, TILE_W);
+        }
+    if (!R_InitSpriteDef(out, 1, 1)) goto fail;
+    R_InstallSpriteLump(out, 0, 0, 0, false);
+    R_FreeTileset(&tiles);
+    W_FreeFile(&exe);
+    return true;
+fail:
+    R_FreeTileset(&tiles);
+    W_FreeFile(&exe);
+    R_FreeSprite(out);
+    return false;
+}
+
 static bool sl_cache_bim_sprite(spritecache_t *cache,
+                                const level_t *map,
                                 const char *data_root, const char *sprite_name,
                                 const uint32_t palette[256]) {
     if (!sprite_name || sprite_name[0] == '\0') return true;
@@ -345,7 +412,14 @@ static bool sl_cache_bim_sprite(spritecache_t *cache,
     snprintf(path, sizeof(path), "%s/%s", data_root, sprite_name);
     cachedsprite_t *entry = &cache->entries[cache->count];
     memset(entry, 0, sizeof(*entry));
-    if (!sl_load_bim_sprite(path, palette, &entry->sprite)) {
+    int building = -1;
+#define SL_BUILDING(native, type, asset, name, hp, cost, ticks, w, h) \
+    if (!strcmp(sprite_name, asset)) building = native;
+#include "buildings.inc"
+#undef SL_BUILDING
+    bool loaded = building >= 0 ? sl_load_building(data_root, map, building, palette, &entry->sprite) :
+                                 sl_load_bim_sprite(path, palette, &entry->sprite);
+    if (!loaded) {
         fprintf(stderr, "7legion: failed to load runtime sprite %s\n", path);
         return false;
     }
@@ -364,7 +438,7 @@ bool sl_load_runtime_sprites(const char *data_root, const level_t *map,
 
     bool ok = true;
     for (int i = 0; i < unit_count; ++i) {
-        if (!sl_cache_bim_sprite(cache, data_root,
+        if (!sl_cache_bim_sprite(cache, map, data_root,
                      units[i]->core.sprite_name, palette))
             ok = false;
     }

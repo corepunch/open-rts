@@ -2175,3 +2175,35 @@ All 31 Warcraft II regression programs passed, including naval/oil tests
 and exact native-unit spawning for all 28 base campaign maps.
 `make` built all game binaries without warnings; the ALAMO headless smoke
 check passed with 64 units and 2,798 resource vents.
+
+## Shared placement preview reference (2026-10-08)
+
+This work examined reference source and the user's screenshot, not the retail
+executable. The screenshot `Screenshot 2026-10-08 at 07.59.53.jpg` shows native
+building artwork under a translucent green footprint during "Select Location".
+It does not establish whether other units may overlap a site.
+
+**Confirmed reference behavior:** Stratagus `src/video/cursor.cpp`,
+`DrawBuildingCursor` (revision `3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc`),
+snaps to the top-left tile, draws the type's StillFrame and player colors,
+clips to the viewport, then marks each footprint cell green/red at opacity
+95/255. Whole-site restrictions use CanBuildHere; cell checks use the movement
+mask and ignore the selected builder. Warcraft 2000 (`mapa.cpp`, revision
+`4d12ad3e62ba03c59b2dbec2a989f58d744018ee`) draws the building at a snapped
+32-pixel position (16 when zoomed), and applies RedBar/WhiteBar stippling
+according to CheckGold, ManualFogCheck and CheckBuilding (build-mode sites
+around lines 1258, 1741 and 2162; stipple helpers around 174 and 224).
+
+The requested engine feature follows the Stratagus presentation: native art
+and a per-cell translucent green/red overlay. A global-only restriction makes
+an otherwise clear footprint entirely red. It reuses W2_CanPlace, preserving
+existing land/shore/oil-patch and mine-distance rules. Ground mobiles block a
+cell, the builder and flying units do not. Previewing has no simulation side
+effects. Right click/Escape, selection loss and leaving placement remove it;
+sidebar hover hides it, and rendering is clipped to the world view. Fog and
+resource restrictions have not been added to W2_CanPlace by this change.
+
+Reproduce with `env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_hud`;
+`OPEN_RTS_PREVIEW_BMP=/private/tmp/war2-preview.bmp` saves the native preview.
+The test checks distinct valid/blocked tint pixels and an unchanged simulation
+checksum, then executes the existing worker construction flow.

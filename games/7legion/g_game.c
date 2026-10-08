@@ -80,6 +80,12 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .speed       = 2.5f,
         .max_hp      = 1000,
     },
+#define SL_BUILDING(native, type, asset, label, hp, cost, ticks, w, h) \
+    {.id = MT_##type, .name = label, .sprite_name = asset, \
+     .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = hp, \
+     .footprint = {w, h}, .corner_anchor = true},
+#include "buildings.inc"
+#undef SL_BUILDING
 };
 
 
@@ -93,7 +99,8 @@ static menuitem_t hud_items[NUMHUD] = {
                    .align = MALIGN_RIGHT, .ownerdraw = HU_DrawCounter},
     [HUD_PRODUCTS] = {.kind = MI_LIST, .visible = true, .enabled = true, .rect = {480, 28, 160, 416},
                       .row_height = 32, .value = -1, .fill = 0xff0c1216u,
-                      .routine = HU_ProductList, .ownerdraw = HU_DrawProducts},
+                      .routine = HU_ProductList, .ownerdraw = HU_DrawProducts,
+                      .drawtarget = HU_DrawProductPlacement},
     [HUD_PAGE] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {480, 444, 160, 36},
                   .fill = 0xff0c1216u, .link = HUD_PRODUCTS, .routine = HU_ProductPage,
                   .ownerdraw = HU_DrawProductPage},
@@ -152,7 +159,7 @@ void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
 }
 
 menu_t *G_InitHUD(app_t *app, const char *data_root) {
-    (void)data_root;
+    HU_InitProducts(&hud, data_root);
     hud.app = app;
     return &hud;
 }

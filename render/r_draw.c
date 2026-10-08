@@ -993,11 +993,11 @@ static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
                                 const spritecache_t *cache, const gameinfo_t *game_info);
 
-static void render_unit_sprite(app_t *app, const level_t *map,
+static void draw_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
                                uint32_t ticks) {
-    if (!u || !P_VisibleToPlayer(u) || (u->traits & MF_RENDERABLE) == 0) return;
+    if (!u || (u->traits & MF_RENDERABLE) == 0) return;
     if ((u->traits & MF_NOBLOCKMAP) &&
         (!game_info || game_info->state_coord_mode != RTS_STATE_COORDS_FIN_TOP_LEFT)) {
         render_centered_mobj(app, map, u, cache, game_info);
@@ -1110,6 +1110,28 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         V_FillRect(back, V_NearestIndex(0xff141412u));
         V_FillRect(fill, selection_health_tint(selection_health_bucket(u)));
     }
+}
+
+static void render_unit_sprite(app_t *app, const level_t *map,
+                               const mobj_t *unit, const spritesheet_t *fallback,
+                               const spritecache_t *cache, const gameinfo_t *info, uint32_t ticks) {
+    if (P_VisibleToPlayer(unit)) draw_unit_sprite(app, map, unit, fallback, cache, info, ticks);
+}
+
+void R_DrawBuildingPreview(app_t *app, uint16_t type, ivec2_t cell, int team,
+                           const spritecache_t *cache) {
+    const mobjtype_t *info = P_ActorType(type);
+    if (!info || type >= gameinfo->mobj_type_count) return;
+    int state_id = gameinfo->mobjinfo[type].spawnstate;
+    if (state_id <= 0 || state_id >= gameinfo->state_count) return;
+    const state_t *state = &gameinfo->states[state_id];
+    /* An unlinked presentation value: no thinker, state action or game ID. */
+    mobj_t image = {.type_id = type, .info = info, .traits = MF_RENDERABLE, .team = team,
+        .core = {.position = fixed3_from_fvec2(P_BuildingPosition(type, cell), 0),
+                 .angle = ANG270, .state_id = state_id, .sprite_id = state->sprite,
+                 .frame = state->frame, .render_intensity = 16}};
+    snprintf(image.core.sprite_name, sizeof(image.core.sprite_name), "%s", info->sprite_name);
+    draw_unit_sprite(app, &level, &image, NULL, cache, gameinfo, 0);
 }
 
 static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *units,

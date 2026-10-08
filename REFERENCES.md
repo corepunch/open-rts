@@ -2139,3 +2139,30 @@ references, with no reference implementation copied:
 [Hero findings and reproduction](docs/WAR2_EXE_FINDINGS.md#five-original-tides-of-darkness-heroes-2026-10-08)
 record native fingerprints, frame counts, corrected assumptions, regression
 coverage and the distinction between Wargus rules and unverified DOS cadence.
+
+## Building placement previews (2026-10-08)
+
+Local reference sources examined for the shared placement feature:
+
+- [Stratagus DrawBuildingCursor](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/video/cursor.cpp):
+  native still-frame, top-left grid snap, viewport clip and per-cell green/red
+  overlay with opacity 95. Wargus checkout:
+  `cde1a0718a0058cc651ecd56ff8149fc39f624e9`.
+- [Warcraft 2000 mapa.cpp](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic/blob/4d12ad3e62ba03c59b2dbec2a989f58d744018ee/mapa.cpp):
+  BuildMode, CheckBuilding and RedBar/WhiteBar behavior; only behavioral
+  reference, no map-format or implementation copied.
+- [OpenKrush native-game actor rules](https://github.com/IceReaper/OpenKrush/tree/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors):
+  survivor/evolved foundation dimensions and masks; tower default from
+  `mods/openkrush/rules/core.yaml`.
+- User-provided original-game screenshot, local
+  `/Users/igor/Desktop/Screenshot 2026-10-08 at 07.59.53.jpg`: green tinted
+  native building image while selecting a location. No unit-blocking rule can
+  be proven from this still image alone.
+
+Retail 7th Legion descriptor/image-loader addresses, file fingerprint,
+corrected BUILD.BIM hypothesis, supported catalog and remaining unknowns are
+recorded in `docs/7LEGION_EXE_FINDINGS.md`. Reproduce descriptor inspection
+with the C tool `make 7legion-units`. Dark Reign's native OVLEFF.TXT evidence
+is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
+`docs/KKND_EXE_FINDINGS.md`; Warcraft presentation scope in
+`docs/WAR2_EXE_FINDINGS.md`.

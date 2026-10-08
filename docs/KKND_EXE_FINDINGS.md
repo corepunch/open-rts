@@ -612,3 +612,29 @@ The network regression also passed all seven modes, including packet loss,
 setup mismatch, desync detection, peer quit and the model path. Its UDP bind
 requires running outside the filesystem/network sandbox; the sandboxed attempt
 failed at bind before the network scenarios could run.
+
+## Placement footprints (2026-10-08)
+
+No retail executable was examined in this addition. **Confirmed reference
+metadata:** OpenKrush revision `76c634d05984e48e1e474460c46607aee0bc78a1`,
+`mods/openkrush_gen1/actors/{survivors,evolved}/buildings/*/rules.yaml`, defines
+Building Dimensions and Footprint rows. Shared towers inherit 2×2 `xx ==`
+from `mods/openkrush/rules/core.yaml`. The actor catalog now carries these
+masks, with `x` blocking and `=` a passable cell that must be clear to place.
+These are reference-engine footprints, not newly verified retail bounds.
+Native MOBD layers/pivots still supply all rendered building art.
+
+The shared engine preview reserves a valid chosen site, charges only after
+acceptance and completes the building at that location. Mobile derricks keep
+the existing in-place drill-rig conversion. Their harvesting/navigation rules
+are unchanged. An attempted reuse of all these placement masks as dynamic
+path obstacles exposed incompatibility with the existing central drill-rig
+and power-station docking model; that change was rejected rather than silently
+changing docking rules. Physical footprint blocking is enabled only for the
+new 7th Legion buildings, whose construction support is introduced here.
+
+Reproduce with `env SDL_VIDEODRIVER=dummy
+build/bin/tests/kknd/test_building_placement` and `test_ai` (both computer-player
+oil economies must still grow). Placement also ignores aircraft, rejects live
+ground mobiles and occupied/reserved foundation cells, and frees reservations
+when the producer's queue is removed.

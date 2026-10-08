@@ -154,13 +154,7 @@ static uint32_t scale_rgb(uint32_t rgb, uint32_t tint) {
 }
 
 /* dst = src * alpha + dst * (1 - alpha), nearest-matched per destination index. */
-static int blend_slot(uint32_t rgb, int alpha) {
-    uint32_t key = ((uint32_t)alpha << 24) | rgb;
-    for (int i = 0; i < blend_count; ++i)
-        if (blend_cache[i].key == key) return i;
-    if (blend_count == BLEND_SLOTS) return -1;
-    int slot = blend_count++;
-    blend_cache[slot].key = key;
+static void make_blend_map(uint8_t map[256], uint32_t rgb, int alpha) {
     int sr = (int)((rgb >> 16) & 255) * alpha;
     int sg = (int)((rgb >> 8) & 255) * alpha;
     int sb = (int)(rgb & 255) * alpha;
@@ -168,9 +162,19 @@ static int blend_slot(uint32_t rgb, int alpha) {
         int r = (sr + (int)((vpalette[i] >> 16) & 255) * (255 - alpha)) / 255;
         int g = (sg + (int)((vpalette[i] >> 8) & 255) * (255 - alpha)) / 255;
         int b = (sb + (int)(vpalette[i] & 255) * (255 - alpha)) / 255;
-        blend_cache[slot].map[i] =
+        map[i] =
             V_NearestIndex(((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
     }
+}
+
+static int blend_slot(uint32_t rgb, int alpha) {
+    uint32_t key = ((uint32_t)alpha << 24) | rgb;
+    for (int i = 0; i < blend_count; ++i)
+        if (blend_cache[i].key == key) return i;
+    if (blend_count == BLEND_SLOTS) return -1;
+    int slot = blend_count++;
+    blend_cache[slot].key = key;
+    make_blend_map(blend_cache[slot].map, rgb, alpha);
     return slot;
 }
 
@@ -331,6 +335,19 @@ void V_FillRect(irect_t r, uint8_t color) {
     for (int y = 0; y < area.h; ++y) {
         memset(screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x),
                color, (size_t)area.w);
+    }
+}
+
+void V_FillRectTranslucent(irect_t r, uint32_t argb) {
+    irect_t area;
+    if (!intersect_bounds(scale_rect(r), &area)) return;
+    int slot = blend_slot(argb & 0xffffffu, argb >> 24);
+    uint8_t fallback[256];
+    if (slot < 0) make_blend_map(fallback, argb & 0xffffffu, argb >> 24);
+    const uint8_t *map = slot < 0 ? fallback : blend_cache[slot].map;
+    for (int y = 0; y < area.h; ++y) {
+        uint8_t *row = screens[0].pixels + (size_t)(area.y + y) * screens[0].w + area.x;
+        for (int x = 0; x < area.w; ++x) row[x] = map[row[x]];
     }
 }
 

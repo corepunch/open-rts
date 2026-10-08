@@ -111,7 +111,8 @@ int main(int argc, char **argv) {
     exe = read_file(path);
     if (!exe.data || !load_sections() ||
         !at(VEHICLES, VEHICLE_SIZE * VEHICLE_COUNT) || !at(DAMAGE, DAMAGE_SIZE) ||
-        !at(BUILDINGS, BUILDING_SIZE * BUILDING_COUNT)) {
+        !at(BUILDINGS, BUILDING_SIZE * BUILDING_COUNT) ||
+        !at(BUILDINGS - 16, BUILDING_SIZE * BUILDING_COUNT)) {
         fprintf(stderr, "7legion_units_extract: cannot read tables from %s\n", path);
         return 1;
     }
@@ -179,6 +180,24 @@ int main(int argc, char **argv) {
            "id", "building", "cost", "build", "health", "armour", "weapon", "source");
     for (int i = 0; i < BUILDING_COUNT; ++i) {
         const uint8_t *b = buildings + i * BUILDING_SIZE;
+        const uint8_t *layout = at(BUILDINGS - 16 + i * BUILDING_SIZE, BUILDING_SIZE);
+        for (int side = 0; side < 2; ++side) {
+            int w = i16(layout + 8 + side * 2), h = i16(layout + 12 + side * 2);
+            if (w <= 0 || w > 10 || h <= 0 || h > 10) {
+                fprintf(stderr, "7legion_units_extract: invalid building %d side %d layout\n", 1000 + i, side);
+                free(stuff.data);
+                free(exe.data);
+                return 1;
+            }
+            if (h < 10 && i16(layout + 64 + side * 200 + h * 20) == 6) h++;
+            printf("layout %d side %d %dx%d ", 1000 + i, side, w, h);
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x)
+                    printf("%d,", i16(layout + 64 + side * 200 + y * 20 + x * 2));
+                putchar(' ');
+            }
+            putchar('\n');
+        }
         printf("%-4d %-13.20s %5u %5d %6d %-9s %-13s %s\n", 1000 + i,
                (const char *)at(BT_NAMES + i * NAME_SIZE, NAME_SIZE) + 3, u32(b + 0x04),
                i16(b + 0x08), i16(b + 0x00), armour_name(i16(b + 0x14)),

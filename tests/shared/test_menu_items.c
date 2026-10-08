@@ -708,6 +708,45 @@ static int sliders(void) {
     return 0;
 }
 
+static int previews;
+static void draw_preview(const menu_t *screen, const menuitem_t *item, irect_t view) {
+    (void)screen; (void)item;
+    ++previews;
+    V_FillRect((irect_t){view.x - 1, view.y - 1, view.w + 2, view.h + 2}, MARKER);
+}
+
+static int target_preview(void) {
+    build();
+    app.win = (isize2_t){1280, 960};
+    menu.app = &app;
+    menu.modal = false;
+    for (int i = 0; i < NUMITEMS; ++i) items[i].visible = false;
+    items[BUTTON].visible = true;
+    items[BUTTON].rect = (irect_t){0, 0, 10, 10};
+    items[BUTTON].drawtarget = draw_preview;
+    V_AllocScreen(app.win.w, app.win.h);
+    irect_t view = G_WorldViewport(&app);
+    menu.cursor = (ivec2_t){view.x + view.w / 2, view.y + view.h / 2};
+    M_MenuTarget(&menu, &items[BUTTON]);
+    V_SetDrawScale(1);
+    V_FillRect((irect_t){0, 0, app.win.w, app.win.h}, 0);
+    M_MenuDrawer(&menu);
+    CHECK(previews == 1 && V_GetDrawScale() == 1);
+    CHECK(screens[0].pixels[menu.cursor.y * app.win.w + menu.cursor.x] == MARKER);
+    if (view.x) CHECK(screens[0].pixels[view.y * app.win.w + view.x - 1] != MARKER);
+    if (view.y) CHECK(screens[0].pixels[(view.y - 1) * app.win.w + view.x] != MARKER);
+    menu.cursor = (ivec2_t){5, 5}; /* Over a visible HUD item. */
+    M_MenuDrawer(&menu);
+    CHECK(previews == 1);
+    menu.cursor = (ivec2_t){view.x + view.w / 2, view.y + view.h / 2};
+    key(SDLK_ESCAPE);
+    M_MenuDrawer(&menu);
+    CHECK(previews == 1 && !menu.target);
+    V_FreeScreen();
+    app.win = (isize2_t){W, W};
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(input());
     RTS_RUN(hud_targets());
@@ -719,6 +758,7 @@ int main(void) {
     RTS_RUN(drawing());
     RTS_RUN(text_alignment());
     RTS_RUN(sliders());
+    RTS_RUN(target_preview());
     puts("PASS: menu items focus, activate, check, type, scroll, animate, target, edit, anchor, align, layer and draw");
     return 0;
 }

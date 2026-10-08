@@ -104,7 +104,7 @@ static int test_interactive_queue(void) {
     level.player_resources[1][0] = product->cost;
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
-    app_t app = {.win = {640, 480}};
+    app_t app = {.win = {640, 480}, .cell = {8, 8}};
     V_AllocScreen(app.win.w, app.win.h);
     CHECK(screens[0].pixels);
     /* The engine's product list: a row click buys from the selection. */
@@ -118,10 +118,20 @@ static int test_interactive_queue(void) {
     click.button.y = list.rect.y + 10;
     CHECK(M_MenuResponder(&bar, &app, &click));
     CHECK(!producer->production);
+    if (product->product_class == RTS_PRODUCT_BUILDING) {
+        CHECK(bar.target == &list && !second->production);
+        CHECK(level.player_resources[0][0] == product->cost);
+        click.button.x = 40 * app.cell.w;
+        click.button.y = 40 * app.cell.h;
+        CHECK(M_MenuResponder(&bar, &app, &click));
+        CHECK(!bar.target);
+    }
     CHECK(second->production && second->production->queue_count == 1);
     CHECK(second->production->product_type == product->product_type);
     CHECK(level.player_resources[0][0] == 0);
     CHECK(level.player_resources[1][0] == product->cost);
+    click.button.x = list.rect.x + 10;
+    click.button.y = list.rect.y + 10;
     CHECK(M_MenuResponder(&bar, &app, &click));
     CHECK(second->production->queue_count == 1); /* Cannot afford another. */
     V_BeginFrame(0xff000000u);
