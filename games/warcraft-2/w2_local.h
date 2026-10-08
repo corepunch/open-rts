@@ -55,6 +55,7 @@ typedef struct {
 void w2_build_info(void);
 extern const soundinfo_t w2_soundinfo;
 void A_W2_Chop(mobj_t *actor);
+void A_W2_Platform(mobj_t *actor);
 void w2_init_products(void);
 typedef struct {
     const char *name;

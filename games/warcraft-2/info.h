@@ -215,7 +215,9 @@ enum {
     W2_FX_CANNON, W2_FX_CANNON_EXPLOSION, W2_FX_TOWER_EXPLOSION, W2_FX_DAEMON,
     W2_FX_COUNT
 };
-#define W2_SPRITE_COUNT (W2_EFFECT_SPRITE + W2_FX_COUNT)
+#define W2_TANK_FULL_SPRITE (W2_EFFECT_SPRITE + W2_FX_COUNT)
+#define W2_NAVAL_SITE_SPRITE (W2_TANK_FULL_SPRITE + 2)
+#define W2_SPRITE_COUNT (W2_NAVAL_SITE_SPRITE + 8)
 #define W2_WORK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + ((pud) - 2) * 8)
 #define W2_WAIT_STATE(pud) (W2_WORK_STATE(pud) + 7)
 #define W2_CARRY_STATE(variant) (1 + W2_TYPE_COUNT * 2 + 16 + (variant) * 2)
@@ -228,7 +230,9 @@ enum {
 #define W2_REPAIR_STATE(pud) (1 + W2_TYPE_COUNT * 2 + 16 + 8 + W2_TYPE_COUNT * 9 + ((pud) - 2) * 7)
 #define W2_EFFECT_STATE W2_REPAIR_STATE(4)
 #define W2_TANK_WAIT_STATE(pud) (W2_EFFECT_STATE + 1 + (pud) - 26)
-#define W2_STATE_COUNT (W2_EFFECT_STATE + 3)
+#define W2_TANK_CARRY_STATE(side) (W2_EFFECT_STATE + 3 + (side) * 2)
+#define W2_PLATFORM_ACTIVE_STATE(side) (W2_EFFECT_STATE + 7 + (side))
+#define W2_STATE_COUNT (W2_EFFECT_STATE + 9)
 
 /* Gameplay animation groups the engine reads (see state_t.group). Group 6
  * is the engine's "under construction": such a unit is not ready. */

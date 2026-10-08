@@ -337,7 +337,8 @@ static void fill_mobile(const mobj_t *unit, bool orc) {
     bool harvest = (unit->traits & MF_HARVESTER) != 0;
     put_cmd(0, CK_MOVE, orc ? 84 : 83, 0, 0, 0, 0, SDLK_m, "Move");
     put_cmd(1, CK_STOP, orc ? 167 : 164, 0, 0, 0, 0, SDLK_s, "Stop");
-    put_cmd(2, CK_ATTACK, orc ? 119 : 116, 0, 0, 0, 0, SDLK_a, "Attack");
+    if (unit->traits & MF_ATTACK)
+        put_cmd(2, CK_ATTACK, orc ? 119 : 116, 0, 0, 0, 0, SDLK_a, "Attack");
     if (harvest) {
         if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA) {
             put_cmd(4, CK_HARVEST, 86, 0, 0, 0, 0, SDLK_h, "Harvest oil");

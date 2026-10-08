@@ -2095,3 +2095,26 @@ See [the audit and remaining gaps](docs/WAR2_EXE_FINDINGS.md#in-game-feature-aud
 for confirmed source facts, native frame-count corrections, implementation
 consequences, tests and unimplemented areas. Reference behavior does not
 establish exact DOS retail behavior.
+
+### Warcraft II naval/coast/oil correction (2026-10-08)
+
+Behavioral references, read locally at the pinned revisions (no source copied):
+
+- [Wargus PUD SQM specification](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/doc/pud-specs.txt),
+  section 14, coast `0x0002/0x0082` versus water `0x0040`.
+- [Human units](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/units.lua)
+  and the paired `scripts/orc/units.lua`: oil costs/capacity, refinery bonus,
+  shore building and minimum oil-deposit distance rules.
+- [Human animations](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/anim.lua),
+  paired orc animations, and `scripts/anim.lua`: naval attack/sinking rows,
+  waits and platform `ResourceActive` poses.
+- [Wartool native entry mapping](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/wartool.h)
+  and faction `constructions.lua`: loaded tankers and naval construction sheets.
+- [Stratagus movement masks](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/unit/unittype.cpp)
+  and `src/unit/build.cpp`: transport coast access and shore footprints.
+- Local `reference/DOOM/p_mobj.c`: state transitions, spawn without entry
+  actions and deferred thinker removal; these remain the runtime lifecycle.
+
+[Findings and reproduction](docs/WAR2_EXE_FINDINGS.md#naval-launch-coast-and-oil-corrections-2026-10-08)
+record native fingerprints, rejected assumptions, exact entries, tests and
+remaining gaps. No retail executable was run.

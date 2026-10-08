@@ -1858,8 +1858,11 @@ static void build_combat_states(int pud, int phases) {
         fall_first = 7; fall_count = 3;
     } else if (phases == 4) { /* Siege: wind, loose, reload. */
         hit_first = 2; hit_count = 1; hit_frame = 3; windup_tics = 25; hit_tics = 125; recover_tics = 49;
-    } else if (phases == 3) { /* Ships: no windup art, a long reload. */
-        hit_first = 1; hit_count = 1; hit_frame = 2; windup_tics = 10; hit_tics = 10; recover_tics = 40;
+    } else if ((unit->w2.flags & W2_SEA) && !(unit->w2.attributes & W2_PERMANENT_CLOAK)) {
+        /* Surface ships fire in frame 0. Rows 1 and 2 are sinking art. */
+        windup_tics = 0;
+        hit_tics = unit->w2.projectile && !strcmp(unit->w2.projectile, "missile-big-cannon") ? 229 : 119;
+        recover_tics = 1;
     } else { /* Single-frame art, such as towers. */
         windup_tics = 1; hit_tics = 1; recover_tics = 58;
     }
@@ -1881,7 +1884,7 @@ static void build_combat_states(int pud, int phases) {
          * each on the shared destroyed-site sheet (frames 2 and 3 over
          * water), then the corpse vanishes. The ground clears at once. */
         bool small = unit->w2.footprint.w <= 1 && unit->w2.footprint.h <= 1;
-        bool water = !small && unit->w2.domain == W2_DOMAIN_SEA;
+        bool water = !small && (unit->w2.domain == W2_DOMAIN_SEA || (unit->w2.attributes & W2_SHORE_BUILDING));
         int sprite = small ? W2_SPRITE_SMALL_RUBBLE : W2_SPRITE_RUBBLE;
         states[death] = (state_t){
             .sprite = sprite, .frame = water ? 2 : 0, .count = 1, .tics = 200,
@@ -1892,15 +1895,31 @@ static void build_combat_states(int pud, int phases) {
             .nextstate = 0, .group = W2_GROUP_DEATH,
         };
         unit->deathstate = death;
-        /* Wargus construction-land: the site for the first quarter, its
+        /* Wargus constructions: the site for the first quarter, its
          * framework to the half, then the type's own half-built frame. */
         int build = W2_BUILD_STATE(pud);
+        int site_sprite = W2_SPRITE_CONSTRUCTION;
+        /* Native construction sheets, paired human/orc in the archive. */
+        if (pud + 1 == MT_HUMAN_SHIPYARD || pud + 1 == MT_ORC_SHIPYARD)
+            site_sprite = W2_NAVAL_SITE_SPRITE + pud + 1 - MT_HUMAN_SHIPYARD;
+        else if (pud + 1 == MT_HUMAN_OIL_PLATFORM || pud + 1 == MT_ORC_OIL_PLATFORM)
+            site_sprite = W2_NAVAL_SITE_SPRITE + 2 + pud + 1 - MT_HUMAN_OIL_PLATFORM;
+        else if (pud + 1 == MT_HUMAN_REFINERY || pud + 1 == MT_ORC_REFINERY)
+            site_sprite = W2_NAVAL_SITE_SPRITE + 4 + pud + 1 - MT_HUMAN_REFINERY;
+        else if (pud + 1 == MT_HUMAN_FOUNDRY || pud + 1 == MT_ORC_FOUNDRY)
+            site_sprite = W2_NAVAL_SITE_SPRITE + 6 + pud + 1 - MT_HUMAN_FOUNDRY;
         for (int stage = 0; stage < 3; ++stage)
             states[build + stage] = (state_t){
-                .sprite = stage < 2 ? W2_SPRITE_CONSTRUCTION : pud,
+                .sprite = stage < 2 ? site_sprite : pud,
                 .frame = stage < 2 ? stage : (art_frames >= 2 ? 1 : 0), .count = 1,
                 .tics = -1, .nextstate = build + stage, .group = W2_GROUP_BUILD,
             };
+    } else if ((unit->w2.flags & W2_SEA) && !(unit->w2.attributes & W2_PERMANENT_CLOAK)) {
+        states[death] = (state_t){.sprite = pud, .frame = 1, .count = 1, .tics = 50,
+            .nextstate = death + 1, .group = W2_GROUP_DEATH};
+        states[death + 1] = (state_t){.sprite = pud, .frame = 2, .count = 1, .tics = 51,
+            .nextstate = 0, .group = W2_GROUP_DEATH};
+        unit->deathstate = death;
     } else if (fall_count >= 3) {
         /* Two falling frames, a long rest on the ground, then the decay
          * frames (knights, ogres) before the corpse is removed. */
@@ -1920,6 +1939,15 @@ static void build_combat_states(int pud, int phases) {
         unit->deathstate = death;
     } else {
         unit->deathstate = 0; /* No death art: the engine removes it at once. */
+    }
+    if ((unit->w2.flags & W2_SEA) && (unit->w2.attributes & W2_PERMANENT_CLOAK)) {
+        /* Submarines use five attack poses and no sinking frames. Reuse
+         * their otherwise unused death slots for the last two poses. */
+        static const int frames[] = {1, 2, 2, 1, 0}, waits[] = {10, 25, 25, 25, 30};
+        for (int i = 0; i < 5; ++i)
+            states[attack + i] = (state_t){.sprite = pud, .frame = frames[i], .count = 1,
+                .tics = waits[i], .action = i == 2 ? A_W2_Attack : NULL,
+                .nextstate = i == 4 ? stand : attack + i + 1, .group = W2_GROUP_ATTACK};
     }
 }
 
@@ -2136,6 +2164,23 @@ void w2_build_info(void) {
         }
     }
     static const char *const carriers[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber" };
+    static const char *const naval_sites[] = {"human-shipyard-site", "orc-shipyard-site",
+        "human-oil-well-site", "orc-oil-well-site", "human-refinery-site", "orc-refinery-site",
+        "human-foundry-site", "orc-foundry-site"};
+    for (int i = 0; i < 8; ++i) sprnames[W2_NAVAL_SITE_SPRITE + i] = naval_sites[i];
+    for (int side = 0; side < 2; ++side) {
+        int stand = W2_TANK_CARRY_STATE(side), sprite = W2_TANK_FULL_SPRITE + side;
+        sprnames[sprite] = side ? "orc-tanker-full" : "human-tanker-full";
+        states[stand] = (state_t){.sprite = sprite, .count = 1, .tics = -1, .nextstate = stand};
+        states[stand + 1] = (state_t){.sprite = sprite, .count = 1, .tics = W2_WALK_TICS,
+            .nextstate = stand + 1, .group = W2_GROUP_WALK};
+        int pud = MT_HUMAN_OIL_PLATFORM + side - 1, idle = stand_state(pud);
+        states[idle].tics = 5;
+        states[idle].action = A_W2_Platform;
+        int active = W2_PLATFORM_ACTIVE_STATE(side);
+        states[active] = (state_t){.sprite = pud, .frame = 2, .count = 1, .tics = 5,
+            .action = A_W2_Platform, .nextstate = active};
+    }
     for (int pud = 26; pud <= 27; ++pud)
         states[W2_TANK_WAIT_STATE(pud)] = (state_t){.sprite = pud, .count = 1,
             .tics = mobjinfo[pud + 1].w2.gather[2].resource_wait,

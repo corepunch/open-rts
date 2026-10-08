@@ -115,11 +115,6 @@ static bool cell_is_land(int x, int y) {
     return true;
 }
 
-static bool cell_is_water(int x, int y) {
-    return L_Contains(&level, x, y) && level.cell_terrain &&
-        level.cell_terrain[L_Index(&level, x, y)] == 1;
-}
-
 bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
     if (!W2_Buildable(type)) return false;
     bool platform = type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM;
@@ -132,14 +127,18 @@ bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
     const w2_stats_t *s = &mobjinfo[type].w2;
     isize2_t foot = s->footprint;
     if (foot.w <= 0 || foot.h <= 0) return false;
+    bool shore_building = (s->attributes & W2_SHORE_BUILDING) != 0;
     bool shore = false;
     for (int y = 0; y < foot.h; ++y)
         for (int x = 0; x < foot.w; ++x) {
-            if (!cell_is_land(cell.x + x, cell.y + y)) return false;
-            shore |= cell_is_water(cell.x + x - 1, cell.y + y) || cell_is_water(cell.x + x + 1, cell.y + y) ||
-                     cell_is_water(cell.x + x, cell.y + y - 1) || cell_is_water(cell.x + x, cell.y + y + 1);
+            if (!L_Contains(&level, cell.x + x, cell.y + y)) return false;
+            int index = L_Index(&level, cell.x + x, cell.y + y);
+            int terrain = level.cell_terrain ? level.cell_terrain[index] : 0;
+            if (level.cell_solid && level.cell_solid[index]) return false;
+            if (shore_building ? terrain != 1 && terrain != 3 : terrain != 0) return false;
+            shore |= terrain == 3;
         }
-    if ((s->attributes & W2_SHORE_BUILDING) && !shore) return false;
+    if (shore_building && !shore) return false;
     irect_t rect = { cell.x, cell.y, foot.w, foot.h };
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
@@ -148,6 +147,10 @@ bool W2_CanPlace(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         if (other->type_id >= NUMMOBJTYPES) continue;
         if (other->traits & MF_FLY) continue;
         if (mobjinfo[other->type_id].w2.flags & W2_STRUCTURE) {
+            /* Wargus shipyards/refineries keep distance > 3 from oil. */
+            if ((s->store_mask & 4) && (mobjinfo[other->type_id].w2.gives_mask & 4) &&
+                footprint_gap(cell, foot, structure_cell(other), mobjinfo[other->type_id].w2.footprint) <= 3)
+                return false;
             if ((s->flags & W2_HALL) && other->type_id == MT_GOLD_MINE &&
                 footprint_gap(cell, foot, structure_cell(other), mobjinfo[other->type_id].w2.footprint) <= W2_MINE_GAP)
                 return false;

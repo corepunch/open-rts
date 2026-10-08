@@ -8,9 +8,9 @@
 #include <unistd.h>
 
 /* PUD sections are tag + u32 length. Unknown sections are skipped. Movement
- * comes from SQM: bit 0x80 is forest (impassable to land and sea), bit 0x40
- * is water, otherwise land. Forests are not cell_solid, so air can cross
- * them. Building footprints, and wall tiles, are cell_solid. */
+ * comes from SQM: 0x0002/0x0082 are coast, 0x0040 water, 0x0081 forest/rock.
+ * Coast must be recognized before the obstacle bit. Forests are not
+ * cell_solid, so air can cross them. Buildings and walls are cell_solid. */
 
 static const char *era_names[] = { "forest", "winter", "wasteland", "swamp" };
 
@@ -32,18 +32,22 @@ static bool wall_tile(uint16_t value) {
 }
 
 static uint8_t terrain_of(uint16_t sqm) {
+    if ((sqm & 0x00ffu) == 0x0002u || (sqm & 0x00ffu) == 0x0082u) return 3;
     if (sqm & 0x0080u) return 2;
     if (sqm & 0x0040u) return 1;
     return 0;
 }
 
 static void fill_speeds(terrainspeeds_t *speeds) {
-    speeds->class_count = 4;
+    speeds->class_count = 5;
     speeds->terrain[1][0] = 100;
     speeds->terrain[2][1] = 100;
     speeds->terrain[3][0] = 100;
     speeds->terrain[3][1] = 100;
     speeds->terrain[3][2] = 100;
+    speeds->terrain[3][3] = 100;
+    /* Wargus transports can enter coast; other ships stay in water. */
+    speeds->terrain[4][1] = speeds->terrain[4][3] = 100;
 }
 
 static bool take_section(const uint8_t **p, const uint8_t *end,
@@ -612,14 +616,21 @@ bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud) {
 bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256], int era,
                             spritecache_t *cache) {
     static const char *const names[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber",
-                                         "construction-site", "destroyed-site", "small-destroyed-site" };
+        "construction-site", "destroyed-site", "small-destroyed-site",
+        "human-tanker-full", "orc-tanker-full", "human-shipyard-site", "orc-shipyard-site",
+        "human-oil-well-site", "orc-oil-well-site", "human-refinery-site", "orc-refinery-site",
+        "human-foundry-site", "orc-foundry-site"};
     static const int rubble[4] = { 121, 163, 191, 191 }, small[4] = { 189, 190, 188, 188 };
     if (era < 0 || era > 3) era = 0;
-    const int entries[] = { 124, 122, 125, 123, 252, rubble[era], small[era] };
-    for (int i = 0; i < 7 + W2_FX_COUNT; ++i) {
-        const char *name = i < 7 ? names[i] : w2_effects[i - 7].name;
-        int entry = i < 7 ? entries[i] : 324 + i - 7;
-        bool directional = i < 7 ? i < 4 : w2_effects[i - 7].directional;
+    int shore = era == 1 ? 263 : 253, well = era == 1 ? 265 : era >= 2 ? 271 : 255;
+    int refinery = era == 1 ? 267 : 257, foundry = era == 1 ? 269 : 259;
+    const int entries[] = {124, 122, 125, 123, 252, rubble[era], small[era], 126, 127,
+        shore, shore + 1, well, well + 1, refinery, refinery + 1, foundry, foundry + 1};
+    int shared = sizeof(entries) / sizeof(*entries);
+    for (int i = 0; i < shared + W2_FX_COUNT; ++i) {
+        const char *name = i < shared ? names[i] : w2_effects[i - shared].name;
+        int entry = i < shared ? entries[i] : 324 + i - shared;
+        bool directional = i < shared ? i < 4 || i == 7 || i == 8 : w2_effects[i - shared].directional;
         if (R_CacheFind(cache, name)) continue;
         if (cache->count >= MAX_DECORATION_SPRITES) return false;
         cachedsprite_t *slot = &cache->entries[cache->count];

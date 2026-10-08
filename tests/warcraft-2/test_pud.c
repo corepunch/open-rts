@@ -155,6 +155,29 @@ static int test_channel(void) {
     int water = count_terrain(1);
     fprintf(stderr, "channel land=%d water=%d era=%s\n", land, water, level.tileset_name);
     RTS_CHECK(water > 3000 && land > 0, "channel", "water");
+    blob_t file;
+    RTS_CHECK(W_ReadFile("data/WAR2/CHANNEL.PUD", &file), "channel", "read movement map");
+    int coasts = 0;
+    for (size_t at = 0; at + 8 <= file.size;) {
+        size_t len = read_u32_le(file.bytes + at + 4);
+        RTS_CHECK(len <= file.size - at - 8, "channel", "section span");
+        if (!memcmp(file.bytes + at, "SQM ", 4)) {
+            for (int i = 0; i < level.width * level.height; ++i) {
+                int sqm = read_u16_le(file.bytes + at + 8 + i * 2);
+                if (sqm != 2 && sqm != 0x82) continue;
+                ++coasts;
+                RTS_CHECK(level.cell_terrain[i] == 3, "channel", "coast is not forest or land");
+                for (int v = 0; v < level.resource_vent_count; ++v)
+                    RTS_CHECK(!ivec2_equal(level.resource_vents[v].cell, (ivec2_t){i % level.width, i / level.width}),
+                              "channel", "coast supplies no lumber");
+            }
+        }
+        at += 8 + len;
+    }
+    W_FreeFile(&file);
+    RTS_CHECK(coasts > 0 && coasts == count_terrain(3), "channel", "native coast count");
+    RTS_CHECK(level.speeds->terrain[4][3] == 100 && level.speeds->terrain[2][3] == 0 &&
+              level.speeds->terrain[1][3] == 0, "channel", "transport-only coast");
     RTS_CHECK(strcmp(level.tileset_name, "wasteland") == 0, "channel", "era");
     P_FreeLevel(&level);
     return 0;

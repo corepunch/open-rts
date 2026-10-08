@@ -123,7 +123,7 @@ static int test_catalog(void) {
 }
 
 /* Footprints need plain land, nothing standing on them but the builder,
- * water beside a shipyard, and three clear cells between a hall and a mine. */
+ * coast inside a shipyard, and three clear cells between a hall and a mine. */
 static int test_placement(void) {
     fixture();
     mobj_t *peasant = spawn(MT_PEASANT, 8, 8, 0);
@@ -134,7 +134,7 @@ static int test_placement(void) {
     level.cell_terrain[L_Index(&level, 6, 5)] = 1; /* Water. */
     CHECK(!W2_CanPlace(MT_FARM, (ivec2_t){5, 5}, NULL) && W2_CanPlace(MT_FARM, (ivec2_t){4, 6}, NULL));
     CHECK(!W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){12, 12}, NULL)); /* Needs the shore. */
-    CHECK(W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){7, 4, }, NULL));
+    CHECK(!W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){7, 4}, NULL));
     level.cell_terrain[L_Index(&level, 6, 5)] = 0;
     spawn(MT_FARM, 12, 12, 1);
     CHECK(!W2_CanPlace(MT_FARM, (ivec2_t){13, 13}, NULL) && W2_CanPlace(MT_FARM, (ivec2_t){14, 12}, NULL));

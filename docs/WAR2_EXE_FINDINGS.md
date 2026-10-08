@@ -1970,3 +1970,132 @@ ALAMO smoke verification loaded 64 units, 2,798 resource vents, 372 terrain
 tiles and 60 footman frames. Human/orc HUD captures and an in-game ALAMO
 capture were visually checked. These checks cover the implementations
 listed above, not the unimplemented features in the coverage matrix.
+
+## Naval launch, coast and oil corrections (2026-10-08)
+
+This is a comparison against the pinned Wargus and Stratagus sources plus
+native asset decoding, not a new WAR2.EXE trace. The executable fingerprint
+above is unchanged; the retail program was not executed. Source revisions:
+Wargus `cde1a0718a0058cc651ecd56ff8149fc39f624e9`, Stratagus
+`3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc`.
+
+Native input SHA-256:
+
+- `data/WAR2/CHANNEL.PUD`:
+  `ae6bc5015d50225b096700049e0fd613611985775dc70759f3a2f96f15bd5389`.
+- `data/WAR2/DATA/MAINDAT.WAR`:
+  `791bae4480d564f017122a82c9481dabd952424151f2b5d20245793e654ad3bb`.
+
+### Confirmed reference rules and reproduced defects
+
+- Wargus `doc/pud-specs.txt`, section 14: SQM `0x0002` and `0x0082`
+  mean coast; `0x0040` means water. **Disproven:** testing `0x80` first
+  does not identify forest: it turns `0x0082` shoreline into harvestable
+  trees, while `0x0002` becomes land. Coast now has a separate terrain
+  class and creates no lumber deposits. `test_pud` compares every coast
+  entry in CHANNEL against the loaded terrain and resource table.
+  Its land/water counts are 3,857/3,609. SQM's shared forest/mountain
+  encoding remains a separate classification limitation.
+- Stratagus `src/unit/unittype.cpp::UpdateUnitStats`: normal naval units
+  cannot enter coast or land; transports can enter water and coast.
+  Transport movement now has its own terrain-speed row. Air can cross coast.
+- `src/unit/build.cpp::HasAtLeastOneCoastTile` and `CanBuildHere`, together
+  with the shore-building movement mask, require water/coast under a shore
+  building, including at least one coast cell. **Disproven:** an entirely
+  land footprint beside water is not the reference shipyard placement rule.
+  Human/orc shipyards, foundries and refineries now use the coast rule.
+  The shipyard/refinery `BuildingRules` in each faction's `units.lua` also
+  require footprint distance greater than three from patches/platforms.
+  Boundary, land-only, open-water-only, occupied and too-close sites are rejected.
+- **Reproduced engine defect:** shared production used `L_IsWalkable`, the
+  land-only blocked grid. The new naval fixture logged a tanker launched at
+  `(8.5,8.5)` on land while rejecting `(13.5,5.5)` water with movement speed
+  100. Production now tests the spawned unit's movement class through
+  `L_MoveSpeed`. Ordinary allocated mobjs, ownership, collision occupancy
+  and deferred removal remain on the existing Doom lifecycle.
+- Wargus human/orc `anim.lua`: destroyers fire in frame 0, wait 119+1 cycles;
+  battleship/juggernaught wait 127+102+1. Their rows 1 and 2 (native operands
+  5 and 10) are sinking poses, with waits 50 and 50+1. **Disproven:** these
+  rows are surface-ship attack art. Both factions now fire using frame 0
+  and sink through those two poses. Submarine/turtle attack poses are
+  1,2,2,1,0, with waits 10,25,25,25,29+1 and the projectile at the third
+  pose. They use otherwise unused death-state slots for the recovery poses.
+  This corrects the reference pose/timing sequence; it does not claim exact
+  retail movement speed, bobbing or side-attack turning.
+
+### Native oil and construction presentation
+
+Wargus `wartool.h` maps empty tankers to MAINDAT 59/60 and loaded tankers to
+126/127. Each loaded GRP has three logical rows and five stored facings
+(decoded into eight rotations). Carrying tankers now use that shared native
+sheet for standing/travel, returning to the empty sheet after unloading.
+There are no generated or PNG runtime assets.
+
+`anim.lua::animations-oil-platform` uses frame 0 while idle and frame 2 when
+`ResourceActive >= 1`. A five-tic state action now selects the matching pose
+by checking live mining tankers against the platform's level-owned vent.
+Construction and pumping are distinct states; unfinished platforms reject
+harvest orders. Wargus faction `constructions.lua` chooses construction
+frames 0/1 at 0/25%, then the building's main frame 1 at 50%.
+
+The native construction entries now loaded for both factions are:
+
+| Kind | Summer/wasteland | Winter | Swamp |
+|---|---|---|---|
+| Shipyard | 253/254 | 263/264 | 253/254 |
+| Oil well | 255/256 summer, 271/272 wasteland | 265/266 | 271/272 |
+| Refinery | 257/258 | 267/268 | 257/258 |
+| Foundry | 259/260 | 269/270 | 259/260 |
+
+**Confirmed asset correction:** entry 263, the winter human shipyard site,
+has three frames; the other listed construction entries have two. Requiring
+exactly two frames was an invalid test assumption. Both authored construction
+stages exist and the extra native frame is retained. Platforms have three
+frames in all four loaded eras. Shore buildings now leave water rubble,
+matching their Wargus `Corpse` definitions even though their domain is land.
+The visual contact sheet also shows the existing swamp platform art fallback
+has blue water whereas its wasteland construction sheet has dark water.
+That fallback is preserved; no palette compensation was introduced.
+
+### Verification and remaining limits
+
+`test_naval` exercises both factions' paid launch, water-only tanker movement,
+platform construction and automatic gathering, pumping/loaded poses, the
+100-unit cargo cycle, unfinished/completed refinery bonuses, final partial
+cargo and depletion reopening the footprint. It trains transports,
+destroyers, capital ships and submarines, checks oil spending, hits enemy
+ships, and checks sinking. Its coast fixture constructs an actual shipyard
+from a land worker and boards/unloads a transport at the coast. Existing
+`test_features` checks destruction/cancellation restores the patch and
+remaining reserves, and sinking kills passengers.
+
+Reproduce with:
+
+```sh
+make -s build/bin/tests/warcraft-2/test_naval build/bin/tests/warcraft-2/test_pud
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_naval /private/tmp/war2-naval.bmp
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_pud
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 data/WAR2 CHANNEL.PUD --screenshot /private/tmp/war2-channel.bmp
+```
+
+The optional contact sheet has eight rows (summer, winter, wasteland, swamp;
+human then orc), and six columns (empty, loaded, construction 0, construction
+1, idle, pumping). All four eras' construction/carrier assets are decoded
+and checked even without a screenshot path. This and the CHANNEL gameplay
+capture were visually inspected. Temporary investigation logging was removed.
+The new state-table size makes older saves fail the existing signature check;
+new saves use the existing serialization without a parallel oil owner.
+
+This supersedes the prior audit's loaded-tanker, platform-pumping and native
+naval-construction-art gaps. Naval AI economy, automatic inland-click landing
+selection, exact rectangular ship collision/pathing and full DOS retail
+movement/animation cadence remain unverified or unimplemented. Wargus source
+behavior is not presented as independently verified DOS executable behavior.
+
+Final verification: all 30 Warcraft II regression programs passed (the two
+LAN-menu programs require local sockets outside the sandbox). `make` built
+all five game binaries. Dark Reign/7th Legion production regressions and
+Dark Colony's native Barracks release regression passed. ALAMO and CHANNEL
+headless checks passed with 64/17 units and 2,798/1,394 resource vents.

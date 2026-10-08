@@ -283,11 +283,31 @@ bool W2_TickHarvest(mobj_t *unit) {
 }
 
 void W2_WorkerPose(mobj_t *unit) {
-    if (!worker(unit) || (unit->type_id != MT_PEASANT && unit->type_id != MT_PEON)) return;
+    if (!worker(unit)) return;
     int group = gameinfo->states[unit->core.state_id].group;
     if (group != 0 && group != 2) return;
     int pud = unit->type_id - 1;
-    int state = unit->harvest.cargo ? W2_CARRY_STATE((pud - 2) * 2 + unit->harvest.resource_type) : 1 + pud * 2;
+    int state = 1 + pud * 2;
+    if (unit->harvest.cargo) {
+        if (unit->type_id == MT_HUMAN_OIL_TANKER || unit->type_id == MT_ORC_OIL_TANKER)
+            state = W2_TANK_CARRY_STATE(pud - 26);
+        else state = W2_CARRY_STATE((pud - 2) * 2 + unit->harvest.resource_type);
+    }
     if (group == 2) ++state;
     if (state != unit->core.state_id) P_SetMobjState(unit, state);
+}
+
+/* Wargus ResourceActive selects platform frame 2 while a tanker is inside. */
+void A_W2_Platform(mobj_t *actor) {
+    bool active = false;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *unit = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || unit->remove || unit->hp <= 0 ||
+            unit->harvest.phase != HARVEST_PHASE_MINING) continue;
+        resourcevent_t *vent = deposit(unit);
+        if (vent && vent->source_id == actor->id) { active = true; break; }
+    }
+    int state = active ? W2_PLATFORM_ACTIVE_STATE(actor->type_id - MT_HUMAN_OIL_PLATFORM) :
+                        mobjinfo[actor->type_id].spawnstate;
+    if (actor->core.state_id != state) P_SetMobjState(actor, state);
 }

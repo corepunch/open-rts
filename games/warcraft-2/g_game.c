@@ -44,7 +44,7 @@ static void fill_actors(void) {
         uint8_t move = 0;
         if (!(src->w2.flags & W2_STRUCTURE)) {
             if (src->w2.flags & W2_AIR) move = 3;
-            else if (src->w2.flags & W2_SEA) move = 2;
+            else if (src->w2.flags & W2_SEA) move = src->w2.transport_capacity ? 4 : 2;
             else if (src->w2.flags & W2_MOBILE) move = 1;
         }
         *dst = (mobjtype_t){

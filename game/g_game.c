@@ -184,7 +184,7 @@ static bool model_position_available(const mobj_t *spawned, float gx, float gy,
     int max_y = (int)floorf(gy + radius);
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
-            if (!L_IsWalkable(&level, x, y)) return false;
+            if (L_MoveSpeed(&level, P_MobjMoveClass(spawned), x, y) <= 0) return false;
         }
     }
 
