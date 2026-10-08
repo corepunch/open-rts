@@ -605,6 +605,10 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
         (mobjinfo[target->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return;
 #endif
     target->hp -= damage;
+#ifdef RTS_GAME_STARCRAFT
+    target->sc.flags = (uint8_t)(target->sc.flags | SC_HIT);
+    target->sc.attacker = source && source->owner < 8 ? source->owner : 255;
+#endif
     if (target->info && target->info->damage_action) target->info->damage_action(target);
     if (target->owner == consoleplayer && source && source->owner != consoleplayer)
         S_ActorSound(target, SE_ATTACKED);

@@ -184,6 +184,11 @@ This is a basic catalog sandbox. Economy, combat, missions, saves, multiplayer,
 intro playback, full retail resource/selection states, and race switching are
 not implemented. Imported files remain available for that subsequent work.
 
+**Correction (2026-10-08):** the catalog map is still that sandbox. Campaign
+and melee CHK maps now run triggers, shared combat and economy, a computer
+build order, supply, and a victory/defeat screen. See "Campaign triggers and
+results" below. The paragraph above records the earlier limit.
+
 ## Documentation audit (2026-10-08)
 
 The detailed [format reference](SC_FORMATS.md) was checked against the pinned
@@ -507,3 +512,101 @@ Warcraft II / Dark Colony / 7th Legion / KKnD / Dark Reign regressions passed.
 The broader suites also exposed Warcraft II navigation, Dark Colony Human01
 corner movement and LAN/menu failures. The same failures were reproduced in
 an untouched `git archive HEAD` checkout; they are not claimed as repaired here.
+
+## Campaign triggers and results (2026-10-08)
+
+Stargus `src/Chk.cpp` `SaveTrigger` writes each TRIG record out as a Lua
+comment. It does not execute it. `scripts/stratagus.lua` `SinglePlayerTriggers`
+instead ends a game when the local player has no units, or when
+`GetNumOpponents` is zero. `scripts/menus/results.lua` is the victory, defeat
+and draw screen; Continue leaves that screen. `scripts/campaigns/campaign.lua`
+advances `campaign_position` after a victory. The Terran campaign list is the
+tutorial followed by numbered maps 01 through 12.
+
+**Confirmed:** every install campaign `scenario.chk` has zero action 41
+(Set Next Scenario). The next mission is the next numbered file in that race's
+campaign directory. `tutorial` is followed by `<race>01`. `<race>12` has no
+successor. A custom string from action 41 is kept and preferred when that
+path can be opened, but the retail campaign files do not contain one.
+
+**Confirmed trigger record, from PyMS `FileFormats/TRG.py` and the CHK
+reader:** 2400 bytes. Sixteen 20-byte conditions, then sixty-four 32-byte
+actions at offset 320, four unused bytes at 2368, and a 28-byte execution
+mask at 2372. A mask byte of 1 means the trigger runs for that group. Groups
+are players 0–7, current 12, foes 13, allies 14, neutral 15, all 16, and
+forces 1–4 at 17–20. Condition byte 15 is the type and byte 14 is the
+comparison. Action byte 26 is the type and byte 27 is the modifier. Disabled
+is flags bit 1. Comparisons used by the campaign files are 0 (at least),
+1 (at most), 2 (switch set), 3 (switch cleared) and 10 (exactly). Resource
+modifiers are 7 set, 8 add and 9 subtract. Transmission and Wait times are
+milliseconds. Countdown and elapsed quantities are seconds.
+
+**Confirmed outcome rule:** Victory (action 1) and Defeat (action 2) are
+results for the local human, including when the trigger's mask is another
+force. Terran 01's win runs for Force 2 and requires player 2 to command at
+least ten Marines, one Barracks and Jim Raynor (unit 19). Its losses also run
+for Force 2. Terran 05's loss condition counts Foes relative to that force and
+still means the human lost. Draw (action 58) is the third result. A map that
+contains a Victory action does not also end when one side is wiped. A map
+with no Victory action uses the Stargus rule: the human loses with no units,
+and wins when every opponent slot is empty. Opponent slots are OWNR 1, 2, 5
+and 6, excluding the human and allies. Inactive (0), rescue (3) and neutral
+(7) are not opponents. No opponent slots means a lone human does not win on
+the first tick.
+
+**Confirmed alliances:** FORC is 20 bytes. `force[8]` is at 0 and `flags[4]`
+is at 16. Flag bit 2 (allied) writes `sight.allies` and sets `player_teams`.
+Without `player_teams`, every computer enemy is treated as allied to the
+others. Terran 01's force flags are all zero, so the human in slot 1 is not
+allied with the computer in slot 4. Flag bit 8 (shared vision) does not by
+itself ally the players. Rescue is neutral and does not receive the build AI.
+OWNR 1 and 5 do. Run AI Script (actions 15 and 16) also marks that player as
+a computer. The retail AI bytecode is not executed.
+
+**Confirmed UPRP:** 64 records of 20 bytes. Special-valid and data-valid are
+u16s, then player, hit-point percent, shield percent, energy percent, resource
+u32, hangar u16 and state u16. Applied bits are owner, hit points, invincible
+(special bit 16 with state bit 16) and hallucination (special bit 8 with
+state bit 8). Burrow, cloak, shields, energy, hangar and resource amounts are
+stored and not simulated.
+
+**Confirmed supply:** `units.dat` columns 45 and 46 are bytes in halves
+(2 is one supply). The committed `SC_UNIT` rows carry both bytes. The cap is
+200 supply, which is 400 halves. Queued training counts. A depot or command
+center has no supply cost, so it can still be built at the cap. `units.inc`
+gained these two columns; an older byte-for-byte `cmp` against a pre-supply
+`units.inc` no longer applies.
+
+**Inferred presentation:** Pause and Unpause (actions 5 and 6) are ignored.
+The shared pause flag skips both the world tick and the mission tick, so an
+Unpause inside a trigger could never run. Leaderboard actions and doodad
+state are ignored. Transmission text is shown; its WAV is not played.
+Center View requests a camera move, which the driver applies after the
+mission tick. Objectives replace the map's start tip on the HUD. Minerals,
+gas and supply are the resource line.
+
+Zerg troops are trained from the hatchery. Larva and eggs are not simulated.
+The computer build order is a short race ladder (workers, supply, production
+buildings, the first combat unit, gas), not the scenario's AI script. Pylon
+power is not required. Shields, energy, siege mode, burrow, addons and creep
+are not simulated.
+
+The result screen is a modal menu. Victory with a following campaign file
+offers Continue, which opens that mission's briefing and then loads it.
+Restart reloads the current map (`install/` kept relative to the data root,
+an absolute path kept whole). Defeat offers Restart and Quit. Draw, the last
+campaign mission, a multiplayer game, and a victory with no next file end
+the session. Escape does not resume play. A multiplayer result hides Restart.
+
+### Reproduce
+
+```
+make build/sc_catalog
+build/sc_catalog data/STARCRAFT/native > games/starcraft/units.inc
+env SDL_VIDEODRIVER=dummy make test-starcraft
+```
+
+`test_mission` checks one-shot Victory, a non-preserved resource add, melee
+elimination, a lone player, Terran 01's starting minerals and alliances, the
+200-supply cap, and numbered campaign advance. `test_play` still requires the
+load-time mineral set of 40 before any mission tick.

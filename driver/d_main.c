@@ -1,5 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#ifdef RTS_GAME_STARCRAFT
+#include "starcraft.h"
+#endif
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
@@ -349,6 +352,15 @@ load_level:
                 int before_count = unit_count;
                 G_MissionTicker(&level, units, &unit_count,
                                 &hud_text, FIXED_DT);
+#ifdef RTS_GAME_STARCRAFT
+                {
+                    fvec2_t sc_cell;
+                    if (sc_take_camera(&sc_cell)) {
+                        focus_camera_on_grid(&app, &level, sc_cell.x, sc_cell.y);
+                        R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
+                    }
+                }
+#endif
                 P_FreeMobjList(&objects);
                 objects = P_ListMobjs();
                 units = objects.items;
@@ -510,6 +522,15 @@ load_level:
                 int before_count = unit_count;
                 G_MissionTicker(&level, units, &unit_count,
                                 &hud_text, FIXED_DT);
+#ifdef RTS_GAME_STARCRAFT
+                {
+                    fvec2_t sc_cell;
+                    if (sc_take_camera(&sc_cell)) {
+                        focus_camera_on_grid(&app, &level, sc_cell.x, sc_cell.y);
+                        R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
+                    }
+                }
+#endif
                 P_FreeMobjList(&objects);
                 objects = P_ListMobjs();
                 units = objects.items;

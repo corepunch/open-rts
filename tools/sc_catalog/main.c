@@ -43,12 +43,13 @@ int main(int argc,char **argv) {
             damage=u16(weapons+28*nw+2*weapon);
             cooldown=weapons[32*nw+weapon];
         }
-        printf("\", %u, 0x%08xu, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u)\n",
+        printf("\", %u, 0x%08xu, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u)\n",
             u32(d+offsets[8]+4*i)>>8, u32(d+offsets[22]+4*i),
             u16(d+offsets[36]+4*i),u16(d+offsets[36]+4*i+2),
             d[offsets[24]+i],d[offsets[28]+i],d[offsets[44]+i],
             u16(d+offsets[40]+2*i),u16(d+offsets[41]+2*i),u16(d+offsets[39]+2*i),
-            u16(d+offsets[42]+2*i),damage,range,cooldown);
+            u16(d+offsets[42]+2*i),damage,range,cooldown,
+            d[offsets[45]+i],d[offsets[46]+i]);
     }
     free(d); free(t); free(weapons); return 0;
 }

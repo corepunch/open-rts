@@ -5,9 +5,10 @@
 
 /* Keep checked native records with the level, like Doom's map lumps. */
 static void free_chk(void *data) {
-    blob_t *file=data;
-    W_FreeFile(file);
-    free(file);
+    sc_mission_t *mission=data;
+    free(mission->rt);
+    W_FreeFile(&mission->file);
+    free(mission);
 }
 
 bool sc_start_tip(const level_t *map, char *text, size_t size) {
@@ -67,9 +68,10 @@ bool sc_load_chk(const char *path,level_t *out) {
         "badlands","platform","install","ashworld","jungle","desert","ice","twilight"
     };
     memset(out,0,sizeof(*out));
-    blob_t *file=calloc(1,sizeof(*file));
-    if(!file) return false;
-    out->mission=file; out->destroy_mission=free_chk;
+    sc_mission_t *mission=calloc(1,sizeof(*mission));
+    if(!mission) return false;
+    blob_t *file=&mission->file;
+    out->mission=mission; out->destroy_mission=free_chk;
     if(!W_ReadFile(path,file)) goto bad;
     const uint8_t *terrain=NULL,*owners=NULL;
     size_t terrain_size=0;
@@ -126,8 +128,9 @@ bool sc_load_chk(const char *path,level_t *out) {
     for(size_t at=0;at<file->size;) {
         const uint8_t *tag=file->bytes+at,*data=tag+8;
         size_t size=read_u32_le(tag+4);
-        /* Initial elapsed-time triggers supply campaign starting resources.
-         * Other conditions/actions require the future mission interpreter. */
+        /* Elapsed-zero Set Resources is applied before the first tic so the
+         * human's starting stock is already in the level. The mission ticker
+         * runs the same trigger again; a set is idempotent. */
         if(!memcmp(tag,"TRIG",4)) for(size_t t=0;t<size;t+=2400) {
             bool initial=true,condition=false;
             for(int c=0;c<16;c++) {
@@ -153,6 +156,7 @@ bool sc_load_chk(const char *path,level_t *out) {
         }
         at+=8+size;
     }
+    if(!sc_mission_bind(out)) goto bad;
     return true;
 bad:
     fprintf(stderr,"starcraft: invalid or unreadable CHK map %s\n",path);
@@ -160,13 +164,13 @@ bad:
     return false;
 }
 
-static mobj_t *spawn_thing(unsigned type,ivec2_t pixel,uint8_t owner) {
+mobj_t *sc_spawn_actor(unsigned type,ivec2_t pixel,uint8_t owner) {
     fixed3_t pos={pixel.x*(FIXED_ONE/32),pixel.y*(FIXED_ONE/32),0};
     mobj_t *mo=P_SpawnMobj(pos,(uint16_t)(type+1));
     if(!mo) return NULL;
     mo->owner=mo->team=owner;
-    mo->allegiance=owner>=8?ALLEGIANCE_NEUTRAL:
-        owner==consoleplayer?ALLEGIANCE_PLAYER:ALLEGIANCE_ENEMY;
+    mo->allegiance=sc_allegiance_for(owner);
+    mo->sc.guard_hp=mo->hp;
     mo->core.angle=ANG270;
     if(sc_units[type].flags&1) {
         isize2_t footprint=actor_types[type].footprint;
@@ -194,9 +198,9 @@ int sc_spawn_things(void) {
             unsigned type=read_u16_le(u+8);
             if(type==214) continue; /* Start Location is metadata, not an actor. */
             ivec2_t pixel={read_u16_le(u+4),read_u16_le(u+6)};
-            mobj_t *mo=spawn_thing(type,pixel,u[16]);
+            mobj_t *mo=sc_spawn_actor(type,pixel,u[16]);
             if(!mo) return count;
-            if(read_u16_le(u+14)&2) mo->hp=mo->max_hp*u[17]/100;
+            if(read_u16_le(u+14)&2) mo->hp=mo->sc.guard_hp=mo->max_hp*u[17]/100;
             if((type>=176&&type<=178)||type==188||type==110||type==149||type==157) {
                 resourcevent_t *vents=realloc(level.resource_vents,
                     (size_t)(level.resource_vent_count+1)*sizeof(*vents));
@@ -217,7 +221,7 @@ int sc_spawn_things(void) {
             unsigned type=read_u16_le(d);
             if((read_u16_le(d+8)&0x1000)||type==214) continue;
             ivec2_t pixel={read_u16_le(d+2),read_u16_le(d+4)};
-            if(!spawn_thing(type,pixel,d[6])) return count;
+            if(!sc_spawn_actor(type,pixel,d[6])) return count;
             ++count;
         }
         at+=8+size;

@@ -370,12 +370,15 @@ unit, HUD, transport, architecture, generation and development-status reports.
 
 ## StarCraft maps and catalog
 
-The basic StarCraft plugin opens the original animated main menu. Choose
-**Single Player** to open the first retail Terran map with its native terrain,
-placed units, doodads and player start. Select with the mouse, right-click to
-move mobile units, pan with WASD/arrows, and use F10 for the native pause menu.
-The separate catalog contains all 228 original unit slots; `[` / `]` browse
-its entries. Combat, economy and campaign triggers are not implemented yet.
+The StarCraft game opens the original animated main menu. Choose
+**Single Player**, then a race, to read that campaign's briefing and start
+its first mission. Select with the mouse, right-click to move, attack or
+gather, and use the command card to build and train. The computer players
+in a mission build and attack. Winning a campaign mission opens the next
+briefing; the last mission, a draw, or a multiplayer game ends the session.
+Defeat offers restart and quit. The separate catalog contains all 228
+original unit slots; `[` / `]` browse its entries. Retail spell, creep,
+burrow and AI-script behavior is not simulated.
 
 ```
 make build/bin/starcraft

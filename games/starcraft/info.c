@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 const sc_unit_t sc_units[SC_TYPES] = {
-#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown) [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown},
+#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown,supply,used) [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown,supply,used},
 #include "units.inc"
 #undef SC_UNIT
 };

@@ -15,6 +15,10 @@ static menuitem_t items[SC_DIALOG_CONTROLS], pauseitems[SC_DIALOG_CONTROLS], hud
 static menu_t front={.items=items,.size={640,480},.stretch=true,.modal=true};
 static menu_t pausemenu={.items=pauseitems,.size={640,480},.stretch=true,.modal=true};
 static menu_t hud={.items=huditems,.size={640,480},.stretch=true};
+static menu_t resultmenu;
+static menuitem_t resultitems[6];
+static char restart_path[1024], next_path[256];
+static int shown_result;
 static movie_t portrait;
 typedef struct {
     menu_t menu;
@@ -32,6 +36,7 @@ static int selection_icon_start, selection_count;
 static mobj_t *selection_units[SC_SELECTION_SLOTS];
 static char start_tip[512];
 static int catalog_index, build_page, resource_start;
+static bool draw_pause(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect);
 static void native_path(char *out,size_t size,const char *root,const char *name) {
     sc_asset_path(out,size,root,name);
 }
@@ -91,6 +96,71 @@ static void resume(menu_t *m,menuitem_t *i,menuaction_t a) {
 }
 static void leave(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE){menuleave=true;M_ClearMenus();}
+}
+/* Escape stays on the result. The world is already decided, so it must not resume. */
+static void result_escape(menu_t *menu) { (void)menu; }
+static void result_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;
+    if(action!=MA_ACTIVATE) return;
+    if(item->id==2) {
+        if(restart_path[0]) { menumap=restart_path; M_ClearMenus(); }
+        return;
+    }
+    if(item->id==1 && shown_result==1 && next_path[0] && !netgame) {
+        snprintf(campaign_map,sizeof(campaign_map),"%s",next_path);
+        char path[2048];
+        if(asset_root[0]) snprintf(path,sizeof(path),"%s/%s",asset_root,next_path);
+        else snprintf(path,sizeof(path),"data/STARCRAFT/%s",next_path);
+        if(briefing.menu.numitems &&
+           sc_briefing(path,briefing_text,sizeof(briefing_text),objectives,sizeof(objectives))) {
+            M_SetupNextMenu(&briefing.menu);
+            return;
+        }
+        menumap=campaign_map;
+        M_ClearMenus();
+        return;
+    }
+    menuleave=true;
+    M_ClearMenus();
+}
+static int result_button(int n,int id,const char *label,int y) {
+    menuitem_t *item=&resultitems[n];
+    *item=(menuitem_t){.id=id,.kind=MI_BUTTON,.visible=true,.enabled=true,.release=true,
+        .rect={200,y,240,32},.font=&gamefonts[0],.align=MALIGN_CENTER,.routine=result_action,
+        .hotkey=id==1?SDLK_RETURN:id==2?SDLK_r:SDLK_q};
+    snprintf(item->text,sizeof(item->text),"%s",label);
+    return n+1;
+}
+void sc_show_result(int result) {
+    shown_result=result;
+    next_path[0]=restart_path[0]=0;
+    if(!netgame && result==1) sc_campaign_next(level.map_path,next_path,sizeof(next_path));
+    const char *path=level.map_path;
+    if(!netgame && path && path[0]) {
+        const char *install=strstr(path,"install/");
+        snprintf(restart_path,sizeof(restart_path),"%s",install?install:path);
+    }
+    const char *title=result==1?"Victory":result==3?"Draw":"Defeat";
+    bool cont=result==1 && next_path[0];
+    bool restart=!netgame && result!=3 && restart_path[0];
+    memset(&resultmenu,0,sizeof(resultmenu));
+    memset(resultitems,0,sizeof(resultitems));
+    resultmenu=(menu_t){.items=resultitems,.size={640,480},.stretch=true,.modal=true,
+        .escape=result_escape,.app=pausemenu.app,
+        .drawitem=widgets.numlumps?draw_pause:NULL};
+    int n=0,y=168;
+    resultitems[n++]=(menuitem_t){.kind=MI_STATIC,.id=-1,.visible=true,.rect={160,100,320,220}};
+    resultitems[n]=(menuitem_t){.kind=MI_STATIC,.visible=true,.rect={180,118,280,32},
+        .font=&gamefonts[1],.align=MALIGN_HCENTER};
+    snprintf(resultitems[n].text,sizeof(resultitems[n].text),"%s",title);
+    n++;
+    /* A campaign win continues. Anything else ends the session. Defeat can be replayed. */
+    if(result==1||result==3) { n=result_button(n,1,cont?"Continue":"End",y); y+=40; }
+    if(restart) { n=result_button(n,2,"Restart",y); y+=40; }
+    if(result==2||cont) n=result_button(n,3,"Quit",y);
+    resultmenu.numitems=n;
+    resultmenu.itemOn=2;
+    M_SetupNextMenu(&resultmenu);
 }
 static void unavailable(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("This menu action is not available yet.");
@@ -320,11 +390,16 @@ static void refresh(menu_t *menu) {
     selected_id=id_now;
     snprintf(huditems[resource_start].text,128,"Minerals %d",level.player_resources[consoleplayer][0]);
     snprintf(huditems[resource_start+1].text,128,"Gas %d",level.player_resources[consoleplayer][1]);
+    int used=0,have=0;
+    sc_supply_counts(consoleplayer,&used,&have);
+    snprintf(huditems[resource_start+2].text,128,"Supply %d/%d",used/2,have/2);
+    const char *goal=sc_objectives_text();
+    if(goal&&goal[0]) { huditems[tip_item].prose=goal; huditems[tip_item].visible=true; }
+    else { huditems[tip_item].prose=start_tip; huditems[tip_item].visible=start_tip[0]!=0; }
     for(int i=selection_start;i<command_start;i++)huditems[i].visible=false;
     for(int i=0;i<9;i++)huditems[command_start+i].visible=false;
     huditems[portrait_item].visible=false;
     for(int i=0;i<SC_SELECTION_SLOTS;i++)huditems[selection_icon_start+i].visible=false;
-    huditems[tip_item].visible=start_tip[0];
     if(!selected)return;
     catalog_index=selected_id;
     int id=sc_units[selected_id].portrait;
@@ -458,6 +533,8 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     resource_start=hud.numitems;
     for(int r=0;r<2;r++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=true,
         .rect={r?500:350,0,140,20},.font=&gamefonts[0],.align=MALIGN_RIGHT};
+    huditems[hud.numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=true,
+        .rect={430,22,200,16},.font=&gamefonts[0],.align=MALIGN_RIGHT};
     /* Catalog shortcuts are input-only; retail HUD artwork remains unobscured. */
     for(int i=0;i<2;i++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,
         .hotkey=i?SDLK_RIGHTBRACKET:SDLK_LEFTBRACKET,.value=i?1:-1,.routine=focus};

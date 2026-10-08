@@ -28,6 +28,7 @@ void G_InitGame(void) {
             .speed=mobile?3.0f:0,.max_hp=u->hp>0?u->hp:1,.sight={.day=u->sight,.night=u->sight},
             .attack={.damage=u->damage,.range=(u->range+31)/32,.cooldown_ms=(u->cooldown*1000+23)/24},
             .harvest={.resources={{.capacity=8},{.capacity=8}}},
+            .damage_action=sc_note_damage,
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};
     }
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
@@ -86,7 +87,8 @@ bool R_InitSprites(const char *root,const level_t *map,mobj_t *const *mobjs,int 
     return true;
 }
 void G_MissionTicker(level_t *map,mobj_t *const *mobjs,int *count,hudtext_t *hud,float dt) {
-    (void)map;(void)mobjs;(void)count;(void)hud;(void)dt;
+    (void)mobjs;(void)count;
+    sc_mission_tick(map,hud,dt);
 }
 bool G_UpdateProduction(level_t *map,mobj_t *const *units,int *count,float dt) {
     (void)map;(void)units;(void)count; return G_ProductionTicker(dt);
