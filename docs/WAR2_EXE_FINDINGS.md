@@ -2099,3 +2099,79 @@ LAN-menu programs require local sockets outside the sandbox). `make` built
 all five game binaries. Dark Reign/7th Legion production regressions and
 Dark Colony's native Barracks release regression passed. ALAMO and CHANNEL
 headless checks passed with 64/17 units and 2,798/1,394 resource vents.
+
+## Five original Tides of Darkness heroes (2026-10-08)
+
+The original game already includes Cho'gall, Lothar, Gul'dan, Uther and
+Zul'jin; they are not expansion-only units. The native PUD IDs and existing
+base-game archive mappings are:
+
+| Hero | PUD ID | Wargus identifier | MAINDAT GRP | Logical frames |
+|---|---|---|---|---|
+| Cho'gall | 0x31 | double-head | 52 | 14 |
+| Lothar | 0x32 | wise-man | 51 | 14 |
+| Gul'dan | 0x33 | ice-bringer | 58 | 13 |
+| Uther | 0x34 | man-of-light | 51 | 14 |
+| Zul'jin | 0x35 | sharp-axe | 54 | 12 |
+
+**Confirmed native asset facts:** all five mappings decode from the installed
+base-game `DATA/MAINDAT.WAR`, SHA-256
+`791bae4480d564f017122a82c9481dabd952424151f2b5d20245793e654ad3bb`.
+Each logical frame exposes eight directions from five stored views. The
+native-art contact sheet was visually checked for standing, walking, attack
+and death poses. Existing portraits, voice mappings and hero roster records
+were already present; no replacement art or trainable hero products were added.
+
+**Confirmed Wargus reference behavior:** the pinned `doc/pud-specs.txt` unit
+appendix identifies the five consecutive PUD slots. Faction `units.lua`,
+`buttons.lua`, `anim.lua` and `spells.lua` establish their stats, abilities
+and sequences. Cho'gall starts with 85 mana and can use Eye of Kilrogg,
+Bloodlust and Runes without research. Uther and Gul'dan also start with 85
+mana but retain the ordinary spell research gates. Lothar and Zul'jin have
+no mana or spells. These rules already existed and are now exercised through
+actual movement and spell commands, research and projectile impacts.
+
+**Disproven implementation assumption:** native frame count alone cannot
+select a hero's attack/death sequence. Gul'dan's 13-frame death-knight sheet
+was being treated as generic melee, with the wrong strike and death rows.
+Zul'jin inherited the melee recovery time instead of the axe-thrower sequence.
+Temporary logging also showed Cho'gall restarting at tic 24 because the final
+one-tic wait was omitted. The logging was removed after reproduction.
+
+The corrected logical-frame schedules use the ordinary state table:
+
+- Cho'gall, Lothar and Uther: frames 5/6/7 for three tics each, frame 8 for
+  five, frame 0 for eleven (10+1): 25 tics total.
+- Gul'dan: frames 5/6 for five tics each, frame 7 for seven, frame 8 for five,
+  then frame 0 for eighteen (17+1): 40 tics. Death uses frames 9/10/11 for
+  five each, then frame 12 for six (5+1), before removal.
+- Zul'jin: frames 5/6/7 for three tics each, frame 8 for twelve, then frame 0
+  for fifty-three (52+1): 74 tics total.
+
+The projectile families select the death-knight and axe-thrower rules, so
+their ordinary units share the corrections. Death knights need only two
+death states; their unused third slot holds the final attack recovery pose.
+State-table size is unchanged. State entry actions, next-state transitions
+and deferred removal retain the lifecycle in `reference/DOOM/p_mobj.c`.
+These timings reproduce Wargus source waits, not independently measured DOS
+retail cadence. No original executable was run or newly disassembled.
+Campaign-specific rescue/victory triggers and initial mission research are
+outside this unit-level verification.
+
+Reproduce with:
+
+```sh
+make -s build/bin/tests/warcraft-2/test_heroes
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_heroes /private/tmp/war2-heroes.bmp
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+```
+
+`test_heroes` checks all five native-format PUD records, selection/render/
+combat traits, native GRPs and directions, movement commands, every attack
+frame and wait, melee/projectile damage, death, mana, spell availability,
+casting and research bonuses. Optional contact-sheet rows follow the table
+above; columns are stand, walk, windup, strike, death 9 and death 11.
+All 31 Warcraft II regression programs passed, including naval/oil tests
+and exact native-unit spawning for all 28 base campaign maps.
+`make` built all game binaries without warnings; the ALAMO headless smoke
+check passed with 64 units and 2,798 resource vents.

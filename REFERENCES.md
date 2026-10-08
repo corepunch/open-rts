@@ -2118,3 +2118,24 @@ Behavioral references, read locally at the pinned revisions (no source copied):
 [Findings and reproduction](docs/WAR2_EXE_FINDINGS.md#naval-launch-coast-and-oil-corrections-2026-10-08)
 record native fingerprints, rejected assumptions, exact entries, tests and
 remaining gaps. No retail executable was run.
+
+### Warcraft II original hero verification (2026-10-08)
+
+Read locally at the pinned Wargus revision; used as behavioral/format
+references, with no reference implementation copied:
+
+- [PUD unit appendix](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/doc/pud-specs.txt):
+  original hero slots 0x31 through 0x35.
+- [Human hero definitions](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/units.lua)
+  and [orc hero definitions](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/orc/units.lua):
+  Lothar, Uther, Cho'gall, Gul'dan and Zul'jin stats, abilities and art families.
+- [Human animations](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/human/anim.lua)
+  and [orc animations](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/orc/anim.lua):
+  attack waits, projectile strike rows and death-knight death sequence.
+- [Orc buttons](https://github.com/Wargus/wargus/blob/cde1a0718a0058cc651ecd56ff8149fc39f624e9/scripts/orc/buttons.lua),
+  paired human buttons and `scripts/spells.lua`: Cho'gall's research-free
+  spell variants and ordinary Uther/Gul'dan research gates.
+
+[Hero findings and reproduction](docs/WAR2_EXE_FINDINGS.md#five-original-tides-of-darkness-heroes-2026-10-08)
+record native fingerprints, frame counts, corrected assumptions, regression
+coverage and the distinction between Wargus rules and unverified DOS cadence.

@@ -1847,12 +1847,21 @@ static void build_combat_states(int pud, int phases) {
     int windup_tics = 3, hit_tics = 5, recover_tics = 10;
     int fall_first = 0, fall_count = 0;
     int art_frames = phases;
+    bool death_knight = unit->w2.projectile && !strcmp(unit->w2.projectile, "missile-touch-of-death");
     if (structure) phases = 1; /* A structure's extra frame is construction, not an attack row. */
-    if (phases >= 12) { /* Melee rows: three windup frames, the blow, then stand. */
+    if (death_knight) { /* Wargus death-knight, evil-knight and ice-bringer. */
+        hit_first = 5; hit_count = 2; windup_tics = 5;
+        hit_frame = 7; hit_tics = 7; recover_frame = 8; recover_tics = 5;
+    } else if (phases >= 12) { /* Melee rows: three windup frames, the blow, then stand. */
         hit_first = 5; hit_count = 3; hit_frame = 8; recover_frame = 0;
         fall_first = 9; fall_count = phases - 9;
         if (worker) { recover_frame = 9; fall_first = 10; fall_count = 3; }
         else if (phases == 13) { fall_first = 10; fall_count = 3; }
+        if (!worker) recover_tics = 11; /* Includes the final wait 1. */
+        if (unit->w2.projectile && !strcmp(unit->w2.projectile, "missile-axe")) {
+            hit_tics = 12;
+            recover_tics = 53; /* Axethrower, berserker and Zul'jin: 52+1. */
+        }
     } else if (phases == 10) { /* Archer rows: draw, loose, a long rest. */
         hit_first = 5; hit_count = 1; hit_frame = 6; windup_tics = 10; hit_tics = 10; recover_tics = 44;
         fall_first = 7; fall_count = 3;
@@ -1878,6 +1887,13 @@ static void build_combat_states(int pud, int phases) {
         .sprite = pud, .frame = recover_frame, .count = 1, .tics = recover_tics,
         .nextstate = stand, .group = W2_GROUP_ATTACK,
     };
+    if (death_knight) {
+        /* This family uses only two death states; the spare slot holds
+         * the separate standing recovery pose, after frame 8. */
+        states[attack + 2].nextstate = death + 2;
+        states[death + 2] = (state_t){.sprite = pud, .frame = 0,
+            .count = 1, .tics = 18, .nextstate = stand, .group = W2_GROUP_ATTACK};
+    }
     unit->missilestate = unit->damage > 0 ? attack : 0;
     if (structure) {
         /* Wargus animations-destroyed-place: two rubble frames of 200 cycles
@@ -1914,6 +1930,12 @@ static void build_combat_states(int pud, int phases) {
                 .frame = stage < 2 ? stage : (art_frames >= 2 ? 1 : 0), .count = 1,
                 .tics = -1, .nextstate = build + stage, .group = W2_GROUP_BUILD,
             };
+    } else if (death_knight) {
+        states[death] = (state_t){.sprite = pud, .frame = 9, .count = 3, .tics = 5,
+            .nextstate = death + 1, .group = W2_GROUP_DEATH};
+        states[death + 1] = (state_t){.sprite = pud, .frame = 12, .count = 1, .tics = 6,
+            .nextstate = 0, .group = W2_GROUP_DEATH};
+        unit->deathstate = death;
     } else if ((unit->w2.flags & W2_SEA) && !(unit->w2.attributes & W2_PERMANENT_CLOAK)) {
         states[death] = (state_t){.sprite = pud, .frame = 1, .count = 1, .tics = 50,
             .nextstate = death + 1, .group = W2_GROUP_DEATH};
