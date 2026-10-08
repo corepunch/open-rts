@@ -152,6 +152,25 @@ static const char *const side_keys[] = {"ChatPlayerSideDefault", "ChatPlayerSide
     "ChatPlayerSideImperium"};
 static const char *const side_names[] = {"Default", "Freedom Guard", "Imperium"};
 
+/* Retail DROP.BMP / DROP2.BMP choices. The engine draws the open list. */
+typedef struct { const char *key, *fallback; } caption_t;
+static const caption_t give_rows[] = {{"ChatGiveMoneyOff", "No Giving"}, {"ChatGiveMoneyOn", "Give Units/Money"}};
+static const caption_t view_rows[] = {{"ChatViewResourcesOff", "Hide Allied Resources"},
+                                      {"ChatViewResourcesOn", "View Allied Resources"}};
+static const caption_t hcap_rows[] = {{"ChatHandicapsOff", "Handicaps OFF"}, {"ChatHandicapsOn", "Handicaps ON"}};
+static const caption_t ally_rows[] = {{"ChatAlliancesOff", "Teams"}, {"ChatAlliancesOn", "Alliances"}};
+static const caption_t fog_rows[] = {{"ChatFogStyleOnOn", "Fog On, Shroud On"}, {"ChatFogStyleOffOn", "Fog Off, Shroud On"},
+                                    {"ChatFogStyleOnOff", "Fog On, Shroud Off"}, {"ChatFogStyleOffOff", "Fog Off, Shroud Off"}};
+static const caption_t unit_rows[] = {{"ChatStartingUnitsDefault", "Default Units"},
+                                     {"ChatStartingUnitsThreeRigs", "Three Rigs"}};
+static const caption_t place_rows[] = {{"ChatRandomLocationsButtonTitle", "Random Placement"},
+                                      {"ChatFixedLocations", "Fixed Placement"}};
+static const caption_t display_rows[] = {{"ChatDisplayLocationsOff", "Display Off"},
+                                        {"ChatDisplayLocationsAvailable", "Show Available"},
+                                        {"ChatDisplayLocationsAllies", "Show Allies"},
+                                        {"ChatDisplayLocationsAll", "Show All"}};
+static const caption_t togran_rows[] = {{"ChatAllowTogranOff", "No Togran"}};
+
 static void default_setup(int players) {
     setup = (dr_skirmish_t){.count = players};
     for (int i = 0; i < 8; ++i) handicap[i] = 0;
@@ -279,10 +298,62 @@ static menuitem_t *bar_button(int x, int y, int id, const char *key, const char 
     return button((irect_t){x, y, 110, 32}, id, caption(key, fallback), ART_BUTTON, 110);
 }
 
-/* A DROPDOWN (0x58dd30) shown as its closed button: a click steps to the
- * next item, the right button to the previous one. */
-static menuitem_t *choice(irect_t rect, int id, const char *text, bool wide) {
-    return button(rect, id, text, wide ? ART_DROP : ART_DROP2, wide ? 156 : 135);
+static const char *copied(const char *text) {
+    static char label[64];
+    snprintf(label, sizeof(label), "%s", text ? text : "");
+    return label;
+}
+
+static const char *option_row(const menuitem_t *item, int row) {
+    const caption_t *rows = item->userdata;
+    if (!rows || row < 0 || row >= item->rows) return "";
+    return copied(caption(rows[row].key, rows[row].fallback));
+}
+
+static const char *side_row(const menuitem_t *item, int row) {
+    (void)item;
+    if (row < 0 || row >= 3) return "";
+    return copied(caption(side_keys[row], side_names[row]));
+}
+
+static const char *team_row(const menuitem_t *item, int row) {
+    (void)item;
+    if (row <= 0) return copied(caption("ChatPlayerTeamNone", "No Team"));
+    if (row > 8) return "";
+    char key[32], fallback[16];
+    snprintf(key, sizeof(key), "ChatPlayerTeam%c", 'A' + row - 1);
+    snprintf(fallback, sizeof(fallback), "Team %c", 'A' + row - 1);
+    return copied(caption(key, fallback));
+}
+
+static const char *handicap_row(const menuitem_t *item, int row) {
+    (void)item;
+    static char label[16];
+    if (row < 0 || row >= 21) return "";
+    snprintf(label, sizeof(label), "%d.%02d", 1 + row / 4, row % 4 * 25);
+    return label;
+}
+
+/* The closed face is the native DROP bitmap. The engine owns the open list. */
+static void use_dropdown(menuitem_t *item, const char *(*row)(const menuitem_t *, int), int count, int value) {
+    if (!item || count <= 0) return;
+    item->kind = MI_DROPDOWN;
+    item->row = row;
+    item->rows = count;
+    item->value = value >= 0 && value < count ? value : 0;
+    item->row_height = item->rect.h > 0 ? item->rect.h : 13;
+    item->popup_rows = count > 8 ? 8 : 0;
+    item->color = 0xff1a2744u;
+    if (row) snprintf(item->text, sizeof(item->text), "%s", row(item, item->value));
+}
+
+static menuitem_t *choice(irect_t rect, int id, const caption_t *rows, int count, int value) {
+    bool wide = rect.w >= 150;
+    menuitem_t *item = button(rect, id, "", wide ? ART_DROP : ART_DROP2, wide ? 156 : 135);
+    if (!item) return NULL;
+    item->userdata = rows;
+    use_dropdown(item, option_row, count, value);
+    return item;
 }
 
 /* A button with no state art: only its text font changes (normal, then
@@ -391,15 +462,12 @@ static void build_rows(void) {
         }
         cell((irect_t){19, y, 181, 13}, ID_ROWTYPE + i, type, row_editable(i, true));
         if (!open) continue;
-        cell((irect_t){219, y, 90, 13}, ID_ROWSIDE + i,
-             caption(side_keys[slot->side], side_names[slot->side]), row_editable(i, false));
-        char team[32];
-        snprintf(team, sizeof(team), "%s", slot->team ?
-                 caption(M_va("ChatPlayerTeam%c", 'A' + slot->team - 1), M_va("Team %c", 'A' + slot->team - 1)) :
-                 caption("ChatPlayerTeamNone", "No Team"));
-        cell((irect_t){309, y, 60, 13}, ID_ROWTEAM + i, team, row_editable(i, false));
-        cell((irect_t){369, y, 81, 13}, ID_ROWHANDICAP + i,
-             M_va("%d.%02d", 1 + handicap[i] / 4, handicap[i] % 4 * 25), !joined && row_editable(i, false));
+        use_dropdown(cell((irect_t){219, y, 90, 13}, ID_ROWSIDE + i, "", row_editable(i, false)),
+                     side_row, 3, slot->side);
+        use_dropdown(cell((irect_t){309, y, 60, 13}, ID_ROWTEAM + i, "", row_editable(i, false)),
+                     team_row, 9, slot->team);
+        use_dropdown(cell((irect_t){369, y, 81, 13}, ID_ROWHANDICAP + i, "", !joined && row_editable(i, false)),
+                     handicap_row, 21, handicap[i]);
     }
 }
 
@@ -451,35 +519,26 @@ static void build_chat(void) {
     text_button((irect_t){458, 237, 155, 25}, ID_SELECTMAP,
                 caption("ChatCurrentMapButtonTitle", "Select Map"), F12BLUEN)->enabled = !locked;
     if (mp) {
-        static const char *const give_keys[][2] = {{"ChatGiveMoneyOff", "No Giving"}, {"ChatGiveMoneyOn", "Give Units/Money"}};
-        static const char *const view_keys[][2] = {{"ChatViewResourcesOff", "Hide Allied Resources"},
-                                                   {"ChatViewResourcesOn", "View Allied Resources"}};
-        static const char *const hcap_keys[][2] = {{"ChatHandicapsOff", "Handicaps OFF"}, {"ChatHandicapsOn", "Handicaps ON"}};
-        static const char *const ally_keys[][2] = {{"ChatAlliancesOff", "Teams"}, {"ChatAlliancesOn", "Alliances"}};
-        choice((irect_t){456, 132, 156, 15}, ID_GIVE, caption(give_keys[give][0], give_keys[give][1]), true)->enabled = !locked;
-        choice((irect_t){456, 149, 156, 15}, ID_VIEW, caption(view_keys[view][0], view_keys[view][1]), true)->enabled = !locked;
+        menuitem_t *give_item = choice((irect_t){456, 132, 156, 15}, ID_GIVE, give_rows, 2, give);
+        menuitem_t *view_item = choice((irect_t){456, 149, 156, 15}, ID_VIEW, view_rows, 2, view);
         /* Togran is not a playable side in this port. */
-        choice((irect_t){456, 166, 156, 15}, ID_TOGRAN, caption("ChatAllowTogranOff", "No Togran"), true)->enabled = false;
-        choice((irect_t){456, 183, 156, 15}, ID_HANDICAPS,
-               caption(hcap_keys[handicaps][0], hcap_keys[handicaps][1]), true)->enabled = !locked;
-        choice((irect_t){456, 201, 156, 15}, ID_ALLIANCES,
-               caption(ally_keys[alliances][0], ally_keys[alliances][1]), true)->enabled = !locked;
+        menuitem_t *togran = choice((irect_t){456, 166, 156, 15}, ID_TOGRAN, togran_rows, 1, 0);
+        menuitem_t *hand = choice((irect_t){456, 183, 156, 15}, ID_HANDICAPS, hcap_rows, 2, handicaps);
+        menuitem_t *ally = choice((irect_t){456, 201, 156, 15}, ID_ALLIANCES, ally_rows, 2, alliances);
+        if (give_item) give_item->enabled = !locked;
+        if (view_item) view_item->enabled = !locked;
+        if (togran) togran->enabled = false;
+        if (hand) hand->enabled = !locked;
+        if (ally) ally->enabled = !locked;
     }
-    static const char *const fog_keys[][2] = {{"ChatFogStyleOnOn", "Fog On, Shroud On"}, {"ChatFogStyleOffOn", "Fog Off, Shroud On"},
-        {"ChatFogStyleOnOff", "Fog On, Shroud Off"}, {"ChatFogStyleOffOff", "Fog Off, Shroud Off"}};
-    static const char *const unit_keys[][2] = {{"ChatStartingUnitsDefault", "Default Units"},
-                                               {"ChatStartingUnitsThreeRigs", "Three Rigs"}};
-    static const char *const place_keys[][2] = {{"ChatRandomLocationsButtonTitle", "Random Placement"},
-                                                {"ChatFixedLocations", "Fixed Placement"}};
-    static const char *const display_keys[][2] = {{"ChatDisplayLocationsOff", "Display Off"},
-        {"ChatDisplayLocationsAvailable", "Show Available"}, {"ChatDisplayLocationsAllies", "Show Allies"},
-        {"ChatDisplayLocationsAll", "Show All"}};
-    choice((irect_t){458, 290, 156, 15}, ID_FOG, caption(fog_keys[fog][0], fog_keys[fog][1]), true)->enabled = !locked;
-    choice((irect_t){458, 331, 156, 15}, ID_UNITS, caption(unit_keys[units][0], unit_keys[units][1]), true)->enabled = !locked;
-    choice((irect_t){319, 191, 135, 16}, ID_PLACEMENT,
-           caption(place_keys[placement][0], place_keys[placement][1]), false)->enabled = !locked;
-    choice((irect_t){319, 208, 135, 16}, ID_DISPLAY,
-           caption(display_keys[display][0], display_keys[display][1]), false)->enabled = !locked;
+    menuitem_t *fog_item = choice((irect_t){458, 290, 156, 15}, ID_FOG, fog_rows, 4, fog);
+    menuitem_t *units_item = choice((irect_t){458, 331, 156, 15}, ID_UNITS, unit_rows, 2, units);
+    menuitem_t *place_item = choice((irect_t){319, 191, 135, 16}, ID_PLACEMENT, place_rows, 2, placement);
+    menuitem_t *display_item = choice((irect_t){319, 208, 135, 16}, ID_DISPLAY, display_rows, 4, display);
+    if (fog_item) fog_item->enabled = !locked;
+    if (units_item) units_item->enabled = !locked;
+    if (place_item) place_item->enabled = !locked;
+    if (display_item) display_item->enabled = !locked;
     build_rows();
     if (mp) {
         bar_button(27, 414, ID_BACK, "ChatBackButtonTitle", "Previous Menu");
@@ -701,35 +760,17 @@ static void cycle(int *value, int count, bool back) {
     *value = (*value + (back ? count - 1 : 1)) % count;
 }
 
+/* The type cell shows the player name, so it stays a button. Available is an
+ * empty slot in instant action and an open seat for a LAN player. */
 static void row_action(int id, bool back) {
     int i = id % 10;
     dr_slot_t *slot = &setup.slots[i];
-    if (i <= 0 || i >= setup.count) return;
-    if (id < ID_ROWSIDE) {
-        /* Available is an empty slot in instant action and an open seat
-         * for a LAN player in a network game. */
-        static const uint8_t order[] = {DR_SLOT_AVAILABLE, DR_SLOT_EASY, DR_SLOT_MEDIUM, DR_SLOT_HARD, DR_SLOT_CLOSED};
-        int at = 0;
-        for (int k = 0; k < 5; ++k) if (order[k] == slot->type) at = k;
-        cycle(&at, 5, back);
-        slot->type = order[at];
-        return;
-    }
-    int value = id < ID_ROWTEAM ? slot->side : id < ID_ROWHANDICAP ? slot->team : handicap[i];
-    cycle(&value, id < ID_ROWTEAM ? 3 : id < ID_ROWHANDICAP ? 9 : 21, back);
-    if (id < ID_ROWTEAM) slot->side = (uint8_t)value;
-    else if (id < ID_ROWHANDICAP) slot->team = (uint8_t)value;
-    else handicap[i] = value;
-}
-
-/* The slot 0 row is the local player; its side and team are editable. */
-static void own_row_action(int id, bool back) {
-    dr_slot_t *slot = &setup.slots[0];
-    int value = id == ID_ROWSIDE ? slot->side : id == ID_ROWTEAM ? slot->team : handicap[0];
-    cycle(&value, id == ID_ROWSIDE ? 3 : id == ID_ROWTEAM ? 9 : 21, back);
-    if (id == ID_ROWSIDE) slot->side = (uint8_t)value;
-    else if (id == ID_ROWTEAM) slot->team = (uint8_t)value;
-    else handicap[0] = value;
+    if (i <= 0 || i >= setup.count || id >= ID_ROWSIDE) return;
+    static const uint8_t order[] = {DR_SLOT_AVAILABLE, DR_SLOT_EASY, DR_SLOT_MEDIUM, DR_SLOT_HARD, DR_SLOT_CLOSED};
+    int at = 0;
+    for (int k = 0; k < 5; ++k) if (order[k] == slot->type) at = k;
+    cycle(&at, 5, back);
+    slot->type = order[at];
 }
 
 static void activate(app_t *app, int id, bool back) {
@@ -783,32 +824,10 @@ static void activate(app_t *app, int id, bool back) {
             M_NetToggleReady();
             if (M_NetSeat(me)) ready[me] = M_NetSeat(me)->ready;
         } else if (id == ID_LAUNCH) launch();
-        else if (joined && (id == ID_ROWSIDE + doomcom->consoleplayer || id == ID_ROWTEAM + doomcom->consoleplayer)) {
-            int me = doomcom->consoleplayer;
-            dr_slot_t *slot = &setup.slots[me];
-            int value = id < ID_ROWTEAM ? slot->side : slot->team;
-            cycle(&value, id < ID_ROWTEAM ? 3 : 9, back);
-            if (id < ID_ROWTEAM) slot->side = (uint8_t)value; else slot->team = (uint8_t)value;
-            const netseat_t *cur = M_NetSeat(me);
-            if (cur) {
-                netseat_t seat = *cur;
-                seat.race = slot->side;
-                seat.team = slot->team;
-                M_NetSetSeat(me, &seat);
-            }
-        } else if (joined) return;
+        else if (joined) return;
         else if (id == ID_SELECTMAP) { popup = POP_MAP; popupmap = selectedmap; }
-        else if (id == ID_ROWSIDE || id == ID_ROWTEAM || id == ID_ROWHANDICAP) own_row_action(id, back);
-        else if (id >= ID_ROWTYPE && id < ID_ROWHANDICAP + 10) row_action(id, back);
+        else if (id >= ID_ROWTYPE && id < ID_ROWSIDE) row_action(id, back);
         else if (id >= ID_COLOUR && id < ID_COLOUR + 9) colour = id - ID_COLOUR;
-        else if (id == ID_FOG) cycle(&fog, 4, back);
-        else if (id == ID_UNITS) cycle(&units, 2, back);
-        else if (id == ID_PLACEMENT) cycle(&placement, 2, back);
-        else if (id == ID_DISPLAY) cycle(&display, 4, back);
-        else if (id == ID_GIVE) cycle(&give, 2, back);
-        else if (id == ID_VIEW) cycle(&view, 2, back);
-        else if (id == ID_HANDICAPS) cycle(&handicaps, 2, back);
-        else if (id == ID_ALLIANCES) cycle(&alliances, 2, back);
         break;
     }
 }
@@ -818,6 +837,43 @@ static void rebuild(app_t *app) {
         fprintf(stderr, "Could not load Dark Reign multiplayer screen %d\n", page);
         menuerror = true;
         app->running = false;
+    }
+}
+
+static bool choice_id(int id) {
+    return id == ID_FOG || id == ID_UNITS || id == ID_PLACEMENT || id == ID_DISPLAY ||
+           id == ID_GIVE || id == ID_VIEW || id == ID_HANDICAPS || id == ID_ALLIANCES ||
+           (id >= ID_ROWSIDE && id < ID_ROWHANDICAP + 10);
+}
+
+/* A dropdown's value is the chosen row. A joiner publishes only its own seat. */
+static void apply_choice(const menuitem_t *item) {
+    int id = item->id, value = item->value;
+    if (id == ID_FOG) fog = value;
+    else if (id == ID_UNITS) units = value;
+    else if (id == ID_PLACEMENT) placement = value;
+    else if (id == ID_DISPLAY) display = value;
+    else if (id == ID_GIVE) give = value;
+    else if (id == ID_VIEW) view = value;
+    else if (id == ID_HANDICAPS) handicaps = value;
+    else if (id == ID_ALLIANCES) alliances = value;
+    else if (id >= ID_ROWSIDE && id < ID_ROWHANDICAP + 10) {
+        int i = id % 10;
+        if (i < 0 || i >= 8) return;
+        dr_slot_t *slot = &setup.slots[i];
+        if (id < ID_ROWTEAM) slot->side = (uint8_t)value;
+        else if (id < ID_ROWHANDICAP) slot->team = (uint8_t)value;
+        else handicap[i] = value;
+        if (joined && doomcom && (id == ID_ROWSIDE + doomcom->consoleplayer ||
+                                  id == ID_ROWTEAM + doomcom->consoleplayer)) {
+            const netseat_t *cur = M_NetSeat(doomcom->consoleplayer);
+            if (cur) {
+                netseat_t seat = *cur;
+                seat.race = slot->side;
+                seat.team = slot->team;
+                M_NetSetSeat(doomcom->consoleplayer, &seat);
+            }
+        }
     }
 }
 
@@ -837,7 +893,14 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
             snprintf(credits, sizeof(credits), "%s", item->text);
         } else if (id == ID_GAMES) selectedgame = item->value;
         else if (id == ID_MAPLIST) popupmap = item->value;
-        if (id == ID_GAMES || id == ID_MAPLIST) rebuild(app);
+        else if (choice_id(id)) apply_choice(item);
+        if (id == ID_GAMES || id == ID_MAPLIST || choice_id(id)) {
+            if (choice_id(id) && active && hosting && page == MPCHAT && !push_lobby()) network_error(NULL);
+            if (active) {
+                drscreen.menu.held = NULL;
+                rebuild(app);
+            }
+        }
         return;
     }
     /* Enter in the message line sends it ("<name>: <text>"). */
@@ -846,9 +909,9 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
         rebuild(app);
         return;
     }
-    bool cycles = (id >= ID_FOG && id <= ID_ALLIANCES) || (id >= ID_ROWTYPE && id < ID_ROWHANDICAP + 10);
-    if ((action != MA_ACTIVATE && !(action == MA_SECONDARY && cycles)) ||
-        item->kind == MI_TEXTFIELD || item->kind == MI_LIST) return;
+    bool type_cell = id >= ID_ROWTYPE && id < ID_ROWSIDE;
+    if ((action != MA_ACTIVATE && !(action == MA_SECONDARY && type_cell)) ||
+        item->kind == MI_TEXTFIELD || item->kind == MI_LIST || item->kind == MI_DROPDOWN) return;
     activate(app, id, action == MA_SECONDARY);
     /* The host's edits reach the joiners at once. A joiner publishes only its own row. */
     if (active && hosting && page == MPCHAT && !push_lobby()) network_error(NULL);

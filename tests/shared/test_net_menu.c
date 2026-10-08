@@ -44,6 +44,32 @@ static void escape(app_t *app) {
 
 static const char *race_name(int index) { return index ? "Orc" : "Human"; }
 
+/* The open list sits under the control when the screen has room. */
+static bool click_dropdown_row(app_t *app, int row) {
+    if (!currentmenu || !currentmenu->dropdown || !currentmenu->dropdown->row_height) return false;
+    menuitem_t *item = currentmenu->dropdown;
+    if (row < item->first_row || row >= item->rows) return false;
+    irect_t r = M_MenuItemRect(currentmenu, item);
+    int shown = item->popup_rows > 0 && item->popup_rows < item->rows ? item->popup_rows : item->rows;
+    int height = item->row_height;
+    int bottom = app->win.h > 0 ? app->win.h : 480;
+    int room = bottom - r.y - r.h;
+    bool above = room < shown * height && r.y > room;
+    if (above) room = r.y;
+    if (shown > room / height) shown = room / height;
+    if (shown < 1) shown = 1;
+    if (row >= item->first_row + shown) return false;
+    int y0 = above ? r.y - shown * height : r.y + r.h;
+    SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = r.x + r.w / 2;
+    event.button.y = y0 + (row - item->first_row) * height + height / 2;
+    M_Responder(app, &event, false);
+    event.type = SDL_MOUSEBUTTONUP;
+    M_Responder(app, &event, false);
+    return !currentmenu->dropdown && item->value == row;
+}
+
 static bool click_list_row(app_t *app, int row) {
     for (int i = 0; currentmenu && i < currentmenu->numitems; ++i) {
         menuitem_t *item = &currentmenu->items[i];
@@ -69,7 +95,7 @@ static bool wait_byte(int fd, char *byte, uint64_t deadline) {
     return false;
 }
 
-/* Host and joiner each own a race. The joiner's seat starts on Orc; one click selects Human. */
+/* Host and joiner each own a race. The joiner's seat starts on Orc; the list selects Human. */
 static int host_lobby(app_t *app, int ready_fd, int done_fd) {
     netui_t ui = {.back = back, .map_count = count, .map_path = path, .map_title = title,
                   .max_players = 3, .race_count = 2, .race_name = race_name};
@@ -111,7 +137,7 @@ static int join_lobby(app_t *app, int ready_fd, int done_fd) {
     CHECK(games > 0 && click_list_row(app, 0) && click_text(app, "Join Game"));
     deadline = SDL_GetTicks64() + 5000;
     do { M_Ticker(); SDL_Delay(1); } while (!has_text("Orc") && SDL_GetTicks64() < deadline);
-    CHECK(click_text(app, "Orc") && click_text(app, "Start"));
+    CHECK(click_text(app, "Orc") && click_dropdown_row(app, 0) && click_text(app, "Start"));
     deadline = SDL_GetTicks64() + 10000;
     while (!menumap && SDL_GetTicks64() < deadline) { M_Ticker(); SDL_Delay(1); }
     CHECK(menumap && !strcmp(menumap, "first.map"));
@@ -163,8 +189,8 @@ int main(void) {
     /* Create: the host picks a scenario and a player count within the game's limit. */
     CHECK(click_text(&app, "Create Game"));
     CHECK(has_text("Select scenario") && has_text("Players: 2"));
-    CHECK(click_text(&app, "Players: 2") && has_text("Players: 3"));
-    CHECK(click_text(&app, "Players: 3") && has_text("Players: 2"));
+    CHECK(click_text(&app, "Players: 2") && click_dropdown_row(&app, 1) && has_text("Players: 3"));
+    CHECK(click_text(&app, "Players: 3") && click_dropdown_row(&app, 0) && has_text("Players: 2"));
     V_BeginFrame(0xff000000u);
     M_Drawer(&app);
     escape(&app);

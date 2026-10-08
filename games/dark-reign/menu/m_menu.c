@@ -88,6 +88,7 @@ void DR_ScreenClear(void) {
     drscreen.menu.numitems = 0;
     drscreen.menu.held = NULL;
     drscreen.menu.itemOn = -1;
+    drscreen.menu.dropdown = NULL;
 }
 
 static menuitem_t *add(menuitemkind_t kind, irect_t rect) {

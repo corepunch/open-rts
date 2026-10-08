@@ -222,15 +222,25 @@ size_t M_NetOptions(void *data, size_t capacity) {
     return n;
 }
 
-void M_NetCycleRace(int player) {
+/* The seat's race, as an index into the game's list. A dropdown reports the
+ * row; Dark Colony's two-state button still steps with M_NetCycleRace. */
+static bool assign_race(int player, int value) {
     int n = race_slots();
-    if (n <= 0 || player < 0 || player >= MAXPLAYERS || seat[player].ready) return;
-    if ((waiting || hosting) && player != local_slot()) return;
-    if (waiting && !hosting && !(play.joiner_fields & NET_FIELD_RACE)) return;
-    seat[player].race = (uint8_t)((seat[player].race + 1) % n);
+    if (n <= 0 || value < 0 || value >= n || player < 0 || player >= MAXPLAYERS || seat[player].ready)
+        return false;
+    if ((waiting || hosting) && player != local_slot()) return false;
+    if (waiting && !hosting && !(play.joiner_fields & NET_FIELD_RACE)) return false;
+    seat[player].race = (uint8_t)value;
     picked = true;
     if (hosting) publish();
     else if (waiting) { choice_dirty = true; send_choice(); }
+    return true;
+}
+
+void M_NetCycleRace(int player) {
+    int n = race_slots();
+    if (n <= 0 || player < 0 || player >= MAXPLAYERS) return;
+    assign_race(player, (seat[player].race + 1) % n);
 }
 
 void M_NetToggleReady(void) {
@@ -415,10 +425,24 @@ static const char *race_label(int index) {
 }
 
 /* A game's own "Players:" already ends in a colon. */
-static void players_text(char *out, size_t size) {
+static void players_label(char *out, size_t size, int count) {
     const char *name = word(NETTEXT_PLAYERS);
     size_t length = strlen(name);
-    snprintf(out, size, length && name[length - 1] == ':' ? "%s %d" : "%s: %d", name, players);
+    snprintf(out, size, length && name[length - 1] == ':' ? "%s %d" : "%s: %d", name, count);
+}
+
+static void players_text(char *out, size_t size) { players_label(out, size, players); }
+
+static const char *players_row(const menuitem_t *item, int row) {
+    (void)item;
+    static char label[64];
+    players_label(label, sizeof(label), row + 2);
+    return label;
+}
+
+static const char *race_row(const menuitem_t *item, int row) {
+    (void)item;
+    return race_label(row);
 }
 
 static void open_page(int next);
@@ -456,6 +480,28 @@ static menuitem_t *button(int id, irect_t rect, const char *text, SDL_Keycode ke
     item->color = 0xffdce6dcu;
     item->ink = 0xffffe84au;
     if (ui.style_button) ui.style_button(item);
+    return item;
+}
+
+/* The engine opens, hits and cancels the list. The closed label stays in
+ * text so a screen can find the current choice by its words. A game's button
+ * style may replace the plain face with its own dropdown art. */
+static menuitem_t *dropdown(int id, irect_t rect, SDL_Keycode key,
+                            const char *(*row)(const menuitem_t *, int), int count, int value) {
+    menuitem_t *item = add(MI_DROPDOWN, id, rect, "");
+    item->hotkey = key;
+    item->fill = 0xff18242du;
+    item->color = 0xff5a3c14u;
+    item->ink = 0xffffe84au;
+    item->row = row;
+    item->rows = count > 0 ? count : 0;
+    item->value = value >= 0 && value < item->rows ? value : 0;
+    item->row_height = rect.h > 0 ? rect.h : 18;
+    item->popup_rows = item->rows > 8 ? 8 : 0;
+    if (ui.style_button) ui.style_button(item);
+    if (item->row_height <= 0) item->row_height = rect.h > 0 ? rect.h : 18;
+    if (item->row && item->value >= 0 && item->value < item->rows)
+        snprintf(item->text, sizeof(item->text), "%s", item->row(item, item->value));
     return item;
 }
 
@@ -564,9 +610,8 @@ static void build_host(void) {
     bar->link = list_item;
     bar->color = 0xffb89040u;
     if (ui.style_list) ui.style_list(&items[list_item], bar);
-    button(ID_PLAYERS, (irect_t){x + 64, y + 236, 224, 28}, "", SDLK_p);
+    dropdown(ID_PLAYERS, (irect_t){x + 64, y + 236, 224, 28}, SDLK_p, players_row, player_cap() - 1, players - 2);
     players_item = net_menu.numitems - 1;
-    players_text(items[players_item].text, sizeof(items[players_item].text));
     button(ID_START, (irect_t){x + 48, y + 318, 106, 28}, word(NETTEXT_CREATE), SDLK_c);
     start_item = net_menu.numitems - 1;
     items[start_item].enabled = selected_map >= 0 && selected_map < count;
@@ -591,7 +636,10 @@ static void paint_lobby(void) {
         if (name_item[i] >= 0) seat_name(items[name_item[i]].text, sizeof(items[0].text), i);
         if (race_item[i] >= 0) {
             menuitem_t *item = &items[race_item[i]];
-            snprintf(item->text, sizeof(item->text), "%s", race_label(seat[i].race));
+            int n = race_count();
+            if (n > 0 && seat[i].race < n) item->value = seat[i].race;
+            if (item->row && item->value >= 0 && item->value < item->rows)
+                snprintf(item->text, sizeof(item->text), "%s", item->row(item, item->value));
             bool mine = i == local_slot() && i < I_NetPlayerCount();
             item->enabled = item->visible = mine || i < I_NetPlayerCount();
             if (!mine) item->enabled = false;
@@ -625,8 +673,8 @@ static void build_lobby(void) {
             name_item[i] = net_menu.numitems;
             label((irect_t){x + 16, y + rows_y + i * row_h, 140, row_h}, "", MALIGN_LEFT);
             race_item[i] = net_menu.numitems;
-            button(ID_RACE + i, (irect_t){x + 164, y + rows_y + i * row_h, 168, row_h - 2},
-                   race_label(seat[i].race), 0);
+            dropdown(ID_RACE + i, (irect_t){x + 164, y + rows_y + i * row_h, 168, row_h - 2}, 0,
+                     race_row, race_count(), seat[i].race);
         }
         rows_y += seats * row_h;
     }
@@ -724,6 +772,7 @@ static void escape(menu_t *menu) {
 
 static void open_page(int next) {
     page = next;
+    net_menu.dropdown = NULL;
     memset(items, 0, sizeof(items));
     net_menu.numitems = 0;
     net_menu.itemOn = -1;
@@ -780,12 +829,37 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
         if (page == PAGE_HOST) {
             selected_map = item->value;
             take_map_players();
-            if (players_item >= 0) players_text(items[players_item].text, sizeof(items[players_item].text));
+            if (players_item >= 0) {
+                menuitem_t *choice = &items[players_item];
+                int cap = player_cap();
+                if (players > cap) players = cap;
+                if (players < 2) players = 2;
+                choice->rows = cap > 2 ? cap - 1 : 1;
+                choice->value = players - 2;
+                if (choice->value < 0 || choice->value >= choice->rows) choice->value = 0;
+                players = choice->value + 2;
+                players_text(choice->text, sizeof(choice->text));
+            }
             items[start_item].enabled = selected_map >= 0;
         } else if (page == PAGE_BROWSE) {
             selected_game = item->value;
             items[start_item].enabled = selected_game >= 0;
         }
+        return;
+    }
+    if (action == MA_CHANGE && item->id == ID_PLAYERS) {
+        int cap = player_cap();
+        int next = item->value + 2;
+        if (next < 2) next = 2;
+        if (next > cap) next = cap;
+        players = next;
+        item->value = players - 2;
+        players_text(item->text, sizeof(item->text));
+        return;
+    }
+    if (action == MA_CHANGE && item->id >= ID_RACE && item->id < ID_RACE + MAXPLAYERS) {
+        assign_race(item->id - ID_RACE, item->value);
+        if (page == PAGE_LOBBY) paint_lobby();
         return;
     }
     if (action != MA_ACTIVATE) return;
@@ -811,10 +885,6 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
     case ID_PREVIOUS:
     case ID_CANCEL:
         escape(&net_menu);
-        break;
-    case ID_PLAYERS:
-        players = players >= player_cap() ? 2 : players + 1;
-        players_text(item->text, sizeof(item->text));
         break;
     case ID_START:
         if (page == PAGE_HOST) {
@@ -859,10 +929,6 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
         if (page == PAGE_LOBBY) paint_lobby();
         break;
     default:
-        if (item->id >= ID_RACE && item->id < ID_RACE + MAXPLAYERS && race_count() > 0) {
-            M_NetCycleRace(item->id - ID_RACE);
-            if (page == PAGE_LOBBY) paint_lobby();
-        }
         break;
     }
 }

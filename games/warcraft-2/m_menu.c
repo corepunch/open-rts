@@ -1336,6 +1336,13 @@ static void net_commit(void) {
     w2_set_net_races(races);
 }
 static void net_style_button(menuitem_t *item) {
+    /* A dropdown keeps the native list face. A button still takes the bevel
+     * whose size matches its rectangle. */
+    if (item->kind == MI_DROPDOWN) {
+        native_rows(item);
+        item->font = small();
+        return;
+    }
     bind_button(item, &art.widgets[1]);
     if (item->mark_len == 0) item->hotkey_ink = 0;
 }

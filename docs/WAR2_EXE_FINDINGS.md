@@ -1572,11 +1572,15 @@ into 3075 or 6013.
 
 **Implementation choice: the shared lobby.** This is not a WAR2.EXE
 instruction trace. Create still offers a map and a player count; Join
-still browses the LAN. Once both are in the lobby, each joined player
+still browses the LAN. The player count and each seat's race are engine
+dropdowns (`MI_DROPDOWN`): Warcraft II supplies the native widget face,
+and the engine opens, hits and cancels the list. Retail dialog 6013 is
+still not this screen. Once both are in the lobby, each joined player
 owns that seat's race and presses Start, the same split Dark Colony uses
-for its ready check. The host publishes 16 bytes (eight races, then eight
-Start flags) with `I_SetNetSetup`. A joiner publishes two bytes (its race,
-its Start flag) with `I_SetNetChoice`. The host calls `I_LaunchNetGame`
+for its ready check. The host publishes the engine's 56-byte setup
+(eight seats, sixteen option bytes, eight ready flags) with `I_SetNetSetup`.
+A joiner publishes a five-byte choice; Warcraft II uses the race and the
+ready flag. The host calls `I_LaunchNetGame`
 when every reserved seat has joined and every joined player has pressed
 Start. There is no second host-only Start. Warcraft II names the two
 races from STRDAT 45 indices 19 and 20 (Human, Orc). The Start label is

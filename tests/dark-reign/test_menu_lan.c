@@ -71,8 +71,8 @@ int main(void) {
         while (!I_NetLobby() && SDL_GetTicks64() < deadline) { M_Ticker(); SDL_Delay(1); }
         for (int i = 0; i < 50; ++i) { M_Ticker(); SDL_Delay(1); }
         CHECK(I_NetLobby() && doomcom->consoleplayer == 1);
-        click(&app, 260, 87);  /* own side: Freedom Guard */
-        click(&app, 260, 87);  /* -> Imperium */
+        click(&app, 260, 87);  /* own side opens */
+        click(&app, 260, 126); /* Imperium */
         click(&app, 150, 367); /* ChatMessageEntry */
         SDL_Event text = {.type = SDL_TEXTINPUT};
         strcpy(text.text.text, "gg");
@@ -113,8 +113,8 @@ int main(void) {
     click(&app, 535, 250); /* Select Map */
     click(&app, 200, 139); /* 2ALASKA */
     click(&app, 275, 313); /* SELECT MAP */
-    click(&app, 260, 74);  /* host side: Freedom Guard */
-    click(&app, 260, 74);  /* -> Imperium */
+    click(&app, 260, 74);  /* host side opens */
+    click(&app, 260, 113); /* Imperium */
     click(&app, 540, 363); /* Credits */
     for (const char *p = "9000"; *p; ++p) {
         SDL_Event text = {.type = SDL_TEXTINPUT};

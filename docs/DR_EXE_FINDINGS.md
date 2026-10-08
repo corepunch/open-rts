@@ -1135,9 +1135,12 @@ drops, the decoded `shell/SHELL.RLI`/`SHELL.RLD`, `shell/SHELLCFG.H` and
   absent.
 - In a level, Escape and the HUD MENU button open the shell's options screen;
   Quit to Main Menu releases the level through `menuleave`.
-- Dropdowns are shown closed and step through their items on click (right
-  click steps back). Togran, handicaps, fog style, placement, colours and the
-  give/view options are shown and kept but do not change the game yet.
+- Side, team, handicap and the DROP.BMP / DROP2.BMP options are engine
+  dropdowns: the game names the rows and applies the chosen one. The closed
+  face is still the native bitmap. The type cell stays a name button that
+  steps on click, because its caption is the player name. Togran stays
+  disabled. Handicaps, fog style, placement, colours and the give/view
+  options are shown and kept but do not change the game yet.
 - INTERNET, MODEM and SERIAL are disabled. LAN uses the engine's UDP session
   and lobby: the host leaves rows Available for LAN players and its first
   LAUNCH opens the lobby, fixing the map, seats and options. Joiners enter the
