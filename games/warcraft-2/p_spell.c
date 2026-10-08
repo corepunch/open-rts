@@ -27,16 +27,13 @@ const w2_spell_t w2_spells[W2_SPELL_COUNT] = {
     [W2_SPELL_DEMOLISH] = {"spell-suicide-bomber", "Demolish", 0, 1, 113, 0, false, false},
 };
 
-bool W2_CanCast(const mobj_t *unit, int spell) {
+bool W2_CanCast(const mobj_t *unit, w2_spell_id_t spell) {
     if (!unit || unit->hp <= 0 || unit->remove || spell <= 0 || spell >= W2_SPELL_COUNT) return false;
     const w2_spell_t *def = &w2_spells[spell];
+    const w2_stats_t *stats = &mobjinfo[unit->type_id].w2;
     for (int i = 0; i < 6; ++i) {
-        const char *name = mobjinfo[unit->type_id].w2.spells[i];
-        if (!name) continue;
-        bool special = !strncmp(name, def->name, strlen(def->name)) &&
-                       !strcmp(name + strlen(def->name), "-double-head");
-        if (special || (!strcmp(name, def->name) &&
-            (!def->research || W2_HasResearch(unit->owner, def->research)))) return true;
+        if (stats->spells[i] == spell)
+            return stats->innate_spells || !def->research || W2_HasResearch(unit->owner, def->research);
     }
     return false;
 }
@@ -61,7 +58,7 @@ static bool valid_target(const mobj_t *unit, int spell, const mobj_t *target) {
     }
 }
 
-bool W2_CastOrder(mobj_t *unit, int spell, mobj_t *target, fixed3_t position) {
+bool W2_CastOrder(mobj_t *unit, w2_spell_id_t spell, mobj_t *target, fixed3_t position) {
     if (!W2_CanCast(unit, spell) || unit->w2.mana < w2_spells[spell].mana ||
         !valid_target(unit, spell, target)) return false;
     if (target) position = target->core.position;

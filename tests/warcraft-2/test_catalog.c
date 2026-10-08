@@ -218,8 +218,12 @@ static int audit_unit(mobjinfo_t *unit, char *text) {
         for (char *p = spells; (p = strchr(p, '"')) && p < end; ) {
             char *stop = strchr(++p, '"');
             CHECK(stop && stop < end && count < 6 && s->spells[count]);
-            CHECK(strlen(s->spells[count]) == (size_t)(stop - p));
-            CHECK(!strncmp(p, s->spells[count], (size_t)(stop - p)));
+            CHECK(s->spells[count] < W2_SPELL_COUNT);
+            char name[64];
+            snprintf(name, sizeof(name), "%s%s", w2_spells[s->spells[count]].name,
+                     s->innate_spells ? "-double-head" : "");
+            CHECK(strlen(name) == (size_t)(stop - p));
+            CHECK(!strncmp(p, name, (size_t)(stop - p)));
             ++count; p = stop + 1;
         }
     }

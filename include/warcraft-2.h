@@ -31,12 +31,12 @@ bool W2_HasResearch(int owner, int id);
 void W2_UpgradeUnit(mobj_t *unit);
 float W2_AttackRange(const mobj_t *unit);
 int W2_SightRange(const mobj_t *unit);
-enum { W2_SPELL_NONE, W2_SPELL_VISION, W2_SPELL_HEAL, W2_SPELL_EXORCISM,
+typedef enum { W2_SPELL_NONE, W2_SPELL_VISION, W2_SPELL_HEAL, W2_SPELL_EXORCISM,
     W2_SPELL_EYE, W2_SPELL_BLOODLUST, W2_SPELL_RUNES, W2_SPELL_FIREBALL,
     W2_SPELL_SLOW, W2_SPELL_FLAME_SHIELD, W2_SPELL_INVISIBILITY, W2_SPELL_POLYMORPH,
     W2_SPELL_BLIZZARD, W2_SPELL_DEATH_COIL, W2_SPELL_HASTE, W2_SPELL_RAISE_DEAD,
     W2_SPELL_WHIRLWIND, W2_SPELL_UNHOLY_ARMOR, W2_SPELL_DECAY, W2_SPELL_DEMOLISH,
-    W2_SPELL_COUNT };
+    W2_SPELL_COUNT } w2_spell_id_t;
 enum { W2_BUFF_BLOODLUST, W2_BUFF_HASTE, W2_BUFF_SLOW, W2_BUFF_INVISIBLE, W2_BUFF_ARMOR, W2_BUFF_COUNT };
 typedef struct {
     const char *name, *label;
@@ -44,8 +44,8 @@ typedef struct {
     bool unit_target, repeat;
 } w2_spell_t;
 extern const w2_spell_t w2_spells[W2_SPELL_COUNT];
-bool W2_CanCast(const mobj_t *unit, int spell);
-bool W2_CastOrder(mobj_t *unit, int spell, mobj_t *target, fixed3_t position);
+bool W2_CanCast(const mobj_t *unit, w2_spell_id_t spell);
+bool W2_CastOrder(mobj_t *unit, w2_spell_id_t spell, mobj_t *target, fixed3_t position);
 void A_W2_Cast(mobj_t *unit);
 void W2_TickSpells(mobj_t *unit);
 bool W2_VisibleTo(const mobj_t *unit, int owner);

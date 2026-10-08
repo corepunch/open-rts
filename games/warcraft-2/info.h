@@ -2,6 +2,7 @@
 #define __INFO__
 
 #include "engine.h"
+#include "warcraft-2.h"
 
 enum {
     W2_SKIP = 1 << 0, W2_MOBILE = 1 << 1, W2_SEA = 1 << 2,
@@ -49,7 +50,8 @@ typedef struct {
     int domain, target_mask, store_mask, gives_mask, income[3];
     w2_gather_t gather[3];
     const char *projectile;
-    const char *spells[6];
+    w2_spell_id_t spells[6];
+    bool innate_spells; /* Available without research. */
 } w2_stats_t;
 
 typedef struct mobjinfo_s {
