@@ -521,8 +521,8 @@ int main(void) {
         if (defeat) {
             CHECK(find(S(21, 2)) && click(S(21, 1)) && !menumap && menuactive);
             CHECK(currentmenu->numitems == 31 && currentmenu->background);
-            CHECK(click(S(22, 1)) && menumap && !menuactive);
-            CHECK(!strcmp(menumap, "ALAMO.PUD")); /* restart the active map, not the previous campaign */
+            CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
+            menuleave = false; /* a custom loss returns to the title */
         } else if (campaign) {
             CHECK(find(S(20, 3)) && click(S(20, 1)) && !menumap && menuactive);
             CHECK(currentmenu->numitems == 31 && currentmenu->background);
@@ -545,6 +545,137 @@ int main(void) {
         P_FreeLevel(&level);
         menumap = NULL;
         W2_VictoryReset();
+    }
+
+    /* A lost campaign mission repeats that mission's briefing, then reloads it. */
+    {
+        M_ClearMenus();
+        P_InitThinkers();
+        W2_SetCampaign(0, false);
+        M_StartControlPanel(&app);
+        CHECK(click(S(4, 1)) && click(N(1)) && click(S(6, 2)));
+        CHECK(menuactive && click(S(54, 1)));
+        CHECK(!menuactive && menumap);
+        CHECK(G_DoLoadLevel(menumap, &level));
+        CHECK(P_LoadThings(NULL) > 0);
+        menumap = NULL;
+        mobjlist_t all = P_ListMobjs();
+        for (int i = 0; i < all.count; ++i)
+            if (all.items[i]->owner == consoleplayer) all.items[i]->remove = true;
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        CHECK(menuactive && find(S(21, 2)));
+        CHECK(click(S(21, 1)) && menuactive && currentmenu->numitems == 31);
+        CHECK(click(S(22, 1)) && menuactive && !menumap);
+        draw("14-brief-replay");
+        CHECK(click(S(54, 1)) && menumap && strstr(menumap, "level01h") && !strstr(menumap, "level02"));
+        P_FreeMobjList(&all);
+        CHECK(G_DoLoadLevel(menumap, &level));
+        CHECK(((w2_mission_t *)level.mission)->campaign.number == 1);
+        CHECK(!((w2_mission_t *)level.mission)->campaign.orc);
+        P_FreeLevel(&level);
+        menumap = NULL;
+    }
+
+    /* Mission 14 has no ending cinematic here. Victory Continue leaves for
+     * the title; defeat Continue repeats that mission's briefing. */
+    {
+        M_ClearMenus();
+        P_InitThinkers();
+        W2_SetCampaign(W2_CAMPAIGN_LEVELS, false);
+        CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
+        CHECK(level.mission);
+        W2_ShowResult(true);
+        CHECK(find(S(20, 3)) && click(S(20, 1)) && currentmenu->numitems == 31);
+        CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
+        menuleave = false;
+        P_FreeLevel(&level);
+
+        W2_SetCampaign(W2_CAMPAIGN_LEVELS, true);
+        P_InitThinkers();
+        CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
+        CHECK(level.mission);
+        W2_ShowResult(false);
+        CHECK(find(S(21, 2)) && click(S(21, 1)) && currentmenu->numitems == 31);
+        CHECK(click(S(22, 1)) && menuactive && !menumap && !menuleave);
+        CHECK(click(S(55, 1)) && menumap && strstr(menumap, "level14o"));
+        CHECK(G_DoLoadLevel(menumap, &level));
+        CHECK(((w2_mission_t *)level.mission)->campaign.number == W2_CAMPAIGN_LEVELS);
+        CHECK(((w2_mission_t *)level.mission)->campaign.orc);
+        P_FreeLevel(&level);
+        menumap = NULL;
+    }
+
+    /* A network match skips the acknowledgement and returns to create/join.
+     * It stays open while two sides are alive, including after the local side is gone. */
+    {
+        bool saved_net = netgame;
+        int saved_players = doomcom->numplayers;
+        int saved_console = consoleplayer;
+        int races[8] = {0, 1, -1, -1, -1, -1, -1, -1};
+        w2_set_net_races(races);
+        netgame = true;
+        doomcom->numplayers = 2;
+        consoleplayer = 0;
+        M_ClearMenus();
+        P_InitThinkers();
+        W2_SetCampaign(0, false);
+        CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
+        CHECK(P_LoadThings(NULL) > 0);
+        mobjlist_t all = P_ListMobjs();
+        const w2_pud_t *map = level.native_data;
+        bool seen[8] = {0};
+        int others = 0;
+        for (int i = 0; i < all.count; ++i) {
+            mobj_t *unit = all.items[i];
+            if (unit->owner >= 8 || unit->owner == consoleplayer || unit->hp <= 0) continue;
+            if (map->owners[unit->owner] != 4 && map->owners[unit->owner] != 5) continue;
+            if (!seen[unit->owner]) { seen[unit->owner] = true; ++others; }
+        }
+        CHECK(others >= 1);
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        CHECK(!menuactive);
+        for (int i = 0; i < all.count; ++i)
+            if (all.items[i]->owner == consoleplayer) all.items[i]->remove = true;
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        if (others > 1) CHECK(!menuactive); /* other sides are still fighting */
+        for (int i = 0; i < all.count; ++i) all.items[i]->remove = true;
+        if (menuactive) { M_ClearMenus(); W2_VictoryReset(); }
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        CHECK(menuactive && currentmenu->numitems == 31 && currentmenu->background);
+        CHECK(!find(S(21, 2))); /* no defeat acknowledgement */
+        CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
+        P_FreeMobjList(&all);
+        P_FreeLevel(&level);
+        menuleave = false;
+        netgame = false;
+        M_StartControlPanel(&app);
+        CHECK(find(S(38, 3)) && find(S(38, 1)));
+        M_ClearMenus();
+
+        netgame = true;
+        consoleplayer = 0;
+        P_InitThinkers();
+        CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
+        CHECK(P_LoadThings(NULL) > 0);
+        all = P_ListMobjs();
+        for (int i = 0; i < all.count; ++i)
+            if (all.items[i]->owner != consoleplayer) all.items[i]->remove = true;
+        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        CHECK(menuactive && currentmenu->numitems == 31 && currentmenu->background);
+        CHECK(!find(S(20, 3)));
+        CHECK(click(S(22, 1)) && menuleave && !menumap);
+        P_FreeMobjList(&all);
+        P_FreeLevel(&level);
+        menuleave = false;
+        netgame = false;
+        M_StartControlPanel(&app);
+        CHECK(find(S(38, 3)) && find(S(38, 1)));
+        M_ClearMenus();
+        w2_set_net_races(NULL);
+        netgame = saved_net;
+        doomcom->numplayers = saved_players;
+        consoleplayer = saved_console;
+        menumap = NULL;
     }
 
     /* A two-player load moves scenario 240's person slots onto seats 0 and 1. */

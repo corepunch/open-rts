@@ -114,7 +114,9 @@ bool w2_extract_campaign_level(const char *root, int level, bool orc, char *path
 bool w2_extract_map(const char *root, int entry, const char *name, char *path, size_t size);
 /* The next level load starts every playing side with this much (0 keeps the map's). */
 void W2_SetStartResources(int mode);
-/* The end-of-scenario screen (m_menu.c): continue the campaign, restart or leave. */
+/* The end-of-scenario screen (m_menu.c). Continue then follows WAR2.EXE
+ * state 0x8fe18: the next briefing, the same briefing, the title, or
+ * the network screen. There is no replay prompt. */
 void W2_ShowResult(bool victory);
 int w2_spawn_units(void);
 bool w2_init_resources(level_t *map);

@@ -35,12 +35,32 @@ void W2_VictoryReset(void) {
     if (mission) { mission->done = false; mission->countdown = 0; }
 }
 
+/* Person and computer slots. Rescue and neutral owners are not sides. */
+static int living_sides(const w2_pud_t *pud, mobj_t *const *units, int count) {
+    int living = 0;
+    for (int i = 0; i < 8; ++i) {
+        if (pud->owners[i] != 4 && pud->owners[i] != 5) continue;
+        if (alive(i, units, count)) ++living;
+    }
+    return living;
+}
+
 void W2_CheckVictory(mobj_t *const *units, int count) {
     w2_mission_t *mission = level.mission;
-    if (!mission || mission->done || netgame || menuactive || --mission->countdown > 0) return;
+    if (!mission || mission->done || menuactive || --mission->countdown > 0) return;
     mission->countdown = 30;
     const w2_pud_t *pud = level.native_data;
     if (!pud || consoleplayer < 0 || consoleplayer >= 8) return;
+    /* A network match ends for every machine on the same tic, once fewer
+     * than two sides remain. Retail drops an eliminated machine at once;
+     * lockstep keeps it in the world until then, then shows that player defeat. */
+    if (netgame) {
+        int living = living_sides(pud, units, count);
+        if (living > 1) return;
+        mission->done = true;
+        W2_ShowResult(living == 1 && alive(consoleplayer, units, count));
+        return;
+    }
     bool survived = alive(consoleplayer, units, count);
     if (!survived) { mission->done = true; W2_ShowResult(false); return; }
     if (mission->campaign.number) {
