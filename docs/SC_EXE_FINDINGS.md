@@ -4,6 +4,13 @@ Investigated 2026-10-08. This is the original StarCraft disc, not a Brood War
 installation. No executable disassembly was used for the initial catalog.
 Do not infer original executable behavior from the sandbox's engine behavior.
 
+For the consolidated byte-level specification, lookup formulas, all 54 unit
+columns, adapter limits and unresolved audit findings, read
+[StarCraft classic format reference](SC_FORMATS.md). This file remains the
+investigation journal and input fingerprint record. The initial implementation
+sections describe commit `a23c42d`; later work should append dated findings
+rather than silently treating these limits as permanent.
+
 ## Reproducible inputs
 
 SHA-256 fingerprints:
@@ -135,10 +142,13 @@ sprite lookup, not a world-coordinate flip. Native unit subunit1 references
 and images.dat special-overlay LOL offsets compose tank/Goliath turrets.
 
 IScript Init/StarEditInit and Walking visual paths compile to shared states:
-frame changes, waits, branches, calls/returns. Only the bounded visual path
-is supported, not the complete original VM or spawned effects. Waits are
-converted from 24 Hz to the engine's 30 Hz. The current import produces 1,322
-allocated visual state slots. Missing visual paths retain the first frame.
+frame changes, waits, unconditional jumps, calls/returns. Conditional branches
+are skipped, not evaluated. Only the bounded visual path is supported, not
+the complete original VM or spawned effects. The adapter assumes
+24 Hz for wait conversion to the engine's 30 Hz; this was not established by
+a retail timing trace. The current import logs next-free state index 1,322
+(including the reserved zero slot in that span). Missing visual paths retain
+the first frame.
 Shadows, construction/damage overlays, some special image draw modes, combat,
 and exact original randomized animation behavior remain unimplemented.
 
@@ -173,3 +183,35 @@ under `/private/tmp/`. The visual review also checks palette remapping.
 This is a basic catalog sandbox. Economy, combat, missions, saves, multiplayer,
 intro playback, full retail resource/selection states, and race switching are
 not implemented. Imported files remain available for that subsequent work.
+
+## Documentation audit (2026-10-08)
+
+The detailed [format reference](SC_FORMATS.md) was checked against the pinned
+schemas, current C readers and local data. Additional findings:
+
+- **Confirmed locally:** unfiltered file counts remain 782 installer and 2,897
+  native members. Ordinary `rg --files` reports only 771 installer files due
+  to ignore rules; use `--hidden --no-ignore` for inventory counts.
+- **Confirmed locally:** portdata.dat is 1,080 bytes, giving 90 classic portrait
+  entries. Badlands has 1,665 CV5 groups, 4,844 VX4 megatiles and 26,247 VR4
+  minitiles. The full 54-column units layout sums to 19,192 classic bytes;
+  adding the three expanded byte columns gives the reference's 19,876 bytes.
+- **Implementation limitation:** `race` in the imported unit struct is the
+  original editor group bitfield and `orders` is the right-click action byte.
+  These are not a race enum and complete order program respectively.
+- **Disproven overstatement:** “branches supported” is too broad for IScript.
+  Only unconditional jumps and calls/returns are followed; conditional jumps
+  are skipped, and waitrand deterministically uses its first bound. The earlier
+  summary is corrected above.
+- **Known discrepancy, not repaired by this documentation change:** the current
+  IScript operand-length table differs from both Stargus and PyMS for several
+  instructions, including 0x3f, 0x41 and 0x42. Those instructions require 2, 1,
+  and 4 operand bytes; the current table gives zero. Paths encountering them
+  can decode subsequent bytes incorrectly. A full opcode audit and focused
+  fixtures are needed before claiming general animation correctness.
+- **Unknown retail behavior:** exact timing, callback semantics, virtual-key
+  mapping, damaged wireframe randomization and hover movie restart behavior
+  have not been traced in STARCRAFT.EXE. Existing data and visual tests cannot
+  substitute for that evidence.
+
+No runtime code was changed by this documentation audit.

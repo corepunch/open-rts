@@ -411,3 +411,8 @@ git -C reference/libsmacker checkout ae8d4c9ec07b24d43ccff184d6e512bae793dfd1
 Supply your disc at `data/STARCRAFT/StarCraft.iso`, then run the unpack target.
 See `REFERENCES.md` for provenance/licenses and `docs/SC_EXE_FINDINGS.md` for
 native format evidence, verification and current fidelity limits.
+
+StarCraft implementation documentation: [format reference](docs/SC_FORMATS.md)
+for byte layouts and lookup chains, [findings journal](docs/SC_EXE_FINDINGS.md)
+for verified inputs and unresolved issues, and [provenance](REFERENCES.md#starcraft--stargus-2026-10-08)
+for pinned source/package versions.

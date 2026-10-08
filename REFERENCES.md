@@ -2204,3 +2204,17 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
 
 Retail files remain local and ignored by Git. Their provenance, fingerprints,
 format findings, and verification are in `docs/SC_EXE_FINDINGS.md`.
+
+StarCraft documentation entry points:
+
+- [Classic format reference](docs/SC_FORMATS.md): complete examined binary
+  layouts, DAT column offsets, lookup formulas, parser limits and audit gaps.
+- [Investigation journal](docs/SC_EXE_FINDINGS.md): fingerprints, evidence,
+  corrected hypotheses and reproduction commands.
+
+The format reference's IScript audit compares `src/kaitai/iscript_bin.ksy`
+from the pinned Stargus checkout with `PyMS/FileFormats/IScriptBIN.py` from
+the pinned PyMS checkout. These agree on the documented operand lengths;
+our current visual compiler is intentionally reported separately from those
+reference definitions. Classic/expanded unit-column offsets are computed
+from `tools/sc_catalog/main.c`; only the classic retail dataset was exercised.
