@@ -465,6 +465,21 @@ static angle_t angle_from_map_vector(const level_t *map, float dx, float dy) {
     return P_PointToAngle(dx, dy);
 }
 
+#ifdef RTS_GAME_WARCRAFT_2
+static fvec2_t snap_move_direction_45(fvec2_t direction) {
+    const float diagonal_threshold = 0.41421356237f;
+    float ax = fabsf(direction.x), ay = fabsf(direction.y);
+    if (ax == 0.0f) return (fvec2_t){0.0f, copysignf(1.0f, direction.y)};
+    if (ay == 0.0f) return (fvec2_t){copysignf(1.0f, direction.x), 0.0f};
+    if (ax * diagonal_threshold < ay || ay * diagonal_threshold < ax)
+        return ax > ay ? (fvec2_t){copysignf(1.0f, direction.x), 0.0f} :
+                         (fvec2_t){0.0f, copysignf(1.0f, direction.y)};
+    return (fvec2_t){copysignf(0.70710678118f, direction.x),
+                     copysignf(0.70710678118f, direction.y)};
+}
+
+#endif
+
 void P_AngleToVec(angle_t angle, float *dx, float *dy) {
     angle_to_screen_vector(angle, dx, dy);
 }
@@ -1349,8 +1364,8 @@ static void tick_actor(mobj_t *u) {
                 int percent = L_MoveSpeed(map, P_MobjMoveClass(u), under.x, under.y);
                 step *= (float)(percent > 0 ? percent : 100) / 100.0f;
             }
-            if (dist >= 0.001f) u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
             if (dist <= step || dist < 0.001f) {
+                if (dist >= 0.001f) u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
                 if (move_unit_if_walkable(u, delta)) {
                     if (final) {
                         P_ClearMove(u);
@@ -1365,6 +1380,10 @@ static void tick_actor(mobj_t *u) {
             } else {
                 fvec2_t direction = fvec2_scale(delta, 1.0f / dist);
                 if (!flying) direction = P_SteerAvoid(u, direction, step);
+#ifdef RTS_GAME_WARCRAFT_2
+                direction = snap_move_direction_45(direction);
+#endif
+                u->core.angle = angle_from_map_vector(map, direction.x, direction.y);
                 fixed3_t before = u->core.position;
                 bool moved = move_unit_if_walkable(u, fvec2_scale(direction, step));
                 if (moved && !flying) {
