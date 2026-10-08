@@ -2166,3 +2166,41 @@ with the C tool `make 7legion-units`. Dark Reign's native OVLEFF.TXT evidence
 is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
 `docs/KKND_EXE_FINDINGS.md`; Warcraft presentation scope in
 `docs/WAR2_EXE_FINDINGS.md`.
+
+## StarCraft / Stargus (2026-10-08)
+
+- [Stargus](https://github.com/Wargus/stargus), locally `reference/stargus`,
+  commit `2a4d54604949e4772f6638a8412c8ebd62444044` (GPL-2.0). Format and
+  behavior reference only: `mpqlist.txt`, `src/kaitai/*_dat.ksy`,
+  `src/libgrp/GRPImage`, `src/Font.cpp`, `src/UIConsole.cpp`,
+  `src/PortraitsConverter.cpp`, `scripts/guichan.lua`, `scripts/icons.lua`.
+  Stargus converts assets to PNG/MNG and uses hand-authored Lua menus; this
+  plugin independently decodes the original files into engine-owned indexed
+  images and shared menu tables. No PNG/MNG dependency is used.
+- [PyMS](https://github.com/poiuyqwert/PyMS), locally `reference/PyMS`,
+  commit `bfc5d3aad0b5614a5aff72c223f8efa00afddfa4` (MIT). Read-only format
+  reference: `PyMS/FileFormats/DialogBIN.py`, `FileFormats/FNT.py`,
+  `PyBIN/WidgetNode.py`. No Python program is used by our build or importer.
+- [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
+  Stargus author's notes: native team ramps, command-icon palettes, and
+  full-health wireframe mappings. Only the documented full-health case is
+  implemented; random damaged-section coloring remains unknown.
+- [StormLib](https://github.com/ladislav-zezula/StormLib), locally
+  `reference/StormLib`, tag v9.24, commit
+  `3846f0b8e2c47320c6b499492496f3e3f2e76821` (MIT), matching Stargus's
+  `subprojects/StormLib.wrap`. Linked only into the C MPQ import tool, through
+  its C API, with zlib/bzip2. The game itself reads unpacked native files.
+- [libsmacker](https://github.com/JonnyH/libsmacker), locally
+  `reference/libsmacker`, commit `ae8d4c9ec07b24d43ccff184d6e512bae793dfd1`
+  (LGPL-2.1; retained `COPYING`). Its C decoder is linked into StarCraft for
+  original indexed SMK menu animations and portraits. Source and rebuildable
+  objects are retained locally; preserve applicable library licensing when
+  distributing binaries.
+- [CMake 3.31.6 macOS universal package](https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-macos-universal.tar.gz),
+  downloaded under `reference/packages/` because system CMake was absent.
+  SHA-256 `330b9514f5112e5ed4fb08b8b05803b776fd9b539a6ae12927d14dcc0ee2ba8d`.
+  The unpacked package builds StormLib. Existing SDL2 is supplied by
+  `pkg-config sdl2`; no new runtime asset-conversion packages are needed.
+
+Retail files remain local and ignored by Git. Their provenance, fingerprints,
+format findings, and verification are in `docs/SC_EXE_FINDINGS.md`.

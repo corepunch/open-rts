@@ -50,6 +50,7 @@ DR_GAME_SOURCES   := $(sort $(shell find games/dark-reign  -name '*.c'))
 DC_GAME_SOURCES   := $(sort $(shell find games/dark-colony -name '*.c'))
 SL_GAME_SOURCES   := $(sort $(shell find games/7legion     -name '*.c'))
 KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
+SC_GAME_SOURCES   := $(sort $(shell find games/starcraft -name '*.c') $(shell find reference/libsmacker -maxdepth 1 -name '*.c' ! -name 'driver.c' ! -name 'smk2avi.c' 2>/dev/null))
 W2_GAME_SOURCES   := $(sort $(shell find games/warcraft-2   -name '*.c'))
 
 # ── model engine sources (headless: no SDL display entry point or HUD) ───────
@@ -100,7 +101,9 @@ $(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0 
 $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,warcraft-2,$(W2_GAME_SOURCES),warcraft-2,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2))
 
-all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2
+$(eval $(call GAME_TARGET,starcraft,$(SC_GAME_SOURCES),starcraft,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT))
+
+all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2
 
 .SECONDARY:
 
@@ -379,6 +382,9 @@ help:
 	@echo "  test                 Run all headless tests"
 	@echo "  test-info-gen        Verify generated info.c and info.h files are current"
 	@echo "  kknd-check           Headless smoke check for KKnD"
+	@echo "  test-starcraft       Native asset, menu, HUD, portrait and movement checks"
+	@echo "  starcraft            Original StarCraft menu and 228-unit sandbox"
+	@echo "  starcraft-unpack     Extract local ISO and all installer/game MPQ entries"
 	@echo "  test-warcraft-2      Worker, native HUD and PUD tests (needs data/WAR2)"
 	@echo ""
 	@echo "Smoke tests (headless):"
@@ -410,3 +416,37 @@ KKND_RULES_IMPORT_SOURCES := $(sort $(shell find tools/kknd_rules_import -name '
 build/kknd_rules_import: $(KKND_RULES_IMPORT_SOURCES)
 	@mkdir -p build
 	$(CC) $(CFLAGS) $^ -o $@
+
+# StarCraft: native assets are unpacked locally; no MPQ dependency at runtime.
+.PHONY: starcraft starcraft-catalog starcraft-unpack
+starcraft: $(BIN_DIR)/starcraft
+	$(BIN_DIR)/starcraft
+starcraft-catalog: $(BIN_DIR)/starcraft
+	$(BIN_DIR)/starcraft --map catalog
+SC_IMPORT_SOURCES := $(sort $(shell find tools/sc_import -name '*.c'))
+SC_CATALOG_SOURCES := $(sort $(shell find tools/sc_catalog -name '*.c'))
+CMAKE ?= $(firstword $(wildcard reference/packages/cmake-*/CMake.app/Contents/bin/cmake) cmake)
+build/stormlib/libstorm.a: reference/StormLib/CMakeLists.txt
+	$(CMAKE) -S reference/StormLib -B build/stormlib -DSTORM_SKIP_INSTALL=ON -DCMAKE_BUILD_TYPE=Release
+	$(CMAKE) --build build/stormlib --parallel
+build/sc_import: $(SC_IMPORT_SOURCES) build/stormlib/libstorm.a
+	$(CC) $(CFLAGS) -Ireference/StormLib/src -c $(SC_IMPORT_SOURCES) -o build/sc_import.o
+	$(CXX) build/sc_import.o build/stormlib/libstorm.a -lz -lbz2 -o $@
+build/sc_catalog: $(SC_CATALOG_SOURCES)
+	@mkdir -p build
+	$(CC) $(CFLAGS) $^ -o $@
+starcraft-unpack: build/sc_import
+	mkdir -p data/STARCRAFT/disc
+	bsdtar -xf data/STARCRAFT/StarCraft.iso -C data/STARCRAFT/disc
+	(cat reference/stargus/mpqlist.txt; printf '\nfiles\\stardat.mpq\nfiles\\broodat.mpq\n'; sed 's/^/files\\/' reference/stargus/mpqlist.txt) > build/sc-listfile.txt
+	build/sc_import data/STARCRAFT/disc/INSTALL.EXE data/STARCRAFT/install build/sc-listfile.txt
+	build/sc_import data/STARCRAFT/install/files/stardat.mpq data/STARCRAFT/native reference/stargus/mpqlist.txt
+
+SC_TEST_SOURCES := $(sort $(shell find tests/starcraft -name 'test_*.c'))
+SC_TEST_BINS := $(patsubst tests/starcraft/%.c,$(BIN_DIR)/tests/starcraft/%,$(SC_TEST_SOURCES))
+$(BIN_DIR)/tests/starcraft/%: tests/starcraft/%.c $(filter-out $(BUILD_DIR)/starcraft/driver/d_main.o,$(ALL_OBJS_starcraft))
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT -I./games/starcraft $(CFLAGS) $(SDL_CFLAGS) $^ -o $@ $(SDL_LIBS) -lm
+.PHONY: test-starcraft
+test-starcraft: $(SC_TEST_BINS)
+	@set -e; for t in $(SC_TEST_BINS); do env SDL_VIDEODRIVER=dummy $$t; done

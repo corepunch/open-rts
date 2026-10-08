@@ -367,3 +367,47 @@ Historical interface and research findings remain in
 [REFERENCES.md](REFERENCES.md).
 The [DKREIGN.EXE disassembly index](docs/DR_DISASSEMBLY.md) links the Dark Reign
 unit, HUD, transport, architecture, generation and development-status reports.
+
+## StarCraft catalog
+
+The basic StarCraft plugin opens the original animated main menu. Choose
+**Single Player** to open a native Badlands catalog containing every one of the
+228 original unit slots (all races, buildings, heroes, subunits and neutral
+objects). Select with the mouse, right-click to move mobile units, pan with
+WASD/arrows, use `[` / `]` to visit each catalog entry, and F10 for the native
+pause menu. It is an inspection sandbox; combat, economy and campaigns are
+not implemented yet.
+
+```
+make build/bin/starcraft
+make starcraft
+# Or go straight to the map:
+make starcraft-catalog
+# Headless native asset and UI checks:
+make test-starcraft
+```
+
+The local StarCraft ISO has been unpacked into `data/STARCRAFT/disc`, its
+installer MPQ into `data/STARCRAFT/install`, and stardat.mpq into
+`data/STARCRAFT/native`. To repeat extraction, use `make starcraft-unpack`.
+The game loads original GRP/PCX/FNT/SMK/BIN/DAT/TBL/terrain assets, without PNG
+conversion or a runtime MPQ dependency. It uses the same native Y-down world
+coordinate convention as Warcraft II.
+
+Dependencies: SDL2 via pkg-config and a C compiler; the importer additionally
+needs CMake, a C++ linker for StormLib, zlib, bzip2 and bsdtar. Pinned sources
+and the downloaded macOS CMake package are retained in `reference/`. On a
+fresh checkout, fetch the references before building:
+
+```
+git clone https://github.com/Wargus/stargus reference/stargus
+git -C reference/stargus checkout 2a4d54604949e4772f6638a8412c8ebd62444044
+git clone https://github.com/ladislav-zezula/StormLib reference/StormLib
+git -C reference/StormLib checkout 3846f0b8e2c47320c6b499492496f3e3f2e76821
+git clone https://github.com/JonnyH/libsmacker reference/libsmacker
+git -C reference/libsmacker checkout ae8d4c9ec07b24d43ccff184d6e512bae793dfd1
+```
+
+Supply your disc at `data/STARCRAFT/StarCraft.iso`, then run the unpack target.
+See `REFERENCES.md` for provenance/licenses and `docs/SC_EXE_FINDINGS.md` for
+native format evidence, verification and current fidelity limits.
