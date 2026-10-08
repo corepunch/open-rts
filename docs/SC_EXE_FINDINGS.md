@@ -428,6 +428,17 @@ its full DAT radius. DC keeps its verified native ray/terrain rules. StarCraft
 height, cliff and detector/cloak rules remain unverified. The catalog alone
 intentionally reveals the whole map.
 
+**Rendering correction (2026-10-08):** StarCraft had no `draw_fog` callback, so
+the driver selected `R_DrawFogTiles`, whose procedural corner masks make
+hard-edged tile transitions. The user-provided retail StarCraft screenshot
+shows softly interpolated visibility boundaries over explored terrain. As
+requested, StarCraft now selects the same `R_DrawFog` compositor used by Dark
+Colony. This changes only rendering: StarCraft's sight bits and radial sight
+rules remain in place. The screenshot supports the requested soft appearance;
+it does not establish that retail StarCraft uses Dark Colony's exact
+brightness samples, interpolation, or vision geometry. Those retail details
+remain unverified pending executable evidence.
+
 `R_DrawMinimapFog` applies shared visibility and palette darkening to each game's
 native minimap terrain before markers. Unexplored is black, explored is dim,
 visible is unchanged. Existing `P_VisibleToPlayer` suppresses hidden unit markers.

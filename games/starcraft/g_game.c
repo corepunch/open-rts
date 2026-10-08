@@ -11,8 +11,13 @@ const uint16_t g_debug_enemy_type=1;
 const gameinfo_t *gameinfo=&game_info;
 const mobjtype_t *const actor_types=actors;
 const int num_actor_types=SC_TYPES;
+static void sc_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset) {
+    (void)tileset;
+    R_DrawFog(app, map);
+}
 void G_InitGame(void) {
     sc_init_info();
+    game_info.draw_fog=sc_draw_fog;
     for(int i=0;i<SC_TYPES;i++) {
         const sc_unit_t *u=&sc_units[i];
         bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5);
