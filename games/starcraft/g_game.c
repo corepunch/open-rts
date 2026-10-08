@@ -5,7 +5,7 @@
 static mobjtype_t actors[SC_TYPES];
 const char *const g_game_id="starcraft",*const g_game_name="StarCraft";
 const char *const g_game_default_root="data/STARCRAFT";
-const char *const g_game_default_map="catalog",*const g_game_default_sprite="sc-000";
+const char *const g_game_default_map="install/campaign/terran/terran01/staredit/scenario.chk",*const g_game_default_sprite="sc-000";
 const int g_cell_w=32,g_cell_h=32;
 const uint16_t g_debug_enemy_type=1;
 const gameinfo_t *gameinfo=&game_info;
@@ -24,9 +24,7 @@ void G_InitGame(void) {
     }
 }
 bool G_DoLoadLevel(const char *path,level_t *out) {
-    if(strcmp(M_FileName(path),"catalog")) {
-        fprintf(stderr,"starcraft: this basic implementation supports the catalog map; requested %s\n",path); return false;
-    }
+    if(strcmp(M_FileName(path),"catalog")) return sc_load_chk(path,out);
     memset(out,0,sizeof(*out));
     /* Authored catalog layout, not a retail mission. Every DAT slot gets a
      * distinct position, including heroes, subunits, unused slots and props. */
@@ -47,10 +45,11 @@ bool G_DoLoadLevel(const char *path,level_t *out) {
     return true;
 }
 bool W_LoadAssets(const char *root,const level_t *map,const char *name,tileset_t *tiles,spritesheet_t *sprite) {
-    (void)map; (void)name; memset(sprite,0,sizeof(*sprite));
-    return sc_load_tiles(root,tiles);
+    (void)name; memset(sprite,0,sizeof(*sprite));
+    return sc_load_tiles(root,map,tiles);
 }
 int P_LoadThings(const char *path) {
+    if(level.mission) return sc_spawn_things();
     (void)path; int count=0;
     for(int i=0;i<SC_TYPES;i++) {
         /* The catalog is laid out in native top-left, Y-down pixel order. */
@@ -70,8 +69,7 @@ int P_LoadThings(const char *path) {
     return count;
 }
 bool R_InitSprites(const char *root,const level_t *map,mobj_t *const *mobjs,int count,spritecache_t *cache) {
-    (void)map;
-    if(!sc_load_graphics(root,cache)) return false;
+    if(!sc_load_graphics(root,map,cache)) return false;
     for(int i=0;i<count;i++) P_SetMobjState(mobjs[i],mobjinfo[mobjs[i]->type_id].spawnstate);
     return true;
 }

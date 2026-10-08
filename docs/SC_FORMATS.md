@@ -4,8 +4,8 @@ This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
 on 2026-10-08. It is an implementation reference, not a complete StarCraft
 specification. Implementation descriptions (including “current” below) refer
-to the initial catalog baseline, commit `a23c42d`; concurrent mission-loader
-work is outside this audit and should add its own verified findings. All offsets below are decimal unless prefixed `0x`.
+to the initial catalog baseline, commit `a23c42d`, except the terrain/map
+addendum in section 7. All offsets below are decimal unless prefixed `0x`.
 Multibyte integers are little-endian; `u8/u16/u32` and `s8` denote unsigned
 and signed fixed-width values. File offsets are absolute unless stated otherwise.
 
@@ -408,9 +408,23 @@ For minitile slot m, local pixel (x,y) writes to megatile pixel
 megatiles are 32×32. The shared lookup index is `group*16+variant`, not a
 VX4 ID directly. The catalog uses lookup indices 32..47 (group 2).
 
-Walkability, elevation, doodad metadata, creep, map decoding and other tilesets
-have not been connected to this implementation. Never infer retail pathing
-from the sandbox's mostly empty blocking grid.
+### CHK map-loader addendum
+
+The subsequent loader reads `DIM `, `ERA `, runtime `MTXM`, `OWNR`, `UNIT`
+and `THG2` from an extracted CHK. Single Player now opens Terran 01 instead
+of the catalog. `MTXM` values address the CV5 lookup described above. ERA
+selects the native tileset resources and palette; all five original-disc
+tilesets have native-pixel regression coverage. VF4 bit zero supplies coarse
+ground blocking: wholly unwalkable megatiles block the current 32px path grid.
+UNIT placements retain native pixel coordinates and owner IDs; type 214
+sets a player's camera start. THG2 flag 0x1000 distinguishes sprite doodads
+from unit placements. Sprite doodads currently use the first GRP frame.
+
+See [CHK findings](SC_EXE_FINDINGS.md#native-chk-terrain-and-placements-2026-10-08)
+for exact offsets, fingerprints, tests and limits. Earlier catalog-only
+statements elsewhere in this baseline audit describe `a23c42d`. Elevation,
+creep, exact minitile pathing, triggers and animated/disabled doodad semantics
+remain outside the implemented map support.
 
 ## 8. PCX, font, and color formats
 

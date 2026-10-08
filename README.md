@@ -368,20 +368,21 @@ Historical interface and research findings remain in
 The [DKREIGN.EXE disassembly index](docs/DR_DISASSEMBLY.md) links the Dark Reign
 unit, HUD, transport, architecture, generation and development-status reports.
 
-## StarCraft catalog
+## StarCraft maps and catalog
 
 The basic StarCraft plugin opens the original animated main menu. Choose
-**Single Player** to open a native Badlands catalog containing every one of the
-228 original unit slots (all races, buildings, heroes, subunits and neutral
-objects). Select with the mouse, right-click to move mobile units, pan with
-WASD/arrows, use `[` / `]` to visit each catalog entry, and F10 for the native
-pause menu. It is an inspection sandbox; combat, economy and campaigns are
-not implemented yet.
+**Single Player** to open the first retail Terran map with its native terrain,
+placed units, doodads and player start. Select with the mouse, right-click to
+move mobile units, pan with WASD/arrows, and use F10 for the native pause menu.
+The separate catalog contains all 228 original unit slots; `[` / `]` browse
+its entries. Combat, economy and campaign triggers are not implemented yet.
 
 ```
 make build/bin/starcraft
 make starcraft
-# Or go straight to the map:
+# Open an extracted retail CHK directly (relative to data/STARCRAFT):
+build/bin/starcraft --map install/campaign/terran/terran01/staredit/scenario.chk
+# Or inspect every unit in the synthetic catalog:
 make starcraft-catalog
 # Headless native asset and UI checks:
 make test-starcraft

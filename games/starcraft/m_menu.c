@@ -40,7 +40,7 @@ static menuitem_t control(const sc_control_t *c,bitmapfont_t *f) {
     return item;
 }
 static void begin(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE){menumap="catalog";M_ClearMenus();}
+    (void)m;(void)i;if(a==MA_ACTIVATE){menumap=g_game_default_map;M_ClearMenus();}
 }
 static void resume(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE)M_ClearMenus();
@@ -49,10 +49,10 @@ static void leave(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE){menuleave=true;M_ClearMenus();}
 }
 static void unavailable(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("This basic build provides the unit catalog.\nChoose Single Player to explore all units and buildings.");
+    (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("Choose Single Player to explore the first Terran map.\nOther menu actions are not implemented.");
 }
 static void help(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("Catalog: all 228 native unit slots.\n[ and ] browse units. WASD pans.\nSelect a unit and right-click to move.\nEconomy, combat and missions are not implemented.");
+    (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("WASD pans. Select a unit and right-click to move.\nUse --map catalog for all 228 native unit slots.\nEconomy, combat and mission triggers are not implemented.");
 }
 static void open_menu(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)i;if(a==MA_ACTIVATE)M_StartControlPanel(m->app);

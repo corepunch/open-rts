@@ -215,3 +215,102 @@ schemas, current C readers and local data. Additional findings:
   substitute for that evidence.
 
 No runtime code was changed by this documentation audit.
+
+## Native CHK terrain and placements (2026-10-08)
+
+**Confirmed cause of the repeated terrain screenshot:** the initial default
+`catalog` never read a map. It allocated 128x128 cells and assigned
+`32 + (linear_index % 16)` everywhere. Temporary loader diagnostics reproduced
+IDs 32, 33, 34 at the beginning of every row. CV5/VX4/VR4 pixel composition was
+already correct; changing its stride, palette, or flip direction would have
+been a compensating error. The catalog remains an explicit inspection mode.
+Single Player and the default check now load Terran 01's extracted CHK.
+
+No executable was disassembled for this change; executable/MPQ fingerprints
+are above. Additional SHA-256 inputs:
+
+| Input under `data/STARCRAFT/` | SHA-256 |
+| --- | --- |
+| `install/campaign/terran/terran01/staredit/scenario.chk` | `4b0e5009c4ae80cfb4cb13ede30842db0aa05bb3be2eedad695fb093fa5786f6` |
+| `native/tileset/badlands.cv5` | `b417ddd4523461159fce5357462bb2c9fe5c6f4536b10e0ddd1bdc84c56ae3ee` |
+| `native/tileset/badlands.vx4` | `270663f0c17589b61193bdd0fb8a3e9bdac0931f9e92ee3e76373ed3423bd9ec` |
+| `native/tileset/badlands.vr4` | `e3e96586ad1dca3678f0d0a0132e7c454b5c701e3dfd2299c93fcc45f036aaa7` |
+| `native/tileset/badlands.vf4` | `7bfa246f2bc9e8d9cc1323c968fb0a74c9ab7c7abe41daf110ad82fe05090d89` |
+| `native/tileset/badlands.wpe` | `37736f2f738384e0668d7ff8bd658e540d02138e00f660d59b75fb5c5cb5a3ea` |
+
+**Confirmed format chain:** Stargus `src/Chk.cpp` reads `DIM ` as two u16s,
+`ERA ` as the tileset selector, and `MTXM` as width*height row-major u16 CV5
+indices. Its `TilesetHub.cpp`, `MegaTile.cpp` and Kaitai terrain schemas agree
+with the local data. For MTXM value t, read CV5 at
+`(t >> 4)*52 + 20 + (t & 15)*2` to obtain the VX4/VF4 megatile index. Both
+VX4 and VF4 have 32-byte records; VF4 bit 0 marks each 8x8 minitile walkable.
+Do not substitute the editor's `ISOM` or `TILE` chunk for runtime `MTXM`.
+
+PyMS `CHKSectionERA.py` corroborates the low-three-bit tileset selector and
+uses native basename `ice` for ERA 6; Stargus's CHK converter calls that era
+`arctic`. This disc only supplies eras 0..4, so expansion terrain remains
+unverified. The loader selects all terrain resources and the WPE palette from
+ERA rather than hardcoding Badlands.
+
+`UNIT` records are 36 bytes: pixel x/y at +4/+6, unit ID +8, valid property
+bits +14, owner +16, HP percentage +17. IDs remain native and convert to
+engine type ID +1 only when spawning. ID 214 is a start location, not an
+actor. OWNR value 6 chooses the local human player. `THG2` records are ten
+bytes: ID +0, pixel x/y +2/+4, owner +6, flags +8. PyMS's `CHKSectionTHG2.py`
+distinguishes sprite records (flag 0x1000, ID indexes sprites.dat) from unit
+records (ID indexes units.dat). Non-sprite THG2 records therefore spawn
+ordinary actors; sprite records use the existing level decoration renderer.
+GRP crop pivots minus pixel remainders preserve placement within a 32px cell.
+Native records are kept in one level-owned blob, released by P_FreeLevel.
+
+Terran 01: 64x64 Badlands, MTXM payload at CHK offset 1158, 8,192 bytes,
+1,134 distinct tile references, 49 UNIT records including three starts,
+46 actors, and 20 sprite doodads. The human is owner 1, starting at pixel
+(128,176), grid (4,5.5). All coordinates stay top-left/Y-down.
+
+Focused native-data verification:
+
+| Map | Dimensions | Tileset | Distinct MTXM IDs | Actors including THG2 | Sprite doodads |
+| --- | --- | --- | --- | --- | --- |
+| Terran 01 | 64x64 | badlands | 1134 | 46 | 20 |
+| Terran 04 | 128x128 | install | 1040 | 120 | 10 |
+| Terran 05 | 96x96 | badlands | 1498 | 168 | 14 |
+| Zerg 01 | 64x64 | jungle | 810 | 99 | 47 |
+| Terran tutorial | 64x64 | platform | 856 | 44 | 16 |
+| Zerg 03 | 64x96 | ashworld | 1034 | 129 | 18 |
+
+`test_map` compares every MTXM value, each referenced tile's pixels (including
+both flip branches), WPE colors, wholly unwalkable VF4 cells, unit types,
+owners, exact fixed-point positions and camera coordinates. It rejects bad
+chunk spans, missing MTXM, invalid dimensions and out-of-range tile IDs, and
+accepts reordered/unknown chunks. The existing catalog test still checks all
+228 unit slots. Reproduce with:
+
+```sh
+make
+make test-starcraft
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
+env SDL_VIDEODRIVER=dummy build/bin/starcraft \
+  --map install/campaign/terran/terran01/staredit/scenario.chk \
+  --screenshot /private/tmp/starcraft-terran01.bmp
+```
+
+Verification completed: `make` and `make test-starcraft` pass, and all 35
+extracted campaign CHKs pass `--check` without sprite-load warnings. The map
+test saves `/private/tmp/starcraft-terran01-terrain.bmp`, a 2048x2048 terrain
+and sprite-doodad overview without fog or actors. Visual inspection confirmed
+continuous native road/cliff/river boundaries and authored bridge tiles;
+the ordinary gameplay screenshot also preserves the native player start.
+
+**Explicit engine limits, not claimed retail fidelity:** pathing remains at
+32px resolution, with a cell blocked only when all sixteen VF4 minitiles are
+unwalkable; mixed cliff/ramp cells need finer pathing. Sprite doodads currently
+show their first GRP frame, without IScript animation or enabled/disabled
+state evaluation. Creep, doodad special effects, mission triggers, rescue
+rules/alliances, resource amounts, shields/energy and full campaign startup
+are not implemented. Native UNIT placements are the initial map records;
+triggers can change the retail opening state. Fog uses the existing engine
+sight rules. SCM/SCX archives still require the existing import tool to extract
+`staredit/scenario.chk`; no runtime MPQ dependency was introduced. These
+limitations supersede the earlier catalog-only status without asserting that
+loading a campaign map makes its mission playable.

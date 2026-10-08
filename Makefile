@@ -383,7 +383,7 @@ help:
 	@echo "  test-info-gen        Verify generated info.c and info.h files are current"
 	@echo "  kknd-check           Headless smoke check for KKnD"
 	@echo "  test-starcraft       Native asset, menu, HUD, portrait and movement checks"
-	@echo "  starcraft            Original StarCraft menu and 228-unit sandbox"
+	@echo "  starcraft            Original StarCraft menu and first Terran map"
 	@echo "  starcraft-unpack     Extract local ISO and all installer/game MPQ entries"
 	@echo "  test-warcraft-2      Worker, native HUD and PUD tests (needs data/WAR2)"
 	@echo ""

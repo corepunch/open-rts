@@ -73,7 +73,7 @@ int main(void) {
     CHECK(M_Init(&app,root));menu_t *front=G_ControlPanel(&app,false);CHECK(front&&front->numitems==10);
     M_StartControlPanel(&app);M_MenuDrawer(front);CHECK(save("/private/tmp/starcraft-main-menu.bmp"));
     menuitem_t *start=M_MenuFind(front,3);CHECK(start&&start->routine);
-    start->routine(front,start,MA_ACTIVATE);CHECK(menumap&&!strcmp(menumap,"catalog")&&!menuactive);
+    start->routine(front,start,MA_ACTIVATE);CHECK(menumap&&!strcmp(menumap,g_game_default_map)&&!menuactive);
     menu_t *hud=G_InitHUD(&app,root);CHECK(hud);
     hudview=(hudview_t){.units=units.items,.unit_count=units.count,.sprites=&cache,.tileset=&tiles};
     P_MobjSetSelected(unit,true);M_CentreView(&app,fixed3_xy_to_fvec2(unit->core.position));

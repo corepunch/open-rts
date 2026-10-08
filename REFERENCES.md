@@ -2218,3 +2218,12 @@ the pinned PyMS checkout. These agree on the documented operand lengths;
 our current visual compiler is intentionally reported separately from those
 reference definitions. Classic/expanded unit-column offsets are computed
 from `tools/sc_catalog/main.c`; only the classic retail dataset was exercised.
+
+The CHK map loader additionally uses the same pinned Stargus checkout's
+`src/Chk.cpp`, `src/tileset/TilesetHub.cpp`, `src/tileset/MegaTile.cpp` and
+`src/kaitai/tileset_{cv5,vx4,vr4,vf4}.ksy` as format references. The pinned
+PyMS `PyMS/FileFormats/CHK/Sections/CHKSection{ERA,UNIT,THG2,OWNR}.py`
+corroborates native fields, ERA's `ice` basename and the THG2 sprite/unit
+flag. No reference C++ or Python code is linked or run by the game loader.
+Map fingerprints, confirmed formulas and explicit limitations are recorded
+in [native CHK findings](docs/SC_EXE_FINDINGS.md#native-chk-terrain-and-placements-2026-10-08).

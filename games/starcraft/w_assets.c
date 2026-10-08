@@ -76,12 +76,16 @@ bad:
     R_FreeSprite(out); return false;
 }
 
-bool sc_load_tiles(const char *root,tileset_t *out) {
-    blob_t vx={0},vr={0},cv={0},pal={0}; bool ok=false;
+bool sc_load_tiles(const char *root,const level_t *map,tileset_t *out) {
+    blob_t vx={0},vr={0},cv={0},pal={0},vf={0}; bool ok=false;
+    const char *extensions[]={"vx4","vr4","cv5","wpe","vf4"};
+    blob_t *files[]={&vx,&vr,&cv,&pal,&vf};
     memset(out,0,sizeof(*out));
-    if(!sc_read(root,"tileset/badlands.vx4",&vx)||!sc_read(root,"tileset/badlands.vr4",&vr)||
-       !sc_read(root,"tileset/badlands.cv5",&cv)||!sc_read(root,"tileset/badlands.wpe",&pal)) goto done;
-    if(!vx.size||vx.size%32||vr.size%64||cv.size%52||pal.size!=1024) goto done;
+    for(int i=0;i<5;i++) {
+        char path[128]; snprintf(path,sizeof(path),"tileset/%s.%s",map->tileset_name,extensions[i]);
+        if(!sc_read(root,path,files[i])) goto done;
+    }
+    if(!vx.size||vx.size%32||!vr.size||vr.size%64||!cv.size||cv.size%52||pal.size!=1024||vf.size!=vx.size) goto done;
     out->count=(int)(vx.size/32); out->tile_w=out->tile_h=32; out->atlas_cols=16;
     out->indices=malloc((size_t)out->count*1024);
     out->tile_lookup_count=(int)(cv.size/52)*16;
@@ -103,9 +107,18 @@ bool sc_load_tiles(const char *root,tileset_t *out) {
         for(int y=0;y<8;y++) for(int x=0;x<8;x++)
             out->indices[i*1024+(m/4*8+y)*32+m%4*8+x]=vr.bytes[index*64+y*8+((ref&1)?7-x:x)];
     }
+    for(size_t i=0;i<(size_t)map->width*map->height;i++) {
+        unsigned id=map->tile_ids[i];
+        if(id>=(unsigned)out->tile_lookup_count) goto done;
+        /* The engine currently paths in 32px cells. Keep mixed cells open;
+         * wholly unwalkable VF4 megatiles (water, void) block ground units. */
+        unsigned walkable=0,tile=(unsigned)out->tile_lookup[id];
+        for(int m=0;m<16;m++) walkable|=read_u16_le(vf.bytes+tile*32+m*2)&1;
+        if(!walkable) map->blocked[i]=1;
+    }
     ok=true;
 done:
-    W_FreeFile(&vx); W_FreeFile(&vr); W_FreeFile(&cv); W_FreeFile(&pal);
+    for(int i=0;i<5;i++) W_FreeFile(files[i]);
     if(!ok) R_FreeTileset(out);
     return ok;
 }
@@ -219,7 +232,7 @@ static bool compose_turrets(const char *root, const blob_t *units, const blob_t 
 }
 
 
-bool sc_load_graphics(const char *root,spritecache_t *cache) {
+bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) {
     blob_t units={0},flingy={0},sprites={0},images={0},names={0},script={0}; bool ok=false;
     if(!sc_read(root,"arr/units.dat",&units)||!sc_read(root,"arr/flingy.dat",&flingy)||
        !sc_read(root,"arr/sprites.dat",&sprites)||!sc_read(root,"arr/images.dat",&images)||
@@ -275,7 +288,49 @@ bool sc_load_graphics(const char *root,spritecache_t *cache) {
     }
     R_FreeSprite(&ramp);
     ok=compose_turrets(root,&units,&images,&names,image_ids,cache) && R_BindSprites(cache,&game_info);
-    printf("StarCraft catalog: %d/228 unit entries, %d unique native GRPs, %d visual states.\n",cache->count,loaded,next_state);
+    printf("StarCraft graphics: %d/228 unit entries, %d unique native GRPs, %d visual states.\n",cache->count,loaded,next_state);
+    if(!ok) goto done;
+    ok=false;
+    const blob_t *chk=map->mission;
+    int decoration=0;
+    for(size_t at=0;chk&&at<chk->size;) {
+        const uint8_t *tag=chk->bytes+at,*data=tag+8;
+        size_t size=read_u32_le(tag+4);
+        if(!memcmp(tag,"THG2",4)) for(size_t i=0;i<size;i+=10) {
+            const uint8_t *d=data+i;
+            if(!(read_u16_le(d+8)&0x1000)) continue;
+            unsigned id=read_u16_le(d);
+            if(id>=ns) goto done;
+            unsigned im=read_u16_le(sprites.bytes+id*2);
+            if(im>=ni) goto done;
+            const char *grp=tbl_string(&names,read_u32_le(images.bytes+im*4));
+            if(!grp) goto done;
+            mapdecoration_t *dec=&map->decorations[decoration++];
+            snprintf(dec->sprite_name,sizeof(dec->sprite_name),"sc-doodad-%u",im);
+            const spritesheet_t *sheet=R_CacheLookup(cache,dec->sprite_name);
+            if(!sheet) {
+                if(cache->count>=MAX_DECORATION_SPRITES) goto done;
+                cachedsprite_t *slot=&cache->entries[cache->count];
+                snprintf(slot->name,sizeof(slot->name),"%s",dec->sprite_name);
+                char path[512]; snprintf(path,sizeof(path),"unit/%s",grp);
+                blob_t file={0};
+                bool decoded=sc_read(root,path,&file)&&sc_decode_grp(&file,sc_palette,false,&slot->sprite);
+                W_FreeFile(&file);
+                if(!decoded) goto done;
+                ++cache->count;
+                sheet=&slot->sprite;
+            }
+            ivec2_t pixel={read_u16_le(d+2),read_u16_le(d+4)};
+            dec->cell=(ivec2_t){pixel.x/32,pixel.y/32};
+            dec->has_sprite_pivot=true;
+            /* GRP crop pivot minus the native pixel remainder in this cell. */
+            dec->sprite_pivot=ivec2_sub(sheet->cells[0].ground_point,
+                                      (ivec2_t){pixel.x%32,pixel.y%32});
+            dec->frame2_index=dec->frame3_index=-1;
+        }
+        at+=8+size;
+    }
+    ok=true;
 done:
     W_FreeFile(&units); W_FreeFile(&flingy); W_FreeFile(&sprites); W_FreeFile(&images); W_FreeFile(&names); W_FreeFile(&script);
     return ok;
