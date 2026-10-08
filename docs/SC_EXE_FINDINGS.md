@@ -400,10 +400,19 @@ selection instructions shown in the user-provided retail screenshot. The HUD
 now finds that labeled string in the loaded map and displays it at startup.
 The screenshot places the tip near logical screen coordinate (58, 190), which
 is the HUD position used here. The precise retail trigger and lifetime for this
-generic tip have not been established. The StarCraft selection panel now shows
-up to nine native `cmdicons.grp` unit icons for a multi-unit selection, with
-click-to-select behavior matching Warcraft II's existing nine-slot grid. A
-single selection continues to use the native wireframe and stats.
+generic tip have not been established.
+
+The retail multi-selection screenshot shows small green unit wireframes in the
+selection panel. `unit/wirefram/wirefram.grp` has 228 64x64 frames, matching the
+228 unit types, while `unit/cmdbtns/cmdicons.grp` has 365 36x34 command glyphs.
+`rez/statdata.bin` includes twelve 33x34 selection slots at x=168, 204, 240,
+276, 312 and 348, on rows y=396 and 433. The HUD now uses the unit's
+`type_id - 1` wireframe frame for each small selection icon, lays the twelve
+slots out left-to-right across those native positions, and keeps the command
+glyph sheet for the command card. GRP frames store cropped pixels plus their
+authored canvas offset; the command card now applies that offset within each
+36x34 slot so glyphs keep their native alignment. A single selection continues
+to use the full-size native wireframe and stats.
 
 The console item covers 640x480. Temporary diagnostic output demonstrated
 `world click consumed=1` with its original settings and `=0` with decorative

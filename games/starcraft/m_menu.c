@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define SC_SELECTION_SLOTS 12
+
 typedef struct { spritesheet_t sheet; unsigned ms; uint32_t *palettes; } movie_t;
 typedef struct { sc_control_t native; spritesheet_t image; movie_t movies[SC_CONTROL_MOVIES]; } artwork_t;
 static spritesheet_t background, console, wireframe, icons, widgets, panel;
@@ -27,7 +29,7 @@ static char asset_root[1024];
 static int portrait_item, portrait_id=-1, tip_item;
 static int selected_id=-1, selection_start, command_start, wire_item, name_item, hp_item;
 static int selection_icon_start, selection_count;
-static mobj_t *selection_units[9];
+static mobj_t *selection_units[SC_SELECTION_SLOTS];
 static char start_tip[512];
 static int catalog_index, build_page, resource_start;
 static void native_path(char *out,size_t size,const char *root,const char *name) {
@@ -304,13 +306,20 @@ static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int v
     i->drawtarget=routine==product?HU_DrawProductPlacement:NULL;
     for(int s=0;s<MS_STATES;s++)i->look[s].cell=icon;
 }
+static void align_grp_cells(spritesheet_t *sheet) {
+    for(int i=0;i<sheet->numlumps;i++) {
+        spritecell_t *cell=&sheet->cells[i];
+        cell->displacement=ivec2_sub(
+            (ivec2_t){sheet->frame_size.w/2,sheet->frame_size.h/2},cell->ground_point);
+    }
+}
 static void refresh(menu_t *menu) {
     (void)menu;mobj_t *selected=NULL;
     selection_count=0;
     memset(selection_units,0,sizeof(selection_units));
     for(int i=0;i<hudview.unit_count;i++)if(P_MobjIsSelected(hudview.units[i])&&hudview.units[i]->hp>0) {
         if(!selected)selected=hudview.units[i];
-        if(selection_count<(int)(sizeof(selection_units)/sizeof(selection_units[0])))
+        if(selection_count<SC_SELECTION_SLOTS)
             selection_units[selection_count++]=hudview.units[i];
     }
     int id_now=selected?selected->type_id-1:-1;
@@ -321,7 +330,7 @@ static void refresh(menu_t *menu) {
     for(int i=selection_start;i<command_start;i++)huditems[i].visible=false;
     for(int i=0;i<9;i++)huditems[command_start+i].visible=false;
     huditems[portrait_item].visible=false;
-    for(int i=0;i<9;i++)huditems[selection_icon_start+i].visible=false;
+    for(int i=0;i<SC_SELECTION_SLOTS;i++)huditems[selection_icon_start+i].visible=false;
     huditems[tip_item].visible=start_tip[0];
     if(!selected)return;
     catalog_index=selected_id;
@@ -430,6 +439,7 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     if(!W_LoadIndexedSheet(path,&console))return NULL;
     if(!grp(root,"unit/wirefram/wirefram.grp",console.palette,&wireframe)||
        !grp(root,"unit/cmdbtns/cmdicons.grp",console.palette,&icons))return NULL;
+    align_grp_cells(&icons);
     if(!palette_from(root,"game/tunit.pcx",&console,0)||
        !palette_from(root,"game/tunit.pcx",&widgets,0)||
        !palette_from(root,"game/tunit.pcx",&panel,0)||
@@ -460,10 +470,11 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     for(int i=0;i<2;i++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,
         .hotkey=i?SDLK_RIGHTBRACKET:SDLK_LEFTBRACKET,.value=i?1:-1,.routine=focus};
     selection_icon_start=hud.numitems;
-    for(int i=0;i<9;i++) {
-        ivec2_t cell={(i%3)*36,(i/3)*37};
+    for(int i=0;i<SC_SELECTION_SLOTS;i++) {
+        ivec2_t cell={(i%6)*36,(i/6)*37};
         huditems[hud.numitems++]=(menuitem_t){.id=i,.kind=MI_BUTTON,.visible=false,.enabled=false,
-            .rect={168+cell.x,396+cell.y,36,34},.sheet=&icons,.routine=select_slot,.opaque=false};
+            .rect={168+cell.x,396+cell.y,33,34},.sheet=&wireframe,.stretch=true,
+            .routine=select_slot,.opaque=false};
     }
     sc_start_tip(&level,start_tip,sizeof(start_tip));
     tip_item=hud.numitems++;
