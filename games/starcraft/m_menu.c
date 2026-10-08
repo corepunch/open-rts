@@ -1,8 +1,10 @@
 #include "sc_local.h"
 #include <ctype.h>
+#include <dirent.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 
 #define SC_SELECTION_SLOTS 12
 
@@ -86,7 +88,7 @@ static void frontend(menu_t *m,menuitem_t *i,menuaction_t a) {
         }
         M_SetupNextMenu(&briefing.menu);
     } else if(m==&briefing.menu) {
-        if(i->id==13){menumap=campaign_map;M_ClearMenus();}
+        if(i->id==13){sc_set_net_races(NULL);menumap=campaign_map;M_ClearMenus();}
         else if(i->id==14)M_SetupNextMenu(&campaign.menu);
         else if(i->id==20)M_MenuFind(m,65526)->first_row=0;
     }
@@ -250,6 +252,143 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
     return true;
 }
 
+/* Extracted CHK files under the data root. Campaign folders are single
+ * player. scenario.chk takes the map folder's name (the folder above
+ * staredit/); any other .chk uses its own name. */
+enum { SC_NET_MAPS = 64 };
+typedef struct { char path[512], title[128]; int players; } sc_netmap_t;
+static sc_netmap_t net_maps[SC_NET_MAPS];
+static int net_map_count;
+
+static int prefixed_players(const char *name) {
+    if (name && name[0] == '(' && name[1] >= '2' && name[1] <= '8' && name[2] == ')') return name[1] - '0';
+    return 0;
+}
+
+static bool chk_name(const char *name) {
+    size_t n = strlen(name);
+    if (n < 4 || name[n - 4] != '.') return false;
+    char ext[4] = {name[n - 3], name[n - 2], name[n - 1], 0};
+    for (int i = 0; ext[i]; ++i) if (ext[i] >= 'A' && ext[i] <= 'Z') ext[i] = (char)(ext[i] - 'A' + 'a');
+    return !strcmp(ext, "chk");
+}
+
+static int chk_players(const char *path, const char *file, const char *folder) {
+    int counted = 0;
+    blob_t blob = {0};
+    if (W_ReadFile(path, &blob)) {
+        for (size_t at = 0; at + 8 <= blob.size;) {
+            size_t n = read_u32_le(blob.bytes + at + 4);
+            if (n > blob.size - at - 8) break;
+            if (!memcmp(blob.bytes + at, "OWNR", 4) && n >= 8) {
+                for (int i = 0; i < 8; ++i)
+                    counted += blob.bytes[at + 8 + i] == 5 || blob.bytes[at + 8 + i] == 6;
+                break;
+            }
+            at += 8 + n;
+        }
+        W_FreeFile(&blob);
+    }
+    if (counted >= 2) return counted > 8 ? 8 : counted;
+    int prefixed = prefixed_players(file);
+    if (!prefixed) prefixed = prefixed_players(folder);
+    return prefixed;
+}
+
+static void map_title(const char *rel, const char *file, char *out, size_t size) {
+    if (!strcasecmp(file, "scenario.chk")) {
+        char tmp[512];
+        snprintf(tmp, sizeof(tmp), "%s", rel);
+        char *slash = strrchr(tmp, '/');
+        if (slash) *slash = '\0';
+        char *parent = strrchr(tmp, '/');
+        const char *folder = parent ? parent + 1 : tmp;
+        if (!strcasecmp(folder, "staredit") && parent) {
+            *parent = '\0';
+            parent = strrchr(tmp, '/');
+            folder = parent ? parent + 1 : tmp;
+        }
+        snprintf(out, size, "%s", folder[0] ? folder : file);
+        return;
+    }
+    snprintf(out, size, "%s", file);
+    char *dot = strrchr(out, '.');
+    if (dot) *dot = '\0';
+}
+
+static void scan_tree(const char *root, const char *rel) {
+    char dir[1024];
+    if (rel[0]) snprintf(dir, sizeof(dir), "%s/%s", root, rel);
+    else snprintf(dir, sizeof(dir), "%s", root);
+    DIR *listing = opendir(dir);
+    if (!listing) return;
+    struct dirent *entry;
+    while ((entry = readdir(listing))) {
+        if (entry->d_name[0] == '.' || !strcasecmp(entry->d_name, "campaign")) continue;
+        char child[512];
+        if (rel[0]) snprintf(child, sizeof(child), "%s/%s", rel, entry->d_name);
+        else snprintf(child, sizeof(child), "%s", entry->d_name);
+        char full[1024];
+        snprintf(full, sizeof(full), "%s/%s", root, child);
+        DIR *sub = opendir(full);
+        if (sub) { closedir(sub); scan_tree(root, child); continue; }
+        if (net_map_count >= SC_NET_MAPS || !chk_name(entry->d_name)) continue;
+        sc_netmap_t *map = &net_maps[net_map_count];
+        map_title(child, entry->d_name, map->title, sizeof(map->title));
+        int players = chk_players(full, entry->d_name, map->title);
+        if (players < 2) continue;
+        snprintf(map->path, sizeof(map->path), "%s", child);
+        map->players = players;
+        ++net_map_count;
+    }
+    closedir(listing);
+}
+
+static int compare_net_maps(const void *a, const void *b) {
+    return strcasecmp(((const sc_netmap_t *)a)->title, ((const sc_netmap_t *)b)->title);
+}
+
+static void scan_net_maps(const char *root) {
+    net_map_count = 0;
+    if (root && root[0]) scan_tree(root, "");
+    if (net_map_count) qsort(net_maps, (size_t)net_map_count, sizeof(net_maps[0]), compare_net_maps);
+}
+
+static int net_count(void) { return net_map_count; }
+static const char *net_path(int index) {
+    return index >= 0 && index < net_map_count ? net_maps[index].path : "";
+}
+static const char *net_title(int index) {
+    return index >= 0 && index < net_map_count ? net_maps[index].title : "";
+}
+static int net_players(int index) {
+    return index >= 0 && index < net_map_count ? net_maps[index].players : 0;
+}
+static const char *net_race(int index) {
+    return index == 1 ? "Zerg" : index == 2 ? "Protoss" : "Terran";
+}
+static void net_commit(void) {
+    int races[MAXPLAYERS];
+    for (int i = 0; i < MAXPLAYERS; ++i) races[i] = M_NetPlayerRace(i);
+    sc_set_net_races(races);
+}
+static void net_back(app_t *app) {
+    front.app = app;
+    M_SetupNextMenu(&front);
+}
+static void open_multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)item;
+    if (action != MA_ACTIVATE) return;
+    scan_net_maps(asset_root);
+    netui_t ui = {
+        .background = &background, .palette = background.source_palette, .font = &fonts[1],
+        .back = net_back, .map_count = net_count, .map_path = net_path, .map_title = net_title,
+        .map_players = net_players, .max_players = 8, .race_count = 3, .race_name = net_race,
+        .commit = net_commit,
+    };
+    M_NetOpen(menu->app, &ui);
+}
+
 bool G_InitMenus(app_t *app,const char *root) {
     snprintf(asset_root,sizeof(asset_root),"%s",root);
     char path[2048];native_path(path,sizeof(path),root,"glue/palmm/backgnd.pcx");
@@ -265,7 +404,7 @@ bool G_InitMenus(app_t *app,const char *root) {
     for(int i=0;i<d.count;i++) {
         sc_control_t *c=&d.controls[i]; artwork_t *a=&art[i]; a->native=*c;
         items[i]=control(c,fonts);items[i].userdata=a;
-        items[i].routine=c->id==3?begin:c->id==2?M_MenuQuitGame:unavailable;
+        items[i].routine=c->id==3?begin:c->id==2?M_MenuQuitGame:c->id==4?open_multi:unavailable;
         if(c->type==5&&c->text[0]) {
             native_path(path,sizeof(path),root,c->text);
             if(!W_LoadIndexedSheet(path,&a->image))return false;
@@ -310,6 +449,7 @@ menu_t *G_ControlPanel(app_t *app,bool inlevel) {
     menu_t *menu=inlevel?&pausemenu:&front;menu->app=app;return menu;
 }
 void G_ShutdownMenus(void) {
+    M_NetStop();
     screen_t *screens[]={&registry,&new_id,&campaign,&briefing};
     for(unsigned s=0;s<sizeof(screens)/sizeof(*screens);s++) {
         screen_t *screen=screens[s];R_FreeSprite(&screen->background);

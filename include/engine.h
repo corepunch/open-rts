@@ -2402,12 +2402,51 @@ void M_Drawer(const app_t *app);
 void M_Ticker(void);
 void M_Shutdown(void);
 
-/* The shared multiplayer screens (hud/m_net.c): create a game, browse or join
- * one, lobby with chat, then launch. The transport is the I_* layer; a game
- * supplies its look, the maps a host may offer, and the races a player may
- * pick. Each joined player owns their own race and presses Start. The match
- * begins when every joined player has. Without races, the host starts once
- * every seat has joined. */
+/* Multiplayer lives in the engine (hud/m_net.c). A game supplies a screen
+ * and, when it uses the shared screens, the maps and labels. The engine owns
+ * browse, join, host, chat, seat sync and the start rule: with races, every
+ * joined player presses Start; without races, the host starts once the roster
+ * is full.
+ *
+ * The published setup is 56 bytes: eight seats (race, type, color, team),
+ * sixteen host-owned option bytes, then eight ready flags. A joiner's choice
+ * is five bytes: those four seat fields and its ready flag. The host copies
+ * in only the fields named by joiner_fields, and always takes the ready flag. */
+enum { NET_FIELD_RACE = 1, NET_FIELD_TYPE = 2, NET_FIELD_COLOR = 4, NET_FIELD_TEAM = 8 };
+typedef struct {
+    uint8_t race, type, color, team;
+    bool ready;
+} netseat_t;
+typedef struct {
+    int max_players;   /* 2..MAXPLAYERS; 0 means 4 */
+    int race_count;    /* 0 hides races; otherwise 2..8 */
+    int joiner_fields; /* NET_FIELD_* a joiner may change on its own seat */
+    void (*commit)(void); /* level is about to start; M_NetPlayerRace is valid */
+    const char *(*chat_name)(void); /* NULL uses Host / Player N */
+} netplay_t;
+void M_NetUse(const netplay_t *play);
+const netseat_t *M_NetSeat(int player);
+/* Host: replace a seat and publish. Joiner: change its own allowed fields.
+ * Ready changes through M_NetToggleReady. Before a session, this only stores. */
+bool M_NetSetSeat(int player, const netseat_t *seat);
+void M_NetSetOptions(const void *data, size_t size); /* host-owned, 16 bytes */
+size_t M_NetOptions(void *data, size_t capacity);
+void M_NetCycleRace(int player);
+void M_NetToggleReady(void);
+bool M_NetChat(const char *text);
+const char *M_NetLog(void);
+const char *M_NetNotice(void);
+bool M_NetHosting(void);
+bool M_NetInLobby(void);
+int M_NetLocalSlot(void);
+bool M_NetHost(const char *title, const char *path, int players);
+bool M_NetJoinAddress(const char *address);
+bool M_NetBrowse(void);
+bool M_NetJoinListed(int index);
+void M_NetStop(void);
+/* -1 failed, 0 waiting, 1 launched (menumap set, commit called). */
+int M_NetPoll(void);
+const char *M_NetLaunchMap(void);
 typedef struct {
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette with the background; NULL keeps the menu's default */

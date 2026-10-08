@@ -53,8 +53,11 @@ static dr_skirmish_t setup;
 /* Values of the option dropdowns, as their native variables 0x671be0.. */
 static int fog, units, placement, display, give, view, handicaps, alliances, colour;
 static int handicap[8];
-/* Lobby: each player's ready check, and the joiner's own pending choice. */
+/* Lobby: each player's ready check. Handicap stays on this screen. */
 static bool ready[8];
+static bool dr_bad, locked_choice;
+static int shownchat = -1;
+static uint8_t shown_lobby[56];
 static char message[NETCHAT_LENGTH - 24];
 static void (*shell_escape)(menu_t *);
 
@@ -174,41 +177,71 @@ static int order_humans(void) {
     return humans;
 }
 
-/* The joiners' copy: count, three bytes a slot, credits, two options and
- * the ready checks. */
-enum { SETUP_SIZE = 1 + 24 + 4 + 2 + 1 };
-static size_t pack_setup(uint8_t out[SETUP_SIZE]) {
-    out[0] = (uint8_t)setup.count;
+/* The engine owns the lobby. A seat's race is the side and its team is the
+ * team; the option bytes are credits, fog, starting units and the map's
+ * slot count. Handicap is not part of the match. */
+static const char *dr_chat_name(void) { return playername; }
+
+static bool push_lobby(void) {
     for (int i = 0; i < 8; ++i) {
-        out[1 + i * 3] = setup.slots[i].type;
-        out[2 + i * 3] = setup.slots[i].side;
-        out[3 + i * 3] = setup.slots[i].team;
+        const dr_slot_t *slot = &setup.slots[i];
+        netseat_t seat = {.race = slot->side, .type = slot->type, .team = slot->team, .ready = ready[i]};
+        if (!M_NetSetSeat(i, &seat)) return false;
     }
-    for (int i = 0; i < 4; ++i) out[25 + i] = (uint8_t)((uint32_t)setup.credits >> (8 * i));
-    out[29] = (uint8_t)fog;
-    out[30] = (uint8_t)units;
-    out[31] = 0;
-    for (int i = 0; i < 8; ++i) out[31] |= (uint8_t)(ready[i] << i);
-    return SETUP_SIZE;
+    uint8_t opt[8] = {0};
+    uint32_t money = (uint32_t)setup.credits;
+    for (int i = 0; i < 4; ++i) opt[i] = (uint8_t)(money >> (8 * i));
+    opt[4] = (uint8_t)fog;
+    opt[5] = (uint8_t)units;
+    opt[6] = (uint8_t)setup.count;
+    M_NetSetOptions(opt, sizeof(opt));
+    return true;
 }
 
-static bool unpack_setup(const uint8_t *in, size_t size) {
-    if (size != SETUP_SIZE || in[0] < 2 || in[0] > 8) return false;
-    dr_skirmish_t shared = {.count = in[0]};
-    for (int i = 0; i < 8; ++i) {
-        shared.slots[i] = (dr_slot_t){.type = in[1 + i * 3], .side = in[2 + i * 3], .team = in[3 + i * 3]};
-        if (shared.slots[i].type > DR_SLOT_CLOSED || shared.slots[i].side > DR_SIDE_IMPERIUM ||
-            shared.slots[i].team > 8) return false;
-    }
+static bool pull_lobby(void) {
+    uint8_t opt[16];
+    if (M_NetOptions(opt, sizeof(opt)) != sizeof(opt)) return true;
     uint32_t money = 0;
-    for (int i = 0; i < 4; ++i) money |= (uint32_t)in[25 + i] << (8 * i);
-    if (money > 99999999u || in[29] > 3 || in[30] > 1) return false;
-    shared.credits = (int)money;
+    for (int i = 0; i < 4; ++i) money |= (uint32_t)opt[i] << (8 * i);
+    if (opt[6] < 2 || opt[6] > 8 || money > 99999999u || opt[4] > 3 || opt[5] > 1) return false;
+    char names[8][24];
+    netseat_t seats[8];
+    for (int i = 0; i < 8; ++i) snprintf(names[i], sizeof(names[i]), "%s", setup.slots[i].name);
+    for (int i = 0; i < 8; ++i) {
+        const netseat_t *seat = M_NetSeat(i);
+        if (!seat || seat->type > DR_SLOT_CLOSED || seat->race > DR_SIDE_IMPERIUM || seat->team > 8) return false;
+        seats[i] = *seat;
+    }
+    dr_skirmish_t shared = {.count = opt[6], .credits = (int)money};
+    for (int i = 0; i < 8; ++i) {
+        shared.slots[i] = (dr_slot_t){.type = seats[i].type, .side = seats[i].race, .team = seats[i].team};
+        snprintf(shared.slots[i].name, sizeof(shared.slots[i].name), "%s", names[i]);
+        ready[i] = seats[i].ready;
+    }
     setup = shared;
-    fog = in[29];
-    units = in[30];
-    for (int i = 0; i < 8; ++i) ready[i] = in[31] >> i & 1;
+    fog = opt[4];
+    units = opt[5];
+    if (setup.credits) snprintf(credits, sizeof(credits), "%d", setup.credits);
+    else credits[0] = '\0';
+    const char *map = I_NetMap();
+    if (!map || !map[0]) map = M_NetLaunchMap();
+    selectedmap = -1;
+    for (int i = 0; map && i < nummaps; ++i)
+        if (!strcasecmp(maps[i].path, map)) selectedmap = i;
     return true;
+}
+
+static void dr_net_commit(void) {
+    dr_bad = !pull_lobby() || M_NetOptions(&(uint8_t){0}, 1) == 0;
+    if (!dr_bad) DR_RequestSkirmish(M_NetLaunchMap(), &setup);
+}
+
+static void use_net(void) {
+    netplay_t net = {.max_players = 8, .race_count = 3,
+                     .joiner_fields = NET_FIELD_RACE | NET_FIELD_TEAM,
+                     .commit = dr_net_commit, .chat_name = dr_chat_name};
+    M_NetUse(&net);
+    dr_bad = locked_choice = false;
 }
 
 /* ── items ──────────────────────────────────────────────────────────────── */
@@ -583,16 +616,20 @@ static void show_error(const char *title, const char *text) {
     popup = POP_ERROR;
 }
 
-static void network_error(void) {
-    show_error(caption("NetRefusalUnknownStaticTitle", "Warning"), neterror[0] ? neterror : "Network error");
-    I_CancelNetGame();
-    neterror[0] = '\0';
-    waiting = joined = hosting = false;
+static void network_error(const char *why) {
+    if (!why || !why[0]) why = M_NetNotice();
+    if (!why || !why[0]) why = neterror[0] ? neterror : "Network error";
+    show_error(caption("NetRefusalUnknownStaticTitle", "Warning"), why);
+    M_NetStop();
+    waiting = joined = hosting = locked_choice = false;
+    shownplayers = shownchat = -1;
 }
 
 static void leave_session(void) {
-    if (waiting || joined || hosting) I_CancelNetGame();
-    waiting = joined = hosting = false;
+    if (waiting || joined || hosting || page == MPLAN) M_NetStop();
+    waiting = joined = hosting = locked_choice = false;
+    shownplayers = shownchat = -1;
+    memset(shown_lobby, 0, sizeof(shown_lobby));
 }
 
 static void start_level(const char *map) {
@@ -615,10 +652,9 @@ static void launch(void) {
         return;
     }
     if (hosting) {
-        /* The host's own ready check; host_choices launches. */
-        uint8_t packed[SETUP_SIZE];
-        ready[0] = !ready[0];
-        if (!I_SetNetSetup(packed, pack_setup(packed))) network_error();
+        /* Ready is the host's own check. The engine starts the match. */
+        M_NetToggleReady();
+        if (M_NetSeat(0)) ready[0] = M_NetSeat(0)->ready;
         return;
     }
     dr_skirmish_t edited = setup;
@@ -629,81 +665,36 @@ static void launch(void) {
         return;
     }
     memset(ready, 0, sizeof(ready));
-    uint8_t packed[SETUP_SIZE];
-    if (!I_HostNetGame("dark-reign", gamename[0] ? gamename : playername, maps[selectedmap].path, humans) ||
-        !I_SetNetSetup(packed, pack_setup(packed))) { network_error(); return; }
+    push_lobby();
+    if (!M_NetHost(gamename[0] ? gamename : playername, maps[selectedmap].path, humans)) {
+        network_error(NULL);
+        return;
+    }
     hosting = waiting = true;
 }
 
-/* A joiner's choice for its own row: side, team and ready check. */
-static void send_choice(void) {
-    const dr_slot_t *slot = &setup.slots[doomcom->consoleplayer];
-    uint8_t choice[3] = {slot->side, slot->team, ready[doomcom->consoleplayer]};
-    if (!I_SetNetChoice(choice, sizeof(choice))) network_error();
-}
-
 static void send_chat(void) {
-    char line[NETCHAT_LENGTH];
     if (!message[0]) return;
-    snprintf(line, sizeof(line), "%s: %s", playername, message);
-    if (I_SendNetChat(line)) message[0] = '\0';
+    if (M_NetChat(message)) message[0] = '\0';
 }
 
-/* Host: joiners own their row's side and team; the game starts when every
- * seat has joined and every player is ready. */
-static void host_choices(void) {
-    bool changed = false, all = I_NetPlayerCount() == human_rows() && ready[0];
-    for (int i = 1; i < setup.count; ++i) {
-        if (setup.slots[i].type != DR_SLOT_HUMAN) continue;
-        uint8_t choice[3];
-        bool now = false;
-        if (i < I_NetPlayerCount() && I_NetChoice(i, choice, 3) == 3 && choice[0] <= DR_SIDE_IMPERIUM && choice[1] <= 8) {
-            changed |= setup.slots[i].side != choice[0] || setup.slots[i].team != choice[1];
-            setup.slots[i].side = choice[0];
-            setup.slots[i].team = choice[1];
-            now = choice[2] != 0;
-        }
-        changed |= ready[i] != now;
-        ready[i] = now;
-        all &= now;
-    }
-    uint8_t packed[SETUP_SIZE];
-    if (changed && !I_SetNetSetup(packed, pack_setup(packed))) { network_error(); return; }
-    if (all) I_LaunchNetGame();
-}
-
-/* Joiner: the host's lobby, keeping its own pending side and team. */
-static bool joiner_setup(void) {
-    uint8_t packed[64];
-    int me = doomcom->consoleplayer;
-    dr_slot_t mine = setup.slots[me];
-    bool mine_ready = ready[me], had = setup.count > 0;
-    if (!unpack_setup(packed, I_NetSetup(packed, sizeof(packed)))) return false;
-    if (had && me < setup.count) { setup.slots[me].side = mine.side; setup.slots[me].team = mine.team; ready[me] = mine_ready; }
-    if (setup.credits) snprintf(credits, sizeof(credits), "%d", setup.credits);
-    else credits[0] = '\0';
-    selectedmap = -1;
-    for (int i = 0; i < nummaps; ++i)
-        if (!strcasecmp(maps[i].path, I_NetMap())) selectedmap = i;
-    return true;
-}
-
-static void open_chat(void) {
+static void open_chat(bool preserve) {
     origin = page;
     page = MPCHAT;
-    hosting = joined = waiting = false;
+    if (!preserve) M_NetStop();
+    hosting = joined = waiting = locked_choice = false;
+    shownplayers = shownchat = -1;
+    memset(shown_lobby, 0, sizeof(shown_lobby));
     selectedmap = -1;
     default_setup(0);
     snprintf(gamename, sizeof(gamename), "%.14s's Game", playername);
 }
 
 static void join(const char *where) {
-    char copy[128];
-    snprintf(copy, sizeof(copy), "%s", where);
-    neterror[0] = '\0';
-    if (!I_JoinNetGame("dark-reign", copy)) { network_error(); return; }
-    open_chat();
+    if (!M_NetJoinAddress(where)) { network_error(NULL); return; }
+    open_chat(true);
     joined = waiting = true;
+    locked_choice = false;
 }
 
 static void cycle(int *value, int count, bool back) {
@@ -767,14 +758,14 @@ static void activate(app_t *app, int id, bool back) {
         if (id == ID_IPX) {
             page = MPLAN;
             selectedgame = -1;
-            if (!I_OpenNetBrowser("dark-reign")) network_error();
+            if (!M_NetBrowse()) network_error(NULL);
         } else if (id == ID_MANUAL) page = MPMANUAL;
         break;
     }
     case MPLAN:
     case MPMANUAL:
-        if (id == ID_BACK) { leave_session(); I_CancelNetGame(); page = MPMAIN; }
-        else if (id == ID_CREATE) { I_CancelNetGame(); open_chat(); }
+        if (id == ID_BACK) { leave_session(); page = MPMAIN; }
+        else if (id == ID_CREATE) { M_NetStop(); open_chat(false); }
         else if (id == ID_JOIN) {
             int count;
             const netgame_t *games = I_NetGames(&count);
@@ -786,17 +777,25 @@ static void activate(app_t *app, int id, bool back) {
         if (id == ID_BACK) {
             leave_session();
             page = origin;
-            if (page == MPLAN && !I_OpenNetBrowser("dark-reign")) network_error();
+            if (page == MPLAN && !M_NetBrowse()) network_error(NULL);
         } else if (id == ID_LAUNCH && joined) {
-            ready[doomcom->consoleplayer] = !ready[doomcom->consoleplayer];
-            send_choice();
+            int me = doomcom->consoleplayer;
+            M_NetToggleReady();
+            if (M_NetSeat(me)) ready[me] = M_NetSeat(me)->ready;
         } else if (id == ID_LAUNCH) launch();
         else if (joined && (id == ID_ROWSIDE + doomcom->consoleplayer || id == ID_ROWTEAM + doomcom->consoleplayer)) {
-            dr_slot_t *slot = &setup.slots[doomcom->consoleplayer];
+            int me = doomcom->consoleplayer;
+            dr_slot_t *slot = &setup.slots[me];
             int value = id < ID_ROWTEAM ? slot->side : slot->team;
             cycle(&value, id < ID_ROWTEAM ? 3 : 9, back);
             if (id < ID_ROWTEAM) slot->side = (uint8_t)value; else slot->team = (uint8_t)value;
-            send_choice();
+            const netseat_t *cur = M_NetSeat(me);
+            if (cur) {
+                netseat_t seat = *cur;
+                seat.race = slot->side;
+                seat.team = slot->team;
+                M_NetSetSeat(me, &seat);
+            }
         } else if (joined) return;
         else if (id == ID_SELECTMAP) { popup = POP_MAP; popupmap = selectedmap; }
         else if (id == ID_ROWSIDE || id == ID_ROWTEAM || id == ID_ROWHANDICAP) own_row_action(id, back);
@@ -851,9 +850,8 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
     if ((action != MA_ACTIVATE && !(action == MA_SECONDARY && cycles)) ||
         item->kind == MI_TEXTFIELD || item->kind == MI_LIST) return;
     activate(app, id, action == MA_SECONDARY);
-    /* The host's edits reach the joiners at once. */
-    uint8_t packed[SETUP_SIZE];
-    if (active && hosting && page == MPCHAT && !I_SetNetSetup(packed, pack_setup(packed))) network_error();
+    /* The host's edits reach the joiners at once. A joiner publishes only its own row. */
+    if (active && hosting && page == MPCHAT && !push_lobby()) network_error(NULL);
     if (active) {
         drscreen.menu.held = NULL;
         rebuild(app);
@@ -891,7 +889,8 @@ bool DR_MultiOpen(app_t *app, const char *data_root, bool ia) {
     page = MPMAIN;
     credits[0] = '\0';
     fog = units = placement = display = give = view = handicaps = alliances = colour = 0;
-    if (instant) open_chat();
+    if (!instant) use_net();
+    if (instant) open_chat(false);
     shell_escape = drscreen.menu.escape;
     drscreen.menu.escape = escape;
     drscreen.menu.itemOn = -1;
@@ -917,42 +916,62 @@ void DR_MultiTicker(void) {
         I_NetGames(&count);
         const menuitem_t *games = M_MenuFind(&drscreen.menu, ID_GAMES);
         if (selectedgame >= count) selectedgame = -1;
-        if (neterror[0]) network_error();
+        if (neterror[0]) network_error(NULL);
         if (popup || (games && games->rows != count)) rebuild(app);
     }
     if (!waiting) return;
-    char map[512];
-    int status = I_PollNetGame(map, sizeof(map));
-    if (status < 0) { network_error(); rebuild(app); return; }
-    if (status == 0) {
-        static int shownchat = -1;
-        if (hosting) host_choices();
-        else if (joined && I_NetLobby() && I_NetSetup(&(uint8_t){0}, 1) && !joiner_setup()) {
-            snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
-            network_error();
-        }
-        /* Redraw the lobby as it changes; typing keeps its focus. */
-        uint8_t packed[SETUP_SIZE];
-        static uint8_t shown[SETUP_SIZE];
-        pack_setup(packed);
-        if (I_NetPlayerCount() != shownplayers || I_NetChatCount() != shownchat || memcmp(packed, shown, sizeof(shown))) {
-            shownplayers = I_NetPlayerCount();
-            shownchat = I_NetChatCount();
-            memcpy(shown, packed, sizeof(shown));
+    int status = M_NetPoll();
+    if (status < 0) { network_error(NULL); rebuild(app); return; }
+    if (status > 0) {
+        waiting = joined = hosting = false;
+        if (dr_bad) {
+            menumap = NULL;
+            show_error(caption("NetRefusalUnknownStaticTitle", "Warning"), "Host sent an invalid game setup");
+            M_NetStop();
             rebuild(app);
+        } else {
+            DR_MultiClose();
+            M_ClearMenus();
         }
         return;
     }
-    waiting = false;
-    if (joined) {
-        uint8_t packed[64];
-        size_t size = I_NetSetup(packed, sizeof(packed));
-        if (!unpack_setup(packed, size)) {
-            snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
-            network_error();
-            rebuild(app);
-            return;
+    uint8_t opt[16];
+    bool got = M_NetOptions(opt, sizeof(opt)) == sizeof(opt);
+    if (!hosting && M_NetInLobby() && got && !locked_choice && doomcom) {
+        /* A joiner starts on Default, then chooses its own side and team. */
+        int me = doomcom->consoleplayer;
+        const netseat_t *cur = M_NetSeat(me);
+        if (cur) {
+            netseat_t seat = *cur;
+            seat.race = 0;
+            seat.team = 0;
+            M_NetSetSeat(me, &seat);
         }
+        locked_choice = true;
     }
-    start_level(map);
+    if ((hosting || M_NetInLobby()) && got && !pull_lobby()) {
+        network_error("Host sent an invalid game setup");
+        rebuild(app);
+        return;
+    }
+    /* Redraw the lobby as it changes; typing keeps its focus. */
+    uint8_t image[56] = {0};
+    if (got) {
+        for (int i = 0; i < 8; ++i) {
+            const netseat_t *seat = M_NetSeat(i);
+            if (!seat) continue;
+            image[i * 4] = seat->race;
+            image[i * 4 + 1] = seat->type;
+            image[i * 4 + 2] = seat->color;
+            image[i * 4 + 3] = seat->team;
+            image[48 + i] = seat->ready;
+        }
+        memcpy(image + 32, opt, sizeof(opt));
+    }
+    if (I_NetPlayerCount() != shownplayers || I_NetChatCount() != shownchat || memcmp(image, shown_lobby, sizeof(image))) {
+        shownplayers = I_NetPlayerCount();
+        shownchat = I_NetChatCount();
+        memcpy(shown_lobby, image, sizeof(image));
+        rebuild(app);
+    }
 }

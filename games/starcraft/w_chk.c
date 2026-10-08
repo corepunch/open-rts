@@ -63,6 +63,136 @@ bool sc_start_tip(const level_t *map, char *text, size_t size) {
     return false;
 }
 
+/* Lobby race 0 is Terran, 1 Zerg, 2 Protoss. SIDE bytes are Zerg, Terran, Protoss. */
+static int net_race[MAXPLAYERS];
+static bool net_race_set;
+static int net_seats;
+static bool melee_start[MAXPLAYERS], melee_unit[MAXPLAYERS];
+static ivec2_t melee_at[MAXPLAYERS];
+
+void sc_set_net_races(const int *races) {
+    net_race_set = races != NULL;
+    for (int i = 0; i < MAXPLAYERS; ++i) net_race[i] = races ? races[i] : -1;
+}
+
+static int side_byte(int race) {
+    if (race == 1) return 0;
+    if (race == 2) return 2;
+    return 1;
+}
+
+static uint8_t *chk_chunk(blob_t *file, const char *tag, size_t *size) {
+    for (size_t at = 0; at + 8 <= file->size;) {
+        uint8_t *rec = file->bytes + at;
+        size_t n = read_u32_le(rec + 4);
+        if (n > file->size - at - 8) return NULL;
+        if (!memcmp(rec, tag, 4)) {
+            if (size) *size = n;
+            return rec + 8;
+        }
+        at += 8 + n;
+    }
+    return NULL;
+}
+
+static void note_unit(int seat, unsigned type, ivec2_t pixel, bool decoration) {
+    if (seat < 0 || seat >= net_seats || decoration) return;
+    if (type == 214) {
+        if (!melee_start[seat]) {
+            melee_start[seat] = true;
+            melee_at[seat] = pixel;
+        }
+        return;
+    }
+    melee_unit[seat] = true;
+}
+
+/* Playable OWNR slots (human 6 or computer 5) become network seats 0..n-1.
+ * A seat whose only placement is a start location is filled in when the
+ * things spawn: melee CHK files ship the location and not the buildings. */
+static void apply_net_seats(blob_t *file) {
+    size_t ownr_n = 0, side_n = 0, forc_n = 0;
+    uint8_t *ownr = chk_chunk(file, "OWNR", &ownr_n);
+    uint8_t *side = chk_chunk(file, "SIDE", &side_n);
+    uint8_t *forc = chk_chunk(file, "FORC", &forc_n);
+    if (!ownr || ownr_n < 8 || !doomcom) return;
+    int person[8], person_count = 0;
+    for (int i = 0; i < 8; ++i)
+        if (ownr[i] == 5 || ownr[i] == 6) person[person_count++] = i;
+    int seats = doomcom->numplayers > MAXPLAYERS ? MAXPLAYERS : doomcom->numplayers;
+    int n = person_count < seats ? person_count : seats;
+    if (n < 1) return;
+    int dest[8];
+    for (int i = 0; i < 8; ++i) dest[i] = -1;
+    for (int p = 0; p < n; ++p) dest[person[p]] = p;
+    bool taken[8] = {0};
+    for (int i = 0; i < 8; ++i) if (dest[i] >= 0) taken[dest[i]] = true;
+    int spare[8], spare_n = 0;
+    for (int d = 0; d < 8; ++d) if (!taken[d]) spare[spare_n++] = d;
+    int spare_at = 0;
+    for (int i = 0; i < 8; ++i) if (dest[i] < 0) dest[i] = spare[spare_at++];
+
+    uint8_t old_ownr[8], old_side[8], old_force[8];
+    memcpy(old_ownr, ownr, 8);
+    if (side && side_n >= 8) memcpy(old_side, side, 8);
+    if (forc && forc_n >= 8) memcpy(old_force, forc, 8);
+    for (int src = 0; src < 8; ++src) {
+        int d = dest[src];
+        ownr[d] = old_ownr[src];
+        if (side && side_n >= 8) side[d] = old_side[src];
+        if (forc && forc_n >= 8) forc[d] = old_force[src];
+    }
+    for (int p = 0; p < n; ++p) {
+        ownr[p] = 6;
+        if (side && side_n >= 8) {
+            int race = net_race_set ? net_race[p] : -1;
+            side[p] = (uint8_t)side_byte(race);
+        }
+    }
+    for (int p = n; p < person_count; ++p) ownr[dest[person[p]]] = 0;
+    net_seats = n;
+
+    for (size_t at = 0; at + 8 <= file->size;) {
+        uint8_t *rec = file->bytes + at;
+        size_t size = read_u32_le(rec + 4);
+        if (size > file->size - at - 8) return;
+        uint8_t *data = rec + 8;
+        if (!memcmp(rec, "UNIT", 4)) {
+            for (size_t i = 0; i + 36 <= size; i += 36) {
+                uint8_t *u = data + i;
+                if (u[16] < 8) u[16] = (uint8_t)dest[u[16]];
+                note_unit(u[16], read_u16_le(u + 8),
+                          (ivec2_t){read_u16_le(u + 4), read_u16_le(u + 6)}, false);
+            }
+        } else if (!memcmp(rec, "THG2", 4)) {
+            for (size_t i = 0; i + 10 <= size; i += 10) {
+                uint8_t *d = data + i;
+                if (d[6] < 8) d[6] = (uint8_t)dest[d[6]];
+                note_unit(d[6], read_u16_le(d), (ivec2_t){read_u16_le(d + 2), read_u16_le(d + 4)},
+                          (read_u16_le(d + 8) & 0x1000) != 0);
+            }
+        } else if (!memcmp(rec, "TRIG", 4) && size % 2400 == 0) {
+            for (size_t t = 0; t < size; t += 2400) {
+                for (int a = 0; a < 64; ++a) {
+                    uint8_t *v = data + t + 320 + (size_t)a * 32;
+                    uint32_t player = read_u32_le(v + 16);
+                    if (v[26] != 26 || player >= 8) continue;
+                    uint32_t moved = (uint32_t)dest[player];
+                    v[16] = (uint8_t)moved;
+                    v[17] = v[18] = v[19] = 0;
+                }
+            }
+        }
+        at += 8 + size;
+    }
+}
+
+static void clear_melee(void) {
+    memset(melee_start, 0, sizeof(melee_start));
+    memset(melee_unit, 0, sizeof(melee_unit));
+    net_seats = 0;
+}
+
 bool sc_load_chk(const char *path,level_t *out) {
     static const char *const tilesets[]={
         "badlands","platform","install","ashworld","jungle","desert","ice","twilight"
@@ -123,7 +253,11 @@ bool sc_load_chk(const char *path,level_t *out) {
     snprintf(out->map_path,sizeof(out->map_path),"%s",path);
     snprintf(out->tileset_name,sizeof(out->tileset_name),"%s",tilesets[era]);
     for(int i=0;i<8;i++) out->player_colors[i]=i;
-    /* Preserve native player IDs, including Terran 01's human slot 1. */
+    clear_melee();
+    if(!netgame) net_race_set = false;
+    else if(doomcom && doomcom->numplayers >= 2) apply_net_seats(file);
+    /* Preserve native player IDs, including Terran 01's human slot 1.
+     * A network match already assigned consoleplayer from the seat. */
     if(!netgame&&owners) for(int i=0;i<8;i++) if(owners[i]==6) { consoleplayer=i; break; }
     for(size_t at=0;at<file->size;) {
         const uint8_t *tag=file->bytes+at,*data=tag+8;
@@ -156,6 +290,10 @@ bool sc_load_chk(const char *path,level_t *out) {
         }
         at+=8+size;
     }
+    /* Melee triggers give the starting stock to player group 13, which this
+     * loader does not apply. A network seat that still has no minerals gets
+     * that stock directly. */
+    for(int i=0;i<net_seats;i++) if(out->player_resources[i][0]==0) out->player_resources[i][0]=50;
     if(!sc_mission_bind(out)) goto bad;
     return true;
 bad:
@@ -226,6 +364,25 @@ int sc_spawn_things(void) {
         }
         at+=8+size;
     }
+    /* A seat with a start location and no placed unit is a melee start.
+     * The building is centred on that pixel and covers 128 by 96; the workers
+     * stand in the row below it. */
+    static const unsigned building[] = {106, 131, 154};
+    static const unsigned worker[] = {7, 41, 64};
+    for(int i=0;i<net_seats;i++) {
+        if(!melee_start[i] || melee_unit[i]) continue;
+        int race = net_race_set ? net_race[i] : 0;
+        if(race < 0 || race > 2) race = 0;
+        ivec2_t pixel = melee_at[i];
+        if(!sc_spawn_actor(building[race], pixel, (uint8_t)i)) { clear_melee(); return count; }
+        ++count;
+        for(int w=0;w<4;w++) {
+            ivec2_t at_px = {pixel.x + 48 + w * 24, pixel.y + 64};
+            if(!sc_spawn_actor(worker[race], at_px, (uint8_t)i)) { clear_melee(); return count; }
+            ++count;
+        }
+    }
+    clear_melee();
     return count;
 }
 

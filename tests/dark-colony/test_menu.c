@@ -122,8 +122,9 @@ static void join_lan_menu(app_t *app, SDL_Surface *surface) {
         close(ready[0]); close(done[1]);
         CHECK(fcntl(done[0], F_SETFL, O_NONBLOCK) == 0);
         CHECK(I_HostNetGame("dark-colony", "Menu LAN test", "SCENARIO/MPLAYER/D2PLAY01.MAP", 2));
-        /* Lobby setup as the native host packs it: human host, alien joiner. */
-        uint8_t setup[48] = {0};
+        /* Lobby setup: eight seats, eight option bytes, then eight ready flags.
+         * Human host, alien joiner. Ready lives at offset 48. */
+        uint8_t setup[56] = {0};
         for (int i = 0; i < 8; ++i) {
             setup[i * 4] = i == 1;
             setup[i * 4 + 1] = i < 2 ? DC_PLAYER_HUMAN : DC_PLAYER_NONE;
@@ -138,13 +139,14 @@ static void join_lan_menu(app_t *app, SDL_Surface *surface) {
         while (SDL_GetTicks64() < deadline) {
             int status = I_PollNetGame(map, sizeof(map));
             CHECK(status >= 0);
-            /* The joiner chats, picks the human race and readies; the host starts. */
-            uint8_t choice[2];
-            if (!status && I_NetPlayerCount() == 2 && I_NetChoice(1, choice, 2) == 2 &&
-                choice[0] == 0 && choice[1] == 1) {
+            /* The joiner chats, picks the human race and readies; the host starts.
+             * A choice is race, type, colour, team, then ready. */
+            uint8_t choice[5];
+            if (!status && I_NetPlayerCount() == 2 && I_NetChoice(1, choice, 5) == 5 &&
+                choice[0] == 0 && choice[4] == 1) {
                 CHECK(I_NetChatCount() == 1 && !strcmp(I_NetChatLine(1), "Player 2: gg"));
                 setup[4] = choice[0];
-                setup[41] = setup[40] = 1;
+                setup[48] = setup[49] = 1;
                 CHECK(I_SetNetSetup(setup, sizeof(setup)) && I_LaunchNetGame());
             }
             if (read(done[0], &byte, 1) == 1) { finished = true; break; }

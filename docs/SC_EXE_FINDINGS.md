@@ -73,11 +73,15 @@ normal movie with its smaller hover overlay was an incorrect early approach.
 The movies retain each frame's palette and native dimensions/timing.
 
 `glumain.bin` has ten controls. Single Player is id 3 at (0,0), 320x190,
-with text offset (150,111); its hover overlay is at (46,66). Campaign Editor
-is id 5 at (375,104). Main menu background is `glue/palmm/backgnd.pcx`.
+with text offset (150,111); its hover overlay is at (46,66). Multiplayer is
+id 4, type 14, at (78,190), 283x178. Campaign Editor is id 5 at (375,104).
+Exit is id 2. Main menu background is `glue/palmm/backgnd.pcx`.
 No invented logo or catalog buttons are inserted into this screen. Single
-Player deliberately launches the catalog; unsupported actions explain the
-sandbox limit through the engine message dialog.
+Player deliberately launches the catalog.
+
+**Correction (2026-10-08):** id 4 opens the shared engine TCP lobby described
+in "Multiplayer lobby" below. Retail connection dialogs are not used. The
+remaining main-menu actions still open the unavailable dialog.
 
 Native HUD geometry, after adding parent offsets:
 
@@ -187,7 +191,8 @@ not implemented. Imported files remain available for that subsequent work.
 **Correction (2026-10-08):** the catalog map is still that sandbox. Campaign
 and melee CHK maps now run triggers, shared combat and economy, a computer
 build order, supply, and a victory/defeat screen. See "Campaign triggers and
-results" below. The paragraph above records the earlier limit.
+results" below. Multiplayer is the shared TCP lobby, not a retail Battle.net
+dialog. The paragraph above records the earlier limit.
 
 ## Documentation audit (2026-10-08)
 
@@ -610,3 +615,56 @@ env SDL_VIDEODRIVER=dummy make test-starcraft
 elimination, a lone player, Terran 01's starting minerals and alliances, the
 200-supply cap, and numbered campaign advance. `test_play` still requires the
 load-time mineral set of 40 before any mission tick.
+
+## Multiplayer lobby (2026-10-08)
+
+No executable was disassembled for this. `glumain.bin` control id 4
+(Multiplayer) opens the engine lobby in `hud/m_net.c`. The game supplies the
+map list, the three race names, and a commit callback that stores the lobby
+races. Browse, join, host, chat, seats, ready and launch stay in the engine.
+Retail `gluconn`, `glujoin`, `gluchat` and the create/custom/load dialogs are
+not opened. Modem and Battle.net are out of scope.
+
+**Confirmed from the installed files:** every `install/multimaps/*.scm` begins
+with the MPQ signature. The runtime does not parse MPQ; `tools/sc_import`
+remains the way to extract `scenario.chk`. The lobby lists `.chk` files under
+the data root, skips directory names `campaign` and names that start with `.`,
+and keeps at most 64 maps. `scenario.chk` is titled from the folder above a
+parent named `staredit` (so `mapname/staredit/scenario.chk` is "mapname"). Any
+other `.chk` uses its filename without the extension. The player cap is the
+count of OWNR bytes 5 or 6 in the first eight of the first OWNR chunk when
+that count is at least 2; otherwise a `(2)` through `(8)` prefix on the
+filename or the title. Maps below two players are omitted. With no extracted
+multiplayer CHK, Create stays disabled and the screen says no maps were found.
+The 35 campaign `scenario.chk` files stay out of that list.
+
+**Confirmed SIDE bytes** on the three episode-01 campaign maps: the human slot
+(OWNR 6) is Terran 1 on Terran 01, Zerg 0 on Zerg 01, and Protoss 2 on Protoss
+01. Lobby index 0 is Terran, 1 is Zerg, 2 is Protoss. An unset race is stored
+as Terran.
+
+**Explicit engine behavior on a network load** (`netgame`, at least two
+players): the first OWNR chunk's playable slots (5 computer or 6 human), in
+slot order, are moved onto seats 0..n-1, where n is the smaller of that count
+and `doomcom->numplayers`. OWNR, SIDE and the first eight FORC bytes are
+permuted with those slots. Seats 0..n-1 become human (OWNR 6) and take the
+lobby SIDE byte. Extra playable slots become neutral (OWNR 0). UNIT and THG2
+owners below 8 follow the same permutation. TRIG Set Resources actions (byte
+26 equals 26, player below 8) follow it too. Player group 13 is left as 13.
+Single-player loads do not permute, and they clear a previous lobby race list.
+Continuing from a campaign briefing clears that list as well.
+`consoleplayer` in a network game stays the seat assigned before the map loads.
+
+A network seat whose only placement is a start location (UNIT or THG2 id 214)
+receives that race's town hall and four workers: Command Center 106 and SCV 7,
+Hatchery 131 and Drone 41, or Nexus 154 and Probe 64. Those buildings are
+128 by 96 in `units.inc` and have the building bit set, so the existing spawn
+centres the footprint on the start pixel. The workers are placed on the row
+below that pixel. This is not traced to an executable address. `D_CheckNetGame` rejects a seat
+with no selectable unit, and a start location alone does not spawn an actor.
+Campaign maps already place units on those slots, so this fill does not run
+for them. No melee `scenario.chk` is in the tree; the `.scm` archives are not
+opened at runtime. A network seat whose minerals are still 0 after
+the initial Set Resources pass receives 50. Maps that already set minerals
+keep that amount. Group 13 resource actions are not applied by the loader, so
+the 50 is written on the seat directly.

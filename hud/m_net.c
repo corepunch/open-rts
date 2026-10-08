@@ -7,11 +7,10 @@
 
 /* The multiplayer screens every game shares, lifted from Dark Colony's LAN
  * lobby: create a game (map, players), browse the LAN or type an address to
- * join, wait in a lobby with chat, then launch. With races, each player owns
- * their seat's race and presses Start. The match begins when every joined
- * player has, the same rule Dark Colony uses for its ready check. Sessions
- * run on the I_* menu transport; the poll in the ticker moves a joiner or
- * host into the level. */
+ * join, wait in a lobby with chat, then launch. The session under those
+ * screens — seats, ready, chat and the start rule — is the same one a game
+ * uses when it draws its own lobby. With races, every joined player presses
+ * Start. Without races, the host starts once the roster is full. */
 
 enum { PAGE_MAIN, PAGE_HOST, PAGE_LOBBY, PAGE_BROWSE, PAGE_CONNECT };
 enum {
@@ -35,17 +34,23 @@ static menu_t net_menu = {.items = items, .modal = true};
 static netui_t ui;
 static app_t *net_app;
 static int page, players = 2, selected_map = -1, selected_game = -1;
-static bool waiting, hosting;
 static char address[128] = "127.0.0.1", status[256], launch_map[512], log_text[NETCHAT_LENGTH * 33 + 8];
 static int status_item = -1, list_item = -1, log_item = -1, chat_item = -1, start_item = -1,
            players_item = -1, last_chat;
 static char rows[16][128];
-/* Lobby seats. A race of -1 in launch_race means this lobby had no races. */
-/* The published setup is eight race bytes, then eight ready flags. */
-_Static_assert(MAXPLAYERS == 8, "lobby setup is eight races and eight ready flags");
-static int race[MAXPLAYERS], launch_race[MAXPLAYERS];
-static bool ready[MAXPLAYERS], launch_races, picked, choice_dirty;
 static int name_item[MAXPLAYERS], race_item[MAXPLAYERS], ready_item = -1;
+
+/* Published setup: eight seats, sixteen host-owned option bytes, eight ready
+ * flags. A joiner's choice is the four seat fields and its ready flag. */
+enum { SETUP_BYTES = 56, CHOICE_BYTES = 5, OPTION_BYTES = 16 };
+_Static_assert(SETUP_BYTES <= 64 && CHOICE_BYTES <= 8, "lobby records fit the menu transport");
+_Static_assert(MAXPLAYERS == 8, "lobby setup is eight seats");
+static netplay_t play;
+static netseat_t seat[MAXPLAYERS];
+static uint8_t options[OPTION_BYTES];
+static bool waiting, hosting, browsing, in_lobby, picked, choice_dirty, have_setup;
+static int launch_race[MAXPLAYERS];
+static bool launch_races;
 
 static const char *word(int id) { return ui.text[id] ? ui.text[id] : defaults[id]; }
 static int max_players(void) {
@@ -54,9 +59,337 @@ static int max_players(void) {
 static int race_count(void) {
     return ui.race_count >= 2 && ui.race_count <= 8 && ui.race_name ? ui.race_count : 0;
 }
-static int local_slot(void) {
-    return hosting || !doomcom ? 0 : doomcom->consoleplayer;
+static int race_slots(void) {
+    return play.race_count >= 2 && play.race_count <= 8 ? play.race_count : 0;
 }
+
+static int play_cap(void) {
+    return play.max_players >= 2 && play.max_players <= MAXPLAYERS ? play.max_players : 4;
+}
+
+int M_NetLocalSlot(void) {
+    if ((hosting || waiting || in_lobby) && doomcom) return doomcom->consoleplayer;
+    return 0;
+}
+
+static int local_slot(void) { return M_NetLocalSlot(); }
+
+const netseat_t *M_NetSeat(int player) {
+    if (player < 0 || player >= MAXPLAYERS) return NULL;
+    return &seat[player];
+}
+
+static bool publish(void) {
+    if (!hosting) return true;
+    uint8_t setup[SETUP_BYTES];
+    memset(setup, 0, sizeof(setup));
+    int live = doomcom ? doomcom->numplayers : MAXPLAYERS;
+    for (int i = 0; i < MAXPLAYERS; ++i) {
+        setup[i * 4] = seat[i].race;
+        setup[i * 4 + 1] = seat[i].type;
+        setup[i * 4 + 2] = seat[i].color;
+        setup[i * 4 + 3] = seat[i].team;
+        setup[48 + i] = i < live && seat[i].ready ? 1 : 0;
+    }
+    memcpy(setup + 32, options, OPTION_BYTES);
+    if (!I_SetNetSetup(setup, sizeof(setup))) {
+        if (!status[0])
+            snprintf(status, sizeof(status), "%s", neterror[0] ? neterror : "The connection failed");
+        return false;
+    }
+    have_setup = true;
+    return true;
+}
+
+static void send_choice(void) {
+    if (hosting || !waiting || race_slots() <= 0 || !in_lobby) return;
+    int me = local_slot();
+    if (me < 0 || me >= MAXPLAYERS) return;
+    uint8_t choice[CHOICE_BYTES] = {
+        seat[me].race, seat[me].type, seat[me].color, seat[me].team, seat[me].ready ? 1 : 0
+    };
+    if (I_SetNetChoice(choice, sizeof(choice))) choice_dirty = false;
+}
+
+/* A missing choice leaves the seat's race alone and drops a departed player's ready flag. */
+static bool take_choices(void) {
+    if (!hosting || race_slots() <= 0 || !doomcom) return true;
+    bool changed = false;
+    int races = race_slots();
+    for (int i = 1; i < doomcom->numplayers && i < MAXPLAYERS; ++i) {
+        uint8_t choice[CHOICE_BYTES];
+        if (i < I_NetPlayerCount() && I_NetChoice(i, choice, sizeof(choice)) == sizeof(choice) && choice[4] <= 1) {
+            int fields = play.joiner_fields;
+            if ((fields & NET_FIELD_RACE) && choice[0] < races && seat[i].race != choice[0]) {
+                seat[i].race = choice[0];
+                changed = true;
+            }
+            if ((fields & NET_FIELD_TYPE) && seat[i].type != choice[1]) { seat[i].type = choice[1]; changed = true; }
+            if ((fields & NET_FIELD_COLOR) && seat[i].color != choice[2]) { seat[i].color = choice[2]; changed = true; }
+            if ((fields & NET_FIELD_TEAM) && seat[i].team != choice[3]) { seat[i].team = choice[3]; changed = true; }
+            if (seat[i].ready != (choice[4] != 0)) { seat[i].ready = choice[4] != 0; changed = true; }
+        } else if (i >= I_NetPlayerCount() && seat[i].ready) {
+            seat[i].ready = false;
+            changed = true;
+        }
+    }
+    for (int i = doomcom->numplayers; i < MAXPLAYERS; ++i)
+        if (seat[i].ready) { seat[i].ready = false; changed = true; }
+    return !changed || publish();
+}
+
+/* I_NetSetup reports only as many bytes as asked for. Ask for the transport
+ * limit so a shorter or longer record is not mistaken for this lobby. */
+static size_t setup_bytes(void) {
+    uint8_t wire[64];
+    return I_NetSetup(wire, sizeof(wire));
+}
+
+static bool read_setup(bool final) {
+    uint8_t setup[64];
+    if (I_NetSetup(setup, sizeof(setup)) != SETUP_BYTES) return false;
+    for (int i = 0; i < MAXPLAYERS; ++i) if (setup[48 + i] > 1) return false;
+    int live = doomcom ? doomcom->numplayers : MAXPLAYERS;
+    int me = local_slot();
+    for (int i = 0; i < MAXPLAYERS; ++i) {
+        netseat_t incoming = {
+            .race = setup[i * 4], .type = setup[i * 4 + 1], .color = setup[i * 4 + 2],
+            .team = setup[i * 4 + 3], .ready = i < live && setup[48 + i] == 1
+        };
+        if (!final && !hosting && i == me && picked) {
+            int fields = play.joiner_fields;
+            if (fields & NET_FIELD_RACE) incoming.race = seat[i].race;
+            if (fields & NET_FIELD_TYPE) incoming.type = seat[i].type;
+            if (fields & NET_FIELD_COLOR) incoming.color = seat[i].color;
+            if (fields & NET_FIELD_TEAM) incoming.team = seat[i].team;
+            incoming.ready = seat[i].ready;
+        }
+        seat[i] = incoming;
+    }
+    memcpy(options, setup + 32, OPTION_BYTES);
+    have_setup = true;
+    return true;
+}
+
+static bool everyone_ready(void) {
+    if (race_slots() <= 0 || !hosting || !doomcom || I_NetPlayerCount() != doomcom->numplayers) return false;
+    for (int i = 0; i < doomcom->numplayers; ++i) if (!seat[i].ready) return false;
+    return true;
+}
+
+void M_NetUse(const netplay_t *next) {
+    if (!next) return;
+    play = *next;
+    memset(seat, 0, sizeof(seat));
+    memset(options, 0, sizeof(options));
+    waiting = hosting = browsing = in_lobby = picked = choice_dirty = have_setup = false;
+    launch_races = false;
+    status[0] = '\0';
+}
+
+bool M_NetSetSeat(int player, const netseat_t *next) {
+    if (!next || player < 0 || player >= MAXPLAYERS) return false;
+    if (!waiting && !hosting) { seat[player] = *next; return true; }
+    if (hosting) {
+        seat[player] = *next;
+        return publish();
+    }
+    if (player != local_slot()) return false;
+    int fields = play.joiner_fields;
+    bool changed = false;
+    if ((fields & NET_FIELD_RACE) && seat[player].race != next->race) { seat[player].race = next->race; changed = true; }
+    if ((fields & NET_FIELD_TYPE) && seat[player].type != next->type) { seat[player].type = next->type; changed = true; }
+    if ((fields & NET_FIELD_COLOR) && seat[player].color != next->color) { seat[player].color = next->color; changed = true; }
+    if ((fields & NET_FIELD_TEAM) && seat[player].team != next->team) { seat[player].team = next->team; changed = true; }
+    picked = true;
+    if (changed) choice_dirty = true;
+    if (choice_dirty) send_choice();
+    return true;
+}
+
+void M_NetSetOptions(const void *data, size_t size) {
+    if (!data || (waiting && !hosting)) return;
+    if (size > OPTION_BYTES) size = OPTION_BYTES;
+    memset(options, 0, sizeof(options));
+    memcpy(options, data, size);
+    if (hosting) publish();
+}
+
+size_t M_NetOptions(void *data, size_t capacity) {
+    if (!data || !capacity || !have_setup) return 0;
+    size_t n = capacity < OPTION_BYTES ? capacity : OPTION_BYTES;
+    memcpy(data, options, n);
+    return n;
+}
+
+void M_NetCycleRace(int player) {
+    int n = race_slots();
+    if (n <= 0 || player < 0 || player >= MAXPLAYERS || seat[player].ready) return;
+    if ((waiting || hosting) && player != local_slot()) return;
+    if (waiting && !hosting && !(play.joiner_fields & NET_FIELD_RACE)) return;
+    seat[player].race = (uint8_t)((seat[player].race + 1) % n);
+    picked = true;
+    if (hosting) publish();
+    else if (waiting) { choice_dirty = true; send_choice(); }
+}
+
+void M_NetToggleReady(void) {
+    int me = local_slot();
+    if (me < 0 || me >= MAXPLAYERS || (!waiting && !hosting)) return;
+    seat[me].ready = !seat[me].ready;
+    picked = true;
+    if (hosting) publish();
+    else { choice_dirty = true; send_choice(); }
+}
+
+bool M_NetChat(const char *text) {
+    if (!text || !text[0] || (!waiting && !hosting)) return false;
+    char speaker[32];
+    const char *who = play.chat_name ? play.chat_name() : NULL;
+    if (!who || !who[0]) who = hosting ? "Host" : M_va("Player %d", local_slot() + 1);
+    snprintf(speaker, sizeof(speaker), "%s", who);
+    char line[NETCHAT_LENGTH];
+    snprintf(line, sizeof(line), "%s: %s", speaker, text);
+    return I_SendNetChat(line);
+}
+
+const char *M_NetLog(void) {
+    log_text[0] = '\0';
+    int count = I_NetChatCount();
+    for (int id = count > 32 ? count - 31 : 1; id <= count; ++id) {
+        const char *line = I_NetChatLine(id);
+        if (!line) continue;
+        size_t used = strlen(log_text);
+        snprintf(log_text + used, sizeof(log_text) - used, "%s\n", line);
+    }
+    return log_text;
+}
+
+const char *M_NetNotice(void) { return status; }
+bool M_NetHosting(void) { return hosting; }
+bool M_NetInLobby(void) { return in_lobby; }
+
+bool M_NetHost(const char *title, const char *path, int count) {
+    if (!path || !path[0] || count < 2) return false;
+    int cap = play_cap();
+    if (count > cap) count = cap;
+    snprintf(launch_map, sizeof(launch_map), "%s", path);
+    if (!I_HostNetGame(g_game_id, title && title[0] ? title : path, launch_map, count)) {
+        snprintf(status, sizeof(status), "%s", neterror[0] ? neterror : "The connection failed");
+        waiting = hosting = browsing = in_lobby = false;
+        if (I_NetMenuSession()) I_CancelNetGame();
+        return false;
+    }
+    hosting = waiting = in_lobby = true;
+    browsing = false;
+    picked = false;
+    if (!publish()) {
+        waiting = hosting = in_lobby = false;
+        I_CancelNetGame();
+        return false;
+    }
+    return true;
+}
+
+bool M_NetJoinAddress(const char *where) {
+    if (!where || !where[0]) return false;
+    char copy[128];
+    snprintf(copy, sizeof(copy), "%s", where);
+    snprintf(address, sizeof(address), "%s", copy);
+    if (browsing || waiting || hosting || I_NetMenuSession()) I_CancelNetGame();
+    browsing = waiting = hosting = in_lobby = false;
+    picked = false;
+    choice_dirty = true;
+    have_setup = false;
+    if (!I_JoinNetGame(g_game_id, where)) {
+        snprintf(status, sizeof(status), "%s", neterror[0] ? neterror : "The connection failed");
+        if (I_NetMenuSession()) I_CancelNetGame();
+        return false;
+    }
+    waiting = true;
+    return true;
+}
+
+bool M_NetBrowse(void) {
+    if (browsing || waiting || hosting || I_NetMenuSession()) I_CancelNetGame();
+    waiting = hosting = in_lobby = browsing = false;
+    if (!I_OpenNetBrowser(g_game_id)) {
+        snprintf(status, sizeof(status), "%s", neterror[0] ? neterror : "The connection failed");
+        if (I_NetMenuSession()) I_CancelNetGame();
+        return false;
+    }
+    browsing = true;
+    return true;
+}
+
+bool M_NetJoinListed(int index) {
+    int count = 0;
+    const netgame_t *games = I_NetGames(&count);
+    if (index < 0 || index >= count) return false;
+    char where[64];
+    snprintf(where, sizeof(where), "%s", games[index].address);
+    return M_NetJoinAddress(where);
+}
+
+void M_NetStop(void) {
+    if (waiting || hosting || browsing || I_NetMenuSession()) I_CancelNetGame();
+    waiting = hosting = browsing = in_lobby = false;
+    picked = choice_dirty = false;
+    SDL_StopTextInput();
+}
+
+static void finish_launch(void) {
+    read_setup(true);
+    launch_races = race_slots() > 0 && doomcom;
+    for (int i = 0; i < MAXPLAYERS; ++i)
+        launch_race[i] = launch_races && i < doomcom->numplayers ? seat[i].race : -1;
+    if (play.commit) play.commit();
+    menumap = launch_map;
+    SDL_StopTextInput();
+    waiting = hosting = in_lobby = false;
+}
+
+int M_NetPoll(void) {
+    if (!waiting) return 0;
+    int result = I_PollNetGame(launch_map, sizeof(launch_map));
+    if (result < 0) {
+        snprintf(status, sizeof(status), "%s", neterror[0] ? neterror : "The connection failed");
+        M_NetStop();
+        return -1;
+    }
+    if (result > 0) {
+        /* No setup at all is a command-line host. Any other size is not this lobby. */
+        if (setup_bytes() && !read_setup(true)) {
+            snprintf(status, sizeof(status), "Host sent an invalid game setup");
+            M_NetStop();
+            menumap = NULL;
+            return -1;
+        }
+        finish_launch();
+        return 1;
+    }
+    if (hosting) {
+        if (!take_choices()) { M_NetStop(); return -1; }
+        if (everyone_ready()) I_LaunchNetGame();
+    } else if (I_NetLobby()) {
+        in_lobby = true;
+        size_t got = setup_bytes();
+        if (got && got != SETUP_BYTES) {
+            snprintf(status, sizeof(status), "Host sent an invalid game setup");
+            M_NetStop();
+            return -1;
+        }
+        if (got == SETUP_BYTES && !read_setup(false)) {
+            snprintf(status, sizeof(status), "Host sent an invalid game setup");
+            M_NetStop();
+            return -1;
+        }
+        if (have_setup && choice_dirty) send_choice();
+    }
+    return 0;
+}
+
+const char *M_NetLaunchMap(void) { return launch_map; }
 
 /* A map that names its person-slot count caps the host's player button. */
 static int player_cap(void) {
@@ -157,118 +490,35 @@ static const char *row_text(const menuitem_t *item, int row) {
     return row >= 0 && row < 16 ? rows[row] : "";
 }
 
-static void leave_session(void) {
-    if (waiting || I_NetMenuSession() || page == PAGE_BROWSE) I_CancelNetGame();
-    waiting = hosting = false;
-    SDL_StopTextInput();
-}
-
 static void failure(void) {
-    char reason[256];
-    snprintf(reason, sizeof(reason), "%s", neterror[0] ? neterror : "The connection failed");
+    if (neterror[0]) snprintf(status, sizeof(status), "%s", neterror);
+    else if (!status[0]) snprintf(status, sizeof(status), "The connection failed");
     neterror[0] = '\0';
-    leave_session();
+    M_NetStop();
     open_page(PAGE_MAIN);
-    set_status("%s", reason);
 }
 
-static void begin_level(void) {
-    launch_races = race_count() > 0 && doomcom;
+/* The host's seats, stored before the session opens so the first publish
+ * already carries the map's races. */
+static void stock_prepare_seats(void) {
+    int n = race_count();
+    memset(seat, 0, sizeof(seat));
+    memset(options, 0, sizeof(options));
+    have_setup = false;
     for (int i = 0; i < MAXPLAYERS; ++i)
-        launch_race[i] = launch_races && i < doomcom->numplayers ? race[i] : -1;
-    if (ui.commit) ui.commit();
-    waiting = hosting = false;
-    menumap = launch_map;
-    M_ClearMenus();
-    SDL_StopTextInput();
-}
-
-/* Sixteen bytes: race per seat, then that seat's ready flag. 0xff is unused. */
-static void publish(void) {
-    if (!hosting || !doomcom || race_count() <= 0) return;
-    uint8_t setup[MAXPLAYERS * 2];
-    memset(setup, 0xff, MAXPLAYERS);
-    memset(setup + MAXPLAYERS, 0, MAXPLAYERS);
-    for (int i = 0; i < doomcom->numplayers && i < MAXPLAYERS; ++i) {
-        setup[i] = (uint8_t)race[i];
-        setup[MAXPLAYERS + i] = ready[i] ? 1 : 0;
-    }
-    I_SetNetSetup(setup, sizeof(setup));
-}
-
-static void send_choice(void) {
-    if (hosting || race_count() <= 0) return;
-    int me = local_slot();
-    if (me < 0 || me >= MAXPLAYERS) return;
-    uint8_t choice[2] = {(uint8_t)race[me], ready[me] ? 1 : 0};
-    if (I_SetNetChoice(choice, sizeof(choice))) choice_dirty = false;
-}
-
-static void enter_lobby(void) {
-    int n = race_count();
-    picked = false;
-    choice_dirty = true;
-    for (int i = 0; i < MAXPLAYERS; ++i) {
-        race[i] = n > 0 ? i % n : 0;
-        ready[i] = false;
-    }
-    if (hosting && n > 0 && ui.slot_race && selected_map >= 0 && doomcom)
-        for (int i = 0; i < doomcom->numplayers && i < MAXPLAYERS; ++i) {
+        seat[i] = (netseat_t){.race = n > 0 ? (uint8_t)(i % n) : 0, .type = 1,
+                              .color = (uint8_t)i, .team = (uint8_t)i};
+    if (n > 0 && ui.slot_race && selected_map >= 0)
+        for (int i = 0; i < players && i < MAXPLAYERS; ++i) {
             int authored = ui.slot_race(selected_map, i);
-            if (authored >= 0 && authored < n) race[i] = authored;
+            if (authored >= 0 && authored < n) seat[i].race = (uint8_t)authored;
         }
-    if (hosting) publish();
-    open_page(PAGE_LOBBY);
-}
-
-static void sync_lobby(void) {
-    if (race_count() <= 0 || !doomcom) return;
-    int n = race_count();
-    if (hosting) {
-        bool changed = false;
-        for (int i = 1; i < doomcom->numplayers && i < MAXPLAYERS; ++i) {
-            uint8_t choice[2];
-            if (i < I_NetPlayerCount() && I_NetChoice(i, choice, 2) == 2 && choice[0] < n && choice[1] <= 1) {
-                changed |= race[i] != choice[0] || ready[i] != (choice[1] != 0);
-                race[i] = choice[0];
-                ready[i] = choice[1] != 0;
-            } else if (i >= I_NetPlayerCount() && ready[i]) {
-                ready[i] = false;
-                changed = true;
-            }
-        }
-        if (changed) publish();
-    } else {
-        uint8_t setup[MAXPLAYERS * 2];
-        if (I_NetSetup(setup, sizeof(setup)) == sizeof(setup)) {
-            int me = local_slot();
-            for (int i = 0; i < doomcom->numplayers && i < MAXPLAYERS; ++i) {
-                if (i == me) {
-                    if (!picked && setup[i] < n && race[i] != setup[i]) {
-                        race[i] = setup[i];
-                        choice_dirty = true;
-                    }
-                    continue;
-                }
-                if (setup[i] < n) race[i] = setup[i];
-                ready[i] = setup[MAXPLAYERS + i] == 1;
-            }
-        }
-        if (choice_dirty) send_choice();
-    }
-    if (page == PAGE_LOBBY) paint_lobby();
 }
 
 static void refresh_log(void) {
-    log_text[0] = '\0';
-    int count = I_NetChatCount(), lines = 0;
-    for (int id = count > 32 ? count - 31 : 1; id <= count; ++id) {
-        const char *line = I_NetChatLine(id);
-        if (!line) continue;
-        size_t used = strlen(log_text);
-        snprintf(log_text + used, sizeof(log_text) - used, "%s\n", line);
-        ++lines;
-    }
+    M_NetLog();
+    int lines = 0;
+    for (const char *p = log_text; *p; ++p) lines += *p == '\n';
     if (log_item >= 0) {
         menuitem_t *item = &items[log_item];
         const bitmapfont_t *font = item->font;
@@ -276,7 +526,7 @@ static void refresh_log(void) {
         item->prose = log_text;
         item->first_row = lines > per ? lines - per : 0;
     }
-    last_chat = count;
+    last_chat = I_NetChatCount();
 }
 
 static void build_main(void) {
@@ -320,6 +570,7 @@ static void build_host(void) {
     button(ID_START, (irect_t){x + 48, y + 318, 106, 28}, word(NETTEXT_CREATE), SDLK_c);
     start_item = net_menu.numitems - 1;
     items[start_item].enabled = selected_map >= 0 && selected_map < count;
+    if (!count) set_status("No maps were found");
     button(ID_CANCEL, (irect_t){x + 198, y + 318, 106, 28}, word(NETTEXT_CANCEL), SDLK_ESCAPE);
     status_item = net_menu.numitems;
     label((irect_t){x + 16, y + 272, BOX_W - 32, 36}, "", MALIGN_LEFT);
@@ -340,21 +591,21 @@ static void paint_lobby(void) {
         if (name_item[i] >= 0) seat_name(items[name_item[i]].text, sizeof(items[0].text), i);
         if (race_item[i] >= 0) {
             menuitem_t *item = &items[race_item[i]];
-            snprintf(item->text, sizeof(item->text), "%s", race_label(race[i]));
+            snprintf(item->text, sizeof(item->text), "%s", race_label(seat[i].race));
             bool mine = i == local_slot() && i < I_NetPlayerCount();
             item->enabled = item->visible = mine || i < I_NetPlayerCount();
             if (!mine) item->enabled = false;
-            if (mine && ready[i]) item->enabled = false;
+            if (mine && seat[i].ready) item->enabled = false;
         }
     }
     if (ready_item >= 0)
         snprintf(items[ready_item].text, sizeof(items[0].text), "%s",
-                 ready[local_slot()] ? word(NETTEXT_UNREADY) : word(NETTEXT_START));
+                 seat[local_slot()].ready ? word(NETTEXT_UNREADY) : word(NETTEXT_START));
     if (start_item >= 0) {
         bool full = doomcom && I_NetPlayerCount() == doomcom->numplayers;
         bool armed = full;
         if (race_count() > 0)
-            for (int i = 0; armed && doomcom && i < doomcom->numplayers; ++i) armed = ready[i];
+            for (int i = 0; armed && doomcom && i < doomcom->numplayers; ++i) armed = seat[i].ready;
         items[start_item].enabled = armed;
     }
 }
@@ -375,7 +626,7 @@ static void build_lobby(void) {
             label((irect_t){x + 16, y + rows_y + i * row_h, 140, row_h}, "", MALIGN_LEFT);
             race_item[i] = net_menu.numitems;
             button(ID_RACE + i, (irect_t){x + 164, y + rows_y + i * row_h, 168, row_h - 2},
-                   race_label(race[i]), 0);
+                   race_label(seat[i].race), 0);
         }
         rows_y += seats * row_h;
     }
@@ -461,11 +712,12 @@ static bool net_root(void) {
 static void escape(menu_t *menu) {
     (void)menu;
     if (net_root()) {
+        M_NetStop();
         if (ui.back) ui.back(net_app);
         else M_ClearMenus();
         return;
     }
-    leave_session();
+    M_NetStop();
     status[0] = '\0';
     open_page(PAGE_MAIN);
 }
@@ -508,21 +760,16 @@ static void open_page(int next) {
 }
 
 static void send_chat(void) {
-    char line[NETCHAT_LENGTH];
     menuitem_t *field_item = &items[chat_item];
     if (!field_item->text[0]) return;
-    snprintf(line, sizeof(line), "%s: %s", hosting ? "Host" : M_va("Player %d", doomcom->consoleplayer + 1),
-             field_item->text);
-    if (I_SendNetChat(line)) field_item->text[0] = '\0';
+    if (M_NetChat(field_item->text)) field_item->text[0] = '\0';
     else set_status("Chat is busy; try again");
 }
 
 static void join(const char *where) {
     snprintf(address, sizeof(address), "%s", where);
     status[0] = '\0';
-    if (!I_JoinNetGame(g_game_id, address)) { failure(); return; }
-    waiting = true;
-    hosting = false;
+    if (!M_NetJoinAddress(address)) { failure(); return; }
     open_page(PAGE_CONNECT);
     set_status("Connecting... Escape cancels");
 }
@@ -550,20 +797,16 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     case ID_JOIN:
         if (page == PAGE_BROWSE) {
-            int count;
-            const netgame_t *games = I_NetGames(&count);
-            if (selected_game >= 0 && selected_game < count && selected_game < 16) {
-                char where[64];
-                snprintf(where, sizeof(where), "%s", games[selected_game].address);
-                I_CancelNetGame();
-                join(where);
-            }
+            status[0] = '\0';
+            if (!M_NetJoinListed(selected_game)) { if (status[0]) failure(); break; }
+            open_page(PAGE_CONNECT);
+            set_status("Connecting... Escape cancels");
             break;
         }
         status[0] = '\0';
         open_page(PAGE_BROWSE);
         selected_game = -1;
-        if (!I_OpenNetBrowser(g_game_id)) failure();
+        if (!M_NetBrowse()) failure();
         break;
     case ID_PREVIOUS:
     case ID_CANCEL:
@@ -576,14 +819,13 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
     case ID_START:
         if (page == PAGE_HOST) {
             int count = ui.map_count ? ui.map_count() : 0;
-            if (selected_map < 0 || selected_map >= count) break;
+            if (selected_map < 0 || selected_map >= count || !ui.map_path) break;
             const char *path = ui.map_path(selected_map);
             const char *title = ui.map_title ? ui.map_title(selected_map) : path;
-            snprintf(launch_map, sizeof(launch_map), "%s", path);
             status[0] = '\0';
-            if (!I_HostNetGame(g_game_id, title ? title : path, launch_map, players)) { failure(); break; }
-            waiting = hosting = true;
-            enter_lobby();
+            stock_prepare_seats();
+            if (!M_NetHost(title, path, players)) { failure(); break; }
+            open_page(PAGE_LOBBY);
         } else if (page == PAGE_LOBBY && hosting) {
             if (!I_LaunchNetGame()) set_status("Waiting for every player to join");
         }
@@ -595,7 +837,7 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
         I_QueryNetGames(NULL);
         break;
     case ID_DIRECT:
-        I_CancelNetGame();
+        M_NetStop();
         status[0] = '\0';
         open_page(PAGE_CONNECT);
         break;
@@ -612,25 +854,14 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
     case ID_CHAT:
         send_chat();
         break;
-    case ID_READY: {
-        int me = local_slot();
-        if (me < 0 || me >= MAXPLAYERS) break;
-        ready[me] = !ready[me];
-        picked = true;
-        if (hosting) publish();
-        else choice_dirty = true;
+    case ID_READY:
+        M_NetToggleReady();
         if (page == PAGE_LOBBY) paint_lobby();
         break;
-    }
     default:
         if (item->id >= ID_RACE && item->id < ID_RACE + MAXPLAYERS && race_count() > 0) {
-            int slot = item->id - ID_RACE;
-            if (slot != local_slot() || ready[slot]) break;
-            race[slot] = (race[slot] + 1) % race_count();
-            picked = true;
-            if (hosting) publish();
-            else choice_dirty = true;
-            paint_lobby();
+            M_NetCycleRace(item->id - ID_RACE);
+            if (page == PAGE_LOBBY) paint_lobby();
         }
         break;
     }
@@ -638,26 +869,24 @@ static void routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
 
 static void ticker(menu_t *menu) {
     M_MenuTicker(menu);
-    if (neterror[0] && (waiting || page == PAGE_BROWSE)) { failure(); return; }
+    if (neterror[0] && (browsing || page == PAGE_BROWSE)) { failure(); return; }
     if (waiting) {
-        int result = I_PollNetGame(launch_map, sizeof(launch_map));
+        int result = M_NetPoll();
         if (result < 0) { failure(); return; }
-        if (result > 0) { begin_level(); return; }
-        if (page == PAGE_CONNECT && I_NetLobby()) {
-            enter_lobby();
-        } else if (page == PAGE_LOBBY) {
-            sync_lobby();
+        if (result > 0) { M_ClearMenus(); return; }
+        if (page == PAGE_CONNECT && M_NetInLobby()) open_page(PAGE_LOBBY);
+        else if (page == PAGE_LOBBY) {
+            paint_lobby();
             if (hosting) {
-                bool full = I_NetPlayerCount() == doomcom->numplayers;
+                bool full = doomcom && I_NetPlayerCount() == doomcom->numplayers;
                 bool armed = full;
                 if (race_count() > 0)
-                    for (int i = 0; armed && i < doomcom->numplayers; ++i) armed = ready[i];
+                    for (int i = 0; armed && i < doomcom->numplayers; ++i) armed = seat[i].ready;
                 if (!full) set_status("Waiting for players: %d/%d", I_NetPlayerCount(), doomcom->numplayers);
                 else if (race_count() > 0 && !armed)
                     set_status("All %d players joined.\nThe game starts when everyone has.", doomcom->numplayers);
                 else if (race_count() > 0) set_status("Starting the game.");
                 else set_status("All %d players joined.\nStart the game when ready.", doomcom->numplayers);
-                if (race_count() > 0 && armed) I_LaunchNetGame();
                 if (start_item >= 0) items[start_item].enabled = armed;
             } else {
                 set_status(race_count() > 0 ? "Choose your race, then start.\nThe game starts when everyone has." :
@@ -684,19 +913,20 @@ static void ticker(menu_t *menu) {
 
 void M_NetOpen(app_t *app, const netui_t *style) {
     ui = *style;
+    int races = style->race_name && style->race_count >= 2 && style->race_count <= 8 ? style->race_count : 0;
+    netplay_t net = {.max_players = style->max_players, .race_count = races,
+                     .joiner_fields = races ? NET_FIELD_RACE : 0, .commit = style->commit};
+    M_NetUse(&net);
     net_app = app;
     net_menu.ticker = ticker;
-    status[0] = '\0';
     selected_map = ui.map_count && ui.map_count() > 0 ? 0 : -1;
     selected_game = -1;
-    waiting = hosting = false;
-    launch_races = false;
     if (players > max_players()) players = max_players();
     take_map_players();
     if (ui.first == 1) open_page(PAGE_HOST);
     else if (ui.first == 2) {
         open_page(PAGE_BROWSE);
-        if (!I_OpenNetBrowser(g_game_id)) failure();
+        if (!M_NetBrowse()) failure();
     } else open_page(PAGE_MAIN);
 }
 
