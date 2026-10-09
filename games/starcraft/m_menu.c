@@ -28,7 +28,7 @@ typedef struct {
     artwork_t art[SC_DIALOG_CONTROLS];
     spritesheet_t background;
 } screen_t;
-static screen_t registry, new_id, campaign, briefing;
+static screen_t registry, new_id, campaign, briefing, conn, join, create, gamename, chat;
 static char player_name[32]="Player", campaign_map[256];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
@@ -39,6 +39,7 @@ static mobj_t *selection_units[SC_SELECTION_SLOTS];
 static char start_tip[512];
 static int catalog_index, build_page, resource_start;
 static bool draw_pause(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect);
+static void multi(menu_t *menu,menuitem_t *item,menuaction_t action);
 static void native_path(char *out,size_t size,const char *root,const char *name) {
     sc_asset_path(out,size,root,name);
 }
@@ -229,7 +230,7 @@ static bool draw_pause(const menu_t *menu,const menuitem_t *item,menustate_t sta
     (void)menu;return false;
 }
 
-static bool load_screen(screen_t *screen,app_t *app,const char *root,const char *dialog,const char *palette) {
+static bool load_screen(screen_t *screen,app_t *app,const char *root,const char *dialog,const char *palette,menuroutine_t routine) {
     char path[2048];native_path(path,sizeof(path),root,palette);
     if(!W_LoadIndexedSheet(path,&screen->background))return false;
     sc_dialog_t d;if(!sc_dialog(root,dialog,&d))return false;
@@ -237,7 +238,7 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
         .stretch=true,.modal=true,.background=&screen->background,.palette=screen->background.palette,.drawitem=draw_front};
     for(int i=0;i<d.count;i++) {
         sc_control_t *c=&d.controls[i];artwork_t *a=&screen->art[i];a->native=*c;
-        menuitem_t *item=&screen->items[i];*item=control(c,fonts);item->userdata=a;item->routine=frontend;
+        menuitem_t *item=&screen->items[i];*item=control(c,fonts);item->userdata=a;item->routine=routine;
         if(c->type==5&&c->text[0]) {
             native_path(path,sizeof(path),root,c->text);
             if(!W_LoadIndexedSheet(path,&a->image))return false;
@@ -255,10 +256,22 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
 /* Extracted CHK files under the data root. Campaign folders are single
  * player. scenario.chk takes the map folder's name (the folder above
  * staredit/); any other .chk uses its own name. */
-enum { SC_NET_MAPS = 64 };
-typedef struct { char path[512], title[128]; int players; } sc_netmap_t;
+enum { SC_NET_MAPS = 64, SC_LISTED_GAMES = 32 };
+typedef struct {
+    char path[512], title[128], description[512];
+    int players, width, height, tileset;
+    uint8_t race[8];
+} sc_netmap_t;
 static sc_netmap_t net_maps[SC_NET_MAPS];
-static int net_map_count;
+static int net_map_count, chosen_map = -1, listed_count;
+static char session_title[32], session_path[512], status_note[256];
+static char chat_log[NETCHAT_LENGTH * 33 + 8];
+static netgame_t listed[SC_LISTED_GAMES];
+/* gluall.tbl 101. The connection row is the retail LAN entry; the session is TCP. */
+static const char lan_prose[] =
+    "Local-area networks are commonly used to connect office computers together, but home "
+    "networks can also be constructed relatively inexpensively. Players connected to a "
+    "local-area network can play against any other players connected to the same network.";
 
 static int prefixed_players(const char *name) {
     if (name && name[0] == '(' && name[1] >= '2' && name[1] <= '8' && name[2] == ')') return name[1] - '0';
@@ -273,26 +286,98 @@ static bool chk_name(const char *name) {
     return !strcmp(ext, "chk");
 }
 
-static int chk_players(const char *path, const char *file, const char *folder) {
-    int counted = 0;
+/* SIDE 0 is Zerg, 2 is Protoss. User-select, random and anything else stay Terran. */
+static int lobby_race(unsigned side) {
+    if (side == 0) return 1;
+    if (side == 2) return 2;
+    return 0;
+}
+
+static const char *era_name(int era) {
+    static const char *const names[] = {
+        "Badlands", "Space", "Installation", "Ashworld", "Jungle", "Desert", "Ice", "Twilight"
+    };
+    return era >= 0 && era < 8 ? names[era] : "";
+}
+
+static const char *race_name(int race) {
+    return race == 1 ? "Zerg" : race == 2 ? "Protoss" : "Terran";
+}
+
+/* STR offsets are from the start of the chunk, same as the mission tip reader. */
+static void copy_chk_string(const uint8_t *strings, size_t chunk, unsigned id, char *out, size_t size) {
+    if (!out || !size) return;
+    out[0] = '\0';
+    if (!strings || chunk < 2 || !id) return;
+    unsigned count = read_u16_le(strings);
+    if (count > (chunk - 2) / 2 || id > count) return;
+    size_t table = 2u + (size_t)count * 2u;
+    size_t offset = read_u16_le(strings + (size_t)id * 2u);
+    if (offset < table || offset >= chunk) return;
+    size_t n = 0;
+    for (size_t i = offset; i < chunk && strings[i] && n + 1 < size; ++i) {
+        unsigned char ch = strings[i];
+        if (ch == '\r') continue;
+        if (ch == '\n' || ch >= 32) out[n++] = (char)ch;
+    }
+    out[n] = '\0';
+}
+
+static void map_title(const char *rel, const char *file, char *out, size_t size);
+
+/* One pass for the create screen. Playable OWNR slots, in order, become seats. */
+static bool fill_map(const char *path, const char *file, const char *rel, sc_netmap_t *map) {
+    memset(map, 0, sizeof(*map));
+    map->tileset = -1;
+    char folder[128];
+    map_title(rel, file, folder, sizeof(folder));
+    snprintf(map->title, sizeof(map->title), "%s", folder);
     blob_t blob = {0};
+    const uint8_t *ownr = NULL, *side = NULL, *dim = NULL, *era = NULL, *sprp = NULL, *str = NULL;
+    size_t ownr_n = 0, side_n = 0, dim_n = 0, era_n = 0, sprp_n = 0, str_n = 0;
     if (W_ReadFile(path, &blob)) {
         for (size_t at = 0; at + 8 <= blob.size;) {
             size_t n = read_u32_le(blob.bytes + at + 4);
             if (n > blob.size - at - 8) break;
-            if (!memcmp(blob.bytes + at, "OWNR", 4) && n >= 8) {
-                for (int i = 0; i < 8; ++i)
-                    counted += blob.bytes[at + 8 + i] == 5 || blob.bytes[at + 8 + i] == 6;
-                break;
-            }
+            const uint8_t *tag = blob.bytes + at, *data = tag + 8;
+            if (!ownr && !memcmp(tag, "OWNR", 4)) { ownr = data; ownr_n = n; }
+            else if (!side && !memcmp(tag, "SIDE", 4)) { side = data; side_n = n; }
+            else if (!dim && !memcmp(tag, "DIM ", 4)) { dim = data; dim_n = n; }
+            else if (!era && !memcmp(tag, "ERA ", 4)) { era = data; era_n = n; }
+            else if (!sprp && !memcmp(tag, "SPRP", 4)) { sprp = data; sprp_n = n; }
+            else if (!str && !memcmp(tag, "STR ", 4)) { str = data; str_n = n; }
             at += 8 + n;
+        }
+        if (ownr && ownr_n >= 8) {
+            int slot[8], counted = 0;
+            for (int i = 0; i < 8; ++i)
+                if (ownr[i] == 5 || ownr[i] == 6) slot[counted++] = i;
+            if (counted >= 2) {
+                map->players = counted > 8 ? 8 : counted;
+                for (int i = 0; i < map->players; ++i) {
+                    int seat = slot[i];
+                    map->race[i] = (uint8_t)(side && (size_t)seat < side_n ? lobby_race(side[seat]) : 0);
+                }
+            }
+        }
+        if (dim && dim_n >= 4) {
+            map->width = read_u16_le(dim);
+            map->height = read_u16_le(dim + 2);
+        }
+        if (era && era_n >= 2) map->tileset = read_u16_le(era) & 7;
+        if (sprp && sprp_n >= 4 && str) {
+            char title[128];
+            copy_chk_string(str, str_n, read_u16_le(sprp), title, sizeof(title));
+            if (title[0]) snprintf(map->title, sizeof(map->title), "%s", title);
+            copy_chk_string(str, str_n, read_u16_le(sprp + 2), map->description, sizeof(map->description));
         }
         W_FreeFile(&blob);
     }
-    if (counted >= 2) return counted > 8 ? 8 : counted;
-    int prefixed = prefixed_players(file);
-    if (!prefixed) prefixed = prefixed_players(folder);
-    return prefixed;
+    if (map->players < 2) {
+        map->players = prefixed_players(file);
+        if (map->players < 2) map->players = prefixed_players(folder);
+    }
+    return map->players >= 2;
 }
 
 static void map_title(const char *rel, const char *file, char *out, size_t size) {
@@ -334,11 +419,8 @@ static void scan_tree(const char *root, const char *rel) {
         if (sub) { closedir(sub); scan_tree(root, child); continue; }
         if (net_map_count >= SC_NET_MAPS || !chk_name(entry->d_name)) continue;
         sc_netmap_t *map = &net_maps[net_map_count];
-        map_title(child, entry->d_name, map->title, sizeof(map->title));
-        int players = chk_players(full, entry->d_name, map->title);
-        if (players < 2) continue;
+        if (!fill_map(full, entry->d_name, child, map)) continue;
         snprintf(map->path, sizeof(map->path), "%s", child);
-        map->players = players;
         ++net_map_count;
     }
     closedir(listing);
@@ -354,39 +436,472 @@ static void scan_net_maps(const char *root) {
     if (net_map_count) qsort(net_maps, (size_t)net_map_count, sizeof(net_maps[0]), compare_net_maps);
 }
 
-static int net_count(void) { return net_map_count; }
-static const char *net_path(int index) {
-    return index >= 0 && index < net_map_count ? net_maps[index].path : "";
-}
-static const char *net_title(int index) {
-    return index >= 0 && index < net_map_count ? net_maps[index].title : "";
-}
-static int net_players(int index) {
-    return index >= 0 && index < net_map_count ? net_maps[index].players : 0;
-}
-static const char *net_race(int index) {
-    return index == 1 ? "Zerg" : index == 2 ? "Protoss" : "Terran";
-}
 static void net_commit(void) {
     int races[MAXPLAYERS];
     for (int i = 0; i < MAXPLAYERS; ++i) races[i] = M_NetPlayerRace(i);
     sc_set_net_races(races);
 }
-static void net_back(app_t *app) {
-    front.app = app;
-    M_SetupNextMenu(&front);
+
+static const char *chat_name(void) { return player_name[0] ? player_name : "Player"; }
+
+static void use_net(void) {
+    netplay_t net = {
+        .max_players = 8, .race_count = 3, .joiner_fields = NET_FIELD_RACE,
+        .commit = net_commit, .chat_name = chat_name,
+    };
+    M_NetUse(&net);
 }
+
+static void set_text(menuitem_t *item, const char *text) {
+    if (!item) return;
+    item->prose = NULL;
+    snprintf(item->text, sizeof(item->text), "%s", text ? text : "");
+}
+
+static void set_prose(menuitem_t *item, const char *text) {
+    if (!item) return;
+    item->text[0] = '\0';
+    item->prose = text ? text : "";
+}
+
+static int row_px(const menuitem_t *item) {
+    return (item && item->font && item->font->line_h > 0 ? item->font->line_h : 10) + 2;
+}
+
+static void as_list(menuitem_t *item, int rows, int value, const char *(*row)(const menuitem_t *, int)) {
+    if (!item) return;
+    item->kind = MI_LIST;
+    item->rows = rows;
+    item->value = value;
+    item->first_row = 0;
+    item->row = row;
+    item->row_height = row_px(item);
+    item->inset = (ivec2_t){2, 0};
+    item->align = 0;
+    item->color = 0xff203040u;
+    item->enabled = item->visible = true;
+}
+
+static void as_drop(menuitem_t *item, const char *(*row)(const menuitem_t *, int)) {
+    if (!item) return;
+    item->kind = MI_DROPDOWN;
+    item->rows = 1;
+    item->value = 0;
+    item->row = row;
+    item->row_height = row_px(item);
+    item->color = 0xff203040u;
+    item->enabled = item->visible = true;
+    snprintf(item->text, sizeof(item->text), "%s", row(item, 0));
+}
+
+static const char *conn_row(const menuitem_t *item, int row) {
+    (void)item; (void)row; return "IPX network";
+}
+static const char *map_row(const menuitem_t *item, int row) {
+    (void)item; return row >= 0 && row < net_map_count ? net_maps[row].title : "";
+}
+static const char *game_row(const menuitem_t *item, int row) {
+    (void)item; return row >= 0 && row < listed_count ? listed[row].name : "";
+}
+static const char *melee_row(const menuitem_t *item, int row) {
+    (void)item; (void)row; return "Melee";
+}
+
+static int map_index(const char *path) {
+    if (!path) return -1;
+    for (int i = 0; i < net_map_count; ++i)
+        if (!strcmp(net_maps[i].path, path)) return i;
+    return -1;
+}
+
+static const char *path_title(const char *path) {
+    static char titled[128];
+    titled[0] = '\0';
+    if (!path || !path[0]) return titled;
+    const char *slash = strrchr(path, '/');
+    map_title(path, slash ? slash + 1 : path, titled, sizeof(titled));
+    return titled;
+}
+
+static void show_screen(screen_t *screen);
+static void show_conn(void);
+static void show_join(void);
+static void open_create(void);
+static void open_name(void);
+static void host_game(void);
+static void paint_create(void);
+static void paint_listed(void);
+static void multi_escape(menu_t *menu);
+static void multi_tick(menu_t *menu);
+
+static void size_text(menuitem_t *item, int width, int height) {
+    if (width > 0 && height > 0) set_text(item, M_va("%ux%u", (unsigned)width, (unsigned)height));
+    else set_text(item, "");
+}
+
+static void paint_listed(void) {
+    menuitem_t *list = M_MenuFind(&join.menu, 5);
+    int row = list ? list->value : -1;
+    if (row < 0 || row >= listed_count) {
+        set_text(M_MenuFind(&join.menu, 7), "");
+        set_text(M_MenuFind(&join.menu, 8), "");
+        set_text(M_MenuFind(&join.menu, 9), "");
+        set_text(M_MenuFind(&join.menu, 10), "");
+        set_text(M_MenuFind(&join.menu, 11), "");
+        set_text(M_MenuFind(&join.menu, 12), "");
+        return;
+    }
+    const netgame_t *game = &listed[row];
+    int index = map_index(game->map);
+    set_text(M_MenuFind(&join.menu, 7), game->name);
+    set_text(M_MenuFind(&join.menu, 8), "Melee");
+    set_text(M_MenuFind(&join.menu, 9), "");
+    if (index >= 0) {
+        set_text(M_MenuFind(&join.menu, 10), net_maps[index].title);
+        size_text(M_MenuFind(&join.menu, 11), net_maps[index].width, net_maps[index].height);
+    } else {
+        set_text(M_MenuFind(&join.menu, 10), path_title(game->map));
+        set_text(M_MenuFind(&join.menu, 11), "");
+    }
+    set_text(M_MenuFind(&join.menu, 12), "Normal");
+}
+
+static void paint_create(void) {
+    menuitem_t *list = M_MenuFind(&create.menu, 5);
+    int row = list ? list->value : -1;
+    chosen_map = row >= 0 && row < net_map_count ? row : -1;
+    menuitem_t *ok = M_MenuFind(&create.menu, 12);
+    if (ok) ok->enabled = chosen_map >= 0;
+    if (chosen_map < 0) {
+        set_text(M_MenuFind(&create.menu, 6), "");
+        set_text(M_MenuFind(&create.menu, 7), "");
+        set_prose(M_MenuFind(&create.menu, 8), status_note[0] ? status_note : "");
+        set_text(M_MenuFind(&create.menu, 10), "");
+        set_text(M_MenuFind(&create.menu, 11), "");
+        set_text(M_MenuFind(&create.menu, 9), "");
+        return;
+    }
+    const sc_netmap_t *map = &net_maps[chosen_map];
+    set_text(M_MenuFind(&create.menu, 6), map->title);
+    set_text(M_MenuFind(&create.menu, 7), map->title);
+    set_prose(M_MenuFind(&create.menu, 8), status_note[0] ? status_note : map->description);
+    size_text(M_MenuFind(&create.menu, 10), map->width, map->height);
+    set_text(M_MenuFind(&create.menu, 11), era_name(map->tileset));
+    set_text(M_MenuFind(&create.menu, 9), M_va("Number of Players: %u", (unsigned)map->players));
+}
+
+static void scroll_log(menuitem_t *item) {
+    if (!item || !item->font || item->font->line_h < 1) return;
+    int height = V_TextWrappedHeight(item->rect.w, item->font, item->prose ? item->prose : "");
+    int lines = (height + item->font->line_h - 1) / item->font->line_h;
+    int visible = item->rect.h / item->font->line_h;
+    item->first_row = lines > visible ? lines - visible : 0;
+}
+
+static void join_refresh(menu_t *menu) {
+    (void)menu;
+    if (I_NetJoining()) return;
+    int count = 0;
+    const netgame_t *games = I_NetGames(&count);
+    if (count > SC_LISTED_GAMES) count = SC_LISTED_GAMES;
+    listed_count = count;
+    if (listed_count > 0 && games) memcpy(listed, games, (size_t)listed_count * sizeof(listed[0]));
+    menuitem_t *list = M_MenuFind(&join.menu, 5);
+    if (!list) return;
+    int keep = list->value;
+    if (keep < 0 || keep >= listed_count) keep = -1;
+    M_MenuSetRows(list, listed_count);
+    list->value = keep;
+    menuitem_t *ok = M_MenuFind(&join.menu, 13);
+    if (ok) ok->enabled = keep >= 0;
+    set_text(M_MenuFind(&join.menu, 6), status_note);
+    paint_listed();
+}
+
+static void chat_refresh(menu_t *menu) {
+    (void)menu;
+    const char *live = I_NetMap();
+    if (live && live[0] && strcmp(live, session_path)) {
+        snprintf(session_path, sizeof(session_path), "%s", live);
+        chosen_map = map_index(session_path);
+    }
+    const sc_netmap_t *map = chosen_map >= 0 && chosen_map < net_map_count ? &net_maps[chosen_map] : NULL;
+    set_text(M_MenuFind(&chat.menu, 14), session_title);
+    set_text(M_MenuFind(&chat.menu, 15), "Melee");
+    set_text(M_MenuFind(&chat.menu, 16), "");
+    set_text(M_MenuFind(&chat.menu, 17), map ? map->title : path_title(session_path));
+    if (map) size_text(M_MenuFind(&chat.menu, 18), map->width, map->height);
+    else set_text(M_MenuFind(&chat.menu, 18), "");
+    set_text(M_MenuFind(&chat.menu, 19), "Normal");
+    snprintf(chat_log, sizeof(chat_log), "%s", M_NetLog());
+    menuitem_t *log = M_MenuFind(&chat.menu, 10);
+    if (log) { log->prose = chat_log; log->text[0] = '\0'; scroll_log(log); }
+    int cap = doomcom && doomcom->numplayers > 0 ? doomcom->numplayers : 0;
+    if (cap > 8) cap = 8;
+    int joined = I_NetPlayerCount(), local = M_NetLocalSlot();
+    for (int i = 0; i < 8; ++i) {
+        menuitem_t *name = M_MenuFind(&chat.menu, 28 + i * 4);
+        menuitem_t *race = M_MenuFind(&chat.menu, 29 + i * 4);
+        bool on = i < cap;
+        if (name) name->visible = on;
+        if (race) race->visible = on;
+        if (!on) continue;
+        const netseat_t *seat = M_NetSeat(i);
+        bool filled = i < joined;
+        if (name) {
+            if (!filled) set_text(name, "Open");
+            else if (i == local) set_text(name, chat_name());
+            else set_text(name, M_va("Player %d", i + 1));
+            name->look[MS_NORMAL].palette = seat && seat->ready ? 1 : 0;
+        }
+        if (race) {
+            set_text(race, race_name(seat ? seat->race : 0));
+            race->enabled = filled && i == local && !(seat && seat->ready);
+            race->hotkey = 0;
+        }
+    }
+}
+
+static void show_screen(screen_t *screen) {
+    screen->menu.escape = multi_escape;
+    screen->menu.ticker = screen == &join || screen == &chat ? multi_tick : NULL;
+    screen->menu.refresh = screen == &join ? join_refresh : screen == &chat ? chat_refresh : NULL;
+    screen->menu.app = front.app;
+    M_SetupNextMenu(&screen->menu);
+}
+
+static void show_conn(void) {
+    set_text(M_MenuFind(&conn.menu, 6), "IPX network");
+    set_text(M_MenuFind(&conn.menu, 7), "Supports up to 8 players");
+    set_prose(M_MenuFind(&conn.menu, 8), lan_prose);
+    show_screen(&conn);
+}
+
+static void show_join(void) {
+    if (!M_NetBrowse()) snprintf(status_note, sizeof(status_note), "%s", M_NetNotice());
+    else status_note[0] = '\0';
+    set_text(M_MenuFind(&join.menu, 6), status_note);
+    show_screen(&join);
+}
+
+static void fail_join(void) {
+    char note[256];
+    snprintf(note, sizeof(note), "%s", M_NetNotice());
+    show_join();
+    if (!note[0]) return;
+    snprintf(status_note, sizeof(status_note), "%s", note);
+    set_text(M_MenuFind(&join.menu, 6), status_note);
+}
+
+static void open_create(void) {
+    scan_net_maps(asset_root);
+    status_note[0] = '\0';
+    chosen_map = net_map_count ? 0 : -1;
+    menuitem_t *list = M_MenuFind(&create.menu, 5);
+    if (list) {
+        list->value = chosen_map;
+        list->first_row = 0;
+        M_MenuSetRows(list, net_map_count);
+    }
+    paint_create();
+    show_screen(&create);
+}
+
+static void open_name(void) {
+    menuitem_t *list = M_MenuFind(&create.menu, 5);
+    if (list && list->value >= 0 && list->value < net_map_count) chosen_map = list->value;
+    if (chosen_map < 0 || chosen_map >= net_map_count) return;
+    set_text(M_MenuFind(&gamename.menu, 2), "Please enter a game name to continue.");
+    menuitem_t *field = M_MenuFind(&gamename.menu, 4);
+    if (!field) return;
+    snprintf(field->text, sizeof(field->text), "%.31s", net_maps[chosen_map].title);
+    gamename.menu.itemOn = (int)(field - gamename.items);
+    show_screen(&gamename);
+}
+
+static void host_game(void) {
+    menuitem_t *field = M_MenuFind(&gamename.menu, 4);
+    if (!field || !field->text[0] || chosen_map < 0 || chosen_map >= net_map_count) return;
+    const sc_netmap_t *map = &net_maps[chosen_map];
+    int players = map->players;
+    if (players < 2) players = 2;
+    if (players > 8) players = 8;
+    snprintf(session_title, sizeof(session_title), "%.31s", field->text);
+    snprintf(session_path, sizeof(session_path), "%s", map->path);
+    for (int i = 0; i < MAXPLAYERS; ++i) {
+        netseat_t seat = {
+            .race = (uint8_t)(i < map->players ? map->race[i] : 0),
+            .type = 1, .color = (uint8_t)i, .team = (uint8_t)i,
+        };
+        M_NetSetSeat(i, &seat);
+    }
+    if (!M_NetHost(session_title, session_path, players)) {
+        snprintf(status_note, sizeof(status_note), "%s", M_NetNotice());
+        paint_create();
+        show_screen(&create);
+        return;
+    }
+    status_note[0] = '\0';
+    show_screen(&chat);
+    field = M_MenuFind(&chat.menu, 9);
+    if (field) chat.menu.itemOn = (int)(field - chat.items);
+}
+
+static void multi_escape(menu_t *menu) {
+    if (menu == &conn.menu) {
+        M_NetStop();
+        M_SetupNextMenu(&front);
+    } else if (menu == &join.menu) {
+        M_NetStop();
+        show_conn();
+    } else if (menu == &create.menu) show_join();
+    else if (menu == &gamename.menu) show_screen(&create);
+    else if (menu == &chat.menu) {
+        M_NetStop();
+        status_note[0] = '\0';
+        show_join();
+    }
+}
+
+static void multi_tick(menu_t *menu) {
+    M_MenuTicker(menu);
+    if (menu == &join.menu) {
+        if (!I_NetJoining()) return;
+        int result = M_NetPoll();
+        if (result < 0) fail_join();
+        else if (result > 0) M_ClearMenus();
+        else if (M_NetInLobby()) {
+            status_note[0] = '\0';
+            show_screen(&chat);
+            menuitem_t *field = M_MenuFind(&chat.menu, 9);
+            if (field) chat.menu.itemOn = (int)(field - chat.items);
+        }
+    } else if (menu == &chat.menu) {
+        int result = M_NetPoll();
+        if (result < 0) {
+            status_note[0] = '\0';
+            show_join();
+        } else if (result > 0) M_ClearMenus();
+    }
+}
+
+static void join_game(void) {
+    menuitem_t *list = M_MenuFind(&join.menu, 5);
+    int row = list ? list->value : -1;
+    if (row < 0 || row >= listed_count || !listed[row].address[0]) return;
+    snprintf(session_title, sizeof(session_title), "%.31s", listed[row].name);
+    snprintf(session_path, sizeof(session_path), "%s", listed[row].map);
+    chosen_map = map_index(session_path);
+    if (!M_NetJoinAddress(listed[row].address)) {
+        snprintf(status_note, sizeof(status_note), "%s", M_NetNotice());
+        set_text(M_MenuFind(&join.menu, 6), status_note);
+        return;
+    }
+    status_note[0] = '\0';
+    set_text(M_MenuFind(&join.menu, 6), "");
+}
+
+static void send_chat(void) {
+    menuitem_t *field = M_MenuFind(&chat.menu, 9);
+    if (!field || !field->text[0]) return;
+    if (M_NetChat(field->text)) field->text[0] = '\0';
+}
+
+static void multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (menu == &join.menu && item->id == 5 && action == MA_CHANGE) {
+        status_note[0] = '\0';
+        menuitem_t *ok = M_MenuFind(&join.menu, 13);
+        if (ok) ok->enabled = item->value >= 0;
+        paint_listed();
+        return;
+    }
+    if (menu == &create.menu && item->id == 5 && action == MA_CHANGE) {
+        status_note[0] = '\0';
+        paint_create();
+        return;
+    }
+    if (action != MA_ACTIVATE) return;
+    if (menu == &conn.menu) {
+        if (item->id == 9) show_join();
+        else if (item->id == 10) multi_escape(menu);
+    } else if (menu == &join.menu) {
+        if (item->id == 13 || item->id == 5) join_game();
+        else if (item->id == 15) open_create();
+        else if (item->id == 14) multi_escape(menu);
+    } else if (menu == &create.menu) {
+        if (item->id == 12 || item->id == 5) open_name();
+        else if (item->id == 13) multi_escape(menu);
+    } else if (menu == &gamename.menu) {
+        if (item->id == 1 || item->id == 4) host_game();
+        else if (item->id == 3) show_screen(&create);
+    } else if (menu == &chat.menu) {
+        if (item->id == 6) M_NetToggleReady();
+        else if (item->id == 8 || item->id == 9) send_chat();
+        else if (item->id == 7) multi_escape(menu);
+        else if (item->id >= 29 && item->id <= 57 && (item->id - 29) % 4 == 0) {
+            int slot = (item->id - 29) / 4;
+            if (slot == M_NetLocalSlot()) M_NetCycleRace(slot);
+        }
+    }
+}
+
 static void open_multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)item;
     if (action != MA_ACTIVATE) return;
+    M_NetStop();
+    use_net();
+    if (menu && menu->app) front.app = menu->app;
     scan_net_maps(asset_root);
-    netui_t ui = {
-        .background = &background, .palette = background.source_palette, .font = &fonts[1],
-        .back = net_back, .map_count = net_count, .map_path = net_path, .map_title = net_title,
-        .map_players = net_players, .max_players = 8, .race_count = 3, .race_name = net_race,
-        .commit = net_commit,
-    };
-    M_NetOpen(menu->app, &ui);
+    show_conn();
+}
+
+/* Melee only: the subtype, slider and slot picture stay at their native hidden state or are hidden here. */
+static bool wire_multi(void) {
+    menuitem_t *list = M_MenuFind(&conn.menu, 5);
+    if (!list || !M_MenuFind(&conn.menu, 9) || !M_MenuFind(&join.menu, 5) ||
+        !M_MenuFind(&create.menu, 5) || !M_MenuFind(&create.menu, 17) ||
+        !M_MenuFind(&gamename.menu, 4) || !M_MenuFind(&chat.menu, 9) || !M_MenuFind(&chat.menu, 10))
+        return false;
+    as_list(list, 1, 0, conn_row);
+    as_list(M_MenuFind(&join.menu, 5), 0, -1, game_row);
+    menuitem_t *ok = M_MenuFind(&join.menu, 13);
+    if (ok) { ok->enabled = false; ok->disabled_look = true; }
+    as_list(M_MenuFind(&create.menu, 5), 0, -1, map_row);
+    ok = M_MenuFind(&create.menu, 12);
+    if (ok) { ok->enabled = false; ok->disabled_look = true; }
+    for (int i = 0; i < create.menu.numitems; ++i) {
+        menuitem_t *entry = &create.items[i];
+        if (entry->id == 14 || entry->id == 15 || entry->id == 16 || entry->id == 18 ||
+            !strcmp(entry->text, "-") || !strcmp(entry->text, "+"))
+            entry->visible = false;
+    }
+    as_drop(M_MenuFind(&create.menu, 17), melee_row);
+    for (int i = 0; i < gamename.menu.numitems; ++i) {
+        gamename.items[i].rect.x += (640 - 360) / 2;
+        gamename.items[i].rect.y += (480 - 200) / 2;
+    }
+    menuitem_t *field = M_MenuFind(&gamename.menu, 4);
+    field->kind = MI_TEXTFIELD;
+    field->maxchars = 31;
+    field->enabled = field->visible = true;
+    field = M_MenuFind(&chat.menu, 9);
+    field->kind = MI_TEXTFIELD;
+    field->maxchars = 60;
+    field->enabled = field->visible = true;
+    menuitem_t *log = M_MenuFind(&chat.menu, 10);
+    log->kind = MI_STATIC;
+    log->visible = true;
+    log->prose = chat_log;
+    for (int i = 0; i < 8; ++i) {
+        menuitem_t *race = M_MenuFind(&chat.menu, 29 + i * 4);
+        if (!race) return false;
+        race->kind = MI_BUTTON;
+        race->hotkey = 0;
+        race->release = true;
+        race->visible = false;
+        race->enabled = false;
+    }
+    return true;
 }
 
 bool G_InitMenus(app_t *app,const char *root) {
@@ -417,10 +932,16 @@ bool G_InitMenus(app_t *app,const char *root) {
             if(!sc_movie(path,&v->sheet,&v->ms,&v->palettes))return false;
         }
     }
-    if(!load_screen(&registry,app,root,"rez/glulogin.bin","glue/palnl/backgnd.pcx")||
-       !load_screen(&new_id,app,root,"rez/glunewch.bin","glue/palnl/backgnd.pcx")||
-       !load_screen(&campaign,app,root,"rez/glucmpgn.bin","glue/palcs/backgnd.pcx")||
-       !load_screen(&briefing,app,root,"rez/glurdyt.bin","glue/palrt/backgnd.pcx"))return false;
+    if(!load_screen(&registry,app,root,"rez/glulogin.bin","glue/palnl/backgnd.pcx",frontend)||
+       !load_screen(&new_id,app,root,"rez/glunewch.bin","glue/palnl/backgnd.pcx",frontend)||
+       !load_screen(&campaign,app,root,"rez/glucmpgn.bin","glue/palcs/backgnd.pcx",frontend)||
+       !load_screen(&briefing,app,root,"rez/glurdyt.bin","glue/palrt/backgnd.pcx",frontend)||
+       !load_screen(&conn,app,root,"rez/gluconn.bin","glue/palnl/backgnd.pcx",multi)||
+       !load_screen(&join,app,root,"rez/glujoin.bin","glue/palnl/backgnd.pcx",multi)||
+       !load_screen(&create,app,root,"rez/glucreat.bin","glue/palnl/backgnd.pcx",multi)||
+       !load_screen(&gamename,app,root,"rez/glupedit.bin","glue/palnl/backgnd.pcx",multi)||
+       !load_screen(&chat,app,root,"rez/gluchat.bin","glue/palnl/backgnd.pcx",multi)||
+       !wire_multi())return false;
     menuitem_t *list=M_MenuFind(&registry.menu,8);
     list->kind=MI_LIST;list->rows=1;list->row_height=20;list->row=registry_row;list->value=0;list->enabled=true;
     M_MenuFind(&registry.menu,7)->enabled=false;
@@ -450,7 +971,7 @@ menu_t *G_ControlPanel(app_t *app,bool inlevel) {
 }
 void G_ShutdownMenus(void) {
     M_NetStop();
-    screen_t *screens[]={&registry,&new_id,&campaign,&briefing};
+    screen_t *screens[]={&registry,&new_id,&campaign,&briefing,&conn,&join,&create,&gamename,&chat};
     for(unsigned s=0;s<sizeof(screens)/sizeof(*screens);s++) {
         screen_t *screen=screens[s];R_FreeSprite(&screen->background);
         for(int i=0;i<SC_DIALOG_CONTROLS;i++) {
@@ -587,7 +1108,7 @@ static void refresh(menu_t *menu) {
             int index=slot++;
             if((build_page==1&&index>=8)||(build_page==2&&index<8))continue;
             int pos=build_page==1?index:index-8;
-            button(pos,p->icon_frame,selected->type_id==8&&build_page==1?basic[pos]:SDLK_1+pos,product,p->ui_id,p->label);
+            button(pos,p->icon_frame,selected->type_id==MT_SCV&&build_page==1?basic[pos]:SDLK_1+pos,product,p->ui_id,p->label);
             huditems[command_start+pos].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         } else if(!build_page) {
             button(slot,p->icon_frame,slot==0?SDLK_t:SDLK_1+slot,product,p->ui_id,p->label);

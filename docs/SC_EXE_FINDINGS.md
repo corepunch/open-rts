@@ -618,6 +618,11 @@ load-time mineral set of 40 before any mission tick.
 
 ## Multiplayer lobby (2026-10-08)
 
+Superseded for the screen flow by "Native multiplayer screens (2026-10-09)"
+below. The CHK list, SIDE, OWNR and melee-spawn notes in this section stay
+in force. The paragraph that follows describes the previous front end: id 4
+opened `hud/m_net.c`, and an empty map list said that no maps were found.
+
 No executable was disassembled for this. `glumain.bin` control id 4
 (Multiplayer) opens the engine lobby in `hud/m_net.c`. The game supplies the
 map list, the three race names, and a commit callback that stores the lobby
@@ -668,3 +673,91 @@ opened at runtime. A network seat whose minerals are still 0 after
 the initial Set Resources pass receives 50. Maps that already set minerals
 keep that amount. Group 13 resource actions are not applied by the loader, so
 the 50 is written on the seat directly.
+
+## Native multiplayer screens (2026-10-09)
+
+No executable was disassembled. `glumain.bin` control id 4 (Multiplayer) now
+opens the retail dialog chain instead of `hud/m_net.c`. The session under
+those screens is still the engine TCP lobby: browse, join, host, seats, ready
+and launch. Other games keep `hud/m_net.c`.
+
+**Confirmed from the dialog files.** `native/rez/gluconn.bin` is 640×480 with
+11 controls. List id 5 is the provider list. This build puts one row in it,
+the retail LAN label "IPX network" (`rez/gluall.tbl` index 94). Id 6 is that
+same label, id 7 is "Supports up to 8 players" (index 100 with `%d` = 8), and
+id 8 is the local-area-network paragraph (index 101), not the IPX-install
+paragraph (index 98). Id 9 is Ok and id 10 is Cancel. Modem, direct cable and
+Battle.net are not listed. Calling that row "IPX network" while the socket
+under it is TCP is engine behaviour, the same stand-in Warcraft II uses. It
+is not a traced `STARCRAFT.EXE` choice.
+
+`native/rez/glujoin.bin` (21 controls) is the game list. Id 5 lists advertised
+names only. Id 13 joins the selected game's address and stays on this screen
+until the lobby is up, then opens chat. Id 15 is Create Game. Id 14 is Cancel
+and returns to the connection screen. Id 6 carries a connection error. The
+detail lines are id 7 title, id 8 "Melee", id 10 map, id 11 size (`gluall.tbl`
+index 31, `%ux%u`) and id 12 "Normal" (index 84). There is no address field
+and no "Searching the LAN..." line.
+
+`install/rez/glucreat.bin` (25 controls) is Create Game. Id 5 is the map list.
+Id 17 is a one-row Melee dropdown. `native/templates/templates.lst` names
+`Melee(1).got` among the scenario templates. Subtype id 14, the empty id 15,
+slider id 16, subtype dropdown id 18, and the "-" / "+" labels are hidden.
+Map Settings, Greed, Slaughter and the other types are not offered. Id 19
+`glue\create\pSlots.pcx` stays not visible; the file is
+`install/glue/create/pslots.pcx`. Id 12 Ok is enabled only when a map is
+selected and opens `native/rez/glupedit.bin` (360×200, centred on 640×480).
+That dialog's id 2 asks "Please enter a game name to continue." (`gluall.tbl`
+index 140). Id 4 is the name, at most 31 characters because the session name
+is 32 bytes, prefilled with the map title. An empty name does not host. Id 3
+returns to create without hosting. The game-name default is the map title,
+not a traced "Player's game".
+
+The create screen reads one CHK pass for the selected map: DIM width and
+height, ERA masked with 7, SPRP name and description through STR (the same
+offset rule as the mission tip reader), OWNR and SIDE. Tileset labels for
+ERA 0–4 are `gluall.tbl` indices 38–42 (Badlands, Space, Installation,
+Ashworld, Jungle). ERA 5–7 are labelled Desert, Ice and Twilight; those three
+names are not in that table. Playable OWNR bytes (5 computer or 6 human) in
+the first eight of the first OWNR chunk, in slot order, supply the seat
+races. SIDE 0 becomes lobby Zerg (1), SIDE 2 becomes Protoss (2), and every
+other byte, including user-select 5 and random 6, becomes Terran (0). The
+hosted player count is that playable count clamped to 2..8. There is no
+close-slot call, so the count cannot be reduced after the game is published.
+With no extracted multiplayer CHK, Ok stays disabled and the description line
+stays empty. `.scm` archives are still not opened.
+
+`native/rez/gluchat.bin` has 79 controls, which is why the dialog adapter now
+keeps 96 controls rather than 64. Id 6 Ok toggles ready; its text stays "Ok".
+Ready names use font ramp 1 (the button ramp from `glue/palmm/tfont.pcx`).
+Id 9 is the chat field and id 10 is the log. Id 8 is the 1×1 Send button.
+Slots are ids 28+i*4 (name) and 29+i*4 (race) for i in 0..7, shown only for
+seats inside `doomcom->numplayers`. An empty seat says "Open" (`gluall.tbl`
+index 129). The local name is the registry name. A remote joined seat is
+"Player %d". The local race is a button and calls the lobby race cycle;
+other seats are not. Race names are `rez/network.tbl` indices 7, 6 and 8
+(Terran, Zerg, Protoss), which is lobby order 0, 1, 2. Ids 27+i*4 and
+30+i*4, the rows from id 59 up, the password, the observer lines and the
+"Starting in" countdown stay at their native hidden flags. `gluchatpopup.bin`
+is not used.
+
+Backgrounds are `glue/palnl/backgnd.pcx`. The panel PCX files are the type-5
+children of each dialog (`glue/selconn`, `glue/gamesel`, `glue/create`,
+`glue/chatroom`, and `glue/PalNl`).
+
+**Still unknown**, because no function in `STARCRAFT.EXE` was traced: the
+retail control callbacks, whether Ok's label changes when a player is ready,
+the countdown, closed and computer slots, game-type parameters, and the
+subtype control. Random is not a fourth lobby race.
+
+### Reproduce
+
+```
+env SDL_VIDEODRIVER=dummy make test-starcraft
+```
+
+`tests/starcraft/test_native.c` walks Single Player through the briefing,
+then Multiplayer through connection, the game list and create, and back to
+the main menu, without hosting. It requires `gluchat.bin` to decode to 79
+controls. Screenshots of the three lobby screens are written under
+`/private/tmp`.

@@ -3,7 +3,7 @@
 #include "engine.h"
 /* Native indexed GRP decoder; retains every original image and its pivot. */
 bool sc_decode_grp(const blob_t *file, const uint32_t *palette, bool turns, spritesheet_t *out);
-#define SC_DIALOG_CONTROLS 64
+#define SC_DIALOG_CONTROLS 96
 #define SC_CONTROL_MOVIES 4
 typedef struct { char path[128]; ivec2_t offset; unsigned flags; } sc_movie_ref_t;
 typedef struct {
