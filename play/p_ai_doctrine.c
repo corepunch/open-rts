@@ -13,6 +13,7 @@ enum {
     AI_SUPPLY_WAIT_MS = 6000,   /* Debounce while an ordered supply registers. */
     AI_AIR_DEFENSE_PCT = 30,    /* Enemy air share at which defenses turn anti-air. */
 };
+#define AI_SCOUT_REACH 6.0f     /* Cells from a start location at which the scout has seen it. */
 #define AI_ENGAGE_RADIUS 10.0f  /* Cells around a wave that count as its fight. */
 
 /* ── unit knowledge ───────────────────────────────────────────────────── */
@@ -120,6 +121,7 @@ void P_AiScout(AiContext *ctx, AiTeamState *team, int owner, const level_t *map,
         AiUnitInfo info;
         int value = unit_strength(ctx, e, 0, &info);
         if (info.roles & AI_ROLE_CLOAKED) team->enemy_cloak_ms = AI_CLOAK_MEMORY_MS;
+        if (!(e->traits & MF_MOBILE) && !team->found_ms) team->found_ms = ctx->clock_ms;
         if (!(info.roles & AI_ROLE_FIGHTER)) continue;
         if (info.air_strength > info.ground_strength) value = unit_strength(ctx, e, 100, NULL);
         seen += value;
@@ -131,6 +133,60 @@ void P_AiScout(AiContext *ctx, AiTeamState *team, int owner, const level_t *map,
     /* Shares move halfway per sighting so one stray flyer does not flip the mix. */
     team->enemy_air_pct = (team->enemy_air_pct + air * 100 / seen) / 2;
     team->enemy_antiair_pct = (team->enemy_antiair_pct + antiair * 100 / seen) / 2;
+}
+
+/* The scout: the fastest of the idle unarmed flyers (an Overlord) and the
+ * workers not carrying, as a drone outruns an Overlord to a far base. */
+static mobj_t *pick_scout(const AiContext *ctx, int owner, mobj_t *const *units, int unit_count) {
+    mobj_t *best = NULL;
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *u = units[i];
+        if (u->owner != owner || !alive(u) || !(u->traits & MF_MOBILE) || P_AiIsBusy(ctx, u)) continue;
+        bool flyer = (u->traits & MF_FLY) && !(u->traits & MF_ATTACK) && !P_HasMoveOrder(u),
+             worker = (u->traits & MF_HARVESTER) && !u->harvest.cargo && u->harvest.phase != HARVEST_PHASE_TO_BASE;
+        if ((flyer || worker) && (!best || (u->info ? u->info->speed : 0) > (best->info ? best->info->speed : 0))) best = u;
+    }
+    return best;
+}
+
+void P_AiSendScout(AiContext *ctx, AiTeamState *team, int owner, level_t *map,
+                   mobj_t *const *units, int unit_count) {
+    const AiDoctrine *d = &team->plan.doctrine;
+    if (!d->scout || !ctx->game->starts || !team->has_base) return;
+    mobj_t *scout = team->scout ? P_MobjById(team->scout) : NULL;
+    if (scout && (!alive(scout) || scout->owner != owner)) scout = NULL;
+    fvec2_t starts[32];
+    int count = ctx->game->starts(map, starts, 32);
+    for (int i = 0; i < count; ++i) {
+        float home = fvec2_distance_squared(starts[i], team->base_position), near = AI_SCOUT_REACH;
+        bool seen = home < AI_TOWN_RADIUS * AI_TOWN_RADIUS ||
+            (scout && fvec2_distance_squared(starts[i], fixed3_xy_to_fvec2(scout->core.position)) < near * near);
+        if (seen) team->starts_seen |= 1u << i;
+    }
+    /* Pick the nearest start not yet seen. */
+    int next = -1;
+    fvec2_t from = scout ? fixed3_xy_to_fvec2(scout->core.position) : team->base_position;
+    for (int i = 0; i < count; ++i)
+        if (!(team->starts_seen & (1u << i)) &&
+            (next < 0 || fvec2_distance_squared(from, starts[i]) < fvec2_distance_squared(from, starts[next])))
+            next = i;
+    if (team->found_ms || next < 0) {
+        /* Seen enough: back home, where a worker goes back to mining. */
+        if (scout) P_MoveUnitTo(map, scout, team->base_position);
+        team->scout = 0;
+        return;
+    }
+    if (!scout) {
+        if (ctx->game->owned(owner, d->scout) <= 0 || !(scout = pick_scout(ctx, owner, units, unit_count))) return;
+        scout->harvest.phase = HARVEST_PHASE_NONE;
+        scout->harvest.target = -1;
+        scout->attack.target = NULL;
+        team->scout = scout->id;
+        team->stats.scouts++;
+        P_AiEmit(ctx, AI_EVENT_SCOUT, owner, (int)scout->id);
+    }
+    if (P_HasMoveOrder(scout) && fvec2_near(scout->movement.goal, starts[next], 0.5f)) return;
+    if (!P_MoveUnitTo(map, scout, starts[next])) team->starts_seen |= 1u << next;
 }
 
 /* ── purchases ────────────────────────────────────────────────────────── */
@@ -193,6 +249,22 @@ bool P_AiBuySupply(AiContext *ctx, AiTeamState *team, int owner, level_t *map, i
 
 static int towns(const AiTeamState *team) {
     return team->towns > 0 ? team->towns : 1;
+}
+
+bool P_AiExpand(AiContext *ctx, AiTeamState *team, int owner, level_t *map) {
+    const AiDoctrine *d = &team->plan.doctrine;
+    if (!d->expand_workers || !ctx->game->expand || !ctx->game->product_actor || team->towns >= AI_MAX_TOWNS ||
+        (d->max_towns && team->towns >= d->max_towns) ||
+        (d->expand_after && ctx->game->owned(owner, d->expand_after) <= 0) ||
+        roster_owned(ctx, d, owner, AI_ROLE_WORKER) < d->expand_workers * towns(team))
+        return false;
+    int status = ctx->game->expand(map, owner);
+    if (status == AI_BUY_OK) {
+        team->stats.expansions++;
+        team->stats.purchases++;
+        P_AiEmit(ctx, AI_EVENT_EXPAND, owner, team->towns);
+    }
+    return status == AI_BUY_NEED_CREDITS;
 }
 
 static AiTry need_workers(AiContext *ctx, AiTeamState *team, int owner, level_t *map) {
