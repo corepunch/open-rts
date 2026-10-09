@@ -507,6 +507,112 @@ static int zerg_spells(void) {
     return 0;
 }
 
+static void think(int owner) {
+    mobjlist_t all = P_ListMobjs();
+    sc_ai_tactics(&level, owner, all.items, all.count);
+    P_FreeMobjList(&all);
+}
+static int wave_plan(const level_t *map, int owner) { (void)map; return owner == 1 ? AI_LEVEL_NORMAL : AI_LEVEL_NONE; }
+static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
+    (void)map; (void)owner; (void)level_;
+    *out = (AiPlan){.wave_interval_ms = 100, .wave_min_size = 1, .wave_max_size = 8};
+    return true;
+}
+
+static int computer(void) {
+    /* Storm where enemies clump, never over our own. */
+    learn(0, SC_TECH_PSIONIC_STORM);
+    mobj_t *ht = caster(MT_HIGH_TEMPLAR, (fvec2_t){4.5f, 4.5f});
+    for (int i = 0; i < 3; i++) spawn(MT_ZERGLING, (fvec2_t){10.5f + 0.5f * i, 4.5f}, 1);
+    mobj_t *own = spawn(MT_ZEALOT, (fvec2_t){11.0f, 4.9f}, 0);
+    think(0);
+    CHECK(count_of(MT_MAP_REVEALER, 0) == 0 && sc_energy(ht) == 200);
+    P_RemoveMobj(own);
+    think(0);
+    CHECK(count_of(MT_MAP_REVEALER, 0) == 1 && sc_energy(ht) == 125);
+    reset();
+
+    /* A Defensive Matrix for a wounded frontliner under fire. */
+    mobj_t *vessel = caster(MT_SCIENCE_VESSEL, (fvec2_t){4.5f, 4.5f}), *marine = spawn(MT_MARINE, (fvec2_t){6.5f, 4.5f}, 0);
+    think(0);
+    CHECK(!marine->sc.matrix);
+    marine->hp = 20;
+    marine->sc.flags |= SC_HIT;
+    think(0);
+    CHECK(marine->sc.matrix > 0 && sc_energy(vessel) == 100);
+    reset();
+
+    /* Tanks siege as enemies come into reach and unsiege when they are gone. */
+    learn(0, SC_TECH_SIEGE_MODE);
+    mobj_t *tank = spawn(MT_SIEGE_TANK, (fvec2_t){4.5f, 20.5f}, 0), *ling = spawn(MT_ZERGLING, (fvec2_t){14.5f, 20.5f}, 1);
+    ling->traits &= ~(MF_MOBILE | MF_ATTACK);
+    think(0);
+    CHECK(tank->core.state_id == SC_SIEGE_STATE);
+    tick(RTS_TICRATE * 3);
+    CHECK(tank->type_id == MT_SIEGE_MODE);
+    P_RemoveMobj(ling);
+    tick(1);
+    think(0);
+    tick(RTS_TICRATE * 3);
+    CHECK(tank->type_id == MT_SIEGE_TANK && (tank->traits & MF_MOBILE));
+    reset();
+
+    /* Marines man the Bunker; Carriers and Reavers refill their hangars. */
+    mobj_t *b = building(MT_BUNKER, (ivec2_t){10, 10}, 0);
+    marine = spawn(MT_MARINE, (fvec2_t){11.5f, 14.5f}, 0);
+    mobj_t *carrier = spawn(MT_CARRIER, (fvec2_t){30.5f, 30.5f}, 0);
+    think(0);
+    tick(RTS_TICRATE * 3);
+    CHECK((marine->sc.flags & SC_LOADED) && marine->sc.parent == b->id);
+    CHECK(carrier->production && carrier->production->product_type == MT_INTERCEPTOR);
+    reset();
+
+    /* Research starts for the abilities our units have. */
+    mobj_t *archives = building(MT_TEMPLAR_ARCHIVES, (ivec2_t){10, 10}, 0);
+    CHECK(archives && building(MT_PYLON, (ivec2_t){14, 10}, 0)); /* power */
+    think(0);
+    CHECK(!archives->production);
+    caster(MT_HIGH_TEMPLAR, (fvec2_t){4.5f, 4.5f});
+    think(0);
+    CHECK(archives->production && archives->production->product_class == RTS_PRODUCT_UPGRADE &&
+          archives->production->product_type - SC_TECH_UI == SC_TECH_PSIONIC_STORM);
+    reset();
+
+    /* An add-on a product waits for is built first. */
+    const AiGameInterface *ai = G_AiInterface();
+    mobj_t *factory = building(MT_FACTORY, (ivec2_t){4, 4}, 0);
+    CHECK(factory && building(MT_SUPPLY_DEPOT, (ivec2_t){30, 30}, 0));
+    CHECK(ai->can_purchase(&level, 0, MT_SIEGE_TANK) == AI_BUY_NEED_TECH);
+    CHECK(ai->develop(&level, 0, MT_SIEGE_TANK) && factory->production &&
+          factory->production->product_type == MT_MACHINE_SHOP);
+    finish(MT_MACHINE_SHOP);
+    CHECK(sc_addon_of(factory) && ai->can_purchase(&level, 0, MT_SIEGE_TANK) == AI_BUY_OK);
+    reset();
+
+    /* Casters ride along with a wave. */
+    AiGameInterface waves = *ai;
+    waves.player_level = wave_plan;
+    waves.plan = small_plan;
+    waves.tactics = NULL;
+    AiContext ctx;
+    P_AiInit(&ctx);
+    P_AiAttachGame(&ctx, &waves);
+    P_AiSetFeatures(&ctx, AI_FEATURE_ATTACK);
+    building(MT_NEXUS, (ivec2_t){4, 4}, 1);
+    building(MT_COMMAND_CENTER, (ivec2_t){36, 36}, 0);
+    mobj_t *zealot = spawn(MT_ZEALOT, (fvec2_t){10.5f, 10.5f}, 1);
+    ht = spawn(MT_HIGH_TEMPLAR, (fvec2_t){11.5f, 10.5f}, 1);
+    for (int t = 0; t < 40 && !P_HasMoveOrder(ht); t++) {
+        mobjlist_t all = P_ListMobjs();
+        P_AiTick(&ctx, &level, all.items, all.count, gameinfo, 1000 / RTS_TICRATE);
+        P_FreeMobjList(&all);
+        P_NavRunPlans(&level);
+    }
+    CHECK(P_AiStats(&ctx, 1)->waves == 1 && P_HasMoveOrder(zealot) && P_HasMoveOrder(ht));
+    reset();
+    return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
@@ -525,7 +631,8 @@ int main(void) {
     CHECK(!protoss_spells());
     CHECK(!terran_spells());
     CHECK(!zerg_spells());
+    CHECK(!computer());
     P_FreeLevel(&level);
-    puts("PASS: interceptors, scarabs, siege mode, add-ons, Bunkers, Archons, research and every spell");
+    puts("PASS: interceptors, scarabs, siege mode, add-ons, Bunkers, Archons, research, every spell and the computer player's use of them");
     return 0;
 }
