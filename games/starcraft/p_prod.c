@@ -443,6 +443,8 @@ static void sc_ai_describe(uint16_t type,AiUnitInfo *info) {
     if((u->flags&0x200000)&&!(info->roles&AI_ROLE_FIGHTER)) info->roles|=AI_ROLE_SUPPORT;
     /* A Bunker defends with the infantry it holds. */
     if(u->space_provided&&(u->flags&SC_UNIT_BUILDING)) info->roles|=AI_ROLE_DEFENSE|AI_ROLE_HITS_GROUND|AI_ROLE_HITS_AIR;
+    /* Interceptors and scarabs count in their Carrier or Reaver. */
+    if(type==MT_INTERCEPTOR||type==MT_SCARAB) info->roles&=~(AI_ROLE_FIGHTER|AI_ROLE_HITS_GROUND|AI_ROLE_HITS_AIR);
 }
 /* Brood War adds half a caster's energy to its strength, counts a Bunker as
  * what it holds, and a Carrier or Reaver as full as its hangar. */
