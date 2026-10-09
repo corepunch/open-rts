@@ -1947,6 +1947,28 @@ static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
     }
     HU_SelectedOrder(i->value,(fvec2_t){at.x,at.y},target);
 }
+/* An aimed ability waits for a click on the world; the rest go at once.
+ * TC_SPELL carries the techdata row; the game picks who casts. */
+static void ability(menu_t *m,menuitem_t *i,menuaction_t a) {
+    if(a==MA_ACTIVATE&&sc_tech_aimed(i->value)){M_MenuTarget(m,i);return;}
+    if(a!=MA_ACTIVATE&&a!=MA_TARGET)return;
+    ticcmd_t order={.order=TC_SPELL,.product=i->value};
+    if(a==MA_TARGET) {
+        ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
+        int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
+            hudview.sprites,gameinfo,m->cursor.x,m->cursor.y,-1);
+        order.position=fixed3_from_fvec2(fvec2_cell_center(at),0);
+        order.target=picked>=0?hudview.units[picked]->id:0;
+    }
+    for(int j=0;j<hudview.unit_count&&order.count<MAXCOMMANDUNITS;j++) {
+        mobj_t *u=hudview.units[j];
+        if(P_MobjIsSelected(u)&&u->owner==consoleplayer&&u->hp>0)order.units[order.count++]=u->id;
+    }
+    if(order.count)G_QueueTiccmd(&order);
+}
+static void unload(menu_t *m,menuitem_t *i,menuaction_t a) {
+    (void)m;(void)i;if(a==MA_ACTIVATE)HU_SelectedOrder(TC_UNLOAD,(fvec2_t){0},0);
+}
 static void build_menu(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;if(a==MA_ACTIVATE)build_page=i->value;
 }
@@ -2056,6 +2078,18 @@ static void refresh(menu_t *menu) {
             button(slot,p->icon_frame,slot==0?SDLK_t:SDLK_1+slot,product,p->ui_id,p->label);
             huditems[command_start+slot++].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         }
+    }
+    /* Abilities follow, greyed until researched; a Bunker unloads. */
+    if(!build_page) {
+        int techs[8],n_techs=sc_unit_techs(selected->type_id,techs,8);
+        for(int t=0;t<n_techs&&slot<9;t++) {
+            int tech=techs[t];
+            int icon=tech==SC_TECH_NUCLEAR_STRIKE?311:tech==SC_TECH_SIEGE_MODE&&selected->type_id==MT_SIEGE_MODE?246:
+                sc_techs[tech].icon;
+            button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":sc_techs[tech].name);
+            huditems[command_start+slot++].enabled=sc_has_tech(consoleplayer,tech);
+        }
+        if(sc_units[selected_id].space_provided&&(sc_units[selected_id].flags&SC_UNIT_BUILDING)&&slot<9)button(slot++,312,SDLK_u,unload,0,"Unload All");
     }
     if(build_page)button(8,236,SDLK_ESCAPE,build_menu,0,"Cancel");
 }
