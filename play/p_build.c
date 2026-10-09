@@ -1,6 +1,10 @@
 #include "engine.h"
+#include "info.h"
 #ifdef RTS_GAME_WARCRAFT_2
 #include "warcraft-2.h"
+#endif
+#ifdef RTS_GAME_STARCRAFT
+#include "starcraft.h"
 #endif
 
 const mobjtype_t *P_ActorType(uint16_t type) {
@@ -102,6 +106,9 @@ bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         }
         if (!found) return false;
     }
+#ifdef RTS_GAME_STARCRAFT
+    if (!sc_ground_ok(type, cell, builder)) return false;
+#endif
     isize2_t foot = actor->footprint;
     for (int y = 0; y < foot.h; ++y)
         for (int x = 0; x < foot.w; ++x) {
@@ -110,6 +117,25 @@ bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         }
     return true;
 #endif
+}
+
+bool P_MorphMobj(mobj_t *mo, uint16_t type) {
+    const mobjtype_t *to = P_ActorType(type);
+    if (!mo || mo->remove || mo->hp <= 0 || !to) return false;
+    int old_max = mo->max_hp > 0 ? mo->max_hp : 1;
+    unsigned selected = mo->traits & MF_SELECTED;
+    mo->hp = (int)((int64_t)mo->hp * to->max_hp / old_max);
+    if (mo->hp < 1) mo->hp = 1;
+    mo->max_hp = to->max_hp;
+    mo->speed = to->speed;
+    mo->core.sprite_name[0] = '\0';
+    mo->info = NULL;
+    P_ApplyActorTypeDefaults(mo, to);
+    mo->traits |= selected;
+    mo->attack.target = NULL;
+    P_ClearMove(mo);
+    if (gameinfo && type < gameinfo->mobj_type_count) P_SetMobjState(mo, gameinfo->mobjinfo[type].spawnstate);
+    return true;
 }
 
 /* Approach the actual footprint, never the blocked building centre. The

@@ -429,8 +429,11 @@ int sc_spawn_things(void) {
         int race = net_race_set ? net_race[i] : 0;
         if(race < 0 || race > 2) race = 0;
         ivec2_t pixel = melee_at[i];
-        if(!sc_spawn_actor(building[race]-1, pixel, (uint8_t)i)) { clear_melee(); return count; }
+        mobj_t *town = sc_spawn_actor(building[race]-1, pixel, (uint8_t)i);
+        if(!town) { clear_melee(); return count; }
         ++count;
+        /* A Zerg start has its three larvae. */
+        for(int l=0;race==1&&l<3;l++) if(sc_spawn_larva(town)) ++count;
         for(int w=0;w<4;w++) {
             ivec2_t at_px = {pixel.x + 48 + w * 24, pixel.y + 64};
             if(!sc_spawn_actor(worker[race]-1, at_px, (uint8_t)i)) { clear_melee(); return count; }

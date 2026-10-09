@@ -21,4 +21,10 @@ int sc_mission_result(void);
 bool sc_take_camera(fvec2_t *cell);
 /* Next numbered campaign CHK relative to the data root, or false on the last map. */
 bool sc_campaign_next(const char *map_path, char *out, size_t size);
+/* Zerg buildings stand on creep, Protoss ones in a pylon's psi field
+ * (units.dat flags 0x20000 and 0x80000). */
+bool sc_ground_ok(uint16_t type, ivec2_t cell, const mobj_t *builder);
+/* Hatcheries grow larvae, larvae and mutalisks with an order turn into
+ * an egg or cocoon, and larvae die with their hatchery. */
+void sc_zerg_ticker(int elapsed_ms);
 #endif
