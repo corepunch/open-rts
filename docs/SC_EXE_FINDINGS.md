@@ -772,6 +772,63 @@ map check accepted an empty list, which concealed this omission.
 Reproduce with `make starcraft-maps && make test-starcraft`, then
 `env SDL_VIDEODRIVER=dummy build/bin/starcraft --check --map 'maps/(2)road war.scm/staredit/scenario.chk'`.
 
+**Correction (2026-10-09), Create scrollbar and dropdown chrome:** populating
+the list did not supply the type-12 scrollbar or the type-13 combobox artwork.
+Those are separate pictures in `native/glue/palnl/dlg.grp`, not baked into
+`install/glue/create/plistmap.pcx`. The scrollbar and closed dropdown outline
+and arrow are now rendered from that GRP. Icons, directory browsing, other
+game modes and translucent panels remain outside this correction.
+
+**Confirmed asset metadata:** `dlg.grp` SHA-256 is
+`446ab6727c423989be92747c4f7385eb1613d2a53291e0b98398200c2e39b212`.
+It contains 139 frames on a 256×128 canvas. Temporary
+`OPEN_RTS_DEBUG_SC_WIDGETS` logging recorded these tight frame dimensions:
+
+| Zero-based frames | PyMS names / artwork | Dimensions |
+| --- | --- | --- |
+| 16, 17, 18 | scroll up disabled, normal, pressed | 16×16 |
+| 19, 20, 21 | scroll down disabled, normal, pressed | 16×16 |
+| 28 | scrollbar thumb | 14×14, displacement (1,1) |
+| 29, 30, 31 | vertical track top, middle, bottom | 16×8 |
+| 50, 51, 52 | combobox arrow normal, hover, disabled | 13×7 |
+| 53, 54, 55 | combobox left, middle, right | 16×16 |
+| 56, 57, 58 | combobox left, middle, right hover | 16×16 |
+
+The disabled down frame has displacement (0,2); the other listed arrow frames
+have displacement (0,0). The source records are retained unchanged by the
+GRP loader. Widget pictures use their tight image rectangles, as PyMS's
+`PyBIN/PyBIN.py::dialog_asset` does, rather than stretching the GRP canvas.
+Their palette comes from `glue/palnl/backgnd.pcx`.
+
+**Corroborating source and implementation choice:** pinned PyMS
+`FileFormats/DialogBIN.py` names those frame indices.
+`PyBIN/WidgetNode.py::update_dialog` places a vertical scrollbar inside the
+list's right edge, with two pixels between each arrow and the track, and
+centres the combobox artwork vertically with its arrow five pixels inside
+the right edge. open-rts follows that editor preview layout and the user's
+retail reference screenshot. Those two spacing values are confirmed in the
+reference source; their exact retail executable instructions remain unknown.
+No executable was examined for this correction. PyMS source is read only;
+no Python tool was added or executed.
+
+Create id 5 keeps its original (60,130,288,118) control extent, reserving the
+rightmost native arrow width for three added shared menu items: two linked
+step buttons and an `MI_SCROLLBAR`. The list's content width is 272; arrow
+clicks, wheel/keyboard scrolling and thumb dragging remain shared engine
+behavior. Native track and combobox pieces use the menu picture callback;
+the engine draws and positions the thumb. The dropdown's font uses the button
+ramp, while its normal/hover border and normal/hover/disabled arrow use the
+authored frames directly. Text placement inside the border is not traced to
+retail instructions; its existing native text offset is retained.
+
+Verification: `test_native` compares rendered nontransparent pixels for the
+normal and pressed scrollbar arrows, dropdown border rims, and normal/hover
+dropdown arrows against the source GRP. It clicks both arrows, drags to the
+last page without changing selection, selects Road War with the keyboard,
+and opens/accepts the dropdown. It writes Create screenshots at 640×480 and
+1280×960 to `/private/tmp/starcraft-create-road-war{,-scaled}.bmp`.
+Run `make test-starcraft` to reproduce.
+
 `native/rez/gluchat.bin` has 79 controls, which is why the dialog adapter now
 keeps 96 controls rather than 64. Id 6 Ok toggles ready; its text stays "Ok".
 Ready names use font ramp 1 (the button ramp from `glue/palmm/tfont.pcx`).

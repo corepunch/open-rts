@@ -11,6 +11,19 @@ static bool save(const char *path) {
     SDL_Surface *rgb=SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_RGB24,0);
     bool ok=rgb&&SDL_SaveBMP(rgb,path)==0;SDL_FreeSurface(rgb);SDL_FreeSurface(s);return ok;
 }
+static int native_picture(const spritesheet_t *sheet,int frame,ivec2_t at,bool rim) {
+    irect_t r=sheet->cells[frame].rect;
+    const uint8_t *pixels=sheet->lumps[frame].indices;
+    int visible=0;
+    for(int y=0;y<r.h;y++)for(int x=0;x<r.w;x++) {
+        if(rim&&y!=0&&y!=r.h-1)continue; /* Text overlays the interior. */
+        unsigned index=pixels[y*r.w+x];
+        if(!index)continue;
+        CHECK(vpalette[screens[0].pixels[(at.y+y)*screens[0].w+at.x+x]]==sheet->palette[index]);
+        visible++;
+    }
+    CHECK(visible>0);return 0;
+}
 static int dialog_test(void) {
     blob_t b={0};sc_dialog_t d;
     CHECK(W_ReadFile("data/STARCRAFT/native/rez/glumain.bin",&b));
@@ -114,6 +127,39 @@ int main(void) {
     next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST);
     CHECK(next->rows==57&&next->row);
     {
+        menuitem_t *bar=M_MenuFind(currentmenu,-1),*up=M_MenuFind(currentmenu,-2),*down=M_MenuFind(currentmenu,-3);
+        CHECK(bar&&bar->kind==MI_SCROLLBAR&&bar->sheet&&bar->thumb.cell==28);
+        CHECK(bar->link==next-currentmenu->items&&bar->rect.x==next->rect.x+next->rect.w);
+        CHECK(up&&down&&up->step==-1&&down->step==1&&up->link==bar->link&&down->link==bar->link);
+        CHECK(!native_picture(bar->sheet,17,(ivec2_t){up->rect.x,up->rect.y},false));
+        CHECK(!native_picture(bar->sheet,20,(ivec2_t){down->rect.x,down->rect.y},false));
+        menuitem_t *type=M_MenuFind(currentmenu,17);
+        CHECK(!native_picture(bar->sheet,53,(ivec2_t){type->rect.x,type->rect.y+(type->rect.h-16)/2},true));
+        CHECK(!native_picture(bar->sheet,50,(ivec2_t){type->rect.x+type->rect.w-13-5,type->rect.y+(type->rect.h-7)/2},false));
+        SDL_Event mouse={.type=SDL_MOUSEBUTTONDOWN};mouse.button.button=SDL_BUTTON_LEFT;
+        mouse.button.x=down->rect.x+down->rect.w/2;mouse.button.y=down->rect.y+down->rect.h/2;
+        CHECK(M_MenuResponder(currentmenu,&app,&mouse)&&currentmenu->held==down);
+        M_MenuDrawer(currentmenu);
+        CHECK(!native_picture(bar->sheet,21,(ivec2_t){down->rect.x,down->rect.y},false));
+        mouse.type=SDL_MOUSEBUTTONUP;CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        CHECK(next->first_row==1);
+        mouse.button.y=up->rect.y+up->rect.h/2;
+        mouse.type=SDL_MOUSEBUTTONDOWN;CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        mouse.type=SDL_MOUSEBUTTONUP;CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        CHECK(next->first_row==0);
+        mouse.button.y=bar->rect.y;
+        mouse.type=SDL_MOUSEBUTTONDOWN;CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        CHECK(currentmenu->held==bar&&next->first_row==0);
+        mouse=(SDL_Event){.type=SDL_MOUSEMOTION};
+        mouse.motion.x=bar->rect.x+bar->rect.w/2;mouse.motion.y=bar->rect.y+bar->rect.h-1;
+        CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        mouse=(SDL_Event){.type=SDL_MOUSEBUTTONUP};mouse.button.button=SDL_BUTTON_LEFT;
+        mouse.button.x=bar->rect.x+bar->rect.w/2;mouse.button.y=bar->rect.y+bar->rect.h-1;
+        mouse.type=SDL_MOUSEBUTTONUP;CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        CHECK(next->first_row==next->rows-next->rect.h/next->row_height&&next->value==0);
+        currentmenu->itemOn=(int)(next-currentmenu->items);
+        SDL_Event home={.type=SDL_KEYDOWN};home.key.keysym.sym=SDLK_HOME;
+        CHECK(M_MenuResponder(currentmenu,&app,&home)&&next->first_row==0);
         int road=-1;
         for(int i=0;i<next->rows;i++) {
             const char *name=next->row(next,i);CHECK(name&&name[0]);
@@ -122,8 +168,8 @@ int main(void) {
         }
         CHECK(road>=0);
         currentmenu->itemOn=(int)(next-currentmenu->items);
-        SDL_Event down={.type=SDL_KEYDOWN};down.key.keysym.sym=SDLK_DOWN;
-        for(int i=0;i<road;i++)CHECK(M_MenuResponder(currentmenu,&app,&down));
+        SDL_Event arrow={.type=SDL_KEYDOWN};arrow.key.keysym.sym=SDLK_DOWN;
+        for(int i=0;i<road;i++)CHECK(M_MenuResponder(currentmenu,&app,&arrow));
         CHECK(next->value==road&&next->first_row>0);
         CHECK(!strcmp(M_MenuFind(currentmenu,6)->text,"maps"));
         CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
@@ -132,6 +178,21 @@ int main(void) {
         CHECK(!strcmp(M_MenuFind(currentmenu,11)->text,"Tileset: Badlands"));
         CHECK(!strcmp(M_MenuFind(currentmenu,9)->text,"Number of Players: 2"));
         M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create-road-war.bmp"));
+        app.win=(isize2_t){1280,960};V_AllocScreen(1280,960);
+        V_BeginFrame(0xff000000);
+        M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create-road-war-scaled.bmp"));
+        app.win=(isize2_t){640,480};V_AllocScreen(640,480);
+        V_BeginFrame(0xff000000);
+        mouse=(SDL_Event){.type=SDL_MOUSEMOTION};
+        mouse.motion.x=type->rect.x+type->rect.w-10;mouse.motion.y=type->rect.y+type->rect.h/2;
+        CHECK(M_MenuResponder(currentmenu,&app,&mouse));
+        M_MenuDrawer(currentmenu);
+        CHECK(!native_picture(bar->sheet,56,(ivec2_t){type->rect.x,type->rect.y+(type->rect.h-16)/2},true));
+        CHECK(!native_picture(bar->sheet,51,(ivec2_t){type->rect.x+type->rect.w-13-5,type->rect.y+(type->rect.h-7)/2},false));
+        mouse.type=SDL_MOUSEBUTTONDOWN;mouse.button.button=SDL_BUTTON_LEFT;
+        mouse.button.x=type->rect.x+type->rect.w-10;mouse.button.y=type->rect.y+type->rect.h/2;
+        CHECK(M_MenuResponder(currentmenu,&app,&mouse)&&currentmenu->dropdown==type);
+        home.key.keysym.sym=SDLK_RETURN;CHECK(M_MenuResponder(currentmenu,&app,&home)&&!currentmenu->dropdown);
         menuitem_t *ok=M_MenuFind(currentmenu,12);CHECK(ok&&ok->enabled&&ok->routine);
         ok->routine(currentmenu,ok,MA_ACTIVATE);
         CHECK(M_MenuFind(currentmenu,4)&&M_MenuFind(currentmenu,4)->kind==MI_TEXTFIELD);
