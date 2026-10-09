@@ -34,7 +34,7 @@ typedef struct {
     artwork_t art[SC_DIALOG_CONTROLS];
     theme_t *theme;
 } screen_t;
-static screen_t main_screen, registry, new_id, campaign, briefing, conn, join, chat;
+static screen_t main_screen, registry, new_id, campaign, briefing, conn, join, create, chat;
 static char player_name[32]="Player", campaign_map[256];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
@@ -210,24 +210,51 @@ static void draw_glue_strip(const menu_t *menu,const spritesheet_t *sheet,irect_
         draw_glue(menu,sheet,first+2,(irect_t){rect.x+rect.w-c.w,rect.y,c.w,rect.h});
     }
 }
-static void draw_glue_panel(const menu_t *menu,const spritesheet_t *sheet,irect_t rect) {
-    irect_t first=sheet->cells[0].rect,last=sheet->cells[8].rect;
+static void draw_glue_panel(const menu_t *menu,const spritesheet_t *sheet,irect_t rect,int base) {
+    irect_t first=sheet->cells[base].rect,last=sheet->cells[base+8].rect;
     int x[]={rect.x,rect.x+first.w,rect.x+rect.w-last.w};
     int y[]={rect.y,rect.y+first.h,rect.y+rect.h-last.h};
     int w[]={first.w,rect.w-first.w-last.w,last.w};
     int h[]={first.h,rect.h-first.h-last.h,last.h};
     for(int row=0;row<3;row++)for(int col=0;col<3;col++)
-        draw_glue(menu,sheet,row*3+col,(irect_t){x[col],y[row],w[col],h[row]});
+        draw_glue(menu,sheet,base+row*3+col,(irect_t){x[col],y[row],w[col],h[row]});
+}
+/* The open list is drawn on a copy of the combobox. Its screen rect maps
+ * back to dialog units through the combobox's own scale. */
+static bool drops_up(const menu_t *menu,irect_t popup) {
+    return popup.y<M_MenuItemRect(menu,menu->dropdown).y;
+}
+static void draw_drop_panel(const menu_t *menu,const spritesheet_t *sheet,irect_t popup) {
+    const menuitem_t *box=menu->dropdown;
+    irect_t screen=M_MenuItemRect(menu,box);
+    if(screen.h<=0)return;
+    /* The panel meets the box's drawn edge, which is centred in its rect,
+     * and is never shorter than its corners; one row is not. */
+    int gap=(box->rect.h-sheet->cells[47].rect.h)/2;
+    int h=popup.h*box->rect.h/screen.h+gap,least=sheet->cells[35].rect.h+sheet->cells[41].rect.h;
+    if(h<least)h=least;
+    irect_t rect={box->rect.x,drops_up(menu,popup)?box->rect.y+gap-h:box->rect.y+box->rect.h-gap,box->rect.w,h};
+    draw_glue_panel(menu,sheet,rect,35);
 }
 static bool draw_front(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect) {
     const theme_t *theme=menu->owner;
     const spritesheet_t *sheet=&theme->widgets;
     if(item->kind==MI_SCROLLBAR && item->sheet==sheet)
         draw_glue_strip(menu,sheet,item->rect,29,true);
+    /* dlg.grp 35..43 is the drop panel; the copy carries the combobox id. */
+    if(item->kind==MI_LIST && menu->dropdown && item->id==menu->dropdown->id)
+        draw_drop_panel(menu,sheet,rect);
     if(item->kind==MI_DROPDOWN) {
         int arrow=state==MS_DISABLED?52:state==MS_NORMAL?50:51;
         irect_t part=sheet->cells[arrow].rect;
-        draw_glue_strip(menu,sheet,item->rect,state==MS_FOCUS||state==MS_PUSHED?56:53,false);
+        int box=state==MS_FOCUS||state==MS_PUSHED?56:53;
+        /* 44..46 open upward, 47..49 downward: the edge toward the list is
+         * square. The shared menu opens upward only when below lacks room. */
+        if(menu->dropdown==item) {
+            int below=menu->size.h-item->rect.y-item->rect.h;
+            box=below<item->rows*item->row_height&&item->rect.y>below?44:47;
+        }
+        draw_glue_strip(menu,sheet,item->rect,box,false);
         /* PyMS WidgetNode's native combobox preview places the arrow 5px
          * inside the right edge and centres it vertically. */
         draw_glue(menu,sheet,arrow,(irect_t){item->rect.x+item->rect.w-part.w-5,
@@ -236,7 +263,7 @@ static bool draw_front(const menu_t *menu,const menuitem_t *item,menustate_t sta
     const artwork_t *a=item->userdata;
     if(!a)return false;
     const sc_control_t *c=&a->native;
-    if(!c->type)draw_glue_panel(menu,&theme->panel,item->rect);
+    if(!c->type)draw_glue_panel(menu,&theme->panel,item->rect,0);
     if(c->type==1||c->type==2)
         draw_glue_strip(menu,sheet,item->rect,state==MS_PUSHED?118:state==MS_DISABLED?112:115,false);
     if(c->type==3||c->type==4) {
@@ -310,6 +337,17 @@ static theme_t *load_theme(const char *root,const char *palette) {
         if(!sc_font(root,names[i],&theme->fonts[i])||!sc_font_colors(root,name,&theme->fonts[i]))return NULL;
     return theme;
 }
+/* The scroll bar shows only while rows overflow the list. gluconn's list
+ * runs 6px past pListSml's frame, so an idle bar there would too. */
+static void fit_scrollbars(menu_t *menu) {
+    for(int i=0;i<menu->numitems;i++) {
+        menuitem_t *item=&menu->items[i];
+        if(item->kind!=MI_SCROLLBAR&&!item->step)continue;
+        const menuitem_t *list=&menu->items[item->link];
+        int page=list->row_height>0?list->rect.h/list->row_height:0;
+        item->visible=item->enabled=list->visible&&list->rows>page;
+    }
+}
 static bool add_scrollbar(screen_t *screen,int index) {
     if(screen->menu.numitems+3>SC_DIALOG_CONTROLS)return false;
     menuitem_t *list=&screen->items[index];
@@ -341,7 +379,7 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
     sc_dialog_t d;if(!sc_dialog(root,dialog,&d))return false;
     screen->menu=(menu_t){.app=app,.items=screen->items,.numitems=d.count,.size={640,480},
         .stretch=true,.modal=true,.background=&screen->theme->background,.palette=screen->theme->background.palette,
-        .drawitem=draw_front,.owner=screen->theme};
+        .drawitem=draw_front,.owner=screen->theme,.refresh=fit_scrollbars};
     bool popup=d.rect.w<640&&d.rect.h<480;
     ivec2_t offset=popup?(ivec2_t){(640-d.rect.w)/2-d.rect.x,(480-d.rect.h)/2-d.rect.y}:(ivec2_t){0,0};
     if(popup) {
@@ -396,7 +434,8 @@ static sc_netmap_t net_maps[SC_NET_MAPS];
 static int net_map_count, chosen_map = -1, listed_count;
 static char session_title[32], session_path[512], status_note[256];
 static char chat_log[NETCHAT_LENGTH * 33 + 8];
-static const char no_games[]="No maps or hosted games found.";
+static const char no_games[]="No games found. Create Game hosts one.";
+static const char no_maps[]="No multiplayer maps found.";
 static netgame_t listed[SC_LISTED_GAMES];
 /* gluall.tbl 101. The connection row is the retail LAN entry; the session is TCP. */
 static const char lan_prose[] =
@@ -622,16 +661,39 @@ static const char *map_row(const menuitem_t *item, int row) {
     (void)item; return row >= 0 && row < net_map_count ? net_maps[row].filename : "";
 }
 static const char *game_row(const menuitem_t *item, int row) {
-    return row >= 0 && row < listed_count ? listed[row].name : map_row(item,row-listed_count);
+    (void)item; return row >= 0 && row < listed_count ? listed[row].name : "";
 }
-static const char *players_row(const menuitem_t *item, int row) {
-    (void)item; return M_va("Players: %d", row + 2);
+static const char *type_row(const menuitem_t *item, int row) {
+    (void)item; (void)row; return "Melee";
 }
-static const char *speed_row(const menuitem_t *item, int row) {
-    (void)item; return M_va("%d%%", (row + 1) * 10);
+/* gluall.tbl 129, 130: what the host makes of a seat nobody has taken. */
+static const char *seat_row(const menuitem_t *item, int row) {
+    (void)item; return row ? "Closed" : "Open";
 }
 static const char *race_row(const menuitem_t *item, int row) {
     (void)item; return race_name(row);
+}
+
+/* gluall.tbl 81..87. StarCraft's frames last 167, 111, 83, 67, 56, 48 and
+ * 42 ms; against Normal those are the engine's 40..160 percent. */
+enum { SC_SPEEDS = 7 };
+static const char *const speed_names[SC_SPEEDS] = {
+    "Slowest", "Slower", "Slow", "Normal", "Fast", "Faster", "Fastest",
+};
+static int speed_percent(int index) { return 40 + index * 20; }
+static int speed_index(int percent) {
+    int index = (percent - 30) / 20;
+    return index < 0 ? 0 : index >= SC_SPEEDS ? SC_SPEEDS - 1 : index;
+}
+static const char *speed_text(int percent) {
+    return speed_percent(speed_index(percent)) == percent ? speed_names[speed_index(percent)] : M_va("%d%%", percent);
+}
+/* gluall.tbl 38..42 name the original five; Brood War's ERA 5..7 follow. */
+static const char *tileset_name(int era) {
+    static const char *const names[] = {
+        "Badlands", "Space", "Installation", "Ashworld", "Jungle", "Desert", "Ice", "Twilight",
+    };
+    return era >= 0 && era < 8 ? names[era] : "";
 }
 
 static int map_index(const char *path) {
@@ -653,8 +715,10 @@ static const char *path_title(const char *path) {
 static void show_screen(screen_t *screen);
 static void show_conn(void);
 static void show_join(void);
+static void show_create(void);
 static void host_game(void);
 static void paint_listed(void);
+static void paint_create(void);
 static void multi_escape(menu_t *menu);
 static void multi_tick(menu_t *menu);
 
@@ -667,41 +731,21 @@ static void paint_listed(void) {
     set_text(M_MenuFind(&join.menu,6),status_note);
     menuitem_t *list = M_MenuFind(&join.menu, 5);
     int row = list ? list->value : -1;
-    int index=row-listed_count;
-    bool local=index>=0&&index<net_map_count;
-    menuitem_t *players = M_MenuFind(&join.menu, 9);
-    menuitem_t *speed = M_MenuFind(&join.menu, 12);
-    players->visible = players->enabled = local;
-    speed->enabled = local;
-    M_MenuFind(&join.menu,15)->enabled=local;
     M_MenuFind(&join.menu,13)->enabled=row>=0&&row<listed_count;
-    if(local) {
-        const sc_netmap_t *map=&net_maps[index];
-        set_text(M_MenuFind(&join.menu,7),map->title);
-        set_text(M_MenuFind(&join.menu,8),"Melee");
-        M_MenuSetRows(players, map->players - 1);
-        if (players->value < 0 || players->value >= players->rows) players->value = 0;
-        set_text(players, players_row(players, players->value));
-        set_text(M_MenuFind(&join.menu,10),map->filename);
-        size_text(M_MenuFind(&join.menu,11),map->width,map->height);
-        speed->value = game_speed / 10 - 1;
-        set_text(speed, M_va("%d%%", game_speed));
-        return;
-    }
+    set_text(M_MenuFind(&join.menu, 9), "");
+    /* Discovery does not include the host's speed; the lobby handshake does. */
+    set_text(M_MenuFind(&join.menu, 12), "");
     if (row < 0 || row >= listed_count) {
         set_text(M_MenuFind(&join.menu, 7), "");
         set_text(M_MenuFind(&join.menu, 8), "");
-        set_text(M_MenuFind(&join.menu, 9), "");
         set_text(M_MenuFind(&join.menu, 10), "");
         set_text(M_MenuFind(&join.menu, 11), "");
-        set_text(M_MenuFind(&join.menu, 12), "");
         return;
     }
     const netgame_t *game = &listed[row];
-    index = map_index(game->map);
+    int index = map_index(game->map);
     set_text(M_MenuFind(&join.menu, 7), game->name);
     set_text(M_MenuFind(&join.menu, 8), "Melee");
-    set_text(M_MenuFind(&join.menu, 9), "");
     if (index >= 0) {
         set_text(M_MenuFind(&join.menu, 10), net_maps[index].title);
         size_text(M_MenuFind(&join.menu, 11), net_maps[index].width, net_maps[index].height);
@@ -709,8 +753,28 @@ static void paint_listed(void) {
         set_text(M_MenuFind(&join.menu, 10), path_title(game->map));
         set_text(M_MenuFind(&join.menu, 11), "");
     }
-    /* Discovery does not include the host's speed; the lobby handshake does. */
-    set_text(M_MenuFind(&join.menu, 12), "");
+}
+
+/* glucreat's info rows print gluall.tbl 30..33, "label%cvalue": the value
+ * sits at the row's right edge. Each value is its label's id plus 100. */
+static void info_row(int id, const char *label, const char *value) {
+    set_text(M_MenuFind(&create.menu, id), value ? label : "");
+    set_text(M_MenuFind(&create.menu, id + 100), value);
+}
+
+static void paint_create(void) {
+    menuitem_t *list = M_MenuFind(&create.menu, 5);
+    int row = list ? list->value : -1;
+    const sc_netmap_t *map = row >= 0 && row < net_map_count ? &net_maps[row] : NULL;
+    M_MenuFind(&create.menu, 12)->enabled = map != NULL;
+    set_text(M_MenuFind(&create.menu, 7), map ? map->title : "");
+    set_prose(M_MenuFind(&create.menu, 8), map ? map->description : "");
+    info_row(10, "Map Size:", map && map->width > 0 ? M_va("%dx%d", map->width, map->height) : NULL);
+    info_row(11, "Tileset:", map && map->tileset >= 0 ? tileset_name(map->tileset) : NULL);
+    info_row(9, "Number of Players:", map ? M_va("%d", map->players) : NULL);
+    /* gluall.tbl 89. The slider's row has no setting in a melee game. */
+    menuitem_t *speed = M_MenuFind(&create.menu, 16);
+    set_text(M_MenuFind(&create.menu, 15), M_va("Speed: %s", speed_names[speed->value]));
 }
 
 static void scroll_log(menuitem_t *item) {
@@ -723,29 +787,32 @@ static void scroll_log(menuitem_t *item) {
 }
 
 static void join_refresh(menu_t *menu) {
-    (void)menu;
+    fit_scrollbars(menu);
     if (I_NetJoining()) return;
     menuitem_t *list = M_MenuFind(&join.menu, 5);
     if (!list) return;
-    int keep=list->value, previous=listed_count, map=keep-previous;
     int count = 0;
     const netgame_t *games = I_NetGames(&count);
     if (count > SC_LISTED_GAMES) count = SC_LISTED_GAMES;
     listed_count = count;
     if (listed_count > 0 && games) memcpy(listed, games, (size_t)listed_count * sizeof(listed[0]));
-    if(map>=0&&map<net_map_count) {
-        keep=listed_count+map;
-        list->first_row+=listed_count-previous;
-    }
-    else if(keep<0||keep>=listed_count)keep=net_map_count?listed_count:-1;
-    M_MenuSetRows(list, listed_count+net_map_count);
+    M_MenuSetRows(list, listed_count);
     list->prose=list->rows?NULL:no_games;
-    list->value = keep;
+    if (list->value < 0 || list->value >= listed_count) list->value = listed_count ? 0 : -1;
     paint_listed();
 }
 
+static int closed_seats(uint8_t mask) {
+    int n = 0;
+    for (; mask; mask &= mask - 1) ++n;
+    return n;
+}
+
+/* Lobby rows are the map's seats. Option byte 0 marks the rows the host
+ * closed; the players fill the others in order. */
+static int row_player[8];
+
 static void chat_refresh(menu_t *menu) {
-    (void)menu;
     const char *live = I_NetMap();
     if (live && live[0] && strcmp(live, session_path)) {
         snprintf(session_path, sizeof(session_path), "%s", live);
@@ -758,48 +825,57 @@ static void chat_refresh(menu_t *menu) {
     set_text(M_MenuFind(&chat.menu, 17), map ? map->title : path_title(session_path));
     if (map) size_text(M_MenuFind(&chat.menu, 18), map->width, map->height);
     else set_text(M_MenuFind(&chat.menu, 18), "");
-    set_text(M_MenuFind(&chat.menu, 19), M_va("%d%%", game_speed));
+    set_text(M_MenuFind(&chat.menu, 19), speed_text(game_speed));
     menuitem_t *log = M_MenuFind(&chat.menu, 10);
     const char *text=M_NetLog();
     if(strcmp(chat_log,text)) {
         snprintf(chat_log,sizeof(chat_log),"%s",text);
         scroll_log(log);
     }
-    int cap = doomcom && doomcom->numplayers > 0 ? doomcom->numplayers : 0;
-    if (cap > 8) cap = 8;
+    uint8_t closed = 0;
+    M_NetOptions(&closed, 1);
+    int rows = doomcom && doomcom->numplayers > 0 ? doomcom->numplayers + closed_seats(closed) : 0;
+    if (rows > 8) rows = 8;
     int joined = I_NetPlayerCount(), local = M_NetLocalSlot();
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0, player = 0; i < 8; ++i) {
         menuitem_t *name = M_MenuFind(&chat.menu, 28 + i * 4);
         menuitem_t *race = M_MenuFind(&chat.menu, 29 + i * 4);
-        bool on = i < cap;
-        if (name) name->visible = on;
-        if (race) race->visible = on;
+        bool on = i < rows, shut = on && (closed >> i & 1);
+        int p = row_player[i] = on && !shut ? player++ : -1;
+        name->visible = on;
+        race->visible = p >= 0;
         if (!on) continue;
-        const netseat_t *seat = M_NetSeat(i);
-        bool filled = i < joined;
-        if (name) {
-            if (!filled) set_text(name, "Open");
-            else if (i == local) set_text(name, chat_name());
-            else set_text(name, M_va("Player %d", i + 1));
-            name->look[MS_NORMAL].palette = seat && seat->ready ? 1 : 0;
-        }
-        if (race) {
-            race->value = seat ? seat->race : 0;
-            set_text(race, race_name(seat ? seat->race : 0));
-            race->enabled = filled && i == local && !(seat && seat->ready);
-            race->hotkey = 0;
-        }
+        const netseat_t *seat = p >= 0 ? M_NetSeat(p) : NULL;
+        bool filled = p >= 0 && p < joined;
+        /* The host opens and closes the seats nobody has taken. */
+        bool choice = M_NetHosting() && i > 0 && !filled;
+        name->kind = choice ? MI_DROPDOWN : MI_STATIC;
+        name->enabled = choice;
+        name->value = shut;
+        name->inset = (ivec2_t){choice ? 4 : 0, 0};
+        name->align = choice ? MALIGN_VCENTER : 0;
+        if (shut) set_text(name, seat_row(name, 1));
+        else if (!filled) set_text(name, seat_row(name, 0));
+        else if (p == local) set_text(name, chat_name());
+        else set_text(name, M_va("Player %d", p + 1));
+        name->look[MS_NORMAL].palette = choice || (filled && seat->ready) ? 1 : 0;
+        if (!seat) continue;
+        race->value = seat->race;
+        set_text(race, race_name(seat->race));
+        race->enabled = filled && p == local && !seat->ready;
+        race->hotkey = 0;
     }
     const netseat_t *mine = M_NetSeat(local);
     set_text(M_MenuFind(&chat.menu, 6), mine && mine->ready ? "Unready" : "Ready");
+    fit_scrollbars(menu);
 }
 
 static void show_screen(screen_t *screen) {
     screen->menu.escape = multi_escape;
     screen->menu.ticker = screen == &join || screen == &chat ? multi_tick : NULL;
-    screen->menu.refresh = screen == &join ? join_refresh : screen == &chat ? chat_refresh : NULL;
+    screen->menu.refresh = screen == &join ? join_refresh : screen == &chat ? chat_refresh : fit_scrollbars;
     screen->menu.app = front.app;
-    if (screen->menu.refresh) screen->menu.refresh(&screen->menu);
+    screen->menu.refresh(&screen->menu);
     M_SetupNextMenu(&screen->menu);
 }
 
@@ -812,14 +888,21 @@ static void show_conn(void) {
 
 static void show_join(void) {
     scan_net_maps(asset_root);
-    menuitem_t *list=M_MenuFind(&join.menu,5);
-    M_MenuSetRows(list,listed_count+net_map_count);
-    list->prose=list->rows?NULL:no_games;
-    if(list->value<0||list->value>=list->rows)list->value=net_map_count?listed_count:-1;
     if (!M_NetBrowse()) snprintf(status_note, sizeof(status_note), "%s", M_NetNotice());
     else status_note[0] = '\0';
-    paint_listed();
     show_screen(&join);
+}
+
+static void show_create(void) {
+    scan_net_maps(asset_root);
+    menuitem_t *list = M_MenuFind(&create.menu, 5);
+    M_MenuSetRows(list, net_map_count);
+    list->prose = net_map_count ? NULL : no_maps;
+    if (list->value < 0 || list->value >= net_map_count) list->value = net_map_count ? 0 : -1;
+    M_MenuFind(&create.menu, 16)->value = speed_index(game_speed);
+    set_text(M_MenuFind(&create.menu, 6), "");
+    paint_create();
+    show_screen(&create);
 }
 
 static void fail_join(void) {
@@ -831,13 +914,12 @@ static void fail_join(void) {
     set_text(M_MenuFind(&join.menu, 6), status_note);
 }
 
+/* Every seat the map has starts open; the host closes some in the lobby. */
 static void host_game(void) {
-    menuitem_t *selected = M_MenuFind(&join.menu, 5);
-    chosen_map = selected ? selected->value - listed_count : -1;
+    menuitem_t *selected = M_MenuFind(&create.menu, 5);
+    chosen_map = selected ? selected->value : -1;
     if (chosen_map < 0 || chosen_map >= net_map_count) return;
     const sc_netmap_t *map = &net_maps[chosen_map];
-    int players = M_MenuFind(&join.menu, 9)->value + 2;
-    if (players < 2 || players > map->players) return;
     snprintf(session_title, sizeof(session_title), "%.31s", map->title);
     snprintf(session_path, sizeof(session_path), "%s", map->path);
     for (int i = 0; i < MAXPLAYERS; ++i) {
@@ -847,9 +929,8 @@ static void host_game(void) {
         };
         M_NetSetSeat(i, &seat);
     }
-    if (!M_NetHost(session_title, session_path, players)) {
-        snprintf(status_note, sizeof(status_note), "%s", M_NetNotice());
-        paint_listed();
+    if (!M_NetHost(session_title, session_path, map->players)) {
+        set_text(M_MenuFind(&create.menu, 6), M_NetNotice());
         return;
     }
     status_note[0] = '\0';
@@ -865,6 +946,8 @@ static void multi_escape(menu_t *menu) {
     } else if (menu == &join.menu) {
         M_NetStop();
         show_conn();
+    } else if (menu == &create.menu) {
+        show_join();
     } else if (menu == &chat.menu) {
         M_NetStop();
         status_note[0] = '\0';
@@ -915,21 +998,34 @@ static void send_chat(void) {
     if (M_NetChat(field->text)) field->text[0] = '\0';
 }
 
+/* A closed row leaves the session one seat smaller. Seats already taken
+ * stay, so the host cannot close below the players who have joined. */
+static void close_seat(int row, bool shut) {
+    uint8_t closed = 0;
+    M_NetOptions(&closed, 1);
+    int rows = doomcom->numplayers + closed_seats(closed);
+    uint8_t next = shut ? closed | 1u << row : closed & ~(1u << row);
+    if (next != closed && M_NetSetPlayers(rows - closed_seats(next))) M_NetSetOptions(&next, 1);
+}
+
 static void multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (menu == &join.menu && item->id == 5 && action == MA_CHANGE) {
         status_note[0] = '\0';
         paint_listed();
         return;
     }
-    if (menu == &join.menu && action == MA_CHANGE && (item->id == 9 || item->id == 12)) {
-        if (item->id == 12) D_SetGameSpeed((item->value + 1) * 10);
-        paint_listed();
+    if (menu == &create.menu && action == MA_CHANGE) {
+        if (item->id == 16) D_SetGameSpeed(speed_percent(item->value));
+        set_text(M_MenuFind(&create.menu, 6), "");
+        paint_create();
         return;
     }
-    if (menu == &chat.menu && action == MA_CHANGE && item->id >= 29 && item->id <= 57 && (item->id - 29) % 4 == 0) {
-        int slot = (item->id - 29) / 4;
+    if (menu == &chat.menu && action == MA_CHANGE && item->id >= 28 && item->id <= 59) {
+        int row = (item->id - 28) / 4;
+        if ((item->id - 28) % 4 == 0 && row > 0 && M_NetHosting()) close_seat(row, item->value != 0);
+        int slot = row_player[row];
         const netseat_t *seat = M_NetSeat(slot);
-        if (slot == M_NetLocalSlot() && seat && !seat->ready) {
+        if ((item->id - 28) % 4 == 1 && slot == M_NetLocalSlot() && seat && !seat->ready) {
             netseat_t choice = *seat;
             choice.race = (uint8_t)item->value;
             M_NetSetSeat(slot, &choice);
@@ -942,10 +1038,12 @@ static void multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
         if (item->id == 9) show_join();
         else if (item->id == 10) multi_escape(menu);
     } else if (menu == &join.menu) {
-        if(item->id==5&&item->value>=listed_count)host_game();
-        else if (item->id == 13 || item->id == 5) join_game();
-        else if (item->id == 15) host_game();
+        if (item->id == 13 || item->id == 5) join_game();
+        else if (item->id == 15) show_create();
         else if (item->id == 14) multi_escape(menu);
+    } else if (menu == &create.menu) {
+        if (item->id == 12 || item->id == 5) host_game();
+        else if (item->id == 13) multi_escape(menu);
     } else if (menu == &chat.menu) {
         if (item->id == 6) M_NetToggleReady();
         else if (item->id == 8 || item->id == 9) send_chat();
@@ -963,10 +1061,25 @@ static void open_multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
     show_conn();
 }
 
+static bool add_value(screen_t *screen, int id) {
+    menuitem_t *label = M_MenuFind(&screen->menu, id);
+    if (!label || screen->menu.numitems == SC_DIALOG_CONTROLS) return false;
+    menuitem_t *value = &screen->items[screen->menu.numitems++];
+    *value = *label;
+    value->id = id + 100;
+    value->align = MALIGN_RIGHT;
+    value->userdata = NULL;
+    value->text[0] = '\0';
+    return true;
+}
+
 static bool wire_multi(void) {
     menuitem_t *list = M_MenuFind(&conn.menu, 5);
     if (!list || !M_MenuFind(&conn.menu, 9) || !M_MenuFind(&join.menu, 5) ||
         !M_MenuFind(&join.menu,13) || !M_MenuFind(&join.menu,15) ||
+        !M_MenuFind(&create.menu, 5) || !M_MenuFind(&create.menu, 12) || !M_MenuFind(&create.menu, 14) ||
+        !M_MenuFind(&create.menu, 15) || !M_MenuFind(&create.menu, 16) || !M_MenuFind(&create.menu, 17) ||
+        !M_MenuFind(&create.menu, 18) || !M_MenuFind(&chat.menu, 8) ||
         !M_MenuFind(&chat.menu, 9) || !M_MenuFind(&chat.menu, 10))
         return false;
     as_list(list, 1, 0, conn_row);
@@ -975,9 +1088,17 @@ static bool wire_multi(void) {
     menuitem_t *ok = M_MenuFind(&join.menu, 13);
     if (ok) { ok->enabled = false; ok->disabled_look = true; }
     M_MenuFind(&join.menu,15)->disabled_look=true;
-    as_drop(M_MenuFind(&join.menu, 9), 1, players_row);
-    /* Engine speed percentages match D_SetGameSpeed's 10..200 range. */
-    as_drop(M_MenuFind(&join.menu, 12), 20, speed_row);
+    as_list(M_MenuFind(&create.menu, 5), 0, -1, map_row);
+    as_drop(M_MenuFind(&create.menu, 17), 1, type_row);
+    /* Melee has no subtype. */
+    M_MenuFind(&create.menu, 14)->visible = false;
+    M_MenuFind(&create.menu, 18)->visible = false;
+    menuitem_t *speed = M_MenuFind(&create.menu, 16);
+    speed->range.min = 0;
+    speed->range.max = SC_SPEEDS - 1;
+    if (!add_value(&create, 9) || !add_value(&create, 10) || !add_value(&create, 11)) return false;
+    /* gluchat's Send is a 1x1 button at the field's end: Enter, not a label. */
+    M_MenuFind(&chat.menu, 8)->text[0] = '\0';
     menuitem_t *field = M_MenuFind(&chat.menu, 9);
     field->kind = MI_TEXTFIELD;
     field->maxchars = 60;
@@ -987,13 +1108,18 @@ static bool wire_multi(void) {
     log->row_height=log->font->line_h;
     log->prose = chat_log;
     for (int i = 0; i < 8; ++i) {
+        menuitem_t *name = M_MenuFind(&chat.menu, 28 + i * 4);
         menuitem_t *race = M_MenuFind(&chat.menu, 29 + i * 4);
-        if (!race) return false;
+        if (!name || !race) return false;
+        as_drop(name, 2, seat_row);
+        name->kind = MI_STATIC;
+        name->hotkey = 0;
+        name->release = true;
         as_drop(race, 3, race_row);
         race->hotkey = 0;
         race->release = true;
-        race->visible = false;
-        race->enabled = false;
+        race->visible = name->visible = false;
+        race->enabled = name->enabled = false;
     }
     return true;
 }
@@ -1018,6 +1144,7 @@ bool G_InitMenus(app_t *app,const char *root) {
        !load_screen(&briefing,app,root,"rez/glurdyt.bin","glue/palrt/backgnd.pcx",frontend)||
        !load_screen(&conn,app,root,"rez/gluconn.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&join,app,root,"rez/glujoin.bin","glue/palnl/backgnd.pcx",multi)||
+       !load_screen(&create,app,root,"rez/glucreat.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&chat,app,root,"rez/gluchat.bin","glue/palnl/backgnd.pcx",multi))return false;
     if(!wire_multi())return false;
     menuitem_t *list=M_MenuFind(&registry.menu,8);
@@ -1046,7 +1173,7 @@ menu_t *G_ControlPanel(app_t *app,bool inlevel) {
 }
 void G_ShutdownMenus(void) {
     M_NetStop();
-    screen_t *screens[]={&main_screen,&registry,&new_id,&campaign,&briefing,&conn,&join,&chat};
+    screen_t *screens[]={&main_screen,&registry,&new_id,&campaign,&briefing,&conn,&join,&create,&chat};
     for(unsigned s=0;s<sizeof(screens)/sizeof(*screens);s++) {
         screen_t *screen=screens[s];
         for(int i=0;i<SC_DIALOG_CONTROLS;i++) {

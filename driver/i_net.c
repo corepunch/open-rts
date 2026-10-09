@@ -310,6 +310,8 @@ static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *
             wire[6] < 1 || wire[6] >= wire[7] || wire[8] <= wire[6] || wire[8] > wire[7] ||
             wire[9] > SETUP_LENGTH || !memchr(wire + 10 + SETUP_LENGTH, 0, MAP_LENGTH)) return -1;
         doomcom->consoleplayer = wire[6];
+        /* The host may open or close seats until it launches. */
+        doomcom->numplayers = doomcom->numnodes = wire[7];
         memcpy(session_map, wire + 10 + SETUP_LENGTH, MAP_LENGTH);
         const uint8_t *line = wire + 10 + SETUP_LENGTH + MAP_LENGTH;
         uint32_t acked = get32(line), id = get32(line + 4);
@@ -593,6 +595,13 @@ bool I_SetNetSetup(const void *data, size_t size) {
     if (!hosting || size > SETUP_LENGTH) return false;
     memcpy(session_setup, data, size);
     session_setup_size = size;
+    return true;
+}
+
+bool I_SetNetPlayers(int players) {
+    if (!hosting || !menu_session || session_launched || players < 2 || players > MAXPLAYERS ||
+        players < joined + 1) return false;
+    doomcom->numplayers = doomcom->numnodes = players;
     return true;
 }
 

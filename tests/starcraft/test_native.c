@@ -124,25 +124,18 @@ int main(void) {
     next=M_MenuFind(currentmenu,9);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Games"));
     CHECK(M_MenuFind(currentmenu,15)&&strstr(M_MenuFind(currentmenu,15)->text,"Create Game"));
-    next=M_MenuFind(currentmenu,5);CHECK(next&&next->rows==57&&next->row&&!next->prose);
-    int browser_road=-1;
-    for(int i=0;i<next->rows;i++)if(!strcmp(next->row(next,i),"(2)road war.scm"))browser_road=i;
-    CHECK(browser_road>=0);
-    currentmenu->itemOn=(int)(next-currentmenu->items);
-    SDL_Event pick={.type=SDL_KEYDOWN};pick.key.keysym.sym=SDLK_DOWN;
-    for(int i=0;i<browser_road;i++)CHECK(M_MenuResponder(currentmenu,&app,&pick));
-    CHECK(next->value==browser_road);
-    CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
-    CHECK(!strcmp(M_MenuFind(currentmenu,10)->text,"(2)road war.scm"));
-    CHECK(!strcmp(M_MenuFind(currentmenu,11)->text,"128x128"));
+    /* Retail Join lists hosted games only; 9 and 12 are text, not seat or speed choices. */
+    next=M_MenuFind(currentmenu,5);CHECK(next&&next->rows==0&&next->row&&next->prose);
+    CHECK(M_MenuFind(currentmenu,9)->kind==MI_STATIC&&M_MenuFind(currentmenu,12)->kind==MI_STATIC);
     CHECK(M_MenuFind(currentmenu,15)->enabled&&!M_MenuFind(currentmenu,13)->enabled);
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-join.bmp"));
-    currentmenu->itemOn=(int)(M_MenuFind(currentmenu,5)-currentmenu->items);
-    pick.key.keysym.sym=SDLK_HOME;CHECK(M_MenuResponder(currentmenu,&app,&pick));
+    CHECK(!M_MenuFind(currentmenu,-1)->visible&&!M_MenuFind(currentmenu,-3)->visible);
+    next=M_MenuFind(currentmenu,15);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Create"));
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create.bmp"));
     next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST);
-    CHECK(next->rows==57&&next->row);
-    CHECK(next->row_height==next->font->line_h&&next->rect.h/next->row_height==11);
+    CHECK(next->rows==57&&next->row&&!next->prose);
+    CHECK(next->row_height==next->font->line_h&&next->rect.h/next->row_height==6);
     CHECK(ivec2_equal(next->inset,(ivec2_t){0,0}));
     {
         menuitem_t *bar=M_MenuFind(currentmenu,-1),*up=M_MenuFind(currentmenu,-2),*down=M_MenuFind(currentmenu,-3);
@@ -151,7 +144,8 @@ int main(void) {
         CHECK(up&&down&&up->step==-1&&down->step==1&&up->link==bar->link&&down->link==bar->link);
         CHECK(!native_picture(bar->sheet,17,(ivec2_t){up->rect.x,up->rect.y},false));
         CHECK(!native_picture(bar->sheet,20,(ivec2_t){down->rect.x,down->rect.y},false));
-        menuitem_t *type=M_MenuFind(currentmenu,9);
+        CHECK(bar->visible&&down->visible);
+        menuitem_t *type=M_MenuFind(currentmenu,17);
         CHECK(!native_picture(bar->sheet,53,(ivec2_t){type->rect.x,type->rect.y+(type->rect.h-16)/2},true));
         CHECK(!native_picture(bar->sheet,50,(ivec2_t){type->rect.x+type->rect.w-13-5,type->rect.y+(type->rect.h-7)/2},false));
         SDL_Event mouse={.type=SDL_MOUSEBUTTONDOWN};mouse.button.button=SDL_BUTTON_LEFT;
@@ -190,9 +184,9 @@ int main(void) {
         for(int i=0;i<road;i++)CHECK(M_MenuResponder(currentmenu,&app,&arrow));
         CHECK(next->value==road&&road>=next->first_row&&road<next->first_row+next->rect.h/next->row_height);
         CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
-        CHECK(!strcmp(M_MenuFind(currentmenu,10)->text,"(2)road war.scm"));
-        CHECK(!strcmp(M_MenuFind(currentmenu,11)->text,"128x128"));
-        CHECK(!strcmp(M_MenuFind(currentmenu,9)->text,"Players: 2"));
+        CHECK(!strcmp(M_MenuFind(currentmenu,10)->text,"Map Size:")&&!strcmp(M_MenuFind(currentmenu,110)->text,"128x128"));
+        CHECK(!strcmp(M_MenuFind(currentmenu,9)->text,"Number of Players:")&&!strcmp(M_MenuFind(currentmenu,109)->text,"2"));
+        CHECK(M_MenuFind(currentmenu,110)->align==MALIGN_RIGHT);
         M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create-road-war.bmp"));
         app.win=(isize2_t){1280,960};V_AllocScreen(1280,960);
         V_BeginFrame(0xff000000);
@@ -208,14 +202,19 @@ int main(void) {
         mouse.type=SDL_MOUSEBUTTONDOWN;mouse.button.button=SDL_BUTTON_LEFT;
         mouse.button.x=type->rect.x+type->rect.w-10;mouse.button.y=type->rect.y+type->rect.h/2;
         CHECK(M_MenuResponder(currentmenu,&app,&mouse)&&currentmenu->dropdown==type);
+        /* The open combobox squares off toward its list; the list sits on dlg.grp 35..43. */
+        M_MenuDrawer(currentmenu);
+        CHECK(!native_picture(bar->sheet,47,(ivec2_t){type->rect.x,type->rect.y+(type->rect.h-16)/2},true));
+        CHECK(!native_picture(bar->sheet,41,(ivec2_t){type->rect.x,type->rect.y+type->rect.h-2+32-16},true));
         home.key.keysym.sym=SDLK_RETURN;CHECK(M_MenuResponder(currentmenu,&app,&home)&&!currentmenu->dropdown);
-        menuitem_t *ok=M_MenuFind(currentmenu,15);CHECK(ok&&ok->enabled&&ok->routine);
+        menuitem_t *ok=M_MenuFind(currentmenu,12);CHECK(ok&&ok->enabled&&ok->routine);
         ok->routine(currentmenu,ok,MA_ACTIVATE);
         CHECK(M_NetHosting()&&doomcom->numplayers==2);
         CHECK(!strcmp(M_MenuFind(currentmenu,14)->text,"Road War"));
         CHECK(M_MenuFind(currentmenu,29)->kind==MI_DROPDOWN);
         CHECK(ivec2_equal(M_MenuFind(currentmenu,29)->inset,(ivec2_t){4,0}));
-        CHECK(!strcmp(M_MenuFind(currentmenu,6)->text,"Ready"));
+        CHECK(!strcmp(M_MenuFind(currentmenu,6)->text,"Ready")&&!M_MenuFind(currentmenu,8)->text[0]);
+        CHECK(M_MenuFind(currentmenu,28)->kind==MI_STATIC&&M_MenuFind(currentmenu,32)->kind==MI_DROPDOWN);
         next=M_MenuFind(currentmenu,6);next->routine(currentmenu,next,MA_ACTIVATE);
         CHECK(!strcmp(next->text,"Unready")&&!M_MenuFind(currentmenu,29)->enabled);
         next->routine(currentmenu,next,MA_ACTIVATE);

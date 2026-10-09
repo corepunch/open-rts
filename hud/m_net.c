@@ -301,6 +301,11 @@ bool M_NetHost(const char *title, const char *path, int count) {
     return true;
 }
 
+bool M_NetSetPlayers(int count) {
+    if (!hosting || count > play_cap() || !I_SetNetPlayers(count)) return false;
+    return publish();
+}
+
 bool M_NetJoinAddress(const char *where) {
     if (!where || !where[0]) return false;
     char copy[128];

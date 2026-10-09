@@ -964,6 +964,8 @@ typedef struct {
 } netgame_t;
 /* Menu sessions use the same transport as --host/--join, without blocking. */
 bool I_HostNetGame(const char *game, const char *name, const char *map, int players);
+/* Host-only, before launch: reserve this many slots, never fewer than have joined. */
+bool I_SetNetPlayers(int players);
 /* Host-only: up to 64 opaque bytes delivered to every joiner (I_NetSetup). */
 bool I_SetNetSetup(const void *data, size_t size);
 size_t I_NetSetup(void *data, size_t capacity);
@@ -2440,6 +2442,8 @@ bool M_NetHosting(void);
 bool M_NetInLobby(void);
 int M_NetLocalSlot(void);
 bool M_NetHost(const char *title, const char *path, int players);
+/* Host: open or close seats in the lobby; joined players keep theirs. */
+bool M_NetSetPlayers(int players);
 bool M_NetJoinAddress(const char *address);
 bool M_NetBrowse(void);
 bool M_NetJoinListed(int index);

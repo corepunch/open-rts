@@ -9,7 +9,7 @@
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "lobby pid=%ld line %d: %s (%s)\n", (long)getpid(), __LINE__, #c, M_NetNotice()); return 1; } } while (0)
 static app_t app = {.win = {640, 480}, .running = true};
 #ifdef RTS_GAME_STARCRAFT
-enum { LIST = 5, CREATE = 15, JOIN = 13, PLAYERS = 9, READY = 6, RACE = 29, RACE_STEP = 4, CHAT = 9, CANCEL = 7, GUEST_RACE = 2 };
+enum { LIST = 5, CREATE = 15, JOIN = 13, HOST = 12, SPEED = 16, SEAT = 28, READY = 6, RACE = 29, RACE_STEP = 4, CHAT = 9, CANCEL = 7, GUEST_RACE = 2 };
 static const char *root = "data/STARCRAFT";
 #else
 enum { LIST = 4, CREATE = 6, JOIN = 2, PLAYERS = 5, READY = 18, RACE = 20, RACE_STEP = 1, CHAT = 11, CANCEL = 7, GUEST_RACE = 0 };
@@ -126,13 +126,17 @@ static int host(int notify, int reply) {
     CHECK(!open_browser(true));
     menuitem_t *list = M_MenuFind(currentmenu, LIST);
 #ifdef RTS_GAME_STARCRAFT
+    /* Create Game opens the map screen; the lobby closes two of four seats. */
+    CHECK(click(CREATE));
+    list = M_MenuFind(currentmenu, LIST);
     int row = -1;
     for (int i = 0; i < list->rows; ++i)
         if (!strcmp(list->row(list, i), "(4)lost temple.scm")) row = i;
     CHECK(row >= 0);
     list->value = row; list->routine(currentmenu, list, MA_CHANGE);
-    CHECK(choose(PLAYERS, 2) && choose(PLAYERS, 0));
-    CHECK(choose(12, 11) && game_speed == 120);
+    menuitem_t *speed = M_MenuFind(currentmenu, SPEED);
+    speed->value = 4; speed->routine(currentmenu, speed, MA_CHANGE);
+    CHECK(game_speed == 120 && !strcmp(M_MenuFind(currentmenu, 15)->text, "Speed: Fast"));
 #else
     CHECK(choose(PLAYERS, 0));
     D_SetGameSpeed(120);
@@ -143,9 +147,16 @@ static int host(int notify, int reply) {
 #else
     snprintf(title, sizeof(title), "%s", list->row(list, list->value));
 #endif
-    CHECK(click(CREATE) && M_NetHosting() && doomcom->numplayers == 2);
 #ifdef RTS_GAME_STARCRAFT
+    CHECK(click(HOST) && M_NetHosting() && doomcom->numplayers == 4);
     CHECK(!strcmp(M_MenuFind(currentmenu, 14)->text, title));
+    CHECK(!M_MenuFind(currentmenu, SEAT)->enabled); /* The host's own seat stays. */
+    CHECK(choose(SEAT + 2 * RACE_STEP, 1) && doomcom->numplayers == 3);
+    CHECK(choose(SEAT + 3 * RACE_STEP, 1) && doomcom->numplayers == 2);
+    CHECK(choose(SEAT + 2 * RACE_STEP, 0) && doomcom->numplayers == 3);
+    CHECK(choose(SEAT + 2 * RACE_STEP, 1) && doomcom->numplayers == 2);
+#else
+    CHECK(click(CREATE) && M_NetHosting() && doomcom->numplayers == 2);
 #endif
     CHECK(choose(RACE, 1));
     CHECK(click(READY) && M_NetSeat(0)->ready);
@@ -189,6 +200,10 @@ static int guest(int notify, int reply) {
     do { M_Ticker(); SDL_Delay(1); } while (!M_NetInLobby() && SDL_GetTicks64() < end);
     CHECK(M_NetInLobby() && M_NetLocalSlot() == 1);
     if (currentmenu->refresh) currentmenu->refresh(currentmenu);
+#ifdef RTS_GAME_STARCRAFT
+    CHECK(doomcom->numplayers == 2 && !strcmp(M_MenuFind(currentmenu, SEAT + 2 * RACE_STEP)->text, "Closed"));
+    CHECK(!M_MenuFind(currentmenu, SEAT + 2 * RACE_STEP)->enabled);
+#endif
     CHECK(choose(RACE + RACE_STEP, GUEST_RACE));
     CHECK(!click(RACE)); /* A guest cannot change the host's race. */
     CHECK(write(reply, "J", 1) == 1 && log_contains("host hello"));
