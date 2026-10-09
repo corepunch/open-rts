@@ -17,7 +17,7 @@ enum {
     SC_STORM_STRIKE = 9, SC_STORM_FRAMES = 7 * SC_STORM_STRIKE,
     SC_NUKE_FRAMES = 14 * 24, /* A Ghost paints the target for 14 seconds. */
     SC_CONSUME_ENERGY = 50 << 8,
-    SC_WEAPON_YAMATO = 30, SC_WEAPON_NUKE = 31, SC_WEAPON_STORM = 84,
+    SC_WEAPON_YAMATO = 30, SC_WEAPON_NUKE = 31, SC_WEAPON_EMP = 33, SC_WEAPON_STORM = 84,
 };
 /* Ensnare and Plague cover this many cells around the spot (weapons.dat
  * leaves their radius 0); EMP's 64 pixels are the same. Irradiate burns
@@ -25,7 +25,6 @@ enum {
 #define SC_SPELL_RADIUS 2.0f
 #define SC_IRRADIATE_RADIUS 1.0f
 #define SC_SWARM_RADIUS 2.5f
-#define SC_NUKE_RADIUS 8.0f
 
 /* Who casts what and how far. A weapons.dat row gives the reach; range is
  * used without one, negative for anywhere, zero for the caster itself. */
@@ -37,7 +36,7 @@ typedef struct {
 } sc_spell_t;
 static const sc_spell_t spells[] = {
     {SC_TECH_LOCKDOWN, 32, 0, {MT_GHOST}, false},
-    {SC_TECH_EMP, 33, 0, {MT_SCIENCE_VESSEL}, false},
+    {SC_TECH_EMP, SC_WEAPON_EMP, 0, {MT_SCIENCE_VESSEL}, false},
     {SC_TECH_SCANNER_SWEEP, -1, -1, {MT_COMSAT_STATION}, true},
     {SC_TECH_SIEGE_MODE, -1, 0, {MT_SIEGE_TANK, MT_SIEGE_MODE}, false},
     {SC_TECH_DEFENSIVE_MATRIX, -1, 10, {MT_SCIENCE_VESSEL}, true},
@@ -80,7 +79,7 @@ bool sc_has_tech(int owner, int tech) {
     return tech >= 0 && tech < SC_TECHS && owner >= 0 && owner < 8 && level.upgrades[SC_UPGRADES + tech][owner].weapon;
 }
 static bool may_cast(const mobj_t *caster, int tech) {
-    return sc_has_tech(caster->owner, tech) || (sc_units[caster->type_id - 1].flags & 0x40); /* heroes know all */
+    return sc_has_tech(caster->owner, tech) || (sc_units[caster->type_id - 1].flags & SC_UNIT_HERO); /* heroes know all */
 }
 int sc_unit_techs(uint16_t type, int *out, int cap) {
     int n = 0;
@@ -97,10 +96,11 @@ static float reach(const sc_spell_t *s) {
 }
 static int energy_cost(int tech) { return tech < SC_TECHS ? sc_techs[tech].energy << 8 : 0; }
 
-/* A unit spells may touch: alive, on the map, not inside a Bunker or an area. */
+/* A unit spells may touch: alive, on the map, not inside a Bunker or an
+ * area, and not one a map made invincible. */
 static bool body(const mobj_t *mo) {
     return mo->thinker.function == P_MobjThinker && !mo->remove && mo->hp > 0 &&
-        !(mo->traits & (MF_NOBLOCKMAP | MF_MISSILE)) && sc_unit(mo);
+        !(mo->traits & (MF_NOBLOCKMAP | MF_MISSILE)) && !(mo->sc.flags & SC_INVINCIBLE) && sc_unit(mo);
 }
 static bool building(const mobj_t *mo) { return (sc_units[mo->type_id - 1].flags & SC_UNIT_BUILDING) != 0; }
 static fvec2_t where(const mobj_t *mo) { return fixed3_xy_to_fvec2(mo->core.position); }
@@ -123,8 +123,6 @@ static bool target_ok(const mobj_t *caster, int tech, const mobj_t *target) {
     case SC_TECH_CONSUME:
         return target->owner == caster->owner && !building(target) && (sc_units[target->type_id - 1].race & 1) &&
             target->type_id != MT_LARVA && target->type_id != MT_EGG;
-    case SC_TECH_ARCHON_WARP:
-        return target->owner == caster->owner && target->type_id == MT_HIGH_TEMPLAR;
     default: return !building(target);
     }
 }
@@ -244,7 +242,7 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
         }
         break;
     case SC_TECH_EMP:
-        AROUND(v, at, sc_weapon(33)->splash[0] / 32.0f, caster) { sc_start(v); v->sc.shields = 0; v->sc.energy = 0; }
+        AROUND(v, at, sc_weapon(SC_WEAPON_EMP)->splash[0] / 32.0f, caster) { sc_start(v); v->sc.shields = 0; v->sc.energy = 0; }
         break;
     case SC_TECH_ENSNARE:
         AROUND(v, at, SC_SPELL_RADIUS, caster) {
