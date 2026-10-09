@@ -177,6 +177,10 @@ placement dimensions. The current field named `race` stores editor group bits,
 not a normalized race enum; `orders` stores the default right-click action,
 not the complete orders.dat state machine. These naming differences matter
 when extending the plugin.
+Later columns hold build time, supply, armor, scores, shields, subunit, the
+ground and air weapons.dat rows, size and top speed; `weapons.inc` and
+`techs.inc` come from `sc_catalog native weapons` and `native techs` (see
+[the combat findings](SC_EXE_FINDINGS.md#combat-model-from-the-dats-2026-10-09)).
 
 Balance remains committed C literals under this repo's architecture. Runtime
 DAT reads resolve artwork; editing retail HP bytes alone will not change the
@@ -189,12 +193,12 @@ Confirmed size 2,760 bytes, N=184. Reference-defined columns:
 | Column | Start | Width | Usage |
 | --- | --- | --- | --- |
 | sprite | 0 | 2 | Runtime native sprite ID |
-| speed | 2N | 4 | Not used for catalog movement |
+| speed | 2N | 4 | Top speed, 1/256 px per frame; `units.inc` speed |
 | acceleration | 6N | 2 | Not simulated |
 | halt_distance | 8N | 4 | Not simulated |
 | turn_radius | 12N | 1 | Not simulated |
 | unused | 13N | 1 | Unknown purpose |
-| movement_control | 14N | 1 | Not simulated |
+| movement_control | 14N | 1 | 2: the walking script moves the unit (catalog speed) |
 
 ### sprites.dat
 
@@ -597,8 +601,8 @@ pathfinding Y coordinate is independently flipped. Renderer-facing direction
 lookup and horizontal GRP mirroring are separate from world coordinates.
 No framebuffer-flip change was needed.
 
-The catalog's 128×128 map, regular spacing, fully revealed terrain, shared
-movement speed, common Terran console and restricted command panel are authored
+The catalog's 128×128 map, regular spacing, fully revealed terrain, common
+Terran console and restricted command panel are authored
 sandbox choices. They must not be cited as retail mechanics. In particular
 the rectangular viewport currently reserves 128/480 of the window height;
 this is not a recovered retail occlusion mask for the console's irregular edge.

@@ -107,24 +107,24 @@ static int play(int race, race_run_t *out) {
     return 0;
 }
 
-/* Zerg against Terran on a three-seat map, the human seat idle: the two
- * computers scout each other, so waves wait for strength and back off.
- * (Protoss, its shields not yet simulated, falls to the larva-paced Zerg
- * swarm without a contest.) */
-static int duel(AiStats *zerg, AiStats *terran) {
+/* Zerg against Protoss on a three-seat map, the human seat idle: the two
+ * computers scout each other, so waves wait for strength and back off. */
+static int duel(AiStats *zerg, AiStats *protoss) {
     static const char map[] = "maps/(3)holy ground.scm/staredit/scenario.chk";
     int kinds[8] = {SC_SLOT_HUMAN, SC_SLOT_COMPUTER, SC_SLOT_COMPUTER, SC_SLOT_CLOSED,
                     SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED};
-    int races[8] = {0, 1, 0};
+    int races[8] = {0, 1, 2};
     sc_set_custom_slots(kinds, races);
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = { .data_root = g_game_default_root, .map_path = map };
     CHECK(model && rts_game_model_load(model, &config));
     AiContext *ai = rts_game_model_ai(model);
-    /* The seats are read before play: a fallen idle seat ends the match. */
-    bool computer[8] = {false};
+    bool computer[8] = {0};
     for (int owner = 0; owner < 8; ++owner)
         computer[owner] = owner != consoleplayer && G_AiInterface()->player_level(&level, owner) == AI_LEVEL_NORMAL;
+    /* The idle seat only watches: it cannot fall and end the match. */
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (((mobj_t *)th)->owner == consoleplayer) ((mobj_t *)th)->sc.flags |= SC_INVINCIBLE;
     for (int t = 0; t < RTS_TICRATE * 60 * 15; ++t) CHECK(rts_game_model_tick(model, RTS_FIXED_DT));
     for (int owner = 0; owner < 8; ++owner) {
         if (!computer[owner]) continue;
@@ -134,7 +134,7 @@ static int duel(AiStats *zerg, AiStats *terran) {
                sc_player_side(owner), stats->purchases, stats->waves, stats->holds, stats->retreats,
                team->enemy_strength, team->enemy_air_pct);
         if (sc_player_side(owner) == 0) *zerg = *stats;
-        if (sc_player_side(owner) == 1) *terran = *stats;
+        if (sc_player_side(owner) == 2) *protoss = *stats;
     }
     rts_game_model_destroy(model);
     sc_set_custom_slots(NULL, NULL);
@@ -142,13 +142,13 @@ static int duel(AiStats *zerg, AiStats *terran) {
 }
 
 int main(void) {
-    AiStats duel_zerg = {0}, duel_terran = {0};
-    CHECK(duel(&duel_zerg, &duel_terran) == 0);
-    /* Zerg attacks again and again; seeing a stronger enemy makes waves
-     * wait, and losing fights sends them home. */
-    CHECK(duel_zerg.waves > duel_terran.waves && duel_terran.waves >= 1);
-    CHECK(duel_zerg.holds + duel_terran.holds > 0);
-    CHECK(duel_zerg.retreats + duel_terran.retreats > 0);
+    AiStats duel_zerg = {0}, duel_protoss = {0};
+    CHECK(duel(&duel_zerg, &duel_protoss) == 0);
+    /* Both sides attack; seeing a stronger enemy makes waves wait (Zerg
+     * lings against shielded zealots), and losing fights sends them home. */
+    CHECK(duel_zerg.waves >= 1 && duel_protoss.waves >= 1);
+    CHECK(duel_zerg.holds + duel_protoss.holds > 0);
+    CHECK(duel_zerg.retreats + duel_protoss.retreats > 0);
     race_run_t zerg, terran, protoss;
     CHECK(play(0, &zerg) == 0);
     CHECK(play(1, &terran) == 0);

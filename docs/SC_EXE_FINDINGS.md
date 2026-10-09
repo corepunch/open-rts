@@ -1342,3 +1342,74 @@ costs and effect, combat damage, death and removal, structure cells freed,
 victory and defeat dialogs, the score screen, every in-level dialog route,
 the campaign result flow and the Terran 01 briefing timeline.
 
+
+## Combat model from the DATs (2026-10-09)
+
+No executable was disassembled. Sources are the retail DATs (fingerprints
+above), PyMS's DAT and IScript layouts, and OpenBW's rules, used as a
+reference rather than copied.
+
+```sh
+make build/sc_catalog
+build/sc_catalog data/STARCRAFT/native > games/starcraft/units.inc
+build/sc_catalog data/STARCRAFT/native weapons > games/starcraft/weapons.inc
+build/sc_catalog data/STARCRAFT/native techs > games/starcraft/techs.inc
+build/sc_catalog data/STARCRAFT/native upgrades > games/starcraft/upgrades.inc
+make build/bin/tests/starcraft/test_combat && build/bin/tests/starcraft/test_combat
+```
+
+**Confirmed from the data.**
+- `units.dat` is the classic 19,192-byte table: no Brood War max-hits columns
+  and no Lurker. Units now keep their ground (column 17) and air (19) weapon
+  rows, their size (26) and a speed; weapon damage, range and cooldown come
+  from `weapons.inc`. 100 is "no weapon" in this 100-row `weapons.dat`.
+- `weapons.dat` columns (x N=100): target flags 7, minimum and maximum range
+  9/13, damage upgrade 17, damage type 18, behavior 19, explosion 21, splash
+  radii 22/24/26, damage 28, bonus 30, cooldown 32, damage factor 33.
+  Damage types: 1 explosive, 2 concussive, 3 normal, 4 ignore armor.
+  Explosions: 1 normal, 2 radial splash (Arclite Shock Cannon 10/25/40,
+  spider mine, Psionic Storm 48), 3 enemy splash (Flame Thrower 15/20/25,
+  Psionic Shockwave 3/15/30, Scarab 20/40/60), 24 air splash (unused here).
+  Behavior 7 is the Glave Wurm bounce.
+- Damage factor is 2 only for the Hellfire Missile Pack and Anti-matter
+  Missiles. Psi Blades and Flame Thrower are 1: the Zealot's attack script
+  (ZealotGndAttkRpt) has two `attackmelee`, and the Firebat's has three
+  `attkshiftproj`. The engine counts one attack of `hits` hits, using
+  Brood War's max ground hits (2) for Zealot, Firebat and their heroes; the
+  IScript compiler now strikes only on the first attack opcode of a pass.
+- `units.dat` flags: 0x200 cloakable (Ghost, Wraith, their heroes),
+  0x400000 permanent cloak (Observer, Dark Templar, Zeratul), 0x8000
+  detector, 0x200000 spellcaster (energy).
+- `flingy.dat` (N=184) top speed is 1/256 pixel per frame. Flingies with
+  movement control 2 store 1 there and move by their Walking script's
+  `move` opcodes; the catalog sums `move` over `wait` frames once round that
+  loop. Marine 1024 (4.0 px), Zergling 1426, Hydralisk 950, Dragoon 1344,
+  Goliath 1203, Ultralisk 1382, Vulture 1707, Overlord 213. At 24 frames a
+  second on 32-pixel cells, cells/s = speed × 3 / 1024: a Marine keeps 3.0.
+- `techdata.dat` (24 rows of 18 bytes): minerals, gas, time and energy
+  (u16), an unknown u32, icon and label (u16), race, unused byte. Cloaking
+  Field (9) and Personnel Cloaking (10) cost 25 energy.
+
+**Inferred from OpenBW, not verified against the executable.**
+- Hit order: damage plus bonus × upgrade level, split for splash, then
+  shields less Plasma Shields (upgrade 15) without damage-type scaling, then
+  armor, then the damage type against size (explosive 50/75/100%,
+  concussive 100/50/25%), at least half a point; hit points keep the 1/256
+  remainder (`sc.wound`).
+- Splash rings are measured from the target's position to each unit's edge,
+  and ground splash stays on the target's layer. Bounces reach the nearest
+  enemy within 96 pixels other than the last two targets, three targets in
+  all, each a third of the previous damage.
+- Shields regenerate 7/256 and energy 8/256 per frame, to 200 energy;
+  casters start with 50. A switched-on cloak drains 13/256 energy per frame
+  instead of regenerating and drops at zero.
+
+**Engine choices, not retail.** The Shield Battery restores up to two shield
+points a frame to one unit within four cells for one energy per two points.
+Cloaking does not yet require its research. Minimum range (the sieged tank's
+64 pixels) is not enforced.
+
+This supersedes two statements of the Research section above: weapon upgrade
+and bonus now come from each weapons.dat row (so the Goliath's turret weapons
+upgrade too), and the minimum hit is half a point carried in `sc.wound`
+rather than one whole point.
