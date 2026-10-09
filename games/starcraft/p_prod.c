@@ -2,38 +2,86 @@
 #include <string.h>
 /* Stargus command cards, with native DAT costs and build times.
  * Orders, queues, payment, placement and spawning belong to the engine. */
-static const struct { int type, maker, prerequisite; } recipes[] = {
-    {7,106,-1}, {0,111,-1}, {32,111,112}, {1,111,116},
-    {106,7,-1}, {109,7,-1}, {110,7,-1}, {111,7,106}, {112,7,111},
-    {122,7,106}, {124,7,122}, {125,7,111},
-    {113,7,111}, {114,7,113}, {116,7,114}, {123,7,113},
-    {2,113,-1}, {5,113,-1}, {3,113,123},
-    {8,114,-1}, {11,114,-1}, {9,114,116}, {12,114,116},
-    {154,64,-1}, {156,64,-1}, {157,64,-1}, {160,64,154},
-    {166,64,154}, {162,64,166}, {164,64,160}, {172,64,160},
-    {155,64,164}, {167,64,164}, {163,64,164}, {171,64,155},
-    {169,64,167}, {165,64,163}, {159,64,155}, {170,64,165},
-    {64,154,-1}, {65,160,-1}, {66,160,164}, {67,160,165},
-    {69,155,-1}, {83,155,171}, {84,155,159}, {70,167,-1},
-    {72,167,169}, {71,167,170},
-    {131,41,-1}, {143,41,-1}, {149,41,-1}, {142,41,131},
-    {139,41,131}, {135,41,142}, {141,41,132}, {138,41,132},
-    {134,41,133}, {140,41,133}, {136,41,133},
+static const struct { mobjtype_id_t type, maker, prerequisite; } recipes[] = {
+    {MT_SCV, MT_COMMAND_CENTER, MT_NONE},
+    {MT_MARINE, MT_BARRACKS, MT_NONE},
+    {MT_FIREBAT, MT_BARRACKS, MT_ACADEMY},
+    {MT_GHOST, MT_BARRACKS, MT_SCIENCE_FACILITY},
+    {MT_COMMAND_CENTER, MT_SCV, MT_NONE},
+    {MT_SUPPLY_DEPOT, MT_SCV, MT_NONE},
+    {MT_REFINERY, MT_SCV, MT_NONE},
+    {MT_BARRACKS, MT_SCV, MT_COMMAND_CENTER},
+    {MT_ACADEMY, MT_SCV, MT_BARRACKS},
+    {MT_ENGINEERING_BAY, MT_SCV, MT_COMMAND_CENTER},
+    {MT_MISSILE_TURRET, MT_SCV, MT_ENGINEERING_BAY},
+    {MT_BUNKER, MT_SCV, MT_BARRACKS},
+    {MT_FACTORY, MT_SCV, MT_BARRACKS},
+    {MT_STARPORT, MT_SCV, MT_FACTORY},
+    {MT_SCIENCE_FACILITY, MT_SCV, MT_STARPORT},
+    {MT_ARMORY, MT_SCV, MT_FACTORY},
+    {MT_VULTURE, MT_FACTORY, MT_NONE},
+    {MT_SIEGE_TANK, MT_FACTORY, MT_NONE},
+    {MT_GOLIATH, MT_FACTORY, MT_ARMORY},
+    {MT_WRAITH, MT_STARPORT, MT_NONE},
+    {MT_DROPSHIP, MT_STARPORT, MT_NONE},
+    {MT_SCIENCE_VESSEL, MT_STARPORT, MT_SCIENCE_FACILITY},
+    {MT_BATTLECRUISER, MT_STARPORT, MT_SCIENCE_FACILITY},
+    {MT_NEXUS, MT_PROBE, MT_NONE},
+    {MT_PYLON, MT_PROBE, MT_NONE},
+    {MT_ASSIMILATOR, MT_PROBE, MT_NONE},
+    {MT_GATEWAY, MT_PROBE, MT_NEXUS},
+    {MT_FORGE, MT_PROBE, MT_NEXUS},
+    {MT_PHOTON_CANNON, MT_PROBE, MT_FORGE},
+    {MT_CYBERNETICS_CORE, MT_PROBE, MT_GATEWAY},
+    {MT_SHIELD_BATTERY, MT_PROBE, MT_GATEWAY},
+    {MT_ROBOTICS_FACILITY, MT_PROBE, MT_CYBERNETICS_CORE},
+    {MT_STARGATE, MT_PROBE, MT_CYBERNETICS_CORE},
+    {MT_CITADEL_OF_ADUN, MT_PROBE, MT_CYBERNETICS_CORE},
+    {MT_ROBOTICS_SUPPORT_BAY, MT_PROBE, MT_ROBOTICS_FACILITY},
+    {MT_FLEET_BEACON, MT_PROBE, MT_STARGATE},
+    {MT_TEMPLAR_ARCHIVES, MT_PROBE, MT_CITADEL_OF_ADUN},
+    {MT_OBSERVATORY, MT_PROBE, MT_ROBOTICS_FACILITY},
+    {MT_ARBITER_TRIBUNAL, MT_PROBE, MT_TEMPLAR_ARCHIVES},
+    {MT_PROBE, MT_NEXUS, MT_NONE},
+    {MT_ZEALOT, MT_GATEWAY, MT_NONE},
+    {MT_DRAGOON, MT_GATEWAY, MT_CYBERNETICS_CORE},
+    {MT_HIGH_TEMPLAR, MT_GATEWAY, MT_TEMPLAR_ARCHIVES},
+    {MT_SHUTTLE, MT_ROBOTICS_FACILITY, MT_NONE},
+    {MT_REAVER, MT_ROBOTICS_FACILITY, MT_ROBOTICS_SUPPORT_BAY},
+    {MT_OBSERVER, MT_ROBOTICS_FACILITY, MT_OBSERVATORY},
+    {MT_SCOUT, MT_STARGATE, MT_NONE},
+    {MT_CARRIER, MT_STARGATE, MT_FLEET_BEACON},
+    {MT_ARBITER, MT_STARGATE, MT_ARBITER_TRIBUNAL},
+    {MT_HATCHERY, MT_DRONE, MT_NONE},
+    {MT_CREEP_COLONY, MT_DRONE, MT_NONE},
+    {MT_EXTRACTOR, MT_DRONE, MT_NONE},
+    {MT_SPAWNING_POOL, MT_DRONE, MT_HATCHERY},
+    {MT_EVOLUTION_CHAMBER, MT_DRONE, MT_HATCHERY},
+    {MT_HYDRALISK_DEN, MT_DRONE, MT_SPAWNING_POOL},
+    {MT_SPIRE, MT_DRONE, MT_LAIR},
+    {MT_QUEENS_NEST, MT_DRONE, MT_LAIR},
+    {MT_NYDUS_CANAL, MT_DRONE, MT_HIVE},
+    {MT_ULTRALISK_CAVERN, MT_DRONE, MT_HIVE},
+    {MT_DEFILER_MOUND, MT_DRONE, MT_HIVE},
     /* Larva and eggs are not simulated. A hatchery trains the army directly. */
-    {41,131,-1}, {42,131,-1}, {37,131,142}, {38,131,135}, {43,131,141},
+    {MT_DRONE, MT_HATCHERY, MT_NONE},
+    {MT_OVERLORD, MT_HATCHERY, MT_NONE},
+    {MT_ZERGLING, MT_HATCHERY, MT_SPAWNING_POOL},
+    {MT_HYDRALISK, MT_HATCHERY, MT_HYDRALISK_DEN},
+    {MT_MUTALISK, MT_HATCHERY, MT_SPIRE},
 };
 static StaticProductDefinition products[sizeof(recipes)/sizeof(*recipes)];
 static void init_products(void) {
     static bool initialized;
     if(initialized)return;
     for(unsigned i=0;i<sizeof(recipes)/sizeof(*recipes);i++) {
-        int type=recipes[i].type; const sc_unit_t *u=&sc_units[type];
-        products[i]=(StaticProductDefinition){.row_id=type+1,.ui_id=type+1,.label=u->name,
-            .cost=u->minerals,.extra_costs={u->gas},.icon_frame=type,
+        mobjtype_id_t type=recipes[i].type; const sc_unit_t *u=&sc_units[type-1];
+        products[i]=(StaticProductDefinition){.row_id=type,.ui_id=type,.label=u->name,
+            .cost=u->minerals,.extra_costs={u->gas},.icon_frame=type-1,
             .product_class=(u->flags&1)?RTS_PRODUCT_BUILDING:RTS_PRODUCT_UNIT,
-            .product_type=type+1,.makers={recipes[i].maker+1},.maker_count=1,
+            .product_type=type,.makers={recipes[i].maker},.maker_count=1,
             .worker_build=(u->flags&1)!=0,
-            .prerequisites={recipes[i].prerequisite+1},.prerequisite_count=recipes[i].prerequisite>=0};
+            .prerequisites={recipes[i].prerequisite},.prerequisite_count=recipes[i].prerequisite!=MT_NONE};
     }
     initialized=true;
 }
@@ -102,13 +150,13 @@ static int sc_ai_level(const level_t *map,int owner) {
     if(kind==1||kind==5||sc_player_ai(owner)) return AI_LEVEL_NORMAL;
     return AI_LEVEL_NONE;
 }
-typedef struct { int product, count; } sc_step_t;
+typedef struct { mobjtype_id_t product; int count; } sc_step_t;
 static const sc_step_t terran_ladder[]={
-    {8,6},{110,1},{112,1},{1,6},{111,1},{8,8},{110,2},{114,1},{3,4},{1,12}
+    {MT_SCV,6},{MT_SUPPLY_DEPOT,1},{MT_BARRACKS,1},{MT_MARINE,6},{MT_REFINERY,1},{MT_SCV,8},{MT_SUPPLY_DEPOT,2},{MT_FACTORY,1},{MT_VULTURE,4},{MT_MARINE,12}
 },zerg_ladder[]={
-    {42,6},{43,1},{143,1},{38,8},{150,1},{42,8},{136,1},{39,6},{43,2}
+    {MT_DRONE,6},{MT_OVERLORD,1},{MT_SPAWNING_POOL,1},{MT_ZERGLING,8},{MT_EXTRACTOR,1},{MT_DRONE,8},{MT_HYDRALISK_DEN,1},{MT_HYDRALISK,6},{MT_OVERLORD,2}
 },protoss_ladder[]={
-    {65,6},{157,1},{161,1},{66,4},{158,1},{65,8},{157,2},{66,8}
+    {MT_PROBE,6},{MT_PYLON,1},{MT_GATEWAY,1},{MT_ZEALOT,4},{MT_ASSIMILATOR,1},{MT_PROBE,8},{MT_PYLON,2},{MT_ZEALOT,8}
 };
 static bool sc_ai_plan(const level_t *map,int owner,int level,AiPlan *out) {
     (void)map;(void)level;

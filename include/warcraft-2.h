@@ -16,7 +16,7 @@ int W2_ResourceIncome(int owner, int resource);
 
 /* Research and hall upgrades (games/warcraft-2/p_prod.c). */
 typedef struct {
-    const char *name;   /* Wargus upgrade id. */
+    const char *label;
     int icon;           /* Icon of the level being researched (Wargus icons.lua). */
     int time, gold, lumber, oil;
     bool armor;         /* Raises armor; otherwise piercing damage. */
@@ -39,7 +39,7 @@ typedef enum { W2_SPELL_NONE, W2_SPELL_VISION, W2_SPELL_HEAL, W2_SPELL_EXORCISM,
     W2_SPELL_COUNT } w2_spell_id_t;
 enum { W2_BUFF_BLOODLUST, W2_BUFF_HASTE, W2_BUFF_SLOW, W2_BUFF_INVISIBLE, W2_BUFF_ARMOR, W2_BUFF_COUNT };
 typedef struct {
-    const char *name, *label;
+    const char *label;
     int mana, range, icon, research;
     bool unit_target, repeat;
 } w2_spell_t;

@@ -7,6 +7,29 @@
 
 #define CHECK(c) RTS_CHECK(c, "Warcraft II catalog", #c)
 
+/* Wargus identifiers belong to this optional source audit. */
+static const char *const spell_names[W2_SPELL_COUNT] = {
+    [W2_SPELL_VISION] = "spell-holy-vision",
+    [W2_SPELL_HEAL] = "spell-healing",
+    [W2_SPELL_EXORCISM] = "spell-exorcism",
+    [W2_SPELL_EYE] = "spell-eye-of-vision",
+    [W2_SPELL_BLOODLUST] = "spell-bloodlust",
+    [W2_SPELL_RUNES] = "spell-runes",
+    [W2_SPELL_FIREBALL] = "spell-fireball",
+    [W2_SPELL_SLOW] = "spell-slow",
+    [W2_SPELL_FLAME_SHIELD] = "spell-flame-shield",
+    [W2_SPELL_INVISIBILITY] = "spell-invisibility",
+    [W2_SPELL_POLYMORPH] = "spell-polymorph",
+    [W2_SPELL_BLIZZARD] = "spell-blizzard",
+    [W2_SPELL_DEATH_COIL] = "spell-death-coil",
+    [W2_SPELL_HASTE] = "spell-haste",
+    [W2_SPELL_RAISE_DEAD] = "spell-raise-dead",
+    [W2_SPELL_WHIRLWIND] = "spell-whirlwind",
+    [W2_SPELL_UNHOLY_ARMOR] = "spell-unholy-armor",
+    [W2_SPELL_DECAY] = "spell-death-and-decay",
+    [W2_SPELL_DEMOLISH] = "spell-suicide-bomber",
+};
+
 /* Optional, independent audit against the pinned reference, not a second
  * runtime balance table. Ordinary checks still run without reference/. */
 static char *read_reference(const char *path) {
@@ -224,7 +247,7 @@ static int audit_unit(mobjinfo_t *unit, char *text) {
             CHECK(stop && stop < end && count < 6 && s->spells[count]);
             CHECK(s->spells[count] < W2_SPELL_COUNT);
             char name[64];
-            snprintf(name, sizeof(name), "%s%s", w2_spells[s->spells[count]].name,
+            snprintf(name, sizeof(name), "%s%s", spell_names[s->spells[count]],
                      s->innate_spells ? "-double-head" : "");
             CHECK(strlen(name) == (size_t)(stop - p));
             CHECK(!strncmp(p, name, (size_t)(stop - p)));

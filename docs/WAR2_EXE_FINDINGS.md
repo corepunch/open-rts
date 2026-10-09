@@ -2364,3 +2364,37 @@ effects, heroes, movement, research, HUD and save tests. The ALAMO smoke check
 still reports 372 terrain tiles and 60 footman frames; its BMP is byte-identical
 to the unchanged baseline capture. The menu, shared-nav and shared-net-menu
 failures previously reproduced on unchanged source remain separate limitations.
+
+## Finish the runtime identifier audit (2026-10-09)
+
+This extends the 2026-10-08 C implementation audit, without new WAR2.EXE or
+native-asset analysis. The previously recorded fingerprints and Wargus source
+revision remain applicable.
+
+The remaining 19 Wargus spell-name strings existed only to let the optional
+catalog test match CanCastSpell rows. They now live in that test, indexed by
+W2_SPELL_*; w2_spell_t retains its display label and gameplay fields only.
+Likewise, the 48 upgrade script names now live in the optional research audit.
+w2_upgrade_t owns a display label rather than a script identifier. The command
+bar uses that label directly, deleting its temporary per-slot label buffers and
+the numeric-range branch formerly needed to format script names. Explicit
+labels reproduce the previous visible wording, including the independently
+authored sword/axe tooltips.
+
+This supersedes the earlier statement that spell reference names and upgrade
+script names remain in runtime definitions. Spell ownership, projectile choice,
+research ownership and production completion use enum IDs. Effect/unit names
+still meet the shared sprite-cache interface; filenames, displayed text,
+native file tags and the CLI sprite-name input remain text. This audit found
+no remaining Wargus name-based gameplay dispatch.
+
+Verification: warning-free build, 100-definition catalog audit, all 48 upgrade
+source rows, spell/combat/hero/HUD/save tests and headless ALAMO smoke check pass.
+The in-game BMP is byte-identical to the pre-refactor baseline.
+The complete Warcraft II suite retains the previously reproduced menu, shared
+navigation and network-menu failures. Run:
+
+```sh
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+```

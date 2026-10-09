@@ -7,7 +7,7 @@ const char *const g_game_id="starcraft",*const g_game_name="StarCraft";
 const char *const g_game_default_root="data/STARCRAFT";
 const char *const g_game_default_map="install/campaign/terran/terran01/staredit/scenario.chk",*const g_game_default_sprite="sc-000";
 const int g_cell_w=32,g_cell_h=32;
-const uint16_t g_debug_enemy_type=1;
+const uint16_t g_debug_enemy_type=MT_MARINE;
 const gameinfo_t *gameinfo=&game_info;
 const mobjtype_t *const actor_types=actors;
 const int num_actor_types=SC_TYPES;
@@ -32,7 +32,8 @@ void G_InitGame(void) {
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};
     }
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
-    actors[110].build_on_type=actors[149].build_on_type=actors[157].build_on_type=189;
+    actors[MT_REFINERY-1].build_on_type=actors[MT_EXTRACTOR-1].build_on_type=
+        actors[MT_ASSIMILATOR-1].build_on_type=MT_VESPENE_GEYSER;
 }
 bool G_DoLoadLevel(const char *path,level_t *out) {
     if(strcmp(M_FileName(path),"catalog")) return sc_load_chk(path,out);

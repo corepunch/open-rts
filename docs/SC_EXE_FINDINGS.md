@@ -761,3 +761,45 @@ then Multiplayer through connection, the game list and create, and back to
 the main menu, without hosting. It requires `gluchat.bin` to decode to 79
 controls. Screenshots of the three lobby screens are written under
 `/private/tmp`.
+
+## Runtime identifier audit (2026-10-09)
+
+This is an implementation audit against the committed native DAT catalog
+`games/starcraft/units.inc`, not new executable analysis or a new Stargus source
+comparison. Native fingerprints and reference provenance above are unchanged.
+No Lua is loaded by the game.
+
+The existing Stargus-referenced command-card recipes and AI plans already used
+numbers rather than script-name lookup, but their bare unit IDs hid which
+types a row meant. Seventy-two gameplay types now have named MT_* enum values
+in the existing info.h. As with mobjinfo and Warcraft II, each value is the
+native units.dat/CHK ID plus one, with MT_NONE zero. The other native slots
+remain loadable; this does not restrict the 228-type catalog.
+
+Production recipes now carry typed actor IDs for the product, maker and
+prerequisite. Catalog and icon access subtract one at the native-index boundary;
+product/actor IDs pass through unchanged. The 65 resulting recipe triples and
+27 AI product/count steps were compared with the previous numeric tables and
+are identical. Resource classification, gas-building replacement, melee
+start buildings/workers, Start Location handling and the SCV command-card
+selection use the same named IDs. CHK decoding still reads native IDs, and
+sc_spawn_actor performs the existing conversion to engine actor IDs.
+
+The remaining string comparisons handle actual paths, native chunk tags,
+mission text and the explicit catalog input. Unit labels come from the native
+stat_txt.tbl-derived C catalog; sc-NNN keys serve the shared sprite cache.
+This audit found no Stargus script-name gameplay dispatch to retain or port.
+
+Verification: all four StarCraft test binaries pass (map, mission, native,
+play), including 228 catalog entries, 148 unique GRPs and 7,667 decoded native
+frames. The first Terran mission smoke check still loads 46 units, 20
+decorations, 10 resource vents and 2,079 visual states.
+The in-game BMP is byte-identical to the baseline with the previous numeric
+unit IDs. No catalog values, native asset pixels or animation timing changed.
+
+Run:
+
+```sh
+env SDL_VIDEODRIVER=dummy make test-starcraft
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
+```

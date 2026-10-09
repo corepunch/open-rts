@@ -97,7 +97,7 @@ static uint8_t *chk_chunk(blob_t *file, const char *tag, size_t *size) {
 
 static void note_unit(int seat, unsigned type, ivec2_t pixel, bool decoration) {
     if (seat < 0 || seat >= net_seats || decoration) return;
-    if (type == 214) {
+    if (type + 1 == MT_START_LOCATION) {
         if (!melee_start[seat]) {
             melee_start[seat] = true;
             melee_at[seat] = pixel;
@@ -334,12 +334,14 @@ int sc_spawn_things(void) {
         if(!memcmp(tag,"UNIT",4)) for(size_t i=0;i<size;i+=36) {
             const uint8_t *u=data+i;
             unsigned type=read_u16_le(u+8);
-            if(type==214) continue; /* Start Location is metadata, not an actor. */
+            if(type+1==MT_START_LOCATION) continue; /* Start Location is metadata, not an actor. */
             ivec2_t pixel={read_u16_le(u+4),read_u16_le(u+6)};
             mobj_t *mo=sc_spawn_actor(type,pixel,u[16]);
             if(!mo) return count;
             if(read_u16_le(u+14)&2) mo->hp=mo->sc.guard_hp=mo->max_hp*u[17]/100;
-            if((type>=176&&type<=178)||type==188||type==110||type==149||type==157) {
+            bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
+            if(minerals||mo->type_id==MT_VESPENE_GEYSER||mo->type_id==MT_REFINERY||
+               mo->type_id==MT_EXTRACTOR||mo->type_id==MT_ASSIMILATOR) {
                 resourcevent_t *vents=realloc(level.resource_vents,
                     (size_t)(level.resource_vent_count+1)*sizeof(*vents));
                 if(!vents) return count;
@@ -348,16 +350,16 @@ int sc_spawn_things(void) {
                 vents[level.resource_vent_count++]=(resourcevent_t){
                     .cell={bounds.x,bounds.y},.footprint={bounds.w,bounds.h},
                     .attachment=fixed3_xy_to_fvec2(mo->core.position),
-                    .amount=(int)read_u32_le(u+20),.rate=8,.active=type!=188,
-                    .exhausts_source=type>=176&&type<=178,
-                    .resource_type=type>=176&&type<=178?0:1,.source_id=mo->id};
+                    .amount=(int)read_u32_le(u+20),.rate=8,.active=mo->type_id!=MT_VESPENE_GEYSER,
+                    .exhausts_source=minerals,
+                    .resource_type=minerals?0:1,.source_id=mo->id};
             }
             ++count;
         }
         if(!memcmp(tag,"THG2",4)) for(size_t i=0;i<size;i+=10) {
             const uint8_t *d=data+i;
             unsigned type=read_u16_le(d);
-            if((read_u16_le(d+8)&0x1000)||type==214) continue;
+            if((read_u16_le(d+8)&0x1000)||type+1==MT_START_LOCATION) continue;
             ivec2_t pixel={read_u16_le(d+2),read_u16_le(d+4)};
             if(!sc_spawn_actor(type,pixel,d[6])) return count;
             ++count;
@@ -367,18 +369,18 @@ int sc_spawn_things(void) {
     /* A seat with a start location and no placed unit is a melee start.
      * The building is centred on that pixel and covers 128 by 96; the workers
      * stand in the row below it. */
-    static const unsigned building[] = {106, 131, 154};
-    static const unsigned worker[] = {7, 41, 64};
+    static const mobjtype_id_t building[] = {MT_COMMAND_CENTER, MT_HATCHERY, MT_NEXUS};
+    static const mobjtype_id_t worker[] = {MT_SCV, MT_DRONE, MT_PROBE};
     for(int i=0;i<net_seats;i++) {
         if(!melee_start[i] || melee_unit[i]) continue;
         int race = net_race_set ? net_race[i] : 0;
         if(race < 0 || race > 2) race = 0;
         ivec2_t pixel = melee_at[i];
-        if(!sc_spawn_actor(building[race], pixel, (uint8_t)i)) { clear_melee(); return count; }
+        if(!sc_spawn_actor(building[race]-1, pixel, (uint8_t)i)) { clear_melee(); return count; }
         ++count;
         for(int w=0;w<4;w++) {
             ivec2_t at_px = {pixel.x + 48 + w * 24, pixel.y + 64};
-            if(!sc_spawn_actor(worker[race], at_px, (uint8_t)i)) { clear_melee(); return count; }
+            if(!sc_spawn_actor(worker[race]-1, at_px, (uint8_t)i)) { clear_melee(); return count; }
             ++count;
         }
     }

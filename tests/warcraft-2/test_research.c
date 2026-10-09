@@ -7,6 +7,58 @@
 
 #define CHECK(c) RTS_CHECK(c, "Warcraft II research", #c)
 
+/* Wargus identifiers belong to this optional source audit. */
+static const char *const upgrade_names[W2_UPGRADE_COUNT] = {
+    [W2_UPGRADE_SWORD1] = "upgrade-sword1",
+    [W2_UPGRADE_SWORD2] = "upgrade-sword2",
+    [W2_UPGRADE_AXE1] = "upgrade-battle-axe1",
+    [W2_UPGRADE_AXE2] = "upgrade-battle-axe2",
+    [W2_UPGRADE_ARROW1] = "upgrade-arrow1",
+    [W2_UPGRADE_ARROW2] = "upgrade-arrow2",
+    [W2_UPGRADE_THROWING_AXE1] = "upgrade-throwing-axe1",
+    [W2_UPGRADE_THROWING_AXE2] = "upgrade-throwing-axe2",
+    [W2_UPGRADE_HUMAN_SHIELD1] = "upgrade-human-shield1",
+    [W2_UPGRADE_HUMAN_SHIELD2] = "upgrade-human-shield2",
+    [W2_UPGRADE_ORC_SHIELD1] = "upgrade-orc-shield1",
+    [W2_UPGRADE_ORC_SHIELD2] = "upgrade-orc-shield2",
+    [W2_UPGRADE_BALLISTA1] = "upgrade-ballista1",
+    [W2_UPGRADE_BALLISTA2] = "upgrade-ballista2",
+    [W2_UPGRADE_CATAPULT1] = "upgrade-catapult1",
+    [W2_UPGRADE_CATAPULT2] = "upgrade-catapult2",
+    [W2_UPGRADE_HUMAN_CANNON1] = "upgrade-human-ship-cannon1",
+    [W2_UPGRADE_HUMAN_CANNON2] = "upgrade-human-ship-cannon2",
+    [W2_UPGRADE_ORC_CANNON1] = "upgrade-orc-ship-cannon1",
+    [W2_UPGRADE_ORC_CANNON2] = "upgrade-orc-ship-cannon2",
+    [W2_UPGRADE_HUMAN_SHIP_ARMOR1] = "upgrade-human-ship-armor1",
+    [W2_UPGRADE_HUMAN_SHIP_ARMOR2] = "upgrade-human-ship-armor2",
+    [W2_UPGRADE_ORC_SHIP_ARMOR1] = "upgrade-orc-ship-armor1",
+    [W2_UPGRADE_ORC_SHIP_ARMOR2] = "upgrade-orc-ship-armor2",
+    [W2_UPGRADE_RANGER] = "upgrade-ranger",
+    [W2_UPGRADE_BERSERKER] = "upgrade-berserker",
+    [W2_UPGRADE_PALADIN] = "upgrade-paladin",
+    [W2_UPGRADE_OGRE_MAGE] = "upgrade-ogre-mage",
+    [W2_UPGRADE_LONGBOW] = "upgrade-longbow",
+    [W2_UPGRADE_LIGHT_AXES] = "upgrade-light-axes",
+    [W2_UPGRADE_RANGER_SCOUTING] = "upgrade-ranger-scouting",
+    [W2_UPGRADE_BERSERKER_SCOUTING] = "upgrade-berserker-scouting",
+    [W2_UPGRADE_MARKSMANSHIP] = "upgrade-ranger-marksmanship",
+    [W2_UPGRADE_REGENERATION] = "upgrade-berserker-regeneration",
+    [W2_UPGRADE_HEALING] = "upgrade-healing",
+    [W2_UPGRADE_EXORCISM] = "upgrade-exorcism",
+    [W2_UPGRADE_FLAME_SHIELD] = "upgrade-flame-shield",
+    [W2_UPGRADE_SLOW] = "upgrade-slow",
+    [W2_UPGRADE_INVISIBILITY] = "upgrade-invisibility",
+    [W2_UPGRADE_POLYMORPH] = "upgrade-polymorph",
+    [W2_UPGRADE_BLIZZARD] = "upgrade-blizzard",
+    [W2_UPGRADE_BLOODLUST] = "upgrade-bloodlust",
+    [W2_UPGRADE_RUNES] = "upgrade-runes",
+    [W2_UPGRADE_RAISE_DEAD] = "upgrade-raise-dead",
+    [W2_UPGRADE_WHIRLWIND] = "upgrade-whirlwind",
+    [W2_UPGRADE_HASTE] = "upgrade-haste",
+    [W2_UPGRADE_UNHOLY_ARMOR] = "upgrade-unholy-armor",
+    [W2_UPGRADE_DEATH_AND_DECAY] = "upgrade-death-and-decay",
+};
+
 static void fixture(void) {
     P_FreeLevel(&level);
     P_InitThinkers();
@@ -81,7 +133,7 @@ static int audit_reference(void) {
     for (int id = 1; id < W2_UPGRADE_COUNT; ++id) {
         const w2_upgrade_t *upgrade = W2_Upgrade(id);
         char key[64];
-        snprintf(key, sizeof(key), "{\"%s\",", upgrade->name);
+        snprintf(key, sizeof(key), "{\"%s\",", upgrade_names[id]);
         const char *row = strstr(human, key);
         if (!row) row = strstr(orc, key);
         CHECK(row);
@@ -93,7 +145,7 @@ static int audit_reference(void) {
         if (!upgrade->bonus) { ++audited; continue; } /* Distinct technologies are exercised by test_features. */
         /* The modifier row names the stat and the first unit it applies to. */
         char modifier[96];
-        snprintf(modifier, sizeof(modifier), "DefineModifier(\"%s\"", upgrade->name);
+        snprintf(modifier, sizeof(modifier), "DefineModifier(\"%s\"", upgrade_names[id]);
         const char *mod = strstr(human, modifier);
         if (!mod) mod = strstr(orc, modifier);
         CHECK(mod);
