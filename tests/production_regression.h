@@ -52,6 +52,14 @@ static int test_ai_goals(void) {
     P_AiInit(&ai);
     P_AiAttachGame(&ai, G_AiInterface());
     P_AiSetFeatures(&ai, AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_RESEARCH);
+    /* The opening ladder alone; the game's test_ai covers the doctrine. */
+    for (int owner = 1; owner < 3; ++owner) {
+        AiTeamState *team = &ai.teams[owner];
+        team->level = G_AiInterface()->player_level(&level, owner);
+        team->plan_loaded = G_AiInterface()->plan(&level, owner, team->level, &team->plan);
+        CHECK(team->plan_loaded && team->plan.doctrine.roster_count > 0);
+        memset(&team->plan.doctrine, 0, sizeof(team->plan.doctrine));
+    }
     ai_run(&ai, 600, 1000);
     CHECK(level.player_resources[0][0] == 50000);
     CHECK(G_CountPlannedActors(0, AI_ADVANCED_UNIT) == 0);

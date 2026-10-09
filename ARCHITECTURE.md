@@ -476,8 +476,11 @@ the enemy army and its air share, and then works through these steps in order:
    around it.
 
 Zero values switch a behavior off, so games without a doctrine keep the ladder
-and timer AI. `tests/starcraft/test_ai.c` plays each StarCraft race and a
-Zerg-against-Protoss game.
+and timer AI; only Dark Colony still does. Dark Reign, KKnD and 7th Legion have
+no supply, so their doctrines leave `supply` unset and bound the army with
+`army_cap`. `tests/starcraft/test_ai.c` plays each StarCraft race and a
+Zerg-against-Protoss game; `tests/ai_doctrine_regression.h` checks the
+doctrines of Dark Reign, KKnD and 7th Legion headless.
 
 ## Game implementations
 

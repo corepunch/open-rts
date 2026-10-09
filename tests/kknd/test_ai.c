@@ -2,7 +2,28 @@
 #include "kknd.h"
 #include "info.h"
 #include "t_local.h"
+#define DOCTRINE_BASE_A MT_SURV_MOBILE_OUTPOST, MT_SURV_OUTPOST, MT_SURV_MACHINE_SHOP, \
+    MT_SURV_POWER_STATION, MT_SURV_RESEARCH_LAB
+#define DOCTRINE_BASE_B MT_MUTE_CLANHALL_WAGON, MT_MUTE_CLANHALL, MT_MUTE_BLACKSMITH, \
+    MT_MUTE_POWER_STATION, MT_MUTE_ALCHEMY_HALL
+#define DOCTRINE_ANCHOR MT_SURV_OUTPOST
+#define DOCTRINE_WEAK MT_SURV_RIFLEMAN
+#define DOCTRINE_STRONG MT_SURV_ANACONDA_TANK
+#define DOCTRINE_ENEMY MT_MUTE_WAR_MASTADONT
+#include "../ai_doctrine_regression.h"
 #define CHECK(c) RTS_CHECK(c, "kknd ai", #c)
+
+/* Roles from the actor table: KKnD weapons reach air and ground alike. */
+static const doctrine_role_t roles[] = {
+    { MT_SURV_RIFLEMAN, AI_ROLE_FIGHTER | AI_ROLE_HITS_GROUND | AI_ROLE_HITS_AIR, AI_ROLE_WORKER },
+    { MT_MUTE_BERSERKER, AI_ROLE_FIGHTER | AI_ROLE_HITS_GROUND, AI_ROLE_FLYER },
+    { MT_SURV_BOMBER, AI_ROLE_FIGHTER | AI_ROLE_FLYER, 0 },
+    { MT_SURV_OIL_TANKER, AI_ROLE_WORKER, AI_ROLE_FIGHTER },
+    { MT_MUTE_OIL_TANKER, AI_ROLE_WORKER, AI_ROLE_FIGHTER },
+    { MT_SURV_GUARD_TOWER, AI_ROLE_DEFENSE | AI_ROLE_HITS_GROUND, AI_ROLE_FIGHTER },
+    { MT_MUTE_ROTARY_CANNON, AI_ROLE_DEFENSE, AI_ROLE_FIGHTER },
+    { MT_SURV_DRILLRIG, 0, AI_ROLE_FIGHTER | AI_ROLE_DEFENSE | AI_ROLE_WORKER },
+};
 
 static mobj_t *spawn_owner(uint16_t type, int owner, fvec2_t at) {
     mobj_t *u = P_SpawnMobj(fixed3_from_fvec2(at, 0), type);
@@ -110,8 +131,15 @@ int main(void) {
     for (int v = 0; v < level.resource_vent_count; ++v) open += level.resource_vents[v].active;
     CHECK(open == rigs - 1);
     P_FreeLevel(&level);
+    RTS_RUN(doctrine_roles(roles, (int)(sizeof(roles) / sizeof(*roles))));
+    doctrine_army_t survivors, evolved;
+    RTS_RUN(doctrine_mix(&survivors, &evolved));
+    /* Survivor guns and engines outweigh the Evolved swarm unit for unit. */
+    CHECK(survivors.strength / survivors.fighters > evolved.strength / evolved.fighters);
+    RTS_RUN(doctrine_weights());
+    RTS_RUN(doctrine_waves());
     rts_game_model_destroy(model);
     SDL_Quit();
-    puts("PASS: kknd computer players build both factions' ladders, earn oil and replace losses");
+    puts("PASS: kknd computer players build both factions' ladders, earn oil and replace losses; doctrines buy by weight and hold waves");
     return 0;
 }
