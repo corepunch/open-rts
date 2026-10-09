@@ -17,7 +17,7 @@ static bool live(const thinker_t *th) {
     return th->function == P_MobjThinker && !mo->remove && mo->hp > 0;
 }
 static ivec2_t pixel(fvec2_t at) { return (ivec2_t){(int)lroundf(at.x * 32), (int)lroundf(at.y * 32)}; }
-/* A unit of type for owner's side, out of the way of the map's units. */
+/* A unit of type on owner's side at a spot. */
 static mobj_t *spawn_for(const mobj_t *owner, uint16_t type, fvec2_t at) {
     mobj_t *mo = sc_spawn_actor(type - 1u, pixel(at), owner->owner);
     if (!mo) return NULL;
