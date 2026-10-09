@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #define CHECK(c) do{if(!(c)){fprintf(stderr,"line %d: %s\n",__LINE__,#c);return 1;}}while(0)
 static const char *root="data/STARCRAFT";
+static int font_colors(const bitmapfont_t *font,const char *path) {
+    spritesheet_t ramp={0};CHECK(font&&W_LoadIndexedSheet(path,&ramp));
+    CHECK(font->sprite.palette_map_count==5);
+    for(int row=0;row<5;row++)for(int ink=0;ink<8;ink++)
+        CHECK(font->sprite.source_palette[row*8+ink+1]==ramp.palette[ramp.lumps[0].indices[row*8+ink]]);
+    R_FreeSprite(&ramp);return 0;
+}
 static bool save(const char *path) {
     SDL_Surface *s=SDL_CreateRGBSurfaceWithFormat(0,screens[0].w,screens[0].h,32,SDL_PIXELFORMAT_ARGB8888);
     if(!s)return false;
@@ -91,6 +98,8 @@ int main(void) {
     M_StartControlPanel(&app);M_MenuDrawer(front);CHECK(save("/private/tmp/starcraft-main-menu.bmp"));
     menuitem_t *start=M_MenuFind(front,3);CHECK(start&&start->routine);
     start->routine(front,start,MA_ACTIVATE);CHECK(menuactive&&!menumap&&currentmenu!=front);
+    CHECK(!font_colors(M_MenuFind(currentmenu,8)->font,"data/STARCRAFT/native/glue/palnl/tfont.pcx"));
+    CHECK(M_MenuFind(currentmenu,-1)&&M_MenuFind(currentmenu,-2)&&M_MenuFind(currentmenu,-3));
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-registry.bmp"));
     menuitem_t *next=M_MenuFind(currentmenu,6);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,3)->kind==MI_TEXTFIELD);
@@ -98,6 +107,7 @@ int main(void) {
     next=M_MenuFind(currentmenu,1);next->routine(currentmenu,next,MA_ACTIVATE);
     next=M_MenuFind(currentmenu,4);next->routine(currentmenu,next,MA_ACTIVATE);
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-campaign.bmp"));
+    CHECK(!font_colors(M_MenuFind(currentmenu,7)->font,"data/STARCRAFT/install/glue/palcs/tfont.pcx"));
     next=M_MenuFind(currentmenu,7);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,65525)->prose&&strstr(M_MenuFind(currentmenu,65525)->prose,"Train 10 Marines"));
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-briefing.bmp"));
@@ -127,6 +137,8 @@ int main(void) {
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create.bmp"));
     next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST);
     CHECK(next->rows==57&&next->row);
+    CHECK(next->row_height==next->font->line_h&&next->rect.h/next->row_height==6);
+    CHECK(ivec2_equal(next->inset,(ivec2_t){0,0}));
     {
         menuitem_t *bar=M_MenuFind(currentmenu,-1),*up=M_MenuFind(currentmenu,-2),*down=M_MenuFind(currentmenu,-3);
         CHECK(bar&&bar->kind==MI_SCROLLBAR&&bar->sheet&&bar->thumb.cell==28);
@@ -171,7 +183,7 @@ int main(void) {
         currentmenu->itemOn=(int)(next-currentmenu->items);
         SDL_Event arrow={.type=SDL_KEYDOWN};arrow.key.keysym.sym=SDLK_DOWN;
         for(int i=0;i<road;i++)CHECK(M_MenuResponder(currentmenu,&app,&arrow));
-        CHECK(next->value==road&&next->first_row>0);
+        CHECK(next->value==road&&road>=next->first_row&&road<next->first_row+next->rect.h/next->row_height);
         CHECK(!strcmp(M_MenuFind(currentmenu,6)->text,"maps"));
         CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
         CHECK(strstr(M_MenuFind(currentmenu,8)->prose,"Battle on the highway."));

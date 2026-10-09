@@ -30,7 +30,6 @@ bool sc_portrait(const char *root,int id,char *path,size_t size);
 bool sc_dialog(const char *root,const char *path,sc_dialog_t *out);
 bool sc_font_colors(const char *root,const char *path,bitmapfont_t *font);
 void sc_init_info(void);
-bool sc_movie(const char *path, spritesheet_t *out, unsigned *frame_ms, uint32_t **palettes);
 bool sc_font(const char *root, const char *name, bitmapfont_t *font);
 /* CHK mission: level.mission begins with the map blob so existing readers
  * keep working. The rest is the trigger runtime. */

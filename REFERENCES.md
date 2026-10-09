@@ -2197,10 +2197,20 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   its C API, with zlib/bzip2. The game itself reads unpacked native files.
 - [libsmacker](https://github.com/JonnyH/libsmacker), locally
   `reference/libsmacker`, commit `ae8d4c9ec07b24d43ccff184d6e512bae793dfd1`
-  (LGPL-2.1; retained `COPYING`). Its C decoder is linked into StarCraft for
-  original indexed SMK menu animations and portraits. Source and rebuildable
-  objects are retained locally; preserve applicable library licensing when
-  distributing binaries.
+  (LGPL-2.1-or-later; retained `COPYING`). The runtime subset is now tracked in
+  `third_party/libsmacker`, including its license and local change log, rather
+  than built from the ignored reference checkout. The glue audit found that
+  `palcs/arrow.smk` has a complete one-node tree with two-node capacity, and
+  error cleanup could assert before video allocation. Both are corrected in
+  the tracked copy. It supplies original indexed SMK menu animation and
+  portrait decoding; preserve applicable library licensing when distributing.
+- [FFmpeg Smacker decoder](https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/smacker.c),
+  inspected 2026-10-09, `smacker_decode_bigtree` and
+  `smacker_decode_header_tree`: tree construction checks capacity and accepts
+  a smaller populated tree, reserving missing cache entries afterwards. This
+  independently supports removing libsmacker's exact-fill assumption. No
+  FFmpeg code is incorporated; this comparison does not establish retail
+  StarCraft widget behavior.
 - [CMake 3.31.6 macOS universal package](https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-macos-universal.tar.gz),
   downloaded under `reference/packages/` because system CMake was absent.
   SHA-256 `330b9514f5112e5ed4fb08b8b05803b776fd9b539a6ae12927d14dcc0ee2ba8d`.

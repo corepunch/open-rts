@@ -350,6 +350,16 @@ static int drawing(void) {
     items[LIST].prose = "none";
     draw();
     CHECK(pixel(0, 20) == 9 && pixel(22, 20) == MARKER);
+    /* Wrapped log lines share the list's scroll position and native thumb. */
+    items[LIST].row=NULL;
+    items[LIST].prose="xxxx\nx\nx\nx\nx\nx";
+    M_MenuSetRows(&items[LIST],6);
+    items[LIST].first_row=0;
+    draw();CHECK(pixel(3,20)==9);
+    items[LIST].first_row=2;
+    draw();CHECK(pixel(0,20)==9&&pixel(3,20)==MARKER);
+    M_MenuSetRows(&items[LIST],0);
+    items[LIST].prose="none";
     /* A fill goes behind the item; a hidden item draws nothing. */
     items[CHECK_BOX].fill = 0xff040404u;
     draw();

@@ -839,7 +839,8 @@ and `starcraft-game-name.bmp` under `/private/tmp/` for visual verification.
 
 `native/rez/gluchat.bin` has 79 controls, which is why the dialog adapter now
 keeps 96 controls rather than 64. Id 6 Ok toggles ready; its text stays "Ok".
-Ready names use font ramp 1 (the button ramp from `glue/palmm/tfont.pcx`).
+Ready names use font ramp 1 (the button ramp; corrected to the screen's
+`glue/palnl/tfont.pcx` by the complete glue audit below).
 Id 9 is the chat field and id 10 is the log. Id 8 is the 1×1 Send button.
 Slots are ids 28+i*4 (name) and 29+i*4 (race) for i in 0..7, shown only for
 seats inside `doomcom->numplayers`. An empty seat says "Open" (`gluall.tbl`
@@ -913,3 +914,185 @@ Run:
 env SDL_VIDEODRIVER=dummy make test-starcraft
 env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
 ```
+
+## Complete glue asset and shortcut audit (2026-10-09)
+
+This is an asset/runtime audit, not executable disassembly. The original EXE
+fingerprint remains `16cd8f0d1098f8bcd0625d5e13964c2facf2df4874636acb01c2e0bfb062b2f5`.
+No new retail function addresses are claimed. Sources are the original-disc
+files above, pinned PyMS `DialogBIN.py`, `WidgetNode.py`, `FNT.py`, and the
+pinned libsmacker decoder; see `REFERENCES.md` for provenance. The user's two
+Create-screen images show the missing scrollbar, dropdown outline and arrow.
+They establish the requested presentation, not the meanings of unknown BIN
+fields or atlas frames.
+
+### Confirmed complete resource coverage
+
+`tests/starcraft/test_glue.c` walks both `native/glue` and `install/glue`,
+using native-first precedence, and decodes every file. There are no other
+extensions in these trees. All frames are decoded, including localized and
+inactive-screen movies. Loading support does not mean every screen's game
+logic is implemented or that every file should be resident simultaneously.
+
+| Format | Files | Coverage |
+| --- | ---: | --- |
+| PCX | 331 | Indexed pixels, native dimensions and embedded palette |
+| GRP | 44 | All 2,176 original frames, tight extents and displacement |
+| SMK | 53 | All 1,758 indexed frames and per-frame palettes |
+| Classic dialog BIN in `rez/` | 76 | 1,049 children; maximum 79 in `gluchat.bin` |
+
+Observed control counts by type 1..14 are respectively
+29, 106, 16, 50, 72, 10, 0, 9, 465, 161, 30, 13, 21, 67.
+Type 7 is not present in this installation. The existing 96-control/four-movie
+caps accept every observed dialog; they remain engine bounds, not retail limits.
+
+The twelve complete themes are `palmm`, `palcs`, `palrt`, `palrz`, `palrp`,
+`paltd`, `paltv`, `palzd`, `palzv`, `palpd`, `palpv`, `palnl`. Each has
+`dlg.grp` (139 frames, 256×128 canvas), `tile.grp` (nine 8×8 frames), and
+`arrow.grp` (five frames, 128×128 canvas). The other eight GRPs are six
+`score{td,tv,zd,zv,pd,pv}/iscore.grp` (54 frames each), `chatroom/ichat.grp`
+(11), and `create/icreate.grp` (5). These retain native frame numbers; they
+are not deduplicated or converted into replacement artwork.
+
+PCX families include screen panels, the Battle.net artwork, race briefing and
+score panels, title images, theme backgrounds, popup pictures, `tfont` and
+`teffect` lookup images. Auxiliary `pal{t,z,p}{a,b,c}` contain three PCXs each;
+they are not complete dialog themes. Theme `tfont.pcx` files are 48×1;
+`title/tfont.pcx` is 40×1. PyMS names the first five eight-pixel font ramps.
+The adapter interprets those five; the sixth theme block's role is unknown.
+`palcs/arrhot` is a PCX, not a second SMK.
+
+### `glue/palnl/dlg.grp` working frame map
+
+SHA-256: `446ab6727c423989be92747c4f7385eb1613d2a53291e0b98398200c2e39b212`.
+The following meanings come from pinned PyMS's named constants and agree
+with the original frame artwork. Unnamed ranges stay unknown.
+
+| Frames | Role |
+| --- | --- |
+| 0–5 | Blank and terrain HUD buttons, disabled/normal/pressed |
+| 6–10 | Radio: disabled, off, off pressed, on, on pressed |
+| 11–15 | Checkbox: disabled, off, off pressed, on, on pressed |
+| 16–27 | Up/down/left/right arrows, each disabled/normal/pressed |
+| 28 | Scroll thumb, 14×14, displacement (1,1) |
+| 29–34 | Vertical top/middle/bottom and horizontal left/middle/right track |
+| 35–43 | Dropdown popup nine-piece panel |
+| 44–49 | Combo pieces while dropped upward/downward |
+| 50–52 | Closed combo arrow: normal, hover, disabled |
+| 53–58 | Closed combo left/middle/right, normal and hover |
+| 59–82 | Unknown; visually alternate white/blue combo artwork |
+| 83–85 | Alliances HUD button states |
+| 86–90 | Unknown icon roles |
+| 91–98 | Slider disabled/normal left/middle/right and stop artwork |
+| 99–102 | Slider dot: disabled, yellow, green, red |
+| 103–129 | Left/center/right button styles, disabled/normal/pressed, three pieces each |
+| 130–132 | Messaging HUD button states |
+| 133–138 | Unknown; red outline and solid three-piece artwork |
+
+The GRP header canvas is not a control's visible extent. Compose widgets
+from their tight native frame rectangles. The numbered contact sheet keeps
+each raw frame separate; it does not infer new states or recolor them.
+`palnl/tile.grp` SHA-256 is
+`ec3f606893190763212b5242e09574edfb4201c6437bd5f08a64c119e16d4a36`;
+its frames run top-left to bottom-right in a 3×3 grid.
+
+### Shortcuts found and corrected
+
+- Every front-end screen used `palmm/tfont.pcx`. Themes now own their native
+  background palette, widget atlas, tile atlas and four fonts, and screens
+  borrow these resources. `sc_font_colors` now uses native/install lookup,
+  so the installer-only `palcs` theme works. The main menu uses the same
+  loading path instead of duplicating image/movie setup.
+- Only Create had a scrollbar, manually appended in multiplayer wiring.
+  Every loaded native type-12 list now gets the native track, arrows and
+  thumb through the dialog adapter. Shared menu code still owns input.
+- `as_list` and `as_drop` inserted the guessed color `0xff203040` as a
+  selection/focus fill. This was not native evidence and is removed.
+  Selected list labels use authored font ramps instead.
+- Row spacing added two guessed pixels to the font height; the registry
+  separately hardcoded 20, and lists replaced the native text offset with 2.
+  These overrides are removed. Rows use the FONT header's native height,
+  and lists retain the BIN text offset. `font16.fnt` header bytes 4..7 are
+  32,255,17,19; `font14.fnt` has 32,255,15,16. The 118-pixel Create list now
+  fits six 19-pixel rows, agreeing with six visible rows in the user's
+  original-game reference. The +2 rule previously fitted only five. PyMS
+  `StringPreview.get_positions` likewise advances lines by font height;
+  exact retail list-spacing instructions are still not traced.
+- Types 3, 4 and 6 were plain static text, and 8/12/13 were patched into
+  widgets by individual screens. Known glue types now map during loading.
+  Types 1/2 use native center-style button pieces; type 14 remains a distinct
+  highlighted/movie button. Radio/check artwork uses authored on/off and
+  pressed/disabled frames. Slider chrome uses the native bar and dot, but
+  game callbacks must supply its range; no retail slider limits are invented.
+  Current observed radio dialogs each contain one exclusive group; assigning
+  that group is an adapter policy, not a decoded group-number field.
+- New-player and game-name dialogs had separate hardcoded 220×100 and 360×200
+  centering loops and no panel. The loader derives placement from the BIN
+  root and composes the native `tile.grp` panel as PyMS does. Centering small
+  glue roots is an engine presentation policy inferred from their zero root
+  origin, not traced retail placement. The exact retail choice between tile
+  art and the theme's `p*popup.pcx` pictures is still unknown.
+- Chat replaced a native list with static prose, and refreshed its scroll
+  position every frame. It now uses the shared list with wrapped-line count,
+  a native scrollbar, and follows the end only when new text arrives. Shared
+  list rendering honors the prose scroll position and font palette.
+
+The explicit user-requested four-pixel textbox/dropdown inset is preserved.
+The prior 2-pixel track clearance and 5-pixel combo-arrow inset are backed by
+the PyMS preview described above, not newly verified retail instructions.
+The underscore editing caret and game/player-name character limits remain engine choices.
+They must not be cited as discovered original-game constants.
+
+### Decoder defect exposed by the complete scan
+
+`install/glue/palcs/arrow.smk`, SHA-256
+`a4be4faf6e197e4ae3a0ec078fe8b897baac780a23b02a56b5a83e81bc9c5ed8`,
+failed although the 52 previously encountered movies decoded. Gated diagnostic
+logging showed Huffman capacities/populated counts 7/7, **2/1**, 81/81, 45/45.
+The old `limit == tree.size` check rejected a complete one-node tree because
+the header allocated two nodes. The FFmpeg primary decoder likewise checks
+capacity rather than exact filling. Removing that equality preserves bounds
+and end-bit validation. All five 32×32 frames at 100 ms now decode, with
+concatenated indexed-pixel FNV-1a `82fe4404e591d1f9`.
+
+Error cleanup also asserted when freeing a not-yet-allocated video buffer.
+NULL cleanup now follows C `free` semantics; a 104-byte truncated copy returns
+failure without aborting. The corrected LGPL decoder and its license are
+tracked in `third_party/libsmacker`, so rebuilding no longer silently relies
+on an ignored reference-tree edit. Temporary diagnostic logging was removed.
+
+### Explicit remaining unknowns and limits
+
+Decoding all assets is verified. Full retail glue behavior is not. Unknown
+BIN flags/fields, exact responsive/virtual-key semantics, transparency
+`0x2000`, translucency `0x40000`, and `teffect.pcx` rendering remain unresolved.
+Movie fade/dark flags, audio and original start-time scheduling are not
+implemented. Embedded font color commands are still stripped rather than
+fully interpreted. Dropdown popup artwork 35–49 is decoded and catalogued,
+but open-popup composition still uses the shared menu list, not retail chrome.
+`arrow.grp`, `icreate.grp`, `ichat.grp` and score icons decode completely;
+not all are connected to screen behavior. Sliders' discrete stops/ranges and
+unused dialog callbacks require further evidence. Race-specific briefing,
+score, Battle.net, modem and other inactive screens remain outside the mapped
+front-end flow. The current briefing always uses Terran art, and lobby race
+selection cycles a button rather than opening the original popup; these are
+known feature gaps. The synthetic in-game result menu is an engine screen,
+not the native score screen. None of these gaps is hidden by replacement
+PNG assets, guessed alpha values, renamed atlas states or pixel tuning.
+
+### Reproduce
+
+```sh
+make build/bin/tests/starcraft/test_glue
+env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_glue
+env SDL_VIDEODRIVER=dummy make test-starcraft
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_menu_items
+```
+
+The C audit emits `/private/tmp/starcraft-glue-assets.tsv` with every file's
+decoded dimensions/frame count/pixel hash and every GRP frame/control layout,
+plus `/private/tmp/starcraft-glue-dlg.bmp`, a numbered native contact sheet.
+`test_native` checks theme-specific font pixels including installer-only
+`palcs`, native scrollbar/dropdown pictures and interaction, and exports menu
+screenshots at 640×480 and 1280×960. The shared menu test verifies that wrapped
+log content actually moves with its scroll position.

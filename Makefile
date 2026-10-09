@@ -50,7 +50,7 @@ DR_GAME_SOURCES   := $(sort $(shell find games/dark-reign  -name '*.c'))
 DC_GAME_SOURCES   := $(sort $(shell find games/dark-colony -name '*.c'))
 SL_GAME_SOURCES   := $(sort $(shell find games/7legion     -name '*.c'))
 KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
-SC_GAME_SOURCES   := $(sort $(shell find games/starcraft -name '*.c') $(shell find reference/libsmacker -maxdepth 1 -name '*.c' ! -name 'driver.c' ! -name 'smk2avi.c' 2>/dev/null))
+SC_GAME_SOURCES   := $(sort $(shell find games/starcraft third_party/libsmacker -name '*.c'))
 W2_GAME_SOURCES   := $(sort $(shell find games/warcraft-2   -name '*.c'))
 
 # ── model engine sources (headless: no SDL display entry point or HUD) ───────

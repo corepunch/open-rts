@@ -691,8 +691,10 @@ static void draw_list(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     uint8_t tint[256];
     irect_t clip = V_GetClip();
     V_SetClip(rect);
-    if (!item->rows && item->prose && item->font) {
-        V_DrawTextWrapped(rect, item->font, item->prose, NULL, 0);
+    if ((!item->rows || !item->row) && item->prose && item->font) {
+        V_DrawTextWrapped(rect, item->font, item->prose,
+                          item->font->own_palette ? V_RemapPalette(item->font->sprite.source_palette) : NULL,
+                          item->first_row * item->font->line_h);
     } else if (item->row_height > 0) {
         int visible = rect.h / item->row_height;
         for (int i = 0; i < visible && item->first_row + i < item->rows; ++i) {

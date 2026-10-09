@@ -39,7 +39,7 @@ done:
 bool HU_LoadFont(const char *root,bitmapfont_t *font) { return sc_font(root,"font10",font); }
 /* Five authored font ramps: normal, button, hotkey, disabled, highlighted. */
 bool sc_font_colors(const char *root,const char *name,bitmapfont_t *font) {
-    char path[2048]; snprintf(path,sizeof(path),"%s/native/%s",root,name);
+    char path[2048]; sc_asset_path(path,sizeof(path),root,name);
     spritesheet_t ramp={0}; if(!W_LoadIndexedSheet(path,&ramp)) return false;
     if(ramp.frame_size.w*ramp.frame_size.h<40){R_FreeSprite(&ramp);return false;}
     spritesheet_t *s=&font->sprite;

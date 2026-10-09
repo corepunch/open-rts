@@ -10,11 +10,17 @@
 
 typedef struct { spritesheet_t sheet; unsigned ms; uint32_t *palettes; } movie_t;
 typedef struct { sc_control_t native; spritesheet_t image; movie_t movies[SC_CONTROL_MOVIES]; } artwork_t;
-static spritesheet_t background, console, wireframe, icons, widgets, panel, gluewidgets;
-static bitmapfont_t fonts[4], gamefonts[4];
-static artwork_t art[SC_DIALOG_CONTROLS];
-static menuitem_t items[SC_DIALOG_CONTROLS], pauseitems[SC_DIALOG_CONTROLS], huditems[176];
-static menu_t front={.items=items,.size={640,480},.stretch=true,.modal=true};
+typedef struct theme_s {
+    char path[128];
+    spritesheet_t background, widgets, panel;
+    bitmapfont_t fonts[4];
+    struct theme_s *next;
+} theme_t;
+static theme_t *themes;
+static spritesheet_t console, wireframe, icons, widgets, panel;
+static bitmapfont_t gamefonts[4];
+static menuitem_t pauseitems[SC_DIALOG_CONTROLS], huditems[176];
+static menu_t front;
 static menu_t pausemenu={.items=pauseitems,.size={640,480},.stretch=true,.modal=true};
 static menu_t hud={.items=huditems,.size={640,480},.stretch=true};
 static menu_t resultmenu;
@@ -26,9 +32,9 @@ typedef struct {
     menu_t menu;
     menuitem_t items[SC_DIALOG_CONTROLS];
     artwork_t art[SC_DIALOG_CONTROLS];
-    spritesheet_t background;
+    theme_t *theme;
 } screen_t;
-static screen_t registry, new_id, campaign, briefing, conn, join, create, gamename, chat;
+static screen_t main_screen, registry, new_id, campaign, briefing, conn, join, create, gamename, chat;
 static char player_name[32]="Player", campaign_map[256];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
@@ -185,39 +191,62 @@ static void select_slot(menu_t *menu,menuitem_t *item,menuaction_t action) {
     P_MobjSetSelected(unit,true);
 }
 /* Native three-piece chrome; input and the scrollbar thumb stay in m_menu. */
-static void draw_glue(const menu_t *menu,int frame,irect_t rect) {
+static void draw_glue(const menu_t *menu,const spritesheet_t *sheet,int frame,irect_t rect) {
+    if(rect.w<=0||rect.h<=0)return;
     menuitem_t picture={.rect=rect};
     irect_t dst=M_MenuItemRect(menu,&picture);
-    R_DrawSprite(&gluewidgets,frame,-1,&gluewidgets.cells[frame].rect,&dst,0,16);
+    R_DrawSprite(sheet,frame,-1,&sheet->cells[frame].rect,&dst,0,16);
 }
-static void draw_glue_strip(const menu_t *menu,irect_t rect,int first,bool vertical) {
-    irect_t a=gluewidgets.cells[first].rect,c=gluewidgets.cells[first+2].rect;
+static void draw_glue_strip(const menu_t *menu,const spritesheet_t *sheet,irect_t rect,int first,bool vertical) {
+    irect_t a=sheet->cells[first].rect,c=sheet->cells[first+2].rect;
     if(vertical) {
-        draw_glue(menu,first,(irect_t){rect.x,rect.y,rect.w,a.h});
-        draw_glue(menu,first+1,(irect_t){rect.x,rect.y+a.h,rect.w,rect.h-a.h-c.h});
-        draw_glue(menu,first+2,(irect_t){rect.x,rect.y+rect.h-c.h,rect.w,c.h});
+        draw_glue(menu,sheet,first,(irect_t){rect.x,rect.y,rect.w,a.h});
+        draw_glue(menu,sheet,first+1,(irect_t){rect.x,rect.y+a.h,rect.w,rect.h-a.h-c.h});
+        draw_glue(menu,sheet,first+2,(irect_t){rect.x,rect.y+rect.h-c.h,rect.w,c.h});
     } else {
         rect.y+=(rect.h-a.h)/2;rect.h=a.h;
-        draw_glue(menu,first,(irect_t){rect.x,rect.y,a.w,rect.h});
-        draw_glue(menu,first+1,(irect_t){rect.x+a.w,rect.y,rect.w-a.w-c.w,rect.h});
-        draw_glue(menu,first+2,(irect_t){rect.x+rect.w-c.w,rect.y,c.w,rect.h});
+        draw_glue(menu,sheet,first,(irect_t){rect.x,rect.y,a.w,rect.h});
+        draw_glue(menu,sheet,first+1,(irect_t){rect.x+a.w,rect.y,rect.w-a.w-c.w,rect.h});
+        draw_glue(menu,sheet,first+2,(irect_t){rect.x+rect.w-c.w,rect.y,c.w,rect.h});
     }
 }
+static void draw_glue_panel(const menu_t *menu,const spritesheet_t *sheet,irect_t rect) {
+    irect_t first=sheet->cells[0].rect,last=sheet->cells[8].rect;
+    int x[]={rect.x,rect.x+first.w,rect.x+rect.w-last.w};
+    int y[]={rect.y,rect.y+first.h,rect.y+rect.h-last.h};
+    int w[]={first.w,rect.w-first.w-last.w,last.w};
+    int h[]={first.h,rect.h-first.h-last.h,last.h};
+    for(int row=0;row<3;row++)for(int col=0;col<3;col++)
+        draw_glue(menu,sheet,row*3+col,(irect_t){x[col],y[row],w[col],h[row]});
+}
 static bool draw_front(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect) {
-    if(item->kind==MI_SCROLLBAR && item->sheet==&gluewidgets)
-        draw_glue_strip(menu,item->rect,29,true);
+    const theme_t *theme=menu->owner;
+    const spritesheet_t *sheet=&theme->widgets;
+    if(item->kind==MI_SCROLLBAR && item->sheet==sheet)
+        draw_glue_strip(menu,sheet,item->rect,29,true);
     if(item->kind==MI_DROPDOWN) {
         int arrow=state==MS_DISABLED?52:state==MS_NORMAL?50:51;
-        irect_t part=gluewidgets.cells[arrow].rect;
-        draw_glue_strip(menu,item->rect,state==MS_FOCUS||state==MS_PUSHED?56:53,false);
+        irect_t part=sheet->cells[arrow].rect;
+        draw_glue_strip(menu,sheet,item->rect,state==MS_FOCUS||state==MS_PUSHED?56:53,false);
         /* PyMS WidgetNode's native combobox preview places the arrow 5px
          * inside the right edge and centres it vertically. */
-        draw_glue(menu,arrow,(irect_t){item->rect.x+item->rect.w-part.w-5,
+        draw_glue(menu,sheet,arrow,(irect_t){item->rect.x+item->rect.w-part.w-5,
                   item->rect.y+(item->rect.h-part.h)/2,part.w,part.h});
     }
     const artwork_t *a=item->userdata;
     if(!a)return false;
     const sc_control_t *c=&a->native;
+    if(!c->type)draw_glue_panel(menu,&theme->panel,item->rect);
+    if(c->type==1||c->type==2)
+        draw_glue_strip(menu,sheet,item->rect,state==MS_PUSHED?118:state==MS_DISABLED?112:115,false);
+    if(c->type==3||c->type==4) {
+        bool pressed=(menu->held==item&&menu->over)||menu->keyheld==item;
+        int first=c->type==3?6:11;
+        int frame=state==MS_DISABLED?first:first+(item->value?3:1)+pressed;
+        irect_t part=sheet->cells[frame].rect;
+        draw_glue(menu,sheet,frame,(irect_t){item->rect.x,item->rect.y+(item->rect.h-part.h)/2,part.w,part.h});
+    }
+    if(c->type==6)draw_glue_strip(menu,sheet,item->rect,state==MS_DISABLED?91:94,false);
     /* Both normal and hover movies are overlays, not alternate full buttons. */
     for(int hover=0;hover<2;hover++) for(int j=0;j<c->movie_count;j++) {
         const sc_movie_ref_t *ref=&c->movies[j];
@@ -261,15 +290,83 @@ static bool draw_pause(const menu_t *menu,const menuitem_t *item,menustate_t sta
     (void)menu;return false;
 }
 
+static theme_t *load_theme(const char *root,const char *palette) {
+    char directory[128];snprintf(directory,sizeof(directory),"%s",palette);
+    char *slash=strrchr(directory,'/');if(!slash)return NULL;*slash=0;
+    for(theme_t *theme=themes;theme;theme=theme->next)
+        if(!strcmp(theme->path,directory))return theme;
+    theme_t *theme=calloc(1,sizeof(*theme));if(!theme)return NULL;
+    theme->next=themes;themes=theme;
+    snprintf(theme->path,sizeof(theme->path),"%s",directory);
+    char path[2048],name[256];native_path(path,sizeof(path),root,palette);
+    if(!W_LoadIndexedSheet(path,&theme->background))return NULL;
+    snprintf(name,sizeof(name),"%s/dlg.grp",directory);
+    if(!grp(root,name,theme->background.palette,&theme->widgets)||theme->widgets.numlumps<139)return NULL;
+    snprintf(name,sizeof(name),"%s/tile.grp",directory);
+    if(!grp(root,name,theme->background.palette,&theme->panel)||theme->panel.numlumps!=9)return NULL;
+    const char *names[]={"font10","font14","font16","font16x"};
+    snprintf(name,sizeof(name),"%s/tfont.pcx",directory);
+    for(int i=0;i<4;i++)
+        if(!sc_font(root,names[i],&theme->fonts[i])||!sc_font_colors(root,name,&theme->fonts[i]))return NULL;
+    return theme;
+}
+static bool add_scrollbar(screen_t *screen,int index) {
+    if(screen->menu.numitems+3>SC_DIALOG_CONTROLS)return false;
+    menuitem_t *list=&screen->items[index];
+    const spritesheet_t *sheet=&screen->theme->widgets;
+    irect_t bounds=list->rect,arrow=sheet->cells[17].rect;
+    list->rect.w-=arrow.w;
+    /* PyMS places the track two pixels clear of each arrow inside the
+     * native list rectangle. The shared menu owns scrolling and dragging. */
+    menuitem_t *bar=&screen->items[screen->menu.numitems++];
+    *bar=(menuitem_t){.kind=MI_SCROLLBAR,.id=-1,.visible=list->visible,.enabled=list->enabled,
+        .rect={bounds.x+bounds.w-arrow.w,bounds.y+arrow.h+2,arrow.w,bounds.h-2*(arrow.h+2)},
+        .sheet=sheet,.link=index,.thumb={.cell=28,.palette=-1,.part=sheet->cells[28].rect}};
+    for(int s=0;s<MS_STATES;s++)bar->look[s].cell=-1;
+    for(int i=0;i<2;i++) {
+        menuitem_t *step=&screen->items[screen->menu.numitems++];
+        *step=(menuitem_t){.kind=MI_BUTTON,.id=-2-i,.visible=list->visible,.enabled=list->enabled,.release=true,
+            .rect={bar->rect.x,bounds.y+i*(bounds.h-arrow.h),arrow.w,arrow.h},
+            .sheet=sheet,.stretch=true,.disabled_look=true,.link=index,.step=i?1:-1};
+        for(int s=0;s<MS_STATES;s++) {
+            int frame=(i?20:17)+(s==MS_PUSHED?1:s==MS_DISABLED?-1:0);
+            step->look[s]=(menulook_t){.cell=frame,.palette=-1,.part=sheet->cells[frame].rect};
+        }
+    }
+    return true;
+}
 static bool load_screen(screen_t *screen,app_t *app,const char *root,const char *dialog,const char *palette,menuroutine_t routine) {
-    char path[2048];native_path(path,sizeof(path),root,palette);
-    if(!W_LoadIndexedSheet(path,&screen->background))return false;
+    char path[2048];screen->theme=load_theme(root,palette);
+    if(!screen->theme)return false;
     sc_dialog_t d;if(!sc_dialog(root,dialog,&d))return false;
     screen->menu=(menu_t){.app=app,.items=screen->items,.numitems=d.count,.size={640,480},
-        .stretch=true,.modal=true,.background=&screen->background,.palette=screen->background.palette,.drawitem=draw_front};
+        .stretch=true,.modal=true,.background=&screen->theme->background,.palette=screen->theme->background.palette,
+        .drawitem=draw_front,.owner=screen->theme};
+    bool popup=d.rect.w<640&&d.rect.h<480;
+    ivec2_t offset=popup?(ivec2_t){(640-d.rect.w)/2-d.rect.x,(480-d.rect.h)/2-d.rect.y}:(ivec2_t){0,0};
+    if(popup) {
+        if(d.count==SC_DIALOG_CONTROLS)return false;
+        artwork_t *a=&screen->art[d.count];a->native.rect=d.rect;
+        a->native.rect.x+=offset.x;a->native.rect.y+=offset.y;
+        screen->items[0]=(menuitem_t){.kind=MI_STATIC,.id=-4,.visible=true,.rect=a->native.rect,.userdata=a};
+        screen->menu.numitems++;
+    }
     for(int i=0;i<d.count;i++) {
         sc_control_t *c=&d.controls[i];artwork_t *a=&screen->art[i];a->native=*c;
-        menuitem_t *item=&screen->items[i];*item=control(c,fonts);item->userdata=a;item->routine=routine;
+        menuitem_t *item=&screen->items[i+popup];*item=control(c,screen->theme->fonts);item->userdata=a;item->routine=routine;
+        item->rect.x+=offset.x;item->rect.y+=offset.y;
+        item->disabled_look=true;
+        if(c->type==3||c->type==4) {
+            item->kind=MI_CHECK;item->group=c->type==3?1:0;
+            item->inset.x+=screen->theme->widgets.cells[c->type==3?9:14].rect.w+4;
+        } else if(c->type==6) {
+            item->kind=MI_SLIDER;item->sheet=&screen->theme->widgets;
+            item->thumb=(menulook_t){.cell=100,.palette=-1,.part=item->sheet->cells[100].rect};
+        } else if(c->type==8)item->kind=MI_TEXTFIELD;
+        else if(c->type==12)item->kind=MI_LIST;
+        else if(c->type==13) {
+            item->kind=MI_DROPDOWN;item->align=MALIGN_VCENTER;item->look[MS_NORMAL].palette=1;
+        }
         if(c->type==5&&c->text[0]) {
             native_path(path,sizeof(path),root,c->text);
             if(!W_LoadIndexedSheet(path,&a->image))return false;
@@ -281,6 +378,8 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
             movie_t *v=&a->movies[j];if(!sc_movie(path,&v->sheet,&v->ms,&v->palettes))return false;
         }
     }
+    for(int i=0;i<d.count;i++)
+        if(d.controls[i].type==12&&!add_scrollbar(screen,i+popup))return false;
     return true;
 }
 
@@ -496,10 +595,6 @@ static void set_prose(menuitem_t *item, const char *text) {
     item->prose = text ? text : "";
 }
 
-static int row_px(const menuitem_t *item) {
-    return (item && item->font && item->font->line_h > 0 ? item->font->line_h : 10) + 2;
-}
-
 static void as_list(menuitem_t *item, int rows, int value, const char *(*row)(const menuitem_t *, int)) {
     if (!item) return;
     item->kind = MI_LIST;
@@ -507,10 +602,8 @@ static void as_list(menuitem_t *item, int rows, int value, const char *(*row)(co
     item->value = value;
     item->first_row = 0;
     item->row = row;
-    item->row_height = row_px(item);
-    item->inset = (ivec2_t){2, 0};
+    item->row_height = item->font->line_h;
     item->align = 0;
-    item->color = 0xff203040u;
     item->enabled = item->visible = true;
 }
 
@@ -520,8 +613,7 @@ static void as_drop(menuitem_t *item, const char *(*row)(const menuitem_t *, int
     item->rows = 1;
     item->value = 0;
     item->row = row;
-    item->row_height = row_px(item);
-    item->color = 0xff203040u;
+    item->row_height = item->font->line_h;
     item->enabled = item->visible = true;
     snprintf(item->text, sizeof(item->text), "%s", row(item, 0));
 }
@@ -626,6 +718,7 @@ static void scroll_log(menuitem_t *item) {
     int height = V_TextWrappedHeight(item->rect.w, item->font, item->prose ? item->prose : "");
     int lines = (height + item->font->line_h - 1) / item->font->line_h;
     int visible = item->rect.h / item->font->line_h;
+    M_MenuSetRows(item,lines);
     item->first_row = lines > visible ? lines - visible : 0;
 }
 
@@ -664,9 +757,12 @@ static void chat_refresh(menu_t *menu) {
     if (map) size_text(M_MenuFind(&chat.menu, 18), map->width, map->height);
     else set_text(M_MenuFind(&chat.menu, 18), "");
     set_text(M_MenuFind(&chat.menu, 19), "Normal");
-    snprintf(chat_log, sizeof(chat_log), "%s", M_NetLog());
     menuitem_t *log = M_MenuFind(&chat.menu, 10);
-    if (log) { log->prose = chat_log; log->text[0] = '\0'; scroll_log(log); }
+    const char *text=M_NetLog();
+    if(strcmp(chat_log,text)) {
+        snprintf(chat_log,sizeof(chat_log),"%s",text);
+        scroll_log(log);
+    }
     int cap = doomcom && doomcom->numplayers > 0 ? doomcom->numplayers : 0;
     if (cap > 8) cap = 8;
     int joined = I_NetPlayerCount(), local = M_NetLocalSlot();
@@ -902,27 +998,6 @@ static bool wire_multi(void) {
     menuitem_t *maps = M_MenuFind(&create.menu, 5);
     as_list(maps, 0, -1, map_row);
     maps->look[MS_NORMAL].palette = 1;
-    int list_index = (int)(maps - create.items);
-    irect_t bounds = maps->rect, arrow = gluewidgets.cells[17].rect;
-    maps->rect.w -= arrow.w;
-    /* The list owns its scrollbar within the native type-12 rectangle.
-     * PyMS places the track two pixels clear of each arrow. */
-    menuitem_t *bar = &create.items[create.menu.numitems++];
-    *bar = (menuitem_t){.kind=MI_SCROLLBAR,.id=-1,.visible=true,.enabled=true,
-        .rect={bounds.x+bounds.w-arrow.w,bounds.y+arrow.h+2,arrow.w,bounds.h-2*(arrow.h+2)},
-        .sheet=&gluewidgets,.link=list_index,
-        .thumb={.cell=28,.palette=-1,.part=gluewidgets.cells[28].rect}};
-    for(int s=0;s<MS_STATES;s++)bar->look[s].cell=-1;
-    for(int i=0;i<2;i++) {
-        menuitem_t *step=&create.items[create.menu.numitems++];
-        *step=(menuitem_t){.kind=MI_BUTTON,.id=-2-i,.visible=true,.enabled=true,.release=true,
-            .rect={bar->rect.x,bounds.y+i*(bounds.h-arrow.h),arrow.w,arrow.h},
-            .sheet=&gluewidgets,.stretch=true,.disabled_look=true,.link=list_index,.step=i?1:-1};
-        for(int s=0;s<MS_STATES;s++) {
-            int frame=(i?20:17)+(s==MS_PUSHED?1:s==MS_DISABLED?-1:0);
-            step->look[s]=(menulook_t){.cell=frame,.palette=-1,.part=gluewidgets.cells[frame].rect};
-        }
-    }
     ok = M_MenuFind(&create.menu, 12);
     if (ok) { ok->enabled = false; ok->disabled_look = true; }
     for (int i = 0; i < create.menu.numitems; ++i) {
@@ -936,10 +1011,6 @@ static bool wire_multi(void) {
     type->look[MS_NORMAL].palette=1;
     type->color=0;
     type->align=MALIGN_VCENTER;
-    for (int i = 0; i < gamename.menu.numitems; ++i) {
-        gamename.items[i].rect.x += (640 - 360) / 2;
-        gamename.items[i].rect.y += (480 - 200) / 2;
-    }
     menuitem_t *field = M_MenuFind(&gamename.menu, 4);
     field->kind = MI_TEXTFIELD;
     field->maxchars = 31;
@@ -949,8 +1020,8 @@ static bool wire_multi(void) {
     field->maxchars = 60;
     field->enabled = field->visible = true;
     menuitem_t *log = M_MenuFind(&chat.menu, 10);
-    log->kind = MI_STATIC;
-    log->visible = true;
+    as_list(log,0,-1,NULL);
+    log->row_height=log->font->line_h;
     log->prose = chat_log;
     for (int i = 0; i < 8; ++i) {
         menuitem_t *race = M_MenuFind(&chat.menu, 29 + i * 4);
@@ -966,31 +1037,17 @@ static bool wire_multi(void) {
 
 bool G_InitMenus(app_t *app,const char *root) {
     snprintf(asset_root,sizeof(asset_root),"%s",root);
-    char path[2048];native_path(path,sizeof(path),root,"glue/palmm/backgnd.pcx");
-    if(!W_LoadIndexedSheet(path,&background))return false;
     const char *names[]={"font10","font14","font16","font16x"};
     for(int i=0;i<4;i++) {
-        if(!sc_font(root,names[i],&fonts[i])||!sc_font(root,names[i],&gamefonts[i]))return false;
+        if(!sc_font(root,names[i],&gamefonts[i]))return false;
         if(!sc_font_colors(root,"game/tfontgam.pcx",&gamefonts[i]))return false;
     }
     sc_dialog_t d;
-    if(!sc_dialog(root,"rez/glumain.bin",&d))return false;
-    front.app=app;front.numitems=d.count;front.background=&background;front.palette=background.palette;front.drawitem=draw_front;
-    for(int i=0;i<d.count;i++) {
-        sc_control_t *c=&d.controls[i]; artwork_t *a=&art[i]; a->native=*c;
-        items[i]=control(c,fonts);items[i].userdata=a;
-        items[i].routine=c->id==3?begin:c->id==2?M_MenuQuitGame:c->id==4?open_multi:unavailable;
-        if(c->type==5&&c->text[0]) {
-            native_path(path,sizeof(path),root,c->text);
-            if(!W_LoadIndexedSheet(path,&a->image))return false;
-            items[i].sheet=&a->image;items[i].text[0]=0;
-            for(int s=0;s<MS_STATES;s++)items[i].look[s].cell=0;
-        }
-        for(int j=0;j<c->movie_count;j++) {
-            native_path(path,sizeof(path),root,c->movies[j].path);
-            movie_t *v=&a->movies[j];
-            if(!sc_movie(path,&v->sheet,&v->ms,&v->palettes))return false;
-        }
+    if(!load_screen(&main_screen,app,root,"rez/glumain.bin","glue/palmm/backgnd.pcx",NULL))return false;
+    front=main_screen.menu;
+    for(int i=0;i<front.numitems;i++) {
+        menuitem_t *item=&front.items[i];
+        item->routine=item->id==3?begin:item->id==2?M_MenuQuitGame:item->id==4?open_multi:unavailable;
     }
     if(!load_screen(&registry,app,root,"rez/glulogin.bin","glue/palnl/backgnd.pcx",frontend)||
        !load_screen(&new_id,app,root,"rez/glunewch.bin","glue/palnl/backgnd.pcx",frontend)||
@@ -1001,24 +1058,20 @@ bool G_InitMenus(app_t *app,const char *root) {
        !load_screen(&create,app,root,"rez/glucreat.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&gamename,app,root,"rez/glupedit.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&chat,app,root,"rez/gluchat.bin","glue/palnl/backgnd.pcx",multi))return false;
-    if(!grp(root,"glue/palnl/dlg.grp",create.background.palette,&gluewidgets)||
-       gluewidgets.numlumps<=58||create.menu.numitems+3>SC_DIALOG_CONTROLS||!wire_multi())return false;
+    if(!wire_multi())return false;
     menuitem_t *list=M_MenuFind(&registry.menu,8);
-    list->kind=MI_LIST;list->rows=1;list->row_height=20;list->row=registry_row;list->value=0;list->enabled=true;
+    as_list(list,1,0,registry_row);
     M_MenuFind(&registry.menu,7)->enabled=false;
     menuitem_t *field=M_MenuFind(&new_id.menu,3);
     field->kind=MI_TEXTFIELD;field->maxchars=31;field->enabled=field->visible=true;
     snprintf(field->text,sizeof(field->text),"%s",player_name);
     new_id.menu.itemOn=(int)(field-new_id.items);
-    for(int i=0;i<new_id.menu.numitems;i++) {
-        new_id.items[i].rect.x+=(640-220)/2;new_id.items[i].rect.y+=(480-100)/2;
-    }
     menuitem_t *text=M_MenuFind(&briefing.menu,65526);
     text->kind=MI_STATIC;text->visible=true;text->prose=briefing_text;
     text=M_MenuFind(&briefing.menu,65525);text->visible=true;text->prose=objectives;
     M_MenuFind(&briefing.menu,65524)->visible=false;
     if(!sc_dialog(root,"rez/gamemenu.bin",&d))return false;
-    if(!grp(root,"dlgs/terran.grp",background.palette,&widgets)||!grp(root,"dlgs/tile.grp",background.palette,&panel))return false;
+    if(!grp(root,"dlgs/terran.grp",front.palette,&widgets)||!grp(root,"dlgs/tile.grp",front.palette,&panel))return false;
     pausemenu.app=app;pausemenu.numitems=d.count+1;pausemenu.drawitem=draw_pause;
     pauseitems[0]=(menuitem_t){.kind=MI_STATIC,.id=-1,.visible=true,.rect=d.rect};
     for(int i=0;i<d.count;i++) {
@@ -1032,9 +1085,9 @@ menu_t *G_ControlPanel(app_t *app,bool inlevel) {
 }
 void G_ShutdownMenus(void) {
     M_NetStop();
-    screen_t *screens[]={&registry,&new_id,&campaign,&briefing,&conn,&join,&create,&gamename,&chat};
+    screen_t *screens[]={&main_screen,&registry,&new_id,&campaign,&briefing,&conn,&join,&create,&gamename,&chat};
     for(unsigned s=0;s<sizeof(screens)/sizeof(*screens);s++) {
-        screen_t *screen=screens[s];R_FreeSprite(&screen->background);
+        screen_t *screen=screens[s];
         for(int i=0;i<SC_DIALOG_CONTROLS;i++) {
             R_FreeSprite(&screen->art[i].image);
             for(int j=0;j<SC_CONTROL_MOVIES;j++) {
@@ -1043,13 +1096,13 @@ void G_ShutdownMenus(void) {
         }
         memset(screen,0,sizeof(*screen));
     }
-    R_FreeSprite(&background);R_FreeSprite(&gluewidgets);
-    for(int i=0;i<4;i++){R_FreeSprite(&fonts[i].sprite);R_FreeSprite(&gamefonts[i].sprite);}
-    for(int i=0;i<SC_DIALOG_CONTROLS;i++) {
-        R_FreeSprite(&art[i].image);
-        for(int j=0;j<SC_CONTROL_MOVIES;j++){R_FreeSprite(&art[i].movies[j].sheet);free(art[i].movies[j].palettes);}
+    while(themes) {
+        theme_t *theme=themes;themes=theme->next;
+        R_FreeSprite(&theme->background);R_FreeSprite(&theme->widgets);R_FreeSprite(&theme->panel);
+        for(int i=0;i<4;i++)R_FreeSprite(&theme->fonts[i].sprite);
+        free(theme);
     }
-    memset(art,0,sizeof(art));
+    for(int i=0;i<4;i++)R_FreeSprite(&gamefonts[i].sprite);
 }
 static void focus(menu_t *menu,menuitem_t *item,menuaction_t action) {
     if(action!=MA_ACTIVATE)return;

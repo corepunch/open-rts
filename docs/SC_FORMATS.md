@@ -510,9 +510,12 @@ records are reference-defined but unsupported here.
 
 Reference-defined types: 0 dialog; 1 default button; 2 button; 3 option button;
 4 checkbox; 5 image; 6 slider; 7 unknown; 8 textbox; 9/10/11 left/center/right
-labels; 12 listbox; 13 combobox; 14 highlighted/animated button. The initial
-adapter implements buttons/images/labels for the loaded screens, not every
-control behavior implied by this list.
+labels; 12 listbox; 13 combobox; 14 highlighted/animated button. The glue
+adapter now maps these known types to shared menu widgets, with theme-specific
+native chrome. Slider ranges and screen callbacks still require runtime
+configuration; type 7 remains unknown. See the dated
+[complete glue audit](SC_EXE_FINDINGS.md#complete-glue-asset-and-shortcut-audit-2026-10-09)
+for the frame map, corrected shortcuts, supported screens and remaining gaps.
 
 Relevant reference-defined flags:
 
@@ -574,7 +577,7 @@ our raw native frame numbering is preserved.
 ## 10. SMK decoding and playback scope
 
 `games/starcraft/w_smk.c` delegates the compressed bitstream to the pinned
-libsmacker C library. It obtains dimensions, frame count and microseconds per
+libsmacker C library in `third_party/libsmacker`. It obtains dimensions, frame count and microseconds per
 frame, enables video, and copies both indexed pixels and a 256-color palette
 for each frame. This is not an independent reverse engineering of Smacker's
 compression or audio formats.

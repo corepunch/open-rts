@@ -1,5 +1,5 @@
 #include "sc_local.h"
-#include "../../reference/libsmacker/smacker.h"
+#include "../../third_party/libsmacker/smacker.h"
 #include <stdlib.h>
 #include <string.h>
 bool sc_movie(const char *path,spritesheet_t *out,unsigned *frame_ms, uint32_t **palettes) {
