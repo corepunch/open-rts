@@ -76,6 +76,10 @@ static int carrier(void) {
     c->sc.hangar = 0;
     G_AiInterface()->describe_unit(c, &empty);
     CHECK(full.air_strength > 0 && empty.air_strength == 0);
+    AiUnitInfo interceptor;
+    P_AiUnitInfo(NULL, MT_INTERCEPTOR, &interceptor);
+    G_AiInterface()->describe(MT_INTERCEPTOR, &interceptor);
+    CHECK(!(interceptor.roles & AI_ROLE_FIGHTER)); /* counted in the Carrier */
     reset();
     return 0;
 }
@@ -542,9 +546,78 @@ static int computer(void) {
     CHECK(marine->sc.matrix > 0 && sc_energy(vessel) == 100);
     reset();
 
+    /* EMP where shields are thick, Irradiate on the biggest organic body. */
+    learn(0, SC_TECH_EMP);
+    learn(0, SC_TECH_IRRADIATE);
+    vessel = caster(MT_SCIENCE_VESSEL, (fvec2_t){4.5f, 4.5f});
+    mobj_t *z1 = spawn(MT_ZEALOT, (fvec2_t){10.5f, 4.5f}, 1);
+    spawn(MT_ZEALOT, (fvec2_t){11.3f, 4.5f}, 1);
+    think(0);
+    CHECK(sc_shields(z1) == 0 && sc_energy(vessel) == 100);
+    mobj_t *ultra = spawn(MT_ULTRALISK, (fvec2_t){8.5f, 8.5f}, 1);
+    think(0);
+    CHECK(ultra->sc.timers[SC_TIMER_IRRADIATE] > 0 && sc_energy(vessel) == 25);
+    reset();
+
+    /* Queens hatch broodlings in big ground units and ensnare clumps. */
+    learn(0, SC_TECH_SPAWN_BROODLING);
+    learn(0, SC_TECH_ENSNARE);
+    mobj_t *queen = caster(MT_QUEEN, (fvec2_t){4.5f, 4.5f});
+    mobj_t *tank = spawn(MT_SIEGE_TANK, (fvec2_t){9.5f, 4.5f}, 1);
+    uint32_t tank_id = tank->id;
+    think(0);
+    tick(2);
+    CHECK(!P_MobjById(tank_id) && count_of(MT_BROODLING, 0) == 2);
+    for (int i = 0; i < 3; i++) spawn(MT_MARINE, (fvec2_t){10.5f + 0.5f * i, 6.5f}, 1);
+    queen->sc.energy = 200 << 8;
+    think(0);
+    mobj_t *slowed = first_of(MT_MARINE);
+    CHECK(slowed && slowed->sc.timers[SC_TIMER_ENSNARE] > 0 && sc_energy(queen) == 125);
+    reset();
+
+    /* Defilers swarm over melee under fire, plague clumps, and eat a zergling when low. */
+    learn(0, SC_TECH_PLAGUE);
+    learn(0, SC_TECH_CONSUME);
+    mobj_t *defiler = caster(MT_DEFILER, (fvec2_t){4.5f, 4.5f});
+    mobj_t *ling = spawn(MT_ZERGLING, (fvec2_t){8.5f, 4.5f}, 0), *shooter = spawn(MT_MARINE, (fvec2_t){12.5f, 4.5f}, 1);
+    shooter->attack.target = ling;
+    think(0);
+    CHECK(count_of(MT_DARK_SWARM, 0) == 1 && sc_energy(defiler) == 100);
+    P_RemoveMobj(shooter);
+    for (int i = 0; i < 4; i++) spawn(MT_MARINE, (fvec2_t){10.5f + 0.4f * i, 8.5f}, 1);
+    defiler->sc.energy = 200 << 8;
+    think(0);
+    CHECK(sc_energy(defiler) == 50 && first_of(MT_MARINE)->sc.timers[SC_TIMER_PLAGUE] > 0);
+    uint32_t ling_id = ling->id;
+    think(0);
+    tick(RTS_TICRATE * 4); /* it walks over first */
+    CHECK(!P_MobjById(ling_id) && sc_energy(defiler) >= 100);
+    reset();
+
+    /* Ghosts lock down machines, Battlecruisers fire the Yamato Gun, a
+     * Comsat sweeps a cloaked enemy beside our units. */
+    learn(0, SC_TECH_LOCKDOWN);
+    learn(0, SC_TECH_YAMATO_GUN);
+    mobj_t *ghost = caster(MT_GHOST, (fvec2_t){4.5f, 4.5f}), *bc = caster(MT_BATTLECRUISER, (fvec2_t){4.5f, 12.5f});
+    mobj_t *goliath = spawn(MT_GOLIATH, (fvec2_t){10.5f, 4.5f}, 1), *big = spawn(MT_ULTRALISK, (fvec2_t){12.5f, 12.5f}, 1);
+    think(0);
+    CHECK(goliath->sc.timers[SC_TIMER_LOCKDOWN] > 0 && big->hp < big->max_hp &&
+          sc_energy(ghost) == 100 && sc_energy(bc) == 50);
+    CHECK(P_InitSight());
+    mobj_t *comsat = caster(MT_COMSAT_STATION, (fvec2_t){30.5f, 40.5f});
+    marine = spawn(MT_MARINE, (fvec2_t){30.5f, 30.5f}, 0);
+    spawn(75 + 1, (fvec2_t){32.5f, 30.5f}, 1); /* Dark Templar */
+    P_UpdateSight();
+    think(0);
+    CHECK(count_of(MT_MAP_REVEALER, 0) == 1 && sc_energy(comsat) == 125);
+    free(level.sight.cells);
+    level.sight.cells = NULL;
+    reset();
+
     /* Tanks siege as enemies come into reach and unsiege when they are gone. */
     learn(0, SC_TECH_SIEGE_MODE);
-    mobj_t *tank = spawn(MT_SIEGE_TANK, (fvec2_t){4.5f, 20.5f}, 0), *ling = spawn(MT_ZERGLING, (fvec2_t){14.5f, 20.5f}, 1);
+    tank = spawn(MT_SIEGE_TANK, (fvec2_t){4.5f, 20.5f}, 0);
+    ling = spawn(MT_ZERGLING, (fvec2_t){14.5f, 20.5f}, 1);
     ling->traits &= ~(MF_MOBILE | MF_ATTACK);
     think(0);
     CHECK(tank->core.state_id == SC_SIEGE_STATE);

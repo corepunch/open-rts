@@ -107,12 +107,12 @@ static bool queen(mobj_t *const *units, int count, mobj_t *u) {
     return false;
 }
 static bool defiler(mobj_t *const *units, int count, mobj_t *u) {
-    /* Dark Swarm over our fighters that ranged enemies are shooting at. */
+    /* Dark Swarm over our melee fighters that ranged enemies are shooting at. */
     if (ready(u, SC_TECH_DARK_SWARM))
         for (int i = 0; i < count; i++) {
             mobj_t *f = units[i];
             if (!alive(f) || f->owner != u->owner || building(f) || (f->traits & MF_FLY) || !(f->traits & MF_ATTACK) ||
-                dist2(u, f) > 81.0f) continue;
+                f->info->attack.range > 1.0f || dist2(u, f) > 81.0f) continue;
             bool shot = false, covered = false;
             for (int j = 0; j < count && !shot; j++) {
                 const mobj_t *e = units[j];
@@ -129,8 +129,8 @@ static bool defiler(mobj_t *const *units, int count, mobj_t *u) {
         mobj_t *e = best_clump(units, count, u, 9, 4);
         if (e && sc_cast(u, SC_TECH_PLAGUE, NULL, where(e))) return true;
     }
-    /* Low on energy: eat a zergling nearby. */
-    if (sc_has_tech(u->owner, SC_TECH_CONSUME) && sc_energy(u) < 50)
+    /* Short of a Dark Swarm: eat a zergling nearby. */
+    if (sc_has_tech(u->owner, SC_TECH_CONSUME) && sc_energy(u) < sc_techs[SC_TECH_DARK_SWARM].energy)
         for (int i = 0; i < count; i++)
             if (alive(units[i]) && units[i]->owner == u->owner && units[i]->type_id == MT_ZERGLING &&
                 dist2(u, units[i]) <= 36.0f && sc_cast(u, SC_TECH_CONSUME, units[i], where(units[i]))) return true;
