@@ -263,6 +263,26 @@ static int kk_faction(int owner) {
     return -1;
 }
 
+/* Survivors fight with guns and engines: riflemen and rockets screen the
+ * 4x4s, ATVs and heavy tanks, behind towers, and attack once they match
+ * the enemy, falling back early to repair. The Evolved swarm with cheap
+ * berserkers and beasts, attack sooner and fight to the end. KKnD has no
+ * supply, so army_cap bounds the army. */
+static const AiDoctrine survivor_doctrine = {
+    .workers = 3, .defenses = 2, .army_cap = 40, .counter = 50,
+    .attack_ratio = 110, .retreat_ratio = 50,
+    .roster = { {32,0},{49,0},{51,0},{53,0},
+                {0,15},{12,10},{4,5},{14,5},{16,5},{18,15},{20,15},{24,20},{28,10},{26,10} },
+    .roster_count = 14,
+};
+static const AiDoctrine evolved_doctrine = {
+    .workers = 3, .defenses = 1, .army_cap = 40, .counter = 50,
+    .attack_ratio = 80, .retreat_ratio = 30,
+    .roster = { {33,0},{50,0},{52,0},{54,0},
+                {1,30},{13,10},{15,5},{17,20},{19,5},{21,5},{23,10},{25,15},{27,10},{29,5} },
+    .roster_count = 14,
+};
+
 static bool kk_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     (void)map; (void)level;
     int faction = kk_faction(owner);
@@ -270,6 +290,7 @@ static bool kk_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     out->wave_interval_ms = 40000;
     out->wave_min_size = 6;
     out->wave_max_size = 16;
+    out->doctrine = faction == 1 ? survivor_doctrine : evolved_doctrine;
     for (unsigned i = 0; i < sizeof(kk_ai_ladder) / sizeof(*kk_ai_ladder); ++i)
         P_AiPlanAdd(out, faction == 1 ? kk_ai_ladder[i].survivor : kk_ai_ladder[i].mutant,
                     kk_ai_ladder[i].count);
@@ -437,6 +458,7 @@ static const AiGameInterface kk_ai_interface = {
     .purchase = kk_ai_purchase,
     .develop = kk_ai_develop,
     .is_anchor = G_AiIsStructure,
+    .product_actor = G_AiCatalogActor,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &kk_ai_interface; }

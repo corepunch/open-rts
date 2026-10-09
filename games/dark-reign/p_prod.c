@@ -124,6 +124,12 @@ bool DR_ProductInTech(int type) {
 }
 
 static uint16_t actor_for_native_type(int native_type) {
+    /* The Imperium towers' BUILD.TXT types stand up as UNITS.TXT turrets. */
+    switch (native_type) {
+    case ACTOR_IMP_AA_BUILDING: native_type = ACTOR_IMP_AA_SITE; break;
+    case ACTOR_IMP_GUARD_TOWER_BUILDING: native_type = ACTOR_IMP_GUARD_TOWER; break;
+    case ACTOR_IMP_ADVANCED_GUARD_TOWER_BUILDING: native_type = ACTOR_IMP_ADVANCED_GUARD_TOWER; break;
+    }
     for (int i = 1; i < NUMMOBJTYPES; ++i)
         if (mobjinfo[i].doomednum == native_type) return (uint16_t)i;
     return MT_NULL;
@@ -341,6 +347,28 @@ static const struct { int fg, imp, count; } dr_ai_ladder[] = {
     { 17,    1011,  4 },
 };
 
+/* The sides' characters, from UNITS.TXT and WEAPON.TXT. The Freedom Guard
+ * fields cheap infantry, bikes and hover tanks that strike early and pull
+ * back to heal. The Imperium masses armour and plasma, waits for a clear
+ * edge and fights it out. Anti-air (Flak Jack, M.A.D.) only shoots up, so
+ * the counter weight brings it in once flyers are seen. Dark Reign has no
+ * supply, so army_cap bounds the army. */
+static const AiDoctrine fg_doctrine = {
+    .workers = 3, .defenses = 2, .army_cap = 40, .counter = 60,
+    .attack_ratio = 90, .retreat_ratio = 60,
+    .roster = { {13,0},{10013,0},{10014,0},{10012,0},
+                {9,30},{10,20},{1,15},{20,20},{17,10},{12,5},{16,10},{19,5},{7,3} },
+    .roster_count = 13,
+};
+static const AiDoctrine imp_doctrine = {
+    .workers = 3, .defenses = 3, .army_cap = 40, .counter = 60,
+    .attack_ratio = 130, .retreat_ratio = 35,
+    .roster = { {1006,0},{11014,0},{11015,0},{11013,0},
+                {1002,15},{1003,20},{1004,10},{1010,10},{1011,25},{1015,5},{1013,5},{1012,15},{1017,5},
+                {1008,3} },
+    .roster_count = 14,
+};
+
 static bool dr_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     (void)map; (void)level;
     bool fg = G_ModelHasActorType(NULL, owner, MT_FG_CONSTRUCTION_CREW) ||
@@ -355,10 +383,25 @@ static bool dr_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     out->wave_interval_ms = 40000;
     out->wave_min_size = 6;
     out->wave_max_size = 14;
+    out->doctrine = fg ? fg_doctrine : imp_doctrine;
     for (unsigned i = 0; i < sizeof(dr_ai_ladder) / sizeof(*dr_ai_ladder); ++i)
         P_AiPlanAdd(out, fg ? dr_ai_ladder[i].fg : dr_ai_ladder[i].imp,
                     dr_ai_ladder[i].count);
     return true;
+}
+
+/* What the actor table cannot show: snipers, scouts and saboteurs hide as
+ * terrain and spies as enemy units (CanMorphInto*), and the Amper boosts
+ * the units around it (CanBoost). */
+static void dr_ai_describe(uint16_t type, AiUnitInfo *info) {
+    switch (type) {
+    case MT_FG_SNIPER: case MT_FG_SCOUT: case MT_FG_SABOTEUR: case MT_FG_SPY: case MT_IMP_SPY:
+        info->roles |= AI_ROLE_CLOAKED;
+        break;
+    case MT_IMP_AMPER:
+        info->roles |= AI_ROLE_SUPPORT;
+        break;
+    }
 }
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
@@ -385,6 +428,8 @@ static const AiGameInterface dr_ai_interface = {
     .can_purchase = G_AiCatalogCanPurchase,
     .purchase = G_AiCatalogPurchase,
     .is_anchor = G_AiIsStructure,
+    .product_actor = G_AiCatalogActor,
+    .describe = dr_ai_describe,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &dr_ai_interface; }
