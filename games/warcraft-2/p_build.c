@@ -351,23 +351,90 @@ bool W2_CancelConstruction(mobj_t *site) {
     return true;
 }
 
-/* A footprint with a free ring of land around it, so the base stays
- * passable, nearest to the owner's hall (or any structure, or a worker). */
-static bool site_with_margin(uint16_t type, ivec2_t cell) {
-    if (!W2_CanPlace(type, cell, NULL)) return false;
-    isize2_t foot = mobjinfo[type].w2.footprint;
+/* Whether `walker` can step beside the footprint at `cell`. */
+bool w2_site_reachable(const mobj_t *walker, ivec2_t cell, isize2_t foot) {
+    if (!walker) return true;
+    ivec2_t from = fvec2_cell(fixed3_xy_to_fvec2(walker->core.position));
     for (int y = -1; y <= foot.h; ++y)
-        for (int x = -1; x <= foot.w; ++x) {
-            if (x >= 0 && y >= 0 && x < foot.w && y < foot.h) continue;
-            if (!cell_is_land(cell.x + x, cell.y + y)) return false;
-        }
-    return true;
+        for (int x = -1; x <= foot.w; ++x)
+            if ((x < 0 || y < 0 || x >= foot.w || y >= foot.h) &&
+                P_NavReachable(&level, P_MobjMoveClass(walker), from, ivec2_add(cell, (ivec2_t){x, y})))
+                return true;
+    return false;
 }
 
+/* Stratagus' AI keeps its buildings off the way between a hall and its
+ * gold mine; a farm there jams the workers' trips. */
+bool w2_blocks_mining(int owner, ivec2_t cell, isize2_t foot) {
+    for (thinker_t *a = thinkercap.next; a && a != &thinkercap; a = a->next) {
+        const mobj_t *hall = (const mobj_t *)a;
+        if (a->function != P_MobjThinker || !alive(hall) || hall->owner != owner ||
+            hall->type_id >= NUMMOBJTYPES || !(mobjinfo[hall->type_id].w2.store_mask & 1)) continue;
+        for (thinker_t *b = thinkercap.next; b && b != &thinkercap; b = b->next) {
+            const mobj_t *mine = (const mobj_t *)b;
+            if (b->function != P_MobjThinker || !alive(mine) || mine->type_id != MT_GOLD_MINE ||
+                W2_Distance(hall, mine) > 12) continue;
+            irect_t h = P_MobjCells(hall), m = P_MobjCells(mine);
+            int x0 = (h.x < m.x ? h.x : m.x) - 1, y0 = (h.y < m.y ? h.y : m.y) - 1;
+            int x1 = (h.x + h.w > m.x + m.w ? h.x + h.w : m.x + m.w) + 1;
+            int y1 = (h.y + h.h > m.y + m.h ? h.y + h.h : m.y + m.h) + 1;
+            if (cell.x < x1 && cell.x + foot.w > x0 && cell.y < y1 && cell.y + foot.h > y0) return true;
+        }
+    }
+    return false;
+}
+
+/* A clear ring keeps the base passable. A shipyard's ring is open land on
+ * one side, for its builder, and open water on another, for its ships. */
+static bool site_with_margin(int owner, uint16_t type, ivec2_t cell, const mobj_t *walker,
+                             const uint8_t *crowd) {
+    if (!W2_CanPlace(type, cell, NULL)) return false;
+    isize2_t foot = mobjinfo[type].w2.footprint;
+    if (!(mobjinfo[type].w2.flags & W2_HALL) && w2_blocks_mining(owner, cell, foot)) return false;
+    bool shore = (mobjinfo[type].w2.attributes & W2_SHORE_BUILDING) != 0, land = false, water = false;
+    for (int y = -2; y <= foot.h + 1; ++y)
+        for (int x = -2; x <= foot.w + 1; ++x) {
+            if (x >= 0 && y >= 0 && x < foot.w && y < foot.h) continue;
+            int index = L_Index(&level, cell.x + x, cell.y + y);
+            /* Two cells to the next building: units jam in one-cell lanes. */
+            if (x < -1 || y < -1 || x > foot.w || y > foot.h) {
+                if (L_Contains(&level, cell.x + x, cell.y + y) && level.cell_solid[index] &&
+                    level.cell_terrain[index] == 0) return false;
+                continue;
+            }
+            bool dry = cell_is_land(cell.x + x, cell.y + y);
+            if (dry && crowd && crowd[index]) return false; /* Idle troops wall the site off. */
+            if (!shore && !dry) return false;
+            if (!shore) continue;
+            if (!L_Contains(&level, cell.x + x, cell.y + y) || level.cell_solid[index]) return false;
+            land |= dry;
+            water |= level.cell_terrain[index] == 1;
+        }
+    return (!shore || (land && water)) && w2_site_reachable(walker, cell, foot);
+}
+
+/* The open oil patch nearest `from` that the tanker can sail to. */
+static bool oil_site(uint16_t type, fvec2_t from, const mobj_t *walker, ivec2_t *out) {
+    float best = 0;
+    bool found = false;
+    for (int i = 0; i < level.resource_vent_count; ++i) {
+        const resourcevent_t *vent = &level.resource_vents[i];
+        if (vent->resource_type != 2 || !W2_CanPlace(type, vent->cell, NULL)) continue;
+        float d = fvec2_distance_squared(from, vent->attachment);
+        if ((found && d >= best) || !w2_site_reachable(walker, vent->cell, vent->footprint)) continue;
+        found = true; best = d; *out = vent->cell;
+    }
+    return found;
+}
+
+/* A footprint with a free ring of land around it, so the base stays
+ * passable, nearest to the owner's hall (or any structure, or a worker);
+ * a platform goes on the nearest open oil patch. */
 bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out) {
     if (!out || !W2_Buildable(type)) return false;
-    const mobj_t *anchor = NULL;
+    const mobj_t *anchor = NULL, *walker = NULL;
     int best = 0;
+    bool platform = type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *unit = (const mobj_t *)th;
@@ -375,17 +442,26 @@ bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out) {
         const w2_stats_t *s = &mobjinfo[unit->type_id].w2;
         int rank = (s->flags & W2_HALL) ? 3 : (s->flags & W2_STRUCTURE) ? 2 : worker(unit) ? 1 : 0;
         if (rank > best) { best = rank; anchor = unit; }
+        /* A worker of the kind that builds it must be able to get there. */
+        if (!walker && (unit->traits & MF_MOBILE) && worker(unit) && ((s->flags & W2_SEA) != 0) == platform)
+            walker = unit;
     }
     if (!anchor) return false;
     fvec2_t centre = fixed3_xy_to_fvec2(anchor->core.position);
+    if (platform) return oil_site(type, centre, walker, out);
     isize2_t foot = mobjinfo[type].w2.footprint;
     ivec2_t origin = { (int)floorf(centre.x) - foot.w / 2, (int)floorf(centre.y) - foot.h / 2 };
-    for (int radius = 1; radius <= 20; ++radius)
-        for (int dy = -radius; dy <= radius; ++dy)
-            for (int dx = -radius; dx <= radius; ++dx) {
+    /* The coast may lie well beyond the town. */
+    int reach = (mobjinfo[type].w2.attributes & W2_SHORE_BUILDING) ? 40 : 28;
+    uint8_t *crowd = P_IdleBlockers(&level, NULL, 0);
+    bool found = false;
+    for (int radius = 1; radius <= reach && !found; ++radius)
+        for (int dy = -radius; dy <= radius && !found; ++dy)
+            for (int dx = -radius; dx <= radius && !found; ++dx) {
                 if (abs(dx) != radius && abs(dy) != radius) continue;
                 ivec2_t cell = { origin.x + dx, origin.y + dy };
-                if (site_with_margin(type, cell)) { *out = cell; return true; }
+                if (site_with_margin(owner, type, cell, walker, crowd)) { *out = cell; found = true; }
             }
-    return false;
+    free(crowd);
+    return found;
 }

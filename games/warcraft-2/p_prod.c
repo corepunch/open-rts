@@ -539,65 +539,161 @@ static bool orc_owner(int owner) {
     return false;
 }
 
+/* PUD AIPL scripts (Wargus pud.cpp AiTypeNames); the rest are campaign
+ * scripts, played here as land attacks. */
+enum { W2_AI_LAND = 0, W2_AI_PASSIVE = 1, W2_AI_SEA = 25, W2_AI_AIR = 26 };
+
+static int ai_script(const level_t *map, int owner) {
+    const w2_pud_t *pud = map ? map->native_data : NULL;
+    return pud && owner >= 0 && owner < 16 ? pud->ai[owner] : W2_AI_LAND;
+}
+
 /* The console player is the human; in a network game every joined slot is.
- * Only the PUD's computer and player slots field an opponent. */
+ * Only the PUD's computer and player slots field an opponent, and a
+ * passive one does nothing at all, as Wargus AiPassive. */
 static int w2_ai_level(const level_t *map, int owner) {
     if (owner < 0 || owner >= 8) return AI_LEVEL_NONE;
     if (netgame ? D_PlayerIsHuman(owner) : owner == consoleplayer) return AI_LEVEL_NONE;
     const w2_pud_t *pud = map ? map->native_data : NULL;
     if (pud && pud->owners[owner] != 4 && pud->owners[owner] != 5) return AI_LEVEL_NONE;
+    if (ai_script(map, owner) == W2_AI_PASSIVE) return AI_LEVEL_NONE;
     return AI_LEVEL_NORMAL;
 }
+
+typedef struct { int product, count; } w2_goal_t;
 
 /* Wargus land_attack.lua's opening in goal-ladder form: workers, farms and
  * a barracks, soldiers, a mill and smithy with the first research, a
  * tower, the keep and the cavalry building. Human ids; orc ids are the
  * twin. The race doctrine below runs the game from there. */
-static const struct { int product, count; } w2_opening[] = {
+static const w2_goal_t w2_opening[] = {
     { W2_UI_TOWN_HALL, 1 }, { 3, 5 }, { W2_UI_FARM, 2 }, { W2_UI_HUMAN_BARRACKS, 1 },
-    { 3, 8 }, { 1, 3 }, { W2_UI_ELVEN_LUMBER_MILL, 1 }, { 5, 2 }, { W2_UI_HUMAN_BLACKSMITH, 1 },
-    { W2_UI_SWORD1, 1 }, { W2_UI_HUMAN_WATCH_TOWER, 1 }, { W2_UI_HUMAN_SHIELD1, 1 },
+    { 3, 8 }, { 1, 3 }, { W2_UI_ELVEN_LUMBER_MILL, 1 }, { 3, 12 }, { 5, 2 }, { W2_UI_HUMAN_BLACKSMITH, 1 },
+    { W2_UI_SWORD1, 1 }, { W2_UI_HUMAN_WATCH_TOWER, 1 }, { 3, 15 }, { W2_UI_HUMAN_SHIELD1, 1 },
     { W2_UI_KEEP, 1 }, { W2_UI_STABLES, 1 }, { W2_UI_HUMAN_BARRACKS, 2 },
+};
+
+/* Wargus sea_attack.lua: a shipyard and oil before the first destroyers,
+ * then the foundry that transports and battleships need. */
+static const w2_goal_t w2_sea_opening[] = {
+    { W2_UI_TOWN_HALL, 1 }, { 3, 5 }, { W2_UI_FARM, 2 }, { W2_UI_HUMAN_BARRACKS, 1 },
+    { 3, 9 }, { W2_UI_ELVEN_LUMBER_MILL, 1 }, { 3, 12 }, { 1, 2 }, { W2_UI_HUMAN_SHIPYARD, 1 },
+    { 200 + MT_HUMAN_OIL_TANKER, 1 }, { 200 + MT_HUMAN_OIL_PLATFORM, 1 }, { W2_UI_FARM, 3 }, { 3, 15 },
+    { 200 + MT_HUMAN_OIL_TANKER, 2 }, { W2_UI_HUMAN_BLACKSMITH, 1 }, { W2_UI_HUMAN_FOUNDRY, 1 },
+    { 200 + MT_HUMAN_TRANSPORT, 1 }, { W2_UI_KEEP, 1 }, { W2_UI_HUMAN_REFINERY, 1 },
+};
+
+/* Wargus air_attack.lua: soldiers and towers at home, then the aviary
+ * behind a castle. */
+static const w2_goal_t w2_air_opening[] = {
+    { W2_UI_TOWN_HALL, 1 }, { 3, 5 }, { W2_UI_FARM, 2 }, { W2_UI_HUMAN_BARRACKS, 1 },
+    { 3, 9 }, { 1, 2 }, { W2_UI_ELVEN_LUMBER_MILL, 1 }, { 3, 12 }, { W2_UI_HUMAN_BLACKSMITH, 1 },
+    { 3, 15 }, { W2_UI_KEEP, 1 }, { W2_UI_STABLES, 1 }, { W2_UI_CASTLE, 1 }, { W2_UI_GRYPHON_AVIARY, 1 },
 };
 
 static int orc_twin(int ui) {
     if (ui == W2_UI_SWORD1) return W2_UI_AXE1;
     if (ui == W2_UI_HUMAN_SHIELD1) return W2_UI_ORC_SHIELD1;
     if (ui == W2_UI_KEEP) return W2_UI_STRONGHOLD;
+    if (ui == W2_UI_CASTLE) return W2_UI_FORTRESS;
     return ui + 1;
 }
 
 /* The two sides field near-mirror units, so the doctrines carry the
- * difference. Humans: ranged archers and knights, towers, patient
- * attacks that pull back to heal. Orcs: grunts and ogres, earlier and
- * bolder attacks that fight it out. Farms feed four. */
+ * difference. Humans: ranged archers and knights that become healing
+ * paladins, mages, towers, patient attacks that pull back to heal. Orcs:
+ * grunts and bloodlusting ogres, death knights, earlier and bolder
+ * attacks that fight it out. Farms feed four. Towers rise as watch
+ * towers and are armed in place. */
 static const AiDoctrine human_doctrine = {
-    .workers = 15, .supply_buffer = 3, .counter = 50, .attack_ratio = 120, .retreat_ratio = 55,
-    .roster = { {3,0},{W2_UI_FARM,0},{1,40},{5,30},{9,25},{7,10},{200 + MT_GRYPHON_RIDER,5} },
-    .roster_count = 7,
+    .workers = 15, .supply_buffer = 3, .defenses = 1, .research = 50,
+    .counter = 50, .attack_ratio = 120, .retreat_ratio = 55,
+    .roster = { {3,0},{W2_UI_FARM,0},{1,40},{5,30},{9,25},{7,10},{200 + MT_MAGE,10},
+                {200 + MT_GRYPHON_RIDER,5},{200 + MT_HUMAN_GUARD_TOWER,0},
+                {200 + MT_HUMAN_CANNON_TOWER,0},{W2_UI_HUMAN_WATCH_TOWER,0} },
+    .roster_count = 11,
 };
 static const AiDoctrine orc_doctrine = {
-    .workers = 15, .supply_buffer = 3, .counter = 50, .attack_ratio = 85, .retreat_ratio = 35,
-    .roster = { {4,0},{W2_UI_PIG_FARM,0},{2,45},{6,25},{10,30},{8,10},{200 + MT_DRAGON,5} },
-    .roster_count = 7,
+    .workers = 15, .supply_buffer = 3, .defenses = 1, .research = 40,
+    .counter = 50, .attack_ratio = 85, .retreat_ratio = 35,
+    .roster = { {4,0},{W2_UI_PIG_FARM,0},{2,45},{6,25},{10,30},{8,10},{200 + MT_DEATH_KNIGHT,8},
+                {200 + MT_DRAGON,5},{200 + MT_ORC_GUARD_TOWER,0},
+                {200 + MT_ORC_CANNON_TOWER,0},{W2_UI_ORC_WATCH_TOWER,0} },
+    .roster_count = 11,
 };
 
+/* Raises a roster weight, adding the product when it is missing. */
+static void weigh(AiDoctrine *d, int product, int weight) {
+    for (int i = 0; i < d->roster_count; ++i)
+        if (d->roster[i].product == product) { d->roster[i].weight = weight; return; }
+    if (d->roster_count < AI_MAX_ROSTER) d->roster[d->roster_count++] = (AiChoice){product, weight};
+}
+
+/* A cell the owner's land units stand on, if it has any. */
+static bool land_cell(int owner, ivec2_t *out) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *unit = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || unit->owner != owner || unit->remove || unit->hp <= 0 ||
+            P_MobjMoveClass(unit) != 1 || !(unit->traits & MF_MOBILE)) continue;
+        *out = fvec2_cell(fixed3_xy_to_fvec2(unit->core.position));
+        return true;
+    }
+    return false;
+}
+
+/* Whether some enemy stands on the owner's land mass; an island start
+ * without one plays the sea game whatever script the map names. */
+static bool enemy_by_land(const level_t *map, int owner) {
+    ivec2_t from, near;
+    if (!land_cell(owner, &from)) return true;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *unit = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || unit->remove || unit->hp <= 0 || unit->owner >= 8 ||
+            unit->owner == owner || unit->allegiance == ALLEGIANCE_NEUTRAL || unit->type_id > W2_TYPE_COUNT ||
+            (mobjinfo[unit->type_id].w2.flags & (W2_SEA | W2_AIR))) continue;
+        if (P_NavNearestReachable(map, 1, from, fvec2_cell(fixed3_xy_to_fvec2(unit->core.position)), 3, &near))
+            return true;
+    }
+    return false;
+}
+
 static bool w2_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
-    (void)map; (void)level;
+    (void)level;
     bool orc = orc_owner(owner);
+    int script = ai_script(map, owner);
+    bool air = script == W2_AI_AIR, sea = !air && (script == W2_AI_SEA || !enemy_by_land(map, owner));
+    const w2_goal_t *opening = air ? w2_air_opening : sea ? w2_sea_opening : w2_opening;
+    size_t count = air ? sizeof(w2_air_opening) / sizeof(*w2_air_opening) :
+                   sea ? sizeof(w2_sea_opening) / sizeof(*w2_sea_opening) :
+                         sizeof(w2_opening) / sizeof(*w2_opening);
     out->wave_interval_ms = orc ? 45000 : 60000;
     out->wave_min_size = orc ? 4 : 6;
     out->wave_max_size = 16;
     out->doctrine = orc ? orc_doctrine : human_doctrine;
-    for (unsigned i = 0; i < sizeof(w2_opening) / sizeof(*w2_opening); ++i)
-        P_AiPlanAdd(out, orc ? orc_twin(w2_opening[i].product) : w2_opening[i].product, w2_opening[i].count);
+    AiDoctrine *d = &out->doctrine;
+    /* Wargus sea_attack forces: destroyers and battleships, with
+     * transports for the soldiers; air_attack: flyers behind towers. */
+    if (sea) {
+        weigh(d, 200 + MT_HUMAN_DESTROYER + orc, 35);
+        weigh(d, 200 + MT_BATTLESHIP + orc, 25);
+        weigh(d, 200 + MT_HUMAN_TRANSPORT + orc, 6);
+        weigh(d, 200 + (orc ? MT_DRAGON : MT_GRYPHON_RIDER), 15);
+    }
+    if (air) {
+        weigh(d, 200 + (orc ? MT_DRAGON : MT_GRYPHON_RIDER), 60);
+        d->defenses = 2;
+    }
+    for (size_t i = 0; i < count; ++i)
+        P_AiPlanAdd(out, orc ? orc_twin(opening[i].product) : opening[i].product, opening[i].count);
     return true;
 }
 
-/* Farms and halls feed; the engine reads the rest from the actor. */
+/* Farms and halls feed; a watch tower is the site a guard or cannon tower
+ * is raised on. The engine reads the rest from the actor. */
 static void w2_ai_describe(uint16_t type, AiUnitInfo *info) {
     if (type >= 1 && type <= W2_TYPE_COUNT && mobjinfo[type].w2.food.supply > 0)
         info->roles |= AI_ROLE_SUPPLY;
+    if (type == MT_HUMAN_WATCH_TOWER || type == MT_ORC_WATCH_TOWER) info->roles |= AI_ROLE_DEFENSE;
 }
 
 /* Food in use, training included, against the farms standing, rising and
@@ -678,6 +774,20 @@ static bool affordable(int owner, const StaticProductDefinition *product) {
            stock[2] - committed[2] >= W2_ProductOil(product);
 }
 
+/* A hall that upgrades in place also trains the workers: the computer
+ * waits for its queue to run out, as if saving, rather than queue more. */
+static bool training_maker(int owner, const StaticProductDefinition *product) {
+    if (product->product_class == RTS_PRODUCT_UNIT) return false;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *maker = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || maker->owner != owner || maker->remove || maker->hp <= 0 ||
+            maker->type_id != product->makers[0] || !maker->production ||
+            maker->production->product_class != RTS_PRODUCT_UNIT) continue;
+        return true;
+    }
+    return false;
+}
+
 static int w2_ai_can_purchase(const level_t *map, int owner, int ui) {
     (void)map;
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
@@ -685,13 +795,14 @@ static int w2_ai_can_purchase(const level_t *map, int owner, int ui) {
     if (product_is_site(product)) {
         if (!G_ModelHasActorType(NULL, owner, (uint16_t)product->makers[0])) return AI_BUY_BLOCKED;
     } else if (!G_FindProducerBelow(owner, product, AI_QUEUE_DEPTH)) {
-        return AI_BUY_BLOCKED;
+        return training_maker(owner, product) ? AI_BUY_NEED_CREDITS : AI_BUY_BLOCKED;
     }
     return affordable(owner, product) ? AI_BUY_OK : AI_BUY_NEED_CREDITS;
 }
 
-/* Idle workers first, then one chopping wood, never one inside a site. */
-static mobj_t *pick_builder(int owner, uint16_t maker) {
+/* Idle workers first, then one chopping wood, never one inside a site
+ * or one that cannot get to it. */
+static mobj_t *pick_builder(int owner, uint16_t maker, uint16_t type, ivec2_t cell) {
     mobj_t *best = NULL;
     int best_rank = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
@@ -701,7 +812,10 @@ static mobj_t *pick_builder(int owner, uint16_t maker) {
         if (unit->w2.build_phase != W2_BUILD_NONE || !(unit->traits & MF_MOBILE)) continue;
         int rank = unit->harvest.phase == HARVEST_PHASE_NONE && !P_HasMoveOrder(unit) ? 3 :
                    unit->harvest.resource_type == 1 ? 2 : 1;
-        if (rank > best_rank) { best_rank = rank; best = unit; }
+        if (rank > best_rank && w2_site_reachable(unit, cell, mobjinfo[type].w2.footprint)) {
+            best_rank = rank;
+            best = unit;
+        }
     }
     return best;
 }
@@ -716,13 +830,20 @@ static bool w2_ai_purchase(level_t *map, int owner, int ui) {
     }
     uint16_t type = (uint16_t)product->product_type;
     ivec2_t cell;
-    mobj_t *builder = pick_builder(owner, (uint16_t)product->makers[0]);
-    return builder && W2_FindBuildSite(owner, type, &cell) && W2_ConstructOrder(builder, type, cell);
+    if (!W2_FindBuildSite(owner, type, &cell)) return false;
+    mobj_t *builder = pick_builder(owner, (uint16_t)product->makers[0], type, cell);
+    return builder && W2_ConstructOrder(builder, type, cell);
 }
 
-/* A worker with a building job is spoken for. */
+/* A town is a hall: shipyards and refineries take oil far from it. */
+static bool w2_ai_is_town(const mobj_t *unit) {
+    return unit->type_id < NUMMOBJTYPES && (mobjinfo[unit->type_id].w2.store_mask & 1);
+}
+
+/* A worker with a building job is spoken for, and so is a soldier
+ * boarding or aboard a transport, and a transport on a ferry job. */
 static bool w2_ai_busy(const mobj_t *unit) {
-    return unit && unit->w2.build_phase != W2_BUILD_NONE;
+    return unit && (unit->w2.build_phase != W2_BUILD_NONE || unit->w2.carrier || unit->w2.ferry.phase);
 }
 
 /* The depot the worker's trips will run from: its owner's nearest store
@@ -743,7 +864,8 @@ static fvec2_t depot_for(const mobj_t *unit, int resource) {
     return best;
 }
 
-/* Gold first; one worker in three takes lumber. The open deposit of the
+/* Gold first; one worker in three takes lumber, one in two while lumber
+ * runs short. The open deposit of the
  * wanted kind nearest the depot it will carry to, that the worker can
  * reach; the other kind otherwise. */
 static bool send_to_resource(mobj_t *unit, int resource) {
@@ -769,6 +891,7 @@ static bool send_to_resource(mobj_t *unit, int resource) {
 
 static bool w2_ai_assign_harvester(level_t *map, int owner, mobj_t *unit) {
     (void)map;
+    if (unit->type_id == MT_HUMAN_OIL_TANKER || unit->type_id == MT_ORC_OIL_TANKER) return send_to_resource(unit, 2);
     int gold = 0, lumber = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
@@ -777,8 +900,79 @@ static bool w2_ai_assign_harvester(level_t *map, int owner, mobj_t *unit) {
         if (other->harvest.phase == HARVEST_PHASE_NONE || !(other->traits & MF_HARVESTER)) continue;
         if (other->harvest.resource_type == 1) ++lumber; else ++gold;
     }
-    int first = lumber * 2 < gold ? 1 : 0;
+    /* Half go for lumber while the stock of it runs behind gold. */
+    const int *stock = level.player_resources[owner];
+    int first = lumber * 2 < gold || (lumber < gold && stock[1] < stock[0]) ? 1 : 0;
     return send_to_resource(unit, first) || send_to_resource(unit, !first);
+}
+
+static int product_ui(int product_class, uint16_t type) {
+    const StaticProductDefinition *product = G_ModelProductByClassType(NULL, product_class, type);
+    return product ? product->ui_id : 0;
+}
+
+/* What the owner buys next on the way to `ui`: a missing prerequisite or
+ * maker first, the deepest first; 0 while one of them is on the way. */
+static int unlock(int owner, int ui, int depth) {
+    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
+    if (!product || depth > 8) return 0;
+    for (int i = 0; i < product->prerequisite_count; ++i) {
+        uint16_t type = (uint16_t)product->prerequisites[i];
+        if (owner_has(owner, type)) continue;
+        int need = product_ui(RTS_PRODUCT_BUILDING, type);
+        return need && !w2_ai_owned(owner, need) ? unlock(owner, need, depth + 1) : 0;
+    }
+    if (product->maker_count <= 0) return ui;
+    for (int i = 0; i < product->maker_count; ++i)
+        if (owner_has(owner, (uint16_t)product->makers[i])) return ui;
+    uint16_t maker = (uint16_t)product->makers[0];
+    int need = product_ui((mobjinfo[maker].w2.flags & W2_STRUCTURE) ? RTS_PRODUCT_BUILDING : RTS_PRODUCT_UNIT, maker);
+    return need && !w2_ai_owned(owner, need) ? unlock(owner, need, depth + 1) : 0;
+}
+
+/* Research for sight alone, and spells the computer never casts. */
+static bool ai_skips(int id) {
+    return id == W2_UPGRADE_RANGER_SCOUTING || id == W2_UPGRADE_BERSERKER_SCOUTING ||
+        id == W2_UPGRADE_INVISIBILITY || id == W2_UPGRADE_RUNES || id == W2_UPGRADE_RAISE_DEAD ||
+        id == W2_UPGRADE_UNHOLY_ARMOR;
+}
+
+static bool upgrade_applies(const w2_upgrade_t *upgrade, uint16_t type) {
+    for (size_t i = 0; i < sizeof(upgrade->units) / sizeof(*upgrade->units) && upgrade->units[i]; ++i)
+        if (upgrade->units[i] == type) return true;
+    return false;
+}
+
+/* The research ladder for a roster product: what unlocks it while it
+ * cannot be bought, then its unit's lines tier by tier, including what
+ * its research turns it into (a knight's paladin line, an ogre's mage). */
+static int w2_ai_advance(const level_t *map, int owner, int ui) {
+    (void)map;
+    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
+    if (!product || product->product_class != RTS_PRODUCT_UNIT) return 0;
+    if (!G_ModelProductAvailable(NULL, owner, product)) {
+        int step = unlock(owner, ui, 0);
+        return step == ui ? 0 : step;
+    }
+    static const uint16_t become[][2] = {
+        {MT_ARCHER, MT_RANGER}, {MT_AXETHROWER, MT_BERSERKER}, {MT_KNIGHT, MT_PALADIN}, {MT_OGRE, MT_OGRE_MAGE},
+    };
+    uint16_t type = (uint16_t)product->product_type, better = type;
+    for (size_t i = 0; i < sizeof(become) / sizeof(*become); ++i)
+        if (become[i][0] == type) better = become[i][1];
+    for (int tier = 1; tier <= 2; ++tier)
+        for (int id = 1; id < W2_UPGRADE_COUNT; ++id) {
+            const w2_upgrade_t *upgrade = &W2_UPGRADES[id];
+            if (upgrade->tier != tier || ai_skips(id) || W2_UpgradeLevel(owner, upgrade) >= tier ||
+                (!upgrade_applies(upgrade, type) && !upgrade_applies(upgrade, better))) continue;
+            int research = product_ui(RTS_PRODUCT_UPGRADE, (uint16_t)id);
+            if (!research || w2_ai_owned(owner, research)) continue;
+            const StaticProductDefinition *row = G_ModelProductByUIId(NULL, research);
+            if (G_ModelProductAvailable(NULL, owner, row)) return research;
+            int step = unlock(owner, research, 0);
+            if (step && step != research) return step;
+        }
+    return 0;
 }
 
 static const AiGameInterface w2_ai_interface = {
@@ -789,12 +983,16 @@ static const AiGameInterface w2_ai_interface = {
     .owned = w2_ai_owned,
     .can_purchase = w2_ai_can_purchase,
     .purchase = w2_ai_purchase,
+    .is_base = w2_ai_is_town,
     .is_anchor = G_AiIsStructure,
     .is_busy = w2_ai_busy,
     .assign_harvester = w2_ai_assign_harvester,
     .product_actor = G_AiCatalogActor,
     .describe = w2_ai_describe,
     .supply = w2_ai_supply,
+    .advance = w2_ai_advance,
+    .dispatch = w2_ai_dispatch,
+    .tactics = w2_ai_tactics,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &w2_ai_interface; }

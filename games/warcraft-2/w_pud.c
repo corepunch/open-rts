@@ -132,15 +132,17 @@ void w2_apply_net_seats(level_t *out) {
     for (int i = 0; i < 16; ++i)
         if (dest[i] < 0) dest[i] = spare[spare_at++];
 
-    uint8_t owners[16], sides[16];
+    uint8_t owners[16], sides[16], ai[16];
     int resources[8][RTS_MAX_RESOURCES];
     memcpy(owners, pud->owners, sizeof(owners));
     memcpy(sides, pud->sides, sizeof(sides));
+    memcpy(ai, pud->ai, sizeof(ai));
     memcpy(resources, out->player_resources, sizeof(resources));
     for (int src = 0; src < 16; ++src) {
         int d = dest[src];
         pud->owners[d] = owners[src];
         pud->sides[d] = sides[src];
+        pud->ai[d] = ai[src];
         if (d >= 8) continue;
         if (src < 8) memcpy(out->player_resources[d], resources[src], sizeof(resources[src]));
         else memset(out->player_resources[d], 0, sizeof(out->player_resources[d]));
@@ -320,6 +322,9 @@ bool w2_load_pud(const char *path, level_t *out) {
         } else if (tag_is(header, "SIDE")) {
             int n = length < 16 ? (int)length : 16;
             memcpy(pud->sides, payload, (size_t)n);
+        } else if (tag_is(header, "AIPL")) {
+            int n = length < 16 ? (int)length : 16;
+            memcpy(pud->ai, payload, (size_t)n);
         } else if (tag_is(header, "SGLD") || tag_is(header, "SLBR") || tag_is(header, "SOIL")) {
             int which = tag_is(header, "SGLD") ? 0 : tag_is(header, "SLBR") ? 1 : 2;
             int slots = (int)(length / 2);
