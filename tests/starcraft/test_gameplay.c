@@ -13,6 +13,7 @@ static tileset_t tiles;
 static spritesheet_t fallback;
 static spritecache_t cache;
 static hudtext_t hudtext;
+static menu_t *hudmenu;
 
 static bool save(const char *path) {
     SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, screens[0].w, screens[0].h, 32, SDL_PIXELFORMAT_ARGB8888);
@@ -118,7 +119,7 @@ static bool load(const int *kinds, const int *races) {
     bool ok = R_InitSprites(root, &level, all.items, all.count, &cache);
     P_FreeMobjList(&all);
     P_SyncBuildingBlocking();
-    return ok && G_InitHUD(&app, root);
+    return ok && (hudmenu = G_InitHUD(&app, root)) != NULL;
 }
 static void unload(void) {
     G_ShutdownHUD();
@@ -391,6 +392,65 @@ static int briefing_script(void) {
     return 0;
 }
 
+/* The command card's button with this tooltip for what is selected now. */
+static menuitem_t *card(const char *tip, mobj_t *const *pick, int count) {
+    static mobjlist_t all;
+    P_FreeMobjList(&all);
+    all = P_ListMobjs();
+    for (int i = 0; i < all.count; i++) P_MobjSetSelected(all.items[i], false);
+    for (int i = 0; i < count; i++) P_MobjSetSelected(pick[i], true);
+    hudview = (hudview_t){.units = all.items, .unit_count = all.count};
+    hudmenu->refresh(hudmenu);
+    for (int i = 0; i < hudmenu->numitems; i++) {
+        menuitem_t *it = &hudmenu->items[i];
+        if (it->visible && it->tooltip && !strcmp(it->tooltip, tip)) return it;
+    }
+    return NULL;
+}
+static void click(menuitem_t *it) { it->routine(hudmenu, it, MA_ACTIVATE); }
+
+/* Abilities, siege mode, Archon Warp and Unload All from the command card. */
+static int command_card(void) {
+    mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER);
+    CHECK(hall);
+    fvec2_t at = fvec2_add(fixed3_xy_to_fvec2(hall->core.position), (fvec2_t){0, 4});
+    mobj_t *ghost = spawn(MT_GHOST, at, consoleplayer), *tank = spawn(MT_SIEGE_TANK, fvec2_add(at, (fvec2_t){2, 0}), consoleplayer);
+    mobj_t *a = spawn(MT_HIGH_TEMPLAR, fvec2_add(at, (fvec2_t){-2, 0}), consoleplayer);
+    mobj_t *b = spawn(MT_HIGH_TEMPLAR, fvec2_add(at, (fvec2_t){-3, 0}), consoleplayer);
+    CHECK(ghost && tank && a && b);
+    /* Greyed until researched, then cast from the button. */
+    menuitem_t *cloak = card("Personnel Cloaking", &ghost, 1);
+    CHECK(cloak && !cloak->enabled && card("Lockdown", &ghost, 1) && card("Nuclear Strike", &ghost, 1));
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][consoleplayer].weapon = 1;
+    cloak = card("Personnel Cloaking", &ghost, 1);
+    CHECK(cloak->enabled && cloak->look[0].cell == sc_techs[SC_TECH_PERSONNEL_CLOAKING].icon);
+    click(cloak);
+    CHECK(ghost->traits & MF_CLOAKED);
+    /* An aimed spell waits for a click on the world. */
+    level.upgrades[SC_UPGRADES + SC_TECH_LOCKDOWN][consoleplayer].weapon = 1;
+    menuitem_t *lockdown = card("Lockdown", &ghost, 1);
+    click(lockdown);
+    CHECK(hudmenu->target == lockdown);
+    hudmenu->target = NULL;
+    level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
+    click(card("Tank Siege Mode", &tank, 1));
+    tick(RTS_TICRATE * 3);
+    CHECK(tank->type_id == MT_SIEGE_MODE && card("Tank Siege Mode", &tank, 1)->look[0].cell == 246);
+    mobj_t *pair[2] = {a, b};
+    click(card("Archon Warp", pair, 2));
+    CHECK(a->sc.order.kind == SC_ORDER_MERGE && b->sc.order.kind == SC_ORDER_MERGE);
+    /* A Bunker's card unloads it. */
+    ivec2_t cell;
+    CHECK(site(MT_BUNKER, hall, NULL, &cell));
+    fvec2_t door = P_BuildingPosition(MT_BUNKER, cell);
+    mobj_t *bunker = spawn(MT_BUNKER, door, consoleplayer);
+    mobj_t *marine = spawn(MT_MARINE, fvec2_add(door, (fvec2_t){0, 1.6f}), consoleplayer);
+    CHECK(bunker && marine && sc_board(marine, bunker) && (marine->sc.flags & SC_LOADED));
+    click(card("Unload All", &bunker, 1));
+    CHECK(!(marine->sc.flags & SC_LOADED));
+    return 0;
+}
+
 int main(void) {
     CHECK(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == 0);
     G_InitGame();
@@ -411,6 +471,9 @@ int main(void) {
     CHECK(load(kinds, races));
     CHECK(!defeat());
     unload();
+    CHECK(load(kinds, races));
+    CHECK(!command_card());
+    unload();
     CHECK(!campaign_flow());
     CHECK(!briefing_script());
     sc_set_custom_slots(NULL, NULL);
@@ -419,6 +482,6 @@ int main(void) {
     R_FreeTileset(&tiles);
     SDL_Quit();
     puts("PASS: native animations, gathering, construction, training, research, combat, deaths, "
-         "victory, defeat, score, in-level dialogs, campaign flow and briefing portraits");
+         "victory, defeat, score, in-level dialogs, campaign flow, briefing portraits and the ability command card");
     return 0;
 }
