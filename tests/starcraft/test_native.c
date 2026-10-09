@@ -124,9 +124,22 @@ int main(void) {
     next=M_MenuFind(currentmenu,9);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Games"));
     CHECK(M_MenuFind(currentmenu,15)&&strstr(M_MenuFind(currentmenu,15)->text,"Create Game"));
+    next=M_MenuFind(currentmenu,5);CHECK(next&&next->rows==57&&next->row&&!next->prose);
+    int browser_road=-1;
+    for(int i=0;i<next->rows;i++)if(!strcmp(next->row(next,i),"(2)road war.scm"))browser_road=i;
+    CHECK(browser_road>=0);
+    currentmenu->itemOn=(int)(next-currentmenu->items);
+    SDL_Event pick={.type=SDL_KEYDOWN};pick.key.keysym.sym=SDLK_DOWN;
+    for(int i=0;i<browser_road;i++)CHECK(M_MenuResponder(currentmenu,&app,&pick));
+    CHECK(next->value==browser_road);
+    CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
+    CHECK(!strcmp(M_MenuFind(currentmenu,10)->text,"(2)road war.scm"));
+    CHECK(!strcmp(M_MenuFind(currentmenu,11)->text,"128x128"));
+    CHECK(M_MenuFind(currentmenu,15)->enabled&&!M_MenuFind(currentmenu,13)->enabled);
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-join.bmp"));
-    CHECK(M_MenuFind(currentmenu,5)->rows==0&&M_MenuFind(currentmenu,5)->prose&&strstr(M_MenuFind(currentmenu,5)->prose,"Create Game"));
     next=M_MenuFind(currentmenu,15);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,5)->value==browser_road);
+    CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
     {bool titled=false,game_type=false;
     for(int i=0;i<currentmenu->numitems;i++){
         if(!strcmp(currentmenu->items[i].text,"Create"))titled=true;
@@ -135,6 +148,8 @@ int main(void) {
     CHECK(titled&&game_type);}
     next=M_MenuFind(currentmenu,17);CHECK(next&&next->kind==MI_DROPDOWN&&!strcmp(next->text,"Melee"));
     CHECK(M_MenuFind(currentmenu,18)&&!M_MenuFind(currentmenu,18)->visible);
+    currentmenu->itemOn=(int)(M_MenuFind(currentmenu,5)-currentmenu->items);
+    pick.key.keysym.sym=SDLK_HOME;CHECK(M_MenuResponder(currentmenu,&app,&pick));
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create.bmp"));
     next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST);
     CHECK(next->rows==57&&next->row);

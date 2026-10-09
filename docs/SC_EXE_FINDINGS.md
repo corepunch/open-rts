@@ -1099,6 +1099,9 @@ log content actually moves with its scroll position.
 
 ### Games browser versus map selection (2026-10-09)
 
+**Superseded navigation advice:** this paragraph records the earlier adapter
+flow. The map-first behavior requested by the user is implemented below.
+
 The user's later screenshot shows `glujoin.bin`, titled Games, rather than
 `glucreat.bin`, titled Create. Runtime id 5 on Games reads advertised sessions
 from `I_NetGames`; id 15, Create Game, opens the separate map selector. Gated
@@ -1108,3 +1111,29 @@ list now says "No hosted games found. Select Create Game to choose a map."
 This is an intentional engine usability message, not a discovered retail
 string. The native navigation regression verifies the empty message and the
 57-map Create list. Temporary diagnostics were removed after verification.
+
+### User-requested map selection before Create Game (2026-10-09)
+
+The user clarified that maps must already be visible before pressing Create
+Game. `glujoin.bin` now lists the local map catalog alongside advertised
+sessions: session rows first, followed by map filenames. A local map selection
+fills the native detail fields with its title, Melee, filename, dimensions
+and Normal speed. Create Game is enabled for a local map; Ok is enabled for
+an advertised session. Activating a local map or Create Game opens the native
+Create setup with that same map selected and visible, then its Ok proceeds
+to the existing name dialog. This is explicitly requested engine navigation,
+not a newly traced retail callback sequence.
+
+The browser scans maps on entry, independent of whether discovery finds
+sessions. Discovery refreshes preserve a selected local map and its viewport
+as session rows appear or disappear. Remove the previous empty-state advice
+to press Create Game before choosing a map; the empty message applies only
+when neither maps nor sessions are available. Gated diagnostics verified
+57 maps, zero sessions, 57 visible list entries and selection preservation.
+The temporary logging was removed after verification.
+
+`test_native` now selects Road War in Games, verifies its filename and
+128×128 preview, checks Create Game/Ok availability, and verifies the same
+selected row and title after Create Game. It then runs the existing native
+scrollbar, dropdown and game-name checks. The updated Games screenshot is
+`/private/tmp/starcraft-join.bmp`.

@@ -551,7 +551,7 @@ must remain visible underneath hover overlays.
 | `glulogin.bin`, `glunewch.bin` | Registry and new-character dialogs | Name entry, then the episode select |
 | `glucmpgn.bin`, `glurdyt.bin` | Episode select and briefing | Start reads the mission briefing and loads the map |
 | `gluconn.bin` | 640×480 connection dialog | One LAN row, titled with the retail "IPX network" label |
-| `glujoin.bin` | 640×480 game list | Lists advertised games; Create Game opens the create dialog |
+| `glujoin.bin` | 640×480 game list | Lists advertised games and local maps; select a map before Create Game, which preserves that selection in setup |
 | `glucreat.bin` | 640×480 create dialog | Map list, Melee only; subtype, slider and slot picture stay hidden |
 | `glupedit.bin` | 360×200, centred | Game name, then host |
 | `gluchat.bin` | 640×480, 79 controls | Seats, race, ready and chat on the retail chat dialog |

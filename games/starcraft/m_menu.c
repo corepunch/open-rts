@@ -396,7 +396,7 @@ static sc_netmap_t net_maps[SC_NET_MAPS];
 static int net_map_count, chosen_map = -1, listed_count;
 static char session_title[32], session_path[512], status_note[256];
 static char chat_log[NETCHAT_LENGTH * 33 + 8];
-static const char no_games[]="No hosted games found.\nSelect Create Game to choose a map.";
+static const char no_games[]="No maps or hosted games found.";
 static netgame_t listed[SC_LISTED_GAMES];
 /* gluall.tbl 101. The connection row is the retail LAN entry; the session is TCP. */
 static const char lan_prose[] =
@@ -626,7 +626,7 @@ static const char *map_row(const menuitem_t *item, int row) {
     (void)item; return row >= 0 && row < net_map_count ? net_maps[row].filename : "";
 }
 static const char *game_row(const menuitem_t *item, int row) {
-    (void)item; return row >= 0 && row < listed_count ? listed[row].name : "";
+    return row >= 0 && row < listed_count ? listed[row].name : map_row(item,row-listed_count);
 }
 static const char *melee_row(const menuitem_t *item, int row) {
     (void)item; (void)row; return "Melee";
@@ -665,8 +665,23 @@ static void size_text(menuitem_t *item, int width, int height) {
 }
 
 static void paint_listed(void) {
+    set_text(M_MenuFind(&join.menu,6),status_note);
     menuitem_t *list = M_MenuFind(&join.menu, 5);
     int row = list ? list->value : -1;
+    int index=row-listed_count;
+    bool local=index>=0&&index<net_map_count;
+    M_MenuFind(&join.menu,15)->enabled=local;
+    M_MenuFind(&join.menu,13)->enabled=row>=0&&row<listed_count;
+    if(local) {
+        const sc_netmap_t *map=&net_maps[index];
+        set_text(M_MenuFind(&join.menu,7),map->title);
+        set_text(M_MenuFind(&join.menu,8),"Melee");
+        set_text(M_MenuFind(&join.menu,9),"");
+        set_text(M_MenuFind(&join.menu,10),map->filename);
+        size_text(M_MenuFind(&join.menu,11),map->width,map->height);
+        set_text(M_MenuFind(&join.menu,12),"Normal");
+        return;
+    }
     if (row < 0 || row >= listed_count) {
         set_text(M_MenuFind(&join.menu, 7), "");
         set_text(M_MenuFind(&join.menu, 8), "");
@@ -677,7 +692,7 @@ static void paint_listed(void) {
         return;
     }
     const netgame_t *game = &listed[row];
-    int index = map_index(game->map);
+    index = map_index(game->map);
     set_text(M_MenuFind(&join.menu, 7), game->name);
     set_text(M_MenuFind(&join.menu, 8), "Melee");
     set_text(M_MenuFind(&join.menu, 9), "");
@@ -726,21 +741,22 @@ static void scroll_log(menuitem_t *item) {
 static void join_refresh(menu_t *menu) {
     (void)menu;
     if (I_NetJoining()) return;
+    menuitem_t *list = M_MenuFind(&join.menu, 5);
+    if (!list) return;
+    int keep=list->value, previous=listed_count, map=keep-previous;
     int count = 0;
     const netgame_t *games = I_NetGames(&count);
     if (count > SC_LISTED_GAMES) count = SC_LISTED_GAMES;
     listed_count = count;
     if (listed_count > 0 && games) memcpy(listed, games, (size_t)listed_count * sizeof(listed[0]));
-    menuitem_t *list = M_MenuFind(&join.menu, 5);
-    if (!list) return;
-    int keep = list->value;
-    if (keep < 0 || keep >= listed_count) keep = -1;
-    M_MenuSetRows(list, listed_count);
-    list->prose=listed_count?NULL:no_games;
+    if(map>=0&&map<net_map_count) {
+        keep=listed_count+map;
+        list->first_row+=listed_count-previous;
+    }
+    else if(keep<0||keep>=listed_count)keep=net_map_count?listed_count:-1;
+    M_MenuSetRows(list, listed_count+net_map_count);
+    list->prose=list->rows?NULL:no_games;
     list->value = keep;
-    menuitem_t *ok = M_MenuFind(&join.menu, 13);
-    if (ok) ok->enabled = keep >= 0;
-    set_text(M_MenuFind(&join.menu, 6), status_note);
     paint_listed();
 }
 
@@ -807,9 +823,14 @@ static void show_conn(void) {
 }
 
 static void show_join(void) {
+    scan_net_maps(asset_root);
+    menuitem_t *list=M_MenuFind(&join.menu,5);
+    M_MenuSetRows(list,listed_count+net_map_count);
+    list->prose=list->rows?NULL:no_games;
+    if(list->value<0||list->value>=list->rows)list->value=net_map_count?listed_count:-1;
     if (!M_NetBrowse()) snprintf(status_note, sizeof(status_note), "%s", M_NetNotice());
     else status_note[0] = '\0';
-    set_text(M_MenuFind(&join.menu, 6), status_note);
+    paint_listed();
     show_screen(&join);
 }
 
@@ -823,15 +844,14 @@ static void fail_join(void) {
 }
 
 static void open_create(void) {
-    scan_net_maps(asset_root);
+    menuitem_t *selected=M_MenuFind(&join.menu,5);
+    chosen_map=selected?selected->value-listed_count:-1;
+    if(chosen_map<0||chosen_map>=net_map_count)return;
     status_note[0] = '\0';
-    if (!net_map_count)
-        snprintf(status_note, sizeof(status_note), "No multiplayer maps found. Run make starcraft-maps to import the installed maps.");
-    chosen_map = net_map_count ? 0 : -1;
     menuitem_t *list = M_MenuFind(&create.menu, 5);
     if (list) {
         list->value = chosen_map;
-        list->first_row = 0;
+        list->first_row = chosen_map;
         M_MenuSetRows(list, net_map_count);
     }
     paint_create();
@@ -941,8 +961,6 @@ static void send_chat(void) {
 static void multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (menu == &join.menu && item->id == 5 && action == MA_CHANGE) {
         status_note[0] = '\0';
-        menuitem_t *ok = M_MenuFind(&join.menu, 13);
-        if (ok) ok->enabled = item->value >= 0;
         paint_listed();
         return;
     }
@@ -956,7 +974,8 @@ static void multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
         if (item->id == 9) show_join();
         else if (item->id == 10) multi_escape(menu);
     } else if (menu == &join.menu) {
-        if (item->id == 13 || item->id == 5) join_game();
+        if(item->id==5&&item->value>=listed_count)open_create();
+        else if (item->id == 13 || item->id == 5) join_game();
         else if (item->id == 15) open_create();
         else if (item->id == 14) multi_escape(menu);
     } else if (menu == &create.menu) {
@@ -982,7 +1001,6 @@ static void open_multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
     M_NetStop();
     use_net();
     if (menu && menu->app) front.app = menu->app;
-    scan_net_maps(asset_root);
     show_conn();
 }
 
@@ -990,6 +1008,7 @@ static void open_multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
 static bool wire_multi(void) {
     menuitem_t *list = M_MenuFind(&conn.menu, 5);
     if (!list || !M_MenuFind(&conn.menu, 9) || !M_MenuFind(&join.menu, 5) ||
+        !M_MenuFind(&join.menu,13) || !M_MenuFind(&join.menu,15) ||
         !M_MenuFind(&create.menu, 5) || !M_MenuFind(&create.menu, 17) ||
         !M_MenuFind(&gamename.menu, 4) || !M_MenuFind(&chat.menu, 9) || !M_MenuFind(&chat.menu, 10))
         return false;
@@ -998,6 +1017,7 @@ static bool wire_multi(void) {
     M_MenuFind(&join.menu,5)->prose=no_games;
     menuitem_t *ok = M_MenuFind(&join.menu, 13);
     if (ok) { ok->enabled = false; ok->disabled_look = true; }
+    M_MenuFind(&join.menu,15)->disabled_look=true;
     menuitem_t *maps = M_MenuFind(&create.menu, 5);
     as_list(maps, 0, -1, map_row);
     maps->look[MS_NORMAL].palette = 1;
