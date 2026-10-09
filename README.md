@@ -372,7 +372,9 @@ unit, HUD, transport, architecture, generation and development-status reports.
 
 The StarCraft game opens the original animated main menu. Choose
 **Single Player**, then a race, to read that campaign's briefing and start
-its first mission. Select with the mouse, right-click to move, attack or
+its first mission. **Multiplayer** opens the original connection, game list,
+create and chat screens. The session under them is a TCP LAN game, Melee,
+with each player choosing Terran, Zerg or Protoss. Select with the mouse, right-click to move, attack or
 gather, and use the command card to build and train. The computer players
 in a mission build and attack. Winning a campaign mission opens the next
 briefing; the last mission, a draw, or a multiplayer game ends the session.

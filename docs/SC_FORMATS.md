@@ -502,10 +502,11 @@ accounts for the full record; fields marked unknown retain PyMS's uncertainty.
 
 Child coordinates are relative to the root dialog origin. Do not add the
 root origin to a file pointer. Sibling offset zero terminates the list.
-The adapter bounds traversal to 64 controls and four SMK descriptors per
+The adapter bounds traversal to 96 controls and four SMK descriptors per
 control, rejects invalid spans/types/zero extents, and limits copied strings
-to 127 bytes. These are engine limits, not proven retail maxima. Remastered's
-88-byte records are reference-defined but unsupported here.
+to 127 bytes. These are engine limits, not proven retail maxima. `gluchat.bin`
+has 79 controls, so a cap of 64 rejected that dialog. Remastered's 88-byte
+records are reference-defined but unsupported here.
 
 Reference-defined types: 0 dialog; 1 default button; 2 button; 3 option button;
 4 checkbox; 5 image; 6 slider; 7 unknown; 8 textbox; 9/10/11 left/center/right
@@ -543,7 +544,14 @@ must remain visible underneath hover overlays.
 
 | File | Native root/role | Adapter action |
 | --- | --- | --- |
-| `glumain.bin` | 640×480, ten child controls | Original menu; Single Player opens catalog |
+| `glumain.bin` | 640×480, ten child controls | Single Player opens the registry, episode and briefing dialogs. Multiplayer opens the connection, game list, create, name and chat dialogs |
+| `glulogin.bin`, `glunewch.bin` | Registry and new-character dialogs | Name entry, then the episode select |
+| `glucmpgn.bin`, `glurdyt.bin` | Episode select and briefing | Start reads the mission briefing and loads the map |
+| `gluconn.bin` | 640×480 connection dialog | One LAN row, titled with the retail "IPX network" label |
+| `glujoin.bin` | 640×480 game list | Lists advertised games; Create Game opens the create dialog |
+| `glucreat.bin` | 640×480 create dialog | Map list, Melee only; subtype, slider and slot picture stay hidden |
+| `glupedit.bin` | 360×200, centred | Game name, then host |
+| `gluchat.bin` | 640×480, 79 controls | Seats, race, ready and chat on the retail chat dialog |
 | `gamemenu.bin` | (184,32), 264×288 | Pause menu with original button geometry |
 | `minimap.bin` | (0,315), 138×165 | Minimap at (6,348), 128×128 |
 | `statdata.bin` | (138,388), 270×92 | Selected name, HP and wireframe |

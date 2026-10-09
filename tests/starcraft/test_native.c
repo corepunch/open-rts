@@ -21,6 +21,8 @@ static int dialog_test(void) {
     CHECK(d.controls[2].hotkey=='s'&&d.controls[2].mark_len==1);
     size_t n=b.size;b.size=100;CHECK(!sc_decode_dialog(&b,&d));b.size=n;
     b.bytes[86]=86;b.bytes[87]=b.bytes[88]=b.bytes[89]=0;CHECK(!sc_decode_dialog(&b,&d));W_FreeFile(&b);
+    CHECK(W_ReadFile("data/STARCRAFT/native/rez/gluchat.bin",&b));
+    CHECK(sc_decode_dialog(&b,&d)&&d.count==79);W_FreeFile(&b);
     const char *files[]={"statdata","statbtnt","statport","minimap","gamemenu","stat_f10","statres"};
     for(unsigned i=0;i<sizeof(files)/sizeof(*files);i++) {
         char path[256];snprintf(path,sizeof(path),"%s/native/rez/%s.bin",root,files[i]);
@@ -87,6 +89,47 @@ int main(void) {
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-briefing.bmp"));
     next=M_MenuFind(currentmenu,13);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(menumap&&!strcmp(menumap,g_game_default_map)&&!menuactive);
+    front=G_ControlPanel(&app,false);CHECK(front&&front->numitems==10);
+    next=M_MenuFind(front,4);CHECK(next&&next->routine);next->routine(front,next,MA_ACTIVATE);
+    CHECK(currentmenu&&currentmenu!=front);
+    CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Select Connection"));
+    for(int i=0;i<currentmenu->numitems;i++)CHECK(!strstr(currentmenu->items[i].text,"Join Game"));
+    next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST&&next->rows==1&&next->row);
+    CHECK(!strcmp(next->row(next,0),"IPX network"));
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-connection.bmp"));
+    next=M_MenuFind(currentmenu,9);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Games"));
+    CHECK(M_MenuFind(currentmenu,15)&&strstr(M_MenuFind(currentmenu,15)->text,"Create Game"));
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-join.bmp"));
+    next=M_MenuFind(currentmenu,15);next->routine(currentmenu,next,MA_ACTIVATE);
+    {bool titled=false,game_type=false;
+    for(int i=0;i<currentmenu->numitems;i++){
+        if(!strcmp(currentmenu->items[i].text,"Create"))titled=true;
+        if(!strcmp(currentmenu->items[i].text,"Game Type"))game_type=true;
+    }
+    CHECK(titled&&game_type);}
+    next=M_MenuFind(currentmenu,17);CHECK(next&&next->kind==MI_DROPDOWN&&!strcmp(next->text,"Melee"));
+    CHECK(M_MenuFind(currentmenu,18)&&!M_MenuFind(currentmenu,18)->visible);
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create.bmp"));
+    next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST);
+    if(next->rows>0){
+        next->value=0;next->routine(currentmenu,next,MA_CHANGE);
+        menuitem_t *ok=M_MenuFind(currentmenu,12);CHECK(ok&&ok->enabled&&ok->routine);
+        ok->routine(currentmenu,ok,MA_ACTIVATE);
+        CHECK(M_MenuFind(currentmenu,4)&&M_MenuFind(currentmenu,4)->kind==MI_TEXTFIELD);
+        CHECK(M_MenuFind(currentmenu,2)&&strstr(M_MenuFind(currentmenu,2)->text,"Please enter a game name to continue."));
+        next=M_MenuFind(currentmenu,3);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
+        CHECK(!M_NetHosting());
+        CHECK(M_MenuFind(currentmenu,17)&&!strcmp(M_MenuFind(currentmenu,17)->text,"Melee"));
+    }else CHECK(M_MenuFind(currentmenu,12)&&!M_MenuFind(currentmenu,12)->enabled);
+    next=M_MenuFind(currentmenu,13);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Games"));
+    next=M_MenuFind(currentmenu,14);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Select Connection"));
+    next=M_MenuFind(currentmenu,10);next->routine(currentmenu,next,MA_ACTIVATE);
+    CHECK(currentmenu==front&&M_MenuFind(currentmenu,3)&&!strcmp(M_MenuFind(currentmenu,3)->text,"Single Player"));
+    M_NetStop();M_ClearMenus();
+    CHECK(!menuactive&&menumap&&!strcmp(menumap,g_game_default_map));
     menu_t *hud=G_InitHUD(&app,root);CHECK(hud);
     hudview=(hudview_t){.units=units.items,.unit_count=units.count,.sprites=&cache,.tileset=&tiles};
     P_MobjSetSelected(unit,true);M_CentreView(&app,fixed3_xy_to_fvec2(unit->core.position));
