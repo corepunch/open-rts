@@ -12,7 +12,13 @@ typedef enum {
     AI_TRY_SAVING,   /* Short of credits or waiting on research: stop spending. */
 } AiTry;
 
+/* A town is a cluster of drop-offs: a second hatchery or a lumber mill
+ * beside the hall feeds the same workers, an expansion does not. */
+#define AI_TOWN_RADIUS 12.0f
+
 void P_AiEmit(AiContext *ctx, AiEventType type, int owner, int value);
+/* Units a game job or the scout occupies: economy, defense and waves leave them be. */
+bool P_AiIsBusy(const AiContext *ctx, const mobj_t *unit);
 bool P_AiIsAlly(const level_t *map, const AiTeamState *team, int owner, const mobj_t *other);
 /* One purchase attempt, with research for a goal that needs tech. */
 AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int product);
@@ -20,8 +26,15 @@ AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int pr
 /* Updates the team's memory of the enemy army from what it can see. */
 void P_AiScout(AiContext *ctx, AiTeamState *team, int owner, const level_t *map,
                mobj_t *const *units, int unit_count, int elapsed_ms);
+/* Sends the doctrine's scout to the start locations and brings it home
+ * once an enemy base has been seen. */
+void P_AiSendScout(AiContext *ctx, AiTeamState *team, int owner, level_t *map,
+                   mobj_t *const *units, int unit_count);
 /* Orders supply ahead of demand. True when the team must save for it. */
 bool P_AiBuySupply(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int elapsed_ms);
+/* Founds a town once each standing one has expand_workers. True when the
+ * team must save for it. */
+bool P_AiExpand(AiContext *ctx, AiTeamState *team, int owner, level_t *map);
 /* Serves the doctrine's needs after the opening. Returns purchases made. */
 int  P_AiBuyDoctrine(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int budget);
 /* Whether an idle army may leave, per doctrine.attack_ratio. */

@@ -70,7 +70,8 @@ static bool ai_is_anchor(const AiContext *ctx, const mobj_t *u) {
     return ai_is_base(ctx, u);
 }
 
-static bool ai_is_busy(const AiContext *ctx, const mobj_t *u) {
+bool P_AiIsBusy(const AiContext *ctx, const mobj_t *u) {
+    if (ctx && u->owner < AI_MAX_TEAMS && u->id && ctx->teams[u->owner].scout == u->id) return true;
     return ctx && ctx->game && ctx->game->is_busy && ctx->game->is_busy(u);
 }
 
@@ -78,7 +79,7 @@ static bool is_idle_slug(const AiContext *ctx, const mobj_t *u, int owner) {
     return u && u->hp > 0 && !u->remove &&
            u->owner == owner &&
            (u->traits & MF_HARVESTER) != 0 &&
-           u->harvest.phase == HARVEST_PHASE_NONE && !ai_is_busy(ctx, u);
+           u->harvest.phase == HARVEST_PHASE_NONE && !P_AiIsBusy(ctx, u);
 }
 
 static bool vent_occupied_by_team(const AiTeamState *team, int vent_index) {
@@ -227,7 +228,7 @@ static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,
             if (defender->owner != owner) continue;
             if ((defender->traits & MF_ATTACK) == 0) continue;
             /* Cowards (Warcraft workers) and units on a game job never rally. */
-            if ((defender->traits & MF_NOAUTOTARGET) || ai_is_busy(ctx, defender)) continue;
+            if ((defender->traits & MF_NOAUTOTARGET) || P_AiIsBusy(ctx, defender)) continue;
             if (ctx->game && !(defender->traits & MF_MOBILE)) continue;
             if (defender->harvest.phase != HARVEST_PHASE_NONE) continue;
             /* Fresh spawns never "arrive"; in game mode idle means no order. */
@@ -333,13 +334,15 @@ AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int pr
     return AI_TRY_BOUGHT;
 }
 
-/* Supply first, so production never stalls on it; then the opening ladder;
+/* Supply first, so production never stalls on it, then a new town once the
+ * towns are worked; then the opening ladder;
  * once nothing there waits for credits or tech, the doctrine's needs. */
 static void ai_tick_production(AiContext *ctx, AiTeamState *team, int owner,
                                level_t *map, int elapsed_ms) {
     const AiGameInterface *game = ctx->game;
     if (!game->plan || !game->owned || !game->can_purchase || !game->purchase) return;
     if (P_AiBuySupply(ctx, team, owner, map, elapsed_ms)) return;
+    if (P_AiExpand(ctx, team, owner, map)) return;
     int bought = 0;
     for (int i = 0; i < team->plan.goal_count && bought < AI_PURCHASES_PER_THINK; ++i) {
         const AiGoal *goal = &team->plan.goals[i];
@@ -374,7 +377,7 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
         mobj_t *u = units[i];
         if (!ai_unit_alive(u) || u->owner != owner) continue;
         if ((u->traits & (MF_ATTACK | MF_MOBILE)) != (MF_ATTACK | MF_MOBILE)) continue;
-        if ((u->traits & MF_NOAUTOTARGET) || ai_is_busy(ctx, u)) continue;
+        if ((u->traits & MF_NOAUTOTARGET) || P_AiIsBusy(ctx, u)) continue;
         if (u->harvest.phase != HARVEST_PHASE_NONE || P_HasMoveOrder(u)) continue;
         if (u->attack.target && ai_unit_alive(u->attack.target)) continue;
         idle[idle_count++] = u;
@@ -405,7 +408,7 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
         mobj_t *u = units[i];
         AiUnitInfo info;
         if (!ai_unit_alive(u) || u->owner != owner || !(u->traits & MF_MOBILE) || (u->traits & MF_ATTACK) ||
-            ai_is_busy(ctx, u) || P_HasMoveOrder(u)) continue;
+            P_AiIsBusy(ctx, u) || P_HasMoveOrder(u)) continue;
         P_AiUnitInfo(ctx, u->type_id, &info);
         if (info.roles & AI_ROLE_SUPPORT) idle[sent++] = u;
     }
@@ -424,11 +427,19 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
     P_AiEmit(ctx, AI_EVENT_WAVE_LAUNCHED, owner, sent);
 }
 
-/* A town is a cluster of drop-offs: a second hatchery or a lumber mill
- * beside the hall feeds the same workers, an expansion does not. */
-#define AI_TOWN_RADIUS 12.0f
+/* A drop-off whose patches are all used up no longer makes a town. */
+static bool mined_out(const level_t *map, fvec2_t at) {
+    bool patches = false;
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        if (fvec2_distance_squared(vent->attachment, at) >= AI_TOWN_RADIUS * AI_TOWN_RADIUS) continue;
+        if (vent->amount > 0) return false;
+        patches = true;
+    }
+    return patches;
+}
 
-static int ai_count_towns(const AiContext *ctx, int owner, mobj_t *const *units, int unit_count) {
+static int ai_count_towns(const AiContext *ctx, const level_t *map, int owner, mobj_t *const *units, int unit_count) {
     fvec2_t towns[AI_MAX_TOWNS];
     int count = 0;
     for (int i = 0; i < unit_count && count < AI_MAX_TOWNS; ++i) {
@@ -436,6 +447,7 @@ static int ai_count_towns(const AiContext *ctx, int owner, mobj_t *const *units,
         if (u->hp <= 0 || u->remove || u->owner != owner || (u->traits & MF_MOBILE) || !ai_is_base(ctx, u))
             continue;
         fvec2_t at = fixed3_xy_to_fvec2(u->core.position);
+        if (mined_out(map, at)) continue;
         bool near = false;
         for (int t = 0; t < count && !near; ++t)
             near = fvec2_distance_squared(at, towns[t]) < AI_TOWN_RADIUS * AI_TOWN_RADIUS;
@@ -444,12 +456,12 @@ static int ai_count_towns(const AiContext *ctx, int owner, mobj_t *const *units,
     return count;
 }
 
-static void ai_census(const AiContext *ctx, AiTeamState *team, int owner,
+static void ai_census(const AiContext *ctx, AiTeamState *team, const level_t *map, int owner,
                       mobj_t *const *units, int unit_count) {
     team->combat_unit_count = 0;
     team->harvester_count = 0;
     team->has_base = false;
-    team->towns = ai_count_towns(ctx, owner, units, unit_count);
+    team->towns = ai_count_towns(ctx, map, owner, units, unit_count);
     team->allegiance = ALLEGIANCE_NEUTRAL;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *u = units[i];
@@ -478,10 +490,11 @@ static void ai_tick_game(AiContext *ctx, level_t *map, mobj_t *const *units,
         if ((ctx->think_counter + t) % AI_THINK_INTERVAL_TICKS != 0) continue;
         int elapsed_ms = dt_ms * AI_THINK_INTERVAL_TICKS;
         team->stats.thinks++;
-        ai_census(ctx, team, t, units, unit_count);
+        ai_census(ctx, team, map, t, units, unit_count);
         if (ctx->features & (AI_FEATURE_PRODUCTION | AI_FEATURE_ATTACK))
             ai_ensure_plan(ctx, team, t, map);
         P_AiScout(ctx, team, t, map, units, unit_count, elapsed_ms);
+        if (ctx->features & AI_FEATURE_ATTACK) P_AiSendScout(ctx, team, t, map, units, unit_count);
         if (ctx->features & AI_FEATURE_ECONOMY)
             ai_tick_harvesting(ctx, team, t, map, units, unit_count);
         if (ctx->features & AI_FEATURE_PRODUCTION)
@@ -508,7 +521,7 @@ void P_AiTick(AiContext *ctx, level_t *map, mobj_t *const *units, int unit_count
 
     for (int t = 0; t < AI_MAX_TEAMS; ++t) {
         AiTeamState *team = &ctx->teams[t];
-        ai_census(ctx, team, t, units, unit_count);
+        ai_census(ctx, team, map, t, units, unit_count);
     }
 
     for (int t = 0; t < AI_MAX_TEAMS; ++t) {

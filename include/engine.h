@@ -2103,6 +2103,10 @@ typedef struct {
     int defenses;       /* Static defenses kept per town; unarmed sites are armed in place. */
     int research;       /* 0..100: upgrades per fighter fielded; one per 100/research fighters. */
     int army_cap;       /* Fighters massed before buying stops; 0 is supply-bound. */
+    int expand_workers; /* Workers per town at which another town is founded; 0 never expands. */
+    int expand_after;   /* Product owned before the first expansion; 0 for none. */
+    int max_towns;      /* Towns it spreads to at most, counting the first; 0 for no limit. */
+    int scout;          /* Product whose purchase sends a scout to the start locations; 0 never scouts. */
     int counter;        /* 0..100: how far the mix bends toward what was scouted. */
     int attack_ratio;   /* % of the enemy army estimate an idle army needs to attack. */
     int retreat_ratio;  /* % of local enemy strength under which a wave turns home. */
@@ -2169,6 +2173,13 @@ typedef struct AiGameInterface {
      * waves: spells in battle, transports ferrying a wave, sieging, loading
      * Bunkers, refilling hangars. */
     void (*tactics)(level_t *map, int owner, mobj_t *const *units, int unit_count);
+    /* Optional. Founds a town: a town hall at the free resource site nearest
+     * the base. Returns an AiBuyStatus, BLOCKED when no site is free or a
+     * town is already on its way. Enables expand_workers. */
+    int  (*expand)(level_t *map, int owner);
+    /* Optional. The map's start locations, where enemy bases may stand;
+     * fills up to cap and returns the count. Enables the doctrine's scout. */
+    int  (*starts)(const level_t *map, fvec2_t *out, int cap);
 } AiGameInterface;
 
 typedef enum {
@@ -2179,6 +2190,8 @@ typedef enum {
     AI_EVENT_WAVE_LAUNCHED,    /* value = units sent */
     AI_EVENT_RESEARCH,         /* value = product id that needed the tech */
     AI_EVENT_RETREAT,          /* value = units pulled back */
+    AI_EVENT_EXPAND,           /* value = towns before the new one */
+    AI_EVENT_SCOUT,            /* value = mobj id of the scout sent */
 } AiEventType;
 
 typedef struct {
@@ -2198,6 +2211,8 @@ typedef struct {
     int wave_units; /* total units sent in waves */
     int retreats;
     int holds;      /* thinks a ready wave waited for a stronger army */
+    int expansions; /* town halls ordered at new resource sites */
+    int scouts;     /* scouts sent to the start locations */
     int thinks;
 } AiStats;
 
@@ -2232,6 +2247,9 @@ typedef struct {
     int supply_wait_ms;     /* Supply just ordered; wait before ordering more. */
     uint32_t wave[AI_MAX_WAVE_TRACK]; /* mobj ids of the wave in the field */
     int wave_count;
+    uint32_t scout;         /* mobj id of the scout on its way, 0 for none */
+    uint32_t starts_seen;   /* Start locations scouted, by starts() index. */
+    int found_ms;           /* AI clock when an enemy base was first seen; 0 before. */
 } AiTeamState;
 
 typedef struct AiContext {
