@@ -727,6 +727,51 @@ close-slot call, so the count cannot be reduced after the game is published.
 With no extracted multiplayer CHK, Ok stays disabled and the description line
 stays empty. `.scm` archives are still not opened.
 
+**Correction (2026-10-09), bundled multiplayer map import:** the empty Create
+screen was an import omission, not an absent map-list widget. Before the fix,
+temporary `OPEN_RTS_DEBUG_SC_MAPS` logging reported zero extracted maps under
+`data/STARCRAFT`; the only CHKs there were excluded campaign missions. The
+62 installed `install/multimaps/**/*.scm` archives had not been opened by the
+import workflow. `sc_import --maps` now walks that directory and uses StormLib
+to extract each archive's exact `staredit\\scenario.chk` member to
+`maps/<relative SCM name>/staredit/scenario.chk`. The `.scm` filename remains
+in the directory name, so the Create list can show filenames independently of
+the CHK's SPRP title. The source archives remain intact. The runtime continues
+to read native CHKs and has no MPQ dependency. SCX files use the same member
+lookup, but this classic disc contains only SCM inputs; SCX import is unverified
+against a retail expansion map.
+
+**Confirmed native data:** all 62 archives extract successfully. Excluding the
+five `campaign/` maps leaves 57 playable entries in the current Create list;
+the list remains flat, including the `ladder/` and `scenario/` subdirectories.
+The `(2)road war.scm` CHK has SPRP title `Road War`, description containing
+`Suggested Players: 2` and `Battle on the highway.`, DIM 128×128, ERA 0
+(Badlands), and two playable OWNR slots. SHA-256 of that SCM is
+`25a43d4b28bbc5a3e1d7f00f51353b4870b6541bc7be27a78c92b004aba6d190`;
+its extracted CHK is
+`f2976dc0cff5138b9ac4f67c7ff1967ad721381e808700541482bcef9df948a5`.
+`native/rez/gluall.tbl` also contains `Map Size:%c%s`, `Tileset:%c%s` and
+`Number of Players:%c%s`; the Create detail lines now include those labels.
+
+The user's retail reference screenshot (`Screenshot 2026-10-09 at 13.25.28.jpg`)
+corroborates filenames on the left and the Road War details on the right.
+It also shows directory/file icons, a scrollbar, Free For All and local player
+settings. Those controls and the translucent panel treatment are not reproduced
+by this map-import change; the current network Create screen offers Melee and
+uses the existing native dialog artwork. No executable was examined for this
+correction, so it establishes asset contents and engine behavior only.
+
+`make starcraft-unpack`, `make starcraft` and `make test-starcraft` now import
+the installed maps; `make starcraft-maps` imports them without re-extracting
+the disc. With no CHKs available, Create explains how to import them and keeps
+Ok disabled. `test_native` now requires all 57 bundled non-campaign entries,
+selects `(2)road war.scm`, checks every detail and the game-name default, and
+writes `/private/tmp/starcraft-create-road-war.bmp`. Previously its conditional
+map check accepted an empty list, which concealed this omission.
+
+Reproduce with `make starcraft-maps && make test-starcraft`, then
+`env SDL_VIDEODRIVER=dummy build/bin/starcraft --check --map 'maps/(2)road war.scm/staredit/scenario.chk'`.
+
 `native/rez/gluchat.bin` has 79 controls, which is why the dialog adapter now
 keeps 96 controls rather than 64. Id 6 Ok toggles ready; its text stays "Ok".
 Ready names use font ramp 1 (the button ramp from `glue/palmm/tfont.pcx`).

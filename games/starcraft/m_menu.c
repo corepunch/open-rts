@@ -258,7 +258,7 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
  * staredit/); any other .chk uses its own name. */
 enum { SC_NET_MAPS = 64, SC_LISTED_GAMES = 32 };
 typedef struct {
-    char path[512], title[128], description[512];
+    char path[512], filename[128], title[128], description[512];
     int players, width, height, tileset;
     uint8_t race[8];
 } sc_netmap_t;
@@ -331,6 +331,7 @@ static bool fill_map(const char *path, const char *file, const char *rel, sc_net
     map->tileset = -1;
     char folder[128];
     map_title(rel, file, folder, sizeof(folder));
+    snprintf(map->filename, sizeof(map->filename), "%s", !strcasecmp(file, "scenario.chk") ? folder : file);
     snprintf(map->title, sizeof(map->title), "%s", folder);
     blob_t blob = {0};
     const uint8_t *ownr = NULL, *side = NULL, *dim = NULL, *era = NULL, *sprp = NULL, *str = NULL;
@@ -427,7 +428,7 @@ static void scan_tree(const char *root, const char *rel) {
 }
 
 static int compare_net_maps(const void *a, const void *b) {
-    return strcasecmp(((const sc_netmap_t *)a)->title, ((const sc_netmap_t *)b)->title);
+    return strcasecmp(((const sc_netmap_t *)a)->filename, ((const sc_netmap_t *)b)->filename);
 }
 
 static void scan_net_maps(const char *root) {
@@ -498,7 +499,7 @@ static const char *conn_row(const menuitem_t *item, int row) {
     (void)item; (void)row; return "IPX network";
 }
 static const char *map_row(const menuitem_t *item, int row) {
-    (void)item; return row >= 0 && row < net_map_count ? net_maps[row].title : "";
+    (void)item; return row >= 0 && row < net_map_count ? net_maps[row].filename : "";
 }
 static const char *game_row(const menuitem_t *item, int row) {
     (void)item; return row >= 0 && row < listed_count ? listed[row].name : "";
@@ -572,8 +573,8 @@ static void paint_create(void) {
     chosen_map = row >= 0 && row < net_map_count ? row : -1;
     menuitem_t *ok = M_MenuFind(&create.menu, 12);
     if (ok) ok->enabled = chosen_map >= 0;
+    set_text(M_MenuFind(&create.menu, 6), "maps");
     if (chosen_map < 0) {
-        set_text(M_MenuFind(&create.menu, 6), "");
         set_text(M_MenuFind(&create.menu, 7), "");
         set_prose(M_MenuFind(&create.menu, 8), status_note[0] ? status_note : "");
         set_text(M_MenuFind(&create.menu, 10), "");
@@ -582,11 +583,10 @@ static void paint_create(void) {
         return;
     }
     const sc_netmap_t *map = &net_maps[chosen_map];
-    set_text(M_MenuFind(&create.menu, 6), map->title);
     set_text(M_MenuFind(&create.menu, 7), map->title);
     set_prose(M_MenuFind(&create.menu, 8), status_note[0] ? status_note : map->description);
-    size_text(M_MenuFind(&create.menu, 10), map->width, map->height);
-    set_text(M_MenuFind(&create.menu, 11), era_name(map->tileset));
+    set_text(M_MenuFind(&create.menu, 10), M_va("Map Size: %ux%u", (unsigned)map->width, (unsigned)map->height));
+    set_text(M_MenuFind(&create.menu, 11), M_va("Tileset: %s", era_name(map->tileset)));
     set_text(M_MenuFind(&create.menu, 9), M_va("Number of Players: %u", (unsigned)map->players));
 }
 
@@ -696,6 +696,8 @@ static void fail_join(void) {
 static void open_create(void) {
     scan_net_maps(asset_root);
     status_note[0] = '\0';
+    if (!net_map_count)
+        snprintf(status_note, sizeof(status_note), "No multiplayer maps found. Run make starcraft-maps to import the installed maps.");
     chosen_map = net_map_count ? 0 : -1;
     menuitem_t *list = M_MenuFind(&create.menu, 5);
     if (list) {
@@ -867,6 +869,7 @@ static bool wire_multi(void) {
     menuitem_t *ok = M_MenuFind(&join.menu, 13);
     if (ok) { ok->enabled = false; ok->disabled_look = true; }
     as_list(M_MenuFind(&create.menu, 5), 0, -1, map_row);
+    M_MenuFind(&create.menu, 5)->look[MS_NORMAL].palette = 1;
     ok = M_MenuFind(&create.menu, 12);
     if (ok) { ok->enabled = false; ok->disabled_look = true; }
     for (int i = 0; i < create.menu.numitems; ++i) {

@@ -385,6 +385,7 @@ help:
 	@echo "  test-starcraft       Native asset, menu, HUD, portrait and movement checks"
 	@echo "  starcraft            Original StarCraft menu and first Terran map"
 	@echo "  starcraft-unpack     Extract local ISO and all installer/game MPQ entries"
+	@echo "  starcraft-maps       Extract installed SCM/SCX maps for multiplayer"
 	@echo "  test-warcraft-2      Worker, native HUD and PUD tests (needs data/WAR2)"
 	@echo ""
 	@echo "Smoke tests (headless):"
@@ -418,8 +419,8 @@ build/kknd_rules_import: $(KKND_RULES_IMPORT_SOURCES)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # StarCraft: native assets are unpacked locally; no MPQ dependency at runtime.
-.PHONY: starcraft starcraft-catalog starcraft-unpack
-starcraft: $(BIN_DIR)/starcraft
+.PHONY: starcraft starcraft-catalog starcraft-unpack starcraft-maps
+starcraft: $(BIN_DIR)/starcraft starcraft-maps
 	$(BIN_DIR)/starcraft
 starcraft-catalog: $(BIN_DIR)/starcraft
 	$(BIN_DIR)/starcraft --map catalog
@@ -441,6 +442,10 @@ starcraft-unpack: build/sc_import
 	(cat reference/stargus/mpqlist.txt; printf '\nfiles\\stardat.mpq\nfiles\\broodat.mpq\n'; sed 's/^/files\\/' reference/stargus/mpqlist.txt) > build/sc-listfile.txt
 	build/sc_import data/STARCRAFT/disc/INSTALL.EXE data/STARCRAFT/install build/sc-listfile.txt
 	build/sc_import data/STARCRAFT/install/files/stardat.mpq data/STARCRAFT/native reference/stargus/mpqlist.txt
+	$(MAKE) starcraft-maps
+
+starcraft-maps: build/sc_import
+	build/sc_import --maps data/STARCRAFT/install/multimaps data/STARCRAFT/maps
 
 SC_TEST_SOURCES := $(sort $(shell find tests/starcraft -name 'test_*.c'))
 SC_TEST_BINS := $(patsubst tests/starcraft/%.c,$(BIN_DIR)/tests/starcraft/%,$(SC_TEST_SOURCES))
@@ -448,5 +453,5 @@ $(BIN_DIR)/tests/starcraft/%: tests/starcraft/%.c $(filter-out $(BUILD_DIR)/star
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT -I./games/starcraft $(CFLAGS) $(SDL_CFLAGS) $^ -o $@ $(SDL_LIBS) -lm
 .PHONY: test-starcraft
-test-starcraft: $(SC_TEST_BINS)
+test-starcraft: $(SC_TEST_BINS) starcraft-maps
 	@set -e; for t in $(SC_TEST_BINS); do env SDL_VIDEODRIVER=dummy $$t; done

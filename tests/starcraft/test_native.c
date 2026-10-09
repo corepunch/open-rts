@@ -112,16 +112,35 @@ int main(void) {
     CHECK(M_MenuFind(currentmenu,18)&&!M_MenuFind(currentmenu,18)->visible);
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create.bmp"));
     next=M_MenuFind(currentmenu,5);CHECK(next&&next->kind==MI_LIST);
-    if(next->rows>0){
-        next->value=0;next->routine(currentmenu,next,MA_CHANGE);
+    CHECK(next->rows==57&&next->row);
+    {
+        int road=-1;
+        for(int i=0;i<next->rows;i++) {
+            const char *name=next->row(next,i);CHECK(name&&name[0]);
+            CHECK(!strstr(name,"enslavers"));
+            if(!strcmp(name,"(2)road war.scm"))road=i;
+        }
+        CHECK(road>=0);
+        currentmenu->itemOn=(int)(next-currentmenu->items);
+        SDL_Event down={.type=SDL_KEYDOWN};down.key.keysym.sym=SDLK_DOWN;
+        for(int i=0;i<road;i++)CHECK(M_MenuResponder(currentmenu,&app,&down));
+        CHECK(next->value==road&&next->first_row>0);
+        CHECK(!strcmp(M_MenuFind(currentmenu,6)->text,"maps"));
+        CHECK(!strcmp(M_MenuFind(currentmenu,7)->text,"Road War"));
+        CHECK(strstr(M_MenuFind(currentmenu,8)->prose,"Battle on the highway."));
+        CHECK(!strcmp(M_MenuFind(currentmenu,10)->text,"Map Size: 128x128"));
+        CHECK(!strcmp(M_MenuFind(currentmenu,11)->text,"Tileset: Badlands"));
+        CHECK(!strcmp(M_MenuFind(currentmenu,9)->text,"Number of Players: 2"));
+        M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-create-road-war.bmp"));
         menuitem_t *ok=M_MenuFind(currentmenu,12);CHECK(ok&&ok->enabled&&ok->routine);
         ok->routine(currentmenu,ok,MA_ACTIVATE);
         CHECK(M_MenuFind(currentmenu,4)&&M_MenuFind(currentmenu,4)->kind==MI_TEXTFIELD);
+        CHECK(!strcmp(M_MenuFind(currentmenu,4)->text,"Road War"));
         CHECK(M_MenuFind(currentmenu,2)&&strstr(M_MenuFind(currentmenu,2)->text,"Please enter a game name to continue."));
         next=M_MenuFind(currentmenu,3);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
         CHECK(!M_NetHosting());
         CHECK(M_MenuFind(currentmenu,17)&&!strcmp(M_MenuFind(currentmenu,17)->text,"Melee"));
-    }else CHECK(M_MenuFind(currentmenu,12)&&!M_MenuFind(currentmenu,12)->enabled);
+    }
     next=M_MenuFind(currentmenu,13);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Games"));
     next=M_MenuFind(currentmenu,14);next->routine(currentmenu,next,MA_ACTIVATE);
