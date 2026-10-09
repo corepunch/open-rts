@@ -21,6 +21,24 @@ fvec2_t P_BuildingPosition(uint16_t type, ivec2_t cell) {
     return at;
 }
 
+/* Whether another builder's placed site covers cell. */
+static bool cell_reserved(ivec2_t cell, const mobj_t *builder) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *other = (const mobj_t *)th;
+        const production_t *queue = other->production;
+        if (other == builder || !queue || !queue->queue_count || !queue->placed || other->remove || other->hp <= 0)
+            continue;
+        const mobjtype_t *planned = P_ActorType(queue->actor_id);
+        if (!planned) continue;
+        ivec2_t local = ivec2_sub(cell, queue->cell);
+        if (irect_contains((irect_t){0, 0, planned->footprint.w, planned->footprint.h}, local) &&
+            (!planned->foundation || planned->foundation[local.y * planned->footprint.w + local.x] != ' '))
+            return true;
+    }
+    return false;
+}
+
 bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder) {
 #ifdef RTS_GAME_WARCRAFT_2
     return W2_BuildCellClear(type, cell, builder);
@@ -37,20 +55,11 @@ bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder) {
     if (replace ? (level.blocked && level.blocked[L_Index(&level, cell.x, cell.y)]) :
                   !L_IsWalkable(&level, cell.x, cell.y)) return false;
     if (!replace && level.cell_solid && level.cell_solid[L_Index(&level, cell.x, cell.y)]) return false;
+    if (cell_reserved(cell, builder)) return false;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (const mobj_t *)th;
         if (replace && other->type_id == replace) continue;
-        const production_t *queue = other->production;
-        if (other != builder && queue && queue->queue_count && queue->placed && !other->remove && other->hp > 0) {
-            const mobjtype_t *planned = P_ActorType(queue->actor_id);
-            if (planned) {
-                ivec2_t local = ivec2_sub(cell, queue->cell);
-                if (irect_contains((irect_t){0, 0, planned->footprint.w, planned->footprint.h}, local) &&
-                    (!planned->foundation || planned->foundation[local.y * planned->footprint.w + local.x] != ' '))
-                    return false;
-            }
-        }
         if (other->remove || other->hp <= 0 ||
             (other->traits & (MF_FLY | MF_MISSILE | MF_NOBLOCKMAP))) continue;
         irect_t bounds = P_MobjCells(other);
@@ -150,7 +159,9 @@ bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay
             ivec2_t candidate = ivec2_add(cell, (ivec2_t){x, y});
             fvec2_t at = fvec2_cell_center(candidate);
             float d = fvec2_distance_squared(from, at);
-            if ((found && d >= distance) || !P_CheckPosition(&level, unit, at.x, at.y)) continue;
+            /* Never wait inside another site: two builders would block each other. */
+            if ((found && d >= distance) || !P_CheckPosition(&level, unit, at.x, at.y) ||
+                cell_reserved(candidate, unit)) continue;
             bool occupied = false;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 if (th->function != P_MobjThinker) continue;
