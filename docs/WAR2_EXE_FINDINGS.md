@@ -2398,3 +2398,29 @@ navigation and network-menu failures. Run:
 env SDL_VIDEODRIVER=dummy make test-warcraft-2
 env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
 ```
+
+## Multiplayer integration audit (2026-10-09)
+
+This is an engine integration check, not a new executable finding. The native
+Warcraft II menus already use the common Dark Colony-derived session code.
+`tests/warcraft-2/test_multiplayer.c` now drives two processes through those
+menus: choose a built-in PUD and two players, advertise its title, discover
+and join it, select Orc/Human, toggle readiness, exchange chat, synchronize
+the host's 120% speed and launch. Both peers load the selected native PUD;
+its remapped OWNR seats are human-controlled (5), SIDE values are 1/0, the
+view player matches the network console player, and both seats own units.
+The existing menu cancellation and shared network-menu tests also pass.
+
+The full Warcraft II suite reports 32/33 executables passing. The remaining
+pre-existing `tests/shared/test_nav.c` crowd test leaves 11/12 units arrived:
+temporary gated diagnostics locate unit 9 at (23.930603,12.605881), beside
+the synthetic wall/door at x=24. This is a shared movement issue, independent
+of lobby options; diagnostics were removed and the failure was not hidden.
+An earlier sandbox run also failed menu socket checks; rerunning with local
+network permission resolves those failures. Reproduce with:
+
+```sh
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_multiplayer
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_nav
+```

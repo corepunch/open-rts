@@ -1114,6 +1114,9 @@ string. The native navigation regression verifies the empty message and the
 
 ### User-requested map selection before Create Game (2026-10-09)
 
+**Superseded intermediate flow:** the subsequent user clarification removes
+both the second map selector and the game-name dialog, as recorded below.
+
 The user clarified that maps must already be visible before pressing Create
 Game. `glujoin.bin` now lists the local map catalog alongside advertised
 sessions: session rows first, followed by map filenames. A local map selection
@@ -1137,3 +1140,56 @@ The temporary logging was removed after verification.
 selected row and title after Create Game. It then runs the existing native
 scrollbar, dropdown and game-name checks. The updated Games screenshot is
 `/private/tmp/starcraft-join.bmp`.
+
+### Single map selection, automatic server title and working lobby (2026-10-09)
+
+**User-requested engine behavior, not a retail callback finding:** Games is
+the only map selector. Create Game (or activating a local map) hosts it and
+opens the lobby directly. The CHK title becomes the advertised server name
+(within the transport's 31-byte name limit). Remove the runtime `glucreat`
+and `glupedit` screens and their name-entry/second-selection callbacks; the
+native decoders and exhaustive glue audit still cover both assets.
+
+Dark Colony's `SKIRMISH` host path is the behavioral reference: the selected
+map supplies `M_NetHost`'s title/path, configured player count sets the lobby
+capacity, and all joined players ready before launch. StarCraft now exposes
+2..map capacity in a Players dropdown, defaults to two, and exposes engine
+speed percentages (10..200 in steps of 10). It previously demanded every
+map slot and displayed a hardcoded Normal speed. Speed travels through the
+existing WELCOME packet, not a second game-specific option record. Discovery
+does not advertise speed, so an unjoined server's speed field stays blank.
+
+**Confirmed native layout:** `glujoin.bin` id 9 is the unused 206×20 detail
+field at (404,183); id 12 is the 90×18 speed value at (536,278). These are
+reused as the two dropdown rectangles without invented placement offsets.
+`gluchat.bin` ids 29+4n are the native 96×16 race fields at (224,35+18n).
+Their shared dropdown behavior uses the native `palnl/dlg.grp` outline and
+arrow, plus the user's requested four-pixel text inset. Race selection now
+lists Terran/Zerg/Protoss, publishes the selected seat through `M_NetSetSeat`,
+and becomes disabled while ready. Ready/Unready names the actual action.
+Only the local joined player's race is editable. Chat, cancel and connection
+errors use the common multiplayer lifecycle; lobby failures keep their error
+message when returning to Games. Screen entry refreshes lobby values before
+the first input event.
+
+The adapter remains Melee-only; this change does not implement the other
+retail game types, computer/observer slots or Random race. The former one-row
+Melee dropdown is now a static game-type value rather than a false choice.
+
+Verification: `test_native` checks direct hosting of Road War, native list
+scrolling, dropdown artwork/interaction, four-pixel insets, readiness and
+cancel. `test_multiplayer` drives two real native menus over loopback: select
+four-slot Lost Temple, choose four then two players, set 120% speed, discover
+the map-title server, choose Zerg/Protoss, exchange chat, ready/unready and
+launch. Both peers load the same CHK and spawn exactly five chosen-race
+objects per active player. Temporary gated host diagnostics confirmed the
+map, title, player count and speed, then were removed. Screenshot outputs:
+`/private/tmp/starcraft-create-road-war.bmp` and `/private/tmp/starcraft-lobby.bmp`.
+
+```sh
+make -j8
+env SDL_VIDEODRIVER=dummy make test-starcraft
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
+```
+
+Socket tests require loopback permission even with SDL's dummy video driver.
