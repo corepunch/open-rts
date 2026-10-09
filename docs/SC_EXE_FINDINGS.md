@@ -446,8 +446,9 @@ Construction and training use engine product queues, multi-resource payment,
 prerequisites, footprint reservations and ordinary mobj spawning. Worker builds
 must reach a free perimeter cell before the timer advances. The approach helper
 is also used by Warcraft II harvesting, repair, transport and building callers.
-Construction art/staged hit points, add-ons and race-specific worker
-consumption/release are not implemented by this shared queue path.
+Construction art/staged hit points and race-specific worker consumption/release
+are not implemented by this shared queue path. Add-ons, hangars and research
+leave the queue through the game's release hook (see Unit mechanics below).
 Command cards cover worker structures, Terran and Protoss production and the
 Zerg morphs (see below). These are
 explicit engine capabilities, not claims of complete retail gameplay fidelity.
@@ -613,7 +614,7 @@ Nydus Canals can be built but do not transport.
 
 The computer build order is a short race ladder (workers, supply, production
 buildings, the first combat unit, gas), not the scenario's AI script.
-Shields, energy, siege mode, burrow and addons are not simulated.
+Burrow is not simulated.
 
 The result screen is a modal menu. Victory with a following campaign file
 offers Continue, which opens that mission's briefing and then loads it.
@@ -1406,10 +1407,62 @@ make build/bin/tests/starcraft/test_combat && build/bin/tests/starcraft/test_com
 
 **Engine choices, not retail.** The Shield Battery restores up to two shield
 points a frame to one unit within four cells for one energy per two points.
-Cloaking does not yet require its research. Minimum range (the sieged tank's
-64 pixels) is not enforced.
+Cloaking requires its research, and the sieged tank's 64-pixel minimum range
+is enforced (`weapondef_t.min_range`).
 
 This supersedes two statements of the Research section above: weapon upgrade
 and bonus now come from each weapons.dat row (so the Goliath's turret weapons
 upgrade too), and the minimum hit is half a point carried in `sc.wound`
 rather than one whole point.
+
+## Unit mechanics and spells
+
+`games/starcraft/p_units.c` (hangars, add-ons, Bunkers, Archons, nukes),
+`p_spell.c` (techdata abilities) and `p_tactics.c` (the computer player's use
+of them); `tests/starcraft/test_units.c` checks each.
+
+**Confirmed from the data.**
+- `units.dat` add-on position (column 37, buildings 106..201): 128, 32 pixels
+  for every add-on, its top-left from its building's, so it sits right of a
+  4-by-3 building, level with its lower edge.
+- Transport space required and provided (47, 48): Marine, Firebat, Ghost and
+  SCV take 1, a Vulture 2, a Siege Tank 4; a Bunker offers 4. Retail Bunkers
+  take only infantry, so here only organic Terran walkers of one slot that
+  do not gather.
+- `techdata.dat` icon (u16 at 288) is the command-icon frame; the ability's
+  energy, research cost and time are its other columns.
+- Spell reaches come from their weapons.dat rows (Lockdown, EMP 256 pixels;
+  Irradiate, Ensnare, Dark Swarm, Plague, Psionic Storm 288; Parasite 512;
+  Yamato 320). Psionic Storm: 16 ignore-armor damage in 48 pixels; EMP: 64
+  pixels; Nuclear Strike: 600 in 128/192/256-pixel rings; Scarab: 100 (+25)
+  normal with enemy splash 20/40/60.
+
+**Inferred from OpenBW and retail behavior, not verified.**
+- Capacities: 4 interceptors (8 with Carrier Capacity), 5 scarabs (10 with
+  Reaver Capacity), one nuke per silo. Reaver cooldown 60 frames. Retail
+  melee grants Scanner Sweep, Defensive Matrix, Dark Swarm, Parasite and
+  Archon Warp; heroes know every ability.
+- Timers (frames): Defensive Matrix 250 points for 1344, Lockdown 1048,
+  Ensnare 600 at half speed, Hallucination 1350, Broodlings 1800, Dark Swarm
+  900, Scanner Sweep 262, a Ghost paints a nuke for 336. Irradiate deals 250
+  over 37 beats of 8 frames to organic units within 32 pixels of its host;
+  Plague 300 over 75 beats and never kills. Storms strike every 9 frames,
+  seven times, and a unit hurt by one storm is spared by the others until
+  the next strike. Reactor upgrades raise a caster's 200 energy by 50; U-238
+  Shells, Grooved Spines and Singularity Charge add 1, 1 and 2 cells.
+- An Archon warps for its units.dat build time (300 frames) and has full
+  shields. Units in a Bunker have one more cell of reach.
+
+**Engine choices, not retail.** An interceptor strikes once a pass, timed
+here at 30 frames (weapons.dat's cooldown of 1 is its script's repeat); a
+docked interceptor is whole again at once. A scarab is a ground unit that
+fizzles after 90 frames. The siege transform takes 48 frames each way.
+Ensnare and Plague cover 2 cells around the spot (weapons.dat leaves them
+0). Under Dark Swarm every hit from a weapon reaching more than one cell
+misses. Lingering areas are neutral mobjs: storms and sweeps are Map
+Revealers (units.dat 101), the swarm its own unit (202). The AI storms clumps
+of three enemies with none of its own, shields wounded fighters with a
+Defensive Matrix, EMPs 150 shields, irradiates the biggest organic unit,
+sieges within 12 cells and unsieges with none in 13. Not simulated: Stim
+Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, Dropship
+and Shuttle transport.

@@ -453,7 +453,11 @@ splash around its target (`splash`, `radius`: full, half and quarter damage
 in three rings; radial, enemy-only or air-only), and bounce (`bounces`, a
 third of the damage per jump, as the Mutalisk glaive does). Each hit goes
 through `gameinfo_t.hit_damage`, where a game applies its upgrades, armor,
-damage types and shields.
+damage types and shields. A weapon's `min_range` leaves a dead zone it cannot
+reach. Three more hooks let a game shape combat without engine branches:
+`attack` makes an attack itself (StarCraft launches interceptors and
+scarabs), `range_bonus` adds reach (a Bunker, range upgrades) and
+`sight_teams` shares a mobj's sight with other teams (Parasite).
 
 Cloaking is one rule for every game: an `MF_CLOAKED` mobj is hidden from
 enemy teams unless an `MF_DETECTOR` of theirs covers its cell
@@ -481,8 +485,9 @@ faction as data. Blizzard's AIs split the same way. StarCraft keeps per-race
   hits. Strength follows Brood War's `calculate_unit_strengths`, kept
   separately against ground and air. A game's `describe()` adds only what the
   actor cannot show: supply, casters and shields; `describe_unit()` adjusts a
-  live unit (a caster's energy, later a loaded Bunker). Units need no
-  hand-written AI fields.
+  live unit (a caster's energy, a loaded Bunker, a Carrier's hangar).
+  `tactics()` uses a game's unit abilities once per think: casting, siege
+  mode, Bunkers, hangars. Units need no hand-written AI fields.
 
 Every think the engine scouts what the team can see, keeps a fading estimate of
 the enemy army and its air share, and then works through these steps in order:
@@ -497,12 +502,14 @@ the enemy army and its air share, and then works through these steps in order:
    hook names for the most numerous roster units, one purchase per
    `100 / research` fighters fielded.
 4. Launch a wave only when idle strength reaches `attack_ratio` percent of the
-   estimate. A game's `dispatch` hook may send it itself, splitting it by
-   what can reach the goal.
+   estimate. Idle support units (casters, healers) go along. A game's
+   `dispatch` hook may send the wave itself, splitting it by what can reach
+   the goal.
 5. Pull a wave home when it falls below `retreat_ratio` percent of the enemies
    around it.
 6. Give the game's `tactics` hook a turn for orders the engine cannot give:
-   spells in battle, transports ferrying soldiers.
+   spells in battle, transports ferrying soldiers, siege mode, Bunkers and
+   hangars.
 
 Zero values switch a behavior off, so games without a doctrine keep the ladder
 and timer AI; only Dark Colony still does. Dark Reign, KKnD and 7th Legion have
@@ -550,9 +557,33 @@ explosive and concussive damage against unit size, armor and weapon upgrades
 and are recharged by Shield Batteries; casters keep energy, which pays for
 Ghost and Wraith cloaking; the Observer and Dark Templar are always cloaked.
 Units move at their flingy.dat top speed, or their walking script's pace when
-the script moves them. Not yet simulated: spells other than cloaking, siege
-mode and other morphs, add-ons, Bunkers, Carrier interceptors, Reaver scarabs,
-larvae and creep, minimum weapon range, and the research that unlocks cloaking.
+the script moves them. A sieged tank cannot shell what is nearer than its
+weapon's minimum range. Zerg larvae, eggs and morphs, creep and psi are described
+in `docs/SC_EXE_FINDINGS.md`.
+
+Units that carry or launch others are ordinary mobjs with a parent id
+(`games/starcraft/p_units.c`). A Carrier builds interceptors into its hangar
+and launches them at what it attacks; they fight with their own weapon, turn
+home past a 12-cell leash and dock. A Reaver builds scarabs and fires one per
+attack; it runs to the target and bursts with enemy splash. Siege mode is a
+deploy each way. Add-ons are built by their building and attach at units.dat's
+add-on position; a product whose add-on belongs to its maker (a Siege Tank's
+Machine Shop) needs that maker's own. A Bunker holds four Terran infantry,
+which fire from inside with one more cell of reach, cannot be targeted, and
+step out on Unload All or when it falls. Two High Templar walk together and
+warp into an Archon. A Nuclear Silo keeps one nuke for a Ghost to call down.
+
+Abilities follow techdata.dat (`games/starcraft/p_spell.c`): research is a
+product at its building and gates every ability but the melee defaults
+(Scanner Sweep, Defensive Matrix, Dark Swarm, Parasite, Archon Warp). A
+caster walks into range and pays its energy; a lasting effect is a timer on
+the units it touches (Matrix, Irradiate, Plague, Ensnare, Lockdown), and an
+area that lingers (Psionic Storm, Dark Swarm, Scanner Sweep) is a neutral
+mobj that ticks. Hallucinations deal nothing and take double damage. The
+computer player casts with its waves, sieges, mans Bunkers, refills hangars
+and researches what its units use (`p_tactics.c`). Not simulated: Stim
+Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, transports
+and the Brood War units.
 
 ### Other games
 
