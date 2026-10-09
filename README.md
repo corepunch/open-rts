@@ -35,16 +35,150 @@ Shared code is added when two games already do the same thing. A loader, a
 mission script, or a sidebar that is shaped like one retail game stays in
 that game's directory.
 
-Gameplay tables are C, on purpose. A unit thinker written next to the rest of
-the simulation is visible to the compiler and the debugger. [Stratagus](https://github.com/Wargus/stratagus)
-and [OpenRA](https://github.com/OpenRA/OpenRA) show the other choice: a large
-core, then Lua or YAML for units, triggers, and AI, plus the runtimes and
-package stacks that go with them. That is a reasonable way to host new mods.
-It is a poor way to reproduce a 1997 executable, where the behavior already
-has a known order and the cost of a scripting boundary is paid on every
-action. There is no plugin registry and no embedded language here. Original
-assets are decoded directly. The test of a change is whether the retail game
-still behaves, and whether another programmer can see why.
+Gameplay tables are C. A unit's numbers, its animation, and the function
+that runs when that animation starts are all in one translation unit. The
+compiler checks the field names. A wrong type is a build error. There is no
+plugin registry and no embedded language. Original assets are decoded
+directly into the indexed images the renderer already draws.
+
+C99 designated initializers are the configuration language. You name the
+field, you nest the struct, and every field you leave out is zero. The
+Warcraft II footman is a row in `games/warcraft-2/info.c`. `.grp` is an index
+into retail `MAINDAT.WAR`, the same GRP the 1995 game drew. The row in the
+file also stores reaction range, points, and the rest of the native block;
+these are the fields that line up with the Lua further down:
+
+```c
+[MT_FOOTMAN] = { /* PUD 0: unit-footman */
+    .doomednum = 1, .spawnhealth = 60,
+    .name = "footman", .label = "Footman",
+    .w2 = {
+        .projectile = W2_FX_NONE,
+        .flags = W2_MOBILE | W2_COMBAT,
+        .footprint = {1, 1}, .box = {31, 31},
+        .grp = {45, 0, 0, 0},
+        .speed = 10, .armor = 2,
+        .basic_damage = 6, .piercing_damage = 3,
+        .sight = 4, .attack_range = 1,
+        .costs = {.time = 60, .resources = {600, 0, 0}},
+        .food = {0, 1},
+        .attributes = W2_ORGANIC | W2_RECT_SELECT | W2_CAN_ATTACK,
+    },
+},
+```
+
+The moving state in `games/starcraft/info.c` is the same kind of row.
+`.action` is a function, so the debugger lands in `A_Chase` when the state
+is entered:
+
+```c
+states[walk] = (state_t){
+    .sprite = i, .tics = 1, .action = A_Chase,
+    .nextstate = walk, .group = 2,
+};
+```
+
+Policy that would otherwise be a pile of globals is one struct. This is the
+Warcraft II `gameinfo_t` in `games/warcraft-2/info.c`:
+
+```c
+game_info = (gameinfo_t){
+    .sprnames = (const char *const *)sprnames,
+    .sprite_count = W2_SPRITE_COUNT,
+    .states = states,
+    .state_count = W2_STATE_COUNT,
+    .mobjinfo = mobjinfo,
+    .mobj_type_count = W2_MOBJ_COUNT,
+    .null_state = 0,
+    .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
+    .selection_marker = { .style = SELECTION_STYLE_DEFAULT },
+    .draw_underlays = w2_draw_selection,
+    .draw_overlays = w2_draw_buffs,
+    .right_click_orders = true,
+    .radial_sight = true,
+    .select_any = true,
+    .f10_menu = true,
+    .instant_turn = true,
+    .sound = &w2_soundinfo,
+    .draw_fog = w2_draw_fog,
+};
+```
+
+[Stratagus](https://github.com/Wargus/stratagus) throws that away and then
+rebuilds it badly. Wargus describes the same footman in Lua, and the picture
+is a PNG that an extractor wrote out of the GRP:
+
+```lua
+DefineUnitType("unit-footman", { Name = _("Footman"),
+  Image = {"file", "human/units/footman.png", "size", {72, 72}},
+  Animations = "animations-footman", Icon = "icon-footman",
+  Costs = {"time", 60, "gold", 600},
+  Speed = 10,
+  HitPoints = 60,
+  -- ...
+  Sounds = {
+    "selected", "footman-selected",
+    "acknowledge", "footman-acknowledge",
+    "ready", "footman-ready",
+    "help", "basic human voices help 1",
+    "dead", "basic human voices dead"} } )
+```
+
+[Stargus](https://github.com/Wargus/stargus) is the same pipeline with the
+conversion left in the open. `ImagesConverter` reads the retail GRP, and
+`Grp::save` stitches it into a PNG (`SaveStitchedPNG`). The converter then
+emits a Lua file whose only job is to remember the path of the PNG it just
+wrote. Stratagus boots, interprets the Lua, and `CGraphic::Load` hands the
+file to SDL_image:
+
+```cpp
+mSurface = IMG_Load_RW(CFile::to_SDL_RWops(std::move(fp)), 1);
+```
+
+So a 256-color sprite is rewritten as a PNG, named from a script, parsed by
+Lua, and decoded back into pixels by libpng.
+Stratagus also ships `png2stratagus`, whose own comment tells you to paint
+an RGBA image in Gimp, quantize it to 227 colors, and run the tool so the
+engine will accept the palette. The palette was already in the GRP.
+
+`games/starcraft/w_assets.c` reads that GRP. Frame offsets, the RLE of each
+row, and the 17-facing mirror stay indexed. Nothing is resampled, and
+nothing is handed to another language on the way to the framebuffer.
+
+[OpenRA](https://github.com/OpenRA/OpenRA) does the same kind of damage with
+YAML. A rifleman is a pile of trait names, inherited from `^Soldier` and
+merged at startup:
+
+```yaml
+E1:
+	Inherits: ^Soldier
+	Inherits@EXPERIENCE: ^GainsExperience
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
+	Valued:
+		Cost: 100
+	Health:
+		HP: 5000
+	Mobile:
+		Speed: 54
+	Armament:
+		Weapon: M16
+	WithInfantryBody:
+		IdleSequences: idle1,idle2,idle3,idle4
+```
+
+Supporting that meant writing a language. `OpenRA.Game/MiniYaml.cs` is a
+parser, a string pool, an inheritance walker, and a deletion syntax: a key
+that starts with `-` removes a trait a parent already added. The engineer
+in that same file is `E6`, and it deletes an inherited attack with
+`-AttackFrontal`. `FieldLoader` then reflects the surviving
+strings onto C# objects. A misspelled field is a runtime exception. The
+equivalent mistake in the footman row above is a compiler error, and the
+field you did not mention is zero rather than "whatever `^Soldier` last
+merged".
+
+Lua and YAML are fine for a project whose point is user mods. They are a
+strange foundation for a program whose job is to do what a 1990s executable
+already did in C.
 
 ## What the tree contains
 
