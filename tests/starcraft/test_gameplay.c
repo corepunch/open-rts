@@ -235,7 +235,11 @@ static int economy_and_combat(void) {
     CHECK(!G_ModelProductAvailable(NULL, consoleplayer, weapons1)); /* already researching */
     for (int t = 0; t < 6000 && sc_upgrade_level(consoleplayer, 7) < 1; t++) tick(1);
     CHECK(sc_upgrade_level(consoleplayer, 7) == 1 && !bay->production);
-    CHECK(!sc_upgrade_offered(consoleplayer, weapons1) && G_ModelProductAvailable(NULL, consoleplayer, weapons2));
+    /* Level 2 waits for a Science Facility, as in retail. */
+    CHECK(!sc_upgrade_offered(consoleplayer, weapons1) && !G_ModelProductAvailable(NULL, consoleplayer, weapons2));
+    mobj_t *facility = spawn(MT_SCIENCE_FACILITY, fvec2_add(fixed3_xy_to_fvec2(bay->core.position), (fvec2_t){0, 8}),
+                             consoleplayer);
+    CHECK(facility && G_ModelProductAvailable(NULL, consoleplayer, weapons2));
     /* Combat: an upgraded marine hits a zergling for 6 + 1 - armor. */
     fvec2_t at = fixed3_xy_to_fvec2(marine->core.position);
     mobj_t *zergling = spawn(MT_ZERGLING, (fvec2_t){at.x + 2.5f, at.y}, 1);
