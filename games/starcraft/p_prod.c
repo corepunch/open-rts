@@ -106,11 +106,12 @@ static bool upgrade_product(const StaticProductDefinition *p,int *upgrade,int *t
 int sc_upgrade_level(int owner,int upgrade) {
     return owner>=0&&owner<8&&upgrade>=0&&upgrade<SC_UPGRADES?level.upgrades[upgrade][owner].weapon:0;
 }
-static int hit_damage(const mobj_t *attacker,const mobj_t *target,int damage) {
-    if(attacker->type_id<1||attacker->type_id>SC_TYPES||target->type_id<1||target->type_id>SC_TYPES)return damage;
+static int hit_damage(const mobj_t *attacker,const weapondef_t *weapon,mobj_t *target,int damage,int divisor) {
+    (void)weapon;
+    if(attacker->type_id<1||attacker->type_id>SC_TYPES||target->type_id<1||target->type_id>SC_TYPES)return damage/divisor;
     const sc_unit_t *a=&sc_units[attacker->type_id-1],*t=&sc_units[target->type_id-1];
     damage+=a->damage_bonus*sc_upgrade_level(attacker->owner,a->weapon_upgrade);
-    damage-=t->armor+sc_upgrade_level(target->owner,t->armor_upgrade);
+    damage=damage/divisor-t->armor-sc_upgrade_level(target->owner,t->armor_upgrade);
     return damage<1?1:damage;
 }
 void sc_reset_upgrades(void) { game_info.hit_damage=hit_damage; }
@@ -384,7 +385,6 @@ static void sc_ai_describe(uint16_t type,AiUnitInfo *info) {
     if(u->supply_provided>0) info->roles|=AI_ROLE_SUPPLY;
     if(u->flags&(0x200|0x400000)) info->roles|=AI_ROLE_CLOAKED;
     if((u->flags&0x200000)&&!(info->roles&AI_ROLE_FIGHTER)) info->roles|=AI_ROLE_SUPPORT;
-    if(type==MT_ZEALOT||type==MT_FIREBAT||type==MT_MUTALISK) info->hits=2;
 }
 /* Whole supply, counting what queues and walking workers will add. */
 static bool sc_ai_supply(int owner,int *used,int *cap) {

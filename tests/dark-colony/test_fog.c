@@ -126,20 +126,20 @@ static void check_detection(void) {
     int near = L_Index(&level, 26, 24);
     level.tile_flags[near] = MAP_SIGHT_PASS | MAP_SIGHT_NEAR;
     P_UpdateSight();
-    assert(mine->detected_by == PLAYER); /* Detection still visits near-only terrain. */
+    assert(P_Detectors(mine) == PLAYER); /* Detection still visits near-only terrain. */
     assert(!P_VisibleToPlayer(mine));
     level.tile_flags[near] = MAP_SIGHT_PASS;
     P_UpdateSight();
     assert(P_VisibleToPlayer(mine));
     level.tile_flags[L_Index(&level, 25, 24)] = 0;
     P_UpdateSight();
-    assert(!mine->detected_by && !P_VisibleToPlayer(mine));
+    assert(!P_Detectors(mine) && !P_VisibleToPlayer(mine));
     detector->traits |= MF_FLY;
     P_UpdateSight();
-    assert(mine->detected_by == PLAYER && P_VisibleToPlayer(mine));
+    assert(P_Detectors(mine) == PLAYER && P_VisibleToPlayer(mine));
     detector->hp = 0;
     P_UpdateSight();
-    assert(!mine->detected_by);
+    assert(!P_Detectors(mine));
     level.tile_flags[L_Index(&level, 25, 24)] = MAP_SIGHT_PASS;
     P_FreeThinkers();
 }

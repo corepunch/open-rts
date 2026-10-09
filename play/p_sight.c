@@ -19,14 +19,10 @@ bool P_InitSight(void) {
 static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborne, bool detector) {
     if (!level.sight.cells || radius < 1) return;
     uint32_t explored = mask & level.sight.allies[consoleplayer] ? SIGHT_EXPLORED : 0;
-#ifdef RTS_GAME_DARK_COLONY
     /* Low eight bits hold this pass's detector teams. They share the cell
      * footprint, including near-only cells, without scanning every object
      * from every visited tile. Current sight remains in bits 23..30. */
     if (detector) explored |= mask >> 23;
-#else
-    (void)detector;
-#endif
     if (gameinfo && gameinfo->radial_sight) {
         /* Stratagus ProceedSimpleRadial: a cell is inside when
          * dx^2 + dy^2 < (radius + 1)^2. The Dark Colony ray table stops at
@@ -111,17 +107,6 @@ void P_UpdateSight(void) {
         }
         reveal_sight(origin, radius, mask, airborne, actor->traits & MF_DETECTOR);
     }
-#ifdef RTS_GAME_DARK_COLONY
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        mobj_t *actor = (mobj_t *)th;
-        actor->detected_by = 0;
-        if (actor->remove || actor->hp <= 0 || !(actor->traits & MF_LANDMINE) ||
-            (actor->traits & (MF_NOBLOCKMAP | MF_MISSILE | MF_FLY))) continue;
-        ivec2_t cell = fvec2_cell(fixed3_xy_to_fvec2(actor->core.position));
-        actor->detected_by = L_Contains(&level, cell.x, cell.y) ?
-            (level.sight.cells[L_Index(&level, cell.x, cell.y)] & 255) << 23 : 0;
-    }
-#endif
 }
 
 int P_SightBrightness(const level_t *map, ivec2_t cell) {
@@ -138,15 +123,25 @@ static uint32_t object_sight(const mobj_t *mobj) {
         level.sight.cells[L_Index(&level, cell.x, cell.y)] : 0;
 }
 
+uint32_t P_Detectors(const mobj_t *mobj) {
+    return level.sight.cells ? (object_sight(mobj) & 255) << 23 : 0;
+}
+
+/* A cloaked mobj shows to its owner, to teams sharing its owner's sight
+ * and to teams whose detectors cover it (Dark Colony mines, StarCraft cloaks). */
+static bool cloaked_from(const mobj_t *mobj, int owner, int team) {
+    if (!(mobj->traits & MF_CLOAKED) || mobj->owner == owner) return false;
+    if (team < 0 || team >= 8) return true;
+    if (mobj->team < 8 && (level.sight.allies[team] & (UINT32_C(0x40000000) >> mobj->team))) return false;
+    return !(P_Detectors(mobj) & level.sight.allies[team]);
+}
+
 bool P_VisibleToPlayer(const mobj_t *mobj) {
     if (!mobj || mobj->remove || P_MobjIsHidden(mobj)) return false;
 #ifdef RTS_GAME_WARCRAFT_2
     if (!W2_VisibleTo(mobj, consoleplayer)) return false;
 #endif
-#ifdef RTS_GAME_DARK_COLONY
-    if ((mobj->traits & MF_LANDMINE) && mobj->owner != consoleplayer &&
-        !(mobj->detected_by & level.sight.allies[consoleplayer])) return false;
-#endif
+    if (cloaked_from(mobj, consoleplayer, consoleplayer)) return false;
     if (!level.sight.cells) return true;
     return (object_sight(mobj) & level.sight.allies[consoleplayer]) != 0;
 }
@@ -156,10 +151,7 @@ bool P_VisibleTo(const mobj_t *observer, const mobj_t *target) {
 #ifdef RTS_GAME_WARCRAFT_2
     if (!observer || !W2_VisibleTo(target, observer->owner)) return false;
 #endif
-#ifdef RTS_GAME_DARK_COLONY
-    if ((target->traits & MF_LANDMINE) && observer && target->owner != observer->owner &&
-        (observer->team >= 8 || !(target->detected_by & level.sight.allies[observer->team]))) return false;
-#endif
+    if (observer && cloaked_from(target, observer->owner, observer->team)) return false;
     if (!level.sight.cells) return true;
     return observer && observer->team < 8 &&
         (object_sight(target) & level.sight.allies[observer->team]) != 0;

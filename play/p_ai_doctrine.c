@@ -18,20 +18,29 @@ enum {
 /* ── unit knowledge ───────────────────────────────────────────────────── */
 
 /* OpenBW calculate_unit_strengths: range in pixels, cooldown in frames,
- * sqrt(range / cooldown * damage + hp * (damage << 11) / cooldown >> 8). */
-static int bw_strength(int hp, int damage, int hits, float range_cells, int cooldown_ms) {
+ * sqrt(range / cooldown * damage + hp * (damage << 11) / cooldown >> 8).
+ * Damage counts every hit of an attack; a bouncing glaive counts one more,
+ * as Brood War's units.dat max hits does for the Mutalisk. */
+static int bw_strength(int hp, const weapondef_t *weapon) {
+    int damage = weapon->damage * ((weapon->hits ? weapon->hits : 1) + (weapon->bounces ? 1 : 0));
     if (damage <= 0) return 0;
-    damage *= hits > 0 ? hits : 1;
-    int cooldown = cooldown_ms > 0 ? (cooldown_ms * 24 + 500) / 1000 : 24;
+    int cooldown = weapon->cooldown_ms > 0 ? (weapon->cooldown_ms * 24 + 500) / 1000 : 24;
     if (cooldown < 1) cooldown = 1;
-    double reach = range_cells * 32.0 / cooldown * damage;
+    double reach = weapon->range * 32.0 / cooldown * damage;
     double body = (double)hp * (double)((damage << 11) / cooldown) / 256.0;
     return (int)(sqrt(reach + body) * 7.58);
+}
+
+static bool weapon_reaches(const weapondef_t *weapon, uint8_t kind) {
+    return weapon->damage > 0 && (!weapon->targets || (weapon->targets & kind));
 }
 
 void P_AiUnitInfo(const AiContext *ctx, uint16_t type_id, AiUnitInfo *out) {
     memset(out, 0, sizeof(*out));
     const mobjtype_t *type = P_ActorType(type_id);
+    /* The weapons it turns on ground and air targets (see P_MobjWeapon). */
+    const weapondef_t *ground = type ? &type->attack : NULL,
+                      *air = type && type->air_attack.damage ? &type->air_attack : ground;
     if (type) {
         uint32_t traits = type->traits;
         bool mobile = (traits & MF_MOBILE) != 0;
@@ -39,25 +48,22 @@ void P_AiUnitInfo(const AiContext *ctx, uint16_t type_id, AiUnitInfo *out) {
         if (traits & MF_HARVESTER) out->roles |= AI_ROLE_WORKER;
         if (traits & MF_FLY) out->roles |= AI_ROLE_FLYER;
         if (traits & MF_DETECTOR) out->roles |= AI_ROLE_DETECTOR;
-        if ((traits & MF_ATTACK) && type->attack.damage > 0) {
-            uint8_t reach = type->attack.targets ? type->attack.targets :
-                            MOBJ_TARGET_GROUND | MOBJ_TARGET_AIR;
-            if (reach & MOBJ_TARGET_GROUND) out->roles |= AI_ROLE_HITS_GROUND;
-            if (reach & MOBJ_TARGET_AIR) out->roles |= AI_ROLE_HITS_AIR;
-            out->roles |= mobile ? AI_ROLE_FIGHTER : AI_ROLE_DEFENSE;
+        if (traits & MF_CLOAKED) out->roles |= AI_ROLE_CLOAKED;
+        if (traits & MF_ATTACK) {
+            if (weapon_reaches(ground, MOBJ_TARGET_GROUND)) out->roles |= AI_ROLE_HITS_GROUND;
+            if (weapon_reaches(air, MOBJ_TARGET_AIR)) out->roles |= AI_ROLE_HITS_AIR;
+            if (out->roles & (AI_ROLE_HITS_GROUND | AI_ROLE_HITS_AIR))
+                out->roles |= mobile ? AI_ROLE_FIGHTER : AI_ROLE_DEFENSE;
         }
         if (mobile && (traits & (MF_HEAL | MF_REPAIR)) && !(traits & MF_HARVESTER))
             out->roles |= AI_ROLE_SUPPORT;
     }
     if (ctx && ctx->game && ctx->game->describe) ctx->game->describe(type_id, out);
     if (!type) return;
-    int damage = type->attack.damage;
     if (!out->ground_strength && (out->roles & AI_ROLE_HITS_GROUND))
-        out->ground_strength = bw_strength(out->hp, damage, out->hits,
-                                           type->attack.range, type->attack.cooldown_ms);
+        out->ground_strength = bw_strength(out->hp, ground);
     if (!out->air_strength && (out->roles & AI_ROLE_HITS_AIR))
-        out->air_strength = bw_strength(out->hp, damage, out->hits,
-                                        type->attack.range, type->attack.cooldown_ms);
+        out->air_strength = bw_strength(out->hp, air);
     /* Brood War quarters workers: they fight, but nobody fears them. */
     if (out->roles & AI_ROLE_WORKER) {
         out->ground_strength /= 4;
@@ -71,6 +77,7 @@ static int unit_strength(const AiContext *ctx, const mobj_t *unit, int air_pct, 
     AiUnitInfo local;
     if (!info) info = &local;
     P_AiUnitInfo(ctx, unit->type_id, info);
+    if (ctx && ctx->game && ctx->game->describe_unit) ctx->game->describe_unit(unit, info);
     int value = (info->ground_strength * (100 - air_pct) + info->air_strength * air_pct) / 100;
     if (unit->max_hp > 0 && unit->hp < unit->max_hp) value = value * unit->hp / unit->max_hp;
     return value;
