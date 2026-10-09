@@ -94,6 +94,7 @@ int main(void) {
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-registry.bmp"));
     menuitem_t *next=M_MenuFind(currentmenu,6);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,3)->kind==MI_TEXTFIELD);
+    M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-new-player.bmp"));
     next=M_MenuFind(currentmenu,1);next->routine(currentmenu,next,MA_ACTIVATE);
     next=M_MenuFind(currentmenu,4);next->routine(currentmenu,next,MA_ACTIVATE);
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-campaign.bmp"));
@@ -197,6 +198,7 @@ int main(void) {
         ok->routine(currentmenu,ok,MA_ACTIVATE);
         CHECK(M_MenuFind(currentmenu,4)&&M_MenuFind(currentmenu,4)->kind==MI_TEXTFIELD);
         CHECK(!strcmp(M_MenuFind(currentmenu,4)->text,"Road War"));
+        M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-game-name.bmp"));
         CHECK(M_MenuFind(currentmenu,2)&&strstr(M_MenuFind(currentmenu,2)->text,"Please enter a game name to continue."));
         next=M_MenuFind(currentmenu,3);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
         CHECK(!M_NetHosting());

@@ -48,6 +48,8 @@ static menuitem_t control(const sc_control_t *c,bitmapfont_t *f) {
     menuitem_t item={.id=c->id,.kind=button?MI_BUTTON:MI_STATIC,.rect=c->rect,.hitbox=c->hitbox,.flags=c->flags,
         .visible=(c->flags&8)!=0,.enabled=!(c->flags&2),.release=true,.inset=c->text_offset,
         .hotkey=c->hotkey<128?tolower(c->hotkey):0,.mark_at=c->mark_at,.mark_len=c->mark_len};
+    if(c->type==8||c->type==13)
+        item.inset=ivec2_add(item.inset,(ivec2_t){4,0});
     int fi=c->flags&0x400?0:c->flags&0x10000?1:c->flags&0x800?2:c->flags&0x4000?3:0;
     item.font=&f[fi]; snprintf(item.text,sizeof(item.text),"%s",c->text);
     item.align=(c->flags&0xa00000)?MALIGN_HCENTER:(c->flags&0x400000)?MALIGN_RIGHT:0;

@@ -829,6 +829,14 @@ and opens/accepts the dropdown. It writes Create screenshots at 640×480 and
 1280×960 to `/private/tmp/starcraft-create-road-war{,-scaled}.bmp`.
 Run `make test-starcraft` to reproduce.
 
+**User-requested text inset (2026-10-09):** add four logical pixels to the
+native horizontal text offset for type-8 text inputs and type-13 dropdowns.
+This is an explicit presentation choice, not a newly traced retail constant.
+It covers the player-name, game-name and chat inputs and the Game Type
+dropdown, including its popup rows. Native vertical offsets and control
+rectangles are retained. `test_native` also writes `starcraft-new-player.bmp`
+and `starcraft-game-name.bmp` under `/private/tmp/` for visual verification.
+
 `native/rez/gluchat.bin` has 79 controls, which is why the dialog adapter now
 keeps 96 controls rather than 64. Id 6 Ok toggles ready; its text stays "Ok".
 Ready names use font ramp 1 (the button ramp from `glue/palmm/tfont.pcx`).
