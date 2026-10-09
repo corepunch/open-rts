@@ -142,26 +142,33 @@ static bool roster_info(const AiContext *ctx, int product, AiUnitInfo *out) {
     return true;
 }
 
-/* Alive plus queued of every roster product with any of `roles`. */
-static int roster_owned(const AiContext *ctx, const AiDoctrine *d, int owner, uint32_t roles) {
+/* Alive plus queued of every roster product with any of `roles` and,
+ * when `armed` is set, a weapon too. */
+static int roster_owned_armed(const AiContext *ctx, const AiDoctrine *d, int owner,
+                              uint32_t roles, uint32_t armed) {
     int count = 0;
     for (int i = 0; i < d->roster_count; ++i) {
         AiUnitInfo info;
-        if (roster_info(ctx, d->roster[i].product, &info) && (info.roles & roles))
+        if (roster_info(ctx, d->roster[i].product, &info) && (info.roles & roles) &&
+            (!armed || (info.roles & armed)))
             count += ctx->game->owned(owner, d->roster[i].product);
     }
     return count;
 }
 
-/* Buys the first roster product that fills `role`, those with `prefer`
- * first; a product it must save or research for ends the search. */
+static int roster_owned(const AiContext *ctx, const AiDoctrine *d, int owner, uint32_t roles) {
+    return roster_owned_armed(ctx, d, owner, roles, 0);
+}
+
+/* Buys the first roster product with every bit of `role`, those with
+ * `prefer` first; a product it must save or research for ends the search. */
 static AiTry buy_role(AiContext *ctx, AiTeamState *team, int owner, level_t *map,
                       uint32_t role, uint32_t prefer) {
     const AiDoctrine *d = &team->plan.doctrine;
     for (int pass = prefer ? 0 : 1; pass < 2; ++pass) {
         for (int i = 0; i < d->roster_count; ++i) {
             AiUnitInfo info;
-            if (!roster_info(ctx, d->roster[i].product, &info) || !(info.roles & role)) continue;
+            if (!roster_info(ctx, d->roster[i].product, &info) || (info.roles & role) != role) continue;
             if (pass == 0 && !(info.roles & prefer)) continue;
             AiTry result = P_AiTry(ctx, team, owner, map, d->roster[i].product);
             if (result != AI_TRY_SKIP) return result;
@@ -203,12 +210,46 @@ static AiTry need_detection(AiContext *ctx, AiTeamState *team, int owner, level_
     return buy_role(ctx, team, owner, map, AI_ROLE_DETECTOR, AI_ROLE_FIGHTER);
 }
 
+/* Armed defenses first: a game whose towers grow out of an unarmed site
+ * (Warcraft's Watch Tower, a Zerg Creep Colony) arms the sites standing,
+ * and raises another site only when every one is armed or on the way. */
 static AiTry need_defense(AiContext *ctx, AiTeamState *team, int owner, level_t *map) {
     const AiDoctrine *d = &team->plan.doctrine;
-    if (!d->defenses || roster_owned(ctx, d, owner, AI_ROLE_DEFENSE) >= d->defenses * towns(team))
+    const uint32_t weapon = AI_ROLE_HITS_GROUND | AI_ROLE_HITS_AIR;
+    int want = d->defenses * towns(team);
+    if (!d->defenses || roster_owned_armed(ctx, d, owner, AI_ROLE_DEFENSE, weapon) >= want)
         return AI_TRY_SKIP;
     uint32_t prefer = team->enemy_air_pct >= AI_AIR_DEFENSE_PCT ? AI_ROLE_HITS_AIR : AI_ROLE_HITS_GROUND;
-    return buy_role(ctx, team, owner, map, AI_ROLE_DEFENSE, prefer);
+    AiTry result = buy_role(ctx, team, owner, map, AI_ROLE_DEFENSE | prefer, 0);
+    if (result == AI_TRY_SKIP)
+        result = buy_role(ctx, team, owner, map, AI_ROLE_DEFENSE | (weapon & ~prefer), 0);
+    if (result != AI_TRY_SKIP || roster_owned(ctx, d, owner, AI_ROLE_DEFENSE) >= want) return result;
+    return buy_role(ctx, team, owner, map, AI_ROLE_DEFENSE, 0);
+}
+
+/* Keeps upgrading the army it fields: the most numerous roster units
+ * first, one purchase per 100/research fighters, so tech never runs
+ * ahead of an army to carry it. */
+static AiTry need_research(AiContext *ctx, AiTeamState *team, int owner, level_t *map) {
+    const AiDoctrine *d = &team->plan.doctrine;
+    if (!d->research || !ctx->game->advance) return AI_TRY_SKIP;
+    if ((int64_t)roster_owned(ctx, d, owner, AI_ROLE_FIGHTER) * d->research <
+        (int64_t)(team->stats.upgrades + 1) * 100) return AI_TRY_SKIP;
+    int count[AI_MAX_ROSTER];
+    bool tried[AI_MAX_ROSTER] = { false };
+    for (int i = 0; i < d->roster_count; ++i) count[i] = ctx->game->owned(owner, d->roster[i].product);
+    for (int n = 0; n < d->roster_count; ++n) {
+        int best = -1;
+        for (int i = 0; i < d->roster_count; ++i)
+            if (!tried[i] && d->roster[i].weight > 0 && (best < 0 || count[i] > count[best])) best = i;
+        if (best < 0) break;
+        tried[best] = true;
+        int product = ctx->game->advance(map, owner, d->roster[best].product);
+        AiTry result = product ? P_AiTry(ctx, team, owner, map, product) : AI_TRY_SKIP;
+        if (result == AI_TRY_BOUGHT) team->stats.upgrades++;
+        if (result != AI_TRY_SKIP) return result;
+    }
+    return AI_TRY_SKIP;
 }
 
 /* A roster weight bent by `counter` toward what was scouted: anti-air
@@ -244,7 +285,7 @@ static AiTry need_army(AiContext *ctx, AiTeamState *team, int owner, level_t *ma
 
 int P_AiBuyDoctrine(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int budget) {
     static AiTry (*const needs[])(AiContext *, AiTeamState *, int, level_t *) = {
-        need_workers, need_detection, need_defense, need_army,
+        need_workers, need_detection, need_defense, need_research, need_army,
     };
     if (!ctx->game->product_actor || team->plan.doctrine.roster_count <= 0) return 0;
     int bought = 0;

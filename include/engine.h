@@ -1359,6 +1359,9 @@ int L_MoveSpeed(const level_t *map, int move_class, int x, int y);
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
 void P_NavFree(level_t *map);
 bool P_NavReachable(const level_t *map, int move_class, ivec2_t from, ivec2_t to);
+/* Nearest cell to `wanted` in the same region as `from`, within `radius` cells. */
+bool P_NavNearestReachable(const level_t *map, int move_class, ivec2_t from,
+                           ivec2_t wanted, int radius, ivec2_t *out);
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);
@@ -2087,7 +2090,8 @@ typedef struct {
     int roster_count;
     int workers;        /* Workers kept per town (cluster of drop-offs). */
     int supply_buffer;  /* Free supply kept ahead of demand, in game supply units. */
-    int defenses;       /* Static defenses kept per town. */
+    int defenses;       /* Static defenses kept per town; unarmed sites are armed in place. */
+    int research;       /* 0..100: upgrades per fighter fielded; one per 100/research fighters. */
     int army_cap;       /* Fighters massed before buying stops; 0 is supply-bound. */
     int counter;        /* 0..100: how far the mix bends toward what was scouted. */
     int attack_ratio;   /* % of the enemy army estimate an idle army needs to attack. */
@@ -2143,6 +2147,17 @@ typedef struct AiGameInterface {
     /* Optional. Supply in use and the cap including supply already being
      * made; false when the cap cannot grow further. Enables supply_buffer. */
     bool (*supply)(int owner, int *used, int *cap);
+    /* Optional. The next purchase that takes a roster product further: what
+     * unlocks it while it cannot be bought, else its unit's next upgrade;
+     * 0 when nothing is left or it is already on the way. Enables research. */
+    int  (*advance)(const level_t *map, int owner, int product);
+    /* Optional. Sends a wave the engine assembled at `goal` itself, e.g.
+     * ships to the coast and soldiers onto transports; false lets the
+     * engine march it. */
+    bool (*dispatch)(level_t *map, int owner, mobj_t *const *wave, int count, mobj_t *goal);
+    /* Optional. Orders the engine cannot give, once per think: spells in
+     * battle, transports ferrying a wave. */
+    void (*tactics)(level_t *map, int owner, mobj_t *const *units, int unit_count);
 } AiGameInterface;
 
 typedef enum {
@@ -2167,6 +2182,7 @@ typedef struct {
     int purchases;
     int defense_rallies;
     int research_orders;
+    int upgrades;   /* purchases made by the doctrine's research need */
     int waves;
     int wave_units; /* total units sent in waves */
     int retreats;

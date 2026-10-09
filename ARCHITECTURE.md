@@ -490,19 +490,29 @@ the enemy army and its air share, and then works through these steps in order:
 1. Order supply ahead of demand.
 2. Follow the opening.
 3. Serve the doctrine's needs: workers, detection after a cloaked sighting,
-   static defense (anti-air once air is seen), then the roster entry furthest
-   below its counter-weighted share.
+   static defense (anti-air once air is seen), research, then the roster
+   entry furthest below its counter-weighted share. A defense without a
+   weapon (Warcraft's Watch Tower) is a site: standing sites are armed in
+   place before another is raised. Research buys what the game's `advance`
+   hook names for the most numerous roster units, one purchase per
+   `100 / research` fighters fielded.
 4. Launch a wave only when idle strength reaches `attack_ratio` percent of the
-   estimate.
+   estimate. A game's `dispatch` hook may send it itself, splitting it by
+   what can reach the goal.
 5. Pull a wave home when it falls below `retreat_ratio` percent of the enemies
    around it.
+6. Give the game's `tactics` hook a turn for orders the engine cannot give:
+   spells in battle, transports ferrying soldiers.
 
 Zero values switch a behavior off, so games without a doctrine keep the ladder
 and timer AI; only Dark Colony still does. Dark Reign, KKnD and 7th Legion have
 no supply, so their doctrines leave `supply` unset and bound the army with
 `army_cap`. `tests/starcraft/test_ai.c` plays each StarCraft race and a
 Zerg-against-Protoss game; `tests/ai_doctrine_regression.h` checks the
-doctrines of Dark Reign, KKnD and 7th Legion headless.
+doctrines of Dark Reign, KKnD and 7th Legion headless. `tests/warcraft-2/test_ai.c`
+covers Warcraft II: armed towers, Wargus ai-cast spells, the research ladder,
+the PUD's `AIPL` scripts (passive slots stay idle; sea and air scripts, or an
+island start, build fleets, ferry soldiers and send flyers).
 
 ## Game implementations
 
