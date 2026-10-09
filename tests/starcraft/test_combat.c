@@ -178,6 +178,10 @@ static int cloaking(void) {
     mobj_t *ling = spawn(MT_ZERGLING, (fvec2_t){30.5f, 25.5f}, 1); /* far from the Observer */
     CHECK(ghost && wraith && ling && sc_energy(ghost) == 50);
     CHECK(!sc_cast(ghost, SC_TECH_CLOAKING_FIELD, NULL, (fvec2_t){0}));
+    /* Neither cloak works before its research. */
+    CHECK(!sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fvec2_t){0}) && !sc_cast(wraith, SC_TECH_CLOAKING_FIELD, NULL, (fvec2_t){0}));
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][0].weapon = 1;
+    level.upgrades[SC_UPGRADES + SC_TECH_CLOAKING_FIELD][0].weapon = 1;
     ticcmd_t cmd = {.order = TC_SPELL, .count = 1, .units = {ghost->id}, .product = SC_TECH_PERSONNEL_CLOAKING};
     G_RunTiccmd(0, &cmd);
     CHECK((ghost->traits & MF_CLOAKED) && sc_energy(ghost) == 25);

@@ -21,7 +21,9 @@ void G_InitGame(void) {
     sc_init_combat();
     for(int i=0;i<SC_TYPES;i++) {
         const sc_unit_t *u=&sc_units[i];
-        bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5);
+        /* Interceptors and scarabs have no orders of their own but fly and run. */
+        bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5||
+            i+1==MT_INTERCEPTOR||i+1==MT_SCARAB);
         actors[i]=(mobjtype_t){.id=i+1,.native_type_id=i,.name=u->name,.sprite_name=sc_names[i],
             .traits=MF_SELECTABLE|MF_RENDERABLE|(mobile?MF_MOBILE:0)|((u->flags&4)?MF_FLY:0)|
                 ((u->flags&8)?MF_HARVESTER:0)|((u->flags&0x1000)?MF_RESOURCE_BASE:0)|
@@ -37,6 +39,9 @@ void G_InitGame(void) {
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
     actors[MT_REFINERY-1].build_on_type=actors[MT_EXTRACTOR-1].build_on_type=
         actors[MT_ASSIMILATOR-1].build_on_type=MT_VESPENE_GEYSER;
+    /* Siege mode and back are one deploy each way. */
+    actors[MT_SIEGE_TANK-1].deploy.state=SC_SIEGE_STATE; actors[MT_SIEGE_TANK-1].deploy.type=MT_SIEGE_MODE;
+    actors[MT_SIEGE_MODE-1].deploy.state=SC_UNSIEGE_STATE; actors[MT_SIEGE_MODE-1].deploy.type=MT_SIEGE_TANK;
 }
 void sc_set_harvest_state(int type,int state) {
     if(type>0&&type<=SC_TYPES) actors[type-1].harvest.state_id=state;

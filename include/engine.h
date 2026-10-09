@@ -579,6 +579,7 @@ enum { SPLASH_NONE, SPLASH_RADIAL, SPLASH_ENEMY, SPLASH_AIR };
 /* One weapon. Range and radii are map cells. */
 typedef struct {
     float range;
+    float min_range; /* Targets nearer than this are out of reach (a sieged tank's dead zone). */
     int damage;
     int versus[3]; /* Damage by victim armor_class 0..2; zero uses damage. */
     int upgrade_damage[2];
@@ -727,6 +728,15 @@ struct gameinfo_s {
     /* Optional: per-tic rules of a live actor before it moves (StarCraft
      * shields, energy and cloaking upkeep). */
     void (*mobj_ticker)(struct mobj_s *mobj);
+    /* Optional: an attack the game makes itself (StarCraft Carriers launch
+     * interceptors, Reavers scarabs). True when it took the attack; the
+     * engine then only starts the cooldown. */
+    bool (*attack)(struct mobj_s *attacker, const weapondef_t *weapon, struct mobj_s *target);
+    /* Optional: cells added to a weapon's reach (a StarCraft Bunker's +1). */
+    float (*range_bonus)(const struct mobj_s *attacker, const weapondef_t *weapon);
+    /* Optional: further teams (sight bits, 0x40000000 >> team) that see what
+     * this mobj sees (StarCraft Parasite). */
+    uint32_t (*sight_teams)(const struct mobj_s *mobj);
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */
@@ -2155,8 +2165,9 @@ typedef struct AiGameInterface {
      * ships to the coast and soldiers onto transports; false lets the
      * engine march it. */
     bool (*dispatch)(level_t *map, int owner, mobj_t *const *wave, int count, mobj_t *goal);
-    /* Optional. Orders the engine cannot give, once per think: spells in
-     * battle, transports ferrying a wave. */
+    /* Optional. Orders the engine cannot give, once per think after the
+     * waves: spells in battle, transports ferrying a wave, sieging, loading
+     * Bunkers, refilling hangars. */
     void (*tactics)(level_t *map, int owner, mobj_t *const *units, int unit_count);
 } AiGameInterface;
 

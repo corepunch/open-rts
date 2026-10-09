@@ -400,6 +400,15 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
     if (!goal) { team->attack_wave_timer_ms = interval; return; }
 
     int sent = idle_count < max_size ? idle_count : max_size;
+    /* Idle casters and healers ride along; they do not make a wave ready. */
+    for (int i = 0; i < unit_count && sent < max_size && sent < unit_count; ++i) {
+        mobj_t *u = units[i];
+        AiUnitInfo info;
+        if (!ai_unit_alive(u) || u->owner != owner || !(u->traits & MF_MOBILE) || (u->traits & MF_ATTACK) ||
+            ai_is_busy(ctx, u) || P_HasMoveOrder(u)) continue;
+        P_AiUnitInfo(ctx, u->type_id, &info);
+        if (info.roles & AI_ROLE_SUPPORT) idle[sent++] = u;
+    }
     if (!ctx->game->dispatch || !ctx->game->dispatch(map, owner, idle, sent, goal)) {
         fvec2_t target = fixed3_xy_to_fvec2(goal->core.position);
         for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;

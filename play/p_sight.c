@@ -90,6 +90,7 @@ void P_UpdateSight(void) {
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
         ivec2_t origin = {actor->core.position.x >> FIXED_FRAC_BITS, actor->core.position.y >> FIXED_FRAC_BITS};
         uint32_t mask = UINT32_C(0x40000000) >> actor->team;
+        if (gameinfo && gameinfo->sight_teams) mask |= gameinfo->sight_teams(actor);
         bool airborne = actor->info->sight.airborne || (actor->traits & MF_FLY);
         isize2_t foot = actor->info->footprint;
         if (actor->info->sight_from_footprint && foot.w > 0 && foot.h > 0) {
