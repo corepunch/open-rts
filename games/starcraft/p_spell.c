@@ -190,11 +190,23 @@ static void nuke(mobj_t *ghost, fvec2_t at) {
         for (mobj_t *v = (mobj_t *)th_; v; v = NULL) \
             if (v != (caster) && body(v) && near(v, at, radius))
 
+/* Stands still and holds fire this tic. */
+static void hold(mobj_t *mo) {
+    P_ClearMove(mo);
+    mo->movement.goal = where(mo);
+    mo->movement.order_id = 0;
+    mo->movement.order_arrived = true;
+    mo->waypoints = (waypoints_t){0};
+    mo->attack.target = NULL;
+    if (mo->attack.cooldown_left_ms < 2000 / RTS_TICRATE) mo->attack.cooldown_left_ms = 2000 / RTS_TICRATE;
+    mo->core.momentum = fixed3_zero();
+}
+
 /* The effect itself, in range, energy paid. */
 static void cast_now(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
     caster->sc.energy -= energy_cost(tech);
     switch (tech) {
-    case SC_TECH_LOCKDOWN: target->sc.timers[SC_TIMER_LOCKDOWN] = SC_LOCKDOWN_FRAMES; break;
+    case SC_TECH_LOCKDOWN: target->sc.timers[SC_TIMER_LOCKDOWN] = SC_LOCKDOWN_FRAMES; hold(target); break;
     case SC_TECH_DEFENSIVE_MATRIX:
         target->sc.matrix = SC_MATRIX_HP;
         target->sc.timers[SC_TIMER_MATRIX] = SC_MATRIX_FRAMES;
@@ -320,18 +332,6 @@ void sc_interrupt(mobj_t *unit) {
         if (partner && partner->sc.order.kind == SC_ORDER_MERGE) partner->sc.order = (sc_order_t){0};
     }
     unit->sc.order = (sc_order_t){0};
-}
-
-/* Stands still and holds fire this tic. */
-static void hold(mobj_t *mo) {
-    P_ClearMove(mo);
-    mo->movement.goal = where(mo);
-    mo->movement.order_id = 0;
-    mo->movement.order_arrived = true;
-    mo->waypoints = (waypoints_t){0};
-    mo->attack.target = NULL;
-    if (mo->attack.cooldown_left_ms < 2000 / RTS_TICRATE) mo->attack.cooldown_left_ms = 2000 / RTS_TICRATE;
-    mo->core.momentum = fixed3_zero();
 }
 
 static void irradiate(mobj_t *host) {
