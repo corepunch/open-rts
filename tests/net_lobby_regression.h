@@ -44,6 +44,9 @@ static int open_browser(bool host) {
     G_InitGame(); P_InitThinkers(); V_AllocScreen(640, 480);
     CHECK(M_Init(&app, root)); M_StartControlPanel(&app);
 #ifdef RTS_GAME_STARCRAFT
+    /* The title comes first; Escape goes on to the main menu. */
+    SDL_Event skip = {.type = SDL_KEYDOWN};
+    skip.key.keysym.sym = SDLK_ESCAPE; M_Responder(&app, &skip, false);
     CHECK(click(4) && click(9));
     (void)host;
 #else

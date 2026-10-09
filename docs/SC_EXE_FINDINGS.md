@@ -384,9 +384,9 @@ the three transmissions. Text is scrollable; Replay resets its scroll.
 Portrait/voice timing, episode title cards and tutorial branching are not yet
 played by a briefing interpreter.
 
-Dialog flag `0x10` enables the responsive bounds at +54..60. Following PyMS's
-`responsive_box`, the latter pair supplies the extent relative to the response
-origin. Example: briefing Start control 13 has artwork `(417,240,217,240)`,
+Dialog flag `0x10` enables the responsive bounds at +54..60. They are
+inclusive left, top, right, bottom (corrected 2026-10-09; an earlier reading
+took the latter pair as an extent, which let Start reach 39px over Cancel). Example: briefing Start control 13 has artwork `(417,240,217,240)`,
 response `(18,39,202,160)`, text offset `(60,140)`. Using artwork bounds for
 hit testing lets Start intercept Cancel. The shared menu now has independent
 hit bounds. Newlines in campaign labels must survive decoding. Explicit text
@@ -1193,3 +1193,133 @@ env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
 ```
 
 Socket tests require loopback permission even with SDL's dummy video driver.
+
+## Single-player glue screens (2026-10-09)
+
+Asset/runtime audit only; no executable disassembly. Screen to dialog and
+theme, as now loaded:
+
+| Screen | Dialog | Theme |
+| --- | --- | --- |
+| Main menu | `glumain.bin` | `palmm` |
+| Registry, new ID | `glulogin.bin`, `glunewch.bin` | `palnl` |
+| Campaign select | `install/rez/glucmpgn.bin` | `palcs` |
+| Terran, Zerg, Protoss briefing | `glurdyt.bin`, `glurdyz.bin`, `glurdyp.bin` | `palrt`, `palrz`, `palrp` |
+| Load Saved | `install/rez/gluload.bin` | `palnl` |
+| Play Custom | `install/rez/glucustm.bin` | `palnl` |
+| Ok / Ok-Cancel popups | `glupok.bin`, `glupokcancel.bin` | the covered screen's theme |
+
+The briefing was previously always `glurdyt`; the campaign folder now picks
+the race. The three share control ids. `glurdyz` adds an unlabelled button 1.
+
+Responsive areas are inclusive LTRB. Every type-14 button with flag `0x10`
+stores `0,0,w-1,h-1`, and the field at +74/+76 repeats right/bottom for those
+buttons but not for the campaign races, so it is not used. Lists, fields and
+comboboxes set flag `0x10` with all zeros and answer on their whole rect.
+
+Popups are 360×200 and the theme folders each hold three 360×200 PCXs:
+`pOPopup` (Ok), `pDPopup` (Ok/Cancel, by elimination) and `pEPopup` (entry,
+for `glupedit`). The size match is the evidence; the retail selection routine
+was not disassembled.
+
+Play Custom lists the same extracted melee CHKs as Create Game, flat. The
+first playable OWNR slot is the player; the rest are Computer or Closed
+(gluall.tbl 129/131), each with a Zerg/Terran/Protoss/Random race. The CHK
+loader rewrites OWNR to 6/5/0 and SIDE in place, so slot numbers, start
+locations and the console player are unchanged, then spawns a melee start
+for every open slot. OWNR 5 owners get the shared computer player. The info
+rows use gluall.tbl 36/38 (Computer Slots, Human Slots). gluall.tbl 54 refuses
+a game with no computer opponent.
+
+Load Saved lists engine `.sav` files from the user directory and any retail
+`.snx` under `save/`. Loading is not implemented and says so; Delete asks
+gluall.tbl 22 first.
+
+The briefing script's portrait and timing actions are still not played. The
+transmission text holds five seconds and then rises a line every 2.5 s;
+Replay restarts it.
+
+Glue not yet used at runtime: the `pal{t,z,p}{a,b,c}` loading pictures,
+every theme's `arrow.grp` cursor, `iscore.grp` and `scorebox.pcx`, and the
+Battle.net, modem and chatroom families. (The score and title screens are
+covered below.)
+`test_glue.c` still decodes all of them.
+
+## Animations, research, triggers and the in-level screens (2026-10-09)
+
+Asset and reference audit; no executable disassembly. References: pinned
+PyMS `IScriptBIN.py` (opcode table, `ENTRY_TYPES`), `TRG.py` (player ids,
+briefing actions), and Stargus's decompiled `doc/iscript.txt` and unit Lua.
+
+### IScript compiler corrections
+
+- Header entry counts follow PyMS `ENTRY_TYPES` (type 15 has 16 entries, 21
+  has 22, 23 has 24, ...). The previous table, from Stargus's Kaitai spec, was
+  one short and dropped AlmostBuilt (SCV mining), WarpIn and StarEditInit.
+- Opcode lengths: `sproluselo` (0x15) is 3 bytes; 0x3F..0x44 are 2, 2, 1, 4, 0, 0.
+- A turning image's playfram is a set of 17 plus the facing slot. After
+  `setfldirect`, or off a multiple of 17, it names one picture. Turning GRPs
+  now carry one single-direction frame per picture after the turning sets, so
+  the Marine's death (0xdd..0xe4) shows its own eight pictures.
+- A script that waits before its first playfram keeps the idle pose (Marine
+  walking, SCV mining start in set 4 / set 0).
+- Attack scripts put A_Attack on the frame after their first attack opcode
+  (`attack`, `attackwith`, `useweapon`, `attackmelee`, `domissiledmg`,
+  `dogrddamage`); scripts with none strike on their first frame as before.
+- Death (entry 1) is compiled. Overlay opcodes (`imgol` family) and sprite
+  opcodes (`lowsprul`, `sprol`, ...) become extra sprites, `sc-img-NNN`, whose
+  Init scripts follow the death: Marine → tmaDeath remnant, SCV/Probe →
+  explosion, Drone → own frames then corpse, Terran buildings → explosion then
+  rubble. The original plays overlay and remnant at once; here they run one
+  after the other. The chain ends in S_NULL, which removes the unit.
+- Workers mine with AlmostBuilt (entry 15), set as the engine's harvest state.
+
+### Research
+
+`tools/sc_catalog native upgrades` writes `upgrades.inc` from upgrades.dat
+(46 rows: base and per-level costs and times, icon, race, maximum level).
+`units.inc` gains armor, armor upgrade, weapon upgrade, weapon damage bonus
+and the build and destroy scores. Researching buildings are not in the DAT
+files and follow Stargus's command cards; add-on and Brood War research are
+left out. Each level is its own product (ui id 1000 + upgrade×4 + level). A
+hit deals weapon damage + bonus × weapon level − (armor + armor level), at
+least 1, through a new optional `gameinfo_t.hit_damage`. Levels live in
+`level.upgrades[upgrade][owner].weapon`, so they are saved and hashed.
+
+### Triggers
+
+Player ids now follow PyMS: 13 Current Player, 14 Foes, 15 Allies, 16 Neutral
+Players, 17 All Players, 18..21 Forces, 26 Non Allied Victory Players. The
+runtime used ids one lower. Each trigger also runs once per owning player
+with that player as the current player, as retail copies triggers per owner.
+Blizzard's default melee triggers ("current player commands at most 0
+buildings: Defeat") had fired at once on Road War. Outcomes, messages and
+camera actions apply only to the local player's copy.
+
+### Screens
+
+- In level: gamemenu, options, spd_dlg, snd_dlg, video, savegame, loadgame,
+  objctdlg, helpmenu, help (help_txt.tbl or tips.tbl), abrtmenu, restart,
+  quit2mnu, quit — on `dlgs/<race>.grp` with tiled `dlgs/tile.grp` panels.
+  Restart, Quit Mission and Exit work; Save, Load and the option controls are
+  visual only.
+- Result: wmission (Victory / Continue Playing, or the draw line) or lmission,
+  then gluscore on `pal<race><v|d>` with `score<race><v|d>/pmain.pcx` and
+  `pinset.pcx` rows. A campaign win briefs the next mission, a campaign loss
+  briefs the same one, other games end. Score inputs are the mission's death
+  and kill counters, units.dat scores and stock changes (rises are income,
+  falls are spending); "produced" includes starting units. This is not the
+  retail formula, which has not been disassembled.
+- Title: titledlg over `title/title.pcx` with `title/tfont.pcx`, once, for
+  three seconds or until a key or click.
+- Briefing: the MBRF script runs (Wait, Show/Hide Portrait, Transmission,
+  Talking Portrait, Text Message). Portraits are portdata.dat's idle (`fid`)
+  and talking (`tlk`) SMKs at twice their 60×56 size in frames 15..18; the
+  voice WAVs are not played.
+
+`tests/starcraft/test_gameplay.c` plays Road War against a Zerg computer slot
+and checks the compiled animations, mining, construction, training, research
+costs and effect, combat damage, death and removal, structure cells freed,
+victory and defeat dialogs, the score screen, every in-level dialog route,
+the campaign result flow and the Terran 01 briefing timeline.
+

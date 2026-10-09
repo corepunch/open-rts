@@ -693,6 +693,9 @@ struct gameinfo_s {
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
     const struct soundinfo_s *sound; /* NULL: the game has no sounds yet. */
     void (*draw_fog)(app_t *app, const struct level_s *map, const tileset_t *tileset);
+    /* Optional: a direct hit's final damage, after versus tables (weapon and
+     * armor upgrades). NULL keeps the damage as is. */
+    int (*hit_damage)(const struct mobj_s *attacker, const struct mobj_s *target, int damage);
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

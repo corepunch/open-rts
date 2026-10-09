@@ -2,12 +2,18 @@
 #include <stdio.h>
 #include <string.h>
 const sc_unit_t sc_units[SC_TYPES] = {
-#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown,supply,used) [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown,supply,used},
+#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown,supply,used,armor,armor_up,weapon_up,bonus,build_score,destroy_score) \
+    [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,damage,range,cooldown,supply,used,armor,armor_up,weapon_up,bonus,build_score,destroy_score},
 #include "units.inc"
 #undef SC_UNIT
 };
+const sc_upgrade_t sc_upgrades[SC_UPGRADES] = {
+#define SC_UPGRADE(id,name,minerals,mf,gas,gf,time,tf,icon,race,max) [id] = {name,minerals,mf,gas,gf,time,tf,icon,race,max},
+#include "upgrades.inc"
+#undef SC_UPGRADE
+};
 char sc_names[SC_TYPES][16];
-const char *sprnames[SC_TYPES];
+const char *sprnames[SC_SPRITES];
 state_t states[SC_STATES];
 mobjinfo_t mobjinfo[NUMMOBJTYPES];
 gameinfo_t game_info = {

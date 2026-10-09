@@ -1,5 +1,6 @@
 #include "t_local.h"
 #include "starcraft.h"
+#include "sc_local.h"
 #include <stdlib.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft mission",#c)
 
@@ -26,7 +27,7 @@ static int write_map(const char *path, const uint8_t owners[12], const uint8_t *
 
 static uint8_t *blank_trigger(void) {
     uint8_t *t = calloc(1, 2400);
-    if (t) t[2372 + 16] = 1;
+    if (t) t[2372 + 17] = 1; /* All Players */
     return t;
 }
 
@@ -91,18 +92,17 @@ int main(void) {
     CHECK(!write_map(victory, owners, trig));
     CHECK(G_DoLoadLevel(victory, &level));
     ticks(1, &(hudtext_t){0});
-    CHECK(sc_mission_result() == 1 && menuactive && button(1) && button(2));
+    /* Without the menus (test_gameplay drives those) a result ends the session. */
+    CHECK(sc_mission_result() == 1 && menuleave && !menuactive);
     ticks(5, &(hudtext_t){0});
     CHECK(sc_mission_result() == 1);
-    CHECK(!press(1) && menuleave && !menuactive);
     unload();
 
     netgame = true;
     consoleplayer = 0;
     CHECK(G_DoLoadLevel(victory, &level));
     ticks(1, &(hudtext_t){0});
-    CHECK(sc_mission_result() == 1 && button(1) && !button(2));
-    CHECK(!press(1) && menuleave);
+    CHECK(sc_mission_result() == 1 && menuleave);
     free(trig);
     unload();
 
@@ -141,8 +141,7 @@ int main(void) {
     CHECK(human && enemy);
     P_DamageMobj(human, enemy, human->hp);
     ticks(1, &(hudtext_t){0});
-    CHECK(sc_mission_result() == 2 && button(2) && button(3) && !button(1));
-    CHECK(!press(3) && menuleave);
+    CHECK(sc_mission_result() == 2 && menuleave);
     unload();
 
     memset(owners, 0, sizeof(owners));
@@ -155,6 +154,39 @@ int main(void) {
     ticks(3, &(hudtext_t){0});
     CHECK(sc_mission_result() == 0 && !menuactive);
     unload();
+
+    /* Play Custom: the player and a Zerg computer on Road War, then the same
+     * map with the computer's slot closed. */
+    {
+        static const char road[] = "data/STARCRAFT/maps/(2)road war.scm/staredit/scenario.chk";
+        int kinds[8] = {SC_SLOT_HUMAN, SC_SLOT_COMPUTER, SC_SLOT_CLOSED, SC_SLOT_CLOSED,
+                        SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED};
+        int races[8] = {2, 1};
+        for (int pass = 0; pass < 2; ++pass) {
+            if (pass) kinds[1] = SC_SLOT_CLOSED;
+            sc_set_custom_slots(kinds, races);
+            P_InitThinkers();
+            CHECK(G_DoLoadLevel(road, &level));
+            CHECK(P_LoadThings(level.map_path) > 0);
+            int nexus = 0, hatchery = 0, other = -1;
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                if (th->function != P_MobjThinker) continue;
+                const mobj_t *mo = (const mobj_t *)th;
+                if (mo->type_id == MT_NEXUS && mo->owner == consoleplayer) ++nexus;
+                if (mo->type_id == MT_HATCHERY) { ++hatchery; other = mo->owner; }
+            }
+            CHECK(nexus == 1 && hatchery == (pass ? 0 : 1));
+            CHECK(level.player_resources[consoleplayer][0] == 50);
+            if (!pass) {
+                CHECK(other != consoleplayer && sc_owner_kind(other) == 5);
+                CHECK(G_AiInterface()->player_level(&level, other) == AI_LEVEL_NORMAL);
+                CHECK(G_AiInterface()->player_level(&level, consoleplayer) == AI_LEVEL_NONE);
+            }
+            P_FreeThinkers();
+            unload();
+        }
+        sc_set_custom_slots(NULL, NULL);
+    }
 
     level.player_resources[0][0] = 10000;
     consoleplayer = 0;

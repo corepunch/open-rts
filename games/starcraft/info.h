@@ -104,9 +104,11 @@ typedef struct mobjinfo_s {
     int raisestate;
     fixed_t spawnz;
 } mobjinfo_t;
-enum { S_NULL, SC_TYPES = 228, NUMMOBJTYPES = 229, SC_STATES = 8192 };
+/* Sprites past the unit types are death overlays and remnants (images.dat). */
+enum { S_NULL, SC_TYPES = 228, NUMMOBJTYPES = 229, SC_STATES = 16384, SC_EXTRA_SPRITES = 96,
+       SC_SPRITES = SC_TYPES + SC_EXTRA_SPRITES };
 extern state_t states[SC_STATES];
 extern mobjinfo_t mobjinfo[NUMMOBJTYPES];
-extern const char *sprnames[SC_TYPES];
+extern const char *sprnames[SC_SPRITES];
 extern gameinfo_t game_info;
 #endif

@@ -69,13 +69,20 @@ bool sc_decode_grp(const blob_t *file,const uint32_t *palette,bool turns,sprites
     }
     /* Native GRPs store north..south clockwise (17 images); renderer slots
      * run counterclockwise. This is sprite facing, never a world-axis flip. */
+    /* A turning sheet's sets of 17 are followed by one single-direction
+     * frame per picture, for script frames that do not turn (deaths). */
     int frames=turns?(count+16)/17:count;
-    if(!R_InitSpriteDef(out,frames,turns?32:1)) goto bad;
+    if(!R_InitSpriteDef(out,turns?frames+count:frames,turns?32:1)) goto bad;
     for(int f=0;f<frames;f++) for(int d=0;d<(turns?32:1);d++) {
         int facing=(32-d)%32,slot=facing<=16?facing:32-facing;
         int lump=turns?f*17+slot:f;
         if(lump>=count) continue;
         if(!R_InstallSpriteLump(out,f,d,lump,turns&&facing>16)) goto bad;
+    }
+    if(turns) for(int lump=0;lump<count;lump++) {
+        spriteframe_t *exact=&out->spritedef.spriteframes[frames+lump];
+        free(exact->directions); exact->directions=NULL; exact->rotations=0;
+        if(!R_AllocSpriteDirections(exact,1)||!R_InstallSpriteLump(out,frames+lump,0,lump,false)) goto bad;
     }
     return true;
 bad:
@@ -136,12 +143,20 @@ static const char *tbl_string(const blob_t *tbl,unsigned index) {
 }
 
 /* Compile the visual portion of an IScript path into the shared state table.
- * Sound, combat and overlay opcodes are not simulated by this basic catalog. */
+ * Opcode lengths and header entry counts are PyMS IScriptBIN.py's. Sound,
+ * movement and most combat opcodes are skipped; the first attack opcode puts
+ * A_Attack on the frame it precedes. */
 static int next_state;
 static const uint8_t oplen[69]={
-    2,2,1,1,2,1,2,2,4,4,2,2,0,4,4,4,4,4,2,4,4,4,0,1,2,255,4,0,255,0,3,1,
-    1,0,1,1,1,1,0,0,1,1,0,1,1,0,0,0,0,1,0,0,1,2,0,2,1,2,4,6,6,2,0,0,2,0,0,1,2
+    2,2,1,1,2,1,2,2,4,4,2,2,0,4,4,4,4,4,2,4,4,3,0,1,2,255,4,0,255,0,3,1,
+    1,0,1,1,1,1,0,0,1,1,0,1,1,0,0,0,0,1,0,0,1,2,0,2,1,2,4,6,6,2,0,2,2,1,4,0,0
 };
+enum {
+    SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_WALKING=11,
+    SC_ALMOST_BUILT=15, SC_STAREDIT_INIT=23,
+};
+/* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. */
+enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6 };
 static unsigned animation_start(const blob_t *s,unsigned id,int anim) {
     if(s->size<6) return 0;
     size_t table=read_u32_le(s->bytes+2)==0?read_u16_le(s->bytes):0;
@@ -151,15 +166,33 @@ static unsigned animation_start(const blob_t *s,unsigned id,int anim) {
         if(key!=id) continue;
         if(off+8u>s->size||memcmp(s->bytes+off,"SCPE",4)) return 0;
         unsigned type=s->bytes[off+4];
-        unsigned count=type<=1?2:type==2?4:type<=13?14:type<=15?15:type<=21?21:type==23?23:type==24?25:type<=29?27:0;
+        unsigned count=type<=1?2:type==2?4:type<=13?14:type<=15?16:type<=21?22:type==23?24:
+                       type==24?26:type<=29?28:0;
         if(anim<0||(unsigned)anim>=count||off+8u+count*2>s->size) return 0;
         return read_u16_le(s->bytes+off+8+anim*2);
     }
     return 0;
 }
-static void animation(const blob_t *script,unsigned start,int type,int head,bool turns,int group,int numframes) {
-    if(!start||start>=script->size) return;
-    unsigned at=start,stack[16],sp=0,visited[128]; int ids[128],n=0,last=-1,frame=0;
+/* A turning GRP's playfram argument is a multiple of 17 plus the facing slot.
+ * After setfldirect, or off a multiple of 17, it names one picture: those are
+ * the extra one-direction frames that follow the turning ones. */
+static int script_frame(const spritesheet_t *sheet,bool turns,unsigned arg,bool fixed) {
+    if(arg>=(unsigned)sheet->numlumps) return -1;
+    if(!turns) return (int)arg;
+    int turning=(sheet->numlumps+16)/17;
+    return !fixed&&arg%17==0?(int)arg/17:turning+(int)arg;
+}
+typedef struct { int image, sprite; } sc_trail_t; /* What a death leaves: overlay and remnant. */
+/* Returns the last state compiled, or -1. A death or effect ends in S_NULL
+ * unless the caller chains a trail onto it. */
+/* A script that waits before its first playfram keeps showing frame, the
+ * picture the unit had (walking and attacks start from the idle pose). */
+static int animation(const blob_t *script,unsigned start,int sprite,int head,bool turns,int group,
+                     const spritesheet_t *sheet,sc_trail_t *trail,int frame) {
+    if(!start||start>=script->size) return -1;
+    bool once=group==SC_GROUP_DEATH,fixed=false,strike=false,struck=false;
+    (void)once;
+    unsigned at=start,stack[16],sp=0,visited[128]; int ids[128],n=0,last=-1;
     for(int step=0;step<2048 && at<script->size;step++) {
         unsigned here=at,op=script->bytes[at++];
         if(op>=sizeof(oplen)) break;
@@ -167,25 +200,98 @@ static void animation(const blob_t *script,unsigned start,int type,int head,bool
         if(len==255) { if(at>=script->size) break; len=1+script->bytes[at]*2; }
         if(len>script->size-at) break;
         const uint8_t *arg=script->bytes+at; at+=len;
-        if(op==0||op==1) { frame=read_u16_le(arg); if(turns) frame/=17; if(frame>=numframes) break; }
+        if(op==0||op==1) { int f=script_frame(sheet,turns,read_u16_le(arg),fixed); if(f<0) break; frame=f; }
+        else if(op==0x34) fixed=true;
         else if(op==5||op==6) {
-            for(int i=0;i<n;i++) if(visited[i]==here) { if(last>=0) states[last].nextstate=group==3?1+type*2:ids[i]; return; }
+            for(int i=0;i<n;i++) if(visited[i]==here) {
+                if(last>=0) states[last].nextstate=group==SC_GROUP_ATTACK?1+sprite*2:ids[i];
+                return last;
+            }
             if(n==128||next_state>=SC_STATES) break;
             int id=n?next_state++:head;
             int ticks=arg[0]; if(ticks<1) ticks=1;
             /* Native script waits count 24 Hz frames; engine ticks are 30 Hz. */
             ticks=(ticks*RTS_TICRATE+12)/24;
-            states[id]=(state_t){.sprite=type,.frame=frame,.tics=ticks,.group=group,.nextstate=head};
-            states[id].action=group==3?(n==0?A_Attack:NULL):group==2?A_Chase:A_Look;
+            actionf_p1 action=group==SC_GROUP_ATTACK?(strike?A_Attack:NULL):group==SC_GROUP_WALK?A_Chase:
+                              group==SC_GROUP_IDLE?A_Look:NULL;
+            if(strike) { strike=false; struck=true; }
+            states[id]=(state_t){.sprite=sprite,.frame=frame,.tics=ticks,.group=group,.nextstate=head,.action=action};
             if(last>=0) states[last].nextstate=id;
             visited[n]=here; ids[n++]=id; last=id;
         } else if(op==7) at=read_u16_le(arg);
         else if(op==0x35) { if(sp==16) break; stack[sp++]=at; at=read_u16_le(arg); }
         else if(op==0x36) { if(!sp) break; at=stack[--sp]; }
-        else if(op==0x16||op==0x30) break;
+        else if(op==27||op==28||op==37||op==38||op==40||op==68) strike=true;
+        else if(trail&&(op==8||op==9||op==13||op==14)&&trail->image<0) trail->image=read_u16_le(arg);
+        else if(trail&&(op==15||op==16||op==17||op==19||op==20||op==21||op==66)&&trail->sprite<0)
+            trail->sprite=read_u16_le(arg);
+        else if(op==0x16) break;
+        else if(op==0x30) break;
     }
-    if(last<0 && frame<numframes) states[head].frame=frame;
-    if(last>=0) { states[last].nextstate=group==3?1+type*2:last; if(group!=3) states[last].tics=1; }
+    if(last<0) {
+        if(next_state>=SC_STATES) return -1;
+        states[head]=(state_t){.sprite=sprite,.frame=frame,.tics=1,.group=group,.nextstate=head,
+            .action=group==SC_GROUP_WALK?A_Chase:group==SC_GROUP_IDLE?A_Look:NULL};
+        last=head;
+    }
+    /* Attack scripts without an attack opcode still strike on their first frame. */
+    if(group==SC_GROUP_ATTACK&&!struck) states[head].action=A_Attack;
+    if(group==SC_GROUP_ATTACK) states[last].nextstate=1+sprite*2;
+    else if(once) states[last].nextstate=S_NULL;
+    else { states[last].nextstate=last; states[last].tics=1; }
+    return last;
+}
+
+/* Death overlays (explosions) and remnants (corpses, rubble) are images.dat
+ * entries outside the unit table. Each becomes an extra sprite, decoded once,
+ * and plays its Init script after the death that spawns it. The original runs
+ * an overlay and the remnant side by side; here they follow one another. */
+typedef struct {
+    const char *root;
+    const blob_t *script,*images,*sprites,*names;
+    spritecache_t *cache;
+    unsigned ni,ns;
+} sc_effects_t;
+static sc_effects_t effects;
+static int extra_count,extra_image[SC_EXTRA_SPRITES],extra_head[SC_EXTRA_SPRITES],extra_slot[SC_EXTRA_SPRITES];
+static char extra_names[SC_EXTRA_SPRITES][16];
+static int extra_sprite(const sc_effects_t *e,unsigned image) {
+    for(int k=0;k<extra_count;k++) if(extra_image[k]==(int)image) return k;
+    if(image>=e->ni||extra_count==SC_EXTRA_SPRITES||e->cache->count>=MAX_DECORATION_SPRITES) return -1;
+    const char *grp=tbl_string(e->names,read_u32_le(e->images->bytes+image*4));
+    if(!grp) return -1;
+    cachedsprite_t *slot=&e->cache->entries[e->cache->count];
+    char path[512]; snprintf(path,sizeof(path),"unit/%s",grp);
+    blob_t file={0};
+    bool decoded=sc_read(e->root,path,&file)&&
+        sc_decode_grp(&file,sc_palette,e->images->bytes[e->ni*4+image]!=0,&slot->sprite);
+    W_FreeFile(&file);
+    if(!decoded) { R_FreeSprite(&slot->sprite); return -1; }
+    int k=extra_count++;
+    extra_slot[k]=e->cache->count;
+    snprintf(extra_names[k],sizeof(extra_names[k]),"sc-img-%03u",image);
+    snprintf(slot->name,sizeof(slot->name),"%s",extra_names[k]);
+    e->cache->count++;
+    sprnames[SC_TYPES+k]=extra_names[k];
+    extra_image[k]=(int)image; extra_head[k]=0;
+    return k;
+}
+/* Chains image's Init script after state tail and returns its last state.
+ * A shared copy serves every death it ends; one that a remnant must follow
+ * is compiled again so the chain stays its own. */
+static int effect(const sc_effects_t *e,int tail,unsigned image,bool followed) {
+    int k=extra_sprite(e,image);
+    if(k<0) return tail;
+    if(!followed&&extra_head[k]) { states[tail].nextstate=extra_head[k]; return -1; }
+    if(next_state>=SC_STATES) return tail;
+    const spritesheet_t *sheet=&e->cache->entries[extra_slot[k]].sprite;
+    int head=next_state++;
+    int last=animation(e->script,animation_start(e->script,read_u32_le(e->images->bytes+e->ni*10+image*4),SC_INIT),
+                       SC_TYPES+k,head,e->images->bytes[e->ni*4+image]!=0,SC_GROUP_DEATH,sheet,NULL,0);
+    if(last<0) { next_state--; return tail; }
+    states[tail].nextstate=head;
+    if(!followed) extra_head[k]=head;
+    return last;
 }
 
 /* Native subunit1 + images.dat special-overlay LOL coordinates. Layer
@@ -210,7 +316,8 @@ static bool compose_turrets(const char *root, const blob_t *units, const blob_t 
         if (!no || nf>(locations.size-8)/4) { W_FreeFile(&locations); return false; }
         int tf=states[1+sub*2].frame;
         if (tf<0 || tf>=turret->spritedef.numframes) { W_FreeFile(&locations); return false; }
-        for (int f=0;f<body->spritedef.numframes;f++) {
+        int turning=(body->numlumps+16)/17;
+        for (int f=0;f<turning&&f<body->spritedef.numframes;f++) {
             spriteframe_t *frame=&body->spritedef.spriteframes[f];
             const spriteframe_t *turretframe=&turret->spritedef.spriteframes[tf];
             for (int d=0;d<frame->rotations;d++) {
@@ -250,6 +357,8 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
      * 7-byte row formula is for the expanded Brood War table. */
     unsigned ns=sprites.size==2081?386:130+((unsigned)sprites.size-520)/7;
     next_state=1+SC_TYPES*3;
+    extra_count=0;
+    for(int i=1;i<NUMMOBJTYPES;i++) mobjinfo[i].deathstate=S_NULL;
     int loaded=0; unsigned image_ids[SC_TYPES];
     for(int i=0;i<SC_TYPES;i++) {
         unsigned f=units.bytes[i]; if(f>=nf) goto done;
@@ -274,12 +383,43 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         cache->count++;
         const spritesheet_t *sheet=slot->alias?slot->alias:&slot->sprite;
         unsigned scriptid=read_u32_le(images.bytes+ni*10+im*4);
-        unsigned init=animation_start(&script,scriptid,23);
-        if(!init) init=animation_start(&script,scriptid,0);
-        animation(&script,init,i,1+i*2,turns,0,sheet->spritedef.numframes);
-        animation(&script,animation_start(&script,scriptid,11),i,2+i*2,turns,2,sheet->spritedef.numframes);
-        animation(&script,animation_start(&script,scriptid,2),i,1+SC_TYPES*2+i,turns,3,sheet->spritedef.numframes);
+        unsigned init=animation_start(&script,scriptid,SC_STAREDIT_INIT);
+        if(!init) init=animation_start(&script,scriptid,SC_INIT);
+        unsigned attack=animation_start(&script,scriptid,SC_GND_ATTACK);
+        if(!attack) attack=animation_start(&script,scriptid,SC_AIR_ATTACK);
+        animation(&script,init,i,1+i*2,turns,SC_GROUP_IDLE,sheet,NULL,0);
+        int pose=states[1+i*2].frame;
+        animation(&script,animation_start(&script,scriptid,SC_WALKING),i,2+i*2,turns,SC_GROUP_WALK,sheet,NULL,pose);
+        animation(&script,attack,i,1+SC_TYPES*2+i,turns,SC_GROUP_ATTACK,sheet,NULL,pose);
     }
+    /* Deaths, after every unit has its cache slot: overlays and remnants are
+     * appended past them. Mining loops for the workers. */
+    effects=(sc_effects_t){.root=root,.script=&script,.images=&images,.sprites=&sprites,.names=&names,
+                           .cache=cache,.ni=ni,.ns=ns};
+    for(int i=0;i<SC_TYPES;i++) {
+        const spritesheet_t *sheet=cache->entries[i].alias?cache->entries[i].alias:&cache->entries[i].sprite;
+        unsigned im=image_ids[i],scriptid=read_u32_le(images.bytes+ni*10+im*4);
+        bool turns=images.bytes[ni*4+im]!=0;
+        unsigned death=animation_start(&script,scriptid,SC_DEATH);
+        if(death&&next_state<SC_STATES) {
+            int head=next_state++;
+            sc_trail_t trail={-1,-1};
+            int tail=animation(&script,death,i,head,turns,SC_GROUP_DEATH,sheet,&trail,states[1+i*2].frame);
+            if(tail>=0) {
+                mobjinfo[i+1].deathstate=head;
+                bool remnant=trail.sprite>=0&&(unsigned)trail.sprite<ns;
+                if(trail.image>=0) tail=effect(&effects,tail,(unsigned)trail.image,remnant);
+                if(remnant&&tail>=0) effect(&effects,tail,read_u16_le(sprites.bytes+trail.sprite*2),false);
+            }
+        }
+        unsigned mine=animation_start(&script,scriptid,SC_ALMOST_BUILT);
+        if((sc_units[i].flags&8)&&mine&&next_state<SC_STATES) {
+            int head=next_state++;
+            if(animation(&script,mine,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
+                sc_set_harvest_state(i+1,head);
+        }
+    }
+    game_info.sprite_count=SC_TYPES+extra_count;
     spritesheet_t ramp={0}; char ramp_path[2048];
     snprintf(ramp_path,sizeof(ramp_path),"%s/native/game/tunit.pcx",root);
     if(!W_LoadIndexedSheet(ramp_path,&ramp))goto done;
@@ -296,7 +436,8 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
     }
     R_FreeSprite(&ramp);
     ok=compose_turrets(root,&units,&images,&names,image_ids,cache) && R_BindSprites(cache,&game_info);
-    printf("StarCraft graphics: %d/228 unit entries, %d unique native GRPs, %d visual states.\n",cache->count,loaded,next_state);
+    printf("StarCraft graphics: %d/228 unit entries, %d unique native GRPs, %d death effect sprites, %d visual states.\n",
+           cache->count-extra_count,loaded,extra_count,next_state);
     if(!ok) goto done;
     ok=false;
     const blob_t *chk=map->mission;
@@ -343,15 +484,19 @@ done:
     W_FreeFile(&units); W_FreeFile(&flingy); W_FreeFile(&sprites); W_FreeFile(&images); W_FreeFile(&names); W_FreeFile(&script);
     return ok;
 }
-bool sc_portrait(const char *root,int id,char *path,size_t size) {
+/* portdata.dat is column-major: idle names, then talking names (u32 tbl ids). */
+bool sc_portrait_movie(const char *root,int id,bool talking,char *path,size_t size) {
     blob_t dat={0},tbl={0};bool ok=false;
     if(!sc_read(root,"arr/portdata.dat",&dat)||!sc_read(root,"arr/portdata.tbl",&tbl))goto done;
     unsigned count=(unsigned)(dat.size/12);
     if(id<0||(unsigned)id>=count)goto done;
-    const char *name=tbl_string(&tbl,read_u32_le(dat.bytes+id*4));
+    const char *name=tbl_string(&tbl,read_u32_le(dat.bytes+(talking?count*4:0)+id*4));
     if(!name)goto done;
     snprintf(path,size,"%s/native/portrait/%s0.smk",root,name);
     for(char *p=path+strlen(root)+1;*p;p++){if(*p=='\\')*p='/';*p=(char)tolower((unsigned char)*p);}
     ok=true;
 done:W_FreeFile(&dat);W_FreeFile(&tbl);return ok;
+}
+bool sc_portrait(const char *root,int id,char *path,size_t size) {
+    return sc_portrait_movie(root,id,false,path,size);
 }

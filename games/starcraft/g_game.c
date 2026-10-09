@@ -18,6 +18,7 @@ static void sc_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset
 void G_InitGame(void) {
     sc_init_info();
     game_info.draw_fog=sc_draw_fog;
+    sc_reset_upgrades();
     for(int i=0;i<SC_TYPES;i++) {
         const sc_unit_t *u=&sc_units[i];
         bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5);
@@ -34,6 +35,9 @@ void G_InitGame(void) {
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
     actors[MT_REFINERY-1].build_on_type=actors[MT_EXTRACTOR-1].build_on_type=
         actors[MT_ASSIMILATOR-1].build_on_type=MT_VESPENE_GEYSER;
+}
+void sc_set_harvest_state(int type,int state) {
+    if(type>0&&type<=SC_TYPES) actors[type-1].harvest.state_id=state;
 }
 bool G_DoLoadLevel(const char *path,level_t *out) {
     if(strcmp(M_FileName(path),"catalog")) return sc_load_chk(path,out);

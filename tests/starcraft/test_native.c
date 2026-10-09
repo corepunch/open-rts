@@ -69,7 +69,7 @@ int main(void) {
     CHECK(P_LoadThings("catalog")==228);mobjlist_t units=P_ListMobjs();CHECK(units.count==228);
     tileset_t tiles={0};spritesheet_t fallback={0};spritecache_t cache={0};
     CHECK(W_LoadAssets(root,&level,"sc-000",&tiles,&fallback));CHECK(tiles.count==4844);
-    CHECK(R_InitSprites(root,&level,units.items,units.count,&cache));CHECK(cache.count==228);
+    CHECK(R_InitSprites(root,&level,units.items,units.count,&cache));CHECK(cache.count>228);
     int unique=0;unsigned pictures=0;
     for(int i=0;i<228;i++) {
         char name[16];snprintf(name,sizeof(name),"sc-%03d",i);const spritesheet_t *s=R_CacheLookup(&cache,name);
@@ -94,8 +94,12 @@ int main(void) {
     fvec2_t after=fixed3_xy_to_fvec2(unit->core.position);CHECK(after.x>before.x+1&&after.y>before.y+1);
     P_UpdateSight();CHECK(P_SightBrightness(&level,(ivec2_t){127,127})==16);
     app_t app={.win={640,480},.cell={32,32},.running=true};V_AllocScreen(640,480);
-    CHECK(M_Init(&app,root));menu_t *front=G_ControlPanel(&app,false);CHECK(front&&front->numitems==10);
-    M_StartControlPanel(&app);M_MenuDrawer(front);CHECK(save("/private/tmp/starcraft-main-menu.bmp"));
+    CHECK(M_Init(&app,root));
+    /* The title (titledlg over title.pcx) shows once, then the main menu. */
+    menu_t *front=G_ControlPanel(&app,false);CHECK(front&&M_MenuFind(front,-5)&&front->numitems!=10);
+    M_SetupNextMenu(front);M_MenuDrawer(front);CHECK(save("/private/tmp/starcraft-title.bmp"));
+    front->escape(front);front=currentmenu;CHECK(front&&front->numitems==10);
+    CHECK(G_ControlPanel(&app,false)==front);M_MenuDrawer(front);CHECK(save("/private/tmp/starcraft-main-menu.bmp"));
     menuitem_t *start=M_MenuFind(front,3);CHECK(start&&start->routine);
     start->routine(front,start,MA_ACTIVATE);CHECK(menuactive&&!menumap&&currentmenu!=front);
     CHECK(!font_colors(M_MenuFind(currentmenu,8)->font,"data/STARCRAFT/native/glue/palnl/tfont.pcx"));
@@ -108,9 +112,65 @@ int main(void) {
     next=M_MenuFind(currentmenu,4);next->routine(currentmenu,next,MA_ACTIVATE);
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-campaign.bmp"));
     CHECK(!font_colors(M_MenuFind(currentmenu,7)->font,"data/STARCRAFT/install/glue/palcs/tfont.pcx"));
+    {
+        menu_t *campaign=currentmenu;
+        /* Load Saved: gluload's list, with Ok and Delete off until a row is chosen. */
+        next=M_MenuFind(campaign,5);next->routine(campaign,next,MA_ACTIVATE);
+        CHECK(currentmenu!=campaign&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Save Games"));
+        CHECK(M_MenuFind(currentmenu,6)->kind==MI_LIST);
+        if(!M_MenuFind(currentmenu,6)->rows)CHECK(!M_MenuFind(currentmenu,4)->enabled&&!M_MenuFind(currentmenu,7)->enabled);
+        M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-load.bmp"));
+        currentmenu->escape(currentmenu);CHECK(currentmenu==campaign);
+        /* Play Custom: glucustm with the player, computer slots and races. */
+        next=M_MenuFind(campaign,10);next->routine(campaign,next,MA_ACTIVATE);
+        menu_t *custom=currentmenu;
+        CHECK(custom!=campaign&&!strcmp(M_MenuFind(custom,65535)->text,"Create"));
+        menuitem_t *maps=M_MenuFind(custom,5);CHECK(maps->kind==MI_LIST&&maps->rows>0&&maps->value==0);
+        int road=-1;for(int i=0;i<maps->rows;i++)if(!strcmp(maps->row(maps,i),"(2)road war.scm"))road=i;
+        CHECK(road>=0);
+        custom->itemOn=(int)(maps-custom->items);
+        SDL_Event key={.type=SDL_KEYDOWN};key.key.keysym.sym=SDLK_DOWN;
+        for(int i=0;i<road;i++)CHECK(M_MenuResponder(custom,&app,&key));
+        CHECK(maps->value==road&&!strcmp(M_MenuFind(custom,7)->text,"Road War"));
+        CHECK(!strcmp(M_MenuFind(custom,37)->text,"Computer Slots:")&&!strcmp(M_MenuFind(custom,137)->text,"1"));
+        CHECK(M_MenuFind(custom,20)->visible&&M_MenuFind(custom,20)->kind==MI_STATIC);
+        CHECK(M_MenuFind(custom,21)->visible&&M_MenuFind(custom,21)->kind==MI_DROPDOWN);
+        CHECK(!strcmp(M_MenuFind(custom,21)->text,"Computer")&&!M_MenuFind(custom,22)->visible);
+        CHECK(M_MenuFind(custom,29)->visible&&M_MenuFind(custom,29)->rows==4);
+        M_MenuDrawer(custom);CHECK(save("/private/tmp/starcraft-custom.bmp"));
+        /* Closing the only computer is refused in a native glupok popup. */
+        menuitem_t *seat=M_MenuFind(custom,21);seat->value=1;seat->routine(custom,seat,MA_CHANGE);
+        CHECK(!M_MenuFind(custom,29)->visible);
+        next=M_MenuFind(custom,12);next->routine(custom,next,MA_ACTIVATE);
+        CHECK(currentmenu!=custom&&!menumap&&M_MenuFind(currentmenu,2)->prose);
+        CHECK(strstr(M_MenuFind(currentmenu,2)->prose,"computer opponent"));
+        M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-popup.bmp"));
+        next=M_MenuFind(currentmenu,1);next->routine(currentmenu,next,MA_ACTIVATE);CHECK(currentmenu==custom);
+        seat->value=0;seat->routine(custom,seat,MA_CHANGE);
+        next=M_MenuFind(custom,12);next->routine(custom,next,MA_ACTIVATE);
+        CHECK(!menuactive&&menumap&&strstr(menumap,"road war"));
+        menumap=NULL;M_SetupNextMenu(campaign);
+        /* Each race has its own briefing screen and palette; Start's planet
+         * no longer reaches over Cancel. */
+        next=M_MenuFind(campaign,8);next->routine(campaign,next,MA_ACTIVATE);
+        CHECK(currentmenu!=campaign&&M_MenuFind(currentmenu,1));
+        CHECK(!font_colors(M_MenuFind(currentmenu,65525)->font,"data/STARCRAFT/native/glue/palrz/tfont.pcx"));
+        M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-briefing-zerg.bmp"));
+        currentmenu->escape(currentmenu);CHECK(currentmenu==campaign);
+    }
     next=M_MenuFind(currentmenu,7);CHECK(next&&next->routine);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(M_MenuFind(currentmenu,65525)->prose&&strstr(M_MenuFind(currentmenu,65525)->prose,"Train 10 Marines"));
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-briefing.bmp"));
+    {
+        menuitem_t *start=M_MenuFind(currentmenu,13),*cancel=M_MenuFind(currentmenu,14);
+        SDL_Event press={.type=SDL_MOUSEBUTTONDOWN};press.button.button=SDL_BUTTON_LEFT;
+        press.button.x=cancel->rect.x+cancel->rect.w/2;press.button.y=cancel->rect.y+2;
+        CHECK(M_MenuResponder(currentmenu,&app,&press)&&currentmenu->held==cancel);
+        press.button.x=start->rect.x+start->hitbox.x+start->hitbox.w-1;press.button.y=start->rect.y+start->hitbox.y+start->hitbox.h-1;
+        CHECK(start->hitbox.w==185&&start->hitbox.h==122);
+        CHECK(M_MenuResponder(currentmenu,&app,&press)&&currentmenu->held==start);
+        currentmenu->held=NULL;
+    }
     next=M_MenuFind(currentmenu,13);next->routine(currentmenu,next,MA_ACTIVATE);
     CHECK(menumap&&!strcmp(menumap,g_game_default_map)&&!menuactive);
     front=G_ControlPanel(&app,false);CHECK(front&&front->numitems==10);

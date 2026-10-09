@@ -837,6 +837,7 @@ bool P_Attack(mobj_t *attacker) {
     unsigned armor = target->info ? target->info->armor_class : 0;
     if (attacker->info && armor < 3 && attacker->info->attack.versus[armor])
         damage = attacker->info->attack.versus[armor];
+    if (gameinfo->hit_damage && damage > 0) damage = gameinfo->hit_damage(attacker, target, damage);
 #ifdef RTS_GAME_DARK_COLONY
     /* The immediate fallback stands in for a native direct-impact shot. */
     damage = DC_DefendedDamage(target, damage);

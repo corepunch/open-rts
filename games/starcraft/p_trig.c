@@ -105,34 +105,30 @@ static bool allied_to(int self, int other) {
         (level.sight.allies[self] & (UINT32_C(0x40000000) >> other));
 }
 
+/* PyMS TRG.py player ids: 0..11 players, 13 Current Player, 14 Foes,
+ * 15 Allies, 16 Neutral Players, 17 All Players, 18..21 Forces, 26 Non
+ * Allied Victory Players. Each trigger runs once per owning player, so the
+ * current player is always one slot. */
 static bool in_group(const sc_mission_t *m, unsigned group, int p, int current) {
     if (p < 0 || p >= 8) return false;
     if (group < 8) return p == (int)group;
-    if (group >= 17 && group <= 20)
-        return slot_active(m, p) && m->force[p] == (int)group - 17;
-    if (group == 15) return m->owners[p] == 7;
-    if (group == 16) return slot_active(m, p);
-    if (group == 12) {
-        if (current >= 0 && current < 8) return p == current;
-        if (current >= 17 && current <= 20)
-            return slot_active(m, p) && m->force[p] == current - 17;
-        if (current == 16) return slot_active(m, p);
-        if (current == 15) return m->owners[p] == 7;
-        return false;
+    if (group == 13) return p == current;
+    if (group == 16) return m->owners[p] == 7;
+    if (group == 17) return slot_active(m, p);
+    if (group >= 18 && group <= 21) return slot_active(m, p) && m->force[p] == (int)group - 18;
+    if (group == 14 || group == 15 || group == 26) {
+        if (p == current || !slot_active(m, p) || m->owners[p] == 7 || m->owners[p] == 3) return false;
+        bool ally = allied_to(current, p);
+        return group == 15 ? ally : !ally;
     }
-    if (group == 13 || group == 14 || group == 25) {
-        bool self = false;
-        if (current >= 0 && current < 8) self = p == current;
-        else if (current >= 17 && current <= 20) self = m->force[p] == current - 17;
-        else if (current == 16) self = true;
-        if (self || !slot_active(m, p) || m->owners[p] == 7 || m->owners[p] == 3) return false;
-        bool ally = false;
-        if (current >= 0 && current < 8) ally = allied_to(current, p);
-        else if (current >= 17 && current <= 20)
-            for (int s = 0; s < 8 && !ally; s++)
-                if (m->force[s] == current - 17) ally = allied_to(s, p);
-        return group == 14 ? ally : !ally;
-    }
+    return false;
+}
+
+/* The players a trigger belongs to: its own bits and the groups it names. */
+static bool owns_trigger(const sc_mission_t *m, const uint8_t *mask, int p) {
+    if (mask[p] == 1) return true;
+    if (mask[17] == 1 && slot_active(m, p)) return true;
+    for (int f = 0; f < 4; f++) if (mask[18 + f] == 1 && slot_active(m, p) && m->force[p] == f) return true;
     return false;
 }
 
@@ -272,7 +268,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         for (int p = 0; p < 8; p++) {
             bool self = false;
             for (int i = 0; i < n; i++) if (players[i] == p) self = true;
-            if (!self && in_group(m, 13, p, n == 1 ? players[0] : current) && owns_any(p)) foes++;
+            if (!self && in_group(m, 14, p, n == 1 ? players[0] : current) && owns_any(p)) foes++;
         }
         return cmp_num(op, foes, (int)qty);
     }
@@ -420,11 +416,16 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         unsigned loc = read_u32_le(a), unit = read_u16_le(a + 24), time = read_u32_le(a + 12);
         int players[8], n = collect_players(m, player, st->current, players);
         char text[256];
+        /* Outcomes and messages are the local player's; another player's
+         * copy of the trigger decides nothing on this screen. */
+        bool local = st->current == consoleplayer;
         if (id == 1 || id == 2 || id == 58) {
+            if (!local) continue;
             m->result = id == 1 ? 1 : id == 2 ? 2 : 3;
             sc_show_result(m->result);
             return;
         }
+        if (!local && (id == 7 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
         if (id == 3) { st->preserve = true; continue; }
         if (id == 4) { st->wait_ms = (int)time; return; }
         if (id == 7 || id == 9 || id == 12) {
@@ -577,36 +578,43 @@ static void check_elimination(sc_mission_t *m) {
 void sc_mission_tick(level_t *map, hudtext_t *hud, float dt) {
     sc_mission_t *m = mission(map);
     if (!m || m->result) return;
+    int ms = (int)(dt * 1000.0f + 0.5f);
+    if (ms < 1) ms = 1;
+    m->elapsed_ms += ms;
+    /* Score: a rise in stock is income, a fall is spending. */
+    for (int p = 0; p < 8; p++) for (int r = 0; r < 2; r++) {
+        int now = map->player_resources[p][r], delta = now - m->stock[p][r];
+        if (m->stock_seen && delta > 0) m->gathered[p][r] += delta;
+        else if (m->stock_seen && delta < 0) m->spent[p] -= delta;
+        m->stock[p][r] = now;
+    }
+    m->stock_seen = true;
     /* A melee map can omit TRIG. Campaign maps carry a Victory action, so
      * elimination applies only when the map never declares its own winner. */
     if (m->trig) {
-        int ms = (int)(dt * 1000.0f + 0.5f);
-        if (ms < 1) ms = 1;
-        m->elapsed_ms += ms;
         if (!m->countdown_paused && m->countdown_ms > 0) {
             m->countdown_ms -= ms;
             if (m->countdown_ms < 0) m->countdown_ms = 0;
         }
         for (int i = 0; i < m->trig_count && !m->result; i++) {
-            sc_trig_t *st = &m->rt[i];
-            const uint8_t *trig = m->trig + (size_t)i * 2400;
-            if (st->disabled) continue;
-            if (st->wait_ms > 0) {
-                st->wait_ms -= ms;
-                if (st->wait_ms > 0) continue;
-                st->wait_ms = 0;
-                run_actions(m, trig, st, hud);
-                continue;
-            }
-            if (st->running) { run_actions(m, trig, st, hud); continue; }
-            const uint8_t *mask = trig + 2372;
-            for (int bit = 0; bit < 28 && !m->result; bit++) {
-                if (mask[bit] != 1 || !conditions_ok(m, trig, bit)) continue;
-                st->current = bit;
+            const uint8_t *trig = m->trig + (size_t)i * 2400, *mask = trig + 2372;
+            for (int p = 0; p < 8 && !m->result; p++) {
+                if (!owns_trigger(m, mask, p)) continue;
+                sc_trig_t *st = &m->rt[i * 8 + p];
+                if (st->disabled) continue;
+                st->current = p;
+                if (st->wait_ms > 0) {
+                    st->wait_ms -= ms;
+                    if (st->wait_ms > 0) continue;
+                    st->wait_ms = 0;
+                    run_actions(m, trig, st, hud);
+                    continue;
+                }
+                if (st->running) { run_actions(m, trig, st, hud); continue; }
+                if (!conditions_ok(m, trig, p)) continue;
                 st->running = true;
                 st->cursor = 0;
                 run_actions(m, trig, st, hud);
-                break;
             }
         }
     }
@@ -666,7 +674,7 @@ bool sc_mission_bind(level_t *map) {
     if (m->trig_size) {
         if (m->trig_size % 2400) return false;
         m->trig_count = (int)(m->trig_size / 2400);
-        m->rt = calloc((size_t)m->trig_count, sizeof(*m->rt));
+        m->rt = calloc((size_t)m->trig_count * 8, sizeof(*m->rt));
         if (!m->rt) return false;
         for (int i = 0; i < m->trig_count; i++) {
             const uint8_t *trig = m->trig + (size_t)i * 2400;
@@ -685,4 +693,19 @@ bool sc_mission_bind(level_t *map) {
     }
     m->rng = 1;
     return true;
+}
+
+int sc_elapsed_ms(void) {
+    sc_mission_t *m = mission(&level);
+    return m ? m->elapsed_ms : 0;
+}
+
+void sc_player_stats(int owner, sc_stats_t *out) {
+    memset(out, 0, sizeof(*out));
+    sc_mission_t *m = mission(&level);
+    if (!m || owner < 0 || owner >= 8) return;
+    for (int t = 0; t < SC_TYPES; t++) { out->lost[t] = m->deaths[owner][t]; out->killed[t] = m->kills[owner][t]; }
+    out->gathered[0] = m->gathered[owner][0];
+    out->gathered[1] = m->gathered[owner][1];
+    out->spent = m->spent[owner];
 }

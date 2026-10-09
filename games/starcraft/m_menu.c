@@ -17,14 +17,14 @@ typedef struct theme_s {
     struct theme_s *next;
 } theme_t;
 static theme_t *themes;
-static spritesheet_t console, wireframe, icons, widgets, panel;
+/* In-level dialogs draw on the player's race art (dlgs/<race>.grp, the same
+ * frame layout as glue dlg.grp) and the game fonts; the world stays behind. */
+static theme_t ingame;
+static spritesheet_t console, wireframe, icons;
 static bitmapfont_t gamefonts[4];
-static menuitem_t pauseitems[SC_DIALOG_CONTROLS], huditems[176];
+static menuitem_t huditems[176];
 static menu_t front;
-static menu_t pausemenu={.items=pauseitems,.size={640,480},.stretch=true,.modal=true};
 static menu_t hud={.items=huditems,.size={640,480},.stretch=true};
-static menu_t resultmenu;
-static menuitem_t resultitems[6];
 static char restart_path[1024], next_path[256];
 static int shown_result;
 static movie_t portrait;
@@ -34,8 +34,10 @@ typedef struct {
     artwork_t art[SC_DIALOG_CONTROLS];
     theme_t *theme;
 } screen_t;
-static screen_t main_screen, registry, new_id, campaign, briefing, conn, join, create, chat;
-static char player_name[32]="Player", campaign_map[256];
+static screen_t main_screen, registry, new_id, campaign, conn, join, create, chat;
+static screen_t briefings[3], load_game, custom, notice, confirm;
+static screen_t *briefing=&briefings[0];
+static char player_name[32]="Player", campaign_map[256], custom_map[512];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
 static int portrait_item, portrait_id=-1, tip_item;
@@ -44,7 +46,6 @@ static int selection_icon_start, selection_count;
 static mobj_t *selection_units[SC_SELECTION_SLOTS];
 static char start_tip[512];
 static int catalog_index, build_page, resource_start;
-static bool draw_pause(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect);
 static void multi(menu_t *menu,menuitem_t *item,menuaction_t action);
 static void native_path(char *out,size_t size,const char *root,const char *name) {
     sc_asset_path(out,size,root,name);
@@ -73,6 +74,130 @@ static void begin(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE)M_SetupNextMenu(&registry.menu);
 }
 static const char *registry_row(const menuitem_t *item,int row) { (void)item;(void)row;return player_name; }
+static void show_notice(const char *text);
+static void show_score(void);
+static void show_load(void);
+static void show_custom(void);
+static bool is_briefing(const menu_t *m) {
+    for(int r=0;r<3;r++)if(m==&briefings[r].menu)return true;
+    return false;
+}
+/* The MBRF script plays as in the original: portraits come and go in the
+ * four frames (ids 15..18), and each transmission replaces the text and makes
+ * its speaker's portrait talk for the length of its line. The voice is not
+ * played. Times are milliseconds since the briefing (or Replay) began. */
+static sc_briefing_t script;
+static struct { movie_t idle, talk; unsigned talk_until; bool shown; } slots[4];
+static int script_at;
+static unsigned script_clock, script_due, script_tick, text_from, text_for;
+static bool script_text;
+static void free_movie(movie_t *movie) {
+    R_FreeSprite(&movie->sheet);free(movie->palettes);memset(movie,0,sizeof(*movie));
+}
+static void hide_slot(int slot) {
+    free_movie(&slots[slot].idle);free_movie(&slots[slot].talk);
+    slots[slot].shown=false;slots[slot].talk_until=0;
+}
+static void show_slot(int slot,unsigned unit) {
+    hide_slot(slot);
+    if(unit>=SC_TYPES)return;
+    char path[2048];
+    int id=sc_units[unit].portrait;
+    if(sc_portrait_movie(asset_root,id,false,path,sizeof(path)))
+        sc_movie(path,&slots[slot].idle.sheet,&slots[slot].idle.ms,&slots[slot].idle.palettes);
+    if(sc_portrait_movie(asset_root,id,true,path,sizeof(path)))
+        sc_movie(path,&slots[slot].talk.sheet,&slots[slot].talk.ms,&slots[slot].talk.palettes);
+    slots[slot].shown=slots[slot].idle.sheet.numlumps>0;
+}
+static void say(int text,unsigned length) {
+    if(text<0)return;
+    snprintf(briefing_text,sizeof(briefing_text),"%s",script.strings+text);
+    text_from=script_due;text_for=length;
+}
+static void restart_script(void) {
+    for(int i=0;i<4;i++)hide_slot(i);
+    script_at=0;script_clock=script_due=0;text_from=text_for=0;
+    script_tick=SDL_GetTicks();
+    if(script_text)briefing_text[0]=0;
+}
+static void run_script(unsigned ms) {
+    script_clock+=ms;
+    while(script_at<script.count&&script_clock>=script_due) {
+        const sc_brief_action_t *a=&script.actions[script_at++];
+        int slot=a->slot<4?a->slot:-1;
+        switch(a->op) {
+        case SC_BRIEF_WAIT: script_due+=(unsigned)a->time; break;
+        case SC_BRIEF_TEXT: say(a->text,(unsigned)a->time); break;
+        case SC_BRIEF_SHOW_PORTRAIT: if(slot>=0)show_slot(slot,a->unit); break;
+        case SC_BRIEF_HIDE_PORTRAIT: if(slot>=0)hide_slot(slot); break;
+        case SC_BRIEF_TALK: if(slot>=0)slots[slot].talk_until=script_due+(unsigned)a->time; break;
+        case SC_BRIEF_TRANSMISSION:
+            say(a->text,(unsigned)a->time);
+            if(slot>=0)slots[slot].talk_until=script_due+(unsigned)a->time;
+            script_due+=(unsigned)a->time;
+            break;
+        }
+    }
+}
+/* Advances the briefing clock without waiting (tests, and nothing else). */
+void sc_briefing_advance(unsigned ms) { run_script(ms); }
+bool sc_briefing_slot(int slot,bool *talking) {
+    if(slot<0||slot>=4)return false;
+    if(talking)*talking=script_clock<slots[slot].talk_until&&slots[slot].talk.sheet.numlumps>0;
+    return slots[slot].shown;
+}
+/* A 60x56 portrait drawn twice its size in the middle of the 128x118 frame. */
+static void draw_slot(const menu_t *menu,const menuitem_t *item,irect_t rect) {
+    (void)menu;
+    int slot=item->id-15;
+    if(slot<0||slot>=4||!slots[slot].shown)return;
+    bool talking=false;sc_briefing_slot(slot,&talking);
+    const movie_t *movie=talking?&slots[slot].talk:&slots[slot].idle;
+    if(!movie->sheet.numlumps||!movie->ms)return;
+    unsigned frame=SDL_GetTicks()/movie->ms%movie->sheet.numlumps;
+    isize2_t size=movie->sheet.frame_size;
+    int scale=item->rect.w>0?rect.w/item->rect.w:1;if(scale<1)scale=1;
+    irect_t dst={0,0,size.w*2*scale,size.h*2*scale};
+    dst.x=rect.x+(rect.w-dst.w)/2;dst.y=rect.y+(rect.h-dst.h)/2;
+    R_DrawIndexed(movie->sheet.lumps[frame].indices,size,movie->palettes+frame*256,NULL,NULL,&dst,V_OPAQUE);
+}
+static int briefing_lines(const menuitem_t *text) {
+    if(!text->font||text->font->line_h<1)return 0;
+    return (V_TextWrappedHeight(text->rect.w,text->font,text->prose?text->prose:"")+text->font->line_h-1)/text->font->line_h;
+}
+/* glurdyt, glurdyz and glurdyp share their ids; the campaign folder picks one. */
+static bool open_briefing(const char *rel) {
+    char map[sizeof(campaign_map)],path[2048];
+    snprintf(map,sizeof(map),"%s",rel);
+    screen_t *screen=&briefings[strstr(map,"/zerg/")?1:strstr(map,"/protoss/")?2:0];
+    if(!screen->menu.numitems)return false;
+    snprintf(path,sizeof(path),"%s/%s",asset_root[0]?asset_root:g_game_default_root,map);
+    if(!sc_briefing(path,briefing_text,sizeof(briefing_text),objectives,sizeof(objectives)))return false;
+    if(!sc_briefing_script(path,&script))script.count=0;
+    script_text=false;
+    for(int i=0;i<script.count;i++)
+        if(script.actions[i].op==SC_BRIEF_TRANSMISSION||script.actions[i].op==SC_BRIEF_TEXT)script_text=true;
+    snprintf(campaign_map,sizeof(campaign_map),"%s",map);
+    briefing=screen;
+    M_MenuFind(&screen->menu,65526)->first_row=0;
+    restart_script();
+    run_script(0);
+    M_SetupNextMenu(&screen->menu);
+    return true;
+}
+/* A transmission longer than the box rises through it over its own length,
+ * after holding its first lines for a quarter of the time. */
+static void briefing_tick(menu_t *menu) {
+    M_MenuTicker(menu);
+    unsigned now=SDL_GetTicks();
+    run_script(now-script_tick);
+    script_tick=now;
+    menuitem_t *text=M_MenuFind(menu,65526);
+    int overflow=briefing_lines(text)-(text->font?text->rect.h/text->font->line_h:0);
+    unsigned into=script_clock>text_from?script_clock-text_from:0,hold=text_for/4;
+    int line=overflow>0&&text_for>hold&&into>hold?(int)((into-hold)*(unsigned)overflow/(text_for-hold)):0;
+    text->first_row=overflow<=0?0:line<overflow?line:overflow;
+}
 static void frontend(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a!=MA_ACTIVATE)return;
     if(m==&registry.menu) {
@@ -88,96 +213,27 @@ static void frontend(menu_t *m,menuitem_t *i,menuaction_t a) {
         M_SetupNextMenu(&registry.menu);
     } else if(m==&campaign.menu) {
         if(i->id==9){M_SetupNextMenu(&registry.menu);return;}
+        if(i->id==5){show_load();return;}
+        if(i->id==10){show_custom();return;}
         const char *race=i->id==7?"terran":i->id==8?"zerg":i->id==6?"protoss":NULL;
-        if(!race){M_StartMessage("Saved games and custom scenarios are not available yet.");return;}
-        snprintf(campaign_map,sizeof(campaign_map),"install/campaign/%s/%s01/staredit/scenario.chk",race,race);
-        char path[2048];snprintf(path,sizeof(path),"%s/%s",asset_root,campaign_map);
-        if(!sc_briefing(path,briefing_text,sizeof(briefing_text),objectives,sizeof(objectives))) {
-            M_StartMessage("Could not read this campaign briefing.");return;
-        }
-        M_SetupNextMenu(&briefing.menu);
-    } else if(m==&briefing.menu) {
-        if(i->id==13){sc_set_net_races(NULL);menumap=campaign_map;M_ClearMenus();}
+        if(!race)return;
+        char map[sizeof(campaign_map)];
+        snprintf(map,sizeof(map),"install/campaign/%s/%s01/staredit/scenario.chk",race,race);
+        if(!open_briefing(map))show_notice("Could not read this campaign briefing.");
+    } else if(is_briefing(m)) {
+        if(i->id==13){sc_set_net_races(NULL);sc_set_custom_slots(NULL,NULL);menumap=campaign_map;M_ClearMenus();}
         else if(i->id==14)M_SetupNextMenu(&campaign.menu);
-        else if(i->id==20)M_MenuFind(m,65526)->first_row=0;
+        else if(i->id==20){restart_script();run_script(0);}
     }
 }
-static void resume(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE)M_ClearMenus();
-}
-static void leave(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE){menuleave=true;M_ClearMenus();}
-}
-/* Escape stays on the result. The world is already decided, so it must not resume. */
-static void result_escape(menu_t *menu) { (void)menu; }
-static void result_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
-    (void)menu;
-    if(action!=MA_ACTIVATE) return;
-    if(item->id==2) {
-        if(restart_path[0]) { menumap=restart_path; M_ClearMenus(); }
-        return;
-    }
-    if(item->id==1 && shown_result==1 && next_path[0] && !netgame) {
-        snprintf(campaign_map,sizeof(campaign_map),"%s",next_path);
-        char path[2048];
-        if(asset_root[0]) snprintf(path,sizeof(path),"%s/%s",asset_root,next_path);
-        else snprintf(path,sizeof(path),"data/STARCRAFT/%s",next_path);
-        if(briefing.menu.numitems &&
-           sc_briefing(path,briefing_text,sizeof(briefing_text),objectives,sizeof(objectives))) {
-            M_SetupNextMenu(&briefing.menu);
-            return;
-        }
-        menumap=campaign_map;
-        M_ClearMenus();
-        return;
-    }
-    menuleave=true;
-    M_ClearMenus();
-}
-static int result_button(int n,int id,const char *label,int y) {
-    menuitem_t *item=&resultitems[n];
-    *item=(menuitem_t){.id=id,.kind=MI_BUTTON,.visible=true,.enabled=true,.release=true,
-        .rect={200,y,240,32},.font=&gamefonts[0],.align=MALIGN_CENTER,.routine=result_action,
-        .hotkey=id==1?SDLK_RETURN:id==2?SDLK_r:SDLK_q};
-    snprintf(item->text,sizeof(item->text),"%s",label);
-    return n+1;
-}
-void sc_show_result(int result) {
-    shown_result=result;
-    next_path[0]=restart_path[0]=0;
-    if(!netgame && result==1) sc_campaign_next(level.map_path,next_path,sizeof(next_path));
-    const char *path=level.map_path;
-    if(!netgame && path && path[0]) {
-        const char *install=strstr(path,"install/");
-        snprintf(restart_path,sizeof(restart_path),"%s",install?install:path);
-    }
-    const char *title=result==1?"Victory":result==3?"Draw":"Defeat";
-    bool cont=result==1 && next_path[0];
-    bool restart=!netgame && result!=3 && restart_path[0];
-    memset(&resultmenu,0,sizeof(resultmenu));
-    memset(resultitems,0,sizeof(resultitems));
-    resultmenu=(menu_t){.items=resultitems,.size={640,480},.stretch=true,.modal=true,
-        .escape=result_escape,.app=pausemenu.app,
-        .drawitem=widgets.numlumps?draw_pause:NULL};
-    int n=0,y=168;
-    resultitems[n++]=(menuitem_t){.kind=MI_STATIC,.id=-1,.visible=true,.rect={160,100,320,220}};
-    resultitems[n]=(menuitem_t){.kind=MI_STATIC,.visible=true,.rect={180,118,280,32},
-        .font=&gamefonts[1],.align=MALIGN_HCENTER};
-    snprintf(resultitems[n].text,sizeof(resultitems[n].text),"%s",title);
-    n++;
-    /* A campaign win continues. Anything else ends the session. Defeat can be replayed. */
-    if(result==1||result==3) { n=result_button(n,1,cont?"Continue":"End",y); y+=40; }
-    if(restart) { n=result_button(n,2,"Restart",y); y+=40; }
-    if(result==2||cont) n=result_button(n,3,"Quit",y);
-    resultmenu.numitems=n;
-    resultmenu.itemOn=2;
-    M_SetupNextMenu(&resultmenu);
+/* Escape is each screen's Cancel. */
+static void single_escape(menu_t *m) {
+    if(m==&registry.menu)M_SetupNextMenu(&front);
+    else if(m==&new_id.menu||m==&campaign.menu)M_SetupNextMenu(&registry.menu);
+    else M_SetupNextMenu(&campaign.menu);
 }
 static void unavailable(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("This menu action is not available yet.");
-}
-static void help(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE)M_StartMessage("Drag to select. Right-click to move, attack or gather.\nM: Move   A: Attack   G: Gather   B: Build   S: Stop\nUse the command card to construct and train units.");
+    (void)m;(void)i;if(a==MA_ACTIVATE)show_notice("This menu action is not available yet.");
 }
 static void open_menu(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)i;if(a==MA_ACTIVATE)M_StartControlPanel(m->app);
@@ -210,14 +266,30 @@ static void draw_glue_strip(const menu_t *menu,const spritesheet_t *sheet,irect_
         draw_glue(menu,sheet,first+2,(irect_t){rect.x+rect.w-c.w,rect.y,c.w,rect.h});
     }
 }
+/* One piece, cropped to w by h of its picture; it never stretches. */
+static void draw_glue_part(const menu_t *menu,const spritesheet_t *sheet,int frame,irect_t rect) {
+    if(rect.w<=0||rect.h<=0)return;
+    menuitem_t picture={.rect=rect};
+    irect_t dst=M_MenuItemRect(menu,&picture),src=sheet->cells[frame].rect;
+    src.w=rect.w<src.w?rect.w:src.w;src.h=rect.h<src.h?rect.h:src.h;
+    R_DrawSprite(sheet,frame,-1,&src,&dst,0,16);
+}
+/* Nine pieces: corners once, edges and centre repeated (tile.grp's 8x8). */
 static void draw_glue_panel(const menu_t *menu,const spritesheet_t *sheet,irect_t rect,int base) {
+    if(sheet->numlumps<base+9)return;
     irect_t first=sheet->cells[base].rect,last=sheet->cells[base+8].rect;
     int x[]={rect.x,rect.x+first.w,rect.x+rect.w-last.w};
     int y[]={rect.y,rect.y+first.h,rect.y+rect.h-last.h};
     int w[]={first.w,rect.w-first.w-last.w,last.w};
     int h[]={first.h,rect.h-first.h-last.h,last.h};
-    for(int row=0;row<3;row++)for(int col=0;col<3;col++)
-        draw_glue(menu,sheet,base+row*3+col,(irect_t){x[col],y[row],w[col],h[row]});
+    for(int row=0;row<3;row++)for(int col=0;col<3;col++) {
+        int frame=base+row*3+col;
+        irect_t piece=sheet->cells[frame].rect;
+        if(piece.w<1||piece.h<1)continue;
+        for(int py=0;py<h[row];py+=piece.h)for(int px=0;px<w[col];px+=piece.w)
+            draw_glue_part(menu,sheet,frame,(irect_t){x[col]+px,y[row]+py,
+                w[col]-px<piece.w?w[col]-px:piece.w,h[row]-py<piece.h?h[row]-py:piece.h});
+    }
 }
 /* The open list is drawn on a copy of the combobox. Its screen rect maps
  * back to dialog units through the combobox's own scale. */
@@ -236,8 +308,12 @@ static void draw_drop_panel(const menu_t *menu,const spritesheet_t *sheet,irect_
     irect_t rect={box->rect.x,drops_up(menu,popup)?box->rect.y+gap-h:box->rect.y+box->rect.h-gap,box->rect.w,h};
     draw_glue_panel(menu,sheet,rect,35);
 }
+static menu_t *beneath;
 static bool draw_front(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect) {
     const theme_t *theme=menu->owner;
+    /* A popup's own root draws the screen it covers first. */
+    if(item->id==-4&&beneath&&beneath!=menu&&(menu==&notice.menu||menu==&confirm.menu))
+        M_MenuDrawer(beneath);
     const spritesheet_t *sheet=&theme->widgets;
     if(item->kind==MI_SCROLLBAR && item->sheet==sheet)
         draw_glue_strip(menu,sheet,item->rect,29,true);
@@ -263,7 +339,7 @@ static bool draw_front(const menu_t *menu,const menuitem_t *item,menustate_t sta
     const artwork_t *a=item->userdata;
     if(!a)return false;
     const sc_control_t *c=&a->native;
-    if(!c->type)draw_glue_panel(menu,&theme->panel,item->rect,0);
+    if(!c->type&&!item->sheet)draw_glue_panel(menu,&theme->panel,item->rect,0);
     if(c->type==1||c->type==2)
         draw_glue_strip(menu,sheet,item->rect,state==MS_PUSHED?118:state==MS_DISABLED?112:115,false);
     if(c->type==3||c->type==4) {
@@ -297,26 +373,6 @@ static void draw_portrait(const menu_t *menu,const menuitem_t *item,irect_t rect
     unsigned frame=SDL_GetTicks()/portrait.ms % portrait.sheet.numlumps;
     R_DrawIndexed(portrait.sheet.lumps[frame].indices,portrait.sheet.frame_size,portrait.palettes+frame*256,NULL,NULL,&rect,V_OPAQUE);
 }
-static bool draw_pause(const menu_t *menu,const menuitem_t *item,menustate_t state,irect_t rect) {
-    int scale=rect.h/item->rect.h; if(scale<1)scale=1;
-    if(item->id==-1) {
-        int cell=panel.frame_size.w*scale;
-        for(int y=0;y<rect.h;y+=cell)for(int x=0;x<rect.w;x+=cell) {
-            int frame=(y==0?0:y+cell>=rect.h?6:3)+(x==0?0:x+cell>=rect.w?2:1);
-            irect_t dst={rect.x+x,rect.y+y,cell,cell};
-            R_DrawSprite(&panel,frame,-1,NULL,&dst,0,16);
-        }
-    } else if(item->kind==MI_BUTTON) {
-        int frame=state==MS_PUSHED?118:state==MS_DISABLED?112:115;
-        int lw=widgets.cells[frame].rect.w*scale,rw=widgets.cells[frame+2].rect.w*scale;
-        irect_t dst={rect.x,rect.y,lw,rect.h};
-        R_DrawSprite(&widgets,frame,-1,NULL,&dst,0,16);
-        dst=(irect_t){rect.x+lw,rect.y,rect.w-lw-rw,rect.h};R_DrawSprite(&widgets,frame+1,-1,NULL,&dst,0,16);
-        dst=(irect_t){rect.x+rect.w-rw,rect.y,rw,rect.h};R_DrawSprite(&widgets,frame+2,-1,NULL,&dst,0,16);
-    }
-    (void)menu;return false;
-}
-
 static theme_t *load_theme(const char *root,const char *palette) {
     char directory[128];snprintf(directory,sizeof(directory),"%s",palette);
     char *slash=strrchr(directory,'/');if(!slash)return NULL;*slash=0;
@@ -373,9 +429,22 @@ static bool add_scrollbar(screen_t *screen,int index) {
     }
     return true;
 }
+/* A popup's root is the theme's popup picture (pOPopup, pDPopup) when one is named. */
+static bool load_popup(screen_t *screen,app_t *app,const char *root,const char *dialog,const char *palette,
+                       const char *picture,menuroutine_t routine);
 static bool load_screen(screen_t *screen,app_t *app,const char *root,const char *dialog,const char *palette,menuroutine_t routine) {
-    char path[2048];screen->theme=load_theme(root,palette);
-    if(!screen->theme)return false;
+    return load_popup(screen,app,root,dialog,palette,NULL,routine);
+}
+static bool build_screen(screen_t *screen,app_t *app,const char *root,const char *dialog,theme_t *theme,
+                         const char *picture,menuroutine_t routine);
+static bool load_popup(screen_t *screen,app_t *app,const char *root,const char *dialog,const char *palette,
+                       const char *picture,menuroutine_t routine) {
+    theme_t *theme=load_theme(root,palette);
+    return theme&&build_screen(screen,app,root,dialog,theme,picture,routine);
+}
+static bool build_screen(screen_t *screen,app_t *app,const char *root,const char *dialog,theme_t *theme,
+                         const char *picture,menuroutine_t routine) {
+    char path[2048];screen->theme=theme;
     sc_dialog_t d;if(!sc_dialog(root,dialog,&d))return false;
     screen->menu=(menu_t){.app=app,.items=screen->items,.numitems=d.count,.size={640,480},
         .stretch=true,.modal=true,.background=&screen->theme->background,.palette=screen->theme->background.palette,
@@ -388,6 +457,13 @@ static bool load_screen(screen_t *screen,app_t *app,const char *root,const char 
         a->native.rect.x+=offset.x;a->native.rect.y+=offset.y;
         screen->items[0]=(menuitem_t){.kind=MI_STATIC,.id=-4,.visible=true,.rect=a->native.rect,.userdata=a};
         screen->menu.numitems++;
+        if(picture) {
+            snprintf(path,sizeof(path),"%s/%s",screen->theme->path,picture);
+            char full[2048];native_path(full,sizeof(full),root,path);
+            if(!W_LoadIndexedSheet(full,&a->image))return false;
+            screen->items[0].sheet=&a->image;
+            for(int s=0;s<MS_STATES;s++)screen->items[0].look[s]=(menulook_t){.cell=0};
+        }
     }
     for(int i=0;i<d.count;i++) {
         sc_control_t *c=&d.controls[i];artwork_t *a=&screen->art[i];a->native=*c;
@@ -428,7 +504,7 @@ enum { SC_NET_MAPS = 64, SC_LISTED_GAMES = 32 };
 typedef struct {
     char path[512], filename[128], title[128], description[512];
     int players, width, height, tileset;
-    uint8_t race[8];
+    uint8_t race[8], side[8];
 } sc_netmap_t;
 static sc_netmap_t net_maps[SC_NET_MAPS];
 static int net_map_count, chosen_map = -1, listed_count;
@@ -520,7 +596,8 @@ static bool fill_map(const char *path, const char *file, const char *rel, sc_net
                 map->players = counted > 8 ? 8 : counted;
                 for (int i = 0; i < map->players; ++i) {
                     int seat = slot[i];
-                    map->race[i] = (uint8_t)(side && (size_t)seat < side_n ? lobby_race(side[seat]) : 0);
+                    map->side[i] = (uint8_t)(side && (size_t)seat < side_n ? side[seat] : 5);
+                    map->race[i] = (uint8_t)lobby_race(map->side[i]);
                 }
             }
         }
@@ -755,12 +832,13 @@ static void paint_listed(void) {
     }
 }
 
-/* glucreat's info rows print gluall.tbl 30..33, "label%cvalue": the value
+/* glucreat's info rows print gluall.tbl 30..37, "label%cvalue": the value
  * sits at the row's right edge. Each value is its label's id plus 100. */
-static void info_row(int id, const char *label, const char *value) {
-    set_text(M_MenuFind(&create.menu, id), value ? label : "");
-    set_text(M_MenuFind(&create.menu, id + 100), value);
+static void screen_row(screen_t *screen, int id, const char *label, const char *value) {
+    set_text(M_MenuFind(&screen->menu, id), value ? label : "");
+    set_text(M_MenuFind(&screen->menu, id + 100), value);
 }
+static void info_row(int id, const char *label, const char *value) { screen_row(&create, id, label, value); }
 
 static void paint_create(void) {
     menuitem_t *list = M_MenuFind(&create.menu, 5);
@@ -1124,6 +1202,645 @@ static bool wire_multi(void) {
     return true;
 }
 
+/* ── popups, Load Saved and Play Custom ─────────────────────────────────── */
+
+/* glupok and glupokcancel over the screen that asked, in that screen's
+ * palette, on the palette folder's pOPopup and pDPopup pictures. */
+static char notice_text[512];
+static void (*confirmed)(void);
+
+static void popup_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE || (item->id != 1 && item->id != 3)) return;
+    void (*then)(void) = menu == &confirm.menu && item->id == 1 ? confirmed : NULL;
+    M_SetupNextMenu(beneath);
+    if (then) then();
+}
+
+static void popup_escape(menu_t *menu) { (void)menu; M_SetupNextMenu(beneath); }
+
+static void free_art(screen_t *screen) {
+    for (int i = 0; i < SC_DIALOG_CONTROLS; i++) {
+        R_FreeSprite(&screen->art[i].image);
+        for (int j = 0; j < SC_CONTROL_MOVIES; j++) {
+            R_FreeSprite(&screen->art[i].movies[j].sheet);
+            free(screen->art[i].movies[j].palettes);
+        }
+    }
+    memset(screen, 0, sizeof(*screen));
+}
+
+static void popup(screen_t *screen, const char *dialog, const char *picture, const char *text, void (*yes)(void)) {
+    menu_t *under = currentmenu;
+    theme_t *theme = under && under != &notice.menu && under != &confirm.menu ? under->owner : NULL;
+    if (!theme) { M_StartMessage(text); return; }
+    if (screen->theme != theme) {
+        char palette[160];
+        snprintf(palette, sizeof(palette), "%s/backgnd.pcx", theme->path);
+        free_art(screen);
+        if (!load_popup(screen, under->app, asset_root, dialog, palette, picture, popup_action)) {
+            free_art(screen);
+            M_StartMessage(text);
+            return;
+        }
+        screen->menu.background = NULL;
+        screen->menu.escape = popup_escape;
+        set_prose(M_MenuFind(&screen->menu, 2), notice_text);
+    }
+    snprintf(notice_text, sizeof(notice_text), "%s", text);
+    beneath = under;
+    confirmed = yes;
+    screen->menu.app = under->app;
+    menuitem_t *ok = M_MenuFind(&screen->menu, 1);
+    if (ok) screen->menu.itemOn = (int)(ok - screen->items);
+    M_SetupNextMenu(&screen->menu);
+}
+
+static void show_notice(const char *text) { popup(&notice, "rez/glupok.bin", "popopup.pcx", text, NULL); }
+static void ask(const char *text, void (*yes)(void)) {
+    popup(&confirm, "rez/glupokcancel.bin", "pdpopup.pcx", text, yes);
+}
+
+/* gluload lists the engine's saved games and any retail .snx in save/. */
+enum { SC_SAVES = 64 };
+typedef struct { char path[1024], name[64]; } sc_save_t;
+static sc_save_t saves[SC_SAVES];
+static int save_count;
+static const char no_saves[] = "No saved games found.";
+
+static void scan_save_dir(const char *dir, const char *ext) {
+    DIR *listing = dir && dir[0] ? opendir(dir) : NULL;
+    if (!listing) return;
+    struct dirent *entry;
+    while ((entry = readdir(listing)) && save_count < SC_SAVES) {
+        size_t n = strlen(entry->d_name);
+        if (n <= 4 || strcasecmp(entry->d_name + n - 4, ext)) continue;
+        sc_save_t *save = &saves[save_count];
+        M_PathJoin(save->path, sizeof(save->path), dir, entry->d_name);
+        saveinfo_t info;
+        if (!strcasecmp(ext, ".sav")) {
+            if (!G_SaveInfo(save->path, &info)) continue;
+            snprintf(save->name, sizeof(save->name), "%s", info.name);
+        } else snprintf(save->name, sizeof(save->name), "%.*s", (int)(n - 4), entry->d_name);
+        ++save_count;
+    }
+    closedir(listing);
+}
+
+static int compare_saves(const void *a, const void *b) {
+    return strcasecmp(((const sc_save_t *)a)->name, ((const sc_save_t *)b)->name);
+}
+
+static const char *save_row(const menuitem_t *item, int row) {
+    (void)item; return row >= 0 && row < save_count ? saves[row].name : "";
+}
+
+static void load_refresh(menu_t *menu) {
+    menuitem_t *list = M_MenuFind(menu, 6);
+    bool chosen = list->value >= 0 && list->value < save_count;
+    M_MenuFind(menu, 4)->enabled = M_MenuFind(menu, 7)->enabled = chosen;
+    fit_scrollbars(menu);
+}
+
+static void fill_saves(void) {
+    save_count = 0;
+    scan_save_dir(D_UserDirectory(), ".sav");
+    char dir[1100];
+    snprintf(dir, sizeof(dir), "%s/save", asset_root);
+    scan_save_dir(dir, ".snx");
+    qsort(saves, (size_t)save_count, sizeof(saves[0]), compare_saves);
+    menuitem_t *list = M_MenuFind(&load_game.menu, 6);
+    M_MenuSetRows(list, save_count);
+    list->prose = save_count ? NULL : no_saves;
+    if (list->value < 0 || list->value >= save_count) list->value = save_count ? 0 : -1;
+}
+
+static void show_load(void) {
+    fill_saves();
+    menuitem_t *list = M_MenuFind(&load_game.menu, 6);
+    load_game.menu.itemOn = (int)(list - load_game.items);
+    load_game.menu.app = front.app;
+    load_refresh(&load_game.menu);
+    M_SetupNextMenu(&load_game.menu);
+}
+
+static void delete_save(void) {
+    int row = M_MenuFind(&load_game.menu, 6)->value;
+    if (row < 0 || row >= save_count) return;
+    if (remove(saves[row].path)) show_notice("The saved game could not be deleted.");
+    fill_saves();
+}
+
+static void load_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    int row = M_MenuFind(menu, 6)->value;
+    bool chosen = row >= 0 && row < save_count;
+    if (item->id == 5) single_escape(menu);
+    /* gluall.tbl 22. */
+    else if (item->id == 7 && chosen) ask("Delete this saved game?", delete_save);
+    else if ((item->id == 4 || item->id == 6) && chosen)
+        show_notice("Loading saved games is not available yet.");
+}
+
+/* glucustm: the first playable slot is the player; the others are Computer
+ * or Closed (gluall.tbl 129, 131). Race choices end in Random. */
+static int custom_kinds[8], custom_races[8];
+static const char *custom_seat_row(const menuitem_t *item, int row) {
+    (void)item; return row ? "Closed" : "Computer";
+}
+static const char *custom_race_row(const menuitem_t *item, int row) {
+    (void)item; return row == 3 ? "Random" : race_name(row);
+}
+
+static const sc_netmap_t *custom_choice(void) {
+    int row = M_MenuFind(&custom.menu, 5)->value;
+    return row >= 0 && row < net_map_count ? &net_maps[row] : NULL;
+}
+
+/* A map that fixes a slot's race keeps it; user-select slots start as
+ * Terran for the player and Random for the computers. */
+static void reset_custom(const sc_netmap_t *map) {
+    for (int i = 0; i < 8; ++i) {
+        unsigned side = map ? map->side[i] : 5;
+        custom_kinds[i] = i ? SC_SLOT_COMPUTER : SC_SLOT_HUMAN;
+        custom_races[i] = side <= 2 ? lobby_race(side) : i ? 3 : 0;
+    }
+}
+
+static void paint_custom(void) {
+    const sc_netmap_t *map = custom_choice();
+    M_MenuFind(&custom.menu, 12)->enabled = map != NULL;
+    set_text(M_MenuFind(&custom.menu, 7), map ? map->title : "");
+    set_prose(M_MenuFind(&custom.menu, 8), map ? map->description : "");
+    screen_row(&custom, 10, "Map Size:", map && map->width > 0 ? M_va("%dx%d", map->width, map->height) : NULL);
+    screen_row(&custom, 11, "Tileset:", map && map->tileset >= 0 ? tileset_name(map->tileset) : NULL);
+    screen_row(&custom, 37, "Computer Slots:", map ? M_va("%d", map->players - 1) : NULL);
+    screen_row(&custom, 36, "Human Slots:", map ? "1" : NULL);
+    for (int i = 0; i < 8; ++i) {
+        menuitem_t *name = M_MenuFind(&custom.menu, 20 + i), *race = M_MenuFind(&custom.menu, 28 + i);
+        bool on = map && i < map->players;
+        name->visible = on;
+        race->visible = race->enabled = on && custom_kinds[i] != SC_SLOT_CLOSED;
+        race->value = custom_races[i];
+        set_text(race, custom_race_row(race, custom_races[i]));
+        name->kind = i ? MI_DROPDOWN : MI_STATIC;
+        name->enabled = on && i;
+        if (i) {
+            name->value = custom_kinds[i] == SC_SLOT_CLOSED;
+            set_text(name, custom_seat_row(name, name->value));
+        } else set_text(name, chat_name());
+    }
+}
+
+static void custom_refresh(menu_t *menu) {
+    paint_custom();
+    fit_scrollbars(menu);
+}
+
+static void show_custom(void) {
+    scan_net_maps(asset_root);
+    menuitem_t *list = M_MenuFind(&custom.menu, 5);
+    M_MenuSetRows(list, net_map_count);
+    list->prose = net_map_count ? NULL : no_maps;
+    if (list->value < 0 || list->value >= net_map_count) list->value = net_map_count ? 0 : -1;
+    reset_custom(custom_choice());
+    custom.menu.itemOn = (int)(list - custom.items);
+    custom.menu.app = front.app;
+    custom_refresh(&custom.menu);
+    M_SetupNextMenu(&custom.menu);
+}
+
+static void start_custom(void) {
+    const sc_netmap_t *map = custom_choice();
+    if (!map) return;
+    int kinds[8], races[8], computers = 0;
+    for (int i = 0; i < 8; ++i) {
+        kinds[i] = i < map->players ? custom_kinds[i] : SC_SLOT_CLOSED;
+        races[i] = custom_races[i] == 3 ? rand() % 3 : custom_races[i];
+        computers += kinds[i] == SC_SLOT_COMPUTER;
+    }
+    /* gluall.tbl 54. */
+    if (!computers) { show_notice("You must have at least one computer opponent."); return; }
+    sc_set_net_races(NULL);
+    sc_set_custom_slots(kinds, races);
+    snprintf(custom_map, sizeof(custom_map), "%s", map->path);
+    menumap = custom_map;
+    M_ClearMenus();
+}
+
+static void custom_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action == MA_CHANGE) {
+        if (item->id == 5) reset_custom(custom_choice());
+        else if (item->id >= 21 && item->id <= 27)
+            custom_kinds[item->id - 20] = item->value ? SC_SLOT_CLOSED : SC_SLOT_COMPUTER;
+        else if (item->id >= 28 && item->id <= 35) custom_races[item->id - 28] = item->value;
+        paint_custom();
+        return;
+    }
+    if (action != MA_ACTIVATE) return;
+    if (item->id == 12 || item->id == 5) start_custom();
+    else if (item->id == 13) single_escape(menu);
+}
+
+static bool wire_single(void) {
+    menuitem_t *list = M_MenuFind(&load_game.menu, 6);
+    if (!list || !M_MenuFind(&load_game.menu, 4) || !M_MenuFind(&load_game.menu, 7) ||
+        !M_MenuFind(&custom.menu, 5) || !M_MenuFind(&custom.menu, 12) || !M_MenuFind(&custom.menu, 17))
+        return false;
+    as_list(list, 0, -1, save_row);
+    list->prose = no_saves;
+    load_game.menu.refresh = load_refresh;
+    M_MenuFind(&load_game.menu, 4)->hotkey = SDLK_RETURN;
+    as_list(M_MenuFind(&custom.menu, 5), 0, -1, map_row);
+    /* The map browser is one flat list of every installed map. */
+    set_text(M_MenuFind(&custom.menu, 6), "Maps");
+    as_drop(M_MenuFind(&custom.menu, 17), 1, type_row);
+    M_MenuFind(&custom.menu, 14)->visible = M_MenuFind(&custom.menu, 18)->visible = false;
+    M_MenuFind(&custom.menu, 9)->visible = false;
+    M_MenuFind(&custom.menu, 37)->visible = M_MenuFind(&custom.menu, 36)->visible = true;
+    if (!add_value(&custom, 10) || !add_value(&custom, 11) || !add_value(&custom, 37) || !add_value(&custom, 36))
+        return false;
+    for (int i = 0; i < 8; ++i) {
+        menuitem_t *name = M_MenuFind(&custom.menu, 20 + i), *race = M_MenuFind(&custom.menu, 28 + i);
+        if (!name || !race) return false;
+        as_drop(name, 2, custom_seat_row);
+        as_drop(race, 4, custom_race_row);
+        name->hotkey = race->hotkey = 0;
+        name->visible = race->visible = false;
+    }
+    custom.menu.refresh = custom_refresh;
+    return true;
+}
+
+/* ── in-level dialogs ───────────────────────────────────────────────────── */
+
+/* Retail rez dialogs over the running world. Their routes follow the button
+ * texts; Save, Load and the option sliders are not wired to anything yet. */
+enum {
+    IG_GAME, IG_OPTIONS, IG_SPEED, IG_SOUND, IG_VIDEO, IG_SAVE, IG_LOAD, IG_OBJECTIVES,
+    IG_HELP_MENU, IG_HELP, IG_END, IG_RESTART, IG_QUIT_MISSION, IG_QUIT, IG_VICTORY, IG_DEFEAT, IG_SCREENS
+};
+static const struct { const char *dialog; int parent; } ingame_dialogs[IG_SCREENS] = {
+    [IG_GAME]={"rez/gamemenu.bin",-1}, [IG_OPTIONS]={"rez/options.bin",IG_GAME},
+    [IG_SPEED]={"rez/spd_dlg.bin",IG_OPTIONS}, [IG_SOUND]={"rez/snd_dlg.bin",IG_OPTIONS},
+    [IG_VIDEO]={"rez/video.bin",IG_OPTIONS}, [IG_SAVE]={"rez/savegame.bin",IG_GAME},
+    [IG_LOAD]={"rez/loadgame.bin",IG_GAME}, [IG_OBJECTIVES]={"rez/objctdlg.bin",IG_GAME},
+    [IG_HELP_MENU]={"rez/helpmenu.bin",IG_GAME}, [IG_HELP]={"rez/help.bin",IG_HELP_MENU},
+    [IG_END]={"rez/abrtmenu.bin",IG_GAME}, [IG_RESTART]={"rez/restart.bin",IG_END},
+    [IG_QUIT_MISSION]={"rez/quit2mnu.bin",IG_END}, [IG_QUIT]={"rez/quit.bin",IG_END},
+    [IG_VICTORY]={"rez/wmission.bin",-1}, [IG_DEFEAT]={"rez/lmission.bin",-1},
+};
+static screen_t ingame_screens[IG_SCREENS];
+static char help_text[8192];
+
+static int ingame_index(const menu_t *menu) {
+    for(int i=0;i<IG_SCREENS;i++)if(menu==&ingame_screens[i].menu)return i;
+    return -1;
+}
+static void show_ingame(int index) {
+    screen_t *screen=&ingame_screens[index];
+    if(!screen->menu.numitems){M_ClearMenus();return;}
+    screen->menu.app=hud.app?hud.app:front.app;
+    if(screen->menu.refresh)screen->menu.refresh(&screen->menu);
+    M_SetupNextMenu(&screen->menu);
+}
+static void ingame_escape(menu_t *menu) {
+    int index=ingame_index(menu);
+    if(index==IG_VICTORY||index==IG_DEFEAT)return; /* the outcome is decided */
+    if(index<0||ingame_dialogs[index].parent<0)M_ClearMenus();
+    else show_ingame(ingame_dialogs[index].parent);
+}
+/* tbl strings joined by blank lines, colour bytes dropped. */
+static void tbl_prose(const char *name,char *out,size_t size) {
+    blob_t b={0};out[0]=0;
+    if(!sc_read(asset_root,name,&b)||b.size<2){W_FreeFile(&b);return;}
+    unsigned count=read_u16_le(b.bytes);size_t n=0;
+    for(unsigned i=1;i<=count&&2u+i*2u<=b.size;i++) {
+        unsigned off=read_u16_le(b.bytes+i*2);
+        if(n&&n+2<size){out[n++]='\n';}
+        for(unsigned p=off;p<b.size&&b.bytes[p]&&n+1<size;p++)
+            if(b.bytes[p]>=32||b.bytes[p]=='\n')out[n++]=(char)b.bytes[p];
+    }
+    out[n]=0;W_FreeFile(&b);
+}
+static void restart_mission(void) {
+    if(restart_path[0]){menumap=restart_path;M_ClearMenus();}
+}
+static void note_paths(void) {
+    restart_path[0]=0;
+    const char *path=level.map_path;
+    if(!netgame&&path&&path[0]) {
+        const char *install=strstr(path,"install/");
+        snprintf(restart_path,sizeof(restart_path),"%s",install?install:path);
+    }
+}
+static void ingame_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    if(action!=MA_ACTIVATE)return;
+    int index=ingame_index(menu),id=item->id;
+    switch(index) {
+    case IG_GAME:
+        if(id==65533)M_ClearMenus();
+        else if(id==1)show_ingame(IG_SAVE);
+        else if(id==2)show_ingame(IG_LOAD);
+        else if(id==3)show_ingame(IG_OPTIONS);
+        else if(id==4)show_ingame(IG_HELP_MENU);
+        else if(id==5)show_ingame(IG_OBJECTIVES);
+        else if(id==6)show_ingame(IG_END);
+        return;
+    case IG_OPTIONS:
+        if(id>=1&&id<=3)show_ingame(id==1?IG_SPEED:id==2?IG_SOUND:IG_VIDEO);
+        else if(id==65533)show_ingame(IG_GAME);
+        return;
+    case IG_SPEED: case IG_SOUND: case IG_VIDEO:
+        if(id==65534||id==65533)show_ingame(IG_OPTIONS);
+        return;
+    case IG_SAVE: case IG_LOAD:
+        if(id==65533)show_ingame(IG_GAME);
+        else if(id==65534||id==3)M_StartMessage(index==IG_SAVE?"Saving games is not available yet.":
+                                                "Loading saved games is not available yet.");
+        return;
+    case IG_OBJECTIVES:
+        if(id==65533)show_ingame(IG_GAME);
+        return;
+    case IG_HELP_MENU:
+        if(id==1||id==2) {
+            tbl_prose(id==1?"rez/help_txt.tbl":"rez/tips.tbl",help_text,sizeof(help_text));
+            menuitem_t *list=M_MenuFind(&ingame_screens[IG_HELP].menu,1);
+            if(list){list->first_row=0;list->prose=help_text;}
+            show_ingame(IG_HELP);
+        } else if(id==65533)show_ingame(IG_GAME);
+        return;
+    case IG_HELP:
+        if(id==65534)show_ingame(IG_HELP_MENU);
+        return;
+    case IG_END:
+        if(id==1)show_ingame(IG_RESTART);
+        else if(id==2)show_ingame(IG_QUIT_MISSION);
+        else if(id==3)show_ingame(IG_QUIT);
+        else if(id==65533)show_ingame(IG_GAME);
+        return;
+    case IG_RESTART:
+        if(id==65534){note_paths();restart_mission();}
+        else if(id==65533)show_ingame(IG_END);
+        return;
+    case IG_QUIT_MISSION:
+        if(id==65534){menuleave=true;M_ClearMenus();}
+        else if(id==65533)show_ingame(IG_END);
+        return;
+    case IG_QUIT:
+        if(id==65534){if(menu->app)menu->app->running=false;M_ClearMenus();}
+        else if(id==65533)show_ingame(IG_END);
+        return;
+    case IG_VICTORY:
+        if(id==65534||id==65514)show_score();
+        else if(id==1)M_ClearMenus(); /* Continue Playing */
+        return;
+    case IG_DEFEAT:
+        if(id==65534)show_score();
+        return;
+    }
+}
+static void objectives_refresh(menu_t *menu) {
+    const char *goal=sc_objectives_text();
+    set_prose(M_MenuFind(menu,2),goal&&goal[0]?goal:objectives);
+}
+static void save_refresh(menu_t *menu) {
+    menuitem_t *list=M_MenuFind(menu,1);
+    if(list) {
+        M_MenuSetRows(list,save_count);
+        list->prose=save_count?NULL:no_saves;
+    }
+    fit_scrollbars(menu);
+}
+static bool load_ingame(app_t *app) {
+    for(int i=0;i<IG_SCREENS;i++) {
+        screen_t *screen=&ingame_screens[i];
+        free_art(screen);
+        if(!build_screen(screen,app,asset_root,ingame_dialogs[i].dialog,&ingame,NULL,ingame_action))return false;
+        screen->menu.background=NULL;screen->menu.palette=NULL;
+        screen->menu.escape=ingame_escape;
+        for(int k=0;k<screen->menu.numitems;k++) {
+            menuitem_t *item=&screen->items[k];
+            if(item->kind==MI_SLIDER){item->range.min=0;item->range.max=100;item->value=50;}
+        }
+    }
+    /* Network play and observers are multiplayer only; pause rows are hidden. */
+    M_MenuFind(&ingame_screens[IG_OPTIONS].menu,4)->enabled=false;
+    menuitem_t *observe=M_MenuFind(&ingame_screens[IG_QUIT_MISSION].menu,1);
+    if(observe)observe->visible=false;
+    observe=M_MenuFind(&ingame_screens[IG_DEFEAT].menu,1);
+    if(observe)observe->visible=false;
+    ingame_screens[IG_OBJECTIVES].menu.refresh=objectives_refresh;
+    for(int i=IG_SAVE;i<=IG_LOAD;i++) {
+        menuitem_t *list=M_MenuFind(&ingame_screens[i].menu,1);
+        if(!list)return false;
+        as_list(list,0,-1,save_row);list->prose=no_saves;
+        ingame_screens[i].menu.refresh=save_refresh;
+    }
+    menuitem_t *field=M_MenuFind(&ingame_screens[IG_SAVE].menu,2);
+    if(field){field->kind=MI_TEXTFIELD;field->maxchars=24;}
+    menuitem_t *help=M_MenuFind(&ingame_screens[IG_HELP].menu,1);
+    if(!help)return false;
+    as_list(help,0,-1,NULL);help->prose=help_text;
+    /* Video: animating portraits is the selected choice. */
+    menuitem_t *animate=M_MenuFind(&ingame_screens[IG_VIDEO].menu,5);
+    if(animate)animate->value=1;
+    for(int k=3;k<=6;k++){menuitem_t *on=M_MenuFind(&ingame_screens[IG_SOUND].menu,k);if(on)on->value=1;}
+    return true;
+}
+static void free_ingame(void) {
+    for(int i=0;i<IG_SCREENS;i++)free_art(&ingame_screens[i]);
+}
+
+/* ── mission result and score ───────────────────────────────────────────── */
+
+/* wmission or lmission over the world, then gluscore on the race's victory
+ * or defeat theme (pal<race><v|d>, glue/score<race><v|d>/pmain.pcx). */
+static screen_t score;
+static int shown_result,score_tab;
+static char score_theme[16];
+
+void sc_show_result(int result) {
+    shown_result=result;
+    next_path[0]=0;
+    if(!netgame&&result==1)sc_campaign_next(level.map_path,next_path,sizeof(next_path));
+    note_paths();
+    if(!ingame_screens[IG_VICTORY].menu.numitems){show_score();return;}
+    screen_t *dialog=&ingame_screens[result==2?IG_DEFEAT:IG_VICTORY];
+    if(result!=2) {
+        /* A draw shows its own line and a plain Ok in place of Victory. */
+        bool draw=result==3;
+        M_MenuFind(&dialog->menu,65516)->visible=!draw;
+        M_MenuFind(&dialog->menu,65513)->visible=draw;
+        M_MenuFind(&dialog->menu,65534)->visible=!draw;
+        menuitem_t *ok=M_MenuFind(&dialog->menu,65514);
+        ok->visible=ok->enabled=draw;ok->kind=MI_BUTTON;
+        if(draw)ok->rect=M_MenuFind(&dialog->menu,65534)->rect;
+        M_MenuFind(&dialog->menu,1)->visible=!netgame&&!draw;
+    }
+    menuitem_t *first=M_MenuFind(&dialog->menu,result==3?65514:65534);
+    dialog->menu.itemOn=first?(int)(first-dialog->items):-1;
+    show_ingame(result==2?IG_DEFEAT:IG_VICTORY);
+}
+
+static int race_of(int owner) {
+    int side=sc_player_side(owner);
+    return side==0?1:side==2?2:0; /* SIDE: 0 Zerg, 1 Terran, 2 Protoss */
+}
+static const char *player_label(int owner) {
+    if(owner==consoleplayer)return chat_name();
+    return sc_owner_kind(owner)==5?"Computer":M_va("Player %d",owner+1);
+}
+typedef struct { int produced, killed, lost, built, razed, ruined, gas, minerals, spent; } sc_tally_t;
+/* Produced counts what the player holds plus what it lost, starting units
+ * included. Scores use units.dat build and destroy scores. */
+static void tally(int owner,sc_tally_t *t,int *units,int *structures,int *resources) {
+    memset(t,0,sizeof(*t));*units=*structures=0;
+    int scores[2]={0,0};
+    if(thinkercap.next)for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->hp<=0||mo->type_id<1||mo->type_id>SC_TYPES)continue;
+        const sc_unit_t *u=&sc_units[mo->type_id-1];
+        if(u->flags&1){t->built++;scores[1]+=u->build_score;}
+        else if(u->build_score>0){t->produced++;scores[0]+=u->build_score;}
+    }
+    sc_stats_t stats;
+    sc_player_stats(owner,&stats);
+    for(int type=0;type<SC_TYPES;type++) {
+        const sc_unit_t *u=&sc_units[type];
+        bool building=(u->flags&1)!=0;
+        if(!u->build_score&&!building)continue;
+        if(building){t->ruined+=stats.lost[type];t->built+=stats.lost[type];t->razed+=stats.killed[type];
+                     scores[1]+=stats.lost[type]*u->build_score+stats.killed[type]*u->destroy_score;}
+        else{t->lost+=stats.lost[type];t->produced+=stats.lost[type];t->killed+=stats.killed[type];
+             scores[0]+=stats.lost[type]*u->build_score+stats.killed[type]*u->destroy_score;}
+    }
+    t->minerals=stats.gathered[0];t->gas=stats.gathered[1];t->spent=stats.spent;
+    *units=scores[0];*structures=scores[1];*resources=t->minerals+t->gas+t->spent;
+}
+static void paint_score(void) {
+    if(!score.menu.numitems)return;
+    static const char *const columns[4][3]={
+        {"Units","Structures","Resources"},{"Produced","Killed","Lost"},
+        {"Constructed","Razed","Lost"},{"Gas Mined","Minerals Mined","Total Spent"}};
+    for(int c=0;c<3;c++)set_text(M_MenuFind(&score.menu,10+c),columns[score_tab][c]);
+    for(int tab=0;tab<4;tab++)M_MenuFind(&score.menu,3+tab)->value=tab==score_tab;
+    int row=0;
+    for(int owner=0;owner<8;owner++) {
+        int kind=sc_owner_kind(owner);
+        if(kind!=5&&kind!=6)continue;
+        if(row==8)break;
+        int base=13+row*6;
+        sc_tally_t t;int units,structures,resources;
+        tally(owner,&t,&units,&structures,&resources);
+        int values[4][3]={{units,structures,resources},{t.produced,t.killed,t.lost},
+                          {t.built,t.razed,t.ruined},{t.gas,t.minerals,t.spent}};
+        M_MenuFind(&score.menu,base)->visible=true;
+        for(int k=1;k<=5;k++)M_MenuFind(&score.menu,base+k)->visible=true;
+        set_text(M_MenuFind(&score.menu,base+1),player_label(owner));
+        for(int c=0;c<3;c++)set_text(M_MenuFind(&score.menu,base+2+c),M_va("%d",values[score_tab][c]));
+        set_text(M_MenuFind(&score.menu,base+5),M_va("%d",units+structures+resources));
+        row++;
+    }
+    for(;row<8;row++)for(int k=0;k<6;k++)M_MenuFind(&score.menu,13+row*6+k)->visible=false;
+    int seconds=sc_elapsed_ms()/1000;
+    set_text(M_MenuFind(&score.menu,9),M_va("Elapsed Time: %d:%02d",seconds/60,seconds%60));
+}
+static void score_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;
+    if(item->id>=3&&item->id<=6&&(action==MA_ACTIVATE||action==MA_CHANGE)){score_tab=item->id-3;paint_score();return;}
+    if(action!=MA_ACTIVATE||item->id!=7)return;
+    /* A campaign win briefs the next mission; a campaign loss briefs this one
+     * again. Custom and network games end. */
+    if(!netgame&&shown_result==1&&next_path[0]) {
+        snprintf(campaign_map,sizeof(campaign_map),"%s",next_path);
+        if(open_briefing(next_path))return;
+        menumap=campaign_map;M_ClearMenus();return;
+    }
+    if(!netgame&&shown_result==2&&restart_path[0]&&strstr(restart_path,"campaign/")&&open_briefing(restart_path))return;
+    menuleave=true;M_ClearMenus();
+}
+static void score_escape(menu_t *menu) { (void)menu; }
+static void show_score(void) {
+    static const char races[]="tzp";
+    char theme[16],palette[64],picture[64];
+    int race=race_of(consoleplayer);
+    snprintf(theme,sizeof(theme),"%c%c",races[race],shown_result==1||shown_result==3?'v':'d');
+    if(strcmp(theme,score_theme)||!score.menu.numitems) {
+        free_art(&score);score_theme[0]=0;
+        snprintf(palette,sizeof(palette),"glue/pal%s/backgnd.pcx",theme);
+        if(!load_screen(&score,front.app,asset_root,"rez/gluscore.bin",palette,score_action)) {
+            free_art(&score);M_ClearMenus();menuleave=true;return;
+        }
+        snprintf(score_theme,sizeof(score_theme),"%s",theme);
+        snprintf(picture,sizeof(picture),"glue/score%s/pmain.pcx",theme);
+        char path[2048];
+        menuitem_t *back=M_MenuFind(&score.menu,1);
+        artwork_t *art=(artwork_t *)back->userdata;
+        native_path(path,sizeof(path),asset_root,picture);
+        if(W_LoadIndexedSheet(path,&art->image)) {
+            back->sheet=&art->image;
+            for(int st=0;st<MS_STATES;st++)back->look[st].cell=0;
+        }
+        snprintf(picture,sizeof(picture),"glue/score%s/pinset.pcx",theme);
+        native_path(path,sizeof(path),asset_root,picture);
+        for(int row=0;row<8;row++) {
+            menuitem_t *bar=M_MenuFind(&score.menu,13+row*6);
+            artwork_t *a=(artwork_t *)bar->userdata;
+            if(W_LoadIndexedSheet(path,&a->image)) {
+                bar->sheet=&a->image;
+                for(int st=0;st<MS_STATES;st++)bar->look[st].cell=0;
+            }
+        }
+        for(int tab=0;tab<4;tab++){menuitem_t *t=M_MenuFind(&score.menu,3+tab);t->group=1;}
+        score.menu.escape=score_escape;
+        M_MenuFind(&score.menu,7)->hotkey=SDLK_RETURN;
+    }
+    set_text(M_MenuFind(&score.menu,2),shown_result==1?"Victory!":shown_result==3?"Draw!":"Defeat!");
+    score_tab=0;
+    score.menu.app=hud.app?hud.app:front.app;
+    paint_score();
+    menuitem_t *ok=M_MenuFind(&score.menu,7);
+    score.menu.itemOn=(int)(ok-score.items);
+    M_SetupNextMenu(&score.menu);
+}
+
+/* ── title ──────────────────────────────────────────────────────────────── */
+
+/* titledlg over glue/title/title.pcx, in its own palette and font ramp,
+ * until a key or click or three seconds. */
+static screen_t title;
+static theme_t title_theme;
+static unsigned title_started;
+static bool title_done;
+static void leave_title(void) { title_done=true; M_SetupNextMenu(&front); }
+static void title_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;(void)item;if(action==MA_ACTIVATE)leave_title();
+}
+static void title_escape(menu_t *menu) { (void)menu; leave_title(); }
+static void title_tick(menu_t *menu) {
+    M_MenuTicker(menu);
+    if(SDL_GetTicks()-title_started>3000)leave_title();
+}
+static bool load_title(app_t *app) {
+    char path[2048];
+    native_path(path,sizeof(path),asset_root,"glue/title/title.pcx");
+    if(!W_LoadIndexedSheet(path,&title_theme.background))return false;
+    const char *names[]={"font10","font14","font16","font16x"};
+    for(int i=0;i<4;i++)
+        if(!sc_font(asset_root,names[i],&title_theme.fonts[i])||
+           !sc_font_colors(asset_root,"glue/title/tfont.pcx",&title_theme.fonts[i]))return false;
+    snprintf(title_theme.path,sizeof(title_theme.path),"glue/title");
+    if(!build_screen(&title,app,asset_root,"rez/titledlg.bin",&title_theme,NULL,title_action))return false;
+    if(title.menu.numitems==SC_DIALOG_CONTROLS)return false;
+    /* The whole screen is one button: any click leaves. */
+    title.items[title.menu.numitems++]=(menuitem_t){.kind=MI_BUTTON,.id=-5,.visible=true,.enabled=true,
+        .rect={0,0,640,480},.routine=title_action,.hotkey=SDLK_RETURN};
+    title.menu.escape=title_escape;
+    title.menu.ticker=title_tick;
+    title.menu.refresh=NULL;
+    return true;
+}
+
 bool G_InitMenus(app_t *app,const char *root) {
     snprintf(asset_root,sizeof(asset_root),"%s",root);
     const char *names[]={"font10","font14","font16","font16x"};
@@ -1131,7 +1848,6 @@ bool G_InitMenus(app_t *app,const char *root) {
         if(!sc_font(root,names[i],&gamefonts[i]))return false;
         if(!sc_font_colors(root,"game/tfontgam.pcx",&gamefonts[i]))return false;
     }
-    sc_dialog_t d;
     if(!load_screen(&main_screen,app,root,"rez/glumain.bin","glue/palmm/backgnd.pcx",NULL))return false;
     front=main_screen.menu;
     for(int i=0;i<front.numitems;i++) {
@@ -1141,12 +1857,18 @@ bool G_InitMenus(app_t *app,const char *root) {
     if(!load_screen(&registry,app,root,"rez/glulogin.bin","glue/palnl/backgnd.pcx",frontend)||
        !load_screen(&new_id,app,root,"rez/glunewch.bin","glue/palnl/backgnd.pcx",frontend)||
        !load_screen(&campaign,app,root,"rez/glucmpgn.bin","glue/palcs/backgnd.pcx",frontend)||
-       !load_screen(&briefing,app,root,"rez/glurdyt.bin","glue/palrt/backgnd.pcx",frontend)||
+       !load_screen(&briefings[0],app,root,"rez/glurdyt.bin","glue/palrt/backgnd.pcx",frontend)||
+       !load_screen(&briefings[1],app,root,"rez/glurdyz.bin","glue/palrz/backgnd.pcx",frontend)||
+       !load_screen(&briefings[2],app,root,"rez/glurdyp.bin","glue/palrp/backgnd.pcx",frontend)||
+       !load_screen(&load_game,app,root,"rez/gluload.bin","glue/palnl/backgnd.pcx",load_action)||
+       !load_screen(&custom,app,root,"rez/glucustm.bin","glue/palnl/backgnd.pcx",custom_action)||
        !load_screen(&conn,app,root,"rez/gluconn.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&join,app,root,"rez/glujoin.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&create,app,root,"rez/glucreat.bin","glue/palnl/backgnd.pcx",multi)||
        !load_screen(&chat,app,root,"rez/gluchat.bin","glue/palnl/backgnd.pcx",multi))return false;
-    if(!wire_multi())return false;
+    if(!wire_multi()||!wire_single())return false;
+    screen_t *singles[]={&registry,&new_id,&campaign,&briefings[0],&briefings[1],&briefings[2],&load_game,&custom};
+    for(unsigned s=0;s<sizeof(singles)/sizeof(*singles);s++)singles[s]->menu.escape=single_escape;
     menuitem_t *list=M_MenuFind(&registry.menu,8);
     as_list(list,1,0,registry_row);
     M_MenuFind(&registry.menu,7)->enabled=false;
@@ -1154,36 +1876,44 @@ bool G_InitMenus(app_t *app,const char *root) {
     field->kind=MI_TEXTFIELD;field->maxchars=31;field->enabled=field->visible=true;
     snprintf(field->text,sizeof(field->text),"%s",player_name);
     new_id.menu.itemOn=(int)(field-new_id.items);
-    menuitem_t *text=M_MenuFind(&briefing.menu,65526);
-    text->kind=MI_STATIC;text->visible=true;text->prose=briefing_text;
-    text=M_MenuFind(&briefing.menu,65525);text->visible=true;text->prose=objectives;
-    M_MenuFind(&briefing.menu,65524)->visible=false;
-    if(!sc_dialog(root,"rez/gamemenu.bin",&d))return false;
-    if(!grp(root,"dlgs/terran.grp",front.palette,&widgets)||!grp(root,"dlgs/tile.grp",front.palette,&panel))return false;
-    pausemenu.app=app;pausemenu.numitems=d.count+1;pausemenu.drawitem=draw_pause;
-    pauseitems[0]=(menuitem_t){.kind=MI_STATIC,.id=-1,.visible=true,.rect=d.rect};
-    for(int i=0;i<d.count;i++) {
-        pauseitems[i+1]=control(&d.controls[i],gamefonts);
-        pauseitems[i+1].routine=pauseitems[i+1].id==65533?resume:pauseitems[i+1].id==6?leave:pauseitems[i+1].id==4?help:unavailable;
+    for(int r=0;r<3;r++) {
+        menu_t *menu=&briefings[r].menu;
+        menuitem_t *text=M_MenuFind(menu,65526);
+        if(!text||!M_MenuFind(menu,65525)||!M_MenuFind(menu,65524))return false;
+        text->kind=MI_STATIC;text->visible=true;text->prose=briefing_text;
+        text=M_MenuFind(menu,65525);text->visible=true;text->prose=objectives;
+        M_MenuFind(menu,65524)->visible=false;
+        menu->ticker=briefing_tick;
+        for(int slot=0;slot<4;slot++) {
+            menuitem_t *frame=M_MenuFind(menu,15+slot);
+            if(!frame)return false;
+            frame->visible=true;frame->ownerdraw=draw_slot;frame->text[0]=0;
+        }
     }
+    for(int i=0;i<4;i++)ingame.fonts[i]=gamefonts[i];
+    if(!load_title(app))return false;
     return true;
 }
 menu_t *G_ControlPanel(app_t *app,bool inlevel) {
-    menu_t *menu=inlevel?&pausemenu:&front;menu->app=app;return menu;
+    menu_t *menu=inlevel?&ingame_screens[IG_GAME].menu:&front;
+    /* The title shows once, before the first main menu. */
+    if(!inlevel&&!title_done&&title.menu.numitems){title_started=SDL_GetTicks();menu=&title.menu;}
+    if(inlevel&&!menu->numitems)menu=&front;
+    menu->app=app;
+    if(inlevel)ingame_screens[IG_GAME].menu.itemOn=-1;
+    return menu;
 }
 void G_ShutdownMenus(void) {
     M_NetStop();
-    screen_t *screens[]={&main_screen,&registry,&new_id,&campaign,&briefing,&conn,&join,&create,&chat};
-    for(unsigned s=0;s<sizeof(screens)/sizeof(*screens);s++) {
-        screen_t *screen=screens[s];
-        for(int i=0;i<SC_DIALOG_CONTROLS;i++) {
-            R_FreeSprite(&screen->art[i].image);
-            for(int j=0;j<SC_CONTROL_MOVIES;j++) {
-                R_FreeSprite(&screen->art[i].movies[j].sheet);free(screen->art[i].movies[j].palettes);
-            }
-        }
-        memset(screen,0,sizeof(*screen));
-    }
+    screen_t *screens[]={&main_screen,&registry,&new_id,&campaign,&briefings[0],&briefings[1],&briefings[2],
+        &load_game,&custom,&notice,&confirm,&conn,&join,&create,&chat,&score,&title};
+    for(unsigned s=0;s<sizeof(screens)/sizeof(*screens);s++)free_art(screens[s]);
+    free_ingame();score_theme[0]=0;title_done=false;
+    for(int i=0;i<4;i++)hide_slot(i);
+    R_FreeSprite(&title_theme.background);
+    for(int i=0;i<4;i++)R_FreeSprite(&title_theme.fonts[i].sprite);
+    memset(&title_theme,0,sizeof(title_theme));
+    beneath=NULL;
     while(themes) {
         theme_t *theme=themes;themes=theme->next;
         R_FreeSprite(&theme->background);R_FreeSprite(&theme->widgets);R_FreeSprite(&theme->panel);
@@ -1313,6 +2043,7 @@ static void refresh(menu_t *menu) {
             button(pos,p->icon_frame,selected->type_id==MT_SCV&&build_page==1?basic[pos]:SDLK_1+pos,product,p->ui_id,p->label);
             huditems[command_start+pos].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         } else if(!build_page) {
+            if(!sc_upgrade_offered(consoleplayer,p))continue;
             button(slot,p->icon_frame,slot==0?SDLK_t:SDLK_1+slot,product,p->ui_id,p->label);
             huditems[command_start+slot++].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         }
@@ -1368,11 +2099,15 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     snprintf(asset_root,sizeof(asset_root),"%s",root);
     char path[2048];native_path(path,sizeof(path),root,"game/tconsole.pcx");
     if(!W_LoadIndexedSheet(path,&console))return NULL;
+    static const char *const race_art[]={"dlgs/terran.grp","dlgs/zerg.grp","dlgs/protoss.grp"};
+    R_FreeSprite(&ingame.widgets);R_FreeSprite(&ingame.panel);
+    if(!grp(root,race_art[race_of(consoleplayer)],console.palette,&ingame.widgets)||
+       !grp(root,"dlgs/tile.grp",console.palette,&ingame.panel))return NULL;
     if(!grp(root,"unit/wirefram/wirefram.grp",console.palette,&wireframe)||
        !grp(root,"unit/cmdbtns/cmdicons.grp",console.palette,&icons))return NULL;
     if(!palette_from(root,"game/tunit.pcx",&console,0)||
-       !palette_from(root,"game/tunit.pcx",&widgets,0)||
-       !palette_from(root,"game/tunit.pcx",&panel,0)||
+       !palette_from(root,"game/tunit.pcx",&ingame.widgets,0)||
+       !palette_from(root,"game/tunit.pcx",&ingame.panel,0)||
        !palette_from(root,"game/twire.pcx",&wireframe,0)||
        !palette_from(root,"unit/cmdbtns/ticon.pcx",&icons,16))return NULL;
     hud.app=app;hud.refresh=refresh;hud.numitems=1;
@@ -1381,7 +2116,7 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     for(int i=first;i<hud.numitems;i++)huditems[i].visible=false;
     huditems[first].visible=huditems[first].enabled=true;huditems[first].kind=MI_MINIMAP;huditems[first].ownerdraw=minimap;
     first=append_dialog(root,"rez/stat_f10.bin");if(first<0)return NULL;
-    huditems[first].routine=open_menu;huditems[first].hotkey=SDLK_F10;huditems[first].sheet=&widgets;
+    huditems[first].routine=open_menu;huditems[first].hotkey=SDLK_F10;huditems[first].sheet=&ingame.widgets;
     for(int s=0;s<MS_STATES;s++)huditems[first].look[s].cell=s==MS_PUSHED?2:1;
     portrait_item=append_dialog(root,"rez/statport.bin");if(portrait_item<0)return NULL;
     for(int i=portrait_item;i<hud.numitems;i++)huditems[i].visible=false;
@@ -1409,11 +2144,13 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
             .routine=select_slot,.opaque=false};
     }
     sc_start_tip(&level,start_tip,sizeof(start_tip));
+    for(int i=0;i<4;i++)ingame.fonts[i]=gamefonts[i];
+    if(!load_ingame(app))return NULL;
     tip_item=hud.numitems++;
     huditems[tip_item]=(menuitem_t){.kind=MI_STATIC,.visible=false,.passthrough=true,.rect={58,190,300,112},
         .font=&gamefonts[0],.prose=start_tip,.opaque=false};
     return &hud;
 }
 void G_ShutdownHUD(void) {
-    R_FreeSprite(&console);R_FreeSprite(&wireframe);R_FreeSprite(&icons);R_FreeSprite(&widgets);R_FreeSprite(&panel);R_FreeSprite(&portrait.sheet);free(portrait.palettes);memset(&portrait,0,sizeof(portrait));portrait_id=-1;hudview=(hudview_t){0};
+    R_FreeSprite(&console);R_FreeSprite(&wireframe);R_FreeSprite(&icons);R_FreeSprite(&ingame.widgets);R_FreeSprite(&ingame.panel);free_ingame();R_FreeSprite(&portrait.sheet);free(portrait.palettes);memset(&portrait,0,sizeof(portrait));portrait_id=-1;hudview=(hudview_t){0};
 }

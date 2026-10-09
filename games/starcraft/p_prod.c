@@ -70,10 +70,43 @@ static const struct { mobjtype_id_t type, maker, prerequisite; } recipes[] = {
     {MT_HYDRALISK, MT_HATCHERY, MT_HYDRALISK_DEN},
     {MT_MUTALISK, MT_HATCHERY, MT_SPIRE},
 };
-static StaticProductDefinition products[sizeof(recipes)/sizeof(*recipes)];
+/* Researching buildings (upgrades.dat names no maker). Stargus's command
+ * cards; Brood War and add-on research are left out. */
+static const struct { int upgrade; mobjtype_id_t maker; } research[] = {
+    {7,MT_ENGINEERING_BAY},{0,MT_ENGINEERING_BAY},{8,MT_ARMORY},{1,MT_ARMORY},{9,MT_ARMORY},{2,MT_ARMORY},
+    {16,MT_ACADEMY},
+    {10,MT_EVOLUTION_CHAMBER},{11,MT_EVOLUTION_CHAMBER},{3,MT_EVOLUTION_CHAMBER},{12,MT_SPIRE},{4,MT_SPIRE},
+    {27,MT_SPAWNING_POOL},{29,MT_HYDRALISK_DEN},{30,MT_HYDRALISK_DEN},
+    {13,MT_FORGE},{5,MT_FORGE},{15,MT_FORGE},{14,MT_CYBERNETICS_CORE},{6,MT_CYBERNETICS_CORE},
+    {33,MT_CYBERNETICS_CORE},{34,MT_CITADEL_OF_ADUN},
+};
+enum { SC_RECIPES = sizeof(recipes)/sizeof(*recipes), SC_RESEARCH = sizeof(research)/sizeof(*research),
+       SC_UPGRADE_UI = 1000 };
+/* One product per level: ui id 1000 + upgrade*4 + the level it starts from. */
+static StaticProductDefinition products[SC_RECIPES+SC_RESEARCH*3];
+static int product_count;
+static bool upgrade_product(const StaticProductDefinition *p,int *upgrade,int *tier) {
+    if(!p||p->product_class!=RTS_PRODUCT_UPGRADE)return false;
+    *upgrade=(p->product_type-SC_UPGRADE_UI)/4; *tier=(p->product_type-SC_UPGRADE_UI)%4;
+    return *upgrade>=0&&*upgrade<SC_UPGRADES;
+}
+/* level.upgrades[upgrade][owner].weapon holds the level for every upgrades.dat
+ * id, so it is saved and hashed with the level; a level load clears it. */
+int sc_upgrade_level(int owner,int upgrade) {
+    return owner>=0&&owner<8&&upgrade>=0&&upgrade<SC_UPGRADES?level.upgrades[upgrade][owner].weapon:0;
+}
+static int hit_damage(const mobj_t *attacker,const mobj_t *target,int damage) {
+    if(attacker->type_id<1||attacker->type_id>SC_TYPES||target->type_id<1||target->type_id>SC_TYPES)return damage;
+    const sc_unit_t *a=&sc_units[attacker->type_id-1],*t=&sc_units[target->type_id-1];
+    damage+=a->damage_bonus*sc_upgrade_level(attacker->owner,a->weapon_upgrade);
+    damage-=t->armor+sc_upgrade_level(target->owner,t->armor_upgrade);
+    return damage<1?1:damage;
+}
+void sc_reset_upgrades(void) { game_info.hit_damage=hit_damage; }
 static void init_products(void) {
     static bool initialized;
     if(initialized)return;
+    product_count=0;
     for(unsigned i=0;i<sizeof(recipes)/sizeof(*recipes);i++) {
         mobjtype_id_t type=recipes[i].type; const sc_unit_t *u=&sc_units[type-1];
         products[i]=(StaticProductDefinition){.row_id=type,.ui_id=type,.label=u->name,
@@ -82,15 +115,43 @@ static void init_products(void) {
             .product_type=type,.makers={recipes[i].maker},.maker_count=1,
             .worker_build=(u->flags&1)!=0,
             .prerequisites={recipes[i].prerequisite},.prerequisite_count=recipes[i].prerequisite!=MT_NONE};
+        ++product_count;
+    }
+    for(unsigned i=0;i<SC_RESEARCH;i++) {
+        const sc_upgrade_t *u=&sc_upgrades[research[i].upgrade];
+        for(int tier=0;tier<u->max_level&&tier<3;tier++) {
+            int id=SC_UPGRADE_UI+research[i].upgrade*4+tier;
+            products[product_count++]=(StaticProductDefinition){.row_id=id,.ui_id=id,.label=u->name,
+                .cost=u->minerals+tier*u->mineral_factor,.extra_costs={u->gas+tier*u->gas_factor},
+                .icon_frame=u->icon,.product_class=RTS_PRODUCT_UPGRADE,.product_type=id,
+                .makers={research[i].maker},.maker_count=1};
+        }
     }
     initialized=true;
 }
+/* Only the next level is offered, and only while no building of the owner
+ * is already researching that upgrade. */
+static bool researching(int owner,int upgrade) {
+    if(!thinkercap.next)return false;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->owner!=owner||!mo->production||
+           mo->production->product_class!=RTS_PRODUCT_UPGRADE||!mo->production->queue_count)continue;
+        if((mo->production->product_type-SC_UPGRADE_UI)/4==upgrade)return true;
+    }
+    return false;
+}
+bool sc_upgrade_offered(int owner,const StaticProductDefinition *p) {
+    int upgrade,tier;
+    if(!upgrade_product(p,&upgrade,&tier))return true;
+    return tier==sc_upgrade_level(owner,upgrade)&&tier<sc_upgrades[upgrade].max_level;
+}
 int G_ModelGetProducts(const RtsGameModel *m,int owner,StaticProductDefinition *out,int cap) {
-    (void)m;(void)owner;init_products();int n=(int)(sizeof(recipes)/sizeof(*recipes));
+    (void)m;(void)owner;init_products();int n=product_count;
     if(!out||cap<1)return 0;if(n>cap)n=cap;memcpy(out,products,(size_t)n*sizeof(*out));return n;
 }
 const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *m,int id) {
-    (void)m;init_products();for(unsigned i=0;i<sizeof(recipes)/sizeof(*recipes);i++)if(products[i].ui_id==id)return &products[i];return NULL;
+    (void)m;init_products();for(int i=0;i<product_count;i++)if(products[i].ui_id==id)return &products[i];return NULL;
 }
 const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *m,int cls,int type) {
     const StaticProductDefinition *p=G_ModelProductByUIId(m,type);return p&&(int)p->product_class==cls?p:NULL;
@@ -98,13 +159,41 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *m,i
 bool G_ModelProductAvailable(const RtsGameModel *m,int owner,const StaticProductDefinition *p) {
     if(!p)return false;
     for(int i=0;i<p->prerequisite_count;i++)if(!G_ModelHasActorType(m,owner,p->prerequisites[i]))return false;
+    int upgrade,tier;
+    if(upgrade_product(p,&upgrade,&tier))
+        return sc_upgrade_offered(owner,p)&&!researching(owner,upgrade)&&G_ModelHasActorType(m,owner,p->makers[0]);
     return true;
 }
-uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *p) { return p?p->product_type:0; }
+/* Research stays in its building: the engine's actor id is the maker's. */
+uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *p) {
+    int upgrade,tier;
+    if(upgrade_product(p,&upgrade,&tier))return (uint16_t)p->makers[0];
+    return p?p->product_type:0;
+}
 int G_ModelBuildingFrameForProduct(const StaticProductDefinition *p) { (void)p;return 0; }
 int G_ModelBuildingStateForProduct(const gameinfo_t *g,const StaticProductDefinition *p) { return p?g->mobjinfo[p->product_type].spawnstate:0; }
-int G_ModelProductTrainingTimeMs(const StaticProductDefinition *p) { return p?(sc_units[p->product_type-1].build_time*1000+23)/24:0; }
-bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProductDefinition *p,uint16_t id) { (void)m;(void)u;(void)p;(void)id; return false; }
+int G_ModelProductTrainingTimeMs(const StaticProductDefinition *p) {
+    int upgrade,tier;
+    if(upgrade_product(p,&upgrade,&tier)) {
+        const sc_upgrade_t *u=&sc_upgrades[upgrade];
+        return ((u->time+tier*u->time_factor)*1000+23)/24;
+    }
+    return p?(sc_units[p->product_type-1].build_time*1000+23)/24:0;
+}
+/* Finished research raises the owner's level and leaves the queue here. */
+bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProductDefinition *p,uint16_t id) {
+    (void)m;(void)id;
+    int upgrade,tier;
+    if(!u||!upgrade_product(p,&upgrade,&tier))return false;
+    if(u->owner<8&&level.upgrades[upgrade][u->owner].weapon==tier)
+        level.upgrades[upgrade][u->owner].weapon=(uint8_t)(tier+1);
+    S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
+    if(u->production) {
+        if(--u->production->queue_count>0)u->production->time_left_ms=u->production->time_ms;
+        else P_FreeMobjProduction(u);
+    }
+    return true;
+}
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const StaticProductDefinition *p,const mobj_t *n,float *x,float *y) { (void)m;(void)u;(void)p;(void)n;(void)x;(void)y; return false; }
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
 bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) { return G_QueueProduct(u,p); }

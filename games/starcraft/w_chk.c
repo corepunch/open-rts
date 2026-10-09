@@ -75,6 +75,17 @@ void sc_set_net_races(const int *races) {
     for (int i = 0; i < MAXPLAYERS; ++i) net_race[i] = races ? races[i] : -1;
 }
 
+static bool custom_set;
+static int custom_kind[8], custom_race[8];
+
+void sc_set_custom_slots(const int *kinds, const int *races) {
+    custom_set = kinds && races;
+    for (int i = 0; i < 8; ++i) {
+        custom_kind[i] = custom_set ? kinds[i] : SC_SLOT_CLOSED;
+        custom_race[i] = custom_set ? races[i] : 0;
+    }
+}
+
 static int side_byte(int race) {
     if (race == 1) return 0;
     if (race == 2) return 2;
@@ -187,6 +198,45 @@ static void apply_net_seats(blob_t *file) {
     }
 }
 
+/* Single-player custom game: the n-th playable OWNR slot takes the n-th
+ * choice. Slots keep their native numbers, so the first human stays the
+ * console player and the start locations stay with their slots. */
+static void apply_custom_slots(blob_t *file) {
+    size_t ownr_n = 0, side_n = 0;
+    uint8_t *ownr = chk_chunk(file, "OWNR", &ownr_n);
+    uint8_t *side = chk_chunk(file, "SIDE", &side_n);
+    if (!ownr || ownr_n < 8) return;
+    bool open[8] = {0};
+    for (int i = 0, k = 0; i < 8; ++i) {
+        if (ownr[i] != 5 && ownr[i] != 6) continue;
+        int kind = custom_kind[k], race = custom_race[k];
+        ++k;
+        ownr[i] = kind == SC_SLOT_HUMAN ? 6 : kind == SC_SLOT_COMPUTER ? 5 : 0;
+        if (!ownr[i]) continue;
+        open[i] = true;
+        net_race[i] = race;
+        if (side && side_n >= 8) side[i] = (uint8_t)side_byte(race);
+    }
+    net_race_set = true;
+    net_seats = 8;
+    for (size_t at = 0; at + 8 <= file->size;) {
+        uint8_t *rec = file->bytes + at, *data = rec + 8;
+        size_t size = read_u32_le(rec + 4);
+        if (size > file->size - at - 8) break;
+        if (!memcmp(rec, "UNIT", 4))
+            for (size_t i = 0; i + 36 <= size; i += 36)
+                note_unit(data[i + 16], read_u16_le(data + i + 8),
+                          (ivec2_t){read_u16_le(data + i + 4), read_u16_le(data + i + 6)}, false);
+        else if (!memcmp(rec, "THG2", 4))
+            for (size_t i = 0; i + 10 <= size; i += 10)
+                note_unit(data[i + 6], read_u16_le(data + i),
+                          (ivec2_t){read_u16_le(data + i + 2), read_u16_le(data + i + 4)},
+                          (read_u16_le(data + i + 8) & 0x1000) != 0);
+        at += 8 + size;
+    }
+    for (int i = 0; i < 8; ++i) if (!open[i]) melee_start[i] = false;
+}
+
 static void clear_melee(void) {
     memset(melee_start, 0, sizeof(melee_start));
     memset(melee_unit, 0, sizeof(melee_unit));
@@ -254,8 +304,10 @@ bool sc_load_chk(const char *path,level_t *out) {
     snprintf(out->tileset_name,sizeof(out->tileset_name),"%s",tilesets[era]);
     for(int i=0;i<8;i++) out->player_colors[i]=i;
     clear_melee();
-    if(!netgame) net_race_set = false;
-    else if(doomcom && doomcom->numplayers >= 2) apply_net_seats(file);
+    if(!netgame) {
+        net_race_set = false;
+        if(custom_set) apply_custom_slots(file);
+    } else if(doomcom && doomcom->numplayers >= 2) apply_net_seats(file);
     /* Preserve native player IDs, including Terran 01's human slot 1.
      * A network match already assigned consoleplayer from the seat. */
     if(!netgame&&owners) for(int i=0;i<8;i++) if(owners[i]==6) { consoleplayer=i; break; }
@@ -293,7 +345,8 @@ bool sc_load_chk(const char *path,level_t *out) {
     /* Melee triggers give the starting stock to player group 13, which this
      * loader does not apply. A network seat that still has no minerals gets
      * that stock directly. */
-    for(int i=0;i<net_seats;i++) if(out->player_resources[i][0]==0) out->player_resources[i][0]=50;
+    for(int i=0;i<net_seats;i++)
+        if(out->player_resources[i][0]==0&&owners&&(owners[i]==5||owners[i]==6)) out->player_resources[i][0]=50;
     if(!sc_mission_bind(out)) goto bad;
     return true;
 bad:
@@ -412,4 +465,46 @@ bool sc_briefing(const char *path,char *text,size_t text_size,char *objectives,s
     }
     ok=true;
 done: W_FreeFile(&b);return ok;
+}
+
+static int brief_string(sc_briefing_t *out, size_t *used, const uint8_t *strings, size_t size, unsigned id) {
+    if (!id || size < 2 || id > read_u16_le(strings) || 2u + id * 2u > size) return -1;
+    unsigned off = read_u16_le(strings + id * 2);
+    if (off >= size || !memchr(strings + off, 0, size - off)) return -1;
+    size_t n = strlen((const char *)strings + off) + 1;
+    if (n > sizeof(out->strings) - *used) return -1;
+    memcpy(out->strings + *used, strings + off, n);
+    int at = (int)*used;
+    *used += n;
+    return at;
+}
+
+bool sc_briefing_script(const char *path, sc_briefing_t *out) {
+    memset(out, 0, sizeof(*out));
+    blob_t b = {0};
+    if (!W_ReadFile(path, &b)) return false;
+    const uint8_t *strings = NULL, *brief = NULL;
+    size_t strings_size = 0, brief_size = 0, used = 0;
+    for (size_t p = 0; p + 8 <= b.size;) {
+        size_t n = read_u32_le(b.bytes + p + 4);
+        if (n > b.size - p - 8) break;
+        if (!memcmp(b.bytes + p, "STR ", 4)) { strings = b.bytes + p + 8; strings_size = n; }
+        if (!memcmp(b.bytes + p, "MBRF", 4)) { brief = b.bytes + p + 8; brief_size = n; }
+        p += 8 + n;
+    }
+    bool ok = strings && brief && brief_size % 2400 == 0;
+    for (size_t t = 0; ok && t < brief_size; t += 2400)
+        for (int a = 0; a < 64 && out->count < 64; a++) {
+            const uint8_t *v = brief + t + 320 + a * 32;
+            if (!v[26]) break;
+            if (v[28] & 2) continue; /* disabled */
+            out->actions[out->count++] = (sc_brief_action_t){
+                .op = v[26], .slot = (uint8_t)read_u32_le(v + 16), .unit = read_u16_le(v + 24),
+                .time = (int)read_u32_le(v + 12),
+                .text = brief_string(out, &used, strings, strings_size, read_u32_le(v + 4)),
+                .wav = brief_string(out, &used, strings, strings_size, read_u32_le(v + 8)),
+            };
+        }
+    W_FreeFile(&b);
+    return ok;
 }

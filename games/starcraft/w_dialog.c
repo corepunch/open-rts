@@ -19,7 +19,13 @@ bool sc_decode_dialog(const blob_t *b,sc_dialog_t *out) {
         c->rect=(irect_t){out->rect.x+read_u16_le(p+4),out->rect.y+read_u16_le(p+6),read_u16_le(p+12),read_u16_le(p+14)};
         if(c->rect.w<1||c->rect.h<1)return false;
         c->text_offset=(ivec2_t){read_u16_le(p+70),read_u16_le(p+72)};
-        if(c->flags&0x10) c->hitbox=(irect_t){read_u16_le(p+54),read_u16_le(p+56),read_u16_le(p+58),read_u16_le(p+60)};
+        /* The responsive area is left, top, right, bottom, inclusive: a 132x22
+         * Cancel stores 0,0,131,21. glurdyt's Start ends at 160, above Cancel.
+         * Lists, fields and comboboxes store zeros: they answer on their rect. */
+        if(c->flags&0x10) {
+            int left=read_u16_le(p+54),top=read_u16_le(p+56),right=read_u16_le(p+58),bottom=read_u16_le(p+60);
+            if((right||bottom)&&right>=left&&bottom>=top) c->hitbox=(irect_t){left,top,right-left+1,bottom-top+1};
+        }
         unsigned str=read_u32_le(p+20);
         if(str) {
             if(str>=b->size||!memchr(b->bytes+str,0,b->size-str)) return false;
