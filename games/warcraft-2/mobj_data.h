@@ -7,7 +7,8 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
  * A worker's building job is its own: the type and top-left cell it was
  * sent to build, the site it works inside, and how often it re-approached.
  * A structure under construction carries the time left, the whole build
- * time and the builder inside it. */
+ * time and the builder inside it. A computer's transport carries its
+ * ferry job: gathering, sailing, then landing troops at `to`. */
 #define MOBJ_GAME_FIELDS struct { \
     int chops; \
     int build_phase; uint16_t build_type; ivec2_t build_cell; uint32_t site; int build_tries; \
@@ -15,6 +16,7 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
     w2_repair_t repair; bool stand_ground; \
     uint32_t fire; \
     uint32_t carrier; bool boarded, unloading; \
+    struct { int phase, wait; ivec2_t to; } ferry; \
     int mana, buffs[5], ttl; \
     struct { int spell; uint32_t target; fixed3_t position; } cast; \
     struct { int kind, age, clock, basic, piercing, mask, bounces; uint32_t subject; fixed3_t end; } fx; \
@@ -26,6 +28,8 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
     HASH((mo)->w2.build_tics); HASH((mo)->w2.build_tries); \
     HASH((mo)->w2.repair.target); HASH((mo)->w2.repair.tics); HASH((mo)->w2.stand_ground); \
     HASH((mo)->w2.carrier); HASH((mo)->w2.boarded); HASH((mo)->w2.unloading); \
+    HASH((mo)->w2.ferry.phase); HASH((mo)->w2.ferry.wait); \
+    HASH((mo)->w2.ferry.to.x); HASH((mo)->w2.ferry.to.y); \
     HASH((mo)->w2.fire); HASH((mo)->w2.fx.kind); HASH((mo)->w2.fx.age); HASH((mo)->w2.fx.clock); \
     HASH((mo)->w2.fx.basic); HASH((mo)->w2.fx.piercing); HASH((mo)->w2.fx.mask); HASH((mo)->w2.fx.bounces); \
     HASH((mo)->w2.fx.subject); HASH((mo)->w2.fx.end.x); HASH((mo)->w2.fx.end.y); \

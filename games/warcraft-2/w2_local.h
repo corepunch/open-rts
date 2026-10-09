@@ -11,6 +11,9 @@
 /* Stratagus advances a time-cost unit every six 30 Hz cycles. */
 static inline int w2_cost_ms(int cost) { return cost * 6 * 1000 / RTS_TICRATE; }
 void w2_advance_build(mobj_t *site, int ticks);
+bool w2_site_reachable(const mobj_t *walker, ivec2_t cell, isize2_t foot);
+/* Whether a footprint stands on the way between one of the owner's halls and its gold mine. */
+bool w2_blocks_mining(int owner, ivec2_t cell, isize2_t foot);
 
 #define W2_TILE_LOOKUP 0x9E0
 /* Native special megatiles have no PUD slots. Append runtime slots. */
@@ -48,6 +51,7 @@ typedef struct {
     int ver;
     uint8_t owners[16];
     uint8_t sides[16];
+    uint8_t ai[16];     /* AIPL: 0 land attack, 1 passive, 25 sea attack, 26 air attack, others campaign scripts */
     w2_pud_unit_t *units;
     int unit_count;
     int view_player;
@@ -57,6 +61,10 @@ extern const soundinfo_t w2_soundinfo;
 void A_W2_Chop(mobj_t *actor);
 void A_W2_Platform(mobj_t *actor);
 void w2_init_products(void);
+/* The computer player's battle orders (p_ai.c): waves split by what can
+ * reach the goal, ships, transports and spells. */
+bool w2_ai_dispatch(level_t *map, int owner, mobj_t *const *wave, int count, mobj_t *goal);
+void w2_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count);
 typedef struct {
     const char *name;
     int frames, sleep, speed, range, splash, impact, bounces;
