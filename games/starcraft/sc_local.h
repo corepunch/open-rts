@@ -212,6 +212,9 @@ float sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
 uint16_t sc_addon_parent(uint16_t type);
 mobj_t *sc_addon_of(const mobj_t *building);
 bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell);
+/* The cells the first add-on of a building of type with its top-left at
+ * cell would take, and that add-on; false for a type without add-ons. */
+bool sc_addon_place(uint16_t type, ivec2_t cell, uint16_t *addon, irect_t *out);
 mobj_t *sc_attach_addon(mobj_t *building, uint16_t type);
 /* Bunkers: slots in use, boarding (walks there first) and unloading. */
 int sc_cargo_space(const mobj_t *bunker);

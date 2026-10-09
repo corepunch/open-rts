@@ -148,6 +148,17 @@ bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell) {
     *cell = (ivec2_t){at.x + offset.x / 32, at.y + offset.y / 32};
     return P_CanPlaceBuilding(type, *cell, building);
 }
+bool sc_addon_place(uint16_t type, ivec2_t cell, uint16_t *addon, irect_t *out) {
+    for (unsigned i = 0; i < sizeof(addons) / sizeof(*addons); i++) {
+        if (addons[i].parent != type) continue;
+        ivec2_t offset = sc_units[addons[i].addon - 1].addon;
+        isize2_t size = actor_types[addons[i].addon - 1].footprint;
+        *addon = addons[i].addon;
+        *out = (irect_t){cell.x + offset.x / 32, cell.y + offset.y / 32, size.w, size.h};
+        return true;
+    }
+    return false;
+}
 mobj_t *sc_attach_addon(mobj_t *building, uint16_t type) {
     ivec2_t cell;
     if (sc_addon_of(building) || sc_addon_parent(type) != building->type_id || !sc_addon_site(building, type, &cell))

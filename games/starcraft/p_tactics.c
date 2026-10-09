@@ -216,8 +216,22 @@ static void research(mobj_t *const *units, int count, mobj_t *u) {
     }
 }
 
+/* Idle units of ours standing where a building's add-on is still to go
+ * step off that place, below it. */
+static void clear_addon_place(level_t *map, mobj_t *const *units, int count, const mobj_t *u) {
+    uint16_t addon;
+    irect_t at = P_MobjCells(u), place;
+    if (sc_addon_of(u) || !sc_addon_place(u->type_id, (ivec2_t){at.x, at.y}, &addon, &place)) return;
+    for (int i = 0; i < count; i++) {
+        mobj_t *v = units[i];
+        ivec2_t cell = fvec2_cell(where(v));
+        if (!alive(v) || v->owner != u->owner || building(v) || (v->traits & MF_FLY) || P_HasMoveOrder(v) ||
+            v->harvest.phase != HARVEST_PHASE_NONE || !irect_contains(place, cell)) continue;
+        P_MoveUnitTo(map, v, fvec2_cell_center((ivec2_t){cell.x, place.y + place.h + 1}));
+    }
+}
+
 void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count) {
-    (void)map;
     for (int i = 0; i < count; i++) {
         mobj_t *u = units[i];
         if (!alive(u) || u->owner != owner || (u->sc.flags & (SC_HALLUCINATION | SC_LOADED))) continue;
@@ -226,7 +240,10 @@ void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count) {
         case MT_CARRIER: case MT_REAVER: refill(u); break;
         case MT_SIEGE_TANK: case MT_SIEGE_MODE: siege(units, count, u); break;
         case MT_MARINE: man_bunker(units, count, u); break;
-        default: research(units, count, u); break;
+        default:
+            research(units, count, u);
+            if (building(u)) clear_addon_place(map, units, count, u);
+            break;
         }
     }
 }

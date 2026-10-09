@@ -490,32 +490,51 @@ faction as data. Blizzard's AIs split the same way. StarCraft keeps per-race
   mode, Bunkers, hangars. Units need no hand-written AI fields.
 
 Every think the engine scouts what the team can see, keeps a fading estimate of
-the enemy army and its air share, and then works through these steps in order:
+the enemy army and its air share, and notes when it first saw an enemy
+building (`found_ms`). Once the doctrine's `scout` product is bought, one
+scout (the fastest idle worker or unarmed flyer) walks to the start
+locations the game's `starts` hook names, nearest unseen first, and comes
+home to mine once it has seen an enemy base, so the estimate forms before
+the first fight. Then the team works through these steps in order:
 
 1. Order supply ahead of demand.
-2. Follow the opening.
-3. Serve the doctrine's needs: workers, detection after a cloaked sighting,
+2. Found a town once every town standing has `expand_workers` workers
+   (after `expand_after` stands, up to `max_towns`). A town is a cluster of
+   drop-offs with resources left by it; workers and static defenses scale
+   with towns, and a mined-out town no longer counts, so the team moves on.
+   The game's `expand` hook picks the site and buys the town hall: StarCraft
+   takes the free mineral fields nearest the base, places the hall at the
+   retail three-cell gap from fields and geysers, and sends workers only to
+   patches by its own town halls.
+3. Follow the opening.
+4. Serve the doctrine's needs: workers, detection after a cloaked sighting,
    static defense (anti-air once air is seen), research, then the roster
    entry furthest below its counter-weighted share. A defense without a
    weapon (Warcraft's Watch Tower) is a site: standing sites are armed in
    place before another is raised. Research buys what the game's `advance`
    hook names for the most numerous roster units, one purchase per
    `100 / research` fighters fielded.
-4. Launch a wave only when idle strength reaches `attack_ratio` percent of the
+5. Launch a wave only when idle strength reaches `attack_ratio` percent of the
    estimate. Idle support units (casters, healers) go along. A game's
    `dispatch` hook may send the wave itself, splitting it by what can reach
    the goal.
-5. Pull a wave home when it falls below `retreat_ratio` percent of the enemies
+6. Pull a wave home when it falls below `retreat_ratio` percent of the enemies
    around it.
-6. Give the game's `tactics` hook a turn for orders the engine cannot give:
+7. Give the game's `tactics` hook a turn for orders the engine cannot give:
    spells in battle, transports ferrying soldiers, siege mode, Bunkers and
    hangars.
 
 Zero values switch a behavior off, so games without a doctrine keep the ladder
 and timer AI; only Dark Colony still does. Dark Reign, KKnD and 7th Legion have
 no supply, so their doctrines leave `supply` unset and bound the army with
-`army_cap`. `tests/starcraft/test_ai.c` plays each StarCraft race and a
-Zerg-against-Protoss game; `tests/ai_doctrine_regression.h` checks the
+`army_cap`. StarCraft's openings follow the retail melee scripts (`TMCu`,
+`ZMCu`, `PMCu` in `aiscript.bin`); its `advance` hook keeps each race's
+weapons, armor and shields climbing and names the building a level needs
+(Science Facility, Lair and Hive, Templar Archives, Fleet Beacon).
+`tests/starcraft/test_ai.c` decodes those scripts to check the openings,
+plays each StarCraft race for fourteen minutes (scouting, expansions,
+level-2 upgrades and every roster unit fielded) and a Zerg-against-Protoss
+game; `tests/ai_doctrine_regression.h` checks the
 doctrines of Dark Reign, KKnD and 7th Legion headless. `tests/warcraft-2/test_ai.c`
 covers Warcraft II: armed towers, Wargus ai-cast spells, the research ladder,
 the PUD's `AIPL` scripts (passive slots stay idle; sea and air scripts, or an
