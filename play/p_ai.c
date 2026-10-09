@@ -155,7 +155,9 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
         }
     }
 
-    for (int i = 0; i < unit_count; ++i) {
+    /* Recall far-flung returns to the base, unless the game routes its
+     * own workers (to the nearest of several depots). */
+    for (int i = 0; i < unit_count && !(ctx->game && ctx->game->assign_harvester); ++i) {
         mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove) continue;
         if (u->owner != owner) continue;
@@ -398,11 +400,13 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
     if (!goal) { team->attack_wave_timer_ms = interval; return; }
 
     int sent = idle_count < max_size ? idle_count : max_size;
-    fvec2_t target = fixed3_xy_to_fvec2(goal->core.position);
-    for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;
-    P_MoveUnitsAt(map, idle, sent, target);
-    /* Moving clears nothing the target needs; make sure the objective sticks. */
-    for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;
+    if (!ctx->game->dispatch || !ctx->game->dispatch(map, owner, idle, sent, goal)) {
+        fvec2_t target = fixed3_xy_to_fvec2(goal->core.position);
+        for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;
+        P_MoveUnitsAt(map, idle, sent, target);
+        /* Moving clears nothing the target needs; make sure the objective sticks. */
+        for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;
+    }
     P_AiTrackWave(team, idle, sent);
     team->attack_wave_active = true;
     team->attack_wave_timer_ms = interval;
@@ -479,6 +483,8 @@ static void ai_tick_game(AiContext *ctx, level_t *map, mobj_t *const *units,
             P_AiCheckRetreat(ctx, team, t, map, units, unit_count);
             ai_tick_attack_game(ctx, team, t, map, units, unit_count, elapsed_ms);
         }
+        if (game->tactics && (ctx->features & (AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK)))
+            game->tactics(map, t, units, unit_count);
     }
 }
 

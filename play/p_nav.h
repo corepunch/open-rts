@@ -24,10 +24,6 @@ bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from,
 bool P_NavLineClear(const level_t *map, int move_class, fvec2_t a, fvec2_t b,
                     float radius);
 
-/* Nearest cell to `wanted` in the same region as `from`, within `radius` cells. */
-bool P_NavNearestReachable(const level_t *map, int move_class, ivec2_t from,
-                           ivec2_t wanted, int radius, ivec2_t *out);
-
 void P_NavFree(level_t *map);
 
 /* Planner work counters. Expansions drive the per-tick planning budget, so the
