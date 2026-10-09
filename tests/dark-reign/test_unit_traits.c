@@ -51,6 +51,59 @@ static int audit_traits(void) {
     return 0;
 }
 
+/* Each armed unit reaches what its WEAPON.TXT weapons can shoot:
+ * CanShootGroundUnit and CanShootFlyer; both is the zero default. */
+static int audit_reach(void) {
+    static struct { char name[48]; uint8_t reach; } weapons[96];
+    int weapon_count = 0, checked = 0;
+    char line[512];
+    FILE *file = fopen("data/REIGN/dark/deftxt/WEAPON.TXT", "r");
+    CHECK(file);
+    while (fgets(line, sizeof(line), file)) {
+        char *p = line;
+        while (*p == ' ' || *p == '\t') ++p;
+        if (weapon_count < 96 && sscanf(p, "DefineWeapon(%47[^)])", weapons[weapon_count].name) == 1)
+            weapons[weapon_count++].reach = 0;
+        else if (weapon_count && !strncmp(p, "CanShootGroundUnit()", 20))
+            weapons[weapon_count - 1].reach |= MOBJ_TARGET_GROUND;
+        else if (weapon_count && !strncmp(p, "CanShootFlyer()", 15))
+            weapons[weapon_count - 1].reach |= MOBJ_TARGET_AIR;
+    }
+    fclose(file);
+    CHECK(weapon_count > 30);
+    file = fopen("data/REIGN/dark/deftxt/UNITS.TXT", "r");
+    CHECK(file);
+    int id = -1;
+    uint8_t reach = 0;
+    for (bool more = true; more;) {
+        more = fgets(line, sizeof(line), file) != NULL;
+        char *p = line, name[48];
+        while (*p == ' ' || *p == '\t') ++p;
+        if (!more || !strncmp(p, "DefineUnitType(", 15)) {
+            const mobjtype_t *type = id >= 0 ? type_for_native(id) : NULL;
+            if (type && reach && (type->traits & MF_ATTACK) && type->attack.damage > 0) {
+                uint8_t want = reach == (MOBJ_TARGET_GROUND | MOBJ_TARGET_AIR) ? 0 : reach;
+                if (type->attack.targets != want) {
+                    fprintf(stderr, "native=%d name=%s targets=%d expected=%d\n",
+                            id, type->name, type->attack.targets, want);
+                    CHECK(!"weapon reach");
+                }
+                ++checked;
+            }
+            id = -1; reach = 0;
+            continue;
+        }
+        if (*p == ';' || sscanf(p, "SetType(%d)", &id) == 1) continue;
+        if (sscanf(p, "AddWeapon(%47[^ )]", name) == 1)
+            for (int i = 0; i < weapon_count; ++i)
+                if (!strcmp(weapons[i].name, name)) reach |= weapons[i].reach;
+    }
+    fclose(file);
+    CHECK(checked > 25);
+    printf("PASS: %d armed units reach what their WEAPON.TXT weapons shoot\n", checked);
+    return 0;
+}
+
 static mobj_t *spawn(uint16_t type, fvec2_t position) {
     mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(position, 0), type);
     if (unit) {
@@ -124,6 +177,7 @@ static int support(void) {
 
 int main(void) {
     RTS_RUN(audit_traits());
+    RTS_RUN(audit_reach());
     RTS_RUN(support());
     return 0;
 }
