@@ -2,414 +2,386 @@
 
 ![Dark Reign, Dark Colony, 7th Legion, KKnD, Warcraft II, and StarCraft](docs/screenshots/games.jpg)
 
-`open-rts` is a small C/SDL2 engine for sprite-based, 256-color strategy games,
-currently wired to the original data files from Dark Reign: The Future of War,
-Dark Colony, 7th Legion, and KKnD.
+`open-rts` is a shared C engine for recreating sprite-based real-time strategy
+games of the 1990s. One simulation, one indexed renderer, one menu toolkit, and
+one lockstep network loop serve every title. Each game is a directory that
+decodes that title's own retail files and fills in the behavior those files
+do not share.
 
-## Why open-rts exists
+The games are Dark Reign: The Future of War, Dark Colony, 7th Legion,
+KKnD (Krush, Kill 'N' Destroy), Warcraft II, and StarCraft. You supply a legitimate
+copy of the retail data under `data/`. The engine does not ship those assets,
+and it does not convert them to a private format.
 
-This is a preservation engine, not a general-purpose game-construction kit. Its
-goal is to reproduce a broad family of DOS and early Windows RTS games closely
-enough that they remain easy to run, study, play against the computer, and play
-over a LAN. Old games are shared memories: the long-term aim is to let people
-revisit them with friends and introduce them to their children without first
-reconstructing a period-correct machine or fighting an abandoned network stack.
+This is a preservation project. The aim is to keep these games runnable,
+readable, and playable against the computer or with friends on a LAN, without
+rebuilding a period-correct machine or an abandoned network stack.
 
-The architecture is deliberately influenced by Doom, Heretic, and Hexen. Those
-engines solved a similar problem with unusually direct, durable code:
+## Why it is built this way
 
-- `G_*` coordinates the game, `P_*` owns simulation, `R_*` owns rendering,
-  `W_*` reads native resources, and `HU_*` owns the HUD.
-- Units advance through compiled `state_t`-style tables with typed C action
-  callbacks. State transitions, animation timing, and gameplay behavior are
-  visible to the compiler and debugger.
-- Simulation advances in discrete tics, separate from rendered frames. Doom-style
-  UDP lockstep exchanges player commands for each tic and waits for every peer.
-- Each supported game keeps its native file formats and game-shaped procedures.
-  Shared code is extracted only after the games demonstrate that it is truly
-  shared.
+The layout follows Doom, Heretic, and Hexen. Those engines stayed small
+because the interesting data was compiled in, and the loop that advanced it
+was ordinary C:
 
-The result is Doom's kind of architecture adapted to tile maps, large numbers
-of independently commanded units, paletted sprites, terrain layers, resource
-economies, production queues, computer opponents, and LAN play.
+- `G_*` coordinates a game, `P_*` owns the simulation, `R_*` draws, `W_*`
+  reads files, and `HU_*` owns the HUD.
+- A unit is an `mobj_t` on one thinker list. Its animation and behavior are a
+  row in a `state_t` table. When a state is entered, its C action runs.
+- Simulation advances in fixed tics. Rendered frames are separate. Network
+  play exchanges each player's commands for a tic and waits until every peer
+  has that tic. Positions are not synchronized.
 
-### Deliberately not a scripting platform
+Shared code is added when two games already do the same thing. A loader, a
+mission script, or a sidebar that is shaped like one retail game stays in
+that game's directory.
 
-Many open-source RTS engines optimize for being universal modding platforms.
-That commonly produces a large C++ core surrounded by Lua unit definitions,
-JSON-like configuration, binding generators, asset-conversion pipelines, and
-media libraries unrelated to the simulation. This can be useful for building
-new games, but it is a poor fit for reproducing old ones: behavior is scattered
-between languages, type errors move from compile time to runtime, call paths are
-harder to follow, and a simple unit action may cross a scripting boundary for no
-good reason.
+Gameplay tables are C, on purpose. A unit thinker written next to the rest of
+the simulation is visible to the compiler and the debugger. [Stratagus](https://github.com/Wargus/stratagus)
+and [OpenRA](https://github.com/OpenRA/OpenRA) show the other choice: a large
+core, then Lua or YAML for units, triggers, and AI, plus the runtimes and
+package stacks that go with them. That is a reasonable way to host new mods.
+It is a poor way to reproduce a 1997 executable, where the behavior already
+has a known order and the cost of a scripting boundary is paid on every
+action. There is no plugin registry and no embedded language here. Original
+assets are decoded directly. The test of a change is whether the retail game
+still behaves, and whether another programmer can see why.
 
-[Stratagus](https://github.com/Wargus/stratagus), for example, is a capable and
-long-running project, but its current build requires C++17, Lua 5.1 and
-tolua++, SDL_image, SDL_mixer, PNG and zlib, with further optional media
-libraries. Its games place substantial configuration, AI, triggers, and unit
-behavior in Lua. That is exactly the architecture `open-rts` chooses not to
-copy. A unit thinker written in C is fast to compile, statically checked, easy
-to trace, and usually shorter than the machinery required to expose the same
-logic safely to a scripting runtime.
+## What the tree contains
 
-[OpenRA](https://github.com/OpenRA/OpenRA) makes the opposite tradeoff in a
-different direction: a large C# engine on the .NET runtime, forests of YAML
-traits and mod manifests, Lua mission scripts, NuGet-managed native libraries,
-and Python tooling in its mod SDK. Its flexibility is impressive, but requiring
-a managed runtime, package ecosystem, trait-composition system, data-file
-validation, and multiple languages to reproduce a 1990s strategy game is
-architectural excess for this project's purpose. `open-rts` would rather
-recompile a small, typed C program than start a virtual machine and interpret a
-stack of loosely typed configuration before the first simulation tic.
-
-There is no plugin registry, embedded scripting language, or generic object
-schema here. Gameplay tables are C. Original assets are decoded directly.
-Game-specific behavior stays beside the game that owns it. The standard is not
-how configurable the engine looks in a feature list; it is whether the original
-game behaves correctly and whether another programmer can understand why.
-
-## Build
-
-```sh
-make
-make run
-make mission-1
-make mission-2
-make dark-reign
-make dark-colony
-make kknd
+```text
+driver/             startup, the main loop, file and image I/O, lockstep net
+game/               level lifecycle, commands, the shared save format
+play/               thinkers, movement, pathfinding, sight, combat, production
+render/             the 8-bit map, sprites, fog, and viewport
+hud/                menu and HUD widgets, shared multiplayer screens
+interface/          the SDL window and the indexed-framebuffer present
+sound/              channels and the listener, over a small mixer
+games/<id>/         one retail game: loaders, tables, actions, screens
+include/engine.h    the engine and the names a game must define
+include/<id>.h      what tests and tools call on that game
+tests/              headless suites, linked against one game at a time
+tools/              C extractors and table generators; not part of the runtime
+docs/               per-game findings, formats, and fidelity limits
+data/               retail files you provide (gitignored)
 ```
 
-Dark Colony opens its native main menu. Choose **New Campaign**, select Human
-or Gray, enter a leader name, then follow **Start Campaign → Next → To Battle**.
-Training follows the same setup screen. Escape opens the menu during play and
-resumes from its main page; single-player simulation pauses while it is open.
-**Load Game** restores engine saves made from the in-game Save dialog. The
-encyclopedia and Play Intro branches remain outside the implemented front end.
+`make` builds six binaries. The engine sources are compiled into each one
+with that game's directory on the include path. `build/bin/dark-colony` is
+the Dark Colony program; it cannot load Warcraft II. Adding a file under
+`games/<id>/` or under an engine directory picks it up automatically.
 
-The third sidebar tab provides Quit (Q), Save (F11), Options (O), Allies,
-Pause (T), and Objectives (J). Options persist speed, sound/CD volume and
-detail; Cancel restores the original sound volume. In network games the host
-changes speed through synchronized commands. Native button sounds play from
-`SOUND/BUTTON.WAV`; the installed retail data contains no CD music tracks.
+Reference checkouts (Doom, OpenDR, OpenKrush, Wargus, Stargus, and others)
+live in `reference/` and are gitignored. Provenance is in
+[REFERENCES.md](REFERENCES.md).
 
-Allies shows active players in their original slots. Peace and shared vision
-are separate reciprocal offers: both players must agree. The rightmost button
-transfers 1000 credits when the sender has more than 1000. Checkboxes choose
-chat recipients; Enter in Allies (or Shift+Enter elsewhere) starts chat, Enter
-sends, and Escape cancels. Selecting another tab exits Allies.
+## What the engine does
 
-Single-player saves preserve thinkers, production, resources, fog, alliances,
-AI, mission progress and camera position. Enter a name or select an existing
-save to replace it; writes are atomic. They use a versioned engine format,
-not DC.EXE's retail save format, and require the matching map/state table.
-Saves and `settings.cfg` live in SDL's per-user `open-rts/dark-colony`
-preference directory. `OPEN_RTS_USER_DIR` overrides that directory for tests.
+The engine owns the parts that are the same once a map is a grid of cells
+and a unit is an object with a state:
 
-Dark Reign also opens its native shell: the outer menus use the retail
-`SHELL.RLD` art and `SHELLCFG.H` layout. **Single Player → Start New Game**
-shows the mission map; pick the Freedom Guard or Imperium logo (or a training
-button) and **Launch** from the briefing. **Instant Action** opens the game
-setup: **Select Map**, then click a row's player type, side, team or handicap
-to step through its choices (right click steps back). **Multi Player → Local
-Area Network** lists LAN games; **Create Game** leaves rows Available for LAN
-players and **LAUNCH** opens the lobby, and **Manual IP** joins a typed
-address. In the lobby each joiner sets its own side and team and presses
-**READY**; the Messages line chats. The game starts when every seat has
-joined and everyone, host included, is ready. In a level, Escape or the
-HUD's MENU button opens the options screen with Quit to Main Menu.
+- An 8-bit framebuffer. Terrain, sprites, fog, and chrome are indexed pixels.
+  Palette lookups happen at draw time, so water can cycle colors without a
+  second copy of the tiles. SDL uploads that buffer as one texture.
+- The thinker loop. Objects are allocated, linked, and removed the way Doom
+  removes them. `P_Ticker` advances movement, combat, production, and mission
+  scripts on the tic.
+- Orders. Selection, movement, attack, harvest, and production enter as
+  commands. The same commands drive the window and the headless tests.
+- Pathfinding and sight on the game's cell grid, and a fog-of-war calculation
+  the game paints in its own tiles.
+- Menu and HUD behavior. A screen is a `menu_t` of `menuitem_t` rows. The
+  engine hit-tests, keeps focus, edits text, scrolls lists, and draws. A
+  game describes the screen; it does not run its own responder loop.
+- Lockstep networking in `driver/d_net.c`, and the shared create, browse,
+  join, and lobby flow in `hud/m_net.c` for games that use it.
+- A saved-game format in `game/g_save.c` for the level and its objects.
+- A computer-player scheduler (economy, defense, attack waves, a build
+  ladder). The game answers which products exist and how to buy them.
 
-Supply a map to start directly, bypassing the menu:
+Rendering reads simulation state. It does not decide who won.
+
+## What a game supplies
+
+A game is `games/<id>/`, linked as its own binary. `-I./games/<id>` makes
+that directory's `info.h` and `mobj_data.h` the headers the engine includes.
+The engine calls the functions below by name. Nothing is registered at
+startup.
+
+**Identity.** `g_game_id`, `g_game_name`, the default data root, map, and
+sprite, the map cell size (`g_cell_w`, `g_cell_h`), and the `actor_types`
+table.
+
+**Two object tables.** `info.h` defines `mobjinfo_t`, sprite names, state
+numbers, and type numbers in the Doom shape. `info.c` fills `states[]`,
+`mobjinfo[]`, and a `gameinfo_t`. `mobjinfo` is the type's state entry
+points (spawn, walk, attack, death). `states[]` is the animation: sprite,
+frame run, duration in tics, the action called on entry, and the next state.
+`gameinfo_t` tells the renderer how selection is drawn, whether the right
+button issues orders, how fog is painted, and whether the game has sound.
+
+**Stats, as C.** `actor_types` is an array of `mobjtype_t`. A row is speed,
+hit points, sight, weapon, harvest, footprint, and trait flags such as
+`MF_MOBILE`, `MF_ATTACK`, and `MF_HARVESTER`. The numbers are taken from the
+retail data and written as literals. The running game does not re-read a
+binary stat table to spawn a unit.
+
+**Fields that belong to one game.** `mobj_data.h` defines
+`MOBJ_GAME_FIELDS`, which is pasted into `mobj_t`. An empty macro is a
+complete implementation. Dark Colony uses it for dropship payloads; Warcraft
+II uses it for lumber, construction, and spells. Those fields have one owner,
+the object, and they live until the thinker is freed.
+
+**Loaders.** The game turns retail bytes into the engine's containers.
+
+- `G_DoLoadLevel` fills a `level_t`: dimensions, tile ids, the blocked mask,
+  resources, and any mission pointer the map owns.
+- `P_LoadThings` spawns the map's starting objects.
+- `W_LoadAssets` and `R_InitSprites` decode tiles and sprites into the shared
+  indexed images.
+
+Native coordinates stay native until the screen edge. Dark Colony's world
+axis runs upward; the other five games run downward. The Makefile sets that
+with the binary. Loaders do not flip the map to match another game.
+
+**Screens.** `G_InitMenus`, `G_ControlPanel`, and `G_ShutdownMenus` build the
+front end. `G_InitHUD` and `G_ShutdownHUD` build the in-game panel. Both are
+`menu_t` tables. Pictures the table cannot express use an `ownerdraw`
+callback. `G_WorldViewport` is the rectangle of the window that shows the map.
+
+**Production and the mission.** A product table records cost, producer, time,
+and prerequisites. `G_UpdateProduction` advances queues during play.
+`G_MissionTicker` advances the script attached to the level, and
+`G_MissionState` reports an active game, a win, or a loss. `G_AiInterface`
+connects the shared computer player, or the game keeps that logic itself.
+
+**Actions.** Anything an animation does is `void Action(mobj_t *actor)`,
+stored on the state. Spawning does not call the action; entering the state
+does.
+
+A game that must save more than the level and its objects defines
+`G_SaveExtraSize`, `G_SaveExtra`, and `G_LoadExtra`. The engine copies are
+weak and store nothing. Dark Colony uses its own saver, because a Dark Colony
+save also stores the mission script. A game with retail audio fills a
+`soundinfo_t` and points `gameinfo_t.sound` at it.
+
+## The six games
+
+| Game | Binary | Retail data | What that directory decodes |
+| --- | --- | --- | --- |
+| Dark Reign | `build/bin/dark-reign` | `data/REIGN/dark` | `.SCN` / `.MAP`, `.TIL` tiles, `.SPR` sprites, `SHELL.RLD` menus |
+| Dark Colony | `build/bin/dark-colony` | `data/DCOLONY` | `.MAP`, `.SPR`, `.FIN` animation, `SOUND/` |
+| 7th Legion | `build/bin/7legion` | `data/7LEGION` | `GFX/*.BIM` sprites and tiles, mission maps |
+| KKnD | `build/bin/kknd` | `data/KKND` | `.LVL` containers, `MAPD` terrain, `MOBD` sprites, `UNITS.CFG` |
+| Warcraft II | `build/bin/warcraft-2` | `data/WAR2` | `.PUD` maps, `DATA/MAINDAT.WAR` |
+| StarCraft | `build/bin/starcraft` | `data/STARCRAFT` | unpacked `CHK`, `GRP`, `PCX`, `FNT`, `DAT`, `TBL`, terrain |
+
+### Dark Reign
+
+The shell is the retail one: `SHELL.RLD` art and the `SHELLCFG.H` layout.
+**Single Player → Start New Game** shows the mission map; pick a faction and
+**Launch** from the briefing. **Instant Action** is the skirmish setup.
+**Multi Player → Local Area Network** lists games; **Create Game** and
+**Manual IP** reach the lobby, where each player sets side and team and
+presses **READY**. In a level, Escape or the HUD **MENU** button opens the
+options screen.
+
+The campaign starts from the Freedom Guard mission data, with construction
+crews, transporters, and the authored product list. Ground and hover
+harvesters, the native HUD chrome, and route waypoints are in. Passenger
+transports, phasing, and the full mission state machine are tracked in
+[docs/DR_DEVELOPMENT_STATUS.md](docs/DR_DEVELOPMENT_STATUS.md). Findings:
+[docs/DR_EXE_FINDINGS.md](docs/DR_EXE_FINDINGS.md).
 
 ```sh
+make dark-reign
+build/bin/dark-reign data/REIGN/dark scenario/FIXED/M01F/M01F.SCN ucfcnst0.spr
+```
+
+### Dark Colony
+
+Dark Colony is the game the engine is being matched against first. When a
+generic mechanism and `DC.EXE` disagree, `DC.EXE` wins.
+
+The native main menu is implemented. **New Campaign** asks for Human or Gray
+and a leader name, then **Start Campaign → Next → To Battle**. Training uses
+the same setup. Escape opens the menu and pauses a single-player game.
+**Load Game** reads engine saves from the in-game Save dialog. Those saves
+store thinkers, production, resources, fog, alliances, the computer player,
+mission progress, and the camera. They are a versioned engine format, tied
+to the map and the state tables, and they are not `DC.EXE` save files. Saves
+and `settings.cfg` live in SDL's `open-rts/dark-colony` preference directory.
+`OPEN_RTS_USER_DIR` overrides that directory.
+
+The third sidebar tab is Quit (Q), Save (F11), Options (O), Allies, Pause
+(T), and Objectives (J). Allies lists players in their original slots. Peace
+and shared vision are reciprocal. The transfer button sends 1000 credits when
+the sender has more than that. Sounds are the retail set: acknowledgements,
+weapons, deaths, dropships, ambience, and button clicks, faded by distance
+from the view. `--nosound` disables them.
+
+```sh
+make dark-colony
 build/bin/dark-colony -map=SCENARIO/HUMAN/HUMAN01.MAP
 ```
 
-`--map <path>`, `--map=<path>`, and the existing positional map argument also
-start directly. Network startup, `--check`, and `--net-check` still use a level.
-A Dark Colony or Dark Reign `--screenshot` without a map captures the main menu;
-supply a map to capture gameplay.
+Findings: [docs/DC_EXE_FINDINGS.md](docs/DC_EXE_FINDINGS.md).
 
-## Network play
+### 7th Legion
 
-Dark Colony's **MULTI PLAYER WAR** menu can create, browse and join LAN games.
-Choose **ACT AS SERVER** to name a session and select its map and two to four
-player slots, or **CONNECT TO SERVER** to browse sessions. **ADDRESS** supports
-direct IP/port entry. Games start when all reserved players connect; Escape
-cancels waiting. The selected native map supplies factions and game settings.
+The directory loads `BIM` sprites and tiles and the mission map, and it
+spawns the units whose stats have been taken from the retail data. Production
+uses the shared queue on a plain sidebar. The front end is the engine's
+simple menu, not a decoded retail shell. Unit coverage and the mission
+encoding are in [docs/7LEGION_EXE_FINDINGS.md](docs/7LEGION_EXE_FINDINGS.md).
 
-Host/join and map selection are provided by the engine for every game binary.
-For two-player Dark Colony with a human host and an alien opponent:
+```sh
+make 7legion
+```
+
+### KKnD
+
+A `.LVL` supplies the `MAPD` terrain layers, the embedded palette, and the
+`CPLC` placements, including the opening camera. `MOBD` sprites come from
+`SPRITES.LVL`, with the native stand, attack, and walk sequences. Stats for
+the actor table come from `UNITS.CFG`. Product costs, producers, and research
+are C rows imported once from the OpenKrush rules and drawn on the engine
+HUD. The retail sidebar and font are not reproduced.
+[docs/KKND_EXE_FINDINGS.md](docs/KKND_EXE_FINDINGS.md).
+
+```sh
+make kknd
+```
+
+### Warcraft II
+
+The binary opens `data/WAR2` and defaults to `ALAMO.PUD`. Menus come from the
+retail dialog records. The left panel, fog tiles, gathering, construction,
+combat, repair, transport, and spells live in `games/warcraft-2/`. Orders are
+on the right button. Sound is the retail set. Multiplayer uses the shared
+session, dressed with the Warcraft panel. Extra save data (dice and campaign
+progress) goes through `G_SaveExtra`.
+
+```sh
+make warcraft-2
+build/bin/warcraft-2 --map SOME.PUD
+```
+
+Formats and limits: [docs/WAR2_DATA.md](docs/WAR2_DATA.md),
+[docs/WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md).
+
+### StarCraft
+
+The original animated main menu is the front end. **Single Player** reads a
+race's briefing and starts that campaign. **Multiplayer** opens the original
+connection and chat screens over a TCP melee; each player picks Terran, Zerg,
+or Protoss. The right button moves, attacks, and gathers. The command card
+builds and trains. Campaign missions run the shared computer player. Spell,
+creep, burrow, and the retail script opcodes are open work, recorded in
+[docs/SC_EXE_FINDINGS.md](docs/SC_EXE_FINDINGS.md).
+
+Runtime files are unpacked retail assets. The game does not open an MPQ.
+`make starcraft-unpack` extracts a disc image from
+`data/STARCRAFT/StarCraft.iso` into `data/STARCRAFT/`. The importer needs
+CMake, StormLib, zlib, bzip2, and bsdtar; pinned sources are listed in
+[REFERENCES.md](REFERENCES.md#starcraft--stargus-2026-10-08). Byte layouts:
+[docs/SC_FORMATS.md](docs/SC_FORMATS.md).
+
+```sh
+make starcraft
+build/bin/starcraft --map install/campaign/terran/terran01/staredit/scenario.chk
+make starcraft-catalog    # browse the 228 retail unit slots with [ and ]
+make test-starcraft
+```
+
+## Build
+
+SDL2 must be visible to `pkg-config`. A C11 compiler is enough for every
+binary except the StarCraft unpacker.
+
+```sh
+make
+make dark-reign
+make dark-colony
+make 7legion
+make kknd
+make warcraft-2
+make starcraft
+```
+
+`make run` and `make mission-1` / `make mission-2` start Dark Reign.
+
+Passing a map on the command line skips the front end and loads that map.
+`--map <path>`, `--map=<path>`, and a positional map argument all do this.
+`--check` and `--screenshot` load without a window and force the software
+present path. A `--screenshot` with no map captures the main menu.
+
+```sh
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --screenshot /tmp/war2.bmp
+```
+
+## Window
+
+Every game opens at 1280×960. The HUD and menus are drawn at 2×. Terrain and
+unit sprites stay at their retail pixel size, so the window shows twice the
+retail view in each direction. Resizing changes the world framebuffer. The
+UI scales by a whole number. `--window 640x480` is the retail UI size.
+
+`RTS_NATIVE_WORLD` is on by default. `make clean && make NATIVE_WORLD=0`
+restores a fixed 640×480 framebuffer scaled up to the window.
+
+`--software` selects SDL's software backend for the texture upload. The map
+is indexed pixels either way. Use it when a GPU driver paints every cell with
+the same tile.
+
+## Controls
+
+Dark Reign, Dark Colony, 7th Legion, and KKnD:
+
+- Left click selects a friendly unit, or orders the selection to move, attack,
+  or harvest
+- Left drag box-selects; Shift-click adds to the selection
+- Right click clears the selection
+- WASD, arrows, middle drag, and the wheel pan the camera
+- `G` toggles the grid; `Ctrl+A` selects everything you own
+
+Warcraft II and StarCraft keep selection on the left button and put move,
+attack, and gather on the right button (`gameinfo_t.right_click_orders`).
+
+Alt-click debug-spawns an enemy from `g_debug_enemy_type`.
+
+## Network
+
+Host and join are engine commands. Both processes need the same build and the
+same retail data. The host chooses the map and the slots.
 
 ```sh
 build/bin/dark-colony --host --map SCENARIO/MPLAYER/D2PLAY01.MAP
 build/bin/dark-colony --join 192.168.1.10
 ```
 
-Replace the address with the host's IP, or use `127.0.0.1` for two windows on
-one machine. The host sends the map choice and assigns player slots. Both
-machines need matching builds and game data. Both factions have their native
-building and unit production buttons. Use `J2PLAY01.MAP` for human versus human,
-or `--players 4` with
-`SCENARIO/MPLAYER/J4PLAY01.MAP` for four players. See
-[network setup, requirements and tests](docs/NETWORK.md).
+`127.0.0.1` runs two windows on one machine. `J2PLAY01.MAP` is human versus
+human. `--players 4` with `SCENARIO/MPLAYER/J4PLAY01.MAP` is four players.
+Dark Colony, Dark Reign, Warcraft II, and StarCraft each present that session
+with their own screens. Setup, the protocol, and the tests are in
+[docs/NETWORK.md](docs/NETWORK.md).
 
 ## Tests
 
-Run the headless model tests without an SDL window:
-
 ```sh
 make test
-```
-
-The default run expects the game data under the repository-local `data/`
-directory:
-
-```text
-data/REIGN/dark
-data/DCOLONY
-data/KKND
-```
-
-You can override the data root, map, and unit sprite:
-
-```sh
-build/bin/open-rts --game dark-reign /path/to/dark scenario/MULTI/8JUNGLE/8JUNGLE.SCN ucfcnst0.spr
-build/bin/open-rts --game dark-colony /path/to/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MTG SPRITES/TROOPER1.SPR
-build/bin/open-rts --game kknd /path/to/KKND LEVELS/640/SURV_01.LVL 'LEVELS/640/SPRITES.LVL|Infantry.mobd'
-```
-
-For a non-interactive loader/renderer check (uses SDL dummy driver — no display required):
-
-```sh
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --check
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game dark-colony
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game kknd
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-smoke.bmp
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony-ui.bmp --game dark-colony
-```
-
-Every game draws indexed sprites and terrain into one 8-bit framebuffer, with
-palette lookups at draw time. Water cycles palette colors without duplicating
-terrain tiles. It does not require OpenGL or palette shaders. SDL only uploads
-the completed framebuffer to one streaming texture; `--software` selects SDL's
-software backend for that step.
-
-All games default to a 1280×960 window with the HUD and menus enlarged 2×.
-Terrain and world sprites stay at native pixel size, so the larger window shows
-twice as much world in each direction. Resizing changes the world framebuffer;
-the UI uses whole-number scaling based on the window size. `--window 640x480`
-uses the native UI size.
-
-This engine presentation feature is guarded by `RTS_NATIVE_WORLD`, enabled by
-default in the Makefile. To restore the fixed 640×480 framebuffer and whole-frame
-window scaling, rebuild with `make clean` followed by `make NATIVE_WORLD=0`.
-
-If the map renders the same tile everywhere on a particular machine (Metal/GPU driver bug),
-force the SDL software renderer:
-
-```sh
-build/bin/open-rts --software
-build/bin/open-rts --software --game dark-colony
-```
-
-## Sound
-
-Dark Colony plays its original sound effects: unit acknowledgements and
-selection voices (only for your own units), weapons, deaths, explosions,
-deployment, dropship engines, attack warnings, terrain ambience by day and
-night, and menu/sidebar clicks. Sounds fade with distance from the centre of
-the view. Pass `--nosound` to disable audio. The other games are silent for
-now.
-
-## Controls
-
-- Left click: select a friendly unit, or order selected units to move, attack,
-  or harvest by clicking terrain, an enemy, or a resource
-- Left drag: box select
-- Shift + left select: add to selection
-- Right click: clear selection and cancel a selection drag
-- Alt + left click: debug-spawn an enemy unit from the active plugin's actor
-  table
-- WASD/arrows: pan
-- Middle drag: pan
-- Mouse wheel: scroll camera
-- `G`: toggle grid
-- `Ctrl+A`: select all
-
-All current games use these controls. Future Warcraft and StarCraft support
-can set `gameinfo_t.right_click_orders` to keep left-click selection and use
-right-click orders instead.
-
-## Shape
-
-The repository is split into a shared engine and folder-per-game adapters:
-
-```text
-driver/             d_* startup and main loop; w_* shared file I/O
-game/               g_* game coordination and headless model
-play/               p_* mobj simulation, pathfinding, combat, and facing
-render/             r_* map, sprite, effect, and viewport rendering
-interface/          i_* SDL window and video backend
-hud/                hu_* HUD and UI library
-games/dark-reign/   Dark Reign formats, assets, actors, and UI layout
-games/dark-colony/  Dark Colony formats, data-shaped runtime, and assets
-games/7legion/      7th Legion BIM/COL formats and map loading
-games/kknd/         KKnD LVL containers, MAPD terrain, and MOBD sprites
-```
-
-Game folders implement the `G_*`/`R_*` interface from `include/engine.h`; the engine
-calls them by name — no plugin registry. In particular, `GameUiDefinition` is a declarative list of native
-image layers, viewport/minimap rectangles, command-grid geometry, and resource
-display placement. The shared `GameUi` loader/renderer uses that description,
-so another 256-color game does not need its own BMP compositor.
-
-The code keeps old-game-specific file and coordinate details as adapters:
-
-- Core renderer, picking, selection, movement, and A* all use one orthogonal
-  tile grid. Each game is registered as a client-side plugin that supplies
-  defaults, map loading, terrain visuals, and sprites.
-- Actor type definitions are supplied by plugins as C arrays. The core now has
-  first-pass reusable traits for `Selectable`, `Mobile`, `Renderable`, and
-  `Attack`, so game plugins can share movement, selection, combat, and render
-  plumbing instead of reimplementing those systems.
-- `PALS` palette loader: 8-bit palette to ARGB.
-- `TILE` tileset loader: Dark Reign `.TIL` terrain chunks, masks, shore tiles,
-  generated transition frames, and shadow frames, decoded using OpenDR's frame
-  layout instead of treating the file as a flat 576-byte tile array.
-- `MAP_` + `.SCN` map loader: a scenario loads terrain from its same-basename
-  sibling `.MAP` (not `TACTICS.MM`), plus map dimensions, scenario terrain
-  selection, and `PutUnitAt(...)` starting units. The base terrain uses the
-  first two bytes of each 6-byte terrain record in the same shape as OpenDR's
-  importer: byte 1 provides terrain type plus variation group, byte 2 selects
-  the variation bank, and bytes 3-6 carry elevation-related data. Water and
-  cliff terrain are blocked for A*. Dark Reign transitions use OpenDR's edge
-  match table and generated `.TIL` mask frames instead of cross-fading
-  neighboring tiles.
-- Dark Reign `.SCN` `AddThingAt(...)` and `AddBuildingAt(...)` entries are
-  resolved through the shipped definition files' sprite names for common map
-  objects: cliffs, rocks, trees, plants, rubble, water doodads, water wells,
-  and Taelon mines.
-- `BOTG`/FTG archive loader: extracts contained files.
-- `RSPR`/`SSPR` sprite loader: decodes paletted RLE sprite frames.
-- A per-game compile-time Y-axis policy keeps Dark Reign Y-down and Dark Colony
-  Y-up world coordinates native. Rendering and input convert only at the screen
-  boundary.
-- Dark Colony `.SPR` loader: embedded palette, frame descriptors, and raw
-  indexed pixels. Unit animation is driven by generated Doom-style
-  `sprnames[]`, `states[]`, and `mobjinfo[]` tables.
-- Dark Colony `GAMESTAT.TXT`/`WEAPSTAT.TXT` actor and weapon values are mirrored
-  into the plugin C actor table for first-pass health, attack range, damage,
-  cooldown, and attack animation timing.
-- Dark Colony `.MAP` loader: width/height plus 6-byte map records. It uses the
-  sibling `.O16` overview for first-pass terrain colors while the true terrain
-  tile/remap resources are reverse engineered.
-- KKnD `DATA`/`.LVL` container loader: resolves typed file lists and their
-  archive-global offsets. The first Survivor mission's two `MAPD` layers are
-  decoded with their embedded palette and 32×32 tiles; `MOBD` sprite images
-  are decoded from `SPRITES.LVL`, including Gen1 scanline compression and
-  16-facing stand, attack, and walk sequences. `SURV_01.LVL` CPLC records supply
-  the native player and enemy formations and initial camera location.
-
-That gives a place to add sibling adapters later for Dark Colony, Warcraft II,
-or other 8-bit paletted games without changing the simulation loop.
-
-## Research Notes
-
-- Architecture is intentionally command/simulation/render separated, following
-  the Age of Empires networking paper's core idea that old RTS engines should
-  keep a shared simulation driven by user commands rather than syncing every
-  unit's position every frame.
-- Grid navigation follows Red Blob Games' framing of grids as graph nodes for
-  A*/Dijkstra-style search, with room later for waypoints, hierarchical grids,
-  JPS, or flow fields when unit counts grow.
-- Dark Reign map loading is based on the shipped `MAP_`, `TACTICS.MM`, and
-  `.SCN` files plus OpenDR's public importer. The remaining packed terrain
-  fields still need more reverse engineering for exact movement masks,
-  elevation, and the original transition compositor.
-
-Sources:
-
-- Project reverse-engineering links and local data notes:
-  [REFERENCES.md](REFERENCES.md)
-- Paul Bettner and Mark Terrano, “1500 Archers on a 28.8: Network Programming
-  in Age of Empires and Beyond”:
-  https://zoo.cs.yale.edu/classes/cs538/readings/papers/terrano_1500arch.pdf
-- Red Blob Games, “Grid pathfinding optimizations”:
-  https://www.redblobgames.com/pathfinding/grids/algorithms.html
-- Dark Reign Construction Kit notes:
-  https://thevideogamedatabase.fandom.com/wiki/Dark_Reign:_The_Future_of_War
-- drExplorer reference for Dark Reign FTG archives:
-  https://github.com/btigi/drExplorer
-- OpenDR importer and terrain renderer:
-  https://github.com/drogoganor/OpenDR
-
-## Native interfaces
-
-Build dependencies include SDL2 (`pkg-config` must find `sdl2`). PNG loading
-and bundled OpenDR/OpenKrush image assets have been removed. Dark Reign uses
-its retail interface assets. KKnD loads native MOBD sprites and CPLC mission
-placements; native production and its interface remain unimplemented.
-
-Historical interface and research findings remain in
-[the KKnD findings](docs/KKND_EXE_FINDINGS.md),
-[the Dark Reign findings](docs/DR_EXE_FINDINGS.md), and
-[REFERENCES.md](REFERENCES.md).
-The [DKREIGN.EXE disassembly index](docs/DR_DISASSEMBLY.md) links the Dark Reign
-unit, HUD, transport, architecture, generation and development-status reports.
-
-## StarCraft maps and catalog
-
-The StarCraft game opens the original animated main menu. Choose
-**Single Player**, then a race, to read that campaign's briefing and start
-its first mission. **Multiplayer** opens the original connection, game list,
-create and chat screens. The session under them is a TCP LAN game, Melee,
-with each player choosing Terran, Zerg or Protoss. Select with the mouse, right-click to move, attack or
-gather, and use the command card to build and train. The computer players
-in a mission build and attack. Winning a campaign mission opens the next
-briefing; the last mission, a draw, or a multiplayer game ends the session.
-Defeat offers restart and quit. The separate catalog contains all 228
-original unit slots; `[` / `]` browse its entries. Retail spell, creep,
-burrow and AI-script behavior is not simulated.
-
-```
-make build/bin/starcraft
-make starcraft
-# Open an extracted retail CHK directly (relative to data/STARCRAFT):
-build/bin/starcraft --map install/campaign/terran/terran01/staredit/scenario.chk
-# Or inspect every unit in the synthetic catalog:
-make starcraft-catalog
-# Headless native asset and UI checks:
 make test-starcraft
 ```
 
-The local StarCraft ISO has been unpacked into `data/STARCRAFT/disc`, its
-installer MPQ into `data/STARCRAFT/install`, and stardat.mpq into
-`data/STARCRAFT/native`. To repeat extraction, use `make starcraft-unpack`.
-The game loads original GRP/PCX/FNT/SMK/BIN/DAT/TBL/terrain assets, without PNG
-conversion or a runtime MPQ dependency. It uses the same native Y-down world
-coordinate convention as Warcraft II.
+`make test` builds and runs the headless model, loader, and per-game suites.
+It expects retail data under `data/`. Suites do not open a visible window;
+set `SDL_VIDEODRIVER=dummy` when you run a single test binary yourself.
 
-Dependencies: SDL2 via pkg-config and a C compiler; the importer additionally
-needs CMake, a C++ linker for StormLib, zlib, bzip2 and bsdtar. Pinned sources
-and the downloaded macOS CMake package are retained in `reference/`. On a
-fresh checkout, fetch the references before building:
+## Further reading
 
-```
-git clone https://github.com/Wargus/stargus reference/stargus
-git -C reference/stargus checkout 2a4d54604949e4772f6638a8412c8ebd62444044
-git clone https://github.com/ladislav-zezula/StormLib reference/StormLib
-git -C reference/StormLib checkout 3846f0b8e2c47320c6b499492496f3e3f2e76821
-git clone https://github.com/JonnyH/libsmacker reference/libsmacker
-git -C reference/libsmacker checkout ae8d4c9ec07b24d43ccff184d6e512bae793dfd1
-```
-
-Supply your disc at `data/STARCRAFT/StarCraft.iso`, then run the unpack target.
-See `REFERENCES.md` for provenance/licenses and `docs/SC_EXE_FINDINGS.md` for
-native format evidence, verification and current fidelity limits.
-
-StarCraft implementation documentation: [format reference](docs/SC_FORMATS.md)
-for byte layouts and lookup chains, [findings journal](docs/SC_EXE_FINDINGS.md)
-for verified inputs and unresolved issues, and [provenance](REFERENCES.md#starcraft--stargus-2026-10-08)
-for pinned source/package versions.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — objects, tics, production, menus
+- [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) — how a retail executable is traced
+- [REFERENCES.md](REFERENCES.md) — external sources and local data notes
+- Paul Bettner and Mark Terrano, “1500 Archers on a 28.8: Network Programming
+  in Age of Empires and Beyond”:
+  https://zoo.cs.yale.edu/classes/cs538/readings/papers/terrano_1500arch.pdf
