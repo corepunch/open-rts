@@ -63,12 +63,23 @@ static const struct { mobjtype_id_t type, maker, prerequisite; } recipes[] = {
     {MT_NYDUS_CANAL, MT_DRONE, MT_HIVE},
     {MT_ULTRALISK_CAVERN, MT_DRONE, MT_HIVE},
     {MT_DEFILER_MOUND, MT_DRONE, MT_HIVE},
-    /* Larva and eggs are not simulated. A hatchery trains the army directly. */
-    {MT_DRONE, MT_HATCHERY, MT_NONE},
-    {MT_OVERLORD, MT_HATCHERY, MT_NONE},
-    {MT_ZERGLING, MT_HATCHERY, MT_SPAWNING_POOL},
-    {MT_HYDRALISK, MT_HATCHERY, MT_HYDRALISK_DEN},
-    {MT_MUTALISK, MT_HATCHERY, MT_SPIRE},
+    /* Zerg morphs: a building or unit turns into the product where it is.
+     * Larva products are offered on the hatchery too (see init_products). */
+    {MT_LAIR, MT_HATCHERY, MT_SPAWNING_POOL},
+    {MT_HIVE, MT_LAIR, MT_QUEENS_NEST},
+    {MT_GREATER_SPIRE, MT_SPIRE, MT_HIVE},
+    {MT_SUNKEN_COLONY, MT_CREEP_COLONY, MT_SPAWNING_POOL},
+    {MT_SPORE_COLONY, MT_CREEP_COLONY, MT_EVOLUTION_CHAMBER},
+    {MT_DRONE, MT_LARVA, MT_NONE},
+    {MT_ZERGLING, MT_LARVA, MT_SPAWNING_POOL},
+    {MT_OVERLORD, MT_LARVA, MT_NONE},
+    {MT_HYDRALISK, MT_LARVA, MT_HYDRALISK_DEN},
+    {MT_MUTALISK, MT_LARVA, MT_SPIRE},
+    {MT_SCOURGE, MT_LARVA, MT_SPIRE},
+    {MT_QUEEN, MT_LARVA, MT_QUEENS_NEST},
+    {MT_ULTRALISK, MT_LARVA, MT_ULTRALISK_CAVERN},
+    {MT_DEFILER, MT_LARVA, MT_DEFILER_MOUND},
+    {MT_GUARDIAN, MT_MUTALISK, MT_GREATER_SPIRE},
 };
 /* Researching buildings (upgrades.dat names no maker). Stargus's command
  * cards; Brood War and add-on research are left out. */
@@ -108,14 +119,17 @@ static void init_products(void) {
     if(initialized)return;
     product_count=0;
     for(unsigned i=0;i<sizeof(recipes)/sizeof(*recipes);i++) {
-        mobjtype_id_t type=recipes[i].type; const sc_unit_t *u=&sc_units[type-1];
-        products[i]=(StaticProductDefinition){.row_id=type,.ui_id=type,.label=u->name,
+        mobjtype_id_t type=recipes[i].type,maker=recipes[i].maker; const sc_unit_t *u=&sc_units[type-1];
+        StaticProductDefinition *p=&products[product_count++];
+        *p=(StaticProductDefinition){.row_id=type,.ui_id=type,.label=u->name,
             .cost=u->minerals,.extra_costs={u->gas},.icon_frame=type-1,
             .product_class=(u->flags&1)?RTS_PRODUCT_BUILDING:RTS_PRODUCT_UNIT,
-            .product_type=type,.makers={recipes[i].maker},.maker_count=1,
-            .worker_build=(u->flags&1)!=0,
+            .product_type=type,.makers={maker},.maker_count=1,
+            .worker_build=(u->flags&1)&&(sc_units[maker-1].flags&8),
             .prerequisites={recipes[i].prerequisite},.prerequisite_count=recipes[i].prerequisite!=MT_NONE};
-        ++product_count;
+        /* Selecting a hatchery offers its larvae's card. */
+        if(maker==MT_LARVA)
+            memcpy(p->makers,(int[]){MT_LARVA,MT_HATCHERY,MT_LAIR,MT_HIVE},sizeof(int[4])),p->maker_count=4;
     }
     for(unsigned i=0;i<SC_RESEARCH;i++) {
         const sc_upgrade_t *u=&sc_upgrades[research[i].upgrade];
@@ -124,10 +138,32 @@ static void init_products(void) {
             products[product_count++]=(StaticProductDefinition){.row_id=id,.ui_id=id,.label=u->name,
                 .cost=u->minerals+tier*u->mineral_factor,.extra_costs={u->gas+tier*u->gas_factor},
                 .icon_frame=u->icon,.product_class=RTS_PRODUCT_UPGRADE,.product_type=id,
-                .makers={research[i].maker},.maker_count=1};
+                .makers={research[i].maker,research[i].maker==MT_SPIRE?MT_GREATER_SPIRE:MT_NONE},
+                .maker_count=research[i].maker==MT_SPIRE?2:1};
         }
     }
     initialized=true;
+}
+/* A Zerg product other than research or a drone's building takes the
+ * maker's place: larva and mutalisk through an egg, buildings directly. */
+static bool zerg_morph(const StaticProductDefinition *p) {
+    return p&&p->product_class!=RTS_PRODUCT_UPGRADE&&!p->worker_build&&p->makers[0]>0&&
+        p->makers[0]<=SC_TYPES&&(sc_units[p->makers[0]-1].race&1);
+}
+/* Zerglings and scourge hatch two to an egg (units.dat flag 0x400). */
+static int per_egg(int type) {
+    return type>0&&type<=SC_TYPES&&(sc_units[type-1].flags&0x400)?2:1;
+}
+bool sc_counts_as(uint16_t type,uint16_t as) {
+    return type==as||(as==MT_HATCHERY&&(type==MT_LAIR||type==MT_HIVE))||(as==MT_LAIR&&type==MT_HIVE)||
+        (as==MT_SPIRE&&type==MT_GREATER_SPIRE);
+}
+static bool owner_has(int owner,uint16_t type) {
+    static const uint16_t higher[]={MT_LAIR,MT_HIVE,MT_GREATER_SPIRE};
+    if(G_ModelHasActorType(NULL,owner,type))return true;
+    for(unsigned i=0;i<sizeof(higher)/sizeof(*higher);i++)
+        if(sc_counts_as(higher[i],type)&&G_ModelHasActorType(NULL,owner,higher[i]))return true;
+    return false;
 }
 /* Only the next level is offered, and only while no building of the owner
  * is already researching that upgrade. */
@@ -158,10 +194,11 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *m,i
 }
 bool G_ModelProductAvailable(const RtsGameModel *m,int owner,const StaticProductDefinition *p) {
     if(!p)return false;
-    for(int i=0;i<p->prerequisite_count;i++)if(!G_ModelHasActorType(m,owner,p->prerequisites[i]))return false;
+    (void)m;
+    for(int i=0;i<p->prerequisite_count;i++)if(!owner_has(owner,p->prerequisites[i]))return false;
     int upgrade,tier;
     if(upgrade_product(p,&upgrade,&tier))
-        return sc_upgrade_offered(owner,p)&&!researching(owner,upgrade)&&G_ModelHasActorType(m,owner,p->makers[0]);
+        return sc_upgrade_offered(owner,p)&&!researching(owner,upgrade)&&owner_has(owner,p->makers[0]);
     return true;
 }
 /* Research stays in its building: the engine's actor id is the maker's. */
@@ -180,14 +217,29 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *p) {
     }
     return p?(sc_units[p->product_type-1].build_time*1000+23)/24:0;
 }
-/* Finished research raises the owner's level and leaves the queue here. */
+/* Finished research raises the owner's level and a Zerg morph turns the
+ * egg or building into the product; both leave the queue here. An
+ * unpowered Protoss building holds what it finished until power returns. */
 bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProductDefinition *p,uint16_t id) {
     (void)m;(void)id;
     int upgrade,tier;
-    if(!u||!upgrade_product(p,&upgrade,&tier))return false;
-    if(u->owner<8&&level.upgrades[upgrade][u->owner].weapon==tier)
-        level.upgrades[upgrade][u->owner].weapon=(uint8_t)(tier+1);
-    S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
+    if(!u)return false;
+    if(!sc_powered(u)) { if(u->production)u->production->time_left_ms=0; return true; }
+    if(zerg_morph(p)) {
+        fvec2_t at=fixed3_xy_to_fvec2(u->core.position);
+        if(!P_MorphMobj(u,(uint16_t)p->product_type))return false;
+        if(per_egg(p->product_type)>1) {
+            mobj_t *twin=sc_spawn_actor((unsigned)p->product_type-1,
+                (ivec2_t){(int)(at.x*32)+12,(int)(at.y*32)+4},u->owner);
+            if(twin) { twin->team=u->team; twin->allegiance=u->allegiance; twin->hp=twin->max_hp*u->hp/u->max_hp; }
+        }
+        S_Bark(&u,1,SE_READY,false);
+    } else {
+        if(!upgrade_product(p,&upgrade,&tier))return false;
+        if(u->owner<8&&level.upgrades[upgrade][u->owner].weapon==tier)
+            level.upgrades[upgrade][u->owner].weapon=(uint8_t)(tier+1);
+        S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
+    }
     if(u->production) {
         if(--u->production->queue_count>0)u->production->time_left_ms=u->production->time_ms;
         else P_FreeMobjProduction(u);
@@ -196,9 +248,24 @@ bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProduct
 }
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const StaticProductDefinition *p,const mobj_t *n,float *x,float *y) { (void)m;(void)u;(void)p;(void)n;(void)x;(void)y; return false; }
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
-bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) { return G_QueueProduct(u,p); }
+/* An order on a hatchery goes to the first of its larvae that is free. */
+bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) {
+    if(u&&p&&p->makers[0]==MT_LARVA&&u->type_id!=MT_LARVA) {
+        mobj_t *larva=NULL;
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap&&!larva;th=th->next) {
+            mobj_t *mo=(mobj_t *)th;
+            if(th->function==P_MobjThinker&&!mo->remove&&mo->hp>0&&mo->type_id==MT_LARVA&&
+               mo->sc.parent==u->id&&!mo->production)larva=mo;
+        }
+        u=larva;
+    }
+    return G_QueueProduct(u,p);
+}
+/* Larvae alone take larva orders, and a morph is one order at a time. */
 bool G_ModelProducerHasTech(const mobj_t *u,const StaticProductDefinition *p) {
-    return u&&G_ModelProductAvailable(NULL,u->owner,p)&&sc_supply_ok(u->owner,p);
+    if(!u||!p||(p->makers[0]==MT_LARVA&&u->type_id!=MT_LARVA)||!sc_powered(u))return false;
+    if(zerg_morph(p)&&u->production&&u->production->queue_count)return false;
+    return G_ModelProductAvailable(NULL,u->owner,p)&&sc_supply_ok(u->owner,p,u);
 }
 int G_ModelRadarLevel(int owner) { (void)owner; return 2; }
 
@@ -215,17 +282,21 @@ void sc_supply_counts(int owner,int *used,int *provided) {
         }
         if(mo->production&&mo->production->product_class==RTS_PRODUCT_UNIT&&
            mo->production->product_type>0&&mo->production->product_type<=SC_TYPES)
-            need+=sc_units[mo->production->product_type-1].supply_required*mo->production->queue_count;
+            need+=sc_units[mo->production->product_type-1].supply_required*mo->production->queue_count*
+                per_egg(mo->production->product_type);
     }
     if(have>400) have=400;
     if(used) *used=need;
     if(provided) *provided=have;
 }
-bool sc_supply_ok(int owner,const StaticProductDefinition *product) {
+/* A morph needs only what the product takes beyond its maker. */
+bool sc_supply_ok(int owner,const StaticProductDefinition *product,const mobj_t *maker) {
     if(!product||product->product_class!=RTS_PRODUCT_UNIT) return true;
     int type=product->product_type-1;
     if(type<0||type>=SC_TYPES) return true;
-    int cost=sc_units[type].supply_required;
+    int cost=sc_units[type].supply_required*per_egg(product->product_type);
+    if(maker&&zerg_morph(product)&&maker->type_id>0&&maker->type_id<=SC_TYPES)
+        cost-=sc_units[maker->type_id-1].supply_required;
     if(cost<=0) return true;
     int used,have; sc_supply_counts(owner,&used,&have);
     return used+cost<=have;
@@ -260,11 +331,11 @@ static const sc_step_t terran_opening[] = {
     {MT_BARRACKS,2},{MT_ACADEMY,1},{MT_FACTORY,1},{MT_ENGINEERING_BAY,1},{MT_MARINE,8},
     {MT_ARMORY,1},{MT_FACTORY,2},{MT_STARPORT,1},{MT_SCIENCE_FACILITY,1},
 };
-/* Zerg: cheap, fast and many. A 9-pool zergling rush, more hatcheries for
- * production, waves that trade freely and come back often. */
+/* Zerg: cheap, fast and many. A 9-pool zergling rush, a second hatchery
+ * for larvae, waves that trade freely and come back often. */
 static const sc_step_t zerg_opening[] = {
     {MT_DRONE,9},{MT_SPAWNING_POOL,1},{MT_ZERGLING,6},{MT_HATCHERY,2},{MT_DRONE,12},
-    {MT_EXTRACTOR,1},{MT_HYDRALISK_DEN,1},{MT_DRONE,14},{MT_EVOLUTION_CHAMBER,1},{MT_HATCHERY,3},
+    {MT_EXTRACTOR,1},{MT_HYDRALISK_DEN,1},{MT_DRONE,14},{MT_EVOLUTION_CHAMBER,1},
 };
 /* Protoss: few, expensive, strong. A gateway army on a teching base,
  * cannons at home, attacks once it out-trades what it has seen. */
@@ -322,6 +393,8 @@ static bool sc_ai_supply(int owner,int *used,int *cap) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||!mo->production) continue;
         int type=mo->production->actor_id;
+        const StaticProductDefinition *p=G_ModelProductByUIId(NULL,mo->production->product_type);
+        if(p&&zerg_morph(p)&&p->product_class!=RTS_PRODUCT_UNIT) continue;
         if(type>0&&type<=SC_TYPES) have+=sc_units[type-1].supply_provided*mo->production->queue_count;
     }
     *used=need/2; *cap=(have<400?have:400)/2;
@@ -332,7 +405,6 @@ static int sc_ai_can_purchase(const level_t *map,int owner,int ui) {
     if(!product||!G_ModelProductAvailable(NULL,owner,product)||
        !(product->worker_build?G_FindProducer(owner,product):G_FindProducerBelow(owner,product,AI_QUEUE_DEPTH)))
         return AI_BUY_BLOCKED;
-    if(!sc_supply_ok(owner,product)) return AI_BUY_BLOCKED;
     if(product->extra_costs[0]>map->player_resources[owner][1]) return AI_BUY_BLOCKED;
     return map->player_resources[owner][0]<product->cost?AI_BUY_NEED_CREDITS:AI_BUY_OK;
 }
@@ -356,21 +428,29 @@ static bool lane_clear(uint16_t type,ivec2_t cell) {
     }
     return true;
 }
-static bool find_site(int owner,uint16_t type,ivec2_t *out) {
-    fvec2_t origin={level.width*0.5f,level.height*0.5f};
-    bool found=false;
-    if(thinkercap.next) for(thinker_t *th=thinkercap.next;th!=&thinkercap&&!found;th=th->next) {
-        const mobj_t *mo=(const mobj_t *)th;
-        if(th->function==P_MobjThinker&&mo->owner==owner&&mo->hp>0&&!mo->remove) {
-            origin=fixed3_xy_to_fvec2(mo->core.position); found=true;
-        }
-    }
-    for(int radius=2;radius<48;radius++) for(int y=-radius;y<=radius;y++) for(int x=-radius;x<=radius;x++) {
+static bool site_near(uint16_t type,fvec2_t origin,int limit,const mobj_t *builder,ivec2_t *out) {
+    for(int radius=2;radius<limit;radius++) for(int y=-radius;y<=radius;y++) for(int x=-radius;x<=radius;x++) {
         if(abs(x)!=radius&&abs(y)!=radius) continue;
         ivec2_t cell={(int)origin.x+x,(int)origin.y+y};
-        if(P_CanPlaceBuilding(type,cell,NULL)&&lane_clear(type,cell)) { *out=cell; return true; }
+        if(P_CanPlaceBuilding(type,cell,builder)&&lane_clear(type,cell)) { *out=cell; return true; }
     }
     return false;
+}
+/* Rings out from the base; a building that needs creep or psi looks
+ * around each hatchery or pylon first. */
+static bool find_site(const mobj_t *builder,uint16_t type,ivec2_t *out) {
+    uint32_t flags=sc_units[type-1].flags;
+    fvec2_t origin={level.width*0.5f,level.height*0.5f};
+    bool found=false;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->owner!=builder->owner||mo->hp<=0||mo->remove) continue;
+        fvec2_t at=fixed3_xy_to_fvec2(mo->core.position);
+        if(!found) { origin=at; found=true; }
+        if((((flags&0x20000)&&sc_counts_as(mo->type_id,MT_HATCHERY))||((flags&0x80000)&&mo->type_id==MT_PYLON))&&
+           site_near(type,at,12,builder,out)) return true;
+    }
+    return site_near(type,origin,48,builder,out);
 }
 static bool sc_ai_purchase(level_t *map,int owner,int ui) {
     (void)map;
@@ -379,7 +459,7 @@ static bool sc_ai_purchase(level_t *map,int owner,int ui) {
     if(!product->worker_build) return G_AiCatalogPurchase(map,owner,ui);
     mobj_t *worker=idle_maker(owner,product->makers[0]);
     ivec2_t cell;
-    return worker&&find_site(owner,G_ModelActorIdForProduct(product),&cell)&&
+    return worker&&find_site(worker,G_ModelActorIdForProduct(product),&cell)&&
         G_PlaceProduct(worker,product,cell);
 }
 /* Workers spread over the patches, nearest first: three to a mineral
@@ -407,13 +487,33 @@ static bool sc_ai_assign_harvester(level_t *map,int owner,mobj_t *unit) {
     }
     return false;
 }
+/* Alive and ordered, counting a Lair or Hive as a Hatchery and an egg
+ * of zerglings as two; a morphing building counts as what it was. */
+static int sc_ai_owned(int owner,int ui) {
+    const StaticProductDefinition *product=G_ModelProductByUIId(NULL,ui);
+    if(!product) return 0;
+    uint16_t type=G_ModelActorIdForProduct(product);
+    int count=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0) continue;
+        if(sc_counts_as(mo->type_id,type)) ++count;
+        else if(mo->production&&sc_counts_as(mo->production->actor_id,type))
+            count+=mo->production->queue_count*per_egg(mo->production->actor_id);
+    }
+    return count;
+}
+/* Buildings anchor a base; larvae and eggs do not. */
+static bool sc_ai_anchor(const mobj_t *unit) {
+    return unit->type_id>0&&unit->type_id<=SC_TYPES&&(sc_units[unit->type_id-1].flags&1)&&G_AiIsStructure(unit);
+}
 static bool sc_ai_busy(const mobj_t *unit) {
     return unit&&unit->production&&unit->production->placed;
 }
 static const AiGameInterface sc_ai={
     .name="starcraft",.features=AI_FEATURE_ALL,.player_level=sc_ai_level,.plan=sc_ai_plan,
-    .owned=G_AiCatalogOwned,.can_purchase=sc_ai_can_purchase,.purchase=sc_ai_purchase,
-    .is_anchor=G_AiIsStructure,.is_busy=sc_ai_busy,
+    .owned=sc_ai_owned,.can_purchase=sc_ai_can_purchase,.purchase=sc_ai_purchase,
+    .is_anchor=sc_ai_anchor,.is_busy=sc_ai_busy,
     .assign_harvester=sc_ai_assign_harvester,
     .product_actor=G_AiCatalogActor,.describe=sc_ai_describe,.supply=sc_ai_supply,
 };

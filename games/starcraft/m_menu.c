@@ -1957,7 +1957,9 @@ static void product(menu_t *m,menuitem_t *i,menuaction_t a) {
         mobj_t *u=hudview.units[j];
         if(P_MobjIsSelected(u)&&u->owner==consoleplayer) {
             const StaticProductDefinition *p=G_ModelProductByUIId(NULL,i->value);
-            if(p)HU_BuildProduct(m,i,u,p);
+            /* Morphs and larvae take the order where they stand. */
+            if(p&&p->worker_build)HU_BuildProduct(m,i,u,p);
+            else if(p)G_BuildOrder(u,p->ui_id);
             return;
         }
     }
@@ -2030,12 +2032,16 @@ static void refresh(menu_t *menu) {
             button(7,235,SDLK_v,build_menu,2,"Advanced Structures");
         }
     }
-    StaticProductDefinition list[SC_TYPES];int n=G_ModelGetProducts(NULL,consoleplayer,list,SC_TYPES),slot=0;
+    StaticProductDefinition list[SC_TYPES];int n=G_ModelGetProducts(NULL,consoleplayer,list,SC_TYPES);
+    /* A unit's own morph (Guardian) goes under its move and attack row. */
+    int slot=!build_page&&(selected->traits&MF_MOBILE)?6:0;
     static const SDL_Keycode basic[]={SDLK_c,SDLK_s,SDLK_r,SDLK_b,SDLK_a,SDLK_e,SDLK_t,SDLK_u};
     for(int i=0;i<n;i++) {
         const StaticProductDefinition *p=&list[i];
-        if(p->makers[0]!=selected->type_id)continue;
-        if(p->product_class==RTS_PRODUCT_BUILDING) {
+        bool made=false;
+        for(int j=0;j<p->maker_count;j++)made|=p->makers[j]==selected->type_id;
+        if(!made)continue;
+        if(p->worker_build) {
             if(!build_page)continue;
             int index=slot++;
             if((build_page==1&&index>=8)||(build_page==2&&index<8))continue;
@@ -2044,6 +2050,9 @@ static void refresh(menu_t *menu) {
             huditems[command_start+pos].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         } else if(!build_page) {
             if(!sc_upgrade_offered(consoleplayer,p))continue;
+            /* A hatchery shows what its larvae can become now, beside its own morph. */
+            if(p->makers[0]!=selected->type_id&&!G_ModelProductAvailable(NULL,consoleplayer,p))continue;
+            if(slot>=9)continue;
             button(slot,p->icon_frame,slot==0?SDLK_t:SDLK_1+slot,product,p->ui_id,p->label);
             huditems[command_start+slot++].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         }

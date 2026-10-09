@@ -4,6 +4,9 @@
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
+#ifdef RTS_GAME_STARCRAFT
+#include "starcraft.h"
+#endif
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -448,7 +451,7 @@ bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, iv
     if (!producer || producer->owner < 0 || producer->owner >= MAXPLAYERS ||
         !product || product->product_class != RTS_PRODUCT_BUILDING ||
         (producer->production && producer->production->queue_count) ||
-        !P_CanPlaceBuilding(G_ModelActorIdForProduct(product), cell, NULL) ||
+        !P_CanPlaceBuilding(G_ModelActorIdForProduct(product), cell, producer) ||
         !producer_accepts(producer, producer->owner, product) ||
         !G_ModelProductAvailable(active_model, producer->owner, product) ||
         !afford_product(producer->owner, product))
@@ -477,6 +480,9 @@ bool G_ProductionTicker(float dt) {
     bool spawned = false;
     int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
     if (elapsed_ms <= 0) elapsed_ms = 1;
+#ifdef RTS_GAME_STARCRAFT
+    sc_zerg_ticker(elapsed_ms);
+#endif
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *producer = (mobj_t *)th;

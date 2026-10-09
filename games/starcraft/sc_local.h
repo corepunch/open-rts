@@ -111,8 +111,17 @@ uint8_t sc_allegiance_for(uint8_t owner);
 int sc_owner_kind(int owner);
 int sc_player_side(int owner);
 bool sc_player_ai(int owner);
-bool sc_supply_ok(int owner, const StaticProductDefinition *product);
+bool sc_supply_ok(int owner, const StaticProductDefinition *product, const mobj_t *maker);
 void sc_supply_counts(int owner, int *used, int *provided);
+/* Zerg: the egg (or cocoon) a larva (or mutalisk) turns into when it is
+ * given an order, MT_NONE for other makers. */
+uint16_t sc_egg_for(uint16_t maker);
+mobj_t *sc_spawn_larva(mobj_t *hatchery);
+/* Retail tech tree: a Lair or Hive counts as a Hatchery, a Hive as a
+ * Lair, a Greater Spire as a Spire. */
+bool sc_counts_as(uint16_t type, uint16_t as);
+/* False for a Protoss building outside its owner's psi fields. */
+bool sc_powered(const mobj_t *mo);
 const char *sc_objectives_text(void);
 void sc_show_result(int result);
 #endif

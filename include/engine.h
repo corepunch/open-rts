@@ -1362,6 +1362,10 @@ fvec2_t P_BuildingPosition(uint16_t type, ivec2_t cell);
 bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder);
 bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder);
 void P_SyncBuildingBlocking(void);
+/* In-place morph (Zerg egg, Lair, Sunken Colony): the mobj keeps its id,
+ * owner, place and selection, takes the new type's actor and state, and
+ * keeps its share of hit points. */
+bool P_MorphMobj(mobj_t *mo, uint16_t type);
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,
                         mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                         const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
