@@ -396,6 +396,7 @@ static sc_netmap_t net_maps[SC_NET_MAPS];
 static int net_map_count, chosen_map = -1, listed_count;
 static char session_title[32], session_path[512], status_note[256];
 static char chat_log[NETCHAT_LENGTH * 33 + 8];
+static const char no_games[]="No hosted games found.\nSelect Create Game to choose a map.";
 static netgame_t listed[SC_LISTED_GAMES];
 /* gluall.tbl 101. The connection row is the retail LAN entry; the session is TCP. */
 static const char lan_prose[] =
@@ -735,6 +736,7 @@ static void join_refresh(menu_t *menu) {
     int keep = list->value;
     if (keep < 0 || keep >= listed_count) keep = -1;
     M_MenuSetRows(list, listed_count);
+    list->prose=listed_count?NULL:no_games;
     list->value = keep;
     menuitem_t *ok = M_MenuFind(&join.menu, 13);
     if (ok) ok->enabled = keep >= 0;
@@ -993,6 +995,7 @@ static bool wire_multi(void) {
         return false;
     as_list(list, 1, 0, conn_row);
     as_list(M_MenuFind(&join.menu, 5), 0, -1, game_row);
+    M_MenuFind(&join.menu,5)->prose=no_games;
     menuitem_t *ok = M_MenuFind(&join.menu, 13);
     if (ok) { ok->enabled = false; ok->disabled_look = true; }
     menuitem_t *maps = M_MenuFind(&create.menu, 5);

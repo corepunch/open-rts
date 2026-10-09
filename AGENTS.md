@@ -536,4 +536,4 @@ check that confirms the change is correct.>
   index, executable address, observed pixel count, or test output.
 - Never describe what a diff already makes obvious ("remove the loop",
   "add the function").  Explain intent and mechanism instead.
-- Include the `Co-Authored-By: Claude <noreply@anthropic.com>` trailer.
+- Do not add co-author trailers unless the user explicitly requests them.

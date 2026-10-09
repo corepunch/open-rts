@@ -125,6 +125,7 @@ int main(void) {
     CHECK(M_MenuFind(currentmenu,65535)&&!strcmp(M_MenuFind(currentmenu,65535)->text,"Games"));
     CHECK(M_MenuFind(currentmenu,15)&&strstr(M_MenuFind(currentmenu,15)->text,"Create Game"));
     M_MenuDrawer(currentmenu);CHECK(save("/private/tmp/starcraft-join.bmp"));
+    CHECK(M_MenuFind(currentmenu,5)->rows==0&&M_MenuFind(currentmenu,5)->prose&&strstr(M_MenuFind(currentmenu,5)->prose,"Create Game"));
     next=M_MenuFind(currentmenu,15);next->routine(currentmenu,next,MA_ACTIVATE);
     {bool titled=false,game_type=false;
     for(int i=0;i<currentmenu->numitems;i++){

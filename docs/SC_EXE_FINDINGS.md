@@ -1096,3 +1096,15 @@ plus `/private/tmp/starcraft-glue-dlg.bmp`, a numbered native contact sheet.
 `palcs`, native scrollbar/dropdown pictures and interaction, and exports menu
 screenshots at 640×480 and 1280×960. The shared menu test verifies that wrapped
 log content actually moves with its scroll position.
+
+### Games browser versus map selection (2026-10-09)
+
+The user's later screenshot shows `glujoin.bin`, titled Games, rather than
+`glucreat.bin`, titled Create. Runtime id 5 on Games reads advertised sessions
+from `I_NetGames`; id 15, Create Game, opens the separate map selector. Gated
+diagnostics on the same navigation path report zero hosted sessions and 57
+maps under `data/STARCRAFT`. This is not a map-import failure. The empty Games
+list now says "No hosted games found. Select Create Game to choose a map."
+This is an intentional engine usability message, not a discovered retail
+string. The native navigation regression verifies the empty message and the
+57-map Create list. Temporary diagnostics were removed after verification.
