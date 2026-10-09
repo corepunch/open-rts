@@ -152,6 +152,13 @@ static int animations(void) {
         if (states[s].nextstate == 1) break;
     }
     CHECK(strike);
+    /* ZealotGndAttkRpt's two attackmelee are one attack of two hits (weapondef_t.hits). */
+    int strikes = 0, zealot = MT_ZEALOT - 1;
+    for (int s = 1 + SC_TYPES * 2 + zealot, n = 0; n < 64; s = states[s].nextstate, n++) {
+        if (states[s].action == A_Attack) ++strikes;
+        if (states[s].nextstate == 1 + zealot * 2) break;
+    }
+    CHECK(strikes == 1 && actor_types[MT_ZEALOT - 1].attack.hits == 2);
     /* SCV and probe explode; the drone plays its own frames, then leaves a corpse. */
     CHECK(chain(mobjinfo[MT_SCV].deathstate, &extras, &exact, NULL) > 0 && extras == 1);
     CHECK(chain(mobjinfo[MT_PROBE].deathstate, &extras, &exact, NULL) > 0 && extras == 1);

@@ -6,6 +6,9 @@
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
+#ifdef RTS_GAME_STARCRAFT
+#include "starcraft.h"
+#endif
 
 enum { MAXPENDINGCOMMANDS = 64 };
 static ticcmd_t pending[MAXPENDINGCOMMANDS];
@@ -156,6 +159,12 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
+#ifdef RTS_GAME_STARCRAFT
+    if (cmd->order == TC_SPELL) {
+        for (int i = 0; i < count; ++i) sc_cast(units[i], cmd->product, target, fixed3_xy_to_fvec2(cmd->position));
+        return;
+    }
+#endif
 #ifndef RTS_GAME_WARCRAFT_2
     if (cmd->order == TC_CONSTRUCT) {
         const StaticProductDefinition *product = G_ModelProductByUIId(NULL, cmd->product);

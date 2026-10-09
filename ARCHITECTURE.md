@@ -82,6 +82,8 @@ mask to a spawned object, so add or remove capabilities in the plugin's
 | `MF_RENDERABLE` | The renderer draws the object's body and current state frame. It normally remains set on a dead object while its death animation plays. |
 | `MF_ATTACK` | The object may receive attack orders and run attack behavior. Death clears it. |
 | `MF_HARVESTER` | The object may execute resource harvesting. A harvest order requires both `MF_MOBILE` and `MF_HARVESTER`; death clears it. |
+| `MF_DETECTOR` | Its sight also detects: cells it reveals carry its team in the low sight bits (`P_Detectors`). |
+| `MF_CLOAKED` | Enemies cannot see, target or auto-target it unless their (or allied) detectors cover its cell. Set by type data (Dark Colony mines, StarCraft Observer) or at runtime (StarCraft cloaking). |
 
 Use bitwise tests for individual capabilities and bitwise combinations for
 requirements:
@@ -440,6 +442,25 @@ and FIN-authored exit point. Dark Colony buildings currently use immediate
 placement after a valid producer/order. Dark Reign products use the production
 queue and construction-crew producer path.
 
+## Combat
+
+A type carries up to two weapons (`weapondef_t` in `include/engine.h`):
+`attack`, and `air_attack`, which replaces it against flyers when it has damage.
+`P_MobjWeapon` picks the weapon for a target, and range, damage, cooldown,
+targeting and the AI's strengths all follow it. Games with one weapon leave
+`air_attack` empty. A weapon can also hit several times per attack (`hits`),
+splash around its target (`splash`, `radius`: full, half and quarter damage
+in three rings; radial, enemy-only or air-only), and bounce (`bounces`, a
+third of the damage per jump, as the Mutalisk glaive does). Each hit goes
+through `gameinfo_t.hit_damage`, where a game applies its upgrades, armor,
+damage types and shields.
+
+Cloaking is one rule for every game: an `MF_CLOAKED` mobj is hidden from
+enemy teams unless an `MF_DETECTOR` of theirs covers its cell
+(`P_VisibleTo`, `P_VisibleToPlayer`). Dark Colony mines and StarCraft cloaks
+both use it; Warcraft II keeps its own invisibility. `gameinfo_t.mobj_ticker`
+runs a game's per-tic actor rules, such as StarCraft shields and energy.
+
 ## Computer players
 
 One shared AI (`play/p_ai.c`, `play/p_ai_doctrine.c`) runs every game. A game
@@ -456,11 +477,12 @@ faction as data. Blizzard's AIs split the same way. StarCraft keeps per-race
   weighted roster for the army mix, how far the mix bends toward counters, and
   the strength ratios at which waves set out or fall back.
 - **Unit knowledge** (`P_AiUnitInfo`): roles and strengths. The engine derives
-  them from `mobjtype_t`: traits, weapon and `attack.targets`. Strength follows
-  Brood War's `calculate_unit_strengths`, kept separately against ground and
-  air. A game's `describe()` adds only what the actor cannot show: supply,
-  cloaking, casters, shields and multi-hit weapons. Units need no hand-written
-  AI fields.
+  them from `mobjtype_t`: traits and the ground and air weapons with their
+  hits. Strength follows Brood War's `calculate_unit_strengths`, kept
+  separately against ground and air. A game's `describe()` adds only what the
+  actor cannot show: supply, casters and shields; `describe_unit()` adjusts a
+  live unit (a caster's energy, later a loaded Bunker). Units need no
+  hand-written AI fields.
 
 Every think the engine scouts what the team can see, keeps a fading estimate of
 the enemy army and its air share, and then works through these steps in order:
@@ -506,6 +528,21 @@ conventions.
 
 Dark Reign reproduction takes precedence over generic abstraction when the
 original scenario or binary behavior requires a game-specific path.
+
+### StarCraft
+
+`games/starcraft/` builds its actor table from `units.inc`, `weapons.inc` and
+`techs.inc`, which `tools/sc_catalog` generates from the retail DATs. Combat
+follows weapons.dat: separate ground and air weapons (the Goliath and tanks
+fire from their turret subunit), hits per attack, splash and glaive bounces,
+explosive and concussive damage against unit size, armor and weapon upgrades
+(`games/starcraft/p_combat.c`). Protoss shields take hits first, regenerate
+and are recharged by Shield Batteries; casters keep energy, which pays for
+Ghost and Wraith cloaking; the Observer and Dark Templar are always cloaked.
+Units move at their flingy.dat top speed, or their walking script's pace when
+the script moves them. Not yet simulated: spells other than cloaking, siege
+mode and other morphs, add-ons, Bunkers, Carrier interceptors, Reaver scarabs,
+larvae and creep, minimum weapon range, and the research that unlocks cloaking.
 
 ### Other games
 

@@ -9,15 +9,41 @@ typedef struct {
     uint32_t flags;
     isize2_t placement;
     int sight, orders, race, minerals, gas, portrait;
-    int build_time, damage, range, cooldown;
+    int build_time;
     int supply_provided, supply_required; /* units.dat halves; 2 is one supply */
-    int armor, armor_upgrade, weapon_upgrade, damage_bonus; /* upgrades.dat ids; 255 none */
+    int armor, armor_upgrade; /* upgrades.dat id; 255 none */
     int build_score, destroy_score;
     int shields;   /* 0 without units.dat shield enable */
     int subunit;   /* Turret row whose weapons the unit fires; SC_TYPES for none */
-    int air_damage, air_range, air_cooldown;
+    int ground_weapon, air_weapon; /* weapons.dat rows; no row (100 here) for none */
+    int size;      /* SC_SIZE_* */
+    int speed;     /* Top speed, 1/256 pixel per 24 Hz frame (flingy.dat or walking script) */
 } sc_unit_t;
 extern const sc_unit_t sc_units[SC_TYPES];
+enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
+/* weapons.dat (PyMS names). Ranges and radii are pixels, cooldown 24 Hz
+ * frames; factor is the hits of one attack. Rows past the DAT have no name. */
+enum { SC_WEAPONS = 130 };
+enum { SC_DAMAGE_INDEPENDENT, SC_DAMAGE_EXPLOSIVE, SC_DAMAGE_CONCUSSIVE, SC_DAMAGE_NORMAL, SC_DAMAGE_IGNORE_ARMOR };
+enum { SC_EXPLOSION_RADIAL = 2, SC_EXPLOSION_ENEMY = 3, SC_EXPLOSION_AIR = 24 };
+enum { SC_BEHAVIOR_BOUNCE = 7 };
+typedef struct {
+    const char *name;
+    int damage, bonus, cooldown, factor, upgrade, type, explosion, behavior, min_range, max_range;
+    int splash[3];
+    unsigned targets;
+} sc_weapon_t;
+extern const sc_weapon_t sc_weapons[SC_WEAPONS];
+/* techdata.dat: research cost and time, and the energy a use costs. */
+enum { SC_TECHS = 44, SC_TECH_CLOAKING_FIELD = 9, SC_TECH_PERSONNEL_CLOAKING = 10 };
+typedef struct { const char *name; int minerals, gas, time, energy, race; } sc_tech_t;
+extern const sc_tech_t sc_techs[SC_TECHS];
+/* NULL for a row past the DAT. */
+const sc_weapon_t *sc_weapon(int id);
+/* Fills a type's attack and air_attack from its weapons.dat rows. */
+void sc_unit_weapons(int type, mobjtype_t *out);
+/* Sets the combat hooks: damage types, shields, energy and cloaking. */
+void sc_init_combat(void);
 /* upgrades.dat: cost and time are base plus factor per level already held. */
 enum { SC_UPGRADES = 46 };
 typedef struct {
@@ -26,7 +52,6 @@ typedef struct {
 } sc_upgrade_t;
 extern const sc_upgrade_t sc_upgrades[SC_UPGRADES];
 int sc_upgrade_level(int owner, int upgrade);
-void sc_reset_upgrades(void);
 /* False for an upgrade level other than the owner's next one. */
 bool sc_upgrade_offered(int owner, const StaticProductDefinition *product);
 extern char sc_names[SC_TYPES][16];

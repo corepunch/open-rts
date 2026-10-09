@@ -27,4 +27,11 @@ bool sc_ground_ok(uint16_t type, ivec2_t cell, const mobj_t *builder);
 /* Hatcheries grow larvae, larvae and mutalisks with an order turn into
  * an egg or cocoon, and larvae die with their hatchery. */
 void sc_zerg_ticker(int elapsed_ms);
+/* A techdata.dat ability (SC_TECH_* in sc_local.h) on target or at a point.
+ * Cloaking Field and Personnel Cloaking toggle the caster's cloak for 25
+ * energy, then drain energy while it lasts. False when it cannot cast. */
+bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fvec2_t at);
+/* Current shields and energy in whole points, for the HUD and tests. */
+int sc_shields(const mobj_t *mo);
+int sc_energy(const mobj_t *mo);
 #endif

@@ -145,7 +145,9 @@ static const char *tbl_string(const blob_t *tbl,unsigned index) {
 /* Compile the visual portion of an IScript path into the shared state table.
  * Opcode lengths and header entry counts are PyMS IScriptBIN.py's. Sound,
  * movement and most combat opcodes are skipped; the first attack opcode puts
- * A_Attack on the frame it precedes. */
+ * A_Attack on the frame it precedes. Later ones in the same pass are the
+ * weapon's further hits (two attackmelee for the Zealot), which the engine
+ * deals from weapondef_t.hits, so they do not strike again. */
 static int next_state;
 static const uint8_t oplen[69]={
     2,2,1,1,2,1,2,2,4,4,2,2,0,4,4,4,4,4,2,4,4,3,0,1,2,255,4,0,255,0,3,1,
@@ -221,7 +223,7 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
         } else if(op==7) at=read_u16_le(arg);
         else if(op==0x35) { if(sp==16) break; stack[sp++]=at; at=read_u16_le(arg); }
         else if(op==0x36) { if(!sp) break; at=stack[--sp]; }
-        else if(op==27||op==28||op==37||op==38||op==40||op==68) strike=true;
+        else if(op==27||op==28||op==37||op==38||op==40||op==68) strike=!struck;
         else if(trail&&(op==8||op==9||op==13||op==14)&&trail->image<0) trail->image=read_u16_le(arg);
         else if(trail&&(op==15||op==16||op==17||op==19||op==20||op==21||op==66)&&trail->sprite<0)
             trail->sprite=read_u16_le(arg);
