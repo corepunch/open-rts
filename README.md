@@ -410,8 +410,10 @@ race's briefing and starts that campaign. **Multiplayer** opens the original
 connection and chat screens over a TCP melee; each player picks Terran, Zerg,
 or Protoss. The right button moves, attacks, and gathers. The command card
 builds, trains and morphs: Zerg larvae, eggs and building tiers, creep and
-psi are simulated. Campaign missions run the shared computer player. Spells,
-burrow, and the retail script opcodes are open work, recorded in
+psi are simulated, and so are add-ons, Bunkers, siege mode, Carrier and Reaver
+hangars, Archons, research and the spells. Campaign missions run the shared
+computer player. Burrow, transports and the retail script opcodes are open
+work, recorded in
 [docs/SC_EXE_FINDINGS.md](docs/SC_EXE_FINDINGS.md).
 
 Runtime files are unpacked retail assets. The game does not open an MPQ.
