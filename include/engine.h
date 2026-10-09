@@ -536,6 +536,9 @@ typedef enum {
     /* Structure that yields a resource deposit (KKnD drill rig): the engine
      * keeps a resource vent on it that only its allies' harvesters use. */
     MF_RESOURCE_SOURCE = 1u << 18,
+    /* Unseen and untargetable by enemies unless one of their detectors
+     * (MF_DETECTOR sight) covers its cell. Set by data or at runtime. */
+    MF_CLOAKED = 1u << 19,
 } mobjflag_t;
 
 enum {
@@ -568,6 +571,32 @@ typedef struct {
 
 enum { MOBJ_TARGET_GROUND = 1 << 0, MOBJ_TARGET_AIR = 1 << 1 };
 
+/* Damage around a weapon's target (StarCraft weapons.dat explosion types).
+ * Radial hits everyone but the attacker, enemy spares the attacker's allies,
+ * air hits only flyers. Ground and radial splash stay on the target's layer. */
+enum { SPLASH_NONE, SPLASH_RADIAL, SPLASH_ENEMY, SPLASH_AIR };
+
+/* One weapon. Range and radii are map cells. */
+typedef struct {
+    float range;
+    int damage;
+    int versus[3]; /* Damage by victim armor_class 0..2; zero uses damage. */
+    int upgrade_damage[2];
+    int cooldown_ms;
+    uint16_t projectile_type;
+    int health_cost;
+    int shots, reload_ms;
+    uint8_t targets; /* MOBJ_TARGET_* the weapon reaches; zero reaches both. */
+    uint8_t hits;    /* Hits of one attack (StarCraft max hits); zero is one. */
+    uint8_t splash;  /* SPLASH_* */
+    /* Further enemies the shot jumps to: the nearest within WEAPON_BOUNCE_RANGE
+     * of the last, not the one before it, each hit a third of the last. */
+    uint8_t bounces;
+    float radius[3]; /* Splash: full damage inside [0], half inside [1], a quarter inside [2]. */
+    uint16_t native_id; /* The game's own weapon row, for gameinfo_t.hit_damage. */
+} weapondef_t;
+#define WEAPON_BOUNCE_RANGE 3.0f /* OpenBW glaive bounce search, 96 pixels. */
+
 typedef struct mobjtype_s {
     uint16_t id;
     const char *name;
@@ -583,17 +612,10 @@ typedef struct mobjtype_s {
         int day, night;
         bool airborne;
     } sight;
-    struct {
-        float range;
-        int damage;
-        int versus[3]; /* Damage by victim armor_class 0..2; zero uses damage. */
-        int upgrade_damage[2];
-        int cooldown_ms;
-        uint16_t projectile_type;
-        int health_cost;
-        int shots, reload_ms;
-        uint8_t targets; /* MOBJ_TARGET_* the weapon reaches; zero reaches both. */
-    } attack;
+    weapondef_t attack;
+    /* Against flyers when its damage is set (StarCraft's air weapons);
+     * attack serves everything else. */
+    weapondef_t air_attack;
     missiledef_t missile;
     blastdef_t blast;
     struct { int state; uint16_t type; } deploy;
@@ -696,9 +718,15 @@ struct gameinfo_s {
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
     const struct soundinfo_s *sound; /* NULL: the game has no sounds yet. */
     void (*draw_fog)(app_t *app, const struct level_s *map, const tileset_t *tileset);
-    /* Optional: a direct hit's final damage, after versus tables (weapon and
-     * armor upgrades). NULL keeps the damage as is. */
-    int (*hit_damage)(const struct mobj_s *attacker, const struct mobj_s *target, int damage);
+    /* Optional: one hit's damage to hit points. damage is the weapon's, after
+     * the versus table; divisor (1 for a direct hit) splits it for splash and
+     * bounces once the game has added its upgrades, before armor. The game may
+     * take the hit on the target's shields and return 0. NULL: damage / divisor. */
+    int (*hit_damage)(const struct mobj_s *attacker, const weapondef_t *weapon,
+                      struct mobj_s *target, int damage, int divisor);
+    /* Optional: per-tic rules of a live actor before it moves (StarCraft
+     * shields, energy and cloaking upkeep). */
+    void (*mobj_ticker)(struct mobj_s *mobj);
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */
@@ -1392,6 +1420,9 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type);
 bool P_SetMobjState(mobj_t *unit, int state_id);
 bool P_TickMobjState(mobj_t *unit);
 bool P_Attack(mobj_t *attacker);
+/* The weapon attacker uses on target: air_attack against a flyer when it has
+ * one, otherwise attack. A NULL target gives attack. */
+const weapondef_t *P_MobjWeapon(const mobj_t *attacker, const mobj_t *target);
 /* Whether target lies within attacker's weapon range (see mobjtype_t.footprint). */
 bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target);
 irect_t P_MobjCells(const mobj_t *unit);
@@ -1412,6 +1443,8 @@ void P_UpdateSight(void);
 void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne);
 bool P_VisibleToPlayer(const mobj_t *mobj);
 bool P_VisibleTo(const mobj_t *observer, const mobj_t *target);
+/* Teams (sight bits 23..30) whose MF_DETECTOR sight covers the mobj's cell. */
+uint32_t P_Detectors(const mobj_t *mobj);
 int P_SightBrightness(const level_t *map, ivec2_t cell);
 int R_FogSample(const int corners[4], ivec2_t pixel);
 void R_DrawFog(app_t *app, const level_t *map);
@@ -2030,7 +2063,6 @@ typedef enum {
 typedef struct {
     uint32_t roles;      /* AiRole mask */
     int hp;              /* hit points plus shields */
-    int hits;            /* Weapon hits per attack (units.dat max hits); 0 is one. */
     int ground_strength; /* Nonzero from describe() overrides the formula. */
     int air_strength;
 } AiUnitInfo;
@@ -2103,8 +2135,11 @@ typedef struct AiGameInterface {
      * the doctrine to read roster roles. Catalog games use G_AiCatalogActor. */
     int  (*product_actor)(int product);
     /* Optional. Adds what mobjtype_t cannot tell to the engine's AiUnitInfo:
-     * supply, cloaking, casters, shields, multi-hit weapons, bunkers. */
+     * supply, cloaking that is not a trait, casters, shields. */
     void (*describe)(uint16_t type_id, AiUnitInfo *info);
+    /* Optional. Adjusts a live unit's info after describe(), wherever the
+     * doctrine weighs an actual unit: a caster's energy, a loaded Bunker. */
+    void (*describe_unit)(const mobj_t *unit, AiUnitInfo *info);
     /* Optional. Supply in use and the cap including supply already being
      * made; false when the cap cannot grow further. Enables supply_buffer. */
     bool (*supply)(int owner, int *used, int *cap);

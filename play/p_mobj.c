@@ -113,40 +113,59 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
     return &game_info->states[state_id];
 }
 
-static float mobj_attack_range(const mobj_t *unit) {
+const weapondef_t *P_MobjWeapon(const mobj_t *attacker, const mobj_t *target) {
+    if (!attacker || !attacker->info) return NULL;
+    if (target && (target->traits & MF_FLY) && attacker->info->air_attack.damage)
+        return &attacker->info->air_attack;
+    return &attacker->info->attack;
+}
+
+/* Reach against target; with none yet, the longer of the two weapons. */
+static float mobj_attack_range(const mobj_t *unit, const mobj_t *target) {
 #ifdef RTS_GAME_WARCRAFT_2
+    (void)target;
     return W2_AttackRange(unit);
 #endif
 #ifdef RTS_GAME_DARK_COLONY
     if (unit && (unit->type_id == MT_THUNDERBOLT || unit->type_id == MT_ATRIL))
         return unit->info->attack.range + DC_WeaponLevel(unit) * 2;
 #endif
-    return unit && unit->info ? unit->info->attack.range : 0.0f;
+    if (!unit || !unit->info) return 0.0f;
+    if (target) return P_MobjWeapon(unit, target)->range;
+    const weapondef_t *air = &unit->info->air_attack;
+    return air->damage && air->range > unit->info->attack.range ? air->range : unit->info->attack.range;
 }
 
-static int mobj_attack_damage(const mobj_t *unit) {
+static int weapon_damage(const mobj_t *unit, const weapondef_t *weapon) {
 #ifdef RTS_GAME_DARK_COLONY
     int tier = DC_WeaponLevel(unit);
-    if (unit && unit->info && tier && unit->info->attack.upgrade_damage[tier - 1])
-        return unit->info->attack.upgrade_damage[tier - 1];
+    if (tier && weapon->upgrade_damage[tier - 1]) return weapon->upgrade_damage[tier - 1];
+#else
+    (void)unit;
 #endif
-    return unit && unit->info ? unit->info->attack.damage : 0;
+    return weapon->damage;
 }
 
-static int mobj_attack_cooldown_ms(const mobj_t *unit) {
+static bool mobj_armed(const mobj_t *unit) {
+    return unit && unit->info &&
+        (weapon_damage(unit, &unit->info->attack) != 0 || unit->info->air_attack.damage != 0);
+}
+
+static int weapon_cooldown_ms(const mobj_t *unit, const weapondef_t *weapon) {
 #ifdef RTS_GAME_DARK_COLONY
     if (unit && unit->type_id == MT_ATRIL && DC_WeaponLevel(unit)) return 150 * 66;
+#else
+    (void)unit;
 #endif
-    return unit && unit->info ? unit->info->attack.cooldown_ms : 0;
+    return weapon->cooldown_ms;
 }
 
-static void start_attack_cooldown(mobj_t *attacker) {
-    if (mobj_attack_cooldown_ms(attacker) > 0)
-        attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
-    if (attacker->info->attack.shots > 0 &&
-        ++attacker->attack.shots >= attacker->info->attack.shots) {
+static void start_attack_cooldown(mobj_t *attacker, const weapondef_t *weapon) {
+    if (weapon_cooldown_ms(attacker, weapon) > 0)
+        attacker->attack.cooldown_left_ms = weapon_cooldown_ms(attacker, weapon);
+    if (weapon->shots > 0 && ++attacker->attack.shots >= weapon->shots) {
         attacker->attack.shots = 0;
-        attacker->attack.cooldown_left_ms = attacker->info->attack.reload_ms;
+        attacker->attack.cooldown_left_ms = weapon->reload_ms;
     }
 }
 
@@ -499,11 +518,11 @@ static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
         (mobjinfo[victim->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return false;
 #endif
     if ((attacker->traits & MF_LANDMINE) && (victim->traits & MF_FLY)) return false;
-    uint8_t reach = attacker->info ? attacker->info->attack.targets : 0;
+    const weapondef_t *weapon = P_MobjWeapon(attacker, victim);
+    uint8_t reach = weapon ? weapon->targets : 0;
     if (reach && !(reach & ((victim->traits & MF_FLY) ? MOBJ_TARGET_AIR : MOBJ_TARGET_GROUND)))
         return false;
-    const mobjtype_t *shot = attacker->info ?
-        mobj_type(attacker->info->attack.projectile_type) : NULL;
+    const mobjtype_t *shot = weapon ? mobj_type(weapon->projectile_type) : NULL;
     if (!shot) return true;
     unsigned armor = victim->info ? victim->info->armor_class : 0;
     return !shot->blast.damage_factors || armor >= (unsigned)shot->blast.armor_classes ||
@@ -562,7 +581,7 @@ static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, fl
 
 bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
     if (!attacker || !target) return false;
-    return within_attack_range(attacker, target, mobj_attack_range(attacker));
+    return within_attack_range(attacker, target, mobj_attack_range(attacker, target));
 }
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
@@ -571,19 +590,18 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
 #endif
     if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
     if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
-        mobj_attack_damage(attacker) == 0)
+        !mobj_armed(attacker))
         return NULL;
-    float range = mobj_attack_range(attacker);
     mobj_t *target = attacker->attack.target;
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
         P_CanTarget(attacker, target) &&
-        within_attack_range(attacker, target, range))
+        within_attack_range(attacker, target, mobj_attack_range(attacker, target)))
         return target;
     if (attacker->traits & MF_NOAUTOTARGET) return NULL;
     target = NULL;
-    float best2 = range * range + 1.0f;
+    float best2 = 0.0f;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
         /* Neutral things (mines, critters) are attacked only on order. */
@@ -592,13 +610,23 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
             candidate->allegiance == ALLEGIANCE_NEUTRAL ||
             !P_CanTarget(attacker, candidate) ||
             !P_VisibleTo(attacker, candidate) ||
-            !within_attack_range(attacker, candidate, range)) continue;
+            !within_attack_range(attacker, candidate, mobj_attack_range(attacker, candidate))) continue;
         float dist2 = fvec2_distance_squared(
             fixed3_xy_to_fvec2(candidate->core.position),
             fixed3_xy_to_fvec2(attacker->core.position));
         if (!target || dist2 < best2) { best2 = dist2; target = candidate; }
     }
     return target;
+}
+
+/* Doom's damage source wakes the victim and becomes its target. Keep an
+ * existing live enemy so repeated hits do not restart its pursuit. */
+static void provoke(mobj_t *target, mobj_t *source) {
+    mobj_t *enemy = target->attack.target;
+    if ((target->traits & MF_ATTACK) && source && source != target &&
+        !source->remove && source->hp > 0 && !P_IsAlly(target, source) &&
+        (!enemy || enemy->remove || enemy->hp <= 0 || P_IsAlly(target, enemy)))
+        target->attack.target = source;
 }
 
 void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
@@ -616,13 +644,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (target->owner == consoleplayer && source && source->owner != consoleplayer)
         S_ActorSound(target, SE_ATTACKED);
     if (target->hp > 0) {
-        /* Doom's damage source wakes the victim and becomes its target. Keep
-         * an existing live enemy so repeated hits do not restart its pursuit. */
-        mobj_t *enemy = target->attack.target;
-        if ((target->traits & MF_ATTACK) && source && source != target &&
-            !source->remove && source->hp > 0 && !P_IsAlly(target, source) &&
-            (!enemy || enemy->remove || enemy->hp <= 0 || P_IsAlly(target, enemy)))
-            target->attack.target = source;
+        provoke(target, source);
         return;
     }
 
@@ -796,6 +818,76 @@ void A_Deploy(mobj_t *actor) {
     P_SetMobjState(actor, gameinfo->mobjinfo[type->id].spawnstate);
 }
 
+/* One hit of weapon on victim, divided for splash and bounces: the versus
+ * table, then the game's rules (upgrades, armor, damage type, shields). */
+static int weapon_hit(mobj_t *attacker, const weapondef_t *weapon, mobj_t *victim, int divisor) {
+    int damage = weapon_damage(attacker, weapon);
+    unsigned armor = victim->info ? victim->info->armor_class : 0;
+    if (armor < 3 && weapon->versus[armor]) damage = weapon->versus[armor];
+    if (gameinfo->hit_damage && damage > 0) damage = gameinfo->hit_damage(attacker, weapon, victim, damage, divisor);
+    else damage /= divisor;
+#ifdef RTS_GAME_DARK_COLONY
+    /* The immediate fallback stands in for a native direct-impact shot. */
+    damage = DC_DefendedDamage(victim, damage);
+    if (damage > 0) damage = DC_DaylightDamage(attacker, damage);
+#endif
+    return damage;
+}
+
+/* Every hit of one attack. A hit the game took entirely on shields still
+ * provokes the victim. */
+static void strike(mobj_t *attacker, const weapondef_t *weapon, mobj_t *victim, int divisor) {
+    for (int i = 0; i < (weapon->hits ? weapon->hits : 1) && !victim->remove && victim->hp > 0; ++i) {
+        int damage = weapon_hit(attacker, weapon, victim, divisor);
+        if (damage > 0) P_DamageMobj(victim, attacker, damage);
+        else if (gameinfo->hit_damage) provoke(victim, attacker);
+    }
+}
+
+/* StarCraft's splash: every other unit on the target's layer (flyers only
+ * for air splash) takes full, half or a quarter of the damage by how far
+ * its edge lies from where the target stood. */
+static void splash(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *target, fvec2_t at, bool flying) {
+    if (weapon->splash == SPLASH_NONE) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *victim = (mobj_t *)th;
+        if (th->function != P_MobjThinker || victim == target || victim == attacker || victim->remove ||
+            victim->hp <= 0 || (victim->traits & (MF_NOBLOCKMAP | MF_MISSILE))) continue;
+        bool flyer = (victim->traits & MF_FLY) != 0;
+        if (weapon->splash == SPLASH_AIR ? !flyer : flyer != flying) continue;
+        if (weapon->splash == SPLASH_ENEMY && P_IsAlly(attacker, victim)) continue;
+        if (!P_CanDamage(attacker, victim)) continue;
+        float d = sqrtf(fvec2_distance_squared(at, fixed3_xy_to_fvec2(victim->core.position))) -
+                  P_MobjRadius(victim);
+        int divisor = d <= weapon->radius[0] ? 1 : d <= weapon->radius[1] ? 2 : d <= weapon->radius[2] ? 4 : 0;
+        if (divisor) strike(attacker, weapon, victim, divisor);
+    }
+}
+
+/* A bouncing shot (the Mutalisk's glaive) jumps to the nearest enemy the
+ * attacker could target, other than the last two it hit (OpenBW keeps the
+ * previous bounce target), each hit a third of the one before. */
+static void bounce(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *from) {
+    const mobj_t *previous = NULL;
+    for (int b = 0, divisor = 3; b < weapon->bounces; ++b, divisor *= 3) {
+        mobj_t *next = NULL;
+        float best = WEAPON_BOUNCE_RANGE * WEAPON_BOUNCE_RANGE;
+        fvec2_t at = fixed3_xy_to_fvec2(from->core.position);
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *victim = (mobj_t *)th;
+            if (th->function != P_MobjThinker || victim == from || victim == previous ||
+                victim->allegiance == ALLEGIANCE_NEUTRAL ||
+                !P_CanTarget(attacker, victim) || !P_VisibleTo(attacker, victim)) continue;
+            float d = fvec2_distance_squared(at, fixed3_xy_to_fvec2(victim->core.position));
+            if (d <= best) { best = d; next = victim; }
+        }
+        if (!next) return;
+        strike(attacker, weapon, next, divisor);
+        previous = from;
+        from = next;
+    }
+}
+
 bool P_Attack(mobj_t *attacker) {
     if (!attacker || !(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         ((attacker->traits & (MF_HEAL | MF_REPAIR)) &&
@@ -816,45 +908,44 @@ bool P_Attack(mobj_t *attacker) {
                       angle_to_direction(attacker->core.angle, 32, ANG90, true),
                       0, sprite_name, attacker->core.frame, target->id);
 
-    if (attacker->info && attacker->info->attack.projectile_type != 0) {
+    const weapondef_t *weapon = P_MobjWeapon(attacker, target);
+    if (weapon->projectile_type != 0) {
 #ifdef RTS_GAME_DARK_COLONY
-        mobj_t *missile = DC_FireMissiles(attacker, target, attacker->info->attack.projectile_type);
+        mobj_t *missile = DC_FireMissiles(attacker, target, weapon->projectile_type);
 #else
-        mobj_t *missile = P_SpawnMissile(attacker, target,
-                                         attacker->info->attack.projectile_type);
+        mobj_t *missile = P_SpawnMissile(attacker, target, weapon->projectile_type);
 #endif
         if (!missile) return false;
         S_ActorSound(attacker, SE_ATTACK);
-        if (attacker->info->attack.health_cost > 0) {
-            attacker->hp -= attacker->info->attack.health_cost;
+        if (weapon->health_cost > 0) {
+            attacker->hp -= weapon->health_cost;
             if (attacker->hp < 0) attacker->hp = 1;
         }
-        start_attack_cooldown(attacker);
+        start_attack_cooldown(attacker, weapon);
         debug_effects_log("missile launch source=%d type=%u target=%d speed=%d",
                           attacker->id, missile->type_id, target->id,
                           gameinfo->mobjinfo[missile->type_id].speed);
         return true;
     }
 
-    int damage = mobj_attack_damage(attacker);
-    unsigned armor = target->info ? target->info->armor_class : 0;
-    if (attacker->info && armor < 3 && attacker->info->attack.versus[armor])
-        damage = attacker->info->attack.versus[armor];
-    if (gameinfo->hit_damage && damage > 0) damage = gameinfo->hit_damage(attacker, target, damage);
-#ifdef RTS_GAME_DARK_COLONY
-    /* The immediate fallback stands in for a native direct-impact shot. */
-    damage = DC_DefendedDamage(target, damage);
-    if (damage > 0) damage = DC_DaylightDamage(attacker, damage);
-#endif
     S_ActorSound(attacker, SE_ATTACK);
-    if (damage < 0 && (attacker->traits & (MF_HEAL | MF_REPAIR))) {
-        int amount = -damage;
-        if (amount > target->max_hp - target->hp) amount = target->max_hp - target->hp;
-        target->hp += amount;
-    } else P_DamageMobj(target, attacker, damage);
-    if (attacker->info) start_attack_cooldown(attacker);
+    if (attacker->traits & (MF_HEAL | MF_REPAIR)) {
+        int damage = weapon_hit(attacker, weapon, target, 1);
+        if (damage < 0) {
+            int amount = -damage;
+            if (amount > target->max_hp - target->hp) amount = target->max_hp - target->hp;
+            target->hp += amount;
+        } else P_DamageMobj(target, attacker, damage);
+    } else {
+        fvec2_t at = fixed3_xy_to_fvec2(target->core.position);
+        bool flying = (target->traits & MF_FLY) != 0;
+        strike(attacker, weapon, target, 1);
+        splash(attacker, weapon, target, at, flying);
+        bounce(attacker, weapon, target);
+    }
+    start_attack_cooldown(attacker, weapon);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
-                      attacker->type_id, target->id, mobj_attack_damage(attacker),
+                      attacker->type_id, target->id, weapon_damage(attacker, weapon),
                       target->hp, target->max_hp);
     return true;
 }
@@ -1315,6 +1406,10 @@ static void tick_actor(mobj_t *u) {
     if (u->core.state_id <= 0) P_InitMobj(game_info, u);
     P_TickMobjState(u);
     if (u->remove || u->hp <= 0) return;
+    if (game_info && game_info->mobj_ticker) {
+        game_info->mobj_ticker(u);
+        if (u->remove || u->hp <= 0) return;
+    }
     P_TickWaypoints(u);
 
     if (u->attack.cooldown_left_ms > 0) {
@@ -1338,7 +1433,7 @@ static void tick_actor(mobj_t *u) {
             enemy && !enemy->remove && enemy->hp > 0 && !P_IsAlly(u, enemy) &&
             P_VisibleTo(u, enemy)) {
             fvec2_t goal = fixed3_xy_to_fvec2(enemy->core.position);
-            if (!within_attack_range(u, enemy, mobj_attack_range(u)) &&
+            if (!within_attack_range(u, enemy, mobj_attack_range(u, enemy)) &&
                 (!moving || !ivec2_equal(fvec2_cell(u->movement.goal), fvec2_cell(goal))))
                 moving = P_MoveUnitTo(map, u, goal);
         }

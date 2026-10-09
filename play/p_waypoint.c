@@ -7,7 +7,8 @@ void P_TickWaypoints(mobj_t *actor) {
     if (gameinfo && actor->core.state_id > 0 && actor->core.state_id < gameinfo->state_count &&
         gameinfo->states[actor->core.state_id].group == 3) return;
     mobj_t *target = actor->attack.target;
-    float range = actor->info ? actor->info->attack.range : 0;
+    const weapondef_t *weapon = P_MobjWeapon(actor, target);
+    float range = weapon ? weapon->range : 0;
     if (P_CanTarget(actor, target) &&
         fvec2_distance_squared(fixed3_xy_to_fvec2(actor->core.position),
                                fixed3_xy_to_fvec2(target->core.position)) <= range * range)

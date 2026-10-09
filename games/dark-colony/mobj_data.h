@@ -18,14 +18,12 @@ typedef struct {
     dc_drop_t drop; \
     int resource_vent_index; \
     uint32_t producer_id; \
-    uint32_t detected_by; \
     int repair_wait; \
     uint8_t ability_charge; /* Native object +0x0a, shared by special abilities. */
 
 #define MOBJ_GAME_CHECKSUM(HASH, actor) do { \
     HASH((actor)->ability_charge); \
     HASH((actor)->repair_wait); \
-    HASH((actor)->detected_by); \
 } while (0)
 
 #endif
