@@ -12,6 +12,13 @@ static mobj_t *spawn(int type, fvec2_t at, int owner) {
     if (u) { u->owner = u->team = (uint8_t)owner; u->allegiance = owner == consoleplayer ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY; }
     return u;
 }
+static mobj_t *first_of(int type) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && !mo->remove && mo->hp > 0 && mo->type_id == type) return mo;
+    }
+    return NULL;
+}
 static const StaticProductDefinition *product(int ui) { return G_ModelProductByUIId(NULL, ui); }
 static void tick(int tics) {
     for (int t = 0; t < tics; t++) { P_Ticker(); G_ProductionTicker(FIXED_DT); }
@@ -259,9 +266,243 @@ static int archon(void) {
     CHECK(count_of(MT_HIGH_TEMPLAR, 0) == 2 && count_of(MT_ARCHON, 0) == 0); /* still warping */
     tick(sc_units[MT_ARCHON - 1].build_time * RTS_TICRATE / 24);
     CHECK(count_of(MT_HIGH_TEMPLAR, 0) == 0 && count_of(MT_ARCHON, 0) == 1);
-    mobj_t *archon = a->remove ? b : a;
-    CHECK(archon->type_id == MT_ARCHON && archon->hp == archon->max_hp && sc_shields(archon) == 350 &&
-          (archon->traits & MF_ATTACK));
+    mobj_t *archon = first_of(MT_ARCHON);
+    CHECK(archon && archon->hp == archon->max_hp && sc_shields(archon) == 350 && (archon->traits & MF_ATTACK));
+    reset();
+    return 0;
+}
+
+/* A caster with full energy. */
+static mobj_t *caster(int type, fvec2_t at) {
+    mobj_t *mo = spawn(type, at, 0);
+    sc_start(mo);
+    mo->sc.energy = 200 << 8;
+    return mo;
+}
+static ticcmd_t spell(mobj_t *by, int tech, const mobj_t *target, fvec2_t at) {
+    return (ticcmd_t){.order = TC_SPELL, .count = 1, .units = {by->id}, .product = tech,
+                      .target = target ? target->id : 0, .position = fixed3_from_fvec2(at, 0)};
+}
+static int frames(int n) { return n * RTS_TICRATE / 24 + 2; }
+static fvec2_t at_of(const mobj_t *mo) { return fixed3_xy_to_fvec2(mo->core.position); }
+
+static int protoss_spells(void) {
+    /* Psionic Storm: researched first, 75 energy, 112 over 2.6 s ignoring
+     * armor, storms do not stack, buildings stand. */
+    mobj_t *ht = caster(MT_HIGH_TEMPLAR, (fvec2_t){4.5f, 4.5f}), *ht2 = caster(MT_HIGH_TEMPLAR, (fvec2_t){4.5f, 6.5f});
+    mobj_t *ultra = spawn(MT_ULTRALISK, (fvec2_t){10.5f, 4.5f}, 1), *ling = spawn(MT_ZERGLING, (fvec2_t){10.9f, 5.0f}, 1);
+    mobj_t *pool = building(MT_SPAWNING_POOL, (ivec2_t){11, 2}, 1);
+    CHECK(ht && ht2 && ultra && ling && pool);
+    ultra->traits &= ~MF_MOBILE; /* rooted in the storm for the count */
+    ling->traits &= ~MF_MOBILE;
+    uint32_t ling_id = ling->id;
+    CHECK(!sc_cast(ht, SC_TECH_PSIONIC_STORM, NULL, at_of(ultra)));
+    learn(0, SC_TECH_PSIONIC_STORM);
+    ticcmd_t cmd = spell(ht, SC_TECH_PSIONIC_STORM, NULL, at_of(ultra));
+    G_RunTiccmd(0, &cmd);
+    CHECK(sc_energy(ht) == 125 && count_of(MT_MAP_REVEALER, 0) == 1);
+    CHECK(sc_cast(ht2, SC_TECH_PSIONIC_STORM, NULL, at_of(ultra)));
+    tick(frames(70));
+    CHECK(ultra->max_hp - ultra->hp == 112 && !P_MobjById(ling_id) && pool->hp == pool->max_hp);
+    CHECK(count_of(MT_MAP_REVEALER, 0) == 0);
+    /* A cast from afar walks into range first. */
+    ultra->hp = ultra->max_hp;
+    ht->sc.energy = 200 << 8;
+    ht->core.position = fixed3_from_fvec2((fvec2_t){4.5f, 30.5f}, 0);
+    CHECK(sc_cast(ht, SC_TECH_PSIONIC_STORM, NULL, at_of(ultra)) && sc_energy(ht) == 200 && P_HasMoveOrder(ht));
+    tick(RTS_TICRATE * 12);
+    CHECK(sc_energy(ht) < 200 && ultra->hp < ultra->max_hp && ht->sc.order.kind == SC_ORDER_NONE);
+    reset();
+
+    /* Hallucination: two copies that deal nothing and take double damage. */
+    learn(0, SC_TECH_HALLUCINATION);
+    ht = caster(MT_HIGH_TEMPLAR, (fvec2_t){4.5f, 4.5f});
+    mobj_t *zealot = spawn(MT_ZEALOT, (fvec2_t){7.5f, 4.5f}, 0), *marine = spawn(MT_MARINE, (fvec2_t){8.5f, 5.8f}, 1);
+    CHECK(sc_cast(ht, SC_TECH_HALLUCINATION, zealot, at_of(zealot)) && count_of(MT_ZEALOT, 0) == 3);
+    int supply, cap;
+    sc_supply_counts(0, &supply, &cap);
+    CHECK(supply == sc_units[MT_ZEALOT - 1].supply_required + sc_units[MT_HIGH_TEMPLAR - 1].supply_required);
+    mobj_t *copy = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_ZEALOT && (mo->sc.flags & SC_HALLUCINATION)) copy = mo;
+    }
+    CHECK(copy && copy->owner == 0 && shoot(copy, marine) && marine->hp == marine->max_hp);
+    CHECK(shoot(marine, copy) && shoot(marine, zealot) && sc_shields(copy) == 80 - 12 && sc_shields(zealot) == 80 - 6);
+    tick(frames(1350));
+    CHECK(count_of(MT_ZEALOT, 0) == 1);
+    reset();
+    return 0;
+}
+
+static int terran_spells(void) {
+    /* Defensive Matrix (no research): absorbs 250, then hits land. */
+    mobj_t *vessel = caster(MT_SCIENCE_VESSEL, (fvec2_t){4.5f, 4.5f}), *marine = spawn(MT_MARINE, (fvec2_t){6.5f, 4.5f}, 0);
+    mobj_t *hydra = spawn(MT_HYDRALISK, (fvec2_t){9.5f, 4.5f}, 1);
+    CHECK(sc_cast(vessel, SC_TECH_DEFENSIVE_MATRIX, marine, at_of(marine)) && sc_energy(vessel) == 100);
+    for (int i = 0; i < 25; i++) CHECK(shoot(hydra, marine));
+    CHECK(marine->hp == marine->max_hp && marine->sc.matrix == 0);
+    CHECK(shoot(hydra, marine) && marine->hp < marine->max_hp);
+    CHECK(sc_cast(vessel, SC_TECH_DEFENSIVE_MATRIX, marine, at_of(marine)));
+    tick(frames(168 * 8));
+    CHECK(marine->sc.matrix == 0 && !marine->sc.timers[SC_TIMER_MATRIX]);
+    reset();
+
+    /* EMP Shockwave: shields and energy in the area are gone, the Vessel's kept. */
+    learn(0, SC_TECH_EMP);
+    vessel = caster(MT_SCIENCE_VESSEL, (fvec2_t){4.5f, 4.5f});
+    mobj_t *z1 = spawn(MT_ZEALOT, (fvec2_t){10.5f, 4.5f}, 1), *z2 = spawn(MT_ZEALOT, (fvec2_t){11.3f, 4.5f}, 1);
+    mobj_t *templar = spawn(MT_HIGH_TEMPLAR, (fvec2_t){10.5f, 5.3f}, 1), *far = spawn(MT_ZEALOT, (fvec2_t){10.5f, 9.5f}, 1);
+    CHECK(sc_cast(vessel, SC_TECH_EMP, NULL, at_of(z1)));
+    CHECK(sc_shields(z1) == 0 && sc_shields(z2) == 0 && sc_shields(templar) == 0 && sc_energy(templar) == 0);
+    CHECK(sc_shields(far) == 80 && sc_energy(vessel) == 100 && z1->hp == z1->max_hp);
+    reset();
+
+    /* Irradiate: 250 over time to organic units around the host. */
+    learn(0, SC_TECH_IRRADIATE);
+    vessel = caster(MT_SCIENCE_VESSEL, (fvec2_t){4.5f, 4.5f});
+    mobj_t *ultra = spawn(MT_ULTRALISK, (fvec2_t){10.5f, 4.5f}, 1), *ling = spawn(MT_ZERGLING, (fvec2_t){11.1f, 4.5f}, 1);
+    mobj_t *goliath = spawn(MT_GOLIATH, (fvec2_t){10.5f, 5.1f}, 1);
+    uint32_t ling_id = ling->id;
+    CHECK(!sc_cast(vessel, SC_TECH_IRRADIATE, NULL, at_of(ultra))); /* needs a unit */
+    CHECK(sc_cast(vessel, SC_TECH_IRRADIATE, ultra, at_of(ultra)) && sc_energy(vessel) == 125);
+    tick(frames(37 * 8 + 16));
+    CHECK(ultra->max_hp - ultra->hp == 250 && !P_MobjById(ling_id) && goliath->hp == goliath->max_hp);
+    reset();
+
+    /* Lockdown: a machine stands and holds fire; flesh is no target. */
+    learn(0, SC_TECH_LOCKDOWN);
+    mobj_t *ghost = caster(MT_GHOST, (fvec2_t){4.5f, 4.5f});
+    goliath = spawn(MT_GOLIATH, (fvec2_t){10.5f, 4.5f}, 1);
+    marine = spawn(MT_MARINE, (fvec2_t){10.5f, 6.5f}, 1);
+    mobj_t *bait = spawn(MT_MARINE, (fvec2_t){12.5f, 4.5f}, 0);
+    CHECK(!sc_cast(ghost, SC_TECH_LOCKDOWN, marine, at_of(marine)));
+    CHECK(sc_cast(ghost, SC_TECH_LOCKDOWN, goliath, at_of(goliath)));
+    P_RemoveMobj(marine);
+    ghost->traits &= ~MF_ATTACK;
+    fvec2_t was = at_of(goliath);
+    P_MoveUnitTo(&level, goliath, (fvec2_t){20.5f, 4.5f});
+    tick(RTS_TICRATE * 3);
+    CHECK(fvec2_near(at_of(goliath), was, 0.01f) && bait->hp == bait->max_hp);
+    goliath->sc.timers[SC_TIMER_LOCKDOWN] = 1;
+    tick(RTS_TICRATE * 2);
+    CHECK(bait->hp < bait->max_hp);
+    reset();
+
+    /* Yamato Gun and Scanner Sweep. */
+    learn(0, SC_TECH_YAMATO_GUN);
+    mobj_t *bc = caster(MT_BATTLECRUISER, (fvec2_t){4.5f, 4.5f});
+    ultra = spawn(MT_ULTRALISK, (fvec2_t){12.5f, 4.5f}, 1);
+    CHECK(sc_cast(bc, SC_TECH_YAMATO_GUN, ultra, at_of(ultra)) && sc_energy(bc) == 50);
+    CHECK(ultra->max_hp - ultra->hp == 250 - sc_units[MT_ULTRALISK - 1].armor);
+    reset();
+    CHECK(P_InitSight());
+    mobj_t *comsat = caster(MT_COMSAT_STATION, (fvec2_t){4.5f, 4.5f});
+    marine = spawn(MT_MARINE, (fvec2_t){30.5f, 30.5f}, 0);
+    mobj_t *dt = spawn(75 + 1, (fvec2_t){32.5f, 30.5f}, 1); /* Dark Templar */
+    P_UpdateSight();
+    CHECK(!P_VisibleTo(marine, dt));
+    CHECK(sc_cast(comsat, SC_TECH_SCANNER_SWEEP, NULL, at_of(dt)) && sc_energy(comsat) == 125);
+    P_UpdateSight();
+    CHECK(P_VisibleTo(marine, dt));
+    tick(frames(262));
+    P_UpdateSight();
+    CHECK(!P_VisibleTo(marine, dt) && count_of(MT_MAP_REVEALER, 0) == 0);
+    reset();
+
+    /* A Nuclear Silo keeps one nuke; a Ghost paints the spot for 14 s. */
+    mobj_t *silo = building(MT_NUCLEAR_SILO, (ivec2_t){2, 40}, 0);
+    CHECK(building(MT_SUPPLY_DEPOT, (ivec2_t){8, 40}, 0)); /* a nuke takes 8 supply */
+    CHECK(G_ModelProducerHasTech(silo, product(MT_NUCLEAR_MISSILE)));
+    silo->sc.hangar = 1;
+    CHECK(!G_ModelProducerHasTech(silo, product(MT_NUCLEAR_MISSILE)) && sc_armed_silo(0) == silo);
+    ghost = caster(MT_GHOST, (fvec2_t){4.5f, 20.5f});
+    mobj_t *hit = spawn(MT_ULTRALISK, (fvec2_t){10.5f, 20.5f}, 1), *edge = spawn(MT_ULTRALISK, (fvec2_t){16.0f, 20.5f}, 1);
+    mobj_t *safe = spawn(MT_ULTRALISK, (fvec2_t){10.5f, 30.5f}, 1);
+    uint32_t hit_id = hit->id;
+    CHECK(sc_cast(ghost, SC_TECH_NUCLEAR_STRIKE, NULL, at_of(hit)) && silo->sc.hangar == 0);
+    tick(frames(13 * 24));
+    CHECK(hit->hp == hit->max_hp && ghost->sc.order.kind == SC_ORDER_NUKE);
+    tick(frames(2 * 24));
+    CHECK(!P_MobjById(hit_id) && edge->hp < edge->max_hp && edge->hp > 0 && safe->hp == safe->max_hp);
+    CHECK(!sc_cast(ghost, SC_TECH_NUCLEAR_STRIKE, NULL, at_of(edge))); /* no nuke left */
+    free(level.sight.cells);
+    level.sight.cells = NULL;
+    reset();
+    return 0;
+}
+
+static int zerg_spells(void) {
+    /* Parasite (no research): the host's sight is the caster's too. */
+    CHECK(P_InitSight());
+    mobj_t *queen = caster(MT_QUEEN, (fvec2_t){10.5f, 30.5f});
+    mobj_t *host = spawn(MT_MARINE, (fvec2_t){18.5f, 30.5f}, 1), *behind = spawn(MT_MARINE, (fvec2_t){24.5f, 30.5f}, 1);
+    P_UpdateSight();
+    CHECK(!P_VisibleTo(queen, behind));
+    CHECK(sc_cast(queen, SC_TECH_PARASITE, host, at_of(host)) && sc_energy(queen) == 150);
+    P_UpdateSight();
+    CHECK(P_VisibleTo(queen, behind) && (host->sc.parasite & (UINT32_C(0x40000000) >> queen->team)));
+    free(level.sight.cells);
+    level.sight.cells = NULL;
+    reset();
+
+    /* Spawn Broodling kills a ground, non-robotic unit and hatches two. */
+    learn(0, SC_TECH_SPAWN_BROODLING);
+    queen = caster(MT_QUEEN, (fvec2_t){4.5f, 4.5f});
+    mobj_t *zealot = spawn(MT_ZEALOT, (fvec2_t){9.5f, 4.5f}, 1), *reaver = spawn(MT_REAVER, (fvec2_t){9.5f, 6.5f}, 1);
+    mobj_t *muta = spawn(MT_MUTALISK, (fvec2_t){9.5f, 8.5f}, 1);
+    uint32_t zealot_id = zealot->id;
+    CHECK(!sc_cast(queen, SC_TECH_SPAWN_BROODLING, reaver, at_of(reaver)) &&
+          !sc_cast(queen, SC_TECH_SPAWN_BROODLING, muta, at_of(muta)));
+    CHECK(sc_cast(queen, SC_TECH_SPAWN_BROODLING, zealot, at_of(zealot)) && sc_energy(queen) == 50);
+    tick(2);
+    CHECK(!P_MobjById(zealot_id) && count_of(MT_BROODLING, 0) == 2);
+    tick(frames(1800));
+    CHECK(count_of(MT_BROODLING, 0) == 0);
+    reset();
+
+    /* Ensnare slows a clump for a while. */
+    learn(0, SC_TECH_ENSNARE);
+    queen = caster(MT_QUEEN, (fvec2_t){4.5f, 4.5f});
+    mobj_t *m1 = spawn(MT_MARINE, (fvec2_t){10.5f, 4.5f}, 1), *m2 = spawn(MT_MARINE, (fvec2_t){11.5f, 4.5f}, 1);
+    CHECK(sc_cast(queen, SC_TECH_ENSNARE, NULL, at_of(m1)));
+    CHECK(m1->speed == m1->info->speed * 0.5f && m2->speed == m2->info->speed * 0.5f && queen->speed == queen->info->speed);
+    tick(frames(75 * 8));
+    CHECK(m1->speed == m1->info->speed);
+    reset();
+
+    /* Dark Swarm: ranged attacks miss the units under it, blows land. */
+    mobj_t *defiler = caster(MT_DEFILER, (fvec2_t){4.5f, 4.5f});
+    mobj_t *ling = spawn(MT_ZERGLING, (fvec2_t){10.5f, 4.5f}, 0), *marine = spawn(MT_MARINE, (fvec2_t){13.5f, 4.5f}, 1);
+    zealot = spawn(MT_ZEALOT, (fvec2_t){11.4f, 4.5f}, 1);
+    CHECK(sc_cast(defiler, SC_TECH_DARK_SWARM, NULL, at_of(ling)) && count_of(MT_DARK_SWARM, 0) == 1);
+    CHECK(shoot(marine, ling) && ling->hp == ling->max_hp);
+    CHECK(shoot(zealot, ling) && ling->hp < ling->max_hp);
+    tick(frames(900));
+    CHECK(count_of(MT_DARK_SWARM, 0) == 0);
+    reset();
+
+    /* Plague: 300 over time that never kills. */
+    learn(0, SC_TECH_PLAGUE);
+    defiler = caster(MT_DEFILER, (fvec2_t){4.5f, 4.5f});
+    marine = spawn(MT_MARINE, (fvec2_t){10.5f, 4.5f}, 1);
+    mobj_t *ultra = spawn(MT_ULTRALISK, (fvec2_t){11.3f, 4.5f}, 1);
+    CHECK(sc_cast(defiler, SC_TECH_PLAGUE, NULL, at_of(marine)) && sc_energy(defiler) == 50);
+    tick(frames(75 * 8 + 16));
+    CHECK(marine->hp == 1 && ultra->max_hp - ultra->hp == 300 && defiler->hp == defiler->max_hp);
+    reset();
+
+    /* Consume: an own zerg unit for 50 energy. */
+    learn(0, SC_TECH_CONSUME);
+    defiler = caster(MT_DEFILER, (fvec2_t){4.5f, 4.5f});
+    defiler->sc.energy = 20 << 8;
+    ling = spawn(MT_ZERGLING, (fvec2_t){5.3f, 4.5f}, 0);
+    mobj_t *foe = spawn(MT_ZERGLING, (fvec2_t){5.3f, 5.3f}, 1), *pool = building(MT_SPAWNING_POOL, (ivec2_t){8, 8}, 0);
+    uint32_t ling_id = ling->id;
+    CHECK(!sc_cast(defiler, SC_TECH_CONSUME, foe, at_of(foe)) && !sc_cast(defiler, SC_TECH_CONSUME, pool, at_of(pool)));
+    CHECK(sc_cast(defiler, SC_TECH_CONSUME, ling, at_of(ling)));
+    tick(2);
+    CHECK(!P_MobjById(ling_id) && sc_energy(defiler) == 70);
     reset();
     return 0;
 }
@@ -281,7 +522,10 @@ int main(void) {
     CHECK(!addons());
     CHECK(!bunker());
     CHECK(!archon());
+    CHECK(!protoss_spells());
+    CHECK(!terran_spells());
+    CHECK(!zerg_spells());
     P_FreeLevel(&level);
-    puts("PASS: interceptors, scarabs, siege mode, add-ons, Bunkers, Archons");
+    puts("PASS: interceptors, scarabs, siege mode, add-ons, Bunkers, Archons, research and every spell");
     return 0;
 }
