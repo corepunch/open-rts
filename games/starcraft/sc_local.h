@@ -18,9 +18,21 @@ typedef struct {
     int ground_weapon, air_weapon; /* weapons.dat rows; no row (100 here) for none */
     int size;      /* SC_SIZE_* */
     int speed;     /* Top speed, 1/256 pixel per 24 Hz frame (flingy.dat or walking script) */
+    int space, space_provided; /* Transport slots taken and offered; 255 cannot board */
+    ivec2_t addon; /* An add-on's top-left from its parent's, in pixels */
 } sc_unit_t;
 extern const sc_unit_t sc_units[SC_TYPES];
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
+/* units.dat special ability flags. */
+enum {
+    SC_UNIT_BUILDING = 0x1, SC_UNIT_ADDON = 0x2, SC_UNIT_WORKER = 0x8, SC_UNIT_CLOAKABLE = 0x200,
+    SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_SPELLCASTER = 0x200000,
+    SC_UNIT_PERMANENT_CLOAK = 0x400000, SC_UNIT_MECHANICAL = 0x40000000,
+};
+/* Whether a mobj is a units.dat type, and its row. */
+static inline const sc_unit_t *sc_unit(const mobj_t *mo) {
+    return mo && mo->type_id >= 1 && mo->type_id <= SC_TYPES ? &sc_units[mo->type_id - 1] : NULL;
+}
 /* weapons.dat (PyMS names). Ranges and radii are pixels, cooldown 24 Hz
  * frames; factor is the hits of one attack. Rows past the DAT have no name. */
 enum { SC_WEAPONS = 130 };
@@ -34,9 +46,17 @@ typedef struct {
     unsigned targets;
 } sc_weapon_t;
 extern const sc_weapon_t sc_weapons[SC_WEAPONS];
-/* techdata.dat: research cost and time, and the energy a use costs. */
-enum { SC_TECHS = 44, SC_TECH_CLOAKING_FIELD = 9, SC_TECH_PERSONNEL_CLOAKING = 10 };
-typedef struct { const char *name; int minerals, gas, time, energy, race; } sc_tech_t;
+/* techdata.dat: research cost and time, and the energy a use costs. The
+ * Nuclear Strike is an order past the DAT that shares the spell command. */
+enum {
+    SC_TECHS = 44, SC_TECH_STIM_PACKS = 0, SC_TECH_LOCKDOWN = 1, SC_TECH_EMP = 2, SC_TECH_SCANNER_SWEEP = 4,
+    SC_TECH_SIEGE_MODE = 5, SC_TECH_DEFENSIVE_MATRIX = 6, SC_TECH_IRRADIATE = 7, SC_TECH_YAMATO_GUN = 8,
+    SC_TECH_CLOAKING_FIELD = 9, SC_TECH_PERSONNEL_CLOAKING = 10, SC_TECH_SPAWN_BROODLING = 13,
+    SC_TECH_DARK_SWARM = 14, SC_TECH_PLAGUE = 15, SC_TECH_CONSUME = 16, SC_TECH_ENSNARE = 17,
+    SC_TECH_PARASITE = 18, SC_TECH_PSIONIC_STORM = 19, SC_TECH_HALLUCINATION = 20, SC_TECH_ARCHON_WARP = 23,
+    SC_TECH_NUCLEAR_STRIKE = SC_TECHS,
+};
+typedef struct { const char *name; int minerals, gas, time, energy, race, icon; } sc_tech_t;
 extern const sc_tech_t sc_techs[SC_TECHS];
 /* NULL for a row past the DAT. */
 const sc_weapon_t *sc_weapon(int id);
@@ -149,4 +169,61 @@ bool sc_counts_as(uint16_t type, uint16_t as);
 bool sc_powered(const mobj_t *mo);
 const char *sc_objectives_text(void);
 void sc_show_result(int result);
+
+/* Researched techs live in level.upgrades[SC_UPGRADES + tech][owner].weapon,
+ * saved and hashed with the level. Scanner Sweep, Defensive Matrix, Dark
+ * Swarm, Parasite and Archon Warp need no research, as in retail melee. */
+bool sc_has_tech(int owner, int tech);
+/* Whether tech is researched rather than given. */
+bool sc_tech_researched(int tech);
+/* A unit type's abilities (the techs it casts), for its command card. */
+int sc_unit_techs(uint16_t type, int *out, int cap);
+/* Whether a tech is aimed at a unit or a spot, rather than cast at once. */
+bool sc_tech_aimed(int tech);
+/* Pending orders a unit walks to carry out. */
+enum { SC_ORDER_NONE, SC_ORDER_CAST, SC_ORDER_BOARD, SC_ORDER_MERGE, SC_ORDER_NUKE };
+/* Spell upkeep each engine tic: timers, damage over time, effect areas,
+ * disabled units and pending casts. frames is the 24 Hz frames passed. */
+void sc_spell_ticker(mobj_t *mo, int frames);
+/* What spells make of one hit, in 1/256 points: hallucinations, the
+ * Defensive Matrix and Dark Swarm. */
+int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int dealt);
+uint32_t sc_sight_teams(const mobj_t *mo);
+/* A weapons.dat hit of damage by owner's weapon on target, through shields,
+ * armor and size, as hit_damage takes it; for spells with no attacker. */
+int sc_hit(int owner, const sc_weapon_t *weapon, mobj_t *target, int damage, int divisor);
+int sc_max_energy(const mobj_t *mo);
+/* Shields and energy take their spawn values on first use. */
+void sc_start(mobj_t *mo);
+/* Interceptors, scarabs and a silo's nuke: what a maker keeps in its
+ * hangar (MT_NONE for none) and how many it holds. */
+uint16_t sc_hangar_type(uint16_t maker);
+int sc_hangar_capacity(const mobj_t *maker);
+/* Docked plus launched (interceptors, scarabs in flight). */
+int sc_hangar_count(const mobj_t *maker);
+/* Unit upkeep each engine tic: loaded units, interceptors and scarabs,
+ * boarding and archon merges. */
+void sc_unit_ticker(mobj_t *mo, int frames);
+bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
+float sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
+/* Add-ons: the building that builds an add-on type (MT_NONE if it is not
+ * one), the add-on attached to a building, and attaching a new one at
+ * units.dat's add-on position. */
+uint16_t sc_addon_parent(uint16_t type);
+mobj_t *sc_addon_of(const mobj_t *building);
+bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell);
+mobj_t *sc_attach_addon(mobj_t *building, uint16_t type);
+/* Bunkers: slots in use, boarding (walks there first) and unloading. */
+int sc_cargo_space(const mobj_t *bunker);
+bool sc_can_board(const mobj_t *unit, const mobj_t *bunker);
+bool sc_board(mobj_t *unit, mobj_t *bunker);
+void sc_unload(mobj_t *bunker);
+/* Two High Templar walk together and become an Archon. */
+bool sc_merge(mobj_t *a, mobj_t *b);
+/* A silo of owner with a nuke ready, or NULL. */
+mobj_t *sc_armed_silo(int owner);
+/* Computer players: spells, sieging, Bunkers, hangars and research. */
+void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count);
+/* Product ids: research of techdata row t is SC_TECH_UI + t. */
+enum { SC_TECH_UI = 2000 };
 #endif

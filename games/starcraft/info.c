@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 const sc_unit_t sc_units[SC_TYPES] = {
-#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed) \
-    [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed},
+#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,addon_x,addon_y) \
+    [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,{addon_x,addon_y}},
 #include "units.inc"
 #undef SC_UNIT
 };
@@ -19,7 +19,7 @@ const sc_weapon_t sc_weapons[SC_WEAPONS] = {
 #undef SC_WEAPON
 };
 const sc_tech_t sc_techs[SC_TECHS] = {
-#define SC_TECH(id,name,minerals,gas,time,energy,race) [id] = {name,minerals,gas,time,energy,race},
+#define SC_TECH(id,name,minerals,gas,time,energy,race,icon) [id] = {name,minerals,gas,time,energy,race,icon},
 #include "techs.inc"
 #undef SC_TECH
 };
@@ -46,4 +46,11 @@ void sc_init_info(void) {
         mobjinfo[i+1]=(mobjinfo_t){.doomednum=i,.spawnstate=stand,.seestate=walk,
             .missilestate=attack,.spawnhealth=sc_units[i].hp>0?sc_units[i].hp:1,.radius=8,.mass=100};
     }
+    /* A tank stands still for the transform, then A_Deploy swaps its type. This
+     * engine takes two seconds either way. */
+    int frames=48*RTS_TICRATE/24;
+    states[SC_SIEGE_STATE]=(state_t){.sprite=MT_SIEGE_TANK-1,.tics=frames,.nextstate=SC_SIEGE_STATE+1};
+    states[SC_SIEGE_STATE+1]=(state_t){.sprite=MT_SIEGE_TANK-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_SIEGE_MODE-1)*2};
+    states[SC_UNSIEGE_STATE]=(state_t){.sprite=MT_SIEGE_MODE-1,.tics=frames,.nextstate=SC_UNSIEGE_STATE+1};
+    states[SC_UNSIEGE_STATE+1]=(state_t){.sprite=MT_SIEGE_MODE-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_SIEGE_TANK-1)*2};
 }

@@ -131,9 +131,10 @@ static float mobj_attack_range(const mobj_t *unit, const mobj_t *target) {
         return unit->info->attack.range + DC_WeaponLevel(unit) * 2;
 #endif
     if (!unit || !unit->info) return 0.0f;
-    if (target) return P_MobjWeapon(unit, target)->range;
-    const weapondef_t *air = &unit->info->air_attack;
-    return air->damage && air->range > unit->info->attack.range ? air->range : unit->info->attack.range;
+    const weapondef_t *air = &unit->info->air_attack,
+        *weapon = target ? P_MobjWeapon(unit, target) :
+                  air->damage && air->range > unit->info->attack.range ? air : &unit->info->attack;
+    return weapon->range + (gameinfo && gameinfo->range_bonus ? gameinfo->range_bonus(unit, weapon) : 0.0f);
 }
 
 static int weapon_damage(const mobj_t *unit, const weapondef_t *weapon) {
@@ -567,16 +568,20 @@ static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, fl
 #ifdef RTS_GAME_WARCRAFT_2
     if (W2_Distance(attacker, target) < mobjinfo[attacker->type_id].w2.min_attack_range) return false;
 #endif
+    const weapondef_t *weapon = P_MobjWeapon(attacker, target);
+    float least = weapon ? weapon->min_range : 0.0f;
     if (target->info && target->info->footprint.w > 0 && target->info->footprint.h > 0) {
         irect_t a = P_MobjCells(attacker), b = P_MobjCells(target);
         int dx = b.x > a.x + a.w - 1 ? b.x - (a.x + a.w - 1) :
                  a.x > b.x + b.w - 1 ? a.x - (b.x + b.w - 1) : 0;
         int dy = b.y > a.y + a.h - 1 ? b.y - (a.y + a.h - 1) :
                  a.y > b.y + b.h - 1 ? a.y - (b.y + b.h - 1) : 0;
-        return (float)(dx > dy ? dx : dy) <= range;
+        float gap = (float)(dx > dy ? dx : dy);
+        return gap <= range && gap >= least;
     }
-    return fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
-                                  fixed3_xy_to_fvec2(attacker->core.position)) <= range * range;
+    float d2 = fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
+                                      fixed3_xy_to_fvec2(attacker->core.position));
+    return d2 <= range * range && d2 >= least * least;
 }
 
 bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
@@ -794,10 +799,13 @@ void A_Explode(mobj_t *actor) {
 #endif
 }
 
+/* A type that stands still by nature (a sieged tank) may deploy back; a
+ * mobile one only while it still moves, so a deploy in progress holds. */
 bool P_Deploy(mobj_t *actor) {
     if (!actor || actor->remove || actor->hp <= 0 || !actor->info ||
         !actor->info->deploy.state || !actor->info->deploy.type ||
-        !(actor->traits & MF_MOBILE)) return false;
+        actor->core.state_id == actor->info->deploy.state ||
+        !(actor->traits & MF_MOBILE) != !(actor->info->traits & MF_MOBILE)) return false;
     P_ClearMove(actor);
     actor->movement.order_id = 0;
     actor->traits &= ~MF_MOBILE;
@@ -909,6 +917,11 @@ bool P_Attack(mobj_t *attacker) {
                       0, sprite_name, attacker->core.frame, target->id);
 
     const weapondef_t *weapon = P_MobjWeapon(attacker, target);
+    if (gameinfo->attack && gameinfo->attack(attacker, weapon, target)) {
+        S_ActorSound(attacker, SE_ATTACK);
+        start_attack_cooldown(attacker, weapon);
+        return true;
+    }
     if (weapon->projectile_type != 0) {
 #ifdef RTS_GAME_DARK_COLONY
         mobj_t *missile = DC_FireMissiles(attacker, target, weapon->projectile_type);

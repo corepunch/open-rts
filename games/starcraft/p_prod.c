@@ -2,87 +2,100 @@
 #include <string.h>
 /* Stargus command cards, with native DAT costs and build times.
  * Orders, queues, payment, placement and spawning belong to the engine. */
-static const struct { mobjtype_id_t type, maker, prerequisite; } recipes[] = {
-    {MT_SCV, MT_COMMAND_CENTER, MT_NONE},
-    {MT_MARINE, MT_BARRACKS, MT_NONE},
-    {MT_FIREBAT, MT_BARRACKS, MT_ACADEMY},
-    {MT_GHOST, MT_BARRACKS, MT_SCIENCE_FACILITY},
-    {MT_COMMAND_CENTER, MT_SCV, MT_NONE},
-    {MT_SUPPLY_DEPOT, MT_SCV, MT_NONE},
-    {MT_REFINERY, MT_SCV, MT_NONE},
-    {MT_BARRACKS, MT_SCV, MT_COMMAND_CENTER},
-    {MT_ACADEMY, MT_SCV, MT_BARRACKS},
-    {MT_ENGINEERING_BAY, MT_SCV, MT_COMMAND_CENTER},
-    {MT_MISSILE_TURRET, MT_SCV, MT_ENGINEERING_BAY},
-    {MT_BUNKER, MT_SCV, MT_BARRACKS},
-    {MT_FACTORY, MT_SCV, MT_BARRACKS},
-    {MT_STARPORT, MT_SCV, MT_FACTORY},
-    {MT_SCIENCE_FACILITY, MT_SCV, MT_STARPORT},
-    {MT_ARMORY, MT_SCV, MT_FACTORY},
-    {MT_VULTURE, MT_FACTORY, MT_NONE},
-    {MT_SIEGE_TANK, MT_FACTORY, MT_NONE},
-    {MT_GOLIATH, MT_FACTORY, MT_ARMORY},
-    {MT_WRAITH, MT_STARPORT, MT_NONE},
-    {MT_DROPSHIP, MT_STARPORT, MT_NONE},
-    {MT_SCIENCE_VESSEL, MT_STARPORT, MT_SCIENCE_FACILITY},
-    {MT_BATTLECRUISER, MT_STARPORT, MT_SCIENCE_FACILITY},
-    {MT_NEXUS, MT_PROBE, MT_NONE},
-    {MT_PYLON, MT_PROBE, MT_NONE},
-    {MT_ASSIMILATOR, MT_PROBE, MT_NONE},
-    {MT_GATEWAY, MT_PROBE, MT_NEXUS},
-    {MT_FORGE, MT_PROBE, MT_NEXUS},
-    {MT_PHOTON_CANNON, MT_PROBE, MT_FORGE},
-    {MT_CYBERNETICS_CORE, MT_PROBE, MT_GATEWAY},
-    {MT_SHIELD_BATTERY, MT_PROBE, MT_GATEWAY},
-    {MT_ROBOTICS_FACILITY, MT_PROBE, MT_CYBERNETICS_CORE},
-    {MT_STARGATE, MT_PROBE, MT_CYBERNETICS_CORE},
-    {MT_CITADEL_OF_ADUN, MT_PROBE, MT_CYBERNETICS_CORE},
-    {MT_ROBOTICS_SUPPORT_BAY, MT_PROBE, MT_ROBOTICS_FACILITY},
-    {MT_FLEET_BEACON, MT_PROBE, MT_STARGATE},
-    {MT_TEMPLAR_ARCHIVES, MT_PROBE, MT_CITADEL_OF_ADUN},
-    {MT_OBSERVATORY, MT_PROBE, MT_ROBOTICS_FACILITY},
-    {MT_ARBITER_TRIBUNAL, MT_PROBE, MT_TEMPLAR_ARCHIVES},
-    {MT_PROBE, MT_NEXUS, MT_NONE},
-    {MT_ZEALOT, MT_GATEWAY, MT_NONE},
-    {MT_DRAGOON, MT_GATEWAY, MT_CYBERNETICS_CORE},
-    {MT_HIGH_TEMPLAR, MT_GATEWAY, MT_TEMPLAR_ARCHIVES},
-    {MT_SHUTTLE, MT_ROBOTICS_FACILITY, MT_NONE},
-    {MT_REAVER, MT_ROBOTICS_FACILITY, MT_ROBOTICS_SUPPORT_BAY},
-    {MT_OBSERVER, MT_ROBOTICS_FACILITY, MT_OBSERVATORY},
-    {MT_SCOUT, MT_STARGATE, MT_NONE},
-    {MT_CARRIER, MT_STARGATE, MT_FLEET_BEACON},
-    {MT_ARBITER, MT_STARGATE, MT_ARBITER_TRIBUNAL},
-    {MT_HATCHERY, MT_DRONE, MT_NONE},
-    {MT_CREEP_COLONY, MT_DRONE, MT_NONE},
-    {MT_EXTRACTOR, MT_DRONE, MT_NONE},
-    {MT_SPAWNING_POOL, MT_DRONE, MT_HATCHERY},
-    {MT_EVOLUTION_CHAMBER, MT_DRONE, MT_HATCHERY},
-    {MT_HYDRALISK_DEN, MT_DRONE, MT_SPAWNING_POOL},
-    {MT_SPIRE, MT_DRONE, MT_LAIR},
-    {MT_QUEENS_NEST, MT_DRONE, MT_LAIR},
-    {MT_NYDUS_CANAL, MT_DRONE, MT_HIVE},
-    {MT_ULTRALISK_CAVERN, MT_DRONE, MT_HIVE},
-    {MT_DEFILER_MOUND, MT_DRONE, MT_HIVE},
+/* Retail tech tree: an add-on prerequisite whose building is the maker must
+ * be attached to that maker (a Siege Tank needs its Factory's Machine Shop). */
+static const struct { mobjtype_id_t type, maker, prerequisite, also; } recipes[] = {
+    {MT_SCV, MT_COMMAND_CENTER, MT_NONE, MT_NONE},
+    {MT_MARINE, MT_BARRACKS, MT_NONE, MT_NONE},
+    {MT_FIREBAT, MT_BARRACKS, MT_ACADEMY, MT_NONE},
+    {MT_GHOST, MT_BARRACKS, MT_ACADEMY, MT_COVERT_OPS},
+    {MT_COMMAND_CENTER, MT_SCV, MT_NONE, MT_NONE},
+    {MT_SUPPLY_DEPOT, MT_SCV, MT_NONE, MT_NONE},
+    {MT_REFINERY, MT_SCV, MT_NONE, MT_NONE},
+    {MT_BARRACKS, MT_SCV, MT_COMMAND_CENTER, MT_NONE},
+    {MT_ACADEMY, MT_SCV, MT_BARRACKS, MT_NONE},
+    {MT_ENGINEERING_BAY, MT_SCV, MT_COMMAND_CENTER, MT_NONE},
+    {MT_MISSILE_TURRET, MT_SCV, MT_ENGINEERING_BAY, MT_NONE},
+    {MT_BUNKER, MT_SCV, MT_BARRACKS, MT_NONE},
+    {MT_FACTORY, MT_SCV, MT_BARRACKS, MT_NONE},
+    {MT_STARPORT, MT_SCV, MT_FACTORY, MT_NONE},
+    {MT_SCIENCE_FACILITY, MT_SCV, MT_STARPORT, MT_NONE},
+    {MT_ARMORY, MT_SCV, MT_FACTORY, MT_NONE},
+    {MT_VULTURE, MT_FACTORY, MT_NONE, MT_NONE},
+    {MT_SIEGE_TANK, MT_FACTORY, MT_MACHINE_SHOP, MT_NONE},
+    {MT_GOLIATH, MT_FACTORY, MT_ARMORY, MT_NONE},
+    {MT_WRAITH, MT_STARPORT, MT_NONE, MT_NONE},
+    {MT_DROPSHIP, MT_STARPORT, MT_CONTROL_TOWER, MT_NONE},
+    {MT_SCIENCE_VESSEL, MT_STARPORT, MT_CONTROL_TOWER, MT_SCIENCE_FACILITY},
+    {MT_BATTLECRUISER, MT_STARPORT, MT_CONTROL_TOWER, MT_PHYSICS_LAB},
+    /* Add-ons are built by their building, beside it. */
+    {MT_COMSAT_STATION, MT_COMMAND_CENTER, MT_ACADEMY, MT_NONE},
+    {MT_NUCLEAR_SILO, MT_COMMAND_CENTER, MT_COVERT_OPS, MT_NONE},
+    {MT_MACHINE_SHOP, MT_FACTORY, MT_NONE, MT_NONE},
+    {MT_CONTROL_TOWER, MT_STARPORT, MT_NONE, MT_NONE},
+    {MT_COVERT_OPS, MT_SCIENCE_FACILITY, MT_NONE, MT_NONE},
+    {MT_PHYSICS_LAB, MT_SCIENCE_FACILITY, MT_NONE, MT_NONE},
+    /* What a hangar holds is made where it is kept. */
+    {MT_NUCLEAR_MISSILE, MT_NUCLEAR_SILO, MT_NONE, MT_NONE},
+    {MT_INTERCEPTOR, MT_CARRIER, MT_NONE, MT_NONE},
+    {MT_SCARAB, MT_REAVER, MT_NONE, MT_NONE},
+    {MT_NEXUS, MT_PROBE, MT_NONE, MT_NONE},
+    {MT_PYLON, MT_PROBE, MT_NONE, MT_NONE},
+    {MT_ASSIMILATOR, MT_PROBE, MT_NONE, MT_NONE},
+    {MT_GATEWAY, MT_PROBE, MT_NEXUS, MT_NONE},
+    {MT_FORGE, MT_PROBE, MT_NEXUS, MT_NONE},
+    {MT_PHOTON_CANNON, MT_PROBE, MT_FORGE, MT_NONE},
+    {MT_CYBERNETICS_CORE, MT_PROBE, MT_GATEWAY, MT_NONE},
+    {MT_SHIELD_BATTERY, MT_PROBE, MT_GATEWAY, MT_NONE},
+    {MT_ROBOTICS_FACILITY, MT_PROBE, MT_CYBERNETICS_CORE, MT_NONE},
+    {MT_STARGATE, MT_PROBE, MT_CYBERNETICS_CORE, MT_NONE},
+    {MT_CITADEL_OF_ADUN, MT_PROBE, MT_CYBERNETICS_CORE, MT_NONE},
+    {MT_ROBOTICS_SUPPORT_BAY, MT_PROBE, MT_ROBOTICS_FACILITY, MT_NONE},
+    {MT_FLEET_BEACON, MT_PROBE, MT_STARGATE, MT_NONE},
+    {MT_TEMPLAR_ARCHIVES, MT_PROBE, MT_CITADEL_OF_ADUN, MT_NONE},
+    {MT_OBSERVATORY, MT_PROBE, MT_ROBOTICS_FACILITY, MT_NONE},
+    {MT_ARBITER_TRIBUNAL, MT_PROBE, MT_TEMPLAR_ARCHIVES, MT_NONE},
+    {MT_PROBE, MT_NEXUS, MT_NONE, MT_NONE},
+    {MT_ZEALOT, MT_GATEWAY, MT_NONE, MT_NONE},
+    {MT_DRAGOON, MT_GATEWAY, MT_CYBERNETICS_CORE, MT_NONE},
+    {MT_HIGH_TEMPLAR, MT_GATEWAY, MT_TEMPLAR_ARCHIVES, MT_NONE},
+    {MT_SHUTTLE, MT_ROBOTICS_FACILITY, MT_NONE, MT_NONE},
+    {MT_REAVER, MT_ROBOTICS_FACILITY, MT_ROBOTICS_SUPPORT_BAY, MT_NONE},
+    {MT_OBSERVER, MT_ROBOTICS_FACILITY, MT_OBSERVATORY, MT_NONE},
+    {MT_SCOUT, MT_STARGATE, MT_NONE, MT_NONE},
+    {MT_CARRIER, MT_STARGATE, MT_FLEET_BEACON, MT_NONE},
+    {MT_ARBITER, MT_STARGATE, MT_ARBITER_TRIBUNAL, MT_NONE},
+    {MT_HATCHERY, MT_DRONE, MT_NONE, MT_NONE},
+    {MT_CREEP_COLONY, MT_DRONE, MT_NONE, MT_NONE},
+    {MT_EXTRACTOR, MT_DRONE, MT_NONE, MT_NONE},
+    {MT_SPAWNING_POOL, MT_DRONE, MT_HATCHERY, MT_NONE},
+    {MT_EVOLUTION_CHAMBER, MT_DRONE, MT_HATCHERY, MT_NONE},
+    {MT_HYDRALISK_DEN, MT_DRONE, MT_SPAWNING_POOL, MT_NONE},
+    {MT_SPIRE, MT_DRONE, MT_LAIR, MT_NONE},
+    {MT_QUEENS_NEST, MT_DRONE, MT_LAIR, MT_NONE},
+    {MT_NYDUS_CANAL, MT_DRONE, MT_HIVE, MT_NONE},
+    {MT_ULTRALISK_CAVERN, MT_DRONE, MT_HIVE, MT_NONE},
+    {MT_DEFILER_MOUND, MT_DRONE, MT_HIVE, MT_NONE},
     /* Zerg morphs: a building or unit turns into the product where it is.
      * Larva products are offered on the hatchery too (see init_products). */
-    {MT_LAIR, MT_HATCHERY, MT_SPAWNING_POOL},
-    {MT_HIVE, MT_LAIR, MT_QUEENS_NEST},
-    {MT_GREATER_SPIRE, MT_SPIRE, MT_HIVE},
-    {MT_SUNKEN_COLONY, MT_CREEP_COLONY, MT_SPAWNING_POOL},
-    {MT_SPORE_COLONY, MT_CREEP_COLONY, MT_EVOLUTION_CHAMBER},
-    {MT_DRONE, MT_LARVA, MT_NONE},
-    {MT_ZERGLING, MT_LARVA, MT_SPAWNING_POOL},
-    {MT_OVERLORD, MT_LARVA, MT_NONE},
-    {MT_HYDRALISK, MT_LARVA, MT_HYDRALISK_DEN},
-    {MT_MUTALISK, MT_LARVA, MT_SPIRE},
-    {MT_SCOURGE, MT_LARVA, MT_SPIRE},
-    {MT_QUEEN, MT_LARVA, MT_QUEENS_NEST},
-    {MT_ULTRALISK, MT_LARVA, MT_ULTRALISK_CAVERN},
-    {MT_DEFILER, MT_LARVA, MT_DEFILER_MOUND},
-    {MT_GUARDIAN, MT_MUTALISK, MT_GREATER_SPIRE},
+    {MT_LAIR, MT_HATCHERY, MT_SPAWNING_POOL, MT_NONE},
+    {MT_HIVE, MT_LAIR, MT_QUEENS_NEST, MT_NONE},
+    {MT_GREATER_SPIRE, MT_SPIRE, MT_HIVE, MT_NONE},
+    {MT_SUNKEN_COLONY, MT_CREEP_COLONY, MT_SPAWNING_POOL, MT_NONE},
+    {MT_SPORE_COLONY, MT_CREEP_COLONY, MT_EVOLUTION_CHAMBER, MT_NONE},
+    {MT_DRONE, MT_LARVA, MT_NONE, MT_NONE},
+    {MT_ZERGLING, MT_LARVA, MT_SPAWNING_POOL, MT_NONE},
+    {MT_OVERLORD, MT_LARVA, MT_NONE, MT_NONE},
+    {MT_HYDRALISK, MT_LARVA, MT_HYDRALISK_DEN, MT_NONE},
+    {MT_MUTALISK, MT_LARVA, MT_SPIRE, MT_NONE},
+    {MT_SCOURGE, MT_LARVA, MT_SPIRE, MT_NONE},
+    {MT_QUEEN, MT_LARVA, MT_QUEENS_NEST, MT_NONE},
+    {MT_ULTRALISK, MT_LARVA, MT_ULTRALISK_CAVERN, MT_NONE},
+    {MT_DEFILER, MT_LARVA, MT_DEFILER_MOUND, MT_NONE},
+    {MT_GUARDIAN, MT_MUTALISK, MT_GREATER_SPIRE, MT_NONE},
 };
-/* Researching buildings (upgrades.dat names no maker). Stargus's command
- * cards; Brood War and add-on research are left out. */
+/* Researching buildings (upgrades.dat names no maker), Stargus's command
+ * cards; Brood War research is left out. */
 static const struct { int upgrade; mobjtype_id_t maker; } research[] = {
     {7,MT_ENGINEERING_BAY},{0,MT_ENGINEERING_BAY},{8,MT_ARMORY},{1,MT_ARMORY},{9,MT_ARMORY},{2,MT_ARMORY},
     {16,MT_ACADEMY},
@@ -90,16 +103,35 @@ static const struct { int upgrade; mobjtype_id_t maker; } research[] = {
     {27,MT_SPAWNING_POOL},{29,MT_HYDRALISK_DEN},{30,MT_HYDRALISK_DEN},
     {13,MT_FORGE},{5,MT_FORGE},{15,MT_FORGE},{14,MT_CYBERNETICS_CORE},{6,MT_CYBERNETICS_CORE},
     {33,MT_CYBERNETICS_CORE},{34,MT_CITADEL_OF_ADUN},
+    {17,MT_MACHINE_SHOP},{22,MT_CONTROL_TOWER},{20,MT_COVERT_OPS},{21,MT_COVERT_OPS},{23,MT_PHYSICS_LAB},
+    {19,MT_SCIENCE_FACILITY},{31,MT_QUEENS_NEST},{32,MT_DEFILER_MOUND},{40,MT_TEMPLAR_ARCHIVES},
+    {35,MT_ROBOTICS_SUPPORT_BAY},{36,MT_ROBOTICS_SUPPORT_BAY},{43,MT_FLEET_BEACON},
+};
+/* Where techdata.dat abilities are researched. Stim Packs, Spider Mines,
+ * Burrowing, Recall and Stasis Field have no effect here and are left out. */
+static const struct { int tech; mobjtype_id_t maker; } tech_research[] = {
+    {SC_TECH_SIEGE_MODE,MT_MACHINE_SHOP},{SC_TECH_CLOAKING_FIELD,MT_CONTROL_TOWER},
+    {SC_TECH_LOCKDOWN,MT_COVERT_OPS},{SC_TECH_PERSONNEL_CLOAKING,MT_COVERT_OPS},{SC_TECH_YAMATO_GUN,MT_PHYSICS_LAB},
+    {SC_TECH_EMP,MT_SCIENCE_FACILITY},{SC_TECH_IRRADIATE,MT_SCIENCE_FACILITY},
+    {SC_TECH_SPAWN_BROODLING,MT_QUEENS_NEST},{SC_TECH_ENSNARE,MT_QUEENS_NEST},
+    {SC_TECH_PLAGUE,MT_DEFILER_MOUND},{SC_TECH_CONSUME,MT_DEFILER_MOUND},
+    {SC_TECH_PSIONIC_STORM,MT_TEMPLAR_ARCHIVES},{SC_TECH_HALLUCINATION,MT_TEMPLAR_ARCHIVES},
 };
 enum { SC_RECIPES = sizeof(recipes)/sizeof(*recipes), SC_RESEARCH = sizeof(research)/sizeof(*research),
-       SC_UPGRADE_UI = 1000 };
-/* One product per level: ui id 1000 + upgrade*4 + the level it starts from. */
-static StaticProductDefinition products[SC_RECIPES+SC_RESEARCH*3];
+       SC_TECH_RESEARCH = sizeof(tech_research)/sizeof(*tech_research), SC_UPGRADE_UI = 1000 };
+/* One product per level: ui id 1000 + upgrade*4 + the level it starts from;
+ * a tech is SC_TECH_UI + its techdata row. */
+static StaticProductDefinition products[SC_RECIPES+SC_RESEARCH*3+SC_TECH_RESEARCH];
 static int product_count;
 static bool upgrade_product(const StaticProductDefinition *p,int *upgrade,int *tier) {
     if(!p||p->product_class!=RTS_PRODUCT_UPGRADE)return false;
     *upgrade=(p->product_type-SC_UPGRADE_UI)/4; *tier=(p->product_type-SC_UPGRADE_UI)%4;
     return *upgrade>=0&&*upgrade<SC_UPGRADES;
+}
+/* The techdata row a research product teaches, or -1. */
+static int tech_product(const StaticProductDefinition *p) {
+    return p&&p->product_class==RTS_PRODUCT_UPGRADE&&p->product_type>=SC_TECH_UI&&
+        p->product_type<SC_TECH_UI+SC_TECHS?p->product_type-SC_TECH_UI:-1;
 }
 /* level.upgrades[upgrade][owner].weapon holds the level for every upgrades.dat
  * id, so it is saved and hashed with the level; a level load clears it. */
@@ -118,7 +150,8 @@ static void init_products(void) {
             .product_class=(u->flags&1)?RTS_PRODUCT_BUILDING:RTS_PRODUCT_UNIT,
             .product_type=type,.makers={maker},.maker_count=1,
             .worker_build=(u->flags&1)&&(sc_units[maker-1].flags&8),
-            .prerequisites={recipes[i].prerequisite},.prerequisite_count=recipes[i].prerequisite!=MT_NONE};
+            .prerequisites={recipes[i].prerequisite,recipes[i].also},
+            .prerequisite_count=(recipes[i].prerequisite!=MT_NONE)+(recipes[i].also!=MT_NONE)};
         /* Selecting a hatchery offers its larvae's card. */
         if(maker==MT_LARVA)
             memcpy(p->makers,(int[]){MT_LARVA,MT_HATCHERY,MT_LAIR,MT_HIVE},sizeof(int[4])),p->maker_count=4;
@@ -133,6 +166,12 @@ static void init_products(void) {
                 .makers={research[i].maker,research[i].maker==MT_SPIRE?MT_GREATER_SPIRE:MT_NONE},
                 .maker_count=research[i].maker==MT_SPIRE?2:1};
         }
+    }
+    for(unsigned i=0;i<SC_TECH_RESEARCH;i++) {
+        const sc_tech_t *t=&sc_techs[tech_research[i].tech]; int id=SC_TECH_UI+tech_research[i].tech;
+        products[product_count++]=(StaticProductDefinition){.row_id=id,.ui_id=id,.label=t->name,
+            .cost=t->minerals,.extra_costs={t->gas},.icon_frame=t->icon,.product_class=RTS_PRODUCT_UPGRADE,
+            .product_type=id,.makers={tech_research[i].maker},.maker_count=1};
     }
     initialized=true;
 }
@@ -158,19 +197,20 @@ static bool owner_has(int owner,uint16_t type) {
     return false;
 }
 /* Only the next level is offered, and only while no building of the owner
- * is already researching that upgrade. */
-static bool researching(int owner,int upgrade) {
+ * is already researching it. */
+static bool researching(int owner,int product_type) {
     if(!thinkercap.next)return false;
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->owner!=owner||!mo->production||
            mo->production->product_class!=RTS_PRODUCT_UPGRADE||!mo->production->queue_count)continue;
-        if((mo->production->product_type-SC_UPGRADE_UI)/4==upgrade)return true;
+        if(mo->production->product_type==product_type)return true;
     }
     return false;
 }
 bool sc_upgrade_offered(int owner,const StaticProductDefinition *p) {
-    int upgrade,tier;
+    int upgrade,tier,tech=tech_product(p);
+    if(tech>=0)return owner>=0&&owner<8&&!level.upgrades[SC_UPGRADES+tech][owner].weapon;
     if(!upgrade_product(p,&upgrade,&tier))return true;
     return tier==sc_upgrade_level(owner,upgrade)&&tier<sc_upgrades[upgrade].max_level;
 }
@@ -188,15 +228,13 @@ bool G_ModelProductAvailable(const RtsGameModel *m,int owner,const StaticProduct
     if(!p)return false;
     (void)m;
     for(int i=0;i<p->prerequisite_count;i++)if(!owner_has(owner,p->prerequisites[i]))return false;
-    int upgrade,tier;
-    if(upgrade_product(p,&upgrade,&tier))
-        return sc_upgrade_offered(owner,p)&&!researching(owner,upgrade)&&owner_has(owner,p->makers[0]);
+    if(p->product_class==RTS_PRODUCT_UPGRADE)
+        return sc_upgrade_offered(owner,p)&&!researching(owner,p->product_type)&&owner_has(owner,p->makers[0]);
     return true;
 }
 /* Research stays in its building: the engine's actor id is the maker's. */
 uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *p) {
-    int upgrade,tier;
-    if(upgrade_product(p,&upgrade,&tier))return (uint16_t)p->makers[0];
+    if(p&&p->product_class==RTS_PRODUCT_UPGRADE)return (uint16_t)p->makers[0];
     return p?p->product_type:0;
 }
 int G_ModelBuildingFrameForProduct(const StaticProductDefinition *p) { (void)p;return 0; }
@@ -207,17 +245,29 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *p) {
         const sc_upgrade_t *u=&sc_upgrades[upgrade];
         return ((u->time+tier*u->time_factor)*1000+23)/24;
     }
+    if(tech_product(p)>=0)return (sc_techs[tech_product(p)].time*1000+23)/24;
     return p?(sc_units[p->product_type-1].build_time*1000+23)/24:0;
 }
-/* Finished research raises the owner's level and a Zerg morph turns the
- * egg or building into the product; both leave the queue here. An
- * unpowered Protoss building holds what it finished until power returns. */
+/* Finished research raises the owner's level, a Zerg morph turns the egg
+ * or building into the product, a hangar keeps what it made and an add-on
+ * goes up beside its building; all leave the queue here. An unpowered
+ * Protoss building, or an add-on whose place is taken, holds what it
+ * finished until it can let it out. */
 bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProductDefinition *p,uint16_t id) {
     (void)m;(void)id;
-    int upgrade,tier;
-    if(!u)return false;
-    if(!sc_powered(u)) { if(u->production)u->production->time_left_ms=0; return true; }
-    if(zerg_morph(p)) {
+    int upgrade,tier,tech=tech_product(p);
+    if(!u||!p)return false;
+    bool addon=sc_addon_parent((uint16_t)p->product_type)==u->type_id;
+    if(!sc_powered(u)||(addon&&!sc_attach_addon(u,(uint16_t)p->product_type))) {
+        if(u->production)u->production->time_left_ms=0;
+        return true;
+    }
+    if(addon) S_Bark(&u,1,SE_READY,false);
+    else if(sc_hangar_type(u->type_id)==p->product_type) u->sc.hangar++;
+    else if(tech>=0) {
+        if(u->owner<8)level.upgrades[SC_UPGRADES+tech][u->owner].weapon=1;
+        S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
+    } else if(zerg_morph(p)) {
         fvec2_t at=fixed3_xy_to_fvec2(u->core.position);
         if(!P_MorphMobj(u,(uint16_t)p->product_type))return false;
         if(per_egg(p->product_type)>1) {
@@ -253,25 +303,40 @@ bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) {
     }
     return G_QueueProduct(u,p);
 }
-/* Larvae alone take larva orders, and a morph is one order at a time. */
+/* Larvae alone take larva orders, and a morph or an add-on is one order at
+ * a time. A building needs its own add-on for what that add-on unlocks, a
+ * free place for a new one, and a hangar room for what it keeps. */
 bool G_ModelProducerHasTech(const mobj_t *u,const StaticProductDefinition *p) {
     if(!u||!p||(p->makers[0]==MT_LARVA&&u->type_id!=MT_LARVA)||!sc_powered(u))return false;
-    if(zerg_morph(p)&&u->production&&u->production->queue_count)return false;
+    int queued=u->production?u->production->queue_count:0;
+    bool addon=sc_addon_parent((uint16_t)p->product_type)==u->type_id;
+    ivec2_t cell;
+    if((zerg_morph(p)||addon)&&queued)return false;
+    if(addon&&(sc_addon_of(u)||!sc_addon_site(u,(uint16_t)p->product_type,&cell)))return false;
+    if(sc_hangar_type(u->type_id)==p->product_type&&sc_hangar_count(u)+queued>=sc_hangar_capacity(u))return false;
+    for(int i=0;i<p->prerequisite_count;i++) {
+        const mobj_t *own=sc_addon_of(u);
+        if(sc_addon_parent((uint16_t)p->prerequisites[i])==u->type_id&&(!own||own->type_id!=p->prerequisites[i]))
+            return false;
+    }
     return G_ModelProductAvailable(NULL,u->owner,p)&&sc_supply_ok(u->owner,p,u);
 }
 int G_ModelRadarLevel(int owner) { (void)owner; return 2; }
 
 /* Supply is stored in halves. 400 halves is the retail 200 cap. A queued unit
- * reserves its cost so a full queue cannot slip past the cap. */
+ * reserves its cost so a full queue cannot slip past the cap; a silo's nuke
+ * takes its supply, a hallucination none. */
 void sc_supply_counts(int owner,int *used,int *provided) {
     int have=0,need=0;
     if(thinkercap.next) for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th;
-        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0) continue;
+        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||
+           (mo->sc.flags&SC_HALLUCINATION)) continue;
         if(mo->type_id&&mo->type_id<=SC_TYPES) {
             have+=sc_units[mo->type_id-1].supply_provided;
             need+=sc_units[mo->type_id-1].supply_required;
         }
+        if(mo->type_id==MT_NUCLEAR_SILO) need+=sc_units[MT_NUCLEAR_MISSILE-1].supply_required*mo->sc.hangar;
         if(mo->production&&mo->production->product_class==RTS_PRODUCT_UNIT&&
            mo->production->product_type>0&&mo->production->product_type<=SC_TYPES)
             need+=sc_units[mo->production->product_type-1].supply_required*mo->production->queue_count*
@@ -376,12 +441,34 @@ static void sc_ai_describe(uint16_t type,AiUnitInfo *info) {
     if(u->supply_provided>0) info->roles|=AI_ROLE_SUPPLY;
     if(u->flags&(0x200|0x400000)) info->roles|=AI_ROLE_CLOAKED;
     if((u->flags&0x200000)&&!(info->roles&AI_ROLE_FIGHTER)) info->roles|=AI_ROLE_SUPPORT;
+    /* A Bunker defends with the infantry it holds. */
+    if(u->space_provided&&(u->flags&SC_UNIT_BUILDING)) info->roles|=AI_ROLE_DEFENSE|AI_ROLE_HITS_GROUND|AI_ROLE_HITS_AIR;
 }
-/* Brood War adds half a caster's energy to its strength. */
+/* Brood War adds half a caster's energy to its strength, counts a Bunker as
+ * what it holds, and a Carrier or Reaver as full as its hangar. */
 static void sc_ai_describe_unit(const mobj_t *unit,AiUnitInfo *info) {
-    if(unit->type_id<1||unit->type_id>SC_TYPES||!(sc_units[unit->type_id-1].flags&0x200000)) return;
-    int bonus=sc_energy(unit)/2;
-    info->ground_strength+=bonus; info->air_strength+=bonus;
+    const sc_unit_t *u=sc_unit(unit);
+    if(!u) return;
+    if(u->flags&SC_UNIT_SPELLCASTER) {
+        int bonus=sc_energy(unit)/2;
+        info->ground_strength+=bonus; info->air_strength+=bonus;
+    }
+    if(u->space_provided&&(u->flags&SC_UNIT_BUILDING)) {
+        info->ground_strength=info->air_strength=0;
+        for(int i=0;i<4;i++) {
+            const mobj_t *in=P_MobjById(unit->sc.cargo[i]);
+            if(!in||!(in->sc.flags&SC_LOADED)||in->sc.parent!=unit->id) continue;
+            AiUnitInfo held; P_AiUnitInfo(NULL,in->type_id,&held);
+            info->ground_strength+=held.ground_strength; info->air_strength+=held.air_strength;
+        }
+    }
+    /* The Carrier's weapon counts its first four interceptors; a Reaver
+     * fights while it has a scarab. */
+    if(unit->type_id==MT_CARRIER||unit->type_id==MT_REAVER) {
+        int full=sc_hangar_count(unit),of=unit->type_id==MT_CARRIER?4:1;
+        if(full>of&&unit->type_id==MT_REAVER) full=of;
+        info->ground_strength=info->ground_strength*full/of; info->air_strength=info->air_strength*full/of;
+    }
 }
 /* Whole supply, counting what queues and walking workers will add. */
 static bool sc_ai_supply(int owner,int *used,int *cap) {
@@ -397,11 +484,49 @@ static bool sc_ai_supply(int owner,int *used,int *cap) {
     *used=need/2; *cap=(have<400?have:400)/2;
     return have<400;
 }
+/* Whether owner has a building of type with add-on attached. */
+static bool has_attached(int owner,uint16_t type,uint16_t addon) {
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th,*own;
+        if(th->function==P_MobjThinker&&!mo->remove&&mo->hp>0&&mo->owner==owner&&mo->type_id==type&&
+           (own=sc_addon_of(mo))&&own->type_id==addon) return true;
+    }
+    return false;
+}
+/* The add-on a product still waits for, once everything else it needs
+ * stands: the computer player builds that add-on first. */
+static uint16_t missing_addon(int owner,const StaticProductDefinition *p) {
+    for(int i=0;i<p->prerequisite_count;i++)
+        if(!sc_addon_parent((uint16_t)p->prerequisites[i])&&!owner_has(owner,(uint16_t)p->prerequisites[i])) return MT_NONE;
+    for(int i=0;i<p->prerequisite_count;i++) {
+        uint16_t addon=(uint16_t)p->prerequisites[i],parent=sc_addon_parent(addon);
+        if(!parent||(parent==p->makers[0]?has_attached(owner,parent,addon):owner_has(owner,addon))) continue;
+        return owner_has(owner,parent)?addon:MT_NONE;
+    }
+    return MT_NONE;
+}
+/* Puts the missing add-on up on a free building; true while one is coming. */
+static bool sc_ai_develop(level_t *map,int owner,int ui) {
+    (void)map;
+    const StaticProductDefinition *product=G_ModelProductByUIId(NULL,ui);
+    uint16_t addon=product?missing_addon(owner,product):MT_NONE;
+    if(!addon) return false;
+    const StaticProductDefinition *build=G_ModelProductByUIId(NULL,addon);
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->remove||mo->hp<=0||mo->owner!=owner||mo->type_id!=sc_addon_parent(addon))
+            continue;
+        if(mo->production&&mo->production->product_type==addon) return true;
+        if(!sc_addon_of(mo)&&G_QueueProduct(mo,build)) return true;
+    }
+    return false;
+}
 static int sc_ai_can_purchase(const level_t *map,int owner,int ui) {
     const StaticProductDefinition *product=G_ModelProductByUIId(NULL,ui);
-    if(!product||!G_ModelProductAvailable(NULL,owner,product)||
+    if(!product) return AI_BUY_BLOCKED;
+    if(!G_ModelProductAvailable(NULL,owner,product)||
        !(product->worker_build?G_FindProducer(owner,product):G_FindProducerBelow(owner,product,AI_QUEUE_DEPTH)))
-        return AI_BUY_BLOCKED;
+        return missing_addon(owner,product)?AI_BUY_NEED_TECH:AI_BUY_BLOCKED;
     if(product->extra_costs[0]>map->player_resources[owner][1]) return AI_BUY_BLOCKED;
     return map->player_resources[owner][0]<product->cost?AI_BUY_NEED_CREDITS:AI_BUY_OK;
 }
@@ -513,5 +638,6 @@ static const AiGameInterface sc_ai={
     .is_anchor=sc_ai_anchor,.is_busy=sc_ai_busy,
     .assign_harvester=sc_ai_assign_harvester,
     .product_actor=G_AiCatalogActor,.describe=sc_ai_describe,.describe_unit=sc_ai_describe_unit,.supply=sc_ai_supply,
+    .develop=sc_ai_develop,.tactics=sc_ai_tactics,
 };
 const AiGameInterface *G_AiInterface(void) { return &sc_ai; }

@@ -358,7 +358,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
     /* The original disc has 386 image indices (772 bytes); Stargus's
      * 7-byte row formula is for the expanded Brood War table. */
     unsigned ns=sprites.size==2081?386:130+((unsigned)sprites.size-520)/7;
-    next_state=1+SC_TYPES*3;
+    next_state=SC_SCRIPT_STATES;
     extra_count=0;
     for(int i=1;i<NUMMOBJTYPES;i++) mobjinfo[i].deathstate=S_NULL;
     int loaded=0; unsigned image_ids[SC_TYPES];

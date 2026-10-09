@@ -1382,8 +1382,9 @@ static void order_selected_at(app_t *app, const level_t *map,
             break;
         }
 #endif
+    /* An own target goes along too: StarCraft infantry board a Bunker. */
     G_SelectedTiccmd(attack ? TC_ATTACK : order, units, unit_count, goal,
-                     attack ? units[target]->id : 0);
+                     attack || (target >= 0 && units[target]->owner == consoleplayer) ? units[target]->id : 0);
 }
 
 void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,

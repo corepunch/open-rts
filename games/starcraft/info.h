@@ -15,7 +15,10 @@ typedef enum {
     MT_SCIENCE_VESSEL = 10,
     MT_DROPSHIP = 12,
     MT_BATTLECRUISER = 13,
+    MT_NUCLEAR_MISSILE = 15,
+    MT_SIEGE_MODE = 31,
     MT_FIREBAT = 33,
+    MT_BROODLING = 41,
     MT_LARVA = 36,
     MT_EGG = 37,
     MT_ZERGLING = 38,
@@ -33,20 +36,30 @@ typedef enum {
     MT_ZEALOT = 66,
     MT_DRAGOON = 67,
     MT_HIGH_TEMPLAR = 68,
+    MT_ARCHON = 69,
     MT_SHUTTLE = 70,
     MT_SCOUT = 71,
     MT_ARBITER = 72,
     MT_CARRIER = 73,
+    MT_INTERCEPTOR = 74,
     MT_REAVER = 84,
     MT_OBSERVER = 85,
+    MT_SCARAB = 86,
+    MT_MAP_REVEALER = 102,
     MT_COMMAND_CENTER = 107,
+    MT_COMSAT_STATION = 108,
+    MT_NUCLEAR_SILO = 109,
     MT_SUPPLY_DEPOT = 110,
     MT_REFINERY = 111,
     MT_BARRACKS = 112,
     MT_ACADEMY = 113,
     MT_FACTORY = 114,
     MT_STARPORT = 115,
+    MT_CONTROL_TOWER = 116,
     MT_SCIENCE_FACILITY = 117,
+    MT_COVERT_OPS = 118,
+    MT_PHYSICS_LAB = 119,
+    MT_MACHINE_SHOP = 121,
     MT_ENGINEERING_BAY = 123,
     MT_ARMORY = 124,
     MT_MISSILE_TURRET = 125,
@@ -87,6 +100,7 @@ typedef enum {
     MT_MINERAL_FIELD2 = 178,
     MT_MINERAL_FIELD3 = 179,
     MT_VESPENE_GEYSER = 189,
+    MT_DARK_SWARM = 203,
     MT_START_LOCATION = 215,
 } mobjtype_id_t;
 typedef struct mobjinfo_s {
@@ -118,6 +132,9 @@ typedef struct mobjinfo_s {
 /* Sprites past the unit types are death overlays and remnants (images.dat). */
 enum { S_NULL, SC_TYPES = 228, NUMMOBJTYPES = 229, SC_STATES = 16384, SC_EXTRA_SPRITES = 96,
        SC_SPRITES = SC_TYPES + SC_EXTRA_SPRITES };
+/* Per type: idle and walk (1 + 2i), attack (1 + 2 SC_TYPES + i); then the
+ * siege tank's two transforms, then what the native scripts compile. */
+enum { SC_SIEGE_STATE = 1 + SC_TYPES * 3, SC_UNSIEGE_STATE = SC_SIEGE_STATE + 2, SC_SCRIPT_STATES = SC_SIEGE_STATE + 4 };
 extern state_t states[SC_STATES];
 extern mobjinfo_t mobjinfo[NUMMOBJTYPES];
 extern const char *sprnames[SC_SPRITES];
