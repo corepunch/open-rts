@@ -446,10 +446,10 @@ Construction and training use engine product queues, multi-resource payment,
 prerequisites, footprint reservations and ordinary mobj spawning. Worker builds
 must reach a free perimeter cell before the timer advances. The approach helper
 is also used by Warcraft II harvesting, repair, transport and building callers.
-Construction art/staged hit points, supply, add-ons, creep/power and race-specific
-worker consumption/release are not implemented by this shared queue path.
-Available command cards cover worker structures, Terran production and basic
-Protoss production; Zerg larva/morph production is still absent. These are
+Construction art/staged hit points, add-ons and race-specific worker
+consumption/release are not implemented by this shared queue path.
+Command cards cover worker structures, Terran and Protoss production and the
+Zerg morphs (see below). These are
 explicit engine capabilities, not claims of complete retail gameplay fidelity.
 
 The initial sprite load already owns all 228 DAT slots. Reloading it after each
@@ -590,11 +590,30 @@ Center View requests a camera move, which the driver applies after the
 mission tick. Objectives replace the map's start tip on the HUD. Minerals,
 gas and supply are the resource line.
 
-Zerg troops are trained from the hatchery. Larva and eggs are not simulated.
+Zerg production morphs in place (`games/starcraft/p_zerg.c`, `p_prod.c`).
+A Hatchery, Lair or Hive grows a larva every 342 frames up to three; each
+larva is its own producer. An order turns it into an Egg (units.dat 36) that
+carries the order, reserves its supply and hatches into the unit, two for
+units with flag 0x400 (Zergling, Scourge) at one price. A killed egg loses
+the order. A Mutalisk becomes a Cocoon and then a Guardian. Hatchery to
+Lair to Hive, Spire to Greater Spire and Creep Colony to Sunken or Spore
+Colony morph the building itself: it works and counts as the old type until
+the morph ends, then keeps its share of hit points. A Lair or Hive satisfies
+"Hatchery" and a Greater Spire "Spire". The hatchery's command card shows
+what its larvae can become and gives the order to a free larva.
+
+Buildings with units.dat flag 0x20000 must stand wholly on creep and those
+with 0x80000 must have their centre in one of the owner's psi fields. Creep
+is a fixed radius of 10 cells around a Hatchery tier and 5 around a colony,
+present at once and gone with its source; retail creep grows and recedes
+tile by tile, and map-placed creep is not read. The psi field is OpenBW's
+16 by 10 cell mask around a Pylon. A Protoss building outside power keeps
+its order but does not release it until power returns. Creep is not drawn.
+Nydus Canals can be built but do not transport.
+
 The computer build order is a short race ladder (workers, supply, production
-buildings, the first combat unit, gas), not the scenario's AI script. Pylon
-power is not required. Shields, energy, siege mode, burrow, addons and creep
-are not simulated.
+buildings, the first combat unit, gas), not the scenario's AI script.
+Shields, energy, siege mode, burrow and addons are not simulated.
 
 The result screen is a modal menu. Victory with a following campaign file
 offers Continue, which opens that mission's briefing and then loads it.
