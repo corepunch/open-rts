@@ -499,6 +499,9 @@ static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
         (mobjinfo[victim->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return false;
 #endif
     if ((attacker->traits & MF_LANDMINE) && (victim->traits & MF_FLY)) return false;
+    uint8_t reach = attacker->info ? attacker->info->attack.targets : 0;
+    if (reach && !(reach & ((victim->traits & MF_FLY) ? MOBJ_TARGET_AIR : MOBJ_TARGET_GROUND)))
+        return false;
     const mobjtype_t *shot = attacker->info ?
         mobj_type(attacker->info->attack.projectile_type) : NULL;
     if (!shot) return true;

@@ -22,12 +22,21 @@ void G_InitGame(void) {
     for(int i=0;i<SC_TYPES;i++) {
         const sc_unit_t *u=&sc_units[i];
         bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5);
+        /* Goliaths, tanks and turrets fire from their subunit; the body
+         * stands in for it. One weapon row serves both target kinds. */
+        const sc_unit_t *w=u;
+        if(!u->damage&&!u->air_damage&&u->subunit<SC_TYPES) w=&sc_units[u->subunit];
+        bool ground=w->damage>0,air=w->air_damage>0;
+        int damage=ground?w->damage:w->air_damage,range=ground?w->range:w->air_range,
+            cooldown=ground?w->cooldown:w->air_cooldown;
         actors[i]=(mobjtype_t){.id=i+1,.native_type_id=i,.name=u->name,.sprite_name=sc_names[i],
             .traits=MF_SELECTABLE|MF_RENDERABLE|(mobile?MF_MOBILE:0)|((u->flags&4)?MF_FLY:0)|
-                (u->damage?MF_ATTACK:0)|((u->flags&8)?MF_HARVESTER:0)|((u->flags&0x1000)?MF_RESOURCE_BASE:0),
+                (damage?MF_ATTACK:0)|((u->flags&8)?MF_HARVESTER:0)|((u->flags&0x1000)?MF_RESOURCE_BASE:0)|
+                ((u->flags&0x8000)?MF_DETECTOR:0),
             /* Catalog movement uses engine pacing; retail movement opcodes are not simulated. */
             .speed=mobile?3.0f:0,.max_hp=u->hp>0?u->hp:1,.sight={.day=u->sight,.night=u->sight},
-            .attack={.damage=u->damage,.range=(u->range+31)/32,.cooldown_ms=(u->cooldown*1000+23)/24},
+            .attack={.damage=damage,.range=(range+31)/32,.cooldown_ms=(cooldown*1000+23)/24,
+                .targets=(uint8_t)((ground?MOBJ_TARGET_GROUND:0)|(air?MOBJ_TARGET_AIR:0))},
             .harvest={.resources={{.capacity=8},{.capacity=8}}},
             .damage_action=sc_note_damage,
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};

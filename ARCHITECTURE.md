@@ -440,6 +440,45 @@ and FIN-authored exit point. Dark Colony buildings currently use immediate
 placement after a valid producer/order. Dark Reign products use the production
 queue and construction-crew producer path.
 
+## Computer players
+
+One shared AI (`play/p_ai.c`, `play/p_ai_doctrine.c`) runs every game. A game
+attaches an `AiGameInterface` that answers game questions: who is a computer,
+how to buy a product, how a worker is sent to gather. It also describes each
+faction as data. Blizzard's AIs split the same way. StarCraft keeps per-race
+`aiscript.bin` build orders, and the engine works out each unit's strength from
+`units.dat` and `weapons.dat`. Warcraft III keeps per-race JASS files.
+
+- **Opening** (`AiPlan.goals`): an ordered goal ladder, like the
+  `build`/`train` lines of an aiscript.
+- **Doctrine** (`AiPlan.doctrine`): numbers for what the faction is good at.
+  These are workers per town, the supply buffer, static defenses per town, a
+  weighted roster for the army mix, how far the mix bends toward counters, and
+  the strength ratios at which waves set out or fall back.
+- **Unit knowledge** (`P_AiUnitInfo`): roles and strengths. The engine derives
+  them from `mobjtype_t`: traits, weapon and `attack.targets`. Strength follows
+  Brood War's `calculate_unit_strengths`, kept separately against ground and
+  air. A game's `describe()` adds only what the actor cannot show: supply,
+  cloaking, casters, shields and multi-hit weapons. Units need no hand-written
+  AI fields.
+
+Every think the engine scouts what the team can see, keeps a fading estimate of
+the enemy army and its air share, and then works through these steps in order:
+
+1. Order supply ahead of demand.
+2. Follow the opening.
+3. Serve the doctrine's needs: workers, detection after a cloaked sighting,
+   static defense (anti-air once air is seen), then the roster entry furthest
+   below its counter-weighted share.
+4. Launch a wave only when idle strength reaches `attack_ratio` percent of the
+   estimate.
+5. Pull a wave home when it falls below `retreat_ratio` percent of the enemies
+   around it.
+
+Zero values switch a behavior off, so games without a doctrine keep the ladder
+and timer AI. `tests/starcraft/test_ai.c` plays each StarCraft race and a
+Zerg-against-Protoss game.
+
 ## Game implementations
 
 ### Dark Colony

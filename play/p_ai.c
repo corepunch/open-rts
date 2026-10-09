@@ -1,4 +1,4 @@
-#include "engine.h"
+#include "p_ai_local.h"
 
 #include <math.h>
 #include <string.h>
@@ -47,7 +47,7 @@ bool P_AiPollEvent(AiContext *ctx, AiEvent *out) {
     return true;
 }
 
-static void ai_emit(AiContext *ctx, AiEventType type, int owner, int value) {
+void P_AiEmit(AiContext *ctx, AiEventType type, int owner, int value) {
     if (ctx->event_count >= AI_EVENT_LOG_SIZE) {
         /* Overwrite the oldest entry; stats still carry exact totals. */
         ctx->event_head = (ctx->event_head + 1) % AI_EVENT_LOG_SIZE;
@@ -113,7 +113,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
         if (ctx->game && ctx->game->assign_harvester) {
             if (!ctx->game->assign_harvester(map, owner, u)) continue;
             team->stats.harvest_orders++;
-            ai_emit(ctx, AI_EVENT_HARVEST_ASSIGNED, owner, -1);
+            P_AiEmit(ctx, AI_EVENT_HARVEST_ASSIGNED, owner, -1);
             continue;
         }
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
@@ -145,7 +145,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
             a->vent_index = best_vent;
             a->slug_unit_index = i;
             team->stats.harvest_orders++;
-            ai_emit(ctx, AI_EVENT_HARVEST_ASSIGNED, owner, best_vent);
+            P_AiEmit(ctx, AI_EVENT_HARVEST_ASSIGNED, owner, best_vent);
 
             fvec2_t base_pos;
             if (find_friendly_base(ctx, owner, units, unit_count, &base_pos)) {
@@ -189,8 +189,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
     team->harvest_assignment_count = write;
 }
 
-static bool ai_is_ally(const level_t *map, const AiTeamState *team,
-                       int owner, const mobj_t *other) {
+bool P_AiIsAlly(const level_t *map, const AiTeamState *team, int owner, const mobj_t *other) {
     if (!map->player_teams) return P_AreAllegiancesAllied(other->allegiance, team->allegiance);
     const uint32_t *allies = map->sight.allies;
 #ifdef RTS_GAME_DARK_COLONY
@@ -211,7 +210,7 @@ static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,
         mobj_t *enemy = units[i];
         if (enemy->hp <= 0 || enemy->remove) continue;
         if (ctx->game && (enemy->owner >= AI_MAX_TEAMS || (enemy->traits & MF_NOBLOCKMAP))) continue;
-        if (ai_is_ally(map, team, owner, enemy)) continue;
+        if (P_AiIsAlly(map, team, owner, enemy)) continue;
 
         float ex = fixed_to_float(enemy->core.position.x);
         float ey = fixed_to_float(enemy->core.position.y);
@@ -240,7 +239,7 @@ static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,
     }
     if (rallied > 0) {
         team->stats.defense_rallies++;
-        ai_emit(ctx, AI_EVENT_DEFENSE_RALLY, owner, rallied);
+        P_AiEmit(ctx, AI_EVENT_DEFENSE_RALLY, owner, rallied);
     }
 }
 
@@ -262,7 +261,7 @@ static void ai_tick_attack_waves(AiContext *ctx, AiTeamState *team, int owner,
     float enemy_dist2 = 1e30f;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->hp <= 0 || units[i]->remove) continue;
-        if (ai_is_ally(map, team, owner, units[i])) continue;
+        if (P_AiIsAlly(map, team, owner, units[i])) continue;
         if (!ai_is_base(ctx, units[i])) continue;
         float ex = fixed_to_float(units[i]->core.position.x);
         float ey = fixed_to_float(units[i]->core.position.y);
@@ -293,7 +292,7 @@ static void ai_tick_attack_waves(AiContext *ctx, AiTeamState *team, int owner,
     if (dispatched > 0) {
         team->stats.waves++;
         team->stats.wave_units += dispatched;
-        ai_emit(ctx, AI_EVENT_WAVE_LAUNCHED, owner, dispatched);
+        P_AiEmit(ctx, AI_EVENT_WAVE_LAUNCHED, owner, dispatched);
     }
 }
 
@@ -314,32 +313,42 @@ static void ai_ensure_plan(const AiContext *ctx, AiTeamState *team, int owner,
         team->plan.wave_interval_ms : AI_ATTACK_WAVE_INTERVAL_MS;
 }
 
+AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int product) {
+    const AiGameInterface *game = ctx->game;
+    int status = game->can_purchase(map, owner, product);
+    if (status == AI_BUY_NEED_TECH) {
+        if (!(ctx->features & AI_FEATURE_RESEARCH) || !game->develop ||
+            !game->develop(map, owner, product)) return AI_TRY_SKIP;
+        team->stats.research_orders++;
+        P_AiEmit(ctx, AI_EVENT_RESEARCH, owner, product);
+        return AI_TRY_SAVING; /* Wait for the tech-up like saving for credits. */
+    }
+    if (status == AI_BUY_BLOCKED) return AI_TRY_SKIP;
+    if (status == AI_BUY_NEED_CREDITS) return AI_TRY_SAVING;
+    if (!game->purchase(map, owner, product)) return AI_TRY_SKIP;
+    team->stats.purchases++;
+    P_AiEmit(ctx, AI_EVENT_PURCHASE, owner, product);
+    return AI_TRY_BOUGHT;
+}
+
+/* Supply first, so production never stalls on it; then the opening ladder;
+ * once nothing there waits for credits or tech, the doctrine's needs. */
 static void ai_tick_production(AiContext *ctx, AiTeamState *team, int owner,
-                               level_t *map) {
+                               level_t *map, int elapsed_ms) {
     const AiGameInterface *game = ctx->game;
     if (!game->plan || !game->owned || !game->can_purchase || !game->purchase) return;
+    if (P_AiBuySupply(ctx, team, owner, map, elapsed_ms)) return;
     int bought = 0;
     for (int i = 0; i < team->plan.goal_count && bought < AI_PURCHASES_PER_THINK; ++i) {
         const AiGoal *goal = &team->plan.goals[i];
         if (ctx->clock_ms < goal->after_ms) continue;
         if (game->owned(owner, goal->product) >= goal->count) continue;
-        int status = game->can_purchase(map, owner, goal->product);
-        if (status == AI_BUY_NEED_TECH) {
-            if ((ctx->features & AI_FEATURE_RESEARCH) && game->develop &&
-                game->develop(map, owner, goal->product)) {
-                team->stats.research_orders++;
-                ai_emit(ctx, AI_EVENT_RESEARCH, owner, goal->product);
-                break; /* Wait for the tech-up like saving for credits. */
-            }
-            continue;
-        }
-        if (status == AI_BUY_BLOCKED) continue;
-        if (status == AI_BUY_NEED_CREDITS) break;
-        if (!game->purchase(map, owner, goal->product)) continue;
-        ++bought;
-        team->stats.purchases++;
-        ai_emit(ctx, AI_EVENT_PURCHASE, owner, goal->product);
+        AiTry result = P_AiTry(ctx, team, owner, map, goal->product);
+        if (result == AI_TRY_SAVING) return;
+        if (result == AI_TRY_BOUGHT) ++bought;
     }
+    if (bought < AI_PURCHASES_PER_THINK)
+        P_AiBuyDoctrine(ctx, team, owner, map, AI_PURCHASES_PER_THINK - bought);
 }
 
 /* Waves wait for a minimum idle army, then send everything idle (up to the
@@ -368,7 +377,8 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
         if (u->attack.target && ai_unit_alive(u->attack.target)) continue;
         idle[idle_count++] = u;
     }
-    if (idle_count < min_size) return; /* Keep the timer expired and retry next think. */
+    /* Keep the timer expired and retry next think. */
+    if (idle_count < min_size || !P_AiArmyReady(ctx, team, idle, idle_count, max_size)) return;
 
     /* Objective tiers: enemy base, else any enemy structure, else any object. */
     mobj_t *goal = NULL, *structure = NULL, *fallback = NULL;
@@ -376,7 +386,7 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *e = units[i];
         if (!ai_unit_alive(e) || e->owner >= AI_MAX_TEAMS ||
-            (e->traits & MF_NOBLOCKMAP) || ai_is_ally(map, team, owner, e)) continue;
+            (e->traits & MF_NOBLOCKMAP) || P_AiIsAlly(map, team, owner, e)) continue;
         float dx = fixed_to_float(e->core.position.x) - team->base_position.x;
         float dy = fixed_to_float(e->core.position.y) - team->base_position.y;
         float d2 = dx * dx + dy * dy;
@@ -393,11 +403,32 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
     P_MoveUnitsAt(map, idle, sent, target);
     /* Moving clears nothing the target needs; make sure the objective sticks. */
     for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;
+    P_AiTrackWave(team, idle, sent);
     team->attack_wave_active = true;
     team->attack_wave_timer_ms = interval;
     team->stats.waves++;
     team->stats.wave_units += sent;
-    ai_emit(ctx, AI_EVENT_WAVE_LAUNCHED, owner, sent);
+    P_AiEmit(ctx, AI_EVENT_WAVE_LAUNCHED, owner, sent);
+}
+
+/* A town is a cluster of drop-offs: a second hatchery or a lumber mill
+ * beside the hall feeds the same workers, an expansion does not. */
+#define AI_TOWN_RADIUS 12.0f
+
+static int ai_count_towns(const AiContext *ctx, int owner, mobj_t *const *units, int unit_count) {
+    fvec2_t towns[AI_MAX_TOWNS];
+    int count = 0;
+    for (int i = 0; i < unit_count && count < AI_MAX_TOWNS; ++i) {
+        const mobj_t *u = units[i];
+        if (u->hp <= 0 || u->remove || u->owner != owner || (u->traits & MF_MOBILE) || !ai_is_base(ctx, u))
+            continue;
+        fvec2_t at = fixed3_xy_to_fvec2(u->core.position);
+        bool near = false;
+        for (int t = 0; t < count && !near; ++t)
+            near = fvec2_distance_squared(at, towns[t]) < AI_TOWN_RADIUS * AI_TOWN_RADIUS;
+        if (!near) towns[count++] = at;
+    }
+    return count;
 }
 
 static void ai_census(const AiContext *ctx, AiTeamState *team, int owner,
@@ -405,6 +436,7 @@ static void ai_census(const AiContext *ctx, AiTeamState *team, int owner,
     team->combat_unit_count = 0;
     team->harvester_count = 0;
     team->has_base = false;
+    team->towns = ai_count_towns(ctx, owner, units, unit_count);
     team->allegiance = ALLEGIANCE_NEUTRAL;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *u = units[i];
@@ -436,14 +468,17 @@ static void ai_tick_game(AiContext *ctx, level_t *map, mobj_t *const *units,
         ai_census(ctx, team, t, units, unit_count);
         if (ctx->features & (AI_FEATURE_PRODUCTION | AI_FEATURE_ATTACK))
             ai_ensure_plan(ctx, team, t, map);
+        P_AiScout(ctx, team, t, map, units, unit_count, elapsed_ms);
         if (ctx->features & AI_FEATURE_ECONOMY)
             ai_tick_harvesting(ctx, team, t, map, units, unit_count);
         if (ctx->features & AI_FEATURE_PRODUCTION)
-            ai_tick_production(ctx, team, t, map);
+            ai_tick_production(ctx, team, t, map, elapsed_ms);
         if (ctx->features & AI_FEATURE_DEFENSE)
             ai_tick_defense(ctx, team, t, map, units, unit_count, game_info);
-        if (ctx->features & AI_FEATURE_ATTACK)
+        if (ctx->features & AI_FEATURE_ATTACK) {
+            P_AiCheckRetreat(ctx, team, t, map, units, unit_count);
             ai_tick_attack_game(ctx, team, t, map, units, unit_count, elapsed_ms);
+        }
     }
 }
 

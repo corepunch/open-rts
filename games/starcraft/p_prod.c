@@ -239,28 +239,98 @@ static int sc_ai_level(const level_t *map,int owner) {
     if(kind==1||kind==5||sc_player_ai(owner)) return AI_LEVEL_NORMAL;
     return AI_LEVEL_NONE;
 }
+/* A race's computer player, in two parts as Blizzard's melee AI has them:
+ * an opening of build/train lines (aiscript TMCu/ZMCu/PMCu) and a doctrine
+ * that says, in numbers, what the race is good at. The shared AI turns the
+ * doctrine into supply, workers, defenses, an army mix bent toward what it
+ * scouts, and the call of when to attack or fall back. */
 typedef struct { mobjtype_id_t product; int count; } sc_step_t;
-static const sc_step_t terran_ladder[]={
-    {MT_SCV,6},{MT_SUPPLY_DEPOT,1},{MT_BARRACKS,1},{MT_MARINE,6},{MT_REFINERY,1},{MT_SCV,8},{MT_SUPPLY_DEPOT,2},{MT_FACTORY,1},{MT_VULTURE,4},{MT_MARINE,12}
-},zerg_ladder[]={
-    {MT_DRONE,6},{MT_OVERLORD,1},{MT_SPAWNING_POOL,1},{MT_ZERGLING,8},{MT_EXTRACTOR,1},{MT_DRONE,8},{MT_HYDRALISK_DEN,1},{MT_HYDRALISK,6},{MT_OVERLORD,2}
-},protoss_ladder[]={
-    {MT_PROBE,6},{MT_PYLON,1},{MT_GATEWAY,1},{MT_ZEALOT,4},{MT_ASSIMILATOR,1},{MT_PROBE,8},{MT_PYLON,2},{MT_ZEALOT,8}
+typedef struct {
+    const sc_step_t *opening;
+    int opening_count;
+    int wave_interval_ms, wave_min_size, wave_max_size;
+    AiDoctrine doctrine;
+} sc_race_ai_t;
+#define SC_OPENING(steps) .opening = steps, .opening_count = (int)(sizeof(steps) / sizeof(*steps))
+
+/* Terran: turtles and pushes. Tanks and turrets hold the base, the army
+ * leaves only with a clear edge and backs off before it is traded away. */
+static const sc_step_t terran_opening[] = {
+    {MT_SCV,9},{MT_SUPPLY_DEPOT,1},{MT_BARRACKS,1},{MT_SCV,11},{MT_REFINERY,1},{MT_MARINE,4},
+    {MT_BARRACKS,2},{MT_ACADEMY,1},{MT_FACTORY,1},{MT_ENGINEERING_BAY,1},{MT_MARINE,8},
+    {MT_ARMORY,1},{MT_FACTORY,2},{MT_STARPORT,1},{MT_SCIENCE_FACILITY,1},
+};
+/* Zerg: cheap, fast and many. A 9-pool zergling rush, more hatcheries for
+ * production, waves that trade freely and come back often. */
+static const sc_step_t zerg_opening[] = {
+    {MT_DRONE,9},{MT_SPAWNING_POOL,1},{MT_ZERGLING,6},{MT_HATCHERY,2},{MT_DRONE,12},
+    {MT_EXTRACTOR,1},{MT_HYDRALISK_DEN,1},{MT_DRONE,14},{MT_EVOLUTION_CHAMBER,1},{MT_HATCHERY,3},
+};
+/* Protoss: few, expensive, strong. A gateway army on a teching base,
+ * cannons at home, attacks once it out-trades what it has seen. */
+static const sc_step_t protoss_opening[] = {
+    {MT_PROBE,8},{MT_PYLON,1},{MT_GATEWAY,1},{MT_PROBE,10},{MT_ASSIMILATOR,1},{MT_ZEALOT,2},
+    {MT_CYBERNETICS_CORE,1},{MT_GATEWAY,2},{MT_FORGE,1},{MT_DRAGOON,2},{MT_ROBOTICS_FACILITY,1},
+    {MT_OBSERVATORY,1},{MT_GATEWAY,3},{MT_STARGATE,1},
+};
+static const sc_race_ai_t race_ai[3] = {
+    [0] = { SC_OPENING(zerg_opening), .wave_interval_ms = 30000, .wave_min_size = 6, .wave_max_size = 32,
+        .doctrine = { .workers = 16, .supply_buffer = 4, .counter = 60,
+            .attack_ratio = 70, .retreat_ratio = 35,
+            .roster = { {MT_DRONE,0},{MT_OVERLORD,0},{MT_ZERGLING,50},{MT_HYDRALISK,35},{MT_MUTALISK,20} },
+            .roster_count = 5 } },
+    [1] = { SC_OPENING(terran_opening), .wave_interval_ms = 60000, .wave_min_size = 14, .wave_max_size = 30,
+        .doctrine = { .workers = 20, .supply_buffer = 6, .defenses = 2, .counter = 70,
+            .attack_ratio = 140, .retreat_ratio = 70,
+            .roster = { {MT_SCV,0},{MT_SUPPLY_DEPOT,0},{MT_MISSILE_TURRET,0},{MT_SCIENCE_VESSEL,0},
+                        {MT_MARINE,40},{MT_FIREBAT,10},{MT_VULTURE,15},{MT_GOLIATH,20},{MT_SIEGE_TANK,25},
+                        {MT_WRAITH,5},{MT_BATTLECRUISER,5} },
+            .roster_count = 11 } },
+    [2] = { SC_OPENING(protoss_opening), .wave_interval_ms = 45000, .wave_min_size = 8, .wave_max_size = 20,
+        .doctrine = { .workers = 20, .supply_buffer = 8, .defenses = 1, .counter = 70,
+            .attack_ratio = 110, .retreat_ratio = 60,
+            .roster = { {MT_PROBE,0},{MT_PYLON,0},{MT_PHOTON_CANNON,0},{MT_OBSERVER,0},
+                        {MT_ZEALOT,35},{MT_DRAGOON,45},{MT_SCOUT,10},{MT_ARBITER,5} },
+            .roster_count = 8 } },
 };
 static bool sc_ai_plan(const level_t *map,int owner,int level,AiPlan *out) {
     (void)map;(void)level;
-    const sc_step_t *ladder=terran_ladder;
-    unsigned n=sizeof(terran_ladder)/sizeof(*terran_ladder);
     int side=sc_player_side(owner);
-    if(side==0){ladder=zerg_ladder;n=sizeof(zerg_ladder)/sizeof(*zerg_ladder);}
-    else if(side==2){ladder=protoss_ladder;n=sizeof(protoss_ladder)/sizeof(*protoss_ladder);}
-    out->wave_interval_ms=45000; out->wave_min_size=4; out->wave_max_size=10;
-    for(unsigned i=0;i<n;i++) P_AiPlanAdd(out,ladder[i].product,ladder[i].count);
+    const sc_race_ai_t *race=&race_ai[side>=0&&side<3?side:1];
+    out->wave_interval_ms=race->wave_interval_ms;
+    out->wave_min_size=race->wave_min_size;
+    out->wave_max_size=race->wave_max_size;
+    out->doctrine=race->doctrine;
+    for(int i=0;i<race->opening_count;i++) P_AiPlanAdd(out,race->opening[i].product,race->opening[i].count);
     return true;
+}
+/* What units.dat says beyond the engine's actor: shields, supply, cloaking
+ * and casters; Brood War doubles zealots, firebats and mutalisks. */
+static void sc_ai_describe(uint16_t type,AiUnitInfo *info) {
+    if(type<1||type>SC_TYPES) return;
+    const sc_unit_t *u=&sc_units[type-1];
+    info->hp+=u->shields;
+    if(u->supply_provided>0) info->roles|=AI_ROLE_SUPPLY;
+    if(u->flags&(0x200|0x400000)) info->roles|=AI_ROLE_CLOAKED;
+    if((u->flags&0x200000)&&!(info->roles&AI_ROLE_FIGHTER)) info->roles|=AI_ROLE_SUPPORT;
+    if(type==MT_ZEALOT||type==MT_FIREBAT||type==MT_MUTALISK) info->hits=2;
+}
+/* Whole supply, counting what queues and walking workers will add. */
+static bool sc_ai_supply(int owner,int *used,int *cap) {
+    int need,have; sc_supply_counts(owner,&need,&have);
+    if(thinkercap.next) for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||!mo->production) continue;
+        int type=mo->production->actor_id;
+        if(type>0&&type<=SC_TYPES) have+=sc_units[type-1].supply_provided*mo->production->queue_count;
+    }
+    *used=need/2; *cap=(have<400?have:400)/2;
+    return have<400;
 }
 static int sc_ai_can_purchase(const level_t *map,int owner,int ui) {
     const StaticProductDefinition *product=G_ModelProductByUIId(NULL,ui);
-    if(!product||!G_ModelProductAvailable(NULL,owner,product)||!G_FindProducer(owner,product))
+    if(!product||!G_ModelProductAvailable(NULL,owner,product)||
+       !(product->worker_build?G_FindProducer(owner,product):G_FindProducerBelow(owner,product,AI_QUEUE_DEPTH)))
         return AI_BUY_BLOCKED;
     if(!sc_supply_ok(owner,product)) return AI_BUY_BLOCKED;
     if(product->extra_costs[0]>map->player_resources[owner][1]) return AI_BUY_BLOCKED;
@@ -275,6 +345,17 @@ static mobj_t *idle_maker(int owner,int maker) {
     }
     return NULL;
 }
+/* A one-cell lane around the footprint, so builders reach their bays and
+ * the army walks out of the base. */
+static bool lane_clear(uint16_t type,ivec2_t cell) {
+    isize2_t size=actor_types[type-1].footprint;
+    for(int y=-1;y<=size.h;y++) for(int x=-1;x<=size.w;x++) {
+        if(x>=0&&y>=0&&x<size.w&&y<size.h) continue;
+        int cx=cell.x+x,cy=cell.y+y;
+        if(!L_Contains(&level,cx,cy)||level.cell_solid[L_Index(&level,cx,cy)]) return false;
+    }
+    return true;
+}
 static bool find_site(int owner,uint16_t type,ivec2_t *out) {
     fvec2_t origin={level.width*0.5f,level.height*0.5f};
     bool found=false;
@@ -287,7 +368,7 @@ static bool find_site(int owner,uint16_t type,ivec2_t *out) {
     for(int radius=2;radius<48;radius++) for(int y=-radius;y<=radius;y++) for(int x=-radius;x<=radius;x++) {
         if(abs(x)!=radius&&abs(y)!=radius) continue;
         ivec2_t cell={(int)origin.x+x,(int)origin.y+y};
-        if(P_CanPlaceBuilding(type,cell,NULL)) { *out=cell; return true; }
+        if(P_CanPlaceBuilding(type,cell,NULL)&&lane_clear(type,cell)) { *out=cell; return true; }
     }
     return false;
 }
@@ -301,6 +382,31 @@ static bool sc_ai_purchase(level_t *map,int owner,int ui) {
     return worker&&find_site(owner,G_ModelActorIdForProduct(product),&cell)&&
         G_PlaceProduct(worker,product,cell);
 }
+/* Workers spread over the patches, nearest first: three to a mineral
+ * field or a refinery, the retail saturation. */
+static bool sc_ai_assign_harvester(level_t *map,int owner,mobj_t *unit) {
+    enum { SATURATION=3 };
+    int workers[map->resource_vent_count>0?map->resource_vent_count:1];
+    memset(workers,0,sizeof(workers));
+    if(thinkercap.next) for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *mo=(const mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo==unit||mo->owner!=owner||mo->remove||mo->hp<=0) continue;
+        if(mo->harvest.phase!=HARVEST_PHASE_NONE&&mo->harvest.target>=0&&mo->harvest.target<map->resource_vent_count)
+            workers[mo->harvest.target]++;
+    }
+    fvec2_t at=fixed3_xy_to_fvec2(unit->core.position);
+    for(int load=0;load<SATURATION;load++) {
+        int best=-1; float best_d=0;
+        for(int i=0;i<map->resource_vent_count;i++) {
+            const resourcevent_t *vent=&map->resource_vents[i];
+            if(workers[i]!=load||!P_VentOpenTo(map,vent,unit)) continue;
+            float d=fvec2_distance_squared(at,vent->attachment);
+            if(best<0||d<best_d) { best=i; best_d=d; }
+        }
+        if(best>=0&&P_HarvestUnitTo(map,unit,map->resource_vents[best].attachment)) return true;
+    }
+    return false;
+}
 static bool sc_ai_busy(const mobj_t *unit) {
     return unit&&unit->production&&unit->production->placed;
 }
@@ -308,5 +414,7 @@ static const AiGameInterface sc_ai={
     .name="starcraft",.features=AI_FEATURE_ALL,.player_level=sc_ai_level,.plan=sc_ai_plan,
     .owned=G_AiCatalogOwned,.can_purchase=sc_ai_can_purchase,.purchase=sc_ai_purchase,
     .is_anchor=G_AiIsStructure,.is_busy=sc_ai_busy,
+    .assign_harvester=sc_ai_assign_harvester,
+    .product_actor=G_AiCatalogActor,.describe=sc_ai_describe,.supply=sc_ai_supply,
 };
 const AiGameInterface *G_AiInterface(void) { return &sc_ai; }

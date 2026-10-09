@@ -566,6 +566,8 @@ typedef struct {
     uint16_t trail_type;
 } missiledef_t;
 
+enum { MOBJ_TARGET_GROUND = 1 << 0, MOBJ_TARGET_AIR = 1 << 1 };
+
 typedef struct mobjtype_s {
     uint16_t id;
     const char *name;
@@ -590,6 +592,7 @@ typedef struct mobjtype_s {
         uint16_t projectile_type;
         int health_cost;
         int shots, reload_ms;
+        uint8_t targets; /* MOBJ_TARGET_* the weapon reaches; zero reaches both. */
     } attack;
     missiledef_t missile;
     blastdef_t blast;
@@ -1913,9 +1916,12 @@ int      G_AiCatalogOwned(int owner, int ui_id);
 int      G_AiCatalogCanPurchase(const level_t *map, int owner, int ui_id);
 bool     G_AiCatalogPurchase(level_t *map, int owner, int ui_id);
 bool     G_AiIsStructure(const mobj_t *unit); /* AiGameInterface.is_anchor */
+int      G_AiCatalogActor(int ui_id);           /* AiGameInterface.product_actor */
 
 /* Shared level production: UI and AI enqueue on the actual producer. */
 mobj_t  *G_FindProducer(int owner, const StaticProductDefinition *product);
+/* A producer whose queue holds fewer than `depth` orders. */
+mobj_t  *G_FindProducerBelow(int owner, const StaticProductDefinition *product, int depth);
 bool     G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product);
 int G_ModelRadarLevel(int owner);
 bool     G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product);
@@ -1958,6 +1964,11 @@ bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_c
 #define AI_ATTACK_WAVE_MIN_SIZE 3
 #define AI_ATTACK_WAVE_MAX_SIZE 8
 #define AI_EVENT_LOG_SIZE 256
+#define AI_MAX_WAVE_TRACK 32 /* Wave members followed for a retreat. */
+#define AI_MAX_TOWNS 16
+/* Orders the computer stacks on one producer: shallow queues keep money
+ * free and let supply and tech in, as Blizzard's AI trains one at a time. */
+#define AI_QUEUE_DEPTH 2
 /* DC.EXE 0x419a54 runs the AI chooser only when (tick & 3) == 0. */
 #define AI_THINK_INTERVAL_TICKS 4
 
@@ -1993,12 +2004,67 @@ typedef struct {
 
 #define AI_MAX_GOALS 96
 
+/* What an actor type is for, as the planner sees it. The engine derives
+ * most roles from mobjtype_t; AiGameInterface.describe adds the rest. */
+typedef enum {
+    AI_ROLE_WORKER      = 1u << 0,  /* gathers resources */
+    AI_ROLE_SUPPLY      = 1u << 1,  /* raises the supply cap: depot, pylon, overlord, farm */
+    AI_ROLE_FIGHTER     = 1u << 2,  /* mobile combat unit */
+    AI_ROLE_DEFENSE     = 1u << 3,  /* static defense: tower, bunker, cannon */
+    AI_ROLE_HITS_GROUND = 1u << 4,
+    AI_ROLE_HITS_AIR    = 1u << 5,
+    AI_ROLE_FLYER       = 1u << 6,
+    AI_ROLE_DETECTOR    = 1u << 7,
+    AI_ROLE_CLOAKED     = 1u << 8,  /* unseen without a detector */
+    AI_ROLE_SUPPORT     = 1u << 9,  /* caster or healer: travels with waves */
+} AiRole;
+
+/* The planner's view of an actor type. Strengths follow Brood War's
+ * calculate_unit_strengths (OpenBW bwgame.h): sqrt of reach plus
+ * hp x damage rate, kept apart against ground and air targets so that
+ * armies compare by summing and anti-air shows up as its own number. */
+typedef struct {
+    uint32_t roles;      /* AiRole mask */
+    int hp;              /* hit points plus shields */
+    int hits;            /* Weapon hits per attack (units.dat max hits); 0 is one. */
+    int ground_strength; /* Nonzero from describe() overrides the formula. */
+    int air_strength;
+} AiUnitInfo;
+
+/* A product the doctrine may buy. Weight is the fighter's share of the
+ * army mix; 0 buys it only for a role need (workers, supply, detection,
+ * static defense). */
+typedef struct {
+    int product;
+    int weight;
+} AiChoice;
+
+#define AI_MAX_ROSTER 24
+
+/* A faction's strengths as numbers. The goal ladder is the opening, like
+ * the build/train lines of a Blizzard aiscript; the doctrine runs the game
+ * after it: supply, workers, detection, static defense, a counter-weighted
+ * army and when to attack or fall back. Zero switches a behavior off, so a
+ * plan without a doctrine keeps the ladder-and-timer AI. */
+typedef struct {
+    AiChoice roster[AI_MAX_ROSTER];
+    int roster_count;
+    int workers;        /* Workers kept per town (cluster of drop-offs). */
+    int supply_buffer;  /* Free supply kept ahead of demand, in game supply units. */
+    int defenses;       /* Static defenses kept per town. */
+    int army_cap;       /* Fighters massed before buying stops; 0 is supply-bound. */
+    int counter;        /* 0..100: how far the mix bends toward what was scouted. */
+    int attack_ratio;   /* % of the enemy army estimate an idle army needs to attack. */
+    int retreat_ratio;  /* % of local enemy strength under which a wave turns home. */
+} AiDoctrine;
+
 typedef struct {
     AiGoal goals[AI_MAX_GOALS]; /* Priority order; earlier goals are served first. */
     int goal_count;
     int wave_interval_ms;       /* 0 selects AI_ATTACK_WAVE_INTERVAL_MS. */
     int wave_min_size;          /* 0 selects AI_ATTACK_WAVE_MIN_SIZE. */
     int wave_max_size;          /* 0 selects AI_ATTACK_WAVE_MAX_SIZE. */
+    AiDoctrine doctrine;
 } AiPlan;
 
 typedef struct AiGameInterface {
@@ -2029,6 +2095,15 @@ typedef struct AiGameInterface {
      * went out. The default sends it to the nearest free, reachable vent;
      * games with several resources balance their workers here. */
     bool (*assign_harvester)(level_t *map, int owner, mobj_t *unit);
+    /* Optional. The actor type a product makes, 0 for research; needed for
+     * the doctrine to read roster roles. Catalog games use G_AiCatalogActor. */
+    int  (*product_actor)(int product);
+    /* Optional. Adds what mobjtype_t cannot tell to the engine's AiUnitInfo:
+     * supply, cloaking, casters, shields, multi-hit weapons, bunkers. */
+    void (*describe)(uint16_t type_id, AiUnitInfo *info);
+    /* Optional. Supply in use and the cap including supply already being
+     * made; false when the cap cannot grow further. Enables supply_buffer. */
+    bool (*supply)(int owner, int *used, int *cap);
 } AiGameInterface;
 
 typedef enum {
@@ -2038,6 +2113,7 @@ typedef enum {
     AI_EVENT_DEFENSE_RALLY,    /* value = defenders sent */
     AI_EVENT_WAVE_LAUNCHED,    /* value = units sent */
     AI_EVENT_RESEARCH,         /* value = product id that needed the tech */
+    AI_EVENT_RETREAT,          /* value = units pulled back */
 } AiEventType;
 
 typedef struct {
@@ -2054,6 +2130,8 @@ typedef struct {
     int research_orders;
     int waves;
     int wave_units; /* total units sent in waves */
+    int retreats;
+    int holds;      /* thinks a ready wave waited for a stronger army */
     int thinks;
 } AiStats;
 
@@ -2077,6 +2155,17 @@ typedef struct {
     AiPlan plan;
     bool plan_loaded;
     AiStats stats;
+    int towns;              /* Drop-off clusters: what workers and defenses scale by. */
+    /* Scouting memory: the strongest enemy field army seen, decaying while
+     * out of sight, what share of it flies or shoots air, and how recently
+     * something cloaked was seen. */
+    int enemy_strength;
+    int enemy_air_pct;
+    int enemy_antiair_pct;
+    int enemy_cloak_ms;
+    int supply_wait_ms;     /* Supply just ordered; wait before ordering more. */
+    uint32_t wave[AI_MAX_WAVE_TRACK]; /* mobj ids of the wave in the field */
+    int wave_count;
 } AiTeamState;
 
 typedef struct AiContext {
@@ -2118,6 +2207,10 @@ void P_AiAttachGame(AiContext *ctx, const AiGameInterface *game);
 void P_AiSetFeatures(AiContext *ctx, uint32_t features);
 void P_AiTick(AiContext *ctx, level_t *map, mobj_t *const *units, int unit_count,
               const gameinfo_t *game_info, int dt_ms);
+
+/* The planner's view of an actor type: engine-derived roles and strengths
+ * adjusted by the attached game's describe(). */
+void P_AiUnitInfo(const AiContext *ctx, uint16_t type_id, AiUnitInfo *out);
 
 /* Pops the oldest retained AI event. Returns false when the log is empty. */
 bool P_AiPollEvent(AiContext *ctx, AiEvent *out);

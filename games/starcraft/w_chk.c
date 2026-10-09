@@ -421,7 +421,7 @@ int sc_spawn_things(void) {
     }
     /* A seat with a start location and no placed unit is a melee start.
      * The building is centred on that pixel and covers 128 by 96; the workers
-     * stand in the row below it. */
+     * stand in the row below it. Zerg also start with an Overlord above. */
     static const mobjtype_id_t building[] = {MT_COMMAND_CENTER, MT_HATCHERY, MT_NEXUS};
     static const mobjtype_id_t worker[] = {MT_SCV, MT_DRONE, MT_PROBE};
     for(int i=0;i<net_seats;i++) {
@@ -434,6 +434,10 @@ int sc_spawn_things(void) {
         for(int w=0;w<4;w++) {
             ivec2_t at_px = {pixel.x + 48 + w * 24, pixel.y + 64};
             if(!sc_spawn_actor(worker[race]-1, at_px, (uint8_t)i)) { clear_melee(); return count; }
+            ++count;
+        }
+        if(race == 1) {
+            if(!sc_spawn_actor(MT_OVERLORD-1, (ivec2_t){pixel.x, pixel.y - 80}, (uint8_t)i)) { clear_melee(); return count; }
             ++count;
         }
     }

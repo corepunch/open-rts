@@ -13,6 +13,9 @@ typedef struct {
     int supply_provided, supply_required; /* units.dat halves; 2 is one supply */
     int armor, armor_upgrade, weapon_upgrade, damage_bonus; /* upgrades.dat ids; 255 none */
     int build_score, destroy_score;
+    int shields;   /* 0 without units.dat shield enable */
+    int subunit;   /* Turret row whose weapons the unit fires; SC_TYPES for none */
+    int air_damage, air_range, air_cooldown;
 } sc_unit_t;
 extern const sc_unit_t sc_units[SC_TYPES];
 /* upgrades.dat: cost and time are base plus factor per level already held. */

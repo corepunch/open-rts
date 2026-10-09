@@ -146,10 +146,15 @@ static bool producer_accepts(const mobj_t *unit, int owner,
 }
 
 mobj_t *G_FindProducer(int owner, const StaticProductDefinition *product) {
+    return G_FindProducerBelow(owner, product, RTS_MAX_PRODUCTION_QUEUE);
+}
+
+mobj_t *G_FindProducerBelow(int owner, const StaticProductDefinition *product, int depth) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *unit = (mobj_t *)th;
-        if (producer_accepts(unit, owner, product)) return unit;
+        if (producer_accepts(unit, owner, product) &&
+            (!unit->production || unit->production->queue_count < depth)) return unit;
     }
     return NULL;
 }
@@ -509,8 +514,12 @@ bool G_ProductionTicker(float dt) {
             fvec2_t bay;
             const mobjtype_t *type = P_ActorType(production->actor_id);
             if (!type || P_HasMoveOrder(producer) ||
-                !P_ApproachFootprint(producer, production->cell, type->footprint, &bay) ||
-                !fvec2_near(fixed3_xy_to_fvec2(producer->core.position), bay, 0.001f)) continue;
+                !P_ApproachFootprint(producer, production->cell, type->footprint, &bay)) continue;
+            /* A builder that stopped short (its bay was taken) walks on. */
+            if (!fvec2_near(fixed3_xy_to_fvec2(producer->core.position), bay, 0.001f)) {
+                P_MoveUnitTo(&level, producer, bay);
+                continue;
+            }
         }
         production->time_left_ms -= elapsed_ms;
         while (production->queue_count > 0 && production->time_left_ms <= 0) {

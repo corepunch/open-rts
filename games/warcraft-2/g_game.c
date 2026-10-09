@@ -56,7 +56,10 @@ static void fill_actors(void) {
             .max_hp = hp,
             .sight = { .day = sight, .night = sight, .airborne = (src->w2.flags & W2_AIR) != 0 },
             .sight_from_footprint = (src->w2.flags & W2_STRUCTURE) != 0,
-            .attack = { .range = src->w2.attack_range, .damage = src->damage },
+            .attack = { .range = src->w2.attack_range, .damage = src->damage,
+                        .targets = (uint8_t)(((src->w2.target_mask & (1 << W2_DOMAIN_AIR)) ? MOBJ_TARGET_AIR : 0) |
+                            ((src->w2.target_mask & ((1 << W2_DOMAIN_LAND) | (1 << W2_DOMAIN_SEA))) ?
+                             MOBJ_TARGET_GROUND : 0)) },
             .move_class = move,
             .footprint = src->w2.footprint,
             .damage_action = W2_Burning,

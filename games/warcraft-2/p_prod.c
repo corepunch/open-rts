@@ -549,16 +549,15 @@ static int w2_ai_level(const level_t *map, int owner) {
     return AI_LEVEL_NORMAL;
 }
 
-/* Wargus land_attack.lua in goal-ladder form: workers, farms and a
- * barracks, then soldiers, a mill and smithy with the first research,
- * towers, the keep, stables and knights. Human ids; orc ids are one more. */
-static const struct { int product, count; } w2_ladder[] = {
+/* Wargus land_attack.lua's opening in goal-ladder form: workers, farms and
+ * a barracks, soldiers, a mill and smithy with the first research, a
+ * tower, the keep and the cavalry building. Human ids; orc ids are the
+ * twin. The race doctrine below runs the game from there. */
+static const struct { int product, count; } w2_opening[] = {
     { W2_UI_TOWN_HALL, 1 }, { 3, 5 }, { W2_UI_FARM, 2 }, { W2_UI_HUMAN_BARRACKS, 1 },
-    { 3, 8 }, { 1, 3 }, { W2_UI_FARM, 4 }, { W2_UI_ELVEN_LUMBER_MILL, 1 },
-    { 1, 6 }, { 5, 3 }, { W2_UI_HUMAN_BLACKSMITH, 1 }, { W2_UI_FARM, 6 }, { 3, 10 },
+    { 3, 8 }, { 1, 3 }, { W2_UI_ELVEN_LUMBER_MILL, 1 }, { 5, 2 }, { W2_UI_HUMAN_BLACKSMITH, 1 },
     { W2_UI_SWORD1, 1 }, { W2_UI_HUMAN_WATCH_TOWER, 1 }, { W2_UI_HUMAN_SHIELD1, 1 },
-    { 1, 10 }, { 5, 6 }, { W2_UI_KEEP, 1 }, { W2_UI_STABLES, 1 }, { W2_UI_FARM, 8 },
-    { 9, 4 }, { W2_UI_HUMAN_BARRACKS, 2 }, { 1, 14 }, { 5, 8 }, { 9, 8 }, { 3, 12 },
+    { W2_UI_KEEP, 1 }, { W2_UI_STABLES, 1 }, { W2_UI_HUMAN_BARRACKS, 2 },
 };
 
 static int orc_twin(int ui) {
@@ -568,15 +567,59 @@ static int orc_twin(int ui) {
     return ui + 1;
 }
 
+/* The two sides field near-mirror units, so the doctrines carry the
+ * difference. Humans: ranged archers and knights, towers, patient
+ * attacks that pull back to heal. Orcs: grunts and ogres, earlier and
+ * bolder attacks that fight it out. Farms feed four. */
+static const AiDoctrine human_doctrine = {
+    .workers = 15, .supply_buffer = 3, .counter = 50, .attack_ratio = 120, .retreat_ratio = 55,
+    .roster = { {3,0},{W2_UI_FARM,0},{1,40},{5,30},{9,25},{7,10},{200 + MT_GRYPHON_RIDER,5} },
+    .roster_count = 7,
+};
+static const AiDoctrine orc_doctrine = {
+    .workers = 15, .supply_buffer = 3, .counter = 50, .attack_ratio = 85, .retreat_ratio = 35,
+    .roster = { {4,0},{W2_UI_PIG_FARM,0},{2,45},{6,25},{10,30},{8,10},{200 + MT_DRAGON,5} },
+    .roster_count = 7,
+};
+
 static bool w2_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     (void)map; (void)level;
     bool orc = orc_owner(owner);
-    out->wave_interval_ms = 60000;
-    out->wave_min_size = 4;
-    out->wave_max_size = 12;
-    for (unsigned i = 0; i < sizeof(w2_ladder) / sizeof(*w2_ladder); ++i)
-        P_AiPlanAdd(out, orc ? orc_twin(w2_ladder[i].product) : w2_ladder[i].product, w2_ladder[i].count);
+    out->wave_interval_ms = orc ? 45000 : 60000;
+    out->wave_min_size = orc ? 4 : 6;
+    out->wave_max_size = 16;
+    out->doctrine = orc ? orc_doctrine : human_doctrine;
+    for (unsigned i = 0; i < sizeof(w2_opening) / sizeof(*w2_opening); ++i)
+        P_AiPlanAdd(out, orc ? orc_twin(w2_opening[i].product) : w2_opening[i].product, w2_opening[i].count);
     return true;
+}
+
+/* Farms and halls feed; the engine reads the rest from the actor. */
+static void w2_ai_describe(uint16_t type, AiUnitInfo *info) {
+    if (type >= 1 && type <= W2_TYPE_COUNT && mobjinfo[type].w2.food.supply > 0)
+        info->roles |= AI_ROLE_SUPPLY;
+}
+
+/* Food in use, training included, against the farms standing, rising and
+ * on the way with a worker; Stratagus caps an army at 200 units. */
+static bool w2_ai_supply(int owner, int *used, int *cap) {
+    int units = 0;
+    *used = *cap = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *unit = (const mobj_t *)th;
+        if (unit->owner != owner || unit->remove || unit->hp <= 0 || unit->type_id > W2_TYPE_COUNT) continue;
+        const w2_stats_t *stats = &mobjinfo[unit->type_id].w2;
+        *used += stats->food.demand;
+        *cap += stats->food.supply;
+        if (!(stats->flags & W2_STRUCTURE)) ++units;
+        if (unit->w2.build_phase == W2_BUILD_TO_SITE) *cap += mobjinfo[unit->w2.build_type].w2.food.supply;
+        const production_t *queue = unit->production;
+        if (queue && queue->product_class == RTS_PRODUCT_UNIT && queue->product_type > 0 &&
+            queue->product_type <= W2_TYPE_COUNT)
+            *used += mobjinfo[queue->product_type].w2.food.demand * queue->queue_count;
+    }
+    return units < 200;
 }
 
 static int builders_bound_for(int owner, uint16_t type) {
@@ -641,7 +684,7 @@ static int w2_ai_can_purchase(const level_t *map, int owner, int ui) {
     if (!product || owner < 0 || owner >= 8 || !G_ModelProductAvailable(NULL, owner, product)) return AI_BUY_BLOCKED;
     if (product_is_site(product)) {
         if (!G_ModelHasActorType(NULL, owner, (uint16_t)product->makers[0])) return AI_BUY_BLOCKED;
-    } else if (!G_FindProducer(owner, product)) {
+    } else if (!G_FindProducerBelow(owner, product, AI_QUEUE_DEPTH)) {
         return AI_BUY_BLOCKED;
     }
     return affordable(owner, product) ? AI_BUY_OK : AI_BUY_NEED_CREDITS;
@@ -668,7 +711,7 @@ static bool w2_ai_purchase(level_t *map, int owner, int ui) {
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
     if (!product) return false;
     if (!product_is_site(product)) {
-        mobj_t *producer = G_FindProducer(owner, product);
+        mobj_t *producer = G_FindProducerBelow(owner, product, AI_QUEUE_DEPTH);
         return producer && G_PlayerBuildProduct(producer, product);
     }
     uint16_t type = (uint16_t)product->product_type;
@@ -749,6 +792,9 @@ static const AiGameInterface w2_ai_interface = {
     .is_anchor = G_AiIsStructure,
     .is_busy = w2_ai_busy,
     .assign_harvester = w2_ai_assign_harvester,
+    .product_actor = G_AiCatalogActor,
+    .describe = w2_ai_describe,
+    .supply = w2_ai_supply,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &w2_ai_interface; }

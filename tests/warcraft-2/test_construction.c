@@ -302,11 +302,32 @@ static int test_computer_player(void) {
           workers[2]->harvest.resource_type == 0);
     for (int i = 0; i < 3; ++i) CHECK(workers[i]->harvest.phase == HARVEST_PHASE_TO_MINE);
     AiPlan plan = {0};
-    CHECK(ai->plan(&level, 1, AI_LEVEL_NORMAL, &plan) && plan.goal_count > 20 && plan.wave_min_size == 4);
+    CHECK(ai->plan(&level, 1, AI_LEVEL_NORMAL, &plan) && plan.goal_count >= 15 && plan.wave_min_size == 6);
     CHECK(plan.goals[0].product == W2_UI_TOWN_HALL && plan.goals[1].product == 3);
     AiPlan orc = {0};
     spawn(MT_PEON, 2, 16, 2);
     CHECK(ai->plan(&level, 2, AI_LEVEL_NORMAL, &orc) && orc.goals[0].product == W2_UI_GREAT_HALL && orc.goals[1].product == 4);
+    /* Orcs attack sooner and bolder; both rosters field their own side. */
+    CHECK(orc.doctrine.attack_ratio < plan.doctrine.attack_ratio &&
+          orc.doctrine.retreat_ratio < plan.doctrine.retreat_ratio && orc.wave_interval_ms < plan.wave_interval_ms);
+    CHECK(plan.doctrine.roster[2].product == 1 && orc.doctrine.roster[2].product == 2);
+    /* Roles come from the actors: farms feed, archers shoot up, footmen do not. */
+    AiContext ctx;
+    P_AiInit(&ctx);
+    P_AiAttachGame(&ctx, ai);
+    AiUnitInfo farm, archer, footman, worker;
+    P_AiUnitInfo(&ctx, MT_FARM, &farm);
+    P_AiUnitInfo(&ctx, MT_ARCHER, &archer);
+    P_AiUnitInfo(&ctx, MT_FOOTMAN, &footman);
+    P_AiUnitInfo(&ctx, MT_PEASANT, &worker);
+    CHECK((farm.roles & AI_ROLE_SUPPLY) && !(farm.roles & AI_ROLE_FIGHTER));
+    CHECK((archer.roles & (AI_ROLE_FIGHTER | AI_ROLE_HITS_AIR)) == (AI_ROLE_FIGHTER | AI_ROLE_HITS_AIR) &&
+          archer.air_strength > 0);
+    CHECK((footman.roles & AI_ROLE_HITS_GROUND) && !(footman.roles & AI_ROLE_HITS_AIR) &&
+          footman.ground_strength > 0 && footman.air_strength == 0);
+    CHECK((worker.roles & AI_ROLE_WORKER) && worker.ground_strength < footman.ground_strength);
+    int used = 0, cap = 0;
+    CHECK(ai->supply(1, &used, &cap) && used > 0);
     return 0;
 }
 
