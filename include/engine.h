@@ -2700,6 +2700,10 @@ enum {
 };
 
 bool P_HarvesterDocked(const mobj_t *unit);
+/* A harvester without a dock animation working its vent from the attachment
+ * point. Miners share the vent: nothing shoves them, and nothing routes or
+ * steers around them. */
+bool P_HarvesterSharingVent(const mobj_t *unit);
 /* Scales a harvested credit amount by the owner's 8.8 income_scale. */
 int P_ScaleIncome(const level_t *map, int owner, int amount);
 

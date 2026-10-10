@@ -93,6 +93,12 @@ bool sc_load_selection(const char *root, const blob_t *units, const blob_t *flin
 void sc_free_selection(void);
 void sc_draw_selection_circle(const unitoverlaycontext_t *ctx);
 void sc_draw_status_bars(const unitoverlaycontext_t *ctx);
+/* Terran workers cutting minerals: the swing every SC_WORK_PERIOD tics and the
+ * sparks it throws (bullet\scvspark.grp), drawn over the world. */
+enum { SC_WORK_PERIOD = 19 };
+bool sc_mining(const mobj_t *unit);
+void sc_load_work_spark(const char *root, const blob_t *images, const blob_t *names);
+void sc_draw_overlays(const unitoverlaycontext_t *ctx);
 void sc_asset_path(char *out, size_t size, const char *root, const char *name);
 bool sc_briefing(const char *path, char *text, size_t text_size, char *objectives, size_t objectives_size);
 /* MBRF actions in order (PyMS TRG.py briefing table). Text and wav are

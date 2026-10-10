@@ -19,14 +19,6 @@ static bool ground_mover(const mobj_t *unit) {
            (unit->traits & (MF_MOBILE | MF_FLY)) == MF_MOBILE;
 }
 
-/* Harvesters without a dock animation (retail Dark Colony) work a vent from its
- * attachment point and share it; nothing may shove them off it. */
-static bool mining_on_vent(const mobj_t *unit) {
-    return unit->info && !unit->info->harvest.unload_state_id &&
-           (unit->harvest.phase == HARVEST_PHASE_TURNING ||
-            unit->harvest.phase == HARVEST_PHASE_MINING);
-}
-
 bool P_ReplanUnit(const level_t *map, mobj_t *unit) {
     navpath_t path;
     fixed2_t position = fixed3_xy(unit->core.position);
@@ -88,7 +80,8 @@ fixed2_t P_SteerAvoid(const mobj_t *unit, fixed2_t direction, fixed_t step) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (const mobj_t *)th;
-        if (other == unit || !ground_mover(other) || P_HarvesterDocked(other)) continue;
+        if (other == unit || !ground_mover(other) || P_HarvesterDocked(other) ||
+            P_HarvesterSharingVent(other)) continue;
         fixed2_t rel = fixed2_sub(mobj_xy(other), position);
         fixed_t need = radius + P_MobjRadius(other) + FIXED_LIT(0.1);
         fixed_t look = need + FIXED_LIT(1.2);
@@ -167,7 +160,7 @@ void P_SeparateUnits(const level_t *map) {
                 }
                 bool docked_a = P_HarvesterDocked(a), docked_b = P_HarvesterDocked(b);
                 if (docked_a && docked_b) continue;
-                if (mining_on_vent(a) || mining_on_vent(b)) continue;
+                if (P_HarvesterSharingVent(a) || P_HarvesterSharingVent(b)) continue;
                 /* Whoever is going somewhere keeps most of its ground. */
                 bool moving_a = P_HasMoveOrder(a), moving_b = P_HasMoveOrder(b);
                 fixed_t share_a = moving_a == moving_b ? FIXED_LIT(0.5) :
