@@ -1,0 +1,15 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ifdefs:
+    name: Shared code names no game
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail on RTS_GAME_ outside games/ and tests/
+        run: make check-ifdefs

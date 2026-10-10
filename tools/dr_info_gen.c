@@ -776,7 +776,6 @@ static bool write_info_c(const char *path, const dr_entry_t *entries, int count)
                "    sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES,\n"
                "    S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,\n"
                "    { .style = SELECTION_STYLE_BRACKETS },\n    NULL,\n"
-               "    .right_click_orders = false,\n"
                "    .harvest_dropoff_matches = DR_HarvestDropoffMatches,\n};\n");
 
     return fclose(f) == 0;

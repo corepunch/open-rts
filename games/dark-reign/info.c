@@ -1393,6 +1393,5 @@ const gameinfo_t game_info = {
     S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,
     { .style = SELECTION_STYLE_BRACKETS },
     NULL,
-    .right_click_orders = false,
     .harvest_dropoff_matches = DR_HarvestDropoffMatches,
 };

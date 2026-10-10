@@ -1,14 +1,5 @@
 #include "engine.h"
 #include <limits.h>
-#ifdef RTS_GAME_WARCRAFT_2
-#include "warcraft-2.h"
-#endif
-#ifdef RTS_GAME_DARK_COLONY
-#include "dark-colony.h"
-#endif
-#ifdef RTS_GAME_STARCRAFT
-#include "starcraft.h"
-#endif
 
 enum { MAXPENDINGCOMMANDS = 64 };
 static ticcmd_t pending[MAXPENDINGCOMMANDS];
@@ -22,7 +13,8 @@ void G_ClearTiccmds(void) {
 }
 
 bool G_QueueTiccmd(const ticcmd_t *cmd) {
-    if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_MAX) return false;
+    if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_MAX ||
+        cmd->order == TC_RESYNC) return false;
     if (cmd->order == TC_PATH && (cmd->path.count < 1 || cmd->path.count > MAXWAYPOINTS ||
                                  (unsigned)cmd->path.mode > WP_ONCE)) return false;
     if (!netactive) { G_RunTiccmd(consoleplayer, cmd); return true; }
@@ -62,8 +54,8 @@ static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
 }
 
 bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
-                     fvec2_t position, uint32_t target) {
-    ticcmd_t cmd = { .order = order, .position = fixed3_from_fvec2(position, 0), .target = target };
+                     fixed2_t position, uint32_t target) {
+    ticcmd_t cmd = { .order = order, .position = fixed3_from_fixed2(position, 0), .target = target };
     return selected_command(&cmd, units, count);
 }
 
@@ -87,7 +79,7 @@ bool G_BuildOrder(mobj_t *producer, int product) {
 bool G_ConstructOrder(mobj_t *builder, int type, ivec2_t cell) {
     if (!builder || builder->owner != consoleplayer || type < 0) return false;
     ticcmd_t cmd = { .order = TC_CONSTRUCT, .product = type, .count = 1, .units = { builder->id },
-                     .position = fixed3_from_fvec2(fvec2_cell_center(cell), 0) };
+                     .position = fixed3_from_fixed2(fixed2_cell_center(cell), 0) };
     return G_QueueTiccmd(&cmd);
 }
 
@@ -98,7 +90,7 @@ bool G_CancelConstructionOrder(mobj_t *site) {
 }
 
 void G_RunTiccmd(int player, const ticcmd_t *cmd) {
-    if (!cmd || cmd->order == TC_NONE || (unsigned)cmd->order > TC_MAX || cmd->count > MAXCOMMANDUNITS ||
+    if (!cmd || cmd->order == TC_NONE || cmd->order == TC_RESYNC || (unsigned)cmd->order > TC_MAX || cmd->count > MAXCOMMANDUNITS ||
         player < 0 || player >= RTS_MODEL_MAX_PLAYERS) return;
     if (cmd->order == TC_PATH) {
         if (cmd->path.count < 1 || cmd->path.count > MAXWAYPOINTS ||
@@ -120,26 +112,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         if (!netgame || player == 0) D_SetGameSpeed(cmd->product);
         return;
     }
-#ifdef RTS_GAME_DARK_COLONY
-    if (cmd->order == TC_ALLY || cmd->order == TC_SHARE_SIGHT) {
-        DC_SetAlliance(player, cmd->target, cmd->order == TC_SHARE_SIGHT, cmd->product != 0);
-        return;
-    }
-    if (cmd->order == TC_GIVE) {
-        if (cmd->target < 8 && cmd->target != (unsigned)player &&
-            DC_PlayerActive(cmd->target) && level.player_resources[player][0] > 1000 &&
-            level.player_resources[cmd->target][0] <= INT_MAX - 1000) {
-            level.player_resources[player][0] -= 1000;
-            level.player_resources[cmd->target][0] += 1000;
-        }
-        return;
-    }
-    if (cmd->order == TC_PURCHASE) {
-        DC_SelectPurchase(player, cmd->product, cmd->target != 0);
-        return;
-    }
-    if (cmd->order == TC_SUBMIT) { DC_SubmitPurchases(player); return; }
-#endif
+    if (G_GameCommand(player, cmd)) return;
     mobj_t *units[MAXCOMMANDUNITS], *target = NULL;
     int count = 0;
     /* Resolve in thinker order, never in UI selection order or by array index. */
@@ -149,9 +122,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         if (unit->remove || unit->hp <= 0) continue;
         if (unit->id == cmd->target) target = unit;
         if (unit->owner != player) continue;
-#ifdef RTS_GAME_WARCRAFT_2
-        if (unit->w2.boarded) continue;
-#endif
+        if (!G_UnitCommandable(unit)) continue;
         for (unsigned i = 0; i < cmd->count; ++i) {
             if (unit->id != cmd->units[i]) continue;
             units[count++] = unit;
@@ -159,66 +130,14 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
-#ifdef RTS_GAME_STARCRAFT
-    if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK || cmd->order == TC_ORDER ||
-        cmd->order == TC_PATH || cmd->order == TC_HARVEST || cmd->order == TC_WAYPOINT)
-        for (int i = 0; i < count; ++i) sc_interrupt(units[i]);
-    if (sc_order(cmd->order, units, count, cmd->product, target, fixed3_xy_to_fvec2(cmd->position))) return;
-#endif
-#ifndef RTS_GAME_WARCRAFT_2
+    if (G_GameUnitCommand(player, cmd, units, count, target)) return;
     if (cmd->order == TC_CONSTRUCT) {
         const StaticProductDefinition *product = G_ModelProductByUIId(NULL, cmd->product);
         ivec2_t cell = {cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS};
         G_PlaceProduct(units[0], product, cell);
         return;
     }
-#endif
-#ifdef RTS_GAME_WARCRAFT_2
-    if (cmd->order == TC_CANCEL_PRODUCTION) {
-        for (int i = 0; i < count; ++i) W2_CancelProduction(units[i]);
-        return;
-    }
-    if (cmd->order == TC_BOARD || cmd->order == TC_UNLOAD) {
-        for (int i = 0; i < count; ++i) {
-            if (cmd->order == TC_BOARD) W2_BoardOrder(units[i], target);
-            else W2_UnloadOrder(units[i], fixed3_xy_to_fvec2(cmd->position));
-        }
-        return;
-    }
-    if (cmd->order == TC_SPELL) {
-        for (int i = 0; i < count; ++i) W2_CastOrder(units[i], cmd->product, target, cmd->position);
-        return;
-    }
-    if (cmd->order == TC_REPAIR) {
-        for (int i = 0; i < count; ++i) W2_RepairOrder(units[i], target);
-        return;
-    }
-    if (cmd->order == TC_STAND_GROUND) {
-        ticcmd_t stop = *cmd;
-        stop.order = TC_STOP;
-        G_RunTiccmd(player, &stop);
-        for (int i = 0; i < count; ++i) units[i]->w2.stand_ground = true;
-        return;
-    }
-    if (cmd->order == TC_RETURN_GOODS) {
-        for (int i = 0; i < count; ++i) W2_ReturnGoods(units[i]);
-        return;
-    }
-    if (cmd->order == TC_CONSTRUCT) {
-        if (cmd->product == 0) {
-            for (int i = 0; i < count; ++i) W2_CancelConstruction(units[i]);
-            return;
-        }
-        ivec2_t cell = {cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS};
-        if (cmd->product > 0 && cmd->product <= UINT16_MAX)
-            W2_ConstructOrder(units[0], (uint16_t)cmd->product, cell);
-        return;
-    }
-#endif
-    if (cmd->order == TC_CONSTRUCT) return;
-#ifndef RTS_GAME_WARCRAFT_2
-    if (cmd->order >= TC_REPAIR) return;
-#endif
+    if (cmd->order >= TC_REPAIR) return; /* Orders only a game's hook understands. */
     if (cmd->order == TC_ATTACK) {
         bool eligible = false;
         for (int i = 0; i < count; ++i) eligible |= P_CanTarget(units[i], target);
@@ -227,17 +146,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     if ((cmd->order == TC_MOVE || cmd->order == TC_ORDER || cmd->order == TC_HARVEST) &&
         !L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS,
                     cmd->position.y >> FIXED_FRAC_BITS)) return;
-#ifdef RTS_GAME_WARCRAFT_2
-    if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK ||
-        cmd->order == TC_PATH || cmd->order == TC_WAYPOINT)
-        for (int i = 0; i < count; ++i) {
-            W2_InterruptRepair(units[i]); W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]);
-            units[i]->w2.stand_ground = false;
-            units[i]->w2.cast.spell = 0;
-            if (!units[i]->w2.boarded) units[i]->w2.carrier = 0;
-            units[i]->w2.unloading = false;
-        }
-#endif
+    G_InterruptOrders(cmd, units, count, false);
     if (cmd->order == TC_MODE) {
         for (int i = 0; i < count; ++i) {
             units[i]->move_only = cmd->target != 0;
@@ -268,7 +177,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
                 P_ClearMove(actor);
                 actor->movement.order_id = 0;
                 actor->movement.order_arrived = false;
-                P_MoveUnitTo(&level, actor, fvec2_cell_center(actor->waypoints.points[0]));
+                P_MoveUnitTo(&level, actor, fixed2_cell_center(actor->waypoints.points[0]));
             }
         }
         return;
@@ -279,7 +188,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         for (int i = 0; i < count; ++i) P_Deploy(units[i]);
         return;
     }
-    fvec2_t goal = fixed3_xy_to_fvec2(cmd->position);
+    fixed2_t goal = fixed3_xy(cmd->position);
     if (cmd->order == TC_BUILD) {
         const StaticProductDefinition *product = G_ModelProductByUIId(NULL, cmd->product);
         G_PlayerBuildProduct(units[0], product);
@@ -289,7 +198,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         for (int i = 0; i < count; ++i) {
             mobj_t *unit = units[i];
             P_ClearMove(unit);
-            unit->movement.goal = fixed3_xy_to_fvec2(unit->core.position);
+            unit->movement.goal = fixed3_xy(unit->core.position);
             unit->movement.order_id = 0;
             unit->movement.order_arrived = true;
             unit->attack.target = NULL;
@@ -301,7 +210,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         return;
     }
     if (cmd->order == TC_ATTACK) {
-        goal = fixed3_xy_to_fvec2(target->core.position);
+        goal = fixed3_xy(target->core.position);
     } else {
         target = NULL;
         if (cmd->order == TC_HARVEST || cmd->order == TC_ORDER) {
@@ -311,18 +220,9 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     }
     if (!L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS,
                    cmd->position.y >> FIXED_FRAC_BITS) && cmd->order != TC_ATTACK) return;
-#ifdef RTS_GAME_WARCRAFT_2
-    if (cmd->order == TC_ORDER)
-        for (int i = 0; i < count; ++i) {
-            W2_InterruptRepair(units[i]); W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]);
-            units[i]->w2.stand_ground = false;
-            units[i]->w2.cast.spell = 0;
-            if (!units[i]->w2.boarded) units[i]->w2.carrier = 0;
-            units[i]->w2.unloading = false;
-        }
-#endif
+    G_InterruptOrders(cmd, units, count, true);
     for (int i = 0; i < count; ++i) {
-        if (gameinfo && gameinfo->right_click_orders)
+        if (R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS)
             units[i]->move_only = cmd->order == TC_MOVE;
         units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;
         units[i]->harvest.target = -1;
@@ -333,43 +233,41 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     P_MoveUnitsAt(&level, units, count, goal);
 }
 
-static uint32_t hash_value(uint32_t hash, uint32_t value) {
+uint32_t G_HashValue(uint32_t hash, uint32_t value) {
     for (int i = 0; i < 4; ++i) { hash = (hash ^ (value & 255)) * UINT32_C(16777619); value >>= 8; }
     return hash;
 }
+#define hash_value G_HashValue
 
-/* Doom samples mo->x or rndindex. Include every mobj and the RTS economy;
- * local selection, fog exploration, render caches and pointers are excluded. */
-uint32_t G_Consistency(void) {
-    uint32_t hash = UINT32_C(2166136261);
+const char *const g_consistency_names[CONSISTENCY_COUNT] = {
+    "globals", "resources", "upgrades", "thinkers", "game"
+};
+
+/* Doom samples mo->x or rndindex. Hash every mobj and the RTS economy, one
+ * subsystem at a time so a mismatch can say where it started; local
+ * selection, fog exploration, render caches and pointers are excluded. */
+void G_ConsistencyVector(uint32_t out[CONSISTENCY_COUNT]) {
+    uint32_t hash;
+#define BEGIN() hash = UINT32_C(2166136261)
 #define HASH(v) hash = hash_value(hash, (uint32_t)(v))
+    BEGIN();
     HASH(leveltime); HASH(paused); HASH(game_speed); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
-#ifdef RTS_GAME_WARCRAFT_2
-    HASH(W2_CombatState());
-    for (int p = 0; p < 8; ++p) { HASH(level.w2_research[p]); HASH(level.w2_research[p] >> 32); }
-#endif
+    out[CONSISTENCY_GLOBALS] = hash;
+    BEGIN();
     for (int p = 0; p < RTS_MODEL_MAX_PLAYERS; ++p)
         for (int r = 0; r < RTS_MAX_RESOURCES; ++r) HASH(level.player_resources[p][r]);
-#ifdef RTS_GAME_DARK_COLONY
-    for (int p = 0; p < 8; ++p) {
-        HASH(level.peace[p]); HASH(level.sight.allies[p]);
-        HASH(level.alliance_offers[0][p]); HASH(level.alliance_offers[1][p]);
+    for (int i = 0; i < level.resource_vent_count; ++i) {
+        HASH(level.resource_vents[i].amount); HASH(level.resource_vents[i].active);
     }
-    for (int owner = 0; owner < 8; ++owner) HASH(level.exo_income[owner]);
-    for (int owner = 0; owner < 8; ++owner)
-        for (int row = 0; row < 110; ++row) {
-            HASH(level.purchases[owner][row].selected);
-            HASH(level.purchases[owner][row].queued);
-        }
-#endif
+    out[CONSISTENCY_RESOURCES] = hash;
+    BEGIN();
     for (int type = 0; type < RTS_MAX_UPGRADE_TYPES; ++type)
         for (int owner = 0; owner < 8; ++owner) {
             HASH(level.upgrades[type][owner].weapon);
             HASH(level.upgrades[type][owner].armor);
         }
-    for (int i = 0; i < level.resource_vent_count; ++i) {
-        HASH(level.resource_vents[i].amount); HASH(level.resource_vents[i].active);
-    }
+    out[CONSISTENCY_UPGRADES] = hash;
+    BEGIN();
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         const mobj_t *u = (mobj_t *)th;
         HASH(u->id); HASH(u->type_id); HASH(u->owner); HASH(u->team); HASH(u->allegiance);
@@ -395,10 +293,9 @@ uint32_t G_Consistency(void) {
         HASH(u->attack.shots);
         HASH(u->harvest.target); HASH(u->harvest.phase); HASH(u->harvest.timer_ms); HASH(u->harvest.cargo);
         HASH(u->harvest.resource_type); HASH(u->harvest.base ? u->harvest.base->id : 0);
-        fixed3_t bay = fixed3_from_fvec2(u->harvest.return_position, 0);
-        HASH(bay.x); HASH(bay.y);
-        fixed3_t goal = fixed3_from_fvec2(u->movement.goal, 0);
-        HASH(goal.x); HASH(goal.y); HASH(u->movement.order_id); HASH(u->movement.order_arrived);
+        HASH(u->harvest.return_position.x); HASH(u->harvest.return_position.y);
+        HASH(u->speed); HASH(u->radius);
+        HASH(u->movement.goal.x); HASH(u->movement.goal.y); HASH(u->movement.order_id); HASH(u->movement.order_arrived);
         if (u->production) {
             HASH(u->production->actor_id); HASH(u->production->queue_count);
             HASH(u->production->time_left_ms); HASH(u->production->release_active);
@@ -407,7 +304,17 @@ uint32_t G_Consistency(void) {
             HASH(u->production->cell.x); HASH(u->production->cell.y);
         }
     }
+    out[CONSISTENCY_THINKERS] = hash;
+    /* The map's ruleset patch changes what the tables say, so it is hashed too. */
+    out[CONSISTENCY_GAME] = R_PatchHash(G_ConsistencyExtra(UINT32_C(2166136261)));
+#undef BEGIN
 #undef HASH
+}
+
+uint32_t G_Consistency(void) {
+    uint32_t parts[CONSISTENCY_COUNT], hash = UINT32_C(2166136261);
+    G_ConsistencyVector(parts);
+    for (int i = 0; i < CONSISTENCY_COUNT; ++i) hash = hash_value(hash, parts[i]);
     return hash;
 }
 

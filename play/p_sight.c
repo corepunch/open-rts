@@ -1,7 +1,4 @@
 #include "engine.h"
-#ifdef RTS_GAME_WARCRAFT_2
-#include "warcraft-2.h"
-#endif
 #include "p_sight_data.h"
 #include <stdlib.h>
 
@@ -23,7 +20,7 @@ static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborn
      * footprint, including near-only cells, without scanning every object
      * from every visited tile. Current sight remains in bits 23..30. */
     if (detector) explored |= mask >> 23;
-    if (gameinfo && gameinfo->radial_sight) {
+    if (R_Policy()->sight == SIGHT_RADIAL) {
         /* Stratagus ProceedSimpleRadial: a cell is inside when
          * dx^2 + dy^2 < (radius + 1)^2. The Dark Colony ray table stops at
          * radius^2 and keeps only (0, ±radius) and (±radius, 0) on each axis.
@@ -81,10 +78,7 @@ void P_UpdateSight(void) {
         if (actor->remove || actor->hp <= 0 || !actor->info || actor->team >= 8) continue;
         int radius = (level.daylight.weight * actor->info->sight.night +
                       (256 - level.daylight.weight) * actor->info->sight.day) >> 8;
-#ifdef RTS_GAME_WARCRAFT_2
-        if (actor->w2.boarded) continue;
-        radius = W2_SightRange(actor);
-#endif
+        if (!G_SightRadius(actor, &radius)) continue;
         /* Engine default for games whose sight stats have not yet been ported. */
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
@@ -95,9 +89,8 @@ void P_UpdateSight(void) {
         isize2_t foot = actor->info->footprint;
         if (actor->info->sight_from_footprint && foot.w > 0 && foot.h > 0) {
             /* Warcraft measures sight from the building's edge. */
-            fvec2_t centre = fixed3_xy_to_fvec2(actor->core.position);
-            ivec2_t corner = {(int)floorf(centre.x - foot.w * 0.5f + 0.001f),
-                              (int)floorf(centre.y - foot.h * 0.5f + 0.001f)};
+            fixed2_t centre = fixed3_xy(actor->core.position);
+            ivec2_t corner = fixed2_footprint_corner(centre, foot);
             for (int y = 0; y < foot.h; ++y)
                 for (int x = 0; x < foot.w; ++x) {
                     ivec2_t cell = {corner.x + x, corner.y + y};
@@ -139,9 +132,7 @@ static bool cloaked_from(const mobj_t *mobj, int owner, int team) {
 
 bool P_VisibleToPlayer(const mobj_t *mobj) {
     if (!mobj || mobj->remove || P_MobjIsHidden(mobj)) return false;
-#ifdef RTS_GAME_WARCRAFT_2
-    if (!W2_VisibleTo(mobj, consoleplayer)) return false;
-#endif
+    if (!G_ViewerSees(mobj, consoleplayer, consoleplayer)) return false;
     if (cloaked_from(mobj, consoleplayer, consoleplayer)) return false;
     if (!level.sight.cells) return true;
     return (object_sight(mobj) & level.sight.allies[consoleplayer]) != 0;
@@ -149,9 +140,7 @@ bool P_VisibleToPlayer(const mobj_t *mobj) {
 
 bool P_VisibleTo(const mobj_t *observer, const mobj_t *target) {
     if (!target || target->remove) return false;
-#ifdef RTS_GAME_WARCRAFT_2
-    if (!observer || !W2_VisibleTo(target, observer->owner)) return false;
-#endif
+    if (!G_ViewerSees(target, observer ? observer->owner : -1, observer ? observer->team : 8)) return false;
     if (observer && cloaked_from(target, observer->owner, observer->team)) return false;
     if (!level.sight.cells) return true;
     return observer && observer->team < 8 &&

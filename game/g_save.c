@@ -25,11 +25,6 @@ typedef struct {
     uint32_t vision[8], next_id, next_order;
     uint16_t income_scale[8];
     uint8_t upgrades[sizeof(level.upgrades)];
-#ifdef RTS_GAME_DARK_COLONY
-    uint8_t offers[2][8], purchases[sizeof(level.purchases)];
-    uint32_t peace[8];
-    int exo_income[8];
-#endif
     size_t extra_size;
     AiContext ai;
     hudtext_t hud;
@@ -70,18 +65,16 @@ static bool save_signature(const char *path, uint32_t *signature) {
     if (!W_ReadFile(path, &file)) return false;
     uint32_t hash = checksum(file.bytes, file.size);
     W_FreeFile(&file);
-    int shape[] = {num_actor_types, gameinfo ? gameinfo->state_count : 0, (int)sizeof(mobj_t)
-#ifdef RTS_GAME_7LEGION
-        , 1 /* Native column-major grids; reject older row-major save bodies. */
-#endif
-    };
-    *signature = (hash ^ checksum(shape, sizeof(shape))) * UINT32_C(16777619);
+    int shape[] = {num_actor_types, gameinfo ? gameinfo->state_count : 0, (int)sizeof(mobj_t),
+                   (int)G_SaveLayout()};
+    /* A game with a plain layout keeps the signature older saves carry. */
+    size_t shape_size = G_SaveLayout() ? sizeof(shape) : sizeof(shape) - sizeof(int);
+    *signature = (hash ^ checksum(shape, shape_size)) * UINT32_C(16777619);
     return true;
 }
 
-static bool read_save(const char *path, blob_t *file, save_t *save) {
-    if (!W_ReadFile(path, file)) return false;
-    if (file->size < sizeof(*save)) goto fail;
+static bool parse_save(const blob_t *file, save_t *save) {
+    if (file->size < sizeof(*save)) return false;
     memcpy(save, file->bytes, sizeof(*save));
     if (memcmp(save->magic, "ORTSV1", 7) || save->version != 1 ||
         save->header_size != sizeof(*save) || save->object_size != sizeof(savedmobj_t) ||
@@ -126,9 +119,15 @@ static bool read_save(const char *path, blob_t *file, save_t *save) {
         }
     }
     uint32_t signature;
-    if (!save_signature(save->info.map, &signature) || signature != save->signature) goto fail;
+    if (!save_signature(save->info.map, &signature) || signature != save->signature) return false;
     return true;
 fail:
+    return false;
+}
+
+static bool read_save(const char *path, blob_t *file, save_t *save) {
+    if (!W_ReadFile(path, file)) return false;
+    if (parse_save(file, save)) return true;
     W_FreeFile(file);
     return false;
 }
@@ -142,9 +141,10 @@ bool G_SaveInfo(const char *path, saveinfo_t *info) {
     return true;
 }
 
-bool G_SaveGame(const char *path, const char *name, const app_t *app,
-                const AiContext *ai, const hudtext_t *hud) {
-    if (netgame || !level.map_path[0] || !level.blocked || !level.sight.cells) return false;
+/* The whole save, header and body, in one allocation the caller frees. */
+bool G_SaveGameBlob(void **data, size_t *length, const char *name, const app_t *app,
+                    const AiContext *ai, const hudtext_t *hud) {
+    if (!level.map_path[0] || !level.blocked || !level.sight.cells) return false;
     save_t save = {.magic = "ORTSV1", .version = 1, .header_size = sizeof(save),
         .object_size = sizeof(savedmobj_t), .width = level.width, .height = level.height,
         .time = leveltime, .speed = game_speed, .vents = level.resource_vent_count,
@@ -160,12 +160,6 @@ bool G_SaveGame(const char *path, const char *name, const app_t *app,
     memcpy(save.income_scale, level.income_scale, sizeof(save.income_scale));
     memcpy(save.vision, level.sight.allies, sizeof(save.vision));
     memcpy(save.upgrades, level.upgrades, sizeof(save.upgrades));
-#ifdef RTS_GAME_DARK_COLONY
-    memcpy(save.offers, level.alliance_offers, sizeof(save.offers));
-    memcpy(save.peace, level.peace, sizeof(save.peace));
-    memcpy(save.exo_income, level.exo_income, sizeof(save.exo_income));
-    memcpy(save.purchases, level.purchases, sizeof(save.purchases));
-#endif
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) ++save.objects;
     size_t cells = (size_t)level.width * level.height;
     size_t size = cells * 5 + (size_t)save.vents * sizeof(resourcevent_t) +
@@ -195,12 +189,26 @@ bool G_SaveGame(const char *path, const char *name, const app_t *app,
     }
     if (save.extra_size) G_SaveExtra(next);
     save.checksum = checksum(&save, sizeof(save)) ^ checksum(body, size);
+    uint8_t *whole = realloc(body, sizeof(save) + size);
+    if (!whole) { free(body); return false; }
+    memmove(whole + sizeof(save), whole, size);
+    memcpy(whole, &save, sizeof(save));
+    *data = whole;
+    *length = sizeof(save) + size;
+    return true;
+}
+
+bool G_SaveGame(const char *path, const char *name, const app_t *app,
+                const AiContext *ai, const hudtext_t *hud) {
+    void *whole;
+    size_t length;
+    if (netgame || !G_SaveGameBlob(&whole, &length, name, app, ai, hud)) return false;
     char temporary[1280];
     snprintf(temporary, sizeof(temporary), "%s.tmp", path);
     FILE *file = fopen(temporary, "wb");
-    bool ok = file && fwrite(&save, sizeof(save), 1, file) == 1 && fwrite(body, size, 1, file) == 1;
+    bool ok = file && fwrite(whole, length, 1, file) == 1;
     if (file && fclose(file)) ok = false;
-    free(body);
+    free(whole);
     if (ok && !rename(temporary, path)) return true;
     remove(temporary);
     return false;
@@ -211,10 +219,10 @@ static mobj_t *reference(mobj_t **objects, int count, uint32_t id) {
     return NULL;
 }
 
-bool G_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud) {
-    blob_t file;
+bool G_LoadGameBlob(const void *data, size_t length, app_t *app, AiContext *ai, hudtext_t *hud) {
+    blob_t file = {.bytes = (uint8_t *)data, .size = length};
     save_t save;
-    if (netgame || !read_save(path, &file, &save)) return false;
+    if (!parse_save(&file, &save)) return false;
     bool ok = false;
     size_t cells = (size_t)save.width * save.height;
     const uint8_t *next = file.bytes + sizeof(save) + cells * 5;
@@ -267,12 +275,6 @@ bool G_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud) {
     memcpy(level.income_scale, save.income_scale, sizeof(save.income_scale));
     memcpy(level.sight.allies, save.vision, sizeof(save.vision));
     memcpy(level.upgrades, save.upgrades, sizeof(save.upgrades));
-#ifdef RTS_GAME_DARK_COLONY
-    memcpy(level.alliance_offers, save.offers, sizeof(save.offers));
-    memcpy(level.peace, save.peace, sizeof(save.peace));
-    memcpy(level.exo_income, save.exo_income, sizeof(save.exo_income));
-    memcpy(level.purchases, save.purchases, sizeof(save.purchases));
-#endif
     *ai = save.ai;
     P_AiAttachGame(ai, G_AiInterface());
     *hud = save.hud;
@@ -284,6 +286,47 @@ done:
         free(objects[i]);
     }
     free(objects); free(vents);
+    return ok;
+}
+
+bool G_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud) {
+    blob_t file;
+    if (netgame || !W_ReadFile(path, &file)) return false;
+    bool ok = G_LoadGameBlob(file.bytes, file.size, app, ai, hud);
     W_FreeFile(&file);
+    return ok;
+}
+
+/* Network resync: the authority's save replaces this peer's game, but the
+ * camera, the HUD messages and what this player has selected stay local. */
+bool G_ResyncSave(void **data, size_t *length, const app_t *app,
+                  const AiContext *ai, const hudtext_t *hud) {
+    return G_SaveGameBlob(data, length, "resync", app, ai, hud);
+}
+
+bool G_ResyncLoad(const void *data, size_t length, app_t *app, AiContext *ai, hudtext_t *hud) {
+    int selected = 0, capacity = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && P_MobjIsSelected((mobj_t *)th)) ++capacity;
+    uint32_t *ids = calloc((size_t)capacity + 1, sizeof(*ids));
+    if (!ids) return false;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap && selected < capacity; th = th->next)
+        if (th->function == P_MobjThinker && P_MobjIsSelected((mobj_t *)th))
+            ids[selected++] = ((mobj_t *)th)->id;
+    fvec2_t camera = app->cam;
+    hudtext_t messages = *hud;
+    bool ok = G_LoadGameBlob(data, length, app, ai, hud);
+    if (ok) {
+        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *unit = (mobj_t *)th;
+            bool keep = false;
+            for (int i = 0; i < selected && !keep; ++i) keep = ids[i] == unit->id;
+            P_MobjSetSelected(unit, keep);
+        }
+        app->cam = camera;
+        *hud = messages;
+    }
+    free(ids);
     return ok;
 }

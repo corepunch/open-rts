@@ -4,7 +4,6 @@
 /* Doom p_saveg.c: archive thinkers, reconstruct their functions and info from
  * tables, then link individually allocated mobjs. IDs preserve RTS references.
  * These versioned engine saves are deliberately distinct from retail saves. */
-char dc_savefile[1200], dc_loadfile[1200], dc_savename[33];
 
 typedef struct {
     char magic[8];

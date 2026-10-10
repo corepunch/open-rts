@@ -890,7 +890,8 @@ const gameinfo_t game_info = {
     RTS_STATE_COORDS_FIN_TOP_LEFT,
     { .style = SELECTION_STYLE_SPRITE, .image = "INTRFACE/CLIENT.SPR" },
     DC_DrawUnitOverlays,
-    .right_click_orders = false,
+    .shadow_detail_min = 2, /* DC.EXE 0x432ac0 -> 0x45c7e3/0x45cc34 */
+    .blend_detail_min = 1,  /* DC.EXE 0x432ac0 -> 0x45d0c0 */
     .random_table = dc_random_table,
     .game_speed = 100, /* Retail Options default: 66 ms per tick, range 10..200. */
 };

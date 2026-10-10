@@ -2,6 +2,7 @@
 #define __ENGINE__
 
 #include <SDL.h>
+#include "fixed.h"
 #include <limits.h>
 #include <math.h>
 #include <stdbool.h>
@@ -13,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include "game_config.h" /* per-game build shape: RTS_MODULE_*, level fields */
 
 
 typedef struct { int x, y; }   ivec2_t;
@@ -22,9 +24,9 @@ enum { NAV_MAX_WAYPOINTS = 64 };
 
 /* Waypoints in world cells, produced by P_NavPlan and owned by one mobj. */
 typedef struct {
-    fvec2_t points[NAV_MAX_WAYPOINTS];
+    fixed2_t points[NAV_MAX_WAYPOINTS];
     int count, current;
-    fvec2_t goal;  /* Resolved goal: the request, or the nearest reachable spot. */
+    fixed2_t goal;  /* Resolved goal: the request, or the nearest reachable spot. */
     bool complete; /* The last point is the goal; otherwise replan when consumed. */
 } navpath_t;
 typedef struct { int w, h; }   isize2_t;
@@ -45,6 +47,8 @@ static inline isize2_t isize2_max(isize2_t a, isize2_t b) {
     return (isize2_t){ a.w > b.w ? a.w : b.w, a.h > b.h ? a.h : b.h };
 }
 
+/* fvec2_t is presentation only (camera, sprites, audio). Simulation positions
+ * are fixed2_t (16.16, fixed.h). */
 static inline fvec2_t fvec2_add(fvec2_t a, fvec2_t b) { return (fvec2_t){ a.x + b.x, a.y + b.y }; }
 static inline fvec2_t fvec2_sub(fvec2_t a, fvec2_t b) { return (fvec2_t){ a.x - b.x, a.y - b.y }; }
 static inline fvec2_t fvec2_scale(fvec2_t value, float scale) {
@@ -55,11 +59,6 @@ static inline float fvec2_length_squared(fvec2_t value) {
 }
 static inline float fvec2_distance_squared(fvec2_t a, fvec2_t b) {
     return fvec2_length_squared(fvec2_sub(a, b));
-}
-static inline bool fvec2_near(fvec2_t a, fvec2_t b, float epsilon) {
-    fvec2_t delta = fvec2_sub(a, b);
-    return delta.x > -epsilon && delta.x < epsilon &&
-           delta.y > -epsilon && delta.y < epsilon;
 }
 static inline fvec2_t fvec2_cell_center(ivec2_t cell) {
     return (fvec2_t){ (float)cell.x + 0.5f, (float)cell.y + 0.5f };
@@ -109,10 +108,58 @@ static inline fixed_t fixed_sub_saturated(fixed_t a, fixed_t b) {
     return (fixed_t)difference;
 }
 
-static inline fixed3_t fixed3_from_fvec2(fvec2_t value, fixed_t z) {
-    return (fixed3_t){ fixed_from_float(value.x), fixed_from_float(value.y), z };
+/* Whole cell to 16.16 and back (floor). */
+#define FIXED_FROM_INT(n) ((fixed_t)((int32_t)(n) * FIXED_ONE))
+static inline int fixed_floor_int(fixed_t v) { return (int)(v >> FIXED_FRAC_BITS); }
+static inline int fixed_ceil_int(fixed_t v) { return (int)((v + (FIXED_ONE - 1)) >> FIXED_FRAC_BITS); }
+static inline fixed_t fixed_abs(fixed_t v) { return v < 0 ? -v : v; }
+static inline fixed_t fixed_min(fixed_t a, fixed_t b) { return a < b ? a : b; }
+static inline fixed_t fixed_max(fixed_t a, fixed_t b) { return a > b ? a : b; }
+/* Square of a 16.16 value, 32.32. */
+static inline int64_t fixed_sq64(fixed_t v) { return (int64_t)v * v; }
+
+static inline fixed2_t fixed2_cell_center(ivec2_t cell) {
+    return (fixed2_t){ FIXED_FROM_INT(cell.x) + FIXED_ONE / 2, FIXED_FROM_INT(cell.y) + FIXED_ONE / 2 };
+}
+static inline fixed2_t fixed2_from_cell(ivec2_t cell) {
+    return (fixed2_t){ FIXED_FROM_INT(cell.x), FIXED_FROM_INT(cell.y) };
+}
+static inline ivec2_t fixed2_cell(fixed2_t v) {
+    return (ivec2_t){ fixed_floor_int(v.x), fixed_floor_int(v.y) };
+}
+/* Top-left cell of a w x h footprint centred on `centre` (the 0.001 absorbs
+ * 16.16 rounding of authored half-cell centres). */
+static inline ivec2_t fixed2_footprint_corner(fixed2_t centre, isize2_t foot) {
+    return (ivec2_t){ fixed_floor_int(centre.x - foot.w * (FIXED_ONE / 2) + FIXED_LIT(0.001)),
+                      fixed_floor_int(centre.y - foot.h * (FIXED_ONE / 2) + FIXED_LIT(0.001)) };
+}
+/* Cell holding the top-left corner of a footprint centred on `centre`. */
+static inline ivec2_t fixed2_foot_origin_cell(fixed2_t centre, isize2_t foot) {
+    return fixed2_cell((fixed2_t){ centre.x - foot.w * (FIXED_ONE / 2), centre.y - foot.h * (FIXED_ONE / 2) });
+}
+static inline int64_t fixed2_distance_squared64(fixed2_t a, fixed2_t b) { /* 32.32 */
+    return fixed2_length_squared64(fixed2_sub(a, b));
+}
+/* True when both axes differ by less than epsilon (16.16). */
+static inline bool fixed2_near(fixed2_t a, fixed2_t b, fixed_t epsilon) {
+    fixed2_t d = fixed2_sub(a, b);
+    return d.x > -epsilon && d.x < epsilon && d.y > -epsilon && d.y < epsilon;
+}
+static inline bool fixed2_equal(fixed2_t a, fixed2_t b) { return a.x == b.x && a.y == b.y; }
+/* Presentation boundary: simulation fixed -> screen/audio float. */
+static inline fvec2_t fvec2_from_fixed2(fixed2_t v) {
+    return (fvec2_t){ (float)v.x / (float)FIXED_ONE, (float)v.y / (float)FIXED_ONE };
+}
+/* Input boundary: UI-computed float position -> simulation fixed. Only the
+ * UI/command-issue side may call this; the simulation never does. */
+static inline fixed2_t fixed2_from_fvec2(fvec2_t v) {
+    return (fixed2_t){ fixed_from_float(v.x), fixed_from_float(v.y) };
 }
 
+static inline fixed3_t fixed3_from_fixed2(fixed2_t value, fixed_t z) {
+    return (fixed3_t){ value.x, value.y, z };
+}
+static inline fixed2_t fixed3_xy(fixed3_t value) { return (fixed2_t){ value.x, value.y }; }
 static inline fvec2_t fixed3_xy_to_fvec2(fixed3_t value) {
     return (fvec2_t){ fixed_to_float(value.x), fixed_to_float(value.y) };
 }
@@ -133,8 +180,8 @@ static inline fixed3_t fixed3_sub(fixed3_t a, fixed3_t b) {
     return (fixed3_t){a.x - b.x, a.y - b.y, a.z - b.z};
 }
 
-static inline fixed3_t fixed3_planar_delta(fvec2_t delta) {
-    return fixed3_from_fvec2(delta, 0);
+static inline fixed3_t fixed3_planar_delta(fixed2_t delta) {
+    return fixed3_from_fixed2(delta, 0);
 }
 
 static inline fixed3_t fixed3_add_planar(fixed3_t position,
@@ -146,8 +193,8 @@ static inline fixed3_t fixed3_add_planar(fixed3_t position,
     };
 }
 
-static inline fixed3_t fixed3_with_xy(fixed3_t value, fvec2_t xy) {
-    return (fixed3_t){ fixed_from_float(xy.x), fixed_from_float(xy.y), value.z };
+static inline fixed3_t fixed3_with_xy(fixed3_t value, fixed2_t xy) {
+    return (fixed3_t){ xy.x, xy.y, value.z };
 }
 
 static inline fixed3_t fixed3_planar_displacement(fixed3_t from,
@@ -232,16 +279,13 @@ typedef struct blob_s {
 #define MAX_TILE_OVERLAYS 3
 #define MAX_TILE_ANIMATION_FRAMES 8
 #define MAX_SPRITE_ROTATIONS 32
-#ifdef RTS_GAME_DARK_COLONY
-#define RTS_MAX_PRODUCTION_QUEUE 50
-#else
-#define RTS_MAX_PRODUCTION_QUEUE 9
-#endif
 #define MAX_PATH_CELLS 4096
 #define RTS_TICRATE 30
 #define RTS_MAX_UPGRADE_TYPES 106
 #define WORLD_CLOCK_MS 66 /* DC.EXE's default environment clock. */
-#define FIXED_DT (1.0f / RTS_TICRATE)
+#define RTS_TICK_MS 33 /* One simulation tic in milliseconds (1000 / RTS_TICRATE, truncated). */
+/* Distance covered in one tic by a speed given in cells per second (16.16). */
+#define FIXED_STEP_PER_TIC(speed) ((fixed_t)(((speed) + RTS_TICRATE / 2) / RTS_TICRATE))
 
 #ifndef RTS_WORLD_Y_UP
 #define RTS_WORLD_Y_UP 0
@@ -266,8 +310,8 @@ typedef uint32_t angle_t;
 #define ANGLE_MAX UINT32_MAX
 
 /* Movement vectors use screen coordinates: +x=east, +y=south. */
-angle_t angle_from_screen_vector(float dx, float dy);
-void angle_to_screen_vector(angle_t angle, float *dx, float *dy);
+angle_t angle_from_screen_vector_fixed(fixed_t dx, fixed_t dy);
+void angle_to_screen_vector_fixed(angle_t angle, fixed_t *dx, fixed_t *dy);
 uint32_t angle_distance(angle_t a, angle_t b);
 
 /* Quantize a BAM angle into an authored rotation table.  first_angle is the
@@ -374,7 +418,7 @@ typedef struct resourcevent_s {
     ivec2_t cell;
     /* Visual/interaction attachment point inside the authored vent stamp.
        cell remains the integer scenario coordinate used by scripts. */
-    fvec2_t attachment;
+    fixed2_t attachment;
     /* Occupied cells for click and harvest range.  0x0 means 1x1. */
     isize2_t footprint;
     int amount;
@@ -439,16 +483,7 @@ typedef struct level_s {
     /* Research tiers by actor type and owner: Dark Colony's DEPEND rows,
      * Warcraft's weapon and shield lines. Part of the lockstep checksum. */
     struct { uint8_t weapon, armor; } upgrades[RTS_MAX_UPGRADE_TYPES][8];
-#ifdef RTS_GAME_WARCRAFT_2
-    uint64_t w2_research[8];
-#endif
-#ifdef RTS_GAME_DARK_COLONY
-    uint8_t alliance_offers[2][8];
-    uint32_t peace[8];
-    struct dc_weapons_s *weapons;
-    struct { uint8_t selected, queued; } purchases[8][110]; /* Native DEPEND rows. */
-    int exo_income[8]; /* Credits per 16 native ticks while the base stands (team +0xe1c). */
-#endif
+    LEVEL_GAME_FIELDS /* Per-game level state, from the game's game_config.h. */
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
     uint32_t next_mobj_id;
@@ -506,7 +541,7 @@ typedef struct app_s app_t;
 typedef struct spritecache_s spritecache_t;
 typedef struct gameinfo_s gameinfo_t;
 typedef bool (*harvestdropoffmatchf_t)(const mobj_t *unit, int resource_type,
-                                     const mobj_t *base, fvec2_t *position);
+                                     const mobj_t *base, fixed2_t *position);
 typedef struct production_s production_t;
 typedef void (*actionf_p1)(mobj_t *mo);
 typedef struct thinker_s {
@@ -576,10 +611,10 @@ enum { MOBJ_TARGET_GROUND = 1 << 0, MOBJ_TARGET_AIR = 1 << 1 };
  * air hits only flyers. Ground and radial splash stay on the target's layer. */
 enum { SPLASH_NONE, SPLASH_RADIAL, SPLASH_ENEMY, SPLASH_AIR };
 
-/* One weapon. Range and radii are map cells. */
+/* One weapon. Range and radii are map cells, 16.16. */
 typedef struct {
-    float range;
-    float min_range; /* Targets nearer than this are out of reach (a sieged tank's dead zone). */
+    fixed_t range;
+    fixed_t min_range; /* Targets nearer than this are out of reach (a sieged tank's dead zone). */
     int damage;
     int versus[3]; /* Damage by victim armor_class 0..2; zero uses damage. */
     int upgrade_damage[2];
@@ -593,10 +628,10 @@ typedef struct {
     /* Further enemies the shot jumps to: the nearest within WEAPON_BOUNCE_RANGE
      * of the last, not the one before it, each hit a third of the last. */
     uint8_t bounces;
-    float radius[3]; /* Splash: full damage inside [0], half inside [1], a quarter inside [2]. */
+    fixed_t radius[3]; /* Splash: full damage inside [0], half inside [1], a quarter inside [2]. */
     uint16_t native_id; /* The game's own weapon row, for gameinfo_t.hit_damage. */
 } weapondef_t;
-#define WEAPON_BOUNCE_RANGE 3.0f /* OpenBW glaive bounce search, 96 pixels. */
+#define WEAPON_BOUNCE_RANGE FIXED_FROM_INT(3) /* OpenBW glaive bounce search, 96 pixels. */
 
 typedef struct mobjtype_s {
     uint16_t id;
@@ -604,7 +639,7 @@ typedef struct mobjtype_s {
     const char *sprite_name;
     const char *shadow_name;
     uint32_t traits;
-    float speed;
+    fixed_t speed; /* Cells per second, 16.16. */
     angle_t turn_step; /* Per simulation tic; zero uses the legacy turn cadence. */
     int max_hp;
     unsigned armor_class;
@@ -696,6 +731,41 @@ typedef struct unitoverlaycontext_s {
 
 typedef void (*unitoverlaydrawf_t)(const unitoverlaycontext_t *ctx);
 
+/* Engine behaviour modes. Zero is the default of every field, so a game only
+ * names the ones it changes. */
+typedef enum {
+    INPUT_LEFT_SELECT_ORDER = 0, /* Left selects/orders, right deselects. */
+    INPUT_RIGHT_CLICK_ORDERS     /* Left selects, right orders. */
+} inputpolicy_t;
+typedef enum {
+    SIGHT_NATIVE = 0, /* The native Dark Colony ray table. */
+    SIGHT_RADIAL      /* Simple radial field of view. */
+} sightpolicy_t;
+typedef enum {
+    TURN_GRADUAL = 0, /* Units turn over time. */
+    TURN_INSTANT      /* Units snap to a new facing. */
+} turnpolicy_t;
+typedef enum {
+    SELECT_OWN_ONLY = 0, /* Only your units can be selected. */
+    SELECT_ANY           /* With nothing of yours selected, a click can inspect any unit. */
+} selectpolicy_t;
+typedef enum {
+    F10_RESOURCE_CHEAT = 0, /* F10 grants resources. */
+    F10_CONTROL_MENU        /* F10 opens the control panel. */
+} f10policy_t;
+typedef enum {
+    STANCE_ORDERS_ONLY = 0, /* An order is whatever the click says. */
+    STANCE_MOVE_ONLY_STICKY /* Units told to move only keep ignoring enemies on later clicks. */
+} stancepolicy_t;
+typedef struct {
+    inputpolicy_t input;
+    stancepolicy_t stance;
+    sightpolicy_t sight;
+    turnpolicy_t turning;
+    selectpolicy_t select;
+    f10policy_t f10;
+} rulepolicy_t;
+
 struct gameinfo_s {
     const char *const *sprnames;
     int sprite_count;
@@ -709,11 +779,8 @@ struct gameinfo_s {
     /* Either callback replaces the engine selection and health overlay. */
     unitoverlaydrawf_t draw_underlays; /* Ground marks drawn before all world sprites. */
     unitoverlaydrawf_t draw_overlays; /* Marks drawn after all world sprites. */
-    bool right_click_orders; /* Default: left selects/orders, right deselects. */
-    bool radial_sight; /* Simple radial FOV; otherwise use the native DC ray table. */
-    bool select_any; /* With nothing of yours selected, a click can inspect any unit. */
-    bool f10_menu; /* F10 opens the control panel instead of the resource cheat. */
-    bool instant_turn; /* Units snap to a new facing instead of turning over time. */
+    /* Sprite shadows need at least this detail setting; translucency likewise. 0: always drawn. */
+    int shadow_detail_min, blend_detail_min;
     harvestdropoffmatchf_t harvest_dropoff_matches;
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
@@ -733,7 +800,7 @@ struct gameinfo_s {
      * engine then only starts the cooldown. */
     bool (*attack)(struct mobj_s *attacker, const weapondef_t *weapon, struct mobj_s *target);
     /* Optional: cells added to a weapon's reach (a StarCraft Bunker's +1). */
-    float (*range_bonus)(const struct mobj_s *attacker, const weapondef_t *weapon);
+    fixed_t (*range_bonus)(const struct mobj_s *attacker, const weapondef_t *weapon);
     /* Optional: further teams (sight bits, 0x40000000 >> team) that see what
      * this mobj sees (StarCraft Parasite). */
     uint32_t (*sight_teams)(const struct mobj_s *mobj);
@@ -776,7 +843,7 @@ struct mobj_s {
     thinker_t thinker;
     mobjcore_t core;
     const mobjtype_t *info;
-    float speed;
+    fixed_t speed; /* Cells per second, 16.16. */
     uint32_t id;
     uint16_t type_id;
     uint16_t native_type_id;
@@ -800,21 +867,21 @@ struct mobj_s {
         int resource_type;
         int phase;
         mobj_t *base;
-        fvec2_t return_position;
+        fixed2_t return_position;
     } harvest;
     bool remove;
     production_t *production;
-    float radius;
+    fixed_t radius; /* Cells, 16.16. */
     waypoints_t waypoints;
     bool move_only;
     struct {
-        fvec2_t goal;
+        fixed2_t goal;
         navpath_t path;
         uint32_t order_id;
         bool order_arrived;
         int turn_timer_ms;
         int stuck_tics, replans;
-        float best_goal_dist; /* Closest approach to goal this order; 0 = not yet measured. */
+        fixed_t best_goal_dist; /* Closest approach to goal this order; 0 = not yet measured. */
         bool plan_pending;   /* Order accepted; the planner has not produced a route yet. */
         uint32_t plan_seq;   /* FIFO position in the time-sliced planning queue. */
     } movement;
@@ -824,7 +891,7 @@ struct mobj_s {
 static inline void P_ClearMove(mobj_t *unit) {
     unit->movement.path = (navpath_t){0};
     unit->movement.stuck_tics = unit->movement.replans = 0;
-    unit->movement.best_goal_dist = 0.0f;
+    unit->movement.best_goal_dist = 0;
     unit->movement.plan_pending = false;
 }
 
@@ -919,11 +986,20 @@ typedef enum {
     TC_REPAIR, TC_STAND_GROUND, TC_SPELL,
     TC_BOARD, TC_UNLOAD,
     TC_CANCEL_PRODUCTION,
-    TC_MAX = TC_CANCEL_PRODUCTION
+    TC_RESYNC, /* Network only: one chunk of a resync save, never queued or run. */
+    TC_MAX = TC_RESYNC
 } ticorder_t;
 
+/* Lockstep consistency is hashed per subsystem so a desync names where it
+ * started. The vector travels with every ticcmd; G_Consistency folds it. */
+typedef enum {
+    CONSISTENCY_GLOBALS, CONSISTENCY_RESOURCES, CONSISTENCY_UPGRADES,
+    CONSISTENCY_THINKERS, CONSISTENCY_GAME, CONSISTENCY_COUNT
+} consistency_t;
+
 typedef struct {
-    uint32_t consistancy;
+    uint32_t consistancy; /* G_Consistency() of the state this command's tic was built after. */
+    uint32_t subsystems[CONSISTENCY_COUNT]; /* The vector it folds, one hash per subsystem. */
     ticorder_t order;
     fixed3_t position;
     uint32_t target;
@@ -940,16 +1016,57 @@ void G_BuildTiccmd(ticcmd_t *cmd);
 bool G_QueueTiccmd(const ticcmd_t *cmd);
 void G_ClearTiccmds(void);
 void G_RunTiccmd(int player, const ticcmd_t *cmd);
+extern const char *const g_consistency_names[CONSISTENCY_COUNT];
+uint32_t G_HashValue(uint32_t hash, uint32_t value); /* FNV-1a over four bytes. */
+void G_ConsistencyVector(uint32_t out[CONSISTENCY_COUNT]);
 uint32_t G_Consistency(void);
+
+/* Game hooks. game/g_hooks.c supplies weak defaults that do nothing; a game
+ * defines the ones it needs, so shared code never branches on which game it is. */
+/* Hash state of the game's own into the CONSISTENCY_GAME subsystem. */
+uint32_t G_ConsistencyExtra(uint32_t hash);
+/* A command that needs no unit (alliances, purchases): true when consumed. */
+bool G_GameCommand(int player, const ticcmd_t *cmd);
+/* False for a unit that cannot be commanded right now (e.g. aboard a ship). */
+bool G_UnitCommandable(const mobj_t *unit);
+/* A command over resolved units; true when the game consumed it. `target` may be NULL. */
+bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
+                       int count, mobj_t *target);
+/* Called twice per order, before it takes effect: phase 0 for orders that
+ * replace what the unit was doing, phase 1 for TC_ORDER once it is accepted. */
+void G_InterruptOrders(const ticcmd_t *cmd, mobj_t *const *units, int count, bool late);
+/* A campaign script may ask the camera to jump to a map cell. */
+bool G_TakeCameraRequest(fvec2_t *cell);
+/* Release level data the game allocated (P_FreeLevel). */
+void G_FreeLevelData(level_t *map);
+/* Environment clock (WORLD_CLOCK_MS): `begin` runs on each clock step before
+ * daylight; `end` runs every tic after it and owns the fog refresh cadence. */
+void G_ClockBegin(int64_t clock);
+void G_ClockEnd(int64_t before, int64_t clock);
+/* Alliance bit masks per owner that decide who is friendly to the AI. */
+const uint32_t *G_AllianceMasks(const level_t *map);
+/* Start of a production tick, before queues advance. */
+void G_ProductionBegin(int elapsed_ms);
+/* Distinguishes save bodies whose layout the game changed. */
+uint32_t G_SaveLayout(void);
 bool G_NetSignature(const char *map_path, uint32_t *signature);
 bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
-                     fvec2_t position, uint32_t target);
+                     fixed2_t position, uint32_t target);
 bool G_BuildOrder(mobj_t *producer, int product);
 /* Send one builder to put up actor type `type` with its top-left cell at
  * `cell`, or cancel a site under construction (TC_CONSTRUCT). */
 bool G_ConstructOrder(mobj_t *builder, int type, ivec2_t cell);
 bool G_CancelConstructionOrder(mobj_t *site);
 bool G_PathOrder(mobj_t *const *units, int count, const waypoints_t *path);
+/* Sight. G_SightRadius may change an actor's radius, or return false to give
+ * it no sight (aboard a ship). */
+bool G_SightRadius(const mobj_t *actor, int *radius);
+/* False when a viewer (owner and ally row `team`, 8 for none) must not see
+ * `target` whatever the fog says: units aboard a ship. */
+bool G_ViewerSees(const mobj_t *target, int owner, int team);
+/* An order to harvest at a position over resolved units; true when the game
+ * handles it itself (`*issued` says whether any unit took it). */
+bool G_GameHarvestAt(mobj_t *const *units, int count, fixed2_t position, bool *issued);
 
 
 /* Eight seats, not Doom's four: Warcraft II person slots and the resource,
@@ -964,7 +1081,8 @@ _Static_assert(MAXPLAYERS <= MAXNETNODES, "one network node per player");
 #define NCMD_RETRANSMIT UINT32_C(0x40000000)
 #define NCMD_SETUP UINT32_C(0x20000000)
 #define NCMD_KILL UINT32_C(0x10000000)
-#define NCMD_CHECKSUM UINT32_C(0x0fffffff)
+#define NCMD_RESYNC UINT32_C(0x08000000)
+#define NCMD_CHECKSUM UINT32_C(0x07ffffff)
 
 typedef struct {
     uint32_t checksum;
@@ -992,6 +1110,22 @@ const char *D_UserDirectory(void);
 void D_LoadSettings(void);
 bool D_SaveSettings(int speed);
 
+/* Where the lockstep check first disagreed, for the message and for tests:
+ * the tic whose state differs, the tic that noticed, the other player, and a
+ * bit per consistency_t subsystem that differs. */
+extern struct netdesync_s { int tic, detected, player; unsigned subsystems; } netdesync;
+/* Tic packets of another resync epoch fail their checksum and are dropped. */
+extern uint32_t net_epoch;
+/* How a desync is repaired: save serializes this peer's whole game (malloc'd),
+ * load replaces the game with a received save. With handlers set, the lowest
+ * seated player's state is sent to the others and every peer reloads it at the
+ * same tic boundary; without them a desync ends the game. */
+typedef struct {
+    bool (*save)(void **data, size_t *length);
+    bool (*load)(const void *data, size_t length);
+} netresync_t;
+void D_SetNetResync(const netresync_t *handlers);
+extern int netresyncs; /* Completed resyncs this game. */
 extern int nettics[MAXNETNODES];
 extern ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
 extern char neterror[256];
@@ -1399,7 +1533,7 @@ void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const sprite
 void R_DrawBuildingPreview(app_t *app, uint16_t type, ivec2_t cell, int team,
                            const spritecache_t *cache);
 const mobjtype_t *P_ActorType(uint16_t type);
-fvec2_t P_BuildingPosition(uint16_t type, ivec2_t cell);
+fixed2_t P_BuildingPosition(uint16_t type, ivec2_t cell);
 bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder);
 bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder);
 void P_SyncBuildingBlocking(void);
@@ -1423,11 +1557,11 @@ bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
 void P_MoveOrder(const level_t *map, mobj_t *const *units, int unit_count, cell_t goal);
 bool P_HasMoveOrder(const mobj_t *unit);
 void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
-                         fvec2_t goal_position);
-bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position);
+                         fixed2_t goal_position);
+bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fixed2_t goal_position);
 bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
-                             fvec2_t position);
-bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
+                             fixed2_t position);
+bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fixed2_t position);
 void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit);
 void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type);
 bool P_SetMobjState(mobj_t *unit, int state_id);
@@ -1440,8 +1574,8 @@ const weapondef_t *P_MobjWeapon(const mobj_t *attacker, const mobj_t *target);
 bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target);
 irect_t P_MobjCells(const mobj_t *unit);
 void P_DamageMobj(mobj_t *target, mobj_t *source, int damage);
-angle_t P_PointToAngle(float dx, float dy);
-void P_AngleToVec(angle_t angle, float *dx, float *dy);
+angle_t P_PointToAngle(fixed_t dx, fixed_t dy);
+void P_AngleToVec(angle_t angle, fixed_t *dx, fixed_t *dy);
 void P_Ticker(void);
 void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                  const spritesheet_t *fallback_sprite, const spritecache_t *cache,
@@ -1550,7 +1684,7 @@ bool S_LoadSound(int id, const void *bytes, size_t size);
 void S_Start(const level_t *map, const char *data_root);
 /* Positional sound following origin; NULL origin plays at full volume. */
 int S_StartSound(const mobj_t *origin, int sfx);
-int S_StartSoundAt(fvec2_t position, int sfx);
+int S_StartSoundAt(fixed2_t position, int sfx);
 /* Listener-relative (UI, barks, ambience). */
 int S_StartLocalSound(int sfx);
 void S_StartUISound(uisound_t sound);
@@ -1576,7 +1710,7 @@ void S_UpdateSounds(const app_t *app, const level_t *map);
 /* Presentation-only random numbers (Doom's M_Random), not the gameplay RNG. */
 int S_Random(void);
 /* Whether the local player currently sees the cell at position. */
-bool S_PositionVisible(const level_t *map, fvec2_t position);
+bool S_PositionVisible(const level_t *map, fixed2_t position);
 
 /* i_sound.c: platform mixer. Volumes are 0..256 per side. */
 typedef struct sfxsample_s sfxsample_t;
@@ -1670,7 +1804,10 @@ typedef struct {
 } StaticProductDefinition;
 
 bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, ivec2_t cell);
-bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay);
+/* Whether a producer with a queue refuses a product other than the queued
+ * one. Most games queue one product at a time. */
+bool G_QueueLocksProduct(const StaticProductDefinition *product);
+bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *bay);
 
 typedef struct {
     RtsGameCommandKind kind;
@@ -1680,11 +1817,11 @@ typedef struct {
             bool additive;
         } select_unit_index;
         struct {
-            fvec2_t target;
+            fixed2_t target;
         } move_selected;
         waypoints_t path_selected;
         struct {
-            fvec2_t target;
+            fixed2_t target;
         } harvest_selected;
         struct {
             int ui_id;
@@ -1712,7 +1849,7 @@ typedef struct {
     uint8_t target_owner;
     int product_class;
     int product_type;
-    fvec2_t position;
+    fixed2_t position;
 } RtsGameEvent;
 
 typedef struct {
@@ -1806,9 +1943,9 @@ void rts_game_model_destroy(RtsGameModel *model);
 /* Loads or reloads a game/model instance. This does not create a window or renderer. */
 bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config);
 /* Advances one model tic. With D_CheckNetGame active, pumps networking and
- * advances only when all commands are present, using FIXED_DT. While waiting,
+ * advances only when all commands are present, using RTS_TICK_MS. While waiting,
  * returns true without advancing gametic; false reports a network/load error. */
-bool rts_game_model_tick(RtsGameModel *model, float dt);
+bool rts_game_model_tick(RtsGameModel *model, int dt_ms);
 /* Applies local selection; world orders are queued when D_CheckNetGame is active.
  * Otherwise retains immediate commands for manually ticked headless clients. */
 bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command);
@@ -1875,7 +2012,7 @@ bool     HU_LoadFont(const char *root, bitmapfont_t *font);
 
 /* Advance mission state by dt seconds. */
 void     G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
-                         hudtext_t *hud, float dt);
+                         hudtext_t *hud, int dt_ms);
 
 /* Return mission state: 0=active, 1=won, 2=lost, 3=ally_lost. */
 int      G_MissionState(const level_t *map);
@@ -1894,7 +2031,7 @@ menu_t  *G_InitHUD(app_t *app, const char *root);
 void     G_ShutdownHUD(void);
 
 /* Advance game-specific production queues in interactive mode. Returns true if a unit was spawned. */
-bool     G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt);
+bool     G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms);
 
 /* The part of the screen that shows the world, in screen pixels. */
 irect_t  G_WorldViewport(const app_t *app);
@@ -1945,7 +2082,7 @@ bool     G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
 bool     G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
                                          const StaticProductDefinition *product,
                                          const mobj_t *new_unit,
-                                         float *out_gx, float *out_gy);
+                                         fixed2_t *out);
 
 /* Check if a player/owner currently possesses an alive unit of actor_id. */
 bool     G_ModelHasActorType(const RtsGameModel *model, int owner, uint16_t actor_id);
@@ -1976,7 +2113,7 @@ bool     G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product
 int G_ModelRadarLevel(int owner);
 bool     G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product);
 bool     G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product);
-bool     G_ProductionTicker(float dt);
+bool     G_ProductionTicker(int dt_ms);
 int      G_CountPlannedActors(int owner, uint16_t actor_id);
 typedef struct {
     int ui_id;
@@ -1990,9 +2127,9 @@ void     G_ProductionGoals(const productiongoal_t *goals, int count);
 bool     G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
                                   uint16_t actor_id);
 
-/* Advance production queues by dt seconds, spawning finished units. Returns true if a unit was spawned. */
+/* Advance production queues by dt_ms milliseconds, spawning finished units. Returns true if a unit was spawned. */
 bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count,
-                                 float dt);
+                                 int dt_ms);
 
 
 /*
@@ -2009,7 +2146,7 @@ bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_c
 #define AI_MAX_TEAMS 8
 #define AI_MAX_HARVEST_ASSIGNMENTS 32
 #define AI_MAX_VENT_TRIES 64 /* Vents considered per harvester order. */
-#define AI_DEFENSE_RADIUS 15.0f
+#define AI_DEFENSE_RADIUS FIXED_LIT(15.0)
 #define AI_ATTACK_WAVE_INTERVAL_MS 30000
 #define AI_ATTACK_WAVE_MIN_SIZE 3
 #define AI_ATTACK_WAVE_MAX_SIZE 8
@@ -2028,13 +2165,15 @@ typedef enum {
     AI_FEATURE_DEFENSE    = 1u << 2, /* rally idle fighters on base intruders */
     AI_FEATURE_ATTACK     = 1u << 3, /* periodic attack waves */
     AI_FEATURE_RESEARCH   = 1u << 4, /* start tech-ups a goal is waiting on */
-    AI_FEATURE_ALL        = 0x1Fu,
+    AI_FEATURE_DOCTRINE   = 1u << 5, /* after the ladder: supply, workers, defenses, army mix */
+    AI_FEATURE_ALL        = 0x3Fu,
 } AiFeature;
 
 typedef enum {
     AI_LEVEL_NONE = 0, /* Human, empty slot or scripted: the AI never acts. */
     AI_LEVEL_NORMAL = 1,
     AI_LEVEL_PLUS = 2,
+    AI_LEVEL_COUNT
 } AiLevel;
 
 typedef enum {
@@ -2055,7 +2194,7 @@ typedef struct {
 #define AI_MAX_GOALS 96
 
 /* What an actor type is for, as the planner sees it. The engine derives
- * most roles from mobjtype_t; AiGameInterface.describe adds the rest. */
+ * most roles from mobjtype_t; g_ruleset.actors adds the rest. */
 typedef enum {
     AI_ROLE_WORKER      = 1u << 0,  /* gathers resources */
     AI_ROLE_SUPPLY      = 1u << 1,  /* raises the supply cap: depot, pylon, overlord, farm */
@@ -2121,19 +2260,252 @@ typedef struct {
     AiDoctrine doctrine;
 } AiPlan;
 
+/*
+ * Ruleset. Each game's games/<id>/rules.c defines one const g_ruleset in C
+ * with designated initializers; the simulation and the computer player read
+ * it and never name a game. It holds what a game is, apart from its unit
+ * catalog (StaticProductDefinition: cost, producer, time, building
+ * prerequisites) and unit stats, which stay in their own tables:
+ *  - factions: the opening ladder and AiDoctrine of each side, per AiLevel;
+ *  - actors: AiRole masks (and strength inputs) per actor type;
+ *  - requirements: tech and upgrade conditions the catalog cannot say;
+ *  - patch: how a map's stat overrides are applied to a writable copy.
+ *  - policy: input, sight, turning... modes a game picks instead of a flag.
+ */
+
+/* One build/train line of a faction's opening: keep `count` of `product`. */
+typedef struct {
+    int product;
+    int count;
+} AiStep;
+
+/* What a melee start spawns: `count` actors of `type`, the first `offset` from
+ * the start location and each next one `step` further on, in the game's own
+ * map units (pixels in StarCraft, cells in Warcraft II). */
+typedef struct {
+    uint16_t type;
+    int count;
+    ivec2_t offset, step;
+} startunit_t;
+
+typedef struct {
+    uint16_t type;
+    ivec2_t at;
+} startplace_t;
+
+typedef struct {
+    const char *name;                       /* "Zerg", "Orc", "Gray", "Imperium"... */
+    const startunit_t *start_units;         /* what a melee start location spawns */
+    int start_unit_count;
+    const AiStep *opening;                  /* aiscript-style build/train lines */
+    int opening_count;
+    int wave_interval_ms, wave_min_size, wave_max_size;
+    AiDoctrine doctrine;                    /* AI_LEVEL_NORMAL */
+    /* Optional per-level replacement doctrine (AI_LEVEL_PLUS...); NULL keeps
+     * `doctrine`. */
+    const AiDoctrine *level_doctrine[AI_LEVEL_COUNT];
+    /* Optional variants the game picks per owner (ruleset_t.variant_of):
+     * Warcraft II's sea and air scripts play the same race another way. */
+    const struct factionvariant_s *variants;
+    int variant_count;
+} faction_t;
+
+/* A variant replaces the opening, raises or adds roster weights and may set
+ * the number of defenses; everything else is the faction's. */
+typedef struct factionvariant_s {
+    const AiStep *opening;
+    int opening_count;
+    const AiChoice *roster;
+    int roster_count;
+    int defenses;
+} factionvariant_t;
+
+/* Freeciv-style requirement: what an owner must have before buying a product. */
+typedef enum {
+    REQ_BUILDING = 1, /* an actor of type `id` stands */
+    REQ_TECH,         /* a producer of the product has reached tech `level` */
+    REQ_UPGRADE,      /* upgrade `id` is at least at `level` for the owner */
+} requirementkind_t;
+
+typedef struct {
+    requirementkind_t kind;
+    int id;
+    int level;
+} requirement_t;
+
+/* One requirement of a catalog product, on top of its building prerequisites. */
+typedef struct {
+    int product; /* catalog ui_id */
+    requirement_t req;
+} productreq_t;
+
+/* Roles of one actor type (index = actor type id). */
+typedef struct {
+    uint32_t roles;  /* AiRole mask. AI_ROLE_SUPPORT here only counts for non-fighters. */
+    uint32_t not_roles; /* AiRole bits the actor must not get (an interceptor is no fighter). */
+    int extra_hp;    /* Shields and the like, added to the actor's hit points. */
+} actorrole_t;
+
+/* A map's stat overrides, decoded to table/row/field/value entries that the
+ * game's patch_apply understands. The checked-in tables remain the
+ * authority: a level load resets them and lays the patch over them. */
+typedef struct {
+    uint16_t table, row, field;
+    int32_t value;
+} rulepatch_t;
+
+#define RULEPATCH_MAX 4096
+typedef struct {
+    rulepatch_t entries[RULEPATCH_MAX];
+    int count;
+} rulepatchset_t;
+
+typedef struct ruleset_s {
+    const char *game;
+    rulepolicy_t policy; /* Engine behaviour a game picks instead of adding a flag. */
+    const faction_t *factions;
+    int faction_count;
+    /* Faction index of an owner, or -1 while it cannot be told yet. */
+    int (*faction_of)(const level_t *map, int owner);
+    /* Optional: variant of the owner's faction (index into its variants),
+     * negative for none. */
+    int (*variant_of)(const level_t *map, int owner);
+    const actorrole_t *actors;
+    int actor_count;
+    const productreq_t *requirements;
+    int requirement_count;
+    /* Level of an upgrade (REQ_UPGRADE) an owner holds. */
+    int (*upgrade_level)(int owner, int upgrade);
+    /* Optional: a catalog's prerequisite ids name a product (a building or
+     * an upgrade). The product an id names; NULL: the product that makes
+     * the actor of that type. */
+    const StaticProductDefinition *(*prerequisite_product)(int id);
+    /* Optional: whether an owner meets a prerequisite id (a keep stands in
+     * for the town hall, an upgraded base for its lower tier, an upgrade
+     * reaches its level). NULL: a finished actor of the named product. */
+    bool (*prerequisite_met)(int owner, int id);
+    /* Optional: catalog ui_id of the research that raises `upgrade` to `level`
+     * for REQ_UPGRADE. NULL: the first upgrade product of that product_type. */
+    int (*upgrade_product)(int upgrade, int level);
+    /* Optional: what a catalog product costs per resource (index = resource).
+     * NULL: product->cost and extra_costs. Warcraft II prices lumber and oil
+     * from its stat tables, so a map's patch reaches the price. */
+    void (*product_costs)(const StaticProductDefinition *product, int *out);
+    /* Tech level (REQ_TECH) a producer has reached; negative while it cannot
+     * produce yet (still under construction). */
+    int (*tech_level)(const mobj_t *producer);
+    /* Starts, or keeps waiting for, the research that raises `producer` to its
+     * next tech level. True when research is under way. */
+    bool (*research)(level_t *map, mobj_t *producer);
+    /* Map stat overrides. patch_apply lays one decoded entry over the game's
+     * (writable) tables with R_PatchSet; patch_done runs after the last one
+     * to refresh whatever is derived from them. */
+    bool (*patch_apply)(const rulepatch_t *entry);
+    void (*patch_done)(void);
+} ruleset_t;
+
+extern const ruleset_t g_ruleset;
+/* g_ruleset, or a test's replacement (R_RulesOverride(NULL) restores it). The
+ * engine reads the ruleset through R_Rules(). */
+const ruleset_t *R_Rules(void);
+void R_RulesOverride(const ruleset_t *rules);
+/* The ruleset's input, sight and turning modes. */
+const rulepolicy_t *R_Policy(void);
+/* The patch of the loaded level. A game's G_DoLoadLevel decodes it here. */
+extern rulepatchset_t g_rulepatch;
+
+bool R_PatchAdd(rulepatchset_t *set, int table, int row, int field, int32_t value);
+/* Writes a ruleset value (an int in a game's stat table); the checked-in
+ * value comes back at the next R_PatchApply. False when the undo log is full. */
+bool R_PatchSet(int *slot, int value);
+/* Restores every table to its checked-in values, then lays `set` over them
+ * (NULL: restore only) and keeps it as g_rulepatch. */
+void R_PatchApply(const rulepatchset_t *set);
+/* Folds the active patch into a consistency hash. */
+uint32_t R_PatchHash(uint32_t hash);
+
+/* Plan of `faction` at `level`: opening goals and the doctrine. */
+bool R_FactionPlan(const faction_t *faction, int level, AiPlan *out);
+/* R_FactionPlan of the owner's faction with its variant applied. */
+bool R_OwnerPlan(const level_t *map, int owner, int level, AiPlan *out);
+/* Expands a faction's start units around a start location. Returns the
+ * number written (up to max). */
+int R_StartPlacements(const faction_t *faction, ivec2_t anchor, startplace_t *out, int max);
+/* g_ruleset's faction for `owner` (NULL while unknown). */
+const faction_t *R_OwnerFaction(const level_t *map, int owner);
+/* Requirements of a catalog product: its building prerequisites plus the
+ * ruleset's rows. Returns the number written (up to max). */
+int R_ProductRequirements(const StaticProductDefinition *product, requirement_t *out, int max);
+bool R_RequirementMet(int owner, const StaticProductDefinition *product, const requirement_t *req);
+/* Whether every building and upgrade row the ruleset adds to `product` is met
+ * (REQ_TECH rows concern the producer: see R_ProducerLackingTech). */
+bool R_RowsMet(int owner, const StaticProductDefinition *product);
+/* An owned producer of `product` that stands short of one of its REQ_TECH
+ * requirements and could be researched up, or NULL. */
+mobj_t *R_ProducerLackingTech(int owner, const StaticProductDefinition *product);
+
+/* Tech-path planner. From the requirement vectors the engine works out what an
+ * owner must still get, in the order to get it, before it can buy `target`:
+ * every unmet prerequisite building, upgrade and tech level, recursively, and
+ * a producer to make each of them. Steps come out in dependency order: the
+ * first one needs nothing the owner lacks. */
+typedef struct {
+    requirement_t req;  /* what is missing */
+    int product;        /* catalog ui_id that provides it; 0 for REQ_TECH */
+    int wanted_by;      /* catalog ui_id of the product that needed it */
+    bool pending;       /* already under way: queued, or still under construction */
+} techstep_t;
+enum { TECH_PATH_MAX = 32 };
+/* Steps to `target` (a catalog product), up to max. 0: nothing is missing (or
+ * not by tech: credits, queue). -1: no way to reach it from what the owner
+ * has and the catalog offers. */
+int R_TechPath(int owner, const StaticProductDefinition *target, techstep_t *out, int max);
+/* The first unmet step. False when R_TechPath finds none. */
+bool R_TechNextStep(int owner, const StaticProductDefinition *target, techstep_t *step);
+/* Whether the owner meets a catalog prerequisite id (see prerequisite_met). */
+bool R_PrerequisiteMet(int owner, int id);
+/* The catalog product a prerequisite id names, or NULL. */
+const StaticProductDefinition *R_PrerequisiteProduct(int owner, int id);
+
+/* The ruleset's products: the one description of what a product costs, how
+ * long it takes and who makes it, read by the AI and the HUD. The catalog
+ * (StaticProductDefinition) is the storage; nothing is copied. */
+typedef struct {
+    const StaticProductDefinition *def;
+    int ui_id;
+    RtsProductClass kind;
+    int cost[RTS_MAX_RESOURCES];
+    int time_ms;
+    const int *producers;     /* actor types that make it */
+    int producer_count;
+    const int *prerequisites; /* the catalog's prerequisite ids */
+    int prerequisite_count;
+} product_t;
+int R_ProductCount(int owner);
+bool R_ProductAt(int owner, int index, product_t *out);
+bool R_ProductByUiId(int ui_id, product_t *out);
+void R_ProductCosts(const StaticProductDefinition *product, int *out /* RTS_MAX_RESOURCES */);
+bool R_CanAfford(int owner, const StaticProductDefinition *product);
+
 typedef struct AiGameInterface {
     const char *name;
     uint32_t features; /* AiFeature mask the game enables. */
     /* AiLevel of an owner; AI_LEVEL_NONE owners are skipped entirely. */
     int  (*player_level)(const level_t *map, int owner);
-    /* Fills the owner's goal ladder. Optional when PRODUCTION is disabled. */
+    /* Optional override of the owner's goal ladder. NULL builds it from
+     * g_ruleset.factions[g_ruleset.faction_of(owner)] (R_FactionPlan). */
     bool (*plan)(const level_t *map, int owner, int level, AiPlan *out);
+    /* The next three are optional; NULL selects the catalog implementation
+     * (G_AiCatalogOwned / the requirement-vector can_purchase / G_AiCatalogPurchase).
+     * A game keeps one only for what the catalog cannot say. */
     int  (*owned)(int owner, int product);  /* alive plus queued */
     int  (*can_purchase)(const level_t *map, int owner, int product);
     bool (*purchase)(level_t *map, int owner, int product);
-    /* Optional. Called for a NEED_TECH goal when RESEARCH is enabled; starts
-     * whatever tech-up unlocks `product`. Returning true makes the AI wait
-     * for it (like saving credits) instead of spending on lower goals. */
+    /* Optional override. Called for a NEED_TECH goal when RESEARCH is enabled;
+     * starts whatever tech-up unlocks `product`. Returning true makes the AI
+     * wait for it (like saving credits) instead of spending on lower goals.
+     * NULL walks the tech generically: a producer lacking the product's tech
+     * is handed to g_ruleset.research. */
     bool (*develop)(level_t *map, int owner, int product);
     /* Resource drop-off ("base") units that harvesters return to. Optional;
      * the default is MF_RESOURCE_BASE. */
@@ -2149,13 +2521,10 @@ typedef struct AiGameInterface {
      * went out. The default sends it to the nearest free, reachable vent;
      * games with several resources balance their workers here. */
     bool (*assign_harvester)(level_t *map, int owner, mobj_t *unit);
-    /* Optional. The actor type a product makes, 0 for research; needed for
-     * the doctrine to read roster roles. Catalog games use G_AiCatalogActor. */
+    /* Optional. The actor type a product makes, 0 for research; the doctrine
+     * reads roster roles from it. NULL uses G_AiCatalogActor. */
     int  (*product_actor)(int product);
-    /* Optional. Adds what mobjtype_t cannot tell to the engine's AiUnitInfo:
-     * supply, cloaking that is not a trait, casters, shields. */
-    void (*describe)(uint16_t type_id, AiUnitInfo *info);
-    /* Optional. Adjusts a live unit's info after describe(), wherever the
+    /* Optional. Adjusts a live unit's info after the catalog's, wherever the
      * doctrine weighs an actual unit: a caster's energy, a loaded Bunker. */
     void (*describe_unit)(const mobj_t *unit, AiUnitInfo *info);
     /* Optional. Supply in use and the cap including supply already being
@@ -2179,7 +2548,7 @@ typedef struct AiGameInterface {
     int  (*expand)(level_t *map, int owner);
     /* Optional. The map's start locations, where enemy bases may stand;
      * fills up to cap and returns the count. Enables the doctrine's scout. */
-    int  (*starts)(const level_t *map, fvec2_t *out, int cap);
+    int  (*starts)(const level_t *map, fixed2_t *out, int cap);
 } AiGameInterface;
 
 typedef enum {
@@ -2222,7 +2591,7 @@ typedef struct {
 } AiHarvestAssignment;
 
 typedef struct {
-    fvec2_t base_position;
+    fixed2_t base_position;
     bool has_base;
     int combat_unit_count;
     int harvester_count;
@@ -2270,10 +2639,24 @@ typedef struct AiContext {
  * with state beyond the level and its mobjs defines the three hooks. */
 typedef struct { char name[33], map[1024]; } saveinfo_t;
 extern char g_savefile[1200], g_loadfile[1200], g_savename[33];
+/* Save/load entry points the driver calls; default to G_SaveGame/G_LoadGame. */
+bool G_GameSave(const char *path, const char *name, const app_t *app,
+                const AiContext *ai, const hudtext_t *hud);
+bool G_GameLoad(const char *path, app_t *app, AiContext *ai, hudtext_t *hud);
 bool G_SaveInfo(const char *path, saveinfo_t *info);
 bool G_SaveGame(const char *path, const char *name, const app_t *app, const AiContext *ai,
                 const hudtext_t *hud);
 bool G_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud);
+/* The same save as one malloc'd memory image (caller frees), for the network
+ * resync. These work in a net game; the file versions refuse. */
+bool G_SaveGameBlob(void **data, size_t *length, const char *name, const app_t *app,
+                    const AiContext *ai, const hudtext_t *hud);
+bool G_LoadGameBlob(const void *data, size_t length, app_t *app, AiContext *ai, hudtext_t *hud);
+/* Network resync: save, and load while keeping this player's camera, HUD
+ * messages and selection. The driver installs these with D_SetNetResync. */
+bool G_ResyncSave(void **data, size_t *length, const app_t *app,
+                  const AiContext *ai, const hudtext_t *hud);
+bool G_ResyncLoad(const void *data, size_t length, app_t *app, AiContext *ai, hudtext_t *hud);
 size_t G_SaveExtraSize(void);
 void G_SaveExtra(void *out);
 bool G_LoadExtra(const void *data, size_t size);
@@ -2292,8 +2675,13 @@ void P_AiSetFeatures(AiContext *ctx, uint32_t features);
 void P_AiTick(AiContext *ctx, level_t *map, mobj_t *const *units, int unit_count,
               const gameinfo_t *game_info, int dt_ms);
 
+/* The attached game's owned / can_purchase / product_actor, else the catalog's. */
+int  P_AiOwned(const AiContext *ctx, int owner, int product);
+int  P_AiProductActor(const AiContext *ctx, int product);
+int  P_AiCanPurchase(const AiContext *ctx, level_t *map, int owner, int product);
+
 /* The planner's view of an actor type: engine-derived roles and strengths
- * adjusted by the attached game's describe(). */
+ * adjusted by g_ruleset.actors. */
 void P_AiUnitInfo(const AiContext *ctx, uint16_t type_id, AiUnitInfo *out);
 
 /* Pops the oldest retained AI event. Returns false when the log is empty. */
@@ -2317,7 +2705,7 @@ int P_ScaleIncome(const level_t *map, int owner, int amount);
 
 void debug_effects_log(const char *fmt, ...);
 
-float P_MobjRadius(const mobj_t *unit);
+fixed_t P_MobjRadius(const mobj_t *unit); /* Cells, 16.16. */
 
 static inline isize2_t P_ResourceVentFootprint(const resourcevent_t *vent) {
     int w = vent && vent->footprint.w > 0 ? vent->footprint.w : 1;
@@ -2332,17 +2720,17 @@ static inline bool P_ResourceVentContainsCell(const resourcevent_t *vent, ivec2_
            cell.y >= vent->cell.y && cell.y < vent->cell.y + fp.h;
 }
 
-static inline float P_ResourceVentRadius(const resourcevent_t *vent) {
+static inline fixed_t P_ResourceVentRadius(const resourcevent_t *vent) {
     isize2_t fp = P_ResourceVentFootprint(vent);
-    float hx = (float)fp.w * 0.5f, hy = (float)fp.h * 0.5f;
-    float r = sqrtf(hx * hx + hy * hy);
-    return r > 1.45f ? r : 1.45f;
+    fixed_t hx = fp.w * (FIXED_ONE / 2), hy = fp.h * (FIXED_ONE / 2);
+    fixed_t r = fixed_hypot32(hx, hy);
+    return r > FIXED_LIT(1.45) ? r : FIXED_LIT(1.45);
 }
-bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy);
+bool P_CheckPosition(const level_t *map, const mobj_t *unit, fixed2_t at);
 bool P_TryMove(mobj_t *unit, fixed3_t position);
 void P_ClampToLevel(const level_t *map, mobj_t *unit);
-bool P_MapCircleWalkable(const level_t *map, int move_class, float gx, float gy,
-                         float radius, const fvec2_t *from);
+bool P_MapCircleWalkable(const level_t *map, int move_class, fixed2_t at,
+                         fixed_t radius, const fixed2_t *from);
 static inline int P_MobjMoveClass(const mobj_t *unit) {
     return unit && unit->info ? unit->info->move_class : 0;
 }
@@ -2354,20 +2742,20 @@ void P_NavBeginTick(void);
 void P_NavRunPlans(const level_t *map);
 
 /* p_steer.c: shared path following, avoidance and overlap resolution. */
-bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final);
-fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction, float step);
+bool P_SteerTarget(const level_t *map, mobj_t *unit, fixed2_t *target, bool *final);
+fixed2_t P_SteerAvoid(const mobj_t *unit, fixed2_t direction, fixed_t step);
 bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved);
 bool P_ReplanUnit(const level_t *map, mobj_t *unit);
 void P_SeparateUnits(const level_t *map);
-void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int count, fvec2_t goal);
-bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count, fvec2_t goal);
+void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int count, fixed2_t goal);
+bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count, fixed2_t goal);
 
 void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
-                         fvec2_t goal_position);
-bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position);
+                         fixed2_t goal_position);
+bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fixed2_t goal_position);
 bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
-                             fvec2_t position);
-bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
+                             fixed2_t position);
+bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fixed2_t position);
 
 
 /* A screen is a table of items. The game fills the table with locations,
