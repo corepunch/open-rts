@@ -100,7 +100,7 @@ static const struct { mobjtype_id_t type, maker, prerequisite, also; } recipes[]
  * building, as in retail: a Science Facility for Terran, Lair and Hive for
  * Zerg, Templar Archives, Fleet Beacon or a Cybernetics Core for Protoss. */
 static const struct { int upgrade; mobjtype_id_t maker, level2, level3; } research[] = {
-    {7,MT_ENGINEERING_BAY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},{0,MT_ENGINEERING_BAY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
+    {7,MT_ENGINEERING_BAY,MT_ARMORY,MT_ARMORY},{0,MT_ENGINEERING_BAY,MT_ARMORY,MT_ARMORY},
     {8,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},{1,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
     {9,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},{2,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
     {16,MT_ACADEMY,MT_NONE,MT_NONE},
@@ -126,7 +126,7 @@ static const struct { int tech; mobjtype_id_t maker; } tech_research[] = {
     {SC_TECH_PSIONIC_STORM,MT_TEMPLAR_ARCHIVES},{SC_TECH_HALLUCINATION,MT_TEMPLAR_ARCHIVES},
 };
 enum { SC_RECIPES = sizeof(recipes)/sizeof(*recipes), SC_RESEARCH = sizeof(research)/sizeof(*research),
-       SC_TECH_RESEARCH = sizeof(tech_research)/sizeof(*tech_research), SC_UPGRADE_UI = 1000 };
+       SC_TECH_RESEARCH = sizeof(tech_research)/sizeof(*tech_research) };
 /* One product per level: ui id 1000 + upgrade*4 + the level it starts from;
  * a tech is SC_TECH_UI + its techdata row. */
 static StaticProductDefinition products[SC_RECIPES+SC_RESEARCH*3+SC_TECH_RESEARCH];
@@ -143,12 +143,16 @@ static int tech_product(const StaticProductDefinition *p) {
 }
 /* level.upgrades[upgrade][owner].weapon holds the level for every upgrades.dat
  * id, so it is saved and hashed with the level; a level load clears it. */
+/* The catalog row that raises `upgrade` to `level`: one product per level. */
+int sc_upgrade_product(int upgrade,int level) {
+    return level>=1&&level<=3&&upgrade>=0&&upgrade<SC_UPGRADES?SC_UPGRADE_UI+upgrade*4+level-1:0;
+}
 int sc_upgrade_level(int owner,int upgrade) {
     return owner>=0&&owner<8&&upgrade>=0&&upgrade<SC_UPGRADES?level.upgrades[upgrade][owner].weapon:0;
 }
+static bool products_built;
 static void init_products(void) {
-    static bool initialized;
-    if(initialized)return;
+    if(products_built)return;
     product_count=0;
     for(unsigned i=0;i<sizeof(recipes)/sizeof(*recipes);i++) {
         mobjtype_id_t type=recipes[i].type,maker=recipes[i].maker; const sc_unit_t *u=&sc_units[type-1];
@@ -183,8 +187,11 @@ static void init_products(void) {
             .cost=t->minerals,.extra_costs={t->gas},.icon_frame=t->icon,.product_class=RTS_PRODUCT_UPGRADE,
             .product_type=id,.makers={tech_research[i].maker},.maker_count=1};
     }
-    initialized=true;
+    products_built=true;
 }
+/* The catalog prices come from the unit and upgrade tables: after a map's
+ * overrides they are built again. */
+void sc_rebuild_products(void) { products_built=false; init_products(); }
 /* A Zerg product other than research or a drone's building takes the
  * maker's place: larva and mutalisk through an egg, buildings directly. */
 static bool zerg_morph(const StaticProductDefinition *p) {
@@ -199,7 +206,7 @@ bool sc_counts_as(uint16_t type,uint16_t as) {
     return type==as||(as==MT_HATCHERY&&(type==MT_LAIR||type==MT_HIVE))||(as==MT_LAIR&&type==MT_HIVE)||
         (as==MT_SPIRE&&type==MT_GREATER_SPIRE);
 }
-static bool owner_has(int owner,uint16_t type) {
+bool sc_owner_has(int owner,uint16_t type) {
     static const uint16_t higher[]={MT_LAIR,MT_HIVE,MT_GREATER_SPIRE};
     if(G_ModelHasActorType(NULL,owner,type))return true;
     for(unsigned i=0;i<sizeof(higher)/sizeof(*higher);i++)
@@ -237,9 +244,11 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *m,i
 bool G_ModelProductAvailable(const RtsGameModel *m,int owner,const StaticProductDefinition *p) {
     if(!p)return false;
     (void)m;
-    for(int i=0;i<p->prerequisite_count;i++)if(!owner_has(owner,p->prerequisites[i]))return false;
+    if(p->product_class!=RTS_PRODUCT_UPGRADE&&sc_unit_unavailable(owner,p->product_type))return false;
+    for(int i=0;i<p->prerequisite_count;i++)if(!sc_owner_has(owner,p->prerequisites[i]))return false;
+    if(!R_RowsMet(owner,p))return false;
     if(p->product_class==RTS_PRODUCT_UPGRADE)
-        return sc_upgrade_offered(owner,p)&&!researching(owner,p->product_type)&&owner_has(owner,p->makers[0]);
+        return sc_upgrade_offered(owner,p)&&!researching(owner,p->product_type)&&sc_owner_has(owner,p->makers[0]);
     return true;
 }
 /* Research stays in its building: the engine's actor id is the maker's. */
@@ -278,11 +287,11 @@ bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProduct
         if(u->owner<8)level.upgrades[SC_UPGRADES+tech][u->owner].weapon=1;
         S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
     } else if(zerg_morph(p)) {
-        fvec2_t at=fixed3_xy_to_fvec2(u->core.position);
+        fixed2_t at=fixed3_xy(u->core.position);
         if(!P_MorphMobj(u,(uint16_t)p->product_type))return false;
         if(per_egg(p->product_type)>1) {
             mobj_t *twin=sc_spawn_actor((unsigned)p->product_type-1,
-                (ivec2_t){(int)(at.x*32)+12,(int)(at.y*32)+4},u->owner);
+                (ivec2_t){(at.x>>(FIXED_FRAC_BITS-5))+12,(at.y>>(FIXED_FRAC_BITS-5))+4},u->owner);
             if(twin) { twin->team=u->team; twin->allegiance=u->allegiance; twin->hp=twin->max_hp*u->hp/u->max_hp; }
         }
         S_Bark(&u,1,SE_READY,false);
@@ -298,7 +307,7 @@ bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProduct
     }
     return true;
 }
-bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const StaticProductDefinition *p,const mobj_t *n,float *x,float *y) { (void)m;(void)u;(void)p;(void)n;(void)x;(void)y; return false; }
+bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const StaticProductDefinition *p,const mobj_t *n,fixed2_t *out) { (void)m;(void)u;(void)p;(void)n;(void)out; return false; }
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
 /* An order on a hatchery goes to the first of its larvae that is free. */
 bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) {
@@ -377,109 +386,6 @@ static int sc_ai_level(const level_t *map,int owner) {
     if(kind==1||kind==5||sc_player_ai(owner)) return AI_LEVEL_NORMAL;
     return AI_LEVEL_NONE;
 }
-/* A race's computer player, in two parts as Blizzard's melee AI has them:
- * an opening of build/train lines (aiscript TMCu/ZMCu/PMCu) and a doctrine
- * that says, in numbers, what the race is good at. The shared AI turns the
- * doctrine into supply, workers, defenses, an army mix bent toward what it
- * scouts, and the call of when to attack or fall back. */
-typedef struct { int product, count; } sc_step_t;
-typedef struct {
-    const sc_step_t *opening;
-    int opening_count;
-    int wave_interval_ms, wave_min_size, wave_max_size;
-    AiDoctrine doctrine;
-} sc_race_ai_t;
-#define SC_OPENING(steps) .opening = steps, .opening_count = (int)(sizeof(steps) / sizeof(*steps))
-#define SC_UPGRADE(upgrade, level) (SC_UPGRADE_UI + (upgrade) * 4 + (level) - 1)
-
-/* The openings follow the retail melee scripts line by line (build and
- * train lines of TMCu, ZMCu and PMCu, test_ai checks the order), then
- * reach the buildings the roster needs. Supply, workers past the opening,
- * static defense, expansions and the army are the doctrine's. */
-/* Terran: turtles and pushes. A bunkered marine opening into tanks;
- * turrets and bunkers hold the base, the army leaves only with a clear
- * edge and backs off before it is traded away. Expands late. */
-static const sc_step_t terran_opening[] = {
-    {MT_SCV,7},{MT_BARRACKS,1},{MT_SCV,8},{MT_SUPPLY_DEPOT,1},{MT_SCV,10},{MT_MARINE,1},{MT_SCV,11},
-    {MT_MARINE,2},{MT_SCV,12},{MT_SUPPLY_DEPOT,2},{MT_MARINE,3},{MT_SCV,13},{MT_MARINE,4},{MT_SCV,14},
-    {MT_BUNKER,1},{MT_MARINE,5},{MT_SCV,15},{MT_BARRACKS,2},{MT_MARINE,6},{MT_SCV,16},{MT_MARINE,7},
-    {MT_SCV,17},{MT_REFINERY,1},{MT_MARINE,8},{MT_SCV,18},{MT_MARINE,10},{MT_SCV,19},{MT_MARINE,12},
-    {MT_ACADEMY,1},{MT_MARINE,14},{MT_BARRACKS,3},{MT_SCV,20},{MT_FACTORY,1},{MT_MARINE,16},{MT_FIREBAT,1},
-    {MT_MACHINE_SHOP,1},{SC_TECH_UI+SC_TECH_SIEGE_MODE,1},{MT_SIEGE_TANK,2},{MT_ENGINEERING_BAY,1},
-    {MT_STARPORT,1},{MT_SCIENCE_FACILITY,1},{MT_ARMORY,1},{MT_REFINERY,2},
-};
-/* Zerg: cheap, fast and many. A 9-pool zergling rush behind a sunken,
- * a second hatchery early at the natural expansion, waves that trade
- * freely and come back often; hive tech for Ultralisks and Guardians. */
-static const sc_step_t zerg_opening[] = {
-    {MT_DRONE,9},{MT_OVERLORD,2},{MT_SPAWNING_POOL,1},{MT_DRONE,11},{MT_CREEP_COLONY,1},{MT_EXTRACTOR,1},
-    {MT_ZERGLING,6},{MT_SUNKEN_COLONY,1},{MT_ZERGLING,12},{MT_OVERLORD,3},{MT_DRONE,13},{MT_DRONE,14},
-    {MT_HYDRALISK_DEN,1},{MT_DRONE,16},{MT_HATCHERY,2},{MT_DRONE,17},{MT_EVOLUTION_CHAMBER,1},{MT_DRONE,18},
-    {SC_UPGRADE(11,1),1},{MT_LAIR,1},{MT_EXTRACTOR,2},{MT_SPIRE,1},{MT_QUEENS_NEST,1},{MT_HIVE,1},{MT_ULTRALISK_CAVERN,1},
-    {MT_GREATER_SPIRE,1},
-};
-/* Protoss: few, expensive, strong. A zealot opening on a teching base,
- * cannons at home after the Forge, then the natural; templar, reavers and
- * carriers, and attacks once it out-trades what it has seen. */
-static const sc_step_t protoss_opening[] = {
-    {MT_PROBE,8},{MT_PYLON,1},{MT_PROBE,10},{MT_GATEWAY,1},{MT_PROBE,12},{MT_PYLON,2},{MT_PROBE,13},
-    {MT_ZEALOT,1},{MT_PROBE,14},{MT_GATEWAY,2},{MT_PROBE,15},{MT_ZEALOT,2},{MT_PROBE,16},{MT_PROBE,17},
-    {MT_ZEALOT,4},{MT_PROBE,18},{MT_ZEALOT,5},{MT_ASSIMILATOR,1},{MT_ZEALOT,6},{MT_ZEALOT,8},{MT_FORGE,1},
-    {MT_ZEALOT,9},{MT_ZEALOT,10},{SC_UPGRADE(13,1),1},{MT_CYBERNETICS_CORE,1},{MT_DRAGOON,2},{MT_ASSIMILATOR,2},
-    {MT_CITADEL_OF_ADUN,1},{MT_TEMPLAR_ARCHIVES,1},{SC_TECH_UI+SC_TECH_PSIONIC_STORM,1},{MT_ROBOTICS_FACILITY,1},
-    {MT_ROBOTICS_SUPPORT_BAY,1},{MT_STARGATE,1},{MT_FLEET_BEACON,1},{MT_OBSERVATORY,1},
-};
-static const sc_race_ai_t race_ai[3] = {
-    [0] = { SC_OPENING(zerg_opening), .wave_interval_ms = 30000, .wave_min_size = 6, .wave_max_size = 32,
-        .doctrine = { .workers = 14, .supply_buffer = 4, .defenses = 1, .research = 25, .counter = 60,
-            .expand_workers = 12, .max_towns = 3, .scout = MT_SPAWNING_POOL, .attack_ratio = 70, .retreat_ratio = 35,
-            .roster = { {MT_DRONE,0},{MT_OVERLORD,0},{MT_CREEP_COLONY,0},{MT_SUNKEN_COLONY,0},{MT_SPORE_COLONY,0},
-                        {MT_ZERGLING,45},{MT_HYDRALISK,30},{MT_MUTALISK,15},{MT_ULTRALISK,10},{MT_GUARDIAN,8} },
-            .roster_count = 10 } },
-    [1] = { SC_OPENING(terran_opening), .wave_interval_ms = 60000, .wave_min_size = 14, .wave_max_size = 30,
-        .doctrine = { .workers = 20, .supply_buffer = 6, .defenses = 2, .research = 25, .counter = 70,
-            .expand_workers = 20, .expand_after = MT_FACTORY, .max_towns = 2, .scout = MT_BARRACKS,
-            .attack_ratio = 140, .retreat_ratio = 70,
-            .roster = { {MT_SCV,0},{MT_SUPPLY_DEPOT,0},{MT_BUNKER,0},{MT_MISSILE_TURRET,0},{MT_SCIENCE_VESSEL,0},
-                        {MT_MARINE,40},{MT_FIREBAT,10},{MT_VULTURE,10},{MT_GOLIATH,15},{MT_SIEGE_TANK,30},
-                        {MT_WRAITH,5},{MT_BATTLECRUISER,5} },
-            .roster_count = 12 } },
-    [2] = { SC_OPENING(protoss_opening), .wave_interval_ms = 45000, .wave_min_size = 8, .wave_max_size = 20,
-        .doctrine = { .workers = 20, .supply_buffer = 8, .defenses = 1, .research = 25, .counter = 70,
-            .expand_workers = 16, .expand_after = MT_FORGE, .max_towns = 2, .scout = MT_GATEWAY,
-            .attack_ratio = 110, .retreat_ratio = 60,
-            .roster = { {MT_PROBE,0},{MT_PYLON,0},{MT_PHOTON_CANNON,0},{MT_OBSERVER,0},
-                        {MT_ZEALOT,30},{MT_DRAGOON,35},{MT_HIGH_TEMPLAR,10},{MT_REAVER,10},{MT_CARRIER,10},
-                        {MT_SCOUT,5},{MT_ARBITER,3} },
-            .roster_count = 11 } },
-};
-static bool sc_ai_plan(const level_t *map,int owner,int level,AiPlan *out) {
-    (void)map;(void)level;
-    int side=sc_player_side(owner);
-    const sc_race_ai_t *race=&race_ai[side>=0&&side<3?side:1];
-    out->wave_interval_ms=race->wave_interval_ms;
-    out->wave_min_size=race->wave_min_size;
-    out->wave_max_size=race->wave_max_size;
-    out->doctrine=race->doctrine;
-    for(int i=0;i<race->opening_count;i++) P_AiPlanAdd(out,race->opening[i].product,race->opening[i].count);
-    return true;
-}
-/* What units.dat says beyond the engine's actor: shields, supply, cloaking
- * and casters; Brood War doubles zealots, firebats and mutalisks. */
-static void sc_ai_describe(uint16_t type,AiUnitInfo *info) {
-    if(type<1||type>SC_TYPES) return;
-    const sc_unit_t *u=&sc_units[type-1];
-    info->hp+=u->shields;
-    if(u->supply_provided>0) info->roles|=AI_ROLE_SUPPLY;
-    if(u->flags&(0x200|0x400000)) info->roles|=AI_ROLE_CLOAKED;
-    if((u->flags&0x200000)&&!(info->roles&AI_ROLE_FIGHTER)) info->roles|=AI_ROLE_SUPPORT;
-    /* A Bunker defends with the infantry it holds. */
-    if(u->space_provided&&(u->flags&SC_UNIT_BUILDING)) info->roles|=AI_ROLE_DEFENSE|AI_ROLE_HITS_GROUND|AI_ROLE_HITS_AIR;
-    /* A Creep Colony is the site a Sunken or Spore Colony grows out of. */
-    if(type==MT_CREEP_COLONY) info->roles|=AI_ROLE_DEFENSE;
-    /* Interceptors and scarabs count in their Carrier or Reaver. */
-    if(type==MT_INTERCEPTOR||type==MT_SCARAB) info->roles&=~(AI_ROLE_FIGHTER|AI_ROLE_HITS_GROUND|AI_ROLE_HITS_AIR);
-}
 /* Brood War adds half a caster's energy to its strength, counts a Bunker as
  * what it holds, and a Carrier or Reaver as full as its hangar. */
 static void sc_ai_describe_unit(const mobj_t *unit,AiUnitInfo *info) {
@@ -522,7 +428,8 @@ static bool sc_ai_supply(int owner,int *used,int *cap) {
 }
 /* A town is a town hall and the patches around it, out to a geyser some
  * maps set apart from the fields. */
-#define SC_TOWN_RADIUS 16.0f
+#define SC_TOWN_RADIUS_CELLS 16
+#define SC_TOWN_RADIUS FIXED_FROM_INT(SC_TOWN_RADIUS_CELLS)
 /* Whether owner has a building of type with add-on attached. */
 static bool has_attached(int owner,uint16_t type,uint16_t addon) {
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
@@ -536,11 +443,11 @@ static bool has_attached(int owner,uint16_t type,uint16_t addon) {
  * stands: the computer player builds that add-on first. */
 static uint16_t missing_addon(int owner,const StaticProductDefinition *p) {
     for(int i=0;i<p->prerequisite_count;i++)
-        if(!sc_addon_parent((uint16_t)p->prerequisites[i])&&!owner_has(owner,(uint16_t)p->prerequisites[i])) return MT_NONE;
+        if(!sc_addon_parent((uint16_t)p->prerequisites[i])&&!sc_owner_has(owner,(uint16_t)p->prerequisites[i])) return MT_NONE;
     for(int i=0;i<p->prerequisite_count;i++) {
         uint16_t addon=(uint16_t)p->prerequisites[i],parent=sc_addon_parent(addon);
-        if(!parent||(parent==p->makers[0]?has_attached(owner,parent,addon):owner_has(owner,addon))) continue;
-        return owner_has(owner,parent)?addon:MT_NONE;
+        if(!parent||(parent==p->makers[0]?has_attached(owner,parent,addon):sc_owner_has(owner,addon))) continue;
+        return sc_owner_has(owner,parent)?addon:MT_NONE;
     }
     return MT_NONE;
 }
@@ -590,20 +497,20 @@ static int sc_ai_can_purchase(const level_t *map,int owner,int ui) {
  * (the scout, a worker sent home). */
 static mobj_t *idle_maker(int owner,int maker) {
     mobj_t *best=NULL;
-    fvec2_t home={0,0};
-    float best_d=0;
+    fixed2_t home={0,0};
+    int64_t best_d=0;
     bool found=false;
     if(!thinkercap.next) return NULL;
     for(thinker_t *th=thinkercap.next;th!=&thinkercap&&!found;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function==P_MobjThinker&&mo->owner==owner&&!mo->remove&&mo->hp>0&&(mo->traits&MF_RESOURCE_BASE))
-            home=fixed3_xy_to_fvec2(mo->core.position),found=true;
+            home=fixed3_xy(mo->core.position),found=true;
     }
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         mobj_t *mo=(mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||mo->type_id!=maker||mo->production||
            (mo->harvest.phase==HARVEST_PHASE_NONE&&P_HasMoveOrder(mo))) continue;
-        float d=fvec2_distance_squared(fixed3_xy_to_fvec2(mo->core.position),home);
+        int64_t d=fixed2_distance_squared64(fixed3_xy(mo->core.position),home);
         if(!best||d<best_d) { best=mo; best_d=d; }
     }
     return best;
@@ -660,10 +567,10 @@ static bool addon_room(uint16_t type,ivec2_t cell,const mobj_t *builder) {
     }
     return true;
 }
-static bool site_near(uint16_t type,fvec2_t origin,int limit,const mobj_t *builder,ivec2_t *out) {
+static bool site_near(uint16_t type,fixed2_t origin,int limit,const mobj_t *builder,ivec2_t *out) {
     for(int radius=2;radius<limit;radius++) for(int y=-radius;y<=radius;y++) for(int x=-radius;x<=radius;x++) {
         if(abs(x)!=radius&&abs(y)!=radius) continue;
-        ivec2_t cell={(int)origin.x+x,(int)origin.y+y};
+        ivec2_t cell={fixed2_cell(origin).x+x,fixed2_cell(origin).y+y};
         /* A refinery sits on its geyser among the fields; anything else keeps its lanes. */
         if(P_CanPlaceBuilding(type,cell,builder)&&(actor_types[type-1].build_on_type||
            (lane_clear(type,cell)&&addon_room(type,cell,builder)&&clear_of_resources(type,cell)))) { *out=cell; return true; }
@@ -676,15 +583,15 @@ static bool site_near(uint16_t type,fvec2_t origin,int limit,const mobj_t *build
 static bool find_site(const mobj_t *builder,uint16_t type,ivec2_t *out) {
     uint32_t flags=sc_units[type-1].flags;
     bool refinery=actor_types[type-1].build_on_type!=0;
-    fvec2_t origin={level.width*0.5f,level.height*0.5f};
+    fixed2_t origin={level.width*(FIXED_ONE/2),level.height*(FIXED_ONE/2)};
     bool found=false;
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->owner!=builder->owner||mo->hp<=0||mo->remove) continue;
-        fvec2_t at=fixed3_xy_to_fvec2(mo->core.position);
+        fixed2_t at=fixed3_xy(mo->core.position);
         if(!found) { origin=at; found=true; }
         if((((flags&0x20000)&&sc_counts_as(mo->type_id,MT_HATCHERY))||((flags&0x80000)&&mo->type_id==MT_PYLON)||
-            (refinery&&(mo->traits&MF_RESOURCE_BASE)))&&site_near(type,at,refinery?(int)SC_TOWN_RADIUS:12,builder,out)) return true;
+            (refinery&&(mo->traits&MF_RESOURCE_BASE)))&&site_near(type,at,refinery?SC_TOWN_RADIUS_CELLS:12,builder,out)) return true;
     }
     return !refinery&&site_near(type,origin,48,builder,out);
 }
@@ -717,14 +624,14 @@ static int sc_ai_owned(int owner,int ui) {
     }
     return count;
 }
-static bool near_hall(const mobj_t *mo,fvec2_t at) {
-    fvec2_t hall;
-    if(mo->traits&MF_RESOURCE_BASE) hall=fixed3_xy_to_fvec2(mo->core.position);
+static bool near_hall(const mobj_t *mo,fixed2_t at) {
+    fixed2_t hall;
+    if(mo->traits&MF_RESOURCE_BASE) hall=fixed3_xy(mo->core.position);
     else if(mo->production&&mo->production->placed&&mo->production->actor_id>0&&mo->production->actor_id<=SC_TYPES&&
             (sc_units[mo->production->actor_id-1].flags&0x1000))
         hall=P_BuildingPosition(mo->production->actor_id,mo->production->cell);
     else return false;
-    return fvec2_distance_squared(hall,at)<SC_TOWN_RADIUS*SC_TOWN_RADIUS;
+    return fixed2_distance_squared64(hall,at)<fixed_sq64(SC_TOWN_RADIUS);
 }
 /* Workers spread over the patches of our towns, nearest first: three to a
  * refinery before anything else, as tech waits on gas, then up to three to
@@ -743,14 +650,14 @@ static bool sc_ai_assign_harvester(level_t *map,int owner,mobj_t *unit) {
         if(mo->traits&MF_RESOURCE_BASE)
             for(int i=0;i<map->resource_vent_count;i++) town[i]|=near_hall(mo,map->resource_vents[i].attachment);
     }
-    fvec2_t at=fixed3_xy_to_fvec2(unit->core.position);
+    fixed2_t at=fixed3_xy(unit->core.position);
     for(int load=-1;load<SATURATION;load++) {
-        int best=-1; float best_d=0;
+        int best=-1; int64_t best_d=0;
         for(int i=0;i<map->resource_vent_count;i++) {
             const resourcevent_t *vent=&map->resource_vents[i];
             int has=vent->resource_type?(workers[i]<SATURATION?-1:SATURATION):workers[i];
             if(has!=load||!town[i]||!P_VentOpenTo(map,vent,unit)) continue;
-            float d=fvec2_distance_squared(at,vent->attachment);
+            int64_t d=fixed2_distance_squared64(at,vent->attachment);
             if(best<0||d<best_d) { best=i; best_d=d; }
         }
         if(best>=0&&P_HarvestUnitTo(map,unit,map->resource_vents[best].attachment)) return true;
@@ -761,31 +668,31 @@ static bool sc_ai_assign_harvester(level_t *map,int owner,mobj_t *unit) {
 static const mobjtype_id_t town_hall[3]={MT_HATCHERY,MT_COMMAND_CENTER,MT_NEXUS};
 /* A resource site: the fields and geysers within a few cells of one
  * another, grown from seed; returns their centre. */
-static fvec2_t resource_site(const level_t *map,int seed,bool *member) {
+static fixed2_t resource_site(const level_t *map,int seed,bool *member) {
     int count=map->resource_vent_count,n=0;
-    fvec2_t centre={0,0};
+    fixed2_t centre={0,0};
     memset(member,0,(size_t)count*sizeof(*member));
     member[seed]=true;
     for(bool grew=true;grew;) {
         grew=false;
         for(int i=0;i<count;i++) for(int j=0;j<count&&!member[i]&&map->resource_vents[i].amount>0;j++)
-            if(member[j]&&fvec2_distance_squared(map->resource_vents[i].attachment,map->resource_vents[j].attachment)<36.0f)
+            if(member[j]&&fixed2_distance_squared64(map->resource_vents[i].attachment,map->resource_vents[j].attachment)<fixed_sq64(FIXED_FROM_INT(6)))
                 member[i]=grew=true;
     }
-    for(int i=0;i<count;i++) if(member[i]) { centre=fvec2_add(centre,map->resource_vents[i].attachment); ++n; }
-    return (fvec2_t){centre.x/n,centre.y/n};
+    for(int i=0;i<count;i++) if(member[i]) { centre=fixed2_add(centre,map->resource_vents[i].attachment); ++n; }
+    return (fixed2_t){centre.x/n,centre.y/n};
 }
 /* The free cell for a town hall nearest a site's patches, keeping the
  * retail three-cell gap to every field and geyser. */
-static bool town_site(const level_t *map,uint16_t hall,const bool *member,fvec2_t centre,const mobj_t *builder,ivec2_t *out) {
+static bool town_site(const level_t *map,uint16_t hall,const bool *member,fixed2_t centre,const mobj_t *builder,ivec2_t *out) {
     isize2_t size=actor_types[hall-1].footprint;
-    float best=0; bool found=false;
+    int64_t best=0; bool found=false;
     for(int y=-10;y<=10;y++) for(int x=-10;x<=10;x++) {
-        ivec2_t cell={(int)centre.x-size.w/2+x,(int)centre.y-size.h/2+y};
-        fvec2_t at=P_BuildingPosition(hall,cell);
-        float score=0;
+        ivec2_t cell={fixed2_cell(centre).x-size.w/2+x,fixed2_cell(centre).y-size.h/2+y};
+        fixed2_t at=P_BuildingPosition(hall,cell);
+        int64_t score=0;
         for(int i=0;i<map->resource_vent_count;i++)
-            if(member[i]) score+=sqrtf(fvec2_distance_squared(map->resource_vents[i].attachment,at));
+            if(member[i]) score+=fixed2_length(fixed2_sub(map->resource_vents[i].attachment,at));
         if((found&&score>=best)||!clear_of_resources(hall,cell)||!P_CanPlaceBuilding(hall,cell,builder)) continue;
         best=score; *out=cell; found=true;
     }
@@ -797,27 +704,27 @@ static int sc_ai_expand(level_t *map,int owner) {
     int side=sc_player_side(owner),count=map->resource_vent_count;
     uint16_t hall=town_hall[side>=0&&side<3?side:1];
     const StaticProductDefinition *product=G_ModelProductByUIId(NULL,hall);
-    fvec2_t base={0,0}; bool has_base=false;
+    fixed2_t base={0,0}; bool has_base=false;
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0) continue;
         if(mo->production&&mo->production->placed&&mo->production->actor_id==hall) return AI_BUY_BLOCKED;
-        if(!has_base&&(mo->traits&MF_RESOURCE_BASE)) { base=fixed3_xy_to_fvec2(mo->core.position); has_base=true; }
+        if(!has_base&&(mo->traits&MF_RESOURCE_BASE)) { base=fixed3_xy(mo->core.position); has_base=true; }
     }
     mobj_t *worker=idle_maker(owner,product?product->makers[0]:MT_NONE);
     if(!has_base||!worker||count<=0||!G_ModelProductAvailable(NULL,owner,product)) return AI_BUY_BLOCKED;
     bool tried[count],member[count];
     memset(tried,0,sizeof(tried));
     for(int tries=0;tries<4;) {
-        int seed=-1; float seed_d=0;
+        int seed=-1; int64_t seed_d=0;
         for(int i=0;i<count;i++) {
             const resourcevent_t *vent=&map->resource_vents[i];
-            float d=fvec2_distance_squared(vent->attachment,base);
+            int64_t d=fixed2_distance_squared64(vent->attachment,base);
             if(tried[i]||vent->resource_type!=0||vent->amount<=0||(seed>=0&&d>=seed_d)) continue;
             seed=i; seed_d=d;
         }
         if(seed<0) break;
-        fvec2_t centre=resource_site(map,seed,member);
+        fixed2_t centre=resource_site(map,seed,member);
         bool claimed=false;
         for(int i=0;i<count;i++) {
             tried[i]|=member[i];
@@ -826,8 +733,8 @@ static int sc_ai_expand(level_t *map,int owner) {
                     near_hall((mobj_t *)th,map->resource_vents[i].attachment);
         }
         ivec2_t near,cell;
-        if(claimed||!P_NavNearestReachable(map,P_MobjMoveClass(worker),fvec2_cell(fixed3_xy_to_fvec2(worker->core.position)),
-                                           fvec2_cell(centre),4,&near)) continue;
+        if(claimed||!P_NavNearestReachable(map,P_MobjMoveClass(worker),fixed2_cell(fixed3_xy(worker->core.position)),
+                                           fixed2_cell(centre),4,&near)) continue;
         ++tries;
         if(map->player_resources[owner][0]<product->cost) return AI_BUY_NEED_CREDITS;
         if(town_site(map,hall,member,centre,worker,&cell)&&G_PlaceProduct(worker,product,cell)) return AI_BUY_OK;
@@ -835,7 +742,7 @@ static int sc_ai_expand(level_t *map,int owner) {
     return AI_BUY_BLOCKED;
 }
 /* CHK start locations: Start Location rows of the UNIT section. */
-static int sc_ai_starts(const level_t *map,fvec2_t *out,int cap) {
+static int sc_ai_starts(const level_t *map,fixed2_t *out,int cap) {
     const blob_t *file=map->mission;
     int n=0;
     for(size_t at=0;file&&at+8<=file->size;) {
@@ -844,7 +751,7 @@ static int sc_ai_starts(const level_t *map,fvec2_t *out,int cap) {
         if(size>file->size-at-8) break;
         if(!memcmp(tag,"UNIT",4)) for(size_t i=0;i+36<=size&&n<cap;i+=36) {
             const uint8_t *u=tag+8+i;
-            if(read_u16_le(u+8)+1==MT_START_LOCATION) out[n++]=(fvec2_t){read_u16_le(u+4)/32.0f,read_u16_le(u+6)/32.0f};
+            if(read_u16_le(u+8)+1==MT_START_LOCATION) out[n++]=(fixed2_t){(int32_t)read_u16_le(u+4)*(FIXED_ONE/32),(int32_t)read_u16_le(u+6)*(FIXED_ONE/32)};
         }
         at+=8+size;
     }
@@ -856,12 +763,12 @@ static int sc_ai_starts(const level_t *map,fvec2_t *out,int cap) {
 static int unlock(int owner,int ui,int depth) {
     const StaticProductDefinition *p=G_ModelProductByUIId(NULL,ui);
     if(!p||depth>6) return 0;
-    if(G_ModelProductAvailable(NULL,owner,p)&&(p->worker_build||owner_has(owner,(uint16_t)p->makers[0]))) return ui;
+    if(G_ModelProductAvailable(NULL,owner,p)&&(p->worker_build||sc_owner_has(owner,(uint16_t)p->makers[0]))) return ui;
     if(sc_ai_owned(owner,ui)) return 0;
     for(int i=0;i<p->prerequisite_count;i++)
-        if(!owner_has(owner,(uint16_t)p->prerequisites[i]))
+        if(!sc_owner_has(owner,(uint16_t)p->prerequisites[i]))
             return sc_ai_owned(owner,p->prerequisites[i])?0:unlock(owner,p->prerequisites[i],depth+1);
-    if(!owner_has(owner,(uint16_t)p->makers[0]))
+    if(!sc_owner_has(owner,(uint16_t)p->makers[0]))
         return sc_ai_owned(owner,p->makers[0])?0:unlock(owner,p->makers[0],depth+1);
     return 0;
 }
@@ -881,8 +788,8 @@ static int sc_ai_advance(const level_t *map,int owner,int ui) {
     for(int i=0;i<4;i++) {
         int level=sc_upgrade_level(owner,upgrades[i]);
         if(upgrades[i]<0||upgrades[i]>=SC_UPGRADES||level>=sc_upgrades[upgrades[i]].max_level||
-           !G_ModelProductByUIId(NULL,SC_UPGRADE(upgrades[i],level+1))) continue;
-        int step=unlock(owner,SC_UPGRADE(upgrades[i],level+1),0);
+           !G_ModelProductByUIId(NULL,sc_upgrade_product(upgrades[i],level+1))) continue;
+        int step=unlock(owner,sc_upgrade_product(upgrades[i],level+1),0);
         if(step) return step;
     }
     int techs[8],n=sc_unit_techs(type,techs,8);
@@ -901,11 +808,11 @@ static bool sc_ai_busy(const mobj_t *unit) {
     return unit&&unit->production&&unit->production->placed;
 }
 static const AiGameInterface sc_ai={
-    .name="starcraft",.features=AI_FEATURE_ALL,.player_level=sc_ai_level,.plan=sc_ai_plan,
+    .name="starcraft",.features=AI_FEATURE_ALL,.player_level=sc_ai_level,
     .owned=sc_ai_owned,.can_purchase=sc_ai_can_purchase,.purchase=sc_ai_purchase,
     .is_anchor=sc_ai_anchor,.is_busy=sc_ai_busy,
     .assign_harvester=sc_ai_assign_harvester,
-    .product_actor=G_AiCatalogActor,.describe=sc_ai_describe,.describe_unit=sc_ai_describe_unit,.supply=sc_ai_supply,
+    .describe_unit=sc_ai_describe_unit,.supply=sc_ai_supply,
     .develop=sc_ai_develop,.tactics=sc_ai_tactics,.advance=sc_ai_advance,.expand=sc_ai_expand,.starts=sc_ai_starts,
 };
 const AiGameInterface *G_AiInterface(void) { return &sc_ai; }

@@ -231,6 +231,8 @@ static bool has_prerequisite(const RtsGameModel *model, int owner, int type) {
     }
 }
 
+bool DR_PrerequisiteMet(int owner, int id) { return has_prerequisite(NULL, owner, id); }
+
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     if (!product || !DR_ProductInTech(product->ui_id)) return false;
@@ -257,8 +259,8 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
                                      const StaticProductDefinition *product,
                                      const mobj_t *new_unit,
-                                     float *out_gx, float *out_gy) {
-    (void)model; (void)producer; (void)product; (void)new_unit; (void)out_gx; (void)out_gy;
+                                     fixed2_t *out) {
+    (void)model; (void)producer; (void)product; (void)new_unit; (void)out;
     return false;
 }
 
@@ -320,90 +322,6 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-/* One ladder for both factions: {Freedom Guard id, Imperium id, count}.
- * Buildings come from Construction Rigs, units from the matching factory. */
-static const struct { int fg, imp, count; } dr_ai_ladder[] = {
-    { 10001, 11001, 1 },   /* HQ 1 */
-    { 10006, 11006, 1 },   /* Vehicle factory / Assembly plant */
-    { 13,    1006,  1 },   /* Freighter */
-    { 10004, 11004, 1 },   /* Barracks / Training facility */
-    { 9,     1002,  3 },   /* Raider / Guardian */
-    { 13,    1006,  2 },
-    { 10013, 11014, 1 },   /* Guard tower */
-    { 20,    1010,  2 },   /* Skirmish tank / Scout tank */
-    { 10,    1003,  2 },   /* Mercenary / Bion */
-    { 17,    1011,  2 },   /* Tank hunter / Plasma tank */
-    { 10002, 11002, 1 },   /* HQ 2 */
-    { 10005, 11005, 1 },   /* Advanced barracks */
-    { 10007, 11007, 1 },   /* Advanced vehicle factory */
-    { 8,     1004,  2 },   /* Sniper / Exterminator */
-    { 9,     1002,  6 },
-    { 20,    1010,  4 },
-    { 16,    1012,  2 },   /* Triple rail tank / Tachyon tank */
-    { 10014, 11015, 1 },   /* Advanced guard tower */
-    { 19,    1017,  2 },   /* Hellstorm / S.C.A.R.A.B. */
-    { 10,    1003,  4 },
-    { 16,    1012,  4 },
-    { 17,    1011,  4 },
-};
-
-/* The sides' characters, from UNITS.TXT and WEAPON.TXT. The Freedom Guard
- * fields cheap infantry, bikes and hover tanks that strike early and pull
- * back to heal. The Imperium masses armour and plasma, waits for a clear
- * edge and fights it out. Anti-air (Flak Jack, M.A.D.) only shoots up, so
- * the counter weight brings it in once flyers are seen. Dark Reign has no
- * supply, so army_cap bounds the army. */
-static const AiDoctrine fg_doctrine = {
-    .workers = 3, .defenses = 2, .army_cap = 40, .counter = 60,
-    .attack_ratio = 90, .retreat_ratio = 60,
-    .roster = { {13,0},{10013,0},{10014,0},{10012,0},
-                {9,30},{10,20},{1,15},{20,20},{17,10},{12,5},{16,10},{19,5},{7,3} },
-    .roster_count = 13,
-};
-static const AiDoctrine imp_doctrine = {
-    .workers = 3, .defenses = 3, .army_cap = 40, .counter = 60,
-    .attack_ratio = 130, .retreat_ratio = 35,
-    .roster = { {1006,0},{11014,0},{11015,0},{11013,0},
-                {1002,15},{1003,20},{1004,10},{1010,10},{1011,25},{1015,5},{1013,5},{1012,15},{1017,5},
-                {1008,3} },
-    .roster_count = 14,
-};
-
-static bool dr_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
-    (void)map; (void)level;
-    bool fg = G_ModelHasActorType(NULL, owner, MT_FG_CONSTRUCTION_CREW) ||
-              G_ModelHasActorType(NULL, owner, MT_FG_HQ1) ||
-              G_ModelHasActorType(NULL, owner, MT_FG_HQ2) ||
-              G_ModelHasActorType(NULL, owner, MT_FG_HQ3);
-    bool imp = G_ModelHasActorType(NULL, owner, MT_IMP_CONSTRUCTION_CREW) ||
-               G_ModelHasActorType(NULL, owner, MT_IMP_HQ1) ||
-               G_ModelHasActorType(NULL, owner, MT_IMP_HQ2) ||
-               G_ModelHasActorType(NULL, owner, MT_IMP_HQ3);
-    if (!fg && !imp) return false; /* Nothing to read the faction from yet. */
-    out->wave_interval_ms = 40000;
-    out->wave_min_size = 6;
-    out->wave_max_size = 14;
-    out->doctrine = fg ? fg_doctrine : imp_doctrine;
-    for (unsigned i = 0; i < sizeof(dr_ai_ladder) / sizeof(*dr_ai_ladder); ++i)
-        P_AiPlanAdd(out, fg ? dr_ai_ladder[i].fg : dr_ai_ladder[i].imp,
-                    dr_ai_ladder[i].count);
-    return true;
-}
-
-/* What the actor table cannot show: snipers, scouts and saboteurs hide as
- * terrain and spies as enemy units (CanMorphInto*), and the Amper boosts
- * the units around it (CanBoost). */
-static void dr_ai_describe(uint16_t type, AiUnitInfo *info) {
-    switch (type) {
-    case MT_FG_SNIPER: case MT_FG_SCOUT: case MT_FG_SABOTEUR: case MT_FG_SPY: case MT_IMP_SPY:
-        info->roles |= AI_ROLE_CLOAKED;
-        break;
-    case MT_IMP_AMPER:
-        info->roles |= AI_ROLE_SUPPORT;
-        break;
-    }
-}
-
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
     return G_QueueProduct(producer, product);
 }
@@ -421,28 +339,22 @@ int G_ModelRadarLevel(int owner) {
 static const AiGameInterface dr_ai_interface = {
     .name = "dark-reign",
     .features = AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION |
-                AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK,
+                AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK | AI_FEATURE_DOCTRINE,
     .player_level = P_AiLevelNonHuman,
-    .plan = dr_ai_plan,
-    .owned = G_AiCatalogOwned,
-    .can_purchase = G_AiCatalogCanPurchase,
-    .purchase = G_AiCatalogPurchase,
     .is_anchor = G_AiIsStructure,
-    .product_actor = G_AiCatalogActor,
-    .describe = dr_ai_describe,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &dr_ai_interface; }
 
 bool DR_HarvestDropoffMatches(const mobj_t *unit,
                               int resource_type, const mobj_t *base,
-                              fvec2_t *position) {
+                              fixed2_t *position) {
     (void)unit;
     const dr_mission_t *mission = level.mission;
     if (!mission || !base || base->type_id >= gameinfo->mobj_type_count) return false;
     ivec2_t bay = mission->bays[base->type_id];
     if (bay.x < 0 || bay.y < 0) return false;
-    *position = fvec2_add(fixed3_xy_to_fvec2(base->core.position), fvec2_cell_center(bay));
+    *position = fixed2_add(fixed3_xy(base->core.position), fixed2_cell_center(bay));
 
     switch (resource_type) {
         case 0:
