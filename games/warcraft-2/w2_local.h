@@ -24,7 +24,7 @@ enum {
 };
 /* Stratagus Speed is not cells per second. This divisor is an engine
  * presentation choice so a footman (Speed 10) walks at 1.25 cells/s. */
-#define W2_SPEED_DIVISOR 8.0f
+#define W2_SPEED_DIVISOR 8
 #define W2_WALK_TICS 4
 #define W2_ENTRY_LIMIT (16u * 1024u * 1024u)
 
@@ -63,6 +63,11 @@ void A_W2_Platform(mobj_t *actor);
 void w2_init_products(void);
 /* The computer player's battle orders (p_ai.c): waves split by what can
  * reach the goal, ships, transports and spells. */
+/* PUD AIPL scripts that change the opening (rules.c variant_of). */
+enum { W2_AI_LAND = 0, W2_AI_PASSIVE = 1, W2_AI_SEA = 25, W2_AI_AIR = 26 };
+enum { W2_VARIANT_SEA, W2_VARIANT_AIR };
+int W2_AiScript(const level_t *map, int owner);
+bool W2_EnemyByLand(const level_t *map, int owner);
 bool w2_ai_dispatch(level_t *map, int owner, mobj_t *const *wave, int count, mobj_t *goal);
 void w2_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count);
 typedef struct {
@@ -91,6 +96,26 @@ int w2_grp_entry(const mobjinfo_t *unit, int era, int archive_count);
 int w2_install_team_colors(spritesheet_t *sprite, const uint32_t palette[256]);
 
 bool w2_load_pud(const char *path, level_t *out);
+
+/* Map stat overrides (PUD UDTA and UGRD) as ruleset patch entries. */
+enum { W2_PATCH_UNIT = 1, W2_PATCH_UPGRADE, W2_PATCH_ALLOW };
+/* ALOW entries: row is the player, field is kind * 256 + index. */
+enum { W2_ALLOW_UNIT, W2_ALLOW_UPGRADE };
+/* Whether the player's map bans the unit or research (the product's actor or upgrade). */
+bool W2_Banned(int owner, const StaticProductDefinition *product);
+/* Decodes an ALOW section into ban entries; returns how many were added. */
+void w2_rebuild_product_costs(void);
+int w2_decode_allow(const uint8_t *alow, size_t size, rulepatchset_t *out);
+enum { W2_UNIT_SIGHT, W2_UNIT_HP, W2_UNIT_BUILD_TIME, W2_UNIT_GOLD, W2_UNIT_LUMBER, W2_UNIT_OIL,
+       W2_UNIT_RANGE, W2_UNIT_ARMOR, W2_UNIT_BASIC, W2_UNIT_PIERCING, W2_UNIT_POINTS };
+enum { W2_UPGRADE_FIELD_TIME, W2_UPGRADE_FIELD_GOLD, W2_UPGRADE_FIELD_LUMBER, W2_UPGRADE_FIELD_OIL };
+enum { W2_UDTA_SIZE = 5696, W2_UGRD_SIZE = 782 };
+/* Either section may be NULL or short. A section that says "use default data"
+ * adds nothing. Returns the entries added. */
+int w2_decode_rules(const uint8_t *udta, size_t udta_size, const uint8_t *ugrd, size_t ugrd_size,
+                    rulepatchset_t *out);
+void w2_refill_actors(void);
+w2_upgrade_t *W2_UpgradeRW(int id);
 /* Eight lobby races, -1 for an empty seat. NULL clears them. */
 void w2_set_net_races(const int *races);
 /* In a net game, move person slots onto seats 0..numplayers-1 and apply races. */

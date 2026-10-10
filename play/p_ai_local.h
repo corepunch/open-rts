@@ -14,7 +14,7 @@ typedef enum {
 
 /* A town is a cluster of drop-offs: a second hatchery or a lumber mill
  * beside the hall feeds the same workers, an expansion does not. */
-#define AI_TOWN_RADIUS 12.0f
+#define AI_TOWN_RADIUS FIXED_LIT(12.0)
 
 void P_AiEmit(AiContext *ctx, AiEventType type, int owner, int value);
 /* Units a game job or the scout occupies: economy, defense and waves leave them be. */

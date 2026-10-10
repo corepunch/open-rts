@@ -91,14 +91,14 @@ static bool vent_occupied_by_team(const AiTeamState *team, int vent_index) {
 }
 
 static bool find_friendly_base(const AiContext *ctx, int owner, mobj_t *const *units,
-                                int unit_count, fvec2_t *out_position) {
+                                int unit_count, fixed2_t *out_position) {
     if (!out_position) return false;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove) continue;
         if (u->owner != owner) continue;
         if (!ai_is_base(ctx, u)) continue;
-        *out_position = fixed3_xy_to_fvec2(u->core.position);
+        *out_position = fixed3_xy(u->core.position);
         return true;
     }
     return false;
@@ -119,7 +119,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
         }
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
 
-        fvec2_t position = fixed3_xy_to_fvec2(u->core.position);
+        fixed2_t position = fixed3_xy(u->core.position);
         /* Nearest free vent first; a vent the unit cannot path to is skipped
          * so one unreachable patch never idles the harvester for good. */
         bool tried[AI_MAX_VENT_TRIES] = { false };
@@ -127,12 +127,12 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
             map->resource_vent_count : AI_MAX_VENT_TRIES;
         for (int attempt = 0; attempt < vent_limit; ++attempt) {
             int best_vent = -1;
-            float best_dist2 = 1e30f;
+            int64_t best_dist2 = INT64_MAX;
             for (int v = 0; v < vent_limit; ++v) {
                 const resourcevent_t *vent = &map->resource_vents[v];
                 if (tried[v] || !P_VentOpenTo(map, vent, u)) continue;
                 if (vent_occupied_by_team(team, v)) continue;
-                float dist2 = fvec2_distance_squared(vent->attachment, position);
+                int64_t dist2 = fixed2_distance_squared64(vent->attachment, position);
                 if (dist2 < best_dist2) {
                     best_dist2 = dist2;
                     best_vent = v;
@@ -148,7 +148,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
             team->stats.harvest_orders++;
             P_AiEmit(ctx, AI_EVENT_HARVEST_ASSIGNED, owner, best_vent);
 
-            fvec2_t base_pos;
+            fixed2_t base_pos;
             if (find_friendly_base(ctx, owner, units, unit_count, &base_pos)) {
                 u->harvest.return_position = base_pos;
             }
@@ -165,12 +165,10 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
         if ((u->traits & MF_HARVESTER) == 0) continue;
         if (u->harvest.phase != HARVEST_PHASE_TO_BASE) continue;
 
-        fvec2_t base_pos;
+        fixed2_t base_pos;
         if (find_friendly_base(ctx, owner, units, unit_count, &base_pos)) {
-            float dx = fixed_to_float(u->core.position.x) - base_pos.x;
-            float dy = fixed_to_float(u->core.position.y) - base_pos.y;
-            float dist2 = dx * dx + dy * dy;
-            if (dist2 > AI_DEFENSE_RADIUS * AI_DEFENSE_RADIUS) {
+            int64_t dist2 = fixed2_distance_squared64(fixed3_xy(u->core.position), base_pos);
+            if (dist2 > fixed_sq64(AI_DEFENSE_RADIUS)) {
                 u->harvest.return_position = base_pos;
                 P_MoveUnitTo(map, u, base_pos);
             }
@@ -194,10 +192,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
 
 bool P_AiIsAlly(const level_t *map, const AiTeamState *team, int owner, const mobj_t *other) {
     if (!map->player_teams) return P_AreAllegiancesAllied(other->allegiance, team->allegiance);
-    const uint32_t *allies = map->sight.allies;
-#ifdef RTS_GAME_DARK_COLONY
-    allies = map->peace;
-#endif
+    const uint32_t *allies = G_AllianceMasks(map);
     return other->owner == owner || (other->team < 8 &&
         (allies[owner] & (UINT32_C(0x40000000) >> other->team)));
 }
@@ -215,12 +210,8 @@ static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,
         if (ctx->game && (enemy->owner >= AI_MAX_TEAMS || (enemy->traits & MF_NOBLOCKMAP))) continue;
         if (P_AiIsAlly(map, team, owner, enemy)) continue;
 
-        float ex = fixed_to_float(enemy->core.position.x);
-        float ey = fixed_to_float(enemy->core.position.y);
-        float dx = ex - team->base_position.x;
-        float dy = ey - team->base_position.y;
-        float dist2 = dx * dx + dy * dy;
-        if (dist2 > AI_DEFENSE_RADIUS * AI_DEFENSE_RADIUS) continue;
+        int64_t dist2 = fixed2_distance_squared64(fixed3_xy(enemy->core.position), team->base_position);
+        if (dist2 > fixed_sq64(AI_DEFENSE_RADIUS)) continue;
 
         for (int j = 0; j < unit_count; ++j) {
             mobj_t *defender = units[j];
@@ -234,7 +225,7 @@ static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,
             /* Fresh spawns never "arrive"; in game mode idle means no order. */
             if (ctx->game ? !P_HasMoveOrder(defender) : defender->movement.order_arrived) {
                 defender->attack.target = units[i];
-                fvec2_t enemy_pos = fixed3_xy_to_fvec2(enemy->core.position);
+                fixed2_t enemy_pos = fixed3_xy(enemy->core.position);
                 P_MoveUnitTo(map, defender, enemy_pos);
                 rallied++;
             }
@@ -261,16 +252,12 @@ static void ai_tick_attack_waves(AiContext *ctx, AiTeamState *team, int owner,
     team->attack_wave_timer_ms = AI_ATTACK_WAVE_INTERVAL_MS;
 
     int enemy_base = -1;
-    float enemy_dist2 = 1e30f;
+    int64_t enemy_dist2 = INT64_MAX;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->hp <= 0 || units[i]->remove) continue;
         if (P_AiIsAlly(map, team, owner, units[i])) continue;
         if (!ai_is_base(ctx, units[i])) continue;
-        float ex = fixed_to_float(units[i]->core.position.x);
-        float ey = fixed_to_float(units[i]->core.position.y);
-        float dx = ex - team->base_position.x;
-        float dy = ey - team->base_position.y;
-        float dist2 = dx * dx + dy * dy;
+        int64_t dist2 = fixed2_distance_squared64(fixed3_xy(units[i]->core.position), team->base_position);
         if (dist2 < enemy_dist2) {
             enemy_dist2 = dist2;
             enemy_base = i;
@@ -278,7 +265,7 @@ static void ai_tick_attack_waves(AiContext *ctx, AiTeamState *team, int owner,
     }
     if (enemy_base < 0) return;
 
-    fvec2_t target = fixed3_xy_to_fvec2(units[enemy_base]->core.position);
+    fixed2_t target = fixed3_xy(units[enemy_base]->core.position);
     int dispatched = 0;
     for (int i = 0; i < unit_count && dispatched < AI_ATTACK_WAVE_MAX_SIZE; ++i) {
         mobj_t *u = units[i];
@@ -307,28 +294,75 @@ enum { AI_PURCHASES_PER_THINK = 2 };
  * credits stops the scan so cheaper low-priority goals cannot starve it. */
 static void ai_ensure_plan(const AiContext *ctx, AiTeamState *team, int owner,
                            level_t *map) {
-    if (team->plan_loaded || !ctx->game->plan) return;
+    if (team->plan_loaded) return;
+    if (!ctx->game->plan && R_Rules()->faction_count <= 0) return;
     memset(&team->plan, 0, sizeof(team->plan));
-    team->plan_loaded = ctx->game->plan(map, owner, team->level, &team->plan);
+    team->plan_loaded = ctx->game->plan ?
+        ctx->game->plan(map, owner, team->level, &team->plan) :
+        R_OwnerPlan(map, owner, team->level, &team->plan);
     if (team->plan.goal_count > AI_MAX_GOALS) team->plan.goal_count = AI_MAX_GOALS;
     /* The first wave waits one full interval after the plan is chosen. */
     team->attack_wave_timer_ms = team->plan.wave_interval_ms > 0 ?
         team->plan.wave_interval_ms : AI_ATTACK_WAVE_INTERVAL_MS;
 }
 
+/* The game's answer, or the catalog's. */
+int P_AiOwned(const AiContext *ctx, int owner, int product) {
+    return ctx->game->owned ? ctx->game->owned(owner, product) : G_AiCatalogOwned(owner, product);
+}
+
+int P_AiProductActor(const AiContext *ctx, int product) {
+    return ctx->game->product_actor ? ctx->game->product_actor(product) : G_AiCatalogActor(product);
+}
+
+static int ai_can_purchase(const AiContext *ctx, level_t *map, int owner, int product) {
+    return ctx->game->can_purchase ? ctx->game->can_purchase(map, owner, product) :
+        G_AiCatalogCanPurchase(map, owner, product);
+}
+
+int P_AiCanPurchase(const AiContext *ctx, level_t *map, int owner, int product) {
+    return ai_can_purchase(ctx, map, owner, product);
+}
+
+static AiTry ai_try(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int product, int depth);
+
+/* Walks the tech path R_TechPath plans: buys or develops the first thing the
+ * product still needs (a building, a research, a tech level). */
+static bool ai_develop(AiContext *ctx, AiTeamState *team, level_t *map, int owner, int product, int depth) {
+    if (ctx->game->develop) return ctx->game->develop(map, owner, product);
+    const StaticProductDefinition *def = G_ModelProductByUIId(NULL, product);
+    techstep_t step;
+    if (depth < 8 && R_TechNextStep(owner, def, &step)) {
+        if (step.pending) return true; /* Under way: wait for it. */
+        if (step.product) return ai_try(ctx, team, owner, map, step.product, depth + 1) != AI_TRY_SKIP;
+        def = G_ModelProductByUIId(NULL, step.wanted_by);
+    }
+    mobj_t *producer = R_Rules()->research ? R_ProducerLackingTech(owner, def) : NULL;
+    return producer && R_Rules()->research(map, producer);
+}
+
 AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int product) {
+    return ai_try(ctx, team, owner, map, product, 0);
+}
+
+static AiTry ai_try(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int product, int depth) {
     const AiGameInterface *game = ctx->game;
-    int status = game->can_purchase(map, owner, product);
+    int status = ai_can_purchase(ctx, map, owner, product);
+    /* Blocked by something the owner can get: plan the path to it. */
+    if (status == AI_BUY_BLOCKED && (ctx->features & AI_FEATURE_RESEARCH) &&
+        R_TechNextStep(owner, G_ModelProductByUIId(NULL, product), &(techstep_t){0}))
+        status = AI_BUY_NEED_TECH;
     if (status == AI_BUY_NEED_TECH) {
-        if (!(ctx->features & AI_FEATURE_RESEARCH) || !game->develop ||
-            !game->develop(map, owner, product)) return AI_TRY_SKIP;
+        if (!(ctx->features & AI_FEATURE_RESEARCH) ||
+            !ai_develop(ctx, team, map, owner, product, depth)) return AI_TRY_SKIP;
         team->stats.research_orders++;
         P_AiEmit(ctx, AI_EVENT_RESEARCH, owner, product);
         return AI_TRY_SAVING; /* Wait for the tech-up like saving for credits. */
     }
     if (status == AI_BUY_BLOCKED) return AI_TRY_SKIP;
     if (status == AI_BUY_NEED_CREDITS) return AI_TRY_SAVING;
-    if (!game->purchase(map, owner, product)) return AI_TRY_SKIP;
+    if (!(game->purchase ? game->purchase(map, owner, product) :
+                           G_AiCatalogPurchase(map, owner, product))) return AI_TRY_SKIP;
     team->stats.purchases++;
     P_AiEmit(ctx, AI_EVENT_PURCHASE, owner, product);
     return AI_TRY_BOUGHT;
@@ -339,20 +373,19 @@ AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int pr
  * once nothing there waits for credits or tech, the doctrine's needs. */
 static void ai_tick_production(AiContext *ctx, AiTeamState *team, int owner,
                                level_t *map, int elapsed_ms) {
-    const AiGameInterface *game = ctx->game;
-    if (!game->plan || !game->owned || !game->can_purchase || !game->purchase) return;
-    if (P_AiBuySupply(ctx, team, owner, map, elapsed_ms)) return;
-    if (P_AiExpand(ctx, team, owner, map)) return;
+    bool doctrine = (ctx->features & AI_FEATURE_DOCTRINE) != 0;
+    if (doctrine && P_AiBuySupply(ctx, team, owner, map, elapsed_ms)) return;
+    if (doctrine && P_AiExpand(ctx, team, owner, map)) return;
     int bought = 0;
     for (int i = 0; i < team->plan.goal_count && bought < AI_PURCHASES_PER_THINK; ++i) {
         const AiGoal *goal = &team->plan.goals[i];
         if (ctx->clock_ms < goal->after_ms) continue;
-        if (game->owned(owner, goal->product) >= goal->count) continue;
+        if (P_AiOwned(ctx, owner, goal->product) >= goal->count) continue;
         AiTry result = P_AiTry(ctx, team, owner, map, goal->product);
         if (result == AI_TRY_SAVING) return;
         if (result == AI_TRY_BOUGHT) ++bought;
     }
-    if (bought < AI_PURCHASES_PER_THINK)
+    if (doctrine && bought < AI_PURCHASES_PER_THINK)
         P_AiBuyDoctrine(ctx, team, owner, map, AI_PURCHASES_PER_THINK - bought);
 }
 
@@ -387,14 +420,12 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
 
     /* Objective tiers: enemy base, else any enemy structure, else any object. */
     mobj_t *goal = NULL, *structure = NULL, *fallback = NULL;
-    float goal_d2 = 1e30f, structure_d2 = 1e30f, fallback_d2 = 1e30f;
+    int64_t goal_d2 = INT64_MAX, structure_d2 = INT64_MAX, fallback_d2 = INT64_MAX;
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *e = units[i];
         if (!ai_unit_alive(e) || e->owner >= AI_MAX_TEAMS ||
             (e->traits & MF_NOBLOCKMAP) || P_AiIsAlly(map, team, owner, e)) continue;
-        float dx = fixed_to_float(e->core.position.x) - team->base_position.x;
-        float dy = fixed_to_float(e->core.position.y) - team->base_position.y;
-        float d2 = dx * dx + dy * dy;
+        int64_t d2 = fixed2_distance_squared64(fixed3_xy(e->core.position), team->base_position);
         if (ai_is_anchor(ctx, e) && d2 < goal_d2) { goal_d2 = d2; goal = e; }
         if (!(e->traits & MF_MOBILE) && d2 < structure_d2) { structure_d2 = d2; structure = e; }
         if (d2 < fallback_d2) { fallback_d2 = d2; fallback = e; }
@@ -413,7 +444,7 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
         if (info.roles & AI_ROLE_SUPPORT) idle[sent++] = u;
     }
     if (!ctx->game->dispatch || !ctx->game->dispatch(map, owner, idle, sent, goal)) {
-        fvec2_t target = fixed3_xy_to_fvec2(goal->core.position);
+        fixed2_t target = fixed3_xy(goal->core.position);
         for (int i = 0; i < sent; ++i) idle[i]->attack.target = goal;
         P_MoveUnitsAt(map, idle, sent, target);
         /* Moving clears nothing the target needs; make sure the objective sticks. */
@@ -428,11 +459,11 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
 }
 
 /* A drop-off whose patches are all used up no longer makes a town. */
-static bool mined_out(const level_t *map, fvec2_t at) {
+static bool mined_out(const level_t *map, fixed2_t at) {
     bool patches = false;
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        if (fvec2_distance_squared(vent->attachment, at) >= AI_TOWN_RADIUS * AI_TOWN_RADIUS) continue;
+        if (fixed2_distance_squared64(vent->attachment, at) >= fixed_sq64(AI_TOWN_RADIUS)) continue;
         if (vent->amount > 0) return false;
         patches = true;
     }
@@ -440,17 +471,17 @@ static bool mined_out(const level_t *map, fvec2_t at) {
 }
 
 static int ai_count_towns(const AiContext *ctx, const level_t *map, int owner, mobj_t *const *units, int unit_count) {
-    fvec2_t towns[AI_MAX_TOWNS];
+    fixed2_t towns[AI_MAX_TOWNS];
     int count = 0;
     for (int i = 0; i < unit_count && count < AI_MAX_TOWNS; ++i) {
         const mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove || u->owner != owner || (u->traits & MF_MOBILE) || !ai_is_base(ctx, u))
             continue;
-        fvec2_t at = fixed3_xy_to_fvec2(u->core.position);
+        fixed2_t at = fixed3_xy(u->core.position);
         if (mined_out(map, at)) continue;
         bool near = false;
         for (int t = 0; t < count && !near; ++t)
-            near = fvec2_distance_squared(at, towns[t]) < AI_TOWN_RADIUS * AI_TOWN_RADIUS;
+            near = fixed2_distance_squared64(at, towns[t]) < fixed_sq64(AI_TOWN_RADIUS);
         if (!near) towns[count++] = at;
     }
     return count;
@@ -468,7 +499,7 @@ static void ai_census(const AiContext *ctx, AiTeamState *team, const level_t *ma
         if (u->hp <= 0 || u->remove || u->owner != owner) continue;
         if (team->allegiance == ALLEGIANCE_NEUTRAL) team->allegiance = u->allegiance;
         if (ai_is_anchor(ctx, u)) {
-            team->base_position = fixed3_xy_to_fvec2(u->core.position);
+            team->base_position = fixed3_xy(u->core.position);
             team->has_base = true;
         }
         if ((u->traits & MF_ATTACK) != 0) team->combat_unit_count++;
