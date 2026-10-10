@@ -31,6 +31,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES];
 gameinfo_t game_info = {
     .sprnames=sprnames,.sprite_count=SC_TYPES,.states=states,.state_count=SC_STATES,
     .mobjinfo=mobjinfo,.mobj_type_count=NUMMOBJTYPES,.null_state=S_NULL,
+    .draw_underlays=sc_draw_selection_circle,.draw_overlays=sc_draw_status_bars,
 };
 void sc_init_info(void) {
     memset(states,0,sizeof(states));

@@ -84,6 +84,15 @@ bool sc_upgrade_offered(int owner, const StaticProductDefinition *product);
 extern char sc_names[SC_TYPES][16];
 extern uint32_t sc_palette[256];
 bool sc_read(const char *root, const char *name, blob_t *out);
+/* An images.tbl string, or NULL past the table. */
+const char *sc_tbl_string(const blob_t *tbl, unsigned index);
+/* sprites.dat selection circles and status bars: loaded with the unit
+ * graphics, drawn as the world underlay and overlay hooks. */
+bool sc_load_selection(const char *root, const blob_t *units, const blob_t *flingy,
+                       const blob_t *sprites, const blob_t *images, const blob_t *names);
+void sc_free_selection(void);
+void sc_draw_selection_circle(const unitoverlaycontext_t *ctx);
+void sc_draw_status_bars(const unitoverlaycontext_t *ctx);
 void sc_asset_path(char *out, size_t size, const char *root, const char *name);
 bool sc_briefing(const char *path, char *text, size_t text_size, char *objectives, size_t objectives_size);
 /* MBRF actions in order (PyMS TRG.py briefing table). Text and wav are

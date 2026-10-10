@@ -138,7 +138,7 @@ done:
     return ok;
 }
 
-static const char *tbl_string(const blob_t *tbl,unsigned index) {
+const char *sc_tbl_string(const blob_t *tbl,unsigned index) {
     if(tbl->size<2||!index||index>read_u16_le(tbl->bytes)||2+index*2>tbl->size) return NULL;
     unsigned off=read_u16_le(tbl->bytes+index*2);
     return off<tbl->size&&memchr(tbl->bytes+off,0,tbl->size-off)?(char*)tbl->bytes+off:NULL;
@@ -262,7 +262,7 @@ static char extra_names[SC_EXTRA_SPRITES][16];
 static int extra_sprite(const sc_effects_t *e,unsigned image) {
     for(int k=0;k<extra_count;k++) if(extra_image[k]==(int)image) return k;
     if(image>=e->ni||extra_count==SC_EXTRA_SPRITES||e->cache->count>=MAX_DECORATION_SPRITES) return -1;
-    const char *grp=tbl_string(e->names,read_u32_le(e->images->bytes+image*4));
+    const char *grp=sc_tbl_string(e->names,read_u32_le(e->images->bytes+image*4));
     if(!grp) return -1;
     cachedsprite_t *slot=&e->cache->entries[e->cache->count];
     char path[512]; snprintf(path,sizeof(path),"unit/%s",grp);
@@ -310,7 +310,7 @@ static bool compose_turrets(const char *root, const blob_t *units, const blob_t 
         const spritesheet_t *turret=R_CacheLookup(cache,sc_names[sub]);
         if (!turret) return false;
         unsigned name=read_u32_le(images->bytes+ni*26+image_ids[i]*4);
-        const char *lol=tbl_string(names,name);
+        const char *lol=sc_tbl_string(names,name);
         blob_t locations={0};
         char path[512];
         if (!lol) return false;
@@ -370,7 +370,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         unsigned im=read_u16_le(sprites.bytes+s*2); if(im>=ni) goto done;
         image_ids[i]=im;
         unsigned name=read_u32_le(images.bytes+im*4);
-        const char *grp=tbl_string(&names,name); if(!grp) goto done;
+        const char *grp=sc_tbl_string(&names,name); if(!grp) goto done;
         cachedsprite_t *slot=&cache->entries[cache->count];
         snprintf(slot->name,sizeof(slot->name),"%s",sc_names[i]);
         for(int j=0;j<i;j++) if(image_ids[j]==im) {
@@ -439,7 +439,8 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         }
     }
     R_FreeSprite(&ramp);
-    ok=compose_turrets(root,&units,&images,&names,image_ids,cache) && R_BindSprites(cache,&game_info);
+    ok=compose_turrets(root,&units,&images,&names,image_ids,cache) &&
+       sc_load_selection(root,&units,&flingy,&sprites,&images,&names) && R_BindSprites(cache,&game_info);
     printf("StarCraft graphics: %d/228 unit entries, %d unique native GRPs, %d death effect sprites, %d visual states.\n",
            cache->count-extra_count,loaded,extra_count,next_state);
     if(!ok) goto done;
@@ -456,7 +457,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
             if(id>=ns) goto done;
             unsigned im=read_u16_le(sprites.bytes+id*2);
             if(im>=ni) goto done;
-            const char *grp=tbl_string(&names,read_u32_le(images.bytes+im*4));
+            const char *grp=sc_tbl_string(&names,read_u32_le(images.bytes+im*4));
             if(!grp) goto done;
             mapdecoration_t *dec=&map->decorations[decoration++];
             snprintf(dec->sprite_name,sizeof(dec->sprite_name),"sc-doodad-%u",im);
@@ -494,7 +495,7 @@ bool sc_portrait_movie(const char *root,int id,bool talking,char *path,size_t si
     if(!sc_read(root,"arr/portdata.dat",&dat)||!sc_read(root,"arr/portdata.tbl",&tbl))goto done;
     unsigned count=(unsigned)(dat.size/12);
     if(id<0||(unsigned)id>=count)goto done;
-    const char *name=tbl_string(&tbl,read_u32_le(dat.bytes+(talking?count*4:0)+id*4));
+    const char *name=sc_tbl_string(&tbl,read_u32_le(dat.bytes+(talking?count*4:0)+id*4));
     if(!name)goto done;
     snprintf(path,size,"%s/native/portrait/%s0.smk",root,name);
     for(char *p=path+strlen(root)+1;*p;p++){if(*p=='\\')*p='/';*p=(char)tolower((unsigned char)*p);}
