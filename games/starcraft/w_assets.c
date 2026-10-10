@@ -43,8 +43,10 @@ bool sc_decode_grp(const blob_t *file,const uint32_t *palette,bool turns,sprites
         int aw=w?w:1,ah=h?h:1;
         uint8_t *pixels=calloc((size_t)aw*ah,1); if(!pixels) goto bad;
         out->lumps[f].indices=pixels;
+        /* The crop offset lives in ground_point only; a displacement too
+         * would shift unflipped layers right of their selection bounds. */
         out->cells[f]=(spritecell_t){.rect={0,0,aw,ah},.bounds={0,0,w,h},
-            .ground_point={cw/2-xoff,ch/2-yoff},.displacement={xoff,yoff}};
+            .ground_point={cw/2-xoff,ch/2-yoff}};
         if(raw) {
             if((size_t)w*h>file->size-base) goto bad;
             memcpy(pixels,b+base,(size_t)w*h); continue;

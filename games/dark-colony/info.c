@@ -889,7 +889,7 @@ const gameinfo_t game_info = {
     S_NULL,
     RTS_STATE_COORDS_FIN_TOP_LEFT,
     { .style = SELECTION_STYLE_SPRITE, .image = "INTRFACE/CLIENT.SPR" },
-    DC_DrawUnitOverlays,
+    .draw_overlays = DC_DrawUnitOverlays,
     .shadow_detail_min = 2, /* DC.EXE 0x432ac0 -> 0x45c7e3/0x45cc34 */
     .blend_detail_min = 1,  /* DC.EXE 0x432ac0 -> 0x45d0c0 */
     .random_table = dc_random_table,
