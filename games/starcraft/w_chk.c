@@ -243,6 +243,77 @@ static void clear_melee(void) {
     net_seats = 0;
 }
 
+/* unis/unix: 228 units as parallel arrays, then weapon damage. */
+enum { UNITS=228, UNIS_BYTES=3648 };
+/* Bytes before the arrays of `n` upgrades or techs, and their size. */
+enum { UPGS_BYTES=46+46*12, UPGX_BYTES=61+1+61*12, TECS_BYTES=24+24*8, TECX_BYTES=44+44*8 };
+enum { PUNI_BYTES=12*228+228+12*228 };
+
+static void decode_units(const uint8_t *d,size_t size,rulepatchset_t *out) {
+    const uint8_t *use_default=d,*armor=d+1596;
+    const uint8_t *health=d+228,*shields=d+1140,*time=d+1824,*minerals=d+2280,*gas=d+2736;
+    for(int i=0;i<UNITS;i++) {
+        if(use_default[i]) continue;
+        /* Hit points are stored in 24.8 fixed point. */
+        R_PatchAdd(out,SC_PATCH_UNIT,i,SC_UNIT_HP,(int32_t)(read_u32_le(health+i*4)>>8));
+        R_PatchAdd(out,SC_PATCH_UNIT,i,SC_UNIT_SHIELDS,read_u16_le(shields+i*2));
+        R_PatchAdd(out,SC_PATCH_UNIT,i,SC_UNIT_ARMOR,armor[i]);
+        R_PatchAdd(out,SC_PATCH_UNIT,i,SC_UNIT_BUILD_TIME,read_u16_le(time+i*2));
+        R_PatchAdd(out,SC_PATCH_UNIT,i,SC_UNIT_MINERALS,read_u16_le(minerals+i*2));
+        R_PatchAdd(out,SC_PATCH_UNIT,i,SC_UNIT_GAS,read_u16_le(gas+i*2));
+    }
+    /* Then a base and a bonus damage array for every weapon (100, or 130 in
+     * Brood War). A weapon has no default flag of its own: it is overridden
+     * when a unit that fires it is. */
+    int weapons=(int)((size-UNIS_BYTES)/4);
+    if(weapons>130) weapons=130;
+    for(int i=0;i<UNITS;i++) {
+        if(use_default[i]) continue;
+        int ids[2]={sc_units[i].ground_weapon,sc_units[i].air_weapon};
+        for(int k=0;k<2;k++) {
+            int w=ids[k];
+            if(w>=weapons||!sc_weapon(w)||(k&&w==ids[0])) continue;
+            R_PatchAdd(out,SC_PATCH_WEAPON,w,SC_WEAPON_DAMAGE,read_u16_le(d+UNIS_BYTES+w*2));
+            R_PatchAdd(out,SC_PATCH_WEAPON,w,SC_WEAPON_BONUS,read_u16_le(d+UNIS_BYTES+weapons*2+w*2));
+        }
+    }
+}
+/* Upgrades: defaults, then six u16 arrays; Broodwar pads the defaults to even. */
+static void decode_upgrades(const uint8_t *d,int count,int pad,rulepatchset_t *out) {
+    const uint8_t *cols=d+count+pad;
+    for(int i=0;i<count;i++) {
+        if(d[i]) continue;
+        for(int field=0;field<6;field++)
+            R_PatchAdd(out,SC_PATCH_UPGRADE,i,field,read_u16_le(cols+(field*count+i)*2));
+    }
+}
+static void decode_techs(const uint8_t *d,int count,rulepatchset_t *out) {
+    for(int i=0;i<count;i++) {
+        if(d[i]) continue;
+        for(int field=0;field<4;field++)
+            R_PatchAdd(out,SC_PATCH_TECH,i,field,read_u16_le(d+count+(field*count+i)*2));
+    }
+}
+/* PUNI: per player and global availability, then per player "use the global". */
+static void decode_puni(const uint8_t *d,rulepatchset_t *out) {
+    const uint8_t *global=d+12*228,*defaults=global+228;
+    for(int player=0;player<8;player++) for(int unit=0;unit<UNITS;unit++) {
+        bool available=defaults[player*228+unit]?global[unit]:d[player*228+unit];
+        if(!available) R_PatchAdd(out,SC_PATCH_UNAVAILABLE,player,unit,0);
+    }
+}
+int sc_decode_rules(const sc_rule_sections_t *s,rulepatchset_t *out) {
+    int before=out->count;
+    if(s->unix_&&s->unix_size>=UNIS_BYTES) decode_units(s->unix_,s->unix_size,out);
+    else if(s->unis&&s->unis_size>=UNIS_BYTES) decode_units(s->unis,s->unis_size,out);
+    if(s->upgx&&s->upgx_size>=UPGX_BYTES) decode_upgrades(s->upgx,61,1,out);
+    else if(s->upgs&&s->upgs_size>=UPGS_BYTES) decode_upgrades(s->upgs,46,0,out);
+    if(s->tecx&&s->tecx_size>=TECX_BYTES) decode_techs(s->tecx,44,out);
+    else if(s->tecs&&s->tecs_size>=TECS_BYTES) decode_techs(s->tecs,24,out);
+    if(s->puni&&s->puni_size>=PUNI_BYTES) decode_puni(s->puni,out);
+    return out->count-before;
+}
+
 bool sc_load_chk(const char *path,level_t *out) {
     static const char *const tilesets[]={
         "badlands","platform","install","ashworld","jungle","desert","ice","twilight"
@@ -256,6 +327,7 @@ bool sc_load_chk(const char *path,level_t *out) {
     const uint8_t *terrain=NULL,*owners=NULL;
     size_t terrain_size=0;
     int era=-1;
+    sc_rule_sections_t rules={0};
     for(size_t at=0;at<file->size;) {
         if(file->size-at<8) goto bad;
         const uint8_t *tag=file->bytes+at,*data=tag+8;
@@ -278,6 +350,13 @@ bool sc_load_chk(const char *path,level_t *out) {
             if(size%36) goto bad;
             for(size_t i=0;i<size;i+=36)
                 if(read_u16_le(data+i+8)>=SC_TYPES||data[i+16]>=12) goto bad;
+        } else if(!memcmp(tag,"UNIS",4)) { rules.unis=data; rules.unis_size=size;
+        } else if(!memcmp(tag,"UNIx",4)) { rules.unix_=data; rules.unix_size=size;
+        } else if(!memcmp(tag,"UPGS",4)) { rules.upgs=data; rules.upgs_size=size;
+        } else if(!memcmp(tag,"UPGx",4)) { rules.upgx=data; rules.upgx_size=size;
+        } else if(!memcmp(tag,"TECS",4)) { rules.tecs=data; rules.tecs_size=size;
+        } else if(!memcmp(tag,"TECx",4)) { rules.tecx=data; rules.tecx_size=size;
+        } else if(!memcmp(tag,"PUNI",4)) { rules.puni=data; rules.puni_size=size;
         } else if(!memcmp(tag,"THG2",4)) {
             if(size%10) goto bad;
             for(size_t i=0;i<size;i+=10) {
@@ -303,6 +382,8 @@ bool sc_load_chk(const char *path,level_t *out) {
     snprintf(out->map_path,sizeof(out->map_path),"%s",path);
     snprintf(out->tileset_name,sizeof(out->tileset_name),"%s",tilesets[era]);
     for(int i=0;i<8;i++) out->player_colors[i]=i;
+    g_rulepatch.count=0;
+    sc_decode_rules(&rules,&g_rulepatch);
     clear_melee();
     if(!netgame) {
         net_race_set = false;
@@ -402,7 +483,7 @@ int sc_spawn_things(void) {
                 irect_t bounds=P_MobjCells(mo);
                 vents[level.resource_vent_count++]=(resourcevent_t){
                     .cell={bounds.x,bounds.y},.footprint={bounds.w,bounds.h},
-                    .attachment=fixed3_xy_to_fvec2(mo->core.position),
+                    .attachment=fixed3_xy(mo->core.position),
                     .amount=(int)read_u32_le(u+20),.rate=8,.active=mo->type_id!=MT_VESPENE_GEYSER,
                     .exhausts_source=minerals,
                     .resource_type=minerals?0:1,.source_id=mo->id};
@@ -419,28 +500,19 @@ int sc_spawn_things(void) {
         }
         at+=8+size;
     }
-    /* A seat with a start location and no placed unit is a melee start.
-     * The building is centred on that pixel and covers 128 by 96; the workers
-     * stand in the row below it. Zerg also start with an Overlord above. */
-    static const mobjtype_id_t building[] = {MT_COMMAND_CENTER, MT_HATCHERY, MT_NEXUS};
-    static const mobjtype_id_t worker[] = {MT_SCV, MT_DRONE, MT_PROBE};
+    /* A seat with a start location and no placed unit is a melee start: the
+     * faction of its race says what spawns around the location. */
     for(int i=0;i<net_seats;i++) {
         if(!melee_start[i] || melee_unit[i]) continue;
         int race = net_race_set ? net_race[i] : 0;
         if(race < 0 || race > 2) race = 0;
-        ivec2_t pixel = melee_at[i];
-        mobj_t *town = sc_spawn_actor(building[race]-1, pixel, (uint8_t)i);
-        if(!town) { clear_melee(); return count; }
-        ++count;
-        /* A Zerg start has its three larvae. */
-        for(int l=0;race==1&&l<3;l++) if(sc_spawn_larva(town)) ++count;
-        for(int w=0;w<4;w++) {
-            ivec2_t at_px = {pixel.x + 48 + w * 24, pixel.y + 64};
-            if(!sc_spawn_actor(worker[race]-1, at_px, (uint8_t)i)) { clear_melee(); return count; }
-            ++count;
-        }
-        if(race == 1) {
-            if(!sc_spawn_actor(MT_OVERLORD-1, (ivec2_t){pixel.x, pixel.y - 80}, (uint8_t)i)) { clear_melee(); return count; }
+        startplace_t places[16];
+        int n = R_StartPlacements(&g_ruleset.factions[side_byte(race)], melee_at[i], places, 16);
+        for(int p=0;p<n;p++) {
+            mobj_t *unit = sc_spawn_actor(places[p].type-1, places[p].at, (uint8_t)i);
+            if(!unit) { clear_melee(); return count; }
+            /* A Zerg start has its three larvae. */
+            for(int l=0;places[p].type==MT_HATCHERY&&l<3;l++) if(sc_spawn_larva(unit)) ++count;
             ++count;
         }
     }

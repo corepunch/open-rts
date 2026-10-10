@@ -21,7 +21,7 @@ typedef struct {
     int space, space_provided; /* Transport slots taken and offered; 255 cannot board */
     ivec2_t addon; /* An add-on's top-left from its parent's, in pixels */
 } sc_unit_t;
-extern const sc_unit_t sc_units[SC_TYPES];
+extern sc_unit_t sc_units[SC_TYPES];
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */
 enum {
@@ -29,6 +29,8 @@ enum {
     SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_SPELLCASTER = 0x200000,
     SC_UNIT_PERMANENT_CLOAK = 0x400000, SC_UNIT_MECHANICAL = 0x40000000,
 };
+/* Map pixels (32 to a cell) as 16.16 cells. */
+#define SC_PIXELS(px) ((fixed_t)((px) * (FIXED_ONE / 32)))
 /* Whether a mobj is a units.dat type, and its row. */
 static inline const sc_unit_t *sc_unit(const mobj_t *mo) {
     return mo && mo->type_id >= 1 && mo->type_id <= SC_TYPES ? &sc_units[mo->type_id - 1] : NULL;
@@ -45,7 +47,7 @@ typedef struct {
     int splash[3];
     unsigned targets;
 } sc_weapon_t;
-extern const sc_weapon_t sc_weapons[SC_WEAPONS];
+extern sc_weapon_t sc_weapons[SC_WEAPONS];
 /* techdata.dat: research cost and time, and the energy a use costs. The
  * Nuclear Strike is an order past the DAT that shares the spell command. */
 enum {
@@ -57,7 +59,7 @@ enum {
     SC_TECH_NUCLEAR_STRIKE = SC_TECHS,
 };
 typedef struct { const char *name; int minerals, gas, time, energy, race, icon; } sc_tech_t;
-extern const sc_tech_t sc_techs[SC_TECHS];
+extern sc_tech_t sc_techs[SC_TECHS];
 /* NULL for a row past the DAT. */
 const sc_weapon_t *sc_weapon(int id);
 /* Fills a type's attack and air_attack from its weapons.dat rows. */
@@ -70,9 +72,14 @@ typedef struct {
     const char *name;
     int minerals, mineral_factor, gas, gas_factor, time, time_factor, icon, race, max_level;
 } sc_upgrade_t;
-extern const sc_upgrade_t sc_upgrades[SC_UPGRADES];
+extern sc_upgrade_t sc_upgrades[SC_UPGRADES];
+/* Catalog ui id of upgrade research: SC_UPGRADE_UI + upgrade * 4 + the level it starts from. */
+enum { SC_UPGRADE_UI = 1000 };
 int sc_upgrade_level(int owner, int upgrade);
+int sc_upgrade_product(int upgrade, int level);
 /* False for an upgrade level other than the owner's next one. */
+/* Whether owner has a building of type, or one that counts as it. */
+bool sc_owner_has(int owner, uint16_t type);
 bool sc_upgrade_offered(int owner, const StaticProductDefinition *product);
 extern char sc_names[SC_TYPES][16];
 extern uint32_t sc_palette[256];
@@ -103,6 +110,28 @@ bool sc_load_graphics(const char *root, const level_t *map, spritecache_t *cache
 void sc_set_harvest_state(int type, int state);
 bool sc_load_tiles(const char *root, const level_t *map, tileset_t *out);
 bool sc_load_chk(const char *path, level_t *out);
+
+/* Map stat overrides (CHK UNIx/UNIS, UPGx/UPGS, TECx/TECS, PUNI) as ruleset
+ * patch entries. */
+enum { SC_PATCH_UNIT = 1, SC_PATCH_UPGRADE, SC_PATCH_TECH, SC_PATCH_UNAVAILABLE, SC_PATCH_WEAPON };
+enum { SC_WEAPON_DAMAGE, SC_WEAPON_BONUS };
+enum { SC_UNIT_HP, SC_UNIT_SHIELDS, SC_UNIT_ARMOR, SC_UNIT_BUILD_TIME, SC_UNIT_MINERALS, SC_UNIT_GAS };
+enum { SC_UPGRADE_MINERALS, SC_UPGRADE_MINERAL_FACTOR, SC_UPGRADE_GAS, SC_UPGRADE_GAS_FACTOR,
+       SC_UPGRADE_TIME, SC_UPGRADE_TIME_FACTOR };
+enum { SC_TECH_MINERALS, SC_TECH_GAS, SC_TECH_TIME, SC_TECH_ENERGY };
+/* Section payloads of one scenario; NULL when absent. Broodwar's x sections win. */
+typedef struct {
+    const uint8_t *unis, *unix_, *upgs, *upgx, *tecs, *tecx, *puni;
+    size_t unis_size, unix_size, upgs_size, upgx_size, tecs_size, tecx_size, puni_size;
+} sc_rule_sections_t;
+/* Adds an entry for every value the scenario overrides: a unit, upgrade or
+ * tech whose "use defaults" byte is clear, and each unit a player may not
+ * build (row = player, field = unit). Returns the entries added. */
+int sc_decode_rules(const sc_rule_sections_t *sections, rulepatchset_t *out);
+/* Owner may not build this unit (PUNI). */
+bool sc_unit_unavailable(int owner, int type);
+void sc_refresh_actors(void);
+void sc_rebuild_products(void);
 /* Lobby races for the match about to load. NULL clears them. Index 0 is
  * Terran, 1 Zerg, 2 Protoss. Single-player loads ignore the list. */
 void sc_set_net_races(const int *races);
@@ -149,7 +178,7 @@ typedef struct { int lost[SC_TYPES], killed[SC_TYPES], gathered[2], spent; } sc_
 void sc_player_stats(int owner, sc_stats_t *out);
 int sc_elapsed_ms(void);
 bool sc_mission_bind(level_t *map);
-void sc_mission_tick(level_t *map, hudtext_t *hud, float dt);
+void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms);
 void sc_note_damage(mobj_t *mo);
 mobj_t *sc_spawn_actor(unsigned type, ivec2_t pixel, uint8_t owner);
 uint8_t sc_allegiance_for(uint8_t owner);
@@ -205,7 +234,7 @@ int sc_hangar_count(const mobj_t *maker);
  * boarding and archon merges. */
 void sc_unit_ticker(mobj_t *mo, int frames);
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
-float sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
+fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
 /* Add-ons: the building that builds an add-on type (MT_NONE if it is not
  * one), the add-on attached to a building, and attaching a new one at
  * units.dat's add-on position. */

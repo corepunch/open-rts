@@ -15,12 +15,13 @@ static void sc_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset
     (void)tileset;
     R_DrawFog(app, map);
 }
-void G_InitGame(void) {
-    sc_init_info();
-    game_info.draw_fog=sc_draw_fog;
-    sc_init_combat();
+/* The engine's actor types from the unit stats, again after a map's
+ * overrides. Hit points also reach the spawn table. */
+void sc_refresh_actors(void) {
     for(int i=0;i<SC_TYPES;i++) {
         const sc_unit_t *u=&sc_units[i];
+        int harvest_state=actors[i].harvest.state_id;
+        mobjinfo[i+1].spawnhealth=u->hp>0?u->hp:1;
         /* Interceptors and scarabs have no orders of their own but fly and run. */
         bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5||
             i+1==MT_INTERCEPTOR||i+1==MT_SCARAB);
@@ -28,13 +29,14 @@ void G_InitGame(void) {
             .traits=MF_SELECTABLE|MF_RENDERABLE|(mobile?MF_MOBILE:0)|((u->flags&4)?MF_FLY:0)|
                 ((u->flags&8)?MF_HARVESTER:0)|((u->flags&0x1000)?MF_RESOURCE_BASE:0)|
                 ((u->flags&0x8000)?MF_DETECTOR:0),
-            /* 1/256 pixel per 24 Hz frame to cells per second: a Marine's 4 px is 3.0. */
-            .speed=mobile?u->speed*3.0f/1024.0f:0,.max_hp=u->hp>0?u->hp:1,.sight={.day=u->sight,.night=u->sight},
+            /* 1/256 pixel per 24 Hz frame to 16.16 cells per second: a Marine's 4 px is 3.0. */
+            .speed=mobile?u->speed*192:0,.max_hp=u->hp>0?u->hp:1,.sight={.day=u->sight,.night=u->sight},
             .harvest={.resources={{.capacity=8},{.capacity=8}}},
             .damage_action=sc_note_damage,
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};
         sc_unit_weapons(i+1,&actors[i]);
         if(actors[i].attack.damage) actors[i].traits|=MF_ATTACK;
+        actors[i].harvest.state_id=harvest_state;
     }
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
     actors[MT_REFINERY-1].build_on_type=actors[MT_EXTRACTOR-1].build_on_type=
@@ -43,11 +45,24 @@ void G_InitGame(void) {
     actors[MT_SIEGE_TANK-1].deploy.state=SC_SIEGE_STATE; actors[MT_SIEGE_TANK-1].deploy.type=MT_SIEGE_MODE;
     actors[MT_SIEGE_MODE-1].deploy.state=SC_UNSIEGE_STATE; actors[MT_SIEGE_MODE-1].deploy.type=MT_SIEGE_TANK;
 }
+void G_InitGame(void) {
+    sc_init_info();
+    game_info.draw_fog=sc_draw_fog;
+    sc_init_combat();
+    sc_refresh_actors();
+}
 void sc_set_harvest_state(int type,int state) {
     if(type>0&&type<=SC_TYPES) actors[type-1].harvest.state_id=state;
 }
 bool G_DoLoadLevel(const char *path,level_t *out) {
-    if(strcmp(M_FileName(path),"catalog")) return sc_load_chk(path,out);
+    if(strcmp(M_FileName(path),"catalog")) {
+        if(!sc_load_chk(path,out)) return false;
+        /* The checked-in tables are the authority; this map's UNIx, UPGx and
+         * PUNI sections overlay them. */
+        R_PatchApply(&g_rulepatch);
+        return true;
+    }
+    R_PatchApply(NULL);
     memset(out,0,sizeof(*out));
     /* Authored catalog layout, not a retail mission. Every DAT slot gets a
      * distinct position, including heroes, subunits, unused slots and props. */
@@ -98,12 +113,12 @@ bool R_InitSprites(const char *root,const level_t *map,mobj_t *const *mobjs,int 
     for(int i=0;i<count;i++) P_SetMobjState(mobjs[i],mobjinfo[mobjs[i]->type_id].spawnstate);
     return true;
 }
-void G_MissionTicker(level_t *map,mobj_t *const *mobjs,int *count,hudtext_t *hud,float dt) {
+void G_MissionTicker(level_t *map,mobj_t *const *mobjs,int *count,hudtext_t *hud,int dt_ms) {
     (void)mobjs;(void)count;
-    sc_mission_tick(map,hud,dt);
+    sc_mission_tick(map,hud,dt_ms);
 }
-bool G_UpdateProduction(level_t *map,mobj_t *const *units,int *count,float dt) {
-    (void)map;(void)units;(void)count; return G_ProductionTicker(dt);
+bool G_UpdateProduction(level_t *map,mobj_t *const *units,int *count,int dt_ms) {
+    (void)map;(void)units;(void)count; return G_ProductionTicker(dt_ms);
 }
 irect_t G_WorldViewport(const app_t *app) {
     return (irect_t){0,0,app->win.w,app->win.h-128*app->win.h/480};
