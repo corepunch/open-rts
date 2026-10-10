@@ -162,8 +162,8 @@ static int test_interactive_loop(int race) {
     for (int t = 0; t < 12 * 60 * TICKS_PER_SECOND; ++t) {
         P_Ticker();
         mobjlist_t objects = P_ListMobjs();
-        P_AiTick(&ai, &level, objects.items, objects.count, gameinfo, (int)(FIXED_DT * 1000));
-        G_ModelUpdateProduction(&level, objects.items, &objects.count, FIXED_DT);
+        P_AiTick(&ai, &level, objects.items, objects.count, gameinfo, (int)(RTS_TICK_MS * 1000));
+        G_ModelUpdateProduction(&level, objects.items, &objects.count, RTS_TICK_MS);
         P_FreeMobjList(&objects);
     }
     census(1, &after);
@@ -252,8 +252,8 @@ static int test_defense(void) {
         if (m->owner == 1 && m->type_id == MT_EXCOPOD) city = m;
     }
     REQUIRE(raider && city, "a human fighter and the AI city exist");
-    fvec2_t at = fixed3_xy_to_fvec2(city->core.position);
-    raider->core.position = fixed3_from_fvec2((fvec2_t){at.x + 4.0f, at.y + 2.0f}, raider->core.position.z);
+    fixed2_t at = fixed3_xy(city->core.position);
+    raider->core.position = fixed3_from_fixed2((fixed2_t){ at.x + 4 * FIXED_ONE, at.y + 2 * FIXED_ONE }, raider->core.position.z);
     uint32_t raider_id = raider->id;
     P_FreeMobjList(&l);
     log_t log; init_log(&log);
@@ -364,9 +364,9 @@ static int test_map_sweep(void) {
             for (int i = 0; i < l.count; ++i) {
                 const mobj_t *m = l.items[i];
                 if (m->owner > 1 || m->type_id == MT_VENT || m->remove) continue;
-                fvec2_t at = fixed3_xy_to_fvec2(m->core.position);
-                if (at.x < 0 || at.y < 0 || at.x >= level.width || at.y >= level.height) {
-                    fprintf(stderr, "sweep: %s: owner %d object type %d at %.1f,%.1f\n", map, m->owner, m->type_id, at.x, at.y);
+                fixed2_t at = fixed3_xy(m->core.position);
+                if (at.x < 0 || at.y < 0 || at.x >= FIXED_FROM_INT(level.width) || at.y >= FIXED_FROM_INT(level.height)) {
+                    fprintf(stderr, "sweep: %s: owner %d object type %d at %.1f,%.1f\n", map, m->owner, m->type_id, fixed_to_float(at.x), fixed_to_float(at.y));
                     P_FreeMobjList(&l);
                     return rts_fail("ai_skirmish", "an object was placed outside the map");
                 }

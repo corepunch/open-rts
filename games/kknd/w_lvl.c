@@ -137,9 +137,10 @@ int load_kknd_map_units(const char *path, KkndMapUnit *out, int max_units) {
                         memset(unit, 0, sizeof(*unit));
                         memcpy(unit->name, segment + name_offset, name_length);
                         unit->native_team = read_u16_le(record + 56);
-                        unit->position = (fvec2_t){
-                            (float)read_u32_le(record + 5) / 32.0f,
-                            (float)read_u32_le(record + 9) / 32.0f,
+                        /* Native pixels to 16.16 cells (32 px per cell). */
+                        unit->position = (fixed2_t){
+                            (fixed_t)((uint64_t)read_u32_le(record + 5) * (FIXED_ONE / 32)),
+                            (fixed_t)((uint64_t)read_u32_le(record + 9) * (FIXED_ONE / 32)),
                         };
                     }
                     count++;

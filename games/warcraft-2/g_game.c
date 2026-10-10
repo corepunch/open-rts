@@ -52,11 +52,11 @@ static void fill_actors(void) {
             .name = src->name ? src->name : "empty",
             .sprite_name = src->name,
             .traits = traits,
-            .speed = (src->w2.flags & W2_MOBILE) ? src->w2.speed / W2_SPEED_DIVISOR : 0.0f,
+            .speed = (src->w2.flags & W2_MOBILE) ? src->w2.speed * FIXED_ONE / W2_SPEED_DIVISOR : 0,
             .max_hp = hp,
             .sight = { .day = sight, .night = sight, .airborne = (src->w2.flags & W2_AIR) != 0 },
             .sight_from_footprint = (src->w2.flags & W2_STRUCTURE) != 0,
-            .attack = { .range = src->w2.attack_range, .damage = src->damage,
+            .attack = { .range = src->w2.attack_range * FIXED_ONE, .damage = src->damage,
                         .targets = (uint8_t)(((src->w2.target_mask & (1 << W2_DOMAIN_AIR)) ? MOBJ_TARGET_AIR : 0) |
                             ((src->w2.target_mask & ((1 << W2_DOMAIN_LAND) | (1 << W2_DOMAIN_SEA))) ?
                              MOBJ_TARGET_GROUND : 0)) },
@@ -70,6 +70,8 @@ static void fill_actors(void) {
     actor_storage[MT_W2_EFFECT - 1] = (mobjtype_t){.id = MT_W2_EFFECT,
         .name = "warcraft-effect", .max_hp = 1, .traits = MF_RENDERABLE | MF_NOBLOCKMAP};
 }
+
+void w2_refill_actors(void) { fill_actors(); }
 
 void G_InitGame(void) {
     w2_build_info();
@@ -107,6 +109,8 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
     char extracted[1200];
     const char *load = loadable_map(path, extracted, sizeof(extracted));
     if (!load || !w2_load_pud(load, out)) return false;
+    /* The checked-in tables are the authority; this map's UDTA/UGRD overlay them. */
+    R_PatchApply(&g_rulepatch);
     w2_apply_net_seats(out);
     if (!w2_init_mission(out)) { P_FreeLevel(out); return false; }
     const w2_pud_t *pud = out->native_data;
@@ -133,12 +137,12 @@ bool R_InitSprites(const char *root, const level_t *map,
 }
 
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
-                     hudtext_t *hud_text, float dt) {
-    (void)map; (void)mobjs; (void)count; (void)hud_text; (void)dt;
+                     hudtext_t *hud_text, int dt_ms) {
+    (void)map; (void)mobjs; (void)count; (void)hud_text; (void)dt_ms;
 }
 
-bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
     (void)map;
     if (units && unit_count) W2_CheckVictory(units, *unit_count);
-    return G_ProductionTicker(dt);
+    return G_ProductionTicker(dt_ms);
 }

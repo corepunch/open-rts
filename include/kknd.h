@@ -11,6 +11,8 @@ enum { KK_DRILLRIG_OIL = 20000, KK_DRILLRIG_RATE = 10 };
 void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx);
 bool KK_Research(mobj_t *target);
 int KK_NextTechLevel(const mobj_t *actor);
+/* The catalog faction (1 Survivor, 2 Mutant) of what `owner` fields, or -1. */
+int KK_OwnerFaction(int owner);
 
 bool load_kknd_map(const char *map_path, level_t *out);
 bool load_assets(const char *data_root, const level_t *map,
@@ -29,7 +31,7 @@ typedef struct {
 typedef struct {
     char name[32];
     uint16_t native_team;
-    fvec2_t position;
+    fixed2_t position;
 } KkndMapUnit;
 
 bool range_ok(size_t size, uint32_t offset, size_t length);

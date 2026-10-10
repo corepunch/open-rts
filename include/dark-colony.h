@@ -102,6 +102,8 @@ _Static_assert(offsetof(DcObject, target_b) == 0xd4, "DcObject.target_b offset")
 
 ivec2_t DC_CitySlotOffset(int slot);
 bool DC_ProductActorMatches(int actor, int required);
+bool DC_PrerequisiteMet(int owner, int row_id);
+const StaticProductDefinition *DC_PrerequisiteProduct(int row_id);
 
 
 /* DC.EXE setup.c: player record +0x1c/+0x20/+0x24/+0x28. */
@@ -134,7 +136,6 @@ typedef struct { char name[33], map[1024]; dc_skirmish_t setup; bool skirmish; }
 bool DC_SaveInfo(const char *path, dc_saveinfo_t *info);
 bool DC_SaveGame(const char *path, const char *name, const app_t *app, const AiContext *ai, const hudtext_t *hud);
 bool DC_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud);
-extern char dc_savefile[1200], dc_loadfile[1200], dc_savename[33];
 /* Applies the AI+ credit multiplier to the level's income_scale. */
 void DC_ApplyAiIncome(struct level_s *map, const dc_skirmish_t *setup);
 
@@ -178,7 +179,7 @@ ScriptState *DC_LoadScript(const char *map_path);
 void DC_FreeScript(ScriptState *script);
 MissionState DC_ScriptState(const ScriptState *script);
 void DC_UpdateScript(ScriptState *mission, level_t *map, mobj_t *const *units,
-                     int *unit_count, hudtext_t *hud, float dt);
+                     int *unit_count, hudtext_t *hud, int dt_ms);
 
 
 /* The level owns this aggregate; each subsystem owns its private state. */
@@ -189,7 +190,7 @@ typedef struct {
 Mission *load_mission(const char *map_path);
 void destroy_mission(void *mission);
 void update_mission(level_t *map, mobj_t *const *units, int *unit_count,
-                    hudtext_t *hud, float dt);
+                    hudtext_t *hud, int dt_ms);
 MissionState mission_get_state(const void *mission);
 
 

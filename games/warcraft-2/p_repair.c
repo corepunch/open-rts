@@ -32,9 +32,8 @@ void W2_InterruptRepair(mobj_t *worker) {
 
 static bool approach(mobj_t *worker, const mobj_t *target) {
     isize2_t foot = mobjinfo[target->type_id].w2.footprint;
-    ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
-                                      (fvec2_t){foot.w * 0.5f, foot.h * 0.5f}));
-    fvec2_t bay;
+    ivec2_t cell = fixed2_foot_origin_cell(fixed3_xy(target->core.position), foot);
+    fixed2_t bay;
     return P_ApproachFootprint(worker, cell, foot, &bay) && P_MoveUnitTo(&level, worker, bay);
 }
 
@@ -90,8 +89,8 @@ bool W2_TickRepair(mobj_t *worker) {
     }
     P_ClearMove(worker);
     ++worker->w2.repair.tics;
-    fvec2_t facing = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
-                               fixed3_xy_to_fvec2(worker->core.position));
+    fixed2_t facing = fixed2_sub(fixed3_xy(target->core.position),
+                               fixed3_xy(worker->core.position));
     worker->core.angle = P_PointToAngle(facing.x, facing.y);
     if (states[worker->core.state_id].group != W2_GROUP_WORK)
         P_SetMobjState(worker, W2_REPAIR_STATE(worker->type_id - 1));

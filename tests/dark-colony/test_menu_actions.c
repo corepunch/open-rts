@@ -49,9 +49,9 @@ static void screenshot(app_t *app, const char *name) {
 static void tick(AiContext *ai, hudtext_t *hud) {
     P_Ticker();
     mobjlist_t objects = P_ListMobjs();
-    P_AiTick(ai, &level, objects.items, objects.count, gameinfo, (int)(FIXED_DT * 1000));
-    G_MissionTicker(&level, objects.items, &objects.count, hud, FIXED_DT);
-    G_ProductionTicker(FIXED_DT);
+    P_AiTick(ai, &level, objects.items, objects.count, gameinfo, (int)(RTS_TICK_MS * 1000));
+    G_MissionTicker(&level, objects.items, &objects.count, hud, RTS_TICK_MS);
+    G_ProductionTicker(RTS_TICK_MS);
     P_FreeMobjList(&objects);
 }
 
@@ -103,10 +103,10 @@ int main(void) {
     text(&app, "Mission checkpoint");
     screenshot(&app, "dc-save-popup.bmp");
     click(&app, "LSGE", 56);
-    assert(!menuactive && dc_savefile[0]);
+    assert(!menuactive && g_savefile[0]);
     for (int i = 0; i < 300; ++i) tick(&ai, &hud);
-    mobj_t *actor = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20,20},0), MT_TROOPER);
-    mobj_t *target = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){22,20},0), MT_TROOPER);
+    mobj_t *actor = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20,20),0), MT_TROOPER);
+    mobj_t *target = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(22,20),0), MT_TROOPER);
     assert(actor && target);
     actor->target = target; actor->attack.target = target; actor->harvest.base = target;
     production_t *production = P_EnsureMobjProduction(actor);
@@ -120,13 +120,13 @@ int main(void) {
     const void *mission = DC_MissionArchive(&mission_size);
     void *mission_copy = malloc(mission_size);
     assert(mission_copy); memcpy(mission_copy, mission, mission_size);
-    assert(DC_SaveGame(dc_savefile, dc_savename, &app, &ai, &hud));
+    assert(DC_SaveGame(g_savefile, g_savename, &app, &ai, &hud));
     dc_saveinfo_t info;
-    assert(DC_SaveInfo(dc_savefile, &info) && !strcmp(info.name, dc_savename));
+    assert(DC_SaveInfo(g_savefile, &info) && !strcmp(info.name, g_savename));
     for (int i = 0; i < 25; ++i) tick(&ai, &hud);
     uint32_t later = G_Consistency();
     assert(later != before);
-    assert(DC_LoadGame(dc_savefile, &app, &ai, &hud));
+    assert(DC_LoadGame(g_savefile, &app, &ai, &hud));
     assert(G_Consistency() == before && app.cam.x == 2 && app.cam.y == 3);
     actor = P_MobjById(id); target = P_MobjById(target_id);
     assert(actor && target && actor->target == target && actor->attack.target == target &&
@@ -142,19 +142,19 @@ int main(void) {
     SDL_Event row = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT, .x=130,.y=104}};
     assert(M_Responder(&app, &row, true));
     click(&app, "LOADGE", 5);
-    assert(!menuactive && menumap && dc_loadfile[0]);
+    assert(!menuactive && menumap && g_loadfile[0]);
     assert(menumap[0] == '/' && !strcmp(menumap, level.map_path));
     FILE *mapfile = fopen(menumap, "rb");
     assert(mapfile && !fclose(mapfile));
-    menumap = NULL; dc_loadfile[0] = 0;
-    FILE *file = fopen(dc_savefile, "r+b");
+    menumap = NULL; g_loadfile[0] = 0;
+    FILE *file = fopen(g_savefile, "r+b");
     assert(file && !fseek(file, -1, SEEK_END));
     int byte = fgetc(file);
     assert(!fseek(file, -1, SEEK_END) && fputc(byte ^ 1, file) != EOF && !fclose(file));
     before = G_Consistency();
-    assert(!DC_SaveInfo(dc_savefile, &info) && !DC_LoadGame(dc_savefile, &app, &ai, &hud));
+    assert(!DC_SaveInfo(g_savefile, &info) && !DC_LoadGame(g_savefile, &app, &ai, &hud));
     assert(before == G_Consistency());
-    unlink(dc_savefile);
+    unlink(g_savefile);
     char settings[1200]; M_PathJoin(settings, sizeof(settings), directory, "settings.cfg");
     unlink(settings); rmdir(directory);
     M_Shutdown(); S_Shutdown(); P_FreeLevel(&level); SDL_Quit();

@@ -108,8 +108,8 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
                                      const StaticProductDefinition *product,
                                      const mobj_t *new_unit,
-                                     float *out_gx, float *out_gy) {
-    (void)model; (void)producer; (void)product; (void)new_unit; (void)out_gx; (void)out_gy;
+                                     fixed2_t *out) {
+    (void)model; (void)producer; (void)product; (void)new_unit; (void)out;
     return false;
 }
 
@@ -163,32 +163,6 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-/* Both sides share one catalog here, so one doctrine: troopers and mechs
- * around a tank core, no towers (the Wall has no gun), no flyers to
- * counter and no supply, so army_cap bounds the army. */
-static const AiDoctrine sl_doctrine = {
-    .workers = 4, .army_cap = 30, .attack_ratio = 100, .retreat_ratio = 45,
-    .roster = { {2,0},{6,0},{1,35},{3,25},{4,25},{5,15} },
-    .roster_count = 6,
-};
-
-/* Computer player: Slaves and Trucks harvest, the Mobile Base builds all. */
-static bool sl_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
-    (void)map; (void)level;
-    static const struct { int product, count; } ladder[] = {
-        { 2, 2 }, { 1, 3 }, { 2, 3 }, { 3, 2 }, { 4, 2 }, { 6, 1 },
-        { 1, 8 }, { 4, 4 }, { 5, 2 }, { 3, 4 }, { 1, 12 }, { 4, 6 }, { 5, 4 },
-    };
-    if (!G_ModelHasActorType(NULL, owner, 7)) return false; /* No Mobile Base yet. */
-    out->wave_interval_ms = 35000;
-    out->wave_min_size = 5;
-    out->wave_max_size = 14;
-    out->doctrine = sl_doctrine;
-    for (unsigned i = 0; i < sizeof(ladder) / sizeof(*ladder); ++i)
-        P_AiPlanAdd(out, ladder[i].product, ladder[i].count);
-    return true;
-}
-
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
     return G_QueueProduct(producer, product);
 }
@@ -206,13 +180,8 @@ int G_ModelRadarLevel(int owner) {
 static const AiGameInterface sl_ai_interface = {
     .name = "7legion",
     .features = AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION |
-                AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK,
+                AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK | AI_FEATURE_DOCTRINE,
     .player_level = P_AiLevelNonHuman,
-    .plan = sl_ai_plan,
-    .owned = G_AiCatalogOwned,
-    .can_purchase = G_AiCatalogCanPurchase,
-    .purchase = G_AiCatalogPurchase,
-    .product_actor = G_AiCatalogActor,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &sl_ai_interface; }

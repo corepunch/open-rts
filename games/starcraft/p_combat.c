@@ -15,7 +15,7 @@ enum {
 /* A simple Shield Battery: each frame it restores up to two shield points
  * to a unit in reach, at one energy per two points, as the retail battery
  * trades energy for shields. Reach and rate are this engine's choice. */
-#define SC_BATTERY_RANGE 4.0f
+#define SC_BATTERY_RANGE FIXED_FROM_INT(4)
 enum { SC_BATTERY_RATE = 2 << 8 };
 
 const sc_weapon_t *sc_weapon(int id) {
@@ -36,9 +36,9 @@ static weapondef_t weapon(int id, uint8_t targets) {
     uint8_t splash = w->explosion == SC_EXPLOSION_RADIAL ? SPLASH_RADIAL :
                      w->explosion == SC_EXPLOSION_ENEMY ? SPLASH_ENEMY :
                      w->explosion == SC_EXPLOSION_AIR ? SPLASH_AIR : SPLASH_NONE;
-    return (weapondef_t){.range = (float)((w->max_range + 31) / 32), .min_range = w->min_range / 32.0f,
+    return (weapondef_t){.range = FIXED_FROM_INT((w->max_range + 31) / 32), .min_range = SC_PIXELS(w->min_range),
         .damage = w->damage, .cooldown_ms = frames_ms(w->cooldown), .targets = targets, .hits = (uint8_t)w->factor,
-        .splash = splash, .radius = {w->splash[0] / 32.0f, w->splash[1] / 32.0f, w->splash[2] / 32.0f},
+        .splash = splash, .radius = {SC_PIXELS(w->splash[0]), SC_PIXELS(w->splash[1]), SC_PIXELS(w->splash[2])},
         /* OpenBW: a bouncing bullet strikes three targets in all. */
         .bounces = w->behavior == SC_BEHAVIOR_BOUNCE ? 2 : 0, .native_id = (uint16_t)id};
 }
@@ -66,13 +66,13 @@ void sc_unit_weapons(int type, mobjtype_t *out) {
      * four interceptors, for the AI's strength, and it relaunches as often as
      * an interceptor passes. A scarab strikes on contact. */
     if (type == MT_CARRIER) {
-        out->attack.range = 8;
+        out->attack.range = FIXED_FROM_INT(8);
         out->attack.hits = 4;
         out->attack.cooldown_ms = frames_ms(SC_INTERCEPTOR_PASS);
     } else if (type == MT_REAVER) {
-        out->attack.range = 8;
+        out->attack.range = FIXED_FROM_INT(8);
         out->attack.cooldown_ms = frames_ms(SC_REAVER_COOLDOWN);
-    } else if (type == MT_SCARAB) out->attack.range = 1;
+    } else if (type == MT_SCARAB) out->attack.range = FIXED_ONE;
     else if (type == MT_INTERCEPTOR) out->attack.cooldown_ms = frames_ms(SC_INTERCEPTOR_PASS);
     if (sc_units[type - 1].flags & SC_UNIT_PERMANENT_CLOAK) out->traits |= MF_CLOAKED;
 }
@@ -157,12 +157,12 @@ static int hit_damage(const mobj_t *attacker, const weapondef_t *def, mobj_t *ta
 }
 
 static void recharge(mobj_t *battery, int frames) {
-    fvec2_t at = fixed3_xy_to_fvec2(battery->core.position);
+    fixed2_t at = fixed3_xy(battery->core.position);
     for (thinker_t *th = thinkercap.next; th != &thinkercap && battery->sc.energy >= 128; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || mo == battery || mo->remove || mo->hp <= 0 || !sc_type(mo) ||
-            !P_IsAlly(battery, mo) || fvec2_distance_squared(at, fixed3_xy_to_fvec2(mo->core.position)) >
-            SC_BATTERY_RANGE * SC_BATTERY_RANGE) continue;
+            !P_IsAlly(battery, mo) || fixed2_distance_squared64(at, fixed3_xy(mo->core.position)) >
+            fixed_sq64(SC_BATTERY_RANGE)) continue;
         sc_start(mo);
         int room = (sc_units[mo->type_id - 1].shields << 8) - mo->sc.shields;
         int give = SC_BATTERY_RATE * frames;

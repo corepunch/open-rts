@@ -12,8 +12,8 @@ int main(void) {
     CHECK(level.blocked);
     consoleplayer = 0;
     level.player_resources[0][0] = 100000;
-    mobj_t *builder = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){5, 5}, 0), BUILDER);
-    mobj_t *second = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){6, 5}, 0), BUILDER);
+    mobj_t *builder = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5, 5), 0), BUILDER);
+    mobj_t *second = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(6, 5), 0), BUILDER);
     CHECK(builder && second);
     P_MobjSetSelected(builder, true);
     const StaticProductDefinition *product = G_ModelProductByClassType(NULL, RTS_PRODUCT_BUILDING, PRODUCT);
@@ -36,12 +36,12 @@ int main(void) {
     level.blocked[L_Index(&level, occupied.x, occupied.y)] = 1;
     CHECK(!P_CanPlaceBuilding(type, site, builder));
     level.blocked[L_Index(&level, occupied.x, occupied.y)] = 0;
-    second->core.position = fixed3_from_fvec2(fvec2_cell_center(occupied), 0);
+    second->core.position = fixed3_from_fixed2(fixed2_cell_center(occupied), 0);
     CHECK(!P_CanPlaceBuilding(type, site, builder));
     second->traits |= MF_FLY;
     CHECK(P_CanPlaceBuilding(type, site, builder));
     second->traits &= ~MF_FLY;
-    second->core.position = fixed3_from_fvec2((fvec2_t){6, 5}, 0);
+    second->core.position = fixed3_from_fixed2(FIXED2_LIT(6, 5), 0);
 
     app_t app = {.win = {640, 480}, .cell = {8, 8}};
     menuitem_t item = {.visible = true, .enabled = true, .routine = HU_PlaceProduct};
@@ -77,7 +77,7 @@ int main(void) {
     CHECK(ivec2_equal(builder->production->cell, site));
     CHECK(level.player_resources[0][0] == cash - product->cost);
     CHECK(!G_PlaceProduct(second, product, site)); /* Reserved by first builder. */
-    CHECK(G_ProductionTicker(G_ModelProductTrainingTimeMs(product) / 1000.f + 1));
+    CHECK(G_ProductionTicker(G_ModelProductTrainingTimeMs(product) + 1000));
     mobj_t *building = NULL;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         if (th->function == P_MobjThinker && ((mobj_t *)th)->type_id == type) building = (mobj_t *)th;

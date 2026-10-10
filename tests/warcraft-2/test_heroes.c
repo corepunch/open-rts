@@ -17,8 +17,8 @@ static void fixture(void) {
     level.tile_ids = calloc(1024, sizeof(*level.tile_ids));
 }
 
-static mobj_t *spawn(int type, fvec2_t at, int owner) {
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), type);
+static mobj_t *spawn(int type, fixed2_t at, int owner) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), type);
     assert(unit);
     unit->owner = unit->team = owner;
     unit->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER;
@@ -39,8 +39,8 @@ static int combat(void) {
     for (int h = 0; h < 5; ++h) {
         fixture();
         int type = heroes[h];
-        mobj_t *hero = spawn(type, (fvec2_t){8.5f, 8.5f}, 0);
-        mobj_t *enemy = spawn(MT_GRUNT, (fvec2_t){9.5f, 8.5f}, 1);
+        mobj_t *hero = spawn(type, FIXED2_LIT(8.5, 8.5), 0);
+        mobj_t *enemy = spawn(MT_GRUNT, FIXED2_LIT(9.5, 8.5), 1);
         enemy->hp = enemy->max_hp = 10000;
         hero->attack.target = enemy;
         CHECK(P_SetMobjState(hero, mobjinfo[type].missilestate));
@@ -115,11 +115,11 @@ static int roster(const char *path) {
             }
         }
         CHECK(!G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, heroes[i]));
-        fvec2_t goal = {4.5f + i * 4, 9.5f};
-        ticcmd_t cmd = {.order = TC_MOVE, .count = 1, .units = {unit->id}, .position = fixed3_from_fvec2(goal, 0)};
+        fixed2_t goal = {FIXED_LIT(4.5) + i * 4 * FIXED_ONE, FIXED_LIT(9.5)};
+        ticcmd_t cmd = {.order = TC_MOVE, .count = 1, .units = {unit->id}, .position = fixed3_from_fixed2(goal, 0)};
         G_RunTiccmd(0, &cmd);
         for (int t = 0; t < 1000 && P_HasMoveOrder(unit); ++t) P_Ticker();
-        CHECK(fvec2_near(fixed3_xy_to_fvec2(unit->core.position), goal, 0.01f));
+        CHECK(fixed2_near(fixed3_xy(unit->core.position), goal, FIXED_LIT(0.01)));
     }
     R_FreeSpriteCache(&cache); P_FreeMobjList(&list);
     if (image) {
@@ -143,11 +143,11 @@ static int cast(mobj_t *unit, int spell, mobj_t *target) {
 
 static int spells_and_research(void) {
     fixture();
-    mobj_t *chogall = spawn(MT_CHOGALL, (fvec2_t){4.5f, 5.5f}, 0);
-    mobj_t *lothar = spawn(MT_LOTHAR, (fvec2_t){6.5f, 5.5f}, 0);
-    mobj_t *guldan = spawn(MT_GULDAN, (fvec2_t){4.5f, 10.5f}, 0);
-    mobj_t *uther = spawn(MT_UTHER_LIGHTBRINGER, (fvec2_t){6.5f, 10.5f}, 0);
-    mobj_t *zuljin = spawn(MT_ZULJIN, (fvec2_t){8.5f, 5.5f}, 0);
+    mobj_t *chogall = spawn(MT_CHOGALL, FIXED2_LIT(4.5, 5.5), 0);
+    mobj_t *lothar = spawn(MT_LOTHAR, FIXED2_LIT(6.5, 5.5), 0);
+    mobj_t *guldan = spawn(MT_GULDAN, FIXED2_LIT(4.5, 10.5), 0);
+    mobj_t *uther = spawn(MT_UTHER_LIGHTBRINGER, FIXED2_LIT(6.5, 10.5), 0);
+    mobj_t *zuljin = spawn(MT_ZULJIN, FIXED2_LIT(8.5, 5.5), 0);
     CHECK(chogall->w2.mana == 85 && uther->w2.mana == 85 && guldan->w2.mana == 85);
     CHECK(!lothar->w2.mana && !zuljin->w2.mana);
     CHECK(W2_CanCast(chogall, W2_SPELL_EYE) && W2_CanCast(chogall, W2_SPELL_BLOODLUST) &&
@@ -170,13 +170,13 @@ static int spells_and_research(void) {
     uther->hp -= 10;
     RTS_RUN(cast(uther, W2_SPELL_HEAL, uther));
     CHECK(uther->hp == uther->max_hp && effect_count(W2_FX_HEAL) == 1);
-    mobj_t *skeleton = spawn(MT_SKELETON, (fvec2_t){8.5f, 10.5f}, 1);
+    mobj_t *skeleton = spawn(MT_SKELETON, FIXED2_LIT(8.5, 10.5), 1);
     RTS_RUN(cast(uther, W2_SPELL_EXORCISM, skeleton));
     CHECK(skeleton->hp == 0);
     W2_ApplyUpgrade(0, W2_UPGRADE_HASTE);
     RTS_RUN(cast(guldan, W2_SPELL_HASTE, uther));
     CHECK(uther->w2.buffs[W2_BUFF_HASTE]);
-    mobj_t *enemy = spawn(MT_GRUNT, (fvec2_t){6.5f, 12.5f}, 1);
+    mobj_t *enemy = spawn(MT_GRUNT, FIXED2_LIT(6.5, 12.5), 1);
     enemy->hp = enemy->max_hp = 1000;
     RTS_RUN(cast(guldan, W2_SPELL_DEATH_COIL, enemy));
     CHECK(effect_count(W2_FX_TOUCH) > 0);

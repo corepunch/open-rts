@@ -256,28 +256,39 @@ bool P_NavNearestReachable(const level_t *map, int move_class, ivec2_t from, ive
     return best != INT32_MAX;
 }
 
-bool P_NavLineClear(const level_t *map, int move_class, fvec2_t a, fvec2_t b, float radius) {
-    fvec2_t delta = fvec2_sub(b, a);
-    float length = sqrtf(fvec2_length_squared(delta));
-    int steps = (int)ceilf(length / 0.25f);
-    if (steps < 1) steps = 1;
+enum { SAMPLE_SPACING = FIXED_ONE / 4 }; /* Probe spacing along a segment. */
+
+/* Number of probe intervals (>= 1) along a segment of the given length. */
+static int sample_steps(fixed_t length) {
+    int steps = (int)((length + SAMPLE_SPACING - 1) / SAMPLE_SPACING);
+    return steps < 1 ? 1 : steps;
+}
+
+/* a + delta * i / steps, exact integer interpolation. */
+static fixed2_t lerp_step(fixed2_t a, fixed2_t delta, int64_t numerator, int steps) {
+    return (fixed2_t){ a.x + (fixed_t)((int64_t)delta.x * numerator / steps),
+                       a.y + (fixed_t)((int64_t)delta.y * numerator / steps) };
+}
+
+bool P_NavLineClear(const level_t *map, int move_class, fixed2_t a, fixed2_t b, fixed_t radius) {
+    fixed2_t delta = fixed2_sub(b, a);
+    int steps = sample_steps(fixed2_length(delta));
     for (int i = 0; i <= steps; ++i) {
-        fvec2_t at = fvec2_add(a, fvec2_scale(delta, (float)i / (float)steps));
+        fixed2_t at = lerp_step(a, delta, i, steps);
         /* The origin may overlap terrain (authored spawns); leaving it is allowed. */
-        if (!P_MapCircleWalkable(map, move_class, at.x, at.y, radius, &a)) return false;
+        if (!P_MapCircleWalkable(map, move_class, at, radius, &a)) return false;
     }
     return true;
 }
 
-static bool cell_usable(const level_t *map, int cls, int x, int y, float radius) {
+static bool cell_usable(const level_t *map, int cls, int x, int y, fixed_t radius) {
     if (!passable(map, cls, x, y)) return false;
-    if (radius <= 0.5f) return true; /* A cell-centred disc that small fits any open cell. */
-    fvec2_t c = fvec2_cell_center((ivec2_t){x, y});
-    return P_MapCircleWalkable(map, cls, c.x, c.y, radius, NULL);
+    if (radius <= FIXED_ONE / 2) return true; /* A cell-centred disc that small fits any open cell. */
+    return P_MapCircleWalkable(map, cls, fixed2_cell_center((ivec2_t){x, y}), radius, NULL);
 }
 
 static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *layer,
-                   const uint8_t *soft, float radius, ivec2_t start, ivec2_t goal,
+                   const uint8_t *soft, fixed_t radius, ivec2_t start, ivec2_t goal,
                    int *goal_index) {
     if (++nav->generation == 0) {
         memset(nav->stamp, 0, (size_t)nav->width * nav->height * sizeof(*nav->stamp));
@@ -323,25 +334,26 @@ static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *l
     return false;
 }
 
-/* Travel cost of a straight segment in cell-lengths of full-speed ground. */
-static float segment_cost(const level_t *map, int cls, const uint8_t *soft, fvec2_t a, fvec2_t b) {
-    fvec2_t delta = fvec2_sub(b, a);
-    float length = sqrtf(fvec2_length_squared(delta));
-    int steps = (int)ceilf(length / 0.25f);
-    if (steps < 1) return 0.0f;
-    float total = 0.0f;
+/* Travel cost of a straight segment in cell-lengths of full-speed ground,
+ * 16.16 in a 64-bit accumulator (a slow swamp can price past 16.16 range). */
+static int64_t segment_cost(const level_t *map, int cls, const uint8_t *soft, fixed2_t a, fixed2_t b) {
+    fixed2_t delta = fixed2_sub(b, a);
+    fixed_t length = fixed2_length(delta);
+    int steps = (int)((length + SAMPLE_SPACING - 1) / SAMPLE_SPACING);
+    if (steps < 1) return 0;
+    int64_t total = 0;
     for (int i = 0; i < steps; ++i) {
-        fvec2_t at = fvec2_add(a, fvec2_scale(delta, ((float)i + 0.5f) / (float)steps));
-        int cx = (int)floorf(at.x), cy = (int)floorf(at.y);
-        int speed = L_MoveSpeed(map, cls, cx, cy);
-        total += 100.0f / (float)(speed > 0 ? speed : 100);
-        if (soft && L_Contains(map, cx, cy) && soft[L_Index(map, cx, cy)])
-            total += (float)COST_SOFT_BLOCKER / 100.0f; /* an idle unit's cell */
+        fixed2_t at = lerp_step(a, delta, 2 * i + 1, 2 * steps);
+        ivec2_t cell = fixed2_cell(at);
+        int speed = L_MoveSpeed(map, cls, cell.x, cell.y);
+        total += (int64_t)100 * FIXED_ONE / (speed > 0 ? speed : 100);
+        if (soft && L_Contains(map, cell.x, cell.y) && soft[L_Index(map, cell.x, cell.y)])
+            total += (int64_t)COST_SOFT_BLOCKER * FIXED_ONE / 100; /* an idle unit's cell */
     }
-    return total * (length / (float)steps);
+    return total * length / ((int64_t)steps * FIXED_ONE);
 }
 
-bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from, fvec2_t goal,
+bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from, fixed2_t goal,
                const uint8_t *soft, navpath_t *out) {
     if (!out) return false;
     *out = (navpath_t){0};
@@ -350,30 +362,30 @@ bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from, f
     int cls = class_of(map, move_class);
     navlayer_t *layer = layer_for(map, nav, cls);
     if (!layer) return false;
-    ivec2_t start = fvec2_cell(from), end = fvec2_cell(goal);
+    ivec2_t start = fixed2_cell(from), end = fixed2_cell(goal);
     if (!L_Contains(map, start.x, start.y)) return false;
     if (!passable(map, cls, start.x, start.y)) { /* Spawn overlapping terrain: begin at a neighbour. */
         bool found = false;
-        int best = INT32_MAX;
-        fvec2_t seed = {0, 0};
+        int64_t best = INT64_MAX;
+        fixed2_t seed = {0, 0};
         for (int dy = -2; dy <= 2; ++dy)
             for (int dx = -2; dx <= 2; ++dx) {
                 if (!passable(map, cls, start.x + dx, start.y + dy)) continue;
-                fvec2_t c = fvec2_cell_center((ivec2_t){start.x + dx, start.y + dy});
-                int d = (int)(fvec2_distance_squared(c, from) * 256.0f);
+                fixed2_t c = fixed2_cell_center((ivec2_t){start.x + dx, start.y + dy});
+                int64_t d = fixed2_distance_squared64(c, from) >> 24;
                 if (d < best) { best = d; found = true; seed = c; }
             }
         if (!found) return false;
-        start = fvec2_cell(seed);
+        start = fixed2_cell(seed);
     }
     bool exact_goal = L_Contains(map, end.x, end.y) && passable(map, cls, end.x, end.y) &&
                       P_NavReachable(map, cls, start, end) &&
-                      P_MapCircleWalkable(map, cls, goal.x, goal.y, radius, NULL);
+                      P_MapCircleWalkable(map, cls, goal, radius, NULL);
     if (!exact_goal) {
         ivec2_t want = {end.x < 0 ? 0 : end.x >= map->width ? map->width - 1 : end.x,
                         end.y < 0 ? 0 : end.y >= map->height ? map->height - 1 : end.y};
         if (!P_NavNearestReachable(map, cls, start, want, 16, &end)) return false;
-        goal = fvec2_cell_center(end);
+        goal = fixed2_cell_center(end);
     }
     if (ivec2_equal(start, end)) {
         out->points[0] = out->goal = goal;
@@ -389,32 +401,32 @@ bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from, f
      * this last bend only when the entire shortcut is clear. */
     int length = 0;
     for (int c = goal_index; c != -1; c = nav->parent[c]) ++length;
-    fvec2_t *chain = malloc((size_t)(length + 1) * sizeof(*chain));
+    fixed2_t *chain = malloc((size_t)(length + 1) * sizeof(*chain));
     if (!chain) return false;
     int i = length;
     for (int c = goal_index; c != -1; c = nav->parent[c])
-        chain[--i] = fvec2_cell_center(L_Cell(map, c));
+        chain[--i] = fixed2_cell_center(L_Cell(map, c));
     chain[length++] = goal;
     out->goal = goal;
 
     /* Greedy string pull: extend the segment while the disc still fits and the
      * shortcut costs no more than the route it replaces (swamp stays avoided). */
     bool priced = cls != 0 || soft != NULL;
-    float *prefix = priced ? malloc((size_t)length * sizeof(*prefix)) : NULL;
+    int64_t *prefix = priced ? malloc((size_t)length * sizeof(*prefix)) : NULL;
     if (priced && !prefix) { free(chain); return false; }
     if (priced) {
-        prefix[0] = 0.0f;
+        prefix[0] = 0;
         for (int k = 1; k < length; ++k) prefix[k] = prefix[k - 1] + segment_cost(map, cls, soft, chain[k - 1], chain[k]);
     }
-    fvec2_t anchor = from;
+    fixed2_t anchor = from;
     int at = 0;
     out->complete = true;
     while (at < length) {
         int far = at;
-        float lead = priced ? segment_cost(map, cls, soft, anchor, chain[at]) : 0.0f;
+        int64_t lead = priced ? segment_cost(map, cls, soft, anchor, chain[at]) : 0;
         while (far + 1 < length && P_NavLineClear(map, cls, anchor, chain[far + 1], radius) &&
                (!priced || segment_cost(map, cls, soft, anchor, chain[far + 1]) <=
-                           (lead + prefix[far + 1] - prefix[at]) * 1.03f + 0.05f)) ++far;
+                           (lead + prefix[far + 1] - prefix[at]) * 103 / 100 + FIXED_LIT(0.05))) ++far;
         if (out->count == NAV_MAX_WAYPOINTS) { out->complete = false; break; }
         out->points[out->count++] = chain[far];
         anchor = chain[far];
@@ -435,7 +447,7 @@ int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, 
     if (ivec2_equal(start, goal)) { out_path[0] = start; return 1; }
     navlayer_t *layer = layer_for(map, nav, 0);
     int index;
-    if (!layer || !search(map, 0, nav, layer, NULL, 0.0f, start, goal, &index)) return 0;
+    if (!layer || !search(map, 0, nav, layer, NULL, 0, start, goal, &index)) return 0;
     int total = 0;
     for (int c = index; c != -1; c = nav->parent[c]) ++total;
     int slot = total;

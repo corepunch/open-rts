@@ -190,23 +190,23 @@ static const char *script_message(const ScriptState *script, int id) {
 static bool player_near(const level_t *map, mobj_t *const *units,
                                     int unit_count, int gx, int gy) {
     (void)map;
-    fvec2_t center = fvec2_cell_center((ivec2_t){ gx, gy });
+    fixed2_t center = fixed2_cell_center((ivec2_t){ gx, gy });
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->owner != 0 || units[i]->remove || units[i]->hp <= 0) continue;
-        if (fvec2_distance_squared(
-            fixed3_xy_to_fvec2(units[i]->core.position), center) <= 16.0f) return true;
+        if (fixed2_distance_squared64(
+            fixed3_xy(units[i]->core.position), center) <= fixed_sq64(FIXED_FROM_INT(4))) return true;
     }
     return false;
 }
 
 static int script_nearest_vent(const level_t *map, int gx, int gy) {
     int best = -1;
-    float best_distance2 = INFINITY;
+    int64_t best_distance2 = INT64_MAX;
     if (!map || !map->resource_vents) return best;
-    fvec2_t target = fvec2_cell_center((ivec2_t){ gx, gy });
+    fixed2_t target = fixed2_cell_center((ivec2_t){ gx, gy });
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        float distance2 = fvec2_distance_squared(target, fvec2_cell_center(vent->cell));
+        int64_t distance2 = fixed2_distance_squared64(target, fixed2_cell_center(vent->cell));
         if (distance2 < best_distance2) {
             best_distance2 = distance2;
             best = i;
@@ -224,8 +224,7 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *actor = (mobj_t *)th;
                 if (actor->remove || actor->hp <= 0) continue;
-                fvec2_t position = fixed3_xy_to_fvec2(actor->core.position);
-                ivec2_t cell = { (int)floorf(position.x), (int)floorf(position.y) };
+                ivec2_t cell = fixed2_cell(fixed3_xy(actor->core.position));
                 if (!ivec2_equal(cell, cmd->waypoint.origin)) continue;
                 actor->waypoints = cmd->waypoint.route;
                 actor->attack.target = NULL;
@@ -783,21 +782,22 @@ static const struct { int x; int z; } dc_city_slot_offsets[] = {
     { -64, 15 }, { 0, 0 }, { 32, 64 }, { 64, 10 }, { -32, 65 }, { 0, 32 }, { 0, 0 },
 };
 
-static fvec2_t city_slot_cell_center(const CitySlotInfo *slot_info) {
-    if (!slot_info) return (fvec2_t){ 0.0f, 0.0f };
+static fixed2_t city_slot_cell_center(const CitySlotInfo *slot_info) {
+    if (!slot_info) return (fixed2_t){ 0, 0 };
     int sx = 0, sz = 0;
     if (slot_info->slot >= 0 && slot_info->slot < 7) {
         sx = dc_city_slot_offsets[slot_info->slot].x;
         sz = dc_city_slot_offsets[slot_info->slot].z;
     }
-    float cell_x = (float)slot_info->anchor_x + (float)sx * 8.0f / 256.0f;
-    float cell_y = (float)slot_info->anchor_y + (float)sz * 8.0f / 256.0f;
-    return fvec2_cell_center((ivec2_t){ (int)cell_x, (int)cell_y });
+    /* anchor + sx * 8 / 256 cells, floored (arithmetic shift). */
+    int cell_x = slot_info->anchor_x + ((sx * 8) >> 8);
+    int cell_y = slot_info->anchor_y + ((sz * 8) >> 8);
+    return fixed2_cell_center((ivec2_t){ cell_x, cell_y });
 }
 
 static bool building_alive_at_slot(const ScriptState *script, int team, int slot,
                                     mobj_t *const *units, int unit_count) {
-    fvec2_t expected = (fvec2_t){ 0.0f, 0.0f };
+    fixed2_t expected = (fixed2_t){ 0, 0 };
     bool found_slot = false;
     for (int i = 0; i < script->city_slot_count; ++i) {
         const CitySlotInfo *info = &script->city_slots[i];
@@ -812,8 +812,8 @@ static bool building_alive_at_slot(const ScriptState *script, int team, int slot
         const mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0) continue;
         if (unit->owner != (uint8_t)(team == 0 ? 0 : 1)) continue;
-        fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
-        if (fvec2_near(pos, expected, 1.5f)) return true;
+        fixed2_t pos = fixed3_xy(unit->core.position);
+        if (fixed2_near(pos, expected, FIXED_LIT(1.5))) return true;
     }
     return false;
 }
@@ -865,10 +865,10 @@ static bool evaluate_condition(const ScriptState *script, const ScriptBlock *blo
     return false;
 }
 
-void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *const *units, int *unit_count, hudtext_t *hud, float dt) {
+void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *const *units, int *unit_count, hudtext_t *hud, int dt_ms) {
     if (!script || !unit_count) return;
     if (script->state != MISSION_ACTIVE) return;
-    script->elapsed_ms += (int)(dt * 1000.0f);
+    script->elapsed_ms += dt_ms;
     bool debug_script = getenv("OPEN_RTS_DEBUG_SCRIPT") != NULL;
     for (int i = 0; i < script->block_count; ++i) {
         ScriptBlock *block = &script->blocks[i];

@@ -29,13 +29,13 @@ static mobj_t *player_harvester(void) {
     return NULL;
 }
 
-static int nearest_vent_index(fvec2_t position) {
+static int nearest_vent_index(fixed2_t position) {
     int best = -1;
-    float best_dist2 = 1e30f;
+    int64_t best_dist2 = INT64_MAX;
     for (int i = 0; i < level.resource_vent_count; ++i) {
         const resourcevent_t *vent = &level.resource_vents[i];
         if (!vent->active || vent->amount <= 0) continue;
-        float dist2 = fvec2_distance_squared(vent->attachment, position);
+        int64_t dist2 = fixed2_distance_squared64(vent->attachment, position);
         if (dist2 < best_dist2) {
             best_dist2 = dist2;
             best = i;
@@ -95,8 +95,8 @@ static int count_owner_type(uint8_t owner, uint16_t type) {
 
 static bool on_vent(const mobj_t *unit, const resourcevent_t *vent) {
     if (!unit || !vent) return false;
-    fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
-    return P_ResourceVentContainsCell(vent, (ivec2_t){ (int)floorf(pos.x), (int)floorf(pos.y) });
+    fixed2_t pos = fixed3_xy(unit->core.position);
+    return P_ResourceVentContainsCell(vent, fixed2_cell(pos));
 }
 
 /* M01F: send the starting Freighter to a pit, attach, play harvest, leave for
@@ -127,7 +127,7 @@ static int test_gather_attach_animate_and_build(void) {
     if (!harvester) return fail("starting Freighter");
     if (!hq) return fail("starting HQ");
     if (!pad) return fail("starting Water Launch Pad");
-    int vent_index = nearest_vent_index(fixed3_xy_to_fvec2(harvester->core.position));
+    int vent_index = nearest_vent_index(fixed3_xy(harvester->core.position));
     if (vent_index < 0) return fail("extractor near Freighter");
     const resourcevent_t *vent = &level.resource_vents[vent_index];
 
@@ -149,11 +149,11 @@ static int test_gather_attach_animate_and_build(void) {
     RtsGameCommand sel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
         .data.select_unit_index = { harvester_index, false } };
     if (!rts_game_model_command(model, &sel)) return fail("select Freighter");
-    fvec2_t pit_corner = { (float)vent->cell.x + 0.25f, (float)vent->cell.y + 0.25f };
+    fixed2_t pit_corner = { FIXED_FROM_INT(vent->cell.x) + FIXED_LIT(0.25), FIXED_FROM_INT(vent->cell.y) + FIXED_LIT(0.25) };
     /* Match the map-click path: TC_ORDER resolves a resource pit to harvesting. */
     ticcmd_t order = {
         .order = TC_ORDER,
-        .position = fixed3_from_fvec2(pit_corner, 0),
+        .position = fixed3_from_fixed2(pit_corner, 0),
         .count = 1,
         .units = { harvester->id },
     };
@@ -170,9 +170,9 @@ static int test_gather_attach_animate_and_build(void) {
     for (int t = 0; t < 30 * 90 &&
          harvester->harvest.phase != HARVEST_PHASE_TO_BASE; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick gather");
-        fvec2_t pos = fixed3_xy_to_fvec2(harvester->core.position);
+        fixed2_t pos = fixed3_xy(harvester->core.position);
         if (harvester->harvest.target == vent_index &&
-            P_ResourceVentContainsCell(vent, (ivec2_t){ (int)pos.x, (int)pos.y }))
+            P_ResourceVentContainsCell(vent, fixed2_cell(pos)))
             attached = true;
         if (harvester->harvest.phase == HARVEST_PHASE_MINING) mining = true;
         if (harvest_animating(harvester)) {
@@ -185,7 +185,7 @@ static int test_gather_attach_animate_and_build(void) {
         }
     }
     if (!attached) return fail("Freighter attached on the extractor footprint");
-    if (!fvec2_near(fixed3_xy_to_fvec2(harvester->core.position), vent->attachment, 0.001f))
+    if (!fixed2_near(fixed3_xy(harvester->core.position), vent->attachment, FIXED_LIT(0.001)))
         return fail("Freighter parked at the pit attachment point");
     if (!mining) return fail("Freighter entered HARVEST_PHASE_MINING");
     if (!animating || harvest_states_seen != 15)
@@ -195,17 +195,17 @@ static int test_gather_attach_animate_and_build(void) {
         return fail("full cargo started a return trip");
 
     bool left_pit = false, reached_pad = false, unloaded = false;
-    fvec2_t pad_bay = fvec2_add(fixed3_xy_to_fvec2(pad->core.position), (fvec2_t){3.5f, 2.5f});
+    fixed2_t pad_bay = fixed2_add(fixed3_xy(pad->core.position), FIXED2_LIT(3.5, 2.5));
     int credited_resources = level.player_resources[0][0];
     for (int t = 0; t < 30 * 180 && level.player_resources[0][0] < rig->cost; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick delivery");
         if (harvester->harvest.phase == HARVEST_PHASE_TO_BASE && !on_vent(harvester, vent))
             left_pit = true;
         if (level.player_resources[0][0] > credited_resources) {
-            fvec2_t position = fixed3_xy_to_fvec2(harvester->core.position);
-            if (fvec2_distance_squared(position, harvester->harvest.return_position) > 0.0001f)
+            fixed2_t position = fixed3_xy(harvester->core.position);
+            if (fixed2_distance_squared64(position, harvester->harvest.return_position) > FIXED_LIT_64(0.0001))
                 return fail("Freighter unloaded before reaching its return goal");
-            if (!fvec2_near(position, pad_bay, 0.001f))
+            if (!fixed2_near(position, pad_bay, FIXED_LIT(0.001)))
                 return fail("Freighter delivered at the native Water Launch Pad bay");
             credited_resources = level.player_resources[0][0];
             reached_pad = true;
@@ -280,10 +280,10 @@ static int test_taelon_delivery_uses_power_generator(void) {
         .data.select_unit_index = { selected, false } };
     if (selected < 0 || !rts_game_model_command(model, &select))
         return fail("select Freighter for Taelon");
-    fvec2_t mine = { (float)vent->cell.x + 0.25f, (float)vent->cell.y + 0.25f };
+    fixed2_t mine = { FIXED_FROM_INT(vent->cell.x) + FIXED_LIT(0.25), FIXED_FROM_INT(vent->cell.y) + FIXED_LIT(0.25) };
     ticcmd_t order = {
         .order = TC_ORDER,
-        .position = fixed3_from_fvec2(mine, 0),
+        .position = fixed3_from_fixed2(mine, 0),
         .count = 1,
         .units = { freighter->id },
     };
@@ -298,8 +298,8 @@ static int test_taelon_delivery_uses_power_generator(void) {
         return fail("full Taelon cargo started a return trip");
     if (!(generator->traits & MF_RESOURCE_BASE))
         return fail("power generator is a resource drop-off");
-    fvec2_t bay = fvec2_add(fixed3_xy_to_fvec2(generator->core.position), (fvec2_t){1.5f, 3.5f});
-    if (!fvec2_near(freighter->harvest.return_position, bay, 0.001f))
+    fixed2_t bay = fixed2_add(fixed3_xy(generator->core.position), FIXED2_LIT(1.5, 3.5));
+    if (!fixed2_near(freighter->harvest.return_position, bay, FIXED_LIT(0.001)))
         return fail("Freighter selected the native Taelon generator bay");
 
     int stock = level.player_resources[0][1];
@@ -312,8 +312,8 @@ static int test_taelon_delivery_uses_power_generator(void) {
     for (int t = 0; t < 30 * 90 && !unloaded; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick Taelon delivery");
         if (level.player_resources[0][1] > stock) {
-            if (fvec2_distance_squared(fixed3_xy_to_fvec2(freighter->core.position),
-                                       freighter->harvest.return_position) > 0.0001f)
+            if (fixed2_distance_squared64(fixed3_xy(freighter->core.position),
+                                       freighter->harvest.return_position) > FIXED_LIT_64(0.0001))
                 return fail("Taelon cargo unloaded before reaching the power generator");
             unloaded = freighter->harvest.cargo == 0;
         }
@@ -331,7 +331,7 @@ static int test_taelon_delivery_uses_power_generator(void) {
 static int test_all_transporter_deliveries(void) {
     const int types[] = {MT_FG_FREIGHTER, MT_FG_HOVER_FREIGHTER,
                         MT_IMP_GROUND_TRANSPORTER, MT_IMP_HOVER_TRANSPORTER};
-    const fvec2_t bays[] = {{7.5f, 55.5f}, {6.5f, 42.5f}};
+    const fixed2_t bays[] = {FIXED2_LIT(7.5, 55.5), FIXED2_LIT(6.5, 42.5)};
     for (unsigned type = 0; type < sizeof(types) / sizeof(*types); ++type) {
         for (int resource = 0; resource < 2; ++resource) {
             RtsGameModel *model = rts_game_model_create();
@@ -349,7 +349,7 @@ static int test_all_transporter_deliveries(void) {
             mobj_t *unit = P_SpawnMobj(start, types[type]);
             if (!unit) return fail("spawn matrix transporter");
             int target = resource ? vent_at_resource_cell((ivec2_t){3,38}, 1) :
-                nearest_vent_index(fixed3_xy_to_fvec2(start));
+                nearest_vent_index(fixed3_xy(start));
             if (target < 0 || level.resource_vents[target].resource_type != resource)
                 return fail("matrix resource node");
             resourcevent_t *vent = &level.resource_vents[target];
@@ -371,7 +371,7 @@ static int test_all_transporter_deliveries(void) {
                         return fail("native unloading frame range");
                     frames |= 1u << frame;
                     animation_tics++;
-                    if (!fvec2_near(fixed3_xy_to_fvec2(unit->core.position), bays[resource], 0.001f) ||
+                    if (!fixed2_near(fixed3_xy(unit->core.position), bays[resource], FIXED_LIT(0.001)) ||
                         unit->core.angle != ANG90 + ANG45)
                         return fail("unloading stays at the authored bay and facing");
                 }
@@ -389,7 +389,7 @@ static int test_all_transporter_deliveries(void) {
                         return fail("retail unload batch and cargo conservation");
                     if (frames != 0x7fff || animation_tics != 51)
                         return fail("credit follows all 15 native frames and 51 simulation tics");
-                    if (!fvec2_near(fixed3_xy_to_fvec2(unit->core.position), bays[resource], 0.001f))
+                    if (!fixed2_near(fixed3_xy(unit->core.position), bays[resource], FIXED_LIT(0.001)))
                         return fail("credit at exact native bay");
                     frames = 0;
                     animation_tics = 0;
@@ -402,7 +402,7 @@ static int test_all_transporter_deliveries(void) {
                 unit->harvest.phase != HARVEST_PHASE_TO_MINE || unit->harvest.target != target)
                 return fail("all transporters complete two full native delivery trips");
             printf("PASS: transporter=%d resource=%d bay=(%.1f,%.1f) cycles=%d delivered=%d\n",
-                   types[type], resource, bays[resource].x, bays[resource].y, cycles, delivered);
+                   types[type], resource, fixed_to_float(bays[resource].x), fixed_to_float(bays[resource].y), cycles, delivered);
             rts_game_model_destroy(model);
         }
     }
@@ -432,12 +432,12 @@ static int test_delivery_requires_live_accessible_bay(void) {
     }
     const int pad_mask[4][5] = {{-1,-1,-1,-1,-1}, {-1,2,3,3,2},
                               {3,3,3,2,2}, {2,3,3,2,-1}};
-    ivec2_t origin = fvec2_cell(fixed3_xy_to_fvec2(pad->core.position));
+    ivec2_t origin = fixed2_cell(fixed3_xy(pad->core.position));
     for (int y = 0; y < 4; ++y)
         for (int x = 0; x < 5; ++x)
             if (pad_mask[y][x] != -1 && L_IsWalkable(&level, origin.x+x, origin.y+y) != (pad_mask[y][x] == 2))
                 return fail("OVLEFF preserves every solid and walkable launch-pad cell");
-    int target = nearest_vent_index(fixed3_xy_to_fvec2(unit->core.position));
+    int target = nearest_vent_index(fixed3_xy(unit->core.position));
     if (target < 0 || !P_HarvestUnitTo(&level, unit, level.resource_vents[target].attachment))
         return fail("unavailable bay harvest order");
     for (int t = 0; t < 30 * 90 && unit->harvest.phase != HARVEST_PHASE_TO_BASE; ++t)
@@ -481,15 +481,15 @@ static int test_shared_bay_and_interrupted_unload(void) {
         mobj_t *unit = (mobj_t *)th;
         if (unit != first && (unit->traits & MF_MOBILE)) P_RemoveMobj(unit);
     }
-    int target = nearest_vent_index(fixed3_xy_to_fvec2(first->core.position));
+    int target = nearest_vent_index(fixed3_xy(first->core.position));
     if (target < 0) return fail("shared pit");
-    fvec2_t pit = level.resource_vents[target].attachment;
+    fixed2_t pit = level.resource_vents[target].attachment;
     if (!P_HarvestUnitTo(&level, first, pit)) return fail("order shared pit");
     for (int t = 0; t < 30 * 90 && first->harvest.phase != HARVEST_PHASE_UNLOADING; ++t)
         if (!rts_tick(model, NULL)) return fail("reach shared dock");
     if (first->harvest.phase != HARVEST_PHASE_UNLOADING) return fail("first transporter docking");
     int stock = level.player_resources[0][0];
-    mobj_t *second = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8.5f,55.5f}, 0), MT_FG_HOVER_FREIGHTER);
+    mobj_t *second = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(8.5, 55.5), 0), MT_FG_HOVER_FREIGHTER);
     if (!second || !P_HarvestUnitTo(&level, second, pit)) return fail("second transporter order");
     second->harvest.resource_type = 0;
     second->harvest.cargo = 750;
@@ -498,7 +498,7 @@ static int test_shared_bay_and_interrupted_unload(void) {
         int cargo = second->harvest.cargo;
         if (!rts_tick(model, NULL)) return fail("tick shared dock");
         if (P_HarvesterDocked(first) && first->harvest.phase == HARVEST_PHASE_UNLOADING &&
-            !fvec2_near(fixed3_xy_to_fvec2(first->core.position), (fvec2_t){7.5f,55.5f}, 0.001f))
+            !fixed2_near(fixed3_xy(first->core.position), FIXED2_LIT(7.5, 55.5), FIXED_LIT(0.001)))
             return fail("waiting transporter must not push a docked transporter away");
         if (second->harvest.cargo < cargo) second_delivered = true;
     }

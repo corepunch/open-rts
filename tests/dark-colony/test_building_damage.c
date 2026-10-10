@@ -118,7 +118,7 @@ int main(void) {
     assert(screens[0].pixels);
     app_t app = {.win = {640, 480}, .cell = {32, 32}};
     fvec2_t center;
-    R_MapPositionToScreen(&app, &level, fixed3_from_fvec2((fvec2_t){56, 55}, 0), &center.x, &center.y);
+    R_MapPositionToScreen(&app, &level, fixed3_from_fixed2(FIXED2_LIT(56, 55), 0), &center.x, &center.y);
     app.cam = fvec2_sub((fvec2_t){320, 370}, center);
     tileset_t tiles = {0};
     spritesheet_t fallback = {0};

@@ -1957,7 +1957,7 @@ static void ability(menu_t *m,menuitem_t *i,menuaction_t a) {
         ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
         int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
             hudview.sprites,gameinfo,m->cursor.x,m->cursor.y,-1);
-        order.position=fixed3_from_fvec2(fvec2_cell_center(at),0);
+        order.position=fixed3_from_fixed2(fixed2_cell_center(at),0);
         order.target=picked>=0?hudview.units[picked]->id:0;
     }
     for(int j=0;j<hudview.unit_count&&order.count<MAXCOMMANDUNITS;j++) {

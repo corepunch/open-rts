@@ -425,7 +425,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     map->resource_vents = vents;
     resourcevent_t *vent = &map->resource_vents[map->resource_vent_count++];
     vent->cell = (ivec2_t){ x, y };
-    vent->attachment = fvec2_cell_center(vent->cell);
+    vent->attachment = fixed2_cell_center(vent->cell);
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0 && amount > 0;
@@ -839,7 +839,7 @@ int load_dark_colony_initial_units(void) {
             const resourcevent_t *vent = &level.resource_vents[vent_index];
             /* SCN cell is the script key; attachment is the crater's shared
              * visual and harvesting origin. Keep all FIN offsets intact. */
-            mobj_t *actor = P_SpawnMobj(fixed3_from_fvec2(vent->attachment, 0), MT_VENT);
+            mobj_t *actor = P_SpawnMobj(fixed3_from_fixed2(vent->attachment, 0), MT_VENT);
             if (actor) {
                 actor->resource_vent_index = vent_index;
                 A_DC_Vent(actor);

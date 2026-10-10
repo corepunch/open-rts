@@ -90,9 +90,8 @@ void A_W2_Collapse(mobj_t *unit) {
     if (!unit || unit->type_id == 0 || unit->type_id >= NUMMOBJTYPES) return;
     isize2_t foot = mobjinfo[unit->type_id].w2.footprint;
     if (foot.w <= 0 || foot.h <= 0 || !level.cell_solid) return;
-    fvec2_t centre = fixed3_xy_to_fvec2(unit->core.position);
-    w2_clear_footprint((int)floorf(centre.x - foot.w * 0.5f + 0.001f),
-                       (int)floorf(centre.y - foot.h * 0.5f + 0.001f), foot);
+    ivec2_t corner = fixed2_footprint_corner(fixed3_xy(unit->core.position), foot);
+    w2_clear_footprint(corner.x, corner.y, foot);
     W2_RestoreOilPatch(unit);
 }
 

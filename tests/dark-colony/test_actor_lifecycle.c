@@ -74,7 +74,7 @@ int main(void) {
         units[1]->harvest.timer_ms = 100;
         units[1]->harvest.phase = 1;
         units[1]->harvest.cargo = 1;
-        units[1]->core.position = fixed3_from_fvec2((fvec2_t){ 0.25f, 0.75f }, FIXED_ONE);
+        units[1]->core.position = fixed3_from_fixed2(FIXED2_LIT(0.25, 0.75), FIXED_ONE);
         fixed3_t position = units[1]->core.position;
         units[1]->core.momentum = position;
         units[1]->core.angle = dc_direction_to_angle(0);

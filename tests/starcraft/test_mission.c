@@ -33,7 +33,7 @@ static uint8_t *blank_trigger(void) {
 
 static void ticks(int n, hudtext_t *hud) {
     int count = 0;
-    while (n--) G_MissionTicker(&level, NULL, &count, hud, FIXED_DT);
+    while (n--) G_MissionTicker(&level, NULL, &count, hud, RTS_TICK_MS);
 }
 
 static int press(int id) {

@@ -573,7 +573,7 @@ static void load_dark_reign_resource_vents(char *text, level_t *map) {
                 bool water = strcasecmp(type_name, "impww") == 0;
                 v->cell = (ivec2_t){ gx, gy };
                 /* 3×3 extractor footprint: attach to the centre cell */
-                v->attachment = (fvec2_t){ (float)gx + 1.5f, (float)gy + 1.5f };
+                v->attachment = (fixed2_t){ FIXED_FROM_INT(gx) + FIXED_LIT(1.5), FIXED_FROM_INT(gy) + FIXED_LIT(1.5) };
                 v->footprint = (isize2_t){ 3, 3 };
                 v->amount = water ? WATER_WELL_AMOUNT : TAELON_MINE_AMOUNT;
                 v->rate = water ? WATER_WELL_RATE : TAELON_MINE_RATE;
@@ -1091,8 +1091,8 @@ int load_dark_reign_initial_units(const char *map_path) {
             if (gx >= 0 && gy >= 0 && team_plays(current_team)) {
                 mobj_t *unit = P_SpawnMobj(fixed3_zero(), type);
                 if (!unit) break;
-                unit->core.position = fixed3_from_fvec2(
-                    building ? (fvec2_t){gx, gy} : fvec2_cell_center((ivec2_t){ gx, gy }), 0);
+                unit->core.position = fixed3_from_fixed2(
+                    building ? fixed2_from_cell((ivec2_t){ gx, gy }) : fixed2_cell_center((ivec2_t){ gx, gy }), 0);
                 unit->owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
                 unit->team = unit->owner;
@@ -1157,11 +1157,11 @@ int load_dark_reign_initial_units(const char *map_path) {
         if (have_start && associated_type[0] != '\0') {
             mobj_t *unit = P_SpawnMobj(fixed3_zero(), 0);
             if (!unit) { W_FreeFile(&blob); free_definitions(&defs); return count; }
-            unit->core.position = fixed3_from_fvec2((fvec2_t){
-                (float)start_x / 24.0f,
-                (float)start_y / 24.0f,
+            unit->core.position = fixed3_from_fixed2((fixed2_t){
+                (fixed_t)((int64_t)start_x * FIXED_ONE / 24),
+                (fixed_t)((int64_t)start_y * FIXED_ONE / 24),
             }, 0);
-            unit->speed = 4.5f;
+            unit->speed = FIXED_LIT(4.5);
             unit->owner = 0;
             P_MobjSetSelected(unit, true);
             VisualSpec visual;

@@ -3,6 +3,7 @@
 #include "dark-colony.h"
 
 #include <assert.h>
+#include "../t_local.h"
 
 static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams, const char *screenshot) {
     assert(G_DoLoadLevel(path, &level) && P_LoadThings(path) > 0);
@@ -20,7 +21,7 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
     assert(screens[0].pixels);
     app_t app = {.win = {640, 480}, .cell = {32, 32}};
     fvec2_t city_screen;
-    R_MapPositionToScreen(&app, &level, fixed3_from_fvec2(anchor, 0), &city_screen.x, &city_screen.y);
+    R_MapPositionToScreen(&app, &level, fixed3_from_fixed2(fixed2_from_fvec2(anchor), 0), &city_screen.x, &city_screen.y);
     app.cam = fvec2_sub((fvec2_t){320, 370}, city_screen);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;
@@ -41,7 +42,7 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
             counts[slot]++;
             assert(actor->core.state_id == poses[slot]);
             fvec2_t expected = fvec2_add(anchor, (fvec2_t){offsets[slot].x / 32.0f,
-                                                                         offsets[slot].y / 32.0f});
+                                                           offsets[slot].y / 32.0f});
             assert(fvec2_near(fixed3_xy_to_fvec2(actor->core.position), expected, 0.0001f));
             fvec2_t screen;
             R_MapPositionToScreen(&app, &level, actor->core.position, &screen.x, &screen.y);

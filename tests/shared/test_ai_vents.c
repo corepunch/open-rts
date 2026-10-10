@@ -25,11 +25,11 @@ int main(void) {
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) map.blocked[y * 64 + x] = 1;
     map.resource_vent_count = 2;
-    map.resource_vents[0] = (resourcevent_t){ .cell = {2, 2}, .attachment = {2, 2}, .amount = 10000, .rate = 1, .active = true };
-    map.resource_vents[1] = (resourcevent_t){ .cell = {45, 45}, .attachment = {45, 45}, .amount = 10000, .rate = 1, .active = true };
+    map.resource_vents[0] = (resourcevent_t){ .cell = {2, 2}, .attachment = FIXED2_LIT(2, 2), .amount = 10000, .rate = 1, .active = true };
+    map.resource_vents[1] = (resourcevent_t){ .cell = {45, 45}, .attachment = FIXED2_LIT(45, 45), .amount = 10000, .rate = 1, .active = true };
     mobj_t *slug = spawn_mobj_fixture((mobj_t){0});
     slug->owner = 1; slug->hp = 100; slug->traits = MF_MOBILE | MF_HARVESTER | MF_SELECTABLE;
-    slug->allegiance = ALLEGIANCE_ENEMY; slug->radius = 0.4f;
+    slug->allegiance = ALLEGIANCE_ENEMY; slug->radius = FIXED_LIT(0.4);
     slug->core.position = (fixed3_t){ 5 << 16, 30 << 16, 0 };
     units[0] = slug;
     CHECK(!P_HarvestUnitTo(&map, slug, map.resource_vents[0].attachment)); /* Truly unreachable. */

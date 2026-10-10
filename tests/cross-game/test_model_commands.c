@@ -45,7 +45,7 @@ int main(void) {
         if (snapshot.units[i].id == 0) return fail("units expose stable IDs");
     }
     for (int tries = 0; player < 0 && tries < 30 * 10; ++tries) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f) ||
+        if (!rts_game_model_tick(model, RTS_TICK_MS) ||
             !rts_game_model_snapshot(model, &snapshot)) return fail("tick model");
         player = enemy = -1;
         for (int i = 0; i < snapshot.unit_count; ++i) {
@@ -59,8 +59,8 @@ int main(void) {
         .data.select_unit_index = { player, false } };
     if (!rts_game_model_command(model, &select)) return fail("select command");
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { .target = snapshot.units[player].position } };
-    if (!rts_game_model_command(model, &move) || !rts_game_model_tick(model, 1.0f / 30.0f))
+        .data.move_selected = { .target = fixed2_from_fvec2(snapshot.units[player].position) } };
+    if (!rts_game_model_command(model, &move) || !rts_game_model_tick(model, RTS_TICK_MS))
         return fail("move command and tick");
     (void)event_seen(model, RTS_GAME_EVENT_UNIT_ARRIVED);
 
@@ -74,7 +74,7 @@ int main(void) {
                     break;
                 }
             if (exploiter < 0) {
-                if (!rts_game_model_tick(model, 1.0f / 30.0f) ||
+                if (!rts_game_model_tick(model, RTS_TICK_MS) ||
                     !rts_game_model_snapshot(model, &snapshot))
                     return fail("tick for scripted exploiter");
             }
@@ -83,14 +83,14 @@ int main(void) {
             RtsGameCommand select_exploiter = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
                 .data.select_unit_index = { exploiter, false } };
             RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-                .data.harvest_selected = { .target = { 69.5f, 48.5f } } };
+                .data.harvest_selected = { .target = FIXED2_LIT(69.5, 48.5) } };
             if (!rts_game_model_command(model, &select_exploiter) ||
                 !rts_game_model_command(model, &harvest)) return fail("harvest command");
         }
     }
     for (int tries = 0; tries < 30 * 100 &&
          snapshot.player_resources[0][0] < build_cost_floor; ++tries) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f) ||
+        if (!rts_game_model_tick(model, RTS_TICK_MS) ||
             !rts_game_model_snapshot(model, &snapshot)) return fail("tick for build resources");
         RtsGameEvent discarded;
         while (rts_game_model_poll_event(model, &discarded)) {}
@@ -148,7 +148,7 @@ int main(void) {
     RtsGameEventType completed_type = product_class == RTS_PRODUCT_UNIT ?
         RTS_GAME_EVENT_UNIT_BUILT : RTS_GAME_EVENT_BUILDING_BUILT;
     for (int tries = 0; tries < 30 * 50 && !completed; ++tries) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) return fail("tick production");
+        if (!rts_game_model_tick(model, RTS_TICK_MS)) return fail("tick production");
         while (rts_game_model_poll_event(model, &event)) {
             if (event.type == completed_type && event.target_id == producer_id &&
                 event.product_class == product_class && event.product_type == product_type)

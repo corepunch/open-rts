@@ -109,9 +109,9 @@ int main(void) {
             !(actor_types[i].traits & MF_FLY) && !hover) hover = &actor_types[i];
     }
     CHECK(track && hover);
-    mobj_t *a = P_SpawnMobj(fixed3_from_fvec2(fvec2_cell_center((ivec2_t){8, 8}), 0), track->id);
+    mobj_t *a = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){8, 8}), 0), track->id);
     CHECK(a && P_MobjMoveClass(a) == DR_MOVE_TRACK);
-    mobj_t *b = P_SpawnMobj(fixed3_from_fvec2(fvec2_cell_center((ivec2_t){9, 8}), 0), hover->id);
+    mobj_t *b = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){9, 8}), 0), hover->id);
     CHECK(b && P_MobjMoveClass(b) == DR_MOVE_HOVER);
     rts_game_model_destroy(model);
     puts("PASS: Dark Reign terrain speed classes load from TRNEFF.TXT and match UNITS.TXT");

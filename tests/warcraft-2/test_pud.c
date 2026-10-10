@@ -263,8 +263,8 @@ static int test_campaign_records(void) {
                     const w2_pud_unit_t *record = &pud->units[j];
                     if (matched[j] || unit->type_id != record->type + 1 || unit->owner != record->player) continue;
                     isize2_t foot = mobjinfo[unit->type_id].w2.footprint;
-                    fvec2_t position = {record->x + foot.w * 0.5f, record->y + foot.h * 0.5f};
-                    if (fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position), position) != 0) continue;
+                    fixed2_t position = {record->x * FIXED_ONE + foot.w * (FIXED_ONE / 2), record->y * FIXED_ONE + foot.h * (FIXED_ONE / 2)};
+                    if (fixed2_distance_squared64(fixed3_xy(unit->core.position), position) != 0) continue;
                     matched[j] = found = true;
                     break;
                 }

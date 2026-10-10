@@ -26,21 +26,21 @@ int main(void) {
 
     mobj_t *units[TROOPERS];
     for (int i = 0; i < TROOPERS; ++i) {
-        fvec2_t at = {20.5f + i % 4, 82.5f + i / 4};
-        assert(L_IsWalkable(&level, (int)at.x, (int)at.y));
-        units[i] = P_SpawnMobj(fixed3_from_fvec2(at, 0), MT_TROOPER);
+        fixed2_t at = {FIXED_LIT(20.5) + (i % 4) * FIXED_ONE, FIXED_LIT(82.5) + (i / 4) * FIXED_ONE};
+        assert(L_IsWalkable(&level, fixed_floor_int(at.x), fixed_floor_int(at.y)));
+        units[i] = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_TROOPER);
         assert(units[i] && (units[i]->traits & MF_MOBILE));
         units[i]->owner = units[i]->team = 0;
     }
     P_Ticker();
-    const fvec2_t goal = {40.5f, 60.5f};
+    const fixed2_t goal = FIXED2_LIT(40.5, 60.5);
     assert(!L_IsWalkable(&level, 30, 74)); /* The direct line crosses a ridge. */
     P_MoveUnitsAt(&level, units, TROOPERS, goal);
     for (int i = 0; i < TROOPERS; ++i)
         assert(P_HasMoveOrder(units[i]) &&
-               fvec2_distance_squared(units[i]->movement.goal, goal) <= 3.0f * 3.0f);
+               fixed2_distance_squared64(units[i]->movement.goal, goal) <= fixed_sq64(3 * FIXED_ONE));
 
-    float traveled[TROOPERS] = {0};
+    fixed_t traveled[TROOPERS] = {0};
     int stalled[TROOPERS] = {0}, active[TROOPERS] = {0}, arrived = 0, tic;
     fixed3_t before[TROOPERS];
     for (tic = 0; tic < MAX_TICS && arrived < TROOPERS; ++tic) {
@@ -50,7 +50,7 @@ int main(void) {
         for (int i = 0; i < TROOPERS; ++i) {
             mobj_t *u = units[i];
             fixed3_t delta = fixed3_planar_displacement(before[i], u->core.position);
-            traveled[i] += sqrtf(fvec2_length_squared(fixed3_xy_to_fvec2(delta)));
+            traveled[i] += fixed2_length(fixed3_xy(delta));
             if (u->movement.order_arrived) { ++arrived; continue; }
             ++active[i];
             stalled[i] += !delta.x && !delta.y;
@@ -58,22 +58,23 @@ int main(void) {
     }
     if (arrived != TROOPERS) {
         for (int i = 0; i < TROOPERS; ++i) {
-            fvec2_t p = fixed3_xy_to_fvec2(units[i]->core.position);
+            fixed2_t p = fixed3_xy(units[i]->core.position);
             fprintf(stderr, "trooper %d at %.2f,%.2f traveled %.1f stalled %d/%d arrived %d\n",
-                    i, p.x, p.y, traveled[i], stalled[i], active[i], units[i]->movement.order_arrived);
+                    i, fixed_to_float(p.x), fixed_to_float(p.y), fixed_to_float(traveled[i]),
+                    stalled[i], active[i], units[i]->movement.order_arrived);
         }
     }
     assert(arrived == TROOPERS);
     for (int i = 0; i < TROOPERS; ++i) {
-        fvec2_t p = fixed3_xy_to_fvec2(units[i]->core.position);
+        fixed2_t p = fixed3_xy(units[i]->core.position);
         /* Every trooper settles in the blob around the common goal. */
-        assert(fvec2_distance_squared(p, goal) <= 4.0f * 4.0f);
-        assert(traveled[i] < MAX_TRAVEL_CELLS);
+        assert(fixed2_distance_squared64(p, goal) <= fixed_sq64(4 * FIXED_ONE));
+        assert(traveled[i] < MAX_TRAVEL_CELLS * FIXED_ONE);
         /* Turning in place and yielding to neighbours is a fraction of the trip;
          * with jittering headings a trooper spent most tics rotating. */
         assert(stalled[i] * 5 < active[i]);
         for (int j = i + 1; j < TROOPERS; ++j)
-            assert(fvec2_distance_squared(p, fixed3_xy_to_fvec2(units[j]->core.position)) > 0.5f * 0.5f);
+            assert(fixed2_distance_squared64(p, fixed3_xy(units[j]->core.position)) > FIXED_LIT_64(0.5 * 0.5));
     }
     rts_game_model_destroy(model);
     printf("PASS: %d troopers crossed Bottlenecks in %d tics without stalls or stacking\n",

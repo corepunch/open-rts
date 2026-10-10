@@ -8,6 +8,13 @@
 #include "engine.h"
 
 
+/* Test-side helpers: tests may read simulation results as floats. */
+static inline bool fvec2_near(fvec2_t a, fvec2_t b, float epsilon) {
+    fvec2_t delta = fvec2_sub(a, b);
+    return delta.x > -epsilon && delta.x < epsilon &&
+           delta.y > -epsilon && delta.y < epsilon;
+}
+
 static inline int rts_fail(const char *tag, const char *message) {
     if (tag && tag[0] != '\0') {
         fprintf(stderr, "FAIL (%s): %s\n", tag, message);
@@ -40,10 +47,9 @@ static inline mobj_t *spawn_mobj_fixture(mobj_t value) {
 }
 
 
-#define RTS_FIXED_DT (1.0f / 30.0f)
 
 static inline bool rts_tick(RtsGameModel *model, RtsRenderSnapshot *snapshot) {
-    if (!rts_game_model_tick(model, RTS_FIXED_DT)) return false;
+    if (!rts_game_model_tick(model, RTS_TICK_MS)) return false;
     if (snapshot && !rts_game_model_snapshot(model, snapshot)) return false;
     return true;
 }

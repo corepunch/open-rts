@@ -149,7 +149,7 @@ static void relist(mobjlist_t *units) {
 static int test_research_buttons(menu_t *menu, mobjlist_t *units, mobj_t *worker, bool orc) {
     for (int i = 0; i < units->count; ++i) P_MobjSetSelected(units->items[i], false);
     fvec2_t at = fvec2_add(fixed3_xy_to_fvec2(worker->core.position), (fvec2_t){3, 3});
-    mobj_t *smith = P_SpawnMobj(fixed3_from_fvec2(at, 0), orc ? MT_ORC_BLACKSMITH : MT_HUMAN_BLACKSMITH);
+    mobj_t *smith = P_SpawnMobj(fixed3_from_fixed2(fixed2_from_fvec2(at), 0), orc ? MT_ORC_BLACKSMITH : MT_HUMAN_BLACKSMITH);
     CHECK(smith);
     smith->owner = (uint8_t)consoleplayer;
     smith->team = (uint8_t)consoleplayer;
@@ -197,7 +197,7 @@ static int test_research_buttons(menu_t *menu, mobjlist_t *units, mobj_t *worker
     CHECK(command_slot(menu, 0)->visible && command_slot(menu, 1)->visible == has_barracks);
     mobj_t *barracks = NULL;
     if (!has_barracks) {
-        barracks = P_SpawnMobj(fixed3_from_fvec2(fvec2_add(at, (fvec2_t){4, 0}), 0), MT_HUMAN_BARRACKS);
+        barracks = P_SpawnMobj(fixed3_from_fixed2(fixed2_from_fvec2(fvec2_add(at, (fvec2_t){4, 0})), 0), MT_HUMAN_BARRACKS);
         CHECK(barracks);
         barracks->owner = (uint8_t)consoleplayer;
         barracks->team = (uint8_t)consoleplayer;

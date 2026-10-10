@@ -9,16 +9,16 @@ enum {
     SC_UPGRADE_REAVER_CAPACITY = 36, SC_UPGRADE_CARRIER_CAPACITY = 43,
     SC_SCARAB_FRAMES = 90, /* A scarab that has not struck by then fizzles. */
 };
-#define SC_LEASH 12.0f /* Interceptors turn home past this many cells from the Carrier. */
+#define SC_LEASH FIXED_FROM_INT(12) /* Interceptors turn home past this many cells from the Carrier. */
 
-static fvec2_t where(const mobj_t *mo) { return fixed3_xy_to_fvec2(mo->core.position); }
+static fixed2_t where(const mobj_t *mo) { return fixed3_xy(mo->core.position); }
 static bool live(const thinker_t *th) {
     const mobj_t *mo = (const mobj_t *)th;
     return th->function == P_MobjThinker && !mo->remove && mo->hp > 0;
 }
-static ivec2_t pixel(fvec2_t at) { return (ivec2_t){(int)lroundf(at.x * 32), (int)lroundf(at.y * 32)}; }
+static ivec2_t pixel(fixed2_t at) { return (ivec2_t){(at.x + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5), (at.y + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5)}; }
 /* A unit of type on owner's side at a spot. */
-static mobj_t *spawn_for(const mobj_t *owner, uint16_t type, fvec2_t at) {
+static mobj_t *spawn_for(const mobj_t *owner, uint16_t type, fixed2_t at) {
     mobj_t *mo = sc_spawn_actor(type - 1u, pixel(at), owner->owner);
     if (!mo) return NULL;
     mo->team = owner->team;
@@ -77,9 +77,9 @@ bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     if (attacker->type_id != MT_REAVER) return false;
     if (attacker->sc.hangar <= 0) return true;
-    fvec2_t at = where(attacker), to = fvec2_sub(where(target), at);
-    float d = sqrtf(fvec2_length_squared(to));
-    mobj_t *mo = spawn_for(attacker, MT_SCARAB, d > 0.5f ? fvec2_add(at, fvec2_scale(to, 0.5f / d)) : at);
+    fixed2_t at = where(attacker), to = fixed2_sub(where(target), at);
+    fixed_t d = fixed2_length(to);
+    mobj_t *mo = spawn_for(attacker, MT_SCARAB, d > FIXED_ONE / 2 ? fixed2_add(at, fixed2_rescale(to, d, FIXED_ONE / 2)) : at);
     if (!mo) return true;
     attacker->sc.hangar--;
     /* Nobody can target a scarab. */
@@ -93,13 +93,13 @@ bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
 static void interceptor(mobj_t *mo) {
     mobj_t *carrier = P_MobjById(mo->sc.parent);
     if (!carrier) { P_DamageMobj(mo, NULL, mo->hp); return; }
-    fvec2_t home = where(carrier);
-    float d2 = fvec2_distance_squared(where(mo), home);
+    fixed2_t home = where(carrier);
+    int64_t d2 = fixed2_distance_squared64(where(mo), home);
     if (!(mo->sc.flags & SC_RETURNING)) {
         mobj_t *t = mo->attack.target;
         if ((!t || t->remove || t->hp <= 0) && carrier->attack.target && carrier->attack.target->hp > 0)
             mo->attack.target = t = carrier->attack.target;
-        if (d2 <= SC_LEASH * SC_LEASH && t && !t->remove && t->hp > 0) return;
+        if (d2 <= fixed_sq64(SC_LEASH) && t && !t->remove && t->hp > 0) return;
         mo->sc.flags |= SC_RETURNING;
         mo->attack.target = NULL;
         mo->move_only = true;
@@ -107,21 +107,21 @@ static void interceptor(mobj_t *mo) {
         return;
     }
     /* Docked interceptors come back whole: the hangar repairs them. */
-    if (d2 <= 1.0f) { carrier->sc.hangar++; P_RemoveMobj(mo); return; }
-    if (!P_HasMoveOrder(mo) || !fvec2_near(mo->movement.goal, home, 1.0f)) P_MoveUnitTo(&level, mo, home);
+    if (d2 <= fixed_sq64(FIXED_ONE)) { carrier->sc.hangar++; P_RemoveMobj(mo); return; }
+    if (!P_HasMoveOrder(mo) || !fixed2_near(mo->movement.goal, home, FIXED_ONE)) P_MoveUnitTo(&level, mo, home);
 }
 
 /* ── range ───────────────────────────────────────────────────────────── */
 
 /* A Bunker adds a cell to what it holds; range upgrades add theirs. */
-float sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon) {
+fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon) {
     (void)weapon;
-    float bonus = (attacker->sc.flags & SC_LOADED) ? 1.0f : 0.0f;
+    fixed_t bonus = (attacker->sc.flags & SC_LOADED) ? FIXED_ONE : 0;
     int owner = attacker->owner;
     switch (attacker->type_id) {
-    case MT_MARINE: return bonus + sc_upgrade_level(owner, SC_UPGRADE_U238);
-    case MT_HYDRALISK: return bonus + sc_upgrade_level(owner, SC_UPGRADE_GROOVED_SPINES);
-    case MT_DRAGOON: return bonus + 2.0f * sc_upgrade_level(owner, SC_UPGRADE_SINGULARITY);
+    case MT_MARINE: return bonus + FIXED_FROM_INT(sc_upgrade_level(owner, SC_UPGRADE_U238));
+    case MT_HYDRALISK: return bonus + FIXED_FROM_INT(sc_upgrade_level(owner, SC_UPGRADE_GROOVED_SPINES));
+    case MT_DRAGOON: return bonus + FIXED_FROM_INT(2 * sc_upgrade_level(owner, SC_UPGRADE_SINGULARITY));
     default: return bonus;
     }
 }
@@ -189,10 +189,11 @@ bool sc_can_board(const mobj_t *unit, const mobj_t *bunker) {
         (u->race & 2) && (u->flags & SC_UNIT_ORGANIC) && !(u->flags & SC_UNIT_WORKER) && u->space == 1 &&
         sc_cargo_space(bunker) + u->space <= b->space_provided;
 }
-static float gap(const mobj_t *unit, irect_t r) {
-    fvec2_t at = where(unit);
-    float dx = at.x < r.x ? r.x - at.x : at.x > r.x + r.w ? at.x - (r.x + r.w) : 0;
-    float dy = at.y < r.y ? r.y - at.y : at.y > r.y + r.h ? at.y - (r.y + r.h) : 0;
+static fixed_t gap(const mobj_t *unit, irect_t r) {
+    fixed2_t at = where(unit);
+    fixed_t x0 = FIXED_FROM_INT(r.x), x1 = FIXED_FROM_INT(r.x + r.w), y0 = FIXED_FROM_INT(r.y), y1 = FIXED_FROM_INT(r.y + r.h);
+    fixed_t dx = at.x < x0 ? x0 - at.x : at.x > x1 ? at.x - x1 : 0;
+    fixed_t dy = at.y < y0 ? y0 - at.y : at.y > y1 ? at.y - y1 : 0;
     return dx > dy ? dx : dy;
 }
 static void load(mobj_t *unit, mobj_t *bunker) {
@@ -215,8 +216,8 @@ static void load(mobj_t *unit, mobj_t *bunker) {
 bool sc_board(mobj_t *unit, mobj_t *bunker) {
     if (!sc_can_board(unit, bunker)) return false;
     irect_t r = P_MobjCells(bunker);
-    if (gap(unit, r) <= 1.0f) { load(unit, bunker); return true; }
-    fvec2_t bay;
+    if (gap(unit, r) <= FIXED_ONE) { load(unit, bunker); return true; }
+    fixed2_t bay;
     if (!P_ApproachFootprint(unit, (ivec2_t){r.x, r.y}, (isize2_t){r.w, r.h}, &bay) || !P_MoveUnitTo(&level, unit, bay))
         return false;
     unit->sc.order = (sc_order_t){.kind = SC_ORDER_BOARD, .target = bunker->id};
@@ -229,20 +230,20 @@ static void pop_out(mobj_t *unit, irect_t r) {
     unit->sc.flags &= ~SC_LOADED;
     unit->sc.parent = 0;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
-    fvec2_t door = {r.x + r.w * 0.5f, (float)(r.y + r.h)}, best = where(unit);
-    float best_d = -1;
+    fixed2_t door = {FIXED_FROM_INT(r.x) + FIXED_FROM_INT(r.w) / 2, FIXED_FROM_INT(r.y + r.h)}, best = where(unit);
+    int64_t best_d = -1;
     for (int y = -1; y <= r.h; y++)
         for (int x = -1; x <= r.w; x++) {
             if (x >= 0 && y >= 0 && x < r.w && y < r.h) continue;
-            fvec2_t at = fvec2_cell_center((ivec2_t){r.x + x, r.y + y});
-            float d = fvec2_distance_squared(at, door);
-            if ((best_d >= 0 && d >= best_d) || !P_CheckPosition(&level, unit, at.x, at.y)) continue;
+            fixed2_t at = fixed2_cell_center((ivec2_t){r.x + x, r.y + y});
+            int64_t d = fixed2_distance_squared64(at, door);
+            if ((best_d >= 0 && d >= best_d) || !P_CheckPosition(&level, unit, at)) continue;
             bool taken = false;
             for (thinker_t *th = thinkercap.next; th != &thinkercap && !taken; th = th->next) {
                 const mobj_t *mo = (const mobj_t *)th;
-                float room = P_MobjRadius(unit) + P_MobjRadius(mo);
+                fixed_t room = P_MobjRadius(unit) + P_MobjRadius(mo);
                 taken = live(th) && mo != unit && (mo->traits & MF_MOBILE) && !(mo->traits & MF_FLY) &&
-                    fvec2_distance_squared(where(mo), at) < room * room;
+                    fixed2_distance_squared64(where(mo), at) < fixed_sq64(room);
             }
             if (!taken) { best = at; best_d = d; }
         }
@@ -263,9 +264,9 @@ static void loaded(mobj_t *mo) {
     const mobj_t *bunker = P_MobjById(mo->sc.parent);
     if (bunker) return;
     isize2_t foot = actor_types[MT_BUNKER - 1].footprint;
-    fvec2_t at = where(mo);
-    pop_out(mo, (irect_t){(int)floorf(at.x - foot.w * 0.5f + 0.001f), (int)floorf(at.y - foot.h * 0.5f + 0.001f),
-                          foot.w, foot.h});
+    fixed2_t at = where(mo);
+    pop_out(mo, (irect_t){(at.x - FIXED_FROM_INT(foot.w) / 2 + 66) >> FIXED_FRAC_BITS,
+                          (at.y - FIXED_FROM_INT(foot.h) / 2 + 66) >> FIXED_FRAC_BITS, foot.w, foot.h});
 }
 
 /* ── archons ─────────────────────────────────────────────────────────── */
@@ -290,7 +291,7 @@ static void merging(mobj_t *mo, int frames) {
         return;
     }
     mo->attack.target = NULL;
-    if (fvec2_distance_squared(where(mo), where(partner)) > 1.25f * 1.25f) {
+    if (fixed2_distance_squared64(where(mo), where(partner)) > fixed_sq64(FIXED_ONE + FIXED_ONE / 4)) {
         if (!P_HasMoveOrder(mo)) P_MoveUnitTo(&level, mo, where(partner));
         return;
     }
@@ -327,12 +328,12 @@ void sc_unit_ticker(mobj_t *mo, int frames) {
     else if (mo->sc.order.kind == SC_ORDER_BOARD) {
         mobj_t *bunker = P_MobjById(mo->sc.order.target);
         if (!bunker || !sc_can_board(mo, bunker)) mo->sc.order = (sc_order_t){0};
-        else if (gap(mo, P_MobjCells(bunker)) <= 1.0f) load(mo, bunker);
+        else if (gap(mo, P_MobjCells(bunker)) <= FIXED_ONE) load(mo, bunker);
         else if (!P_HasMoveOrder(mo)) mo->sc.order = (sc_order_t){0};
     }
 }
 
-bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_t *target, fvec2_t at) {
+bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_t *target, fixed2_t at) {
     bool any = false;
     switch (order) {
     case TC_DEPLOY:

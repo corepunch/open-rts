@@ -42,7 +42,7 @@ static int assert_attack_lifecycle(void) {
     units[0]->info = &TEST_ATTACKER_INFO;
     units[0]->attack.target = units[1];
     snprintf(units[0]->core.sprite_name, sizeof(units[0]->core.sprite_name), "SPRITES/TRSC.SPR");
-    units[0]->core.position = fixed3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0);
+    units[0]->core.position = fixed3_from_fixed2(FIXED2_LIT(10.0, 10.0), 0);
 
     copy_mobj_fixture(units[1], units[0]);
     units[1]->owner = 1;
@@ -149,7 +149,7 @@ static int assert_exploiter_harvest_lifecycle(void) {
     RtsGameCommand select = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
         .data.select_unit_index = { exploiter, false } };
     RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-        .data.harvest_selected = { .target = { 69.5f, 48.5f } } };
+        .data.harvest_selected = { .target = FIXED2_LIT(69.5, 48.5) } };
     if (!rts_game_model_command(model, &select)) return fail("select exploiter");
     if (!rts_game_model_command(model, &harvest)) {
         fprintf(stderr, "exploiter index=%d owner=%u traits=%u position=%.2f,%.2f vents=%d\n",
@@ -208,7 +208,7 @@ static int assert_unit_creation_from_production(void) {
         RtsGameCommand select_exploiter = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
             .data.select_unit_index = { exploiter, false } };
         RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-            .data.harvest_selected = { .target = { 69.5f, 48.5f } } };
+            .data.harvest_selected = { .target = FIXED2_LIT(69.5, 48.5) } };
         if (!rts_game_model_command(model, &select_exploiter) ||
             !rts_game_model_command(model, &harvest)) return fail("harvest command for production");
     }

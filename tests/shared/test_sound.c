@@ -110,9 +110,9 @@ static int test_spatial(void) {
     app_t app = {.win = {640, 480}, .cell = {32, 32}};
     S_UpdateSounds(&app, NULL);
     cell_t centre = R_ScreenToMapGrid(&app, &level, 320, 240);
-    int near = S_StartSoundAt((fvec2_t){centre.x, centre.y}, TONE);
+    int near = S_StartSoundAt(FIXED2_LIT(centre.x, centre.y), TONE);
     CHECK(near);
-    CHECK(!S_StartSoundAt((fvec2_t){centre.x + 200, centre.y + 200}, OTHER));
+    CHECK(!S_StartSoundAt(FIXED2_LIT(centre.x + 200, centre.y + 200), OTHER));
     uint32_t hidden = 0;
     level.width = level.height = 1;
     level.sight.cells = &hidden;

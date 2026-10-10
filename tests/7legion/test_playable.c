@@ -58,7 +58,7 @@ static int test_select_and_move(void) {
     if (!rts_game_model_command(model, &sel)) return fail("select");
     fvec2_t target = { start.x + 4.0f, start.y };
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { .target = target } };
+        .data.move_selected = { .target = fixed2_from_fvec2(target) } };
     if (!rts_game_model_command(model, &move)) return fail("move");
     fvec2_t before = snap.units[player].position;
     for (int t = 0; t < 120; ++t)

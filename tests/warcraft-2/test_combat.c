@@ -28,8 +28,8 @@ static void fixture(void) {
 static mobj_t *spawn(int type, int x, int y, int owner) {
     isize2_t foot = mobjinfo[type].w2.footprint;
     bool structure = (mobjinfo[type].w2.flags & W2_STRUCTURE) != 0;
-    fvec2_t at = structure ? (fvec2_t){x + foot.w * 0.5f, y + foot.h * 0.5f} : (fvec2_t){x + 0.5f, y + 0.5f};
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), (uint16_t)type);
+    fixed2_t at = structure ? (fixed2_t){FIXED_FROM_INT(x) + foot.w * (FIXED_ONE / 2), FIXED_FROM_INT(y) + foot.h * (FIXED_ONE / 2)} : fixed2_cell_center((ivec2_t){x, y});
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), (uint16_t)type);
     assert(unit);
     unit->owner = (uint8_t)owner;
     unit->team = (uint8_t)(owner < 8 ? owner : 8);
@@ -67,7 +67,7 @@ static int test_tables(void) {
     CHECK(!(actor_types[MT_FARM - 1].traits & MF_ATTACK));
     CHECK(actor_types[MT_HUMAN_GUARD_TOWER - 1].traits & MF_ATTACK);
     CHECK(!(actor_types[MT_HUMAN_TRANSPORT - 1].traits & MF_ATTACK));
-    CHECK(footman->attack.range == 1 && actor_types[MT_ARCHER - 1].attack.range == 4);
+    CHECK(footman->attack.range == FIXED_ONE && actor_types[MT_ARCHER - 1].attack.range == 4 * FIXED_ONE);
     CHECK(footman->footprint.w == 1 && actor_types[MT_FARM - 1].footprint.w == 2 &&
           actor_types[MT_TOWN_HALL - 1].footprint.h == 4);
     /* State rows follow the retail GRP layout and the Wargus waits. */
@@ -194,8 +194,8 @@ static int test_range_and_orders(void) {
     CHECK(attack_order(footman, grunt));
     for (int i = 0; i < 300 && grunt->hp == grunt->max_hp; ++i) tick(1);
     CHECK(grunt->hp < grunt->max_hp);
-    ivec2_t a = fvec2_cell(fixed3_xy_to_fvec2(footman->core.position));
-    ivec2_t b = fvec2_cell(fixed3_xy_to_fvec2(grunt->core.position));
+    ivec2_t a = fixed2_cell(fixed3_xy(footman->core.position));
+    ivec2_t b = fixed2_cell(fixed3_xy(grunt->core.position));
     CHECK(abs(a.x - b.x) <= 1 && abs(a.y - b.y) <= 1);
 
     fixture();
@@ -203,10 +203,10 @@ static int test_range_and_orders(void) {
     mobj_t *far = spawn(MT_GRUNT, 10, 5, 1);
     tick(120);
     CHECK(far->hp == far->max_hp && !archer->attack.target);
-    far->core.position = fixed3_from_fvec2((fvec2_t){9.5f, 1.5f}, 0);
+    far->core.position = fixed3_from_fixed2(FIXED2_LIT(9.5, 1.5), 0);
     for (int i = 0; i < 120 && far->hp == far->max_hp; ++i) tick(1);
     CHECK(far->hp < far->max_hp);
-    CHECK(archer->core.position.x == fixed3_from_fvec2((fvec2_t){5.5f, 5.5f}, 0).x); /* Shot from where it stood. */
+    CHECK(archer->core.position.x == fixed3_from_fixed2(FIXED2_LIT(5.5, 5.5), 0).x); /* Shot from where it stood. */
     return 0;
 }
 
@@ -297,7 +297,7 @@ static int test_orders_and_losses(void) {
     barracks->hp = 1;
     P_DamageMobj(barracks, knight, 1);
     CHECK(barracks->hp == 0);
-    G_ProductionTicker(FIXED_DT);
+    G_ProductionTicker(RTS_TICK_MS);
     CHECK(!barracks->production);
     return 0;
 }

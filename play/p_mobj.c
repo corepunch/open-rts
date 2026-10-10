@@ -1,16 +1,16 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
 #include "warcraft-2.h"
 #endif
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
 #include "dark-colony.h"
 #endif
 #include "info.h"
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (!a || !b) return false;
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     if (level.native_data && a->team < 8 && b->team < 8 && level.peace[a->team]) {
         if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL) return false;
         return (level.peace[a->team] & (UINT32_C(0x40000000) >> b->team)) != 0;
@@ -20,7 +20,7 @@ bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
         return false;
     const uint32_t *allies = level.sight.allies;
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     allies = level.peace;
 #endif
     return a->owner == b->owner || (a->team < 8 && b->team < 8 &&
@@ -39,13 +39,13 @@ mobj_t *P_MobjById(uint32_t id) {
 bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *unit) {
     (void)map;
     if (!vent || !vent->active || vent->amount <= 0) return false;
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (!unit || vent->resource_type < 0 || vent->resource_type >= 3 ||
         !mobjinfo[unit->type_id].w2.gather[vent->resource_type].capacity) return false;
 #endif
     if (!vent->source_id) return true;
     const mobj_t *source = P_MobjById(vent->source_id);
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (source && source->type_id == MT_GOLD_MINE) return true;
     if (source && (source->type_id == MT_OIL_PATCH || W2_UnderConstruction(source))) return false;
 #endif
@@ -55,9 +55,9 @@ bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *
 /* A deposit structure's vent covers a 3x3 footprint centred on it so that a
  * harvester counts as docked once it touches the building. */
 static void open_deposit_vent(resourcevent_t *vent, const mobj_t *source) {
-    fvec2_t at = fixed3_xy_to_fvec2(source->core.position);
+    fixed2_t at = fixed3_xy(source->core.position);
     *vent = (resourcevent_t){
-        .cell = { (int)floorf(at.x) - 1, (int)floorf(at.y) - 1 },
+        .cell = { fixed_floor_int(at.x) - 1, fixed_floor_int(at.y) - 1 },
         .attachment = at,
         .footprint = { 3, 3 },
         .amount = source->info->deposit.amount,
@@ -121,24 +121,24 @@ const weapondef_t *P_MobjWeapon(const mobj_t *attacker, const mobj_t *target) {
 }
 
 /* Reach against target; with none yet, the longer of the two weapons. */
-static float mobj_attack_range(const mobj_t *unit, const mobj_t *target) {
-#ifdef RTS_GAME_WARCRAFT_2
+static fixed_t mobj_attack_range(const mobj_t *unit, const mobj_t *target) {
+#ifdef RTS_MODULE_WARCRAFT_2
     (void)target;
     return W2_AttackRange(unit);
 #endif
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     if (unit && (unit->type_id == MT_THUNDERBOLT || unit->type_id == MT_ATRIL))
-        return unit->info->attack.range + DC_WeaponLevel(unit) * 2;
+        return unit->info->attack.range + DC_WeaponLevel(unit) * 2 * FIXED_ONE;
 #endif
-    if (!unit || !unit->info) return 0.0f;
+    if (!unit || !unit->info) return 0;
     const weapondef_t *air = &unit->info->air_attack,
         *weapon = target ? P_MobjWeapon(unit, target) :
                   air->damage && air->range > unit->info->attack.range ? air : &unit->info->attack;
-    return weapon->range + (gameinfo && gameinfo->range_bonus ? gameinfo->range_bonus(unit, weapon) : 0.0f);
+    return weapon->range + (gameinfo && gameinfo->range_bonus ? gameinfo->range_bonus(unit, weapon) : 0);
 }
 
 static int weapon_damage(const mobj_t *unit, const weapondef_t *weapon) {
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     int tier = DC_WeaponLevel(unit);
     if (tier && weapon->upgrade_damage[tier - 1]) return weapon->upgrade_damage[tier - 1];
 #else
@@ -153,7 +153,7 @@ static bool mobj_armed(const mobj_t *unit) {
 }
 
 static int weapon_cooldown_ms(const mobj_t *unit, const weapondef_t *weapon) {
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     if (unit && unit->type_id == MT_ATRIL && DC_WeaponLevel(unit)) return 150 * 66;
 #else
     (void)unit;
@@ -196,16 +196,16 @@ bool P_HarvesterDocked(const mobj_t *unit) {
 
 static bool send_harvester_home(level_t *map, mobj_t *unit) {
     if (!map || !unit) return false;
-    fvec2_t unit_pos = fixed3_xy_to_fvec2(unit->core.position);
+    fixed2_t unit_pos = fixed3_xy(unit->core.position);
     mobj_t *best = NULL;
-    fvec2_t best_position = {0};
-    float best_d2 = 1e30f;
+    fixed2_t best_position = {0};
+    int64_t best_d2 = INT64_MAX;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *base = (mobj_t *)th;
         if (base->remove || base->hp <= 0) continue;
         if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
-        fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
+        fixed2_t base_position = fixed3_xy(base->core.position);
         if ((!gameinfo || !gameinfo->harvest_dropoff_matches) && base->info &&
             base->info->footprint.w > 0) {
             irect_t bounds = P_MobjCells(base);
@@ -216,8 +216,8 @@ static bool send_harvester_home(level_t *map, mobj_t *unit) {
             !gameinfo->harvest_dropoff_matches(unit, unit->harvest.resource_type,
                                               base, &base_position)) continue;
         if (gameinfo && gameinfo->harvest_dropoff_matches &&
-            !P_CheckPosition(map, unit, base_position.x, base_position.y)) continue;
-        float d2 = fvec2_distance_squared(unit_pos, base_position);
+            !P_CheckPosition(map, unit, base_position)) continue;
+        int64_t d2 = fixed2_distance_squared64(unit_pos, base_position);
         if (d2 < best_d2) {
             best_d2 = d2;
             best = base;
@@ -235,8 +235,8 @@ static bool send_harvester_home(level_t *map, mobj_t *unit) {
 
 static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
     if (!map || !unit || !vent) return false;
-    fvec2_t bay = vent->attachment;
-    if (!P_CheckPosition(map, unit, bay.x, bay.y) &&
+    fixed2_t bay = vent->attachment;
+    if (!P_CheckPosition(map, unit, bay) &&
         !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) return false;
     if (!P_MoveUnitTo(map, unit, bay)) return false;
     unit->movement.order_id = 0;
@@ -245,7 +245,7 @@ static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourceven
 }
 
 static bool turn_unit_toward(mobj_t *unit, angle_t desired, int dt_ms) {
-    if (gameinfo && gameinfo->instant_turn) {
+    if (R_Policy()->turning == TURN_INSTANT) {
         unit->core.angle = desired;
         unit->movement.turn_timer_ms = 0;
         return true;
@@ -273,39 +273,40 @@ static bool turn_unit_toward(mobj_t *unit, angle_t desired, int dt_ms) {
 /* Leave room for a transporter exiting the same bay. The regular movement
  * goal is temporary; harvest.return_position remains the required dock. */
 static void yield_harvest_bay(level_t *map, mobj_t *unit) {
-    if (!fvec2_near(unit->movement.goal, unit->harvest.return_position, 0.001f)) return;
-    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
+    if (!fixed2_near(unit->movement.goal, unit->harvest.return_position, FIXED_LIT(0.001))) return;
+    fixed2_t position = fixed3_xy(unit->core.position);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (const mobj_t *)th;
         if (other == unit || other->remove || other->hp <= 0 ||
             other->harvest.base != unit->harvest.base ||
             other->harvest.phase != HARVEST_PHASE_TO_MINE || other->harvest.cargo) continue;
-        fvec2_t from = fixed3_xy_to_fvec2(other->core.position);
-        float contact = P_MobjRadius(unit) + P_MobjRadius(other) + unit->speed * FIXED_DT;
-        if (fvec2_distance_squared(position, from) > contact * contact) continue;
-        fvec2_t direction = fvec2_sub(other->movement.goal, from);
-        fvec2_t best = position;
-        float best_clearance = 0;
-        ivec2_t cell = fvec2_cell(position);
+        fixed2_t from = fixed3_xy(other->core.position);
+        fixed_t contact = P_MobjRadius(unit) + P_MobjRadius(other) + FIXED_STEP_PER_TIC(unit->speed);
+        if (fixed2_distance_squared64(position, from) > fixed_sq64(contact)) continue;
+        fixed2_t direction = fixed2_sub(other->movement.goal, from);
+        fixed2_t best = position;
+        int64_t best_clearance = 0;
+        ivec2_t cell = fixed2_cell(position);
         for (int y = -1; y <= 1; ++y)
             for (int x = -1; x <= 1; ++x) {
                 if (!x && !y) continue;
-                fvec2_t candidate = fvec2_cell_center(ivec2_add(cell, (ivec2_t){x,y}));
-                if (!P_CheckPosition(map, unit, candidate.x, candidate.y)) continue;
+                fixed2_t candidate = fixed2_cell_center(ivec2_add(cell, (ivec2_t){x,y}));
+                if (!P_CheckPosition(map, unit, candidate)) continue;
                 bool occupied = false;
                 for (thinker_t *it = thinkercap.next; it != &thinkercap; it = it->next) {
                     if (it->function != P_MobjThinker) continue;
                     const mobj_t *occupant = (const mobj_t *)it;
                     if (occupant == unit || occupant->remove || occupant->hp <= 0 ||
                         !(occupant->traits & MF_MOBILE)) continue;
-                    float radius = P_MobjRadius(unit) + P_MobjRadius(occupant);
-                    if (fvec2_distance_squared(candidate, fixed3_xy_to_fvec2(occupant->core.position)) < radius * radius)
+                    fixed_t radius = P_MobjRadius(unit) + P_MobjRadius(occupant);
+                    if (fixed2_distance_squared64(candidate, fixed3_xy(occupant->core.position)) < fixed_sq64(radius))
                         occupied = true;
                 }
                 if (occupied) continue;
-                fvec2_t delta = fvec2_sub(candidate, from);
-                float clearance = fabsf(direction.x * delta.y - direction.y * delta.x);
+                fixed2_t delta = fixed2_sub(candidate, from);
+                int64_t clearance = (int64_t)direction.x * delta.y - (int64_t)direction.y * delta.x;
+                if (clearance < 0) clearance = -clearance;
                 if (clearance > best_clearance) {
                     best_clearance = clearance;
                     best = candidate;
@@ -356,7 +357,7 @@ bool P_SetMobjStateFrame(mobj_t *unit, int state_id, int frame) {
         unit->core.state_id = state_id;
         unit->core.state_frame = frame;
         unit->core.tics = P_StateTics(state, frame);
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
         if (unit->core.tics > 0) {
             if (unit->w2.buffs[W2_BUFF_SLOW]) unit->core.tics *= 2;
             if (unit->w2.buffs[W2_BUFF_HASTE] && unit->core.tics > 1) unit->core.tics /= 2;
@@ -418,7 +419,7 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
     }
     unit->info = type;
     unit->type_id = type->id;
-    if (unit->speed <= 0.0f) unit->speed = type->speed;
+    if (unit->speed <= 0) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
     if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
@@ -439,12 +440,12 @@ mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type) {
     mobj->core.position = position;
     mobj->type_id = type;
     mobj->id = ++level.next_mobj_id;
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     mobj->ability_charge = 64; /* DC.EXE object +0x0a at creation. */
 #endif
     P_ApplyActorTypeDefaults(mobj, mobj_type(type));
     P_InitMobj(gameinfo, mobj);
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (type < NUMMOBJTYPES) mobj->w2.mana = mobjinfo[type].w2.mana.initial;
 #endif
     if (gameinfo && type < gameinfo->mobj_type_count)
@@ -464,11 +465,11 @@ void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit) {
     if (unit->core.position.z == 0) unit->core.position.z = info->spawnz;
     if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
-    if (unit->speed <= 0.0f) unit->speed = (float)info->speed;
-    if (unit->radius <= 0.05f) {
-        unit->radius = (float)info->radius / 32.0f;
-        if (unit->radius < 0.32f) unit->radius = 0.32f;
-        if (unit->radius > 0.90f) unit->radius = 0.90f;
+    if (unit->speed <= 0) unit->speed = info->speed * FIXED_ONE;
+    if (unit->radius <= FIXED_LIT(0.05)) {
+        unit->radius = info->radius * FIXED_ONE / 32;
+        if (unit->radius < FIXED_LIT(0.32)) unit->radius = FIXED_LIT(0.32);
+        if (unit->radius > FIXED_LIT(0.90)) unit->radius = FIXED_LIT(0.90);
     }
     if (unit->core.state_id <= 0) {
         const state_t *state = state_at(game_info, info->spawnstate);
@@ -482,39 +483,40 @@ void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit) {
 }
 
 
-angle_t P_PointToAngle(float dx, float dy) {
-    return angle_from_screen_vector(dx, dy);
+angle_t P_PointToAngle(fixed_t dx, fixed_t dy) {
+    return angle_from_screen_vector_fixed(dx, dy);
 }
 
-static angle_t angle_from_map_vector(const level_t *map, float dx, float dy) {
+static angle_t angle_from_map_vector_fixed(const level_t *map, fixed_t dx, fixed_t dy) {
     (void)map;
 #if RTS_WORLD_Y_UP
     dy = -dy;
 #endif
-    return P_PointToAngle(dx, dy);
+    return angle_from_screen_vector_fixed(dx, dy);
 }
 
-#ifdef RTS_GAME_WARCRAFT_2
-static fvec2_t snap_move_direction_45(fvec2_t direction) {
-    const float diagonal_threshold = 0.41421356237f;
-    float ax = fabsf(direction.x), ay = fabsf(direction.y);
-    if (ax == 0.0f) return (fvec2_t){0.0f, copysignf(1.0f, direction.y)};
-    if (ay == 0.0f) return (fvec2_t){copysignf(1.0f, direction.x), 0.0f};
-    if (ax * diagonal_threshold < ay || ay * diagonal_threshold < ax)
-        return ax > ay ? (fvec2_t){copysignf(1.0f, direction.x), 0.0f} :
-                         (fvec2_t){0.0f, copysignf(1.0f, direction.y)};
-    return (fvec2_t){copysignf(0.70710678118f, direction.x),
-                     copysignf(0.70710678118f, direction.y)};
+#ifdef RTS_MODULE_WARCRAFT_2
+static fixed2_t snap_move_direction_45(fixed2_t direction) {
+    const fixed_t diagonal_threshold = FIXED_LIT(0.41421356237);
+    const fixed_t diagonal = FIXED_LIT(0.70710678118);
+    fixed_t ax = direction.x < 0 ? -direction.x : direction.x;
+    fixed_t ay = direction.y < 0 ? -direction.y : direction.y;
+    fixed_t sx = direction.x < 0 ? -1 : 1, sy = direction.y < 0 ? -1 : 1;
+    if (ax == 0) return (fixed2_t){0, sy * FIXED_ONE};
+    if (ay == 0) return (fixed2_t){sx * FIXED_ONE, 0};
+    if (fixed_mul32(ax, diagonal_threshold) < ay || fixed_mul32(ay, diagonal_threshold) < ax)
+        return ax > ay ? (fixed2_t){sx * FIXED_ONE, 0} : (fixed2_t){0, sy * FIXED_ONE};
+    return (fixed2_t){sx * diagonal, sy * diagonal};
 }
 
 #endif
 
-void P_AngleToVec(angle_t angle, float *dx, float *dy) {
-    angle_to_screen_vector(angle, dx, dy);
+void P_AngleToVec(angle_t angle, fixed_t *dx, fixed_t *dy) {
+    angle_to_screen_vector_fixed(angle, dx, dy);
 }
 
 static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (!(mobjinfo[attacker->type_id].w2.target_mask & (1 << mobjinfo[victim->type_id].w2.domain)) ||
         (mobjinfo[victim->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return false;
 #endif
@@ -547,41 +549,40 @@ bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 /* The cells an actor stands on: its footprint around its centre, or the
  * one cell under a point actor. */
 irect_t P_MobjCells(const mobj_t *unit) {
-    fvec2_t centre = fixed3_xy_to_fvec2(unit->core.position);
+    fixed2_t centre = fixed3_xy(unit->core.position);
     isize2_t foot = unit->info ? unit->info->footprint : (isize2_t){0, 0};
     if (foot.w <= 0 || foot.h <= 0) {
-        ivec2_t cell = fvec2_cell(centre);
+        ivec2_t cell = fixed2_cell(centre);
         return (irect_t){cell.x, cell.y, 1, 1};
     }
     if (unit->info->corner_anchor) {
-        ivec2_t cell = fvec2_cell(centre);
+        ivec2_t cell = fixed2_cell(centre);
         return (irect_t){cell.x, cell.y, foot.w, foot.h};
     }
-    return (irect_t){(int)floorf(centre.x - foot.w * 0.5f + 0.001f),
-                     (int)floorf(centre.y - foot.h * 0.5f + 0.001f), foot.w, foot.h};
+    ivec2_t corner = fixed2_footprint_corner(centre, foot);
+    return (irect_t){corner.x, corner.y, foot.w, foot.h};
 }
 
 /* Range to a footprint is Warcraft's tile distance: the gap between the two
  * cell rectangles, so every neighbouring cell is one away. Point targets keep
  * the centre distance that the other games tune their weapons by. */
-static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, float range) {
-#ifdef RTS_GAME_WARCRAFT_2
+static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, fixed_t range) {
+#ifdef RTS_MODULE_WARCRAFT_2
     if (W2_Distance(attacker, target) < mobjinfo[attacker->type_id].w2.min_attack_range) return false;
 #endif
     const weapondef_t *weapon = P_MobjWeapon(attacker, target);
-    float least = weapon ? weapon->min_range : 0.0f;
+    fixed_t least = weapon ? weapon->min_range : 0;
     if (target->info && target->info->footprint.w > 0 && target->info->footprint.h > 0) {
         irect_t a = P_MobjCells(attacker), b = P_MobjCells(target);
         int dx = b.x > a.x + a.w - 1 ? b.x - (a.x + a.w - 1) :
                  a.x > b.x + b.w - 1 ? a.x - (b.x + b.w - 1) : 0;
         int dy = b.y > a.y + a.h - 1 ? b.y - (a.y + a.h - 1) :
                  a.y > b.y + b.h - 1 ? a.y - (b.y + b.h - 1) : 0;
-        float gap = (float)(dx > dy ? dx : dy);
-        return gap <= range && gap >= least;
+        return FIXED_FROM_INT(dx > dy ? dx : dy) <= range && FIXED_FROM_INT(dx > dy ? dx : dy) >= least;
     }
-    float d2 = fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
-                                      fixed3_xy_to_fvec2(attacker->core.position));
-    return d2 <= range * range && d2 >= least * least;
+    int64_t d2 = fixed2_distance_squared64(fixed3_xy(target->core.position),
+                                           fixed3_xy(attacker->core.position));
+    return d2 <= fixed_sq64(range) && d2 >= fixed_sq64(least);
 }
 
 bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
@@ -590,7 +591,7 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
 }
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (attacker->w2.cast.spell || attacker->w2.repair.target || attacker->w2.carrier) return NULL;
 #endif
     if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
@@ -606,7 +607,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         return target;
     if (attacker->traits & MF_NOAUTOTARGET) return NULL;
     target = NULL;
-    float best2 = 0.0f;
+    int64_t best2 = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
         /* Neutral things (mines, critters) are attacked only on order. */
@@ -616,9 +617,9 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
             !P_CanTarget(attacker, candidate) ||
             !P_VisibleTo(attacker, candidate) ||
             !within_attack_range(attacker, candidate, mobj_attack_range(attacker, candidate))) continue;
-        float dist2 = fvec2_distance_squared(
-            fixed3_xy_to_fvec2(candidate->core.position),
-            fixed3_xy_to_fvec2(attacker->core.position));
+        int64_t dist2 = fixed2_distance_squared64(
+            fixed3_xy(candidate->core.position),
+            fixed3_xy(attacker->core.position));
         if (!target || dist2 < best2) { best2 = dist2; target = candidate; }
     }
     return target;
@@ -636,12 +637,12 @@ static void provoke(mobj_t *target, mobj_t *source) {
 
 void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (!target || target->remove || target->hp <= 0 || damage <= 0) return;
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (target->w2.buffs[W2_BUFF_ARMOR] ||
         (mobjinfo[target->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return;
 #endif
     target->hp -= damage;
-#ifdef RTS_GAME_STARCRAFT
+#ifdef RTS_MODULE_STARCRAFT
     target->sc.flags = (uint8_t)(target->sc.flags | SC_HIT);
     target->sc.attacker = source && source->owner < 8 ? source->owner : 255;
 #endif
@@ -685,11 +686,12 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
     const mobjinfo_t *missile_info = &gameinfo->mobjinfo[type];
     const mobjtype_t *definition = mobj_type(type);
     const missiledef_t *flight = definition ? &definition->missile : NULL;
-    fvec2_t direction = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
-                                  fixed3_xy_to_fvec2(source->core.position));
-    float distance = sqrtf(fvec2_length_squared(direction));
+    fixed2_t offset = { target->core.position.x - source->core.position.x,
+                        target->core.position.y - source->core.position.y };
+    fixed_t distance = fixed2_length(offset);
     if ((!flight || flight->step <= 0) && missile_info->speed <= 0) return NULL;
-    if (distance > 0) direction = fvec2_scale(direction, 1.0f / distance);
+    fixed2_t direction = offset;
+    if (distance > 0) direction = (fixed2_t){ fixed_div32(offset.x, distance), fixed_div32(offset.y, distance) };
 
     mobj_t *missile = P_SpawnMobj(source->core.position, type);
     if (!missile) return NULL;
@@ -698,43 +700,42 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
     missile->team = source->team;
     missile->allegiance = source->allegiance;
     missile->missile.damage = missile_info->damage;
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     if (type == MT_SCOUT_BOMB && DC_WeaponLevel(source)) {
         missile->missile.damage += 25 * DC_WeaponLevel(source);
         missile->traits |= MF_RENDERABLE;
         P_SetMobjState(missile, S_SPIKE_BULLET1);
     }
 #endif
-    missile->core.angle = angle_from_map_vector(&level, direction.x, direction.y);
+    missile->core.angle = angle_from_map_vector_fixed(&level, direction.x, direction.y);
     if (flight && flight->period_ms > 0 && flight->step > 0) {
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
         DC_AimMissile(missile, target->core.position);
 #else
-        missile->core.momentum = fixed3_planar_delta(
-            fvec2_scale(direction, fixed_to_float(flight->step)));
-        missile->missile.duration = (int)(distance / fixed_to_float(flight->step));
+        missile->core.momentum = (fixed3_t){ fixed_mul32(direction.x, flight->step),
+                                             fixed_mul32(direction.y, flight->step), 0 };
+        missile->missile.duration = (int)(((int64_t)distance * FIXED_ONE) / flight->step);
         if (missile->missile.duration < 1) missile->missile.duration = 1;
 #endif
         if (flight->weave && gameinfo->random_table)
             missile->missile.phase = gameinfo->random_table[++level.random_index] % flight->weave_count;
-#ifndef RTS_GAME_DARK_COLONY
+#ifndef RTS_MODULE_DARK_COLONY
         if (!flight->arc)
             missile->core.momentum.z = (target->core.position.z - source->core.position.z) /
                                       missile->missile.duration;
 #endif
         return missile;
     }
-    missile->core.momentum = fixed3_planar_delta(
-        fvec2_scale(direction, (float)missile_info->speed * FIXED_DT));
+    fixed_t missile_step = FIXED_STEP_PER_TIC(missile_info->speed * FIXED_ONE);
+    missile->core.momentum = (fixed3_t){ fixed_mul32(direction.x, missile_step),
+                                         fixed_mul32(direction.y, missile_step), 0 };
 
     /* Doom's P_CheckMissileSpawn advances half a tic and immediately explodes
      * a missile that starts inside a blocking line. */
-    fvec2_t half_step = fvec2_scale(
-        fixed3_xy_to_fvec2(missile->core.momentum), 0.5f);
-    fvec2_t half_position = fvec2_add(
-        fixed3_xy_to_fvec2(missile->core.position), half_step);
+    fixed2_t half_step = { missile->core.momentum.x / 2, missile->core.momentum.y / 2 };
+    fixed2_t half_position = fixed2_add(fixed3_xy(missile->core.position), half_step);
     if (level.width > 0 &&
-        !P_CheckPosition(&level, missile, half_position.x, half_position.y)) {
+        !P_CheckPosition(&level, missile, half_position)) {
         P_ExplodeMissile(missile);
         return missile;
     }
@@ -767,8 +768,8 @@ void A_Explode(mobj_t *actor) {
     if (!actor || !actor->info) return;
     const blastdef_t *blast = &actor->info->blast;
     if (!blast->weights || blast->size <= 0) return;
-    ivec2_t center = fvec2_cell(fixed3_xy_to_fvec2(actor->core.position));
-#ifdef RTS_GAME_DARK_COLONY
+    ivec2_t center = fixed2_cell(fixed3_xy(actor->core.position));
+#ifdef RTS_MODULE_DARK_COLONY
     for (int y = 0; y < blast->size; ++y) {
         for (int x = 0; x < blast->size; ++x) {
             ivec2_t cell = ivec2_add(center, (ivec2_t){x - blast->size/2, y - blast->size/2});
@@ -786,7 +787,7 @@ void A_Explode(mobj_t *actor) {
         mobj_t *victim = (mobj_t *)th;
         if (victim == actor || victim->remove || victim->hp <= 0 ||
             (victim->traits & (MF_NOBLOCKMAP | MF_MISSILE | MF_FLY))) continue;
-        ivec2_t position = fvec2_cell(fixed3_xy_to_fvec2(victim->core.position));
+        ivec2_t position = fixed2_cell(fixed3_xy(victim->core.position));
         ivec2_t cell = ivec2_add(ivec2_sub(position, center),
             (ivec2_t){ blast->size / 2, blast->size / 2 });
         if (cell.x < 0 || cell.y < 0 || cell.x >= blast->size || cell.y >= blast->size) continue;
@@ -834,7 +835,7 @@ static int weapon_hit(mobj_t *attacker, const weapondef_t *weapon, mobj_t *victi
     if (armor < 3 && weapon->versus[armor]) damage = weapon->versus[armor];
     if (gameinfo->hit_damage && damage > 0) damage = gameinfo->hit_damage(attacker, weapon, victim, damage, divisor);
     else damage /= divisor;
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
     /* The immediate fallback stands in for a native direct-impact shot. */
     damage = DC_DefendedDamage(victim, damage);
     if (damage > 0) damage = DC_DaylightDamage(attacker, damage);
@@ -855,7 +856,7 @@ static void strike(mobj_t *attacker, const weapondef_t *weapon, mobj_t *victim, 
 /* StarCraft's splash: every other unit on the target's layer (flyers only
  * for air splash) takes full, half or a quarter of the damage by how far
  * its edge lies from where the target stood. */
-static void splash(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *target, fvec2_t at, bool flying) {
+static void splash(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *target, fixed2_t at, bool flying) {
     if (weapon->splash == SPLASH_NONE) return;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
@@ -865,8 +866,7 @@ static void splash(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *ta
         if (weapon->splash == SPLASH_AIR ? !flyer : flyer != flying) continue;
         if (weapon->splash == SPLASH_ENEMY && P_IsAlly(attacker, victim)) continue;
         if (!P_CanDamage(attacker, victim)) continue;
-        float d = sqrtf(fvec2_distance_squared(at, fixed3_xy_to_fvec2(victim->core.position))) -
-                  P_MobjRadius(victim);
+        fixed_t d = fixed2_length(fixed2_sub(at, fixed3_xy(victim->core.position))) - P_MobjRadius(victim);
         int divisor = d <= weapon->radius[0] ? 1 : d <= weapon->radius[1] ? 2 : d <= weapon->radius[2] ? 4 : 0;
         if (divisor) strike(attacker, weapon, victim, divisor);
     }
@@ -879,14 +879,14 @@ static void bounce(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *fr
     const mobj_t *previous = NULL;
     for (int b = 0, divisor = 3; b < weapon->bounces; ++b, divisor *= 3) {
         mobj_t *next = NULL;
-        float best = WEAPON_BOUNCE_RANGE * WEAPON_BOUNCE_RANGE;
-        fvec2_t at = fixed3_xy_to_fvec2(from->core.position);
+        int64_t best = fixed_sq64(WEAPON_BOUNCE_RANGE);
+        fixed2_t at = fixed3_xy(from->core.position);
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *victim = (mobj_t *)th;
             if (th->function != P_MobjThinker || victim == from || victim == previous ||
                 victim->allegiance == ALLEGIANCE_NEUTRAL ||
                 !P_CanTarget(attacker, victim) || !P_VisibleTo(attacker, victim)) continue;
-            float d = fvec2_distance_squared(at, fixed3_xy_to_fvec2(victim->core.position));
+            int64_t d = fixed2_distance_squared64(at, fixed3_xy(victim->core.position));
             if (d <= best) { best = d; next = victim; }
         }
         if (!next) return;
@@ -923,7 +923,7 @@ bool P_Attack(mobj_t *attacker) {
         return true;
     }
     if (weapon->projectile_type != 0) {
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
         mobj_t *missile = DC_FireMissiles(attacker, target, weapon->projectile_type);
 #else
         mobj_t *missile = P_SpawnMissile(attacker, target, weapon->projectile_type);
@@ -950,7 +950,7 @@ bool P_Attack(mobj_t *attacker) {
             target->hp += amount;
         } else P_DamageMobj(target, attacker, damage);
     } else {
-        fvec2_t at = fixed3_xy_to_fvec2(target->core.position);
+        fixed2_t at = fixed3_xy(target->core.position);
         bool flying = (target->traits & MF_FLY) != 0;
         strike(attacker, weapon, target, 1);
         splash(attacker, weapon, target, at, flying);
@@ -968,7 +968,7 @@ void A_Attack(mobj_t *unit) {
 }
 
 void A_Look(mobj_t *unit) {
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (unit && (unit->w2.cast.spell || unit->w2.repair.target)) return;
 #endif
     if (!unit || unit->hp <= 0 || !(unit->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
@@ -977,9 +977,9 @@ void A_Look(mobj_t *unit) {
     mobj_t *target = attack_target_in_range(unit);
     if (!target) return;
     unit->attack.target = target;
-    fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
-                            fixed3_xy_to_fvec2(unit->core.position));
-    angle_t desired = angle_from_map_vector(&level, delta.x, delta.y);
+    fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position),
+                                fixed3_xy(unit->core.position));
+    angle_t desired = angle_from_map_vector_fixed(&level, delta.x, delta.y);
     if ((unit->traits & MF_TURRET) || unit->info->turn_step) {
         if (!turn_unit_toward(unit, desired, 1000 / RTS_TICRATE)) return;
     } else unit->core.angle = desired;
@@ -994,51 +994,52 @@ void A_Chase(mobj_t *unit) {
     A_Look(unit);
 }
 
-static bool move_unit_if_walkable(mobj_t *unit, fvec2_t displacement) {
+static bool move_unit_if_walkable_fixed(mobj_t *unit, fixed2_t displacement) {
     if (!unit) return false;
-    fixed3_t momentum = fixed3_planar_delta(displacement);
+    fixed3_t momentum = { displacement.x, displacement.y, 0 };
     fixed3_t candidate = fixed3_add_planar(unit->core.position, momentum);
     if (P_TryMove(unit, candidate)) return true;
     momentum.y = 0;
     candidate = fixed3_add_planar(unit->core.position, momentum);
     if (momentum.x != 0 && P_TryMove(unit, candidate)) return true;
-    momentum = fixed3_planar_delta((fvec2_t){ 0.0f, displacement.y });
+    momentum = (fixed3_t){ 0, displacement.y, 0 };
     candidate = fixed3_add_planar(unit->core.position, momentum);
     if (momentum.y != 0 && P_TryMove(unit, candidate)) return true;
     unit->core.momentum = fixed3_zero();
     return false;
 }
 
+/* `along_out` is the closest-approach position along start..end, 16.16 in [0, 1]. */
 static bool missile_hits_mobj(const mobj_t *missile, const mobj_t *candidate,
-                              fvec2_t start, fvec2_t end, float *along_out) {
+                              fixed2_t start, fixed2_t end, fixed_t *along_out) {
     if (!missile || !candidate || candidate == missile || candidate == missile->target ||
         candidate->remove || candidate->hp <= 0 ||
         (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
         P_IsAlly(missile, candidate)) return false;
 
-    fvec2_t target_position = fixed3_xy_to_fvec2(candidate->core.position);
-    fvec2_t path = fvec2_sub(end, start);
-    float path_length2 = fvec2_length_squared(path);
-    float along = 0.0f;
-    if (path_length2 > 0.0001f) {
-        fvec2_t to_target = fvec2_sub(target_position, start);
-        along = (to_target.x * path.x + to_target.y * path.y) / path_length2;
-        if (along < 0.0f) along = 0.0f;
-        if (along > 1.0f) along = 1.0f;
+    fixed2_t target_position = fixed3_xy(candidate->core.position);
+    fixed2_t path = fixed2_sub(end, start);
+    int64_t path_length2 = fixed2_length_squared64(path); /* 32.32 */
+    fixed_t along = 0;
+    if (path_length2 > FIXED_LIT_64(0.0001)) {
+        fixed2_t to_target = fixed2_sub(target_position, start);
+        int64_t dot = (int64_t)to_target.x * path.x + (int64_t)to_target.y * path.y; /* 32.32 */
+        int64_t ratio = dot / (path_length2 >> FIXED_FRAC_BITS);
+        along = ratio < 0 ? 0 : ratio > FIXED_ONE ? FIXED_ONE : (fixed_t)ratio;
     }
-    fvec2_t closest = fvec2_add(start, fvec2_scale(path, along));
-    float radius = P_MobjRadius(missile) + P_MobjRadius(candidate);
-    if (fvec2_distance_squared(closest, target_position) > radius * radius) return false;
+    fixed2_t closest = fixed2_add(start, fixed2_scale(path, along));
+    fixed_t radius = P_MobjRadius(missile) + P_MobjRadius(candidate);
+    if (fixed2_distance_squared64(closest, target_position) > fixed_sq64(radius)) return false;
     if (along_out) *along_out = along;
     return true;
 }
 
-static mobj_t *missile_collision(const mobj_t *missile, fvec2_t start, fvec2_t end) {
+static mobj_t *missile_collision(const mobj_t *missile, fixed2_t start, fixed2_t end) {
     mobj_t *hit = NULL;
-    float nearest = 2.0f;
+    fixed_t nearest = 2 * FIXED_ONE;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
-        float along = 0.0f;
+        fixed_t along = 0;
         if (missile_hits_mobj(missile, candidate, start, end, &along) && along < nearest) {
             nearest = along;
             hit = candidate;
@@ -1057,7 +1058,7 @@ static void tick_missile(mobj_t *missile) {
             missile->missile.clock -= flight->period_ms * RTS_TICRATE;
             if (missile->missile.wait > 0) { missile->missile.wait--; continue; }
             missile->traits |= missile->info->traits & MF_RENDERABLE;
-            fvec2_t start = fixed3_xy_to_fvec2(missile->core.position);
+            fixed2_t start = fixed3_xy(missile->core.position);
             missile->core.position = fixed3_add(missile->core.position, missile->core.momentum);
             if (flight->weave && flight->weave_count > 0) {
                 int index = (missile->missile.age * flight->weave_step + missile->missile.phase) % flight->weave_count;
@@ -1076,7 +1077,7 @@ static void tick_missile(mobj_t *missile) {
             if (flight->arc && remaining >= 0 && missile->missile.duration > 0) {
                 int index = remaining * (flight->arc_count - 1) / missile->missile.duration;
                 missile->core.position.z = missile->missile.duration * flight->arc[index];
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
                 /* Native 0x43ec31 truncates height to 8.8 before storing. */
                 missile->core.position.z = missile->core.position.z / 256 * 256;
 #endif
@@ -1090,10 +1091,10 @@ static void tick_missile(mobj_t *missile) {
                 }
             } else {
                 mobj_t *hit = missile_collision(missile, start,
-                    fixed3_xy_to_fvec2(missile->core.position));
+                    fixed3_xy(missile->core.position));
                 if (hit) {
                     int damage = missile_damage(missile, hit);
-#ifdef RTS_GAME_DARK_COLONY
+#ifdef RTS_MODULE_DARK_COLONY
                     damage = DC_DaylightDamage(missile->target,
                                                DC_DefendedDamage(hit, damage));
 #endif
@@ -1111,12 +1112,12 @@ static void tick_missile(mobj_t *missile) {
         return;
     }
 
-    fvec2_t start = fixed3_xy_to_fvec2(missile->core.position);
-    fvec2_t step = fixed3_xy_to_fvec2(missile->core.momentum);
-    fvec2_t end = fvec2_add(start, step);
-    float distance = sqrtf(fvec2_length_squared(step));
-    if (distance > 0.0001f) {
-        if (level.width > 0 && !P_CheckPosition(&level, missile, end.x, end.y)) {
+    fixed2_t start = fixed3_xy(missile->core.position);
+    fixed2_t step = fixed3_xy(missile->core.momentum);
+    fixed2_t end = fixed2_add(start, step);
+    fixed_t distance = fixed2_length(step);
+    if (distance > FIXED_LIT(0.0001)) {
+        if (level.width > 0 && !P_CheckPosition(&level, missile, end)) {
             P_ExplodeMissile(missile);
             return;
         }
@@ -1142,9 +1143,9 @@ bool P_HasMoveOrder(const mobj_t *unit) {
 }
 
 static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
-                                                     float tx, float ty, float dist_to_goal) {
+                                                     fixed2_t target, fixed_t dist_to_goal) {
     if (unit->movement.order_id == 0) return false;
-    float radius = P_MobjRadius(unit);
+    fixed_t radius = P_MobjRadius(unit);
 
     /* A group settles as a blob: touching an arrived unit only ends the march once
      * we are inside the blob's footprint, so arrivals cannot chain into a queue. */
@@ -1155,7 +1156,8 @@ static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
                  member->movement.order_id == unit->movement.order_id;
     }
     /* Discs pack at roughly 75% density, so the blob radius is radius * sqrt(n / 0.75). */
-    float footprint = 0.3f + radius * sqrtf((float)group / 0.75f);
+    fixed_t ratio = (fixed_t)(((int64_t)group * 4 * FIXED_ONE) / 3);
+    fixed_t footprint = FIXED_LIT(0.3) + fixed_mul32(radius, fixed_sqrt32(ratio));
     if (dist_to_goal > footprint) return false;
 
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -1166,20 +1168,19 @@ static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
         }
         if (!other->movement.order_arrived) continue;
 
-        float min_dist = radius + P_MobjRadius(other);
-        fvec2_t other_position = fixed3_xy_to_fvec2(other->core.position);
-        float goal_dist2 = fvec2_distance_squared(other_position,
-                                                  (fvec2_t){ tx, ty });
-        float unit_dist2 = fvec2_distance_squared(
-            other_position, fixed3_xy_to_fvec2(unit->core.position));
-        float contact_dist = min_dist + 0.20f;
-        if (goal_dist2 < min_dist * min_dist &&
+        fixed_t min_dist = radius + P_MobjRadius(other);
+        fixed2_t other_position = { other->core.position.x, other->core.position.y };
+        int64_t goal_dist2 = fixed2_length_squared64(fixed2_sub(other_position, target));
+        int64_t unit_dist2 = fixed2_length_squared64(fixed2_sub(other_position,
+                (fixed2_t){ unit->core.position.x, unit->core.position.y }));
+        fixed_t contact_dist = min_dist + FIXED_LIT(0.20);
+        if (goal_dist2 < (int64_t)min_dist * min_dist &&
             dist_to_goal <= contact_dist) {
             return true;
         }
         /* Queue behind arrived units that are nearer the goal; never stop for one behind us. */
-        if (unit_dist2 <= contact_dist * contact_dist &&
-            goal_dist2 <= dist_to_goal * dist_to_goal) {
+        if (unit_dist2 <= (int64_t)contact_dist * contact_dist &&
+            goal_dist2 <= (int64_t)dist_to_goal * dist_to_goal) {
             return true;
         }
     }
@@ -1187,16 +1188,16 @@ static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
 }
 
 
-static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
-    float radius = P_MobjRadius(unit) + 0.55f;
-    if (radius < 0.75f) radius = 0.75f;
-    if (radius > 1.10f) radius = 1.10f;
+static fixed_t unit_harvest_interaction_radius_cells(const mobj_t *unit) {
+    fixed_t radius = P_MobjRadius(unit) + FIXED_LIT(0.55);
+    if (radius < FIXED_LIT(0.75)) radius = FIXED_LIT(0.75);
+    if (radius > FIXED_LIT(1.10)) radius = FIXED_LIT(1.10);
     return radius;
 }
 
 static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     return W2_TickRepair(unit) || W2_TickHarvest(unit) || W2_TickBuild(unit);
 #endif
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
@@ -1214,12 +1215,12 @@ static bool update_unit_harvest(level_t *map,
         unit->harvest.phase == HARVEST_PHASE_UNLOAD_TURNING ||
         unit->harvest.phase == HARVEST_PHASE_UNLOADING) {
         mobj_t *base = unit->harvest.base;
-        fvec2_t bay = unit->harvest.return_position;
+        fixed2_t bay = unit->harvest.return_position;
         if (!base || base->remove || base->hp <= 0 || !P_IsAlly(unit, base) ||
             (game_info->harvest_dropoff_matches &&
              (!game_info->harvest_dropoff_matches(unit, unit->harvest.resource_type, base, &bay) ||
-              !fvec2_near(bay, unit->harvest.return_position, 0.001f) ||
-              !P_CheckPosition(map, unit, bay.x, bay.y)))) {
+              !fixed2_near(bay, unit->harvest.return_position, FIXED_LIT(0.001)) ||
+              !P_CheckPosition(map, unit, bay)))) {
             P_ClearMove(unit);
             unit->movement.order_arrived = false;
             unit->harvest.base = NULL;
@@ -1233,8 +1234,8 @@ static bool update_unit_harvest(level_t *map,
             if (!P_HasMoveOrder(unit)) send_harvester_home(map, unit);
             return false;
         }
-        if (!fvec2_near(fixed3_xy_to_fvec2(unit->core.position),
-                         unit->harvest.return_position, 0.001f)) {
+        if (!fixed2_near(fixed3_xy(unit->core.position),
+                         unit->harvest.return_position, FIXED_LIT(0.001))) {
             send_harvester_home(map, unit);
             return false;
         }
@@ -1275,12 +1276,12 @@ static bool update_unit_harvest(level_t *map,
         return false;
     }
     if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
-        fvec2_t att_delta = fvec2_sub(
-            vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
+        fixed2_t att_delta = fixed2_sub(
+            vent->attachment, fixed3_xy(unit->core.position));
         if (animated_transfer) {
             if (!turn_unit_toward(unit, unit->info->harvest.dock_angle, dt_ms)) return true;
-        } else if (fvec2_length_squared(att_delta) > 0.000001f) {
-            angle_t desired = angle_from_map_vector(map, att_delta.x, att_delta.y);
+        } else if (fixed2_length_squared64(att_delta) > FIXED_LIT_64(0.000001)) {
+            angle_t desired = angle_from_map_vector_fixed(map, att_delta.x, att_delta.y);
             if (!turn_unit_toward(unit, desired, dt_ms)) return false;
             unit->core.angle = desired;
         }
@@ -1320,7 +1321,7 @@ static bool update_unit_harvest(level_t *map,
         if (!P_HasMoveOrder(unit) && !unit->movement.order_arrived)
             send_harvester_to_vent(map, unit, vent);
         if (!unit->movement.order_arrived ||
-            !fvec2_near(fixed3_xy_to_fvec2(unit->core.position), vent->attachment, 0.001f)) return false;
+            !fixed2_near(fixed3_xy(unit->core.position), vent->attachment, FIXED_LIT(0.001))) return false;
         unit->harvest.phase = HARVEST_PHASE_TURNING;
         return true;
     }
@@ -1335,10 +1336,10 @@ static bool update_unit_harvest(level_t *map,
         return false;
     }
 
-    fvec2_t attachment_delta = fvec2_sub(
-        vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
-    float interaction_radius = unit_harvest_interaction_radius_cells(unit);
-    float vent_radius = P_ResourceVentRadius(vent);
+    fixed2_t attachment_delta = fixed2_sub(
+        vent->attachment, fixed3_xy(unit->core.position));
+    fixed_t interaction_radius = unit_harvest_interaction_radius_cells(unit);
+    fixed_t vent_radius = P_ResourceVentRadius(vent);
     if (vent_radius > interaction_radius) interaction_radius = vent_radius;
     if (P_HasMoveOrder(unit)) return false;
     if (vent->source_id && vent->footprint.w > 0 && vent->footprint.h > 0) {
@@ -1346,16 +1347,16 @@ static bool update_unit_harvest(level_t *map,
         irect_t perimeter = {vent->cell.x - 1, vent->cell.y - 1,
                             vent->footprint.w + 2, vent->footprint.h + 2};
         if (!unit->movement.order_arrived ||
-            !irect_contains(perimeter, fvec2_cell(fixed3_xy_to_fvec2(unit->core.position)))) return false;
-    } else if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
+            !irect_contains(perimeter, fixed2_cell(fixed3_xy(unit->core.position)))) return false;
+    } else if (fixed2_length_squared64(attachment_delta) > fixed_sq64(interaction_radius))
         return false;
 
     P_ClearMove(unit);
     unit->movement.order_arrived = true;
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
-    if (P_CheckPosition(map, unit, vent->attachment.x, vent->attachment.y))
-        unit->core.position = fixed3_from_fvec2(vent->attachment, unit->core.position.z);
+    if (P_CheckPosition(map, unit, vent->attachment))
+        unit->core.position = fixed3_from_fixed2(vent->attachment, unit->core.position.z);
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
         unit->harvest.phase != HARVEST_PHASE_TURNING) {
         unit->harvest.phase = HARVEST_PHASE_TURNING;
@@ -1404,11 +1405,10 @@ static bool update_unit_harvest(level_t *map,
 static void tick_actor(mobj_t *u) {
     level_t *map = &level;
     const gameinfo_t *game_info = gameinfo;
-    float dt = FIXED_DT;
-    int dt_ms = (int)lroundf(dt * 1000.0f);
+    int dt_ms = RTS_TICK_MS;
     u->core.momentum = fixed3_zero();
     if (u->remove) return;
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     W2_UpgradeUnit(u);
     W2_TickSpells(u);
     if (u->hp > 0 && W2_TickTransport(u)) return;
@@ -1439,15 +1439,15 @@ static void tick_actor(mobj_t *u) {
         const state_t *s = state_at(game_info, u->core.state_id);
         bool in_attack = s && s->group == 3;
         mobj_t *enemy = u->attack.target;
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
         if (u->w2.stand_ground || u->w2.cast.spell || u->w2.carrier) enemy = NULL;
 #endif
         if (!in_attack && (u->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
             enemy && !enemy->remove && enemy->hp > 0 && !P_IsAlly(u, enemy) &&
             P_VisibleTo(u, enemy)) {
-            fvec2_t goal = fixed3_xy_to_fvec2(enemy->core.position);
+            fixed2_t goal = fixed3_xy(enemy->core.position);
             if (!within_attack_range(u, enemy, mobj_attack_range(u, enemy)) &&
-                (!moving || !ivec2_equal(fvec2_cell(u->movement.goal), fvec2_cell(goal))))
+                (!moving || !ivec2_equal(fixed2_cell(u->movement.goal), fixed2_cell(goal))))
                 moving = P_MoveUnitTo(map, u, goal);
         }
         if (in_attack) moving = false;
@@ -1455,10 +1455,10 @@ static void tick_actor(mobj_t *u) {
             mobj_t *target = attack_target_in_range(u);
             if (target) {
                 u->attack.target = target;
-                fvec2_t target_delta = fvec2_sub(
-                    fixed3_xy_to_fvec2(target->core.position),
-                    fixed3_xy_to_fvec2(u->core.position));
-                u->core.angle = angle_from_map_vector(map,
+                fixed2_t target_delta = fixed2_sub(
+                    fixed3_xy(target->core.position),
+                    fixed3_xy(u->core.position));
+                u->core.angle = angle_from_map_vector_fixed(map,
                                                  target_delta.x,
                                                  target_delta.y);
                 P_ClearMove(u);
@@ -1468,7 +1468,7 @@ static void tick_actor(mobj_t *u) {
             }
         }
     }
-    fvec2_t move_target = u->movement.goal;
+    fixed2_t move_target = u->movement.goal;
     bool final = true;
     if (u->movement.plan_pending) moving = false; /* Waiting in the planning queue. */
     if (moving && !(u->traits & MF_FLY) && !P_SteerTarget(map, u, &move_target, &final)) {
@@ -1478,33 +1478,36 @@ static void tick_actor(mobj_t *u) {
     }
     if (moving) {
         /* Small bends are taken while moving; large ones turn in place first. */
-        fvec2_t delta = fvec2_sub(move_target, fixed3_xy_to_fvec2(u->core.position));
-        if (fvec2_length_squared(delta) >= 0.001f * 0.001f) {
-            angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
+        fixed2_t delta = fixed2_sub(move_target, fixed3_xy(u->core.position));
+        if (fixed2_length_squared64(delta) >= FIXED_LIT_64(0.001 * 0.001)) {
+            angle_t desired = angle_from_map_vector_fixed(map, delta.x, delta.y);
             if (angle_distance(desired, u->core.angle) > ANG45 / 2u &&
                 !turn_unit_toward(u, desired, dt_ms)) moving = false;
         }
     }
     if (moving) {
-        fvec2_t delta = fvec2_sub(move_target, fixed3_xy_to_fvec2(u->core.position));
-        float dist = sqrtf(fvec2_length_squared(delta));
-        if (final && !(u->traits & MF_FLY) && final_goal_reaches_arrived_order_cluster(
-                u, move_target.x, move_target.y, dist)) {
-            u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
+        fixed2_t position = fixed3_xy(u->core.position);
+        fixed2_t target = move_target;
+        fixed2_t delta = fixed2_sub(target, position);
+        fixed_t dist = fixed2_length(delta);
+        if (final && !(u->traits & MF_FLY) &&
+            final_goal_reaches_arrived_order_cluster(u, target, dist)) {
+            u->movement.goal = fixed3_xy(u->core.position);
             P_ClearMove(u);
             u->movement.order_arrived = true;
             moving = false;
         } else {
             bool flying = u->traits & MF_FLY;
-            float step = u->speed * dt;
+            fixed_t step = FIXED_STEP_PER_TIC(u->speed);
             if (!flying && P_MobjMoveClass(u)) { /* Terrain slows or speeds the class (swamp 25%, road 200%). */
-                ivec2_t under = fvec2_cell(fixed3_xy_to_fvec2(u->core.position));
+                ivec2_t under = fixed2_cell(fixed3_xy(u->core.position));
                 int percent = L_MoveSpeed(map, P_MobjMoveClass(u), under.x, under.y);
-                step *= (float)(percent > 0 ? percent : 100) / 100.0f;
+                step = (fixed_t)(((int64_t)step * (percent > 0 ? percent : 100)) / 100);
             }
-            if (dist <= step || dist < 0.001f) {
-                if (dist >= 0.001f) u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
-                if (move_unit_if_walkable(u, delta)) {
+            if (dist <= step || dist < FIXED_LIT(0.001)) {
+                if (dist >= FIXED_LIT(0.001))
+                    u->core.angle = angle_from_map_vector_fixed(map, delta.x, delta.y);
+                if (move_unit_if_walkable_fixed(u, delta)) {
                     if (final) {
                         P_ClearMove(u);
                         u->movement.order_arrived = true;
@@ -1516,22 +1519,22 @@ static void tick_actor(mobj_t *u) {
                     moving = false;
                 }
             } else {
-                fvec2_t direction = fvec2_scale(delta, 1.0f / dist);
+                fixed2_t direction = { fixed_div32(delta.x, dist), fixed_div32(delta.y, dist) };
                 if (!flying) direction = P_SteerAvoid(u, direction, step);
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
                 direction = snap_move_direction_45(direction);
 #endif
-                u->core.angle = angle_from_map_vector(map, direction.x, direction.y);
+                u->core.angle = angle_from_map_vector_fixed(map, direction.x, direction.y);
                 fixed3_t before = u->core.position;
-                bool moved = move_unit_if_walkable(u, fvec2_scale(direction, step));
+                bool moved = move_unit_if_walkable_fixed(u, fixed2_scale(direction, step));
                 if (moved && !flying) {
                     fixed3_t travelled = fixed3_planar_displacement(before, u->core.position);
-                    float made = sqrtf(fvec2_length_squared(fixed3_xy_to_fvec2(travelled)));
-                    moved = made > step * 0.1f; /* Sliding along a wall is not progress. */
+                    fixed_t made = fixed_hypot32(travelled.x, travelled.y);
+                    moved = made > fixed_mul32(step, FIXED_LIT(0.1)); /* Sliding along a wall is not progress. */
                 }
                 if (flying ? !moved : !P_SteerProgress(map, u, moved)) {
                     /* Given up beside a crowded goal: settle there. */
-                    bool settled = !flying && dist <= 1.5f && u->movement.order_id == 0;
+                    bool settled = !flying && dist <= FIXED_LIT(1.5) && u->movement.order_id == 0;
                     P_ClearMove(u);
                     u->movement.order_arrived = settled;
                     moving = false;
@@ -1564,14 +1567,14 @@ static void tick_actor(mobj_t *u) {
     }
     if ((!gameinfo || !gameinfo->states) && u->attack.cooldown_left_ms <= 0)
         P_Attack(u);
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     W2_WorkerPose(u);
 #endif
 }
 
 void P_MobjThinker(mobj_t *mobj) {
     if (mobj->remove) { P_RemoveMobj(mobj); return; }
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     if (mobj->type_id == MT_W2_EFFECT) { P_TickMobjState(mobj); return; }
 #endif
     if (mobj->traits & MF_MISSILE) {

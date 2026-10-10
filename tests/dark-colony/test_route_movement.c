@@ -14,22 +14,22 @@ static int routes_move_units(void) {
     for (int i = 0; i < 2; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
     for (int i = 0; i < 2; ++i) {
-        units[i]->core.position = fixed3_from_fvec2(
-            (fvec2_t){ 2.5f, 3.5f + (float)i }, fixed_from_float(2.0f));
-        units[i]->speed = 4.0f;
+        units[i]->core.position = fixed3_from_fixed2(
+            FIXED2_LIT(2.5, 3.5 + i), 2 * FIXED_ONE);
+        units[i]->speed = FIXED_LIT(4.0);
         units[i]->hp = 1;
-        units[i]->radius = 0.25f;
+        units[i]->radius = FIXED_LIT(0.25);
         units[i]->traits = MF_MOBILE;
         units[i]->attack.target = NULL;
         units[i]->harvest.target = -1;
-        RTS_CHECK(P_MoveUnitTo(&level, units[i], (fvec2_t){ 10.5f, 8.5f }), tag,
+        RTS_CHECK(P_MoveUnitTo(&level, units[i], FIXED2_LIT(10.5, 8.5)), tag,
                   "route created");
     }
 
     RTS_CHECK(units[0]->movement.path.count && units[1]->movement.path.count, tag,
               "units own waypoint routes");
-    RTS_CHECK(ivec2_equal(fvec2_cell(units[0]->movement.goal),
-                           fvec2_cell(units[1]->movement.goal)), tag,
+    RTS_CHECK(ivec2_equal(fixed2_cell(units[0]->movement.goal),
+                           fixed2_cell(units[1]->movement.goal)), tag,
               "units receive the shared destination without formation slots");
 
     int unit_count = 2;
@@ -64,10 +64,10 @@ static int unit_turns_before_moving(int type, const char *stem) {
         .core = { .angle = ANG90 },
         .attack.target = NULL, .harvest.target = -1,
     });
-    unit->core.position = fixed3_from_fvec2((fvec2_t){ 2.5f, 3.5f }, 0);
+    unit->core.position = fixed3_from_fixed2(FIXED2_LIT(2.5, 3.5), 0);
     P_InitMobj(&game_info, unit);
     fixed3_t start = unit->core.position;
-    RTS_CHECK(P_MoveUnitTo(&level, unit, (fvec2_t){ 10.5f, 3.5f }), tag,
+    RTS_CHECK(P_MoveUnitTo(&level, unit, FIXED2_LIT(10.5, 3.5)), tag,
               "create eastbound movement order");
     bool saw_intermediate_pose = false, moved = false;
     for (int tic = 0; tic < 120; ++tic) {

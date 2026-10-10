@@ -9,20 +9,20 @@ static int opening_encounter(void) {
     RtsGameModelConfig config = {.data_root = "data/KKND"};
     CHECK(model && rts_game_model_load(model, &config));
     mobj_t *rifleman = NULL, *enemy = NULL;
-    float nearest = INFINITY;
+    int64_t nearest = INT64_MAX;
     for (thinker_t *a = thinkercap.next; a != &thinkercap; a = a->next) {
         mobj_t *unit = (mobj_t *)a;
         if (unit->type_id != MT_SURV_RIFLEMAN || unit->owner != 0) continue;
         for (thinker_t *b = thinkercap.next; b != &thinkercap; b = b->next) {
             mobj_t *target = (mobj_t *)b;
             if (target->owner != 1) continue;
-            float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
-                                                    fixed3_xy_to_fvec2(target->core.position));
+            int64_t distance = fixed2_distance_squared64(fixed3_xy(unit->core.position),
+                                                    fixed3_xy(target->core.position));
             if (distance < nearest) {nearest = distance; rifleman = unit; enemy = target;}
         }
     }
     CHECK(rifleman && enemy && enemy->type_id == MT_MUTE_BERSERKER);
-    fvec2_t start = fixed3_xy_to_fvec2(enemy->core.position);
+    fixed2_t start = fixed3_xy(enemy->core.position);
     uint32_t player_id = rifleman->id, enemy_id = enemy->id;
     int hp = enemy->hp;
     rifleman->attack.target = enemy;
@@ -60,7 +60,7 @@ static int death_sequences(void) {
     };
     P_InitThinkers();
     for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
-        mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8,8},0), cases[i].type);
+        mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(8,8),0), cases[i].type);
         CHECK(unit);
         fixed3_t position = unit->core.position;
         P_DamageMobj(unit, NULL, unit->hp);

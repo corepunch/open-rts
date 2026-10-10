@@ -15,14 +15,14 @@
  * An unreachable goal is relocated to the nearest reachable cell in the
  * start's region. `soft` is an optional per-cell bitmap of cells occupied by
  * idle units: they are not walls, but routes pay to cross them. */
-bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from,
-               fvec2_t goal, const uint8_t *soft, navpath_t *out);
+bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from,
+               fixed2_t goal, const uint8_t *soft, navpath_t *out);
 
 /* Connected-component test on the same grid the planner searches. */
 
 /* True if a disc of the given radius can travel from a to b unobstructed. */
-bool P_NavLineClear(const level_t *map, int move_class, fvec2_t a, fvec2_t b,
-                    float radius);
+bool P_NavLineClear(const level_t *map, int move_class, fixed2_t a, fixed2_t b,
+                    fixed_t radius);
 
 void P_NavFree(level_t *map);
 

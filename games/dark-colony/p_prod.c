@@ -290,6 +290,26 @@ static bool dc_unit_is_ready(const mobj_t *unit, int owner) {
     return true;
 }
 
+const StaticProductDefinition *DC_PrerequisiteProduct(int row_id) { return product_by_row_id(row_id); }
+
+/* A prerequisite is a catalog row: a standing building or an upgrade level. */
+bool DC_PrerequisiteMet(int owner, int row_id) {
+    const StaticProductDefinition *prereq = product_by_row_id(row_id);
+    if (!prereq) return false;
+    if (prereq->product_class == RTS_PRODUCT_UPGRADE) {
+        int tier;
+        uint8_t *value=upgrade_value(owner,prereq,&tier);
+        return value && *value>=tier;
+    }
+    if (prereq->product_class != RTS_PRODUCT_BUILDING) return false;
+    uint16_t actor_id = G_ModelActorIdForProduct(prereq);
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *unit = (mobj_t *)th;
+        if (dc_unit_is_ready(unit, owner) && DC_ProductActorMatches(unit->type_id, actor_id)) return true;
+    }
+    return false;
+}
+
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     (void)model;
@@ -299,28 +319,8 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
         uint8_t *value=upgrade_value(owner,product,&tier);
         if (!value || *value+1!=tier) return false;
     }
-    for (int i = 0; i < product->prerequisite_count; ++i) {
-        const StaticProductDefinition *prereq =
-            product_by_row_id(product->prerequisites[i]);
-        if (!prereq) return false;
-        if (prereq->product_class == RTS_PRODUCT_UPGRADE) {
-            int tier;
-            uint8_t *value=upgrade_value(owner,prereq,&tier);
-            if (!value || *value<tier) return false;
-            continue;
-        }
-        if (prereq->product_class != RTS_PRODUCT_BUILDING) return false;
-        uint16_t actor_id = G_ModelActorIdForProduct(prereq);
-        bool found = false;
-        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-            const mobj_t *unit = (mobj_t *)th;
-            if (dc_unit_is_ready(unit, owner) && DC_ProductActorMatches(unit->type_id, actor_id)) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) return false;
-    }
+    for (int i = 0; i < product->prerequisite_count; ++i)
+        if (!DC_PrerequisiteMet(owner, product->prerequisites[i])) return false;
     return true;
 }
 
@@ -383,20 +383,18 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
                                      const StaticProductDefinition *product,
                                      const mobj_t *new_unit,
-                                     float *out_gx, float *out_gy) {
+                                     fixed2_t *out) {
     (void)model;
-    if (!producer || !product || !new_unit || !out_gx || !out_gy ||
+    if (!producer || !product || !new_unit || !out ||
         producer->type_id != MT_BRRKPOD || product->product_class != RTS_PRODUCT_UNIT ||
         new_unit->type_id != MT_TROOPER) return false;
     /* HUBU.FIN/TRSCBUILD0 frame 47 minus TRSC.FIN/TRSCSTAND8.
      * The latter is the ANG90 spawn facing. Tests check these native commands. */
     ivec2_t fin = ivec2_sub((ivec2_t){-143, 79}, (ivec2_t){-159, 0});
     ivec2_t offset = ivec2_add(producer->core.render_offset, (ivec2_t){fin.x, L_ScreenDY(fin.y)});
-    fvec2_t position = fvec2_add(fixed3_xy_to_fvec2(producer->core.position),
-                                (fvec2_t){(float)offset.x / g_cell_w,
-                                           (float)offset.y / g_cell_h});
-    *out_gx = position.x;
-    *out_gy = position.y;
+    *out = fixed2_add(fixed3_xy(producer->core.position),
+                      (fixed2_t){ (fixed_t)((int64_t)offset.x * FIXED_ONE / g_cell_w),
+                                  (fixed_t)((int64_t)offset.y * FIXED_ONE / g_cell_h) });
     return true;
 }
 
@@ -636,18 +634,17 @@ static void dc_advance_production_queue(mobj_t *producer) {
 }
 
 static bool dc_position_available_for_spawn(const level_t *map, mobj_t *const *units,
-                                            int unit_count, float gx, float gy,
-                                            float radius) {
+                                            int unit_count, fixed2_t at, fixed_t radius) {
     if (!map || !units) return false;
-    if (radius < 0.32f) radius = 0.32f;
-    if (gx - radius < 0.0f || gy - radius < 0.0f ||
-        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+    if (radius < FIXED_LIT(0.32)) radius = FIXED_LIT(0.32);
+    if (at.x - radius < 0 || at.y - radius < 0 ||
+        at.x + radius > FIXED_FROM_INT(map->width) || at.y + radius > FIXED_FROM_INT(map->height)) {
         return false;
     }
-    int min_x = (int)floorf(gx - radius);
-    int max_x = (int)floorf(gx + radius);
-    int min_y = (int)floorf(gy - radius);
-    int max_y = (int)floorf(gy + radius);
+    int min_x = fixed_floor_int(at.x - radius);
+    int max_x = fixed_floor_int(at.x + radius);
+    int min_y = fixed_floor_int(at.y - radius);
+    int max_y = fixed_floor_int(at.y + radius);
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
             if (!L_IsWalkable(map, x, y)) return false;
@@ -656,23 +653,19 @@ static bool dc_position_available_for_spawn(const level_t *map, mobj_t *const *u
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *other = units[i];
         if (other->remove || other->hp <= 0) continue;
-        float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
-        float min_dist = radius + other_radius;
-        if (fvec2_distance_squared(fixed3_xy_to_fvec2(other->core.position),
-                                   (fvec2_t){ gx, gy }) <
-            min_dist * min_dist) return false;
+        fixed_t other_radius = other->radius > FIXED_LIT(0.05) ? other->radius : FIXED_LIT(0.42);
+        fixed_t min_dist = radius + other_radius;
+        if (fixed2_distance_squared64(fixed3_xy(other->core.position), at) <
+            fixed_sq64(min_dist)) return false;
     }
     return true;
 }
 
 static bool dc_find_spawn_position_near(const level_t *map, mobj_t *const *units,
                                         int unit_count, const mobj_t *producer,
-                                        float radius, float *out_gx,
-                                        float *out_gy) {
-    if (!map || !units || !producer || !out_gx || !out_gy) return false;
-    fvec2_t producer_position = fixed3_xy_to_fvec2(producer->core.position);
-    int origin_x = (int)floorf(producer_position.x);
-    int origin_y = (int)floorf(producer_position.y);
+                                        fixed_t radius, fixed2_t *out) {
+    if (!map || !units || !producer || !out) return false;
+    ivec2_t origin = fixed2_cell(fixed3_xy(producer->core.position));
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -680,23 +673,18 @@ static bool dc_find_spawn_position_near(const level_t *map, mobj_t *const *units
     int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
     for (int dist = 1; dist <= 8; ++dist) {
         for (int i = 0; i < preferred_count; ++i) {
-            int x = origin_x + preferred[i][0] * dist;
-            int y = origin_y + preferred[i][1] * dist;
-            float gx = (float)x + 0.5f;
-            float gy = (float)y + 0.5f;
-            if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
-            *out_gx = gx;
-            *out_gy = gy;
+            fixed2_t at = fixed2_cell_center((ivec2_t){ origin.x + preferred[i][0] * dist,
+                                                        origin.y + preferred[i][1] * dist });
+            if (!dc_position_available_for_spawn(map, units, unit_count, at, radius)) continue;
+            *out = at;
             return true;
         }
         for (int dy = -dist; dy <= dist; ++dy) {
             for (int dx = -dist; dx <= dist; ++dx) {
                 if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
-                float gx = (float)(origin_x + dx) + 0.5f;
-                float gy = (float)(origin_y + dy) + 0.5f;
-                if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
-                *out_gx = gx;
-                *out_gy = gy;
+                fixed2_t at = fixed2_cell_center((ivec2_t){ origin.x + dx, origin.y + dy });
+                if (!dc_position_available_for_spawn(map, units, unit_count, at, radius)) continue;
+                *out = at;
                 return true;
             }
         }
@@ -706,14 +694,13 @@ static bool dc_find_spawn_position_near(const level_t *map, mobj_t *const *units
 
 static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *const *units, int unit_count,
                                            int spawned_index, const mobj_t *producer,
-                                           float exit_gx, float exit_gy) {
+                                           fixed2_t exit) {
     if (!map || !units || !producer || spawned_index < 0 || spawned_index >= unit_count)
         return;
     mobj_t *crowd[unit_count ? unit_count : 1];
     int count = 0;
 
-    float crowd_radius = 2.75f;
-    float crowd_radius_sq = crowd_radius * crowd_radius;
+    fixed_t crowd_radius = FIXED_LIT(2.75);
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
@@ -721,21 +708,19 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *const *un
             continue;
         }
         if (i == spawned_index ||
-            fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
-                                   (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
+            fixed2_distance_squared64(fixed3_xy(unit->core.position), exit) <=
+                fixed_sq64(crowd_radius)) {
             crowd[count++] = unit;
         }
     }
 
-    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
-                             fixed3_xy_to_fvec2(producer->core.position));
-    float len = sqrtf(fvec2_length_squared(delta));
-    if (len < 0.01f) {
-        delta = (fvec2_t){ 0.0f, -1.0f };
-        len = 1.0f;
+    fixed2_t delta = fixed2_sub(exit, fixed3_xy(producer->core.position));
+    fixed_t len = fixed2_length(delta);
+    if (len < FIXED_LIT(0.01)) {
+        delta = (fixed2_t){ 0, -FIXED_ONE };
+        len = FIXED_ONE;
     }
-    fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
-                            fvec2_scale(delta, 1.5f / len));
+    fixed2_t goal = fixed2_add(exit, fixed2_scale(delta, fixed_div32(FIXED_LIT(1.5), len)));
     P_MoveUnitsAt(map, crowd, count, goal);
 }
 
@@ -765,42 +750,38 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     new_unit->owner = producer->owner;
     new_unit->team = producer->team;
     new_unit->allegiance = producer->allegiance;
-    float radius = new_unit->radius > 0.05f ? new_unit->radius : 0.42f;
-    float gx = 0.0f;
-    float gy = 0.0f;
+    fixed_t radius = new_unit->radius > FIXED_LIT(0.05) ? new_unit->radius : FIXED_LIT(0.42);
+    fixed2_t spot = {0, 0};
     const StaticProductDefinition *product =
         G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production->product_type);
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
-        G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, new_unit, &gx, &gy)) {
+        G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, new_unit, &spot)) {
         /* Match the model path: FIN owns the point, terrain gates its cell. */
-        if (!L_IsWalkable(map, (int)floorf(gx), (int)floorf(gy))) {
+        if (!L_IsWalkable(map, fixed_floor_int(spot.x), fixed_floor_int(spot.y))) {
             P_RemoveMobj(new_unit);
             return false;
         }
         /* The FIN exit is fixed; occupied exit cells are cleared below. */
     } else if (!dc_find_spawn_position_near(map, units, *unit_count, producer,
-                                            radius, &gx, &gy)) {
+                                            radius, &spot)) {
         P_RemoveMobj(new_unit);
         return false;
     }
-    new_unit->core.position = fixed3_with_xy(new_unit->core.position,
-                                             (fvec2_t){ gx, gy });
+    new_unit->core.position = fixed3_with_xy(new_unit->core.position, spot);
     if (use_barracks_release) {
         mobjlist_t objects = P_ListMobjs();
-        dc_order_barracks_exit_spacing(map, objects.items, objects.count, objects.count - 1, producer, gx, gy);
+        dc_order_barracks_exit_spacing(map, objects.items, objects.count, objects.count - 1, producer, spot);
         P_FreeMobjList(&objects);
     }
     return true;
 }
 
 bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count,
-                             float dt) {
-    if (!map || !units || !unit_count || dt <= 0.0f) return false;
+                             int elapsed_ms) {
+    if (!map || !units || !unit_count || elapsed_ms <= 0) return false;
     DC_RunPurchases();
     bool spawned = false;
-    int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
-    if (elapsed_ms <= 0) elapsed_ms = 1;
     for (int i = 0; i < *unit_count; ++i) {
         mobj_t *producer = units[i];
         production_t *production = producer->production;

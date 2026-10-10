@@ -68,7 +68,7 @@ int main(void) {
     /* The clear colour reads back as its nearest screen-palette entry. */
     uint32_t clear = vpalette[V_NearestIndex(CLEAR)] | 0xff000000u;
     for (size_t type = 0; type < sizeof(weapons)/sizeof(*weapons); ++type) {
-        mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10,10},0),weapons[type].type);
+        mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(10,10),0),weapons[type].type);
         CHECK(unit);
         CHECK(P_VisibleToPlayer(unit));
         const mobjinfo_t *info = &mobjinfo[unit->type_id];
@@ -116,7 +116,7 @@ int main(void) {
     }
     const int deaths[] = {MT_SURV_RIFLEMAN,MT_MUTE_BERSERKER,MT_MUTE_DIRE_WOLF};
     for (int i=0; i<3; ++i) {
-        mobj_t *unit=P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10,10},0),deaths[i]);
+        mobj_t *unit=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(10,10),0),deaths[i]);
         CHECK(unit);
         P_DamageMobj(unit,NULL,unit->hp);
         for (int frame=0; !unit->remove; ++frame) {

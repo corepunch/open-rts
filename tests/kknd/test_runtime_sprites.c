@@ -17,7 +17,7 @@ static int check_anchors(const spritecache_t *cache) {
     size_t bytes = (size_t)app.win.w * app.win.h * sizeof(uint32_t);
     void *expected = malloc(bytes), *actual = malloc(bytes);
     CHECK(expected && actual);
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){40,30},0), MT_SURV_OIL_TANKER);
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(40,30),0), MT_SURV_OIL_TANKER);
     CHECK(unit);
     for (int pose = 0; pose < 16; ++pose) {
         ivec2_t anchor = tanker_offsets[pose];

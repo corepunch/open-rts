@@ -166,7 +166,7 @@ int main(void) {
     click(ui,&app,196,SDL_BUTTON_LEFT);
     assert(paused);
     int stopped_at = leveltime;
-    assert(rts_game_model_tick(model,FIXED_DT) && leveltime == stopped_at);
+    assert(rts_game_model_tick(model,RTS_TICK_MS) && leveltime == stopped_at);
     click(ui,&app,196,SDL_BUTTON_LEFT);
     assert(!paused);
     mobj_t *trooper = P_SpawnMobj(center->core.position,MT_TROOPER);
@@ -177,7 +177,7 @@ int main(void) {
     assert(trooper->move_only);
     click(ui,&app,35,SDL_BUTTON_LEFT);
     assert(!trooper->move_only);
-    G_SelectedTiccmd(TC_MOVE,&trooper,1,(fvec2_t){30.5f,30.5f},0);
+    G_SelectedTiccmd(TC_MOVE,&trooper,1,FIXED2_LIT(30.5, 30.5),0);
     click(ui,&app,150,SDL_BUTTON_LEFT);
     assert(!P_HasMoveOrder(trooper));
     click(ui,&app,36,SDL_BUTTON_LEFT);

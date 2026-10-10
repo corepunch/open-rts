@@ -14,7 +14,7 @@
 
 /* DC.EXE (0x4117fc/0x411a30) moves an object speed/256 of a cell once per
  * 66 ms world tick; the simulation stores cells per second. */
-#define DC_SPEED(raw) ((float)(raw) * (1000.0f / 66.0f) / 256.0f)
+#define DC_SPEED(raw) ((fixed_t)(((int64_t)(raw) * 1000 * FIXED_ONE + 66 * 128) / (66 * 256)))
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(void);
@@ -61,7 +61,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         /* GAMESTAT.TXT speed is 8.8 map units per native world tick. */
         .speed = DC_SPEED(25),
         .max_hp = 800,
-        .attack = { .range = 4, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
     { .id = MT_BEACON, .native_type_id = 84,
       .sight = { 8, 5, false },
@@ -85,7 +85,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = DC_SPEED(25),
         .max_hp = 800,
-        .attack = { .range = 4, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
     {
         .id = MT_EXPLOITER,
@@ -98,7 +98,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_HARVESTER,
         /* The gameplay tuning uses the documented heavy-harvester rate. */
-        .speed = 3.5f,
+        .speed = FIXED_LIT(3.5),
         .max_hp = 800,
         .harvest = { .state_id = S_EXPL_DEPLOY1 },
     },
@@ -115,7 +115,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = DC_SPEED(30),
         .max_hp = 800,
-        .attack = { .range = 2, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
     {
         .id = MT_THUNDERBOLT,
@@ -131,7 +131,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = DC_SPEED(15),
         .max_hp = 400,
-        .attack = { .range = 12.0f, .damage = 250, .cooldown_ms = 75 * 66,
+        .attack = { .range = FIXED_FROM_INT(12), .damage = 250, .cooldown_ms = 75 * 66,
                     .projectile_type = MT_CANNONBALL },
     },
     {
@@ -147,7 +147,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = DC_SPEED(45),
         .max_hp = 1200,
-        .attack = { .range = 8, .damage = 200, .upgrade_damage = {250,250}, .cooldown_ms = 15 * 66 },
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 200, .upgrade_damage = {250,250}, .cooldown_ms = 15 * 66 },
     },
     {
         .id = MT_SCOUT,
@@ -163,7 +163,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = DC_SPEED(47),
         .max_hp = 800,
-        .attack = { .range = 2, .damage = 100, .cooldown_ms = 10 * 66,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 100, .cooldown_ms = 10 * 66,
                     .projectile_type = MT_SCOUT_BOMB, .shots = 3, .reload_ms = 30 * 66 },
     },
     {
@@ -354,7 +354,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = DC_SPEED(47),
         .max_hp = 800,
-        .attack = { .range = 2, .damage = 100, .cooldown_ms = 10 * 66,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 100, .cooldown_ms = 10 * 66,
                     .projectile_type = MT_SCOUT_BOMB, .shots = 3, .reload_ms = 30 * 66 },
     },
     {
@@ -382,7 +382,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .turn_step = (uint64_t)5 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
         .armor_class = 6,
         .max_hp = 800,
-        .attack = { .range = 6.0f, .damage = 100, .cooldown_ms = 15 * 66,
+        .attack = { .range = FIXED_FROM_INT(6), .damage = 100, .cooldown_ms = 15 * 66,
                     .projectile_type = MT_TOWER_ROCKET },
     },
     {
@@ -394,7 +394,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .name = "Dropship",
         .sprite_name = "SPRITES/DROP.SPR",
         .traits = MF_RENDERABLE | MF_MOBILE | MF_FLY,
-        .speed = 4.0f,
+        .speed = FIXED_FROM_INT(4),
         .max_hp = 800,
     },
     {
@@ -478,7 +478,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
       .speed = DC_SPEED(36), .max_hp = 800,
       .armor_class = 1,
-      .attack = { .range = 1, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 } },
+      .attack = { .range = FIXED_FROM_INT(1), .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 } },
     { .id = MT_ATRIL, .native_type_id = 11, .sight = {4, 7, false},
       .turn_step = (uint64_t)5 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
       .defense = {256,204,170},
@@ -486,7 +486,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
       .speed = DC_SPEED(15), .max_hp = 400,
       .armor_class = 3,
-      .attack = { .range = 12, .damage = 250, .cooldown_ms = 75 * 66,
+      .attack = { .range = FIXED_FROM_INT(12), .damage = 250, .cooldown_ms = 75 * 66,
                   .projectile_type = MT_PUS_BOMB } },
     { .id = MT_GORREM, .native_type_id = 12, .sight = {10, 10, false},
       .defense = {256,204,170},
@@ -494,7 +494,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK | MF_DETECTOR,
       .speed = DC_SPEED(47), .max_hp = 800,
       .armor_class = 4,
-      .attack = { .range = 9, .damage = 200, .upgrade_damage = {250,300}, .cooldown_ms = 30 * 66 } },
+      .attack = { .range = FIXED_FROM_INT(9), .damage = 200, .upgrade_damage = {250,300}, .cooldown_ms = 30 * 66 } },
     { .id = MT_SLOM, .native_type_id = 44, .sight = {4, 6, false},
       .defense = {256,213,182},
       .damage_action = A_DC_Damage, .name = "Slom", .sprite_name = "SPRITES/SLOM.SPR",
@@ -546,7 +546,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET,
       .turn_step = (uint64_t)5 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
       .max_hp = 800, .armor_class = 6,
-      .attack = { .range = 6, .damage = 100, .cooldown_ms = 15 * 66,
+      .attack = { .range = FIXED_FROM_INT(6), .damage = 100, .cooldown_ms = 15 * 66,
                   .projectile_type = MT_XENO_BOLT } },
     { .id = MT_ROCKET_SMOKE, .name = "Rocket smoke", .sprite_name = "SPRITES/TURR.SPR",
       .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1 },
@@ -555,14 +555,14 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .sprite_name = "SPRITES/ENGI.SPR", .sight = {6,4,false},
       .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE | MF_CLOAKED,
       .max_hp = 800, .armor_class = 7,
-      .attack = { .range = 1, .damage = 1300, .cooldown_ms = 150 * 66,
+      .attack = { .range = FIXED_FROM_INT(1), .damage = 1300, .cooldown_ms = 150 * 66,
                   .projectile_type = MT_MINE_BLAST, .health_cost = 300 } },
     { .id = MT_ALIEN_MINE, .native_type_id = 46, .name = "Deployed Slom",
       .defense = {256,213,182},
       .sprite_name = "SPRITES/ENGI.SPR", .sight = {4,6,false},
       .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE | MF_CLOAKED,
       .max_hp = 800, .armor_class = 7,
-      .attack = { .range = 1, .damage = 1300, .cooldown_ms = 150 * 66,
+      .attack = { .range = FIXED_FROM_INT(1), .damage = 1300, .cooldown_ms = 150 * 66,
                   .projectile_type = MT_MINE_BLAST, .health_cost = 300 } },
 };
 
@@ -729,11 +729,11 @@ bool HU_LoadFont(const char *root, bitmapfont_t *font) {
 }
 
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
-                     hudtext_t *hud, float dt) {
+                     hudtext_t *hud, int dt_ms) {
     if (!map || !map->mission) return;
-    update_mission(map, mobjs, count, hud, dt);
+    update_mission(map, mobjs, count, hud, dt_ms);
 }
 
-bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
-    return G_ModelUpdateProduction(map, units, unit_count, dt);
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
+    return G_ModelUpdateProduction(map, units, unit_count, dt_ms);
 }

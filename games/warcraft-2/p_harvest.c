@@ -22,7 +22,7 @@ bool w2_init_resources(level_t *map) {
             if (map->cell_terrain[L_Index(map, x, y)] != 2) continue;
             ivec2_t cell = {x, y};
             map->resource_vents[map->resource_vent_count++] = (resourcevent_t){
-                .cell = cell, .attachment = fvec2_cell_center(cell), .footprint = {1, 1},
+                .cell = cell, .attachment = fixed2_cell_center(cell), .footprint = {1, 1},
                 .amount = 100, .rate = 100, .resource_type = 1, .active = true,
             };
         }
@@ -53,7 +53,7 @@ static resourcevent_t *deposit(const mobj_t *unit) {
 }
 
 static bool go_to_deposit(mobj_t *unit, resourcevent_t *vent) {
-    fvec2_t bay;
+    fixed2_t bay;
     if (!P_VentOpenTo(&level, vent, unit) ||
         !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
     unit->movement.order_id = 0;
@@ -73,9 +73,9 @@ void W2_InterruptHarvest(mobj_t *unit) {
 bool W2_ReturnGoods(mobj_t *unit) {
     if (!worker(unit) || !unit->harvest.cargo) return false;
     mobj_t *best = NULL;
-    fvec2_t bay = {0};
-    float distance = 0;
-    fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
+    fixed2_t bay = {0};
+    int64_t distance = 0;
+    fixed2_t from = fixed3_xy(unit->core.position);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *base = (mobj_t *)th;
@@ -85,11 +85,10 @@ bool W2_ReturnGoods(mobj_t *unit) {
         const w2_stats_t *type = &mobjinfo[base->type_id].w2;
         if (!(type->store_mask & (1 << unit->harvest.resource_type))) continue;
         isize2_t size = type->footprint;
-        ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(base->core.position),
-                                         (fvec2_t){size.w * 0.5f, size.h * 0.5f}));
-        fvec2_t at;
+        ivec2_t cell = fixed2_foot_origin_cell(fixed3_xy(base->core.position), size);
+        fixed2_t at;
         if (!P_ApproachFootprint(unit, cell, size, &at)) continue;
-        float d = fvec2_distance_squared(from, at);
+        int64_t d = fixed2_distance_squared64(from, at);
         if (best && d >= distance) continue;
         best = base;
         bay = at;
@@ -109,12 +108,12 @@ bool W2_ReturnGoods(mobj_t *unit) {
     return true;
 }
 
-bool W2_HarvestOrder(mobj_t *unit, fvec2_t goal) {
+bool W2_HarvestOrder(mobj_t *unit, fixed2_t goal) {
     if (!worker(unit)) return false;
     for (int i = 0; i < level.resource_vent_count; ++i) {
         resourcevent_t *vent = &level.resource_vents[i];
-        if (!P_ResourceVentContainsCell(vent, fvec2_cell(goal)) || !P_VentOpenTo(&level, vent, unit)) continue;
-        fvec2_t bay;
+        if (!P_ResourceVentContainsCell(vent, fixed2_cell(goal)) || !P_VentOpenTo(&level, vent, unit)) continue;
+        fixed2_t bay;
         if (!P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) return false;
         W2_InterruptHarvest(unit);
         W2_InterruptRepair(unit); W2_InterruptBuild(unit);
@@ -133,14 +132,14 @@ bool W2_HarvestOrder(mobj_t *unit, fvec2_t goal) {
     return false;
 }
 
-static bool next_tree(mobj_t *unit, fvec2_t origin) {
+static bool next_tree(mobj_t *unit, fixed2_t origin) {
     int best = -1;
-    float distance = 0;
-    fvec2_t bay;
+    int64_t distance = 0;
+    fixed2_t bay;
     for (int i = 0; i < level.resource_vent_count; ++i) {
         resourcevent_t *vent = &level.resource_vents[i];
         if (!vent->active || vent->resource_type != 1) continue;
-        float d = fvec2_distance_squared(origin, vent->attachment);
+        int64_t d = fixed2_distance_squared64(origin, vent->attachment);
         if ((best >= 0 && d >= distance) || !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) continue;
         best = i;
         distance = d;
@@ -186,8 +185,8 @@ bool W2_TickHarvest(mobj_t *unit) {
         mobj_t *base = unit->harvest.base;
         if (!base || base->remove || base->hp <= 0) { W2_ReturnGoods(unit); return false; }
         if (P_HasMoveOrder(unit)) return false;
-        if (!unit->movement.order_arrived || !fvec2_near(fixed3_xy_to_fvec2(unit->core.position),
-                                                        unit->harvest.return_position, 0.001f)) {
+        if (!unit->movement.order_arrived || !fixed2_near(fixed3_xy(unit->core.position),
+                                                        unit->harvest.return_position, FIXED_LIT(0.001))) {
             W2_ReturnGoods(unit);
             return false;
         }
@@ -221,14 +220,14 @@ bool W2_TickHarvest(mobj_t *unit) {
     if (unit->harvest.phase == HARVEST_PHASE_TO_MINE) {
         if (P_HasMoveOrder(unit)) return false;
         if (!unit->movement.order_arrived ||
-            !fvec2_near(fixed3_xy_to_fvec2(unit->core.position), unit->movement.goal, 0.001f)) {
+            !fixed2_near(fixed3_xy(unit->core.position), unit->movement.goal, FIXED_LIT(0.001))) {
             go_to_deposit(unit, vent);
             return false;
         }
         if (vent->resource_type != 1) wait_inside(unit, HARVEST_PHASE_MINING);
         else {
-            fvec2_t delta = fvec2_sub(vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
-            unit->core.angle = angle_from_screen_vector(delta.x, delta.y);
+            fixed2_t delta = fixed2_sub(vent->attachment, fixed3_xy(unit->core.position));
+            unit->core.angle = angle_from_screen_vector_fixed(delta.x, delta.y);
             unit->harvest.phase = HARVEST_PHASE_MINING;
             P_SetMobjState(unit, W2_WORK_STATE(unit->type_id - 1));
         }

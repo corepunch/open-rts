@@ -162,7 +162,7 @@ static int production_list(const mobj_t *producer, StaticProductDefinition produ
 static bool product_enabled(const mobj_t *producer, const StaticProductDefinition *product) {
     const production_t *queue = producer->production;
     return G_ModelProductAvailable(NULL, consoleplayer, product) &&
-        level.player_resources[consoleplayer][0] >= product->cost &&
+        R_CanAfford(consoleplayer, product) &&
         (!queue || queue->queue_count == 0 ||
          (queue->product_type == product->product_type &&
           queue->product_class == product->product_class &&
@@ -257,7 +257,7 @@ void HU_DrawProductPage(const menu_t *menu, const menuitem_t *item, irect_t rect
 
 bool HU_SelectedOrder(ticorder_t order, fvec2_t goal, uint32_t target) {
     mobjlist_t units = P_ListMobjs();
-    bool ok = G_SelectedTiccmd(order, units.items, units.count, goal, target);
+    bool ok = G_SelectedTiccmd(order, units.items, units.count, fixed2_from_fvec2(goal), target);
     P_FreeMobjList(&units);
     return ok;
 }

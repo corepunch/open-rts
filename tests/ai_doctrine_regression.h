@@ -28,8 +28,8 @@ static void doctrine_level(void) {
     level.blocked = calloc(96 * 96, 1);
 }
 
-static mobj_t *doctrine_spawn(uint16_t type, int owner, fvec2_t at) {
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), type);
+static mobj_t *doctrine_spawn(uint16_t type, int owner, fixed2_t at) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), type);
     if (unit) {
         unit->owner = unit->team = owner;
         unit->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER;
@@ -55,7 +55,7 @@ static void doctrine_run(AiContext *ai, int ticks, int dt_ms) {
         mobjlist_t list = P_ListMobjs();
         P_AiTick(ai, &level, list.items, list.count, gameinfo, dt_ms);
         P_FreeMobjList(&list);
-        G_ProductionTicker((float)dt_ms / 1000.0f);
+        G_ProductionTicker(dt_ms);
 #ifdef RTS_GAME_KKND
         for (int tic = 0; tic < RTS_TICRATE * dt_ms / 1000; ++tic)
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
@@ -67,7 +67,6 @@ static void doctrine_run(AiContext *ai, int ticks, int dt_ms) {
 static int doctrine_roles(const doctrine_role_t *cases, int count) {
     AiContext ai;
     doctrine_attach(&ai, AI_FEATURE_ALL);
-    DCHECK(G_AiInterface()->product_actor);
     for (int i = 0; i < count; ++i) {
         AiUnitInfo info;
         P_AiUnitInfo(&ai, cases[i].type, &info);
@@ -97,7 +96,6 @@ static int ladder_goal(const AiPlan *plan, int product) {
 
 /* What a computer owns of its roster, alive plus queued. */
 static int doctrine_census(const AiContext *ai, int owner, doctrine_army_t *out) {
-    const AiGameInterface *game = G_AiInterface();
     const AiTeamState *team = &ai->teams[owner];
     const AiDoctrine *d = &team->plan.doctrine;
     DCHECK(team->plan_loaded && d->roster_count > 0);
@@ -105,10 +103,10 @@ static int doctrine_census(const AiContext *ai, int owner, doctrine_army_t *out)
     int top = -1;
     for (int i = 0; i < d->roster_count; ++i) {
         AiUnitInfo info;
-        int actor = game->product_actor(d->roster[i].product);
+        int actor = G_AiCatalogActor(d->roster[i].product);
         DCHECK(actor > 0);
         P_AiUnitInfo(ai, (uint16_t)actor, &info);
-        int n = game->owned(owner, d->roster[i].product);
+        int n = P_AiOwned(ai, owner, d->roster[i].product);
         if (info.roles & AI_ROLE_WORKER) out->workers += n;
         if (info.roles & AI_ROLE_DEFENSE) out->defenses += n;
         if (!(info.roles & AI_ROLE_FIGHTER)) continue;
@@ -117,7 +115,7 @@ static int doctrine_census(const AiContext *ai, int owner, doctrine_army_t *out)
         out->opening += ladder_goal(&team->plan, d->roster[i].product);
         if (top < 0 || d->roster[i].weight > d->roster[top].weight) { top = i; out->top = n; }
         if (n > out->most) out->most = n;
-        int status = game->can_purchase(&level, owner, d->roster[i].product);
+        int status = P_AiCanPurchase(ai, &level, owner, d->roster[i].product);
         if (d->roster[i].weight > 0 && n == 0 && (status == AI_BUY_OK || status == AI_BUY_NEED_CREDITS))
             ++out->skipped;
     }
@@ -131,9 +129,9 @@ static void doctrine_bases(int copies) {
     static const uint16_t base_a[] = { DOCTRINE_BASE_A }, base_b[] = { DOCTRINE_BASE_B };
     for (int c = 0; c < copies; ++c) {
         for (unsigned i = 0; i < sizeof(base_a) / sizeof(*base_a); ++i)
-            doctrine_spawn(base_a[i], 1, (fvec2_t){10 + 6 * (float)i, 12 + 10 * (float)c});
+            doctrine_spawn(base_a[i], 1, FIXED2_LIT(10 + 6 * (float)i, 12 + 10 * (float)c));
         for (unsigned i = 0; i < sizeof(base_b) / sizeof(*base_b); ++i)
-            doctrine_spawn(base_b[i], 2, (fvec2_t){10 + 6 * (float)i, 60 + 10 * (float)c});
+            doctrine_spawn(base_b[i], 2, FIXED2_LIT(10 + 6 * (float)i, 60 + 10 * (float)c));
     }
     /* A modest income: credits, not free queues, limit the army. */
     level.player_resources[1][0] = level.player_resources[2][0] = 20000;
@@ -148,7 +146,7 @@ static int doctrine_mix(doctrine_army_t *a, doctrine_army_t *b) {
     DCHECK(level.blocked);
     doctrine_bases(1);
     AiContext ai;
-    doctrine_attach(&ai, AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_RESEARCH);
+    doctrine_attach(&ai, AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_RESEARCH | AI_FEATURE_DOCTRINE);
     doctrine_run(&ai, 1800, 1000);
     doctrine_army_t *armies[] = { a, b };
     for (int owner = 1; owner < 3; ++owner) {
@@ -177,11 +175,11 @@ static int doctrine_weights(void) {
     doctrine_level();
     doctrine_bases(3);
     AiContext ai;
-    doctrine_attach(&ai, AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_RESEARCH);
+    doctrine_attach(&ai, AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_RESEARCH | AI_FEATURE_DOCTRINE);
     for (int owner = 1; owner < 3; ++owner) {
         AiTeamState *team = &ai.teams[owner];
         team->level = G_AiInterface()->player_level(&level, owner);
-        team->plan_loaded = G_AiInterface()->plan(&level, owner, team->level, &team->plan);
+        team->plan_loaded = R_OwnerPlan(&level, owner, team->level, &team->plan);
         team->plan.goal_count = 0;
     }
     doctrine_run(&ai, 1800, 1000);
@@ -213,15 +211,15 @@ static int army_value(const AiContext *ai, int owner, uint16_t type) {
  * before the wave reaches its size cap. */
 static int doctrine_waves(void) {
     doctrine_level();
-    DCHECK(doctrine_spawn(DOCTRINE_ANCHOR, 1, (fvec2_t){16, 16}));
-    DCHECK(doctrine_spawn(DOCTRINE_ANCHOR, 0, (fvec2_t){80, 80}));
+    DCHECK(doctrine_spawn(DOCTRINE_ANCHOR, 1, FIXED2_LIT(16, 16)));
+    DCHECK(doctrine_spawn(DOCTRINE_ANCHOR, 0, FIXED2_LIT(80, 80)));
     AiPlan plan = {0};
-    DCHECK(G_AiInterface()->plan(&level, 1, AI_LEVEL_NORMAL, &plan));
+    DCHECK(R_OwnerPlan(&level, 1, AI_LEVEL_NORMAL, &plan));
     const AiDoctrine *d = &plan.doctrine;
     DCHECK(d->attack_ratio > 0 && plan.wave_min_size > 0 && plan.wave_max_size > plan.wave_min_size);
     for (int i = 0; i < plan.wave_min_size; ++i) {
-        DCHECK(doctrine_spawn(DOCTRINE_WEAK, 1, (fvec2_t){20 + i, 20}));
-        DCHECK(doctrine_spawn(DOCTRINE_ENEMY, 0, (fvec2_t){60 + i, 60}));
+        DCHECK(doctrine_spawn(DOCTRINE_WEAK, 1, FIXED2_LIT(20 + i, 20)));
+        DCHECK(doctrine_spawn(DOCTRINE_ENEMY, 0, FIXED2_LIT(60 + i, 60)));
     }
     AiContext ai;
     doctrine_attach(&ai, AI_FEATURE_ATTACK);
@@ -233,7 +231,7 @@ static int doctrine_waves(void) {
     DCHECK(stats->waves == 0 && stats->holds > 0);
     int army = plan.wave_min_size;
     while (stats->waves == 0 && army < plan.wave_max_size - 1) {
-        DCHECK(doctrine_spawn(DOCTRINE_STRONG, 1, (fvec2_t){20 + army - plan.wave_min_size, 22}));
+        DCHECK(doctrine_spawn(DOCTRINE_STRONG, 1, FIXED2_LIT(20 + army - plan.wave_min_size, 22)));
         ++army;
         doctrine_run(&ai, 20, 100);
     }

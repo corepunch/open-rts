@@ -24,13 +24,13 @@ static void tree(ivec2_t cell, uint16_t tile) {
     level.blocked[i] = 1;
     level.cell_terrain[i] = 2;
     level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
-        .cell = cell, .attachment = fvec2_cell_center(cell), .footprint = {1, 1},
+        .cell = cell, .attachment = fixed2_cell_center(cell), .footprint = {1, 1},
         .resource_type = 1, .active = true, .amount = 100, .rate = 100,
     };
 }
 
 static int cut(ivec2_t cell) {
-    mobj_t *peasant = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){1.5f, 1.5f}, 0), MT_PEASANT);
+    mobj_t *peasant = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(1.5, 1.5), 0), MT_PEASANT);
     CHECK(peasant);
     for (int i = 0; i < level.resource_vent_count; ++i) {
         if (!ivec2_equal(level.resource_vents[i].cell, cell)) continue;

@@ -26,8 +26,8 @@ typedef struct {
     int perimeter_priority;
     int resource_priority;
     int danger_priority;
-    double min_matching_force_ratio;
-    double max_matching_force_ratio;
+    fixed_t min_matching_force_ratio; /* 16.16 */
+    fixed_t max_matching_force_ratio; /* 16.16 */
     int min_building_defense_force;
     int max_building_defense_force;
     int min_exploration_force;
@@ -50,6 +50,7 @@ typedef struct {
 } dr_mission_t;
 
 bool DR_ProductInTech(int type);
+bool DR_PrerequisiteMet(int owner, int id);
 /* A game-setup ("Chat") screen choice for one map team, as its native
  * ChatPlayerType and ChatPlayerSide rows. */
 typedef enum { DR_SLOT_AVAILABLE, DR_SLOT_HUMAN, DR_SLOT_EASY, DR_SLOT_MEDIUM, DR_SLOT_HARD,
@@ -242,7 +243,7 @@ enum {
 
 bool DR_HarvestDropoffMatches(const mobj_t *unit,
                               int resource_type, const mobj_t *base,
-                              fvec2_t *position);
+                              fixed2_t *position);
 
 
 enum { DR_PAGE_BUILD, DR_PAGE_ORDERS, DR_PAGE_PATHS };

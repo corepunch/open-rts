@@ -217,13 +217,13 @@ static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     case 202: DC_OpenObjectives(menu->app); break;
     case 196: G_QueueTiccmd(&(ticcmd_t){.order = TC_PAUSE}); break;
     case 150: case 138:
-        G_SelectedTiccmd(TC_STOP, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        G_SelectedTiccmd(TC_STOP, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     case 33: case 35:
-        G_SelectedTiccmd(TC_MODE, hudview.units, hudview.unit_count, (fvec2_t){0}, id == 33);
+        G_SelectedTiccmd(TC_MODE, hudview.units, hudview.unit_count, (fixed2_t){0}, id == 33);
         break;
     case 139: case 140: case 37:
-        G_SelectedTiccmd(TC_DEPLOY, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        G_SelectedTiccmd(TC_DEPLOY, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     default:
         if (id >= 154 && id <= 195) {
@@ -256,7 +256,7 @@ static void enter(menu_t *menu, menuitem_t *item, menuaction_t action) {
         M_MenuEdit(menu, chat);
     } else if (menu->target == control(h, 36)) {
         if (!finish_waypoints(h)) M_MenuTarget(menu, NULL);
-    } else G_SelectedTiccmd(TC_DEPLOY, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+    } else G_SelectedTiccmd(TC_DEPLOY, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
 }
 
 /* A left click reserves one of the product; a right click gives one back.

@@ -6,7 +6,7 @@
 
 static int follow(mobj_t *actor, waypointmode_t mode) {
     waypoints_t path = {.points = {{5,5},{8,5},{8,8}}, .count = 3, .mode = mode};
-    actor->core.position = fixed3_from_fvec2((fvec2_t){5.5f,5.5f}, 0);
+    actor->core.position = fixed3_from_fixed2(FIXED2_LIT(5.5, 5.5), 0);
     CHECK(G_PathOrder(&actor, 1, &path));
     bool second = false, last = false, returned = false;
     for (int tic = 0; tic < 1200; ++tic) {
@@ -21,7 +21,7 @@ static int follow(mobj_t *actor, waypointmode_t mode) {
     CHECK(second && last);
     if (mode == WP_ONCE) {
         CHECK(!actor->waypoints.count && !P_HasMoveOrder(actor));
-        CHECK(ivec2_equal(fvec2_cell(fixed3_xy_to_fvec2(actor->core.position)), path.points[2]));
+        CHECK(ivec2_equal(fixed2_cell(fixed3_xy(actor->core.position)), path.points[2]));
     } else CHECK(returned && actor->waypoints.count == 3);
     return 0;
 }
@@ -36,10 +36,10 @@ int main(void) {
         if ((actor_types[i].traits & (MF_MOBILE | MF_FLY)) == MF_MOBILE &&
             mobjinfo[actor_types[i].id].seestate) { type = actor_types[i].id; break; }
     CHECK(type >= 0);
-    mobj_t *actor = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){5.5f,5.5f},0),type);
+    mobj_t *actor = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5.5, 5.5),0),type);
     CHECK(actor);
     actor->traits = MF_MOBILE | MF_SELECTABLE | MF_RENDERABLE;
-    actor->speed = 8;
+    actor->speed = 8 * FIXED_ONE;
     P_MobjSetSelected(actor,true);
     consoleplayer = 0;
     CHECK(follow(actor,WP_ONCE) == 0);
@@ -80,7 +80,7 @@ int main(void) {
     path.points[0] = (ivec2_t){-1,0};
     CHECK(!G_PathOrder(&actor,1,&path));
     CHECK(actor->waypoints.count == 2);
-    P_MoveOrderAt(&level,&actor,1,(fvec2_t){5.5f,5.5f});
+    P_MoveOrderAt(&level,&actor,1,FIXED2_LIT(5.5, 5.5));
     CHECK(!actor->waypoints.count);
 
     pathbook_t book;

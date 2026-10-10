@@ -17,9 +17,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/LTROOP.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_ATTACK,
-        .speed       = 4.0f,
+        .speed       = FIXED_FROM_INT(4),
         .max_hp      = 100,
-        .attack = { .range = 5.0f, .damage = 15, .cooldown_ms = 800 },
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 15, .cooldown_ms = 800 },
     },
     {
         .id          = 2,
@@ -27,7 +27,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/SLAVEN1.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_HARVESTER,
-        .speed       = 3.5f,
+        .speed       = FIXED_LIT(3.5),
         .max_hp      = 60,
         .harvest     = { .resources = { { .capacity = 50 } } },
     },
@@ -37,9 +37,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/SPIDER.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_ATTACK,
-        .speed       = 3.0f,
+        .speed       = FIXED_FROM_INT(3),
         .max_hp      = 300,
-        .attack = { .range = 7.0f, .damage = 35, .cooldown_ms = 1200 },
+        .attack = { .range = FIXED_FROM_INT(7), .damage = 35, .cooldown_ms = 1200 },
     },
     {
         .id          = 4,
@@ -47,9 +47,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/TANKBASE.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_ATTACK,
-        .speed       = 4.5f,
+        .speed       = FIXED_LIT(4.5),
         .max_hp      = 500,
-        .attack = { .range = 8.0f, .damage = 50, .cooldown_ms = 1500 },
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 50, .cooldown_ms = 1500 },
     },
     {
         .id          = 5,
@@ -57,9 +57,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/ROCKMECH.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_ATTACK,
-        .speed       = 2.5f,
+        .speed       = FIXED_LIT(2.5),
         .max_hp      = 800,
-        .attack = { .range = 6.0f, .damage = 70, .cooldown_ms = 2000 },
+        .attack = { .range = FIXED_FROM_INT(6), .damage = 70, .cooldown_ms = 2000 },
     },
     {
         .id          = 6,
@@ -67,7 +67,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/TRUCK.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_HARVESTER,
-        .speed       = 5.0f,
+        .speed       = FIXED_FROM_INT(5),
         .max_hp      = 200,
         .harvest     = { .resources = { { .capacity = 100 } } },
     },
@@ -77,7 +77,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
         .sprite_name = "GFX/MOBBASE.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
                        MF_RENDERABLE | MF_RESOURCE_BASE,
-        .speed       = 2.5f,
+        .speed       = FIXED_LIT(2.5),
         .max_hp      = 1000,
     },
 #define SL_BUILDING(native, type, asset, label, hp, cost, ticks, w, h) \
@@ -153,9 +153,9 @@ bool HU_LoadFont(const char *root, bitmapfont_t *font) {
 }
 
 void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
-                      hudtext_t *hud, float dt) {
+                      hudtext_t *hud, int dt_ms) {
     (void)map; (void)mobjs; (void)count;
-    (void)hud; (void)dt;
+    (void)hud; (void)dt_ms;
 }
 
 menu_t *G_InitHUD(app_t *app, const char *data_root) {
@@ -168,9 +168,9 @@ void G_ShutdownHUD(void) {
     hudview = (hudview_t){0};
 }
 
-bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
     (void)map; (void)units; (void)unit_count;
-    return G_ProductionTicker(dt);
+    return G_ProductionTicker(dt_ms);
 }
 
 irect_t G_WorldViewport(const app_t *app) {

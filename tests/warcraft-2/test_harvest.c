@@ -23,20 +23,20 @@ static void fixture(bool orc) {
     level.speeds = calloc(1, sizeof(*level.speeds));
     level.speeds->class_count = 2;
     level.speeds->terrain[1][0] = 100;
-    mobj_t *hall = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){5, 5}, 0), orc ? 76 : 75);
+    mobj_t *hall = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5, 5), 0), orc ? 76 : 75);
     hall->owner = 0;
     w2_mark_footprint(3, 3, (isize2_t){4, 4});
-    worker_unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){9.5f, 7.5f}, 0), orc ? 4 : 3);
+    worker_unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(9.5, 7.5), 0), orc ? 4 : 3);
     worker_unit->owner = 0;
 }
 
 static void mine(int amount) {
-    mobj_t *mine = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){13.5f, 6.5f}, 0), 93);
+    mobj_t *mine = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(13.5, 6.5), 0), 93);
     mine->owner = 15;
     mine->allegiance = ALLEGIANCE_NEUTRAL;
     w2_mark_footprint(12, 5, (isize2_t){3, 3});
     level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
-        .cell = {12, 5}, .attachment = {13.5f, 6.5f}, .footprint = {3, 3},
+        .cell = {12, 5}, .attachment = FIXED2_LIT(13.5, 6.5), .footprint = {3, 3},
         .amount = amount, .rate = 100, .active = true, .source_id = mine->id,
     };
 }
@@ -47,7 +47,7 @@ static void tree(ivec2_t cell) {
     level.blocked[i] = 1;
     level.tile_ids[i] = 0x70;
     level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
-        .cell = cell, .attachment = fvec2_cell_center(cell), .footprint = {1, 1},
+        .cell = cell, .attachment = fixed2_cell_center(cell), .footprint = {1, 1},
         .amount = 100, .rate = 100, .active = true, .resource_type = 1,
     };
 }
@@ -70,7 +70,7 @@ static void grove(void) {
 static int test_gold(bool orc) {
     fixture(orc);
     mine(125);
-    CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){13.5f, 6.5f}));
+    CHECK(W2_HarvestOrder(worker_unit, FIXED2_LIT(13.5, 6.5)));
     bool carried = false, hidden = false;
     for (int i = 0; i < 2000 && level.player_resources[0][0] < 125; ++i) {
         tick(1);
@@ -90,7 +90,7 @@ static int test_gold(bool orc) {
 static int test_lumber(void) {
     fixture(false);
     grove();
-    CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){12.5f, 10.5f}));
+    CHECK(W2_HarvestOrder(worker_unit, FIXED2_LIT(12.5, 10.5)));
     for (int i = 0; i < 2000 && worker_unit->w2.chops < 50; ++i) tick(1);
     CHECK(worker_unit->w2.chops == 50);
     CHECK(worker_unit->harvest.cargo == 0 && level.player_resources[0][1] == 0);
@@ -109,7 +109,7 @@ static int test_orders(void) {
     tree((ivec2_t){12, 10});
     worker_unit->harvest.cargo = 40;
     worker_unit->harvest.resource_type = 1;
-    CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){13.5f, 6.5f}));
+    CHECK(W2_HarvestOrder(worker_unit, FIXED2_LIT(13.5, 6.5)));
     CHECK(worker_unit->harvest.resource_type == 1);
     for (int i = 0; i < 1500 && !level.player_resources[0][1]; ++i) tick(1);
     CHECK(level.player_resources[0][1] == 40 && !level.player_resources[0][0]);
@@ -123,7 +123,7 @@ static int test_orders(void) {
     G_RunTiccmd(0, &stop);
     CHECK(worker_unit->traits & MF_RENDERABLE);
     CHECK(worker_unit->harvest.phase == HARVEST_PHASE_NONE);
-    CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){12.5f, 10.5f}));
+    CHECK(W2_HarvestOrder(worker_unit, FIXED2_LIT(12.5, 10.5)));
     tick(200);
     G_RunTiccmd(0, &stop);
     CHECK(worker_unit->w2.chops == 0);
@@ -141,7 +141,7 @@ static int test_recovery(void) {
     mine(200);
     mobj_t *hall = (mobj_t *)thinkercap.next;
     hall->owner = 1; /* Another player's hall must not accept our cargo. */
-    CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){13.5f, 6.5f}));
+    CHECK(W2_HarvestOrder(worker_unit, FIXED2_LIT(13.5, 6.5)));
     tick(1000);
     CHECK(worker_unit->harvest.cargo == 100);
     CHECK(level.player_resources[0][0] == 0 && level.player_resources[1][0] == 0);
@@ -156,7 +156,7 @@ static int test_recovery(void) {
     tick(200);
     CHECK(worker_unit->harvest.cargo == 100 && worker_unit->harvest.base == NULL);
     CHECK(worker_unit->traits & MF_RENDERABLE);
-    hall = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){5, 5}, 0), 75);
+    hall = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5, 5), 0), 75);
     hall->owner = 0;
     for (int i = 0; i < 1500 && level.player_resources[0][0] < 200; ++i) tick(1);
     CHECK(level.player_resources[0][0] == 200);
@@ -166,10 +166,10 @@ static int test_recovery(void) {
 static int test_competition(void) {
     fixture(false);
     grove();
-    mobj_t *second = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10.5f, 11.5f}, 0), 3);
+    mobj_t *second = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(10.5, 11.5), 0), 3);
     second->owner = 0;
-    CHECK(W2_HarvestOrder(worker_unit, (fvec2_t){12.5f, 10.5f}));
-    CHECK(W2_HarvestOrder(second, (fvec2_t){12.5f, 10.5f}));
+    CHECK(W2_HarvestOrder(worker_unit, FIXED2_LIT(12.5, 10.5)));
+    CHECK(W2_HarvestOrder(second, FIXED2_LIT(12.5, 10.5)));
     P_SetMobjState(worker_unit, gameinfo->mobjinfo[3].spawnstate);
     P_SetMobjState(second, gameinfo->mobjinfo[3].spawnstate);
     worker_unit->harvest.phase = second->harvest.phase = HARVEST_PHASE_MINING;
@@ -187,10 +187,10 @@ static int test_mining_group(void) {
     mine(1000);
     mobj_t *units[3] = {worker_unit};
     for (int i = 1; i < 3; ++i) {
-        units[i] = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){9.5f, 7.5f + i}, 0), 3);
+        units[i] = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(9.5f, 7.5f + i), 0), 3);
         units[i]->owner = 0;
     }
-    CHECK(P_HarvestUnitsAt(&level, units, 3, (fvec2_t){13.5f, 6.5f}));
+    CHECK(P_HarvestUnitsAt(&level, units, 3, FIXED2_LIT(13.5, 6.5)));
     for (int i = 0; i < 6000 && level.player_resources[0][0] < 1000; ++i) tick(1);
     CHECK(level.player_resources[0][0] == 1000);
     for (int i = 0; i < 3; ++i)
@@ -199,16 +199,16 @@ static int test_mining_group(void) {
     mine(1000);
     for (int y = 0; y < level.height; ++y)
         level.cell_solid[L_Index(&level, 11, y)] = level.blocked[L_Index(&level, 11, y)] = 1;
-    CHECK(!W2_HarvestOrder(worker_unit, (fvec2_t){13.5f, 6.5f}));
+    CHECK(!W2_HarvestOrder(worker_unit, FIXED2_LIT(13.5, 6.5)));
     CHECK(worker_unit->harvest.phase == HARVEST_PHASE_NONE);
     return 0;
 }
 
 static int test_income_and_training(void) {
     fixture(false);
-    mobj_t *keep = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20, 15}, 0), 89);
+    mobj_t *keep = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20, 15), 0), 89);
     keep->owner = 0;
-    mobj_t *mill = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20, 10}, 0), 77);
+    mobj_t *mill = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20, 10), 0), 77);
     mill->owner = 0;
     CHECK(W2_ResourceIncome(0, 0) == 110 && W2_ResourceIncome(0, 1) == 125);
     worker_unit->harvest.cargo = 100;
@@ -220,9 +220,9 @@ static int test_income_and_training(void) {
     P_RemoveMobj(keep);
     P_RemoveMobj(mill);
     CHECK(W2_ResourceIncome(0, 0) == 100 && W2_ResourceIncome(0, 1) == 100);
-    mill = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20, 10}, 0), MT_ELVEN_LUMBER_MILL);
+    mill = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20, 10), 0), MT_ELVEN_LUMBER_MILL);
     mill->owner = 0;
-    mobj_t *barracks = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20, 5}, 0), 61);
+    mobj_t *barracks = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20, 5), 0), 61);
     barracks->owner = 0;
     const StaticProductDefinition *archer = G_ModelProductByUIId(NULL, 5);
     level.player_resources[0][0] = 1000;

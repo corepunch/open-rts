@@ -94,8 +94,8 @@ bool w2_fire_projectile(mobj_t *source, mobj_t *target) {
         shot->w2.fx.piercing *= 2;
     }
     shot->w2.fx.mask = stats->target_mask;
-    fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
-                              fixed3_xy_to_fvec2(source->core.position));
+    fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position),
+                                fixed3_xy(source->core.position));
     shot->core.angle = P_PointToAngle(delta.x, delta.y);
     return true;
 }
@@ -126,7 +126,7 @@ static void impact(mobj_t *shot) {
     int sound = kind == W2_FX_ARROW ? 67 : kind == W2_FX_HAMMER || kind == W2_FX_DRAGON ||
         kind == W2_FX_FIREBALL || kind == W2_FX_BLIZZARD ? 64 :
         kind == W2_FX_ROCK || kind == W2_FX_BOLT || kind == W2_FX_CANNON || kind == W2_FX_BIG_CANNON ? 31 : 0;
-    if (sound) S_StartSoundAt(fixed3_xy_to_fvec2(shot->core.position), sound);
+    if (sound) S_StartSoundAt(fixed3_xy(shot->core.position), sound);
     if (!def->range) hit(shot, P_MobjById(shot->w2.fx.subject), 1);
     else for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
@@ -177,7 +177,7 @@ void A_W2_Effect(mobj_t *effect) {
         };
         ivec2_t offset = orbit[effect->w2.ttl % 36];
         effect->core.position = fixed3_add(unit->core.position,
-            fixed3_from_fvec2((fvec2_t){(float)offset.x / TILE_W, (float)offset.y / TILE_H}, FIXED_ONE / 4));
+            fixed3_from_fixed2((fixed2_t){offset.x * FIXED_ONE / TILE_W, offset.y * FIXED_ONE / TILE_H}, FIXED_ONE / 4));
         if (!(effect->w2.ttl & 7)) for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *victim = (mobj_t *)th;
             if (th->function == P_MobjThinker && victim != unit && !(victim->traits & MF_NOBLOCKMAP) &&
@@ -189,16 +189,16 @@ void A_W2_Effect(mobj_t *effect) {
     if (kind == W2_FX_WHIRLWIND) {
         if ((effect->w2.ttl % RTS_TICRATE) / 10 == 0) impact(effect);
         if (effect->w2.ttl % 100 == 0) {
-            ivec2_t cell = fvec2_cell(fixed3_xy_to_fvec2(effect->core.position)), goal;
+            ivec2_t cell = fixed2_cell(fixed3_xy(effect->core.position)), goal;
             do { goal = (ivec2_t){cell.x + (int)(W2_SyncRand() % 5) - 2, cell.y + (int)(W2_SyncRand() % 5) - 2}; }
             while (!L_Contains(&level, goal.x, goal.y));
-            effect->w2.fx.end = fixed3_from_fvec2(fvec2_cell_center(goal), 0);
+            effect->w2.fx.end = fixed3_from_fixed2(fixed2_cell_center(goal), 0);
         }
         if (effect->w2.fx.age % 8 == 0) {
-            fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(effect->w2.fx.end), fixed3_xy_to_fvec2(effect->core.position));
-            float distance = sqrtf(fvec2_length_squared(delta));
+            fixed2_t delta = fixed2_sub(fixed3_xy(effect->w2.fx.end), fixed3_xy(effect->core.position));
+            fixed_t distance = fixed2_length(delta);
             if (distance > 0) effect->core.position = fixed3_add_planar(effect->core.position,
-                fixed3_planar_delta(fvec2_scale(delta, fminf(distance, 2.0f / TILE_W) / distance)));
+                fixed3_planar_delta(fixed2_rescale(delta, distance, fixed_min(distance, 2 * FIXED_ONE / TILE_W))));
         }
         pose(effect);
         return;
@@ -213,10 +213,10 @@ void A_W2_Effect(mobj_t *effect) {
             effect->w2.fx.age = 0;
         }
     } else if (def->speed) {
-        fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(effect->w2.fx.end),
-                                  fixed3_xy_to_fvec2(effect->core.position));
-        float distance = sqrtf(fvec2_length_squared(delta));
-        float step = (float)def->speed / TILE_W;
+        fixed2_t delta = fixed2_sub(fixed3_xy(effect->w2.fx.end),
+                                    fixed3_xy(effect->core.position));
+        fixed_t distance = fixed2_length(delta);
+        fixed_t step = def->speed * FIXED_ONE / TILE_W;
         if (distance <= step) {
             effect->core.position = effect->w2.fx.end;
             if ((kind == W2_FX_LIGHTNING || kind == W2_FX_TOUCH || kind == W2_FX_BLIZZARD) &&
@@ -237,10 +237,10 @@ void A_W2_Effect(mobj_t *effect) {
                 --effect->w2.fx.bounces;
                 /* Stratagus bounce advances (tile width + height) * 3 / 4. */
                 effect->w2.fx.end = fixed3_add_planar(effect->w2.fx.end,
-                    fixed3_planar_delta(fvec2_scale(delta, 1.5f / distance)));
+                    fixed3_planar_delta(fixed2_rescale(delta, distance, FIXED_LIT(1.5))));
             } else { P_RemoveMobj(effect); return; }
         } else {
-            effect->core.momentum = fixed3_planar_delta(fvec2_scale(delta, step / distance));
+            effect->core.momentum = fixed3_planar_delta(fixed2_rescale(delta, distance, step));
             effect->core.position = fixed3_add_planar(effect->core.position, effect->core.momentum);
         }
     } else if (effect->w2.fx.age >= def->frames * def->sleep) {

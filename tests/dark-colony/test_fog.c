@@ -28,8 +28,8 @@ static void check_refresh(void) {
     P_InitThinkers();
     level.daylight = (daylight_t){0};
     clear_sight();
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){24.5f, 24.5f}, 0), MT_TROOPER);
-    mobj_t *base = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){4.5f, 4.5f}, 0), MT_EXCOPOD);
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(24.5, 24.5), 0), MT_TROOPER);
+    mobj_t *base = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(4.5, 4.5), 0), MT_EXCOPOD);
     assert(unit && base);
     unit->thinker.function = base->thinker.function = idle;
     level.exo_income[0] = 17;
@@ -37,7 +37,7 @@ static void check_refresh(void) {
     P_UpdateSight();
     assert(sight(31, 24) & PLAYER);
     assert(!(sight(32, 24) & PLAYER));
-    unit->core.position = fixed3_from_fvec2((fvec2_t){25.5f, 24.5f}, 0);
+    unit->core.position = fixed3_from_fixed2(FIXED2_LIT(25.5, 24.5), 0);
     P_Ticker();
     assert(!(sight(32, 24) & PLAYER));
     P_Ticker();
@@ -118,8 +118,8 @@ static void check_render_equivalence(void) {
 
 static void check_detection(void) {
     clear_sight();
-    mobj_t *detector = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){24.5f, 24.5f}, 0), MT_TROOPER);
-    mobj_t *mine = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){26.5f, 24.5f}, 0), MT_HUMAN_MINE);
+    mobj_t *detector = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(24.5, 24.5), 0), MT_TROOPER);
+    mobj_t *mine = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(26.5, 24.5), 0), MT_HUMAN_MINE);
     assert(detector && mine);
     detector->traits |= MF_DETECTOR;
     mine->team = mine->owner = 1;
@@ -158,7 +158,7 @@ static void check_human02(void) {
     int credits = level.player_resources[0][0], day_tics = level.daylight.tics;
     assert(level.exo_income[0] == 3);
     for (int tick = 1; tick <= 120; ++tick) {
-        assert(rts_game_model_tick(model, FIXED_DT));
+        assert(rts_game_model_tick(model, RTS_TICK_MS));
         int clock = tick * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
         assert(leveltime == tick);
         assert(level.player_resources[0][0] == credits + (clock / 16) * 3);
@@ -175,7 +175,7 @@ static void benchmark(void) {
     assert(P_InitSight());
     mobjtype_t observer = {.sight = {10, 10, false}};
     for (int i = 0; i < 800; ++i) {
-        mobj_t *actor = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20 + i % 80, 20 + i / 80}, 0), MT_TROOPER);
+        mobj_t *actor = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20 + i % 80, 20 + i / 80), 0), MT_TROOPER);
         assert(actor);
         actor->info = &observer;
     }
@@ -347,8 +347,8 @@ int main(void) {
     assert(P_SightBrightness(&level, (ivec2_t){16, 16}) == 16);
     level.sight.allies[0] = PLAYER;
 
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8.5f, 8.5f}, 0), MT_TROOPER);
-    mobj_t *enemy = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){14.5f, 8.5f}, 0), MT_GREY);
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(8.5, 8.5), 0), MT_TROOPER);
+    mobj_t *enemy = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(14.5, 8.5), 0), MT_GREY);
     assert(unit && enemy);
     enemy->team = enemy->owner = 1;
     enemy->allegiance = ALLEGIANCE_ENEMY;
