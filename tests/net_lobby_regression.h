@@ -113,13 +113,15 @@ static int launched_map(void) {
         mobj_t *unit = all.items[i];
         if (unit->owner < 2) ++owned[unit->owner];
 #ifdef RTS_GAME_STARCRAFT
-        if (unit->owner == 0) CHECK(unit->type_id == MT_HATCHERY || unit->type_id == MT_DRONE);
+        if (unit->owner == 0) CHECK(unit->type_id == MT_HATCHERY || unit->type_id == MT_DRONE || unit->type_id == MT_LARVA ||
+                                    unit->type_id == MT_OVERLORD);
         if (unit->owner == 1) CHECK(unit->type_id == MT_NEXUS || unit->type_id == MT_PROBE);
 #endif
     }
     CHECK(owned[0] && owned[1]);
 #ifdef RTS_GAME_STARCRAFT
-    CHECK(owned[0] == 5 && owned[1] == 5);
+    /* Hatchery, four Drones, an Overlord and three larvae; Nexus and four Probes. */
+    CHECK(owned[0] == 9 && owned[1] == 5);
 #endif
     P_FreeMobjList(&all); P_FreeLevel(&level);
     return 0;

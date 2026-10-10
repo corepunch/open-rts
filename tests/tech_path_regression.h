@@ -102,7 +102,7 @@ static int test_cases(void) {
         CHECK(target);
         techstep_t steps[TECH_PATH_MAX];
         int count = R_TechPath(OWNER, target, steps, TECH_PATH_MAX);
-        if (count != cases[c].count) fprintf(stderr, "%s: %d steps, wanted %d\n", target->label, count, cases[c].count);
+        if (count != cases[c].count) { fprintf(stderr, "%s: %d steps, wanted %d:", target->label, count, cases[c].count); for (int s = 0; s < count; ++s) fprintf(stderr, " %d", steps[s].product); fprintf(stderr, "\n"); }
         CHECK(count == cases[c].count);
         for (int s = 0; s < count; ++s) {
             if (steps[s].product != cases[c].providers[s])

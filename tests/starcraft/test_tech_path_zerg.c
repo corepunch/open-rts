@@ -1,6 +1,6 @@
 #include "starcraft.h"
 #include "sc_local.h"
-/* Zerg: a Hydralisk needs the den, which needs the pool; melee attacks go one level at a time. */
+/* Zerg: a Hydralisk needs the den, which needs the pool; melee attacks go one level at a time, the third wanting a Hive over a Lair and a Queen's Nest. */
 #define TECH_STARTERS { 0 }
 #define TECH_RACE 1
 #define TECH_REAL_MAP
@@ -9,7 +9,7 @@
 #define TECH_CASES { \
     { 38, 1, { 143 } }, \
     { 39, 2, { 143, 136 } }, \
-    { 1042, 3, { 140, 1040, 1041 } }, \
+    { 1042, 7, { 143, 133, 139, 134, 140, 1040, 1041 } }, \
 }
 #define TECH_AI_CASE 1
 #define TECH_AI_TICKS (30 * 60 * 16)

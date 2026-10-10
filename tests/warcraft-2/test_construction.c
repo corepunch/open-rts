@@ -304,11 +304,11 @@ static int test_computer_player(void) {
           workers[2]->harvest.resource_type == 0);
     for (int i = 0; i < 3; ++i) CHECK(workers[i]->harvest.phase == HARVEST_PHASE_TO_MINE);
     AiPlan plan = {0};
-    CHECK(ai->plan(&level, 1, AI_LEVEL_NORMAL, &plan) && plan.goal_count >= 15 && plan.wave_min_size == 6);
+    CHECK(R_OwnerPlan(&level, 1, AI_LEVEL_NORMAL, &plan) && plan.goal_count >= 15 && plan.wave_min_size == 6);
     CHECK(plan.goals[0].product == W2_UI_TOWN_HALL && plan.goals[1].product == 3);
     AiPlan orc = {0};
     spawn(MT_PEON, 2, 16, 2);
-    CHECK(ai->plan(&level, 2, AI_LEVEL_NORMAL, &orc) && orc.goals[0].product == W2_UI_GREAT_HALL && orc.goals[1].product == 4);
+    CHECK(R_OwnerPlan(&level, 2, AI_LEVEL_NORMAL, &orc) && orc.goals[0].product == W2_UI_GREAT_HALL && orc.goals[1].product == 4);
     /* Orcs attack sooner and bolder; both rosters field their own side. */
     CHECK(orc.doctrine.attack_ratio < plan.doctrine.attack_ratio &&
           orc.doctrine.retreat_ratio < plan.doctrine.retreat_ratio && orc.wave_interval_ms < plan.wave_interval_ms);

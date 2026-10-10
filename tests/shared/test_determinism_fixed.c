@@ -124,23 +124,23 @@ static uint32_t scripted_run(int type, uint32_t *consistency) {
  * and every networked peer must be rebuilt together.  * changed when G_Consistency() began hashing each unit's speed and radius as
  * fixed-point integers, and again when it became the per-subsystem vector that
  * also folds in the ruleset patch hash, and again when Dark Colony's mine detection became the shared
- * MF_CLOAKED rule (no detected_by to hash) and Warcraft II began hashing a transport's ferry job; the position/facing hash did not move.) Per game because the
+ * MF_CLOAKED rule (no detected_by to hash) and Warcraft II began hashing a transport's ferry job; the position/facing hash did not move; it moved when units began to face along their route rather than a neighbour sidestep.) Per game because the
  * unit tables behind G_Consistency() differ. */
 #if defined(RTS_GAME_DARK_COLONY)
-#define EXPECTED_SIM_HASH UINT32_C(0x9e9f07fa)
-#define EXPECTED_CONSISTENCY UINT32_C(0x71b75015)
+#define EXPECTED_SIM_HASH UINT32_C(0x249064d2)
+#define EXPECTED_CONSISTENCY UINT32_C(0x0b562278)
 #elif defined(RTS_GAME_DARK_REIGN)
-#define EXPECTED_SIM_HASH UINT32_C(0xf0822fde)
-#define EXPECTED_CONSISTENCY UINT32_C(0x0228d525)
+#define EXPECTED_SIM_HASH UINT32_C(0x8a8dadfb)
+#define EXPECTED_CONSISTENCY UINT32_C(0xb37469a7)
 #elif defined(RTS_GAME_7LEGION)
-#define EXPECTED_SIM_HASH UINT32_C(0xf0822fde)
-#define EXPECTED_CONSISTENCY UINT32_C(0x1e8e39ca)
+#define EXPECTED_SIM_HASH UINT32_C(0x8a8dadfb)
+#define EXPECTED_CONSISTENCY UINT32_C(0x99dd8746)
 #elif defined(RTS_GAME_WARCRAFT_2)
-#define EXPECTED_SIM_HASH UINT32_C(0xb4bb45e7)
-#define EXPECTED_CONSISTENCY UINT32_C(0x8eb4e104)
+#define EXPECTED_SIM_HASH UINT32_C(0xcb25692f)
+#define EXPECTED_CONSISTENCY UINT32_C(0xcef7c6f6)
 #else /* KKnD */
-#define EXPECTED_SIM_HASH UINT32_C(0x0ee82de6)
-#define EXPECTED_CONSISTENCY UINT32_C(0x330a13ab)
+#define EXPECTED_SIM_HASH UINT32_C(0x119507c1)
+#define EXPECTED_CONSISTENCY UINT32_C(0xf091d097)
 #endif
 
 static int scripted_sim(void) {

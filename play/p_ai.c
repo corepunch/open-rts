@@ -329,7 +329,8 @@ static AiTry ai_try(AiContext *ctx, AiTeamState *team, int owner, level_t *map, 
 /* Walks the tech path R_TechPath plans: buys or develops the first thing the
  * product still needs (a building, a research, a tech level). */
 static bool ai_develop(AiContext *ctx, AiTeamState *team, level_t *map, int owner, int product, int depth) {
-    if (ctx->game->develop) return ctx->game->develop(map, owner, product);
+    /* A game's own development (StarCraft's add-ons) first, then the planned path. */
+    if (ctx->game->develop && ctx->game->develop(map, owner, product)) return true;
     const StaticProductDefinition *def = G_ModelProductByUIId(NULL, product);
     techstep_t step;
     if (depth < 8 && R_TechNextStep(owner, def, &step)) {

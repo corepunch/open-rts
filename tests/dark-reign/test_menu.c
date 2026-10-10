@@ -110,9 +110,10 @@ int main(void) {
     screenshot(&app, surface, "/private/tmp/dr-menu-selectmap.bmp");
     click(&app, 275, 313); /* SELECT MAP */
     click(&app, 100, 87);  /* row 1: Computer (Medium) -> Computer (Hard) */
-    click(&app, 260, 74);  /* row 0 side: Default -> Freedom Guard */
-    click(&app, 260, 87);  /* row 1 side: Default -> Freedom Guard */
-    click(&app, 260, 87);  /* -> Imperium */
+    click(&app, 260, 74);  /* row 0 side: open the list */
+    click(&app, 260, 99);  /* -> Freedom Guard */
+    click(&app, 260, 87);  /* row 1 side: open the list */
+    click(&app, 260, 125); /* -> Imperium */
     screenshot(&app, surface, "/private/tmp/dr-menu-instant-setup.bmp");
     click(&app, 321, 426); /* LAUNCH */
     CHECK(!menuactive && menumap && !strncmp(menumap, "scenario/MULTI/", 15));

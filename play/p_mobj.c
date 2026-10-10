@@ -1526,13 +1526,20 @@ static void tick_actor(mobj_t *u) {
                 }
             } else {
                 fixed2_t direction = { fixed_div32(delta.x, dist), fixed_div32(delta.y, dist) };
+                /* Face along the route: a bend around a neighbour is a sidestep, and
+                 * facing it would make the next tic turn back in place. */
+                fixed2_t heading = direction;
                 if (!flying) direction = P_SteerAvoid(u, direction, step);
+                fixed2_t steered = direction;
 #ifdef RTS_MODULE_WARCRAFT_2
-                direction = snap_move_direction_45(direction);
+                direction = heading = snap_move_direction_45(direction);
 #endif
-                u->core.angle = angle_from_map_vector_fixed(map, direction.x, direction.y);
+                u->core.angle = angle_from_map_vector_fixed(map, heading.x, heading.y);
                 fixed3_t before = u->core.position;
                 bool moved = move_unit_if_walkable_fixed(u, fixed2_scale(direction, step));
+                /* A snapped heading can run into a door jamb the steered one clears. */
+                if (!moved && !flying && (steered.x != direction.x || steered.y != direction.y))
+                    moved = move_unit_if_walkable_fixed(u, fixed2_scale(steered, step));
                 if (moved && !flying) {
                     fixed3_t travelled = fixed3_planar_displacement(before, u->core.position);
                     fixed_t made = fixed_hypot32(travelled.x, travelled.y);

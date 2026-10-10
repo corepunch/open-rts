@@ -77,7 +77,7 @@ static bool fighting(const mobj_t *unit) {
 /* A ship shoots what it can reach from the water: the enemy nearest the
  * wave's goal that has open water within the ship's range. */
 static void send_ship(mobj_t *ship, const mobj_t *goal) {
-    int range = (int)W2_AttackRange(ship);
+    int range = fixed_floor_int(W2_AttackRange(ship));
     fixed2_t aim = fixed3_xy(goal->core.position);
     mobj_t *best = NULL;
     ivec2_t best_spot = {0};
