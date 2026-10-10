@@ -1,11 +1,5 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
-#ifdef RTS_GAME_STARCRAFT
-#include "starcraft.h"
-#endif
-#ifdef RTS_GAME_DARK_COLONY
-#include "dark-colony.h"
-#endif
 
 #include <ctype.h>
 #include <math.h>
@@ -57,7 +51,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     mobj_t *unit = P_SpawnMobj(fixed3_zero(), type->id);
     if (!unit) return false;
     unit->core.position = fixed3_with_xy(unit->core.position,
-        fvec2_cell_center((ivec2_t){ cell.x, cell.y }));
+        fixed2_cell_center((ivec2_t){ cell.x, cell.y }));
     unit->owner = 1;
     unit->team = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
@@ -111,6 +105,35 @@ static const char *default_data_root(void) {
     if (access(beside_executable, F_OK) == 0) return beside_executable;
     return g_game_default_root;
 }
+
+/* What a network resync needs to replace the running game under main()'s
+ * feet: the lists and caches built from the old objects are rebuilt. */
+static struct {
+    app_t *app;
+    AiContext *ai;
+    hudtext_t *hud;
+    mobjlist_t *objects;
+    mobj_t ***units;
+    int *unit_count;
+    spritecache_t *sprites;
+    const char *data_root;
+} resync;
+
+static bool resync_save(void **data, size_t *length) {
+    return G_ResyncSave(data, length, resync.app, resync.ai, resync.hud);
+}
+
+static bool resync_load(const void *data, size_t length) {
+    if (!G_ResyncLoad(data, length, resync.app, resync.ai, resync.hud)) return false;
+    P_FreeMobjList(resync.objects);
+    *resync.objects = P_ListMobjs();
+    *resync.units = resync.objects->items;
+    *resync.unit_count = resync.objects->count;
+    R_InitSprites(resync.data_root, &level, *resync.units, *resync.unit_count, resync.sprites);
+    return true;
+}
+
+static const netresync_t resync_handlers = { resync_save, resync_load };
 
 int main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i)
@@ -169,10 +192,6 @@ int main(int argc, char **argv) {
             long count = strtol(argv[i], &end, 10);
             if (!argv[i][0] || *end || count < 1 || count > 1000000) goto usage;
             check_tics = (int)count;
-        } else if (!strcmp(arg, "--game")) {
-            if (++i == argc || strcmp(argv[i], g_game_id)) goto usage;
-        } else if (!strncmp(arg, "--game=", 7)) {
-            if (strcmp(arg + 7, g_game_id)) goto usage;
         } else if (arg[0] == '-') goto usage;
         else {
             if (positional == 3 || paths[positional]) goto usage;
@@ -316,27 +335,16 @@ load_level:
     printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: %s, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
            level.decoration_count, level.resource_vent_count,
-           gameinfo && gameinfo->right_click_orders ? "left select/drag, right order" : "left select/drag/order, right deselect",
-           (gameinfo && gameinfo->f10_menu) ? "F10 menu" : "F10 +100 resources");
+           R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS ? "left select/drag, right order" : "left select/drag/order, right deselect",
+           (R_Policy()->f10 == F10_CONTROL_MENU) ? "F10 menu" : "F10 +100 resources");
 
     menu_t *hud = G_InitHUD(&app, data_root);
     AiContext ai;
     P_AiInit(&ai);
     P_AiAttachGame(&ai, G_AiInterface());
     hudtext_t hud_text = { 0 };
-#ifdef RTS_GAME_DARK_COLONY
-    if (dc_loadfile[0]) {
-        if (!DC_LoadGame(dc_loadfile, &app, &ai, &hud_text)) {
-            HU_PushMessage(&hud_text, "Could not restore saved game", 5000);
-        }
-        dc_loadfile[0] = '\0';
-        P_FreeMobjList(&objects);
-        objects = P_ListMobjs(); units = objects.items; unit_count = objects.count;
-        R_InitSprites(data_root, &level, units, unit_count, &decoration_sprites);
-    }
-#else
     if (g_loadfile[0]) {
-        if (!G_LoadGame(g_loadfile, &app, &ai, &hud_text)) {
+        if (!G_GameLoad(g_loadfile, &app, &ai, &hud_text)) {
             HU_PushMessage(&hud_text, "Could not restore saved game", 5000);
         }
         g_loadfile[0] = '\0';
@@ -344,23 +352,24 @@ load_level:
         objects = P_ListMobjs(); units = objects.items; unit_count = objects.count;
         R_InitSprites(data_root, &level, units, unit_count, &decoration_sprites);
     }
-#endif
+    resync.app = &app; resync.ai = &ai; resync.hud = &hud_text;
+    resync.objects = &objects; resync.units = &units; resync.unit_count = &unit_count;
+    resync.sprites = &decoration_sprites; resync.data_root = data_root;
+    D_SetNetResync(&resync_handlers);
     if (check_only || screenshot_only) {
         if (screenshot_only) {
             app.ticks_ms = SDL_GetTicks();
             if (level.mission) {
                 int before_count = unit_count;
                 G_MissionTicker(&level, units, &unit_count,
-                                &hud_text, FIXED_DT);
-#ifdef RTS_GAME_STARCRAFT
+                                &hud_text, RTS_TICK_MS);
                 {
-                    fvec2_t sc_cell;
-                    if (sc_take_camera(&sc_cell)) {
-                        focus_camera_on_grid(&app, &level, sc_cell.x, sc_cell.y);
+                    fvec2_t camera_cell;
+                    if (G_TakeCameraRequest(&camera_cell)) {
+                        focus_camera_on_grid(&app, &level, camera_cell.x, camera_cell.y);
                         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
                     }
                 }
-#endif
                 P_FreeMobjList(&objects);
                 objects = P_ListMobjs();
                 units = objects.items;
@@ -440,7 +449,7 @@ load_level:
             }
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
                 e.key.keysym.sym == SDLK_F10) {
-                if (gameinfo && gameinfo->f10_menu) {
+                if (R_Policy()->f10 == F10_CONTROL_MENU) {
                     M_StartControlPanel(&app);
                     continue;
                 }
@@ -468,7 +477,7 @@ load_level:
             /* Cancellation applies over the HUD too, before its responders
              * consume mouse buttons. Future games can retain right orders. */
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT &&
-                !(gameinfo && gameinfo->right_click_orders)) {
+                !(R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS)) {
                 if (hud && M_MenuResponder(hud, &app, &e)) continue;
                 G_Responder(&app, &level, units, unit_count, &unit_sprite,
                              &decoration_sprites, gameinfo, &e);
@@ -485,19 +494,11 @@ load_level:
                          &decoration_sprites, gameinfo, &e);
         }
         if (menumap || menuleave || !app.running) break;
-#ifdef RTS_GAME_DARK_COLONY
-        if (dc_savefile[0]) {
-            bool saved = DC_SaveGame(dc_savefile, dc_savename, &app, &ai, &hud_text);
-            HU_PushMessage(&hud_text, saved ? "Game saved" : "Could not save game", 5000);
-            dc_savefile[0] = '\0';
-        }
-#else
         if (g_savefile[0]) {
-            bool saved = G_SaveGame(g_savefile, g_savename, &app, &ai, &hud_text);
+            bool saved = G_GameSave(g_savefile, g_savename, &app, &ai, &hud_text);
             HU_PushMessage(&hud_text, saved ? "Game saved" : "Could not save game", 5000);
             g_savefile[0] = '\0';
         }
-#endif
         if (!menuactive) G_CameraMove(&app, frame_dt);
         M_Ticker();
         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
@@ -521,16 +522,14 @@ load_level:
             if (level.mission) {
                 int before_count = unit_count;
                 G_MissionTicker(&level, units, &unit_count,
-                                &hud_text, FIXED_DT);
-#ifdef RTS_GAME_STARCRAFT
+                                &hud_text, RTS_TICK_MS);
                 {
-                    fvec2_t sc_cell;
-                    if (sc_take_camera(&sc_cell)) {
-                        focus_camera_on_grid(&app, &level, sc_cell.x, sc_cell.y);
+                    fvec2_t camera_cell;
+                    if (G_TakeCameraRequest(&camera_cell)) {
+                        focus_camera_on_grid(&app, &level, camera_cell.x, camera_cell.y);
                         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
                     }
                 }
-#endif
                 P_FreeMobjList(&objects);
                 objects = P_ListMobjs();
                 units = objects.items;
@@ -548,8 +547,8 @@ load_level:
             int before_production_count = unit_count;
             bool production_spawned;
             /* Every game's computer players buy through the universal AI. */
-            P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
-            production_spawned = G_UpdateProduction(&level, units, &unit_count, FIXED_DT);
+            P_AiTick(&ai, &level, units, unit_count, gameinfo, RTS_TICK_MS);
+            production_spawned = G_UpdateProduction(&level, units, &unit_count, RTS_TICK_MS);
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
             units = objects.items;
@@ -562,8 +561,8 @@ load_level:
                 }
             }
 
-            HU_Ticker(&hud_text, FIXED_DT);
-            HU_Ticker(&chat_text, FIXED_DT);
+            HU_Ticker(&hud_text, RTS_TICK_MS);
+            HU_Ticker(&chat_text, RTS_TICK_MS / 1000.0f);
             if (hud) {
                 hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
                 if (hud->ticker) hud->ticker(hud);

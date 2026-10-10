@@ -575,7 +575,7 @@ static void write_info_c(const char *path) {
         "    RTS_STATE_COORDS_GROUND_OFFSET,\n"
         "    { .style = SELECTION_STYLE_DEFAULT },\n"
         "    KK_DrawUnitOverlays,\n"
-        "    .right_click_orders = false,\n"
+        "    .draw_overlays = NULL,\n"
         "};\n");
 
     fclose(f);

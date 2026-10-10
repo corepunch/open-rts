@@ -1,6 +1,7 @@
 #include "engine.h"
 #include <SDL.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 doomdata_t *netbuffer;
@@ -34,13 +35,16 @@ static bool remoteresend[MAXNETNODES], gotsetup[MAXNETNODES];
 static bool gotcommands[MAXNETNODES];
 static int nodeforplayer[MAXPLAYERS], playerfornode[MAXNETNODES];
 static uint32_t consistancy[BACKUPTICS], startsignature;
+static uint32_t consvec[BACKUPTICS][CONSISTENCY_COUNT];
+static int consistency_floor; /* No hashes to compare before this tic (after a resync). */
+struct netdesync_s netdesync;
 static doomdata_t reboundstore;
 static bool reboundpacket;
 static uint64_t gametime, oldentertics;
 static uint64_t lastreceived[MAXNETNODES];
 static int skiptics, frameon, frameskip[4], oldnettics;
 
-enum { RESENDCOUNT = 10, NETVERSION = 4 };
+enum { RESENDCOUNT = 10, NETVERSION = 5 };
 
 static uint64_t I_GetTime(void) {
     return scaled_time() * RTS_TICRATE / 100 / 1000 / (uint64_t)ticdup;
@@ -90,6 +94,227 @@ static void SendSetup(int node) {
     HSendPacket(node, NCMD_SETUP);
 }
 
+
+/* ---- Resync from save ----------------------------------------------------
+ * A desync means this peer's game is no longer the others'. When handlers
+ * are installed the lowest seated player (the authority) freezes at a tic
+ * boundary, serializes its game, and sends it in chunks inside NCMD_RESYNC
+ * packets (a TC_RESYNC ticcmd whose units[] carry the bytes). Every peer
+ * reloads it, then all restart lockstep from that tic with a new epoch, so
+ * tic packets of the old timeline fail their checksum. */
+enum { RS_REQUEST = 1, RS_CHUNK, RS_ACK };
+enum { RS_WORDS = 240, RS_WINDOW = 24, RS_MAX = 3, RS_TIMEOUT_MS = 20000, RS_MAX_BYTES = 256 << 20 };
+typedef enum { RS_IDLE, RS_WAIT, RS_SEND, RS_RECV } rsstate_t;
+static struct {
+    const netresync_t *handlers;
+    rsstate_t state;
+    bool want_snapshot;
+    uint32_t id, done_id; /* Session being repaired; last one this peer completed. */
+    uint8_t *blob;        /* Authority: the save. Receiver: the save so far. */
+    size_t size;
+    int chunks, base, cursor, have_count;
+    uint32_t crc;
+    bool acked[MAXNETNODES];
+    bool *have;
+    uint64_t started, last_request;
+} rs;
+int netresyncs;
+
+void D_SetNetResync(const netresync_t *handlers) { rs.handlers = handlers; }
+
+static uint32_t blob_crc(const uint8_t *data, size_t size) {
+    uint32_t hash = UINT32_C(2166136261);
+    for (size_t i = 0; i < size; ++i) hash = (hash ^ data[i]) * UINT32_C(16777619);
+    return hash;
+}
+
+static int authority_player(void) {
+    for (int p = 0; p < doomcom->numplayers; ++p) if (playeringame[p]) return p;
+    return 0;
+}
+
+static void resync_free(void) {
+    free(rs.blob); free(rs.have);
+    rs.blob = NULL; rs.have = NULL; rs.size = 0;
+}
+
+/* Restart lockstep from tic `base` with every ring empty. */
+static void reset_to_tic(int base, uint32_t epoch) {
+    net_epoch = epoch;
+    gametic = base * ticdup;
+    maketic = base;
+    memset(localcmds, 0, sizeof(localcmds));
+    memset(netcmds, 0, sizeof(netcmds));
+    memset(consistancy, 0, sizeof(consistancy));
+    memset(consvec, 0, sizeof(consvec));
+    memset(resendcount, 0, sizeof(resendcount));
+    memset(remoteresend, 0, sizeof(remoteresend));
+    memset(frameskip, 0, sizeof(frameskip));
+    skiptics = frameon = oldnettics = 0;
+    uint64_t now = SDL_GetTicks64();
+    for (int n = 0; n < MAXNETNODES; ++n) {
+        nettics[n] = resendto[n] = base;
+        lastreceived[n] = now;
+    }
+    consistency_floor = base + BACKUPTICS;
+    gametime = oldentertics = I_GetTime();
+}
+
+static void send_resync(int node, int kind, uint32_t id, int index) {
+    *netbuffer = (doomdata_t){ .player = (uint8_t)(netgame ? consoleplayer : 0), .numtics = 1 };
+    ticcmd_t *c = &netbuffer->cmds[0];
+    c->order = TC_RESYNC;
+    c->position = (fixed3_t){ kind, (int32_t)id, index };
+    if (kind == RS_CHUNK) {
+        c->target = (uint32_t)rs.size;
+        c->product = rs.chunks;
+        c->consistancy = rs.crc;
+        c->subsystems[0] = (uint32_t)rs.base;
+        size_t from = (size_t)index * RS_WORDS * 4;
+        unsigned words = 0;
+        for (; words < RS_WORDS && from + 4 * words < rs.size; ++words) {
+            uint32_t w = 0;
+            for (int b = 0; b < 4; ++b) {
+                size_t at = from + 4 * words + b;
+                w = w << 8 | (at < rs.size ? rs.blob[at] : 0);
+            }
+            c->units[words] = w;
+        }
+        c->count = words;
+    }
+    HSendPacket(node, NCMD_RESYNC);
+}
+
+static void snapshot_failed(const char *why) {
+    snprintf(neterror, sizeof(neterror), "Resync failed: %s", why);
+    resync_free();
+    rs.state = RS_IDLE;
+}
+
+/* A desync was found (or announced by the authority). */
+static bool begin_resync(void) {
+    if (rs.state != RS_IDLE) return true;
+    if (!rs.handlers || netresyncs >= RS_MAX) return false;
+    rs.state = RS_WAIT;
+    rs.want_snapshot = authority_player() == consoleplayer;
+    rs.started = SDL_GetTicks64();
+    rs.last_request = 0;
+    printf("Player %d: game state diverged, resynchronizing from player %d's save.\n",
+           consoleplayer + 1, authority_player() + 1);
+    return true;
+}
+
+static void take_snapshot(void) {
+    rs.want_snapshot = false;
+    resync_free();
+    void *saved = NULL;
+    if (!rs.handlers->save(&saved, &rs.size) || !saved || !rs.size ||
+        rs.size > RS_MAX_BYTES) { free(saved); rs.size = 0; snapshot_failed("cannot save the game"); return; }
+    rs.blob = saved;
+    rs.id = rs.done_id + 1;
+    rs.base = gametic / ticdup;
+    rs.chunks = (int)((rs.size + 4 * RS_WORDS - 1) / (4 * RS_WORDS));
+    rs.crc = blob_crc(rs.blob, rs.size);
+    rs.cursor = 0;
+    memset(rs.acked, 0, sizeof(rs.acked));
+    rs.state = RS_SEND;
+    rs.started = SDL_GetTicks64();
+}
+
+static void finish_send(void) {
+    uint32_t id = rs.id;
+    int base = rs.base;
+    resync_free();
+    rs.state = RS_IDLE;
+    rs.done_id = id;
+    ++netresyncs;
+    reset_to_tic(base, id);
+    printf("Resync %u complete: all players reloaded tic %d.\n", id, base);
+}
+
+static void receive_chunk(const ticcmd_t *c, int node) {
+    uint32_t id = (uint32_t)c->position.y;
+    int index = c->position.z;
+    if (id <= rs.done_id) { /* Already loaded: the authority missed our ACK. */
+        if (id == rs.done_id) send_resync(node, RS_ACK, id, 0);
+        return;
+    }
+    if (!begin_resync() && rs.state == RS_IDLE) return;
+    size_t size = c->target;
+    int chunks = c->product;
+    if (!size || size > RS_MAX_BYTES || chunks != (int)((size + 4 * RS_WORDS - 1) / (4 * RS_WORDS)) ||
+        index < 0 || index >= chunks || c->count > RS_WORDS ||
+        (size_t)index * RS_WORDS * 4 + c->count * 4 < (index == chunks - 1 ? size : 0)) return;
+    if (rs.state != RS_RECV || rs.id != id) {
+        resync_free();
+        rs.blob = calloc(1, size + 4 * RS_WORDS);
+        rs.have = calloc((size_t)chunks, sizeof(bool));
+        if (!rs.blob || !rs.have) { snapshot_failed("out of memory"); return; }
+        rs.state = RS_RECV; rs.id = id; rs.size = size; rs.chunks = chunks;
+        rs.crc = c->consistancy; rs.base = (int)c->subsystems[0]; rs.have_count = 0;
+    }
+    if (size != rs.size || chunks != rs.chunks || rs.have[index]) return;
+    for (unsigned w = 0; w < c->count; ++w)
+        for (int b = 0; b < 4; ++b)
+            rs.blob[(size_t)index * RS_WORDS * 4 + 4 * w + b] = (uint8_t)(c->units[w] >> (24 - 8 * b));
+    rs.have[index] = true;
+    if (++rs.have_count < rs.chunks) return;
+    if (blob_crc(rs.blob, rs.size) != rs.crc) { snapshot_failed("save arrived damaged"); return; }
+    bool ok = rs.handlers->load(rs.blob, rs.size);
+    int base = rs.base;
+    resync_free();
+    if (!ok) { snapshot_failed("this peer could not load the save"); return; }
+    rs.state = RS_IDLE;
+    rs.done_id = id;
+    ++netresyncs;
+    reset_to_tic(base, id);
+    send_resync(node, RS_ACK, id, 0);
+    printf("Resync %u: reloaded tic %d.\n", id, base);
+}
+
+static void resync_packet(int node, int player) {
+    ticcmd_t c = netbuffer->cmds[0];
+    if (netbuffer->numtics != 1 || c.order != TC_RESYNC) return;
+    uint32_t id = (uint32_t)c.position.y;
+    switch (c.position.x) {
+    case RS_REQUEST:
+        /* A peer that is behind the latest epoch noticed a desync first. */
+        if (consoleplayer == authority_player() && id == rs.done_id && begin_resync()) {}
+        break;
+    case RS_CHUNK:
+        if (player == authority_player()) receive_chunk(&c, node);
+        break;
+    case RS_ACK:
+        if (rs.state == RS_SEND && id == rs.id) rs.acked[node] = true;
+        break;
+    }
+}
+
+/* Called from NetUpdate: returns true while the game must stay frozen. */
+static bool resync_update(void) {
+    if (rs.state == RS_IDLE) return false;
+    uint64_t now = SDL_GetTicks64();
+    if (now - rs.started > RS_TIMEOUT_MS) {
+        snapshot_failed("timed out");
+        return true;
+    }
+    if (rs.state == RS_SEND) {
+        bool all = true;
+        for (int node = 1; node < doomcom->numnodes; ++node) {
+            if (!nodeingame[node] || rs.acked[node]) continue;
+            all = false;
+            for (int i = 0; i < RS_WINDOW; ++i)
+                send_resync(node, RS_CHUNK, rs.id, (rs.cursor + i) % rs.chunks);
+        }
+        rs.cursor = (rs.cursor + RS_WINDOW) % rs.chunks;
+        if (all) finish_send();
+    } else if (consoleplayer != authority_player() && now - rs.last_request >= 200) {
+        rs.last_request = now;
+        send_resync(nodeforplayer[authority_player()], RS_REQUEST, rs.done_id, 0);
+    }
+    return rs.state != RS_IDLE;
+}
+
 static void GetPackets(void) {
     for (int packets = 0; packets < 64 && HGetPacket(); ++packets) {
         int node = doomcom->remotenode;
@@ -122,6 +347,8 @@ static void GetPackets(void) {
             continue;
         }
         if (!gotsetup[node] || !nodeingame[node]) continue;
+        if (netbuffer->checksum & NCMD_RESYNC) { resync_packet(node, player); continue; }
+        if (rs.state != RS_IDLE) continue; /* Tic traffic of the timeline being replaced. */
         gotcommands[node] = true;
         if (netbuffer->checksum & NCMD_EXIT) {
             if (I_NetJoining() && player == 0) {
@@ -174,7 +401,14 @@ void D_CheckNetGame(uint32_t signature) {
     memset(nodeingame, 0, sizeof(nodeingame));
     memset(playeringame, 0, sizeof(playeringame));
     memset(consistancy, 0, sizeof(consistancy));
+    memset(consvec, 0, sizeof(consvec));
     memset(frameskip, 0, sizeof(frameskip));
+    consistency_floor = 0;
+    net_epoch = 0;
+    netdesync = (struct netdesync_s){0};
+    netresyncs = 0;
+    resync_free();
+    rs.state = RS_IDLE; rs.done_id = 0; rs.id = 0; rs.want_snapshot = false;
     G_ClearTiccmds();
     startsignature = signature;
     reboundpacket = false;
@@ -227,6 +461,7 @@ void NetUpdate(void) {
         printf("Network game synchronized.\n");
         newtics = 1;
     }
+    if (resync_update()) return;
     if (newtics <= 0 || neterror[0]) return;
     int skip = skiptics < newtics ? skiptics : newtics;
     newtics -= skip; skiptics -= skip;
@@ -235,6 +470,7 @@ void NetUpdate(void) {
         ticcmd_t *cmd = &localcmds[maketic % BACKUPTICS];
         G_BuildTiccmd(cmd);
         cmd->consistancy = consistancy[maketic % BACKUPTICS];
+        memcpy(cmd->subsystems, consvec[maketic % BACKUPTICS], sizeof(cmd->subsystems));
         ++maketic;
     }
     for (int node = 0; node < doomcom->numnodes; ++node) {
@@ -287,19 +523,50 @@ int TryRunTics(void) {
     return counts * ticdup;
 }
 
+static uint32_t fold_consistency(const uint32_t parts[CONSISTENCY_COUNT]) {
+    uint32_t hash = UINT32_C(2166136261);
+    for (int i = 0; i < CONSISTENCY_COUNT; ++i) hash = G_HashValue(hash, parts[i]);
+    return hash;
+}
+
+/* The slot's hash describes the state at tic - BACKUPTICS: that is where the
+ * peers first differed, not the tic that noticed. */
+static void report_desync(int player, int tic, const ticcmd_t *theirs, const uint32_t ours[CONSISTENCY_COUNT]) {
+    netdesync = (struct netdesync_s){ .tic = (tic - BACKUPTICS) * ticdup, .detected = tic * ticdup, .player = player };
+    char list[160] = "";
+    for (int i = 0; i < CONSISTENCY_COUNT; ++i) {
+        if (theirs->subsystems[i] == ours[i]) continue;
+        netdesync.subsystems |= 1u << i;
+        size_t used = strlen(list);
+        snprintf(list + used, sizeof(list) - used, "%s%s %08x != %08x", used ? "; " : "",
+                 g_consistency_names[i], ours[i], theirs->subsystems[i]);
+    }
+    snprintf(neterror, sizeof(neterror), "Desync: player %d's game first differs at tic %d (noticed at tic %d) in %s",
+             player + 1, netdesync.tic, netdesync.detected, list[0] ? list : "no subsystem (corrupt packet?)");
+}
+
 bool D_RunTiccmds(void) {
     if (gametic % ticdup) return true; /* RTS orders, like BT_SPECIAL, fire once. */
+    if (rs.state != RS_IDLE) {
+        if (rs.want_snapshot) take_snapshot();
+        return false;
+    }
     int tic = gametic / ticdup, slot = tic % BACKUPTICS;
     for (int player = 0; player < doomcom->numplayers; ++player) {
         if (!playeringame[player]) continue;
         if (nettics[nodeforplayer[player]] <= tic) return false;
-        if (netgame && tic >= BACKUPTICS && netcmds[player][slot].consistancy != consistancy[slot]) {
-            snprintf(neterror, sizeof(neterror), "Consistency failure at tic %d, player %d: %08x != %08x",
-                     gametic, player + 1, netcmds[player][slot].consistancy, consistancy[slot]);
+        if (netgame && tic >= BACKUPTICS && tic >= consistency_floor &&
+            netcmds[player][slot].consistancy != consistancy[slot]) {
+            report_desync(player, tic, &netcmds[player][slot], consvec[slot]);
+            if (begin_resync()) {
+                neterror[0] = '\0';
+                if (rs.want_snapshot) take_snapshot();
+            }
             return false;
         }
     }
-    consistancy[slot] = G_Consistency();
+    G_ConsistencyVector(consvec[slot]);
+    consistancy[slot] = fold_consistency(consvec[slot]);
     for (int player = 0; player < doomcom->numplayers; ++player)
         if (playeringame[player])
             G_RunTiccmd(netgame ? player : consoleplayer, &netcmds[player][slot]);
@@ -315,6 +582,8 @@ void D_QuitNetGame(void) {
             SDL_Delay(1);
         }
     }
+    resync_free();
+    rs.state = RS_IDLE;
     I_ShutdownNetwork();
     netactive = netgame = netready = false;
     consoleplayer = 0;

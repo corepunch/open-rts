@@ -534,9 +534,7 @@ bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
     if (!app || !sprite || !sprite->shadowmap || !sprite->lumps || !screens[0].pixels ||
         frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
         return false;
-#ifdef RTS_GAME_DARK_COLONY
-    if (gamesettings.detail < 2) return true; /* DC.EXE 0x432ac0 -> 0x45c7e3/0x45cc34. */
-#endif
+    if (gameinfo && gamesettings.detail < gameinfo->shadow_detail_min) return true;
     irect_t source = sprite->cells[frame].rect;
     if (source.w <= 0 || source.h <= 0) return false;
     int height = source.h + source.h * 40 / 256;
@@ -582,9 +580,7 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
         selector != sprite->indexed_blend_selector || !sprite->lumps ||
         frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
         return false;
-#ifdef RTS_GAME_DARK_COLONY
-    if (!gamesettings.detail) return true; /* DC.EXE 0x432ac0 -> 0x45d0c0. */
-#endif
+    if (gameinfo && gamesettings.detail < gameinfo->blend_detail_min) return true;
     irect_t source = sprite->cells[frame].rect;
     if (source.w <= 0 || source.h <= 0) return false;
     uint32_t draw_flags = (flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
@@ -759,7 +755,7 @@ void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cach
 
 static float unit_pick_radius_px(const app_t *app, const mobj_t *unit) {
     float cell = ((float)app_cell_w(app) + (float)app_cell_h(app)) * 0.5f;
-    float radius = P_MobjRadius(unit) * cell;
+    float radius = fixed_to_float(P_MobjRadius(unit)) * cell;
     float min_radius = 12.0f;
     return radius < min_radius ? min_radius : radius;
 }
@@ -1127,7 +1123,7 @@ void R_DrawBuildingPreview(app_t *app, uint16_t type, ivec2_t cell, int team,
     const state_t *state = &gameinfo->states[state_id];
     /* An unlinked presentation value: no thinker, state action or game ID. */
     mobj_t image = {.type_id = type, .info = info, .traits = MF_RENDERABLE, .team = team,
-        .core = {.position = fixed3_from_fvec2(P_BuildingPosition(type, cell), 0),
+        .core = {.position = fixed3_from_fixed2(P_BuildingPosition(type, cell), 0),
                  .angle = ANG270, .state_id = state_id, .sprite_id = state->sprite,
                  .frame = state->frame, .render_intensity = 16}};
     snprintf(image.core.sprite_name, sizeof(image.core.sprite_name), "%s", info->sprite_name);
@@ -1367,23 +1363,22 @@ static void order_selected_at(app_t *app, const level_t *map,
                 const mobj_t *unit = units[i];
                 if (!P_MobjIsSelected(unit) || unit->owner != consoleplayer ||
                     !(unit->traits & MF_HARVESTER) || !P_VentOpenTo(map, vent, unit)) continue;
-                goal = vent->attachment;
+                goal = fvec2_from_fixed2(vent->attachment);
                 attack = false;
                 break;
             }
             if (!attack) break;
         }
     }
-#ifdef RTS_GAME_DARK_COLONY
-    for (int i = 0; i < unit_count; ++i)
-        if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->move_only) {
-            order = TC_MOVE;
-            attack = false;
-            break;
-        }
-#endif
+    if (R_Policy()->stance == STANCE_MOVE_ONLY_STICKY)
+        for (int i = 0; i < unit_count; ++i)
+            if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->move_only) {
+                order = TC_MOVE;
+                attack = false;
+                break;
+            }
     /* An own target goes along too: StarCraft infantry board a Bunker. */
-    G_SelectedTiccmd(attack ? TC_ATTACK : order, units, unit_count, goal,
+    G_SelectedTiccmd(attack ? TC_ATTACK : order, units, unit_count, fixed2_from_fvec2(goal),
                      attack || (target >= 0 && units[target]->owner == consoleplayer) ? units[target]->id : 0);
 }
 
@@ -1402,7 +1397,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
         case SDL_KEYDOWN:
             if (!e->key.repeat && (e->key.keysym.sym == SDLK_RETURN ||
                                   e->key.keysym.sym == SDLK_KP_ENTER))
-                G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fvec2_t){0}, 0);
+                G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fixed2_t){0}, 0);
             if (e->key.keysym.sym == SDLK_ESCAPE) app->running = false;
             if (e->key.keysym.sym == SDLK_g) app->show_grid = !app->show_grid;
             if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;
@@ -1436,7 +1431,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 app->dragging_select = true;
                 app->selection_rect = (irect_t){ app->mouse_down.x, app->mouse_down.y, 0, 0 };
             } else if (e->button.button == SDL_BUTTON_RIGHT) {
-                if (game_info && game_info->right_click_orders) {
+                if (R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS) {
                     ivec2_t mouse;
                     R_WindowToRenderPt(app, e->button.x, e->button.y, &mouse.x, &mouse.y);
                     order_selected_at(app, map, units, unit_count, fallback_sprite, cache,
@@ -1462,7 +1457,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 app->selection_rect = (irect_t){0};
                 int picked = box ? -1 : R_PickUnit(app, map, units, unit_count,
                     fallback_sprite, cache, game_info, bx, by, consoleplayer);
-                if (!box && !additive && picked < 0 && game_info && game_info->select_any) {
+                if (!box && !additive && picked < 0 && R_Policy()->select == SELECT_ANY) {
                     bool own = false;
                     for (int i = 0; i < unit_count; ++i)
                         if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer &&
@@ -1473,7 +1468,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                                             game_info, bx, by, -1);
                 }
                 if (!box && !additive && picked < 0 &&
-                    !(game_info && game_info->right_click_orders)) {
+                    !(R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS)) {
                     for (int i = 0; i < unit_count; ++i) {
                         if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->hp > 0) {
                             order_selected_at(app, map, units, unit_count, fallback_sprite,

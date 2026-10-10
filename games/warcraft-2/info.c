@@ -2231,11 +2231,6 @@ void w2_build_info(void) {
         .selection_marker = { .style = SELECTION_STYLE_DEFAULT },
         .draw_underlays = w2_draw_selection,
         .draw_overlays = w2_draw_buffs,
-        .right_click_orders = true,
-        .radial_sight = true,
-        .select_any = true,
-        .f10_menu = true,
-        .instant_turn = true,
         .sound = &w2_soundinfo,
         .draw_fog = w2_draw_fog,
     };

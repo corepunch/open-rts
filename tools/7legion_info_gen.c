@@ -108,7 +108,8 @@ static bool write_info_c(const char *path, const char *source, const char *extra
         "    sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES,\n"
         "    S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,\n"
         "    { .style = %s },\n    NULL,\n"
-        "    .right_click_orders = false,\n};\n", selection_style);
+        "    .draw_overlays = NULL,\n"
+        "};\n", selection_style);
     return fclose(file) == 0;
 }
 

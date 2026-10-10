@@ -1,12 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
 
-#ifdef RTS_GAME_DARK_COLONY
-#include "dark-colony.h"
-#endif
-#ifdef RTS_GAME_STARCRAFT
-#include "starcraft.h"
-#endif
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -58,8 +52,7 @@ static void model_emit_event(void *user, int type, const mobj_t *subject,
     event->target_owner = target ? target->owner : 0;
     event->product_class = product_class;
     event->product_type = product_type;
-    event->position = subject ? fixed3_xy_to_fvec2(subject->core.position) :
-        (fvec2_t){ 0.0f, 0.0f };
+    event->position = subject ? fixed3_xy(subject->core.position) : (fixed2_t){ 0, 0 };
     model->event_count++;
 }
 
@@ -136,10 +129,7 @@ static bool producer_accepts(const mobj_t *unit, int owner,
         return false;
     if (!G_ModelProducerHasTech(unit, product)) return false;
     const production_t *queue = unit->production;
-    if (queue && queue->queue_count > 0 &&
-#ifdef RTS_GAME_DARK_COLONY
-        product->product_class == RTS_PRODUCT_UNIT &&
-#endif
+    if (queue && queue->queue_count > 0 && G_QueueLocksProduct(product) &&
         (queue->queue_count >= RTS_MAX_PRODUCTION_QUEUE ||
          queue->product_class != product->product_class ||
          queue->product_type != product->product_type)) return false;
@@ -171,18 +161,17 @@ int G_ModelFindProducerIndex(const RtsGameModel *model, int owner,
     return -1;
 }
 
-static bool model_position_available(const mobj_t *spawned, float gx, float gy,
-                                     float radius) {
-    if (radius < 0.32f) radius = 0.32f;
-    if (gx - radius < 0.0f || gy - radius < 0.0f ||
-        gx + radius > (float)level.width || gy + radius > (float)level.height) {
+static bool model_position_available(const mobj_t *spawned, fixed2_t at, fixed_t radius) {
+    if (radius < FIXED_LIT(0.32)) radius = FIXED_LIT(0.32);
+    if (at.x - radius < 0 || at.y - radius < 0 ||
+        at.x + radius > FIXED_FROM_INT(level.width) || at.y + radius > FIXED_FROM_INT(level.height)) {
         return false;
     }
 
-    int min_x = (int)floorf(gx - radius);
-    int max_x = (int)floorf(gx + radius);
-    int min_y = (int)floorf(gy - radius);
-    int max_y = (int)floorf(gy + radius);
+    int min_x = fixed_floor_int(at.x - radius);
+    int max_x = fixed_floor_int(at.x + radius);
+    int min_y = fixed_floor_int(at.y - radius);
+    int max_y = fixed_floor_int(at.y + radius);
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
             if (L_MoveSpeed(&level, P_MobjMoveClass(spawned), x, y) <= 0) return false;
@@ -193,21 +182,18 @@ static bool model_position_available(const mobj_t *spawned, float gx, float gy,
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (mobj_t *)th;
         if (other == spawned || other->remove || other->hp <= 0) continue;
-        float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
-        float min_dist = radius + other_radius;
-        if (fvec2_distance_squared(fixed3_xy_to_fvec2(other->core.position),
-                                   (fvec2_t){ gx, gy }) <
-            min_dist * min_dist) return false;
+        fixed_t other_radius = other->radius > FIXED_LIT(0.05) ? other->radius : FIXED_LIT(0.42);
+        fixed_t min_dist = radius + other_radius;
+        if (fixed2_distance_squared64(fixed3_xy(other->core.position), at) <
+            fixed_sq64(min_dist)) return false;
     }
     return true;
 }
 
 static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *producer,
-                                     float radius, float *out_gx, float *out_gy) {
-    if (!producer || !out_gx || !out_gy) return false;
-    fvec2_t producer_position = fixed3_xy_to_fvec2(producer->core.position);
-    int origin_x = (int)floorf(producer_position.x);
-    int origin_y = (int)floorf(producer_position.y);
+                                     fixed_t radius, fixed2_t *out) {
+    if (!producer || !out) return false;
+    ivec2_t origin = fixed2_cell(fixed3_xy(producer->core.position));
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -215,23 +201,18 @@ static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *produc
     int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
     for (int dist = 1; dist <= 8; ++dist) {
         for (int i = 0; i < preferred_count; ++i) {
-            int x = origin_x + preferred[i][0] * dist;
-            int y = origin_y + preferred[i][1] * dist;
-            float candidate_gx = (float)x + 0.5f;
-            float candidate_gy = (float)y + 0.5f;
-            if (!model_position_available(spawned, candidate_gx, candidate_gy, radius)) continue;
-            *out_gx = candidate_gx;
-            *out_gy = candidate_gy;
+            fixed2_t candidate = fixed2_cell_center((ivec2_t){ origin.x + preferred[i][0] * dist,
+                                                               origin.y + preferred[i][1] * dist });
+            if (!model_position_available(spawned, candidate, radius)) continue;
+            *out = candidate;
             return true;
         }
         for (int dy = -dist; dy <= dist; ++dy) {
             for (int dx = -dist; dx <= dist; ++dx) {
                 if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
-                float candidate_gx = (float)(origin_x + dx) + 0.5f;
-                float candidate_gy = (float)(origin_y + dy) + 0.5f;
-                if (!model_position_available(spawned, candidate_gx, candidate_gy, radius)) continue;
-                *out_gx = candidate_gx;
-                *out_gy = candidate_gy;
+                fixed2_t candidate = fixed2_cell_center((ivec2_t){ origin.x + dx, origin.y + dy });
+                if (!model_position_available(spawned, candidate, radius)) continue;
+                *out = candidate;
                 return true;
             }
         }
@@ -239,27 +220,22 @@ static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *produc
     return false;
 }
 
-static void order_barracks_exit_spacing(mobj_t *spawned,
-                                        const mobj_t *producer, float exit_gx,
-                                        float exit_gy) {
-    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
-                             fixed3_xy_to_fvec2(producer->core.position));
-    float len = sqrtf(fvec2_length_squared(delta));
-    if (len < 0.01f) {
-        delta = (fvec2_t){ 0.0f, -1.0f };
-        len = 1.0f;
+static void order_barracks_exit_spacing(mobj_t *spawned, const mobj_t *producer, fixed2_t exit) {
+    fixed2_t delta = fixed2_sub(exit, fixed3_xy(producer->core.position));
+    fixed_t len = fixed2_length(delta);
+    if (len < FIXED_LIT(0.01)) {
+        delta = (fixed2_t){ 0, -FIXED_ONE };
+        len = FIXED_ONE;
     }
-    fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
-                            fvec2_scale(delta, 1.5f / len));
-    float crowd_radius = 2.75f;
+    fixed2_t goal = fixed2_add(exit, fixed2_scale(delta, fixed_div32(FIXED_LIT(1.5), len)));
+    fixed_t crowd_radius = FIXED_LIT(2.75);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *unit = (mobj_t *)th;
         if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
             !(unit->traits & MF_MOBILE)) continue;
-        if (unit == spawned || fvec2_distance_squared(
-                fixed3_xy_to_fvec2(unit->core.position), (fvec2_t){exit_gx, exit_gy}) <=
-                crowd_radius * crowd_radius)
+        if (unit == spawned || fixed2_distance_squared64(
+                fixed3_xy(unit->core.position), exit) <= fixed_sq64(crowd_radius))
             P_MoveUnitTo(&level, unit, goal);
     }
 }
@@ -280,7 +256,7 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
             if (!P_CanPlaceBuilding(actor_id, site, producer)) return false;
         } else {
             /* Computer production uses the same foundation rules as a click. */
-            ivec2_t origin = fvec2_cell(fixed3_xy_to_fvec2(producer->core.position));
+            ivec2_t origin = fixed2_cell(fixed3_xy(producer->core.position));
             bool found = false;
             int limit = level.width > level.height ? level.width : level.height;
             for (int r = 1; r <= limit && !found; ++r)
@@ -307,32 +283,28 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     if (product->product_class == RTS_PRODUCT_BUILDING) {
         state_id = G_ModelBuildingStateForProduct(gameinfo, product);
         if ((actor_type->traits & MF_MOBILE) == 0)
-            new_unit->radius = 1.2f;
+            new_unit->radius = FIXED_LIT(1.2);
     }
-    float radius = new_unit->radius > 0.05f ? new_unit->radius : 0.42f;
+    fixed_t radius = new_unit->radius > FIXED_LIT(0.05) ? new_unit->radius : FIXED_LIT(0.42);
 
-    float gx = 0.0f;
-    float gy = 0.0f;
+    fixed2_t spot = {0, 0};
     bool use_special_release = false;
     if (building) {
-        fvec2_t at = P_BuildingPosition(actor_id, site);
-        gx = at.x;
-        gy = at.y;
-    } else if (G_ModelSpecialReleaseSpawnPoint(active_model, producer, product, new_unit, &gx, &gy)) {
+        spot = P_BuildingPosition(actor_id, site);
+    } else if (G_ModelSpecialReleaseSpawnPoint(active_model, producer, product, new_unit, &spot)) {
         /* The FIN release has already placed the actor at this authored
          * point. Adjacent foundation cells must not reject the handoff. */
-        if (!L_IsWalkable(&level, (int)floorf(gx), (int)floorf(gy))) {
+        if (!L_IsWalkable(&level, fixed_floor_int(spot.x), fixed_floor_int(spot.y))) {
             P_RemoveMobj(new_unit);
             return false;
         }
         use_special_release = true;
-    } else if (!find_spawn_position_near(new_unit, producer, radius, &gx, &gy)) {
+    } else if (!find_spawn_position_near(new_unit, producer, radius, &spot)) {
         P_RemoveMobj(new_unit);
         return false;
     }
 
-    new_unit->core.position = fixed3_with_xy(new_unit->core.position,
-                                             (fvec2_t){ gx, gy });
+    new_unit->core.position = fixed3_with_xy(new_unit->core.position, spot);
     if (building && actor_type->build_on_type) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             if (th->function != P_MobjThinker) continue;
@@ -355,7 +327,7 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     model_emit_build_completion(active_model, new_unit, producer, product);
     S_Bark(&new_unit, 1, SE_READY, false);
     if (use_special_release)
-        order_barracks_exit_spacing(new_unit, producer, gx, gy);
+        order_barracks_exit_spacing(new_unit, producer, spot);
     return true;
 }
 
@@ -458,7 +430,7 @@ bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, iv
         return false;
     if (product->worker_build) {
         const mobjtype_t *type = P_ActorType(G_ModelActorIdForProduct(product));
-        fvec2_t bay;
+        fixed2_t bay;
         if (!type || !P_ApproachFootprint(producer, cell, type->footprint, &bay) ||
             !P_MoveUnitTo(&level, producer, bay)) return false;
         producer->attack.target = NULL;
@@ -472,17 +444,10 @@ bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, iv
     return true;
 }
 
-bool G_ProductionTicker(float dt) {
-    if (dt <= 0.0f) return false;
-#ifdef RTS_GAME_DARK_COLONY
-    DC_RunPurchases();
-#endif
+bool G_ProductionTicker(int elapsed_ms) {
+    if (elapsed_ms <= 0) return false;
+    G_ProductionBegin(elapsed_ms);
     bool spawned = false;
-    int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
-    if (elapsed_ms <= 0) elapsed_ms = 1;
-#ifdef RTS_GAME_STARCRAFT
-    sc_zerg_ticker(elapsed_ms);
-#endif
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *producer = (mobj_t *)th;
@@ -517,12 +482,12 @@ bool G_ProductionTicker(float dt) {
         const StaticProductDefinition *pending = G_ModelProductByClassType(active_model,
             production->product_class, production->product_type);
         if (production->placed && pending && pending->worker_build) {
-            fvec2_t bay;
+            fixed2_t bay;
             const mobjtype_t *type = P_ActorType(production->actor_id);
             if (!type || P_HasMoveOrder(producer) ||
                 !P_ApproachFootprint(producer, production->cell, type->footprint, &bay)) continue;
             /* A builder that stopped short (its bay was taken) walks on. */
-            if (!fvec2_near(fixed3_xy_to_fvec2(producer->core.position), bay, 0.001f)) {
+            if (!fixed2_near(fixed3_xy(producer->core.position), bay, FIXED_LIT(0.001))) {
                 P_MoveUnitTo(&level, producer, bay);
                 continue;
             }
@@ -637,17 +602,31 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     return true;
 }
 
-bool rts_game_model_tick(RtsGameModel *model, float dt) {
+/* A model in a network game repairs a desync from the authority's save. */
+static app_t model_app;
+static bool model_resync_save(void **data, size_t *length) {
+    return active_model && G_ResyncSave(data, length, &model_app, &active_model->ai, &active_model->hud);
+}
+static bool model_resync_load(const void *data, size_t length) {
+    if (!active_model || !G_ResyncLoad(data, length, &model_app, &active_model->ai, &active_model->hud))
+        return false;
+    refresh_model_objects(active_model);
+    return true;
+}
+static const netresync_t model_resync = { model_resync_save, model_resync_load };
+
+bool rts_game_model_tick(RtsGameModel *model, int dt_ms) {
     if (!model || !model->loaded) return false;
-    if (dt <= 0.0f) return true;
+    if (dt_ms <= 0) return true;
     if (netactive) {
+        D_SetNetResync(&model_resync);
         NetUpdate();
         if (neterror[0]) { model_set_error(model, "%s", neterror); return false; }
         if (!netready || !D_RunTiccmds()) {
             if (neterror[0]) model_set_error(model, "%s", neterror);
             return !neterror[0];
         }
-        dt = FIXED_DT;
+        dt_ms = RTS_TICK_MS;
         refresh_model_objects(model);
     }
     if (paused) return true;
@@ -669,15 +648,15 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     P_Ticker();
     refresh_model_objects(model);
     P_AiTick(&model->ai, &level, model->objects.items, model->objects.count,
-             gameinfo, (int)(dt * 1000.0f));
+             gameinfo, dt_ms);
     G_MissionTicker(&level, model->objects.items, &model->objects.count,
-                    &model->hud, dt);
+                    &model->hud, dt_ms);
     refresh_model_objects(model);
-    G_ProductionTicker(dt);
+    G_ProductionTicker(dt_ms);
 
     refresh_model_objects(model);
-    HU_Ticker(&model->hud, dt);
-    HU_Ticker(&chat_text, dt);
+    HU_Ticker(&model->hud, (float)dt_ms / 1000.0f);
+    HU_Ticker(&chat_text, (float)dt_ms / 1000.0f);
     for (int i = 0; i < old_count; ++i) {
         int now = -1;
         for (int j = 0; j < model->objects.count; ++j)
@@ -753,11 +732,11 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
     }
     case RTS_GAME_COMMAND_DEPLOY_SELECTED:
         return G_SelectedTiccmd(TC_DEPLOY, model->objects.items, model->objects.count,
-                               (fvec2_t){0}, 0);
+                               (fixed2_t){0}, 0);
     case RTS_GAME_COMMAND_PATH_SELECTED:
         return G_PathOrder(model->objects.items, model->objects.count, &command->data.path_selected);
     case RTS_GAME_COMMAND_STOP_SELECTED:
-        return G_SelectedTiccmd(TC_STOP, model->objects.items, model->objects.count, (fvec2_t){0}, 0);
+        return G_SelectedTiccmd(TC_STOP, model->objects.items, model->objects.count, (fixed2_t){0}, 0);
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
         if (netactive)
             return G_SelectedTiccmd(TC_HARVEST, model->objects.items, model->objects.count,
@@ -774,7 +753,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         if (target < 0 || target >= model->objects.count || model->objects.items[target]->hp <= 0 ||
             !P_VisibleToPlayer(model->objects.items[target])) return false;
         return G_SelectedTiccmd(TC_ATTACK, model->objects.items, model->objects.count,
-                               (fvec2_t){0}, model->objects.items[target]->id);
+                               (fixed2_t){0}, model->objects.items[target]->id);
     }
     case RTS_GAME_COMMAND_BUILD_PRODUCT: {
         int producer = command->data.build_product.producer_index;
@@ -833,8 +812,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
     for (int i = 0; i < out->unit_count; ++i) {
         const mobj_t *src = model->objects.items[i];
         RtsRenderUnit *dst = &out->units[i];
-        dst->position = fixed3_xy_to_fvec2(src->core.position);
-        dst->move_goal = src->movement.goal;
+        dst->position = fvec2_from_fixed2(fixed3_xy(src->core.position));
+        dst->move_goal = fvec2_from_fixed2(src->movement.goal);
         dst->type_id = src->type_id;
         dst->owner = src->owner;
         dst->traits = src->traits;

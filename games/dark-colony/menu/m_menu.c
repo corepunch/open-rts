@@ -997,8 +997,8 @@ static void activate(app_t *app, int id) {
                     M_StartMessage(notice);
                     return;
                 }
-            snprintf(dc_savename, sizeof(dc_savename), "%.32s", name);
-            M_PathJoin(dc_savefile, sizeof(dc_savefile), D_UserDirectory(), M_va("%s.sav", dc_savename));
+            snprintf(g_savename, sizeof(g_savename), "%.32s", name);
+            M_PathJoin(g_savefile, sizeof(g_savefile), D_UserDirectory(), M_va("%s.sav", g_savename));
             M_ClearMenus();
         }
     } else if (page == LOAD) {
@@ -1009,7 +1009,7 @@ static void activate(app_t *app, int id) {
             if (!DC_SaveInfo(save->path, &checked)) {
                 notice = "The saved game is damaged or incompatible"; M_StartMessage(notice); return;
             }
-            snprintf(dc_loadfile, sizeof(dc_loadfile), "%s", save->path);
+            snprintf(g_loadfile, sizeof(g_loadfile), "%s", save->path);
             snprintf(mapname, sizeof(mapname), "%s", checked.map);
             if (checked.skirmish) DC_RequestSkirmish(mapname, &checked.setup);
             menumap = mapname;

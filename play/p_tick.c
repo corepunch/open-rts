@@ -1,8 +1,5 @@
 #include "engine.h"
 #include <stdlib.h>
-#ifdef RTS_GAME_DARK_COLONY
-#include "dark-colony.h"
-#endif
 
 level_t level;
 thinker_t thinkercap;
@@ -99,9 +96,7 @@ void P_Ticker(void) {
      * independently of the engine's 30 Hz thinker clock. */
     int64_t before = (int64_t)leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
     int64_t clock = ((int64_t)leveltime + 1) * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
-#ifdef RTS_GAME_DARK_COLONY
-    if (clock != before) DC_TickSupport(clock);
-#endif
+    if (clock != before) G_ClockBegin(clock);
     daylight_t *day = &level.daylight;
     if (clock != before && day->duration > 0) {
         if (++day->tics > day->duration) {
@@ -115,14 +110,6 @@ void P_Ticker(void) {
             day->weight = day->phase ? 256 : 0;
         }
     }
-#ifdef RTS_GAME_DARK_COLONY
-    /* Requested fog refresh: 10 Hz on the unchanged 30 Hz simulation clock. */
-    if ((leveltime + 1) % (RTS_TICRATE / 10) == 0) P_UpdateSight();
-    /* DC.EXE 0x418c52: base income retains its sixteen-native-tic cadence. */
-    if (clock != before && (clock & 15) == 0)
-        DC_TickIncome();
-#else
-    if (clock != before && (clock & 3) == 0) P_UpdateSight();
-#endif
+    G_ClockEnd(before, clock);
     leveltime++;
 }

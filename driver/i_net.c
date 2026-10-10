@@ -17,7 +17,9 @@ static doomcom_t communication;
 doomcom_t *doomcom = &communication;
 
 /* Explicit encoding: no host padding, pointers, enums or floats on the wire. */
-#define WIRECMD (32 + 4 * MAXCOMMANDUNITS + 8 + 8 * MAXWAYPOINTS + 128)
+#define WIRECMD (32 + 4 * CONSISTENCY_COUNT + 4 * MAXCOMMANDUNITS + 8 + 8 * MAXWAYPOINTS + 128)
+/* Fixed part of one encoded command: scalars, then the consistency vector. */
+#define CMD_HEADER (32 + 4 * CONSISTENCY_COUNT)
 #define WIREMAX (8 + BACKUPTICS * WIRECMD)
 static void put32(uint8_t *p, uint32_t v) {
     p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v;
@@ -26,8 +28,10 @@ static uint32_t get32(const uint8_t *p) {
     return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 |
            (uint32_t)p[2] << 8 | p[3];
 }
-static uint32_t checksum(const uint8_t *p, size_t size) {
-    uint32_t sum = 0x1234567;
+uint32_t net_epoch;
+/* Resync packets are the way out of a bad epoch, so they never depend on it. */
+static uint32_t checksum(const uint8_t *p, size_t size, uint32_t flags) {
+    uint32_t sum = 0x1234567 + (flags & NCMD_RESYNC ? 0 : net_epoch * UINT32_C(2654435761));
     for (size_t i = 4; i < size; ++i) sum += p[i] * (uint32_t)(i - 3);
     return sum & NCMD_CHECKSUM;
 }
@@ -45,8 +49,10 @@ static size_t encode(uint8_t *wire) {
         put32(p + 16, (uint32_t)c->position.z);
         put32(p + 20, c->target); put32(p + 24, (uint32_t)c->product);
         put32(p + 28, c->count);
+        for (int j = 0; j < CONSISTENCY_COUNT; ++j) put32(p + 32 + 4 * j, c->subsystems[j]);
+        p += 4 * CONSISTENCY_COUNT;
         for (unsigned j = 0; j < c->count; ++j) put32(p + 32 + 4 * j, c->units[j]);
-        size += 32 + 4 * c->count;
+        size += CMD_HEADER + 4 * c->count;
         if (c->order == TC_PATH) {
             p = wire + size;
             put32(p, c->path.count); put32(p + 4, c->path.mode);
@@ -61,18 +67,18 @@ static size_t encode(uint8_t *wire) {
             size += sizeof(c->text);
         }
     }
-    put32(wire, checksum(wire, size) | (packet->checksum & ~NCMD_CHECKSUM));
+    put32(wire, checksum(wire, size, packet->checksum) | (packet->checksum & ~NCMD_CHECKSUM));
     return size;
 }
 
 static bool decode(const uint8_t *wire, size_t size) {
     if (size < 8 || wire[7] > BACKUPTICS ||
-        (get32(wire) & NCMD_CHECKSUM) != checksum(wire, size)) return false;
+        (get32(wire) & NCMD_CHECKSUM) != checksum(wire, size, get32(wire))) return false;
     doomdata_t packet = { .checksum = get32(wire), .retransmitfrom = wire[4],
         .starttic = wire[5], .player = wire[6], .numtics = wire[7] };
     size_t offset = 8;
     for (int i = 0; i < packet.numtics; ++i) {
-        if (size - offset < 32) return false;
+        if (size - offset < CMD_HEADER) return false;
         const uint8_t *p = wire + offset;
         ticcmd_t *c = &packet.cmds[i];
         if (get32(p + 4) > TC_MAX) return false;
@@ -81,9 +87,11 @@ static bool decode(const uint8_t *wire, size_t size) {
         c->target = get32(p + 20); c->product = (int32_t)get32(p + 24);
         c->count = get32(p + 28);
         if (c->order > TC_MAX || c->count > MAXCOMMANDUNITS ||
-            c->count > (size - offset - 32) / 4) return false;
+            c->count > (size - offset - CMD_HEADER) / 4) return false;
+        for (int j = 0; j < CONSISTENCY_COUNT; ++j) c->subsystems[j] = get32(p + 32 + 4 * j);
+        p += 4 * CONSISTENCY_COUNT;
         for (unsigned j = 0; j < c->count; ++j) c->units[j] = get32(p + 32 + 4 * j);
-        offset += 32 + 4 * c->count;
+        offset += CMD_HEADER + 4 * c->count;
         if (c->order == TC_PATH) {
             if (size - offset < 8) return false;
             p = wire + offset;
@@ -110,7 +118,7 @@ static bool decode(const uint8_t *wire, size_t size) {
 
 /* Session discovery is separate from Doom's tic protocol. The host relays
  * addressed tic packets so joiners only need one reachable UDP endpoint. */
-enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 7,
+enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 8,
        JOIN = 1, WELCOME, REJECT, DATA, DISCOVER, OFFER, LEAVE, LOBBY,
        GAME_LENGTH = 32, MAP_LENGTH = 512,
        SETUP_LENGTH = 64, CHOICE_LENGTH = 8, CHAT_LENGTH = NETCHAT_LENGTH, CHAT_LINES = 32,
