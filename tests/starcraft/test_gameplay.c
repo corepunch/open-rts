@@ -167,10 +167,11 @@ static int animations(void) {
     CHECK(states[mobjinfo[MT_DRONE].deathstate].frame >= 10);
     /* A Terran building explodes and leaves rubble. */
     CHECK(chain(mobjinfo[MT_COMMAND_CENTER].deathstate, &extras, &exact, NULL) > 0 && extras == 2);
-    /* Mining is the AlmostBuilt loop: a tick in pose, then 0x22 and 0x11 round again. */
+    /* Mining is one cutter swing: a tick in pose, then 0x22 and 0x11, back to idle. */
     int mine = actor_types[MT_SCV - 1].harvest.state_id;
     int cut = mine > 0 ? states[mine].nextstate : 0, rest = cut ? states[cut].nextstate : 0;
-    CHECK(mine > 0 && states[cut].frame == 2 && states[rest].frame == 1 && states[rest].nextstate == cut);
+    CHECK(mine > 0 && states[cut].frame == 2 && states[rest].frame == 1 &&
+          states[rest].nextstate == 1 + (MT_SCV - 1) * 2);
     CHECK(actor_types[MT_DRONE - 1].harvest.state_id > 0 && actor_types[MT_PROBE - 1].harvest.state_id > 0);
     return 0;
 }
@@ -179,7 +180,7 @@ static int economy_and_combat(void) {
     mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER), *scv = find(consoleplayer, MT_SCV);
     CHECK(hall && scv && find(1, MT_HATCHERY) && find(1, MT_DRONE));
     CHECK(level.player_resources[consoleplayer][0] == 50);
-    /* Gathering: the nearest mineral field, mined with the AlmostBuilt loop. */
+    /* Gathering: the nearest mineral field, mined with the cutter swing. */
     fixed2_t base = fixed3_xy(hall->core.position);
     int best = -1; int64_t distance = INT64_MAX;
     for (int i = 0; i < level.resource_vent_count; i++) {

@@ -194,6 +194,12 @@ bool P_HarvesterDocked(const mobj_t *unit) {
            unit->harvest.phase == HARVEST_PHASE_UNLOADING;
 }
 
+bool P_HarvesterSharingVent(const mobj_t *unit) {
+    return unit && unit->info && !unit->info->harvest.unload_state_id &&
+           (unit->harvest.phase == HARVEST_PHASE_TURNING ||
+            unit->harvest.phase == HARVEST_PHASE_MINING);
+}
+
 static bool send_harvester_home(level_t *map, mobj_t *unit) {
     if (!map || !unit) return false;
     fixed2_t unit_pos = fixed3_xy(unit->core.position);

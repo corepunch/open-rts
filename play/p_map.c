@@ -242,6 +242,7 @@ uint8_t *P_IdleBlockers(const level_t *map, const mobj_t *exclude, uint32_t orde
         const mobj_t *other = (const mobj_t *)th;
         if (other == exclude || other->remove || other->hp <= 0 ||
             (other->traits & (MF_MOBILE | MF_FLY)) != MF_MOBILE || P_HasMoveOrder(other) ||
+            P_HarvesterSharingVent(other) ||
             (order_id && other->movement.order_id == order_id)) continue;
         ivec2_t cell = fixed2_cell(fixed3_xy(other->core.position));
         if (!L_Contains(map, cell.x, cell.y)) continue;

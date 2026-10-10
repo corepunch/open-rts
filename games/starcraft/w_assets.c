@@ -156,10 +156,11 @@ static const uint8_t oplen[69]={
     1,0,1,1,1,1,0,0,1,1,0,1,1,0,0,0,0,1,0,0,1,2,0,2,1,2,4,6,6,2,0,2,2,1,4,0,0
 };
 enum {
-    SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_WALKING=11,
-    SC_ALMOST_BUILT=15, SC_STAREDIT_INIT=23,
+    SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_GND_ATTACK_RPT=5, SC_WALKING=11,
+    SC_STAREDIT_INIT=23,
 };
-/* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. */
+/* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. A work
+ * swing (6) plays once and returns to idle, like an attack without the blow. */
 enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6 };
 static unsigned animation_start(const blob_t *s,unsigned id,int anim) {
     if(s->size<6) return 0;
@@ -208,7 +209,7 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
         else if(op==0x34) fixed=true;
         else if(op==5||op==6) {
             for(int i=0;i<n;i++) if(visited[i]==here) {
-                if(last>=0) states[last].nextstate=group==SC_GROUP_ATTACK?1+sprite*2:ids[i];
+                if(last>=0) states[last].nextstate=group==SC_GROUP_ATTACK||group==SC_GROUP_WORK?1+sprite*2:ids[i];
                 return last;
             }
             if(n==128||next_state>=SC_STATES) break;
@@ -230,6 +231,7 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
         else if(trail&&(op==15||op==16||op==17||op==19||op==20||op==21||op==66)&&trail->sprite<0)
             trail->sprite=read_u16_le(arg);
         else if(op==0x16) break;
+        else if(op==42&&group==SC_GROUP_WORK) break; /* engframe: the swing is done. */
         else if(op==0x30) break;
     }
     if(last<0) {
@@ -240,7 +242,7 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
     }
     /* Attack scripts without an attack opcode still strike on their first frame. */
     if(group==SC_GROUP_ATTACK&&!struck) states[head].action=A_Attack;
-    if(group==SC_GROUP_ATTACK) states[last].nextstate=1+sprite*2;
+    if(group==SC_GROUP_ATTACK||group==SC_GROUP_WORK) states[last].nextstate=1+sprite*2;
     else if(once) states[last].nextstate=S_NULL;
     else { states[last].nextstate=last; states[last].tics=1; }
     return last;
@@ -397,7 +399,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         animation(&script,attack,i,1+SC_TYPES*2+i,turns,SC_GROUP_ATTACK,sheet,NULL,pose);
     }
     /* Deaths, after every unit has its cache slot: overlays and remnants are
-     * appended past them. Mining loops for the workers. */
+     * appended past them. Mining swings for the workers. */
     effects=(sc_effects_t){.root=root,.script=&script,.images=&images,.sprites=&sprites,.names=&names,
                            .cache=cache,.ni=ni,.ns=ns};
     for(int i=0;i<SC_TYPES;i++) {
@@ -416,7 +418,9 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
                 if(remnant&&tail>=0) effect(&effects,tail,read_u16_le(sprites.bytes+trail.sprite*2),false);
             }
         }
-        unsigned mine=animation_start(&script,scriptid,SC_ALMOST_BUILT);
+        /* A worker mines with its ground attack's repeat: the cutter swings. */
+        unsigned mine=animation_start(&script,scriptid,SC_GND_ATTACK_RPT);
+        if(!mine) mine=animation_start(&script,scriptid,SC_GND_ATTACK);
         if((sc_units[i].flags&8)&&mine&&next_state<SC_STATES) {
             int head=next_state++;
             if(animation(&script,mine,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
@@ -439,6 +443,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         }
     }
     R_FreeSprite(&ramp);
+    sc_load_work_spark(root,&images,&names);
     ok=compose_turrets(root,&units,&images,&names,image_ids,cache) &&
        sc_load_selection(root,&units,&flingy,&sprites,&images,&names) && R_BindSprites(cache,&game_info);
     printf("StarCraft graphics: %d/228 unit entries, %d unique native GRPs, %d death effect sprites, %d visual states.\n",

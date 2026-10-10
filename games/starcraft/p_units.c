@@ -318,12 +318,35 @@ mobj_t *sc_armed_silo(int owner) {
 
 /* ── upkeep and orders ───────────────────────────────────────────────── */
 
+/* ── mining ──────────────────────────────────────────────────────────── */
+
+/* A Terran worker at a mineral field, cutting. Its gas run happens inside
+ * the Refinery and shows nothing. */
+bool sc_mining(const mobj_t *mo) {
+    if (mo->type_id != MT_SCV || mo->hp <= 0 || mo->harvest.resource_type != 0 ||
+        !P_HarvesterSharingVent(mo) || mo->harvest.target < 0 ||
+        mo->harvest.target >= level.resource_vent_count) return false;
+    const resourcevent_t *vent = &level.resource_vents[mo->harvest.target];
+    return vent->active && vent->amount > 0;
+}
+
+/* Each swing faces the field and plays the cutter strike; the miners of one
+ * field are out of step, staggered by their ids. */
+static void mining(mobj_t *mo) {
+    if (!sc_mining(mo) || (leveltime + (int)mo->id) % SC_WORK_PERIOD) return;
+    const resourcevent_t *vent = &level.resource_vents[mo->harvest.target];
+    fixed2_t to = fixed2_sub(vent->attachment, fixed3_xy(mo->core.position));
+    if (fixed2_length_squared64(to) > FIXED_LIT_64(0.0001)) mo->core.angle = P_PointToAngle(to.x, to.y);
+    if (mo->info->harvest.state_id > 0) P_SetMobjState(mo, mo->info->harvest.state_id);
+}
+
 void sc_unit_ticker(mobj_t *mo, int frames) {
     if (mo->sc.flags & SC_LOADED) { loaded(mo); return; }
     if (mo->type_id == MT_INTERCEPTOR && mo->sc.parent) interceptor(mo);
     else if (mo->type_id == MT_SCARAB && mo->sc.parent &&
              (mo->attack.cooldown_left_ms > 0 || !mo->attack.target || mo->attack.target->hp <= 0)) P_RemoveMobj(mo);
     if (mo->remove || mo->hp <= 0) return;
+    mining(mo);
     if (mo->sc.order.kind == SC_ORDER_MERGE) merging(mo, frames);
     else if (mo->sc.order.kind == SC_ORDER_BOARD) {
         mobj_t *bunker = P_MobjById(mo->sc.order.target);
