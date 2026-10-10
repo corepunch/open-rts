@@ -94,11 +94,8 @@ game_info = (gameinfo_t){
     .selection_marker = { .style = SELECTION_STYLE_DEFAULT },
     .draw_underlays = w2_draw_selection,
     .draw_overlays = w2_draw_buffs,
-    .right_click_orders = true,
-    .radial_sight = true,
-    .select_any = true,
-    .f10_menu = true,
-    .instant_turn = true,
+    .policy = { .input = INPUT_RIGHT_CLICK_ORDERS, .sight = SIGHT_RADIAL,
+                .select = SELECT_ANY, .f10 = F10_CONTROL_MENU, .turning = TURN_INSTANT },
     .sound = &w2_soundinfo,
     .draw_fog = w2_draw_fog,
 };
@@ -483,7 +480,7 @@ Dark Reign, Dark Colony, 7th Legion, and KKnD:
 - `G` toggles the grid; `Ctrl+A` selects everything you own
 
 Warcraft II and StarCraft keep selection on the left button and put move,
-attack, and gather on the right button (`gameinfo_t.right_click_orders`).
+attack, and gather on the right button (`gameinfo_t.policy.input`).
 
 Alt-click debug-spawns an enemy from `g_debug_enemy_type`.
 
