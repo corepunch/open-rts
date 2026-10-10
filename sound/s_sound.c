@@ -196,8 +196,8 @@ int S_StartSound(const mobj_t *origin, int sfx) {
     return start(origin, true, fixed3_xy_to_fvec2(origin->core.position), sfx);
 }
 
-int S_StartSoundAt(fvec2_t position, int sfx) {
-    return start(NULL, true, position, sfx);
+int S_StartSoundAt(fixed2_t position, int sfx) {
+    return start(NULL, true, fvec2_from_fixed2(position), sfx);
 }
 
 int S_StartLocalSound(int sfx) {
@@ -254,8 +254,8 @@ void S_StopAllSounds(void) {
     for (int i = 0; i < NUMUISOUNDS; ++i) uihandles[i] = 0;
 }
 
-bool S_PositionVisible(const level_t *map, fvec2_t position) {
-    ivec2_t cell = { (int)floorf(position.x), (int)floorf(position.y) };
+bool S_PositionVisible(const level_t *map, fixed2_t position) {
+    ivec2_t cell = fixed2_cell(position);
     return map && P_SightBrightness(map, cell) == 16;
 }
 
@@ -268,7 +268,7 @@ int S_ActorSound(const mobj_t *actor, soundevent_t event) {
     /* DC.EXE 0x42edb8: world sounds play only from cells the local player
      * currently sees, so the fog cannot be heard through. */
     if (actor->owner != consoleplayer &&
-        !S_PositionVisible(&level, fixed3_xy_to_fvec2(actor->core.position))) return 0;
+        !S_PositionVisible(&level, fixed3_xy(actor->core.position))) return 0;
     return S_StartSound(actor, sfx);
 }
 

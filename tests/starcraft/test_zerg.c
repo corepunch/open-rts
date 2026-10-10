@@ -4,12 +4,12 @@
 #include <stdlib.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft Zerg and Protoss production",#c)
 /* Larvae, eggs, in-place morphs, creep and psi on a bare 64 by 64 map. */
-static mobj_t *spawn(int type, fvec2_t at, int owner) {
-    mobj_t *u = sc_spawn_actor((unsigned)type - 1, (ivec2_t){(int)(at.x * 32), (int)(at.y * 32)}, (uint8_t)owner);
+static mobj_t *spawn(int type, fixed2_t at, int owner) {
+    mobj_t *u = sc_spawn_actor((unsigned)type - 1, (ivec2_t){at.x >> (FIXED_FRAC_BITS - 5), at.y >> (FIXED_FRAC_BITS - 5)}, (uint8_t)owner);
     if (u) u->allegiance = owner == consoleplayer ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
     return u;
 }
-static void tick(int n) { while (n--) { P_Ticker(); G_ProductionTicker(1.0f / RTS_TICRATE); } }
+static void tick(int n) { while (n--) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); } }
 /* Retail frames at 24 per second, in engine tics of a whole 33 ms each. */
 static int frames(int native) { return native * RTS_TICRATE / 24 + native / 40 + 2; }
 static void build(mobj_t *u, int product) {
@@ -43,7 +43,7 @@ static int larvae_and_eggs(mobj_t *hatchery) {
     CHECK(count(0, MT_LARVA) == 3);
     /* The hatchery's card morphs one of its larvae: two zerglings for one price. */
     CHECK(!available(MT_ZERGLING));
-    spawn(MT_SPAWNING_POOL, (fvec2_t){10, 13}, 0);
+    spawn(MT_SPAWNING_POOL, FIXED2_LIT(10, 13), 0);
     CHECK(available(MT_ZERGLING));
     level.player_resources[0][0] = 100;
     build(hatchery, MT_ZERGLING);
@@ -63,7 +63,7 @@ static int larvae_and_eggs(mobj_t *hatchery) {
     CHECK(count(0, MT_ZERGLING) == 2 && count(0, MT_EGG) == 0 && egg->type_id == MT_ZERGLING);
     CHECK(egg->traits & MF_MOBILE);
     /* An egg that dies loses its price. */
-    spawn(MT_OVERLORD, (fvec2_t){20, 20}, 0);
+    spawn(MT_OVERLORD, FIXED2_LIT(20, 20), 0);
     level.player_resources[0][0] = 50;
     build(hatchery, MT_DRONE);
     tick(1);
@@ -91,20 +91,20 @@ static int hatchery_tiers(mobj_t *hatchery) {
     CHECK(hatchery->type_id == MT_LAIR && hatchery->hp == 900 && !hatchery->production);
     CHECK(count(0, MT_LARVA) == 3 && available(MT_SPIRE) && available(MT_EVOLUTION_CHAMBER));
     CHECK(!available(MT_HIVE));
-    spawn(MT_QUEENS_NEST, (fvec2_t){16, 13}, 0);
+    spawn(MT_QUEENS_NEST, FIXED2_LIT(16, 13), 0);
     CHECK(available(MT_HIVE) && available(MT_QUEEN));
     CHECK(G_AiInterface()->purchase(&level, 0, MT_HIVE) && hatchery->production);
     tick(frames(1800));
     CHECK(hatchery->type_id == MT_HIVE && available(MT_ULTRALISK_CAVERN) && available(MT_SPIRE));
     CHECK(G_AiInterface()->owned(0, MT_HATCHERY) == 1);
     /* Spire, Greater Spire, then a mutalisk cocoons into a guardian. */
-    mobj_t *spire = spawn(MT_SPIRE, (fvec2_t){5, 13}, 0);
+    mobj_t *spire = spawn(MT_SPIRE, FIXED2_LIT(5, 13), 0);
     CHECK(available(MT_MUTALISK) && available(MT_SCOURGE) && !available(MT_GUARDIAN));
     build(spire, MT_GREATER_SPIRE);
     tick(frames(1200));
     CHECK(spire->type_id == MT_GREATER_SPIRE && available(MT_MUTALISK) && available(MT_GUARDIAN));
-    spawn(MT_OVERLORD, (fvec2_t){22, 20}, 0);
-    mobj_t *muta = spawn(MT_MUTALISK, (fvec2_t){20, 4}, 0);
+    spawn(MT_OVERLORD, FIXED2_LIT(22, 20), 0);
+    mobj_t *muta = spawn(MT_MUTALISK, FIXED2_LIT(20, 4), 0);
     build(muta, MT_GUARDIAN);
     tick(1);
     CHECK(muta->type_id == MT_COCOON && !(muta->traits & MF_MOBILE));
@@ -115,13 +115,13 @@ static int hatchery_tiers(mobj_t *hatchery) {
 
 static int colonies(void) {
     fund();
-    mobj_t *colony = spawn(MT_CREEP_COLONY, (fvec2_t){5, 4}, 0);
-    mobj_t *other = spawn(MT_CREEP_COLONY, (fvec2_t){3, 8}, 0);
+    mobj_t *colony = spawn(MT_CREEP_COLONY, FIXED2_LIT(5, 4), 0);
+    mobj_t *other = spawn(MT_CREEP_COLONY, FIXED2_LIT(3, 8), 0);
     CHECK(available(MT_SUNKEN_COLONY) && !available(MT_SPORE_COLONY));
     build(colony, MT_SUNKEN_COLONY);
     tick(frames(600));
     CHECK(colony->type_id == MT_SUNKEN_COLONY);
-    spawn(MT_EVOLUTION_CHAMBER, (fvec2_t){22, 13}, 0);
+    spawn(MT_EVOLUTION_CHAMBER, FIXED2_LIT(22, 13), 0);
     build(other, MT_SPORE_COLONY);
     tick(frames(600));
     CHECK(other->type_id == MT_SPORE_COLONY && (other->traits & MF_DETECTOR));
@@ -130,7 +130,7 @@ static int colonies(void) {
     P_AiUnitInfo(NULL, MT_SPORE_COLONY, &spore);
     CHECK((sunken.roles & AI_ROLE_DEFENSE) && (sunken.roles & AI_ROLE_HITS_GROUND));
     CHECK((spore.roles & AI_ROLE_DEFENSE) && (spore.roles & AI_ROLE_HITS_AIR) && !(spore.roles & AI_ROLE_HITS_GROUND));
-    mobj_t *enemy = spawn(MT_ZERGLING, (fvec2_t){5, 9}, 1);
+    mobj_t *enemy = spawn(MT_ZERGLING, FIXED2_LIT(5, 9), 1);
     int hp = enemy->hp;
     tick(RTS_TICRATE * 2);
     CHECK(enemy->hp < hp || !find(1, MT_ZERGLING));
@@ -138,8 +138,8 @@ static int colonies(void) {
 }
 
 static int creep_and_psi(void) {
-    mobj_t *drone = spawn(MT_DRONE, (fvec2_t){30, 30}, 0), *probe = spawn(MT_PROBE, (fvec2_t){50, 50}, 0);
-    mobj_t *enemy = spawn(MT_PROBE, (fvec2_t){52, 52}, 1);
+    mobj_t *drone = spawn(MT_DRONE, FIXED2_LIT(30, 30), 0), *probe = spawn(MT_PROBE, FIXED2_LIT(50, 50), 0);
+    mobj_t *enemy = spawn(MT_PROBE, FIXED2_LIT(52, 52), 1);
     /* Creep: around the hatchery at (10, 8), not out at (40, 20). */
     CHECK(P_CanPlaceBuilding(MT_HYDRALISK_DEN, (ivec2_t){14, 2}, drone));
     CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN, (ivec2_t){40, 20}, drone));
@@ -149,20 +149,20 @@ static int creep_and_psi(void) {
     CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){44, 44}, probe));
     CHECK(P_CanPlaceBuilding(MT_NEXUS, (ivec2_t){50, 40}, probe));
     CHECK(P_CanPlaceBuilding(MT_PYLON, (ivec2_t){44, 44}, probe));
-    mobj_t *pylon = spawn(MT_PYLON, (fvec2_t){46, 46}, 0);
+    mobj_t *pylon = spawn(MT_PYLON, FIXED2_LIT(46, 46), 0);
     CHECK(P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){48, 44}, probe));
     CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){48, 44}, enemy));
     CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){54, 44}, probe));
     CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){48, 50}, probe));
     /* A gateway that loses its pylon holds what it trained. */
-    mobj_t *gateway = spawn(MT_GATEWAY, (fvec2_t){50, 45.5f}, 0);
+    mobj_t *gateway = spawn(MT_GATEWAY, FIXED2_LIT(50, 45.5), 0);
     fund();
     CHECK(G_QueueProduct(gateway, G_ModelProductByUIId(NULL, MT_ZEALOT)));
     P_DamageMobj(pylon, NULL, 10000);
     tick(frames(600));
     CHECK(count(0, MT_ZEALOT) == 0 && gateway->production);
     CHECK(!G_FindProducer(0, G_ModelProductByUIId(NULL, MT_ZEALOT)));
-    spawn(MT_PYLON, (fvec2_t){46, 46}, 0);
+    spawn(MT_PYLON, FIXED2_LIT(46, 46), 0);
     tick(2);
     CHECK(count(0, MT_ZEALOT) == 1);
     return 0;
@@ -175,7 +175,7 @@ int main(void) {
     level.width = level.height = 64;
     level.blocked = calloc(64 * 64, 1);
     level.cell_solid = calloc(64 * 64, 1);
-    mobj_t *hatchery = spawn(MT_HATCHERY, (fvec2_t){10, 8}, 0);
+    mobj_t *hatchery = spawn(MT_HATCHERY, FIXED2_LIT(10, 8), 0);
     CHECK(hatchery);
     CHECK(larvae_and_eggs(hatchery) == 0);
     CHECK(hatchery_tiers(hatchery) == 0);

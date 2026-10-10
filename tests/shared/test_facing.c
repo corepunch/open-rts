@@ -3,6 +3,18 @@
 #include <math.h>
 #define CHECK(c) RTS_CHECK(c, "engine facing", #c)
 
+/* The engine's angle API is integer-only; these adapters let the test drive it
+ * with the floating-point vectors that atan2 produces. */
+static angle_t angle_from_screen_vector(float dx, float dy) {
+    return angle_from_screen_vector_fixed(fixed_from_float(dx), fixed_from_float(dy));
+}
+static void angle_to_screen_vector(angle_t angle, float *dx, float *dy) {
+    fixed_t fx, fy;
+    angle_to_screen_vector_fixed(angle, &fx, &fy);
+    *dx = fixed_to_float(fx);
+    *dy = fixed_to_float(fy);
+}
+
 /* Reference BAM angle for a screen vector: east=0, increasing CCW. */
 static angle_t reference_angle(double dx, double dy) {
     double turns = atan2(-dy, dx) / (2.0 * M_PI);

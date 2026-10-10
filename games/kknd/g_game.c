@@ -6,7 +6,7 @@
 
 /* UNITS.CFG: speed (px/s) and range (px) over 32-pixel cells, reloads in
    1/60 s, tspeed in quarter turns per second, damage by victim class. */
-#define KK_CELLS(px) ((px) / 32.0f)
+#define KK_CELLS(px) ((fixed_t)((px) * (FIXED_ONE / 32)))
 #define KK_MS(sixtieths) ((sixtieths) * 1000 / 60)
 #define KK_TURN(tspeed) (ANG90 / RTS_TICRATE * (tspeed))
 #define KK_ATTACK(px, reload, i, v, b) \
@@ -208,7 +208,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
       .speed = KK_CELLS(120), .turn_step = KK_TURN(1), .max_hp = 1500,
       .armor_class = KK_ARMOR_VEHICLE,
       /* UNITS.CFG has no bomber range or reload; these remain engine values. */
-      .attack = { .range = 3.0f, .damage = 2000, .versus = { 2000, 2900, 1500 },
+      .attack = { .range = FIXED_FROM_INT(3), .damage = 2000, .versus = { 2000, 2900, 1500 },
                   .cooldown_ms = 3000 },
     },
     /* === Mutant Infantry === */
@@ -403,7 +403,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
       .speed = KK_CELLS(120), .turn_step = KK_TURN(1), .max_hp = 1500,
       .armor_class = KK_ARMOR_VEHICLE,
       /* UNITS.CFG has no wasp range or reload; these remain engine values. */
-      .attack = { .range = 3.0f, .damage = 2000, .versus = { 2000, 2900, 1500 },
+      .attack = { .range = FIXED_FROM_INT(3), .damage = 2000, .versus = { 2000, 2900, 1500 },
                   .cooldown_ms = 3000 },
     },
 };
@@ -481,7 +481,7 @@ int P_LoadThings(const char *path) {
     if (native_count <= 0) return 0;
 
     uint16_t player_team = kknd_player_native_team(path);
-    fvec2_t player_position_sum = { 0.0f, 0.0f };
+    int64_t player_sum_x = 0, player_sum_y = 0;
     int player_count = 0;
     int count = 0;
     for (int i = 0; i < native_count; ++i) {
@@ -490,12 +490,13 @@ int P_LoadThings(const char *path) {
         mobj_t *unit = P_SpawnMobj(fixed3_zero(), type);
         if (!unit) continue;
         bool player = native[i].native_team == player_team;
-        unit->core.position = fixed3_from_fvec2(native[i].position, 0);
+        unit->core.position = fixed3_from_fixed2(native[i].position, 0);
         unit->owner = player ? 0 : 1;
         unit->team = unit->owner;
         unit->allegiance = player ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
         if (player) {
-            player_position_sum = fvec2_add(player_position_sum, native[i].position);
+            player_sum_x += native[i].position.x;
+            player_sum_y += native[i].position.y;
             player_count++;
         }
         count++;
@@ -503,7 +504,8 @@ int P_LoadThings(const char *path) {
 
     if (player_count > 0) {
         level.has_camera = true;
-        level.camera = fvec2_scale(player_position_sum, 1.0f / (float)player_count);
+        level.camera = fvec2_from_fixed2((fixed2_t){ (fixed_t)(player_sum_x / player_count),
+                                                       (fixed_t)(player_sum_y / player_count) });
     }
     level.player_resources[0][0] = 5000;
     level.player_resources[1][0] = 5000;
@@ -516,9 +518,9 @@ bool HU_LoadFont(const char *root, bitmapfont_t *font) {
 }
 
 void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
-                      hudtext_t *hud, float dt) {
+                      hudtext_t *hud, int dt_ms) {
     (void)map; (void)mobjs; (void)count;
-    (void)hud; (void)dt;
+    (void)hud; (void)dt_ms;
 }
 
 /* The selected building's research: its level, and the lab working on it. */
@@ -554,9 +556,9 @@ void G_ShutdownHUD(void) {
     hudview = (hudview_t){0};
 }
 
-bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
     (void)map; (void)units; (void)unit_count;
-    return G_ProductionTicker(dt);
+    return G_ProductionTicker(dt_ms);
 }
 
 irect_t G_WorldViewport(const app_t *app) {

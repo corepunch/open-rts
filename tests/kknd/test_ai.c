@@ -25,8 +25,8 @@ static const doctrine_role_t roles[] = {
     { MT_SURV_DRILLRIG, 0, AI_ROLE_FIGHTER | AI_ROLE_DEFENSE | AI_ROLE_WORKER },
 };
 
-static mobj_t *spawn_owner(uint16_t type, int owner, fvec2_t at) {
-    mobj_t *u = P_SpawnMobj(fixed3_from_fvec2(at, 0), type);
+static mobj_t *spawn_owner(uint16_t type, int owner, fixed2_t at) {
+    mobj_t *u = P_SpawnMobj(fixed3_from_fixed2(at, 0), type);
     if (u) { u->owner = u->team = owner; u->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER; }
     return u;
 }
@@ -46,7 +46,7 @@ static void run(AiContext *ai, int ticks) {
         mobjlist_t list = P_ListMobjs();
         P_AiTick(ai, &level, list.items, list.count, gameinfo, 1000);
         P_FreeMobjList(&list);
-        G_ProductionTicker(1.0f);
+        G_ProductionTicker(1000);
     }
 }
 
@@ -62,9 +62,9 @@ int main(void) {
     CHECK(level.blocked && G_AiInterface());
     /* A human Survivor, a Survivor computer player and a Mutant computer player,
      * each with only the mobile outpost that unpacks the base. */
-    CHECK(spawn_owner(MT_SURV_MOBILE_OUTPOST, 0, (fvec2_t){10, 10}));
-    CHECK(spawn_owner(MT_SURV_MOBILE_OUTPOST, 1, (fvec2_t){40, 10}));
-    CHECK(spawn_owner(MT_MUTE_CLANHALL_WAGON, 2, (fvec2_t){70, 10}));
+    CHECK(spawn_owner(MT_SURV_MOBILE_OUTPOST, 0, FIXED2_LIT(10, 10)));
+    CHECK(spawn_owner(MT_SURV_MOBILE_OUTPOST, 1, FIXED2_LIT(40, 10)));
+    CHECK(spawn_owner(MT_MUTE_CLANHALL_WAGON, 2, FIXED2_LIT(70, 10)));
     for (int owner = 0; owner < 3; ++owner) level.player_resources[owner][0] = 60000;
     AiContext ai;
     P_AiInit(&ai);

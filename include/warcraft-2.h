@@ -4,7 +4,7 @@
 #define TILE_W 32
 #define TILE_H 32
 
-bool W2_HarvestOrder(mobj_t *unit, fvec2_t goal);
+bool W2_HarvestOrder(mobj_t *unit, fixed2_t goal);
 bool W2_ReturnGoods(mobj_t *unit);
 bool W2_TickHarvest(mobj_t *unit);
 void W2_WorkerPose(mobj_t *unit);
@@ -29,7 +29,7 @@ int W2_UpgradeLevel(int owner, const w2_upgrade_t *upgrade);
 void W2_ApplyUpgrade(int owner, int id);
 bool W2_HasResearch(int owner, int id);
 void W2_UpgradeUnit(mobj_t *unit);
-float W2_AttackRange(const mobj_t *unit);
+fixed_t W2_AttackRange(const mobj_t *unit);
 int W2_SightRange(const mobj_t *unit);
 typedef enum { W2_SPELL_NONE, W2_SPELL_VISION, W2_SPELL_HEAL, W2_SPELL_EXORCISM,
     W2_SPELL_EYE, W2_SPELL_BLOODLUST, W2_SPELL_RUNES, W2_SPELL_FIREBALL,
@@ -67,6 +67,7 @@ bool W2_UnderConstruction(const mobj_t *unit);
 int W2_BuildProgress(const mobj_t *site);   /* Percent complete. */
 bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out);
 bool W2_CountsAs(uint16_t type, uint16_t wanted); /* A keep is a town hall or better. */
+bool W2_OwnerHas(int owner, uint16_t type);        /* A finished structure that counts as type. */
 bool W2_RepairOrder(mobj_t *worker, mobj_t *target);
 bool W2_TickRepair(mobj_t *worker);
 void W2_InterruptRepair(mobj_t *worker);
@@ -90,7 +91,7 @@ void A_W2_Collapse(mobj_t *unit);
 void W2_Burning(mobj_t *unit);
 void W2_RestoreOilPatch(mobj_t *site);
 bool W2_BoardOrder(mobj_t *unit, mobj_t *ship);
-bool W2_UnloadOrder(mobj_t *ship, fvec2_t goal);
+bool W2_UnloadOrder(mobj_t *ship, fixed2_t goal);
 bool W2_TickTransport(mobj_t *unit);
 
 #endif

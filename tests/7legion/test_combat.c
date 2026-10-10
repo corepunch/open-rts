@@ -9,15 +9,15 @@ int main(void) {
         P_InitThinkers();
         level.width = level.height = 64;
         level.blocked = calloc(64 * 64, 1);
-        mobj_t *attacker = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){16, 16}, 0), type->id);
-        mobj_t *target = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){48, 48}, 0), MT_MOBILE_BASE);
+        mobj_t *attacker = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(16, 16), 0), type->id);
+        mobj_t *target = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(48, 48), 0), MT_MOBILE_BASE);
         RTS_CHECK(attacker && target, "7legion combat", "spawn combat pair");
         target->owner = target->team = 1;
         target->allegiance = ALLEGIANCE_ENEMY;
         int hp = target->hp;
         for (int t = 0; t < 60; ++t) P_Ticker();
         RTS_CHECK(target->hp == hp, "7legion combat", "out-of-range units cannot fire");
-        target->core.position = fixed3_from_fvec2((fvec2_t){18, 16}, 0);
+        target->core.position = fixed3_from_fixed2(FIXED2_LIT(18, 16), 0);
         for (int t = 0; t < 3; ++t) P_Ticker();
         RTS_CHECK(target->hp == hp - type->attack.damage, "7legion combat", "state action fires without direct P_Attack");
         hp = target->hp;

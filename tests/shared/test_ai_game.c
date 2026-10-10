@@ -23,7 +23,7 @@ int main(void) {
      * crowded map (ALAMO seats six) starves some of its players. */
     int human_owner = consoleplayer;
     int human_credits = level.player_resources[human_owner][0];
-    for (int t = 0; t < 30 * 60 * 10; ++t) CHECK(rts_game_model_tick(model, RTS_FIXED_DT));
+    for (int t = 0; t < 30 * 60 * 10; ++t) CHECK(rts_game_model_tick(model, RTS_TICK_MS));
     const AiStats *human = P_AiStats(ai, human_owner), *enemy = NULL;
     int enemy_owner = -1;
     for (int owner = 0; owner < AI_MAX_TEAMS; ++owner) {
@@ -41,7 +41,7 @@ int main(void) {
     } else {
         CHECK(enemy->purchases >= 10);
         /* Every game runs its computer player by doctrine after the opening. */
-        CHECK(ai->game->product_actor && ai->teams[enemy_owner].plan.doctrine.roster_count > 0);
+        CHECK(ai->teams[enemy_owner].plan.doctrine.roster_count > 0);
         CHECK(enemy->waves >= 1 && enemy->wave_units >= enemy->waves);
     }
     if (!strcmp(g_game_id, "dark-reign")) CHECK(enemy->harvest_orders >= 1);

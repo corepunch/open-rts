@@ -61,7 +61,7 @@ static int test_select_and_move(void) {
     fvec2_t target = { snap.units[player].position.x + 3.0f,
                        snap.units[player].position.y };
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { .target = target } };
+        .data.move_selected = { .target = fixed2_from_fvec2(target) } };
     if (!rts_game_model_command(model, &move)) return fail("move");
     for (int t = 0; t < 60; ++t)
         if (!rts_tick(model, &snap)) return fail("tick movement");
@@ -151,7 +151,7 @@ static int test_combat(void) {
     };
     if (!rts_game_model_load(model, &config)) return fail("load for combat");
     /* 2NIC starts with unarmed rigs. Combat needs an actual armed unit. */
-    mobj_t *raider = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10, 10}, 0), MT_FG_RAIDER);
+    mobj_t *raider = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(10, 10), 0), MT_FG_RAIDER);
     if (!raider) return fail("spawn combat Raider");
     raider->owner = raider->team = 0;
     raider->allegiance = ALLEGIANCE_PLAYER;
@@ -190,7 +190,7 @@ static int test_combat(void) {
     RtsGameCommand selall = { .kind = RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS };
     rts_game_model_command(model, &selall);
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { .target = enemy_pos } };
+        .data.move_selected = { .target = fixed2_from_fvec2(enemy_pos) } };
     rts_game_model_command(model, &move);
 
     /* Tick up to 5 min; any enemy HP drop or death counts as combat. */
@@ -224,13 +224,13 @@ static mobj_t *player_harvester(void) {
     return NULL;
 }
 
-static int nearest_vent_index(fvec2_t position) {
+static int nearest_vent_index(fixed2_t position) {
     int best = -1;
-    float best_dist2 = 1e30f;
+    int64_t best_dist2 = INT64_MAX;
     for (int i = 0; i < level.resource_vent_count; ++i) {
         const resourcevent_t *vent = &level.resource_vents[i];
         if (!vent->active || vent->amount <= 0) continue;
-        float dist2 = fvec2_distance_squared(vent->attachment, position);
+        int64_t dist2 = fixed2_distance_squared64(vent->attachment, position);
         if (dist2 < best_dist2) {
             best_dist2 = dist2;
             best = i;
@@ -253,7 +253,7 @@ static int test_harvesting(void) {
 
     mobj_t *harvester = player_harvester();
     if (!harvester) return fail("find starting Freighter");
-    int vent_index = nearest_vent_index(fixed3_xy_to_fvec2(harvester->core.position));
+    int vent_index = nearest_vent_index(fixed3_xy(harvester->core.position));
     if (vent_index < 0) return fail("find nearest extractor");
     const resourcevent_t *vent = &level.resource_vents[vent_index];
     if (vent->footprint.w != 3 || vent->footprint.h != 3)
@@ -265,7 +265,7 @@ static int test_harvesting(void) {
         .data.select_unit_index = { harvester_index, false } };
     if (!rts_game_model_command(model, &sel)) return fail("select Freighter");
     /* Click the north-west cell of the 3x3 pit, not the attachment centre. */
-    fvec2_t pit_corner = { (float)vent->cell.x + 0.25f, (float)vent->cell.y + 0.25f };
+    fixed2_t pit_corner = { FIXED_FROM_INT(vent->cell.x) + FIXED_LIT(0.25), FIXED_FROM_INT(vent->cell.y) + FIXED_LIT(0.25) };
     RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
         .data.harvest_selected = { .target = pit_corner } };
     if (!rts_game_model_command(model, &harvest)) return fail("order Freighter onto extractor");

@@ -22,7 +22,7 @@ static void draw(app_t *app, SDL_Surface *surface, const tileset_t *tiles,
 
 static void check_harvester_attachment(uint16_t type, int harvest_state, int work_state,
                                        resourcevent_t *resource, mobj_t *vent) {
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), type);
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(resource->attachment, 0), type);
     assert(unit && (unit->traits & MF_HARVESTER));
     assert(P_HarvestUnitTo(&level, unit, resource->attachment));
     for (int tic = 0; tic < 120 && unit->harvest.phase != HARVEST_PHASE_MINING; ++tic)
@@ -67,9 +67,9 @@ int main(void) {
         if (actor->type_id != MT_VENT) continue;
         count++;
         const resourcevent_t *resource = &level.resource_vents[actor->resource_vent_index];
-        assert(fvec2_near(resource->attachment, fvec2_cell_center(resource->cell), 0.001f));
-        assert(fvec2_near(fixed3_xy_to_fvec2(actor->core.position),
-                          resource->attachment, 0.001f));
+        assert(fixed2_near(resource->attachment, fixed2_cell_center(resource->cell), FIXED_LIT(0.001)));
+        assert(fixed2_near(fixed3_xy(actor->core.position),
+                          resource->attachment, FIXED_LIT(0.001)));
         assert(active(actor) == resource->active);
         assert(P_MobjIsHidden(actor) == !resource->active);
         assert(actor->thinker.function == P_MobjThinker);
@@ -82,7 +82,7 @@ int main(void) {
     }
     assert(count == level.resource_vent_count && vent && dormant && beacon);
     assert(beacon->thinker.function == P_MobjThinker && !P_MobjIsHidden(beacon));
-    assert(fvec2_near(fixed3_xy_to_fvec2(beacon->core.position), (fvec2_t){64.5f, 52.5f}, 0.001f));
+    assert(fixed2_near(fixed3_xy(beacon->core.position), FIXED2_LIT(64.5, 52.5), FIXED_LIT(0.001)));
     assert(beacon->hp == 800 && beacon->native_type_id == 84);
     resourcevent_t *resource = &level.resource_vents[vent->resource_vent_index];
 
@@ -142,7 +142,7 @@ int main(void) {
     assert(vent->core.state_id == S_VENT_ACTIVE1);
     DC_FreeFIN(&fin);
 
-    mobj_t *exploiter = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), MT_EXPLOITER);
+    mobj_t *exploiter = P_SpawnMobj(fixed3_from_fixed2(resource->attachment, 0), MT_EXPLOITER);
     assert(exploiter);
     exploiter->harvest.target = vent->resource_vent_index;
     exploiter->harvest.phase = HARVEST_PHASE_MINING;
@@ -165,7 +165,7 @@ int main(void) {
     check_harvester_attachment(MT_EXPLOITER, S_EXPL_DEPLOY1, S_EXPL_WORK1, resource, vent);
     check_harvester_attachment(MT_SLUG, S_SLUG_DEPLOY1, S_SLUG_WORK1, resource, vent);
 
-    exploiter = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), MT_EXPLOITER);
+    exploiter = P_SpawnMobj(fixed3_from_fixed2(resource->attachment, 0), MT_EXPLOITER);
     assert(exploiter);
     exploiter->harvest.target = vent->resource_vent_index;
     exploiter->harvest.phase = HARVEST_PHASE_MINING;

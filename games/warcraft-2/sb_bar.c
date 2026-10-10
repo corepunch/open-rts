@@ -478,7 +478,7 @@ static void order_at(const menu_t *menu, int kind) {
     if (kind == CK_REPAIR || kind == CK_BOARD) {
         int hit = R_PickUnit(menu->app, &level, hudview.units, hudview.unit_count, NULL,
                              hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
-        if (hit >= 0) G_SelectedTiccmd(kind == CK_REPAIR ? TC_REPAIR : TC_BOARD, hudview.units, hudview.unit_count, goal,
+        if (hit >= 0) G_SelectedTiccmd(kind == CK_REPAIR ? TC_REPAIR : TC_BOARD, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal),
                                       hudview.units[hit]->id);
         return;
     }
@@ -496,15 +496,15 @@ static void order_at(const menu_t *menu, int kind) {
         int hit = R_PickUnit(menu->app, &level, hudview.units, hudview.unit_count, NULL,
                              hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
         if (hit >= 0 && hudview.units[hit]->owner != consoleplayer && hudview.units[hit]->hp > 0) {
-            G_SelectedTiccmd(TC_ATTACK, hudview.units, hudview.unit_count, goal,
+            G_SelectedTiccmd(TC_ATTACK, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal),
                              hudview.units[hit]->id);
             return;
         }
-        G_SelectedTiccmd(TC_MOVE, hudview.units, hudview.unit_count, goal, 0);
+        G_SelectedTiccmd(TC_MOVE, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal), 0);
         return;
     }
     G_SelectedTiccmd(kind == CK_HARVEST ? TC_HARVEST : kind == CK_UNLOAD ? TC_UNLOAD : TC_MOVE,
-                     hudview.units, hudview.unit_count, goal, 0);
+                     hudview.units, hudview.unit_count, fixed2_from_fvec2(goal), 0);
 }
 
 static mobj_t *selected_builder(void) {
@@ -596,7 +596,7 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
             int hit = R_PickUnit(menu->app, &level, hudview.units, hudview.unit_count, NULL,
                                  hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
             ticcmd_t order = {.order = TC_SPELL, .product = cmd->arg,
-                .position = fixed3_from_fvec2(cursor_goal(menu), 0),
+                .position = fixed3_from_fixed2(fixed2_from_fvec2(cursor_goal(menu)), 0),
                 .target = hit >= 0 ? hudview.units[hit]->id : 0};
             for (int i = 0; i < hudview.unit_count && order.count < MAXCOMMANDUNITS; ++i) {
                 mobj_t *unit = hudview.units[i];
@@ -614,17 +614,17 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action != MA_ACTIVATE || !cmd->kind) return;
     switch (cmd->kind) {
     case CK_CANCEL_PRODUCTION:
-        G_SelectedTiccmd(TC_CANCEL_PRODUCTION, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        G_SelectedTiccmd(TC_CANCEL_PRODUCTION, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     case CK_MOVE: case CK_ATTACK: case CK_HARVEST: case CK_PLACE: case CK_REPAIR: case CK_PATROL: case CK_SPELL:
     case CK_BOARD: case CK_UNLOAD:
         M_MenuTarget(menu, item);
         break;
     case CK_STOP:
-        G_SelectedTiccmd(TC_STOP, hudview.units, hudview.unit_count, (fvec2_t){ 0 }, 0);
+        G_SelectedTiccmd(TC_STOP, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     case CK_RETURN: {
-        G_SelectedTiccmd(TC_RETURN_GOODS, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        G_SelectedTiccmd(TC_RETURN_GOODS, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     }
     case CK_PAGE:
@@ -648,7 +648,7 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     }
     case CK_STAND:
-        G_SelectedTiccmd(TC_STAND_GROUND, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
+        G_SelectedTiccmd(TC_STAND_GROUND, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     default: break;
     }
@@ -787,7 +787,7 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
             else snprintf(hp, sizeof(hp), "%d-%d", type->w2.damage_min, type->damage);
             draw_stat((ivec2_t){rect.x + 100, rect.y + 86}, "Damage", hp);
         }
-        snprintf(hp, sizeof(hp), "%d", (int)W2_AttackRange(portrait));
+        snprintf(hp, sizeof(hp), "%d", fixed_floor_int(W2_AttackRange(portrait)));
         draw_stat((ivec2_t){rect.x + 100, rect.y + 102}, "Range", hp);
         snprintf(hp, sizeof(hp), "%d", W2_SightRange(portrait));
         draw_stat((ivec2_t){rect.x + 100, rect.y + 118}, "Sight", hp);

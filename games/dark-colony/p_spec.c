@@ -16,11 +16,11 @@ Mission *load_mission(const char *map_path) {
 }
 
 void update_mission(level_t *map, mobj_t *const *units, int *unit_count,
-                    hudtext_t *hud, float dt) {
+                    hudtext_t *hud, int dt_ms) {
     Mission *mission = map ? map->mission : NULL;
     if (!mission || !unit_count ||
         mission_get_state(mission) != MISSION_ACTIVE) return;
-    DC_UpdateScript(mission->script, map, units, unit_count, hud, dt);
+    DC_UpdateScript(mission->script, map, units, unit_count, hud, dt_ms);
     DC_UpdateAI(map, units, *unit_count);
 }
 

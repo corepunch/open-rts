@@ -33,8 +33,8 @@ static void fixture(void) {
 static mobj_t *spawn(int type, int x, int y, int owner) {
     isize2_t foot = mobjinfo[type].w2.footprint;
     bool structure = (mobjinfo[type].w2.flags & W2_STRUCTURE) != 0;
-    fvec2_t at = structure ? (fvec2_t){x + foot.w * 0.5f, y + foot.h * 0.5f} : (fvec2_t){x + 0.5f, y + 0.5f};
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), (uint16_t)type);
+    fixed2_t at = structure ? (fixed2_t){FIXED_FROM_INT(x) + foot.w * (FIXED_ONE / 2), FIXED_FROM_INT(y) + foot.h * (FIXED_ONE / 2)} : fixed2_cell_center((ivec2_t){x, y});
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), (uint16_t)type);
     assert(unit);
     unit->owner = (uint8_t)owner;
     unit->team = (uint8_t)(owner < 8 ? owner : 8);
@@ -46,7 +46,7 @@ static mobj_t *spawn(int type, int x, int y, int owner) {
 static mobj_t *mine(int x, int y) {
     mobj_t *deposit = spawn(MT_GOLD_MINE, x, y, 15);
     level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
-        .cell = {x, y}, .attachment = {x + 1.5f, y + 1.5f}, .footprint = {3, 3},
+        .cell = {x, y}, .attachment = {FIXED_FROM_INT(x) + FIXED_LIT(1.5), FIXED_FROM_INT(y) + FIXED_LIT(1.5)}, .footprint = {3, 3},
         .amount = 5000, .rate = 100, .active = true, .source_id = deposit->id,
     };
     return deposit;
@@ -57,7 +57,7 @@ static void tree(int x, int y) {
     level.cell_terrain[i] = 2;
     level.blocked[i] = 1;
     level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
-        .cell = {x, y}, .attachment = fvec2_cell_center((ivec2_t){x, y}), .footprint = {1, 1},
+        .cell = {x, y}, .attachment = fixed2_cell_center((ivec2_t){x, y}), .footprint = {1, 1},
         .amount = 100, .rate = 100, .active = true, .resource_type = 1,
     };
 }
@@ -169,8 +169,9 @@ static int test_build_cycle(void) {
     CHECK(solid(8, 8) && solid(9, 9) && !solid(10, 10));
     CHECK(hidden(peasant) && peasant->w2.site == site->id && site->w2.builder == peasant->id);
     CHECK(!G_ModelHasActorType(NULL, 0, MT_FARM)); /* Not ready while it rises. */
-    fvec2_t bay = fixed3_xy_to_fvec2(peasant->core.position);
-    CHECK(bay.x >= 7 && bay.x <= 11 && bay.y >= 7 && bay.y <= 11); /* Beside the footprint. */
+    fixed2_t bay = fixed3_xy(peasant->core.position);
+    CHECK(fixed_floor_int(bay.x) >= 7 && fixed_floor_int(bay.x) <= 11 &&
+          fixed_floor_int(bay.y) >= 7 && fixed_floor_int(bay.y) <= 11); /* Beside the footprint. */
     int ticks = 0;
     while (ticks < 4000 && W2_BuildProgress(site) < 25) { tick(1); ++ticks; }
     CHECK(ticks == 150); /* Cost 100: 600 reference cycles (20 seconds). */
@@ -202,11 +203,11 @@ static int test_cancel_and_orders(void) {
     mobj_t *peasant = spawn(MT_PEASANT, 3, 3, 0);
     int *stock = level.player_resources[0];
     ticcmd_t build = {.order = TC_CONSTRUCT, .product = MT_HUMAN_BARRACKS, .count = 1, .units = {peasant->id},
-                      .position = fixed3_from_fvec2(fvec2_cell_center((ivec2_t){8, 8}), 0)};
+                      .position = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){8, 8}), 0)};
     G_RunTiccmd(0, &build);
     CHECK(peasant->w2.build_phase == W2_BUILD_TO_SITE && peasant->w2.build_type == MT_HUMAN_BARRACKS);
     ticcmd_t move = {.order = TC_MOVE, .count = 1, .units = {peasant->id},
-                     .position = fixed3_from_fvec2((fvec2_t){3.5f, 5.5f}, 0)};
+                     .position = fixed3_from_fixed2(FIXED2_LIT(3.5, 5.5), 0)};
     G_RunTiccmd(0, &move);
     CHECK(peasant->w2.build_phase == W2_BUILD_NONE && peasant->w2.build_type == 0);
     tick(10);
@@ -257,7 +258,8 @@ static int test_site_destroyed(void) {
 static int test_computer_player(void) {
     fixture();
     const AiGameInterface *ai = G_AiInterface();
-    CHECK(ai && ai->features == AI_FEATURE_ALL && ai->is_busy && ai->assign_harvester && ai->plan);
+    CHECK(ai && ai->features == AI_FEATURE_ALL && ai->is_busy && ai->assign_harvester &&
+          g_ruleset.faction_count == 2 && g_ruleset.factions[1].opening_count > 0);
     CHECK(ai->player_level(&level, 0) == AI_LEVEL_NONE && ai->player_level(&level, 1) == AI_LEVEL_NORMAL &&
           ai->player_level(&level, 8) == AI_LEVEL_NONE);
     mobj_t *hall = spawn(MT_TOWN_HALL, 10, 8, 1);

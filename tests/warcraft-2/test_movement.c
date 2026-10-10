@@ -26,7 +26,7 @@ static int check_cycles(void) {
         CHECK(info->seestate != info->spawnstate);
         CHECK(walk->group == W2_GROUP_WALK && walk->action == A_Chase);
         CHECK(walk->frame == movement[i].first && walk->count == movement[i].count);
-        mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8, 8}, 0), movement[i].type);
+        mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(8, 8), 0), movement[i].type);
         CHECK(unit && P_SetMobjState(unit, info->seestate));
         for (int tic = 0; tic < 3 * walk->count * walk->tics; ++tic) {
             CHECK(unit->core.state_id == info->seestate);

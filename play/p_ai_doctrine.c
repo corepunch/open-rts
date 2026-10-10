@@ -13,8 +13,8 @@ enum {
     AI_SUPPLY_WAIT_MS = 6000,   /* Debounce while an ordered supply registers. */
     AI_AIR_DEFENSE_PCT = 30,    /* Enemy air share at which defenses turn anti-air. */
 };
-#define AI_SCOUT_REACH 6.0f     /* Cells from a start location at which the scout has seen it. */
-#define AI_ENGAGE_RADIUS 10.0f  /* Cells around a wave that count as its fight. */
+#define AI_SCOUT_REACH FIXED_LIT(6.0)     /* Cells from a start location at which the scout has seen it. */
+#define AI_ENGAGE_RADIUS FIXED_LIT(10.0)  /* Cells around a wave that count as its fight. */
 
 /* ── unit knowledge ───────────────────────────────────────────────────── */
 
@@ -24,12 +24,15 @@ enum {
  * as Brood War's units.dat max hits does for the Mutalisk. */
 static int bw_strength(int hp, const weapondef_t *weapon) {
     int damage = weapon->damage * ((weapon->hits ? weapon->hits : 1) + (weapon->bounces ? 1 : 0));
+    fixed_t range = weapon->range;
     if (damage <= 0) return 0;
     int cooldown = weapon->cooldown_ms > 0 ? (weapon->cooldown_ms * 24 + 500) / 1000 : 24;
     if (cooldown < 1) cooldown = 1;
-    double reach = weapon->range * 32.0 / cooldown * damage;
-    double body = (double)hp * (double)((damage << 11) / cooldown) / 256.0;
-    return (int)(sqrt(reach + body) * 7.58);
+    /* Integer 16.16 evaluation: no libm, identical on every peer. */
+    int64_t reach = ((int64_t)range * 32 * damage) / cooldown;
+    int64_t body = (int64_t)hp * ((damage << 11) / cooldown) * 256; /* x65536 / 256 */
+    uint64_t root = fixed_isqrt64((uint64_t)(reach + body) << 16);   /* sqrt * 65536 */
+    return (int)((root * 758u) / 100u >> 16);
 }
 
 static bool weapon_reaches(const weapondef_t *weapon, uint8_t kind) {
@@ -37,6 +40,7 @@ static bool weapon_reaches(const weapondef_t *weapon, uint8_t kind) {
 }
 
 void P_AiUnitInfo(const AiContext *ctx, uint16_t type_id, AiUnitInfo *out) {
+    (void)ctx;
     memset(out, 0, sizeof(*out));
     const mobjtype_t *type = P_ActorType(type_id);
     /* The weapons it turns on ground and air targets (see P_MobjWeapon). */
@@ -59,7 +63,16 @@ void P_AiUnitInfo(const AiContext *ctx, uint16_t type_id, AiUnitInfo *out) {
         if (mobile && (traits & (MF_HEAL | MF_REPAIR)) && !(traits & MF_HARVESTER))
             out->roles |= AI_ROLE_SUPPORT;
     }
-    if (ctx && ctx->game && ctx->game->describe) ctx->game->describe(type_id, out);
+    /* The ruleset adds what the actor type cannot tell: supply, cloaking,
+     * casters, shields and multi-hit weapons. A caster that fights is no support. */
+    if (g_ruleset.actors && type_id < g_ruleset.actor_count) {
+        const actorrole_t *role = &g_ruleset.actors[type_id];
+        uint32_t roles = role->roles;
+        if ((roles & AI_ROLE_SUPPORT) && (out->roles & AI_ROLE_FIGHTER)) roles &= ~(uint32_t)AI_ROLE_SUPPORT;
+        out->roles |= roles;
+        out->roles &= ~role->not_roles;
+        out->hp += role->extra_hp;
+    }
     if (!type) return;
     if (!out->ground_strength && (out->roles & AI_ROLE_HITS_GROUND))
         out->ground_strength = bw_strength(out->hp, ground);
@@ -155,20 +168,21 @@ void P_AiSendScout(AiContext *ctx, AiTeamState *team, int owner, level_t *map,
     if (!d->scout || !ctx->game->starts || !team->has_base) return;
     mobj_t *scout = team->scout ? P_MobjById(team->scout) : NULL;
     if (scout && (!alive(scout) || scout->owner != owner)) scout = NULL;
-    fvec2_t starts[32];
+    fixed2_t starts[32];
     int count = ctx->game->starts(map, starts, 32);
     for (int i = 0; i < count; ++i) {
-        float home = fvec2_distance_squared(starts[i], team->base_position), near = AI_SCOUT_REACH;
-        bool seen = home < AI_TOWN_RADIUS * AI_TOWN_RADIUS ||
-            (scout && fvec2_distance_squared(starts[i], fixed3_xy_to_fvec2(scout->core.position)) < near * near);
+        int64_t home = fixed2_distance_squared64(starts[i], team->base_position),
+                reach = fixed_sq64(AI_SCOUT_REACH);
+        bool seen = home < fixed_sq64(AI_TOWN_RADIUS) ||
+            (scout && fixed2_distance_squared64(starts[i], fixed3_xy(scout->core.position)) < reach);
         if (seen) team->starts_seen |= 1u << i;
     }
     /* Pick the nearest start not yet seen. */
     int next = -1;
-    fvec2_t from = scout ? fixed3_xy_to_fvec2(scout->core.position) : team->base_position;
+    fixed2_t from = scout ? fixed3_xy(scout->core.position) : team->base_position;
     for (int i = 0; i < count; ++i)
         if (!(team->starts_seen & (1u << i)) &&
-            (next < 0 || fvec2_distance_squared(from, starts[i]) < fvec2_distance_squared(from, starts[next])))
+            (next < 0 || fixed2_distance_squared64(from, starts[i]) < fixed2_distance_squared64(from, starts[next])))
             next = i;
     if (team->found_ms || next < 0) {
         /* Seen enough: back home, where a worker goes back to mining. */
@@ -177,7 +191,7 @@ void P_AiSendScout(AiContext *ctx, AiTeamState *team, int owner, level_t *map,
         return;
     }
     if (!scout) {
-        if (ctx->game->owned(owner, d->scout) <= 0 || !(scout = pick_scout(ctx, owner, units, unit_count))) return;
+        if (P_AiOwned(ctx, owner, d->scout) <= 0 || !(scout = pick_scout(ctx, owner, units, unit_count))) return;
         scout->harvest.phase = HARVEST_PHASE_NONE;
         scout->harvest.target = -1;
         scout->attack.target = NULL;
@@ -185,14 +199,14 @@ void P_AiSendScout(AiContext *ctx, AiTeamState *team, int owner, level_t *map,
         team->stats.scouts++;
         P_AiEmit(ctx, AI_EVENT_SCOUT, owner, (int)scout->id);
     }
-    if (P_HasMoveOrder(scout) && fvec2_near(scout->movement.goal, starts[next], 0.5f)) return;
+    if (P_HasMoveOrder(scout) && fixed2_near(scout->movement.goal, starts[next], FIXED_ONE / 2)) return;
     if (!P_MoveUnitTo(map, scout, starts[next])) team->starts_seen |= 1u << next;
 }
 
 /* ── purchases ────────────────────────────────────────────────────────── */
 
 static bool roster_info(const AiContext *ctx, int product, AiUnitInfo *out) {
-    int actor = ctx->game->product_actor(product);
+    int actor = P_AiProductActor(ctx, product);
     if (actor <= 0) return false;
     P_AiUnitInfo(ctx, (uint16_t)actor, out);
     return true;
@@ -207,7 +221,7 @@ static int roster_owned_armed(const AiContext *ctx, const AiDoctrine *d, int own
         AiUnitInfo info;
         if (roster_info(ctx, d->roster[i].product, &info) && (info.roles & roles) &&
             (!armed || (info.roles & armed)))
-            count += ctx->game->owned(owner, d->roster[i].product);
+            count += P_AiOwned(ctx, owner, d->roster[i].product);
     }
     return count;
 }
@@ -235,7 +249,7 @@ static AiTry buy_role(AiContext *ctx, AiTeamState *team, int owner, level_t *map
 
 bool P_AiBuySupply(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int elapsed_ms) {
     const AiDoctrine *d = &team->plan.doctrine;
-    if (!d->supply_buffer || !ctx->game->supply || !ctx->game->product_actor) return false;
+    if (!d->supply_buffer || !ctx->game->supply) return false;
     if (team->supply_wait_ms > 0) {
         team->supply_wait_ms -= elapsed_ms;
         return false;
@@ -253,9 +267,9 @@ static int towns(const AiTeamState *team) {
 
 bool P_AiExpand(AiContext *ctx, AiTeamState *team, int owner, level_t *map) {
     const AiDoctrine *d = &team->plan.doctrine;
-    if (!d->expand_workers || !ctx->game->expand || !ctx->game->product_actor || team->towns >= AI_MAX_TOWNS ||
+    if (!d->expand_workers || !ctx->game->expand || team->towns >= AI_MAX_TOWNS ||
         (d->max_towns && team->towns >= d->max_towns) ||
-        (d->expand_after && ctx->game->owned(owner, d->expand_after) <= 0) ||
+        (d->expand_after && P_AiOwned(ctx, owner, d->expand_after) <= 0) ||
         roster_owned(ctx, d, owner, AI_ROLE_WORKER) < d->expand_workers * towns(team))
         return false;
     int status = ctx->game->expand(map, owner);
@@ -309,7 +323,7 @@ static AiTry need_research(AiContext *ctx, AiTeamState *team, int owner, level_t
         (int64_t)(team->stats.upgrades + 1) * 100) return AI_TRY_SKIP;
     int count[AI_MAX_ROSTER];
     bool tried[AI_MAX_ROSTER] = { false };
-    for (int i = 0; i < d->roster_count; ++i) count[i] = ctx->game->owned(owner, d->roster[i].product);
+    for (int i = 0; i < d->roster_count; ++i) count[i] = P_AiOwned(ctx, owner, d->roster[i].product);
     for (int n = 0; n < d->roster_count; ++n) {
         int best = -1;
         for (int i = 0; i < d->roster_count; ++i)
@@ -346,10 +360,10 @@ static AiTry need_army(AiContext *ctx, AiTeamState *team, int owner, level_t *ma
         const AiChoice *choice = &d->roster[i];
         AiUnitInfo info;
         if (choice->weight <= 0 || !roster_info(ctx, choice->product, &info)) continue;
-        int status = ctx->game->can_purchase(map, owner, choice->product);
+        int status = P_AiCanPurchase(ctx, map, owner, choice->product);
         if (status != AI_BUY_OK && status != AI_BUY_NEED_CREDITS) continue;
         int64_t score = (int64_t)mix_weight(d, team, &info, choice->weight) * 1000 /
-                        (ctx->game->owned(owner, choice->product) + 1);
+                        (P_AiOwned(ctx, owner, choice->product) + 1);
         if (best < 0 || score > best_score) { best = i; best_score = score; }
     }
     return best < 0 ? AI_TRY_SKIP : P_AiTry(ctx, team, owner, map, d->roster[best].product);
@@ -359,7 +373,7 @@ int P_AiBuyDoctrine(AiContext *ctx, AiTeamState *team, int owner, level_t *map, 
     static AiTry (*const needs[])(AiContext *, AiTeamState *, int, level_t *) = {
         need_workers, need_detection, need_defense, need_research, need_army,
     };
-    if (!ctx->game->product_actor || team->plan.doctrine.roster_count <= 0) return 0;
+    if (team->plan.doctrine.roster_count <= 0) return 0;
     int bought = 0;
     while (bought < budget) {
         AiTry result = AI_TRY_SKIP;
@@ -400,27 +414,25 @@ void P_AiCheckRetreat(AiContext *ctx, AiTeamState *team, int owner, level_t *map
     if (!d->retreat_ratio || team->wave_count <= 0) return;
     mobj_t *members[AI_MAX_WAVE_TRACK];
     int count = 0, flying = 0;
-    fvec2_t centre = {0, 0};
+    int64_t sum_x = 0, sum_y = 0;
     for (int i = 0; i < unit_count && count < AI_MAX_WAVE_TRACK; ++i) {
         mobj_t *u = units[i];
         if (u->owner != owner || !alive(u) || !in_wave(team, u->id)) continue;
         members[count++] = u;
         if (u->traits & MF_FLY) ++flying;
-        fvec2_t at = fixed3_xy_to_fvec2(u->core.position);
-        centre.x += at.x;
-        centre.y += at.y;
+        sum_x += u->core.position.x;
+        sum_y += u->core.position.y;
     }
     P_AiTrackWave(team, members, count);
     if (count == 0) return;
-    centre.x /= count;
-    centre.y /= count;
+    fixed2_t centre = { (fixed_t)(sum_x / count), (fixed_t)(sum_y / count) };
 
     int our_air_pct = flying * 100 / count, enemy = 0;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *e = units[i];
         if (!seen_enemy(map, team, owner, members[0], e)) continue;
-        if (fvec2_distance_squared(fixed3_xy_to_fvec2(e->core.position), centre) >
-            AI_ENGAGE_RADIUS * AI_ENGAGE_RADIUS) continue;
+        if (fixed2_distance_squared64(fixed3_xy(e->core.position), centre) >
+            fixed_sq64(AI_ENGAGE_RADIUS)) continue;
         AiUnitInfo info;
         int value = unit_strength(ctx, e, our_air_pct, &info);
         if (info.roles & (AI_ROLE_FIGHTER | AI_ROLE_DEFENSE)) enemy += value;

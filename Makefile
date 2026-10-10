@@ -9,7 +9,10 @@ CC ?= cc
 AR ?= ar
 PKG_CONFIG ?= pkg-config
 
-CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
+# -ffp-contract=off: forbid fused multiply-add so the remaining float math (render,
+# audio, HUD, path geometry) rounds identically on x86 and Apple Silicon. Never use
+# -ffast-math. The simulation itself uses the integer helpers in include/fixed.h.
+CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g -ffp-contract=off
 CPPFLAGS += -Iinclude -Itests
 # Keep native world pixels while enlarging the HUD and menus.
 NATIVE_WORLD ?= 1
@@ -298,7 +301,12 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-warcraft-2 test-model-commands test-layout test-loaders
+# Shared code must not name a game; see tools/check_no_game_ifdefs.sh.
+.PHONY: check-ifdefs
+check-ifdefs:
+	@tools/check_no_game_ifdefs.sh
+
+test: check-ifdefs test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-warcraft-2 test-model-commands test-layout test-loaders
 
 # The C catalog includes private decoders; exclude their separate objects.
 LOADER_CATALOG_SOURCES := $(sort $(shell find tests -maxdepth 1 -name 'loader_catalog.c'))

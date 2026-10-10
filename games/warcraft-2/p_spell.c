@@ -81,8 +81,8 @@ static bool in_range(const mobj_t *unit) {
     if (!range) return true;
     const mobj_t *target = P_MobjById(unit->w2.cast.target);
     if (target) return W2_Distance(unit, target) <= range;
-    ivec2_t from = fvec2_cell(fixed3_xy_to_fvec2(unit->core.position));
-    ivec2_t to = fvec2_cell(fixed3_xy_to_fvec2(unit->w2.cast.position));
+    ivec2_t from = fixed2_cell(fixed3_xy(unit->core.position));
+    ivec2_t to = fixed2_cell(fixed3_xy(unit->w2.cast.position));
     return abs(from.x - to.x) <= range && abs(from.y - to.y) <= range;
 }
 
@@ -158,8 +158,8 @@ void A_W2_Cast(mobj_t *unit) {
             if (th->function != P_MobjThinker || corpse->remove || corpse->hp > 0 ||
                 corpse->type_id > W2_TYPE_COUNT || (mobjinfo[corpse->type_id].w2.flags & W2_STRUCTURE) ||
                 W2_Distance(unit, corpse) > def->range) continue;
-            ivec2_t a = fvec2_cell(fixed3_xy_to_fvec2(corpse->core.position));
-            ivec2_t b = fvec2_cell(fixed3_xy_to_fvec2(at));
+            ivec2_t a = fixed2_cell(fixed3_xy(corpse->core.position));
+            ivec2_t b = fixed2_cell(fixed3_xy(at));
             if (abs(a.x - b.x) > 1 || abs(a.y - b.y) > 1) continue;
             if (summon(unit, MT_SKELETON, corpse->core.position, 3600)) {
                 P_RemoveMobj(corpse);
@@ -175,7 +175,7 @@ void A_W2_Cast(mobj_t *unit) {
         if (shot) {
             shot->w2.fx.end = at;
             shot->w2.fx.subject = target ? target->id : 0;
-            fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(at), fixed3_xy_to_fvec2(unit->core.position));
+            fixed2_t delta = fixed2_sub(fixed3_xy(at), fixed3_xy(unit->core.position));
             shot->core.angle = P_PointToAngle(delta.x, delta.y);
         }
         break;
@@ -185,10 +185,10 @@ void A_W2_Cast(mobj_t *unit) {
          * nearest the caster first; the last target receives the remainder. */
         mobjlist_t list = P_ListMobjs();
         int count = 0;
-        ivec2_t goal = fvec2_cell(fixed3_xy_to_fvec2(at));
+        ivec2_t goal = fixed2_cell(fixed3_xy(at));
         for (int i = 0; i < list.count; ++i) {
             mobj_t *victim = list.items[i];
-            ivec2_t cell = fvec2_cell(fixed3_xy_to_fvec2(victim->core.position));
+            ivec2_t cell = fixed2_cell(fixed3_xy(victim->core.position));
             if (victim->hp <= 0 || victim->remove || victim->type_id > W2_TYPE_COUNT ||
                 (victim->traits & MF_NOBLOCKMAP) || P_IsAlly(unit, victim) ||
                 victim->allegiance == ALLEGIANCE_NEUTRAL ||
@@ -209,7 +209,7 @@ void A_W2_Cast(mobj_t *unit) {
             if (shot) {
                 shot->w2.fx.subject = victim->id;
                 shot->w2.fx.end = victim->core.position;
-                fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(victim->core.position), fixed3_xy_to_fvec2(unit->core.position));
+                fixed2_t delta = fixed2_sub(fixed3_xy(victim->core.position), fixed3_xy(unit->core.position));
                 shot->core.angle = P_PointToAngle(delta.x, delta.y);
             }
             left -= damage;
@@ -226,7 +226,7 @@ void A_W2_Cast(mobj_t *unit) {
     case W2_SPELL_RUNES: {
         static const ivec2_t offsets[] = {{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
         for (int i = 0; i < 5; ++i) {
-            fixed3_t pos = fixed3_add_planar(at, fixed3_planar_delta((fvec2_t){offsets[i].x, offsets[i].y}));
+            fixed3_t pos = fixed3_add_planar(at, fixed3_planar_delta((fixed2_t){offsets[i].x * FIXED_ONE, offsets[i].y * FIXED_ONE}));
             if (L_Contains(&level, pos.x >> FIXED_FRAC_BITS, pos.y >> FIXED_FRAC_BITS))
                 spell_effect(unit, W2_FX_RUNE, pos, 50, 2000);
         }
@@ -234,13 +234,13 @@ void A_W2_Cast(mobj_t *unit) {
     }
     case W2_SPELL_BLIZZARD: case W2_SPELL_DECAY:
         for (int field = 0; field < 5; ++field) {
-            ivec2_t cell = fvec2_cell(fixed3_xy_to_fvec2(at)), dest;
+            ivec2_t cell = fixed2_cell(fixed3_xy(at)), dest;
             do { dest = (ivec2_t){cell.x + (int)(W2_SyncRand() % 5) - 2, cell.y + (int)(W2_SyncRand() % 5) - 2}; }
             while (!L_Contains(&level, dest.x, dest.y));
-            fixed3_t end = fixed3_from_fvec2(fvec2_cell_center(dest), 0);
+            fixed3_t end = fixed3_from_fixed2(fixed2_cell_center(dest), 0);
             for (int shard = 0; shard < 11; ++shard) {
                 fixed3_t start = spell == W2_SPELL_BLIZZARD ?
-                    fixed3_add_planar(end, fixed3_planar_delta((fvec2_t){-4, -4})) : end;
+                    fixed3_add_planar(end, fixed3_planar_delta((fixed2_t){-4 * FIXED_ONE, -4 * FIXED_ONE})) : end;
                 mobj_t *effect = spell_effect(unit, spell == W2_SPELL_BLIZZARD ? W2_FX_BLIZZARD : W2_FX_DECAY, start, 0, 0);
                 if (effect) {
                     effect->w2.fx.end = end;
@@ -260,7 +260,7 @@ void A_W2_Cast(mobj_t *unit) {
         }
         for (int i = 0; i < level.resource_vent_count; ++i) {
             resourcevent_t *vent = &level.resource_vents[i];
-            ivec2_t cell = fvec2_cell(fixed3_xy_to_fvec2(unit->core.position));
+            ivec2_t cell = fixed2_cell(fixed3_xy(unit->core.position));
             int dx = cell.x - vent->cell.x, dy = cell.y - vent->cell.y;
             if (vent->resource_type == 1 && vent->active && dx * dx + dy * dy <= 9) {
                 vent->amount = 0; vent->active = false;
@@ -293,7 +293,8 @@ void W2_TickSpells(mobj_t *unit) {
         if (unit->w2.mana > stats->mana.max) unit->w2.mana = stats->mana.max;
     }
     if (speed_changed)
-        unit->speed = unit->info->speed * (unit->w2.buffs[W2_BUFF_HASTE] ? 2 : unit->w2.buffs[W2_BUFF_SLOW] ? 0.5f : 1);
+        unit->speed = unit->w2.buffs[W2_BUFF_HASTE] ? unit->info->speed * 2 :
+                      unit->w2.buffs[W2_BUFF_SLOW] ? unit->info->speed / 2 : unit->info->speed;
     if (!unit->w2.cast.spell || states[unit->core.state_id].group == W2_GROUP_ATTACK) return;
     mobj_t *target = P_MobjById(unit->w2.cast.target);
     if (!W2_CanCast(unit, unit->w2.cast.spell) ||
@@ -303,10 +304,10 @@ void W2_TickSpells(mobj_t *unit) {
     if (target) unit->w2.cast.position = target->core.position;
     if (in_range(unit)) {
         P_ClearMove(unit);
-        fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(unit->w2.cast.position), fixed3_xy_to_fvec2(unit->core.position));
+        fixed2_t delta = fixed2_sub(fixed3_xy(unit->w2.cast.position), fixed3_xy(unit->core.position));
         unit->core.angle = P_PointToAngle(delta.x, delta.y);
         P_SetMobjState(unit, mobjinfo[unit->type_id].missilestate);
-    } else if (!P_HasMoveOrder(unit) && !P_MoveUnitTo(&level, unit, fixed3_xy_to_fvec2(unit->w2.cast.position))) {
+    } else if (!P_HasMoveOrder(unit) && !P_MoveUnitTo(&level, unit, fixed3_xy(unit->w2.cast.position))) {
         unit->w2.cast.spell = 0;
     }
 }

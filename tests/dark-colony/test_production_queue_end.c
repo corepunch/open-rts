@@ -45,7 +45,7 @@ int main(void) {
         P_FreeMobjList(&objects);
         objects = P_ListMobjs();
         int count = objects.count;
-        G_UpdateProduction(&level, objects.items, &count, FIXED_DT);
+        G_UpdateProduction(&level, objects.items, &count, RTS_TICK_MS);
         P_FreeMobjList(&objects);
         objects = P_ListMobjs();
         for (int i = 0; i < objects.count; ++i)

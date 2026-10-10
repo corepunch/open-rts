@@ -5,8 +5,8 @@
 
 #define CHECK(c) RTS_CHECK(c, "Warcraft II navy", #c)
 
-static mobj_t *spawn(int type, fvec2_t at) {
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), type);
+static mobj_t *spawn(int type, fixed2_t at) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), type);
     assert(unit);
     unit->owner = unit->team = 0;
     unit->allegiance = ALLEGIANCE_PLAYER;
@@ -45,28 +45,28 @@ static mobj_t *find_type(int type) {
 
 static int launch(int side) {
     fixture();
-    spawn(MT_FARM + side, (fvec2_t){3, 3});
-    mobj_t *yard = spawn(MT_HUMAN_SHIPYARD + side, (fvec2_t){11.5f, 5.5f});
+    spawn(MT_FARM + side, FIXED2_LIT(3, 3));
+    mobj_t *yard = spawn(MT_HUMAN_SHIPYARD + side, FIXED2_LIT(11.5, 5.5));
     w2_mark_footprint(10, 4, (isize2_t){3, 3});
     const StaticProductDefinition *product = G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, MT_HUMAN_OIL_TANKER + side);
     CHECK(product && G_PlayerBuildProduct(yard, product));
-    G_ProductionTicker(20);
+    G_ProductionTicker(20000);
     mobj_t *tanker = find_type(MT_HUMAN_OIL_TANKER + side);
     CHECK(tanker);
-    fvec2_t at = fixed3_xy_to_fvec2(tanker->core.position);
-    CHECK(P_CheckPosition(&level, tanker, at.x, at.y));
-    CHECK(level.cell_terrain[L_Index(&level, (int)at.x, (int)at.y)] == 1);
-    CHECK(!P_CheckPosition(&level, tanker, 8.5f, 8.5f));
-    CHECK(!P_CheckPosition(&level, tanker, 10.5f, 8.5f));
-    CHECK(P_MoveUnitTo(&level, tanker, (fvec2_t){18.5f, 9.5f}));
+    fixed2_t at = fixed3_xy(tanker->core.position);
+    CHECK(P_CheckPosition(&level, tanker, at));
+    CHECK(level.cell_terrain[L_Index(&level, fixed_floor_int(at.x), fixed_floor_int(at.y))] == 1);
+    CHECK(!P_CheckPosition(&level, tanker, FIXED2_LIT(8.5, 8.5)));
+    CHECK(!P_CheckPosition(&level, tanker, FIXED2_LIT(10.5, 8.5)));
+    CHECK(P_MoveUnitTo(&level, tanker, FIXED2_LIT(18.5, 9.5)));
     for (int i = 0; i < 1000 && P_HasMoveOrder(tanker); ++i) P_Ticker();
-    CHECK(fvec2_near(fixed3_xy_to_fvec2(tanker->core.position), (fvec2_t){18.5f, 9.5f}, 0.01f));
-    mobj_t *patch = spawn(MT_OIL_PATCH, (fvec2_t){22.5f, 9.5f});
+    CHECK(fixed2_near(fixed3_xy(tanker->core.position), FIXED2_LIT(18.5, 9.5), FIXED_LIT(0.01)));
+    mobj_t *patch = spawn(MT_OIL_PATCH, FIXED2_LIT(22.5, 9.5));
     patch->owner = patch->team = 15; patch->allegiance = ALLEGIANCE_NEUTRAL;
     level.resource_vents = calloc(1, sizeof(*level.resource_vents));
     level.resource_vent_count = 1;
     resourcevent_t *vent = level.resource_vents;
-    *vent = (resourcevent_t){.cell = {21, 8}, .footprint = {3, 3}, .attachment = {22.5f, 9.5f},
+    *vent = (resourcevent_t){.cell = {21, 8}, .footprint = {3, 3}, .attachment = FIXED2_LIT(22.5, 9.5),
         .amount = 250, .resource_type = 2, .source_id = patch->id, .active = true};
     w2_mark_footprint(21, 8, vent->footprint);
     CHECK(!W2_HarvestOrder(tanker, vent->attachment));
@@ -87,7 +87,7 @@ static int launch(int side) {
     }
     CHECK(pumping && loaded);
     CHECK(level.player_resources[0][2] == 100 && vent->amount == 150);
-    mobj_t *refinery = spawn(MT_HUMAN_REFINERY + side, (fvec2_t){11.5f, 17.5f});
+    mobj_t *refinery = spawn(MT_HUMAN_REFINERY + side, FIXED2_LIT(11.5, 17.5));
     w2_mark_footprint(10, 16, (isize2_t){3, 3});
     refinery->w2.build_left_tics = 1;
     CHECK(W2_ResourceIncome(0, 2) == 100);
@@ -97,40 +97,40 @@ static int launch(int side) {
     CHECK(!vent->active && vent->amount == 0 && !P_MobjById(vent->source_id));
     for (int i = 0; i < 4000 && tanker->harvest.cargo; ++i) P_Ticker();
     CHECK(level.player_resources[0][2] == 287 && !tanker->harvest.cargo);
-    CHECK(P_CheckPosition(&level, tanker, 22.5f, 9.5f));
+    CHECK(P_CheckPosition(&level, tanker, FIXED2_LIT(22.5, 9.5)));
     return 0;
 }
 
 static int shore(void) {
     fixture();
-    mobj_t *worker = spawn(MT_PEASANT, (fvec2_t){8.5f, 5.5f});
+    mobj_t *worker = spawn(MT_PEASANT, FIXED2_LIT(8.5, 5.5));
     CHECK(!W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){7, 4}, worker));
     CHECK(W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}, worker));
     CHECK(!W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){11, 4}, worker));
     CHECK(!W2_CanPlace(MT_FARM, (ivec2_t){10, 4}, worker));
     CHECK(!W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){10, -1}, worker));
-    mobj_t *patch = spawn(MT_OIL_PATCH, (fvec2_t){16.5f, 5.5f});
+    mobj_t *patch = spawn(MT_OIL_PATCH, FIXED2_LIT(16.5, 5.5));
     CHECK(!W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}, worker));
-    patch->core.position = fixed3_from_fvec2((fvec2_t){17.5f, 5.5f}, 0);
+    patch->core.position = fixed3_from_fixed2(FIXED2_LIT(17.5, 5.5), 0);
     CHECK(W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}, worker));
     P_RemoveMobj(patch);
     CHECK(W2_ConstructOrder(worker, MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}));
     for (int i = 0; i < 3000; ++i) P_Ticker();
     mobj_t *yard = find_type(MT_HUMAN_SHIPYARD);
     CHECK(yard && !W2_UnderConstruction(yard));
-    mobj_t *transport = spawn(MT_HUMAN_TRANSPORT, (fvec2_t){13.5f, 12.5f});
-    CHECK(P_CheckPosition(&level, transport, 10.5f, 12.5f));
-    CHECK(!P_CheckPosition(&level, transport, 9.5f, 12.5f));
-    CHECK(P_MoveUnitTo(&level, transport, (fvec2_t){10.5f, 12.5f}));
+    mobj_t *transport = spawn(MT_HUMAN_TRANSPORT, FIXED2_LIT(13.5, 12.5));
+    CHECK(P_CheckPosition(&level, transport, FIXED2_LIT(10.5, 12.5)));
+    CHECK(!P_CheckPosition(&level, transport, FIXED2_LIT(9.5, 12.5)));
+    CHECK(P_MoveUnitTo(&level, transport, FIXED2_LIT(10.5, 12.5)));
     for (int i = 0; i < 1000 && P_HasMoveOrder(transport); ++i) P_Ticker();
-    mobj_t *passenger = spawn(MT_FOOTMAN, (fvec2_t){9.5f, 12.5f});
+    mobj_t *passenger = spawn(MT_FOOTMAN, FIXED2_LIT(9.5, 12.5));
     CHECK(W2_BoardOrder(passenger, transport));
     P_Ticker(); CHECK(passenger->w2.boarded);
-    CHECK(W2_UnloadOrder(transport, fixed3_xy_to_fvec2(transport->core.position)));
+    CHECK(W2_UnloadOrder(transport, fixed3_xy(transport->core.position)));
     for (int i = 0; i < 10; ++i) P_Ticker();
     CHECK(!passenger->w2.boarded);
-    fvec2_t at = fixed3_xy_to_fvec2(passenger->core.position);
-    CHECK(P_CheckPosition(&level, passenger, at.x, at.y));
+    fixed2_t at = fixed3_xy(passenger->core.position);
+    CHECK(P_CheckPosition(&level, passenger, at));
     return 0;
 }
 
@@ -138,24 +138,24 @@ static int fleet(int side) {
     const int types[] = {MT_HUMAN_TRANSPORT, MT_HUMAN_DESTROYER, MT_BATTLESHIP, MT_GNOMISH_SUBMARINE};
     for (int i = 0; i < 4; ++i) {
         fixture();
-        spawn(MT_FARM + side, (fvec2_t){3, 3});
-        spawn(MT_HUMAN_FOUNDRY + side, (fvec2_t){5, 3});
-        spawn(MT_INVENTOR + side, (fvec2_t){5, 6});
-        mobj_t *yard = spawn(MT_HUMAN_SHIPYARD + side, (fvec2_t){11.5f, 5.5f});
+        spawn(MT_FARM + side, FIXED2_LIT(3, 3));
+        spawn(MT_HUMAN_FOUNDRY + side, FIXED2_LIT(5, 3));
+        spawn(MT_INVENTOR + side, FIXED2_LIT(5, 6));
+        mobj_t *yard = spawn(MT_HUMAN_SHIPYARD + side, FIXED2_LIT(11.5, 5.5));
         w2_mark_footprint(10, 4, (isize2_t){3, 3});
         int type = types[i] + side;
         const StaticProductDefinition *product = G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, type);
         int oil = level.player_resources[0][2];
         CHECK(product && G_PlayerBuildProduct(yard, product));
         CHECK(level.player_resources[0][2] == oil - mobjinfo[type].w2.costs.resources[2]);
-        G_ProductionTicker(30);
+        G_ProductionTicker(30000);
         mobj_t *ship = find_type(type);
         CHECK(ship);
-        fvec2_t at = fixed3_xy_to_fvec2(ship->core.position);
-        CHECK(P_CheckPosition(&level, ship, at.x, at.y));
+        fixed2_t at = fixed3_xy(ship->core.position);
+        CHECK(P_CheckPosition(&level, ship, at));
         if (i > 0) {
-            ship->core.position = fixed3_from_fvec2((fvec2_t){18.5f, 12.5f}, 0);
-            mobj_t *target = spawn(MT_ORC_OIL_TANKER - side, (fvec2_t){21.5f, 12.5f});
+            ship->core.position = fixed3_from_fixed2(FIXED2_LIT(18.5, 12.5), 0);
+            mobj_t *target = spawn(MT_ORC_OIL_TANKER - side, FIXED2_LIT(21.5, 12.5));
             target->owner = target->team = 1; target->allegiance = ALLEGIANCE_ENEMY;
             target->max_hp = target->hp = 10000;
             ship->attack.target = target;

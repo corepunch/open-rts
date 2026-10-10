@@ -61,7 +61,7 @@ int main(void) {
     RtsGameCommand select = {.kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
                              .data.select_unit_index = {index, false}};
     RtsGameCommand harvest = {.kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-                              .data.harvest_selected = {.target = {69.5f, 48.5f}}};
+                              .data.harvest_selected = {.target = FIXED2_LIT(69.5, 48.5)}};
     assert(index >= 0 && rts_game_model_command(model, &select));
     assert(rts_game_model_command(model, &harvest));
     bool deployed = false;
@@ -87,8 +87,8 @@ int main(void) {
     assert(DC_FINFrame(&trsc, SDL_SwapLE16(stand->start), &idle));
     ivec2_t fin = ivec2_sub(final.layers[0].offset, idle.layers[0].offset);
     ivec2_t delta = ivec2_add(barracks->core.render_offset, (ivec2_t){fin.x, L_ScreenDY(fin.y)});
-    fvec2_t exit = fvec2_add(fixed3_xy_to_fvec2(barracks->core.position),
-                            (fvec2_t){delta.x / 32.0f, delta.y / 32.0f});
+    fixed2_t exit = fixed2_add(fixed3_xy(barracks->core.position),
+                            (fixed2_t){delta.x * (FIXED_ONE / 32), delta.y * (FIXED_ONE / 32)});
     free(final.layers);
     free(idle.layers);
     DC_FreeFIN(&hubu);
@@ -139,7 +139,7 @@ int main(void) {
                 if (objects.items[i]->id == event.subject_id) trooper = objects.items[i];
             assert(trooper && trooper->type_id == MT_TROOPER && trooper->thinker.function == P_MobjThinker);
             assert(trooper->hp == trooper->max_hp && trooper->team == barracks->team);
-            assert(fvec2_near(fixed3_xy_to_fvec2(trooper->core.position), exit, 0.0001f));
+            assert(fixed2_near(fixed3_xy(trooper->core.position), exit, FIXED_LIT(0.0001)));
             assert(trooper->core.sprite_id == SPR_TRSC && trooper->core.angle == ANG90);
             built_ids[built++] = trooper->id;
             P_FreeMobjList(&objects);
@@ -162,7 +162,7 @@ int main(void) {
     assert(barracks->production && barracks->production->queue_count == 1);
     assert(level.player_resources[0][0] == money - product->cost);
     P_FreeMobjList(&objects);
-    int blocked_cell = (int)exit.y * level.width + (int)exit.x;
+    int blocked_cell = fixed_floor_int(exit.y) * level.width + fixed_floor_int(exit.x);
     uint8_t saved_block = level.blocked[blocked_cell];
     int blocked_ticks = 0;
     bool finished = false, blocked = false;
@@ -175,7 +175,7 @@ int main(void) {
         }
         P_Ticker();
         objects = P_ListMobjs();
-        finished = G_UpdateProduction(&level, objects.items, &objects.count, FIXED_DT);
+        finished = G_UpdateProduction(&level, objects.items, &objects.count, RTS_TICK_MS);
         P_FreeMobjList(&objects);
         if (blocked && blocked_ticks < 3 && barracks->production && barracks->production->release_ready) {
             assert(!finished); /* A blocked native exit must never fall back to a random cell. */
@@ -185,7 +185,7 @@ int main(void) {
     assert(finished && blocked_ticks == 3 && !barracks->production);
     mobj_t *trooper = (mobj_t *)thinkercap.prev;
     assert(trooper->type_id == MT_TROOPER && trooper->core.state_id == S_TRSC_STND);
-    assert(fvec2_near(fixed3_xy_to_fvec2(trooper->core.position), exit, 0.0001f));
+    assert(fixed2_near(fixed3_xy(trooper->core.position), exit, FIXED_LIT(0.0001)));
     /* No selection: native fixed slots remain empty until prerequisites exist. */
     objects = P_ListMobjs();
     for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
@@ -210,9 +210,9 @@ int main(void) {
     assert(science->core.state_id == S_SCNCPOD_BUILD1);
     /* Native slot 3 is (64,10): cancel it without adding a terrain row. */
     assert(ivec2_equal(science->core.render_offset, (ivec2_t){-64, -10}));
-    assert(fvec2_near(fixed3_xy_to_fvec2(science->core.position),
-                      fvec2_add(fixed3_xy_to_fvec2(exco->core.position),
-                                (fvec2_t){4.0f, -5.0f / 32.0f}), 0.0001f));
+    assert(fixed2_near(fixed3_xy(science->core.position),
+                      fixed2_add(fixed3_xy(exco->core.position),
+                                FIXED2_LIT(4.0f, -5.0f / 32.0f)), FIXED_LIT(0.0001)));
     P_FreeMobjList(&objects);
     objects = P_ListMobjs();
     assert(build_click(ui, &app, objects, &click));

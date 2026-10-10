@@ -46,7 +46,7 @@ static int test_map_and_units(void) {
         count_owner_type(&snap, 1, MT_MUTE_DRILLRIG) != 0 ||
         count_owner_type(&snap, 0, MT_SURV_OUTPOST) != 0)
         return fail("no synthetic starting buildings");
-    fvec2_t player_sum = { 0.0f, 0.0f };
+    fvec2_t player_sum = (fvec2_t){0.0, 0.0};
     for (int i = 0; i < snap.unit_count; ++i)
         if (snap.units[i].owner == 0)
             player_sum = fvec2_add(player_sum, snap.units[i].position);
@@ -81,7 +81,7 @@ static int test_select_and_move(void) {
     if (!rts_game_model_command(model, &sel)) return fail("select");
     fvec2_t target = { start.x - 3.0f, start.y };
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { .target = target } };
+        .data.move_selected = { .target = fixed2_from_fvec2(target) } };
     if (!rts_game_model_command(model, &move)) return fail("move");
     for (int t = 0; t < 90; ++t)
         if (!rts_tick(model, &snap)) return fail("tick");
@@ -170,7 +170,7 @@ static int test_combat(void) {
         .data.select_unit_index = { player, false } };
     rts_game_model_command(model, &sel);
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { .target = enemy_pos } };
+        .data.move_selected = { .target = fixed2_from_fvec2(enemy_pos) } };
     rts_game_model_command(model, &move);
 
     bool saw_damage = false;
@@ -189,12 +189,12 @@ static int test_combat(void) {
                         .data.attack_unit = { enemy_id, eidx2 } };
                     if (!rts_game_model_command(model, &atk)) {
                         RtsGameCommand mv = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-                            .data.move_selected = { .target = enemy_pos } };
+                            .data.move_selected = { .target = fixed2_from_fvec2(enemy_pos) } };
                         rts_game_model_command(model, &mv);
                     }
                 } else {
                     RtsGameCommand mv = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-                        .data.move_selected = { .target = enemy_pos } };
+                        .data.move_selected = { .target = fixed2_from_fvec2(enemy_pos) } };
                     rts_game_model_command(model, &mv);
                 }
             }

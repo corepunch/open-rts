@@ -158,10 +158,10 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
     producer->attack.target = NULL;
     producer->core.momentum = fixed3_zero();
     producer->core.sprite_name[0] = '\0';
-    producer->speed = 0.0f;
+    producer->speed = 0;
     producer->max_hp = rig->max_hp;
     producer->hp = rig->max_hp;
-    producer->radius = 1.2f;
+    producer->radius = FIXED_LIT(1.2);
     P_ApplyActorTypeDefaults(producer, rig);
     P_SetMobjState(producer, gameinfo->mobjinfo[actor_id].spawnstate);
     return true;
@@ -170,8 +170,8 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
                                      const StaticProductDefinition *product,
                                      const mobj_t *new_unit,
-                                     float *out_gx, float *out_gy) {
-    (void)model; (void)producer; (void)product; (void)new_unit; (void)out_gx; (void)out_gy;
+                                     fixed2_t *out) {
+    (void)model; (void)producer; (void)product; (void)new_unit; (void)out;
     return false;
 }
 
@@ -219,40 +219,9 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-/* One ladder for both factions: {Survivor id, Mutant id, count}. Income needs
- * the whole oil loop: a power station to unload at, a drill rig (bought as a
- * mobile derrick that deploys, see kk_ai_owned) and tankers. */
-static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {
-    { 40, 41, 1 },  /* Outpost / Clan hall, unpacked from the mobile outpost */
-    { 42, 43, 1 },  /* Machine shop / Blacksmith */
-    { 38, 39, 1 },  /* Power station */
-    { 55, 56, 1 },  /* Drill rig */
-    { 32, 33, 1 },  /* Oil tanker */
-    { 0,  1,  3 },  /* Rifleman / Berserker */
-    { 32, 33, 2 },
-    { 47, 48, 1 },  /* Research lab / Alchemy hall */
-    { 16, 17, 2 },  /* Dirt bike / Dire wolf */
-    { 12, 13, 2 },  /* RPG launcher / Bazooka */
-    { 49, 50, 1 },  /* Guard tower / Machinegun nest */
-    { 18, 19, 2 },  /* 4x4 pickup / Bike and sidecar */
-    { 0,  1,  6 },
-    { 20, 21, 2 },  /* ATV / Monster truck */
-    { 14, 15, 2 },  /* Sniper / Crazy Harry */
-    { 24, 25, 2 },  /* Anaconda / War mastodon */
-    { 51, 52, 1 },  /* Missile battery / Grapeshot tower */
-    { 55, 56, 2 },
-    { 32, 33, 4 },
-    { 28, 29, 2 },  /* Autocannon / Missile crab */
-    { 0,  1,  10 },
-    { 24, 25, 4 },
-    { 26, 27, 2 },  /* Barrage craft / Giant beetle */
-    { 28, 29, 4 },
-    { 22, 23, 2 },  /* Flame ATV / Giant scorpion */
-};
-
 /* Ids pair up by faction except the Mutant-only rows, so read the faction
  * from the catalog entry of any building or unit the owner already has. */
-static int kk_faction(int owner) {
+int KK_OwnerFaction(int owner) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *u = (mobj_t *)th;
@@ -261,53 +230,6 @@ static int kk_faction(int owner) {
             if (KKND_PRODUCTS[i].product_type == u->type_id) return KKND_PRODUCTS[i].faction;
     }
     return -1;
-}
-
-/* Survivors fight with guns and engines: riflemen and rockets screen the
- * 4x4s, ATVs and heavy tanks, behind towers, and attack once they match
- * the enemy, falling back early to repair. The Evolved swarm with cheap
- * berserkers and beasts, attack sooner and fight to the end. KKnD has no
- * supply, so army_cap bounds the army. */
-static const AiDoctrine survivor_doctrine = {
-    .workers = 3, .defenses = 2, .army_cap = 40, .counter = 50,
-    .attack_ratio = 110, .retreat_ratio = 50,
-    .roster = { {32,0},{49,0},{51,0},{53,0},
-                {0,15},{12,10},{4,5},{14,5},{16,5},{18,15},{20,15},{24,20},{28,10},{26,10} },
-    .roster_count = 14,
-};
-static const AiDoctrine evolved_doctrine = {
-    .workers = 3, .defenses = 1, .army_cap = 40, .counter = 50,
-    .attack_ratio = 80, .retreat_ratio = 30,
-    .roster = { {33,0},{50,0},{52,0},{54,0},
-                {1,30},{13,10},{15,5},{17,20},{19,5},{21,5},{23,10},{25,15},{27,10},{29,5} },
-    .roster_count = 14,
-};
-
-static bool kk_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
-    (void)map; (void)level;
-    int faction = kk_faction(owner);
-    if (faction < 0) return false;
-    out->wave_interval_ms = 40000;
-    out->wave_min_size = 6;
-    out->wave_max_size = 16;
-    out->doctrine = faction == 1 ? survivor_doctrine : evolved_doctrine;
-    for (unsigned i = 0; i < sizeof(kk_ai_ladder) / sizeof(*kk_ai_ladder); ++i)
-        P_AiPlanAdd(out, faction == 1 ? kk_ai_ladder[i].survivor : kk_ai_ladder[i].mutant,
-                    kk_ai_ladder[i].count);
-    return true;
-}
-
-/* First owned maker of `product` that has not reached the product's tech. */
-static mobj_t *kk_maker_lacking_tech(int owner, const StaticProductDefinition *product) {
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        if (th->function != P_MobjThinker) continue;
-        mobj_t *u = (mobj_t *)th;
-        if (u->owner != owner || u->hp <= 0 || u->remove ||
-            gameinfo->states[u->core.state_id].group == 6) continue;
-        for (int i = 0; i < product->maker_count; ++i)
-            if (product->makers[i] == u->type_id && !G_ModelProducerHasTech(u, product)) return u;
-    }
-    return NULL;
 }
 
 /* The derrick that deploys into a rig of `ui_id`, or 0. */
@@ -343,11 +265,7 @@ static int kk_ai_can_purchase(const level_t *map, int owner, int ui_id) {
     int derrick = kk_derrick_for_rig(ui_id);
     if (derrick && G_AiCatalogCanPurchase(map, owner, ui_id) == AI_BUY_BLOCKED)
         return G_AiCatalogCanPurchase(map, owner, derrick);
-    int status = G_AiCatalogCanPurchase(map, owner, ui_id);
-    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui_id);
-    if (status == AI_BUY_BLOCKED && product && ui_id != KKND_RESEARCH &&
-        kk_maker_lacking_tech(owner, product)) return AI_BUY_NEED_TECH;
-    return status;
+    return G_AiCatalogCanPurchase(map, owner, ui_id);
 }
 
 static bool ready(const mobj_t *u) {
@@ -411,19 +329,6 @@ void A_KkndResearch(mobj_t *lab) {
     }
 }
 
-/* A lab researches one producer at a time; KK_Research on a producer that is
- * already being researched would cancel it, so check first. */
-static bool kk_ai_develop(level_t *map, int owner, int ui_id) {
-    (void)map;
-    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui_id);
-    mobj_t *maker = product ? kk_maker_lacking_tech(owner, product) : NULL;
-    if (!maker) return false;
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
-        if (th->function == P_MobjThinker && ((mobj_t *)th)->research.target == maker->id)
-            return true; /* Already under way: keep waiting. */
-    return KK_Research(maker);
-}
-
 static bool kk_ai_purchase(level_t *map, int owner, int ui_id) {
     int derrick = kk_derrick_for_rig(ui_id);
     if (derrick && G_AiCatalogCanPurchase(map, owner, ui_id) == AI_BUY_BLOCKED)
@@ -452,13 +357,10 @@ static const AiGameInterface kk_ai_interface = {
     .name = "kknd",
     .features = AI_FEATURE_ALL,
     .player_level = P_AiLevelNonHuman,
-    .plan = kk_ai_plan,
     .owned = kk_ai_owned,
     .can_purchase = kk_ai_can_purchase,
     .purchase = kk_ai_purchase,
-    .develop = kk_ai_develop,
     .is_anchor = G_AiIsStructure,
-    .product_actor = G_AiCatalogActor,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &kk_ai_interface; }

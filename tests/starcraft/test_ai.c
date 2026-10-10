@@ -152,7 +152,7 @@ static bool alive(const mobj_t *mo, int owner) {
  * a Bunker, a storm on the field, workers mining at an expansion. */
 static void observe(int owner, const mobj_t *start_hall, race_run_t *out) {
     int count[SC_TYPES + 1] = {0};
-    fvec2_t start = fixed3_xy_to_fvec2(start_hall->core.position);
+    fixed2_t start = fixed3_xy(start_hall->core.position);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
         /* A storm is a neutral effect area that keeps its caster's owner. */
@@ -162,14 +162,14 @@ static void observe(int owner, const mobj_t *start_hall, race_run_t *out) {
         ++count[mo->type_id];
         out->sieged |= mo->type_id == MT_SIEGE_MODE;
         out->bunkered |= (mo->sc.flags & SC_LOADED) && mo->type_id == MT_MARINE;
-        fvec2_t hall = fixed3_xy_to_fvec2(mo->core.position);
-        if (!(mo->traits & MF_RESOURCE_BASE) || fvec2_distance_squared(hall, start) < 144.0f) continue;
+        fixed2_t hall = fixed3_xy(mo->core.position);
+        if (!(mo->traits & MF_RESOURCE_BASE) || fixed2_distance_squared64(hall, start) < fixed_sq64(FIXED_FROM_INT(12))) continue;
         int workers = 0;
         for (thinker_t *w = thinkercap.next; w != &thinkercap; w = w->next) {
             const mobj_t *u = (const mobj_t *)w;
             if (alive(u, owner) && u->harvest.phase != HARVEST_PHASE_NONE && u->harvest.target >= 0 &&
                 u->harvest.target < level.resource_vent_count &&
-                fvec2_distance_squared(level.resource_vents[u->harvest.target].attachment, hall) < 144.0f) ++workers;
+                fixed2_distance_squared64(level.resource_vents[u->harvest.target].attachment, hall) < fixed_sq64(FIXED_FROM_INT(12))) ++workers;
         }
         if (workers > out->town_workers) out->town_workers = workers;
     }
@@ -198,6 +198,8 @@ static int play(int race, race_run_t *out) {
     for (int owner = 0; owner < 8; ++owner)
         if (owner != consoleplayer && G_AiInterface()->player_level(&level, owner) == AI_LEVEL_NORMAL) computer = owner;
     CHECK(computer >= 0 && sc_player_side(computer) == race);
+    /* The race's plan is the ruleset's faction: opening and doctrine unchanged. */
+    CHECK(R_OwnerFaction(&level, computer) == &g_ruleset.factions[race]);
     /* The idle human cannot fall, so the game runs its full length and
      * every wave meets a base to fight. */
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
@@ -210,7 +212,7 @@ static int play(int race, race_run_t *out) {
             start_hall = ((const mobj_t *)th)->id;
     CHECK(start_hall);
     for (int t = 0; t < RTS_TICRATE * 60 * 14; ++t) {
-        CHECK(rts_game_model_tick(model, RTS_FIXED_DT));
+        CHECK(rts_game_model_tick(model, RTS_TICK_MS));
         AiEvent event;
         while (P_AiPollEvent(ai, &event)) {
             if (event.owner != computer) continue;
@@ -268,13 +270,14 @@ static int duel(AiStats *zerg, AiStats *protoss) {
     RtsGameModelConfig config = { .data_root = g_game_default_root, .map_path = map };
     CHECK(model && rts_game_model_load(model, &config));
     AiContext *ai = rts_game_model_ai(model);
-    bool computer[8] = {0};
+    /* Judged by who was a computer at the start: a won match turns every AI off. */
+    bool computer[8];
     for (int owner = 0; owner < 8; ++owner)
         computer[owner] = owner != consoleplayer && G_AiInterface()->player_level(&level, owner) == AI_LEVEL_NORMAL;
     /* The idle seat only watches: it cannot fall and end the match. */
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         if (((mobj_t *)th)->owner == consoleplayer) ((mobj_t *)th)->sc.flags |= SC_INVINCIBLE;
-    for (int t = 0; t < RTS_TICRATE * 60 * 15; ++t) CHECK(rts_game_model_tick(model, RTS_FIXED_DT));
+    for (int t = 0; t < RTS_TICRATE * 60 * 15; ++t) CHECK(rts_game_model_tick(model, RTS_TICK_MS));
     for (int owner = 0; owner < 8; ++owner) {
         if (!computer[owner]) continue;
         const AiStats *stats = P_AiStats(ai, owner);
@@ -330,8 +333,10 @@ int main(void) {
     AiStats duel_zerg = {0}, duel_protoss = {0};
     CHECK(duel(&duel_zerg, &duel_protoss) == 0);
     for (int i = 0; i < 3; ++i) CHECK(collect(child[i], fd[i], runs[i]) == 0);
-    /* Both sides attack; seeing a stronger enemy makes waves wait, and
-     * losing fights sends them home. */
+    /* Both sides attack, seeing a stronger enemy makes waves wait, and losing
+     * fights sends them home. Which side launches more waves is decided by the
+     * first fight and flips under a 0.01% change to unit speed, so it is not
+     * asserted. */
     CHECK(duel_zerg.waves >= 1 && duel_protoss.waves >= 1);
     CHECK(duel_zerg.holds + duel_protoss.holds > 0);
     CHECK(duel_zerg.retreats + duel_protoss.retreats > 0);

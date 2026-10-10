@@ -17,7 +17,7 @@ const ai_profile_t g_dark_reign_ai_profiles[] = {
         .defend_buildings_priority = 500, .attack_enemy_base_priority = 78,
         .exploration_priority = 600, .perimeter_priority = 5000,
         .resource_priority = 400, .danger_priority = 100,
-        .min_matching_force_ratio = 1.0, .max_matching_force_ratio = 2.0,
+        .min_matching_force_ratio = FIXED_FROM_INT(1), .max_matching_force_ratio = FIXED_FROM_INT(2),
         .min_building_defense_force = 40, .max_building_defense_force = 100,
         .min_exploration_force = 1, .max_exploration_force = 100,
         .min_perimeter_force = 40, .max_perimeter_force = 70,
@@ -31,7 +31,7 @@ const ai_profile_t g_dark_reign_ai_profiles[] = {
         .defend_buildings_priority = 500, .attack_enemy_base_priority = 78,
         .exploration_priority = 600, .perimeter_priority = 100,
         .resource_priority = 400, .danger_priority = 1000,
-        .min_matching_force_ratio = 2.0, .max_matching_force_ratio = 7.0,
+        .min_matching_force_ratio = FIXED_FROM_INT(2), .max_matching_force_ratio = FIXED_FROM_INT(7),
         .min_building_defense_force = 40, .max_building_defense_force = 100,
         .min_exploration_force = 1, .max_exploration_force = 200,
         .min_perimeter_force = 40, .max_perimeter_force = 70,
@@ -45,7 +45,7 @@ const ai_profile_t g_dark_reign_ai_profiles[] = {
         .defend_buildings_priority = 700, .attack_enemy_base_priority = 0,
         .exploration_priority = 500, .perimeter_priority = 1000,
         .resource_priority = 700, .danger_priority = 1000,
-        .min_matching_force_ratio = 2.0, .max_matching_force_ratio = 7.0,
+        .min_matching_force_ratio = FIXED_FROM_INT(2), .max_matching_force_ratio = FIXED_FROM_INT(7),
         .min_building_defense_force = 140, .max_building_defense_force = 280,
         .min_exploration_force = 70, .max_exploration_force = 70,
         .min_perimeter_force = 340, .max_perimeter_force = 650,
@@ -59,7 +59,7 @@ const ai_profile_t g_dark_reign_ai_profiles[] = {
         .defend_buildings_priority = 500, .attack_enemy_base_priority = 78,
         .exploration_priority = 600, .perimeter_priority = 5000,
         .resource_priority = 400, .danger_priority = 100,
-        .min_matching_force_ratio = 1.0, .max_matching_force_ratio = 2.0,
+        .min_matching_force_ratio = FIXED_FROM_INT(1), .max_matching_force_ratio = FIXED_FROM_INT(2),
         .min_building_defense_force = 40, .max_building_defense_force = 100,
         .min_exploration_force = 1, .max_exploration_force = 100,
         .min_perimeter_force = 40, .max_perimeter_force = 70,
@@ -81,7 +81,7 @@ bool load_dark_reign_decoration_sprites(const char *data_root, const level_t *ma
                                         spritecache_t *cache);
 
 /* UNITS.TXT SetPhysics speed: tile-step progress per tic, step done at 100 (0x004c00c0, 0x004c1267). */
-#define DR_SPEED(maxspeed) ((float)(maxspeed) * RTS_TICRATE / 100.0f)
+#define DR_SPEED(maxspeed) ((fixed_t)(((int64_t)(maxspeed) * RTS_TICRATE * FIXED_ONE + 50) / 100))
 
 static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     /* === Special / support units === */
@@ -119,7 +119,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .move_class = DR_MOVE_HOVER,
         .max_hp = 500,
         .turn_step = (UINT32_C(0x1000000) * 10 / 360) << 8,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267,
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 11, .cooldown_ms = 267,
                     .targets = MOBJ_TARGET_GROUND },
         .harvest = { .state_id = S_UCHFRST0_HARVEST1, .unload_state_id = S_UCHFRST0_HARVEST1,
                      .dock_angle = ANG90 + ANG45,
@@ -135,7 +135,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 100,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267,
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 11, .cooldown_ms = 267,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* RailGun: range 5, 367ms cd, 11 dmg */
@@ -147,7 +147,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 125,
-        .attack = { .range = 5.0f, .damage = 11, .cooldown_ms = 367,
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 11, .cooldown_ms = 367,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* SniperRifle: range 8, 1667ms cd, 150 dmg */
@@ -159,7 +159,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 100,
-        .attack = { .range = 8.0f, .damage = 150, .cooldown_ms = 1667,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 150, .cooldown_ms = 1667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Recon only — no weapon */
@@ -181,7 +181,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 66,
-        .attack = { .range = 1, .damage = -20, .cooldown_ms = 334,
+        .attack = { .range = FIXED_FROM_INT(1), .damage = -20, .cooldown_ms = 334,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Sabotage ability — no ranged weapon */
@@ -203,7 +203,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 66,
-        .attack = { .range = 1, .damage = -5, .cooldown_ms = 334,
+        .attack = { .range = FIXED_FROM_INT(1), .damage = -5, .cooldown_ms = 334,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* SuicideNuke: range 2, 1667ms, 180 dmg, large AoE */
@@ -215,7 +215,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(16),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 100,
-        .attack = { .range = 2.0f, .damage = 180, .cooldown_ms = 1667,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 180, .cooldown_ms = 1667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Infiltrate ability — no ranged weapon */
@@ -238,7 +238,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(24),
         .move_class = DR_MOVE_WHEELA,
         .max_hp = 133,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 433,
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 10, .cooldown_ms = 433,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Rapid armored transport — no weapon */
@@ -260,7 +260,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(16),
         .move_class = DR_MOVE_TRACK,
         .max_hp = 133,
-        .attack = { .range = 6.0f, .damage = 14, .cooldown_ms = 667 },
+        .attack = { .range = FIXED_FROM_INT(6), .damage = 14, .cooldown_ms = 667 },
     },
     {   /* TankHunterGun: range 3, 667ms cd, 60 dmg — high anti-armor */
         .id = MT_FG_TANK_HUNTER,
@@ -271,7 +271,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(20),
         .move_class = DR_MOVE_TRACK,
         .max_hp = 150,
-        .attack = { .range = 3.0f, .damage = 60, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(3), .damage = 60, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* PhaseTankCannon: range 6, 433ms cd, 30 dmg */
@@ -283,7 +283,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_TRACK,
         .max_hp = 166,
-        .attack = { .range = 6.0f, .damage = 30, .cooldown_ms = 433,
+        .attack = { .range = FIXED_FROM_INT(6), .damage = 30, .cooldown_ms = 433,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Chaff: range 8, 500ms cd, 8 dmg — anti-air */
@@ -295,7 +295,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 100,
-        .attack = { .range = 8.0f, .damage = 8, .cooldown_ms = 500,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 8, .cooldown_ms = 500,
                     .targets = MOBJ_TARGET_AIR },
     },
     {   /* TripleRailGun: range 8, 667ms cd, 24 dmg */
@@ -307,7 +307,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 200,
-        .attack = { .range = 8.0f, .damage = 24, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 24, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* ArtilleryShell: range 45, 2667ms cd, 30 dmg, large AoE */
@@ -319,7 +319,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_TRACK,
         .max_hp = 133,
-        .attack = { .range = 45.0f, .damage = 30, .cooldown_ms = 2667,
+        .attack = { .range = FIXED_FROM_INT(45), .damage = 30, .cooldown_ms = 2667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     /* === Air units === */
@@ -332,7 +332,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(28),
         .move_class = DR_MOVE_FLYING,
         .max_hp = 100,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 233 },
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 10, .cooldown_ms = 233 },
     },
     {   /* OutriderMissile: range 5, 333ms cd, 20 dmg */
         .id = MT_FG_OUTRIDER,
@@ -343,7 +343,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(24),
         .move_class = DR_MOVE_FLYING,
         .max_hp = 200,
-        .attack = { .range = 5.0f, .damage = 20, .cooldown_ms = 333,
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 20, .cooldown_ms = 333,
                     .targets = MOBJ_TARGET_GROUND },
     },
     /* === Experimental / special === */
@@ -356,7 +356,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_WHEEL,
         .max_hp = 166,
-        .attack = { .range = 24.0f, .damage = 17, .cooldown_ms = 2000,
+        .attack = { .range = FIXED_FROM_INT(24), .damage = 17, .cooldown_ms = 2000,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Contaminator: range 1, 67ms cd, 5 dmg — targets buildings */
@@ -368,7 +368,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(4),
         .move_class = DR_MOVE_TRACK,
         .max_hp = 166,
-        .attack = { .range = 1.0f, .damage = 5, .cooldown_ms = 67 },
+        .attack = { .range = FIXED_FROM_INT(1), .damage = 5, .cooldown_ms = 67 },
     },
     {   /* Spawned from Phasing Facility — internal tunnel unit */
         .id = MT_FG_UNDERGROUND_TUNNEL,
@@ -400,7 +400,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 100,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267,
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 11, .cooldown_ms = 267,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* PlasmaRifle: range 4, 267ms cd, 18 dmg */
@@ -412,7 +412,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(6),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 150,
-        .attack = { .range = 4.0f, .damage = 18, .cooldown_ms = 267 },
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 18, .cooldown_ms = 267 },
     },
     {   /* PolyAcid: range 5, 667ms cd, 15 dmg */
         .id = MT_IMP_EXTERMINATOR,
@@ -423,7 +423,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(16),
         .move_class = DR_MOVE_HOVERS,
         .max_hp = 75,
-        .attack = { .range = 5.0f, .damage = 15, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 15, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     /* === Imperium vehicles === */
@@ -436,7 +436,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(20),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 150,
-        .attack = { .range = 6.0f, .damage = 10, .cooldown_ms = 433,
+        .attack = { .range = FIXED_FROM_INT(6), .damage = 10, .cooldown_ms = 433,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* LaserRifle: range 4, 267ms cd, 11 dmg */
@@ -448,7 +448,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(20),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 150,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267,
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 11, .cooldown_ms = 267,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* PlasmaCannon: range 5, 500ms cd, 19 dmg */
@@ -460,7 +460,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(16),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 250,
-        .attack = { .range = 5.0f, .damage = 19, .cooldown_ms = 500,
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 19, .cooldown_ms = 500,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* AmperAmp has no offense strength — support unit */
@@ -482,7 +482,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(16),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 150,
-        .attack = { .range = 8.0f, .damage = 48, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 48, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_AIR },
     },
     {   /* Recon only — no weapon in UNITS.TXT */
@@ -504,7 +504,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(20),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 100,
-        .attack = { .range = 2.0f, .damage = 10, .cooldown_ms = 500,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 10, .cooldown_ms = 500,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Ability transport — no ranged weapon */
@@ -526,7 +526,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 410,
-        .attack = { .range = 8.0f, .damage = 30, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 30, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* IMPArtilleryShell: range 45, 2667ms cd, 30 dmg */
@@ -538,7 +538,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(6),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 133,
-        .attack = { .range = 45.0f, .damage = 30, .cooldown_ms = 2667,
+        .attack = { .range = FIXED_FROM_INT(45), .damage = 30, .cooldown_ms = 2667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* CycloneCannon: range 6, 333ms cd, 24 dmg */
@@ -550,7 +550,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(24),
         .move_class = DR_MOVE_FLYING,
         .max_hp = 150,
-        .attack = { .range = 6.0f, .damage = 24, .cooldown_ms = 333 },
+        .attack = { .range = FIXED_FROM_INT(6), .damage = 24, .cooldown_ms = 333 },
     },
     {   /* FortressCannon: range 7, 667ms cd, 650 dmg */
         .id = MT_IMP_SKY_FORTRESS,
@@ -561,7 +561,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(10),
         .move_class = DR_MOVE_FLYING,
         .max_hp = 266,
-        .attack = { .range = 7.0f, .damage = 650, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(7), .damage = 650, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     /* === Imperium shared-sprite units (same bodies as FG) === */
@@ -599,7 +599,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .move_class = DR_MOVE_HOVER,
         .max_hp = 500,
         .turn_step = (UINT32_C(0x1000000) * 10 / 360) << 8,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267,
+        .attack = { .range = FIXED_FROM_INT(4), .damage = 11, .cooldown_ms = 267,
                     .targets = MOBJ_TARGET_GROUND },
         .harvest = { .state_id = S_UCHFRST0_IMP_HARVEST1, .unload_state_id = S_UCHFRST0_IMP_HARVEST1,
                      .dock_angle = ANG90 + ANG45,
@@ -624,7 +624,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(6),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 100,
-        .attack = { .range = 2.0f, .damage = 180, .cooldown_ms = 1667,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 180, .cooldown_ms = 1667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Contaminator: range 1, 67ms cd, 5 dmg */
@@ -636,7 +636,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(4),
         .move_class = DR_MOVE_TRACK,
         .max_hp = 166,
-        .attack = { .range = 1.0f, .damage = 5, .cooldown_ms = 67 },
+        .attack = { .range = FIXED_FROM_INT(1), .damage = 5, .cooldown_ms = 67 },
     },
     /* === Imperium decoy mobile units === */
     {
@@ -688,7 +688,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(20),
         .move_class = DR_MOVE_HOVER,
         .max_hp = 100,
-        .attack = { .range = 2.0f, .damage = 50, .cooldown_ms = 500,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 50, .cooldown_ms = 500,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {
@@ -721,7 +721,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 66,
-        .attack = { .range = 2.0f, .damage = 2, .cooldown_ms = 667,
+        .attack = { .range = FIXED_FROM_INT(2), .damage = 2, .cooldown_ms = 667,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Spy/agent — no weapon */
@@ -753,7 +753,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(12),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 500,
-        .attack = { .range = 7.0f, .damage = 170, .cooldown_ms = 99,
+        .attack = { .range = FIXED_FROM_INT(7), .damage = 170, .cooldown_ms = 99,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* MedicHeal support — no offensive attack */
@@ -765,7 +765,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 250,
-        .attack = { .range = 1, .damage = -20, .cooldown_ms = 334,
+        .attack = { .range = FIXED_FROM_INT(1), .damage = -20, .cooldown_ms = 334,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* Unarmed pedestrian */
@@ -847,7 +847,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bfgdtmn0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 400,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 100 },
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 10, .cooldown_ms = 100 },
     },
     {   /* FixedLaserPlat: range 8, 333ms cd, 13 dmg */
         .id = MT_FG_ADV_GUARD_TOWER,
@@ -857,7 +857,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bfagtmn0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 550,
-        .attack = { .range = 8.0f, .damage = 13, .cooldown_ms = 333,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 13, .cooldown_ms = 333,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* FixedGroundToAirLaser: range 10, 467ms cd, 40 dmg — anti-air */
@@ -868,7 +868,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bfaarmn0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 600,
-        .attack = { .range = 10.0f, .damage = 40, .cooldown_ms = 467,
+        .attack = { .range = FIXED_FROM_INT(10), .damage = 40, .cooldown_ms = 467,
                     .targets = MOBJ_TARGET_AIR },
     },
     /* === FG decoy buildings === */
@@ -927,7 +927,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bigdtsh0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 400,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 100 },
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 10, .cooldown_ms = 100 },
     },
     {   /* NeutronAss: range 8, 1067ms cd, 180 dmg */
         .id = MT_IMP_ADV_GUARD_TOWER,
@@ -937,7 +937,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "biagtsh0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 550,
-        .attack = { .range = 8.0f, .damage = 180, .cooldown_ms = 1067,
+        .attack = { .range = FIXED_FROM_INT(8), .damage = 180, .cooldown_ms = 1067,
                     .targets = MOBJ_TARGET_GROUND },
     },
     {   /* IMPFixedGroundToAirLaser: range 10, 467ms cd, 14 dmg — anti-air */
@@ -948,7 +948,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "biaarsh0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 720,
-        .attack = { .range = 10.0f, .damage = 14, .cooldown_ms = 467,
+        .attack = { .range = FIXED_FROM_INT(10), .damage = 14, .cooldown_ms = 467,
                     .targets = MOBJ_TARGET_AIR },
     },
     /* === Imperium bridges === */
@@ -1190,13 +1190,13 @@ bool HU_LoadFont(const char *root, bitmapfont_t *font) {
 }
 
 void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
-                      hudtext_t *hud, float dt) {
+                      hudtext_t *hud, int dt_ms) {
     (void)map; (void)mobjs; (void)count;
-    (void)hud; (void)dt;
+    (void)hud; (void)dt_ms;
 }
 
-bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
-    (void)map; (void)units; (void)unit_count; (void)dt;
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
+    (void)map; (void)units; (void)unit_count; (void)dt_ms;
     return false;
 }
 

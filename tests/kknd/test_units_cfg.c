@@ -35,9 +35,9 @@ int main(void) {
         int reload = column(cols, n, 5), reload2 = column(cols, n, 6), volley = column(cols, n, 7);
         int tspeed = column(cols, n, 8), range = column(cols, n, 9);
         int dmg[3] = { column(cols, n, 11), column(cols, n, 12), column(cols, n, 13) };
-        if (type->max_hp != hp || type->speed != speed / 32.0f ||
+        if (type->max_hp != hp || type->speed != speed * (FIXED_ONE / 32) ||
             type->turn_step != ANG90 / RTS_TICRATE * (angle_t)tspeed) {
-            fprintf(stderr, "%s: hp %d speed %.3f turn %u\n", cols[0],
+            fprintf(stderr, "%s: hp %d speed %d turn %u\n", cols[0],
                     type->max_hp, type->speed, type->turn_step);
             return 1;
         }
@@ -46,7 +46,7 @@ int main(void) {
                    type->attack.versus[2] == dmg[2] && type->attack.damage == dmg[0]);
             /* Bombers carry no native range or reload. */
             if (range) {
-                assert(type->attack.range == range / 32.0f);
+                assert(type->attack.range == range * (FIXED_ONE / 32));
                 assert(type->attack.cooldown_ms == reload * 1000 / 60);
                 assert(type->attack.shots == volley);
                 assert(type->attack.reload_ms == reload2 * 1000 / 60);

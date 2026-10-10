@@ -12,8 +12,8 @@ static void button(app_t *app, const spritecache_t *cache, const mobjlist_t *obj
 
 static void check_sarge(app_t *app, const spritecache_t *cache,
                         const mobjlist_t *objects, mobj_t *sarge) {
-    fvec2_t start = fixed3_xy_to_fvec2(sarge->core.position);
-    assert(start.x == 68.5f && start.y == 76.5f && sarge->owner == 0);
+    fixed2_t start = fixed3_xy(sarge->core.position);
+    assert(start.x == FIXED_LIT(68.5) && start.y == FIXED_LIT(76.5) && sarge->owner == 0);
     assert(!L_IsWalkable(&level, 68, 76));
     blob_t path;
     assert(W_ReadFile("data/DCOLONY/SCENARIO/MPLAYER/D2PLAY01.PTH", &path));
@@ -27,7 +27,7 @@ static void check_sarge(app_t *app, const spritecache_t *cache,
     assert(P_MobjIsSelected(sarge));
     G_ClearTiccmds();
     netactive = true;
-    fvec2_t goal = {73.5f, 75.5f};
+    fixed2_t goal = FIXED2_LIT(73.5, 75.5);
     assert(G_SelectedTiccmd(TC_MOVE, objects->items, objects->count, goal, 0));
     ticcmd_t command;
     G_BuildTiccmd(&command);
@@ -36,10 +36,10 @@ static void check_sarge(app_t *app, const spritecache_t *cache,
     netactive = false;
     for (int tic = 0; tic < 450 && !sarge->movement.order_arrived; ++tic) P_Ticker();
     assert(sarge->movement.order_arrived);
-    assert(fvec2_distance_squared(fixed3_xy_to_fvec2(sarge->core.position), goal) < 0.01f);
+    assert(fixed2_distance_squared64(fixed3_xy(sarge->core.position), goal) < FIXED_LIT_64(0.01));
     assert(!L_IsWalkable(&level, 68, 76)); /* Escape never edits terrain. */
-    assert(!P_CheckPosition(&level, sarge, start.x, start.y));
-    assert(!P_TryMove(sarge, fixed3_from_fvec2(start, 0))); /* Cannot re-enter. */
+    assert(!P_CheckPosition(&level, sarge, start));
+    assert(!P_TryMove(sarge, fixed3_from_fixed2(start, 0))); /* Cannot re-enter. */
 }
 
 static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface *surface) {
@@ -86,16 +86,16 @@ static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface
     DC_FreeFIN(&fin);
 
     /* A mixed selection keeps the aircraft's exact blocked destination. */
-    mobj_t *ground = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){72.5f,76.5f},0), MT_TROOPER);
+    mobj_t *ground = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(72.5, 76.5),0), MT_TROOPER);
     assert(ground);
     mobj_t *group[] = {ground, osprey};
-    fvec2_t goal = {68.5f,76.5f};
+    fixed2_t goal = FIXED2_LIT(68.5, 76.5);
     P_MoveUnitsAt(&level, group, 2, goal);
     assert(!osprey->movement.path.count && osprey->movement.order_id);
-    assert(fvec2_distance_squared(osprey->movement.goal, goal) == 0);
+    assert(fixed2_distance_squared64(osprey->movement.goal, goal) == 0);
     for (int tic = 0; tic < 180 && !osprey->movement.order_arrived; ++tic) P_Ticker();
     assert(osprey->movement.order_arrived);
-    assert(fvec2_distance_squared(fixed3_xy_to_fvec2(osprey->core.position), goal) < 0.01f);
+    assert(fixed2_distance_squared64(fixed3_xy(osprey->core.position), goal) < FIXED_LIT_64(0.01));
     assert(osprey->core.position.z == start.z);
     assert(states[osprey->core.state_id].group == 1);
     P_RemoveMobj(ground);
@@ -103,12 +103,12 @@ static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface
     /* Aircraft-only orders need no walkable goal anywhere on the map. */
     P_NavFree(&level);
     memset(level.blocked, 1, (size_t)level.width * level.height);
-    goal = (fvec2_t){70.5f,76.5f};
+    goal = FIXED2_LIT(70.5, 76.5);
     P_MoveUnitsAt(&level, &osprey, 1, goal);
     assert(!osprey->movement.path.count && !level.nav);
     for (int tic = 0; tic < 180 && !osprey->movement.order_arrived; ++tic) P_Ticker();
     assert(osprey->movement.order_arrived);
-    assert(fvec2_distance_squared(fixed3_xy_to_fvec2(osprey->core.position), goal) < 0.01f);
+    assert(fixed2_distance_squared64(fixed3_xy(osprey->core.position), goal) < FIXED_LIT_64(0.01));
 }
 
 int main(void) {
@@ -133,9 +133,9 @@ int main(void) {
         if (u->type_id == MT_CYBORG) sarge = u;
         if (u->type_id == MT_SCOUT) osprey = u;
         if (u->type_id == MT_EXCOPOD || u->type_id == MT_ALIEN_MINDHIVE) {
-            fvec2_t at = fixed3_xy_to_fvec2(u->core.position);
-            assert(at.x == (u->owner ? 23.0f : 65.0f));
-            assert(at.y == (u->owner ? 5.46875f : 74.46875f));
+            fixed2_t at = fixed3_xy(u->core.position);
+            assert(at.x == (u->owner ? 23 : 65) * FIXED_ONE);
+            assert(at.y == (u->owner ? FIXED_LIT(5.46875) : FIXED_LIT(74.46875)));
         }
     }
     assert(sarge && osprey);

@@ -11,10 +11,17 @@
 #include <unistd.h>
 
 enum { TESTTICS = 550 };
-typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;
+typedef struct {
+    int tics, failed, resyncs, resync_tic; /* resync_tic: gametic once the last resync finished. */
+    char error[256];
+    struct netdesync_s desync;
+    uint32_t hashes[TESTTICS];
+} result_t;
 typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,
                HOSTED, HOSTED_MAP, HOSTED_LOSSY, HOSTED_MIXED, MENU_HOSTED,
-               SPEED_MISMATCH } testmode_t;
+               SPEED_MISMATCH, RESYNC, RESYNC_LOSSY } testmode_t;
+#define IS_RESYNC(mode) ((mode) == RESYNC || (mode) == RESYNC_LOSSY)
+#define IS_LOSSY_HOSTED(mode) ((mode) == HOSTED_LOSSY || (mode) == RESYNC_LOSSY)
 
 static mobj_t *actors[MAXPLAYERS];
 
@@ -25,10 +32,10 @@ static void init_world(void) {
     gameinfo = NULL;
     for (int i = 0; i < MAXPLAYERS; ++i) {
         actors[i] = spawn_mobj_fixture((mobj_t){ .hp = 100, .max_hp = 100,
-            .owner = (uint8_t)i, .team = (uint8_t)i, .speed = 4, .radius = 0.25f,
+            .owner = (uint8_t)i, .team = (uint8_t)i, .speed = 4 * FIXED_ONE, .radius = FIXED_LIT(0.25),
             .allegiance = i ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER,
             .traits = MF_MOBILE | MF_SELECTABLE,
-            .core.position = fixed3_from_fvec2((fvec2_t){4.5f + i * 6, 4.5f}, 0),
+            .core.position = fixed3_from_fixed2(FIXED2_LIT(4.5f + i * 6, 4.5f), 0),
             .harvest.target = -1 });
     }
 }
@@ -40,7 +47,7 @@ static void command_tests(void) {
     D_CheckNetGame(G_Consistency());
     mobj_t *unit = actors[0];
     P_MobjSetSelected(unit, true);
-    assert(G_SelectedTiccmd(TC_MOVE, actors, MAXPLAYERS, (fvec2_t){12.5f, 12.5f}, 0));
+    assert(G_SelectedTiccmd(TC_MOVE, actors, MAXPLAYERS, FIXED2_LIT(12.5, 12.5), 0));
     assert(!unit->movement.order_id); /* Input never changes simulation ahead of its tic. */
     P_MobjSetSelected(unit, false);
     P_MobjSetSelected(actors[1], true);
@@ -50,7 +57,7 @@ static void command_tests(void) {
     assert(!unit->movement.order_id); /* Can't command another owner's unit. */
     G_RunTiccmd(0, &cmd);
     assert(unit->movement.order_id && !actors[1]->movement.order_id);
-    assert(fvec2_near(unit->movement.goal, (fvec2_t){12.5f, 12.5f}, 0.001f));
+    assert(fixed2_near(unit->movement.goal, FIXED2_LIT(12.5, 12.5), FIXED_LIT(0.001)));
     uint32_t hash = G_Consistency();
     P_MobjSetSelected(unit, true);
     assert(hash == G_Consistency());
@@ -65,7 +72,7 @@ static void command_tests(void) {
     level.resource_vents = calloc(1, sizeof(*level.resource_vents));
     assert(level.resource_vents);
     level.resource_vent_count = 1;
-    level.resource_vents[0] = (resourcevent_t){ .cell = {12,12}, .attachment = {12.5f,12.5f},
+    level.resource_vents[0] = (resourcevent_t){ .cell = {12,12}, .attachment = FIXED2_LIT(12.5,12.5),
                                              .active = true, .rate = 1, .amount = 100 };
     cmd.order = TC_HARVEST;
     G_RunTiccmd(0, &cmd);
@@ -104,7 +111,7 @@ static void command_tests(void) {
     /* Native DC player production is charged at command execution, once. */
     G_InitGame(); P_InitThinkers();
     level.width = level.height = 32;
-    mobj_t *producer = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){16,16}, 0), MT_EXCOPOD);
+    mobj_t *producer = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(16,16), 0), MT_EXCOPOD);
     assert(producer);
     producer->owner = producer->team = 1;
     level.player_resources[1][0] = 10000;
@@ -128,7 +135,7 @@ static void command_tests(void) {
     P_FreeLevel(&level);
     G_InitGame(); P_InitThinkers();
     level.width = level.height = 32;
-    producer = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){16,16},0),MT_EXCOPOD);
+    producer = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(16,16),0),MT_EXCOPOD);
     assert(producer);
     producer->owner = producer->team = 1;
     level.player_resources[1][0] = 10000;
@@ -327,22 +334,22 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         argv[argc++] = hosts[p];
     }
     argv[argc] = NULL;
-    bool native_map = mode == HOSTED_MAP || mode == HOSTED_MIXED || mode == MENU_HOSTED;
-    const char *chosen_map = mode == HOSTED_MIXED || mode == MENU_HOSTED ? "SCENARIO/MPLAYER/D2PLAY01.MAP" :
+    bool native_map = mode == HOSTED_MAP || mode == HOSTED_MIXED || mode == MENU_HOSTED || IS_RESYNC(mode);
+    const char *chosen_map = mode == HOSTED_MIXED || mode == MENU_HOSTED || IS_RESYNC(mode) ? "SCENARIO/MPLAYER/D2PLAY01.MAP" :
                                                   "SCENARIO/MPLAYER/J4PLAY01.MAP";
     char map[512];
     snprintf(map, sizeof(map), "%s", chosen_map);
-    bool hosted = mode == HOSTED || native_map || mode == HOSTED_LOSSY;
+    bool hosted = mode == HOSTED || native_map || IS_LOSSY_HOSTED(mode);
     D_SetGameSpeed(hosted ? (player ? 70 : 150) :
                    mode == SPEED_MISMATCH && player == 1 ? 150 : 100);
     if (hosted) {
         char server[64], playercount[8];
         snprintf(server, sizeof(server), "127.0.0.1:%d",
-                 ntohs((mode == HOSTED_LOSSY ? proxies : addresses)[0].sin_port));
+                 ntohs((IS_LOSSY_HOSTED(mode) ? proxies : addresses)[0].sin_port));
         snprintf(playercount, sizeof(playercount), "%d", players);
         char *hostargs[] = {"test", "--host", "--port", port, "--players", playercount, NULL};
         char *joinargs[] = {"test", "--join", server, "--port", port, NULL};
-        int session_argc = player ? (mode == HOSTED_LOSSY ? 5 : 3) : 6;
+        int session_argc = player ? (IS_LOSSY_HOSTED(mode) ? 5 : 3) : 6;
         if (player) map[0] = '\0';
         if (mode == MENU_HOSTED) {
             assert(player ? I_JoinNetGame("dark-colony", "127.0.0.1") :
@@ -372,7 +379,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         assert(model && rts_game_model_load(model, &config));
         /* Explicit test units: campaign starting forces need not cover all peers. */
         for (int p = 0; mode == MODEL && p < players; ++p) {
-            actors[p] = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){32.5f + p * 2, 32.5f}, 0), MT_TROOPER);
+            actors[p] = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(32.5f + p * 2, 32.5f), 0), MT_TROOPER);
             assert(actors[p]);
             actors[p]->owner = actors[p]->team = (uint8_t)p;
         }
@@ -404,13 +411,13 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     if (model) {
         RtsGameCommand select = {.kind = RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS};
         RtsGameCommand move = {.kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-                               .data.move_selected.target = {32.5f, 32.5f}};
+                               .data.move_selected.target = FIXED2_LIT(32.5, 32.5)};
         assert(rts_game_model_command(model, &select));
         assert(rts_game_model_command(model, &move));
     } else {
         P_MobjSetSelected(actors[player], true);
         assert(G_SelectedTiccmd(TC_MOVE, actors, MAXPLAYERS,
-                               (fvec2_t){4.5f + player * 6, 24.5f}, 0));
+                               FIXED2_LIT(4.5f + player * 6, 24.5f), 0));
         waypoints_t path = {.points = {{4 + player*6,24},{4 + player*6,12}},
                             .count = 2,.mode = WP_BACKTRACK};
         assert(G_PathOrder(actors,MAXPLAYERS,&path));
@@ -419,7 +426,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_CHAT,.target=(1u << players)-1,.text="network chat"}));
     if (!player && mode != SPEED_MISMATCH && mode != MISMATCH)
         assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_SPEED,.product=130}));
-    int end = mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
+    int end = IS_RESYNC(mode) ? 130 : mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
     if (mode == QUIT && player == 1) end = 40;
     bool trained = false;
     uint64_t deadline = SDL_GetTicks64() + 45000;
@@ -436,7 +443,11 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
                 }
             }
             int before = gametic;
-            if (!rts_game_model_tick(model, FIXED_DT)) break;
+            /* Peer 2 silently corrupts one building; the check must catch it and the
+             * host's save must put both peers back on one timeline. */
+            if (IS_RESYNC(mode) && gametic == 25 && player == 1 && actors[0]->hp > 1) --actors[0]->hp;
+            if (!rts_game_model_tick(model, RTS_TICK_MS)) break;
+            if (netresyncs > result.resyncs) { result.resyncs = netresyncs; result.resync_tic = gametic; }
             if (gametic > before) result.hashes[before] = G_Consistency();
             SDL_Delay(player + 1);
             continue;
@@ -458,6 +469,8 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         if (!model) assert(chat_text.count > 0 && strstr(chat_text.messages[0].text,"network chat"));
     }
     result.failed = neterror[0] != '\0';
+    snprintf(result.error, sizeof(result.error), "%s", neterror);
+    result.desync = netdesync;
     if (neterror[0]) fprintf(stderr, "peer %d: %s\n", player + 1, neterror);
     if (mode != MISMATCH && mode != SPEED_MISMATCH && mode != DESYNC) assert(gametic == end && !result.failed);
     if (mode == SPEED_MISMATCH) {
@@ -503,7 +516,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
 }
 
 static void network_test(testmode_t mode, int players) {
-    bool lossy = mode == LOSSY || mode == HOSTED_LOSSY;
+    bool lossy = mode == LOSSY || IS_LOSSY_HOSTED(mode);
     struct sockaddr_in addresses[MAXPLAYERS], proxies[2];
     int sockets[MAXPLAYERS], proxy[2] = {-1,-1}, pipes[MAXPLAYERS][2];
     pid_t children[MAXPLAYERS];
@@ -587,7 +600,31 @@ static void network_test(testmode_t mode, int players) {
     if (mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC) {
         assert(results[0].failed || results[1].failed);
         assert(results[0].tics < 90 && results[1].tics < 90);
-    } else {
+    }
+    if (mode == DESYNC) {
+        /* One hp changed after tic 25 ran: the peers first differ at tic 26, in the
+         * thinkers only, and both ends name that rather than just two hashes. */
+        int named = 0; /* The other peer may only hear that the game was killed. */
+        for (int p = 0; p < 2; ++p) {
+            assert(results[p].failed);
+            if (!strstr(results[p].error, "Desync:")) continue;
+            ++named;
+            assert(strstr(results[p].error, "thinkers"));
+            assert(results[p].desync.tic == 26 && results[p].desync.subsystems == 1u << CONSISTENCY_THINKERS);
+            assert(results[p].desync.detected == 26 + BACKUPTICS);
+            assert(!strstr(results[p].error, "resources") && !strstr(results[p].error, "globals"));
+        }
+        assert(named >= 1);
+    } else if (IS_RESYNC(mode)) {
+        int from = 0;
+        for (int p = 0; p < players; ++p) {
+            assert(!results[p].failed && results[p].resyncs == 1 && results[p].tics == 130);
+            if (results[p].resync_tic > from) from = results[p].resync_tic;
+        }
+        /* After the reload every tic's state is the same on both peers. */
+        assert(from > 25 && from < 80);
+        for (int tic = from; tic < 130; ++tic) assert(results[1].hashes[tic] == results[0].hashes[tic]);
+    } else if (mode != MISMATCH && mode != SPEED_MISMATCH) {
         for (int p = 1; p < players; ++p)
             for (int tic = 0; tic < results[p].tics; ++tic)
                 assert(results[p].hashes[tic] == results[0].hashes[tic]);
@@ -605,6 +642,13 @@ int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--lan")) {
         lan_tests();
         network_test(MENU_HOSTED, 2);
+        SDL_Quit();
+        return 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--resync")) {
+        network_test(DESYNC, 2);
+        network_test(RESYNC, 2);
+        network_test(RESYNC_LOSSY, 2);
         SDL_Quit();
         return 0;
     }
@@ -631,6 +675,8 @@ int main(int argc, char **argv) {
     network_test(MISMATCH, 2);
     network_test(SPEED_MISMATCH, 2);
     network_test(DESYNC, 2);
+    network_test(RESYNC, 2);
+    network_test(RESYNC_LOSSY, 2);
     network_test(QUIT, 2);
     network_test(MODEL, 2);
     network_test(HOSTED, 4);

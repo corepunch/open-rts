@@ -11,7 +11,7 @@ int main(void) {
     RtsGameModel *second = rts_game_model_create();
     assert(first && second && rts_game_model_load(first, &config));
     assert(rts_game_model_load(second, &config));
-    assert(!rts_game_model_tick(first, FIXED_DT));
+    assert(!rts_game_model_tick(first, RTS_TICK_MS));
     thinker_t *head = thinkercap.next;
     rts_game_model_destroy(first);
     assert(thinkercap.next == head && level.mission);

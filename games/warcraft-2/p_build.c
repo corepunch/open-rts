@@ -91,9 +91,7 @@ int W2_BuildProgress(const mobj_t *site) {
 
 static ivec2_t structure_cell(const mobj_t *unit) {
     isize2_t foot = mobjinfo[unit->type_id].w2.footprint;
-    fvec2_t centre = fixed3_xy_to_fvec2(unit->core.position);
-    return (ivec2_t){ (int)floorf(centre.x - foot.w * 0.5f + 0.001f),
-                      (int)floorf(centre.y - foot.h * 0.5f + 0.001f) };
+    return fixed2_footprint_corner(fixed3_xy(unit->core.position), foot);
 }
 
 /* Chebyshev distance between two footprints, Stratagus MapDistanceBetweenTypes
@@ -129,7 +127,7 @@ bool W2_BuildCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         const mobj_t *other = (const mobj_t *)th;
         if (other == builder || !alive(other) || (other->traits & (MF_MISSILE | MF_NOBLOCKMAP | MF_FLY))) continue;
         if (other->type_id >= NUMMOBJTYPES || (mobjinfo[other->type_id].w2.flags & W2_STRUCTURE)) continue;
-        if (ivec2_equal(cell, fvec2_cell(fixed3_xy_to_fvec2(other->core.position)))) return false;
+        if (ivec2_equal(cell, fixed2_cell(fixed3_xy(other->core.position)))) return false;
     }
     return true;
 }
@@ -196,7 +194,7 @@ static void release(mobj_t *unit) {
     if (!alive(unit)) return;
     show(unit, true);
     P_ClearMove(unit);
-    unit->movement.goal = fixed3_xy_to_fvec2(unit->core.position);
+    unit->movement.goal = fixed3_xy(unit->core.position);
     unit->movement.order_arrived = true;
     P_SetMobjState(unit, gameinfo->mobjinfo[unit->type_id].spawnstate);
 }
@@ -210,7 +208,7 @@ void W2_InterruptBuild(mobj_t *unit) {
 
 static bool walk_to_site(mobj_t *unit) {
     isize2_t foot = mobjinfo[unit->w2.build_type].w2.footprint;
-    fvec2_t bay;
+    fixed2_t bay;
     if (!P_ApproachFootprint(unit, unit->w2.build_cell, foot, &bay) || !P_MoveUnitTo(&level, unit, bay)) return false;
     unit->movement.order_id = 0;
     return true;
@@ -250,8 +248,8 @@ static bool start_site(mobj_t *unit) {
     int *stock = level.player_resources[unit->owner];
     for (int r = 0; r < 3; ++r) if (stock[r] < price[r]) return false;
     isize2_t foot = mobjinfo[type].w2.footprint;
-    fvec2_t centre = { cell.x + foot.w * 0.5f, cell.y + foot.h * 0.5f };
-    mobj_t *site = P_SpawnMobj(fixed3_from_fvec2(centre, 0), type);
+    fixed2_t centre = { FIXED_FROM_INT(cell.x) + foot.w * (FIXED_ONE / 2), FIXED_FROM_INT(cell.y) + foot.h * (FIXED_ONE / 2) };
+    mobj_t *site = P_SpawnMobj(fixed3_from_fixed2(centre, 0), type);
     if (!site) return false;
     if (type == MT_HUMAN_OIL_PLATFORM || type == MT_ORC_OIL_PLATFORM) {
         resourcevent_t *vent = oil_patch(cell);
@@ -303,7 +301,7 @@ void w2_advance_build(mobj_t *site, int ticks) {
             S_Bark(&builder, 1, SE_WORK_COMPLETE, false);
             release(builder);
             if (mobjinfo[site->type_id].w2.gives_mask)
-                W2_HarvestOrder(builder, fixed3_xy_to_fvec2(site->core.position));
+                W2_HarvestOrder(builder, fixed3_xy(site->core.position));
         }
         return;
     }
@@ -319,7 +317,7 @@ bool W2_TickBuild(mobj_t *unit) {
         if (!W2_Buildable(unit->w2.build_type)) { release(unit); return false; }
         if (P_HasMoveOrder(unit)) return false;
         if (!unit->movement.order_arrived ||
-            !fvec2_near(fixed3_xy_to_fvec2(unit->core.position), unit->movement.goal, 0.001f)) {
+            !fixed2_near(fixed3_xy(unit->core.position), unit->movement.goal, FIXED_LIT(0.001))) {
             /* Pushed off the bay or the way was blocked: try again a few times. */
             if (++unit->w2.build_tries > W2_BUILD_RETRIES || !walk_to_site(unit)) release(unit);
             return false;
@@ -354,7 +352,7 @@ bool W2_CancelConstruction(mobj_t *site) {
 /* Whether `walker` can step beside the footprint at `cell`. */
 bool w2_site_reachable(const mobj_t *walker, ivec2_t cell, isize2_t foot) {
     if (!walker) return true;
-    ivec2_t from = fvec2_cell(fixed3_xy_to_fvec2(walker->core.position));
+    ivec2_t from = fixed2_cell(fixed3_xy(walker->core.position));
     for (int y = -1; y <= foot.h; ++y)
         for (int x = -1; x <= foot.w; ++x)
             if ((x < 0 || y < 0 || x >= foot.w || y >= foot.h) &&
@@ -414,13 +412,13 @@ static bool site_with_margin(int owner, uint16_t type, ivec2_t cell, const mobj_
 }
 
 /* The open oil patch nearest `from` that the tanker can sail to. */
-static bool oil_site(uint16_t type, fvec2_t from, const mobj_t *walker, ivec2_t *out) {
-    float best = 0;
+static bool oil_site(uint16_t type, fixed2_t from, const mobj_t *walker, ivec2_t *out) {
+    int64_t best = 0;
     bool found = false;
     for (int i = 0; i < level.resource_vent_count; ++i) {
         const resourcevent_t *vent = &level.resource_vents[i];
         if (vent->resource_type != 2 || !W2_CanPlace(type, vent->cell, NULL)) continue;
-        float d = fvec2_distance_squared(from, vent->attachment);
+        int64_t d = fixed2_distance_squared64(from, vent->attachment);
         if ((found && d >= best) || !w2_site_reachable(walker, vent->cell, vent->footprint)) continue;
         found = true; best = d; *out = vent->cell;
     }
@@ -447,10 +445,11 @@ bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out) {
             walker = unit;
     }
     if (!anchor) return false;
-    fvec2_t centre = fixed3_xy_to_fvec2(anchor->core.position);
-    if (platform) return oil_site(type, centre, walker, out);
+    fixed2_t centre_at = fixed3_xy(anchor->core.position);
+    ivec2_t centre = fixed2_cell(centre_at);
+    if (platform) return oil_site(type, centre_at, walker, out);
     isize2_t foot = mobjinfo[type].w2.footprint;
-    ivec2_t origin = { (int)floorf(centre.x) - foot.w / 2, (int)floorf(centre.y) - foot.h / 2 };
+    ivec2_t origin = { centre.x - foot.w / 2, centre.y - foot.h / 2 };
     /* The coast may lie well beyond the town. */
     int reach = (mobjinfo[type].w2.attributes & W2_SHORE_BUILDING) ? 40 : 28;
     uint8_t *crowd = P_IdleBlockers(&level, NULL, 0);

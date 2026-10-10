@@ -41,14 +41,14 @@ static void look(const mobj_t *unit) { M_CentreView(&app, fixed3_xy_to_fvec2(uni
 static void tick(int n) {
     while (n--) {
         P_Ticker();
-        G_ProductionTicker(1.0f / RTS_TICRATE);
+        G_ProductionTicker(RTS_TICK_MS);
         int count = 0;
-        G_MissionTicker(&level, NULL, &count, &hudtext, FIXED_DT);
+        G_MissionTicker(&level, NULL, &count, &hudtext, RTS_TICK_MS);
     }
 }
-static void order(mobj_t *u, ticorder_t type, fvec2_t at, mobj_t *target, int product) {
+static void order(mobj_t *u, ticorder_t type, fixed2_t at, mobj_t *target, int product) {
     ticcmd_t cmd = {.order = type, .count = 1, .units = {u->id}, .target = target ? target->id : 0,
-                    .position = fixed3_from_fvec2(at, 0), .product = product};
+                    .position = fixed3_from_fixed2(at, 0), .product = product};
     G_RunTiccmd(u->owner, &cmd);
 }
 static mobj_t *find(int owner, int type) {
@@ -64,15 +64,15 @@ static bool alive(const mobj_t *unit) {
         if ((const mobj_t *)th == unit && th->function == P_MobjThinker) return true;
     return false;
 }
-static mobj_t *spawn(int type, fvec2_t at, int owner) {
-    mobj_t *u = sc_spawn_actor((unsigned)type - 1, (ivec2_t){(int)(at.x * 32), (int)(at.y * 32)}, (uint8_t)owner);
+static mobj_t *spawn(int type, fixed2_t at, int owner) {
+    mobj_t *u = sc_spawn_actor((unsigned)type - 1, (ivec2_t){at.x >> 11, at.y >> 11} /* 32 pixels per cell */, (uint8_t)owner);
     return u;
 }
 static bool site(int type, const mobj_t *near, const mobj_t *worker, ivec2_t *cell) {
-    fvec2_t at = fixed3_xy_to_fvec2(near->core.position);
+    fixed2_t at = fixed3_xy(near->core.position);
     for (int r = 4; r < 20; r++) for (int y = -r; y <= r; y++) for (int x = -r; x <= r; x++) {
         if (abs(x) != r && abs(y) != r) continue;
-        ivec2_t c = {(int)at.x + x, (int)at.y + y};
+        ivec2_t c = {fixed_floor_int(at.x) + x, fixed_floor_int(at.y) + y};
         if (P_CanPlaceBuilding((uint16_t)type, c, worker)) { *cell = c; return true; }
     }
     return false;
@@ -180,12 +180,12 @@ static int economy_and_combat(void) {
     CHECK(hall && scv && find(1, MT_HATCHERY) && find(1, MT_DRONE));
     CHECK(level.player_resources[consoleplayer][0] == 50);
     /* Gathering: the nearest mineral field, mined with the AlmostBuilt loop. */
-    fvec2_t base = fixed3_xy_to_fvec2(hall->core.position);
-    int best = -1; float distance = 1e9f;
+    fixed2_t base = fixed3_xy(hall->core.position);
+    int best = -1; int64_t distance = INT64_MAX;
     for (int i = 0; i < level.resource_vent_count; i++) {
         const resourcevent_t *v = &level.resource_vents[i];
         if (v->resource_type || !v->active) continue;
-        float d = fvec2_length_squared(fvec2_sub(v->attachment, base));
+        int64_t d = fixed2_length_squared64(fixed2_sub(v->attachment, base));
         if (d < distance) { distance = d; best = i; }
     }
     CHECK(best >= 0);
@@ -203,19 +203,19 @@ static int economy_and_combat(void) {
     level.player_resources[consoleplayer][1] = 1000;
     ivec2_t cell;
     CHECK(site(MT_BARRACKS, hall, scv, &cell));
-    order(scv, TC_CONSTRUCT, (fvec2_t){cell.x, cell.y}, NULL, MT_BARRACKS);
+    order(scv, TC_CONSTRUCT, FIXED2_LIT(cell.x, cell.y), NULL, MT_BARRACKS);
     CHECK(scv->production && scv->production->placed);
     for (int t = 0; t < 4000 && !find(consoleplayer, MT_BARRACKS); t++) tick(1);
     mobj_t *barracks = find(consoleplayer, MT_BARRACKS);
     CHECK(barracks && !scv->production);
     CHECK(site(MT_ENGINEERING_BAY, hall, scv, &cell));
-    order(scv, TC_CONSTRUCT, (fvec2_t){cell.x, cell.y}, NULL, MT_ENGINEERING_BAY);
+    order(scv, TC_CONSTRUCT, FIXED2_LIT(cell.x, cell.y), NULL, MT_ENGINEERING_BAY);
     for (int t = 0; t < 4000 && !find(consoleplayer, MT_ENGINEERING_BAY); t++) tick(1);
     mobj_t *bay = find(consoleplayer, MT_ENGINEERING_BAY);
     CHECK(bay);
     /* Training: a marine costs 50 and one supply. */
     int minerals = level.player_resources[consoleplayer][0], used, have;
-    order(barracks, TC_BUILD, (fvec2_t){0}, NULL, MT_MARINE);
+    order(barracks, TC_BUILD, (fixed2_t){0}, NULL, MT_MARINE);
     CHECK(barracks->production && level.player_resources[consoleplayer][0] == minerals - 50);
     sc_supply_counts(consoleplayer, &used, &have);
     CHECK(used == 2 * 5 && have == 2 * 10); /* four SCVs plus the queued marine; the centre gives 10 */
@@ -229,24 +229,24 @@ static int economy_and_combat(void) {
     CHECK(weapons2->cost == 175 && G_ModelProductTrainingTimeMs(weapons2) > G_ModelProductTrainingTimeMs(weapons1));
     CHECK(G_ModelProductAvailable(NULL, consoleplayer, weapons1) && !G_ModelProductAvailable(NULL, consoleplayer, weapons2));
     minerals = level.player_resources[consoleplayer][0];
-    order(bay, TC_BUILD, (fvec2_t){0}, NULL, weapons1->ui_id);
+    order(bay, TC_BUILD, (fixed2_t){0}, NULL, weapons1->ui_id);
     CHECK(bay->production && bay->production->product_class == RTS_PRODUCT_UPGRADE);
     CHECK(level.player_resources[consoleplayer][0] == minerals - 100);
     CHECK(!G_ModelProductAvailable(NULL, consoleplayer, weapons1)); /* already researching */
     for (int t = 0; t < 6000 && sc_upgrade_level(consoleplayer, 7) < 1; t++) tick(1);
     CHECK(sc_upgrade_level(consoleplayer, 7) == 1 && !bay->production);
-    /* Level 2 waits for a Science Facility, as in retail. */
-    CHECK(!sc_upgrade_offered(consoleplayer, weapons1) && !G_ModelProductAvailable(NULL, consoleplayer, weapons2));
-    mobj_t *facility = spawn(MT_SCIENCE_FACILITY, fvec2_add(fixed3_xy_to_fvec2(bay->core.position), (fvec2_t){0, 8}),
-                             consoleplayer);
-    CHECK(facility && G_ModelProductAvailable(NULL, consoleplayer, weapons2));
+    /* Level two is the next level, but waits for the Armory (a ruleset row). */
+    CHECK(!sc_upgrade_offered(consoleplayer, weapons1) && sc_upgrade_offered(consoleplayer, weapons2));
+    CHECK(!G_ModelProductAvailable(NULL, consoleplayer, weapons2));
+    CHECK(spawn(MT_ARMORY, FIXED2_LIT(40, 40), consoleplayer));
+    CHECK(G_ModelProductAvailable(NULL, consoleplayer, weapons2));
     /* Combat: an upgraded marine hits a zergling for 6 + 1 - armor. */
-    fvec2_t at = fixed3_xy_to_fvec2(marine->core.position);
-    mobj_t *zergling = spawn(MT_ZERGLING, (fvec2_t){at.x + 2.5f, at.y}, 1);
+    fixed2_t at = fixed3_xy(marine->core.position);
+    mobj_t *zergling = spawn(MT_ZERGLING, (fixed2_t){at.x + FIXED_LIT(2.5), at.y}, 1);
     CHECK(zergling);
     zergling->traits &= ~MF_ATTACK; /* a target, not a duel */
     int hp = zergling->hp, expected = 6 + 1 - sc_units[MT_ZERGLING - 1].armor;
-    order(marine, TC_ATTACK, fixed3_xy_to_fvec2(zergling->core.position), zergling, 0);
+    order(marine, TC_ATTACK, fixed3_xy(zergling->core.position), zergling, 0);
     for (int t = 0; t < 200 && zergling->hp == hp; t++) tick(1);
     CHECK(hp - zergling->hp == expected);
     look(marine);
@@ -263,7 +263,7 @@ static int economy_and_combat(void) {
     sc_player_stats(1, &stats);
     CHECK(stats.lost[MT_ZERGLING - 1] == 1);
     /* A dying structure frees its cells for building again. */
-    ivec2_t footprint = {(int)fixed3_xy_to_fvec2(bay->core.position).x, (int)fixed3_xy_to_fvec2(bay->core.position).y};
+    ivec2_t footprint = fixed2_cell(fixed3_xy(bay->core.position));
     P_DamageMobj(bay, NULL, bay->hp);
     for (int t = 0; t < 6000 && alive(bay); t++) tick(1);
     CHECK(!alive(bay) && !level.cell_solid[L_Index(&level, footprint.x, footprint.y)]);
@@ -417,10 +417,10 @@ static void click(menuitem_t *it) { it->routine(hudmenu, it, MA_ACTIVATE); }
 static int command_card(void) {
     mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER);
     CHECK(hall);
-    fvec2_t at = fvec2_add(fixed3_xy_to_fvec2(hall->core.position), (fvec2_t){0, 4});
-    mobj_t *ghost = spawn(MT_GHOST, at, consoleplayer), *tank = spawn(MT_SIEGE_TANK, fvec2_add(at, (fvec2_t){2, 0}), consoleplayer);
-    mobj_t *a = spawn(MT_HIGH_TEMPLAR, fvec2_add(at, (fvec2_t){-2, 0}), consoleplayer);
-    mobj_t *b = spawn(MT_HIGH_TEMPLAR, fvec2_add(at, (fvec2_t){-3, 0}), consoleplayer);
+    fixed2_t at = fixed2_add(fixed3_xy(hall->core.position), FIXED2_LIT(0, 4));
+    mobj_t *ghost = spawn(MT_GHOST, at, consoleplayer), *tank = spawn(MT_SIEGE_TANK, fixed2_add(at, FIXED2_LIT(2, 0)), consoleplayer);
+    mobj_t *a = spawn(MT_HIGH_TEMPLAR, fixed2_add(at, FIXED2_LIT(-2, 0)), consoleplayer);
+    mobj_t *b = spawn(MT_HIGH_TEMPLAR, fixed2_add(at, FIXED2_LIT(-3, 0)), consoleplayer);
     CHECK(ghost && tank && a && b);
     /* Greyed until researched, then cast from the button. */
     menuitem_t *cloak = card("Personnel Cloaking", &ghost, 1);
@@ -446,9 +446,9 @@ static int command_card(void) {
     /* A Bunker's card unloads it. */
     ivec2_t cell;
     CHECK(site(MT_BUNKER, hall, NULL, &cell));
-    fvec2_t door = P_BuildingPosition(MT_BUNKER, cell);
+    fixed2_t door = P_BuildingPosition(MT_BUNKER, cell);
     mobj_t *bunker = spawn(MT_BUNKER, door, consoleplayer);
-    mobj_t *marine = spawn(MT_MARINE, fvec2_add(door, (fvec2_t){0, 1.6f}), consoleplayer);
+    mobj_t *marine = spawn(MT_MARINE, fixed2_add(door, FIXED2_LIT(0, 1.6)), consoleplayer);
     CHECK(bunker && marine && sc_board(marine, bunker) && (marine->sc.flags & SC_LOADED));
     click(card("Unload All", &bunker, 1));
     CHECK(!(marine->sc.flags & SC_LOADED));

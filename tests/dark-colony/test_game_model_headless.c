@@ -327,7 +327,7 @@ static int assert_human01(RtsGameModel *model) {
     int trooper = find_movable_player_unit(&snapshot);
     if (trooper < 0) return fail("find selectable Human01 Trooper");
     uint32_t trooper_id = snapshot.units[trooper].id;
-    fvec2_t target = (fvec2_t){ 10.0f, 10.0f };
+    fixed2_t target = FIXED2_LIT(10.0, 10.0);
     RtsGameCommand select = {
         .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
         .data.select_unit_index = { .unit_index = trooper, .additive = false },
@@ -403,13 +403,13 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 only materializes cities with an explicit city anchor");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
-                                      S_EXCOPOD_STND, (fvec2_t){ 54.0f, 55.46875f },
+                                      S_EXCOPOD_STND, (fvec2_t){54.0f, 55.46875f},
                                       (ivec2_t){ 64, -15 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 38,
-                                      S_BRRKPOD_STND, (fvec2_t){ 56.0f, 55.0f },
+                                      S_BRRKPOD_STND, (fvec2_t){56.0f, 55.0f},
                                       (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 1,
-                                      S_TOWR_STND, (fvec2_t){ 56.0f, 56.0f },
+                                      S_TOWR_STND, (fvec2_t){56.0f, 56.0f},
                                       (ivec2_t){ 0, -32 })) {
         return fail("Human02 city buildings retain the native origin and render on the terrain row");
     }
@@ -464,7 +464,7 @@ static int assert_human02(RtsGameModel *model) {
         for (int j = 0; j < snapshot.unit_count; ++j) {
             const RtsRenderUnit *unit = &snapshot.units[j];
             if (unit->type_id != MT_VENT ||
-                !fvec2_near(unit->position, vent->attachment, 0.001f)) continue;
+                !fvec2_near(unit->position, fvec2_from_fixed2(vent->attachment), 0.001f)) continue;
             bool animated = unit->state_id == S_VENT_ACTIVE1;
             if (animated != vent->active)
                 return fail("Human02 vent mobj state follows resource activity");
@@ -494,24 +494,24 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
-                                      S_EXCOPOD_STND, (fvec2_t){ 73.0f, 6.46875f },
+                                      S_EXCOPOD_STND, (fvec2_t){73.0f, 6.46875f},
                                       (ivec2_t){ 64, -15 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 38,
-                                      S_BRRKPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+                                      S_BRRKPOD_STND, (fvec2_t){75.0f, 6.0f},
                                       (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_SCNCPOD, 41,
-                                      S_SCNCPOD_STND1, (fvec2_t){ 77.0f, 6.3125f },
+                                      S_SCNCPOD_STND1, (fvec2_t){77.0f, 6.3125f},
                                       (ivec2_t){ -64, -10 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 1,
-                                      S_TOWR_STND, (fvec2_t){ 75.0f, 7.0f },
+                                      S_TOWR_STND, (fvec2_t){75.0f, 7.0f},
                                       (ivec2_t){ 0, -32 })) {
         return fail("Human03 city slots retain the native origin and render on the terrain row");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
-                                      S_EXCOPOD_STND, (fvec2_t){ 73.0f, 6.46875f },
+                                      S_EXCOPOD_STND, (fvec2_t){73.0f, 6.46875f},
                                       (ivec2_t){ 64, -15 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 1,
-                                      S_TOWR_STND, (fvec2_t){ 75.0f, 7.0f },
+                                      S_TOWR_STND, (fvec2_t){75.0f, 7.0f},
                                       (ivec2_t){ 0, -32 })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
@@ -685,13 +685,13 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     RtsGameCommand move_east = {
         .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
         .data.move_selected = {
-            .target = fvec2_add(snapshot.units[unit_index].position,
-                                (fvec2_t){ 4.0f, 0.0f }),
+            .target = fixed2_add(snapshot.units[unit_index].position,
+                                FIXED2_LIT(4.0, 0.0)),
         },
     };
     if (!rts_game_model_command(model, &select) ||
         !rts_game_model_command(model, &move_east) ||
-        !rts_game_model_tick(model, 1.0f / 30.0f) ||
+        !rts_game_model_tick(model, RTS_TICK_MS) ||
         !rts_game_model_snapshot(model, &snapshot)) {
         return fail("move Mission 2 crew east");
     }
@@ -719,15 +719,15 @@ static int assert_fixed_momentum_semantics(void) {
     gameinfo = NULL;
     level = (level_t) { .width = 16, .height = 16 };
     mobj_t *unit = spawn_mobj_fixture((mobj_t){0});
-    unit->core.position = fixed3_from_fvec2((fvec2_t){ 2.25f, 3.5f },
-                                              fixed_from_float(7.0f));
-    unit->speed = 3.0f;
+    unit->core.position = fixed3_from_fixed2(FIXED2_LIT(2.25, 3.5),
+                                              7 * FIXED_ONE);
+    unit->speed = FIXED_LIT(3.0);
     unit->hp = 1;
-    unit->radius = 0.25f;
+    unit->radius = FIXED_LIT(0.25);
     unit->traits = MF_MOBILE;
     unit->attack.target = NULL;
     unit->harvest.target = -1;
-    if (!P_MoveUnitTo(&level, unit, (fvec2_t){ 2.30f, 3.5f }))
+    if (!P_MoveUnitTo(&level, unit, FIXED2_LIT(2.30, 3.5)))
         return fail("short final movement creates a flow-field order");
 
     fixed3_t before = unit->core.position;

@@ -29,7 +29,7 @@ static bool mining_on_vent(const mobj_t *unit) {
 
 bool P_ReplanUnit(const level_t *map, mobj_t *unit) {
     navpath_t path;
-    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
+    fixed2_t position = fixed3_xy(unit->core.position);
     /* A unit jammed behind idle ones routes around them, as DC's bounded local
      * detour and DR's blocker-aware search both do. */
     uint8_t *soft = P_IdleBlockers(map, unit, 0);
@@ -41,10 +41,10 @@ bool P_ReplanUnit(const level_t *map, mobj_t *unit) {
     return true;
 }
 
-bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final) {
+bool P_SteerTarget(const level_t *map, mobj_t *unit, fixed2_t *target, bool *final) {
     navpath_t *path = &unit->movement.path;
-    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
-    float radius = P_MobjRadius(unit);
+    fixed2_t position = fixed3_xy(unit->core.position);
+    fixed_t radius = P_MobjRadius(unit);
     if (path->current >= path->count) {
         /* Plan was truncated (or the unit was knocked off it): continue from here. */
         if (path->complete && path->count) path->current = path->count - 1;
@@ -52,8 +52,8 @@ bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *fina
         else path->current = 0;
     }
     while (path->current + 1 < path->count) {
-        fvec2_t here = path->points[path->current], next = path->points[path->current + 1];
-        bool near = fvec2_distance_squared(position, here) < 0.3f * 0.3f;
+        fixed2_t here = path->points[path->current], next = path->points[path->current + 1];
+        bool near = fixed2_distance_squared64(position, here) < FIXED_LIT_64(0.3 * 0.3);
         /* Skip a corner only when the next leg clears terrain, even when near
          * the waypoint. Throttle the long-leg checks, but check every tic near
          * a bend so the group can turn as soon as its discs fit. */
@@ -76,42 +76,52 @@ bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *fina
     return true;
 }
 
-fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction, float step) {
-    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position), bend = {0, 0};
-    float radius = P_MobjRadius(unit);
+static fixed2_t mobj_xy(const mobj_t *unit) {
+    return fixed3_xy(unit->core.position);
+}
+
+/* Bend `direction` (a 16.16 unit vector) around units ahead. Integer-only so
+ * every peer steers identically. `step` is the 16.16 distance of this move. */
+fixed2_t P_SteerAvoid(const mobj_t *unit, fixed2_t direction, fixed_t step) {
+    fixed2_t position = mobj_xy(unit), bend = {0, 0};
+    fixed_t radius = P_MobjRadius(unit);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (const mobj_t *)th;
         if (other == unit || !ground_mover(other) || P_HarvesterDocked(other)) continue;
-        fvec2_t rel = fvec2_sub(fixed3_xy_to_fvec2(other->core.position), position);
-        float need = radius + P_MobjRadius(other) + 0.1f, look = need + 1.2f;
-        float ahead = rel.x * direction.x + rel.y * direction.y;
-        if (ahead <= 0.0f || ahead > look) continue;
-        float lateral = direction.x * rel.y - direction.y * rel.x; /* >0: other is to one side */
-        float clearance = fabsf(lateral);
+        fixed2_t rel = fixed2_sub(mobj_xy(other), position);
+        fixed_t need = radius + P_MobjRadius(other) + FIXED_LIT(0.1);
+        fixed_t look = need + FIXED_LIT(1.2);
+        fixed_t ahead = fixed2_dot(rel, direction);
+        if (ahead <= 0 || ahead > look) continue;
+        fixed_t lateral = (fixed_t)(((int64_t)direction.x * rel.y -
+                                                        (int64_t)direction.y * rel.x) >> 16);
+        fixed_t clearance = lateral < 0 ? -lateral : lateral;
         if (clearance >= need) continue;
         /* Steer to the side the other unit is not on; dead ahead passes on the right. */
-        float side = clearance < 0.05f ? 1.0f : (lateral > 0.0f ? -1.0f : 1.0f);
-        float push = ((need - clearance) / need) * (1.0f - ahead / look);
-        bend = fvec2_add(bend, fvec2_scale((fvec2_t){-direction.y, direction.x}, side * push));
+        fixed_t side = clearance < FIXED_LIT(0.05) ? FIXED_ONE : (lateral > 0 ? -FIXED_ONE : FIXED_ONE);
+        fixed_t push = fixed_mul32(fixed_div32(need - clearance, need),
+                                   FIXED_ONE - fixed_div32(ahead, look));
+        fixed2_t perp = { -direction.y, direction.x };
+        bend = fixed2_add(bend, fixed2_scale(perp, fixed_mul32(side, push)));
     }
-    fvec2_t steered = fvec2_add(direction, fvec2_scale(bend, 1.5f));
-    float length = sqrtf(fvec2_length_squared(steered));
-    if (length < 0.001f) return direction;
-    steered = fvec2_scale(steered, 1.0f / length);
+    fixed2_t steered = fixed2_add(direction, fixed2_scale(bend, FIXED_LIT(1.5)));
+    fixed_t length = fixed2_length(steered);
+    if (length < FIXED_LIT(0.001)) return direction;
+    steered = fixed2_normalize(steered);
     /* Bound the deviation so facing stays readable and the unit still progresses. */
-    if (steered.x * direction.x + steered.y * direction.y < 0.75f) {
-        steered = fvec2_add(fvec2_scale(steered, 0.5f), fvec2_scale(direction, 0.5f));
-        length = sqrtf(fvec2_length_squared(steered));
-        steered = fvec2_scale(steered, 1.0f / length);
+    if (fixed2_dot(steered, direction) < FIXED_LIT(0.75)) {
+        steered = fixed2_add(fixed2_scale(steered, FIXED_LIT(0.5)), fixed2_scale(direction, FIXED_LIT(0.5)));
+        steered = fixed2_normalize(steered);
     }
     /* Avoidance must not steer a clear route into terrain. Check the actual
      * fixed-point step before the mover can fall back to sliding along a wall. */
     fixed3_t candidate = fixed3_add_planar(unit->core.position,
-                                         fixed3_planar_delta(fvec2_scale(steered, step)));
-    fvec2_t to = fixed3_xy_to_fvec2(candidate);
-    return P_MapCircleWalkable(&level, P_MobjMoveClass(unit), to.x, to.y, radius, &position) ?
-           steered : direction;
+                                           (fixed3_t){ fixed_mul32(steered.x, step),
+                                                       fixed_mul32(steered.y, step), 0 });
+    fixed2_t from = fixed3_xy(unit->core.position);
+    return P_MapCircleWalkable(&level, P_MobjMoveClass(unit), fixed3_xy(candidate),
+                               radius, &from) ? steered : direction;
 }
 
 /* Returns true if the order is still alive. Called after each movement attempt. */
@@ -121,10 +131,10 @@ bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved) {
     if (moved && (unit->movement.order_id || !last_leg)) { unit->movement.stuck_tics = 0; return true; }
     if (moved) {
         /* Walking in place against a crowd that shoves back is not progress. */
-        float dist = sqrtf(fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
-                                                  unit->movement.goal));
-        float *best = &unit->movement.best_goal_dist;
-        if (*best <= 0.0f || dist < *best - 0.02f) { *best = dist; unit->movement.stuck_tics = 0; return true; }
+        fixed2_t to_goal = fixed2_sub(unit->movement.goal, mobj_xy(unit));
+        fixed_t dist = fixed2_length(to_goal);
+        fixed_t *best = &unit->movement.best_goal_dist;
+        if (*best <= 0 || dist < *best - FIXED_LIT(0.02)) { *best = dist; unit->movement.stuck_tics = 0; return true; }
     }
     if (++unit->movement.stuck_tics < STUCK_TICS) return true;
     unit->movement.stuck_tics = 0;
@@ -142,47 +152,50 @@ void P_SeparateUnits(const level_t *map) {
             for (thinker_t *thb = tha->next; thb != &thinkercap; thb = thb->next) {
                 mobj_t *b = (mobj_t *)thb;
                 if (!ground_mover(b)) continue;
-                float min_dist = P_MobjRadius(a) + P_MobjRadius(b);
-                fvec2_t a_position = fixed3_xy_to_fvec2(a->core.position);
-                fvec2_t b_position = fixed3_xy_to_fvec2(b->core.position);
-                fvec2_t delta = fvec2_sub(b_position, a_position);
-                float dist2 = fvec2_length_squared(delta);
-                if (dist2 >= min_dist * min_dist) continue;
-                float dist = sqrtf(dist2);
-                if (dist < 0.0001f) {
-                    float angle = (float)((a->id * 37 + b->id * 17) % 360) * 0.01745329252f;
-                    delta = (fvec2_t){ cosf(angle), sinf(angle) };
-                    dist = 1.0f;
+                fixed_t min_dist = P_MobjRadius(a) + P_MobjRadius(b);
+                fixed2_t a_position = mobj_xy(a), b_position = mobj_xy(b);
+                fixed2_t delta = fixed2_sub(b_position, a_position);
+                int64_t dist2 = fixed2_length_squared64(delta); /* 32.32 */
+                if (dist2 >= (int64_t)min_dist * min_dist) continue;
+                fixed_t dist = fixed2_length(delta);
+                if (dist < FIXED_LIT(0.0001) + 1) {
+                    /* Coincident: separate along a deterministic pseudo-random heading. */
+                    uint32_t degrees = (uint32_t)((a->id * 37 + b->id * 17) % 360);
+                    angle_t angle = (angle_t)(((uint64_t)degrees << 32) / 360u);
+                    delta = (fixed2_t){ fixed_cos_bam(angle), fixed_sin_bam(angle) };
+                    dist = FIXED_ONE;
                 }
                 bool docked_a = P_HarvesterDocked(a), docked_b = P_HarvesterDocked(b);
                 if (docked_a && docked_b) continue;
                 if (mining_on_vent(a) || mining_on_vent(b)) continue;
                 /* Whoever is going somewhere keeps most of its ground. */
                 bool moving_a = P_HasMoveOrder(a), moving_b = P_HasMoveOrder(b);
-                float share_a = moving_a == moving_b ? 0.5f : (moving_a ? 0.2f : 0.8f);
+                fixed_t share_a = moving_a == moving_b ? FIXED_LIT(0.5) :
+                                  (moving_a ? FIXED_LIT(0.2) : FIXED_LIT(0.8));
                 if (moving_a && moving_b) {
                     /* Right of way to whoever is nearer its goal; the other gives way, so a
                      * packed group drains from the front instead of locking in place. */
-                    float da = fvec2_distance_squared(a_position, a->movement.goal);
-                    float db = fvec2_distance_squared(b_position, b->movement.goal);
-                    share_a = da < db ? 0.25f : da > db ? 0.75f : (a->id < b->id ? 0.4f : 0.6f);
+                    int64_t da = fixed2_length_squared64(fixed2_sub(a_position, a->movement.goal));
+                    int64_t db = fixed2_length_squared64(fixed2_sub(b_position, b->movement.goal));
+                    share_a = da < db ? FIXED_LIT(0.25) : da > db ? FIXED_LIT(0.75) :
+                              (a->id < b->id ? FIXED_LIT(0.4) : FIXED_LIT(0.6));
                 }
-                float push = min_dist - dist;
-                fvec2_t unit_push = fvec2_scale(delta, push / dist);
-                float weight_a = docked_a ? 0.0f : (docked_b ? 1.0f : share_a);
-                float weight_b = docked_b ? 0.0f : (docked_a ? 1.0f : 1.0f - share_a);
-                fvec2_t separated_a = fvec2_sub(a_position, fvec2_scale(unit_push, weight_a));
-                fvec2_t separated_b = fvec2_add(b_position, fvec2_scale(unit_push, weight_b));
-                if (weight_a > 0.0f && P_CheckPosition(map, a, separated_a.x, separated_a.y)) {
+                fixed_t push = min_dist - dist;
+                fixed2_t unit_push = fixed2_scale(delta, fixed_div32(push, dist));
+                fixed_t weight_a = docked_a ? 0 : (docked_b ? FIXED_ONE : share_a);
+                fixed_t weight_b = docked_b ? 0 : (docked_a ? FIXED_ONE : FIXED_ONE - share_a);
+                fixed2_t separated_a = fixed2_sub(a_position, fixed2_scale(unit_push, weight_a));
+                fixed2_t separated_b = fixed2_add(b_position, fixed2_scale(unit_push, weight_b));
+                if (weight_a > 0 && P_CheckPosition(map, a, separated_a)) {
                     fixed3_t before = a->core.position;
-                    a->core.position = fixed3_with_xy(a->core.position, separated_a);
+                    a->core.position = (fixed3_t){ separated_a.x, separated_a.y, before.z };
                     P_ClampToLevel(map, a);
                     a->core.momentum = fixed3_add(a->core.momentum,
                         fixed3_planar_displacement(before, a->core.position));
                 }
-                if (weight_b > 0.0f && P_CheckPosition(map, b, separated_b.x, separated_b.y)) {
+                if (weight_b > 0 && P_CheckPosition(map, b, separated_b)) {
                     fixed3_t before = b->core.position;
-                    b->core.position = fixed3_with_xy(b->core.position, separated_b);
+                    b->core.position = (fixed3_t){ separated_b.x, separated_b.y, before.z };
                     P_ClampToLevel(map, b);
                     b->core.momentum = fixed3_add(b->core.momentum,
                         fixed3_planar_displacement(before, b->core.position));

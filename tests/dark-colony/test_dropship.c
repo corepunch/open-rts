@@ -21,7 +21,7 @@ int main(void) {
     int initial = troopers(&snapshot);
     bool seen = false, delivered = false, departed = false;
     int previous_id = -1, previous_state = -1, smooth_ticks = 0;
-    fvec2_t previous_position = {0};
+    fixed2_t previous_position = {0};
     for (int tick = 0; tick < 30 * 120; ++tick) {
         RTS_CHECK(rts_tick(model, &snapshot), "dropship", "tick reinforcement");
         bool visible = false;
@@ -33,10 +33,10 @@ int main(void) {
             if (unit->type_id == MT_DROPSHIP) {
                 RTS_CHECK(unit->core.position.z * g_cell_h == 50 * FIXED_ONE,
                           "dropship", "retain 50 px altitude through every flight/unload state");
-                fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
+                fixed2_t position = fixed3_xy(unit->core.position);
                 if (previous_id == unit->id) {
-                    float distance2 = fvec2_distance_squared(position, previous_position);
-                    float step = unit->speed * RTS_FIXED_DT + 2.0f / FIXED_ONE;
+                    int64_t distance2 = fixed2_distance_squared64(position, previous_position);
+                    int64_t step = FIXED_STEP_PER_TIC(unit->speed) + 2; /* two 16.16 units of slack */
                     RTS_CHECK(distance2 <= step * step, "dropship",
                               "movement never batches multiple tics into an animation step");
                     if (distance2 > 0 && previous_state == unit->core.state_id)

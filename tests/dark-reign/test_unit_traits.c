@@ -104,8 +104,8 @@ static int audit_reach(void) {
     return 0;
 }
 
-static mobj_t *spawn(uint16_t type, fvec2_t position) {
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(position, 0), type);
+static mobj_t *spawn(uint16_t type, fixed2_t position) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(position, 0), type);
     if (unit) {
         unit->owner = unit->team = 0;
         unit->allegiance = ALLEGIANCE_PLAYER;
@@ -124,12 +124,12 @@ static int support(void) {
     const uint16_t flyers[] = {MT_FG_SKY_BIKE, MT_FG_OUTRIDER,
         MT_IMP_RECON_SAUCER, MT_IMP_CYCLONE, MT_IMP_SKY_FORTRESS};
     for (unsigned i = 0; i < sizeof(flyers) / sizeof(*flyers); ++i) {
-        mobj_t *flyer = spawn(flyers[i], (fvec2_t){40, 40});
+        mobj_t *flyer = spawn(flyers[i], FIXED2_LIT(40, 40));
         CHECK(flyer && (flyer->traits & MF_FLY));
     }
-    mobj_t *medic = spawn(MT_FG_MEDIC, (fvec2_t){20, 20});
-    mobj_t *human = spawn(MT_FG_RAIDER, (fvec2_t){20.5f, 20});
-    mobj_t *vehicle = spawn(MT_FG_FREIGHTER, (fvec2_t){20, 20.5f});
+    mobj_t *medic = spawn(MT_FG_MEDIC, FIXED2_LIT(20, 20));
+    mobj_t *human = spawn(MT_FG_RAIDER, FIXED2_LIT(20.5, 20));
+    mobj_t *vehicle = spawn(MT_FG_FREIGHTER, FIXED2_LIT(20, 20.5));
     CHECK(medic && human && vehicle);
     human->hp = 50; vehicle->hp = 500;
     ticcmd_t heal = {.order = TC_ATTACK,.target = human->id,.count = 1,.units = {medic->id}};
@@ -149,7 +149,7 @@ static int support(void) {
     human->hp = 50; human->owner = human->team = 1;
     human->allegiance = ALLEGIANCE_ENEMY;
     CHECK(!P_Attack(medic) && human->hp == 50);
-    mobj_t *mechanic = spawn(MT_FG_MECHANIC, (fvec2_t){20, 20});
+    mobj_t *mechanic = spawn(MT_FG_MECHANIC, FIXED2_LIT(20, 20));
     CHECK(mechanic && P_Attack(mechanic));
     CHECK(vehicle->hp == 505 && human->hp == 50);
     mechanic->attack.cooldown_left_ms = 0;
@@ -157,14 +157,14 @@ static int support(void) {
     CHECK(!P_Attack(mechanic));
     vehicle->traits &= ~MF_FLY;
     /* Ordinary thinkers perform support automatically, including Karoch. */
-    mobj_t *karoch = spawn(MT_CIV_KAROCH, (fvec2_t){20, 20});
+    mobj_t *karoch = spawn(MT_CIV_KAROCH, FIXED2_LIT(20, 20));
     CHECK(karoch);
     human->owner = human->team = 0; human->allegiance = ALLEGIANCE_PLAYER;
     for (int i = 0; i < 35; ++i) P_RunThinkers();
     CHECK(human->hp == human->max_hp && vehicle->hp > 505);
     CHECK(!(type_for_native(11)->traits & MF_ATTACK));
     CHECK(!(type_for_native(1005)->traits & MF_ATTACK));
-    mobj_t *sniper = spawn(MT_FG_SNIPER, (fvec2_t){20, 20});
+    mobj_t *sniper = spawn(MT_FG_SNIPER, FIXED2_LIT(20, 20));
     CHECK(sniper);
     human->owner = human->team = 1; human->allegiance = ALLEGIANCE_ENEMY;
     CHECK(!P_Attack(sniper));

@@ -30,12 +30,12 @@ void sc_zerg_ticker(int elapsed_ms);
 /* A techdata.dat ability (SC_TECH_* in sc_local.h) on target or at a point
  * in cells. The caster walks into range first; energy is paid when it casts.
  * Cloaks and siege mode toggle at once. False when it cannot cast. */
-bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fvec2_t at);
+bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at);
 /* A player's ability order (TC_SPELL, TC_DEPLOY for siege mode, TC_BOARD,
  * TC_UNLOAD, or TC_ORDER on an own Bunker) for units. An aimed spell is
  * cast by one able caster; Archon Warp pairs High Templar. False when the
  * units take no such order, so the engine carries on with it. */
-bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_t *target, fvec2_t at);
+bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_t *target, fixed2_t at);
 /* A new order cancels a pending cast, boarding or merge. */
 void sc_interrupt(mobj_t *unit);
 /* Current shields and energy in whole points, for the HUD and tests. */

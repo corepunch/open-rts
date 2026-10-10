@@ -138,7 +138,7 @@ static void pixels(void) {
         unsigned native = 0, elapsed = 0;
         int first = SDL_SwapLE16(label->start), last = SDL_SwapLE16(label->end);
         for (int f = first; f <= last; ++f) {
-            blood.core.position = fixed3_from_fvec2((fvec2_t){(f-first)*0.1f, (f-first)*0.05f}, FIXED_ONE);
+            blood.core.position = fixed3_from_fixed2(FIXED2_LIT((f-first)*0.1f, (f-first)*0.05f), FIXED_ONE);
             blood.core.angle = (angle_t)(f-first) * ANG45;
             blood.team = (f-first) % 8;
             spritedirection_t parts = {0};

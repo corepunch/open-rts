@@ -16,8 +16,8 @@ static void empty_level(void) {
     P_InitThinkers();
 }
 
-static mobj_t *spawn_owner(uint16_t type, int owner, fvec2_t position) {
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(position, 0), type);
+static mobj_t *spawn_owner(uint16_t type, int owner, fixed2_t position) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(position, 0), type);
     if (!unit) return NULL;
     unit->owner = unit->team = owner;
     unit->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER;
@@ -31,7 +31,7 @@ static void ai_run(AiContext *ai, int ticks, int dt_ms) {
         mobjlist_t list = P_ListMobjs();
         P_AiTick(ai, &level, list.items, list.count, gameinfo, dt_ms);
         P_FreeMobjList(&list);
-        G_ProductionTicker((float)dt_ms / 1000.0f);
+        G_ProductionTicker(dt_ms);
 #ifdef RTS_GAME_KKND
         for (int tic = 0; tic < RTS_TICRATE; ++tic)
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
@@ -46,7 +46,7 @@ static int test_ai_goals(void) {
     CHECK(G_AiInterface());
     for (int owner = 0; owner < 3; ++owner) {
         level.player_resources[owner][0] = 50000;
-        CHECK(spawn_owner(OWNER_PRODUCER, owner, (fvec2_t){16 + owner * 30, 16}));
+        CHECK(spawn_owner(OWNER_PRODUCER, owner, FIXED2_LIT(16 + owner * 30, 16)));
     }
     AiContext ai;
     P_AiInit(&ai);
@@ -56,7 +56,7 @@ static int test_ai_goals(void) {
     for (int owner = 1; owner < 3; ++owner) {
         AiTeamState *team = &ai.teams[owner];
         team->level = G_AiInterface()->player_level(&level, owner);
-        team->plan_loaded = G_AiInterface()->plan(&level, owner, team->level, &team->plan);
+        team->plan_loaded = R_OwnerPlan(&level, owner, team->level, &team->plan);
         CHECK(team->plan_loaded && team->plan.doctrine.roster_count > 0);
         memset(&team->plan.doctrine, 0, sizeof(team->plan.doctrine));
     }
@@ -104,8 +104,8 @@ static int test_interactive_queue(void) {
     empty_level();
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, PLAYER_PRODUCT);
     CHECK(product);
-    mobj_t *producer = spawn_owner(PLAYER_PRODUCER, 0, (fvec2_t){16, 16});
-    mobj_t *second = spawn_owner(PLAYER_PRODUCER, 0, (fvec2_t){32, 32});
+    mobj_t *producer = spawn_owner(PLAYER_PRODUCER, 0, FIXED2_LIT(16, 16));
+    mobj_t *second = spawn_owner(PLAYER_PRODUCER, 0, FIXED2_LIT(32, 32));
     CHECK(producer && second);
     P_MobjSetSelected(second, true);
     level.player_resources[0][0] = product->cost;
@@ -149,7 +149,7 @@ static int test_interactive_queue(void) {
     snprintf(screenshot, sizeof(screenshot), "/private/tmp/open-rts-production-%s.bmp", g_game_id);
     CHECK(SDL_SaveBMP(surface, screenshot) == 0);
     int initial = G_CountPlannedActors(0, G_ModelActorIdForProduct(product));
-    CHECK(G_ProductionTicker((float)G_ModelProductTrainingTimeMs(product) / 1000));
+    CHECK(G_ProductionTicker(G_ModelProductTrainingTimeMs(product)));
     CHECK(!second->production && G_CountPlannedActors(0, G_ModelActorIdForProduct(product)) == initial);
     CHECK(G_CountPlannedActors(1, G_ModelActorIdForProduct(product)) == 0);
     /* Queue limits, a busy first producer, and ownership validation. */

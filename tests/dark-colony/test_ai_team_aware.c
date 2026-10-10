@@ -301,7 +301,7 @@ static int assert_harvesting_assignment(void) {
     vents[0].active = true;
     vents[0].amount = 1000;
     vents[0].rate = 10;
-    vents[0].attachment = (fvec2_t){ 20.5f, 20.5f };
+    vents[0].attachment = FIXED2_LIT(20.5, 20.5);
     vents[0].cell = (ivec2_t){ 20, 20 };
     map.resource_vents = vents;
     map.resource_vent_count = 1;

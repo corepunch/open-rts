@@ -176,7 +176,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
         out->resource_vents = vents;
         resourcevent_t *v = &out->resource_vents[out->resource_vent_count++];
         v->cell = cell;
-        v->attachment = (fvec2_t){ (float)cell.x + 0.5f, (float)cell.y + 0.5f };
+        v->attachment = fixed2_cell_center(cell);
         v->amount = 5000;
         v->rate = 25;
         v->active = true;
@@ -195,7 +195,7 @@ int sl_load_initial_units(const char *map_path) {
         mobj_t *unit = P_SpawnMobj(fixed3_zero(), 1);
         if (!unit) break;
         count++;
-        unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
+        unit->core.position = fixed3_from_fixed2(fixed2_cell_center(
             ivec2_add(mission.start, (ivec2_t){ i * 2, -2 })), 0);
         unit->owner = 0;
         unit->type_id = 1;
@@ -205,22 +205,22 @@ int sl_load_initial_units(const char *map_path) {
         mobj_t *unit = P_SpawnMobj(fixed3_zero(), 7);
         if (!unit) break;
         count++;
-        unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
+        unit->core.position = fixed3_from_fixed2(fixed2_cell_center(
             ivec2_add(mission.start, (ivec2_t){ 4 + i * 2, 1 })), 0);
         unit->owner = 0;
         unit->type_id = 7;
         unit->core.angle = ANG270;
     }
-    /* Spawn a slave harvester for the player near the start */
-    {
-        mobj_t *harvester = P_SpawnMobj(fixed3_zero(), 2);
-        if (harvester) {
-            count++;
-            harvester->core.position = fixed3_from_fvec2(fvec2_cell_center(
-                ivec2_add(mission.start, (ivec2_t){ 0, 3 })), 0);
-            harvester->owner = 0;
-            harvester->type_id = 2;
-        }
+    /* The faction's start units (a slave harvester) stand near the start. */
+    startplace_t places[8];
+    int placed = R_StartPlacements(&g_ruleset.factions[0], mission.start, places, 8);
+    for (int i = 0; i < placed; ++i) {
+        mobj_t *unit = P_SpawnMobj(fixed3_zero(), places[i].type);
+        if (!unit) break;
+        count++;
+        unit->core.position = fixed3_from_fixed2(fixed2_cell_center(places[i].at), 0);
+        unit->owner = 0;
+        unit->type_id = places[i].type;
     }
     /* Spawn enemy force at the far side of the map */
     ivec2_t enemy_base = { 128 - mission.start.x, 128 - mission.start.y };
@@ -232,7 +232,7 @@ int sl_load_initial_units(const char *map_path) {
         mobj_t *ebase = P_SpawnMobj(fixed3_zero(), 7);
         if (ebase) {
             count++;
-            ebase->core.position = fixed3_from_fvec2(fvec2_cell_center(enemy_base), 0);
+            ebase->core.position = fixed3_from_fixed2(fixed2_cell_center(enemy_base), 0);
             ebase->owner = 1;
             ebase->team = 1;
             ebase->allegiance = ALLEGIANCE_ENEMY;
@@ -247,7 +247,7 @@ int sl_load_initial_units(const char *map_path) {
         mobj_t *eu = P_SpawnMobj(fixed3_zero(), enemy_units[i].type);
         if (!eu) break;
         count++;
-        eu->core.position = fixed3_from_fvec2(fvec2_cell_center(
+        eu->core.position = fixed3_from_fixed2(fixed2_cell_center(
             ivec2_add(enemy_base, enemy_units[i].off)), 0);
         eu->owner = 1;
         eu->team = 1;

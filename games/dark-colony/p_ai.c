@@ -4,14 +4,14 @@
 #include <math.h>
 #include <string.h>
 
-static int ai_nearest_vent(const level_t *map, fvec2_t position) {
+static int ai_nearest_vent(const level_t *map, fixed2_t position) {
     int best = -1;
-    float best_distance2 = INFINITY;
+    int64_t best_distance2 = INT64_MAX;
     if (!map || !map->resource_vents) return best;
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         if (!vent->active || vent->amount <= 0 || vent->rate <= 0) continue;
-        float distance2 = fvec2_distance_squared(position, vent->attachment);
+        int64_t distance2 = fixed2_distance_squared64(position, vent->attachment);
         if (distance2 < best_distance2) {
             best_distance2 = distance2;
             best = i;
@@ -29,7 +29,7 @@ static void update_ai_economy(const level_t *map, mobj_t *const *units,
             (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
                 (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
         int vent_index = ai_nearest_vent(
-            map, fixed3_xy_to_fvec2(unit->core.position));
+            map, fixed3_xy(unit->core.position));
         if (vent_index >= 0)
             P_HarvestUnitTo(map, unit, map->resource_vents[vent_index].attachment);
     }
@@ -50,16 +50,6 @@ void DC_UpdateAI(const level_t *map, mobj_t *const *units, int unit_count) {
  * path, DC_SelectPurchase/DC_SubmitPurchases. The only verified AI versus
  * AI+ difference is the credit multiplier (see DC_ApplyAiIncome). */
 
-enum {
-    /* MAINE button ids of the DEPEND rows, see DARK_COLONY_PRODUCTS. */
-    UI_BARRACKS = 80, UI_SCIPOD = 81, UI_ROBOFTR = 82, UI_SCIPOD2 = 85, UI_ROBOFTR2 = 86,
-    UI_EXPLOITER = 87, UI_FIRESTORM = 88, UI_TROOPER = 89, UI_SENTINEL = 90,
-    UI_REAPER = 91, UI_BARRAGER = 93,
-    UI_WARFOLD = 41, UI_BREEDPOD = 42, UI_GENESAC = 43, UI_BROZAAR = 46,
-    UI_XENOWORT = 47, UI_GRAY = 48, UI_SYDEMON = 50, UI_ATRIL = 51,
-    UI_PODUPGRADE = 97, UI_GENEUPGRADE = 98, UI_SLOM = 71,
-};
-
 static int dc_ai_level(const level_t *map, int owner) {
     const dc_skirmish_t *setup = DC_LevelSkirmish(map);
     if (!setup || owner < 0 || owner >= 8 || D_PlayerIsHuman(owner)) return AI_LEVEL_NONE;
@@ -68,73 +58,6 @@ static int dc_ai_level(const level_t *map, int owner) {
     case DC_PLAYER_AI_PLUS: return AI_LEVEL_PLUS;
     default: return AI_LEVEL_NONE;
     }
-}
-
-static bool dc_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
-    (void)level;
-    if (!map || !out) return false;
-    out->wave_interval_ms = 45000;
-    out->wave_min_size = 6;
-    out->wave_max_size = 16;
-    if (DC_PlayerRace(owner) == 0) {
-        P_AiPlanAdd(out, UI_EXPLOITER, 1);
-        P_AiPlanAdd(out, UI_BARRACKS, 1);
-        P_AiPlanAdd(out, UI_TROOPER, 3);
-        P_AiPlanAdd(out, UI_EXPLOITER, 2);
-        P_AiPlanAdd(out, UI_SCIPOD, 1);
-        P_AiPlanAdd(out, UI_TROOPER, 6);
-        P_AiPlanAdd(out, UI_ROBOFTR, 1);
-        P_AiPlanAdd(out, UI_REAPER, 3);
-        P_AiPlanAdd(out, UI_SENTINEL, 2);
-        P_AiPlanAdd(out, UI_EXPLOITER, 3);
-        P_AiPlanAdd(out, UI_SCIPOD2, 1);
-        P_AiPlanAdd(out, UI_TROOPER, 10);
-        P_AiPlanAdd(out, UI_REAPER, 6);
-        P_AiPlanAdd(out, UI_ROBOFTR2, 1);
-        P_AiPlanAdd(out, UI_BARRAGER, 2);
-        P_AiPlanAdd(out, UI_FIRESTORM, 2);
-        P_AiPlanAdd(out, UI_TROOPER, 16);
-        P_AiPlanAdd(out, UI_REAPER, 10);
-        P_AiPlanAdd(out, UI_SENTINEL, 6);
-        P_AiPlanAdd(out, UI_BARRAGER, 4);
-        P_AiPlanAdd(out, UI_FIRESTORM, 4);
-        P_AiPlanAdd(out, UI_TROOPER, 24);
-        P_AiPlanAdd(out, UI_REAPER, 16);
-        P_AiPlanAdd(out, UI_SENTINEL, 12);
-        P_AiPlanAdd(out, UI_BARRAGER, 8);
-        P_AiPlanAdd(out, UI_FIRESTORM, 8);
-        P_AiPlanAdd(out, UI_TROOPER, 36);
-        P_AiPlanAdd(out, UI_REAPER, 24);
-    } else {
-        P_AiPlanAdd(out, UI_BROZAAR, 1);
-        P_AiPlanAdd(out, UI_WARFOLD, 1);
-        P_AiPlanAdd(out, UI_GRAY, 3);
-        P_AiPlanAdd(out, UI_BROZAAR, 2);
-        P_AiPlanAdd(out, UI_BREEDPOD, 1);
-        P_AiPlanAdd(out, UI_GRAY, 6);
-        P_AiPlanAdd(out, UI_GENESAC, 1);
-        P_AiPlanAdd(out, UI_SYDEMON, 3);
-        P_AiPlanAdd(out, UI_SLOM, 2);
-        P_AiPlanAdd(out, UI_BROZAAR, 3);
-        P_AiPlanAdd(out, UI_GRAY, 10);
-        P_AiPlanAdd(out, UI_SYDEMON, 6);
-        P_AiPlanAdd(out, UI_PODUPGRADE, 1);
-        P_AiPlanAdd(out, UI_GENEUPGRADE, 1);
-        P_AiPlanAdd(out, UI_ATRIL, 2);
-        P_AiPlanAdd(out, UI_XENOWORT, 2);
-        P_AiPlanAdd(out, UI_GRAY, 16);
-        P_AiPlanAdd(out, UI_SYDEMON, 10);
-        P_AiPlanAdd(out, UI_SLOM, 6);
-        P_AiPlanAdd(out, UI_ATRIL, 4);
-        P_AiPlanAdd(out, UI_GRAY, 24);
-        P_AiPlanAdd(out, UI_SYDEMON, 16);
-        P_AiPlanAdd(out, UI_SLOM, 12);
-        P_AiPlanAdd(out, UI_ATRIL, 8);
-        P_AiPlanAdd(out, UI_XENOWORT, 6);
-        P_AiPlanAdd(out, UI_GRAY, 36);
-        P_AiPlanAdd(out, UI_SYDEMON, 24);
-    }
-    return out->goal_count > 0;
 }
 
 static int dc_ai_owned(int owner, int ui_id) {
@@ -188,7 +111,6 @@ static const AiGameInterface dc_ai_interface = {
     .name = "dark-colony",
     .features = AI_FEATURE_ALL,
     .player_level = dc_ai_level,
-    .plan = dc_ai_plan,
     .owned = dc_ai_owned,
     .can_purchase = dc_ai_can_purchase,
     .purchase = dc_ai_purchase,

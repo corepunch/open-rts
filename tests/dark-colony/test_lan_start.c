@@ -74,8 +74,8 @@ static void driver_tic(menu_t *ui, AiContext *ai) {
     P_Ticker();
     mobjlist_t objects = P_ListMobjs();
     int count = objects.count;
-    P_AiTick(ai, &level, objects.items, count, gameinfo, (int)(FIXED_DT * 1000));
-    G_UpdateProduction(&level, objects.items, &count, FIXED_DT);
+    P_AiTick(ai, &level, objects.items, count, gameinfo, (int)(RTS_TICK_MS * 1000));
+    G_UpdateProduction(&level, objects.items, &count, RTS_TICK_MS);
     P_FreeMobjList(&objects);
 }
 

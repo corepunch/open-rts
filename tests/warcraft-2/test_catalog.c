@@ -309,7 +309,7 @@ static int test_roster(void) {
         CHECK(info->w2.sight >= 0 && info->w2.attack_range >= info->w2.min_attack_range);
         CHECK(info->spawnstate > 0 && info->spawnstate < W2_STATE_COUNT);
         if (info->w2.flags & W2_SKIP) continue;
-        mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8, 8}, 0), (uint16_t)type);
+        mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(8, 8), 0), (uint16_t)type);
         CHECK(unit && unit->type_id == type && unit->hp == actor_types[type - 1].max_hp);
         CHECK(!strcmp(unit->core.sprite_name, info->name));
         ++spawnable;

@@ -1,9 +1,9 @@
 #include "engine.h"
 #include "info.h"
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
 #include "warcraft-2.h"
 #endif
-#ifdef RTS_GAME_STARCRAFT
+#ifdef RTS_MODULE_STARCRAFT
 #include "starcraft.h"
 #endif
 
@@ -13,11 +13,11 @@ const mobjtype_t *P_ActorType(uint16_t type) {
     return NULL;
 }
 
-fvec2_t P_BuildingPosition(uint16_t type, ivec2_t cell) {
+fixed2_t P_BuildingPosition(uint16_t type, ivec2_t cell) {
     const mobjtype_t *actor = P_ActorType(type);
-    fvec2_t at = {(float)cell.x, (float)cell.y};
+    fixed2_t at = fixed2_from_cell(cell);
     if (actor && !actor->corner_anchor)
-        at = fvec2_add(at, (fvec2_t){actor->footprint.w * 0.5f, actor->footprint.h * 0.5f});
+        at = fixed2_add(at, (fixed2_t){actor->footprint.w * (FIXED_ONE / 2), actor->footprint.h * (FIXED_ONE / 2)});
     return at;
 }
 
@@ -40,13 +40,13 @@ static bool cell_reserved(ivec2_t cell, const mobj_t *builder) {
 }
 
 bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder) {
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     return W2_BuildCellClear(type, cell, builder);
 #else
     const mobjtype_t *actor = P_ActorType(type);
     uint16_t replace = actor ? actor->build_on_type : 0;
     if (!irect_contains((irect_t){0, 0, level.width, level.height}, cell)) return false;
-#ifdef RTS_GAME_7LEGION
+#ifdef RTS_MODULE_7LEGION
     int index = L_Index(&level, cell.x, cell.y);
     if (level.cell_terrain) {
         if (level.cell_terrain[index] != 1 && level.cell_terrain[index] != 2) return false;
@@ -74,7 +74,7 @@ bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder) {
 /* Bit zero belongs to authored terrain. Bit one is rebuilt from live mobjs,
  * so destruction releases a foundation without erasing native obstacles. */
 void P_SyncBuildingBlocking(void) {
-#if defined(RTS_GAME_7LEGION) || defined(RTS_GAME_STARCRAFT)
+#if defined(RTS_MODULE_7LEGION) || defined(RTS_MODULE_STARCRAFT)
     size_t cells = (size_t)level.width * level.height;
     if (!cells) return;
     if (!level.cell_solid) level.cell_solid = calloc(cells, 1);
@@ -98,7 +98,7 @@ void P_SyncBuildingBlocking(void) {
 }
 
 bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
-#ifdef RTS_GAME_WARCRAFT_2
+#ifdef RTS_MODULE_WARCRAFT_2
     return W2_CanPlace(type, cell, builder);
 #else
     const mobjtype_t *actor = P_ActorType(type);
@@ -115,7 +115,7 @@ bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         }
         if (!found) return false;
     }
-#ifdef RTS_GAME_STARCRAFT
+#ifdef RTS_MODULE_STARCRAFT
     if (!sc_ground_ok(type, cell, builder)) return false;
 #endif
     isize2_t foot = actor->footprint;
@@ -149,32 +149,32 @@ bool P_MorphMobj(mobj_t *mo, uint16_t type) {
 
 /* Approach the actual footprint, never the blocked building centre. The
  * nav component check excludes banks and trees behind an enclosing wall. */
-bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fvec2_t *bay) {
-    fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
+bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *bay) {
+    fixed2_t from = fixed3_xy(unit->core.position);
     bool found = false;
-    float distance = 0;
+    int64_t distance = 0;
     for (int y = -1; y <= size.h; ++y)
         for (int x = -1; x <= size.w; ++x) {
             if (x >= 0 && y >= 0 && x < size.w && y < size.h) continue;
             ivec2_t candidate = ivec2_add(cell, (ivec2_t){x, y});
-            fvec2_t at = fvec2_cell_center(candidate);
-            float d = fvec2_distance_squared(from, at);
+            fixed2_t at = fixed2_cell_center(candidate);
+            int64_t d = fixed2_distance_squared64(from, at);
             /* Never wait inside another site: two builders would block each other. */
-            if ((found && d >= distance) || !P_CheckPosition(&level, unit, at.x, at.y) ||
+            if ((found && d >= distance) || !P_CheckPosition(&level, unit, at) ||
                 cell_reserved(candidate, unit)) continue;
             bool occupied = false;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 if (th->function != P_MobjThinker) continue;
                 const mobj_t *other = (const mobj_t *)th;
                 if (other == unit || other->remove || other->hp <= 0 || !(other->traits & MF_MOBILE)) continue;
-                float radius = P_MobjRadius(unit) + P_MobjRadius(other);
-                if (fvec2_distance_squared(at, fixed3_xy_to_fvec2(other->core.position)) < radius * radius) {
+                fixed_t radius = P_MobjRadius(unit) + P_MobjRadius(other);
+                if (fixed2_distance_squared64(at, fixed3_xy(other->core.position)) < fixed_sq64(radius)) {
                     occupied = true;
                     break;
                 }
             }
             if (occupied) continue;
-            if (!P_NavReachable(&level, P_MobjMoveClass(unit), fvec2_cell(from), candidate)) continue;
+            if (!P_NavReachable(&level, P_MobjMoveClass(unit), fixed2_cell(from), candidate)) continue;
             *bay = at;
             distance = d;
             found = true;

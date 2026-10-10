@@ -6,7 +6,7 @@
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #c); return 1; } } while (0)
 
 static mobj_t *spawn(int type, float x, float y, int owner) {
-    mobj_t *actor = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){x,y},0), type);
+    mobj_t *actor = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(x,y),0), type);
     assert(actor);
     actor->owner = actor->team = owner;
     actor->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER;
@@ -87,7 +87,7 @@ int main(void) {
         CHECK(unit->type_id == deployed[i] && unit->id == id);
         CHECK(unit->hp == 700 && (unit->traits & MF_SELECTED));
         CHECK(unit->traits & (i < 2 ? MF_TURRET : MF_LANDMINE));
-        CHECK(!P_MoveUnitTo(&level,unit,(fvec2_t){12,10}));
+        CHECK(!P_MoveUnitTo(&level,unit,FIXED2_LIT(12,10)));
         if (i < 2) {
             target = spawn(MT_TROOPER,12,10,1);
             for (int tic = 0; tic < 25; ++tic) P_Ticker();

@@ -6,7 +6,7 @@
 #include <string.h>
 
 ivec2_t DC_OccupiedPosition(const mobj_t *unit) {
-    return fvec2_cell(fixed3_xy_to_fvec2(unit->core.position));
+    return fixed2_cell(fixed3_xy(unit->core.position));
 }
 
 mobj_t *DC_Occupant(ivec2_t cell, bool airborne, bool buried) {
@@ -51,7 +51,7 @@ mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type) {
         if (spawn_y >= map->height) spawn_y = map->height - 1;
     }
     unit->core.position = fixed3_with_xy(unit->core.position,
-        fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }));
+        fixed2_cell_center((ivec2_t){ spawn_x, spawn_y }));
     unit->owner = netgame ? team : team == 0 ? 0 : 1;
     if (unit->owner == consoleplayer) {
         bool has_selected_player = false;
@@ -76,16 +76,16 @@ static bool dropship_cell_occupied(mobj_t *const *units, int unit_count,
                                    ivec2_t cell) {
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->remove || units[i]->hp <= 0 || (units[i]->traits & MF_FLY)) continue;
-        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
-        if ((int)floorf(position.x) == cell.x &&
-            (int)floorf(position.y) == cell.y) {
+        fixed2_t position = fixed3_xy(units[i]->core.position);
+        if (fixed_floor_int(position.x) == cell.x &&
+            fixed_floor_int(position.y) == cell.y) {
             return true;
         }
     }
     return false;
 }
 
-static fvec2_t dropship_drop_position(const level_t *map, mobj_t *const *units,
+static fixed2_t dropship_drop_position(const level_t *map, mobj_t *const *units,
                                       int unit_count, ivec2_t origin, int slot) {
     static const ivec2_t drop_formation[] = {
         { 0, 0 }, { -1, 0 }, { 1, 0 }, { 0, -1 },
@@ -100,19 +100,19 @@ static fvec2_t dropship_drop_position(const level_t *map, mobj_t *const *units,
         ivec2_t cell = ivec2_add(origin, offset);
         if ((!map || L_IsWalkable(map, cell.x, cell.y)) &&
             !dropship_cell_occupied(units, unit_count, cell)) {
-            return fvec2_cell_center(cell);
+            return fixed2_cell_center(cell);
         }
     }
-    return fvec2_cell_center(origin);
+    return fixed2_cell_center(origin);
 }
 
 void A_DC_Drop(mobj_t *ship) {
     dc_drop_t *drop = &ship->drop;
     if (drop->payload_index >= drop->payload_count) return;
     DropshipPayload *payload = &drop->payload[drop->payload_index];
-    fvec2_t position = fixed3_xy_to_fvec2(ship->core.position);
+    fixed2_t position = fixed3_xy(ship->core.position);
     if (!DC_SpawnReinforcement(ship->team,
-                              (int)floorf(position.x), (int)floorf(position.y),
+                              fixed_floor_int(position.x), fixed_floor_int(position.y),
                               payload->type)) {
         P_SetMobjState(ship, S_DROP_UNLOAD1);
         return;
@@ -120,10 +120,10 @@ void A_DC_Drop(mobj_t *ship) {
     drop->released_count++;
     if (--payload->count == 0) drop->payload_index++;
     mobjlist_t objects = P_ListMobjs();
-    fvec2_t goal = drop->payload_index < drop->payload_count ?
+    fixed2_t goal = drop->payload_index < drop->payload_count ?
         dropship_drop_position(&level, objects.items, objects.count,
                                drop->origin, drop->released_count) :
-        fvec2_cell_center(ivec2_add(drop->origin, (ivec2_t){ -1, -1 }));
+        fixed2_cell_center(ivec2_add(drop->origin, (ivec2_t){ -1, -1 }));
     P_FreeMobjList(&objects);
     P_MoveUnitTo(&level, ship, goal);
     P_SetMobjState(ship, S_DROP_MOVE1);
@@ -140,8 +140,8 @@ bool DC_StartDropship(int team, ivec2_t origin,
         payload_count > DROPSHIP_MAX_PAYLOAD_TYPES) return false;
     for (int i = 0; i < payload_count; ++i)
         if (payload[i].count <= 0) return false;
-    mobj_t *ship = P_SpawnMobj(fixed3_from_fvec2(
-        fvec2_cell_center(ivec2_add(origin, (ivec2_t){ -1, -1 })), 0), MT_DROPSHIP);
+    mobj_t *ship = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_cell_center(ivec2_add(origin, (ivec2_t){ -1, -1 })), 0), MT_DROPSHIP);
     if (!ship) return false;
     ship->team = team;
     ship->owner = netgame ? team : team == 0 ? 0 : 1;
@@ -149,7 +149,7 @@ bool DC_StartDropship(int team, ivec2_t origin,
     ship->drop = (dc_drop_t){ .origin = origin, .payload_count = payload_count };
     memcpy(ship->drop.payload, payload, (size_t)payload_count * sizeof(*payload));
     ship->core.angle = dc_direction_to_angle(6);
-    P_MoveUnitTo(&level, ship, fvec2_cell_center(origin));
+    P_MoveUnitTo(&level, ship, fixed2_cell_center(origin));
     P_SetMobjState(ship, S_DROP_MOVE1);
     S_ActorSound(ship, SE_ACTIVE); /* 0x4177e7: the engine loop follows the ship. */
     return true;

@@ -79,8 +79,8 @@ static void fixture(void) {
 static mobj_t *spawn(int type, int x, int y, int owner) {
     isize2_t foot = mobjinfo[type].w2.footprint;
     bool structure = (mobjinfo[type].w2.flags & W2_STRUCTURE) != 0;
-    fvec2_t at = structure ? (fvec2_t){x + foot.w * 0.5f, y + foot.h * 0.5f} : (fvec2_t){x + 0.5f, y + 0.5f};
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), (uint16_t)type);
+    fixed2_t at = structure ? (fixed2_t){FIXED_FROM_INT(x) + foot.w * (FIXED_ONE / 2), FIXED_FROM_INT(y) + foot.h * (FIXED_ONE / 2)} : fixed2_cell_center((ivec2_t){x, y});
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), (uint16_t)type);
     assert(unit);
     unit->owner = (uint8_t)owner;
     unit->team = (uint8_t)owner;
@@ -102,7 +102,7 @@ static bool order(mobj_t *producer, int ui) {
 static void produce(int seconds, bool (*done)(void *), void *user) {
     for (int i = 0; i < seconds * RTS_TICRATE + RTS_TICRATE && !done(user); ++i) {
         P_Ticker();
-        G_UpdateProduction(&level, NULL, NULL, FIXED_DT);
+        G_UpdateProduction(&level, NULL, NULL, RTS_TICK_MS);
     }
 }
 
@@ -275,7 +275,7 @@ static int test_research(void) {
     mobj_t *mill = spawn(MT_ELVEN_LUMBER_MILL, 12, 12, 0);
     CHECK(available(0, W2_UI_ARROW1) && order(mill, W2_UI_ARROW1) && stock[0] == 6200 && stock[1] == 400);
     P_DamageMobj(mill, enemy, mill->hp);
-    G_ProductionTicker(FIXED_DT);
+    G_ProductionTicker(RTS_TICK_MS);
     CHECK(!mill->production && level.upgrades[MT_ARCHER][0].weapon == 0);
     return 0;
 }
@@ -315,7 +315,7 @@ static int test_hall_upgrades(void) {
     CHECK(hall->type_id == MT_KEEP && hall->info == &actor_types[MT_KEEP - 1]);
     CHECK(hall->max_hp == 1400 && hall->hp == 700);
     CHECK(!strcmp(hall->core.sprite_name, "keep") && hall->core.state_id == mobjinfo[MT_KEEP].spawnstate);
-    CHECK(hall->core.position.x == fixed3_from_fvec2((fvec2_t){6, 6}, 0).x);
+    CHECK(hall->core.position.x == fixed3_from_fixed2(FIXED2_LIT(6, 6), 0).x);
     CHECK((hall->traits & (MF_SELECTABLE | MF_RESOURCE_BASE)) == (MF_SELECTABLE | MF_RESOURCE_BASE));
     CHECK(level.cell_solid[L_Index(&level, 4, 4)] && level.cell_solid[L_Index(&level, 7, 7)]);
     CHECK(G_ModelHasActorType(NULL, 0, MT_KEEP) && !G_ModelHasActorType(NULL, 0, MT_TOWN_HALL));

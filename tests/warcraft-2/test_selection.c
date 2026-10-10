@@ -38,7 +38,7 @@ int main(void) {
     };
     mobj_t *units[4];
     for (int i = 0; i < 4; ++i) {
-        units[i] = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){4, 4}, 0), cases[i].type);
+        units[i] = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(4, 4), 0), cases[i].type);
         CHECK(units[i]);
         P_MobjSetSelected(units[i], true);
         RTS_RUN(footprint(units[i], &app, cases[i].rect));

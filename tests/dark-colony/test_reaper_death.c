@@ -30,7 +30,7 @@ int main(void) {
         mobj_t unit = { .type_id = MT_REAPER };
         P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_REAPER));
         unit.core.angle = dc_direction_to_angle(direction);
-        unit.core.position = fixed3_from_fvec2((fvec2_t){ 4, 5 }, 0);
+        unit.core.position = fixed3_from_fixed2(FIXED2_LIT(4, 5), 0);
         unit.hp = 1;
         mobj_t attacker = {0};
         P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));

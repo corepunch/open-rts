@@ -112,7 +112,7 @@ int main(void) {
     mission->product_count = 1;
     mission->products[0].type = 11001;
     mission->products[0].tech_level = 0;
-    mobj_t *rig = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10, 10}, 0), MT_IMP_CONSTRUCTION_CREW);
+    mobj_t *rig = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(10, 10), 0), MT_IMP_CONSTRUCTION_CREW);
     CHECK(rig);
     rig->owner = rig->team = 0;
     rig->allegiance = ALLEGIANCE_PLAYER;

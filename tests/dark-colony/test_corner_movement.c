@@ -12,12 +12,12 @@ static int narrow_corner(void) {
     memset(level.blocked, 1, (size_t)level.width * level.height);
     for (int y = 1; y <= 4; ++y) level.blocked[L_Index(&level, 4, y)] = 0;
     for (int x = 4; x <= 12; ++x) level.blocked[L_Index(&level, x, 4)] = 0;
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){4.5f, 1.5f}, 0), MT_TROOPER);
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(4.5, 1.5), 0), MT_TROOPER);
     assert(unit);
     unit->traits = MF_MOBILE;
-    unit->speed = 1.0f;
+    unit->speed = FIXED_LIT(1.0);
     unit->core.angle = ANG90;
-    RTS_CHECK(P_MoveUnitTo(&level, unit, (fvec2_t){12.5f, 4.5f}), tag, "create route");
+    RTS_CHECK(P_MoveUnitTo(&level, unit, FIXED2_LIT(12.5, 4.5)), tag, "create route");
     navstats_t planned = P_NavStats();
     for (int tic = 0; tic < 600 && !unit->movement.order_arrived; ++tic) P_Ticker();
     RTS_CHECK(unit->movement.order_arrived, tag, "reach goal around the bend");
@@ -27,13 +27,13 @@ static int narrow_corner(void) {
     return 0;
 }
 
-static int human01_pair(fvec2_t goal, int phase) {
+static int human01_pair(fixed2_t goal, int phase) {
     const char *tag = "Human01 corner pair";
     P_FreeThinkers();
     for (int tic = 0; tic < phase; ++tic) P_Ticker();
     mobj_t *units[2];
     for (int i = 0; i < 2; ++i) {
-        units[i] = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){22.5f - i, 2.5f}, 0), MT_TROOPER);
+        units[i] = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(22.5f - i, 2.5f), 0), MT_TROOPER);
         assert(units[i]);
         units[i]->traits = MF_MOBILE; /* Isolate navigation from combat. */
     }
@@ -56,7 +56,7 @@ static int human01_pair(fvec2_t goal, int phase) {
         }
     }
     printf("Human01 goal=(%.1f,%.1f): arrived=%d tics=%d stalls=%d/%d,%d/%d stop episodes=%d,%d\n",
-           goal.x, goal.y, arrived, tic, stalls[0], active[0], stalls[1], active[1], episodes[0], episodes[1]);
+           fixed_to_float(goal.x), fixed_to_float(goal.y), arrived, tic, stalls[0], active[0], stalls[1], active[1], episodes[0], episodes[1]);
     RTS_CHECK(arrived == 2, tag, "both troopers reach the goal");
     for (int i = 0; i < 2; ++i) {
         RTS_CHECK(stalls[i] * 2 < active[i], tag, "turning and yielding are a fraction of travel");
@@ -72,8 +72,8 @@ int main(void) {
     assert(model && rts_game_model_load(model, &config));
     /* Exercise every phase of the throttled waypoint checks. */
     for (int pass = 0; pass < 4; ++pass) {
-        RTS_RUN(human01_pair((fvec2_t){30.5f, 7.5f}, pass));
-        RTS_RUN(human01_pair((fvec2_t){24.5f, 11.5f}, pass));
+        RTS_RUN(human01_pair(FIXED2_LIT(30.5, 7.5), pass));
+        RTS_RUN(human01_pair(FIXED2_LIT(24.5, 11.5), pass));
     }
     rts_game_model_destroy(model);
     puts("PASS: troopers round narrow and retail corners without jitter");

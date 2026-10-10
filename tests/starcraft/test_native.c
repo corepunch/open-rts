@@ -89,9 +89,9 @@ int main(void) {
     CHECK(d[8].layers[0].lump==8&&d[24].layers[0].lump==8);
     CHECK(d[8].layers[0].flags&RTS_FRAME_FLIP_X);CHECK(!(d[24].layers[0].flags&RTS_FRAME_FLIP_X));
     mobj_t *unit=units.items[0];CHECK(unit->type_id==1);
-    fvec2_t before=fixed3_xy_to_fvec2(unit->core.position),goal=fvec2_add(before,(fvec2_t){2,2});
+    fixed2_t before=fixed3_xy(unit->core.position),goal=fixed2_add(before,FIXED2_LIT(2,2));
     CHECK(P_MoveUnitTo(&level,unit,goal));for(int i=0;i<150;i++)P_Ticker();
-    fvec2_t after=fixed3_xy_to_fvec2(unit->core.position);CHECK(after.x>before.x+1&&after.y>before.y+1);
+    fixed2_t after=fixed3_xy(unit->core.position);CHECK(after.x>before.x+FIXED_ONE&&after.y>before.y+FIXED_ONE);
     P_UpdateSight();CHECK(P_SightBrightness(&level,(ivec2_t){127,127})==16);
     app_t app={.win={640,480},.cell={32,32},.running=true};V_AllocScreen(640,480);
     CHECK(M_Init(&app,root));

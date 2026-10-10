@@ -8,10 +8,10 @@ void P_TickWaypoints(mobj_t *actor) {
         gameinfo->states[actor->core.state_id].group == 3) return;
     mobj_t *target = actor->attack.target;
     const weapondef_t *weapon = P_MobjWeapon(actor, target);
-    float range = weapon ? weapon->range : 0;
+    fixed_t range = weapon ? weapon->range : 0;
     if (P_CanTarget(actor, target) &&
-        fvec2_distance_squared(fixed3_xy_to_fvec2(actor->core.position),
-                               fixed3_xy_to_fvec2(target->core.position)) <= range * range)
+        fixed2_distance_squared64(fixed3_xy(actor->core.position),
+                                  fixed3_xy(target->core.position)) <= fixed_sq64(range))
         return;
     actor->attack.target = NULL;
     if (actor->movement.order_arrived) {
@@ -32,5 +32,5 @@ void P_TickWaypoints(mobj_t *actor) {
         actor->movement.order_id = 0;
     }
     if (!P_HasMoveOrder(actor))
-        P_MoveUnitTo(&level, actor, fvec2_cell_center(path->points[path->current]));
+        P_MoveUnitTo(&level, actor, fixed2_cell_center(path->points[path->current]));
 }

@@ -22,24 +22,24 @@ enum {
 /* Ensnare and Plague cover this many cells around the spot (weapons.dat
  * leaves their radius 0); EMP's 64 pixels are the same. Irradiate burns
  * organic units within a cell of its host; Dark Swarm's cloud is 5 by 5. */
-#define SC_SPELL_RADIUS 2.0f
-#define SC_IRRADIATE_RADIUS 1.0f
-#define SC_SWARM_RADIUS 2.5f
+#define SC_SPELL_RADIUS FIXED_FROM_INT(2)
+#define SC_IRRADIATE_RADIUS FIXED_ONE
+#define SC_SWARM_RADIUS (FIXED_ONE * 5 / 2)
 
 /* Who casts what and how far. A weapons.dat row gives the reach; range is
  * used without one, negative for anywhere, zero for the caster itself. */
 typedef struct {
     int tech, weapon;
-    float range;
+    fixed_t range;
     mobjtype_id_t casters[2];
     bool given; /* Retail melee grants it without research. */
 } sc_spell_t;
 static const sc_spell_t spells[] = {
     {SC_TECH_LOCKDOWN, 32, 0, {MT_GHOST}, false},
     {SC_TECH_EMP, SC_WEAPON_EMP, 0, {MT_SCIENCE_VESSEL}, false},
-    {SC_TECH_SCANNER_SWEEP, -1, -1, {MT_COMSAT_STATION}, true},
+    {SC_TECH_SCANNER_SWEEP, -1, -FIXED_ONE, {MT_COMSAT_STATION}, true},
     {SC_TECH_SIEGE_MODE, -1, 0, {MT_SIEGE_TANK, MT_SIEGE_MODE}, false},
-    {SC_TECH_DEFENSIVE_MATRIX, -1, 10, {MT_SCIENCE_VESSEL}, true},
+    {SC_TECH_DEFENSIVE_MATRIX, -1, FIXED_FROM_INT(10), {MT_SCIENCE_VESSEL}, true},
     {SC_TECH_IRRADIATE, 34, 0, {MT_SCIENCE_VESSEL}, false},
     {SC_TECH_YAMATO_GUN, SC_WEAPON_YAMATO, 0, {MT_BATTLECRUISER}, false},
     {SC_TECH_CLOAKING_FIELD, -1, 0, {MT_WRAITH}, false},
@@ -47,13 +47,13 @@ static const sc_spell_t spells[] = {
     {SC_TECH_SPAWN_BROODLING, 57, 0, {MT_QUEEN}, false},
     {SC_TECH_DARK_SWARM, 59, 0, {MT_DEFILER}, true},
     {SC_TECH_PLAGUE, 60, 0, {MT_DEFILER}, false},
-    {SC_TECH_CONSUME, -1, 1.5f, {MT_DEFILER}, false},
+    {SC_TECH_CONSUME, -1, FIXED_ONE * 3 / 2, {MT_DEFILER}, false},
     {SC_TECH_ENSNARE, 58, 0, {MT_QUEEN}, false},
     {SC_TECH_PARASITE, 56, 0, {MT_QUEEN}, true},
     {SC_TECH_PSIONIC_STORM, SC_WEAPON_STORM, 0, {MT_HIGH_TEMPLAR}, false},
-    {SC_TECH_HALLUCINATION, -1, 8, {MT_HIGH_TEMPLAR}, false},
+    {SC_TECH_HALLUCINATION, -1, FIXED_FROM_INT(8), {MT_HIGH_TEMPLAR}, false},
     {SC_TECH_ARCHON_WARP, -1, 0, {MT_HIGH_TEMPLAR}, true},
-    {SC_TECH_NUCLEAR_STRIKE, -1, 8, {MT_GHOST}, true},
+    {SC_TECH_NUCLEAR_STRIKE, -1, FIXED_FROM_INT(8), {MT_GHOST}, true},
 };
 enum { SC_SPELLS = sizeof(spells) / sizeof(*spells) };
 
@@ -90,9 +90,9 @@ bool sc_tech_aimed(int tech) {
     const sc_spell_t *s = spell(tech);
     return s && !cloak(tech) && tech != SC_TECH_SIEGE_MODE && tech != SC_TECH_ARCHON_WARP;
 }
-static float reach(const sc_spell_t *s) {
+static fixed_t reach(const sc_spell_t *s) {
     const sc_weapon_t *w = sc_weapon(s->weapon);
-    return w ? (float)((w->max_range + 31) / 32) : s->range;
+    return w ? FIXED_FROM_INT((w->max_range + 31) / 32) : s->range;
 }
 static int energy_cost(int tech) { return tech < SC_TECHS ? sc_techs[tech].energy << 8 : 0; }
 
@@ -103,12 +103,12 @@ static bool body(const mobj_t *mo) {
         !(mo->traits & (MF_NOBLOCKMAP | MF_MISSILE)) && !(mo->sc.flags & SC_INVINCIBLE) && sc_unit(mo);
 }
 static bool building(const mobj_t *mo) { return (sc_units[mo->type_id - 1].flags & SC_UNIT_BUILDING) != 0; }
-static fvec2_t where(const mobj_t *mo) { return fixed3_xy_to_fvec2(mo->core.position); }
-static bool near(const mobj_t *mo, fvec2_t at, float radius) {
-    return fvec2_distance_squared(where(mo), at) <= radius * radius;
+static fixed2_t where(const mobj_t *mo) { return fixed3_xy(mo->core.position); }
+static bool near(const mobj_t *mo, fixed2_t at, fixed_t radius) {
+    return fixed2_distance_squared64(where(mo), at) <= fixed_sq64(radius);
 }
-static ivec2_t pixel(fvec2_t at) { return (ivec2_t){(int)lroundf(at.x * 32), (int)lroundf(at.y * 32)}; }
-static fvec2_t from_pixel(ivec2_t p) { return (fvec2_t){p.x / 32.0f, p.y / 32.0f}; }
+static ivec2_t pixel(fixed2_t at) { return (ivec2_t){(at.x + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5), (at.y + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5)}; }
+static fixed2_t from_pixel(ivec2_t p) { return (fixed2_t){SC_PIXELS(p.x), SC_PIXELS(p.y)}; }
 
 /* Whether the spell may land on target. */
 static bool target_ok(const mobj_t *caster, int tech, const mobj_t *target) {
@@ -134,7 +134,7 @@ static bool needs_target(int tech) {
 
 /* An area that lingers. The neutral owner keeps it out of triggers and
  * scores; team decides whose sight it gives (none past 8). */
-static mobj_t *spawn_area(uint16_t type, fvec2_t at, const mobj_t *caster, int tech, int frames, uint8_t team) {
+static mobj_t *spawn_area(uint16_t type, fixed2_t at, const mobj_t *caster, int tech, int frames, uint8_t team) {
     mobj_t *area = sc_spawn_actor(type - 1u, pixel(at), 11);
     if (!area) return NULL;
     area->team = team;
@@ -147,7 +147,7 @@ static mobj_t *spawn_area(uint16_t type, fvec2_t at, const mobj_t *caster, int t
     return area;
 }
 /* A copy of type for caster's side at a spot beside at. */
-static mobj_t *spawn_for(const mobj_t *caster, uint16_t type, fvec2_t at) {
+static mobj_t *spawn_for(const mobj_t *caster, uint16_t type, fixed2_t at) {
     mobj_t *mo = sc_spawn_actor(type - 1u, pixel(at), caster->owner);
     if (!mo) return NULL;
     mo->team = caster->team;
@@ -156,26 +156,26 @@ static mobj_t *spawn_for(const mobj_t *caster, uint16_t type, fvec2_t at) {
 }
 
 static void storm_strike(mobj_t *storm) {
-    fvec2_t at = where(storm);
+    fixed2_t at = where(storm);
     const sc_weapon_t *w = sc_weapon(SC_WEAPON_STORM);
     mobj_t *source = P_MobjById(storm->sc.parent);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *v = (mobj_t *)th;
         /* A unit already hurt by a storm this strike is spared: storms do not stack. */
-        if (!body(v) || building(v) || v->sc.timers[SC_TIMER_STORM] > 0 || !near(v, at, w->splash[0] / 32.0f)) continue;
+        if (!body(v) || building(v) || v->sc.timers[SC_TIMER_STORM] > 0 || !near(v, at, SC_PIXELS(w->splash[0]))) continue;
         v->sc.timers[SC_TIMER_STORM] = SC_STORM_STRIKE;
         int damage = sc_hit(storm->sc.attacker, w, v, w->damage, 1);
         if (damage > 0) P_DamageMobj(v, source, damage);
     }
 }
 
-static void nuke(mobj_t *ghost, fvec2_t at) {
+static void nuke(mobj_t *ghost, fixed2_t at) {
     const sc_weapon_t *w = sc_weapon(SC_WEAPON_NUKE);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *v = (mobj_t *)th;
         if (!body(v)) continue;
-        float d = sqrtf(fvec2_distance_squared(where(v), at)) - P_MobjRadius(v);
-        int divisor = d <= w->splash[0] / 32.0f ? 1 : d <= w->splash[1] / 32.0f ? 2 : d <= w->splash[2] / 32.0f ? 4 : 0;
+        fixed_t d = fixed2_length(fixed2_sub(where(v), at)) - P_MobjRadius(v);
+        int divisor = d <= SC_PIXELS(w->splash[0]) ? 1 : d <= SC_PIXELS(w->splash[1]) ? 2 : d <= SC_PIXELS(w->splash[2]) ? 4 : 0;
         if (!divisor) continue;
         int damage = sc_hit(ghost->owner, w, v, w->damage, divisor);
         if (damage > 0) P_DamageMobj(v, ghost, damage);
@@ -201,7 +201,7 @@ static void hold(mobj_t *mo) {
 }
 
 /* The effect itself, in range, energy paid. */
-static void cast_now(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
+static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     caster->sc.energy -= energy_cost(tech);
     switch (tech) {
     case SC_TECH_LOCKDOWN: target->sc.timers[SC_TIMER_LOCKDOWN] = SC_LOCKDOWN_FRAMES; hold(target); break;
@@ -222,7 +222,7 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
         at = where(target);
         P_DamageMobj(target, caster, target->hp);
         for (int i = 0; i < 2; i++) {
-            mobj_t *brood = spawn_for(caster, MT_BROODLING, fvec2_add(at, (fvec2_t){i ? 0.4f : -0.4f, 0}));
+            mobj_t *brood = spawn_for(caster, MT_BROODLING, fixed2_add(at, (fixed2_t){i ? 26214 : -26214, 0}));
             if (brood) brood->sc.timers[SC_TIMER_LIFE] = SC_BROODLING_FRAMES;
         }
         break;
@@ -234,7 +234,7 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
     case SC_TECH_HALLUCINATION:
         /* Two copies that deal nothing and take double damage. */
         for (int i = 0; i < 2; i++) {
-            mobj_t *copy = spawn_for(caster, target->type_id, fvec2_add(where(target), (fvec2_t){i ? 0.75f : -0.75f, 0.5f}));
+            mobj_t *copy = spawn_for(caster, target->type_id, fixed2_add(where(target), (fixed2_t){i ? FIXED_ONE * 3 / 4 : -FIXED_ONE * 3 / 4, FIXED_ONE / 2}));
             if (!copy) continue;
             copy->hp = target->hp;
             copy->sc.flags |= SC_HALLUCINATION;
@@ -242,13 +242,13 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
         }
         break;
     case SC_TECH_EMP:
-        AROUND(v, at, sc_weapon(SC_WEAPON_EMP)->splash[0] / 32.0f, caster) { sc_start(v); v->sc.shields = 0; v->sc.energy = 0; }
+        AROUND(v, at, SC_PIXELS(sc_weapon(SC_WEAPON_EMP)->splash[0]), caster) { sc_start(v); v->sc.shields = 0; v->sc.energy = 0; }
         break;
     case SC_TECH_ENSNARE:
         AROUND(v, at, SC_SPELL_RADIUS, caster) {
             if (building(v)) continue;
             v->sc.timers[SC_TIMER_ENSNARE] = SC_ENSNARE_FRAMES;
-            v->speed = v->info->speed * 0.5f;
+            v->speed = v->info->speed / 2;
         }
         break;
     case SC_TECH_PLAGUE:
@@ -283,9 +283,9 @@ static bool step_cast(mobj_t *caster) {
     if (o->target && !target_ok(caster, o->tech, target)) return false;
     if (caster->sc.energy < energy_cost(o->tech) ||
         (o->tech == SC_TECH_NUCLEAR_STRIKE && !sc_armed_silo(caster->owner))) return false;
-    fvec2_t at = target ? where(target) : from_pixel(o->at);
-    float range = reach(spell(o->tech));
-    if (range < 0 || near(caster, at, range + 0.5f + (target ? P_MobjRadius(target) : 0))) {
+    fixed2_t at = target ? where(target) : from_pixel(o->at);
+    fixed_t range = reach(spell(o->tech));
+    if (range < 0 || near(caster, at, range + FIXED_ONE / 2 + (target ? P_MobjRadius(target) : 0))) {
         P_ClearMove(caster);
         caster->move_only = false;
         cast_now(caster, o->tech, target, at);
@@ -297,7 +297,7 @@ static bool step_cast(mobj_t *caster) {
     return true;
 }
 
-bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fvec2_t at) {
+bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     const sc_spell_t *s = spell(tech);
     if (!caster || caster->remove || caster->hp <= 0 || !s || !casts(caster->type_id, s) ||
         (caster->sc.flags & SC_HALLUCINATION) || !may_cast(caster, tech)) return false;
@@ -335,7 +335,7 @@ void sc_interrupt(mobj_t *unit) {
 static void irradiate(mobj_t *host) {
     int k = SC_IRRADIATE_BEATS - host->sc.timers[SC_TIMER_IRRADIATE]--;
     int damage = SC_IRRADIATE_DAMAGE * (k + 1) / SC_IRRADIATE_BEATS - SC_IRRADIATE_DAMAGE * k / SC_IRRADIATE_BEATS;
-    fvec2_t at = where(host);
+    fixed2_t at = where(host);
     AROUND(v, at, SC_IRRADIATE_RADIUS, NULL)
         if (!building(v) && (sc_units[v->type_id - 1].flags & SC_UNIT_ORGANIC)) P_DamageMobj(v, NULL, damage);
 }
@@ -344,13 +344,13 @@ int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *targ
     if (attacker->sc.flags & SC_HALLUCINATION) return 0;
     if (target->sc.flags & SC_HALLUCINATION) dealt *= 2;
     /* Under Dark Swarm only blows from up close land. */
-    if (!(target->traits & MF_FLY) && weapon->range > 1.0f)
+    if (!(target->traits & MF_FLY) && weapon->range > FIXED_ONE)
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             const mobj_t *cloud = (const mobj_t *)th;
             if (th->function == P_MobjThinker && !cloud->remove && cloud->type_id == MT_DARK_SWARM &&
                 cloud->sc.order.tech == SC_TECH_DARK_SWARM && cloud->sc.timers[SC_TIMER_LIFE] > 0 &&
-                fabsf(fixed_to_float(cloud->core.position.x - target->core.position.x)) <= SC_SWARM_RADIUS &&
-                fabsf(fixed_to_float(cloud->core.position.y - target->core.position.y)) <= SC_SWARM_RADIUS) return 0;
+                abs(cloud->core.position.x - target->core.position.x) <= SC_SWARM_RADIUS &&
+                abs(cloud->core.position.y - target->core.position.y) <= SC_SWARM_RADIUS) return 0;
         }
     if (target->sc.matrix > 0) {
         int absorbed = dealt < target->sc.matrix ? dealt : target->sc.matrix;
@@ -396,7 +396,7 @@ void sc_spell_ticker(mobj_t *mo, int frames) {
     sc_order_t *o = &mo->sc.order;
     if (o->kind == SC_ORDER_CAST && !step_cast(mo)) { *o = (sc_order_t){0}; mo->move_only = false; }
     else if (o->kind == SC_ORDER_NUKE && (o->time -= frames) <= 0) {
-        fvec2_t at = from_pixel(o->at);
+        fixed2_t at = from_pixel(o->at);
         *o = (sc_order_t){0};
         nuke(mo, at);
     }

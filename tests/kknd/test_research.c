@@ -4,7 +4,7 @@
 #include <assert.h>
 
 static mobj_t *spawn(uint16_t type) {
-    mobj_t *u = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20,20},0),type);
+    mobj_t *u = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20,20),0),type);
     assert(u);
     return u;
 }

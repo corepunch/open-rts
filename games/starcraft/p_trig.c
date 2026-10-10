@@ -155,8 +155,8 @@ static bool loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, 
 }
 
 static bool inside(const mobj_t *mo, int l, int t, int r, int b) {
-    fvec2_t at = fixed3_xy_to_fvec2(mo->core.position);
-    int x = (int)(at.x * 32.0f), y = (int)(at.y * 32.0f);
+    fixed2_t at = fixed3_xy(mo->core.position);
+    int x = at.x >> 11, y = at.y >> 11; /* 32 map pixels per cell */
     return x >= l && x <= r && y >= t && y <= b;
 }
 
@@ -310,14 +310,14 @@ static void say(hudtext_t *hud, const char *text, int ttl) {
     if (text && text[0]) HU_PushMessage(hud, text, ttl);
 }
 
-static fvec2_t loc_center(const sc_mission_t *m, unsigned id) {
+static fixed2_t loc_center(const sc_mission_t *m, unsigned id) {
     int l, t, r, b;
-    if (!loc_box(m, id, &l, &t, &r, &b)) return (fvec2_t){level.width * 0.5f, level.height * 0.5f};
-    return (fvec2_t){(l + r) / 64.0f, (t + b) / 64.0f};
+    if (!loc_box(m, id, &l, &t, &r, &b)) return (fixed2_t){level.width * (FIXED_ONE / 2), level.height * (FIXED_ONE / 2)};
+    return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
 static void look_at(sc_mission_t *m, unsigned id) {
-    m->view = loc_center(m, id);
+    m->view = fvec2_from_fixed2(loc_center(m, id));
     m->view_pending = true;
     level.has_camera = true;
     level.camera = m->view;
@@ -475,11 +475,11 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             mobj_t *found[1];
             int dest_players[8], dn = collect_players(m, player, st->current, dest_players);
             if (gather(m, dest_players, dn, unit, number, 1, found, 1)) {
-                fvec2_t at = fixed3_xy_to_fvec2(found[0]->core.position);
+                fixed2_t at = fixed3_xy(found[0]->core.position);
                 int i = (int)loc - 1;
                 if (i >= 0 && i < m->loc_count) {
                     int w = m->loc_right[i] - m->loc_left[i], h = m->loc_bottom[i] - m->loc_top[i];
-                    int cx = (int)(at.x * 32.0f), cy = (int)(at.y * 32.0f);
+                    int cx = at.x >> 11, cy = at.y >> 11;
                     m->loc_left[i] = cx - w / 2; m->loc_right[i] = m->loc_left[i] + w;
                     m->loc_top[i] = cy - h / 2; m->loc_bottom[i] = m->loc_top[i] + h;
                 }
@@ -519,7 +519,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             int limit = (id == 23 || id == 25 || id == 39 || id == 48 || id == 49) ? a[27] : 0;
             mobj_t *found[256];
             int count = gather(m, players, n, unit, where, limit, found, 256);
-            fvec2_t dest = loc_center(m, number ? number : loc);
+            fixed2_t dest = loc_center(m, number ? number : loc);
             for (int i = 0; i < count; i++) {
                 mobj_t *mo = found[i];
                 if (id == 22 || id == 23) P_DamageMobj(mo, NULL, mo->hp > 0 ? mo->hp : 1);
@@ -575,11 +575,10 @@ static void check_elimination(sc_mission_t *m) {
     if (slots && !living) { m->result = 1; sc_show_result(1); }
 }
 
-void sc_mission_tick(level_t *map, hudtext_t *hud, float dt) {
+void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
     sc_mission_t *m = mission(map);
     if (!m || m->result) return;
-    int ms = (int)(dt * 1000.0f + 0.5f);
-    if (ms < 1) ms = 1;
+    int ms = dt_ms < 1 ? 1 : dt_ms;
     m->elapsed_ms += ms;
     /* Score: a rise in stock is income, a fall is spending. */
     for (int p = 0; p < 8; p++) for (int r = 0; r < 2; r++) {

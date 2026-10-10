@@ -46,7 +46,7 @@ static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {
     }
     assert(changed > 0);
     /* Object XY, Z and camera movement must move the marker with the anchor. */
-    unit->core.position = fixed3_from_fvec2((fvec2_t){1, -1}, FIXED_ONE / 4);
+    unit->core.position = fixed3_from_fixed2(FIXED2_LIT(1, -1), FIXED_ONE / 4);
     app->cam = fvec2_add(app->cam, (fvec2_t){7, 9});
     P_MobjSetSelected(unit, false);
     clear();

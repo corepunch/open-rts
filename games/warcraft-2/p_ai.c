@@ -29,7 +29,7 @@ static bool alive(const mobj_t *unit) {
 
 static const w2_stats_t *stats(const mobj_t *unit) { return &mobjinfo[unit->type_id].w2; }
 
-static ivec2_t cell_of(const mobj_t *unit) { return fvec2_cell(fixed3_xy_to_fvec2(unit->core.position)); }
+static ivec2_t cell_of(const mobj_t *unit) { return fixed2_cell(fixed3_xy(unit->core.position)); }
 
 static bool enemy_of(const mobj_t *unit, const mobj_t *other) {
     return alive(other) && other->owner < 8 && other->allegiance != ALLEGIANCE_NEUTRAL &&
@@ -78,25 +78,25 @@ static bool fighting(const mobj_t *unit) {
  * wave's goal that has open water within the ship's range. */
 static void send_ship(mobj_t *ship, const mobj_t *goal) {
     int range = (int)W2_AttackRange(ship);
-    fvec2_t aim = fixed3_xy_to_fvec2(goal->core.position);
+    fixed2_t aim = fixed3_xy(goal->core.position);
     mobj_t *best = NULL;
     ivec2_t best_spot = {0};
-    float best_d = 0;
+    int64_t best_d = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *enemy = (mobj_t *)th;
         ivec2_t spot;
         if (th->function != P_MobjThinker || !enemy_of(ship, enemy) || (enemy->traits & MF_FLY)) continue;
-        float d = fvec2_distance_squared(aim, fixed3_xy_to_fvec2(enemy->core.position));
+        int64_t d = fixed2_distance_squared64(aim, fixed3_xy(enemy->core.position));
         if ((best && d >= best_d) || !reach(ship, cell_of(enemy), range, &spot)) continue;
         best = enemy; best_d = d; best_spot = spot;
     }
     /* Nothing on the shore in reach: hold the water nearest the goal,
      * where the landing will come. */
     if (!best && reach(ship, cell_of(goal), FERRY_REACH * 2, &best_spot)) {
-        P_MoveUnitTo(&level, ship, fvec2_cell_center(best_spot));
+        P_MoveUnitTo(&level, ship, fixed2_cell_center(best_spot));
         return;
     }
-    if (!best || !P_MoveUnitTo(&level, ship, fvec2_cell_center(best_spot))) return;
+    if (!best || !P_MoveUnitTo(&level, ship, fixed2_cell_center(best_spot))) return;
     ship->attack.target = best;
 }
 
@@ -104,25 +104,28 @@ static void send_ship(mobj_t *ship, const mobj_t *goal) {
  * free transport, which sails there to wait for them. */
 static void call_transport(mobj_t *const *troops, int count, ivec2_t goal) {
     if (count <= 0) return;
-    fvec2_t centre = {0, 0};
-    for (int i = 0; i < count; ++i) centre = fvec2_add(centre, fixed3_xy_to_fvec2(troops[i]->core.position));
-    centre = (fvec2_t){centre.x / count, centre.y / count};
+    int64_t sum_x = 0, sum_y = 0;
+    for (int i = 0; i < count; ++i) {
+        sum_x += troops[i]->core.position.x;
+        sum_y += troops[i]->core.position.y;
+    }
+    fixed2_t centre = {(fixed_t)(sum_x / count), (fixed_t)(sum_y / count)};
     mobj_t *ship = NULL;
-    float best = 0;
+    int64_t best = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *unit = (mobj_t *)th;
         if (th->function != P_MobjThinker || !alive(unit) || unit->owner != troops[0]->owner ||
             !stats(unit)->transport_capacity || unit->w2.ferry.phase || unit->w2.unloading) continue;
-        float d = fvec2_distance_squared(centre, fixed3_xy_to_fvec2(unit->core.position));
+        int64_t d = fixed2_distance_squared64(centre, fixed3_xy(unit->core.position));
         if (!ship || d < best) { ship = unit; best = d; }
     }
-    ivec2_t pickup, home = fvec2_cell(centre);
+    ivec2_t pickup, home = fixed2_cell(centre);
     if (!ship || !shore(ship, home, cell_of(troops[0]), &pickup)) return;
-    P_MoveUnitTo(&level, ship, fvec2_cell_center(pickup));
+    P_MoveUnitTo(&level, ship, fixed2_cell_center(pickup));
     ship->w2.ferry.phase = FERRY_GATHER;
     ship->w2.ferry.wait = 0;
     ship->w2.ferry.to = goal;
-    P_MoveUnitsAt(&level, troops, count, fvec2_cell_center(pickup));
+    P_MoveUnitsAt(&level, troops, count, fixed2_cell_center(pickup));
 }
 
 /* Flyers and soldiers that can walk go straight at the goal, ships to the
@@ -140,7 +143,7 @@ bool w2_ai_dispatch(level_t *map, int owner, mobj_t *const *wave, int count, mob
         else ferry[ferried++] = unit;
     }
     for (int i = 0; i < marching; ++i) march[i]->attack.target = goal;
-    P_MoveUnitsAt(map, march, marching, fixed3_xy_to_fvec2(goal->core.position));
+    P_MoveUnitsAt(map, march, marching, fixed3_xy(goal->core.position));
     for (int i = 0; i < marching; ++i) march[i]->attack.target = goal;
     call_transport(ferry, ferried, at);
     return true;
@@ -163,11 +166,11 @@ static int aboard(const mobj_t *ship, bool *boarding) {
 /* The enemy nearest the landing, for the troops to fight. */
 static mobj_t *nearest_enemy(const mobj_t *unit, ivec2_t to) {
     mobj_t *best = NULL;
-    float best_d = 0;
+    int64_t best_d = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *enemy = (mobj_t *)th;
         if (th->function != P_MobjThinker || !enemy_of(unit, enemy)) continue;
-        float d = fvec2_distance_squared(fvec2_cell_center(to), fixed3_xy_to_fvec2(enemy->core.position));
+        int64_t d = fixed2_distance_squared64(fixed2_cell_center(to), fixed3_xy(enemy->core.position));
         if (!best || d < best_d) { best = enemy; best_d = d; }
     }
     return best;
@@ -191,7 +194,7 @@ static void run_ferry(mobj_t *ship, mobj_t *const *units, int count) {
         mobj_t *target = n ? nearest_enemy(landed[0], ship->w2.ferry.to) : NULL;
         if (target) {
             for (int i = 0; i < n; ++i) landed[i]->attack.target = target;
-            P_MoveUnitsAt(&level, landed, n, fixed3_xy_to_fvec2(target->core.position));
+            P_MoveUnitsAt(&level, landed, n, fixed3_xy(target->core.position));
             for (int i = 0; i < n; ++i) landed[i]->attack.target = target;
         }
         ship->w2.ferry.phase = FERRY_NONE;
@@ -225,7 +228,7 @@ static void run_ferry(mobj_t *ship, mobj_t *const *units, int count) {
     }
     ivec2_t landing;
     if (!shore(ship, ship->w2.ferry.to, ship->w2.ferry.to, &landing) ||
-        !W2_UnloadOrder(ship, fvec2_cell_center(landing))) return;
+        !W2_UnloadOrder(ship, fixed2_cell_center(landing))) return;
     ship->w2.ferry.phase = FERRY_SAIL;
 }
 
@@ -332,10 +335,13 @@ static bool cast_best(mobj_t *caster, mobj_t *const *units, int count) {
 static bool rally_spot(int owner, const mobj_t *hall, const mobj_t *walker, ivec2_t *out) {
     ivec2_t home = cell_of(hall);
     int best = 0;
+    /* Sixteen directions, RALLY_DISTANCE cells out: round(cos, sin * 10). */
+    static const ivec2_t ring[16] = {
+        {10, 0}, {9, 4}, {7, 7}, {4, 9}, {0, 10}, {-4, 9}, {-7, 7}, {-9, 4},
+        {-10, 0}, {-9, -4}, {-7, -7}, {-4, -9}, {0, -10}, {4, -9}, {7, -7}, {9, -4},
+    };
     for (int k = 0; k < 16; ++k) {
-        float angle = k * 0.3926991f;
-        ivec2_t want = {home.x + (int)lroundf(cosf(angle) * RALLY_DISTANCE),
-                        home.y + (int)lroundf(sinf(angle) * RALLY_DISTANCE)}, spot;
+        ivec2_t want = {home.x + ring[k].x, home.y + ring[k].y}, spot;
         if (!L_Contains(&level, want.x, want.y) || !reach(walker, want, 2, &spot) ||
             w2_blocks_mining(owner, (ivec2_t){spot.x - 1, spot.y - 1}, (isize2_t){3, 3})) continue;
         int open = 0;
@@ -363,7 +369,7 @@ static void rally(level_t *map, int owner, mobj_t *const *units, int count) {
     /* Soldiers walking to a transport are not idle in town. */
     for (int i = 0; i < count; ++i)
         if (alive(units[i]) && units[i]->owner == owner && units[i]->w2.ferry.phase == FERRY_GATHER) return;
-    fvec2_t home = fixed3_xy_to_fvec2(hall->core.position);
+    fixed2_t home = fixed3_xy(hall->core.position);
     mobj_t *idle[count > 0 ? count : 1];
     int n = 0;
     for (int i = 0; i < count; ++i) {
@@ -371,12 +377,12 @@ static void rally(level_t *map, int owner, mobj_t *const *units, int count) {
         if (!alive(unit) || unit->owner != owner || !land_unit(unit) || !(unit->traits & MF_ATTACK) ||
             (unit->traits & MF_NOAUTOTARGET) || unit->w2.carrier || unit->w2.build_phase || unit->w2.cast.spell ||
             P_HasMoveOrder(unit) || fighting(unit)) continue;
-        fvec2_t at = fixed3_xy_to_fvec2(unit->core.position);
-        if (fvec2_distance_squared(at, fvec2_cell_center(spot)) > RALLY_SPREAD * RALLY_SPREAD &&
-            fvec2_distance_squared(at, home) < RALLY_HOME * RALLY_HOME && reach(unit, spot, 1, NULL))
+        fixed2_t at = fixed3_xy(unit->core.position);
+        if (fixed2_distance_squared64(at, fixed2_cell_center(spot)) > fixed_sq64(FIXED_FROM_INT(RALLY_SPREAD)) &&
+            fixed2_distance_squared64(at, home) < fixed_sq64(FIXED_FROM_INT(RALLY_HOME)) && reach(unit, spot, 1, NULL))
             idle[n++] = unit;
     }
-    if (n) P_MoveUnitsAt(map, idle, n, fvec2_cell_center(spot));
+    if (n) P_MoveUnitsAt(map, idle, n, fixed2_cell_center(spot));
 }
 
 void w2_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count) {

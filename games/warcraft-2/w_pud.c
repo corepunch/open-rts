@@ -265,6 +265,92 @@ bool w2_extract_map(const char *root, int entry, const char *name, char *path, s
     return ok;
 }
 
+/* Appendix B of the PUD format: the 52 UGRD slots, as our upgrade ids (0: none). */
+static const uint8_t pud_upgrades[52] = {
+    W2_UPGRADE_SWORD1, W2_UPGRADE_SWORD2, W2_UPGRADE_AXE1, W2_UPGRADE_AXE2,
+    W2_UPGRADE_ARROW1, W2_UPGRADE_ARROW2, W2_UPGRADE_THROWING_AXE1, W2_UPGRADE_THROWING_AXE2,
+    W2_UPGRADE_HUMAN_SHIELD1, W2_UPGRADE_HUMAN_SHIELD2, W2_UPGRADE_ORC_SHIELD1, W2_UPGRADE_ORC_SHIELD2,
+    W2_UPGRADE_HUMAN_CANNON1, W2_UPGRADE_HUMAN_CANNON2, W2_UPGRADE_ORC_CANNON1, W2_UPGRADE_ORC_CANNON2,
+    W2_UPGRADE_HUMAN_SHIP_ARMOR1, W2_UPGRADE_HUMAN_SHIP_ARMOR2,
+    W2_UPGRADE_ORC_SHIP_ARMOR1, W2_UPGRADE_ORC_SHIP_ARMOR2,
+    W2_UPGRADE_CATAPULT1, W2_UPGRADE_CATAPULT2, W2_UPGRADE_BALLISTA1, W2_UPGRADE_BALLISTA2,
+    W2_UPGRADE_RANGER, W2_UPGRADE_LONGBOW, W2_UPGRADE_RANGER_SCOUTING, W2_UPGRADE_MARKSMANSHIP,
+    W2_UPGRADE_BERSERKER, W2_UPGRADE_LIGHT_AXES, W2_UPGRADE_BERSERKER_SCOUTING, W2_UPGRADE_REGENERATION,
+    W2_UPGRADE_OGRE_MAGE, W2_UPGRADE_PALADIN, W2_UPGRADE_NONE /* holy vision */, W2_UPGRADE_HEALING,
+    W2_UPGRADE_EXORCISM, W2_UPGRADE_FLAME_SHIELD, W2_UPGRADE_NONE /* fireball */, W2_UPGRADE_SLOW,
+    W2_UPGRADE_INVISIBILITY, W2_UPGRADE_POLYMORPH, W2_UPGRADE_BLIZZARD, W2_UPGRADE_NONE /* eye of kilrogg */,
+    W2_UPGRADE_BLOODLUST, W2_UPGRADE_RAISE_DEAD, W2_UPGRADE_NONE /* death coil */, W2_UPGRADE_WHIRLWIND,
+    W2_UPGRADE_HASTE, W2_UPGRADE_UNHOLY_ARMOR, W2_UPGRADE_RUNES, W2_UPGRADE_DEATH_AND_DECAY,
+};
+
+/* UDTA: u16 use-default, then the arrays of 110 units in PUD order. */
+enum { UDTA_UNITS = 110, UGRD_UPGRADES = 52 };
+enum { UDTA_SIGHT = 1238, UDTA_HP = 1678, UDTA_BUILD_TIME = 2008, UDTA_GOLD = 2118,
+       UDTA_LUMBER = 2228, UDTA_OIL = 2338, UDTA_RANGE = 3328, UDTA_ARMOR = 3658,
+       UDTA_BASIC = 3988, UDTA_PIERCING = 4098, UDTA_POINTS = 4926 };
+/* UGRD: u16 use-default, 52 time bytes, then 52 u16 gold, lumber and oil. */
+enum { UGRD_TIME = 2, UGRD_GOLD = 54, UGRD_LUMBER = 158, UGRD_OIL = 262 };
+
+int w2_decode_rules(const uint8_t *udta, size_t udta_size, const uint8_t *ugrd, size_t ugrd_size,
+                    rulepatchset_t *out) {
+    int before = out->count;
+    if (udta && udta_size >= W2_UDTA_SIZE && read_u16_le(udta) == 0) {
+        for (int unit = 0; unit < UDTA_UNITS; ++unit) {
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_SIGHT, (int32_t)read_u32_le(udta + UDTA_SIGHT + unit * 4));
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_HP, read_u16_le(udta + UDTA_HP + unit * 2));
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_BUILD_TIME, udta[UDTA_BUILD_TIME + unit]);
+            /* Costs are stored in tenths. */
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_GOLD, udta[UDTA_GOLD + unit] * 10);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_LUMBER, udta[UDTA_LUMBER + unit] * 10);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_OIL, udta[UDTA_OIL + unit] * 10);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_RANGE, udta[UDTA_RANGE + unit]);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_ARMOR, udta[UDTA_ARMOR + unit]);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_BASIC, udta[UDTA_BASIC + unit]);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_PIERCING, udta[UDTA_PIERCING + unit]);
+            R_PatchAdd(out, W2_PATCH_UNIT, unit, W2_UNIT_POINTS, read_u16_le(udta + UDTA_POINTS + unit * 2));
+        }
+    }
+    if (ugrd && ugrd_size >= W2_UGRD_SIZE && read_u16_le(ugrd) == 0) {
+        for (int slot = 0; slot < UGRD_UPGRADES; ++slot) {
+            int id = pud_upgrades[slot];
+            if (!id) continue;
+            R_PatchAdd(out, W2_PATCH_UPGRADE, id, W2_UPGRADE_FIELD_TIME, ugrd[UGRD_TIME + slot]);
+            R_PatchAdd(out, W2_PATCH_UPGRADE, id, W2_UPGRADE_FIELD_GOLD, read_u16_le(ugrd + UGRD_GOLD + slot * 2));
+            R_PatchAdd(out, W2_PATCH_UPGRADE, id, W2_UPGRADE_FIELD_LUMBER, read_u16_le(ugrd + UGRD_LUMBER + slot * 2));
+            R_PatchAdd(out, W2_PATCH_UPGRADE, id, W2_UPGRADE_FIELD_OIL, read_u16_le(ugrd + UGRD_OIL + slot * 2));
+        }
+    }
+    return out->count - before;
+}
+
+/* ALOW: four sets of 16 players, one little-endian 32-bit mask each. A unit
+ * or research is allowed to a player when its bit is set in the set of
+ * starting allowances or in the set that forces it allowed; the masks cover
+ * unit types 0 to 31 and the first 32 UGRD slots. No retail PUD ships the
+ * section and no document in reference/ describes it, so this layout follows
+ * the common PUD specification as recalled and is untested against a map from
+ * the original editor. Banned entries only; sections of another size are ignored. */
+enum { ALOW_SET_UNITS, ALOW_SET_UNITS_FORCED, ALOW_SET_UPGRADES, ALOW_SET_UPGRADES_FORCED, ALOW_SETS };
+enum { ALOW_PLAYERS = 16, ALOW_SIZE = ALOW_SETS * ALOW_PLAYERS * 4 };
+
+int w2_decode_allow(const uint8_t *alow, size_t size, rulepatchset_t *out) {
+    if (!alow || size != ALOW_SIZE) return 0;
+    int before = out->count;
+    for (int player = 0; player < 8; ++player) {
+        uint32_t units = read_u32_le(alow + (ALOW_SET_UNITS * ALOW_PLAYERS + player) * 4) |
+                         read_u32_le(alow + (ALOW_SET_UNITS_FORCED * ALOW_PLAYERS + player) * 4);
+        uint32_t upgrades = read_u32_le(alow + (ALOW_SET_UPGRADES * ALOW_PLAYERS + player) * 4) |
+                            read_u32_le(alow + (ALOW_SET_UPGRADES_FORCED * ALOW_PLAYERS + player) * 4);
+        for (int bit = 0; bit < 32; ++bit) {
+            if (!(units & (1u << bit)))
+                R_PatchAdd(out, W2_PATCH_ALLOW, player, W2_ALLOW_UNIT * 256 + bit, 1);
+            if (!(upgrades & (1u << bit)) && bit < UGRD_UPGRADES && pud_upgrades[bit])
+                R_PatchAdd(out, W2_PATCH_ALLOW, player, W2_ALLOW_UPGRADE * 256 + pud_upgrades[bit], 1);
+        }
+    }
+    return out->count - before;
+}
+
 bool w2_load_pud(const char *path, level_t *out) {
     if (!out) return false;
     P_FreeLevel(out);
@@ -288,8 +374,8 @@ bool w2_load_pud(const char *path, level_t *out) {
     if (!pud) { W_FreeFile(&file); return false; }
     pud->view_player = -1;
     int width = 0, height = 0, ver = -1;
-    const uint8_t *mtxm = NULL, *sqm = NULL, *units = NULL;
-    uint32_t mtxm_len = 0, sqm_len = 0, unit_len = 0;
+    const uint8_t *mtxm = NULL, *sqm = NULL, *units = NULL, *udta = NULL, *ugrd = NULL, *alow = NULL;
+    uint32_t mtxm_len = 0, sqm_len = 0, unit_len = 0, udta_len = 0, ugrd_len = 0, alow_len = 0;
     bool failed = false;
 
     while (p < end) {
@@ -340,6 +426,15 @@ bool w2_load_pud(const char *path, level_t *out) {
         } else if (tag_is(header, "UNIT")) {
             units = payload;
             unit_len = length;
+        } else if (tag_is(header, "UDTA")) {
+            udta = payload;
+            udta_len = length;
+        } else if (tag_is(header, "UGRD")) {
+            ugrd = payload;
+            ugrd_len = length;
+        } else if (tag_is(header, "ALOW")) {
+            alow = payload;
+            alow_len = length;
         }
     }
     pud->ver = ver;
@@ -411,6 +506,10 @@ bool w2_load_pud(const char *path, level_t *out) {
             };
         }
     }
+    /* The map's own unit and upgrade data, applied by G_DoLoadLevel. */
+    g_rulepatch.count = 0;
+    w2_decode_rules(udta, udta_len, ugrd, ugrd_len, &g_rulepatch);
+    w2_decode_allow(alow, alow_len, &g_rulepatch);
     out->has_camera = true;
     point_at_start(out, pud);
     snprintf(out->map_path, sizeof(out->map_path), "%s", path);
@@ -451,18 +550,50 @@ static uint8_t allegiance_for(const w2_pud_t *pud, uint8_t player) {
     return ALLEGIANCE_ENEMY;
 }
 
+/* A player slot that has a start location and nothing else on the map is a
+ * melee start: its side's faction says what stands there. */
+static int spawn_start_units(const w2_pud_t *pud, const bool *placed) {
+    int spawned = 0;
+    for (int i = 0; i < pud->unit_count; ++i) {
+        const w2_pud_unit_t *rec = &pud->units[i];
+        if (rec->type != MT_HUMAN_START_LOCATION - 1 && rec->type != MT_ORC_START_LOCATION - 1) continue;
+        int player = rec->player;
+        if (player >= 8 || placed[player] || (pud->owners[player] != 4 && pud->owners[player] != 5)) continue;
+        startplace_t places[16];
+        int count = R_StartPlacements(&g_ruleset.factions[pud->sides[player] == 1],
+                                      (ivec2_t){ rec->x, rec->y }, places, 16);
+        for (int p = 0; p < count; ++p) {
+            const mobjinfo_t *info = &mobjinfo[places[p].type];
+            isize2_t foot = info->w2.footprint;
+            fixed2_t at = { places[p].at.x * FIXED_ONE + foot.w * (FIXED_ONE / 2),
+                            places[p].at.y * FIXED_ONE + foot.h * (FIXED_ONE / 2) };
+            mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), places[p].type);
+            if (!unit) return spawned;
+            unit->owner = (uint8_t)player;
+            unit->team = player;
+            unit->allegiance = allegiance_for(pud, (uint8_t)player);
+            unit->core.angle = ANG270;
+            if (info->w2.flags & W2_STRUCTURE) w2_mark_footprint(places[p].at.x, places[p].at.y, foot);
+            ++spawned;
+        }
+    }
+    return spawned;
+}
+
 int w2_spawn_units(void) {
     const w2_pud_t *pud = level.native_data;
     if (!pud) return 0;
     int spawned = 0;
+    bool placed[8] = { false };
     for (int i = 0; i < pud->unit_count; ++i) {
         const w2_pud_unit_t *rec = &pud->units[i];
         if (rec->type >= W2_TYPE_COUNT) continue;
         const mobjinfo_t *info = &mobjinfo[rec->type + 1];
         if (!info->name || (info->w2.flags & W2_SKIP)) continue;
+        if (rec->player < 8) placed[rec->player] = true;
         isize2_t foot = info->w2.footprint;
-        fvec2_t at = { rec->x + foot.w * 0.5f, rec->y + foot.h * 0.5f };
-        mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), (uint16_t)(rec->type + 1));
+        fixed2_t at = { FIXED_FROM_INT(rec->x) + foot.w * (FIXED_ONE / 2), FIXED_FROM_INT(rec->y) + foot.h * (FIXED_ONE / 2) };
+        mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), (uint16_t)(rec->type + 1));
         if (!unit) break;
         unit->owner = rec->player;
         unit->team = rec->player < 8 ? rec->player : 8;
@@ -478,7 +609,7 @@ int w2_spawn_units(void) {
             };
         spawned++;
     }
-    return spawned;
+    return spawned + spawn_start_units(pud, placed);
 }
 
 int w2_era_palette(int era) {

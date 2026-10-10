@@ -15,7 +15,7 @@ static mobj_t *find(int type) {
 static void tick(menu_t *ui) {
     P_Ticker();
     mobjlist_t objects = P_ListMobjs();
-    G_UpdateProduction(&level, objects.items, &objects.count, FIXED_DT);
+    G_UpdateProduction(&level, objects.items, &objects.count, RTS_TICK_MS);
     P_FreeMobjList(&objects);
 }
 

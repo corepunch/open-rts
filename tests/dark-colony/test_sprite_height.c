@@ -34,7 +34,7 @@ int main(void) {
     mobj_t ground = {.traits = MF_RENDERABLE};
     mobj_t ship = {.traits = MF_RENDERABLE, .team = 1};
     assert(P_SetMobjState(&ground, 1) && P_SetMobjState(&ship, 2));
-    ship.core.position = fixed3_from_fvec2((fvec2_t){0, 0}, 50 * FIXED_ONE / g_cell_h);
+    ship.core.position = fixed3_from_fixed2(FIXED2_LIT(0, 0), 50 * FIXED_ONE / g_cell_h);
     float sx, sy, ground_sx, ground_sy;
     R_MapPositionToScreen(&app, &map, ship.core.position, &sx, &sy);
     R_MapPositionToScreen(&app, &map, ground.core.position, &ground_sx, &ground_sy);
@@ -45,7 +45,7 @@ int main(void) {
     app.cell = (isize2_t){32, 32};
     /* Both ground-Y orders and both input orders must leave the ship on top. */
     for (int y = -1; y <= 1; y += 2) {
-        ground.core.position = fixed3_from_fvec2((fvec2_t){0, y * 0.125f}, 0);
+        ground.core.position = fixed3_from_fixed2(FIXED2_LIT(0, y * 0.125f), 0);
         for (int reverse = 0; reverse < 2; ++reverse) {
             mobj_t *units[2] = {reverse ? &ship : &ground, reverse ? &ground : &ship};
             V_BeginFrame(0xff000000u);

@@ -35,28 +35,27 @@ bool W2_BoardOrder(mobj_t *unit, mobj_t *ship) {
     return true;
 }
 
-bool W2_UnloadOrder(mobj_t *ship, fvec2_t goal) {
+bool W2_UnloadOrder(mobj_t *ship, fixed2_t goal) {
     if (!ship || !mobjinfo[ship->type_id].w2.transport_capacity || !passengers(ship)) return false;
     if (!P_MoveUnitTo(&level, ship, goal)) return false;
     ship->w2.unloading = true;
     return true;
 }
 
-static bool free_bay(mobj_t *unit, const mobj_t *ship, fvec2_t *bay) {
+static bool free_bay(mobj_t *unit, const mobj_t *ship, fixed2_t *bay) {
     isize2_t foot = mobjinfo[ship->type_id].w2.footprint;
-    ivec2_t origin = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(ship->core.position),
-                                          (fvec2_t){foot.w * 0.5f, foot.h * 0.5f}));
+    ivec2_t origin = fixed2_foot_origin_cell(fixed3_xy(ship->core.position), foot);
     for (int y = -1; y <= foot.h; ++y) for (int x = -1; x <= foot.w; ++x) {
         if (x >= 0 && x < foot.w && y >= 0 && y < foot.h) continue;
-        fvec2_t at = fvec2_cell_center(ivec2_add(origin, (ivec2_t){x, y}));
-        if (!P_CheckPosition(&level, unit, at.x, at.y)) continue;
+        fixed2_t at = fixed2_cell_center(ivec2_add(origin, (ivec2_t){x, y}));
+        if (!P_CheckPosition(&level, unit, at)) continue;
         bool occupied = false;
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *other = (mobj_t *)th;
             if (th->function != P_MobjThinker || other == unit || other == ship || other->remove ||
                 other->hp <= 0 || (other->traits & (MF_FLY | MF_NOBLOCKMAP))) continue;
-            float radius = P_MobjRadius(unit) + P_MobjRadius(other);
-            if (fvec2_distance_squared(at, fixed3_xy_to_fvec2(other->core.position)) < radius * radius) {
+            fixed_t radius = P_MobjRadius(unit) + P_MobjRadius(other);
+            if (fixed2_distance_squared64(at, fixed3_xy(other->core.position)) < fixed_sq64(radius)) {
                 occupied = true; break;
             }
         }
@@ -87,9 +86,8 @@ bool W2_TickTransport(mobj_t *unit) {
         }
         if (!P_HasMoveOrder(unit)) {
             isize2_t foot = mobjinfo[ship->type_id].w2.footprint;
-            ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(ship->core.position),
-                                               (fvec2_t){foot.w * 0.5f, foot.h * 0.5f}));
-            fvec2_t bay;
+            ivec2_t cell = fixed2_foot_origin_cell(fixed3_xy(ship->core.position), foot);
+            fixed2_t bay;
             if (!P_ApproachFootprint(unit, cell, foot, &bay) || !P_MoveUnitTo(&level, unit, bay)) unit->w2.carrier = 0;
         }
     }
@@ -98,10 +96,10 @@ bool W2_TickTransport(mobj_t *unit) {
             mobj_t *passenger = (mobj_t *)th;
             if (th->function != P_MobjThinker || passenger->remove || passenger->hp <= 0 ||
                 !passenger->w2.boarded || passenger->w2.carrier != unit->id) continue;
-            fvec2_t bay;
+            fixed2_t bay;
             if (!free_bay(passenger, unit, &bay)) continue;
             passenger->w2.carrier = 0; passenger->w2.boarded = false;
-            passenger->core.position = fixed3_from_fvec2(bay, 0);
+            passenger->core.position = fixed3_from_fixed2(bay, 0);
             passenger->traits = passenger->info->traits;
             P_MobjSetHidden(passenger, false);
             P_SetMobjState(passenger, mobjinfo[passenger->type_id].spawnstate);
