@@ -459,7 +459,8 @@ row-major rectangle and add its x/y origin. Ink zero is transparent. The
 engine reserves index zero and stores nonzero inks as `ink+1`, then builds
 palette maps for the authored ramps. The current advance width is
 `x_offset + width + 1`; this is the adapter's spacing rule, not a traced EXE
-kerning routine. `font10`, `font14`, `font16` and `font16x` are used for UI.
+kerning routine. `font8` is used for the selected-unit status panel;
+`font10`, `font14`, `font16` and `font16x` serve the other UI.
 
 ### Palette roles
 

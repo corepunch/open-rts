@@ -467,6 +467,13 @@ static int command_card(void) {
     level.player_resources[consoleplayer][0]=200;
     menuitem_t *train = card("Terran SCV", &hall, 1);
     CHECK(train && train->enabled);
+    menuitem_t *building_name=M_MenuFind(hudmenu,65531);
+    CHECK(building_name&&building_name->visible&&
+          !strcmp(building_name->text,"Terran Command Center")&&
+          building_name->font->line_h==11&&
+          V_TextBounds(building_name->font,building_name->text).w==119);
+    draw(NULL);M_MenuDrawer(hudmenu);
+    CHECK(save("/private/tmp/starcraft-command-center-status.bmp"));
     mouse_click(train);
     CHECK(hall->production && hall->production->queue_count==1 &&
           level.player_resources[consoleplayer][0]==150);
@@ -637,7 +644,7 @@ static int command_card(void) {
     CHECK(name&&rank&&kills&&energy&&name->visible&&rank->visible&&kills->visible&&energy->visible);
     CHECK(!strcmp(name->text,"Sarah Kerrigan")&&!strcmp(rank->text,"Lieutenant")&&
           !strcmp(kills->text,"Kills: 1")&&!strcmp(energy->text,"221/250"));
-    CHECK(name->font==rank->font&&name->font->line_h<16&&
+    CHECK(name->font==rank->font&&name->font->line_h==11&&
           (name->align&MALIGN_HCENTER));
     menuitem_t *armor=M_MenuFind(hudmenu,9),*weapon=M_MenuFind(hudmenu,10);
     CHECK(armor&&weapon&&armor->visible&&weapon->visible&&armor->ownerdraw&&weapon->ownerdraw&&

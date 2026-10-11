@@ -11,6 +11,7 @@ static const irect_t queue_rect[SC_QUEUE_SLOTS]={
     {316,434,36,36}, {354,434,36,36}
 };
 static spritesheet_t frame, bar_empty, bar_full;
+static bitmapfont_t status_font;
 static const spritesheet_t *glyphs, *wireframes;
 static const mobj_t *shown;
 static menuitem_t *status_items;
@@ -83,19 +84,24 @@ static void cancel_slot(menu_t *menu,menuitem_t *item,menuaction_t action) {
 }
 
 bool sc_status_init(menu_t *menu,menuitem_t *items,int capacity,int stat_first,int stat_end,
-                    const char *root,const uint32_t *palette,bitmapfont_t *font,
+                    const char *root,const uint32_t *palette,
                     spritesheet_t *wireframe,const spritesheet_t *cmdicons) {
     if(menu->numitems+SC_QUEUE_SLOTS+4>capacity)return false;
+    if(!sc_font(root,"font8",&status_font)||
+       !sc_font_colors(root,"game/tfontgam.pcx",&status_font)){
+        sc_status_shutdown();return false;
+    }
+    bitmapfont_t *font=&status_font;
     char path[2048];blob_t data={0};
     static const char *const race_frames[]={
         "unit/cmdbtns/tcmdbtns.grp","unit/cmdbtns/zcmdbtns.grp","unit/cmdbtns/pcmdbtns.grp"};
     int side=sc_player_side(consoleplayer);
     int race=side==0?1:side==2?2:0;
     sc_asset_path(path,sizeof(path),root,race_frames[race]);
-    if(!W_ReadFile(path,&data))return false;
+    if(!W_ReadFile(path,&data)){sc_status_shutdown();return false;}
     bool ok=sc_decode_grp(&data,palette,false,&frame);
     W_FreeFile(&data);
-    if(!ok)return false;
+    if(!ok){sc_status_shutdown();return false;}
     sc_asset_path(path,sizeof(path),root,"game/tpbrempt.pcx");
     if(!W_LoadIndexedSheet(path,&bar_empty)){sc_status_shutdown();return false;}
     sc_asset_path(path,sizeof(path),root,"game/tpbrfull.pcx");
@@ -199,5 +205,6 @@ void sc_status_refresh(const mobj_t *selected,int selection_count) {
 
 void sc_status_shutdown(void) {
     R_FreeSprite(&frame);R_FreeSprite(&bar_empty);R_FreeSprite(&bar_full);
+    HU_FreeFont(&status_font);
     glyphs=wireframes=NULL;shown=NULL;status_items=NULL;
 }

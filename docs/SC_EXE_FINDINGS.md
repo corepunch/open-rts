@@ -1660,6 +1660,26 @@ table yields no label; the checked disc gives Kerrigan's “Lieutenant” at 567
 Likewise the prior 16-pixel game status font produced oversized labels in
 the available 14-pixel control rows.
 
+**Correction (2026-10-11, user-reported Command Center label).** `font10`
+still makes “Terran Command Center” 141 pixels wide inside the native
+152-pixel name control. The user-provided retail screenshot shows a noticeably
+narrower label. The original disc's `install/files/font/font8.fnt` (SHA-256
+`33b56e39c0bde96834b3c1ad8e8b90e91e7f518e6209dcd1124c43399907ed01`)
+has an 11-pixel line height and renders that name 119 pixels wide. The status
+panel now uses this native font for its name and other selected-unit labels;
+the game palette still comes from `game/tfontgam.pcx`. This supersedes the
+`font10` implementation statement above. The `statdata.bin` name record's
+flag word is `0x00010000` at control ID 65531. PyMS labels that flag as
+font14, which conflicts with the observed retail label size; the original
+EXE's status-specific font dispatch is **unknown**, so that flag alone is not
+treated as a rendered-size rule. The earlier 16-pixel choice and the later
+13-pixel choice were both too large for the supplied screenshot.
+
+Reproduce the measured widths and selected-building screenshot with
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay`:
+`/private/tmp/starcraft-command-center-status.bmp`. The test checks the
+11-pixel font height and 119-pixel name width.
+
 Reproduce with `build/sc_catalog data/STARCRAFT/native` (Kerrigan is row 16)
 and `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay` (writes
 `/private/tmp/starcraft-hero-status.bmp` and

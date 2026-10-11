@@ -2234,7 +2234,7 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
             .routine=select_slot,.opaque=false};
     }
     if(!sc_status_init(&hud,huditems,(int)(sizeof(huditems)/sizeof(*huditems)),
-                       selection_start,command_start,root,console.palette,&gamefonts[0],
+                       selection_start,command_start,root,console.palette,
                        &wireframe,&icons))return NULL;
     sc_start_tip(&level,start_tip,sizeof(start_tip));
     for(int i=0;i<4;i++)ingame.fonts[i]=gamefonts[i];
