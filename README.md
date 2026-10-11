@@ -508,10 +508,12 @@ make test-soak
 make test-starcraft
 ```
 
-`make test` runs the headless model, loader, network, and per-game suites in
-parallel with a 45-second budget for each test. Set `TEST_JOBS` or
+`make test` runs the headless model, loader, per-game, and short network checks
+in parallel with a five-second budget per test. Set `TEST_JOBS` or
 `TEST_BUDGET` to change the parallelism or budget. `make test-soak` runs the
-full-game Dark Colony, StarCraft, and Warcraft II AI simulations with a longer budget.
+full-game AI simulations, complete Dark Colony menu animation and LAN checks,
+and longer network sessions with a longer budget. `make test-network` runs
+all network cases by themselves.
 The suites expect retail data under `data/` and do not open a visible window;
 set `SDL_VIDEODRIVER=dummy` when you run a single test binary yourself.
 

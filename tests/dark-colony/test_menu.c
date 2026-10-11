@@ -209,7 +209,9 @@ static void join_lan_menu(app_t *app, SDL_Surface *surface) {
     M_StartControlPanel(app);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    bool quick = argc == 2 && !strcmp(argv[1], "--quick");
+    CHECK(argc == 1 || quick);
     CHECK(rts_test_net_port());
     char directory[] = "/private/tmp/open-rts-native-menu-XXXXXX";
     CHECK(mkdtemp(directory));
@@ -225,48 +227,50 @@ int main(void) {
     CHECK(!menuactive && !menumap && !level.mission);
     M_StartControlPanel(&app);
     CHECK(menuactive);
-    /* INTROE's banim plays LARGEBUTTON over each button in turn (0x425214):
-     * a gadget starts when the previous one reaches its third frame, each
-     * lasts 28 ticks, and the DCSS logo only starts once all eight are done. */
-    const irect_t first_button = {138, 314, 179, 25}, last_button = {318, 392, 179, 25};
-    const irect_t logo_rect = {130, 0, 378, 123};
-    screenshot(&app, surface, "/private/tmp/dc-menu-main-entrance.bmp");
-    uint64_t first_at_start = region_sum(surface, first_button);
-    uint64_t last_at_start = region_sum(surface, last_button);
-    for (int i = 0; i < 35; ++i) { SDL_Delay(17); M_Ticker(); }
-    screenshot(&app, surface, "/private/tmp/dc-menu-main-midway.bmp");
-    uint64_t first_midway = region_sum(surface, first_button);
-    uint64_t last_midway = region_sum(surface, last_button);
-    uint64_t logo_midway = region_sum(surface, logo_rect);
-    for (int i = 0; i < 95; ++i) { SDL_Delay(17); M_Ticker(); }
-    screenshot(&app, surface, "/private/tmp/dc-menu-main.bmp");
-    CHECK(first_at_start != region_sum(surface, first_button));
-    CHECK(first_midway == region_sum(surface, first_button));
-    CHECK(last_at_start != region_sum(surface, last_button));
-    CHECK(last_midway != region_sum(surface, last_button) && last_midway != last_at_start);
-    CHECK(logo_midway != region_sum(surface, logo_rect));
-    /* Catch the tempting world-ticker reset-to-zero rule: the native menu
-     * must retain DCSS's terminal logo pose after the entrance finishes. */
-    spritesheet_t logo = {0};
-    uint32_t palette[256];
-    CHECK(load_dark_colony_sprite("data/DCOLONY/SPRITES/DCSS.SPR", &logo, palette));
-    spritesheet_t menu_background = {0};
-    CHECK(W_LoadGIFTexture("data/DCOLONY/INTRFACE/INTRO.GIF", &menu_background));
-    int compared = 0;
-    const spritecell_t *cell = &logo.cells[28];
-    for (int y = 0; y < cell->rect.h; ++y) {
-        const uint32_t *row = (const uint32_t *)((const uint8_t *)surface->pixels +
-            (y + cell->displacement.y) * surface->pitch);
-        for (int x = 0; x < cell->rect.w; ++x) {
-            uint8_t index = logo.lumps[28].indices[y * cell->rect.w + x];
-            if ((logo.source_palette[index] >> 24) != 255) continue;
-            CHECK(row[130 + x + cell->displacement.x] == menu_background.source_palette[index]);
-            ++compared;
+    if (!quick) {
+        /* INTROE's banim plays LARGEBUTTON over each button in turn (0x425214):
+         * a gadget starts when the previous one reaches its third frame, each
+         * lasts 28 ticks, and the DCSS logo only starts once all eight are done. */
+        const irect_t first_button = {138, 314, 179, 25}, last_button = {318, 392, 179, 25};
+        const irect_t logo_rect = {130, 0, 378, 123};
+        screenshot(&app, surface, "/private/tmp/dc-menu-main-entrance.bmp");
+        uint64_t first_at_start = region_sum(surface, first_button);
+        uint64_t last_at_start = region_sum(surface, last_button);
+        for (int i = 0; i < 35; ++i) { SDL_Delay(17); M_Ticker(); }
+        screenshot(&app, surface, "/private/tmp/dc-menu-main-midway.bmp");
+        uint64_t first_midway = region_sum(surface, first_button);
+        uint64_t last_midway = region_sum(surface, last_button);
+        uint64_t logo_midway = region_sum(surface, logo_rect);
+        for (int i = 0; i < 95; ++i) { SDL_Delay(17); M_Ticker(); }
+        screenshot(&app, surface, "/private/tmp/dc-menu-main.bmp");
+        CHECK(first_at_start != region_sum(surface, first_button));
+        CHECK(first_midway == region_sum(surface, first_button));
+        CHECK(last_at_start != region_sum(surface, last_button));
+        CHECK(last_midway != region_sum(surface, last_button) && last_midway != last_at_start);
+        CHECK(logo_midway != region_sum(surface, logo_rect));
+        /* Catch the tempting world-ticker reset-to-zero rule: the native menu
+         * must retain DCSS's terminal logo pose after the entrance finishes. */
+        spritesheet_t logo = {0};
+        uint32_t palette[256];
+        CHECK(load_dark_colony_sprite("data/DCOLONY/SPRITES/DCSS.SPR", &logo, palette));
+        spritesheet_t menu_background = {0};
+        CHECK(W_LoadGIFTexture("data/DCOLONY/INTRFACE/INTRO.GIF", &menu_background));
+        int compared = 0;
+        const spritecell_t *cell = &logo.cells[28];
+        for (int y = 0; y < cell->rect.h; ++y) {
+            const uint32_t *row = (const uint32_t *)((const uint8_t *)surface->pixels +
+                (y + cell->displacement.y) * surface->pitch);
+            for (int x = 0; x < cell->rect.w; ++x) {
+                uint8_t index = logo.lumps[28].indices[y * cell->rect.w + x];
+                if ((logo.source_palette[index] >> 24) != 255) continue;
+                CHECK(row[130 + x + cell->displacement.x] == menu_background.source_palette[index]);
+                ++compared;
+            }
         }
+        CHECK(compared > 0);
+        R_FreeSprite(&logo);
+        R_FreeSprite(&menu_background);
     }
-    CHECK(compared > 0);
-    R_FreeSprite(&logo);
-    R_FreeSprite(&menu_background);
     key(&app, SDLK_ESCAPE, false);
     CHECK(menuactive); /* No level to resume on the title screen. */
     for (int race = 0; race < 2; ++race) {
@@ -297,6 +301,14 @@ int main(void) {
     CHECK(!menuactive && menumap && !strcmp(menumap, "SCENARIO/TEST/ATRAIN1.MAP"));
     menumap = NULL;
     M_StartControlPanel(&app);
+    if (quick) {
+        M_Shutdown();
+        V_FreeScreen();
+        SDL_FreeSurface(surface);
+        SDL_Quit();
+        puts("Menu quick OK: native title, campaigns, training");
+        return 0;
+    }
     click(&app, 400, 325); /* Multi Player War. */
     for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
     screenshot(&app, surface, "/private/tmp/dc-menu-network.bmp");

@@ -36,7 +36,7 @@ static void report(test_t *test, int status, int timed_out) {
 }
 
 int main(int argc, char **argv) {
-    int jobs = 4, budget = 45, first = 1;
+    int jobs = 8, budget = 5, first = 1;
     while (first + 1 < argc && argv[first][0] == '-') {
         int *setting = !strcmp(argv[first], "-j") ? &jobs : !strcmp(argv[first], "-t") ? &budget : NULL;
         if (!setting) break;
