@@ -413,11 +413,72 @@ static menuitem_t *card(const char *tip, mobj_t *const *pick, int count) {
     return NULL;
 }
 static void click(menuitem_t *it) { it->routine(hudmenu, it, MA_ACTIVATE); }
+static void mouse_click(menuitem_t *it) {
+    irect_t rect=M_MenuItemRect(hudmenu,it);
+    SDL_Event event={.button={.type=SDL_MOUSEBUTTONDOWN,.button=SDL_BUTTON_LEFT,
+        .x=rect.x+rect.w/2,.y=rect.y+rect.h/2}};
+    M_MenuResponder(hudmenu,&app,&event);
+    event.button.type=SDL_MOUSEBUTTONUP;
+    M_MenuResponder(hudmenu,&app,&event);
+}
 
 /* Abilities, siege mode, Archon Warp and Unload All from the command card. */
 static int command_card(void) {
     mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER);
     CHECK(hall);
+    level.player_resources[consoleplayer][0]=200;
+    menuitem_t *train = card("Terran SCV", &hall, 1);
+    CHECK(train && train->enabled);
+    mouse_click(train);
+    CHECK(hall->production && hall->production->queue_count==1 &&
+          level.player_resources[consoleplayer][0]==150);
+    mouse_click(card("Terran SCV",&hall,1));
+    CHECK(hall->production->queue_count==2 && level.player_resources[consoleplayer][0]==100);
+    app.win=(isize2_t){1280,960};
+    V_AllocScreen(app.win.w,app.win.h);
+    train=card("Terran SCV",&hall,1);
+    CHECK(train && M_MenuItemRect(hudmenu,train).x==train->rect.x*2);
+    mouse_click(train);
+    CHECK(hall->production->queue_count==3 && level.player_resources[consoleplayer][0]==50);
+    app.win=(isize2_t){640,480};
+    V_AllocScreen(app.win.w,app.win.h);
+    bool queue_shown=false;
+    hudmenu->refresh(hudmenu);
+    for(int i=0;i<hudmenu->numitems;i++)queue_shown|=strstr(hudmenu->items[i].text,"Training")&&
+        strstr(hudmenu->items[i].text,"x3");
+    CHECK(queue_shown);
+    CHECK(!card("Terran Comsat Station",&hall,1));
+    mobj_t *worker = find(consoleplayer, MT_SCV);
+    CHECK(worker);
+    level.player_resources[consoleplayer][0]=1000;
+    menuitem_t *build = card("Build Structure", &worker, 1);
+    CHECK(build);
+    CHECK(build->sheet->frame_size.w==36 && build->sheet->frame_size.h==34);
+    CHECK(ivec2_equal(build->sheet->cells[234].displacement,
+                      (ivec2_t){(36-build->sheet->cells[234].rect.w)/2,
+                                (34-build->sheet->cells[234].rect.h)/2}));
+    V_BeginFrame(0xff000000);
+    M_MenuDrawer(hudmenu);
+    CHECK(save("/private/tmp/starcraft-hud.bmp"));
+    mouse_click(build);
+    menuitem_t *depot = card("Terran Supply Depot", &worker, 1);
+    CHECK(depot && depot->enabled);
+    mouse_click(depot);
+    CHECK(hudmenu->target == depot);
+    ivec2_t construction;
+    level.player_resources[consoleplayer][0] = 1000;
+    CHECK(site(MT_SUPPLY_DEPOT, hall, worker, &construction));
+    M_CentreView(&app, (fvec2_t){construction.x, construction.y});
+    fvec2_t screen;
+    R_MapToScreen(&app, &level, construction.x + 0.2f, construction.y + 0.2f, &screen.x, &screen.y);
+    SDL_Event mouse={.button={.type=SDL_MOUSEBUTTONDOWN,.button=SDL_BUTTON_LEFT,
+        .x=(int)screen.x,.y=(int)screen.y}};
+    M_MenuResponder(hudmenu, &app, &mouse);
+    mouse.button.type = SDL_MOUSEBUTTONUP;
+    M_MenuResponder(hudmenu, &app, &mouse);
+    CHECK(!hudmenu->target && worker->production && worker->production->placed &&
+          worker->production->product_type==MT_SUPPLY_DEPOT &&
+          level.player_resources[consoleplayer][0]==900);
     fixed2_t at = fixed2_add(fixed3_xy(hall->core.position), FIXED2_LIT(0, 4));
     mobj_t *ghost = spawn(MT_GHOST, at, consoleplayer), *tank = spawn(MT_SIEGE_TANK, fixed2_add(at, FIXED2_LIT(2, 0)), consoleplayer);
     mobj_t *a = spawn(MT_HIGH_TEMPLAR, fixed2_add(at, FIXED2_LIT(-2, 0)), consoleplayer);

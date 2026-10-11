@@ -565,7 +565,8 @@ must remain visible underneath hover overlays.
 | `statbtnt.bin` | (496,354), 144×126 | Nine native slots; Move 228 and Stop 229 icons |
 | `statport.bin` | (408,408), 88×72 | Portrait at (413,410), 60×56 |
 | `stat_f10.bin` | (408,388), 88×20 | Menu button at (416,388), 64×20 |
-| `statres.bin`, `statlb.bin` | Resource/leaderboard layouts | Inspected/retained; no full resource UI |
+| `statres.bin` | (220,0), 420×20 | Six native resource fields; mineral, gas and supply icons/counters now use the classic top strip |
+| `statlb.bin` | Leaderboard layout | Inspected/retained |
 
 Runtime content such as selection labels is absent/hidden in many records
 until executable logic fills it. Do not conclude that a hidden label is unused.

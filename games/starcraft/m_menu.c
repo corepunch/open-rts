@@ -20,7 +20,7 @@ static theme_t *themes;
 /* In-level dialogs draw on the player's race art (dlgs/<race>.grp, the same
  * frame layout as glue dlg.grp) and the game fonts; the world stays behind. */
 static theme_t ingame;
-static spritesheet_t console, wireframe, icons;
+static spritesheet_t console, wireframe, icons, resource_icons;
 static bitmapfont_t gamefonts[4];
 static menuitem_t huditems[176];
 static menu_t front;
@@ -1991,7 +1991,25 @@ static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int v
     i->visible=i->enabled=true;i->kind=MI_BUTTON;i->sheet=&icons;i->font=NULL;
     i->hotkey=key;i->routine=routine;i->value=value;i->text[0]=0;i->tooltip=tip;
     i->drawtarget=routine==product?HU_DrawProductPlacement:NULL;
+    i->ownerdraw=NULL;i->disabled_look=false;
     for(int s=0;s<MS_STATES;s++)i->look[s].cell=icon;
+}
+static bool product_ready(const mobj_t *maker,const StaticProductDefinition *p) {
+    if(!G_ModelProductAvailable(NULL,consoleplayer,p)||!R_CanAfford(consoleplayer,p))return false;
+    const production_t *queue=maker->production;
+    if(queue&&queue->queue_count &&
+       (p->worker_build||queue->placed||queue->queue_count>=RTS_MAX_PRODUCTION_QUEUE||
+        queue->product_type!=p->product_type||queue->product_class!=p->product_class))return false;
+    if(p->makers[0]==MT_LARVA&&maker->type_id!=MT_LARVA) {
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+            const mobj_t *larva=(const mobj_t*)th;
+            if(th->function==P_MobjThinker&&larva->sc.parent==maker->id&&
+               larva->type_id==MT_LARVA&&!larva->production&&larva->hp>0&&!larva->remove&&
+               G_ModelProducerHasTech(larva,p))return true;
+        }
+        return false;
+    }
+    return G_ModelProducerHasTech(maker,p);
 }
 static void refresh(menu_t *menu) {
     (void)menu;mobj_t *selected=NULL;
@@ -2005,11 +2023,11 @@ static void refresh(menu_t *menu) {
     int id_now=selected?selected->type_id-1:-1;
     if(id_now!=selected_id){build_page=0;hud.target=NULL;}
     selected_id=id_now;
-    snprintf(huditems[resource_start].text,128,"Minerals %d",level.player_resources[consoleplayer][0]);
-    snprintf(huditems[resource_start+1].text,128,"Gas %d",level.player_resources[consoleplayer][1]);
+    snprintf(huditems[resource_start].text,128,"%d",level.player_resources[consoleplayer][0]);
+    snprintf(huditems[resource_start+1].text,128,"%d",level.player_resources[consoleplayer][1]);
     int used=0,have=0;
     sc_supply_counts(consoleplayer,&used,&have);
-    snprintf(huditems[resource_start+2].text,128,"Supply %d/%d",used/2,have/2);
+    snprintf(huditems[resource_start+2].text,128,"%d/%d",used/2,have/2);
     const char *goal=sc_objectives_text();
     if(goal&&goal[0]) { huditems[tip_item].prose=goal; huditems[tip_item].visible=true; }
     else { huditems[tip_item].prose=start_tip; huditems[tip_item].visible=start_tip[0]!=0; }
@@ -2038,9 +2056,16 @@ static void refresh(menu_t *menu) {
         int frame=(int)selection_units[i]->type_id-1;
         for(int s=0;s<MS_STATES;s++)icon->look[s].cell=frame;
     }
-    if(selected->production) snprintf(huditems[hp_item].text,128,"%s %d%%",
-        selected->production->placed?"Building":"Training",
-        100-selected->production->time_left_ms*100/selected->production->time_ms);
+    if(selected->production) {
+        const production_t *queue=selected->production;
+        int progress=queue->time_ms>0?100-queue->time_left_ms*100/queue->time_ms:100;
+        if(queue->queue_count>1)
+            snprintf(huditems[hp_item].text,128,"%s %d%%  x%d",
+                queue->placed?"Building":"Training",progress,queue->queue_count);
+        else
+            snprintf(huditems[hp_item].text,128,"%s %d%%",
+                queue->placed?"Building":"Training",progress);
+    }
     if(selected->owner!=consoleplayer)return;
     if(!build_page) {
         if(selected->traits&MF_MOBILE) {
@@ -2067,16 +2092,15 @@ static void refresh(menu_t *menu) {
             if(!build_page)continue;
             int index=slot++;
             if((build_page==1&&index>=8)||(build_page==2&&index<8))continue;
+            if(!product_ready(selected,p))continue;
             int pos=build_page==1?index:index-8;
             button(pos,p->icon_frame,selected->type_id==MT_SCV&&build_page==1?basic[pos]:SDLK_1+pos,product,p->ui_id,p->label);
-            huditems[command_start+pos].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
         } else if(!build_page) {
-            if(!sc_upgrade_offered(consoleplayer,p))continue;
             /* A hatchery shows what its larvae can become now, beside its own morph. */
-            if(p->makers[0]!=selected->type_id&&!G_ModelProductAvailable(NULL,consoleplayer,p))continue;
+            if(!product_ready(selected,p))continue;
             if(slot>=9)continue;
             button(slot,p->icon_frame,slot==0?SDLK_t:SDLK_1+slot,product,p->ui_id,p->label);
-            huditems[command_start+slot++].enabled=G_ModelProductAvailable(NULL,consoleplayer,p);
+            slot++;
         }
     }
     /* Abilities follow, greyed until researched; a Bunker unloads. */
@@ -2147,7 +2171,14 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     if(!grp(root,race_art[race_of(consoleplayer)],console.palette,&ingame.widgets)||
        !grp(root,"dlgs/tile.grp",console.palette,&ingame.panel))return NULL;
     if(!grp(root,"unit/wirefram/wirefram.grp",console.palette,&wireframe)||
-       !grp(root,"unit/cmdbtns/cmdicons.grp",console.palette,&icons))return NULL;
+       !grp(root,"unit/cmdbtns/cmdicons.grp",console.palette,&icons)||
+       !grp(root,"game/icons.grp",console.palette,&resource_icons))return NULL;
+    /* Command GRP frames are cropped inside a native 36x34 button canvas.
+     * Centre each crop in that canvas; the gameplay sheets keep their own
+     * ground points and are never modified for UI placement. */
+    for(int f=0;f<icons.numlumps;f++)
+        icons.cells[f].displacement=(ivec2_t){(icons.frame_size.w-icons.cells[f].rect.w)/2,
+                                              (icons.frame_size.h-icons.cells[f].rect.h)/2};
     if(!palette_from(root,"game/tunit.pcx",&console,0)||
        !palette_from(root,"game/tunit.pcx",&ingame.widgets,0)||
        !palette_from(root,"game/tunit.pcx",&ingame.panel,0)||
@@ -2172,10 +2203,15 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     }
     command_start=append_dialog(root,"rez/statbtnt.bin");if(command_start<0)return NULL;
     resource_start=hud.numitems;
-    for(int r=0;r<2;r++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=true,
-        .rect={r?500:350,0,140,20},.font=&gamefonts[0],.align=MALIGN_RIGHT};
-    huditems[hud.numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=true,
-        .rect={430,22,200,16},.font=&gamefonts[0],.align=MALIGN_RIGHT};
+    for(int r=0;r<3;r++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=true,
+        .passthrough=true,.rect={452+r*68,3,50,14},.font=&gamefonts[0]};
+    static const int resource_frames[]={0,2,5};
+    for(int r=0;r<3;r++) {
+        menuitem_t *icon=&huditems[hud.numitems++];
+        *icon=(menuitem_t){.kind=MI_STATIC,.visible=true,.passthrough=true,
+            .rect={436+r*68,3,14,14},.sheet=&resource_icons};
+        for(int s=0;s<MS_STATES;s++)icon->look[s].cell=resource_frames[r];
+    }
     /* Catalog shortcuts are input-only; retail HUD artwork remains unobscured. */
     for(int i=0;i<2;i++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,
         .hotkey=i?SDLK_RIGHTBRACKET:SDLK_LEFTBRACKET,.value=i?1:-1,.routine=focus};
@@ -2195,5 +2231,5 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     return &hud;
 }
 void G_ShutdownHUD(void) {
-    R_FreeSprite(&console);R_FreeSprite(&wireframe);R_FreeSprite(&icons);R_FreeSprite(&ingame.widgets);R_FreeSprite(&ingame.panel);free_ingame();R_FreeSprite(&portrait.sheet);free(portrait.palettes);memset(&portrait,0,sizeof(portrait));portrait_id=-1;hudview=(hudview_t){0};
+    R_FreeSprite(&console);R_FreeSprite(&wireframe);R_FreeSprite(&icons);R_FreeSprite(&resource_icons);R_FreeSprite(&ingame.widgets);R_FreeSprite(&ingame.panel);free_ingame();R_FreeSprite(&portrait.sheet);free(portrait.palettes);memset(&portrait,0,sizeof(portrait));portrait_id=-1;hudview=(hudview_t){0};
 }

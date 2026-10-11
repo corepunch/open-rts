@@ -1466,3 +1466,47 @@ Defensive Matrix, EMPs 150 shields, irradiates the biggest organic unit,
 sieges within 12 cells and unsieges with none in 13. Not simulated: Stim
 Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, Dropship
 and Shuttle transport.
+
+## Resource strip and command-card input (2026-10-11)
+
+**Confirmed native assets.** This investigation used the same original-disc
+`stardat.mpq` fingerprint recorded above; it did not inspect or execute
+`starcraft.exe`. The extracted files have these SHA-256 fingerprints:
+
+| File | SHA-256 |
+| --- | --- |
+| `rez/statres.bin` | `00220598238d8f702fa41a80faa4043ed3f2973c91fdc96b57945fdbfd8b98c1` |
+| `game/icons.grp` | `cb81835f98201c12dcacbee820ab47fcf6eb561ec2ffc74856f7e1790889a881` |
+| `unit/cmdbtns/cmdicons.grp` | `966a89921788e7f3305c06bba64b924c187275f566bc045633daff6648b787d0` |
+
+`statres.bin` starts at `(220,0)` with a `420×20` root. Six numeric
+controls occupy the top row, with 66-pixel fields starting at x=300, 368,
+436, 504 and 572 (the leftmost is 69 pixels at x=229). `game/icons.grp`
+contains twelve frames on a `64×64` canvas; frames 0, 2 and 5 are `14×14`
+mineral, gas and supply pictures. The pinned Stargus
+`scripts/gameui.lua` independently places those frames at x=436, 504 and
+572, y=3, and their numbers at x=452, 520 and 588. The HUD now draws those
+native frames and values in one top row. The earlier separate “Minerals”,
+“Gas” and “Supply” strings were an engine placeholder, not retail layout.
+
+**Confirmed command input.** `statbtnt.bin` supplies nine `36×34` slots.
+`cmdicons.grp` has 365 frames on the same canvas; its Move frame 228 has a
+`27×28` visible crop and Build Structure frame 234 a `22×20` crop. A trace
+at `M_MenuResponder` showed the build-page press and release hitting slot 7,
+the Supply Depot press and release hitting slot 2, then a world click at a
+valid cell dispatching `TC_CONSTRUCT`. `test_gameplay` now sends SDL mouse
+events through the real HUD at both 640×480 and 1280×960: three Command
+Center clicks queue three SCVs, and an SCV build-page/product/world-click
+sequence starts a Supply Depot and spends 100 minerals. This disproves the
+hypothesis that the shared menu responder drops all StarCraft build clicks.
+The old test had invoked button routines directly and missed this path.
+
+**Engine behavior chosen from the native geometry.** The UI copy of each
+command glyph now centers its cropped pixels within the `36×34` slot.
+Gameplay GRP ground points remain untouched. A Command Center with a queued
+unit now shows its queue count, and the card displays only products that the
+selected maker can currently accept and afford. This removes bright buttons
+that previously ignored clicks because prerequisites, supply, queue state or
+resources rejected the order. The exact retail dimming or visibility of an
+unavailable command remains **unknown**; no executable drawing path was
+traced, and the current hide rule is an explicit engine UI choice.

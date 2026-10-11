@@ -2252,7 +2252,7 @@ in [native CHK findings](docs/SC_EXE_FINDINGS.md#native-chk-terrain-and-placemen
 StarCraft gameplay/UI integration (2026-10-08) additionally consulted the pinned
 [Stargus source](https://github.com/Wargus/stargus/tree/2a4d54604949e4772f6638a8412c8ebd62444044):
 `src/kaitai/weapons_dat.ksy`, `units_dat.ksy`, `UnitsConverter.cpp`, `Chk.cpp`,
-`doc/iscript.txt`, `scripts/icons.lua`, Terran/Protoss/Zerg worker and production
+`doc/iscript.txt`, `scripts/icons.lua`, `scripts/gameui.lua`, Terran/Protoss/Zerg worker and production
 unit scripts, neutral resource scripts, and `scripts/stratagus.lua` minimap fog
 configuration. [PyMS](https://github.com/poiuyqwert/PyMS/tree/bfc5d3aad0b5614a5aff72c223f8efa00afddfa4)
 `FileFormats/DialogBIN.py`, `PyBIN/WidgetNode.py`, and `FileFormats/IScriptBIN.py`
@@ -2260,6 +2260,9 @@ were read as format references for response bounds, text offsets and animation
 header indices. No Python tool was added or executed. See the dated shared
 gameplay section in `docs/SC_EXE_FINDINGS.md` for byte offsets, hashes, confirmed
 behavior, rejected hypotheses and remaining unknowns.
+The [official classic StarCraft Terran basics screenshot](https://classic.battle.net/scc/terran/basic.shtml)
+was used as a visual cross-check for the top resource strip; the checked-in
+retail GRP and BIN files determine the frame and rectangle values.
 
 ### Warcraft II runtime identifier audit (2026-10-08)
 
