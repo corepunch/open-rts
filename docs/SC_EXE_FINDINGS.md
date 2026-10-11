@@ -1,5 +1,90 @@
 # StarCraft native data and UI findings
 
+## Core orders, first implementation (2026-10-11)
+
+**Implemented and regression-tested:** Hold Position (H), attack-move through
+Attack (A) on empty ground, Patrol (P), Return Cargo (C), and SCV Repair (R).
+The audit below predates this implementation. Terran lift/land and Follow
+remain absent; these changes do not establish complete retail order fidelity.
+
+**Evidence.** No original executable was examined in this pass, so there is
+no new EXE fingerprint or instruction-address claim. Blizzard's Unit Commands
+and SCV guides establish hold without pursuit, movement without retaliation,
+patrol resumption and ground patrols' air-target exception, and repair eligibility.
+Stargus's pinned race `units.lua`, SCV script and `icons.lua` establish the
+command icons, hotkeys and a one-tile repair range. PyMS `Data/Icons.txt` row
+234 names zero-based native command-icon frame 233 as Return Resources.
+Exact source URLs and revisions are in `REFERENCES.md`.
+
+**Confirmed in the reference implementation, not independently EXE-verified:**
+OpenBW `bwgame.h` at `4b046d5f65302b10cb0a745f0fecd37ec85b20a8`
+(SHA-256 `5ee316ca2c008c9252f7fde7444ca5dc7f35440549be2576dc37fa228fb31ae6`),
+`order_Repair`, `order_ReturnMinerals`, `order_Patrol`, and unit initialization:
+
+- Repair requires a completed Terran mechanical target. Repair HP uses the
+  construction rate at 24 Hz. With max HP expressed in 1/256 points, the rate
+  is `(max - max/10 + build_time - 256) / build_time`; zero rate or zero build
+  time uses 256. The target's mineral/gas costs determine a periodic debit
+  using a factor of three, rather than a flat one-resource-per-HP charge.
+  The timer is debited at zero and decremented on subsequent frames.
+- Our Vulture fixture (80 HP, 450 frames, 75 minerals) gains 41/256 HP per
+  reference frame, pays a mineral on frame one and every 20 frames thereafter,
+  and repairing from 40 to 80 HP spends 13 minerals. An initial test expectation
+  of 40/256 was disproven by logging the integer formula: rounding gives 41.
+  Wraiths gain 31/256 at their 900-frame build time; two repairers contribute
+  independently and each pays its own resource debit.
+- Return Minerals/Gas honors a specified active depot or searches for one,
+  delivers the carried resource and schedules harvesting again. We retain an
+  existing resource target across explicit return, and can deliver even after
+  Stop has discarded that target. An absent/destroyed depot preserves cargo.
+
+**Implementation consequence.** Orders run through existing tic commands and
+the ordinary Doom-style mobj thinker; there is no parallel order ticker or
+object store. A one-point `TC_PATH` with `WP_BACKTRACK` expands at execution to
+the clicked cell and each unit's own starting cell. `TC_ATTACK` without a
+target ID becomes a one-point `WP_ONCE` route; a stale nonzero target ID cannot
+become attack-move. Combat preserves the route and resumes it after pursuit.
+Hold uses a checksummed unit flag. Repair uses the existing pending-order
+target/timer and fractional damage remainder, and the compiled SCV AlmostBuilt
+work animation. Ordinary Stop cancels it; spells, boarding, merging and siege
+orders discard previous routes. Rejected move/attack commands preserve Hold.
+
+Return Cargo shares the existing harvesting lifecycle. Returning is processed
+before requiring a valid resource vent; only resuming harvest needs that vent.
+SC depots must belong to the worker's owner. Right-click returns to the clicked
+depot; damaged Terran mechanical targets instead accept SCV repair, except a
+Refinery whose contextual command remains Gather. Explicit Repair works there.
+Repair cannot convert a damaged Bunker click into boarding. Move and ground
+right-click do not acquire or retaliate against enemies during travel.
+
+**Remaining approximations/unknowns.** Repair currently uses Stargus's one-tile
+reach, with our existing building footprints. OpenBW uses five pixels between
+native collision bounds; placement dimensions and engine radii are not those
+bounds, so substituting a tuned radius would be unjustified. Native repair
+startup/turning frame timing, gathering-slot arbitration, acquisition ranges,
+unarmed patrol fleeing, sub-cell patrol endpoints, and shift-order queues are
+not implemented by this pass. With no remembered field, Return Cargo finishes
+idle rather than searching for a new resource. Retry timing for a missing depot
+uses the shared thinker, not OpenBW's 75-frame retry timer. The Return Cargo
+button uses native frame 233 in the spare second-row slot; its precise retail
+button replacement rules remain unverified. No new PNG assets are introduced.
+
+**Reproduce:** `make -j4 build/bin/tests/starcraft/test_orders
+build/bin/tests/starcraft/test_mining build/bin/tests/starcraft/test_gameplay`,
+then run those binaries with `SDL_VIDEODRIVER=dummy`. The tests cover combat
+interruption/resumption, two patrol legs, unarmed air patrol, forbidden air
+pursuit, repair eligibility/debits/fractions/multiple SCVs, target removal,
+explicit depot selection, missing-depot cargo retention and mining resumption.
+The gameplay test drives the native command card and world clicks and writes
+`/private/tmp/starcraft-core-orders.bmp` for visual inspection.
+
+Verification completed: `make -j4 all`; all 16 StarCraft and 41 Warcraft II
+quick regressions (including loopback menu/multiplayer checks); StarCraft's AI
+soak; Dark Colony's `test_combat_and_harvest`; and both per-game `--check` smoke
+tests passed. All test runs used the dummy SDL driver. The rendered command
+card was inspected: all five Marine order icons occupy their expected slots.
+Two existing unused-helper warnings in `test_mission.c` are unchanged.
+
 ## Completeness recheck (2026-10-11)
 
 The [current source/regression audit](BLIZZARD_COMPLETENESS_AUDIT.md#starcraft)

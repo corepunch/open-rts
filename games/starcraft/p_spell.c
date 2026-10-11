@@ -309,11 +309,19 @@ bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
         caster->traits |= MF_CLOAKED;
         return true;
     }
-    if (tech == SC_TECH_SIEGE_MODE) return P_Deploy(caster);
+    if (tech == SC_TECH_SIEGE_MODE) {
+        if (!P_Deploy(caster)) return false;
+        sc_interrupt(caster);
+        caster->waypoints=(waypoints_t){0};
+        return true;
+    }
     if (tech == SC_TECH_ARCHON_WARP) return sc_merge(caster, target);
     if (caster->sc.energy < energy_cost(tech) || (needs_target(tech) && !target_ok(caster, tech, target)) ||
         (tech == SC_TECH_NUCLEAR_STRIKE && !sc_armed_silo(caster->owner))) return false;
     if (!needs_target(tech)) target = NULL;
+    sc_interrupt(caster);
+    caster->waypoints=(waypoints_t){0};
+    P_ClearMove(caster);
     caster->sc.order = (sc_order_t){.kind = SC_ORDER_CAST, .tech = tech, .target = target ? target->id : 0,
                                     .at = pixel(target ? where(target) : at)};
     caster->attack.target = NULL;
@@ -330,6 +338,7 @@ void sc_interrupt(mobj_t *unit) {
         if (partner && partner->sc.order.kind == SC_ORDER_MERGE) partner->sc.order = (sc_order_t){0};
     }
     unit->sc.order = (sc_order_t){0};
+    unit->sc.flags &= ~SC_HOLD;
 }
 
 static void irradiate(mobj_t *host) {

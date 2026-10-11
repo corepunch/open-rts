@@ -224,6 +224,9 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     for (int i = 0; i < count; ++i) {
         if (R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS)
             units[i]->move_only = cmd->order == TC_MOVE;
+#ifdef RTS_MODULE_STARCRAFT
+        if (cmd->order == TC_ORDER) units[i]->move_only = true;
+#endif
         units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;
         units[i]->harvest.target = -1;
         units[i]->harvest.base = NULL;

@@ -233,8 +233,6 @@ bool sc_tech_researched(int tech);
 int sc_unit_techs(uint16_t type, int *out, int cap);
 /* Whether a tech is aimed at a unit or a spot, rather than cast at once. */
 bool sc_tech_aimed(int tech);
-/* Pending orders a unit walks to carry out. */
-enum { SC_ORDER_NONE, SC_ORDER_CAST, SC_ORDER_BOARD, SC_ORDER_MERGE, SC_ORDER_NUKE };
 /* Spell upkeep each engine tic: timers, damage over time, effect areas,
  * disabled units and pending casts. frames is the 24 Hz frames passed. */
 void sc_spell_ticker(mobj_t *mo, int frames);
@@ -257,6 +255,8 @@ int sc_hangar_count(const mobj_t *maker);
 /* Unit upkeep each engine tic: loaded units, interceptors and scarabs,
  * boarding and archon merges. */
 void sc_unit_ticker(mobj_t *mo, int frames);
+bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count, mobj_t *target);
+void sc_repair_ticker(mobj_t *mo, int frames);
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
 /* Add-ons: the building that builds an add-on type (MT_NONE if it is not

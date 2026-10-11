@@ -215,6 +215,8 @@ static void load(mobj_t *unit, mobj_t *bunker) {
 }
 bool sc_board(mobj_t *unit, mobj_t *bunker) {
     if (!sc_can_board(unit, bunker)) return false;
+    sc_interrupt(unit);
+    unit->waypoints=(waypoints_t){0};
     irect_t r = P_MobjCells(bunker);
     if (gap(unit, r) <= FIXED_ONE) { load(unit, bunker); return true; }
     fixed2_t bay;
@@ -276,6 +278,8 @@ bool sc_merge(mobj_t *a, mobj_t *b) {
         a->owner != b->owner || a->hp <= 0 || b->hp <= 0 || ((a->sc.flags | b->sc.flags) & SC_HALLUCINATION) ||
         !sc_has_tech(a->owner, SC_TECH_ARCHON_WARP)) return false;
     int time = sc_units[MT_ARCHON - 1].build_time;
+    sc_interrupt(a);sc_interrupt(b);
+    a->waypoints=b->waypoints=(waypoints_t){0};
     a->sc.order = (sc_order_t){.kind = SC_ORDER_MERGE, .tech = SC_TECH_ARCHON_WARP, .target = b->id, .time = time};
     b->sc.order = (sc_order_t){.kind = SC_ORDER_MERGE, .tech = SC_TECH_ARCHON_WARP, .target = a->id, .time = time};
     P_MoveUnitTo(&level, a, where(b));

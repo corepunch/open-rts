@@ -205,7 +205,7 @@ bool P_HarvesterWorksOutside(const mobj_t *unit, const resourcevent_t *vent) {
            vent && vent->source_id && vent->footprint.w > 0 && vent->footprint.h > 0;
 }
 
-static bool send_harvester_home(level_t *map, mobj_t *unit) {
+bool P_ReturnHarvest(level_t *map, mobj_t *unit, mobj_t *destination) {
     if (!map || !unit) return false;
     fixed2_t unit_pos = fixed3_xy(unit->core.position);
     mobj_t *best = NULL;
@@ -214,8 +214,12 @@ static bool send_harvester_home(level_t *map, mobj_t *unit) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *base = (mobj_t *)th;
+        if (destination && base != destination) continue;
         if (base->remove || base->hp <= 0) continue;
         if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
+#ifdef RTS_MODULE_STARCRAFT
+        if (base->owner != unit->owner) continue;
+#endif
         fixed2_t base_position = fixed3_xy(base->core.position);
         if ((!gameinfo || !gameinfo->harvest_dropoff_matches) && base->info &&
             base->info->footprint.w > 0) {
@@ -611,6 +615,10 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
 }
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+#ifdef RTS_MODULE_STARCRAFT
+    if (attacker->sc.order.kind == SC_ORDER_REPAIR ||
+        (attacker->move_only && P_HasMoveOrder(attacker))) return NULL;
+#endif
 #ifdef RTS_MODULE_WARCRAFT_2
     if (attacker->w2.cast.spell || attacker->w2.repair.target || attacker->w2.carrier) return NULL;
 #endif
@@ -648,6 +656,10 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
 /* Doom's damage source wakes the victim and becomes its target. Keep an
  * existing live enemy so repeated hits do not restart its pursuit. */
 static void provoke(mobj_t *target, mobj_t *source) {
+#ifdef RTS_MODULE_STARCRAFT
+    if (target->sc.order.kind == SC_ORDER_REPAIR ||
+        (target->move_only && P_HasMoveOrder(target))) return;
+#endif
     mobj_t *enemy = target->attack.target;
     if ((target->traits & MF_ATTACK) && source && source != target &&
         !source->remove && source->hp > 0 && !P_IsAlly(target, source) &&
@@ -1222,15 +1234,11 @@ static bool update_unit_harvest(level_t *map,
     return W2_TickRepair(unit) || W2_TickHarvest(unit) || W2_TickBuild(unit);
 #endif
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
-        unit->harvest.phase == HARVEST_PHASE_NONE || unit->harvest.target < 0) {
+        unit->harvest.phase == HARVEST_PHASE_NONE) {
         return false;
     }
-    if (unit->harvest.target >= map->resource_vent_count || !map->resource_vents) {
-        unit->harvest.phase = HARVEST_PHASE_NONE;
-        return false;
-    }
-
-    resourcevent_t *vent = &map->resource_vents[unit->harvest.target];
+    resourcevent_t *vent = map->resource_vents && unit->harvest.target >= 0 &&
+        unit->harvest.target < map->resource_vent_count ? &map->resource_vents[unit->harvest.target] : NULL;
     bool animated_transfer = unit->info && unit->info->harvest.unload_state_id > 0;
     if (unit->harvest.phase == HARVEST_PHASE_TO_BASE ||
         unit->harvest.phase == HARVEST_PHASE_UNLOAD_TURNING ||
@@ -1247,17 +1255,17 @@ static bool update_unit_harvest(level_t *map,
             unit->harvest.base = NULL;
             unit->harvest.phase = HARVEST_PHASE_TO_BASE;
             P_SetMobjState(unit, game_info->mobjinfo[unit->type_id].spawnstate);
-            send_harvester_home(map, unit);
+            P_ReturnHarvest(map, unit, NULL);
             return true;
         }
         if (!unit->movement.order_arrived) {
             if (animated_transfer) yield_harvest_bay(map, unit);
-            if (!P_HasMoveOrder(unit)) send_harvester_home(map, unit);
+            if (!P_HasMoveOrder(unit)) P_ReturnHarvest(map, unit, NULL);
             return false;
         }
         if (!fixed2_near(fixed3_xy(unit->core.position),
                          unit->harvest.return_position, FIXED_LIT(0.001))) {
-            send_harvester_home(map, unit);
+            P_ReturnHarvest(map, unit, NULL);
             return false;
         }
         if (animated_transfer) {
@@ -1284,7 +1292,7 @@ static bool update_unit_harvest(level_t *map,
             if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
             return true;
         }
-        if (!vent->active || vent->rate <= 0 || vent->amount <= 0 ||
+        if (!vent || !vent->active || vent->rate <= 0 || vent->amount <= 0 ||
             !P_VentOpenTo(map, vent, unit)) {
             unit->harvest.target = -1;
             unit->harvest.timer_ms = 0;
@@ -1294,6 +1302,10 @@ static bool update_unit_harvest(level_t *map,
         unit->harvest.resource_type = vent->resource_type;
         unit->harvest.phase = HARVEST_PHASE_TO_MINE;
         if (!send_harvester_to_vent(map, unit, vent)) return false;
+        return false;
+    }
+    if (!vent) {
+        unit->harvest.phase = HARVEST_PHASE_NONE;
         return false;
     }
     if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
@@ -1320,7 +1332,7 @@ static bool update_unit_harvest(level_t *map,
         if (unit->harvest.cargo > 0 && (unit->harvest.cargo >= capacity ||
             unit->harvest.resource_type != vent->resource_type || !vent->active || vent->amount <= 0)) {
             unit->harvest.phase = HARVEST_PHASE_TO_BASE;
-            send_harvester_home(map, unit);
+            P_ReturnHarvest(map, unit, NULL);
             return true;
         }
         if (unit->harvest.phase == HARVEST_PHASE_MINING) {
@@ -1335,7 +1347,7 @@ static bool update_unit_harvest(level_t *map,
             if (vent->amount <= 0) vent->active = false;
             if (unit->harvest.cargo >= capacity || !vent->active) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
-                send_harvester_home(map, unit);
+                P_ReturnHarvest(map, unit, NULL);
             } else P_SetMobjState(unit, mobj_harvest_state(unit));
             return true;
         }
@@ -1349,7 +1361,7 @@ static bool update_unit_harvest(level_t *map,
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0 ||
         !P_VentOpenTo(map, vent, unit)) {
         if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0 &&
-            send_harvester_home(map, unit))
+            P_ReturnHarvest(map, unit, NULL))
             return false;
         unit->harvest.target = -1;
         unit->harvest.timer_ms = 0;
@@ -1404,12 +1416,12 @@ static bool update_unit_harvest(level_t *map,
             map->player_resources[owner][rtype] += P_ScaleIncome(map, owner, take);
         if (mobj_harvest_capacity(unit) > 0 &&
             unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
-            if (send_harvester_home(map, unit)) break;
+            if (P_ReturnHarvest(map, unit, NULL)) break;
         }
         if (vent->amount <= 0) {
             vent->active = false;
             if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
-                send_harvester_home(map, unit);
+                P_ReturnHarvest(map, unit, NULL);
             } else {
                 unit->harvest.target = -1;
                 unit->harvest.timer_ms = 0;
@@ -1460,6 +1472,10 @@ static void tick_actor(mobj_t *u) {
         const state_t *s = state_at(game_info, u->core.state_id);
         bool in_attack = s && s->group == 3;
         mobj_t *enemy = u->attack.target;
+#ifdef RTS_MODULE_STARCRAFT
+        if ((u->sc.flags & SC_HOLD) || u->sc.order.kind == SC_ORDER_REPAIR ||
+            (u->move_only && moving)) enemy = NULL;
+#endif
 #ifdef RTS_MODULE_WARCRAFT_2
         if (u->w2.stand_ground || u->w2.cast.spell || u->w2.carrier) enemy = NULL;
 #endif
