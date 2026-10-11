@@ -1,5 +1,42 @@
 # StarCraft native data and UI findings
 
+## 2026-10-11: moving SCV engine glow
+
+**Confirmed from retail assets.** The original disc's `scripts/iscript.bin`
+(SHA-256 `e62ecef8b5f7785d937c3125b90d1164fdc09db6c0cd6ef5d0e5d0761bafd0ca`)
+defines `SCVWalking` as `playfram 0`, `imgol 249 0 0`, `setvertpos 0`, then
+the normal loop. Image 249 is `thingy/tscGlow.grp` in `images.dat` (SHA-256
+`03f596ed97f47ec7278af3633d73717ecbc59f729d99456a0a6df46be220e7e0`):
+with 755 rows of 38 bytes, its `gfx_turns` at `4*755+249` is 1, draw function
+at `8*755+249` is 9, and remapping at `9*755+249` is 1. Stargus's pinned
+`doc/iscript.txt` labels its image script `Engines_GlowHeaderInit`, which
+alternates `engset 0; wait 1` and `engset 1; wait 1` at 24 Hz. The retail
+`unit/thingy/tscglow.grp` (SHA-256
+`f083b78855434679dac1a4fe6f68ab16db76e22bd1d36103c18de08eeb16e7d9`)
+has 68 pictures on a 72×72 canvas, four 17-facing sets. The parent SCV GRP
+has 51 pictures, so the two glow phases are sets 0 and 3. Decoded glow
+indices are at most 46.
+
+**Confirmed lookup; inferred executable selection.** The Badlands
+`tileset/badlands/ofire.pcx` (SHA-256
+`841335964db2d3d186c4118587191576102af221adfb4f770390d5e75ae63276`)
+is 256×63 indexed pixels. Stargus's palette notes identify it as a PCX2D
+source-over-destination lookup. Source index 1 uses row 0 (the identity row),
+source index 6 over destination index 64 gives 86, and source index 46 over
+64 gives 63. Index 0 leaves the destination unchanged. The engine now loads
+the active tileset's table, selects a phase per walking SCV, uses the SCV's
+facing and the GRP's native crop pivot, and blends against the existing world
+pixel. It hides the attachment when the walking state ends. The exact retail
+EXE instruction that maps draw-function 9/remapping 1 to `ofire.pcx` was not
+disassembled; that association is inferred from the DAT flags, asset shape,
+and Stargus documentation. Other native remapping modes remain unknown.
+
+Reproduce with `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay`;
+it writes `/private/tmp/starcraft-scv-glow.bmp` with the moving SCV, checks
+both animation phases over a fixed background, and checks that the idle pose
+does not emit the glow. The orange exhaust also appears beneath moving SCVs
+in the user-provided retail screenshot from 2026-10-11.
+
 Investigated 2026-10-08. This is the original StarCraft disc, not a Brood War
 installation. No executable disassembly was used for the initial catalog.
 Do not infer original executable behavior from the sandbox's engine behavior.

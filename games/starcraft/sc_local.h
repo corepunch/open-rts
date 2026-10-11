@@ -104,7 +104,8 @@ void sc_draw_status_bars(const unitoverlaycontext_t *ctx);
  * sparks it throws (bullet\scvspark.grp), drawn over the world. */
 enum { SC_WORK_PERIOD = 19 };
 bool sc_mining(const mobj_t *unit);
-void sc_load_work_spark(const char *root, const blob_t *images, const blob_t *names);
+bool sc_load_worker_effects(const char *root, const char *tileset,
+                            const blob_t *images, const blob_t *names);
 void sc_draw_overlays(const unitoverlaycontext_t *ctx);
 void sc_asset_path(char *out, size_t size, const char *root, const char *name);
 bool sc_briefing(const char *path, char *text, size_t text_size, char *objectives, size_t objectives_size);

@@ -443,8 +443,8 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         }
     }
     R_FreeSprite(&ramp);
-    sc_load_work_spark(root,&images,&names);
-    ok=compose_turrets(root,&units,&images,&names,image_ids,cache) &&
+    ok=sc_load_worker_effects(root,map->tileset_name,&images,&names) &&
+       compose_turrets(root,&units,&images,&names,image_ids,cache) &&
        sc_load_selection(root,&units,&flingy,&sprites,&images,&names) && R_BindSprites(cache,&game_info);
     printf("StarCraft graphics: %d/228 unit entries, %d unique native GRPs, %d death effect sprites, %d visual states.\n",
            cache->count-extra_count,loaded,extra_count,next_state);

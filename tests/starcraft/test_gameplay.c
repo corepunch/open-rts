@@ -173,6 +173,32 @@ static int animations(void) {
     CHECK(mine > 0 && states[cut].frame == 2 && states[rest].frame == 1 &&
           states[rest].nextstate == 1 + (MT_SCV - 1) * 2);
     CHECK(actor_types[MT_DRONE - 1].harvest.state_id > 0 && actor_types[MT_PROBE - 1].harvest.state_id > 0);
+    /* SCVWalking's imgol 249 must draw both native engine-glow sets through
+     * the Badlands fire lookup and disappear as soon as the pose is idle. */
+    mobj_t *worker = find(consoleplayer, MT_SCV);
+    CHECK(worker);
+    int previous_state = worker->core.state_id;
+    sc_glow_t previous_glow = worker->sc.glow;
+    unitoverlaycontext_t overlay = {.unit = worker, .game_info = gameinfo, .anchor = {320, 240}};
+    int changes[2] = {0};
+    for (int phase = 0; phase < 2; ++phase) {
+        V_BeginFrame(0xff000000);
+        memset(screens[0].pixels, 64, (size_t)screens[0].w * screens[0].h);
+        worker->core.state_id = mobjinfo[MT_SCV].seestate;
+        worker->sc.glow = (sc_glow_t){.active = 1, .phase = phase};
+        sc_draw_overlays(&overlay);
+        for (int y = 204; y < 276; ++y) for (int x = 284; x < 356; ++x)
+            changes[phase] += screens[0].pixels[y * screens[0].w + x] != 64;
+    }
+    CHECK(changes[0] > 0 && changes[1] > 0);
+    V_BeginFrame(0xff000000);
+    memset(screens[0].pixels, 64, (size_t)screens[0].w * screens[0].h);
+    worker->core.state_id = mobjinfo[MT_SCV].spawnstate;
+    sc_draw_overlays(&overlay);
+    for (int y = 204; y < 276; ++y) for (int x = 284; x < 356; ++x)
+        CHECK(screens[0].pixels[y * screens[0].w + x] == 64);
+    worker->core.state_id = previous_state;
+    worker->sc.glow = previous_glow;
     return 0;
 }
 
@@ -191,6 +217,11 @@ static int economy_and_combat(void) {
     }
     CHECK(best >= 0);
     order(scv, TC_ORDER, level.resource_vents[best].attachment, NULL, 0);
+    for (int t = 0; t < 10; ++t) tick(1);
+    CHECK(states[scv->core.state_id].group == 2);
+    CHECK(scv->sc.glow.active);
+    look(scv);
+    draw("/private/tmp/starcraft-scv-glow.bmp");
     bool mined = false;
     for (int t = 0; t < 3000 && level.player_resources[consoleplayer][0] < 58; t++) {
         tick(1);

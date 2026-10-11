@@ -19,13 +19,14 @@ enum { SC_TIMER_LIFE, SC_TIMER_MATRIX, SC_TIMER_IRRADIATE, SC_TIMER_PLAGUE, SC_T
  * area keeps its spell in tech. */
 typedef struct { int kind, tech; uint32_t target; ivec2_t at; int time; } sc_order_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
+typedef struct { uint8_t active, phase; } sc_glow_t;
 /* Shields, energy and the Defensive Matrix are 1/256 points, as StarCraft
  * keeps them; wound is the fraction of a hit point already lost. parasite
  * holds the sight bits of the teams that see through this unit. hangar
  * counts docked interceptors or scarabs, or a silo's nuke. */
 #define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int guard_hp, shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[4]; \
-    sc_order_t order; sc_rally_t rally; } sc;
+    sc_order_t order; sc_rally_t rally; sc_glow_t glow; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->sc.flags); HASH((mo)->sc.attacker); HASH((mo)->sc.guard_hp); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
@@ -37,5 +38,6 @@ typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
     HASH((mo)->sc.order.at.x); HASH((mo)->sc.order.at.y); HASH((mo)->sc.order.time); \
     HASH((mo)->sc.rally.at.x); HASH((mo)->sc.rally.at.y); \
     HASH((mo)->sc.rally.target); HASH((mo)->sc.rally.set); \
+    HASH((mo)->sc.glow.active); HASH((mo)->sc.glow.phase); \
 } while (0)
 #endif

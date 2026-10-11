@@ -2172,7 +2172,8 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
 - [Stargus](https://github.com/Wargus/stargus), locally `reference/stargus`,
   commit `2a4d54604949e4772f6638a8412c8ebd62444044` (GPL-2.0). Format and
   behavior reference only: `mpqlist.txt`, `src/kaitai/*_dat.ksy`,
-  `src/libgrp/GRPImage`, `src/Font.cpp`, `src/UIConsole.cpp`,
+  `src/libgrp/GRPImage`, `doc/iscript.txt` (SCVWalking and SCVGlow),
+  `src/Font.cpp`, `src/UIConsole.cpp`,
   `src/PortraitsConverter.cpp`, `scripts/guichan.lua`, `scripts/icons.lua`.
   Stargus converts assets to PNG/MNG and uses hand-authored Lua menus; this
   plugin independently decodes the original files into engine-owned indexed
@@ -2200,9 +2201,10 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   Its two-pixel track spacing and five-pixel arrow inset are editor-preview
   rules, not traced retail executable constants; see `docs/SC_EXE_FINDINGS.md`.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
-  Stargus author's notes: native team ramps, command-icon palettes, and
-  full-health wireframe mappings. Only the documented full-health case is
-  implemented; random damaged-section coloring remains unknown.
+  Stargus author's notes: native team ramps, command-icon palettes,
+  full-health wireframe mappings, and the destination-dependent PCX2D
+  `ofire.pcx` lookup used for SCVGlow. Damaged wireframe section coloring
+  remains unknown.
 - [StormLib](https://github.com/ladislav-zezula/StormLib), locally
   `reference/StormLib`, tag v9.24, commit
   `3846f0b8e2c47320c6b499492496f3e3f2e76821` (MIT), matching Stargus's

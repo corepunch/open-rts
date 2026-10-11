@@ -220,7 +220,7 @@ Confirmed size 28,690 bytes, N=755. Fields and column starts:
 | use_full_iscript | 6N | 1 | Not interpreted |
 | draw_if_cloaked | 7N | 1 | Not interpreted |
 | draw_function | 8N | 1 | Not implemented |
-| remapping | 9N | 1 | Not implemented generally |
+| remapping | 9N | 1 | SCVGlow's fire lookup implemented; other modes remain unimplemented |
 | iscript | 10N | 4 | Animation script ID |
 | shield_overlay | 14N | 4 | Not implemented |
 | attack_overlay | 18N | 4 | Not implemented |
@@ -468,6 +468,7 @@ kerning routine. `font10`, `font14`, `font16` and `font16x` are used for UI.
 | `game/tunit.pcx` | 128×1 | Eight-color player ramps; plugin uses first eight players |
 | `game/twire.pcx` | 24×1 | Wireframe health/shield color lookup |
 | `unit/cmdbtns/ticon.pcx` | 96×1 | Six 16-color command-icon ramps; initial UI uses first |
+| `tileset/badlands/ofire.pcx` | 256×63 | SCVGlow source index 1..63 selects row 0..62, current background index selects column |
 | `glue/palmm/tfont.pcx` | Loaded at runtime | Main-menu text ramps |
 | `game/tfontgam.pcx` | Loaded at runtime | In-game text ramps |
 
@@ -476,8 +477,11 @@ indices are rendered using the world palette. The UI uses tunit's embedded
 palette for console/widget art, ticon's first 16 **pixel-selected colors** for
 command icons, and twire's full-health mappings for wireframes. See the
 findings journal for the exact wireframe index table and its primary source.
-Damaged-section colors, generic images.dat remapping, translucency and
-terrain-dependent effect lookup tables are not implemented.
+The moving SCV's `thingy/tscGlow.grp` uses `images.dat` draw function 9 and
+remapping 1. Its source indices (1..46 in this disc) select a row of the
+active tileset's `ofire.pcx`; each destination pixel selects the column.
+Index 0 is transparent. Damaged-section colors and other generic
+`images.dat` drawing and remapping modes remain unimplemented.
 
 ## 9. Dialog BIN and SMK descriptors
 

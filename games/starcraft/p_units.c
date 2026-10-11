@@ -341,6 +341,14 @@ static void mining(mobj_t *mo) {
 }
 
 void sc_unit_ticker(mobj_t *mo, int frames) {
+    if (mo->type_id == MT_SCV) {
+        bool walking = gameinfo && mo->core.state_id > 0 &&
+            mo->core.state_id < gameinfo->state_count &&
+            gameinfo->states[mo->core.state_id].group == 2;
+        if (!walking) mo->sc.glow = (sc_glow_t){0};
+        else if (!mo->sc.glow.active) mo->sc.glow = (sc_glow_t){.active = 1};
+        else mo->sc.glow.phase ^= frames & 1;
+    }
     if (mo->sc.flags & SC_LOADED) { loaded(mo); return; }
     if (mo->type_id == MT_INTERCEPTOR && mo->sc.parent) interceptor(mo);
     else if (mo->type_id == MT_SCARAB && mo->sc.parent &&
