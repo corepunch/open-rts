@@ -46,6 +46,7 @@ typedef struct {
     int damage, bonus, cooldown, factor, upgrade, type, explosion, behavior, min_range, max_range;
     int splash[3];
     unsigned targets;
+    int icon;
 } sc_weapon_t;
 extern sc_weapon_t sc_weapons[SC_WEAPONS];
 /* techdata.dat: research cost and time, and the energy a use costs. The

@@ -1581,7 +1581,7 @@ completed SCV receives its building's rally movement order. `test_zerg`
 also verifies that a larva's Zergling morph inherits its hatchery's rally
 target.
 
-## Hero status, equipment and compact font (2026-10-11)
+## Selected-unit status, equipment and compact font (2026-10-11)
 
 **Scope and evidence.** This pass examined the original-disc assets and the
 user-supplied retail screenshot of Sarah Kerrigan, not `starcraft.exe`.
@@ -1593,6 +1593,8 @@ not carried-item inventory. Stargus at pinned commit
 `scripts/ui.lua`; `dataset/palettes.json` selects the native `ticon-0`
 palette for these command icons. The retail screenshot confirms the two
 blue-framed boxes, unit rank, personal kills, and a second number under HP.
+The subsequent user-supplied SCV screenshot confirms that ordinary workers
+also show “Private”, “Kills: 0”, and both equipment boxes.
 
 | Native file | SHA-256 | Confirmed finding |
 | --- | --- | --- |
@@ -1611,10 +1613,9 @@ confirms Kerrigan's 250 maximum energy; applying that maximum to the other
 spellcaster heroes is an **inference** pending an executable or retail-data
 trace.
 Armor and weapon badges show the current upgrade level for the selected
-owner's catalog upgrade IDs. The icon/frame mapping follows the pinned
-Stargus source; the exact retail icon tint remains **unknown** without an
-executable palette trace. The current `ticon-0` translation is native-source
-based, not a visual color correction.
+owner's catalog upgrade IDs. The exact retail icon tint remains **unknown**
+without an executable palette trace. The current `ticon-0` translation is
+native-source based, not a visual color correction.
 
 **Disproved assumption.** Newer PyMS tables place rank strings at a different
 base. Applying their `1302 + rank` index to this original-disc 1185-string
@@ -1624,5 +1625,24 @@ the available 14-pixel control rows.
 
 Reproduce with `build/sc_catalog data/STARCRAFT/native` (Kerrigan is row 16)
 and `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay` (writes
-`/private/tmp/starcraft-hero-status.bmp`). The test checks rank, personal
+`/private/tmp/starcraft-hero-status.bmp` and
+`/private/tmp/starcraft-scv-status.bmp`). The test checks rank, personal
 kills, energy, compact font and both equipment controls.
+
+**Weapon-icon correction from the SCV screenshot.** Stargus's fixed frame
+290 was a simplified panel mapping, not the retail icon rule. The original
+`arr/weapons.dat` (SHA-256
+`03551df8800a01ec1e99e3648ece6deb83c054588f52967ba76c1d85c92be461`)
+has 100 parallel records and a 16-bit `icon` column at byte offset
+`40 × 100`. Weapon 13, the SCV's Fusion Cutter, points to `cmdicons.grp`
+frame **329**; weapon 3, Kerrigan's C-10 Canister Rifle, points to frame
+**324**. The worker and hero screenshots visibly have different weapon
+pictures. `sc_catalog` now carries that native icon ID into each weapon row,
+and the status box selects it from the selected unit's ground weapon (or air
+weapon when ground is absent). The armor picture comes from the unit's
+`upgrades.dat` armor-upgrade icon, frame 292 for these Terran units. Temporary
+`OPEN_RTS_DEBUG_SC_EQUIPMENT` logging confirmed SCV 292/329 and Kerrigan
+292/324 before the logging was removed. The gameplay test asserts those
+frame IDs and verifies “Kills: 0” on the SCV. It also checks that a worker's
+construction progress caption does not cover the rank and kills lines;
+production progress belongs to the selected building's panel.

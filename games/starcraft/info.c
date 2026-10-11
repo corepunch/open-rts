@@ -14,8 +14,8 @@ sc_upgrade_t sc_upgrades[SC_UPGRADES] = {
 #undef SC_UPGRADE
 };
 sc_weapon_t sc_weapons[SC_WEAPONS] = {
-#define SC_WEAPON(id,name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,inner,medium,outer,targets) \
-    [id] = {name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,{inner,medium,outer},targets},
+#define SC_WEAPON(id,name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,inner,medium,outer,targets,icon) \
+    [id] = {name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,{inner,medium,outer},targets,icon},
 #include "weapons.inc"
 #undef SC_WEAPON
 };

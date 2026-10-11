@@ -563,6 +563,7 @@ must remain visible underneath hover overlays.
 | `minimap.bin` | (0,315), 138×165 | Minimap at (6,348), 128×128 |
 | `statdata.bin` | (138,388), 270×92 | Selected wireframe, name, HP, energy/shields, rank, kills and equipment slots; production uses the same status area |
 | `tcmdbtns.grp`, `zcmdbtns.grp`, `pcmdbtns.grp` | five 36×36 queue slots | Native blue borders and slot numerals; displayed beside the wireframe |
+| `weapons.dat` icon column | 16-bit frame ID at `40 × weapon count` | The selected unit's equipment weapon picture uses its own weapon icon |
 | `tpbrempt.pcx`, `tpbrfull.pcx` | 108×9 each | Native production progress track and fill |
 | `statbtnt.bin` | (496,354), 144×126 | Nine native slots; Move 228 and Stop 229 icons |
 | `statport.bin` | (408,408), 88×72 | Portrait at (413,410), 60×56 |

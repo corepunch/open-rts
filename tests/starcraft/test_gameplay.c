@@ -609,8 +609,16 @@ static int command_card(void) {
     CHECK(name->font==rank->font&&name->font->line_h<16&&
           (name->align&MALIGN_HCENTER));
     menuitem_t *armor=M_MenuFind(hudmenu,9),*weapon=M_MenuFind(hudmenu,10);
-    CHECK(armor&&weapon&&armor->visible&&weapon->visible&&armor->ownerdraw&&weapon->ownerdraw);
+    CHECK(armor&&weapon&&armor->visible&&weapon->visible&&armor->ownerdraw&&weapon->ownerdraw&&
+          armor->value==292&&weapon->value==324);
     draw(NULL);M_MenuDrawer(hudmenu);CHECK(save("/private/tmp/starcraft-hero-status.bmp"));
+    (void)card("",&worker,1);
+    CHECK(!strcmp(name->text,"Terran SCV")&&!strcmp(rank->text,"Private")&&
+          !strcmp(kills->text,"Kills: 0")&&armor->visible&&weapon->visible&&
+          armor->value==292&&weapon->value==329);
+    for(int i=0;i<hudmenu->numitems;i++)
+        CHECK(!hudmenu->items[i].visible||strcmp(hudmenu->items[i].text,"Constructing"));
+    draw(NULL);M_MenuDrawer(hudmenu);CHECK(save("/private/tmp/starcraft-scv-status.bmp"));
     return 0;
 }
 

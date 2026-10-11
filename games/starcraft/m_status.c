@@ -5,7 +5,7 @@
  * (240,396), (240,434), (278,434), (316,434), (354,434). The artwork is
  * native tcmdbtns/pcmdbtns/zcmdbtns GRP, not generated button art. */
 enum { SC_QUEUE_SLOTS=5, SC_QUEUE_FRAME=2, SC_QUEUE_FIRST_NUMBER=6 };
-enum { SC_EQUIPMENT_FRAME=12, SC_ARMOR_ICON=292, SC_WEAPON_ICON=290 };
+enum { SC_EQUIPMENT_FRAME=12 };
 static const irect_t queue_rect[SC_QUEUE_SLOTS]={
     {240,396,36,36}, {240,434,36,36}, {278,434,36,36},
     {316,434,36,36}, {354,434,36,36}
@@ -25,7 +25,8 @@ static int status_control(int first,int end,int id) {
 
 static void draw_equipment(const menu_t *menu,const menuitem_t *item,irect_t rect) {
     (void)menu;
-    int icon=item->value?SC_WEAPON_ICON:SC_ARMOR_ICON;
+    int icon=item->value;
+    if(icon<0||icon>=glyphs->numlumps)return;
     irect_t src=glyphs->cells[icon].rect;
     irect_t dst={rect.x+(rect.w-src.w*rect.w/36)/2,
                  rect.y+(rect.h-src.h*rect.h/36)/2,
@@ -123,7 +124,7 @@ bool sc_status_init(menu_t *menu,menuitem_t *items,int capacity,int stat_first,i
     for(int i=0;i<2;i++) {
         menuitem_t *item=&items[equipment_item[i]];
         item->kind=MI_STATIC;item->visible=false;item->passthrough=true;
-        item->sheet=NULL;item->font=NULL;item->ownerdraw=draw_equipment;item->value=i;
+        item->sheet=NULL;item->font=NULL;item->ownerdraw=draw_equipment;
         equipment_level[i]=menu->numitems;
         items[menu->numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=false,.passthrough=true,
             .rect={item->rect.x+20,item->rect.y+22,14,12},.font=font,.align=MALIGN_RIGHT};
@@ -172,13 +173,16 @@ void sc_status_refresh(const mobj_t *selected,int selection_count) {
     const sc_weapon_t *weapon=unit?sc_weapon(unit->ground_weapon):NULL;
     if(!weapon&&unit)weapon=sc_weapon(unit->air_weapon);
     for(int i=0;i<2;i++) {
-        bool visible=equipment&&(i==0||weapon);
+        bool visible=equipment&&(i==0?unit->armor_upgrade>=0&&unit->armor_upgrade<SC_UPGRADES:
+                                 weapon&&weapon->icon>=0&&weapon->icon<glyphs->numlumps);
         status_items[equipment_item[i]].visible=status_items[equipment_level[i]].visible=visible;
+        if(visible)status_items[equipment_item[i]].value=
+            i?weapon->icon:sc_upgrades[unit->armor_upgrade].icon;
         if(visible)snprintf(status_items[equipment_level[i]].text,
             sizeof(status_items[equipment_level[i]].text),"%d",
             sc_upgrade_level(shown->owner,i?weapon->upgrade:unit->armor_upgrade));
     }
-    const production_t *queue=shown?shown->production:NULL;
+    const production_t *queue=unit&&(unit->flags&SC_UNIT_BUILDING)?shown->production:NULL;
     if(queue&&queue->queue_count<=0)queue=NULL;
     for(int slot=0;slot<SC_QUEUE_SLOTS;slot++) {
         menuitem_t *item=&status_items[slot_start+slot];
