@@ -2811,6 +2811,8 @@ bool P_ReplanUnit(const level_t *map, mobj_t *unit);
 void P_SeparateUnits(const level_t *map);
 void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int count, fixed2_t goal);
 bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count, fixed2_t goal);
+/* Return cargo to destination, or the nearest usable depot when NULL. */
+bool P_ReturnHarvest(level_t *map, mobj_t *unit, mobj_t *destination);
 
 void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                          fixed2_t goal_position);

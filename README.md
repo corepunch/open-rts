@@ -412,10 +412,11 @@ connection and chat screens over a TCP melee; each player picks Terran, Zerg,
 or Protoss. The right button moves, attacks, and gathers. The command card
 builds, trains and morphs: Zerg larvae, eggs and building tiers, creep and
 psi are simulated, and so are add-ons, Bunkers, siege mode, Carrier and Reaver
-hangars, Archons, research and a subset of abilities. Campaign missions run the
-shared computer player. Core orders including repair and patrol, full transports,
-several abilities, save/load, gameplay audio and complete retail script behavior
-remain unfinished. See the
+hangars, Archons, research and a subset of abilities. The command card also offers
+Hold Position, attack-move, Patrol, Return Cargo and SCV Repair. Campaign missions
+run the shared computer player. Native repair reach, Terran lift/land, Follow,
+full transports, several abilities, save/load, gameplay audio and complete retail
+script behavior remain unfinished. See the
 [completeness audit](docs/BLIZZARD_COMPLETENESS_AUDIT.md) and
 [docs/SC_EXE_FINDINGS.md](docs/SC_EXE_FINDINGS.md).
 

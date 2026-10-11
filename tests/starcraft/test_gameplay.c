@@ -680,6 +680,38 @@ static int command_card(void) {
 static int hud_contract(void) {
     mobj_t *hall=find(consoleplayer,MT_COMMAND_CENTER),*worker=find(consoleplayer,MT_SCV);
     CHECK(hall&&worker);
+    CHECK(card("Repair",&worker,1)->hotkey==SDLK_r);
+    CHECK(!card("Return Cargo",&worker,1));
+    worker->harvest.cargo=8;
+    CHECK(card("Return Cargo",&worker,1)->hotkey==SDLK_c);
+    mouse_click(card("Return Cargo",&worker,1));
+    CHECK(worker->harvest.phase==HARVEST_PHASE_TO_BASE);
+    mouse_click(card("Stop",&worker,1));
+    worker->harvest.cargo=0;
+    mobj_t *guard=spawn(MT_MARINE,FIXED2_LIT(20,20),consoleplayer);
+    CHECK(guard&&card("Patrol",&guard,1)->hotkey==SDLK_p);
+    CHECK(card("Hold Position",&guard,1)->hotkey==SDLK_h);
+    mouse_click(card("Hold Position",&guard,1));
+    CHECK(guard->sc.flags&SC_HOLD);
+    mouse_click(card("Stop",&guard,1));
+    CHECK(!(guard->sc.flags&SC_HOLD));
+    M_CentreView(&app,fixed3_xy_to_fvec2(guard->core.position));
+    fvec2_t destination;
+    R_MapToScreen(&app,&level,21.5f,24.5f,&destination.x,&destination.y);
+    const char *orders[]={"Patrol","Attack"};
+    for(int i=0;i<2;i++) {
+        mouse_click(card(orders[i],&guard,1));
+        CHECK(hudmenu->target);
+        SDL_Event target_click={.button={.type=SDL_MOUSEBUTTONDOWN,.button=SDL_BUTTON_LEFT,
+            .x=(int)destination.x,.y=(int)destination.y}};
+        M_MenuResponder(hudmenu,&app,&target_click);
+        target_click.button.type=SDL_MOUSEBUTTONUP;M_MenuResponder(hudmenu,&app,&target_click);
+        CHECK(!hudmenu->target&&guard->waypoints.count==(i?1:2));
+        CHECK(guard->waypoints.mode==(i?WP_ONCE:WP_BACKTRACK));
+    }
+    card("Patrol",&guard,1);draw(NULL);M_MenuDrawer(hudmenu);
+    CHECK(save("/private/tmp/starcraft-core-orders.bmp"));
+    P_RemoveMobj(guard);
     level.player_resources[consoleplayer][0]=1000;
     level.player_resources[consoleplayer][1]=1000;
     /* A full five-slot queue keeps its command, rejects a sixth click, and

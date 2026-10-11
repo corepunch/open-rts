@@ -1,5 +1,4 @@
-#include "engine.h"
-#include "starcraft.h"
+#include "sc_local.h"
 
 bool G_TakeCameraRequest(fvec2_t *cell) { return sc_take_camera(cell); }
 
@@ -22,13 +21,23 @@ void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
         killer->sc.kills++;
 }
 
+bool G_UnitCommandable(const mobj_t *unit) {
+    return !(unit->sc.flags&SC_LOADED) && !unit->sc.timers[SC_TIMER_LOCKDOWN];
+}
+
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
-    (void)player;
+    if(sc_core_order(player,cmd,units,count,target))return true;
     /* A stale individual passenger click must not become Unload All. */
     if(cmd->order==TC_UNLOAD&&cmd->target&&!target)return true;
-    if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK || cmd->order == TC_ORDER ||
-        cmd->order == TC_PATH || cmd->order == TC_HARVEST || cmd->order == TC_WAYPOINT)
-        for (int i = 0; i < count; ++i) sc_interrupt(units[i]);
     return sc_order(cmd->order, units, count, cmd->product, target, fixed3_xy(cmd->position));
+}
+
+void G_InterruptOrders(const ticcmd_t *cmd, mobj_t *const *units, int count, bool late) {
+    if (!late && (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK || cmd->order == TC_ORDER ||
+        cmd->order == TC_PATH || cmd->order == TC_HARVEST || cmd->order == TC_WAYPOINT))
+        for (int i = 0; i < count; ++i) {
+            sc_interrupt(units[i]);
+            units[i]->move_only=false;
+        }
 }

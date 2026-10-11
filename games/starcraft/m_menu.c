@@ -1934,7 +1934,7 @@ static void focus(menu_t *menu,menuitem_t *item,menuaction_t action) {
     }
 }
 static void stop(menu_t *m,menuitem_t *i,menuaction_t a) {
-    (void)m;(void)i;if(a==MA_ACTIVATE)HU_SelectedOrder(TC_STOP,(fvec2_t){0},0);
+    (void)m;if(a==MA_ACTIVATE)HU_SelectedOrder(i->value,(fvec2_t){0},0);
 }
 /* Keep the pending order outside the nine slots: the target card replaces
  * those slots with Cancel, but the world click still needs the original. */
@@ -1972,11 +1972,16 @@ static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a!=MA_TARGET)return;
     ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
     uint32_t target=0;
-    if(i->value==TC_ATTACK) {
+    if(i->value==TC_ATTACK || i->value==TC_REPAIR) {
         int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
             hudview.sprites,gameinfo,m->cursor.x,m->cursor.y,-1);
-        if(picked<0)return;
-        target=hudview.units[picked]->id;
+        if(picked<0 && i->value==TC_REPAIR)return;
+        if(picked>=0)target=hudview.units[picked]->id;
+    }
+    if(i->value==TC_PATH) {
+        waypoints_t path={.count=1,.mode=WP_BACKTRACK,.points={at}};
+        G_PathOrder(hudview.units,hudview.unit_count,&path);
+        return;
     }
     HU_SelectedOrder(i->value,(fvec2_t){at.x,at.y},target);
 }
@@ -2194,11 +2199,19 @@ static void refresh(menu_t *menu) {
     if(!build_page) {
         if(common&MF_MOBILE) {
             button(0,228,SDLK_m,command,TC_MOVE,"Move");
-            button(1,229,SDLK_s,stop,0,"Stop");
+            button(1,229,SDLK_s,stop,TC_STOP,"Stop");
+            if(!(common&MF_HARVESTER)) {
+                button(3,254,SDLK_p,command,TC_PATH,"Patrol");
+                button(4,255,SDLK_h,stop,TC_STAND_GROUND,"Hold Position");
+            }
         }
         if(common&MF_ATTACK)button(2,230,SDLK_a,command,TC_ATTACK,"Attack");
         if(same_type&&(common&MF_HARVESTER)) {
+            if(selected->type_id==MT_SCV)button(3,232,SDLK_r,command,TC_REPAIR,"Repair");
             button(4,231,SDLK_g,command,TC_HARVEST,"Gather");
+            bool cargo=false;
+            for(int i=0;i<selection_count;i++)cargo|=selection_units[i]->harvest.cargo>0;
+            if(cargo)button(5,233,SDLK_c,stop,TC_RETURN_GOODS,"Return Cargo");
             button(6,selected->type_id==MT_DRONE?257:234,SDLK_b,build_menu,1,"Build Structure");
             button(7,selected->type_id==MT_DRONE?258:235,SDLK_v,build_menu,2,"Advanced Structures");
         }

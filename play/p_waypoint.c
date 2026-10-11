@@ -7,12 +7,23 @@ void P_TickWaypoints(mobj_t *actor) {
     if (gameinfo && actor->core.state_id > 0 && actor->core.state_id < gameinfo->state_count &&
         gameinfo->states[actor->core.state_id].group == 3) return;
     mobj_t *target = actor->attack.target;
+#ifdef RTS_MODULE_STARCRAFT
+    /* Pursue a patrol encounter, but never lure ground patrols after air. */
+    if (P_CanTarget(actor, target) && P_VisibleTo(actor, target) &&
+        (P_InAttackRange(actor, target) || path->mode == WP_ONCE ||
+         (actor->traits & MF_FLY) || !(target->traits & MF_FLY))) return;
+    if (target) {
+        P_ClearMove(actor);
+        actor->movement.order_arrived = false;
+    }
+#else
     const weapondef_t *weapon = P_MobjWeapon(actor, target);
     fixed_t range = weapon ? weapon->range : 0;
     if (P_CanTarget(actor, target) &&
         fixed2_distance_squared64(fixed3_xy(actor->core.position),
                                   fixed3_xy(target->core.position)) <= fixed_sq64(range))
         return;
+#endif
     actor->attack.target = NULL;
     if (actor->movement.order_arrived) {
         if (path->mode == WP_BACKTRACK && path->count > 1) {

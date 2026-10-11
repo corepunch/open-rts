@@ -1,5 +1,29 @@
 # Reverse Engineering References
 
+### StarCraft core-order implementation (2026-10-11)
+
+- Blizzard's [Unit Commands](https://classic.battle.net/scc/gs/com.shtml) and
+  [SCV guide](https://classic.battle.net/scc/terran/uscv.shtml): movement,
+  attack-move, hold, patrol and repair behavior. These describe player-visible
+  rules, not executable timing or collision geometry.
+- [Stargus](https://github.com/Wargus/stargus/tree/2a4d54604949e4772f6638a8412c8ebd62444044):
+  `scripts/terran/units.lua`, `scripts/terran/unit-terran-scv.lua`,
+  `scripts/icons.lua`, and `doc/iscript.txt`; command layout and work animation
+  references. Its `RepairRange = 1` is a one-tile reimplementation rule.
+- [PyMS icon names](https://github.com/poiuyqwert/PyMS/blob/bfc5d3aad0b5614a5aff72c223f8efa00afddfa4/PyMS/Data/Icons.txt):
+  frame 233 Return Resources. The reference's Python code was not run or added
+  as a repository tool.
+- [OpenBW bwgame.h](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
+  `order_Repair`, unit construction-rate initialization, `order_ReturnMinerals`
+  and `order_Patrol`. Read at this exact upstream revision to check rates,
+  costs and order transitions; independently implemented in our C thinker.
+  OpenBW is behavioral evidence, not a new retail EXE verification. See
+  [SC_EXE_FINDINGS.md](docs/SC_EXE_FINDINGS.md#core-orders-first-implementation-2026-10-11)
+  for the source fingerprint, formulas, tests and remaining approximations.
+- Local `reference/DOOM/p_enemy.c::A_Chase` was consulted for the existing
+  state-entry/target lifecycle. StarCraft's explicit Hold, Move and Repair
+  orders constrain that shared pursuit behavior rather than replacing it.
+
 ### Blizzard completeness recheck (2026-10-11)
 
 Source/regression audit at open-rts `69ad9a2c`; no retail executable execution

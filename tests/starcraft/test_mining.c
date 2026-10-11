@@ -53,6 +53,13 @@ int main(void) {
         if(left&&sc_mining(a)) returned=true;
     }
     CHECK(returned);
+    a->harvest.cargo=8;
+    order(a,TC_RETURN_GOODS,(fixed2_t){0},NULL);
+    CHECK(a->harvest.target==0&&a->harvest.phase==HARVEST_PHASE_TO_BASE);
+    for(int i=0;i<600&&a->harvest.cargo;i++)tick(1);
+    CHECK(!a->harvest.cargo&&a->harvest.target==0&&a->harvest.phase==HARVEST_PHASE_TO_MINE);
+    for(int i=0;i<600&&!sc_mining(a);i++)tick(1);
+    CHECK(sc_mining(a));
     CHECK(!fixed2_near(fixed3_xy(a->core.position),level.resource_vents[0].attachment,FIXED_LIT(0.001)));
     fixed2_t at=fixed3_xy(a->core.position);
     mobj_t *walker=spawn(0,(fixed2_t){at.x-FIXED_ONE,at.y},0);CHECK(walker);
