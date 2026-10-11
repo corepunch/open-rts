@@ -23,12 +23,12 @@ typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
  * keeps them; wound is the fraction of a hit point already lost. parasite
  * holds the sight bits of the teams that see through this unit. hangar
  * counts docked interceptors or scarabs, or a silo's nuke. */
-#define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; int guard_hp, shields, energy; \
+#define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int guard_hp, shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[4]; \
     sc_order_t order; sc_rally_t rally; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->sc.flags); HASH((mo)->sc.attacker); HASH((mo)->sc.guard_hp); \
-    HASH((mo)->sc.wound); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
+    HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
     HASH((mo)->sc.parent); HASH((mo)->sc.larva_ms); \
     for (int sc_i = 0; sc_i < SC_TIMERS; ++sc_i) HASH((mo)->sc.timers[sc_i]); \
     HASH((mo)->sc.matrix); HASH((mo)->sc.hangar); HASH((mo)->sc.parasite); HASH((mo)->sc.addon); \

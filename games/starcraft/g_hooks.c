@@ -17,6 +17,11 @@ void G_UnitProduced(mobj_t *unit,const mobj_t *producer) {
     P_MoveUnitTo(&level,unit,point);
 }
 
+void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
+    if(killer&&victim&&killer!=victim&&!P_IsAlly(killer,victim)&&killer->sc.kills<UINT16_MAX)
+        killer->sc.kills++;
+}
+
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
     (void)player;

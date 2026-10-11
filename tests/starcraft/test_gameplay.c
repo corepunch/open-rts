@@ -593,6 +593,24 @@ static int command_card(void) {
     mouse_click(train_firebat);
     CHECK(barracks->production&&barracks->production->queue_count==2&&
           P_ProductionItem(barracks->production,1).product_type==MT_FIREBAT);
+    /* Rank, personal kills, energy and equipment use the native hero panel. */
+    mobj_t *hero=spawn(MT_SARAH_KERRIGAN,fixed2_add(at,FIXED2_LIT(3,9)),consoleplayer);
+    mobj_t *victim=spawn(MT_MARINE,fixed2_add(at,FIXED2_LIT(4,9)),1);
+    CHECK(hero&&victim&&sc_max_energy(hero)==250<<8);
+    sc_start(hero);hero->sc.energy=221<<8;
+    P_DamageMobj(victim,hero,victim->hp);
+    CHECK(hero->sc.kills==1);
+    (void)card("Personnel Cloaking",&hero,1);
+    menuitem_t *name=M_MenuFind(hudmenu,65531),*rank=M_MenuFind(hudmenu,65516),
+               *kills=M_MenuFind(hudmenu,65515),*energy=M_MenuFind(hudmenu,65528);
+    CHECK(name&&rank&&kills&&energy&&name->visible&&rank->visible&&kills->visible&&energy->visible);
+    CHECK(!strcmp(name->text,"Sarah Kerrigan")&&!strcmp(rank->text,"Lieutenant")&&
+          !strcmp(kills->text,"Kills: 1")&&!strcmp(energy->text,"221/250"));
+    CHECK(name->font==rank->font&&name->font->line_h<16&&
+          (name->align&MALIGN_HCENTER));
+    menuitem_t *armor=M_MenuFind(hudmenu,9),*weapon=M_MenuFind(hudmenu,10);
+    CHECK(armor&&weapon&&armor->visible&&weapon->visible&&armor->ownerdraw&&weapon->ownerdraw);
+    draw(NULL);M_MenuDrawer(hudmenu);CHECK(save("/private/tmp/starcraft-hero-status.bmp"));
     return 0;
 }
 

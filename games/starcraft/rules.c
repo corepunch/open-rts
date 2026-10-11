@@ -98,7 +98,7 @@ static int faction_of(const level_t *map, int owner) {
  * their Carrier or Reaver. Brood War's double hits are in weapons.dat. */
 #define SC_NOT_FIGHTER (AI_ROLE_FIGHTER | AI_ROLE_HITS_GROUND | AI_ROLE_HITS_AIR)
 static actorrole_t actors[SC_TYPES + 1] = {
-#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,addon_x,addon_y) \
+#define SC_UNIT(id,name,rank,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,addon_x,addon_y) \
     [(id)+1] = { .roles = ((supply) > 0 ? AI_ROLE_SUPPLY : 0) | \
                           (((flags) & (0x200 | 0x400000)) ? AI_ROLE_CLOAKED : 0) | \
                           (((flags) & 0x200000) ? AI_ROLE_SUPPORT : 0) | \

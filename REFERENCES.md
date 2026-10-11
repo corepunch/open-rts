@@ -2180,6 +2180,10 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
 - [Blizzard's original StarCraft SCV guide](https://classic.battle.net/scc/Terran/uscv.shtml):
   confirms that one Command Center can queue five SCVs. The current HUD
   layout uses the retail assets above and the pinned Stargus screen tables.
+- [Blizzard's original StarCraft manual](https://ftp.blizzard.com/pub/misc/StarCraft.PDF):
+  labels the selected-unit panel's wireframe, hit points, unit designation,
+  rank, kills, equipment and portrait. The equipment boxes describe armor and
+  weapon upgrades; this distinguishes them from item inventory slots.
 - [Pinned Stratagus resource order](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/action/action_resource.cpp):
   `COrder_Resource::UpdatePathFinderData` targets the resource unit's footprint
   with a zero-to-one-tile goal range. Stargus's SCV script selects

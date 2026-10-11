@@ -667,6 +667,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
         return;
     }
 
+    G_UnitKilled(target, source);
     target->hp = 0;
     P_MobjSetSelected(target, false);
     target->traits &= ~(MF_SELECTABLE | MF_MOBILE | MF_FLY |

@@ -1580,3 +1580,49 @@ with time, queue-slot and Cancel clicks change resources and depth, and a
 completed SCV receives its building's rally movement order. `test_zerg`
 also verifies that a larva's Zergling morph inherits its hatchery's rally
 target.
+
+## Hero status, equipment and compact font (2026-10-11)
+
+**Scope and evidence.** This pass examined the original-disc assets and the
+user-supplied retail screenshot of Sarah Kerrigan, not `starcraft.exe`.
+Blizzard's [original manual](https://ftp.blizzard.com/pub/misc/StarCraft.PDF)
+calls the two bottom boxes **Equipment** (armor and weapon upgrade status),
+not carried-item inventory. Stargus at pinned commit
+`2a4d54604949e4772f6638a8412c8ebd62444044` maps armor to
+`cmdicons.grp` frame 292 and piercing damage to frame 290 in
+`scripts/ui.lua`; `dataset/palettes.json` selects the native `ticon-0`
+palette for these command icons. The retail screenshot confirms the two
+blue-framed boxes, unit rank, personal kills, and a second number under HP.
+
+| Native file | SHA-256 | Confirmed finding |
+| --- | --- | --- |
+| `rez/statdata.bin` | `9ef01fd2900787518642b496ce1199253ba96ff205176f462410a8340a65d41f` | Wireframe ID 1 at (168,388), name ID 65531 at (240,388), HP ID 65529 at (160,452), second status ID 65528 at (160,464), label slots 65516/65515 at (244,404)/(244,418), equipment slots 9/10 at (242,439)/(281,439), all relative to the 640×480 console |
+| `arr/units.dat` | `dc7b8b59bb14a3ba67829926ad50e8d363032a351299e5087f790ed09616619d` | Column 11, byte offset 4524, is a unit's rank/sublabel selector; Sarah Kerrigan row 16 has value 17 |
+| `rez/stat_txt.tbl` | `e1f4144bbe26383f93e37f694de5d92126cf5de793f21c41e6a0c08f7930b1a1` | This disc has 1185 strings; one-based label `550 + rank` resolves Kerrigan's 17 to label 567, “Lieutenant” |
+| `install/files/font/font10.fnt` | `10dcf7cf3ee78f29f20992d4608e4f6c9b1c8f26d502b2e70794b437033c27f9` | Native compact game font, line height 13, fits the status rows |
+| `unit/cmdbtns/ticon.pcx` | `13aafd5f42546f35518bb375f8a38ae3bd82dfb74366061cfde874bb0b9d197b` | Supplies the command icon palette and first-16-color mapping |
+
+**Implementation consequence.** The C catalogue now emits the rank text
+from each `units.dat` row and this disc's `stat_txt.tbl`; `m_status.c` owns
+the native status controls and uses `font10` for their centered text. A
+StarCraft mobj keeps its own kill count, incremented at the common lethal-hit
+point when an enemy unit is credited as killer. The screenshot's `221/250`
+confirms Kerrigan's 250 maximum energy; applying that maximum to the other
+spellcaster heroes is an **inference** pending an executable or retail-data
+trace.
+Armor and weapon badges show the current upgrade level for the selected
+owner's catalog upgrade IDs. The icon/frame mapping follows the pinned
+Stargus source; the exact retail icon tint remains **unknown** without an
+executable palette trace. The current `ticon-0` translation is native-source
+based, not a visual color correction.
+
+**Disproved assumption.** Newer PyMS tables place rank strings at a different
+base. Applying their `1302 + rank` index to this original-disc 1185-string
+table yields no label; the checked disc gives Kerrigan's “Lieutenant” at 567.
+Likewise the prior 16-pixel game status font produced oversized labels in
+the available 14-pixel control rows.
+
+Reproduce with `build/sc_catalog data/STARCRAFT/native` (Kerrigan is row 16)
+and `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay` (writes
+`/private/tmp/starcraft-hero-status.bmp`). The test checks rank, personal
+kills, energy, compact font and both equipment controls.

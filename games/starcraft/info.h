@@ -16,6 +16,7 @@ typedef enum {
     MT_DROPSHIP = 12,
     MT_BATTLECRUISER = 13,
     MT_NUCLEAR_MISSILE = 15,
+    MT_SARAH_KERRIGAN = 17,
     MT_SIEGE_MODE = 31,
     MT_FIREBAT = 33,
     MT_BROODLING = 41,

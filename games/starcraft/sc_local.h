@@ -4,7 +4,7 @@
 #include "starcraft.h"
 #include "info.h"
 typedef struct {
-    const char *name;
+    const char *name, *rank;
     int hp;
     uint32_t flags;
     isize2_t placement;
@@ -82,8 +82,9 @@ int sc_upgrade_product(int upgrade, int level);
 bool sc_owner_has(int owner, uint16_t type);
 bool sc_upgrade_offered(int owner, const StaticProductDefinition *product);
 bool sc_cancel_production(mobj_t *producer, int slot);
-bool sc_status_init(menu_t *menu, menuitem_t *items, int capacity, const char *root,
-                    const uint32_t *palette, bitmapfont_t *font, const spritesheet_t *cmdicons);
+bool sc_status_init(menu_t *menu, menuitem_t *items, int capacity, int stat_first, int stat_end,
+                    const char *root, const uint32_t *palette, bitmapfont_t *font,
+                    spritesheet_t *wireframe, const spritesheet_t *cmdicons);
 void sc_status_refresh(const mobj_t *selected, int selection_count);
 void sc_status_shutdown(void);
 extern char sc_names[SC_TYPES][16];

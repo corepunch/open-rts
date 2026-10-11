@@ -41,7 +41,7 @@ static char player_name[32]="Player", campaign_map[256], custom_map[512];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
 static int portrait_item, portrait_id=-1, tip_item;
-static int selected_id=-1, selection_start, command_start, wire_item, name_item, hp_item;
+static int selected_id=-1, selection_start, command_start;
 static int selection_icon_start, selection_count;
 static mobj_t *selection_units[SC_SELECTION_SLOTS];
 static char start_tip[512];
@@ -2063,12 +2063,6 @@ static void refresh(menu_t *menu) {
         if(sc_portrait(asset_root,id,path,sizeof(path)))sc_movie(path,&portrait.sheet,&portrait.ms,&portrait.palettes);
     }
     huditems[portrait_item].visible=portrait.sheet.numlumps>0;
-    huditems[name_item].visible=true;snprintf(huditems[name_item].text,128,"%s",sc_units[selected_id].name);
-    huditems[hp_item].visible=true;snprintf(huditems[hp_item].text,128,"%d/%d",selected->hp,sc_units[selected_id].hp);
-    huditems[wire_item].visible=selection_count==1&&selected_id<wireframe.numlumps;
-    huditems[name_item].visible=selection_count==1;
-    huditems[hp_item].visible=selection_count==1;
-    for(int s=0;s<MS_STATES;s++)huditems[wire_item].look[s].cell=selected_id;
     if(selection_count>1)for(int i=0;i<selection_count;i++) {
         menuitem_t *icon=&huditems[selection_icon_start+i];
         icon->visible=icon->enabled=true;
@@ -2218,11 +2212,6 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     for(int i=portrait_item;i<hud.numitems;i++)huditems[i].visible=false;
     huditems[portrait_item].kind=MI_STATIC;huditems[portrait_item].ownerdraw=draw_portrait;
     selection_start=append_dialog(root,"rez/statdata.bin");if(selection_start<0)return NULL;
-    for(int i=selection_start;i<hud.numitems;i++) {
-        if(huditems[i].id==1){wire_item=i;huditems[i].sheet=&wireframe;huditems[i].font=NULL;}
-        if(huditems[i].id==65531)name_item=i;
-        if(huditems[i].id==65529)hp_item=i;
-    }
     command_start=append_dialog(root,"rez/statbtnt.bin");if(command_start<0)return NULL;
     resource_start=hud.numitems;
     for(int r=0;r<3;r++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_STATIC,.visible=true,
@@ -2245,7 +2234,8 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
             .routine=select_slot,.opaque=false};
     }
     if(!sc_status_init(&hud,huditems,(int)(sizeof(huditems)/sizeof(*huditems)),
-                       root,console.palette,&gamefonts[0],&icons))return NULL;
+                       selection_start,command_start,root,console.palette,&gamefonts[0],
+                       &wireframe,&icons))return NULL;
     sc_start_tip(&level,start_tip,sizeof(start_tip));
     for(int i=0;i<4;i++)ingame.fonts[i]=gamefonts[i];
     if(!load_ingame(app))return NULL;

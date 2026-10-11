@@ -103,6 +103,9 @@ static const struct { mobjtype_id_t type; int upgrade; } reactors[] = {
     {MT_DEFILER, 32}, {MT_HIGH_TEMPLAR, 40}, {MT_ARBITER, 44},
 };
 int sc_max_energy(const mobj_t *mo) {
+    const sc_unit_t *unit=sc_unit(mo);
+    if(unit&&(unit->flags&SC_UNIT_HERO)&&(unit->flags&SC_UNIT_SPELLCASTER))
+        return SC_MAX_ENERGY+SC_REACTOR_ENERGY;
     for (unsigned i = 0; i < sizeof(reactors) / sizeof(*reactors); i++)
         if (mo->type_id == reactors[i].type && sc_upgrade_level(mo->owner, reactors[i].upgrade))
             return SC_MAX_ENERGY + SC_REACTOR_ENERGY;

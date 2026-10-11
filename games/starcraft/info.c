@@ -3,8 +3,8 @@
 #include <string.h>
 /* Writable: a map's UNIx/UNIS section overlays it (see rules.c). */
 sc_unit_t sc_units[SC_TYPES] = {
-#define SC_UNIT(id,name,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,addon_x,addon_y) \
-    [id] = {name,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,{addon_x,addon_y}},
+#define SC_UNIT(id,name,rank,hp,flags,w,h,sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,addon_x,addon_y) \
+    [id] = {name,rank,hp,flags,{w,h},sight,orders,race,minerals,gas,portrait,time,supply,used,armor,armor_up,build_score,destroy_score,shields,subunit,ground,air,size,speed,space,space_provided,{addon_x,addon_y}},
 #include "units.inc"
 #undef SC_UNIT
 };
