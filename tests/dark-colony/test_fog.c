@@ -240,6 +240,31 @@ static void check_render(void) {
     V_ReadPixels(pixels, 640 * 4);
     assert((pixels[32 * 640 + 15] & 255) == 127);
     assert((pixels[32 * 640 + 47] & 255) == 0);
+    /* With a frame clock, fog eases between sight refreshes the way
+     * Warcraft 2000 relaxes its light map, then settles on the native shade. */
+    app.cam = (fvec2_t){0, 0};
+    clear_sight();
+    app.ticks_ms = 1000;
+    V_BeginFrame(0xffffffffu);
+    R_DrawFog(&app, &level);
+    for (int i = 0; i < level.width * level.height; ++i)
+        level.sight.cells[i] = PLAYER | SIGHT_EXPLORED;
+    int previous = 0;
+    for (uint32_t t = 1016; t <= 1064; t += 16) {
+        app.ticks_ms = t;
+        V_BeginFrame(0xffffffffu);
+        R_DrawFog(&app, &level);
+        V_ReadPixels(pixels, 640 * 4);
+        int shade = pixels[64 * 640 + 64] & 255;
+        assert(shade > previous && shade < 255);
+        previous = shade;
+    }
+    app.ticks_ms = 2000;
+    V_BeginFrame(0xffffffffu);
+    R_DrawFog(&app, &level);
+    V_ReadPixels(pixels, 640 * 4);
+    assert((pixels[64 * 640 + 64] & 255) == 255);
+    app.ticks_ms = 0;
     /* Scene rows use the map's bottom-up coordinates; a bright bottom row
      * must not reveal the top of the map after camera movement. */
     clear_sight();
