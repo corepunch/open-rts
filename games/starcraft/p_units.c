@@ -359,6 +359,19 @@ void sc_unit_ticker(mobj_t *mo, int frames) {
 bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_t *target, fixed2_t at) {
     bool any = false;
     switch (order) {
+    case TC_CANCEL_PRODUCTION:
+        for(int i=0;i<count;i++)sc_cancel_production(units[i],tech);
+        return true;
+    case TC_SET_RALLY:
+        for(int i=0;i<count;i++) {
+            mobj_t *u=units[i];
+            const sc_unit_t *type=sc_unit(u);
+            if(!type||!(type->flags&SC_UNIT_BUILDING))continue;
+            fixed2_t point=target?fixed3_xy(target->core.position):at;
+            if(!L_Contains(&level,fixed_floor_int(point.x),fixed_floor_int(point.y)))continue;
+            u->sc.rally=(sc_rally_t){.at=point,.target=target?target->id:0,.set=true};
+        }
+        return true;
     case TC_DEPLOY:
         for (int i = 0; i < count; i++) sc_cast(units[i], SC_TECH_SIEGE_MODE, NULL, at);
         return true;

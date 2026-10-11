@@ -288,11 +288,13 @@ bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProduct
         S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
     } else if(zerg_morph(p)) {
         fixed2_t at=fixed3_xy(u->core.position);
+        const mobj_t *hatchery=P_MobjById(u->sc.parent);
         if(!P_MorphMobj(u,(uint16_t)p->product_type))return false;
+        if(p->product_class==RTS_PRODUCT_UNIT)G_UnitProduced(u,hatchery);
         if(per_egg(p->product_type)>1) {
             mobj_t *twin=sc_spawn_actor((unsigned)p->product_type-1,
                 (ivec2_t){(at.x>>(FIXED_FRAC_BITS-5))+12,(at.y>>(FIXED_FRAC_BITS-5))+4},u->owner);
-            if(twin) { twin->team=u->team; twin->allegiance=u->allegiance; twin->hp=twin->max_hp*u->hp/u->max_hp; }
+            if(twin) { twin->team=u->team; twin->allegiance=u->allegiance; twin->hp=twin->max_hp*u->hp/u->max_hp; G_UnitProduced(twin,hatchery); }
         }
         S_Bark(&u,1,SE_READY,false);
     } else {
@@ -309,6 +311,18 @@ bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProduct
 }
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const StaticProductDefinition *p,const mobj_t *n,fixed2_t *out) { (void)m;(void)u;(void)p;(void)n;(void)out; return false; }
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
+bool sc_cancel_production(mobj_t *producer,int slot) {
+    production_t *queue=producer?producer->production:NULL;
+    if(!queue||queue->placed||slot<0||slot>=queue->queue_count||
+       producer->owner<0||producer->owner>=8)return false;
+    productionitem_t item=P_ProductionItem(queue,slot);
+    const StaticProductDefinition *p=G_ModelProductByClassType(NULL,item.product_class,item.product_type);
+    if(!p)return false;
+    level.player_resources[producer->owner][0]+=p->cost;
+    for(int r=1;r<RTS_MAX_RESOURCES;r++)level.player_resources[producer->owner][r]+=p->extra_costs[r-1];
+    G_RemoveProductionAt(producer,slot);
+    return true;
+}
 /* An order on a hatchery goes to the first of its larvae that is free. */
 bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) {
     if(u&&p&&p->makers[0]==MT_LARVA&&u->type_id!=MT_LARVA) {
@@ -356,10 +370,11 @@ void sc_supply_counts(int owner,int *used,int *provided) {
             need+=sc_units[mo->type_id-1].supply_required;
         }
         if(mo->type_id==MT_NUCLEAR_SILO) need+=sc_units[MT_NUCLEAR_MISSILE-1].supply_required*mo->sc.hangar;
-        if(mo->production&&mo->production->product_class==RTS_PRODUCT_UNIT&&
-           mo->production->product_type>0&&mo->production->product_type<=SC_TYPES)
-            need+=sc_units[mo->production->product_type-1].supply_required*mo->production->queue_count*
-                per_egg(mo->production->product_type);
+        if(mo->production)for(int slot=0;slot<mo->production->queue_count;slot++) {
+            productionitem_t item=P_ProductionItem(mo->production,slot);
+            if(item.product_class==RTS_PRODUCT_UNIT&&item.product_type>0&&item.product_type<=SC_TYPES)
+                need+=sc_units[item.product_type-1].supply_required*per_egg(item.product_type);
+        }
     }
     if(have>400) have=400;
     if(used) *used=need;

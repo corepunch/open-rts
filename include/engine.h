@@ -823,11 +823,19 @@ typedef struct mobjcore_s {
     char sprite_name[32];
 } mobjcore_t;
 
+typedef struct {
+    uint16_t actor_id;
+    uint8_t product_class;
+    int product_type, time_ms;
+} productionitem_t;
+
 struct production_s {
+    /* Active product is stored in these fields; pending[n] is slot n+1. */
     uint16_t actor_id;
     uint8_t product_class;
     int product_type;
     int queue_count;
+    productionitem_t pending[RTS_MAX_PRODUCTION_QUEUE - 1];
     int time_ms;
     int time_left_ms;
     bool blocked;
@@ -836,6 +844,11 @@ struct production_s {
     bool placed;
     ivec2_t cell; /* Chosen building site, retained through production. */
 };
+
+static inline productionitem_t P_ProductionItem(const production_t *queue,int slot) {
+    return slot==0?(productionitem_t){queue->actor_id,queue->product_class,
+                                       queue->product_type,queue->time_ms}:queue->pending[slot-1];
+}
 
 #include "mobj_data.h" // per-game object fields (needs m_vec types above)
 
@@ -985,7 +998,7 @@ typedef enum {
     TC_CONSTRUCT, /* units[0] builds `product` at position; product 0 cancels the site in units. */
     TC_REPAIR, TC_STAND_GROUND, TC_SPELL,
     TC_BOARD, TC_UNLOAD,
-    TC_CANCEL_PRODUCTION,
+    TC_CANCEL_PRODUCTION, TC_SET_RALLY,
     TC_RESYNC, /* Network only: one chunk of a resync save, never queued or run. */
     TC_MAX = TC_RESYNC
 } ticorder_t;
@@ -1047,6 +1060,7 @@ void G_ClockEnd(int64_t before, int64_t clock);
 const uint32_t *G_AllianceMasks(const level_t *map);
 /* Start of a production tick, before queues advance. */
 void G_ProductionBegin(int elapsed_ms);
+void G_UnitProduced(mobj_t *unit, const mobj_t *producer);
 /* Distinguishes save bodies whose layout the game changed. */
 uint32_t G_SaveLayout(void);
 bool G_NetSignature(const char *map_path, uint32_t *signature);
@@ -2112,6 +2126,9 @@ mobj_t  *G_FindProducer(int owner, const StaticProductDefinition *product);
 /* A producer whose queue holds fewer than `depth` orders. */
 mobj_t  *G_FindProducerBelow(int owner, const StaticProductDefinition *product, int depth);
 bool     G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product);
+bool     G_QueueAllowsProduct(const production_t *queue, const StaticProductDefinition *product);
+/* Remove one queue slot, promoting the next product only when slot zero leaves. */
+void     G_RemoveProductionAt(mobj_t *producer, int slot);
 int G_ModelRadarLevel(int owner);
 bool     G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product);
 bool     G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product);

@@ -117,10 +117,19 @@ int G_CountPlannedActors(int owner, uint16_t actor_id) {
         const mobj_t *unit = (mobj_t *)th;
         if (unit->owner != owner || unit->remove || unit->hp <= 0) continue;
         if (unit->type_id == actor_id) count++;
-        if (unit->production && unit->production->actor_id == actor_id)
-            count += unit->production->queue_count;
+        if (unit->production)for(int i=0;i<unit->production->queue_count;i++)
+            count += P_ProductionItem(unit->production,i).actor_id==actor_id;
     }
     return count;
+}
+
+bool G_QueueAllowsProduct(const production_t *queue,const StaticProductDefinition *product) {
+    if(!product)return false;
+    if(!queue||queue->queue_count<=0)return true;
+    if(queue->placed||queue->queue_count>=RTS_MAX_PRODUCTION_QUEUE)return false;
+    if(queue->product_class==product->product_class&&queue->product_type==product->product_type)return true;
+    return queue->product_class==RTS_PRODUCT_UNIT&&product->product_class==RTS_PRODUCT_UNIT&&
+           !G_QueueLocksProduct(product);
 }
 
 static bool producer_accepts(const mobj_t *unit, int owner,
@@ -129,10 +138,7 @@ static bool producer_accepts(const mobj_t *unit, int owner,
         return false;
     if (!G_ModelProducerHasTech(unit, product)) return false;
     const production_t *queue = unit->production;
-    if (queue && queue->queue_count > 0 && G_QueueLocksProduct(product) &&
-        (queue->queue_count >= RTS_MAX_PRODUCTION_QUEUE ||
-         queue->product_class != product->product_class ||
-         queue->product_type != product->product_type)) return false;
+    if (!G_QueueAllowsProduct(queue,product)) return false;
     for (int i = 0; i < product->maker_count; ++i)
         if (unit->type_id == product->makers[i]) return true;
     return false;
@@ -325,6 +331,7 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
     if (product->product_class == RTS_PRODUCT_BUILDING) P_SyncBuildingBlocking();
     model_emit_build_completion(active_model, new_unit, producer, product);
+    G_UnitProduced(new_unit, producer);
     S_Bark(&new_unit, 1, SE_READY, false);
     if (use_special_release)
         order_barracks_exit_spacing(new_unit, producer, spot);
@@ -337,12 +344,10 @@ static bool enqueue_product(mobj_t *producer,
     production_t *production = P_EnsureMobjProduction(producer);
     if (!production) return false;
     if (production->queue_count > 0) {
-        if (production->placed || production->actor_id != actor_id ||
-            production->product_type != product->product_type ||
-            production->product_class != (uint8_t)product->product_class ||
-            production->queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
-            return false;
-        }
+        if (!G_QueueAllowsProduct(production,product)) return false;
+        production->pending[production->queue_count-1]=(productionitem_t){
+            actor_id,(uint8_t)product->product_class,product->product_type,
+            G_ModelProductTrainingTimeMs(product)};
         production->queue_count++;
         model_emit_event(active_model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                          product->product_class, product->product_type);
@@ -369,17 +374,33 @@ static void clear_model_production(mobj_t *producer) {
     P_FreeMobjProduction(producer);
 }
 
-static void advance_model_production_queue(mobj_t *producer) {
-    if (!producer || !producer->production) return;
+void G_RemoveProductionAt(mobj_t *producer,int slot) {
+    if (!producer || !producer->production || slot<0 ||
+        slot>=producer->production->queue_count) return;
     production_t *production = producer->production;
-    production->release_active = false;
-    production->release_ready = false;
+    if(slot>0) {
+        memmove(&production->pending[slot-1],&production->pending[slot],
+                (size_t)(production->queue_count-slot-1)*sizeof(*production->pending));
+        production->queue_count--;
+        production->pending[production->queue_count-1]=(productionitem_t){0};
+        return;
+    }
     production->queue_count--;
     if (production->queue_count > 0) {
+        productionitem_t next=production->pending[0];
+        memmove(production->pending,production->pending+1,
+                (size_t)(production->queue_count-1)*sizeof(*production->pending));
+        production->pending[production->queue_count-1]=(productionitem_t){0};
+        production->actor_id=next.actor_id;
+        production->product_class=next.product_class;
+        production->product_type=next.product_type;
+        production->time_ms=next.time_ms;
         production->time_left_ms = production->time_ms;
     } else {
         clear_model_production(producer);
+        return;
     }
+    production->release_active=production->release_ready=production->blocked=false;
 }
 
 static bool afford_product(int owner, const StaticProductDefinition *product) {
@@ -476,7 +497,7 @@ bool G_ProductionTicker(int elapsed_ms) {
                 continue;
             }
             spawned = true;
-            advance_model_production_queue(producer);
+            G_RemoveProductionAt(producer,0);
             continue;
         }
         const StaticProductDefinition *pending = G_ModelProductByClassType(active_model,
@@ -514,7 +535,7 @@ bool G_ProductionTicker(int elapsed_ms) {
                 break;
             }
             spawned = true;
-            advance_model_production_queue(producer);
+            G_RemoveProductionAt(producer,0);
             production = producer->production;
             if (!production) break;
         }

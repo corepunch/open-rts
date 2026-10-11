@@ -562,6 +562,8 @@ must remain visible underneath hover overlays.
 | `gamemenu.bin` | (184,32), 264×288 | Pause menu with original button geometry |
 | `minimap.bin` | (0,315), 138×165 | Minimap at (6,348), 128×128 |
 | `statdata.bin` | (138,388), 270×92 | Selected name, HP and wireframe |
+| `tcmdbtns.grp`, `zcmdbtns.grp`, `pcmdbtns.grp` | five 36×36 queue slots | Native blue borders and slot numerals; displayed beside the wireframe |
+| `tpbrempt.pcx`, `tpbrfull.pcx` | 108×9 each | Native production progress track and fill |
 | `statbtnt.bin` | (496,354), 144×126 | Nine native slots; Move 228 and Stop 229 icons |
 | `statport.bin` | (408,408), 88×72 | Portrait at (413,410), 60×56 |
 | `stat_f10.bin` | (408,388), 88×20 | Menu button at (416,388), 64×20 |

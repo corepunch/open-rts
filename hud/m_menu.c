@@ -337,6 +337,10 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
         }
         return true;
     }
+    if (!menu->modal && key == SDLK_ESCAPE && menu->target && !event->key.repeat) {
+        cancel(menu);
+        return true;
+    }
     if (!typing && hotkey(menu, event)) return true;
     if (!menu->modal) {
         if (key != SDLK_ESCAPE || event->key.repeat || !menu->target) return false;

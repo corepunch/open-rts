@@ -526,6 +526,8 @@ bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *p
             production->queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
             return false;
         }
+        production->pending[production->queue_count-1]=(productionitem_t){
+            actor_id,RTS_PRODUCT_UNIT,product->product_type,G_ModelProductTrainingTimeMs(product)};
         production->queue_count++;
         return true;
     }
@@ -618,19 +620,6 @@ static bool dc_product_uses_barracks_release(const mobj_t *producer,
 
 static void dc_clear_production(mobj_t *producer) {
     P_FreeMobjProduction(producer);
-}
-
-static void dc_advance_production_queue(mobj_t *producer) {
-    if (!producer || !producer->production) return;
-    production_t *production = producer->production;
-    production->release_active = false;
-    production->release_ready = false;
-    production->queue_count--;
-    if (production->queue_count > 0) {
-        production->time_left_ms = production->time_ms;
-    } else {
-        dc_clear_production(producer);
-    }
 }
 
 static bool dc_position_available_for_spawn(const level_t *map, mobj_t *const *units,
@@ -799,7 +788,7 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count
             }
             spawned = true;
             producer = units[i];
-            dc_advance_production_queue(producer);
+            G_RemoveProductionAt(producer,0);
             continue;
         }
         production->time_left_ms -= elapsed_ms;
@@ -816,7 +805,7 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count
             }
             spawned = true;
             producer = units[i];
-            dc_advance_production_queue(producer);
+            G_RemoveProductionAt(producer,0);
             /* The last finished unit frees the queue. */
             production = producer->production;
             if (!production) break;

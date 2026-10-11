@@ -1934,6 +1934,26 @@ static void focus(menu_t *menu,menuitem_t *item,menuaction_t action) {
 static void stop(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE)HU_SelectedOrder(TC_STOP,(fvec2_t){0},0);
 }
+static void rally(menu_t *m,menuitem_t *i,menuaction_t a) {
+    if(a==MA_ACTIVATE){M_MenuTarget(m,i);return;}
+    if(a!=MA_TARGET)return;
+    ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
+    int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
+        hudview.sprites,gameinfo,m->cursor.x,m->cursor.y,-1);
+    uint32_t target=picked>=0?hudview.units[picked]->id:0;
+    HU_SelectedOrder(TC_SET_RALLY,(fvec2_t){at.x,at.y},target);
+}
+static void cancel_production(menu_t *m,menuitem_t *i,menuaction_t a) {
+    (void)m;(void)i;
+    if(a!=MA_ACTIVATE)return;
+    for(int j=0;j<hudview.unit_count;j++) {
+        mobj_t *u=hudview.units[j];
+        if(!P_MobjIsSelected(u)||u->owner!=consoleplayer||!u->production)continue;
+        ticcmd_t cmd={.order=TC_CANCEL_PRODUCTION,.product=0,.count=1,.units={u->id}};
+        G_QueueTiccmd(&cmd);
+        return;
+    }
+}
 static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a==MA_ACTIVATE)M_MenuTarget(m,i);
     if(a!=MA_TARGET)return;
@@ -1997,9 +2017,7 @@ static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int v
 static bool product_ready(const mobj_t *maker,const StaticProductDefinition *p) {
     if(!G_ModelProductAvailable(NULL,consoleplayer,p)||!R_CanAfford(consoleplayer,p))return false;
     const production_t *queue=maker->production;
-    if(queue&&queue->queue_count &&
-       (p->worker_build||queue->placed||queue->queue_count>=RTS_MAX_PRODUCTION_QUEUE||
-        queue->product_type!=p->product_type||queue->product_class!=p->product_class))return false;
+    if((queue&&queue->queue_count&&p->worker_build)||!G_QueueAllowsProduct(queue,p))return false;
     if(p->makers[0]==MT_LARVA&&maker->type_id!=MT_LARVA) {
         for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
             const mobj_t *larva=(const mobj_t*)th;
@@ -2035,6 +2053,7 @@ static void refresh(menu_t *menu) {
     for(int i=0;i<9;i++)huditems[command_start+i].visible=false;
     huditems[portrait_item].visible=false;
     for(int i=0;i<SC_SELECTION_SLOTS;i++)huditems[selection_icon_start+i].visible=false;
+    sc_status_refresh(selected,selection_count);
     if(!selected)return;
     catalog_index=selected_id;
     int id=sc_units[selected_id].portrait;
@@ -2055,16 +2074,6 @@ static void refresh(menu_t *menu) {
         icon->visible=icon->enabled=true;
         int frame=(int)selection_units[i]->type_id-1;
         for(int s=0;s<MS_STATES;s++)icon->look[s].cell=frame;
-    }
-    if(selected->production) {
-        const production_t *queue=selected->production;
-        int progress=queue->time_ms>0?100-queue->time_left_ms*100/queue->time_ms:100;
-        if(queue->queue_count>1)
-            snprintf(huditems[hp_item].text,128,"%s %d%%  x%d",
-                queue->placed?"Building":"Training",progress,queue->queue_count);
-        else
-            snprintf(huditems[hp_item].text,128,"%s %d%%",
-                queue->placed?"Building":"Training",progress);
     }
     if(selected->owner!=consoleplayer)return;
     if(!build_page) {
@@ -2114,6 +2123,19 @@ static void refresh(menu_t *menu) {
             huditems[command_start+slot++].enabled=sc_has_tech(consoleplayer,tech);
         }
         if(sc_units[selected_id].space_provided&&(sc_units[selected_id].flags&SC_UNIT_BUILDING)&&slot<9)button(slot++,312,SDLK_u,unload,0,"Unload All");
+        if(sc_units[selected_id].flags&SC_UNIT_BUILDING) {
+            bool makes_mobile=false;
+            for(int k=0;k<n;k++)for(int maker=0;maker<list[k].maker_count;maker++) {
+                const mobjtype_t *type=P_ActorType(G_ModelActorIdForProduct(&list[k]));
+                if(list[k].makers[maker]==selected->type_id&&
+                   list[k].product_class==RTS_PRODUCT_UNIT&&type&&(type->traits&MF_MOBILE))makes_mobile=true;
+            }
+            if(makes_mobile)button(5,286,SDLK_r,rally,0,"Set Rally Point");
+            if(selected->production&&!selected->production->placed)
+                button(8,236,SDLK_ESCAPE,cancel_production,0,
+                    selected->production->product_class==RTS_PRODUCT_UPGRADE?
+                    "Cancel Research":"Cancel Unit Training");
+        }
     }
     if(build_page)button(8,236,SDLK_ESCAPE,build_menu,0,"Cancel");
 }
@@ -2222,6 +2244,8 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
             .rect={168+cell.x,396+cell.y,33,34},.sheet=&wireframe,.stretch=true,
             .routine=select_slot,.opaque=false};
     }
+    if(!sc_status_init(&hud,huditems,(int)(sizeof(huditems)/sizeof(*huditems)),
+                       root,console.palette,&gamefonts[0],&icons))return NULL;
     sc_start_tip(&level,start_tip,sizeof(start_tip));
     for(int i=0;i<4;i++)ingame.fonts[i]=gamefonts[i];
     if(!load_ingame(app))return NULL;
@@ -2231,5 +2255,6 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     return &hud;
 }
 void G_ShutdownHUD(void) {
+    sc_status_shutdown();
     R_FreeSprite(&console);R_FreeSprite(&wireframe);R_FreeSprite(&icons);R_FreeSprite(&resource_icons);R_FreeSprite(&ingame.widgets);R_FreeSprite(&ingame.panel);free_ingame();R_FreeSprite(&portrait.sheet);free(portrait.palettes);memset(&portrait,0,sizeof(portrait));portrait_id=-1;hudview=(hudview_t){0};
 }

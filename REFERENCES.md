@@ -2177,6 +2177,9 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   Stargus converts assets to PNG/MNG and uses hand-authored Lua menus; this
   plugin independently decodes the original files into engine-owned indexed
   images and shared menu tables. No PNG/MNG dependency is used.
+- [Blizzard's original StarCraft SCV guide](https://classic.battle.net/scc/Terran/uscv.shtml):
+  confirms that one Command Center can queue five SCVs. The current HUD
+  layout uses the retail assets above and the pinned Stargus screen tables.
 - [Pinned Stratagus resource order](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/action/action_resource.cpp):
   `COrder_Resource::UpdatePathFinderData` targets the resource unit's footprint
   with a zero-to-one-tile goal range. Stargus's SCV script selects

@@ -36,9 +36,15 @@ int main(void) {
         if (buildings[k] == MT_ALIEN_BRDRHIVE) sac = building;
     }
     level.player_resources[1][0] = 100000;
+    int planned=G_CountPlannedActors(1,MT_SY_DEMON);
     G_RunTiccmd(1, &(ticcmd_t){.order = TC_PURCHASE, .product = 50}); /* Sy-Demon */
     G_RunTiccmd(1, &(ticcmd_t){.order = TC_SUBMIT});
     assert(sac->production && sac->production->queue_count == 1);
+    G_RunTiccmd(1, &(ticcmd_t){.order = TC_PURCHASE, .product = 50});
+    G_RunTiccmd(1, &(ticcmd_t){.order = TC_SUBMIT});
+    assert(sac->production->queue_count == 2 && G_CountPlannedActors(1,MT_SY_DEMON) == planned + 2);
+    G_RemoveProductionAt(sac,1);
+    assert(sac->production->queue_count == 1 && G_CountPlannedActors(1,MT_SY_DEMON) == planned + 1);
     mobj_t *demon = NULL;
     for (int tic = 0; tic < 3000 && !demon; ++tic) {
         P_Ticker();

@@ -421,6 +421,13 @@ static void mouse_click(menuitem_t *it) {
     event.button.type=SDL_MOUSEBUTTONUP;
     M_MenuResponder(hudmenu,&app,&event);
 }
+static menuitem_t *pipeline_slot(int slot) {
+    for(int i=0;i<hudmenu->numitems;i++) {
+        menuitem_t *it=&hudmenu->items[i];
+        if(it->visible&&it->tooltip&&!strcmp(it->tooltip,"Cancel queued unit")&&it->value==slot)return it;
+    }
+    return NULL;
+}
 
 /* Abilities, siege mode, Archon Warp and Unload All from the command card. */
 static int command_card(void) {
@@ -440,13 +447,70 @@ static int command_card(void) {
     CHECK(train && M_MenuItemRect(hudmenu,train).x==train->rect.x*2);
     mouse_click(train);
     CHECK(hall->production->queue_count==3 && level.player_resources[consoleplayer][0]==50);
+    hudmenu->refresh(hudmenu);
+    CHECK(pipeline_slot(0)&&M_MenuItemRect(hudmenu,pipeline_slot(0)).x==480&&
+          M_MenuItemRect(hudmenu,pipeline_slot(4)).y==868);
     app.win=(isize2_t){640,480};
     V_AllocScreen(app.win.w,app.win.h);
-    bool queue_shown=false;
     hudmenu->refresh(hudmenu);
-    for(int i=0;i<hudmenu->numitems;i++)queue_shown|=strstr(hudmenu->items[i].text,"Training")&&
-        strstr(hudmenu->items[i].text,"x3");
-    CHECK(queue_shown);
+    for(int slot=0;slot<5;slot++)CHECK(pipeline_slot(slot)&&
+        pipeline_slot(slot)->enabled==(slot<3));
+    bool progress_shown=false,building_shown=false;
+    for(int i=0;i<hudmenu->numitems;i++) {
+        progress_shown|=hudmenu->items[i].visible&&hudmenu->items[i].ownerdraw&&
+            hudmenu->items[i].rect.x==278&&hudmenu->items[i].rect.w==108;
+        building_shown|=hudmenu->items[i].visible&&!strcmp(hudmenu->items[i].text,"Building");
+    }
+    CHECK(progress_shown&&building_shown);
+    draw(NULL);M_MenuDrawer(hudmenu);CHECK(save("/private/tmp/starcraft-queue.bmp"));
+    uint8_t empty_bar[108*9];
+    for(int y=0;y<9;y++)memcpy(empty_bar+y*108,screens[0].pixels+(422+y)*640+278,108);
+    hall->production->time_left_ms=hall->production->time_ms/2;
+    draw(NULL);M_MenuDrawer(hudmenu);
+    bool bar_advanced=false;
+    for(int y=0;y<9;y++)
+        bar_advanced|=memcmp(empty_bar+y*108,screens[0].pixels+(422+y)*640+278,108)!=0;
+    CHECK(bar_advanced);
+    mouse_click(pipeline_slot(2));
+    CHECK(hall->production&&hall->production->queue_count==2&&
+          level.player_resources[consoleplayer][0]==100);
+    mouse_click(card("Cancel Unit Training",&hall,1));
+    CHECK(hall->production&&hall->production->queue_count==1&&
+          level.player_resources[consoleplayer][0]==150&&
+          hall->production->time_left_ms==hall->production->time_ms);
+    mouse_click(pipeline_slot(0));
+    CHECK(!hall->production&&level.player_resources[consoleplayer][0]==200);
+    menuitem_t *rally_button=card("Set Rally Point",&hall,1);
+    CHECK(rally_button&&rally_button->look[0].cell==286);
+    mouse_click(rally_button);
+    CHECK(hudmenu->target==rally_button);
+    ivec2_t rally_cell=ivec2_add(fixed2_cell(fixed3_xy(hall->core.position)),(ivec2_t){0,5});
+    M_CentreView(&app,fixed3_xy_to_fvec2(hall->core.position));
+    fvec2_t rally_screen;
+    R_MapToScreen(&app,&level,rally_cell.x+0.5f,rally_cell.y+0.5f,&rally_screen.x,&rally_screen.y);
+    SDL_Event rally_click={.button={.type=SDL_MOUSEBUTTONDOWN,.button=SDL_BUTTON_LEFT,
+        .x=(int)rally_screen.x,.y=(int)rally_screen.y}};
+    M_MenuResponder(hudmenu,&app,&rally_click);
+    rally_click.button.type=SDL_MOUSEBUTTONUP;
+    M_MenuResponder(hudmenu,&app,&rally_click);
+    CHECK(!hudmenu->target&&hall->sc.rally.set);
+    uint32_t last_scv=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next)
+        if(th->function==P_MobjThinker) {
+            mobj_t *mo=(mobj_t *)th;
+            if(mo->type_id==MT_SCV&&mo->id>last_scv)last_scv=mo->id;
+        }
+    mouse_click(card("Terran SCV",&hall,1));
+    CHECK(hall->production&&hall->production->queue_count==1);
+    hall->production->time_left_ms=1;
+    G_ProductionTicker(2);
+    mobj_t *rallied=NULL;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next)
+        if(th->function==P_MobjThinker) {
+            mobj_t *mo=(mobj_t *)th;
+            if(mo->type_id==MT_SCV&&mo->id>last_scv)rallied=mo;
+        }
+    CHECK(rallied&&P_HasMoveOrder(rallied));
     CHECK(!card("Terran Comsat Station",&hall,1));
     mobj_t *worker = find(consoleplayer, MT_SCV);
     CHECK(worker);
@@ -514,6 +578,21 @@ static int command_card(void) {
     CHECK(bunker && marine && sc_board(marine, bunker) && (marine->sc.flags & SC_LOADED));
     click(card("Unload All", &bunker, 1));
     CHECK(!(marine->sc.flags & SC_LOADED));
+    /* A building card can add a different unit behind the active product. */
+    mobj_t *barracks=spawn(MT_BARRACKS,fixed2_add(at,FIXED2_LIT(8,8)),consoleplayer);
+    mobj_t *academy=spawn(MT_ACADEMY,fixed2_add(at,FIXED2_LIT(14,8)),consoleplayer);
+    mobj_t *supply=spawn(MT_SUPPLY_DEPOT,fixed2_add(at,FIXED2_LIT(18,8)),consoleplayer);
+    CHECK(barracks&&academy&&supply);
+    level.player_resources[consoleplayer][0]=1000;
+    level.player_resources[consoleplayer][1]=1000;
+    menuitem_t *train_marine=card("Terran Marine",&barracks,1);
+    CHECK(train_marine);
+    mouse_click(train_marine);
+    menuitem_t *train_firebat=card("Terran Firebat",&barracks,1);
+    CHECK(train_firebat);
+    mouse_click(train_firebat);
+    CHECK(barracks->production&&barracks->production->queue_count==2&&
+          P_ProductionItem(barracks->production,1).product_type==MT_FIREBAT);
     return 0;
 }
 

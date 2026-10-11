@@ -534,8 +534,10 @@ static int hud_targets(void) {
     CHECK(M_MenuResponder(&menu, &app, &event) && cancelled == 1 && !menu.target);
     CHECK(!M_MenuResponder(&menu, &app, &event) && cancelled == 1);
     M_MenuTarget(&menu, &items[BUTTON]);
+    items[CHECK_BOX].hotkey = SDLK_ESCAPE;
     SDL_Event escape_key = {.key = {.type = SDL_KEYDOWN, .keysym.sym = SDLK_ESCAPE}};
     CHECK(M_MenuResponder(&menu, &app, &escape_key) && cancelled == 2 && !menu.target);
+    items[CHECK_BOX].hotkey = 0;
     CHECK(!M_MenuResponder(&menu, &app, &escape_key));
     /* An edited field takes every key and text; Enter activates it and
      * Escape gives the keyboard back. */

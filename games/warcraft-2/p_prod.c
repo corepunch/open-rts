@@ -442,11 +442,7 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
     else
         W2_TransformUnit(producer, (uint16_t)product->product_type);
     S_Bark(&producer, 1, SE_RESEARCH_COMPLETE, false);
-    production_t *production = producer->production;
-    if (production) {
-        if (--production->queue_count > 0) production->time_left_ms = production->time_ms;
-        else P_FreeMobjProduction(producer);
-    }
+    G_RemoveProductionAt(producer,0);
     return true;
 }
 
@@ -498,8 +494,7 @@ bool W2_CancelProduction(mobj_t *producer) {
     stock[0] += product->cost;
     stock[1] += W2_ProductLumber(product);
     stock[2] += W2_ProductOil(product);
-    if (--queue->queue_count == 0) P_FreeMobjProduction(producer);
-    else queue->time_left_ms = queue->time_ms;
+    G_RemoveProductionAt(producer,0);
     return true;
 }
 

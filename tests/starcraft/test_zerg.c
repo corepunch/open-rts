@@ -45,6 +45,10 @@ static int larvae_and_eggs(mobj_t *hatchery) {
     CHECK(!available(MT_ZERGLING));
     spawn(MT_SPAWNING_POOL, FIXED2_LIT(10, 13), 0);
     CHECK(available(MT_ZERGLING));
+    ticcmd_t rally={.order=TC_SET_RALLY,.position=fixed3_from_fixed2(FIXED2_LIT(18,8),0),
+                    .count=1,.units={hatchery->id}};
+    G_RunTiccmd(0,&rally);
+    CHECK(hatchery->sc.rally.set);
     level.player_resources[0][0] = 100;
     build(hatchery, MT_ZERGLING);
     CHECK(level.player_resources[0][0] == 50 && !hatchery->production);
@@ -62,6 +66,7 @@ static int larvae_and_eggs(mobj_t *hatchery) {
     tick(frames(420));
     CHECK(count(0, MT_ZERGLING) == 2 && count(0, MT_EGG) == 0 && egg->type_id == MT_ZERGLING);
     CHECK(egg->traits & MF_MOBILE);
+    CHECK(P_HasMoveOrder(egg));
     /* An egg that dies loses its price. */
     spawn(MT_OVERLORD, FIXED2_LIT(20, 20), 0);
     level.player_resources[0][0] = 50;

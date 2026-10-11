@@ -44,6 +44,41 @@ static int count_of(int type, uint32_t parent) {
     return n;
 }
 
+static int mixed_queue(void) {
+    CHECK(spawn(MT_COMMAND_CENTER,FIXED2_LIT(8.5,8.5),0));
+    mobj_t *barracks=spawn(MT_BARRACKS,FIXED2_LIT(18.5,8.5),0);
+    CHECK(barracks&&spawn(MT_ACADEMY,FIXED2_LIT(28.5,8.5),0));
+    const StaticProductDefinition *marine=product(MT_MARINE),*firebat=product(MT_FIREBAT);
+    CHECK(marine&&firebat&&G_QueueProduct(barracks,marine));
+    CHECK(G_QueueProduct(barracks,firebat));
+    CHECK(G_QueueProduct(barracks,marine));
+    CHECK(barracks->production->queue_count==3&&
+          P_ProductionItem(barracks->production,1).product_type==MT_FIREBAT);
+    CHECK(G_QueueProduct(barracks,firebat)&&G_QueueProduct(barracks,marine));
+    CHECK(barracks->production->queue_count==5&&!G_QueueProduct(barracks,marine));
+    CHECK(sc_cancel_production(barracks,4)&&sc_cancel_production(barracks,3));
+    int minerals=level.player_resources[0][0],gas=level.player_resources[0][1];
+    CHECK(sc_cancel_production(barracks,1));
+    CHECK(barracks->production->queue_count==2&&
+          P_ProductionItem(barracks->production,1).product_type==MT_MARINE&&
+          level.player_resources[0][0]==minerals+firebat->cost&&
+          level.player_resources[0][1]==gas+firebat->extra_costs[0]);
+    CHECK(G_QueueProduct(barracks,firebat));
+    barracks->production->time_left_ms=1;
+    G_ProductionTicker(2);
+    CHECK(count_of(MT_MARINE,0)==1&&barracks->production&&
+          barracks->production->queue_count==2&&barracks->production->product_type==MT_MARINE);
+    barracks->production->time_left_ms=1;
+    G_ProductionTicker(2);
+    CHECK(count_of(MT_MARINE,0)==2&&barracks->production&&
+          barracks->production->queue_count==1&&barracks->production->product_type==MT_FIREBAT);
+    barracks->production->time_left_ms=1;
+    G_ProductionTicker(2);
+    CHECK(count_of(MT_FIREBAT,0)==1&&!barracks->production);
+    reset();
+    return 0;
+}
+
 static int carrier(void) {
     mobj_t *c = spawn(MT_CARRIER, FIXED2_LIT(8.5, 20.5), 0);
     CHECK(c && (c->traits & MF_ATTACK) && c->info->attack.range == FIXED_FROM_INT(8));
@@ -693,6 +728,7 @@ int main(void) {
     level.cell_solid = calloc(48 * 48, 1);
     CHECK(level.blocked && level.cell_solid);
     reset();
+    CHECK(!mixed_queue());
     CHECK(!carrier());
     CHECK(!reaver());
     CHECK(!siege());

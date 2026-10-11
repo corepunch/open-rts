@@ -30,6 +30,7 @@ WEAK void G_ClockEnd(int64_t before, int64_t clock) {
 }
 WEAK const uint32_t *G_AllianceMasks(const level_t *map) { return map->sight.allies; }
 WEAK void G_ProductionBegin(int elapsed_ms) { (void)elapsed_ms; }
+WEAK void G_UnitProduced(mobj_t *unit, const mobj_t *producer) { (void)unit; (void)producer; }
 WEAK uint32_t G_SaveLayout(void) { return 0; }
 WEAK bool G_SightRadius(const mobj_t *actor, int *radius) { (void)actor; (void)radius; return true; }
 WEAK bool G_ViewerSees(const mobj_t *target, int owner, int team) {

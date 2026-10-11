@@ -1510,3 +1510,73 @@ that previously ignored clicks because prerequisites, supply, queue state or
 resources rejected the order. The exact retail dimming or visibility of an
 unavailable command remains **unknown**; no executable drawing path was
 traced, and the current hide rule is an explicit engine UI choice.
+
+## Production pipeline and building controls (2026-10-11)
+
+**Confirmed native assets and reference layout.** No executable instruction
+was inspected in this investigation. The original-disc assets and the pinned
+Stargus checkout (`2a4d54604949e4772f6638a8412c8ebd62444044`) are the
+evidence. `scripts/gameui.lua` sets one active training icon at `(240,396)`
+and four pending icons at `(240,434)`, `(278,434)`, `(316,434)`, `(354,434)`
+on the 640×480 console. `scripts/ui.lua` draws the progress track at x=278
+and shows five blue frame slots. `scripts/menus/help.lua` says five units may
+be queued and a queued unit may be cancelled by clicking its pipeline icon.
+Blizzard's [SCV guide](https://classic.battle.net/scc/Terran/uscv.shtml)
+independently confirms five SCVs per Command Center. The queue caption position
+`(316,410)` and progress y=422 are **inferred from the user-supplied retail
+screenshot and Stargus panel placement**, not an executable trace.
+
+| Native file | SHA-256 | Finding |
+| --- | --- | --- |
+| `unit/cmdbtns/tcmdbtns.grp` | `dc5fbfca0065af2ac2fddc05b2708502363c39fd4503b53f6636d89b219f2945` | 37 frames on a 72×72 canvas; frame 2 is a 36×36 blue queue border, frames 6–10 are the blue numerals 1–5 |
+| `unit/cmdbtns/zcmdbtns.grp` | `dc5fbfca0065af2ac2fddc05b2708502363c39fd4503b53f6636d89b219f2945` | Same bytes as the Terran file in this extraction |
+| `unit/cmdbtns/pcmdbtns.grp` | `ff087333f0924e1934b2b5fcfc2fff42329afd0c2c20ce8611770575363e4315` | Race-specific queue border and numerals |
+| `game/tpbrempt.pcx` | `270572ff03cb265affd815b097ec5e82beb22f6e042f27853bbef048f9a8c07c` | 108×9 empty progress track |
+| `game/tpbrfull.pcx` | `d92e0567711375e155c0b8fdd2073a8844584ef7ce3d66265e22ea40b92fa74c` | 108×9 progress fill |
+
+The native GRPs were decoded through `sc_decode_grp`, drawn as a temporary
+37-frame contact sheet, and inspected at native palette colors. This disproved
+the first assumption that Stargus's converted `pcmdbtns.png` frame numbers
+could be used directly: its panel names frame 6 for a box, whereas retail GRP
+frame 2 is the 36×36 blue box and frames 6–10 contain numerals. The temporary
+diagnostic drawing was removed after the mapping was established. Reproduce
+the dimensions with `od -An -t u2 -N6` on the GRP and the visible layout with
+`SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay`, which writes
+`/private/tmp/starcraft-queue.bmp`.
+
+**Confirmed commands.** Stargus `scripts/icons.lua` maps Rally Point to native
+command icon 286 and Cancel to 236. Its `scripts/terran/units.lua` places Rally
+Point in command slot 6 (zero-based slot 5); `scripts/buttons.lua` places
+Cancel Unit Training in slot 9 (zero-based slot 8). The user-supplied screenshot
+shows these same two glyphs on the selected Terran Command Center. The panel
+now sends `TC_SET_RALLY` with a world target and `TC_CANCEL_PRODUCTION` with a
+pipeline slot index. A selected building stores its rally point on its mobj;
+the production completion hook sends each newly trained mobile unit there.
+Cancellation removes one queued unit, refunds its catalog cost, and restarts
+the next unit only when the active slot was cancelled. **Unknown:** the exact
+retail refund and active-slot timer rules were not traced from the executable;
+these are current engine behaviors, not claimed native findings.
+
+**Engine queue representation.** The first panel pass exposed a separate
+limitation: the engine had only one product type plus a count, so a Barracks
+could not retain the order Marine, Firebat, Marine. `production_t` now keeps
+the active product and a bounded array of pending products. StarCraft accepts
+different unit products on the same maker; non-unit products and games that
+lock unit queues retain their existing single-product rule. Completing or
+cancelling an active product promotes the next entry with its own build time;
+cancelling a pending slot shifts only those later entries. The UI draws each
+slot's catalog glyph, and supply reservations sum the actual pending types.
+`test_units` reproduces the Marine/Firebat/Marine sequence, removes the middle
+Firebat, then verifies release order and refund. This is a necessary engine
+representation correction, not a claim that an executable queue structure was
+recovered.
+
+The prior `Training %` text in the HP field was a temporary engine substitute;
+the HP value is again shown under the wireframe while native queue icons,
+caption and progress occupy their own status widgets. The queue widget owns
+its assets and callbacks in `m_status.c`; `m_menu.c` retains the screen table
+and command-card refresh. The gameplay test verifies the rendered bar changes
+with time, queue-slot and Cancel clicks change resources and depth, and a
+completed SCV receives its building's rally movement order. `test_zerg`
+also verifies that a larva's Zergling morph inherits its hatchery's rally
+target.

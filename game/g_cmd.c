@@ -302,6 +302,11 @@ void G_ConsistencyVector(uint32_t out[CONSISTENCY_COUNT]) {
             HASH(u->production->release_ready);
             HASH(u->production->placed);
             HASH(u->production->cell.x); HASH(u->production->cell.y);
+            HASH(u->production->product_class);HASH(u->production->product_type);
+            for(int i=1;i<u->production->queue_count;i++) {
+                productionitem_t item=P_ProductionItem(u->production,i);
+                HASH(item.actor_id);HASH(item.product_class);HASH(item.product_type);HASH(item.time_ms);
+            }
         }
     }
     out[CONSISTENCY_THINKERS] = hash;
