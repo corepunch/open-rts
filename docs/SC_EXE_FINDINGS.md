@@ -1,5 +1,25 @@
 # StarCraft native data and UI findings
 
+## Completeness recheck (2026-10-11)
+
+The [current source/regression audit](BLIZZARD_COMPLETENESS_AUDIT.md#starcraft)
+supersedes older broad status statements while preserving their evidence below.
+No new executable analysis or fingerprint is claimed. Confirmed source gaps
+include core orders, six base abilities, full mobile transports and Nydus,
+selectable construction sites, per-player CHK upgrade/technology initialization,
+partial trigger/IScript/AI execution, save/load/options and gameplay audio.
+`game_info.sound` is unset; sound event calls alone do not implement playback.
+UPGR/PUPx/PTEC/PTEx restrictions are distinct from supported cost patches and
+PUNI. `p_trig.c` silently skips unhandled actions and uses movement orders for
+Move Unit; these require semantic tests before campaign completion claims.
+
+Corrections: Shield Battery recharge, Zerg tiers, add-on research and selected
+caster AI already exist. Bunker boarding code also accepts other capacity-bearing
+units under Bunker restrictions, so transport is **partial**, not wholly absent.
+Stargus itself comments out converted trigger logic and skips per-player tech
+chunks; matching it is insufficient. The audit records exact code/reference
+paths, remaining unknowns, test commands and prioritized completion work.
+
 ## 2026-10-11: moving SCV engine glow
 
 **Confirmed from retail assets.** The original disc's `scripts/iscript.bin`

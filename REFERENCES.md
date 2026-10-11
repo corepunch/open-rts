@@ -1,5 +1,33 @@
 # Reverse Engineering References
 
+### Blizzard completeness recheck (2026-10-11)
+
+Source/regression audit at open-rts `69ad9a2c`; no retail executable execution
+or new disassembly. Findings and current test results:
+[BLIZZARD_COMPLETENESS_AUDIT.md](docs/BLIZZARD_COMPLETENESS_AUDIT.md).
+The existing reference checkouts were inspected without changing their pins:
+
+- [Wargus](https://github.com/Wargus/wargus/tree/cde1a0718a0058cc651ecd56ff8149fc39f624e9),
+  local `reference/wargus`: `campaigns/human/level02h_c.sms`,
+  `campaigns/orc/level02o_c.sms`, `level03o_c.sms`, race `buttons.lua`,
+  `scripts/spells.lua`, and `doc/pud-specs.txt`. These establish reference
+  rescue/building objectives, mission restrictions, attack-ground commands
+  and AI spell policies. The [upstream README](https://github.com/Wargus/wargus)
+  was also checked online; it explicitly describes gameplay enhancements,
+  so Wargus parity is not proof of retail equivalence.
+- [Stargus TODO](https://github.com/Wargus/stargus/blob/2a4d54604949e4772f6638a8412c8ebd62444044/doc/todo),
+  local `reference/stargus/doc/todo`, plus
+  [Chk.cpp](https://github.com/Wargus/stargus/blob/2a4d54604949e4772f6638a8412c8ebd62444044/src/Chk.cpp),
+  `doc/iscript.txt`, race `units.lua` and `sound.lua`, and
+  `scripts/protoss/unit-protoss-shuttle.lua`. The historical TODO is not an
+  open-rts checklist: several listed mechanics already exist here.
+  `SaveTrigger` writes Lua comments; UPGR/PUPx/PTEC/PTEx are skipped.
+  Liftoff-as-move and the Shuttle's copied supply/detection/cargo fields are
+  reasons to verify native semantics rather than adopt every reference value.
+- Existing [Stratagus pin](https://github.com/Wargus/stratagus/tree/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc)
+  remains the engine reference. Campaign/script equivalence and full gameplay
+  cannot be inferred from passing loader, menu or opening-build tests.
+
 ### Warcraft II single-player campaign entry (2026-10-07)
 
 Blizzard's [Battle.net Edition manual, printed page 6](https://downloads.war2.ru/war2/Info%20%26%20Media%20content/Documents/War2BNE_Manual_EN.pdf)

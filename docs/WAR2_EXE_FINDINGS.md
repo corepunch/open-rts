@@ -1,5 +1,23 @@
 # Warcraft II gathering and HUD evidence (2026-10-04)
 
+## Completeness recheck (2026-10-11)
+
+The [current source/regression audit](BLIZZARD_COMPLETENESS_AUDIT.md#warcraft-ii)
+rechecks the dated feature lists against the current implementation and pinned
+Wargus. No retail executable was run or newly disassembled; existing native
+fingerprints remain applicable. **Confirmed:** naval/air waves, transport
+ferrying, research and selected combat spell AI now exist in `p_ai.c`; the
+October 7 description of wholly missing naval/air/spell AI is superseded.
+
+**Still incomplete:** `W2_CheckVictory` returns for campaign missions other than
+1. Wargus Human/Orc mission 2 rescue conditions and Orc mission 3 shipyard/oil
+objectives remain useful implementation references, not implemented objectives.
+Attack-ground, wall/rock destruction, passenger UI, full results and campaign
+restrictions remain open. The ALOW decoder's recalled layout is explicitly
+**unverified** by native editor data and does not establish those restrictions.
+The audit records reference paths, current test outcomes and fidelity limits;
+later naval and hero corrections below remain in force.
+
 ## Static DOS executable analysis toolchain (2026-10-07)
 
 **Confirmed / boundary.** Retail Warcraft II was not executed. The user
