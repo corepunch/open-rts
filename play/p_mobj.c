@@ -200,6 +200,11 @@ bool P_HarvesterSharingVent(const mobj_t *unit) {
             unit->harvest.phase == HARVEST_PHASE_MINING);
 }
 
+bool P_HarvesterWorksOutside(const mobj_t *unit, const resourcevent_t *vent) {
+    return unit && unit->info && !unit->info->harvest.unload_state_id &&
+           vent && vent->source_id && vent->footprint.w > 0 && vent->footprint.h > 0;
+}
+
 static bool send_harvester_home(level_t *map, mobj_t *unit) {
     if (!map || !unit) return false;
     fixed2_t unit_pos = fixed3_xy(unit->core.position);
@@ -242,8 +247,10 @@ static bool send_harvester_home(level_t *map, mobj_t *unit) {
 static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
     if (!map || !unit || !vent) return false;
     fixed2_t bay = vent->attachment;
-    if (!P_CheckPosition(map, unit, bay) &&
-        !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) return false;
+    if (P_HarvesterWorksOutside(unit, vent)) {
+        if (!P_ApproachResourceVent(unit, vent, unit->harvest.target, &bay)) return false;
+    } else if (!P_CheckPosition(map, unit, bay) &&
+               !P_ApproachFootprint(unit, vent->cell, vent->footprint, &bay)) return false;
     if (!P_MoveUnitTo(map, unit, bay)) return false;
     unit->movement.order_id = 0;
     unit->harvest.phase = HARVEST_PHASE_TO_MINE;
@@ -1361,7 +1368,7 @@ static bool update_unit_harvest(level_t *map,
     unit->movement.order_arrived = true;
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
-    if (P_CheckPosition(map, unit, vent->attachment))
+    if (!P_HarvesterWorksOutside(unit, vent) && P_CheckPosition(map, unit, vent->attachment))
         unit->core.position = fixed3_from_fixed2(vent->attachment, unit->core.position.z);
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
         unit->harvest.phase != HARVEST_PHASE_TURNING) {

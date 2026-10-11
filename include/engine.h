@@ -1808,6 +1808,8 @@ bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, iv
  * one. Most games queue one product at a time. */
 bool G_QueueLocksProduct(const StaticProductDefinition *product);
 bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *bay);
+bool P_ApproachResourceVent(mobj_t *unit, const resourcevent_t *vent,
+                            int vent_index, fixed2_t *bay);
 
 typedef struct {
     RtsGameCommandKind kind;
@@ -2704,6 +2706,7 @@ bool P_HarvesterDocked(const mobj_t *unit);
  * point. Miners share the vent: nothing shoves them, and nothing routes or
  * steers around them. */
 bool P_HarvesterSharingVent(const mobj_t *unit);
+bool P_HarvesterWorksOutside(const mobj_t *unit, const resourcevent_t *vent);
 /* Scales a harvested credit amount by the owner's 8.8 income_scale. */
 int P_ScaleIncome(const level_t *map, int owner, int amount);
 

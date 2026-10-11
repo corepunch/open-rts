@@ -2177,6 +2177,12 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   Stargus converts assets to PNG/MNG and uses hand-authored Lua menus; this
   plugin independently decodes the original files into engine-owned indexed
   images and shared menu tables. No PNG/MNG dependency is used.
+- [Pinned Stratagus resource order](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/action/action_resource.cpp):
+  `COrder_Resource::UpdatePathFinderData` targets the resource unit's footprint
+  with a zero-to-one-tile goal range. Stargus's SCV script selects
+  `harvest-from-outside` for minerals. Our mineral workers choose reachable,
+  unreserved perimeter bays for the same purpose; this is a reference-derived
+  behavior, not a traced retail StarCraft executable rule.
 - [PyMS](https://github.com/poiuyqwert/PyMS), locally `reference/PyMS`,
   commit `bfc5d3aad0b5614a5aff72c223f8efa00afddfa4` (MIT). Read-only format
   reference: `PyMS/FileFormats/DialogBIN.py`, `FileFormats/FNT.py`,

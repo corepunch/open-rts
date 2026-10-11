@@ -149,7 +149,8 @@ bool P_MorphMobj(mobj_t *mo, uint16_t type) {
 
 /* Approach the actual footprint, never the blocked building centre. The
  * nav component check excludes banks and trees behind an enclosing wall. */
-bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *bay) {
+static bool approach_footprint(mobj_t *unit, ivec2_t cell, isize2_t size,
+                               int vent_index, fixed2_t *bay) {
     fixed2_t from = fixed3_xy(unit->core.position);
     bool found = false;
     int64_t distance = 0;
@@ -168,7 +169,12 @@ bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *ba
                 const mobj_t *other = (const mobj_t *)th;
                 if (other == unit || other->remove || other->hp <= 0 || !(other->traits & MF_MOBILE)) continue;
                 fixed_t radius = P_MobjRadius(unit) + P_MobjRadius(other);
-                if (fixed2_distance_squared64(at, fixed3_xy(other->core.position)) < fixed_sq64(radius)) {
+                fixed2_t position = fixed3_xy(other->core.position);
+                /* Another worker may be en route to this same resource edge. */
+                if (fixed2_distance_squared64(at, position) < fixed_sq64(radius) ||
+                    (vent_index >= 0 && other->harvest.target == vent_index &&
+                     other->harvest.phase == HARVEST_PHASE_TO_MINE &&
+                     fixed2_distance_squared64(at, other->movement.goal) < fixed_sq64(radius))) {
                     occupied = true;
                     break;
                 }
@@ -180,4 +186,13 @@ bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *ba
             found = true;
         }
     return found;
+}
+
+bool P_ApproachFootprint(mobj_t *unit, ivec2_t cell, isize2_t size, fixed2_t *bay) {
+    return approach_footprint(unit, cell, size, -1, bay);
+}
+
+bool P_ApproachResourceVent(mobj_t *unit, const resourcevent_t *vent,
+                            int vent_index, fixed2_t *bay) {
+    return approach_footprint(unit, vent->cell, vent->footprint, vent_index, bay);
 }
