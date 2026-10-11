@@ -126,6 +126,8 @@ int G_CountPlannedActors(int owner, uint16_t actor_id) {
 bool G_QueueAllowsProduct(const production_t *queue,const StaticProductDefinition *product) {
     if(!product)return false;
     if(!queue||queue->queue_count<=0)return true;
+    /* An unlocked non-unit never enters the queue (Dark Colony pods). */
+    if(product->product_class!=RTS_PRODUCT_UNIT&&!G_QueueLocksProduct(product))return true;
     if(queue->placed||queue->queue_count>=RTS_MAX_PRODUCTION_QUEUE)return false;
     if(queue->product_class==product->product_class&&queue->product_type==product->product_type)return true;
     return queue->product_class==RTS_PRODUCT_UNIT&&product->product_class==RTS_PRODUCT_UNIT&&
