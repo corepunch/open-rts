@@ -638,7 +638,31 @@ static void network_test(testmode_t mode, int players) {
 }
 
 int main(int argc, char **argv) {
+    assert(rts_test_net_port());
     assert(SDL_Init(SDL_INIT_TIMER) == 0);
+    if (argc == 2 && !strcmp(argv[1], "--commands")) {
+        command_tests();
+        SDL_Quit();
+        return 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--session")) {
+        session_tests();
+        SDL_Quit();
+        return 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--lan-discovery")) {
+        lan_tests();
+        SDL_Quit();
+        return 0;
+    }
+    int mode;
+    char tail;
+    if (argc == 2 && sscanf(argv[1], "--mode-%d%c", &mode, &tail) == 1 &&
+        mode >= DIRECT && mode <= RESYNC_LOSSY) {
+        network_test((testmode_t)mode, mode == DIRECT || mode == HOSTED || mode == HOSTED_MAP ? 4 : 2);
+        SDL_Quit();
+        return 0;
+    }
     if (argc == 2 && !strcmp(argv[1], "--lan")) {
         lan_tests();
         network_test(MENU_HOSTED, 2);

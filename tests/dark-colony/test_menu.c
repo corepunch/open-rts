@@ -2,6 +2,7 @@
 #define _DARWIN_C_SOURCE
 #include "engine.h"
 #include "dark-colony.h"
+#include "t_local.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -209,6 +210,7 @@ static void join_lan_menu(app_t *app, SDL_Surface *surface) {
 }
 
 int main(void) {
+    CHECK(rts_test_net_port());
     char directory[] = "/private/tmp/open-rts-native-menu-XXXXXX";
     CHECK(mkdtemp(directory));
     CHECK(SDL_setenv("OPEN_RTS_USER_DIR", directory, 1) == 0);

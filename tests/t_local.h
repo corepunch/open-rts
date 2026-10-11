@@ -5,7 +5,27 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "engine.h"
+
+/* Give each network test process its own LAN discovery port. Its forked host
+ * and joiner inherit the value, while other test binaries can run at once. */
+static inline bool rts_test_net_port(void) {
+    int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (fd < 0) return false;
+    struct sockaddr_in address = {.sin_family = AF_INET,
+                                  .sin_addr.s_addr = inet_addr("127.0.0.1")};
+    socklen_t size = sizeof(address);
+    bool ok = bind(fd, (struct sockaddr *)&address, size) == 0 &&
+              getsockname(fd, (struct sockaddr *)&address, &size) == 0;
+    char value[16];
+    if (ok) snprintf(value, sizeof(value), "%u", ntohs(address.sin_port));
+    close(fd);
+    return ok && setenv("OPEN_RTS_NET_PORT", value, 1) == 0;
+}
 
 
 /* Test-side helpers: tests may read simulation results as floats. */

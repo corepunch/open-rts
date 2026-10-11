@@ -55,7 +55,7 @@ static const struct { mobjtype_id_t type, maker, prerequisite, also; } recipes[]
     {MT_FLEET_BEACON, MT_PROBE, MT_STARGATE, MT_NONE},
     {MT_TEMPLAR_ARCHIVES, MT_PROBE, MT_CITADEL_OF_ADUN, MT_NONE},
     {MT_OBSERVATORY, MT_PROBE, MT_ROBOTICS_FACILITY, MT_NONE},
-    {MT_ARBITER_TRIBUNAL, MT_PROBE, MT_TEMPLAR_ARCHIVES, MT_NONE},
+    {MT_ARBITER_TRIBUNAL, MT_PROBE, MT_TEMPLAR_ARCHIVES, MT_STARGATE},
     {MT_PROBE, MT_NEXUS, MT_NONE, MT_NONE},
     {MT_ZEALOT, MT_GATEWAY, MT_NONE, MT_NONE},
     {MT_DRAGOON, MT_GATEWAY, MT_CYBERNETICS_CORE, MT_NONE},
@@ -100,7 +100,8 @@ static const struct { mobjtype_id_t type, maker, prerequisite, also; } recipes[]
  * building, as in retail: a Science Facility for Terran, Lair and Hive for
  * Zerg, Templar Archives, Fleet Beacon or a Cybernetics Core for Protoss. */
 static const struct { int upgrade; mobjtype_id_t maker, level2, level3; } research[] = {
-    {7,MT_ENGINEERING_BAY,MT_ARMORY,MT_ARMORY},{0,MT_ENGINEERING_BAY,MT_ARMORY,MT_ARMORY},
+    {7,MT_ENGINEERING_BAY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
+    {0,MT_ENGINEERING_BAY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
     {8,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},{1,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
     {9,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},{2,MT_ARMORY,MT_SCIENCE_FACILITY,MT_SCIENCE_FACILITY},
     {16,MT_ACADEMY,MT_NONE,MT_NONE},

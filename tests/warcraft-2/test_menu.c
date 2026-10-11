@@ -1,8 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
+#define _DARWIN_C_SOURCE
 #include "t_local.h"
 #include "warcraft-2.h"
 #include "w2_local.h"
-
-#include <sys/stat.h>
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "line %d\n", __LINE__); return rts_fail("Warcraft II menus", #c); } } while (0)
 
@@ -94,9 +94,11 @@ static void press(SDL_Keycode key) {
 }
 
 int main(void) {
+    CHECK(rts_test_net_port());
     CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
-    mkdir("build/test-user", 0777);
-    setenv("OPEN_RTS_USER_DIR", "build/test-user", 1);
+    char directory[] = "build/test-w2-menu-XXXXXX";
+    CHECK(mkdtemp(directory));
+    setenv("OPEN_RTS_USER_DIR", directory, 1);
     G_InitGame();
     CHECK(M_Init(&app, "data/WAR2"));
     V_AllocScreen(640, 480);

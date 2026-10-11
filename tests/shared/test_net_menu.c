@@ -175,6 +175,7 @@ static int lobby_race(app_t *app) {
 }
 
 int main(void) {
+    CHECK(rts_test_net_port());
     CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
     app_t app = {.win = {640, 480}, .running = true};
     V_AllocScreen(640, 480);

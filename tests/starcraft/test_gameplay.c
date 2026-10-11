@@ -267,10 +267,12 @@ static int economy_and_combat(void) {
     CHECK(!G_ModelProductAvailable(NULL, consoleplayer, weapons1)); /* already researching */
     for (int t = 0; t < 6000 && sc_upgrade_level(consoleplayer, 7) < 1; t++) tick(1);
     CHECK(sc_upgrade_level(consoleplayer, 7) == 1 && !bay->production);
-    /* Level two is the next level, but waits for the Armory (a ruleset row). */
+    /* Level two is the next level, but waits for a Science Facility. */
     CHECK(!sc_upgrade_offered(consoleplayer, weapons1) && sc_upgrade_offered(consoleplayer, weapons2));
     CHECK(!G_ModelProductAvailable(NULL, consoleplayer, weapons2));
     CHECK(spawn(MT_ARMORY, FIXED2_LIT(40, 40), consoleplayer));
+    CHECK(!G_ModelProductAvailable(NULL, consoleplayer, weapons2));
+    CHECK(spawn(MT_SCIENCE_FACILITY, FIXED2_LIT(44, 40), consoleplayer));
     CHECK(G_ModelProductAvailable(NULL, consoleplayer, weapons2));
     /* Combat: an upgraded marine hits a zergling for 6 + 1 - armor. */
     fixed2_t at = fixed3_xy(marine->core.position);

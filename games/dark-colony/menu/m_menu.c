@@ -57,6 +57,42 @@ static spritecache_t images;
  * the engine steps anim through the sequence's frames. */
 static dc_fin_t animations[16];
 static int numanimations;
+/* Screen scripts are cheap to reparse; their decoded retail art is not.
+ * Move each screen's owned art aside while another screen is active. */
+typedef struct {
+    bitmapfont_t fonts[3];
+    spritesheet_t background, pictures;
+    spritecache_t images;
+    dc_fin_t animations[16];
+    int numanimations;
+    bool loaded;
+} screenart_t;
+static screenart_t *screenart[LOAD + 1];
+
+static void move_art(screenart_t *art, bool save) {
+    if (save) {
+        memcpy(art->fonts, fonts, sizeof(fonts));
+        art->background = background;
+        art->pictures = pictures;
+        art->images = images;
+        memcpy(art->animations, animations, sizeof(animations));
+        art->numanimations = numanimations;
+        art->loaded = true;
+        memset(fonts, 0, sizeof(fonts));
+        background = pictures = (spritesheet_t){0};
+        images = (spritecache_t){0};
+        memset(animations, 0, sizeof(animations));
+        numanimations = 0;
+    } else {
+        memcpy(fonts, art->fonts, sizeof(fonts));
+        background = art->background;
+        pictures = art->pictures;
+        images = art->images;
+        memcpy(animations, art->animations, sizeof(animations));
+        numanimations = art->numanimations;
+        art->loaded = false;
+    }
+}
 /* A banim control (native type 12, button.c create_banim 0x4250bc) lists the
  * entrance gadgets and the push buttons they cover. 0x425214 plays the gadgets
  * one by one when the screen opens and hides each finished gadget so the
@@ -123,6 +159,15 @@ void G_ShutdownMenus(void) {
     if (waiting || page == BROWSE) M_NetStop();
     waiting = false;
     free_screen();
+    for (unsigned i = 0; i < sizeof(screenart) / sizeof(*screenart); ++i) {
+        if (!screenart[i]) continue;
+        if (screenart[i]->loaded) {
+            move_art(screenart[i], false);
+            free_screen();
+        }
+        free(screenart[i]);
+        screenart[i] = NULL;
+    }
     initialized = false;
 }
 
@@ -554,12 +599,19 @@ static void option_values(void) {
 static bool load_screen(int next) {
     static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "DPLAYSE", "GETSVRE", "LOPTE", "LOBJE", "LSGE", "LOADGE"};
     static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "LOADG.DAT", "SERVER.DAT", NULL, NULL, NULL, "LOADG.DAT"};
+    if (initialized) {
+        if (!screenart[page]) screenart[page] = calloc(1, sizeof(*screenart[page]));
+        if (!screenart[page]) return false;
+        move_art(screenart[page], true);
+    }
     free_screen();
     page = next;
+    bool cached = screenart[page] && screenart[page]->loaded;
+    if (cached) move_art(screenart[page], false);
     menu.itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
-    if (lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
+    if (!cached && lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
     if (page == NETWORK) {
         const spritesheet_t *globe = load_image("INTRFACE/BLEW.SPR");
         if (!globe || globe->numlumps < 2) return false;
@@ -571,8 +623,8 @@ static bool load_screen(int next) {
     if (popup()) {
         spritesheet_t palette = {0};
         M_PathJoin(path, sizeof(path), root, "PALETTE.GIF");
-        if (!W_LoadGIFTexture(path, &palette)) return false;
-        memcpy(background.source_palette, palette.source_palette, sizeof(background.source_palette));
+        if (!cached && !W_LoadGIFTexture(path, &palette)) return false;
+        if (!cached) memcpy(background.source_palette, palette.source_palette, sizeof(background.source_palette));
         R_FreeSprite(&palette);
         M_PathJoin(palette_path, sizeof(palette_path), root, "PALETTE.RMP");
     }
@@ -606,14 +658,14 @@ static bool load_screen(int next) {
                 (uint32_t)green << 8 | (uint32_t)blue;
         } else if (sscanf(line, "background %127s", name) == 1) {
             M_PathJoin(path, sizeof(path), root, M_va("%s.GIF", M_Upper(name)));
-            if (!W_LoadGIFTexture(path, &background)) ok = false;
+            if (!cached && !W_LoadGIFTexture(path, &background)) ok = false;
             M_PathJoin(palette_path, sizeof(palette_path), root, M_va("%s.RMP", M_Upper(name)));
         } else if (sscanf(line, "pictures %127s", name) == 1) {
             M_PathJoin(path, sizeof(path), root, M_va("%s.SPR", M_Upper(name)));
-            if (!DC_LoadSpriteImage(path, &pictures)) ok = false;
+            if (!cached && !DC_LoadSpriteImage(path, &pictures)) ok = false;
         } else if (sscanf(line, "font %d %127s", &id, name) == 2) {
-            if (id < 0 || id >= 3 || !DC_LoadFont(root,
-                    M_va("%s.SPR", M_Upper(name)), &fonts[id])) ok = false;
+            if (id < 0 || id >= 3 || (!cached && !DC_LoadFont(root,
+                    M_va("%s.SPR", M_Upper(name)), &fonts[id]))) ok = false;
         } else if (sscanf(line, "textmsg %d %127[^\r\n]", &id, name) == 2) {
             if (id < 0 || id >= NUMCONTROLS) { ok = false; break; }
             strcpy(messages[id], name);

@@ -176,8 +176,9 @@ static void patch_done(void) {
     { SC_UPGRADE_UI + (u) * 4 + (level) - 1, { REQ_BUILDING, (needs), 0 } }
 #define LEVELS(u) { SC_UPGRADE_UI + (u) * 4 + 1, { REQ_UPGRADE, (u), 1 } }, { SC_UPGRADE_UI + (u) * 4 + 2, { REQ_UPGRADE, (u), 2 } }
 static const productreq_t requirements[] = {
-    /* Terran infantry (Engineering Bay) need the Armory, vehicles and ships (Armory) the Science Facility. */
-    TIER(7, 2, MT_ARMORY), TIER(7, 3, MT_ARMORY), TIER(0, 2, MT_ARMORY), TIER(0, 3, MT_ARMORY),
+    /* Terran infantry (Engineering Bay), vehicles and ships (Armory) need the Science Facility. */
+    TIER(7, 2, MT_SCIENCE_FACILITY), TIER(7, 3, MT_SCIENCE_FACILITY),
+    TIER(0, 2, MT_SCIENCE_FACILITY), TIER(0, 3, MT_SCIENCE_FACILITY),
     TIER(8, 2, MT_SCIENCE_FACILITY), TIER(8, 3, MT_SCIENCE_FACILITY), TIER(1, 2, MT_SCIENCE_FACILITY), TIER(1, 3, MT_SCIENCE_FACILITY),
     TIER(9, 2, MT_SCIENCE_FACILITY), TIER(9, 3, MT_SCIENCE_FACILITY), TIER(2, 2, MT_SCIENCE_FACILITY), TIER(2, 3, MT_SCIENCE_FACILITY),
     /* Protoss ground upgrades (Forge) need the Templar Archives, air the Fleet Beacon, shields the Cybernetics Core. */
