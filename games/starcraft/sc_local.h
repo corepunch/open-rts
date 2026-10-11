@@ -209,6 +209,7 @@ int sc_owner_kind(int owner);
 int sc_player_side(int owner);
 bool sc_player_ai(int owner);
 bool sc_supply_ok(int owner, const StaticProductDefinition *product, const mobj_t *maker);
+int sc_supply_cost(const StaticProductDefinition *product, const mobj_t *maker);
 void sc_supply_counts(int owner, int *used, int *provided);
 /* Zerg: the egg (or cocoon) a larva (or mutalisk) turns into when it is
  * given an order, MT_NONE for other makers. */

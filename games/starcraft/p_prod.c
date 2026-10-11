@@ -313,11 +313,21 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
 bool sc_cancel_production(mobj_t *producer,int slot) {
     production_t *queue=producer?producer->production:NULL;
+    if(queue&&!queue->placed&&slot==-1) {
+        while(producer->production)
+            if(!sc_cancel_production(producer,0))return false;
+        return true;
+    }
     if(!queue||queue->placed||slot<0||slot>=queue->queue_count||
        producer->owner<0||producer->owner>=8)return false;
     productionitem_t item=P_ProductionItem(queue,slot);
     const StaticProductDefinition *p=G_ModelProductByClassType(NULL,item.product_class,item.product_type);
     if(!p)return false;
+    /* Our egg/cocoon is an in-place morph, so dismissing its order must
+     * restore the maker as well as refunding it. Buildings keep their type
+     * until completion and need no restoration. */
+    if(slot==0&&zerg_morph(p)&&sc_egg_for((uint16_t)p->makers[0])==producer->type_id&&
+       !P_MorphMobj(producer,(uint16_t)p->makers[0]))return false;
     level.player_resources[producer->owner][0]+=p->cost;
     for(int r=1;r<RTS_MAX_RESOURCES;r++)level.player_resources[producer->owner][r]+=p->extra_costs[r-1];
     G_RemoveProductionAt(producer,slot);
@@ -381,14 +391,18 @@ void sc_supply_counts(int owner,int *used,int *provided) {
     if(provided) *provided=have;
 }
 /* A morph needs only what the product takes beyond its maker. */
-bool sc_supply_ok(int owner,const StaticProductDefinition *product,const mobj_t *maker) {
-    if(!product||product->product_class!=RTS_PRODUCT_UNIT) return true;
+int sc_supply_cost(const StaticProductDefinition *product,const mobj_t *maker) {
+    if(!product||product->product_class!=RTS_PRODUCT_UNIT) return 0;
     int type=product->product_type-1;
-    if(type<0||type>=SC_TYPES) return true;
+    if(type<0||type>=SC_TYPES) return 0;
     int cost=sc_units[type].supply_required*per_egg(product->product_type);
     if(maker&&zerg_morph(product)&&maker->type_id>0&&maker->type_id<=SC_TYPES)
         cost-=sc_units[maker->type_id-1].supply_required;
-    if(cost<=0) return true;
+    return cost>0?cost:0;
+}
+bool sc_supply_ok(int owner,const StaticProductDefinition *product,const mobj_t *maker) {
+    int cost=sc_supply_cost(product,maker);
+    if(!cost)return true;
     int used,have; sc_supply_counts(owner,&used,&have);
     return used+cost<=have;
 }

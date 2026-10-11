@@ -25,6 +25,8 @@ void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
     (void)player;
+    /* A stale individual passenger click must not become Unload All. */
+    if(cmd->order==TC_UNLOAD&&cmd->target&&!target)return true;
     if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK || cmd->order == TC_ORDER ||
         cmd->order == TC_PATH || cmd->order == TC_HARVEST || cmd->order == TC_WAYPOINT)
         for (int i = 0; i < count; ++i) sc_interrupt(units[i]);

@@ -466,7 +466,24 @@ static int command_card(void) {
     CHECK(hall);
     level.player_resources[consoleplayer][0]=200;
     menuitem_t *train = card("Terran SCV", &hall, 1);
-    CHECK(train && train->enabled);
+    CHECK(train && train->enabled && train->hotkey==SDLK_s);
+    /* Spending the last minerals must never remove the training command. */
+    irect_t train_rect=train->rect;
+    level.player_resources[consoleplayer][0]=50;
+    mouse_click(train);
+    train=card("Terran SCV",&hall,1);
+    CHECK(train&&train->enabled&&train->rect.x==train_rect.x&&train->rect.y==train_rect.y);
+    CHECK(hall->production&&hall->production->queue_count==1&&level.player_resources[consoleplayer][0]==0);
+    mouse_click(train);
+    CHECK(hall->production->queue_count==1&&level.player_resources[consoleplayer][0]==0);
+    CHECK(chat_text.count>0);
+    draw(NULL);M_MenuDrawer(hudmenu);CHECK(save("/private/tmp/starcraft-zero-minerals.bmp"));
+    bool feedback=false;
+    for(int i=0;i<hudmenu->numitems;i++)feedback|=hudmenu->items[i].visible&&hudmenu->items[i].prose&&
+        !strcmp(hudmenu->items[i].prose,"Not enough minerals");
+    CHECK(feedback);
+    CHECK(sc_cancel_production(hall,0));
+    level.player_resources[consoleplayer][0]=200;
     menuitem_t *building_name=M_MenuFind(hudmenu,65531);
     CHECK(building_name&&building_name->visible&&
           !strcmp(building_name->text,"Terran Command Center")&&
@@ -513,15 +530,12 @@ static int command_card(void) {
     CHECK(hall->production&&hall->production->queue_count==2&&
           level.player_resources[consoleplayer][0]==100);
     mouse_click(card("Cancel Unit Training",&hall,1));
-    CHECK(hall->production&&hall->production->queue_count==1&&
-          level.player_resources[consoleplayer][0]==150&&
-          hall->production->time_left_ms==hall->production->time_ms);
-    mouse_click(pipeline_slot(0));
     CHECK(!hall->production&&level.player_resources[consoleplayer][0]==200);
     menuitem_t *rally_button=card("Set Rally Point",&hall,1);
     CHECK(rally_button&&rally_button->look[0].cell==286);
     mouse_click(rally_button);
-    CHECK(hudmenu->target==rally_button);
+    CHECK(hudmenu->target&&hudmenu->target->routine==rally_button->routine);
+    CHECK(card("Cancel",&hall,1)&&!card("Terran SCV",&hall,1));
     ivec2_t rally_cell=ivec2_add(fixed2_cell(fixed3_xy(hall->core.position)),(ivec2_t){0,5});
     M_CentreView(&app,fixed3_xy_to_fvec2(hall->core.position));
     fvec2_t rally_screen;
@@ -566,7 +580,8 @@ static int command_card(void) {
     menuitem_t *depot = card("Terran Supply Depot", &worker, 1);
     CHECK(depot && depot->enabled);
     mouse_click(depot);
-    CHECK(hudmenu->target == depot);
+    CHECK(hudmenu->target && hudmenu->target->value==depot->value);
+    CHECK(card("Cancel",&worker,1)&&!card("Terran Supply Depot",&worker,1));
     ivec2_t construction;
     level.player_resources[consoleplayer][0] = 1000;
     CHECK(site(MT_SUPPLY_DEPOT, hall, worker, &construction));
@@ -598,7 +613,7 @@ static int command_card(void) {
     level.upgrades[SC_UPGRADES + SC_TECH_LOCKDOWN][consoleplayer].weapon = 1;
     menuitem_t *lockdown = card("Lockdown", &ghost, 1);
     click(lockdown);
-    CHECK(hudmenu->target == lockdown);
+    CHECK(hudmenu->target && hudmenu->target->value==lockdown->value);
     hudmenu->target = NULL;
     level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
     click(card("Tank Siege Mode", &tank, 1));
@@ -660,6 +675,144 @@ static int command_card(void) {
     return 0;
 }
 
+static int hud_contract(void) {
+    mobj_t *hall=find(consoleplayer,MT_COMMAND_CENTER),*worker=find(consoleplayer,MT_SCV);
+    CHECK(hall&&worker);
+    level.player_resources[consoleplayer][0]=1000;
+    level.player_resources[consoleplayer][1]=1000;
+    /* A full five-slot queue keeps its command, rejects a sixth click, and
+     * refunds every paid entry through Stargus's cancel-all command. */
+    for(int i=0;i<5;i++)mouse_click(card("Terran SCV",&hall,1));
+    menuitem_t *train=card("Terran SCV",&hall,1);
+    CHECK(train&&hall->production->queue_count==5);
+    int minerals=level.player_resources[consoleplayer][0];
+    mouse_click(train);
+    CHECK(hall->production->queue_count==5&&level.player_resources[consoleplayer][0]==minerals);
+    mouse_click(card("Cancel Unit Training",&hall,1));
+    CHECK(!hall->production&&level.player_resources[consoleplayer][0]==1000);
+    train=card("Terran SCV",&hall,1);
+    SDL_Event key={.key={.type=SDL_KEYDOWN,.keysym={.sym=SDLK_s}}};
+    CHECK(M_MenuResponder(hudmenu,&app,&key));
+    key.type=SDL_KEYUP;CHECK(M_MenuResponder(hudmenu,&app,&key));
+    CHECK(hall->production&&hall->production->queue_count==1);
+    CHECK(sc_cancel_production(hall,-1));
+    mobj_t *army[7];
+    for(int i=0;i<7;i++)CHECK((army[i]=spawn(MT_MARINE,FIXED2_LIT(20,20),consoleplayer)));
+    train=card("Terran SCV",&hall,1);
+    CHECK(train&&train->enabled);
+    mouse_click(train);
+    CHECK(!hall->production&&level.player_resources[consoleplayer][0]==1000);
+    for(int i=0;i<7;i++)P_RemoveMobj(army[i]);
+    /* A group of producers routes training to the shortest usable queue. */
+    mobj_t *hall2=spawn(MT_COMMAND_CENTER,FIXED2_LIT(24,24),consoleplayer);
+    CHECK(hall2);
+    mouse_click(card("Terran SCV",&hall,1));
+    mobj_t *halls[]={hall,hall2};
+    mouse_click(card("Terran SCV",halls,2));
+    CHECK(hall->production->queue_count==1&&hall2->production&&hall2->production->queue_count==1);
+    CHECK(sc_cancel_production(hall,-1)&&sc_cancel_production(hall2,-1));
+    /* Selection identity, not type alone, abandons an old target. */
+    mouse_click(card("Set Rally Point",&hall,1));
+    CHECK(hudmenu->target);
+    CHECK(card("Terran SCV",&hall2,1)&&!hudmenu->target);
+    mouse_click(card("Set Rally Point",&hall2,1));
+    mouse_click(card("Cancel",&hall2,1));
+    CHECK(!hudmenu->target&&!hall2->sc.rally.set);
+    /* Worker pages preserve the scripted gaps and remain visible at zero. */
+    mouse_click(card("Build Structure",&worker,1));
+    level.player_resources[consoleplayer][0]=0;
+    menuitem_t *depot=card("Terran Supply Depot",&worker,1);
+    CHECK(depot&&depot->hotkey==SDLK_s);
+    mouse_click(depot);
+    CHECK(!hudmenu->target&&!worker->production);
+    menuitem_t *engineering=card("Terran Engineering Bay",&worker,1);
+    CHECK(engineering&&engineering->hotkey==SDLK_e);
+    irect_t engineering_rect=engineering->rect;
+    mobj_t *barracks=spawn(MT_BARRACKS,FIXED2_LIT(30,24),consoleplayer);
+    CHECK(barracks);
+    menuitem_t *academy=card("Terran Academy",&worker,1);
+    CHECK(academy&&academy->rect.y>engineering_rect.y);
+    mouse_click(card("Cancel",&worker,1));
+    mobj_t *marine=spawn(MT_MARINE,FIXED2_LIT(20,20),consoleplayer);
+    mobj_t *mixed[]={worker,marine};
+    CHECK(card("Move",mixed,2)&&card("Attack",mixed,2)&&!card("Build Structure",mixed,2));
+    /* Gas shortage does not shuffle the command card or charge minerals. */
+    CHECK(spawn(MT_ACADEMY,FIXED2_LIT(34,24),consoleplayer));
+    level.player_resources[consoleplayer][0]=500;
+    level.player_resources[consoleplayer][1]=0;
+    menuitem_t *firebat=card("Terran Firebat",&barracks,1);
+    CHECK(firebat&&firebat->hotkey==SDLK_f);
+    irect_t firebat_rect=firebat->rect;
+    mouse_click(firebat);
+    CHECK(!barracks->production&&level.player_resources[consoleplayer][0]==500);
+    level.player_resources[consoleplayer][1]=500;
+    firebat=card("Terran Firebat",&barracks,1);
+    CHECK(firebat&&firebat->rect.x==firebat_rect.x&&firebat->rect.y==firebat_rect.y);
+    mouse_click(firebat);
+    CHECK(barracks->production&&level.player_resources[consoleplayer][1]==475);
+    CHECK(sc_cancel_production(barracks,-1));
+    /* Research has a single status icon and cancel-only card. */
+    mobj_t *bay=spawn(MT_ENGINEERING_BAY,FIXED2_LIT(38,24),consoleplayer);
+    CHECK(bay);
+    const StaticProductDefinition *research=G_ModelProductByUIId(NULL,sc_upgrade_product(7,1));
+    CHECK(research&&card(research->label,&bay,1));
+    mouse_click(card(research->label,&bay,1));
+    CHECK(bay->production&&card("Cancel Research",&bay,1)&&!card(research->label,&bay,1));
+    CHECK(pipeline_slot(0)&&!pipeline_slot(1));
+    mouse_click(card("Cancel Research",&bay,1));
+    CHECK(!bay->production);
+    /* Cargo icons unload one passenger; empty transports hide Unload All. */
+    mobj_t *bunker=spawn(MT_BUNKER,FIXED2_LIT(20,20),consoleplayer);
+    CHECK(bunker&&sc_board(marine,bunker));
+    mobj_t *passenger2=spawn(MT_MARINE,FIXED2_LIT(20,20),consoleplayer);
+    CHECK(passenger2&&sc_board(passenger2,bunker));
+    CHECK(card("Unload All",&bunker,1));
+    menuitem_t *passenger=card("Unload passenger",&bunker,1);
+    CHECK(passenger);
+    mouse_click(passenger);
+    CHECK(!(marine->sc.flags&SC_LOADED)&&(passenger2->sc.flags&SC_LOADED));
+    for(unsigned i=0;i<sizeof(bunker->sc.cargo)/sizeof(*bunker->sc.cargo);i++)
+        CHECK(bunker->sc.cargo[i]!=marine->id);
+    /* Missing target IDs are not the explicit target-zero Unload All. */
+    ticcmd_t stale={.order=TC_UNLOAD,.count=1,.units={bunker->id},.target=UINT32_MAX};
+    G_RunTiccmd(consoleplayer,&stale);
+    CHECK(passenger2->sc.flags&SC_LOADED);
+    mouse_click(card("Unload All",&bunker,1));
+    CHECK(!(passenger2->sc.flags&SC_LOADED)&&!card("Unload All",&bunker,1));
+    /* Zerg buildings select larvae; their nine products do not collide
+     * with rally, research, or building morph buttons. */
+    mobj_t *hatchery=spawn(MT_HATCHERY,FIXED2_LIT(42,24),consoleplayer);
+    CHECK(hatchery);
+    mouse_click(card("Select Larva",&hatchery,1));
+    CHECK(P_MobjIsSelected(hatchery));
+    mobj_t *larva=spawn(MT_LARVA,FIXED2_LIT(42,27),consoleplayer);
+    CHECK(hatchery&&larva);larva->sc.parent=hatchery->id;
+    CHECK(card("Select Larva",&hatchery,1)&&!card("Zerg Drone",&hatchery,1));
+    mouse_click(card("Select Larva",&hatchery,1));
+    CHECK(P_MobjIsSelected(larva)&&!P_MobjIsSelected(hatchery));
+    CHECK(card("Zerg Drone",&larva,1)&&card("Zerg Overlord",&larva,1));
+    mouse_click(card("Zerg Drone",&larva,1));
+    CHECK(larva->production);
+    G_ProductionTicker(RTS_TICK_MS);
+    CHECK(larva->type_id==MT_EGG&&card("Cancel Production",&larva,1));
+    mouse_click(card("Cancel Production",&larva,1));
+    CHECK(larva->type_id==MT_LARVA&&!larva->production);
+    mobj_t *drone=spawn(MT_DRONE,FIXED2_LIT(40,28),consoleplayer);
+    CHECK(drone);
+    mouse_click(card("Advanced Structures",&drone,1));
+    /* With a Lair the Spire must be the first advanced product, not lost
+     * on the basic page because the Zerg has fewer basic structures. */
+    CHECK(spawn(MT_LAIR,FIXED2_LIT(46,24),consoleplayer));
+    menuitem_t *spire=card("Zerg Spire",&drone,1);
+    CHECK(spire&&spire->hotkey==SDLK_s);
+    mobj_t *enemy=spawn(MT_BARRACKS,FIXED2_LIT(50,24),1);
+    CHECK(enemy);
+    level.player_resources[1][0]=1000;
+    CHECK(G_QueueProduct(enemy,G_ModelProductByUIId(NULL,MT_MARINE)));
+    CHECK(!card("Terran Marine",&enemy,1)&&!pipeline_slot(0));
+    return 0;
+}
+
 int main(void) {
     CHECK(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == 0);
     G_InitGame();
@@ -682,6 +835,9 @@ int main(void) {
     unload();
     CHECK(load(kinds, races));
     CHECK(!command_card());
+    unload();
+    CHECK(load(kinds, races));
+    CHECK(!hud_contract());
     unload();
     CHECK(!campaign_flow());
     CHECK(!briefing_script());

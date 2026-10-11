@@ -18,6 +18,8 @@ static menuitem_t *status_items;
 static int slot_start, caption_item, progress_item;
 static int wire_item, name_item, hp_item, second_item, rank_item, kills_item;
 static int equipment_item[2], equipment_level[2];
+static int cargo_start;
+static uint32_t passengers[8];
 
 static int status_control(int first,int end,int id) {
     for(int i=first;i<end;i++)if(status_items[i].id==id)return i;
@@ -82,11 +84,17 @@ static void cancel_slot(menu_t *menu,menuitem_t *item,menuaction_t action) {
                   .count=1,.units={shown->id}};
     G_QueueTiccmd(&cmd);
 }
+static void unload_passenger(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;
+    if(action!=MA_ACTIVATE||!shown||shown->owner!=consoleplayer)return;
+    ticcmd_t cmd={.order=TC_UNLOAD,.count=1,.units={shown->id},.target=passengers[item->value]};
+    G_QueueTiccmd(&cmd);
+}
 
 bool sc_status_init(menu_t *menu,menuitem_t *items,int capacity,int stat_first,int stat_end,
                     const char *root,const uint32_t *palette,
                     spritesheet_t *wireframe,const spritesheet_t *cmdicons) {
-    if(menu->numitems+SC_QUEUE_SLOTS+4>capacity)return false;
+    if(menu->numitems+SC_QUEUE_SLOTS+4+8>capacity)return false;
     if(!sc_font(root,"font8",&status_font)||
        !sc_font_colors(root,"game/tfontgam.pcx",&status_font)){
         sc_status_shutdown();return false;
@@ -148,6 +156,11 @@ bool sc_status_init(menu_t *menu,menuitem_t *items,int capacity,int stat_first,i
     progress_item=menu->numitems;
     items[menu->numitems++]=(menuitem_t){.kind=MI_STATIC,.rect={278,422,108,9},
         .visible=false,.passthrough=true,.ownerdraw=draw_progress};
+    cargo_start=menu->numitems;
+    for(int i=0;i<8;i++)items[menu->numitems++]=(menuitem_t){
+        .kind=MI_BUTTON,.rect={240+(i/2)*36,396+(i%2)*37,33,34},
+        .sheet=wireframes,.stretch=true,.release=true,.value=i,
+        .routine=unload_passenger,.tooltip="Unload passenger"};
     return true;
 }
 
@@ -175,7 +188,8 @@ void sc_status_refresh(const mobj_t *selected,int selection_count) {
             snprintf(second->text,sizeof(second->text),"%d/%d",sc_shields(shown),unit->shields);
         }
     }
-    bool equipment=unit&&!(unit->flags&SC_UNIT_BUILDING)&&shown->owner==consoleplayer;
+    bool equipment=unit&&!(unit->flags&SC_UNIT_BUILDING)&&shown->owner==consoleplayer&&
+        (!shown->production||(shown->traits&MF_HARVESTER));
     const sc_weapon_t *weapon=unit?sc_weapon(unit->ground_weapon):NULL;
     if(!weapon&&unit)weapon=sc_weapon(unit->air_weapon);
     for(int i=0;i<2;i++) {
@@ -188,11 +202,14 @@ void sc_status_refresh(const mobj_t *selected,int selection_count) {
             sizeof(status_items[equipment_level[i]].text),"%d",
             sc_upgrade_level(shown->owner,i?weapon->upgrade:unit->armor_upgrade));
     }
-    const production_t *queue=unit&&(unit->flags&SC_UNIT_BUILDING)?shown->production:NULL;
+    const production_t *queue=unit&&shown->owner==consoleplayer&&
+        ((unit->flags&SC_UNIT_BUILDING)||!(shown->traits&MF_HARVESTER))?shown->production:NULL;
     if(queue&&queue->queue_count<=0)queue=NULL;
     for(int slot=0;slot<SC_QUEUE_SLOTS;slot++) {
         menuitem_t *item=&status_items[slot_start+slot];
-        item->visible=queue&&!queue->placed;
+        bool training=queue&&queue->product_class==RTS_PRODUCT_UNIT&&
+            shown->type_id!=MT_EGG&&shown->type_id!=MT_COCOON;
+        item->visible=queue&&!queue->placed&&(training||slot==0);
         item->enabled=queue&&slot<queue->queue_count&&!queue->placed&&shown->owner==consoleplayer;
     }
     menuitem_t *caption=&status_items[caption_item];
@@ -201,6 +218,20 @@ void sc_status_refresh(const mobj_t *selected,int selection_count) {
         queue->product_class==RTS_PRODUCT_UPGRADE?"Researching":
         queue->placed?"Constructing":"Building");
     status_items[progress_item].visible=queue!=NULL;
+    if(queue)status_items[rank_item].visible=status_items[kills_item].visible=false;
+    int cargo=0;
+    memset(passengers,0,sizeof(passengers));
+    if(unit&&unit->space_provided&&shown->owner==consoleplayer)
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap&&cargo<8;th=th->next) {
+            const mobj_t *mo=(const mobj_t *)th;
+            if(th->function!=P_MobjThinker||mo->remove||mo->hp<=0||
+               !(mo->sc.flags&SC_LOADED)||mo->sc.parent!=shown->id)continue;
+            menuitem_t *item=&status_items[cargo_start+cargo];
+            passengers[cargo++]=mo->id;
+            for(int s=0;s<MS_STATES;s++)item->look[s].cell=mo->type_id-1;
+        }
+    for(int i=0;i<8;i++)status_items[cargo_start+i].visible=status_items[cargo_start+i].enabled=i<cargo;
+    if(cargo)for(int i=0;i<2;i++)status_items[equipment_item[i]].visible=status_items[equipment_level[i]].visible=false;
 }
 
 void sc_status_shutdown(void) {

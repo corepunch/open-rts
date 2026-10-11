@@ -2285,3 +2285,19 @@ metadata, not native asset IDs or a runtime Lua dependency. The C audit retains
 the name mapping while simulation uses enums. See the runtime identifier audit
 in `docs/WAR2_EXE_FINDINGS.md`; no new executable analysis or asset generation
 was performed.
+
+### Stargus HUD interaction audit (2026-10-11)
+
+The same pinned [Stargus tree](https://github.com/Wargus/stargus/tree/2a4d54604949e4772f6638a8412c8ebd62444044)
+was inspected for `scripts/buttons.lua`, `scripts/gameui.lua`, `scripts/ui.lua`,
+`scripts/icons.lua`, race `units.lua`, and worker/producer/larva unit scripts.
+The pinned [Stratagus button panel](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/ui/botpanel.cpp),
+[status drawing](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/ui/mainscr.cpp),
+and [command handling](https://github.com/Wargus/stratagus/blob/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc/src/action/command.cpp)
+establish visibility versus purchase checks, fixed cards, target cancellation,
+producer selection, cargo, and cancel-all versus cancel-slot behavior.
+`src/action/action_{train,research,upgradeto}.cpp` establishes the reference's
+100-percent refunds. Sources were read locally as behavior references; no
+reference code or converted assets were incorporated. The audit, superseded
+assumptions, intentional differences and remaining gaps are preserved in
+`docs/SC_EXE_FINDINGS.md`, "Stargus HUD availability and interaction audit".

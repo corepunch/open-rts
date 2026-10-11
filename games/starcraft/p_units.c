@@ -400,7 +400,14 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
         for (int i = 0; i < count; i++) sc_board(units[i], target);
         return true;
     case TC_UNLOAD:
-        for (int i = 0; i < count; i++) if (sc_unit(units[i])->space_provided) sc_unload(units[i]);
+        for (int i = 0; i < count; i++) if (sc_unit(units[i])->space_provided) {
+            if(!target)sc_unload(units[i]);
+            else if((target->sc.flags&SC_LOADED)&&target->sc.parent==units[i]->id) {
+                for(unsigned j=0;j<sizeof(units[i]->sc.cargo)/sizeof(*units[i]->sc.cargo);j++)
+                    if(units[i]->sc.cargo[j]==target->id)units[i]->sc.cargo[j]=0;
+                pop_out(target,P_MobjCells(units[i]));
+            }
+        }
         return true;
     case TC_ORDER:
         /* A right click on an own Bunker sends in whoever fits. */

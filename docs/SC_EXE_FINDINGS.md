@@ -1703,3 +1703,131 @@ weapon when ground is absent). The armor picture comes from the unit's
 frame IDs and verifies “Kills: 0” on the SCV. It also checks that a worker's
 construction progress caption does not cover the rank and kills lines;
 production progress belongs to the selected building's panel.
+
+## Stargus HUD availability and interaction audit (2026-10-11)
+
+**Scope/provenance.** This investigation used the pinned local Stargus
+`2a4d54604949e4772f6638a8412c8ebd62444044` and Stratagus
+`3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc` sources. No retail executable
+was examined or run; there is no new executable fingerprint or address claim.
+The user's `Screenshot 2026-10-11 at 13.59.36.jpg` shows **open-rts**, with
+zero minerals, one SCV training, and no SCV command icon. It is evidence of
+our defect, not evidence of retail visibility rules. Native artwork and file
+fingerprints remain those recorded in the preceding HUD sections.
+
+**Confirmed cause, disproven earlier choice.** Temporary
+`OPEN_RTS_DEBUG_CARD` logging in `product_ready` printed maker/product IDs,
+minerals, gas, cost, affordability and queue depth. The card refresh was
+using both `R_CanAfford` and producer acceptance to decide visibility.
+Spending the last 50 minerals on an SCV therefore removed the button.
+The earlier section's deliberate "accept and afford" hide rule is
+superseded: it does not match the Stargus behavior requested by the user.
+The diagnostic was removed after regression coverage reproduced the failure.
+
+**Confirmed reference behavior.**
+
+- Stratagus `src/ui/botpanel.cpp::IsButtonAllowed` checks dependencies for
+  train/build/research, not funds or supply. `DoClicked_Build`,
+  `DoClicked_Train`, and `DoClicked_Research` check costs/limits at activation.
+  Training remains visible while training when queues are enabled.
+- Each Stargus `DefineButton` supplies a fixed `Pos`, `Level`, and `Key`.
+  Command Center SCV is position 1 with S; Barracks Marine/Firebat/Ghost
+  use positions 1/2/3 and M/F/G. Unavailable products must not shift later
+  products into their positions. SCV Engineering Bay/Missile Turret/Academy
+  occupy positions 5/6/7, correcting our old Academy-first order.
+  Drone basic construction has six products with a gap at position 6;
+  Hydralisk Den is position 7. Its advanced page starts with Spire, not the
+  ninth entry of a shared worker catalog.
+- `DoClicked_SelectTarget` and `DoClicked_Build` switch to level 9,
+  which `scripts/buttons.lua` defines as Cancel only. Selection changes
+  invalidate the pending command. Our target copies the menu item outside
+  the nine displayed slots so refreshing Cancel cannot overwrite the order.
+- `UpdateButtonPanelMultipleUnits` checks group commands against all units;
+  same-type selections use their type's card. `DoClicked_Train` chooses the
+  same-type producer with the shortest training queue. Our implementation
+  additionally skips a maker that cannot currently accept that product.
+- `DoClicked_CancelTrain` sends slot -1. In
+  `src/action/command.cpp::CommandCancelTraining`, -1 cancels **all** training;
+  a nonnegative slot cancels just that entry. The three action files
+  `action_train.cpp`, `action_research.cpp`, and `action_upgradeto.cpp` use
+  100-percent cancellation refunds. Our previous command-card Cancel of
+  slot zero is superseded; pipeline icon clicks still cancel one slot.
+- Research/upgrading switches to a cancel-only card in
+  `UpdateButtonPanelSingleUnit`; `mainscr.cpp::DrawUnitInfo_single_selection`
+  uses one icon rather than a five-place training queue for those orders.
+  `gameui.lua` places eight cargo icons at x=240/276/312/348 and y=396/433;
+  `mainscr.cpp` draws boarded passengers. Clicking our cargo icon now sends
+  the passenger's stable ID with `TC_UNLOAD`; the simulation verifies it
+  belongs to the selected transport before unloading that passenger.
+- `IsButtonAllowed(Unload)` requires passengers. Hatchery/Lair/Hive scripts
+  provide Select Larva at position 1 (S), rally at position 2 (R), and
+  building morph at position 7. Their larva card belongs to selected larvae,
+  avoiding the collisions created by our previous combined building/larva
+  card. We select the hatchery's live free larvae as a group; the reference
+  callback repeatedly selects a single nearby larva.
+- `DrawPopup`/`DrawPopupCosts` and the status-line code in `botpanel.cpp`
+  expose command names, resource/supply costs and spell energy. Our tooltips
+  now show those values from the same catalog and supply calculation used
+  for purchases (including two-per-egg products and morph supply deltas).
+  `gameui.lua` places its status line at (172,350), used here for the latest
+  engine message. The previous StarCraft HUD never displayed `chat_text`,
+  making purchase failures and chat invisible despite their engine lifetime.
+
+**Implementation consequences and explicit engine choices.** Visibility now
+uses tech prerequisites; funds, supply, power, queue capacity and local
+producer restrictions are checked on click. Failed purchases display a
+message without charging resources or changing the queue. All commands use
+existing menu input and ticcmd dispatch. Production/status data is read from
+the selected mobj; enemy queues are not shown. Switching between two objects
+of the same type resets targeting, build pages and held input. Reinitializing
+the HUD also clears this UI state.
+
+Stargus has unfinished/conflicting definitions: its Starport Science Vessel
+and Battlecruiser both claim position 3, multiple Protoss products share the
+same key, and Terran Liftoff is wired to the ordinary move action. We do not
+copy those defects: Battlecruiser uses position 4; the C product table assigns
+unique mnemonic keys to the overlapping/unfinished cards. The new tooltip
+box above the command panel is an engine layout, not a claimed retail popup
+rectangle. Notification lifetime follows the existing engine five-second
+message convention. Native GRP/PCX artwork is unchanged; no assets are generated.
+
+Our Zerg runtime temporarily changes a larva/mutalisk into an egg/cocoon.
+Cancelling a newly exposed morph status icon restores the product's original
+maker type before removing its order; otherwise it leaves an inert egg.
+Buildings already retain their original type until completion. This is a
+required correction to our representation, not an executable-derived rule.
+
+**Remaining gaps/unknowns.** This is broader HUD interaction coverage, not
+complete Stargus or retail parity. Repair, Hold Position, attack-move,
+Patrol, worker Return Cargo, and building Liftoff need corresponding
+simulation behavior before their controls can be exposed correctly. Research
+and spell cards retain numeric hotkeys where there is no mapped command;
+research positions are stable by upgrade family. Exact disabled icon colors,
+retail popup appearance, damaged wireframes, full shield/energy/equipment
+panels and race-specific details are not established by this investigation.
+Construction sites still live on workers in this engine rather than as
+selectable unfinished buildings, so their separate cancel-construction panel
+cannot yet follow the reference lifecycle. These limitations must not be
+reported as complete HUD fidelity.
+
+**Reproduction.** `make` and `make test-starcraft` rebuild and exercise all
+StarCraft tests with `SDL_VIDEODRIVER=dummy`. `test_gameplay::command_card`
+reproduces spending the final 50 minerals and checks that a further click
+preserves queue depth and resources while showing "Not enough minerals".
+It writes `/private/tmp/starcraft-zero-minerals.bmp`, with the SCV button
+still visible. `hud_contract` covers mouse and S hotkey activation, full
+queues, supply and gas rejection, shortest-queue selection, same-type target
+reset, mixed selections, fixed worker slots, research, individual unloading,
+empty transports, enemy queue privacy, larva selection/morph cancellation,
+and the Zerg advanced Spire page. Existing tests retain scaled mouse input,
+queue progress, per-slot refunds, rally, spell and status coverage.
+
+**Verification outcome.** Final `make -j4`, focused `test_gameplay`, and
+headless `starcraft --check` passed (64×64 Terran 01, 46 units, 10 vents,
+4,844 terrain tiles). All 16 StarCraft test programs passed across the suite
+run and its continuation: sandbox networking stopped `test_multiplayer`,
+then both it and `test_native` passed with local socket access; the remaining
+seven programs passed afterward. The last selection/no-larva and stale-cargo
+checks passed in the final gameplay rerun. Zero-mineral and startup BMPs
+were rendered and visually inspected. Only the existing unused-helper
+warnings in `test_mission.c` appeared during the suite relink.

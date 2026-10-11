@@ -40,10 +40,12 @@ static screen_t *briefing=&briefings[0];
 static char player_name[32]="Player", campaign_map[256], custom_map[512];
 static char briefing_text[8192], objectives[2048];
 static char asset_root[1024];
-static int portrait_item, portrait_id=-1, tip_item;
+static int portrait_item, portrait_id=-1, tip_item, message_item;
 static int selected_id=-1, selection_start, command_start;
 static int selection_icon_start, selection_count;
 static mobj_t *selection_units[SC_SELECTION_SLOTS];
+static uint32_t selection_ids[SC_SELECTION_SLOTS];
+static menuitem_t target_command;
 static char start_tip[512];
 static int catalog_index, build_page, resource_start;
 static void multi(menu_t *menu,menuitem_t *item,menuaction_t action);
@@ -1934,8 +1936,19 @@ static void focus(menu_t *menu,menuitem_t *item,menuaction_t action) {
 static void stop(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE)HU_SelectedOrder(TC_STOP,(fvec2_t){0},0);
 }
+/* Keep the pending order outside the nine slots: the target card replaces
+ * those slots with Cancel, but the world click still needs the original. */
+static void target_order(menu_t *menu,menuitem_t *item) {
+    target_command=*item;
+    target_command.visible=target_command.enabled=true;
+    M_MenuTarget(menu,&target_command);
+}
+static void cancel_target(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)item;
+    if(action==MA_ACTIVATE){M_MenuTarget(menu,NULL);build_page=0;}
+}
 static void rally(menu_t *m,menuitem_t *i,menuaction_t a) {
-    if(a==MA_ACTIVATE){M_MenuTarget(m,i);return;}
+    if(a==MA_ACTIVATE){target_order(m,i);return;}
     if(a!=MA_TARGET)return;
     ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
     int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
@@ -1949,13 +1962,13 @@ static void cancel_production(menu_t *m,menuitem_t *i,menuaction_t a) {
     for(int j=0;j<hudview.unit_count;j++) {
         mobj_t *u=hudview.units[j];
         if(!P_MobjIsSelected(u)||u->owner!=consoleplayer||!u->production)continue;
-        ticcmd_t cmd={.order=TC_CANCEL_PRODUCTION,.product=0,.count=1,.units={u->id}};
+        ticcmd_t cmd={.order=TC_CANCEL_PRODUCTION,.product=-1,.count=1,.units={u->id}};
         G_QueueTiccmd(&cmd);
         return;
     }
 }
 static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
-    if(a==MA_ACTIVATE)M_MenuTarget(m,i);
+    if(a==MA_ACTIVATE)target_order(m,i);
     if(a!=MA_TARGET)return;
     ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
     uint32_t target=0;
@@ -1970,7 +1983,7 @@ static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
 /* An aimed ability waits for a click on the world; the rest go at once.
  * TC_SPELL carries the techdata row; the game picks who casts. */
 static void ability(menu_t *m,menuitem_t *i,menuaction_t a) {
-    if(a==MA_ACTIVATE&&sc_tech_aimed(i->value)){M_MenuTarget(m,i);return;}
+    if(a==MA_ACTIVATE&&sc_tech_aimed(i->value)){target_order(m,i);return;}
     if(a!=MA_ACTIVATE&&a!=MA_TARGET)return;
     ticcmd_t order={.order=TC_SPELL,.product=i->value};
     if(a==MA_TARGET) {
@@ -1992,19 +2005,51 @@ static void unload(menu_t *m,menuitem_t *i,menuaction_t a) {
 static void build_menu(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;if(a==MA_ACTIVATE)build_page=i->value;
 }
+static bool product_ready(const mobj_t *maker,const StaticProductDefinition *p);
+static void select_larvae(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;(void)item;
+    if(action!=MA_ACTIVATE||!selection_count)return;
+    uint32_t parent=selection_units[0]->id;
+    mobj_t *larvae[SC_SELECTION_SLOTS];
+    int count=0;
+    for(int j=0;j<hudview.unit_count&&count<SC_SELECTION_SLOTS;j++) {
+        mobj_t *u=hudview.units[j];
+        if(u->type_id==MT_LARVA&&u->sc.parent==parent&&u->hp>0&&!u->remove&&!u->production)
+            larvae[count++]=u;
+    }
+    if(!count)return;
+    for(int j=0;j<hudview.unit_count;j++)P_MobjSetSelected(hudview.units[j],false);
+    for(int j=0;j<count;j++)P_MobjSetSelected(larvae[j],true);
+}
 static void product(menu_t *m,menuitem_t *i,menuaction_t a) {
-    if(a==MA_TARGET){HU_PlaceProduct(m,i,a);return;}
+    if(a==MA_CANCEL){build_page=0;return;}
+    if(a==MA_TARGET){HU_PlaceProduct(m,i,a);if(!m->target)build_page=0;return;}
     if(a!=MA_ACTIVATE)return;
+    const StaticProductDefinition *p=G_ModelProductByUIId(NULL,i->value);
+    if(!p)return;
+    mobj_t *maker=NULL;
     for(int j=0;j<hudview.unit_count;j++) {
         mobj_t *u=hudview.units[j];
-        if(P_MobjIsSelected(u)&&u->owner==consoleplayer) {
-            const StaticProductDefinition *p=G_ModelProductByUIId(NULL,i->value);
-            /* Morphs and larvae take the order where they stand. */
-            if(p&&p->worker_build)HU_BuildProduct(m,i,u,p);
-            else if(p)G_BuildOrder(u,p->ui_id);
-            return;
-        }
+        if(!P_MobjIsSelected(u)||u->owner!=consoleplayer||u->hp<=0||u->remove)continue;
+        bool makes=false;
+        for(int k=0;k<p->maker_count;k++)makes|=p->makers[k]==u->type_id;
+        if(!makes)continue;
+        int depth=u->production?u->production->queue_count:0;
+        int best=maker&&maker->production?maker->production->queue_count:0;
+        if(!maker||(product_ready(u,p)&&(!product_ready(maker,p)||depth<best)))maker=u;
     }
+    if(!maker)return;
+    const char *failure=NULL;
+    if(level.player_resources[consoleplayer][0]<p->cost)failure="Not enough minerals";
+    else if(level.player_resources[consoleplayer][1]<p->extra_costs[0])failure="Not enough vespene gas";
+    else if(!sc_supply_ok(consoleplayer,p,maker))failure="Not enough supply";
+    else if(!G_QueueAllowsProduct(maker->production,p))failure="Production queue is full or busy";
+    else if(!product_ready(maker,p))failure="Production requirements are not met";
+    if(failure){HU_PushMessage(&chat_text,failure,5000);return;}
+    if(p->worker_build) {
+        target_command=*i;
+        HU_BuildProduct(m,&target_command,maker,p);
+    } else G_BuildOrder(maker,p->ui_id);
 }
 static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int value,const char *tip) {
     menuitem_t *i=&huditems[command_start+slot];
@@ -2015,22 +2060,73 @@ static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int v
     for(int s=0;s<MS_STATES;s++)i->look[s].cell=icon;
 }
 static bool product_ready(const mobj_t *maker,const StaticProductDefinition *p) {
-    if(!G_ModelProductAvailable(NULL,consoleplayer,p)||!R_CanAfford(consoleplayer,p))return false;
+    if(!G_ModelProductAvailable(NULL,consoleplayer,p))return false;
     const production_t *queue=maker->production;
     if((queue&&queue->queue_count&&p->worker_build)||!G_QueueAllowsProduct(queue,p))return false;
-    if(p->makers[0]==MT_LARVA&&maker->type_id!=MT_LARVA) {
-        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
-            const mobj_t *larva=(const mobj_t*)th;
-            if(th->function==P_MobjThinker&&larva->sc.parent==maker->id&&
-               larva->type_id==MT_LARVA&&!larva->production&&larva->hp>0&&!larva->remove&&
-               G_ModelProducerHasTech(larva,p))return true;
-        }
-        return false;
-    }
     return G_ModelProducerHasTech(maker,p);
 }
+/* Stargus unit scripts use authored positions, independent of affordability
+ * and prerequisites. Unfinished scripts have duplicate keys/slots; retain
+ * distinct usable keys for those products (documented in SC_EXE_FINDINGS). */
+static const struct { int product, page, slot; SDL_Keycode key; } product_buttons[]={
+    {MT_SCV,0,0,SDLK_s},{MT_MARINE,0,0,SDLK_m},{MT_FIREBAT,0,1,SDLK_f},{MT_GHOST,0,2,SDLK_g},
+    {MT_VULTURE,0,0,SDLK_v},{MT_SIEGE_TANK,0,1,SDLK_t},{MT_GOLIATH,0,2,SDLK_g},
+    {MT_WRAITH,0,0,SDLK_w},{MT_DROPSHIP,0,1,SDLK_d},{MT_SCIENCE_VESSEL,0,2,SDLK_v},{MT_BATTLECRUISER,0,3,SDLK_b},
+    {MT_COMSAT_STATION,0,6,SDLK_c},{MT_NUCLEAR_SILO,0,7,SDLK_n},
+    {MT_MACHINE_SHOP,0,6,SDLK_c},{MT_CONTROL_TOWER,0,6,SDLK_c},
+    {MT_COVERT_OPS,0,6,SDLK_c},{MT_PHYSICS_LAB,0,7,SDLK_p},
+    {MT_NUCLEAR_MISSILE,0,0,SDLK_n},{MT_INTERCEPTOR,0,6,SDLK_i},{MT_SCARAB,0,6,SDLK_r},
+    {MT_PROBE,0,0,SDLK_p},{MT_ZEALOT,0,0,SDLK_z},{MT_DRAGOON,0,1,SDLK_d},{MT_HIGH_TEMPLAR,0,2,SDLK_t},
+    {MT_SHUTTLE,0,0,SDLK_s},{MT_REAVER,0,1,SDLK_r},{MT_OBSERVER,0,2,SDLK_o},
+    {MT_SCOUT,0,0,SDLK_s},{MT_CARRIER,0,1,SDLK_c},{MT_ARBITER,0,2,SDLK_a},
+    {MT_DRONE,0,0,SDLK_d},{MT_ZERGLING,0,1,SDLK_z},{MT_OVERLORD,0,2,SDLK_o},
+    {MT_HYDRALISK,0,3,SDLK_h},{MT_MUTALISK,0,4,SDLK_m},{MT_SCOURGE,0,5,SDLK_s},
+    {MT_QUEEN,0,6,SDLK_q},{MT_ULTRALISK,0,7,SDLK_u},{MT_DEFILER,0,8,SDLK_f},
+    {MT_LAIR,0,6,SDLK_l},{MT_HIVE,0,6,SDLK_h},{MT_GREATER_SPIRE,0,6,SDLK_g},
+    {MT_SPORE_COLONY,0,6,SDLK_s},{MT_SUNKEN_COLONY,0,7,SDLK_u},{MT_GUARDIAN,0,6,SDLK_h},
+    {MT_COMMAND_CENTER,1,0,SDLK_c},{MT_SUPPLY_DEPOT,1,1,SDLK_s},{MT_REFINERY,1,2,SDLK_r},
+    {MT_BARRACKS,1,3,SDLK_b},{MT_ENGINEERING_BAY,1,4,SDLK_e},{MT_MISSILE_TURRET,1,5,SDLK_t},
+    {MT_ACADEMY,1,6,SDLK_a},{MT_BUNKER,1,7,SDLK_u},
+    {MT_FACTORY,2,0,SDLK_f},{MT_STARPORT,2,1,SDLK_s},{MT_SCIENCE_FACILITY,2,2,SDLK_i},{MT_ARMORY,2,3,SDLK_a},
+    {MT_NEXUS,1,0,SDLK_n},{MT_PYLON,1,1,SDLK_p},{MT_ASSIMILATOR,1,2,SDLK_a},
+    {MT_GATEWAY,1,3,SDLK_g},{MT_FORGE,1,4,SDLK_f},{MT_PHOTON_CANNON,1,5,SDLK_c},
+    {MT_CYBERNETICS_CORE,1,6,SDLK_y},{MT_SHIELD_BATTERY,1,7,SDLK_b},
+    {MT_ROBOTICS_FACILITY,2,0,SDLK_r},{MT_STARGATE,2,1,SDLK_s},{MT_CITADEL_OF_ADUN,2,2,SDLK_c},
+    {MT_ROBOTICS_SUPPORT_BAY,2,3,SDLK_b},{MT_FLEET_BEACON,2,4,SDLK_f},
+    {MT_TEMPLAR_ARCHIVES,2,5,SDLK_t},{MT_OBSERVATORY,2,6,SDLK_o},{MT_ARBITER_TRIBUNAL,2,7,SDLK_a},
+    {MT_HATCHERY,1,0,SDLK_h},{MT_CREEP_COLONY,1,1,SDLK_c},{MT_EXTRACTOR,1,2,SDLK_e},
+    {MT_SPAWNING_POOL,1,3,SDLK_s},{MT_EVOLUTION_CHAMBER,1,4,SDLK_v},{MT_HYDRALISK_DEN,1,6,SDLK_d},
+    {MT_SPIRE,2,0,SDLK_s},{MT_QUEENS_NEST,2,1,SDLK_q},{MT_NYDUS_CANAL,2,2,SDLK_n},
+    {MT_ULTRALISK_CAVERN,2,3,SDLK_u},{MT_DEFILER_MOUND,2,4,SDLK_d}
+};
+static void draw_command_tip(const menu_t *menu,const menuitem_t *item) {
+    char text[512];
+    const char *key=item->hotkey?SDL_GetKeyName(item->hotkey):"";
+    snprintf(text,sizeof(text),"%s%s%s%s",item->tooltip,key[0]?" (":"",key,key[0]?")":"");
+    const StaticProductDefinition *p=item->routine==product?G_ModelProductByUIId(NULL,item->value):NULL;
+    if(p) {
+        size_t used=strlen(text);
+        snprintf(text+used,sizeof(text)-used,"\nMinerals: %d   Gas: %d",p->cost,p->extra_costs[0]);
+        if(p->product_class==RTS_PRODUCT_UNIT&&p->product_type>0&&p->product_type<=SC_TYPES) {
+            int supply=sc_supply_cost(p,selection_count?selection_units[0]:NULL);
+            used=strlen(text);
+            snprintf(text+used,sizeof(text)-used,"   Supply: %d%s",supply/2,supply%2?".5":"");
+        }
+    } else if(item->routine==ability&&item->value>=0&&item->value<SC_TECHS) {
+        size_t used=strlen(text);
+        snprintf(text+used,sizeof(text)-used,"\nEnergy: %d",sc_techs[item->value].energy);
+    }
+    /* Text uses the shared menu drawer so it follows the HUD's nonuniform
+     * window scaling, including the native font and its palette. */
+    menuitem_t tip={.kind=MI_STATIC,.visible=true,.passthrough=true,
+        .rect={320,300,310,32},.font=&gamefonts[0],.prose=text,.fill=0xff000000};
+    tip.rect.h=V_TextWrappedHeight(tip.rect.w,tip.font,text);
+    tip.rect.y=336-tip.rect.h;
+    menu_t popup={.items=&tip,.numitems=1,.size=menu->size,.stretch=menu->stretch,.app=menu->app};
+    M_MenuDrawer(&popup);
+}
 static void refresh(menu_t *menu) {
-    (void)menu;mobj_t *selected=NULL;
+    mobj_t *selected=NULL;
     selection_count=0;
     memset(selection_units,0,sizeof(selection_units));
     for(int i=0;i<hudview.unit_count;i++)if(P_MobjIsSelected(hudview.units[i])&&hudview.units[i]->hp>0) {
@@ -2039,7 +2135,12 @@ static void refresh(menu_t *menu) {
             selection_units[selection_count++]=hudview.units[i];
     }
     int id_now=selected?selected->type_id-1:-1;
-    if(id_now!=selected_id){build_page=0;hud.target=NULL;}
+    bool changed=id_now!=selected_id;
+    for(int i=0;i<SC_SELECTION_SLOTS;i++) {
+        uint32_t id=selection_units[i]?selection_units[i]->id:0;
+        changed|=id!=selection_ids[i];selection_ids[i]=id;
+    }
+    if(changed){build_page=0;M_MenuTarget(menu,NULL);menu->held=NULL;menu->keyheld=NULL;}
     selected_id=id_now;
     snprintf(huditems[resource_start].text,128,"%d",level.player_resources[consoleplayer][0]);
     snprintf(huditems[resource_start+1].text,128,"%d",level.player_resources[consoleplayer][1]);
@@ -2049,6 +2150,8 @@ static void refresh(menu_t *menu) {
     const char *goal=sc_objectives_text();
     if(goal&&goal[0]) { huditems[tip_item].prose=goal; huditems[tip_item].visible=true; }
     else { huditems[tip_item].prose=start_tip; huditems[tip_item].visible=start_tip[0]!=0; }
+    huditems[message_item].visible=chat_text.count>0;
+    if(chat_text.count)huditems[message_item].prose=chat_text.messages[chat_text.count-1].text;
     for(int i=selection_start;i<command_start;i++)huditems[i].visible=false;
     for(int i=0;i<9;i++)huditems[command_start+i].visible=false;
     huditems[portrait_item].visible=false;
@@ -2070,41 +2173,65 @@ static void refresh(menu_t *menu) {
         for(int s=0;s<MS_STATES;s++)icon->look[s].cell=frame;
     }
     if(selected->owner!=consoleplayer)return;
+    if(menu->target) {
+        button(8,236,SDLK_ESCAPE,cancel_target,0,"Cancel");
+        return;
+    }
+    uint32_t common=selected->traits;
+    bool same_type=true;
+    for(int i=1;i<selection_count;i++) {
+        if(selection_units[i]->owner!=consoleplayer)return;
+        common&=selection_units[i]->traits;
+        same_type&=selection_units[i]->type_id==selected->type_id;
+    }
+    const production_t *queue=selected->production;
+    if(queue&&!queue->placed&&(queue->product_class!=RTS_PRODUCT_UNIT||
+       selected->type_id==MT_EGG||selected->type_id==MT_COCOON)) {
+        button(8,236,SDLK_ESCAPE,cancel_production,0,
+            queue->product_class==RTS_PRODUCT_UPGRADE?"Cancel Research":"Cancel Production");
+        return;
+    }
     if(!build_page) {
-        if(selected->traits&MF_MOBILE) {
+        if(common&MF_MOBILE) {
             button(0,228,SDLK_m,command,TC_MOVE,"Move");
             button(1,229,SDLK_s,stop,0,"Stop");
         }
-        if(selected->traits&MF_ATTACK)button(2,230,SDLK_a,command,TC_ATTACK,"Attack");
-        if(selected->traits&MF_HARVESTER) {
+        if(common&MF_ATTACK)button(2,230,SDLK_a,command,TC_ATTACK,"Attack");
+        if(same_type&&(common&MF_HARVESTER)) {
             button(4,231,SDLK_g,command,TC_HARVEST,"Gather");
-            button(6,234,SDLK_b,build_menu,1,"Build Structure");
-            button(7,235,SDLK_v,build_menu,2,"Advanced Structures");
+            button(6,selected->type_id==MT_DRONE?257:234,SDLK_b,build_menu,1,"Build Structure");
+            button(7,selected->type_id==MT_DRONE?258:235,SDLK_v,build_menu,2,"Advanced Structures");
         }
     }
+    if(!same_type)return;
     StaticProductDefinition list[SC_TYPES];int n=G_ModelGetProducts(NULL,consoleplayer,list,SC_TYPES);
     /* A unit's own morph (Guardian) goes under its move and attack row. */
     int slot=!build_page&&(selected->traits&MF_MOBILE)?6:0;
-    static const SDL_Keycode basic[]={SDLK_c,SDLK_s,SDLK_r,SDLK_b,SDLK_a,SDLK_e,SDLK_t,SDLK_u};
+    int research_slot=0,previous_research=-1;
     for(int i=0;i<n;i++) {
         const StaticProductDefinition *p=&list[i];
         bool made=false;
         for(int j=0;j<p->maker_count;j++)made|=p->makers[j]==selected->type_id;
         if(!made)continue;
-        if(p->worker_build) {
-            if(!build_page)continue;
-            int index=slot++;
-            if((build_page==1&&index>=8)||(build_page==2&&index<8))continue;
-            if(!product_ready(selected,p))continue;
-            int pos=build_page==1?index:index-8;
-            button(pos,p->icon_frame,selected->type_id==MT_SCV&&build_page==1?basic[pos]:SDLK_1+pos,product,p->ui_id,p->label);
-        } else if(!build_page) {
-            /* A hatchery shows what its larvae can become now, beside its own morph. */
-            if(!product_ready(selected,p))continue;
-            if(slot>=9)continue;
-            button(slot,p->icon_frame,slot==0?SDLK_t:SDLK_1+slot,product,p->ui_id,p->label);
-            slot++;
+        if(p->makers[0]==MT_LARVA&&selected->type_id!=MT_LARVA)continue;
+        int pos=slot,page=0;
+        SDL_Keycode key=SDLK_1+pos;
+        if(p->product_class==RTS_PRODUCT_UPGRADE) {
+            int family=p->ui_id>=SC_TECH_UI?p->ui_id:(p->ui_id-SC_UPGRADE_UI)/4;
+            if(family!=previous_research){previous_research=family;research_slot++;}
+            pos=research_slot-1;key=SDLK_1+pos;
+        } else {
+            for(unsigned j=0;j<sizeof(product_buttons)/sizeof(*product_buttons);j++)
+                if(product_buttons[j].product==p->ui_id) {
+                    pos=product_buttons[j].slot;page=product_buttons[j].page;key=product_buttons[j].key;break;
+                }
         }
+        if(page!=build_page||pos>=9)continue;
+        /* Costs, supply, power and queue capacity reject an order at click
+         * time. Only the tech tree decides whether this button exists. */
+        if(!G_ModelProductAvailable(NULL,consoleplayer,p))continue;
+        button(pos,p->icon_frame,key,product,p->ui_id,p->label);
+        if(pos>=slot)slot=pos+1;
     }
     /* Abilities follow, greyed until researched; a Bunker unloads. */
     if(!build_page) {
@@ -2116,7 +2243,9 @@ static void refresh(menu_t *menu) {
             button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":sc_techs[tech].name);
             huditems[command_start+slot++].enabled=sc_has_tech(consoleplayer,tech);
         }
-        if(sc_units[selected_id].space_provided&&(sc_units[selected_id].flags&SC_UNIT_BUILDING)&&slot<9)button(slot++,312,SDLK_u,unload,0,"Unload All");
+        bool loaded=false;
+        for(int j=0;j<hudview.unit_count;j++)loaded|=(hudview.units[j]->sc.flags&SC_LOADED)&&hudview.units[j]->sc.parent==selected->id;
+        if(sc_units[selected_id].space_provided&&loaded&&slot<9)button(slot++,312,SDLK_u,unload,0,"Unload All");
         if(sc_units[selected_id].flags&SC_UNIT_BUILDING) {
             bool makes_mobile=false;
             for(int k=0;k<n;k++)for(int maker=0;maker<list[k].maker_count;maker++) {
@@ -2124,7 +2253,9 @@ static void refresh(menu_t *menu) {
                 if(list[k].makers[maker]==selected->type_id&&
                    list[k].product_class==RTS_PRODUCT_UNIT&&type&&(type->traits&MF_MOBILE))makes_mobile=true;
             }
-            if(makes_mobile)button(5,286,SDLK_r,rally,0,"Set Rally Point");
+            bool hatchery=selected->type_id==MT_HATCHERY||selected->type_id==MT_LAIR||selected->type_id==MT_HIVE;
+            if(hatchery)button(0,MT_LARVA-1,SDLK_s,select_larvae,0,"Select Larva");
+            if(makes_mobile)button(hatchery?1:5,286,SDLK_r,rally,0,"Set Rally Point");
             if(selected->production&&!selected->production->placed)
                 button(8,236,SDLK_ESCAPE,cancel_production,0,
                     selected->production->product_class==RTS_PRODUCT_UPGRADE?
@@ -2200,7 +2331,9 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
        !palette_from(root,"game/tunit.pcx",&ingame.panel,0)||
        !palette_from(root,"game/twire.pcx",&wireframe,0)||
        !palette_from(root,"unit/cmdbtns/ticon.pcx",&icons,16))return NULL;
-    hud.app=app;hud.refresh=refresh;hud.numitems=1;
+    hud.app=app;hud.refresh=refresh;hud.drawtip=draw_command_tip;hud.numitems=1;
+    hud.target=NULL;hud.held=NULL;hud.keyheld=NULL;build_page=0;selected_id=-1;
+    memset(selection_ids,0,sizeof(selection_ids));
     huditems[0]=(menuitem_t){.kind=MI_STATIC,.visible=true,.rect={0,0,640,480},.passthrough=true,.sheet=&console,.stretch=true};
     int first=append_dialog(root,"rez/minimap.bin");if(first<0)return NULL;
     for(int i=first;i<hud.numitems;i++)huditems[i].visible=false;
@@ -2233,7 +2366,7 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
             .rect={168+cell.x,396+cell.y,33,34},.sheet=&wireframe,.stretch=true,
             .routine=select_slot,.opaque=false};
     }
-    if(!sc_status_init(&hud,huditems,(int)(sizeof(huditems)/sizeof(*huditems)),
+    if(!sc_status_init(&hud,huditems,(int)(sizeof(huditems)/sizeof(*huditems))-2,
                        selection_start,command_start,root,console.palette,
                        &wireframe,&icons))return NULL;
     sc_start_tip(&level,start_tip,sizeof(start_tip));
@@ -2242,6 +2375,9 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     tip_item=hud.numitems++;
     huditems[tip_item]=(menuitem_t){.kind=MI_STATIC,.visible=false,.passthrough=true,.rect={58,190,300,112},
         .font=&gamefonts[0],.prose=start_tip,.opaque=false};
+    message_item=hud.numitems++;
+    huditems[message_item]=(menuitem_t){.kind=MI_STATIC,.passthrough=true,
+        .rect={172,350,468,28},.font=&gamefonts[0]};
     return &hud;
 }
 void G_ShutdownHUD(void) {
