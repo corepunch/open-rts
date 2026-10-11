@@ -2,6 +2,7 @@
 #define _DARWIN_C_SOURCE
 #include "engine.h"
 #include "dark-reign.h"
+#include "t_local.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,6 +51,7 @@ static bool run_until_launched(void) {
 }
 
 int main(void) {
+    CHECK(rts_test_net_port());
     CHECK(SDL_setenv("SDL_VIDEODRIVER", "dummy", 1) == 0);
     int ready[2], done[2];
     CHECK(pipe(ready) == 0 && pipe(done) == 0);
@@ -123,11 +125,9 @@ int main(void) {
     }
     click(&app, 321, 426); /* LAUNCH opens the lobby; row 1 stays Available */
     if (!I_NetMenuSession()) {
-        /* Another process holds UDP 5029. */
         kill(joiner, SIGKILL);
         waitpid(joiner, NULL, 0);
-        puts("SKIP: UDP port 5029 is in use");
-        return 0;
+        CHECK(I_NetMenuSession());
     }
     CHECK(write(ready[1], "J", 1) == 1);
     click(&app, 321, 426); /* READY: starts once the joiner is ready too */

@@ -2,6 +2,7 @@
 #define _DARWIN_C_SOURCE
 #include "engine.h"
 #include "dark-reign.h"
+#include "t_local.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,7 @@ static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {
 }
 
 int main(void) {
+    CHECK(rts_test_net_port());
     CHECK(SDL_setenv("SDL_VIDEODRIVER", "dummy", 1) == 0);
     CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == 0);
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
@@ -136,8 +138,7 @@ int main(void) {
     click(&app, 321, 426); /* LAUNCH: host and wait for the LAN player */
     CHECK(menuactive && !menumap);
     screenshot(&app, surface, "/private/tmp/dr-menu-lan-waiting.bmp");
-    /* Another process may hold UDP 5029; Escape dismisses that error. */
-    if (!I_NetMenuSession()) key(&app, SDLK_ESCAPE);
+    CHECK(I_NetMenuSession());
     click(&app, 195, 430); /* Main Menu leaves the session for the outer shell */
     CHECK(!I_NetMenuSession());
     CHECK(menuactive);

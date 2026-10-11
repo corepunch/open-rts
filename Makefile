@@ -70,11 +70,20 @@ DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
-.PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
+.PHONY: all run mission-1 mission-2 test test-soak test-dark-colony test-dark-reign test-7legion test-kknd \
         test-warcraft-2 test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd warcraft-2 \
 		kknd-check anim-extract dc-info-conv dr-info-gen dr-units-extract dark-reign-units 7legion-units 7legion-info-gen kknd-info-gen test-info-gen \
 		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help
+
+TEST_RUNNER := $(BUILD_DIR)/test_runner
+TEST_RUNNER_SOURCES := $(sort $(shell find tools/test_runner -name '*.c'))
+TEST_JOBS ?= 4
+TEST_BUDGET ?= 45
+SOAK_BUDGET ?= 600
+$(TEST_RUNNER): $(TEST_RUNNER_SOURCES)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $^ -o $@
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -133,8 +142,8 @@ $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/$(1)/%.o $$($(1)_TES
 $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/shared/%.o $$($(1)_TEST_ENGINE_OBJS) | $(BIN_DIR)
 	@mkdir -p $$(dir $$@)
 	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
-test-$(1): $$($(1)_TEST_BINS)
-	@ok=1; for t in $$($(1)_TEST_BINS); do echo "-- $$$$t --"; $$$$t || ok=0; done; test "$$$$ok" = 1
+test-$(1): $(TEST_RUNNER) $$(filter-out %/test_ai_skirmish %/test_ai,$$($(1)_TEST_BINS))
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $$(filter-out %/test_ai_skirmish %/test_ai,$$($(1)_TEST_BINS))
 -include $$($(1)_TEST_OBJS:.o=.d) $$($(1)_TEST_ENGINE_OBJS:.o=.d)
 endef
 
@@ -155,8 +164,8 @@ $(BUILD_DIR)/dc-test/%.o: %.c Makefile
 $(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJ) $(DC_LAYOUT_DC_INFO_OBJ) | $(BIN_DIR)
 	$(CC) $^ -o $@ -lm
 
-test-layout: $(DC_LAYOUT_TEST_TARGET)
-	$(DC_LAYOUT_TEST_TARGET)
+test-layout: $(TEST_RUNNER) $(DC_LAYOUT_TEST_TARGET)
+	$(TEST_RUNNER) -j 1 -t $(TEST_BUDGET) $(DC_LAYOUT_TEST_TARGET)
 
 # ── anim_extract and info generators ─────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
@@ -306,8 +315,6 @@ dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 check-ifdefs:
 	@tools/check_no_game_ifdefs.sh
 
-test: check-ifdefs test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-warcraft-2 test-model-commands test-layout test-loaders
-
 # The C catalog includes private decoders; exclude their separate objects.
 LOADER_CATALOG_SOURCES := $(sort $(shell find tests -maxdepth 1 -name 'loader_catalog.c'))
 LOADER_RUNNER_SOURCES := $(sort $(shell find tools/test_loaders -name '*.c'))
@@ -318,17 +325,19 @@ define LOADER_CATALOG
 $(BIN_DIR)/loader-$(1): $(LOADER_CATALOG_SOURCES) $$(filter-out %/driver/d_main.o $(BUILD_DIR)/$(1)/games/$(1)/$(3).o,$$(ALL_OBJS_$(1)))
 	$(CC) $(CPPFLAGS) -I. -Igames/$(1) $(CFLAGS) $(SDL_CFLAGS) -D$(2) $(5) -DRTS_WORLD_Y_UP=$(4) -DLOADER_FIXTURES $$^ $(SDL_LIBS) -lm -o $$@
 loader-catalogs: $(BIN_DIR)/loader-$(1)
-test-loaders: test-loader-$(1)
-test-loader-$(1): $(BIN_DIR)/loader-$(1)
-	env SDL_VIDEODRIVER=dummy $$< --fixtures
+test-loader-$(1): $(TEST_RUNNER) $(BIN_DIR)/loader-$(1)
+	$(TEST_RUNNER) -j 1 -t $(TEST_BUDGET) $(BIN_DIR)/loader-$(1)@--fixtures
 endef
 $(eval $(call LOADER_CATALOG,dark-colony,DC,none,1,-DRTS_GAME_DARK_COLONY))
 $(eval $(call LOADER_CATALOG,dark-reign,DR,w_spr,0))
 $(eval $(call LOADER_CATALOG,7legion,SL,w_bim,0))
 $(eval $(call LOADER_CATALOG,kknd,KK,w_spr,0))
+LOADER_TEST_CASES := $(addprefix $(BIN_DIR)/loader-,dark-colony dark-reign 7legion kknd)
+test-loaders: $(TEST_RUNNER) $(LOADER_TEST_CASES)
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(addsuffix @--fixtures,$(LOADER_TEST_CASES))
 
 test-headless: test-dark-colony
-test-ai: test-dark-colony
+test-ai: test-soak
 
 NETWORK_TEST_SOURCES := $(sort $(shell find tests/network -name '*.c'))
 NETWORK_TEST_OBJS := $(patsubst %.c,$(BUILD_DIR)/model-test-dark-colony/%.o,$(NETWORK_TEST_SOURCES))
@@ -337,8 +346,10 @@ $(BIN_DIR)/test_network: $(NETWORK_TEST_OBJS) $(dark-colony_TEST_ENGINE_OBJS) | 
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 
 .PHONY: test-network
-test-network: $(BIN_DIR)/test_network
-	env SDL_VIDEODRIVER=dummy $(BIN_DIR)/test_network
+NETWORK_TEST_CASES := $(addprefix $(BIN_DIR)/test_network@,--commands --session --lan-discovery \
+    $(addprefix --mode-,0 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+test-network: $(TEST_RUNNER) $(BIN_DIR)/test_network
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(NETWORK_TEST_CASES)
 
 $(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dc/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
@@ -354,9 +365,8 @@ $(BUILD_DIR)/cmd-dr/%.o: %.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
-test-model-commands: $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
-	$(BIN_DIR)/test_model_commands_dark-colony
-	$(BIN_DIR)/test_model_commands_dark-reign
+test-model-commands: $(TEST_RUNNER) $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
 
 help:
 	@echo "Usage: make [target]"
@@ -387,7 +397,8 @@ help:
 	@echo "  kknd-info            Regenerate KKnD info.c and info.h"
 	@echo ""
 	@echo "Test / check:"
-	@echo "  test                 Run all headless tests"
+	@echo "  test                 Run quick headless tests in parallel (45s per test)"
+	@echo "  test-soak            Run long Dark Colony, StarCraft and Warcraft II AI simulations"
 	@echo "  test-info-gen        Verify generated info.c and info.h files are current"
 	@echo "  kknd-check           Headless smoke check for KKnD"
 	@echo "  test-starcraft       Native asset, menu, HUD, portrait and movement checks"
@@ -461,5 +472,18 @@ $(BIN_DIR)/tests/starcraft/%: tests/starcraft/%.c $(filter-out $(BUILD_DIR)/star
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT -I./games/starcraft $(CFLAGS) $(SDL_CFLAGS) $^ -o $@ $(SDL_LIBS) -lm
 .PHONY: test-starcraft
-test-starcraft: $(SC_TEST_BINS) starcraft-maps
-	@set -e; for t in $(SC_TEST_BINS); do env SDL_VIDEODRIVER=dummy $$t; done
+test-starcraft: $(TEST_RUNNER) $(filter-out %/test_ai,$(SC_TEST_BINS)) starcraft-maps
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(filter-out %/test_ai,$(SC_TEST_BINS))
+
+QUICK_TEST_BINS := $(filter-out %/test_ai_skirmish,$(dark-colony_TEST_BINS)) \
+    $(dark-reign_TEST_BINS) $(7legion_TEST_BINS) $(kknd_TEST_BINS) \
+    $(filter-out %/test_ai,$(warcraft-2_TEST_BINS)) $(filter-out %/test_ai,$(SC_TEST_BINS)) \
+    $(BIN_DIR)/test_network $(BIN_DIR)/test_model_commands_dark-colony \
+    $(BIN_DIR)/test_model_commands_dark-reign $(DC_LAYOUT_TEST_TARGET)
+QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network,$(QUICK_TEST_BINS)) $(NETWORK_TEST_CASES)
+SOAK_TEST_BINS := $(BIN_DIR)/tests/dark-colony/test_ai_skirmish \
+    $(BIN_DIR)/tests/starcraft/test_ai $(BIN_DIR)/tests/warcraft-2/test_ai
+test: check-ifdefs test-info-gen test-loaders $(TEST_RUNNER) $(QUICK_TEST_BINS) starcraft-maps
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(QUICK_TEST_CASES)
+test-soak: $(TEST_RUNNER) $(SOAK_TEST_BINS) starcraft-maps
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(SOAK_BUDGET) $(SOAK_TEST_BINS)

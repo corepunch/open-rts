@@ -63,6 +63,7 @@ static int malformed_grp(void) {
     b.size=sizeof(bytes);bytes[16]=0;CHECK(!sc_decode_grp(&b,pal,false,&s));return 0;
 }
 int main(void) {
+    CHECK(rts_test_net_port());
     CHECK(!dialog_test()&&!malformed_grp());
     CHECK(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO)==0);
     G_InitGame();P_InitThinkers();CHECK(G_DoLoadLevel("catalog",&level));CHECK(P_InitSight());

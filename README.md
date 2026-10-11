@@ -504,11 +504,15 @@ with their own screens. Setup, the protocol, and the tests are in
 
 ```sh
 make test
+make test-soak
 make test-starcraft
 ```
 
-`make test` builds and runs the headless model, loader, and per-game suites.
-It expects retail data under `data/`. Suites do not open a visible window;
+`make test` runs the headless model, loader, network, and per-game suites in
+parallel with a 45-second budget for each test. Set `TEST_JOBS` or
+`TEST_BUDGET` to change the parallelism or budget. `make test-soak` runs the
+full-game Dark Colony, StarCraft, and Warcraft II AI simulations with a longer budget.
+The suites expect retail data under `data/` and do not open a visible window;
 set `SDL_VIDEODRIVER=dummy` when you run a single test binary yourself.
 
 ## Further reading

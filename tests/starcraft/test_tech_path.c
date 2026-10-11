@@ -1,7 +1,7 @@
 #include "starcraft.h"
 #include "sc_local.h"
 /* Terran: a Battlecruiser needs a Starport with its Control Tower and a Science Facility with its Physics Lab, above the Factory; the third level of
- * infantry weapons the second level, which wants the Armory. */
+ * infantry weapons the second level, which wants the Science Facility. */
 #define TECH_STARTERS { 0 }
 #define TECH_RACE 0
 #define TECH_REAL_MAP
@@ -10,7 +10,8 @@
 #define TECH_CASES { \
     { 1, 1, { 112 } }, \
     { 13, 6, { 112, 114, 115, 116, 117, 119 } }, \
-    { 1030, 6, { 112, 114, 124, 123, 1028, 1029 } }, \
+    { 1030, 7, { 112, 114, 115, 117, 123, 1028, 1029 } }, \
+    { 1002, 7, { 112, 114, 115, 117, 123, 1000, 1001 } }, \
 }
 #define TECH_AI_CASE 2 /* Add-ons are queued by the game, not bought, so the AI walks the research path. */
 #define TECH_AI_PRELUDE { 110, 1 },

@@ -492,6 +492,12 @@ static bool number(const char *s, int min, int max, int *out) {
     return true;
 }
 
+static int default_port(void) {
+    const char *value = getenv("OPEN_RTS_NET_PORT");
+    int port;
+    return value && number(value, 1, 65535, &port) ? port : 5029;
+}
+
 bool I_InitNetwork(int *argc, char **argv) {
     I_ShutdownNetwork();
     *doomcom = (doomcom_t){ .id = DOOMCOM_ID, .numnodes = 1, .numplayers = 1, .ticdup = 1 };
@@ -515,7 +521,7 @@ bool I_InitNetwork(int *argc, char **argv) {
     memset(session_setup, 0, sizeof(session_setup));
     session_setup_size = 0;
     const char *hosts[MAXPLAYERS - 1];
-    int hostcount = 0, port = 5029, output = 1, players = 2;
+    int hostcount = 0, port = default_port(), output = 1, players = 2;
     bool port_set = false, players_set = false;
     for (int i = 1; i < *argc; ++i) {
         const char *arg = argv[i];
@@ -560,7 +566,7 @@ bool I_InitNetwork(int *argc, char **argv) {
         if (strlen(hosts[i]) >= sizeof(host)) goto usage;
         strcpy(host, hosts[i][0] == '.' ? hosts[i] + 1 : hosts[i]);
         char *colon = strrchr(host, ':');
-        int remoteport = joining ? 5029 : port;
+        int remoteport = joining ? default_port() : port;
         if (colon) { *colon++ = '\0'; if (!number(colon, 1, 65535, &remoteport)) goto usage; }
         snprintf(service, sizeof(service), "%d", remoteport);
         struct addrinfo hints = { .ai_family = AF_INET, .ai_socktype = SOCK_DGRAM }, *result;
@@ -683,13 +689,13 @@ void I_QueryNetGames(const char *address) {
     uint8_t wire[8 + GAME_LENGTH] = {0};
     session_header(wire, DISCOVER, 0, 0);
     memcpy(wire + 8, session_game, GAME_LENGTH);
-    struct sockaddr_in to = {.sin_family = AF_INET, .sin_port = htons(5029)};
+    struct sockaddr_in to = {.sin_family = AF_INET, .sin_port = htons(default_port())};
     if (address) {
         char host[64];
         if (strlen(address) >= sizeof(host)) return;
         strcpy(host, address);
         char *colon = strchr(host, ':');
-        int port = 5029;
+        int port = default_port();
         if (colon) { *colon++ = '\0'; if (!number(colon, 1, 65535, &port)) return; }
         to.sin_port = htons(port);
         if (inet_pton(AF_INET, host, &to.sin_addr) != 1) return;
