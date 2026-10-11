@@ -152,6 +152,10 @@ bool P_MorphMobj(mobj_t *mo, uint16_t type) {
 static bool approach_footprint(mobj_t *unit, ivec2_t cell, isize2_t size,
                                int vent_index, fixed2_t *bay) {
     fixed2_t from = fixed3_xy(unit->core.position);
+    ivec2_t home = fixed2_cell(from);
+    const uint16_t *regions = P_NavRegions(&level, P_MobjMoveClass(unit));
+    if (!regions || !L_Contains(&level, home.x, home.y)) return false;
+    uint16_t region = regions[L_Index(&level, home.x, home.y)];
     bool found = false;
     int64_t distance = 0;
     for (int y = -1; y <= size.h; ++y)
@@ -180,7 +184,8 @@ static bool approach_footprint(mobj_t *unit, ivec2_t cell, isize2_t size,
                 }
             }
             if (occupied) continue;
-            if (!P_NavReachable(&level, P_MobjMoveClass(unit), fixed2_cell(from), candidate)) continue;
+            if (!region || !L_Contains(&level, candidate.x, candidate.y) ||
+                regions[L_Index(&level, candidate.x, candidate.y)] != region) continue;
             *bay = at;
             distance = d;
             found = true;

@@ -12,6 +12,7 @@ enum {
 /* Per movement class: which cells touch an obstacle and which component a cell is in. */
 typedef struct {
     bool built;
+    uint8_t *speed;     /* L_MoveSpeed per cell, read in every search step */
     uint8_t *near_wall;
     uint16_t *region;   /* 0 = impassable for this class */
     int max_speed;      /* fastest terrain; keeps the heuristic admissible */
@@ -19,7 +20,7 @@ typedef struct {
 
 struct nav_s {
     int width, height;
-    uint8_t *snap_blocked, *snap_effect, *snap_solid; /* a mismatch drops every layer */
+    uint8_t *snap_blocked, *snap_effect, *snap_solid, *snap_terrain; /* a mismatch drops every layer */
     navlayer_t layer[RTS_MAX_MOVE_CLASSES];
     int *g, *parent;
     uint32_t *stamp;    /* generation of g/parent/closed, avoids clearing per search */
@@ -42,17 +43,22 @@ static int class_of(const level_t *map, int move_class) {
     return move_class;
 }
 
-static bool passable(const level_t *map, int cls, int x, int y) {
-    return L_MoveSpeed(map, cls, x, y) > 0;
+static int speed_at(const level_t *map, const navlayer_t *layer, int x, int y) {
+    return L_Contains(map, x, y) ? layer->speed[L_Index(map, x, y)] : 0;
 }
 
-static bool step_allowed(const level_t *map, int cls, int x, int y, int dx, int dy) {
-    if (!passable(map, cls, x + dx, y + dy)) return false;
+static bool passable(const level_t *map, const navlayer_t *layer, int x, int y) {
+    return speed_at(map, layer, x, y) > 0;
+}
+
+static bool step_allowed(const level_t *map, const navlayer_t *layer, int x, int y, int dx, int dy) {
+    if (!passable(map, layer, x + dx, y + dy)) return false;
     /* Never cut a blocked corner. */
-    return !dx || !dy || (passable(map, cls, x + dx, y) && passable(map, cls, x, y + dy));
+    return !dx || !dy || (passable(map, layer, x + dx, y) && passable(map, layer, x, y + dy));
 }
 
 static void layer_release(navlayer_t *layer) {
+    free(layer->speed);
     free(layer->near_wall);
     free(layer->region);
     *layer = (navlayer_t){0};
@@ -61,7 +67,7 @@ static void layer_release(navlayer_t *layer) {
 static void nav_release(struct nav_s *nav) {
     if (!nav) return;
     for (int i = 0; i < RTS_MAX_MOVE_CLASSES; ++i) layer_release(&nav->layer[i]);
-    free(nav->snap_blocked); free(nav->snap_effect); free(nav->snap_solid);
+    free(nav->snap_blocked); free(nav->snap_effect); free(nav->snap_solid); free(nav->snap_terrain);
     free(nav->g); free(nav->parent); free(nav->stamp); free(nav->closed); free(nav->heap);
     free(nav);
 }
@@ -82,7 +88,8 @@ static bool nav_matches(const level_t *map, const struct nav_s *nav) {
     size_t total = (size_t)map->width * map->height;
     return same_bytes(nav->snap_blocked, map->blocked, total, 0) &&
            same_bytes(nav->snap_effect, map->cell_effect, total, 255) &&
-           same_bytes(nav->snap_solid, map->cell_solid, total, 0);
+           same_bytes(nav->snap_solid, map->cell_solid, total, 0) &&
+           same_bytes(nav->snap_terrain, map->cell_terrain, total, 15);
 }
 
 static void take_snapshot(const level_t *map, struct nav_s *nav) {
@@ -90,6 +97,7 @@ static void take_snapshot(const level_t *map, struct nav_s *nav) {
     if (map->blocked) memcpy(nav->snap_blocked, map->blocked, total); else memset(nav->snap_blocked, 0, total);
     if (map->cell_effect) memcpy(nav->snap_effect, map->cell_effect, total); else memset(nav->snap_effect, 255, total);
     if (map->cell_solid) memcpy(nav->snap_solid, map->cell_solid, total); else memset(nav->snap_solid, 0, total);
+    if (map->cell_terrain) memcpy(nav->snap_terrain, map->cell_terrain, total); else memset(nav->snap_terrain, 15, total);
 }
 
 /* The cache validates itself against the terrain arrays, so buildings,
@@ -109,11 +117,13 @@ static struct nav_s *nav_for(const level_t *map) {
     if (!nav) { ((level_t *)map)->nav = NULL; return NULL; }
     nav->width = map->width; nav->height = map->height;
     nav->snap_blocked = malloc(total); nav->snap_effect = malloc(total); nav->snap_solid = malloc(total);
+    nav->snap_terrain = malloc(total);
     nav->g = calloc(total, sizeof(*nav->g));
     nav->parent = calloc(total, sizeof(*nav->parent));
     nav->stamp = calloc(total, sizeof(*nav->stamp));
     nav->closed = calloc(total, 1);
-    if (!nav->snap_blocked || !nav->snap_effect || !nav->snap_solid || !nav->g || !nav->parent ||
+    if (!nav->snap_blocked || !nav->snap_effect || !nav->snap_solid || !nav->snap_terrain ||
+        !nav->g || !nav->parent ||
         !nav->stamp || !nav->closed) {
         nav_release(nav);
         ((level_t *)map)->nav = NULL;
@@ -124,14 +134,14 @@ static struct nav_s *nav_for(const level_t *map) {
     return nav;
 }
 
-static void build_regions(const level_t *map, int cls, struct nav_s *nav, navlayer_t *layer) {
+static void build_regions(const level_t *map, struct nav_s *nav, navlayer_t *layer) {
     int total = nav->width * nav->height;
     int *queue = malloc((size_t)total * sizeof(*queue));
     if (!queue) return;
     uint16_t next = 1;
     for (int start = 0; start < total; ++start) {
         ivec2_t cell = L_Cell(map, start);
-        if (layer->region[start] || !passable(map, cls, cell.x, cell.y)) continue;
+        if (layer->region[start] || !layer->speed[start]) continue;
         if (next == UINT16_MAX) { /* Merge overflow into the last region; still sound for rejection. */
             layer->region[start] = next;
             continue;
@@ -143,7 +153,7 @@ static void build_regions(const level_t *map, int cls, struct nav_s *nav, navlay
             cell = L_Cell(map, queue[head++]);
             for (int d = 0; d < 8; ++d) {
                 int dx = neighbor[d][0], dy = neighbor[d][1];
-                if (!step_allowed(map, cls, cell.x, cell.y, dx, dy)) continue;
+                if (!step_allowed(map, layer, cell.x, cell.y, dx, dy)) continue;
                 int ni = L_Index(map, cell.x + dx, cell.y + dy);
                 if (layer->region[ni]) continue;
                 layer->region[ni] = next;
@@ -159,21 +169,26 @@ static navlayer_t *layer_for(const level_t *map, struct nav_s *nav, int cls) {
     navlayer_t *layer = &nav->layer[cls];
     if (layer->built) return layer;
     size_t total = (size_t)nav->width * nav->height;
+    layer->speed = malloc(total);
     layer->near_wall = calloc(total, 1);
     layer->region = calloc(total, sizeof(*layer->region));
-    if (!layer->near_wall || !layer->region) { layer_release(layer); return NULL; }
+    if (!layer->speed || !layer->near_wall || !layer->region) { layer_release(layer); return NULL; }
     layer->max_speed = 100;
     for (int y = 0; y < nav->height; ++y)
         for (int x = 0; x < nav->width; ++x) {
             int speed = L_MoveSpeed(map, cls, x, y);
             if (speed > layer->max_speed) layer->max_speed = speed;
+            layer->speed[L_Index(map, x, y)] = (uint8_t)speed;
+        }
+    for (int y = 0; y < nav->height; ++y)
+        for (int x = 0; x < nav->width; ++x) {
             bool near = false;
             for (int d = 0; d < 8 && !near; ++d)
                 near = L_Contains(map, x + neighbor[d][0], y + neighbor[d][1]) &&
-                       !passable(map, cls, x + neighbor[d][0], y + neighbor[d][1]);
+                       !passable(map, layer, x + neighbor[d][0], y + neighbor[d][1]);
             layer->near_wall[L_Index(map, x, y)] = near;
         }
-    build_regions(map, cls, nav, layer);
+    build_regions(map, nav, layer);
     layer->built = true;
     return layer;
 }
@@ -225,6 +240,12 @@ static int octile(int dx, int dy, int max_speed) {
     dx = abs(dx); dy = abs(dy);
     int lo = dx < dy ? dx : dy, hi = dx < dy ? dy : dx;
     return (COST_STRAIGHT * hi + (COST_DIAGONAL - COST_STRAIGHT) * lo) * 100 / max_speed;
+}
+
+const uint16_t *P_NavRegions(const level_t *map, int move_class) {
+    struct nav_s *nav = nav_for(map);
+    navlayer_t *layer = nav ? layer_for(map, nav, class_of(map, move_class)) : NULL;
+    return layer ? layer->region : NULL;
 }
 
 bool P_NavReachable(const level_t *map, int move_class, ivec2_t from, ivec2_t to) {
@@ -281,8 +302,8 @@ bool P_NavLineClear(const level_t *map, int move_class, fixed2_t a, fixed2_t b, 
     return true;
 }
 
-static bool cell_usable(const level_t *map, int cls, int x, int y, fixed_t radius) {
-    if (!passable(map, cls, x, y)) return false;
+static bool cell_usable(const level_t *map, int cls, const navlayer_t *layer, int x, int y, fixed_t radius) {
+    if (!passable(map, layer, x, y)) return false;
     if (radius <= FIXED_ONE / 2) return true; /* A cell-centred disc that small fits any open cell. */
     return P_MapCircleWalkable(map, cls, fixed2_cell_center((ivec2_t){x, y}), radius, NULL);
 }
@@ -312,10 +333,10 @@ static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *l
         ivec2_t cell = L_Cell(map, cur);
         for (int d = 0; d < 8; ++d) {
             int dx = neighbor[d][0], dy = neighbor[d][1];
-            if (!step_allowed(map, cls, cell.x, cell.y, dx, dy)) continue;
+            if (!step_allowed(map, layer, cell.x, cell.y, dx, dy)) continue;
             int nx = cell.x + dx, ny = cell.y + dy, ni = L_Index(map, nx, ny);
-            if (ni != t && !cell_usable(map, cls, nx, ny, radius)) continue;
-            int speed = L_MoveSpeed(map, cls, nx, ny);
+            if (ni != t && !cell_usable(map, cls, layer, nx, ny, radius)) continue;
+            int speed = layer->speed[ni];
             int step = (dx && dy ? COST_DIAGONAL : COST_STRAIGHT) +
                        (layer->near_wall[ni] ? COST_NEAR_WALL : 0) +
                        (soft && soft[ni] && ni != t ? COST_SOFT_BLOCKER : 0);
@@ -336,7 +357,7 @@ static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *l
 
 /* Travel cost of a straight segment in cell-lengths of full-speed ground,
  * 16.16 in a 64-bit accumulator (a slow swamp can price past 16.16 range). */
-static int64_t segment_cost(const level_t *map, int cls, const uint8_t *soft, fixed2_t a, fixed2_t b) {
+static int64_t segment_cost(const level_t *map, const navlayer_t *layer, const uint8_t *soft, fixed2_t a, fixed2_t b) {
     fixed2_t delta = fixed2_sub(b, a);
     fixed_t length = fixed2_length(delta);
     int steps = (int)((length + SAMPLE_SPACING - 1) / SAMPLE_SPACING);
@@ -345,7 +366,7 @@ static int64_t segment_cost(const level_t *map, int cls, const uint8_t *soft, fi
     for (int i = 0; i < steps; ++i) {
         fixed2_t at = lerp_step(a, delta, 2 * i + 1, 2 * steps);
         ivec2_t cell = fixed2_cell(at);
-        int speed = L_MoveSpeed(map, cls, cell.x, cell.y);
+        int speed = speed_at(map, layer, cell.x, cell.y);
         total += (int64_t)100 * FIXED_ONE / (speed > 0 ? speed : 100);
         if (soft && L_Contains(map, cell.x, cell.y) && soft[L_Index(map, cell.x, cell.y)])
             total += (int64_t)COST_SOFT_BLOCKER * FIXED_ONE / 100; /* an idle unit's cell */
@@ -364,13 +385,13 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
     if (!layer) return false;
     ivec2_t start = fixed2_cell(from), end = fixed2_cell(goal);
     if (!L_Contains(map, start.x, start.y)) return false;
-    if (!passable(map, cls, start.x, start.y)) { /* Spawn overlapping terrain: begin at a neighbour. */
+    if (!passable(map, layer, start.x, start.y)) { /* Spawn overlapping terrain: begin at a neighbour. */
         bool found = false;
         int64_t best = INT64_MAX;
         fixed2_t seed = {0, 0};
         for (int dy = -2; dy <= 2; ++dy)
             for (int dx = -2; dx <= 2; ++dx) {
-                if (!passable(map, cls, start.x + dx, start.y + dy)) continue;
+                if (!passable(map, layer, start.x + dx, start.y + dy)) continue;
                 fixed2_t c = fixed2_cell_center((ivec2_t){start.x + dx, start.y + dy});
                 int64_t d = fixed2_distance_squared64(c, from) >> 24;
                 if (d < best) { best = d; found = true; seed = c; }
@@ -378,7 +399,7 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
         if (!found) return false;
         start = fixed2_cell(seed);
     }
-    bool exact_goal = L_Contains(map, end.x, end.y) && passable(map, cls, end.x, end.y) &&
+    bool exact_goal = L_Contains(map, end.x, end.y) && passable(map, layer, end.x, end.y) &&
                       P_NavReachable(map, cls, start, end) &&
                       P_MapCircleWalkable(map, cls, goal, radius, NULL);
     if (!exact_goal) {
@@ -416,16 +437,16 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
     if (priced && !prefix) { free(chain); return false; }
     if (priced) {
         prefix[0] = 0;
-        for (int k = 1; k < length; ++k) prefix[k] = prefix[k - 1] + segment_cost(map, cls, soft, chain[k - 1], chain[k]);
+        for (int k = 1; k < length; ++k) prefix[k] = prefix[k - 1] + segment_cost(map, layer, soft, chain[k - 1], chain[k]);
     }
     fixed2_t anchor = from;
     int at = 0;
     out->complete = true;
     while (at < length) {
         int far = at;
-        int64_t lead = priced ? segment_cost(map, cls, soft, anchor, chain[at]) : 0;
+        int64_t lead = priced ? segment_cost(map, layer, soft, anchor, chain[at]) : 0;
         while (far + 1 < length && P_NavLineClear(map, cls, anchor, chain[far + 1], radius) &&
-               (!priced || segment_cost(map, cls, soft, anchor, chain[far + 1]) <=
+               (!priced || segment_cost(map, layer, soft, anchor, chain[far + 1]) <=
                            (lead + prefix[far + 1] - prefix[at]) * 103 / 100 + FIXED_LIT(0.05))) ++far;
         if (out->count == NAV_MAX_WAYPOINTS) { out->complete = false; break; }
         out->points[out->count++] = chain[far];
@@ -440,14 +461,14 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path) {
     if (!out_path || max_path <= 0) return 0;
     struct nav_s *nav = nav_for(map);
-    if (!nav || !passable(map, 0, start.x, start.y) || !L_Contains(map, goal.x, goal.y)) return 0;
-    if (!passable(map, 0, goal.x, goal.y) && !P_NavNearestReachable(map, 0, start, goal, 8, &goal))
+    navlayer_t *layer = nav ? layer_for(map, nav, 0) : NULL;
+    if (!layer || !passable(map, layer, start.x, start.y) || !L_Contains(map, goal.x, goal.y)) return 0;
+    if (!passable(map, layer, goal.x, goal.y) && !P_NavNearestReachable(map, 0, start, goal, 8, &goal))
         return 0;
     if (!P_NavReachable(map, 0, start, goal)) return 0;
     if (ivec2_equal(start, goal)) { out_path[0] = start; return 1; }
-    navlayer_t *layer = layer_for(map, nav, 0);
     int index;
-    if (!layer || !search(map, 0, nav, layer, NULL, 0, start, goal, &index)) return 0;
+    if (!search(map, 0, nav, layer, NULL, 0, start, goal, &index)) return 0;
     int total = 0;
     for (int c = index; c != -1; c = nav->parent[c]) ++total;
     int slot = total;

@@ -1509,15 +1509,47 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale);
 void HU_PushMessage(hudtext_t *hud, const char *text, int ttl_ms);
 void HU_Ticker(hudtext_t *hud, float dt);
 
-int L_Index(const level_t *map, int x, int y);
-ivec2_t L_Cell(const level_t *map, int index);
-bool L_Contains(const level_t *map, int x, int y);
-bool L_IsWalkable(const level_t *map, int x, int y);
-/* Speed percentage for a movement class at a cell; 0 means impassable. */
-int L_MoveSpeed(const level_t *map, int move_class, int x, int y);
+/* Cell lookups sit in every movement and pathfinding loop: inline. */
+static inline int L_Index(const level_t *map, int x, int y) {
+#ifdef RTS_LEVEL_COLUMN_MAJOR
+    return x * map->height + y;
+#else
+    return y * map->width + x;
+#endif
+}
+static inline ivec2_t L_Cell(const level_t *map, int index) {
+#ifdef RTS_LEVEL_COLUMN_MAJOR
+    return (ivec2_t){index / map->height, index % map->height};
+#else
+    return (ivec2_t){index % map->width, index / map->width};
+#endif
+}
+static inline bool L_Contains(const level_t *map, int x, int y) {
+    return x >= 0 && y >= 0 && x < map->width && y < map->height;
+}
+static inline bool L_IsWalkable(const level_t *map, int x, int y) {
+    return L_Contains(map, x, y) && (!map->blocked || map->blocked[L_Index(map, x, y)] == 0) &&
+        (!map->cell_solid || !map->cell_solid[L_Index(map, x, y)]);
+}
+/* Speed percentage for a movement class at a cell (0 = impassable). Class 0 is the
+ * plain blocked[] grid; other classes read the game's terrain speed tables. */
+static inline int L_MoveSpeed(const level_t *map, int move_class, int x, int y) {
+    if (!L_Contains(map, x, y)) return 0;
+    int index = L_Index(map, x, y);
+    if (move_class <= 0 || !map->speeds || move_class >= map->speeds->class_count)
+        return L_IsWalkable(map, x, y) ? 100 : 0;
+    if (map->cell_solid && map->cell_solid[index]) return 0;
+    int effect = map->cell_effect ? map->cell_effect[index] : 255;
+    if (effect < 8) return map->speeds->overlay[move_class][effect];
+    return map->speeds->terrain[move_class][(map->cell_terrain ? map->cell_terrain[index] : 15) & 15];
+}
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
 void P_NavFree(level_t *map);
 bool P_NavReachable(const level_t *map, int move_class, ivec2_t from, ivec2_t to);
+/* The connected component of each cell for a movement class (0 = impassable),
+ * valid until the terrain arrays change: a loop can test many cells against
+ * one validation instead of one per P_NavReachable. NULL when out of memory. */
+const uint16_t *P_NavRegions(const level_t *map, int move_class);
 /* Nearest cell to `wanted` in the same region as `from`, within `radius` cells. */
 bool P_NavNearestReachable(const level_t *map, int move_class, ivec2_t from,
                            ivec2_t wanted, int radius, ivec2_t *out);
@@ -2173,6 +2205,10 @@ bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_c
 #define AI_EVENT_LOG_SIZE 256
 #define AI_MAX_WAVE_TRACK 32 /* Wave members followed for a retreat. */
 #define AI_MAX_TOWNS 16
+/* Products whose purchase the game turned down after allowing it (no site,
+ * no free builder), and how long the computer waits before asking again. */
+#define AI_MAX_REFUSED 8
+#define AI_REFUSED_WAIT_MS 2000
 /* Orders the computer stacks on one producer: shallow queues keep money
  * free and let supply and tech in, as Blizzard's AI trains one at a time. */
 #define AI_QUEUE_DEPTH 2
@@ -2639,6 +2675,7 @@ typedef struct {
     uint32_t scout;         /* mobj id of the scout on its way, 0 for none */
     uint32_t starts_seen;   /* Start locations scouted, by starts() index. */
     int found_ms;           /* AI clock when an enemy base was first seen; 0 before. */
+    struct { int product, until_ms; } refused[AI_MAX_REFUSED];
 } AiTeamState;
 
 typedef struct AiContext {

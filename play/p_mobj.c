@@ -341,8 +341,15 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };
     if (mobj->sprite_id >= 0 && mobj->sprite_id < game_info->sprite_count &&
         game_info->sprnames && game_info->sprnames[mobj->sprite_id]) {
-        snprintf(mobj->sprite_name, sizeof(mobj->sprite_name), "%s",
-                 game_info->sprnames[mobj->sprite_id]);
+        /* Every frame change lands here; the name rarely changes. */
+        const char *name = game_info->sprnames[mobj->sprite_id];
+        size_t room = sizeof(mobj->sprite_name) - 1;
+        if (strncmp(mobj->sprite_name, name, room)) {
+            const char *end = memchr(name, '\0', room);
+            size_t n = end ? (size_t)(end - name) : room;
+            memcpy(mobj->sprite_name, name, n);
+            mobj->sprite_name[n] = '\0';
+        }
     }
 }
 

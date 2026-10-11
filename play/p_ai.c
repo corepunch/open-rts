@@ -346,8 +346,27 @@ AiTry P_AiTry(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int pr
     return ai_try(ctx, team, owner, map, product, 0);
 }
 
+/* A purchase the game turned down is not asked again on every think: the
+ * search behind it (a building site on a full island) may cover the map. */
+static bool refused(const AiContext *ctx, const AiTeamState *team, int product) {
+    for (int i = 0; i < AI_MAX_REFUSED; ++i)
+        if (team->refused[i].product == product && ctx->clock_ms < team->refused[i].until_ms) return true;
+    return false;
+}
+
+static void refuse(const AiContext *ctx, AiTeamState *team, int product) {
+    int slot = 0;
+    for (int i = 0; i < AI_MAX_REFUSED; ++i) {
+        if (team->refused[i].product == product) { slot = i; break; }
+        if (team->refused[i].until_ms < team->refused[slot].until_ms) slot = i;
+    }
+    team->refused[slot].product = product;
+    team->refused[slot].until_ms = ctx->clock_ms + AI_REFUSED_WAIT_MS;
+}
+
 static AiTry ai_try(AiContext *ctx, AiTeamState *team, int owner, level_t *map, int product, int depth) {
     const AiGameInterface *game = ctx->game;
+    if (refused(ctx, team, product)) return AI_TRY_SKIP;
     int status = ai_can_purchase(ctx, map, owner, product);
     /* Blocked by something the owner can get: plan the path to it. */
     if (status == AI_BUY_BLOCKED && (ctx->features & AI_FEATURE_RESEARCH) &&
@@ -363,7 +382,10 @@ static AiTry ai_try(AiContext *ctx, AiTeamState *team, int owner, level_t *map, 
     if (status == AI_BUY_BLOCKED) return AI_TRY_SKIP;
     if (status == AI_BUY_NEED_CREDITS) return AI_TRY_SAVING;
     if (!(game->purchase ? game->purchase(map, owner, product) :
-                           G_AiCatalogPurchase(map, owner, product))) return AI_TRY_SKIP;
+                           G_AiCatalogPurchase(map, owner, product))) {
+        refuse(ctx, team, product);
+        return AI_TRY_SKIP;
+    }
     team->stats.purchases++;
     P_AiEmit(ctx, AI_EVENT_PURCHASE, owner, product);
     return AI_TRY_BOUGHT;

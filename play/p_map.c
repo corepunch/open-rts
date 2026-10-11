@@ -7,44 +7,6 @@ static uint32_t next_move_order_id(void) {
     return level.next_move_order_id;
 }
 
-int L_Index(const level_t *map, int x, int y) {
-#ifdef RTS_LEVEL_COLUMN_MAJOR
-    return x * map->height + y;
-#else
-    return y * map->width + x;
-#endif
-}
-
-ivec2_t L_Cell(const level_t *map, int index) {
-#ifdef RTS_LEVEL_COLUMN_MAJOR
-    return (ivec2_t){index / map->height, index % map->height};
-#else
-    return (ivec2_t){index % map->width, index / map->width};
-#endif
-}
-
-bool L_Contains(const level_t *map, int x, int y) {
-    return x >= 0 && y >= 0 && x < map->width && y < map->height;
-}
-
-bool L_IsWalkable(const level_t *map, int x, int y) {
-    return L_Contains(map, x, y) && (!map->blocked || map->blocked[L_Index(map, x, y)] == 0) &&
-        (!map->cell_solid || !map->cell_solid[L_Index(map, x, y)]);
-}
-
-/* Speed percentage for a movement class at a cell (0 = impassable). Class 0 is the
- * plain blocked[] grid; other classes read the game's terrain speed tables. */
-int L_MoveSpeed(const level_t *map, int move_class, int x, int y) {
-    if (!L_Contains(map, x, y)) return 0;
-    int index = L_Index(map, x, y);
-    if (move_class <= 0 || !map->speeds || move_class >= map->speeds->class_count)
-        return L_IsWalkable(map, x, y) ? 100 : 0;
-    if (map->cell_solid && map->cell_solid[index]) return 0;
-    int effect = map->cell_effect ? map->cell_effect[index] : 255;
-    if (effect < 8) return map->speeds->overlay[move_class][effect];
-    return map->speeds->terrain[move_class][(map->cell_terrain ? map->cell_terrain[index] : 15) & 15];
-}
-
 fixed_t P_MobjRadius(const mobj_t *unit) {
     if (unit && unit->radius > FIXED_LIT(0.05)) return unit->radius;
     return FIXED_LIT(0.42);
