@@ -44,7 +44,7 @@ static uint64_t gametime, oldentertics;
 static uint64_t lastreceived[MAXNETNODES];
 static int skiptics, frameon, frameskip[4], oldnettics;
 
-enum { RESENDCOUNT = 10, NETVERSION = 5 };
+enum { RESENDCOUNT = 10, NETVERSION = 6 };
 
 static uint64_t I_GetTime(void) {
     return scaled_time() * RTS_TICRATE / 100 / 1000 / (uint64_t)ticdup;

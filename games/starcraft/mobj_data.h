@@ -9,15 +9,17 @@
  * building, an interceptor's Carrier, a scarab's Reaver, a loaded unit's
  * Bunker. A hatchery's larva_ms counts down to its next larva. */
 enum { SC_INVINCIBLE = 1, SC_HALLUCINATION = 2, SC_HIT = 4, SC_STARTED = 8, SC_LOADED = 16, SC_RETURNING = 32, SC_HOLD = 64 };
-enum { SC_ORDER_NONE, SC_ORDER_CAST, SC_ORDER_BOARD, SC_ORDER_MERGE, SC_ORDER_NUKE, SC_ORDER_REPAIR };
+enum { SC_ORDER_NONE, SC_ORDER_CAST, SC_ORDER_BOARD, SC_ORDER_MERGE, SC_ORDER_NUKE, SC_ORDER_REPAIR,
+       SC_ORDER_FOLLOW, SC_ORDER_LIFT, SC_ORDER_LAND };
 /* Spell timers count 24 Hz frames down to zero; Irradiate and Plague count
  * the 8-frame beats on which they hurt. LIFE ends a timed unit or effect. */
 enum { SC_TIMER_LIFE, SC_TIMER_MATRIX, SC_TIMER_IRRADIATE, SC_TIMER_PLAGUE, SC_TIMER_ENSNARE,
        SC_TIMER_LOCKDOWN, SC_TIMER_STORM, SC_TIMERS };
 /* A pending order a unit walks to carry out:
  * a spell or archon merge on target or at a pixel, boarding a Bunker, a
- * nuclear strike being painted, or a repair. time counts its frames down
- * (for repair, until the next resource debit). An effect
+ * nuclear strike being painted, repair, Follow, or building flight. at holds
+ * pixels for spells and placement cells for landing. time counts frames down
+ * (repair debit/Follow check), or marks landing descent. An effect
  * area keeps its spell in tech. */
 typedef struct { int kind, tech; uint32_t target; ivec2_t at; int time; } sc_order_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;

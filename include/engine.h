@@ -583,7 +583,8 @@ enum {
     ALLEGIANCE_NEUTRAL = 3,
 };
 
-typedef struct { int capacity, load_amount, unload_amount; } harvestresource_t;
+/* Zero waits retain the shared one-second gathering tick and instant deposit. */
+typedef struct { int capacity, load_amount, unload_amount, interval_ms, depot_ms; } harvestresource_t;
 
 /* Authored weapon data. Distances are map cells; fixed values are 16.16. */
 typedef struct {
@@ -999,6 +1000,7 @@ typedef enum {
     TC_REPAIR, TC_STAND_GROUND, TC_SPELL,
     TC_BOARD, TC_UNLOAD,
     TC_CANCEL_PRODUCTION, TC_SET_RALLY,
+    TC_FOLLOW, TC_LIFT, TC_LAND,
     TC_RESYNC, /* Network only: one chunk of a resync save, never queued or run. */
     TC_MAX = TC_RESYNC
 } ticorder_t;

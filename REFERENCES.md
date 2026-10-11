@@ -1,5 +1,25 @@
 # Reverse Engineering References
 
+### StarCraft repair, Follow, flight and mining follow-up (2026-10-11)
+
+- [OpenBW pinned source](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
+  collision rectangles/distance, `order_Follow`, `order_Repair`,
+  `order_BuildingLiftoff`, `order_LiftingOff`, `order_BuildingLand`,
+  `building_abandon_addon`, `make_unit_neutral`, `find_connecting_addon`,
+  `connect_addon`. Reference behavior; no retail execution or new disassembly.
+- [Stargus worker definitions](https://github.com/Wargus/stargus/tree/2a4d54604949e4772f6638a8412c8ebd62444044/scripts):
+  Terran SCV, Zerg Drone and Protoss Probe scripts, capacity 8 and waits
+  150/50/50; `src/kaitai/units_dat.ksy` for collision extents.
+- [Stratagus pinned source](https://github.com/Wargus/stratagus/tree/3d87c93f7fd8c0b62ee1be5df0a6d9efc72ca6cc):
+  `src/include/settings.h` (30 Hz), `src/action/action_resource.cpp`
+  (`TimeToHarvest`, animation completion and depot wait).
+- [PyMS](https://github.com/poiuyqwert/PyMS/tree/bfc5d3aad0b5614a5aff72c223f8efa00afddfa4/PyMS):
+  `FileFormats/DAT/UnitsDAT.py` flying-building flag 0x20,
+  `FileFormats/IScriptBIN.py` Landing/LiftOff entries 17/18,
+  `Data/Icons.txt` Lift off/Land frames 282/283. Read as documentation only.
+  Geometry fingerprint, formulas, rejected approaches and reproduction:
+  [SC_EXE_FINDINGS.md](docs/SC_EXE_FINDINGS.md#repair-bounds-follow-flight-and-gathering-waits-2026-10-11).
+
 ### StarCraft core-order implementation (2026-10-11)
 
 - Blizzard's [Unit Commands](https://classic.battle.net/scc/gs/com.shtml) and

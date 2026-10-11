@@ -245,6 +245,9 @@ bool P_ReturnHarvest(level_t *map, mobj_t *unit, mobj_t *destination) {
     unit->harvest.base = best;
     unit->harvest.return_position = unit->movement.goal;
     unit->harvest.phase = HARVEST_PHASE_TO_BASE;
+    if (unit->info && unit->harvest.resource_type >= 0 && unit->harvest.resource_type < RTS_MAX_RESOURCES &&
+        unit->info->harvest.resources[unit->harvest.resource_type].interval_ms > 0)
+        unit->harvest.timer_ms = 0;
     return true;
 }
 
@@ -616,7 +619,7 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
 #ifdef RTS_MODULE_STARCRAFT
-    if (attacker->sc.order.kind == SC_ORDER_REPAIR ||
+    if (attacker->sc.order.kind == SC_ORDER_REPAIR || attacker->sc.order.kind == SC_ORDER_FOLLOW ||
         (attacker->move_only && P_HasMoveOrder(attacker))) return NULL;
 #endif
 #ifdef RTS_MODULE_WARCRAFT_2
@@ -657,7 +660,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
  * existing live enemy so repeated hits do not restart its pursuit. */
 static void provoke(mobj_t *target, mobj_t *source) {
 #ifdef RTS_MODULE_STARCRAFT
-    if (target->sc.order.kind == SC_ORDER_REPAIR ||
+    if (target->sc.order.kind == SC_ORDER_REPAIR || target->sc.order.kind == SC_ORDER_FOLLOW ||
         (target->move_only && P_HasMoveOrder(target))) return;
 #endif
     mobj_t *enemy = target->attack.target;
@@ -1245,7 +1248,7 @@ static bool update_unit_harvest(level_t *map,
         unit->harvest.phase == HARVEST_PHASE_UNLOADING) {
         mobj_t *base = unit->harvest.base;
         fixed2_t bay = unit->harvest.return_position;
-        if (!base || base->remove || base->hp <= 0 || !P_IsAlly(unit, base) ||
+        if (!base || base->remove || base->hp <= 0 || !(base->traits & MF_RESOURCE_BASE) || !P_IsAlly(unit, base) ||
             (game_info->harvest_dropoff_matches &&
              (!game_info->harvest_dropoff_matches(unit, unit->harvest.resource_type, base, &bay) ||
               !fixed2_near(bay, unit->harvest.return_position, FIXED_LIT(0.001)) ||
@@ -1283,6 +1286,9 @@ static bool update_unit_harvest(level_t *map,
         }
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = unit->harvest.resource_type;
+        int wait = unit->info->harvest.resources[rtype].depot_ms;
+        if (wait > 0 && (unit->harvest.timer_ms += dt_ms) < wait) return true;
+        if (wait > 0) unit->harvest.timer_ms = 0;
         int amount = unit->harvest.cargo;
         int unload = unit->info->harvest.resources[rtype].unload_amount;
         if (unload > 0 && amount > unload) amount = unload;
@@ -1321,6 +1327,8 @@ static bool update_unit_harvest(level_t *map,
         unit->movement.turn_timer_ms = 0;
         unit->harvest.base = NULL;
         unit->harvest.phase = HARVEST_PHASE_MINING;
+        if (unit->info->harvest.resources[unit->harvest.resource_type].interval_ms > 0)
+            unit->harvest.timer_ms = 0;
         if (game_info && mobj_harvest_state(unit) > 0 &&
             mobj_harvest_state(unit) < game_info->state_count) {
             P_SetMobjState(unit, mobj_harvest_state(unit));
@@ -1395,9 +1403,12 @@ static bool update_unit_harvest(level_t *map,
         unit->harvest.phase = HARVEST_PHASE_TURNING;
         unit->movement.turn_timer_ms = RTS_TURN_STEP_MS;
     }
+    int interval = unit->info->harvest.resources[unit->harvest.resource_type].interval_ms;
+    if (interval > 0 && unit->harvest.phase != HARVEST_PHASE_MINING) return true;
+    if (interval <= 0) interval = RTS_HARVEST_INTERVAL_MS;
     unit->harvest.timer_ms += dt_ms;
-    while (unit->harvest.timer_ms >= RTS_HARVEST_INTERVAL_MS && vent->amount > 0) {
-        unit->harvest.timer_ms -= RTS_HARVEST_INTERVAL_MS;
+    while (unit->harvest.timer_ms >= interval && vent->amount > 0) {
+        unit->harvest.timer_ms -= interval;
         int take = vent->rate;
         int capacity = mobj_harvest_capacity(unit);
         if (capacity > 0 && take > capacity - unit->harvest.cargo)
@@ -1473,7 +1484,7 @@ static void tick_actor(mobj_t *u) {
         bool in_attack = s && s->group == 3;
         mobj_t *enemy = u->attack.target;
 #ifdef RTS_MODULE_STARCRAFT
-        if ((u->sc.flags & SC_HOLD) || u->sc.order.kind == SC_ORDER_REPAIR ||
+        if ((u->sc.flags & SC_HOLD) || u->sc.order.kind == SC_ORDER_REPAIR || u->sc.order.kind == SC_ORDER_FOLLOW ||
             (u->move_only && moving)) enemy = NULL;
 #endif
 #ifdef RTS_MODULE_WARCRAFT_2
@@ -1594,6 +1605,10 @@ static void tick_actor(mobj_t *u) {
 
     if (game_info && (u->traits & MF_MOBILE) && u->type_id > 0 &&
         u->type_id < game_info->mobj_type_count) {
+#ifdef RTS_MODULE_STARCRAFT
+        /* Native repair approaches can move inside a placement margin. */
+        moving |= !fixed2_equal(fixed3_xy(u->core.momentum), (fixed2_t){0});
+#endif
         const mobjinfo_t *mi = &game_info->mobjinfo[u->type_id];
         const state_t *state = state_at(game_info, u->core.state_id);
         int group = state ? state->group : 0;

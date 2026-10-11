@@ -20,12 +20,13 @@ typedef struct {
     int speed;     /* Top speed, 1/256 pixel per 24 Hz frame (flingy.dat or walking script) */
     int space, space_provided; /* Transport slots taken and offered; 255 cannot board */
     ivec2_t addon; /* An add-on's top-left from its parent's, in pixels */
+    irect_t bounds; /* units.dat collision box, relative to the centre, pixels. */
 } sc_unit_t;
 extern sc_unit_t sc_units[SC_TYPES];
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */
 enum {
-    SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_HERO = 0x40, SC_UNIT_CLOAKABLE = 0x200,
+    SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_FLYING_BUILDING = 0x20, SC_UNIT_HERO = 0x40, SC_UNIT_CLOAKABLE = 0x200,
     SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_SPELLCASTER = 0x200000,
     SC_UNIT_PERMANENT_CLOAK = 0x400000, SC_UNIT_MECHANICAL = 0x40000000,
 };
@@ -257,6 +258,9 @@ int sc_hangar_count(const mobj_t *maker);
 void sc_unit_ticker(mobj_t *mo, int frames);
 bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count, mobj_t *target);
 void sc_repair_ticker(mobj_t *mo, int frames);
+void sc_order_ticker(mobj_t *mo, int frames);
+int sc_unit_distance(const mobj_t *a, const mobj_t *b);
+extern int sc_flight_states[SC_TYPES][2];
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
 /* Add-ons: the building that builds an add-on type (MT_NONE if it is not

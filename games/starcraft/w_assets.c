@@ -157,7 +157,7 @@ static const uint8_t oplen[69]={
 };
 enum {
     SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_GND_ATTACK_RPT=5, SC_WALKING=11,
-    SC_STAREDIT_INIT=23,
+    SC_LANDING=17, SC_LIFT_OFF=18, SC_STAREDIT_INIT=23,
 };
 /* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. A work
  * swing (6) plays once and returns to idle, like an attack without the blow. */
@@ -363,6 +363,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
      * 7-byte row formula is for the expanded Brood War table. */
     unsigned ns=sprites.size==2081?386:130+((unsigned)sprites.size-520)/7;
     next_state=SC_SCRIPT_STATES;
+    memset(sc_flight_states,0,sizeof(sc_flight_states));
     extra_count=0;
     for(int i=1;i<NUMMOBJTYPES;i++) mobjinfo[i].deathstate=S_NULL;
     int loaded=0; unsigned image_ids[SC_TYPES];
@@ -407,6 +408,14 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         unsigned im=image_ids[i],scriptid=read_u32_le(images.bytes+ni*10+im*4);
         bool turns=images.bytes[ni*4+im]!=0;
         unsigned death=animation_start(&script,scriptid,SC_DEATH);
+        if(sc_units[i].flags&SC_UNIT_FLYING_BUILDING)for(int phase=0;phase<2;phase++) {
+            unsigned start=animation_start(&script,scriptid,phase?SC_LANDING:SC_LIFT_OFF);
+            if(start&&next_state<SC_STATES) {
+                int head=next_state++;
+                if(animation(&script,start,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
+                    sc_flight_states[i][phase]=head;
+            }
+        }
         if(death&&next_state<SC_STATES) {
             int head=next_state++;
             sc_trail_t trail={-1,-1};

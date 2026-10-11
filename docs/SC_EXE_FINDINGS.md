@@ -1,5 +1,128 @@
 # StarCraft native data and UI findings
 
+## Repair bounds, Follow, flight and gathering waits (2026-10-11)
+
+This follow-up supersedes the one-tile repair approximation and the missing
+Follow/lift/land statements below. It inspected native DAT data and the pinned
+Stargus, Stratagus, PyMS and OpenBW sources; **no retail executable was run or
+disassembled**, so there are no new EXE addresses or fingerprint claims.
+
+**Confirmed asset geometry.** Original-disc `arr/units.dat`, SHA-256
+`dc7b8b59bb14a3ba67829926ad50e8d363032a351299e5087f790ed09616619d`,
+column 38 starts at byte **12124** and contains 228 eight-byte records of
+unsigned little-endian left/top/right/bottom extents. The C catalog now retains
+all four extents. They are distinct from column 36 placement dimensions:
+SCV is 11/11/11/11, Vulture 16/16/15/15, Command Center 58/41/58/41,
+Barracks 48/40/56/32 and Bunker 32/24/32/16. The collision rectangle is
+`position - (left,top)` through `position + (right,bottom) + (1,1)`.
+
+**Confirmed in OpenBW, not independently EXE-verified.** `bwgame.h` at
+`4b046d5f65302b10cb0a745f0fecd37ec85b20a8`, SHA-256
+`5ee316ca2c008c9252f7fde7444ca5dc7f35440549be2576dc37fa228fb31ae6`:
+
+- `unit_sprite_bounding_box`, `rect_difference`, `xy_length`,
+  `unit_target_in_range` and `order_Repair` establish a five-pixel gap between
+  these rectangles. For sorted nonnegative gaps x >= y, distance is x when
+  x/4 >= y; otherwise it is `x-x/16+y*3/8-x/64+y*3/256`, with integer
+  division at each term. At aligned SCV/Vulture centres, separation 33 pixels
+  gives gap 5 and allows repair; 34 gives gap 6 and requires approach.
+- `order_Follow` retains the target, checks distance periodically with a
+  seven-frame timer, and stops within 96 pixels of its bounds. It remains
+  active for a mobile target, resuming when that target moves away; a grounded
+  building ends the order. Our friendly right-click and Move-on-unit use the
+  existing stable target ID, thinker and Stop lifecycle. Following suppresses
+  autonomous combat. Transport boarding and worker repair/drop-off take priority.
+- `order_BuildingLiftoff` releases ground occupancy and enables flying movement.
+  `order_LiftingOff` uses one pixel per 24 Hz frame and a 42-pixel rise for
+  buildings; its building speed remains one pixel/frame. `order_BuildingLand`
+  validates placement and restores occupancy on completion. `units.dat` flag
+  0x20 identifies liftable types; no building-name whitelist is needed.
+- `building_abandon_addon` calls `make_unit_neutral`, which transfers an add-on
+  to owner 11 and cancels production/research through ownership transfer.
+  `find_connecting_addon` and `connect_addon` reconnect a compatible neutral
+  add-on at the parent's placement origin plus the add-on's DAT offset, and
+  transfer ownership to the landing building. Our parent/child IDs, owner,
+  team and allegiance follow this lifecycle. Detached neutral add-ons cannot
+  accept production. Tests include reconnection after lift and landing.
+
+**Implementation boundaries.** Repair's short final approach checks native
+rectangles and authored terrain, allowing movement through empty placement
+margins. Long paths still use the engine's existing grid planner. Trying native
+rectangles for all movement exposed a mismatch with its circular clearance;
+enclosing them in larger discs also disturbed repair separation. Both broad
+changes were rejected. General pathfinding is not claimed to match OpenBW.
+Repair startup/turning frames remain approximate; the HP and debit rules from
+the first implementation are unchanged.
+
+Flight uses the ordinary mobj's z for the vertical rise, keeps its ground
+position stable during liftoff, and moves horizontally through shared flying
+movement. Lift/land animations use native iscript entries 18/17. PyMS's icon
+list names native command frames 282/283 as Lift off/Land; both use L in the
+last command slot here. A flying building exposes Move, Stop and Land, cannot
+produce or receive returned cargo, and regains those functions on landing.
+A busy producer cannot lift. Invalid sites preserve the current order; a site
+obstructed during travel aborts landing. **Remaining fidelity limits:** retail
+iscript order-signal synchronization, dust/shadow subimages, landing-site
+reservation during descent, and exact placement preview/UI details are not
+reproduced. Engine vertical projection substitutes for OpenBW's image-offset
+and sprite-position choreography. Follow's enemy/rescue/special-building
+transitions and shift queues remain outside this implementation.
+
+**Confirmed Stargus gathering waits.** SCV, Drone and Probe scripts all specify
+capacity 8, `wait-at-resource` 150 for minerals and 50 for gas, and
+`wait-at-depot` 50. Stratagus `settings.h` defines 30 cycles/second;
+`action_resource.cpp` initializes and decrements `TimeToHarvest`, transfers
+when it becomes negative, and waits for an unbreakable work animation to finish.
+Thus the configured waits are five seconds at minerals and 1 2/3 seconds at
+gas/depot, with extra cycle/animation-boundary delay in that reference.
+Our former one-second shared collection tick was too short. StarCraft now
+uses 5000/1667 ms gathering waits and a 1667 ms depot wait, rounded up to an
+engine tick. These are an explicit **Stargus timing choice**, not a claim of
+retail timing equivalence. Other games retain their previous default waits.
+OpenBW's `order_MiningMinerals` instead installs a 75-frame timer at 24 Hz
+(3.125 seconds before its order-dispatch details); this is further evidence
+that Stargus's five seconds must not be described as a recovered retail timer.
+The timer starts only after arrival/turning, resets on each visit and does not
+accumulate during travel. Animation repetition remains independently authored.
+Temporary logging measured 5016 ms for minerals and 1683 ms for gas at the
+transfer tick; it was removed after tests passed.
+
+The timing change exposed an existing AI placement assumption on `(2)road war`:
+the first Pylon, Gateway and Cybernetics Core could exhaust available powered
+sites. Logged Stargate purchases repeatedly reported no site. An untouched
+HEAD archive passed with the former worker timing, proving this was an exposed
+placement dependency, not a general pre-existing test failure. The AI now treats
+exhausted powered building space as a development need and constructs one
+additional Pylon, waiting for any pending Pylon before starting another.
+This is engine AI behavior, not an original-game finding.
+The AI soak keeps all its advanced-unit and level-two upgrade assertions,
+but runs for 30 simulated minutes instead of 14 to accommodate the slower
+economy. The old duration reached only level-one upgrades for all three races.
+
+**Reproduce.** `build/sc_catalog data/STARCRAFT/native` emits the extents.
+Run `test_orders`, `test_mining`, `test_gameplay`, and `test_tech_path_protoss`
+under `SDL_VIDEODRIVER=dummy`. They check the 5/6-pixel repair boundary,
+approach inside placement margins, Follow stop/resume/removal, flight and
+ground occupancy, production/drop-off eligibility, add-on reconnection,
+blocked landing, and two full gathering visits for each worker/resource pair.
+The gameplay test exercises the native flight buttons and saves
+`/private/tmp/starcraft-lifted-building.bmp`. Protocol version 6 prevents
+older peers from interpreting the extended command enum as a resync packet.
+The Follow click fixture supplies the native sprite cache and refreshes sight
+after spawning its target; without that sight update the picker correctly
+rejects a unit in unrevealed terrain. Catalog comparison after stripping the
+four new bounds fields confirms all previous emitted fields are unchanged.
+
+**Verification outcome.** `make -j4 all` passed without new warnings;
+all 16 StarCraft and 41 Warcraft II quick tests passed with local socket access
+for multiplayer. The 30-minute three-race AI soak and 15-minute duel passed,
+including advanced rosters, all races reaching level-three upgrades, and
+hold/retreat behavior. Dark Colony's `test_combat_and_harvest` and StarCraft/
+Warcraft II `--check` passed. Every test used `SDL_VIDEODRIVER=dummy`.
+The flight command-card BMP was rendered and visually inspected. Temporary
+diagnostics are removed. Repair startup and the flight presentation limits
+listed above remain explicitly unverified rather than implied complete.
+
 ## Core orders, first implementation (2026-10-11)
 
 **Implemented and regression-tested:** Hold Position (H), attack-move through

@@ -352,6 +352,8 @@ bool G_PlayerBuildProduct(mobj_t *u,const StaticProductDefinition *p) {
  * free place for a new one, and a hangar room for what it keeps. */
 bool G_ModelProducerHasTech(const mobj_t *u,const StaticProductDefinition *p) {
     if(!u||!p||(p->makers[0]==MT_LARVA&&u->type_id!=MT_LARVA)||!sc_powered(u))return false;
+    if((sc_unit(u)->flags&SC_UNIT_BUILDING)&&(u->traits&MF_FLY))return false;
+    if(sc_addon_parent(u->type_id)&&u->owner==11)return false;
     int queued=u->production?u->production->queue_count:0;
     bool addon=sc_addon_parent((uint16_t)p->product_type)==u->type_id;
     ivec2_t cell;
@@ -481,10 +483,26 @@ static uint16_t missing_addon(int owner,const StaticProductDefinition *p) {
     }
     return MT_NONE;
 }
-/* Puts the missing add-on up on a free building; true while one is coming. */
+static mobj_t *idle_maker(int owner,int maker);
+static bool find_site(const mobj_t *builder,uint16_t type,ivec2_t *out);
+/* Puts missing power or an add-on in place; true while one is coming. */
 static bool sc_ai_develop(level_t *map,int owner,int ui) {
     (void)map;
     const StaticProductDefinition *product=G_ModelProductByUIId(NULL,ui);
+    if(product&&product->worker_build&&(sc_units[product->product_type-1].flags&0x80000)&&
+       G_ModelProductAvailable(NULL,owner,product)) {
+        mobj_t *worker=idle_maker(owner,product->makers[0]);
+        ivec2_t cell;
+        if(worker&&!find_site(worker,(uint16_t)product->product_type,&cell)) {
+            for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+                const mobj_t *mo=(const mobj_t *)th;
+                if(th->function==P_MobjThinker&&mo->owner==owner&&!mo->remove&&mo->hp>0&&
+                   mo->production&&mo->production->product_type==MT_PYLON)return true;
+            }
+            const StaticProductDefinition *pylon=G_ModelProductByUIId(NULL,MT_PYLON);
+            return find_site(worker,MT_PYLON,&cell)&&G_PlaceProduct(worker,pylon,cell);
+        }
+    }
     uint16_t addon=product?missing_addon(owner,product):MT_NONE;
     if(!addon) return false;
     const StaticProductDefinition *build=G_ModelProductByUIId(NULL,addon);
@@ -632,8 +650,12 @@ static bool sc_ai_purchase(level_t *map,int owner,int ui) {
     if(!product->worker_build) return G_AiCatalogPurchase(map,owner,ui);
     mobj_t *worker=idle_maker(owner,product->makers[0]);
     ivec2_t cell;
-    return worker&&find_site(worker,G_ModelActorIdForProduct(product),&cell)&&
-        G_PlaceProduct(worker,product,cell);
+    if(!worker)return false;
+    if(!find_site(worker,G_ModelActorIdForProduct(product),&cell)) {
+        sc_ai_develop(map,owner,ui);
+        return false;
+    }
+    return G_PlaceProduct(worker,product,cell);
 }
 /* Alive and ordered, counting a Lair or Hive as a Hatchery and an egg
  * of zerglings as two; a morphing building counts as what it was.
