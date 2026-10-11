@@ -397,8 +397,12 @@ make warcraft-2
 build/bin/warcraft-2 --map SOME.PUD
 ```
 
-Formats and limits: [docs/WAR2_DATA.md](docs/WAR2_DATA.md),
-[docs/WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md).
+Campaign victory objectives are implemented only for the first Human and Orc
+missions. Later objectives, campaign restrictions and complete result statistics
+remain unfinished. Formats and limits: [docs/WAR2_DATA.md](docs/WAR2_DATA.md),
+[docs/WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md). The current
+[completeness audit](docs/BLIZZARD_COMPLETENESS_AUDIT.md) compares both Blizzard
+games against Wargus and Stargus and lists the remaining work.
 
 ### StarCraft
 
@@ -408,9 +412,11 @@ connection and chat screens over a TCP melee; each player picks Terran, Zerg,
 or Protoss. The right button moves, attacks, and gathers. The command card
 builds, trains and morphs: Zerg larvae, eggs and building tiers, creep and
 psi are simulated, and so are add-ons, Bunkers, siege mode, Carrier and Reaver
-hangars, Archons, research and the spells. Campaign missions run the shared
-computer player. Burrow, transports and the retail script opcodes are open
-work, recorded in
+hangars, Archons, research and a subset of abilities. Campaign missions run the
+shared computer player. Core orders including repair and patrol, full transports,
+several abilities, save/load, gameplay audio and complete retail script behavior
+remain unfinished. See the
+[completeness audit](docs/BLIZZARD_COMPLETENESS_AUDIT.md) and
 [docs/SC_EXE_FINDINGS.md](docs/SC_EXE_FINDINGS.md).
 
 Runtime files are unpacked retail assets. The game does not open an MPQ.
