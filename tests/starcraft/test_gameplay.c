@@ -437,7 +437,7 @@ static menuitem_t *card(const char *tip, mobj_t *const *pick, int count) {
     all = P_ListMobjs();
     for (int i = 0; i < all.count; i++) P_MobjSetSelected(all.items[i], false);
     for (int i = 0; i < count; i++) P_MobjSetSelected(pick[i], true);
-    hudview = (hudview_t){.units = all.items, .unit_count = all.count};
+    hudview = (hudview_t){.units = all.items, .unit_count = all.count, .sprites=&cache, .tileset=&tiles};
     hudmenu->refresh(hudmenu);
     for (int i = 0; i < hudmenu->numitems; i++) {
         menuitem_t *it = &hudmenu->items[i];
@@ -677,6 +677,32 @@ static int command_card(void) {
     return 0;
 }
 
+static int flight_hud(void) {
+    mobj_t *hall=find(consoleplayer,MT_COMMAND_CENTER),*worker=find(consoleplayer,MT_SCV);
+    ivec2_t cell;CHECK(hall&&worker&&site(MT_BARRACKS,hall,worker,&cell));
+    mobj_t *building=spawn(MT_BARRACKS,P_BuildingPosition(MT_BARRACKS,cell),consoleplayer);
+    CHECK(building);P_SyncBuildingBlocking();
+    menuitem_t *lift=card("Lift Off",&building,1);
+    CHECK(lift&&lift->hotkey==SDLK_l&&lift->look[0].cell==282);
+    mouse_click(lift);CHECK(building->traits&MF_FLY);
+    tick(100);
+    menuitem_t *land=card("Land",&building,1);
+    CHECK(land&&land->hotkey==SDLK_l&&land->look[0].cell==283);
+    CHECK(!card("Terran Marine",&building,1)&&card("Move",&building,1));
+    M_CentreView(&app,fixed3_xy_to_fvec2(building->core.position));
+    draw(NULL);M_MenuDrawer(hudmenu);CHECK(save("/private/tmp/starcraft-lifted-building.bmp"));
+    mouse_click(card("Land",&building,1));CHECK(hudmenu->target);
+    fvec2_t screen;
+    R_MapToScreen(&app,&level,cell.x+0.5f,cell.y+0.5f,&screen.x,&screen.y);
+    SDL_Event event={.button={.type=SDL_MOUSEBUTTONDOWN,.button=SDL_BUTTON_LEFT,
+        .x=(int)screen.x,.y=(int)screen.y}};
+    M_MenuResponder(hudmenu,&app,&event);
+    event.button.type=SDL_MOUSEBUTTONUP;M_MenuResponder(hudmenu,&app,&event);
+    CHECK(building->sc.order.kind==SC_ORDER_LAND);tick(100);
+    CHECK(!(building->traits&MF_FLY)&&card("Lift Off",&building,1));
+    P_RemoveMobj(building);P_SyncBuildingBlocking();
+    return 0;
+}
 static int hud_contract(void) {
     mobj_t *hall=find(consoleplayer,MT_COMMAND_CENTER),*worker=find(consoleplayer,MT_SCV);
     CHECK(hall&&worker);
@@ -711,6 +737,16 @@ static int hud_contract(void) {
     }
     card("Patrol",&guard,1);draw(NULL);M_MenuDrawer(hudmenu);
     CHECK(save("/private/tmp/starcraft-core-orders.bmp"));
+    mobj_t *leader=spawn(MT_MARINE,FIXED2_LIT(22,20),consoleplayer);CHECK(leader);
+    P_UpdateSight();
+    mouse_click(card("Move",&guard,1));
+    R_MapToScreen(&app,&level,22,20,&destination.x,&destination.y);
+    SDL_Event follow_click={.button={.type=SDL_MOUSEBUTTONDOWN,.button=SDL_BUTTON_LEFT,
+        .x=(int)destination.x,.y=(int)destination.y}};
+    M_MenuResponder(hudmenu,&app,&follow_click);
+    follow_click.button.type=SDL_MOUSEBUTTONUP;M_MenuResponder(hudmenu,&app,&follow_click);
+    CHECK(guard->sc.order.kind==SC_ORDER_FOLLOW&&guard->sc.order.target==leader->id);
+    P_RemoveMobj(leader);
     P_RemoveMobj(guard);
     level.player_resources[consoleplayer][0]=1000;
     level.player_resources[consoleplayer][1]=1000;
@@ -872,6 +908,7 @@ int main(void) {
     unload();
     CHECK(load(kinds, races));
     CHECK(!hud_contract());
+    CHECK(!flight_hud());
     unload();
     CHECK(!campaign_flow());
     CHECK(!briefing_script());

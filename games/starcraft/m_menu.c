@@ -1972,7 +1972,7 @@ static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a!=MA_TARGET)return;
     ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
     uint32_t target=0;
-    if(i->value==TC_ATTACK || i->value==TC_REPAIR) {
+    if(i->value==TC_ATTACK || i->value==TC_REPAIR || i->value==TC_MOVE) {
         int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
             hudview.sprites,gameinfo,m->cursor.x,m->cursor.y,-1);
         if(picked<0 && i->value==TC_REPAIR)return;
@@ -2190,6 +2190,16 @@ static void refresh(menu_t *menu) {
         same_type&=selection_units[i]->type_id==selected->type_id;
     }
     const production_t *queue=selected->production;
+    if(sc_units[selected_id].flags&SC_UNIT_FLYING_BUILDING) {
+        if(selected->sc.order.kind==SC_ORDER_LIFT||
+           (selected->sc.order.kind==SC_ORDER_LAND&&selected->sc.order.time))return;
+        if(selected->traits&MF_FLY) {
+            button(0,228,SDLK_m,command,TC_MOVE,"Move");
+            button(1,229,SDLK_s,stop,TC_STOP,"Stop");
+            button(8,283,SDLK_l,command,TC_LAND,"Land");
+            return;
+        }
+    }
     if(queue&&!queue->placed&&(queue->product_class!=RTS_PRODUCT_UNIT||
        selected->type_id==MT_EGG||selected->type_id==MT_COCOON)) {
         button(8,236,SDLK_ESCAPE,cancel_production,0,
@@ -2260,6 +2270,8 @@ static void refresh(menu_t *menu) {
         for(int j=0;j<hudview.unit_count;j++)loaded|=(hudview.units[j]->sc.flags&SC_LOADED)&&hudview.units[j]->sc.parent==selected->id;
         if(sc_units[selected_id].space_provided&&loaded&&slot<9)button(slot++,312,SDLK_u,unload,0,"Unload All");
         if(sc_units[selected_id].flags&SC_UNIT_BUILDING) {
+            if((sc_units[selected_id].flags&SC_UNIT_FLYING_BUILDING)&&!queue)
+                button(8,282,SDLK_l,stop,TC_LIFT,"Lift Off");
             bool makes_mobile=false;
             for(int k=0;k<n;k++)for(int maker=0;maker<list[k].maker_count;maker++) {
                 const mobjtype_t *type=P_ActorType(G_ModelActorIdForProduct(&list[k]));

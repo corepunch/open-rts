@@ -179,7 +179,9 @@ static void observe(int owner, const mobj_t *start_hall, race_run_t *out) {
         if (level.upgrades[u][owner].weapon > out->upgrade_level) out->upgrade_level = level.upgrades[u][owner].weapon;
 }
 
-/* Fourteen simulated minutes of one computer race (CHK side) against an idle human. */
+/* Thirty simulated minutes at Stargus's five-second mineral gathering rate.
+ * Keep the advanced-unit and level-two research assertions from the former
+ * fourteen-minute soak at the one-second engine gathering rate. */
 static int play(int race, race_run_t *out) {
     static const char road[] = "maps/(2)road war.scm/staredit/scenario.chk";
     static const char *const script[3] = {"ZMCu", "TMCu", "PMCu"};
@@ -211,7 +213,7 @@ static int play(int race, race_run_t *out) {
         if (alive((const mobj_t *)th, computer) && (((const mobj_t *)th)->traits & MF_RESOURCE_BASE))
             start_hall = ((const mobj_t *)th)->id;
     CHECK(start_hall);
-    for (int t = 0; t < RTS_TICRATE * 60 * 14; ++t) {
+    for (int t = 0; t < RTS_TICRATE * 60 * 30; ++t) {
         CHECK(rts_game_model_tick(model, RTS_TICK_MS));
         AiEvent event;
         while (P_AiPollEvent(ai, &event)) {

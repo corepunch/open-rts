@@ -146,7 +146,7 @@ int main(int argc,char **argv) {
         /* Transport space required and provided (47, 48); an add-on's place
          * (37, buildings 106..201 only) is its top-left beside its parent's. */
         unsigned addon_x=i>=106&&i<202?u16(d+offsets[37]+4*(i-106)):0,addon_y=i>=106&&i<202?u16(d+offsets[37]+4*(i-106)+2):0;
-        printf(", %u, 0x%08xu, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u)\n",
+        printf(", %u, 0x%08xu, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u",
             u32(d+offsets[8]+4*i)>>8, u32(d+offsets[22]+4*i),
             u16(d+offsets[36]+4*i),u16(d+offsets[36]+4*i+2),
             d[offsets[24]+i],d[offsets[28]+i],d[offsets[44]+i],
@@ -157,6 +157,8 @@ int main(int argc,char **argv) {
             d[offsets[6]+i]?u16(d+offsets[7]+2*i):0,u16(d+offsets[1]+2*i),
             d[offsets[17]+i],d[offsets[19]+i],d[offsets[26]+i],speed,
             d[offsets[47]+i],d[offsets[48]+i],addon_x,addon_y);
+        printf(", %u, %u, %u, %u)\n", u16(d+offsets[38]+8*i), u16(d+offsets[38]+8*i+2),
+            u16(d+offsets[38]+8*i+4), u16(d+offsets[38]+8*i+6));
     }
     return 0;
 }

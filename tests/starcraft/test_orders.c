@@ -125,7 +125,7 @@ static int repairs(void) {
     CHECK(scv->sc.order.kind==SC_ORDER_REPAIR);
     for(int i=0;i<900&&scv->sc.order.kind;i++)tick(1);
     CHECK(bunker->hp==bunker->max_hp&&!(scv->sc.flags&SC_LOADED));
-    mobj_t *wraith=spawn(MT_WRAITH,fixed2_add(fixed3_xy(scv->core.position),FIXED2_LIT(0,1)),0);
+    mobj_t *wraith=spawn(MT_WRAITH,fixed2_add(fixed3_xy(scv->core.position),(fixed2_t){0,SC_PIXELS(30)}),0);
     wraith->hp=100;
     order(scv,TC_REPAIR,(fixed2_t){0},wraith);sc_repair_ticker(scv,1);
     CHECK(wraith->hp>100&&level.player_resources[0][1]==999);
@@ -135,6 +135,80 @@ static int repairs(void) {
     sc_repair_ticker(scv,1);sc_repair_ticker(second,1);
     CHECK(wraith->hp*256-wraith->sc.wound==raw+62); /* Two 31/256 repairs. */
     P_RemoveMobj(wraith);tick(1);CHECK(!scv->sc.order.kind&&!P_HasMoveOrder(scv));
+    return 0;
+}
+static int repair_bounds(void) {
+    reset();
+    mobj_t *scv=spawn(MT_SCV,FIXED2_LIT(5,5),0);
+    mobj_t *vulture=spawn(MT_VULTURE,fixed2_add(FIXED2_LIT(5,5),(fixed2_t){SC_PIXELS(33),0}),0);
+    CHECK(sc_unit_distance(scv,vulture)==5);
+    vulture->hp=40;order(scv,TC_REPAIR,(fixed2_t){0},vulture);
+    sc_repair_ticker(scv,1);CHECK(vulture->hp==41);
+    vulture->core.position.x+=SC_PIXELS(1);
+    CHECK(sc_unit_distance(scv,vulture)==6);
+    int raw=vulture->hp*256-vulture->sc.wound;
+    sc_repair_ticker(scv,1);CHECK(vulture->hp*256-vulture->sc.wound==raw);
+    scv->core.position=fixed3_from_fixed2(FIXED2_LIT(5,5),0);
+    vulture->core.position=fixed3_from_fixed2(FIXED2_LIT(6,6),0);
+    CHECK(sc_unit_distance(scv,vulture)==5); /* Native rounding of gaps (4,4). */
+    vulture->core.position=fixed3_from_fixed2(fixed2_add(FIXED2_LIT(6,6),(fixed2_t){SC_PIXELS(1),SC_PIXELS(1)}),0);
+    CHECK(sc_unit_distance(scv,vulture)==6);
+    /* A deep placement margin must not leave the SCV stranded at a tile edge. */
+    reset();scv=spawn(MT_SCV,FIXED2_LIT(3,6),0);
+    mobj_t *bay=spawn(MT_ENGINEERING_BAY,FIXED2_LIT(12,6.5),0);bay->hp=800;
+    P_SyncBuildingBlocking();order(scv,TC_REPAIR,(fixed2_t){0},bay);
+    for(int i=0;i<1600&&scv->sc.order.kind;i++)tick(1);
+    CHECK(bay->hp==bay->max_hp&&sc_unit_distance(scv,bay)<=5);
+    return 0;
+}
+static int follow_and_flight(void) {
+    reset();
+    mobj_t *a=spawn(MT_MARINE,FIXED2_LIT(4,4),0),*b=spawn(MT_MARINE,FIXED2_LIT(12,4),0);
+    order(a,TC_ORDER,fixed3_xy(b->core.position),b);
+    CHECK(a->sc.order.kind==SC_ORDER_FOLLOW);
+    tick(200);CHECK(a->sc.order.kind==SC_ORDER_FOLLOW&&!P_HasMoveOrder(a)&&sc_unit_distance(a,b)<=96);
+    order(b,TC_MOVE,FIXED2_LIT(22,4),NULL);
+    tick(250);CHECK(sc_unit_distance(a,b)<=96&&a->core.position.x>FIXED_FROM_INT(12));
+    order(a,TC_STOP,(fixed2_t){0},NULL);CHECK(!a->sc.order.kind);
+    order(a,TC_MOVE,fixed3_xy(b->core.position),b);CHECK(a->sc.order.kind==SC_ORDER_FOLLOW);
+    P_RemoveMobj(b);tick(1);CHECK(!a->sc.order.kind&&!P_HasMoveOrder(a));
+
+    reset();mobj_t *hall=spawn(MT_COMMAND_CENTER,P_BuildingPosition(MT_COMMAND_CENTER,(ivec2_t){4,4}),0);
+    P_SyncBuildingBlocking();CHECK(!L_IsWalkable(&level,4,4));
+    const StaticProductDefinition *scv=G_ModelProductByUIId(NULL,MT_SCV);
+    CHECK(G_QueueProduct(hall,scv));order(hall,TC_LIFT,(fixed2_t){0},NULL);
+    CHECK(!(hall->traits&MF_FLY));sc_cancel_production(hall,-1);
+    mobj_t *hauler=spawn(MT_SCV,FIXED2_LIT(3.5,4.5),0);hauler->harvest.cargo=8;
+    order(hauler,TC_RETURN_GOODS,(fixed2_t){0},hall);
+    CHECK(hauler->harvest.base==hall);
+    order(hall,TC_LIFT,(fixed2_t){0},NULL);
+    CHECK((hall->traits&(MF_MOBILE|MF_FLY))==(MF_MOBILE|MF_FLY));
+    CHECK(!(hall->traits&MF_RESOURCE_BASE)&&L_IsWalkable(&level,4,4)&&!G_QueueProduct(hall,scv));
+    tick(100);CHECK(!hall->sc.order.kind&&hall->core.position.z==SC_PIXELS(42));
+    CHECK(hauler->harvest.cargo==8);
+    level.blocked[L_Index(&level,14,4)]=1;
+    order(hall,TC_LAND,FIXED2_LIT(14,4),NULL);CHECK(!hall->sc.order.kind);
+    level.blocked[L_Index(&level,14,4)]=0;
+    order(hall,TC_LAND,FIXED2_LIT(14,4),NULL);
+    CHECK(hall->sc.order.kind==SC_ORDER_LAND);
+    for(int i=0;i<1200&&(hall->traits&MF_FLY);i++)tick(1);
+    CHECK(!(hall->traits&(MF_FLY|MF_MOBILE))&&hall->core.position.z==0);
+    CHECK((hall->traits&MF_RESOURCE_BASE)&&!L_IsWalkable(&level,14,4)&&L_IsWalkable(&level,4,4));
+    CHECK(G_QueueProduct(hall,scv));sc_cancel_production(hall,-1);
+    for(int i=0;i<1000&&hauler->harvest.cargo;i++)tick(1);
+    CHECK(!hauler->harvest.cargo);
+
+    reset();mobj_t *factory=spawn(MT_FACTORY,P_BuildingPosition(MT_FACTORY,(ivec2_t){4,4}),0);
+    P_SyncBuildingBlocking();mobj_t *shop=sc_attach_addon(factory,MT_MACHINE_SHOP);CHECK(shop);
+    order(factory,TC_LIFT,(fixed2_t){0},NULL);tick(100);
+    CHECK(!shop->sc.parent&&!factory->sc.addon&&shop->owner==11);
+    order(factory,TC_LAND,FIXED2_LIT(4,4),NULL);tick(100);
+    CHECK(!(factory->traits&MF_FLY)&&sc_addon_of(factory)==shop&&shop->owner==factory->owner);
+    /* A unit entering the site during travel prevents landing. */
+    order(factory,TC_LIFT,(fixed2_t){0},NULL);tick(100);
+    order(factory,TC_LAND,FIXED2_LIT(14,4),NULL);
+    spawn(MT_SCV,FIXED2_LIT(14.5,4.5),0);tick(1000);
+    CHECK((factory->traits&MF_FLY)&&!factory->sc.order.kind);
     return 0;
 }
 static int cargo(void) {
@@ -163,6 +237,6 @@ static int cargo(void) {
 int main(void) {
     G_InitGame();P_InitThinkers();consoleplayer=0;
     level.width=level.height=32;level.blocked=calloc(1024,1);level.cell_solid=calloc(1024,1);
-    if(combat_orders()||repairs()||cargo())return 1;
+    if(combat_orders()||repairs()||repair_bounds()||cargo()||follow_and_flight())return 1;
     puts("StarCraft orders: ok");return 0;
 }

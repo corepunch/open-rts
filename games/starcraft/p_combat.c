@@ -189,6 +189,7 @@ static void sc_mobj_ticker(mobj_t *mo) {
     if (mo->remove || mo->hp <= 0) return;
     sc_unit_ticker(mo, frames);
     sc_repair_ticker(mo, frames);
+    sc_order_ticker(mo, frames);
     if (mo->remove || mo->hp <= 0 || frames <= 0) return;
     const sc_unit_t *u = &sc_units[mo->type_id - 1];
     if (mo->sc.shields < u->shields << 8) {

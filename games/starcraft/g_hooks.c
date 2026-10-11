@@ -22,7 +22,9 @@ void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
 }
 
 bool G_UnitCommandable(const mobj_t *unit) {
-    return !(unit->sc.flags&SC_LOADED) && !unit->sc.timers[SC_TIMER_LOCKDOWN];
+    return !(unit->sc.flags&SC_LOADED) && !unit->sc.timers[SC_TIMER_LOCKDOWN] &&
+        unit->sc.order.kind!=SC_ORDER_LIFT &&
+        !(unit->sc.order.kind==SC_ORDER_LAND&&unit->sc.order.time);
 }
 
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,

@@ -107,7 +107,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .turn_step = (UINT32_C(0x1000000) * 10 / 360) << 8,
         .harvest = { .state_id = S_UCFRGST0_HARVEST1, .unload_state_id = S_UCFRGST0_HARVEST1,
                      .dock_angle = ANG90 + ANG45,
-                     .resources = { {750, 270, 270}, {50, 10, 25} } },
+                     .resources = { {.capacity=750, .load_amount=270, .unload_amount=270}, {.capacity=50, .load_amount=10, .unload_amount=25} } },
     },
     {   /* Laser-armed hover harvester */
         .id = MT_FG_HOVER_FREIGHTER,
@@ -123,7 +123,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
                     .targets = MOBJ_TARGET_GROUND },
         .harvest = { .state_id = S_UCHFRST0_HARVEST1, .unload_state_id = S_UCHFRST0_HARVEST1,
                      .dock_angle = ANG90 + ANG45,
-                     .resources = { {750, 270, 270}, {50, 10, 25} } },
+                     .resources = { {.capacity=750, .load_amount=270, .unload_amount=270}, {.capacity=50, .load_amount=10, .unload_amount=25} } },
     },
     /* === Infantry === */
     {   /* LaserRifle: range 4, 267ms cd, 11 dmg */
@@ -587,7 +587,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .turn_step = (UINT32_C(0x1000000) * 10 / 360) << 8,
         .harvest = { .state_id = S_UCFRGST0_IMP_HARVEST1, .unload_state_id = S_UCFRGST0_IMP_HARVEST1,
                      .dock_angle = ANG90 + ANG45,
-                     .resources = { {750, 270, 270}, {50, 10, 25} } },
+                     .resources = { {.capacity=750, .load_amount=270, .unload_amount=270}, {.capacity=50, .load_amount=10, .unload_amount=25} } },
     },
     {
         .id = MT_IMP_HOVER_TRANSPORTER,
@@ -603,7 +603,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
                     .targets = MOBJ_TARGET_GROUND },
         .harvest = { .state_id = S_UCHFRST0_IMP_HARVEST1, .unload_state_id = S_UCHFRST0_IMP_HARVEST1,
                      .dock_angle = ANG90 + ANG45,
-                     .resources = { {750, 270, 270}, {50, 10, 25} } },
+                     .resources = { {.capacity=750, .load_amount=270, .unload_amount=270}, {.capacity=50, .load_amount=10, .unload_amount=25} } },
     },
     {
         .id = MT_IMP_SPY,
