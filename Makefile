@@ -78,8 +78,8 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 TEST_RUNNER := $(BUILD_DIR)/test_runner
 TEST_RUNNER_SOURCES := $(sort $(shell find tools/test_runner -name '*.c'))
-TEST_JOBS ?= 4
-TEST_BUDGET ?= 45
+TEST_JOBS ?= 8
+TEST_BUDGET ?= 5
 SOAK_BUDGET ?= 600
 $(TEST_RUNNER): $(TEST_RUNNER_SOURCES)
 	@mkdir -p $(dir $@)
@@ -142,8 +142,8 @@ $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/$(1)/%.o $$($(1)_TES
 $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/shared/%.o $$($(1)_TEST_ENGINE_OBJS) | $(BIN_DIR)
 	@mkdir -p $$(dir $$@)
 	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
-test-$(1): $(TEST_RUNNER) $$(filter-out %/test_ai_skirmish %/test_ai,$$($(1)_TEST_BINS))
-	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $$(filter-out %/test_ai_skirmish %/test_ai,$$($(1)_TEST_BINS))
+test-$(1): $(TEST_RUNNER) $$(filter-out %/test_ai_skirmish %/test_ai $(if $(filter dark-colony,$(1)),%/test_ai_factions %/test_menu) $(if $(filter warcraft-2,$(1)),%/test_ai_game),$$($(1)_TEST_BINS)) $(if $(filter dark-colony,$(1)),$(BIN_DIR)/tests/dark-colony/test_menu)
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $$(filter-out %/test_ai_skirmish %/test_ai $(if $(filter dark-colony,$(1)),%/test_ai_factions %/test_menu) $(if $(filter warcraft-2,$(1)),%/test_ai_game),$$($(1)_TEST_BINS)) $(if $(filter dark-colony,$(1)),$(BIN_DIR)/tests/dark-colony/test_menu@--quick)
 -include $$($(1)_TEST_OBJS:.o=.d) $$($(1)_TEST_ENGINE_OBJS:.o=.d)
 endef
 
@@ -348,8 +348,10 @@ $(BIN_DIR)/test_network: $(NETWORK_TEST_OBJS) $(dark-colony_TEST_ENGINE_OBJS) | 
 .PHONY: test-network
 NETWORK_TEST_CASES := $(addprefix $(BIN_DIR)/test_network@,--commands --session --lan-discovery \
     $(addprefix --mode-,0 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+QUICK_NETWORK_TEST_CASES := $(addprefix $(BIN_DIR)/test_network@,--commands --session --lan-discovery \
+    $(addprefix --mode-,3 4 6 12))
 test-network: $(TEST_RUNNER) $(BIN_DIR)/test_network
-	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(NETWORK_TEST_CASES)
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(SOAK_BUDGET) $(NETWORK_TEST_CASES)
 
 $(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dc/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
@@ -397,8 +399,8 @@ help:
 	@echo "  kknd-info            Regenerate KKnD info.c and info.h"
 	@echo ""
 	@echo "Test / check:"
-	@echo "  test                 Run quick headless tests in parallel (45s per test)"
-	@echo "  test-soak            Run long Dark Colony, StarCraft and Warcraft II AI simulations"
+	@echo "  test                 Run quick headless tests in parallel (5s per test)"
+	@echo "  test-soak            Run full-game AI, menu animation and network stress tests"
 	@echo "  test-info-gen        Verify generated info.c and info.h files are current"
 	@echo "  kknd-check           Headless smoke check for KKnD"
 	@echo "  test-starcraft       Native asset, menu, HUD, portrait and movement checks"
@@ -475,15 +477,20 @@ $(BIN_DIR)/tests/starcraft/%: tests/starcraft/%.c $(filter-out $(BUILD_DIR)/star
 test-starcraft: $(TEST_RUNNER) $(filter-out %/test_ai,$(SC_TEST_BINS)) starcraft-maps
 	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(filter-out %/test_ai,$(SC_TEST_BINS))
 
-QUICK_TEST_BINS := $(filter-out %/test_ai_skirmish,$(dark-colony_TEST_BINS)) \
+QUICK_TEST_BINS := $(filter-out %/test_ai_skirmish %/test_ai_factions %/test_menu,$(dark-colony_TEST_BINS)) \
     $(dark-reign_TEST_BINS) $(7legion_TEST_BINS) $(kknd_TEST_BINS) \
-    $(filter-out %/test_ai,$(warcraft-2_TEST_BINS)) $(filter-out %/test_ai,$(SC_TEST_BINS)) \
+    $(filter-out %/test_ai %/test_ai_game,$(warcraft-2_TEST_BINS)) $(filter-out %/test_ai,$(SC_TEST_BINS)) \
+    $(BIN_DIR)/tests/dark-colony/test_menu \
     $(BIN_DIR)/test_network $(BIN_DIR)/test_model_commands_dark-colony \
     $(BIN_DIR)/test_model_commands_dark-reign $(DC_LAYOUT_TEST_TARGET)
-QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network,$(QUICK_TEST_BINS)) $(NETWORK_TEST_CASES)
+QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network $(BIN_DIR)/tests/dark-colony/test_menu,$(QUICK_TEST_BINS)) \
+    $(BIN_DIR)/tests/dark-colony/test_menu@--quick $(QUICK_NETWORK_TEST_CASES)
 SOAK_TEST_BINS := $(BIN_DIR)/tests/dark-colony/test_ai_skirmish \
-    $(BIN_DIR)/tests/starcraft/test_ai $(BIN_DIR)/tests/warcraft-2/test_ai
+    $(BIN_DIR)/tests/dark-colony/test_ai_factions $(BIN_DIR)/tests/dark-colony/test_menu \
+    $(BIN_DIR)/tests/starcraft/test_ai $(BIN_DIR)/tests/warcraft-2/test_ai \
+    $(BIN_DIR)/tests/warcraft-2/test_ai_game $(BIN_DIR)/test_network
+SOAK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network,$(SOAK_TEST_BINS)) $(NETWORK_TEST_CASES)
 test: check-ifdefs test-info-gen test-loaders $(TEST_RUNNER) $(QUICK_TEST_BINS) starcraft-maps
 	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(QUICK_TEST_CASES)
 test-soak: $(TEST_RUNNER) $(SOAK_TEST_BINS) starcraft-maps
-	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(SOAK_BUDGET) $(SOAK_TEST_BINS)
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(SOAK_BUDGET) $(SOAK_TEST_CASES)
