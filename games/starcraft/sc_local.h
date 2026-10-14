@@ -21,6 +21,7 @@ typedef struct {
     int space, space_provided; /* Transport slots taken and offered; 255 cannot board */
     ivec2_t addon; /* An add-on's top-left from its parent's, in pixels */
     irect_t bounds; /* units.dat collision box, relative to the centre, pixels. */
+    int turn;       /* flingy.dat turn rate, 1/256 of a circle per 24 Hz frame */
 } sc_unit_t;
 extern sc_unit_t sc_units[SC_TYPES];
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
