@@ -2,7 +2,7 @@
 #include "z_local.h"
 #include "info.h"
 
-/* Static for now: the native sizes and still pictures, no behaviour yet. */
+/* Objects and buildings stand still; units (units.inc) walk and fight. */
 static const mobjtype_t ACTOR_TYPES[] = {
 #define Z_OBJECT(native, type, label, sprite, flags, w, h, dead) \
     {.id = MT_##type, .name = label, .sprite_name = "SPRITES.RSC", .traits = MF_RENDERABLE, \
@@ -17,6 +17,14 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .native_type_id = native},
 #include "buildings.inc"
 #undef Z_BUILDING
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, reach, reload, ...) \
+    {.id = MT_UNIT_##type, .name = label, .sprite_name = Z_SHEET_##kind(type), \
+     .traits = MF_SELECTABLE | MF_RENDERABLE | ((mobile) ? MF_MOBILE : MF_TURRET) | \
+               ((dmg) ? MF_ATTACK : 0), \
+     .speed = FIXED_ONE * (spd) / 10, .max_hp = hp, .native_type_id = t, \
+     .attack = {.range = FIXED_FROM_INT(reach), .damage = dmg, .cooldown_ms = reload}},
+#include "units.inc"
+#undef Z_UNIT
 };
 
 /* No sidebar yet: the world takes the window. */
@@ -31,7 +39,7 @@ const char *const g_game_default_map   = "LEVEL01/LEVEL01.MAP";
 const char *const g_game_default_sprite = "SPRITES.RSC";
 const int g_cell_w = Z_TILE;
 const int g_cell_h = Z_TILE;
-const uint16_t g_debug_enemy_type = MT_JEEP;
+const uint16_t g_debug_enemy_type = MT_UNIT_GRUNT;
 const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types = ACTOR_TYPES;
 const int num_actor_types = (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));

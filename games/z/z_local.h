@@ -9,7 +9,16 @@ enum {
     Z_NEUTRAL = 4,    /* Team of a territory nobody holds. */
     Z_MAX_TERRITORIES = 64,
     Z_MAX_FORTS = 2,
+    Z_LEVELS = 51,    /* LEVELS.DAT entries */
+    Z_MAX_GROUPS = 12, /* Starting groups per level, LEVELS.DAT +0x55 */
+    Z_MAX_PLACED = 27, /* CPUPLRnn.DAT placements after the territories */
 };
+
+/* A group the computer starts with, CPUPLRnn.DAT +0x792. */
+typedef struct {
+    int group;
+    ivec2_t at; /* Pixels, the first member's top-left. */
+} zplaced_t;
 
 typedef struct {
     ivec2_t min, max; /* Cells, max exclusive. */
@@ -19,8 +28,12 @@ typedef struct {
 /* What a level keeps of its native files after G_DoLoadLevel. */
 typedef struct {
     char root[1024], dir[1024];
-    char objects[16], buildings[16]; /* LEVELS.DAT file names. */
+    char objects[16], buildings[16], robots[16]; /* LEVELS.DAT file names. */
+    int number;                      /* LEVELS.DAT entry */
     int world;                       /* LEVELS.DAT +0x6e */
+    uint8_t groups[Z_MAX_GROUPS];    /* ROBOTS.DAT groups, 0xff ends */
+    zplaced_t placed[Z_MAX_PLACED];
+    int placed_count;
     zterritory_t territories[Z_MAX_TERRITORIES];
     int territory_count;
     ivec2_t forts[Z_MAX_FORTS];      /* Pixels; the first is drawn with its gate. */

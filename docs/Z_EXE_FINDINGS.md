@@ -77,12 +77,25 @@ in the map. 0x3ed17 links a building to its territory through 0x9dc69.
 
 ## Units
 
-- Unit records are 0xb8 bytes at 0x171aa8.
+- Unit records are 0xb8 bytes, 240 of them at 0x171aa8, 60 per side.
+  Known fields: +0x2c, +0x2e position (top-left pixel), +0x30 unit type,
+  +0x32 animation frame, +0x35 action, +0x39 direction (0 north, clockwise
+  through 7), +0x5d group, +0x79 unit class.
 - A unit's terrain table pointer is at +0x18, set by 0x64bf6 from its type
   (+0x30) and team; see the terrain tables in `Z_FORMATS.md`.
-- `ROBOTS.DAT` is read whole into [0x103f94]. 0x56ebb indexes it in steps
-  of 0x52 bytes from the level's group list, but the text records inside
-  are 44 bytes apart, so the layout is not understood yet.
+- 0x603cc (`do_robots`) runs each unit's action through the table at
+  0x149038; 0x7d2c4 adds it to the sprite list (see SPRITES.RSC in
+  `Z_FORMATS.md`).
+- Level start (0x56d2e): 0x56dd7 copies LEVELS.DAT's twelve groups to
+  0x10e98b, 0x503dc mirrors them for each side, and 0x505ec spawns them.
+  The player's groups stand at fort-relative offsets from a per-level table
+  (pointers at 0x145e60, 0x145f2c for the second side; ported as
+  `games/z/starts.inc`); a group's later members stand four pixels apart
+  in rows of four. Guns (classes 2, 4, 5, 6) skip that table and take the
+  fort emplacements at 0x145088 in the order the level's six letters at
+  0x11d0ad give, remapped through 0x11d299 (0x50988); classes 4..6 sit 2
+  pixels left and 8 up of the slot. Player units start facing north
+  (0x51019).
 
 ## Random numbers
 
@@ -103,9 +116,12 @@ for its network desync log. Network games reset the seed to 0x3039 at
 
 ## Not decoded yet
 
-- Starting robots: which group in `ROBOTS.DAT` each LEVELS.DAT +0x55 entry
-  names, and how the fort releases them (`do_fort_sequence`).
-- Unit animation: how sprite indices map to unit, direction and action.
+- How the fort releases the starting robots (`do_fort_sequence`), and how
+  the computer's CPUPLRnn.DAT groups are chosen and owned.
+- The crane's hook (0x7eaad reads its second offset through a pointer
+  scaled as an index), the tank drivers' heads (0x7eccf, sprites from
+  1464), fire truck and truck drawing, the robots' other actions, and the
+  meaning of most unit and ROBOTS.DAT fields.
 - Per-team terrain rows and the other unit classes' tables.
 - The byte per sprite after the SPRITES.RSC offsets, and each sprite's row
   bytes.

@@ -16,7 +16,7 @@ All numbers are little-endian. A cell is 16x16 pixels. Maps are at most
 | `ZED.EXE` | The game: DOS/4GW LE executable, 2.3 MB | Main reference |
 | `LEVELS.DAT` | 51 level descriptors of 240 bytes | Decoded (below) |
 | `LEVELnn/LEVELnn.MAP` | Map: cliffs, tile and attribute planes, path nodes | Decoded |
-| `LEVELnn/CPUPLRnn.DAT` | Territories and computer player settings | Territories decoded |
+| `LEVELnn/CPUPLRnn.DAT` | Territories, the computer's starting groups and settings | Territories and groups decoded |
 | `LEVELnn/BUILDnn.DAT` | Building records | Position, type, hit points |
 | `LEVELnn/OBJECTnn.DAT` | Placed objects | Position and type |
 | `LEVELnn/BRIDGEnn.DAT` | Bridges, 312 bytes, loaded to 0x10f3d4 | Not decoded |
@@ -24,7 +24,7 @@ All numbers are little-endian. A cell is 16x16 pixels. Maps are at most
 | `WARDATA.PAC` | 147 members: tilesets, palettes, screens | Decoded |
 | `DOOR.PAC` | Fort door animations, `xDOOR.DAT` + `xDBACK.LBM` for five worlds | Archive decoded, members not |
 | `HEADFX.PAC`, `SHEADFX.PAC` | Panel and talking-head graphics (`HEADBITn.DAT`, `NEWPANEL.DAT`; the `S` set is about four times larger, purpose not confirmed) | Archive decoded, members not |
-| `ROBOTS.DAT` | 25000 bytes; robot group roster with names (`Grunt`, `Tough`, `Sniper`, `Psychos`...) | Not decoded |
+| `ROBOTS.DAT` | 25000 bytes: robots, groups and weapon types | Layout decoded (below) |
 | `MULT.DAT` | 628 bytes, multiplayer settings, loaded to 0x152b10 | Not decoded |
 | `PHRASES.BIN` | 35328 bytes, also a `WARDATA.PAC` member | Not decoded |
 | `LOADER.LBM` | Loading screen, IFF PBM | Standard format |
@@ -85,7 +85,7 @@ of the current entry with 0x4f740. Entry 0 is a test level.
 | 0x21 | Robot roster (`robots.dat`) |
 | 0x2e | Territory / computer player file (`cpuplr01.dat`) |
 | 0x3b, 0x48 | Wall preset names (`preset2.wal`, `preset1.wal`); no such files ship |
-| 0x55 | Up to twelve starting robot group indices, 0xff ends (copied by 0x56dd7) |
+| 0x55 | Up to twelve starting ROBOTS.DAT groups, 0xff ends (copied by 0x56dd7) |
 | 0x61 | Objects file (`object01.dat`) |
 | 0x6e | World: 0 desert, 1 arctic, 2 city, 3 volcano, 4 jungle |
 | 0x6f | Multiplayer file (`mult.dat`) |
@@ -210,7 +210,21 @@ bytes; unused ones start with 0xffff.
 | 0x18 | Flags, not decoded |
 
 0x9dc69 gives a building the team of the territory that contains its
-top-left pixel. The rest of the file (computer player settings) is not
+top-left pixel.
+
+From 0x792 follow the computer's starting groups, 10 bytes each:
+
+| Offset | Contents |
+|---|---|
+| 0x00 | ROBOTS.DAT group |
+| 0x01 | Flag: set on every record near the computer's fort, clear on leftovers |
+| 0x02 | u16 x, y: pixels, the first member's top-left |
+| 0x06 | Four bytes, not decoded |
+
+`games/z` spawns the flagged records. In level 1 they repeat the level's
+own groups (2, 2, 2, 10) around the computer's fort. ZED.EXE reads the
+positions at 0x50a5e; how it picks the records and their team is not
+fully traced. The rest of the file (computer player settings) is not
 decoded.
 
 ## BUILDnn.DAT
@@ -268,6 +282,27 @@ Types cover mines and crates (0..10), houses and volcanoes (11..20), guns
 and vehicles with their wrecks (21..38, 58, 59, 63..66), per-world rocks,
 cacti, trees and snow (39..57, 60..62), doors (67..70) and flames (71..77).
 
+## ROBOTS.DAT
+
+Read whole into [0x103f94]; 0x50665 and 0x56f66 index it.
+
+| Offset | Records | Contents |
+|---|---|---|
+| 0x0000 | 44 bytes | Robots: name at +2, weapon type at +0x22, other bytes not decoded |
+| 0x4650 | 82 bytes | Groups: in use when byte 0 is set, name at +2, up to 21 robot numbers (u16) at +0x1c, 0xffff ends |
+| 0x55f0 | 42 bytes | Weapon types: unit class at +1, name at +6; +0x02, +0x04 and +0x20 look like hit points, vehicle speed and damage but are not confirmed |
+
+A group is a squad: each member is one unit of its robot's weapon type.
+Retail groups 0..18 are Gun, Medium Tank, Grunt, Tough, Sniper, Heavy Tank,
+Psychos, Light Tank, Missile, M. Missile, Gattling, Jeep, Truck, APC,
+Howitzer, Fire Truck, Crane, Flamer and Laser Chap. Robots of every kind
+(weapon types 2, 3, 4, 7, 17, 18) share one set of pictures. Weapon types 1,
+5, 6, 8 and 10 and up are vehicles; 0, 9, 11 and 12 are guns (unit classes
+2, 4, 5 and 6), which a level places on its fort's walls.
+
+`OBJECTnn.DAT` vehicles and guns (object flags 0x32) name their weapon
+type in byte 5: they stand empty until a robot takes them.
+
 ## SPRITES.RSC
 
 | Offset | Contents |
@@ -289,6 +324,35 @@ A sprite is:
 Plane p holds every pixel whose `x & 3 == p`, row by row, and the planes
 follow each other. Pixel value 0 is transparent. No sprite exceeds 120x127
 pixels; larger pictures, such as forts, are drawn from several pieces.
+
+Units are drawn from the per-action table at 0x14b10c (u16 first sprite,
+u8 stride, u8 unused): sprite = first + direction * stride + frame, with
+direction 0 north and turning clockwise through eight (0x7d761). The frame
+count of each action is at 0x14b238. Robots stand in action 0 (66), walk
+in action 2 (74, four frames) and fire in action 5 (127, five frames, the
+flash last). Guns use actions 0x32 (missile launcher, 1643), 0x33
+(Gattling, 1659, two frames) and 0x34 (howitzer, 5767, two frames).
+Vehicles are drawn in parts by unit type (+0x30, set per class by
+0x6375a; branches from 0x7e2d8). Parts sit at offsets from the unit's
+position moved 6 left and 6 up (the medium tank: 6 left only; the mobile
+missile: 8 up); d is the hull direction, t the turret direction (the
+vehicle record's +0x15), f the track frame:
+
+| Vehicle | Type | Parts |
+|---|---|---|
+| Medium tank | 6 | hull 488 + (d & 3) * 3 + f (0x14b2c4), turret 513 + t and barrel 521 + t (0x14b283, 0x14b2b3), hatch 533 + t * 3 (0x14b314) |
+| Heavy tank | 0x19 | hull 5305 + (d & 3) * 3 + f, turret 5329 + t (0x14b293), hatch (0x14b334) |
+| Light tank | 0x1e | hull 5719 + (d & 3) * 3 + f (0x14b2e4), turret 5731 + t (0x14b2a3), hatch (0x14b324) |
+| APC | 0x20 | hull 5655 + d * 3 + f, dish 5679 + clock (0x14b354) |
+| Jeep | 0x22 | body 5590 + d * 2 + bounce, gunner 5639 + t * 2 + firing (0x14b484 by d, 0x14b494 by t) |
+| Crane | 0x24 | body 5794 + d * 3 + f, arm 5818 + t (0x14b454), hook 5826 |
+| Mobile missile | 0x18 | hull 1845 + d * 3 + f (0x14b404), pod 1869 + t (0x1489c8 by t, 0x148a08 by d) |
+
+Offsets are signed byte or word pairs; turret parts add 6 right and 3 up.
+Tank hulls look the same both ways, so they have four directions; a
+damaged medium tank adds 12 and a damaged light tank 28. Fire trucks and
+trucks are not built this way. `games/z/w_rsc.c` composes these with the
+turret facing the hull.
 
 Sprites are drawn with the current world palette, not the one in the file.
 Team colour is the run 0x10..0x1f (red). 0x5fd39 and its neighbours point
