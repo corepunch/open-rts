@@ -770,7 +770,8 @@ typedef enum {
 } inputpolicy_t;
 typedef enum {
     SIGHT_NATIVE = 0, /* The native Dark Colony ray table. */
-    SIGHT_RADIAL      /* Simple radial field of view. */
+    SIGHT_RADIAL,     /* Simple radial field of view. */
+    SIGHT_OPEN        /* No fog of war: every team sees the whole map. */
 } sightpolicy_t;
 typedef enum {
     TURN_GRADUAL = 0, /* Units turn over time. */
