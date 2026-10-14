@@ -123,12 +123,13 @@ static int test_fight_to_death(void) {
     return 0;
 }
 
-/* Every vehicle composes eight directions of track frames and a wreck. */
+/* Every vehicle composes eight directions of track frames, then of
+ * standing ones, and a wreck. */
 static int test_vehicle_sheets(void) {
     static spritecache_t cache;
     static const struct { const char *name; int frames; } vehicles[] = {
-        {"MED_TANK", 3}, {"HEAVY_TANK", 3}, {"LIGHT_TANK", 3}, {"APC", 3},
-        {"JEEP", 2}, {"CRANE", 3}, {"M_MISSILE", 3},
+        {"MED_TANK", 3 + 1}, {"HEAVY_TANK", 3 + 1}, {"LIGHT_TANK", 3 + 1}, {"APC", 3 + 1},
+        {"JEEP", 4 + 2}, {"CRANE", 3 + 1}, {"M_MISSILE", 3 + 1},
     };
     RtsGameModel *model = load();
     if (!model) return fail("load for sheets");
