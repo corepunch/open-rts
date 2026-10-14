@@ -345,7 +345,7 @@ vehicle record's +0x15), f the track frame:
 | Heavy tank | 0x19 | hull 5305 + (d & 3) * 3 + f, turret 5329 + t (0x14b293), hatch (0x14b334) |
 | Light tank | 0x1e | hull 5719 + (d & 3) * 3 + f (0x14b2e4), turret 5731 + t (0x14b2a3), hatch (0x14b324) |
 | APC | 0x20 | hull 5655 + d * 3 + f, dish 5679 + clock (0x14b354) |
-| Jeep | 0x22 | body 5590 + d * 2 + bounce, gunner 5639 + t * 2 + firing (0x14b484 by d, 0x14b494 by t) |
+| Jeep | 0x22 | wheels and shadow 0x14b444[d] + f (four frames; none facing north or south), body 5590 + d * 2 + bounce (f & 1 moving, clock >> 1 & 1 standing), gunner 5639 + t * 2 + firing (0x14b484 by d, 0x14b494 by t) |
 | Crane | 0x24 | body 5794 + d * 3 + f, arm 5818 + t (0x14b454), hook 5826 |
 | Mobile missile | 0x18 | hull 1845 + d * 3 + f (0x14b404), pod 1869 + t (0x1489c8 by t, 0x148a08 by d) |
 

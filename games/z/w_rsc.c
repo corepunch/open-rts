@@ -203,14 +203,19 @@ static bool load_runs(const zmap_t *map, const zrun_t *runs, int nruns,
 /* Vehicles are drawn in parts by unit type (ZED.EXE 0x7e2d8, types set
  * by 0x6375a), each part at `at` pixels from the unit's position moved 6
  * left and `lift` up. A part's picture is `sprite` + direction * `turn`,
- * by direction & 3 for the `quarter` hulls that look the same both ways;
- * the first part adds the track frame. Turrets turn on their own in
- * ZED.EXE (unit's weapon +0x15); here they face the way the hull does, so
- * the offset tables by turret and by hull are summed per direction. */
+ * by direction & 3 for the `quarter` hulls that look the same both ways,
+ * or `by_dir` for a part some directions do not draw; while moving it
+ * steps through `cycle` frames and while standing through the `bounce`
+ * ones. Turrets turn on their own in ZED.EXE (unit's weapon +0x15); here
+ * they face the way the hull does, so the offset tables by turret and by
+ * hull are summed per direction. */
 typedef struct {
     int sprite, turn;
     bool quarter;
     int8_t at[8][2];
+    int cycle;
+    bool bounce;
+    int16_t by_dir[8];
 } zpart_t;
 
 static const struct {
@@ -221,68 +226,82 @@ static const struct {
     /* 6 (0x7e31e): hull 488 (0x14b2c4), turret 513 and barrel 521
      * (0x14b283, 0x14b2b3, 6 right and 3 up), hatch 533 (0x14b314) */
     {"MED_TANK", 0, {
-        {488, 3, true, {{0, 0}, {-2, -7}, {-2, 0}, {0, -7}, {0, 0}, {-2, -7}, {-2, 0}, {0, -7}}},
-        {513, 1, false, {{6, -3}, {4, -3}, {3, -6}, {4, -6}, {6, -6}, {6, -6}, {6, -6}, {5, -3}}},
-        {521, 1, false, {{13, -9}, {24, -3}, {22, -3}, {17, 4}, {12, 5}, {4, 3}, {0, -3}, {3, -7}}},
-        {533, 3, false, {{11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}}},
+        {488, 3, true, {{0, 0}, {-2, -7}, {-2, 0}, {0, -7}, {0, 0}, {-2, -7}, {-2, 0}, {0, -7}}, .cycle = 3},
+        {513, 1, .at = {{6, -3}, {4, -3}, {3, -6}, {4, -6}, {6, -6}, {6, -6}, {6, -6}, {5, -3}}},
+        {521, 1, .at = {{13, -9}, {24, -3}, {22, -3}, {17, 4}, {12, 5}, {4, 3}, {0, -3}, {3, -7}}},
+        {533, 3, .at = {{11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}, {11, -6}}},
     }},
     /* 0x19 (0x7e49f): hull 5305 (0x14b2d4), turret 5329 (0x14b293), hatch 533 (0x14b334) */
     {"HEAVY_TANK", 6, {
-        {5305, 3, true, {{0, 0}}},
-        {5329, 1, false, {{-1, -3}, {0, -3}, {4, -1}, {0, -2}, {-1, -1}, {-2, -2}, {-6, -1}, {-2, -3}}},
-        {533, 3, false, {{15, 6}, {13, 9}, {8, 8}, {8, 5}, {8, 3}, {9, 0}, {14, 2}, {15, 3}}},
+        {5305, 3, true, {{0, 0}}, .cycle = 3},
+        {5329, 1, .at = {{-1, -3}, {0, -3}, {4, -1}, {0, -2}, {-1, -1}, {-2, -2}, {-6, -1}, {-2, -3}}},
+        {533, 3, .at = {{15, 6}, {13, 9}, {8, 8}, {8, 5}, {8, 3}, {9, 0}, {14, 2}, {15, 3}}},
     }},
     /* 0x1e (0x7e5df): hull 5719 (0x14b2e4), turret 5731 (0x14b2a3), hatch 533 (0x14b324) */
     {"LIGHT_TANK", 6, {
-        {5719, 3, true, {{-1, 0}, {-4, 0}, {-5, 0}, {-5, 0}, {-1, 0}, {-4, 0}, {-5, 0}, {-5, 0}}},
-        {5731, 1, false, {{-3, -2}, {-3, -3}, {-3, -3}, {-3, -3}, {-3, 0}, {-4, -1}, {-3, -1}, {-4, -1}}},
-        {533, 3, false, {{9, 4}, {8, 3}, {8, 2}, {8, 2}, {9, 3}, {9, 2}, {9, 2}, {10, 3}}},
+        {5719, 3, true, {{-1, 0}, {-4, 0}, {-5, 0}, {-5, 0}, {-1, 0}, {-4, 0}, {-5, 0}, {-5, 0}}, .cycle = 3},
+        {5731, 1, .at = {{-3, -2}, {-3, -3}, {-3, -3}, {-3, -3}, {-3, 0}, {-4, -1}, {-3, -1}, {-4, -1}}},
+        {533, 3, .at = {{9, 4}, {8, 3}, {8, 2}, {8, 2}, {9, 3}, {9, 2}, {9, 2}, {10, 3}}},
     }},
     /* 0x20 (0x7e719): hull 5655, dish 5679 (0x14b354; it spins with the game clock) */
     {"APC", 6, {
-        {5655, 3, false, {{0, 0}}},
-        {5679, 0, false, {{14, 6}, {8, 12}, {2, 8}, {1, 7}, {4, 4}, {8, 2}, {15, 4}, {16, 6}}},
+        {5655, 3, .at = {{0, 0}}, .cycle = 3},
+        {5679, 0, .at = {{14, 6}, {8, 12}, {2, 8}, {1, 7}, {4, 4}, {8, 2}, {15, 4}, {16, 6}}},
     }},
-    /* 0x22 (0x7e846): body 5590, gun 5639 (0x14b484 by body, 0x14b494 by gun) */
+    /* 0x22 (0x7e846): wheels and shadow (0x14b444, none facing north or
+     * south) turning with the move, the body over them, rocking with the
+     * wheels and, standing, every second tick of the clock (0x10e92e) on
+     * still wheels, then the gunner (0x14b484 by body, 0x14b494 by gun). */
     {"JEEP", 6, {
-        {5590, 2, false, {{0, 0}}},
-        {5639, 2, false, {{8, 5}, {4, 8}, {1, 2}, {2, 1}, {5, 3}, {15, 1}, {15, 1}, {13, 8}}},
+        {.cycle = 4, .by_dir = {0, 5614, 5618, 5622, 0, 5626, 5630, 5634}},
+        {5590, 2, .at = {{0, 0}}, .cycle = 2, .bounce = true},
+        {5639, 2, .at = {{8, 5}, {4, 8}, {1, 2}, {2, 1}, {5, 3}, {15, 1}, {15, 1}, {13, 8}}},
     }},
     /* 0x24 (0x7ea2b): body 5794, arm 5818 (0x14b454); the hook is left out,
      * ZED.EXE reads its second offset from a stray address. */
     {"CRANE", 6, {
-        {5794, 3, false, {{0, 0}}},
-        {5818, 1, false, {{-1, -9}, {1, -8}, {6, -6}, {3, -4}, {0, -5}, {-4, -4}, {-6, -6}, {-2, -8}}},
+        {5794, 3, .at = {{0, 0}}, .cycle = 3},
+        {5818, 1, .at = {{-1, -9}, {1, -8}, {6, -6}, {3, -4}, {0, -5}, {-4, -4}, {-6, -6}, {-2, -8}}},
     }},
     /* 0x18 (0x7ee27): hull 1845 (0x14b404), pod 1869 (0x1489c8 by pod, 0x148a08 by hull) */
     {"M_MISSILE", 8, {
-        {1845, 3, false, {{1, 2}, {2, 0}, {0, -2}, {0, 0}, {-1, 2}, {1, 0}, {0, -2}, {0, 0}}},
-        {1869, 1, false, {{4, 1}, {2, 3}, {0, -1}, {0, -2}, {1, 3}, {4, -2}, {8, -4}, {4, 1}}},
+        {1845, 3, .at = {{1, 2}, {2, 0}, {0, -2}, {0, 0}, {-1, 2}, {1, 0}, {0, -2}, {0, 0}}, .cycle = 3},
+        {1869, 1, .at = {{4, 1}, {2, 3}, {0, -1}, {0, -2}, {1, 3}, {4, -2}, {8, -4}, {4, 1}}},
     }},
 };
 
-static int part_sprite(const zpart_t *part, int dir, int frame) {
-    return part->sprite + (part->quarter ? dir & 3 : dir) * part->turn + frame;
+static bool part_used(const zpart_t *part) { return part->sprite || part->by_dir[1]; }
+
+/* The picture of `part` facing `dir` in composed frame `f` of `frames`
+ * moving ones and the standing ones after them; -1 draws nothing. */
+static int part_sprite(const zpart_t *part, int dir, int f, int frames) {
+    int step = f < frames ? (part->cycle ? f % part->cycle : 0) : (part->bounce ? f - frames : 0);
+    if (!part->sprite) return part->by_dir[dir] ? part->by_dir[dir] + step : -1;
+    return part->sprite + (part->quarter ? dir & 3 : dir) * part->turn + step;
 }
 
-/* Eight directions of `frames` composed pictures, then the wreck centred
- * on the unit's cell. All share one canvas so they share a ground point:
- * the middle of the unit's 16-pixel cell. */
-static bool load_vehicle(const zmap_t *map, const char *name, int frames, int dead,
+/* Eight directions of `frames` moving and `idle` standing composed
+ * pictures, then the wreck centred on the unit's cell. All share one
+ * canvas so they share a ground point: the middle of the unit's 16-pixel
+ * cell. */
+static bool load_vehicle(const zmap_t *map, const char *name, int frames, int idle, int dead,
                          const uint32_t palette[256], spritesheet_t *sheet) {
     size_t v = 0;
     while (v < sizeof(vehicles) / sizeof(*vehicles) && strcmp(vehicles[v].name, name)) ++v;
     if (v == sizeof(vehicles) / sizeof(*vehicles)) return false;
     const zpart_t *parts = vehicles[v].parts;
     ivec2_t origin = {-6, -vehicles[v].lift};
+    int poses = frames + idle;
     isize2_t size;
     if (!Z_SpriteSize(map, dead, &size)) return false;
     ivec2_t wreck = {Z_TILE / 2 - size.w / 2, Z_TILE / 2 - size.h / 2};
     ivec2_t lo = wreck, hi = {wreck.x + size.w, wreck.y + size.h};
     for (int d = 0; d < 8; ++d)
-        for (int f = 0; f < frames; ++f)
-            for (int p = 0; p < 4 && parts[p].sprite; ++p) {
-                if (!Z_SpriteSize(map, part_sprite(&parts[p], d, p ? 0 : f), &size)) return false;
+        for (int f = 0; f < poses; ++f)
+            for (int p = 0; p < 4 && part_used(&parts[p]); ++p) {
+                int sprite = part_sprite(&parts[p], d, f, frames);
+                if (sprite < 0) continue;
+                if (!Z_SpriteSize(map, sprite, &size)) return false;
                 ivec2_t at = ivec2_add(origin, (ivec2_t){parts[p].at[d][0], parts[p].at[d][1]});
                 if (at.x < lo.x) lo.x = at.x;
                 if (at.y < lo.y) lo.y = at.y;
@@ -290,24 +309,24 @@ static bool load_vehicle(const zmap_t *map, const char *name, int frames, int de
                 if (at.y + size.h > hi.y) hi.y = at.y + size.h;
             }
     isize2_t canvas = {hi.x - lo.x, hi.y - lo.y};
-    if (!R_AllocSpriteCells(sheet, frames * 8 + 1) || !R_InitSpriteDef(sheet, frames + 1, 8)) return false;
-    for (int lump = 0; lump <= frames * 8; ++lump) {
+    if (!R_AllocSpriteCells(sheet, poses * 8 + 1) || !R_InitSpriteDef(sheet, poses + 1, 8)) return false;
+    for (int lump = 0; lump <= poses * 8; ++lump) {
         uint8_t *out = calloc((size_t)canvas.w * canvas.h, 1);
         if (!out || !put_lump(sheet, lump, out, canvas)) { free(out); return false; }
         int d = lump % 8, f = lump / 8;
-        if (f == frames) {
-            spriteframe_t *def = &sheet->spritedef.spriteframes[frames];
+        if (f == poses) {
+            spriteframe_t *def = &sheet->spritedef.spriteframes[poses];
             free(def->directions);
             def->directions = NULL;
             def->rotations = 0;
             if (!R_AllocSpriteDirections(def, 1) || !blit(map, dead, out, canvas, ivec2_sub(wreck, lo)) ||
-                !R_InstallSpriteLump(sheet, frames, 0, lump, false)) return false;
+                !R_InstallSpriteLump(sheet, poses, 0, lump, false)) return false;
             continue;
         }
-        for (int p = 0; p < 4 && parts[p].sprite; ++p) {
+        for (int p = 0; p < 4 && part_used(&parts[p]); ++p) {
+            int sprite = part_sprite(&parts[p], d, f, frames);
             ivec2_t at = ivec2_add(origin, (ivec2_t){parts[p].at[d][0], parts[p].at[d][1]});
-            if (!blit(map, part_sprite(&parts[p], d, p ? 0 : f), out, canvas, ivec2_sub(at, lo)))
-                return false;
+            if (sprite >= 0 && !blit(map, sprite, out, canvas, ivec2_sub(at, lo))) return false;
         }
         /* Renderer slots run counterclockwise from north. */
         if (!R_InstallSpriteLump(sheet, f, (8 - d) % 8, lump, false)) return false;
@@ -317,13 +336,13 @@ static bool load_vehicle(const zmap_t *map, const char *name, int frames, int de
 }
 
 /* Sheets a unit kind loads beyond SPRITES.RSC and the robots. */
-#define LOAD_ROBOT(type, sprite, turn, frames, dead)
-#define LOAD_STILL(type, sprite, turn, frames, dead)
-#define LOAD_GUN(type, sprite, turn, frames, dead) \
+#define LOAD_ROBOT(type, sprite, turn, frames, idle, dead)
+#define LOAD_STILL(type, sprite, turn, frames, idle, dead)
+#define LOAD_GUN(type, sprite, turn, frames, idle, dead) \
     if (!strcmp(name, #type)) \
         return load_runs(map, (const zrun_t[]){{sprite, turn, frames}, {dead, 0, 1}}, 2, palette, sheet);
-#define LOAD_VEHICLE(type, sprite, turn, frames, dead) \
-    if (!strcmp(name, #type)) return load_vehicle(map, #type, frames, dead, palette, sheet);
+#define LOAD_VEHICLE(type, sprite, turn, frames, idle, dead) \
+    if (!strcmp(name, #type)) return load_vehicle(map, #type, frames, idle, dead, palette, sheet);
 
 static bool load_named(const zmap_t *map, const char *name, const uint32_t palette[256],
                        spritesheet_t *sheet) {
@@ -336,8 +355,8 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
         return load_runs(map, robot, 6, palette, sheet);
     }
     if (!strcmp(name, sprnames[SPR_FLAG])) return load_flag(map, palette, sheet);
-#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, dead) \
-    LOAD_##kind(type, sprite, turn, frames, dead)
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, idle, dead) \
+    LOAD_##kind(type, sprite, turn, frames, idle, dead)
 #include "units.inc"
 #undef Z_UNIT
     isize2_t size;

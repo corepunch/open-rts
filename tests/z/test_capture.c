@@ -118,6 +118,9 @@ static int test_board(void) {
     if ((jeep->traits & (MF_MOBILE | MF_SELECTABLE | MF_ATTACK)) != (MF_MOBILE | MF_SELECTABLE | MF_ATTACK) ||
         jeep->core.state_id != (int)mobjinfo[MT_UNIT_JEEP].spawnstate || !P_MobjIsSelected(jeep))
         return fail("the Jeep drives, fights and stays selected");
+    if (jeep->core.angle != P_PointToAngle(-FIXED_ONE, 0) ||
+        states[jeep->core.state_id].count < 2 || states[jeep->core.state_id].tics != 1)
+        return fail("the Jeep faces west, as it stood empty, with its motor running");
     fvec2_t start = fixed3_xy_to_fvec2(jeep->core.position);
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
         .data.move_selected = { .target = fixed2_from_fvec2((fvec2_t){start.x, start.y + 4.0f}) } };
