@@ -294,6 +294,7 @@ void G_ConsistencyVector(uint32_t out[CONSISTENCY_COUNT]) {
         HASH(u->target ? u->target->id : 0);
         HASH(u->attack.target ? u->attack.target->id : 0); HASH(u->attack.cooldown_left_ms);
         HASH(u->attack.shots);
+        if (u->info && u->info->turret.sprite_name) HASH(u->attack.aim);
         HASH(u->harvest.target); HASH(u->harvest.phase); HASH(u->harvest.timer_ms); HASH(u->harvest.cargo);
         HASH(u->harvest.resource_type); HASH(u->harvest.base ? u->harvest.base->id : 0);
         HASH(u->harvest.return_position.x); HASH(u->harvest.return_position.y);
