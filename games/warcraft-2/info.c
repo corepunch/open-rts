@@ -516,7 +516,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_HUMAN_OIL_TANKER] = { /* PUD 26: unit-human-oil-tanker */
-        .doomednum = 27, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 0,
+        .doomednum = 27, .spawnhealth = 90, .speed = 1, .radius = 28, .damage = 0,
         .name = "human-tanker", .label = "Oil Tanker",
         .w2 = {.projectile = W2_FX_NONE, .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
             .grp = {59, 0, 0, 0}, .speed = 10, .armor = 10,
@@ -536,7 +536,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_ORC_OIL_TANKER] = { /* PUD 27: unit-orc-oil-tanker */
-        .doomednum = 28, .spawnhealth = 90, .speed = 1, .radius = 16, .damage = 0,
+        .doomednum = 28, .spawnhealth = 90, .speed = 1, .radius = 28, .damage = 0,
         .name = "orc-tanker", .label = "Oil Tanker",
         .w2 = {.projectile = W2_FX_NONE, .flags = TANK | W2_HARVEST, .footprint = {2, 2}, .box = {63, 63},
             .grp = {60, 0, 0, 0}, .speed = 10, .armor = 10,
@@ -556,7 +556,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_HUMAN_TRANSPORT] = { /* PUD 28: unit-human-transport */
-        .doomednum = 29, .spawnhealth = 150, .speed = 1, .radius = 16, .damage = 0,
+        .doomednum = 29, .spawnhealth = 150, .speed = 1, .radius = 28, .damage = 0,
         .name = "human-transport", .label = "Transport",
         .w2 = {.projectile = W2_FX_NONE, .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
             .grp = {39, 0, 0, 0}, .speed = 10, .armor = 0,
@@ -573,7 +573,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_ORC_TRANSPORT] = { /* PUD 29: unit-orc-transport */
-        .doomednum = 30, .spawnhealth = 150, .speed = 1, .radius = 16, .damage = 0,
+        .doomednum = 30, .spawnhealth = 150, .speed = 1, .radius = 28, .damage = 0,
         .name = "orc-transport", .label = "Transport",
         .w2 = {.projectile = W2_FX_NONE, .flags = TANK, .footprint = {2, 2}, .box = {63, 63},
             .grp = {40, 0, 0, 0}, .speed = 10, .armor = 0,
@@ -590,7 +590,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_HUMAN_DESTROYER] = { /* PUD 30: unit-human-destroyer */
-        .doomednum = 31, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 35,
+        .doomednum = 31, .spawnhealth = 100, .speed = 1, .radius = 28, .damage = 35,
         .name = "human-destroyer", .label = "Elven Destroyer",
         .w2 = {.projectile = W2_FX_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {61, 0, 0, 0}, .speed = 10, .armor = 10,
@@ -607,7 +607,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_ORC_DESTROYER] = { /* PUD 31: unit-orc-destroyer */
-        .doomednum = 32, .spawnhealth = 100, .speed = 1, .radius = 16, .damage = 35,
+        .doomednum = 32, .spawnhealth = 100, .speed = 1, .radius = 28, .damage = 35,
         .name = "orc-destroyer", .label = "Troll Destroyer",
         .w2 = {.projectile = W2_FX_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {62, 0, 0, 0}, .speed = 10, .armor = 10,
@@ -624,7 +624,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_BATTLESHIP] = { /* PUD 32: unit-battleship */
-        .doomednum = 33, .spawnhealth = 150, .speed = 0, .radius = 16, .damage = 130,
+        .doomednum = 33, .spawnhealth = 150, .speed = 0, .radius = 28, .damage = 130,
         .name = "battleship", .label = "Battleship",
         .w2 = {.projectile = W2_FX_BIG_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {70, 70},
             .grp = {41, 0, 0, 0}, .speed = 6, .armor = 15,
@@ -641,7 +641,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_OGRE_JUGGERNAUGHT] = { /* PUD 33: unit-ogre-juggernaught */
-        .doomednum = 34, .spawnhealth = 150, .speed = 0, .radius = 16, .damage = 130,
+        .doomednum = 34, .spawnhealth = 150, .speed = 0, .radius = 28, .damage = 130,
         .name = "juggernaught", .label = "Ogre Juggernaught",
         .w2 = {.projectile = W2_FX_BIG_CANNON, .flags = SHIP, .footprint = {2, 2}, .box = {70, 70},
             .grp = {42, 0, 0, 0}, .speed = 6, .armor = 15,
@@ -678,7 +678,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_RESERVED_36] = {.doomednum = 37, .w2.flags = W2_SKIP},
     [MT_RESERVED_37] = {.doomednum = 38, .w2.flags = W2_SKIP},
     [MT_GNOMISH_SUBMARINE] = { /* PUD 38: unit-human-submarine */
-        .doomednum = 39, .spawnhealth = 60, .speed = 0, .radius = 16, .damage = 50,
+        .doomednum = 39, .spawnhealth = 60, .speed = 0, .radius = 28, .damage = 50,
         .name = "gnome-submarine", .label = "Gnomish Submarine",
         .w2 = {.projectile = W2_FX_SUB, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {43, 0, 182, 526}, .speed = 7, .armor = 0,
@@ -695,7 +695,7 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         },
     },
     [MT_GIANT_TURTLE] = { /* PUD 39: unit-orc-submarine */
-        .doomednum = 40, .spawnhealth = 60, .speed = 0, .radius = 16, .damage = 50,
+        .doomednum = 40, .spawnhealth = 60, .speed = 0, .radius = 28, .damage = 50,
         .name = "giant-turtle", .label = "Giant Turtle",
         .w2 = {.projectile = W2_FX_TURTLE, .flags = SHIP, .footprint = {2, 2}, .box = {63, 63},
             .grp = {44, 0, 183, 527}, .speed = 7, .armor = 0,

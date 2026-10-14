@@ -12,7 +12,8 @@ enum {
 /* Per movement class: which cells touch an obstacle and which component a cell is in. */
 typedef struct {
     bool built;
-    uint8_t *speed;     /* L_MoveSpeed per cell, read in every search step */
+    int size;           /* cells per side of the class's block; nodes, not cells, index the arrays */
+    uint8_t *speed;     /* slowest L_MoveSpeed under each node's block, read in every search step */
     uint8_t *near_wall;
     uint16_t *region;   /* 0 = impassable for this class */
     int max_speed;      /* fastest terrain; keeps the heuristic admissible */
@@ -41,6 +42,46 @@ static const int8_t neighbor[8][2] = {
 static int class_of(const level_t *map, int move_class) {
     if (move_class <= 0 || !map->speeds || move_class >= map->speeds->class_count) return 0;
     return move_class;
+}
+
+enum { NAV_MAX_FOOTPRINT = 4 };
+
+int P_NavFootprint(const level_t *map, int move_class) {
+    int cls = map ? class_of(map, move_class) : 0;
+    int size = map && map->speeds ? map->speeds->footprint[cls] : 1;
+    return size < 1 ? 1 : size > NAV_MAX_FOOTPRINT ? NAV_MAX_FOOTPRINT : size;
+}
+
+/* A node's block starts size/2 cells up and left of it; its centre is the
+ * node's world point. */
+static fixed2_t node_point(int size, ivec2_t node) {
+    fixed_t half = size * (FIXED_ONE / 2);
+    return (fixed2_t){FIXED_FROM_INT(node.x - size / 2) + half, FIXED_FROM_INT(node.y - size / 2) + half};
+}
+
+static ivec2_t node_at(int size, fixed2_t at) {
+    fixed_t shift = FIXED_ONE / 2 - size * (FIXED_ONE / 2);
+    return (ivec2_t){fixed_floor_int(at.x + shift) + size / 2, fixed_floor_int(at.y + shift) + size / 2};
+}
+
+fixed2_t P_NavNodePoint(const level_t *map, int move_class, ivec2_t node) {
+    return node_point(P_NavFootprint(map, move_class), node);
+}
+
+ivec2_t P_NavNodeAt(const level_t *map, int move_class, fixed2_t at) {
+    return node_at(P_NavFootprint(map, move_class), at);
+}
+
+int P_NavRing(const level_t *map, int move_class, ivec2_t cell, isize2_t size, ivec2_t *out, int max) {
+    int n = P_NavFootprint(map, move_class), count = 0;
+    for (int y = cell.y - n; y <= cell.y + size.h; ++y)
+        for (int x = cell.x - n; x <= cell.x + size.w; ++x) {
+            /* (x, y) is the block's top-left cell; skip blocks inside the footprint. */
+            if (x + n > cell.x && x < cell.x + size.w && y + n > cell.y && y < cell.y + size.h) continue;
+            if (count < max) out[count] = (ivec2_t){x + n / 2, y + n / 2};
+            ++count;
+        }
+    return count < max ? count : max;
 }
 
 static int speed_at(const level_t *map, const navlayer_t *layer, int x, int y) {
@@ -174,12 +215,29 @@ static navlayer_t *layer_for(const level_t *map, struct nav_s *nav, int cls) {
     layer->region = calloc(total, sizeof(*layer->region));
     if (!layer->speed || !layer->near_wall || !layer->region) { layer_release(layer); return NULL; }
     layer->max_speed = 100;
+    layer->size = P_NavFootprint(map, cls);
     for (int y = 0; y < nav->height; ++y)
         for (int x = 0; x < nav->width; ++x) {
             int speed = L_MoveSpeed(map, cls, x, y);
             if (speed > layer->max_speed) layer->max_speed = speed;
             layer->speed[L_Index(map, x, y)] = (uint8_t)speed;
         }
+    if (layer->size > 1) { /* A node is as slow as the worst cell its block covers. */
+        uint8_t *cell_speed = layer->speed;
+        if (!(layer->speed = malloc(total))) { layer->speed = cell_speed; layer_release(layer); return NULL; }
+        int lead = layer->size / 2;
+        for (int y = 0; y < nav->height; ++y)
+            for (int x = 0; x < nav->width; ++x) {
+                int slowest = 255;
+                for (int by = y - lead; by < y - lead + layer->size && slowest; ++by)
+                    for (int bx = x - lead; bx < x - lead + layer->size && slowest; ++bx) {
+                        int speed = L_Contains(map, bx, by) ? cell_speed[L_Index(map, bx, by)] : 0;
+                        if (speed < slowest) slowest = speed;
+                    }
+                layer->speed[L_Index(map, x, y)] = (uint8_t)slowest;
+            }
+        free(cell_speed);
+    }
     for (int y = 0; y < nav->height; ++y)
         for (int x = 0; x < nav->width; ++x) {
             bool near = false;
@@ -304,8 +362,9 @@ bool P_NavLineClear(const level_t *map, int move_class, fixed2_t a, fixed2_t b, 
 
 static bool cell_usable(const level_t *map, int cls, const navlayer_t *layer, int x, int y, fixed_t radius) {
     if (!passable(map, layer, x, y)) return false;
-    if (radius <= FIXED_ONE / 2) return true; /* A cell-centred disc that small fits any open cell. */
-    return P_MapCircleWalkable(map, cls, fixed2_cell_center((ivec2_t){x, y}), radius, NULL);
+    /* A disc no wider than the node's open block always fits. */
+    if (radius <= layer->size * (FIXED_ONE / 2)) return true;
+    return P_MapCircleWalkable(map, cls, node_point(layer->size, (ivec2_t){x, y}), radius, NULL);
 }
 
 static bool search(const level_t *map, int cls, struct nav_s *nav, navlayer_t *layer,
@@ -365,7 +424,7 @@ static int64_t segment_cost(const level_t *map, const navlayer_t *layer, const u
     int64_t total = 0;
     for (int i = 0; i < steps; ++i) {
         fixed2_t at = lerp_step(a, delta, 2 * i + 1, 2 * steps);
-        ivec2_t cell = fixed2_cell(at);
+        ivec2_t cell = node_at(layer->size, at);
         int speed = speed_at(map, layer, cell.x, cell.y);
         total += (int64_t)100 * FIXED_ONE / (speed > 0 ? speed : 100);
         if (soft && L_Contains(map, cell.x, cell.y) && soft[L_Index(map, cell.x, cell.y)])
@@ -383,7 +442,7 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
     int cls = class_of(map, move_class);
     navlayer_t *layer = layer_for(map, nav, cls);
     if (!layer) return false;
-    ivec2_t start = fixed2_cell(from), end = fixed2_cell(goal);
+    ivec2_t start = node_at(layer->size, from), end = node_at(layer->size, goal);
     if (!L_Contains(map, start.x, start.y)) return false;
     if (!passable(map, layer, start.x, start.y)) { /* Spawn overlapping terrain: begin at a neighbour. */
         bool found = false;
@@ -392,12 +451,12 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
         for (int dy = -2; dy <= 2; ++dy)
             for (int dx = -2; dx <= 2; ++dx) {
                 if (!passable(map, layer, start.x + dx, start.y + dy)) continue;
-                fixed2_t c = fixed2_cell_center((ivec2_t){start.x + dx, start.y + dy});
+                fixed2_t c = node_point(layer->size, (ivec2_t){start.x + dx, start.y + dy});
                 int64_t d = fixed2_distance_squared64(c, from) >> 24;
                 if (d < best) { best = d; found = true; seed = c; }
             }
         if (!found) return false;
-        start = fixed2_cell(seed);
+        start = node_at(layer->size, seed);
     }
     bool exact_goal = L_Contains(map, end.x, end.y) && passable(map, layer, end.x, end.y) &&
                       P_NavReachable(map, cls, start, end) &&
@@ -406,7 +465,7 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
         ivec2_t want = {end.x < 0 ? 0 : end.x >= map->width ? map->width - 1 : end.x,
                         end.y < 0 ? 0 : end.y >= map->height ? map->height - 1 : end.y};
         if (!P_NavNearestReachable(map, cls, start, want, 16, &end)) return false;
-        goal = fixed2_cell_center(end);
+        goal = node_point(layer->size, end);
     }
     if (ivec2_equal(start, end)) {
         out->points[0] = out->goal = goal;
@@ -417,7 +476,7 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
     int goal_index;
     if (!search(map, cls, nav, layer, soft, radius, start, end, &goal_index)) return false;
 
-    /* Keep the destination cell centre: an off-centre goal can invalidate the
+    /* Keep the destination node's point: an off-centre goal can invalidate the
      * incoming diagonal even though both endpoints fit. String pulling removes
      * this last bend only when the entire shortcut is clear. */
     int length = 0;
@@ -426,7 +485,7 @@ bool P_NavPlan(const level_t *map, int move_class, fixed_t radius, fixed2_t from
     if (!chain) return false;
     int i = length;
     for (int c = goal_index; c != -1; c = nav->parent[c])
-        chain[--i] = fixed2_cell_center(L_Cell(map, c));
+        chain[--i] = node_point(layer->size, L_Cell(map, c));
     chain[length++] = goal;
     out->goal = goal;
 

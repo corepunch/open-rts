@@ -152,44 +152,46 @@ bool P_MorphMobj(mobj_t *mo, uint16_t type) {
 static bool approach_footprint(mobj_t *unit, ivec2_t cell, isize2_t size,
                                int vent_index, fixed2_t *bay) {
     fixed2_t from = fixed3_xy(unit->core.position);
-    ivec2_t home = fixed2_cell(from);
-    const uint16_t *regions = P_NavRegions(&level, P_MobjMoveClass(unit));
+    int cls = P_MobjMoveClass(unit);
+    ivec2_t home = P_NavNodeAt(&level, cls, from);
+    const uint16_t *regions = P_NavRegions(&level, cls);
     if (!regions || !L_Contains(&level, home.x, home.y)) return false;
     uint16_t region = regions[L_Index(&level, home.x, home.y)];
+    /* A unit wider than a cell stands on a node whose whole block touches the footprint. */
+    ivec2_t ring[256];
+    int ring_count = P_NavRing(&level, cls, cell, size, ring, 256);
     bool found = false;
     int64_t distance = 0;
-    for (int y = -1; y <= size.h; ++y)
-        for (int x = -1; x <= size.w; ++x) {
-            if (x >= 0 && y >= 0 && x < size.w && y < size.h) continue;
-            ivec2_t candidate = ivec2_add(cell, (ivec2_t){x, y});
-            fixed2_t at = fixed2_cell_center(candidate);
-            int64_t d = fixed2_distance_squared64(from, at);
-            /* Never wait inside another site: two builders would block each other. */
-            if ((found && d >= distance) || !P_CheckPosition(&level, unit, at) ||
-                cell_reserved(candidate, unit)) continue;
-            bool occupied = false;
-            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-                if (th->function != P_MobjThinker) continue;
-                const mobj_t *other = (const mobj_t *)th;
-                if (other == unit || other->remove || other->hp <= 0 || !(other->traits & MF_MOBILE)) continue;
-                fixed_t radius = P_MobjRadius(unit) + P_MobjRadius(other);
-                fixed2_t position = fixed3_xy(other->core.position);
-                /* Another worker may be en route to this same resource edge. */
-                if (fixed2_distance_squared64(at, position) < fixed_sq64(radius) ||
-                    (vent_index >= 0 && other->harvest.target == vent_index &&
-                     other->harvest.phase == HARVEST_PHASE_TO_MINE &&
-                     fixed2_distance_squared64(at, other->movement.goal) < fixed_sq64(radius))) {
-                    occupied = true;
-                    break;
-                }
+    for (int i = 0; i < ring_count; ++i) {
+        ivec2_t candidate = ring[i];
+        fixed2_t at = P_NavNodePoint(&level, cls, candidate);
+        int64_t d = fixed2_distance_squared64(from, at);
+        /* Never wait inside another site: two builders would block each other. */
+        if ((found && d >= distance) || !P_CheckPosition(&level, unit, at) ||
+            cell_reserved(fixed2_cell(at), unit)) continue;
+        bool occupied = false;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            const mobj_t *other = (const mobj_t *)th;
+            if (other == unit || other->remove || other->hp <= 0 || !(other->traits & MF_MOBILE)) continue;
+            fixed_t radius = P_MobjRadius(unit) + P_MobjRadius(other);
+            fixed2_t position = fixed3_xy(other->core.position);
+            /* Another worker may be en route to this same resource edge. */
+            if (fixed2_distance_squared64(at, position) < fixed_sq64(radius) ||
+                (vent_index >= 0 && other->harvest.target == vent_index &&
+                 other->harvest.phase == HARVEST_PHASE_TO_MINE &&
+                 fixed2_distance_squared64(at, other->movement.goal) < fixed_sq64(radius))) {
+                occupied = true;
+                break;
             }
-            if (occupied) continue;
-            if (!region || !L_Contains(&level, candidate.x, candidate.y) ||
-                regions[L_Index(&level, candidate.x, candidate.y)] != region) continue;
-            *bay = at;
-            distance = d;
-            found = true;
         }
+        if (occupied) continue;
+        if (!region || !L_Contains(&level, candidate.x, candidate.y) ||
+            regions[L_Index(&level, candidate.x, candidate.y)] != region) continue;
+        *bay = at;
+        distance = d;
+        found = true;
+    }
     return found;
 }
 

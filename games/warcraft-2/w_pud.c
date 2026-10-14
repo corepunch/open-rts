@@ -48,6 +48,8 @@ static void fill_speeds(terrainspeeds_t *speeds) {
     speeds->terrain[3][3] = 100;
     /* Wargus transports can enter coast; other ships stay in water. */
     speeds->terrain[4][1] = speeds->terrain[4][3] = 100;
+    /* Every ship covers 2x2 tiles, so ships sail and dock on tile corners. */
+    speeds->footprint[2] = speeds->footprint[4] = 2;
 }
 
 static bool take_section(const uint8_t **p, const uint8_t *end,

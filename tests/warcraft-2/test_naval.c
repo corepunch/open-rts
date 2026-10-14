@@ -2,6 +2,7 @@
 #include "warcraft-2.h"
 #include "info.h"
 #include "w2_local.h"
+#include "../../play/p_nav.h"
 
 #define CHECK(c) RTS_CHECK(c, "Warcraft II navy", #c)
 
@@ -27,11 +28,16 @@ static void fixture(void) {
     level.speeds->terrain[1][0] = 100;
     level.speeds->terrain[2][1] = 100;
     level.speeds->terrain[4][1] = level.speeds->terrain[4][3] = 100;
+    level.speeds->footprint[2] = level.speeds->footprint[4] = 2;
     for (int y = 0; y < 32; ++y) for (int x = 10; x < 32; ++x) {
         level.cell_terrain[L_Index(&level, x, y)] = x == 10 ? 3 : 1;
         level.blocked[L_Index(&level, x, y)] = 1;
     }
     for (int r = 0; r < 3; ++r) level.player_resources[0][r] = 10000;
+}
+
+static bool on_corner(fixed2_t at) {
+    return !(at.x & (FIXED_ONE - 1)) && !(at.y & (FIXED_ONE - 1));
 }
 
 static mobj_t *find_type(int type) {
@@ -55,6 +61,7 @@ static int launch(int side) {
     CHECK(tanker);
     fixed2_t at = fixed3_xy(tanker->core.position);
     CHECK(P_CheckPosition(&level, tanker, at));
+    CHECK(on_corner(at));
     CHECK(level.cell_terrain[L_Index(&level, fixed_floor_int(at.x), fixed_floor_int(at.y))] == 1);
     CHECK(!P_CheckPosition(&level, tanker, FIXED2_LIT(8.5, 8.5)));
     CHECK(!P_CheckPosition(&level, tanker, FIXED2_LIT(10.5, 8.5)));
@@ -82,6 +89,8 @@ static int launch(int side) {
     bool pumping = false, loaded = false;
     for (int i = 0; i < 5000 && !level.player_resources[0][2]; ++i) {
         P_Ticker();
+        if (tanker->harvest.phase == HARVEST_PHASE_MINING || tanker->harvest.phase == HARVEST_PHASE_UNLOADING)
+            CHECK(on_corner(fixed3_xy(tanker->core.position)));
         pumping |= platform->core.frame == 2;
         loaded |= states[tanker->core.state_id].sprite == W2_TANK_FULL_SPRITE + side;
     }
@@ -123,10 +132,13 @@ static int shore(void) {
     mobj_t *yard = find_type(MT_HUMAN_SHIPYARD);
     CHECK(yard && !W2_UnderConstruction(yard));
     mobj_t *transport = spawn(MT_HUMAN_TRANSPORT, FIXED2_LIT(13.5, 12.5));
-    CHECK(P_CheckPosition(&level, transport, FIXED2_LIT(10.5, 12.5)));
-    CHECK(!P_CheckPosition(&level, transport, FIXED2_LIT(9.5, 12.5)));
-    CHECK(P_MoveUnitTo(&level, transport, FIXED2_LIT(10.5, 12.5)));
+    /* A transport covers 2x2 tiles: beached on the coast column, it stands on a corner. */
+    CHECK(P_CheckPosition(&level, transport, FIXED2_LIT(11, 13)));
+    CHECK(!P_CheckPosition(&level, transport, FIXED2_LIT(10.5, 12.5)));
+    CHECK(!P_CheckPosition(&level, transport, FIXED2_LIT(10, 13)));
+    CHECK(P_MoveUnitTo(&level, transport, FIXED2_LIT(11, 13)));
     for (int i = 0; i < 1000 && P_HasMoveOrder(transport); ++i) P_Ticker();
+    CHECK(fixed2_near(fixed3_xy(transport->core.position), FIXED2_LIT(11, 13), FIXED_LIT(0.01)));
     mobj_t *passenger = spawn(MT_FOOTMAN, FIXED2_LIT(9.5, 12.5));
     CHECK(W2_BoardOrder(passenger, transport));
     P_Ticker(); CHECK(passenger->w2.boarded);
@@ -157,6 +169,7 @@ static int fleet(int side) {
         CHECK(ship);
         fixed2_t at = fixed3_xy(ship->core.position);
         CHECK(P_CheckPosition(&level, ship, at));
+        CHECK(on_corner(at));
         if (i > 0) {
             ship->core.position = fixed3_from_fixed2(FIXED2_LIT(18.5, 12.5), 0);
             mobj_t *target = spawn(MT_ORC_OIL_TANKER - side, FIXED2_LIT(21.5, 12.5));
@@ -181,6 +194,66 @@ static int fleet(int side) {
         for (int t = 0; t < 60; ++t) P_Ticker();
         CHECK(!P_MobjById(id));
     }
+    return 0;
+}
+
+/* Ships cover 2x2 tiles: they plan, sail and dock on tile corners, need a
+ * channel two tiles wide, and land units still use tile centres. */
+static int corners(void) {
+    fixture();
+    mobj_t *ship = spawn(MT_HUMAN_DESTROYER, FIXED2_LIT(14, 10));
+    mobj_t *foot = spawn(MT_FOOTMAN, FIXED2_LIT(4.5, 4.5));
+    int sea = P_MobjMoveClass(ship), land = P_MobjMoveClass(foot);
+    CHECK(P_NavFootprint(&level, sea) == 2 && P_NavFootprint(&level, land) == 1);
+    CHECK(fixed2_near(P_NavNodePoint(&level, sea, (ivec2_t){14, 10}), FIXED2_LIT(14, 10), 1));
+    CHECK(ivec2_equal(P_NavNodeAt(&level, sea, FIXED2_LIT(14.4, 9.6)), (ivec2_t){14, 10}));
+    CHECK(fixed2_near(P_NavNodePoint(&level, land, (ivec2_t){4, 4}), FIXED2_LIT(4.5, 4.5), 1));
+    CHECK(ivec2_equal(P_NavNodeAt(&level, land, FIXED2_LIT(4.9, 4.1)), (ivec2_t){4, 4}));
+    ivec2_t ring[64];
+    /* A 3x3 footprint: twenty corners, (20, 7) to (25, 12), hold a hull touching it. */
+    int count = P_NavRing(&level, sea, (ivec2_t){21, 8}, (isize2_t){3, 3}, ring, 64);
+    CHECK(count == 20 && ivec2_equal(ring[0], (ivec2_t){20, 7}) && ivec2_equal(ring[count - 1], (ivec2_t){25, 12}));
+    CHECK(P_NavRing(&level, land, (ivec2_t){21, 8}, (isize2_t){3, 3}, ring, 64) == 16);
+
+    /* A reef at x = 20 with a one-tile gap: too narrow for a ship. */
+    for (int y = 0; y < 32; ++y) level.cell_solid[L_Index(&level, 20, y)] = y != 10;
+    CHECK(!P_NavReachable(&level, sea, (ivec2_t){14, 10}, (ivec2_t){26, 11}));
+    level.cell_solid[L_Index(&level, 20, 11)] = 0;
+    CHECK(P_NavReachable(&level, sea, (ivec2_t){14, 10}, (ivec2_t){26, 11}));
+    navpath_t path;
+    CHECK(P_NavPlan(&level, sea, P_MobjRadius(ship), FIXED2_LIT(14, 10), FIXED2_LIT(26, 11), NULL, &path));
+    CHECK(path.complete && fixed2_near(path.goal, FIXED2_LIT(26, 11), 1));
+    for (int i = 0; i < path.count; ++i) CHECK(on_corner(path.points[i]));
+    CHECK(P_MoveUnitTo(&level, ship, FIXED2_LIT(26, 11)));
+    for (int i = 0; i < 1500 && P_HasMoveOrder(ship); ++i) {
+        P_Ticker();
+        CHECK(P_CheckPosition(&level, ship, fixed3_xy(ship->core.position)));
+    }
+    CHECK(fixed2_near(fixed3_xy(ship->core.position), FIXED2_LIT(26, 11), FIXED_LIT(0.01)));
+    /* An off-grid order settles on the nearest corner the hull fits. */
+    CHECK(P_MoveUnitTo(&level, ship, FIXED2_LIT(31.5, 20.5)));
+    CHECK(fixed2_near(ship->movement.goal, FIXED2_LIT(31, 21), 1));
+
+    /* Docking beside a 3x3 oil patch puts the hull on a corner next to it. */
+    for (int y = 0; y < 32; ++y) level.cell_solid[L_Index(&level, 20, y)] = 0;
+    mobj_t *tanker = spawn(MT_HUMAN_OIL_TANKER, FIXED2_LIT(16, 4));
+    w2_mark_footprint(21, 8, (isize2_t){3, 3});
+    fixed2_t bay;
+    CHECK(P_ApproachFootprint(tanker, (ivec2_t){21, 8}, (isize2_t){3, 3}, &bay));
+    CHECK(on_corner(bay) && fixed2_near(bay, FIXED2_LIT(20, 7), 1)); /* the nearest, diagonal, corner */
+    CHECK(P_CheckPosition(&level, tanker, bay));
+
+    /* A ship launched from a shipyard leaves on a corner. */
+    fixture();
+    spawn(MT_FARM, FIXED2_LIT(3, 3));
+    mobj_t *yard = spawn(MT_HUMAN_SHIPYARD, FIXED2_LIT(11.5, 5.5));
+    w2_mark_footprint(10, 4, (isize2_t){3, 3});
+    const StaticProductDefinition *product = G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, MT_HUMAN_DESTROYER);
+    CHECK(product && G_PlayerBuildProduct(yard, product));
+    G_ProductionTicker(30000);
+    mobj_t *built = find_type(MT_HUMAN_DESTROYER);
+    CHECK(built && on_corner(fixed3_xy(built->core.position)));
+    CHECK(P_CheckPosition(&level, built, fixed3_xy(built->core.position)));
     return 0;
 }
 
@@ -245,9 +318,10 @@ static int native_art(const char *path) {
 int main(int argc, char **argv) {
     RTS_RUN(launch(0)); RTS_RUN(launch(1));
     RTS_RUN(shore());
+    RTS_RUN(corners());
     RTS_RUN(fleet(0)); RTS_RUN(fleet(1));
     RTS_RUN(native_art(argc > 1 ? argv[1] : NULL));
     P_FreeLevel(&level);
-    puts("PASS: both navies launch, move, build platforms, gather oil, refine and exhaust reserves; shoreline placement");
+    puts("PASS: both navies launch, move, build platforms, gather oil, refine and exhaust reserves; shoreline placement; 2x2 hulls on tile corners");
     return 0;
 }
