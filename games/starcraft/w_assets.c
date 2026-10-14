@@ -300,8 +300,11 @@ static int effect(const sc_effects_t *e,int tail,unsigned image,bool followed) {
     return last;
 }
 
-/* Native subunit1 + images.dat special-overlay LOL coordinates. Layer
- * placement is the difference of authored pivots, never a visual offset. */
+/* Native subunit1 + images.dat special-overlay LOL coordinates: each body
+ * picture's mount is its pivot plus its first location, where the engine
+ * stands the turret subunit's own pivot (games/starcraft/g_game.c names
+ * the turret). Placement is the difference of authored pivots, never a
+ * visual offset. */
 static bool compose_turrets(const char *root, const blob_t *units, const blob_t *images,
                            const blob_t *names, const unsigned *image_ids, spritecache_t *cache) {
     unsigned ni=(unsigned)images->size/38;
@@ -324,26 +327,16 @@ static bool compose_turrets(const char *root, const blob_t *units, const blob_t 
         if (tf<0 || tf>=turret->spritedef.numframes) { W_FreeFile(&locations); return false; }
         int turning=(body->numlumps+16)/17;
         for (int f=0;f<turning&&f<body->spritedef.numframes;f++) {
-            spriteframe_t *frame=&body->spritedef.spriteframes[f];
-            const spriteframe_t *turretframe=&turret->spritedef.spriteframes[tf];
+            const spriteframe_t *frame=&body->spritedef.spriteframes[f];
             for (int d=0;d<frame->rotations;d++) {
-                spritelayer_t *part=frame->directions[d].layers;
+                const spritelayer_t *part=frame->directions[d].layers;
                 if (!part) continue;
-                const spritelayer_t *top=turretframe->directions[d%turretframe->rotations].layers;
-                if (!top || part->lump>=nf) { W_FreeFile(&locations); return false; }
+                if (part->lump>=nf) { W_FreeFile(&locations); return false; }
                 unsigned off=read_u32_le(locations.bytes+8+part->lump*4);
                 if (off>locations.size || no*2u>locations.size-off) { W_FreeFile(&locations); return false; }
-                const spritecell_t *bc=&body->cells[part->lump],*tc=&turret->cells[top->lump];
-                ivec2_t bp=bc->ground_point,tp=tc->ground_point;
-                ivec2_t at={(int8_t)locations.bytes[off],(int8_t)locations.bytes[off+1]};
-                if (part->flags&RTS_FRAME_FLIP_X) { bp.x=bc->rect.w-bp.x; at.x=-at.x; }
-                if (top->flags&RTS_FRAME_FLIP_X) tp.x=tc->rect.w-tp.x;
-                spritelayer_t *layers=calloc(3,sizeof(*layers));
-                if (!layers) { W_FreeFile(&locations); return false; }
-                layers[0]=part[0]; layers[1]=top[0];
-                snprintf(layers[1].sprite_name,sizeof(layers[1].sprite_name),"%s",sc_names[sub]);
-                layers[1].offset=ivec2_add(ivec2_sub(bp,tp),at);
-                free(part); frame->directions[d].layers=layers;
+                spritecell_t *bc=&body->cells[part->lump];
+                bc->mount=ivec2_add(bc->ground_point,
+                                    (ivec2_t){(int8_t)locations.bytes[off],(int8_t)locations.bytes[off+1]});
             }
         }
         W_FreeFile(&locations);

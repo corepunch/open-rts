@@ -995,6 +995,105 @@ static int mobj_remap(const mobj_t *mobj, const gameinfo_t *game_info) {
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
                                 const spritecache_t *cache, const gameinfo_t *game_info);
 
+/* A frame's layers over the canvas at `dst` (ground-offset games) or the
+ * unit's screen point (sx, sy). */
+static void draw_sprite_layers(app_t *app, const mobj_t *u, const spritesheet_t *sprite,
+                               const spritelayer_t *parts, irect_t dst, float sx, float sy,
+                               const spritecache_t *cache, const gameinfo_t *game_info) {
+    for (const spritelayer_t *part = parts; part->sprite_name[0] != '\0'; ++part) {
+        const spritesheet_t *source = sprite_layer_source(
+            cache, sprite, part->sprite_name);
+        if (!source || !source->lumps || part->lump >= source->numlumps)
+            continue;
+        irect_t source_rect = sprite_frame_rect(source, part->lump);
+        SDL_Point displacement = sprite_frame_raw_displacement(source, part->lump);
+        uint32_t part_flags = part->flags;
+        irect_t part_dst;
+        if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_GROUND_OFFSET) {
+            /* DR/KKnD: dst already has ground_point applied; use it as canvas origin. */
+            part_dst = (irect_t){
+                dst.x + part->offset.x +
+                    ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
+                dst.y + part->offset.y,
+                source_rect.w,
+                source_rect.h,
+            };
+        } else {
+            part_dst = (irect_t){
+                (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
+                    ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
+                (int)lroundf(sy) + L_ScreenDY(u->core.render_offset.y) + part->offset.y - source_rect.h,
+                source_rect.w,
+                source_rect.h,
+            };
+        }
+        if (part->layer == 1 || part->layer == 2) {
+            irect_t ground_dst = part_dst;
+            ground_dst.y += (int)lroundf(fixed_to_float(u->core.position.z) * app_cell_h(app));
+            R_RenderSpriteShadow(app, source, part->lump, ground_dst, part_flags);
+        }
+        if (source->shadowmap && part->layer == 2) continue;
+        if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
+                                 part_flags, part->layer)) continue;
+        /* DC.EXE queues object team color separately from FIN remap,
+         * which selects a clipping path, not a palette translation. */
+        int translation = level.player_teams && u->team < 8 ? level.player_colors[u->team] : u->team;
+        uint32_t part_flip = (part_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
+        if (part->layer == 3) {
+            const uint8_t *team = R_PaletteMap(source, translation);
+            const uint8_t *table = additive_table(source, team, part->intensity);
+            V_DrawBlockTranslucent((ivec2_t){part_dst.x, part_dst.y},
+                                   source->lumps[part->lump].indices,
+                                   (isize2_t){source_rect.w, source_rect.h}, source_rect.w,
+                                   table, part_flip);
+            continue;
+        }
+        R_DrawSprite(source, part->lump, translation, NULL, &part_dst, part_flip, part->intensity);
+    }
+}
+
+/* A turret over its hull picture `hull_lump` drawn at `hull_dst`: its own
+ * sheet turned by the unit's aim, its ground point on the hull's mount
+ * point. Attacking, it shows its fire frame plus as far as the body has
+ * gone into its attack run, where the sheet has that frame. */
+static void draw_turret(app_t *app, const mobj_t *u, const spritesheet_t *hull, int hull_lump,
+                        irect_t hull_dst, float sx, float sy, bool hull_flip,
+                        const spritecache_t *cache, const gameinfo_t *game_info) {
+    const spritesheet_t *turret = R_CacheLookup(cache, u->info->turret.sprite_name);
+    if (!turret || !turret->lumps || turret->spritedef.numframes <= 0 || !hull->lumps ||
+        hull_lump < 0 || hull_lump >= hull->numlumps || !game_info || !game_info->states) return;
+    int frame = u->info->turret.frame;
+    const state_t *state = u->core.state_id >= 0 && u->core.state_id < game_info->state_count ?
+        &game_info->states[u->core.state_id] : NULL;
+    if (state && state->group == 3 && u->info->turret.fire_frame >= 0 &&
+        u->type_id < game_info->mobj_type_count) {
+        int attack = game_info->mobjinfo[u->type_id].missilestate;
+        int run = attack > 0 && attack < game_info->state_count ? game_info->states[attack].frame : 0;
+        int firing = u->info->turret.fire_frame + u->core.frame - run;
+        if (firing >= 0 && firing < turret->spritedef.numframes) frame = firing;
+    }
+    angle_t aim = u->core.angle + u->attack.aim;
+    bool flip = false;
+    int lump = sprite_lump_for_frame(turret, frame, aim, &flip);
+    int rotation = sprite_rotation_for_frame(turret, frame, aim);
+    if (lump < 0 || rotation < 0) return;
+    ivec2_t mount = hull->cells[hull_lump].mount;
+    if (hull_flip) mount.x = sprite_frame_rect(hull, hull_lump).w - mount.x;
+    irect_t rect = sprite_frame_rect(turret, lump);
+    SDL_Point ground = sprite_ground_point(turret, lump);
+    if (flip) ground.x = rect.w - ground.x;
+    ivec2_t shift = {hull_dst.x + mount.x - ground.x, hull_dst.y + mount.y - ground.y};
+    irect_t dst = {shift.x, shift.y, rect.w, rect.h};
+    const spritelayer_t *parts = turret->spritedef.spriteframes[frame].directions[rotation].layers;
+    if (parts) {
+        draw_sprite_layers(app, u, turret, parts, dst, sx + (float)(shift.x - hull_dst.x),
+                           sy + (float)(shift.y - hull_dst.y), cache, game_info);
+        return;
+    }
+    R_DrawSprite(turret, lump, mobj_remap(u, game_info), NULL, &dst, flip ? V_FLIP_X : 0,
+                 u->core.render_intensity);
+}
+
 static void draw_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
@@ -1037,61 +1136,20 @@ static void draw_unit_sprite(app_t *app, const level_t *map,
     const spritelayer_t *parts = spriteframe ?
         spriteframe->directions[rotation].layers : NULL;
     if (parts) {
-        for (const spritelayer_t *part = parts; part->sprite_name[0] != '\0'; ++part) {
-            const spritesheet_t *source = sprite_layer_source(
-                cache, sprite, part->sprite_name);
-            if (!source || !source->lumps || part->lump >= source->numlumps)
-                continue;
-            irect_t source_rect = sprite_frame_rect(source, part->lump);
-            SDL_Point displacement = sprite_frame_raw_displacement(source, part->lump);
-            uint32_t part_flags = part->flags;
-            irect_t part_dst;
-            if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_GROUND_OFFSET) {
-                /* DR/KKnD: dst already has ground_point applied; use it as canvas origin. */
-                part_dst = (irect_t){
-                    dst.x + part->offset.x +
-                        ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
-                    dst.y + part->offset.y,
-                    source_rect.w,
-                    source_rect.h,
-                };
-            } else {
-                part_dst = (irect_t){
-                    (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
-                        ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
-                    (int)lroundf(sy) + L_ScreenDY(u->core.render_offset.y) + part->offset.y - source_rect.h,
-                    source_rect.w,
-                    source_rect.h,
-                };
-            }
-            if (part->layer == 1 || part->layer == 2) {
-                irect_t ground_dst = part_dst;
-                ground_dst.y += (int)lroundf(fixed_to_float(u->core.position.z) * app_cell_h(app));
-                R_RenderSpriteShadow(app, source, part->lump, ground_dst, part_flags);
-            }
-            if (source->shadowmap && part->layer == 2) continue;
-            if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
-                                     part_flags, part->layer)) continue;
-            /* DC.EXE queues object team color separately from FIN remap,
-             * which selects a clipping path, not a palette translation. */
-            int translation = level.player_teams && u->team < 8 ? level.player_colors[u->team] : u->team;
-            uint32_t part_flip = (part_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
-            if (part->layer == 3) {
-                const uint8_t *team = R_PaletteMap(source, translation);
-                const uint8_t *table = additive_table(source, team, part->intensity);
-                V_DrawBlockTranslucent((ivec2_t){part_dst.x, part_dst.y},
-                                       source->lumps[part->lump].indices,
-                                       (isize2_t){source_rect.w, source_rect.h}, source_rect.w,
-                                       table, part_flip);
-                continue;
-            }
-            R_DrawSprite(source, part->lump, translation, NULL, &part_dst, part_flip, part->intensity);
-        }
+        draw_sprite_layers(app, u, sprite, parts, dst, sx, sy, cache, game_info);
     } else {
     uint32_t flip = (render_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
     R_DrawSprite(sprite, frame, mobj_remap(u, game_info), NULL, &dst,
                  flip, u->core.render_intensity);
     }
+    /* Only the unit's own living pictures, its spawn state's sheet, carry
+     * the turret. */
+    if (u->info && u->info->turret.sprite_name && u->hp > 0 && game_info && game_info->states &&
+        u->type_id < game_info->mobj_type_count &&
+        sprite == R_StateSprite(cache, game_info,
+                                game_info->states[game_info->mobjinfo[u->type_id].spawnstate].sprite, NULL))
+        draw_turret(app, u, sprite, frame, dst, sx, sy, (render_flags & RTS_FRAME_FLIP_X) != 0, cache,
+                    game_info);
     if (game_info && (game_info->draw_underlays || game_info->draw_overlays)) return;
     bool selected = P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE);
     if (selected) {

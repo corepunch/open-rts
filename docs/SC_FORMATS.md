@@ -328,13 +328,14 @@ The parsed LOL structure has u32 frame count at 0, u32 locations-per-frame at
 contains that many `(x:s8, y:s8)` pairs. Signed interpretation is essential.
 Other `.lo?` files are retained; their semantic roles were not all investigated.
 
-Turret composition follows units.subunit1, verifies the subunit flag `0x10`,
-and resolves the body's images.special_overlay through images.tbl. It reads
-the first location for each physical body frame. The child layer offset is
-`body_pivot - turret_pivot + authored_location`; mirrored pivots are adjusted
-by their crop width and a mirrored body's location X is negated. No world Y
-flip is involved. The current turret uses its idle frame and the body's facing;
-independent turret aiming and generic IScript overlays are not implemented.
+Turrets follow units.subunit1 and the subunit flag `0x10`, and resolve the
+body's images.special_overlay through images.tbl. Each body picture's mount is
+its pivot plus the first LOL location for that picture; the engine stands the
+subunit's own sheet there by its pivot and turns it by the unit's aim at the
+subunit's flingy.dat turn rate (`games/starcraft/g_game.c`). Mounts are kept
+unmirrored and a mirrored body mirrors them. The turret shows its idle frame;
+its own attack animations and generic IScript overlays are not used yet. A
+sieged tank's body has one direction, so its turret aims on its own.
 
 ## 6. IScript animation BIN
 

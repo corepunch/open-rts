@@ -153,21 +153,27 @@ static ivec2_t layer_anchor(const spritesheet_t *sprite, const spritelayer_t *la
         (ivec2_t){cell->rect.w - cell->ground_point.x, cell->ground_point.y} : cell->ground_point;
 }
 
+/* The firing frames after the body's: the body at its shooting pose with a
+ * muzzle flash at its weapon point, both flash pictures. A unit with a
+ * turret keeps the flash off its body: its hull pictures mark where the
+ * turret's point 0 stands (the body's weapon point), and frames 1 and 2 of
+ * its own copy of the turret sheet become the turret firing, the flash at
+ * the turret's weapon point; the engine draws that sheet by the aim. */
 static bool compose_shooting(const uint8_t *segment, size_t size, const uint32_t *frames,
                              spritesheet_t *out, int native_frames,
                              const mobjinfo_t *info, const spritesheet_t *extras,
-                             const spritesheet_t *turret) {
+                             spritesheet_t *turret) {
     if (states[info->missilestate].frame != native_frames ||
         info->muzzle.body < 0 || info->muzzle.body >= native_frames ||
         info->muzzle.frame < 0 || info->muzzle.frame + 2 > extras->spritedef.numframes)
         return false;
-    /* A turret's point 0 is relative to the body's point 0. Keep native poses
-     * and image anchors; no sprite-name aliases or placement adjustments. */
+    /* Keep native poses and image anchors; no sprite-name aliases or
+     * placement adjustments. */
     ivec2_t turret_points[16] = {0};
     if (info->muzzle.turret) {
         uint32_t member;
         mobd_layout_t layout;
-        if (!turret || !lvl_asset(segment, size, "MOBD",
+        if (!turret || turret->spritedef.numframes < 3 || !lvl_asset(segment, size, "MOBD",
                 sprite_member_index(sprnames[info->muzzle.turret]), &member) ||
             !mobd_layout(segment, size, member, &layout)) return false;
         /* The first populated channel is the turret's first logical frame. */
@@ -182,40 +188,44 @@ static bool compose_shooting(const uint8_t *segment, size_t size, const uint32_t
         }
         for (int frame = info->muzzle.body; frame < native_frames; ++frame) {
             for (int rotation = 0; rotation < 16; ++rotation) {
-                spritedirection_t *direction = &out->spritedef.spriteframes[frame].directions[rotation];
-                const spritelayer_t *turret_layer = turret->spritedef.spriteframes[0].directions[rotation].layers;
+                const spritelayer_t *body = out->spritedef.spriteframes[frame].directions[rotation].layers;
                 ivec2_t point;
-                if (!weapon_point(segment, size, frames[direction->layers[0].lump], &point)) return false;
-                spritelayer_t *layers = calloc(3, sizeof(*layers));
-                if (!layers) return false;
-                layers[0] = direction->layers[0];
-                layers[1] = *turret_layer;
-                snprintf(layers[1].sprite_name, sizeof(layers[1].sprite_name),
-                         "%s", sprnames[info->muzzle.turret]);
-                layers[1].offset = ivec2_add(layer_anchor(out, layers),
-                    ivec2_sub(point, layer_anchor(turret, turret_layer)));
-                free(direction->layers);
-                direction->layers = layers;
+                if (!weapon_point(segment, size, frames[body->lump], &point)) return false;
+                /* A mirrored picture's point is already on screen; mounts
+                 * are kept unmirrored, the renderer mirrors them. */
+                spritecell_t *cell = &out->cells[body->lump];
+                if (body->flags & RTS_FRAME_FLIP_X) point.x = -point.x;
+                cell->mount = ivec2_add(cell->ground_point, point);
             }
         }
     }
     for (int rotation = 0; rotation < 16; ++rotation) {
         const spritelayer_t *body = out->spritedef.spriteframes[info->muzzle.body].directions[rotation].layers;
+        const spritelayer_t *gun = info->muzzle.turret ?
+            turret->spritedef.spriteframes[0].directions[rotation].layers : NULL;
         ivec2_t point;
-        if (!weapon_point(segment, size, frames[body->lump], &point)) return false;
-        int body_layers = info->muzzle.turret ? 2 : 1;
-        if (info->muzzle.turret) point = ivec2_add(point, turret_points[rotation]);
+        if (gun) point = turret_points[rotation];
+        else if (!weapon_point(segment, size, frames[body->lump], &point)) return false;
         for (int frame = 0; frame < 2; ++frame) {
             const spritelayer_t *flash = extras->spritedef.spriteframes[info->muzzle.frame + frame].directions[rotation].layers;
-            spritelayer_t *layers = calloc((size_t)body_layers + 2, sizeof(*layers));
+            spritelayer_t *layers = calloc(3, sizeof(*layers));
             if (!layers) return false;
-            memcpy(layers, body, (size_t)body_layers * sizeof(*layers));
-            layers[body_layers] = *flash;
-            snprintf(layers[body_layers].sprite_name, sizeof(layers[body_layers].sprite_name),
-                     "%s", sprnames[info->muzzle.sprite]);
-            layers[body_layers].offset = ivec2_add(layer_anchor(out, body),
-                ivec2_sub(point, layer_anchor(extras, flash)));
+            layers[0] = *body;
             out->spritedef.spriteframes[native_frames + frame].directions[rotation].layers = layers;
+            spritedirection_t *to = &out->spritedef.spriteframes[native_frames + frame].directions[rotation];
+            const spritesheet_t *under = out;
+            if (gun) {
+                /* The turret's own firing frame takes the flash. */
+                if (!(layers = calloc(3, sizeof(*layers)))) return false;
+                layers[0] = *gun;
+                to = &turret->spritedef.spriteframes[1 + frame].directions[rotation];
+                free(to->layers);
+                to->layers = layers;
+                under = turret;
+            }
+            layers[1] = *flash;
+            snprintf(layers[1].sprite_name, sizeof(layers[1].sprite_name), "%s", sprnames[info->muzzle.sprite]);
+            layers[1].offset = ivec2_add(layer_anchor(under, layers), ivec2_sub(point, layer_anchor(extras, flash)));
         }
     }
     return true;
@@ -224,7 +234,7 @@ static bool compose_shooting(const uint8_t *segment, size_t size, const uint32_t
 static bool decode_mobd(const uint8_t *segment, size_t size,
                        uint32_t member, const uint32_t palette[256], spritesheet_t *out,
                        const mobjinfo_t *info, const spritesheet_t *extras,
-                       const spritesheet_t *turret) {
+                       spritesheet_t *turret) {
     mobd_layout_t layout;
     if (!mobd_layout(segment, size, member, &layout)) return false;
     uint32_t *animation_offsets = layout.animations;
@@ -338,7 +348,7 @@ fail:
 
 static bool load_sprite(const char *data_root,
                        const char *spec, const uint32_t palette[256], spritesheet_t *out,
-                       const spritesheet_t *extras, const spritesheet_t *turret) {
+                       const spritesheet_t *extras, spritesheet_t *turret) {
     char archive_rel[768];
     const char *member_name = NULL;
     const char *bar = spec ? strrchr(spec, '|') : NULL;
@@ -402,17 +412,19 @@ bool R_InitSprites(const char *root, const level_t *map,
     for (int i = 0; i < count; ++i) {
         const char *name = mobjs[i]->core.sprite_name;
         if (R_CacheFind(cache, name)) continue;
-        const spritesheet_t *turret = NULL;
+        spritesheet_t *turret = NULL;
         int type = mobjs[i]->type_id;
         int turret_id = type > 0 && type < NUMMOBJTYPES ? mobjinfo[type].muzzle.turret : 0;
-        if (turret_id) {
-            const char *turret_name = sprnames[turret_id];
-            cachedsprite_t *entry = R_CacheFind(cache, turret_name);
+        const char *gun_name = mobjs[i]->info ? mobjs[i]->info->turret.sprite_name : NULL;
+        if (turret_id && gun_name) {
+            /* The unit's own copy of the turret's sheet, to fire in. */
+            cachedsprite_t *entry = R_CacheFind(cache, gun_name);
             if (!entry) {
                 if (cache->count >= MAX_DECORATION_SPRITES) return false;
                 entry = &cache->entries[cache->count];
-                if (!load_sprite(root, turret_name, native->palette, &entry->sprite, NULL, NULL)) return false;
-                snprintf(entry->name, sizeof(entry->name), "%s", turret_name);
+                if (!load_sprite(root, sprnames[turret_id], native->palette, &entry->sprite, NULL, NULL))
+                    return false;
+                snprintf(entry->name, sizeof(entry->name), "%s", gun_name);
                 cache->count++;
             }
             turret = &entry->sprite;

@@ -25,10 +25,12 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .native_type_id = native},
 #include "buildings.inc"
 #undef Z_BUILDING
-#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, reach, reload, ...) \
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, reach, reload, sprite, turn, frames, idle, \
+               dead, gun) \
     {.id = MT_UNIT_##type, .name = label, .sprite_name = Z_SHEET_##kind(type), \
      .traits = MF_SELECTABLE | MF_RENDERABLE | ((mobile) ? MF_MOBILE : MF_TURRET) | \
                ((dmg) ? MF_ATTACK : 0), \
+     .turret = {(gun) ? #type "_TURRET" : NULL, Z_TURRET_TURN, 0, 1}, \
      .speed = FIXED_ONE * (spd) / 10, .max_hp = hp, .native_type_id = t, \
      .attack = {.range = FIXED_FROM_INT(reach), .damage = dmg, .cooldown_ms = reload}},
 #include "units.inc"
