@@ -48,6 +48,8 @@ int main(void) {
     shot->w2.fx.basic = 12;
     uint32_t shot_id = shot->id;
     ++count;
+    level.sides = 0x05; level.foes = 0x04;
+    level.side_stats[consoleplayer] = (sidestats_t){.kills = 3, .losses = 2, .team = 1};
 
     app_t app = {.win = {640, 480}, .cam = {12.5f, 30.0f}};
     AiContext ai;
@@ -65,6 +67,8 @@ int main(void) {
     first->core.position.x += 5 * FIXED_ONE;
     level.player_resources[consoleplayer][0] = 0;
     leveltime = 0;
+    level.sides = level.foes = 0;
+    memset(level.side_stats, 0, sizeof(level.side_stats));
     W2_SeedCombat(1);
     app.cam = (fvec2_t){0, 0};
     CHECK(G_LoadGame(path, &app, &ai, &hud));
@@ -77,6 +81,9 @@ int main(void) {
     CHECK(first->core.position.x == at.x && first->core.position.y == at.y);
     CHECK(first->info && first->thinker.function == P_MobjThinker);
     CHECK(level.player_resources[consoleplayer][0] == 1234 && leveltime == 321);
+    CHECK(level.sides == 0x05 && level.foes == 0x04 && level.outcome == OUTCOME_NONE);
+    CHECK(G_SideStats(consoleplayer)->kills == 3 && G_SideStats(consoleplayer)->losses == 2 &&
+          G_SideStats(consoleplayer)->team == 1);
     CHECK(app.cam.x == 12.5f && app.cam.y == 30.0f);
     CHECK(W2_CombatState() == dice);
     CHECK(first->w2.mana == 123 && first->w2.buffs[W2_BUFF_HASTE] == 456);

@@ -410,7 +410,7 @@ static int find_resource_vent_at(const level_t *map, fixed2_t position) {
     int cell_y = fixed_floor_int(position.y);
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
+        if (vent->rate <= 0 || !P_VentYields(vent)) continue;
         if (P_ResourceVentContainsCell(vent, (ivec2_t){ cell_x, cell_y })) return i;
     }
 
@@ -418,7 +418,7 @@ static int find_resource_vent_at(const level_t *map, fixed2_t position) {
     int64_t best_dist2 = INT64_MAX;
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
+        if (vent->rate <= 0 || !P_VentYields(vent)) continue;
         fixed_t radius = P_ResourceVentRadius(vent);
         int64_t dist2 = fixed2_distance_squared64(vent->attachment, position);
         if (dist2 < fixed_sq64(radius) && dist2 < best_dist2) {

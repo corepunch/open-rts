@@ -375,7 +375,7 @@ int main(void) {
         CHECK(P_LoadThings(NULL) > 0);
         mobjlist_t initial = P_ListMobjs();
         menumap = NULL;
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(initial.items, initial.count);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(initial.items, initial.count);
         CHECK(!menuactive); /* no enemy base is not the construction objective */
         P_FreeMobjList(&initial);
         P_FreeLevel(&level);
@@ -500,7 +500,7 @@ int main(void) {
         }
         menumap = NULL;
         if (campaign) {
-            for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+            for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
             CHECK(!menuactive);
             int farms = 0;
             int farm_type = orc ? MT_PIG_FARM : MT_FARM;
@@ -514,11 +514,11 @@ int main(void) {
             barracks->w2.build_left_tics = 1;
             P_FreeMobjList(&all);
             all = P_ListMobjs();
-            for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+            for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
             CHECK(!menuactive); /* unfinished buildings cannot complete the objective */
             barracks->w2.build_left_tics = 0;
         }
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         CHECK(menuactive);
         if (defeat) {
             CHECK(find(S(21, 2)) && click(S(21, 1)) && !menumap && menuactive);
@@ -564,7 +564,7 @@ int main(void) {
         mobjlist_t all = P_ListMobjs();
         for (int i = 0; i < all.count; ++i)
             if (all.items[i]->owner == consoleplayer) all.items[i]->remove = true;
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         CHECK(menuactive && find(S(21, 2)));
         CHECK(click(S(21, 1)) && menuactive && currentmenu->numitems == 31);
         CHECK(click(S(22, 1)) && menuactive && !menumap);
@@ -634,15 +634,15 @@ int main(void) {
             if (!seen[unit->owner]) { seen[unit->owner] = true; ++others; }
         }
         CHECK(others >= 1);
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         CHECK(!menuactive);
         for (int i = 0; i < all.count; ++i)
             if (all.items[i]->owner == consoleplayer) all.items[i]->remove = true;
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         if (others > 1) CHECK(!menuactive); /* other sides are still fighting */
         for (int i = 0; i < all.count; ++i) all.items[i]->remove = true;
         if (menuactive) { M_ClearMenus(); W2_VictoryReset(); }
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         CHECK(menuactive && currentmenu->numitems == 31 && currentmenu->background);
         CHECK(!find(S(21, 2))); /* no defeat acknowledgement */
         CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
@@ -662,7 +662,10 @@ int main(void) {
         all = P_ListMobjs();
         for (int i = 0; i < all.count; ++i)
             if (all.items[i]->owner != consoleplayer) all.items[i]->remove = true;
-        for (int tic = 0; tic < 40; ++tic) W2_CheckVictory(all.items, all.count);
+        /* A menu open on this peer does not hold its end back from the others'. */
+        M_StartControlPanel(&app);
+        CHECK(menuactive);
+        for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         CHECK(menuactive && currentmenu->numitems == 31 && currentmenu->background);
         CHECK(!find(S(20, 3)));
         CHECK(click(S(22, 1)) && menuleave && !menumap);

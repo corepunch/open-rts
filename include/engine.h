@@ -433,7 +433,16 @@ typedef struct resourcevent_s {
     /* Yield per trip once the deposit is empty (a depleted geyser); 0 closes it. */
     int depleted_rate;
     bool depleted;
+    /* The gatherer working an exclusive deposit and the tic it last said so:
+       a heartbeat, so a worker that dies or leaves frees the deposit a tic later. */
+    uint32_t occupant;
+    int occupied_at;
 } resourcevent_t;
+
+/* A deposit a gatherer can still draw from: stocked, or empty yet trickling. */
+static inline bool P_VentYields(const resourcevent_t *vent) {
+    return vent && vent->active && (vent->amount > 0 || vent->depleted);
+}
 
 /* Movement classes (wheels, tracks, feet, hover...). Class 0 means "plain": the
  * unit only respects blocked[]. Classes 1.. look up a speed percentage per
@@ -452,8 +461,9 @@ typedef struct {
 
 /* How the level ended for the local player (game/g_outcome.c). */
 typedef enum { OUTCOME_NONE, OUTCOME_VICTORY, OUTCOME_DEFEAT, OUTCOME_DRAW } outcome_t;
-/* Kills and losses by owner since the level started, for result screens. */
-typedef struct { int kills, losses; } sidestats_t;
+/* Kills and losses by owner since the level started, for result screens,
+ * and the scenario team + 1 the owner's units carried (0 until one is seen). */
+typedef struct { int kills, losses; uint8_t team; } sidestats_t;
 
 typedef struct level_s {
     char map_path[1024];
@@ -495,7 +505,8 @@ typedef struct level_s {
      * Warcraft's weapon and shield lines. Part of the lockstep checksum. */
     struct { uint8_t weapon, armor; } upgrades[RTS_MAX_UPGRADE_TYPES][8];
     /* The local result (game/g_outcome.c): owners that have held units,
-     * those seen hostile to the local player, and kills and losses. */
+     * those seen hostile to the local player, and kills and losses. Saved
+     * with the game; not part of the lockstep checksum, as foes is local. */
     outcome_t outcome;
     uint8_t sides, foes;
     sidestats_t side_stats[8];
@@ -3064,6 +3075,9 @@ menuitem_t *M_MenuFind(const menu_t *menu, int id);
 irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item);
 /* The live item under the pointer, or the focus of a modal screen. */
 menuitem_t *M_MenuHover(const menu_t *menu);
+/* The item whose tooltip the cursor asks for: the hovered one, else a greyed
+ * one that explains itself (a StarCraft command's "Requires ..."). */
+menuitem_t *M_MenuTipItem(const menu_t *menu);
 /* The item's next left click on the world comes back as MA_TARGET; NULL
  * stops waiting. The routine calls it again to take more points. */
 void M_MenuTarget(menu_t *menu, menuitem_t *item);

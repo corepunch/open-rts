@@ -616,7 +616,7 @@ static bool clear_of_resources(uint16_t type,ivec2_t cell) {
     isize2_t size=actor_types[type-1].footprint;
     for(int i=0;i<level.resource_vent_count;i++) {
         const resourcevent_t *vent=&level.resource_vents[i];
-        if(vent->amount>0&&footprint_gap(cell,size,vent->cell,vent->footprint)<3) return false;
+        if(P_VentYields(vent)&&footprint_gap(cell,size,vent->cell,vent->footprint)<3) return false;
     }
     return true;
 }

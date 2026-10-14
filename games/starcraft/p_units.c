@@ -332,7 +332,7 @@ bool sc_mining(const mobj_t *mo) {
         !P_HarvesterSharingVent(mo) || mo->harvest.target < 0 ||
         mo->harvest.target >= level.resource_vent_count) return false;
     const resourcevent_t *vent = &level.resource_vents[mo->harvest.target];
-    return vent->active && vent->amount > 0;
+    return P_VentYields(vent);
 }
 
 /* Each swing faces the field and plays the cutter strike; the miners of one
