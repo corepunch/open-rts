@@ -15,11 +15,11 @@ enum {
 };
 
 /* xxxxx.MAP version 0xf7, as ZED.EXE 0x73fe6 reads it: the version byte,
- * zone and bridge blocks, then 32 bytes of tileset names with the width and
+ * a zone block, the cliff blocks (w_cliff.c), tile brushes, then 32 bytes of tileset names with the width and
  * height at +0x1c, the tile plane and the attribute plane (128x128 each,
  * attribute bit 7 picks the second 256 BLK tiles, the rest is the terrain). */
 enum {
-    MAP_VERSION = 0xf7, MAP_HEADER = 1 + 0x1a00 + 0xac8 + 0x2a8,
+    MAP_VERSION = 0xf7, MAP_CLIFFS = 1 + 0x1a00, MAP_HEADER = MAP_CLIFFS + 0xac8 + 0x2a8,
     MAP_TILES = MAP_HEADER + 0x20, MAP_TERRAIN = MAP_TILES + 0x4000,
     MAP_SIZE = MAP_TERRAIN + 0x4000 + 0x1e0 + 0x3300,
 };
@@ -137,12 +137,14 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
         fprintf(stderr, "z: %s: expected a %d-byte version 0x%02x map\n", map_path, MAP_SIZE, MAP_VERSION);
         goto fail;
     }
-    const uint8_t *tiles = file.bytes + MAP_TILES;
+    uint8_t *tiles = file.bytes + MAP_TILES;
     memcpy(map->terrain, file.bytes + MAP_TERRAIN, sizeof(map->terrain));
     out->width = read_u16_le(file.bytes + MAP_TILES - 4);
     out->height = read_u16_le(file.bytes + MAP_TILES - 2);
     if (out->width <= 0 || out->width > Z_MAP_STRIDE || out->height <= 0 || out->height > Z_MAP_STRIDE)
         goto fail;
+    find_forts(map, tiles);
+    Z_StampCliffs(tiles, map->terrain, file.bytes + MAP_CLIFFS, map->world);
     size_t cells = (size_t)out->width * out->height;
     out->tile_ids = calloc(cells, sizeof(*out->tile_ids));
     out->blocked = calloc(cells, 1);
@@ -154,7 +156,6 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
             out->tile_ids[y * out->width + x] = (uint16_t)(tiles[i] | (map->terrain[i] & 0x80) << 1);
             out->blocked[y * out->width + x] = terrain >= sizeof(robot_blocked) || robot_blocked[terrain];
         }
-    find_forts(map, tiles);
 
     M_PathJoin(path, sizeof(path), map->root, "SPRITES.RSC");
     if (!W_ReadFile(path, &map->rsc)) goto fail;

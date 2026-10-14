@@ -37,8 +37,8 @@ Read at 0x73fe6:
 |---|---|---|
 | 0 | 1 | Version 0xf7 |
 | 0x0001 | 0x1a00 | Old zone block (superseded by the last block) |
-| 0x1a01 | 0xac8 | Twenty 138-byte records (bridges) |
-| 0x24c9 | 0x2a8 | Twenty 34-byte records |
+| 0x1a01 | 0xac8 | Twenty 138-byte destructible cliff blocks |
+| 0x24c9 | 0x2a8 | Twenty 34-byte editor tile brushes |
 | 0x2771 | 0x20 | Tileset LBM names; u16 width at +0x1c, height at +0x1e |
 | 0x2791 | 0x4000 | Tile plane, 128x128 bytes |
 | 0x6791 | 0x4000 | Attribute plane, 128x128 bytes |
@@ -49,6 +49,18 @@ Cell (x, y) is at `y * 128 + x`. Its BLK tile is the tile byte plus 256 when
 attribute bit 7 is set. The low seven attribute bits are the terrain id
 (0..66). Robots' passability is the neutral row of the table at 0x148f00
 (0x116c00): nonzero blocks. Each team has its own row, filled at run time.
+
+Destructible cliffs are not in the tile plane: 0x452f2 builds them when a
+level starts. A cliff block is u16 x, y (pixels), the height in cells at +4,
+a run-time pointer at +6 and a 32x32 cell bitmask at +0xa (most significant
+bit first). For each set cell 0x45352 picks a top tile from the per-world
+95-word table at 0x143710 (edge tiles by the sides with no cliff next to
+them, inside tiles by a random variant from 0x70d37), hangs a face of
+`height` rows below it (tile + 20 each, the last + 40, terrain 0x12) and
+shades the column to its right (0x454a7, 0x455ba). Cells another block
+covers are left alone (0x45db1). `games/z/w_cliff.c` follows this; it seeds
+the generator with the network game's 0x3039, as single player keeps
+whatever the front end left.
 
 Forts are not in BUILDnn.DAT. 0x4ec1c scans the tile plane for tile 0xee of
 the second bank; the first hit is the fort drawn with its gate, and the
