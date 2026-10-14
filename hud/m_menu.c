@@ -894,6 +894,13 @@ void M_MenuDrawer(menu_t *menu) {
         }
     }
     const menuitem_t *hover = M_MenuHover(menu);
+    /* A greyed command still explains itself (StarCraft's "Requires ..."). */
+    if (!hover && !menu->modal)
+        for (int i = 0; i < menu->numitems && !hover; ++i) {
+            const menuitem_t *item = &menu->items[i];
+            if (item->visible && !item->enabled && item->disabled_look && item->tooltip && !item->passthrough &&
+                irect_contains(hit_rect(menu, item), menu->cursor)) hover = item;
+        }
     if (hover && hover->tooltip && menu->drawtip) menu->drawtip(menu, hover);
     if (menu->modal && message[0]) draw_message();
     V_SetDrawScale(previous);

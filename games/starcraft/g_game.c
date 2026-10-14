@@ -31,9 +31,11 @@ void sc_refresh_actors(void) {
                 ((u->flags&0x8000)?MF_DETECTOR:0),
             /* 1/256 pixel per 24 Hz frame to 16.16 cells per second: a Marine's 4 px is 3.0. */
             .speed=mobile?u->speed*192:0,.max_hp=u->hp>0?u->hp:1,.sight={.day=u->sight,.night=u->sight},
-            /* Stargus: 150 mineral / 50 gas cycles, 50 depot cycles at 30 Hz. */
-            .harvest={.resources={{.capacity=8,.interval_ms=5000,.depot_ms=1667},
-                                 {.capacity=8,.interval_ms=1667,.depot_ms=1667}}},
+            /* Retail (OpenBW orders): 75 frames at a mineral field and 37 inside
+             * a refinery at 24 frames a second; cargo drops on reaching the
+             * depot. One worker works a field or a refinery at a time. */
+            .harvest={.resources={{.capacity=8,.interval_ms=3125,.depot_ms=0,.exclusive=true},
+                                 {.capacity=8,.interval_ms=1542,.depot_ms=0,.exclusive=true}}},
             .damage_action=sc_note_damage,
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};
         sc_unit_weapons(i+1,&actors[i]);

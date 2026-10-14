@@ -430,6 +430,9 @@ typedef struct resourcevent_s {
        Neutral deposits or the structure's allies may harvest it; it closes when the
        structure dies. Kept by P_SyncDepositStructures. */
     uint32_t source_id;
+    /* Yield per trip once the deposit is empty (a depleted geyser); 0 closes it. */
+    int depleted_rate;
+    bool depleted;
 } resourcevent_t;
 
 /* Movement classes (wheels, tracks, feet, hover...). Class 0 means "plain": the
@@ -584,7 +587,10 @@ enum {
 };
 
 /* Zero waits retain the shared one-second gathering tick and instant deposit. */
-typedef struct { int capacity, load_amount, unload_amount, interval_ms, depot_ms; } harvestresource_t;
+typedef struct {
+    int capacity, load_amount, unload_amount, interval_ms, depot_ms;
+    bool exclusive; /* One gatherer works a deposit at a time; the rest wait or move on. */
+} harvestresource_t;
 
 /* Authored weapon data. Distances are map cells; fixed values are 16.16. */
 typedef struct {

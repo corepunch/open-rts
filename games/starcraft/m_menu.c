@@ -2056,13 +2056,26 @@ static void product(menu_t *m,menuitem_t *i,menuaction_t a) {
         HU_BuildProduct(m,&target_command,maker,p);
     } else G_BuildOrder(maker,p->ui_id);
 }
+/* What a greyed command needs, shown under its tooltip. */
+static char lock_note[9][96];
 static void button(int slot,int icon,SDL_Keycode key,menuroutine_t routine,int value,const char *tip) {
     menuitem_t *i=&huditems[command_start+slot];
     i->visible=i->enabled=true;i->kind=MI_BUTTON;i->sheet=&icons;i->font=NULL;
     i->hotkey=key;i->routine=routine;i->value=value;i->text[0]=0;i->tooltip=tip;
     i->drawtarget=routine==product?HU_DrawProductPlacement:NULL;
-    i->ownerdraw=NULL;i->disabled_look=false;
-    for(int s=0;s<MS_STATES;s++)i->look[s].cell=icon;
+    i->ownerdraw=NULL;i->disabled_look=false;lock_note[slot][0]=0;
+    for(int s=0;s<MS_STATES;s++){i->look[s].cell=icon;i->look[s].palette=0;}
+}
+const char *sc_command_note(const menuitem_t *item) {
+    int slot=(int)(item-&huditems[command_start]);
+    return slot>=0&&slot<9?lock_note[slot]:NULL;
+}
+/* Retail greys a locked command with ticon.pcx's second (grey) ramp. */
+enum { ICON_GREY=1 };
+static void grey(int slot,const char *why) {
+    menuitem_t *i=&huditems[command_start+slot];
+    i->enabled=false;i->disabled_look=true;i->look[MS_DISABLED].palette=ICON_GREY;
+    snprintf(lock_note[slot],sizeof(lock_note[slot]),"%s",why?why:"");
 }
 static bool product_ready(const mobj_t *maker,const StaticProductDefinition *p) {
     if(!G_ModelProductAvailable(NULL,consoleplayer,p))return false;
@@ -2120,6 +2133,11 @@ static void draw_command_tip(const menu_t *menu,const menuitem_t *item) {
     } else if(item->routine==ability&&item->value>=0&&item->value<SC_TECHS) {
         size_t used=strlen(text);
         snprintf(text+used,sizeof(text)-used,"\nEnergy: %d",sc_techs[item->value].energy);
+    }
+    int slot=(int)(item-&huditems[command_start]);
+    if(!item->enabled&&slot>=0&&slot<9&&lock_note[slot][0]) {
+        size_t used=strlen(text);
+        snprintf(text+used,sizeof(text)-used,"\n%s",lock_note[slot]);
     }
     /* Text uses the shared menu drawer so it follows the HUD's nonuniform
      * window scaling, including the native font and its palette. */
@@ -2251,11 +2269,13 @@ static void refresh(menu_t *menu) {
         }
         if(page!=build_page||pos>=9)continue;
         /* Costs, supply, power and queue capacity reject an order at click
-         * time. Only the tech tree decides whether this button exists. */
-        if(!G_ModelProductAvailable(NULL,consoleplayer,p))continue;
-        /* A building holds one add-on: once attached, the others leave the card. */
-        if(sc_addon_parent((uint16_t)p->product_type)==selected->type_id&&sc_addon_of(selected))continue;
+         * time. The tech tree greys the button; the map, finished research
+         * and an attached add-on hide it. */
+        char why[96];
+        sc_lock_t lock=sc_product_lock(consoleplayer,selected,p,why,sizeof(why));
+        if(lock==SC_LOCK_HIDDEN)continue;
         button(pos,p->icon_frame,key,product,p->ui_id,p->label);
+        if(lock==SC_LOCK_GREYED)grey(pos,why);
         if(pos>=slot)slot=pos+1;
     }
     /* Abilities follow, greyed until researched; a Bunker unloads. */
@@ -2266,7 +2286,11 @@ static void refresh(menu_t *menu) {
             int icon=tech==SC_TECH_NUCLEAR_STRIKE?311:tech==SC_TECH_SIEGE_MODE&&selected->type_id==MT_SIEGE_MODE?246:
                 sc_techs[tech].icon;
             button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":sc_techs[tech].name);
-            huditems[command_start+slot++].enabled=sc_has_tech(consoleplayer,tech);
+            if(!sc_has_tech(consoleplayer,tech)) {
+                char why[96];snprintf(why,sizeof(why),"Requires: %s research",sc_techs[tech].name);
+                grey(slot,why);
+            }
+            slot++;
         }
         bool loaded=false;
         for(int j=0;j<hudview.unit_count;j++)loaded|=(hudview.units[j]->sc.flags&SC_LOADED)&&hudview.units[j]->sc.parent==selected->id;
@@ -2330,6 +2354,33 @@ static bool palette_from(const char *root,const char *name,spritesheet_t *sheet,
     R_FreeSprite(&ramp);return true;
 }
 
+/* ticon.pcx row 1 is the grey ramp of a locked command. The icons use the
+ * first 16 colors; the grey ramp takes 15 palette slots no icon pixel uses,
+ * and palette map ICON_GREY sends colors 1..15 there. */
+static bool grey_ramp(const char *root,spritesheet_t *sheet) {
+    char path[2048];native_path(path,sizeof(path),root,"unit/cmdbtns/ticon.pcx");spritesheet_t ramp={0};
+    if(!W_LoadIndexedSheet(path,&ramp))return false;
+    bool used[256]={0};
+    for(int f=0;f<sheet->numlumps;f++) {
+        const spritecell_t *c=&sheet->cells[f];
+        for(int p=0;p<c->rect.w*c->rect.h;p++)used[sheet->lumps[f].indices[p]]=true;
+    }
+    int slots[16],count=0;
+    for(int k=255;k>=16&&count<15;k--)if(!used[k])slots[count++]=k;
+    bool ok=count==15&&ramp.cells[0].rect.w>=32;
+    spritepalettemap_t *maps=ok?calloc(1,sizeof(*maps)):NULL;
+    if(maps) {
+        maps->id=ICON_GREY;
+        for(int k=0;k<256;k++)maps->indices[k]=(uint8_t)k;
+        for(int k=1;k<16;k++) {
+            sheet->palette[slots[k-1]]=sheet->source_palette[slots[k-1]]=ramp.palette[ramp.lumps[0].indices[16+k]];
+            maps->indices[k]=(uint8_t)slots[k-1];
+        }
+        free(sheet->palette_maps);sheet->palette_maps=maps;sheet->palette_map_count=1;
+    }
+    R_FreeSprite(&ramp);return maps!=NULL;
+}
+
 static int append_dialog(const char *root,const char *path) {
     sc_dialog_t d;if(!sc_dialog(root,path,&d)||hud.numitems+d.count>158)return -1;
     int first=hud.numitems;
@@ -2357,7 +2408,7 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
        !palette_from(root,"game/tunit.pcx",&ingame.widgets,0)||
        !palette_from(root,"game/tunit.pcx",&ingame.panel,0)||
        !palette_from(root,"game/twire.pcx",&wireframe,0)||
-       !palette_from(root,"unit/cmdbtns/ticon.pcx",&icons,16))return NULL;
+       !palette_from(root,"unit/cmdbtns/ticon.pcx",&icons,16)||!grey_ramp(root,&icons))return NULL;
     hud.app=app;hud.refresh=refresh;hud.drawtip=draw_command_tip;hud.numitems=1;
     hud.target=NULL;hud.held=NULL;hud.keyheld=NULL;build_page=0;selected_id=-1;
     memset(selection_ids,0,sizeof(selection_ids));

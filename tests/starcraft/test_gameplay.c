@@ -478,30 +478,40 @@ static mobj_t *beside(int type, const mobj_t *near, int dx, int dy) {
 }
 static const char *name(int type) { return sc_units[type - 1].name; }
 
+static bool usable(const menuitem_t *it) { return it && it->enabled; }
+/* Retail greys what the tech tree withholds and names what it needs. */
+static bool locked(const menuitem_t *it, const char *needs) {
+    if (!it || it->enabled || !it->disabled_look || it->look[MS_DISABLED].palette != 1) return false;
+    const char *note = sc_command_note(it);
+    return note && strstr(note, needs);
+}
+
 /* Buttons appear as the tech tree opens: structures, units, add-on units,
  * research tiers, abilities greyed until researched, larva and gateway. */
 static int tech_card(void) {
     mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER), *scv = find(consoleplayer, MT_SCV);
     CHECK(hall && scv);
     const char *basic = "Build Structure", *advanced = "Advanced Structures";
-    CHECK(on_page(scv, basic, name(MT_SUPPLY_DEPOT)) && on_page(scv, basic, name(MT_BARRACKS)));
-    CHECK(on_page(scv, basic, name(MT_ENGINEERING_BAY)) && on_page(scv, basic, name(MT_REFINERY)));
-    CHECK(!on_page(scv, basic, name(MT_ACADEMY)) && !on_page(scv, basic, name(MT_BUNKER)));
-    CHECK(!on_page(scv, basic, name(MT_MISSILE_TURRET)) && !on_page(scv, advanced, name(MT_FACTORY)));
+    CHECK(usable(on_page(scv, basic, name(MT_SUPPLY_DEPOT))) && usable(on_page(scv, basic, name(MT_BARRACKS))));
+    CHECK(usable(on_page(scv, basic, name(MT_ENGINEERING_BAY))) && usable(on_page(scv, basic, name(MT_REFINERY))));
+    CHECK(locked(on_page(scv, basic, name(MT_ACADEMY)), "Requires: Barracks"));
+    CHECK(locked(on_page(scv, basic, name(MT_BUNKER)), "Barracks"));
+    CHECK(locked(on_page(scv, basic, name(MT_MISSILE_TURRET)), "Requires: Engineering Bay"));
+    CHECK(locked(on_page(scv, advanced, name(MT_FACTORY)), "Barracks"));
     mobj_t *barracks = beside(MT_BARRACKS, hall, 6, 0);
     CHECK(barracks);
-    CHECK(on_page(scv, basic, name(MT_ACADEMY)) && on_page(scv, basic, name(MT_BUNKER)));
-    CHECK(on_page(scv, advanced, name(MT_FACTORY)) && !on_page(scv, advanced, name(MT_STARPORT)));
-    CHECK(!on_page(scv, advanced, name(MT_ARMORY)));
+    CHECK(usable(on_page(scv, basic, name(MT_ACADEMY))) && usable(on_page(scv, basic, name(MT_BUNKER))));
+    CHECK(usable(on_page(scv, advanced, name(MT_FACTORY))) && locked(on_page(scv, advanced, name(MT_STARPORT)), "Factory"));
+    CHECK(locked(on_page(scv, advanced, name(MT_ARMORY)), "Factory"));
     mobj_t *bay = beside(MT_ENGINEERING_BAY, hall, -6, 0);
-    CHECK(bay && on_page(scv, basic, name(MT_MISSILE_TURRET)));
+    CHECK(bay && usable(on_page(scv, basic, name(MT_MISSILE_TURRET))));
     /* Barracks: Firebat with an Academy, Ghost also with Covert Ops. */
-    CHECK(card(name(MT_MARINE), &barracks, 1) && !card(name(MT_FIREBAT), &barracks, 1));
-    CHECK(!card(name(MT_COMSAT_STATION), &hall, 1));
+    CHECK(usable(card(name(MT_MARINE), &barracks, 1)) && locked(card(name(MT_FIREBAT), &barracks, 1), "Academy"));
+    CHECK(locked(card(name(MT_COMSAT_STATION), &hall, 1), "Academy"));
     mobj_t *academy = beside(MT_ACADEMY, hall, 0, 6);
-    CHECK(academy && card(name(MT_FIREBAT), &barracks, 1) && !card(name(MT_GHOST), &barracks, 1));
-    CHECK(card(name(MT_COMSAT_STATION), &hall, 1));
-    /* Factory: the Siege Tank needs this factory's Machine Shop. */
+    CHECK(academy && usable(card(name(MT_FIREBAT), &barracks, 1)));
+    CHECK(locked(card(name(MT_GHOST), &barracks, 1), "Covert Ops"));
+    CHECK(usable(card(name(MT_COMSAT_STATION), &hall, 1)));
     /* The first open spot that also leaves room for its add-on. */
     mobj_t *factory = NULL;
     ivec2_t at = fixed2_cell(fixed3_xy(hall->core.position));
@@ -516,53 +526,69 @@ static int tech_card(void) {
         }
     mobj_t *other = beside(MT_FACTORY, hall, -6, 6);
     CHECK(factory && other);
-    CHECK(on_page(scv, advanced, name(MT_STARPORT)) && on_page(scv, advanced, name(MT_ARMORY)));
-    CHECK(card(name(MT_VULTURE), &factory, 1) && card(name(MT_MACHINE_SHOP), &factory, 1));
-    CHECK(!card(name(MT_GOLIATH), &factory, 1));
+    CHECK(usable(on_page(scv, advanced, name(MT_STARPORT))) && usable(on_page(scv, advanced, name(MT_ARMORY))));
+    CHECK(usable(card(name(MT_VULTURE), &factory, 1)) && usable(card(name(MT_MACHINE_SHOP), &factory, 1)));
+    CHECK(locked(card(name(MT_GOLIATH), &factory, 1), "Armory"));
+    /* The Siege Tank needs this factory's own Machine Shop. */
+    CHECK(locked(card(name(MT_SIEGE_TANK), &factory, 1), "Machine Shop"));
     CHECK(sc_attach_addon(factory, MT_MACHINE_SHOP));
-    menuitem_t *tank = card(name(MT_SIEGE_TANK), &factory, 1);
-    CHECK(tank);
-    CHECK(!card(name(MT_MACHINE_SHOP), &factory, 1));
-    CHECK(card(name(MT_SIEGE_TANK), &other, 1)); /* listed; refused at click without a shop */
-    CHECK(card(name(MT_MACHINE_SHOP), &other, 1));
+    CHECK(usable(card(name(MT_SIEGE_TANK), &factory, 1)));
+    CHECK(!card(name(MT_MACHINE_SHOP), &factory, 1)); /* one add-on: the button leaves */
+    CHECK(locked(card(name(MT_SIEGE_TANK), &other, 1), "Machine Shop"));
+    CHECK(usable(card(name(MT_MACHINE_SHOP), &other, 1)));
     beside(MT_ARMORY, hall, 0, -6);
-    CHECK(card(name(MT_GOLIATH), &factory, 1));
+    CHECK(usable(card(name(MT_GOLIATH), &factory, 1)));
     /* Siege Mode stays greyed on the tank until the Machine Shop researches it. */
     mobj_t *unit = beside(MT_SIEGE_TANK, hall, 3, 3);
-    menuitem_t *siege = card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1);
-    CHECK(unit && siege && !siege->enabled);
+    CHECK(unit && locked(card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1), "research"));
     level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
-    siege = card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1);
-    CHECK(siege && siege->enabled);
-    /* Engineering Bay: level 1 now, level 2 after it and a Science Facility. */
+    CHECK(usable(card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1)));
+    /* Engineering Bay: level 1 now, level 2 greyed until a Science Facility. */
     const char *weapons = sc_upgrades[0].name;
     menuitem_t *tier = card(weapons, &bay, 1);
-    CHECK(tier && tier->value == SC_UPGRADE_UI + 0 * 4 + 0);
+    CHECK(usable(tier) && tier->value == SC_UPGRADE_UI + 0 * 4 + 0);
     level.upgrades[0][consoleplayer].weapon = 1;
-    CHECK(!card(weapons, &bay, 1));
+    tier = card(weapons, &bay, 1);
+    CHECK(locked(tier, "Science Facility") && tier->value == SC_UPGRADE_UI + 0 * 4 + 1);
     beside(MT_STARPORT, hall, -6, -6);
     beside(MT_SCIENCE_FACILITY, hall, 6, -6);
     tier = card(weapons, &bay, 1);
-    CHECK(tier && tier->value == SC_UPGRADE_UI + 0 * 4 + 1);
+    CHECK(usable(tier) && tier->value == SC_UPGRADE_UI + 0 * 4 + 1);
     level.upgrades[0][consoleplayer].weapon = 3;
-    CHECK(!card(weapons, &bay, 1));
+    CHECK(!card(weapons, &bay, 1)); /* finished research leaves the card */
     level.upgrades[0][consoleplayer].weapon = 0;
     level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 0;
 
     /* Zerg: Zerglings and Lair wait for the Spawning Pool. */
     mobj_t *hatchery = beside(MT_HATCHERY, hall, 12, 0), *larva = beside(MT_LARVA, hall, 12, 3);
     CHECK(hatchery && larva);
-    CHECK(card(name(MT_DRONE), &larva, 1) && card(name(MT_OVERLORD), &larva, 1));
-    CHECK(!card(name(MT_ZERGLING), &larva, 1) && !card(name(MT_LAIR), &hatchery, 1));
+    CHECK(usable(card(name(MT_DRONE), &larva, 1)) && usable(card(name(MT_OVERLORD), &larva, 1)));
+    CHECK(locked(card(name(MT_ZERGLING), &larva, 1), "Spawning Pool"));
+    CHECK(locked(card(name(MT_LAIR), &hatchery, 1), "Spawning Pool"));
     CHECK(card("Select Larva", &hatchery, 1));
     beside(MT_SPAWNING_POOL, hall, 12, -6);
-    CHECK(card(name(MT_ZERGLING), &larva, 1) && card(name(MT_LAIR), &hatchery, 1));
-    CHECK(!card(name(MT_HYDRALISK), &larva, 1));
+    CHECK(usable(card(name(MT_ZERGLING), &larva, 1)) && usable(card(name(MT_LAIR), &hatchery, 1)));
+    CHECK(locked(card(name(MT_HYDRALISK), &larva, 1), "Hydralisk Den"));
     /* Protoss: Dragoons wait for the Cybernetics Core. */
     mobj_t *gateway = beside(MT_GATEWAY, hall, -12, 0);
-    CHECK(gateway && card(name(MT_ZEALOT), &gateway, 1) && !card(name(MT_DRAGOON), &gateway, 1));
+    CHECK(gateway && usable(card(name(MT_ZEALOT), &gateway, 1)));
+    CHECK(locked(card(name(MT_DRAGOON), &gateway, 1), "Cybernetics Core"));
     beside(MT_CYBERNETICS_CORE, hall, -12, 6);
-    CHECK(card(name(MT_DRAGOON), &gateway, 1) && !card(name(MT_HIGH_TEMPLAR), &gateway, 1));
+    CHECK(usable(card(name(MT_DRAGOON), &gateway, 1)));
+    CHECK(locked(card(name(MT_HIGH_TEMPLAR), &gateway, 1), "Templar Archives"));
+    /* A greyed button is drawn with the grey ramp. */
+    menuitem_t *templar = card(name(MT_HIGH_TEMPLAR), &gateway, 1);
+    draw(NULL); M_MenuDrawer(hudmenu);
+    irect_t r = M_MenuItemRect(hudmenu, templar);
+    int grey = 0, colour = 0;
+    for (int y = r.y; y < r.y + r.h; y++) for (int x = r.x; x < r.x + r.w; x++) {
+        uint32_t c = vpalette[screens[0].pixels[y * screens[0].w + x]];
+        int red = (c >> 16) & 255, green = (c >> 8) & 255, blue = c & 255;
+        if (red > 40 && abs(red - green) < 24 && abs(red - blue) < 24) grey++;
+        if (red > 120 && green > 100 && red - blue > 80) colour++; /* the normal yellow ramp */
+    }
+    CHECK(grey > 20 && colour == 0);
+    CHECK(save("/private/tmp/starcraft-greyed-command.bmp"));
     return 0;
 }
 
@@ -669,7 +695,7 @@ static int command_card(void) {
             if(mo->type_id==MT_SCV&&mo->id>last_scv)rallied=mo;
         }
     CHECK(rallied&&P_HasMoveOrder(rallied));
-    CHECK(!card("Terran Comsat Station",&hall,1));
+    CHECK(locked(card("Terran Comsat Station",&hall,1),"Academy"));
     mobj_t *worker = find(consoleplayer, MT_SCV);
     CHECK(worker);
     level.player_resources[consoleplayer][0]=1000;

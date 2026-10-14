@@ -486,7 +486,9 @@ int sc_spawn_things(void) {
                     .attachment=fixed3_xy(mo->core.position),
                     .amount=(int)read_u32_le(u+20),.rate=8,.active=mo->type_id!=MT_VESPENE_GEYSER,
                     .exhausts_source=minerals,
-                    .resource_type=minerals?0:1,.source_id=mo->id};
+                    .resource_type=minerals?0:1,.source_id=mo->id,
+                    /* An exhausted geyser still yields 2 gas a trip. */
+                    .depleted_rate=minerals?0:2};
             }
             ++count;
         }
