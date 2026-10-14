@@ -1232,6 +1232,53 @@ static fixed_t unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     return radius;
 }
 
+/* Another gatherer is working this deposit now. */
+static bool vent_busy(const level_t *map, int index, const mobj_t *self) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *other = (const mobj_t *)th;
+        if (other == self || other->remove || other->hp <= 0 || other->harvest.target != index) continue;
+        if (other->harvest.phase == HARVEST_PHASE_MINING || other->harvest.phase == HARVEST_PHASE_TURNING)
+            return true;
+    }
+    (void)map;
+    return false;
+}
+
+/* A gatherer finding its deposit taken tries a free one of the same kind
+ * close by, as StarCraft workers do; otherwise it waits its turn. */
+static bool hop_to_free_vent(level_t *map, mobj_t *unit, const resourcevent_t *busy) {
+    int best = -1;
+    int64_t best_d2 = 0;
+    fixed2_t at = fixed3_xy(unit->core.position);
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        if (vent == busy || !vent->active || vent->amount <= 0 || vent->resource_type != busy->resource_type ||
+            !P_VentOpenTo(map, vent, unit) ||
+            fixed2_distance_squared64(vent->attachment, busy->attachment) > fixed_sq64(FIXED_FROM_INT(4)) ||
+            vent_busy(map, i, unit)) continue;
+        int64_t d2 = fixed2_distance_squared64(vent->attachment, at);
+        if (best < 0 || d2 < best_d2) { best = i; best_d2 = d2; }
+    }
+    if (best < 0) return false;
+    unit->harvest.target = best;
+    unit->harvest.phase = HARVEST_PHASE_TO_MINE;
+    return send_harvester_to_vent(map, unit, &map->resource_vents[best]);
+}
+
+/* An empty deposit either closes or, like a depleted geyser, keeps giving
+ * a trickle without end. */
+static void vent_emptied(resourcevent_t *vent) {
+    if (vent->depleted_rate > 0) {
+        vent->depleted = true;
+        vent->rate = vent->depleted_rate;
+        vent->amount = INT32_MAX / 2;
+        return;
+    }
+    vent->active = false;
+    if (vent->exhausts_source) P_RemoveMobj(P_MobjById(vent->source_id));
+}
+
 static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
 #ifdef RTS_MODULE_WARCRAFT_2
@@ -1353,7 +1400,7 @@ static bool update_unit_harvest(level_t *map,
             if (take < 0) take = 0;
             unit->harvest.cargo += take;
             vent->amount -= take;
-            if (vent->amount <= 0) vent->active = false;
+            if (vent->amount <= 0) vent_emptied(vent);
             if (unit->harvest.cargo >= capacity || !vent->active) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
                 P_ReturnHarvest(map, unit, NULL);
@@ -1397,6 +1444,13 @@ static bool update_unit_harvest(level_t *map,
     unit->movement.order_arrived = true;
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
+    if (unit->harvest.phase != HARVEST_PHASE_MINING && unit->harvest.phase != HARVEST_PHASE_TURNING &&
+        unit->info->harvest.resources[vent->resource_type].exclusive &&
+        vent_busy(map, unit->harvest.target, unit)) {
+        unit->harvest.timer_ms = 0;
+        if (((uint32_t)leveltime + unit->id) % 8 == 0) hop_to_free_vent(map, unit, vent);
+        return true;
+    }
     if (!P_HarvesterWorksOutside(unit, vent) && P_CheckPosition(map, unit, vent->attachment))
         unit->core.position = fixed3_from_fixed2(vent->attachment, unit->core.position.z);
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
@@ -1418,16 +1472,14 @@ static bool update_unit_harvest(level_t *map,
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
         vent->amount -= take;
-        if (vent->amount <= 0) {
-            vent->active = false;
-            if (vent->exhausts_source) P_RemoveMobj(P_MobjById(vent->source_id));
-        }
+        if (vent->amount <= 0) vent_emptied(vent);
         if (mobj_harvest_capacity(unit) > 0)
             unit->harvest.cargo += take;
         else
             map->player_resources[owner][rtype] += P_ScaleIncome(map, owner, take);
+        /* A depleted deposit's trickle is a whole trip. */
         if (mobj_harvest_capacity(unit) > 0 &&
-            unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
+            (unit->harvest.cargo >= mobj_harvest_capacity(unit) || vent->depleted)) {
             if (P_ReturnHarvest(map, unit, NULL)) break;
         }
         if (vent->amount <= 0) {

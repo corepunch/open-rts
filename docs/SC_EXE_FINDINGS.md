@@ -87,6 +87,18 @@ accumulate during travel. Animation repetition remains independently authored.
 Temporary logging measured 5016 ms for minerals and 1683 ms for gas at the
 transfer tick; it was removed after tests passed.
 
+**Retail gathering (2026-10-14), superseding the Stargus waits above.**
+StarCraft now uses the OpenBW order timers: 75 frames at a mineral field
+(3125 ms) and 37 frames inside a refinery (1542 ms) at 24 frames a second,
+and cargo drops the tick the worker reaches the depot. The OpenBW source is
+not vendored here; the 75 comes from the citation above, the 37 and the
+instant drop-off from the OpenBW order functions as recalled, unverified
+against an executable trace. Two retail rules came with it as shared data:
+`harvestresource_t.exclusive` lets one worker work a field or refinery at a
+time (others wait beside it or move to a free field within four cells), and
+`resourcevent_t.depleted_rate` keeps an exhausted geyser yielding 2 gas a
+trip. `test_mining` checks the waits, the queue and the depleted geyser.
+
 The timing change exposed an existing AI placement assumption on `(2)road war`:
 the first Pylon, Gateway and Cybernetics Core could exhaust available powered
 sites. Logged Stargate purchases repeatedly reported no site. An untouched

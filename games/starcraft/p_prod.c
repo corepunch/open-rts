@@ -1,5 +1,6 @@
 #include "sc_local.h"
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 /* Stargus command cards, with native DAT costs and build times.
  * Orders, queues, payment, placement and spawning belong to the engine. */
@@ -251,6 +252,45 @@ bool G_ModelProductAvailable(const RtsGameModel *m,int owner,const StaticProduct
     if(p->product_class==RTS_PRODUCT_UPGRADE)
         return sc_upgrade_offered(owner,p)&&!researching(owner,p->product_type)&&sc_owner_has(owner,p->makers[0]);
     return true;
+}
+/* A unit's name without its race: "Terran Academy" reads "Academy". */
+static const char *short_name(int type) {
+    const char *name=type>0&&type<=SC_TYPES?sc_units[type-1].name:"";
+    const char *space=strchr(name,' ');
+    return space&&(!strncmp(name,"Terran ",7)||!strncmp(name,"Zerg ",5)||!strncmp(name,"Protoss ",8))?space+1:name;
+}
+/* Retail command cards grey what the tech tree withholds and name what it
+ * needs; what the map forbids, research already done or under way, and a
+ * second add-on are not shown at all. `maker` may be NULL. */
+sc_lock_t sc_product_lock(int owner,const mobj_t *maker,const StaticProductDefinition *p,char *why,size_t n) {
+    if(why&&n)why[0]=0;
+    if(!p)return SC_LOCK_HIDDEN;
+    if(p->product_class==RTS_PRODUCT_UPGRADE) {
+        if(!sc_upgrade_offered(owner,p)||researching(owner,p->product_type))return SC_LOCK_HIDDEN;
+    } else if(sc_unit_unavailable(owner,p->product_type))return SC_LOCK_HIDDEN;
+    if(maker&&sc_addon_parent((uint16_t)p->product_type)==maker->type_id&&sc_addon_of(maker))return SC_LOCK_HIDDEN;
+    int missing[4],count=0;
+    for(int i=0;i<p->prerequisite_count&&count<4;i++) {
+        int need=p->prerequisites[i];
+        const mobj_t *own=maker?sc_addon_of(maker):NULL;
+        bool attached=maker&&sc_addon_parent((uint16_t)need)==maker->type_id;
+        if(attached?(!own||own->type_id!=need):!sc_owner_has(owner,(uint16_t)need))missing[count++]=need;
+    }
+    if(count) {
+        if(why&&n) {
+            snprintf(why,n,"Requires: ");
+            for(int i=0;i<count;i++) {
+                size_t used=strlen(why);
+                snprintf(why+used,n-used,"%s%s",i?", ":"",short_name(missing[i]));
+            }
+        }
+        return SC_LOCK_GREYED;
+    }
+    if(!G_ModelProductAvailable(NULL,owner,p)) {
+        if(why&&n)snprintf(why,n,"Requirements are not met");
+        return SC_LOCK_GREYED;
+    }
+    return SC_LOCK_OPEN;
 }
 /* Research stays in its building: the engine's actor id is the maker's. */
 uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *p) {

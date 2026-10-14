@@ -83,6 +83,13 @@ int sc_upgrade_product(int upgrade, int level);
 /* Whether owner has a building of type, or one that counts as it. */
 bool sc_owner_has(int owner, uint16_t type);
 bool sc_upgrade_offered(int owner, const StaticProductDefinition *product);
+typedef enum { SC_LOCK_OPEN, SC_LOCK_GREYED, SC_LOCK_HIDDEN } sc_lock_t;
+/* How a command card shows a product: usable, greyed with what it needs
+ * written to `why`, or not at all. */
+sc_lock_t sc_product_lock(int owner, const mobj_t *maker, const StaticProductDefinition *product,
+                          char *why, size_t n);
+/* The "Requires ..." line of a greyed command-card button, or "". */
+const char *sc_command_note(const menuitem_t *item);
 bool sc_cancel_production(mobj_t *producer, int slot);
 bool sc_status_init(menu_t *menu, menuitem_t *items, int capacity, int stat_first, int stat_end,
                     const char *root, const uint32_t *palette,
