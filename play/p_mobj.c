@@ -265,7 +265,8 @@ static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourceven
 }
 
 static bool turn_unit_toward(mobj_t *unit, angle_t desired, int dt_ms) {
-    if (R_Policy()->turning == TURN_INSTANT) {
+    /* A unit type's own turn rate (StarCraft's flingy.dat) outranks the game's policy. */
+    if (R_Policy()->turning == TURN_INSTANT && !(unit->info && unit->info->turn_step)) {
         unit->core.angle = desired;
         unit->movement.turn_timer_ms = 0;
         return true;

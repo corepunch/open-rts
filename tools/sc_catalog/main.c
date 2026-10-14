@@ -136,8 +136,9 @@ int main(int argc,char **argv) {
         /* Weapons are weapons.dat rows; size is units.dat 26; speed is the
          * flingy.dat top speed in 1/256 pixel per frame, or the walking
          * script's when the flingy's movement control (14N) is iscript (2). */
-        unsigned f=d[offsets[0]+i],speed=0;
+        unsigned f=d[offsets[0]+i],speed=0,turn=0;
         if(f<(unsigned)nf) {
+            turn=flingy[12*nf+f]; /* turn rate, 1/256 of a circle per frame */
             unsigned s=u16(flingy+2*f),image=s<386?u16(sprites+2*s):(unsigned)ni;
             unsigned id=image<(unsigned)ni?u32(images+10*ni+4*image):65535;
             pass_t walk=script_pass(script,cn,id,11);
@@ -157,8 +158,8 @@ int main(int argc,char **argv) {
             d[offsets[6]+i]?u16(d+offsets[7]+2*i):0,u16(d+offsets[1]+2*i),
             d[offsets[17]+i],d[offsets[19]+i],d[offsets[26]+i],speed,
             d[offsets[47]+i],d[offsets[48]+i],addon_x,addon_y);
-        printf(", %u, %u, %u, %u)\n", u16(d+offsets[38]+8*i), u16(d+offsets[38]+8*i+2),
-            u16(d+offsets[38]+8*i+4), u16(d+offsets[38]+8*i+6));
+        printf(", %u, %u, %u, %u, %u)\n", u16(d+offsets[38]+8*i), u16(d+offsets[38]+8*i+2),
+            u16(d+offsets[38]+8*i+4), u16(d+offsets[38]+8*i+6), turn);
     }
     return 0;
 }

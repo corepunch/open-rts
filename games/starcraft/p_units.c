@@ -224,6 +224,7 @@ bool sc_board(mobj_t *unit, mobj_t *bunker) {
         return false;
     unit->sc.order = (sc_order_t){.kind = SC_ORDER_BOARD, .target = bunker->id};
     unit->attack.target = NULL;
+    unit->move_only = true; /* Walking in, it does not stop to fight. */
     return true;
 }
 /* Out beside the cells it was in, nearest the middle of their lower edge,

@@ -719,6 +719,36 @@ static int computer(void) {
     return 0;
 }
 
+/* flingy.dat turn rates and units.dat boxes reach movement: a Siege Tank
+ * (13) takes longer to turn about than a Marine (40), and a Dragoon is a
+ * wider disc than a Marine. */
+static int tics_to_turn_about(int type) {
+    reset();
+    mobj_t *u = spawn(type, FIXED2_LIT(20.5, 20.5), 0);
+    if (!u) return -1;
+    u->traits |= MF_NOAUTOTARGET;
+    u->core.angle = 0; /* facing +x */
+    if (!P_MoveUnitTo(&level, u, FIXED2_LIT(10.5, 20.5))) return -1;
+    fixed_t start = u->core.position.x;
+    for (int t = 0; t < 120; t++) {
+        tick(1);
+        if (u->core.position.x < start) return t;
+    }
+    return -1;
+}
+static int turning_and_size(void) {
+    CHECK(sc_units[MT_MARINE - 1].turn == 40 && sc_units[MT_SIEGE_TANK - 1].turn == 13 &&
+          sc_units[MT_ZERGLING - 1].turn == 27);
+    CHECK(actor_types[MT_SIEGE_TANK - 1].turn_step < actor_types[MT_MARINE - 1].turn_step);
+    int marine = tics_to_turn_about(MT_MARINE), tank = tics_to_turn_about(MT_SIEGE_TANK);
+    CHECK(marine >= 0 && tank >= 0 && tank > marine + 4);
+    reset();
+    mobj_t *m = spawn(MT_MARINE, FIXED2_LIT(5.5, 5.5), 0), *d = spawn(MT_DRAGOON, FIXED2_LIT(8.5, 5.5), 0);
+    mobj_t *ultra = spawn(MT_ULTRALISK, FIXED2_LIT(11.5, 5.5), 0);
+    CHECK(m && d && ultra && P_MobjRadius(d) > P_MobjRadius(m) && P_MobjRadius(ultra) > P_MobjRadius(d));
+    return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
@@ -739,6 +769,7 @@ int main(void) {
     CHECK(!terran_spells());
     CHECK(!zerg_spells());
     CHECK(!computer());
+    CHECK(!turning_and_size());
     P_FreeLevel(&level);
     puts("PASS: interceptors, scarabs, siege mode, add-ons, Bunkers, Archons, research, every spell and the computer player's use of them");
     return 0;

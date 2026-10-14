@@ -37,7 +37,12 @@ void sc_refresh_actors(void) {
             .harvest={.resources={{.capacity=8,.interval_ms=3125,.depot_ms=0,.exclusive=true},
                                  {.capacity=8,.interval_ms=1542,.depot_ms=0,.exclusive=true}}},
             .damage_action=sc_note_damage,
+            /* flingy.dat turn rate: 1/256 of a circle per 24 Hz frame. */
+            .turn_step=mobile?(angle_t)(((uint64_t)u->turn<<24)*24/RTS_TICRATE):0,
             .footprint={(u->placement.w+31)/32,(u->placement.h+31)/32}};
+        /* Movement disc: the mean half-extent of the units.dat collision box
+         * (a Dragoon or Ultralisk is wider than a Marine). */
+        if(mobile&&!(u->flags&4))mobjinfo[i+1].radius=(u->bounds.w+u->bounds.h+2)/4;
         sc_unit_weapons(i+1,&actors[i]);
         if(actors[i].attack.damage) actors[i].traits|=MF_ATTACK;
         actors[i].harvest.state_id=harvest_state;
