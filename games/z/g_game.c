@@ -30,7 +30,8 @@ static const mobjtype_t ACTOR_TYPES[] = {
     {.id = MT_UNIT_##type, .name = label, .sprite_name = Z_SHEET_##kind(type), \
      .traits = MF_SELECTABLE | MF_RENDERABLE | ((mobile) ? MF_MOBILE : MF_TURRET) | \
                ((dmg) ? MF_ATTACK : 0), \
-     .turret = {(gun) ? #type "_TURRET" : NULL, Z_TURRET_TURN, 0, 1}, \
+     .turret = {.sprite_name = (gun) ? #type "_TURRET" : NULL, .turn_step = Z_TURRET_TURN, .frame = 0, \
+                .fire_frame = 1}, \
      .speed = FIXED_ONE * (spd) / 10, .max_hp = hp, .native_type_id = t, \
      .attack = {.range = FIXED_FROM_INT(reach), .damage = dmg, .cooldown_ms = reload}},
 #include "units.inc"

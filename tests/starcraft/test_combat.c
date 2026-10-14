@@ -210,6 +210,40 @@ static int cloaking(void) {
     return 0;
 }
 
+/* A Goliath facing north turns its turret, not its hull, to a Marine on
+ * its right, fires only once the turret is on it, and turns the turret
+ * back once the Marine is gone. */
+static int turrets(void) {
+    const mobjtype_t *goliath = &actor_types[MT_GOLIATH - 1];
+    CHECK(goliath->turret.sprite_name && goliath->turret.turn_step > 0 && goliath->turret.fire_frame < 0);
+    /* Both Siege Tank modes have one; a Missile Turret is its own picture. */
+    CHECK(actor_types[MT_SIEGE_TANK - 1].turret.sprite_name && actor_types[SIEGE_MODE - 1].turret.sprite_name);
+    CHECK(!actor_types[MT_MISSILE_TURRET - 1].turret.sprite_name && !actor_types[MT_MARINE - 1].turret.sprite_name);
+    CHECK(P_InitSight());
+    mobj_t *g = spawn(MT_GOLIATH, FIXED2_LIT(5.5, 5.5), 0), *marine = spawn(MT_MARINE, FIXED2_LIT(8.5, 5.5), 1);
+    CHECK(g && marine);
+    marine->traits &= ~MF_ATTACK;
+    angle_t north = P_PointToAngle(0, -FIXED_ONE), east = P_PointToAngle(FIXED_ONE, 0);
+    g->core.angle = north;
+    int fired_at = -1;
+    for (int t = 0; t < 5 * RTS_TICRATE && fired_at < 0; t++) {
+        P_Ticker();
+        if (gameinfo->states[g->core.state_id].group == 3 || marine->hp < marine->max_hp) fired_at = t;
+        else if (t == 0 && goliath->turret.turn_step + ANG45 / 8u < ANG90)
+            CHECK(angle_distance(g->core.angle + g->attack.aim, east) >= ANG45 / 8u); /* still turning */
+    }
+    CHECK(fired_at >= 0);
+    CHECK(g->core.angle == north);
+    CHECK(angle_distance(g->core.angle + g->attack.aim, east) < ANG45 / 8u);
+    P_RemoveMobj(marine);
+    for (int t = 0; t < RTS_TICRATE; t++) P_Ticker();
+    CHECK(g->attack.aim == 0);
+    reset();
+    free(level.sight.cells);
+    level.sight.cells = NULL;
+    return 0;
+}
+
 static int speeds(void) {
     /* flingy.dat top speeds, or the walking script's for iscript movers. */
     CHECK(actor_types[MT_MARINE - 1].speed == FIXED_FROM_INT(3));
@@ -244,9 +278,10 @@ int main(void) {
     CHECK(!shields_and_hits());
     CHECK(!splash_and_bounce());
     CHECK(!cloaking());
+    CHECK(!turrets());
     CHECK(!speeds());
     P_FreeLevel(&level);
     puts("PASS: ground and air weapons, damage types, shields and Shield Battery, hits, splash, glaive bounces, "
-         "cloaking and detection, energy, flingy speeds");
+         "cloaking and detection, energy, turrets, flingy speeds");
     return 0;
 }

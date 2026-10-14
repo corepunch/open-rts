@@ -588,7 +588,7 @@ typedef enum {
     MF_DONTDRAW = 1u << 8,
     MF_NOBLOCKMAP = 1u << 9, /* Non-interacting puff, blood, or light mobj. */
     MF_MISSILE = 1u << 10,
-    MF_TURRET = 1u << 11,
+    MF_TURRET = 1u << 11, /* An emplacement that turns in place to aim (a type's `turret` is a sub-sprite). */
     MF_LANDMINE = 1u << 12,
     MF_DETECTOR = 1u << 13,
     MF_HUMAN = 1u << 14,
@@ -1387,6 +1387,8 @@ typedef struct spritecache_s {
     int count;
     const spritesheet_t **sprites; /* Borrowed sheets, indexed by state sprite ID. */
     int numsprites;
+    const spritesheet_t **turrets; /* Borrowed turret sheets, indexed by unit type ID. */
+    int numturrets;
     struct spritecache_s *ui; /* Owned images keyed by path, outside the state registry. */
 } spritecache_t;
 
@@ -1653,6 +1655,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
                         const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
 cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name);
 bool R_BindSprites(spritecache_t *cache, const gameinfo_t *game_info);
+/* The sheet a unit's turret draws from, bound with the state sprites. */
+const spritesheet_t *R_TurretSprite(const spritecache_t *cache, const mobj_t *u);
 const spritesheet_t *R_StateSprite(const spritecache_t *cache, const gameinfo_t *game_info,
                                    int sprite, const char *name);
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name);

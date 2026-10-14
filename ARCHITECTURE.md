@@ -479,8 +479,8 @@ hull where it was. The renderer draws the turret's own sheet by that aim, its
 ground point on the `mount` the hull picture carries (kept unmirrored; a
 mirrored hull mirrors it), in `turret.frame`, or while attacking in
 `turret.fire_frame` onward as the body goes through its attack run. Z's
-tanks, jeep, crane and mobile missile, StarCraft's turret subunits (Goliath,
-Siege Tank in both modes, Missile Turret) and KKnD's 4x4 Pickup use it.
+tanks, jeep, crane and mobile missile, StarCraft's turret subunits (Goliath
+and Siege Tank in both modes) and KKnD's 4x4 Pickup use it.
 
 ## Computer players
 
