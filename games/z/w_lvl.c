@@ -108,7 +108,7 @@ bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size) {
 }
 
 /* Territories are a cell rectangle then the team; ZED.EXE 0x9dc69 finds a
- * building's team through them. A placement's flag is set on every one
+ * building's team through them, 0x2a89f plants their flags. A placement's flag is set on every one
  * near the computer's fort and clear on leftovers, so only flagged ones
  * are kept (what else it means is not decoded). */
 static bool load_cpuplr(zmap_t *map, const char *name) {
@@ -121,7 +121,8 @@ static bool load_cpuplr(zmap_t *map, const char *name) {
         const uint8_t *r = blob.bytes + i * CP_TERRITORY;
         if (read_u16_le(r) == 0xffff) continue;
         map->territories[map->territory_count++] = (zterritory_t){
-            {read_u16_le(r), read_u16_le(r + 2)}, {read_u16_le(r + 4), read_u16_le(r + 6)}, r[8]};
+            {read_u16_le(r), read_u16_le(r + 2)}, {read_u16_le(r + 4), read_u16_le(r + 6)}, r[8],
+            {r[0x12], r[0x13]}, r[0x18]};
     }
     for (size_t at = CP_PLACED; ok && at + CP_RECORD <= blob.size &&
                                 map->placed_count < Z_MAX_PLACED; at += CP_RECORD) {
@@ -226,18 +227,47 @@ fail:
     return false;
 }
 
-/* One spawned native thing; owner 7 holds whatever no team does. */
-static mobj_t *spawn(int type, int state, ivec2_t pixel, isize2_t size, int team) {
-    fixed2_t centre = {(pixel.x * 2 + size.w) * (FIXED_ONE / (2 * Z_TILE)),
-                       (pixel.y * 2 + size.h) * (FIXED_ONE / (2 * Z_TILE))};
-    mobj_t *mo = P_SpawnMobj(fixed3_from_fixed2(centre, 0), (uint16_t)type);
-    if (!mo) return NULL;
-    if (state != mobjinfo[type].spawnstate) P_SetMobjState(mo, state);
+void Z_SetTeam(mobj_t *mo, int team) {
+    if (team > Z_NEUTRAL) team = Z_NEUTRAL;
     mo->team = (uint8_t)team;
     mo->owner = team < Z_NEUTRAL ? (uint8_t)team : 7;
     mo->allegiance = team == Z_NEUTRAL ? ALLEGIANCE_NEUTRAL :
                      team == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
+}
+
+static fixed2_t pixel_centre(ivec2_t pixel, isize2_t size) {
+    return (fixed2_t){(pixel.x * 2 + size.w) * (FIXED_ONE / (2 * Z_TILE)),
+                      (pixel.y * 2 + size.h) * (FIXED_ONE / (2 * Z_TILE))};
+}
+
+/* One spawned native thing; owner 7 holds whatever no team does. */
+static mobj_t *spawn(int type, int state, ivec2_t pixel, isize2_t size, int team) {
+    mobj_t *mo = P_SpawnMobj(fixed3_from_fixed2(pixel_centre(pixel, size), 0), (uint16_t)type);
+    if (!mo) return NULL;
+    if (state != mobjinfo[type].spawnstate) P_SetMobjState(mo, state);
+    Z_SetTeam(mo, team);
     return mo;
+}
+
+int Z_UnitType(const mobj_t *mo) {
+    return mo && mo->type_id >= MT_UNITS && mo->type_id < MT_UNITS_END ? mo->type_id - MT_UNITS : -1;
+}
+
+bool Z_IsRobot(int t) {
+    return t >= 0 && t < Z_UNIT_TYPES && unit_kinds[t].sprite == PICTURE_ROBOT(0);
+}
+
+static bool unit_size(const zmap_t *map, int t, isize2_t *size) {
+    *size = (isize2_t){Z_TILE, Z_TILE};
+    return t >= 0 && t < Z_UNIT_TYPES &&
+           (unit_kinds[t].sprite < 0 || Z_SpriteSize(map, unit_kinds[t].sprite, size));
+}
+
+bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre) {
+    isize2_t size;
+    if (!unit_size(map, t, &size)) return false;
+    *centre = pixel_centre(pixel, size);
+    return true;
 }
 
 static bool read_level_file(const zmap_t *map, const char *name, blob_t *out) {
@@ -251,9 +281,8 @@ static bool read_level_file(const zmap_t *map, const char *name, blob_t *out) {
  * stands a cell up on its walls: drawn where ZED.EXE draws it, over the
  * fort. */
 static mobj_t *spawn_unit(const zmap_t *map, int t, ivec2_t pixel, int team) {
-    isize2_t size = {Z_TILE, Z_TILE};
-    if (t < 0 || t >= Z_UNIT_TYPES ||
-        (unit_kinds[t].sprite >= 0 && !Z_SpriteSize(map, unit_kinds[t].sprite, &size))) return NULL;
+    isize2_t size;
+    if (!unit_size(map, t, &size)) return NULL;
     bool wall = false;
     for (int i = 0; i < map->fort_count && !unit_kinds[t].mobile; ++i) {
         ivec2_t at = ivec2_sub(pixel, map->forts[i]);
@@ -278,11 +307,19 @@ static int member_type(const blob_t *robots, int group, int member) {
 }
 
 /* ZED.EXE 0x50665: the first member at `at`, the rest four pixels apart in
- * rows of four; they spread out once they move. */
+ * rows of four; they spread out once they move. Members share a squad,
+ * which shares grenades (0x79bea). */
+static uint8_t squads;
+
 static int spawn_group(const zmap_t *map, const blob_t *robots, int group, ivec2_t at, int team) {
     int count = 0;
-    for (int i = 0, t; (t = member_type(robots, group, i)) >= 0; ++i)
-        if (spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team)) count++;
+    uint8_t squad = ++squads ? squads : ++squads;
+    for (int i = 0, t; (t = member_type(robots, group, i)) >= 0; ++i) {
+        mobj_t *mo = spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team);
+        if (!mo) continue;
+        mo->z.squad = squad;
+        count++;
+    }
     return count;
 }
 
@@ -326,6 +363,7 @@ int Z_LoadThings(void) {
     if (!map) return 0;
     int count = 0, cpu_team = 1;
     ivec2_t player_fort = {-1, -1};
+    squads = 0;
     for (int i = 0; i < map->fort_count; ++i) {
         int team = Z_TeamAt(map, map->forts[i]);
         if (spawn(MT_FORT, i ? S_FORT_CPU : S_FORT, map->forts[i], (isize2_t){160, 176}, team)) count++;
@@ -339,6 +377,22 @@ int Z_LoadThings(void) {
         }
     }
     count += spawn_armies(map, player_fort, cpu_team);
+
+    /* 0x2a89f: a flag on each territory's flag cell, in its team's colour. */
+    for (int i = 0; i < map->territory_count; ++i) {
+        const zterritory_t *t = &map->territories[i];
+        if (t->options & 3) continue;
+        mobj_t *flag = spawn(MT_FLAG, S_FLAG, ivec2_scale(t->flag, Z_TILE), (isize2_t){Z_TILE, Z_TILE},
+                             t->team);
+        if (!flag) continue;
+        flag->z.territory = (uint8_t)(i + 1);
+        /* draw_flags sorts a flag 32 pixels lower so a fort's roof does
+         * not hide it: stand it two cells down and as high, which draws it
+         * in place and after the ground. */
+        flag->core.position.y += 2 * FIXED_ONE;
+        flag->core.position.z = 2 * FIXED_ONE;
+        count++;
+    }
 
     /* BUILDnn.DAT: 35 records of 80 bytes; ZED.EXE keeps them as its
      * building structures (x, y, type, hit points at +0x1a). */
@@ -376,11 +430,12 @@ int Z_LoadThings(void) {
             if (!Z_SpriteSize(map, states[mobjinfo[type].spawnstate].frame, &size)) continue;
             /* An empty gun or vehicle names its weapon type in byte 5.
              * Nobody drives it: it keeps the object's crewless picture
-             * and neither moves, fights nor answers until it is wrecked. */
+             * and neither moves nor fights until a robot gets in
+             * (p_capture.c); it can still be picked as the place to go. */
             if (object_flags[r[4]] == 0x32 && r[5] < Z_UNIT_TYPES) {
                 mobj_t *mo = spawn(MT_UNITS + r[5], mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
                 if (mo) {
-                    mo->traits &= ~(MF_SELECTABLE | MF_MOBILE | MF_ATTACK);
+                    mo->traits &= ~(MF_MOBILE | MF_ATTACK);
                     count++;
                 }
                 continue;

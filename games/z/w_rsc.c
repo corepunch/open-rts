@@ -146,6 +146,23 @@ static uint8_t *compose_fort(const zmap_t *map, int variant, isize2_t *size) {
     return out;
 }
 
+/* draw_flags (0x2aade): the flag 480..483 over its shadow 484..487, both
+ * with their top-left on the flag's cell, which is the ground point. */
+static bool load_flag(const zmap_t *map, const uint32_t palette[256], spritesheet_t *sheet) {
+    enum { FLAG = 480, SHADOW = 484, FRAMES = 4 };
+    if (!R_AllocSpriteCells(sheet, FRAMES)) return false;
+    for (int f = 0; f < FRAMES; ++f) {
+        isize2_t flag, shadow;
+        if (!Z_SpriteSize(map, FLAG + f, &flag) || !Z_SpriteSize(map, SHADOW + f, &shadow)) return false;
+        isize2_t size = {flag.w > shadow.w ? flag.w : shadow.w, flag.h > shadow.h ? flag.h : shadow.h};
+        uint8_t *out = calloc((size_t)size.w * size.h, 1);
+        if (!out || !put_lump(sheet, f, out, size)) { free(out); return false; }
+        if (!blit(map, SHADOW + f, out, size, (ivec2_t){0, 0}) ||
+            !blit(map, FLAG + f, out, size, (ivec2_t){0, 0})) return false;
+    }
+    return finish_sheet(sheet, palette, (ivec2_t){Z_TILE / 2, Z_TILE / 2});
+}
+
 /* A run of SPRITES.RSC pictures: with `turn`, eight directions `turn`
  * apart, north first and clockwise, each `count` frames long (ZED.EXE
  * 0x7d761: base + direction * stride + frame); without, `count` pictures
@@ -312,10 +329,13 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
                        spritesheet_t *sheet) {
     if (!strcmp(name, sprnames[SPR_RSC])) return load_rsc(map, palette, sheet);
     if (!strcmp(name, "ROBOT")) {
-        /* Actions 0, 2 and 5 of 0x14b10c, then a fall (304..314). */
-        static const zrun_t robot[] = {{66, 1, 1}, {74, 4, 4}, {127, 5, 5}, {304, 0, Z_ROBOT_DIE_FRAMES}};
-        return load_runs(map, robot, 4, palette, sheet);
+        /* Actions 0, 2 and 5 of 0x14b10c, a fall (304..314), the grenade
+         * throw (0x6360e: 2522 + direction * 4 + frame) and the cheer. */
+        static const zrun_t robot[] = {{66, 1, 1}, {74, 4, 4}, {127, 5, 5}, {304, 0, Z_ROBOT_DIE_FRAMES},
+                                       {2522, 4, Z_ROBOT_THROW_FRAMES}, {1959, 0, Z_ROBOT_CHEER_FRAMES}};
+        return load_runs(map, robot, 6, palette, sheet);
     }
+    if (!strcmp(name, sprnames[SPR_FLAG])) return load_flag(map, palette, sheet);
 #define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, dead) \
     LOAD_##kind(type, sprite, turn, frames, dead)
 #include "units.inc"

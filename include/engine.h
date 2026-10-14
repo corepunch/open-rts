@@ -836,6 +836,12 @@ struct gameinfo_s {
     /* Optional: further teams (sight bits, 0x40000000 >> team) that see what
      * this mobj sees (StarCraft Parasite). */
     uint32_t (*sight_teams)(const struct mobj_s *mobj);
+    /* Optional: false when the game's rules keep this attacker off this
+     * victim whatever the weapon (Z robots need grenades for buildings). */
+    bool (*can_target)(const struct mobj_s *attacker, const struct mobj_s *victim);
+    /* Sprite sheets carry one palette map per team, by team id: a unit
+     * without a remap of its own draws through its team's. */
+    bool team_palettes;
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

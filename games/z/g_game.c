@@ -2,6 +2,14 @@
 #include "z_local.h"
 #include "info.h"
 
+/* A grenade's height per flight step, by the fraction of its flight left
+ * (ZED.EXE scales its own table at 0x148b9c by distance). */
+static const fixed_t grenade_arc[] = {
+    0, FIXED_ONE / 48, FIXED_ONE / 32, FIXED_ONE / 26, FIXED_ONE / 24,
+    FIXED_ONE / 26, FIXED_ONE / 32, FIXED_ONE / 48, 0,
+};
+static const uint8_t grenade_blast[] = {50, 75, 50, 75, 100, 75, 50, 75, 50};
+
 /* Objects and buildings stand still; units (units.inc) walk and fight. */
 static const mobjtype_t ACTOR_TYPES[] = {
 #define Z_OBJECT(native, type, label, sprite, flags, w, h, dead) \
@@ -25,6 +33,15 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .attack = {.range = FIXED_FROM_INT(reach), .damage = dmg, .cooldown_ms = reload}},
 #include "units.inc"
 #undef Z_UNIT
+    {.id = MT_FLAG, .name = "Flag", .sprite_name = "FLAG", .traits = MF_RENDERABLE | MF_NOBLOCKMAP,
+     .max_hp = 1},
+    /* Lobbed along an arc; it bursts where it lands, hurting what stands
+     * within a cell (0x8476c; the radius and falloff are authored). */
+    {.id = MT_GRENADE, .name = "Grenade", .sprite_name = "SPRITES.RSC",
+     .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_ONE / 6, .period_ms = RTS_TICK_MS, .timed = true,
+                 .arc = grenade_arc, .arc_count = sizeof(grenade_arc) / sizeof(*grenade_arc)},
+     .blast = {grenade_blast, 3, NULL, 0}},
 };
 
 /* No sidebar yet: the world takes the window. */

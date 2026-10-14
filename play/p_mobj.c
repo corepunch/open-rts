@@ -572,7 +572,8 @@ bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
             ((victim->traits & MF_HUMAN) ? (attacker->traits & MF_HEAL) :
                                          (attacker->traits & MF_REPAIR));
     }
-    return !P_IsAlly(attacker, victim) && P_CanDamage(attacker, victim);
+    return !P_IsAlly(attacker, victim) && P_CanDamage(attacker, victim) &&
+           (!gameinfo || !gameinfo->can_target || gameinfo->can_target(attacker, victim));
 }
 
 /* The cells an actor stands on: its footprint around its centre, or the
@@ -753,7 +754,7 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
 #else
         missile->core.momentum = (fixed3_t){ fixed_mul32(direction.x, flight->step),
                                              fixed_mul32(direction.y, flight->step), 0 };
-        missile->missile.duration = (int)(((int64_t)distance * FIXED_ONE) / flight->step);
+        missile->missile.duration = (int)(distance / flight->step); /* Whole steps of flight. */
         if (missile->missile.duration < 1) missile->missile.duration = 1;
 #endif
         if (flight->weave && gameinfo->random_table)

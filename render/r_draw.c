@@ -986,6 +986,12 @@ static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *
     V_FillRect((irect_t){ bar_x, bar_y, fill_w, 2 }, tint);
 }
 
+/* A mobj's own remap, or its team's palette where the game keeps one. */
+static int mobj_remap(const mobj_t *mobj, const gameinfo_t *game_info) {
+    if (!mobj->core.render_remap && game_info && game_info->team_palettes) return mobj->team;
+    return mobj->core.render_remap;
+}
+
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
                                 const spritecache_t *cache, const gameinfo_t *game_info);
 
@@ -1083,7 +1089,7 @@ static void draw_unit_sprite(app_t *app, const level_t *map,
         }
     } else {
     uint32_t flip = (render_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
-    R_DrawSprite(sprite, frame, u->core.render_remap, NULL, &dst,
+    R_DrawSprite(sprite, frame, mobj_remap(u, game_info), NULL, &dst,
                  flip, u->core.render_intensity);
     }
     if (game_info && (game_info->draw_underlays || game_info->draw_overlays)) return;
@@ -1341,7 +1347,7 @@ static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *e
     uint32_t flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
     if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
                              0)) return;
-    R_DrawSprite(sprite, frame, effect->core.render_remap, NULL, &dst,
+    R_DrawSprite(sprite, frame, mobj_remap(effect, game_info), NULL, &dst,
                  flip, effect->core.render_intensity);
 }
 
