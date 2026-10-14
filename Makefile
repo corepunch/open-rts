@@ -126,6 +126,9 @@ SHARED_MODEL_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c'))
 # drives the engine harvester); every other shared suite applies, the
 # computer player included.
 W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_simple_menu.c' ! -name 'test_ai_vents.c'))
+# Z has no factions, purchases or computer player yet, and no recorded
+# simulation hash.
+Z_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ruleset.c' ! -name 'test_ai_game.c' ! -name 'test_tech_rows.c' ! -name 'test_determinism_fixed.c'))
 
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))
@@ -154,6 +157,7 @@ $(eval $(call MODEL_TESTS_FOR_GAME,dark-reign,$(DR_GAME_SOURCES),-DRTS_WORLD_Y_U
 $(eval $(call MODEL_TESTS_FOR_GAME,7legion,$(SL_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_7LEGION))
 $(eval $(call MODEL_TESTS_FOR_GAME,kknd,$(KKND_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_KKND))
 $(eval $(call MODEL_TESTS_FOR_GAME,warcraft-2,$(W2_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2,$(W2_SHARED_TEST_SOURCES)))
+$(eval $(call MODEL_TESTS_FOR_GAME,z,$(Z_GAME_SOURCES),-DRTS_WORLD_Y_UP=0,$(Z_SHARED_TEST_SOURCES)))
 
 # ── DC layout test ───────────────────────────────────────────────────────────
 DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
@@ -486,7 +490,7 @@ test-starcraft: $(TEST_RUNNER) $(filter-out %/test_ai,$(SC_TEST_BINS)) starcraft
 QUICK_TEST_BINS := $(filter-out %/test_ai_skirmish %/test_ai_factions %/test_menu,$(dark-colony_TEST_BINS)) \
     $(dark-reign_TEST_BINS) $(7legion_TEST_BINS) $(kknd_TEST_BINS) \
     $(filter-out %/test_ai %/test_ai_game,$(warcraft-2_TEST_BINS)) $(filter-out %/test_ai,$(SC_TEST_BINS)) \
-    $(BIN_DIR)/tests/dark-colony/test_menu \
+    $(z_TEST_BINS) $(BIN_DIR)/tests/dark-colony/test_menu \
     $(BIN_DIR)/test_network $(BIN_DIR)/test_model_commands_dark-colony \
     $(BIN_DIR)/test_model_commands_dark-reign $(DC_LAYOUT_TEST_TARGET)
 QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network $(BIN_DIR)/tests/dark-colony/test_menu,$(QUICK_TEST_BINS)) \
