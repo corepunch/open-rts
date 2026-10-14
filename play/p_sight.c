@@ -72,6 +72,10 @@ void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne) {
 void P_UpdateSight(void) {
     if (!level.sight.cells) return;
     size_t count = (size_t)level.width * level.height;
+    if (R_Policy()->sight == SIGHT_OPEN) {
+        for (size_t i = 0; i < count; ++i) level.sight.cells[i] = SIGHT_EXPLORED | UINT32_C(0x7f800000);
+        return;
+    }
     for (size_t i = 0; i < count; ++i) level.sight.cells[i] &= SIGHT_EXPLORED;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;

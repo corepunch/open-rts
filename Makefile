@@ -55,6 +55,7 @@ SL_GAME_SOURCES   := $(sort $(shell find games/7legion     -name '*.c'))
 KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
 SC_GAME_SOURCES   := $(sort $(shell find games/starcraft third_party/libsmacker -name '*.c'))
 W2_GAME_SOURCES   := $(sort $(shell find games/warcraft-2   -name '*.c'))
+Z_GAME_SOURCES    := $(sort $(shell find games/z            -name '*.c'))
 
 # ── model engine sources (headless: no SDL display entry point or HUD) ───────
 MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render hud sound -name '*.c' ! -name 'd_main.c'))
@@ -72,7 +73,7 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-soak test-dark-colony test-dark-reign test-7legion test-kknd \
         test-warcraft-2 test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
-        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd warcraft-2 \
+        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd warcraft-2 z \
 		kknd-check anim-extract dc-info-conv dr-info-gen dr-units-extract dark-reign-units 7legion-units 7legion-info-gen kknd-info-gen test-info-gen \
 		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help
 
@@ -112,10 +113,11 @@ $(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign,-DRTS_WORLD_Y
 $(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_7LEGION))
 $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,warcraft-2,$(W2_GAME_SOURCES),warcraft-2,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2))
+$(eval $(call GAME_TARGET,z,$(Z_GAME_SOURCES),z,-DRTS_WORLD_Y_UP=0))
 
 $(eval $(call GAME_TARGET,starcraft,$(SC_GAME_SOURCES),starcraft,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT))
 
-all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2
+all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2 $(BIN_DIR)/z
 
 .SECONDARY:
 
@@ -299,6 +301,9 @@ kknd: $(BIN_DIR)/kknd
 warcraft-2: $(BIN_DIR)/warcraft-2
 	$(BIN_DIR)/warcraft-2
 
+z: $(BIN_DIR)/z
+	$(BIN_DIR)/z data/Z LEVEL01/LEVEL01.MAP
+
 # Retail data/WAR2 is not on CI. Keep test-warcraft-2 off the default test target.
 
 kknd-check: $(BIN_DIR)/kknd
@@ -388,6 +393,7 @@ help:
 	@echo "  7legion              7th Legion"
 	@echo "  kknd                 KKnD"
 	@echo "  warcraft-2           Warcraft II (data/WAR2/ALAMO.PUD)"
+	@echo "  z                    Z (data/Z/LEVEL01)"
 	@echo ""
 	@echo "Tools:"
 	@echo "  dc-info-conv         Build the FIN/SPR inspector and state exporter"
