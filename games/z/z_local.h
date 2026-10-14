@@ -38,6 +38,8 @@ bool Z_LoadAssets(const char *root, const level_t *map, tileset_t *tileset,
                   spritesheet_t *unit_sprite);
 bool Z_InitSprites(const level_t *map, spritecache_t *cache);
 
+/* Build the destructible cliffs into the planes, as a level start does. */
+void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world);
 /* World sprite of a building type, or -1. */
 int Z_BuildingSprite(int native, int world);
 
