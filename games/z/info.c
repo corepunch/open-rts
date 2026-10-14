@@ -1,9 +1,11 @@
 #include "engine.h"
+#include "z_local.h"
 #include "info.h"
 
 const char *const sprnames[NUMSPRITES] = {
     [SPR_RSC] = "SPRITES.RSC",
     [SPR_FORT] = "FORT",
+    [SPR_FLAG] = "FLAG",
 #define Z_BUILDING(native, type, label, w, h, ...) [SPR_##type] = #type,
 #include "buildings.inc"
 #undef Z_BUILDING
@@ -12,29 +14,38 @@ const char *const sprnames[NUMSPRITES] = {
 #undef Z_UNIT
 };
 
-/* Groups the engine reads: 0 stand, 2 walk, 3 attack; 4 is our death. */
-#define UNIT_STATES(type, stand, walk, walks, fire, fires, shot, die, dies, dead, dead_tics) \
+/* Groups the engine reads: 0 stand, 2 walk, 3 attack; 4 is our death.
+ * Throwing a grenade is an attack of its own pictures (p_capture.c). */
+#define UNIT_STATES(type, stand, walk, walks, fire, fires, shot, die, dies, dead, dead_tics, \
+                    throw, throws, toss, cheer, cheers) \
     [S_##type##_STND] = { SPR_##type, stand, 1, 4, A_Look, S_##type##_STND, 0, NULL }, \
     [S_##type##_WALK] = { SPR_##type, walk, walks, 3, A_Chase, S_##type##_WALK, 2, NULL }, \
     [S_##type##_FIRE] = { SPR_##type, fire, fires, 2, NULL, S_##type##_SHOT, 3, NULL }, \
     [S_##type##_SHOT] = { SPR_##type, shot, 1, 4, A_Attack, S_##type##_STND, 3, NULL }, \
     [S_##type##_DIE] = { SPR_##type, die, dies, 3, NULL, S_##type##_DEAD, 4, NULL }, \
-    [S_##type##_DEAD] = { SPR_##type, dead, 1, dead_tics, NULL, S_NULL, 4, NULL },
+    [S_##type##_DEAD] = { SPR_##type, dead, 1, dead_tics, NULL, S_NULL, 4, NULL }, \
+    [S_##type##_THROW] = { SPR_##type, throw, throws, 2, NULL, S_##type##_TOSS, 3, NULL }, \
+    [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, A_Attack, S_##type##_STND, 3, NULL }, \
+    [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL },
 /* Robots walk, aim, flash on the last fire frame and fall; their bodies
- * do not stay. */
+ * do not stay. A grenade leaves on the throw's last frame (0x636a0). */
 #define STATES_ROBOT(type, sprite, turn, frames, dead) \
     UNIT_STATES(type, Z_ROBOT_STAND, Z_ROBOT_WALK, 4, Z_ROBOT_FIRE, 4, Z_ROBOT_FIRE + 4, \
-                Z_ROBOT_DIE, Z_ROBOT_DIE_FRAMES - 1, Z_ROBOT_FRAMES - 1, 3 * RTS_TICRATE)
+                Z_ROBOT_DIE, Z_ROBOT_DIE_FRAMES - 1, Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES - 1, \
+                3 * RTS_TICRATE, Z_ROBOT_THROW, Z_ROBOT_THROW_FRAMES - 1, \
+                Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES - 1, Z_ROBOT_CHEER, Z_ROBOT_CHEER_FRAMES)
 /* A gun's last frame is its muzzle flash; its wreck follows the turns. */
 #define STATES_GUN(type, sprite, turn, frames, dead) \
-    UNIT_STATES(type, 0, 0, 1, 0, 1, (frames) - 1, frames, 1, frames, 10 * RTS_TICRATE)
+    UNIT_STATES(type, 0, 0, 1, 0, 1, (frames) - 1, frames, 1, frames, 10 * RTS_TICRATE, \
+                0, 1, (frames) - 1, 0, 1)
 /* Vehicles roll through their track frames; the wreck follows the turns. */
 #define STATES_VEHICLE(type, sprite, turn, frames, dead) \
-    UNIT_STATES(type, 0, 0, frames, 0, 1, 0, frames, 1, frames, 10 * RTS_TICRATE)
+    UNIT_STATES(type, 0, 0, frames, 0, 1, 0, frames, 1, frames, 10 * RTS_TICRATE, 0, 1, 0, 0, 1)
 /* One picture for everything but the wreck; no wreck art removes it. */
 #define STATES_STILL(type, sprite, turn, frames, dead) \
     UNIT_STATES(type, sprite, sprite, 1, sprite, 1, sprite, (dead) < 0 ? (sprite) : (dead), 1, \
-                (dead) < 0 ? (sprite) : (dead), (dead) < 0 ? 1 : 10 * RTS_TICRATE)
+                (dead) < 0 ? (sprite) : (dead), (dead) < 0 ? 1 : 10 * RTS_TICRATE, \
+                sprite, 1, sprite, sprite, 1)
 
 /* Objects and buildings keep the first native frame; units animate. */
 const state_t states[NUMSTATES] = {
@@ -53,6 +64,13 @@ const state_t states[NUMSTATES] = {
     STATES_##kind(type, sprite, turn, frames, dead)
 #include "units.inc"
 #undef Z_UNIT
+    /* The flag waves through four pictures, a step every second tick of
+     * ZED.EXE's 70 Hz clock (0x19e81); that is drawn a little slower. */
+    [S_FLAG] = { SPR_FLAG, 0, 4, 2, NULL, S_FLAG, 0, NULL },
+    [S_GRENADE] = { SPR_RSC, Z_GRENADE_SPRITE, Z_GRENADE_FRAMES, 2, NULL, S_GRENADE, 0, NULL },
+    /* It bursts on the first picture and burns out through the rest. */
+    [S_GRENADE_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_Explode, S_GRENADE_SMOKE, 4, NULL },
+    [S_GRENADE_SMOKE] = { SPR_RSC, Z_BLAST_SPRITE + 1, Z_BLAST_FRAMES - 1, 2, NULL, S_NULL, 4, NULL },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -82,6 +100,11 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
 #define UNIT_RADIUS_STILL 16
 #include "units.inc"
 #undef Z_UNIT
+    [MT_FLAG] = { .doomednum = -1, .spawnstate = S_FLAG, .deathstate = S_NULL,
+                  .xdeathstate = S_NULL, .flags = MF_RENDERABLE },
+    [MT_GRENADE] = { .doomednum = -1, .spawnstate = S_GRENADE, .deathstate = S_GRENADE_BLAST,
+                     .xdeathstate = S_GRENADE_BLAST, .damage = Z_GRENADE_DAMAGE,
+                     .flags = MF_RENDERABLE | MF_MISSILE },
 };
 
 const gameinfo_t game_info = {
@@ -90,4 +113,8 @@ const gameinfo_t game_info = {
     .mobjinfo = mobjinfo, .mobj_type_count = NUMMOBJTYPES,
     .null_state = S_NULL, .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
     .selection_marker = { .style = SELECTION_STYLE_DEFAULT },
+    .team_palettes = true,
+    .mobj_ticker = Z_MobjTicker,
+    .attack = Z_Attack,
+    .can_target = Z_CanTarget,
 };

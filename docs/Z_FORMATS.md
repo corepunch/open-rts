@@ -206,8 +206,9 @@ bytes; unused ones start with 0xffff.
 |---|---|
 | 0x00 | u16 x1, y1, x2, y2 in cells; x2 and y2 exclusive |
 | 0x08 | Team: 0 red, 1 blue, 2 green, 3 yellow, 4 or more nobody |
-| 0x12 | Flag cell x, y |
-| 0x18 | Flags, not decoded |
+| 0x12, 0x13 | u8 flag cell x, y; always inside the territory |
+| 0x16 | Run time: capture lockout (0x1fe after a capture, counted down each tick; no capture while above 0x1d3) |
+| 0x18 | Options: bits 0 or 1 plant no flag; bit 2 hides it with more than two players, bit 3 with more than three |
 
 0x9dc69 gives a building the team of the territory that contains its
 top-left pixel.

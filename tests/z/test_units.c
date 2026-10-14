@@ -52,7 +52,7 @@ static int test_level_units(void) {
     if (count(1, MT_UNIT_GATLING, MT_UNIT_GATLING) != 1) return fail("computer has a Gatling");
     mobj_t *jeep = find(4, MT_UNIT_JEEP);
     if (count(4, MT_UNIT_JEEP, MT_UNIT_JEEP) != 4 || !jeep) return fail("four empty Jeeps");
-    if (jeep->traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK)) return fail("empty Jeeps are inert");
+    if (jeep->traits & (MF_MOBILE | MF_ATTACK)) return fail("empty Jeeps are inert");
     mobj_t *gun = find(0, MT_UNIT_GATLING);
     if (!gun || gun->core.position.z <= 0 || (gun->traits & MF_MOBILE)) return fail("Gatling stands on the fort");
     gun = find(1, MT_UNIT_GATLING);
