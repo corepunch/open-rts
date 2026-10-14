@@ -567,8 +567,9 @@ bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out) {
     if (platform) return oil_site(type, centre_at, walker, out);
     isize2_t foot = mobjinfo[type].w2.footprint;
     ivec2_t origin = { centre.x - foot.w / 2, centre.y - foot.h / 2 };
-    /* The coast may lie well beyond the town. */
-    int reach = (mobjinfo[type].w2.attributes & W2_SHORE_BUILDING) ? 40 : 28;
+    /* The nearest site wins; past the town's edge a full town sprawls, and
+     * the coast may lie well beyond it. */
+    int reach = 40;
     sitescan_t scan;
     if (!scan_init(&scan, owner, type, walker)) return false;
     uint8_t *crowd = P_IdleBlockers(&level, NULL, 0);
