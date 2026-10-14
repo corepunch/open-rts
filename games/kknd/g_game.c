@@ -79,6 +79,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
       .sprite_name = SPR(54),
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
       .speed = KK_CELLS(70), .turn_step = KK_TURN(3), .max_hp = 800,
+      /* The gun on the bed (w_spr.c); UNITS.CFG has no turret tspeed, so
+       * it turns twice as fast as the truck, authored. */
+      .turret = { "UNIT_SURV_PICKUP_GUN", KK_TURN(6), 0, 1 },
       .armor_class = KK_ARMOR_VEHICLE,
       .attack = KK_VOLLEY(128, 45, 60, 10, 40, 30, 15),
     },

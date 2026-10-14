@@ -350,10 +350,17 @@ vehicle record's +0x15), f the track frame:
 | Mobile missile | 0x18 | hull 1845 + d * 3 + f (0x14b404), pod 1869 + t (0x1489c8 by t, 0x148a08 by d) |
 
 Offsets are signed byte or word pairs; turret parts add 6 right and 3 up.
+Turret parts hang off the unit's position by t alone, except the jeep's
+gunner and the mobile missile's pod, which also move with the hull by d.
 Tank hulls look the same both ways, so they have four directions; a
 damaged medium tank adds 12 and a damaged light tank 28. Fire trucks and
-trucks are not built this way. `games/z/w_rsc.c` composes these with the
-turret facing the hull.
+trucks are not built this way. `games/z/w_rsc.c` composes the hull parts
+by d and the turret parts by t on a sheet of their own, which the engine
+draws at a mount point the hull pictures carry.
+
+A turret turns an eighth of a circle toward its target, then waits three
+updates, and the unit fires once it is on target (0x58b7a). Getting in
+sets both d and t to west (0x7b21a).
 
 Sprites are drawn with the current world palette, not the one in the file.
 Team colour is the run 0x10..0x1f (red). 0x5fd39 and its neighbours point

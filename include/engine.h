@@ -672,6 +672,13 @@ typedef struct mobjtype_s {
     uint32_t traits;
     fixed_t speed; /* Cells per second, 16.16. */
     angle_t turn_step; /* Per simulation tic; zero uses the legacy turn cadence. */
+    /* A turret that aims apart from the hull: drawn from `sprite_name` by
+     * the unit's aim, its ground point on the hull picture's mount point,
+     * turning `turn_step` a tic (zero turns at once). The unit fires once
+     * the turret is on its target and leaves its hull where it was. It
+     * shows `frame`, and attacking `fire_frame` onward as the body goes
+     * through its attack run (a negative one keeps `frame`). */
+    struct { const char *sprite_name; angle_t turn_step; int frame, fire_frame; } turret;
     int max_hp;
     unsigned armor_class;
     uint16_t defense[3]; /* Native damage multipliers; zero uses 256. */
@@ -910,6 +917,7 @@ struct mobj_s {
         int cooldown_left_ms;
         int shots;
         mobj_t *target;
+        angle_t aim; /* A turret's facing, relative to the hull's. */
     } attack;
     struct {
         int target;
@@ -1323,6 +1331,7 @@ typedef struct spritecell_s {
     irect_t bounds;
     ivec2_t ground_point;
     ivec2_t displacement;
+    ivec2_t mount; /* Where a turret's ground point sits on this hull picture. */
 } spritecell_t;
 
 typedef struct spritesheet_s {

@@ -14,6 +14,10 @@ enum {
     Z_MAX_PLACED = 27, /* CPUPLRnn.DAT placements after the territories */
 };
 
+/* ZED.EXE turns a turret an eighth of a circle toward its target, then
+ * waits three updates (0x58b7a); here it turns smoothly at that rate. */
+#define Z_TURRET_TURN (ANG45 / 3u)
+
 /* A group the computer starts with, CPUPLRnn.DAT +0x792. */
 typedef struct {
     int group;
