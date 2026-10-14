@@ -242,6 +242,7 @@ void Z_Ticker(void) {
             tick_flag(mo);
             continue;
         }
+        Z_Alert(mo);
         int t = robot_type(mo);
         if (t < 0) continue;
         if (carries_grenades(t)) {

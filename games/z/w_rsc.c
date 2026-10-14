@@ -408,9 +408,10 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
                        spritesheet_t *sheet) {
     if (!strcmp(name, sprnames[SPR_RSC])) return load_rsc(map, palette, sheet);
     if (!strcmp(name, "ROBOT")) {
-        /* Actions 0, 2 and 5 of 0x14b10c, a fall (304..314), the grenade
-         * throw (0x6360e: 2522 + direction * 4 + frame) and the cheer. */
-        static const zrun_t robot[] = {{66, 1, 1}, {74, 4, 4}, {127, 5, 5}, {304, 0, Z_ROBOT_DIE_FRAMES},
+        /* Actions 0, 2 and 5 of 0x14b10c, the burst (290..295), the
+         * grenade throw (0x6360e: 2522 + direction * 4 + frame) and the
+         * cheer. */
+        static const zrun_t robot[] = {{66, 1, 1}, {74, 4, 4}, {127, 5, 5}, {290, 0, Z_ROBOT_DIE_FRAMES},
                                        {2522, 4, Z_ROBOT_THROW_FRAMES}, {1959, 0, Z_ROBOT_CHEER_FRAMES}};
         return load_runs(map, robot, 6, palette, sheet);
     }

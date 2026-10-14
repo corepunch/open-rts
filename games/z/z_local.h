@@ -71,6 +71,8 @@ bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target);
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 void Z_MobjTicker(mobj_t *mo);
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
+/* p_alert.c: an idle unit takes its squad's enemy or one close by. */
+void Z_Alert(mobj_t *unit);
 
 /* Build the destructible cliffs into the planes, as a level start does. */
 void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world);
