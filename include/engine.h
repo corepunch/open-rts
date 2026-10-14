@@ -447,6 +447,11 @@ typedef struct {
     uint8_t max_slope[RTS_MAX_MOVE_CLASSES]; /* Authored; needs an elevation map to apply. */
 } terrainspeeds_t;
 
+/* How the level ended for the local player (game/g_outcome.c). */
+typedef enum { OUTCOME_NONE, OUTCOME_VICTORY, OUTCOME_DEFEAT, OUTCOME_DRAW } outcome_t;
+/* Kills and losses by owner since the level started, for result screens. */
+typedef struct { int kills, losses; } sidestats_t;
+
 typedef struct level_s {
     char map_path[1024];
     int width;
@@ -486,6 +491,11 @@ typedef struct level_s {
     /* Research tiers by actor type and owner: Dark Colony's DEPEND rows,
      * Warcraft's weapon and shield lines. Part of the lockstep checksum. */
     struct { uint8_t weapon, armor; } upgrades[RTS_MAX_UPGRADE_TYPES][8];
+    /* The local result (game/g_outcome.c): owners that have held units,
+     * those seen hostile to the local player, and kills and losses. */
+    outcome_t outcome;
+    uint8_t sides, foes;
+    sidestats_t side_stats[8];
     LEVEL_GAME_FIELDS /* Per-game level state, from the game's game_config.h. */
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
@@ -2073,8 +2083,42 @@ bool     HU_LoadFont(const char *root, bitmapfont_t *font);
 void     G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
                          hudtext_t *hud, int dt_ms);
 
-/* Return mission state: 0=active, 1=won, 2=lost, 3=ally_lost. */
-int      G_MissionState(const level_t *map);
+/* ── level outcome (game/g_outcome.c) ───────────────────────────────────── */
+
+/* Elimination rules that G_LevelObjectives leaves to the engine. */
+enum { ELIMINATE_DEFEAT = 1, ELIMINATE_VICTORY = 2, ELIMINATE_ALL = 3 };
+
+/* Once per tic after the mission ticker: the game's objectives, then the
+ * engine's elimination rules. Ends the level at most once. */
+void      G_OutcomeTicker(mobj_t *const *units, int count);
+/* End the level for the local player (a script's Victory action, a reached
+ * objective). Later calls are ignored; the first one shows the result. */
+void      G_EndLevel(outcome_t outcome);
+outcome_t G_LevelOutcome(void);
+/* The rules for custom maps, over every mobj in the world. A side is lost
+ * once none of its units remain.
+ * The local player is defeated when its side is lost and wins once no
+ * hostile side remains. A network match ends for every peer on the same tic,
+ * when the surviving sides are all allied; each peer then shows its own
+ * result. Allies are judged by P_IsAlly, as combat judges them. */
+void      G_CheckElimination(unsigned rules);
+const sidestats_t *G_SideStats(int owner);
+/* Count a side unit's death (play/p_mobj.c, as it dies). */
+void      G_RecordKill(const mobj_t *victim, const mobj_t *killer);
+/* The engine's plain result screen: the outcome and a Continue button that
+ * leaves the level. The default G_ShowOutcome. */
+void      G_ResultScreen(outcome_t outcome);
+
+/* Hooks, with weak defaults in game/g_hooks.c. G_LevelObjectives checks the
+ * game's own objectives, may call G_EndLevel, and returns the ELIMINATE_*
+ * rules that still apply; the default leaves every map to elimination. */
+unsigned  G_LevelObjectives(mobj_t *const *units, int count);
+/* An owner slot that takes part in elimination (not rescue or neutral). */
+bool      G_PlayerSide(int owner);
+/* A unit that keeps its owner's side alive. */
+bool      G_UnitHoldsSide(const mobj_t *unit);
+/* Show the result: the game's own victory or defeat screen. */
+void      G_ShowOutcome(outcome_t outcome);
 
 /* ── front end and HUD tables ───────────────────────────────────────────── */
 

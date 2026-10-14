@@ -267,17 +267,20 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
             if (m >= 0 && m < script->block_count)
                 script->blocks[m].fired = false;
             {
+                /* bail 0 <reason> wins and bail 1 <reason> loses: reason
+                 * 2 is the player's buildings, 3 an ally or the commander,
+                 * 4 a protected colony (HUMAN01). */
                 MissionState new_state = MISSION_ACTIVE;
                 const char *msg = NULL;
-                if (n == 0 && m == 1) {
+                if (n == 0) {
                     new_state = MISSION_WON;
-                    msg = "ALIEN HIVE DESTROYED.";
-                } else if (n == 1 && m == 2) {
-                    new_state = MISSION_LOST;
-                    msg = "ALL YOUR BUILDINGS HAVE BEEN DESTROYED.";
+                    if (m == 1) msg = "ALIEN HIVE DESTROYED.";
                 } else if (n == 1 && m == 3) {
                     new_state = MISSION_ALLY_LOST;
                     msg = "ALLIED BASE LOST.";
+                } else if (n == 1 && m >= 2) {
+                    new_state = MISSION_LOST;
+                    if (m == 2) msg = "ALL YOUR BUILDINGS HAVE BEEN DESTROYED.";
                 }
                 if (new_state != MISSION_ACTIVE) {
                     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
@@ -405,30 +408,20 @@ static void add_reinforce_commands(ScriptBlock *block,
 
 static void parse_block_condition(ScriptBlock *block, const char *cond) {
     if (!block || !cond) return;
-    /* Detect b(team,slot)==0 patterns: ((b(2,0)==0)&&(b(2,1)==0)&&...) */
+    /* The caller strips every parenthesis: b(2,0)==0 arrives as b2,0==0, and
+     * ((b(2,0)==0)&&(b(2,1)==0)&&...) as b2,0==0&&b2,1==0&&... Every slot
+     * of the first team must be destroyed. */
     int team = -1, slot = -1;
-    if (sscanf(cond, "b(%d,%d)==0", &team, &slot) == 2 ||
-        sscanf(cond, "(b(%d,%d))==0", &team, &slot) == 2) {
+    if (cond[0] == 'b' && sscanf(cond, "b%d,%d==0", &team, &slot) == 2) {
         block->condition_kind = COND_ALL_BUILDINGS_DESTROYED;
         block->building_cond.team = team;
-        block->building_cond.slot_count = 1;
-        block->building_cond.slots[0] = slot;
-        return;
-    }
-    /* Detect compound b() conditions: ((b(2,0)==0)&&(b(2,1)==0)&&(b(2,2)==0)&&...) */
-    if (strstr(cond, "b(") && strstr(cond, "==0")) {
-        block->condition_kind = COND_ALL_BUILDINGS_DESTROYED;
-        block->building_cond.team = -1;
         block->building_cond.slot_count = 0;
-        const char *p = cond;
-        while (*p && block->building_cond.slot_count < MAX_CITY_SLOTS) {
-            if (sscanf(p, " b(%d,%d)==0", &team, &slot) == 2 ||
-                sscanf(p, "(b(%d,%d))==0", &team, &slot) == 2) {
-                if (block->building_cond.team < 0)
-                    block->building_cond.team = team;
-                block->building_cond.slots[block->building_cond.slot_count++] = slot;
-            }
-            p++;
+        for (const char *p = cond; p && block->building_cond.slot_count < MAX_CITY_SLOTS;
+             p = strstr(p, "&&")) {
+            if (p != cond) p += 2;
+            int t, n;
+            if (sscanf(p, "b%d,%d==0", &t, &n) == 2 && t == team)
+                block->building_cond.slots[block->building_cond.slot_count++] = n;
         }
         return;
     }
@@ -811,7 +804,7 @@ static bool building_alive_at_slot(const ScriptState *script, int team, int slot
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0) continue;
-        if (unit->owner != (uint8_t)(team == 0 ? 0 : 1)) continue;
+        if (unit->team != (uint8_t)team) continue;
         fixed2_t pos = fixed3_xy(unit->core.position);
         if (fixed2_near(pos, expected, FIXED_LIT(1.5))) return true;
     }
@@ -895,6 +888,15 @@ void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *const *units, in
 
 MissionState DC_ScriptState(const ScriptState *script) {
     return script ? script->state : MISSION_ACTIVE;
+}
+
+bool DC_ScriptDecidesOutcome(const ScriptState *script) {
+    for (int i = 0; script && i < script->block_count; ++i)
+        for (int j = 0; j < script->blocks[i].command_count; ++j) {
+            const ScriptCommand *cmd = &script->blocks[i].commands[j];
+            if (cmd->type == SCRIPT_CMD_BAIL && (cmd->a[0] == 0 || cmd->a[0] == 1)) return true;
+        }
+    return false;
 }
 
 void DC_FreeScript(ScriptState *script) {

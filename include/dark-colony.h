@@ -14,6 +14,9 @@ void DC_OpenQuitDialog(struct app_s *app);
 void DC_OpenOptionsDialog(struct app_s *app);
 void DC_OpenObjectives(struct app_s *app);
 void DC_OpenSave(struct app_s *app);
+/* The mission's end: the WINGAMEE debrief after a campaign mission, the
+ * MULTIWNE result after a skirmish, network or custom map (menu/m_menu.c). */
+void DC_ShowResult(outcome_t outcome);
 /* Native screen-script frames and brightness to engine item looks. */
 void DC_ControlLooks(menuitem_t *item, int normal, int pushed, int remap,
                      int bright_pushed, int bright_highlight);
@@ -178,6 +181,9 @@ typedef struct ScriptState ScriptState;
 ScriptState *DC_LoadScript(const char *map_path);
 void DC_FreeScript(ScriptState *script);
 MissionState DC_ScriptState(const ScriptState *script);
+/* The script ends the mission itself (a bail action), so the engine's
+ * elimination rules do not apply to it. */
+bool DC_ScriptDecidesOutcome(const ScriptState *script);
 void DC_UpdateScript(ScriptState *mission, level_t *map, mobj_t *const *units,
                      int *unit_count, hudtext_t *hud, int dt_ms);
 

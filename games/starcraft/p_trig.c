@@ -422,7 +422,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         if (id == 1 || id == 2 || id == 58) {
             if (!local) continue;
             m->result = id == 1 ? 1 : id == 2 ? 2 : 3;
-            sc_show_result(m->result);
+            G_EndLevel(id == 1 ? OUTCOME_VICTORY : id == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
             return;
         }
         if (!local && (id == 7 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
@@ -557,22 +557,32 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
     if (!m->result) finish_trigger(st);
 }
 
-static bool opponent_slot(const sc_mission_t *m, int p) {
-    if (p < 0 || p >= 8 || p == consoleplayer) return false;
-    uint8_t kind = m->owners[p];
-    if (kind != 1 && kind != 2 && kind != 5 && kind != 6) return false;
-    return consoleplayer < 0 || consoleplayer >= 8 || !allied_to(consoleplayer, p);
+/* Computer and human slots take part in elimination (not rescuable or
+ * neutral ones). A map that declares its own Victory action decides both
+ * outcomes through its triggers; a melee map without one is eliminated. */
+bool G_PlayerSide(int owner) {
+    sc_mission_t *m = mission(&level);
+    if (!m || owner < 0 || owner >= 8) return false;
+    uint8_t kind = m->owners[owner];
+    return kind == 1 || kind == 2 || kind == 5 || kind == 6;
 }
 
-static void check_elimination(sc_mission_t *m) {
-    if (m->has_victory || m->result || consoleplayer < 0 || consoleplayer >= 8) return;
-    if (!owns_any(consoleplayer)) { m->result = 2; sc_show_result(2); return; }
-    int slots = 0, living = 0;
-    for (int p = 0; p < 8; p++) if (opponent_slot(m, p)) {
-        slots++;
-        living += owns_any(p);
-    }
-    if (slots && !living) { m->result = 1; sc_show_result(1); }
+bool G_UnitHoldsSide(const mobj_t *unit) {
+    return unit->thinker.function == P_MobjThinker && unit->type_id && unit->type_id <= SC_TYPES;
+}
+
+void G_ShowOutcome(outcome_t outcome) {
+    sc_mission_t *m = mission(&level);
+    int result = outcome == OUTCOME_VICTORY ? 1 : outcome == OUTCOME_DEFEAT ? 2 : 3;
+    if (m) m->result = result;
+    sc_show_result(result);
+}
+
+unsigned G_LevelObjectives(mobj_t *const *units, int count) {
+    (void)units; (void)count;
+    sc_mission_t *m = mission(&level);
+    if (!m || m->result) return 0;
+    return m->has_victory ? 0 : ELIMINATE_ALL;
 }
 
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
@@ -617,7 +627,6 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
             }
         }
     }
-    if (!m->result) check_elimination(m);
     if (thinkercap.next) for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function == P_MobjThinker && mo->hp > 0 && !mo->remove) mo->sc.guard_hp = mo->hp;

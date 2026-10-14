@@ -29,6 +29,38 @@ MissionState mission_get_state(const void *ptr) {
     return mission ? DC_ScriptState(mission->script) : MISSION_ACTIVE;
 }
 
+/* A campaign script ends its own mission, also when a saved game restores
+ * an ended one; a map without bail actions is left to elimination. */
+unsigned G_LevelObjectives(mobj_t *const *units, int count) {
+    /* A campaign's single-player owners stand for several teams; remember
+     * one so the result screen can name a side that has been destroyed. */
+    for (int i = 0; i < count; ++i)
+        if (units[i]->owner < 8 && units[i]->team < 8 && !level.side_team[units[i]->owner])
+            level.side_team[units[i]->owner] = (uint8_t)(units[i]->team + 1);
+    const Mission *mission = level.mission;
+    MissionState state = mission_get_state(mission);
+    if (state != MISSION_ACTIVE) {
+        G_EndLevel(state == MISSION_WON ? OUTCOME_VICTORY : OUTCOME_DEFEAT);
+        return 0;
+    }
+    return mission && DC_ScriptDecidesOutcome(mission->script) ? 0 : ELIMINATE_ALL;
+}
+
+/* Units and structures; not vents, beacons, mines, projectiles or effects. */
+bool G_UnitHoldsSide(const mobj_t *unit) {
+    switch (unit->type_id) {
+    case MT_NULL: case MT_VISION_SIGHT: case MT_DROPSHIP: case MT_BLOOD: case MT_VENT:
+    case MT_BEACON: case MT_COMMS_DISH: case MT_PRODUCTION_RELEASE: case MT_CANNONBALL:
+    case MT_PUS_BOMB: case MT_TOWER_ROCKET: case MT_XENO_BOLT: case MT_MINE_BLAST:
+    case MT_HUMAN_MINE: case MT_ALIEN_MINE: case MT_ROCKET_SMOKE: case MT_SCOUT_BOMB:
+        return false;
+    default:
+        return unit->type_id < NUMMOBJTYPES && unit->allegiance != ALLEGIANCE_NEUTRAL;
+    }
+}
+
+void G_ShowOutcome(outcome_t outcome) { DC_ShowResult(outcome); }
+
 void destroy_mission(void *ptr) {
     Mission *mission = ptr;
     if (!mission) return;

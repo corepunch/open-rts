@@ -20,53 +20,36 @@ bool w2_init_mission(level_t *map) {
     return true;
 }
 
-static bool alive(int owner, mobj_t *const *units, int count) {
-    for (int i = 0; i < count; ++i) {
-        const mobj_t *unit = units[i];
-        if (unit->owner != owner || unit->hp <= 0 || unit->remove) continue;
-        if (unit->type_id >= (uint16_t)(W2_TYPE_COUNT + 1)) continue;
-        if (!(mobjinfo[unit->type_id].w2.attributes & W2_NEUTRAL)) return true;
-    }
-    return false;
+/* Person and computer slots. Rescue and neutral owners are not sides. */
+bool G_PlayerSide(int owner) {
+    const w2_pud_t *pud = level.native_data;
+    return pud && owner >= 0 && owner < 8 && (pud->owners[owner] == 4 || pud->owners[owner] == 5);
 }
+
+bool G_UnitHoldsSide(const mobj_t *unit) {
+    return unit->type_id < (uint16_t)(W2_TYPE_COUNT + 1) &&
+           !(mobjinfo[unit->type_id].w2.attributes & W2_NEUTRAL);
+}
+
+void G_ShowOutcome(outcome_t outcome) { W2_ShowResult(outcome == OUTCOME_VICTORY); }
 
 void W2_VictoryReset(void) {
     w2_mission_t *mission = level.mission;
     if (mission) { mission->done = false; mission->countdown = 0; }
+    level.outcome = OUTCOME_NONE;
 }
 
-/* Person and computer slots. Rescue and neutral owners are not sides. */
-static int living_sides(const w2_pud_t *pud, mobj_t *const *units, int count) {
-    int living = 0;
-    for (int i = 0; i < 8; ++i) {
-        if (pud->owners[i] != 4 && pud->owners[i] != 5) continue;
-        if (alive(i, units, count)) ++living;
-    }
-    return living;
-}
-
-void W2_CheckVictory(mobj_t *const *units, int count) {
+/* Checked every 30 tics. Losing every unit ends a campaign mission as it
+ * ends a custom map; a campaign's victory is its own objective. */
+unsigned G_LevelObjectives(mobj_t *const *units, int count) {
     w2_mission_t *mission = level.mission;
-    if (!mission || mission->done || menuactive || --mission->countdown > 0) return;
+    if (!mission || mission->done || menuactive || --mission->countdown > 0) return 0;
     mission->countdown = 30;
-    const w2_pud_t *pud = level.native_data;
-    if (!pud || consoleplayer < 0 || consoleplayer >= 8) return;
-    /* A network match ends for every machine on the same tic, once fewer
-     * than two sides remain. Retail drops an eliminated machine at once;
-     * lockstep keeps it in the world until then, then shows that player defeat. */
-    if (netgame) {
-        int living = living_sides(pud, units, count);
-        if (living > 1) return;
-        mission->done = true;
-        W2_ShowResult(living == 1 && alive(consoleplayer, units, count));
-        return;
-    }
-    bool survived = alive(consoleplayer, units, count);
-    if (!survived) { mission->done = true; W2_ShowResult(false); return; }
-    if (mission->campaign.number) {
-        /* Other campaign objectives (rescue, regions, named targets) must
-         * not accidentally fall through to generic elimination. */
-        if (mission->campaign.number != 1) return;
+    if (!level.native_data) return 0;
+    if (!mission->campaign.number) return ELIMINATE_ALL;
+    /* Other campaign objectives (rescue, regions, named targets) must not
+     * accidentally fall through to generic elimination. */
+    if (mission->campaign.number == 1 && consoleplayer >= 0 && consoleplayer < 8) {
         int farms = 0, barracks = 0;
         for (int i = 0; i < count; ++i) {
             const mobj_t *unit = units[i];
@@ -75,20 +58,9 @@ void W2_CheckVictory(mobj_t *const *units, int count) {
             farms += unit->type_id == (mission->campaign.orc ? MT_PIG_FARM : MT_FARM);
             barracks += unit->type_id == (mission->campaign.orc ? MT_ORC_BARRACKS : MT_HUMAN_BARRACKS);
         }
-        if (farms < 4 || barracks < 1) return;
-        mission->done = true;
-        W2_ShowResult(true);
-        return;
+        if (farms >= 4 && barracks >= 1) G_EndLevel(OUTCOME_VICTORY);
     }
-    int opponents = 0;
-    bool opponent_left = false;
-    for (int i = 0; i < 8; ++i) {
-        if (i == consoleplayer || (pud->owners[i] != 4 && pud->owners[i] != 5)) continue;
-        ++opponents;
-        opponent_left = opponent_left || alive(i, units, count);
-    }
-    if (!opponents) return;
-    if (opponent_left) return;
-    mission->done = true;
-    W2_ShowResult(true);
+    return ELIMINATE_DEFEAT;
 }
+
+void W2_CheckVictory(mobj_t *const *units, int count) { G_OutcomeTicker(units, count); }

@@ -9,5 +9,6 @@
     uint32_t peace[8]; \
     struct dc_weapons_s *weapons; \
     struct { uint8_t selected, queued; } purchases[8][110]; /* Native DEPEND rows. */ \
-    int exo_income[8]; /* Credits per 16 native ticks while the base stands (team +0xe1c). */
+    int exo_income[8]; /* Credits per 16 native ticks while the base stands (team +0xe1c). */ \
+    uint8_t side_team[8]; /* Scenario team + 1 of each owner's first unit, for result lines. */
 #endif
