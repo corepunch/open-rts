@@ -4,7 +4,9 @@
 #include "engine.h"
 
 /* One planner for every game: integer A* over the level's eight-connected
- * grid, followed by a radius-aware string pull. Units keep the resulting
+ * grid, followed by a radius-aware string pull. A class whose units cover
+ * n x n cells searches nodes whose whole block is open (P_NavNodePoint), so
+ * a 2x2 ship sails on cell corners. Units keep the resulting
  * waypoints and steer between them (see p_steer.c).
  *
  * Every call takes a movement class (terrainspeeds_t). Class 0 is plain

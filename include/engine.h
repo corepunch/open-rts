@@ -445,6 +445,9 @@ typedef struct {
     uint8_t terrain[RTS_MAX_MOVE_CLASSES][16];
     uint8_t overlay[RTS_MAX_MOVE_CLASSES][8];
     uint8_t max_slope[RTS_MAX_MOVE_CLASSES]; /* Authored; needs an elevation map to apply. */
+    /* Side of the square block of cells a unit of the class covers; 0 means 1.
+     * The planner keeps such a unit where its whole block is open (P_NavNodePoint). */
+    uint8_t footprint[RTS_MAX_MOVE_CLASSES];
 } terrainspeeds_t;
 
 /* How the level ended for the local player (game/g_outcome.c). */
@@ -1573,6 +1576,16 @@ const uint16_t *P_NavRegions(const level_t *map, int move_class);
 /* Nearest cell to `wanted` in the same region as `from`, within `radius` cells. */
 bool P_NavNearestReachable(const level_t *map, int move_class, ivec2_t from,
                            ivec2_t wanted, int radius, ivec2_t *out);
+/* Nav nodes. A class covering n x n cells plans on node (x, y): the block whose
+ * top-left cell is (x - n/2, y - n/2). An odd block centres on a cell, so its
+ * nodes are cells; an even one centres on a cell corner. Regions and every
+ * ivec2_t of the P_Nav calls above are nodes of the class. */
+int P_NavFootprint(const level_t *map, int move_class);
+fixed2_t P_NavNodePoint(const level_t *map, int move_class, ivec2_t node);
+ivec2_t P_NavNodeAt(const level_t *map, int move_class, fixed2_t at);
+/* Nodes whose block touches the w x h footprint at `cell` without overlapping
+ * it, row by row from the top-left. Returns how many were written to `out`. */
+int P_NavRing(const level_t *map, int move_class, ivec2_t cell, isize2_t size, ivec2_t *out, int max);
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);

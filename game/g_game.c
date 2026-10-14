@@ -201,7 +201,9 @@ static bool model_position_available(const mobj_t *spawned, fixed2_t at, fixed_t
 static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *producer,
                                      fixed_t radius, fixed2_t *out) {
     if (!producer || !out) return false;
-    ivec2_t origin = fixed2_cell(fixed3_xy(producer->core.position));
+    /* Exits are nav nodes, so a ship wider than a cell leaves on a cell corner. */
+    int cls = P_MobjMoveClass(spawned);
+    ivec2_t origin = P_NavNodeAt(&level, cls, fixed3_xy(producer->core.position));
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -209,8 +211,8 @@ static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *produc
     int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
     for (int dist = 1; dist <= 8; ++dist) {
         for (int i = 0; i < preferred_count; ++i) {
-            fixed2_t candidate = fixed2_cell_center((ivec2_t){ origin.x + preferred[i][0] * dist,
-                                                               origin.y + preferred[i][1] * dist });
+            fixed2_t candidate = P_NavNodePoint(&level, cls, (ivec2_t){ origin.x + preferred[i][0] * dist,
+                                                                        origin.y + preferred[i][1] * dist });
             if (!model_position_available(spawned, candidate, radius)) continue;
             *out = candidate;
             return true;
@@ -218,7 +220,7 @@ static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *produc
         for (int dy = -dist; dy <= dist; ++dy) {
             for (int dx = -dist; dx <= dist; ++dx) {
                 if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
-                fixed2_t candidate = fixed2_cell_center((ivec2_t){ origin.x + dx, origin.y + dy });
+                fixed2_t candidate = P_NavNodePoint(&level, cls, (ivec2_t){ origin.x + dx, origin.y + dy });
                 if (!model_position_available(spawned, candidate, radius)) continue;
                 *out = candidate;
                 return true;

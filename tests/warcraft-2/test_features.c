@@ -238,6 +238,7 @@ static int naval(void) {
     level.speeds->terrain[2][0] = 0;
     level.speeds->terrain[2][1] = 100;
     level.speeds->terrain[4][1] = 100;
+    level.speeds->footprint[2] = level.speeds->footprint[4] = 2;
     for (int y = 0; y < 32; ++y) for (int x = 10; x < 32; ++x) {
         level.cell_terrain[L_Index(&level, x, y)] = 1;
         level.blocked[L_Index(&level, x, y)] = 1;
@@ -273,6 +274,7 @@ static int naval(void) {
     fixture();
     memset(level.cell_terrain, 1, 1024); memset(level.blocked, 1, 1024);
     level.speeds->terrain[2][1] = 100;
+    level.speeds->footprint[2] = 2;
     mobj_t *tanker = spawn(MT_HUMAN_OIL_TANKER, FIXED2_LIT(10, 6), 0);
     mobj_t *patch = spawn(MT_OIL_PATCH, FIXED2_LIT(14.5, 5.5), 15);
     patch->allegiance = ALLEGIANCE_NEUTRAL;

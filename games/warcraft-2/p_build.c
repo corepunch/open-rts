@@ -392,22 +392,22 @@ bool W2_CancelConstruction(mobj_t *site) {
     return true;
 }
 
-/* Whether `walker` can step beside the footprint at `cell`. */
-/* Some cell of the ring around a footprint lies in `region`. */
-static bool ring_in_region(const uint16_t *regions, uint16_t region, ivec2_t cell, isize2_t foot) {
-    for (int y = -1; y <= foot.h && region; ++y)
-        for (int x = -1; x <= foot.w; ++x) {
-            ivec2_t at = ivec2_add(cell, (ivec2_t){x, y});
-            if ((x < 0 || y < 0 || x >= foot.w || y >= foot.h) && L_Contains(&level, at.x, at.y) &&
-                regions[L_Index(&level, at.x, at.y)] == region) return true;
-        }
+/* Some node of the ring around a footprint lies in `region`. */
+static bool ring_in_region(const mobj_t *walker, const uint16_t *regions, uint16_t region, ivec2_t cell,
+                           isize2_t foot) {
+    ivec2_t ring[256];
+    int count = region ? P_NavRing(&level, P_MobjMoveClass(walker), cell, foot, ring, 256) : 0;
+    for (int i = 0; i < count; ++i)
+        if (L_Contains(&level, ring[i].x, ring[i].y) && regions[L_Index(&level, ring[i].x, ring[i].y)] == region)
+            return true;
     return false;
 }
 
 /* The walker's component, 0 when it has none. */
 static uint16_t walker_region(const mobj_t *walker, const uint16_t **regions) {
-    ivec2_t from = fixed2_cell(fixed3_xy(walker->core.position));
-    *regions = P_NavRegions(&level, P_MobjMoveClass(walker));
+    int cls = P_MobjMoveClass(walker);
+    ivec2_t from = P_NavNodeAt(&level, cls, fixed3_xy(walker->core.position));
+    *regions = P_NavRegions(&level, cls);
     return *regions && L_Contains(&level, from.x, from.y) ? (*regions)[L_Index(&level, from.x, from.y)] : 0;
 }
 
@@ -415,7 +415,7 @@ bool w2_site_reachable(const mobj_t *walker, ivec2_t cell, isize2_t foot) {
     if (!walker) return true;
     const uint16_t *regions;
     uint16_t region = walker_region(walker, &regions);
-    return region && ring_in_region(regions, region, cell, foot);
+    return region && ring_in_region(walker, regions, region, cell, foot);
 }
 
 /* Stratagus' AI keeps its buildings off the way between a hall and its
@@ -525,7 +525,7 @@ static bool site_with_margin(const sitescan_t *scan, uint16_t type, ivec2_t cell
             water |= level.cell_terrain[index] == 1;
         }
     return (!shore || (land && water)) &&
-        (!walker || (scan->region && ring_in_region(scan->regions, scan->region, cell, foot)));
+        (!walker || (scan->region && ring_in_region(walker, scan->regions, scan->region, cell, foot)));
 }
 
 /* The open oil patch nearest `from` that the tanker can sail to. */

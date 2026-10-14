@@ -139,8 +139,8 @@ static bool find_nearest_walkable_cell(const level_t *map, int cls, cell_t wante
     return true;
 }
 
-/* Walkable spot nearest `wanted`: the point itself, else the closest cell
- * centre within search_radius cells. With units != NULL, spots inside another
+/* Walkable spot nearest `wanted`: the point itself, else the closest nav node
+ * of the class within search_radius nodes. With units != NULL, spots inside another
  * member's reserved goal (same order) are rejected too. */
 static bool find_nearest_position(const level_t *map, int cls, mobj_t *const *units, int unit_count,
                                   int self_index, uint32_t order_id, fixed2_t wanted,
@@ -151,13 +151,13 @@ static bool find_nearest_position(const level_t *map, int cls, mobj_t *const *un
         *out = wanted;
         return true;
     }
-    cell_t cell = fixed2_cell(wanted);
+    ivec2_t node = P_NavNodeAt(map, cls, wanted);
     int64_t best_d2 = INT64_MAX;
     bool found = false;
     fixed2_t best = wanted;
     for (int dy = -search_radius; dy <= search_radius; ++dy) {
         for (int dx = -search_radius; dx <= search_radius; ++dx) {
-            fixed2_t at = fixed2_cell_center((ivec2_t){ cell.x + dx, cell.y + dy });
+            fixed2_t at = P_NavNodePoint(map, cls, (ivec2_t){ node.x + dx, node.y + dy });
             if (!map_circle_walkable(map, cls, at, unit_radius, NULL)) continue;
             if (position_overlaps_reserved_goal(units, unit_count, self_index, at, unit_radius, order_id))
                 continue;
@@ -345,7 +345,7 @@ void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         fixed2_t slot = fixed2_add(goal_position, (fixed2_t){ offset_x, offset_y });
         if (!P_CheckPosition(map, unit, slot) ||
             position_overlaps_reserved_goal(units, unit_count, i, slot, P_MobjRadius(unit), order_id)) {
-            fixed2_t adjusted = fixed2_cell_center((ivec2_t){ goal.x, goal.y });
+            fixed2_t adjusted = P_NavNodePoint(map, cls, P_NavNodeAt(map, cls, fixed2_cell_center(goal)));
             if (!find_nearest_position(map, cls, units, unit_count, i, order_id, adjusted,
                                        P_MobjRadius(unit), 8, &adjusted))
                 find_nearest_position(map, cls, NULL, 0, -1, 0, adjusted, P_MobjRadius(unit), 8, &adjusted);
@@ -462,8 +462,9 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
             /* The planner falls back to the nearest reachable spot, which must
              * still be at the vent: a walled-off vent is not harvestable. */
             ivec2_t near;
-            if (!P_NavNearestReachable(map, P_MobjMoveClass(unit), fixed2_cell(fixed3_xy(unit->core.position)),
-                                       fixed2_cell(vent->attachment), fixed_ceil_int(P_ResourceVentRadius(vent)) + 1, &near))
+            int cls = P_MobjMoveClass(unit);
+            if (!P_NavNearestReachable(map, cls, P_NavNodeAt(map, cls, fixed3_xy(unit->core.position)),
+                                       P_NavNodeAt(map, cls, vent->attachment), fixed_ceil_int(P_ResourceVentRadius(vent)) + 1, &near))
                 continue;
         }
         unit->core.momentum = fixed3_zero();

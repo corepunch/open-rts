@@ -30,6 +30,13 @@ static bool alive(const mobj_t *unit) {
 static const w2_stats_t *stats(const mobj_t *unit) { return &mobjinfo[unit->type_id].w2; }
 
 static ivec2_t cell_of(const mobj_t *unit) { return fixed2_cell(fixed3_xy(unit->core.position)); }
+/* Nav node of `unit`'s class it stands on; a ship's node is a cell corner. */
+static ivec2_t node_of(const mobj_t *unit) {
+    return P_NavNodeAt(&level, P_MobjMoveClass(unit), fixed3_xy(unit->core.position));
+}
+static fixed2_t node_point(const mobj_t *unit, ivec2_t node) {
+    return P_NavNodePoint(&level, P_MobjMoveClass(unit), node);
+}
 
 static bool enemy_of(const mobj_t *unit, const mobj_t *other) {
     return alive(other) && other->owner < 8 && other->allegiance != ALLEGIANCE_NEUTRAL &&
@@ -40,14 +47,14 @@ static bool land_unit(const mobj_t *unit) {
     return (unit->traits & MF_MOBILE) && stats(unit)->domain == W2_DOMAIN_LAND;
 }
 
-/* A cell `unit` can stand on within `radius` of `goal`. */
+/* A node `unit` can stand on within `radius` of `goal`. */
 static bool reach(const mobj_t *unit, ivec2_t goal, int radius, ivec2_t *out) {
     ivec2_t spot;
-    return P_NavNearestReachable(&level, P_MobjMoveClass(unit), cell_of(unit), goal, radius, out ? out : &spot);
+    return P_NavNearestReachable(&level, P_MobjMoveClass(unit), node_of(unit), goal, radius, out ? out : &spot);
 }
 
-/* Water by open land: the cell nearest `near` that `ship` can sail to and
- * that has a dry neighbour from which soldiers can walk to `inland`. */
+/* Water by open land: the node nearest `near` that `ship` can sail to and
+ * whose block has a dry neighbour from which soldiers can walk to `inland`. */
 static bool shore(const mobj_t *ship, ivec2_t near, ivec2_t inland, ivec2_t *out) {
     int best = INT32_MAX;
     for (int dy = -FERRY_SEARCH; dy <= FERRY_SEARCH; ++dy)
@@ -55,10 +62,13 @@ static bool shore(const mobj_t *ship, ivec2_t near, ivec2_t inland, ivec2_t *out
             ivec2_t c = {near.x + dx, near.y + dy}, spot;
             int d = dx * dx + dy * dy;
             if (d >= best || !L_Contains(&level, c.x, c.y) ||
-                !P_NavReachable(&level, P_MobjMoveClass(ship), cell_of(ship), c)) continue;
+                !P_NavReachable(&level, P_MobjMoveClass(ship), node_of(ship), c)) continue;
+            /* The block's cells and the ring around them. */
+            int size = P_NavFootprint(&level, P_MobjMoveClass(ship)), side = size + 2;
+            ivec2_t corner = {c.x - size / 2 - 1, c.y - size / 2 - 1};
             bool dry = false;
-            for (int k = 0; k < 9 && !dry; ++k) {
-                ivec2_t n = {c.x + k % 3 - 1, c.y + k / 3 - 1};
+            for (int k = 0; k < side * side && !dry; ++k) {
+                ivec2_t n = {corner.x + k % side, corner.y + k / side};
                 dry = L_Contains(&level, n.x, n.y) && level.cell_terrain[L_Index(&level, n.x, n.y)] == 0 &&
                       !level.cell_solid[L_Index(&level, n.x, n.y)] &&
                       P_NavNearestReachable(&level, 1, n, inland, 3, &spot);
@@ -93,10 +103,10 @@ static void send_ship(mobj_t *ship, const mobj_t *goal) {
     /* Nothing on the shore in reach: hold the water nearest the goal,
      * where the landing will come. */
     if (!best && reach(ship, cell_of(goal), FERRY_REACH * 2, &best_spot)) {
-        P_MoveUnitTo(&level, ship, fixed2_cell_center(best_spot));
+        P_MoveUnitTo(&level, ship, node_point(ship, best_spot));
         return;
     }
-    if (!best || !P_MoveUnitTo(&level, ship, fixed2_cell_center(best_spot))) return;
+    if (!best || !P_MoveUnitTo(&level, ship, node_point(ship, best_spot))) return;
     ship->attack.target = best;
 }
 
@@ -121,11 +131,11 @@ static void call_transport(mobj_t *const *troops, int count, ivec2_t goal) {
     }
     ivec2_t pickup, home = fixed2_cell(centre);
     if (!ship || !shore(ship, home, cell_of(troops[0]), &pickup)) return;
-    P_MoveUnitTo(&level, ship, fixed2_cell_center(pickup));
+    P_MoveUnitTo(&level, ship, node_point(ship, pickup));
     ship->w2.ferry.phase = FERRY_GATHER;
     ship->w2.ferry.wait = 0;
     ship->w2.ferry.to = goal;
-    P_MoveUnitsAt(&level, troops, count, fixed2_cell_center(pickup));
+    P_MoveUnitsAt(&level, troops, count, node_point(ship, pickup));
 }
 
 /* Flyers and soldiers that can walk go straight at the goal, ships to the
@@ -228,7 +238,7 @@ static void run_ferry(mobj_t *ship, mobj_t *const *units, int count) {
     }
     ivec2_t landing;
     if (!shore(ship, ship->w2.ferry.to, ship->w2.ferry.to, &landing) ||
-        !W2_UnloadOrder(ship, fixed2_cell_center(landing))) return;
+        !W2_UnloadOrder(ship, node_point(ship, landing))) return;
     ship->w2.ferry.phase = FERRY_SAIL;
 }
 
