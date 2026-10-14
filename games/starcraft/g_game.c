@@ -45,6 +45,15 @@ void sc_refresh_actors(void) {
         if(mobile&&!(u->flags&4))mobjinfo[i+1].radius=(u->bounds.w+u->bounds.h+2)/4;
         sc_unit_weapons(i+1,&actors[i]);
         if(actors[i].attack.damage) actors[i].traits|=MF_ATTACK;
+        /* A turret subunit (flag 0x10) aims on its own at its flingy.dat turn
+         * rate, in its idle pose (its state's frame once graphics load). */
+        unsigned sub=(unsigned)u->subunit;
+        if(sub<SC_TYPES&&(sc_units[sub].flags&16)) {
+            actors[i].turret.sprite_name=sc_names[sub];
+            actors[i].turret.turn_step=(angle_t)(((uint64_t)sc_units[sub].turn<<24)*24/RTS_TICRATE);
+            actors[i].turret.frame=states[1+sub*2].frame;
+            actors[i].turret.fire_frame=-1;
+        }
         actors[i].harvest.state_id=harvest_state;
     }
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
@@ -119,6 +128,7 @@ bool R_InitSprites(const char *root,const level_t *map,mobj_t *const *mobjs,int 
     /* The first load includes every DAT type; production borrows that cache. */
     if(cache->count>=SC_TYPES)return true;
     if(!sc_load_graphics(root,map,cache)) return false;
+    sc_refresh_actors(); /* Turret poses come from the loaded animations. */
     for(int i=0;i<count;i++) P_SetMobjState(mobjs[i],mobjinfo[mobjs[i]->type_id].spawnstate);
     return true;
 }

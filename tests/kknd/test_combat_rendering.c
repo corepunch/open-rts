@@ -82,32 +82,44 @@ int main(void) {
                 const spritelayer_t *body = sprite->spritedef.spriteframes[info->muzzle.body].directions[rotation].layers;
                 const spritelayer_t *flash = extras->spritedef.spriteframes[info->muzzle.frame+phase].directions[rotation].layers;
                 const spritelayer_t *composed = sprite->spritedef.spriteframes[unit->core.frame].directions[rotation].layers;
-                int parts = info->muzzle.turret ? 3 : 2;
-                CHECK(!strcmp(composed[parts-1].sprite_name,"22") && !composed[parts].sprite_name[0]);
-                V_BeginFrame(CLEAR);
-                RTS_RUN(draw_at(sprite,body,(ivec2_t){64,80}));
-                ivec2_t muzzle = ivec2_add((ivec2_t){64,80},weapons[type].points[rotation]);
-                if (info->muzzle.turret) {
-                    const spritesheet_t *turret = R_StateSprite(cache,gameinfo,info->muzzle.turret,NULL);
-                    CHECK(turret && !strcmp(body[1].sprite_name,"47"));
-                    RTS_RUN(draw_at(turret,body+1,muzzle));
-                    muzzle = ivec2_add(muzzle,turret_points[rotation]);
+                /* A turret takes the flash on its own firing frames (1 and 2
+                 * of the unit's gun sheet); the body fires bare. */
+                const spritesheet_t *gun = info->muzzle.turret ?
+                    R_CacheLookup(cache, unit->info->turret.sprite_name) : NULL;
+                CHECK(!info->muzzle.turret || gun);
+                const spritelayer_t *firing = gun ?
+                    gun->spritedef.spriteframes[1+phase].directions[rotation].layers : composed;
+                CHECK(!strcmp(firing[1].sprite_name,"22") && !firing[2].sprite_name[0]);
+                CHECK(!gun || !composed[1].sprite_name[0]);
+                /* The turret also aims three steps off the body. */
+                for (int aim = 0; aim < (gun ? 2 : 1); ++aim) {
+                    int turn = aim ? 3 : 0, toward = (rotation + turn) % 16;
+                    unit->attack.aim = (angle_t)turn * (ANG90 / 4u);
+                    V_BeginFrame(CLEAR);
+                    RTS_RUN(draw_at(sprite,body,(ivec2_t){64,80}));
+                    ivec2_t muzzle = ivec2_add((ivec2_t){64,80},weapons[type].points[rotation]);
+                    if (gun) {
+                        RTS_RUN(draw_at(gun,gun->spritedef.spriteframes[0].directions[toward].layers,muzzle));
+                        muzzle = ivec2_add(muzzle,turret_points[toward]);
+                        flash = extras->spritedef.spriteframes[info->muzzle.frame+phase].directions[toward].layers;
+                    }
+                    RTS_RUN(draw_at(extras,flash,muzzle));
+                    V_ReadPixels(expected,VIEW*4);
+                    V_BeginFrame(CLEAR);
+                    R_DrawThings(&app,&unit,1,NULL,cache,gameinfo,0);
+                    V_ReadPixels(actual,VIEW*4);
+                    if (memcmp(expected,actual,sizeof(actual))!=0) {
+                        fprintf(stderr,"render mismatch type=%d rotation=%d aim=%d phase=%d body_lump=%d flash_lump=%d offset=(%d,%d)\n",
+                                unit->type_id,rotation,turn,phase,body->lump,flash->lump,
+                                firing[1].offset.x,firing[1].offset.y);
+                        CHECK(false);
+                    }
+                    int visible=0;
+                    for (size_t pixel=0; pixel<VIEW*VIEW; ++pixel) visible += actual[pixel]!=clear;
+                    CHECK(visible>0);
+                    if (!aim && !(rotation%2)) catalog_view(catalog,actual,rotation/2,(int)type*2+phase);
                 }
-                RTS_RUN(draw_at(extras,flash,muzzle));
-                V_ReadPixels(expected,VIEW*4);
-                V_BeginFrame(CLEAR);
-                R_DrawThings(&app,&unit,1,NULL,cache,gameinfo,0);
-                V_ReadPixels(actual,VIEW*4);
-                if (memcmp(expected,actual,sizeof(actual))!=0) {
-                    fprintf(stderr,"render mismatch type=%d rotation=%d phase=%d body_lump=%d flash_lump=%d offset=(%d,%d)\n",
-                            unit->type_id,rotation,phase,body->lump,flash->lump,
-                            composed[parts-1].offset.x,composed[parts-1].offset.y);
-                    CHECK(false);
-                }
-                int visible=0;
-                for (size_t pixel=0; pixel<VIEW*VIEW; ++pixel) visible += actual[pixel]!=clear;
-                CHECK(visible>0);
-                if (!(rotation%2)) catalog_view(catalog,actual,rotation/2,(int)type*2+phase);
+                unit->attack.aim = 0;
                 CHECK(P_TickMobjState(unit));
                 CHECK(P_TickMobjState(unit));
             }

@@ -291,6 +291,22 @@ static bool turn_unit_toward(mobj_t *unit, angle_t desired, int dt_ms) {
     return false;
 }
 
+static bool has_turret(const mobj_t *unit) {
+    return unit->info && unit->info->turret.sprite_name;
+}
+
+/* Where a turret looks on the map, its aim being kept relative to the hull. */
+static angle_t turret_angle(const mobj_t *unit) {
+    return unit->core.angle + unit->attack.aim;
+}
+
+/* A turret turns its own step a tic toward `desired`; the hull stays. */
+static void turn_turret_toward(mobj_t *unit, angle_t desired) {
+    angle_t want = desired - unit->core.angle, step = unit->info->turret.turn_step;
+    if (!step || angle_distance(want, unit->attack.aim) <= step) unit->attack.aim = want;
+    else unit->attack.aim += (int32_t)(want - unit->attack.aim) > 0 ? step : 0u - step;
+}
+
 /* Leave room for a transporter exiting the same bay. The regular movement
  * goal is temporary; harvest.return_position remains the required dock. */
 static void yield_harvest_bay(level_t *map, mobj_t *unit) {
@@ -1020,7 +1036,10 @@ void A_Look(mobj_t *unit) {
     fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position),
                                 fixed3_xy(unit->core.position));
     angle_t desired = angle_from_map_vector_fixed(&level, delta.x, delta.y);
-    if ((unit->traits & MF_TURRET) || unit->info->turn_step) {
+    if (has_turret(unit)) {
+        /* The ticker turns the turret; fire once it is on the target. */
+        if (angle_distance(desired, turret_angle(unit)) >= ANG45 / 8u) return;
+    } else if ((unit->traits & MF_TURRET) || unit->info->turn_step) {
         if (!turn_unit_toward(unit, desired, 1000 / RTS_TICRATE)) return;
     } else unit->core.angle = desired;
     int attack_state = gameinfo->mobjinfo[unit->type_id].missilestate;
@@ -1531,6 +1550,17 @@ static void tick_actor(mobj_t *u) {
         u->attack.cooldown_left_ms -= dt_ms;
         if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
     }
+    if (has_turret(u)) {
+        /* A turret follows its target while it is in reach, else the hull. */
+        const mobj_t *enemy = u->attack.target;
+        angle_t desired = u->core.angle;
+        if (enemy && !enemy->remove && enemy->hp > 0 && P_VisibleTo(u, enemy) &&
+            within_attack_range(u, enemy, mobj_attack_range(u, enemy))) {
+            fixed2_t delta = fixed2_sub(fixed3_xy(enemy->core.position), fixed3_xy(u->core.position));
+            desired = angle_from_map_vector_fixed(map, delta.x, delta.y);
+        }
+        turn_turret_toward(u, desired);
+    }
     const state_t *active_state = state_at(game_info, u->core.state_id);
     if (((u->traits & (MF_TURRET | MF_LANDMINE | MF_HEAL | MF_REPAIR)) ||
          ((u->traits & MF_FLY) && u->info && u->info->attack.projectile_type)) && active_state &&
@@ -1564,9 +1594,10 @@ static void tick_actor(mobj_t *u) {
                 fixed2_t target_delta = fixed2_sub(
                     fixed3_xy(target->core.position),
                     fixed3_xy(u->core.position));
-                u->core.angle = angle_from_map_vector_fixed(map,
-                                                 target_delta.x,
-                                                 target_delta.y);
+                if (!has_turret(u))
+                    u->core.angle = angle_from_map_vector_fixed(map,
+                                                     target_delta.x,
+                                                     target_delta.y);
                 P_ClearMove(u);
                 u->movement.order_id = 0;
                 u->movement.order_arrived = false;

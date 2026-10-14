@@ -567,11 +567,16 @@ assets is **corroborated/inferred**, not a new DOS instruction trace.
 In the installed member 47, channel 1 is sixteen single-frame turret poses,
 logical frame 0. Its north frame 3354559 points to 3356231 with point 0
 (0,-14); east is (13,-5), south (0,5), west (-13,-5). Pickup bodies retain
-their own point lists. Idle/movement and both fire poses compose the selected
-turret, sharing the cached member-47 images; native Pickup channel 2 is still
-preserved individually. The current presentation keeps body and turret
-facing together. Independent turret aiming and full retail firing dispatch
-remain unported, as do exact DOS timing-word semantics.
+their own point lists. The turret now aims on its own through the engine's
+turret support: Pickup body pictures from the idle pose on carry their point 0
+as the turret's mount (a mirrored picture's authored point is unmirrored for
+storage, since the renderer mirrors mounts), and the Pickup decodes its own
+copy of member 47, `UNIT_SURV_PICKUP_GUN`, whose frames 1 and 2 become the
+turret firing with each flash at turret point 0. The body's fire poses are
+bare. Native Pickup channel 2 is still preserved individually. UNITS.CFG has
+no turret tspeed, so the turret's turn rate (twice the body's) is authored.
+Full retail firing dispatch remains unported, as do exact DOS timing-word
+semantics.
 
 Verification:
 

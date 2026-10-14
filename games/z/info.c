@@ -63,7 +63,7 @@ const state_t states[NUMSTATES] = {
     [S_##type] = { SPR_RSC, sprite, 1, -1, NULL, S_##type, 0, NULL },
 #include "objects.inc"
 #undef Z_OBJECT
-#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, idle, dead) \
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, idle, dead, turret) \
     STATES_##kind(type, sprite, turn, frames, idle, dead)
 #include "units.inc"
 #undef Z_UNIT

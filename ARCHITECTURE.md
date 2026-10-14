@@ -471,6 +471,17 @@ enemy teams unless an `MF_DETECTOR` of theirs covers its cell
 both use it; Warcraft II keeps its own invisibility. `gameinfo_t.mobj_ticker`
 runs a game's per-tic actor rules, such as StarCraft shields and energy.
 
+A type with a `turret` aims apart from its hull. The engine keeps the
+turret's facing in `attack.aim`, relative to the hull, and turns it
+`turret.turn_step` a tic toward a target in reach, or back to the hull when
+there is none. The unit fires once the turret is on target and leaves its
+hull where it was. The renderer draws the turret's own sheet by that aim, its
+ground point on the `mount` the hull picture carries (kept unmirrored; a
+mirrored hull mirrors it), in `turret.frame`, or while attacking in
+`turret.fire_frame` onward as the body goes through its attack run. Z's
+tanks, jeep, crane and mobile missile, StarCraft's turret subunits (Goliath,
+Siege Tank in both modes, Missile Turret) and KKnD's 4x4 Pickup use it.
+
 ## Computer players
 
 One shared AI (`play/p_ai.c`, `play/p_ai_doctrine.c`) runs every game. A game

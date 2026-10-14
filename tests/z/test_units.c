@@ -1,6 +1,7 @@
 #include "t_local.h"
 #include "engine.h"
 #include "../../games/z/info.h"
+#include "../../games/z/z_local.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -123,6 +124,46 @@ static int test_fight_to_death(void) {
     return 0;
 }
 
+/* A Medium Tank facing north turns its turret, not its hull, to an enemy
+ * on its right, fires only once the turret is on it, and turns the
+ * turret back once the enemy is gone. */
+static int test_turret_aims(void) {
+    RtsGameModel *model = load_map("LEVEL09/LEVEL09.MAP");
+    if (!model) return fail("load for the turret");
+    mobj_t *tank = find(0, MT_UNIT_MED_TANK), *enemy = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap && !enemy; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->team == 1 && mo->hp > 0 && Z_UnitType(mo) >= 0 &&
+            Z_IsRobot(Z_UnitType(mo)))
+            enemy = mo;
+    }
+    if (!tank || !enemy) return fail("a Medium Tank and an enemy robot");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if ((mobj_t *)th != tank) ((mobj_t *)th)->traits &= ~MF_ATTACK;
+    angle_t north = P_PointToAngle(0, -FIXED_ONE), east = P_PointToAngle(FIXED_ONE, 0);
+    tank->core.angle = north;
+    enemy->core.position = fixed3_add_planar(tank->core.position, (fixed3_t){FIXED_FROM_INT(2), 0, 0});
+    enemy->hp = enemy->max_hp = 10000;
+    RtsRenderSnapshot snap;
+    int fired_at = -1;
+    for (int t = 0; t < 5 * RTS_TICRATE && fired_at < 0; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick");
+        if (states[tank->core.state_id].group == 3 || enemy->hp < enemy->max_hp) fired_at = t;
+    }
+    if (fired_at < 0) return fail("the tank fires");
+    if (fired_at < 3) return fail("the turret turns before the tank fires");
+    if (tank->core.angle != north) return fail("the hull keeps facing north");
+    if (angle_distance(tank->core.angle + tank->attack.aim, east) >= ANG45 / 8u)
+        return fail("the turret faces the enemy");
+    enemy->core.position = fixed3_add_planar(tank->core.position, (fixed3_t){FIXED_FROM_INT(40), 0, 0});
+    for (int t = 0; t < 2 * RTS_TICRATE; ++t)
+        if (!rts_tick(model, &snap)) return fail("tick");
+    if (tank->attack.aim != 0) return fail("the turret turns back to the hull");
+    puts("PASS: z Medium Tank aims its turret apart from its hull");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 /* Every vehicle composes eight directions of track frames, then of
  * standing ones, and a wreck. */
 static int test_vehicle_sheets(void) {
@@ -155,6 +196,6 @@ static int test_vehicle_sheets(void) {
 int main(void) {
     if (test_level_units() || test_select_and_move(NULL, MT_UNIT_GRUNT, "Grunt") ||
         test_select_and_move("LEVEL09/LEVEL09.MAP", MT_UNIT_MED_TANK, "Medium Tank") ||
-        test_vehicle_sheets() || test_fight_to_death()) return 1;
+        test_vehicle_sheets() || test_fight_to_death() || test_turret_aims()) return 1;
     return 0;
 }

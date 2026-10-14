@@ -71,7 +71,7 @@ int main(void) {
         CHECK(P_SpawnMobj(fixed3_zero(), actor_types[i].id));
     units = P_ListMobjs();
     CHECK(R_InitSprites(config.data_root, &level, units.items, units.count, cache));
-    CHECK(cache->count == NUMSPRITES);
+    CHECK(cache->count == NUMSPRITES + 1); /* and the Pickup's own gun */
     CHECK(check_anchors(cache) == 0);
     CHECK(R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL)->lumps[0].indices == retained);
     const spritesheet_t *derrick = R_StateSprite(cache, gameinfo, SPR_SURV_MOBILE_DERRICK, NULL);
@@ -98,7 +98,7 @@ int main(void) {
     }
     CHECK(failures == 0);
     CHECK(R_InitSprites(config.data_root, &level, units.items, units.count, cache));
-    CHECK(cache->count == NUMSPRITES);
+    CHECK(cache->count == NUMSPRITES + 1);
     R_FreeSpriteCache(cache);
     free(cache);
     P_FreeMobjList(&units);
