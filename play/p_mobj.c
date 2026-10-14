@@ -531,8 +531,9 @@ static fixed2_t snap_move_direction_45(fixed2_t direction) {
     fixed_t sx = direction.x < 0 ? -1 : 1, sy = direction.y < 0 ? -1 : 1;
     if (ax == 0) return (fixed2_t){0, sy * FIXED_ONE};
     if (ay == 0) return (fixed2_t){sx * FIXED_ONE, 0};
-    if (fixed_mul32(ax, diagonal_threshold) < ay || fixed_mul32(ay, diagonal_threshold) < ax)
-        return ax > ay ? (fixed2_t){sx * FIXED_ONE, 0} : (fixed2_t){0, sy * FIXED_ONE};
+    /* Within 22.5 degrees of an axis (tan 22.5 = 0.414) it walks the axis. */
+    if (ay < fixed_mul32(ax, diagonal_threshold)) return (fixed2_t){sx * FIXED_ONE, 0};
+    if (ax < fixed_mul32(ay, diagonal_threshold)) return (fixed2_t){0, sy * FIXED_ONE};
     return (fixed2_t){sx * diagonal, sy * diagonal};
 }
 

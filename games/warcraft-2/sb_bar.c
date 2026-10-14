@@ -280,7 +280,8 @@ static void put_cmd(int slot, int kind, int icon, int arg, int gold, int wood, i
     shown[slot] = (cmd_t){ kind, icon, arg, gold, wood, oil, key, tip };
 }
 
-static void fill_page(const bld_t *page_in, bool orc) {
+/* A structure appears once the tech tree allows it, as in Wargus. */
+static void fill_page(const mobj_t *builder, const bld_t *page_in, bool orc) {
     for (int i = 0; i < 9; ++i) {
         const bld_t *bld = &page_in[i];
         if (bld->pud < 0 && bld->icon < 0) continue;
@@ -290,6 +291,7 @@ static void fill_page(const bld_t *page_in, bool orc) {
         }
         int pud = bld->pud + (orc ? 1 : 0);
         int icon = bld->icon + (orc ? 1 : 0);
+        if (!W2_SiteAllowed(builder->owner, builder->type_id, (uint16_t)(pud + 1))) continue;
         const char *tip = orc && bld->tip_orc ? bld->tip_orc : bld->tip;
         const int *cost = mobjinfo[pud + 1].w2.costs.resources;
         put_cmd(i, CK_PLACE, icon, pud, cost[0], cost[1], cost[2], bld->key, tip);
@@ -325,19 +327,45 @@ static void fill_train(const mobj_t *unit) {
             const w2_upgrade_t *u = W2_Upgrade(p->product_type);
             key = u->armor ? SDLK_a : u->maker == MT_ELVEN_LUMBER_MILL || u->maker == MT_TROLL_LUMBER_MILL ? SDLK_u : SDLK_w;
         }
-        put_product(slot, p->ui_id, key, NULL);
-        if (p->product_class == RTS_PRODUCT_UNIT) shown[slot].icon = icon_of(p->product_type - 1);
+        /* After the elite research the barracks offers the elite unit. */
+        uint16_t trained = p->product_class == RTS_PRODUCT_UNIT ?
+            W2_TrainedType(unit->owner, (uint16_t)p->product_type) : 0;
+        put_product(slot, p->ui_id, key, trained && trained != p->product_type ? mobjinfo[trained].label : NULL);
+        if (trained) shown[slot].icon = icon_of(trained - 1);
         ++slot;
     }
     if (busy) put_cmd(8, CK_CANCEL_PRODUCTION, 91, 0, 0, 0, 0, SDLK_ESCAPE, "Cancel current production");
 }
 
+/* Wargus buttons.lua: Stop shows the unit's armor and Attack its weapon,
+ * each at the tier its research has reached (icons.lua frames). */
+static int stop_icon(const mobj_t *unit, bool orc) {
+    int tier = level.upgrades[unit->type_id][unit->owner].armor;
+    if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA) return (orc ? 150 : 153) + tier;
+    return (orc ? 167 : 164) + tier;
+}
+
+static int attack_icon(const mobj_t *unit, bool orc) {
+    int tier = level.upgrades[unit->type_id][unit->owner].weapon;
+    switch (unit->type_id) {
+    case MT_ARCHER: case MT_RANGER: case MT_ALLERIA: return 124 + tier;
+    case MT_AXETHROWER: case MT_BERSERKER: case MT_ZULJIN: return 127 + tier;
+    case MT_MAGE: case MT_KHADGAR: return 99;
+    case MT_DEATH_KNIGHT: case MT_TERON_GOREFIEND: case MT_GULDAN: return 102;
+    case MT_BALLISTA: return tier ? 139 + tier : 116;
+    case MT_CATAPULT: return tier ? 137 + tier : 119;
+    }
+    if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA) return (orc ? 147 : 144) + tier;
+    return (orc ? 119 : 116) + tier;
+}
+
 static void fill_mobile(const mobj_t *unit, bool orc) {
     bool harvest = (unit->traits & MF_HARVESTER) != 0;
-    put_cmd(0, CK_MOVE, orc ? 84 : 83, 0, 0, 0, 0, SDLK_m, "Move");
-    put_cmd(1, CK_STOP, orc ? 167 : 164, 0, 0, 0, 0, SDLK_s, "Stop");
+    bool sea = mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA;
+    put_cmd(0, CK_MOVE, sea ? (orc ? 156 : 157) : orc ? 84 : 83, 0, 0, 0, 0, SDLK_m, "Move");
+    put_cmd(1, CK_STOP, stop_icon(unit, orc), 0, 0, 0, 0, SDLK_s, "Stop");
     if (unit->traits & MF_ATTACK)
-        put_cmd(2, CK_ATTACK, orc ? 119 : 116, 0, 0, 0, 0, SDLK_a, "Attack");
+        put_cmd(2, CK_ATTACK, attack_icon(unit, orc), 0, 0, 0, 0, SDLK_a, "Attack");
     if (harvest) {
         if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA) {
             put_cmd(4, CK_HARVEST, 86, 0, 0, 0, 0, SDLK_h, "Harvest oil");
@@ -430,8 +458,8 @@ static void refresh(menu_t *menu) {
         }
         put_cmd(8, CK_CANCEL, 91, 0, 0, 0, 0, SDLK_ESCAPE, "Cancel");
     }
-    else if (own && page == 1) fill_page(basic_page, orc_side());
-    else if (own && page == 2) fill_page(advanced_page, orc_side());
+    else if (own && page == 1) fill_page(own, basic_page, orc_side());
+    else if (own && page == 2) fill_page(own, advanced_page, orc_side());
     else if (own && !(own->traits & MF_MOBILE)) fill_train(own);
     else if (own) fill_mobile(own, orc_side());
     apply_commands();

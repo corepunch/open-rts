@@ -1858,16 +1858,16 @@ static void build_combat_states(int pud, int phases) {
         fall_first = 9; fall_count = phases - 9;
         if (worker) { recover_frame = 9; fall_first = 10; fall_count = 3; }
         else if (phases == 13) { fall_first = 10; fall_count = 3; }
-        if (!worker) recover_tics = 11; /* Includes the final wait 1. */
+        recover_tics = 11; /* Workers 3+7+1, soldiers 10+1: includes the final wait 1. */
         if (unit->w2.projectile == W2_FX_AXE) {
             hit_tics = 12;
             recover_tics = 53; /* Axethrower, berserker and Zul'jin: 52+1. */
         }
     } else if (phases == 10) { /* Archer rows: draw, loose, a long rest. */
-        hit_first = 5; hit_count = 1; hit_frame = 6; windup_tics = 10; hit_tics = 10; recover_tics = 44;
+        hit_first = 5; hit_count = 1; hit_frame = 6; windup_tics = 10; hit_tics = 10; recover_tics = 45; /* 44+1 */
         fall_first = 7; fall_count = 3;
     } else if (phases == 4) { /* Siege: wind, loose, reload. */
-        hit_first = 2; hit_count = 1; hit_frame = 3; windup_tics = 25; hit_tics = 125; recover_tics = 49;
+        hit_first = 2; hit_count = 1; hit_frame = 3; windup_tics = 25; hit_tics = 125; recover_tics = 50; /* 49+1 */
     } else if ((unit->w2.flags & W2_SEA) && !(unit->w2.attributes & W2_PERMANENT_CLOAK)) {
         /* Surface ships fire in frame 0. Rows 1 and 2 are sinking art. */
         windup_tics = 0;
@@ -1875,6 +1875,22 @@ static void build_combat_states(int pud, int phases) {
         recover_tics = 1;
     } else { /* Single-frame art, such as towers. */
         windup_tics = 1; hit_tics = 1; recover_tics = 58;
+    }
+    /* Wargus anim.lua rows whose art shares a frame count with another
+     * family but whose cycle does not (mage 40, flyers 190, cannon 151). */
+    if (unit->w2.projectile == W2_FX_LIGHTNING) {
+        /* The death knight's row (frames 5,6 wait 5; 7 attack wait 7; 8 wait 5;
+         * 0 wait 17+1), without the spare state for frame 8's 5 tics. */
+        hit_first = 5; hit_count = 2; windup_tics = 5;
+        hit_frame = 7; hit_tics = 7; recover_frame = 0; recover_tics = 23;
+    } else if (unit->w2.projectile == W2_FX_HAMMER) { /* six wingbeats, strike, 145 to recover */
+        hit_first = 0; hit_count = 6; windup_tics = 6;
+        hit_frame = 6; hit_tics = 8; recover_frame = 0; recover_tics = 146;
+    } else if (unit->w2.projectile == W2_FX_DRAGON) { /* four wingbeats, breath, 145 to recover */
+        hit_first = 0; hit_count = 4; windup_tics = 6;
+        hit_frame = 4; hit_tics = 21; recover_frame = 0; recover_tics = 145;
+    } else if (structure && unit->w2.projectile == W2_FX_CANNON) {
+        recover_tics = 149; /* attack, wait 150, wait 1 */
     }
     states[attack] = (state_t){
         .sprite = pud, .frame = hit_first, .count = hit_count > 0 ? hit_count : 1,

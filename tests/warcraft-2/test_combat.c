@@ -81,7 +81,7 @@ static int test_tables(void) {
           states[W2_DEATH_STATE(0) + 1].frame == 11 && states[W2_DEATH_STATE(0) + 1].tics == 100 &&
           states[W2_DEATH_STATE(0) + 1].nextstate == 0);
     CHECK(states[W2_ATTACK_STATE(8)].frame == 5 && states[W2_ATTACK_STATE(8) + 1].frame == 6 &&
-          states[W2_ATTACK_STATE(8) + 2].tics == 44 && states[W2_DEATH_STATE(8)].frame == 7);
+          states[W2_ATTACK_STATE(8) + 2].tics == 45 && states[W2_DEATH_STATE(8)].frame == 7);
     CHECK(states[W2_DEATH_STATE(6) + 2].frame == 12 && states[W2_DEATH_STATE(6) + 2].count == 2);
     CHECK(states[W2_DEATH_STATE(2)].frame == 10 && states[W2_ATTACK_STATE(2) + 2].frame == 9);
     CHECK(mobjinfo[MT_BALLISTA].deathstate == 0 && mobjinfo[MT_BALLISTA].missilestate == W2_ATTACK_STATE(4));
@@ -89,6 +89,32 @@ static int test_tables(void) {
     CHECK(mobjinfo[MT_FARM].missilestate == 0);
     CHECK(states[mobjinfo[MT_FOOTMAN].spawnstate].action == A_Look &&
           !states[mobjinfo[MT_FARM].spawnstate].action);
+    return 0;
+}
+
+/* One attack's length in tics equals the Wargus anim.lua Attack row total
+ * at 30 cycles a second. */
+static int attack_cycle(int type) {
+    int row = W2_ATTACK_STATE(type - 1), tics = states[row].count * states[row].tics;
+    for (int state = row + 1; state && states[state].group == W2_GROUP_ATTACK; state = states[state].nextstate)
+        tics += states[state].count * states[state].tics;
+    return tics;
+}
+
+static int test_attack_cycles(void) {
+    static const struct { int type, tics; } rows[] = {
+        {MT_FOOTMAN, 25}, {MT_GRUNT, 25}, {MT_KNIGHT, 25}, {MT_AXETHROWER, 74}, {MT_ARCHER, 65},
+        {MT_MAGE, 40}, {MT_DEATH_KNIGHT, 40}, {MT_GRYPHON_RIDER, 190}, {MT_DRAGON, 190},
+        {MT_HUMAN_GUARD_TOWER, 60}, {MT_ORC_GUARD_TOWER, 60},
+        {MT_HUMAN_CANNON_TOWER, 151}, {MT_ORC_CANNON_TOWER, 151},
+        {MT_HUMAN_DESTROYER, 120}, {MT_BATTLESHIP, 230},
+        {MT_PEASANT, 25}, {MT_PEON, 25}, {MT_BALLISTA, 200}, {MT_CATAPULT, 200},
+    };
+    for (size_t i = 0; i < sizeof(rows) / sizeof(*rows); ++i) {
+        if (attack_cycle(rows[i].type) != rows[i].tics)
+            fprintf(stderr, "type %d attack cycle %d, Wargus %d\n", rows[i].type, attack_cycle(rows[i].type), rows[i].tics);
+        CHECK(attack_cycle(rows[i].type) == rows[i].tics);
+    }
     return 0;
 }
 
@@ -304,6 +330,7 @@ static int test_orders_and_losses(void) {
 
 int main(void) {
     RTS_RUN(test_tables());
+    RTS_RUN(test_attack_cycles());
     RTS_RUN(test_damage_roll());
     RTS_RUN(test_melee_and_death());
     RTS_RUN(test_range_and_orders());

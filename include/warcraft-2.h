@@ -29,6 +29,7 @@ int W2_UpgradeLevel(int owner, const w2_upgrade_t *upgrade);
 void W2_ApplyUpgrade(int owner, int id);
 bool W2_HasResearch(int owner, int id);
 void W2_UpgradeUnit(mobj_t *unit);
+uint16_t W2_TrainedType(int owner, uint16_t type); /* An archer is a ranger after its research. */
 fixed_t W2_AttackRange(const mobj_t *unit);
 int W2_SightRange(const mobj_t *unit);
 typedef enum { W2_SPELL_NONE, W2_SPELL_VISION, W2_SPELL_HEAL, W2_SPELL_EXORCISM,
@@ -68,6 +69,7 @@ int W2_BuildProgress(const mobj_t *site);   /* Percent complete. */
 bool W2_FindBuildSite(int owner, uint16_t type, ivec2_t *out);
 bool W2_CountsAs(uint16_t type, uint16_t wanted); /* A keep is a town hall or better. */
 bool W2_OwnerHas(int owner, uint16_t type);        /* A finished structure that counts as type. */
+bool W2_SiteAllowed(int owner, uint16_t builder, uint16_t type); /* The tech tree lets this worker raise it. */
 bool W2_RepairOrder(mobj_t *worker, mobj_t *target);
 bool W2_TickRepair(mobj_t *worker);
 void W2_InterruptRepair(mobj_t *worker);

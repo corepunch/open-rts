@@ -462,6 +462,110 @@ static menuitem_t *pipeline_slot(int slot) {
     return NULL;
 }
 
+/* Open a build page of the selected worker and look for a structure. */
+static menuitem_t *on_page(mobj_t *worker, const char *page, const char *tip) {
+    menuitem_t *open = card(page, &worker, 1);
+    if (!open) return NULL;
+    open->routine(hudmenu, open, MA_ACTIVATE);
+    menuitem_t *found = card(tip, &worker, 1);
+    menuitem_t *cancel = card("Cancel", &worker, 1);
+    if (cancel) cancel->routine(hudmenu, cancel, MA_ACTIVATE);
+    return found;
+}
+static mobj_t *beside(int type, const mobj_t *near, int dx, int dy) {
+    fixed2_t at = fixed2_add(fixed3_xy(near->core.position), (fixed2_t){FIXED_FROM_INT(dx), FIXED_FROM_INT(dy)});
+    return spawn(type, at, consoleplayer);
+}
+static const char *name(int type) { return sc_units[type - 1].name; }
+
+/* Buttons appear as the tech tree opens: structures, units, add-on units,
+ * research tiers, abilities greyed until researched, larva and gateway. */
+static int tech_card(void) {
+    mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER), *scv = find(consoleplayer, MT_SCV);
+    CHECK(hall && scv);
+    const char *basic = "Build Structure", *advanced = "Advanced Structures";
+    CHECK(on_page(scv, basic, name(MT_SUPPLY_DEPOT)) && on_page(scv, basic, name(MT_BARRACKS)));
+    CHECK(on_page(scv, basic, name(MT_ENGINEERING_BAY)) && on_page(scv, basic, name(MT_REFINERY)));
+    CHECK(!on_page(scv, basic, name(MT_ACADEMY)) && !on_page(scv, basic, name(MT_BUNKER)));
+    CHECK(!on_page(scv, basic, name(MT_MISSILE_TURRET)) && !on_page(scv, advanced, name(MT_FACTORY)));
+    mobj_t *barracks = beside(MT_BARRACKS, hall, 6, 0);
+    CHECK(barracks);
+    CHECK(on_page(scv, basic, name(MT_ACADEMY)) && on_page(scv, basic, name(MT_BUNKER)));
+    CHECK(on_page(scv, advanced, name(MT_FACTORY)) && !on_page(scv, advanced, name(MT_STARPORT)));
+    CHECK(!on_page(scv, advanced, name(MT_ARMORY)));
+    mobj_t *bay = beside(MT_ENGINEERING_BAY, hall, -6, 0);
+    CHECK(bay && on_page(scv, basic, name(MT_MISSILE_TURRET)));
+    /* Barracks: Firebat with an Academy, Ghost also with Covert Ops. */
+    CHECK(card(name(MT_MARINE), &barracks, 1) && !card(name(MT_FIREBAT), &barracks, 1));
+    CHECK(!card(name(MT_COMSAT_STATION), &hall, 1));
+    mobj_t *academy = beside(MT_ACADEMY, hall, 0, 6);
+    CHECK(academy && card(name(MT_FIREBAT), &barracks, 1) && !card(name(MT_GHOST), &barracks, 1));
+    CHECK(card(name(MT_COMSAT_STATION), &hall, 1));
+    /* Factory: the Siege Tank needs this factory's Machine Shop. */
+    /* The first open spot that also leaves room for its add-on. */
+    mobj_t *factory = NULL;
+    ivec2_t at = fixed2_cell(fixed3_xy(hall->core.position));
+    for (int r = 6; r < 24 && !factory; r += 2)
+        for (int y = -r; y <= r && !factory; y += 2) for (int x = -r; x <= r && !factory; x += 2) {
+            ivec2_t c = {at.x + x, at.y + y}, shop;
+            if (!P_CanPlaceBuilding(MT_FACTORY, c, scv)) continue;
+            mobj_t *f = spawn(MT_FACTORY, P_BuildingPosition(MT_FACTORY, c), consoleplayer);
+            P_SyncBuildingBlocking();
+            if (f && sc_addon_site(f, MT_MACHINE_SHOP, &shop)) factory = f;
+            else if (f) { P_RemoveMobj(f); P_RunThinkers(); P_SyncBuildingBlocking(); }
+        }
+    mobj_t *other = beside(MT_FACTORY, hall, -6, 6);
+    CHECK(factory && other);
+    CHECK(on_page(scv, advanced, name(MT_STARPORT)) && on_page(scv, advanced, name(MT_ARMORY)));
+    CHECK(card(name(MT_VULTURE), &factory, 1) && card(name(MT_MACHINE_SHOP), &factory, 1));
+    CHECK(!card(name(MT_GOLIATH), &factory, 1));
+    CHECK(sc_attach_addon(factory, MT_MACHINE_SHOP));
+    menuitem_t *tank = card(name(MT_SIEGE_TANK), &factory, 1);
+    CHECK(tank);
+    CHECK(!card(name(MT_MACHINE_SHOP), &factory, 1));
+    CHECK(card(name(MT_SIEGE_TANK), &other, 1)); /* listed; refused at click without a shop */
+    CHECK(card(name(MT_MACHINE_SHOP), &other, 1));
+    beside(MT_ARMORY, hall, 0, -6);
+    CHECK(card(name(MT_GOLIATH), &factory, 1));
+    /* Siege Mode stays greyed on the tank until the Machine Shop researches it. */
+    mobj_t *unit = beside(MT_SIEGE_TANK, hall, 3, 3);
+    menuitem_t *siege = card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1);
+    CHECK(unit && siege && !siege->enabled);
+    level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
+    siege = card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1);
+    CHECK(siege && siege->enabled);
+    /* Engineering Bay: level 1 now, level 2 after it and a Science Facility. */
+    const char *weapons = sc_upgrades[0].name;
+    menuitem_t *tier = card(weapons, &bay, 1);
+    CHECK(tier && tier->value == SC_UPGRADE_UI + 0 * 4 + 0);
+    level.upgrades[0][consoleplayer].weapon = 1;
+    CHECK(!card(weapons, &bay, 1));
+    beside(MT_STARPORT, hall, -6, -6);
+    beside(MT_SCIENCE_FACILITY, hall, 6, -6);
+    tier = card(weapons, &bay, 1);
+    CHECK(tier && tier->value == SC_UPGRADE_UI + 0 * 4 + 1);
+    level.upgrades[0][consoleplayer].weapon = 3;
+    CHECK(!card(weapons, &bay, 1));
+    level.upgrades[0][consoleplayer].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 0;
+
+    /* Zerg: Zerglings and Lair wait for the Spawning Pool. */
+    mobj_t *hatchery = beside(MT_HATCHERY, hall, 12, 0), *larva = beside(MT_LARVA, hall, 12, 3);
+    CHECK(hatchery && larva);
+    CHECK(card(name(MT_DRONE), &larva, 1) && card(name(MT_OVERLORD), &larva, 1));
+    CHECK(!card(name(MT_ZERGLING), &larva, 1) && !card(name(MT_LAIR), &hatchery, 1));
+    CHECK(card("Select Larva", &hatchery, 1));
+    beside(MT_SPAWNING_POOL, hall, 12, -6);
+    CHECK(card(name(MT_ZERGLING), &larva, 1) && card(name(MT_LAIR), &hatchery, 1));
+    CHECK(!card(name(MT_HYDRALISK), &larva, 1));
+    /* Protoss: Dragoons wait for the Cybernetics Core. */
+    mobj_t *gateway = beside(MT_GATEWAY, hall, -12, 0);
+    CHECK(gateway && card(name(MT_ZEALOT), &gateway, 1) && !card(name(MT_DRAGOON), &gateway, 1));
+    beside(MT_CYBERNETICS_CORE, hall, -12, 6);
+    CHECK(card(name(MT_DRAGOON), &gateway, 1) && !card(name(MT_HIGH_TEMPLAR), &gateway, 1));
+    return 0;
+}
+
 /* Abilities, siege mode, Archon Warp and Unload All from the command card. */
 static int command_card(void) {
     mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER);
@@ -907,6 +1011,9 @@ int main(void) {
     CHECK(!command_card());
     unload();
     CHECK(load(kinds, races));
+    CHECK(!tech_card());
+    unload();
+    CHECK(load(kinds, races));
     CHECK(!hud_contract());
     CHECK(!flight_hud());
     unload();
@@ -918,6 +1025,6 @@ int main(void) {
     R_FreeTileset(&tiles);
     SDL_Quit();
     puts("PASS: native animations, gathering, construction, training, research, combat, deaths, "
-         "victory, defeat, score, in-level dialogs, campaign flow, briefing portraits and the ability command card");
+         "victory, defeat, score, in-level dialogs, campaign flow, briefing portraits, the ability command card and its tech-tree buttons");
     return 0;
 }

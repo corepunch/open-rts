@@ -257,7 +257,8 @@ static bool walk_to_site(mobj_t *unit) {
 }
 
 bool W2_ConstructOrder(mobj_t *builder, uint16_t type, ivec2_t cell) {
-    if (!worker(builder) || builder->owner >= 8 || !W2_CanPlace(type, cell, builder)) return false;
+    if (!worker(builder) || builder->owner >= 8 || !W2_CanPlace(type, cell, builder) ||
+        !W2_SiteAllowed(builder->owner, builder->type_id, type)) return false;
     const int *price = mobjinfo[type].w2.costs.resources, *stock = level.player_resources[builder->owner];
     for (int r = 0; r < 3; ++r) if (stock[r] < price[r]) return false;
     W2_InterruptRepair(builder);

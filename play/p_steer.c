@@ -30,6 +30,7 @@ bool P_ReplanUnit(const level_t *map, mobj_t *unit) {
     free(soft);
     if (!planned) return false;
     unit->movement.path = path;
+    unit->movement.best_leg_dist = 0;
     return true;
 }
 
@@ -121,7 +122,18 @@ fixed2_t P_SteerAvoid(const mobj_t *unit, fixed2_t direction, fixed_t step) {
 bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved) {
     navpath_t *path = &unit->movement.path;
     bool last_leg = path->complete && path->current + 1 >= path->count;
-    if (moved && (unit->movement.order_id || !last_leg)) { unit->movement.stuck_tics = 0; return true; }
+    if (moved && !last_leg && path->current < path->count) {
+        /* Mid-route, progress is getting nearer the waypoint: jittering in
+         * place between two blockers moves every tic but gets nowhere. */
+        fixed_t dist = fixed2_length(fixed2_sub(path->points[path->current], mobj_xy(unit)));
+        fixed_t *best = &unit->movement.best_leg_dist;
+        if (unit->movement.best_leg != path->current || *best <= 0 || dist < *best - FIXED_LIT(0.02)) {
+            unit->movement.best_leg = path->current;
+            *best = dist;
+            unit->movement.stuck_tics = 0;
+            return true;
+        }
+    } else if (moved && unit->movement.order_id) { unit->movement.stuck_tics = 0; return true; }
     if (moved) {
         /* Walking in place against a crowd that shoves back is not progress. */
         fixed2_t to_goal = fixed2_sub(unit->movement.goal, mobj_xy(unit));

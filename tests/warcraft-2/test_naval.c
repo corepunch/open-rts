@@ -114,6 +114,10 @@ static int shore(void) {
     patch->core.position = fixed3_from_fixed2(FIXED2_LIT(17.5, 5.5), 0);
     CHECK(W2_CanPlace(MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}, worker));
     P_RemoveMobj(patch);
+    /* A shipyard needs a lumber mill (Wargus upgrade.lua). */
+    CHECK(!W2_ConstructOrder(worker, MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}));
+    mobj_t *mill = spawn(MT_ELVEN_LUMBER_MILL, FIXED2_LIT(2.5, 12.5));
+    CHECK(mill);
     CHECK(W2_ConstructOrder(worker, MT_HUMAN_SHIPYARD, (ivec2_t){10, 4}));
     for (int i = 0; i < 3000; ++i) P_Ticker();
     mobj_t *yard = find_type(MT_HUMAN_SHIPYARD);

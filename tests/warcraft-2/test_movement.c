@@ -4,6 +4,8 @@
 
 #define CHECK(c) RTS_CHECK(c, "Warcraft II movement", #c)
 
+#include <stdlib.h>
+
 /* Wargus Move frame operands divided by the five authored GRP facings.
  * Ships' other rows are sinking/attack art, not movement poses. */
 static const struct { int type, first, count; } movement[] = {
@@ -40,6 +42,37 @@ static int check_cycles(void) {
     return 0;
 }
 
+/* Units walk the eight Warcraft II headings: a goal off at 45 degrees is
+ * reached along the diagonal, not by an axis run and a turn. */
+static int check_diagonal(void) {
+    P_FreeLevel(&level); P_InitThinkers(); G_InitGame();
+    level.width = level.height = 32;
+    level.tile_ids = calloc(1024, sizeof(*level.tile_ids));
+    level.blocked = calloc(1024, 1);
+    level.cell_solid = calloc(1024, 1);
+    level.cell_terrain = calloc(1024, 1);
+    level.speeds = calloc(1, sizeof(*level.speeds));
+    level.speeds->class_count = 2;
+    level.speeds->terrain[1][0] = 100;
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(4.5, 4.5), 0), MT_FOOTMAN);
+    CHECK(unit);
+    unit->traits |= MF_NOAUTOTARGET;
+    CHECK(P_MoveUnitTo(&level, unit, FIXED2_LIT(14.5, 14.5)));
+    int steps = 0, diagonal = 0;
+    for (int i = 0; i < 2000 && P_HasMoveOrder(unit); ++i) {
+        fixed2_t before = fixed3_xy(unit->core.position);
+        P_Ticker();
+        fixed2_t step = fixed2_sub(fixed3_xy(unit->core.position), before);
+        if (!step.x && !step.y) continue;
+        ++steps; /* not a staircase of alternating axis steps */
+        diagonal += step.x > 0 && step.y > 0;
+    }
+    CHECK(steps > 10 && diagonal >= steps - 2);
+    CHECK(fixed2_near(fixed3_xy(unit->core.position), FIXED2_LIT(14.5, 14.5), FIXED_LIT(0.1)));
+    P_FreeLevel(&level);
+    return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
@@ -55,7 +88,8 @@ int main(void) {
     }
     RTS_RUN(check_cycles());
     R_FreeSpriteCache(&cache);
+    RTS_RUN(check_diagonal());
     P_FreeLevel(&level);
-    puts("PASS: 17 Warcraft II movement cycles before and after native GRP loading");
+    puts("PASS: 17 Warcraft II movement cycles before and after native GRP loading; diagonal headings");
     return 0;
 }
