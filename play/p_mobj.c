@@ -636,7 +636,12 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
     return within_attack_range(attacker, target, mobj_attack_range(attacker, target));
 }
 
-static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+/* The attacker's target if it is in reach, else the nearest enemy that
+ * is. A mobile attacker whose target only got out of reach keeps it, to
+ * chase, rather than turning on whatever else comes into reach on the
+ * way: then this is NULL and `chasing` is set. */
+static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
+    *chasing = false;
 #ifdef RTS_MODULE_STARCRAFT
     if (attacker->sc.order.kind == SC_ORDER_REPAIR || attacker->sc.order.kind == SC_ORDER_FOLLOW ||
         (attacker->move_only && P_HasMoveOrder(attacker))) return NULL;
@@ -652,9 +657,13 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
-        P_CanTarget(attacker, target) &&
-        within_attack_range(attacker, target, mobj_attack_range(attacker, target)))
-        return target;
+        P_CanTarget(attacker, target)) {
+        if (within_attack_range(attacker, target, mobj_attack_range(attacker, target))) return target;
+        if (attacker->traits & MF_MOBILE) {
+            *chasing = true;
+            return NULL;
+        }
+    }
     if (attacker->traits & MF_NOAUTOTARGET) return NULL;
     target = NULL;
     int64_t best2 = 0;
@@ -673,6 +682,11 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         if (!target || dist2 < best2) { best2 = dist2; target = candidate; }
     }
     return target;
+}
+
+static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+    bool chasing;
+    return find_attack_target(attacker, &chasing);
 }
 
 /* Doom's damage source wakes the victim and becomes its target. Keep an
@@ -956,10 +970,14 @@ bool P_Attack(mobj_t *attacker) {
     if (!attacker || !(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         ((attacker->traits & (MF_HEAL | MF_REPAIR)) &&
          attacker->attack.cooldown_left_ms > 0)) return false;
-    /* State actions must recheck range: the target can move during windup. */
-    attacker->attack.target = attack_target_in_range(attacker);
-    mobj_t *target = attacker->attack.target;
-    if (!target) return false;
+    /* State actions must recheck range: the target can move during windup.
+     * One that only got out of reach stays the target, to be chased. */
+    bool chasing;
+    mobj_t *target = find_attack_target(attacker, &chasing);
+    if (!target) {
+        if (!chasing) attacker->attack.target = NULL;
+        return false;
+    }
     attacker->attack.target = target;
     const char *sprite_name = "(unknown)";
     if (gameinfo && attacker->core.sprite_id >= 0 &&

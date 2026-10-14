@@ -367,8 +367,8 @@ int Z_LoadThings(void) {
     for (int i = 0; i < map->fort_count; ++i) {
         int team = Z_TeamAt(map, map->forts[i]);
         if (spawn(MT_FORT, i ? S_FORT_CPU : S_FORT, map->forts[i], (isize2_t){160, 176}, team)) count++;
-        if (team == 0 || getenv("ZCAM")) {
-            if (team == 0) player_fort = map->forts[i];
+        if (team == 0) {
+            player_fort = map->forts[i];
             level.has_camera = true;
             level.camera = (fvec2_t){(map->forts[i].x + 80) / (float)Z_TILE,
                                      (map->forts[i].y + 88) / (float)Z_TILE};
@@ -376,7 +376,6 @@ int Z_LoadThings(void) {
             cpu_team = team;
         }
     }
-    if (getenv("ZCAM")) { level.camera = (fvec2_t){(map->forts[!(Z_TeamAt(map, map->forts[0]) == 1)].x + 80) / (float)Z_TILE, (map->forts[!(Z_TeamAt(map, map->forts[0]) == 1)].y + 88) / (float)Z_TILE}; }
     count += spawn_armies(map, player_fort, cpu_team);
 
     /* 0x2a89f: a flag on each territory's flag cell, in its team's colour. */

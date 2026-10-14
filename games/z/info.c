@@ -28,12 +28,13 @@ const char *const sprnames[NUMSPRITES] = {
     [S_##type##_THROW] = { SPR_##type, throw, throws, 2, NULL, S_##type##_TOSS, 3, NULL }, \
     [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, A_Attack, S_##type##_STND, 3, NULL }, \
     [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL },
-/* Robots walk, aim, flash on the last fire frame and fall; their bodies
- * do not stay. A grenade leaves on the throw's last frame (0x636a0). */
+/* Robots walk, aim, flash on the last fire frame and blow apart; nothing
+ * of them stays once the last sparks fade. A grenade leaves on the
+ * throw's last frame (0x636a0). */
 #define STATES_ROBOT(type, sprite, turn, frames, idle, dead) \
     UNIT_STATES(type, Z_ROBOT_STAND, 1, Z_ROBOT_WALK, 4, Z_ROBOT_FIRE, 4, Z_ROBOT_FIRE + 4, \
                 Z_ROBOT_DIE, Z_ROBOT_DIE_FRAMES - 1, Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES - 1, \
-                3 * RTS_TICRATE, Z_ROBOT_THROW, Z_ROBOT_THROW_FRAMES - 1, \
+                3, Z_ROBOT_THROW, Z_ROBOT_THROW_FRAMES - 1, \
                 Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES - 1, Z_ROBOT_CHEER, Z_ROBOT_CHEER_FRAMES)
 /* A gun's last frame is its muzzle flash; its wreck follows the turns. */
 #define STATES_GUN(type, sprite, turn, frames, idle, dead) \

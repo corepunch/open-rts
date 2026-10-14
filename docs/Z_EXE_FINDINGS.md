@@ -106,7 +106,7 @@ cells with terrain 0x23 and grenade crates with 0x24.
 | Address | What it does |
 |---|---|
 | 0x2a89f | Plants a flag per territory (table at 0x18e828) and an Invisible flag object (type 28) on it, visible only to the other teams (+0x13, 0x2aa44), which is how robots find flags to walk to (0x61293) |
-| 0x2aade | `draw_flags`: sprite 480 + [0x103d07] over shadow 484 + [0x103d07] at the flag cell, team colour by remap; [0x103d07] steps every second tick (0x19e81); sorted 32 px lower |
+| 0x2aade | `draw_flags`: sprite 480 + [0x103d07] over shadow 484 + [0x103d07] with their top-left on the flag cell, team colour by remap; [0x103d07] steps every second tick (0x19e81); sorted 32 px lower (see the sprite list below) |
 | 0x79ddc | Terrain 0x23: a robot on the flag cell, or a vehicle (class 1) with the flag in its 2x2 cells (0x79936), takes the territory unless its lockout is above 0x1d3; buildings follow through their territory pointer |
 | 0x62e3c | The robot that took a flag turns south and cheers (action 0x21, sprites 1959..1962, seven times) |
 | 0x61022 | Robots walk to the empty vehicle or gun they are sent to; 0x7af62 deletes the object within 20 px and turns the robot's record into the vehicle (type kept at +0x8a) |
@@ -114,6 +114,36 @@ cells with terrain 0x23 and grenade crates with 0x24.
 | 0x79b25 | Terrain 0x24: a Grunt, Pyro or Laser (classes 0, 0xf, 0x10) within 16 px of a crate, whose squad holds no grenades, takes 10 (type 9) or 20 (type 10) for the squad, the remainder to the first member (0x79bea), at most 127 |
 | 0x75939 | A robot with grenades throws at vehicles and guns (Lasers fire their laser), action 0x31 (0x6360e: 2522 + direction * 4 + frame); attacking a building needs grenades (0x753bb) |
 | 0x636a0 | The grenade leaves on the throw's last frame; 0x5a205 launches it, drawn as 1336..1339 (0x59538); it bursts through 0x8476c with strength 0x32 for a Grunt |
+
+In level 1 each fort's flag cell is its entrance: the computer's fort has
+its gate cells (terrain 0x15, 0x9e, 0x3f) on its south side and the flag on
+the cell below them, while the player's fort has them (0x1e, 0x3e) on its
+north side under the flag. The second fort is drawn without a gate, so its
+flag stands on its north wall.
+
+## Robots knocked down and killed
+
+| Address | What it does |
+|---|---|
+| 0x58745 | A blast's effect on the robots in its box: one with +0x3a above 10 loses 10 and is knocked down (0x58910), the rest are killed (0x60fe6, then 0x61560 and 0x777d9 take it off the map and out of its group) |
+| 0x58910 | Knockdown: action 0x17 (sprite 315) facing directions 6, 7, 0 and 1, else 0x2e (316); direction and frame reset |
+| 0x61f43 | Actions 0x17 and 0x2e hold while an explosion in the list at 0xab81c is within 0x18 px, then become 0x18 (319..329) or 0x2f (365..375) |
+| 0x61f94 | Actions 0x18 and 0x2f step a frame every second update; at frame 11 0x79049 stands the robot up in action 1 |
+
+The action table's 0x1a (304..314) is the robot sitting idle; 0x1b..0x1f
+(2445, 2457, 2496, 2462, 2500) and 0x23..0x29 look like other idle antics.
+Which routine draws a robot shot dead is not traced; `games/z` uses 290..295,
+a robot bursting into bits and sparks, the only death-like run beside the
+burning 167..183.
+
+## The sprite list
+
+Things to draw are 8-byte entries (u16 x, u16 y, u16 sprite, u8 palette and
+draw routine, s8 y offset) at 0x24978, sorted by y (0x7d97e). The draw loop
+(0x7da5d) adds the signed byte at +7 to y before drawing, so an entry sorts
+by its y and draws at y plus that offset: `draw_flags` gives the flag
+y + 32 and -32, and the shadow y - 16 and +16, which draws both on the flag
+cell.
 
 The game steps at most once per tick of a 70 Hz PIT (divisor 0x4295 at
 0x702f5; main loop 0x49322), and many animations every second step.
@@ -143,7 +173,8 @@ for its network desync log. Network games reset the seed to 0x3039 at
   range limit; driver ejection (0x7d0a2, 0x648e2).
 - The crane's hook (0x7eaad reads its second offset through a pointer
   scaled as an index), the tank drivers' heads (0x7eccf, sprites from
-  1464), fire truck and truck drawing, the robots' other actions, and the
+  1464), fire truck and truck drawing, the robots' other actions (the shot
+  death among them), how robots notice enemies, and the
   meaning of most unit and ROBOTS.DAT fields.
 - Per-team terrain rows and the other unit classes' tables.
 - The byte per sprite after the SPRITES.RSC offsets, and each sprite's row

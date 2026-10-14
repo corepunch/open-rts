@@ -55,10 +55,14 @@ typedef enum {
 /* Frames of the robot sheet: eight-way stand, walk and fire runs from the
  * ZED.EXE action table at 0x14b10c (actions 0, 2 and 5), the death, the
  * grenade throw (action 0x31, 0x6360e) and the cheer after taking a flag
- * (action 0x21, 0x62a9a: 1959..1962, the same every way). */
+ * (action 0x21, 0x62a9a: 1959..1962, the same every way). The death is
+ * 290..295, a robot bursting into bits and sparks, the same every way;
+ * which routine draws it is not traced. (304..314, used before, is the
+ * idle sit of action 0x1a; 315..329 and 365..375 are the knockdown by a
+ * nearby blast and the getting up, actions 0x17, 0x18, 0x2e and 0x2f.) */
 enum {
     Z_ROBOT_STAND = 0, Z_ROBOT_WALK = 1, Z_ROBOT_FIRE = 5, Z_ROBOT_DIE = 10,
-    Z_ROBOT_DIE_FRAMES = 11, Z_ROBOT_THROW = Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES,
+    Z_ROBOT_DIE_FRAMES = 6, Z_ROBOT_THROW = Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES,
     Z_ROBOT_THROW_FRAMES = 4, Z_ROBOT_CHEER = Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES,
     Z_ROBOT_CHEER_FRAMES = 4, Z_ROBOT_FRAMES = Z_ROBOT_CHEER + Z_ROBOT_CHEER_FRAMES,
 };
