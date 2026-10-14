@@ -142,7 +142,6 @@ void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
 }
 
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
-    (void)map;
-    if (units && unit_count) W2_CheckVictory(units, *unit_count);
+    (void)map; (void)units; (void)unit_count;
     return G_ProductionTicker(dt_ms);
 }

@@ -43,3 +43,14 @@ WEAK bool G_GameHarvestAt(mobj_t *const *units, int count, fixed2_t position, bo
     return false;
 }
 WEAK bool G_QueueLocksProduct(const StaticProductDefinition *product) { (void)product; return true; }
+WEAK unsigned G_LevelObjectives(mobj_t *const *units, int count) {
+    (void)units; (void)count;
+    return ELIMINATE_ALL;
+}
+WEAK bool G_PlayerSide(int owner) { return owner >= 0 && owner < 8; }
+/* Units and structures; not missiles, effects or neutral critters. */
+WEAK bool G_UnitHoldsSide(const mobj_t *unit) {
+    return unit->info && unit->allegiance != ALLEGIANCE_NEUTRAL &&
+           !(unit->traits & (MF_MISSILE | MF_NOBLOCKMAP));
+}
+WEAK void G_ShowOutcome(outcome_t outcome) { G_ResultScreen(outcome); }

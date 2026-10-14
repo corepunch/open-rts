@@ -31,9 +31,15 @@ static uint8_t *blank_trigger(void) {
     return t;
 }
 
+/* The driver's mission and outcome steps of a tic. */
 static void ticks(int n, hudtext_t *hud) {
-    int count = 0;
-    while (n--) G_MissionTicker(&level, NULL, &count, hud, RTS_TICK_MS);
+    while (n--) {
+        mobjlist_t all = P_ListMobjs();
+        int count = all.count;
+        G_MissionTicker(&level, all.items, &count, hud, RTS_TICK_MS);
+        G_OutcomeTicker(all.items, all.count);
+        P_FreeMobjList(&all);
+    }
 }
 
 static int press(int id) {

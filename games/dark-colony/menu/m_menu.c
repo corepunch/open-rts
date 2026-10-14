@@ -31,7 +31,11 @@ static const char *notice;
 static char mission_title[128], mission_region[128];
 static char *prose;
 static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, BROWSE, CONNECT,
-              OPTIONS, OBJECTIVES, SAVE, LOAD } page;
+              OPTIONS, OBJECTIVES, SAVE, LOAD, DEBRIEF, RESULT } page;
+/* The ended level (DC.EXE 0x4039b0 campaign debrief, 0x404688 result) and
+ * the campaign mission it was: its GAMESTAT scene list and entry. */
+static outcome_t outcome;
+static int scene = -1;
 static gamesettings_t editing;
 static int editing_speed;
 typedef struct { char path[1200]; dc_saveinfo_t info; } saveentry_t;
@@ -67,7 +71,7 @@ typedef struct {
     int numanimations;
     bool loaded;
 } screenart_t;
-static screenart_t *screenart[LOAD + 1];
+static screenart_t *screenart[RESULT + 1];
 
 static void move_art(screenart_t *art, bool save) {
     if (save) {
@@ -115,6 +119,7 @@ static int nummaps, selectedmap = -1;
 static void refresh_skirmish(void);
 static bool load_skirmish_maps(void);
 static void network_failure(void);
+static void result_values(void);
 
 static bool screen_palette(spritesheet_t *sprite, const blob_t *rmp) {
     if (!sprite->numlumps) return true;
@@ -597,8 +602,10 @@ static void option_values(void) {
 }
 
 static bool load_screen(int next) {
-    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "DPLAYSE", "GETSVRE", "LOPTE", "LOBJE", "LSGE", "LOADGE"};
-    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "LOADG.DAT", "SERVER.DAT", NULL, NULL, NULL, "LOADG.DAT"};
+    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "DPLAYSE", "GETSVRE", "LOPTE", "LOBJE", "LSGE", "LOADGE",
+                                          "WINGAMEE", "MULTIWNE"};
+    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "LOADG.DAT", "SERVER.DAT", NULL, NULL, NULL, "LOADG.DAT",
+                                        "WINGAME.DAT", "MULTIWIN.DAT"};
     if (initialized) {
         if (!screenart[page]) screenart[page] = calloc(1, sizeof(*screenart[page]));
         if (!screenart[page]) return false;
@@ -898,6 +905,7 @@ static bool load_screen(int next) {
         if (page == SAVE) { items[54].kind = MI_TEXTFIELD; menu.itemOn = 54; }
         else for (int i = 17; i <= 23; ++i) items[i].visible = false;
     }
+    if (page == DEBRIEF || page == RESULT) result_values();
     entrance = 0;
     if (!numentrances) start_page_animations();
     menutime = SDL_GetTicks64();
@@ -964,24 +972,55 @@ void DC_OpenSave(app_t *app) {
     else M_StartMessage("Saving is available in single-player games");
 }
 
-static bool first_mission(void) {
-    char path[1024], line[256];
-    M_PathJoin(path, sizeof(path), root, M_va("GAMESTAT/%sSCENE.TXT", race ? (training ? "GT" : "G") : (training ? "HT" : "H")));
+/* GAMESTAT/<H|G|HT|GT>SCENE.TXT: eight faction names, the mission count,
+ * then each mission's .scn, title, region and map prefix lines. Reads entry
+ * `index`, or with `map` set finds the entry for that map; returns its
+ * index or -1. */
+static int read_scene(int side, bool trainer, int index, const char *map,
+                      char factions[8][32]) {
+    char path[1024], line[256], title[128] = "", region[128] = "", prefix[256] = "";
+    M_PathJoin(path, sizeof(path), root,
+               M_va("GAMESTAT/%sSCENE.TXT", side ? (trainer ? "GT" : "G") : (trainer ? "HT" : "H")));
     FILE *file = fopen(path, "r");
-    if (!file) return false;
-    /* Eight faction-name lines, count, then scenario/title/region/map prefix. */
-    bool ok = true;
-    for (int i = 0; i < 10; ++i) if (!fgets(line, sizeof(line), file)) ok = false;
-    if (!fgets(mission_title, sizeof(mission_title), file) ||
-        !fgets(mission_region, sizeof(mission_region), file) || !fgets(line, sizeof(line), file)) ok = false;
+    if (!file) return -1;
+    int found = -1, entry = -1;
+    for (int i = 0; i < 9 && fgets(line, sizeof(line), file); ++i) {
+        if (i == 8 || !factions) continue;
+        size_t n = strcspn(line, "\r\n");
+        while (n && (line[n - 1] == ' ' || line[n - 1] == '.')) --n;
+        snprintf(factions[i], 32, "%.*s", (int)n, line);
+    }
+    while (found < 0 && fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\r\n")] = '\0';
+        size_t n = strlen(line);
+        if (n < 4 || strcasecmp(line + n - 4, ".scn")) continue;
+        ++entry;
+        if (!fgets(title, sizeof(title), file) || !fgets(region, sizeof(region), file) ||
+            !fgets(prefix, sizeof(prefix), file)) break;
+        prefix[strcspn(prefix, "\r\n")] = '\0';
+        if (map) {
+            size_t m = strlen(map), p = strlen(prefix);
+            if (m >= p + 4 && !strncasecmp(map + m - p - 4, prefix, p) && !strcasecmp(map + m - 4, ".MAP") &&
+                (m == p + 4 || map[m - p - 5] == '/')) found = entry;
+        } else if (entry == index) found = entry;
+    }
     fclose(file);
-    if (!ok) return false;
-    mission_title[strcspn(mission_title, "\r\n")] = '\0';
-    mission_region[strcspn(mission_region, "\r\n")] = '\0';
-    line[strcspn(line, "\r\n")] = '\0';
-    snprintf(mapname, sizeof(mapname), "%s.MAP", M_Upper(line));
+    if (found < 0 || map) return found;
+    title[strcspn(title, "\r\n")] = '\0';
+    region[strcspn(region, "\r\n")] = '\0';
+    snprintf(mission_title, sizeof(mission_title), "%s", title);
+    snprintf(mission_region, sizeof(mission_region), "%s", region);
+    snprintf(mapname, sizeof(mapname), "%s.MAP", M_Upper(prefix));
+    return found;
+}
+
+static bool scene_mission(int index) {
+    if (read_scene(race, training, index, NULL, NULL) != index) return false;
+    scene = index;
     return true;
 }
+
+static bool first_mission(void) { return scene_mission(0); }
 
 static void network_failure(void) {
     const char *why = M_NetNotice();
@@ -1001,6 +1040,81 @@ static bool join_session(const char *address) {
     waiting = true;
     client = false;
     return load_screen(CONNECT);
+}
+
+/* DC.EXE 0x4043ae: each side's line on the debrief and result screens. */
+static const char *side_name(int owner, char factions[8][32]) {
+    const dc_skirmish_t *setup = DC_LevelSkirmish(&level);
+    if (setup && setup->players[owner].name[0]) return setup->players[owner].name;
+    if (owner == consoleplayer && leader[0]) return leader;
+    int team = level.side_team[owner] - 1;
+    if (team >= 0 && factions[team][0]) return factions[team];
+    return M_va("Player%d", owner); /* 0x410091 */
+}
+
+static void result_values(void) {
+    bool won = outcome == OUTCOME_VICTORY;
+    /* 0x404758: MULTIWNE's title; WINGAMEE has its own textmsg 20/21. */
+    snprintf(items[8].text, sizeof(items[8].text), "%s",
+             page == DEBRIEF ? messages[won ? 20 : 21] : won ? "Victory" : "Defeat");
+    char factions[8][32] = {{0}};
+    if (scene >= 0) read_scene(race, training, -1, level.map_path, factions);
+    for (int owner = 0, row = 0; owner < 8 && row < 8; ++owner) {
+        const sidestats_t *stats = G_SideStats(owner);
+        if (!(level.sides & (1u << owner)) && !stats->kills && !stats->losses) continue;
+        snprintf(items[row++].text, sizeof(items[0].text),
+                 "%.16s Money:%6.6d       Kills:%4.4d       Losses:%4.4d",
+                 side_name(owner, factions), level.player_resources[owner][0],
+                 stats->kills, stats->losses);
+    }
+    if (page != DEBRIEF) return;
+    snprintf(items[11].text, sizeof(items[11].text), "%s", leader);
+    /* Campaign saves between missions and medal awards are not kept, so
+     * SAVE, LOAD and the medal row stay hidden. */
+    items[12].visible = items[36].visible = false;
+    for (int i = 25; i <= 30; ++i) items[i].visible = false;
+    for (int i = 57; i <= 68; ++i) items[i].visible = false; /* award captions */
+    items[race ? 34 : 33].visible = false; /* ACOM or HCOM portrait */
+}
+
+/* Shown over the ended level. A campaign mission resolves its race and
+ * entry from the map, so a restored game also continues its campaign. */
+void DC_ShowResult(outcome_t result) {
+    if (!initialized) return;
+    outcome = result;
+    scene = -1;
+    if (!DC_LevelSkirmish(&level) && !netgame)
+        for (int side = 0; side < 2 && scene < 0; ++side)
+            for (int trainer = 0; trainer < 2 && scene < 0; ++trainer)
+                if ((scene = read_scene(side, trainer, -1, level.map_path, NULL)) >= 0) {
+                    race = side;
+                    training = trainer;
+                }
+    if (menuactive) M_ClearMenus();
+    if (!load_screen(scene >= 0 ? DEBRIEF : RESULT)) {
+        fprintf(stderr, "Could not load Dark Colony result screen\n");
+        G_ResultScreen(result);
+        return;
+    }
+    menuinlevel = true;
+    M_SetupNextMenu(&menu);
+    menu.itemOn = scene >= 0 ? 10 : 9;
+    if (menu.app) menu.app->dragging_select = false;
+}
+
+static void leave_level(void) {
+    menuleave = true;
+    M_ClearMenus();
+}
+
+/* 0x4039b0: NEXT MISSION advances after a victory and replays a defeat.
+ * DC.EXE loads no screen after the last mission (INTRFACE/WINE and WINUKE
+ * are unreferenced), so the campaign ends at the main menu. */
+static bool next_mission(void) {
+    bool won = outcome == OUTCOME_VICTORY;
+    if (scene_mission(won ? scene + 1 : scene)) return load_screen(BRIEFING);
+    leave_level();
+    return true;
 }
 
 static void activate(app_t *app, int id) {
@@ -1167,6 +1281,11 @@ static void activate(app_t *app, int id) {
             }
             refresh_skirmish();
         } else if (!lan) activate_skirmish(id);
+    } else if (page == DEBRIEF) {
+        if (id == 9) leave_level();
+        else if (id == 10) ok = next_mission();
+    } else if (page == RESULT) {
+        if (id == 9) leave_level();
     } else if (page == BRIEFING) {
         if (id == 0) ok = load_screen(training ? SETUP : STORY);
         else if (id == 2) { menumap = mapname; M_ClearMenus(); }
@@ -1265,6 +1384,7 @@ static void menu_escape(menu_t *screen) {
         M_ClearMenus();
     }
     else if (page == LOAD) { if (!load_screen(MAIN)) { menuerror = true; app->running = false; } }
+    else if (page == DEBRIEF || page == RESULT) activate(app, 9);
     else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
         page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0);
     else if (menuinlevel) M_ClearMenus();

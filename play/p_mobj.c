@@ -691,6 +691,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
         return;
     }
 
+    G_RecordKill(target, source);
     G_UnitKilled(target, source);
     target->hp = 0;
     P_MobjSetSelected(target, false);

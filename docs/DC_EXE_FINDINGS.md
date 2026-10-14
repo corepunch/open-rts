@@ -7752,3 +7752,38 @@ skips), all 13 network modes, four loader fixtures, both model-command tests,
 the sprite-layout check, and all three generated-state comparisons. The
 Brozaar deploy/work FIN pixel check and both live harvester work cycles pass.
 Temporary diagnostic logging was removed before the complete run.
+
+## Mission end screens (2026-10-14)
+
+After a level returns, DC.EXE chooses the screen by the game mode at +0x14a0
+(the caller after 0x40b8c8): modes 1 and 2 (skirmish, network) call 0x404688, which loads
+`intrface/multiwin.dat` and `intrface/multiwn` and writes `Victory` or
+`Defeat` (0x46d408/0x46d410) into control 8. Campaign and training call
+0x4039b0, which loads `intrface/wingame.dat` and `intrface/wingame`; its own
+textmsg 20/21 carry the title. Both fill controls 0..7 with
+`%s Money:%6.6d       Kills:%4.4d       Losses:%4.4d` (0x46d374) per side, counting
+the numbers up. In WINGAMEE, NEXT MISSION (10) and SAVE (12) continue:
+after a win the mission counter advances, and 0x403964 runs the next (or
+the same) mission. MENU (9) leaves and LOAD (36) loads. `INTRFACE/WINE`, `WINUKE`,
+`VICTORY.GIF` and `VICTORG.GIF` are not referenced by DC.EXE.
+
+Mission scripts end a mission with `bail 0 <reason>` (won) or `bail 1 <reason>`
+(lost); every campaign TRO uses both and the multiplayer TROs use neither.
+The script parser stripped every parenthesis before matching `b(team,slot)`,
+so no `b()` condition had parsed: no mission could be won or lost by
+destroying buildings. `b()` also compared owners, though single-player owners
+merge teams (an allied team 7 is owner 2). Both are fixed in `p_script.c`.
+
+Implemented in `menu/m_menu.c` (`DC_ShowResult`): the engine's outcome
+(`game/g_outcome.c`) opens WINGAMEE for a campaign map, found by its GAMESTAT
+scene entry, so a restored game continues its campaign. Any other map opens
+MULTIWNE. Maps without `bail` actions end by engine elimination.
+**Not reproduced:** the counting animation, medals, rank and debrief
+sprites (`intrface/mdl%c`), SAVE/LOAD on the debrief, the result AVIs and
+the native money counter (on-hand credits are shown). Reproduce:
+
+```sh
+make build/bin/tests/dark-colony/test_results
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_results
+```
+
