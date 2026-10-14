@@ -58,9 +58,19 @@ static void walk_to(mobj_t *robot, const mobj_t *vehicle) {
     P_MoveUnitTo(&level, robot, fixed3_xy(vehicle->core.position));
 }
 
+/* 0x7b072: the unit stands off the empty object's top-left by its own
+ * offset (0x14adb4 by object; the heavy tank 6 right and 2 down more,
+ * 0x14aea4). */
+static const struct { int state; ivec2_t at; } entry_offsets[] = {
+    {S_GUN, {4, 0}}, {S_MEDIUM, {8, 6}}, {S_GATTLING, {4, 1}}, {S_HOWITZER, {1, 6}},
+    {S_M_MISSILE, {6, 3}}, {S_HEAVY, {6, 4}}, {S_LIGHT, {11, 7}}, {S_A_P_C, {6, 6}},
+    {S_JEEP, {4, 7}}, {S_CRANE, {6, 6}}, {S_FIRE_TRUCK, {3, 6}},
+};
+
 /* 0x7af62: the empty object goes and the robot drives in its place. The
  * vehicle keeps the robot's team and squad and stands where the object
- * did, its own picture's top-left on the object's. */
+ * did. It faces west, the way the crewless pictures do (0x7b21a); the
+ * A.P.C. keeps facing north. */
 static void get_in(mobj_t *robot, mobj_t *vehicle) {
     const zmap_t *map = level.native_data;
     int t = Z_UnitType(vehicle);
@@ -69,9 +79,12 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     if (!map || !Z_SpriteSize(map, states[vehicle->core.state_id].frame, &size)) return;
     ivec2_t top_left = {(int)((vehicle->core.position.x * Z_TILE) >> FIXED_FRAC_BITS) - size.w / 2,
                         (int)((vehicle->core.position.y * Z_TILE) >> FIXED_FRAC_BITS) - size.h / 2};
+    for (size_t i = 0; i < sizeof(entry_offsets) / sizeof(*entry_offsets); ++i)
+        if (entry_offsets[i].state == vehicle->core.state_id) top_left = ivec2_add(top_left, entry_offsets[i].at);
     if (!Z_UnitCentre(map, t, top_left, &centre)) return;
     vehicle->core.position = fixed3_from_fixed2(centre, vehicle->core.position.z);
-    vehicle->core.angle = robot->core.angle;
+    vehicle->core.angle = t == MT_UNIT_APC - MT_UNITS ? P_PointToAngle(0, -FIXED_ONE)
+                                                      : P_PointToAngle(-FIXED_ONE, 0);
     P_SetMobjState(vehicle, mobjinfo[vehicle->type_id].spawnstate);
     vehicle->traits |= vehicle->info->traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK | MF_TURRET);
     Z_SetTeam(vehicle, robot->team);

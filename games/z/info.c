@@ -15,10 +15,11 @@ const char *const sprnames[NUMSPRITES] = {
 };
 
 /* Groups the engine reads: 0 stand, 2 walk, 3 attack; 4 is our death.
- * Throwing a grenade is an attack of its own pictures (p_capture.c). */
-#define UNIT_STATES(type, stand, walk, walks, fire, fires, shot, die, dies, dead, dead_tics, \
+ * Throwing a grenade is an attack of its own pictures (p_capture.c). A
+ * unit that stands in several pictures steps through them every tic. */
+#define UNIT_STATES(type, stand, stands, walk, walks, fire, fires, shot, die, dies, dead, dead_tics, \
                     throw, throws, toss, cheer, cheers) \
-    [S_##type##_STND] = { SPR_##type, stand, 1, 4, A_Look, S_##type##_STND, 0, NULL }, \
+    [S_##type##_STND] = { SPR_##type, stand, stands, (stands) > 1 ? 1 : 4, A_Look, S_##type##_STND, 0, NULL }, \
     [S_##type##_WALK] = { SPR_##type, walk, walks, 3, A_Chase, S_##type##_WALK, 2, NULL }, \
     [S_##type##_FIRE] = { SPR_##type, fire, fires, 2, NULL, S_##type##_SHOT, 3, NULL }, \
     [S_##type##_SHOT] = { SPR_##type, shot, 1, 4, A_Attack, S_##type##_STND, 3, NULL }, \
@@ -29,21 +30,23 @@ const char *const sprnames[NUMSPRITES] = {
     [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL },
 /* Robots walk, aim, flash on the last fire frame and fall; their bodies
  * do not stay. A grenade leaves on the throw's last frame (0x636a0). */
-#define STATES_ROBOT(type, sprite, turn, frames, dead) \
-    UNIT_STATES(type, Z_ROBOT_STAND, Z_ROBOT_WALK, 4, Z_ROBOT_FIRE, 4, Z_ROBOT_FIRE + 4, \
+#define STATES_ROBOT(type, sprite, turn, frames, idle, dead) \
+    UNIT_STATES(type, Z_ROBOT_STAND, 1, Z_ROBOT_WALK, 4, Z_ROBOT_FIRE, 4, Z_ROBOT_FIRE + 4, \
                 Z_ROBOT_DIE, Z_ROBOT_DIE_FRAMES - 1, Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES - 1, \
                 3 * RTS_TICRATE, Z_ROBOT_THROW, Z_ROBOT_THROW_FRAMES - 1, \
                 Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES - 1, Z_ROBOT_CHEER, Z_ROBOT_CHEER_FRAMES)
 /* A gun's last frame is its muzzle flash; its wreck follows the turns. */
-#define STATES_GUN(type, sprite, turn, frames, dead) \
-    UNIT_STATES(type, 0, 0, 1, 0, 1, (frames) - 1, frames, 1, frames, 10 * RTS_TICRATE, \
+#define STATES_GUN(type, sprite, turn, frames, idle, dead) \
+    UNIT_STATES(type, 0, 1, 0, 1, 0, 1, (frames) - 1, frames, 1, frames, 10 * RTS_TICRATE, \
                 0, 1, (frames) - 1, 0, 1)
-/* Vehicles roll through their track frames; the wreck follows the turns. */
-#define STATES_VEHICLE(type, sprite, turn, frames, dead) \
-    UNIT_STATES(type, 0, 0, frames, 0, 1, 0, frames, 1, frames, 10 * RTS_TICRATE, 0, 1, 0, 0, 1)
+/* Vehicles roll through their track frames and stand in the `idle`
+ * pictures after them (w_rsc.c); the wreck follows. */
+#define STATES_VEHICLE(type, sprite, turn, frames, idle, dead) \
+    UNIT_STATES(type, frames, idle, 0, frames, 0, 1, 0, (frames) + (idle), 1, \
+                (frames) + (idle), 10 * RTS_TICRATE, 0, 1, 0, 0, 1)
 /* One picture for everything but the wreck; no wreck art removes it. */
-#define STATES_STILL(type, sprite, turn, frames, dead) \
-    UNIT_STATES(type, sprite, sprite, 1, sprite, 1, sprite, (dead) < 0 ? (sprite) : (dead), 1, \
+#define STATES_STILL(type, sprite, turn, frames, idle, dead) \
+    UNIT_STATES(type, sprite, 1, sprite, 1, sprite, 1, sprite, (dead) < 0 ? (sprite) : (dead), 1, \
                 (dead) < 0 ? (sprite) : (dead), (dead) < 0 ? 1 : 10 * RTS_TICRATE, \
                 sprite, 1, sprite, sprite, 1)
 
@@ -60,8 +63,8 @@ const state_t states[NUMSTATES] = {
     [S_##type] = { SPR_RSC, sprite, 1, -1, NULL, S_##type, 0, NULL },
 #include "objects.inc"
 #undef Z_OBJECT
-#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, dead) \
-    STATES_##kind(type, sprite, turn, frames, dead)
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, idle, dead) \
+    STATES_##kind(type, sprite, turn, frames, idle, dead)
 #include "units.inc"
 #undef Z_UNIT
     /* The flag waves through four pictures, a step every second tick of
