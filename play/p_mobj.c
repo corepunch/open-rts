@@ -38,7 +38,7 @@ mobj_t *P_MobjById(uint32_t id) {
 
 bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *unit) {
     (void)map;
-    if (!vent || !vent->active || vent->amount <= 0) return false;
+    if (!P_VentYields(vent)) return false;
 #ifdef RTS_MODULE_WARCRAFT_2
     if (!unit || vent->resource_type < 0 || vent->resource_type >= 3 ||
         !mobjinfo[unit->type_id].w2.gather[vent->resource_type].capacity) return false;
@@ -1234,17 +1234,18 @@ static fixed_t unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     return radius;
 }
 
-/* Another gatherer is working this deposit now. */
-static bool vent_busy(const level_t *map, int index, const mobj_t *self) {
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        if (th->function != P_MobjThinker) continue;
-        const mobj_t *other = (const mobj_t *)th;
-        if (other == self || other->remove || other->hp <= 0 || other->harvest.target != index) continue;
-        if (other->harvest.phase == HARVEST_PHASE_MINING || other->harvest.phase == HARVEST_PHASE_TURNING)
-            return true;
-    }
-    (void)map;
-    return false;
+/* Another gatherer is working this deposit: its heartbeat is this tic's or
+ * the last one's, as it may think after the asker in the same tic. */
+static bool vent_busy(const resourcevent_t *vent, const mobj_t *self) {
+    return vent->occupant && vent->occupant != self->id && vent->occupied_at + 1 >= leveltime;
+}
+
+/* The gatherer turning toward or working an exclusive deposit says so every
+ * tic; once it stops, the deposit is free a tic later. */
+static void claim_vent(resourcevent_t *vent, const mobj_t *unit) {
+    if (!unit->info->harvest.resources[vent->resource_type].exclusive) return;
+    vent->occupant = unit->id;
+    vent->occupied_at = leveltime;
 }
 
 /* A gatherer finding its deposit taken tries a free one of the same kind
@@ -1255,10 +1256,9 @@ static bool hop_to_free_vent(level_t *map, mobj_t *unit, const resourcevent_t *b
     fixed2_t at = fixed3_xy(unit->core.position);
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        if (vent == busy || !vent->active || vent->amount <= 0 || vent->resource_type != busy->resource_type ||
-            !P_VentOpenTo(map, vent, unit) ||
+        if (vent == busy || vent->resource_type != busy->resource_type || !P_VentOpenTo(map, vent, unit) ||
             fixed2_distance_squared64(vent->attachment, busy->attachment) > fixed_sq64(FIXED_FROM_INT(4)) ||
-            vent_busy(map, i, unit)) continue;
+            vent_busy(vent, unit)) continue;
         int64_t d2 = fixed2_distance_squared64(vent->attachment, at);
         if (best < 0 || d2 < best_d2) { best = i; best_d2 = d2; }
     }
@@ -1269,12 +1269,11 @@ static bool hop_to_free_vent(level_t *map, mobj_t *unit, const resourcevent_t *b
 }
 
 /* An empty deposit either closes or, like a depleted geyser, keeps giving
- * a trickle without end. */
+ * a trickle without end: its amount stays 0 and P_VentYields still holds. */
 static void vent_emptied(resourcevent_t *vent) {
     if (vent->depleted_rate > 0) {
         vent->depleted = true;
         vent->rate = vent->depleted_rate;
-        vent->amount = INT32_MAX / 2;
         return;
     }
     vent->active = false;
@@ -1348,8 +1347,7 @@ static bool update_unit_harvest(level_t *map,
             if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
             return true;
         }
-        if (!vent || !vent->active || vent->rate <= 0 || vent->amount <= 0 ||
-            !P_VentOpenTo(map, vent, unit)) {
+        if (!vent || vent->rate <= 0 || !P_VentOpenTo(map, vent, unit)) {
             unit->harvest.target = -1;
             unit->harvest.timer_ms = 0;
             unit->harvest.phase = HARVEST_PHASE_NONE;
@@ -1365,6 +1363,7 @@ static bool update_unit_harvest(level_t *map,
         return false;
     }
     if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
+        claim_vent(vent, unit);
         fixed2_t att_delta = fixed2_sub(
             vent->attachment, fixed3_xy(unit->core.position));
         if (animated_transfer) {
@@ -1388,7 +1387,7 @@ static bool update_unit_harvest(level_t *map,
     if (animated_transfer) {
         int capacity = mobj_harvest_capacity(unit);
         if (unit->harvest.cargo > 0 && (unit->harvest.cargo >= capacity ||
-            unit->harvest.resource_type != vent->resource_type || !vent->active || vent->amount <= 0)) {
+            unit->harvest.resource_type != vent->resource_type || !P_VentYields(vent))) {
             unit->harvest.phase = HARVEST_PHASE_TO_BASE;
             P_ReturnHarvest(map, unit, NULL);
             return true;
@@ -1398,11 +1397,13 @@ static bool update_unit_harvest(level_t *map,
             if (state && state->group == 5) return true;
             int take = unit->info->harvest.resources[unit->harvest.resource_type].load_amount;
             if (take > capacity - unit->harvest.cargo) take = capacity - unit->harvest.cargo;
-            if (take > vent->amount) take = vent->amount;
+            if (!vent->depleted && take > vent->amount) take = vent->amount;
             if (take < 0) take = 0;
             unit->harvest.cargo += take;
-            vent->amount -= take;
-            if (vent->amount <= 0) vent_emptied(vent);
+            if (!vent->depleted) {
+                vent->amount -= take;
+                if (vent->amount <= 0) vent_emptied(vent);
+            }
             if (unit->harvest.cargo >= capacity || !vent->active) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
                 P_ReturnHarvest(map, unit, NULL);
@@ -1416,8 +1417,7 @@ static bool update_unit_harvest(level_t *map,
         unit->harvest.phase = HARVEST_PHASE_TURNING;
         return true;
     }
-    if (!vent->active || vent->rate <= 0 || vent->amount <= 0 ||
-        !P_VentOpenTo(map, vent, unit)) {
+    if (vent->rate <= 0 || !P_VentOpenTo(map, vent, unit)) {
         if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0 &&
             P_ReturnHarvest(map, unit, NULL))
             return false;
@@ -1447,12 +1447,12 @@ static bool update_unit_harvest(level_t *map,
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
     if (unit->harvest.phase != HARVEST_PHASE_MINING && unit->harvest.phase != HARVEST_PHASE_TURNING &&
-        unit->info->harvest.resources[vent->resource_type].exclusive &&
-        vent_busy(map, unit->harvest.target, unit)) {
+        unit->info->harvest.resources[vent->resource_type].exclusive && vent_busy(vent, unit)) {
         unit->harvest.timer_ms = 0;
         if (((uint32_t)leveltime + unit->id) % 8 == 0) hop_to_free_vent(map, unit, vent);
         return true;
     }
+    claim_vent(vent, unit);
     if (!P_HarvesterWorksOutside(unit, vent) && P_CheckPosition(map, unit, vent->attachment))
         unit->core.position = fixed3_from_fixed2(vent->attachment, unit->core.position.z);
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
@@ -1464,17 +1464,19 @@ static bool update_unit_harvest(level_t *map,
     if (interval > 0 && unit->harvest.phase != HARVEST_PHASE_MINING) return true;
     if (interval <= 0) interval = RTS_HARVEST_INTERVAL_MS;
     unit->harvest.timer_ms += dt_ms;
-    while (unit->harvest.timer_ms >= interval && vent->amount > 0) {
+    while (unit->harvest.timer_ms >= interval && P_VentYields(vent)) {
         unit->harvest.timer_ms -= interval;
         int take = vent->rate;
         int capacity = mobj_harvest_capacity(unit);
         if (capacity > 0 && take > capacity - unit->harvest.cargo)
             take = capacity - unit->harvest.cargo;
-        if (take > vent->amount) take = vent->amount;
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
-        vent->amount -= take;
-        if (vent->amount <= 0) vent_emptied(vent);
+        if (!vent->depleted) {
+            if (take > vent->amount) take = vent->amount;
+            vent->amount -= take;
+            if (vent->amount <= 0) vent_emptied(vent);
+        }
         if (mobj_harvest_capacity(unit) > 0)
             unit->harvest.cargo += take;
         else
@@ -1484,7 +1486,7 @@ static bool update_unit_harvest(level_t *map,
             (unit->harvest.cargo >= mobj_harvest_capacity(unit) || vent->depleted)) {
             if (P_ReturnHarvest(map, unit, NULL)) break;
         }
-        if (vent->amount <= 0) {
+        if (!P_VentYields(vent)) {
             vent->active = false;
             if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
                 P_ReturnHarvest(map, unit, NULL);

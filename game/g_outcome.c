@@ -32,6 +32,14 @@ static const mobj_t *local_member(void) {
     return NULL;
 }
 
+/* A unit seen for its owner makes that owner a side, which stays a side
+ * once lost, and names the scenario team the side's units carried. */
+static void note_side(const mobj_t *unit) {
+    level.sides |= (uint8_t)(1u << unit->owner);
+    if (!level.side_stats[unit->owner].team)
+        level.side_stats[unit->owner].team = (uint8_t)(unit->team + 1);
+}
+
 /* A dying unit still marks its side and whether that side is the local
  * player's foe, in case it is gone before the next check. */
 void G_RecordKill(const mobj_t *victim, const mobj_t *killer) {
@@ -39,7 +47,7 @@ void G_RecordKill(const mobj_t *victim, const mobj_t *killer) {
     level.side_stats[victim->owner].losses++;
     if (killer && killer->owner < 8 && killer->owner != victim->owner)
         level.side_stats[killer->owner].kills++;
-    level.sides |= (uint8_t)(1u << victim->owner);
+    note_side(victim);
     const mobj_t *me = victim->owner != consoleplayer ? local_member() : NULL;
     if (me && !P_IsAlly(me, victim)) level.foes |= (uint8_t)(1u << victim->owner);
 }
@@ -56,15 +64,13 @@ void G_CheckElimination(unsigned rules) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *unit = (const mobj_t *)th;
         if (!counts(unit)) continue;
-        if (!member[unit->owner]) member[unit->owner] = unit;
+        if (!member[unit->owner]) { member[unit->owner] = unit; note_side(unit); }
         if (!side[unit->owner] && th->function && !unit->remove && unit->hp > 0)
             side[unit->owner] = unit;
     }
     uint8_t living = 0;
-    for (int p = 0; p < 8; ++p) {
-        if (member[p]) level.sides |= (uint8_t)(1u << p);
+    for (int p = 0; p < 8; ++p)
         if (side[p]) living |= (uint8_t)(1u << p);
-    }
     /* Remember who is hostile to the local player; a lost side has no unit
      * left to ask. */
     const mobj_t *me = member[consoleplayer];
@@ -94,8 +100,7 @@ void G_CheckElimination(unsigned rules) {
 
 void G_OutcomeTicker(mobj_t *const *units, int count) {
     if (level.outcome || !level.width) return;
-    unsigned rules = G_LevelObjectives(units, count);
-    if (!level.outcome) G_CheckElimination(rules);
+    G_CheckElimination(G_LevelObjectives(units, count));
 }
 
 /* ── the engine's result screen, for games without their own ────────────── */

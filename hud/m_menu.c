@@ -57,6 +57,19 @@ menuitem_t *M_MenuHover(const menu_t *menu) {
     return item_live(item) ? item : NULL;
 }
 
+static irect_t hit_rect(const menu_t *menu, const menuitem_t *item);
+
+menuitem_t *M_MenuTipItem(const menu_t *menu) {
+    menuitem_t *item = M_MenuHover(menu);
+    if (item || menu->modal) return item;
+    for (int i = 0; i < menu->numitems; ++i) {
+        item = &menu->items[i];
+        if (item->visible && !item->enabled && item->disabled_look && item->tooltip && !item->passthrough &&
+            irect_contains(hit_rect(menu, item), menu->cursor)) return item;
+    }
+    return NULL;
+}
+
 menuitem_t *M_MenuFind(const menu_t *menu, int id) {
     for (int i = 0; i < menu->numitems; ++i)
         if (menu->items[i].id == id) return &menu->items[i];
@@ -893,14 +906,7 @@ void M_MenuDrawer(menu_t *menu) {
             if (popup.border) V_DrawRectOutline(rect, V_NearestIndex(popup.border));
         }
     }
-    const menuitem_t *hover = M_MenuHover(menu);
-    /* A greyed command still explains itself (StarCraft's "Requires ..."). */
-    if (!hover && !menu->modal)
-        for (int i = 0; i < menu->numitems && !hover; ++i) {
-            const menuitem_t *item = &menu->items[i];
-            if (item->visible && !item->enabled && item->disabled_look && item->tooltip && !item->passthrough &&
-                irect_contains(hit_rect(menu, item), menu->cursor)) hover = item;
-        }
+    const menuitem_t *hover = M_MenuTipItem(menu);
     if (hover && hover->tooltip && menu->drawtip) menu->drawtip(menu, hover);
     if (menu->modal && message[0]) draw_message();
     V_SetDrawScale(previous);

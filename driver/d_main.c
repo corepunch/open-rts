@@ -544,6 +544,8 @@ load_level:
                     }
                 }
             }
+            /* After the mission, before production, as rts_game_model_tick orders it. */
+            G_OutcomeTicker(units, unit_count);
             int before_production_count = unit_count;
             bool production_spawned;
             /* Every game's computer players buy through the universal AI. */
@@ -560,8 +562,6 @@ load_level:
                     fprintf(stderr, "warning: failed to load produced unit sprite\n");
                 }
             }
-            G_OutcomeTicker(units, unit_count);
-
             HU_Ticker(&hud_text, RTS_TICK_MS);
             HU_Ticker(&chat_text, RTS_TICK_MS / 1000.0f);
             if (hud) {

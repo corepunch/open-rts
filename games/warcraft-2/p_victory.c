@@ -31,7 +31,12 @@ bool G_UnitHoldsSide(const mobj_t *unit) {
            !(mobjinfo[unit->type_id].w2.attributes & W2_NEUTRAL);
 }
 
-void G_ShowOutcome(outcome_t outcome) { W2_ShowResult(outcome == OUTCOME_VICTORY); }
+/* Over whatever menu this peer has open: a network match ends for every
+ * peer on the same tic, and one with its menu open ends with the rest. */
+void G_ShowOutcome(outcome_t outcome) {
+    if (menuactive) M_ClearMenus();
+    W2_ShowResult(outcome == OUTCOME_VICTORY);
+}
 
 void W2_VictoryReset(void) {
     w2_mission_t *mission = level.mission;
@@ -43,7 +48,7 @@ void W2_VictoryReset(void) {
  * ends a custom map; a campaign's victory is its own objective. */
 unsigned G_LevelObjectives(mobj_t *const *units, int count) {
     w2_mission_t *mission = level.mission;
-    if (!mission || mission->done || menuactive || --mission->countdown > 0) return 0;
+    if (!mission || mission->done || --mission->countdown > 0) return 0;
     mission->countdown = 30;
     if (!level.native_data) return 0;
     if (!mission->campaign.number) return ELIMINATE_ALL;
@@ -62,5 +67,3 @@ unsigned G_LevelObjectives(mobj_t *const *units, int count) {
     }
     return ELIMINATE_DEFEAT;
 }
-
-void W2_CheckVictory(mobj_t *const *units, int count) { G_OutcomeTicker(units, count); }

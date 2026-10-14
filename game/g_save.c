@@ -25,6 +25,11 @@ typedef struct {
     uint32_t vision[8], next_id, next_order;
     uint16_t income_scale[8];
     uint8_t upgrades[sizeof(level.upgrades)];
+    /* The level's result so far: who has been a side, who is the local
+     * player's foe, kills and losses, and whether it has ended. */
+    outcome_t outcome;
+    uint8_t sides, foes;
+    sidestats_t side_stats[8];
     size_t extra_size;
     AiContext ai;
     hudtext_t hud;
@@ -82,7 +87,8 @@ static bool parse_save(const blob_t *file, save_t *save) {
         save->height <= 0 || save->width > 4096 || save->height > 4096 ||
         save->objects < 0 || save->vents < 0 || save->speed < 10 || save->speed > 200 ||
         !memchr(save->info.map, 0, sizeof(save->info.map)) || !save->info.map[0] ||
-        !memchr(save->info.name, 0, sizeof(save->info.name)) || save->ai.game) goto fail;
+        !memchr(save->info.name, 0, sizeof(save->info.name)) || save->ai.game ||
+        (unsigned)save->outcome > OUTCOME_DRAW) goto fail;
     size_t cells = (size_t)save->width * save->height;
     if ((size_t)save->objects > save->body_size / sizeof(savedmobj_t) ||
         (size_t)save->vents > save->body_size / sizeof(resourcevent_t) ||
@@ -151,7 +157,9 @@ bool G_SaveGameBlob(void **data, size_t *length, const char *name, const app_t *
         .paused = paused, .camera = app->cam, .daylight = level.daylight,
         .random = level.random_index, .next_id = level.next_mobj_id,
         .next_order = level.next_move_order_id, .extra_size = G_SaveExtraSize(),
+        .outcome = level.outcome, .sides = level.sides, .foes = level.foes,
         .ai = *ai, .hud = *hud};
+    memcpy(save.side_stats, level.side_stats, sizeof(save.side_stats));
     save.ai.game = NULL;
     snprintf(save.info.name, sizeof(save.info.name), "%s", name);
     snprintf(save.info.map, sizeof(save.info.map), "%s", level.map_path);
@@ -275,6 +283,10 @@ bool G_LoadGameBlob(const void *data, size_t length, app_t *app, AiContext *ai, 
     memcpy(level.income_scale, save.income_scale, sizeof(save.income_scale));
     memcpy(level.sight.allies, save.vision, sizeof(save.vision));
     memcpy(level.upgrades, save.upgrades, sizeof(save.upgrades));
+    level.outcome = save.outcome;
+    level.sides = save.sides;
+    level.foes = save.foes;
+    memcpy(level.side_stats, save.side_stats, sizeof(save.side_stats));
     *ai = save.ai;
     P_AiAttachGame(ai, G_AiInterface());
     *hud = save.hud;

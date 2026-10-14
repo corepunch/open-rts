@@ -1047,8 +1047,10 @@ static const char *side_name(int owner, char factions[8][32]) {
     const dc_skirmish_t *setup = DC_LevelSkirmish(&level);
     if (setup && setup->players[owner].name[0]) return setup->players[owner].name;
     if (owner == consoleplayer && leader[0]) return leader;
-    int team = level.side_team[owner] - 1;
-    if (team >= 0 && factions[team][0]) return factions[team];
+    /* A campaign's single-player owners stand for several scenario teams;
+     * the engine remembers the one a side's units carried, lost or not. */
+    int team = G_SideStats(owner)->team - 1;
+    if (team >= 0 && team < 8 && factions[team][0]) return factions[team];
     return M_va("Player%d", owner); /* 0x410091 */
 }
 

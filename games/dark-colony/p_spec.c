@@ -32,11 +32,7 @@ MissionState mission_get_state(const void *ptr) {
 /* A campaign script ends its own mission, also when a saved game restores
  * an ended one; a map without bail actions is left to elimination. */
 unsigned G_LevelObjectives(mobj_t *const *units, int count) {
-    /* A campaign's single-player owners stand for several teams; remember
-     * one so the result screen can name a side that has been destroyed. */
-    for (int i = 0; i < count; ++i)
-        if (units[i]->owner < 8 && units[i]->team < 8 && !level.side_team[units[i]->owner])
-            level.side_team[units[i]->owner] = (uint8_t)(units[i]->team + 1);
+    (void)units; (void)count;
     const Mission *mission = level.mission;
     MissionState state = mission_get_state(mission);
     if (state != MISSION_ACTIVE) {

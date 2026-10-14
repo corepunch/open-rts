@@ -78,7 +78,6 @@ int W2_Distance(const mobj_t *a, const mobj_t *b);
 
 /* Victory and defeat (games/warcraft-2/p_victory.c). */
 void W2_VictoryReset(void);
-void W2_CheckVictory(mobj_t *const *units, int count);
 
 /* Combat (games/warcraft-2/p_combat.c). */
 void W2_SeedCombat(uint32_t seed);
