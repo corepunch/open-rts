@@ -2253,6 +2253,8 @@ static void refresh(menu_t *menu) {
         /* Costs, supply, power and queue capacity reject an order at click
          * time. Only the tech tree decides whether this button exists. */
         if(!G_ModelProductAvailable(NULL,consoleplayer,p))continue;
+        /* A building holds one add-on: once attached, the others leave the card. */
+        if(sc_addon_parent((uint16_t)p->product_type)==selected->type_id&&sc_addon_of(selected))continue;
         button(pos,p->icon_frame,key,product,p->ui_id,p->label);
         if(pos>=slot)slot=pos+1;
     }

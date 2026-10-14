@@ -90,3 +90,10 @@ bool G_GameHarvestAt(mobj_t *const *units, int count, fixed2_t position, bool *i
     for (int i = 0; i < count; ++i) *issued = W2_HarvestOrder(units[i], position) || *issued;
     return true;
 }
+
+/* Archers, axethrowers, knights and ogres trained after their elite research
+ * leave the barracks as rangers, berserkers, paladins and ogre-magi. */
+void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
+    (void)producer;
+    W2_UpgradeUnit(unit);
+}

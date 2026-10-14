@@ -221,15 +221,21 @@ bool W2_TransformUnit(mobj_t *unit, uint16_t type) {
     return true;
 }
 
-void W2_UpgradeUnit(mobj_t *unit) {
-    if (!unit || unit->remove || unit->hp <= 0) return;
+uint16_t W2_TrainedType(int owner, uint16_t type) {
     static const struct { int research; uint16_t from, to; } conversions[] = {
         {W2_UPGRADE_RANGER, MT_ARCHER, MT_RANGER}, {W2_UPGRADE_BERSERKER, MT_AXETHROWER, MT_BERSERKER},
         {W2_UPGRADE_PALADIN, MT_KNIGHT, MT_PALADIN}, {W2_UPGRADE_OGRE_MAGE, MT_OGRE, MT_OGRE_MAGE},
     };
     for (size_t i = 0; i < sizeof(conversions) / sizeof(*conversions); ++i)
-        if (unit->type_id == conversions[i].from && W2_HasResearch(unit->owner, conversions[i].research))
-            W2_TransformUnit(unit, conversions[i].to);
+        if (type == conversions[i].from && W2_HasResearch(owner, conversions[i].research))
+            return conversions[i].to;
+    return type;
+}
+
+void W2_UpgradeUnit(mobj_t *unit) {
+    if (!unit || unit->remove || unit->hp <= 0) return;
+    uint16_t type = W2_TrainedType(unit->owner, unit->type_id);
+    if (type != unit->type_id) W2_TransformUnit(unit, type);
 }
 
 fixed_t W2_AttackRange(const mobj_t *unit) {
@@ -277,6 +283,20 @@ bool W2_OwnerHas(int owner, uint16_t type) {
         if (W2_CountsAs(unit->type_id, type)) return true;
     }
     return false;
+}
+
+/* A structure without a catalog row (a wall) has no prerequisites; one with
+ * a row is raised only by its own side's worker once the tree allows it. */
+bool W2_SiteAllowed(int owner, uint16_t builder, uint16_t type) {
+    bool listed = false;
+    for (int i = 0; i < product_count(); ++i) {
+        const StaticProductDefinition *product = &W2_PRODUCTS[i];
+        if (product->product_class != RTS_PRODUCT_BUILDING || product->product_type != type) continue;
+        listed = true;
+        for (int j = 0; j < product->maker_count; ++j)
+            if (product->makers[j] == builder) return G_ModelProductAvailable(NULL, owner, product);
+    }
+    return !listed;
 }
 
 void w2_init_products(void) {
