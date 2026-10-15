@@ -282,11 +282,25 @@ building structures, so several fields hold stale pointers from the editor.
 |---|---|
 | 0x00 | u16 x, y: top-left pixel |
 | 0x04 | Type, 0xff for none |
+| 0x0c | u32 production technology rating; minimum product requirements are multiplied by 1000 and compared against this value |
 | 0x1a, 0x1c | u16 hit points and maximum |
 | 0x1e | Run-time pointer to the owning territory (set by 0x3ed17) |
 
 Types index the 74-byte table at 0xe6120: name, then the footprint in cells
 at +0x30, then handler pointers.
+
+Production availability is a per-producer numeric threshold, not a level
+bitmask. ROBOTS.DAT groups start at 18000 and occupy 82 bytes each:
+byte 0 enables the group, +28 holds its first u16 robot index, and bytes
+73, 74 and 75 are minimum ratings for tank factories, robot factories
+and forts respectively. Zero excludes the product; otherwise the
+producer needs at least `minimum * 1000`. The selectors also check the
+first member's weapon class and a fixed production-group list.
+The level supplies ordinary factory ratings in BUILDnn.DAT. Forts are
+generated from map markers and obtain their ratings from a campaign
+table in ZED.EXE, not from LEVELS.DAT's starting groups or its two
+10000-valued fields. See “Production availability thresholds” in
+Z_EXE_FINDINGS.md for the exact lookups, product matrix and level-1 proof.
 
 | Type | Name | Footprint | Sprites by world (desert, arctic, city, volcano, jungle) |
 |---|---|---|---|

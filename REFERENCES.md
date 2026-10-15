@@ -1,5 +1,16 @@
 # Reverse Engineering References
 
+### Z production availability (2026-10-15)
+
+- Local retail `data/Z/ZED.EXE`, `ROBOTS.DAT`, `LEVELS.DAT` and
+  `LEVEL01/BUILD01.DAT` establish the product threshold checks, ordinary
+  factory ratings and executable-initialized fort campaign ratings.
+  No retail execution, external source or visual guess was used.
+  Fingerprints, offsets, disassembly addresses, the complete threshold
+  matrix, rejected bitmask hypothesis, reproduction commands and remaining
+  implementation work are in
+  [Z_EXE_FINDINGS.md](docs/Z_EXE_FINDINGS.md#production-availability-thresholds-2026-10-15).
+
 ### Z retail building windows and sidebar (2026-10-15)
 
 - Local retail `data/Z/ZED.EXE`, `SPRITES.RSC` and `SHEADFX.PAC` were read
