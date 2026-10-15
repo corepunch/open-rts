@@ -217,6 +217,164 @@ for its network desync log. Network games reset the seed to 0x3039 at
   (`do_robot_factory`, `do_tank_factory` and the fort's sequence);
   `games/z/products.inc` is authored, as is the speed-up from held
   territories.
-- Audio sample rates and the front end. `games/z/sb_bar.c` lays the panel
-  out from its art by eye; the T, D and Z buttons' handlers, the face
-  animation and the production window's native look are not traced.
+- Audio sample rates and the front end. The T, D and Z buttons' handlers,
+  the face animation sequences and the native production catalog/timing
+  remain unported. The window drawing and panel coordinates were traced
+  below; the earlier layout-by-eye is superseded.
+
+## Building windows and sidebar correction (2026-10-15)
+
+Static analysis only; the retail executable was not run. Fingerprints (SHA-256):
+
+```
+ZED.EXE      3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676
+SPRITES.RSC  56b79cfaf489bdbcd9fd658c583d01ed31dd4e7b8575042b4fd8c216a3f5f6e8
+SHEADFX.PAC  b923bc9460b1b60a138b83e810332b63c6c05ad893300d0302661e321ee91710
+```
+
+The Watcom/LE fingerprint and mapping above still apply. `r2` was unavailable
+on this host. A scratch C loader applied the LE type 7/8 relocations and used
+Apple's `libLTO` disassembler (`lto_initialize_disassembler`, `LLVMCreateDisasm`
+with `i386-unknown-unknown`). The analysis output stays under ignored
+`reverse/z-ui/`. No Python tooling was introduced. Addresses below are relocated
+image addresses, not file offsets. With an LE-aware disassembler, inspect
+`0x24ce0`, `0x25d89`, `0x25edd`, `0x25fbf`, `0x2638c`, `0x2cc7f`, `0x2c880`,
+`0x32713`, `0x345b0` and their callees to reproduce the instruction evidence.
+
+### Confirmed: the production window
+
+The named per-frame `draw_building_box` marker at `0x161e6` calls `0x24ce0`.
+The routine requires the active building pointer at `0x12e9a8`, checks that
+the linked territory's team is the local player, and draws production controls
+for building types 1 (robot factory), 2 (fort) and 4 (vehicle factory).
+This corroborates showing the window only for the player's live producers.
+
+`0x25fbf` draws **SPRITES.RSC 4694**, a 112x80 frame; this is independent of
+the HEADFX/SHEADFX sidebar picture lists. All offsets here are relative to
+that frame's top-left:
+
+| Routine | Native artwork | Position / behavior |
+|---|---|---|
+| `0x25edd` | 4695 robot / 4696 fort / 4697 vehicle factory title | (8,6) |
+| `0x25ffd` | 4699 select / 4700 building / 4701 placing status backgrounds; 4712..4714 their lettered versions | (64,19); the original alternates versions using its tick bit |
+| `0x25e3c` | 4702/4703 Cancel, 4704/4705 OK; 4718/4719 Place when placing | (67,47), (67,62) |
+| `0x25e8e` | 4706/4707 up, 4708/4709 down | (50,21), (50,64); only while no product is running |
+| `0x25d89` | 4710 green meter, 4711 yellow overdraw | (53,21), clipped from its top by elapsed production's 37-pixel travel |
+| `0x25fbf` | 1889 preview background | (6,22), 48x37 |
+| `0x2572b` | Product name from the word table at `0x12eccd` | (3,62), 48x8 |
+| `0x26129`, `0x2638c` | RSC small font 4722 onwards | Time at (92,35), `m:ss`, saturating at 9:59 |
+| `0x25f1a` | Same small font | Building health at (89,6) when full; (91,6) when damaged, plus native damage shading |
+
+The health field uses palette index 121 to shade its top `10 - health/10`
+rows over a 19-pixel width, exactly as `0x25f1a`. The small-font renderer
+at `0x5c684` subtracts 32 from the requested font base 4722 and adds
+the character code; English uppercase/numeric advances are bytes at `0x148c46`.
+This is a separate font from CHARS.BIN. Its advances keep the time inside the
+small space following the frame's authored “Time” label.
+
+`0x12ecb9` lists production group IDs; parallel u16 entries at `0x12eccd`
+give the name sprites. Resolve groups through ROBOTS.DAT's 82-byte records
+and their first robot's weapon type, rather than treating group IDs as unit
+types. In weapon-type order 0..18 the verified labels are
+`803,808,792,791,796,800,802,793,805,787,807,801,799,798,806,804,unknown,795,789`.
+The unlisted Truck is not a product in our catalog.
+
+`0x25977` tests Cancel at (67,47), OK at (67,62), arrows at (53,21)/(53,65),
+and the preview box at (6,22). Cancel's `0x25c5f` sends a stop command when
+production is running; otherwise it closes. OK's `0x25b3d` starts the chosen
+product or closes an already-running window. Arrow routines `0x25ceb` and
+`0x25d3a` refuse changes while running. Our widget hitboxes use the complete
+authored button extents, and closing clears the building selection so a
+second world click can reopen it.
+
+`0x24ffc` anchors the window at the building's native (x,y) minus (96,48).
+`0x24e72` recomputes its screen location as the camera moves. Retail can
+leave the window partially outside the viewport; our resizable-window policy
+clamps it to keep controls reachable. This clamp is engine behavior, not a
+retail coordinate correction. The original supports dragging the frame
+(`0x25a74`); that interaction remains unported.
+
+### Confirmed: sidebar coordinates and portrait composition
+
+The high-resolution branch at `0x2cc7f` initializes byte offsets into the
+96-wide sidebar and 544-wide bottom bar. Dividing by the native row stride
+gives these positions:
+
+- Clock: one hours digit (26,4), minutes (50,4), seconds (74,4).
+  `0x2f490` draws the hours remainder only; `0x2f45a` draws two digits with
+  ten-pixel advance, even though each source cell is twelve pixels wide.
+- Weapon / vehicle hardware panel: (0,144); grenade (26,186), grenade count
+  (56,188); name (0,122), weapon label (0,228).
+- T/D/Z buttons: (6,262), (36,262), (66,262), from `0x32713` onwards.
+  `0x32513` draws directly into the panel; extra black slot pictures should
+  not be placed behind these authored button images.
+- Bottom percentages: (130,10)/(278,10) for two sides;
+  (130,10)/(232,10)/(334,10) for three; and
+  (130,10)/(204,10)/(278,10)/(352,10) for four.
+  Bars start 22 pixels after each number. `0x31fc2` saturates at 99;
+  wrapping 100 to 00 is wrong. Sources 67..69 are 80 pixels wide, 70..73
+  are 54, 74..78 are 40 (team colors in order, then the empty bar).
+  Do not crop an 80-wide team's
+  artwork to stand in for a different-sized authored bar.
+- Radar: `0x345b0` uses 86x104, at (6,288), and shrinks/centers the map
+  preserving aspect ratio. The old (4,296), 92-square viewport overwrote
+  the frame and distorted the map. The native output does not establish
+  our current radar terrain sampling, tint or fog rules; those remain
+  reimplementation behavior.
+
+`0x2c880` decodes the packed portrait pose. `0x2c30c` gives the neutral pose
+as **0x000f**: head 1, mouth 4, eyes 20, shoulders 0, no hands. The x/y
+tables start at `0x1311fa`; each coordinate doubles with SHEADFX. In face
+order Grunt, Tough, Pyro, Sniper, Psycho:
+
+| Piece | Half-resolution coordinates |
+|---|---|
+| Head 1 | (4,3) for all |
+| Shoulders 0 | (2,26), (2,21), (2,23), (2,21), (2,23) |
+| Mouth 4 | (15,16), (15,16), (15,15), (15,16), (15,17) |
+| Eyes 20 | (11,8), (11,8), (11,7), (11,8), (11,9) |
+
+`0x2c131` copies the composed buffer from source row 4 to panel (2,42).
+Do not center head cell 2 alone: it is a complete alternate face but omits
+the shoulders. **Disproven during this investigation:** cells 31/32 are
+helmet tops; the assets show hands, and pose bits 2..3 >= 2 suppress them.
+Swapping the mouth/eye tables also creates an obvious hole and misaligned
+eyes. Static neutral portraits are now used; native speech/blink/reaction
+pose sequences remain unported. Friendly vehicles without an explicit
+recorded driver use a Grunt portrait (an engine fallback), while known
+drivers retain their own face type.
+
+`0x2dbc6` and the high-resolution table at `0x13eb0c` place vehicle art
+98..109 in the **lower hardware panel**, over background 113, with the
+driver's portrait above. In picture order the top margins are
+`8,8,10,4,10,2,16,6,2,10,8,2`. The previous implementation put these
+96-wide hardware pictures into the portrait window. Blank/non-unit
+selection no longer draws invented ownership or building-name labels.
+
+### Verification and remaining differences
+
+```
+make
+env SDL_VIDEODRIVER=dummy make test-z
+env SDL_VIDEODRIVER=dummy build/bin/z --check
+env SDL_VIDEODRIVER=dummy build/bin/z data/Z LEVEL01/LEVEL01.MAP --screenshot /private/tmp/z-hud.bmp
+env SDL_VIDEODRIVER=dummy OPEN_RTS_Z_UI_SHOTS=/private/tmp build/bin/tests/z/test_hud
+```
+
+`test_panel` checks native artwork dimensions. `test_hud` checks both 1x
+and 2x layouts, pressed artwork, aspect ratio, production/cancellation,
+same-building reopening, enemy selection, all five portrait sets and the
+vehicle panel. Its optional BMPs show idle/running windows and sidebars.
+The final full build passed, all 23 Z tests passed, and the headless smoke
+check loaded LEVEL01's 512 terrain tiles and 99 units. The network-menu
+test required permission to bind a temporary localhost port; it passed
+outside the restricted network sandbox.
+Temporary diagnostic logging printed producer ID, chosen product, queue
+state, popup bounds and radar bounds; it was removed after verification.
+
+This ports the retail window artwork/layout and its basic control flow,
+not the complete factory simulation. Product availability, manufacturing
+times, territory acceleration and the preview's animation/orientation
+still follow the existing engine implementation. Repair/radar structures
+do not acquire invented production controls. Gun placement, star ratings,
+frame dragging, UI status flashing and speech animation remain unported.

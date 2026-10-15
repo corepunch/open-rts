@@ -1,5 +1,18 @@
 # Reverse Engineering References
 
+### Z retail building windows and sidebar (2026-10-15)
+
+- Local retail `data/Z/ZED.EXE`, `SPRITES.RSC` and `SHEADFX.PAC` were read
+  statically; no retail execution or external screenshot was used. The LE
+  fingerprint, SHA-256 hashes, drawing/control routines, coordinate tables,
+  corrected hypotheses and reproduction commands are recorded in
+  [Z_EXE_FINDINGS.md](docs/Z_EXE_FINDINGS.md#building-windows-and-sidebar-correction-2026-10-15).
+- `r2` was unavailable on the host. A scratch C LE loader and Apple's
+  Command Line Tools `libLTO.dylib` disassembler provided instruction/data
+  evidence. This was a tool-availability fallback, not an alternative game
+  implementation as evidence. Assets were decoded by our existing native
+  C loaders and checked with `test_panel` / `test_hud`.
+
 ### StarCraft repair, Follow, flight and mining follow-up (2026-10-11)
 
 - [OpenBW pinned source](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):

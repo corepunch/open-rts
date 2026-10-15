@@ -13,15 +13,13 @@
  * vehicles, buildings and guns, each side's share of the territories
  * (calc_territory_percents in ZED.EXE) and the menu button. The window
  * that opens beside a selected fort or factory to run its production is
- * drawn in plain colours with the game's CHARS.BIN font: STOP halts what
- * is being made, the arrows then pick a unit, and START sets the factory
- * going; it keeps making that unit until it is stopped.
+ * drawn from SPRITES.RSC 4694..4722, as in ZED.EXE 0x24ce0.
  *
  * The panel's T, D and Z buttons do nothing: ZED.EXE's handlers for them
  * are not traced. Their third pieces are lit, not greyed, so they are
  * toggles of some kind; they are drawn up. */
 
-enum { SIDEBAR = 96, BOTTOM = 32, POPUP_W = 156, POPUP_H = 104, PICTURE = 48, BUTTON_H = 20 };
+enum { SIDEBAR = 96, BOTTOM = 32, POPUP_W = 112, POPUP_H = 80 };
 
 /* NSNEWPAN.DAT pieces. Buttons come in threes: up, pressed and greyed. */
 enum {
@@ -35,29 +33,28 @@ enum {
     PC_WEAPON_NAME = 45,   /* in the weapons' order */
     PC_DIGIT = 50,         /* 0..9, 12x18 */
     PC_HEALTH_GOOD = 60, PC_HEALTH_POOR = 61, PC_HEALTH_NONE = 62, /* 74x10 */
-    PC_SLOT = 64,          /* 28x24 black box behind a button */
     PC_BAR_THREE = 66,     /* 544x32 bottom bar with three sides' slots */
-    PC_SHARE_DARK = 69,    /* 80x6 empty share bar */
     PC_NAME_ROBOT = 79,    /* Grunt, Pyros, Laser, Tough, Psychos, Sniper, Wrong Name */
     PC_NAME_VEHICLE = 86,  /* Missile, Jeep, Howitzer, Heavy, Gattling, Mo. Missile, Gun,
                             * Crane, Light, Fire Truck, APC, Medium */
     PC_VEHICLE = 98,       /* pictures in the same order */
     PC_BAR_FOUR = 110,     /* 544x32 bottom bar with four sides' slots */
     PC_BAR_TWO = 111,      /* 544x32 bottom bar with two sides' slots */
+    PC_VEHICLE_BACK = 113,
 };
 
 /* Where the panel's pieces go, in panel pixels. */
 enum {
-    PANEL_CLOCK_Y = 10, PANEL_PORTRAIT_Y = 40, PANEL_PORTRAIT_H = 80, PANEL_NAME_Y = 122,
-    PANEL_WEAPON_Y = 140, PANEL_GRENADE_Y = 186, PANEL_HEALTH_X = 12, PANEL_HEALTH_Y = 210,
-    PANEL_HEALTH_W = 74, PANEL_LABEL_Y = 228, PANEL_SLOT_Y = 260, PANEL_BUTTON_Y = 262,
-    PANEL_RADAR_X = 4, PANEL_RADAR_Y = 296, PANEL_RADAR = 92,
-    BAR_BUTTON_Y = 8, BAR_SLOT_H = 20, BAR_MENU_X = 480,
+    PANEL_CLOCK_Y = 4, PANEL_PORTRAIT_Y = 42, PANEL_PORTRAIT_H = 78, PANEL_NAME_Y = 122,
+    PANEL_WEAPON_Y = 144, PANEL_GRENADE_Y = 186, PANEL_HEALTH_X = 12, PANEL_HEALTH_Y = 210,
+    PANEL_HEALTH_W = 74, PANEL_LABEL_Y = 228, PANEL_BUTTON_Y = 262,
+    PANEL_RADAR_X = 6, PANEL_RADAR_Y = 288, PANEL_RADAR_W = 86, PANEL_RADAR_H = 104,
+    BAR_BUTTON_Y = 8, BAR_MENU_X = 480,
 };
 
 enum {
     IT_PANEL, IT_BAR, IT_RADAR, IT_ATTACKED, IT_T, IT_D, IT_Z, IT_ROBOTS, IT_VEHICLES, IT_BUILDINGS, IT_GUNS, IT_MENU,
-    IT_POPUP, IT_TITLE, IT_PICTURE, IT_NAME, IT_PROGRESS, IT_STOP, IT_PREV, IT_NEXT, IT_START,
+    IT_POPUP, IT_STOP, IT_PREV, IT_NEXT, IT_START,
     IT_COUNT
 };
 
@@ -65,20 +62,10 @@ enum {
  * greys at 0x50 (Z_FORMATS.md); the rest are matched into the palette. */
 static const uint8_t team_index[Z_NEUTRAL + 1] = {0x18, 0x27, 0x39, 0x4d, 0x59};
 static const uint32_t team_argb[Z_NEUTRAL + 1] = {0xffe61414u, 0xff1438ffu, 0xff3cae44u, 0xfff6ce71u, 0xff959595u};
-/* Each side's share bar: red and blue 80 wide, green 54, yellow 40. */
-static const int team_share[Z_NEUTRAL] = {67, 68, 72, 77};
 #define PANEL_FILL 0xff1c2024u
-#define PANEL_EDGE 0xff5c6468u
-#define BOX_FILL 0xff0c1014u
 #define BUTTON_FILL 0xff2c3640u
 #define BUTTON_EDGE 0xff8894a0u
-#define FOCUS 0xfff4f4f4u
 #define INK 0xffe8e8e8u
-#define INK_DIM 0xff707880u
-#define INK_TITLE 0xfff4d470u
-#define INK_GOOD 0xff48d048u
-#define INK_BAD 0xffe03030u
-#define INK_CLOCK 0xfff09030u
 
 static menuitem_t items[IT_COUNT];
 static menu_t hud = {.items = items, .numitems = IT_COUNT, .itemOn = -1};
@@ -154,35 +141,6 @@ bool HU_LoadFont(const char *root, bitmapfont_t *out) {
     return ok;
 }
 
-/* Z's font speaks in capitals. */
-static const char *upper(const char *text) {
-    static char out[64];
-    size_t i = 0;
-    for (; text && text[i] && i + 1 < sizeof(out); ++i)
-        out[i] = (char)((text[i] >= 'a' && text[i] <= 'z') ? text[i] - 'a' + 'A' : text[i]);
-    out[i] = '\0';
-    return out;
-}
-
-static int text_width(const char *text) {
-    return font_ok ? V_TextWidth(&font, text) : (int)strlen(text) * 6;
-}
-
-static void draw_ink(ivec2_t at, const char *text, uint32_t ink) {
-    if (!text || !text[0]) return;
-    if (!font_ok) {
-        V_DrawSmallText((irect_t){at.x, at.y, 640, 7}, text, ink, V_DrawSize());
-        return;
-    }
-    uint8_t tint[256];
-    V_ModulateRemap(tint, font.sprite.source_palette, ink);
-    V_DrawText(at, &font, text, tint);
-}
-
-static void draw_centred(irect_t rect, int y, const char *text, uint32_t ink) {
-    draw_ink((ivec2_t){rect.x + (rect.w - text_width(text)) / 2, y}, text, ink);
-}
-
 /* ── pieces ───────────────────────────────────────────────────────────── */
 
 static irect_t piece_rect(int piece) {
@@ -205,10 +163,9 @@ static void draw_piece_part(int piece, ivec2_t at, int width) {
 
 /* `digits` of a number, in the 12x18 figures, the most significant first. */
 static void draw_number(ivec2_t at, int value, int digits) {
-    irect_t figure = piece_rect(PC_DIGIT);
     if (value < 0) value = 0;
     for (int i = digits - 1, divisor = 1; i >= 0; --i, divisor *= 10)
-        draw_piece(PC_DIGIT + value / divisor % 10, (ivec2_t){at.x + i * figure.w, at.y}, true);
+        draw_piece(PC_DIGIT + value / divisor % 10, (ivec2_t){at.x + i * 10, at.y}, false);
 }
 
 /* ── the selection ────────────────────────────────────────────────────── */
@@ -235,17 +192,6 @@ static mobj_t *selected_producer(void) {
 }
 
 static bool structure(const mobj_t *mo) { return mo->type_id >= MT_FORT && mo->type_id < MT_UNITS; }
-
-static const char *short_name(const mobj_t *mo) {
-    switch (mo->type_id) {
-    case MT_FORT: return "FORT";
-    case MT_ROBOT_FACTORY: return "ROBOT FACTORY";
-    case MT_TANK_FACTORY: return "VEHICLE FACTORY";
-    case MT_REPAIR: return "REPAIR FACILITY";
-    case MT_RADAR: return "RADAR STATION";
-    default: return mo->info ? mo->info->name : "?";
-    }
-}
 
 /* What the panel shows of a unit of weapon type `t`: its face
  * (SHEADBI0..4: Grunt, Tough, Pyro, Sniper, Psycho; the Laser has none
@@ -328,18 +274,11 @@ static void draw_picture(const spritesheet_t *sheet, int lump, int team, irect_t
     V_SetClip(clip);
 }
 
-static void draw_box(irect_t box) {
-    V_FillRect(box, V_NearestIndex(BOX_FILL));
-    V_DrawRectOutline(box, V_NearestIndex(PANEL_EDGE));
-}
-
 /* The face or picture of the selection, its name, weapon, grenades and
  * health, down the panel from `at`. */
 static void draw_selection(ivec2_t at) {
-    int count;
-    const mobj_t *mo = selected(0, &count);
-    irect_t portrait = {at.x, at.y + PANEL_PORTRAIT_Y, SIDEBAR, PANEL_PORTRAIT_H};
-    V_FillRect(portrait, 0);
+    const mobj_t *mo = selected(0, NULL);
+    irect_t portrait = {at.x + 2, at.y + PANEL_PORTRAIT_Y, SIDEBAR - 4, PANEL_PORTRAIT_H};
     if (!mo) {
         draw_piece(PC_NAME_NONE, (ivec2_t){at.x, at.y + PANEL_NAME_Y}, true);
         draw_piece(PC_LABEL_BLANK, (ivec2_t){at.x, at.y + PANEL_LABEL_Y}, true);
@@ -347,18 +286,30 @@ static void draw_selection(ivec2_t at) {
     }
     int team = mo->team < Z_NEUTRAL ? mo->team : Z_NEUTRAL;
     look_t look = unit_look(Z_UnitType(mo));
+    if (look.picture >= 0 && team < Z_NEUTRAL)
+        look.face = unit_look(mo->z.driver ? mo->z.driver - 1 : MT_UNIT_GRUNT - MT_UNITS).face;
     const spritesheet_t *sheet;
     int lump;
     if (look.face >= 0 && panel_ok && panel.heads[look.face].numlumps > 2) {
         const spritesheet_t *head = &panel.heads[look.face];
-        V_DrawSpriteCell((ivec2_t){portrait.x, portrait.y}, &panel.backs, world_back(), NULL, V_OPAQUE);
-        irect_t face = head->cells[2].rect;
-        V_DrawSpriteCell((ivec2_t){portrait.x + (SIDEBAR - face.w) / 2, portrait.y + portrait.h - face.h},
-                         head, 2, NULL, 0);
-    } else if (look.picture >= 0) {
-        irect_t picture = piece_rect(look.picture);
-        draw_piece(look.picture, (ivec2_t){portrait.x, portrait.y + (portrait.h - picture.h) / 2}, false);
-    } else if (state_picture(mo->core.state_id, &sheet, &lump)) {
+        /* 0x2c131: copy the composed buffer starting at source row 4. */
+        irect_t back = {0, 4, portrait.w, 75};
+        V_DrawSpriteCellScaled((irect_t){portrait.x, portrait.y, back.w, back.h},
+                              &panel.backs, world_back(), &back, NULL, V_OPAQUE);
+        /* Neutral pose 0x000f (0x2c30c), decoded by 0x2c880. The
+         * coordinates at 0x1311fa are in HEADFX source units. */
+        static const ivec2_t body[Z_FACES] = {{2,26},{2,21},{2,23},{2,21},{2,23}};
+        static const ivec2_t mouth[Z_FACES] = {{15,16},{15,16},{15,15},{15,16},{15,17}};
+        static const ivec2_t eyes[Z_FACES] = {{11,8},{11,8},{11,7},{11,8},{11,9}};
+        irect_t clip = V_GetClip();
+        V_SetClip((irect_t){portrait.x + 4, portrait.y, 91, 75});
+        const int parts[] = {1, 4, 20, 0};
+        const ivec2_t offsets[] = {{4,3}, mouth[look.face], eyes[look.face], body[look.face]};
+        for (int i = 0; i < 4; ++i)
+            V_DrawSpriteCell(ivec2_add((ivec2_t){portrait.x, portrait.y - 4},
+                                     (ivec2_t){offsets[i].x * 2, offsets[i].y * 2}), head, parts[i], NULL, 0);
+        V_SetClip(clip);
+    } else if (look.picture < 0 && !structure(mo) && state_picture(mo->core.state_id, &sheet, &lump)) {
         draw_picture(sheet, lump, mo->team, portrait);
     }
     /* A crewless vehicle, a building or a flag has no label of its own. */
@@ -366,23 +317,24 @@ static void draw_selection(ivec2_t at) {
     if (look.name >= 0 && !(look.picture >= 0 && mo->team >= Z_NEUTRAL)) {
         draw_piece(look.name, name_at, true);
     } else {
-        draw_piece(look.name >= 0 ? PC_NAME_NONE : PC_LABEL_BLANK, name_at, true);
-        const char *text = look.name >= 0 ? "EMPTY" : Z_UnitType(mo) >= 0 && mo->info ? upper(mo->info->name) : short_name(mo);
-        draw_centred((irect_t){name_at.x, name_at.y, SIDEBAR, 14}, name_at.y + 3, text, INK);
+        draw_piece(PC_NAME_NONE, name_at, true);
     }
     if (look.weapon >= 0) {
         draw_piece(PC_WEAPON + look.weapon, (ivec2_t){at.x, at.y + PANEL_WEAPON_Y}, false);
         draw_piece(PC_WEAPON_NAME + look.weapon, (ivec2_t){at.x, at.y + PANEL_LABEL_Y}, true);
-        draw_piece(PC_GRENADE, (ivec2_t){at.x + 10, at.y + PANEL_GRENADE_Y}, true);
-        draw_number((ivec2_t){at.x + 42, at.y + PANEL_GRENADE_Y + 1}, mo->z.grenades, 2);
+        draw_piece(PC_GRENADE, (ivec2_t){at.x + 26, at.y + PANEL_GRENADE_Y}, false);
+        draw_number((ivec2_t){at.x + 56, at.y + 188}, mo->z.grenades, 2);
     } else {
         draw_piece(PC_LABEL_BLANK, (ivec2_t){at.x, at.y + PANEL_LABEL_Y}, true);
-        char text[32];
-        if (count > 1) snprintf(text, sizeof(text), "%d SELECTED", count);
-        else snprintf(text, sizeof(text), "%s", mo->team >= Z_NEUTRAL ? "NOBODY'S" : team == consoleplayer ? "YOURS" : "ENEMY");
-        draw_centred((irect_t){at.x, at.y + PANEL_LABEL_Y, SIDEBAR, 14}, at.y + PANEL_LABEL_Y + 3, text, team_argb[team]);
+        if (look.picture >= 0) {
+            /* 0x13eb0c: vehicle images belong in the hardware panel,
+             * with the driver's portrait above, rather than in its place. */
+            static const uint8_t top[] = {8,8,10,4,10,2,16,6,2,10,8,2};
+            draw_piece(PC_VEHICLE_BACK, (ivec2_t){at.x, at.y + PANEL_WEAPON_Y}, true);
+            draw_piece(look.picture, (ivec2_t){at.x, at.y + PANEL_WEAPON_Y + top[look.picture - PC_VEHICLE]}, false);
+        }
     }
-    if (mo->max_hp > 0) {
+    if (!structure(mo) && mo->max_hp > 0) {
         ivec2_t bar = {at.x + PANEL_HEALTH_X, at.y + PANEL_HEALTH_Y};
         draw_piece(PC_HEALTH_NONE, bar, true);
         int fill = PANEL_HEALTH_W * mo->hp / mo->max_hp;
@@ -463,20 +415,20 @@ static int sides(void) {
 /* Each side's share of the territories, as a number and a bar, in the
  * bottom bar's slots. */
 static void draw_shares(ivec2_t at, int teams) {
-    static const int two[2] = {150, 298}, three[3] = {150, 252, 354}, four[4] = {150, 224, 298, 372};
+    static const int two[2] = {130, 278}, three[3] = {130, 232, 334}, four[4] = {130, 204, 278, 352};
     const int *slots = teams > 3 ? four : teams > 2 ? three : two;
-    int width = teams > 3 ? 44 : teams > 2 ? 58 : 84;
-    irect_t figure = piece_rect(PC_DIGIT);
+    int width = teams > 3 ? 40 : teams > 2 ? 54 : 80;
     int total;
     Z_TerritoriesHeld(Z_NEUTRAL, &total);
     for (int team = 0; team < teams; ++team) {
         int x = at.x + slots[team];
         int percent = total > 0 ? Z_TerritoriesHeld(team, NULL) * 100 / total : 0;
-        draw_number((ivec2_t){x + 2, at.y + BAR_BUTTON_Y + 1}, percent, 2);
-        ivec2_t bar = {x + 2 * figure.w + 4, at.y + BAR_BUTTON_Y + 7};
-        int room = width - 2 * figure.w - 6;
-        draw_piece_part(PC_SHARE_DARK, bar, room);
-        if (percent > 0) draw_piece_part(team_share[team], bar, room * percent / 100);
+        if (percent > 99) percent = 99; /* 0x31fc2: two digits, saturating. */
+        draw_number((ivec2_t){x, at.y + 10}, percent, 2);
+        ivec2_t bar = {x + 22, at.y + 10};
+        int base = teams > 3 ? 74 : teams > 2 ? 70 : 67;
+        draw_piece_part(base + teams, bar, width);
+        if (percent > 0) draw_piece_part(base + team, bar, width * percent / 100);
     }
 }
 
@@ -489,11 +441,10 @@ static void draw_panel(const menu_t *menu, const menuitem_t *item, irect_t rect)
     ivec2_t side = {rect.x, rect.y};
     draw_piece(PC_PANEL, side, true);
     int seconds = leveltime / RTS_TICRATE;
-    char text[16];
-    snprintf(text, sizeof(text), "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60);
-    draw_centred((irect_t){side.x + 32, side.y, SIDEBAR - 34, 20}, side.y + PANEL_CLOCK_Y, text, INK_CLOCK);
+    draw_number((ivec2_t){side.x + 26, side.y + PANEL_CLOCK_Y}, seconds / 3600 % 10, 1);
+    draw_number((ivec2_t){side.x + 50, side.y + PANEL_CLOCK_Y}, seconds / 60 % 60, 2);
+    draw_number((ivec2_t){side.x + 74, side.y + PANEL_CLOCK_Y}, seconds % 60, 2);
     draw_selection(side);
-    for (int i = 0; i < 3; ++i) draw_piece(PC_SLOT, (ivec2_t){side.x + 4 + 30 * i, side.y + PANEL_SLOT_Y}, true);
 }
 
 static void draw_bottom(const menu_t *menu, const menuitem_t *item, irect_t rect) {
@@ -551,37 +502,76 @@ static void on_step_kind(menu_t *menu, menuitem_t *item, menuaction_t action) {
 
 /* ── the production window ────────────────────────────────────────────── */
 
-static void draw_product_picture(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    (void)menu; (void)item;
-    draw_box(rect);
-    if (popup_choice < 0 || popup_choice >= offered_count) return;
-    const spritesheet_t *sheet;
-    int lump;
-    if (state_picture(mobjinfo[offered[popup_choice]->product_type].spawnstate, &sheet, &lump))
-        draw_picture(sheet, lump, consoleplayer, rect);
+static void window_piece(int native, ivec2_t at) {
+    V_DrawSpriteCell(at, &panel.window, Z_UI_WINDOW + native - Z_UI_FIRST, NULL, 0);
 }
 
-static void draw_bar(irect_t bar, int part, int whole, uint32_t argb) {
-    V_FillRect(bar, V_NearestIndex(BOX_FILL));
-    V_DrawRectOutline(bar, V_NearestIndex(PANEL_EDGE));
-    int fill = whole > 0 ? (bar.w - 2) * part / whole : 0;
-    if (fill > bar.w - 2) fill = bar.w - 2;
-    if (fill > 0) V_FillRect((irect_t){bar.x + 1, bar.y + 1, fill, bar.h - 2}, V_NearestIndex(argb));
+/* Small RSC font, 0x5c684; the advances are ZED.EXE 0x148c46. */
+static void window_text(ivec2_t at, const char *text) {
+    static const uint8_t advance[59] = {
+        4,3,4,6,4,6,6,3,3,3,7,6,3,5,4,6,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,6,
+        8,5,6,5,6,5,5,5,5,4,6,6,5,6,5,5,5,6,5,5,6,5,5,6,6,6,5};
+    for (; *text; ++text) {
+        unsigned ch = (unsigned char)*text;
+        if (ch < 32 || ch > 90) continue;
+        window_piece(4690 + ch, at);
+        at.x += advance[ch - 32];
+    }
 }
 
-static void draw_progress(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     (void)menu; (void)item;
+    if (!panel_ok) return;
     const mobj_t *producer = P_MobjById(popup_for);
+    if (!producer) return;
     const production_t *queue = producer ? producer->production : NULL;
     bool busy = Z_ProductInProduction(producer) != NULL;
-    draw_ink((ivec2_t){rect.x, rect.y}, busy ? "MANUFACTURING" : "STOPPED", busy ? INK_GOOD : INK_DIM);
-    int done = busy && queue->time_ms > 0 ? queue->time_ms - queue->time_left_ms : 0;
-    draw_bar((irect_t){rect.x, rect.y + 12, rect.w, 8}, done, busy ? queue->time_ms : 1, INK_GOOD);
-    char text[32];
-    if (busy) snprintf(text, sizeof(text), "%d S LEFT", (queue->time_left_ms + 999) / 1000);
-    else snprintf(text, sizeof(text), "%d S", popup_choice >= 0 && popup_choice < offered_count ?
-                  G_ModelProductTrainingTimeMs(offered[popup_choice]) / 1000 : 0);
-    draw_ink((ivec2_t){rect.x, rect.y + 24}, text, INK_DIM);
+    ivec2_t at = {rect.x, rect.y};
+    window_piece(4694, at);
+    window_piece(producer->type_id == MT_ROBOT_FACTORY ? 4695 : producer->type_id == MT_FORT ? 4696 : 4697,
+                 ivec2_add(at, (ivec2_t){8,6}));
+    V_DrawSpriteCell(ivec2_add(at, (ivec2_t){6,22}), &panel.window, Z_UI_BACKGROUND, NULL, 0);
+    window_piece(busy ? 4713 : 4712, ivec2_add(at, (ivec2_t){64,19}));
+    int seconds = busy ? (queue->time_left_ms + 999) / 1000 : offered_count ?
+                  G_ModelProductTrainingTimeMs(offered[popup_choice]) / 1000 : 0;
+    char text[16];
+    if (seconds > 599) seconds = 599; /* 0x2638c: saturate at 9:59. */
+    snprintf(text, sizeof(text), "%d:%02d", seconds / 60, seconds % 60);
+    window_text(ivec2_add(at, (ivec2_t){92,35}), text);
+    int health = producer->max_hp > 0 ? producer->hp * 100 / producer->max_hp : 100;
+    if (health < 100)
+        V_FillRect((irect_t){at.x + 88, at.y + 5, 19, 10 - health / 10}, 121);
+    snprintf(text, sizeof(text), "%d%%", health);
+    window_text(ivec2_add(at, (ivec2_t){health < 100 ? 91 : 89,6}), text);
+    if (busy) {
+        ivec2_t meter = ivec2_add(at, (ivec2_t){53,21});
+        window_piece(4710, meter);
+        int height = queue->time_ms > 0 ? 37 * (queue->time_ms - queue->time_left_ms) / queue->time_ms : 0;
+        irect_t clip = V_GetClip();
+        if (height > 0) {
+            V_SetClip((irect_t){meter.x, meter.y, 16, height});
+            window_piece(4711, meter);
+            V_SetClip(clip);
+        }
+    }
+    if (popup_choice < 0 || popup_choice >= offered_count) return;
+    int type = offered[popup_choice]->product_type;
+    /* 0x12ecb9/0x12eccd: production group to authored name sprite,
+     * resolved through ROBOTS.DAT to the weapon types in units.inc. */
+    static const int names[] = {803,808,792,791,796,800,802,793,805,787,807,801,799,798,806,804,-1,795,789};
+    int t = type - MT_UNITS;
+    if (t >= 0 && t < (int)(sizeof(names) / sizeof(*names)) && names[t] >= 787)
+        V_DrawSpriteCell(ivec2_add(at, (ivec2_t){3,62}), &panel.window, names[t] - 787, NULL, 0);
+    const spritesheet_t *sheet;
+    int lump;
+    if (state_picture(mobjinfo[type].spawnstate, &sheet, &lump)) {
+        irect_t src = sheet->cells[lump].rect;
+        irect_t dst = {at.x + 6 + (48 - src.w) / 2, at.y + 22 + (37 - src.h) / 2, src.w, src.h};
+        irect_t clip = V_GetClip();
+        V_SetClip((irect_t){at.x + 6, at.y + 22, 48, 37});
+        R_DrawSprite(sheet, lump, consoleplayer, NULL, &dst, 0, 16);
+        V_SetClip(clip);
+    }
 }
 
 static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -592,8 +582,10 @@ static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
 static void on_stop(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu; (void)item;
     if (action != MA_ACTIVATE || !popup_for) return;
-    ticcmd_t cmd = {.order = TC_CANCEL_PRODUCTION, .count = 1, .units = {popup_for}};
-    G_QueueTiccmd(&cmd);
+    if (Z_ProductInProduction(P_MobjById(popup_for))) {
+        ticcmd_t cmd = {.order = TC_CANCEL_PRODUCTION, .count = 1, .units = {popup_for}};
+        G_QueueTiccmd(&cmd);
+    } else P_MobjSetSelected(P_MobjById(popup_for), false);
 }
 
 static void on_step(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -607,7 +599,8 @@ static void on_start(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu; (void)item;
     mobj_t *producer = P_MobjById(popup_for);
     if (action != MA_ACTIVATE || !producer || popup_choice < 0 || popup_choice >= offered_count) return;
-    G_BuildOrder(producer, offered[popup_choice]->ui_id);
+    if (!Z_ProductInProduction(producer) && !G_BuildOrder(producer, offered[popup_choice]->ui_id)) return;
+    P_MobjSetSelected(producer, false);
 }
 
 /* A button drawn from the panel art: up, pressed and greyed pieces in a
@@ -624,19 +617,13 @@ static void picture_button(menuitem_t *item, int piece, SDL_Keycode hotkey, int 
     }
 }
 
-static void button(menuitem_t *item, const char *text, int step, menuroutine_t routine) {
+static void window_button(menuitem_t *item, int native, int step, menuroutine_t routine) {
     *item = (menuitem_t){
-        .kind = MI_BUTTON, .enabled = true, .fill = BUTTON_FILL, .border = BUTTON_EDGE, .color = FOCUS,
-        .ink = INK, .align = MALIGN_CENTER, .step = step, .routine = routine, .disabled_look = true,
-        .font = font_ok ? &font : NULL,
+        .kind = MI_BUTTON, .enabled = true, .release = true, .step = step, .routine = routine,
+        .sheet = panel_ok ? &panel.window : NULL,
     };
-    item->look[MS_DISABLED].ink = INK_DIM;
-    item->look[MS_PUSHED].shift = (ivec2_t){1, 1};
-    snprintf(item->text, sizeof(item->text), "%s", text);
-}
-
-static void label(menuitem_t *item, uint32_t ink, int align) {
-    *item = (menuitem_t){.ink = ink, .align = align, .font = font_ok ? &font : NULL};
+    for (int state = 0; state < MS_STATES; ++state)
+        item->look[state] = (menulook_t){.cell = Z_UI_WINDOW + native - Z_UI_FIRST + (state == MS_PUSHED), .palette = -1};
 }
 
 static void layout(void) {
@@ -662,43 +649,32 @@ static void layout(void) {
             snprintf(items[i].text, sizeof(items[i].text), "%s", names[i - IT_ATTACKED]);
         }
     }
-    items[IT_POPUP] = (menuitem_t){.layer = true, .fill = PANEL_FILL, .border = BUTTON_EDGE};
-    label(&items[IT_TITLE], INK_TITLE, MALIGN_HCENTER);
-    items[IT_PICTURE] = (menuitem_t){.ownerdraw = draw_product_picture};
-    label(&items[IT_NAME], INK, MALIGN_LEFT);
-    items[IT_PROGRESS] = (menuitem_t){.ownerdraw = draw_progress};
-    button(&items[IT_STOP], "STOP", 0, on_stop);
-    button(&items[IT_PREV], "<", -1, on_step);
-    button(&items[IT_NEXT], ">", 1, on_step);
-    button(&items[IT_START], "START", 0, on_start);
+    items[IT_POPUP] = (menuitem_t){.layer = true, .ownerdraw = draw_window};
+    window_button(&items[IT_STOP], 4702, 0, on_stop);
+    window_button(&items[IT_PREV], 4706, -1, on_step);
+    window_button(&items[IT_NEXT], 4708, 1, on_step);
+    window_button(&items[IT_START], 4704, 0, on_start);
     for (int i = 0; i < IT_COUNT; ++i) items[i].visible = i < IT_POPUP;
 }
 
-/* The window sits beside its building, on whichever side has room, and
- * inside the world view. */
+/* 0x24ffc: anchor at the building's native top-left minus (96,48).
+ * Keep the controls reachable at the edges of our resizable viewport. */
 static void place_popup(const menu_t *menu, const mobj_t *producer, int scale) {
     irect_t cells = P_MobjCells(producer);
-    fvec2_t a, b;
+    fvec2_t a;
     R_MapToScreen(menu->app, &level, (float)cells.x, (float)cells.y, &a.x, &a.y);
-    R_MapToScreen(menu->app, &level, (float)(cells.x + cells.w), (float)(cells.y + cells.h), &b.x, &b.y);
     irect_t world = G_WorldViewport(menu->app);
     irect_t view = {world.x / scale, world.y / scale, world.w / scale, world.h / scale};
-    int x = (int)b.x / scale + 4, y = ((int)a.y + (int)b.y) / (2 * scale) - POPUP_H / 2;
-    if (x + POPUP_W > view.x + view.w) x = (int)a.x / scale - 4 - POPUP_W;
+    int x = (int)a.x / scale - 96, y = (int)a.y / scale - 48;
     if (x + POPUP_W > view.x + view.w) x = view.x + view.w - POPUP_W;
     if (x < view.x) x = view.x;
     if (y + POPUP_H > view.y + view.h) y = view.y + view.h - POPUP_H;
     if (y < view.y) y = view.y;
     items[IT_POPUP].rect = (irect_t){x, y, POPUP_W, POPUP_H};
-    items[IT_TITLE].rect = (irect_t){x, y + 4, POPUP_W, 10};
-    items[IT_PICTURE].rect = (irect_t){x + 6, y + 18, PICTURE, PICTURE};
-    items[IT_NAME].rect = (irect_t){x + PICTURE + 12, y + 18, POPUP_W - PICTURE - 18, 10};
-    items[IT_PROGRESS].rect = (irect_t){x + PICTURE + 12, y + 32, POPUP_W - PICTURE - 18, 36};
-    int row = y + POPUP_H - BUTTON_H - 6;
-    items[IT_STOP].rect = (irect_t){x + 6, row, 42, BUTTON_H};
-    items[IT_PREV].rect = (irect_t){x + 54, row, 20, BUTTON_H};
-    items[IT_NEXT].rect = (irect_t){x + 80, row, 20, BUTTON_H};
-    items[IT_START].rect = (irect_t){x + 106, row, 44, BUTTON_H};
+    items[IT_STOP].rect = (irect_t){x + 67, y + 47, 40, 14};
+    items[IT_PREV].rect = (irect_t){x + 50, y + 21, 16, 8};
+    items[IT_NEXT].rect = (irect_t){x + 50, y + 64, 16, 8};
+    items[IT_START].rect = (irect_t){x + 67, y + 62, 40, 15};
 }
 
 static void refresh_popup(const menu_t *menu, int scale) {
@@ -719,11 +695,10 @@ static void refresh_popup(const menu_t *menu, int scale) {
         if (offered[i] == making) popup_choice = i;
     if (popup_choice < 0 || popup_choice >= offered_count) popup_choice = 0;
     remember(id, popup_choice);
-    items[IT_STOP].enabled = making != NULL;
-    items[IT_PREV].enabled = items[IT_NEXT].enabled = items[IT_START].enabled = !making && offered_count > 0;
-    snprintf(items[IT_TITLE].text, sizeof(items[IT_TITLE].text), "%s", short_name(producer));
-    snprintf(items[IT_NAME].text, sizeof(items[IT_NAME].text), "%s",
-             offered_count ? upper(offered[popup_choice]->label) : "NOTHING");
+    items[IT_STOP].enabled = true;
+    items[IT_START].enabled = offered_count > 0;
+    items[IT_PREV].enabled = items[IT_NEXT].enabled = !making && offered_count > 0;
+    items[IT_PREV].visible = items[IT_NEXT].visible = items[IT_POPUP].visible && !making;
     place_popup(menu, producer, scale);
 }
 
@@ -735,7 +710,13 @@ static void refresh(menu_t *menu) {
     int side = screen.w - SIDEBAR, bar = screen.h - BOTTOM;
     items[IT_PANEL].rect = (irect_t){side, 0, SIDEBAR, screen.h};
     items[IT_BAR].rect = (irect_t){0, bar, side, BOTTOM};
-    items[IT_RADAR].rect = (irect_t){side + PANEL_RADAR_X, PANEL_RADAR_Y, PANEL_RADAR, PANEL_RADAR};
+    int radar_w = PANEL_RADAR_W, radar_h = PANEL_RADAR_H;
+    if (level.width > 0 && level.height > 0) {
+        if (level.width * radar_h > level.height * radar_w) radar_h = level.height * radar_w / level.width;
+        else radar_w = level.width * radar_h / level.height;
+    }
+    items[IT_RADAR].rect = (irect_t){side + PANEL_RADAR_X + (PANEL_RADAR_W - radar_w) / 2,
+        PANEL_RADAR_Y + (PANEL_RADAR_H - radar_h) / 2, radar_w, radar_h};
     items[IT_ATTACKED].rect = (irect_t){side + 6, 6, 24, 20};
     for (int i = 0; i < 3; ++i) items[IT_T + i].rect = (irect_t){side + 6 + 30 * i, PANEL_BUTTON_Y, 24, 20};
     for (int i = 0; i < 4; ++i) items[IT_ROBOTS + i].rect = (irect_t){6 + 30 * i, bar + BAR_BUTTON_Y, 24, 20};

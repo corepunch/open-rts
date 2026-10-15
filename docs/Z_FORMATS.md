@@ -94,12 +94,23 @@ the latter). Every member but the `BOTTOM` ones is a picture list:
 | `HEADBACK.DAT` (`SHEADBAK.DAT`) | Six 96x80 scenes behind a face: desert, volcano, plain brown, arctic, city, jungle |
 | `BOTTOM.DAT`, `BOTTOM2.DAT` (`SBOTTOM.DAT`, `SBOTTO2.DAT`) | Headerless, 2832 and 11328 bytes; not decoded |
 
-Where the pieces go on the panel is in `games/z/sb_bar.c`: the clock at
-the top beside the A button, the face or vehicle picture from row 40, the
-name at 122, the weapon at 140, grenades at 186, the health bar at (12, 210),
-the weapon's name at 228, three buttons at 262 and the radar at (4, 296),
-92 pixels square. The bottom bar's slots begin at 150 and hold each side's
-share of the territories as two digits and a bar.
+Retail placement was traced on 2026-10-15; see
+`Z_EXE_FINDINGS.md`, “Building windows and sidebar correction”. The clock
+uses the panel's authored digits at row 4; the composed portrait is copied
+to (2,42), the name goes at row 122, hardware at 144, grenade at (26,186)
+and its count at (56,188), and the weapon label at 228. Three buttons sit
+at row 262. The radar fits the map's aspect ratio inside 86x104 at (6,288).
+Vehicle pictures belong in the hardware panel, with the driver's portrait
+above. Bottom percentages begin at x=130; their bars begin 22 pixels later.
+The previous row-140 weapon, square radar and x=150 percentage positions
+were estimates and are superseded.
+
+Building popups are not HEADFX picture lists. SPRITES.RSC 4694..4722 holds
+the 112x80 frame, titles, status strips, Cancel/OK/Place buttons, arrows,
+progress meter and first small-font character. Product labels use sprites
+787..808 via the executable's production-group lookup; the preview
+background is sprite 1889. They use the same native planar sprite decoder
+as world images but have their own HUD-owned sheet.
 
 ## LEVELS.DAT
 

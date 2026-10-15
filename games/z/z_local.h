@@ -92,8 +92,12 @@ int Z_TerritoriesHeld(int team, int *total);
  * a face. Pictures are one byte a pixel in the world palette. */
 enum { Z_FACES = 5 };
 typedef struct {
-    spritesheet_t pieces, backs, heads[Z_FACES];
+    spritesheet_t pieces, backs, heads[Z_FACES], window;
 } zpanel_t;
+/* SPRITES.RSC: product labels 787..808, preview background 1889, then
+ * the building window and its small font, 4694..4816. */
+enum { Z_UI_LABEL = 0, Z_UI_BACKGROUND = 22, Z_UI_WINDOW = 23, Z_UI_FIRST = 4694 };
+bool Z_LoadPanelSprites(const char *root, spritesheet_t *out);
 bool Z_LoadPanel(const char *root, zpanel_t *out);
 void Z_FreePanel(zpanel_t *panel);
 /* Give every sheet the world's palette. */

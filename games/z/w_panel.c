@@ -57,7 +57,8 @@ bool Z_LoadPanel(const char *root, zpanel_t *out) {
     char path[1024];
     memset(out, 0, sizeof(*out));
     M_PathJoin(path, sizeof(path), root && root[0] ? root : g_game_default_root, "SHEADFX.PAC");
-    bool ok = load_list(path, "NSNEWPAN.DAT", &out->pieces) && load_list(path, "SHEADBAK.DAT", &out->backs);
+    bool ok = load_list(path, "NSNEWPAN.DAT", &out->pieces) && load_list(path, "SHEADBAK.DAT", &out->backs) &&
+              Z_LoadPanelSprites(root && root[0] ? root : g_game_default_root, &out->window);
     for (int i = 0; ok && i < Z_FACES; ++i) ok = load_list(path, heads[i], &out->heads[i]);
     if (!ok) Z_FreePanel(out);
     return ok;
@@ -66,6 +67,7 @@ bool Z_LoadPanel(const char *root, zpanel_t *out) {
 void Z_FreePanel(zpanel_t *panel) {
     R_FreeSprite(&panel->pieces);
     R_FreeSprite(&panel->backs);
+    R_FreeSprite(&panel->window);
     for (int i = 0; i < Z_FACES; ++i) R_FreeSprite(&panel->heads[i]);
     memset(panel, 0, sizeof(*panel));
 }
@@ -82,5 +84,6 @@ static void colour(spritesheet_t *sheet, const uint32_t palette[256]) {
 void Z_PanelPalette(zpanel_t *panel, const uint32_t palette[256]) {
     colour(&panel->pieces, palette);
     colour(&panel->backs, palette);
+    colour(&panel->window, palette);
     for (int i = 0; i < Z_FACES; ++i) colour(&panel->heads[i], palette);
 }

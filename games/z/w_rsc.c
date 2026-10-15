@@ -115,6 +115,27 @@ static bool load_rsc(const zmap_t *map, const uint32_t palette[256], spritesheet
     return finish_sheet(sheet, palette, (ivec2_t){-1, -1});
 }
 
+/* Interface images have their own owner, outside gameplay sprite frames. */
+bool Z_LoadPanelSprites(const char *root, spritesheet_t *out) {
+    zmap_t map = {0};
+    char path[1024];
+    M_PathJoin(path, sizeof(path), root, "SPRITES.RSC");
+    if (!W_ReadFile(path, &map.rsc)) return false;
+    bool ok = map.rsc.size >= 2 &&
+              map.rsc.size >= 2 + (size_t)read_u16_le(map.rsc.bytes) * 5 &&
+              R_AllocSpriteCells(out, Z_UI_WINDOW + 123);
+    for (int i = 0; ok && i < out->numlumps; ++i) {
+        int index = i < Z_UI_BACKGROUND ? 787 + i : i == Z_UI_BACKGROUND ? 1889 : Z_UI_FIRST + i - Z_UI_WINDOW;
+        isize2_t size = {0};
+        uint8_t *pixels = decode_sprite(&map, index, &size);
+        ok = put_lump(out, i, pixels, size);
+    }
+    W_FreeFile(&map.rsc);
+    if (!ok) R_FreeSprite(out);
+    out->indexed = true;
+    return ok;
+}
+
 /* Draw SPRITES.RSC picture `index` into `out` with its top-left at `at`,
  * clipped, keeping what shows through its transparent pixels. */
 static bool blit(const zmap_t *map, int index, uint8_t *out, isize2_t size, ivec2_t at) {

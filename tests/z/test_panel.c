@@ -24,6 +24,16 @@ static int test_pieces(void) {
     if (!sized(&panel.pieces, 13, 24, 20) || !sized(&panel.pieces, 34, 56, 20)) return fail("buttons are 24x20, Menu 56x20");
     if (!sized(&panel.pieces, 79, 96, 14) || !sized(&panel.pieces, 97, 96, 14)) return fail("name labels are 96x14");
     if (!sized(&panel.pieces, 60, 74, 10)) return fail("the health bar is 74x10");
+    if (!sized(&panel.pieces, 69, 80, 6) || !sized(&panel.pieces, 73, 54, 6) ||
+        !sized(&panel.pieces, 78, 40, 6)) return fail("authored empty share bars for two, three and four sides");
+    if (!sized(&panel.window, Z_UI_WINDOW, 112, 80) ||
+        !sized(&panel.window, Z_UI_WINDOW + 8, 40, 14) ||
+        !sized(&panel.window, Z_UI_WINDOW + 10, 40, 15) ||
+        !sized(&panel.window, Z_UI_WINDOW + 12, 16, 8) ||
+        !sized(&panel.window, Z_UI_WINDOW + 16, 16, 50) ||
+        !sized(&panel.window, Z_UI_LABEL + 5, 48, 8) ||
+        !sized(&panel.window, Z_UI_BACKGROUND, 48, 37))
+        return fail("native window, Cancel/OK, arrows, meter, label and preview sizes");
     /* The sidebar's black is the palette's 80, so the piece writes its own
      * black; its slots sit where the pieces go. */
     const uint8_t *side = panel.pieces.lumps[0].indices;
