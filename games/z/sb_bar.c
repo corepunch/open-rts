@@ -231,6 +231,28 @@ static int world_back(void) {
     return map && map->world >= 0 && map->world < Z_WORLDS ? backs[map->world] : 2;
 }
 
+/* Neutral pose 0x000f, ZED.EXE 0x2c880 and coordinates at 0x1311fa.
+ * The sidebar copies SHEADFX from row 4; the factory copies HEADFX
+ * from row 1 (0x60307), without resampling the larger artwork. */
+static void draw_face(int face, bool small, irect_t box) {
+    const spritesheet_t *head = small ? &panel.small_heads[face] : &panel.heads[face];
+    const spritesheet_t *backs = small ? &panel.small_backs : &panel.backs;
+    int scale = small ? 1 : 2, row = small ? 1 : 4;
+    irect_t back = {0, row, box.w, box.h};
+    V_DrawSpriteCellScaled(box, backs, world_back(), &back, NULL, V_OPAQUE);
+    static const ivec2_t body[Z_FACES] = {{2,26},{2,21},{2,23},{2,21},{2,23}};
+    static const ivec2_t mouth[Z_FACES] = {{15,16},{15,16},{15,15},{15,16},{15,17}};
+    static const ivec2_t eyes[Z_FACES] = {{11,8},{11,8},{11,7},{11,8},{11,9}};
+    irect_t clip = V_GetClip();
+    V_SetClip(small ? box : (irect_t){box.x + 4, box.y, 91, box.h});
+    const int parts[] = {1, 4, 20, 0};
+    const ivec2_t offsets[] = {{4,3}, mouth[face], eyes[face], body[face]};
+    for (int i = 0; i < 4; ++i)
+        V_DrawSpriteCell(ivec2_add((ivec2_t){box.x, box.y - row},
+                                 (ivec2_t){offsets[i].x * scale, offsets[i].y * scale}), head, parts[i], NULL, 0);
+    V_SetClip(clip);
+}
+
 /* The lump of `frame` facing south, or the only one. */
 static int picture_lump(const spritesheet_t *sheet, int frame) {
     if (!sheet || frame < 0) return -1;
@@ -291,24 +313,7 @@ static void draw_selection(ivec2_t at) {
     const spritesheet_t *sheet;
     int lump;
     if (look.face >= 0 && panel_ok && panel.heads[look.face].numlumps > 2) {
-        const spritesheet_t *head = &panel.heads[look.face];
-        /* 0x2c131: copy the composed buffer starting at source row 4. */
-        irect_t back = {0, 4, portrait.w, 75};
-        V_DrawSpriteCellScaled((irect_t){portrait.x, portrait.y, back.w, back.h},
-                              &panel.backs, world_back(), &back, NULL, V_OPAQUE);
-        /* Neutral pose 0x000f (0x2c30c), decoded by 0x2c880. The
-         * coordinates at 0x1311fa are in HEADFX source units. */
-        static const ivec2_t body[Z_FACES] = {{2,26},{2,21},{2,23},{2,21},{2,23}};
-        static const ivec2_t mouth[Z_FACES] = {{15,16},{15,16},{15,15},{15,16},{15,17}};
-        static const ivec2_t eyes[Z_FACES] = {{11,8},{11,8},{11,7},{11,8},{11,9}};
-        irect_t clip = V_GetClip();
-        V_SetClip((irect_t){portrait.x + 4, portrait.y, 91, 75});
-        const int parts[] = {1, 4, 20, 0};
-        const ivec2_t offsets[] = {{4,3}, mouth[look.face], eyes[look.face], body[look.face]};
-        for (int i = 0; i < 4; ++i)
-            V_DrawSpriteCell(ivec2_add((ivec2_t){portrait.x, portrait.y - 4},
-                                     (ivec2_t){offsets[i].x * 2, offsets[i].y * 2}), head, parts[i], NULL, 0);
-        V_SetClip(clip);
+        draw_face(look.face, false, (irect_t){portrait.x, portrait.y, portrait.w, 75});
     } else if (look.picture < 0 && !structure(mo) && state_picture(mo->core.state_id, &sheet, &lump)) {
         draw_picture(sheet, lump, mo->team, portrait);
     }
@@ -519,6 +524,43 @@ static void window_text(ivec2_t at, const char *text) {
     }
 }
 
+/* Centre the complete standing vehicle, using authored part extents rather
+ * than the shared animation/wreck canvas. Its turret keeps the world mount. */
+static void draw_product(int type, irect_t box) {
+    const spritesheet_t *hull;
+    int lump;
+    if (!state_picture(mobjinfo[type].spawnstate, &hull, &lump)) return;
+    const mobjtype_t *actor = P_ActorType(type);
+    const spritesheet_t *turret = actor && actor->turret.sprite_name ?
+        R_CacheLookup(hudview.sprites, actor->turret.sprite_name) : NULL;
+    int gun = turret ? picture_lump(turret, actor->turret.frame) : -1;
+    irect_t bounds = hull->cells[lump].bounds;
+    ivec2_t mount = {0};
+    if (gun >= 0 && gun < turret->numlumps) {
+        mount = ivec2_sub(hull->cells[lump].mount, turret->cells[gun].ground_point);
+        irect_t part = turret->cells[gun].bounds;
+        part.x += mount.x;
+        part.y += mount.y;
+        SDL_UnionRect(&bounds, &part, &bounds);
+    } else gun = -1;
+    ivec2_t origin = {box.x + (box.w - bounds.w) / 2 - bounds.x,
+                     box.y + (box.h - bounds.h) / 2 - bounds.y};
+    irect_t dst = hull->cells[lump].rect;
+    dst.x = origin.x;
+    dst.y = origin.y;
+    irect_t clip = V_GetClip();
+    V_SetClip(box);
+    R_DrawSprite(hull, lump, consoleplayer, NULL, &dst, 0, 16);
+    if (gun >= 0) {
+        dst = turret->cells[gun].rect;
+        ivec2_t at = ivec2_add(origin, mount);
+        dst.x = at.x;
+        dst.y = at.y;
+        R_DrawSprite(turret, gun, consoleplayer, NULL, &dst, 0, 16);
+    }
+    V_SetClip(clip);
+}
+
 static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     (void)menu; (void)item;
     if (!panel_ok) return;
@@ -562,16 +604,11 @@ static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect
     int t = type - MT_UNITS;
     if (t >= 0 && t < (int)(sizeof(names) / sizeof(*names)) && names[t] >= 787)
         V_DrawSpriteCell(ivec2_add(at, (ivec2_t){3,62}), &panel.window, names[t] - 787, NULL, 0);
-    const spritesheet_t *sheet;
-    int lump;
-    if (state_picture(mobjinfo[type].spawnstate, &sheet, &lump)) {
-        irect_t src = sheet->cells[lump].rect;
-        irect_t dst = {at.x + 6 + (48 - src.w) / 2, at.y + 22 + (37 - src.h) / 2, src.w, src.h};
-        irect_t clip = V_GetClip();
-        V_SetClip((irect_t){at.x + 6, at.y + 22, 48, 37});
-        R_DrawSprite(sheet, lump, consoleplayer, NULL, &dst, 0, 16);
-        V_SetClip(clip);
-    }
+    look_t look = unit_look(t);
+    if (look.face >= 0) {
+        draw_face(look.face, true, (irect_t){at.x + 5, at.y + 21, 48, 38});
+        window_piece(4717, ivec2_add(at, (ivec2_t){50,20}));
+    } else draw_product(type, (irect_t){at.x + 6, at.y + 22, 48, 37});
 }
 
 static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {

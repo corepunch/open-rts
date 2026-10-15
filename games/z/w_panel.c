@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "z_local.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -60,6 +61,13 @@ bool Z_LoadPanel(const char *root, zpanel_t *out) {
     bool ok = load_list(path, "NSNEWPAN.DAT", &out->pieces) && load_list(path, "SHEADBAK.DAT", &out->backs) &&
               Z_LoadPanelSprites(root && root[0] ? root : g_game_default_root, &out->window);
     for (int i = 0; ok && i < Z_FACES; ++i) ok = load_list(path, heads[i], &out->heads[i]);
+    M_PathJoin(path, sizeof(path), root && root[0] ? root : g_game_default_root, "HEADFX.PAC");
+    if (ok) ok = load_list(path, "HEADBACK.DAT", &out->small_backs);
+    for (int i = 0; ok && i < Z_FACES; ++i) {
+        char name[32];
+        snprintf(name, sizeof(name), "HEADBIT%d.DAT", i);
+        ok = load_list(path, name, &out->small_heads[i]);
+    }
     if (!ok) Z_FreePanel(out);
     return ok;
 }
@@ -68,7 +76,11 @@ void Z_FreePanel(zpanel_t *panel) {
     R_FreeSprite(&panel->pieces);
     R_FreeSprite(&panel->backs);
     R_FreeSprite(&panel->window);
-    for (int i = 0; i < Z_FACES; ++i) R_FreeSprite(&panel->heads[i]);
+    R_FreeSprite(&panel->small_backs);
+    for (int i = 0; i < Z_FACES; ++i) {
+        R_FreeSprite(&panel->heads[i]);
+        R_FreeSprite(&panel->small_heads[i]);
+    }
     memset(panel, 0, sizeof(*panel));
 }
 
@@ -85,5 +97,9 @@ void Z_PanelPalette(zpanel_t *panel, const uint32_t palette[256]) {
     colour(&panel->pieces, palette);
     colour(&panel->backs, palette);
     colour(&panel->window, palette);
-    for (int i = 0; i < Z_FACES; ++i) colour(&panel->heads[i], palette);
+    colour(&panel->small_backs, palette);
+    for (int i = 0; i < Z_FACES; ++i) {
+        colour(&panel->heads[i], palette);
+        colour(&panel->small_heads[i], palette);
+    }
 }
