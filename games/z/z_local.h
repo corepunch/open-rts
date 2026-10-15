@@ -78,6 +78,14 @@ bool Z_FortEntrance(const mobj_t *fort, fixed2_t *at);
 /* p_alert.c: an idle unit takes its squad's enemy or one close by. */
 void Z_Alert(mobj_t *unit);
 
+/* p_prod.c: what forts and factories make (products.inc). */
+int Z_ProductId(int type); /* Catalog ui_id of a unit's mobj type. */
+bool Z_Producer(const mobj_t *mo);
+int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, int max);
+const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer);
+/* Flags a team holds (Z_NEUTRAL: nobody's), and all of them. */
+int Z_TerritoriesHeld(int team, int *total);
+
 /* Build the destructible cliffs into the planes, as a level start does. */
 void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world);
 /* World sprite of a building type, or -1. */

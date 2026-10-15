@@ -118,10 +118,27 @@ static void rally(mobj_t *const *members, int count) {
             members[i]->attack.target = enemy;
 }
 
+/* A fort or factory standing idle starts on whatever the team has fewest
+ * of; it then keeps making that until told otherwise (p_prod.c). */
+static void run_factories(int owner, mobj_t *const *units, int unit_count) {
+    const StaticProductDefinition *list[32];
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *factory = units[i];
+        if (factory->owner != owner || !Z_Producer(factory) || Z_ProductInProduction(factory)) continue;
+        int count = Z_ProductsFor(factory, list, 32), best = -1, fewest = 0;
+        for (int p = 0; p < count; ++p) {
+            int have = G_CountPlannedActors(owner, (uint16_t)list[p]->product_type);
+            if (best < 0 || have < fewest) { best = p; fewest = have; }
+        }
+        if (best >= 0) G_QueueProduct(factory, list[best]);
+    }
+}
+
 /* Each computer team's squads, every think: a squad joins any fight one
  * of its members is in, and an idle squad gets an objective. */
 static void z_ai_tactics(level_t *map, int owner, mobj_t *const *units, int unit_count) {
     mobj_t *members[MAX_ARMY];
+    run_factories(owner, units, unit_count);
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *lead = units[i];
         if (!soldier(lead, owner)) continue;
