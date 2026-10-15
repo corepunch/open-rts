@@ -579,9 +579,9 @@ Reproduce the control flow using an LE-aware disassembler at `0x2512c`,
 at `0x12ecb9`. Discovery outputs remain under ignored `reverse/z-ui/`;
 the useful results and rejected hypotheses are preserved here.
 
-**Current engine mismatch:** `Z_ProductsFor` uses a hardcoded family mask
+**Engine mismatch at the time of investigation (corrected below):** `Z_ProductsFor` used a hardcoded family mask
 without the native thresholds, and `G_ModelProducerHasTech` always returns
-true. `products.inc` omits all four guns and incorrectly excludes them
+true. `products.inc` omitted all four guns and incorrectly excluded them
 from robot factories. Correct implementation must carry each producer's
 rating, read the appropriate group requirement, and enforce the same check
 in UI, direct production orders and computer-player decisions. It must
@@ -607,3 +607,137 @@ current linear double-speed-at-all-territories rule. These timing formulas
 and weight initialization need a dedicated port; no new delay constant or
 runtime balance change was introduced here. Live rating upgrades, gun
 placement details and multiplayer availability remain unverified.
+
+### Implementation: native availability and the missing gun products
+
+The runtime now carries building +12 in `mobj_t.z.rating`, includes it in
+the game-field consistency hash/save record, and preserves the loaded
+ROBOTS.DAT under the active level's native-data owner. Starting armies
+and production borrow the same checked records. There is no second
+requirements table or second roster read. BUILDnn.DAT supplies ordinary
+factory ratings; the verified campaign table supplies fort ratings.
+
+The catalog follows the 17 native single-player group IDs in order.
+`G_ModelProducerHasTech` enforces group enablement, checked first-member
+resolution, native weapon classes, a nonzero requirement and the exact
+`minimum * 1000 <= rating` boundary. Popup enumeration, model availability,
+direct build commands and the existing AI all reach this one check.
+Fire Truck and Truck remain outside the single-player catalog. Capturing
+an ordinary factory preserves that particular factory's rating.
+
+The four missing gun products are selectable and manufacturable. A
+completed gun waits in the producer's existing production record using
+the shared release lifecycle. The authored Place button (4718/4719)
+and placing status (4714) become visible, and the shared menu target
+mechanism requests a world location. Escape cancels targeting while
+retaining the gun; Cancel discards the producer's production. A validated
+TC_CONSTRUCT command consumes the stored gun, allocates an ordinary mobj
+and restarts the producer. Other players, incorrect product IDs, occupied
+mounts and foreign-territory targets cannot bypass the checks.
+
+**Confirmed additional placement evidence:** `0x4e6b7` aligns the target
+to a 16-pixel cell and compares its territory with the selected producer
+territory. Its fort area is 144x144; `0x4e676` chooses a mount with the
+x=64 split and y<31 / y<=80 / y>80 bands. Left top/middle/bottom use slots
+3/5/0; right top/middle/bottom use 1/4/2. The coordinates are the existing
+six native offsets at 0x145088 (already used for starting guns). Turning
+guns subtract (2,8), whereas the Light Gun does not. `0x4e8be` rejects
+overlap with existing guns; `0x4e99c` checks building rectangles. The
+normal-ground branch also calls terrain/occupancy checks before returning
+an acceptable location. The terrain table at 0x11582d allows IDs
+`0,8,10,22,30,31,45,53,54,55,59,62,63,64,65,66`; other entries are nonzero.
+
+The implementation uses those fort sectors/mounts, the terrain table's
+allowed IDs over a 2x2 placement and checked overlap with live engine
+footprints/native unit rectangles. Roof positions use the same raised
+representation as starting guns. A robot factory can place on a friendly
+fort in the same territory. The existing computer-player scheduler places
+finished guns with these same checks, preferring fort mounts before a
+deterministic first-valid-cell ground search. No branch depends on the
+local console player, preserving lock-step behavior.
+
+**Explicit engine policy:** production holds one completed gun at the
+head of the shared queue until placement. Retail `0x4317f` instead shifts
+four built-list bytes at building +75..78, and retail AI `0x9df4f` has
+additional placement priorities and random choices. The engine does not
+yet reproduce that four-gun storage or those AI priorities. Mobile-unit
+manufacturing times and their existing linear territory acceleration are
+preserved; only the newly introduced gun timers use the native stock/rate
+calculation described next. Live technology upgrades and multiplayer
+catalog bounds remain outside this availability change.
+
+#### Corrected: zero static weights are loaded from MULT.DAT
+
+The previous unknown about zero stock weights is resolved. `0x4f694`
+loads the file selected by LEVELS.DAT +0x6f (MULT.DAT in the retail levels)
+into **0x152b10..0x152d83**, exactly **628 bytes**. The pointer tables at
+0x152a78 (robot weights) and 0x152ac4 (weapon weights) point inside this
+loaded block. The zero executable image is not the active weight data.
+Additional SHA-256 fingerprints:
+
+```
+MULT.DAT              b71e60b739b512697c9eb95f91f23443724945bfacbe865a4a916a7729b1d396
+LEVEL01/CPUPLR01.DAT  f745ecbe54147c82fc1d6edd2251113d395949e00161f4197d0f5debf92f8a3b
+```
+
+A scratch C evaluator applied those pointers after copying MULT.DAT to
+0x152b10 and followed the unsigned integer arithmetic of `0x98acc`:
+for every member of a production group, average the applicable weighted
+robot fields (+28,+29,+30,+31,+32,+33,+36); average applicable weighted
+weapon fields (u16 +2, byte +4, +5*25, +32,+34,+35,+36*8,+37,+38,+39),
+skipping any weight 0xff; multiply the weapon average by weight +10,
+then add the robot average. Sum those member values for the group.
+The resulting new gun stock literals are:
+
+| Native group | Product | Stock |
+|---|---|---|
+| 10 | Gattling | 1468 |
+| 0 | Gun | 1746 |
+| 14 | Howitzer | 2610 |
+| 8 | Missile | 3451 |
+
+These are authored C configuration literals, consistent with the project's
+rule against loading native unit balance tables at runtime. Inspect
+0x98acc..0x98d55 and the two pointer tables against the original ROBOTS.DAT
+and MULT.DAT to reproduce them. Scratch evaluation of the remaining groups
+also produced 1062 for Grunt, 1826 for Tough, 2244 for Sniper, 1482 for
+Psychos, 2436 for Flamer and 2716 for Laser; those values do not replace
+the existing engine's mobile-unit timers in this change.
+
+**Confirmed speed correction:** global 0x103d81 initially contains 8,
+but `0x9d81b` replaces it from CPUPLR offset **0x8a2** (2210). LEVEL01's
+value is **10**. Using the static initial 8 would therefore give the wrong
+mission timing. The new gun timer's base is
+`floor(stock * 221 / level_speed)` native ticks, converted to milliseconds
+at **17 Hz**. `0x41a69` / `0x41afc` establish the stock scaling and
+`0x26129` the 17-tick time conversion. Territory rate is
+`floor(floor(100 * held / total) / 4) + 1`; `0x422a7` multiplies that by
+`floor(100 * hp / max_hp)` and divides by 100. The timer and popup time
+estimate apply the same rate. A near-destroyed building whose rounded
+rate is zero stalls rather than continuing at full speed.
+
+Reproduce the raw speed value with:
+
+```sh
+od -An -t u1 -j 2210 -N 1 data/Z/LEVEL01/CPUPLR01.DAT
+wc -c data/Z/MULT.DAT
+```
+
+Focused verification now covers exact level-1 fort/factory choices;
+level-2 factories with different ratings; tier boundaries at 1999/2000;
+zero minimums and inactive groups; fort ratings and unlock counts in
+missions 1,5,9,13,17,22,26,33; blocked model/direct build commands;
+Gatling's stock/speed timer; stored-gun cancellation, owner/product/territory
+validation, occupied mounts, native roof placement and AI placement.
+`test_hud` checks all 17 preview pixel fixtures at 1x/2x and the Place,
+Escape and world-target flow. Temporary diagnostics printed producer ID,
+rating, group, resolved type, minimum and permission result, and were
+removed after confirming the exact first-level restrictions.
+
+Final verification: full `make` completed without warnings; all 23 Z tests
+passed, with the network-menu test retried outside the network sandbox to
+bind its temporary localhost port. A final focused production rerun also
+verified that a zero rounded health rate stalls the new gun timer. Headless
+`--check` and `--screenshot` loaded LEVEL01's 512 tiles and 99 units.
+All 17 preview captures, the completed-gun Place window and the full-level
+screenshot were visually inspected.
