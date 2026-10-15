@@ -273,6 +273,11 @@ positions at 0x50a5e; how it picks the records and their team is not
 fully traced. The rest of the file (computer player settings) is not
 decoded.
 
+The byte at **0x8a2** is the native production-speed divisor, installed
+at runtime global 0x103d81 by ZED.EXE 0x9d81b. LEVEL01 contains 10.
+New gun products use it with their extracted stock values; the existing
+mobile-unit timers remain authored engine settings.
+
 ## BUILDnn.DAT
 
 35 records of 80 bytes, loaded to 0x18ad2c. They are the game's run-time

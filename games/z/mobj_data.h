@@ -8,11 +8,12 @@
  * again. */
 #define MOBJ_GAME_FIELDS struct { \
     uint32_t board; \
+    uint32_t rating; /* Native building +0x0c production technology. */ \
     uint8_t driver, squad, grenades, territory; \
     int hold; \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
-    HASH((mo)->z.board); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
+    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
 } while (0)
 

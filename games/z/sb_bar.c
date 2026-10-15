@@ -568,14 +568,15 @@ static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect
     if (!producer) return;
     const production_t *queue = producer ? producer->production : NULL;
     bool busy = Z_ProductInProduction(producer) != NULL;
+    bool ready = Z_GunReady(producer);
     ivec2_t at = {rect.x, rect.y};
     window_piece(4694, at);
     window_piece(producer->type_id == MT_ROBOT_FACTORY ? 4695 : producer->type_id == MT_FORT ? 4696 : 4697,
                  ivec2_add(at, (ivec2_t){8,6}));
     V_DrawSpriteCell(ivec2_add(at, (ivec2_t){6,22}), &panel.window, Z_UI_BACKGROUND, NULL, 0);
-    window_piece(busy ? 4713 : 4712, ivec2_add(at, (ivec2_t){64,19}));
-    int seconds = busy ? (queue->time_left_ms + 999) / 1000 : offered_count ?
-                  G_ModelProductTrainingTimeMs(offered[popup_choice]) / 1000 : 0;
+    window_piece(ready ? 4714 : busy ? 4713 : 4712, ivec2_add(at, (ivec2_t){64,19}));
+    int time = offered_count ? Z_ProductTimeMs(producer, offered[popup_choice]) : 0;
+    int seconds = time / 1000 + (busy && time % 1000 > 0);
     char text[16];
     if (seconds > 599) seconds = 599; /* 0x2638c: saturate at 9:59. */
     snprintf(text, sizeof(text), "%d:%02d", seconds / 60, seconds % 60);
@@ -617,8 +618,9 @@ static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
 }
 
 static void on_stop(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu; (void)item;
+    (void)item;
     if (action != MA_ACTIVATE || !popup_for) return;
+    M_MenuTarget(menu, NULL);
     if (Z_ProductInProduction(P_MobjById(popup_for))) {
         ticcmd_t cmd = {.order = TC_CANCEL_PRODUCTION, .count = 1, .units = {popup_for}};
         G_QueueTiccmd(&cmd);
@@ -633,9 +635,20 @@ static void on_step(menu_t *menu, menuitem_t *item, menuaction_t action) {
 }
 
 static void on_start(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu; (void)item;
     mobj_t *producer = P_MobjById(popup_for);
+    if (action == MA_CANCEL) return;
+    if (action == MA_TARGET) {
+        if (!producer || !Z_GunReady(producer)) { M_MenuTarget(menu, NULL); return; }
+        cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
+        const StaticProductDefinition *product = Z_ProductInProduction(producer);
+        fixed3_t position;
+        if (Z_GunPosition(producer, product->product_type, (ivec2_t){cell.x,cell.y}, &position) &&
+            G_ConstructOrder(producer, product->product_type, (ivec2_t){cell.x,cell.y})) M_MenuTarget(menu, NULL);
+        else M_MenuTarget(menu, item);
+        return;
+    }
     if (action != MA_ACTIVATE || !producer || popup_choice < 0 || popup_choice >= offered_count) return;
+    if (Z_GunReady(producer)) { M_MenuTarget(menu, item); return; }
     if (!Z_ProductInProduction(producer) && !G_BuildOrder(producer, offered[popup_choice]->ui_id)) return;
     P_MobjSetSelected(producer, false);
 }
@@ -724,10 +737,15 @@ static void refresh_popup(const menu_t *menu, int scale) {
     for (int i = IT_POPUP; i < IT_COUNT; ++i) items[i].visible = producer != NULL;
     offered_count = producer ? Z_ProductsFor(producer, offered, (int)(sizeof(offered) / sizeof(*offered))) : 0;
     if (!producer) {
+        M_MenuTarget(&hud, NULL);
         for (int i = IT_STOP; i <= IT_START; ++i) items[i].enabled = false;
         return;
     }
     const StaticProductDefinition *making = Z_ProductInProduction(producer);
+    bool ready = Z_GunReady(producer);
+    if (!ready) M_MenuTarget(&hud, NULL);
+    for (int state = 0; state < MS_STATES; ++state)
+        items[IT_START].look[state].cell = Z_UI_WINDOW + (ready ? 4718 : 4704) - Z_UI_FIRST + (state == MS_PUSHED);
     for (int i = 0; making && i < offered_count; ++i)
         if (offered[i] == making) popup_choice = i;
     if (popup_choice < 0 || popup_choice >= offered_count) popup_choice = 0;

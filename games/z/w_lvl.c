@@ -25,7 +25,7 @@ enum {
 
 /* CPUPLRnn.DAT: 64 territories of 30 bytes, then at 0x792 the computer's
  * starting groups, 10 bytes each: group, a flag, u16 x and y. */
-enum { CP_TERRITORY = 30, CP_PLACED = 0x792, CP_RECORD = 10 };
+enum { CP_TERRITORY = 30, CP_PLACED = 0x792, CP_RECORD = 10, CP_SPEED = 0x8a2 };
 
 #include "starts.inc"
 
@@ -85,6 +85,7 @@ static void destroy_zmap(void *opaque) {
     zmap_t *map = opaque;
     if (!map) return;
     W_FreeFile(&map->rsc);
+    W_FreeFile(&map->roster);
     free(map);
 }
 
@@ -116,7 +117,8 @@ static bool load_cpuplr(zmap_t *map, const char *name) {
     level_path(path, sizeof(path), map->dir, name);
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
-    bool ok = blob.size >= CP_PLACED;
+    bool ok = blob.size > CP_SPEED && blob.bytes[CP_SPEED] != 0;
+    if (ok) map->production_speed = blob.bytes[CP_SPEED];
     for (int i = 0; ok && i < Z_MAX_TERRITORIES; ++i) {
         const uint8_t *r = blob.bytes + i * CP_TERRITORY;
         if (read_u16_le(r) == 0xffff) continue;
@@ -178,6 +180,8 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
     snprintf(map->robots, sizeof(map->robots), "%.*s", LV_NAME, (const char *)entry + LV_ROBOTS);
     snprintf(map->objects, sizeof(map->objects), "%.*s", LV_NAME, (const char *)entry + LV_OBJECTS);
     snprintf(map->buildings, sizeof(map->buildings), "%.*s", LV_NAME, (const char *)entry + LV_BUILDINGS);
+    level_path(path, sizeof(path), map->root, map->robots);
+    if (!W_ReadFile(path, &map->roster)) goto fail;
     char cpuplr[LV_NAME + 1];
     snprintf(cpuplr, sizeof(cpuplr), "%.*s", LV_NAME, (const char *)entry + LV_CPUPLR);
     if (map->world >= Z_WORLDS || map->number >= Z_LEVELS || !load_cpuplr(map, cpuplr)) goto fail;
@@ -297,9 +301,11 @@ static mobj_t *spawn_unit(const zmap_t *map, int t, ivec2_t pixel, int team) {
 }
 
 /* Weapon type of a group's member, -1 past its last. */
-static int member_type(const blob_t *robots, int group, int member) {
+int Z_GroupType(const zmap_t *map, int group, int member) {
+    const blob_t *robots = &map->roster;
     size_t at = RB_GROUPS + (size_t)group * RB_GROUP;
-    if (group < 0 || at + RB_GROUP > robots->size || !robots->bytes[at] || member >= RB_MAX_MEMBERS)
+    if (group < 0 || at + RB_GROUP > robots->size || !robots->bytes[at] ||
+        member < 0 || member >= RB_MAX_MEMBERS)
         return -1;
     int robot = read_u16_le(robots->bytes + at + RB_MEMBERS + member * 2);
     if (robot == 0xffff || (size_t)(robot + 1) * RB_ROBOT > RB_GROUPS) return -1;
@@ -311,10 +317,10 @@ static int member_type(const blob_t *robots, int group, int member) {
  * which shares grenades (0x79bea). */
 static uint8_t squads;
 
-static int spawn_group(const zmap_t *map, const blob_t *robots, int group, ivec2_t at, int team) {
+static int spawn_group(const zmap_t *map, int group, ivec2_t at, int team) {
     int count = 0;
     uint8_t squad = ++squads ? squads : ++squads;
-    for (int i = 0, t; (t = member_type(robots, group, i)) >= 0; ++i) {
+    for (int i = 0, t; (t = Z_GroupType(map, group, i)) >= 0; ++i) {
         mobj_t *mo = spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team);
         if (!mo) continue;
         mo->z.squad = squad;
@@ -328,19 +334,13 @@ static int spawn_group(const zmap_t *map, const blob_t *robots, int group, ivec2
  * come from CPUPLRnn.DAT, owned by the territory they stand in or else by
  * the other fort. */
 static int spawn_armies(const zmap_t *map, ivec2_t fort, int cpu_team) {
-    char path[1024], name[LV_NAME + 1];
-    blob_t robots;
-    snprintf(name, sizeof(name), "%s", map->robots);
-    for (char *c = name; *c; ++c) *c = (char)toupper((unsigned char)*c);
-    M_PathJoin(path, sizeof(path), map->root, name);
-    if (!W_ReadFile(path, &robots)) return 0;
     int count = 0, start = 0, gun = 0;
     for (int g = 0; fort.x >= 0 && g < Z_MAX_GROUPS && map->groups[g] != 0xff; ++g) {
-        int t = member_type(&robots, map->groups[g], 0);
+        int t = Z_GroupType(map, map->groups[g], 0);
         if (t < 0 || t >= Z_UNIT_TYPES) continue;
         if (unit_kinds[t].mobile) {
             const int16_t *at = start_offsets[start_table[map->number]][start++];
-            count += spawn_group(map, &robots, map->groups[g], ivec2_add(fort, (ivec2_t){at[0], at[1]}), 0);
+            count += spawn_group(map, map->groups[g], ivec2_add(fort, (ivec2_t){at[0], at[1]}), 0);
             continue;
         }
         if (gun >= 6) continue;
@@ -351,11 +351,80 @@ static int spawn_armies(const zmap_t *map, ivec2_t fort, int cpu_team) {
     }
     for (int i = 0; i < map->placed_count; ++i) {
         int team = Z_TeamAt(map, map->placed[i].at);
-        count += spawn_group(map, &robots, map->placed[i].group, map->placed[i].at,
+        count += spawn_group(map, map->placed[i].group, map->placed[i].at,
                              team < Z_NEUTRAL ? team : cpu_team);
     }
-    W_FreeFile(&robots);
     return count;
+}
+
+/* 0x4e6b7: a gun stays in its producer's territory. On the fort it snaps
+ * to one of six native mounts (0x4e676); elsewhere it occupies 2x2 cells. */
+bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out) {
+    const zmap_t *map = level.native_data;
+    int t = type - MT_UNITS;
+    if (!map || !Z_Producer(producer) || t < 0 || t >= Z_UNIT_TYPES || unit_kinds[t].mobile ||
+        !L_Contains(&level, cell.x, cell.y)) return false;
+    irect_t base = P_MobjCells(producer);
+    const zterritory_t *territory = NULL;
+    for (int i = 0; i < map->territory_count; ++i) {
+        const zterritory_t *candidate = &map->territories[i];
+        if (base.x >= candidate->min.x && base.x < candidate->max.x &&
+            base.y >= candidate->min.y && base.y < candidate->max.y) territory = candidate;
+    }
+    if (!territory || cell.x < territory->min.x || cell.x >= territory->max.x ||
+        cell.y < territory->min.y || cell.y >= territory->max.y) return false;
+    ivec2_t pixel = ivec2_scale(cell, Z_TILE);
+    const mobj_t *fort = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *mo = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || mo->type_id != MT_FORT || mo->remove ||
+            mo->hp <= 0 || mo->owner != producer->owner) continue;
+        irect_t cells = P_MobjCells(mo);
+        if (irect_contains((irect_t){cells.x,cells.y,9,9}, cell)) { fort = mo; base = cells; break; }
+    }
+    bool roof = fort != NULL;
+    if (roof) {
+        ivec2_t relative = ivec2_scale(ivec2_sub(cell, (ivec2_t){base.x,base.y}), Z_TILE);
+        int slot = relative.x < 64 ? (relative.y < 31 ? 3 : relative.y <= 80 ? 5 : 0) :
+                                    (relative.y < 31 ? 1 : relative.y <= 80 ? 4 : 2);
+        pixel = ivec2_add(ivec2_scale((ivec2_t){base.x,base.y}, Z_TILE),
+                         (ivec2_t){gun_slots[slot][0],gun_slots[slot][1]});
+        if (unit_kinds[t].turns) pixel = ivec2_add(pixel, (ivec2_t){-2,-8});
+    } else {
+        for (int y = cell.y; y < cell.y + 2; ++y)
+            for (int x = cell.x; x < cell.x + 2; ++x) {
+                if (!L_Contains(&level, x, y)) return false;
+                /* Zero entries in native placement table 0x11582d. */
+                switch (map->terrain[y * Z_MAP_STRIDE + x] & 0x7f) {
+                case 0: case 8: case 10: case 22: case 30: case 31: case 45:
+                case 53: case 54: case 55: case 59: case 62: case 63: case 64: case 65: case 66: break;
+                default: return false;
+                }
+            }
+    }
+    irect_t area = {pixel.x, pixel.y, 2 * Z_TILE, 2 * Z_TILE};
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *mo = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || !mo->info || mo->hp <= 0 || mo->remove ||
+            mo == fort || !(mo->traits & MF_SELECTABLE)) continue;
+        irect_t cells = P_MobjCells(mo);
+        irect_t occupied = {cells.x * Z_TILE, cells.y * Z_TILE, cells.w * Z_TILE, cells.h * Z_TILE};
+        int other = Z_UnitType(mo);
+        if (other >= 0) {
+            isize2_t size;
+            if (!unit_size(map, other, &size)) return false;
+            ivec2_t at = ivec2_sub(fixed2_cell(fixed2_scale(fixed3_xy(mo->core.position), FIXED_FROM_INT(Z_TILE))),
+                                  (ivec2_t){size.w / 2, size.h / 2 + fixed_floor_int(mo->core.position.z) * Z_TILE});
+            occupied = (irect_t){at.x,at.y,size.w,size.h};
+        }
+        if (irect_intersects(area, occupied)) return false;
+    }
+    /* Match spawn_unit's raised fort-wall representation. */
+    if (roof) pixel = ivec2_add(pixel, (ivec2_t){0,Z_TILE});
+    fixed2_t centre;
+    if (!Z_UnitCentre(map, t, pixel, &centre)) return false;
+    *out = fixed3_from_fixed2(centre, roof ? FIXED_ONE : 0);
+    return true;
 }
 
 int Z_LoadThings(void) {
@@ -364,9 +433,17 @@ int Z_LoadThings(void) {
     int count = 0, cpu_team = 1;
     ivec2_t player_fort = {-1, -1};
     squads = 0;
+    /* Startup writes 0x4735a..0x4751b; 0x4ee67 installs rating * 1000. */
+    static const uint8_t fort_rating[Z_LEVELS] = {
+        0, 1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4, 5,5,5,5,
+        5,4,5,4,5,3,4,4,5,5,5,5,3,3,4,5,5,4,5,3,2,3,4,5,5,5,5,2,2,3};
     for (int i = 0; i < map->fort_count; ++i) {
         int team = Z_TeamAt(map, map->forts[i]);
-        if (spawn(MT_FORT, i ? S_FORT_CPU : S_FORT, map->forts[i], (isize2_t){160, 176}, team)) count++;
+        mobj_t *fort = spawn(MT_FORT, i ? S_FORT_CPU : S_FORT, map->forts[i], (isize2_t){160, 176}, team);
+        if (fort) {
+            fort->z.rating = fort_rating[map->number] * 1000u;
+            count++;
+        }
         if (team == 0) {
             player_fort = map->forts[i];
             level.has_camera = true;
@@ -413,6 +490,7 @@ int Z_LoadThings(void) {
             if (!Z_SpriteSize(map, Z_BuildingSprite(r[4], map->world), &size)) continue;
             mobj_t *mo = spawn(type, mobjinfo[type].spawnstate, at_px, size, Z_TeamAt(map, at_px));
             if (!mo) continue;
+            mo->z.rating = read_u32_le(r + 12);
             if (read_u16_le(r + 0x1a)) mo->hp = mo->max_hp = read_u16_le(r + 0x1a);
             count++;
         }

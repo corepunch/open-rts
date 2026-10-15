@@ -10,6 +10,11 @@
   matrix, rejected bitmask hypothesis, reproduction commands and remaining
   implementation work are in
   [Z_EXE_FINDINGS.md](docs/Z_EXE_FINDINGS.md#production-availability-thresholds-2026-10-15).
+- The implementation also reads the level's CPUPLR speed and traces the
+  local `MULT.DAT` weight block loaded by 0x4f694. Gun stock, native
+  placement sectors, terrain rules and the distinction between native
+  rules and the engine's serial placement/AI policy are documented in
+  the following implementation section of that report.
 
 ### Z retail building windows and sidebar (2026-10-15)
 

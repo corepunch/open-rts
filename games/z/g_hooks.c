@@ -15,6 +15,10 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
     switch (cmd->order) {
     case TC_ATTACK:
         return Z_BoardOrder(units, count, target);
+    case TC_CONSTRUCT:
+        Z_PlaceGun(units[0], cmd->product,
+                   (ivec2_t){fixed_floor_int(cmd->position.x), fixed_floor_int(cmd->position.y)});
+        return true;
     case TC_CANCEL_PRODUCTION:
         for (int i = 0; i < count; ++i)
             while (units[i]->production && units[i]->production->queue_count > 0)

@@ -5,20 +5,21 @@
 
 #include <stdio.h>
 
-/* Forts and factories make units (products.inc): a fort makes robots and
- * vehicles, a robot factory robots; what is made leaves by the door and
- * the factory starts the next one; STOP empties the queue; holding
- * territories makes everything faster; the computer runs its own. */
+/* Native producer ratings and group requirements gate all production.
+ * Mobile units leave the door; guns wait for placement; STOP empties the
+ * queue, and the computer uses the same catalog and placement checks. */
 
 static int fail(const char *msg) { return rts_fail("z production", msg); }
 
-static RtsGameModel *load(void) {
+static RtsGameModel *load_map(const char *path) {
     RtsGameModel *model = rts_game_model_create();
-    RtsGameModelConfig config = { .data_root = "data/Z" };
+    RtsGameModelConfig config = { .data_root = "data/Z", .map_path = path };
     if (model && rts_game_model_load(model, &config)) return model;
     rts_game_model_destroy(model);
     return NULL;
 }
+
+static RtsGameModel *load(void) { return load_map(NULL); }
 
 static mobj_t *nth(int type, int team, int n) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -71,17 +72,135 @@ static bool lists(const mobj_t *producer, int type) {
 static int test_catalog(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load level 1");
-    mobj_t *fort = nth(MT_FORT, 0, 0), *robots = nth(MT_ROBOT_FACTORY, -1, 0), *tanks = nth(MT_TANK_FACTORY, -1, 0);
+    mobj_t *fort = nth(MT_FORT, 0, 0), *robots = nth(MT_ROBOT_FACTORY, -1, 0);
     if (!fort || !robots) return fail("the player's fort and a robot factory");
+    Z_SetTeam(robots, 0);
+    const StaticProductDefinition *list[32];
+    if (fort->z.rating != 1000 || Z_ProductsFor(fort, list, 32) != 3 ||
+        list[0]->product_type != MT_UNIT_GATLING || list[1]->product_type != MT_UNIT_GRUNT ||
+        list[2]->product_type != MT_UNIT_JEEP) return fail("level 1 offers exactly Gatling, Grunt, Jeep in native order");
     if (!lists(fort, MT_UNIT_GRUNT) || !lists(fort, MT_UNIT_JEEP)) return fail("a fort makes robots and vehicles");
-    if (!lists(robots, MT_UNIT_GRUNT) || lists(robots, MT_UNIT_JEEP)) return fail("a robot factory makes robots only");
-    if (tanks && (lists(tanks, MT_UNIT_GRUNT) || !lists(tanks, MT_UNIT_MED_TANK)))
-        return fail("a vehicle factory makes vehicles only");
-    if (lists(fort, MT_UNIT_GATLING) || lists(fort, MT_UNIT_TRUCK)) return fail("guns and trucks are not made");
+    if (robots->z.rating != 1000 || Z_ProductsFor(robots, list, 32) != 2 ||
+        !lists(robots, MT_UNIT_GRUNT) || !lists(robots, MT_UNIT_GATLING) || lists(robots, MT_UNIT_JEEP))
+        return fail("a captured level-1 robot factory offers Grunt and Gatling");
+    if (lists(fort, MT_UNIT_TRUCK) || lists(fort, MT_UNIT_FIRE_TRUCK)) return fail("trucks are outside the single-player cycle");
+    const StaticProductDefinition *heavy = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_HEAVY_TANK));
+    if (!heavy || G_ModelProductAvailable(model, 0, heavy) || G_QueueProduct(fort, heavy))
+        return fail("unavailable technology cannot be queued through the model");
+    order(fort, TC_BUILD, heavy->ui_id);
+    if (fort->production) return fail("direct build commands cannot bypass technology");
     const StaticProductDefinition *grunt = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_GRUNT));
     if (!grunt || !grunt->label || strcmp(grunt->label, "Grunt") || grunt->cost) return fail("the Grunt costs nothing");
     if (G_ModelProductTrainingTimeMs(grunt) != 20000) return fail("a Grunt takes twenty seconds");
     if (Z_Producer(nth(MT_UNIT_GRUNT, 0, 0)) || Z_Producer(nth(MT_REPAIR, -1, 0))) return fail("only forts and factories produce");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_factory_thresholds(void) {
+    RtsGameModel *model = load_map("LEVEL02/LEVEL02.MAP");
+    if (!model) return fail("load level 2");
+    mobj_t *low = NULL, *high = NULL, *tank = nth(MT_TANK_FACTORY, -1, 0);
+    for (int i = 0; nth(MT_ROBOT_FACTORY, -1, i); ++i) {
+        mobj_t *factory = nth(MT_ROBOT_FACTORY, -1, i);
+        Z_SetTeam(factory, 0);
+        if (factory->z.rating == 1000) low = factory;
+        if (factory->z.rating == 2000) high = factory;
+    }
+    if (!low || !high || !tank || lists(low, MT_UNIT_PSYCHO) || !lists(high, MT_UNIT_PSYCHO))
+        return fail("level-2 factories retain their distinct native ratings");
+    Z_SetTeam(tank, 0);
+    if (tank->z.rating != 1000 || !lists(tank, MT_UNIT_LIGHT_TANK) || !lists(tank, MT_UNIT_JEEP) ||
+        !lists(tank, MT_UNIT_GATLING) || lists(tank, MT_UNIT_GRUNT) || lists(tank, MT_UNIT_MED_TANK))
+        return fail("tier-one tank factory makes Light, Jeep and Gatling");
+    high->z.rating = 1999;
+    if (lists(high, MT_UNIT_PSYCHO)) return fail("technology does not round up below the threshold");
+    high->z.rating = 2000;
+    if (!lists(high, MT_UNIT_PSYCHO)) return fail("technology unlocks at the exact threshold");
+    high->z.rating = 5000;
+    if (lists(high, MT_UNIT_JEEP) || lists(high, MT_UNIT_MISSILE_GUN) || !lists(high, MT_UNIT_HOWITZER))
+        return fail("zero requirement excludes a product even at maximum rating");
+    zmap_t *map = level.native_data;
+    uint8_t enabled = map->roster.bytes[18000 + 6 * 82];
+    map->roster.bytes[18000 + 6 * 82] = 0;
+    if (lists(high, MT_UNIT_PSYCHO)) return fail("inactive native groups are not offered");
+    map->roster.bytes[18000 + 6 * 82] = enabled;
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_campaign_ratings(void) {
+    static const struct { int mission, rating, products; } cases[] = {
+        {1,1000,3}, {5,2000,7}, {9,3000,10}, {13,4000,12}, {17,5000,17},
+        {22,4000,12}, {26,3000,10}, {33,3000,10}};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+        char path[64];
+        snprintf(path, sizeof(path), "LEVEL%02d/LEVEL%02d.MAP", cases[i].mission, cases[i].mission);
+        RtsGameModel *model = load_map(path);
+        if (!model) return fail("load campaign rating case");
+        mobj_t *fort = nth(MT_FORT, 0, 0);
+        const StaticProductDefinition *list[32];
+        if (!fort || fort->z.rating != (unsigned)cases[i].rating ||
+            Z_ProductsFor(fort, list, 32) != cases[i].products) return fail("native campaign fort rating and unlock count");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
+static int test_gun_placement(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for gun placement");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    disarm();
+    mobj_t *fort = nth(MT_FORT, 0, 0), *enemy = nth(MT_FORT, 1, 0);
+    const StaticProductDefinition *gun = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_GATLING));
+    if (!fort || !enemy || !gun || !G_QueueProduct(fort, gun)) return fail("start available Gatling");
+    const zmap_t *map = level.native_data;
+    if (map->production_speed != 10 || G_ModelProductTrainingTimeMs(gun) != (1468 * 221 / 10) * 1000 / 17)
+        return fail("Gatling timer uses the native stock and level speed");
+    int health = fort->hp, left = fort->production->time_left_ms;
+    fort->hp = 1;
+    G_ProductionTicker(RTS_TICK_MS);
+    if (fort->production->time_left_ms != left) return fail("zero rounded native health rate stalls gun production");
+    fort->hp = health;
+    int before = count(MT_UNIT_GATLING, 0);
+    G_ProductionTicker(G_ModelProductTrainingTimeMs(gun));
+    if (!Z_GunReady(fort) || count(MT_UNIT_GATLING, 0) != before)
+        return fail("finished gun waits for placement rather than leaving the door");
+    irect_t base = P_MobjCells(fort), foreign = P_MobjCells(enemy);
+    fixed3_t position;
+    if (Z_GunPosition(fort, MT_UNIT_GATLING, (ivec2_t){base.x + 1,base.y + 1}, &position))
+        return fail("the starting gun blocks its native fort mount");
+    if (Z_PlaceGun(fort, MT_UNIT_JEEP, (ivec2_t){base.x,base.y}) ||
+        Z_PlaceGun(fort, MT_UNIT_GATLING, (ivec2_t){foreign.x,foreign.y}))
+        return fail("placement rejects a wrong product and foreign territory");
+    ivec2_t cell = {0};
+    bool found = false;
+    for (int y = base.y; y < base.y + 9 && !found; ++y)
+        for (int x = base.x; x < base.x + 9 && !found; ++x)
+            if (Z_GunPosition(fort, MT_UNIT_GATLING, (ivec2_t){x,y}, &position)) {
+                cell = (ivec2_t){x,y}; found = true;
+            }
+    if (!found || position.z != FIXED_ONE) return fail("a free native fort mount");
+    ticcmd_t cmd = {.order = TC_CONSTRUCT, .product = MT_UNIT_GATLING, .count = 1,
+                    .units = {fort->id}, .position = fixed3_from_fixed2(fixed2_cell_center(cell), 0)};
+    G_RunTiccmd(1, &cmd);
+    if (count(MT_UNIT_GATLING, 0) != before) return fail("another player cannot place this gun");
+    G_RunTiccmd(0, &cmd);
+    mobj_t *made = nth(MT_UNIT_GATLING, 0, before);
+    if (!made || memcmp(&made->core.position, &position, sizeof(position)) || !made->z.driver || Z_GunReady(fort))
+        return fail("the command places a manned gun at the native mount and consumes it");
+    G_RunTiccmd(0, &cmd);
+    if (count(MT_UNIT_GATLING, 0) != before + 1) return fail("a repeated placement cannot duplicate a gun");
+    G_ProductionTicker(G_ModelProductTrainingTimeMs(gun));
+    order(fort, TC_CANCEL_PRODUCTION, 0);
+    if (Z_GunReady(fort) || fort->production) return fail("cancel clears a stored gun");
+    if (!G_QueueProduct(enemy, gun)) return fail("computer starts an available gun");
+    G_ProductionTicker(G_ModelProductTrainingTimeMs(gun));
+    int enemy_before = count(MT_UNIT_GATLING, 1);
+    P_AiSetFeatures(rts_game_model_ai(model), AI_FEATURE_ATTACK);
+    if (!tick(model, 5 * RTS_TICRATE) || Z_GunReady(enemy) || count(MT_UNIT_GATLING, 1) != enemy_before + 1)
+        return fail("computer places its finished gun without local-player dependence");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -155,7 +274,8 @@ static int test_computer_builds(void) {
 }
 
 int main(void) {
-    if (test_catalog() || test_fort_makes_grunts() || test_vehicles_come_manned() || test_computer_builds()) return 1;
+    if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_gun_placement() ||
+        test_fort_makes_grunts() || test_vehicles_come_manned() || test_computer_builds()) return 1;
     printf("z production tests passed\n");
     return 0;
 }

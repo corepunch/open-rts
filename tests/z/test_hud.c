@@ -101,12 +101,20 @@ static int test_hud(int scale) {
     if (scale == 2) shot("idle-fort");
     const StaticProductDefinition *products[32];
     int product_count = Z_ProductsFor(fort, products, 32);
+    CHECK(product_count == 3 && products[0]->product_type == MT_UNIT_GATLING &&
+          products[1]->product_type == MT_UNIT_GRUNT && products[2]->product_type == MT_UNIT_JEEP);
+    /* Exercise every portrait/composite at maximum technology, then return
+     * to the actual level-1 rating for the production/control checks. */
+    fort->z.rating = 5000;
+    hud->refresh(hud);
+    product_count = Z_ProductsFor(fort, products, 32);
     /* Reviewed LEVEL01 preview pixels: native HEADFX portraits and complete
      * south-facing vehicles centred on authored part extents. Sample native
      * pixels so both UI scales must reproduce the same artwork/placement. */
     static const uint32_t previews[] = {
-        0xf2206ee6, 0xd5f751d3, 0x8b35563b, 0x591d6d5a, 0xf2206ee6, 0x96dd62ab,
-        0x4e6120e8, 0x39219295, 0xb4ae5ef0, 0xf3ab692b, 0xf412ec12, 0x84e8c446, 0x5cefc334};
+        0xfb289dbd, 0x2bd856a2, 0x9931e069, 0x722a7795,
+        0xf2206ee6, 0xd5f751d3, 0x591d6d5a, 0x8b35563b, 0x96dd62ab, 0xf2206ee6,
+        0x4e6120e8, 0xf412ec12, 0x39219295, 0xb4ae5ef0, 0xf3ab692b, 0x84e8c446, 0x5cefc334};
     CHECK(product_count == (int)(sizeof(previews) / sizeof(*previews)));
     for (int i = 0; i < product_count; ++i) {
         V_BeginFrame(0xff0b0e10u);
@@ -117,6 +125,8 @@ static int test_hud(int scale) {
         shot(name);
         click(hud, down);
     }
+    fort->z.rating = 1000;
+    hud->refresh(hud);
     int hp = fort->hp;
     fort->hp = fort->max_hp / 2;
     M_MenuDrawer(hud);
@@ -142,6 +152,42 @@ static int test_hud(int scale) {
     click(hud, cancel);
     CHECK(!cancel->visible && !P_MobjIsSelected(fort));
     P_MobjSetSelected(fort, true);
+    hud->refresh(hud);
+    click(hud, up); /* Grunt -> Gatling in the actual three-product cycle. */
+    click(hud, ok);
+    P_MobjSetSelected(fort, true);
+    G_ProductionTicker(G_ModelProductTrainingTimeMs(
+        G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_GATLING))));
+    hud->refresh(hud);
+    CHECK(Z_GunReady(fort) && button(hud, 4718) == ok);
+    V_BeginFrame(0xff0b0e10u);
+    M_MenuDrawer(hud);
+    if (scale == 2) shot("gun-ready");
+    click(hud, ok);
+    CHECK(hud->target == ok);
+    SDL_Event escape = {.type = SDL_KEYDOWN};
+    escape.key.keysym.sym = SDLK_ESCAPE;
+    M_MenuResponder(hud, &app, &escape);
+    CHECK(!hud->target && Z_GunReady(fort));
+    click(hud, ok);
+    CHECK(hud->target == ok);
+    irect_t fort_cells = P_MobjCells(fort);
+    bool placed = false;
+    for (int gy = fort_cells.y; gy < fort_cells.y + 9 && !placed; ++gy)
+        for (int gx = fort_cells.x; gx < fort_cells.x + 9 && !placed; ++gx) {
+            fixed3_t position;
+            if (!Z_GunPosition(fort, MT_UNIT_GATLING, (ivec2_t){gx,gy}, &position)) continue;
+            fvec2_t screen;
+            R_MapToScreen(&app, &level, gx + 0.5f, gy + 0.5f, &screen.x, &screen.y);
+            hud->cursor = (ivec2_t){(int)screen.x,(int)screen.y};
+            ok->routine(hud, ok, MA_TARGET);
+            placed = !Z_GunReady(fort);
+        }
+    CHECK(placed && !hud->target);
+    hud->refresh(hud);
+    CHECK(button(hud, 4704) == ok);
+    click(hud, cancel);
+    CHECK(!Z_ProductInProduction(fort));
     fvec2_t camera = app.cam;
     app.cam = (fvec2_t){-10000,-10000};
     hud->refresh(hud);
@@ -183,6 +229,6 @@ static int test_hud(int scale) {
 
 int main(void) {
     if (test_hud(1) || test_hud(2)) return 1;
-    puts("PASS: Z HUD, 13 product portraits/composite previews at 1x/2x, production and reopening");
+    puts("PASS: Z HUD, native level-1 options, 17 product previews at 1x/2x, production and reopening");
     return 0;
 }

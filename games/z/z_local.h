@@ -37,6 +37,7 @@ typedef struct {
     char objects[16], buildings[16], robots[16]; /* LEVELS.DAT file names. */
     int number;                      /* LEVELS.DAT entry */
     int world;                       /* LEVELS.DAT +0x6e */
+    int production_speed;            /* CPUPLR +0x8a2, ZED.EXE 0x103d81. */
     uint8_t groups[Z_MAX_GROUPS];    /* ROBOTS.DAT groups, 0xff ends */
     zplaced_t placed[Z_MAX_PLACED];
     int placed_count;
@@ -46,6 +47,7 @@ typedef struct {
     int fort_count;
     uint8_t terrain[Z_MAP_STRIDE * Z_MAP_STRIDE]; /* Attribute plane. */
     blob_t rsc;                      /* SPRITES.RSC */
+    blob_t roster;                   /* ROBOTS.DAT, including production requirements. */
 } zmap_t;
 
 bool Z_LoadLevel(const char *map_path, level_t *out);
@@ -58,6 +60,7 @@ void Z_SetTeam(mobj_t *mo, int team);
 bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre);
 /* Weapon type of a unit's mobj type, or -1. */
 int Z_UnitType(const mobj_t *mo);
+int Z_GroupType(const zmap_t *map, int group, int member);
 bool Z_IsRobot(int t);
 /* Size of a SPRITES.RSC picture; false for a bad index or file. */
 bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);
@@ -83,6 +86,10 @@ int Z_ProductId(int type); /* Catalog ui_id of a unit's mobj type. */
 bool Z_Producer(const mobj_t *mo);
 int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, int max);
 const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer);
+bool Z_GunReady(const mobj_t *producer);
+int Z_ProductTimeMs(const mobj_t *producer, const StaticProductDefinition *product);
+bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell);
+bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out);
 /* Flags a team holds (Z_NEUTRAL: nobody's), and all of them. */
 int Z_TerritoriesHeld(int team, int *total);
 

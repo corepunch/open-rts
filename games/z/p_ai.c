@@ -120,11 +120,27 @@ static void rally(mobj_t *const *members, int count) {
 
 /* A fort or factory standing idle starts on whatever the team has fewest
  * of; it then keeps making that until told otherwise (p_prod.c). */
+static void place_gun(mobj_t *factory) {
+    int type = Z_ProductInProduction(factory)->product_type;
+    irect_t base = P_MobjCells(factory);
+    /* Like the native computer, fill free fort mounts before open ground.
+     * The existing engine AI chooses the first valid cell deterministically. */
+    if (factory->type_id == MT_FORT)
+        for (int y = base.y; y < base.y + 9 && Z_GunReady(factory); ++y)
+            for (int x = base.x; x < base.x + 9 && Z_GunReady(factory); ++x)
+                Z_PlaceGun(factory, type, (ivec2_t){x,y});
+    for (int y = 0; y < level.height && Z_GunReady(factory); ++y)
+        for (int x = 0; x < level.width && Z_GunReady(factory); ++x)
+            Z_PlaceGun(factory, type, (ivec2_t){x,y});
+}
+
 static void run_factories(int owner, mobj_t *const *units, int unit_count) {
     const StaticProductDefinition *list[32];
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *factory = units[i];
-        if (factory->owner != owner || !Z_Producer(factory) || Z_ProductInProduction(factory)) continue;
+        if (factory->owner != owner || !Z_Producer(factory)) continue;
+        if (Z_GunReady(factory)) place_gun(factory);
+        if (Z_ProductInProduction(factory)) continue;
         int count = Z_ProductsFor(factory, list, 32), best = -1, fewest = 0;
         for (int p = 0; p < count; ++p) {
             int have = G_CountPlannedActors(owner, (uint16_t)list[p]->product_type);

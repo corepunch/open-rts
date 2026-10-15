@@ -2,16 +2,15 @@
 #include "info.h"
 
 #include <string.h>
+#include <limits.h>
 
 /* Production: forts and factories make units on timers (products.inc).
  * Z has no money, so a product costs nothing and a factory, once
  * started, keeps making the same unit until it is stopped. A team's
  * factories work faster the more territories it holds. */
 
-enum { ZM_FORT = 1, ZM_ROBOTS = 2, ZM_VEHICLES = 4 };
-
-static const struct { int type; unsigned makers; int seconds; } catalog[] = {
-#define Z_PRODUCT(type, makers, seconds) {MT_UNIT_##type, makers, seconds},
+static const struct { int group, type, seconds, stock; } catalog[] = {
+#define Z_PRODUCT(group, type, seconds, stock) {group, MT_UNIT_##type, seconds, stock},
 #include "products.inc"
 #undef Z_PRODUCT
 };
@@ -31,10 +30,8 @@ static void build(void) {
         *p = (StaticProductDefinition){
             .row_id = i, .ui_id = Z_ProductId(catalog[i].type), .label = actor ? actor->name : "?",
             .product_class = RTS_PRODUCT_UNIT, .product_type = catalog[i].type,
+            .maker_count = 3, .makers = {MT_FORT, MT_ROBOT_FACTORY, MT_TANK_FACTORY},
         };
-        if (catalog[i].makers & ZM_FORT) p->makers[p->maker_count++] = MT_FORT;
-        if (catalog[i].makers & ZM_ROBOTS) p->makers[p->maker_count++] = MT_ROBOT_FACTORY;
-        if (catalog[i].makers & ZM_VEHICLES) p->makers[p->maker_count++] = MT_TANK_FACTORY;
     }
     built = true;
 }
@@ -50,17 +47,11 @@ bool Z_Producer(const mobj_t *mo) {
     return mo->type_id == MT_ROBOT_FACTORY || mo->type_id == MT_TANK_FACTORY;
 }
 
-static bool makes(const StaticProductDefinition *p, const mobj_t *producer) {
-    for (int i = 0; i < p->maker_count; ++i)
-        if (p->makers[i] == producer->type_id) return true;
-    return false;
-}
-
 int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, int max) {
     build();
     int count = 0;
     for (int i = 0; producer && i < CATALOG && count < max; ++i)
-        if (makes(&products[i], producer)) out[count++] = &products[i];
+        if (G_ModelProducerHasTech(producer, &products[i])) out[count++] = &products[i];
     return count;
 }
 
@@ -118,7 +109,7 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner, const StaticP
     if (!product) return false;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
-        if (th->function == P_MobjThinker && mo->owner == owner && Z_Producer(mo) && makes(product, mo)) return true;
+        if (th->function == P_MobjThinker && mo->owner == owner && G_ModelProducerHasTech(mo, product)) return true;
     }
     return false;
 }
@@ -140,13 +131,59 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info, const StaticProd
 int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     if (!product || product->row_id < 0 || product->row_id >= CATALOG ||
         catalog[product->row_id].type != product->product_type) return 0;
-    return catalog[product->row_id].seconds * 1000;
+    int row = product->row_id;
+    const zmap_t *map = level.native_data;
+    if (catalog[row].stock)
+        return map && map->production_speed > 0 ?
+            (catalog[row].stock * 221 / map->production_speed) * 1000 / 17 : 0;
+    return catalog[row].seconds * 1000;
+}
+
+static int gun_rate(const mobj_t *producer, int held, int total) {
+    int rate = total > 0 ? (100 * held / total) / 4 + 1 : 1;
+    return producer->max_hp > 0 ? (100 * producer->hp / producer->max_hp) * rate / 100 : 0;
+}
+
+int Z_ProductTimeMs(const mobj_t *producer, const StaticProductDefinition *product) {
+    if (!producer || !product) return 0;
+    int time = Z_ProductInProduction(producer) == product ? producer->production->time_left_ms :
+               G_ModelProductTrainingTimeMs(product);
+    if (!catalog[product->row_id].stock) return time;
+    int total;
+    int held = Z_TerritoriesHeld(producer->team, &total);
+    int rate = gun_rate(producer, held, total);
+    return rate > 0 ? time / rate : INT_MAX;
 }
 
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product, uint16_t actor_id) {
-    (void)model; (void)producer; (void)product; (void)actor_id;
-    return false;
+    (void)model; (void)actor_id;
+    if (!product || !catalog[product->row_id].stock) return false;
+    producer->production->release_active = true;
+    producer->production->release_ready = false;
+    producer->production->time_left_ms = 0;
+    return true;
+}
+
+/* Guns are stored by the producer until a placement order, never released
+ * through its door (ZED.EXE 0x4209f / 0x430b2). */
+bool Z_GunReady(const mobj_t *producer) {
+    const StaticProductDefinition *product = Z_ProductInProduction(producer);
+    return Z_Producer(producer) && product && catalog[product->row_id].stock &&
+           producer->production->release_active && !producer->production->placed;
+}
+
+bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell) {
+    const StaticProductDefinition *product = Z_ProductInProduction(producer);
+    fixed3_t position;
+    if (!Z_GunReady(producer) || product->product_type != type ||
+        !Z_GunPosition(producer, type, cell, &position)) return false;
+    mobj_t *gun = P_SpawnMobj(position, (uint16_t)type);
+    if (!gun) return false;
+    Z_SetTeam(gun, producer->team);
+    G_UnitProduced(gun, producer);
+    G_RemoveProductionAt(producer, 0);
+    return true;
 }
 
 /* Another unit already stands at `at`. */
@@ -211,8 +248,25 @@ bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *produ
 }
 
 bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product) {
-    (void)producer; (void)product;
-    return true;
+    const zmap_t *map = level.native_data;
+    if (!map || !Z_Producer(producer) || !product || product->row_id < 0 || product->row_id >= CATALOG ||
+        product->product_class != RTS_PRODUCT_UNIT || catalog[product->row_id].type != product->product_type)
+        return false;
+    int group = catalog[product->row_id].group;
+    int t = Z_GroupType(map, group, 0);
+    if (t < 0 || MT_UNITS + t != product->product_type) return false;
+    size_t weapon = 22000 + (size_t)t * 42;
+    if (weapon + 42 > map->roster.size) return false;
+    int kind = map->roster.bytes[weapon + 1];
+    bool robot = kind == 0 || kind == 17 || kind == 18 || kind == 3 || kind == 15 || kind == 16;
+    bool gun = kind == 2 || kind == 4 || kind == 5 || kind == 6;
+    bool vehicle = kind == 1 || kind == 8 || kind == 7 || kind == 9 ||
+                   kind == 11 || kind == 10 || kind == 12 || kind == 13;
+    if ((!robot && !gun && !vehicle) || (producer->type_id == MT_TANK_FACTORY && robot) ||
+        (producer->type_id == MT_ROBOT_FACTORY && !robot && !gun)) return false;
+    int field = producer->type_id == MT_TANK_FACTORY ? 73 : producer->type_id == MT_ROBOT_FACTORY ? 74 : 75;
+    unsigned minimum = map->roster.bytes[18000 + group * 82 + field];
+    return minimum && minimum * 1000u <= producer->z.rating;
 }
 
 int G_ModelRadarLevel(int owner) {
@@ -222,8 +276,8 @@ int G_ModelRadarLevel(int owner) {
 
 /* ── hooks ────────────────────────────────────────────────────────────── */
 
-/* Every tic a team's factories gain, on top of the tic, its share of the
- * flags: holding them all builds twice as fast. */
+/* New gun products use the native health/territory rate. Existing mobile
+ * products retain their authored timers and linear territory acceleration. */
 void G_ProductionBegin(int elapsed_ms) {
     int held[Z_NEUTRAL + 1] = {0}, total = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
@@ -232,13 +286,17 @@ void G_ProductionBegin(int elapsed_ms) {
         held[mo->team < Z_NEUTRAL ? mo->team : Z_NEUTRAL]++;
         total++;
     }
-    if (!total) return;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         production_t *queue = mo->production;
-        if (th->function != P_MobjThinker || !Z_Producer(mo) || !queue || queue->queue_count <= 0 ||
-            queue->release_active) continue;
-        queue->time_left_ms -= elapsed_ms * held[mo->team] / total;
+        if (th->function != P_MobjThinker || !Z_Producer(mo) || !queue || queue->queue_count <= 0) continue;
+        if (queue->release_active) continue;
+        const StaticProductDefinition *product = Z_ProductInProduction(mo);
+        if (product && catalog[product->row_id].stock) {
+            /* 0x42405 / 0x422a7: territory rate, then health percentage. */
+            int rate = gun_rate(mo, held[mo->team], total);
+            queue->time_left_ms -= elapsed_ms * (rate - 1);
+        } else if (total) queue->time_left_ms -= elapsed_ms * held[mo->team] / total;
     }
 }
 
