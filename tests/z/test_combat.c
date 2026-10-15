@@ -134,6 +134,8 @@ static int test_ordered_target(void) {
 static int test_alert(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for alerts");
+    /* Idle squads, as p_alert.c sees them: no computer player sends them off. */
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
     mobj_t *mark = nth(MT_UNIT_GRUNT, 1, 0), *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
     if (!mark || !jeep || !mark->z.squad) return fail("a squad and a Jeep");
     int squad = mark->z.squad;

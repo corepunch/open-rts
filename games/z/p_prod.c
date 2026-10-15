@@ -80,10 +80,3 @@ int G_ModelRadarLevel(int owner) {
     (void)owner;
     return 2;
 }
-
-static const AiGameInterface z_ai_interface = {
-    .name = "z",
-    .player_level = P_AiLevelNonHuman,
-};
-
-const AiGameInterface *G_AiInterface(void) { return &z_ai_interface; }

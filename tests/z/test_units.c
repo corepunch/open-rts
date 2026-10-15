@@ -138,6 +138,8 @@ static int test_turret_aims(void) {
             enemy = mo;
     }
     if (!tank || !enemy) return fail("a Medium Tank and an enemy robot");
+    /* The enemy stays where it is put; no computer player walks it off. */
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         if ((mobj_t *)th != tank) ((mobj_t *)th)->traits &= ~MF_ATTACK;
     angle_t north = P_PointToAngle(0, -FIXED_ONE), east = P_PointToAngle(FIXED_ONE, 0);
