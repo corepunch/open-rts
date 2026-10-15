@@ -93,6 +93,7 @@ int Z_TerritoriesHeld(int team, int *total);
 enum { Z_FACES = 5 };
 typedef struct {
     spritesheet_t pieces, backs, heads[Z_FACES], window;
+    spritesheet_t small_backs, small_heads[Z_FACES]; /* HEADFX production portraits. */
 } zpanel_t;
 /* SPRITES.RSC: product labels 787..808, preview background 1889, then
  * the building window and its small font, 4694..4816. */

@@ -46,6 +46,16 @@ static void shot(const char *name) {
     SDL_FreeSurface(surface);
 }
 
+static uint32_t preview_hash(ivec2_t at, int scale) {
+    uint32_t hash = 2166136261u;
+    for (int y = 0; y < 37; ++y)
+        for (int x = 0; x < 48; ++x) {
+            hash ^= screens[0].pixels[(at.y + y) * scale * screens[0].w + (at.x + x) * scale];
+            hash *= 16777619u;
+        }
+    return hash;
+}
+
 static int test_hud(int scale) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/Z"};
@@ -89,6 +99,24 @@ static int test_hud(int scale) {
     V_BeginFrame(0xff0b0e10u);
     M_MenuDrawer(hud);
     if (scale == 2) shot("idle-fort");
+    const StaticProductDefinition *products[32];
+    int product_count = Z_ProductsFor(fort, products, 32);
+    /* Reviewed LEVEL01 preview pixels: native HEADFX portraits and complete
+     * south-facing vehicles centred on authored part extents. Sample native
+     * pixels so both UI scales must reproduce the same artwork/placement. */
+    static const uint32_t previews[] = {
+        0xf2206ee6, 0xd5f751d3, 0x8b35563b, 0x591d6d5a, 0xf2206ee6, 0x96dd62ab,
+        0x4e6120e8, 0x39219295, 0xb4ae5ef0, 0xf3ab692b, 0xf412ec12, 0x84e8c446, 0x5cefc334};
+    CHECK(product_count == (int)(sizeof(previews) / sizeof(*previews)));
+    for (int i = 0; i < product_count; ++i) {
+        V_BeginFrame(0xff0b0e10u);
+        M_MenuDrawer(hud);
+        CHECK(preview_hash((ivec2_t){x + 6, y + 22}, scale) == previews[i]);
+        char name[64];
+        snprintf(name, sizeof(name), "product-%d-%dx", products[i]->product_type, scale);
+        shot(name);
+        click(hud, down);
+    }
     int hp = fort->hp;
     fort->hp = fort->max_hp / 2;
     M_MenuDrawer(hud);
@@ -155,6 +183,6 @@ static int test_hud(int scale) {
 
 int main(void) {
     if (test_hud(1) || test_hud(2)) return 1;
-    puts("PASS: Z retail HUD art, scaled hitboxes, production controls and reopening");
+    puts("PASS: Z HUD, 13 product portraits/composite previews at 1x/2x, production and reopening");
     return 0;
 }

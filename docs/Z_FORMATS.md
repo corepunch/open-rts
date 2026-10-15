@@ -111,6 +111,12 @@ progress meter and first small-font character. Product labels use sprites
 787..808 via the executable's production-group lookup; the preview
 background is sprite 1889. They use the same native planar sprite decoder
 as world images but have their own HUD-owned sheet.
+The robot inside that window is a HEADFX.PAC portrait: the 48x40
+composition is copied from row 1 for 38 rows to (5,21), followed by frame
+strip 4717 at (50,20). Vehicle previews use complete native hull/turret
+assemblies. See `Z_EXE_FINDINGS.md`, “Production preview portraits and
+complete vehicles”, for the controlling routines and the engine's
+centering policy.
 
 ## LEVELS.DAT
 

@@ -378,3 +378,62 @@ times, territory acceleration and the preview's animation/orientation
 still follow the existing engine implementation. Repair/radar structures
 do not acquire invented production controls. Gun placement, star ratings,
 frame dragging, UI status flashing and speech animation remain unported.
+
+## Production preview portraits and complete vehicles (2026-10-15)
+
+Static analysis used the same ZED.EXE and SPRITES.RSC fingerprints and
+Watcom/LE mapping recorded above; retail execution was not needed. The
+additional native portrait archive is:
+
+```
+HEADFX.PAC  ae4c3eb0c2bc5999b19fab62c207e1b5b5b8e5a6fb7384810dc87edff5bc9a27
+```
+
+**Confirmed:** `0x257b7` resolves the chosen production group through the
+82-byte group, 44-byte robot and 42-byte weapon records. The table at
+`0x12e9cc` selects the hardware preview path (`0x26452`) when nonzero;
+otherwise `0x258d5` takes the first robot's face byte at robot offset 35
+and renders a portrait. Robot previews are not standing world sprites.
+`0x258d5` temporarily selects the low-resolution head set through
+`0x2bf7c`, calls `0x60307`, then draws its generated sprite at popup
+**(5,21)**. `0x60307` reads the 48-wide composed HEADFX buffer starting
+at **row 1** and packs **48x38** pixels into the native planar format.
+The frame strip **SPRITES.RSC 4717** follows at **(50,20)**. HEADFX.PAC's
+HEADBIT0..4.DAT supply the five face sets and HEADBACK.DAT the six
+48x40 backgrounds. The neutral pose uses the same head, mouth, eyes and
+shoulder coordinates as the sidebar, without SHEADFX's doubling.
+
+**Confirmed:** hardware preview routine `0x26452` prepares a temporary
+unit, applies coordinate pairs from `0x12ea2c`, and dispatches through
+`0x7e2d7`/`0x7da4f`. Its vehicle path thus uses the native multipart
+unit rendering, including turrets. It does not draw a hull image alone.
+The earlier popup implementation's use of only the spawn-state sprite
+was incomplete. Its centering also used the shared all-directions,
+animation-and-wreck canvas rather than the current pose's native parts.
+
+**Implementation consequence:** the HUD now owns both native portrait
+resolutions and shares neutral-pose composition. Vehicle loaders retain
+each composed pose's rectangle union from native source dimensions and
+part offsets; pixels, ground points and turret mounts are unchanged.
+The popup combines hull and turret using that mount, then centers the
+union in its 48x37 viewport. This centering is the requested engine
+behavior, not a claim to reproduce the retail offset table. Native
+preview rotation, animation and speech remain unported; the current
+engine keeps its static south-facing vehicle and neutral face policy.
+Laser retains the existing Grunt-face fallback; no separate Laser face
+set was discovered.
+
+Verification: `test_hud` checks reviewed LEVEL01 indexed-pixel fixtures
+for all 13 products at 1x and 2x, including all six robot products and
+all three tanks. `test_panel` checks both archives' dimensions. Optional
+`OPEN_RTS_Z_UI_SHOTS=/private/tmp` writes each product popup for review.
+Temporary diagnostics confirmed the old hull canvas/ground/mount values
+(Light 36x32 / (19,14) / (5,0); Medium 34x32 / (16,15) / (2,7);
+Heavy 34x34 / (16,16) / (2,2)); they were removed after verification.
+Reproduce the instruction evidence with an LE-aware disassembler at
+`0x257b7`, `0x258d5`, `0x26452`, `0x60307` and `0x2c880`.
+The full `make` passed without warnings, all 23 Z tests passed (the
+localhost network-menu check needed an unrestricted retry), and the
+headless check/screenshot loaded LEVEL01's 512 tiles and 99 units.
+All 13 captured product popups and the full-level screenshot were
+visually inspected.

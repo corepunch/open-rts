@@ -40,12 +40,16 @@ static int test_pieces(void) {
     if (side[80 * 96 + 48] != 80 || side[210 * 96 + 48] != 80 || side[340 * 96 + 48] != 80)
         return fail("the portrait, health and radar slots are black");
     if (panel.backs.numlumps != 6 || !sized(&panel.backs, 0, 96, 80)) return fail("six 96x80 face backgrounds");
+    if (panel.small_backs.numlumps != 6 || !sized(&panel.small_backs, 0, 48, 40))
+        return fail("six native 48x40 production face backgrounds");
     for (int i = 0; i < Z_FACES; ++i)
         if (panel.heads[i].numlumps < 3 || panel.heads[i].cells[2].rect.w != 80 ||
-            panel.heads[i].lumps[2].indices[0] != 0)
-            return fail("each face is 80 wide and shows the background at its corner");
+            panel.heads[i].lumps[2].indices[0] != 0 ||
+            panel.small_heads[i].numlumps <= 20 || panel.small_heads[i].cells[2].rect.w != 40 ||
+            panel.small_heads[i].lumps[2].indices[0] != 0)
+            return fail("native sidebar/production faces are 80/40 wide with transparent corners");
     Z_FreePanel(&panel);
-    puts("PASS: z panel art decodes from SHEADFX.PAC");
+    puts("PASS: z panel and production portrait art decode from SHEADFX.PAC/HEADFX.PAC");
     return 0;
 }
 

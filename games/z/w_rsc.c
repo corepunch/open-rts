@@ -345,11 +345,16 @@ static bool part_bounds(const zmap_t *map, const zpart_t *parts, bool turret, in
 
 /* Draw the hull's (or turret's) parts facing `d` in frame `f`. */
 static bool blit_parts(const zmap_t *map, const zpart_t *parts, bool turret, int d, int f, int frames,
-                       ivec2_t at, uint8_t *out, isize2_t canvas) {
+                       ivec2_t at, uint8_t *out, isize2_t canvas, irect_t *bounds) {
+    *bounds = (irect_t){0};
     for (int p = 0; p < 4 && part_used(&parts[p]); ++p) {
         int sprite = part_sprite(&parts[p], d, f, frames);
         ivec2_t to = ivec2_add(at, (ivec2_t){parts[p].at[d][0], parts[p].at[d][1]});
-        if (parts[p].turret == turret && sprite >= 0 && !blit(map, sprite, out, canvas, to)) return false;
+        if (parts[p].turret != turret || sprite < 0) continue;
+        isize2_t size;
+        if (!Z_SpriteSize(map, sprite, &size) || !blit(map, sprite, out, canvas, to)) return false;
+        irect_t rect = {to.x, to.y, size.w, size.h};
+        SDL_UnionRect(bounds, &rect, bounds);
     }
     return true;
 }
@@ -385,7 +390,8 @@ static bool load_vehicle(const zmap_t *map, const char *name, int frames, int id
                 !R_InstallSpriteLump(sheet, poses, 0, lump, false)) return false;
             continue;
         }
-        if (!blit_parts(map, parts, false, d, f, frames, ivec2_sub(origin, lo), out, canvas)) return false;
+        if (!blit_parts(map, parts, false, d, f, frames, ivec2_sub(origin, lo), out, canvas,
+                        &sheet->cells[lump].bounds)) return false;
         sheet->cells[lump].mount = ivec2_sub(
             ivec2_add(origin, (ivec2_t){vehicles[v].mount[d][0], vehicles[v].mount[d][1]}), lo);
         /* Renderer slots run counterclockwise from north. */
@@ -413,7 +419,8 @@ static bool load_turret(const zmap_t *map, const char *name, const uint32_t pale
         uint8_t *out = calloc((size_t)canvas.w * canvas.h, 1);
         if (!out || !put_lump(sheet, lump, out, canvas)) { free(out); return false; }
         int t = lump % 8, f = lump / 8;
-        if (!blit_parts(map, parts, true, t, f, frames, ivec2_sub((ivec2_t){0, 0}, lo), out, canvas) ||
+        if (!blit_parts(map, parts, true, t, f, frames, ivec2_sub((ivec2_t){0, 0}, lo), out, canvas,
+                        &sheet->cells[lump].bounds) ||
             !R_InstallSpriteLump(sheet, f, (8 - t) % 8, lump, false)) return false;
     }
     place_cells(sheet, (ivec2_t){-lo.x, -lo.y});
