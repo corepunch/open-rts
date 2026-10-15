@@ -66,28 +66,20 @@ static int test_takes_flags(void) {
     return 0;
 }
 
-/* With every flag its own, a squad that carries grenades goes for the
- * player's fort and hurts it. */
-static int test_attacks_fort(void) {
+/* With every flag its own, the computer walks into the player's fort,
+ * which falls, and the player loses. */
+static int test_takes_fort(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for a fort");
     disarm();
     for (int i = 0; nth(MT_FLAG, -1, i); ++i) Z_SetTeam(nth(MT_FLAG, -1, i), CPU);
-    mobj_t *fort = nth(MT_FORT, 0, 0), *grunt = nth(MT_UNIT_GRUNT, CPU, 0);
-    if (!fort || !grunt) return fail("the player's fort and a computer Grunt");
-    int squad = grunt->z.squad, hp = fort->hp;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || mo->z.squad != squad || mo->team != CPU) continue;
-        mo->traits |= MF_ATTACK;
-        mo->z.grenades = 10;
-    }
-    if (!tick(model, 2 * RTS_TICRATE)) return fail("tick");
-    if (grunt->attack.target != fort) return fail("the squad goes for the fort");
-    for (int t = 0; t < 120 * RTS_TICRATE && fort->hp == hp; t += RTS_TICRATE)
+    mobj_t *fort = nth(MT_FORT, 0, 0);
+    if (!fort) return fail("the player's fort");
+    for (int t = 0; t < 180 * RTS_TICRATE && !fort->z.hold; t += RTS_TICRATE)
         if (!tick(model, RTS_TICRATE)) return fail("tick");
-    if (fort->hp >= hp) return fail("grenades hurt the fort");
-    printf("PASS: z the computer bombs the player's fort (%d -> %d)\n", hp, fort->hp);
+    if (!fort->z.hold) return fail("a computer unit gets inside the player's fort");
+    if (!tick(model, 6 * RTS_TICRATE) || G_LevelOutcome() != OUTCOME_DEFEAT) return fail("the player loses");
+    puts("PASS: z the computer walks into the player's fort and wins");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -120,6 +112,6 @@ static int test_rally(void) {
 }
 
 int main(void) {
-    if (test_takes_flags() || test_attacks_fort() || test_rally()) return 1;
+    if (test_takes_flags() || test_takes_fort() || test_rally()) return 1;
     return 0;
 }

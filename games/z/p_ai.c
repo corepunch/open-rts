@@ -6,8 +6,8 @@
  * commander through the tactics hook. ZED.EXE's own routines
  * (attack_that_fort and its neighbours) and the CPUPLRnn.DAT settings are
  * not traced, so the plan is authored: each squad with nothing to do goes
- * for the nearest flag its team does not hold, or for an enemy fort it can
- * hurt. The commander keeps no state of its own; what a squad is doing is
+ * for the nearest flag its team does not hold, or into an enemy fort,
+ * which falls to the first unit inside (p_fort.c). The commander keeps no state of its own; what a squad is doing is
  * read back from its orders, so a saved game resumes it. */
 
 enum {
@@ -62,16 +62,9 @@ static bool claimed(mobj_t *const *units, int unit_count, int owner, const mobj_
     return false;
 }
 
-/* Members able to hurt `fort`: drivers, and robots holding grenades. */
-static int fort_attackers(mobj_t *const *members, int count, const mobj_t *fort) {
-    int n = 0;
-    for (int i = 0; i < count; ++i) n += P_CanTarget(members[i], fort);
-    return n;
-}
-
-/* Flag: everyone heads there and the member nearest walks onto its cell,
- * which is what takes it. */
-static void take_flag(level_t *map, mobj_t *const *members, int count, fixed2_t goal) {
+/* Flag or fort: everyone heads there and the member nearest walks onto
+ * the very cell, which is what takes it. */
+static void take(level_t *map, mobj_t *const *members, int count, fixed2_t goal) {
     mobj_t *taker = members[0];
     for (int i = 1; i < count; ++i)
         if (cells2(fixed3_xy(members[i]->core.position), goal) <
@@ -80,43 +73,12 @@ static void take_flag(level_t *map, mobj_t *const *members, int count, fixed2_t 
     P_MoveUnitTo(map, taker, goal);
 }
 
-/* Fort: whoever can hurt it goes for it; the rest take its flag if the
- * team does not hold that yet, or else walk along. */
-static void attack_fort(level_t *map, mobj_t *const *members, int count, mobj_t *fort,
-                        const mobj_t *flag) {
-    mobj_t *rest[MAX_ARMY];
-    int rest_count = 0;
-    for (int i = 0; i < count; ++i) {
-        if (P_CanTarget(members[i], fort)) members[i]->attack.target = fort;
-        else rest[rest_count++] = members[i];
-    }
-    fixed2_t goal;
-    if (!rest_count) return;
-    if (flag && flag->team != rest[0]->team && flag_goal(flag, &goal))
-        take_flag(map, rest, rest_count, goal);
-    else P_MoveUnitsAt(map, rest, rest_count, fixed3_xy(fort->core.position));
-}
-
-/* The flag of the territory a fort stands in. */
-static mobj_t *fort_flag(mobj_t *const *units, int unit_count, const mobj_t *fort) {
-    const zmap_t *map = level.native_data;
-    ivec2_t cell = fixed2_cell(fixed3_xy(fort->core.position));
-    for (int i = 0; map && i < unit_count; ++i) {
-        mobj_t *flag = units[i];
-        if (flag->type_id != MT_FLAG || flag->remove || !flag->z.territory ||
-            flag->z.territory > map->territory_count) continue;
-        const zterritory_t *t = &map->territories[flag->z.territory - 1];
-        if (cell.x >= t->min.x && cell.x < t->max.x && cell.y >= t->min.y && cell.y < t->max.y) return flag;
-    }
-    return NULL;
-}
-
 /* One idle squad's next objective: the nearest flag no other squad is
- * taking (else the nearest flag), or an enemy fort it can hurt, which
- * counts as FORT_DETOUR cells further off so nearby flags go first. */
+ * taking (else the nearest flag), or an enemy fort, which counts as
+ * FORT_DETOUR cells further off so nearby flags go first. */
 static void command_squad(level_t *map, int owner, mobj_t *const *units, int unit_count,
                           mobj_t *const *members, int count) {
-    fixed2_t at = centroid(members, count), flag_at = {0};
+    fixed2_t at = centroid(members, count), flag_at = {0}, fort_at = {0};
     mobj_t *flag = NULL, *fort = NULL;
     fixed_t flag_far = 0, fort_far = 0;
     bool flag_claimed = false;
@@ -132,16 +94,16 @@ static void command_squad(level_t *map, int owner, mobj_t *const *units, int uni
             flag_at = goal;
             flag_far = far;
             flag_claimed = taken;
-        } else if (mo->type_id == MT_FORT && live(mo) && mo->team < Z_NEUTRAL &&
-                   fort_attackers(members, count, mo)) {
-            fixed_t far = fixed2_length(fixed2_sub(fixed3_xy(mo->core.position), at)) + FORT_DETOUR * FIXED_ONE;
+        } else if (mo->type_id == MT_FORT && live(mo) && Z_FortEntrance(mo, &goal)) {
+            fixed_t far = fixed2_length(fixed2_sub(goal, at)) + FORT_DETOUR * FIXED_ONE;
             if (fort && far >= fort_far) continue;
             fort = mo;
+            fort_at = goal;
             fort_far = far;
         }
     }
-    if (fort && (!flag || fort_far < flag_far)) attack_fort(map, members, count, fort, fort_flag(units, unit_count, fort));
-    else if (flag) take_flag(map, members, count, flag_at);
+    if (fort && (!flag || fort_far < flag_far)) take(map, members, count, fort_at);
+    else if (flag) take(map, members, count, flag_at);
 }
 
 /* A squad on its way somewhere joins a member's fight; p_alert.c does

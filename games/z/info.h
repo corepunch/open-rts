@@ -80,6 +80,8 @@ typedef enum {
     S_NULL,
     S_FORT,
     S_FORT_CPU,
+    S_FORT_WRECK,
+    S_FORT_CPU_WRECK,
 #define Z_BUILDING(native, type, label, w, h, ...) S_##type,
 #include "buildings.inc"
 #undef Z_BUILDING

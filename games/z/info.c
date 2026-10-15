@@ -56,6 +56,8 @@ const state_t states[NUMSTATES] = {
     [S_NULL] = { 0, 0, 0, -1, NULL, S_NULL, 0, NULL },
     [S_FORT] = { SPR_FORT, 0, 1, -1, NULL, S_FORT, 0, NULL },
     [S_FORT_CPU] = { SPR_FORT, 1, 1, -1, NULL, S_FORT_CPU, 0, NULL },
+    [S_FORT_WRECK] = { SPR_FORT, 2, 1, -1, NULL, S_FORT_WRECK, 0, NULL },
+    [S_FORT_CPU_WRECK] = { SPR_FORT, 3, 1, -1, NULL, S_FORT_CPU_WRECK, 0, NULL },
 #define Z_BUILDING(native, type, label, w, h, ...) \
     [S_##type] = { SPR_##type, 0, 1, -1, NULL, S_##type, 0, NULL },
 #include "buildings.inc"

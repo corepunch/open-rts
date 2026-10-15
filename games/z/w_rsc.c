@@ -6,8 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Fort pieces by world, ZED.EXE 0x117de2; 0x126d9 draws them. */
-static const int fort_sprites[Z_WORLDS] = {809, 2127, 2304, 2800, 2613};
+/* Fort pieces by world, ZED.EXE 0x117de2 (+0 standing, +10 fallen);
+ * 0x126d9 draws them. */
+static const int fort_sprites[2][Z_WORLDS] = {
+    {809, 2127, 2304, 2800, 2613},
+    {1675, 2148, 2431, 2845, 2725},
+};
 
 int Z_BuildingSprite(int native, int world) {
     if (world < 0 || world >= Z_WORLDS) return -1;
@@ -128,12 +132,13 @@ static bool blit(const zmap_t *map, int index, uint8_t *out, isize2_t size, ivec
 }
 
 /* ZED.EXE 0x126d9: the body at y + 16, a strip over it and the front below,
- * both from the second set (pieces + 4) on the fort without a gate. */
-static uint8_t *compose_fort(const zmap_t *map, int variant, isize2_t *size) {
+ * both from the second set (pieces + 4) on the fort without a gate. A
+ * fallen fort draws the same way from its own pieces (0x12606). */
+static uint8_t *compose_fort(const zmap_t *map, bool fallen, int variant, isize2_t *size) {
     static const struct { int piece; ivec2_t at; } parts[] = {
         {0, {0, 16}}, {1, {120, 16}}, {2, {0, 0}}, {3, {120, 0}}, {4, {0, 112}}, {5, {120, 112}},
     };
-    int base = fort_sprites[map->world];
+    int base = fort_sprites[fallen][map->world];
     isize2_t front;
     if (!Z_SpriteSize(map, base + 4 + variant * 4, &front)) return NULL;
     *size = (isize2_t){160, 112 + front.h};
@@ -422,9 +427,10 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
 #undef Z_UNIT
     isize2_t size;
     if (!strcmp(name, sprnames[SPR_FORT])) {
-        if (!R_AllocSpriteCells(sheet, 2)) return false;
-        for (int variant = 0; variant < 2; ++variant)
-            if (!put_lump(sheet, variant, compose_fort(map, variant, &size), size)) return false;
+        /* Cells as S_FORT, S_FORT_CPU, S_FORT_WRECK and S_FORT_CPU_WRECK. */
+        if (!R_AllocSpriteCells(sheet, 4)) return false;
+        for (int cell = 0; cell < 4; ++cell)
+            if (!put_lump(sheet, cell, compose_fort(map, cell >= 2, cell & 1, &size), size)) return false;
         return finish_sheet(sheet, palette, (ivec2_t){80, 88});
     }
     int sprite = -1;
