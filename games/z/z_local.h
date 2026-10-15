@@ -71,6 +71,10 @@ bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target);
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 void Z_MobjTicker(mobj_t *mo);
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
+/* p_fort.c: a fort takes no harm; it falls to a unit that gets inside. */
+void Z_FortUnharmed(mobj_t *fort);
+/* Cell at the middle of a fort's entrance, where a unit takes it. */
+bool Z_FortEntrance(const mobj_t *fort, fixed2_t *at);
 /* p_alert.c: an idle unit takes its squad's enemy or one close by. */
 void Z_Alert(mobj_t *unit);
 

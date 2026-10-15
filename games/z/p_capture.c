@@ -159,7 +159,9 @@ static bool throws_at(const mobj_t *robot, const mobj_t *target) {
     return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS;
 }
 
+/* Forts are taken from inside, never shot (p_fort.c). */
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
+    if (victim->type_id == MT_FORT) return false;
     return !structure(victim) || robot_type(attacker) < 0 || attacker->z.grenades;
 }
 

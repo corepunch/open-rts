@@ -18,7 +18,8 @@ static const mobjtype_t ACTOR_TYPES[] = {
 #include "objects.inc"
 #undef Z_OBJECT
     {.id = MT_FORT, .name = "Fort", .sprite_name = "FORT",
-     .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 2000, .footprint = {10, 11}},
+     .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 2000, .footprint = {10, 11},
+     .damage_action = Z_FortUnharmed},
 #define Z_BUILDING(native, type, label, w, h, ...) \
     {.id = MT_##type, .name = label, .sprite_name = #type, \
      .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 2000, .footprint = {w, h}, \

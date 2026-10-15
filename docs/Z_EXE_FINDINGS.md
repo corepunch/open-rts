@@ -121,6 +121,36 @@ the cell below them, while the player's fort has them (0x1e, 0x3e) on its
 north side under the flag. The second fort is drawn without a gate, so its
 flag stands on its north wall.
 
+## Forts
+
+A fort has no hit points: 0x3ded8 drops the fort records from the
+building list, and nothing else counts damage to one. A fort falls to the
+first unit of another team inside it. Its state byte at 0x11d43d + team is
+0xff while it stands (0x139ea), 2 while it falls and 0 once it is gone.
+
+| Address | What it does |
+|---|---|
+| 0x7985d | `check_win`: terrain under a unit with a handler index of 0x64 or more (0x1157ea) goes through the table at 0x14ad18 |
+| 0x79c41 | Fort entrances: terrain 0x14, 0x15, 0x3c or 0x3d marks the 4x4 cells in the middle of the fort of team 0, 1, 2 or 3 (the computer's forts have two more cells below); a unit of another team on one, while that fort stands, calls the fort's routine with its own team |
+| 0x11fb1, 0x120b4, 0x121b9, 0x122b7 | The fall of the fort of team 0..3: state 2, the falling fort + 1 at 0x10e933, the fall's step count at 0x103f68 set to 1, a record queued at 0x11d4d4; with more than two players its territory goes to the taker (0x9dc69, 0x2a950) |
+| 0x1241f | In a single player game no fort falls while another's fall runs (0x103f68 nonzero); in a network game, none with fewer than two players left |
+| 0x11dfa | `do_fort_sequence` (0x15634), in the per-step routine list, steps each queued fall through 0x127a6; when one ends a single player game, the level ends (0x1e4b45, then 0x198fe) |
+| 0x127a6 | The fall, by step: on step 2, if the fort was the local player's, 0x4611b, else 0x46089; steps 15 and 16 run 0x129c6 and 0x12ab6 (effects, not traced); step 17 the fort is gone (state 0, 0x10e932 = fort + 1); step 170 the end |
+| 0x4613e | After 0x4611b: one of the local player's units dies (0x60fe6) each step, until step 169 |
+| 0x460ac | After 0x46089: 0x470f5 runs for the winner's units one at a time (a sample, not traced) |
+| 0x123e0 | The fort's wall terrain 0x10 becomes 0x13 |
+| 0x12606 | A gone fort draws from the world's second set of pieces (0x117de2 entries at +10: 1675, 2148, 2431, 2845, 2725) in the standing fort's layout |
+
+The game steps at most 70 times a second, so a fall takes about 2.4
+seconds. `games/z/p_fort.c` ports the single player rule.
+
+## The computer player
+
+These routines name themselves but are not traced: `attack_that_fort`
+(0x9b26f), `send_robots_to_flags` (0x9b295), `recapture_lost_territories`
+(0x9b513) and `check_defend_territories` (0x9b64c). The forts also build
+robots (`ffacchoose_fort_unit_to_build`, 0x41627).
+
 ## Robots knocked down and killed
 
 | Address | What it does |
