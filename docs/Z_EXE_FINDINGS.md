@@ -741,3 +741,128 @@ verified that a zero rounded health rate stalls the new gun timer. Headless
 `--check` and `--screenshot` loaded LEVEL01's 512 tiles and 99 units.
 All 17 preview captures, the completed-gun Place window and the full-level
 screenshot were visually inspected.
+
+## Native production timing for all units (2026-10-15)
+
+This follow-up supersedes the earlier implementation decision to preserve
+mobile-unit timers and linear territory acceleration. Robots, vehicles and
+guns now use the same verified native stock, level-speed and health/territory
+calculation. The earlier gun-only timing implementation also missed flagless
+territories; that denominator is corrected for every product.
+
+**Provenance:** the same local ZED.EXE, ROBOTS.DAT, MULT.DAT and
+LEVEL01/CPUPLR01.DAT fingerprints recorded above. ZED.EXE SHA-256 remains
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`.
+No original executable was run. The documented scratch C LE relocation loader
+and Apple libLTO instruction decoder were used because r2 is unavailable;
+C evaluation of ROBOTS.DAT with the loaded MULT.DAT weights reproduced the
+following stock values. The native algorithm, weight tables, field offsets
+and loaded weight-block span are documented in the preceding section.
+
+| Group | Engine product | Native stock |
+|---|---|---|
+| 10 | Gatling | 1468 |
+| 0 | Light Gun | 1746 |
+| 14 | Howitzer | 2610 |
+| 8 | Missile Gun | 3451 |
+| 2 | Grunt | 1062 |
+| 6 | Psycho | 1482 |
+| 3 | Tough | 1826 |
+| 4 | Sniper | 2244 |
+| 17 | Pyro | 2436 |
+| 18 | Laser | 2716 |
+| 11 | Jeep | 1250 |
+| 13 | APC | 1820 |
+| 7 | Light Tank | 2152 |
+| 1 | Medium Tank | 3380 |
+| 5 | Heavy Tank | 4124 |
+| 9 | Mobile Missile | 4780 |
+| 16 | Crane | 2011 |
+
+**Confirmed common timer:** `0x41a69` and `0x41afc` call `0x98acc`, multiply
+its stock by 221 and divide by global `0x103d81`. The latter is installed
+from CPUPLR +0x8a2, so LEVEL01 uses 10 rather than the executable's initial
+8. The resulting timer units use the display's divisor of 17 (`0x26164` to
+`0x2616c`). In the shared engine, the base duration is therefore
+`floor(floor(stock * 221 / speed) * 1000 / 17)` milliseconds. Preserve that
+order: at speed 20 Jeep is 812470 ms, rather than half its speed-10 value
+of 1625000 ms. Balance values are authored C literals in `products.inc`;
+there is no runtime extraction of unit statistics or a second seconds table.
+
+**Confirmed territory denominator:** `0x42405..0x42437` walks all 64
+30-byte records at `0x18cadc`. Each record whose signed first word is
+nonnegative contributes to the denominator, regardless of options +0x18
+or whether a flag was planted. Matching team byte +8 contributes to the
+numerator. It calculates `floor(100 * held / total)`, shifts right two,
+then adds one. LEVEL01 has **nine** active records but **eight** flags:
+record zero has team 4 and options 0x83 (no flag). The initial teams have
+one territory each, with seven neutral. The healthy player rate is thus
+**3**, not the **4** produced by counting only flags. Capturable territories
+use their flag's current owner in the engine; flagless ones use the native
+record's owner. Counts are a temporary borrowed view, with no new persistent
+ownership or timer state.
+
+**Confirmed health rounding and common use:** `0x422a7..0x422ce` and
+`0x422cf..0x422f6` first calculate `floor(100 * hp / max_hp)` using building
++28/+26, select the territory's team's rate through building +30 and team
+byte +8, then calculate `floor(health_percent * territory_rate / 100)`.
+Robot factory `0x41206`, fort `0x417d0` and tank factory `0x428fa` all call
+`0x422cf`, explicitly skipping work when it returns zero. With one of nine
+territories, full health gives rate 3; 999/1000 health gives 2; 670/1000 gives
+2; 669/1000 gives 1; 340/1000 gives 1; 339/1000 gives 0. These two integer
+rounding steps must not be replaced by a single fractional multiplier.
+Eight of nine territories gives rate 23 at full health and 11 at half;
+all nine gives 26. Neither a capture nor a health change resets work already
+done. A zero rounded rate stalls; regaining health or territory resumes it.
+
+**Confirmed popup behavior:** `0x26129` divides remaining timer units by
+rate and then 17, truncating seconds. Busy timers no longer round up a
+partial second. A zero rate branches to `0x2619a`, drawing the bytes
+`$:$$` from `0x12ecaf` with font 4722 at window (88,35), rather than a
+9:59 saturation. Numeric time uses (92,35) and the existing native 9:59
+clamp. A completed gun follows `0x26240`, with zero remaining time even
+when the building's health would stall further work. The native glyphs
+and their placement were inspected in both normal and stalled HUD captures.
+
+**Implementation boundary:** the engine advances the converted timer in
+its shared deterministic millisecond ticker, with the same effective integer
+rate used by the popup estimate. Completion is serviced on the next engine
+tick; no separate retail clock or game-specific queue is introduced. Gun
+storage/placement remains the explicit serial engine policy documented above;
+classification now uses the actor's mobile trait rather than nonzero stock,
+since every product has stock. All thirteen mobile products still leave the
+producer, vehicles retain their driver and repeat production still queues the
+same product. The excluded Truck and Fire Truck remain outside the native
+single-player catalog; scratch stock evaluation returned 1257 and 1511
+respectively, with no runtime consequence.
+
+Reproduce the asset inputs and focused behavioral checks:
+
+```sh
+shasum -a 256 data/Z/ZED.EXE data/Z/ROBOTS.DAT data/Z/MULT.DAT data/Z/LEVEL01/CPUPLR01.DAT
+od -An -t u1 -j 2210 -N 1 data/Z/LEVEL01/CPUPLR01.DAT
+od -An -t u1 -N 30 data/Z/LEVEL01/CPUPLR01.DAT
+make -j4 build/bin/tests/z/test_production build/bin/tests/z/test_capture build/bin/tests/z/test_hud
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_production
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_capture
+env SDL_VIDEODRIVER=dummy OPEN_RTS_Z_UI_SHOTS=/private/tmp build/bin/tests/z/test_hud
+```
+
+`test_production` checks all 17 base durations at speeds 10 and 20, the
+millisecond before and at each completion deadline, and 15 rate/health
+boundary cases on forts, robot factories and tank factories. It verifies
+idle/active estimates, capture changes without resetting progress, stall
+and recovery, rate 26 with a flagless owned territory, completed-gun timing,
+and correct mobile release versus gun storage. `test_capture` verifies the
+production share changes on actual capture and recapture. `test_hud` checks
+native truncation across the one-second boundary at both UI scales and
+captures the busy/stalled windows. Temporary diagnostics printed producer
+ID, product type, base/remaining work, territory counts, health, rate and
+elapsed time; they were removed after matching these boundaries.
+
+Final verification: `make -j4` completed without warnings; all **23 Z tests
+passed** in the complete headless suite (localhost access enabled for its
+network-menu test). Headless `--check` and explicit LEVEL01 `--screenshot`
+passed with 512 terrain tiles and 99 units. The full level plus normal and
+stalled production popups were visually inspected. No diagnostic logging
+remains in the committed implementation.

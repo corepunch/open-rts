@@ -46,11 +46,11 @@ static void shot(const char *name) {
     SDL_FreeSurface(surface);
 }
 
-static uint32_t preview_hash(ivec2_t at, int scale) {
+static uint32_t picture_hash(irect_t rect, int scale) {
     uint32_t hash = 2166136261u;
-    for (int y = 0; y < 37; ++y)
-        for (int x = 0; x < 48; ++x) {
-            hash ^= screens[0].pixels[(at.y + y) * scale * screens[0].w + (at.x + x) * scale];
+    for (int y = 0; y < rect.h; ++y)
+        for (int x = 0; x < rect.w; ++x) {
+            hash ^= screens[0].pixels[(rect.y + y) * scale * screens[0].w + (rect.x + x) * scale];
             hash *= 16777619u;
         }
     return hash;
@@ -119,7 +119,7 @@ static int test_hud(int scale) {
     for (int i = 0; i < product_count; ++i) {
         V_BeginFrame(0xff0b0e10u);
         M_MenuDrawer(hud);
-        CHECK(preview_hash((ivec2_t){x + 6, y + 22}, scale) == previews[i]);
+        CHECK(picture_hash((irect_t){x + 6, y + 22, 48, 37}, scale) == previews[i]);
         char name[64];
         snprintf(name, sizeof(name), "product-%d-%dx", products[i]->product_type, scale);
         shot(name);
@@ -147,6 +147,24 @@ static int test_hud(int scale) {
     V_BeginFrame(0xff0b0e10u);
     M_MenuDrawer(hud);
     if (scale == 2) shot("busy-fort");
+    int left = fort->production->time_left_ms;
+    irect_t timer = {x + 88, y + 35, 24, 10};
+    fort->production->time_left_ms = 3003; /* rate 3: 1.001 seconds truncates to 1 */
+    M_MenuDrawer(hud);
+    uint32_t one_second = picture_hash(timer, scale);
+    fort->production->time_left_ms = 3000;
+    M_MenuDrawer(hud);
+    CHECK(picture_hash(timer, scale) == one_second);
+    fort->production->time_left_ms = 2997;
+    M_MenuDrawer(hud);
+    CHECK(picture_hash(timer, scale) != one_second);
+    fort->production->time_left_ms = left;
+    fort->hp = 1;
+    V_BeginFrame(0xff0b0e10u);
+    M_MenuDrawer(hud);
+    if (scale == 2) shot("stalled-fort");
+    CHECK(picture_hash(timer, scale) != one_second);
+    fort->hp = hp;
     click(hud, cancel);
     CHECK(!Z_ProductInProduction(fort) && up->visible && up->enabled);
     click(hud, cancel);

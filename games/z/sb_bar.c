@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 /* The in-level screen, built from the 640x480 panel art in SHEADFX.PAC
  * (w_panel.c): a panel down the right and a bar along the bottom, laid
@@ -576,11 +577,12 @@ static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect
     V_DrawSpriteCell(ivec2_add(at, (ivec2_t){6,22}), &panel.window, Z_UI_BACKGROUND, NULL, 0);
     window_piece(ready ? 4714 : busy ? 4713 : 4712, ivec2_add(at, (ivec2_t){64,19}));
     int time = offered_count ? Z_ProductTimeMs(producer, offered[popup_choice]) : 0;
-    int seconds = time / 1000 + (busy && time % 1000 > 0);
+    int seconds = time / 1000; /* 0x26164..0x2616c: truncate native seconds. */
     char text[16];
     if (seconds > 599) seconds = 599; /* 0x2638c: saturate at 9:59. */
-    snprintf(text, sizeof(text), "%d:%02d", seconds / 60, seconds % 60);
-    window_text(ivec2_add(at, (ivec2_t){92,35}), text);
+    if (time == INT_MAX) strcpy(text, "$:$$"); /* 0x2619a: native stalled-time glyphs. */
+    else snprintf(text, sizeof(text), "%d:%02d", seconds / 60, seconds % 60);
+    window_text(ivec2_add(at, (ivec2_t){time == INT_MAX ? 88 : 92,35}), text);
     int health = producer->max_hp > 0 ? producer->hp * 100 / producer->max_hp : 100;
     if (health < 100)
         V_FillRect((irect_t){at.x + 88, at.y + 5, 19, 10 - health / 10}, 121);
