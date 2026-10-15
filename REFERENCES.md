@@ -1,5 +1,20 @@
 # Reverse Engineering References
 
+### Z native robot and vehicle production times (2026-10-15)
+
+- Local retail `data/Z/ZED.EXE`, `ROBOTS.DAT`, `MULT.DAT` and
+  `LEVEL01/CPUPLR01.DAT`, with the same fingerprints recorded for the
+  availability investigation below. Static LE analysis and C evaluation;
+  no retail execution or external reference.
+- `0x98acc` supplies all 17 stock values; `0x41a69`/`0x41afc` scale by
+  221 and the level speed. `0x422cf` and callers `0x41206`, `0x417d0`,
+  `0x428fa` confirm the common health/territory rule for robot factories,
+  forts and tank factories. `0x42405` counts flagless territory records
+  too. `0x26129` truncates displayed seconds and uses the native stalled
+  string at `0x12ecaf`. Full table, corrected flag-count hypothesis,
+  arithmetic boundaries and reproduction tests:
+  [Z native production timing](docs/Z_EXE_FINDINGS.md#native-production-timing-for-all-units-2026-10-15).
+
 ### Z production availability (2026-10-15)
 
 - Local retail `data/Z/ZED.EXE`, `ROBOTS.DAT`, `LEVELS.DAT` and

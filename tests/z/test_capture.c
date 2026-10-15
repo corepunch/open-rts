@@ -68,6 +68,8 @@ static int test_flags(void) {
     int flags = 0;
     while (nth(MT_FLAG, -1, flags)) flags++;
     if (flags != 8) return fail("eight flags");
+    int total;
+    if (Z_TerritoriesHeld(0, &total) != 1 || total != 9) return fail("production counts all nine territories");
     if (flag_of(0) || !flag_of(1) || flag_of(1)->team != 1 || flag_of(7)->team != 0 || flag_of(3)->team != Z_NEUTRAL)
         return fail("flags carry their territories' teams");
     disarm();
@@ -85,12 +87,14 @@ static int test_flags(void) {
     if (!tick(model, 2)) return fail("tick");
     mobj_t *flag = flag_of(3);
     if (flag->team != 0 || flag->owner != 0) return fail("Grunt takes the flag");
+    if (Z_TerritoriesHeld(0, &total) != 2 || total != 9) return fail("capture immediately changes production's territory share");
     if (building->team != 0 || building->owner != 0) return fail("the factory changes sides");
     if (grunt->core.state_id != S_GRUNT_CHEER) return fail("Grunt cheers");
     place(grunt, (ivec2_t){west->flag.x + 3, west->flag.y});
     place(theirs, west->flag);
     if (!tick(model, 5) || flag->team != 0) return fail("a fresh flag holds a moment");
     if (!tick(model, 20) || flag->team != 1 || building->team != 1) return fail("the computer takes it back");
+    if (Z_TerritoriesHeld(0, &total) != 1 || total != 9) return fail("recapture restores production's territory share");
     puts("PASS: z flags change hands with their buildings");
     rts_game_model_destroy(model);
     return 0;

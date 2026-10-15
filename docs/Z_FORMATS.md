@@ -275,8 +275,15 @@ decoded.
 
 The byte at **0x8a2** is the native production-speed divisor, installed
 at runtime global 0x103d81 by ZED.EXE 0x9d81b. LEVEL01 contains 10.
-New gun products use it with their extracted stock values; the existing
-mobile-unit timers remain authored engine settings.
+All robot, vehicle and gun products use it with their extracted stock
+values. The base timer is `floor(stock * 221 / speed)` native units,
+converted to engine milliseconds with `floor(units * 1000 / 17)`.
+The effective rate is `floor(floor(100 * hp / max_hp) *
+(floor(floor(100 * held / total) / 4) + 1) / 100)`. Count every active
+territory, including those without flags; flag ownership supplies live
+capture changes. Zero rate stalls work without discarding it. The complete
+stock table and executable evidence are in
+[native production timing](Z_EXE_FINDINGS.md#native-production-timing-for-all-units-2026-10-15).
 
 ## BUILDnn.DAT
 
