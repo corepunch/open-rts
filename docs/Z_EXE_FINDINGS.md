@@ -437,3 +437,173 @@ localhost network-menu check needed an unrestricted retry), and the
 headless check/screenshot loaded LEVEL01's 512 tiles and 99 units.
 All 13 captured product popups and the full-level screenshot were
 visually inspected.
+
+## Production availability thresholds (2026-10-15)
+
+This investigation answers why "Virgin Soldiers" offers only Grunt,
+Gattling (the native spelling) and Jeep. Static disassembly used the same
+Watcom/LE mapping, ZED.EXE fingerprint and C/libLTO fallback described
+above. No original executable was run. Additional SHA-256 fingerprints:
+
+```
+ROBOTS.DAT           7a9e251c02178c270a5723614e9432506d359a0ca7cd85bb04240005c42026be
+LEVELS.DAT           7a934e1dd7872ad0ac86d29551e6fbff133bf0a71c3d5a86f7803afeeecd00e7
+LEVEL01/BUILD01.DAT  aa786c00888ec671d3c4fe75d9b5df27a97288c05cf6cd0d4dbd2d8c1038688b
+```
+
+### Confirmed: product requirements and a producer's rating
+
+There is no bitmask in the controlling single-player selection path.
+Availability is determined from each producer's live u32 rating at building
+record **+0x0c**, compared with the chosen ROBOTS.DAT group's minimum.
+The popup's forward/backward selectors are:
+
+| Producer native type | Forward / backward routine | Group byte read |
+|---|---|---|
+| 1, tank factory | 0x25231 / 0x252ee | +73 (0x49) |
+| 4, robot factory | 0x253af / 0x25464 | +74 (0x4a) |
+| 2, fort | 0x25622 / 0x25519 | +75 (0x4b) |
+
+The choice of routine is visible at `0x25d09` and `0x25d58`. A group
+record starts at `ROBOTS.DAT + 18000 + group * 82`. The selectors:
+
+1. Reject a zero minimum byte.
+2. Multiply that minimum by **1000** and reject it when greater than the
+   producer's u32 at +12.
+3. Require the group's byte 0 to be nonzero and its first u16 member at
+   +28 to differ from 0xffff.
+4. Resolve that member through the 44-byte robot record, weapon index
+   at robot +34, then the 42-byte weapon record at file offset 22000.
+   Weapon +1 is the class used to restrict the producer family.
+
+Tank factories accept weapon classes `{2,1,8,7,4,9,5,6,11,10,12,13}`;
+robot factories accept `{0,17,18,3,15,16,2,4,5,6}`. Forts accept their
+union. In particular, a robot factory can produce guns: it is not a
+robots-only producer. The common chooser at `0x2512c` / `0x25194` walks
+the group list at **0x12ecb9**; in single player the valid indices are
+0..16, giving these group IDs in order:
+
+```
+10, 0, 14, 8, 2, 6, 3, 4, 17, 18, 11, 13, 7, 1, 5, 9, 16
+```
+
+Fire Truck follows at index 17 and is outside that single-player cycle;
+Truck is absent and has all three requirement bytes zero. Neither should
+be added to the single-player options merely because its group is active.
+The chooser also has a separate multiplayer bound; multiplayer policy was
+not fully traced in this investigation.
+
+Verified retail requirements, in threshold units (multiply by 1000;
+**0 means unavailable**, not free access):
+
+| Group | Product | Weapon index | Tank factory | Robot factory | Fort |
+|---|---|---|---|---|---|
+| 10 | Gattling | 11 | 1 | 1 | 1 |
+| 0 | Gun | 0 | 2 | 3 | 2 |
+| 14 | Howitzer | 12 | 3 | 5 | 4 |
+| 8 | Missile | 9 | 5 | 0 | 5 |
+| 2 | Grunt | 2 | 0 | 1 | 1 |
+| 6 | Psychos | 7 | 0 | 2 | 2 |
+| 3 | Tough | 3 | 0 | 3 | 2 |
+| 4 | Sniper | 4 | 0 | 3 | 3 |
+| 17 | Flamer / Pyros | 17 | 0 | 4 | 4 |
+| 18 | Laser | 18 | 0 | 5 | 5 |
+| 11 | Jeep | 13 | 1 | 0 | 1 |
+| 13 | APC | 10 | 3 | 0 | 3 |
+| 7 | Light | 8 | 1 | 0 | 2 |
+| 1 | Medium | 1 | 2 | 0 | 3 |
+| 5 | Heavy | 5 | 4 | 0 | 5 |
+| 9 | M. Missile | 6 | 5 | 0 | 5 |
+| 16 | Crane | 15 | 5 | 0 | 5 |
+
+### Confirmed: ordinary factories versus forts
+
+The ordinary factory's rating comes directly from its 80-byte BUILDnn.DAT
+record at **+12**. Every active robot factory in BUILD01.DAT (record
+indices 0, 2, 5 and 6) contains **1000**. BUILD02.DAT already demonstrates
+variation within a level: robot factory record 4 contains **2000**, while
+its other robot factories and tank factories contain 1000. Thus a single
+level-wide allowed-product mask would lose real differences between
+capturable factories.
+
+Forts are different. `0x136c1` / `0x136d3` call `0x4ee67` to construct
+fort building records from the map markers. At `0x4ee94`, that routine
+reads the low byte of the u16 at **0x12d789 + level_number * 2**,
+multiplies it by 1000 and writes building +12. The startup code at
+**0x4735a..0x4751b** initializes this table. Reading only its on-disk
+image is misleading: entries 1..20 initially contain zero and are
+assigned by startup instructions. Their zero image contents do not mean
+those forts lack production.
+
+The initialized table, indices 0..50, is:
+
+```
+0,
+1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4, 5,5,5,5,
+5,4,5,4,5,3,4,4,5,5,5,5,3,3,4,5,5,4,5,3,2,3,4,5,5,5,5,2,2,3
+```
+
+For the regular first twenty campaign missions this means fort ratings
+1000 in missions 1..4, 2000 in 5..8, 3000 in 9..12, 4000 in 13..16,
+and 5000 in 17..20. This is an executable-owned campaign table;
+LEVELS.DAT's twelve starting groups are an army roster, not the build
+catalog. The 10000 values at LEVELS.DAT +0x7c/+0x80 instead feed
+`0x4ec4a..0x4ecc2` and fort hit-point globals; they are not technology
+ratings (the arithmetic rounds their low-word values to multiples of 9).
+
+### Verification, implementation consequence and remaining work
+
+A focused scratch C check read the original ROBOTS.DAT and BUILD01.DAT,
+walked the 17 verified production groups, and asserted:
+
+- Fort rating 1000: exactly groups **10, 2, 11**, weapon indices
+  **11, 2, 13** — Gattling, Grunt, Jeep.
+- All four level-1 robot factories have rating 1000 and accept exactly
+  groups **10, 2** — Gattling, Grunt.
+
+The check passed. Raw values can be reproduced without the scratch tool:
+
+```sh
+# First factory's u32 rating (1000); repeat at 80*record + 12.
+od -An -t u4 -j 12 -N 4 data/Z/LEVEL01/BUILD01.DAT
+# Grunt group: bytes +73..75 are tank=0, robot=1, fort=1.
+od -An -t u1 -j 18237 -N 3 data/Z/ROBOTS.DAT
+# Gattling: tank=1, robot=1, fort=1.
+od -An -t u1 -j 18893 -N 3 data/Z/ROBOTS.DAT
+# Jeep: tank=1, robot=0, fort=1.
+od -An -t u1 -j 18975 -N 3 data/Z/ROBOTS.DAT
+```
+
+Reproduce the control flow using an LE-aware disassembler at `0x2512c`,
+`0x25231`, `0x253af`, `0x25622`, `0x4735a`, `0x4ee67` and the data
+at `0x12ecb9`. Discovery outputs remain under ignored `reverse/z-ui/`;
+the useful results and rejected hypotheses are preserved here.
+
+**Current engine mismatch:** `Z_ProductsFor` uses a hardcoded family mask
+without the native thresholds, and `G_ModelProducerHasTech` always returns
+true. `products.inc` omits all four guns and incorrectly excludes them
+from robot factories. Correct implementation must carry each producer's
+rating, read the appropriate group requirement, and enforce the same check
+in UI, direct production orders and computer-player decisions. It must
+also expose the four gun products. This investigation changes documentation
+only; runtime availability is not corrected yet.
+
+Gun manufacturing must retain its separate placement behavior: `0x42044`
+checks the weapon class through `0x142de6` and branches to the
+`bnrplace_made_gun` path at `0x4209f`, calling `0x430b2`. Treating a
+finished gun as an ordinary vehicle leaving a factory door would be a
+separate, unverified behavior change. That placement path remains unported.
+
+Timing was examined only far enough to reject another tempting shortcut:
+`0x98acc` computes a group's stock value from its members and weapon
+properties, using weight tables selected through `0x152a78` and
+`0x152ac4`. The pointed-to weights are zero in the static image and
+require runtime initialization; static zero weights do not establish
+instant production. `0x41a69` / `0x41afc` scale the stock by 221 and the
+speed setting at `0x103d81`; `0x422a7` incorporates health and territory
+rate. `0x42405` computes that territory rate as
+`floor(floor(100 * held / total) / 4) + 1`, which differs from the engine's
+current linear double-speed-at-all-territories rule. These timing formulas
+and weight initialization need a dedicated port; no new delay constant or
+runtime balance change was introduced here. Live rating upgrades, gun
+placement details and multiplayer availability remain unverified.
