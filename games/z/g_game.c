@@ -48,9 +48,6 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .blast = {grenade_blast, 3, NULL, 0}},
 };
 
-/* No sidebar yet: the world takes the window. */
-static menu_t hud = {.itemOn = -1};
-
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
 const char *const g_game_id            = "z";
@@ -91,31 +88,12 @@ bool R_InitSprites(const char *root, const level_t *map,
     return Z_InitSprites(map, cache);
 }
 
-bool HU_LoadFont(const char *root, bitmapfont_t *font) {
-    (void)root; (void)font;
-    return false;
-}
-
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
                      hudtext_t *text, int dt_ms) {
     (void)map; (void)mobjs; (void)count; (void)text; (void)dt_ms;
 }
 
-menu_t *G_InitHUD(app_t *app, const char *data_root) {
-    (void)data_root;
-    hud.app = app;
-    return &hud;
-}
-
-void G_ShutdownHUD(void) {
-    hudview = (hudview_t){0};
-}
-
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
     (void)map; (void)units; (void)unit_count;
     return G_ProductionTicker(dt_ms);
-}
-
-irect_t G_WorldViewport(const app_t *app) {
-    return (irect_t){0, 0, app->win.w, app->win.h};
 }

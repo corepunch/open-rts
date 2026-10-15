@@ -213,4 +213,9 @@ for its network desync log. Network games reset the seed to 0x3039 at
   the five unknown bytes of each object record.
 - `DOOR.PAC`, `HEADFX.PAC` and `SHEADFX.PAC` members.
 - Robot hospital and ICBM launcher sprites (no retail level uses them).
-- Audio sample rates, the HUD and the front end.
+- What each fort and factory manufactures and how long it takes
+  (`do_robot_factory`, `do_tank_factory` and the fort's sequence);
+  `games/z/products.inc` is authored, as is the speed-up from held
+  territories.
+- Audio sample rates, the panel art (`NEWPANEL.DAT`) and the front end.
+  `games/z/sb_bar.c` draws its own panel and production window.

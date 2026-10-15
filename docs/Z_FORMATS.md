@@ -68,7 +68,8 @@ with a few spare bytes.
 | `MANE`, `MULTI`, `HSCORE`, `NET`, `MODEM`, `SMODEM`, `DIRECT` `.LBM` | Front-end screens |
 | `[DACVJ]M*STAT*`, `*LOSE*`, `*LOAD*`, `[DACVJ]STAT1`, `[DACVJ]LOSE[1-4]` `.LBM` | Per-world briefing, loading, win and lose screens; B, G, Y variants by team colour |
 | `HSHWINGn.DAT`, `VSHWINGn.DAT` | 1280 bytes each, not decoded |
-| `CHARS.BIN`, `SQROOT.BIN`, `SINCOS.DAT`, `PHRASES.BIN` | Font and lookup tables, not decoded |
+| `CHARS.BIN` | The in-game font: 128 glyphs of 8 rows, one bit a pixel, the high bit left (`games/z/sb_bar.c` draws the panel with it) |
+| `SQROOT.BIN`, `SINCOS.DAT`, `PHRASES.BIN` | Lookup tables, not decoded |
 
 The LBM files are IFF `FORM PBM ` chunky bitmaps with ByteRun1 compression
 (`BMHD` compression 1) and their own `CMAP`.

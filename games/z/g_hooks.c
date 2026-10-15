@@ -1,7 +1,8 @@
 #include "z_local.h"
 
 /* Z's share of the engine's game hooks: its rules run once a tic after the
- * thinkers, and an order onto an empty vehicle or gun sends robots in. */
+ * thinkers, an order onto an empty vehicle or gun sends robots in, and a
+ * factory's STOP empties its queue. */
 
 void G_ClockEnd(int64_t before, int64_t clock) {
     Z_Ticker();
@@ -11,7 +12,17 @@ void G_ClockEnd(int64_t before, int64_t clock) {
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
     (void)player;
-    return cmd->order == TC_ATTACK && Z_BoardOrder(units, count, target);
+    switch (cmd->order) {
+    case TC_ATTACK:
+        return Z_BoardOrder(units, count, target);
+    case TC_CANCEL_PRODUCTION:
+        for (int i = 0; i < count; ++i)
+            while (units[i]->production && units[i]->production->queue_count > 0)
+                G_RemoveProductionAt(units[i], 0);
+        return true;
+    default:
+        return false;
+    }
 }
 
 /* Any other order calls a robot off the vehicle it was walking to. */
