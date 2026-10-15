@@ -211,11 +211,12 @@ for its network desync log. Network games reset the seed to 0x3039 at
   bytes.
 - `BRIDGEnn.DAT`, the computer player settings in CPUPLRnn.DAT, `MULT.DAT`,
   the five unknown bytes of each object record.
-- `DOOR.PAC`, `HEADFX.PAC` and `SHEADFX.PAC` members.
+- `DOOR.PAC` members and the `BOTTOM` members of `HEADFX.PAC`.
 - Robot hospital and ICBM launcher sprites (no retail level uses them).
 - What each fort and factory manufactures and how long it takes
   (`do_robot_factory`, `do_tank_factory` and the fort's sequence);
   `games/z/products.inc` is authored, as is the speed-up from held
   territories.
-- Audio sample rates, the panel art (`NEWPANEL.DAT`) and the front end.
-  `games/z/sb_bar.c` draws its own panel and production window.
+- Audio sample rates and the front end. `games/z/sb_bar.c` lays the panel
+  out from its art by eye; the T, D and Z buttons' handlers, the face
+  animation and the production window's native look are not traced.

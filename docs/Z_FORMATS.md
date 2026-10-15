@@ -23,7 +23,7 @@ All numbers are little-endian. A cell is 16x16 pixels. Maps are at most
 | `SPRITES.RSC` | 7207 sprites and a palette | Decoded |
 | `WARDATA.PAC` | 147 members: tilesets, palettes, screens | Decoded |
 | `DOOR.PAC` | Fort door animations, `xDOOR.DAT` + `xDBACK.LBM` for five worlds | Archive decoded, members not |
-| `HEADFX.PAC`, `SHEADFX.PAC` | Panel and talking-head graphics (`HEADBITn.DAT`, `NEWPANEL.DAT`; the `S` set is about four times larger, purpose not confirmed) | Archive decoded, members not |
+| `HEADFX.PAC`, `SHEADFX.PAC` | The in-level panel, the robots' faces and the scenery behind them, for 320x200 and 640x480 | Decoded (below) |
 | `ROBOTS.DAT` | 25000 bytes: robots, groups and weapon types | Layout decoded (below) |
 | `MULT.DAT` | 628 bytes, multiplayer settings, loaded to 0x152b10 | Not decoded |
 | `PHRASES.BIN` | 35328 bytes, also a `WARDATA.PAC` member | Not decoded |
@@ -73,6 +73,33 @@ with a few spare bytes.
 
 The LBM files are IFF `FORM PBM ` chunky bitmaps with ByteRun1 compression
 (`BMHD` compression 1) and their own `CMAP`.
+
+### HEADFX.PAC and SHEADFX.PAC members
+
+`HEADFX.PAC` holds the panel art for the 320x200 screen and `SHEADFX.PAC`
+the same pieces at twice the size for 640x480 (`games/z/w_panel.c` loads
+the latter). Every member but the `BOTTOM` ones is a picture list:
+
+| Offset | Contents |
+|---|---|
+| 0 | u16 0 |
+| 2 | u16 count |
+| 4 | `count` records of 8 bytes: u16 offset (the low sixteen bits of where the picture starts), u16 height, u16 width, u16 size of this header |
+| then | The pictures in order, width x height bytes each, one byte a pixel in the world palette; 0 shows what is under the picture |
+
+| Member (640x480 name) | Pictures |
+|---|---|
+| `NEWPANEL.DAT` (`NSNEWPAN.DAT`) | 129: 0 the panel (96x480); 1..5 the rifle, flame gun, laser, missile gun and machine gun; 6 a grenade; 7..12 small T R F V G A letters; 13..42 buttons in threes (up, pressed, lit or greyed): T, D, Z, B, R, G, V, Menu, M, A; 43 the red name bar; 44 a blank label; 45..49 the weapons' names; 50..59 digits (12x18); 60..62 health bars (74x10: green, yellow, empty); 63 the health bar's frame; 64, 65 a button's black and grey box; 66, 110, 111, 127 bottom bars (544x32) with slots for three, four, two and one side; 67..78 share bars 80, 54 and 40 wide in the sides' colours; 79..85 robot names (Grunt, Pyros, Laser, Tough, Psychos, Sniper, Wrong Name); 86..97 vehicle names (Missile, Jeep, Howitzer, Heavy, Gattling, Mo. Missile, Gun, Crane, Light, Fire Truck, APC, Medium); 98..109 their pictures; 112, 113 brown and grey panels; 114..123 coloured squares; 124..126 Send buttons; 128 a grey box |
+| `HEADBIT0..4.DAT` (`SHEADBI0..4.DAT`) | A robot's face in pieces that animate: 0 the shoulders, 1 the head without its face, 2 and 3 the face, then helmet tops, mouths, eye pairs and hands. 0 Grunt, 1 Tough, 2 Pyro, 3 Sniper, 4 Psycho; the Laser has none |
+| `HEADBACK.DAT` (`SHEADBAK.DAT`) | Six 96x80 scenes behind a face: desert, volcano, plain brown, arctic, city, jungle |
+| `BOTTOM.DAT`, `BOTTOM2.DAT` (`SBOTTOM.DAT`, `SBOTTO2.DAT`) | Headerless, 2832 and 11328 bytes; not decoded |
+
+Where the pieces go on the panel is in `games/z/sb_bar.c`: the clock at
+the top beside the A button, the face or vehicle picture from row 40, the
+name at 122, the weapon at 140, grenades at 186, the health bar at (12, 210),
+the weapon's name at 228, three buttons at 262 and the radar at (4, 296),
+92 pixels square. The bottom bar's slots begin at 150 and hold each side's
+share of the territories as two digits and a bar.
 
 ## LEVELS.DAT
 

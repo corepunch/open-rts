@@ -5,19 +5,58 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The in-level screen: a panel down the right with the radar, the
- * clock, the territory tally and what is selected, and a window that
- * opens beside a selected fort or factory of the player's to run its
- * production. ZED.EXE's panel pieces (NEWPANEL.DAT in HEADFX.PAC) are
- * not decoded, so the panel is drawn in the world's palette with the
- * game's own CHARS.BIN font. The window works as Z's does: STOP halts
- * what is being made, the arrows then pick a unit, and START sets the
- * factory going; it keeps making that unit until it is stopped. */
+/* The in-level screen, built from the 640x480 panel art in SHEADFX.PAC
+ * (w_panel.c): a panel down the right and a bar along the bottom, laid
+ * out as ZED.EXE lays them out. The panel holds the clock, the selected
+ * unit's face or picture, its name, weapon, grenades and health, and the
+ * radar. The bar holds buttons that step through the player's robots,
+ * vehicles, buildings and guns, each side's share of the territories
+ * (calc_territory_percents in ZED.EXE) and the menu button. The window
+ * that opens beside a selected fort or factory to run its production is
+ * drawn in plain colours with the game's CHARS.BIN font: STOP halts what
+ * is being made, the arrows then pick a unit, and START sets the factory
+ * going; it keeps making that unit until it is stopped.
+ *
+ * The panel's T, D and Z buttons do nothing: ZED.EXE's handlers for them
+ * are not traced. Their third pieces are lit, not greyed, so they are
+ * toggles of some kind; they are drawn up. */
 
-enum { SIDEBAR = 160, MARGIN = 8, RADAR = 144, POPUP_W = 156, POPUP_H = 104, PICTURE = 48, BUTTON_H = 20 };
+enum { SIDEBAR = 96, BOTTOM = 32, POPUP_W = 156, POPUP_H = 104, PICTURE = 48, BUTTON_H = 20 };
+
+/* NSNEWPAN.DAT pieces. Buttons come in threes: up, pressed and greyed. */
+enum {
+    PC_PANEL = 0,          /* 96x480 */
+    PC_WEAPON = 1,         /* rifle, flame gun, laser, missile gun, machine gun */
+    PC_GRENADE = 6,
+    PC_BUTTON_T = 13, PC_BUTTON_D = 16, PC_BUTTON_Z = 19, PC_BUTTON_B = 22, PC_BUTTON_R = 25,
+    PC_BUTTON_G = 28, PC_BUTTON_V = 31, PC_BUTTON_MENU = 34, PC_BUTTON_A = 40,
+    PC_NAME_NONE = 43,     /* the red name bar with nothing on it */
+    PC_LABEL_BLANK = 44,   /* a grey label with nothing on it */
+    PC_WEAPON_NAME = 45,   /* in the weapons' order */
+    PC_DIGIT = 50,         /* 0..9, 12x18 */
+    PC_HEALTH_GOOD = 60, PC_HEALTH_POOR = 61, PC_HEALTH_NONE = 62, /* 74x10 */
+    PC_SLOT = 64,          /* 28x24 black box behind a button */
+    PC_BAR_THREE = 66,     /* 544x32 bottom bar with three sides' slots */
+    PC_SHARE_DARK = 69,    /* 80x6 empty share bar */
+    PC_NAME_ROBOT = 79,    /* Grunt, Pyros, Laser, Tough, Psychos, Sniper, Wrong Name */
+    PC_NAME_VEHICLE = 86,  /* Missile, Jeep, Howitzer, Heavy, Gattling, Mo. Missile, Gun,
+                            * Crane, Light, Fire Truck, APC, Medium */
+    PC_VEHICLE = 98,       /* pictures in the same order */
+    PC_BAR_FOUR = 110,     /* 544x32 bottom bar with four sides' slots */
+    PC_BAR_TWO = 111,      /* 544x32 bottom bar with two sides' slots */
+};
+
+/* Where the panel's pieces go, in panel pixels. */
+enum {
+    PANEL_CLOCK_Y = 10, PANEL_PORTRAIT_Y = 40, PANEL_PORTRAIT_H = 80, PANEL_NAME_Y = 122,
+    PANEL_WEAPON_Y = 140, PANEL_GRENADE_Y = 186, PANEL_HEALTH_X = 12, PANEL_HEALTH_Y = 210,
+    PANEL_HEALTH_W = 74, PANEL_LABEL_Y = 228, PANEL_SLOT_Y = 260, PANEL_BUTTON_Y = 262,
+    PANEL_RADAR_X = 4, PANEL_RADAR_Y = 296, PANEL_RADAR = 92,
+    BAR_BUTTON_Y = 8, BAR_SLOT_H = 20, BAR_MENU_X = 480,
+};
 
 enum {
-    IT_PANEL, IT_RADAR, IT_CLOCK, IT_TALLY, IT_INFO, IT_MENU,
+    IT_PANEL, IT_BAR, IT_RADAR, IT_ATTACKED, IT_T, IT_D, IT_Z, IT_ROBOTS, IT_VEHICLES, IT_BUILDINGS, IT_GUNS, IT_MENU,
     IT_POPUP, IT_TITLE, IT_PICTURE, IT_NAME, IT_PROGRESS, IT_STOP, IT_PREV, IT_NEXT, IT_START,
     IT_COUNT
 };
@@ -26,6 +65,8 @@ enum {
  * greys at 0x50 (Z_FORMATS.md); the rest are matched into the palette. */
 static const uint8_t team_index[Z_NEUTRAL + 1] = {0x18, 0x27, 0x39, 0x4d, 0x59};
 static const uint32_t team_argb[Z_NEUTRAL + 1] = {0xffe61414u, 0xff1438ffu, 0xff3cae44u, 0xfff6ce71u, 0xff959595u};
+/* Each side's share bar: red and blue 80 wide, green 54, yellow 40. */
+static const int team_share[Z_NEUTRAL] = {67, 68, 72, 77};
 #define PANEL_FILL 0xff1c2024u
 #define PANEL_EDGE 0xff5c6468u
 #define BOX_FILL 0xff0c1014u
@@ -37,11 +78,13 @@ static const uint32_t team_argb[Z_NEUTRAL + 1] = {0xffe61414u, 0xff1438ffu, 0xff
 #define INK_TITLE 0xfff4d470u
 #define INK_GOOD 0xff48d048u
 #define INK_BAD 0xffe03030u
+#define INK_CLOCK 0xfff09030u
 
 static menuitem_t items[IT_COUNT];
 static menu_t hud = {.items = items, .numitems = IT_COUNT, .itemOn = -1};
 static bitmapfont_t font;
-static bool font_ok, laid_out;
+static zpanel_t panel;
+static bool font_ok, panel_ok, laid_out;
 
 /* The window's producer and, while it is stopped, the unit picked. Each
  * producer remembers its pick. */
@@ -140,7 +183,107 @@ static void draw_centred(irect_t rect, int y, const char *text, uint32_t ink) {
     draw_ink((ivec2_t){rect.x + (rect.w - text_width(text)) / 2, y}, text, ink);
 }
 
-/* ── pictures ─────────────────────────────────────────────────────────── */
+/* ── pieces ───────────────────────────────────────────────────────────── */
+
+static irect_t piece_rect(int piece) {
+    return panel_ok && piece >= 0 && piece < panel.pieces.numlumps ? panel.pieces.cells[piece].rect : (irect_t){0};
+}
+
+/* A piece with its top-left at `at`; opaque pieces write their black. */
+static void draw_piece(int piece, ivec2_t at, bool opaque) {
+    if (!panel_ok) return;
+    V_DrawSpriteCell(at, &panel.pieces, piece, NULL, opaque ? V_OPAQUE : 0);
+}
+
+/* The left `width` columns of a piece. */
+static void draw_piece_part(int piece, ivec2_t at, int width) {
+    irect_t src = piece_rect(piece);
+    if (width < src.w) src.w = width;
+    if (src.w <= 0) return;
+    V_DrawSpriteCellScaled((irect_t){at.x, at.y, src.w, src.h}, &panel.pieces, piece, &src, NULL, V_OPAQUE);
+}
+
+/* `digits` of a number, in the 12x18 figures, the most significant first. */
+static void draw_number(ivec2_t at, int value, int digits) {
+    irect_t figure = piece_rect(PC_DIGIT);
+    if (value < 0) value = 0;
+    for (int i = digits - 1, divisor = 1; i >= 0; --i, divisor *= 10)
+        draw_piece(PC_DIGIT + value / divisor % 10, (ivec2_t){at.x + i * figure.w, at.y}, true);
+}
+
+/* ── the selection ────────────────────────────────────────────────────── */
+
+static bool live(const mobj_t *mo) { return mo && !mo->remove && mo->hp > 0; }
+
+static mobj_t *selected(int n, int *count) {
+    mobj_t *found = NULL;
+    int seen = 0;
+    for (int i = 0; i < hudview.unit_count; ++i) {
+        mobj_t *mo = hudview.units ? hudview.units[i] : NULL;
+        if (!live(mo) || !P_MobjIsSelected(mo)) continue;
+        if (seen++ == n) found = mo;
+    }
+    if (count) *count = seen;
+    return found;
+}
+
+/* The window opens for a fort or factory of the player's selected alone. */
+static mobj_t *selected_producer(void) {
+    int count;
+    mobj_t *mo = selected(0, &count);
+    return count == 1 && mo->owner == consoleplayer && Z_Producer(mo) ? mo : NULL;
+}
+
+static bool structure(const mobj_t *mo) { return mo->type_id >= MT_FORT && mo->type_id < MT_UNITS; }
+
+static const char *short_name(const mobj_t *mo) {
+    switch (mo->type_id) {
+    case MT_FORT: return "FORT";
+    case MT_ROBOT_FACTORY: return "ROBOT FACTORY";
+    case MT_TANK_FACTORY: return "VEHICLE FACTORY";
+    case MT_REPAIR: return "REPAIR FACILITY";
+    case MT_RADAR: return "RADAR STATION";
+    default: return mo->info ? mo->info->name : "?";
+    }
+}
+
+/* What the panel shows of a unit of weapon type `t`: its face
+ * (SHEADBI0..4: Grunt, Tough, Pyro, Sniper, Psycho; the Laser has none
+ * and borrows the Grunt's), its name label, its weapon and the vehicle
+ * picture. -1 is none. */
+typedef struct { int face, name, weapon, picture; } look_t;
+
+static look_t unit_look(int t) {
+    switch (t) {
+    case MT_UNIT_GRUNT - MT_UNITS:   return (look_t){0, PC_NAME_ROBOT + 0, 0, -1};
+    case MT_UNIT_PYRO - MT_UNITS:    return (look_t){2, PC_NAME_ROBOT + 1, 1, -1};
+    case MT_UNIT_LASER - MT_UNITS:   return (look_t){0, PC_NAME_ROBOT + 2, 2, -1};
+    case MT_UNIT_TOUGH - MT_UNITS:   return (look_t){1, PC_NAME_ROBOT + 3, 3, -1};
+    case MT_UNIT_PSYCHO - MT_UNITS:  return (look_t){4, PC_NAME_ROBOT + 4, 4, -1};
+    case MT_UNIT_SNIPER - MT_UNITS:  return (look_t){3, PC_NAME_ROBOT + 5, 0, -1};
+    case MT_UNIT_MISSILE_GUN - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 0, -1, PC_VEHICLE + 0};
+    case MT_UNIT_JEEP - MT_UNITS:    return (look_t){-1, PC_NAME_VEHICLE + 1, -1, PC_VEHICLE + 1};
+    case MT_UNIT_HOWITZER - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 2, -1, PC_VEHICLE + 2};
+    case MT_UNIT_HEAVY_TANK - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 3, -1, PC_VEHICLE + 3};
+    case MT_UNIT_GATLING - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 4, -1, PC_VEHICLE + 4};
+    case MT_UNIT_M_MISSILE - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 5, -1, PC_VEHICLE + 5};
+    case MT_UNIT_LIGHT_GUN - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 6, -1, PC_VEHICLE + 6};
+    case MT_UNIT_CRANE - MT_UNITS:   return (look_t){-1, PC_NAME_VEHICLE + 7, -1, PC_VEHICLE + 7};
+    case MT_UNIT_LIGHT_TANK - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 8, -1, PC_VEHICLE + 8};
+    case MT_UNIT_FIRE_TRUCK - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 9, -1, PC_VEHICLE + 9};
+    case MT_UNIT_APC - MT_UNITS:     return (look_t){-1, PC_NAME_VEHICLE + 10, -1, PC_VEHICLE + 10};
+    case MT_UNIT_MED_TANK - MT_UNITS: return (look_t){-1, PC_NAME_VEHICLE + 11, -1, PC_VEHICLE + 11};
+    default: return (look_t){-1, -1, -1, -1};
+    }
+}
+
+/* The scenery behind a face, by world: SHEADBAK.DAT holds desert, volcano,
+ * a plain brown one, arctic, city and jungle. */
+static int world_back(void) {
+    static const int backs[Z_WORLDS] = {0, 3, 4, 1, 5};
+    const zmap_t *map = level.native_data;
+    return map && map->world >= 0 && map->world < Z_WORLDS ? backs[map->world] : 2;
+}
 
 /* The lump of `frame` facing south, or the only one. */
 static int picture_lump(const spritesheet_t *sheet, int frame) {
@@ -160,7 +303,7 @@ static bool state_picture(int state_id, const spritesheet_t **sheet, int *lump) 
     return *sheet && *lump >= 0 && *lump < (*sheet)->numlumps;
 }
 
-/* Fit the picture in `box`, up to twice its size. */
+/* Fit a world sprite in `box`, up to twice its size. */
 static void draw_picture(const spritesheet_t *sheet, int lump, int team, irect_t box) {
     irect_t src = sheet->cells[lump].rect;
     if (src.w <= 0 || src.h <= 0) return;
@@ -190,37 +333,60 @@ static void draw_box(irect_t box) {
     V_DrawRectOutline(box, V_NearestIndex(PANEL_EDGE));
 }
 
-/* ── selection ────────────────────────────────────────────────────────── */
-
-static bool live(const mobj_t *mo) { return mo && !mo->remove && mo->hp > 0; }
-
-static mobj_t *selected(int n, int *count) {
-    mobj_t *found = NULL;
-    int seen = 0;
-    for (int i = 0; i < hudview.unit_count; ++i) {
-        mobj_t *mo = hudview.units ? hudview.units[i] : NULL;
-        if (!live(mo) || !P_MobjIsSelected(mo)) continue;
-        if (seen++ == n) found = mo;
-    }
-    if (count) *count = seen;
-    return found;
-}
-
-/* The window opens for a fort or factory of the player's selected alone. */
-static mobj_t *selected_producer(void) {
+/* The face or picture of the selection, its name, weapon, grenades and
+ * health, down the panel from `at`. */
+static void draw_selection(ivec2_t at) {
     int count;
-    mobj_t *mo = selected(0, &count);
-    return count == 1 && mo->owner == consoleplayer && Z_Producer(mo) ? mo : NULL;
-}
-
-static const char *short_name(const mobj_t *mo) {
-    switch (mo->type_id) {
-    case MT_FORT: return "FORT";
-    case MT_ROBOT_FACTORY: return "ROBOT FACTORY";
-    case MT_TANK_FACTORY: return "VEHICLE FACTORY";
-    case MT_REPAIR: return "REPAIR FACILITY";
-    case MT_RADAR: return "RADAR STATION";
-    default: return mo->info ? mo->info->name : "?";
+    const mobj_t *mo = selected(0, &count);
+    irect_t portrait = {at.x, at.y + PANEL_PORTRAIT_Y, SIDEBAR, PANEL_PORTRAIT_H};
+    V_FillRect(portrait, 0);
+    if (!mo) {
+        draw_piece(PC_NAME_NONE, (ivec2_t){at.x, at.y + PANEL_NAME_Y}, true);
+        draw_piece(PC_LABEL_BLANK, (ivec2_t){at.x, at.y + PANEL_LABEL_Y}, true);
+        return;
+    }
+    int team = mo->team < Z_NEUTRAL ? mo->team : Z_NEUTRAL;
+    look_t look = unit_look(Z_UnitType(mo));
+    const spritesheet_t *sheet;
+    int lump;
+    if (look.face >= 0 && panel_ok && panel.heads[look.face].numlumps > 2) {
+        const spritesheet_t *head = &panel.heads[look.face];
+        V_DrawSpriteCell((ivec2_t){portrait.x, portrait.y}, &panel.backs, world_back(), NULL, V_OPAQUE);
+        irect_t face = head->cells[2].rect;
+        V_DrawSpriteCell((ivec2_t){portrait.x + (SIDEBAR - face.w) / 2, portrait.y + portrait.h - face.h},
+                         head, 2, NULL, 0);
+    } else if (look.picture >= 0) {
+        irect_t picture = piece_rect(look.picture);
+        draw_piece(look.picture, (ivec2_t){portrait.x, portrait.y + (portrait.h - picture.h) / 2}, false);
+    } else if (state_picture(mo->core.state_id, &sheet, &lump)) {
+        draw_picture(sheet, lump, mo->team, portrait);
+    }
+    /* A crewless vehicle, a building or a flag has no label of its own. */
+    ivec2_t name_at = {at.x, at.y + PANEL_NAME_Y};
+    if (look.name >= 0 && !(look.picture >= 0 && mo->team >= Z_NEUTRAL)) {
+        draw_piece(look.name, name_at, true);
+    } else {
+        draw_piece(look.name >= 0 ? PC_NAME_NONE : PC_LABEL_BLANK, name_at, true);
+        const char *text = look.name >= 0 ? "EMPTY" : Z_UnitType(mo) >= 0 && mo->info ? upper(mo->info->name) : short_name(mo);
+        draw_centred((irect_t){name_at.x, name_at.y, SIDEBAR, 14}, name_at.y + 3, text, INK);
+    }
+    if (look.weapon >= 0) {
+        draw_piece(PC_WEAPON + look.weapon, (ivec2_t){at.x, at.y + PANEL_WEAPON_Y}, false);
+        draw_piece(PC_WEAPON_NAME + look.weapon, (ivec2_t){at.x, at.y + PANEL_LABEL_Y}, true);
+        draw_piece(PC_GRENADE, (ivec2_t){at.x + 10, at.y + PANEL_GRENADE_Y}, true);
+        draw_number((ivec2_t){at.x + 42, at.y + PANEL_GRENADE_Y + 1}, mo->z.grenades, 2);
+    } else {
+        draw_piece(PC_LABEL_BLANK, (ivec2_t){at.x, at.y + PANEL_LABEL_Y}, true);
+        char text[32];
+        if (count > 1) snprintf(text, sizeof(text), "%d SELECTED", count);
+        else snprintf(text, sizeof(text), "%s", mo->team >= Z_NEUTRAL ? "NOBODY'S" : team == consoleplayer ? "YOURS" : "ENEMY");
+        draw_centred((irect_t){at.x, at.y + PANEL_LABEL_Y, SIDEBAR, 14}, at.y + PANEL_LABEL_Y + 3, text, team_argb[team]);
+    }
+    if (mo->max_hp > 0) {
+        ivec2_t bar = {at.x + PANEL_HEALTH_X, at.y + PANEL_HEALTH_Y};
+        draw_piece(PC_HEALTH_NONE, bar, true);
+        int fill = PANEL_HEALTH_W * mo->hp / mo->max_hp;
+        if (fill > 0) draw_piece_part(mo->hp * 3 >= mo->max_hp ? PC_HEALTH_GOOD : PC_HEALTH_POOR, bar, fill);
     }
 }
 
@@ -265,11 +431,11 @@ static void draw_radar(const menu_t *menu, const menuitem_t *item, irect_t rect)
     for (int i = 0; i < hudview.unit_count; ++i) {
         const mobj_t *mo = hudview.units[i];
         if (!live(mo) || !P_VisibleToPlayer(mo) || mo->type_id == MT_FLAG || mo->type_id == MT_GRENADE) continue;
-        bool structure = mo->type_id >= MT_FORT && mo->type_id < MT_UNITS;
-        if (!structure && (Z_UnitType(mo) < 0 || mo->team >= Z_NEUTRAL)) continue;
+        bool building = structure(mo);
+        if (!building && (Z_UnitType(mo) < 0 || mo->team >= Z_NEUTRAL)) continue;
         irect_t cells = P_MobjCells(mo);
         irect_t dot = {rect.x + cells.x * rect.w / level.width, rect.y + cells.y * rect.h / level.height,
-                       structure ? cells.w * rect.w / level.width : 2, structure ? cells.h * rect.h / level.height : 2};
+                       building ? cells.w * rect.w / level.width : 2, building ? cells.h * rect.h / level.height : 2};
         V_FillRect(dot, team_index[mo->team < Z_NEUTRAL ? mo->team : Z_NEUTRAL]);
     }
     irect_t world = G_WorldViewport(menu->app);
@@ -281,89 +447,106 @@ static void draw_radar(const menu_t *menu, const menuitem_t *item, irect_t rect)
     if (view.h < 2) view.h = 2;
     V_DrawRectOutline(view, V_NearestIndex(0xffffffffu));
     V_SetClip(clip);
-    V_DrawRectOutline(rect, V_NearestIndex(PANEL_EDGE));
 }
 
-static void draw_clock(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    (void)menu; (void)item;
-    int seconds = leveltime / RTS_TICRATE;
-    char text[32];
-    snprintf(text, sizeof(text), "TIME %02d:%02d", (seconds / 60) % 100, seconds % 60);
-    draw_centred(rect, rect.y + 2, text, INK);
-}
-
-/* Each side's flags, in its colour, and those nobody holds. */
-static void draw_tally(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    (void)menu; (void)item;
-    int total, free = Z_TerritoriesHeld(Z_NEUTRAL, &total);
-    char text[32];
-    draw_centred(rect, rect.y + 2, "TERRITORIES", INK_TITLE);
-    int x = rect.x + 4;
-    for (int team = 0; team < Z_NEUTRAL; ++team) {
-        int held = Z_TerritoriesHeld(team, NULL);
-        if (!held) continue;
-        V_FillRect((irect_t){x, rect.y + 16, 10, 8}, team_index[team]);
-        snprintf(text, sizeof(text), "%d", held);
-        draw_ink((ivec2_t){x + 13, rect.y + 16}, text, INK);
-        x += 36;
+/* How many sides the level has, by its forts: the bottom bar has slots
+ * for two, three or four. */
+static int sides(void) {
+    int most = 2;
+    for (int i = 0; i < hudview.unit_count; ++i) {
+        const mobj_t *mo = hudview.units[i];
+        if (mo && mo->type_id == MT_FORT && mo->team < Z_NEUTRAL && mo->team + 1 > most) most = mo->team + 1;
     }
-    snprintf(text, sizeof(text), "FREE %d OF %d", free, total);
-    draw_centred(rect, rect.y + 30, text, INK_DIM);
+    return most;
 }
 
-static void draw_bar(irect_t bar, int part, int whole, uint32_t argb) {
-    V_FillRect(bar, V_NearestIndex(BOX_FILL));
-    V_DrawRectOutline(bar, V_NearestIndex(PANEL_EDGE));
-    int fill = whole > 0 ? (bar.w - 2) * part / whole : 0;
-    if (fill > bar.w - 2) fill = bar.w - 2;
-    if (fill > 0) V_FillRect((irect_t){bar.x + 1, bar.y + 1, fill, bar.h - 2}, V_NearestIndex(argb));
+/* Each side's share of the territories, as a number and a bar, in the
+ * bottom bar's slots. */
+static void draw_shares(ivec2_t at, int teams) {
+    static const int two[2] = {150, 298}, three[3] = {150, 252, 354}, four[4] = {150, 224, 298, 372};
+    const int *slots = teams > 3 ? four : teams > 2 ? three : two;
+    int width = teams > 3 ? 44 : teams > 2 ? 58 : 84;
+    irect_t figure = piece_rect(PC_DIGIT);
+    int total;
+    Z_TerritoriesHeld(Z_NEUTRAL, &total);
+    for (int team = 0; team < teams; ++team) {
+        int x = at.x + slots[team];
+        int percent = total > 0 ? Z_TerritoriesHeld(team, NULL) * 100 / total : 0;
+        draw_number((ivec2_t){x + 2, at.y + BAR_BUTTON_Y + 1}, percent, 2);
+        ivec2_t bar = {x + 2 * figure.w + 4, at.y + BAR_BUTTON_Y + 7};
+        int room = width - 2 * figure.w - 6;
+        draw_piece_part(PC_SHARE_DARK, bar, room);
+        if (percent > 0) draw_piece_part(team_share[team], bar, room * percent / 100);
+    }
 }
 
-static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+static void draw_panel(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     (void)menu; (void)item;
-    int count;
-    const mobj_t *mo = selected(0, &count);
-    if (!mo) {
-        draw_centred(rect, rect.y + 4, "NOTHING SELECTED", INK_DIM);
+    if (!panel_ok) {
+        V_FillRect(rect, V_NearestIndex(PANEL_FILL));
         return;
     }
-    irect_t box = {rect.x, rect.y, PICTURE, PICTURE};
-    draw_box(box);
-    const spritesheet_t *sheet;
-    int lump;
-    if (state_picture(mo->core.state_id, &sheet, &lump)) draw_picture(sheet, lump, mo->team, box);
-    int team = mo->team < Z_NEUTRAL ? mo->team : Z_NEUTRAL;
-    char text[64];
-    const char *name = Z_UnitType(mo) >= 0 && mo->info ? upper(mo->info->name) : short_name(mo);
-    draw_ink((ivec2_t){rect.x + PICTURE + 6, rect.y + 2}, name, team_argb[team]);
-    if (count > 1) {
-        snprintf(text, sizeof(text), "%d SELECTED", count);
-        draw_ink((ivec2_t){rect.x + PICTURE + 6, rect.y + 14}, text, INK);
-    } else if (mo->team >= Z_NEUTRAL) {
-        draw_ink((ivec2_t){rect.x + PICTURE + 6, rect.y + 14}, Z_UnitType(mo) >= 0 ? "EMPTY" : "NOBODY'S", INK_DIM);
-    } else {
-        draw_ink((ivec2_t){rect.x + PICTURE + 6, rect.y + 14},
-                 mo->team == consoleplayer ? "YOURS" : "ENEMY", INK_DIM);
+    ivec2_t side = {rect.x, rect.y};
+    draw_piece(PC_PANEL, side, true);
+    int seconds = leveltime / RTS_TICRATE;
+    char text[16];
+    snprintf(text, sizeof(text), "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60);
+    draw_centred((irect_t){side.x + 32, side.y, SIDEBAR - 34, 20}, side.y + PANEL_CLOCK_Y, text, INK_CLOCK);
+    draw_selection(side);
+    for (int i = 0; i < 3; ++i) draw_piece(PC_SLOT, (ivec2_t){side.x + 4 + 30 * i, side.y + PANEL_SLOT_Y}, true);
+}
+
+static void draw_bottom(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    (void)menu; (void)item;
+    V_FillRect(rect, panel_ok ? 0 : V_NearestIndex(PANEL_FILL));
+    if (!panel_ok) return;
+    int teams = sides();
+    draw_piece(teams > 3 ? PC_BAR_FOUR : teams > 2 ? PC_BAR_THREE : PC_BAR_TWO, (ivec2_t){rect.x, rect.y}, true);
+    draw_shares((ivec2_t){rect.x, rect.y}, teams);
+}
+
+/* ── stepping through the player's things ─────────────────────────────── */
+
+enum { KIND_ROBOT, KIND_VEHICLE, KIND_BUILDING, KIND_GUN, KIND_ATTACKED };
+
+static bool attacked(const mobj_t *mo) {
+    for (int i = 0; i < hudview.unit_count; ++i) {
+        const mobj_t *foe = hudview.units[i];
+        if (live(foe) && foe->team != mo->team && foe->attack.target == mo) return true;
     }
-    if (mo->owner != consoleplayer || mo->max_hp <= 0) return;
-    int y = rect.y + PICTURE + 6;
-    int good = mo->hp * 3 >= mo->max_hp;
-    draw_bar((irect_t){rect.x, y, rect.w, 8}, mo->hp, mo->max_hp, good ? INK_GOOD : INK_BAD);
-    snprintf(text, sizeof(text), "%d / %d", mo->hp, mo->max_hp);
-    draw_ink((ivec2_t){rect.x, y + 12}, text, INK_DIM);
-    y += 26;
-    if (mo->z.grenades) {
-        snprintf(text, sizeof(text), "GRENADES %d", mo->z.grenades);
-        draw_ink((ivec2_t){rect.x, y}, text, INK);
-        y += 12;
-    }
-    const StaticProductDefinition *making = Z_ProductInProduction(mo);
-    if (making) {
-        draw_ink((ivec2_t){rect.x, y}, "MAKING", INK_DIM);
-        draw_ink((ivec2_t){rect.x, y + 12}, upper(making->label), INK);
-    } else if (Z_Producer(mo)) {
-        draw_ink((ivec2_t){rect.x, y}, "IDLE", INK_DIM);
-    }
+    return false;
+}
+
+static bool of_kind(const mobj_t *mo, int kind) {
+    if (!live(mo) || mo->owner != consoleplayer) return false;
+    if (kind == KIND_ATTACKED) return attacked(mo);
+    if (structure(mo)) return kind == KIND_BUILDING;
+    int t = Z_UnitType(mo);
+    if (t < 0) return false;
+    if (Z_IsRobot(t)) return kind == KIND_ROBOT;
+    bool gun = t == MT_UNIT_LIGHT_GUN - MT_UNITS || t == MT_UNIT_MISSILE_GUN - MT_UNITS ||
+               t == MT_UNIT_GATLING - MT_UNITS || t == MT_UNIT_HOWITZER - MT_UNITS;
+    return kind == (gun ? KIND_GUN : KIND_VEHICLE);
+}
+
+/* Select the player's next thing of the kind after the one selected, and
+ * look at it. */
+static void on_step_kind(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE) return;
+    int last = -1, count = 0;
+    for (int i = 0; i < hudview.unit_count; ++i)
+        if (of_kind(hudview.units[i], item->id)) {
+            ++count;
+            if (P_MobjIsSelected(hudview.units[i])) last = i;
+        }
+    if (!count) return;
+    mobj_t *pick = NULL;
+    for (int i = last + 1; i < hudview.unit_count + last + 1 && !pick; ++i)
+        if (of_kind(hudview.units[i % hudview.unit_count], item->id)) pick = hudview.units[i % hudview.unit_count];
+    for (int i = 0; i < hudview.unit_count; ++i) P_MobjSetSelected(hudview.units[i], false);
+    P_MobjSetSelected(pick, true);
+    S_Bark(&pick, 1, SE_SELECT, true);
+    if (menu->app) M_CentreView(menu->app, fixed3_xy_to_fvec2(pick->core.position));
 }
 
 /* ── the production window ────────────────────────────────────────────── */
@@ -376,6 +559,14 @@ static void draw_product_picture(const menu_t *menu, const menuitem_t *item, ire
     int lump;
     if (state_picture(mobjinfo[offered[popup_choice]->product_type].spawnstate, &sheet, &lump))
         draw_picture(sheet, lump, consoleplayer, rect);
+}
+
+static void draw_bar(irect_t bar, int part, int whole, uint32_t argb) {
+    V_FillRect(bar, V_NearestIndex(BOX_FILL));
+    V_DrawRectOutline(bar, V_NearestIndex(PANEL_EDGE));
+    int fill = whole > 0 ? (bar.w - 2) * part / whole : 0;
+    if (fill > bar.w - 2) fill = bar.w - 2;
+    if (fill > 0) V_FillRect((irect_t){bar.x + 1, bar.y + 1, fill, bar.h - 2}, V_NearestIndex(argb));
 }
 
 static void draw_progress(const menu_t *menu, const menuitem_t *item, irect_t rect) {
@@ -419,6 +610,20 @@ static void on_start(menu_t *menu, menuitem_t *item, menuaction_t action) {
     G_BuildOrder(producer, offered[popup_choice]->ui_id);
 }
 
+/* A button drawn from the panel art: up, pressed and greyed pieces in a
+ * row from `piece`. One without a routine stays up. */
+static void picture_button(menuitem_t *item, int piece, SDL_Keycode hotkey, int kind, menuroutine_t routine) {
+    *item = (menuitem_t){
+        .kind = MI_BUTTON, .enabled = routine != NULL, .release = true, .hotkey = hotkey, .id = kind,
+        .routine = routine, .disabled_look = true, .opaque = true, .sheet = panel_ok ? &panel.pieces : NULL,
+        .fill = panel_ok ? 0 : BUTTON_FILL, .border = panel_ok ? 0 : BUTTON_EDGE,
+    };
+    for (int state = 0; state < MS_STATES; ++state) {
+        item->look[state].cell = piece + (state == MS_PUSHED ? 1 : state == MS_DISABLED && routine ? 2 : 0);
+        item->look[state].palette = -1;
+    }
+}
+
 static void button(menuitem_t *item, const char *text, int step, menuroutine_t routine) {
     *item = (menuitem_t){
         .kind = MI_BUTTON, .enabled = true, .fill = BUTTON_FILL, .border = BUTTON_EDGE, .color = FOCUS,
@@ -436,12 +641,27 @@ static void label(menuitem_t *item, uint32_t ink, int align) {
 
 static void layout(void) {
     memset(items, 0, sizeof(items));
-    items[IT_PANEL] = (menuitem_t){.fill = PANEL_FILL, .border = PANEL_EDGE};
+    items[IT_PANEL] = (menuitem_t){.ownerdraw = draw_panel};
+    items[IT_BAR] = (menuitem_t){.ownerdraw = draw_bottom};
     items[IT_RADAR] = (menuitem_t){.kind = MI_MINIMAP, .enabled = true, .ownerdraw = draw_radar};
-    items[IT_CLOCK] = (menuitem_t){.ownerdraw = draw_clock};
-    items[IT_TALLY] = (menuitem_t){.ownerdraw = draw_tally};
-    items[IT_INFO] = (menuitem_t){.ownerdraw = draw_info};
-    button(&items[IT_MENU], "MENU", 0, on_menu);
+    picture_button(&items[IT_ATTACKED], PC_BUTTON_A, SDLK_F5, KIND_ATTACKED, on_step_kind);
+    picture_button(&items[IT_T], PC_BUTTON_T, 0, 0, NULL);
+    picture_button(&items[IT_D], PC_BUTTON_D, 0, 0, NULL);
+    picture_button(&items[IT_Z], PC_BUTTON_Z, 0, 0, NULL);
+    picture_button(&items[IT_ROBOTS], PC_BUTTON_R, SDLK_F1, KIND_ROBOT, on_step_kind);
+    picture_button(&items[IT_VEHICLES], PC_BUTTON_V, SDLK_F2, KIND_VEHICLE, on_step_kind);
+    picture_button(&items[IT_BUILDINGS], PC_BUTTON_B, SDLK_F3, KIND_BUILDING, on_step_kind);
+    picture_button(&items[IT_GUNS], PC_BUTTON_G, SDLK_F4, KIND_GUN, on_step_kind);
+    picture_button(&items[IT_MENU], PC_BUTTON_MENU, 0, 0, on_menu);
+    if (!panel_ok) {
+        static const char *const names[] = {"A", "T", "D", "Z", "R", "V", "B", "G", "MENU"};
+        for (int i = IT_ATTACKED; i <= IT_MENU; ++i) {
+            items[i].font = font_ok ? &font : NULL;
+            items[i].ink = INK;
+            items[i].align = MALIGN_CENTER;
+            snprintf(items[i].text, sizeof(items[i].text), "%s", names[i - IT_ATTACKED]);
+        }
+    }
     items[IT_POPUP] = (menuitem_t){.layer = true, .fill = PANEL_FILL, .border = BUTTON_EDGE};
     label(&items[IT_TITLE], INK_TITLE, MALIGN_HCENTER);
     items[IT_PICTURE] = (menuitem_t){.ownerdraw = draw_product_picture};
@@ -511,13 +731,15 @@ static void refresh(menu_t *menu) {
     int scale = R_UIScale(menu->app);
     isize2_t screen = menu->app ? (isize2_t){menu->app->win.w / scale, menu->app->win.h / scale}
                                 : (isize2_t){SCREENWIDTH, SCREENHEIGHT};
-    int x = screen.w - SIDEBAR + MARGIN, w = SIDEBAR - 2 * MARGIN;
-    items[IT_PANEL].rect = (irect_t){screen.w - SIDEBAR, 0, SIDEBAR, screen.h};
-    items[IT_RADAR].rect = (irect_t){x, MARGIN, w, RADAR};
-    items[IT_CLOCK].rect = (irect_t){x, MARGIN + RADAR + 6, w, 12};
-    items[IT_TALLY].rect = (irect_t){x, MARGIN + RADAR + 22, w, 44};
-    items[IT_INFO].rect = (irect_t){x, MARGIN + RADAR + 72, w, screen.h - (MARGIN + RADAR + 72) - 40};
-    items[IT_MENU].rect = (irect_t){x, screen.h - MARGIN - BUTTON_H, w, BUTTON_H};
+    if (panel_ok && hudview.tileset) Z_PanelPalette(&panel, hudview.tileset->palette);
+    int side = screen.w - SIDEBAR, bar = screen.h - BOTTOM;
+    items[IT_PANEL].rect = (irect_t){side, 0, SIDEBAR, screen.h};
+    items[IT_BAR].rect = (irect_t){0, bar, side, BOTTOM};
+    items[IT_RADAR].rect = (irect_t){side + PANEL_RADAR_X, PANEL_RADAR_Y, PANEL_RADAR, PANEL_RADAR};
+    items[IT_ATTACKED].rect = (irect_t){side + 6, 6, 24, 20};
+    for (int i = 0; i < 3; ++i) items[IT_T + i].rect = (irect_t){side + 6 + 30 * i, PANEL_BUTTON_Y, 24, 20};
+    for (int i = 0; i < 4; ++i) items[IT_ROBOTS + i].rect = (irect_t){6 + 30 * i, bar + BAR_BUTTON_Y, 24, 20};
+    items[IT_MENU].rect = (irect_t){BAR_MENU_X, bar + BAR_BUTTON_Y, 56, 20};
     refresh_popup(menu, scale);
 }
 
@@ -525,12 +747,13 @@ static void refresh(menu_t *menu) {
 
 irect_t G_WorldViewport(const app_t *app) {
     int scale = R_UIScale(app);
-    int w = app ? app->win.w - SIDEBAR * scale : 1;
-    return (irect_t){0, 0, w > 0 ? w : 1, app ? app->win.h : 1};
+    int w = app ? app->win.w - SIDEBAR * scale : 1, h = app ? app->win.h - BOTTOM * scale : 1;
+    return (irect_t){0, 0, w > 0 ? w : 1, h > 0 ? h : 1};
 }
 
 menu_t *G_InitHUD(app_t *app, const char *data_root) {
     if (!font_ok) font_ok = HU_LoadFont(data_root, &font);
+    if (!panel_ok) panel_ok = Z_LoadPanel(data_root, &panel);
     if (!laid_out) {
         layout();
         hud.refresh = refresh;
@@ -545,6 +768,7 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
 void G_ShutdownHUD(void) {
     hudview = (hudview_t){0};
     if (font_ok) HU_FreeFont(&font);
-    font_ok = false;
+    if (panel_ok) Z_FreePanel(&panel);
+    font_ok = panel_ok = false;
     laid_out = false;
 }

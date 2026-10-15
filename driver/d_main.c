@@ -378,6 +378,17 @@ load_level:
                     focus_camera_on_first_player_unit(&app, &level, units, unit_count);
                 R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
             }
+            /* The HUD shows the first of the player's units selected, a
+             * mobile one when there is one. */
+            {
+                mobj_t *shown = NULL;
+                for (int i = 0; i < unit_count && !(shown && shown->info && shown->info->speed > 0); ++i) {
+                    mobj_t *mo = units[i];
+                    if (mo->owner != consoleplayer || mo->remove || mo->hp <= 0) continue;
+                    if (!shown || (mo->info && mo->info->speed > 0)) shown = mo;
+                }
+                if (shown) P_MobjSetSelected(shown, true);
+            }
             P_UpdateSight();
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             R_DrawLevel(&app, &level, &tileset);

@@ -86,6 +86,19 @@ const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer);
 /* Flags a team holds (Z_NEUTRAL: nobody's), and all of them. */
 int Z_TerritoriesHeld(int team, int *total);
 
+/* w_panel.c: the 640x480 panel art from SHEADFX.PAC. `pieces` is
+ * NSNEWPAN.DAT (the panel, labels, buttons, digits and bars), `heads` the
+ * robot faces SHEADBI0..4.DAT and `backs` SHEADBAK.DAT, the scenery behind
+ * a face. Pictures are one byte a pixel in the world palette. */
+enum { Z_FACES = 5 };
+typedef struct {
+    spritesheet_t pieces, backs, heads[Z_FACES];
+} zpanel_t;
+bool Z_LoadPanel(const char *root, zpanel_t *out);
+void Z_FreePanel(zpanel_t *panel);
+/* Give every sheet the world's palette. */
+void Z_PanelPalette(zpanel_t *panel, const uint32_t palette[256]);
+
 /* Build the destructible cliffs into the planes, as a level start does. */
 void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world);
 /* World sprite of a building type, or -1. */
