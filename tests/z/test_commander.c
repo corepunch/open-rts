@@ -46,6 +46,96 @@ static void disarm(void) {
         ((mobj_t *)th)->traits &= ~MF_ATTACK;
 }
 
+static int test_native_destinations(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load native destinations");
+    disarm();
+    zmap_t *map = level.native_data;
+    if (map->placed_count != 4 || map->placed[0].home != 1 || map->placed[1].home != 3)
+        return fail("CPUPLR01 initial territory assignments");
+    /* Leave only the initial territory orders available. */
+    for (int i = 0; nth(MT_UNIT_JEEP, Z_NEUTRAL, i); ++i)
+        nth(MT_UNIT_JEEP, Z_NEUTRAL, i)->z.driver = 1;
+    mobj_t *lead = nth(MT_UNIT_GRUNT, CPU, 0);
+    int squad = lead->z.squad;
+    fixed2_t goal = fixed2_cell_center(map->territories[0].flag);
+    mobjlist_t list = P_ListMobjs();
+    G_AiInterface()->tactics(&level, CPU, list.items, list.count);
+    P_FreeMobjList(&list);
+    bool exact = false;
+    for (int i = 0; nth(MT_UNIT_GRUNT, CPU, i); ++i) {
+        const mobj_t *mo = nth(MT_UNIT_GRUNT, CPU, i);
+        if (mo->z.squad == squad)
+            exact |= !mo->z.home && fixed2_distance_squared64(mo->movement.goal, goal) == 0;
+    }
+    if (!exact) return fail("computer follows its map-authored initial flag destination");
+    puts("PASS: z CPUPLR starting destinations reach the commander");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_vehicles(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load empty vehicle objectives");
+    disarm();
+    mobjlist_t list = P_ListMobjs();
+    G_AiInterface()->tactics(&level, CPU, list.items, list.count);
+    int assigned = 0;
+    for (int i = 0; i < list.count; ++i) {
+        mobj_t *robot = list.items[i];
+        if (robot->owner != CPU || !robot->z.board) continue;
+        mobj_t *vehicle = P_MobjById(robot->z.board);
+        if (!Z_Enterable(vehicle)) return fail("board order names an empty vehicle");
+        for (int j = 0; j < i; ++j)
+            if (list.items[j]->owner == CPU && list.items[j]->z.board == robot->z.board)
+                return fail("each vehicle has one assigned robot");
+        assigned++;
+    }
+    P_FreeMobjList(&list);
+    if (assigned != 4) return fail("four robots reserve the four reachable Jeeps");
+    if (!tick(model, 60 * RTS_TICRATE) || !nth(MT_UNIT_JEEP, CPU, 0)) return fail("computer boards a Jeep");
+    puts("PASS: z computer robots reserve and board empty vehicles");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_marching_combat(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load marching combat");
+    mobj_t *robot = nth(MT_UNIT_GRUNT, CPU, 0), *enemy = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
+    if (!robot || !enemy) return fail("robot and Jeep");
+    Z_SetTeam(enemy, 0);
+    enemy->core.position = fixed3_add(robot->core.position, (fixed3_t){2 * FIXED_ONE,0,0});
+    robot->z.board = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0)->id;
+    P_MoveUnitTo(&level, robot, FIXED2_LIT(40,40));
+    leveltime = (RTS_TICRATE / 3 - robot->id % (RTS_TICRATE / 3)) % (RTS_TICRATE / 3);
+    Z_Alert(robot);
+    if (robot->attack.target != enemy || robot->z.board) return fail("marching computer engages a nearby hostile vehicle");
+    puts("PASS: z nearby hostile vehicles interrupt computer objectives");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_unreachable_vehicle(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load unreachable vehicle objective");
+    disarm();
+    mobj_t *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0), *cliff = nth(MT_CLIFF, Z_NEUTRAL, 0);
+    if (!jeep || !cliff) return fail("empty Jeep and cliff");
+    jeep->core.position = cliff->core.position;
+    mobjlist_t list = P_ListMobjs();
+    for (int i = 0; i < list.count; ++i)
+        if (list.items[i] != jeep && Z_Enterable(list.items[i])) list.items[i]->z.driver = 1;
+    G_AiInterface()->tactics(&level, CPU, list.items, list.count);
+    for (int i = 0; i < list.count; ++i)
+        if (list.items[i]->owner == CPU && list.items[i]->z.board == jeep->id)
+            return fail("computer cannot reserve a vehicle inside a cliff");
+    P_FreeMobjList(&list);
+    puts("PASS: z computer skips vehicles beyond blocked terrain");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 /* Left alone, the computer's squads walk out and take every flag, the
  * player's included; nobody of the player's is sent anywhere. */
 static int test_takes_flags(void) {
@@ -59,7 +149,18 @@ static int test_takes_flags(void) {
         if (!P_HasMoveOrder(nth(MT_UNIT_GRUNT, CPU, i))) return fail("every computer Grunt is on its way");
     for (int i = 0; nth(MT_UNIT_GRUNT, 0, i); ++i)
         if (P_HasMoveOrder(nth(MT_UNIT_GRUNT, 0, i))) return fail("the player's Grunts wait for orders");
-    if (!tick(model, 85 * RTS_TICRATE)) return fail("tick");
+    for (int t = 0; t < 85 * RTS_TICRATE; ++t) {
+        if (!tick(model, 1)) return fail("tick");
+        const zmap_t *map = level.native_data;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            const mobj_t *mo = (const mobj_t *)th;
+            if (th->function != P_MobjThinker || mo->remove || mo->hp <= 0 ||
+                !(mo->traits & MF_MOBILE) || Z_UnitType(mo) < 0) continue;
+            ivec2_t at = fixed2_cell(fixed3_xy(mo->core.position));
+            int terrain = map->terrain[at.y * Z_MAP_STRIDE + at.x] & 127;
+            if ((terrain >= 1 && terrain <= 6) || terrain == 18) return fail("marching units never enter cliffs");
+        }
+    }
     if (flags_of(CPU) != flags) return fail("the computer holds every flag");
     printf("PASS: z the computer takes all %d flags (held %d)\n", flags, before);
     rts_game_model_destroy(model);
@@ -112,6 +213,7 @@ static int test_rally(void) {
 }
 
 int main(void) {
-    if (test_takes_flags() || test_takes_fort() || test_rally()) return 1;
+    if (test_native_destinations() || test_vehicles() || test_unreachable_vehicle() || test_marching_combat() ||
+        test_takes_flags() || test_takes_fort() || test_rally()) return 1;
     return 0;
 }

@@ -70,6 +70,24 @@ static const uint8_t robot_blocked[67] = {
     0,0,0,0,0,0,0,
 };
 
+void Z_RebuildCliffs(level_t *out) {
+    zmap_t *map = out->native_data;
+    uint8_t tiles[Z_MAP_STRIDE * Z_MAP_STRIDE];
+    memcpy(tiles, map->ground, sizeof(tiles));
+    memcpy(map->terrain, map->ground_attr, sizeof(map->terrain));
+    Z_StampCliffs(tiles, map->terrain, map->cliffs, map->world);
+    for (int y = 0; y < out->height; ++y)
+        for (int x = 0; x < out->width; ++x) {
+            int i = y * Z_MAP_STRIDE + x, at = L_Index(out, x, y);
+            uint8_t terrain = map->terrain[i] & 0x7f;
+            out->tile_ids[at] = (uint16_t)(tiles[i] | (map->terrain[i] & 0x80) << 1);
+            /* Native projectile collision classifies 1..6 and 0x12 as
+             * cliff (0x84a26). Ground units cannot cross that volume. */
+            out->blocked[at] = terrain >= sizeof(robot_blocked) || robot_blocked[terrain] ||
+                               (terrain >= 1 && terrain <= 6) || terrain == 0x12;
+        }
+}
+
 /* Native fort marker: tile 0xee of the second bank. */
 enum { FORT_TILE = 0xee, FORT_SKIP = 0x680 };
 
@@ -127,10 +145,10 @@ static bool load_cpuplr(zmap_t *map, const char *name) {
             {r[0x12], r[0x13]}, r[0x18]};
     }
     for (size_t at = CP_PLACED; ok && at + CP_RECORD <= blob.size &&
-                                map->placed_count < Z_MAX_PLACED; at += CP_RECORD) {
+                                at < CP_PLACED + Z_MAX_PLACED * CP_RECORD; at += CP_RECORD) {
         const uint8_t *r = blob.bytes + at;
-        if (r[1]) map->placed[map->placed_count++] =
-            (zplaced_t){r[0], {read_u16_le(r + 2), read_u16_le(r + 4)}};
+        if (r[1] & 1) map->placed[map->placed_count++] =
+            (zplaced_t){r[0], {read_u16_le(r + 2), read_u16_le(r + 4)}, r[7]};
     }
     W_FreeFile(&blob);
     return ok;
@@ -192,24 +210,20 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
         goto fail;
     }
     uint8_t *tiles = file.bytes + MAP_TILES;
-    memcpy(map->terrain, file.bytes + MAP_TERRAIN, sizeof(map->terrain));
+    memcpy(map->ground, tiles, sizeof(map->ground));
+    memcpy(map->ground_attr, file.bytes + MAP_TERRAIN, sizeof(map->ground_attr));
+    memcpy(map->terrain, map->ground_attr, sizeof(map->terrain));
+    memcpy(map->cliffs, file.bytes + MAP_CLIFFS, Z_CLIFF_BLOCKS * Z_CLIFF_BYTES);
     out->width = read_u16_le(file.bytes + MAP_TILES - 4);
     out->height = read_u16_le(file.bytes + MAP_TILES - 2);
     if (out->width <= 0 || out->width > Z_MAP_STRIDE || out->height <= 0 || out->height > Z_MAP_STRIDE)
         goto fail;
     find_forts(map, tiles);
-    Z_StampCliffs(tiles, map->terrain, file.bytes + MAP_CLIFFS, map->world);
     size_t cells = (size_t)out->width * out->height;
     out->tile_ids = calloc(cells, sizeof(*out->tile_ids));
     out->blocked = calloc(cells, 1);
     if (!out->tile_ids || !out->blocked) goto fail;
-    for (int y = 0; y < out->height; ++y)
-        for (int x = 0; x < out->width; ++x) {
-            int i = y * Z_MAP_STRIDE + x;
-            uint8_t terrain = map->terrain[i] & 0x7f;
-            out->tile_ids[y * out->width + x] = (uint16_t)(tiles[i] | (map->terrain[i] & 0x80) << 1);
-            out->blocked[y * out->width + x] = terrain >= sizeof(robot_blocked) || robot_blocked[terrain];
-        }
+    Z_RebuildCliffs(out);
 
     M_PathJoin(path, sizeof(path), map->root, "SPRITES.RSC");
     if (!W_ReadFile(path, &map->rsc)) goto fail;
@@ -221,6 +235,7 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
 
     static const char *const worlds[Z_WORLDS] = {"DESERT", "ARCTIC", "CITY", "VOLCAN", "JUNGLE"};
     snprintf(out->tileset_name, sizeof(out->tileset_name), "%s", worlds[map->world]);
+    snprintf(out->map_path, sizeof(out->map_path), "%s", map_path);
     W_FreeFile(&file);
     W_FreeFile(&levels);
     return true;
@@ -317,13 +332,14 @@ int Z_GroupType(const zmap_t *map, int group, int member) {
  * which shares grenades (0x79bea). */
 static uint8_t squads;
 
-static int spawn_group(const zmap_t *map, int group, ivec2_t at, int team) {
+static int spawn_group(const zmap_t *map, int group, ivec2_t at, int team, int home) {
     int count = 0;
     uint8_t squad = ++squads ? squads : ++squads;
     for (int i = 0, t; (t = Z_GroupType(map, group, i)) >= 0; ++i) {
         mobj_t *mo = spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team);
         if (!mo) continue;
         mo->z.squad = squad;
+        mo->z.home = (uint8_t)home;
         count++;
     }
     return count;
@@ -340,7 +356,7 @@ static int spawn_armies(const zmap_t *map, ivec2_t fort, int cpu_team) {
         if (t < 0 || t >= Z_UNIT_TYPES) continue;
         if (unit_kinds[t].mobile) {
             const int16_t *at = start_offsets[start_table[map->number]][start++];
-            count += spawn_group(map, map->groups[g], ivec2_add(fort, (ivec2_t){at[0], at[1]}), 0);
+            count += spawn_group(map, map->groups[g], ivec2_add(fort, (ivec2_t){at[0], at[1]}), 0, 0);
             continue;
         }
         if (gun >= 6) continue;
@@ -352,7 +368,7 @@ static int spawn_armies(const zmap_t *map, ivec2_t fort, int cpu_team) {
     for (int i = 0; i < map->placed_count; ++i) {
         int team = Z_TeamAt(map, map->placed[i].at);
         count += spawn_group(map, map->placed[i].group, map->placed[i].at,
-                             team < Z_NEUTRAL ? team : cpu_team);
+                             team < Z_NEUTRAL ? team : cpu_team, map->placed[i].home);
     }
     return count;
 }
@@ -522,5 +538,5 @@ int Z_LoadThings(void) {
         }
         W_FreeFile(&blob);
     }
-    return count;
+    return count + Z_LoadCliffs();
 }

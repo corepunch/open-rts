@@ -180,7 +180,9 @@ Terrain ids index several 67-byte tables in ZED.EXE:
 | 0x1157a7, 0x11714b | Height classes compared when a unit climbs (0x594e0) |
 | 0x115e32 (five pointers) | Per-world colours of debris and particles by terrain, four bytes each |
 
-`games/z` uses the neutral robot row for `level.blocked`.
+`games/z` uses the neutral robot row plus the physical cliff terrain
+range (1..6 and 0x12) for `level.blocked`. That static row alone leaves
+cliff tops and faces open; it does not encode native height/path rules.
 
 ### Path nodes
 
@@ -199,7 +201,7 @@ A cliff block is:
 | 0x00 | u16 x, pixels |
 | 0x02 | u16 y, pixels |
 | 0x04 | Height in cells |
-| 0x05 | Not decoded (copied into each cell's run-time record) |
+| 0x05 | Per-cell durability; signed subtraction destroys only below zero |
 | 0x06 | Run-time pointer |
 | 0x0a | 128-byte bitmask: 32x32 cells from (x, y), row-major, most significant bit first |
 
@@ -222,6 +224,11 @@ the high byte. `games/z/cliffs.inc` holds it and `games/z/w_cliff.c` ports
 the routine. Single player starts the random generator from whatever state
 the front end left; the port uses the network game's fixed seed 0x3039
 (0x49c77). The seed only selects among equivalent inside tiles.
+
+Cliff destruction clears a mask bit and replaces its top/face column
+with native rubble (terrain 0x16). Durability, rubble indices and runtime
+records are traced in
+[the cliff damage findings](Z_EXE_FINDINGS.md#cliffs-vehicle-objectives-and-per-level-computer-orders-2026-10-18).
 
 ### Forts
 
@@ -258,20 +265,24 @@ bytes; unused ones start with 0xffff.
 0x9dc69 gives a building the team of the territory that contains its
 top-left pixel.
 
-From 0x792 follow the computer's starting groups, 10 bytes each:
+From 0x792 follow 26 computer starting groups, 10 bytes each:
 
 | Offset | Contents |
 |---|---|
 | 0x00 | ROBOTS.DAT group |
-| 0x01 | Flag: set on every record near the computer's fort, clear on leftovers |
+| 0x01 | Bit 0 enables this starting record (0x9d985) |
 | 0x02 | u16 x, y: pixels, the first member's top-left |
-| 0x06 | Four bytes, not decoded |
+| 0x06 | Not decoded |
+| 0x07 | Initial computer destination territory + 1; zero for no assignment (0x9d9c7) |
+| 0x08 | Two bytes, not decoded |
 
 `games/z` spawns the flagged records. In level 1 they repeat the level's
 own groups (2, 2, 2, 10) around the computer's fort. ZED.EXE reads the
 positions at 0x50a5e; how it picks the records and their team is not
-fully traced. The rest of the file (computer player settings) is not
-decoded.
+fully traced. LEVEL01's first two enabled squads receive destinations
+1 and 3. CPUPLR +0x89f supplies a strategic territory-value/balance weight;
+the other settings' complete strategic meanings remain unknown. See
+[the computer-order findings](Z_EXE_FINDINGS.md#cliffs-vehicle-objectives-and-per-level-computer-orders-2026-10-18).
 
 The byte at **0x8a2** is the native production-speed divisor, installed
 at runtime global 0x103d81 by ZED.EXE 0x9d81b. LEVEL01 contains 10.

@@ -11,7 +11,8 @@ enum {
     Z_MAX_FORTS = 2,
     Z_LEVELS = 51,    /* LEVELS.DAT entries */
     Z_MAX_GROUPS = 12, /* Starting groups per level, LEVELS.DAT +0x55 */
-    Z_MAX_PLACED = 27, /* CPUPLRnn.DAT placements after the territories */
+    Z_MAX_PLACED = 26, /* CPUPLRnn.DAT +0x792, ZED.EXE 0x9d985. */
+    Z_CLIFF_BLOCKS = 20, Z_CLIFF_BYTES = 138,
 };
 
 /* ZED.EXE turns a turret an eighth of a circle toward its target, then
@@ -22,6 +23,7 @@ enum {
 typedef struct {
     int group;
     ivec2_t at; /* Pixels, the first member's top-left. */
+    uint8_t home; /* +7: initial destination territory + 1. */
 } zplaced_t;
 
 typedef struct {
@@ -46,6 +48,8 @@ typedef struct {
     ivec2_t forts[Z_MAX_FORTS];      /* Pixels; the first is drawn with its gate. */
     int fort_count;
     uint8_t terrain[Z_MAP_STRIDE * Z_MAP_STRIDE]; /* Attribute plane. */
+    uint8_t ground[Z_MAP_STRIDE * Z_MAP_STRIDE], ground_attr[Z_MAP_STRIDE * Z_MAP_STRIDE];
+    uint8_t cliffs[Z_CLIFF_BLOCKS * Z_CLIFF_BYTES + 1];
     blob_t rsc;                      /* SPRITES.RSC */
     blob_t roster;                   /* ROBOTS.DAT, including production requirements. */
 } zmap_t;
@@ -113,6 +117,12 @@ void Z_PanelPalette(zpanel_t *panel, const uint32_t palette[256]);
 
 /* Build the destructible cliffs into the planes, as a level start does. */
 void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world);
+void Z_RebuildCliffs(level_t *level);
+int Z_LoadCliffs(void);
+void Z_CliffDamage(mobj_t *cliff);
+bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count);
+bool Z_CliffWeapon(const mobj_t *unit);
+bool Z_Enterable(const mobj_t *mo);
 /* World sprite of a building type, or -1. */
 int Z_BuildingSprite(int native, int world);
 

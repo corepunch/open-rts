@@ -15,11 +15,14 @@ enum {
 
 static bool live(const mobj_t *mo) { return mo && !mo->remove && mo->hp > 0; }
 
-/* A driven vehicle or a robot of a side, free to go after someone. */
+/* Human move and boarding orders remain explicit. Computer objectives
+ * yield to nearby combat, including a march toward an empty vehicle. */
 static bool idle(const mobj_t *mo) {
+    bool computer = P_AiLevelNonHuman(&level, mo->owner) != AI_LEVEL_NONE;
     return live(mo) && Z_UnitType(mo) >= 0 && mo->team < Z_NEUTRAL &&
            (mo->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
-           !live(mo->attack.target) && !mo->z.board && !P_HasMoveOrder(mo);
+           !live(mo->attack.target) &&
+           (computer || (!mo->z.board && !P_HasMoveOrder(mo)));
 }
 
 static bool goes_for(const mobj_t *unit, const mobj_t *enemy) {
@@ -58,5 +61,8 @@ void Z_Alert(mobj_t *unit) {
     if ((leveltime + unit->id) % ALERT_PERIOD || !idle(unit)) return;
     mobj_t *enemy = squad_enemy(unit);
     if (!enemy) enemy = nearest_enemy(unit);
-    if (enemy) unit->attack.target = enemy;
+    if (enemy) {
+        unit->z.board = 0;
+        unit->attack.target = enemy;
+    }
 }

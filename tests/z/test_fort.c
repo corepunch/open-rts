@@ -94,6 +94,9 @@ static int test_player_takes_fort(void) {
     place(own, fixed2_add(entrance, (fixed2_t){20 * FIXED_ONE, 0}));
 
     int players = units_of(0);
+    /* The cliff detour crosses a territory flag. Keep this test about
+     * entering the fort, without stopping to cheer at an incidental capture. */
+    for (int i = 0; nth(MT_FLAG, -1, i); ++i) Z_SetTeam(nth(MT_FLAG, -1, i), 0);
     if (!P_MoveUnitTo(&level, grunt, entrance)) return fail("a path into the fort");
     for (int t = 0; t < 120 * RTS_TICRATE && !fort->z.hold; ++t)
         if (!tick(model, 1)) return fail("tick");

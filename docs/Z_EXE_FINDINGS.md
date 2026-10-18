@@ -146,6 +146,10 @@ seconds. `games/z/p_fort.c` ports the single player rule.
 
 ## The computer player
 
+Historical discovery notes; the marker/implementation distinction,
+vehicle search and per-level destinations are corrected and traced in
+[the 2026-10-18 findings](#cliffs-vehicle-objectives-and-per-level-computer-orders-2026-10-18).
+
 These routines name themselves but are not traced: `attack_that_fort`
 (0x9b26f), `send_robots_to_flags` (0x9b295), `recapture_lost_territories`
 (0x9b513) and `check_defend_territories` (0x9b64c). The forts also build
@@ -866,3 +870,175 @@ network-menu test). Headless `--check` and explicit LEVEL01 `--screenshot`
 passed with 512 terrain tiles and 99 units. The full level plus normal and
 stalled production popups were visually inspected. No diagnostic logging
 remains in the committed implementation.
+
+## Cliffs, vehicle objectives and per-level computer orders (2026-10-18)
+
+Static inspection of the retail files; the executable was not run. ZED.EXE
+SHA-256 remains
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`.
+LEVEL01/CPUPLR01.DAT SHA-256 is
+`f745ecbe54147c82fc1d6edd2251113d395949e00161f4197d0f5debf92f8a3b`.
+The Watcom DOS/4GW LE object mapping above still applies. `r2` remains
+unavailable on this host; the same scratch C LE-fixup loader and Apple's
+libLTO i386 disassembler were used. Ignored discovery output is under
+`reverse/z-ui/` (`ai-dis.txt`, `board-ai.txt`, `cliffs-dis.txt`,
+`cliff-impact.txt`, `cpu-refs.txt`, `level-fields.txt`). No Python tools or
+new external sources were used.
+
+### Confirmed: damageable cliff cells
+
+- Startup `0x4541e` gives each set mask bit an eight-byte runtime record:
+  tile-plane address at +0, cliff block index at +4, **durability copied
+  from block byte +5** at runtime +5, and an inside-tile random variant
+  at +6. `0x45321` counts the set cells to size this storage.
+- `0x8476c` is an explosion/impact handler, not a movement routine. Its
+  terrain checks at `0x8498f` and `0x84a26` classify terrain **1..6** and
+  **0x12** as cliff. At `0x84b4d` it calls `0x44e28` with the impact
+  strength in DL. It checks the impact cell and nearby cells; the
+  `0x14c05d` flag can suppress cliff damage. That flag's full weapon
+  dispatch has not been decoded.
+- `0x44e28` resolves a face cell upward to its top, finds that top's
+  runtime record among at most 5000 records, and subtracts DL from
+  the signed durability byte at `0x44e93`. **Zero survives; negative
+  destroys** (`jns` at `0x44e96`). It removes the runtime entry and clears
+  the corresponding native mask bit through `0x4589e`.
+- `0x4529a` replaces the top plus its height of face rows with rubble:
+  terrain **0x16**, keeping the bank bit. It chooses one of eight native
+  rubble entries with RNG & 7. `0x4592b` constructs these entries from
+  byte offsets at `0x1faa74`: 178,180,182,184,186,188,188,188, i.e.
+  cliff-table indices **89,90,91,92,93,94,94,94**. Assuming eight distinct
+  consecutive cliff-table entries would overrun the 95-word table.
+- The destruction path calls `0x44f11` to protect overlapping cliffs and
+  `0x45352` to redraw surviving edges and faces. It also spawns debris
+  through `0x450a5`. Native debris sprites and full overlap/shadow repair
+  are not yet ported.
+
+LEVEL01 has 153 set cliff cells: blocks 1 and 2 contain 77 and 76, each
+height 2 and durability 5. The stamped plane has 153 top cells and 120
+visible face cells. Across campaign levels 1..20, all occupied cliff
+blocks have height 2; durability is 5 in level 1 and 0 in levels 2..20.
+The static neutral robot row at `0x116c00` has **zero** for heights 1..6
+and face 0x12. It therefore cannot by itself describe ground movement
+through the stamped cliff volume. The earlier assumption that this one
+row was sufficient is **disproven**. This does not prove that native
+robots can never occupy an elevated surface: the complete native
+movement/height transition and path-node rules remain **unknown**.
+
+Implementation: the engine's planar blocked grid now excludes the native
+cliff terrain range as a whole for ground units, so path planning and
+collision agree. Each destructible mask bit is an ordinary stable mobj;
+its HP is durability + 1 to express the native zero-survives boundary.
+The native tile planes own its picture. Contextual orders on the top or
+face target that cell; robots require grenades, and shell/missile guns
+can attack it. Ordinary gunfire cannot target it. Grenade blast damage
+also reaches nearby cliff mobjs. Destruction edits the native mask and
+rubble ground, then rebuilds visible tiles, collision and nav inputs.
+Destroyed masks and rubble are saved and included in consistency checks.
+Z's loader now retains its map path, required by the shared save writer.
+
+Engine limits, explicitly **not claims of native equivalence**: direct
+weapons still use the existing engine instant-hit path; exact native
+projectile/cliff interception, damage strength selection and per-weapon
+suppression are unported. Rebuild uses the existing deterministic network
+seed 0x3039 and rerolls equivalent interior tiles; rubble selection uses
+that same fixed seed locally. It does not retain the native per-cell
+random variant, and rebuilt shadows follow the current stamp routine.
+The engine's existing weapon damage and grenade blast weights remain the
+authoritative port balance until native dispatch is traced completely.
+
+### Confirmed: the computer does more than take flags
+
+The strings previously listed as routine addresses are **inline debug
+markers**, not the strategic implementations. The dispatcher around
+`0x9b1e3` calls:
+
+| Marker | Implementation |
+|---|---|
+| attack_that_fort (`0x9b26f`) | `0x99086` |
+| send_robots_to_flags (`0x9b295`) | `0x9b816` |
+| aggressive_opponent (`0x9b3fc`) | `0x98d58` |
+| check_CPU_player_units (`0x9b56e`) | `0x9cc83` |
+| check_units_homes (`0x9b59a`) | `0x9cb5e` |
+| check_for_repairable_vehicles (`0x9b5c1`) | `0x9c272` |
+
+`0x98d58` dispatches twelve further strategy passes, including `0x98ee1`.
+That pass considers robot classes 0,3,15,16 and calls `0x98f32` to find
+empty vehicles/guns. It enumerates 200 forty-byte world object records
+at `0x1c04d0`, rejects invalid/ineligible/reserved objects, recognizes
+native object types 5,8,21,22,23,24,25,29,31,33,35,37, checks the
+containing territory, and selects the nearest by squared distance.
+`0x99a69` checks existing computer task **5** for the same territory;
+`0x99074` records the territory and `0x99077` sets task 5 before sending
+an ordinary order through `0x475d5`. Territory byte +29 bit 0 bypasses
+a random gate; otherwise `0x98fe3` uses RNG & 1 to sometimes skip the
+candidate. These territorial eligibility/probability rules have not been
+ported as a complete strategic system.
+
+The computer keeps 240 task records of 22 bytes at `0x18d388`. Their
++17 task and +21 active byte are separate from the actual unit record.
+The corrected conclusion is that flags are one objective family among
+vehicle acquisition, fort assault, territorial defense/recapture,
+repairs and building/bridge responses. The old nearest-flag commander
+was an authored approximation, not behavior recovered from ZED.EXE.
+
+### Confirmed: CPUPLR contains per-level starting destinations
+
+`0x9d985` reads exactly **26** ten-byte records from CPUPLR +0x792,
+using **bit 0** of record byte +1 to enable a starting group. The previous
+27-record limit and any-nonzero test were incorrect; file length must not
+be used to include trailing settings as placements.
+
+`0x9d9c7` associates enabled records with computer tasks. A nonzero
+record **byte +7** selects territory **byte - 1**, stored as both the
+initial and destination territory; it sets task 0 and calls `0x9d42c`.
+That order routine derives its destination from territory flag coordinates,
+with special fort-territory destinations. LEVEL01's four enabled groups
+are 2,2,2,10 and their +7 values are **1,3,0,0**. LEVEL02 uses 2,4,0,0,0;
+LEVEL03 uses 0,0,3,4,5,1. Thus the level really does direct particular
+starting groups. Record bytes +6,+8,+9 remain **unknown**.
+
+CPUPLR +**0x89f** is also a strategic weight: `0x9882f`, `0x9cd3d` and
+`0x9d40d` multiply it by territory byte +9 and 16 for value/balance
+calculations. LEVEL01's tail +0x89f..0x8a3 is 10,2,11,10,10; level 2
+has 10,2,11,8,10. `0x9d7de` installs +0x8a0,+0x8a1,+0x8a3,+0x8a2
+in globals 0x103d79,0x103d7b,0x103d7d,0x103d81 respectively. Only
++0x8a2's production-speed meaning was previously fully decoded. The
+other settings' complete semantics and the intelligence-delay control
+are still **unknown**; no difficulty scaling was guessed from them.
+
+Implementation: starting groups retain +7 in mobj state and get their
+initial territory order. Computer robots choose reachable empty
+vehicles/guns and reserve them with their ordinary boarding orders;
+currently these reservations are per object, rather than native task
+records per territory. Idle remaining squad members can still take flags.
+Flags, forts and vehicles must be in the unit's reachable nav component.
+Computer marches/boarding can yield to nearby hostile units, and squads
+join a member's fight; human explicit travel/boarding is preserved.
+The existing authored notice radius and nearest-flag/fort scoring remain;
+this change does not claim a complete port of native strategic AI.
+
+### Verification and reproducibility
+
+Inspect relocated instructions at `0x4541e`, `0x44e28`, `0x4529a`,
+`0x4592b`, `0x8476c`, `0x98ee1`, `0x98f32`, `0x99a69`, `0x9d985`,
+`0x9d9c7`, `0x9d42c`, `0x9882f` and `0x9d7de`; compare the MAP mask
+blocks and CPUPLR placement/tail fields above. No retail execution is
+needed. Focused engine reproductions:
+
+```
+make build/bin/tests/z/test_cliffs build/bin/tests/z/test_commander
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_cliffs
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
+```
+
+These cover the 153 tops/120 faces, blocked collision, the exact
+zero-survives boundary, grenade spending/blast, tank damage, walkable
+rubble, intact/destroyed save restoration, initial territory destinations,
+exclusive vehicle assignments and boarding, hostile vehicle interception,
+flag/fort acquisition and squad retaliation. Capture/fort unit fixtures
+now isolate those rules from commander decisions and incidental flag
+cheering on a cliff detour. Full `make`, all 24 Z suites (network menu
+requires a local socket), smoke loads in all five worlds, and a native
+level-1 screenshot were checked. Temporary diagnostic logs printed cliff
+counts/blocked cells, placement destinations, boarding IDs and fort-entry
+route positions, and were removed after diagnosis.

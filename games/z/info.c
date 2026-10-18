@@ -73,6 +73,7 @@ const state_t states[NUMSTATES] = {
     /* The flag waves through four pictures, a step every second tick of
      * ZED.EXE's 70 Hz clock (0x19e81); that is drawn a little slower. */
     [S_FLAG] = { SPR_FLAG, 0, 4, 2, NULL, S_FLAG, 0, NULL },
+    [S_CLIFF] = { SPR_RSC, 0, 1, -1, NULL, S_CLIFF, 0, NULL },
     [S_GRENADE] = { SPR_RSC, Z_GRENADE_SPRITE, Z_GRENADE_FRAMES, 2, NULL, S_GRENADE, 0, NULL },
     /* It bursts on the first picture and burns out through the rest. */
     [S_GRENADE_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_Explode, S_GRENADE_SMOKE, 4, NULL },
@@ -108,6 +109,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
 #undef Z_UNIT
     [MT_FLAG] = { .doomednum = -1, .spawnstate = S_FLAG, .deathstate = S_NULL,
                   .xdeathstate = S_NULL, .flags = MF_RENDERABLE },
+    [MT_CLIFF] = { .doomednum = -1, .spawnstate = S_CLIFF, .spawnhealth = 1,
+                   .deathstate = S_NULL, .xdeathstate = S_NULL },
     [MT_GRENADE] = { .doomednum = -1, .spawnstate = S_GRENADE, .deathstate = S_GRENADE_BLAST,
                      .xdeathstate = S_GRENADE_BLAST, .damage = Z_GRENADE_DAMAGE,
                      .flags = MF_RENDERABLE | MF_MISSILE },

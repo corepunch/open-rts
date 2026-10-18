@@ -1,5 +1,20 @@
 # Reverse Engineering References
 
+### Z cliff damage and per-level computer orders (2026-10-18)
+
+- Local retail `data/Z/ZED.EXE`, campaign `LEVELnn.MAP` and
+  `CPUPLRnn.DAT`; static Watcom LE analysis with the existing scratch C
+  fixup loader and Apple libLTO disassembler because r2 is unavailable.
+  No retail execution or external reference was used.
+- `0x4541e`, `0x44e28`, `0x4529a` and `0x4592b` establish per-cell cliff
+  durability, the negative destruction threshold, mask removal and native
+  rubble indices. `0x98ee1`/`0x98f32` select empty vehicles and guns;
+  `0x9d985`/`0x9d9c7` read 26 starting records and their initial territory
+  at +7. Strategic weighting also reads CPUPLR +0x89f.
+  Fingerprints, exact evidence, corrected earlier assumptions, port limits
+  and regression commands are in
+  [Z cliff and computer findings](docs/Z_EXE_FINDINGS.md#cliffs-vehicle-objectives-and-per-level-computer-orders-2026-10-18).
+
 ### Z native robot and vehicle production times (2026-10-15)
 
 - Local retail `data/Z/ZED.EXE`, `ROBOTS.DAT`, `MULT.DAT` and
