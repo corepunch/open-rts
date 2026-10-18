@@ -1,4 +1,7 @@
 #include "z_local.h"
+#include "info.h"
+
+#include <string.h>
 
 /* Destructible cliffs. The map keeps them as twenty 138-byte blocks (u16 x,
  * y in pixels, the height in cells at +4, a 32x32 cell bitmask at +0xa, most
@@ -172,4 +175,118 @@ static void stamp(cliffs_t *c, const uint8_t *block) {
 void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world) {
     cliffs_t c = {tiles, attrs, blocks, cliff_tiles[world], 0x3039};
     for (int b = 0; b < BLOCKS; ++b) stamp(&c, blocks + b * BLOCK_SIZE);
+}
+
+/* Cliffs share Doom's stable mobj lifetime with other damageable things;
+ * their native tile plane owns the picture. Each mask bit has its own
+ * signed durability byte (ZED.EXE 0x4541e and 0x44e93). */
+int Z_LoadCliffs(void) {
+    const zmap_t *map = level.native_data;
+    int count = 0;
+    for (int b = 0; b < BLOCKS; ++b) {
+        const uint8_t *block = map->cliffs + b * BLOCK_SIZE;
+        ivec2_t origin = {read_u16_le(block) / Z_TILE, read_u16_le(block + 2) / Z_TILE};
+        for (int bit = 0; bit < 1024; ++bit) {
+            ivec2_t at = ivec2_add(origin, (ivec2_t){bit % 32, bit / 32});
+            if (!cell_bit(block, bit) || !L_Contains(&level, at.x, at.y)) continue;
+            mobj_t *mo = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(at), 0), MT_CLIFF);
+            if (!mo) continue;
+            Z_SetTeam(mo, Z_NEUTRAL);
+            mo->hp = mo->max_hp = block[5] + 1; /* Zero survives; negative destroys. */
+            mo->z.cliff_block = (uint8_t)b;
+            mo->z.cliff_bit = (uint16_t)bit;
+            count++;
+        }
+    }
+    return count;
+}
+
+void Z_CliffDamage(mobj_t *cliff) {
+    if (cliff->hp > 0) return;
+    zmap_t *map = level.native_data;
+    uint8_t *block = map->cliffs + cliff->z.cliff_block * BLOCK_SIZE;
+    int bit = cliff->z.cliff_bit;
+    block[10 + bit / 8] &= (uint8_t)~(0x80 >> (bit & 7));
+    ivec2_t at = fixed2_cell(fixed3_xy(cliff->core.position));
+    static const uint8_t rubble[8] = {89,90,91,92,93,94,94,94};
+    uint16_t seed = 0x3039;
+    /* 0x4529a replaces the top and its face with native rubble, terrain
+     * 0x16, before 0x45352 redraws the surviving mask. */
+    for (int y = at.y; y <= at.y + block[4] && y < Z_MAP_STRIDE; ++y) {
+        int i = y * Z_MAP_STRIDE + at.x;
+        uint16_t value = cliff_tiles[map->world][rubble[next_random(&seed) & 7]];
+        map->ground[i] = (uint8_t)value;
+        map->ground_attr[i] = (uint8_t)((value >> 8 & 0x80) | 0x16);
+    }
+    Z_RebuildCliffs(&level);
+}
+
+bool Z_CliffWeapon(const mobj_t *unit) {
+    if (Z_IsRobot(Z_UnitType(unit))) return unit->z.grenades > 0;
+    switch (unit->type_id) {
+    case MT_UNIT_LIGHT_GUN: case MT_UNIT_MED_TANK: case MT_UNIT_HEAVY_TANK:
+    case MT_UNIT_LIGHT_TANK: case MT_UNIT_M_MISSILE: case MT_UNIT_MISSILE_GUN:
+    case MT_UNIT_HOWITZER: return true;
+    default: return false;
+    }
+}
+
+bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {
+    zmap_t *map = level.native_data;
+    ivec2_t at = fixed2_cell(fixed3_xy(cmd->position));
+    if (!map || !L_Contains(&level, at.x, at.y)) return false;
+    int i = at.y * Z_MAP_STRIDE + at.x;
+    if ((map->terrain[i] & 0x7f) == 0x12) {
+        while (at.y > 0 && (map->terrain[at.y * Z_MAP_STRIDE + at.x] & 0x7f) == 0x12) at.y--;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || mo->type_id != MT_CLIFF || mo->remove || mo->hp <= 0 ||
+            !ivec2_equal(fixed2_cell(fixed3_xy(mo->core.position)), at)) continue;
+        for (int u = 0; u < count; ++u) {
+            mobj_t *unit = units[u];
+            if (!Z_CliffWeapon(unit) || !(unit->traits & MF_ATTACK)) continue;
+            P_ClearMove(unit);
+            unit->waypoints = (waypoints_t){0};
+            unit->z.board = 0;
+            unit->attack.target = mo;
+        }
+        return true;
+    }
+    return false;
+}
+
+size_t G_SaveExtraSize(void) {
+    const zmap_t *map = level.native_data;
+    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr);
+}
+
+void G_SaveExtra(void *out) {
+    const zmap_t *map = level.native_data;
+    uint8_t *p = out;
+    memcpy(p, map->cliffs, sizeof(map->cliffs)); p += sizeof(map->cliffs);
+    memcpy(p, map->ground, sizeof(map->ground)); p += sizeof(map->ground);
+    memcpy(p, map->ground_attr, sizeof(map->ground_attr));
+}
+
+bool G_LoadExtra(const void *data, size_t size) {
+    if (size != G_SaveExtraSize() || !level.native_data) return false;
+    zmap_t *map = level.native_data;
+    const uint8_t *p = data;
+    memcpy(map->cliffs, p, sizeof(map->cliffs)); p += sizeof(map->cliffs);
+    memcpy(map->ground, p, sizeof(map->ground)); p += sizeof(map->ground);
+    memcpy(map->ground_attr, p, sizeof(map->ground_attr));
+    Z_RebuildCliffs(&level);
+    return true;
+}
+
+uint32_t G_ConsistencyExtra(uint32_t hash) {
+    const zmap_t *map = level.native_data;
+    if (!map) return hash;
+    for (size_t i = 0; i < sizeof(map->cliffs); ++i) hash = G_HashValue(hash, map->cliffs[i]);
+    for (size_t i = 0; i < sizeof(map->ground); ++i) {
+        hash = G_HashValue(hash, map->ground[i]);
+        hash = G_HashValue(hash, map->ground_attr[i]);
+    }
+    return hash;
 }

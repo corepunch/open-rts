@@ -47,7 +47,7 @@ static bool within(const mobj_t *a, const mobj_t *b, int reach) {
 
 /* 0x61022 lets robots into every vehicle but the truck and into all four
  * guns; one that has a driver is a unit and takes nobody. */
-static bool enterable(const mobj_t *mo) {
+bool Z_Enterable(const mobj_t *mo) {
     int t = Z_UnitType(mo);
     return live(mo) && t >= 0 && !Z_IsRobot(t) && t != MT_UNIT_TRUCK - MT_UNITS &&
            mo->team == Z_NEUTRAL && !mo->z.driver;
@@ -90,6 +90,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     Z_SetTeam(vehicle, robot->team);
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
     vehicle->z.squad = robot->z.squad;
+    vehicle->z.home = robot->z.home;
     P_ClearMove(vehicle);
     vehicle->movement.goal = fixed3_xy(vehicle->core.position);
     vehicle->movement.order_arrived = true;
@@ -100,7 +101,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
 
 static void tick_boarding(mobj_t *robot) {
     mobj_t *vehicle = P_MobjById(robot->z.board);
-    if (!enterable(vehicle)) {
+    if (!Z_Enterable(vehicle)) {
         robot->z.board = 0;
         return;
     }
@@ -156,11 +157,14 @@ static bool throws_at(const mobj_t *robot, const mobj_t *target) {
     int t = robot_type(robot), u = Z_UnitType(target);
     if (t < 0 || !robot->z.grenades || !live(target)) return false;
     if (structure(target)) return true;
+    if (target->type_id == MT_CLIFF) return true;
     return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS;
 }
 
 /* Forts are taken from inside, never shot (p_fort.c). */
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
+    if (victim->type_id == MT_CLIFF)
+        return attacker->attack.target == victim && Z_CliffWeapon(attacker);
     if (victim->type_id == MT_FORT) return false;
     return !structure(victim) || robot_type(attacker) < 0 || attacker->z.grenades;
 }
@@ -261,7 +265,7 @@ void Z_Ticker(void) {
 /* Robots told onto an empty vehicle or gun walk to it and the first there
  * gets in (0x61022); the rest stop beside it. */
 bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target) {
-    if (!enterable(target)) return false;
+    if (!Z_Enterable(target)) return false;
     bool any = false;
     for (int i = 0; i < count; ++i) {
         if (robot_type(units[i]) < 0) continue;

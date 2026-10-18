@@ -10,7 +10,10 @@ static int fail(const char *msg) { return rts_fail("z capture", msg); }
 static RtsGameModel *load(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = { .data_root = "data/Z" };
-    if (model && rts_game_model_load(model, &config)) return model;
+    if (model && rts_game_model_load(model, &config)) {
+        P_AiSetFeatures(rts_game_model_ai(model), 0);
+        return model;
+    }
     rts_game_model_destroy(model);
     return NULL;
 }

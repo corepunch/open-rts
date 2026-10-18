@@ -97,6 +97,7 @@ typedef enum {
     S_GRENADE,
     S_GRENADE_BLAST,
     S_GRENADE_SMOKE,
+    S_CLIFF,
     NUMSTATES
 } statenum_t;
 
@@ -117,6 +118,7 @@ enum {
     MT_UNITS_END,
     MT_FLAG = MT_UNITS_END, /* A territory's flag (draw_flags, 0x2aade). */
     MT_GRENADE,             /* A thrown grenade in flight. */
+    MT_CLIFF,
     NUMMOBJTYPES
 };
 

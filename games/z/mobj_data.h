@@ -9,12 +9,15 @@
 #define MOBJ_GAME_FIELDS struct { \
     uint32_t board; \
     uint32_t rating; /* Native building +0x0c production technology. */ \
+    uint16_t cliff_bit; \
+    uint8_t cliff_block, home; \
     uint8_t driver, squad, grenades, territory; \
     int hold; \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
+    HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
 } while (0)
 
 #endif

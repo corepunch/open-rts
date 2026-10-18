@@ -12,6 +12,7 @@ void G_ClockEnd(int64_t before, int64_t clock) {
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
     (void)player;
+    if (cmd->order == TC_ORDER && Z_CliffOrder(cmd, units, count)) return true;
     switch (cmd->order) {
     case TC_ATTACK:
         return Z_BoardOrder(units, count, target);

@@ -39,6 +39,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
 #undef Z_UNIT
     {.id = MT_FLAG, .name = "Flag", .sprite_name = "FLAG", .traits = MF_RENDERABLE | MF_NOBLOCKMAP,
      .max_hp = 1},
+    {.id = MT_CLIFF, .name = "Cliff", .max_hp = 1, .damage_action = Z_CliffDamage},
     /* Lobbed along an arc; it bursts where it lands, hurting what stands
      * within a cell (0x8476c; the radius and falloff are authored). */
     {.id = MT_GRENADE, .name = "Grenade", .sprite_name = "SPRITES.RSC",
