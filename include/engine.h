@@ -74,6 +74,11 @@ static inline ivec2_t ivec2_sub(ivec2_t a, ivec2_t b) {
     return (ivec2_t){ a.x - b.x, a.y - b.y };
 }
 
+static inline int64_t ivec2_distance_squared64(ivec2_t a, ivec2_t b) {
+    ivec2_t d = ivec2_sub(a, b);
+    return (int64_t)d.x * d.x + (int64_t)d.y * d.y;
+}
+
 static inline ivec2_t ivec2_scale(ivec2_t v, int scale) {
     return (ivec2_t){ v.x * scale, v.y * scale };
 }
@@ -2644,6 +2649,7 @@ bool R_CanAfford(int owner, const StaticProductDefinition *product);
 typedef struct AiGameInterface {
     const char *name;
     uint32_t features; /* AiFeature mask the game enables. */
+    int think_interval_tics; /* Zero uses AI_THINK_INTERVAL_TICKS. */
     /* AiLevel of an owner; AI_LEVEL_NONE owners are skipped entirely. */
     int  (*player_level)(const level_t *map, int owner);
     /* Optional override of the owner's goal ladder. NULL builds it from

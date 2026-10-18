@@ -13,6 +13,7 @@ enum {
     Z_MAX_GROUPS = 12, /* Starting groups per level, LEVELS.DAT +0x55 */
     Z_MAX_PLACED = 26, /* CPUPLRnn.DAT +0x792, ZED.EXE 0x9d985. */
     Z_CLIFF_BLOCKS = 20, Z_CLIFF_BYTES = 138,
+    Z_AI_TASKS = 240,
 };
 
 /* ZED.EXE turns a turret an eighth of a circle toward its target, then
@@ -31,7 +32,38 @@ typedef struct {
     int team;
     ivec2_t flag;     /* Cell; whoever reaches it takes the territory. */
     uint8_t options;  /* +0x18: bits 0 and 1 leave it without a flag. */
+    uint8_t importance; /* CPUPLR territory +9. */
 } zterritory_t;
+
+/* Native computer records at 0x18d388, with native pointers represented
+ * by territory indices and stable mobj IDs. These own orders, not units. */
+typedef struct {
+    uint32_t unit, boarding, execute_at;
+    fixed2_t order;
+    int32_t strength;
+    int16_t current, target, destination;
+    int8_t task;
+    uint8_t squad, flags, idle;
+    int8_t retry;
+    bool pending;
+} zaitask_t;
+
+typedef struct {
+    uint16_t strength[4];
+    int32_t value;
+    uint8_t owner, flags, known;
+} zai_territory_t;
+
+typedef struct {
+    zaitask_t tasks[Z_AI_TASKS];
+    zai_territory_t territories[Z_MAX_TERRITORIES];
+    uint32_t clock, order_tail;
+    int last_tic, fraction, delay;
+    int32_t total, mobile, imbalance;
+    uint16_t seed;
+    uint8_t intelligence, phase;
+    bool initialized;
+} zai_t;
 
 /* What a level keeps of its native files after G_DoLoadLevel. */
 typedef struct {
@@ -40,6 +72,8 @@ typedef struct {
     int number;                      /* LEVELS.DAT entry */
     int world;                       /* LEVELS.DAT +0x6e */
     int production_speed;            /* CPUPLR +0x8a2, ZED.EXE 0x103d81. */
+    struct { uint8_t intelligence, allocation, territory_weight; } computer;
+    zai_t ai;
     uint8_t groups[Z_MAX_GROUPS];    /* ROBOTS.DAT groups, 0xff ends */
     zplaced_t placed[Z_MAX_PLACED];
     int placed_count;
@@ -52,6 +86,7 @@ typedef struct {
     uint8_t cliffs[Z_CLIFF_BLOCKS * Z_CLIFF_BYTES + 1];
     blob_t rsc;                      /* SPRITES.RSC */
     blob_t roster;                   /* ROBOTS.DAT, including production requirements. */
+    blob_t weights, square_roots;    /* MULT.DAT and WARDATA.PAC/SQROOT.BIN. */
 } zmap_t;
 
 bool Z_LoadLevel(const char *map_path, level_t *out);
@@ -65,6 +100,7 @@ bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre);
 /* Weapon type of a unit's mobj type, or -1. */
 int Z_UnitType(const mobj_t *mo);
 int Z_GroupType(const zmap_t *map, int group, int member);
+int Z_GroupRobot(const zmap_t *map, int group, int member);
 bool Z_IsRobot(int t);
 /* Size of a SPRITES.RSC picture; false for a bad index or file. */
 bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);
@@ -84,12 +120,21 @@ void Z_FortUnharmed(mobj_t *fort);
 bool Z_FortEntrance(const mobj_t *fort, fixed2_t *at);
 /* p_alert.c: an idle unit takes its squad's enemy or one close by. */
 void Z_Alert(mobj_t *unit);
+uint16_t Z_NextRandom(uint16_t *seed);
+int Z_AIEstimate(int value, int intelligence);
+int Z_AIUnitValue(const mobj_t *unit);
+int Z_AIEmptyValue(const mobj_t *unit);
+ivec2_t Z_AITopLeft(const mobj_t *unit);
+int Z_AITerritory(const zmap_t *map, fixed2_t at);
+uint32_t Z_AIRank(int value, ivec2_t from, ivec2_t to, const uint8_t *roots);
+int Z_AIMobileBudget(int total, int imbalance, int home_human, int home_computer, int allocation);
 
 /* p_prod.c: what forts and factories make (products.inc). */
 int Z_ProductId(int type); /* Catalog ui_id of a unit's mobj type. */
 bool Z_Producer(const mobj_t *mo);
 int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, int max);
 const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer);
+const StaticProductDefinition *Z_AIProduct(const mobj_t *producer);
 bool Z_GunReady(const mobj_t *producer);
 int Z_ProductTimeMs(const mobj_t *producer, const StaticProductDefinition *product);
 bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell);

@@ -1,5 +1,21 @@
 # Reverse Engineering References
 
+### Z native AI scoring and campaign intelligence (2026-10-18)
+
+- Local retail `data/Z/ZED.EXE`, `ROBOTS.DAT`, `MULT.DAT`,
+  `WARDATA.PAC/SQROOT.BIN` and all twenty campaign CPUPLR files. Same
+  relocated LE / Apple libLTO static-analysis fallback as below; no new
+  external source or retail execution.
+- `0x98280..0x986dc` establish intelligence adjustment, pure estimate error,
+  live squad valuation and per-member strength accumulation;
+  `0x987a4..0x988fa`, `0x9a1dd..0x9a33c` establish territory value and
+  CPU-fort-relative distance ranking. `0x97fad`/`0x9b679` allocate reserves,
+  `0x980e2`/`0x9d700` schedule orders and heavy passes, and
+  `0x9e235..0x9e49c` select initial manufacturing products. Confirmed
+  formulas, corrected hypotheses (fort mapping, vehicle +35), radar stride
+  behavior, campaign values and unported defense/repair paths are in
+  [Z native AI findings](docs/Z_EXE_FINDINGS.md#native-computer-scoring-and-campaign-settings-2026-10-18).
+
 ### Z cliff damage and per-level computer orders (2026-10-18)
 
 - Local retail `data/Z/ZED.EXE`, campaign `LEVELnn.MAP` and

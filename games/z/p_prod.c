@@ -55,6 +55,50 @@ int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, i
     return count;
 }
 
+/* Initial selectors 0x9e275/0x9e2b5/0x9e2f5. 0x9e33a walks increasing
+ * technology, ascending group ID, exchanging the last pair if the new
+ * group's stock is lower. Forts then sort the whole list by stock. */
+const StaticProductDefinition *Z_AIProduct(const mobj_t *producer) {
+    const zmap_t *map = level.native_data;
+    int list[CATALOG], count = 0, human = 0, cpu = 0;
+    static const uint8_t robots[] = {0,3,15,16,17,18};
+    static const uint8_t tanks[] = {1,7,8,9,11};
+    const uint8_t *classes = producer->type_id == MT_TANK_FACTORY ? tanks : robots;
+    int class_count = producer->type_id == MT_TANK_FACTORY ? sizeof(tanks) : sizeof(robots);
+    int field = producer->type_id == MT_TANK_FACTORY ? 73 : producer->type_id == MT_ROBOT_FACTORY ? 74 : 75;
+    build();
+    for (unsigned tech = 1; tech * 1000 <= producer->z.rating && tech <= 255; ++tech)
+        for (int group = 0; group < 32; ++group)
+            for (int i = 0; i < CATALOG; ++i) {
+                if (catalog[i].group != group || !G_ModelProducerHasTech(producer, &products[i]) ||
+                    map->roster.bytes[18000 + group * 82 + field] != tech) continue;
+                int t = Z_GroupType(map, group, 0), cls = map->roster.bytes[22000 + t * 42 + 1];
+                bool allowed = false;
+                for (int c = 0; c < class_count; ++c) allowed |= cls == classes[c];
+                if (producer->type_id == MT_FORT)
+                    for (size_t c = 0; c < sizeof(tanks); ++c) allowed |= cls == tanks[c];
+                if (!allowed) continue;
+                list[count++] = i;
+                if (count > 1 && catalog[list[count - 1]].stock < catalog[list[count - 2]].stock) {
+                    int swap = list[count - 1]; list[count - 1] = list[count - 2]; list[count - 2] = swap;
+                }
+            }
+    if (!count) return NULL;
+    if (producer->type_id == MT_FORT)
+        for (int i = 1; i < count; ++i)
+            for (int j = i; j && catalog[list[j]].stock < catalog[list[j - 1]].stock; --j) {
+                int swap = list[j]; list[j] = list[j - 1]; list[j - 1] = swap;
+            }
+    for (int t = 0; t < map->territory_count; ++t) {
+        human += map->ai.territories[t].strength[0];
+        cpu += map->ai.territories[t].strength[1];
+    }
+    int index = human + cpu ? cpu * count / (human + cpu) : 0;
+    index += index / 4;
+    if (index >= count) index = count - 1;
+    return &products[list[index]];
+}
+
 const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer) {
     if (!producer || !producer->production || producer->production->queue_count <= 0) return NULL;
     return G_ModelProductByClassType(NULL, producer->production->product_class,
@@ -312,6 +356,10 @@ void G_ProductionBegin(int elapsed_ms) {
  * the next one of the same kind at once. */
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     int t = Z_UnitType(unit);
+    const zmap_t *map = level.native_data;
+    for (int i = 0; map && i < CATALOG; ++i)
+        if (unit->type_id == catalog[i].type)
+            unit->z.robot = (uint16_t)(Z_GroupRobot(map, catalog[i].group, 0) + 1);
     if (t >= 0 && !Z_IsRobot(t)) unit->z.driver = (uint8_t)(MT_UNIT_GRUNT - MT_UNITS + 1);
     unit->core.angle = P_PointToAngle(0, FIXED_ONE);
     mobj_t *factory = producer ? P_MobjById(producer->id) : NULL;
