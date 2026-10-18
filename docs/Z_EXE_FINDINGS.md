@@ -1417,3 +1417,180 @@ Headless `--check` succeeds on LEVEL01/05/09/13/17, covering desert,
 volcano, arctic, jungle and city. A LEVEL01 BMP was rendered and visually
 checked after conversion to a temporary PNG; no converted runtime asset
 or new image dependency was introduced.
+
+## Retail main menu and multiplayer setup (2026-10-18)
+
+### Provenance and method
+
+The installed executable is still the Watcom DOS/4GW LE image described at
+this document's start. SHA-256 fingerprints for this investigation:
+
+- `ZED.EXE`: `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`
+- `WARDATA.PAC`: `3a17f168f1b7231be3bac5d324afb1311451aeb4da224b998754851aa035e035`
+- `SPRITES.RSC`: `56b79cfaf489bdbcd9fd658c583d01ed31dd4e7b8575042b4fd8c216a3f5f6e8`
+
+No retail execution or web reference was used. The previous temporary radare2
+installation recorded in REFERENCES.md was absent, and no `r2` was available
+on PATH. The existing ignored C LE/fixup reader `reverse/z-ui/examine.c` and
+Apple LLVM's disassembler were the local fallback. Both code addresses and
+fixed-up data pointers below use the relocated image addresses. Focused dumps
+are `frontend.txt`, `main-draw.txt`, `multi-render.txt`, `multi-maps.txt` and
+`net-render.txt` under ignored `reverse/z-ui/`; the durable conclusions follow.
+
+### Confirmed image layout (and correction)
+
+`WARDATA.PAC/MANE.LBM`, `MULTI.LBM`, `NET.LBM`, `HSCORE.LBM`, `DIRECT.LBM`
+and `MODEM.LBM` all decode to 320x200 pictures with their own 256-entry CMAP.
+These six members are **uncompressed eight-plane FORM ILBM**, 64850 bytes
+apiece, not the chunky compressed PBM previously claimed in Z_FORMATS.md.
+Their BMHD has width 320, height 200, planes 8, masking 0 and compression 0;
+the BODY stores eight 40-byte planes for each scanline. This disproves the
+old blanket PBM/ByteRun1 description; it must not be used to decode this UI.
+
+The complete backgrounds already contain labels, frame furniture and dim
+buttons. RSC overlays contain substantial surrounding background, rather than
+just glyphs or button faces. Draw them at their native origins and restrict
+input with independent hitboxes. Sampling artwork to guess a button's bounds,
+recoloring states or centering overlays by their image dimensions is wrong.
+Native font sprites must use the active screen's CMAP, as must the overlays.
+The main-menu CMAP applied to multiplayer artwork produces visible noise.
+
+### Confirmed main-menu controls
+
+Entry `0x51d1e` sets the front-end clip to 320x200. `0x56896` loads
+`MANE.LBM` through the string at `0x1487c9`; `0x565e0` is the shared screen
+loader. `0x549c4` draws the base menu sprite 1129 at (16,24), and the two
+Quit pieces 1134/1135 at (24,128)/(144,128).
+
+The English control table begins at `0x146232`: each record contains four
+u16 bounds (inclusive), then hover, left-click and secondary function pointers.
+The labels are New Game, Load Game, Replay Level, Multi-Player and High Score.
+
+| Control | Inclusive native bounds | Highlight image and origin |
+|---|---|---|
+| New Game | (35,58)..(100,69) | 1118 at (16,24) |
+| Load Game | (35,72)..(98,83) | 1119 at (16,32) |
+| Replay Level | (34,86)..(105,99) | 1120 at (16,48) |
+| Multi-Player | (34,99)..(108,113) | 1121 at (16,64) |
+| High Score | (34,113)..(91,127) | 1133 at (16,80) |
+| Quit | (56,154)..(121,168) | hover: 2869/2870 at (24,136)/(144,136); pressed: 1136/1137 at (24,128)/(144,128) |
+
+The one-pixel shared edges in the original table are retained through table
+order. `0x54b58` onwards sets hover flags; `0x54c3c` onwards commits clicks.
+`0x52062` dispatches New Game; `0x520a3` dispatches High Score;
+`0x520b0` Load Game; `0x520bd` Replay Level. New Game reaches `0x566b1`,
+then the level-start path `0x569c6`. The main menu is not a fabricated
+"Single Player / Multiplayer" splash: New Game is its single-player entry.
+`0x521be` loads `HSCORE.LBM`, with the dismissible OK control in the artwork.
+
+`0x57002` draws the proportional front-end font: ASCII 33..90 starts at RSC
+830; lower-case a..z starts at 888. `0x571c2` selects this bright set, and
+`0x571d1` selects the corresponding set 84 images later. The 91 advance
+bytes for ASCII 32..122 live at `0x11cc84`; space is explicitly handled as
+an eight-pixel advance. They are committed as C literals in the menu loader.
+This is different from the HUD's CHARS.BIN font.
+
+Space needs a valid blank font cell as well as its advance. Leaving its
+glyph index at -1 made the shared text renderer substitute `?` (confirmed by
+temporary logging: index -1, advance 8, 84 cells). The menu font now has an
+empty 85th cell for space, reproducing the native advance-without-drawing
+branch; the regression test checks that it is valid and has no pixels.
+
+### Confirmed multiplayer layout and map lists
+
+`0x52411` loads `MULTI.LBM` via the pointer at `0x11cd66`; `0x52abf`
+draws it. The English multiplayer controls start at `0x146310`. The four
+rows are Link Type, Level Name, Number of Players and Player Name.
+The displayed values start at (200,63), (200,79), (200,97), (200,112).
+The map arrow hitboxes are (281,79)..(288,90) and (291,79)..(298,90);
+player-count arrows are the same x ranges at y=95..106. The count wraps
+2..4 in `0x55663`/`0x556f6`. Cancel, Configure, and Connect have bounds
+(18,168)..(60,182), (114,168)..(167,182), (223,168)..(274,182).
+Disconnect uses (205,144)..(274,159).
+
+Base overlays: 3591/3592 at (24,24)/(144,24); Cancel 3597 at (0,152);
+Configure 3768 at (80,136); connection-status pieces 6647/6648 at
+(168,120)/(288,120); Connect 3762/3763 at (168,144)/(288,144); arrow-bank
+3598 at (264,48); value-field 6653 at (197,59). The instruction at
+`0x52b18` places 3769 at (80,256), outside the 200-line clip. It is **not**
+evidence to move a right-hand cap to a guessed onscreen position. The
+background already supplies the normal right-hand art.
+
+Map and player hover overlays are 3040/3041 at (24,32)/(144,32), and
+3042/3043 at (24,48)/(144,48). Their arrows have their own authored images
+3602..3607. Cancel hover/pressed are 3595/3596. Connect hover is
+3764/3765 at (184,144)/(304,144), pressed is 3766/3767 at those origins.
+After connecting, `0x52f67` draws disabled Start 6912/6913 at
+(176,144)/(296,144); enabled hover is 6640/6641, pressed is 6642/6643.
+
+`0x55134` indexes three pointer-selected eight-byte map lists at `0x11cd35`.
+The lists themselves start at `0x11cd41`, `0x11cd49`, `0x11cd51`:
+
+- Two players: levels **26, 27, 28, 29, 31, 32**.
+- Three players: levels **40, 38, 22, 37, 39**.
+- Four players: levels **33, 35, 24, 23, 21**.
+
+0xff terminates each list. `0x53102` uses the same selection and indexes
+LEVELS.DAT with a 240-byte stride to display the level name. These are the
+16 maps exposed by the implementation, in native order. Showing every map
+folder or silently using LEVEL01 for multiplayer would be incorrect.
+`0x53247` opens `NET.LBM`, whose native options are Battle Group and Network
+Type. Native serial/modem/IPX/NetBIOS transports are separate paths, not the
+engine's UDP LAN protocol.
+
+### Implementation boundary and remaining unknowns
+
+The game's menu is an ordinary `menuitem_t` table driven by the engine,
+following Dark Colony's ownership and lifecycle. Native RSC pictures are
+loaded into menu-owned sheets, outside gameplay sprite IDs. IFF decoding and
+integer scaling/centering live in the engine; no PNG asset, generated icon,
+Python tool, native-format renderer callback or extra input loop was added.
+The fit/letterbox policy is an explicit engine presentation choice, not a
+claim about DOS pixel aspect correction.
+
+New Game starts LEVEL01. Replay exposes installed campaign levels 1..20;
+retail progress-based unlocking remains **unknown** and is not claimed.
+Load Game reads verified open-rts `.sav` metadata in the user's Z directory
+and schedules the driver's existing load operation; retail SAVE*.Z conversion
+is not implemented. The High Scores background can be opened and dismissed;
+retail HISC.DAT score rows remain undecoded and are not synthesized.
+In-level Escape retains the existing engine Resume/Quit panel; native pause
+and option screens are outside this front-end change.
+
+The Multiplayer screen retains the retail fields, art and map/count lists.
+Connect hosts the selected map and becomes Start when the roster fills;
+Disconnect and Escape cancel the session. **Engine adaptation:** Configure
+opens LAN discovery in the same native shell, with the level field offering
+discovered host names and Connect joining the chosen game. Configure refreshes
+discovery there. The transport, setup publication, peer count, launch and
+error handling use `hud/m_net.c`; no retail modem, IPX or NetBIOS protocol is
+emulated. Tests verify menu-driven host launches at all three player counts;
+this is not evidence that Z's multiplayer simulation already matches retail.
+
+### Reproduction
+
+```sh
+make
+make build/bin/tests/z/test_menu build/bin/tests/z/test_menu_items build/bin/tests/z/test_images
+env SDL_VIDEODRIVER=dummy OPEN_RTS_Z_UI_SHOTS=/private/tmp build/bin/tests/z/test_menu
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_menu_items
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_images
+env SDL_VIDEODRIVER=dummy build/bin/z --check
+env SDL_VIDEODRIVER=dummy build/bin/z --screenshot /private/tmp/z-main-menu.bmp
+# Explicit map bypasses the front end:
+env SDL_VIDEODRIVER=dummy build/bin/z data/Z LEVEL01/LEVEL01.MAP --screenshot /private/tmp/z-level01.bmp
+```
+
+The menu test checks original background/palette pixels at 2x, 4x rendering,
+retail mouse hitboxes, keyboard navigation, replay/load selection, pause
+resumption, LAN browsing, cancellation and multi-process host launch. The
+shared image test covers uncompressed/ByteRun1 planar and chunky rows,
+padding, palettes, truncated files, oversized chunks and runs crossing rows.
+
+Final verification: full `make -j8` completed without warnings; all **24 Z
+suites passed**. Native menu tests exercised save selection, LAN discovery
+and joining, and two-, three- and four-player host launch. Dark Colony's
+`test_menu --quick` and shared menu-item suite passed. Z `--check` loaded
+252 objects and 512 terrain tiles. The game-generated main-menu screenshot
+and the menu-test multiplayer, Start, join-browser and 4x views were inspected,
+including a final rerun after correcting the blank space glyph.

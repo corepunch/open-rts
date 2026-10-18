@@ -4,7 +4,46 @@
 #include "t_local.h"
 #define CHECK(c) RTS_CHECK(c, "engine images", #c)
 
+static int lbm(void) {
+    for (int planar = 0; planar < 2; ++planar) for (int compressed = 0; compressed < 2; ++compressed) {
+        uint8_t data[840] = {0};
+        memcpy(data, "FORM", 4); memcpy(data + 8, planar ? "ILBM" : "PBM ", 4);
+        memcpy(data + 12, "BMHD", 4); data[19] = 20;
+        data[21] = planar ? 1 : 3; data[23] = planar ? 1 : 2;
+        data[28] = 8; data[30] = compressed;
+        memcpy(data + 40, "CMAP", 4); data[46] = 3;
+        data[48 + 133 * 3] = 217;
+        memcpy(data + 816, "BODY", 4);
+        int length = planar ? 16 : compressed ? 4 : 8;
+        data[823] = length;
+        if (planar) {
+            for (int p = 0; p < 8; ++p) {
+                if (compressed) data[824 + 2 * p] = 255;
+                data[824 + 2 * p + (compressed ? 1 : 0)] = (133 & (1 << p)) ? 128 : 0;
+            }
+        } else if (compressed) memcpy(data + 824, (uint8_t[]){253,7,253,8}, 4);
+        else memcpy(data + 824, (uint8_t[]){7,7,7,99,8,8,8,99}, 8);
+        size_t size = 824 + length;
+        data[6] = (size - 8) >> 8; data[7] = size - 8;
+        blob_t file = {.bytes = data, .size = size}; spritesheet_t sheet = {0};
+        CHECK(W_DecodeLBM(&file, &sheet));
+        CHECK(sheet.frame_size.w == (planar ? 1 : 3) && sheet.frame_size.h == (planar ? 1 : 2));
+        CHECK(sheet.lumps[0].indices[0] == (planar ? 133 : 7));
+        CHECK(sheet.palette[133] == 0xffd90000u);
+        if (!planar) CHECK(sheet.lumps[0].indices[5] == 8);
+        R_FreeSprite(&sheet);
+        --file.size; CHECK(!W_DecodeLBM(&file, &sheet)); ++file.size;
+        if (compressed) {
+            data[824] = 129; /* A repeat may not cross a plane/scanline. */
+            CHECK(!W_DecodeLBM(&file, &sheet));
+        }
+        data[822] = 127; CHECK(!W_DecodeLBM(&file, &sheet));
+    }
+    return 0;
+}
+
 int main(void) {
+    RTS_RUN(lbm());
     char directory[] = "/private/tmp/open-rts-image-test-XXXXXX";
     CHECK(mkdtemp(directory));
     char pcx_path[256], bmp_path[256];
@@ -37,6 +76,6 @@ int main(void) {
     unlink(pcx_path);
     unlink(bmp_path);
     rmdir(directory);
-    puts("PASS: engine BMP/PCX pixels, palettes, padded rows and invalid runs");
+    puts("PASS: engine BMP/PCX/ILBM/PBM pixels, palettes, padded rows, chunks and invalid runs");
     return 0;
 }

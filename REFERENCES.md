@@ -2449,6 +2449,18 @@ reference code or converted assets were incorporated. The audit, superseded
 assumptions, intentional differences and remaining gaps are preserved in
 `docs/SC_EXE_FINDINGS.md`, "Stargus HUD availability and interaction audit".
 
+### Z retail front end (2026-10-18)
+
+- Local retail `data/Z/ZED.EXE`, `WARDATA.PAC`, `SPRITES.RSC` and
+  `LEVELS.DAT` establish the main-menu and multiplayer layouts, native states,
+  proportional fonts, and the 16 multiplayer maps grouped by player count.
+  The old temporary radare2 prefix was unavailable; this investigation used
+  the existing ignored C LE/fixup reader with Apple's LLVM disassembler.
+  No retail execution, external screenshot, or web source was used.
+- Detailed addresses, fingerprints, the correction from PBM to planar ILBM,
+  reproducible tests, and remaining unknowns are recorded in
+  [Z front-end findings](docs/Z_EXE_FINDINGS.md#retail-main-menu-and-multiplayer-setup-2026-10-18).
+
 ## Android build dependencies
 
 - [SDL 2.32.10](https://github.com/libsdl-org/SDL/tree/release-2.32.10),
