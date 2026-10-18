@@ -4,216 +4,258 @@
 #include "../../games/z/info.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static int fail(const char *msg) { return rts_fail("z commander", msg); }
-
-enum { CPU = 1 };
-
 static RtsGameModel *load(void) {
     RtsGameModel *model = rts_game_model_create();
-    RtsGameModelConfig config = { .data_root = "data/Z" };
+    RtsGameModelConfig config = {.data_root = "data/Z"};
     if (model && rts_game_model_load(model, &config)) return model;
     rts_game_model_destroy(model);
     return NULL;
 }
-
-/* The `n`th live thing of `type` (any team when team < 0). */
 static mobj_t *nth(int type, int team, int n) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
-        if (th->function == P_MobjThinker && mo->type_id == type && mo->hp > 0 &&
+        if (th->function == P_MobjThinker && mo->type_id == type && !mo->remove && mo->hp > 0 &&
             (team < 0 || mo->team == team) && n-- == 0) return mo;
     }
     return NULL;
 }
-
-static int flags_of(int team) {
-    int n = 0;
-    while (nth(MT_FLAG, team, n)) n++;
-    return n;
-}
-
 static bool tick(RtsGameModel *model, int tics) {
     RtsRenderSnapshot snap;
-    for (int t = 0; t < tics; ++t)
-        if (!rts_tick(model, &snap)) return false;
+    for (int t = 0; t < tics; ++t) if (!rts_tick(model, &snap)) return false;
     return true;
 }
-
-/* Nobody fights, so the tests watch only what the commander does. */
-static void disarm(void) {
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
-        ((mobj_t *)th)->traits &= ~MF_ATTACK;
-}
-
-static int test_native_destinations(void) {
-    RtsGameModel *model = load();
-    if (!model) return fail("load native destinations");
-    disarm();
-    zmap_t *map = level.native_data;
-    if (map->placed_count != 4 || map->placed[0].home != 1 || map->placed[1].home != 3)
-        return fail("CPUPLR01 initial territory assignments");
-    /* Leave only the initial territory orders available. */
-    for (int i = 0; nth(MT_UNIT_JEEP, Z_NEUTRAL, i); ++i)
-        nth(MT_UNIT_JEEP, Z_NEUTRAL, i)->z.driver = 1;
-    mobj_t *lead = nth(MT_UNIT_GRUNT, CPU, 0);
-    int squad = lead->z.squad;
-    fixed2_t goal = fixed2_cell_center(map->territories[0].flag);
+static void think(int tics) {
+    leveltime += tics;
     mobjlist_t list = P_ListMobjs();
-    G_AiInterface()->tactics(&level, CPU, list.items, list.count);
+    G_AiInterface()->tactics(&level, 1, list.items, list.count);
     P_FreeMobjList(&list);
-    bool exact = false;
-    for (int i = 0; nth(MT_UNIT_GRUNT, CPU, i); ++i) {
-        const mobj_t *mo = nth(MT_UNIT_GRUNT, CPU, i);
-        if (mo->z.squad == squad)
-            exact |= !mo->z.home && fixed2_distance_squared64(mo->movement.goal, goal) == 0;
+}
+static zaitask_t *task_of(const mobj_t *mo) {
+    zmap_t *map = level.native_data;
+    for (int i = 0; i < Z_AI_TASKS; ++i)
+        if (map->ai.tasks[i].unit == mo->id) return &map->ai.tasks[i];
+    return NULL;
+}
+static int test_settings(void) {
+    static const uint8_t intelligence[] = {55,50,60,60,70,70,75,70,75,80,90,80,95,85,90,90,110,127,127,127};
+    static const uint8_t allocation[] = {40,50,40,50,50,50,40,40,40,40,40,50,50,50,40,40,30,40,40,50};
+    for (int n = 1; n <= 20; ++n) {
+        char path[128];
+        snprintf(path, sizeof(path), "data/Z/LEVEL%02d/LEVEL%02d.MAP", n, n);
+        level_t map = {0};
+        if (!Z_LoadLevel(path, &map)) return fail("campaign settings load");
+        const zmap_t *native = map.native_data;
+        if (native->computer.intelligence != intelligence[n - 1] ||
+            native->computer.allocation != allocation[n - 1] ||
+            native->computer.territory_weight != (n == 14 || n == 16 ? 0 : 10))
+            return fail("CPUPLR per-level intelligence/allocation/importance weight");
+        P_FreeLevel(&map);
     }
-    if (!exact) return fail("computer follows its map-authored initial flag destination");
-    puts("PASS: z CPUPLR starting destinations reach the commander");
+    puts("PASS: z all 20 campaign intelligence, reserve and territory settings");
+    return 0;
+}
+static int test_arithmetic(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("valuation load");
+    zmap_t *map = level.native_data;
+    mobj_t *grunt = nth(MT_UNIT_GRUNT, 1, 0), *gun = nth(MT_UNIT_GATLING, 0, 0),
+           *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
+    if (!grunt || !gun || !jeep) return fail("native valuation fixtures");
+    /* 0x9830b vectors; Grunt = floor(1045/6) + floor(270*2/3).
+     * Gatling's multiply-before-divide gives 1469, not stock's 1468. */
+    if (Z_AIEstimate(1000,127) != 1000 || Z_AIEstimate(1000,55) != 969 ||
+        Z_AIEstimate(1000,110) != 993 || Z_AIEstimate(32768,55) != 47360 ||
+        Z_AIEstimate(65535,0) != 45568)
+        return fail("perfect intelligence and repeatable errors");
+    if (Z_AIUnitValue(grunt) != 354 || Z_AIUnitValue(gun) != 1469 || Z_AIEmptyValue(jeep) != 1138)
+        return fail("native combat valuations differ from manufacturing stock");
+    grunt->z.grenades = 1;
+    if (Z_AIUnitValue(grunt) != 379) return fail("grenade adds native value 25");
+    grunt->z.grenades = 0;
+    grunt->hp /= 2;
+    if (Z_AIUnitValue(grunt) != 349) return fail("live health affects perceived strength");
+    if (Z_AIRank(0x10010,(ivec2_t){0,0},(ivec2_t){8,0},map->square_roots.bytes) != 0x10008 ||
+        Z_AIRank(-1,(ivec2_t){0},(ivec2_t){0},map->square_roots.bytes))
+        return fail("native distance adjusts the low word only");
+    if (Z_AIMobileBudget(10000,0,0,0,40) != 6000 ||
+        Z_AIMobileBudget(10000,1000,3000,1000,40) != 5200 ||
+        Z_AIMobileBudget(10000,0,4000,8000,40) != 6000 ||
+        Z_AIMobileBudget(10000,0,9000,12000,50) != 1000)
+        return fail("native reserve formula and home strength correction");
+    puts("PASS: z native integer ranking and reserve arithmetic");
     rts_game_model_destroy(model);
     return 0;
 }
 
+static int test_factory_choice(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("production choice load");
+    zmap_t *map = level.native_data;
+    mobj_t *fort = nth(MT_FORT,1,0);
+    map->ai.territories[0].strength[0] = 10000;
+    map->ai.territories[0].strength[1] = 1;
+    const StaticProductDefinition *choice = Z_AIProduct(fort);
+    if (!choice || choice->product_type != MT_UNIT_GRUNT) return fail("weaker army chooses low stock product");
+    map->ai.territories[0].strength[0] = 1;
+    map->ai.territories[0].strength[1] = 10000;
+    choice = Z_AIProduct(fort);
+    if (!choice || choice->product_type != MT_UNIT_JEEP) return fail("stronger army chooses higher stock product");
+    puts("PASS: z native initial manufacturing selector follows army strength, not unit counts");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_intelligence_and_radar(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("observation load");
+    zmap_t *map = level.native_data;
+    /* One CPU territory and two human territories: neutral land does not
+     * dilute the native <=40 percent test. 55 + floor(55/2) = 82. */
+    map->territories[0].team = 0;
+    think(0); think(1);
+    if (map->ai.intelligence != 82 || map->ai.delay != 89)
+        return fail("territory disadvantage raises effective intelligence and changes cadence");
+    for (int t = 0; t < map->territory_count; ++t) map->territories[t].team = 1;
+    for (int i = 0; nth(MT_FLAG,-1,i); ++i) Z_SetTeam(nth(MT_FLAG,-1,i),1);
+    mobj_t *radar = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[4].flag),0),MT_RADAR);
+    if (!radar) return fail("radar fixture");
+    Z_SetTeam(radar,1);
+    radar->z.building = 2;
+    think(1);
+    if (map->ai.intelligence != 55 || map->ai.territories[4].known)
+        return fail("native radar scan skips an unaligned building slot");
+    radar->z.building = 1;
+    think(1);
+    if (!map->ai.territories[4].known || map->ai.territories[1].known || map->ai.territories[7].known)
+        return fail("aligned radar slot reveals ordinary territories, excluding forts");
+    puts("PASS: z native intelligence boost and radar observation rules");
+    rts_game_model_destroy(model);
+    return 0;
+}
+static int test_initial_and_save(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("initial orders load");
+    mobj_t *lead = nth(MT_UNIT_GRUNT, 1, 0);
+    uint32_t id = lead->id;
+    think(0);
+    zmap_t *map = level.native_data;
+    zaitask_t *task = task_of(lead);
+    if (!task || task->target != 0 || !task->pending || task->execute_at != 144 || P_HasMoveOrder(lead))
+        return fail("CPUPLR destination is queued with intelligence delay");
+    if (!tick(model, 2 * RTS_TICRATE)) return fail("delay tick");
+    task = task_of(P_MobjById(id));
+    if (!task || !task->pending || P_HasMoveOrder(P_MobjById(id))) return fail("command waits 144 native frames");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t hash = G_ConsistencyExtra(0);
+    zai_t saved = map->ai;
+    if (!G_SaveGameBlob(&save, &size, "Native AI", &app, rts_game_model_ai(model), &hud)) return fail("save AI queue");
+    if (!tick(model, RTS_TICRATE)) return fail("execute queued order");
+    if (task_of(P_MobjById(id))->pending || !P_HasMoveOrder(P_MobjById(id))) return fail("queued command executes");
+    if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("restore AI queue");
+    free(save);
+    map = level.native_data;
+    if (memcmp(&saved, &map->ai, sizeof(saved)) || G_ConsistencyExtra(0) != hash) return fail("restore timers, seed, scores and tasks");
+    if (!tick(model, RTS_TICRATE) || task_of(P_MobjById(id))->pending || !P_HasMoveOrder(P_MobjById(id)))
+        return fail("restored delayed command executes identically");
+    puts("PASS: z initial native destinations, 70 Hz command delays and saved strategy state");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+/* One squad can reach two neutral territories. Give the farther one a
+ * native importance value; nearest-flag behavior would pick the other. */
+static mobj_t *scenario(void) {
+    zmap_t *map = level.native_data;
+    mobj_t *lead = nth(MT_UNIT_GRUNT, 1, 0);
+    int squad = lead->z.squad;
+    map->computer.intelligence = 127;
+    map->computer.allocation = 0;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = 1;
+        map->territories[t].importance = t == 8 ? 200 : 0;
+    }
+    map->territories[2].team = map->territories[8].team = Z_NEUTRAL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        mo->traits &= ~MF_ATTACK;
+        mo->z.home = 0;
+        if (mo->type_id > MT_FORT && mo->type_id < MT_UNITS) mo->z.rating = 0;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 3 || mo->z.territory == 9 ? Z_NEUTRAL : 1);
+        if (Z_Enterable(mo)) mo->z.driver = 1;
+        if (mo->team == 1 && Z_UnitType(mo) >= 0 && mo->z.squad != squad) mo->hp = 0;
+    }
+    return lead;
+}
+static int test_scores(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("strategic ranking load");
+    mobj_t *lead = scenario();
+    think(0); think(1);
+    zmap_t *map = level.native_data;
+    zaitask_t *task = task_of(lead);
+    if (!task || task->target != 8 || map->ai.territories[8].value != 32000 ||
+        map->ai.territories[2].value != 0) return fail("farther valuable territory outranks nearby empty flag");
+    int human = 0;
+    for (int i = 0; nth(MT_UNIT_GRUNT, 0, i); ++i) human++;
+    int unit = Z_AIUnitValue(nth(MT_UNIT_GRUNT,0,0));
+    if (map->ai.territories[7].strength[0] != human * 3 * unit + Z_AIUnitValue(nth(MT_UNIT_GATLING,0,0)))
+        return fail("native strength includes squad sum once per member");
+    puts("PASS: z native value ranking supersedes nearest flag; native squad accounting retained");
+    rts_game_model_destroy(model);
+    return 0;
+}
+static int test_strength_gate(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("force gate load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    /* Make every other territory friendly and make the desired enemy too
+     * strong: importance adds to the native required-force calculation. */
+    map->territories[2].team = 1;
+    for (int i = 0; nth(MT_FLAG,-1,i); ++i)
+        if (nth(MT_FLAG,-1,i)->z.territory == 3) Z_SetTeam(nth(MT_FLAG,-1,i),1);
+    mobj_t *enemy = nth(MT_UNIT_GRUNT,0,0);
+    enemy->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag),0);
+    think(0); think(1);
+    if (task_of(lead)->task != -1 || task_of(lead)->pending || P_HasMoveOrder(lead))
+        return fail("insufficient combined force leaves target unassigned");
+    puts("PASS: z strategic orders require enough squad strength");
+    rts_game_model_destroy(model);
+    return 0;
+}
 static int test_vehicles(void) {
     RtsGameModel *model = load();
-    if (!model) return fail("load empty vehicle objectives");
-    disarm();
-    mobjlist_t list = P_ListMobjs();
-    G_AiInterface()->tactics(&level, CPU, list.items, list.count);
-    int assigned = 0;
-    for (int i = 0; i < list.count; ++i) {
-        mobj_t *robot = list.items[i];
-        if (robot->owner != CPU || !robot->z.board) continue;
-        mobj_t *vehicle = P_MobjById(robot->z.board);
-        if (!Z_Enterable(vehicle)) return fail("board order names an empty vehicle");
-        for (int j = 0; j < i; ++j)
-            if (list.items[j]->owner == CPU && list.items[j]->z.board == robot->z.board)
-                return fail("each vehicle has one assigned robot");
+    if (!model) return fail("vehicle task load");
+    zmap_t *map = level.native_data;
+    map->computer.intelligence = 127; map->computer.allocation = 0;
+    for (int t=0;t<map->territory_count;t++) map->territories[t].team = 1;
+    for (thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        mo->z.home=0; mo->traits &= ~MF_ATTACK;
+        if(mo->type_id==MT_FLAG) Z_SetTeam(mo,1);
+    }
+    think(0); think(1);
+    int assigned=0;
+    for(int i=0;i<Z_AI_TASKS;i++) {
+        const zaitask_t *task=&map->ai.tasks[i];
+        if(!task->boarding) continue;
         assigned++;
+        for(int j=0;j<i;j++)
+            if(map->ai.tasks[j].boarding && map->ai.tasks[j].target==task->target)
+                return fail("one vehicle reservation per territory");
     }
-    P_FreeMobjList(&list);
-    if (assigned != 4) return fail("four robots reserve the four reachable Jeeps");
-    if (!tick(model, 60 * RTS_TICRATE) || !nth(MT_UNIT_JEEP, CPU, 0)) return fail("computer boards a Jeep");
-    puts("PASS: z computer robots reserve and board empty vehicles");
+    if(!assigned) return fail("native vehicle discovery makes a boarding task");
+    if(!tick(model,60*RTS_TICRATE) || !nth(MT_UNIT_JEEP,1,0)) return fail("computer boards native vehicle target");
+    puts("PASS: z native squad vehicle discovery and territory reservations lead to boarding");
     rts_game_model_destroy(model);
     return 0;
 }
-
-static int test_marching_combat(void) {
-    RtsGameModel *model = load();
-    if (!model) return fail("load marching combat");
-    mobj_t *robot = nth(MT_UNIT_GRUNT, CPU, 0), *enemy = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
-    if (!robot || !enemy) return fail("robot and Jeep");
-    Z_SetTeam(enemy, 0);
-    enemy->core.position = fixed3_add(robot->core.position, (fixed3_t){2 * FIXED_ONE,0,0});
-    robot->z.board = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0)->id;
-    P_MoveUnitTo(&level, robot, FIXED2_LIT(40,40));
-    leveltime = (RTS_TICRATE / 3 - robot->id % (RTS_TICRATE / 3)) % (RTS_TICRATE / 3);
-    Z_Alert(robot);
-    if (robot->attack.target != enemy || robot->z.board) return fail("marching computer engages a nearby hostile vehicle");
-    puts("PASS: z nearby hostile vehicles interrupt computer objectives");
-    rts_game_model_destroy(model);
-    return 0;
-}
-
-static int test_unreachable_vehicle(void) {
-    RtsGameModel *model = load();
-    if (!model) return fail("load unreachable vehicle objective");
-    disarm();
-    mobj_t *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0), *cliff = nth(MT_CLIFF, Z_NEUTRAL, 0);
-    if (!jeep || !cliff) return fail("empty Jeep and cliff");
-    jeep->core.position = cliff->core.position;
-    mobjlist_t list = P_ListMobjs();
-    for (int i = 0; i < list.count; ++i)
-        if (list.items[i] != jeep && Z_Enterable(list.items[i])) list.items[i]->z.driver = 1;
-    G_AiInterface()->tactics(&level, CPU, list.items, list.count);
-    for (int i = 0; i < list.count; ++i)
-        if (list.items[i]->owner == CPU && list.items[i]->z.board == jeep->id)
-            return fail("computer cannot reserve a vehicle inside a cliff");
-    P_FreeMobjList(&list);
-    puts("PASS: z computer skips vehicles beyond blocked terrain");
-    rts_game_model_destroy(model);
-    return 0;
-}
-
-/* Left alone, the computer's squads walk out and take every flag, the
- * player's included; nobody of the player's is sent anywhere. */
-static int test_takes_flags(void) {
-    RtsGameModel *model = load();
-    if (!model) return fail("load level 1");
-    disarm();
-    int flags = flags_of(-1), before = flags_of(CPU);
-    if (before >= flags || !flags_of(0)) return fail("flags to take, one of them the player's");
-    if (!tick(model, 5 * RTS_TICRATE)) return fail("tick");
-    for (int i = 0; nth(MT_UNIT_GRUNT, CPU, i); ++i)
-        if (!P_HasMoveOrder(nth(MT_UNIT_GRUNT, CPU, i))) return fail("every computer Grunt is on its way");
-    for (int i = 0; nth(MT_UNIT_GRUNT, 0, i); ++i)
-        if (P_HasMoveOrder(nth(MT_UNIT_GRUNT, 0, i))) return fail("the player's Grunts wait for orders");
-    for (int t = 0; t < 85 * RTS_TICRATE; ++t) {
-        if (!tick(model, 1)) return fail("tick");
-        const zmap_t *map = level.native_data;
-        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-            const mobj_t *mo = (const mobj_t *)th;
-            if (th->function != P_MobjThinker || mo->remove || mo->hp <= 0 ||
-                !(mo->traits & MF_MOBILE) || Z_UnitType(mo) < 0) continue;
-            ivec2_t at = fixed2_cell(fixed3_xy(mo->core.position));
-            int terrain = map->terrain[at.y * Z_MAP_STRIDE + at.x] & 127;
-            if ((terrain >= 1 && terrain <= 6) || terrain == 18) return fail("marching units never enter cliffs");
-        }
-    }
-    if (flags_of(CPU) != flags) return fail("the computer holds every flag");
-    printf("PASS: z the computer takes all %d flags (held %d)\n", flags, before);
-    rts_game_model_destroy(model);
-    return 0;
-}
-
-/* With every flag its own, the computer walks into the player's fort,
- * which falls, and the player loses. */
-static int test_takes_fort(void) {
-    RtsGameModel *model = load();
-    if (!model) return fail("load for a fort");
-    disarm();
-    for (int i = 0; nth(MT_FLAG, -1, i); ++i) Z_SetTeam(nth(MT_FLAG, -1, i), CPU);
-    mobj_t *fort = nth(MT_FORT, 0, 0);
-    if (!fort) return fail("the player's fort");
-    for (int t = 0; t < 180 * RTS_TICRATE && !fort->z.hold; t += RTS_TICRATE)
-        if (!tick(model, RTS_TICRATE)) return fail("tick");
-    if (!fort->z.hold) return fail("a computer unit gets inside the player's fort");
-    if (!tick(model, 6 * RTS_TICRATE) || G_LevelOutcome() != OUTCOME_DEFEAT) return fail("the player loses");
-    puts("PASS: z the computer walks into the player's fort and wins");
-    rts_game_model_destroy(model);
-    return 0;
-}
-
-/* A squad on its way to a flag turns as one on whoever shoots a member. */
-static int test_rally(void) {
-    RtsGameModel *model = load();
-    if (!model) return fail("load for a rally");
-    mobj_t *mark = nth(MT_UNIT_GRUNT, CPU, 0), *enemy = nth(MT_UNIT_GRUNT, 0, 0);
-    if (!mark || !enemy || !mark->z.squad) return fail("a computer squad and a player's Grunt");
-    int squad = mark->z.squad;
-    disarm();
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *mo = (mobj_t *)th;
-        if (mo->z.squad == squad && mo->team == CPU && mo->info) mo->traits |= mo->info->traits & MF_ATTACK;
-    }
-    if (!tick(model, RTS_TICRATE)) return fail("tick");
-    if (!P_HasMoveOrder(mark)) return fail("the squad is on its way");
-    enemy->hp = enemy->max_hp = 10000;
-    P_DamageMobj(mark, enemy, 1);
-    if (!tick(model, RTS_TICRATE / 2)) return fail("tick");
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *mo = (mobj_t *)th;
-        if (th->function == P_MobjThinker && mo->hp > 0 && mo->z.squad == squad && mo->team == CPU &&
-            mo->attack.target != enemy) return fail("the whole squad turns on the shooter");
-    }
-    puts("PASS: z a marching squad turns on whoever shoots one of it");
-    rts_game_model_destroy(model);
-    return 0;
-}
-
 int main(void) {
-    if (test_native_destinations() || test_vehicles() || test_unreachable_vehicle() || test_marching_combat() ||
-        test_takes_flags() || test_takes_fort() || test_rally()) return 1;
-    return 0;
+    return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
+           test_initial_and_save() || test_scores() ||
+           test_strength_gate() || test_vehicles();
 }

@@ -10,7 +10,9 @@
     uint32_t board; \
     uint32_t rating; /* Native building +0x0c production technology. */ \
     uint16_t cliff_bit; \
+    uint16_t robot; /* ROBOTS.DAT record + 1, retained for native AI valuation. */ \
     uint8_t cliff_block, home; \
+    uint8_t object, building; /* Native OBJECT type / BUILD record index + 1. */ \
     uint8_t driver, squad, grenades, territory; \
     int hold; \
 } z;
@@ -18,6 +20,7 @@
     HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
+    HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); \
 } while (0)
 
 #endif

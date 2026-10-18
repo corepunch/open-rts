@@ -1042,3 +1042,378 @@ requires a local socket), smoke loads in all five worlds, and a native
 level-1 screenshot were checked. Temporary diagnostic logs printed cliff
 counts/blocked cells, placement destinations, boarding IDs and fort-entry
 route positions, and were removed after diagnosis.
+
+## Native computer scoring and campaign settings (2026-10-18)
+
+This continues the cliff/commander investigation above. It supersedes that
+section's **authored nearest-flag/fort commander and per-object vehicle
+reservations**, and resolves the intelligence/allocation fields previously
+left unknown. It is a port of the scoring and initial offensive-allocation
+paths, not a claim that every branch of the retail commander is implemented.
+
+The executable is the same local DOS/4GW LE image, SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`.
+Addresses below are relocated image addresses. Radare2 remains unavailable
+in this environment; the existing scratch C LE relocation loader and Apple's
+libLTO i386 disassembler were used, checking instructions and relocated
+pointers rather than assigning meaning from strings alone. No retail code
+was executed and no external implementation was substituted. MULT.DAT's
+fingerprint is recorded above. The existing native PAC decoder reads
+WARDATA.PAC's **SQROOT.BIN**; entries 0,4,1023 are **1,2,32**. Its first
+1024 bytes are nonzero divisors, rather than a floating-point square-root
+calculation reconstructed by the engine.
+
+### Confirmed settings and clock
+
+`0x9d7de` calls the intelligence adjustment and initializes phase to 1;
+`0x9b1e4` recalculates intelligence before every commander dispatch.
+CPUPLR fields and their runtime destinations are:
+
+| File offset | Runtime | Meaning established by consumers |
+|---|---|---|
+| 0x780 | 0x18d25c | Base intelligence, 0..127 |
+| 0x781 | 0x18d25d | Reserve/allocation percentage in `0x9b679` |
+| 0x89f | 0x18d37b | Multiplier for territory importance byte +9 |
+| 0x8a0 | 0x103d79 | Default robot/fort manufacturing group (loaded by `0x410cd`, `0x41662`, `0x26e44`) |
+| 0x8a1 | 0x103d7b | Default tank manufacturing group (`0x42785`, `0x26e5b`) |
+| 0x8a2 | 0x103d81 | Previously verified production speed |
+| 0x8a3 | 0x103d7d | Loaded setting; complete consumers/meaning still unknown |
+
+Calling +0x781 "aggression" from the file alone was a disproven hypothesis:
+**lower values make more of the army available for offensive tasks**.
+The campaign pairs (intelligence, allocation), read from all 20 files, are:
+
+```
+01 55,40   02 50,50   03 60,40   04 60,50   05 70,50
+06 70,50   07 75,40   08 70,40   09 75,40   10 80,40
+11 90,40   12 80,50   13 95,50   14 85,50   15 90,40
+16 90,40   17 110,30  18 127,40  19 127,40  20 127,50
+```
+
+All twenty have zero at 0x782..0x791. Territory weight is 10 except
+LEVEL14 and LEVEL16, which use **0**. LEVEL01's CPU fort territory has
+importance **40**; its other territories have zero importance.
+
+`0x98280` computes `floor(100 * cpu_owned / (cpu_owned + human_owned))`;
+neutral territories do **not** enter that denominator. At a share <=40,
+`0x982c8` uses `min(127, base + floor(base/2))`, otherwise base.
+`0x9d700` sets the heavy-pass countdown to `2*(127-I)`. Dispatch decrements
+it and runs the heavy passes when it becomes negative, so their cadence is
+**2*(127-I)+1 native frames**, not a guessed think interval. The existing
+70 Hz PIT/main-loop evidence applies. Between heavy passes the native
+commander still updates territory membership, local flag/fort orders,
+observed force and some scores.
+
+`0x980e2..0x98136` queues group orders with delay `2*(127-I)+tail`, then
+increases tail by `127-I`. `0x9821d` replaces an existing queued order for
+the same group; `0x9b335` resets tail at each heavy batch. The engine keeps
+one pending order in each task and a native-frame clock, with an integer
+70/RTS_TICRATE accumulator. The AI scheduler's new optional interval is 1
+for Z and retains the existing default for other games. No millisecond
+rounding or extra authored reaction delay is introduced.
+
+### Confirmed estimates and strength values
+
+`0x9830b` is a **pure estimate of a value**, not a new draw from the global
+random stream. It saves the global 16-bit seed, temporarily replaces it
+with the input's low word, draws twice through `0x70d37`, and restores the
+seed. Intelligence 127 returns the input unchanged. Otherwise:
+
+```
+seed = low16(value)
+sign = next(seed) & 0x100
+roll = next(seed) / (floor(65535/(128-I)) + 1)
+delta = floor(uint64(roll) * uint32(value) / 128)
+estimate = value + (sign ? -delta : delta)
+```
+
+The inclusive random-range helper is `0x70e0e`. Known vectors are
+`estimate(1000,55)=969`, `(1000,110)=993`, `(32768,55)=47360`,
+`(65535,0)=45568`. `0x9836a` applies a second estimate when a territory's
++29 bit 0 is clear; radar-known territories skip this second distortion.
+
+`0x983e0` differs from manufacturing-stock evaluator `0x98acc`.
+The relocated robot and weapon weight-pointer tables at
+**0x152a78/0x152ac4** select rows inside the file loaded to **0x152b10**.
+Robot-row byte offsets are:
+
+```
+7,14,21,7,21,21,21,14,14,14,14,14,14,14,14,7,7,7,7
+```
+
+Weapon-row offsets are:
+
+```
+1c,3b,5a,79,c2,e1,100,11f,13e,15d,a3,17c,19b,1ba,1d9,1f8,217,236,255
+```
+
+The class index comes from runtime unit +157. Weight 255 omits a field
+**and its denominator**; weight zero still counts in the denominator.
+The seven human fields are runtime offsets **0,2,4,7,58,62,119**.
+Spawn `0x5108c` maps ROBOTS record +28,+29,+30,+31,+32,+36 to these,
+but **+29 supplies both runtime +2 and +62**. Weapon initialization replaces
+runtime +4 with twice the byte-sized `(u16 weapon[2] >> 3)`.
+Copying production's +33 into combat's +62 would be wrong.
+
+For robot bodies (runtime categories 0,3,15,16), ten weapon fields are
+`{8*range_byte,0,0,damage99,field117,field118,0,0,0,0}`. The six absent
+properties still count when their weights are not 255. For vehicles/guns
+these fields read the separate 44-byte driven-body record:
+
+| Index | Body offset | Initial weapon source |
+|---|---|---|
+| 0 | +5, times 8 | low8(u16 +2 >>3), times 8 |
+| 1 | +7 | +4 |
+| 2 | u16 +8 | 25 * +5 |
+| 3 | +6 | +32 |
+| 4 | +32 | +34 |
+| 5 | +33 | +35 |
+| 6 | +38, times 8 | +36, times 8 |
+| 7 | +35 | +37 |
+| 8 | +36 | +38 |
+| 9 | +37 | +39 |
+
+**Disproven during this trace:** an incomplete read suggested body +35
+retained the allocator's 255 fill. `0x50c23..0x50c26` explicitly copies
+weapon +37 there. Boarding also copies object +27 to body +35 at
+`0x63a73..0x63a76`. Neither path justifies an artificial 255 property.
+`0x63a1d` copies the other empty-object properties into a driven body;
+`0x6375a` dispatches vehicle initialization, rather than initializing a
+world object. The earlier `0x5969f` lead is an object/effect allocation path,
+not the weapon-property copier; that copier is **0x4a28a**.
+
+The human component is the integer average. The weapon component
+**multiplies by weapon weight +10 before dividing by the field count**
+(`0x985fe..0x98613`), then adds **25 per runtime +149 grenade**.
+A full-health level-1 Grunt is `floor(1045/6)+floor(270*2/3)=354`;
+Gatling is **1469**, distinct from manufacturing stock **1468**.
+Borrowing the stock literals for combat would change the algorithm.
+The engine retains the native robot-record identity through spawning,
+manufacturing and boarding. AI reads this metadata; gameplay HP, damage,
+speed and cooldown remain the existing C configuration. Current body HP
+is mapped proportionally to native initial health for scoring. Dynamic
+APC driver-weapon swaps, native experience/stat changes and every combat
+mutation of the raw retail fields are not yet represented by engine mobjs.
+
+Empty objects use `0x9890b`, not a fake driver. Native object -> weight class:
+`5->2,8->1,35->12,26->8,29->9,31->10,21->4,22->5,23->6,33->11,24->7`.
+Its ten fields read object offsets
+`{8*14,16,25*15,17,24,25,8*30,27,28,29}`; `0x4a28a` populates these from
+weapon +2,+4,+5,+32,+34,+35,+36,+37,+38,+39. Unrecognized object types
+return their type from the early exit (including Fire Truck 37), rather
+than going through weights. A level-1 crewless Jeep has value **1138**.
+
+`0x986dc` clears per-territory four-team u16 strength, visits every live
+unit except Fire Truck/native type 38 and Crane/type 36, sums its entire
+squad (`0x98376`), estimates it, locates that member's territory, applies
+the radar-dependent second estimate, caps at 65535 and adds as a **word**.
+The surprising result is confirmed by the loop: **the whole squad's value
+is added once per member**, not once per squad. Nine full-health human
+Grunts in three squads contribute **9558**, not 3186; the initial Gatling
+adds 1469, giving 11027 at perfect intelligence. Task strength is instead
+an estimate of the squad sum once (`0x9b69c`).
+
+### Confirmed territory scoring and allocation
+
+The 30-byte territory's runtime fields include strength words at +10..16,
+flag coordinates +18/+19, scratch group index +20, alert +21,
+lockout word +22, flags +24, signed value dword +25, radar bits +29.
+`0x9d8a7` retains flags &0xe0, then sets bit 1 for the **first fort**,
+bit 2 for the **second fort**, and other fort bits for multiplayer.
+`0x4ec1c..0x4ed7c` establishes the mapping: first fort is the upper CPU
+fort (blue entrance 0x15), second is the lower human fort (0x14).
+An initial interpretation of bit 1 as the human fort was disproven by
+this scan. `0x9da79` supplies building-related flag 0x10.
+
+`0x987a4` refreshes a territory's value when phase bit 0 is set or radar
+knows it. The heavy dispatcher toggles phase after its first observation
+pass and can observe again. Value is:
+
+```
+sign_extend16(-human_strength)
++ 16 * CPUPLR[0x89f] * territory.importance
++ sum(estimate(empty_object_value))
++ sum(estimate(building_rating_at_+12))
+```
+
+Building and object membership use native top-left coordinates via
+`0x9dc69`, with exclusive rectangle maxima. Buildings are included
+regardless of side. Ratings are not inferred from sprite size or maker type.
+
+`0x9a1dd` builds non-CPU, unreserved candidates (`0x9a33c`), adjusts distance,
+stably sorts descending (`0x9a263`), then clears low six score bits
+(`0x9a245`). Distance (`0x9a29c`) is from the **CPU fort territory's flag**,
+not the acting unit or the player's fort. It subtracts flag coordinates
+as signed bytes, arithmetic-shifts by 2, sums their squares, clamps the
+index to 1023, and divides **only the score's low word** by SQROOT.BIN[index].
+The high word survives unchanged. Emergency global 0x209d9e suppresses
+that adjustment; emergency retargeting is not ported here.
+
+The initial attack pass `0x99e3f` visits the whole stable ranking; it does
+not call the tie selector for its first target. `0x9a126` gathers usable,
+offensive, idle tasks, excluding tasks 4/5. `0x9a080` stably orders squads
+by squared top-left distance to that territory. Required force (`0x9a054`)
+is **1 when human strength is zero**, otherwise
+**2*human_strength + territory_value**. `0x9a027` requires enough combined
+squad strength before ordering any of that pool. `0x99f46` writes task 0
+and the target/destination territory. Existing tasks 0,2,1,3 reserve their
+destinations. Territory flag 0x20 bars vehicles; 0x40 bars Jeeps/APCs and
+requires grenades for ordinary robot classes (the native APC cargo-class-3
+exception remains unsupported). This replaces the former 8-cell fort
+penalty and 2-cell proximity claim heuristic; neither was a retail rule.
+
+The mobile budget (`0x97f50`, `0x97fad`, `0x9b679`) uses these integer rules:
+
+```
+if cpu_total >= human_total and cpu_total != 0:
+    imbalance = (cpu_total-human_total)/2
+# Otherwise the native absolute imbalance global is retained.
+if home_human >= home_cpu:
+    diff = home_human-home_cpu
+    credit = diff + trunc((allocation-50)*diff/100)
+    deficit = 0
+else:
+    credit = 0
+    deficit = home_human + trunc((allocation-50)*home_human/100)
+mobile = clamp(total*(100-allocation)/100 + imbalance-credit, 0,total)
+mobile = max(0, mobile-max(0, deficit-(total-mobile)))
+```
+
+Home strengths sum territories with **asset flag 0x80**, not just a fort
+(`0x98060`). Guns contribute to the candidate total only in first-fort
+territory and cannot receive the usable/mobile flag. Native group order
+is retained; a group gets flag 16 only if its strength fits the remaining
+budget and flag 8 says usable. A group that does not fit is skipped, without
+stopping examination of later groups. `0x9b9a1` returns former offensive
+tasks 0..3 to CPU-fort staging when they become reserves; task 1 already
+in the player's fort territory is kept offensive. That state and the
+retained absolute imbalance are saved rather than recomputed from a
+nearest-target order after loading.
+
+### Confirmed observations and local objectives
+
+`0x9b9fd` clears known bits and checks CPU-owned radar stations. Radius is
+`min(25, building_effective_rate)*80` pixels; effective rate uses the
+previously verified health/territory production formula. Flag **origins**
+are compared by squared distance and fort territories are excluded.
+There is a native stride peculiarity: `0x9ba72` advances **30 bytes**, while
+`0x9ba0c..0x9ba1e` only accepts alignment to an **80-byte** building.
+Within 35 iterations, only original building slots **0,3,6,9,12** are
+examined as actual buildings. The runtime preserves original BUILD slot
+identity and this checked behavior, instead of silently scanning all radars.
+
+`0x98ee1/0x98f32` sends usable, offensive, idle robots to the nearest
+eligible empty object. Discovery outside radar coverage requires a set
+random low bit. A **task 5 reserves the entire territory** (`0x99a69`),
+not each object independently. Native eligibility compares object IDs
+5,8,21..25,29,31,33,35,37 and checks object flags; its list notably names
+25 rather than 26. The engine applies that ID list together with its shared
+Z_Enterable admission rule, which rejects wrecks; exact dead-object/property
+flag handling remains a fidelity boundary.
+The squad receives the normal boarding order and the new driven unit
+retains the robot's identity for valuation.
+
+`0x9b816` retries a local flag order when its signed-byte counter underflows,
+then resets it to **100 native frames** after an order. It excludes forts,
+CPU-held territory, Sniper/native type 4, and gun category 2. Its distance
+test is **<16384 square pixels** from unit top-left to flag origin.
+`0x9a49a` sends offensive mobile units in the player's fort territory to
+fort origin +(80,72). Normal territory orders `0x9d42c` stage outside the
+CPU fort at +(80,220) or the player fort at +(80,-80). `0x9d4f4` tries eight
+**48-pixel** offsets clockwise from a random start, rejecting blocked or
+already targeted cells. These authored native offsets replace no guessed
+visual compensation. The engine uses its existing nav reachability and
+formation helpers to execute orders; its movement, tactical notice radius
+and combat animation behavior are not claimed to be instruction-level ports.
+
+### Confirmed initial manufacturing choice
+
+`0x9e33a` enumerates enabled groups by ascending requirement*1000, then
+ascending group ID. After each append, `0x9e3e4` exchanges the last pair
+if the new group's stock is lower; this is **not a full sort**. Fort choice
+then fully sorts by stock (`0x9e435`). Initial class lists at
+0x152ec9/0x152ed0/0x152ed6 are robot {0,3,15,16,17,18}, vehicle
+{1,7,8,9,11}, and their union. The gun-selector list at 0x152ee2 is
+{2,4,5,6}. `0x9e235/275/2b5/2f5` select:
+
+```
+index = floor(cpu_total * available_count / (cpu_total+human_total))
+index += floor(index/4)
+index = min(index, available_count-1)
+```
+
+The engine uses the native initial-family selector when an idle producer
+needs a product, replacing fewest-owned-unit choice. It guards the empty
+list/zero-strength denominator, which the native code assumes valid.
+Later retail gun selection at `0x9de4a/9de9b/9def5` depends on the
+producer's first-selection flag, reserve-adjusted territory value >=500,
+existing gun count (<2 for factories, <4 for forts), and planned/stored
+gun count (<4). `0x999e5` computes the reserve-adjusted territory value,
+not raw army strength. `0x26ae5` counts territory guns and gun production;
+`0x26b82` also counts stored guns and placement records. Those later
+branches, four-slot native gun storage and retail random placement remain
+unported; existing production repeat/release and gun placement are retained.
+
+### Additional traced branches and explicit remaining scope
+
+The following useful results are preserved for subsequent ports, rather
+than being replaced with numeric approximations:
+
+- `0x9a1f2` finds equal quantized top scores; for >1 it calls the inclusive
+  random helper with **[1,tie_count]**, then uses that result as a zero-based
+  index. This appears to skip the first tied entry and can select beyond
+  the candidate count. It is **not** a normal [0,count-1] tie roll. Safe
+  behavior for the native out-of-range case and the later retargeting
+  passes remains unimplemented; the initial ranked attack pass needs no roll.
+- `0x9a9f9` chooses an adjacent non-CPU territory by raw value (later index
+  wins ties), gives the player's fort candidate score -10000, and falls
+  back through `0x9aaf1` to nearest non-CPU flag if no adjacent candidate
+  exists. Adjacency `0x9d61e` uses touching rectangle edges with inclusive
+  overlap, including corners. A successful march installs lockout **1020**
+  at `0x9aae7`. This native *local fallback* is distinct from the removed
+  global nearest-flag commander and is not substituted for native scoring.
+- `0x9c174` recaptures a non-CPU territory with nonzero lockout, positive
+  CPU strength and zero human strength, selecting a usable local reserve
+  not marked with task flags 2/4. `0x9cb5e` returns reserves to assigned
+  home territories. Full lockout/recapture and home routing are unported.
+- `0x9d390` values a potential donor squad, caps it at 65535, and requires
+  the donor territory's remaining own strength to be at least
+  `16*weight*importance` with native word/sign checks. `0x9d330` chooses
+  the largest eligible donor; `0x9d115` compares defending strength and
+  adjacent donors. Full defense/reinforcement/priority-territory passes,
+  alerts for attacked buildings, repairs, cranes, bridges and APC cargo
+  remain unported. Their evidence must not be described as completed AI.
+- Native strategy is disabled by multiplayer dispatcher gates at
+  `0x9b21b..0x9b23d`; the engine now schedules this single-player commander
+  for team 1 only. It does not create new computer teams in multiplayer.
+- The single-player front end leaves an incidental RNG seed. Engine AI
+  deliberately starts from the retail network seed **0x3039** (previously
+  established at `0x49c77`) for repeatability; there is no attempt to guess
+  the front end's random history or share the cliff-decoration RNG stream.
+
+Task records persist only stable unit IDs, squad IDs and territory indices,
+not retail addresses or duplicate simulation objects. Save extra data and
+consistency hashes include native clocks, phase, estimates, allocation,
+RNG seed, task targets and pending orders. The expanded Z extra record
+rejects older incompatible Z saves by its existing size check.
+
+Reproduce the settings and numeric vectors with:
+
+```
+make build/bin/tests/z/test_commander
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
+```
+
+The test also checks native radar slot behavior, the disadvantaged intelligence
+boost, delayed-command save/replay, farther valuable territory preference,
+force gating, initial manufacturing selection and boarding with one reservation
+per territory. The previous test requiring the authored AI to take every flag
+within 90 seconds was removed: its deadline and all-out allocation were not
+native evidence. Full-suite/build verification is recorded with the commit.
+
+Final verification: full `make -j4` succeeds without compiler warnings;
+`env SDL_VIDEODRIVER=dummy make -j4 test-z` passes all **24 suites**.
+Headless `--check` succeeds on LEVEL01/05/09/13/17, covering desert,
+volcano, arctic, jungle and city. A LEVEL01 BMP was rendered and visually
+checked after conversion to a temporary PNG; no converted runtime asset
+or new image dependency was introduced.

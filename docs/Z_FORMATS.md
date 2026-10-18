@@ -25,7 +25,7 @@ All numbers are little-endian. A cell is 16x16 pixels. Maps are at most
 | `DOOR.PAC` | Fort door animations, `xDOOR.DAT` + `xDBACK.LBM` for five worlds | Archive decoded, members not |
 | `HEADFX.PAC`, `SHEADFX.PAC` | The in-level panel, the robots' faces and the scenery behind them, for 320x200 and 640x480 | Decoded (below) |
 | `ROBOTS.DAT` | 25000 bytes: robots, groups and weapon types | Layout decoded (below) |
-| `MULT.DAT` | 628 bytes, multiplayer settings, loaded to 0x152b10 | Not decoded |
+| `MULT.DAT` | 628 bytes, AI/production weights, loaded to 0x152b10 | Weight-row pointers decoded |
 | `PHRASES.BIN` | 35328 bytes, also a `WARDATA.PAC` member | Not decoded |
 | `LOADER.LBM` | Loading screen, IFF PBM | Standard format |
 | `AUDIO/*.RAW` | 210 sound effects, headerless unsigned 8-bit mono PCM | Sample rate not confirmed |
@@ -69,7 +69,8 @@ with a few spare bytes.
 | `[DACVJ]M*STAT*`, `*LOSE*`, `*LOAD*`, `[DACVJ]STAT1`, `[DACVJ]LOSE[1-4]` `.LBM` | Per-world briefing, loading, win and lose screens; B, G, Y variants by team colour |
 | `HSHWINGn.DAT`, `VSHWINGn.DAT` | 1280 bytes each, not decoded |
 | `CHARS.BIN` | The in-game font: 128 glyphs of 8 rows, one bit a pixel, the high bit left (`games/z/sb_bar.c` draws the panel with it) |
-| `SQROOT.BIN`, `SINCOS.DAT`, `PHRASES.BIN` | Lookup tables, not decoded |
+| `SQROOT.BIN` | Byte distance divisors; AI indexes the first 1024 bytes (entries 0,4,1023 = 1,2,32) |
+| `SINCOS.DAT`, `PHRASES.BIN` | Lookup tables, not decoded |
 
 The LBM files are IFF `FORM PBM ` chunky bitmaps with ByteRun1 compression
 (`BMHD` compression 1) and their own `CMAP`.
@@ -258,9 +259,13 @@ bytes; unused ones start with 0xffff.
 |---|---|
 | 0x00 | u16 x1, y1, x2, y2 in cells; x2 and y2 exclusive |
 | 0x08 | Team: 0 red, 1 blue, 2 green, 3 yellow, 4 or more nobody |
+| 0x09 | Territory importance; strategic value/reserve threshold includes 16 * importance * CPUPLR[0x89f] |
+| 0x0a..0x10 | Runtime: four u16 team strength estimates |
 | 0x12, 0x13 | u8 flag cell x, y; always inside the territory |
 | 0x16 | Run time: capture lockout (0x1fe after a capture, counted down each tick; no capture while above 0x1d3) |
 | 0x18 | Options: bits 0 or 1 plant no flag; bit 2 hides it with more than two players, bit 3 with more than three |
+| 0x19 | Runtime: signed dword strategic value |
+| 0x1d | Runtime: bit 0 marks radar-known territory |
 
 0x9dc69 gives a building the team of the territory that contains its
 top-left pixel.
@@ -280,9 +285,16 @@ From 0x792 follow 26 computer starting groups, 10 bytes each:
 own groups (2, 2, 2, 10) around the computer's fort. ZED.EXE reads the
 positions at 0x50a5e; how it picks the records and their team is not
 fully traced. LEVEL01's first two enabled squads receive destinations
-1 and 3. CPUPLR +0x89f supplies a strategic territory-value/balance weight;
-the other settings' complete strategic meanings remain unknown. See
-[the computer-order findings](Z_EXE_FINDINGS.md#cliffs-vehicle-objectives-and-per-level-computer-orders-2026-10-18).
+1 and 3. CPUPLR **0x780** is base intelligence (0..127), **0x781** is
+the reserve/allocation percentage, and **0x89f** weights territory
+importance. Lower allocation releases more offensive force. Intelligence
+controls deterministic estimate error, heavy-pass cadence and queued-order
+delay; when CPU territory share among the two active sides is <=40%,
+effective intelligence becomes min(127, base + floor(base/2)). All twenty
+campaign settings and the native scoring formulas are recorded in
+[the native AI findings](Z_EXE_FINDINGS.md#native-computer-scoring-and-campaign-settings-2026-10-18).
+Bytes **0x8a0/0x8a1** supply default robot/fort and tank production group
+IDs respectively. The complete meaning of **0x8a3** remains unknown.
 
 The byte at **0x8a2** is the native production-speed divisor, installed
 at runtime global 0x103d81 by ZED.EXE 0x9d81b. LEVEL01 contains 10.

@@ -534,6 +534,7 @@ static void ai_tick_game(AiContext *ctx, level_t *map, mobj_t *const *units,
                          int unit_count, const gameinfo_t *game_info, int dt_ms) {
     const AiGameInterface *game = ctx->game;
     ctx->think_counter++;
+    int interval = game->think_interval_tics > 0 ? game->think_interval_tics : AI_THINK_INTERVAL_TICKS;
     for (int t = 0; t < AI_MAX_TEAMS; ++t) {
         AiTeamState *team = &ctx->teams[t];
         int level = game->player_level ? game->player_level(map, t) : AI_LEVEL_NONE;
@@ -541,8 +542,8 @@ static void ai_tick_game(AiContext *ctx, level_t *map, mobj_t *const *units,
         team->level = level;
         if (level == AI_LEVEL_NONE) continue;
         /* Stagger owners so one tick never thinks for every player. */
-        if ((ctx->think_counter + t) % AI_THINK_INTERVAL_TICKS != 0) continue;
-        int elapsed_ms = dt_ms * AI_THINK_INTERVAL_TICKS;
+        if ((ctx->think_counter + t) % interval != 0) continue;
+        int elapsed_ms = dt_ms * interval;
         team->stats.thinks++;
         ai_census(ctx, team, map, t, units, unit_count);
         if (ctx->features & (AI_FEATURE_PRODUCTION | AI_FEATURE_ATTACK))

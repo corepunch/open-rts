@@ -25,7 +25,7 @@ typedef struct {
 } cliffs_t;
 
 /* 0x70d37: a 16-bit shift register stepped through rcr/rcl. */
-static uint16_t next_random(uint16_t *seed) {
+uint16_t Z_NextRandom(uint16_t *seed) {
     uint8_t lo = *seed & 0xff, hi = *seed >> 8, al = hi, cf = 0, out;
 #define RCR() (out = al & 1, al = (uint8_t)(al >> 1 | cf << 7), cf = out)
     /* xor and and clear the carry the next rcr shifts in. */
@@ -155,7 +155,7 @@ static void stamp(cliffs_t *c, const uint8_t *block) {
     int8_t height = (int8_t)block[4];
     for (int bit = 0; bit < 32 * 32; ++bit) {
         if (!cell_bit(block, bit)) continue;
-        int variant = next_random(&c->seed) & 0xf;
+        int variant = Z_NextRandom(&c->seed) & 0xf;
         int i = (at.y + bit / 32) * Z_MAP_STRIDE + at.x + bit % 32;
         uint16_t face = top(c, block, bit, i, variant);
         shade(c, block, i, height);
@@ -214,7 +214,7 @@ void Z_CliffDamage(mobj_t *cliff) {
      * 0x16, before 0x45352 redraws the surviving mask. */
     for (int y = at.y; y <= at.y + block[4] && y < Z_MAP_STRIDE; ++y) {
         int i = y * Z_MAP_STRIDE + at.x;
-        uint16_t value = cliff_tiles[map->world][rubble[next_random(&seed) & 7]];
+        uint16_t value = cliff_tiles[map->world][rubble[Z_NextRandom(&seed) & 7]];
         map->ground[i] = (uint8_t)value;
         map->ground_attr[i] = (uint8_t)((value >> 8 & 0x80) | 0x16);
     }
@@ -258,7 +258,7 @@ bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {
 
 size_t G_SaveExtraSize(void) {
     const zmap_t *map = level.native_data;
-    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr);
+    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai);
 }
 
 void G_SaveExtra(void *out) {
@@ -266,7 +266,8 @@ void G_SaveExtra(void *out) {
     uint8_t *p = out;
     memcpy(p, map->cliffs, sizeof(map->cliffs)); p += sizeof(map->cliffs);
     memcpy(p, map->ground, sizeof(map->ground)); p += sizeof(map->ground);
-    memcpy(p, map->ground_attr, sizeof(map->ground_attr));
+    memcpy(p, map->ground_attr, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
+    memcpy(p, &map->ai, sizeof(map->ai));
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
@@ -275,7 +276,8 @@ bool G_LoadExtra(const void *data, size_t size) {
     const uint8_t *p = data;
     memcpy(map->cliffs, p, sizeof(map->cliffs)); p += sizeof(map->cliffs);
     memcpy(map->ground, p, sizeof(map->ground)); p += sizeof(map->ground);
-    memcpy(map->ground_attr, p, sizeof(map->ground_attr));
+    memcpy(map->ground_attr, p, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
+    memcpy(&map->ai, p, sizeof(map->ai));
     Z_RebuildCliffs(&level);
     return true;
 }
@@ -288,5 +290,21 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         hash = G_HashValue(hash, map->ground[i]);
         hash = G_HashValue(hash, map->ground_attr[i]);
     }
+    const zai_t *ai = &map->ai;
+#define HASH(value) (hash = G_HashValue(hash, (value)))
+    HASH(ai->clock); HASH(ai->order_tail); HASH(ai->last_tic); HASH(ai->fraction); HASH(ai->delay);
+    HASH(ai->total); HASH(ai->mobile); HASH(ai->imbalance); HASH(ai->seed); HASH(ai->intelligence); HASH(ai->phase); HASH(ai->initialized);
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        const zaitask_t *t = &ai->tasks[i];
+        HASH(t->unit); HASH(t->boarding); HASH(t->execute_at); HASH(t->order.x); HASH(t->order.y);
+        HASH(t->strength); HASH(t->current); HASH(t->target); HASH(t->destination);
+        HASH(t->task); HASH(t->squad); HASH(t->flags); HASH(t->retry); HASH(t->idle); HASH(t->pending);
+    }
+    for (int i = 0; i < map->territory_count; ++i) {
+        const zai_territory_t *t = &ai->territories[i];
+        for (int team = 0; team < 4; ++team) HASH(t->strength[team]);
+        HASH(t->value); HASH(t->owner); HASH(t->flags); HASH(t->known);
+    }
+#undef HASH
     return hash;
 }

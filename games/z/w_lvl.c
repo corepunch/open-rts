@@ -104,6 +104,8 @@ static void destroy_zmap(void *opaque) {
     if (!map) return;
     W_FreeFile(&map->rsc);
     W_FreeFile(&map->roster);
+    W_FreeFile(&map->weights);
+    W_FreeFile(&map->square_roots);
     free(map);
 }
 
@@ -137,12 +139,18 @@ static bool load_cpuplr(zmap_t *map, const char *name) {
     if (!W_ReadFile(path, &blob)) return false;
     bool ok = blob.size > CP_SPEED && blob.bytes[CP_SPEED] != 0;
     if (ok) map->production_speed = blob.bytes[CP_SPEED];
+    if (ok) {
+        map->computer.intelligence = blob.bytes[0x780];
+        map->computer.allocation = blob.bytes[0x781];
+        map->computer.territory_weight = blob.bytes[0x89f];
+        ok = map->computer.intelligence <= 127 && map->computer.allocation <= 100;
+    }
     for (int i = 0; ok && i < Z_MAX_TERRITORIES; ++i) {
         const uint8_t *r = blob.bytes + i * CP_TERRITORY;
         if (read_u16_le(r) == 0xffff) continue;
         map->territories[map->territory_count++] = (zterritory_t){
             {read_u16_le(r), read_u16_le(r + 2)}, {read_u16_le(r + 4), read_u16_le(r + 6)}, r[8],
-            {r[0x12], r[0x13]}, r[0x18]};
+            {r[0x12], r[0x13]}, r[0x18], r[9]};
     }
     for (size_t at = CP_PLACED; ok && at + CP_RECORD <= blob.size &&
                                 at < CP_PLACED + Z_MAX_PLACED * CP_RECORD; at += CP_RECORD) {
@@ -200,6 +208,13 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
     snprintf(map->buildings, sizeof(map->buildings), "%.*s", LV_NAME, (const char *)entry + LV_BUILDINGS);
     level_path(path, sizeof(path), map->root, map->robots);
     if (!W_ReadFile(path, &map->roster)) goto fail;
+    char multiply[LV_NAME + 1];
+    snprintf(multiply, sizeof(multiply), "%.*s", LV_NAME, (const char *)entry + 0x6f);
+    level_path(path, sizeof(path), map->root, multiply);
+    if (!W_ReadFile(path, &map->weights) || map->weights.size != 628) goto fail;
+    M_PathJoin(path, sizeof(path), map->root, "WARDATA.PAC");
+    if (!Z_ReadPac(path, "SQROOT.BIN", &map->square_roots) || map->square_roots.size < 1024) goto fail;
+    for (int i = 0; i < 1024; ++i) if (!map->square_roots.bytes[i]) goto fail;
     char cpuplr[LV_NAME + 1];
     snprintf(cpuplr, sizeof(cpuplr), "%.*s", LV_NAME, (const char *)entry + LV_CPUPLR);
     if (map->world >= Z_WORLDS || map->number >= Z_LEVELS || !load_cpuplr(map, cpuplr)) goto fail;
@@ -316,7 +331,7 @@ static mobj_t *spawn_unit(const zmap_t *map, int t, ivec2_t pixel, int team) {
 }
 
 /* Weapon type of a group's member, -1 past its last. */
-int Z_GroupType(const zmap_t *map, int group, int member) {
+int Z_GroupRobot(const zmap_t *map, int group, int member) {
     const blob_t *robots = &map->roster;
     size_t at = RB_GROUPS + (size_t)group * RB_GROUP;
     if (group < 0 || at + RB_GROUP > robots->size || !robots->bytes[at] ||
@@ -324,7 +339,12 @@ int Z_GroupType(const zmap_t *map, int group, int member) {
         return -1;
     int robot = read_u16_le(robots->bytes + at + RB_MEMBERS + member * 2);
     if (robot == 0xffff || (size_t)(robot + 1) * RB_ROBOT > RB_GROUPS) return -1;
-    return robots->bytes[robot * RB_ROBOT + RB_WEAPON];
+    return robot;
+}
+
+int Z_GroupType(const zmap_t *map, int group, int member) {
+    int robot = Z_GroupRobot(map, group, member);
+    return robot < 0 ? -1 : map->roster.bytes[robot * RB_ROBOT + RB_WEAPON];
 }
 
 /* ZED.EXE 0x50665: the first member at `at`, the rest four pixels apart in
@@ -339,6 +359,7 @@ static int spawn_group(const zmap_t *map, int group, ivec2_t at, int team, int h
         mobj_t *mo = spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team);
         if (!mo) continue;
         mo->z.squad = squad;
+        mo->z.robot = (uint16_t)(Z_GroupRobot(map, group, i) + 1);
         mo->z.home = (uint8_t)home;
         count++;
     }
@@ -363,7 +384,11 @@ static int spawn_armies(const zmap_t *map, ivec2_t fort, int cpu_team) {
         const int16_t *slot = gun_slots[gun_remap[gun_order[map->number * 6 + gun++] - 'A'] - 'A'];
         ivec2_t at = {slot[0], slot[1]};
         if (unit_kinds[t].turns) at = ivec2_add(at, (ivec2_t){-2, -8});
-        if (spawn_unit(map, t, ivec2_add(fort, at), 0)) count++;
+        mobj_t *mo = spawn_unit(map, t, ivec2_add(fort, at), 0);
+        if (mo) {
+            mo->z.robot = (uint16_t)(Z_GroupRobot(map, map->groups[g], 0) + 1);
+            count++;
+        }
     }
     for (int i = 0; i < map->placed_count; ++i) {
         int team = Z_TeamAt(map, map->placed[i].at);
@@ -506,6 +531,7 @@ int Z_LoadThings(void) {
             if (!Z_SpriteSize(map, Z_BuildingSprite(r[4], map->world), &size)) continue;
             mobj_t *mo = spawn(type, mobjinfo[type].spawnstate, at_px, size, Z_TeamAt(map, at_px));
             if (!mo) continue;
+            mo->z.building = (uint8_t)(at / 80 + 1);
             mo->z.rating = read_u32_le(r + 12);
             if (read_u16_le(r + 0x1a)) mo->hp = mo->max_hp = read_u16_le(r + 0x1a);
             count++;
@@ -529,6 +555,7 @@ int Z_LoadThings(void) {
             if (object_flags[r[4]] == 0x32 && r[5] < Z_UNIT_TYPES) {
                 mobj_t *mo = spawn(MT_UNITS + r[5], mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
                 if (mo) {
+                    mo->z.object = (uint8_t)(r[4] + 1);
                     mo->traits &= ~(MF_MOBILE | MF_ATTACK);
                     count++;
                 }

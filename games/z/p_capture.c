@@ -91,6 +91,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
     vehicle->z.squad = robot->z.squad;
     vehicle->z.home = robot->z.home;
+    vehicle->z.robot = robot->z.robot;
     P_ClearMove(vehicle);
     vehicle->movement.goal = fixed3_xy(vehicle->core.position);
     vehicle->movement.order_arrived = true;
