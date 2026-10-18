@@ -72,8 +72,12 @@ with a few spare bytes.
 | `SQROOT.BIN` | Byte distance divisors; AI indexes the first 1024 bytes (entries 0,4,1023 = 1,2,32) |
 | `SINCOS.DAT`, `PHRASES.BIN` | Lookup tables, not decoded |
 
-The LBM files are IFF `FORM PBM ` chunky bitmaps with ByteRun1 compression
-(`BMHD` compression 1) and their own `CMAP`.
+The front-end members `MANE`, `MULTI`, `NET`, `HSCORE`, `DIRECT` and `MODEM`
+are IFF `FORM ILBM`: 320x200, eight scanline-interleaved bitplanes, no
+compression, with their own `CMAP`. Each is 64850 bytes. The previous blanket
+description as chunky compressed PBM was disproven by their headers and
+decoded pixels; see `Z_EXE_FINDINGS.md`, “Retail main menu and multiplayer
+setup”. Other LBM members must be checked by their own FORM/BMHD fields.
 
 ### HEADFX.PAC and SHEADFX.PAC members
 

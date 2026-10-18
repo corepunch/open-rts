@@ -1537,6 +1537,8 @@ void W_FreeFile(blob_t *blob);
 SDL_Surface *W_LoadImage(const char *path);
 /* Decode a BMP or PCX into one indexed spritesheet cell. Owns the lump pixels. */
 bool W_LoadIndexedSheet(const char *path, spritesheet_t *out);
+/* Eight-bit IFF ILBM/PBM, optionally ByteRun1, including its CMAP. */
+bool W_DecodeLBM(const blob_t *file, spritesheet_t *out);
 bool W_LoadGIFTexture(const char *path, spritesheet_t *out);
 /* Temporary strings survive seven further M_va calls on this thread.
  * Returns NULL on formatting failure or overflow; copy results kept longer. */
@@ -3050,6 +3052,7 @@ struct menu_s {
     bool modal;
     isize2_t size;    /* the screen the rects were laid out for; 0 is any */
     bool stretch;     /* rects scale with the screen instead of anchoring */
+    bool fit;         /* integer-scale and centre the entire native size */
     int itemOn;       /* focused item, or -1 */
     menuitem_t *held; /* pressed by the mouse */
     bool over;        /* the pointer is still on held */

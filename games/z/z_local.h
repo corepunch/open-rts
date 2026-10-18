@@ -107,6 +107,8 @@ bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);
 bool Z_LoadAssets(const char *root, const level_t *map, tileset_t *tileset,
                   spritesheet_t *unit_sprite);
 bool Z_InitSprites(const level_t *map, spritecache_t *cache);
+/* UI-owned SPRITES.RSC images in native index order; -1 leaves a blank cell. */
+bool Z_LoadUISprites(const char *root, const int *indices, int count, spritesheet_t *out);
 
 /* p_capture.c: flags, vehicles and grenades, run once a tic. */
 void Z_Ticker(void);

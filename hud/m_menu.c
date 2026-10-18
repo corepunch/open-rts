@@ -16,11 +16,21 @@ void M_StopMessage(void) {
 
 /* ── geometry ───────────────────────────────────────────────────────────── */
 
+static int menu_scale(const menu_t *menu) {
+    if (menu->fit && menu->size.w > 0 && menu->size.h > 0) {
+        isize2_t size = menu->app ? menu->app->win : (isize2_t){screens[0].w, screens[0].h};
+        int scale = size.w / menu->size.w, vertical = size.h / menu->size.h;
+        if (scale > vertical) scale = vertical;
+        return scale > 0 ? scale : 1;
+    }
+    return R_UIScale(menu->app);
+}
+
 static isize2_t screen_size(const menu_t *menu) {
     isize2_t size = menu->size;
     if (menu->app && menu->app->win.w > 0) size = menu->app->win;
     else if (screens[0].w > 0) size = (isize2_t){screens[0].w, screens[0].h};
-    int scale = R_UIScale(menu->app);
+    int scale = menu_scale(menu);
     return (isize2_t){size.w / scale, size.h / scale};
 }
 
@@ -28,7 +38,10 @@ irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item) {
     irect_t r = item->rect;
     if (menu->size.w > 0 && menu->size.h > 0) {
         isize2_t screen = screen_size(menu);
-        if (menu->stretch)
+        if (menu->fit) {
+            r.x += (screen.w - menu->size.w) / 2;
+            r.y += (screen.h - menu->size.h) / 2;
+        } else if (menu->stretch)
             r = (irect_t){r.x * screen.w / menu->size.w, r.y * screen.h / menu->size.h,
                            r.w * screen.w / menu->size.w, r.h * screen.h / menu->size.h};
         else {
@@ -39,7 +52,7 @@ irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item) {
             if (item->anchor & MANCHOR_WIDE) r.w += dx;
         }
     }
-    int scale = R_UIScale(menu->app), drawing = V_GetDrawScale();
+    int scale = menu_scale(menu), drawing = V_GetDrawScale();
     return (irect_t){r.x * scale / drawing, r.y * scale / drawing,
                      r.w * scale / drawing, r.h * scale / drawing};
 }
@@ -208,9 +221,9 @@ static irect_t dropdown_rect(const menu_t *menu) {
     const menuitem_t *item = menu->dropdown;
     irect_t r = M_MenuItemRect(menu, item);
     int rows = item->popup_rows > 0 && item->popup_rows < item->rows ? item->popup_rows : item->rows;
-    int height = item->row_height * R_UIScale(menu->app) / V_GetDrawScale();
+    int height = item->row_height * menu_scale(menu) / V_GetDrawScale();
     isize2_t size = screen_size(menu);
-    int bottom = size.h * R_UIScale(menu->app) / V_GetDrawScale();
+    int bottom = size.h * menu_scale(menu) / V_GetDrawScale();
     int room = bottom - r.y - r.h;
     bool above = room < height && r.y > room;
     if (above) room = r.y;
@@ -224,7 +237,7 @@ static irect_t dropdown_rect(const menu_t *menu) {
 
 static void dropdown_view(menu_t *menu) {
     menuitem_t *item = menu->dropdown;
-    int height = item->row_height * R_UIScale(menu->app) / V_GetDrawScale();
+    int height = item->row_height * menu_scale(menu) / V_GetDrawScale();
     if (height <= 0) return;
     int rows = dropdown_rect(menu).h / height;
     if (menu->dropdown_row < item->first_row) item->first_row = menu->dropdown_row;
@@ -249,10 +262,10 @@ static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
     irect_t r = M_MenuItemRect(menu, bar);
     if (!list || r.h <= 0) return;
     if (bar->thumb.part.h > 0) {
-        int travel = r.h - bar->thumb.part.h * R_UIScale(menu->app);
+        int travel = r.h - bar->thumb.part.h * menu_scale(menu);
         int last = list->rows - page_rows(list);
         if (travel > 0 && last > 0)
-            scroll_to(list, (menu->cursor.y - r.y - bar->thumb.part.h * R_UIScale(menu->app) / 2) * last / travel);
+            scroll_to(list, (menu->cursor.y - r.y - bar->thumb.part.h * menu_scale(menu) / 2) * last / travel);
     } else scroll_to(list, (menu->cursor.y - r.y) * list->rows / r.h - page_rows(list) / 2);
 }
 
@@ -267,7 +280,7 @@ static void slider_value(menu_t *menu, menuitem_t *item, int64_t value) {
 
 static void drag_slider(menu_t *menu, menuitem_t *item) {
     irect_t rect = M_MenuItemRect(menu, item);
-    int width = item->thumb.part.w * R_UIScale(menu->app);
+    int width = item->thumb.part.w * menu_scale(menu);
     int travel = rect.w - width;
     if (travel <= 0) return;
     int64_t span = (int64_t)item->range.max - item->range.min;
@@ -421,7 +434,7 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
         bool inside = irect_contains(popup, menu->cursor);
         if (inside) {
             int row = item->first_row + (menu->cursor.y - popup.y) /
-                      (item->row_height * R_UIScale(app));
+                      (item->row_height * menu_scale(menu));
             if (row < item->rows) menu->dropdown_row = row;
         }
         if (down) {
@@ -484,7 +497,7 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
     if (hit->release && hit->kind == MI_BUTTON) return true;
     if (hit->kind == MI_LIST) {
         int row = hit->first_row + (menu->cursor.y - M_MenuItemRect(menu, hit).y) /
-                  ((hit->row_height > 0 ? hit->row_height : 1) * R_UIScale(app));
+                  ((hit->row_height > 0 ? hit->row_height : 1) * menu_scale(menu));
         if (row >= 0 && row < hit->rows) {
             select_row(menu, hit, row);
             if (event->button.clicks > 1) activate(menu, hit);
@@ -863,7 +876,7 @@ static void draw_message(void) {
 void M_MenuDrawer(menu_t *menu) {
     int previous = V_GetDrawScale();
     irect_t clip = V_GetClip();
-    V_SetDrawScale(R_UIScale(menu->app));
+    V_SetDrawScale(menu_scale(menu));
     if (menu->refresh) menu->refresh(menu);
     if (menu->palette) I_SetPalette(menu->palette);
     if (!menu->modal && item_live(menu->target) && menu->target->drawtarget) {
@@ -875,10 +888,15 @@ void M_MenuDrawer(menu_t *menu) {
         }
         V_SetDrawScale(previous);
         V_SetClip(clip);
-        V_SetDrawScale(R_UIScale(menu->app));
+        V_SetDrawScale(menu_scale(menu));
     }
     if (menu->background && menu->background->numlumps) {
         irect_t dst = menu->background->cells[0].rect;
+        if (menu->fit) {
+            isize2_t size = screen_size(menu);
+            dst.x += (size.w - menu->size.w) / 2;
+            dst.y += (size.h - menu->size.h) / 2;
+        }
         R_DrawSprite(menu->background, 0, -1, NULL, &dst, V_OPAQUE, 16);
     }
     for (int start = 0, end; start < menu->numitems; start = end) {

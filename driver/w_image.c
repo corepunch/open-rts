@@ -4,6 +4,75 @@
 #include <string.h>
 #include <strings.h>
 
+static uint32_t read_be(const uint8_t *p, int bytes) {
+    uint32_t value = 0;
+    while (bytes--) value = (value << 8) | *p++;
+    return value;
+}
+
+bool W_DecodeLBM(const blob_t *file, spritesheet_t *out) {
+    memset(out, 0, sizeof(*out));
+    if (file->size < 12 || memcmp(file->bytes, "FORM", 4)) return false;
+    bool planar = !memcmp(file->bytes + 8, "ILBM", 4);
+    if (!planar && memcmp(file->bytes + 8, "PBM ", 4)) return false;
+    size_t end = (size_t)read_be(file->bytes + 4, 4) + 8;
+    if (end < 12 || end > file->size) return false;
+    const uint8_t *header = NULL, *palette = NULL, *body = NULL;
+    size_t length = 0;
+    for (size_t at = 12; at < end;) {
+        if (end - at < 8) return false;
+        const uint8_t *chunk = file->bytes + at;
+        size_t size = read_be(chunk + 4, 4);
+        at += 8;
+        if (size > end - at || (size & 1) > end - at - size) return false;
+        if (!memcmp(chunk, "BMHD", 4) && size >= 20) header = chunk + 8;
+        if (!memcmp(chunk, "CMAP", 4) && size == 768) palette = chunk + 8;
+        if (!memcmp(chunk, "BODY", 4)) { body = chunk + 8; length = size; }
+        at += size + (size & 1);
+    }
+    if (!header || !palette || !body || header[8] != 8 || header[9] || header[10] > 1) return false;
+    int w = read_be(header, 2), h = read_be(header + 2, 2);
+    int stride = planar ? ((w + 15) / 16) * 2 : (w + 1) & ~1;
+    if (!w || !h) return false;
+    uint8_t *pixels = calloc((size_t)w, h);
+    if (!pixels) return false;
+    size_t in = 0;
+    for (int y = 0; y < h; ++y) for (int plane = 0; plane < (planar ? 8 : 1); ++plane) {
+        for (int x = 0; x < stride;) {
+            if (in == length) goto invalid;
+            int count = stride - x;
+            bool repeat = false;
+            if (header[10]) {
+                int code = (int8_t)body[in++];
+                if (code == -128) continue;
+                repeat = code < 0;
+                count = repeat ? 1 - code : code + 1;
+            }
+            if (count > stride - x || length - in < (size_t)(repeat ? 1 : count)) goto invalid;
+            for (int i = 0; i < count; ++i, ++x) {
+                uint8_t value = body[in + (repeat ? 0 : i)];
+                if (planar) {
+                    for (int bit = 0; bit < 8 && x * 8 + bit < w; ++bit)
+                        if (value & (0x80 >> bit)) pixels[(size_t)y * w + x * 8 + bit] |= 1 << plane;
+                } else if (x < w) pixels[(size_t)y * w + x] = value;
+            }
+            in += repeat ? 1 : count;
+        }
+    }
+    if (!R_AllocSpriteCells(out, 1)) goto invalid;
+    out->lumps[0].indices = pixels;
+    out->cells[0].rect = out->cells[0].bounds = (irect_t){0, 0, w, h};
+    out->frame_size = (isize2_t){w, h};
+    out->indexed = true;
+    for (int i = 0; i < 256; ++i)
+        out->palette[i] = out->source_palette[i] = 0xff000000u |
+            (uint32_t)palette[i * 3] << 16 | (uint32_t)palette[i * 3 + 1] << 8 | palette[i * 3 + 2];
+    return true;
+invalid:
+    free(pixels);
+    return false;
+}
+
 static int indexed_match(const uint32_t *palette, int count, uint32_t color) {
     color |= 0xff000000u;
     for (int i = 0; i < count; ++i)

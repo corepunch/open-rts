@@ -791,7 +791,31 @@ static int decorative_input(void) {
     return 0;
 }
 
+static int native_fit(void) {
+    build();
+    app.win = (isize2_t){96,80};
+    menu.app = &app; menu.fit = true; menu.size = (isize2_t){32,24};
+    for (int i = 1; i < NUMITEMS; ++i) items[i].visible = false;
+    items[BUTTON].rect = (irect_t){2,3,10,4};
+    items[BUTTON].fill = 0xff000009u;
+    uint32_t colors[256];
+    for (int i = 0; i < 256; ++i) colors[i] = 0xff000000u | (unsigned)i;
+    I_SetPalette(colors); V_AllocScreen(96,80);
+    V_SetDrawScale(1);
+    irect_t rect = M_MenuItemRect(&menu, &items[BUTTON]);
+    CHECK(rect.x == 6 && rect.y == 12 && rect.w == 30 && rect.h == 12);
+    click(7,13); CHECK(activated[BUTTON] == 1);
+    click(5,5); CHECK(activated[BUTTON] == 1);
+    V_BeginFrame(0xff000000u); M_MenuDrawer(&menu);
+    CHECK(screens[0].pixels[12 * 96 + 10] == 9 && screens[0].pixels[11 * 96 + 10] == 0);
+    CHECK(V_GetDrawScale() == 1);
+    menu.fit = false; menu.size = (isize2_t){0}; app.win = (isize2_t){W,W};
+    V_FreeScreen();
+    return 0;
+}
+
 int main(void) {
+    RTS_RUN(native_fit());
     RTS_RUN(decorative_input());
     RTS_RUN(input());
     RTS_RUN(hud_targets());
