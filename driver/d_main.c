@@ -144,6 +144,31 @@ int main(int argc, char **argv) {
         return 1;
     }
 #endif
+#ifdef __ANDROID__
+    if (argc == 2 && !strcmp(argv[1], "--android-smoke")) {
+        renderer_t probe;
+        if (!renderer_create(&probe, sdl_renderer_backend(), "SDL probe", 640, 480, false, false))
+            return 1;
+        SDL_Log("OPEN_RTS_SMOKE_READY");
+        uint64_t until = SDL_GetTicks64() + 15000;
+        while (SDL_GetTicks64() < until) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT) until = 0;
+                if (event.type == SDL_MOUSEBUTTONDOWN && event.button.which == SDL_TOUCH_MOUSEID)
+                    SDL_Log("OPEN_RTS_SMOKE_TOUCH");
+                if (event.type == SDL_APP_DIDENTERBACKGROUND) SDL_Log("OPEN_RTS_SMOKE_BACKGROUND");
+                if (event.type == SDL_APP_DIDENTERFOREGROUND) SDL_Log("OPEN_RTS_SMOKE_FOREGROUND");
+            }
+            renderer_begin_frame(&probe, (SDL_Color){11, 14, 16, 255});
+            renderer_end_frame(&probe);
+            SDL_Delay(16);
+        }
+        renderer_destroy(&probe);
+        SDL_Log("OPEN_RTS_SMOKE_OK");
+        return 0;
+    }
+#endif
     for (int i = 1; i < argc; ++i)
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) goto help;
     G_InitGame();
