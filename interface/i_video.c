@@ -8,6 +8,16 @@ static SDL_Window *video_window;
 static SDL_Renderer *video_renderer;
 static SDL_Texture *video_texture;
 static bool video_linear;
+static bool video_background;
+
+void I_GraphicsEvent(const SDL_Event *event) {
+    if (event->type == SDL_APP_WILLENTERBACKGROUND) video_background = true;
+    if (event->type == SDL_APP_DIDENTERFOREGROUND) video_background = false;
+    if (event->type == SDL_RENDER_DEVICE_RESET) {
+        if (video_texture) SDL_DestroyTexture(video_texture);
+        video_texture = NULL;
+    }
+}
 
 void I_SetScaleMode(bool linear) {
     video_linear = linear;
@@ -38,6 +48,7 @@ static bool resize_screen(isize2_t size) {
 }
 
 bool I_InitGraphics(app_t *app, int window_width, int window_height, bool hidden, bool software) {
+    video_background = false;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return false;
@@ -87,7 +98,7 @@ void I_ShutdownGraphics(void) {
 }
 
 void I_FinishUpdate(void) {
-    if (!video_renderer || !video_texture || !screens[0].pixels) return;
+    if (video_background || !video_renderer || !screens[0].pixels) return;
     if (!resize_screen((isize2_t){screens[0].w, screens[0].h})) return;
     void *pixels = NULL;
     int pitch = 0;

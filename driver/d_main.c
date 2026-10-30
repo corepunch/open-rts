@@ -154,6 +154,7 @@ int main(int argc, char **argv) {
         while (SDL_GetTicks64() < until) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
+                I_GraphicsEvent(&event);
                 if (event.type == SDL_QUIT) until = 0;
                 if (event.type == SDL_MOUSEBUTTONDOWN && event.button.which == SDL_TOUCH_MOUSEID)
                     SDL_Log("OPEN_RTS_SMOKE_TOUCH");
@@ -272,6 +273,7 @@ main_menu:
     while (app.running && menuactive) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            I_GraphicsEvent(&event);
             M_Responder(&app, &event, false);
             if (event.type == SDL_WINDOWEVENT) R_RefreshViewport(&app);
             if (!menuactive || !app.running) break;
@@ -486,6 +488,7 @@ load_level:
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            I_GraphicsEvent(&e);
             hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (D_MenuResponder(&app, &e, hud)) {
                 if (menumap || menuleave || !app.running) break;

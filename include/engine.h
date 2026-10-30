@@ -3288,6 +3288,7 @@ typedef struct app_s app_t;
 
 bool I_InitGraphics(app_t *app, int window_w, int window_h, bool hidden, bool software);
 void I_ShutdownGraphics(void);
+void I_GraphicsEvent(const SDL_Event *event);
 void I_FinishUpdate(void);
 bool I_SaveScreenshot(const char *path);
 void I_SetScaleMode(bool linear);
