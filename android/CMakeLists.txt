@@ -34,6 +34,8 @@ add_library(main SHARED ${sources})
 target_include_directories(main PRIVATE "${RTS_ROOT}/include" "${RTS_ROOT}/games/${RTS_GAME}")
 target_compile_features(main PRIVATE c_std_11)
 target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic -ffp-contract=off)
+# SDL_main runs on a Java-created thread, whose default stack is only 1 MiB.
+target_compile_options(main PRIVATE -Wframe-larger-than=262144 -Werror=frame-larger-than)
 target_compile_definitions(main PRIVATE RTS_NATIVE_WORLD RTS_WORLD_Y_UP=$<STREQUAL:${RTS_GAME},dark-colony>)
 if(NOT RTS_GAME STREQUAL "z")
     string(TOUPPER "${RTS_GAME}" game_define)
