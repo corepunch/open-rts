@@ -49,6 +49,10 @@ static bool resize_screen(isize2_t size) {
 
 bool I_InitGraphics(app_t *app, int window_width, int window_height, bool hidden, bool software) {
     video_background = false;
+#ifdef __ANDROID__
+    /* SDL otherwise lets a resizable window override the Activity orientation. */
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return false;

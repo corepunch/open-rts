@@ -15,6 +15,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: android-${{ github.ref }}-${{ inputs.tag || 'ci' }}
+  cancel-in-progress: ${{ inputs.tag == '' }}
+
 jobs:
   graphics:
     name: Graphics lifecycle regression
