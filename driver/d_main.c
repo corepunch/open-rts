@@ -350,7 +350,10 @@ load_level:
         if (units[i]->owner != consoleplayer) P_MobjSetSelected(units[i], false);
     P_UpdateSight();
 
-    spritecache_t decoration_sprites = { 0 };
+    /* The cache alone is over 1 MiB, larger than Android's SDL Java thread
+     * stack. Its lifetime is the active game, like the other level globals. */
+    static spritecache_t decoration_sprites;
+    memset(&decoration_sprites, 0, sizeof(decoration_sprites));
     if (!R_InitSprites(data_root, &level, units, unit_count,
                               &decoration_sprites)) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", g_game_name);
