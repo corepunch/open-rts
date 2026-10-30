@@ -136,6 +136,14 @@ static bool resync_load(const void *data, size_t length) {
 static const netresync_t resync_handlers = { resync_save, resync_load };
 
 int main(int argc, char **argv) {
+#ifdef __ANDROID__
+    /* Retail paths are relative to data/, including paths in mission scripts. */
+    const char *directory = SDL_AndroidGetInternalStoragePath();
+    if (!directory || chdir(directory) != 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot enter app data directory");
+        return 1;
+    }
+#endif
     for (int i = 1; i < argc; ++i)
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) goto help;
     G_InitGame();

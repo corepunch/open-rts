@@ -1,0 +1,10 @@
+open-rts source and build instructions: https://github.com/corepunch/open-rts
+Each release's source archive contains the engine and libsmacker sources.
+The SDL2 submodule is pinned in that source tree; initialize it before building.
+
+open-rts: MIT (LICENSE.open-rts).
+SDL 2.32.10: zlib license (LICENSE.SDL2).
+StarCraft only: libsmacker 1.2.0, Greg Kennedy, LGPL-2.1-or-later
+(LICENSE.libsmacker). libsmacker is a separate shared library in the APK.
+
+Retail game data is not included and is not covered by these licenses.

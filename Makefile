@@ -9,6 +9,13 @@ CC ?= cc
 AR ?= ar
 PKG_CONFIG ?= pkg-config
 
+# Android uses the NDK and the same per-game source directories through CMake.
+# ANDROID_TASK can select one game, e.g. assembleDarkColonyDebug.
+ANDROID_TASK ?= assembleDebug
+.PHONY: android
+android:
+	cd android && ./gradlew $(ANDROID_TASK)
+
 # -ffp-contract=off: forbid fused multiply-add so the remaining float math (render,
 # audio, HUD, path geometry) rounds identically on x86 and Apple Silicon. Never use
 # -ffast-math. The simulation itself uses the integer helpers in include/fixed.h.
@@ -20,8 +27,10 @@ ifeq ($(NATIVE_WORLD),1)
 CPPFLAGS += -DRTS_NATIVE_WORLD
 endif
 DEPFLAGS = -MMD -MP
+ifneq ($(MAKECMDGOALS),android)
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
+endif
 
 BUILD_DIR := build
 BIN_DIR   := $(BUILD_DIR)/bin
@@ -383,7 +392,8 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Build:"
-	@echo "  all                  Build all five game binaries (default)"
+	@echo "  all                  Build all seven game binaries (default)"
+	@echo "  android              Build Android debug APKs (requires SDK and JDK)"
 	@echo "  clean                Remove build directory"
 	@echo ""
 	@echo "Run games:"
