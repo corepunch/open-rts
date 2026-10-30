@@ -35,6 +35,12 @@ workflow conclusion before claiming the emulator checks have passed.
 
 ## Lifecycle and input
 
+The first emulator run found a native entry-point stack overflow: SDL_main's
+frame was 1,144,752 bytes, including a 1,114,160-byte sprite cache, while SDL's
+Java-created thread has a roughly 1 MiB stack. Moving that game-lifetime cache
+to static storage reduces the measured frame to 30,592 bytes. Android builds
+treat individual frames over 256 KiB as errors to prevent this regression.
+
 SDLActivity retains ownership of its surface, audio, pause/resume and native
 thread lifecycle. The engine suppresses presentation between background and
 foreground events and recreates its streaming texture on SDL_RENDER_DEVICE_RESET

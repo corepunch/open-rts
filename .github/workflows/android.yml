@@ -24,8 +24,8 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
       - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
-      - run: make -j2 build/bin/tests/dark-colony/test_video_lifecycle
-      - run: env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_video_lifecycle
+      - run: make -j2 build/bin/test_video_lifecycle
+      - run: env SDL_VIDEODRIVER=dummy build/bin/test_video_lifecycle
 
   build:
     name: Android / ${{ matrix.game }}

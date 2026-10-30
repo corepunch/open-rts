@@ -168,6 +168,12 @@ $(eval $(call MODEL_TESTS_FOR_GAME,kknd,$(KKND_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 
 $(eval $(call MODEL_TESTS_FOR_GAME,warcraft-2,$(W2_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2,$(W2_SHARED_TEST_SOURCES)))
 $(eval $(call MODEL_TESTS_FOR_GAME,z,$(Z_GAME_SOURCES),-DRTS_WORLD_Y_UP=0,$(Z_SHARED_TEST_SOURCES)))
 
+# The graphics lifecycle suite links the real SDL interface; model suites do not.
+VIDEO_TEST_SOURCES := $(sort $(shell find tests/video interface -name '*.c'))
+VIDEO_TEST_OBJS := $(patsubst %.c,$(BUILD_DIR)/model-test-dark-colony/%.o,$(VIDEO_TEST_SOURCES))
+$(BIN_DIR)/test_video_lifecycle: $(VIDEO_TEST_OBJS) $(dark-colony_TEST_ENGINE_OBJS) | $(BIN_DIR)
+	$(CC) $^ -o $@ $(SDL_LIBS) -lm
+
 # ── DC layout test ───────────────────────────────────────────────────────────
 DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
 DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
