@@ -5,7 +5,7 @@ package=$1
 : > android-smoke.log
 trap 'adb logcat -d >> android-smoke.log || true' EXIT
 adb logcat -c
-marker() { adb logcat -d -s SDL | grep -F "OPEN_RTS_SMOKE_$1" >/dev/null; }
+marker() { adb logcat -d -s SDL SDL/APP | grep -F "OPEN_RTS_SMOKE_$1" >/dev/null; }
 probe() {
   adb shell am start -W -n "$package/org.openrts.SmokeActivity"
   for attempt in {1..60}; do
