@@ -52,6 +52,14 @@ Mkfile.old
 dkms.conf
 /build
 /dist
+/android/.gradle/
+/android/.kotlin/
+/android/build/
+/android/app/build/
+/android/app/.cxx/
+/android/local.properties
+*.jks
+*.keystore
 data/
 /reverse/dc-exe-r2ghidra/
 /reverse/war2-exe-r2ghidra/

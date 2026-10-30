@@ -451,6 +451,55 @@ make starcraft
 
 `make run` and `make mission-1` / `make mission-2` start Dark Reign.
 
+### Android
+
+Android 6.0 or newer is supported on ARM64 devices and x86-64 emulators.
+Each game has its own app. Releases include signed `open-rts-<game>-android.apk`
+files alongside the desktop archives. Install the APK, open it, select
+**Import game data ZIP**, and then **Play**. The ZIP must contain the same
+`data/<game>/` tree used on desktop, for example `data/DCOLONY/SCENARIO/...`.
+Retail files are supplied by the player and are not embedded in the APK.
+File names are case-sensitive. StarCraft needs unpacked assets, as on desktop.
+Imported files live in private app storage; clearing storage or uninstalling
+removes them. Touch supplies left-click and drag; a mouse and keyboard are
+recommended, especially for games that use right-click orders.
+
+To build locally, install JDK 17 and the Android SDK command-line tools,
+set `JAVA_HOME` and `ANDROID_HOME`, and initialize the pinned SDL2 submodule:
+
+```sh
+git submodule update --init --depth 1 third_party/SDL
+sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.0.13004108' 'cmake;3.22.1'
+make android                                    # all games, debug APKs
+make android ANDROID_TASK=assembleDarkColonyDebug # one game
+```
+
+Other flavor names are `DarkReign`, `Legion`, `Kknd`, `Warcraft2`, `Starcraft`,
+and `Z`. APKs are under `android/app/build/outputs/apk/`. Android Studio can
+also open the `android/` directory. The wrapper pins Gradle 8.11.1; CMake
+builds the existing C engine with SDL 2.32.10. Native libraries use NDK r28
+for 16 KB page support. Desktop builds do not require the submodule or SDK.
+
+The Android workflow builds both native architectures, runs Android lint,
+and verifies APK signatures and native library packaging for every game on
+pull requests. CI artifacts are installable debug builds. Published releases
+and manual runs of the Release workflow build the selected tag and attach
+release APKs signed with these repository Actions secrets:
+
+- `ANDROID_KEYSTORE_BASE64`: base64-encoded release keystore.
+- `ANDROID_KEYSTORE_PASSWORD`: keystore password.
+- `ANDROID_KEY_ALIAS`: signing key alias.
+- `ANDROID_KEY_PASSWORD`: signing key password.
+
+Keep that key for future updates. Release builds fail if signing secrets are
+missing. For local signed builds, export `ANDROID_KEYSTORE_PATH` pointing to
+the keystore plus the three password/alias variables above, then run
+`make android ANDROID_TASK=assembleRelease`. Without them, local release
+builds are unsigned. Pass `-PversionCode=<integer> -PversionName=<tag>` to
+Gradle for a local release version; CI uses the Android workflow run number
+and release tag. Debug and release apps use different signing keys, so remove
+a debug installation before installing a release APK with the same app ID.
+
 Passing a map on the command line skips the front end and loads that map.
 `--map <path>`, `--map=<path>`, and a positional map argument all do this.
 `--check` and `--screenshot` load without a window and force the software

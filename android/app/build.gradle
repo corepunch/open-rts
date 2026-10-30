@@ -1,0 +1,86 @@
+plugins {
+    id 'com.android.application'
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+def games = [
+    darkReign: ['dark-reign', 'REIGN/dark', 'Dark Reign'],
+    darkColony: ['dark-colony', 'DCOLONY', 'Dark Colony'],
+    legion: ['7legion', '7LEGION', '7th Legion'],
+    kknd: ['kknd', 'KKND', 'KKnD'],
+    warcraft2: ['warcraft-2', 'WAR2', 'Warcraft II'],
+    starcraft: ['starcraft', 'STARCRAFT', 'StarCraft'],
+    z: ['z', 'Z', 'Z']
+]
+
+def licenseAssets = tasks.register('licenseAssets', Sync) {
+    into layout.buildDirectory.dir('generated/licenseAssets')
+    from('../../LICENSE') { rename { 'LICENSE.open-rts' } }
+    from('../../third_party/SDL/LICENSE.txt') { rename { 'LICENSE.SDL2' } }
+    from('../../third_party/libsmacker/COPYING') { rename { 'LICENSE.libsmacker' } }
+}
+
+android {
+    namespace 'org.openrts'
+    compileSdk 35
+    ndkVersion '28.0.13004108'
+
+    defaultConfig {
+        applicationId 'org.openrts'
+        minSdk 23
+        targetSdk 35
+        versionCode providers.gradleProperty('versionCode').getOrElse('1').toInteger()
+        versionName providers.gradleProperty('versionName').getOrElse('development')
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+        externalNativeBuild {
+            cmake { arguments '-DANDROID_STL=c++_static' }
+        }
+    }
+
+    buildFeatures { buildConfig true }
+    flavorDimensions += 'game'
+    productFlavors {
+        games.each { flavor, game ->
+            create(flavor) {
+                dimension 'game'
+                applicationIdSuffix '.' + flavor.toLowerCase(Locale.ROOT)
+                resValue 'string', 'app_name', 'open-rts: ' + game[2]
+                buildConfigField 'String', 'DATA_DIRECTORY', '"data/' + game[1] + '"'
+                externalNativeBuild {
+                    cmake { arguments '-DRTS_GAME=' + game[0] }
+                }
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            def key = System.getenv('ANDROID_KEYSTORE_PATH')
+            if (key) {
+                storeFile file(key)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (System.getenv('ANDROID_KEYSTORE_PATH')) signingConfig signingConfigs.release
+        }
+    }
+
+    sourceSets.main.java.srcDir '../../third_party/SDL/android-project/app/src/main/java'
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/licenseAssets')
+    externalNativeBuild {
+        cmake {
+            path '../CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+}
+
+tasks.named('preBuild').configure { dependsOn licenseAssets }

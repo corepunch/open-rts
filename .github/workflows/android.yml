@@ -1,0 +1,133 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build; empty for CI builds
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Android / ${{ matrix.game }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - game: dark-reign
+            flavor: DarkReign
+            directory: darkReign
+          - game: dark-colony
+            flavor: DarkColony
+            directory: darkColony
+          - game: 7legion
+            flavor: Legion
+            directory: legion
+          - game: kknd
+            flavor: Kknd
+            directory: kknd
+          - game: warcraft-2
+            flavor: Warcraft2
+            directory: warcraft2
+          - game: starcraft
+            flavor: Starcraft
+            directory: starcraft
+          - game: z
+            flavor: Z
+            directory: z
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install native build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.0.13004108' 'cmake;3.22.1'
+
+      - name: Restore release signing key
+        if: inputs.tag != ''
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -eu
+          test -n "$KEYSTORE" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" || {
+            echo 'Configure the four ANDROID signing secrets before publishing a release.' >&2
+            exit 1
+          }
+          umask 077
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/android-release.jks"
+
+      - name: Build and lint
+        working-directory: android
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -eu
+          if [ -n "$RELEASE_TAG" ]; then
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/android-release.jks"
+          fi
+          ./gradlew --no-daemon \
+            -PversionCode="$GITHUB_RUN_NUMBER" \
+            -PversionName="${RELEASE_TAG:-development}" \
+            assemble${{ matrix.flavor }}Release lint${{ matrix.flavor }}Release test${{ matrix.flavor }}ReleaseUnitTest
+          if [ -z "$RELEASE_TAG" ]; then
+            ./gradlew --no-daemon assemble${{ matrix.flavor }}Debug
+          fi
+
+      - name: Verify and collect APK
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          type=release
+          if [ -z "$RELEASE_TAG" ]; then type=debug; fi
+          apk=(android/app/build/outputs/apk/${{ matrix.directory }}/"$type"/*.apk)
+          test "${#apk[@]}" -eq 1
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "${apk[0]}"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "${apk[0]}"
+          for license in LICENSE.open-rts LICENSE.SDL2 LICENSE.libsmacker; do
+            unzip -l "${apk[0]}" "assets/$license" | grep -F "assets/$license"
+          done
+          for abi in arm64-v8a x86_64; do
+            for library in libmain.so libSDL2.so; do
+              unzip -l "${apk[0]}" "lib/$abi/$library" | grep -F "lib/$abi/$library"
+            done
+            if [ '${{ matrix.game }}' = starcraft ]; then
+              unzip -l "${apk[0]}" "lib/$abi/libsmacker.so" | grep -F "lib/$abi/libsmacker.so"
+            fi
+          done
+          mkdir -p dist
+          cp "${apk[0]}" dist/open-rts-${{ matrix.game }}-android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: open-rts-${{ matrix.game }}-android
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/android-release.jks"

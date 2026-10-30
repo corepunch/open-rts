@@ -2386,3 +2386,14 @@ producer selection, cargo, and cancel-all versus cancel-slot behavior.
 reference code or converted assets were incorporated. The audit, superseded
 assumptions, intentional differences and remaining gaps are preserved in
 `docs/SC_EXE_FINDINGS.md`, "Stargus HUD availability and interaction audit".
+
+## Android build dependencies
+
+- [SDL 2.32.10](https://github.com/libsdl-org/SDL/tree/release-2.32.10),
+  pinned as the `third_party/SDL` submodule. Its C runtime and Java activity
+  glue come from the same checkout; see
+  [SDL's Android guide](https://github.com/libsdl-org/SDL/blob/release-2.32.10/docs/README-android.md).
+- [Android Gradle Plugin 8.9.2 compatibility](https://developer.android.com/build/releases/agp-8-9-0-release-notes):
+  Gradle 8.11.1, JDK 17, SDK/build tools 35. The Android build pins NDK
+  28.0.13004108 and CMake 3.22.1. NDK r28 produces 16 KB aligned native
+  libraries by default; see [Android page-size guidance](https://developer.android.com/guide/practices/page-sizes).
