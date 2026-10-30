@@ -36,7 +36,10 @@ workflow conclusion before claiming the emulator checks have passed.
 ## Lifecycle and input
 
 SDLActivity retains ownership of its surface, audio, pause/resume and native
-thread lifecycle. GameActivity runs in `:game` and terminates that process after
+thread lifecycle. The engine suppresses presentation between background and
+foreground events and recreates its streaming texture on SDL_RENDER_DEVICE_RESET
+from the indexed framebuffer. A headless pixel regression verifies these paths.
+GameActivity runs in `:game` and terminates that process after
 SDL shutdown, because plugins use C globals and atexit handlers that cannot be
 safely reused by calling main again. The launcher/import live in the main
 process. Import workers retain only the application context and survive Activity
