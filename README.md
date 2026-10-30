@@ -496,7 +496,7 @@ missing. For local signed builds, export `ANDROID_KEYSTORE_PATH` pointing to
 the keystore plus the three password/alias variables above, then run
 `make android ANDROID_TASK=assembleRelease`. Without them, local release
 builds are unsigned. Pass `-PversionCode=<integer> -PversionName=<tag>` to
-Gradle for a local release version; CI uses the Android workflow run number
+Gradle for a local release version; CI uses the source commit timestamp (seconds since 2020-01-01)
 and release tag. Debug and release apps use different signing keys, so remove
 a debug installation before installing a release APK with the same app ID.
 

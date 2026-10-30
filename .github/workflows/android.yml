@@ -96,7 +96,7 @@ jobs:
             export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/android-release.jks"
           fi
           ./gradlew --no-daemon \
-            -PversionCode="$GITHUB_RUN_NUMBER" \
+            -PversionCode="$(($(git show -s --format=%ct HEAD) - 1577836800))" \
             -PversionName="${RELEASE_TAG:-development}" \
             assemble${{ matrix.flavor }}Release lint${{ matrix.flavor }}Release test${{ matrix.flavor }}ReleaseUnitTest
           if [ -z "$RELEASE_TAG" ]; then
@@ -124,6 +124,14 @@ jobs:
             if [ '${{ matrix.game }}' = starcraft ]; then
               unzip -l "${apk[0]}" "lib/$abi/libsmacker.so" | grep -F "lib/$abi/libsmacker.so"
             fi
+            mkdir -p "$RUNNER_TEMP/elf/$abi"
+            unzip -o "${apk[0]}" "lib/$abi/*.so" -d "$RUNNER_TEMP/elf"
+            for library in "$RUNNER_TEMP/elf/lib/$abi/"*.so; do
+              "$ANDROID_HOME/ndk/28.0.13004108/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -lW "$library" |
+                awk '/LOAD/ {print $NF}' | while read -r alignment; do
+                  test "$((alignment))" -ge 16384
+                done
+            done
           done
           mkdir -p dist
           cp "${apk[0]}" dist/open-rts-${{ matrix.game }}-android.apk
@@ -137,3 +145,45 @@ jobs:
       - name: Remove signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/android-release.jks"
+
+  smoke:
+    name: Android emulator / ${{ matrix.game }}
+    if: inputs.tag == ''
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {game: dark-reign, package: darkreign}
+          - {game: dark-colony, package: darkcolony}
+          - {game: 7legion, package: legion}
+          - {game: kknd, package: kknd}
+          - {game: warcraft-2, package: warcraft2}
+          - {game: starcraft, package: starcraft}
+          - {game: z, package: z}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: open-rts-${{ matrix.game }}-android
+          path: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb install apk/*.apk
+            .github/scripts/android-smoke.sh org.openrts.${{ matrix.package }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-smoke-${{ matrix.game }}
+          path: android-smoke.log
