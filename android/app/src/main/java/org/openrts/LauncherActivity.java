@@ -10,7 +10,6 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import org.libsdl.app.SDLActivity;
 
 public final class LauncherActivity extends Activity {
     private static final int IMPORT_DATA = 1;
@@ -38,7 +37,7 @@ public final class LauncherActivity extends Activity {
         layout.addView(importData);
         play = new Button(this);
         play.setText("Play");
-        play.setOnClickListener(view -> startActivity(new Intent(this, SDLActivity.class)));
+        play.setOnClickListener(view -> startActivity(new Intent(this, GameActivity.class)));
         layout.addView(play);
         setContentView(layout);
     }

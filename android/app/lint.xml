@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- SDL checks Bluetooth permissions before controller initialization;
+         the engine never opens audio capture. Keep our own app code checked. -->
+    <issue id="MissingPermission">
+        <ignore path="../../third_party/SDL/android-project/app/src/main/java/org/libsdl/app/HIDDeviceBLESteamController.java" />
+        <ignore path="../../third_party/SDL/android-project/app/src/main/java/org/libsdl/app/HIDDeviceManager.java" />
+        <ignore path="../../third_party/SDL/android-project/app/src/main/java/org/libsdl/app/SDLAudioManager.java" />
+    </issue>
+    <!-- SDL selects its API26 handler classes behind SDK_INT checks. -->
+    <issue id="NewApi">
+        <ignore path="../../third_party/SDL/android-project/app/src/main/java/org/libsdl/app/SDLControllerManager.java" />
+    </issue>
+    <!-- GameActivity supplies receiver flags when SDL calls this legacy overload. -->
+    <issue id="UnspecifiedRegisterReceiverFlag">
+        <ignore path="../../third_party/SDL/android-project/app/src/main/java/org/libsdl/app/HIDDeviceManager.java" />
+    </issue>
+</lint>
