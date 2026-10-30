@@ -84,7 +84,8 @@ static void move_art(screenart_t *art, bool save) {
         art->loaded = true;
         memset(fonts, 0, sizeof(fonts));
         background = pictures = (spritesheet_t){0};
-        images = (spritecache_t){0};
+        /* A compound literal creates a 1 MiB stack temporary in debug builds. */
+        memset(&images, 0, sizeof(images));
         memset(animations, 0, sizeof(animations));
         numanimations = 0;
     } else {
