@@ -21,7 +21,6 @@ sleep 1
 adb shell input tap 150 150
 adb shell input keyevent KEYCODE_HOME
 sleep 2
-adb shell am start -n "$package/org.openrts.LauncherActivity"
 adb shell am start -W -n "$package/org.openrts.SmokeActivity"
 # Bringing the existing SDL Activity back exercises its surface and resume path.
 for attempt in {1..60}; do
