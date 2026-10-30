@@ -48,7 +48,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
-          submodules: true
 
       - uses: actions/setup-java@v4
         with:
@@ -60,6 +59,10 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+
+      # Validate our executable wrapper before fetching SDL's unused sample wrapper.
+      - name: Fetch SDL2 sources
+        run: git submodule update --init --depth 1 third_party/SDL
 
       - name: Install native build tools
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.0.13004108' 'cmake;3.22.1'
