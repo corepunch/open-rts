@@ -387,11 +387,13 @@ Read whole into [0x103f94]; 0x50665 and 0x56f66 index it.
 
 | Offset | Records | Contents |
 |---|---|---|
-| 0x0000 | 44 bytes | Robots: name at +2, weapon type at +0x22, other bytes not decoded |
+| 0x0000 | 44 bytes | Robots: name at +2, strength +0x1c, accuracy +0x1d, speed factor +0x1f, hit points +0x20, weapon type at +0x22 |
 | 0x4650 | 82 bytes | Groups: in use when byte 0 is set, name at +2, up to 21 robot numbers (u16) at +0x1c, 0xffff ends |
-| 0x55f0 | 42 bytes | Weapon types: unit class at +1, name at +6; +0x02, +0x04 and +0x20 look like hit points, vehicle speed and damage but are not confirmed |
+| 0x55f0 | 42 bytes | Weapon types: unit class at +1, u16 range in pixels at +2, vehicle speed factor +4, vehicle hit points / 25 at +5, name at +6, damage +0x20, fire rate +0x22 (reload 100 - rate steps), shot speed +0x23 |
 
 A group is a squad: each member is one unit of its robot's weapon type.
+How ZED.EXE reads these fields, and every type's values, are in
+`Z_EXE_FINDINGS.md`, "Unit statistics".
 Retail groups 0..18 are Gun, Medium Tank, Grunt, Tough, Sniper, Heavy Tank,
 Psychos, Light Tank, Missile, M. Missile, Gattling, Jeep, Truck, APC,
 Howitzer, Fire Truck, Crane, Flamer and Laser Chap. Robots of every kind

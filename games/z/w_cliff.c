@@ -298,12 +298,12 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         const zaitask_t *t = &ai->tasks[i];
         HASH(t->unit); HASH(t->boarding); HASH(t->execute_at); HASH(t->order.x); HASH(t->order.y);
         HASH(t->strength); HASH(t->current); HASH(t->target); HASH(t->destination);
-        HASH(t->task); HASH(t->squad); HASH(t->flags); HASH(t->retry); HASH(t->idle); HASH(t->pending);
+        HASH(t->home); HASH(t->passes); HASH(t->task); HASH(t->squad); HASH(t->flags); HASH(t->retry); HASH(t->idle); HASH(t->pending);
     }
     for (int i = 0; i < map->territory_count; ++i) {
         const zai_territory_t *t = &ai->territories[i];
         for (int team = 0; team < 4; ++team) HASH(t->strength[team]);
-        HASH(t->value); HASH(t->owner); HASH(t->flags); HASH(t->known);
+        HASH(t->lockout); HASH(t->value); HASH(t->owner); HASH(t->flags); HASH(t->known);
     }
 #undef HASH
     return hash;

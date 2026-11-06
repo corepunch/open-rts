@@ -10,6 +10,18 @@ static const fixed_t grenade_arc[] = {
 };
 static const uint8_t grenade_blast[] = {50, 75, 50, 75, 100, 75, 50, 75, 50};
 
+/* 0x7bf10 walks a repeating pattern of whole pixels a step from 0x117e5c,
+ * one per speed level 0..12; on average 1/5, 1/4, 1/3, 2/5, 1/2, 2/3, 4/5,
+ * 1, 4/3, 3/2, 2, 7/3 and 5/2 pixels a native 70 Hz step. Speeds here are
+ * cells a second. */
+enum { Z_NATIVE_HZ = 70 };
+#define Z_LEVEL_NUM(l) ((l) == 0 ? 1 : (l) == 1 ? 1 : (l) == 2 ? 1 : (l) == 3 ? 2 : (l) == 4 ? 1 : \
+    (l) == 5 ? 2 : (l) == 6 ? 4 : (l) == 7 ? 1 : (l) == 8 ? 4 : (l) == 9 ? 3 : (l) == 10 ? 2 : (l) == 11 ? 7 : 5)
+#define Z_LEVEL_DEN(l) ((l) == 0 ? 5 : (l) == 1 ? 4 : (l) == 2 ? 3 : (l) == 3 ? 5 : (l) == 4 ? 2 : \
+    (l) == 5 ? 3 : (l) == 6 ? 5 : (l) == 7 ? 1 : (l) == 8 ? 3 : (l) == 9 ? 2 : (l) == 10 ? 1 : (l) == 11 ? 3 : 2)
+#define Z_LEVEL_SPEED(l) \
+    ((fixed_t)((int64_t)FIXED_ONE * Z_LEVEL_NUM(l) * Z_NATIVE_HZ / (Z_LEVEL_DEN(l) * Z_TILE)))
+
 /* Objects and buildings stand still; units (units.inc) walk and fight. */
 static const mobjtype_t ACTOR_TYPES[] = {
 #define Z_OBJECT(native, type, label, sprite, flags, w, h, dead) \
@@ -26,15 +38,15 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .native_type_id = native},
 #include "buildings.inc"
 #undef Z_BUILDING
-#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, reach, reload, sprite, turn, frames, idle, \
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, lvl, reach, wait, sprite, turn, frames, idle, \
                dead, gun) \
     {.id = MT_UNIT_##type, .name = label, .sprite_name = Z_SHEET_##kind(type), \
      .traits = MF_SELECTABLE | MF_RENDERABLE | ((mobile) ? MF_MOBILE : MF_TURRET) | \
                ((dmg) ? MF_ATTACK : 0), \
      .turret = {.sprite_name = (gun) ? #type "_TURRET" : NULL, .turn_step = Z_TURRET_TURN, .frame = 0, \
                 .fire_frame = 1}, \
-     .speed = FIXED_ONE * (spd) / 10, .max_hp = hp, .native_type_id = t, \
-     .attack = {.range = FIXED_FROM_INT(reach), .damage = dmg, .cooldown_ms = reload}},
+     .speed = Z_LEVEL_SPEED(lvl), .max_hp = hp, .native_type_id = t, \
+     .attack = {.range = FIXED_ONE * (reach) / Z_TILE, .damage = dmg, .cooldown_ms = (wait) * 1000 / Z_NATIVE_HZ}},
 #include "units.inc"
 #undef Z_UNIT
     {.id = MT_FLAG, .name = "Flag", .sprite_name = "FLAG", .traits = MF_RENDERABLE | MF_NOBLOCKMAP,

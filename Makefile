@@ -514,7 +514,7 @@ QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network $(BIN_DIR)/tests/dark-c
 SOAK_TEST_BINS := $(BIN_DIR)/tests/dark-colony/test_ai_skirmish \
     $(BIN_DIR)/tests/dark-colony/test_ai_factions $(BIN_DIR)/tests/dark-colony/test_menu \
     $(BIN_DIR)/tests/starcraft/test_ai $(BIN_DIR)/tests/warcraft-2/test_ai \
-    $(BIN_DIR)/tests/warcraft-2/test_ai_game $(BIN_DIR)/test_network
+    $(BIN_DIR)/tests/warcraft-2/test_ai_game $(BIN_DIR)/tests/z/test_ai $(BIN_DIR)/test_network
 SOAK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network,$(SOAK_TEST_BINS)) $(NETWORK_TEST_CASES)
 test: check-ifdefs test-info-gen test-loaders $(TEST_RUNNER) $(QUICK_TEST_BINS) starcraft-maps
 	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $(QUICK_TEST_CASES)

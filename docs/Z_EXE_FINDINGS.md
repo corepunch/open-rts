@@ -208,8 +208,9 @@ for its network desync log. Network games reset the seed to 0x3039 at
 - The crane's hook (0x7eaad reads its second offset through a pointer
   scaled as an index), the tank drivers' heads (0x7eccf, sprites from
   1464), fire truck and truck drawing, the robots' other actions (the shot
-  death among them), how robots notice enemies, and the
-  meaning of most unit and ROBOTS.DAT fields.
+  death among them) and how robots notice enemies. Most unit and
+  ROBOTS.DAT combat fields are now decoded ("Unit statistics" below);
+  robot +0x24, weapon +0x21/+0x24 and body +0x18/+0x19 remain unknown.
 - Per-team terrain rows and the other unit classes' tables.
 - The byte per sprite after the SPRITES.RSC offsets, and each sprite's row
   bytes.
@@ -1372,17 +1373,20 @@ than being replaced with numeric approximations:
   overlap, including corners. A successful march installs lockout **1020**
   at `0x9aae7`. This native *local fallback* is distinct from the removed
   global nearest-flag commander and is not substituted for native scoring.
+  **Correction (2026-11-06):** its only callers, `0x9a3c3` and `0x9a433`,
+  are never called or referenced as data. The fallback and its 1020
+  lockout are dead code in the retail executable and stay unported.
 - `0x9c174` recaptures a non-CPU territory with nonzero lockout, positive
   CPU strength and zero human strength, selecting a usable local reserve
   not marked with task flags 2/4. `0x9cb5e` returns reserves to assigned
-  home territories. Full lockout/recapture and home routing are unported.
+  home territories. Both are ported as of 2026-11-06 (below).
 - `0x9d390` values a potential donor squad, caps it at 65535, and requires
   the donor territory's remaining own strength to be at least
   `16*weight*importance` with native word/sign checks. `0x9d330` chooses
   the largest eligible donor; `0x9d115` compares defending strength and
-  adjacent donors. Full defense/reinforcement/priority-territory passes,
-  alerts for attacked buildings, repairs, cranes, bridges and APC cargo
-  remain unported. Their evidence must not be described as completed AI.
+  adjacent donors. Defence and reinforcement are ported as of 2026-11-06
+  (below); priority territories, alerts for attacked buildings, repairs,
+  cranes, bridges and APC cargo remain unported.
 - Native strategy is disabled by multiplayer dispatcher gates at
   `0x9b21b..0x9b23d`; the engine now schedules this single-player commander
   for team 1 only. It does not create new computer teams in multiplayer.
@@ -1594,3 +1598,195 @@ and joining, and two-, three- and four-player host launch. Dark Colony's
 252 objects and 512 terrain tiles. The game-generated main-menu screenshot
 and the menu-test multiplayer, Start, join-browser and 4x views were inspected,
 including a final rerun after correcting the blank space glyph.
+
+## Commander passes and unit statistics (2026-11-06)
+
+Static reading of the same ZED.EXE (SHA-256 above) with a scratch Python
+LE loader (fixups) and Capstone; nothing retail was executed. This adds the
+heavy-pass branches the previous section left unported and replaces the
+authored unit statistics.
+
+### The heavy pass, in order
+
+`0x9b1e3` runs every native frame: lockouts count down (`0x9cb40`), then
+`set_unit_territories`, `attack_that_fort` (`0x99086`) and
+`send_robots_to_flags`; everything after `reset_intel_delay` only runs when
+the intelligence countdown (`0x152f24`) goes negative. That heavy part is,
+in order: observations, `monitor_home_territories`/`adjust_for_unit_balance`
+/`split_units` (ported before), `aggressive_opponent` (`0x98d58`), then
+dead buildings and bridges, bored cranes, priority territories, buildings
+under attack, `recapture_lost_territories`, `clear_recapture_flags`,
+`check_CPU_player_units`, `check_units_homes`, repairable vehicles, unit
+targets, repair orders and `check_defend_territories`.
+
+Task record fields (22 bytes at `0x18d388`): +0 current territory, +4 target
+territory, +8 strength, +0xc destination, +0x10 flags (1 cleared each
+frame by `0x9dc00`, 2 recapturing, 4, 8 usable, 16 mobile), +0x11 task,
++0x12 frontier counter, +0x14 idle counter, +0x15 active. Task *i* goes
+with group *i* (72 bytes at `0x1943f8`; +0xc is the group's home
+territory, -1 until a defence donation or a stray-unit reroute sets it).
+Task values established by their writers:
+
+| Task | Meaning | Writer |
+|---|---|---|
+| -1 | idle | many |
+| 0 | marching on a destination | `0x99f46`, `0x9959d` |
+| 1 | at the destination, taking its flag (or entering the human fort) | `0x9989a`, `0x99d42` |
+| 2 | waiting in a territory beside the destination | `0x997cb` |
+| 3 | assaulting the destination | `0x99751`, `0x996f0`, `0x99813` |
+| 4 | holding (garrisoning) a territory, target in +4 | `0x999c2` |
+| 5 | going for an empty vehicle or gun | `0x99077` (ported before) |
+| 10 | moving up to the frontier | `0x98e33` |
+
+`aggressive_opponent` calls, in order: `0x9a1dd`+`0x99e3f` (ranking and the
+first attack, ported before), then:
+
+- `0x993ff`: for each marching task, if the strength bound for its
+  destination (`0x995de`: usable+mobile tasks not idle/4/5) is below the
+  required force (`0x9a054`), all of them become task 0 and `0x99e60` looks
+  for more: the idle pool (`0x9a126`/`0x9a080`) must reach the *whole*
+  requirement alone, or with the one garrison whose territory has the
+  lowest value (`0x9937f`, last of equals) if that value is no more than
+  the target's. Failing that, every task bound there falls back
+  (`0x994d3` → `0x99502`: re-stage in its current territory, or stop where
+  it is if barred there, and clear). An attack that has enough lets go of
+  the tasks beyond the requirement, in table order (`0x9942a`), except
+  against the human fort.
+- `0x998c5`: a garrison leaves when its territory is lost or its
+  reserve-adjusted value (`0x999e5`, below) drops under **500**.
+- `0x9962c`, per offensive task: `0x99818` notices a captured destination
+  (task -1, then `0x99910` garrisons it with idle forces standing there when
+  its value is >= 500 and nobody holds it, assigning until the
+  reserve-adjusted value is used up) or an arrival (task 1 and an order onto
+  the flag at flag*16+4, one task per territory). `0x99abd` is the fort
+  entry ported before. `0x99708`: a marching task waits next to the
+  destination (task 2, staged in its own territory) while another task is
+  still marching on or taking it; once the waiting strength reaches the
+  requirement, everyone marching or waiting assaults together (`0x996c1`);
+  a lone task beside the destination assaults at once; waiting tasks go in
+  as they are once nobody is still marching (`0x997d5`). Adjacency is
+  `0x9d61e`. `0x9a534` and `0x9a801` (buildings in the territory) are not
+  ported.
+- `0x993c7` drops a vehicle task whose territory has nothing left to board;
+  `0x991c4` retires tasks idle for three heavy passes — tasks 2 (waiting)
+  are exempt, which the port previously got wrong.
+- `0x99149`: the first CPU-owned non-fort territory whose reserve-adjusted
+  value is >= 500 and above its guards (`0x99976`) gets enough idle offensive
+  force to make up the difference, as task 4. Only that territory, each pass.
+  `0x99976` counts task-4 guards of the territory **and every gun anywhere**
+  (the class-2 test skips the territory check); the port keeps that.
+- `0x98ee1` vehicles (ported before), then `0x98d95`: an idle offensive task
+  whose territory borders only CPU territories, with its group still and no
+  queued order, after two such passes marches to the flag (+8) of the first
+  CPU non-fort territory that borders someone else's (task 10).
+
+`0x999e5`: `value * (100 - 100 * mobile / (mobile + reserve)) / 100`,
+with the mobile budget at `0x152f3c` and the rest at `0x152f34`
+(`0x9b775..0x9b79a`). A negative value is treated as zero in the port.
+
+Lockout: a taken flag sets territory +0x16 to **510** (`0x79e69`); `0x9cb40`
+counts it down once a frame and `0x79e04` refuses a capture while it is above
+467. `0x9c174` recaptures while it is nonzero (above). The port counts it
+from observed ownership changes; the existing 18-tic flag hold already
+covers the capture refusal.
+
+`0x9cb5e`: a reserve with a home, outside it, whose territory holds no other
+team's strength, goes home through `0x9d42c`. Cranes (36), Fire Trucks (38)
+and units in some actions are skipped; guns go through `0x651e2` (not
+ported, they cannot move).
+
+`0x9d115`: `0x9dc25`, called when a robot acquires a target in reach
+(`0x581e1`, `0x782d4`, `0x758a9`...), lists the target if the robot is a
+computer unit whose task is not mobile; `0x9dc00` clears the list each frame
+before the robots update. For each listed enemy in a territory not its
+team's where human strength >= CPU strength: the adjacent territory with
+the most CPU surplus (CPU - human, signed 16) that can spare a squad
+(`0x9d330`: the most valuable squad, by unestimated `0x983e0`, capped 65535,
+whose loss leaves at least `16 * weight * importance` there) sends it
+(`0x9d23c`, recording the donor's home); failing that any reserve in a
+territory of no greater importance and enough surplus; failing that the
+reserves in the threatened territory fall back to their home, or to the
+nearest other own territory (`0x9cf33`). The port rebuilds the list from
+computer reserves' current targets on the heavy pass.
+
+Not ported from this dispatcher: buildings and bridges, cranes, priority
+territories (`0x9be16`), buildings under attack (`0x9bf90`), stray units
+(`0x9cc83`), repairs and unit-target checks.
+
+### Unit statistics
+
+Spawn `0x5108c` copies a robot record's +0x1c strength (melee damage
+>> 3, `0x613a4`), +0x1d accuracy (aim scatter, driver kills), +0x1f speed
+factor and **+0x20 hit points** (runtime +0x3a/+0x3b; damage `0x86d04`).
+Weapon setup `0x50df1` gives robots damage (+0x20), range (u16 +2 >> 3, in
+8-pixel units), fire rate (+0x22) and shot speed (+0x23). Vehicles and guns
+get a 44-byte body (`0x50bfb`): hit points **25 * weapon +5** (u16 +8),
+speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
+
+- Range in pixels is 8 * (u16 weapon +2 >> 3); `0x75a0a` compares squared
+  pixel distance, acquisition uses SQROOT.BIN.
+- Unit +0x78 counts down once a step (`0x6056d`); every fire routine fires
+  at 0 and reloads **100 - fire rate** steps (`0x60c4a`, `0x75ec2`,
+  `0x58bb8`, `0x26ea6`). The fire animation can make the real interval
+  longer: Grunt and Sniper about 4 steps at least, rate >= 92 (Psycho)
+  uses action 0x39 (2 steps). The Pyro pauses 16 steps after 4 bursts.
+- Speed level = terrain term / 10 + unit speed / 10, clamped 0..12
+  (`0x79882`; terrain bytes at `0x1157ea`, not decoded per terrain). Each
+  level walks a repeating pixels-a-step pattern (`0x7bf10`, table
+  `0x117e5c`) averaging 1/5, 1/4, 1/3, 2/5, 1/2, 2/3, 4/5, 1, 4/3, 3/2, 2,
+  7/3, 5/2.
+- Bullets (`0x5af81`) lose **5** (`0x103f49`) against anything that is not
+  a robot class, leaving 0 or 1 at random when nothing is left
+  (`0x5ae44`). A bullet that hits a Light Gun or a Jeep rolls
+  `rand & 0x7f` against the shooter's accuracy (halved against guns); on
+  success the driver takes the shot and an emptied vehicle stands for
+  anyone to take (`0x5ad72..0x5ae0d`, `0x860fd`). Type 0x1b and bodies with
+  +0x19 = 3 are also eligible; neither is identified.
+- Shells, rockets and grenades (`0x59ed1`/`0x5a205`/`0x5a39e`) burst at full
+  strength, without armour, on every enemy whose top-left is in a 44x32
+  box (`0x85ce4..0x85e9f`); class-0 robots throw strength 50 (`0x103f47`).
+- A hit taking a body under 3/4, 1/2 or 1/4 of its hit points scales its
+  speed and fire rate by 90%, 85% or 80% (`0x86d55`). A moving vehicle
+  knocks down robots in a [-8, +16] pixel box (`0x586a0`).
+
+Decoded values (plain ground; cooldown in 70 Hz steps):
+
+| T | Type | HP | Dmg | Range px | Cooldown | Speed level | Accuracy |
+|---|---|---|---|---|---|---|---|
+| 0 | Light Gun | 100 | 75 | 120 | 40 | - | 60 |
+| 1 | Medium Tank | 200 | 80 | 120 | 30 | 4 | 80 |
+| 2 | Grunt | 30 | 5 | 120 | 20 | 4 | 60 |
+| 3 | Tough | 100 | 40 | 120 | 20 | 3 | 40 |
+| 4 | Sniper | 50 | 10 | 144 | 20 | 5 | 120 |
+| 5 | Heavy Tank | 300 | 120 | 144 | 40 | 3 | 80 |
+| 6 | Mobile Missile | 300 | 120 | 160 | 80 | 2 | 80 |
+| 7 | Psycho | 50 | 2 | 120 | 2 | 4 | 50 |
+| 8 | Light Tank | 100 | 50 | 120 | 20 | 5 | 80 |
+| 9 | Missile Launcher | 100 | 100 | 160 | 70 | - | 60 |
+| 10 | APC | 200 | 5 | 120 | 20 | 5 | 60 |
+| 11 | Gatling | 50 | 6 | 120 | 3 | - | 50 |
+| 12 | Howitzer | 75 | 100 | 200 | 90 | - | 60 |
+| 13 | Jeep | 50 | 4 | 120 | 2 | 6 | 40 |
+| 14 | Fire Truck | 200 | 20 | 120 | 2 | 5 | 60 |
+| 15 | Crane | 300 | (120, never fired, `0x58bea`) | 120 | - | 5 | 60 |
+| 16 | Truck | 75 | 0 | 0 | - | 6 | 60 |
+| 17 | Pyro | 80 | 20 | 120 | 2 (+16 every 4) | 4 | 80 |
+| 18 | Laser | 60 | 15 | 136 | 20 | 5 | 40 |
+
+Accuracy is the first robot's (drivers' for vehicles). `games/z/units.inc`
+now holds these values in native units and `g_game.c` converts them; the
+bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
+(`p_capture.c`). The random coin is a deterministic hash of the tic and the
+two units, not the native stream.
+
+Engine boundaries, **not** native equivalence: direct weapons still hit
+instantly and never miss (native bullets travel and scatter by accuracy),
+so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
+shells do not splash; damage slow-down, vehicle crush, the tanks' apparent
+secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
+terrain speed terms, the Pyro flame (`0x5a099`) and the Fire Truck
+(`0x59ffb`) are not ported.
+
+Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
+build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`
+(`AI_TRACE=1` on `test_ai` prints the computer's course each minute).
