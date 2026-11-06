@@ -300,7 +300,8 @@ static void activate(menu_t *menu, menuitem_t *item) {
         }
     menuitem_t *target = item->kind == MI_BUTTON && item->step ? linked(menu, item) : NULL;
     if (target) scroll_to(target, target->first_row + item->step);
-    if (!item->quiet) S_StartUISound(UI_SOUND_CLICK);
+    if (!item->quiet && menu->click_sfx) S_StartLocalSound(menu->click_sfx);
+    else if (!item->quiet) S_StartUISound(UI_SOUND_CLICK);
     call_routine(menu, item, MA_ACTIVATE);
 }
 
