@@ -157,11 +157,11 @@ static const uint8_t oplen[69]={
 };
 enum {
     SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_GND_ATTACK_RPT=5, SC_WALKING=11,
-    SC_LANDING=17, SC_LIFT_OFF=18, SC_STAREDIT_INIT=23,
+    SC_LANDING=17, SC_LIFT_OFF=18, SC_STAREDIT_INIT=23, SC_BURROW=25, SC_UNBURROW=26,
 };
 /* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. A work
  * swing (6) plays once and returns to idle, like an attack without the blow. */
-enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6 };
+enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6, SC_GROUP_HOLD=7 };
 static unsigned animation_start(const blob_t *s,unsigned id,int anim) {
     if(s->size<6) return 0;
     size_t table=read_u32_le(s->bytes+2)==0?read_u16_le(s->bytes):0;
@@ -407,6 +407,16 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
                 int head=next_state++;
                 if(animation(&script,start,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
                     sc_flight_states[i][phase]=head;
+            }
+        }
+        /* Burrow and UnBurrow hold their last frame: dug in, or up again
+         * until the unit's order puts it back to its idle pose. */
+        if((sc_units[i].flags&SC_UNIT_BURROWABLE)||i+1==MT_SPIDER_MINE)for(int phase=0;phase<2;phase++) {
+            unsigned start=animation_start(&script,scriptid,phase?SC_UNBURROW:SC_BURROW);
+            if(start&&next_state<SC_STATES) {
+                int head=next_state++;
+                if(animation(&script,start,i,head,turns,SC_GROUP_HOLD,sheet,NULL,states[1+i*2].frame)>=0)
+                    sc_burrow_states[i][phase]=head;
             }
         }
         if(death&&next_state<SC_STATES) {

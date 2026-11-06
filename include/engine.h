@@ -1125,6 +1125,9 @@ bool G_PathOrder(mobj_t *const *units, int count, const waypoints_t *path);
 /* Sight. G_SightRadius may change an actor's radius, or return false to give
  * it no sight (aboard a ship). */
 bool G_SightRadius(const mobj_t *actor, int *radius);
+/* The cooldown after a unit fires weapon, given the weapon's own: Stim Packs
+ * or Ensnare may shorten or lengthen it. */
+int G_WeaponCooldown(const mobj_t *unit, const weapondef_t *weapon, int cooldown_ms);
 /* False when a viewer (owner and ally row `team`, 8 for none) must not see
  * `target` whatever the fog says: units aboard a ship. */
 bool G_ViewerSees(const mobj_t *target, int owner, int team);

@@ -1972,10 +1972,10 @@ static void command(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a!=MA_TARGET)return;
     ivec2_t at=R_ScreenToMapGrid(m->app,&level,m->cursor.x,m->cursor.y);
     uint32_t target=0;
-    if(i->value==TC_ATTACK || i->value==TC_REPAIR || i->value==TC_MOVE) {
+    if(i->value==TC_ATTACK || i->value==TC_REPAIR || i->value==TC_MOVE || i->value==TC_BOARD) {
         int picked=R_PickUnit(m->app,&level,hudview.units,hudview.unit_count,NULL,
             hudview.sprites,gameinfo,m->cursor.x,m->cursor.y,-1);
-        if(picked<0 && i->value==TC_REPAIR)return;
+        if(picked<0 && (i->value==TC_REPAIR || i->value==TC_BOARD))return;
         if(picked>=0)target=hudview.units[picked]->id;
     }
     if(i->value==TC_PATH) {
@@ -2281,20 +2281,30 @@ static void refresh(menu_t *menu) {
     /* Abilities follow, greyed until researched; a Bunker unloads. */
     if(!build_page) {
         int techs[8],n_techs=sc_unit_techs(selected->type_id,techs,8);
+        bool burrowed=(selected->sc.flags&SC_BURROWED)!=0;
         for(int t=0;t<n_techs&&slot<9;t++) {
             int tech=techs[t];
+            /* Dug in, a unit can only come up again. */
+            if(burrowed&&tech!=SC_TECH_BURROWING)continue;
             int icon=tech==SC_TECH_NUCLEAR_STRIKE?311:tech==SC_TECH_SIEGE_MODE&&selected->type_id==MT_SIEGE_MODE?246:
-                sc_techs[tech].icon;
-            button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":sc_techs[tech].name);
+                tech==SC_TECH_BURROWING&&burrowed?260:sc_techs[tech].icon;
+            button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":
+                tech==SC_TECH_BURROWING&&burrowed?"Unburrow":sc_techs[tech].name);
             if(!sc_has_tech(consoleplayer,tech)) {
                 char why[96];snprintf(why,sizeof(why),"Requires: %s research",sc_techs[tech].name);
                 grey(slot,why);
-            }
+            } else if(tech==SC_TECH_SPIDER_MINES&&selected->sc.hangar<=0)grey(slot,"No Spider Mines left");
             slot++;
         }
         bool loaded=false;
         for(int j=0;j<hudview.unit_count;j++)loaded|=(hudview.units[j]->sc.flags&SC_LOADED)&&hudview.units[j]->sc.parent==selected->id;
-        if(sc_units[selected_id].space_provided&&loaded&&slot<9)button(slot++,312,SDLK_u,unload,0,"Unload All");
+        bool flier=!(sc_units[selected_id].flags&SC_UNIT_BUILDING);
+        /* A transport loads a clicked unit and unloads where it is sent. */
+        if(flier&&sc_carries(selected)&&slot<9)button(slot++,309,SDLK_l,command,TC_BOARD,"Load");
+        if(sc_units[selected_id].space_provided&&loaded&&slot<9)
+            button(slot++,312,SDLK_u,flier?command:unload,flier?TC_UNLOAD:0,"Unload All");
+        if(selected->type_id==MT_NYDUS_CANAL&&!sc_nydus_other(selected)&&selected->owner==consoleplayer&&slot<9)
+            button(slot++,MT_NYDUS_CANAL-1,SDLK_n,ability,SC_TECH_NYDUS_EXIT,"Build Nydus Canal Exit");
         if(sc_units[selected_id].flags&SC_UNIT_BUILDING) {
             if((sc_units[selected_id].flags&SC_UNIT_FLYING_BUILDING)&&!queue)
                 button(8,282,SDLK_l,stop,TC_LIFT,"Lift Off");

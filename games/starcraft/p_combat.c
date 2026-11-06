@@ -29,6 +29,10 @@ const sc_weapon_t *sc_weapon(int id) {
 static const mobjtype_id_t strikes_twice[] = {MT_FIREBAT, MT_ZEALOT, 10 + 1 /* Gui Montag */, 77 + 1 /* Fenix */};
 
 static int frames_ms(int frames) { return (frames * 1000 + 23) / 24; }
+static bool sc_type(const mobj_t *mo) { return sc_unit(mo) != NULL; }
+enum { HERO_RAYNOR_VULTURE = 20, HERO_HUNTER_KILLER = 54, HERO_DEVOURING_ONE = 55, HERO_YGGDRASILL = 58,
+       HERO_FENIX_ZEALOT = 78, HERO_MOJO = 81 };
+
 
 static weapondef_t weapon(int id, uint8_t targets) {
     const sc_weapon_t *w = sc_weapon(id);
@@ -77,7 +81,6 @@ void sc_unit_weapons(int type, mobjtype_t *out) {
     if (sc_units[type - 1].flags & SC_UNIT_PERMANENT_CLOAK) out->traits |= MF_CLOAKED;
 }
 
-static bool sc_type(const mobj_t *mo) { return sc_unit(mo) != NULL; }
 
 /* Shields and energy take their spawn values on first use. */
 void sc_start(mobj_t *mo) {
@@ -86,6 +89,8 @@ void sc_start(mobj_t *mo) {
     mo->sc.flags |= SC_STARTED;
     mo->sc.shields = u->shields << 8;
     mo->sc.energy = (u->flags & SC_UNIT_SPELLCASTER) ? SC_START_ENERGY : 0;
+    /* OpenBW create_unit: every Vulture carries three Spider Mines. */
+    if (mo->type_id == MT_VULTURE || mo->type_id == HERO_RAYNOR_VULTURE) mo->sc.hangar = 3;
 }
 
 int sc_shields(const mobj_t *mo) {
@@ -110,6 +115,67 @@ int sc_max_energy(const mobj_t *mo) {
         if (mo->type_id == reactors[i].type && sc_upgrade_level(mo->owner, reactors[i].upgrade))
             return SC_MAX_ENERGY + SC_REACTOR_ENERGY;
     return SC_MAX_ENERGY;
+}
+
+/* ── speed, cooldown and sight upgrades (OpenBW update_unit_speed_upgrades) ── */
+
+static bool speed_upgraded(const mobj_t *mo) {
+    int upgrade = -1;
+    switch (mo->type_id) {
+    case MT_VULTURE: case HERO_RAYNOR_VULTURE: upgrade = 17; break; /* Ion Thrusters */
+    case MT_OVERLORD: upgrade = 26; break;                         /* Pneumatized Carapace */
+    case MT_ZERGLING: upgrade = 27; break;                         /* Metabolic Boost */
+    case MT_HYDRALISK: upgrade = 29; break;                        /* Muscular Augments */
+    case MT_ZEALOT: upgrade = 34; break;                           /* Leg Enhancements */
+    case MT_SCOUT: upgrade = 42; break;                            /* Gravitic Thrusters */
+    case MT_SHUTTLE: upgrade = 37; break;                          /* Gravitic Drive */
+    case MT_OBSERVER: upgrade = 39; break;                         /* Gravitic Boosters */
+    case HERO_HUNTER_KILLER: case HERO_YGGDRASILL: case HERO_FENIX_ZEALOT: case HERO_MOJO: return true;
+    }
+    return upgrade >= 0 && sc_upgrade_level(mo->owner, upgrade);
+}
+static bool cooldown_upgraded(const mobj_t *mo) {
+    return mo->type_id == HERO_DEVOURING_ONE || (mo->type_id == MT_ZERGLING && sc_upgrade_level(mo->owner, 28));
+}
+/* Stim Packs and a speed upgrade each count one up, Ensnare one down. */
+static int speed_mod(const mobj_t *mo, bool upgraded) {
+    return (mo->sc.timers[SC_TIMER_STIM] > 0) + upgraded - (mo->sc.timers[SC_TIMER_ENSNARE] > 0);
+}
+/* Top speed after Stim Packs, upgrades and Ensnare: half when slowed; when
+ * hastened half again, at least 3 1/3 pixels a frame, or a Scout's 6 2/3. */
+fixed_t sc_unit_speed(const mobj_t *mo) {
+    fixed_t speed = mo->info->speed;
+    int mod = speed_mod(mo, speed_upgraded(mo));
+    if (mod < 0) return speed / 2;
+    if (mod == 0) return speed;
+    if (mo->type_id == MT_SCOUT) return SC_PIXELS(20 * 24) / 3;
+    speed += speed / 2;
+    return speed < SC_PIXELS(10 * 24) / 3 ? SC_PIXELS(10 * 24) / 3 : speed;
+}
+/* OpenBW get_modified_weapon_cooldown: halved when hastened, a quarter
+ * longer when slowed, kept to 5..250 frames. */
+int G_WeaponCooldown(const mobj_t *unit, const weapondef_t *weapon, int cooldown_ms) {
+    (void)weapon;
+    if (!sc_type(unit)) return cooldown_ms;
+    int mod = speed_mod(unit, cooldown_upgraded(unit));
+    if (!mod) return cooldown_ms;
+    cooldown_ms = mod > 0 ? cooldown_ms / 2 : cooldown_ms + cooldown_ms / 4;
+    return cooldown_ms < frames_ms(5) ? frames_ms(5) : cooldown_ms > frames_ms(250) ? frames_ms(250) : cooldown_ms;
+}
+/* Ocular Implants, Antennae, Sensor Array and Apial Sensors: 11 cells.
+ * A unit aboard a flying transport sees nothing of its own. */
+bool G_SightRadius(const mobj_t *actor, int *radius) {
+    if (!sc_type(actor)) return true;
+    if (actor->sc.flags & SC_LOADED) {
+        const mobj_t *carrier = P_MobjById(actor->sc.parent);
+        if (!carrier || !(sc_units[carrier->type_id - 1].flags & SC_UNIT_BUILDING)) return false;
+    }
+    static const struct { mobjtype_id_t type; int upgrade; } eyes[] = {
+        {MT_GHOST, 20}, {MT_OVERLORD, 25}, {MT_OBSERVER, 38}, {MT_SCOUT, 41},
+    };
+    for (unsigned i = 0; i < sizeof(eyes) / sizeof(*eyes); i++)
+        if (actor->type_id == eyes[i].type && sc_upgrade_level(actor->owner, eyes[i].upgrade)) *radius = 11;
+    return true;
 }
 
 /* Percent damage by SC_DAMAGE_* and target SC_SIZE_*. */
@@ -145,14 +211,14 @@ static int base_damage(int owner, const sc_weapon_t *w, int damage, int divisor)
 }
 
 int sc_hit(int owner, const sc_weapon_t *w, mobj_t *target, int damage, int divisor) {
-    if (!sc_type(target) || (target->sc.flags & SC_INVINCIBLE)) return 0;
+    if (!sc_type(target) || (target->sc.flags & SC_INVINCIBLE) || target->sc.timers[SC_TIMER_STASIS]) return 0;
     sc_start(target);
     return take(target, w && w->type < 5 ? w->type : SC_DAMAGE_NORMAL, base_damage(owner, w, damage, divisor));
 }
 
 static int hit_damage(const mobj_t *attacker, const weapondef_t *def, mobj_t *target, int damage, int divisor) {
     if (!sc_type(attacker) || !sc_type(target)) return damage / divisor;
-    if (target->sc.flags & SC_INVINCIBLE) return 0;
+    if ((target->sc.flags & SC_INVINCIBLE) || target->sc.timers[SC_TIMER_STASIS]) return 0;
     sc_start(target);
     const sc_weapon_t *w = sc_weapon(def->native_id);
     int dealt = sc_spell_hit(attacker, def, target, base_damage(attacker->owner, w, damage, divisor));
@@ -190,8 +256,11 @@ static void sc_mobj_ticker(mobj_t *mo) {
     sc_unit_ticker(mo, frames);
     sc_repair_ticker(mo, frames);
     sc_order_ticker(mo, frames);
-    if (mo->remove || mo->hp <= 0 || frames <= 0) return;
+    if (mo->remove || mo->hp <= 0) return;
     const sc_unit_t *u = &sc_units[mo->type_id - 1];
+    /* Lifted buildings keep their one pixel a frame; burrowed units stand. */
+    if ((mo->traits & MF_MOBILE) && !(u->flags & SC_UNIT_BUILDING)) mo->speed = sc_unit_speed(mo);
+    if (frames <= 0) return;
     if (mo->sc.shields < u->shields << 8) {
         mo->sc.shields += SC_SHIELD_REGEN * frames;
         if (mo->sc.shields > u->shields << 8) mo->sc.shields = u->shields << 8;
@@ -207,7 +276,16 @@ static void sc_mobj_ticker(mobj_t *mo) {
     if (mo->type_id == MT_SHIELD_BATTERY) recharge(mo, frames);
 }
 
+/* Nobody fires on a unit in stasis, a loaded passenger or a mine's
+ * blast, and a disabled unit fires on nobody. */
+static bool can_target(const mobj_t *attacker, const mobj_t *victim) {
+    if (!sc_type(victim) || !sc_type(attacker)) return true;
+    return !victim->sc.timers[SC_TIMER_STASIS] && !(victim->sc.flags & SC_LOADED) && !sc_disabled(attacker) &&
+        !(attacker->sc.flags & SC_BURROWED);
+}
+
 void sc_init_combat(void) {
+    game_info.can_target = can_target;
     game_info.hit_damage = hit_damage;
     game_info.mobj_ticker = sc_mobj_ticker;
     game_info.attack = sc_launch;

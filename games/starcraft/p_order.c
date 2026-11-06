@@ -81,7 +81,7 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
                 (target->traits&MF_RESOURCE_BASE) && target->owner==u->owner;
             bool fix=target->type_id!=MT_REFINERY && repairable(u,target);
             bool trail=target!=u&&P_IsAlly(u,target)&&(target->traits&MF_MOBILE)&&
-                !sc_can_board(u,target);
+                !sc_can_board(u,target)&&!(sc_unit(u)->space_provided&&sc_can_board(target,u));
             if (!cargo && !fix && !trail) {remaining.units[remaining.count++]=u->id;continue;}
             ticcmd_t next=*cmd;
             next.order=cargo?TC_RETURN_GOODS:fix?TC_REPAIR:TC_FOLLOW;

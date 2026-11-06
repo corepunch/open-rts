@@ -54,8 +54,35 @@ int sc_hangar_count(const mobj_t *maker) {
 
 /* A Carrier sends out every docked interceptor and turns back the ones on
  * their way home; a Reaver fires one scarab, if it has one. */
+/* Scourge and Infested Terrans spend themselves on their one blow: the
+ * Scourge on its target, the Infested Terran's blast around it with
+ * weapons.dat's three splash rings. */
+static bool suicide(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
+    const sc_weapon_t *w = sc_weapon(weapon->native_id);
+    if (!w || (attacker->type_id != MT_SCOURGE && attacker->type_id != MT_INFESTED_TERRAN)) return false;
+    if (attacker->sc.flags & SC_HALLUCINATION) { P_DamageMobj(attacker, NULL, attacker->hp); return true; }
+    if (w->splash[0] <= 0) {
+        int damage = sc_hit(attacker->owner, w, target, w->damage, 1);
+        if (damage > 0) P_DamageMobj(target, attacker, damage);
+    } else {
+        fixed2_t at = where(target);
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *v = (mobj_t *)th;
+            if (!live(th) || v == attacker || !sc_unit(v) || (v->traits & (MF_FLY | MF_NOBLOCKMAP)) ||
+                (v->sc.flags & SC_LOADED)) continue;
+            fixed_t d = fixed2_length(fixed2_sub(where(v), at)) - P_MobjRadius(v);
+            int divisor = d <= SC_PIXELS(w->splash[0]) ? 1 : d <= SC_PIXELS(w->splash[1]) ? 2 :
+                          d <= SC_PIXELS(w->splash[2]) ? 4 : 0;
+            int damage = divisor ? sc_hit(attacker->owner, w, v, w->damage, divisor) : 0;
+            if (damage > 0) P_DamageMobj(v, attacker, damage);
+        }
+    }
+    P_DamageMobj(attacker, NULL, attacker->hp);
+    return true;
+}
+
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
-    (void)weapon;
+    if (suicide(attacker, weapon, target)) return true;
     if (attacker->type_id == MT_CARRIER) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *mo = (mobj_t *)th;
@@ -171,23 +198,39 @@ mobj_t *sc_attach_addon(mobj_t *building, uint16_t type) {
     return addon;
 }
 
-/* ── bunkers ─────────────────────────────────────────────────────────── */
+/* ── bunkers and transports ──────────────────────────────────────────── */
 
-int sc_cargo_space(const mobj_t *bunker) {
+enum { SC_UPGRADE_VENTRAL_SACS = 24, SC_UNLOAD_FRAMES = 15 };
+static bool is_building(const mobj_t *mo) { return (sc_units[mo->type_id - 1].flags & SC_UNIT_BUILDING) != 0; }
+/* OpenBW unit_provides_space: an Overlord carries once Ventral Sacs are
+ * evolved; hallucinations carry nothing. */
+bool sc_carries(const mobj_t *carrier) {
+    const sc_unit_t *b = sc_unit(carrier);
+    return b && b->space_provided > 0 && carrier->hp > 0 && !carrier->remove &&
+        !(carrier->sc.flags & SC_HALLUCINATION) && !sc_disabled(carrier) &&
+        (carrier->type_id != MT_OVERLORD || sc_upgrade_level(carrier->owner, SC_UPGRADE_VENTRAL_SACS));
+}
+static bool aboard(const mobj_t *mo, const mobj_t *carrier) {
+    return mo && (mo->sc.flags & SC_LOADED) && mo->sc.parent == carrier->id;
+}
+int sc_cargo_space(const mobj_t *carrier) {
     int used = 0;
-    for (int i = 0; i < 4; i++) {
-        const mobj_t *mo = P_MobjById(bunker->sc.cargo[i]);
-        if (mo && (mo->sc.flags & SC_LOADED) && mo->sc.parent == bunker->id) used += sc_units[mo->type_id - 1].space;
+    for (int i = 0; i < SC_CARGO; i++) {
+        const mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
+        if (aboard(mo, carrier)) used += sc_units[mo->type_id - 1].space;
     }
     return used;
 }
-/* Terran infantry: organic walkers of one slot that do not gather. */
-bool sc_can_board(const mobj_t *unit, const mobj_t *bunker) {
-    const sc_unit_t *u = sc_unit(unit), *b = sc_unit(bunker);
-    return u && b && unit != bunker && unit->owner == bunker->owner && bunker->hp > 0 && !bunker->remove &&
-        b->space_provided > 0 && !(unit->sc.flags & (SC_LOADED | SC_HALLUCINATION)) && (unit->traits & MF_MOBILE) &&
-        (u->race & 2) && (u->flags & SC_UNIT_ORGANIC) && !(u->flags & SC_UNIT_WORKER) && u->space == 1 &&
-        sc_cargo_space(bunker) + u->space <= b->space_provided;
+/* OpenBW unit_can_load_target: an own walker that fits, not burrowed; a
+ * Bunker takes only one-slot Terrans. */
+bool sc_can_board(const mobj_t *unit, const mobj_t *carrier) {
+    const sc_unit_t *u = sc_unit(unit), *b = sc_unit(carrier);
+    if (!u || !b || unit == carrier || unit->owner != carrier->owner || !sc_carries(carrier) ||
+        (unit->sc.flags & (SC_LOADED | SC_HALLUCINATION | SC_BURROWED)) || !(unit->traits & MF_MOBILE) ||
+        (unit->traits & MF_FLY) || (u->flags & SC_UNIT_BUILDING) || u->space < 1 || u->space > 8 ||
+        sc_disabled(unit) || unit->sc.order.kind == SC_ORDER_INFEST) return false;
+    if (is_building(carrier) && (!(u->race & 2) || u->space > 1)) return false;
+    return sc_cargo_space(carrier) + u->space <= b->space_provided;
 }
 static fixed_t gap(const mobj_t *unit, irect_t r) {
     fixed2_t at = where(unit);
@@ -196,12 +239,15 @@ static fixed_t gap(const mobj_t *unit, irect_t r) {
     fixed_t dy = at.y < y0 ? y0 - at.y : at.y > y1 ? at.y - y1 : 0;
     return dx > dy ? dx : dy;
 }
-static void load(mobj_t *unit, mobj_t *bunker) {
-    for (int i = 0; i < 4; i++) {
-        const mobj_t *in = P_MobjById(bunker->sc.cargo[i]);
-        if (in && (in->sc.flags & SC_LOADED) && in->sc.parent == bunker->id) continue;
-        bunker->sc.cargo[i] = unit->id;
-        unit->sc.parent = bunker->id;
+/* Close enough to step in: beside a Bunker, under a transport. */
+static bool at_door(const mobj_t *unit, const mobj_t *carrier) {
+    return is_building(carrier) ? gap(unit, P_MobjCells(carrier)) <= FIXED_ONE : sc_unit_distance(unit, carrier) <= 4;
+}
+static void load(mobj_t *unit, mobj_t *carrier) {
+    for (int i = 0; i < SC_CARGO; i++) {
+        if (aboard(P_MobjById(carrier->sc.cargo[i]), carrier)) continue;
+        carrier->sc.cargo[i] = unit->id;
+        unit->sc.parent = carrier->id;
         unit->sc.flags |= SC_LOADED;
         unit->sc.order = (sc_order_t){0};
         unit->traits = (unit->traits & ~(MF_SELECTABLE | MF_SELECTED | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
@@ -209,22 +255,40 @@ static void load(mobj_t *unit, mobj_t *bunker) {
         unit->movement.order_arrived = true;
         unit->attack.target = NULL;
         unit->move_only = false;
-        unit->core.position = bunker->core.position;
+        unit->harvest.target = -1;
+        unit->harvest.base = NULL;
+        unit->harvest.phase = unit->harvest.timer_ms = 0;
+        unit->core.position = fixed3_with_xy(unit->core.position, where(carrier));
+        /* Whatever was coming to fetch it may stop. */
+        if (!is_building(carrier) && carrier->sc.order.kind == SC_ORDER_BOARD && carrier->sc.order.target == unit->id) {
+            carrier->sc.order = (sc_order_t){0};
+            P_ClearMove(carrier);
+        }
         return;
     }
 }
-bool sc_board(mobj_t *unit, mobj_t *bunker) {
-    if (!sc_can_board(unit, bunker)) return false;
+/* A transport with nothing else to do flies over to fetch a boarder. */
+static void fetch(mobj_t *carrier, const mobj_t *unit) {
+    if (is_building(carrier) || !(carrier->traits & MF_MOBILE) || P_HasMoveOrder(carrier) ||
+        carrier->sc.order.kind != SC_ORDER_NONE) return;
+    carrier->sc.order = (sc_order_t){.kind = SC_ORDER_BOARD, .target = unit->id};
+    P_MoveUnitTo(&level, carrier, where(unit));
+}
+bool sc_board(mobj_t *unit, mobj_t *carrier) {
+    if (!carrier || !sc_can_board(unit, carrier)) return false;
     sc_interrupt(unit);
     unit->waypoints=(waypoints_t){0};
-    irect_t r = P_MobjCells(bunker);
-    if (gap(unit, r) <= FIXED_ONE) { load(unit, bunker); return true; }
-    fixed2_t bay;
-    if (!P_ApproachFootprint(unit, (ivec2_t){r.x, r.y}, (isize2_t){r.w, r.h}, &bay) || !P_MoveUnitTo(&level, unit, bay))
-        return false;
-    unit->sc.order = (sc_order_t){.kind = SC_ORDER_BOARD, .target = bunker->id};
+    if (at_door(unit, carrier)) { load(unit, carrier); return true; }
+    fixed2_t bay = where(carrier);
+    if (is_building(carrier)) {
+        irect_t r = P_MobjCells(carrier);
+        if (!P_ApproachFootprint(unit, (ivec2_t){r.x, r.y}, (isize2_t){r.w, r.h}, &bay)) return false;
+    }
+    if (!P_MoveUnitTo(&level, unit, bay)) return false;
+    unit->sc.order = (sc_order_t){.kind = SC_ORDER_BOARD, .target = carrier->id};
     unit->attack.target = NULL;
     unit->move_only = true; /* Walking in, it does not stop to fight. */
+    fetch(carrier, unit);
     return true;
 }
 /* Out beside the cells it was in, nearest the middle of their lower edge,
@@ -255,21 +319,187 @@ static void pop_out(mobj_t *unit, irect_t r) {
     unit->movement.goal = where(unit);
     unit->movement.order_arrived = true;
 }
+/* Down from a transport onto open ground beneath it; false when there is
+ * none, and the passenger stays aboard. */
+static bool drop(mobj_t *unit, mobj_t *carrier) {
+    unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
+    unit->sc.flags &= ~SC_LOADED;
+    if (!sc_place_near(unit, where(carrier))) {
+        unit->sc.flags |= SC_LOADED;
+        unit->traits = (unit->traits & ~(MF_SELECTABLE | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
+        return false;
+    }
+    for (int i = 0; i < SC_CARGO; i++) if (carrier->sc.cargo[i] == unit->id) carrier->sc.cargo[i] = 0;
+    unit->sc.parent = 0;
+    P_ClearMove(unit);
+    unit->movement.goal = where(unit);
+    unit->movement.order_arrived = true;
+    return true;
+}
+/* A Bunker empties at once. */
 void sc_unload(mobj_t *bunker) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < SC_CARGO; i++) {
         mobj_t *mo = P_MobjById(bunker->sc.cargo[i]);
         bunker->sc.cargo[i] = 0;
-        if (mo && (mo->sc.flags & SC_LOADED) && mo->sc.parent == bunker->id) pop_out(mo, P_MobjCells(bunker));
+        if (aboard(mo, bunker)) pop_out(mo, P_MobjCells(bunker));
     }
 }
-/* Survivors of a fallen Bunker step out of its rubble. */
+/* A transport flies to the spot and sets its passengers down there, one
+ * every 15 frames (OpenBW order_MoveUnload and unit_unload). */
+void sc_unload_at(mobj_t *carrier, fixed2_t at) {
+    if (is_building(carrier)) { sc_unload(carrier); return; }
+    if (!sc_cargo_space(carrier)) return;
+    sc_interrupt(carrier);
+    carrier->waypoints = (waypoints_t){0};
+    carrier->sc.order = (sc_order_t){.kind = SC_ORDER_UNLOAD, .at = pixel(at)};
+    if (!fixed2_near(where(carrier), at, SC_PIXELS(16))) P_MoveUnitTo(&level, carrier, at);
+}
+static void unloading(mobj_t *carrier, int frames) {
+    sc_order_t *o = &carrier->sc.order;
+    fixed2_t at = {SC_PIXELS(o->at.x), SC_PIXELS(o->at.y)};
+    if (!fixed2_near(where(carrier), at, SC_PIXELS(16))) {
+        if (!P_HasMoveOrder(carrier)) P_MoveUnitTo(&level, carrier, at);
+        return;
+    }
+    P_ClearMove(carrier);
+    if ((o->time -= frames) > 0) return;
+    for (int i = 0; i < SC_CARGO; i++) {
+        mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
+        if (!aboard(mo, carrier)) continue;
+        if (drop(mo, carrier)) o->time = SC_UNLOAD_FRAMES;
+        return;
+    }
+    *o = (sc_order_t){0};
+}
+/* Passengers ride along; a transport's death is theirs, while a Bunker's
+ * survivors step out of its rubble. */
 static void loaded(mobj_t *mo) {
-    const mobj_t *bunker = P_MobjById(mo->sc.parent);
-    if (bunker) return;
+    mobj_t *carrier = P_MobjById(mo->sc.parent);
+    if (carrier && carrier->hp > 0 && !carrier->remove) {
+        mo->core.position = fixed3_with_xy(mo->core.position, where(carrier));
+        return;
+    }
+    if (carrier && !is_building(carrier)) { mo->sc.flags &= ~SC_LOADED; P_DamageMobj(mo, NULL, mo->hp); return; }
     isize2_t foot = actor_types[MT_BUNKER - 1].footprint;
     fixed2_t at = where(mo);
     pop_out(mo, (irect_t){(at.x - FIXED_FROM_INT(foot.w) / 2 + 66) >> FIXED_FRAC_BITS,
                           (at.y - FIXED_FROM_INT(foot.h) / 2 + 66) >> FIXED_FRAC_BITS, foot.w, foot.h});
+}
+/* A transport shot down takes its passengers with it. */
+void sc_transport_killed(mobj_t *carrier) {
+    if (!sc_unit(carrier) || is_building(carrier)) return;
+    for (int i = 0; i < SC_CARGO; i++) {
+        mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
+        carrier->sc.cargo[i] = 0;
+        if (aboard(mo, carrier)) { mo->sc.flags &= ~SC_LOADED; P_DamageMobj(mo, NULL, mo->hp); }
+    }
+}
+
+/* ── Nydus Canal ─────────────────────────────────────────────────────── */
+
+/* A finished Nydus Canal places its one exit on creep anywhere it can be
+ * built; walkers that enter one end come out of the other (OpenBW
+ * order_BuildNydusExit and order_EnterNydusCanal). */
+bool sc_nydus_exit(mobj_t *canal, ivec2_t cell) {
+    if (!canal || canal->type_id != MT_NYDUS_CANAL || P_MobjById(canal->sc.parent) ||
+        !P_CanPlaceBuilding(MT_NYDUS_CANAL, cell, NULL)) return false;
+    mobj_t *exit = spawn_for(canal, MT_NYDUS_CANAL, P_BuildingPosition(MT_NYDUS_CANAL, cell));
+    if (!exit) return false;
+    exit->sc.parent = canal->id;
+    canal->sc.parent = exit->id;
+    P_SyncBuildingBlocking();
+    return true;
+}
+mobj_t *sc_nydus_other(const mobj_t *canal) {
+    mobj_t *other = canal && canal->type_id == MT_NYDUS_CANAL ? P_MobjById(canal->sc.parent) : NULL;
+    return other && other->hp > 0 && !other->remove && other->sc.parent == canal->id ? other : NULL;
+}
+bool sc_enter_nydus(mobj_t *unit, mobj_t *canal) {
+    if (!unit || !sc_nydus_other(canal) || unit->owner != canal->owner || !(unit->traits & MF_MOBILE) ||
+        (unit->traits & MF_FLY) || (unit->sc.flags & (SC_LOADED | SC_BURROWED)) || sc_unit(unit)->flags & SC_UNIT_BUILDING)
+        return false;
+    sc_interrupt(unit);
+    unit->waypoints = (waypoints_t){0};
+    irect_t r = P_MobjCells(canal);
+    fixed2_t bay;
+    if (!P_ApproachFootprint(unit, (ivec2_t){r.x, r.y}, (isize2_t){r.w, r.h}, &bay) || !P_MoveUnitTo(&level, unit, bay))
+        return false;
+    unit->sc.order = (sc_order_t){.kind = SC_ORDER_NYDUS, .target = canal->id};
+    unit->attack.target = NULL;
+    unit->move_only = true;
+    return true;
+}
+static void tunnelling(mobj_t *unit) {
+    mobj_t *canal = P_MobjById(unit->sc.order.target), *exit = sc_nydus_other(canal);
+    if (!exit) { unit->sc.order = (sc_order_t){0}; return; }
+    if (gap(unit, P_MobjCells(canal)) > FIXED_ONE) {
+        if (!P_HasMoveOrder(unit)) unit->sc.order = (sc_order_t){0};
+        return;
+    }
+    fixed3_t was = unit->core.position;
+    if (!sc_place_near(unit, where(exit))) { unit->core.position = was; return; }
+    unit->sc.order = (sc_order_t){0};
+    P_ClearMove(unit);
+    unit->movement.goal = where(unit);
+    unit->movement.order_arrived = true;
+}
+
+/* ── Spider Mines ────────────────────────────────────────────────────── */
+
+/* units.dat marks hovering units (byte 0xc1 in its tenth column, OpenBW's
+ * "hovering?"): Spider Mines leave them alone. */
+static bool hovers(uint16_t type) {
+    static const uint8_t rows[] = {2, 7, 13, 19, 41, 64, 68, 76, 88, 94};
+    for (unsigned i = 0; i < sizeof(rows); i++) if (type == rows[i] + 1u) return true;
+    return false;
+}
+enum { SC_MINE_REACH = 3 * 32, SC_MINE_CHASE = 576, SC_MINE_BLAST = 30, SC_WEAPON_SPIDER_MINE = 6 };
+static void blast(mobj_t *mine) {
+    const sc_weapon_t *w = sc_weapon(SC_WEAPON_SPIDER_MINE);
+    fixed2_t at = where(mine);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *v = (mobj_t *)th;
+        if (!live(th) || v == mine || !sc_unit(v) || (v->traits & (MF_FLY | MF_NOBLOCKMAP)) ||
+            (v->sc.flags & SC_LOADED)) continue;
+        fixed_t d = fixed2_length(fixed2_sub(where(v), at)) - P_MobjRadius(v);
+        int divisor = d <= SC_PIXELS(w->splash[0]) ? 1 : d <= SC_PIXELS(w->splash[1]) ? 2 :
+                      d <= SC_PIXELS(w->splash[2]) ? 4 : 0;
+        if (!divisor) continue;
+        int damage = sc_hit(mine->owner, w, v, w->damage, divisor);
+        if (damage > 0) P_DamageMobj(v, mine, damage);
+    }
+    P_DamageMobj(mine, NULL, mine->hp);
+}
+/* OpenBW order_SpiderMine: a dug-in mine wakes for the nearest enemy walker
+ * in three cells that does not hover, chases it and bursts within 30
+ * pixels; it goes back under when the prey gets away. */
+static void spider_mine(mobj_t *mine) {
+    if (mine->sc.order.kind == SC_ORDER_BURROW || mine->sc.order.kind == SC_ORDER_UNBURROW) return;
+    mobj_t *prey = P_MobjById(mine->sc.order.target);
+    if (mine->sc.flags & SC_BURROWED) {
+        int best = SC_MINE_REACH + 1;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *v = (mobj_t *)th;
+            if (!live(th) || !sc_unit(v) || P_IsAlly(mine, v) || v->allegiance == ALLEGIANCE_NEUTRAL ||
+                (v->traits & (MF_FLY | MF_NOBLOCKMAP)) || (sc_units[v->type_id - 1].flags & SC_UNIT_BUILDING) ||
+                (v->sc.flags & (SC_INVINCIBLE | SC_LOADED)) || v->sc.timers[SC_TIMER_STASIS] || hovers(v->type_id))
+                continue;
+            int d = sc_unit_distance(mine, v);
+            if (d < best) { best = d; prey = v; }
+        }
+        if (best > SC_MINE_REACH) return;
+        sc_unburrow(mine);
+        mine->sc.order.target = prey->id;
+        return;
+    }
+    if (!prey || prey->hp <= 0 || prey->remove || sc_unit_distance(mine, prey) > SC_MINE_CHASE) {
+        mine->sc.order = (sc_order_t){0};
+        sc_burrow(mine);
+        return;
+    }
+    if (sc_unit_distance(mine, prey) <= SC_MINE_BLAST) { blast(mine); return; }
+    if (!P_HasMoveOrder(mine) || !fixed2_near(mine->movement.goal, where(prey), FIXED_ONE / 2))
+        P_MoveUnitTo(&level, mine, where(prey));
 }
 
 /* ── archons ─────────────────────────────────────────────────────────── */
@@ -360,12 +590,25 @@ void sc_unit_ticker(mobj_t *mo, int frames) {
              (mo->attack.cooldown_left_ms > 0 || !mo->attack.target || mo->attack.target->hp <= 0)) P_RemoveMobj(mo);
     if (mo->remove || mo->hp <= 0) return;
     mining(mo);
-    if (mo->sc.order.kind == SC_ORDER_MERGE) merging(mo, frames);
-    else if (mo->sc.order.kind == SC_ORDER_BOARD) {
-        mobj_t *bunker = P_MobjById(mo->sc.order.target);
-        if (!bunker || !sc_can_board(mo, bunker)) mo->sc.order = (sc_order_t){0};
-        else if (gap(mo, P_MobjCells(bunker)) <= FIXED_ONE) load(mo, bunker);
-        else if (!P_HasMoveOrder(mo)) mo->sc.order = (sc_order_t){0};
+    if (mo->type_id == MT_SPIDER_MINE) { spider_mine(mo); return; }
+    sc_order_t *o = &mo->sc.order;
+    if (o->kind == SC_ORDER_MERGE) merging(mo, frames);
+    else if (o->kind == SC_ORDER_UNLOAD) unloading(mo, frames);
+    else if (o->kind == SC_ORDER_NYDUS) tunnelling(mo);
+    else if (o->kind == SC_ORDER_BOARD && sc_unit(mo)->space_provided && !(mo->sc.flags & SC_LOADED)) {
+        /* A transport fetching a boarder flies to where it now is. */
+        mobj_t *unit = P_MobjById(o->target);
+        if (!unit || unit->sc.order.kind != SC_ORDER_BOARD || unit->sc.order.target != mo->id) { *o = (sc_order_t){0}; return; }
+        if ((o->time -= frames) <= 0) { o->time = 8; P_MoveUnitTo(&level, mo, where(unit)); }
+    } else if (o->kind == SC_ORDER_BOARD) {
+        mobj_t *carrier = P_MobjById(o->target);
+        if (!carrier || !sc_can_board(mo, carrier)) *o = (sc_order_t){0};
+        else if (at_door(mo, carrier)) load(mo, carrier);
+        else if (!is_building(carrier) && (o->time -= frames) <= 0) {
+            /* Chase a transport that moves. */
+            o->time = 8;
+            if (!fixed2_near(mo->movement.goal, where(carrier), FIXED_ONE / 2)) P_MoveUnitTo(&level, mo, where(carrier));
+        } else if (is_building(carrier) && !P_HasMoveOrder(mo)) *o = (sc_order_t){0};
     }
 }
 
@@ -389,6 +632,13 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
         for (int i = 0; i < count; i++) sc_cast(units[i], SC_TECH_SIEGE_MODE, NULL, at);
         return true;
     case TC_SPELL:
+        if (tech == SC_TECH_NYDUS_EXIT) {
+            isize2_t foot = actor_types[MT_NYDUS_CANAL - 1].footprint;
+            ivec2_t c = fixed2_cell(at);
+            for (int i = 0; i < count; i++)
+                if (sc_nydus_exit(units[i], (ivec2_t){c.x - foot.w / 2, c.y - foot.h / 2})) break;
+            return true;
+        }
         if (tech == SC_TECH_ARCHON_WARP) {
             mobj_t *first = NULL;
             for (int i = 0; i < count; i++) {
@@ -402,22 +652,40 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
         for (int i = 0; i < count && (!any || !sc_tech_aimed(tech)); i++) any |= sc_cast(units[i], tech, target, at);
         return true;
     case TC_BOARD:
-        for (int i = 0; i < count; i++) sc_board(units[i], target);
+        /* Walkers board the target; a selected transport picks it up. */
+        for (int i = 0; i < count; i++) {
+            if (sc_unit(units[i])->space_provided && target && sc_can_board(target, units[i])) sc_board(target, units[i]);
+            else sc_board(units[i], target);
+        }
         return true;
     case TC_UNLOAD:
         for (int i = 0; i < count; i++) if (sc_unit(units[i])->space_provided) {
-            if(!target)sc_unload(units[i]);
-            else if((target->sc.flags&SC_LOADED)&&target->sc.parent==units[i]->id) {
-                for(unsigned j=0;j<sizeof(units[i]->sc.cargo)/sizeof(*units[i]->sc.cargo);j++)
-                    if(units[i]->sc.cargo[j]==target->id)units[i]->sc.cargo[j]=0;
-                pop_out(target,P_MobjCells(units[i]));
+            if(!target) {
+                bool here=!at.x&&!at.y;
+                sc_unload_at(units[i],here?where(units[i]):at);
+            } else if(aboard(target,units[i])) {
+                if(is_building(units[i])) {
+                    for(int j=0;j<SC_CARGO;j++)if(units[i]->sc.cargo[j]==target->id)units[i]->sc.cargo[j]=0;
+                    pop_out(target,P_MobjCells(units[i]));
+                } else drop(target,units[i]);
             }
         }
         return true;
     case TC_ORDER:
-        /* A right click on an own Bunker sends in whoever fits. */
-        if (!target || target->type_id != MT_BUNKER) return false;
-        for (int i = 0; i < count; i++) any |= sc_board(units[i], target);
+        if (!target || target->owner != units[0]->owner) return false;
+        /* A right click on an own Bunker or transport sends in whoever
+         * fits, on a Nydus Canal through it; a transport given an own
+         * walker picks it up. */
+        if (sc_nydus_other(target)) {
+            for (int i = 0; i < count; i++) any |= sc_enter_nydus(units[i], target);
+            return any;
+        }
+        if (sc_unit(target)->space_provided && sc_carries(target)) {
+            for (int i = 0; i < count; i++) any |= sc_board(units[i], target);
+            return any;
+        }
+        for (int i = 0; i < count; i++)
+            if (sc_unit(units[i])->space_provided && sc_can_board(target, units[i])) { any = sc_board(target, units[i]); break; }
         return any;
     default:
         return false;

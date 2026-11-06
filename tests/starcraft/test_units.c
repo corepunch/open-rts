@@ -243,8 +243,8 @@ static int bunker(void) {
     mobj_t *scv = spawn(MT_SCV, FIXED2_LIT(9.5, 17.5), 0), *zealot = spawn(MT_ZEALOT, FIXED2_LIT(10.5, 17.5), 0);
     mobj_t *vulture = spawn(MT_VULTURE, FIXED2_LIT(11.5, 17.5), 0), *foe = spawn(MT_MARINE, FIXED2_LIT(12.5, 17.5), 1);
     CHECK(b && m[4] && scv && zealot && vulture && foe && sc_units[MT_BUNKER - 1].space_provided == 4);
-    /* Terran infantry only, and only its owner's. */
-    CHECK(sc_can_board(m[0], b) && !sc_can_board(scv, b) && !sc_can_board(zealot, b) &&
+    /* One-slot Terrans only, SCVs too (OpenBW unit_can_load_target), and only its owner's. */
+    CHECK(sc_can_board(m[0], b) && sc_can_board(scv, b) && !sc_can_board(zealot, b) &&
           !sc_can_board(vulture, b) && !sc_can_board(foe, b));
     /* Marines walk in on the board order, or on a right click on the Bunker. */
     ticcmd_t board = {.order = TC_BOARD, .count = 3, .units = {m[0]->id, m[1]->id, m[2]->id}, .target = b->id};
@@ -503,6 +503,7 @@ static int zerg_spells(void) {
     queen = caster(MT_QUEEN, FIXED2_LIT(4.5, 4.5));
     mobj_t *m1 = spawn(MT_MARINE, FIXED2_LIT(10.5, 4.5), 1), *m2 = spawn(MT_MARINE, FIXED2_LIT(11.5, 4.5), 1);
     CHECK(sc_cast(queen, SC_TECH_ENSNARE, NULL, at_of(m1)));
+    tick(1); /* speed follows the timers each tic */
     CHECK(m1->speed == m1->info->speed / 2 && m2->speed == m2->info->speed / 2 && queen->speed == queen->info->speed);
     tick(frames(75 * 8));
     CHECK(m1->speed == m1->info->speed);

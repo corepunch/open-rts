@@ -95,6 +95,8 @@ static const struct { mobjtype_id_t type, maker, prerequisite, also; } recipes[]
     {MT_ULTRALISK, MT_LARVA, MT_ULTRALISK_CAVERN, MT_NONE},
     {MT_DEFILER, MT_LARVA, MT_DEFILER_MOUND, MT_NONE},
     {MT_GUARDIAN, MT_MUTALISK, MT_GREATER_SPIRE, MT_NONE},
+    /* A Command Center the Queen took breeds Infested Terrans. */
+    {MT_INFESTED_TERRAN, MT_INFESTED_COMMAND_CENTER, MT_NONE, MT_NONE},
 };
 /* Researching buildings (upgrades.dat names no maker), Stargus's command
  * cards; Brood War research is left out. Levels 2 and 3 need a later
@@ -116,10 +118,24 @@ static const struct { int upgrade; mobjtype_id_t maker, level2, level3; } resear
     {17,MT_MACHINE_SHOP,MT_NONE,MT_NONE},{22,MT_CONTROL_TOWER,MT_NONE,MT_NONE},{20,MT_COVERT_OPS,MT_NONE,MT_NONE},{21,MT_COVERT_OPS,MT_NONE,MT_NONE},{23,MT_PHYSICS_LAB,MT_NONE,MT_NONE},
     {19,MT_SCIENCE_FACILITY,MT_NONE,MT_NONE},{31,MT_QUEENS_NEST,MT_NONE,MT_NONE},{32,MT_DEFILER_MOUND,MT_NONE,MT_NONE},{40,MT_TEMPLAR_ARCHIVES,MT_NONE,MT_NONE},
     {35,MT_ROBOTICS_SUPPORT_BAY,MT_NONE,MT_NONE},{36,MT_ROBOTICS_SUPPORT_BAY,MT_NONE,MT_NONE},{43,MT_FLEET_BEACON,MT_NONE,MT_NONE},
+    /* Retail's remaining base-game research: speed, sight, transport and
+     * energy upgrades. The Lair's are offered on a Hive too. */
+    {24,MT_LAIR,MT_NONE,MT_NONE},{25,MT_LAIR,MT_NONE,MT_NONE},{26,MT_LAIR,MT_NONE,MT_NONE},
+    {28,MT_SPAWNING_POOL,MT_NONE,MT_NONE},
+    {37,MT_ROBOTICS_SUPPORT_BAY,MT_NONE,MT_NONE},{38,MT_OBSERVATORY,MT_NONE,MT_NONE},{39,MT_OBSERVATORY,MT_NONE,MT_NONE},
+    {41,MT_FLEET_BEACON,MT_NONE,MT_NONE},{42,MT_FLEET_BEACON,MT_NONE,MT_NONE},{44,MT_ARBITER_TRIBUNAL,MT_NONE,MT_NONE},
 };
-/* Where techdata.dat abilities are researched. Stim Packs, Spider Mines,
- * Burrowing, Recall and Stasis Field have no effect here and are left out. */
+/* A research that a second building also offers, and one that needs a
+ * building before its first level (Adrenal Glands waits for a Hive). */
+static mobjtype_id_t research_also(mobjtype_id_t maker) {
+    return maker==MT_SPIRE?MT_GREATER_SPIRE:maker==MT_LAIR?MT_HIVE:MT_NONE;
+}
+static mobjtype_id_t research_needs(int upgrade) { return upgrade==28?MT_HIVE:MT_NONE; }
+/* Where techdata.dat abilities are researched. Burrowing is offered on
+ * every hatchery tier. */
 static const struct { int tech; mobjtype_id_t maker; } tech_research[] = {
+    {SC_TECH_STIM_PACKS,MT_ACADEMY},{SC_TECH_SPIDER_MINES,MT_MACHINE_SHOP},{SC_TECH_BURROWING,MT_HATCHERY},
+    {SC_TECH_RECALL,MT_ARBITER_TRIBUNAL},{SC_TECH_STASIS_FIELD,MT_ARBITER_TRIBUNAL},
     {SC_TECH_SIEGE_MODE,MT_MACHINE_SHOP},{SC_TECH_CLOAKING_FIELD,MT_CONTROL_TOWER},
     {SC_TECH_LOCKDOWN,MT_COVERT_OPS},{SC_TECH_PERSONNEL_CLOAKING,MT_COVERT_OPS},{SC_TECH_YAMATO_GUN,MT_PHYSICS_LAB},
     {SC_TECH_EMP,MT_SCIENCE_FACILITY},{SC_TECH_IRRADIATE,MT_SCIENCE_FACILITY},
@@ -174,13 +190,14 @@ static void init_products(void) {
         const sc_upgrade_t *u=&sc_upgrades[research[i].upgrade];
         for(int tier=0;tier<u->max_level&&tier<3;tier++) {
             int id=SC_UPGRADE_UI+research[i].upgrade*4+tier;
-            mobjtype_id_t later=tier==1?research[i].level2:tier==2?research[i].level3:MT_NONE;
+            mobjtype_id_t later=tier==1?research[i].level2:tier==2?research[i].level3:
+                research_needs(research[i].upgrade);
+            mobjtype_id_t also=research_also(research[i].maker);
             products[product_count++]=(StaticProductDefinition){.row_id=id,.ui_id=id,.label=u->name,
                 .prerequisites={later},.prerequisite_count=later!=MT_NONE,
                 .cost=u->minerals+tier*u->mineral_factor,.extra_costs={u->gas+tier*u->gas_factor},
                 .icon_frame=u->icon,.product_class=RTS_PRODUCT_UPGRADE,.product_type=id,
-                .makers={research[i].maker,research[i].maker==MT_SPIRE?MT_GREATER_SPIRE:MT_NONE},
-                .maker_count=research[i].maker==MT_SPIRE?2:1};
+                .makers={research[i].maker,also},.maker_count=also!=MT_NONE?2:1};
         }
     }
     for(unsigned i=0;i<SC_TECH_RESEARCH;i++) {
@@ -188,6 +205,9 @@ static void init_products(void) {
         products[product_count++]=(StaticProductDefinition){.row_id=id,.ui_id=id,.label=t->name,
             .cost=t->minerals,.extra_costs={t->gas},.icon_frame=t->icon,.product_class=RTS_PRODUCT_UPGRADE,
             .product_type=id,.makers={tech_research[i].maker},.maker_count=1};
+        if(tech_research[i].maker==MT_HATCHERY)
+            memcpy(products[product_count-1].makers,(int[]){MT_HATCHERY,MT_LAIR,MT_HIVE},sizeof(int[3])),
+            products[product_count-1].maker_count=3;
     }
     products_built=true;
 }
@@ -198,7 +218,8 @@ void sc_rebuild_products(void) { products_built=false; init_products(); }
  * maker's place: larva and mutalisk through an egg, buildings directly. */
 static bool zerg_morph(const StaticProductDefinition *p) {
     return p&&p->product_class!=RTS_PRODUCT_UPGRADE&&!p->worker_build&&p->makers[0]>0&&
-        p->makers[0]<=SC_TYPES&&(sc_units[p->makers[0]-1].race&1);
+        p->makers[0]<=SC_TYPES&&(sc_units[p->makers[0]-1].race&1)&&
+        p->makers[0]!=MT_INFESTED_COMMAND_CENTER; /* It trains, as the Command Center did. */
 }
 /* Zerglings and scourge hatch two to an egg (units.dat flag 0x400). */
 static int per_egg(int type) {
@@ -469,7 +490,7 @@ static void sc_ai_describe_unit(const mobj_t *unit,AiUnitInfo *info) {
     }
     if(u->space_provided&&(u->flags&SC_UNIT_BUILDING)) {
         info->ground_strength=info->air_strength=0;
-        for(int i=0;i<4;i++) {
+        for(int i=0;i<SC_CARGO;i++) {
             const mobj_t *in=P_MobjById(unit->sc.cargo[i]);
             if(!in||!(in->sc.flags&SC_LOADED)||in->sc.parent!=unit->id) continue;
             AiUnitInfo held; P_AiUnitInfo(NULL,in->type_id,&held);
