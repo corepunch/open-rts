@@ -24,11 +24,13 @@ typedef struct {
     int turn;       /* flingy.dat turn rate, 1/256 of a circle per 24 Hz frame */
 } sc_unit_t;
 extern sc_unit_t sc_units[SC_TYPES];
+/* Types info.h does not name: units.dat rows plus one. */
+enum { MT_SPIDER_MINE = 14, MT_INFESTED_TERRAN = 51, MT_INFESTED_COMMAND_CENTER = 131 };
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */
 enum {
     SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_FLYING_BUILDING = 0x20, SC_UNIT_HERO = 0x40, SC_UNIT_CLOAKABLE = 0x200,
-    SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_SPELLCASTER = 0x200000,
+    SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_BURROWABLE = 0x100000, SC_UNIT_SPELLCASTER = 0x200000,
     SC_UNIT_PERMANENT_CLOAK = 0x400000, SC_UNIT_MECHANICAL = 0x40000000,
 };
 /* Map pixels (32 to a cell) as 16.16 cells. */
@@ -54,12 +56,16 @@ extern sc_weapon_t sc_weapons[SC_WEAPONS];
 /* techdata.dat: research cost and time, and the energy a use costs. The
  * Nuclear Strike is an order past the DAT that shares the spell command. */
 enum {
-    SC_TECHS = 44, SC_TECH_STIM_PACKS = 0, SC_TECH_LOCKDOWN = 1, SC_TECH_EMP = 2, SC_TECH_SCANNER_SWEEP = 4,
+    SC_TECHS = 44, SC_TECH_STIM_PACKS = 0, SC_TECH_LOCKDOWN = 1, SC_TECH_EMP = 2, SC_TECH_SPIDER_MINES = 3,
+    SC_TECH_SCANNER_SWEEP = 4,
     SC_TECH_SIEGE_MODE = 5, SC_TECH_DEFENSIVE_MATRIX = 6, SC_TECH_IRRADIATE = 7, SC_TECH_YAMATO_GUN = 8,
-    SC_TECH_CLOAKING_FIELD = 9, SC_TECH_PERSONNEL_CLOAKING = 10, SC_TECH_SPAWN_BROODLING = 13,
+    SC_TECH_CLOAKING_FIELD = 9, SC_TECH_PERSONNEL_CLOAKING = 10, SC_TECH_BURROWING = 11,
+    SC_TECH_INFESTATION = 12, SC_TECH_SPAWN_BROODLING = 13,
     SC_TECH_DARK_SWARM = 14, SC_TECH_PLAGUE = 15, SC_TECH_CONSUME = 16, SC_TECH_ENSNARE = 17,
-    SC_TECH_PARASITE = 18, SC_TECH_PSIONIC_STORM = 19, SC_TECH_HALLUCINATION = 20, SC_TECH_ARCHON_WARP = 23,
+    SC_TECH_PARASITE = 18, SC_TECH_PSIONIC_STORM = 19, SC_TECH_HALLUCINATION = 20, SC_TECH_RECALL = 21,
+    SC_TECH_STASIS_FIELD = 22, SC_TECH_ARCHON_WARP = 23,
     SC_TECH_NUCLEAR_STRIKE = SC_TECHS,
+    SC_TECH_NYDUS_EXIT = SC_TECHS + 1, /* A canal's other end, placed like a spell. */
 };
 typedef struct { const char *name; int minerals, gas, time, energy, race, icon; } sc_tech_t;
 extern sc_tech_t sc_techs[SC_TECHS];
@@ -286,6 +292,25 @@ int sc_cargo_space(const mobj_t *bunker);
 bool sc_can_board(const mobj_t *unit, const mobj_t *bunker);
 bool sc_board(mobj_t *unit, mobj_t *bunker);
 void sc_unload(mobj_t *bunker);
+/* Dropships, Shuttles and Overlords (with Ventral Sacs) as well. */
+bool sc_carries(const mobj_t *carrier);
+void sc_unload_at(mobj_t *carrier, fixed2_t at);
+void sc_transport_killed(mobj_t *carrier);
+/* Nydus Canals: place the exit, the other end, walk through. */
+bool sc_nydus_exit(mobj_t *canal, ivec2_t cell);
+mobj_t *sc_nydus_other(const mobj_t *canal);
+bool sc_enter_nydus(mobj_t *unit, mobj_t *canal);
+/* Locked down or in stasis: no orders, no fire. */
+bool sc_disabled(const mobj_t *mo);
+/* Burrow (iscript Burrow/UnBurrow states loaded with the graphics). */
+extern int sc_burrow_states[SC_TYPES][2];
+void sc_burrow(mobj_t *mo);
+void sc_unburrow(mobj_t *mo);
+void sc_lay_mine(mobj_t *vulture, fixed2_t at);
+/* The nearest open spot to at; false leaves the unit where it was. */
+bool sc_place_near(mobj_t *unit, fixed2_t at);
+/* Top speed after Stim Packs, speed upgrades and Ensnare. */
+fixed_t sc_unit_speed(const mobj_t *mo);
 /* Two High Templar walk together and become an Archon. */
 bool sc_merge(mobj_t *a, mobj_t *b);
 /* A silo of owner with a nuke ready, or NULL. */

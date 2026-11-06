@@ -1,6 +1,7 @@
 #include "t_local.h"
 #include "starcraft.h"
 #include "info.h"
+#include "sc_local.h"
 #include <stdlib.h>
 #define CHECK(c) do{if(!(c)){fprintf(stderr,"line %d: %s\n",__LINE__,#c);return 1;}}while(0)
 static const char *root="data/STARCRAFT";
@@ -83,6 +84,15 @@ int main(void) {
         const state_t *state=&states[mobjinfo[i+1].spawnstate];CHECK(state->frame<s->spritedef.numframes);
     }
     CHECK(unique==148);
+    /* iscript Burrow/UnBurrow: the dug-in pose is held, not the idle one. */
+    static const int burrowers[]={38,39,42,47,51,14}; /* Zergling, Hydralisk, Drone, Defiler, Infested Terran, Spider Mine */
+    for(unsigned i=0;i<sizeof(burrowers)/sizeof(*burrowers);i++) {
+        int down=sc_burrow_states[burrowers[i]-1][0],up=sc_burrow_states[burrowers[i]-1][1];
+        CHECK(down>0&&up>0);
+        int last=down;for(int n=0;n<64&&states[last].nextstate!=last;n++)last=states[last].nextstate;
+        CHECK(states[last].nextstate==last&&states[last].frame!=states[mobjinfo[burrowers[i]].spawnstate].frame);
+    }
+    CHECK(!sc_burrow_states[40-1][0]); /* no Ultralisk burrow before Brood War */
     const spritesheet_t *marine=R_CacheLookup(&cache,"sc-000");
     CHECK(marine->spritedef.spriteframes[0].rotations==32);
     const spritedirection_t *d=marine->spritedef.spriteframes[0].directions;

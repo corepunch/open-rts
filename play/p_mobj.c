@@ -155,10 +155,8 @@ static bool mobj_armed(const mobj_t *unit) {
 static int weapon_cooldown_ms(const mobj_t *unit, const weapondef_t *weapon) {
 #ifdef RTS_MODULE_DARK_COLONY
     if (unit && unit->type_id == MT_ATRIL && DC_WeaponLevel(unit)) return 150 * 66;
-#else
-    (void)unit;
 #endif
-    return weapon->cooldown_ms;
+    return weapon->cooldown_ms > 0 ? G_WeaponCooldown(unit, weapon, weapon->cooldown_ms) : weapon->cooldown_ms;
 }
 
 static void start_attack_cooldown(mobj_t *attacker, const weapondef_t *weapon) {

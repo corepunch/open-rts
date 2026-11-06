@@ -17,12 +17,13 @@ void G_UnitProduced(mobj_t *unit,const mobj_t *producer) {
 }
 
 void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
+    sc_transport_killed(victim);
     if(killer&&victim&&killer!=victim&&!P_IsAlly(killer,victim)&&killer->sc.kills<UINT16_MAX)
         killer->sc.kills++;
 }
 
 bool G_UnitCommandable(const mobj_t *unit) {
-    return !(unit->sc.flags&SC_LOADED) && !unit->sc.timers[SC_TIMER_LOCKDOWN] &&
+    return !(unit->sc.flags&SC_LOADED) && !sc_disabled(unit) && unit->sc.order.kind!=SC_ORDER_INFEST &&
         unit->sc.order.kind!=SC_ORDER_LIFT &&
         !(unit->sc.order.kind==SC_ORDER_LAND&&unit->sc.order.time);
 }

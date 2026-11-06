@@ -34,6 +34,10 @@ WEAK void G_UnitProduced(mobj_t *unit, const mobj_t *producer) { (void)unit; (vo
 WEAK void G_UnitKilled(mobj_t *victim, mobj_t *killer) { (void)victim; (void)killer; }
 WEAK uint32_t G_SaveLayout(void) { return 0; }
 WEAK bool G_SightRadius(const mobj_t *actor, int *radius) { (void)actor; (void)radius; return true; }
+WEAK int G_WeaponCooldown(const mobj_t *unit, const weapondef_t *weapon, int cooldown_ms) {
+    (void)unit; (void)weapon;
+    return cooldown_ms;
+}
 WEAK bool G_ViewerSees(const mobj_t *target, int owner, int team) {
     (void)target; (void)owner; (void)team;
     return true;
