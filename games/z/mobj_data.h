@@ -14,13 +14,14 @@
     uint8_t cliff_block, home; \
     uint8_t object, building; /* Native OBJECT type / BUILD record index + 1. */ \
     uint8_t driver, squad, grenades, territory; \
+    uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
     int hold; \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
-    HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); \
+    HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); HASH((mo)->z.crew_hurt); \
 } while (0)
 
 #endif

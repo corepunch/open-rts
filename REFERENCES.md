@@ -1,5 +1,24 @@
 # Reverse Engineering References
 
+### Z commander passes and unit statistics (2026-11-06)
+
+- Local retail `data/Z/ZED.EXE` (SHA-256 unchanged) and `ROBOTS.DAT`, read
+  statically with a scratch Python LE loader (fixup types 7/8) and the
+  Capstone disassembler; the loader stays outside the repository. No retail
+  execution and no external source.
+- `0x9b1e3` (dispatcher order), `0x98d58` and its passes `0x993ff`,
+  `0x998c5`, `0x9962c`/`0x99818`/`0x99708`/`0x996c1`, `0x99149`/`0x99910`,
+  `0x991c4`, `0x98d95`, plus `0x9c174`/`0x9cab4` (recapture),
+  `0x79e69`/`0x9cb40` (510-frame lockout), `0x9cb5e` (homes) and
+  `0x9d115`/`0x9d330`/`0x9cf33` (defence) establish the ported attack,
+  garrison, frontier, recapture and defence behaviour. `0x9a9f9` has no
+  callers: dead code, not ported.
+- `0x5108c`, `0x50df1`, `0x50bfb`, `0x60c4a`, `0x79882`/`0x7bf10`/`0x117e5c`,
+  `0x5ae44` and `0x5ad72` establish robot and vehicle hit points, damage,
+  range, reload, speed levels, bullet armour and driver kills. Tables,
+  confidence and remaining engine boundaries are in
+  [Z commander and unit findings](docs/Z_EXE_FINDINGS.md#commander-passes-and-unit-statistics-2026-11-06).
+
 ### Z native AI scoring and campaign intelligence (2026-10-18)
 
 - Local retail `data/Z/ZED.EXE`, `ROBOTS.DAT`, `MULT.DAT`,

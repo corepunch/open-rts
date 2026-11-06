@@ -221,7 +221,10 @@ static int test_strength_gate(void) {
     mobj_t *enemy = nth(MT_UNIT_GRUNT,0,0);
     enemy->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag),0);
     think(0); think(1);
-    if (task_of(lead)->task != -1 || task_of(lead)->pending || P_HasMoveOrder(lead))
+    /* An idle force inside its own land may still move up to the
+     * frontier (0x98d95), but nothing marches on the strong territory. */
+    const zaitask_t *t = task_of(lead);
+    if (t->destination == 8 || t->target == 8 || (t->task >= 0 && t->task <= 4))
         return fail("insufficient combined force leaves target unassigned");
     puts("PASS: z strategic orders require enough squad strength");
     rts_game_model_destroy(model);
@@ -254,8 +257,58 @@ static int test_vehicles(void) {
     rts_game_model_destroy(model);
     return 0;
 }
+/* 0x993ff: an attack that becomes too weak, with nobody to help, falls
+ * back and forgets its target. */
+static int test_retreat(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("retreat load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    think(0); think(1);
+    if (task_of(lead)->task != 0 || task_of(lead)->destination != 8) return fail("retreat fixture marches on territory 8");
+    for (int i = 0; nth(MT_UNIT_GRUNT, 0, i); ++i)
+        nth(MT_UNIT_GRUNT, 0, i)->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag), 0);
+    think(1);
+    const zaitask_t *t = task_of(lead);
+    /* It may take the weaker neutral territory 2 instead on a later pass. */
+    if (t->destination == 8 || t->target == 8) return fail("outmatched attack falls back");
+    puts("PASS: z an outmatched attack falls back and looks elsewhere");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+/* 0x9c174/0x9cab4: a reserve standing in a territory whose flag was just
+ * taken, with no enemy there, runs back onto the flag and retakes it. */
+static int test_recapture(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("recapture load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 100;
+    mobj_t *flag = NULL;
+    for (int i = 0; nth(MT_FLAG, -1, i); ++i)
+        if (nth(MT_FLAG, -1, i)->z.territory == 5) flag = nth(MT_FLAG, -1, i);
+    if (!flag) return fail("recapture fixture flag");
+    ivec2_t cell = ivec2_add(map->territories[4].flag, (ivec2_t){0, 3});
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->team == 1 && mo->hp > 0 && mo->z.squad == lead->z.squad)
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(cell), 0);
+    }
+    think(0); think(1);
+    if (task_of(lead)->flags & 16) return fail("recapture fixture keeps the squad in reserve");
+    Z_SetTeam(flag, 0);
+    think(1);
+    if (map->ai.territories[4].lockout == 0 || !(task_of(lead)->flags & 2) ||
+        (!task_of(lead)->pending && !P_HasMoveOrder(lead))) return fail("reserve runs for the lost flag");
+    if (!tick(model, 20 * RTS_TICRATE) || flag->team != 1) return fail("reserve retakes the flag");
+    if (task_of(lead)->flags & 2) return fail("retaking clears the recapture mark");
+    puts("PASS: z a reserve retakes a flag lost in its territory");
+    rts_game_model_destroy(model);
+    return 0;
+}
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_vehicles();
+           test_strength_gate() || test_vehicles() || test_retreat() || test_recapture();
 }

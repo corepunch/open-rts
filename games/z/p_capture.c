@@ -179,6 +179,64 @@ void Z_MobjTicker(mobj_t *mo) {
 }
 
 /* The grenade leaves on the throw's last picture (0x636a0). */
+/* 0x5ae44: a bullet loses 5 (0x103f49) against a vehicle or gun; one left
+ * with nothing does 0 or 1 at random. Shells, rockets and grenades burst
+ * at full strength (0x85ce4). Bullets come from the riflemen, the Laser,
+ * the Jeep, the APC and the Gatling. */
+static bool fires_bullets(int t) {
+    switch (t) {
+    case MT_UNIT_GRUNT - MT_UNITS: case MT_UNIT_SNIPER - MT_UNITS: case MT_UNIT_PSYCHO - MT_UNITS:
+    case MT_UNIT_LASER - MT_UNITS: case MT_UNIT_JEEP - MT_UNITS: case MT_UNIT_APC - MT_UNITS:
+    case MT_UNIT_GATLING - MT_UNITS: return true;
+    default: return false;
+    }
+}
+/* Deterministic stand-in for the native random stream, the same on every
+ * peer: 0..127 from the tic and the two units. */
+static int coin(const mobj_t *a, const mobj_t *b, uint32_t salt) {
+    uint32_t h = (uint32_t)leveltime * 2654435761u ^ a->id * 2246822519u ^ b->id * 3266489917u ^ salt;
+    h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+    return (int)(h & 0x7f);
+}
+/* Robot record +0x1d, which the native unit keeps at +2 (0x5108c). */
+static int accuracy(const mobj_t *mo) {
+    const zmap_t *map = level.native_data;
+    if (!map || !mo->z.robot || mo->z.robot * 44u > map->roster.size) return 0;
+    return map->roster.bytes[(mo->z.robot - 1) * 44 + 0x1d];
+}
+/* 0x5ad72: a bullet that hits a Jeep or a Light Gun may hit its driver
+ * instead, when `rand & 0x7f` falls under the shooter's accuracy (halved
+ * against a gun). The driver takes the whole shot; once he is dead the
+ * vehicle stands empty for anyone to take (0x860fd). */
+static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
+    int t = Z_UnitType(target);
+    if (!target->z.driver || (t != MT_UNIT_JEEP - MT_UNITS && t != MT_UNIT_LIGHT_GUN - MT_UNITS)) return false;
+    int skill = accuracy(attacker);
+    if (t == MT_UNIT_LIGHT_GUN - MT_UNITS) skill /= 2;
+    if (coin(attacker, target, 0x5ad72) >= skill) return false;
+    int driver_hp = mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
+    int hurt = target->z.crew_hurt + damage;
+    target->z.crew_hurt = (uint8_t)(hurt > 255 ? 255 : hurt);
+    if (hurt <= driver_hp) return true;
+    Z_SetTeam(target, Z_NEUTRAL);
+    target->z.driver = target->z.squad = target->z.crew_hurt = 0;
+    target->traits &= ~(MF_MOBILE | MF_ATTACK);
+    target->attack.target = NULL;
+    P_ClearMove(target);
+    P_MobjSetSelected(target, false);
+    return true;
+}
+int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
+    (void)weapon;
+    damage /= divisor ? divisor : 1;
+    int victim = Z_UnitType(target);
+    if (!attacker || victim < 0 || Z_IsRobot(victim) || !fires_bullets(Z_UnitType(attacker))) return damage;
+    if (hit_driver(attacker, target, damage)) return 0;
+    damage -= 5;
+    /* Deterministic stand-in for the native coin: same on every peer. */
+    return damage > 0 ? damage : (int)((leveltime + attacker->id + target->id) & 1);
+}
+
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     (void)weapon;
     if (!throws_at(attacker, target) || !P_SpawnMissile(attacker, target, MT_GRENADE)) return false;

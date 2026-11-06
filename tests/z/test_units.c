@@ -195,9 +195,49 @@ static int test_vehicle_sheets(void) {
     return 0;
 }
 
+static const weapondef_t mobjinfo_attack_dummy = {.damage = 10};
+/* Retail stats from ROBOTS.DAT (units.inc) and the bullet armour rule. */
+static int test_retail_stats(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for stats");
+    mobj_t *grunt = find(0, MT_UNIT_GRUNT), *gatling = find(0, MT_UNIT_GATLING);
+    if (!grunt || !gatling) return fail("level 1 Grunt and Gatling");
+    const mobjtype_t *g = grunt->info;
+    /* 30 hp, 5 a shot every 20 steps, 120 px, speed level 4: 1/2 px a step. */
+    if (g->max_hp != 30 || g->attack.damage != 5 || g->attack.cooldown_ms != 20 * 1000 / 70 ||
+        g->attack.range != FIXED_ONE * 120 / Z_TILE || g->speed != (fixed_t)((int64_t)FIXED_ONE * 70 / (2 * Z_TILE)))
+        return fail("Grunt has its ROBOTS.DAT statistics");
+    if (gatling->info->max_hp != 50 || gatling->info->attack.cooldown_ms != 3 * 1000 / 70)
+        return fail("Gatling has 25 * weapon +5 hit points and its fire rate");
+    /* A Grunt's bullet loses 5 against a gun and is left with 0 or 1. */
+    int hit = Z_HitDamage(grunt, &g->attack, gatling, 5, 1);
+    if (hit < 0 || hit > 1 || Z_HitDamage(grunt, &g->attack, find(1, MT_UNIT_GRUNT), 5, 1) != 5)
+        return fail("bullets lose 5 against vehicles and guns only");
+    /* A Sniper's bullets find a Jeep's driver (accuracy 120 of 128) and
+     * leave the Jeep standing empty. */
+    mobj_t *jeep = P_SpawnMobj(gatling->core.position, MT_UNIT_JEEP), *sniper = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap && !sniper; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->z.robot && Z_IsRobot(Z_UnitType(mo))) sniper = mo;
+    }
+    if (!jeep || !sniper) return fail("driver fixture");
+    Z_SetTeam(jeep, 0);
+    jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    sniper->z.robot = 4 + 1; /* ROBOTS.DAT record 4, the Sniper: accuracy 120. */
+    sniper->type_id = MT_UNIT_SNIPER;
+    int body = 0;
+    for (int shot = 0; shot < 40 && jeep->z.driver; ++shot, ++leveltime)
+        body += Z_HitDamage(sniper, &mobjinfo_attack_dummy, jeep, 10, 1);
+    if (jeep->z.driver || !Z_Enterable(jeep) || body > 10 * 5)
+        return fail("bullets kill a Jeep's driver and leave it empty");
+    puts("PASS: z units carry their retail statistics, bullet armour and driver kills");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
     if (test_level_units() || test_select_and_move(NULL, MT_UNIT_GRUNT, "Grunt") ||
         test_select_and_move("LEVEL09/LEVEL09.MAP", MT_UNIT_MED_TANK, "Medium Tank") ||
-        test_vehicle_sheets() || test_fight_to_death() || test_turret_aims()) return 1;
+        test_vehicle_sheets() || test_fight_to_death() || test_turret_aims() || test_retail_stats()) return 1;
     return 0;
 }

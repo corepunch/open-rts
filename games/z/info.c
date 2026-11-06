@@ -126,4 +126,5 @@ const gameinfo_t game_info = {
     .mobj_ticker = Z_MobjTicker,
     .attack = Z_Attack,
     .can_target = Z_CanTarget,
+    .hit_damage = Z_HitDamage,
 };

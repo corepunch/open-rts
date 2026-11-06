@@ -42,14 +42,18 @@ typedef struct {
     fixed2_t order;
     int32_t strength;
     int16_t current, target, destination;
-    int8_t task;
+    int16_t home;     /* Group +0xc: where a donated reserve returns, or -1. */
+    int8_t task;      /* +0x11: -1 idle, 0 march, 1 flag, 2 staged, 3 assault,
+                       * 4 garrison, 5 vehicle, 10 frontier. */
     uint8_t squad, flags, idle;
+    uint8_t passes;   /* +0x12: heavy passes spent idle inside CPU land. */
     int8_t retry;
     bool pending;
 } zaitask_t;
 
 typedef struct {
     uint16_t strength[4];
+    uint16_t lockout; /* +0x16: frames left of the 510 set when its flag turns. */
     int32_t value;
     uint8_t owner, flags, known;
 } zai_territory_t;
@@ -116,6 +120,7 @@ bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target);
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 void Z_MobjTicker(mobj_t *mo);
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
+int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
 /* p_fort.c: a fort takes no harm; it falls to a unit that gets inside. */
 void Z_FortUnharmed(mobj_t *fort);
 /* Cell at the middle of a fort's entrance, where a unit takes it. */
