@@ -319,4 +319,9 @@ mobj_t *sc_armed_silo(int owner);
 void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count);
 /* Product ids: research of techdata row t is SC_TECH_UI + t. */
 enum { SC_TECH_UI = 2000 };
+/* sfxdata.dat ids of the first sound of an iscript animation; see w_assets.c. */
+int sc_iscript_sounds(const blob_t *script, unsigned id, int anim, uint16_t *out, int max);
+/* sounds.c: native sfx; a dialog button's press sound, 0 while silent. */
+extern const soundinfo_t sc_soundinfo;
+extern int sc_dialog_click;
 #endif

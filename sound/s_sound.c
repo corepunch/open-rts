@@ -5,7 +5,7 @@
 #include "engine.h"
 #include <math.h>
 
-#define MAXSFX 1024
+#define MAXSFX 2048 /* StarCraft: 967 sfxdata rows and their groups. */
 #define NUMSCHANNELS 32
 #define MAXGROUPDEPTH 4
 

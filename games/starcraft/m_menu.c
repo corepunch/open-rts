@@ -450,7 +450,7 @@ static bool build_screen(screen_t *screen,app_t *app,const char *root,const char
     sc_dialog_t d;if(!sc_dialog(root,dialog,&d))return false;
     screen->menu=(menu_t){.app=app,.items=screen->items,.numitems=d.count,.size={640,480},
         .stretch=true,.modal=true,.background=&screen->theme->background,.palette=screen->theme->background.palette,
-        .drawitem=draw_front,.owner=screen->theme,.refresh=fit_scrollbars};
+        .drawitem=draw_front,.owner=screen->theme,.refresh=fit_scrollbars,.click_sfx=sc_dialog_click};
     bool popup=d.rect.w<640&&d.rect.h<480;
     ivec2_t offset=popup?(ivec2_t){(640-d.rect.w)/2-d.rect.x,(480-d.rect.h)/2-d.rect.y}:(ivec2_t){0,0};
     if(popup) {

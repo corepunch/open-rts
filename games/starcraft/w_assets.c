@@ -178,6 +178,31 @@ static unsigned animation_start(const blob_t *s,unsigned id,int anim) {
     }
     return 0;
 }
+/* The sfxdata.dat ids of the first sound an animation plays, following its
+ * gotos and calls: playsnd (0x18), playsndrand (0x19), playsndbtwn (0x1a) or
+ * the hit sounds of attackmelee (0x1c), whose operands are PyMS's. A strike
+ * reached first means the animation has no sound of its own. */
+int sc_iscript_sounds(const blob_t *script,unsigned id,int anim,uint16_t *out,int max) {
+    unsigned at=animation_start(script,id,anim),stack[16],sp=0;
+    for(int step=0;at&&step<512&&at<script->size;step++) {
+        unsigned op=script->bytes[at++];
+        if(op>=sizeof(oplen)) return 0;
+        unsigned len=oplen[op];
+        if(len==255) { if(at>=script->size) return 0; len=1+script->bytes[at]*2; }
+        if(len>script->size-at) return 0;
+        const uint8_t *arg=script->bytes+at; at+=len;
+        int n=0;
+        if(op==0x18) out[n++]=read_u16_le(arg);
+        else if(op==0x19||op==0x1c) for(unsigned i=0;i<arg[0]&&n<max;i++) out[n++]=read_u16_le(arg+1+i*2);
+        else if(op==0x1a) for(unsigned s=read_u16_le(arg);s<=read_u16_le(arg+2)&&n<max;s++) out[n++]=(uint16_t)s;
+        else if(op==7) at=read_u16_le(arg);
+        else if(op==0x35) { if(sp==16) return 0; stack[sp++]=at; at=read_u16_le(arg); }
+        else if(op==0x36) { if(!sp) return 0; at=stack[--sp]; }
+        else if(op==27||op==37||op==38||op==40||op==68||op==0x16||op==0x30) return 0;
+        if(n) return n;
+    }
+    return 0;
+}
 /* A turning GRP's playfram argument is a multiple of 17 plus the facing slot.
  * After setfldirect, or off a multiple of 17, it names one picture: those are
  * the extra one-direction frames that follow the turning ones. */

@@ -3079,6 +3079,7 @@ struct menu_s {
     bool (*drawitem)(const menu_t *menu, const menuitem_t *item, menustate_t state, irect_t rect);
     bool lifted;      /* the button that went down on a target is still down */
     void *owner;
+    int click_sfx;    /* sfx an activation plays; 0 is the game's UI_SOUND_CLICK */
 };
 
 /* Returns whether the screen took the event. */
