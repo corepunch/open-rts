@@ -3,14 +3,13 @@
 
 #include <string.h>
 
-/* Native single-player scoring, force allocation and offensive orders.
- * See docs/Z_EXE_FINDINGS.md for the unported repair/defense branches.
- * Task records refer to squads; thinker-owned mobjs are the only units. */
+/* Native single-player commander. Task records refer to squads;
+ * thinker-owned mobjs are the only units. */
 enum {
     CPU = 1, NATIVE_HZ = 70, MEMBERS = 21,
     RECAPTURE = 2, USABLE = 8, MOBILE = 16,             /* Task +0x10 bits. */
     IDLE = -1, MARCH = 0, FLAG = 1, STAGED = 2, ASSAULT = 3, GARRISON = 4,
-    VEHICLE = 5, FRONTIER = 10,                          /* Task +0x11 values. */
+    VEHICLE = 5, RETURN = 8, CRANE_WORK = 9, FRONTIER = 10, REPAIR = 11, /* Task +0x11. */
     LOCKOUT = 0x1fe,                                     /* 0x79e69 */
     WORTH_HOLDING = 500,                                 /* 0x99171, 0x998f4 */
 };
@@ -20,7 +19,8 @@ static bool soldier(const mobj_t *mo) {
     return live(mo) && mo->team < Z_NEUTRAL && Z_UnitType(mo) >= 0;
 }
 static bool same_squad(const mobj_t *a, const mobj_t *b) {
-    return a == b || (a->z.squad && a->z.squad == b->z.squad && a->team == b->team);
+    return a == b || (a->z.squad && a->z.squad == b->z.squad && a->team == b->team &&
+                      Z_IsRobot(Z_UnitType(a)) && Z_IsRobot(Z_UnitType(b)));
 }
 static bool vehicle_candidate(const mobj_t *mo) {
     if (!Z_Enterable(mo)) return false;
@@ -36,7 +36,8 @@ static int members(const zaitask_t *task, mobj_t *const *units, int count, mobj_
     int n = 0;
     for (int i = 0; i < count && n < MEMBERS; ++i)
         if (soldier(units[i]) && units[i]->team == CPU &&
-            (task->squad ? units[i]->z.squad == task->squad : units[i]->id == task->unit))
+            (task->squad ? units[i]->z.squad == task->squad && Z_IsRobot(Z_UnitType(units[i])) :
+                           units[i]->id == task->unit))
             out[n++] = units[i];
     return n;
 }
@@ -61,6 +62,8 @@ static int at_unit(const zmap_t *map, const mobj_t *mo) {
 static void queue(zai_t *ai, zaitask_t *task, fixed2_t goal, uint32_t vehicle) {
     task->order = goal;
     task->boarding = vehicle;
+    task->service = 0;
+    task->enemy = 0;
     task->execute_at = ai->clock + 2 * (127 - ai->intelligence) + ai->order_tail;
     ai->order_tail += 127 - ai->intelligence;
     task->pending = true;
@@ -108,15 +111,15 @@ static void sync_tasks(zmap_t *map, mobj_t *const *units, int count) {
         task->unit = group[0]->id;
         task->current = (int16_t)at_unit(map, group[0]);
         task->flags &= ~USABLE;
-        if (group[0]->traits & MF_MOBILE) task->flags |= USABLE;
+        if ((group[0]->traits & MF_MOBILE) && !group[0]->z.service && !task->service) task->flags |= USABLE;
         bool moving = false, fighting = false;
         mobj_t *enemy = NULL;
         for (int j = 0; j < n; ++j) {
-            moving |= P_HasMoveOrder(group[j]) || group[j]->z.board;
+            moving |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service;
             if (live(group[j]->attack.target)) enemy = group[j]->attack.target;
         }
         for (int j = 0; enemy && j < n; ++j)
-            if (P_CanTarget(group[j], enemy)) {
+            if (!group[j]->z.service && P_CanTarget(group[j], enemy)) {
                 group[j]->z.board = 0;
                 group[j]->attack.target = enemy;
                 fighting = true;
@@ -134,15 +137,16 @@ static void sync_tasks(zmap_t *map, mobj_t *const *units, int count) {
     for (int u = 0; u < count; ++u) {
         mobj_t *mo = units[u];
         if (!soldier(mo) || mo->team != CPU) continue;
+        uint8_t squad = Z_IsRobot(Z_UnitType(mo)) ? mo->z.squad : 0;
         bool found = false;
         zaitask_t *free = NULL;
         for (int i = 0; i < Z_AI_TASKS; ++i) {
             zaitask_t *task = &ai->tasks[i];
             if (!task->unit && !free) free = task;
-            if (task->unit == mo->id || (mo->z.squad && task->squad == mo->z.squad)) found = true;
+            if (task->unit == mo->id || (squad && task->squad == squad)) found = true;
         }
         if (found || !free) continue;
-        *free = (zaitask_t){.unit = mo->id,.squad = mo->z.squad,.task = IDLE,.home = -1,
+        *free = (zaitask_t){.unit = mo->id,.squad = squad,.task = IDLE,.home = -1,
             .current = (int16_t)at_unit(map, mo),.target = -1,.destination = -1,
             .flags = (mo->traits & MF_MOBILE) ? USABLE : 0};
         if (mo->z.home && mo->z.home <= map->territory_count) {
@@ -203,7 +207,7 @@ static void observations(zmap_t *map, mobj_t *const *units, int count) {
     /* Native 0x986dc counts a squad's sum once for EVERY live member. */
     for (int u = 0; u < count; ++u) {
         const mobj_t *mo = units[u];
-        if (!soldier(mo) || mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK) continue;
+        if (!soldier(mo) || mo->z.service_work < 0 || mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK) continue;
         int t = at_unit(map, mo), strength = 0;
         if (t < 0) continue;
         for (int v = 0; v < count; ++v)
@@ -244,7 +248,7 @@ static void split_army(zmap_t *map, mobj_t *const *units, int count) {
         zaitask_t *task = &ai->tasks[i];
         mobj_t *mo = P_MobjById(task->unit), *group[MEMBERS];
         task->strength = 0;
-        if (!live(mo) || mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK) continue;
+        if (!live(mo) || mo->z.service || mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK) continue;
         int n = members(task, units, count, group);
         for (int j = 0; j < n; ++j) task->strength += Z_AIUnitValue(group[j]);
         task->strength = Z_AIEstimate(task->strength, ai->intelligence);
@@ -292,7 +296,7 @@ static bool offensive(const zaitask_t *task) {
     return task->unit && (task->flags & (USABLE | MOBILE)) == (USABLE | MOBILE);
 }
 static bool reserve(const zaitask_t *task) {
-    return task->unit && (task->flags & (USABLE | MOBILE)) == USABLE;
+    return task->unit && !task->service && (task->flags & (USABLE | MOBILE)) == USABLE;
 }
 static bool owned(const zai_t *ai, int territory) {
     return territory >= 0 && ai->territories[territory].owner == CPU;
@@ -657,7 +661,7 @@ static void go_home(zmap_t *map) {
         mobj_t *mo = P_MobjById(task->unit);
         if (!task->unit || (task->flags & MOBILE) || task->home < 0 || task->home == task->current ||
             !live(mo) || !(mo->traits & MF_MOBILE) || task->pending || (task->flags & RECAPTURE) ||
-            mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK || task->current < 0) continue;
+            mo->z.service || mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK || task->current < 0) continue;
         const zai_territory_t *here = &ai->territories[task->current];
         int enemy = 0;
         for (int team = 0; team < 4; ++team) if (team != CPU) enemy += here->strength[team];
@@ -675,7 +679,7 @@ static zaitask_t *donor(zmap_t *map, int territory, mobj_t *const *units, int co
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &ai->tasks[i];
         mobj_t *group[MEMBERS], *mo = P_MobjById(task->unit);
-        if (!task->unit || task->current != territory || !live(mo) || !(mo->traits & MF_MOBILE)) continue;
+        if (!task->unit || task->current != territory || !live(mo) || !(mo->traits & MF_MOBILE) || mo->z.service) continue;
         int n = members(task, units, count, group), value = 0;
         for (int j = 0; j < n; ++j) value += Z_AIUnitValue(group[j]);
         if (!value) continue;
@@ -792,7 +796,7 @@ static void local_orders(zmap_t *map, mobj_t *const *units, int count) {
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &ai->tasks[i];
         mobj_t *mo = P_MobjById(task->unit);
-        if (!live(mo) || task->current < 0) continue;
+        if (!live(mo) || mo->z.service || task->service || task->current < 0) continue;
         zai_territory_t *t = &ai->territories[task->current];
         /* 0x9a49a: a mobile force in the second fort territory enters it. */
         if ((t->flags & 2) && (task->flags & (USABLE | MOBILE)) == (USABLE | MOBILE) &&
@@ -828,13 +832,256 @@ static void execute_orders(zai_t *ai, mobj_t *const *units, int count) {
         mobj_t *group[MEMBERS];
         int n = members(task, units, count, group);
         if (n) {
-            if (task->boarding) Z_BoardOrder(group, n, P_MobjById(task->boarding));
+            if (task->enemy) {
+                mobj_t *enemy = P_MobjById(task->enemy);
+                for (int j = 0; j < n; ++j) {
+                    mobj_t *unit = group[j];
+                    if (unit->z.service || !P_CanTarget(unit, enemy)) continue;
+                    P_ClearMove(unit);
+                    unit->z.board = 0;
+                    unit->move_only = false;
+                    unit->attack.target = enemy;
+                }
+            } else if (task->service) Z_ServiceOrder(group[0], Z_ServiceTarget(task->service), task->order);
+            else if (task->boarding) Z_BoardOrder(group, n, P_MobjById(task->boarding));
             else {
                 P_MoveUnitsAt(&level, group, n, task->order);
                 P_MoveUnitTo(&level, group[0], task->order);
             }
         }
         task->pending = false;
+        task->service = 0;
+        task->enemy = 0;
+    }
+}
+
+static bool return_service(zmap_t *map, zaitask_t *task, mobj_t *unit) {
+    if (!map->fort_count) return false;
+    fixed2_t goal = pixel_point(ivec2_add(map->forts[0], (ivec2_t){80,200}));
+    if (!reachable(unit, goal)) return false;
+    clear(task);
+    task->task = RETURN;
+    queue(&map->ai, task, goal, 0);
+    return true;
+}
+
+static int64_t service_distance(const mobj_t *unit, const mobj_t *target) {
+    const zmap_t *map = level.native_data;
+    ivec2_t point;
+    if (target->type_id == MT_BRIDGE) {
+        const zbridge_t *bridge = &map->bridges[target->z.bridge - 1];
+        irect_t r = bridge->bounds;
+        point = (ivec2_t){r.x + r.w / 2 + (bridge->vertical ? 0 : 8), r.y + r.h / 2 - 8};
+    } else {
+        isize2_t size = target->info->footprint;
+        point = ivec2_add(Z_BuildingOrigin(target), (ivec2_t){size.w * 8 - 8, size.h * 8 - 8});
+    }
+    return ivec2_distance_squared64(Z_AITopLeft(unit), point);
+}
+
+static bool order_service(zai_t *ai, zaitask_t *task, mobj_t *unit, mobj_t *target, int type) {
+    fixed2_t goal;
+    if (!Z_ServiceApproach(unit, target, &goal)) return false;
+    clear(task);
+    queue(ai, task, goal, 0);
+    task->service = target->id;
+    task->task = (int8_t)type;
+    return true;
+}
+
+/* 0x9c58d, then 0x9c68b. Work on owned ruins first. A closer crane can
+ * take over a bridge while the first crane is still travelling. */
+static void send_cranes(zmap_t *map, mobj_t *const *units, int count, bool bridges) {
+    zai_t *ai = &map->ai;
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &ai->tasks[i];
+        mobj_t *unit = P_MobjById(task->unit);
+        if (!unit || unit->type_id != MT_UNIT_CRANE || !(task->flags & USABLE) ||
+            task->task == CRANE_WORK || unit->z.service) continue;
+        int64_t distance = INT64_MAX;
+        mobj_t *best = NULL, *displaced = NULL;
+        zaitask_t *previous = NULL;
+        for (int u = 0; u < count; ++u) {
+            mobj_t *target = units[u];
+            if (target->remove || target->hp > 0) continue;
+            if (bridges) {
+                if (target->type_id != MT_BRIDGE) continue;
+                const zbridge_t *b = &map->bridges[target->z.bridge - 1];
+                int territory = Z_BridgeTerritory(map, target);
+                if (!b->cpu_rebuild || !owned(ai, territory)) continue;
+            } else if (!target->z.building || target->team != CPU) continue;
+            int64_t d = service_distance(unit, target);
+            if (d >= distance) continue;
+            mobj_t *other = NULL;
+            zaitask_t *other_task = NULL;
+            for (int j = 0; j < Z_AI_TASKS; ++j) {
+                zaitask_t *candidate = &ai->tasks[j];
+                mobj_t *crane = P_MobjById(candidate->unit);
+                if (candidate->task == CRANE_WORK && crane &&
+                    (candidate->service == target->id || crane->z.service == target->id)) {
+                    other = crane;
+                    other_task = candidate;
+                    break;
+                }
+            }
+            if (other && (!bridges || target->z.service_work || service_distance(other, target) < d)) continue;
+            best = target;
+            distance = d;
+            displaced = other;
+            previous = other_task;
+        }
+        if (best && order_service(ai, task, unit, best, CRANE_WORK) && displaced) {
+            Z_CancelService(displaced);
+            P_ClearMove(displaced);
+            if (!return_service(map, previous, displaced)) {
+                clear(previous);
+                previous->pending = false;
+                previous->service = 0;
+            }
+        }
+    }
+}
+
+/* 0x9c4f2 and 0x9bc08 send idle cranes/fire trucks and released crane
+ * assignments back to the CPU fort. Finished vehicle repairs go idle. */
+static void service_returns(zmap_t *map, bool validate) {
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &map->ai.tasks[i];
+        mobj_t *unit = P_MobjById(task->unit);
+        if (!unit || unit->z.service || task->service) continue;
+        if (validate) {
+            if (task->task == CRANE_WORK) {
+                if (!return_service(map, task, unit)) clear(task);
+            } else if (task->task == REPAIR) clear(task);
+        } else if (task->task == IDLE && !task->pending && task->current >= 0 &&
+                   !(map->ai.territories[task->current].flags & 1) &&
+                   (unit->type_id == MT_UNIT_CRANE || unit->type_id == MT_UNIT_FIRE_TRUCK)) {
+            return_service(map, task, unit);
+        }
+    }
+}
+
+/* 0x9c39b/0x9c42c: idle reserve vehicles below half HP, friendly live
+ * facilities and a strict 256-pixel limit on distance to their ranking point. */
+static void send_damaged_vehicles(zmap_t *map, mobj_t *const *units, int count) {
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &map->ai.tasks[i];
+        mobj_t *unit = P_MobjById(task->unit);
+        if (!unit || task->task != IDLE || !reserve(task) || task->pending || unit->z.service ||
+            !Z_RepairVehicle(unit) || unit->hp >= unit->max_hp / 2) continue;
+        mobj_t *best = NULL;
+        int64_t distance = 256 * 256;
+        for (int u = 0; u < count; ++u) {
+            mobj_t *facility = units[u];
+            if (facility->type_id != MT_REPAIR || !live(facility) || facility->team != CPU) continue;
+            int64_t d = service_distance(unit, facility);
+            if (d < distance) { best = facility; distance = d; }
+        }
+        if (best) order_service(&map->ai, task, unit, best, REPAIR);
+    }
+}
+
+/* 0x9d084 issues an attack on a unit or its squad. The shared thinker
+ * handles pursuit and firing once given the target. */
+static bool respond(zai_t *ai, zaitask_t *task, const mobj_t *enemy, mobj_t *const *units, int count) {
+    if (task->service) return false;
+    if (task->enemy == enemy->id) return true;
+    mobj_t *group[MEMBERS];
+    int n = members(task, units, count, group);
+    for (int j = 0; j < n; ++j) {
+        mobj_t *unit = group[j];
+        if (unit->z.service || unit->type_id == MT_UNIT_FIRE_TRUCK ||
+            unit->attack.target == enemy || !P_CanTarget(unit, enemy)) continue;
+        queue(ai, task, (fixed2_t){0}, 0);
+        task->enemy = enemy->id;
+        return true;
+    }
+    return false;
+}
+
+/* 0x9be16 picks the first owned fort or area with importance >32. When
+ * it contains enemy strength, reserves may respond from other territories. */
+static void priority_territory(zmap_t *map, mobj_t *const *units, int count) {
+    zai_t *ai = &map->ai;
+    for (int t = 0; t < map->territory_count; ++t) {
+        if (!owned(ai, t) || (!(ai->territories[t].flags & 1) && map->territories[t].importance <= 32)) continue;
+        if (ai->territories[t].strength[0])
+            for (int u = 0; u < count; ++u) {
+                mobj_t *enemy = units[u];
+                if (!soldier(enemy) || enemy->team != 0 || at_unit(map, enemy) != t) continue;
+                for (int i = 0; i < Z_AI_TASKS; ++i) {
+                    zaitask_t *task = &ai->tasks[i];
+                    if (task->unit && !(task->flags & MOBILE)) respond(ai, task, enemy, units, count);
+                }
+                break;
+            }
+        return;
+    }
+}
+
+/* 0x9bf90 responds to the first owned territory with a live attacker.
+ * It consumes the alert only when an eligible local squad takes it. */
+static void protect_buildings(zmap_t *map, mobj_t *const *units, int count) {
+    zai_t *ai = &map->ai;
+    for (int t = 0; t < map->territory_count; ++t) {
+        zai_territory_t *area = &ai->territories[t];
+        if (!area->attacker || !owned(ai, t)) continue;
+        mobj_t *enemy = P_MobjById(area->attacker);
+        if (!soldier(enemy) || enemy->team != 0) { area->attacker = 0; continue; }
+        for (int i = 0; i < Z_AI_TASKS; ++i) {
+            zaitask_t *task = &ai->tasks[i];
+            if (task->unit && task->current == t && respond(ai, task, enemy, units, count)) {
+                area->attacker = 0;
+                break;
+            }
+        }
+        return;
+    }
+}
+
+/* 0x9cc83 visits 20 native slots per heavy pass. Manufactured reserves
+ * outside their own land fall back to the nearest owned territory. */
+static void return_strays(zmap_t *map, mobj_t *const *units, int count) {
+    zai_t *ai = &map->ai;
+    int u = 0, slots = 0;
+    for (; u < count && slots < 20; ++u) {
+        mobj_t *unit = units[u];
+        if (unit->id <= ai->stray_cursor || Z_UnitType(unit) < 0) continue;
+        ai->stray_cursor = unit->id;
+        slots++;
+        if (!soldier(unit) || unit->team != CPU || !unit->z.manufactured || unit->z.service ||
+            unit->type_id == MT_UNIT_CRANE || unit->type_id == MT_UNIT_FIRE_TRUCK || live(unit->attack.target)) continue;
+        for (int i = 0; i < Z_AI_TASKS; ++i) {
+            zaitask_t *task = &ai->tasks[i];
+            if (!reserve(task) || task->unit != unit->id || task->pending || (task->flags & RECAPTURE)) continue;
+            int t = task->current;
+            if (t < 0 || owned(ai, t)) break;
+            int keep = 16 * map->computer.territory_weight * map->territories[t].importance;
+            if (ai->territories[t].lockout && (int16_t)(surplus(ai, t) - keep) >= 0) break;
+            int home = nearest_own(map, CPU, t, Z_AITopLeft(unit));
+            if (home >= 0 && (!P_HasMoveOrder(unit) || Z_AITerritory(map, unit->movement.goal) != home) &&
+                send(map, task, home) && task->home == t) task->home = (int16_t)home;
+            break;
+        }
+    }
+    if (u == count) ai->stray_cursor = 0;
+}
+
+/* 0x9bba5 resolves an offensive group's target territory. A target beyond
+ * CPU land with no capture lockout makes the group return to its home. */
+static void check_unit_targets(zmap_t *map, mobj_t *const *units, int count) {
+    zai_t *ai = &map->ai;
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &ai->tasks[i];
+        mobj_t *unit = P_MobjById(task->unit);
+        if (!unit || !(task->flags & MOBILE) || task->home < 0 || unit->z.service) continue;
+        const mobj_t *enemy = unit->attack.target;
+        int t = soldier(enemy) ? at_unit(map, enemy) :
+            P_HasMoveOrder(unit) ? Z_AITerritory(map, unit->movement.goal) : -1;
+        if (t < 0 || owned(ai, t) || ai->territories[t].lockout || !send(map, task, task->home)) continue;
+        mobj_t *group[MEMBERS];
+        int n = members(task, units, count, group);
+        for (int j = 0; j < n; ++j) group[j]->attack.target = NULL;
     }
 }
 
@@ -898,9 +1145,10 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
                 int n = members(task, units, count, group);
                 bool busy = task->pending;
                 for (int j = 0; j < n; ++j)
-                    busy |= P_HasMoveOrder(group[j]) || group[j]->z.board || live(group[j]->attack.target);
+                    busy |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service || live(group[j]->attack.target);
                 /* 0x991c4 spares waiting (staged) forces. */
                 if (task->task != IDLE && task->task != VEHICLE && task->task != STAGED &&
+                    task->task != CRANE_WORK && task->task != REPAIR &&
                     !busy && ++task->idle >= 3) {
                     clear(task); task->idle = 0;
                 }
@@ -915,8 +1163,17 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
             seek_vehicles(map, units, count);
             to_frontier(map, units, count);
             /* The rest of the 0x9b1e3 dispatcher. */
+            send_cranes(map, units, count, false);
+            send_cranes(map, units, count, true);
+            service_returns(map, false);
+            priority_territory(map, units, count);
+            protect_buildings(map, units, count);
             recapture(map);
+            return_strays(map, units, count);
             go_home(map);
+            send_damaged_vehicles(map, units, count);
+            check_unit_targets(map, units, count);
+            service_returns(map, true);
             defend(map, units, count);
             run_factories(units, count);
         }

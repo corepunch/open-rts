@@ -1115,6 +1115,7 @@ const uint32_t *G_AllianceMasks(const level_t *map);
 /* Start of a production tick, before queues advance. */
 void G_ProductionBegin(int elapsed_ms);
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer);
+void G_UnitDamaged(mobj_t *victim, const mobj_t *source);
 void G_UnitKilled(mobj_t *victim, mobj_t *killer);
 /* Distinguishes save bodies whose layout the game changed. */
 uint32_t G_SaveLayout(void);

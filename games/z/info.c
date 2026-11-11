@@ -51,6 +51,11 @@ const char *const sprnames[NUMSPRITES] = {
                 (dead) < 0 ? (sprite) : (dead), (dead) < 0 ? 1 : 10 * RTS_TICRATE, \
                 sprite, 1, sprite, sprite, 1)
 
+/* 0x182d3 copies each world's bridge pair to 0x117dd8. */
+#define BRIDGE_DEBRIS(world, sprite) \
+    [S_BRIDGE_DEBRIS + (world) * 2] = { SPR_RSC, sprite, 1, -1, NULL, S_NULL, 4, NULL }, \
+    [S_BRIDGE_DEBRIS + (world) * 2 + 1] = { SPR_RSC, (sprite) + 1, 1, -1, NULL, S_NULL, 4, NULL },
+
 /* Objects and buildings keep the first native frame; units animate. */
 const state_t states[NUMSTATES] = {
     [S_NULL] = { 0, 0, 0, -1, NULL, S_NULL, 0, NULL },
@@ -59,7 +64,8 @@ const state_t states[NUMSTATES] = {
     [S_FORT_WRECK] = { SPR_FORT, 2, 1, -1, NULL, S_FORT_WRECK, 0, NULL },
     [S_FORT_CPU_WRECK] = { SPR_FORT, 3, 1, -1, NULL, S_FORT_CPU_WRECK, 0, NULL },
 #define Z_BUILDING(native, type, label, w, h, ...) \
-    [S_##type] = { SPR_##type, 0, 1, -1, NULL, S_##type, 0, NULL },
+    [S_##type] = { SPR_##type, 0, 1, -1, NULL, S_##type, 0, NULL }, \
+    [S_##type##_WRECK] = { SPR_##type, 1, 1, -1, NULL, S_##type##_WRECK, 4, NULL },
 #include "buildings.inc"
 #undef Z_BUILDING
 #define Z_OBJECT(native, type, label, sprite, bits, w, h, dead) \
@@ -74,6 +80,9 @@ const state_t states[NUMSTATES] = {
      * ZED.EXE's 70 Hz clock (0x19e81); that is drawn a little slower. */
     [S_FLAG] = { SPR_FLAG, 0, 4, 2, NULL, S_FLAG, 0, NULL },
     [S_CLIFF] = { SPR_RSC, 0, 1, -1, NULL, S_CLIFF, 0, NULL },
+    [S_BRIDGE] = { SPR_RSC, 0, 1, -1, NULL, S_BRIDGE, 0, NULL },
+    BRIDGE_DEBRIS(0, 823) BRIDGE_DEBRIS(1, 2141) BRIDGE_DEBRIS(2, 2318)
+    BRIDGE_DEBRIS(3, 2814) BRIDGE_DEBRIS(4, 2627)
     [S_GRENADE] = { SPR_RSC, Z_GRENADE_SPRITE, Z_GRENADE_FRAMES, 2, NULL, S_GRENADE, 0, NULL },
     /* It bursts on the first picture and burns out through the rest. */
     [S_GRENADE_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_Explode, S_GRENADE_SMOKE, 4, NULL },
@@ -91,7 +100,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
                   .flags = MF_SELECTABLE | MF_RENDERABLE },
 #define Z_BUILDING(native, type, label, w, h, ...) \
     [MT_##type] = { .doomednum = native, .spawnstate = S_##type, .spawnhealth = 2000, \
-                    .deathstate = S_NULL, .xdeathstate = S_NULL, \
+                    .deathstate = S_##type##_WRECK, .xdeathstate = S_##type##_WRECK, \
                     .flags = MF_SELECTABLE | MF_RENDERABLE },
 #include "buildings.inc"
 #undef Z_BUILDING
@@ -111,6 +120,10 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
                   .xdeathstate = S_NULL, .flags = MF_RENDERABLE },
     [MT_CLIFF] = { .doomednum = -1, .spawnstate = S_CLIFF, .spawnhealth = 1,
                    .deathstate = S_NULL, .xdeathstate = S_NULL },
+    [MT_BRIDGE] = { .doomednum = -1, .spawnstate = S_BRIDGE, .spawnhealth = 1,
+                   .deathstate = S_BRIDGE, .xdeathstate = S_BRIDGE },
+    [MT_BRIDGE_DEBRIS] = { .doomednum = -1, .spawnstate = S_BRIDGE_DEBRIS, .spawnhealth = 1,
+                          .deathstate = S_NULL, .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
     [MT_GRENADE] = { .doomednum = -1, .spawnstate = S_GRENADE, .deathstate = S_GRENADE_BLAST,
                      .xdeathstate = S_GRENADE_BLAST, .damage = Z_GRENADE_DAMAGE,
                      .flags = MF_RENDERABLE | MF_MISSILE },

@@ -11,7 +11,7 @@
 /* LEVELS.DAT: 240-byte entries; ZED.EXE copies these names at 0x4f740. */
 enum {
     LV_SIZE = 240, LV_MAP = 0x14, LV_ROBOTS = 0x21, LV_CPUPLR = 0x2e, LV_GROUPS = 0x55,
-    LV_OBJECTS = 0x61, LV_WORLD = 0x6e, LV_BUILDINGS = 0x84, LV_NAME = 13,
+    LV_OBJECTS = 0x61, LV_WORLD = 0x6e, LV_BUILDINGS = 0x84, LV_BRIDGES = 0x91, LV_NAME = 13,
 };
 
 /* ROBOTS.DAT, as ZED.EXE 0x50665 reads it: 44-byte robots from 0 (name at
@@ -128,6 +128,16 @@ bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size) {
     return true;
 }
 
+ivec2_t Z_BuildingOrigin(const mobj_t *building) {
+    const zmap_t *map = level.native_data;
+    isize2_t size;
+    if (map && Z_SpriteSize(map, Z_BuildingSprite(building->native_type_id, map->world), &size))
+        return ivec2_sub(fixed2_cell(fixed2_scale(fixed3_xy(building->core.position), FIXED_FROM_INT(Z_TILE))),
+                         (ivec2_t){size.w / 2, size.h / 2});
+    irect_t cells = P_MobjCells(building);
+    return ivec2_scale((ivec2_t){cells.x, cells.y}, Z_TILE);
+}
+
 /* Territories are a cell rectangle then the team; ZED.EXE 0x9dc69 finds a
  * building's team through them, 0x2a89f plants their flags. A placement's flag is set on every one
  * near the computer's fort and clear on leftovers, so only flagged ones
@@ -239,6 +249,25 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
     out->blocked = calloc(cells, 1);
     if (!out->tile_ids || !out->blocked) goto fail;
     Z_RebuildCliffs(out);
+
+    char bridges[LV_NAME + 1];
+    snprintf(bridges, sizeof(bridges), "%.*s", LV_NAME, (const char *)entry + LV_BRIDGES);
+    level_path(path, sizeof(path), map->dir, bridges);
+    W_FreeFile(&file);
+    enum { BRIDGE_RECORD = 26 };
+    if (!W_ReadFile(path, &file) || file.size != Z_BRIDGES * BRIDGE_RECORD) goto fail;
+    for (int i = 0; i < Z_BRIDGES; ++i) {
+        const uint8_t *r = file.bytes + i * BRIDGE_RECORD;
+        int x = read_u16_le(r);
+        if (x == 0xffff) continue;
+        irect_t bounds = {x, read_u16_le(r + 2), read_u16_le(r + 4), read_u16_le(r + 6)};
+        bool vertical = read_u16_le(r + 0xc) != 0;
+        if (bounds.w % Z_TILE || bounds.h % Z_TILE || (vertical ? bounds.w : bounds.h) != 4 * Z_TILE ||
+            bounds.x + bounds.w > out->width * Z_TILE || bounds.y + bounds.h > out->height * Z_TILE ||
+            (vertical ? bounds.h : bounds.w) < 2 * Z_TILE) goto fail;
+        map->bridges[i] = (zbridge_t){.bounds = bounds, .initial_hp = read_u16_le(r + 0xa),
+                                     .vertical = vertical, .cpu_rebuild = (r[0xf] & 1) != 0};
+    }
 
     M_PathJoin(path, sizeof(path), map->root, "SPRITES.RSC");
     if (!W_ReadFile(path, &map->rsc)) goto fail;
@@ -512,8 +541,7 @@ int Z_LoadThings(void) {
         count++;
     }
 
-    /* BUILDnn.DAT: 35 records of 80 bytes; ZED.EXE keeps them as its
-     * building structures (x, y, type, hit points at +0x1a). */
+    /* BUILDnn.DAT +0x1a is maximum health, +0x1c is current health. */
     blob_t blob;
     if (read_level_file(map, map->buildings, &blob)) {
         for (size_t at = 0; at + 80 <= blob.size; at += 80) {
@@ -533,7 +561,14 @@ int Z_LoadThings(void) {
             if (!mo) continue;
             mo->z.building = (uint8_t)(at / 80 + 1);
             mo->z.rating = read_u32_le(r + 12);
-            if (read_u16_le(r + 0x1a)) mo->hp = mo->max_hp = read_u16_le(r + 0x1a);
+            if (read_u16_le(r + 0x1a)) {
+                mo->max_hp = read_u16_le(r + 0x1a);
+                mo->hp = read_u16_le(r + 0x1c);
+                if (!mo->hp) {
+                    mo->traits &= ~MF_SELECTABLE;
+                    P_SetMobjState(mo, mobjinfo[type].deathstate);
+                }
+            }
             count++;
         }
         W_FreeFile(&blob);
@@ -564,6 +599,18 @@ int Z_LoadThings(void) {
             if (spawn(type, mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL)) count++;
         }
         W_FreeFile(&blob);
+    }
+    for (int i = 0; i < Z_BRIDGES; ++i) {
+        const zbridge_t *record = &map->bridges[i];
+        irect_t r = record->bounds;
+        if (!r.w) continue;
+        mobj_t *bridge = spawn(MT_BRIDGE, S_BRIDGE, (ivec2_t){r.x, r.y}, (isize2_t){r.w, r.h}, Z_NEUTRAL);
+        if (!bridge) continue;
+        bridge->z.bridge = (uint8_t)(i + 1);
+        bridge->hp = record->initial_hp;
+        bridge->max_hp = bridge->hp ? bridge->hp : 600; /* 0x29783 initializes an already-broken bridge. */
+        if (!bridge->hp) Z_BridgeTerrain(bridge, false);
+        count++;
     }
     return count + Z_LoadCliffs();
 }

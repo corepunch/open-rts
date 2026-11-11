@@ -1,5 +1,14 @@
 # Reverse Engineering References
 
+### Z commander service and defensive responses (2026-11-11)
+
+- Local DOS `data/Z/ZED.EXE`, `BRIDGEnn.DAT`, `BUILDnn.DAT`,
+  `ROBOTS.DAT`, and `SPRITES.RSC`. The static Radare2 analysis follows
+  `0x9c58d`, `0x9c68b`, `0x9c4f2`, `0x9c272` and `0x9bc08` into the
+  native terrain, crane and repair bay routines. Dispatcher addresses,
+  formulas, port boundaries and reproduction commands are recorded in
+  [Commander service and defensive responses](docs/Z_EXE_FINDINGS.md#commander-service-and-defensive-responses-2026-11-11).
+
 ### Z commander input inventory (2026-11-11)
 
 - Local DOS `data/Z/ZED.EXE`, loose files and all four installed JMP2

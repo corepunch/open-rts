@@ -14,7 +14,14 @@ enum {
     Z_MAX_PLACED = 26, /* CPUPLRnn.DAT +0x792, ZED.EXE 0x9d985. */
     Z_CLIFF_BLOCKS = 20, Z_CLIFF_BYTES = 138,
     Z_AI_TASKS = 240,
+    Z_BRIDGES = 12,
 };
+
+typedef struct {
+    irect_t bounds; /* Native pixel rectangle. */
+    uint16_t initial_hp;
+    bool vertical, cpu_rebuild;
+} zbridge_t;
 
 /* ZED.EXE turns a turret an eighth of a circle toward its target, then
  * waits three updates (0x58b7a); here it turns smoothly at that rate. */
@@ -38,13 +45,14 @@ typedef struct {
 /* Native computer records at 0x18d388, with native pointers represented
  * by territory indices and stable mobj IDs. These own orders, not units. */
 typedef struct {
-    uint32_t unit, boarding, execute_at;
+    uint32_t unit, boarding, service, enemy, execute_at;
     fixed2_t order;
     int32_t strength;
     int16_t current, target, destination;
     int16_t home;     /* Group +0xc: where a donated reserve returns, or -1. */
     int8_t task;      /* +0x11: -1 idle, 0 march, 1 flag, 2 staged, 3 assault,
-                       * 4 garrison, 5 vehicle, 10 frontier. */
+                       * 4 garrison, 5 vehicle, 8 return, 9 crane work,
+                       * 10 frontier, 11 vehicle repair. */
     uint8_t squad, flags, idle;
     uint8_t passes;   /* +0x12: heavy passes spent idle inside CPU land. */
     int8_t retry;
@@ -52,6 +60,7 @@ typedef struct {
 } zaitask_t;
 
 typedef struct {
+    uint32_t attacker; /* Last unit to hit a building here. */
     uint16_t strength[4];
     uint16_t lockout; /* +0x16: frames left of the 510 set when its flag turns. */
     int32_t value;
@@ -61,7 +70,7 @@ typedef struct {
 typedef struct {
     zaitask_t tasks[Z_AI_TASKS];
     zai_territory_t territories[Z_MAX_TERRITORIES];
-    uint32_t clock, order_tail;
+    uint32_t clock, order_tail, stray_cursor;
     int last_tic, fraction, delay;
     int32_t total, mobile, imbalance;
     uint16_t seed;
@@ -85,6 +94,7 @@ typedef struct {
     int territory_count;
     ivec2_t forts[Z_MAX_FORTS];      /* Pixels; the first is drawn with its gate. */
     int fort_count;
+    zbridge_t bridges[Z_BRIDGES];
     uint8_t terrain[Z_MAP_STRIDE * Z_MAP_STRIDE]; /* Attribute plane. */
     uint8_t ground[Z_MAP_STRIDE * Z_MAP_STRIDE], ground_attr[Z_MAP_STRIDE * Z_MAP_STRIDE];
     uint8_t cliffs[Z_CLIFF_BLOCKS * Z_CLIFF_BYTES + 1];
@@ -108,6 +118,7 @@ int Z_GroupRobot(const zmap_t *map, int group, int member);
 bool Z_IsRobot(int t);
 /* Size of a SPRITES.RSC picture; false for a bad index or file. */
 bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);
+ivec2_t Z_BuildingOrigin(const mobj_t *building);
 bool Z_LoadAssets(const char *root, const level_t *map, tileset_t *tileset,
                   spritesheet_t *unit_sprite);
 bool Z_InitSprites(const level_t *map, spritecache_t *cache);
@@ -119,6 +130,16 @@ void Z_Ticker(void);
 bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target);
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 void Z_MobjTicker(mobj_t *mo);
+void Z_ServiceTick(mobj_t *unit);
+bool Z_ServiceOrder(mobj_t *unit, const mobj_t *target, fixed2_t goal);
+bool Z_ServiceApproach(const mobj_t *unit, const mobj_t *target, fixed2_t *goal);
+mobj_t *Z_ServiceTarget(uint32_t id);
+bool Z_RepairVehicle(const mobj_t *unit);
+void Z_CancelService(mobj_t *unit);
+void Z_BridgeTerrain(const mobj_t *bridge, bool intact);
+void Z_BridgeDamage(mobj_t *bridge);
+int Z_BridgeTerritory(const zmap_t *map, const mobj_t *bridge);
+bool Z_BridgeOrder(const ticcmd_t *cmd, mobj_t *const *units, int count);
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
 /* p_fort.c: a fort takes no harm; it falls to a unit that gets inside. */
@@ -148,6 +169,7 @@ bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell);
 bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out);
 /* Flags a team holds (Z_NEUTRAL: nobody's), and all of them. */
 int Z_TerritoriesHeld(int team, int *total);
+int Z_ProductionRate(const mobj_t *producer, int held, int total);
 
 /* w_panel.c: the 640x480 panel art from SHEADFX.PAC. `pieces` is
  * NSNEWPAN.DAT (the panel, labels, buttons, digits and bars), `heads` the

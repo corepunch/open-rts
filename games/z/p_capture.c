@@ -92,6 +92,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     vehicle->z.squad = robot->z.squad;
     vehicle->z.home = robot->z.home;
     vehicle->z.robot = robot->z.robot;
+    vehicle->z.manufactured = robot->z.manufactured;
     P_ClearMove(vehicle);
     vehicle->movement.goal = fixed3_xy(vehicle->core.position);
     vehicle->movement.order_arrived = true;
@@ -158,13 +159,13 @@ static bool throws_at(const mobj_t *robot, const mobj_t *target) {
     int t = robot_type(robot), u = Z_UnitType(target);
     if (t < 0 || !robot->z.grenades || !live(target)) return false;
     if (structure(target)) return true;
-    if (target->type_id == MT_CLIFF) return true;
+    if (target->type_id == MT_CLIFF || target->type_id == MT_BRIDGE) return true;
     return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS;
 }
 
 /* Forts are taken from inside, never shot (p_fort.c). */
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
-    if (victim->type_id == MT_CLIFF)
+    if (victim->type_id == MT_CLIFF || victim->type_id == MT_BRIDGE)
         return attacker->attack.target == victim && Z_CliffWeapon(attacker);
     if (victim->type_id == MT_FORT) return false;
     return !structure(victim) || robot_type(attacker) < 0 || attacker->z.grenades;
@@ -172,6 +173,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
+    if (mo->z.service) Z_ServiceTick(mo);
     int t = robot_type(mo);
     if (t < 0 || mo->core.state_id != (int)mobjinfo[mo->type_id].missilestate || mo->core.state_frame ||
         !throws_at(mo, mo->attack.target)) return;
@@ -265,8 +267,9 @@ static void take_flag(mobj_t *flag, mobj_t *taker) {
     flag->z.hold = REACH_FLAG_HOLD;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || !live(mo) || !structure(mo) || mo->type_id == MT_FORT) continue;
-        ivec2_t cell = fixed2_cell(fixed3_xy(mo->core.position));
+        if (th->function != P_MobjThinker || mo->remove || !structure(mo) || mo->type_id == MT_FORT) continue;
+        ivec2_t at = Z_BuildingOrigin(mo);
+        ivec2_t cell = {at.x / Z_TILE, at.y / Z_TILE};
         if (cell.x >= territory->min.x && cell.x < territory->max.x &&
             cell.y >= territory->min.y && cell.y < territory->max.y) Z_SetTeam(mo, taker->team);
     }

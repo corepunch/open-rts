@@ -1653,6 +1653,112 @@ and joining, and two-, three- and four-player host launch. Dark Colony's
 and the menu-test multiplayer, Start, join-browser and 4x views were inspected,
 including a final rerun after correcting the blank space glyph.
 
+## Commander service and defensive responses (2026-11-11)
+
+Static disassembly of the DOS LE image with SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`.
+Radare2 was used with LE fixups applied. The heavy dispatcher at `0x9b1e4`
+orders these passes after the offensive pass and before the final defence
+pass. `0x4772d` routes ordinary CPU commands through the delayed order
+queue (`0x98098`). The port uses that queue for service dispatch and return.
+
+### Cranes, buildings and bridges
+
+- `0x3e892` lists dead buildings in CPU territory. `0x9c58d` gives usable
+  cranes (`0x9c880`, runtime type `0x24`) the nearest unassigned building
+  by squared distance to `origin + footprint_cells * 8 - (8,8)`. It
+  reserves the building at `0x9c948` and puts the crane on task 9. The
+  ordered point is the signed offset at building type `+0x34/+0x35`.
+  `BUILDnn.DAT +0x1a` holds maximum HP and `+0x1c` holds current HP
+  (`0x3e838`, `0x422a7`). The port retains a destroyed building in its
+  native wreck state, then restores it and clears its old production
+  queue once work completes. `0x24770` accumulates the crane's work at
+  building `+0x39` until it reaches maximum HP.
+- `0x299b5` clears the dead-bridge list. `0x29a3c..0x29a65` appends a
+  collapsed bridge in CPU territory only when record `+0x0f` bit 0 is
+  set. `0x9c68b` visits these after the buildings. Its ranking point is
+  the bridge midpoint plus `(8,-8)` for horizontal bridges or `(0,-8)`
+  for vertical ones. An assigned bridge can pass to a crane at equal or
+  shorter squared distance. `0x9c9ae` installs the assignment and checks
+  four points for terrain `0x2b`, in the order `(0,0)`, `(16,0)`, `(0,16)`,
+  `(16,16)`. The port uses a reachable end of the span when that point
+  cannot be routed to on the engine's cell grid.
+- `0x24675` uses the high nibble of vehicle body `+6`, copied from weapon
+  record `+0x20` at `0x50c1d`. The Crane's byte is 120, so the work rate
+  is seven HP per 70 Hz frame. A collapsed bridge starts at signed HP -1.
+  `0x24893`/`0x24946` restore the deck when work finishes. `0x9c4f2` sends
+  idle cranes and Fire Trucks outside the CPU fort territory to fort
+  origin plus `(80,200)` on task 8. `0x9bc08` uses the same return order
+  when a crane's work is complete or its assignment is invalidated.
+- `0x13855` calls `0x29768` during startup. It copies BRIDGE record
+  `+0x0a` (max HP) to `+8` (live HP), so LEVEL14 slot 0 starts at 600
+  despite the file's 300 in `+8`. Zero at `+0x0a` initializes a collapsed
+  bridge with a 600 HP maximum. `0x2a096` marks both inner lanes `0x2f`
+  with `0x32` on the ends. `0x2a16d` restores those lanes to `0x17` with
+  `0x07` on the ends and stamps both outer edges `0x2b`. Both preserve
+  the tile-bank bit. `0x29a65` draws one broken-deck sprite per interior
+  segment using the per-world pair copied to `0x117dd8` by `0x182d3`.
+
+The engine uses persistent mobjs for bridges and buildings, stable IDs for
+orders and ordinary sprite mobjs for bridge debris. The native arm, crane
+egress animation, bridge debris effects and automatic bridge rebuild timer
+are outside this port. The bridge receives explicit terrain attack orders
+through the existing engine combat path. Its HP, debris and terrain survive
+save/load. The save object and AI layouts changed.
+
+### Vehicle repair and order validation
+
+`0x9c39b` selects usable idle reserve vehicles whose HP is strictly below
+`floor(max_HP/2)`. `0x9c42c` scans the 35 building slots for live CPU repair
+facilities. `0x9c335` ranks them by squared distance to the footprint
+ranking point and rejects distances of 256 pixels or more. `0x9c485`
+orders the vehicle toward the type's `(31,28)` entry and writes task 11.
+`0x79cf9` tests the repair facility and `0x79d08` admits one vehicle at a
+time. The engine plans to a reachable cell outside the footprint and holds
+the vehicle there while it is in the bay.
+
+`0x7a065..0x7a091` calls `0x41ae1` with `max(1, missing_HP / 20)`.
+The initial stock is `floor((1 + max(1, missing_HP / 20)) * 880 / speed)`.
+`0x3fd5c` uses the ordinary production accelerator. Every 17 facility
+ticks, `0x3fe09` computes `remaining_seconds = stock / rate / 17`; for a
+nonzero result the vehicle gains `1 + missing_HP / remaining_seconds`.
+The bay releases the unit at full HP when stock runs out. A change of
+ownership releases it at current HP (`0x3fdaa`, `0x3fe67`). The port uses
+the same 17 Hz time conversion as existing Z production. The branch at
+`0x9bdb9` checks task 7 against building HP. Its task writer has not been
+confirmed, so the port does not generate task 7.
+
+### Other dispatcher passes
+
+- `0x9be16` picks the first owned fort or territory with importance >32.
+  With enemy strength present it directs reserve units at an enemy
+  there. `0x5969a` records a building's attacker in territory `+0x15`.
+  `0x9bf90` finds the first owned territory with an active enemy record
+  and consumes the alert when a local unit is ordered to engage.
+  The port records the actual damage source and uses normal attack targets
+  for the resulting pursuit.
+- `0x9cc83` scans 20 unit slots per heavy pass. Flag `+0x6f & 0x10` is
+  set on CPU manufacture by `0x5103e`. Eligible reserves outside CPU land
+  return to the nearest owned territory, unless a live lockout and
+  `cpu_strength - human_strength - 16 * weight * importance >= 0`
+  justify holding. The engine scans live unit IDs with a saved cursor.
+- `0x9bba5` checks mobile groups' target territories through `0x9ce49`.
+  A target outside CPU land without a capture lockout sends a group with
+  a home back there. The port checks the territory of the group's active
+  enemy target or movement goal. Native path-order and targeting sentinels are
+  represented by the engine's ordinary movement and attack orders.
+
+Recheck the native disassembly and the focused regression cases with:
+
+```sh
+r2 -q -e bin.cache=true -e bin.relocs.apply=true \
+  -c 'pD 0x7c0 @ 0x9c272' -c 'pD 0x1e5 @ 0x9bc08' \
+  -c 'pd 35 @ 0x7a03f' -c 'pd 13 @ 0x41ae1' -c q data/Z/ZED.EXE
+xxd -g 1 -l 26 data/Z/LEVEL14/BRIDGE14.DAT
+make build/bin/tests/z/test_commander
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
+```
+
 ## Commander passes and unit statistics (2026-11-06)
 
 Static reading of the same ZED.EXE (SHA-256 above) with a scratch Python
@@ -1763,9 +1869,8 @@ reserves in the threatened territory fall back to their home, or to the
 nearest other own territory (`0x9cf33`). The port rebuilds the list from
 computer reserves' current targets on the heavy pass.
 
-Not ported from this dispatcher: buildings and bridges, cranes, priority
-territories (`0x9be16`), buildings under attack (`0x9bf90`), stray units
-(`0x9cc83`), repairs and unit-target checks.
+The service and defensive response passes listed here were still missing
+on 2026-11-06. See [Commander service and defensive responses](#commander-service-and-defensive-responses-2026-11-11).
 
 ### Unit statistics
 

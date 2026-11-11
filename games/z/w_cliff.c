@@ -293,17 +293,19 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     const zai_t *ai = &map->ai;
 #define HASH(value) (hash = G_HashValue(hash, (value)))
     HASH(ai->clock); HASH(ai->order_tail); HASH(ai->last_tic); HASH(ai->fraction); HASH(ai->delay);
+    HASH(ai->stray_cursor);
     HASH(ai->total); HASH(ai->mobile); HASH(ai->imbalance); HASH(ai->seed); HASH(ai->intelligence); HASH(ai->phase); HASH(ai->initialized);
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         const zaitask_t *t = &ai->tasks[i];
-        HASH(t->unit); HASH(t->boarding); HASH(t->execute_at); HASH(t->order.x); HASH(t->order.y);
+        HASH(t->unit); HASH(t->boarding); HASH(t->service); HASH(t->enemy);
+        HASH(t->execute_at); HASH(t->order.x); HASH(t->order.y);
         HASH(t->strength); HASH(t->current); HASH(t->target); HASH(t->destination);
         HASH(t->home); HASH(t->passes); HASH(t->task); HASH(t->squad); HASH(t->flags); HASH(t->retry); HASH(t->idle); HASH(t->pending);
     }
     for (int i = 0; i < map->territory_count; ++i) {
         const zai_territory_t *t = &ai->territories[i];
         for (int team = 0; team < 4; ++team) HASH(t->strength[team]);
-        HASH(t->lockout); HASH(t->value); HASH(t->owner); HASH(t->flags); HASH(t->known);
+        HASH(t->lockout); HASH(t->value); HASH(t->owner); HASH(t->flags); HASH(t->known); HASH(t->attacker);
     }
 #undef HASH
     return hash;

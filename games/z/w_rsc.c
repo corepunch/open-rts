@@ -468,14 +468,22 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
             if (!put_lump(sheet, cell, compose_fort(map, cell >= 2, cell & 1, &size), size)) return false;
         return finish_sheet(sheet, palette, (ivec2_t){80, 88});
     }
-    int sprite = -1;
+    int sprite = -1, wreck = -1;
+    static const int wrecks[][Z_WORLDS] = {
+        [0] = {1879,2825,2964,3097,2739},
+        [1] = {1881,2827,2966,3099,2741},
+        [4] = {1882,2828,2967,3100,2742},
+        [8] = {1880,2826,2965,3098,2740},
+    };
 #define Z_BUILDING(native, type, label, w, h, ...) \
-    if (!strcmp(name, #type)) sprite = Z_BuildingSprite(native, map->world);
+    if (!strcmp(name, #type)) { sprite = Z_BuildingSprite(native, map->world); wreck = wrecks[native][map->world]; }
 #include "buildings.inc"
 #undef Z_BUILDING
-    return sprite >= 0 && R_AllocSpriteCells(sheet, 1) &&
-           put_lump(sheet, 0, decode_sprite(map, sprite, &size), size) &&
-           finish_sheet(sheet, palette, (ivec2_t){-1, -1});
+    if (sprite < 0 || !R_AllocSpriteCells(sheet, 2)) return false;
+    uint8_t *pixels = decode_sprite(map, sprite, &size);
+    if (!pixels || !put_lump(sheet, 0, pixels, size)) return false;
+    pixels = decode_sprite(map, wreck, &size);
+    return pixels && put_lump(sheet, 1, pixels, size) && finish_sheet(sheet, palette, (ivec2_t){-1, -1});
 }
 
 bool Z_InitSprites(const level_t *map, spritecache_t *cache) {

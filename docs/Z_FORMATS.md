@@ -19,7 +19,7 @@ All numbers are little-endian. A cell is 16x16 pixels. Maps are at most
 | `LEVELnn/CPUPLRnn.DAT` | Territories, the computer's starting groups and settings | Territories and groups decoded |
 | `LEVELnn/BUILDnn.DAT` | Building records | Position, type, hit points |
 | `LEVELnn/OBJECTnn.DAT` | Placed objects | Position and type |
-| `LEVELnn/BRIDGEnn.DAT` | Bridges, 312 bytes, loaded to 0x10f3d4 | Not decoded |
+| `LEVELnn/BRIDGEnn.DAT` | Bridges, 12 records of 26 bytes, loaded to 0x10f3d4 | Geometry, health and CPU rebuild flag decoded |
 | `SPRITES.RSC` | 7207 sprites and a palette | Decoded |
 | `WARDATA.PAC` | 147 members: tilesets, palettes, screens | Decoded |
 | `DOOR.PAC` | Fort door animations, `xDOOR.DAT` + `xDBACK.LBM` for five worlds | Archive decoded, members not |
@@ -322,7 +322,7 @@ building structures, so several fields hold stale pointers from the editor.
 | 0x00 | u16 x, y: top-left pixel |
 | 0x04 | Type, 0xff for none |
 | 0x0c | u32 production technology rating; minimum product requirements are multiplied by 1000 and compared against this value |
-| 0x1a, 0x1c | u16 hit points and maximum |
+| 0x1a, 0x1c | u16 maximum and current hit points |
 | 0x1e | Run-time pointer to the owning territory (set by 0x3ed17) |
 
 Types index the 74-byte table at 0xe6120: name, then the footprint in cells
@@ -356,6 +356,24 @@ The sprite tables are at 0x1426d0 (repair), 0x1426e4 (robot), 0x1426f8
 (tank) and 0x14270c (radar): five (intact, damaged) u16 pairs each. A
 building is drawn with its sprite's top-left at its position. No retail
 level uses types 3 or 7.
+
+## BRIDGEnn.DAT
+
+There are twelve 26-byte records. A first word of `0xffff` marks an
+unused slot. Coordinates and dimensions are in pixels.
+
+| Offset | Contents |
+|---|---|
+| `0x00` | u16 x and y |
+| `0x04` | u16 width and height |
+| `0x08` | Signed current HP. The loader initializes this from `+0x0a`. |
+| `0x0a` | u16 maximum HP. Zero initializes a collapsed bridge with maximum 600. |
+| `0x0c` | u16 orientation. Zero is horizontal and nonzero is vertical. |
+| `0x0f` | Flags. Bit 0 allows CPU rebuilding in its own territory. Bits 1 and 2 track collapse and reservation in memory. |
+| `0x12` | Automatic rebuild timer input. A value of `0xff` disables it in `0x2985c`. |
+
+Other bytes include runtime scratch values and pointers. The deck stamps
+and commander consumers are in [Commander service and defensive responses](Z_EXE_FINDINGS.md#commander-service-and-defensive-responses-2026-11-11).
 
 ## OBJECTnn.DAT
 

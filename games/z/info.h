@@ -98,6 +98,12 @@ typedef enum {
     S_GRENADE_BLAST,
     S_GRENADE_SMOKE,
     S_CLIFF,
+    S_BRIDGE,
+    S_BRIDGE_DEBRIS,
+    S_BRIDGE_DEBRIS_LAST = S_BRIDGE_DEBRIS + 9,
+#define Z_BUILDING(native, type, ...) S_##type##_WRECK,
+#include "buildings.inc"
+#undef Z_BUILDING
     NUMSTATES
 } statenum_t;
 
@@ -119,6 +125,8 @@ enum {
     MT_FLAG = MT_UNITS_END, /* A territory's flag (draw_flags, 0x2aade). */
     MT_GRENADE,             /* A thrown grenade in flight. */
     MT_CLIFF,
+    MT_BRIDGE,
+    MT_BRIDGE_DEBRIS,
     NUMMOBJTYPES
 };
 

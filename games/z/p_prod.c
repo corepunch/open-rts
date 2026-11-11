@@ -195,7 +195,7 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
         (catalog[row].stock * 221 / map->production_speed) * 1000 / 17 : 0;
 }
 
-static int production_rate(const mobj_t *producer, int held, int total) {
+int Z_ProductionRate(const mobj_t *producer, int held, int total) {
     int rate = total > 0 ? (100 * held / total) / 4 + 1 : 1;
     return producer->max_hp > 0 ? (100 * producer->hp / producer->max_hp) * rate / 100 : 0;
 }
@@ -207,7 +207,7 @@ int Z_ProductTimeMs(const mobj_t *producer, const StaticProductDefinition *produ
     if (!time) return 0;
     int total;
     int held = Z_TerritoriesHeld(producer->team, &total);
-    int rate = production_rate(producer, held, total);
+    int rate = Z_ProductionRate(producer, held, total);
     return rate > 0 ? time / rate : INT_MAX;
 }
 
@@ -347,7 +347,7 @@ void G_ProductionBegin(int elapsed_ms) {
         production_t *queue = mo->production;
         if (th->function != P_MobjThinker || !Z_Producer(mo) || !queue || queue->queue_count <= 0) continue;
         if (queue->release_active) continue;
-        int rate = production_rate(mo, held[mo->team], total);
+        int rate = Z_ProductionRate(mo, held[mo->team], total);
         queue->time_left_ms -= elapsed_ms * (rate - 1);
     }
 }
@@ -361,6 +361,7 @@ void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
         if (unit->type_id == catalog[i].type)
             unit->z.robot = (uint16_t)(Z_GroupRobot(map, catalog[i].group, 0) + 1);
     if (t >= 0 && !Z_IsRobot(t)) unit->z.driver = (uint8_t)(MT_UNIT_GRUNT - MT_UNITS + 1);
+    unit->z.manufactured = t >= 0 && unit->team == 1 && !netgame;
     unit->core.angle = P_PointToAngle(0, FIXED_ONE);
     mobj_t *factory = producer ? P_MobjById(producer->id) : NULL;
     const StaticProductDefinition *again = Z_ProductInProduction(factory);

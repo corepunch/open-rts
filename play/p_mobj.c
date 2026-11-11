@@ -462,8 +462,9 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
     unit->info = type;
     unit->type_id = type->id;
     if (unit->speed <= 0) unit->speed = type->speed;
+    bool initialize_health = unit->max_hp <= 0 || unit->core.state_id <= 0;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
-    if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (initialize_health && unit->hp <= 0) unit->hp = unit->max_hp;
     if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
     if (unit->harvest.target == 0) unit->harvest.target = -1;
     if (unit->core.sprite_name[0] == '\0' && type->sprite_name)
@@ -505,8 +506,9 @@ void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit) {
     if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
     const mobjinfo_t *info = &game_info->mobjinfo[unit->type_id];
     if (unit->core.position.z == 0) unit->core.position.z = info->spawnz;
+    bool initialize_health = unit->max_hp <= 0 || unit->core.state_id <= 0;
     if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
-    if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (initialize_health && unit->hp <= 0) unit->hp = unit->max_hp;
     if (unit->speed <= 0) unit->speed = info->speed * FIXED_ONE;
     if (unit->radius <= FIXED_LIT(0.05)) {
         unit->radius = info->radius * FIXED_ONE / 32;
@@ -713,6 +715,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     target->sc.attacker = source && source->owner < 8 ? source->owner : 255;
 #endif
     if (target->info && target->info->damage_action) target->info->damage_action(target);
+    G_UnitDamaged(target, source);
     if (target->owner == consoleplayer && source && source->owner != consoleplayer)
         S_ActorSound(target, SE_ATTACKED);
     if (target->hp > 0) {

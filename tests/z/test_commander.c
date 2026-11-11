@@ -8,13 +8,14 @@
 #include <string.h>
 
 static int fail(const char *msg) { return rts_fail("z commander", msg); }
-static RtsGameModel *load(void) {
+static RtsGameModel *load_map(const char *path) {
     RtsGameModel *model = rts_game_model_create();
-    RtsGameModelConfig config = {.data_root = "data/Z"};
+    RtsGameModelConfig config = {.data_root = "data/Z", .map_path = path};
     if (model && rts_game_model_load(model, &config)) return model;
     rts_game_model_destroy(model);
     return NULL;
 }
+static RtsGameModel *load(void) { return load_map(NULL); }
 static mobj_t *nth(int type, int team, int n) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
@@ -307,8 +308,150 @@ static int test_recapture(void) {
     rts_game_model_destroy(model);
     return 0;
 }
+
+static void service_fixture(void) {
+    zmap_t *map = level.native_data;
+    map->computer.intelligence = 127;
+    map->computer.allocation = 100;
+    for (int t = 0; t < map->territory_count; ++t) map->territories[t].team = 1;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (Z_UnitType(mo) >= 0) P_RemoveMobj(mo);
+        else if (mo->type_id == MT_FLAG) Z_SetTeam(mo, 1);
+        else if (Z_Producer(mo)) mo->z.rating = 0;
+    }
+    P_SyncBuildingBlocking();
+}
+
+static mobj_t *service_unit(int type, fixed2_t near) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(near, 0), (uint16_t)type);
+    if (!unit) return NULL;
+    Z_SetTeam(unit, 1);
+    ivec2_t centre = fixed2_cell(near);
+    for (int d = 1; d <= 6; ++d)
+        for (int y = -d; y <= d; ++y)
+            for (int x = -d; x <= d; ++x) {
+                fixed2_t at = fixed2_cell_center(ivec2_add(centre, (ivec2_t){x,y}));
+                if (!P_CheckPosition(&level, unit, at)) continue;
+                unit->core.position = fixed3_from_fixed2(at, 0);
+                return unit;
+            }
+    return NULL;
+}
+
+static int test_bridge_and_crane(void) {
+    RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
+    if (!model) return fail("bridge campaign load");
+    service_fixture();
+    zmap_t *map = level.native_data;
+    mobj_t *bridge = nth(MT_BRIDGE, Z_NEUTRAL, 0);
+    if (!bridge || bridge->hp != 600 || bridge->z.bridge != 1 || !map->bridges[0].cpu_rebuild)
+        return fail("LEVEL14 bridge slot, health and CPU eligibility");
+    P_DamageMobj(bridge, NULL, bridge->hp);
+    ivec2_t deck = {368 / Z_TILE + 2, 304 / Z_TILE + 1};
+    if (!level.blocked[L_Index(&level, deck.x, deck.y)] ||
+        (map->terrain[deck.y * Z_MAP_STRIDE + deck.x] & 0x7f) != 0x2f || !nth(MT_BRIDGE_DEBRIS, -1, 0))
+        return fail("bridge destruction blocks the deck and leaves native debris");
+    mobj_t *crane = service_unit(MT_UNIT_CRANE, fixed3_xy(bridge->core.position));
+    if (!crane) return fail("crane fixture at bridge approach");
+    think(0); think(1);
+    if (crane->z.service != bridge->id || task_of(crane)->task != 9)
+        return fail("CPU sends its crane to the destroyed bridge");
+    if (!tick(model, 15 * RTS_TICRATE) || bridge->hp != bridge->max_hp ||
+        level.blocked[L_Index(&level, deck.x, deck.y)])
+        return fail("crane rebuilds the bridge and opens its deck");
+    for (int i = 0; nth(MT_BRIDGE_DEBRIS, -1, i); ++i)
+        if (nth(MT_BRIDGE_DEBRIS, -1, i)->z.bridge == bridge->z.bridge)
+            return fail("reconstruction clears the bridge's debris");
+    puts("PASS: z native bridge records, crane dispatch and rebuilt crossing");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_repair_facility(void) {
+    RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+    if (!model) return fail("repair campaign load");
+    service_fixture();
+    mobj_t *facility = nth(MT_REPAIR, -1, 0);
+    if (!facility) return fail("native repair facility fixture");
+    Z_SetTeam(facility, 1);
+    mobj_t *tank = service_unit(MT_UNIT_MED_TANK, fixed3_xy(facility->core.position));
+    if (!tank) return fail("tank fixture near repair bay");
+    tank->hp = tank->max_hp / 2;
+    think(0); think(1);
+    if (tank->z.service) return fail("exactly half health does not trigger repairs");
+    tank->hp--;
+    think(1);
+    if (tank->z.service != facility->id || task_of(tank)->task != 11)
+        return fail("idle damaged reserve goes to its nearest friendly facility");
+    for (int i = 0; i < 4 * RTS_TICRATE && tank->z.service_work >= 0; ++i)
+        if (!tick(model, 1)) return fail("repair approach simulation");
+    if (tank->z.service_work >= 0) return fail("tank enters the repair bay");
+    uint32_t tank_id = tank->id, facility_id = facility->id;
+    int remaining = tank->z.service_work;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Vehicle in repair", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save active vehicle repair");
+    free(save);
+    tank = P_MobjById(tank_id); facility = P_MobjById(facility_id);
+    if (!tank || !facility || tank->z.service != facility_id || tank->z.service_work != remaining)
+        return fail("restore bay occupant and exact timer");
+    Z_SetTeam(facility, 0);
+    if (!tick(model, 1) || tank->z.service || !(tank->traits & MF_MOBILE) || tank->hp == tank->max_hp)
+        return fail("loss of the bay releases the tank with its current health");
+    Z_SetTeam(facility, 1);
+    tank->hp = 40;
+    if (!tick(model, 15 * RTS_TICRATE) || tank->z.service || tank->hp != tank->max_hp)
+        return fail("friendly repair bay restores health and releases the tank");
+    puts("PASS: z reserve repair threshold, bay ownership and release");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_building_service(void) {
+    RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+    if (!model) return fail("building service campaign load");
+    service_fixture();
+    mobj_t *facility = nth(MT_REPAIR, -1, 0);
+    if (!facility) return fail("building service fixture");
+    Z_SetTeam(facility, 1);
+    mobj_t *crane = service_unit(MT_UNIT_CRANE, fixed3_xy(facility->core.position));
+    if (!crane) return fail("crane fixture near destroyed building");
+    P_DamageMobj(facility, NULL, facility->hp);
+    if (facility->remove || facility->core.state_id != S_REPAIR_WRECK)
+        return fail("ruin stays on the map with its native wreck state");
+    think(0); think(1);
+    if (crane->z.service != facility->id) return fail("crane gets the dead building before bridge work");
+    if (!tick(model, 12 * RTS_TICRATE) || facility->hp != facility->max_hp ||
+        facility->core.state_id != S_REPAIR || !(facility->traits & MF_SELECTABLE))
+        return fail("crane restores the destroyed repair facility");
+    puts("PASS: z native building reconstruction and wreck state");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_building_alert(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("building alert campaign load");
+    service_fixture();
+    mobj_t *factory = nth(MT_ROBOT_FACTORY, -1, 0);
+    if (!factory) return fail("building alert fixture");
+    Z_SetTeam(factory, 1);
+    zmap_t *map = level.native_data;
+    mobj_t *defender = service_unit(MT_UNIT_GRUNT, fixed3_xy(factory->core.position));
+    mobj_t *enemy = service_unit(MT_UNIT_GRUNT, fixed2_cell_center(map->territories[8].flag));
+    if (!defender || !enemy) return fail("building alert unit fixtures");
+    Z_SetTeam(enemy, 0);
+    P_DamageMobj(factory, enemy, 1);
+    think(0); think(1);
+    if (defender->attack.target != enemy) return fail("a struck building calls its local defenders to the attacker");
+    puts("PASS: z building damage triggers the local reserve response");
+    rts_game_model_destroy(model);
+    return 0;
+}
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_vehicles() || test_retreat() || test_recapture();
+           test_strength_gate() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_bridge_and_crane() || test_repair_facility() || test_building_service() || test_building_alert();
 }

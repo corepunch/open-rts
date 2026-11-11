@@ -21,7 +21,7 @@ static bool idle(const mobj_t *mo) {
     bool computer = P_AiLevelNonHuman(&level, mo->owner) != AI_LEVEL_NONE;
     return live(mo) && Z_UnitType(mo) >= 0 && mo->team < Z_NEUTRAL &&
            (mo->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
-           !live(mo->attack.target) &&
+           !mo->z.service && !live(mo->attack.target) &&
            (computer || (!mo->z.board && !P_HasMoveOrder(mo)));
 }
 
