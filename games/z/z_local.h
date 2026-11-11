@@ -15,11 +15,15 @@ enum {
     Z_CLIFF_BLOCKS = 20, Z_CLIFF_BYTES = 138,
     Z_AI_TASKS = 240,
     Z_BRIDGES = 12,
+    Z_NATIVE_HZ = 70,
+    Z_BRIDGE_SCRIPTS = 8,
+    Z_BRIDGE_REBUILD_FRAMES = 26,
 };
 
 typedef struct {
     irect_t bounds; /* Native pixel rectangle. */
     uint16_t initial_hp;
+    uint16_t rebuild_ticks;
     bool vertical, cpu_rebuild;
 } zbridge_t;
 
@@ -51,7 +55,7 @@ typedef struct {
     int16_t current, target, destination;
     int16_t home;     /* Group +0xc: where a donated reserve returns, or -1. */
     int8_t task;      /* +0x11: -1 idle, 0 march, 1 flag, 2 staged, 3 assault,
-                       * 4 garrison, 5 vehicle, 8 return, 9 crane work,
+                       * 4 garrison, 5 vehicle, 7 building support, 8 return, 9 crane work,
                        * 10 frontier, 11 vehicle repair. */
     uint8_t squad, flags, idle;
     uint8_t passes;   /* +0x12: heavy passes spent idle inside CPU land. */
@@ -95,6 +99,7 @@ typedef struct {
     ivec2_t forts[Z_MAX_FORTS];      /* Pixels; the first is drawn with its gate. */
     int fort_count;
     zbridge_t bridges[Z_BRIDGES];
+    blob_t bridge_scripts[Z_BRIDGE_SCRIPTS];
     uint8_t terrain[Z_MAP_STRIDE * Z_MAP_STRIDE]; /* Attribute plane. */
     uint8_t ground[Z_MAP_STRIDE * Z_MAP_STRIDE], ground_attr[Z_MAP_STRIDE * Z_MAP_STRIDE];
     uint8_t cliffs[Z_CLIFF_BLOCKS * Z_CLIFF_BYTES + 1];
@@ -136,10 +141,17 @@ bool Z_ServiceApproach(const mobj_t *unit, const mobj_t *target, fixed2_t *goal)
 mobj_t *Z_ServiceTarget(uint32_t id);
 bool Z_RepairVehicle(const mobj_t *unit);
 void Z_CancelService(mobj_t *unit);
-void Z_BridgeTerrain(const mobj_t *bridge, bool intact);
 void Z_BridgeDamage(mobj_t *bridge);
+void Z_RebuildBridge(mobj_t *bridge);
+void Z_BridgeTick(mobj_t *bridge);
+void Z_BridgeEffectTick(mobj_t *effect);
 int Z_BridgeTerritory(const zmap_t *map, const mobj_t *bridge);
 bool Z_BridgeOrder(const ticcmd_t *cmd, mobj_t *const *units, int count);
+
+/* Crossings of a native clock during this simulation tic. */
+static inline int Z_NativeSteps(int64_t tick, int hz) {
+    return (int)((tick + 1) * hz / RTS_TICRATE - tick * hz / RTS_TICRATE);
+}
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
 /* p_fort.c: a fort takes no harm; it falls to a unit that gets inside. */

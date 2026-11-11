@@ -14,7 +14,6 @@ static const uint8_t grenade_blast[] = {50, 75, 50, 75, 100, 75, 50, 75, 50};
  * one per speed level 0..12; on average 1/5, 1/4, 1/3, 2/5, 1/2, 2/3, 4/5,
  * 1, 4/3, 3/2, 2, 7/3 and 5/2 pixels a native 70 Hz step. Speeds here are
  * cells a second. */
-enum { Z_NATIVE_HZ = 70 };
 #define Z_LEVEL_NUM(l) ((l) == 0 ? 1 : (l) == 1 ? 1 : (l) == 2 ? 1 : (l) == 3 ? 2 : (l) == 4 ? 1 : \
     (l) == 5 ? 2 : (l) == 6 ? 4 : (l) == 7 ? 1 : (l) == 8 ? 4 : (l) == 9 ? 3 : (l) == 10 ? 2 : (l) == 11 ? 7 : 5)
 #define Z_LEVEL_DEN(l) ((l) == 0 ? 5 : (l) == 1 ? 4 : (l) == 2 ? 3 : (l) == 3 ? 5 : (l) == 4 ? 2 : \

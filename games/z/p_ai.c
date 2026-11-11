@@ -6,10 +6,10 @@
 /* Native single-player commander. Task records refer to squads;
  * thinker-owned mobjs are the only units. */
 enum {
-    CPU = 1, NATIVE_HZ = 70, MEMBERS = 21,
+    CPU = 1, MEMBERS = 21,
     RECAPTURE = 2, USABLE = 8, MOBILE = 16,             /* Task +0x10 bits. */
     IDLE = -1, MARCH = 0, FLAG = 1, STAGED = 2, ASSAULT = 3, GARRISON = 4,
-    VEHICLE = 5, RETURN = 8, CRANE_WORK = 9, FRONTIER = 10, REPAIR = 11, /* Task +0x11. */
+    VEHICLE = 5, BUILDING_SUPPORT = 7, RETURN = 8, CRANE_WORK = 9, FRONTIER = 10, REPAIR = 11, /* Task +0x11. */
     LOCKOUT = 0x1fe,                                     /* 0x79e69 */
     WORTH_HOLDING = 500,                                 /* 0x99171, 0x998f4 */
 };
@@ -908,7 +908,7 @@ static void send_cranes(zmap_t *map, mobj_t *const *units, int count, bool bridg
                 if (target->type_id != MT_BRIDGE) continue;
                 const zbridge_t *b = &map->bridges[target->z.bridge - 1];
                 int territory = Z_BridgeTerritory(map, target);
-                if (!b->cpu_rebuild || !owned(ai, territory)) continue;
+                if (!b->cpu_rebuild || target->z.service_ticks || !owned(ai, territory)) continue;
             } else if (!target->z.building || target->team != CPU) continue;
             int64_t d = service_distance(unit, target);
             if (d >= distance) continue;
@@ -924,7 +924,8 @@ static void send_cranes(zmap_t *map, mobj_t *const *units, int count, bool bridg
                     break;
                 }
             }
-            if (other && (!bridges || target->z.service_work || service_distance(other, target) < d)) continue;
+            if (other && (!bridges || other->core.state_id == S_CRANE_WORK ||
+                          target->z.service_work || service_distance(other, target) < d)) continue;
             best = target;
             distance = d;
             displaced = other;
@@ -948,9 +949,24 @@ static void service_returns(zmap_t *map, bool validate) {
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &map->ai.tasks[i];
         mobj_t *unit = P_MobjById(task->unit);
-        if (!unit || unit->z.service || task->service) continue;
+        if (!unit) continue;
+        /* 0x9bc34/0x9bdb9: keep task 7 while its building is owned and
+         * alive below maximum HP. No native order assigning 7 is known. */
+        if (task->task == BUILDING_SUPPORT) {
+            if (!validate) continue;
+            const mobj_t *target = unit->target;
+            if (!target || target->remove || target->type_id <= MT_FORT || target->type_id >= MT_UNITS) continue;
+            int t = Z_AITerritory(map, pixel_point(Z_BuildingOrigin(target)));
+            if (t >= 0 && map->ai.territories[t].owner == CPU && target->hp > 0 && target->hp < target->max_hp)
+                continue;
+            unit->target = NULL;
+            if (!return_service(map, task, unit)) clear(task);
+            continue;
+        }
+        if (unit->z.service || task->service) continue;
         if (validate) {
             if (task->task == CRANE_WORK) {
+                if (P_HasMoveOrder(unit)) continue; /* Egress from a completed repair. */
                 if (!return_service(map, task, unit)) clear(task);
             } else if (task->task == REPAIR) clear(task);
         } else if (task->task == IDLE && !task->pending && task->current >= 0 &&
@@ -1124,7 +1140,7 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
         }
     }
     sync_tasks(map, units, count);
-    ai->fraction += (leveltime - ai->last_tic) * NATIVE_HZ;
+    ai->fraction += (leveltime - ai->last_tic) * Z_NATIVE_HZ;
     ai->last_tic = leveltime;
     for (; ai->fraction >= RTS_TICRATE; ai->fraction -= RTS_TICRATE) {
         ai->clock++;

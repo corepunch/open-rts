@@ -173,6 +173,10 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
+    if (mo->core.state_id == S_BRIDGE_REBUILD) {
+        Z_BridgeEffectTick(mo);
+        return;
+    }
     if (mo->z.service) Z_ServiceTick(mo);
     int t = robot_type(mo);
     if (t < 0 || mo->core.state_id != (int)mobjinfo[mo->type_id].missilestate || mo->core.state_frame ||
@@ -306,6 +310,10 @@ void Z_Ticker(void) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || mo->remove) continue;
+        if (mo->type_id == MT_BRIDGE) {
+            Z_BridgeTick(mo);
+            continue;
+        }
         if (mo->type_id == MT_FLAG) {
             tick_flag(mo);
             continue;

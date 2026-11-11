@@ -19,7 +19,7 @@ All numbers are little-endian. A cell is 16x16 pixels. Maps are at most
 | `LEVELnn/CPUPLRnn.DAT` | Territories, the computer's starting groups and settings | Territories and groups decoded |
 | `LEVELnn/BUILDnn.DAT` | Building records | Position, type, hit points |
 | `LEVELnn/OBJECTnn.DAT` | Placed objects | Position and type |
-| `LEVELnn/BRIDGEnn.DAT` | Bridges, 12 records of 26 bytes, loaded to 0x10f3d4 | Geometry, health and CPU rebuild flag decoded |
+| `LEVELnn/BRIDGEnn.DAT` | Bridges, 12 records of 26 bytes, loaded to 0x10f3d4 | Geometry, health, CPU eligibility and automatic rebuild timer |
 | `SPRITES.RSC` | 7207 sprites and a palette | Decoded |
 | `WARDATA.PAC` | 147 members: tilesets, palettes, screens | Decoded |
 | `DOOR.PAC` | Fort door animations, `xDOOR.DAT` + `xDBACK.LBM` for five worlds | Archive decoded, members not |
@@ -369,11 +369,13 @@ unused slot. Coordinates and dimensions are in pixels.
 | `0x08` | Signed current HP. The loader initializes this from `+0x0a`. |
 | `0x0a` | u16 maximum HP. Zero initializes a collapsed bridge with maximum 600. |
 | `0x0c` | u16 orientation. Zero is horizontal and nonzero is vertical. |
-| `0x0f` | Flags. Bit 0 allows CPU rebuilding in its own territory. Bits 1 and 2 track collapse and reservation in memory. |
-| `0x12` | Automatic rebuild timer input. A value of `0xff` disables it in `0x2985c`. |
+| `0x0f` | Flags. Bit 0 allows CPU rebuilding in its own territory. Bits 1 and 2 track collapse and reservation in memory. Bit 4 enables automatic rebuilding. |
+| `0x12` | Automatic rebuild timer input. `0xff` disables it. Other values take `17 * input + 1` native updates while collapsed and unreserved. |
 
 Other bytes include runtime scratch values and pointers. The deck stamps
 and commander consumers are in [Commander service and defensive responses](Z_EXE_FINDINGS.md#commander-service-and-defensive-responses-2026-11-11).
+The timer and `WARDATA.PAC` rebuild scripts are described in
+[Task 7, automatic bridge reconstruction and crane poses](Z_EXE_FINDINGS.md#task-7-automatic-bridge-reconstruction-and-crane-poses-2026-11-11).
 
 ## OBJECTnn.DAT
 

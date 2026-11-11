@@ -6,6 +6,8 @@ const char *const sprnames[NUMSPRITES] = {
     [SPR_RSC] = "SPRITES.RSC",
     [SPR_FORT] = "FORT",
     [SPR_FLAG] = "FLAG",
+    [SPR_CRANE_WORK] = "CRANE_WORK",
+    [SPR_BRIDGE_REBUILD] = "BRIDGE_REBUILD",
 #define Z_BUILDING(native, type, label, w, h, ...) [SPR_##type] = #type,
 #include "buildings.inc"
 #undef Z_BUILDING
@@ -81,6 +83,10 @@ const state_t states[NUMSTATES] = {
     [S_FLAG] = { SPR_FLAG, 0, 4, 2, NULL, S_FLAG, 0, NULL },
     [S_CLIFF] = { SPR_RSC, 0, 1, -1, NULL, S_CLIFF, 0, NULL },
     [S_BRIDGE] = { SPR_RSC, 0, 1, -1, NULL, S_BRIDGE, 0, NULL },
+    [S_CRANE_WORK] = { SPR_CRANE_WORK, 0, Z_CRANE_SITES * Z_CRANE_SITE_FRAMES, -1,
+                       NULL, S_CRANE_STND, 3, NULL },
+    [S_BRIDGE_REBUILD] = { SPR_BRIDGE_REBUILD, 0, Z_BRIDGE_SCRIPTS * Z_BRIDGE_REBUILD_FRAMES, -1,
+                           NULL, S_NULL, 4, NULL },
     BRIDGE_DEBRIS(0, 823) BRIDGE_DEBRIS(1, 2141) BRIDGE_DEBRIS(2, 2318)
     BRIDGE_DEBRIS(3, 2814) BRIDGE_DEBRIS(4, 2627)
     [S_GRENADE] = { SPR_RSC, Z_GRENADE_SPRITE, Z_GRENADE_FRAMES, 2, NULL, S_GRENADE, 0, NULL },

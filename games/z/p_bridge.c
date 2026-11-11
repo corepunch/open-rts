@@ -8,7 +8,7 @@ int Z_BridgeTerritory(const zmap_t *map, const mobj_t *bridge) {
 
 /* 0x2a096 closes the two deck lanes. 0x2a16d opens them and stamps the
  * outside edges. Its horizontal callers pass x + 16 before it backs up. */
-void Z_BridgeTerrain(const mobj_t *bridge, bool intact) {
+static void stamp_bridge(const mobj_t *bridge, bool intact) {
     zmap_t *map = level.native_data;
     const zbridge_t *native = &map->bridges[bridge->z.bridge - 1];
     irect_t r = native->bounds;
@@ -28,15 +28,16 @@ void Z_BridgeTerrain(const mobj_t *bridge, bool intact) {
         }
     }
     Z_RebuildCliffs(&level);
+}
 
-    if (intact) {
-        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-            mobj_t *mo = (mobj_t *)th;
-            if (th->function == P_MobjThinker && mo->type_id == MT_BRIDGE_DEBRIS && mo->z.bridge == bridge->z.bridge)
-                P_RemoveMobj(mo);
-        }
-        return;
-    }
+void Z_BridgeDamage(mobj_t *bridge) {
+    if (bridge->hp > 0) return;
+    stamp_bridge(bridge, false);
+    const zmap_t *map = level.native_data;
+    const zbridge_t *native = &map->bridges[bridge->z.bridge - 1];
+    irect_t r = native->bounds;
+    ivec2_t along = native->vertical ? (ivec2_t){0,1} : (ivec2_t){1,0};
+    int length = (native->vertical ? r.h : r.w) / Z_TILE;
     /* 0x29a65 lays one broken-deck sprite per step, starting one tile
      * along the span. The world-specific index is 0x117dd8. */
     int state = S_BRIDGE_DEBRIS + 2 * map->world + !native->vertical;
@@ -53,8 +54,78 @@ void Z_BridgeTerrain(const mobj_t *bridge, bool intact) {
     }
 }
 
-void Z_BridgeDamage(mobj_t *bridge) {
-    if (bridge->hp <= 0) Z_BridgeTerrain(bridge, false);
+/* 0x3e2ff restores HP only when the last segment effect finishes. */
+static void finish_bridge(mobj_t *bridge) {
+    const zmap_t *map = level.native_data;
+    bridge->hp = bridge->max_hp;
+    bridge->z.service_work = 0;
+    bridge->z.hold = map->bridges[bridge->z.bridge - 1].rebuild_ticks;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_BRIDGE_DEBRIS && mo->z.bridge == bridge->z.bridge)
+            P_RemoveMobj(mo);
+    }
+}
+
+void Z_RebuildBridge(mobj_t *bridge) {
+    if (bridge->z.service_ticks) return;
+    const zmap_t *map = level.native_data;
+    const zbridge_t *native = &map->bridges[bridge->z.bridge - 1];
+    irect_t r = native->bounds;
+    int length = (native->vertical ? r.h : r.w) / Z_TILE;
+    ivec2_t along = native->vertical ? (ivec2_t){0,1} : (ivec2_t){1,0};
+    /* 0x29c24/0x29cd6 open the deck before starting the segment effects. */
+    static const uint8_t delay[] = {0,4,4,10, 0,4,4,6};
+    stamp_bridge(bridge, true);
+    bridge->z.hold = 0;
+    uint16_t seed = (uint16_t)(leveltime + bridge->id);
+    int first = Z_NextRandom(&seed) & 3;
+    for (int i = 1; i < length - 1; ++i) {
+        ivec2_t at = ivec2_add((ivec2_t){r.x,r.y}, ivec2_scale(along, i * Z_TILE));
+        fixed2_t pixel = fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE);
+        mobj_t *effect = P_SpawnMobj(fixed3_from_fixed2(pixel, 0), MT_BRIDGE_DEBRIS);
+        if (!effect) break;
+        int script = ((first + i) & 3) + (native->vertical ? 4 : 0);
+        Z_SetTeam(effect, Z_NEUTRAL);
+        effect->z.service = bridge->id;
+        effect->z.hold = -(int)delay[script];
+        if (effect->z.hold) effect->traits &= ~MF_RENDERABLE;
+        P_SetMobjStateFrame(effect, S_BRIDGE_REBUILD, script * Z_BRIDGE_REBUILD_FRAMES);
+        ++bridge->z.service_ticks;
+    }
+    if (!bridge->z.service_ticks) finish_bridge(bridge);
+}
+
+void Z_BridgeEffectTick(mobj_t *effect) {
+    const zmap_t *map = level.native_data;
+    int script = effect->core.state_frame / Z_BRIDGE_REBUILD_FRAMES;
+    effect->z.hold += Z_NativeSteps(leveltime, Z_NATIVE_HZ);
+    if (effect->z.hold < 0) return;
+    int frames = map->bridge_scripts[script].bytes[0xb] - 1;
+    if (effect->z.hold < frames) {
+        effect->traits |= MF_RENDERABLE;
+        P_SetMobjStateFrame(effect, S_BRIDGE_REBUILD, script * Z_BRIDGE_REBUILD_FRAMES + effect->z.hold);
+    } else {
+        mobj_t *bridge = Z_ServiceTarget(effect->z.service);
+        if (bridge && bridge->z.service_ticks && !--bridge->z.service_ticks) finish_bridge(bridge);
+        P_RemoveMobj(effect);
+    }
+}
+
+void Z_BridgeTick(mobj_t *bridge) {
+    if (bridge->hp > 0 || !bridge->z.hold) return;
+    const zmap_t *map = level.native_data;
+    /* The reservation is set when the AI queues the crane (0x9c9ae),
+     * and lasts until the order is released or the crane finishes. */
+    for (int i = 0; i < Z_AI_TASKS; ++i)
+        if (map->ai.tasks[i].pending && map->ai.tasks[i].service == bridge->id) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *unit = (const mobj_t *)th;
+        if (th->function == P_MobjThinker && unit->type_id == MT_UNIT_CRANE &&
+            unit->hp > 0 && !unit->remove && unit->z.service == bridge->id) return;
+    }
+    bridge->z.hold -= Z_NativeSteps(leveltime, Z_NATIVE_HZ);
+    if (bridge->z.hold <= 0) Z_RebuildBridge(bridge);
 }
 
 bool Z_BridgeOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {

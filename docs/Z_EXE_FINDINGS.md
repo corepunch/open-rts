@@ -1700,11 +1700,10 @@ queue (`0x98098`). The port uses that queue for service dispatch and return.
   segment using the per-world pair copied to `0x117dd8` by `0x182d3`.
 
 The engine uses persistent mobjs for bridges and buildings, stable IDs for
-orders and ordinary sprite mobjs for bridge debris. The native arm, crane
-egress animation, bridge debris effects and automatic bridge rebuild timer
-are outside this port. The bridge receives explicit terrain attack orders
-through the existing engine combat path. Its HP, debris and terrain survive
-save/load. The save object and AI layouts changed.
+orders and ordinary sprite mobjs for bridge debris. The bridge receives
+explicit terrain attack orders through the existing engine combat path. Its
+HP, debris and terrain survive save/load. The follow-up below traces the
+arm, crane egress, bridge effects and automatic rebuild.
 
 ### Vehicle repair and order validation
 
@@ -1724,9 +1723,7 @@ ticks, `0x3fe09` computes `remaining_seconds = stock / rate / 17`; for a
 nonzero result the vehicle gains `1 + missing_HP / remaining_seconds`.
 The bay releases the unit at full HP when stock runs out. A change of
 ownership releases it at current HP (`0x3fdaa`, `0x3fe67`). The port uses
-the same 17 Hz time conversion as existing Z production. The branch at
-`0x9bdb9` checks task 7 against building HP. Its task writer has not been
-confirmed, so the port does not generate task 7.
+the same 17 Hz time conversion as existing Z production.
 
 ### Other dispatcher passes
 
@@ -1757,6 +1754,126 @@ r2 -q -e bin.cache=true -e bin.relocs.apply=true \
 xxd -g 1 -l 26 data/Z/LEVEL14/BRIDGE14.DAT
 make build/bin/tests/z/test_commander
 env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
+```
+
+## Task 7, automatic bridge reconstruction and crane poses (2026-11-11)
+
+The DOS LE image is `data/Z/ZED.EXE`, SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`.
+Addresses below are relocated virtual addresses. The code object starts at
+VA `0x10000`, file offset `0x62a00`, with size `0xb0254`.
+
+### Task 7
+
+- **Confirmed.** The table at `0x18d388` has 240 records of 22 bytes.
+  `0x9c125` resolves the CPU lead through the parallel 72-byte records at
+  `0x1943f8`. `0x9bc34` admits task 7 to the service validation pass.
+  Its target is the lead unit's `+0x28` pointer, with `0x2084` skipped.
+  `0x9bc89` checks the building's territory owner, and `0x9bdb9`
+  keeps the assignment while signed building HP at `+0x1c` is strictly
+  between zero and maximum HP at `+0x1a`. Otherwise `0x9bcc9` queues
+  the CPU fort approach at `(+80,+200)` and `0x9bd14` writes task 8.
+  Task 7 bypasses task 9's reservation cleanup at `0x9bc9e`.
+  `0x991d7` also recognizes task 7 and allows it into the idle cleanup
+  even without the ordinary mobile-task flag.
+- **Assignment unknown.** Auditing table references, immediate and
+  register stores to the task byte, and wider stores covering that byte
+  identified direct assignment values `-1,0,1,2,3,4,5,6,8,9,10,11`.
+  The indexed access at `0x9de1a` tests `+0x10`, and the register
+  store at `0x9c9e5` writes a crane index into a **bridge** record.
+  `0x98798` is a wider store in the territory table. `0x9a996`
+  explicitly assigns **6**. Native save/load writes/reads the entire
+  `0x14a0`-byte task table at `0x1c378`/`0x1cf06`. The ten installed
+  `SAVE?.Z` files are 43-byte empty slots and contain no task snapshot.
+- **Disproven lead.** `0x431a8` initializes the damaged-building list
+  at `0x1fa9e4`. `0x3e8af` appends living buildings below maximum HP
+  through cursor `0x1426c8`. The references traced for these addresses
+  only initialize or append. The dead-building list at `0x1fa958` does
+  have a reader, `0x9c58d`, which assigns task 9. The Fire Truck's
+  action at `0x24c14` does not assign the commander task. The port
+  handles task 7 with an existing unit target and leaves its dispatch
+  unresolved.
+
+### Bridge timer and segment effects
+
+- **Confirmed.** `0x29803` initializes bridge runtime stock at
+  `record+0x140` to `BRIDGEnn.DAT[+0x12] * 17 * 100`, or `-1` for
+  `0xff`. `0x1440d` calls `0x299b5` in the gameplay update. Its
+  timer branch requires a collapsed bridge (`+0x0f & 2`), no crane
+  reservation (`& 4` clear) and the automatic rebuild flag (`& 0x10`).
+  `0x29a2f` subtracts 100 per 70 Hz frame and starts rebuilding only
+  after stock goes negative. The displayed time at `0x298d2` uses 17
+  decrements per displayed count. LEVEL31 slot 0 starts collapsed
+  (`+0x0a = 0`) with flag `0x10` and input 58, for 987 updates
+  before the deck opens. LEVEL32 has a distinct input of 105.
+- **Confirmed.** `0x29bed` opens the deck with `0x2a16d` and queues
+  one effect per interior segment. `0x4f57a` loads the four
+  `VSHWING?.DAT` and four `HSHWING?.DAT` scripts from `WARDATA.PAC`.
+  The chosen variant advances modulo four with each segment. The delays
+  at `0x12dd9c` and `0x12dda4` are respectively `{0,4,4,10}`
+  (horizontal) and `{0,4,4,6}` (vertical). The script header is 12
+  bytes with layer count at `+0`, the pivot at `+6/+8` and the
+  initial countdown at `+0xb`. `0x3e005` draws frames from
+  countdown minus one down through 1. Each 10-byte layer starts with
+  `u16 x, y, sprite`, with an all-zero triple skipped. Sprite IDs 0–16
+  add the world base from `0x1430b0` via `0x45ae5`. `0x3e2ff`
+  restores HP and resets the timer on the last segment's completion.
+- The port keeps the remaining ticks and the segment count on the bridge
+  and plays the scripts on ordinary effect mobjs. A queued or active
+  crane pauses the timer. The segment variant's first choice uses a
+  deterministic local seed. The original effect-pool limit, script
+  drawing flags and sound cues are outside the port.
+
+### Crane animations
+
+- **Confirmed.** `0x797ce` starts arm deployment at pose 0 on terrain
+  `0x32` (bridge) or `0x3a` (ruin), retaining the anchor in
+  `unit+0x8e/+0x90`. `0x79771` starts the hook at 1 on `0x2f`
+  (bridge) or `0x38` (ruin). `0x24a2c` reads twelve 8-byte records
+  per layer (`s16 x, y; u16 sprite, terminator`). The layer pointer list
+  for buildings starts at `0x12ddcc`. `0x12dde8` points to four
+  bridge lists in south, west, north, east order, indexed by the
+  approaching hull direction divided by two. A pointer of `-1`
+  ends a layer list. In the final pose, the last layer's terminator is
+  `0xffff`. The frame records occupy `0x12de68..0x12e9a7`.
+- **Confirmed.** `0x2454f` advances deployment every native frame.
+  `0x2452c` reverses it on every other frame and `0x24ad0`
+  swaps sprites 5930 and 5932 in reverse. `0x24aa8` applies the
+  two flicker nibbles to 5922 and 5924. `0x245d4` turns the arm
+  opposite the hull. `0x24615` rocks the hook through `1..7..2`
+  while `0x24675` adds seven work HP per native frame. `0x7ea2b`
+  queues hull 5794 + direction × 3 + track frame, arm 5818 + arm
+  direction, and hook 5826 + hook frame. The arm offsets are at
+  `0x14b454`, with `(+6,-3)` applied. The extra hook offsets are
+  at **`0x14b464`**, a valid adjacent table. Rear hull directions
+  3–5 queue the hook before the hull, using the unadjusted arm offset.
+- **Confirmed egress.** When work stock reaches maximum, `0x2469d`
+  sends a crane south to bottom + 16, west to left − 48, north to top
+  − 48, or east to right + 48. `0x24770` sends it south of a building.
+  Retail starts that movement during retraction and finishes restoration
+  once it leaves the work area (`0x245df..0x24807`). The port plays
+  deployment, work and reverse poses at the engine's reachable service
+  point and issues the egress after retraction. Building sparks and
+  crane sound cues remain unported. The work sheet and the ordinary
+  vehicle layers both apply the rear hook occlusion, including in the
+  factory preview.
+
+The open-rts Z save signature changes with the added states. Saves created
+with these states retain the in-progress timer, segment effects and crane
+phase. This is static executable tracing with engine regression checks.
+
+```sh
+r2 -q -e scr.color=0 -e asm.lines=false -e asm.bytes=false \
+  -e bin.cache=true -e bin.relocs.apply=true \
+  -c 'pD 0x5d00 @ 0x9821d' -c 'pd 30 @ 0x70251' \
+  -c 'pd 36 @ 0x299b5' -c 'pxh 0x10 @ 0x12dd9c' \
+  -c 'pxw 0x9c @ 0x12ddcc' -c 'pxh 0xb40 @ 0x12de68' \
+  -c 'pd 70 @ 0x244cb' -c 'px 0x20 @ 0x14b454' -c q data/Z/ZED.EXE
+xxd -g 1 -l 26 data/Z/LEVEL31/BRIDGE31.DAT
+strings data/Z/WARDATA.PAC | rg '[HV]SHWING[0-3]'
+make build/bin/tests/z/test_commander build/bin/tests/z/test_units
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_units
 ```
 
 ## Commander passes and unit statistics (2026-11-06)

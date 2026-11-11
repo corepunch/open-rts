@@ -10,7 +10,7 @@
     uint32_t board; \
     uint32_t rating; /* Native building +0x0c production technology. */ \
     uint32_t service; /* Stable target ID for a crane or vehicle at a repair bay. */ \
-    int service_work; /* Rebuild progress on a wreck, or negative repair stock on a vehicle. */ \
+    int service_work; /* Work on a wreck, crane animation phase, or negative repair stock. */ \
     uint16_t cliff_bit; \
     uint16_t robot; /* ROBOTS.DAT record + 1, retained for native AI valuation. */ \
     uint8_t cliff_block, home; \
@@ -18,7 +18,7 @@
     uint8_t driver, squad, grenades, territory; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
     uint8_t bridge; /* BRIDGEnn.DAT slot + 1. */ \
-    uint8_t service_ticks; /* Facility work ticks since the last HP step. */ \
+    uint8_t service_ticks; /* Service animation, pending bridge effects, or repair bay HP clock. */ \
     bool manufactured; /* CPU unit flag 0x10, set by 0x5103e. */ \
     int hold; \
 } z;

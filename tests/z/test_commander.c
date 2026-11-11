@@ -345,7 +345,7 @@ static int test_bridge_and_crane(void) {
     service_fixture();
     zmap_t *map = level.native_data;
     mobj_t *bridge = nth(MT_BRIDGE, Z_NEUTRAL, 0);
-    if (!bridge || bridge->hp != 600 || bridge->z.bridge != 1 || !map->bridges[0].cpu_rebuild)
+    if (!bridge || bridge->hp != 600 || bridge->z.bridge != 1 || !map->bridges[0].cpu_rebuild || bridge->z.hold)
         return fail("LEVEL14 bridge slot, health and CPU eligibility");
     P_DamageMobj(bridge, NULL, bridge->hp);
     ivec2_t deck = {368 / Z_TILE + 2, 304 / Z_TILE + 1};
@@ -357,6 +357,19 @@ static int test_bridge_and_crane(void) {
     think(0); think(1);
     if (crane->z.service != bridge->id || task_of(crane)->task != 9)
         return fail("CPU sends its crane to the destroyed bridge");
+    bool deploying = false, working = false, stowing = false;
+    for (int i = 0; i < 10 * RTS_TICRATE && crane->z.service; ++i) {
+        if (!tick(model, 1)) return fail("crane work simulation");
+        if (crane->core.state_id != S_CRANE_WORK) continue;
+        int frame = crane->core.state_frame % Z_CRANE_SITE_FRAMES;
+        int site = crane->core.state_frame / Z_CRANE_SITE_FRAMES;
+        if (site < Z_CRANE_SOUTH || site > Z_CRANE_EAST) return fail("native bridge approach pose");
+        if (frame < Z_CRANE_POSES && !working && !bridge->z.service_work) deploying = true;
+        if (frame >= Z_CRANE_WORK_FRAME && deploying && bridge->z.service_work > 0) working = true;
+        if (frame >= Z_CRANE_POSES && frame < Z_CRANE_WORK_FRAME && working &&
+            bridge->z.service_work >= bridge->max_hp) stowing = true;
+    }
+    if (!deploying || !working || !stowing) return fail("crane deploys, moves its hook, then stows");
     if (!tick(model, 15 * RTS_TICRATE) || bridge->hp != bridge->max_hp ||
         level.blocked[L_Index(&level, deck.x, deck.y)])
         return fail("crane rebuilds the bridge and opens its deck");
@@ -364,6 +377,99 @@ static int test_bridge_and_crane(void) {
         if (nth(MT_BRIDGE_DEBRIS, -1, i)->z.bridge == bridge->z.bridge)
             return fail("reconstruction clears the bridge's debris");
     puts("PASS: z native bridge records, crane dispatch and rebuilt crossing");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_automatic_bridge(void) {
+    RtsGameModel *model = load_map("LEVEL31/LEVEL31.MAP");
+    if (!model) return fail("automatic bridge map load");
+    service_fixture();
+    zmap_t *map = level.native_data;
+    mobj_t *bridge = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_BRIDGE && mo->z.bridge == 1) bridge = mo;
+    }
+    if (!bridge || bridge->hp || bridge->z.hold != 58 * 17 + 1)
+        return fail("LEVEL31 slot 0 starts collapsed with its native timer");
+    irect_t bounds = map->bridges[0].bounds;
+    size_t deck = L_Index(&level, bounds.x / Z_TILE + 1, bounds.y / Z_TILE + 1);
+    if (!level.blocked[deck]) return fail("automatic bridge starts with a closed deck");
+
+    zaitask_t *reservation = &map->ai.tasks[0];
+    *reservation = (zaitask_t){.pending = true, .service = bridge->id};
+    Z_BridgeTick(bridge);
+    if (bridge->z.hold != 58 * 17 + 1) return fail("queued crane reserves automatic bridge");
+    *reservation = (zaitask_t){0};
+    mobj_t *crane = service_unit(MT_UNIT_CRANE, fixed3_xy(bridge->core.position));
+    if (!crane) return fail("automatic bridge crane fixture");
+    crane->z.service = bridge->id;
+    Z_BridgeTick(bridge);
+    if (bridge->z.hold != 58 * 17 + 1) return fail("active crane reserves automatic bridge");
+    P_RemoveMobj(crane);
+
+    if (!tick(model, 422) || bridge->hp || bridge->z.hold != 3 || !level.blocked[deck])
+        return fail("bridge stays closed while its native stock remains");
+    if (!tick(model, 1) || bridge->hp || bridge->z.hold || !bridge->z.service_ticks || level.blocked[deck])
+        return fail("timer expiry opens the deck and starts segment effects before HP returns");
+    uint32_t id = bridge->id;
+    int effects = bridge->z.service_ticks;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Rebuilding bridge", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save automatic reconstruction");
+    free(save);
+    bridge = Z_ServiceTarget(id);
+    if (!bridge || bridge->hp || bridge->z.service_ticks != effects || level.blocked[deck] ||
+        !tick(model, RTS_TICRATE) || bridge->hp != 600 || bridge->z.service_ticks ||
+        bridge->z.hold != 58 * 17 + 1) return fail("restored effects finish and reset the bridge timer");
+    puts("PASS: z native bridge timer, crane reservation, segment effects and save/load");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_task_seven(void) {
+    RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+    if (!model) return fail("task 7 campaign load");
+    service_fixture();
+    mobj_t *facility = nth(MT_REPAIR, -1, 0);
+    if (!facility) return fail("task 7 building fixture");
+    Z_SetTeam(facility, 1);
+    zmap_t *map = level.native_data;
+    ivec2_t fort_exit = ivec2_add(map->forts[0], (ivec2_t){80,200});
+    fixed2_t goal = fixed2_scale(fixed2_from_cell(fort_exit), FIXED_ONE / Z_TILE);
+    mobj_t *unit = service_unit(MT_UNIT_FIRE_TRUCK, goal);
+    if (!unit) return fail("task 7 unit fixture");
+    think(0); think(1);
+    zaitask_t *task = task_of(unit);
+    if (!task) return fail("task 7 task fixture");
+    /* The executable has a task-7 consumer but no confirmed assignment. */
+    task->task = 7;
+    task->idle = 0;
+    unit->target = facility;
+    if (!P_MoveUnitTo(&level, unit, goal)) return fail("task 7 movement fixture");
+    facility->hp--;
+    think(1);
+    if (task->task != 7 || unit->target != facility) return fail("task 7 keeps a damaged owned building");
+    facility->hp = facility->max_hp;
+    think(1);
+    if (task->task != 8 || unit->target) return fail("task 7 returns to fort at full HP");
+    facility->hp--;
+    ivec2_t origin = Z_BuildingOrigin(facility);
+    int territory = Z_AITerritory(map, fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE));
+    if (territory < 0) return fail("task 7 territory fixture");
+    map->territories[territory].team = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *flag = (mobj_t *)th;
+        if (th->function == P_MobjThinker && flag->type_id == MT_FLAG && flag->z.territory == territory + 1)
+            Z_SetTeam(flag, 0);
+    }
+    task->task = 7;
+    task->idle = 0;
+    unit->target = facility;
+    think(1);
+    if (task->task != 8 || unit->target) return fail("task 7 returns when building territory changes hands");
+    puts("PASS: z task 7 retains damaged owned buildings and returns when healed");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -422,6 +528,10 @@ static int test_building_service(void) {
         return fail("ruin stays on the map with its native wreck state");
     think(0); think(1);
     if (crane->z.service != facility->id) return fail("crane gets the dead building before bridge work");
+    for (int i = 0; i < 8 * RTS_TICRATE && crane->core.state_id != S_CRANE_WORK; ++i)
+        if (!tick(model, 1)) return fail("building crane approach simulation");
+    if (crane->core.state_id != S_CRANE_WORK || crane->core.state_frame / Z_CRANE_SITE_FRAMES != Z_CRANE_BUILDING)
+        return fail("ruin uses the building work poses");
     if (!tick(model, 12 * RTS_TICRATE) || facility->hp != facility->max_hp ||
         facility->core.state_id != S_REPAIR || !(facility->traits & MF_SELECTABLE))
         return fail("crane restores the destroyed repair facility");
@@ -453,5 +563,6 @@ int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
            test_strength_gate() || test_vehicles() || test_retreat() || test_recapture() ||
-           test_bridge_and_crane() || test_repair_facility() || test_building_service() || test_building_alert();
+           test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
+           test_repair_facility() || test_building_service() || test_building_alert();
 }

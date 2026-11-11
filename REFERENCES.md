@@ -1,5 +1,13 @@
 # Reverse Engineering References
 
+### Z task 7, automatic bridge reconstruction and crane poses (2026-11-11)
+
+- Local DOS `data/Z/ZED.EXE`, `BRIDGEnn.DAT`, `SPRITES.RSC` and
+  `WARDATA.PAC/[HV]SHWING[0-3].DAT`. Static LE disassembly and the
+  authored segment scripts establish the timer, effects and crane poses.
+  Table offsets and the task 7 writer audit are recorded in
+  [Task 7, automatic bridge reconstruction and crane poses](docs/Z_EXE_FINDINGS.md#task-7-automatic-bridge-reconstruction-and-crane-poses-2026-11-11).
+
 ### Z commander service and defensive responses (2026-11-11)
 
 - Local DOS `data/Z/ZED.EXE`, `BRIDGEnn.DAT`, `BUILDnn.DAT`,

@@ -114,7 +114,7 @@ static int test_hud(int scale) {
     static const uint32_t previews[] = {
         0xfb289dbd, 0x2bd856a2, 0x9931e069, 0x722a7795,
         0xf2206ee6, 0xd5f751d3, 0x591d6d5a, 0x8b35563b, 0x96dd62ab, 0xf2206ee6,
-        0x4e6120e8, 0xf412ec12, 0x39219295, 0xb4ae5ef0, 0xf3ab692b, 0x84e8c446, 0x5cefc334};
+        0x4e6120e8, 0xf412ec12, 0x39219295, 0xb4ae5ef0, 0xf3ab692b, 0x84e8c446, 0x4b51fc5d};
     CHECK(product_count == (int)(sizeof(previews) / sizeof(*previews)));
     for (int i = 0; i < product_count; ++i) {
         V_BeginFrame(0xff0b0e10u);

@@ -1,7 +1,8 @@
 #include "z_local.h"
 #include "info.h"
 
-enum { NATIVE_HZ = 70, FACILITY_HZ = 17, CRANE_RATE = 120 >> 4 };
+enum { FACILITY_HZ = 17, CRANE_RATE = 120 >> 4, HOOK_CYCLE = 12,
+       CRANE_STOW = Z_CRANE_POSES + HOOK_CYCLE };
 
 static fixed2_t pixel_point(ivec2_t pixel) {
     return fixed2_scale(fixed2_from_cell(pixel), FIXED_ONE / Z_TILE);
@@ -63,6 +64,8 @@ void Z_CancelService(mobj_t *unit) {
     unit->z.service_work = 0;
     unit->z.service_ticks = 0;
     unit->move_only = false;
+    if (unit->core.state_id == S_CRANE_WORK && unit->hp > 0)
+        P_SetMobjState(unit, S_CRANE_STND);
 }
 
 bool Z_ServiceApproach(const mobj_t *unit, const mobj_t *target, fixed2_t *goal) {
@@ -108,11 +111,6 @@ bool Z_ServiceOrder(mobj_t *unit, const mobj_t *target, fixed2_t goal) {
     return true;
 }
 
-static int native_steps(int hz) {
-    int64_t tick = leveltime;
-    return (int)(tick * hz / RTS_TICRATE - (tick - 1) * hz / RTS_TICRATE);
-}
-
 static bool bay_busy(const mobj_t *unit, const mobj_t *facility) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *other = (const mobj_t *)th;
@@ -146,7 +144,7 @@ static void service_vehicle(mobj_t *unit, const mobj_t *facility) {
     int total;
     int held = Z_TerritoriesHeld(facility->team, &total);
     int rate = Z_ProductionRate(facility, held, total);
-    for (int steps = native_steps(FACILITY_HZ); rate && steps-- > 0;) {
+    for (int steps = Z_NativeSteps((int64_t)leveltime - 1, FACILITY_HZ); rate && steps-- > 0;) {
         if (++unit->z.service_ticks == 17) {
             unit->z.service_ticks = 0;
             int seconds = -unit->z.service_work / rate / 17;
@@ -164,6 +162,85 @@ static void service_vehicle(mobj_t *unit, const mobj_t *facility) {
     }
 }
 
+static int crane_site(const mobj_t *unit, bool bridge) {
+    int dir = angle_to_direction(unit->core.angle, 8, ANG90, true);
+    return bridge ? Z_CRANE_SOUTH + dir / 2 : Z_CRANE_BUILDING;
+}
+
+static void finish_crane(mobj_t *unit, mobj_t *target, int site) {
+    ivec2_t exit = ivec2_add(Z_AITopLeft(unit), (ivec2_t){8,8});
+    if (site != Z_CRANE_BUILDING) {
+        const zmap_t *map = level.native_data;
+        irect_t bounds = map->bridges[target->z.bridge - 1].bounds;
+        switch (site) {
+        case Z_CRANE_SOUTH: exit.y = bounds.y + bounds.h + 16; break;
+        case Z_CRANE_WEST: exit.x = bounds.x - 48; break;
+        case Z_CRANE_NORTH: exit.y = bounds.y - 48; break;
+        case Z_CRANE_EAST: exit.x = bounds.x + bounds.w + 48; break;
+        }
+        Z_RebuildBridge(target);
+    } else {
+        target->z.service_work = 0;
+        target->hp = target->max_hp;
+        target->traits |= MF_SELECTABLE;
+        while (target->production && target->production->queue_count)
+            G_RemoveProductionAt(target, 0);
+        P_SetMobjState(target, mobjinfo[target->type_id].spawnstate);
+        exit.y = Z_BuildingOrigin(target).y + (target->info->footprint.h + 1) * Z_TILE;
+    }
+    Z_CancelService(unit);
+    P_MoveUnitTo(&level, unit, pixel_point(exit));
+}
+
+/* 0x24556: flicker the two deployed sprite runs. Use a deterministic
+ * cosmetic seed so the work animation does not advance the AI's RNG. */
+static void crane_variant(mobj_t *unit, int64_t frame) {
+    int high = unit->z.service_ticks >> 4, low = unit->z.service_ticks & 0xf;
+    uint16_t seed = (uint16_t)((uint64_t)frame * 0x9e37 + unit->id);
+    if ((Z_NextRandom(&seed) & 0x3f) >= 4) high = (high ^ 1) << 4;
+    if (!(frame & 7)) {
+        low = low >= 4 ? 0 : low + 1;
+        if (low == 3 && (Z_NextRandom(&seed) & 7)) low = 1;
+        if (low == 4 && (Z_NextRandom(&seed) & 1)) low = 5;
+    }
+    unit->z.service_ticks = (uint8_t)(high | low);
+}
+
+static void crane_work(mobj_t *unit, mobj_t *target, bool bridge) {
+    int site = crane_site(unit, bridge);
+    int *step = &unit->z.service_work;
+    int64_t last = ((int64_t)leveltime + 1) * Z_NATIVE_HZ / RTS_TICRATE;
+    int picture = 0;
+    for (int64_t frame = last - Z_NativeSteps(leveltime, Z_NATIVE_HZ) + 1; frame <= last; ++frame) {
+        if (*step < Z_CRANE_POSES) {
+            picture = (*step)++;
+        } else if (*step < CRANE_STOW) {
+            /* 0x24615 rocks the hook through 1..7..2. Work starts at
+             * the deck/ruin, with a collapsed bridge's native HP at -1. */
+            int phase = *step - Z_CRANE_POSES;
+            int hook = 1 + (phase <= HOOK_CYCLE / 2 ? phase : HOOK_CYCLE - phase);
+            int flicker = unit->z.service_ticks;
+            int variant = 6 * (flicker >> 4) + (flicker & 0xf);
+            picture = Z_CRANE_WORK_FRAME + hook * Z_CRANE_VARIANTS + variant;
+            crane_variant(unit, frame);
+            if (!target->z.service_work && bridge) target->z.service_work = -1;
+            target->z.service_work += CRANE_RATE;
+            *step = target->z.service_work >= target->max_hp ?
+                CRANE_STOW : Z_CRANE_POSES + (phase + 1) % HOOK_CYCLE;
+        } else {
+            /* 0x2452c retracts the work layers every other native frame. */
+            int pose = Z_CRANE_POSES - 1 - (*step - CRANE_STOW);
+            if (pose < 0) {
+                finish_crane(unit, target, site);
+                return;
+            }
+            picture = Z_CRANE_POSES + pose;
+            if (!(frame & 1)) ++*step;
+        }
+    }
+    P_SetMobjStateFrame(unit, S_CRANE_WORK, site * Z_CRANE_SITE_FRAMES + picture);
+}
+
 void Z_ServiceTick(mobj_t *unit) {
     mobj_t *target = Z_ServiceTarget(unit->z.service);
     bool bridge = target && target->type_id == MT_BRIDGE;
@@ -173,7 +250,7 @@ void Z_ServiceTick(mobj_t *unit) {
     if (bridge) {
         const zmap_t *map = level.native_data;
         int t = Z_BridgeTerritory(map, target);
-        rebuild = rebuild && t >= 0 && map->ai.territories[t].owner == unit->team;
+        rebuild = rebuild && !target->z.service_ticks && t >= 0 && map->ai.territories[t].owner == unit->team;
     }
     if ((!rebuild && !facility) || (!bridge && target->team != unit->team) ||
         (!P_HasMoveOrder(unit) && !unit->movement.order_arrived)) {
@@ -188,22 +265,5 @@ void Z_ServiceTick(mobj_t *unit) {
         return;
     }
     if (P_HasMoveOrder(unit)) return;
-    /* 0x24675/0x24770 advance by the high nibble of the Crane's native
-     * damage byte every frame. Bridge progress starts at the -1 dead HP. */
-    if (!target->z.service_work && bridge) target->z.service_work = -1;
-    target->z.service_work += native_steps(NATIVE_HZ) * CRANE_RATE;
-    if (target->z.service_work < target->max_hp) return;
-    target->z.service_work = 0;
-    target->hp = target->max_hp;
-    if (bridge) Z_BridgeTerrain(target, true);
-    else {
-        target->traits |= MF_SELECTABLE;
-        while (target->production && target->production->queue_count)
-            G_RemoveProductionAt(target, 0);
-        P_SetMobjState(target, mobjinfo[target->type_id].spawnstate);
-        ivec2_t origin = Z_BuildingOrigin(target);
-        ivec2_t exit = {Z_AITopLeft(unit).x + 8, origin.y + (target->info->footprint.h + 1) * Z_TILE};
-        P_MoveUnitTo(&level, unit, pixel_point(exit));
-    }
-    Z_CancelService(unit);
+    crane_work(unit, target, bridge);
 }

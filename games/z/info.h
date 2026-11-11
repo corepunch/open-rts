@@ -44,6 +44,8 @@ typedef enum {
 #include "units.inc"
 #undef Z_UNIT
     SPR_FLAG,
+    SPR_CRANE_WORK,
+    SPR_BRIDGE_REBUILD,
     NUMSPRITES
 } spritenum_t;
 
@@ -76,6 +78,13 @@ enum {
     Z_BLAST_SPRITE = 476, Z_BLAST_FRAMES = 4,
 };
 
+enum {
+    Z_CRANE_BUILDING, Z_CRANE_SOUTH, Z_CRANE_WEST, Z_CRANE_NORTH, Z_CRANE_EAST, Z_CRANE_SITES,
+    Z_CRANE_POSES = 12, Z_CRANE_HOOKS = 8, Z_CRANE_VARIANTS = 12,
+    Z_CRANE_WORK_FRAME = 2 * Z_CRANE_POSES,
+    Z_CRANE_SITE_FRAMES = Z_CRANE_WORK_FRAME + Z_CRANE_HOOKS * Z_CRANE_VARIANTS,
+};
+
 typedef enum {
     S_NULL,
     S_FORT,
@@ -104,6 +113,8 @@ typedef enum {
 #define Z_BUILDING(native, type, ...) S_##type##_WRECK,
 #include "buildings.inc"
 #undef Z_BUILDING
+    S_CRANE_WORK,
+    S_BRIDGE_REBUILD,
     NUMSTATES
 } statenum_t;
 

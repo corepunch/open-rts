@@ -252,6 +252,8 @@ typedef struct {
     int16_t by_dir[8];
 } zpart_t;
 
+enum { CRANE_REAR_HOOK, CRANE_HULL, CRANE_ARM, CRANE_FRONT_HOOK };
+
 static const struct {
     const char *name;
     int lift;
@@ -298,12 +300,17 @@ static const struct {
         {5639, 2, .at = {{6, -3}, {9, -3}, {11, -4}, {8, 1}, {5, 3}, {3, 1}, {1, -4}, {3, -3}}, .cycle = 2,
          .turret = true},
     }},
-    /* 0x24 (0x7ea2b): body 5794; arm 5818 by turret (0x14b454); the hook
-     * is left out, ZED.EXE reads its second offset from a stray address. */
+    /* 0x24 (0x7ea2b): body 5794, arm 5818 and resting hook 5826.
+     * The hook's second displacement is at 0x14b464. The hook for
+     * hull directions 3–5 is placed underneath the hull. */
     {"CRANE", 6, {{0, 0}}, {
-        {5794, 3, .at = {{0, 0}}, .cycle = 3},
-        {5818, 1, .at = {{-1, -9}, {1, -8}, {6, -6}, {3, -4}, {0, -5}, {-4, -4}, {-6, -6}, {-2, -8}},
-         .turret = true},
+        [CRANE_REAR_HOOK] = {.at = {[3] = {19, 21}, [4] = {7, 21}, [5] = {-8, 19}},
+                             .by_dir = {[3] = 5826, [4] = 5826, [5] = 5826}},
+        [CRANE_HULL] = {5794, 3, .at = {{0, 0}}, .cycle = 3},
+        [CRANE_ARM] = {5818, 1, .at = {{-1, -9}, {1, -8}, {6, -6}, {3, -4}, {0, -5}, {-4, -4}, {-6, -6}, {-2, -8}},
+                       .turret = true},
+        [CRANE_FRONT_HOOK] = {.at = {{16, -5}, {28, -2}, {31, 8}, {25, 18}, {13, 18}, {-2, 16}, {-4, 10}, {8, -4}},
+                              .by_dir = {5826, 5826, 5826, 0, 0, 0, 5826, 5826}, .turret = true},
     }},
     /* 0x18 (0x7ee27): hull 1845 (0x14b404); pod 1869 6 right and 3 up by
      * turret (0x1489c8) from a mount 9 left and 5 down by hull (0x148a08) */
@@ -314,7 +321,9 @@ static const struct {
     }},
 };
 
-static bool part_used(const zpart_t *part) { return part->sprite || part->by_dir[1]; }
+static bool part_used(const zpart_t *part) {
+    return part->sprite || memcmp(part->by_dir, (const int16_t[8]){0}, sizeof(part->by_dir));
+}
 
 /* The picture of `part` facing `dir` in composed frame `f` of `frames`
  * moving ones and the standing ones after them; -1 draws nothing. */
@@ -328,6 +337,220 @@ static int find_vehicle(const char *name) {
     for (size_t v = 0; v < sizeof(vehicles) / sizeof(*vehicles); ++v)
         if (!strcmp(vehicles[v].name, name)) return (int)v;
     return -1;
+}
+
+typedef struct { ivec2_t at; int sprite; } zpiece_t;
+
+/* The layer pointer lists at 0x12ddcc/0x12dde8. Each layer has twelve
+ * poses. Identical native layers share a row. */
+static const zpiece_t crane_layers[][Z_CRANE_POSES] = {
+    { /* 1, 0x12de68 */
+        {{0,-2},5911}, {{-6,-2},5911}, {{-12,-1},5911}, {{-18,-1},5911}, {{-24,0},5911}, {{-28,0},5911},
+        {{-32,1},5911}, {{-36,1},5911}, {{-40,2},5911}, {{-42,2},5912}, {{-44,2},5912}, {{-45,2},5913},
+    },
+    { /* 2, 0x12dec8 */
+        {{16,-2},5911}, {{22,-2},5911}, {{28,-1},5911}, {{34,-1},5911}, {{40,0},5911}, {{44,0},5911},
+        {{48,1},5911}, {{52,1},5911}, {{54,2},5911}, {{56,2},5912}, {{57,2},5912}, {{57,2},5913},
+    },
+    { /* 3, 0x12df28 */
+        {{-8,0},5919}, {{-8,-10},5920}, {{-8,-20},5921}, {{-8,-28},5914}, {{-8,-36},5915}, {{-8,-40},5916},
+        {{-8,-42},5917}, {{-8,-40},5918}, {{-8,-38},5919}, {{-8,-34},5920}, {{-8,-32},5921}, {{-8,-30},5914},
+    },
+    { /* 4, 0x12df88 */
+        {{0,0},5907}, {{0,-6},5908}, {{0,-12},5909}, {{0,-15},5902}, {{0,-16},5903}, {{0,-15},5904},
+        {{0,-12},5905}, {{0,-6},5906}, {{0,0},5907}, {{0,4},5908}, {{0,8},5909}, {{0,12},5910},
+    },
+    { /* 5, 0x12dfe8 */
+        {{0,0},5932}, {{0,0},5932}, {{0,0},5932}, {{0,0},5932}, {{0,-2},5932}, {{-2,-1},5932},
+        {{-5,1},5932}, {{-7,2},5932}, {{-9,4},5932}, {{-10,4},5932}, {{-11,5},5924}, {{-11,5},5924},
+    },
+    { /* 6, 0x12e048 */
+        {{0,0},5930}, {{0,0},5930}, {{0,0},5930}, {{16,-2},5930}, {{18,-4},5930}, {{20,-5},5930},
+        {{22,-5},5930}, {{24,-4},5930}, {{26,-2},5930}, {{28,0},5930}, {{30,2},5930}, {{32,5},5922},
+    },
+    { /* 7, 0x12e168 */
+        {{-8,0},5919}, {{-8,-10},5920}, {{-8,-12},5921}, {{-8,-10},5914}, {{-8,-5},5915}, {{-8,-1},5916},
+        {{-8,3},5917}, {{-8,6},5918}, {{-8,12},5919}, {{-8,16},5920}, {{-8,18},5921}, {{-8,20},5914},
+    },
+    { /* 8, 0x12e288 */
+        {{0,0},5930}, {{0,0},5930}, {{0,0},5930}, {{16,-2},5930}, {{17,-4},5930}, {{18,-8},5930},
+        {{18,-12},5930}, {{19,-14},5930}, {{19,-16},5930}, {{20,-18},5930}, {{20,-20},5930}, {{20,-21},5922},
+    },
+    { /* 9, 0x12e2e8 */
+        {{0,4},5911}, {{-2,6},5911}, {{-4,7},5911}, {{-8,9},5911}, {{-14,14},5911}, {{-17,22},5911},
+        {{-20,26},5911}, {{-22,29},5911}, {{-24,31},5911}, {{-26,33},5912}, {{-27,35},5912}, {{-28,36},5913},
+    },
+    { /* 10, 0x12e348 */
+        {{0,8},5911}, {{-2,6},5911}, {{-4,5},5911}, {{-8,3},5911}, {{-14,-2},5911}, {{-17,-10},5911},
+        {{-20,-14},5911}, {{-22,-17},5911}, {{-24,-19},5911}, {{-26,-21},5912}, {{-27,-23},5912}, {{-28,-24},5913},
+    },
+    { /* 11, 0x12e4c8 */
+        {{0,0},5930}, {{0,0},5930}, {{0,0},5930}, {{16,-2},5930}, {{17,-4},5930}, {{18,-6},5930},
+        {{18,-10},5930}, {{19,-14},5930}, {{19,-14},5930}, {{20,-15},5930}, {{20,-15},5930}, {{20,-16},5922},
+    },
+    { /* 12, 0x12e528 */
+        {{0,-2},5911}, {{-1,-2},5911}, {{-2,-4},5911}, {{-4,-4},5911}, {{-8,-8},5911}, {{-16,-8},5911},
+        {{-22,-16},5911}, {{-26,-16},5911}, {{-28,-20},5911}, {{-30,-20},5912}, {{-31,-22},5912}, {{-32,-22},5913},
+    },
+    { /* 13, 0x12e588 */
+        {{16,-2},5911}, {{17,-2},5911}, {{18,-4},5911}, {{20,-4},5911}, {{24,-8},5911}, {{32,-8},5911},
+        {{38,-16},5911}, {{42,-16},5911}, {{44,-20},5911}, {{46,-20},5912}, {{47,-22},5912}, {{48,-22},5913},
+    },
+    { /* 14, 0x12e5e8 */
+        {{-8,0},5919}, {{-8,-10},5920}, {{-8,-18},5921}, {{-8,-26},5914}, {{-8,-30},5915}, {{-8,-32},5916},
+        {{-8,-31},5917}, {{-8,-32},5918}, {{-8,-30},5919}, {{-8,-28},5920}, {{-8,-27},5921}, {{-8,-26},5914},
+    },
+    { /* 15, 0x12e648 */
+        {{0,0},5907}, {{0,-6},5908}, {{0,-12},5909}, {{0,-15},5902}, {{0,-16},5903}, {{0,-15},5904},
+        {{0,-14},5905}, {{0,-14},5906}, {{0,-12},5907}, {{0,-12},5908}, {{0,-10},5909}, {{0,-10},5910},
+    },
+    { /* 16, 0x12e6a8 */
+        {{0,-4},5932}, {{0,-4},5932}, {{0,-8},5932}, {{0,-8},5932}, {{0,-12},5932}, {{-2,-12},5932},
+        {{-5,-11},5932}, {{-7,-11},5932}, {{-9,-9},5932}, {{-10,-9},5932}, {{-11,-8},5924}, {{-11,-8},5924},
+    },
+    { /* 17, 0x12e708 */
+        {{0,0},5930}, {{0,0},5930}, {{0,0},5930}, {{16,-2},5930}, {{16,-4},5930}, {{17,2},5930},
+        {{17,4},5930}, {{18,8},5930}, {{18,8},5930}, {{18,14},5930}, {{18,14},5930}, {{18,12},5922},
+    },
+    { /* 18, 0x12e768 */
+        {{0,4},5911}, {{2,6},5911}, {{4,7},5911}, {{8,9},5911}, {{14,14},5911}, {{17,22},5911},
+        {{20,26},5911}, {{22,29},5911}, {{24,31},5911}, {{26,33},5912}, {{27,35},5912}, {{28,36},5913},
+    },
+    { /* 19, 0x12e7c8 */
+        {{0,8},5911}, {{2,6},5911}, {{4,5},5911}, {{8,3},5911}, {{14,-2},5911}, {{17,-10},5911},
+        {{20,-14},5911}, {{22,-17},5911}, {{24,-19},5911}, {{26,-21},5912}, {{27,-23},5912}, {{28,-24},5913},
+    },
+    { /* 20, 0x12e8e8 */
+        {{0,0},5932}, {{0,0},5932}, {{0,0},5932}, {{0,0},5932}, {{0,-2},5932}, {{2,-1},5932},
+        {{5,1},5932}, {{7,2},5932}, {{9,4},5932}, {{10,4},5932}, {{11,5},5924}, {{11,5},5924},
+    },
+    { /* 21, 0x12e948 */
+        {{0,0},5930}, {{0,0},5930}, {{0,0},5930}, {{-16,-2},5930}, {{-17,-4},5930}, {{-18,-6},5930},
+        {{-18,-10},5930}, {{-19,-14},5930}, {{-19,-14},5930}, {{-20,-15},5930}, {{-20,-15},5930}, {{-20,-16},5922},
+    },
+};
+
+static const uint8_t crane_sequences[Z_CRANE_SITES][6] = {
+    {1, 2, 3, 4, 5, 6},
+    {1, 2, 7, 4, 5, 8},
+    {9, 10, 5, 11},
+    {12, 13, 14, 15, 16, 17},
+    {18, 19, 20, 21},
+};
+
+static bool compose_pieces(const zmap_t *map, spritesheet_t *sheet, int lump,
+                           const zpiece_t *pieces, int count, ivec2_t anchor, bool centered) {
+    irect_t bounds = {anchor.x,anchor.y,1,1};
+    for (int i = 0; i < count; ++i) {
+        isize2_t size;
+        if (!Z_SpriteSize(map, pieces[i].sprite, &size)) return false;
+        irect_t rect = {pieces[i].at.x,pieces[i].at.y,size.w,size.h};
+        SDL_UnionRect(&bounds, &rect, &bounds);
+    }
+    if (centered) {
+        /* The no-blockmap renderer places the canvas midpoint at the mobj. */
+        irect_t opposite = {2 * anchor.x - bounds.x - bounds.w, 2 * anchor.y - bounds.y - bounds.h,
+                            bounds.w, bounds.h};
+        SDL_UnionRect(&bounds, &opposite, &bounds);
+    }
+    isize2_t size = {bounds.w,bounds.h};
+    uint8_t *out = calloc((size_t)size.w * size.h, 1);
+    if (!put_lump(sheet, lump, out, size)) return false;
+    ivec2_t top_left = {bounds.x,bounds.y};
+    sheet->cells[lump].ground_point = ivec2_sub(anchor, top_left);
+    if (size.w > sheet->frame_size.w) sheet->frame_size.w = size.w;
+    if (size.h > sheet->frame_size.h) sheet->frame_size.h = size.h;
+    for (int i = 0; i < count; ++i)
+        if (!blit(map, pieces[i].sprite, out, size, ivec2_sub(pieces[i].at, top_left))) return false;
+    return true;
+}
+
+/* 0x3e005 plays the WARDATA scripts backwards to frame 1, using
+ * 0x1430b0 to resolve their world-relative spark sprite indices. */
+static bool load_bridge_rebuild(const zmap_t *map, const uint32_t palette[256], spritesheet_t *sheet) {
+    static const int spark_base[] = {1138,1186,1174,1150,1162};
+    int count = Z_BRIDGE_SCRIPTS * Z_BRIDGE_REBUILD_FRAMES;
+    if (!R_AllocSpriteCells(sheet, count) || !R_InitSpriteDef(sheet, count, 1)) return false;
+    for (int i = 0; i < Z_BRIDGE_SCRIPTS; ++i) {
+        const uint8_t *script = map->bridge_scripts[i].bytes;
+        ivec2_t anchor = {read_u16_le(script + 6),read_u16_le(script + 8)};
+        for (int f = 0; f < Z_BRIDGE_REBUILD_FRAMES; ++f) {
+            zpiece_t pieces[4];
+            int used = 0, native_frame = script[0xb] - 1 - f;
+            if (native_frame > 0) {
+                const uint8_t *r = script + 12 + native_frame * 4 * 10;
+                for (int layer = 0; layer < 4; ++layer, r += 10) {
+                    ivec2_t at = {read_u16_le(r),read_u16_le(r + 2)};
+                    int sprite = read_u16_le(r + 4);
+                    if (!at.x && !at.y && !sprite) continue;
+                    if (sprite <= 16) sprite += spark_base[map->world];
+                    pieces[used++] = (zpiece_t){at, sprite};
+                }
+            }
+            int lump = i * Z_BRIDGE_REBUILD_FRAMES + f;
+            if (!compose_pieces(map, sheet, lump, pieces, used, anchor, true) ||
+                !R_InstallSpriteLump(sheet, lump, 0, lump, false)) return false;
+        }
+    }
+    return install_teams(sheet, palette);
+}
+
+/* 0x24a2c draws the work layers at the recorded unit top-left, then
+ * 0x7ea2b queues the hull, the backward-facing arm and the hook. */
+static bool crane_picture(const zmap_t *map, spritesheet_t *sheet, int lump, int site, int frame, int dir) {
+    const zpart_t *parts = vehicles[find_vehicle("CRANE")].parts;
+    bool stow = frame >= Z_CRANE_POSES && frame < Z_CRANE_WORK_FRAME;
+    int pose = frame % Z_CRANE_POSES, hook = 0, variant = 0;
+    if (frame >= Z_CRANE_WORK_FRAME) {
+        pose = Z_CRANE_POSES - 1;
+        hook = (frame - Z_CRANE_WORK_FRAME) / Z_CRANE_VARIANTS;
+        variant = (frame - Z_CRANE_WORK_FRAME) % Z_CRANE_VARIANTS;
+    }
+    zpiece_t pieces[9];
+    int count = 0;
+    for (int i = 0; i < 6 && crane_sequences[site][i]; ++i) {
+        zpiece_t piece = crane_layers[crane_sequences[site][i] - 1][pose];
+        switch (piece.sprite) {
+        case 5922: piece.sprite += variant / 6; break;
+        case 5924: piece.sprite += variant % 6; break;
+        case 5930: if (stow) piece.sprite = 5932; break;
+        case 5932: if (stow) piece.sprite = 5930; break;
+        }
+        pieces[count++] = piece;
+    }
+    ivec2_t origin = {-6,-6};
+    int arm = (dir + 4) & 7;
+    const int8_t *boom_at = parts[CRANE_ARM].at[arm], *hook_at = parts[CRANE_FRONT_HOOK].at[arm];
+    zpiece_t boom = {ivec2_add(origin, (ivec2_t){boom_at[0],boom_at[1]}), 5818 + arm};
+    zpiece_t cable = {ivec2_add(origin, (ivec2_t){hook_at[0],hook_at[1]}), 5826 + hook};
+    bool rear = dir >= 3 && dir <= 5;
+    if (rear) {
+        cable.at = ivec2_add(cable.at, (ivec2_t){-6,3});
+        pieces[count++] = cable;
+    }
+    pieces[count++] = (zpiece_t){origin, 5794 + 3 * dir};
+    pieces[count++] = boom;
+    if (!rear) pieces[count++] = cable;
+
+    return compose_pieces(map, sheet, lump, pieces, count, (ivec2_t){Z_TILE / 2,Z_TILE / 2}, false);
+}
+
+static bool load_crane_work(const zmap_t *map, const uint32_t palette[256], spritesheet_t *sheet) {
+    int frames = Z_CRANE_SITES * Z_CRANE_SITE_FRAMES;
+    if (!R_AllocSpriteCells(sheet, (8 + 2 * (Z_CRANE_SITES - 1)) * Z_CRANE_SITE_FRAMES) ||
+        !R_InitSpriteDef(sheet, frames, 8)) return false;
+    int lump = 0;
+    for (int f = 0; f < frames; ++f) {
+        int site = f / Z_CRANE_SITE_FRAMES;
+        int dirs = site == Z_CRANE_BUILDING ? 8 : 2;
+        for (int d = 0; d < dirs; ++d)
+            if (!crane_picture(map, sheet, lump + d, site, f % Z_CRANE_SITE_FRAMES,
+                               site == Z_CRANE_BUILDING ? d : 2 * (site - Z_CRANE_SOUTH) + d)) return false;
+        for (int d = 0; d < 8; ++d)
+            if (!R_InstallSpriteLump(sheet, f, (8 - d) % 8, lump + d % dirs, false)) return false;
+        lump += dirs;
+    }
+    return install_teams(sheet, palette);
 }
 
 /* Grow [lo, hi) over the part pictures of the hull (or, with `turret`, the
@@ -456,6 +679,8 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
         return load_runs(map, robot, 6, palette, sheet);
     }
     if (!strcmp(name, sprnames[SPR_FLAG])) return load_flag(map, palette, sheet);
+    if (!strcmp(name, sprnames[SPR_CRANE_WORK])) return load_crane_work(map, palette, sheet);
+    if (!strcmp(name, sprnames[SPR_BRIDGE_REBUILD])) return load_bridge_rebuild(map, palette, sheet);
 #define Z_UNIT(t, type, label, kind, mobile, hp, dmg, spd, range, reload, sprite, turn, frames, idle, dead, turret) \
     LOAD_##kind(type, sprite, turn, frames, idle, dead)
 #include "units.inc"

@@ -106,6 +106,7 @@ static void destroy_zmap(void *opaque) {
     W_FreeFile(&map->roster);
     W_FreeFile(&map->weights);
     W_FreeFile(&map->square_roots);
+    for (int i = 0; i < Z_BRIDGE_SCRIPTS; ++i) W_FreeFile(&map->bridge_scripts[i]);
     free(map);
 }
 
@@ -265,8 +266,22 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
         if (bounds.w % Z_TILE || bounds.h % Z_TILE || (vertical ? bounds.w : bounds.h) != 4 * Z_TILE ||
             bounds.x + bounds.w > out->width * Z_TILE || bounds.y + bounds.h > out->height * Z_TILE ||
             (vertical ? bounds.h : bounds.w) < 2 * Z_TILE) goto fail;
-        map->bridges[i] = (zbridge_t){.bounds = bounds, .initial_hp = read_u16_le(r + 0xa),
+        /* 0x29803 converts +0x12 into 17 decrements per count. At zero
+         * stock, 0x29a2f still takes one more decrement before rebuilding. */
+        uint16_t ticks = (r[0xf] & 0x10) && r[0x12] != 0xff ? r[0x12] * 17 + 1 : 0;
+        map->bridges[i] = (zbridge_t){.bounds = bounds, .initial_hp = read_u16_le(r + 0xa), .rebuild_ticks = ticks,
                                      .vertical = vertical, .cpu_rebuild = (r[0xf] & 1) != 0};
+    }
+    M_PathJoin(path, sizeof(path), map->root, "WARDATA.PAC");
+    for (int i = 0; i < Z_BRIDGE_SCRIPTS; ++i) {
+        char name[16];
+        snprintf(name, sizeof(name), "%cSHWING%d.DAT", i < 4 ? 'H' : 'V', i % 4);
+        blob_t *script = &map->bridge_scripts[i];
+        if (!Z_ReadPac(path, name, script) || script->size < 12) goto fail;
+        const uint8_t *bytes = script->bytes;
+        int layers = read_u16_le(bytes) & 0x7f, frames = bytes[0xb];
+        if (layers != 4 || frames < 2 || frames > Z_BRIDGE_REBUILD_FRAMES + 1 ||
+            12 + (size_t)layers * frames * 10 > script->size) goto fail;
     }
 
     M_PathJoin(path, sizeof(path), map->root, "SPRITES.RSC");
@@ -607,9 +622,10 @@ int Z_LoadThings(void) {
         mobj_t *bridge = spawn(MT_BRIDGE, S_BRIDGE, (ivec2_t){r.x, r.y}, (isize2_t){r.w, r.h}, Z_NEUTRAL);
         if (!bridge) continue;
         bridge->z.bridge = (uint8_t)(i + 1);
+        bridge->z.hold = record->rebuild_ticks;
         bridge->hp = record->initial_hp;
         bridge->max_hp = bridge->hp ? bridge->hp : 600; /* 0x29783 initializes an already-broken bridge. */
-        if (!bridge->hp) Z_BridgeTerrain(bridge, false);
+        if (!bridge->hp) Z_BridgeDamage(bridge);
         count++;
     }
     return count + Z_LoadCliffs();
