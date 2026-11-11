@@ -1,5 +1,16 @@
 # Reverse Engineering References
 
+### Z retail task 7 runtime trace (2026-11-11)
+
+- Local DOS `data/Z/ZED.EXE`, `ROBOTS.DAT` and LEVEL20 data.
+  [DOSBox-X 2026.10.01](https://github.com/joncampbell123/dosbox-x/releases/tag/dosbox-x-v2026.10.01)
+  ran the original executable with a disposable copy of the game files.
+  The [debugger](https://github.com/joncampbell123/dosbox-x/blob/dosbox-x-v2026.10.01/src/debug/debug.cpp)
+  provided linear memory breakpoints and binary dumps. Its
+  [loopback protocol](https://github.com/joncampbell123/dosbox-x/blob/dosbox-x-v2026.10.01/src/debug/debug_mcp.cpp)
+  allowed repeated sampling. See the
+  [task 7 runtime follow-up](docs/Z_EXE_FINDINGS.md#indirect-writes-and-retail-runtime-follow-up).
+
 ### Z task 7, automatic bridge reconstruction and crane poses (2026-11-11)
 
 - Local DOS `data/Z/ZED.EXE`, `BRIDGEnn.DAT`, `SPRITES.RSC` and

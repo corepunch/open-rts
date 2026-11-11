@@ -1,7 +1,7 @@
 # Reverse Engineering Games
 
 Use this workflow when reproducing behavior or metadata from the original game
-executables. It applies to Dark Colony, Dark Reign, 7th Legion and Warcraft II.
+executables. It applies to Dark Colony, Dark Reign, 7th Legion, Warcraft II and Z.
 
 ## Source of truth
 
@@ -147,6 +147,14 @@ After implementation:
 
 Repeat analysis, implementation, and behavioral verification until the observed
 behavior and placement match the original.
+
+For an authorized DOS retail trace, use a disposable copy of the installed
+data and record the fixture edits. Resolve code breakpoints from matching
+instruction bytes and confirm data addresses separately from loaded operands.
+DOS extenders can relocate each LE object by a different amount. For
+memory-change breakpoints, verify the initial value and the instruction
+immediately before the stop. Record native gameplay writes separately from
+debugger-seeded controls and breakpoint snapshots.
 
 ## Structural comparison
 

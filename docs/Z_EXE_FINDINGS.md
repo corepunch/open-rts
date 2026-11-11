@@ -1794,6 +1794,126 @@ VA `0x10000`, file offset `0x62a00`, with size `0xb0254`.
   handles task 7 with an existing unit target and leaves its dispatch
   unresolved.
 
+#### Indirect writes and retail runtime follow-up
+
+**Confirmed statically.** The LE fixup audit found 61 targets in
+`[0x18d388,0x18e828)`. Sixty target the table base. The one interior
+reference targets `0x18d398`, the indexed flag test at `0x9de1a`.
+`0x9c0fc`, `0x9cc29` and `0x9cd1c` derive rows with a stride of
+22. Their accesses use the active or flags bytes. The pointer calculation
+at `0x7789a` is discarded by `pop eax`. `0x4f248` initializes row
+offset 0 and flag offset `+0x10`. `0x9d9eb` writes `0xff` to the task
+byte of each valid CPU lead before applying any opening order. The save
+writer at `0x1c378` and loader at `0x1cf06` are the confirmed bulk
+copies covering `+0x11`. A save could restore a previously stored 7.
+These paths establish no gameplay source for that value.
+
+**Retail runtime.** The fingerprint above ran unmodified in DOSBox-X
+2026.10.01, build `f1c4414`, on a disposable copy of the game data.
+`0x10227` checks for the native `/CD` argument. The emulator used a
+Sound Blaster Pro 2 at IRQ 5/DMA 1 to match `DIG.INI`. Breakpoints in
+New Game selected LEVEL20 through the normal level loader. In this run,
+CS was `0x160` and DS was `0x168`, both with base zero. Code loaded
+at static VA plus `0x1af000`. The task table relocated to `0x31d388`,
+buildings to `0x31ad2c`, units to `0x301aa8`, and the damaged list
+to `0x38a9e4`. Data objects have different relocation deltas. Confirm
+addresses from the loaded operands on a new launch.
+
+- **Confirmed.** Setting `BUILD20.DAT` record 6 to 750/1500 HP on disk
+  still produced a full-health CPU radar at startup. `0x3ec33` copies
+  max HP to current during building initialization. Setting current HP
+  to 750 after that pass put the radar pointer `0x31af0c` in the
+  damaged-building list. With CPUPLR group 15 at slot 0, 64 consecutive
+  hits at the heavy-pass call `0x9b4a4` sampled all 240 rows. All 64
+  samples showed the radar on the list at 750/1500 HP. The 14 active
+  rows yielded 896 observations of tasks 0, 1, 3 and `0xff`. No
+  active row held 7 at that checkpoint.
+- **Disproven Fire Truck fixture.** `ROBOTS.DAT` group 15 resolves to
+  Fire Truck weapon 14, category `0x0d`. Replacing group 16 with 15
+  at `CPUPLR20.DAT +0x792` spawned infantry at `(1568,384)` in
+  unit slot 16, type `0x04`, category `0x0d`, CPU squad 120.
+  `0x50fd0` initializes the infantry. Its conversion switch at
+  `0x50cbc..0x50d1b` has a Crane case (`0x0c`) and no Fire Truck
+  case (`0x0d`). A second trial placed an empty Fire Truck at
+  `(1568,400)` using unused `OBJECT20.DAT` record 14. The ten
+  fixture bytes appeared in the loaded object data, and the
+  instantiated world table contained no object at those coordinates.
+  `0x1843b..0x1843e` explicitly skips placed object type 37
+  (`0x25`), the Fire Truck, before the object initializer at
+  `0x4a184`.
+- **Stock Crane control.** With the original LEVEL20 files restored,
+  unit 16 was an occupied CPU Crane (type `0x24`, squad 120).
+  The radar stayed on the damaged list at 750/1500 HP for 32
+  consecutive samples at `0x9b4a4`. The Crane's row stayed
+  `0xff` throughout. The 14 active rows yielded 448 observations
+  of tasks 0, 1, 3 and `0xff`, with no 7 at this checkpoint.
+  Setting the radar's HP to zero put its pointer on the dead
+  list at `0x38a958`. A memory breakpoint on the Crane's task
+  byte caught `ff -> 09` at linear EIP `0x24b9a8`, immediately
+  after the store at `0x9c9a4`. The debugger changed HP and the
+  retail dispatcher assigned task 9.
+- **Debugger positive control.** At the validator call `0x9b645`,
+  the debugger seeded task 7 into row 120 and set the lead's
+  `+0x28` target to the radar. `0x9bdb9` ran with EBP on the
+  row and EAX on the lead. It retained 7 at 750/1500 HP. With
+  HP restored to 1500 and the call replayed, a linear memory
+  breakpoint on the task byte recorded `07 -> 08` at the
+  instruction immediately after the native store at `0x9bd14`.
+  The debugger supplied the 7.
+
+**Inferred.** The damaged list, Fire Truck handlers and task 7 validator
+are consistent with a service path whose producer is absent or disabled
+in this build. The two adjacent return instructions at `0x9c58b` and
+`0x9c58c` provide no evidence of a producer by themselves. Breakpoint
+samples cover the tested campaign state at a specific point in the heavy
+pass. A gameplay trigger for task 7 remains unverified.
+
+Reproduce the relocation audit and relevant disassembly with:
+
+```sh
+rabin2 -R data/Z/ZED.EXE | perl -ne '
+  if (/(0x[0-9a-f]+)\s*$/i) {
+    $va = hex($1);
+    $refs{$va}++ if $va >= 0x18d388 && $va < 0x18e828;
+  }
+  END { printf "%x %u\n", $_, $refs{$_} for sort {$a <=> $b} keys %refs }
+'
+r2 -q -e bin.cache=true -e bin.relocs.apply=true \
+  -c 'pd 20 @ 0x18418' -c 'pd 26 @ 0x3ec07' \
+  -c 'pd 25 @ 0x50cb3' -c 'pd 12 @ 0x9bdb9' -c q data/Z/ZED.EXE
+```
+
+For the fixtures, use a copied game directory. Set
+`CPUPLR20.DAT +0x792` to `0f` and `BUILD20.DAT +0x1fc` to
+`ee 02`. In the placed-object trial, set `OBJECT20.DAT +0x8c`
+to `20 06 90 01 25 0e ff ff ff ff`. Mount the copy as the DOS
+drive and run `ZED.EXE /CD`. In the DOSBox-X debugger with the
+relocation layout above:
+
+1. Break at `160:201062` and use `SMV 2D61D9 02` for New Game.
+   Break at `160:205739` and use `SMV 293D63 14` for LEVEL20.
+   At the first gameplay AI update (`160:24A1E4`), use
+   `SMV 31AF28 EE 02` to damage the radar.
+2. Break at `160:24A4A4` for each passive sample. Use
+   `MEMDUMPBIN 168:31D388 14A0 TASKS.BIN` and
+   `MEMDUMPBIN 168:38A9E4 8 LIST.BIN`, then continue. In the
+   task dump the value and active bytes are at `22 * row + 0x11`
+   and `22 * row + 0x15`. Check the placed-object trial with
+   `MEMDUMPBIN 168:2753F0 A OBJECT.BIN` and
+   `MEMDUMPBIN 168:3504D0 1F40 WORLD.BIN`.
+   For the stock Crane trial, restore the original files and
+   repeat with runtime HP 750. At the final sample, set
+   `SMV 31AF28 00 00` and arm `BPLM 31DDE9`. On the first
+   `00 -> FF` initialization stop, resume to catch `FF -> 09`.
+3. For the positive control, break at `160:24A645` and use
+   `SMV 302650 0C 0AF 31 00` and `SMV 31DDE9 07`. Prefix
+   `AF` with zero so the debugger treats it as a number. Check
+   the retained task at `160:24A64A`. Set `SMV 31AF28 DC 05`,
+   clear the execution breakpoints and arm `BPLM 31DDE9`. Use
+   `SR EIP 24A645` and `RUN`. The newly armed watchpoint may
+   report `00 -> 07` from its initial comparison. Resume to
+   observe the native `07 -> 08` at linear EIP `0x24ad18`.
+
 ### Bridge timer and segment effects
 
 - **Confirmed.** `0x29803` initializes bridge runtime stock at
