@@ -17,6 +17,9 @@ This is a preservation project. The aim is to keep these games runnable,
 readable, and playable against the computer or with friends on a LAN, without
 rebuilding a period-correct machine or an abandoned network stack.
 
+Contributors are very welcome. If you'd like to playtest, report a bug, or
+help with the code or documentation, we'd love to hear from you.
+
 ## Why it is built this way
 
 The layout follows Doom, Heretic, and Hexen. Those engines stayed small
@@ -329,6 +332,9 @@ build/bin/dark-reign data/REIGN/dark scenario/FIXED/M01F/M01F.SCN ucfcnst0.spr
 ```
 
 ### Dark Colony
+
+Dark Colony is very close to completion. We've played several sessions with
+friends over LAN and had a great time.
 
 Dark Colony is the game the engine is being matched against first. When a
 generic mechanism and `DC.EXE` disagree, `DC.EXE` wins.
