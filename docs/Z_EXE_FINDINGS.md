@@ -1914,6 +1914,127 @@ relocation layout above:
    report `00 -> 07` from its initial comparison. Resume to
    observe the native `07 -> 08` at linear EIP `0x24ad18`.
 
+#### DOS demo and other retail editions
+
+The five Renegade language archives and the DOS Games Archive package all
+contain the same `ZED.EXE`. The Virgin archive contains a second build.
+Both are 32-bit x86 DOS/4GW LE executables. Their first code object starts
+at VA `0x10000`, file offset `0x58000`, with size `0xa1a04`.
+The embedded assembly stamps agree with the ZIP entry timestamps.
+
+| Demo | Version | Timestamp | Bytes | Executable SHA-256 |
+| --- | --- | --- | ---: | --- |
+| Renegade, five languages | `0.013071HS` | 1996-08-13 13:39 | 2,190,905 | `03af8dae03838e4037e6bd19b7ac4b9979cffb25fe6d43adc3442a9b5f40b720` |
+| Virgin | `0.013062HS` | 1996-08-12 19:51 | 2,190,937 | `96990c3f583c62a253119943c10701b72406e56158e7973e9b97d3b154c7c0b9` |
+
+- **Confirmed.** The two demos have identical bytes in the commander
+  interval `[0x8bae5,0x90d75)` after masking the same 877 four-byte LE
+  fixup locations. The task table bases are `0x17accc` (Renegade)
+  and `0x17acec` (Virgin), with 240 rows of 22 bytes. Both have 56
+  fixups to the table base and one to `+0x10`, the flag test at
+  `0x90b6a`. The two references outside the commander interval
+  initialize row offsets 0 and `+0x10` (`0x4a58b`) or discard the
+  computed pointer (`0x6d6ba`). The installed retail build has four
+  additional save/load references to the task table.
+- **Confirmed.** Both demos read task 7 in the idle cleanup at
+  `0x8bf27` and the service validator at `0x8e984`. The validator
+  tests signed current and maximum building HP at `0x8eb09` and
+  changes a finished or invalid order to 8 at `0x8ea64`. The native
+  return-home pass recognizes occupied Fire Truck type `0x26` at
+  `0x8f280` and assigns **8** at `0x8f288`. The neighboring
+  `0x8f2db` and `0x8f2dc` return immediately. No LE fixup or
+  relative near call or jump to either stub was found in the
+  demos or at their retail counterparts. The dead-building
+  dispatcher starts at `0x8f2dd` and the Crane assignment writes
+  **9** at `0x8f6f4`. No task 7 store was identified.
+- **Disproven lead.** The damaged-building pointer list
+  (`0x1e49fc` in Renegade, `0x1e4a1c` in Virgin) has one fixup
+  into its 35-entry span, at its initializer `0x3f116`. The three
+  fixups to its cursor (`0x131a4c` or `0x131a6c`) initialize it
+  at `0x3f121` or append through it at `0x3bebc` and `0x3bec5`.
+  No consumer was identified.
+- **Confirmed.** Both demo placement loops skip Fire Truck object
+  type `0x25` at `0x1881f`. The opening-squad conversion
+  `0x4c00a..0x4c069` includes Crane category `0x0c` and omits
+  Fire Truck category `0x0d`. Both `ROBOTS.DAT` versions retain
+  group 15 with robot 15, weapon 14, and category `0x0d` at weapon
+  offset `+1`. The bundled `LEVEL06` placement and CPU files are
+  byte-identical across the six publisher archives. None of the 86
+  active object records has type `0x25` or Crane type `0x24`.
+  No active CPU starting group is group 15. The 36 loose retail
+  `OBJECTnn.DAT` files also contain no active type `0x25` and
+  the corresponding `CPUPLRnn.DAT` files contain no active group 15.
+  The demo compare against `0x25` at `0x9d41c` belongs to a
+  format-string parser. Its branch calls the field parser at
+  `0x9d60d`, which reads decimal widths and `*`.
+- **Confirmed.** Fire Truck group 15 is at zero-based index 17 in
+  the retail manual production cycle at `0x12ecb9`. The forward
+  chooser at `0x2515e..0x25175` wraps before index 17 when the mode
+  byte `0x10e91e` is zero and before index 16 when it is nonzero.
+  The reverse chooser at `0x251c5..0x251db` wraps to index 16 or 15,
+  respectively. Neither mode's ordinary product cycle reaches Fire
+  Truck. The same forward bounds appear in the demo at `0x2265e`.
+- **Retail copy and scope.** The `ZED.EXE` in the RetroGames.cz
+  DOS FAT16 image matches the installed retail fingerprint
+  `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`
+  byte for byte. The executable's embedded version is `0.011862MM`.
+  Regional DOS v1.00 pressings and the 1998 native
+  Windows `Z and Z Expansion Kit` are cataloged. No independently
+  verified executable from those pressings was available for this
+  comparison. The indexed Windows rip advertises a fan patch.
+  The Bitmap Brothers' 1996 single-player guide omits Fire Truck
+  from its vehicle roster on page 4 and its multiplayer guide does
+  not mention it. Both guides predate Z95.
+- **Retail save.** The same image contains a populated 576,590-byte
+  `SAVE0.Z`, SHA-256
+  `3d1769461c185d0b2c7981007e70b778f29f78f9ce7df049629b0066b6facecc`.
+  Its eight-byte tag at file offset `0x2b` is `0.011862`, the
+  version prefix written by `0x1bb7f`. The 58 write lengths from
+  `0x1bb1c` through `0x1c367` total `0x3ce8a` bytes, locating
+  the task table copied by `0x1c389` and restored by `0x1cf17`.
+  The save-time pointer fixup at `0x1d895` changes row dwords at
+  `+0`, `+4` and `+0x0c`. Task and active bytes retain their
+  in-memory offsets. Only rows 120–123 are active. Their task bytes
+  are `00 00 ff ff`, and none of the 240 rows contains task 7.
+  This is one saved state from the matching DOS build.
+
+**Unknown.** These static comparisons establish no gameplay assignment
+of task 7 and no build with an enabled Fire Truck. The existing validator
+port has no verified trigger to add.
+
+Reproduce with the `ZED.EXE` extracted from each publisher ZIP. For
+`base`, use `0x17accc` for Renegade or `0x17acec` for Virgin.
+
+```sh
+unzip -p "$zip" ZED.EXE > "$exe"
+shasum -a 256 "$exe"
+rabin2 -R "$exe" | perl -ane '
+  BEGIN { $base = hex shift @ARGV }
+  next unless $F[-1] =~ /^0x/;
+  $va = hex $F[-1];
+  print if $va >= $base && $va < $base + 0x14a0;
+' "$base"
+r2 -q -e bin.cache=true -e bin.relocs.apply=true \
+  -c 'pd 18 @ 0x18801' -c 'pd 26 @ 0x4c001' \
+  -c 'pd 20 @ 0x8e958' -c 'pd 13 @ 0x8eb09' \
+  -c 'pd 17 @ 0x8f262' -c 'pd 8 @ 0x8f2da' \
+  -c 'pd 12 @ 0x3f111' -c 'pd 8 @ 0x3bebc' -c q "$exe"
+```
+
+With `SAVE0.Z` extracted from the FAT16 partition at LBA 63 in
+`z.img`, reproduce the saved task check with:
+
+```sh
+perl -e '
+  local $/;
+  $save = <>;
+  for $row (0 .. 239) {
+    ($task, $active) = unpack("x17Cx3C", substr($save, 0x3ce8a + 22 * $row, 22));
+    printf "%d %02x\n", $row, $task if $active || $task == 7;
+  }
+' SAVE0.Z
+```
+
 ### Bridge timer and segment effects
 
 - **Confirmed.** `0x29803` initializes bridge runtime stock at

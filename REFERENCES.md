@@ -1,5 +1,29 @@
 # Reverse Engineering References
 
+### Z demo and retail task 7 comparison (2026-11-11)
+
+- RGB Classic Games' [Z demo catalog](https://www.classicdosgames.com/game/Z.html)
+  supplies the [Virgin archive](https://www.classicdosgames.com/files/games/bitmap/z_demo.zip)
+  and five Renegade language archives, including
+  [English](https://www.classicdosgames.com/files/games/bitmap/ZDemo-English.zip).
+  The [DOS Games Archive package](https://www.dosgamesarchive.com/file/z/z)
+  contains the same executable as Renegade.
+- The [RetroGames.cz DOS package](https://www.retrogames.cz/download_DOS.php?IMGsize=512,63,2,812&ROMfile=http://www.retrogames.cz/dos/z.zip&id=523&prikaz=z)
+  supplies a FAT16 disk image with the installed retail executable
+  fingerprint. The ZIP SHA-256 is
+  `4a1429e254a4abd581a567baa6cf86221e5ede2b150c766c525853c5b6522eaf`.
+- [Redump's disc index](https://redump.info/discs?letter=Z&region=&status=&system=)
+  identifies the regional DOS and Windows pressings.
+  The [Z95 release catalog](https://www.mobygames.com/game/38930/z-and-z-expansion-kit/releases/windows/)
+  identifies the Windows port. The [Old-Games.ru Windows archive listing](https://www.old-games.ru/game/1838.html)
+  describes its copy as patched.
+- The Bitmap Brothers'
+  [single-player guide](https://www.lamaisonbleue.net/infos/z/Z-Single_Player_Game_Guide.pdf)
+  and [multiplayer guide](https://www.lamaisonbleue.net/infos/z/Z-Multi-Player_Game_Guide.pdf)
+  document the 1996 game. Executable fingerprints, layout and static
+  comparisons are in the
+  [DOS demo and retail findings](docs/Z_EXE_FINDINGS.md#dos-demo-and-other-retail-editions).
+
 ### Z retail task 7 runtime trace (2026-11-11)
 
 - Local DOS `data/Z/ZED.EXE`, `ROBOTS.DAT` and LEVEL20 data.
