@@ -54,6 +54,60 @@ rather than direct calls, so look for the routine's address as data as well.
 | 0x458c2 | Per-world cliff tiles to 0xe797d |
 | 0x136aa | Level start: calls 0x452f2 to build the cliffs |
 
+### Where the retail commander gets its data (2026-11-11)
+
+The local DOS build runs the commander as native x86 code in `ZED.EXE`
+(SHA-256 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`).
+At `0x9b1e4` the dispatcher calls intelligence adjustment (`0x982c8`).
+Its branches call scoring (`0x987a4`), allocation (`0x9b679`), offensive
+orders (`0x98d58`), building and bridge responses (`0x9c58d` and `0x9c68b`),
+recapture (`0x9c174`), repair orders (`0x9bc08`) and defence (`0x9d115`).
+These are direct calls inside the executable. The installed loose-file
+inventory and all 175 member names in `WARDATA.PAC`, `DOOR.PAC`,
+`HEADFX.PAC` and `SHEADFX.PAC` yielded no separate AI script or module.
+This check covers the local DOS installation.
+
+Retail files supply inputs the port already reads in `games/z/w_lvl.c`:
+
+- `LEVELS.DAT` selects the CPU-player, roster and multiplier files at
+  descriptor offsets `0x2e`, `0x21` and `0x6f` (`0x4f740`). All 36 installed
+  `CPUPLRnn.DAT` files are 2217 bytes. `0x4f40a` loads the selected file to
+  `0x18cadc`. It supplies territory geometry, flags and importance, starting
+  squads and their initial destinations, intelligence, force allocation and
+  production settings. In LEVEL01, intelligence is 55, allocation is 40,
+  and the enabled squads' destination bytes are `1,3,0,0`. At `0x9da1a`
+  the code converts a nonzero destination byte to a territory index and
+  `0x9da41` calls the native order routine. These records encode opening
+  assignments. The full meaning of `CPUPLR` byte `0x8a3` remains unknown.
+- `ROBOTS.DAT` supplies squad, robot and weapon records. `MULT.DAT` supplies
+  the 628-byte valuation and production weight block loaded by `0x4f694`.
+  `WARDATA.PAC` contains the 2048-byte `SQROOT.BIN` loaded at `0x70bf5`.
+  Territory distance ranking uses its first 1024 divisors (`0x9a29c`).
+- `LEVELnn.MAP`, `BUILDnn.DAT`, `OBJECTnn.DAT` and `BRIDGEnn.DAT` supply
+  the world the commander evaluates. The two `preset*.wal` names in
+  `LEVELS.DAT` are absent from the local install and its archives. The
+  calls passing those names at `0x56d74`, `0x56d8c` and `0x56db9` reach
+  `0x56dd7` (which copies 12 starting group bytes from descriptor `+0x55`)
+  or `0x56dfc` (an immediate return).
+
+Recheck the executable and archive directories without executing retail code:
+
+```sh
+shasum -a 256 data/Z/ZED.EXE
+r2 -q -e bin.cache=true -e bin.relocs.apply=true \
+  -c 'pd 24 @ 0x4f740' -c 'pD 0x495 @ 0x9b1e4' \
+  -c 'pd 22 @ 0x56dd7' -c q data/Z/ZED.EXE
+find data/Z -iname 'cpuplr*.dat' -exec wc -c {} +
+for pac in data/Z/*.PAC; do
+  count=$(tail -c 8 "$pac" | od -An -N4 -tu4)
+  printf '%s (%d members)\n' "$pac" "$count"
+  tail -c "$((count * 24 + 8))" "$pac" | strings -n 5
+done
+```
+
+The existing C commander is the starting point for completing the missing
+passes documented under [Commander passes and unit statistics](#commander-passes-and-unit-statistics-2026-11-06).
+
 ## Drawing
 
 | Address | What it does |

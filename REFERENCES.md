@@ -1,5 +1,19 @@
 # Reverse Engineering References
 
+### Z commander input inventory (2026-11-11)
+
+- Local DOS `data/Z/ZED.EXE`, loose files and all four installed JMP2
+  archive directories. Static Radare2 LE analysis verified the data loads,
+  the opening-order records and the dispatcher's direct native calls.
+  Reproduction commands and scope are in
+  [Where the retail commander gets its data](docs/Z_EXE_FINDINGS.md#where-the-retail-commander-gets-its-data-2026-11-11).
+- The [Zod Engine project](https://zod.sourceforge.net/index.php) describes
+  its independent remake and bot support. The
+  [OpenZ credits](https://github.com/playopenz/OpenZ/blob/main/docs/CREDITS.md)
+  trace its bot to Zod Engine's `zbot.cpp`. These establish the provenance
+  of the two remake implementations. Retail behavior here was verified
+  against the local executable and game data.
+
 ### Z commander passes and unit statistics (2026-11-06)
 
 - Local retail `data/Z/ZED.EXE` (SHA-256 unchanged) and `ROBOTS.DAT`, read
