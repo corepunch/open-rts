@@ -1863,11 +1863,21 @@ and vehicle armor separately for each crew member, rather than multiplying
 damage before one armor and driver-hit roll. Each roll uses the existing
 deterministic Z coin with a per-shot salt, not the retail random stream;
 the engine applies all shots to its single current target and stops if that
-target is removed or changes team. Pyro-driven APCs retain the earlier
-combined-damage fallback because native APC flame creation is unported.
+target is removed or changes team. For a Pyro driver, the coordinate-target
+loop `0x1eb94..0x1ebb3` increments each member's byte +0xb0 modulo 16 for
+every driver class and dispatches Pyro flame only when the resulting phase
+is below 4. The scanner loop
+`0x1eab2..0x1eacb` instead uses a threshold of 10. Open-rts applies the
+coordinate-target gate to its single-target attacks, retaining each member's
+phase through boarding, ejection and save/load. The engine still approximates
+flame as an immediate hit: native flame projectile `0x5a099` and its ground
+fire are unported, and native mode selection remains unknown. The robot
+record is initially zeroed at `0x5109c..0x510a3`; other possible uses of
+byte +0xb0 have not been fully traced.
 `test_combat` checks three Grunt bullets against infantry, three Sniper
 bullets against tank armor, individual driver/body hit outcomes and the
-three-Pyro fallback. `test_combat`
+three-Pyro firing phases, independent crew phases, and save/load. `test_capture`
+checks phase preservation through boarding and ejection. `test_combat`
 also checks scatter bounds and variation, identical
 aims and consistency hash after restoring the same state, independent shell
 impacts, save/load and a full 21-member salvo. Inspect with `r2 -q -e bin.cache=true

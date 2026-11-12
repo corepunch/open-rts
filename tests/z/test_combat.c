@@ -423,7 +423,49 @@ static int test_apc_bullet_salvo(void) {
     apc->attack.target = robot;
     P_UpdateSight();
     if (!P_Attack(apc) || robot->hp != 440)
-        return fail("unimplemented APC flame retains combined crew damage");
+        return fail("three eligible APC Pyros each hit");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_apc_pyro_phase(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for APC Pyro phase");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
+    if (!apc || !target) return fail("spawn APC Pyro fixture");
+    apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
+    apc->z.crew_count = 3;
+    uint32_t apc_id = apc->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    for (int i = 1; i <= 16; ++i) {
+        int hp = target->hp;
+        if (!Z_Attack(apc, &apc->info->attack, target) ||
+            target->hp != hp - ((i <= 3 || i == 16) ? 60 : 0))
+            return fail("APC Pyro fires only during four phases of sixteen");
+        for (int j = 0; j < 3; ++j)
+            if (apc->z.crew[j].flame_phase != (i & 15)) return fail("each Pyro phase advances");
+        if (i == 4 && !G_SaveGameBlob(&save, &size, "APC flame phase", &app, rts_game_model_ai(model), &hud))
+            return fail("save APC flame phase");
+    }
+    if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("restore APC flame phase");
+    free(save);
+    apc = P_MobjById(apc_id); target = P_MobjById(target_id);
+    if (!apc || !target || apc->z.crew[0].flame_phase != 4) return fail("restore crew flame phase");
+    uint32_t hash = G_Consistency();
+    apc->z.crew[1].flame_phase = 2;
+    if (G_Consistency() == hash) return fail("crew phase contributes to consistency");
+    apc->z.crew[2].flame_phase = 15;
+    int hp = target->hp;
+    if (!Z_Attack(apc, &apc->info->attack, target) || target->hp != hp - 40 ||
+        apc->z.crew[0].flame_phase != 5 || apc->z.crew[1].flame_phase != 3 ||
+        apc->z.crew[2].flame_phase != 0) return fail("independent crew phases survive restoration");
+    apc->z.crew_count = 0;
+    apc->z.flame_phase = 3;
+    hash = G_Consistency();
+    if (!Z_Attack(apc, &apc->info->attack, target) || target->hp != hp - 40 ||
+        apc->z.flame_phase != 4 || G_Consistency() == hash) return fail("implicit driver phase advances and is hashed");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -810,7 +852,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

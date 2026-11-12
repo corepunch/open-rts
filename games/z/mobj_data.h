@@ -3,7 +3,7 @@
 
 enum { Z_CREW_MAX = 21 }; /* ROBOTS.DAT group has 21 member slots. */
 enum { Z_GUN_STOCK = 4 }; /* Native building +0x4b..+0x4e. */
-typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manufactured; } zcrew_t;
+typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home, flame_phase; bool manufactured; } zcrew_t;
 typedef struct { fixed3_t position; uint32_t target; int order; } zroute_step_t;
 typedef struct {
     zroute_step_t steps[MAXWAYPOINTS];
@@ -36,7 +36,7 @@ typedef struct {
     uint16_t robot; /* ROBOTS.DAT record + 1, retained for native AI valuation. */ \
     uint8_t cliff_block, home; \
     uint8_t object, building; /* Native OBJECT type / BUILD record index + 1. */ \
-    uint8_t driver, squad, squad_slot, formation, formation_direction, grenades, territory; \
+    uint8_t driver, squad, squad_slot, formation, formation_direction, grenades, territory, flame_phase; \
     bool formation_active, formation_rejoin; \
     uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
@@ -56,7 +56,7 @@ typedef struct {
         HASH((mo)->z.route.steps[zi].order); HASH((mo)->z.route.steps[zi].target); \
         HASH((mo)->z.route.steps[zi].position.x); HASH((mo)->z.route.steps[zi].position.y); HASH((mo)->z.route.steps[zi].position.z); \
     } \
-    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.formation); HASH((mo)->z.formation_direction); HASH((mo)->z.formation_active); HASH((mo)->z.formation_rejoin); HASH((mo)->z.grenades); \
+    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.formation); HASH((mo)->z.formation_direction); HASH((mo)->z.formation_active); HASH((mo)->z.formation_rejoin); HASH((mo)->z.grenades); HASH((mo)->z.flame_phase); \
     HASH((mo)->z.rebuild_stock); HASH((mo)->z.rebuild_setting); \
     HASH((mo)->z.debris.origin.x); HASH((mo)->z.debris.origin.y); \
     HASH((mo)->z.debris.position.x); HASH((mo)->z.debris.position.y); \
@@ -73,7 +73,7 @@ typedef struct {
     HASH((mo)->z.crew_count); \
     for (int z_i = 0; z_i < (mo)->z.crew_count && z_i < Z_CREW_MAX; ++z_i) { \
         HASH((mo)->z.crew[z_i].hp); HASH((mo)->z.crew[z_i].robot); HASH((mo)->z.crew[z_i].type); \
-        HASH((mo)->z.crew[z_i].grenades); HASH((mo)->z.crew[z_i].home); HASH((mo)->z.crew[z_i].manufactured); \
+        HASH((mo)->z.crew[z_i].grenades); HASH((mo)->z.crew[z_i].home); HASH((mo)->z.crew[z_i].flame_phase); HASH((mo)->z.crew[z_i].manufactured); \
     } \
 } while (0)
 

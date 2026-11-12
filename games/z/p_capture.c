@@ -131,7 +131,8 @@ static void store_crew(mobj_t *vehicle, mobj_t *robot) {
     if (vehicle->z.crew_count >= Z_CREW_MAX) return;
     vehicle->z.crew[vehicle->z.crew_count++] = (zcrew_t){
         .hp = robot->hp, .robot = robot->z.robot, .type = (uint8_t)Z_UnitType(robot),
-        .grenades = robot->z.grenades, .home = robot->z.home, .manufactured = robot->z.manufactured,
+        .grenades = robot->z.grenades, .home = robot->z.home, .flame_phase = robot->z.flame_phase,
+        .manufactured = robot->z.manufactured,
     };
     Z_SquadLeave(robot);
     Z_DetourCancel(robot);
@@ -220,7 +221,7 @@ bool Z_EjectCrew(mobj_t *vehicle) {
         zcrew_t crew = vehicle->z.crew_count ? vehicle->z.crew[i] : (zcrew_t){
             .type = (uint8_t)(vehicle->z.driver - 1), .robot = vehicle->z.robot,
             .hp = mobjinfo[MT_UNITS + vehicle->z.driver - 1].spawnhealth,
-            .home = vehicle->z.home, .manufactured = vehicle->z.manufactured,
+            .home = vehicle->z.home, .flame_phase = vehicle->z.flame_phase, .manufactured = vehicle->z.manufactured,
         };
         mobj_t *robot = P_SpawnMobj(vehicle->core.position, (uint16_t)(MT_UNITS + crew.type));
         if (!robot) {
@@ -231,6 +232,7 @@ bool Z_EjectCrew(mobj_t *vehicle) {
         robot->hp = crew.hp - (i == 0 ? vehicle->z.crew_hurt : 0);
         robot->z.robot = crew.robot;
         robot->z.grenades = crew.grenades;
+        robot->z.flame_phase = crew.flame_phase;
         robot->z.home = crew.home;
         robot->z.manufactured = crew.manufactured;
         Z_SetTeam(robot, team);
@@ -493,6 +495,18 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (apc) {
         if (!valid_crew(attacker)) return true;
         t = attacker->z.driver - 1;
+    }
+    if (apc && target && weapon) {
+        int count = attacker->z.crew_count ? attacker->z.crew_count : 1;
+        int team = target->team;
+        const mobjtype_t *driver = P_ActorType(MT_UNIT_PYRO);
+        for (int i = 0; i < count; ++i) {
+            uint8_t *phase = attacker->z.crew_count ? &attacker->z.crew[i].flame_phase : &attacker->z.flame_phase;
+            *phase = (*phase + 1) & 15;
+            if (t == MT_UNIT_PYRO - MT_UNITS && *phase < 4 && live(target) && target->team == team && driver)
+                P_DamageMobj(target, attacker, driver->attack.damage);
+        }
+        if (t == MT_UNIT_PYRO - MT_UNITS) return true;
     }
     if (apc && fires_bullets(t) && target && weapon) {
         int count = attacker->z.crew_count ? attacker->z.crew_count : 1;

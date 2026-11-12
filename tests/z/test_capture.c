@@ -360,6 +360,7 @@ static int test_apc_crew(void) {
     first->z.squad = second->z.squad = 250;
     first->z.squad_slot = UINT8_MAX; second->z.squad_slot = 1;
     first->hp = 21; second->hp = 13;
+    first->z.flame_phase = 3; second->z.flame_phase = 12;
     mobj_t *apc = P_SpawnMobj(first->core.position, MT_UNIT_APC);
     if (!apc) return fail("spawn APC");
     Z_SetTeam(apc, Z_NEUTRAL);
@@ -375,6 +376,8 @@ static int test_apc_crew(void) {
     Z_RouteTick(first);
     if (first->z.board != apc->id || !tick(model, 2)) return fail("board APC");
     if (apc->z.crew_count != 2 || alive(first) || alive(second)) return fail("APC takes its squad");
+    if (apc->z.crew[0].flame_phase != 3 || apc->z.crew[1].flame_phase != 12)
+        return fail("boarding retains each crew phase");
     mobj_t *survivor = P_SpawnMobj(apc->core.position, MT_UNIT_GRUNT);
     if (!survivor) return fail("spawn outside squad survivor");
     Z_SetTeam(survivor, 0);
@@ -386,6 +389,8 @@ static int test_apc_crew(void) {
     int hp = victim->hp;
     if (!Z_Attack(apc, &apc->info->attack, victim) || victim->hp != hp - 10)
         return fail("APC fires one bullet per crew member");
+    if (apc->z.crew[0].flame_phase != 4 || apc->z.crew[1].flame_phase != 13)
+        return fail("non-Pyro APC firing advances crew phases");
     apc->core.position.z = FIXED_ONE;
     apc->type_id = MT_UNIT_GATLING;
     if (Z_EjectCrew(apc)) return fail("fort-wall crew cannot eject");
@@ -405,6 +410,8 @@ static int test_apc_crew(void) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || mo->remove || mo->type_id != MT_UNIT_GRUNT || mo->team != 0) continue;
         found21 += mo->hp == 21; found13 += mo->hp == 13;
+        if ((mo->hp == 21 && mo->z.flame_phase != 4) || (mo->hp == 13 && mo->z.flame_phase != 13))
+            return fail("ejected crew retain their phases");
         if (mo->z.squad == 250) {
             if (mo->z.squad_slot == UINT8_MAX) ++leaders;
             else if (mo->z.squad_slot && mo->z.squad_slot < Z_CREW_MAX && !slots[mo->z.squad_slot]) {
