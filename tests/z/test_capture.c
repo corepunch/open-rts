@@ -193,6 +193,96 @@ static int test_grenades(void) {
     return 0;
 }
 
+static int test_crate_order(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for crate order");
+    disarm();
+    mobj_t *box = nth(MT_GRENADES_2, -1, 0);
+    mobj_t *robot = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    if (!box || !robot) return fail("crate order fixture");
+    Z_SetTeam(robot, 0);
+    robot->core.position = box->core.position;
+    ticcmd_t cmd = {.order = TC_ORDER, .position = box->core.position, .count = 1, .units = {robot->id}};
+    mobj_t *fort = nth(MT_FORT, 0, 0);
+    if (!fort) return fail("crate rally fixture");
+    ticcmd_t rally = cmd; rally.units[0] = fort->id;
+    G_RunTiccmd(0, &rally);
+    if (fort->z.route.count != 1 || fort->z.route.steps[0].target ||
+        !fixed2_equal(fixed3_xy(fort->z.route.steps[0].position), fixed3_xy(box->core.position)))
+        return fail("factory rally over a crate remains positional");
+    G_RunTiccmd(0, &cmd);
+    if (robot->z.route.target != box->id || robot->z.route.active != TC_ORDER || robot->attack.target == box)
+        return fail("clicking a crate records its target in the route");
+    robot->z.grenades = 1;
+    Z_RouteTick(robot);
+    if (robot->z.route.target || robot->z.route.active)
+        return fail("pickup route cancels when the squad gains grenades");
+    robot->z.grenades = 0;
+    G_RunTiccmd(0, &cmd);
+    if (robot->z.route.target != box->id) return fail("empty squad can order another pickup");
+    P_RemoveMobj(box);
+    Z_RouteTick(robot);
+    if (robot->z.route.target || robot->z.route.active || P_HasMoveOrder(robot))
+        return fail("removed crate cancels the pickup route");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_crate_order_travel(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for travelling crate order");
+    disarm();
+    mobj_t *box = nth(MT_GRENADES_2, -1, 0);
+    mobj_t *leader = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    mobj_t *follower = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    if (!box || !leader || !follower) return fail("travelling crate fixture");
+    Z_SetTeam(leader, 0); Z_SetTeam(follower, 0);
+    uint8_t squad = Z_AllocateSquad(0);
+    leader->z.squad = follower->z.squad = squad;
+    leader->z.squad_slot = UINT8_MAX; follower->z.squad_slot = 1;
+    ivec2_t start = {0}, goal = {0};
+    bool found = false;
+    for (int y = 2; y < level.height - 2 && !found; ++y)
+        for (int x = 2; x < level.width - 7; ++x)
+            if (L_IsWalkable(&level, x, y) && L_IsWalkable(&level, x + 4, y)) {
+                fixed2_t a = fixed2_cell_center((ivec2_t){x, y});
+                fixed2_t b = fixed2_cell_center((ivec2_t){x + 4, y});
+                int cls = P_MobjMoveClass(leader);
+                if (!P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, a), P_NavNodeAt(&level, cls, b))) continue;
+                start = (ivec2_t){x, y}; goal = (ivec2_t){x + 4, y}; found = true; break;
+            }
+    if (!found || !squad) return fail("find reachable crate path");
+    place(leader, start); place(follower, start); place(box, goal);
+    ticcmd_t pickup = {.order = TC_ORDER, .position = box->core.position,
+                       .count = 2, .units = {leader->id, follower->id}};
+    G_RunTiccmd(0, &pickup);
+    if (leader->z.route.target != box->id || follower->z.route.target)
+        return fail("a squad click gives its leader one pickup route");
+    ticcmd_t next = {.order = TC_MOVE, .position = fixed3_from_fixed2(fixed2_cell_center(start), 0),
+                     .queued = true, .count = 1, .units = {leader->id}};
+    G_RunTiccmd(0, &next);
+    if (leader->z.route.count != 1) return fail("movement queues after pickup");
+    for (int i = 0; i < 30 * RTS_TICRATE && (alive(box) || leader->z.route.count); ++i)
+        if (!tick(model, 1)) return fail("tick travelling pickup");
+    if (alive(box) || leader->z.route.count || leader->z.route.active != TC_MOVE ||
+        leader->z.grenades + follower->z.grenades != 20)
+        return fail("travelling squad picks up and continues its queued move");
+    leader->z.grenades = follower->z.grenades = 0;
+    box = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(goal), 0), MT_GRENADES_2);
+    if (!box) return fail("spawn queued crate");
+    pickup.position = box->core.position; pickup.queued = true;
+    G_RunTiccmd(0, &pickup);
+    if (leader->z.route.count != 1 || leader->z.route.steps[0].target != box->id)
+        return fail("crate target queues behind movement");
+    P_RemoveMobj(box);
+    for (int i = 0; i < 30 * RTS_TICRATE && (leader->z.route.active || leader->z.route.count); ++i)
+        if (!tick(model, 1)) return fail("tick removed queued crate");
+    if (leader->z.route.count || leader->z.route.active || leader->z.grenades || follower->z.grenades)
+        return fail("removed queued crate is skipped after movement");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 /* 0x79b25 checks native sprite origins in a strict 16px square. */
 static int test_crate_reach(void) {
     RtsGameModel *model = load();
@@ -364,6 +454,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_grenades() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_grenades() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

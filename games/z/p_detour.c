@@ -172,7 +172,7 @@ static bool flag_destination(const zmap_t *map, const mobj_t *unit) {
     return false;
 }
 
-static bool crate_eligible(const mobj_t *unit, const mobj_t *target) {
+bool Z_CrateEligible(const mobj_t *unit, const mobj_t *target) {
     int type = Z_UnitType(unit);
     if ((target->type_id != MT_GRENADES && target->type_id != MT_GRENADES_2) ||
         (type != MT_UNIT_GRUNT - MT_UNITS && type != MT_UNIT_PYRO - MT_UNITS &&
@@ -193,7 +193,7 @@ static bool destination(const zmap_t *map, const mobj_t *unit, const mobj_t *tar
     if (!origin(map, target, &at)) return false;
     if (target->type_id == MT_FLAG) return Z_UnitCentre(map, Z_UnitType(unit), at, goal);
     ivec2_t offset;
-    if (crate_eligible(unit, target)) offset = (ivec2_t){0,0};
+    if (Z_CrateEligible(unit, target)) offset = (ivec2_t){0,0};
     else if (Z_IsRobot(Z_UnitType(unit)) && Z_Enterable(target)) {
         int sprite = states[target->core.state_id].frame;
         if (sprite == 0x1435) return false; /* APC requires an explicit target at 0x611a7. */

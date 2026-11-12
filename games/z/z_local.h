@@ -149,6 +149,7 @@ bool Z_LoadUISprites(const char *root, const int *indices, int count, spriteshee
 /* p_capture.c: flags, vehicles and grenades, run once a tic. */
 void Z_Ticker(void);
 void Z_DetourTicker(void);
+bool Z_CrateEligible(const mobj_t *unit, const mobj_t *target);
 void Z_DetourCancel(mobj_t *unit);
 void Z_DetourCaptured(mobj_t *unit, mobj_t *flag);
 bool Z_DetourBoard(mobj_t *unit, mobj_t *target);

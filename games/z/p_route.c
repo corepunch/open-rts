@@ -37,13 +37,17 @@ static bool service(mobj_t *unit, mobj_t *target) {
     return Z_ServiceApproach(unit, target, &goal) && Z_ServiceOrder(unit, target, goal);
 }
 
+static bool crate_target(const mobj_t *target) {
+    return target && (target->type_id == MT_GRENADES || target->type_id == MT_GRENADES_2);
+}
+
 static bool done(const mobj_t *unit) {
     const zroute_t *route = &unit->z.route;
     if (!route->active) return true;
     if (unit->z.board || unit->z.service || unit->z.detour.phase || unit->waypoints.count) return false;
     if ((route->active == TC_ATTACK || route->active == TC_ORDER) && route->target) {
         const mobj_t *target = Z_ServiceTarget(route->target);
-        if (target && target->hp > 0 && P_CanTarget(unit, target)) return false;
+        if (target && target->hp > 0 && !crate_target(target) && P_CanTarget(unit, target)) return false;
     }
     return !P_HasMoveOrder(unit) && !unit->movement.plan_pending;
 }
@@ -57,7 +61,7 @@ static void issue(mobj_t *unit, const zroute_step_t *step) {
     ticcmd_t cmd = {.order = step->order, .position = step->position, .target = step->target,
                     .internal = true, .count = 1, .units = {unit->id}};
     const mobj_t *target = Z_ServiceTarget(step->target);
-    if (cmd.order == TC_ORDER && target && P_CanTarget(unit, target)) cmd.order = TC_ATTACK;
+    if (cmd.order == TC_ORDER && target && !crate_target(target) && P_CanTarget(unit, target)) cmd.order = TC_ATTACK;
     G_RunTiccmd(unit->owner, &cmd);
 }
 
@@ -83,6 +87,25 @@ static mobj_t *clicked_wreck(const mobj_t *unit, fixed3_t position) {
     return NULL;
 }
 
+/* Zod zplayer.cpp:4208 chooses a pickup waypoint for a clicked grenade box.
+ * Boxes are not selectable here, so resolve the click against native art. */
+static mobj_t *clicked_crate(const mobj_t *unit, fixed3_t position) {
+    const zmap_t *map = level.native_data;
+    if (!map) return NULL;
+    ivec2_t at = fixed2_cell(fixed2_scale(fixed3_xy(position), FIXED_FROM_INT(Z_TILE)));
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *box = (mobj_t *)th;
+        if (box->remove || box->hp <= 0 || !Z_CrateEligible(unit, box)) continue;
+        isize2_t size;
+        if (!Z_SpriteSize(map, states[mobjinfo[box->type_id].spawnstate].frame, &size)) continue;
+        ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
+        irect_t bounds = {centre.x - size.w / 2, centre.y - size.h / 2, size.w, size.h};
+        if (irect_contains(bounds, at)) return box;
+    }
+    return NULL;
+}
+
 void Z_RouteTick(mobj_t *unit) {
     zroute_t *route = &unit->z.route;
     if (!route->active && !route->count) return;
@@ -95,12 +118,13 @@ void Z_RouteTick(mobj_t *unit) {
         !unit->z.board && !unit->z.service) {
         mobj_t *target = Z_ServiceTarget(route->target);
         fixed2_t entrance;
-        if (!target || target->hp <= 0 ||
+        if (!target || target->hp <= 0 || (crate_target(target) && !Z_CrateEligible(unit, target)) ||
             ((route->active == TC_ATTACK || target->type_id == MT_FORT) &&
              !P_CanTarget(unit, target) && !fort_entry(unit, target, &entrance))) {
             P_ClearMove(unit);
             unit->movement.order_arrived = true;
             unit->attack.target = NULL;
+            route->target = 0;
         }
     }
     if (!done(unit)) return;
@@ -112,6 +136,7 @@ void Z_RouteTick(mobj_t *unit) {
         route->steps[route->count] = (zroute_step_t){0};
         mobj_t *target = Z_ServiceTarget(step.target);
         if (!queueable(step.order) || (step.target && !target) ||
+            (crate_target(target) && !Z_CrateEligible(unit, target)) ||
             ((step.order == TC_ATTACK || step.order == TC_BOARD || step.order == TC_REPAIR) && !target) ||
             ((step.order == TC_ORDER || step.order == TC_MOVE) &&
              !L_Contains(&level, fixed_floor_int(step.position.x), fixed_floor_int(step.position.y))) ||
@@ -121,7 +146,7 @@ void Z_RouteTick(mobj_t *unit) {
         fixed2_t goal;
         if ((step.order == TC_REPAIR && !Z_ServiceApproach(unit, target, &goal)) ||
             (step.order == TC_ATTACK && target->type_id == MT_FORT && !fort_entry(unit, target, &goal))) continue;
-        if (step.order == TC_ORDER && target && P_CanTarget(unit, target)) step.order = TC_ATTACK;
+        if (step.order == TC_ORDER && target && !crate_target(target) && P_CanTarget(unit, target)) step.order = TC_ATTACK;
         route->active = step.order;
         route->target = step.target;
         issue(unit, &step);
@@ -258,8 +283,12 @@ bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
         if (step.order == TC_ORDER && !step.target) {
             mobj_t *wreck = clicked_wreck(unit, step.position);
             if (wreck) { step.order = TC_REPAIR; step.target = wreck->id; }
+            else {
+                mobj_t *box = clicked_crate(unit, step.position);
+                if (box) { step.target = box->id; step.position = box->core.position; }
+            }
         }
-        if (step.order == TC_ORDER && target && P_CanTarget(unit, target)) step.order = TC_ATTACK;
+        if (step.order == TC_ORDER && target && !crate_target(target) && P_CanTarget(unit, target)) step.order = TC_ATTACK;
         if ((step.order == TC_ORDER || step.order == TC_ATTACK) && target && service_allowed(unit, target))
             step.order = TC_REPAIR;
         if (step.order == TC_REPAIR && !service_allowed(unit, Z_ServiceTarget(step.target))) continue;
@@ -293,7 +322,10 @@ bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
         ticcmd_t immediate = *cmd;
         immediate.order = step.order;
         immediate.target = step.target;
-        if (step.order == TC_ORDER && step.target && P_CanTarget(unit, Z_ServiceTarget(step.target))) immediate.order = TC_ATTACK;
+        immediate.position = step.position;
+        mobj_t *step_target = Z_ServiceTarget(step.target);
+        if (step.order == TC_ORDER && step_target && !crate_target(step_target) && P_CanTarget(unit, step_target))
+            immediate.order = TC_ATTACK;
         immediate.internal = true;
         immediate.queued = false;
         immediate.count = 1;
