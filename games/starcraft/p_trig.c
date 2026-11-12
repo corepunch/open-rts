@@ -449,8 +449,7 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     int l, t, r, b;
     if (!loc_box(m, loc ? loc : 64, &l, &t, &r, &b)) return;
     bool props = (a[28] & 8) != 0;
-    int count = props ? 1 : (number ? (int)number : 1);
-    if (count > 64) count = 64;
+    int count = a[26] == 44 ? a[27] : 1;
     for (int i = 0; i < n; i++) for (int c = 0; c < count; c++) {
         int col = c % 8, row = c / 8;
         ivec2_t pixel = {(l + r) / 2 + col * 32, (t + b) / 2 + row * 32};

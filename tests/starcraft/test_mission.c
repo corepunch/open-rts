@@ -166,10 +166,32 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-timer.chk");
 
+    uint8_t *action;
+    /* Create Unit stores its count in the action's byte at offset 27. */
+    for (int count = 0; count <= 3; count += 3) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22;
+        action = trig + 320;
+        put_u32(action, 64);
+        put_u16(action + 24, MT_MARINE - 1);
+        action[26] = 44; action[27] = (uint8_t)count;
+        CHECK(!write_map("/tmp/open-rts-sc-create.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create.chk", &level));
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t list = P_ListMobjs();
+        int created = 0;
+        for (int i = 0; i < list.count; i++)
+            if (list.items[i]->type_id == MT_MARINE && list.items[i]->owner == 0) created++;
+        CHECK(created == count);
+        P_FreeMobjList(&list);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-create.chk");
+
     trig = blank_trigger();
     CHECK(trig);
     trig[15] = 22;
-    uint8_t *action = trig + 320;
+    action = trig + 320;
     put_u32(action + 20, 5);
     action[26] = 26;
     action[27] = 8;
