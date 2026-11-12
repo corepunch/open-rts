@@ -427,6 +427,8 @@ static int dialogs(void) {
 }
 
 static int campaign_flow(void) {
+    SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+    CHECK(S_Init(root));
     /* Terran 01 won: Victory, the score, then Terran 02's briefing. */
     P_InitThinkers();
     sc_set_custom_slots(NULL, NULL);
@@ -436,18 +438,25 @@ static int campaign_flow(void) {
     sc_show_result(1);
     CHECK(!press(65534) && !strcmp(text(2), "Victory!"));
     CHECK(!press(7) && menuactive && M_MenuFind(currentmenu, 65526) && M_MenuFind(currentmenu, 13));
+    /* Terran 02's action 9 is a standalone WAV after the third transmission. */
+    sc_briefing_advance(1000 + 4141 + 500 + 13242 + 14883);
+    CHECK(sc_brief_voice_playing());
     CHECK(strstr(text(65525), "Marines") == NULL && text(65525)[0]); /* Terran 02's objectives */
     CHECK(!press(13) && menumap && strstr(menumap, "terran02"));
+    CHECK(!sc_brief_voice_playing());
     menumap = NULL;
     /* A loss briefs the same mission again. */
     sc_show_result(2);
     CHECK(!press(65534) && !press(7) && menuactive && M_MenuFind(currentmenu, 65526));
     CHECK(!press(13) && menumap && strstr(menumap, "terran01"));
     unload();
+    S_Shutdown();
     return 0;
 }
 
 static int briefing_script(void) {
+    SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+    CHECK(S_Init(root));
     sc_briefing_t script;
     CHECK(sc_briefing_script("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &script));
     CHECK(script.count == 13 && script.actions[1].op == SC_BRIEF_SHOW_PORTRAIT);
@@ -463,6 +472,7 @@ static int briefing_script(void) {
     CHECK(!text(65526)[0]);
     sc_briefing_advance(1100); /* past the one-second wait */
     CHECK(sc_briefing_slot(3, &talking) && talking && !strncmp(text(65526), "Adjutant Online", 15));
+    CHECK(sc_brief_voice_playing());
     draw("/private/tmp/starcraft-briefing-adjutant.bmp");
     sc_briefing_advance(26469 + 600); /* Duke appears in slot 0 and speaks */
     CHECK(sc_briefing_slot(0, &talking) && talking && sc_briefing_slot(3, &talking) && !talking);
@@ -472,8 +482,14 @@ static int briefing_script(void) {
     CHECK(!sc_briefing_slot(0, NULL) && !sc_briefing_slot(3, NULL) && strstr(text(65526), "End of Briefing"));
     /* Replay starts over. */
     CHECK(!press(20) && !text(65526)[0] && sc_briefing_slot(3, NULL));
+    CHECK(!sc_brief_voice_playing());
+    sc_briefing_advance(1100); CHECK(sc_brief_voice_playing());
     currentmenu->escape(currentmenu);
+    CHECK(!sc_brief_voice_playing());
+    CHECK(!press(7)); sc_briefing_advance(1100); CHECK(sc_brief_voice_playing());
+    CHECK(!press(14) && !sc_brief_voice_playing());
     M_ClearMenus();
+    S_Shutdown();
     return 0;
 }
 

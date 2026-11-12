@@ -86,6 +86,14 @@
 
 ### Z remake sources and Stargus reference recheck (2026-11-12)
 
+Zod's `src/zplayer_events.cpp` binds Ctrl+0–9 to assign a selection and
+0–9 to recall it; `src/zplayer.cpp` `LoadControlGroup` centres the view when
+the group is already selected. The shared input implementation centres when
+the current selection exactly matches its surviving members, and stores local,
+level-scoped object IDs outside saves and simulation checksums. This source
+does not establish the retail game's key bindings. `tests/input_regression.h`
+exercises assignment, recall, centring, and removal under the dummy video driver.
+
 Implementation follow-up: the pinned Zod `src/zserver_events.cpp`
 (`EJECT_VEHICLE`, rally-point messages), `src/zserver.cpp`
 (`RobotEnterObject`, manufactured-unit rally assignment), `src/vapc.cpp`

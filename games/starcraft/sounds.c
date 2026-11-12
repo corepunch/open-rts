@@ -9,8 +9,10 @@
  * Stargus's scripts/<race>/sound.lua agree on which ranges are which.
  * Nothing here touches game state or the gameplay RNG. */
 #include "sc_local.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 enum {
     SC_MAX_SFX_ROWS = 1144, /* Brood War's row count; the original disc has 968. */
@@ -46,6 +48,42 @@ static uint32_t pissed_at, alert_at[2];
 static uint32_t pissed_unit;
 static int pissed_clicks, pissed_next[SC_TYPES];
 int sc_dialog_click;
+static int briefing_sfx, briefing_channel;
+
+void sc_stop_brief_voice(void) {
+    S_StopChannel(briefing_channel);
+    briefing_channel = 0;
+    S_UnloadSound(briefing_sfx);
+}
+
+bool sc_brief_voice_playing(void) { return S_IsPlaying(briefing_channel); }
+
+void sc_brief_voice(const char *scenario, const char *wav) {
+    sc_stop_brief_voice();
+    if (!S_Sfx(briefing_sfx) || !scenario || !wav || !*wav || *wav == '/' || *wav == '\\') return;
+    char path[2048];
+    const char *end = strrchr(scenario, '/');
+    if (!end) return;
+    const char *parent = end;
+    while (parent > scenario && parent[-1] != '/') --parent;
+    if (parent == scenario) return;
+    size_t base = (size_t)(parent - scenario);
+    if (base + strlen(wav) >= sizeof(path)) return;
+    memcpy(path, scenario, base);
+    size_t n = base;
+    for (const char *p = wav; *p; ++p) {
+        unsigned char c = (unsigned char)*p;
+        if (c == ':' || (c == '.' && p[1] == '.' && (p == wav || p[-1] == '/' || p[-1] == '\\') &&
+                         (!p[2] || p[2] == '/' || p[2] == '\\'))) return;
+        path[n++] = c == '\\' ? '/' : (char)tolower(c);
+    }
+    path[n] = 0;
+    blob_t b = {0};
+    if (!access(path, R_OK) && W_ReadFile(path, &b)) {
+        if (S_LoadSound(briefing_sfx, b.bytes, b.size)) briefing_channel = S_StartLocalSound(briefing_sfx);
+        W_FreeFile(&b);
+    }
+}
 
 static int race_of(const sc_unit_t *u) {
     return u->race & 1 ? RACE_ZERG : u->race & 2 ? RACE_TERRAN : u->race & 4 ? RACE_PROTOSS : RACE_NONE;
@@ -165,6 +203,7 @@ static bool sc_sound_init(const char *root) {
     memset(pissed_next, 0, sizeof(pissed_next));
     pissed_clicks = 0; pissed_unit = 0; alert_at[0] = alert_at[1] = 0;
     sc_dialog_click = 0;
+    briefing_sfx = briefing_channel = 0;
     if (!sc_read(root, "arr/sfxdata.dat", &t.dat) || !sc_read(root, "arr/sfxdata.tbl", &t.tbl) ||
         !sc_read(root, "arr/units.dat", &t.units) || !sc_read(root, "arr/flingy.dat", &t.flingy) ||
         !sc_read(root, "arr/sprites.dat", &t.sprites) || !sc_read(root, "arr/images.dat", &t.images) ||
@@ -186,6 +225,8 @@ static bool sc_sound_init(const char *root) {
     /* Dialog buttons press with the glue sound; it has no sfxdata row. */
     sc_dialog_click = S_AddSfx(&(sfxinfo_t){0});
     if (!sc_dialog_click || !load(root, sc_dialog_click, "glue\\mousedown2.wav")) sc_dialog_click = 0;
+    briefing_sfx = S_AddSfx(&(sfxinfo_t){0});
+    if (!briefing_sfx) goto done;
     ok = true;
 done:
     W_FreeFile(&t.dat); W_FreeFile(&t.tbl); W_FreeFile(&t.units); W_FreeFile(&t.flingy);

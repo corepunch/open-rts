@@ -323,5 +323,8 @@ enum { SC_TECH_UI = 2000 };
 int sc_iscript_sounds(const blob_t *script, unsigned id, int anim, uint16_t *out, int max);
 /* sounds.c: native sfx; a dialog button's press sound, 0 while silent. */
 extern const soundinfo_t sc_soundinfo;
+void sc_brief_voice(const char *scenario, const char *wav);
+void sc_stop_brief_voice(void);
+bool sc_brief_voice_playing(void);
 extern int sc_dialog_click;
 #endif

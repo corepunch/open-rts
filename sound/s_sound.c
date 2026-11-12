@@ -99,6 +99,15 @@ static void release(schannel_t *channel) {
     *channel = (schannel_t){0};
 }
 
+void S_UnloadSound(int id) {
+    sfxinfo_t *sfx = S_Sfx(id);
+    if (!sfx || sfx->numlinks) return;
+    for (int i = 0; i < NUMSCHANNELS; ++i)
+        if (schannels[i].sfx == id) release(&schannels[i]);
+    I_FreeSample(sfx->data);
+    sfx->data = NULL;
+}
+
 void S_Start(const level_t *map, const char *data_root) {
     if (!initialized) return;
     for (int i = 0; i < NUMSCHANNELS; ++i) release(&schannels[i]);

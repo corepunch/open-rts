@@ -40,8 +40,17 @@ contains the string `staredit\wav\T1B00tad.wav`. The extracted WAV exists
 relative to that campaign mission directory as `staredit/wav/t1b00tad.wav`
 (SHA-256 `8fa86646edde24a841f9295fffae61254ee7373c88c87cb70388b00830a5a8ec`).
 Stargus `scripts/menus/campaign.lua` starts briefing voices and stops the
-channel on Continue. Our MBRF parser retains WAV references, but playback is
-not implemented. This identifies a source path, not verified retail timing.
+channel on Continue. The MBRF player now resolves the WAV relative to the
+mission folder, normalizes native backslashes and case, and plays it for both
+standalone WAV and transmission actions. One reusable engine sound slot bounds
+sample ownership; Replay, Continue, Cancel, Escape and menu shutdown stop it.
+Missing files leave the briefing running silently. Terran 02's CHK (SHA-256
+`d8a7f6b70422ff32e4fd3f6293de4013f883e0761814d4496ffd18b7eb13dfce`)
+contains standalone WAV actions 9 and 12; `test_gameplay` exercises action 9
+and the transmission in Terran 01. `test_sounds` checks repeated reuse, missing
+files and sound reinitialization; the shared `test_sound` checks unloading a
+playing sample and loading another into the same slot. MBRF scheduling follows
+the existing script player; exact retail audio overlap timing remains unknown.
 
 ## Repair bounds, Follow, flight and gathering waits (2026-10-11)
 

@@ -1424,6 +1424,48 @@ static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *e
                  flip, effect->core.render_intensity);
 }
 
+/* Local groups hold IDs because Doom's thinkers can be removed at any tic.
+ * Zod zplayer_events.cpp and zplayer.cpp use Ctrl+digit to assign, digit to
+ * recall, and a repeated recall to centre the view. */
+static void control_group(app_t *app, mobj_t *const *units, int count, int index, bool assign) {
+    controlgroup_t *group = &app->groups[index];
+    if (assign) {
+        group->count = 0;
+        for (int i = 0; i < count && group->count < MAXCOMMANDUNITS; ++i) {
+            mobj_t *unit = units[i];
+            if (P_MobjIsSelected(unit) && unit->owner == consoleplayer &&
+                !unit->remove && unit->hp > 0 && (unit->traits & MF_SELECTABLE))
+                group->ids[group->count++] = unit->id;
+        }
+        return;
+    }
+    int valid = 0, selected = 0;
+    fvec2_t centre = {0};
+    for (int i = 0; i < group->count; ++i) {
+        mobj_t *unit = P_MobjById(group->ids[i]);
+        if (!unit || unit->owner != consoleplayer || !(unit->traits & MF_SELECTABLE)) continue;
+        group->ids[valid++] = unit->id;
+        selected += P_MobjIsSelected(unit);
+        centre = fvec2_add(centre, fixed3_xy_to_fvec2(unit->core.position));
+    }
+    group->count = valid;
+    if (!valid) return;
+    bool same = selected == valid;
+    for (int i = 0; i < count && same; ++i)
+        if (P_MobjIsSelected(units[i])) {
+            bool member = false;
+            for (int j = 0; j < valid; ++j) member |= units[i]->id == group->ids[j];
+            if (!member) same = false;
+        }
+    if (same) {
+        M_CentreView(app, fvec2_scale(centre, 1.0f / valid));
+        return;
+    }
+    for (int i = 0; i < count; ++i) P_MobjSetSelected(units[i], false);
+    for (int i = 0; i < valid; ++i) P_MobjSetSelected(P_MobjById(group->ids[i]), true);
+    S_Bark(units, count, SE_SELECT, true);
+}
+
 static void order_selected_at(app_t *app, const level_t *map,
                               mobj_t *const *units, int unit_count,
                               const spritesheet_t *fallback_sprite, const spritecache_t *cache,
@@ -1474,6 +1516,12 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
             }
             break;
         case SDL_KEYDOWN:
+            if (!e->key.repeat && e->key.keysym.sym >= SDLK_0 && e->key.keysym.sym <= SDLK_9 &&
+                !(e->key.keysym.mod & (KMOD_ALT | KMOD_GUI))) {
+                control_group(app, units, unit_count, e->key.keysym.sym - SDLK_0,
+                              (e->key.keysym.mod & KMOD_CTRL) != 0);
+                break;
+            }
             if (!e->key.repeat && (e->key.keysym.sym == SDLK_RETURN ||
                                   e->key.keysym.sym == SDLK_KP_ENTER))
                 G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fixed2_t){0}, 0);

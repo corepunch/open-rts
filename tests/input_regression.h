@@ -23,6 +23,11 @@ static ivec2_t screen_point(app_t *app, fvec2_t position) {
     return (ivec2_t){(int)lroundf(screen.x), (int)lroundf(screen.y)};
 }
 
+static void group_key(app_t *app, gameinfo_t *game, mobj_t **units, SDL_Keycode key, SDL_Keymod mod) {
+    SDL_Event input = {.key = {.type = SDL_KEYDOWN, .keysym = {.sym = key, .mod = mod}}};
+    G_Responder(app, &level, units, 3, NULL, NULL, game, &input);
+}
+
 int main(void) {
     assert(SDL_Init(SDL_INIT_VIDEO) == 0);
     G_InitGame();
@@ -112,9 +117,48 @@ int main(void) {
     assert(first->attack.target == enemy);
     R_RulesOverride(NULL);
 
+    /* Groups retain IDs, not pointers, and only recall live owned units. */
+    P_MobjSetSelected(first, true);
+    P_MobjSetSelected(second, true);
+    P_MobjSetSelected(enemy, true);
+    group_key(&app, &game, units, SDLK_1, KMOD_CTRL);
+    assert(app.groups[1].count == 2);
+    P_MobjSetSelected(enemy, false);
+    P_MobjSetSelected(first, false);
+    group_key(&app, &game, units, SDLK_2, KMOD_CTRL);
+    P_MobjSetSelected(second, false);
+    group_key(&app, &game, units, SDLK_1, KMOD_NONE);
+    assert(P_MobjIsSelected(first) && P_MobjIsSelected(second));
+    app.cam = (fvec2_t){0};
+    group_key(&app, &game, units, SDLK_1, KMOD_NONE);
+    fvec2_t average = fvec2_scale(fvec2_add(fixed3_xy_to_fvec2(first->core.position),
+                                            fixed3_xy_to_fvec2(second->core.position)), 0.5f);
+    fvec2_t screen;
+    R_GridToScreen(&app, average.x, average.y, &screen.x, &screen.y);
+    irect_t view = G_WorldViewport(&app);
+    assert(fabsf(screen.x - (view.x + view.w / 2.0f)) < 0.01f &&
+           fabsf(screen.y - (view.y + view.h / 2.0f)) < 0.01f);
+    unsigned random_before = level.random_index;
+    second->hp = 0;
+    P_MobjSetSelected(first, false);
+    group_key(&app, &game, units, SDLK_1, KMOD_NONE);
+    assert(P_MobjIsSelected(first) && app.groups[1].count == 1 && level.random_index == random_before);
+    second->hp = 100;
+    P_MobjSetSelected(second, true);
+    group_key(&app, &game, units, SDLK_1, KMOD_CTRL);
+    P_RemoveMobj(second);
+    P_MobjSetSelected(first, false);
+    group_key(&app, &game, units, SDLK_1, KMOD_NONE);
+    assert(P_MobjIsSelected(first) && app.groups[1].count == 1);
+    group_key(&app, &game, units, SDLK_2, KMOD_NONE);
+    assert(app.groups[2].count == 0);
+    P_MobjSetSelected(first, false);
+    group_key(&app, &game, units, SDLK_1, KMOD_CTRL);
+    assert(app.groups[1].count == 0);
+
     P_FreeLevel(&level);
     SDL_Quit();
-    printf("PASS: %s left select/move/attack/harvest, right cancel, drag/shift and alternate controls\n", g_game_id);
+    printf("PASS: %s selection, orders and numbered control groups\n", g_game_id);
     return 0;
 }
 

@@ -300,6 +300,7 @@ main_menu:
         return menuerror ? 1 : 0;
     }
 load_level:
+    memset(app.groups, 0, sizeof(app.groups));
     if (menumap) {
         snprintf(map_name, sizeof(map_name), "%s", menumap);
         menumap = NULL;

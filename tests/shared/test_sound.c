@@ -84,6 +84,23 @@ static int test_channels(void) {
     return 0;
 }
 
+static int test_unload(void) {
+    int first = S_StartLocalSound(TONE), second = S_StartLocalSound(TONE);
+    CHECK(first && second && S_IsPlaying(first) && S_IsPlaying(second));
+    S_UnloadSound(TONE);
+    CHECK(!S_IsPlaying(first) && !S_IsPlaying(second) && !S_Sfx(TONE)->data);
+    S_UnloadSound(VOICE); CHECK(S_Sfx(VOICE)->numlinks == 2);
+    uint8_t wav[44 + 8000] = {0};
+    memcpy(wav, "RIFF", 4); put32(wav + 4, sizeof(wav) - 8);
+    memcpy(wav + 8, "WAVEfmt ", 8); put32(wav + 16, 16);
+    wav[20] = wav[22] = wav[32] = 1; put32(wav + 24, 8000); put32(wav + 28, 8000);
+    wav[34] = 8; memcpy(wav + 36, "data", 4); put32(wav + 40, sizeof(wav) - 44);
+    CHECK(S_LoadSound(TONE, wav, sizeof(wav)));
+    int reloaded = S_StartLocalSound(TONE);
+    CHECK(reloaded && S_IsPlaying(reloaded)); S_StopChannel(reloaded);
+    return 0;
+}
+
 static int test_barks(void) {
     mobj_t first = {.type_id = 1, .hp = 100, .traits = MF_SELECTED};
     mobj_t preferred = {.type_id = 2, .hp = 100, .traits = MF_SELECTED};
@@ -136,6 +153,7 @@ int main(void) {
     RTS_RUN(test_channels());
     RTS_RUN(test_barks());
     RTS_RUN(test_spatial());
+    RTS_RUN(test_unload());
     S_Shutdown();
     CHECK(!S_Sfx(TONE));
     fail_init = true;

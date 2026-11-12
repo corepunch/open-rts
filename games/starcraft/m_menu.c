@@ -86,9 +86,10 @@ static bool is_briefing(const menu_t *m) {
 }
 /* The MBRF script plays as in the original: portraits come and go in the
  * four frames (ids 15..18), and each transmission replaces the text and makes
- * its speaker's portrait talk for the length of its line. The voice is not
- * played. Times are milliseconds since the briefing (or Replay) began. */
+ * its speaker's portrait talk for the length of its line. Times are
+ * milliseconds since the briefing (or Replay) began. */
 static sc_briefing_t script;
+static char briefing_path[2048];
 static struct { movie_t idle, talk; unsigned talk_until; bool shown; } slots[4];
 static int script_at;
 static unsigned script_clock, script_due, script_tick, text_from, text_for;
@@ -117,6 +118,7 @@ static void say(int text,unsigned length) {
     text_from=script_due;text_for=length;
 }
 static void restart_script(void) {
+    sc_stop_brief_voice();
     for(int i=0;i<4;i++)hide_slot(i);
     script_at=0;script_clock=script_due=0;text_from=text_for=0;
     script_tick=SDL_GetTicks();
@@ -129,12 +131,16 @@ static void run_script(unsigned ms) {
         int slot=a->slot<4?a->slot:-1;
         switch(a->op) {
         case SC_BRIEF_WAIT: script_due+=(unsigned)a->time; break;
+        case SC_BRIEF_WAV:
+            if(a->wav>=0)sc_brief_voice(briefing_path,script.strings+a->wav);
+            break;
         case SC_BRIEF_TEXT: say(a->text,(unsigned)a->time); break;
         case SC_BRIEF_SHOW_PORTRAIT: if(slot>=0)show_slot(slot,a->unit); break;
         case SC_BRIEF_HIDE_PORTRAIT: if(slot>=0)hide_slot(slot); break;
         case SC_BRIEF_TALK: if(slot>=0)slots[slot].talk_until=script_due+(unsigned)a->time; break;
         case SC_BRIEF_TRANSMISSION:
             say(a->text,(unsigned)a->time);
+            if(a->wav>=0)sc_brief_voice(briefing_path,script.strings+a->wav);
             if(slot>=0)slots[slot].talk_until=script_due+(unsigned)a->time;
             script_due+=(unsigned)a->time;
             break;
@@ -176,6 +182,7 @@ static bool open_briefing(const char *rel) {
     snprintf(path,sizeof(path),"%s/%s",asset_root[0]?asset_root:g_game_default_root,map);
     if(!sc_briefing(path,briefing_text,sizeof(briefing_text),objectives,sizeof(objectives)))return false;
     if(!sc_briefing_script(path,&script))script.count=0;
+    snprintf(briefing_path,sizeof(briefing_path),"%s",path);
     script_text=false;
     for(int i=0;i<script.count;i++)
         if(script.actions[i].op==SC_BRIEF_TRANSMISSION||script.actions[i].op==SC_BRIEF_TEXT)script_text=true;
@@ -223,13 +230,14 @@ static void frontend(menu_t *m,menuitem_t *i,menuaction_t a) {
         snprintf(map,sizeof(map),"install/campaign/%s/%s01/staredit/scenario.chk",race,race);
         if(!open_briefing(map))show_notice("Could not read this campaign briefing.");
     } else if(is_briefing(m)) {
-        if(i->id==13){sc_set_net_races(NULL);sc_set_custom_slots(NULL,NULL);menumap=campaign_map;M_ClearMenus();}
-        else if(i->id==14)M_SetupNextMenu(&campaign.menu);
+        if(i->id==13){sc_stop_brief_voice();sc_set_net_races(NULL);sc_set_custom_slots(NULL,NULL);menumap=campaign_map;M_ClearMenus();}
+        else if(i->id==14){sc_stop_brief_voice();M_SetupNextMenu(&campaign.menu);}
         else if(i->id==20){restart_script();run_script(0);}
     }
 }
 /* Escape is each screen's Cancel. */
 static void single_escape(menu_t *m) {
+    if(is_briefing(m))sc_stop_brief_voice();
     if(m==&registry.menu)M_SetupNextMenu(&front);
     else if(m==&new_id.menu||m==&campaign.menu)M_SetupNextMenu(&registry.menu);
     else M_SetupNextMenu(&campaign.menu);
@@ -1999,6 +2007,7 @@ menu_t *G_ControlPanel(app_t *app,bool inlevel) {
     return menu;
 }
 void G_ShutdownMenus(void) {
+    sc_stop_brief_voice();
     M_NetStop();
     screen_t *screens[]={&main_screen,&registry,&new_id,&campaign,&briefings[0],&briefings[1],&briefings[2],
         &load_game,&custom,&notice,&confirm,&conn,&join,&create,&chat,&score,&title};

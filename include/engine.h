@@ -250,6 +250,9 @@ static inline bool frect_intersects(frect_t a, frect_t b) {
 }
 
 
+enum { MAXCOMMANDUNITS = 1024, CONTROLGROUPS = 10 };
+typedef struct { uint32_t ids[MAXCOMMANDUNITS]; int count; } controlgroup_t;
+
 typedef struct app_s {
     SDL_Window *window;
     SDL_Renderer *renderer; /* Present only. Drawing goes through screens[0]. */
@@ -265,6 +268,7 @@ typedef struct app_s {
     ivec2_t  mouse;
     uint32_t ticks_ms;
     irect_t selection_rect;
+    controlgroup_t groups[CONTROLGROUPS]; /* Local selection, never simulation state. */
 } app_t;
 
 
@@ -1043,7 +1047,6 @@ void A_Attack(mobj_t *unit);
 
 
 /* RTS replacement for Doom's movement/buttons. A group order is atomic. */
-#define MAXCOMMANDUNITS 1024
 typedef enum {
     TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
@@ -1802,6 +1805,8 @@ sfxinfo_t *S_Sfx(int id);
 /* Loads an uncached sample from native WAV bytes. The engine owns the decoded
  * sample; callers retain the input. Groups and already loaded ids are rejected. */
 bool S_LoadSound(int id, const void *bytes, size_t size);
+/* Stops channels using this sample and releases it, retaining its sfx id. */
+void S_UnloadSound(int id);
 /* Stops world sounds and loads the level's own sound data. */
 void S_Start(const level_t *map, const char *data_root);
 /* Positional sound following origin; NULL origin plays at full volume. */

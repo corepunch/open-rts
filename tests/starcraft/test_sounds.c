@@ -58,6 +58,26 @@ static int bank(void) {
     return 0;
 }
 
+static int briefing_voice(void) {
+    const char *map = "data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk";
+    int count = 0; while (S_Sfx(count + 1)) ++count;
+    sc_brief_voice(map, "staredit\\wav\\T1B00tad.wav");
+    CHECK(sc_brief_voice_playing());
+    sc_brief_voice(map, "staredit\\wav\\T1B01udu.wav");
+    CHECK(sc_brief_voice_playing());
+    sc_brief_voice(map, "staredit\\wav\\missing.wav");
+    CHECK(!sc_brief_voice_playing());
+    sc_brief_voice(map, "../staredit/wav/t1b00tad.wav");
+    CHECK(!sc_brief_voice_playing());
+    for (int i = 0; i < 4; ++i) {
+        sc_brief_voice(map, "staredit\\wav\\T1B00tad.wav");
+        CHECK(sc_brief_voice_playing()); sc_stop_brief_voice();
+        CHECK(!sc_brief_voice_playing());
+    }
+    CHECK(S_Sfx(count) && !S_Sfx(count + 1));
+    return 0;
+}
+
 static int responses(void) {
     int r[7];
     CHECK(!marine_ranges(r));
@@ -142,6 +162,7 @@ int main(void) {
     CHECK(gameinfo->sound == &sc_soundinfo);
     CHECK(S_Init(root));
     RTS_RUN(bank());
+    RTS_RUN(briefing_voice());
     RTS_RUN(responses());
     P_FreeThinkers();
     P_InitThinkers();
@@ -149,6 +170,7 @@ int main(void) {
     P_FreeThinkers();
     S_Shutdown();
     CHECK(!S_Sfx(1));
+    CHECK(S_Init(root)); RTS_RUN(briefing_voice()); S_Shutdown();
     CHECK(!S_Init("/nonexistent/starcraft") && !S_Sfx(1));
     nosound = true;
     CHECK(!S_Init(root));
