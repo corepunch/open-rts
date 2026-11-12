@@ -3510,7 +3510,7 @@ bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
 (`p_capture.c`). The random coin is a deterministic hash of the tic and the
 two units, not the native stream.
 
-Engine boundaries, **not** native equivalence: Jeep and APC bullets still
+Engine boundaries, **not** native equivalence: APC bullets still
 hit instantly and never miss (native bullets travel and scatter by accuracy),
 so their fire remains more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
@@ -3581,7 +3581,7 @@ the native cached aim and its additional 0x773bd scatter; impact after the
 source has been removed uses the recorded damage with a simplified armor
 fallback. The separate `0x5abad` terrain-table gate, bullet drawing, exact
 unit-slot and cross-projectile update order remain unimplemented. Other bullet
-Jeep weapons and APC salvos retain their former instantaneous behavior.
+APC bullet salvos retain their former instantaneous behavior.
 Sniper and Psycho use the same `0x77364..0x773cd` firing path as Grunt;
 Laser's `0x77542..0x77577` also adds (2,2), scatters and calls `0x5af81`,
 with additional visual flags. The engine uses the same invisible projectile
@@ -3599,6 +3599,21 @@ dispatch, saved flight and a target hit by both native endpoint checks.
 Its invisible tracer and the same slot, terrain and RNG approximations
 described above remain. Inspect with `r2 -q -e bin.cache=true -c 'pd 105 @
 0x783d7' -c 'pd 14 @ 0x64227' -c q data/Z/ZED.EXE`.
+
+Jeep type 0x22 follows `0x58bc5..0x58be4` to `0x58d20`. Its muzzle at
+`0x59116..0x5915e` adds the signed byte pair indexed by hull facing at
+`0x14b484` and the signed word pair indexed by weapon facing at `0x148b60`
+to the vehicle origin. The firing path scatters the aim at `0x58d87`, calls
+`0x5af81` at `0x58dea`, and increments the resulting bullet's range byte at
+`0x58e00`; its 120-pixel body range therefore becomes 128 for flight. The
+engine implements those offsets, 15-pixel speed and 4 damage using the same
+ordinary bullet thinker. `test_combat` verifies all 64 hull/weapon facing
+combinations, normal attack dispatch, saved flight, and impact after source
+removal. Its moving-target prediction, input-mode aim, native RNG, tracer,
+native slot order, terrain-table gate and chain effects remain approximate
+or unimplemented as described above. Inspect with `r2 -q -e bin.cache=true
+-c 'pd 45 @ 0x58bc5' -c 'pd 85 @ 0x58d20' -c 'pd 30 @ 0x59116' -c
+'px 16 @ 0x14b484' -c 'pxh 32 @ 0x148b60' -c q data/Z/ZED.EXE`.
 
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`

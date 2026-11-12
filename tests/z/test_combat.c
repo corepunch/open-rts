@@ -274,6 +274,58 @@ static int test_gatling_bullet(void) {
     return 0;
 }
 
+static int test_jeep_bullet(void) {
+    static const ivec2_t body[] = {{2,8},{-5,11},{-10,6},{-6,0},{0,0},{12,0},{14,5},{10,11}};
+    static const ivec2_t gun[] = {{8,-2},{9,-1},{13,1},{10,4},{6,4},{3,2},{0,0},{4,-4}};
+    RtsGameModel *model = load();
+    if (!model) return fail("load Jeep bullet");
+    zmap_t *map = level.native_data;
+    for (int y = 38; y <= 43; ++y) for (int x = 38; x <= 48; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
+    fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
+    mobj_t *jeep = blast_unit(MT_UNIT_JEEP, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 96, 0), 500);
+    if (!jeep || !target) return fail("spawn Jeep bullet fixture");
+    jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    jeep->z.body_tracked = true; jeep->z.body_accuracy = 127;
+    ivec2_t origin = Z_AITopLeft(jeep);
+    for (int hull = 0; hull < 8; ++hull) for (int facing = 0; facing < 8; ++facing) {
+        jeep->core.angle = direction_to_angle(hull, 8, ANG90, true);
+        jeep->attack.aim = direction_to_angle(facing, 8, ANG90, true) - jeep->core.angle;
+        if (!Z_Attack(jeep, &jeep->info->attack, target)) return fail("launch Jeep facing");
+        mobj_t *bullet = nth(MT_BULLET, 0, 0);
+        if (!bullet || !ivec2_equal(bullet->z.water.start, ivec2_add(origin, ivec2_add(body[hull], gun[facing]))) ||
+            bullet->z.water.speed != 15 || bullet->z.water.range != 128 || bullet->missile.damage != 4)
+            return fail("Jeep uses native hull and gun offsets and bullet stats");
+        P_RemoveMobj(bullet);
+    }
+    disarm_except(0, jeep);
+    jeep->core.angle = direction_to_angle(2, 8, ANG90, true);
+    jeep->attack.aim = 0;
+    jeep->attack.target = target;
+    P_UpdateSight();
+    if (!P_Attack(jeep)) return fail("Jeep fires through attack dispatch");
+    mobj_t *bullet = nth(MT_BULLET, 0, 0);
+    if (!bullet || target->hp != 500) return fail("Jeep does not hit instantly");
+    jeep->traits &= ~MF_ATTACK;
+    if (!tick(model, 1) || !nth(MT_BULLET, 0, 0)) return fail("Jeep bullet remains in flight");
+    uint32_t bullet_id = bullet->id, jeep_id = jeep->id, target_id = target->id, hash = G_Consistency();
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "Jeep bullet", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save Jeep bullet");
+    free(save);
+    bullet = P_MobjById(bullet_id); target = P_MobjById(target_id); jeep = P_MobjById(jeep_id);
+    if (!bullet || !target || !jeep || bullet->z.water.range != 128 || G_Consistency() != hash)
+        return fail("restore Jeep bullet flight");
+    P_RemoveMobj(jeep);
+    for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
+        if (!tick(model, 1)) return fail("tick Jeep bullet");
+    if (P_MobjById(bullet_id) || target->hp >= 500) return fail("Jeep bullet hits after shooter removal");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_bad_crew_combat(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for malformed crew combat");
@@ -2282,7 +2334,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
