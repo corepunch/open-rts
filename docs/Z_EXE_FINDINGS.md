@@ -3303,8 +3303,8 @@ effect health and 25:1 conversion to body health on boarding. Destroying one
 removes its empty mobj without triggering the box explosion. `test_combat`
 checks an empty Jeep and an unboardable Truck preempting a box, damage and boarding, save/load,
 destruction and a following shot reaching the box. Native object-destruction
-terrain and visual effects, dynamically allocated/reused effect slots (including
-objects emptied later), and other eligible effects remain unmodeled, so a
+terrain and visual effects, complete native effect-slot occupancy, and other
+eligible effects remain unmodeled, so a
 crate can still be hit when retail would select another effect. Shell interception, remaining terrain
 effects and complete native ordering are likewise unmodeled. `test_combat`
 checks damage, non-chaining, delayed all-team damage and save/load; `test_capture`
@@ -3320,9 +3320,22 @@ records in order for a negative first word, failing if none is free. Both
 failures reach `0x61c7f`, which frees the original unit record. Thus giving
 a driverless unit an arbitrary free slot among only the effects currently
 modeled would miss terrain rejection and competition with other effects.
-The exact mapping of that terrain table to the engine map and the complete
-effect-slot occupancy are still unknown; the dynamically emptied object
-remains outside the shell selector until those are modeled. Reproduce with
+`0x5fcdd` maps the rounded position to the 128-wide native attribute plane;
+after `0x6147d` adds 0x4000 this is the terrain plane represented by
+`zmap_t.terrain`. For the shipped terrain IDs 0..66, the table permits only
+0, 7, 8, 10, 22, 23 and 59. The four gun IDs skip this terrain check;
+the exposed-driver Jeep does not. On gun driver loss open-rts uses the first
+free represented effect slot, transfers quantized health and changes to the
+empty sprite, allowing shell damage and subsequent boarding; if all represented
+slots are occupied it removes the gun. Unrepresented native effects can occupy
+slots, so allocation and collision ordering are approximations. The engine
+retains the unit center when switching sprites; native `0x6178d..0x617ed`
+adds per-type offsets from `0x14af94` and subtracts four from x before creating
+the effect, and the precise correspondence to engine sprite centers is still
+unknown. Jeep loss remains outside the effect selector until that coordinate
+mapping is established. `test_combat` covers each gun, save/load, a shell hit,
+boarding, and represented pool exhaustion. Reproduce the table with `r2 -q -e bin.cache=true -c
+'pxj 67 @ 0x11ceae' -c q data/Z/ZED.EXE`; reproduce the control flow with
 `r2 -q -e bin.cache=true -c 'pd 30 @ 0x6140f' -c 'pd 35 @ 0x6147d' -c
 'pd 15 @ 0x4a5d7' -c 'pd 10 @ 0x61c7f' -c q data/Z/ZED.EXE`.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 25 @ 0x18418' -c 'pd 35 @

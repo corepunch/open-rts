@@ -26,6 +26,20 @@ static const int cheer_states[] = {
 
 static bool live(const mobj_t *mo) { return mo && !mo->remove && mo->hp > 0; }
 
+/* Native 0x4a5d7 picks the first free effect slot. We can account only for
+ * represented effects; other native effects can occupy these slots too. */
+static int empty_slot(void) {
+    bool used[200] = {false};
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (!mo->remove && mo->z.object_slot && mo->z.object_slot <= 200)
+            used[mo->z.object_slot - 1] = true;
+    }
+    for (int i = 0; i < 200; ++i) if (!used[i]) return i + 1;
+    return 0;
+}
+
 static int robot_type(const mobj_t *mo) {
     int t = Z_UnitType(mo);
     return live(mo) && Z_IsRobot(t) && mo->team < Z_NEUTRAL ? t : -1;
@@ -425,6 +439,19 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
     target->attack.target = NULL;
     P_ClearMove(target);
     P_MobjSetSelected(target, false);
+    if (gun) {
+        int object = t == MT_UNIT_LIGHT_GUN - MT_UNITS ? MT_GUN :
+                     t == MT_UNIT_GATLING - MT_UNITS ? MT_GATTLING :
+                     t == MT_UNIT_HOWITZER - MT_UNITS ? MT_HOWITZER : MT_MISSILE;
+        int slot = empty_slot();
+        if (!slot) P_RemoveMobj(target);
+        else {
+            target->z.object = object;
+            target->z.object_slot = slot;
+            target->z.object_hp = target->hp / 25;
+            P_SetMobjState(target, mobjinfo[object].spawnstate);
+        }
+    }
     return true;
 }
 static int hit_damage(const mobj_t *attacker, mobj_t *target, int damage, int divisor, unsigned shot) {

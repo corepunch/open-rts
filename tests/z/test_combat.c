@@ -351,8 +351,10 @@ static int test_gun_drivers(void) {
         if (!gun->z.crew_hurt) return fail("all class-2 guns can take driver hits");
         for (int n = 0; n < 256 && gun->z.driver; ++n, ++leveltime)
             Z_HitDamage(shooter, &shooter->info->attack, gun, 255, 1);
-        if (gun->z.driver || gun->team != Z_NEUTRAL)
+        if (gun->z.driver || gun->team != Z_NEUTRAL || !gun->z.object_slot ||
+            gun->z.object_hp != 20 || gun->core.state_id != mobjinfo[gun->z.object].spawnstate)
             return fail("fatal driver hit leaves each gun neutral");
+        P_RemoveMobj(gun);
     }
     mobj_t *tank = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 16, 0), 500);
     if (!tank) return fail("spawn protected tank driver");
@@ -400,10 +402,40 @@ static int test_gun_drivers(void) {
             return fail("fatal driver hit quantizes remaining gun body health");
     }
     if (gun->z.driver || gun->team != Z_NEUTRAL) return fail("real attack empties the gun");
+    uint32_t gun_id = gun->id, shooter_id = shooter->id;
+    int raw_hp = gun->z.object_hp;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "Empty gun", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save driverless gun");
+    free(save);
+    gun = P_MobjById(gun_id); shooter = P_MobjById(shooter_id);
+    if (!gun || !shooter || !gun->z.object_slot || gun->z.object_hp != raw_hp)
+        return fail("restore driverless gun effect");
+    isize2_t size;
+    if (!Z_SpriteSize(level.native_data, states[S_GATTLING].frame, &size)) return fail("driverless gun sprite");
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(gun->core.position), FIXED_FROM_INT(Z_TILE)));
+    ivec2_t impact = ivec2_add(ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2}), (ivec2_t){8, 8});
+    mobj_t *shell = P_SpawnMobj(gun->core.position, MT_SHELL);
+    if (!shell) return fail("spawn shell for driverless gun");
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(impact), FIXED_ONE / Z_TILE);
+    shell->missile.damage = 1;
+    A_ZShellBlast(shell);
+    if (gun->z.object_hp != raw_hp - 1 || gun->hp != 25 * (raw_hp - 1)) return fail("shell damages saved driverless gun effect");
     mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(gun->core.position), 30);
     if (!robot || !Z_DetourBoard(robot, gun) || gun->team != 0 ||
         gun->z.driver != MT_UNIT_GRUNT - MT_UNITS + 1)
         return fail("a robot can board a gun after its driver is killed");
+    for (int i = 0; i < 200; ++i) {
+        mobj_t *box = blast_unit(MT_GRENADES, Z_NEUTRAL, at, 100);
+        if (!box) return fail("spawn full effect pool");
+        box->z.object_slot = i + 1;
+    }
+    mobj_t *full = blast_unit(MT_UNIT_LIGHT_GUN, 1, at, 500);
+    if (!full) return fail("spawn driver in full effect pool");
+    full->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    for (int n = 0; n < 256 && !full->remove; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, full, 255, 1);
+    if (!full->remove) return fail("driver loss removes gun when represented effect slots are full");
     rts_game_model_destroy(model);
     return 0;
 }
