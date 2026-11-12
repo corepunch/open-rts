@@ -17,6 +17,16 @@ This is a preservation project. The aim is to keep these games runnable,
 readable, and playable against the computer or with friends on a LAN, without
 rebuilding a period-correct machine or an abandoned network stack.
 
+## Contribute
+
+Pick a classic RTS you want to work on. You can improve an existing game by
+reproducing a retail behavior, implementing a missing feature, or fixing a
+bug. You can also bring another classic RTS to the shared engine and propose
+a first playable map.
+
+Start with the [contribution guide](CONTRIBUTING.md) for game directories,
+retail data paths, build and test commands, and how to propose a new game.
+
 ## Why it is built this way
 
 The layout follows Doom, Heretic, and Hexen. Those engines stayed small
