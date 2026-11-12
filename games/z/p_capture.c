@@ -399,15 +399,16 @@ static int accuracy(const mobj_t *mo) {
 static bool valid_crew(const mobj_t *vehicle) {
     return vehicle->z.crew_count <= Z_CREW_MAX && vehicle->z.driver && Z_IsRobot(vehicle->z.driver - 1);
 }
-/* 0x5ad72: a bullet that hits a Jeep or a Light Gun may hit its driver
+/* 0x5ad72: a bullet that hits a Jeep or a class-2 gun may hit its driver
  * instead, when `rand & 0x7f` falls under the shooter's accuracy (halved
  * against a gun). The driver takes the whole shot; once he is dead the
  * vehicle stands empty for anyone to take (0x860fd). */
 static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
     int t = Z_UnitType(target);
-    if (!valid_crew(target) || (t != MT_UNIT_JEEP - MT_UNITS && t != MT_UNIT_LIGHT_GUN - MT_UNITS)) return false;
+    bool gun = target->info && (target->info->traits & MF_TURRET);
+    if (!valid_crew(target) || (t != MT_UNIT_JEEP - MT_UNITS && !gun)) return false;
     int skill = accuracy(attacker);
-    if (t == MT_UNIT_LIGHT_GUN - MT_UNITS) skill /= 2;
+    if (gun) skill /= 2;
     if (coin(attacker, target, 0x5ad72) >= skill) return false;
     int driver_hp = target->z.crew_count ? target->z.crew[0].hp : mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
     int hurt = target->z.crew_hurt + damage;

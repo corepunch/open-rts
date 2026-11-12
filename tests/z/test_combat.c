@@ -216,6 +216,52 @@ static int test_grenade_cooldown(void) {
     return 0;
 }
 
+static int test_gun_drivers(void) {
+    static const int types[] = {MT_UNIT_LIGHT_GUN, MT_UNIT_GATLING, MT_UNIT_HOWITZER, MT_UNIT_MISSILE_GUN};
+    RtsGameModel *model = load();
+    if (!model) return fail("load for gun drivers");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *shooter = blast_unit(MT_UNIT_SNIPER, 0, at, 500);
+    if (!shooter) return fail("spawn gun driver attacker");
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        mobj_t *gun = blast_unit(types[i], 1, pixel_at(at, 16, 0), 500);
+        if (!gun) return fail("spawn gun driver");
+        gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        for (int n = 0; n < 256 && !gun->z.crew_hurt; ++n, ++leveltime)
+            Z_HitDamage(shooter, &shooter->info->attack, gun, 1, 1);
+        if (!gun->z.crew_hurt) return fail("all class-2 guns can take driver hits");
+        for (int n = 0; n < 256 && gun->z.driver; ++n, ++leveltime)
+            Z_HitDamage(shooter, &shooter->info->attack, gun, 255, 1);
+        if (gun->z.driver || gun->team != Z_NEUTRAL)
+            return fail("fatal driver hit leaves each gun neutral");
+    }
+    mobj_t *tank = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 16, 0), 500);
+    if (!tank) return fail("spawn protected tank driver");
+    tank->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    for (int n = 0; n < 256; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, tank, 1, 1);
+    if (tank->z.crew_hurt) return fail("ordinary tank does not use the open gun driver rule");
+    mobj_t *gun = blast_unit(MT_UNIT_GATLING, 1, pixel_at(at, 16, 0), 500);
+    if (!gun) return fail("spawn gun for real attack");
+    gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    gun->z.crew_count = 1;
+    gun->z.crew[0] = (zcrew_t){.hp = 1, .type = MT_UNIT_GRUNT - MT_UNITS};
+    shooter->attack.target = gun;
+    P_UpdateSight();
+    for (int n = 0; n < 256 && gun->z.driver; ++n, ++leveltime) {
+        int before = gun->hp;
+        if (!P_Attack(shooter)) return fail("fire at gun driver");
+        if (!gun->z.driver && gun->hp != before) return fail("fatal driver hit does not damage gun body");
+    }
+    if (gun->z.driver || gun->team != Z_NEUTRAL) return fail("real attack empties the gun");
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(gun->core.position), 30);
+    if (!robot || !Z_DetourBoard(robot, gun) || gun->team != 0 ||
+        gun->z.driver != MT_UNIT_GRUNT - MT_UNITS + 1)
+        return fail("a robot can board a gun after its driver is killed");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_blast(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell blast");
@@ -533,7 +579,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

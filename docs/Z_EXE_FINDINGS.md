@@ -2824,10 +2824,20 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   7/3, 5/2.
 - Bullets (`0x5af81`) lose **5** (`0x103f49`) against anything that is not
   a robot class, leaving 0 or 1 at random when nothing is left
-  (`0x5ae44`). A bullet that hits a Light Gun or a Jeep rolls
+  (`0x5ae44`). A bullet that hits a gun or a Jeep rolls
   `rand & 0x7f` against the shooter's accuracy (halved against guns); on
   success the driver takes the shot and an emptied vehicle stands for
-  anyone to take (`0x5ad72..0x5ae0d`, `0x860fd`). Type 0x1b and bodies with
+  anyone to take (`0x5ad72..0x5ae0d`, `0x860fd`). Correction: this includes
+  all four guns, not just the Light Gun. Setup `0x63afb..0x63b2f` assigns
+  runtime class +0x79 = 2 to Light Gun, Gatling, Howitzer and Missile Gun;
+  `0x5ad74` accepts class 2 and sets the accuracy shift to one. The native
+  subtract at `0x86d39` and signed return to `0x5ae0d` empty the gun when
+  its driver's health becomes negative. Open-rts now uses this gun set and
+  half-accuracy rule; its deterministic hit coin and impact timing remain
+  approximations. `test_combat` checks driver hits and neutralization for
+  all four guns and the ordinary tank exclusion. Reproduce with `r2 -q -e
+  bin.cache=true -c 'pd 45 @ 0x63aa6' -c 'pd 55 @ 0x5ad72' -c 'pd 20 @
+  0x86d1f' -c q data/Z/ZED.EXE`. Type 0x1b and bodies with
   +0x19 = 3 are also eligible; neither is identified.
 - Shells, rockets and grenades (`0x59ed1`/`0x5a205`/`0x5a39e`) use the
   explosion path (`0x85ce4..0x85e9f`); class-0 robots throw strength 50
