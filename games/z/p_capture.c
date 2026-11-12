@@ -282,6 +282,12 @@ bool Z_EjectCrew(mobj_t *vehicle) {
     }
     Z_SquadEjected(spawned, count);
     vehicle->z.crew_count = vehicle->z.driver = vehicle->z.squad = vehicle->z.crew_hurt = 0;
+    vehicle->z.object = (uint8_t)(t == MT_UNIT_APC - MT_UNITS ? MT_A_P_C :
+                        t == MT_UNIT_LIGHT_GUN - MT_UNITS ? MT_GUN :
+                        t == MT_UNIT_GATLING - MT_UNITS ? MT_GATTLING :
+                        t == MT_UNIT_HOWITZER - MT_UNITS ? MT_HOWITZER : MT_MISSILE);
+    vehicle->z.object_slot = (uint8_t)empty_slot();
+    vehicle->z.object_hp = vehicle->hp / 25 ? vehicle->hp / 25 : 1;
     vehicle->traits &= ~(MF_MOBILE | MF_ATTACK);
     vehicle->attack.target = NULL;
     P_ClearMove(vehicle);
@@ -845,7 +851,7 @@ static void blast_object(ivec2_t impact, int damage) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             if (th->function != P_MobjThinker) continue;
             mobj_t *box = (mobj_t *)th;
-            bool empty = live(box) && box->z.object && box->z.object_slot && box->team == Z_NEUTRAL &&
+            bool empty = live(box) && box->z.object && box->team == Z_NEUTRAL &&
                          !box->z.driver && Z_UnitType(box) >= 0;
             if (!crate(box) && !empty) continue;
             isize2_t size;
@@ -1009,7 +1015,7 @@ static void blast_units(mobj_t *missile, ivec2_t impact) {
     }
     /* Terrain has a separate native path. */
     if (!primary_hit && live(target) && Z_UnitType(target) >= 0 && !structure(target) && !crate(target) &&
-        !(target->z.object_slot && target->team == Z_NEUTRAL) &&
+        !(target->z.object && target->team == Z_NEUTRAL) &&
         target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
@@ -1025,7 +1031,7 @@ void A_ZBlastImpact(mobj_t *missile) {
     blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
     mobj_t *target = missile->attack.target;
     if (live(target) && Z_UnitType(target) < 0 && !structure(target) && !crate(target) &&
-        !(target->z.object_slot && target->team == Z_NEUTRAL) &&
+        !(target->z.object && target->team == Z_NEUTRAL) &&
         target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)

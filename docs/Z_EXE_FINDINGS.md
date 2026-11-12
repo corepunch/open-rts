@@ -1796,6 +1796,22 @@ are not implemented by this change.
 
 ## Zod reference: APC crew and ejection (2026-11-12)
 
+**Voluntary ejection and empty-hull damage:** pinned Zod `exit_vehicle_event`
+clears the drivers and leaves the same hull at its position with neutral
+ownership; its `ProcessMissileDamage` also considers neutral objects. The
+engine now registers a voluntarily abandoned APC or gun as an empty object
+with the native effect-health units used by `0x61bb9..0x61bd5` (body HP
+divided by 25, at least one), so its shell-impact pass can damage it and a
+subsequent boarding releases its slot. The voluntary command is Zod policy,
+not a traced retail conversion: it keeps the existing hull position and HP
+until the next impact. It uses the first free represented native effect slot;
+if all 200 are occupied, the ejected hull remains as an unslotted object and
+is considered after slotted effects, preserving Zod's damageable hull rather
+than claiming native allocation parity. Unrepresented native effects also
+make the represented slot order approximate. `test_combat` covers all five
+ejectable types, free and full slots, shell damage without a duplicate unit
+hit, save/load and reboarding.
+
 **Ordered boarding reach correction:** `0x7afc9..0x7aff4` squares the
 differences between the empty effect's origin (+0/+2) and robot's origin
 (+0x2c/+0x2e), and allows boarding at a sum at most 400. Explicit boarding

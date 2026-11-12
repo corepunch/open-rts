@@ -1976,8 +1976,57 @@ static int test_alert(void) {
     return 0;
 }
 
+static int test_ejected_hull_impact(void) {
+    static const int types[] = {MT_UNIT_APC, MT_UNIT_LIGHT_GUN, MT_UNIT_GATLING,
+                                MT_UNIT_HOWITZER, MT_UNIT_MISSILE_GUN, MT_UNIT_APC};
+    static const int objects[] = {MT_A_P_C, MT_GUN, MT_GATTLING, MT_HOWITZER, MT_MISSILE, MT_A_P_C};
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load ejected hull impact");
+        fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+        if (i == 5) for (int slot = 1; slot <= 200; ++slot) {
+            mobj_t *occupied = blast_unit(MT_GRENADES, Z_NEUTRAL, fixed2_cell_center((ivec2_t){1, 1}), 1);
+            if (!occupied) return fail("fill represented effect slots");
+            occupied->z.object_slot = (uint8_t)slot;
+        }
+        mobj_t *hull = blast_unit(types[i], 0, at, 100);
+        if (!hull) return fail("spawn ejected hull");
+        hull->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        if (!Z_EjectCrew(hull) || hull->z.object != objects[i] || hull->z.object_hp != 4 ||
+            (!!hull->z.object_slot != (i != 5)) || !fixed2_equal(fixed3_xy(hull->core.position), at))
+            return fail("ejection registers its neutral hull and preserves position");
+        isize2_t size;
+        if (!Z_SpriteSize(level.native_data, states[hull->core.state_id].frame, &size))
+            return fail("ejected hull sprite");
+        ivec2_t centre = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+        ivec2_t origin = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+        mobj_t *shell = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_SHELL);
+        if (!shell) return fail("spawn ejected hull shell");
+        shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){8, 8})), FIXED_ONE / Z_TILE);
+        shell->missile.damage = 1; shell->attack.target = hull; shell->team = 1;
+        uint32_t hull_id = hull->id, shell_id = shell->id;
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+        if (!G_SaveGameBlob(&save, &bytes, "Ejected hull", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud))
+            return fail("save ejected hull");
+        free(save);
+        hull = P_MobjById(hull_id); shell = P_MobjById(shell_id);
+        if (!hull || !shell || hull->z.object != objects[i] || hull->z.object_hp != 4 ||
+            (!!hull->z.object_slot != (i != 5))) return fail("restore ejected hull effect identity");
+        A_ZBlastImpact(shell);
+        A_ZBlastHit(shell);
+        if (hull->remove || hull->z.object_hp != 3 || hull->hp != 75)
+            return fail("shell damages an ejected hull once");
+        mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(hull->core.position), 30);
+        if (!robot || !Z_DetourBoard(robot, hull) || hull->hp != 75 || hull->z.object_slot)
+            return fail("reboarding retains damage and releases the effect slot");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
