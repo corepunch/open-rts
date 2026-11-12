@@ -54,6 +54,11 @@ damage/death path. The 260-unit mission regression checks that all deaths,
 including a hallucination, enter the current death counter and give no player
 a kill. OpenBW's `on_kill_unit` hook does not establish retail hallucination
 statistics, so this regression documents current engine accounting only.
+Kill Unit at Location (action 23) now uses the same unbounded or count-limited
+selection and death path. PyMS identifies its count and location fields;
+including hallucinations is inferred from OpenBW's action 22 and location
+predicate, not a direct OpenBW action 23 implementation. Its mission tests
+cover all 260 matches, an outside unit, and a one-unit limit.
 The shared `P_DamageMobj` call subtracts HP directly; shield absorption, armor,
 and invincibility checks occur in StarCraft's combat path before that call.
 The mission regression also kills a shielded Zealot and an invincible Zealot

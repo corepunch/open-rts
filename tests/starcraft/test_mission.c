@@ -319,6 +319,36 @@ int main(void) {
     CHECK(kill_mission->kills[0][MT_MARINE - 1] == 0);
     free(trig); unload(); remove("/tmp/open-rts-sc-kill.chk");
 
+    /* Kill all at a location includes hallucinations, beyond 256 matches. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = 23;
+    CHECK(!write_map("/tmp/open-rts-sc-kill-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-kill-area.chk", &level));
+    kill_mission = level.mission; kill_mission->loc_count = 1;
+    kill_mission->loc_right[0] = kill_mission->loc_bottom[0] = 64;
+    for (int i = 0; i < 260; i++) { killed = spawn(MT_MARINE - 1, 0); CHECK(killed); }
+    killed->sc.flags |= SC_HALLUCINATION;
+    mobj_t *outside_kill = spawn(MT_MARINE - 1, 0); CHECK(outside_kill);
+    outside_kill->core.position = (fixed3_t){FIXED_FROM_INT(5), FIXED_FROM_INT(5), 0};
+    ticks(1, &(hudtext_t){0});
+    CHECK(killed->hp == 0 && outside_kill->hp > 0);
+    CHECK(kill_mission->deaths[0][MT_MARINE - 1] == 260);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = 23; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-kill-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-kill-area.chk", &level));
+    kill_mission = level.mission; kill_mission->loc_count = 1;
+    kill_mission->loc_right[0] = kill_mission->loc_bottom[0] = 64;
+    mobj_t *killed_illusion = spawn(MT_MARINE - 1, 0), *saved_marine = spawn(MT_MARINE - 1, 0);
+    CHECK(killed_illusion && saved_marine); killed_illusion->sc.flags |= SC_HALLUCINATION;
+    ticks(1, &(hudtext_t){0});
+    CHECK(killed_illusion->hp == 0 && saved_marine->hp > 0);
+    CHECK(kill_mission->deaths[0][MT_MARINE - 1] == 1);
+    free(trig); unload(); remove("/tmp/open-rts-sc-kill-area.chk");
+
     /* Trigger kills bypass combat shields, armor, and invincibility. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
