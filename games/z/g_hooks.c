@@ -1,7 +1,7 @@
 #include "z_local.h"
 #include "info.h"
 
-uint32_t G_SaveLayout(void) { return 2; }
+uint32_t G_SaveLayout(void) { return 3; }
 
 /* Z's share of the engine's game hooks: its rules run once a tic after the
  * thinkers, an order onto an empty vehicle or gun sends robots in, and a

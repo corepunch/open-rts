@@ -27,6 +27,16 @@ fixed_t Z_LevelSpeed(int level) {
     return Z_LEVEL_SPEED(level);
 }
 
+/* First authored robot record for each weapon type, ROBOTS.DAT +0x1d.
+ * As with the other gameplay stats, these are C configuration. */
+int Z_UnitAccuracy(int type) {
+    static const uint8_t accuracy[] = {
+        60, 80, 60, 40, 120, 80, 80, 50, 80, 60,
+        60, 50, 60, 40, 60, 60, 60, 80, 40,
+    };
+    return type >= 0 && (size_t)type < sizeof(accuracy) ? accuracy[type] : 0;
+}
+
 /* Objects and buildings stand still; units (units.inc) walk and fight. */
 static const mobjtype_t ACTOR_TYPES[] = {
 #define Z_OBJECT(native, type, label, sprite, flags, w, h, dead) \

@@ -110,6 +110,8 @@ static int test_board(void) {
     disarm();
     mobj_t *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0), *grunt = nth(MT_UNIT_GRUNT, 0, 0);
     if (!jeep || !grunt || (jeep->traits & MF_MOBILE)) return fail("an empty Jeep and a Grunt");
+    P_DamageMobj(jeep, NULL, jeep->hp / 4);
+    if (!jeep->z.body_tracked) return fail("the empty Jeep has tracked body damage");
     ivec2_t at = fixed2_cell(fixed3_xy(jeep->core.position));
     place(grunt, (ivec2_t){at.x + 3, at.y});
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
@@ -122,6 +124,7 @@ static int test_board(void) {
     if (alive(grunt)) return fail("the Grunt gets in");
     if (jeep->team != 0 || jeep->owner != 0 || jeep->z.driver != MT_UNIT_GRUNT - MT_UNITS + 1)
         return fail("the Jeep is the player's, driven by the Grunt");
+    if (jeep->z.body_accuracy != 60) return fail("boarding installs the new driver's accuracy");
     if ((jeep->traits & (MF_MOBILE | MF_SELECTABLE | MF_ATTACK)) != (MF_MOBILE | MF_SELECTABLE | MF_ATTACK) ||
         jeep->core.state_id != (int)mobjinfo[MT_UNIT_JEEP].spawnstate || !P_MobjIsSelected(jeep))
         return fail("the Jeep drives, fights and stays selected");

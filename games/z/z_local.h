@@ -118,6 +118,7 @@ void Z_SetTeam(mobj_t *mo, int team);
 bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre);
 /* Weapon type of a unit's mobj type, or -1. */
 int Z_UnitType(const mobj_t *mo);
+int Z_UnitAccuracy(int type);
 ivec2_t Z_BlastAnchor(const mobj_t *mo);
 fixed_t Z_LevelSpeed(int level);
 void Z_BodyDamaged(mobj_t *mo, int old_hp);

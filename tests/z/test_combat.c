@@ -222,13 +222,13 @@ static int test_body_slowdown(void) {
     P_DamageMobj(tank, NULL, 49);
     if (tank->z.body_speed != 40 || tank->speed != Z_LevelSpeed(4)) return fail("above three quarters keeps speed");
     P_DamageMobj(tank, NULL, 1);
-    if (tank->z.body_speed != 36 || tank->z.body_fire != 63 || tank->speed != Z_LevelSpeed(3) ||
+    if (tank->z.body_speed != 36 || tank->z.body_fire != 63 || tank->z.body_accuracy != 72 || tank->speed != Z_LevelSpeed(3) ||
         G_WeaponCooldown(tank, &tank->info->attack, tank->info->attack.cooldown_ms) != 37 * 1000 / Z_NATIVE_HZ)
         return fail("three quarters scales speed and firing rate to 90 percent");
     P_DamageMobj(tank, NULL, 50);
-    if (tank->z.body_speed != 30 || tank->z.body_fire != 53 || tank->speed != Z_LevelSpeed(3)) return fail("half compounds the 85 percent scale");
+    if (tank->z.body_speed != 30 || tank->z.body_fire != 53 || tank->z.body_accuracy != 61 || tank->speed != Z_LevelSpeed(3)) return fail("half compounds the 85 percent scale");
     P_DamageMobj(tank, NULL, 50);
-    if (tank->z.body_speed != 24 || tank->z.body_fire != 42 || tank->speed != Z_LevelSpeed(2)) return fail("quarter compounds the 80 percent scale");
+    if (tank->z.body_speed != 24 || tank->z.body_fire != 42 || tank->z.body_accuracy != 48 || tank->speed != Z_LevelSpeed(2)) return fail("quarter compounds the 80 percent scale");
     P_DamageMobj(direct, NULL, 151);
     if (direct->z.body_speed != 32 || direct->speed != Z_LevelSpeed(3)) return fail("one hit crossing multiple thresholds applies only the lowest");
     P_DamageMobj(robot, NULL, 151);
@@ -236,6 +236,16 @@ static int test_body_slowdown(void) {
     P_DamageMobj(jeep, NULL, 50);
     if (jeep->z.body_fire != 98 || G_WeaponCooldown(jeep, &jeep->info->attack, jeep->info->attack.cooldown_ms) != jeep->info->attack.cooldown_ms)
         return fail("Jeep retains its native firing rate");
+    mobj_t *victim = blast_unit(MT_UNIT_JEEP, 1, at, 200);
+    if (!victim) return fail("spawn driver accuracy victim");
+    victim->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    jeep->z.body_accuracy = 0;
+    for (int i = 0; i < 128; ++i, ++leveltime) Z_HitDamage(jeep, &jeep->info->attack, victim, 1, 1);
+    if (victim->z.crew_hurt) return fail("zero accuracy cannot hit a driver");
+    jeep->z.body_accuracy = 127;
+    for (int i = 0; i < 128 && !victim->z.crew_hurt; ++i, ++leveltime)
+        Z_HitDamage(jeep, &jeep->info->attack, victim, 1, 1);
+    if (!victim->z.crew_hurt) return fail("degraded accuracy is used for driver hits");
     direct->hp = 160;
     P_DamageMobj(direct, NULL, 10);
     if (direct->z.body_speed != 28) return fail("damage after healing uses actual previous health");
@@ -245,8 +255,8 @@ static int test_body_slowdown(void) {
         !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save and load damaged body");
     free(save);
     tank = P_MobjById(id);
-    if (!tank || tank->z.body_speed != 24 || tank->z.body_fire != 42 || tank->speed != Z_LevelSpeed(2))
-        return fail("save retains mutable body speed and firing rate");
+    if (!tank || tank->z.body_speed != 24 || tank->z.body_fire != 42 || tank->z.body_accuracy != 48 || tank->speed != Z_LevelSpeed(2))
+        return fail("save retains mutable body speed, firing rate and accuracy");
     uint32_t hash = G_Consistency();
     tank->z.body_speed++;
     if (G_Consistency() == hash) return fail("body speed contributes to consistency");
@@ -254,6 +264,9 @@ static int test_body_slowdown(void) {
     tank->z.body_fire++;
     if (G_Consistency() == hash) return fail("body fire rate contributes to consistency");
     tank->z.body_fire--;
+    tank->z.body_accuracy++;
+    if (G_Consistency() == hash) return fail("body accuracy contributes to consistency");
+    tank->z.body_accuracy--;
     tank->z.body_tracked = false;
     if (G_Consistency() == hash) return fail("body initialization contributes to consistency");
     puts("PASS: z vehicle damage scales its native speed at health thresholds");

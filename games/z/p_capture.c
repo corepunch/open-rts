@@ -32,6 +32,12 @@ static int robot_type(const mobj_t *mo) {
     return live(mo) && Z_IsRobot(t) && mo->team < Z_NEUTRAL ? t : -1;
 }
 
+static int base_accuracy(const mobj_t *mo) {
+    int t = Z_UnitType(mo);
+    if (t >= 0 && !Z_IsRobot(t) && mo->z.crew_count && mo->z.driver) t = mo->z.driver - 1;
+    return Z_UnitAccuracy(t);
+}
+
 /* The speed byte is ten times the plain-ground level in units.inc for all
  * vehicle and gun records in the shipped ROBOTS.DAT. */
 static const struct { uint8_t speed, fire; } body_stats[] = {
@@ -48,6 +54,7 @@ void Z_BodyDamaged(mobj_t *mo, int old_hp) {
     if (!mo->z.body_tracked) {
         mo->z.body_speed = body_stats[t].speed;
         mo->z.body_fire = body_stats[t].fire;
+        mo->z.body_accuracy = (uint8_t)base_accuracy(mo);
         mo->z.body_tracked = true;
     }
     int half = mo->max_hp / 2, quarter = half / 2;
@@ -57,6 +64,7 @@ void Z_BodyDamaged(mobj_t *mo, int old_hp) {
     else if (mo->hp <= half + quarter) { threshold = half + quarter; scale = 90; }
     if (threshold && old_hp > threshold && mo->hp > 0) {
         mo->z.body_speed = mo->z.body_speed * scale / 100;
+        mo->z.body_accuracy = mo->z.body_accuracy * scale / 100;
         /* 0x86ded exempts native unit types 0x22 (Jeep) and 0x16
          * (Gatling), assigned at 0x639a3 and 0x50b91 respectively. */
         if (t != MT_UNIT_JEEP - MT_UNITS && t != MT_UNIT_GATLING - MT_UNITS)
@@ -132,6 +140,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     vehicle->traits |= vehicle->info->traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK | MF_TURRET);
     Z_SetTeam(vehicle, robot->team);
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
+    if (vehicle->z.body_tracked) vehicle->z.body_accuracy = (uint8_t)base_accuracy(robot);
     vehicle->z.squad = robot->z.squad;
     vehicle->z.home = robot->z.home;
     vehicle->z.robot = robot->z.robot;
@@ -301,11 +310,10 @@ static int coin(const mobj_t *a, const mobj_t *b, uint32_t salt) {
     h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
     return (int)(h & 0x7f);
 }
-/* Robot record +0x1d, which the native unit keeps at +2 (0x5108c). */
+/* Native unit +2 begins with the driver's authored accuracy (0x5108c)
+ * and scales on body damage at 0x86df0. */
 static int accuracy(const mobj_t *mo) {
-    const zmap_t *map = level.native_data;
-    if (!map || !mo->z.robot || mo->z.robot * 44u > map->roster.size) return 0;
-    return map->roster.bytes[(mo->z.robot - 1) * 44 + 0x1d];
+    return mo->z.body_tracked ? mo->z.body_accuracy : base_accuracy(mo);
 }
 /* 0x5ad72: a bullet that hits a Jeep or a Light Gun may hit its driver
  * instead, when `rand & 0x7f` falls under the shooter's accuracy (halved

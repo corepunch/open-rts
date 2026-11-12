@@ -2510,6 +2510,19 @@ flight duration, moving and removed targets, shooter removal and an
 in-flight save/load; `test_cliffs` and `test_commander` cover impact on the
 two terrain targets.
 
+The native projectile's nearby-robot pass at `0x59707` is separate from
+the remake's `DodgeMissile` waypoint: `0x59736..0x59740` accepts only
+actions 0 or 1 and `0x59766` checks squared distance at most 64 before
+calling `0x63465`. The intervening `0x5976d` comparison against action
+`0x2b` cannot succeed after that action filter; the apparent `+0x7d = 2`
+branch is therefore **disproven as reachable through this path**. The
+called action and complete displacement have not yet been traced or ported.
+`0x63465` first calls `0x62db2`, which checks terrain at unit top-left
+`(+5,+11)` and rejects terrain 0x09, 0x26, 0x27 and 0x2a. It then calls
+`0x61fac`, which can reject based on group state and a `0x78f61` search,
+before setting action 0x2b. These gates do not establish equivalence to
+Zod's idle missile-dodge waypoint.
+
 ### Vehicle body degradation (2026-11-12)
 
 **Confirmed** for `ZED.EXE` SHA-256
@@ -2528,14 +2541,28 @@ exactly ten times those levels, so the port compiles the initial bytes from
 those literals and quantizes scaled speed through the existing native level
 table. Unit HP before the hit is supplied by the common damage lifecycle.
 
-The Z save-layout version is 2 and includes both mutable bytes and their
+The Z save-layout version is 3 and includes mutable speed, fire and accuracy
+bytes and their
 initialization flag in the lockstep checksum. A repaired body's retained
 bytes and subsequent crossing compound as these instructions specify;
 whether the original repair facility separately restores body bytes remains
 **unknown**. The currently selected body-based firing path covers Light,
 Medium, Heavy and Mobile Missile vehicles; other paths retain their existing
-cooldown pending further tracing. Accuracy and damage bytes also change at
-`0x86df0..0x86e01` but are not yet applied to engine combat. Focused
+cooldown pending further tracing. `0x86df0..0x86e01` also scales unit +2
+(accuracy) and unit +6. Accuracy now affects the driver-hit roll; unit +6's
+meaning remains **unknown**, and the earlier interpretation of it as weapon
+damage was incorrect. Focused
 threshold, multi-threshold, Jeep, healing and save/load checks run with
 `make build/bin/tests/z/test_combat` and `SDL_VIDEODRIVER=dummy
 build/bin/tests/z/test_combat`.
+
+**Accuracy configuration.** The 32 ROBOTS.DAT group records at `0x4650`
+contain up to 21 little-endian robot indices at +0x1c; each 44-byte robot
+record names its weapon at +0x22 and accuracy at +0x1d. All references in
+the shipped active groups agree on one accuracy for each weapon, so the C
+table in `g_game.c` preserves the previous record lookup for those groups.
+`test_units` compares every referenced record with the C literals, without
+using game data as runtime stat authority. On boarding, the new driver's
+configured accuracy replaces that of an empty vehicle; its subsequent body
+damage scales the mutable value. Dynamic experience or changes to robot
+records beyond the shipped groups are not represented by the C configuration.

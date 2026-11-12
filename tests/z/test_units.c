@@ -200,6 +200,13 @@ static const weapondef_t mobjinfo_attack_dummy = {.damage = 10};
 static int test_retail_stats(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for stats");
+    const zmap_t *map = level.native_data;
+    for (int group = 0; group < 32; ++group)
+        for (int member = 0, record; (record = Z_GroupRobot(map, group, member)) >= 0; ++member) {
+            int type = Z_GroupType(map, group, member);
+            if (type < 0 || Z_UnitAccuracy(type) != map->roster.bytes[record * 44 + 0x1d])
+                return fail("authored accuracy matches every shipped active group record");
+        }
     mobj_t *grunt = find(0, MT_UNIT_GRUNT), *gatling = find(0, MT_UNIT_GATLING);
     if (!grunt || !gatling) return fail("level 1 Grunt and Gatling");
     const mobjtype_t *g = grunt->info;
