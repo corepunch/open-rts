@@ -109,6 +109,23 @@ int main(void) {
     CHECK(!(G_AllianceMasks(&level)[1]&(UINT32_C(0x40000000)>>0)));
     CHECK(!(level.sight.allies[1]&(UINT32_C(0x40000000)>>0)));
     unload(); free(alliance_trigger); remove("/private/tmp/sc-alliance.chk");
+    uint8_t *vision_trigger = blank_trigger(); CHECK(vision_trigger);
+    vision_trigger[2372+17] = 0; vision_trigger[2372] = 1;
+    vision_trigger[15] = 22; vision_trigger[320+26] = 15;
+    put_u32(vision_trigger+320+20, 0x3169562b); /* +Vi1 */
+    CHECK(!write_map("/private/tmp/sc-vision.chk", force_owners, vision_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-vision.chk", &level));
+    CHECK(P_InitSight() && spawn(MT_MARINE - 1, 1));
+    P_UpdateSight();
+    int sight_cell = L_Index(&level, 1, 2);
+    CHECK(!(level.sight.cells[sight_cell] & SIGHT_EXPLORED));
+    CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1)));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1));
+    CHECK(level.sight.cells[sight_cell] & SIGHT_EXPLORED);
+    CHECK(!(level.sight.allies[1] & (UINT32_C(0x40000000) >> 0)));
+    CHECK(!(G_AllianceMasks(&level)[0] & (UINT32_C(0x40000000) >> 1)));
+    unload(); free(vision_trigger); remove("/private/tmp/sc-vision.chk");
     char next[256];
     const char *terran01 = "data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk";
     CHECK(sc_campaign_next(terran01, next, sizeof(next)));

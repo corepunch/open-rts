@@ -64,6 +64,14 @@ the current selector uses unit centers and thinker order. The boundary fixture
 records this known approximation, so overlapping boxes with centers outside a
 location and multiple candidates can yield different matches.
 
+Pinned OpenBW action 15 recognizes AI script IDs `+Vi0` through `+Vi7` as
+granting the trigger owner vision from the named player. open-rts now applies
+these IDs to its per-viewer sight masks without changing combat alliances;
+`test_mission` checks directionality. Sight masks already round-trip in shared
+save data. The action refreshes sight immediately so newly shared terrain is
+marked explored, and the mission and save tests cover that and persistence.
+Other AI scripts remain outside this focused implementation.
+
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
 on 2026-10-08. It is an implementation reference, not a complete StarCraft

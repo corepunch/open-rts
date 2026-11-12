@@ -552,6 +552,14 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 15 || id == 16) {
+            /* OpenBW +Vi0..+Vi7 scripts give the trigger owner that player's sight. */
+            if (id == 15 && (number & 0x00ffffffu) == 0x0069562bu &&
+                (number >> 24) >= '0' && (number >> 24) <= '7') {
+                int source = (int)(number >> 24) - '0';
+                level.sight.allies[st->current] |= UINT32_C(0x40000000) >> source;
+                P_UpdateSight();
+                continue;
+            }
             for (int i = 0; i < n; i++) m->ai_on[players[i]] = true;
             continue;
         }
