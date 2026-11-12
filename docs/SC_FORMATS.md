@@ -152,6 +152,12 @@ unchecked aircraft goal. A boundary fixture covers the rejection. Retail
 out-of-bounds Move Unit behavior is unknown, so rejection is an engine guard,
 not a claim that the native game rejects rather than clamps.
 
+OpenBW action 46 explicitly unburrows a selected burrowed mobile unit and
+queues its requested order. This path uses the existing unburrow animation
+and order queue; a fixture burrows a Zergling and executes two orders in one
+trigger, checking that the latter replaces the pending order and runs after
+emerging.
+
 OpenBW's Set Resources reads the action quantity as an unsigned 32-bit value.
 The engine stores resource balances as signed integers, so Set and Add now
 clamp to `INT_MAX` and Subtract clamps to zero instead of overflowing or

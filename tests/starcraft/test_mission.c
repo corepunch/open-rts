@@ -1063,6 +1063,28 @@ int main(void) {
         }
         free(trig); unload();
     }
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 64); put_u16(action + 24, MT_ZERGLING - 1);
+    action[26] = 46;
+    uint8_t *second_order = action + 32;
+    put_u32(second_order, 64); put_u32(second_order + 20, 64);
+    put_u16(second_order + 24, MT_ZERGLING - 1); second_order[26] = 46; second_order[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+    mobj_t *burrowed = sc_spawn_actor(MT_ZERGLING - 1, (ivec2_t){128, 128}, 0); CHECK(burrowed);
+    sc_burrow(burrowed);
+    for (int i = 0; i < 500 && !(burrowed->sc.flags & SC_BURROWED); i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(burrowed->sc.flags & SC_BURROWED);
+    ticks(1, &(hudtext_t){0});
+    CHECK(!(burrowed->sc.flags & SC_BURROWED) && burrowed->sc.queue.count == 1 &&
+          burrowed->sc.queue.pending[0].order == TC_PATH);
+    for (int i = 0; i < 500 && !P_HasMoveOrder(burrowed); i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(P_HasMoveOrder(burrowed) && burrowed->waypoints.mode == WP_BACKTRACK);
+    free(trig); unload();
     remove("/tmp/open-rts-sc-order-trigger.chk");
 
     /* Move Unit teleports immediately; a count limits selected units. */

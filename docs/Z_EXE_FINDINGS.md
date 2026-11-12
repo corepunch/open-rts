@@ -3309,6 +3309,22 @@ crate can still be hit when retail would select another effect. Shell intercepti
 effects and complete native ordering are likewise unmodeled. `test_combat`
 checks damage, non-chaining, delayed all-team damage and save/load; `test_capture`
 checks pickup without an explosion.
+
+**Driver-loss allocation constraint:** `0x61b4e` calls `0x6140f` before
+transferring the body health into a new empty effect. Except for effect IDs
+5 and 0x15..0x17, `0x6140f` first calls `0x6147d`: it rounds the position
+using `(coordinate + 7) & 0xfff0`, then checks four terrain bytes at
+offsets 0, 1, 0x80 and 0x81 through the table at `0x11ceae`. Any nonzero
+table entry rejects placement. `0x4a5d7` then scans 200 40-byte effect
+records in order for a negative first word, failing if none is free. Both
+failures reach `0x61c7f`, which frees the original unit record. Thus giving
+a driverless unit an arbitrary free slot among only the effects currently
+modeled would miss terrain rejection and competition with other effects.
+The exact mapping of that terrain table to the engine map and the complete
+effect-slot occupancy are still unknown; the dynamically emptied object
+remains outside the shell selector until those are modeled. Reproduce with
+`r2 -q -e bin.cache=true -c 'pd 30 @ 0x6140f' -c 'pd 35 @ 0x6147d' -c
+'pd 15 @ 0x4a5d7' -c 'pd 10 @ 0x61c7f' -c q data/Z/ZED.EXE`.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 25 @ 0x18418' -c 'pd 35 @
 0x4a184' -c 'pd 35 @ 0x4a28a' -c 'pd 15 @ 0x85338' -c q data/Z/ZED.EXE`,
 and `xxd -g1 -c10 data/Z/LEVEL01/OBJECT01.DAT`.

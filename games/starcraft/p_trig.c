@@ -487,12 +487,23 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
     if (order == 1) cmd.path = (waypoints_t){.count = 1, .mode = WP_BACKTRACK,
                                              .points = {fixed2_cell(dest)}};
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
         mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
-            !(mo->traits & MF_MOBILE) || !inside(mo, l, t, r, b)) continue;
+        bool emerging = (mo->sc.flags & SC_BURROWED) || mo->sc.order.kind == SC_ORDER_UNBURROW;
+        if (mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+            (!((mo->traits & MF_MOBILE) || (emerging && mo->info &&
+                                           (mo->info->traits & MF_MOBILE)))) ||
+            (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine) continue;
+        if (emerging) {
+            if (mo->sc.flags & SC_BURROWED) sc_unburrow(mo);
+            mo->sc.queue = (sc_order_queue_t){.active = TC_SPELL, .owner = mo->owner, .count = 1,
+                .pending = {{.order = cmd.order, .position = cmd.position,
+                             .point = cmd.path.points[0], .mode = cmd.path.mode}}};
+            continue;
+        }
         cmd.units[0] = mo->id;
         G_RunTiccmd(mo->owner, &cmd);
     }
