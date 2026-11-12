@@ -725,7 +725,7 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     }
 }
 
-static void fire_grunt_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
+static void fire_robot_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     ivec2_t origin = Z_AITopLeft(attacker);
     ivec2_t start = ivec2_add(origin, (ivec2_t){2,2}); /* 0x773c7 */
     ivec2_t aim = Z_AITopLeft(target);
@@ -749,8 +749,8 @@ static void fire_grunt_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_
     bullet->z.water.major = bullet->z.water.remaining = dy > dx ? dy : dx;
     bullet->z.water.minor = dy > dx ? dx : dy;
     bullet->z.water.error = bullet->z.water.major / 2;
-    bullet->z.water.speed = 15; /* ROBOTS.DAT weapon 2 +0x23 */
-    bullet->z.water.range = 120;
+    bullet->z.water.speed = 15; /* ROBOTS.DAT weapons 2, 4, 7 and 18 +0x23 */
+    bullet->z.water.range = (int)((int64_t)weapon->range * Z_TILE / FIXED_ONE);
     const zmap_t *map = level.native_data;
     bullet->z.water.height = map && start.x >= 0 && start.y >= 0 ? Z_TerrainHeight(map, start.x / Z_TILE, start.y / Z_TILE) + 1 : 0;
 }
@@ -793,8 +793,10 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         }
     }
     int t = Z_UnitType(attacker);
-    if (t == MT_UNIT_GRUNT - MT_UNITS && weapon && target && Z_UnitType(target) >= 0) {
-        fire_grunt_bullet(attacker, weapon, target);
+    if ((t == MT_UNIT_GRUNT - MT_UNITS || t == MT_UNIT_SNIPER - MT_UNITS ||
+         t == MT_UNIT_PSYCHO - MT_UNITS || t == MT_UNIT_LASER - MT_UNITS) &&
+        weapon && target && Z_UnitType(target) >= 0) {
+        fire_robot_bullet(attacker, weapon, target);
         return true;
     }
     bool apc = t == MT_UNIT_APC - MT_UNITS;

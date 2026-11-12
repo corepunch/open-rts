@@ -172,6 +172,60 @@ static int test_grunt_bullet(void) {
     return 0;
 }
 
+static int test_specialist_bullets(void) {
+    static const struct { int type, range, damage; } cases[] = {
+        {MT_UNIT_SNIPER, 144, 10}, {MT_UNIT_PSYCHO, 120, 2}, {MT_UNIT_LASER, 136, 15},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load specialist bullet");
+        zmap_t *map = level.native_data;
+        for (int y = 39; y <= 41; ++y) for (int x = 39; x <= 47; ++x)
+            map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+        Z_RebuildCliffs(&level);
+        fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
+        mobj_t *shooter = blast_unit(cases[i].type, 0, at, 500);
+        mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 500);
+        if (!shooter || !target) return fail("spawn specialist bullet fixture");
+        disarm_except(0, shooter);
+        shooter->z.body_tracked = true; shooter->z.body_accuracy = 127;
+        shooter->attack.target = target;
+        P_UpdateSight();
+        ivec2_t start = ivec2_add(Z_AITopLeft(shooter), (ivec2_t){2,2});
+        if (!P_Attack(shooter)) return fail("specialist fires at infantry");
+        mobj_t *bullet = nth(MT_BULLET, 0, 0);
+        if (!bullet || bullet->z.water.speed != 15 || bullet->z.water.range != cases[i].range ||
+            bullet->missile.damage != cases[i].damage || !ivec2_equal(bullet->z.water.start, start) || target->hp != 500)
+            return fail("specialist bullet keeps native muzzle, speed, range and damage");
+        shooter->traits &= ~MF_ATTACK;
+        if (!tick(model, 1) || !nth(MT_BULLET, 0, 0) || target->hp != 500)
+            return fail("specialist bullet travels before impact");
+        uint32_t bullet_id = bullet->id, target_id = target->id, shooter_id = shooter->id;
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+        if (!G_SaveGameBlob(&save, &bytes, "Specialist bullet", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save specialist bullet");
+        free(save);
+        bullet = P_MobjById(bullet_id); target = P_MobjById(target_id); shooter = P_MobjById(shooter_id);
+        if (!bullet || !target || !shooter || bullet->z.water.range != cases[i].range || bullet->missile.damage != cases[i].damage)
+            return fail("restore specialist bullet range and damage");
+        for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
+            if (!tick(model, 1)) return fail("tick specialist bullet");
+        if (P_MobjById(bullet_id) || target->hp != 500 - cases[i].damage)
+            return fail("specialist bullet hits after flight");
+        mobj_t *jeep = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 80, 16), 500);
+        if (!jeep) return fail("spawn specialist grenade target");
+        shooter->z.grenades = 1;
+        if (!Z_Attack(shooter, &shooter->info->attack, jeep)) return fail("specialist attacks vehicle with grenade");
+        if (cases[i].type == MT_UNIT_LASER) {
+            if (shooter->z.grenades != 1 || !nth(MT_BULLET, 0, 0) || nth(MT_GRENADE, 0, 0))
+                return fail("Laser retains grenade and fires bullet at vehicle");
+        } else if (shooter->z.grenades || !nth(MT_GRENADE, 0, 0) || nth(MT_BULLET, 0, 0))
+            return fail("Sniper and Psycho throw grenades at vehicles");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 static int test_bad_crew_combat(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for malformed crew combat");
@@ -489,7 +543,7 @@ static int test_gun_drivers(void) {
         !ivec2_equal(fixed2_cell(fixed2_scale(fixed3_xy(boundary->core.position), FIXED_FROM_INT(Z_TILE))),
                      ivec2_add(rounded, (ivec2_t){jeep_size.w / 2, jeep_size.h / 2})))
         return fail("driverless Jeep origin is rounded to the native terrain grid");
-    uint32_t boundary_id = boundary->id, initial_shooter_id = shooter->id;
+    uint32_t boundary_id = boundary->id, initial_shooter_id = shooter->id, tank_id = tank->id;
     app_t jeep_app = {0}; hudtext_t jeep_hud = {0}; void *jeep_save = NULL; size_t jeep_bytes = 0;
     if (!G_SaveGameBlob(&jeep_save, &jeep_bytes, "Empty Jeep", &jeep_app, rts_game_model_ai(model), &jeep_hud) ||
         !G_LoadGameBlob(jeep_save, jeep_bytes, &jeep_app, rts_game_model_ai(model), &jeep_hud))
@@ -524,6 +578,8 @@ static int test_gun_drivers(void) {
     for (int n = 0; n < 256 && !blocked->remove; ++n, ++leveltime)
         Z_HitDamage(shooter, &shooter->info->attack, blocked, 255, 1);
     if (!blocked->remove) return fail("blocked terrain prevents driverless Jeep placement");
+    tank = P_MobjById(tank_id);
+    if (tank) P_RemoveMobj(tank);
     mobj_t *gun = blast_unit(MT_UNIT_GATLING, 1, pixel_at(at, 16, 0), 500);
     if (!gun) return fail("spawn gun for real attack");
     gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
@@ -534,6 +590,9 @@ static int test_gun_drivers(void) {
     for (int n = 0; n < 256 && gun->z.driver; ++n, ++leveltime) {
         int before = gun->hp;
         if (!P_Attack(shooter)) return fail("fire at gun driver");
+        mobj_t *bullet = nth(MT_BULLET, 0, 0);
+        if (!bullet) return fail("sniper launches gun driver shot");
+        A_ZBullet(bullet);
         if (!gun->z.driver && gun->hp != (before / 25 ? before / 25 : 1) * 25)
             return fail("fatal driver hit quantizes remaining gun body health");
     }
@@ -2175,7 +2234,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_specialist_bullets() || test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

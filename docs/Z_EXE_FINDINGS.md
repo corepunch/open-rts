@@ -1117,7 +1117,7 @@ rubble ground, then rebuilds visible tiles, collision and nav inputs.
 Destroyed masks and rubble are saved and included in consistency checks.
 Z's loader now retains its map path, required by the shared save writer.
 
-Engine limits, explicitly **not claims of native equivalence**: direct
+Engine limits, explicitly **not claims of native equivalence**: some direct
 weapons still use the existing engine instant-hit path; exact native
 projectile/cliff interception, damage strength selection and per-weapon
 suppression are unported. Rebuild uses the existing deterministic network
@@ -3510,9 +3510,9 @@ bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
 (`p_capture.c`). The random coin is a deterministic hash of the tic and the
 two units, not the native stream.
 
-Engine boundaries, **not** native equivalence: bullet weapons other than
-Grunt still hit instantly and never miss (native bullets travel and scatter by accuracy),
-so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
+Engine boundaries, **not** native equivalence: vehicle and gun bullets still
+hit instantly and never miss (native bullets travel and scatter by accuracy),
+so Gatling and Jeep fire remains more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
 vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
@@ -3565,9 +3565,9 @@ instantaneous paths for the other weapons. Inspect with
 speed bytes, run `for n in 2 4 7 11 13 18; do od -An -tu1 -j
 $((0x55f0+n*42+35)) -N 1 data/Z/ROBOTS.DAT; done`.
 
-**Implemented subset:** Grunt fire against units launches an ordinary
+**Implemented subset:** Grunt, Sniper, Psycho and Laser fire against units launch an ordinary
 invisible `MT_BULLET` thinker. It snapshots the aim, uses the 15-pixel
-Bresenham step, 120-pixel range and launch-height comparison, tests represented
+Bresenham step, the shooter's 120/144/120/136-pixel range and launch-height comparison, tests represented
 enemy units using the nine native bin offsets and 8/16-pixel rectangles, and
 performs the two endpoint checks. It shares the saved and hashed trajectory
 fields already used by water projectiles. Terrain, a moving target, another
@@ -3581,7 +3581,14 @@ the native cached aim and its additional 0x773bd scatter; impact after the
 source has been removed uses the recorded damage with a simplified armor
 fallback. The separate `0x5abad` terrain-table gate, bullet drawing, exact
 unit-slot and cross-projectile update order remain unimplemented. Other bullet
-weapons and APC salvos retain their former instantaneous behavior.
+vehicle and gun weapons and APC salvos retain their former instantaneous behavior.
+Sniper and Psycho use the same `0x77364..0x773cd` firing path as Grunt;
+Laser's `0x77542..0x77577` also adds (2,2), scatters and calls `0x5af81`,
+with additional visual flags. The engine uses the same invisible projectile
+for all four; Laser's native drawing is not implemented. `test_combat`
+checks each specialist's muzzle, speed, damage and range, real thinker flight,
+and save/load before impact. Inspect with `r2 -q -e bin.cache=true -c
+'pd 45 @ 0x77364' -c 'pd 45 @ 0x77512' -c q data/Z/ZED.EXE`.
 
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`
