@@ -2793,17 +2793,24 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   Specifically, action `0x76098` fires at frame 2 when unit +0x78 is zero;
   after the animation cycle `0x760d5..0x760f0` increments unit +0x9c modulo
   four and, on zero, loads the frame timer with eight times `(100 - +0x75)`,
-  saturated at 127. The shipped Pyro's fire-rate byte gives 16. A grenade
-  uses a different action: `0x63628..0x6362f` loads twice `(100 - +0x75)`
-  into +0x78, four steps for a Pyro, and does not increment the flame cycle
-  counter. An attempted shared four-shot reload implementation was rejected:
-  the engine's generic six-tic attack state dominates its cooldown, and a
-  measured stationary firing fixture produced shots at tics 11, 23, 35 and
-  47 even with that reload. Its reload also starts at the shot rather than
-  after the native animation cycle. The prior six-step average remains; exact
-  flame and grenade timing, projectile and flame area are unported. Inspect
-  with `r2 -q -e bin.cache=true -c 'pd 65 @ 0x76098' -c 'pd 20 @ 0x6360e'
-  -c q data/Z/ZED.EXE`.
+  saturated at 127. The shipped Pyro's fire-rate byte gives 16. The frame-2
+  shot normally repeats after four native frames; on the fourth cycle the
+  signed timer must decrement past zero, giving a 21-frame shot interval.
+  A grenade uses a different action: `0x63628..0x6362f` loads twice
+  `(100 - +0x75)` into +0x78, four steps for a Pyro, and does not increment
+  the flame cycle counter. Dispatch table `0x149038` entry 0x41 points to
+  `0x76098`; its drawing record at `0x14b210` specifies base sprite 6022
+  with three pictures per facing. The shot displays frame 2, and the cycle
+  resets to frame 0 before its recovery wait. Dedicated Pyro shot/recovery states now advance
+  the existing saved and hashed shot counter at recovery entry; their
+  grenade action preserves it and sets the four-step cooldown. With the
+  engine's 30 Hz tic quantization, a stationary test observes firing gaps
+  of 2, 2, 2 and 9 tics. The separately traced 70 Hz animation does not map
+  exactly to 30 Hz, and projectile and flame area remain unported. The prior
+  shared-reload attempt was discarded: its generic attack animation produced
+  shots every 12 engine tics regardless of the intended reload. Inspect with
+  `r2 -q -e bin.cache=true -c 'px 4 @ 0x14913c' -c 'px 4 @ 0x14b210' -c 'pd 65 @ 0x76098' -c 'pd 20 @ 0x6360e'
+  -c q data/Z/ZED.EXE`; run `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_combat`.
 - Base speed level = terrain term / 10 + unit speed / 10, with additional
   modifiers before clamping to 0..12 (`0x79882`; see the movement modifier
   investigation below; terrain bytes at `0x1157ea`, not decoded per terrain). Each

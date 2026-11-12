@@ -322,6 +322,25 @@ static bool throws_at(const mobj_t *robot, const mobj_t *target) {
     return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS;
 }
 
+void A_PyroFlame(mobj_t *unit) {
+    if (throws_at(unit, unit->attack.target)) {
+        P_SetMobjState(unit, S_PYRO_THROW);
+        return;
+    }
+    P_Attack(unit);
+}
+
+void A_PyroRecover(mobj_t *unit) {
+    unit->attack.shots = (unit->attack.shots + 1) & 3;
+    if (!unit->attack.shots)
+        unit->core.tics = ((16 + 1) * RTS_TICRATE + Z_NATIVE_HZ - 1) / Z_NATIVE_HZ;
+}
+
+void A_PyroToss(mobj_t *unit) {
+    if (throws_at(unit, unit->attack.target) && P_Attack(unit))
+        unit->attack.cooldown_left_ms = 4 * 1000 / Z_NATIVE_HZ;
+}
+
 /* Forts are taken from inside, never shot (p_fort.c). */
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
     if (victim->type_id == MT_CLIFF || victim->type_id == MT_BRIDGE)

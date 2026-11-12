@@ -104,6 +104,54 @@ static int test_bad_crew_combat(void) {
     return 0;
 }
 
+static int test_pyro_cadence(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for Pyro cadence");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *pyro = blast_unit(MT_UNIT_PYRO, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 1000);
+    if (!pyro || !target) return fail("spawn Pyro cadence fixture");
+    pyro->attack.target = target;
+    P_UpdateSight();
+    int times[5], count = 0, hp = target->hp;
+    for (int tic = 0; tic < 10 * RTS_TICRATE && count < 5; ++tic) {
+        if (!tick(model, 1)) return fail("tick Pyro cadence");
+        if (target->hp < hp) { times[count++] = tic; hp = target->hp; }
+    }
+    if (count != 5) return fail("Pyro fires five bursts");
+    if (times[1] - times[0] != 2 || times[2] - times[1] != 2 ||
+        times[3] - times[2] != 2 || times[4] - times[3] != 9)
+        return fail("four-burst pause changes real firing timestamps");
+    pyro->attack.shots = 3;
+    P_SetMobjState(pyro, S_PYRO_RECOVER);
+    int recovery = pyro->core.tics;
+    uint32_t pyro_id = pyro->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Pyro recovery", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save Pyro recovery");
+    free(save);
+    pyro = P_MobjById(pyro_id);
+    if (!pyro || pyro->core.state_id != S_PYRO_RECOVER || pyro->core.tics != recovery || pyro->attack.shots)
+        return fail("load preserves Pyro recovery and cycle");
+    mobj_t *vehicle = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 32, 0), 500);
+    if (!vehicle) return fail("spawn Pyro grenade target");
+    pyro->attack.shots = 2;
+    pyro->z.grenades = 2;
+    pyro->attack.target = vehicle;
+    pyro->attack.cooldown_left_ms = 0;
+    P_SetMobjState(pyro, S_PYRO_STND);
+    if (pyro->core.state_id != S_PYRO_THROW)
+        return fail("normal Pyro target selection enters grenade throw state");
+    for (int tic = 0; tic < RTS_TICRATE && pyro->z.grenades == 2; ++tic)
+        if (!tick(model, 1)) return fail("tick Pyro grenade");
+    if (pyro->z.grenades != 1 || pyro->attack.shots != 2 ||
+        pyro->attack.cooldown_left_ms != 4 * 1000 / Z_NATIVE_HZ - RTS_TICK_MS)
+        return fail("grenade preserves flame cycle and uses its own native cooldown");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_blast(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell blast");
@@ -421,7 +469,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

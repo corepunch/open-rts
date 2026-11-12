@@ -28,7 +28,7 @@ const char *const sprnames[NUMSPRITES] = {
     [S_##type##_DIE] = { SPR_##type, die, dies, 3, NULL, S_##type##_DEAD, 4, NULL }, \
     [S_##type##_DEAD] = { SPR_##type, dead, 1, dead_tics, NULL, S_NULL, 4, NULL }, \
     [S_##type##_THROW] = { SPR_##type, throw, throws, 2, NULL, S_##type##_TOSS, 3, NULL }, \
-    [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, A_Attack, S_##type##_STND, 3, NULL }, \
+    [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, MT_UNIT_##type == MT_UNIT_PYRO ? A_PyroToss : A_Attack, S_##type##_STND, 3, NULL }, \
     [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL },
 /* Robots walk, aim, flash on the last fire frame and blow apart; nothing
  * of them stays once the last sparks fade. A grenade leaves on the
@@ -95,6 +95,8 @@ const state_t states[NUMSTATES] = {
     [S_GRENADE_SMOKE] = { SPR_RSC, Z_BLAST_SPRITE + 1, Z_BLAST_FRAMES - 1, 2, NULL, S_NULL, 4, NULL },
     [S_SHELL] = { SPR_RSC, 1634, 1, -1, NULL, S_SHELL, 0, NULL },
     [S_SHELL_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZShellBlast, S_GRENADE_SMOKE, 4, NULL },
+    [S_PYRO_FLAME] = { SPR_PYRO, Z_ROBOT_PYRO + 2, 1, 1, A_PyroFlame, S_PYRO_RECOVER, 3, NULL },
+    [S_PYRO_RECOVER] = { SPR_PYRO, Z_ROBOT_PYRO, 1, 1, A_PyroRecover, S_PYRO_STND, 3, NULL },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -115,7 +117,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
 #define Z_UNIT(t, type, label, kind, mobile, hp, ...) \
     [MT_UNIT_##type] = { .doomednum = -1, .spawnstate = S_##type##_STND, .spawnhealth = hp, \
                     .seestate = (mobile) ? S_##type##_WALK : S_##type##_STND, \
-                    .missilestate = S_##type##_FIRE, .deathstate = S_##type##_DIE, \
+                    .missilestate = MT_UNIT_##type == MT_UNIT_PYRO ? S_PYRO_FLAME : S_##type##_FIRE, .deathstate = S_##type##_DIE, \
                     .xdeathstate = S_##type##_DIE, .radius = UNIT_RADIUS_##kind, \
                     .flags = MF_SELECTABLE | MF_RENDERABLE },
 #define UNIT_RADIUS_ROBOT 12 /* Pixels x 2: a robot is 16 wide, a vehicle 32. */

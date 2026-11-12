@@ -10,7 +10,7 @@
  *           (0x79882); g_game.c turns it into pixels a step (0x117e5c).
  *   reach   pixels, 8 * (u16 weapon +2 >> 3).
  *   wait    native steps between shots, 100 - weapon +0x22 (0x60c4a). The
- *           Pyro pauses 16 steps after every 4 bursts: 6 on average.
+ *           Pyro's fourth-cycle pause is handled by its attack states.
  *
  * Kinds: ROBOT draws from the shared robot sheet; GUN turns through eight
  * directions from `sprite`, `turn` apart, `frames` long (0x14b10c actions
@@ -37,5 +37,5 @@ Z_UNIT(13, JEEP,       "Jeep",             VEHICLE, 1,  50,   4, 6, 120,  2,    
 Z_UNIT(14, FIRE_TRUCK, "Fire Truck",       STILL,   1, 200,  20, 5, 120,  2, 5215, 0, 1, 1, 5692, 0)
 Z_UNIT(15, CRANE,      "Crane",            VEHICLE, 1, 300,   0, 5,   0,  0,    0, 0, 3, 1, 5696, 1)
 Z_UNIT(16, TRUCK,      "Truck",            STILL,   1,  75,   0, 6,   0,  0, 5213, 0, 1, 1,   -1, 0)
-Z_UNIT(17, PYRO,       "Pyro",             ROBOT,   1,  80,  20, 4, 120,  6,    0, 0, 0, 1,    0, 0)
+Z_UNIT(17, PYRO,       "Pyro",             ROBOT,   1,  80,  20, 4, 120,  2,    0, 0, 0, 1,    0, 0)
 Z_UNIT(18, LASER,      "Laser",            ROBOT,   1,  60,  15, 5, 136, 20,    0, 0, 0, 1,    0, 0)
