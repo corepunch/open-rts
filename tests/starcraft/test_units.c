@@ -488,6 +488,20 @@ static int rejected_cast_keeps_orders(void) {
 }
 
 static int terran_spells(void) {
+    /* Magellan uses Science Vessel abilities without player research. */
+    const int magellan_techs[] = {SC_TECH_DEFENSIVE_MATRIX, SC_TECH_EMP, SC_TECH_IRRADIATE};
+    for (int i = 0; i < 3; i++) {
+        mobj_t *magellan = caster(MT_MAGELLAN, FIXED2_LIT(4.5, 4.5));
+        mobj_t *victim = spawn(i == 1 ? MT_ZEALOT : MT_MARINE, FIXED2_LIT(8.5, 4.5), i ? 1 : 0);
+        CHECK(magellan && victim && (i == 0 || !sc_has_tech(0, magellan_techs[i])));
+        int abilities[8], n = sc_unit_techs(MT_MAGELLAN, abilities, 8); bool found = false;
+        for (int j = 0; j < n; j++) found |= abilities[j] == magellan_techs[i];
+        CHECK(found && sc_cast(magellan, magellan_techs[i], i == 1 ? NULL : victim, at_of(victim)));
+        if (i == 0) CHECK(victim->sc.matrix > 0);
+        else if (i == 1) CHECK(sc_shields(victim) == 0);
+        else CHECK(victim->sc.timers[SC_TIMER_IRRADIATE] > 0);
+        reset();
+    }
     /* Sarah Kerrigan is a hero Ghost with Lockdown and cloak without research. */
     mobj_t *sarah = caster(MT_SARAH_KERRIGAN, FIXED2_LIT(4.5, 4.5));
     mobj_t *hero_machine = spawn(MT_GOLIATH, FIXED2_LIT(8.5, 4.5), 1);
@@ -734,6 +748,11 @@ static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
 }
 
 static int computer(void) {
+    mobj_t *magellan = caster(MT_MAGELLAN, FIXED2_LIT(4.5, 4.5));
+    mobj_t *magellan_target = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 4.5), 1);
+    CHECK(magellan && magellan_target && !sc_has_tech(0, SC_TECH_IRRADIATE));
+    think(0); CHECK(magellan_target->sc.timers[SC_TIMER_IRRADIATE] > 0);
+    reset();
     mobj_t *sarah = caster(MT_SARAH_KERRIGAN, FIXED2_LIT(4.5, 4.5));
     mobj_t *sarah_target = spawn(MT_GOLIATH, FIXED2_LIT(8.5, 4.5), 1);
     CHECK(sarah && sarah_target && !sc_has_tech(0, SC_TECH_LOCKDOWN));

@@ -261,6 +261,10 @@ allowing her Lockdown and Personnel Cloaking without research. Her existing
 cloak path is now joined by Lockdown and the Ghost AI tactic. Fixtures check
 direct casts, enabled ability buttons and autonomous Lockdown; nuclear strike
 is not added, since OpenBW's Nuke Paint order requires the ordinary Ghost.
+OpenBW likewise names Magellan (units.dat row 22) as a Science Vessel caster
+of Defensive Matrix, EMP and Irradiate, with hero research exemptions for
+the latter two. Magellan now has those casting, card and AI paths; fixtures
+cover each spell, autonomous Irradiate and enabled buttons without research.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

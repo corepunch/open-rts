@@ -674,6 +674,12 @@ static int tech_card(void) {
     level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][consoleplayer].weapon = 0;
     CHECK(usable(card(sc_techs[SC_TECH_LOCKDOWN].name, &sarah, 1)));
     CHECK(usable(card(sc_techs[SC_TECH_PERSONNEL_CLOAKING].name, &sarah, 1)));
+    mobj_t *magellan = beside(MT_MAGELLAN, hall, 9, 4); CHECK(magellan);
+    level.upgrades[SC_UPGRADES + SC_TECH_EMP][consoleplayer].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_IRRADIATE][consoleplayer].weapon = 0;
+    CHECK(usable(card(sc_techs[SC_TECH_DEFENSIVE_MATRIX].name, &magellan, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_EMP].name, &magellan, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_IRRADIATE].name, &magellan, 1)));
     /* Engineering Bay: level 1 now, level 2 greyed until a Science Facility. */
     const char *weapons = sc_upgrades[0].name;
     menuitem_t *tier = card(weapons, &bay, 1);
