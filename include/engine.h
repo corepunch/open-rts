@@ -2888,6 +2888,7 @@ bool P_HarvesterSharingVent(const mobj_t *unit);
 bool P_HarvesterWorksOutside(const mobj_t *unit, const resourcevent_t *vent);
 /* Scales a harvested credit amount by the owner's 8.8 income_scale. */
 int P_ScaleIncome(const level_t *map, int owner, int amount);
+void P_AddResource(level_t *map, int owner, int resource, int amount);
 
 void debug_effects_log(const char *fmt, ...);
 

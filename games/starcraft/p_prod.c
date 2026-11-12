@@ -390,8 +390,8 @@ bool sc_cancel_production(mobj_t *producer,int slot) {
      * until completion and need no restoration. */
     if(slot==0&&zerg_morph(p)&&sc_egg_for((uint16_t)p->makers[0])==producer->type_id&&
        !P_MorphMobj(producer,(uint16_t)p->makers[0]))return false;
-    level.player_resources[producer->owner][0]+=p->cost;
-    for(int r=1;r<RTS_MAX_RESOURCES;r++)level.player_resources[producer->owner][r]+=p->extra_costs[r-1];
+    P_AddResource(&level,producer->owner,0,p->cost);
+    for(int r=1;r<RTS_MAX_RESOURCES;r++)P_AddResource(&level,producer->owner,r,p->extra_costs[r-1]);
     G_RemoveProductionAt(producer,slot);
     return true;
 }

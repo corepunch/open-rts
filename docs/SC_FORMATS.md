@@ -152,6 +152,16 @@ unchecked aircraft goal. A boundary fixture covers the rejection. Retail
 out-of-bounds Move Unit behavior is unknown, so rejection is an engine guard,
 not a claim that the native game rejects rather than clamps.
 
+OpenBW's Set Resources reads the action quantity as an unsigned 32-bit value.
+The engine stores resource balances as signed integers, so Set and Add now
+clamp to `INT_MAX` and Subtract clamps to zero instead of overflowing or
+interpreting high-bit quantities as negative. This is a storage limitation,
+not a claim of native overflow behavior; score accounting also remains an
+approximation. A fixture exercises all three operations with `0x80000000`.
+Harvest income, production refunds and the approximate gathered/spent
+counters also saturate at the signed storage limit; mining and cancellation
+fixtures cover credits arriving near that limit.
+
 The implemented condition field reads were compared against eudplib
 `stockcond.py` and `condition.py`: timer (1, 12), Command/Bring/resources/kills
 (2–5), Command Most/Least and their location forms (6–7, 16–17), switch (11),

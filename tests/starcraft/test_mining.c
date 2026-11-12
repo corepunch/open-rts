@@ -2,6 +2,7 @@
 #include "starcraft.h"
 #include "info.h"
 #include "sc_local.h"
+#include <limits.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft mining",#c)
 static mobj_t *spawn(int native,fixed2_t at,int owner) {
     mobj_t *u=P_SpawnMobj(fixed3_from_fixed2(at,0),native+1);
@@ -17,6 +18,7 @@ static int timing(void) {
     const int workers[]={MT_SCV,MT_DRONE,MT_PROBE};
     const int depots[]={MT_COMMAND_CENTER,MT_HATCHERY,MT_NEXUS};
     for(int r=0;r<2;r++)for(int w=0;w<3;w++) {
+        level.player_resources[0][r]=0;
         P_FreeThinkers();P_InitThinkers();memset(level.cell_solid,0,1024);
         free(level.resource_vents);level.resource_vents=calloc(1,sizeof(*level.resource_vents));
         level.resource_vent_count=1;
@@ -36,13 +38,15 @@ static int timing(void) {
             int tics=(duration+RTS_TICK_MS-1)/RTS_TICK_MS;
             tick(tics-1);CHECK(worker->harvest.cargo==0);
             tick(1);CHECK(worker->harvest.cargo==8&&worker->harvest.phase==HARVEST_PHASE_TO_BASE);
+            if(cycle==1)level.player_resources[0][r]=INT_MAX-4;
             int resources=level.player_resources[0][r];
             /* The cargo drops the tick the worker reaches the depot. */
             for(int i=0;i<1200&&worker->harvest.cargo&&!worker->movement.order_arrived;i++)tick(1);
             if(worker->harvest.cargo)tick(1);
-            CHECK(!worker->harvest.cargo&&level.player_resources[0][r]==resources+8);
+            CHECK(!worker->harvest.cargo&&level.player_resources[0][r]==(cycle==1?INT_MAX:resources+8));
         }
     }
+    level.player_resources[0][0]=level.player_resources[0][1]=0;
     return 0;
 }
 /* An exhausted geyser keeps giving 2 a trip; a busy field sends the next

@@ -565,14 +565,15 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     }
 }
 
-static void alter_resource(int player, int which, int mod, int amount) {
+static void alter_resource(int player, int which, int mod, uint32_t amount) {
     for (int r = 0; r < 2; r++) {
         if (which == r || which == 2) {
             int *slot = &level.player_resources[player][r];
-            if (mod == 7) *slot = amount;
-            else if (mod == 8) *slot += amount;
-            else if (mod == 9) *slot -= amount;
-            if (*slot < 0) *slot = 0;
+            int64_t value = *slot;
+            if (mod == 7) value = amount;
+            else if (mod == 8) value += amount;
+            else if (mod == 9) value -= amount;
+            *slot = value < 0 ? 0 : value > INT_MAX ? INT_MAX : (int)value;
         }
     }
 }
@@ -782,7 +783,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (id == 26) {
             for (int i = 0; i < n; i++)
-                alter_resource(players[i], (int)unit, a[27], (int)number);
+                alter_resource(players[i], (int)unit, a[27], number);
             continue;
         }
         if (id == 38 && loc && number) {
@@ -945,8 +946,13 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
     /* Score: a rise in stock is income, a fall is spending. */
     for (int p = 0; p < 8; p++) for (int r = 0; r < 2; r++) {
         int now = map->player_resources[p][r], delta = now - m->stock[p][r];
-        if (m->stock_seen && delta > 0) m->gathered[p][r] += delta;
-        else if (m->stock_seen && delta < 0) m->spent[p] -= delta;
+        if (m->stock_seen && delta > 0) {
+            int64_t total = (int64_t)m->gathered[p][r] + delta;
+            m->gathered[p][r] = total > INT_MAX ? INT_MAX : (int)total;
+        } else if (m->stock_seen && delta < 0) {
+            int64_t total = (int64_t)m->spent[p] - delta;
+            m->spent[p] = total > INT_MAX ? INT_MAX : (int)total;
+        }
         m->stock[p][r] = now;
     }
     m->stock_seen = true;

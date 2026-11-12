@@ -275,10 +275,11 @@ int main(void) {
     level.player_resources[0][0] = 500;
     const StaticProductDefinition *vulture = G_ModelProductByUIId(NULL, MT_VULTURE);
     CHECK(vulture && G_QueueProduct(factory, vulture) && factory->production);
+    level.player_resources[0][0] = INT_MAX - 1;
     int after_payment = level.player_resources[0][0];
     ticks(1, &(hudtext_t){0});
     CHECK(factory->owner == 1 && shop->owner == 1 && shop->sc.parent == factory->id);
-    CHECK(!factory->production && level.player_resources[0][0] > after_payment);
+    CHECK(!factory->production && level.player_resources[0][0] > after_payment && level.player_resources[0][0] == INT_MAX);
     unload();
     put_u16(give_trigger+320+24, MT_CARRIER - 1);
     CHECK(!write_map("/private/tmp/sc-give.chk", force_owners, give_trigger));
@@ -447,6 +448,24 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(level.player_resources[0][0] == 1500000010);
     free(trig); unload(); remove("/tmp/open-rts-sc-accumulate.chk");
+
+    /* Resource actions interpret the quantity as unsigned and clamp to storage. */
+    for (int op = 7; op <= 9; op++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        action[26] = 26; action[27] = (uint8_t)op; put_u32(action + 20, UINT32_C(0x80000000));
+        CHECK(!write_map("/tmp/open-rts-sc-resource-limit.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-resource-limit.chk", &level));
+        if (op == 7) CHECK(level.player_resources[0][0] == INT_MAX);
+        sc_mission_t *resource_mission = level.mission;
+        resource_mission->stock_seen = true;
+        resource_mission->gathered[0][0] = INT_MAX - 1;
+        level.player_resources[0][0] = 100;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (op == 9 ? 0 : INT_MAX));
+        CHECK(resource_mission->gathered[0][0] == INT_MAX);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-resource-limit.chk");
 
     /* Create Unit stores its count in the action's byte at offset 27. */
     for (int create_id = 11; create_id <= 44; create_id += 33) for (int count = 0; count <= 3; count += 3) {

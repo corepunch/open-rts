@@ -455,9 +455,10 @@ bool sc_load_chk(const char *path,level_t *out) {
             for(int a=0;a<64;a++) {
                 const uint8_t *v=data+t+320+a*32;
                 unsigned player=read_u32_le(v+16),resource=read_u16_le(v+24),amount=read_u32_le(v+20);
-                if(v[26]!=26||v[27]!=7||(v[28]&2)||player>=8||resource>2||amount>INT_MAX)continue;
-                if(resource==0||resource==2)out->player_resources[player][0]=(int)amount;
-                if(resource==1||resource==2)out->player_resources[player][1]=(int)amount;
+                if(v[26]!=26||v[27]!=7||(v[28]&2)||player>=8||resource>2)continue;
+                int stock=amount>INT_MAX?INT_MAX:(int)amount;
+                if(resource==0||resource==2)out->player_resources[player][0]=stock;
+                if(resource==1||resource==2)out->player_resources[player][1]=stock;
             }
         }
         if(!memcmp(tag,"UNIT",4)) for(size_t i=0;i<size;i+=36) {

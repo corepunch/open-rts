@@ -7,6 +7,13 @@
 #include "dark-colony.h"
 #endif
 #include "info.h"
+#include <limits.h>
+
+void P_AddResource(level_t *map, int owner, int resource, int amount) {
+    int *slot = &map->player_resources[owner][resource];
+    int64_t value = (int64_t)*slot + amount;
+    *slot = value < 0 ? 0 : value > INT_MAX ? INT_MAX : (int)value;
+}
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (!a || !b) return false;
@@ -1388,7 +1395,7 @@ static bool update_unit_harvest(level_t *map,
         int amount = unit->harvest.cargo;
         int unload = unit->info->harvest.resources[rtype].unload_amount;
         if (unload > 0 && amount > unload) amount = unload;
-        map->player_resources[owner][rtype] += P_ScaleIncome(map, owner, amount);
+        P_AddResource(map, owner, rtype, P_ScaleIncome(map, owner, amount));
         unit->harvest.cargo -= amount;
         if (unit->harvest.cargo > 0) {
             if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
@@ -1527,7 +1534,7 @@ static bool update_unit_harvest(level_t *map,
         if (mobj_harvest_capacity(unit) > 0)
             unit->harvest.cargo += take;
         else
-            map->player_resources[owner][rtype] += P_ScaleIncome(map, owner, take);
+            P_AddResource(map, owner, rtype, P_ScaleIncome(map, owner, take));
         /* A depleted deposit's trickle is a whole trip. */
         if (mobj_harvest_capacity(unit) > 0 &&
             (unit->harvest.cargo >= mobj_harvest_capacity(unit) || vent->depleted)) {
