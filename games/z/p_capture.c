@@ -580,9 +580,11 @@ static ivec2_t water_origin(const mobj_t *truck, ivec2_t aim) {
     return ivec2_add(origin, ivec2_add(hull[body], nozzle[facing]));
 }
 
+/* Facing offsets at 0x1492c8, used by 0x64227. */
+static const ivec2_t gun_pivot[] = {{13,-2},{24,1},{29,9},{22,17},{13,20},{4,18},{-4,9},{2,0}};
+
 /* 0x590c9/0x64227/0x5915f: tank turret pivot, mount and barrel. */
 static ivec2_t tank_origin(const mobj_t *tank) {
-    static const ivec2_t pivot[] = {{13,-2},{24,1},{29,9},{22,17},{13,20},{4,18},{-4,9},{2,0}};
     static const ivec2_t mount[] = {{0,0},{-2,0},{-3,-3},{-2,-3},{0,-3},{0,-3},{0,-3},{-1,0}};
     static const ivec2_t barrel[3][8] = {
         {{-11,-2},{0,1},{-2,6},{-2,12},{-10,11},{-14,9},{-16,5},{-14,-3}},
@@ -591,7 +593,7 @@ static ivec2_t tank_origin(const mobj_t *tank) {
     };
     int type = tank->type_id == MT_UNIT_MED_TANK ? 0 : tank->type_id == MT_UNIT_HEAVY_TANK ? 1 : 2;
     int facing = angle_to_direction(tank->core.angle + tank->attack.aim, 8, ANG90, true);
-    return ivec2_add(Z_AITopLeft(tank), ivec2_add(pivot[facing],
+    return ivec2_add(Z_AITopLeft(tank), ivec2_add(gun_pivot[facing],
         ivec2_add(mount[facing], ivec2_add((ivec2_t){6,-9}, barrel[type][facing]))));
 }
 
@@ -636,6 +638,14 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
             fixed2_cell(fixed2_scale(fixed3_xy(attacker->core.position), FIXED_FROM_INT(Z_TILE)));
         if (attacker->type_id == MT_UNIT_LIGHT_TANK || attacker->type_id == MT_UNIT_MED_TANK ||
             attacker->type_id == MT_UNIT_HEAVY_TANK) start = tank_origin(attacker);
+        if (attacker->type_id == MT_UNIT_LIGHT_GUN || attacker->type_id == MT_UNIT_HOWITZER) {
+            int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+            start = ivec2_add(Z_AITopLeft(attacker), gun_pivot[facing]);
+        } else if (attacker->type_id == MT_UNIT_TOUGH) {
+            static const ivec2_t muzzle[] = {{3,-5},{-1,-6},{5,-5},{3,-1},{-2,3},{-4,0},{-7,-2},{-2,-5}};
+            int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+            start = ivec2_add(Z_AITopLeft(attacker), muzzle[facing]);
+        }
         int sprite = 0;
         if (attacker->type_id == MT_UNIT_M_MISSILE) {
             static const ivec2_t body[] = {{2,-2},{2,-2},{4,0},{1,-3},{2,1},{1,-2},{3,-3},{1,-4}};

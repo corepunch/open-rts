@@ -3628,6 +3628,15 @@ with `r2 -q -e bin.cache=true -c 'pd 50 @ 0x590c9' -c 'pd 35 @ 0x5915f'
 -c 'pd 12 @ 0x64227' -c 'px 32 @ 0x1492c8' -c 'px 16 @ 0x14b283'
 -c 'px 32 @ 0x148946' -c 'px 32 @ 0x1489a6' -c 'px 32 @ 0x148986'
 -c q data/Z/ZED.EXE`.
+The fixed-gun firing paths call `0x64227` at `0x7822d` and `0x78302`
+before dispatching Light Gun and Howitzer through `0x783d7`, so those two
+use the same `0x1492c8` pivot indexed by unit facing. The Tough action
+`0x60c9d..0x60cc6` instead adds its facing-indexed signed word pair from
+`0x14aa54` directly to robot origin before launching via `0x59ed1`. Open-rts
+now uses both offsets; `test_combat` checks all eight directions for Light
+Gun, Howitzer and Tough. Reproduce with `r2 -q -e bin.cache=true -c 'pd 45
+@ 0x7820b' -c 'pd 45 @ 0x782f2' -c 'pd 25 @ 0x60c9d' -c 'px 32 @
+0x1492c8' -c 'px 32 @ 0x14aa54' -c q data/Z/ZED.EXE`.
 A zero period for timed missiles
 now means one simulation step per tic, including flights longer than 99
 tics; other missile periods keep their existing millisecond clock.

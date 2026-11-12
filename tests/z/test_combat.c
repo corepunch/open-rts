@@ -1294,6 +1294,33 @@ static int test_water_launch(void) {
     return 0;
 }
 
+static int test_gun_muzzle(void) {
+    const int types[] = {MT_UNIT_LIGHT_GUN, MT_UNIT_HOWITZER, MT_UNIT_TOUGH};
+    static const ivec2_t gun[] = {{13,-2},{24,1},{29,9},{22,17},{13,20},{4,18},{-4,9},{2,0}};
+    static const ivec2_t tough[] = {{3,-5},{-1,-6},{5,-5},{3,-1},{-2,3},{-4,0},{-7,-2},{-2,-5}};
+    RtsGameModel *model = load();
+    if (!model) return fail("load gun muzzle fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 96, 0), 500);
+    if (!target) return fail("spawn gun muzzle target");
+    for (int t = 0; t < 3; ++t) {
+        mobj_t *attacker = blast_unit(types[t], 0, at, 500);
+        if (!attacker) return fail("spawn gun muzzle attacker");
+        for (int facing = 0; facing < 8; ++facing) {
+            attacker->core.angle = direction_to_angle(facing, 8, ANG90, true);
+            if (!Z_Attack(attacker, &attacker->info->attack, target)) return fail("launch gun by facing");
+            mobj_t *shell = nth(MT_SHELL, 0, 0);
+            ivec2_t start = ivec2_add(Z_AITopLeft(attacker), t == 2 ? tough[facing] : gun[facing]);
+            if (!shell || !ivec2_equal(t == 2 ? shell->z.water.start : shell->z.grenade.start, start))
+                return fail("gun and Tough use native facing-dependent muzzle");
+            P_RemoveMobj(shell);
+        }
+        P_RemoveMobj(attacker);
+    }
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_tank_muzzle(void) {
     const int types[] = {MT_UNIT_MED_TANK, MT_UNIT_HEAVY_TANK, MT_UNIT_LIGHT_TANK};
     static const ivec2_t offsets[3][8] = {
@@ -1853,6 +1880,6 @@ static int test_alert(void) {
 
 int main(void) {
     if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
-        test_tank_muzzle() || test_tank_shell_arc() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
+        test_gun_muzzle() || test_tank_muzzle() || test_tank_shell_arc() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
