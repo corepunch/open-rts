@@ -2432,11 +2432,14 @@ case and ignored the count. The eudplib `stockact.py` constructor instead
 encodes a count at +27 and describes a bounded quantity; open-rts now honors
 that field, with zero meaning All. This is a tool-reference choice rather than
 a retail executable finding. It supports explicit neutral player 12 (slot 11)
-and changes deposit stock rather than player stock. It does not reproduce
-OpenBW's mineral threshold animation or elevation filtering; amounts above
-INT_MAX are clamped to the engine's signed deposit range.
+and changes deposit stock rather than player stock. The existing runtime
+filters by the selected location's elevation exclusions, matching OpenBW; the
+new regression test verifies that path. Its mineral threshold animation
+remains unmodeled. Amounts above INT_MAX are clamped to the engine's signed
+deposit range.
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission` exercises
-neutral selection, one-unit and All counts, and a decoy value at +8.
+neutral selection, one-unit and All counts, elevation filtering, and a decoy
+value at +8.
 The action has no unit-type selector: only resource unit types qualify. All
 Players includes neutral slot 11. A built refinery takes over the geyser's
 vent source in `game/g_game.c`; selection therefore uses the refinery owner's

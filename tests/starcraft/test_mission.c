@@ -1724,6 +1724,36 @@ int main(void) {
     CHECK(!P_MobjById(zeroed_patch_id) && !level.resource_vents[0].active && !level.player_resources[0][0]);
     free(trig); unload(); remove("/tmp/open-rts-sc-resource.chk");
 
+    /* Modify Resource Amount honors the selected location's elevation mask. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 16, 17); put_u32(action + 20, 700);
+    action[26] = 52;
+    CHECK(!write_map("/tmp/open-rts-sc-resource-height.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-resource-height.chk", &level));
+    sc_mission_t *resource_mission = level.mission;
+    resource_mission->loc_count = 1;
+    resource_mission->loc_left[0] = resource_mission->loc_top[0] = 128;
+    resource_mission->loc_right[0] = 192; resource_mission->loc_bottom[0] = 160;
+    resource_mission->loc_elevation[0] = 1u << 4; /* Exclude middle-height ground. */
+    resource_mission->terrain = calloc((size_t)level.width * level.height, sizeof(*resource_mission->terrain));
+    CHECK(resource_mission->terrain);
+    sc_terrain_t *high_tile = &resource_mission->terrain[L_Index(&level, 4, 4)];
+    sc_terrain_t *middle_tile = &resource_mission->terrain[L_Index(&level, 5, 4)];
+    for (int i = 0; i < 16; i++) {
+        high_tile->vf4[i] = SC_TERRAIN_HIGH;
+        middle_tile->vf4[i] = SC_TERRAIN_MIDDLE;
+    }
+    mobj_t *high_patch = sc_spawn_actor(MT_MINERAL_FIELD1 - 1, (ivec2_t){144, 144}, 11);
+    mobj_t *middle_patch = sc_spawn_actor(MT_MINERAL_FIELD1 - 1, (ivec2_t){176, 144}, 11);
+    CHECK(high_patch && middle_patch);
+    level.resource_vents = calloc(2, sizeof(*level.resource_vents)); CHECK(level.resource_vents);
+    level.resource_vent_count = 2;
+    level.resource_vents[0] = (resourcevent_t){.source_id = high_patch->id, .amount = 20};
+    level.resource_vents[1] = (resourcevent_t){.source_id = middle_patch->id, .amount = 30};
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.resource_vents[0].amount == 700 && level.resource_vents[1].amount == 30);
+    free(trig); unload(); remove("/tmp/open-rts-sc-resource-height.chk");
+
     /* Order selects all matching units; Comment never issues an order. */
     for (int order = 0; order < 4; order++) {
         trig = blank_trigger(); CHECK(trig);
