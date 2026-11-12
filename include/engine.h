@@ -1075,6 +1075,8 @@ typedef struct {
     fixed3_t position;
     uint32_t target;
     int product;
+    bool queued; /* Append this player order to the unit's pending orders. */
+    bool internal; /* Game-issued continuation, never accepted from the wire. */
     unsigned count;
     uint32_t units[MAXCOMMANDUNITS];
     waypoints_t path; /* TC_PATH installs the complete route atomically. */

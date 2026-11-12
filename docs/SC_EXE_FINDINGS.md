@@ -1,5 +1,42 @@
 # StarCraft native data and UI findings
 
+## Queued player orders
+
+Pinned OpenBW `bwgame.h` `issue_order` permits eight
+highlighted pending orders per unit, starts orders immediately from several
+idle states and Patrol, and honors each order's queueable flag. Its global
+1800-order allocation pool is not reproduced. Native classic `arr/orders.dat`
+SHA-256 `b7e90406d9d7193d9294050d08d0e788b5bdb8e17882b3bc36d75c4d4093e815`
+contains 176 records; PyMS's property layout puts interruptibility at
+`7*176+id` and queueability at `9*176+id`. Stop (1), Move (6), AttackUnit (10),
+AttackMove (14), Repair (34), Follow (49), EnterTransport (92), MoveUnload
+(112), HoldPosition (107), and Patrol (152) are queueable. PlaceBuilding (30),
+PlaceProtossBuilding (31), Unload (111), and classic cast orders inspected
+at 113–148 are not. Inspect with e.g. `od -An -tu1 -j $((9*176+92)) -N 1
+data/STARCRAFT/native/arr/orders.dat`. Shift is captured at player input and
+the append bit travels in lockstep commands. Per-unit pending orders are
+saved and checksummed; death and owner changes discard them. Internal
+continuations do not travel on the wire.
+
+OpenBW `order_HarvestGas` starts pending player work after
+the current extraction rather than automatically returning gas. In contrast,
+`order_MiningMinerals` issues ReturnMinerals through
+`set_queued_order(true)`, which removes interruptible pending tail orders;
+the native Move, AttackUnit, AttackMove, Repair and Follow entries all have
+interruptible byte 1. ReturnMinerals then puts the next mineral approach at
+the front. The current phase-based approximation and targeted tests cover
+the ordinary move/attack/repair/follow queue and gas/mineral completion
+boundaries; other internal worker orders and exact queued-order interruption
+remain a separate fidelity question. `test_orders`, `test_mining`, and
+`test_save` exercise the implemented behavior. Eighteen shared multiprocess
+network cases passed, including validation of the queue bit and rejection of
+internal state on the wire (`/tmp/open-rts-shift-network.log`).
+When an ordered attack target becomes ineligible, the queued continuation
+uses the engine's `P_CanTarget` rule. OpenBW's explicit attack eligibility
+does not itself reject allied targets, so ownership changes can differ from
+this engine's forced-attack handling; invisibility and reacquisition are not
+claimed identical.
+
 ## Simulation terrain and random rolls (2026-11-12)
 
 **Confirmed native asset layout and reference behavior, not an executable trace.**
@@ -82,8 +119,14 @@ OpenBW `attack_with_weapon` dispatches both projectiles consecutively when the
 weapon bullet count is two; Goliath and Scout IScript each use one `attackwith 2`.
 Trail and Death overlays and their sounds are not yet reproduced. These are
 source-derived findings, not independently traced retail executable behavior.
-Immediate-hit weapons outside the moving-projectile path still use the older
-damage rules and do not yet apply the synchronized elevation/cover miss roll.
+For normal and splash weapons with behavior 2, the same roll is made at attack
+dispatch. A normal miss deals no damage; radial splash still lands at the
+30-pixel-shifted aim point. OpenBW chooses the intersection toward the attacker
+on the target's quarter-inset inner bounds for the initial point. Splash
+distance uses the nearest point on the native unit bounds and OpenBW's integer
+`xy_length`. Behavior 5 appears at the source
+and does not use the miss roll, including Firebat splash under Dark Swarm.
+The instant implementation does not reproduce its separate impact animation.
 
 **Spider Mine movement.** `units.dat` row 13 has the normal order field zero,
 but flingy speed 4096 and turn 127. OpenBW `order_SpiderMine` sends an awakened

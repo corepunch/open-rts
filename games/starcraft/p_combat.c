@@ -221,7 +221,7 @@ static int hit_damage(const mobj_t *attacker, const weapondef_t *def, mobj_t *ta
     if ((target->sc.flags & SC_INVINCIBLE) || target->sc.timers[SC_TIMER_STASIS]) return 0;
     sc_start(target);
     const sc_weapon_t *w = sc_weapon(def->native_id);
-    int dealt = sc_spell_hit(attacker, def, target, base_damage(attacker->owner, w, damage, divisor));
+    int dealt = sc_projectile_spell_hit(attacker, target, base_damage(attacker->owner, w, damage, divisor));
     return dealt > 0 ? take(target, w && w->type < 5 ? w->type : SC_DAMAGE_NORMAL, dealt) : 0;
 }
 
@@ -231,9 +231,86 @@ bool sc_projectile_weapon(int id) {
         w->explosion==1&&w->movement==1&&w->speed>0&&w->acceleration>0;
 }
 
+static bool weapon_misses(const mobj_t *source,const mobj_t *target) {
+    unsigned src=sc_terrain_flags(fixed3_xy(source->core.position));
+    unsigned dst=sc_terrain_flags(fixed3_xy(target->core.position));
+    int chance=0;
+    if(!(target->traits&MF_FLY)) {
+        if(sc_dark_swarm_protects(target))chance=255;
+        else if(dst&SC_TERRAIN_COVER)chance=119;
+        int source_height=(src&SC_TERRAIN_HIGH)?2:(src&SC_TERRAIN_MIDDLE)?1:0;
+        int target_height=(dst&SC_TERRAIN_HIGH)?2:(dst&SC_TERRAIN_MIDDLE)?1:0;
+        if(!(source->traits&MF_FLY)&&target_height>source_height&&chance<119)chance=119;
+    }
+    return (sc_random()&255)<=(unsigned)chance;
+}
+
+static void immediate_hit(mobj_t *source,const sc_weapon_t *w,mobj_t *target,int divisor) {
+    if(!sc_type(target)||target->remove||target->hp<=0||
+       (target->sc.flags&SC_INVINCIBLE)||target->sc.timers[SC_TIMER_STASIS])return;
+    sc_start(target);
+    int dealt=sc_projectile_spell_hit(source,target,base_damage(source->owner,w,w->damage,divisor));
+    int damage=dealt>0?take(target,w->type<5?w->type:SC_DAMAGE_NORMAL,dealt):0;
+    if(damage>0)P_DamageMobj(target,source,damage);
+    else P_ProvokeMobj(target,source);
+}
+
+/* OpenBW fire_weapon: clip the line from the target's shrunken inner box
+ * centre toward the shooter, then place an appear-at-target bullet there. */
+static fixed2_t immediate_position(const mobj_t *source,const mobj_t *target) {
+    irect_t box=sc_unit(target)->bounds;
+    ivec2_t unit={target->core.position.x/SC_PIXELS(1),target->core.position.y/SC_PIXELS(1)};
+    int left=unit.x+box.x,top=unit.y+box.y,right=left+box.w-1,bottom=top+box.h-1;
+    int mx=(right-left)/4,my=(bottom-top)/4;
+    left+=mx;right-=mx;top+=my;bottom-=my;
+    ivec2_t from={left+(right-left)/2,top+(bottom-top)/2};
+    ivec2_t to={source->core.position.x/SC_PIXELS(1),source->core.position.y/SC_PIXELS(1)};
+    for(;;) {
+        int flags=(to.y<top?8:0)|(to.y>bottom?4:0)|(to.x>right?2:0)|(to.x<left?1:0);
+        if(!flags)break;
+        if(flags&8)to=(ivec2_t){from.x+(int)((int64_t)(top-from.y)*(to.x-from.x)/(to.y-from.y)),top};
+        else if(flags&4)to=(ivec2_t){from.x+(int)((int64_t)(bottom-from.y)*(to.x-from.x)/(to.y-from.y)),bottom};
+        else if(flags&2)to=(ivec2_t){right,from.y+(int)((int64_t)(right-from.x)*(to.y-from.y)/(to.x-from.x))};
+        else to=(ivec2_t){left,from.y+(int)((int64_t)(left-from.x)*(to.y-from.y)/(to.x-from.x))};
+    }
+    return (fixed2_t){SC_PIXELS(to.x),SC_PIXELS(to.y)};
+}
+
+/* OpenBW bullet type 2 appears at the target and rolls once per projectile. */
+enum { SC_BEHAVIOR_APPEAR_TARGET = 2 };
+static void immediate_fire(mobj_t *source,const weapondef_t *def,mobj_t *target,const sc_weapon_t *w) {
+    for(int i=0;i<(def->hits?def->hits:1);i++) {
+        bool missed=weapon_misses(source,target);
+        if(w->explosion==1) {
+            if(!missed)immediate_hit(source,w,target,1);
+            continue;
+        }
+        fixed2_t at=immediate_position(source,target);
+        if(missed) {
+            fixed2_t heading;angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
+            at=fixed2_sub(at,fixed2_scale(heading,SC_PIXELS(30)));
+        }
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+            mobj_t *victim=(mobj_t *)th;
+            if(th->function!=P_MobjThinker||victim==source||victim->remove||victim->hp<=0||
+               !sc_type(victim)||(victim->traits&(MF_NOBLOCKMAP|MF_MISSILE))||
+               !(w->targets&((victim->traits&MF_FLY)?1u:2u))||
+               (w->explosion==SC_EXPLOSION_ENEMY&&victim!=target&&P_IsAlly(source,victim)))continue;
+            int d=sc_point_distance(victim,at);
+            int divisor=d<=w->splash[0]?1:d<=w->splash[1]?2:d<=w->splash[2]?4:0;
+            if(divisor)immediate_hit(source,w,victim,divisor);
+        }
+    }
+}
+
 bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
-    if(!source||!target||!def||!sc_projectile_weapon(def->native_id))return false;
-    const sc_weapon_t *w=&sc_weapons[def->native_id];
+    if(!source||!target||!def)return false;
+    const sc_weapon_t *w=sc_weapon(def->native_id);
+    if(!w)return false;
+    if(w->behavior==SC_BEHAVIOR_APPEAR_TARGET&&w->damage>0&&(w->explosion==1||w->explosion==SC_EXPLOSION_RADIAL||w->explosion==SC_EXPLOSION_ENEMY)) {
+        immediate_fire(source,def,target,w);return true;
+    }
+    if(!sc_projectile_weapon(def->native_id))return false;
     fixed2_t heading; angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
     fixed2_t at=fixed2_add(fixed3_xy(source->core.position),fixed2_scale(heading,SC_PIXELS(w->forward)));
     at=fixed2_add(at,(fixed2_t){0,-SC_PIXELS(w->upward)});
@@ -252,17 +329,7 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
     }
     shot->sc.flags=source->sc.flags&SC_HALLUCINATION;
     shot->movement.goal=fixed3_xy(target->core.position);
-    unsigned src=sc_terrain_flags(fixed3_xy(source->core.position));
-    unsigned dst=sc_terrain_flags(fixed3_xy(target->core.position));
-    int chance=0;
-    if(!(target->traits&MF_FLY)) {
-        if(sc_dark_swarm_protects(target))chance=255;
-        else if(dst&SC_TERRAIN_COVER)chance=119;
-        int source_height=(src&SC_TERRAIN_HIGH)?2:(src&SC_TERRAIN_MIDDLE)?1:0;
-        int target_height=(dst&SC_TERRAIN_HIGH)?2:(dst&SC_TERRAIN_MIDDLE)?1:0;
-        if(!(source->traits&MF_FLY)&&target_height>source_height&&chance<119)chance=119;
-    }
-    bool missed=(sc_random()&255)<=(unsigned)chance;
+    bool missed=weapon_misses(source,target);
     if(missed)shot->movement.goal=fixed2_sub(shot->movement.goal,fixed2_scale(heading,SC_PIXELS(30)));
     shot->sc.projectile=(sc_projectile_t){.weapon=def->native_id,.turn=w->turn,.missed=missed};
     if(sc_projectile_states[def->native_id]) {

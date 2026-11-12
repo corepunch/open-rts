@@ -30,6 +30,9 @@ enum { SC_CARGO = 8 };
  * (repair debit/Follow check), or marks landing descent. An effect
  * area keeps its spell in tech. */
 typedef struct { int kind, tech; uint32_t target; ivec2_t at; int time; } sc_order_t;
+enum { SC_QUEUED_ORDERS = 8 };
+typedef struct { int order, product; fixed3_t position; uint32_t target; ivec2_t point; int mode; } sc_pending_order_t;
+typedef struct { int active, count, owner, harvest_phase; uint32_t target; sc_pending_order_t pending[SC_QUEUED_ORDERS]; } sc_order_queue_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
@@ -41,7 +44,7 @@ typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_p
  * Spider Mines. A Nydus Canal's parent is its other end. */
 #define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
-    sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; } sc;
+    sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; sc_order_queue_t queue; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->sc.flags); HASH((mo)->sc.attacker); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
@@ -56,5 +59,11 @@ typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_p
     HASH((mo)->sc.glow.active); HASH((mo)->sc.glow.phase); \
     HASH((mo)->sc.projectile.weapon); HASH((mo)->sc.projectile.speed); \
     HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
+    HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target); \
+    for (int sc_q=0; sc_q<(mo)->sc.queue.count && sc_q<SC_QUEUED_ORDERS; ++sc_q) { \
+        const sc_pending_order_t *q=&(mo)->sc.queue.pending[sc_q]; \
+        HASH(q->order); HASH(q->product); HASH(q->position.x); HASH(q->position.y); HASH(q->position.z); \
+        HASH(q->target); HASH(q->point.x); HASH(q->point.y); HASH(q->mode); \
+    } \
 } while (0)
 #endif

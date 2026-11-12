@@ -231,7 +231,7 @@ static int splash_and_bounce(void) {
     mobj_t *own = spawn(MT_MARINE, FIXED2_LIT(10.5, 9.6), 0), *flyer = spawn(MT_MUTALISK, FIXED2_LIT(10.5, 10.6), 1);
     CHECK(tank && a && b && c && far && own && flyer);
     int hp = a->max_hp, ar = armor(ULTRALISK);
-    /* Arclite Shock Cannon: 70 explosive; 50% then 25% beyond the inner radius. */
+    /* The source-facing impact puts b in the middle radius and c in the outer radius. */
     CHECK(shoot(tank, a));
     CHECK(hp - a->hp == 70 - ar && hp - b->hp == 35 - ar && hp - c->hp == 17 - ar && far->hp == hp);
     CHECK(own->hp < own->max_hp);          /* radial splash spares nobody on the ground */
@@ -370,6 +370,49 @@ static int speeds(void) {
     return 0;
 }
 
+static int immediate_misses(void) {
+    sc_mission_t *mission=level.mission;
+    mobj_t *marine=spawn(MT_MARINE,FIXED2_LIT(5,5),0),*target=spawn(MT_MARINE,FIXED2_LIT(8,5),1);
+    CHECK(marine&&target);marine->attack.target=target;marine->core.angle=0;
+    mission->rng=0;CHECK(P_Attack(marine));
+    CHECK(target->hp==target->max_hp&&!target->attack.target); /* roll zero misses without provocation */
+    weapondef_t twin=marine->info->attack;twin.hits=2;mission->rng=0;
+    CHECK(sc_projectile_fire(marine,&twin,target));
+    CHECK(target->hp==target->max_hp-6); /* first roll misses; the second hits */
+    target->hp=target->max_hp;target->attack.target=NULL;
+    mission->terrain=calloc((size_t)level.width*level.height,sizeof(*mission->terrain));CHECK(mission->terrain);
+    sc_terrain_t *tile=&mission->terrain[L_Index(&level,8,5)];
+    tile->cv5=SC_TERRAIN_COVER;mission->rng=1;marine->attack.cooldown_left_ms=0;
+    CHECK(P_Attack(marine)&&target->hp==target->max_hp);
+    tile->cv5=0;tile->vf4[0]=SC_TERRAIN_HIGH;mission->rng=1;marine->attack.cooldown_left_ms=0;
+    CHECK(P_Attack(marine)&&target->hp==target->max_hp);
+    tile->vf4[0]=0;mission->rng=2;marine->attack.cooldown_left_ms=0;
+    CHECK(P_Attack(marine)&&target->hp==target->max_hp-6&&target->attack.target==marine);
+    free(mission->terrain);mission->terrain=NULL;reset();
+
+    mobj_t *tank=spawn(SIEGE_MODE,FIXED2_LIT(4,8),0);
+    target=spawn(MT_MARINE,FIXED2_LIT(10,8),1);
+    mobj_t *near=spawn(MT_MARINE,(fixed2_t){FIXED_FROM_INT(10)-SC_PIXELS(30),FIXED_FROM_INT(8)},1);
+    CHECK(tank&&target&&near);tank->core.angle=0;tank->attack.target=target;mission->rng=0;
+    CHECK(P_Attack(tank));
+    CHECK(near->hp==5&&target->hp==32); /* explosive damage on small units, centered on miss */
+    reset();
+
+    tank=spawn(SIEGE_MODE,FIXED2_LIT(4,8),0);
+    target=spawn(MT_MARINE,FIXED2_LIT(10,8),1);
+    near=spawn(MT_MARINE,(fixed2_t){FIXED_FROM_INT(10)-SC_PIXELS(52),FIXED_FROM_INT(8)},1);
+    CHECK(tank&&target&&near);tank->core.angle=0;tank->attack.target=target;mission->rng=2;
+    CHECK(P_Attack(tank)&&near->hp==32); /* target's source-facing inner edge, not its centre */
+    reset();
+
+    mobj_t *firebat=spawn(MT_FIREBAT,FIXED2_LIT(5,5),0);
+    target=spawn(MT_ZERGLING,FIXED2_LIT(5.8,5),1);
+    mobj_t *cloud=spawn(MT_DARK_SWARM,FIXED2_LIT(5.8,5),1);
+    CHECK(firebat&&target&&cloud);cloud->sc.order.tech=SC_TECH_DARK_SWARM;cloud->sc.timers[SC_TIMER_LIFE]=100;
+    CHECK(shoot(firebat,target)&&target->hp<target->max_hp); /* source-appearing flame bypasses miss roll */
+    reset();return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
@@ -388,6 +431,7 @@ int main(void) {
     CHECK(!cloaking());
     CHECK(!turrets());
     CHECK(!speeds());
+    CHECK(!immediate_misses());
     free(level.mission); level.mission=NULL;
     P_FreeLevel(&level);
     puts("PASS: ground and air weapons, damage types, shields and Shield Battery, hits, splash, glaive bounces, "

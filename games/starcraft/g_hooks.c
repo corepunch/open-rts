@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
 /* Mission extras and projectile state differ from earlier saves. */
-uint32_t G_SaveLayout(void) { return 2; }
+uint32_t G_SaveLayout(void) { return 3; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -49,6 +49,7 @@ void G_UnitProduced(mobj_t *unit,const mobj_t *producer) {
 }
 
 void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
+    if(victim)victim->sc.queue=(sc_order_queue_t){0};
     sc_transport_killed(victim);
     if(killer&&victim&&killer!=victim&&!P_IsAlly(killer,victim)&&killer->sc.kills<UINT16_MAX)
         killer->sc.kills++;
@@ -62,6 +63,7 @@ bool G_UnitCommandable(const mobj_t *unit) {
 
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
+    if(sc_queue_order(player,cmd,units,count))return true;
     if(sc_core_order(player,cmd,units,count,target))return true;
     /* A stale individual passenger click must not become Unload All. */
     if(cmd->order==TC_UNLOAD&&cmd->target&&!target)return true;

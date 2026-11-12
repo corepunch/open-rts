@@ -532,12 +532,24 @@ bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     if (caster->sc.energy < energy_cost(tech) || (needs_target(tech) && !target_ok(caster, tech, target)) ||
         (tech == SC_TECH_NUCLEAR_STRIKE && !sc_armed_silo(caster->owner))) return false;
     if (!needs_target(tech)) target = NULL;
+    fixed2_t destination=target?where(target):from_pixel(pixel(at));
+    fixed_t range=reach(s);
+    bool in_range=range<0||near(caster,destination,range+FIXED_ONE/2+(target?P_MobjRadius(target):0));
+    if(!in_range) {
+        fixed3_t momentum=caster->core.momentum;
+        if(!P_MoveUnitTo(&level,caster,destination)) {
+            caster->core.momentum=momentum;
+            return false;
+        }
+        caster->movement.best_goal_dist=caster->movement.best_leg_dist=0;
+    }
     sc_interrupt(caster);
     caster->waypoints=(waypoints_t){0};
-    P_ClearMove(caster);
+    if(in_range)P_ClearMove(caster);
     caster->sc.order = (sc_order_t){.kind = SC_ORDER_CAST, .tech = tech, .target = target ? target->id : 0,
                                     .at = pixel(target ? where(target) : at)};
     caster->attack.target = NULL;
+    if (!in_range) { caster->move_only=true; return true; }
     if (step_cast(caster)) return true;
     caster->sc.order = (sc_order_t){0};
     return false;
@@ -586,12 +598,6 @@ int sc_projectile_spell_hit(const mobj_t *attacker, mobj_t *target, int dealt) {
         dealt -= absorbed;
     }
     return dealt;
-}
-
-int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int dealt) {
-    /* Under Dark Swarm only blows from up close land. */
-    if (weapon->range > FIXED_ONE && sc_dark_swarm_protects(target)) return 0;
-    return sc_projectile_spell_hit(attacker,target,dealt);
 }
 
 uint32_t sc_sight_teams(const mobj_t *mo) { return mo->sc.parasite; }

@@ -389,6 +389,28 @@ static int protoss_spells(void) {
     return 0;
 }
 
+static int rejected_cast_keeps_orders(void) {
+    reset();learn(0,SC_TECH_PSIONIC_STORM);
+    mobj_t *caster_unit=caster(MT_HIGH_TEMPLAR,FIXED2_LIT(4.5,4.5));CHECK(caster_unit);
+    ticcmd_t move={.order=TC_MOVE,.count=1,.units={caster_unit->id},.position=fixed3_from_fixed2(FIXED2_LIT(8.5,4.5),0)};
+    G_RunTiccmd(0,&move);CHECK(P_HasMoveOrder(caster_unit));
+    move.queued=true;move.position=fixed3_from_fixed2(FIXED2_LIT(12.5,4.5),0);
+    G_RunTiccmd(0,&move);CHECK(caster_unit->sc.queue.count==1);
+    fixed2_t old_goal=caster_unit->movement.goal;
+    int old_path_count=caster_unit->movement.path.count;
+    caster_unit->core.momentum=fixed3_from_fixed2(FIXED2_LIT(0.1,0.2),0);
+    fixed3_t old_momentum=caster_unit->core.momentum;
+    memset(level.blocked,1,(size_t)level.width*level.height);P_NavFree(&level);P_NavBeginTick();
+    fixed2_t remote=FIXED2_LIT(30.5,30.5);
+    CHECK(!sc_cast(caster_unit,SC_TECH_PSIONIC_STORM,NULL,remote));
+    CHECK(caster_unit->sc.queue.count==1&&fixed2_equal(caster_unit->movement.goal,old_goal)&&
+          caster_unit->movement.path.count==old_path_count&&!memcmp(&caster_unit->core.momentum,&old_momentum,sizeof(old_momentum)));
+    ticcmd_t cmd=spell(caster_unit,SC_TECH_PSIONIC_STORM,NULL,remote);G_RunTiccmd(0,&cmd);
+    CHECK(caster_unit->sc.queue.count==1&&fixed2_equal(caster_unit->movement.goal,old_goal)&&
+          caster_unit->movement.path.count==old_path_count&&!memcmp(&caster_unit->core.momentum,&old_momentum,sizeof(old_momentum)));
+    memset(level.blocked,0,(size_t)level.width*level.height);P_NavFree(&level);reset();return 0;
+}
+
 static int terran_spells(void) {
     /* Defensive Matrix (no research): absorbs 250, then hits land. */
     mobj_t *vessel = caster(MT_SCIENCE_VESSEL, FIXED2_LIT(4.5, 4.5)), *marine = spawn(MT_MARINE, FIXED2_LIT(6.5, 4.5), 0);
@@ -788,6 +810,7 @@ int main(void) {
     CHECK(!bunker());
     CHECK(!archon());
     CHECK(!protoss_spells());
+    CHECK(!rejected_cast_keeps_orders());
     CHECK(!terran_spells());
     CHECK(!zerg_spells());
     CHECK(!computer());

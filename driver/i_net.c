@@ -17,9 +17,9 @@ static doomcom_t communication;
 doomcom_t *doomcom = &communication;
 
 /* Explicit encoding: no host padding, pointers, enums or floats on the wire. */
-#define WIRECMD (32 + 4 * CONSISTENCY_COUNT + 4 * MAXCOMMANDUNITS + 8 + 8 * MAXWAYPOINTS + 128)
+#define WIRECMD (36 + 4 * CONSISTENCY_COUNT + 4 * MAXCOMMANDUNITS + 8 + 8 * MAXWAYPOINTS + 128)
 /* Fixed part of one encoded command: scalars, then the consistency vector. */
-#define CMD_HEADER (32 + 4 * CONSISTENCY_COUNT)
+#define CMD_HEADER (36 + 4 * CONSISTENCY_COUNT)
 #define WIREMAX (8 + BACKUPTICS * WIRECMD)
 static void put32(uint8_t *p, uint32_t v) {
     p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v;
@@ -50,7 +50,8 @@ static size_t encode(uint8_t *wire) {
         put32(p + 20, c->target); put32(p + 24, (uint32_t)c->product);
         put32(p + 28, c->count);
         for (int j = 0; j < CONSISTENCY_COUNT; ++j) put32(p + 32 + 4 * j, c->subsystems[j]);
-        p += 4 * CONSISTENCY_COUNT;
+        put32(p + 32 + 4 * CONSISTENCY_COUNT, c->queued);
+        p += 4 + 4 * CONSISTENCY_COUNT;
         for (unsigned j = 0; j < c->count; ++j) put32(p + 32 + 4 * j, c->units[j]);
         size += CMD_HEADER + 4 * c->count;
         if (c->order == TC_PATH) {
@@ -89,7 +90,10 @@ static bool decode(const uint8_t *wire, size_t size) {
         if (c->order > TC_MAX || c->count > MAXCOMMANDUNITS ||
             c->count > (size - offset - CMD_HEADER) / 4) return false;
         for (int j = 0; j < CONSISTENCY_COUNT; ++j) c->subsystems[j] = get32(p + 32 + 4 * j);
-        p += 4 * CONSISTENCY_COUNT;
+        uint32_t queued = get32(p + 32 + 4 * CONSISTENCY_COUNT);
+        if (queued > 1) return false;
+        c->queued = queued != 0;
+        p += 4 + 4 * CONSISTENCY_COUNT;
         for (unsigned j = 0; j < c->count; ++j) c->units[j] = get32(p + 32 + 4 * j);
         offset += CMD_HEADER + 4 * c->count;
         if (c->order == TC_PATH) {

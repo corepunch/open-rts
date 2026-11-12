@@ -264,9 +264,7 @@ bool sc_tech_aimed(int tech);
 /* Spell upkeep each engine tic: timers, damage over time, effect areas,
  * disabled units and pending casts. frames is the 24 Hz frames passed. */
 void sc_spell_ticker(mobj_t *mo, int frames);
-/* What spells make of one hit, in 1/256 points: hallucinations, the
- * Defensive Matrix and Dark Swarm. */
-int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int dealt);
+/* Dark Swarm is checked at launch; hallucination and Matrix affect hits. */
 bool sc_dark_swarm_protects(const mobj_t *target);
 int sc_projectile_spell_hit(const mobj_t *attacker, mobj_t *target, int dealt);
 uint32_t sc_sight_teams(const mobj_t *mo);
@@ -286,6 +284,8 @@ int sc_hangar_count(const mobj_t *maker);
  * boarding and archon merges. */
 void sc_unit_ticker(mobj_t *mo, int frames);
 bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count, mobj_t *target);
+int sc_point_distance(const mobj_t *unit, fixed2_t at);
+bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count);
 void sc_repair_ticker(mobj_t *mo, int frames);
 void sc_order_ticker(mobj_t *mo, int frames);
 int sc_unit_distance(const mobj_t *a, const mobj_t *b);

@@ -423,7 +423,8 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         assert(G_PathOrder(actors,MAXPLAYERS,&path));
     }
     result_t result = {0};
-    assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_CHAT,.target=(1u << players)-1,.text="network chat"}));
+    assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_CHAT,.queued=true,.target=(1u << players)-1,.text="network chat"}));
+    bool queued_wire[MAXPLAYERS]={0};
     if (!player && mode != SPEED_MISMATCH && mode != MISMATCH)
         assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_SPEED,.product=130}));
     int end = IS_RESYNC(mode) ? 130 : mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
@@ -455,6 +456,13 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         int count = TryRunTics();
         if (count > end - gametic) count = end - gametic;
         while (count-- > 0) {
+            for(int p=0;p<players;p++) {
+                const ticcmd_t *wirecmd=&netcmds[p][gametic%BACKUPTICS];
+                if(wirecmd->order==TC_CHAT) {
+                    assert(wirecmd->queued && !wirecmd->internal);
+                    queued_wire[p]=true;
+                }
+            }
             if (!D_RunTiccmds()) break;
             P_Ticker();
             if (mode == DESYNC && gametic == 25 && player == 1) --actors[0]->hp;
@@ -466,7 +474,10 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     result.tics = gametic;
     if (mode != SPEED_MISMATCH && mode != MISMATCH && mode != DESYNC && mode != QUIT) {
         assert(game_speed == 130);
-        if (!model) assert(chat_text.count > 0 && strstr(chat_text.messages[0].text,"network chat"));
+        if (!model) {
+            assert(chat_text.count > 0 && strstr(chat_text.messages[0].text,"network chat"));
+            for(int p=0;p<players;p++)assert(queued_wire[p]);
+        }
     }
     result.failed = neterror[0] != '\0';
     snprintf(result.error, sizeof(result.error), "%s", neterror);

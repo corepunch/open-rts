@@ -36,6 +36,9 @@ void G_BuildTiccmd(ticcmd_t *cmd) {
 }
 
 static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
+#ifdef RTS_GAME_STARCRAFT
+    cmd->queued = (SDL_GetModState() & KMOD_SHIFT) != 0;
+#endif
     for (int i = 0; i < count; ++i) {
         const mobj_t *unit = units[i];
         if (!P_MobjIsSelected(unit) || unit->owner != consoleplayer || unit->remove || unit->hp <= 0) continue;

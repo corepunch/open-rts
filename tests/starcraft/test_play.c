@@ -1,5 +1,6 @@
 #include "t_local.h"
 #include "starcraft.h"
+#include "sc_local.h"
 #include "info.h"
 #define CHECK(c) RTS_CHECK(c,"StarCraft shared gameplay",#c)
 static mobj_t *spawn(int native,fixed2_t at,int owner) {
@@ -14,6 +15,7 @@ static void order(mobj_t *u,ticorder_t type,fixed2_t at,mobj_t *target,int produ
 }
 int main(void) {
     G_InitGame();P_InitThinkers();consoleplayer=0;
+    static sc_mission_t mission;mission.rng=2;level.mission=&mission;
     level.width=level.height=32;level.blocked=calloc(1024,1);level.cell_solid=calloc(1024,1);
     mobj_t *hall=spawn(106,FIXED2_LIT(6,6.5f),0),*worker=spawn(7,FIXED2_LIT(10.5, 6.5),0);
     mobj_t *mineral=spawn(176,FIXED2_LIT(15,6.5),11);CHECK(hall&&worker&&mineral);
@@ -49,7 +51,7 @@ int main(void) {
     mobj_t *marine=spawn(0,FIXED2_LIT(10.5, 20.5),0),*enemy=spawn(0,FIXED2_LIT(13.5, 20.5),1);
     CHECK(marine&&enemy);int hp=enemy->hp;
     order(marine,TC_ATTACK,FIXED2_LIT(13.5, 20.5),enemy,0);CHECK(marine->attack.target==enemy);
-    tick(5);CHECK(enemy->hp<hp);
+    mission.rng=2;tick(5);CHECK(enemy->hp<hp);
     order(marine,TC_MOVE,FIXED2_LIT(8.5, 22.5),NULL,0);tick(60);
     CHECK(marine->core.position.x<10*FIXED_ONE);
     mobj_t *barracks=spawn(111,FIXED2_LIT(20,25.5f),0);

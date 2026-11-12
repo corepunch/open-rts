@@ -84,6 +84,27 @@ static int depletion_and_hops(void) {
     return 0;
 }
 
+static int queued_harvest(int resource) {
+    P_FreeThinkers();P_InitThinkers();memset(level.cell_solid,0,1024);
+    free(level.resource_vents);level.resource_vents=calloc(1,sizeof(*level.resource_vents));level.resource_vent_count=1;
+    mobj_t *base=spawn(MT_COMMAND_CENTER-1,FIXED2_LIT(6,6.5),0);
+    mobj_t *worker=spawn(MT_SCV-1,FIXED2_LIT(10.5,6.5),0);
+    mobj_t *source=spawn(MT_MINERAL_FIELD1-1,FIXED2_LIT(15,6.5),11);CHECK(base&&worker&&source);
+    level.resource_vents[0]=(resourcevent_t){.cell={14,6},.footprint={2,1},.attachment=FIXED2_LIT(15,6.5),
+        .resource_type=resource,.amount=4000,.rate=8,.source_id=source->id,.active=true};
+    P_SyncBuildingBlocking();order(worker,TC_ORDER,FIXED2_LIT(15,6.5),NULL);
+    for(int i=0;i<1200&&worker->harvest.phase!=HARVEST_PHASE_MINING;i++)tick(1);
+    CHECK(worker->harvest.phase==HARVEST_PHASE_MINING);
+    ticcmd_t cmd={.order=TC_MOVE,.queued=true,.count=1,.units={worker->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(20.5,10.5),0)};
+    G_RunTiccmd(0,&cmd);CHECK(worker->sc.queue.count==1);
+    for(int i=0;i<1200&&worker->sc.queue.count;i++)tick(1);
+    CHECK(!worker->sc.queue.count && worker->harvest.cargo==8);
+    if(resource)CHECK(worker->movement.goal.x==FIXED_LIT(20.5));
+    else CHECK(worker->harvest.phase==HARVEST_PHASE_TO_BASE && worker->movement.goal.x!=FIXED_LIT(20.5));
+    return 0;
+}
+
 int main(void) {
     G_InitGame();P_InitThinkers();consoleplayer=0;
     level.width=level.height=32;level.blocked=calloc(1024,1);level.cell_solid=calloc(1024,1);
@@ -144,6 +165,8 @@ int main(void) {
     CHECK(steered.x==ahead.x&&steered.y==ahead.y);
     CHECK(timing()==0);
     CHECK(depletion_and_hops()==0);
+    CHECK(queued_harvest(1)==0);
+    CHECK(queued_harvest(0)==0);
     printf("StarCraft mining: ok\n");
     return 0;
 }

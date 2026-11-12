@@ -1,6 +1,120 @@
 #include "sc_local.h"
 
 int sc_flight_states[SC_TYPES][2];
+static bool queue_done(const mobj_t *u);
+static bool repairable(const mobj_t *worker, const mobj_t *target);
+static bool queueable(int order) {
+    return order==TC_ORDER || order==TC_MOVE || order==TC_ATTACK || order==TC_HARVEST ||
+        order==TC_REPAIR || order==TC_FOLLOW || order==TC_RETURN_GOODS || order==TC_PATH || order==TC_BOARD ||
+        order==TC_STOP || order==TC_STAND_GROUND;
+}
+
+static void queue_run(int player, const ticcmd_t *cmd) {
+    ticcmd_t continuation=*cmd;
+    continuation.internal=true;
+    G_RunTiccmd(player,&continuation);
+}
+
+bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count) {
+    if(cmd->internal)return false;
+    if(cmd->order==TC_SPELL)return false; /* Accepted casts own cancellation. */
+    if(cmd->order==TC_CONSTRUCT) {
+        const StaticProductDefinition *product=G_ModelProductByUIId(NULL,cmd->product);
+        ivec2_t cell=fixed2_cell(fixed3_xy(cmd->position));
+        if(count && G_PlaceProduct(units[0],product,cell))
+            units[0]->sc.queue=(sc_order_queue_t){.active=TC_CONSTRUCT,.owner=player};
+        return true;
+    }
+    bool affects=queueable(cmd->order) || cmd->order==TC_STOP || cmd->order==TC_STAND_GROUND ||
+        cmd->order==TC_BOARD || cmd->order==TC_UNLOAD ||
+        cmd->order==TC_CONSTRUCT || cmd->order==TC_LIFT || cmd->order==TC_LAND;
+    if(!affects)return false;
+    if((cmd->order==TC_MOVE || cmd->order==TC_ORDER || cmd->order==TC_HARVEST ||
+        (cmd->order==TC_ATTACK && !cmd->target)) &&
+       !L_Contains(&level,fixed_floor_int(cmd->position.x),fixed_floor_int(cmd->position.y)))return true;
+    if(cmd->target && (cmd->order==TC_ATTACK || cmd->order==TC_REPAIR || cmd->order==TC_FOLLOW) &&
+       !P_MobjById(cmd->target))return true;
+    bool can_queue=(queueable(cmd->order) || (cmd->order==TC_UNLOAD && (cmd->position.x || cmd->position.y))) &&
+        (cmd->order!=TC_PATH || cmd->path.count==1);
+    ticcmd_t immediate=*cmd; immediate.queued=false; immediate.count=0;
+    bool appended=false;
+    for(int i=0;i<count;i++) {
+        mobj_t *u=units[i]; sc_order_queue_t *q=&u->sc.queue;
+        if(cmd->order==TC_REPAIR && !repairable(u,P_MobjById(cmd->target)))continue;
+        if(cmd->order==TC_ATTACK && cmd->target && !P_CanTarget(u,P_MobjById(cmd->target)))continue;
+        if(cmd->order==TC_LIFT || cmd->order==TC_LAND) {
+            const sc_unit_t *type=sc_unit(u);
+            if(!type || !(type->flags&SC_UNIT_FLYING_BUILDING) || u->production ||
+               (u->sc.flags&SC_HALLUCINATION))continue;
+            if(cmd->order==TC_LIFT && (u->traits&MF_FLY))continue;
+            if(cmd->order==TC_LAND && (!(u->traits&MF_FLY) ||
+               !P_CanPlaceBuilding(u->type_id,fixed2_cell(fixed3_xy(cmd->position)),u)))continue;
+        }
+        if(cmd->order==TC_BOARD) {
+            mobj_t *target=P_MobjById(cmd->target);
+            if(!target || (!sc_can_board(u,target) && !sc_can_board(target,u)))continue;
+        }
+        if(q->count<0 || q->count>SC_QUEUED_ORDERS)*q=(sc_order_queue_t){0};
+        bool patrol=q->active==TC_PATH && u->waypoints.mode==WP_BACKTRACK;
+        if(cmd->queued && can_queue && q->active && !patrol && !queue_done(u)) {
+            if(q->count<SC_QUEUED_ORDERS) {
+                sc_pending_order_t *p=&q->pending[q->count++];
+                *p=(sc_pending_order_t){.order=cmd->order,.product=cmd->product,.position=cmd->position,
+                    .target=cmd->target,.point=cmd->path.points[0],.mode=cmd->path.mode};
+            }
+            appended=true; continue;
+        }
+        *q=(sc_order_queue_t){0};
+        immediate.units[immediate.count++]=u->id;
+        if(cmd->order!=TC_STOP){q->active=cmd->order;q->owner=player;q->target=cmd->target;q->harvest_phase=u->harvest.phase;}
+    }
+    if(!appended)return false;
+    if(immediate.count)queue_run(player,&immediate);
+    return true;
+}
+
+static bool queue_done(const mobj_t *u) {
+    const sc_order_queue_t *q=&u->sc.queue;
+    if(!q->active)return true;
+    if(q->active==TC_STAND_GROUND && (u->sc.flags&SC_HOLD))return false;
+    if((q->active==TC_ATTACK || q->active==TC_ORDER) && q->target) {
+        mobj_t *target=P_MobjById(q->target);
+        if(!target || target->remove || target->hp<=0)return true;
+        if(q->active==TC_ATTACK)return !P_CanTarget(u,target);
+        if(!P_IsAlly(u,target))return false;
+    }
+    if(u->sc.order.kind || (u->production && u->production->placed) || u->harvest.phase!=0)return false;
+    if(u->waypoints.count)return false;
+    if(u->attack.target && !u->attack.target->remove && u->attack.target->hp>0)return false;
+    return u->movement.order_arrived || (!P_HasMoveOrder(u) && !u->movement.plan_pending);
+}
+
+static void queue_tick(mobj_t *u) {
+    sc_order_queue_t *q=&u->sc.queue;
+    if(q->active && q->owner!=u->owner){*q=(sc_order_queue_t){0};return;}
+    if(!G_UnitCommandable(u))return;
+    if(q->count>0 && q->harvest_phase==HARVEST_PHASE_MINING &&
+       u->harvest.phase==HARVEST_PHASE_TO_BASE && u->harvest.resource_type==0) {
+        q->count=0;
+        memset(q->pending,0,sizeof(q->pending));
+    }
+    /* Gas workers finish the current extraction before accepting a pending
+     * player order; OpenBW HarvestGas checks the queue on exit. */
+    if(q->count>0 && q->harvest_phase==HARVEST_PHASE_MINING &&
+       u->harvest.phase==HARVEST_PHASE_TO_BASE && u->harvest.cargo>0 &&
+       u->harvest.resource_type==1)q->active=0;
+    q->harvest_phase=u->harvest.phase;
+    if(q->count<=0 || q->count>SC_QUEUED_ORDERS || !queue_done(u))return;
+    sc_pending_order_t p=q->pending[0];
+    memmove(q->pending,q->pending+1,(size_t)(--q->count)*sizeof(*q->pending));
+    q->pending[q->count]=(sc_pending_order_t){0}; q->active=0;
+    if(p.target && !P_MobjById(p.target))return;
+    ticcmd_t cmd={.order=p.order,.product=p.product,.position=p.position,.target=p.target,
+                  .count=1,.units={u->id}};
+    if(p.order==TC_PATH)cmd.path=(waypoints_t){.count=1,.mode=p.mode,.points={p.point}};
+    queue_run(u->owner,&cmd);
+    q->active=p.order; q->target=p.target;
+}
 
 static ivec2_t pixels(fixed2_t at) {
     return (ivec2_t){at.x / SC_PIXELS(1), at.y / SC_PIXELS(1)};
@@ -10,14 +124,23 @@ static irect_t collision_box(const mobj_t *unit, fixed2_t at) {
     ivec2_t origin=ivec2_add(pixels(at),(ivec2_t){box.x,box.y});
     return (irect_t){origin.x,origin.y,box.w,box.h};
 }
+static int distance_xy(int dx,int dy) {
+    if(dx<dy){int swap=dx;dx=dy;dy=swap;}
+    return dx/4<dy?dx-dx/16+dy*3/8-dx/64+dy*3/256:dx;
+}
+int sc_point_distance(const mobj_t *unit, fixed2_t at) {
+    irect_t box=collision_box(unit,fixed3_xy(unit->core.position));
+    ivec2_t point=pixels(at);
+    int dx=SDL_max(0,SDL_max(box.x-point.x,point.x-box.x-box.w));
+    int dy=SDL_max(0,SDL_max(box.y-point.y,point.y-box.y-box.h));
+    return distance_xy(dx,dy);
+}
 int sc_unit_distance(const mobj_t *a, const mobj_t *b) {
     irect_t x=collision_box(a,fixed3_xy(a->core.position));
     irect_t y=collision_box(b,fixed3_xy(b->core.position));
     int dx=SDL_max(0,SDL_max(x.x-y.x-y.w,y.x-x.x-x.w));
     int dy=SDL_max(0,SDL_max(x.y-y.y-y.h,y.y-x.y-x.h));
-    if(dx<dy){int swap=dx;dx=dy;dy=swap;}
-    /* OpenBW xy_length, including its integer rounding. */
-    return dx/4<dy?dx-dx/16+dy*3/8-dx/64+dy*3/256:dx;
+    return distance_xy(dx,dy);
 }
 static int overlap(irect_t a, irect_t b) {
     return SDL_max(0,SDL_min(a.x+a.w,b.x+b.w)-SDL_max(a.x,b.x))*
@@ -58,7 +181,7 @@ static bool repairable(const mobj_t *worker, const mobj_t *target) {
 /* Use the normal Stop command so orders share one cancellation lifecycle. */
 static void stop(int player, mobj_t *unit) {
     ticcmd_t cmd={.order=TC_STOP,.count=1,.units={unit->id}};
-    G_RunTiccmd(player,&cmd);
+    queue_run(player,&cmd);
 }
 
 bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
@@ -243,6 +366,7 @@ void sc_repair_ticker(mobj_t *worker, int frames) {
 }
 
 void sc_order_ticker(mobj_t *mo, int frames) {
+    queue_tick(mo);
     sc_order_t *o=&mo->sc.order;
     if(mo->sc.timers[SC_TIMER_LOCKDOWN]>0)return;
     if(o->kind==SC_ORDER_FOLLOW) {

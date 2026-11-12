@@ -20,6 +20,12 @@ int main(void) {
     m->countdown_ms = 9876;
     m->ai_on[4] = false;
     m->rt[0] = (sc_trig_t){.cursor = 3, .wait_ms = 1200, .current = 1, .running = true};
+    mobj_t *queued_unit=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(4.5,4.5),0),MT_MARINE);
+    CHECK(queued_unit);queued_unit->owner=queued_unit->team=0;
+    ticcmd_t move={.order=TC_MOVE,.count=1,.units={queued_unit->id},.position=fixed3_from_fixed2(FIXED2_LIT(9.5,4.5),0)};
+    G_RunTiccmd(0,&move);move.queued=true;move.position=fixed3_from_fixed2(FIXED2_LIT(12.5,4.5),0);
+    G_RunTiccmd(0,&move);CHECK(queued_unit->sc.queue.count==1);
+    uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
     snprintf(m->objectives, sizeof(m->objectives), "Saved objective");
     app_t app = {0};
     AiContext ai = {0};
@@ -41,6 +47,9 @@ int main(void) {
     sc_terrain_t *terrain=m->terrain;
     CHECK(terrain);
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
+    queued_unit=P_MobjById(queued_id);
+    CHECK(queued_unit && queued_unit->sc.queue.count==1 && queued_unit->sc.queue.pending[0].position.x==FIXED_LIT(12.5));
+    CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == 7);
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
     CHECK(m->terrain==terrain && m->rng==22695478u);

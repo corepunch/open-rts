@@ -629,7 +629,8 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
         }
         return true;
     case TC_DEPLOY:
-        for (int i = 0; i < count; i++) sc_cast(units[i], SC_TECH_SIEGE_MODE, NULL, at);
+        for (int i = 0; i < count; i++) if(sc_cast(units[i], SC_TECH_SIEGE_MODE, NULL, at))
+            units[i]->sc.queue=(sc_order_queue_t){0};
         return true;
     case TC_SPELL:
         if (tech == SC_TECH_NYDUS_EXIT) {
@@ -644,12 +645,19 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
             for (int i = 0; i < count; i++) {
                 if (units[i]->type_id != MT_HIGH_TEMPLAR || units[i]->sc.order.kind == SC_ORDER_MERGE) continue;
                 if (!first) first = units[i];
-                else if (sc_merge(first, units[i])) first = NULL;
+                else if (sc_merge(first, units[i])) {
+                    first->sc.queue=(sc_order_queue_t){0};units[i]->sc.queue=(sc_order_queue_t){0};first = NULL;
+                }
             }
             return true;
         }
         /* One caster serves an aimed spell; toggles switch every caster. */
-        for (int i = 0; i < count && (!any || !sc_tech_aimed(tech)); i++) any |= sc_cast(units[i], tech, target, at);
+        for (int i = 0; i < count && (!any || !sc_tech_aimed(tech)); i++) {
+            bool accepted=sc_cast(units[i], tech, target, at);
+            if(accepted && tech!=SC_TECH_STIM_PACKS && tech!=SC_TECH_CLOAKING_FIELD && tech!=SC_TECH_PERSONNEL_CLOAKING)
+                units[i]->sc.queue=(sc_order_queue_t){.active=TC_SPELL,.owner=units[i]->owner};
+            any |= accepted;
+        }
         return true;
     case TC_BOARD:
         /* Walkers board the target; a selected transport picks it up. */

@@ -234,9 +234,114 @@ static int cargo(void) {
     CHECK(!scv->harvest.cargo&&level.player_resources[0][1]==1016);
     return 0;
 }
+static int queued_orders(void) {
+    reset();
+    mobj_t *u=spawn(MT_MARINE,FIXED2_LIT(4.5,4.5),0); CHECK(u);
+    order(u,TC_MOVE,FIXED2_LIT(8.5,4.5),NULL);
+    ticcmd_t cmd={.order=TC_MOVE,.queued=true,.count=1,.units={u->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(12.5,4.5),0)};
+    G_RunTiccmd(0,&cmd);
+    CHECK(u->sc.queue.count==1 && u->movement.goal.x==FIXED_LIT(8.5));
+    for(int i=0;i<1000 && u->sc.queue.count;i++)tick(1);
+    CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(12.5));
+    for(int i=0;i<1000 && !u->movement.order_arrived;i++)tick(1);
+    CHECK(u->movement.order_arrived && fixed2_near(fixed3_xy(u->core.position),FIXED2_LIT(12.5,4.5),FIXED_LIT(0.2)));
+    order(u,TC_MOVE,FIXED2_LIT(6.5,4.5),NULL);
+    for(int i=0;i<SC_QUEUED_ORDERS+2;i++)G_RunTiccmd(0,&cmd);
+    CHECK(u->sc.queue.count==SC_QUEUED_ORDERS);
+    order(u,TC_STOP,(fixed2_t){0},NULL);
+    CHECK(!u->sc.queue.count && !u->sc.queue.active && !P_HasMoveOrder(u));
+    order(u,TC_MOVE,FIXED2_LIT(6.5,4.5),NULL);
+    ticcmd_t queued_stop={.order=TC_STOP,.queued=true,.count=1,.units={u->id}};
+    G_RunTiccmd(0,&queued_stop);G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==2);
+    for(int i=0;i<1200 && u->sc.queue.count;i++)tick(1);
+    CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(12.5));
+    order(u,TC_STOP,(fixed2_t){0},NULL);
+    order(u,TC_MOVE,FIXED2_LIT(6.5,4.5),NULL);
+    ticcmd_t hold={.order=TC_STAND_GROUND,.queued=true,.count=1,.units={u->id}};
+    G_RunTiccmd(0,&hold);G_RunTiccmd(0,&cmd);
+    for(int i=0;i<1200 && u->sc.queue.count>1;i++)tick(1);
+    tick(100);CHECK(u->sc.queue.count==1 && (u->sc.flags&SC_HOLD));
+    order(u,TC_MOVE,FIXED2_LIT(12.5,4.5),NULL);CHECK(!u->sc.queue.count && !(u->sc.flags&SC_HOLD));
+    order(u,TC_STOP,(fixed2_t){0},NULL);
+    G_RunTiccmd(0,&cmd); /* Shift from idle starts immediately. */
+    CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(12.5));
+    order(u,TC_MOVE,FIXED2_LIT(8.5,4.5),NULL);
+    cmd.order=TC_ATTACK; cmd.position=fixed3_from_fixed2(FIXED2_LIT(12.5,4.5),0);
+    G_RunTiccmd(0,&cmd);
+    cmd.order=TC_MOVE; cmd.position=fixed3_from_fixed2(FIXED2_LIT(16.5,4.5),0);
+    G_RunTiccmd(0,&cmd); CHECK(u->sc.queue.count==2);
+    for(int i=0;i<2000 && u->sc.queue.count;i++)tick(1);
+    CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(16.5));
+    mobj_t *enemy=spawn(MT_MARINE,FIXED2_LIT(20.5,4.5),1);CHECK(enemy);
+    cmd.order=TC_ATTACK;cmd.target=enemy->id;
+    G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==1);P_RemoveMobj(enemy);
+    cmd.order=TC_MOVE;cmd.target=0;cmd.position=fixed3_from_fixed2(FIXED2_LIT(20.5,8.5),0);
+    G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==2);
+    for(int i=0;i<2000&&u->sc.queue.count;i++)tick(1);
+    CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(20.5));
+    reset();
+    u=spawn(MT_MARINE,FIXED2_LIT(5.5,5.5),0);
+    enemy=spawn(MT_MARINE,FIXED2_LIT(8.5,5.5),1);
+    mobj_t *other=spawn(MT_MARINE,FIXED2_LIT(9.5,5.5),1);CHECK(u&&enemy&&other);
+    order(u,TC_ATTACK,fixed3_xy(enemy->core.position),enemy);
+    cmd=(ticcmd_t){.order=TC_MOVE,.queued=true,.count=1,.units={u->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(3.5,3.5),0)};
+    G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==1);
+    level.upgrades[SC_UPGRADES+SC_TECH_STIM_PACKS][0].weapon=1;
+    ticcmd_t stim={.order=TC_SPELL,.product=SC_TECH_STIM_PACKS,.count=1,.units={u->id}};
+    G_RunTiccmd(0,&stim);CHECK(u->sc.queue.count==1 && u->sc.timers[SC_TIMER_STIM]>0);
+    order(u,TC_REPAIR,fixed3_xy(enemy->core.position),enemy); /* Marine cannot repair. */
+    CHECK(u->sc.queue.count==1);
+    order(u,TC_LIFT,(fixed2_t){0},NULL);CHECK(u->sc.queue.count==1);
+    order(u,TC_LAND,FIXED2_LIT(10,10),NULL);CHECK(u->sc.queue.count==1);
+    ticcmd_t invalid_build={.order=TC_CONSTRUCT,.product=-1,.count=1,.units={u->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(10,10),0)};
+    G_RunTiccmd(0,&invalid_build);CHECK(u->sc.queue.count==1);
+    P_RemoveMobj(enemy);u->attack.target=other;
+    tick(1);CHECK(!u->sc.queue.count && u->move_only && u->movement.goal.x==FIXED_LIT(3.5));
+    P_MobjSetSelected(u,true);netactive=true;SDL_SetModState(KMOD_SHIFT);
+    CHECK(G_SelectedTiccmd(TC_MOVE,&u,1,FIXED2_LIT(10.5,5.5),0));
+    ticcmd_t built;G_BuildTiccmd(&built);
+    CHECK(built.queued && !built.internal && built.order==TC_MOVE);
+    SDL_SetModState(KMOD_NONE);netactive=false;G_ClearTiccmds();
+    order(u,TC_ATTACK,fixed3_xy(other->core.position),other);
+    cmd=(ticcmd_t){.order=TC_MOVE,.queued=true,.count=1,.units={u->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(3.5,3.5),0)};
+    G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==1);
+    other->owner=other->team=0;other->allegiance=ALLEGIANCE_PLAYER;tick(1);
+    CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(3.5));
+    reset();
+    mobj_t *worker=spawn(MT_SCV,FIXED2_LIT(5.5,5.5),0);
+    mobj_t *tank=spawn(MT_SIEGE_TANK,FIXED2_LIT(7.5,5.5),0);
+    CHECK(worker&&tank); tank->hp=tank->max_hp-2;
+    order(worker,TC_REPAIR,fixed3_xy(tank->core.position),tank);
+    cmd=(ticcmd_t){.order=TC_MOVE,.queued=true,.count=1,.units={worker->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(12.5,5.5),0)};
+    G_RunTiccmd(0,&cmd); CHECK(worker->sc.queue.count==1);
+    for(int i=0;i<2000&&worker->sc.queue.count;i++)tick(1);
+    CHECK(tank->hp==tank->max_hp && !worker->sc.queue.count && worker->movement.goal.x==FIXED_LIT(12.5));
+    order(worker,TC_MOVE,FIXED2_LIT(8.5,5.5),NULL);G_RunTiccmd(0,&cmd);
+    worker->sc.timers[SC_TIMER_STASIS]=10;worker->movement.order_arrived=true;
+    tick(1);CHECK(worker->sc.queue.count==1);
+    worker->sc.timers[SC_TIMER_STASIS]=0;
+    worker->owner=1;tick(1);CHECK(!worker->sc.queue.count);
+    worker->owner=0;order(worker,TC_MOVE,FIXED2_LIT(8.5,5.5),NULL);G_RunTiccmd(0,&cmd);
+    P_DamageMobj(worker,NULL,worker->hp);CHECK(!worker->sc.queue.count);
+    reset();
+    u=spawn(MT_MARINE,FIXED2_LIT(4.5,4.5),0);
+    mobj_t *ship=spawn(MT_DROPSHIP,FIXED2_LIT(12.5,4.5),0);CHECK(u&&ship);
+    order(u,TC_MOVE,FIXED2_LIT(8.5,4.5),NULL);
+    cmd=(ticcmd_t){.order=TC_BOARD,.queued=true,.count=1,.units={u->id},.target=ship->id};
+    G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==1);
+    for(int i=0;i<2000&&!(u->sc.flags&SC_LOADED);i++)tick(1);
+    CHECK(u->sc.flags&SC_LOADED);
+    return 0;
+}
 int main(void) {
     G_InitGame();P_InitThinkers();consoleplayer=0;
+    static sc_mission_t mission; mission.rng=2; level.mission=&mission;
     level.width=level.height=32;level.blocked=calloc(1024,1);level.cell_solid=calloc(1024,1);
-    if(combat_orders()||repairs()||repair_bounds()||cargo()||follow_and_flight())return 1;
+    if(combat_orders()||repairs()||repair_bounds()||cargo()||follow_and_flight()||queued_orders())return 1;
     puts("StarCraft orders: ok");return 0;
 }

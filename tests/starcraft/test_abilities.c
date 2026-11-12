@@ -231,7 +231,8 @@ static int arbiter(void) {
 static int infestation(void) {
     mobj_t *cc = building(MT_COMMAND_CENTER, (ivec2_t){12, 4}, 1);
     mobj_t *queen = spawn(MT_QUEEN, FIXED2_LIT(4.5, 12.5), 0);
-    CHECK(cc && queen && spawn(MT_OVERLORD, FIXED2_LIT(40.5, 40.5), 0)); /* supply */
+    CHECK(cc && queen && spawn(MT_OVERLORD, FIXED2_LIT(13.5, 10.5), 0)); /* supply and sight */
+    P_UpdateSight();
     CHECK(!sc_cast(queen, SC_TECH_INFESTATION, cc, at_of(cc))); /* healthy: refused */
     cc->hp = cc->max_hp / 2 - 1;
     int hp = cc->hp;
@@ -348,7 +349,9 @@ int main(void) {
     level.width = level.height = 48;
     level.blocked = calloc(48 * 48, 1);
     level.cell_solid = calloc(48 * 48, 1);
-    CHECK(level.blocked && level.cell_solid && P_InitSight());
+    level.mission = calloc(1, sizeof(sc_mission_t));
+    CHECK(level.blocked && level.cell_solid && level.mission && P_InitSight());
+    ((sc_mission_t *)level.mission)->rng=2;
     reset();
     CHECK(!research());
     CHECK(!upgrades());
@@ -359,6 +362,7 @@ int main(void) {
     CHECK(!infestation());
     CHECK(!transports());
     CHECK(!nydus());
+    free(level.mission);level.mission=NULL;
     P_FreeLevel(&level);
     puts("PASS: Stim Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, suicide attacks, speed/sight/cooldown "
          "upgrades and their research, Dropship/Shuttle/Overlord transport and the Nydus Canal");

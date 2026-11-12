@@ -144,6 +144,7 @@ static int colonies(void) {
     CHECK((spore.roles & AI_ROLE_DEFENSE) && (spore.roles & AI_ROLE_HITS_AIR) && !(spore.roles & AI_ROLE_HITS_GROUND));
     mobj_t *enemy = spawn(MT_ZERGLING, FIXED2_LIT(5, 9), 1);
     int hp = enemy->hp;
+    ((sc_mission_t *)level.mission)->rng=2;
     tick(RTS_TICRATE * 2);
     CHECK(enemy->hp < hp || !find(1, MT_ZERGLING));
     return 0;
@@ -187,6 +188,7 @@ int main(void) {
     level.width = level.height = 64;
     level.blocked = calloc(64 * 64, 1);
     level.cell_solid = calloc(64 * 64, 1);
+    static sc_mission_t mission;mission.rng=2;level.mission=&mission;
     mobj_t *hatchery = spawn(MT_HATCHERY, FIXED2_LIT(10, 8), 0);
     CHECK(hatchery);
     CHECK(larvae_and_eggs(hatchery) == 0);
