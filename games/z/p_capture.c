@@ -310,12 +310,6 @@ static void tick_boarding(mobj_t *robot) {
 
 /* ── grenades ─────────────────────────────────────────────────────────── */
 
-/* Grunts, Pyros and Lasers carry grenades (0x79b25, unit classes 0, 0xf
- * and 0x10). */
-static bool carries_grenades(int t) {
-    return t == MT_UNIT_GRUNT - MT_UNITS || t == MT_UNIT_PYRO - MT_UNITS || t == MT_UNIT_LASER - MT_UNITS;
-}
-
 static bool squad_mate(const mobj_t *robot, const mobj_t *other) {
     return other == robot || (robot->z.squad && other->z.squad == robot->z.squad &&
                               other->team == robot->team && robot_type(other) >= 0);
@@ -369,15 +363,15 @@ static bool reaches_crate(const mobj_t *robot, const mobj_t *box) {
     return delta.x > -Z_TILE && delta.x < Z_TILE && delta.y > -Z_TILE && delta.y < Z_TILE;
 }
 
-/* 0x75939: a robot with grenades throws them at vehicles and guns (a Laser
- * keeps its laser for those) and at buildings, which nothing else it
+/* 0x75939: a robot with grenades throws them at vehicles and guns (Laser
+ * and Tough retain their own weapons) and at buildings, which nothing else it
  * carries can hurt (0x753bb). */
 static bool throws_at(const mobj_t *robot, const mobj_t *target) {
     int t = robot_type(robot), u = Z_UnitType(target);
     if (t < 0 || !robot->z.grenades || !live(target)) return false;
     if (structure(target)) return true;
     if (target->type_id == MT_CLIFF || target->type_id == MT_BRIDGE) return true;
-    return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS;
+    return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS && t != MT_UNIT_TOUGH - MT_UNITS;
 }
 
 void A_PyroFlame(mobj_t *unit) {
@@ -1167,7 +1161,7 @@ void Z_Ticker(void) {
         ivec2_t pos = ivec2_add(Z_AITopLeft(mo), (ivec2_t){8, 8});
         ivec2_t cell = {pos.x / Z_TILE, pos.y / Z_TILE};
         const zmap_t *map = level.native_data;
-        if (carries_grenades(t) && pos.x >= 0 && pos.y >= 0 && L_Contains(&level, cell.x, cell.y) &&
+        if (Z_CanCarryGrenades(t) && pos.x >= 0 && pos.y >= 0 && L_Contains(&level, cell.x, cell.y) &&
             (map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x7f) == 0x24) {
             mobj_t *first = NULL;
             for (thinker_t *c = thinkercap.next; c != &thinkercap; c = c->next) {

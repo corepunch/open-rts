@@ -66,7 +66,7 @@ static bool allowed(const mobj_t *mo, uint8_t flags, bool attack_pool) {
     /* 0x9a189 permits an APC only with class-3 (Tough) crew. */
     if (attack_pool && mo->type_id == MT_UNIT_APC) return mo->z.driver == MT_UNIT_TOUGH - MT_UNITS + 1;
     if (attack_pool && mo->type_id == MT_UNIT_JEEP) return false;
-    if (mo->type_id != MT_UNIT_GRUNT && mo->type_id != MT_UNIT_PYRO && mo->type_id != MT_UNIT_LASER) return true;
+    if (!Z_CanCarryGrenades(Z_UnitType(mo))) return true;
     /* 0x7a776 sums grenade counts for all occupied group slots. */
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;

@@ -165,8 +165,8 @@ cells with terrain 0x23 and grenade crates with 0x24.
 | 0x62e3c | The robot that took a flag turns south and cheers (action 0x21, sprites 1959..1962, seven times) |
 | 0x61022 | Robots walk to the empty vehicle or gun they are sent to; 0x7af62 deletes the object within 20 px and turns the robot's record into the vehicle (type kept at +0x8a) |
 | 0x61821 | A vehicle whose driver dies with hit points left goes back to an empty object; a destroyed one leaves its wreck |
-| 0x79b25 | Terrain 0x24: a Grunt, Pyro or Laser (classes 0, 0xf, 0x10) within 16 px of a crate, whose squad holds no grenades, takes 10 (type 9) or 20 (type 10) for the squad, the remainder to the first member (0x79bea), at most 127 |
-| 0x75939 | A robot with grenades throws at vehicles and guns (Lasers fire their laser), action 0x31 (0x6360e: 2522 + direction * 4 + frame); attacking a building needs grenades (0x753bb) |
+| 0x79b25 | Terrain 0x24: a Grunt, Sniper, Psycho, Pyro or Laser (runtime classes 0, 0xf, 0x10) within 16 px of a crate, whose squad holds no grenades, takes 10 (type 9) or 20 (type 10) for the squad, the remainder to the first member (0x79bea), at most 127 |
+| 0x75939 | A robot with grenades throws at vehicles and guns (Lasers and Tough use their own weapons), action 0x31 (0x6360e: 2522 + direction * 4 + frame); attacking a building needs grenades (0x753bb) |
 | 0x636a0 | The grenade leaves on the throw's last frame; 0x5a205 launches it, drawn as 1336..1339 (0x59538); it bursts through 0x8476c with strength 0x32 for a Grunt |
 
 In level 1 each fort's flag cell is its entrance: the computer's fort has
@@ -1374,7 +1374,7 @@ is **1 when human strength is zero**, otherwise
 squad strength before ordering any of that pool. `0x99f46` writes task 0
 and the target/destination territory. Existing tasks 0,2,1,3 reserve their
 destinations. Territory flag 0x20 bars vehicles; 0x40 bars Jeeps/APCs and
-requires grenades for Grunt, Pyro and Laser (the native APC cargo-class-3
+requires grenades for Grunt, Sniper, Psycho, Pyro and Laser (the native APC cargo-class-3
 exception is now supported as described below). This replaces the former 8-cell fort
 penalty and 2-cell proximity claim heuristic; neither was a retail rule.
 
@@ -1388,15 +1388,33 @@ and rejects a zero total. The general dispatch guard `0x9956a`, used by
 `0x9d42c` and frontier selection, applies the grenade test but does not
 apply the attack pool's APC/Jeep exclusion. The engine now follows these
 distinct checks, using its saved driver type and live same-team squad
-members. Snipers and Psychos have native classes 17 and 18 and do not take
-the grenade gate. `test_commander` runs actual territory decisions for an
+members. **Correction:** an earlier conclusion treated weapon types 17 and
+18 as runtime classes and incorrectly excluded Snipers and Psychos from this
+gate. The constructor branches `0x50e1a..0x50e2e` assign both runtime class
+0, so both require a squad grenade just like a Grunt. `test_commander` runs actual territory decisions for an
 empty squad, a grenade held by a follower, an enemy with the same squad
 number, Tough- and Grunt-driven APCs, Sniper and Psycho, and the separate
 vehicle prohibition. It also checks initial general dispatch with a Jeep,
-APC, Grunt and Sniper.
+APC, Grunt, Sniper and Psycho, including both empty and armed specialists.
 Reproduce with `r2 -q -e bin.cache=true -c 'pd 45 @ 0x9a165'
 -c 'pd 32 @ 0x9956a' -c 'pd 20 @ 0x7a776' -c 'pd 8 @ 0x638ac'
 -c q data/Z/ZED.EXE`.
+
+The same distinction applies to grenade pickup: `0x79b9e..0x79bae` accepts
+runtime class 0, 0x0f or 0x10. Sniper and Psycho therefore can order, collect
+and throw grenades; Tough is class 3 and cannot collect them. The pinned Zod
+`zrobot.h` and `rsniper.cpp`/`rpsycho.cpp` also allow their grenade pickup
+and throwing, whereas `rtough.h` disables it. Open-rts now uses the corrected
+class mapping for crate commands, automatic pickup and both commander gates.
+`test_capture` exercises each specialist's actual pickup and vehicle throw,
+and confirms Tough cannot collect; `test_commander` covers both specialist
+types with and without grenades. A Tough can still receive grenades when a
+mixed squad shares a crate, but `0x7594f..0x75953` selects its launcher
+action before the vehicle-target grenade check; the test verifies a shell
+and unchanged ammunition in that case. Its separate building-order path is
+unchanged. Inspect `r2 -q -e bin.cache=true -c
+'pd 16 @ 0x50e1a' -c 'pd 30 @ 0x79b8b' -c 'pd 24 @ 0x9a19e' -c
+'pd 24 @ 0x9957c' -c q data/Z/ZED.EXE`.
 
 The mobile budget (`0x97f50`, `0x97fad`, `0x9b679`) uses these integer rules:
 
@@ -3305,6 +3323,16 @@ a Jeep as well as the subsequent neutralization. Open-rts uses this gun set and
   bin.cache=true -c 'pd 45 @ 0x63aa6' -c 'pd 55 @ 0x5ad72' -c 'pd 20 @
   0x86d1f' -c q data/Z/ZED.EXE`. Type 0x1b and bodies with
   +0x19 = 3 are also eligible; neither is identified.
+
+  **Disproven armor hypothesis:** the bullet test at `0x5ae2c..0x5ae42`
+  compares the runtime class byte +0x79, not the weapon type byte. Although
+  Sniper and Psycho use weapon types 0x11 and 0x12, their constructor branches
+  `0x50e25..0x50e2e` and `0x50e1a..0x50e23` explicitly write runtime class
+  zero. Both therefore bypass the five-point reduction alongside Grunt,
+  Tough, Pyro and Laser. The existing `Z_IsRobot` exclusion is consistent
+  with those branches; changing Sniper/Psycho to armored targets would be
+  incorrect. Reproduce with `r2 -q -e bin.cache=true -c 'pd 16 @ 0x5ae29'
+  -c 'pd 10 @ 0x50e1a' -c q data/Z/ZED.EXE`.
 
   **Additional instruction-level finding:** vehicle setup at
   `0x637e7`, `0x63838`, `0x63889`, `0x638f4` and `0x6399b` initializes

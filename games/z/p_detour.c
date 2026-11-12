@@ -175,8 +175,7 @@ static bool flag_destination(const zmap_t *map, const mobj_t *unit) {
 bool Z_CrateEligible(const mobj_t *unit, const mobj_t *target) {
     int type = Z_UnitType(unit);
     if ((target->type_id != MT_GRENADES && target->type_id != MT_GRENADES_2) ||
-        (type != MT_UNIT_GRUNT - MT_UNITS && type != MT_UNIT_PYRO - MT_UNITS &&
-         type != MT_UNIT_LASER - MT_UNITS)) return false;
+        !Z_CanCarryGrenades(type)) return false;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *mo = (const mobj_t *)th;

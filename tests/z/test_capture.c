@@ -232,6 +232,58 @@ static int test_grenades(void) {
     return 0;
 }
 
+static int test_specialist_grenades(void) {
+    const int types[] = {MT_UNIT_SNIPER, MT_UNIT_PSYCHO, MT_UNIT_TOUGH};
+    for (int i = 0; i < 3; ++i) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load specialist grenade fixture");
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *mo = (mobj_t *)th;
+            if (Z_UnitType(mo) >= 0) P_RemoveMobj(mo);
+        }
+        P_RunThinkers();
+        mobj_t *box = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){20,20}), 0), MT_GRENADES_2);
+        mobj_t *robot = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){20,20}), 0), types[i]);
+        if (!box || !robot) return fail("specialist grenade fixture");
+        Z_SetTeam(robot, 0);
+        place_crate(box, (ivec2_t){20,20});
+        place(robot, (ivec2_t){20,20});
+        if (Z_CrateEligible(robot, box) != (i < 2)) return fail("specialist crate order eligibility");
+        if (i < 2) {
+            ticcmd_t cmd = {.order = TC_ORDER, .position = box->core.position, .count = 1, .units = {robot->id}};
+            G_RunTiccmd(0, &cmd);
+            if (robot->z.route.target != box->id) return fail("specialist accepts explicit crate order");
+        }
+        Z_Ticker();
+        if ((bool)box->remove != (i < 2) || robot->z.grenades != (i < 2 ? 20 : 0))
+            return fail("native robot class controls crate pickup");
+        if (i < 2) {
+            mobj_t *tank = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){25,20}), 0), MT_UNIT_MED_TANK);
+            if (!tank) return fail("specialist grenade target");
+            Z_SetTeam(tank, 1);
+            tank->traits &= ~(MF_ATTACK | MF_MOBILE);
+            robot->attack.target = tank;
+            bool threw = false;
+            for (int tic = 0; tic < 6 * RTS_TICRATE && robot->z.grenades == 20; ++tic) {
+                if (!tick(model, 1)) return fail("tick specialist grenade throw");
+                if (nth(MT_GRENADE, -1, 0)) threw = true;
+            }
+            if (!threw || robot->z.grenades != 19) return fail("specialist throws picked-up grenade at a vehicle");
+        } else {
+            mobj_t *tank = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){25,20}), 0), MT_UNIT_MED_TANK);
+            if (!tank) return fail("Tough grenade dispatch target");
+            Z_SetTeam(tank, 1);
+            robot->z.grenades = 1; /* A mixed group can distribute grenades to a Tough. */
+            if (!Z_Attack(robot, &robot->info->attack, tank) || !nth(MT_SHELL, -1, 0) ||
+                nth(MT_GRENADE, -1, 0) || robot->z.grenades != 1)
+                return fail("Tough keeps its launcher against vehicles even when holding a grenade");
+        }
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 static int test_crate_slot_order(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load crate slot order");
@@ -631,6 +683,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

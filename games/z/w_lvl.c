@@ -380,6 +380,12 @@ bool Z_IsRobot(int t) {
     return t >= 0 && t < Z_UNIT_TYPES && unit_kinds[t].sprite == PICTURE_ROBOT(0);
 }
 
+/* Runtime class +0x79 is 0 for Grunt/Sniper/Psycho, 0xf for Pyro and
+ * 0x10 for Laser; Tough is class 3 (0x50e1a, 0x79b9e). */
+bool Z_CanCarryGrenades(int t) {
+    return Z_IsRobot(t) && t != MT_UNIT_TOUGH - MT_UNITS;
+}
+
 static bool unit_size(const zmap_t *map, int t, isize2_t *size) {
     *size = (isize2_t){Z_TILE, Z_TILE};
     return t >= 0 && t < Z_UNIT_TYPES &&
