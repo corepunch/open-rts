@@ -465,11 +465,21 @@ static int test_gun_placement(void) {
 static int test_fort_makes_grunts(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load level 1");
+    zmap_t *map = level.native_data;
+    uint16_t startup_seed = 0x3039;
+    int initialized = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *mo = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || Z_UnitType(mo) < 0 || mo->z.object) continue;
+        if (mo->z.flame_phase != (Z_NextRandom(&startup_seed) & 15))
+            return fail("starting units receive independently seeded phases");
+        ++initialized;
+    }
+    if (!initialized || startup_seed != map->combat_seed) return fail("starting phases advance the combat seed");
     disarm();
     P_AiSetFeatures(rts_game_model_ai(model), 0);
     mobj_t *fort = nth(MT_FORT, 0, 0);
     if (!fort) return fail("the player's fort");
-    zmap_t *map = level.native_data;
     int members = 0, grunts = 0;
     while (members < Z_CREW_MAX && Z_GroupType(map, 2, members) >= 0) {
         grunts += Z_GroupType(map, 2, members) == MT_UNIT_GRUNT - MT_UNITS;
@@ -486,9 +496,12 @@ static int test_fort_makes_grunts(void) {
     if (fort->production->time_left_ms != expected) return fail("native rate three advances Grunt production");
     G_ProductionTicker((expected - 1) / 3);
     if (count(MT_UNIT_GRUNT, 0) != before || Z_GunReady(fort)) return fail("Grunt cannot finish early or become a stored gun");
+    uint16_t phase_seed = map->combat_seed;
     G_ProductionTicker(1);
     if (count(MT_UNIT_GRUNT, 0) != before + grunts || Z_GunReady(fort)) return fail("Grunt squad leaves the door at its native deadline");
     mobj_t *made = nth(MT_UNIT_GRUNT, 0, before);
+    if (made->z.flame_phase != (Z_NextRandom(&phase_seed) & 15))
+        return fail("new squad leader receives the native random phase");
     irect_t fort_cells = P_MobjCells(fort);
     ivec2_t at = fixed2_cell(fixed3_xy(made->core.position));
     if (at.x >= fort_cells.x && at.x < fort_cells.x + fort_cells.w && at.y >= fort_cells.y &&
@@ -498,6 +511,7 @@ static int test_fort_makes_grunts(void) {
         return fail("produced leader retains native group identity and formation");
     uint32_t last_id = made->id;
     uint32_t member_ids[Z_CREW_MAX] = {made->id};
+    uint8_t phases[Z_CREW_MAX] = {made->z.flame_phase};
     ivec2_t anchor = Z_BlastAnchor(made);
     for (int i = 1; i < members; ++i) {
         mobj_t *follower = NULL;
@@ -510,9 +524,13 @@ static int test_fort_makes_grunts(void) {
             follower->z.robot != Z_GroupRobot(map, 2, i) + 1 || !ivec2_equal(Z_BlastAnchor(follower), anchor) ||
             follower->z.route.count || follower->z.route.active)
             return fail("produced squad matches authored members at common origin");
+        if (follower->z.flame_phase != (Z_NextRandom(&phase_seed) & 15))
+            return fail("each new squad member receives its own random phase");
         member_ids[i] = follower->id;
+        phases[i] = follower->z.flame_phase;
         if (follower->id > last_id) last_id = follower->id;
     }
+    if (map->combat_seed != phase_seed) return fail("unit phases advance the saved combat seed");
     uint8_t next = Z_AllocateSquad(0), cpu = Z_AllocateSquad(1);
     if (!next || cpu < 121) return fail("allocator uses free native group ranges");
     mobj_t *departed = P_SpawnMobj(made->core.position, MT_UNIT_GRUNT);
@@ -537,12 +555,12 @@ static int test_fort_makes_grunts(void) {
     free(save);
     made = P_MobjById(leader_id); fort = P_MobjById(fort_id);
     map = level.native_data;
-    if (!made || !fort || map->squad_cooldown[next - 1] != 200 ||
+    if (!made || !fort || map->combat_seed != phase_seed || map->squad_cooldown[next - 1] != 200 ||
         Z_AllocateSquad(0) != preferred || Z_AllocateSquad(1) != cpu)
         return fail("save retains produced squad and deterministic allocation");
     for (int i = 0; i < members; ++i) {
         mobj_t *member = P_MobjById(member_ids[i]);
-        if (!member || member->z.squad != made->z.squad ||
+        if (!member || member->z.flame_phase != phases[i] || member->z.squad != made->z.squad ||
             member->z.squad_slot != (i ? i : UINT8_MAX)) return fail("save retains produced squad membership");
     }
     mobj_t *foreign = P_SpawnMobj(made->core.position, MT_UNIT_GRUNT);

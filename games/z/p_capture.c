@@ -449,6 +449,13 @@ static int accuracy(const mobj_t *mo) {
 static bool valid_crew(const mobj_t *vehicle) {
     return vehicle->z.crew_count <= Z_CREW_MAX && vehicle->z.driver && Z_IsRobot(vehicle->z.driver - 1);
 }
+
+/* 0x5117d: every newly created unit starts with a random +0xb0 phase. */
+void Z_InitUnitPhase(mobj_t *unit) {
+    zmap_t *map = level.native_data;
+    if (map && unit && Z_UnitType(unit) >= 0)
+        unit->z.flame_phase = Z_NextRandom(&map->combat_seed) & 15;
+}
 /* 0x5ad72: a bullet that hits a Jeep or a class-2 gun may hit its driver
  * instead, when `rand & 0x7f` falls under the shooter's accuracy (halved
  * against a gun). The driver takes the whole shot; once he is dead the

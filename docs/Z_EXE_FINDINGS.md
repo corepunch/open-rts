@@ -1895,8 +1895,17 @@ coordinate-target gate to its single-target attacks, retaining each member's
 phase through boarding, ejection and save/load. The engine still approximates
 flame as an immediate hit: native flame projectile `0x5a099` and its ground
 fire are unported, and native mode selection remains unknown. The robot
-record is initially zeroed at `0x5109c..0x510a3`; other possible uses of
-byte +0xb0 have not been fully traced.
+record is initially zeroed at `0x5109c..0x510a3`. Correction: constructor
+`0x5117d..0x51185` then assigns byte +0xb0 to `0x70d37() & 15`, so zero
+is not its final initialization. Open-rts initializes each newly placed or
+manufactured unit's phase using its saved and hashed combat RNG, including
+each produced squad member; crew transfers retain the saved member phase.
+The combat RNG is a separate deterministic stream rather than retail's
+global stream, and direct test-created mobjs do not pass through the normal
+Z unit creation paths. Other possible uses of +0xb0 remain untraced.
+`test_production` checks startup and produced squad phases and save/load;
+`test_combat` covers per-crew advancement. Reproduce with `r2 -q -e
+bin.cache=true -c 'pd 90 @ 0x5108c' -c q data/Z/ZED.EXE`.
 
 **Flame impact detail:** `0x5a099` creates the projectile with +0x2a set
 to 1. Impact `0x593b5..0x593c6` checks that byte and calls `0x595e6`,

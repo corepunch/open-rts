@@ -207,6 +207,7 @@ bool Z_FortEntrance(const mobj_t *fort, fixed2_t *at);
 /* p_alert.c: an idle unit takes its squad's enemy or one close by. */
 void Z_Alert(mobj_t *unit);
 uint16_t Z_NextRandom(uint16_t *seed);
+void Z_InitUnitPhase(mobj_t *unit);
 int Z_AIEstimate(int value, int intelligence);
 int Z_AIUnitValue(const mobj_t *unit);
 int Z_AIEmptyValue(const mobj_t *unit);

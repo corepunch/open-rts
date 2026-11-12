@@ -439,6 +439,7 @@ void G_ProductionBegin(int elapsed_ms) {
  * the next one of the same kind at once. */
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     int t = Z_UnitType(unit);
+    Z_InitUnitPhase(unit);
     const zmap_t *map = level.native_data;
     int group = -1;
     for (int i = 0; map && i < CATALOG; ++i)
@@ -464,6 +465,7 @@ void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
             if (!Z_UnitCentre(map, type, origin, &centre)) break;
             mobj_t *follower = P_SpawnMobj(fixed3_from_fixed2(centre, unit->core.position.z), MT_UNITS + type);
             if (!follower) break;
+            Z_InitUnitPhase(follower);
             Z_SetTeam(follower, unit->team);
             follower->z.robot = (uint16_t)(robot + 1);
             follower->z.squad = squad;
