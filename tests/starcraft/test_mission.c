@@ -204,6 +204,37 @@ int main(void) {
     P_FreeMobjList(&remaining);
     free(trig); unload(); remove("/tmp/open-rts-sc-remove.chk");
 
+    /* Kill Unit uses the same complete selection and the normal death path. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 22;
+    CHECK(!write_map("/tmp/open-rts-sc-kill.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-kill.chk", &level));
+    mobj_t *killed = NULL;
+    for (int i = 0; i < 260; i++) { killed = spawn(MT_MARINE - 1, 0); CHECK(killed); }
+    killed->sc.flags |= SC_HALLUCINATION;
+    ticks(1, &(hudtext_t){0});
+    CHECK(killed->hp == 0);
+    sc_mission_t *kill_mission = level.mission;
+    CHECK(kill_mission->deaths[0][MT_MARINE - 1] == 260);
+    CHECK(kill_mission->kills[0][MT_MARINE - 1] == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-kill.chk");
+
+    /* Trigger kills bypass combat shields, armor, and invincibility. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u16(action + 24, MT_ZEALOT - 1); action[26] = 22;
+    CHECK(!write_map("/tmp/open-rts-sc-kill-defense.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-kill-defense.chk", &level));
+    mobj_t *shielded = spawn(MT_ZEALOT - 1, 0), *invincible = spawn(MT_ZEALOT - 1, 0);
+    CHECK(shielded && invincible && sc_shields(shielded) > 0);
+    invincible->sc.flags |= SC_INVINCIBLE;
+    ticks(1, &(hudtext_t){0});
+    CHECK(shielded->hp == 0 && invincible->hp == 0);
+    kill_mission = level.mission;
+    CHECK(kill_mission->deaths[0][MT_ZEALOT - 1] == 2);
+    free(trig); unload(); remove("/tmp/open-rts-sc-kill-defense.chk");
+
     trig = blank_trigger();
     CHECK(trig);
     trig[15] = 22;

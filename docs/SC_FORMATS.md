@@ -28,6 +28,17 @@ buffer. `test_mission` covers 260 units. OpenBW hides and kills those units;
 open-rts still uses its existing deferred removal, so secondary death effects
 and statistics are not established as equivalent.
 
+OpenBW action 22 similarly walks each selected player's full unit list without
+excluding hallucinations. Kill Unit now uses that selection and the existing
+damage/death path. The 260-unit mission regression checks that all deaths,
+including a hallucination, enter the current death counter and give no player
+a kill. OpenBW's `on_kill_unit` hook does not establish retail hallucination
+statistics, so this regression documents current engine accounting only.
+The shared `P_DamageMobj` call subtracts HP directly; shield absorption, armor,
+and invincibility checks occur in StarCraft's combat path before that call.
+The mission regression also kills a shielded Zealot and an invincible Zealot
+and verifies both death counts, consistent with OpenBW's direct `kill_unit`.
+
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
 on 2026-10-08. It is an implementation reference, not a complete StarCraft
