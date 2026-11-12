@@ -168,6 +168,17 @@ static bool inside(const mobj_t *mo, int l, int t, int r, int b) {
     return x >= l && x <= r && y >= t && y <= b;
 }
 
+static bool location_height_ok(const sc_mission_t *m, const mobj_t *mo, unsigned loc) {
+    if (!loc || loc > (unsigned)m->loc_count || loc > 64) return true;
+    unsigned flags = m->loc_elevation[loc - 1];
+    if (!flags) return true;
+    if (!m->terrain || !L_Contains(&level, fixed_floor_int(mo->core.position.x),
+                                   fixed_floor_int(mo->core.position.y))) return true;
+    unsigned terrain = sc_terrain_flags(fixed3_xy(mo->core.position));
+    int height = (terrain & SC_TERRAIN_HIGH) ? 2 : (terrain & SC_TERRAIN_MIDDLE) ? 1 : 0;
+    return !(flags & (1u << (height + ((mo->traits & MF_FLY) ? 0 : 3))));
+}
+
 static bool kind_ok(const mobj_t *mo, unsigned id) {
     if (!mo->type_id || mo->type_id > SC_TYPES) return false;
     unsigned type = mo->type_id - 1;
@@ -196,7 +207,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
-        if (!mine || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        if (!mine || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
         n++;
     }
     return n;
@@ -226,7 +237,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         return false;
     }
     if (type == 2 || type == 3) {
-        unsigned where = type == 3 ? loc : 64;
+        unsigned where = type == 3 ? loc : 0;
         return cmp_num(op, count_units(players, n, unit, where, m), qty);
     }
     if (type == 4) {
@@ -249,7 +260,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     if (type == 6 || type == 7 || type == 16 || type == 17) {
         players[0] = current;
         n = 1;
-        unsigned where = (type == 7 || type == 17) ? loc : 64;
+        unsigned where = (type == 7 || type == 17) ? loc : 0;
         int mine = count_units(players, n, unit, where, m), others = 0;
         bool most = type == 6 || type == 7;
         for (int p = 0; p < 8; p++) {
@@ -332,7 +343,7 @@ static int gather(const sc_mission_t *m, const int *players, int nplayers, unsig
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
-        if (!mine || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        if (!mine || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
         out[n++] = mo;
         if (limit && n >= limit) break;
     }
@@ -353,7 +364,7 @@ static void modify_vitals(const sc_mission_t *m, const int *players, int nplayer
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
-        if (!mine || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        if (!mine || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
         const sc_unit_t *type = &sc_units[mo->type_id - 1];
         if (id == 49) {
             if (!pct) P_DamageMobj(mo, NULL, mo->hp);
@@ -384,7 +395,7 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
         if (!resource) continue;
         bool matches = mo->owner < 8 ? in_group(m, player, mo->owner, current) :
             player == mo->owner || (player == 17 && mo->owner < 12);
-        if (!matches || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        if (!matches || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
         for (int i = 0; i < level.resource_vent_count; i++) {
             resourcevent_t *vent = &level.resource_vents[i];
             if (vent->source_id != mo->id) continue;
@@ -412,7 +423,7 @@ static void modify_hangars(const sc_mission_t *m, const int *players, int nplaye
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
             (mo->type_id != MT_CARRIER && mo->type_id != MT_REAVER) ||
-            (!anywhere && !inside(mo, l, t, r, b))) continue;
+            (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine) continue;
@@ -435,7 +446,7 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
-            (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;
+            (mo->sc.flags & SC_LOADED) || !location_height_ok(m, mo, loc) || !inside(mo, l, t, r, b)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine) continue;
@@ -497,7 +508,7 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
              (mo->sc.order.kind == SC_ORDER_LIFT || mo->sc.order.kind == SC_ORDER_LAND)) ||
             (!((mo->traits & MF_MOBILE) || (emerging && mo->info &&
                                            (mo->info->traits & MF_MOBILE)))) ||
-            (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;
+            (mo->sc.flags & SC_LOADED) || !location_height_ok(m, mo, loc) || !inside(mo, l, t, r, b)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine) continue;
@@ -886,7 +897,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;
                 if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
-                    (!anywhere && !inside(mo, l, t, r, b))) continue;
+                    (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
                 for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
                     if (a[27] == 4) mo->sc.flags |= SC_INVINCIBLE;
                     else if (a[27] == 5) mo->sc.flags &= (uint8_t)~SC_INVINCIBLE;
@@ -904,6 +915,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;
                 if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+                    ((id == 23 || id == 25) && !location_height_ok(m, mo, loc)) ||
                     (!anywhere && !inside(mo, l, t, r, b))) continue;
                 for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
                     if (id == 22 || id == 23) P_DamageMobj(mo, NULL, mo->hp);
@@ -924,7 +936,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;
                 if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
-                    (!anywhere && !inside(mo, l, t, r, b))) continue;
+                    (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
                 for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
                     if (give_unit(mo, owner)) given++;
                     break;
@@ -1064,6 +1076,7 @@ bool sc_mission_bind(level_t *map) {
                 m->loc_top[i] = (int)read_u32_le(loc + 4);
                 m->loc_right[i] = (int)read_u32_le(loc + 8);
                 m->loc_bottom[i] = (int)read_u32_le(loc + 12);
+                m->loc_elevation[i] = read_u16_le(loc + 18);
             }
         }
         at += 8 + n;

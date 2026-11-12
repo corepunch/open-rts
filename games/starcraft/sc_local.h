@@ -205,6 +205,7 @@ typedef struct {
     const uint8_t *trig, *str, *uprp;
     size_t trig_size, str_size, uprp_size;
     int loc_left[64], loc_top[64], loc_right[64], loc_bottom[64];
+    uint16_t loc_elevation[64]; /* MRGN exclusion flags, low/mid/high air then ground. */
     int loc_count;
     uint8_t owners[12], side[12], force[8], force_flags[4];
     uint32_t allies[8]; /* Directional combat alliances, separate from shared vision. */

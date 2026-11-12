@@ -1145,6 +1145,51 @@ int main(void) {
     CHECK(lifting->sc.order.kind == SC_ORDER_LIFT && landing->sc.order.kind == SC_ORDER_LAND);
     CHECK(!lifting->sc.queue.active && !landing->sc.queue.active);
     free(trig); unload();
+    /* MRGN flags exclude individual air/ground terrain heights. */
+    for (int flight = 0; flight < 2; flight++) for (int height = 0; height < 3; height++)
+        for (int excluded_height = 0; excluded_height < 2; excluded_height++) {
+            trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+            put_u32(action, 1); put_u32(action + 20, 2); put_u16(action + 24, 229); action[26] = 46;
+            CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+            FILE *location_file = fopen("/tmp/open-rts-sc-order-trigger.chk", "ab"); CHECK(location_file);
+            uint8_t location_header[8] = {'M','R','G','N'}, locations[40] = {0};
+            put_u32(location_header + 4, sizeof(locations));
+            put_u32(locations + 8, 256); put_u32(locations + 12, 256);
+            put_u16(locations + 18, 1u << ((flight ? 0 : 3) + (excluded_height ? height : (height + 1) % 3)));
+            put_u32(locations + 20, 448); put_u32(locations + 24, 448);
+            put_u32(locations + 28, 576); put_u32(locations + 32, 576);
+            CHECK(fwrite(location_header, 1, sizeof(location_header), location_file) == sizeof(location_header));
+            CHECK(fwrite(locations, 1, sizeof(locations), location_file) == sizeof(locations)); CHECK(!fclose(location_file));
+            CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+            sc_mission_t *height_mission = level.mission;
+            if (!height_mission->terrain) height_mission->terrain = calloc((size_t)level.width * level.height, sizeof(*height_mission->terrain));
+            CHECK(height_mission->terrain);
+            sc_terrain_t *tile = &height_mission->terrain[L_Index(&level, 4, 4)];
+            for (int mini = 0; mini < 16; mini++) tile->vf4[mini] = height == 2 ? SC_TERRAIN_HIGH : height == 1 ? SC_TERRAIN_MIDDLE : 0;
+            mobj_t *height_unit = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0); CHECK(height_unit);
+            if (flight) height_unit->traits |= MF_FLY;
+            ticks(1, &(hudtext_t){0});
+            CHECK(!!P_HasMoveOrder(height_unit) == !excluded_height);
+            free(trig); unload();
+        }
+    for (int condition = 2; condition <= 3; condition++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig, 64); put_u32(trig + 8, 1); put_u16(trig + 12, MT_MARINE - 1);
+        trig[14] = 10; trig[15] = (uint8_t)condition; action = trig + 320;
+        action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+        sc_mission_t *height_mission = level.mission; height_mission->loc_count = 64;
+        height_mission->loc_elevation[63] = 8; /* exclude low ground */
+        if (!height_mission->terrain) height_mission->terrain = calloc((size_t)level.width * level.height, sizeof(*height_mission->terrain));
+        CHECK(height_mission->terrain);
+        sc_terrain_t *tile = &height_mission->terrain[L_Index(&level, 4, 4)];
+        memset(tile->vf4, 0, sizeof(tile->vf4));
+        CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0));
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (condition == 2 ? 10 : 0));
+        free(trig); unload();
+    }
     remove("/tmp/open-rts-sc-order-trigger.chk");
 
     /* Move Unit teleports immediately; a count limits selected units. */

@@ -3692,6 +3692,32 @@ order. This is the vehicle contact/knockdown path, not an ordinary enemy
 acquisition timer. Its full interaction behavior remains unported; do not
 invent proximity timer refresh on all units.
 
+**Vehicle avoidance rectangle:** `0x586ac..0x5872b` expands the inner
+rectangle x−8..x+16, y−8..y+16 by 10 on the left, right and top and 6 on
+the bottom. If the source's sampled terrain is neither 7 nor 0x33 it expands
+all four edges another 5, yielding outer bounds x−23..x+31, y−23..y+27;
+on terrain 7 or 0x33 the bounds are x−18..x+26, y−18..y+22. An eligible
+unit outside the inner rectangle but inside the outer one receives destination
+`2 * unit_origin - outer_rectangle_centre` at `0x588aa..0x588eb`, then
+`0x7ba2a` and `0x7ba9a`. The preceding same-team exclusion at
+`0x5877a..0x58781` means the same-team-only path in `0x5897c..0x589c8`
+is unreachable from this scan: `0x104154` retains the source unit, and
+`0x58948` returns carry clear for the opposing team. This supersedes any
+inference that its terrain-7 group-speed gate protects these opponents.
+Complete porting remains blocked on the `0x7ba9a` movement/order gates and
+the inner knockdown/get-up action lifecycle, which must interrupt and resume
+existing orders correctly. In particular `0x7ba9a` returns carry if the
+destination equals the current unit origin, clears +0x6f bit 2 otherwise,
+rejects classes 2, 4, 5 and 6 unless action 2 is already active, and starts
+action 2 for other classes. A knocked-down robot waits in action 0x17/0x2e
+while an explosion record is within strictly 24 pixels on each axis; absent
+one, `0x61f43` changes it to get-up action 0x18/0x2f, and `0x61f94` advances
+11 frames before calling `0x79049`. The explosion-record lifecycle and
+restoration of saved orders are necessary to reproduce this without an
+invented timer. Inspect with `r2 -q -e bin.cache=true -c
+'pd 60 @ 0x58679' -c 'pd 75 @ 0x5883f' -c 'pd 50 @ 0x58948' -c q
+data/Z/ZED.EXE`.
+
 For a queued ordinary command, `0x4767f..0x47692` serializes the unit's
 +0x5d group ID. On receipt `0x4790d..0x47937` validates group +0x12 and
 resolves group +0x13 into a unit pointer, then `0x47988` calls the dispatcher

@@ -163,6 +163,17 @@ exclusions alongside an eligible Marine. OpenBW also skips buildings whose
 current order is liftoff or landing; the fixture checks both transitions
 remain intact when a trigger issues an Order.
 
+MRGN's 16-bit field at +18 excludes low, middle and high air and ground
+heights. OpenBW checks it using VF4 minitile height for Bring, Move Location,
+Order, Remove Unit at Location and Modify Unit Resources. Location-based
+matching now reads those flags and uses native VF4 height and flight status;
+the same filtering for other location actions is inferred. Global Command,
+Kill Unit and Remove Unit do not use a location filter. A fixture covers all
+six flags and distinguishes global Command from Bring at location 64. If
+native terrain is unavailable or the unit is outside the map, filtering is
+skipped because its native height is unknown. This adds fields to the saved
+mission layout and increments its version.
+
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
 now enforces that contention while retaining per-trigger saved progress. A
