@@ -25,6 +25,23 @@ int main(void) {
     ticcmd_t move={.order=TC_MOVE,.count=1,.units={queued_unit->id},.position=fixed3_from_fixed2(FIXED2_LIT(9.5,4.5),0)};
     G_RunTiccmd(0,&move);move.queued=true;move.position=fixed3_from_fixed2(FIXED2_LIT(12.5,4.5),0);
     G_RunTiccmd(0,&move);CHECK(queued_unit->sc.queue.count==1);
+    mobj_t *attacker=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5.5,5.5),0),MT_MARINE);
+    mobj_t *target=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(7.5,5.5),0),MT_MARINE);
+    CHECK(attacker && target);
+    attacker->owner=attacker->team=0; attacker->allegiance=ALLEGIANCE_PLAYER;
+    target->owner=target->team=1; target->allegiance=ALLEGIANCE_ENEMY;
+    ticcmd_t first={.order=TC_MOVE,.count=1,.units={attacker->id},
+        .position=fixed3_from_fixed2(FIXED2_LIT(6.5,5.5),0)};
+    G_RunTiccmd(0,&first);
+    ticcmd_t attack={.order=TC_ATTACK,.queued=true,.count=1,.units={attacker->id},
+        .target=target->id,.position=target->core.position};
+    G_RunTiccmd(0,&attack); CHECK(attacker->sc.queue.count==1);
+    target->owner=target->team=0; target->allegiance=ALLEGIANCE_PLAYER;
+    P_ClearMove(attacker); attacker->movement.order_arrived=true;
+    P_Ticker();
+    CHECK(attacker->sc.queue.active==TC_ATTACK && attacker->sc.queue.forced &&
+          attacker->attack.target==target && P_CanTarget(attacker,target));
+    uint32_t attacker_id=attacker->id, target_id=target->id;
     mobj_t *geyser = sc_spawn_actor(MT_VESPENE_GEYSER - 1, (ivec2_t){320, 320}, 11);
     CHECK(geyser && sc_add_resource_vent(geyser, 5000));
     mobj_t *saved_carrier = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){384, 384}, 11);
@@ -71,6 +88,10 @@ int main(void) {
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
     queued_unit=P_MobjById(queued_id);
     CHECK(queued_unit && queued_unit->sc.queue.count==1 && queued_unit->sc.queue.pending[0].position.x==FIXED_LIT(12.5));
+    attacker=P_MobjById(attacker_id); target=P_MobjById(target_id);
+    CHECK(attacker && target && attacker->sc.queue.active==TC_ATTACK && attacker->sc.queue.forced &&
+          attacker->sc.queue.target_owner==target->owner && attacker->attack.target==target &&
+          P_CanTarget(attacker,target));
     geyser = P_MobjById(geyser_id);
     CHECK(geyser && geyser->owner == 11 && geyser->type_id == MT_VESPENE_GEYSER);
     CHECK(geyser_vent < level.resource_vent_count && level.resource_vents[geyser_vent].source_id == geyser_id &&
@@ -92,7 +113,9 @@ int main(void) {
     CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);
     CHECK(m->rt[0].cursor == 3 && m->rt[0].wait_ms == 1200 && m->rt[0].running);
+    int target_hp=target->hp;
     for (int i = 0; i < RTS_TICRATE * 3; i++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
+    CHECK(target->hp<target_hp);
     CHECK(saved_duke->type_id == MT_DUKE_SIEGE);
     CHECK(!strcmp(m->objectives, "Saved objective"));
     free(saved);

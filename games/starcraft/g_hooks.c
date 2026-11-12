@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
 /* Mission extras and projectile state differ from earlier saves. */
-uint32_t G_SaveLayout(void) { return 6; }
+uint32_t G_SaveLayout(void) { return 7; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;

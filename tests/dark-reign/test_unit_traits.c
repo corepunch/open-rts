@@ -132,6 +132,9 @@ static int support(void) {
     mobj_t *vehicle = spawn(MT_FG_FREIGHTER, FIXED2_LIT(20, 20.5));
     CHECK(medic && human && vehicle);
     human->hp = 50; vehicle->hp = 500;
+    CHECK(!medic->attack.target && P_Attack(medic));
+    CHECK(medic->attack.target == human && human->hp == 70 && vehicle->hp == 500);
+    human->hp = 50; medic->attack.target = NULL; medic->attack.cooldown_left_ms = 0;
     ticcmd_t heal = {.order = TC_ATTACK,.target = human->id,.count = 1,.units = {medic->id}};
     G_RunTiccmd(0,&heal);
     CHECK(medic->attack.target == human);

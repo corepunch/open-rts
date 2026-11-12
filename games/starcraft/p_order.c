@@ -66,7 +66,8 @@ bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
         }
         *q=(sc_order_queue_t){0};
         immediate.units[immediate.count++]=u->id;
-        if(cmd->order!=TC_STOP){q->active=cmd->order;q->owner=player;q->target=cmd->target;q->harvest_phase=u->harvest.phase;}
+        if(cmd->order!=TC_STOP){q->active=cmd->order;q->owner=player;q->target=cmd->target;q->harvest_phase=u->harvest.phase;
+            mobj_t *target=P_MobjById(cmd->target);if(target)q->target_owner=target->owner;}
     }
     if(!appended)return false;
     if(immediate.count)queue_run(player,&immediate);
@@ -80,7 +81,7 @@ static bool queue_done(const mobj_t *u) {
     if((q->active==TC_ATTACK || q->active==TC_ORDER) && q->target) {
         mobj_t *target=P_MobjById(q->target);
         if(!target || target->remove || target->hp<=0)return true;
-        if(q->active==TC_ATTACK)return !P_CanTarget(u,target);
+        if(q->active==TC_ATTACK)return (q->target_owner!=target->owner && P_IsAlly(u,target)) || !P_CanTarget(u,target);
         if(!P_IsAlly(u,target))return false;
     }
     if(u->sc.order.kind || (u->production && u->production->placed) || u->harvest.phase!=0)return false;
@@ -112,8 +113,11 @@ static void queue_tick(mobj_t *u) {
     ticcmd_t cmd={.order=p.order,.product=p.product,.position=p.position,.target=p.target,
                   .count=1,.units={u->id}};
     if(p.order==TC_PATH)cmd.path=(waypoints_t){.count=1,.mode=p.mode,.points={p.point}};
-    queue_run(u->owner,&cmd);
+    mobj_t *target=P_MobjById(p.target);
     q->active=p.order; q->target=p.target;
+    q->target_owner=target?target->owner:0;
+    q->forced=p.order==TC_ATTACK && target && P_IsAlly(u,target);
+    queue_run(u->owner,&cmd);
 }
 
 static ivec2_t pixels(fixed2_t at) {

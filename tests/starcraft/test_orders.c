@@ -312,6 +312,19 @@ static int queued_orders(void) {
     other->owner=other->team=0;other->allegiance=ALLEGIANCE_PLAYER;tick(1);
     CHECK(!u->sc.queue.count && u->movement.goal.x==FIXED_LIT(3.5));
     reset();
+    u=spawn(MT_MARINE,FIXED2_LIT(5.5,5.5),0);
+    enemy=spawn(MT_MARINE,FIXED2_LIT(12.5,5.5),1);CHECK(u&&enemy);
+    order(u,TC_MOVE,FIXED2_LIT(8.5,5.5),NULL);
+    cmd=(ticcmd_t){.order=TC_ATTACK,.queued=true,.count=1,.units={u->id},.target=enemy->id,
+        .position=enemy->core.position};
+    G_RunTiccmd(0,&cmd);CHECK(u->sc.queue.count==1);
+    enemy->owner=enemy->team=0;enemy->allegiance=ALLEGIANCE_PLAYER;
+    int hp=enemy->hp;
+    for(int i=0;i<2000 && enemy->hp==hp;i++)tick(1);
+    CHECK(enemy->hp<hp && u->attack.target==enemy && !u->sc.queue.count);
+    u->attack.target=NULL;
+    CHECK(!P_AttackTarget(u)); /* The forced target is not auto-acquired. */
+    reset();
     mobj_t *worker=spawn(MT_SCV,FIXED2_LIT(5.5,5.5),0);
     mobj_t *tank=spawn(MT_SIEGE_TANK,FIXED2_LIT(7.5,5.5),0);
     CHECK(worker&&tank); tank->hp=tank->max_hp-2;

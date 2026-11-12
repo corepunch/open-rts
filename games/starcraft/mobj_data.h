@@ -32,7 +32,7 @@ enum { SC_CARGO = 8 };
 typedef struct { int kind, tech; uint32_t target; ivec2_t at; int time; } sc_order_t;
 enum { SC_QUEUED_ORDERS = 8 };
 typedef struct { int order, product; fixed3_t position; uint32_t target; ivec2_t point; int mode; } sc_pending_order_t;
-typedef struct { int active, count, owner, harvest_phase; uint32_t target; sc_pending_order_t pending[SC_QUEUED_ORDERS]; } sc_order_queue_t;
+typedef struct { int active, count, owner, harvest_phase, target_owner; bool forced; uint32_t target; sc_pending_order_t pending[SC_QUEUED_ORDERS]; } sc_order_queue_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
@@ -59,7 +59,7 @@ typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_p
     HASH((mo)->sc.glow.active); HASH((mo)->sc.glow.phase); \
     HASH((mo)->sc.projectile.weapon); HASH((mo)->sc.projectile.speed); \
     HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
-    HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target); \
+    HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target_owner); HASH((mo)->sc.queue.forced); HASH((mo)->sc.queue.target); \
     for (int sc_q=0; sc_q<(mo)->sc.queue.count && sc_q<SC_QUEUED_ORDERS; ++sc_q) { \
         const sc_pending_order_t *q=&(mo)->sc.queue.pending[sc_q]; \
         HASH(q->order); HASH(q->product); HASH(q->position.x); HASH(q->position.y); HASH(q->position.z); \

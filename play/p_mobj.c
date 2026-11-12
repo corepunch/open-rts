@@ -592,7 +592,13 @@ bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
             ((victim->traits & MF_HUMAN) ? (attacker->traits & MF_HEAL) :
                                          (attacker->traits & MF_REPAIR));
     }
-    return !P_IsAlly(attacker, victim) && P_CanDamage(attacker, victim) &&
+    bool hostile = !P_IsAlly(attacker, victim);
+#ifdef RTS_MODULE_STARCRAFT
+    if (attacker->sc.queue.active == TC_ATTACK && attacker->sc.queue.forced &&
+        attacker->sc.queue.target == victim->id && attacker->sc.queue.target_owner == victim->owner)
+        hostile = true;
+#endif
+    return hostile && P_CanDamage(attacker, victim) &&
            (!gameinfo || !gameinfo->can_target || gameinfo->can_target(attacker, victim));
 }
 
@@ -682,6 +688,12 @@ static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
     int64_t best2 = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
+#ifdef RTS_MODULE_STARCRAFT
+        /* A transferred explicit target is valid only as the ordered target,
+         * never as a newly acquired friendly unit. */
+        if (attacker->sc.queue.forced && attacker->sc.queue.active == TC_ATTACK &&
+            attacker->sc.queue.target == candidate->id && P_IsAlly(attacker, candidate)) continue;
+#endif
         /* Neutral things (mines, critters) are attacked only on order. */
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
@@ -1613,7 +1625,12 @@ static void tick_actor(mobj_t *u) {
         if (u->w2.stand_ground || u->w2.cast.spell || u->w2.carrier) enemy = NULL;
 #endif
         if (!in_attack && (u->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
-            enemy && !enemy->remove && enemy->hp > 0 && !P_IsAlly(u, enemy) &&
+            enemy && !enemy->remove && enemy->hp > 0 &&
+#ifdef RTS_MODULE_STARCRAFT
+            P_CanTarget(u, enemy) &&
+#else
+            !P_IsAlly(u, enemy) &&
+#endif
             P_VisibleTo(u, enemy)) {
             fixed2_t goal = fixed3_xy(enemy->core.position);
             if (!within_attack_range(u, enemy, mobj_attack_range(u, enemy)) &&

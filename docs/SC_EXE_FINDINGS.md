@@ -45,11 +45,29 @@ remain a separate fidelity question. `test_orders`, `test_mining`, and
 `test_save` exercise the implemented behavior. Eighteen shared multiprocess
 network cases passed, including validation of the queue bit and rejection of
 internal state on the wire (`/tmp/open-rts-shift-network.log`).
-When an ordered attack target becomes ineligible, the queued continuation
-uses the engine's `P_CanTarget` rule. OpenBW's explicit attack eligibility
-does not itself reject allied targets, so ownership changes can differ from
-this engine's forced-attack handling; invisibility and reacquisition are not
-claimed identical.
+**Confirmed OpenBW reference behavior; retail executable not independently
+traced.** `set_unit_owner` clears an active target when its order has
+`targets_enemies` and the new relationship is friendly; it does not inspect
+pending orders. `activate_next_order` subsequently installs a pending order's
+live target without checking allegiance. `order_AttackUnit` uses
+`unit_can_attack_target`, which checks weapon eligibility, visibility and
+other conditions but does not itself reject allies. Its reacquisition path
+can still select another enemy according to target priority. Thus a queued
+explicit attack can begin against a target transferred to an ally while the
+order was pending; this differs from clearing the active target during the
+transfer. See pinned OpenBW `bwgame.h` functions `set_unit_owner`,
+`activate_next_order`, `attack_unit_reacquire_target`, and
+`attack_unit_move_in_range` (search those names in the pinned source linked in
+`REFERENCES.md`).
+
+The engine records the target's owner at order activation and allows that
+specific target to be attacked when a pending order starts after its transfer.
+Automatic acquisition remains hostile. A subsequent owner change to an ally
+invalidates the active order. `test_orders` covers both an active transfer and
+a pending attack that damages the transferred unit; `test_save` exercises the
+saved object representation. Invisibility, reacquisition, and retail
+behavior remain unverified. The owner comparison is tick-based, so multiple
+owner changes returning to the original owner between ticks are not detected.
 
 ## Simulation terrain and random rolls (2026-11-12)
 
