@@ -1337,9 +1337,29 @@ is **1 when human strength is zero**, otherwise
 squad strength before ordering any of that pool. `0x99f46` writes task 0
 and the target/destination territory. Existing tasks 0,2,1,3 reserve their
 destinations. Territory flag 0x20 bars vehicles; 0x40 bars Jeeps/APCs and
-requires grenades for ordinary robot classes (the native APC cargo-class-3
-exception remains unsupported). This replaces the former 8-cell fort
+requires grenades for Grunt, Pyro and Laser (the native APC cargo-class-3
+exception is now supported as described below). This replaces the former 8-cell fort
 penalty and 2-cell proximity claim heuristic; neither was a retail rule.
+
+**Restricted-territory commander correction:** the idle attack pool at
+`0x9a165..0x9a1bb` rejects vehicles when territory +0x18 bit 0x20 is set.
+For bit 0x40 it rejects Jeeps and rejects APCs unless their +0x8b is class 3.
+APC setup `0x638ac..0x638af` copies the boarding robot's class +0x79 into
+that byte; class 3 is Tough. For classes 0, 0x0f and 0x10, the same attack
+pool calls `0x7a776`, which totals grenade bytes of occupied squad slots,
+and rejects a zero total. The general dispatch guard `0x9956a`, used by
+`0x9d42c` and frontier selection, applies the grenade test but does not
+apply the attack pool's APC/Jeep exclusion. The engine now follows these
+distinct checks, using its saved driver type and live same-team squad
+members. Snipers and Psychos have native classes 17 and 18 and do not take
+the grenade gate. `test_commander` runs actual territory decisions for an
+empty squad, a grenade held by a follower, an enemy with the same squad
+number, Tough- and Grunt-driven APCs, Sniper and Psycho, and the separate
+vehicle prohibition. It also checks initial general dispatch with a Jeep,
+APC, Grunt and Sniper.
+Reproduce with `r2 -q -e bin.cache=true -c 'pd 45 @ 0x9a165'
+-c 'pd 32 @ 0x9956a' -c 'pd 20 @ 0x7a776' -c 'pd 8 @ 0x638ac'
+-c q data/Z/ZED.EXE`.
 
 The mobile budget (`0x97f50`, `0x97fad`, `0x9b679`) uses these integer rules:
 

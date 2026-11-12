@@ -246,6 +246,88 @@ static int test_strength_gate(void) {
     rts_game_model_destroy(model);
     return 0;
 }
+
+static int test_restricted_territory(void) {
+    for (int test = 0; test < 8; ++test) {
+        RtsGameModel *model = load();
+        if (!model) return fail("restricted territory load");
+        mobj_t *lead = scenario(), *follower = NULL;
+        zmap_t *map = level.native_data;
+        uint8_t squad = lead->z.squad;
+        map->territories[2].team = 1;
+        map->territories[8].options |= 0x40;
+        if (test == 5) map->territories[8].options |= 0x20;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *mo = (mobj_t *)th;
+            if (mo->type_id == MT_FLAG && mo->z.territory == 3) Z_SetTeam(mo, 1);
+            if (mo->team != 1 || mo->z.squad != squad || !Z_IsRobot(Z_UnitType(mo))) continue;
+            mo->z.grenades = 0;
+            if (mo != lead && !follower) follower = mo;
+            if (test >= 3 && test <= 5 && mo != lead) mo->hp = 0;
+        }
+        if (!follower) return fail("restricted territory squad follower");
+        if (test == 1) follower->z.grenades = 1;
+        if (test == 2) {
+            mobj_t *foreign = P_SpawnMobj(lead->core.position, MT_UNIT_GRUNT);
+            if (!foreign) return fail("restricted territory foreign robot");
+            Z_SetTeam(foreign, 0);
+            foreign->z.squad = squad; foreign->z.grenades = 1;
+        }
+        if (test >= 3 && test <= 5) {
+            const mobjtype_t *apc = P_ActorType(MT_UNIT_APC);
+            if (!apc) return fail("restricted territory APC type");
+            P_ApplyActorTypeDefaults(lead, apc);
+            lead->z.squad = 0;
+            lead->z.driver = (test == 4 ? MT_UNIT_GRUNT : MT_UNIT_TOUGH) - MT_UNITS + 1;
+        }
+        if (test >= 6) {
+            const mobjtype_t *robot = P_ActorType(test == 6 ? MT_UNIT_SNIPER : MT_UNIT_PSYCHO);
+            if (!robot) return fail("restricted territory robot type");
+            P_ApplyActorTypeDefaults(lead, robot);
+        }
+        think(0); think(1);
+        const zaitask_t *task = task_of(lead);
+        bool sent = task && task->target == 8 && task->task == 0 &&
+                    (task->pending || P_HasMoveOrder(lead));
+        if (sent != (test == 1 || test == 3 || test == 6 || test == 7))
+            return fail("native restricted territory respects squad grenades and APC driver class");
+        rts_game_model_destroy(model);
+    }
+    puts("PASS: z restricted territory uses squad grenades and Tough APC crew");
+    return 0;
+}
+
+static int test_restricted_dispatch(void) {
+    static const int types[] = {MT_UNIT_JEEP, MT_UNIT_APC, MT_UNIT_GRUNT, MT_UNIT_SNIPER};
+    for (int test = 0; test < 4; ++test) {
+        RtsGameModel *model = load();
+        if (!model) return fail("restricted dispatch load");
+        mobj_t *lead = scenario();
+        zmap_t *map = level.native_data;
+        uint8_t squad = lead->z.squad;
+        map->territories[8].options |= 0x40;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *mo = (mobj_t *)th;
+            if (mo->team != 1 || mo->z.squad != squad || !Z_IsRobot(Z_UnitType(mo))) continue;
+            mo->z.grenades = 0;
+            if (test < 2 && mo != lead) mo->hp = 0;
+        }
+        const mobjtype_t *type = P_ActorType((uint16_t)types[test]);
+        if (!type) return fail("restricted dispatch type");
+        P_ApplyActorTypeDefaults(lead, type);
+        if (test < 2) lead->z.squad = 0;
+        lead->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        lead->z.home = 9;
+        think(0);
+        const zaitask_t *task = task_of(lead);
+        bool sent = task && task->target == 8 && task->pending;
+        if (sent != (test != 2)) return fail("general dispatch uses its distinct restricted-territory gate");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
 static int test_vehicles(void) {
     RtsGameModel *model = load();
     if (!model) return fail("vehicle task load");
@@ -616,7 +698,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

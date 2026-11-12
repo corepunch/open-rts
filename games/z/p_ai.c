@@ -60,11 +60,20 @@ static bool reachable(const mobj_t *mo, fixed2_t goal) {
         P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(mo->core.position)),
                        P_NavNodeAt(&level, cls, goal));
 }
-static bool allowed(const mobj_t *mo, uint8_t flags) {
+static bool allowed(const mobj_t *mo, uint8_t flags, bool attack_pool) {
     if ((flags & 32) && !Z_IsRobot(Z_UnitType(mo))) return false;
     if (!(flags & 64)) return true;
-    if (mo->type_id == MT_UNIT_JEEP || mo->type_id == MT_UNIT_APC) return false;
-    return !Z_IsRobot(Z_UnitType(mo)) || mo->type_id == MT_UNIT_TOUGH || mo->z.grenades;
+    /* 0x9a189 permits an APC only with class-3 (Tough) crew. */
+    if (attack_pool && mo->type_id == MT_UNIT_APC) return mo->z.driver == MT_UNIT_TOUGH - MT_UNITS + 1;
+    if (attack_pool && mo->type_id == MT_UNIT_JEEP) return false;
+    if (mo->type_id != MT_UNIT_GRUNT && mo->type_id != MT_UNIT_PYRO && mo->type_id != MT_UNIT_LASER) return true;
+    /* 0x7a776 sums grenade counts for all occupied group slots. */
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *member = (const mobj_t *)th;
+        if (live(member) && same_squad(mo, member) && member->z.grenades) return true;
+    }
+    return false;
 }
 static fixed2_t pixel_point(ivec2_t pixel) {
     return (fixed2_t){pixel.x * (FIXED_ONE / Z_TILE),pixel.y * (FIXED_ONE / Z_TILE)};
@@ -87,7 +96,7 @@ static void queue(zai_t *ai, zaitask_t *task, fixed2_t goal, uint32_t vehicle) {
 static bool send(zmap_t *map, zaitask_t *task, int territory) {
     if (territory < 0 || territory >= map->territory_count) return false;
     mobj_t *mo = P_MobjById(task->unit);
-    if (!live(mo) || !allowed(mo, map->ai.territories[territory].flags)) return false;
+    if (!live(mo) || !allowed(mo, map->ai.territories[territory].flags, false)) return false;
     ivec2_t pixel = ivec2_scale(map->territories[territory].flag, Z_TILE);
     uint8_t flags = map->ai.territories[territory].flags;
     if ((flags & 1) && map->fort_count) pixel = ivec2_add(map->forts[0], (ivec2_t){80,220});
@@ -403,7 +412,7 @@ static int idle_pool(zmap_t *map, int territory, pooled_t *pool) {
         zaitask_t *task = &map->ai.tasks[i];
         mobj_t *mo = P_MobjById(task->unit);
         if (!live(mo) || !offensive(task) || task->task != IDLE || task->pending ||
-            !allowed(mo, map->ai.territories[territory].flags) || !reachable(mo, goal)) continue;
+            !allowed(mo, map->ai.territories[territory].flags, true) || !reachable(mo, goal)) continue;
         int64_t distance = ivec2_distance_squared64(Z_AITopLeft(mo), ivec2_scale(map->territories[territory].flag, Z_TILE));
         int at = n++;
         while (at && pool[at - 1].distance > distance) { pool[at] = pool[at - 1]; at--; }
@@ -624,7 +633,7 @@ static void to_frontier(zmap_t *map, mobj_t *const *units, int count) {
         if (busy || ++task->passes < 2) continue;
         for (int t = 0; t < map->territory_count; ++t) {
             if (!owned(ai, t) || (ai->territories[t].flags & 3) || !n ||
-                !allowed(group[0], ai->territories[t].flags)) continue;
+                !allowed(group[0], ai->territories[t].flags, false)) continue;
             bool border = false;
             for (int a = 0; a < map->territory_count && !border; ++a)
                 border = adjacent(map, t, a) && !owned(ai, a);
