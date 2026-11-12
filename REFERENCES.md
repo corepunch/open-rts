@@ -2551,15 +2551,16 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   Its two-pixel track spacing and five-pixel arrow inset are editor-preview
   rules, not traced retail executable constants; see `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger Most Kills references: pinned PyMS
-  `FileFormats/TRG.py` maps condition 8 to `MostKills`, and
-  `PyTRG/HelpText.py` describes the condition as the current player having the
-  most kills of the selected unit. [eudplib `stockcond.py`](https://github.com/armoha/eudplib/blob/main/src/eudplib/core/rawtrigger/stockcond.py)
-  serializes condition type 8 and the unit operand; it does not establish game
-  evaluation semantics. [Staredit Network's kills-to-cash documentation](https://wiki.staredit.net/wiki/Kills_to_cash)
+  `FileFormats/TRG.py` maps condition 8 to `MostKills` and condition 18 to
+  `LeastKills`; `PyTRG/HelpText.py` describes both as current-player
+  comparisons for the selected unit. [eudplib `stockcond.py`](https://github.com/armoha/eudplib/blob/main/src/eudplib/core/rawtrigger/stockcond.py)
+  serializes Most Kills as type 8 and the unit operand; it does not establish
+  runtime evaluation semantics. [Staredit Network's kills-to-cash documentation](https://wiki.staredit.net/wiki/Kills_to_cash)
   says tied players both have the most kills. The pinned OpenBW condition
-  evaluator does not implement type 8. These are format/mapmaker references,
-  not retail executable evidence; tie, zero-count, and neutral-slot behavior
-  limitations are recorded in `docs/SC_EXE_FINDINGS.md`.
+  evaluator does not implement these ranking conditions. These are
+  format/mapmaker references, not retail executable evidence; tie, zero-count,
+  and neutral-slot behavior limitations are recorded in
+  `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger Most Resources references: pinned PyMS
   `FileFormats/TRG.py` maps condition 10 to `MostResources`, stores its
   `ResType` selector in byte 16, and defines selectors 0/1/2 as Ore, Gas, and

@@ -475,6 +475,57 @@ int main(void) {
         free(kills_trigger); unload();
     }
     remove("/tmp/open-rts-sc-most-kills.chk");
+    /* Least Kills (condition 18) ranks the current owner's unit kill totals. */
+    const struct { uint32_t mine, rival, inactive; bool any, qualifies; } least_kill_cases[] = {
+        {2, 4, 0, false, true},   /* inactive slot's lower count is ignored */
+        {5, 5, 0, false, true},
+        {5, 4, 0, false, false},
+        {0, 0, 99, false, true},  /* inferred zero tie */
+        {0, 1, 0, false, true},
+        {6, 5, 99, true, true}    /* Any Unit totals all types */
+    };
+    for (size_t i = 0; i < sizeof(least_kill_cases) / sizeof(least_kill_cases[0]); i++) {
+        uint8_t *least_kills_trigger = blank_trigger(); CHECK(least_kills_trigger);
+        least_kills_trigger[2372 + 17] = 0; least_kills_trigger[2372 + 1] = 1;
+        put_u16(least_kills_trigger + 12, least_kill_cases[i].any ? 229 : MT_MARINE - 1);
+        least_kills_trigger[15] = 18;
+        uint8_t *resource_action = least_kills_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-least-kills.chk", kill_owners, least_kills_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-least-kills.chk", &level));
+        sc_mission_t *least_mission = level.mission;
+        least_mission->kills[1][MT_MARINE - 1] = least_kill_cases[i].mine;
+        least_mission->kills[0][MT_MARINE - 1] = least_kill_cases[i].rival;
+        least_mission->kills[2][MT_MARINE - 1] = least_kill_cases[i].inactive;
+        if (least_kill_cases[i].any) {
+            least_mission->kills[1][MT_GHOST - 1] = 0;
+            least_mission->kills[0][MT_GHOST - 1] = 2;
+        }
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[1][0] == 10) == least_kill_cases[i].qualifies);
+        free(least_kills_trigger); unload();
+    }
+    /* An active neutral slot participates in Least Kills rankings. */
+    {
+        uint8_t neutral_owners[12] = {6, 5, 7};
+        uint8_t *least_kills_trigger = blank_trigger(); CHECK(least_kills_trigger);
+        least_kills_trigger[2372 + 17] = 0; least_kills_trigger[2372 + 1] = 1;
+        put_u16(least_kills_trigger + 12, MT_MARINE - 1); least_kills_trigger[15] = 18;
+        uint8_t *resource_action = least_kills_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-least-kills.chk", neutral_owners, least_kills_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-least-kills.chk", &level));
+        sc_mission_t *least_mission = level.mission;
+        least_mission->kills[1][MT_MARINE - 1] = 5;
+        least_mission->kills[0][MT_MARINE - 1] = 6;
+        least_mission->kills[2][MT_MARINE - 1] = 2;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 0);
+        free(least_kills_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-least-kills.chk");
     /* Most Resources (condition 10) uses the current owner's selected balance. */
     const struct {
         uint8_t selector;

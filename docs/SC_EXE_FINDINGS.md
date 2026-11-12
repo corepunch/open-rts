@@ -2489,6 +2489,24 @@ count, zero tie, inactive-slot decoy, active neutral slot, and Any Unit total.
 Reproduce with `env SDL_VIDEODRIVER=dummy
 build/bin/tests/starcraft/test_mission`.
 
+### Least Kills trigger condition (2026-11-12)
+
+**Confirmed format mapping:** PyMS `FileFormats/TRG.py` maps condition type 18
+to `LeastKills`, and `PyTRG/HelpText.py` describes it as the current player
+having the least kills of the selected unit. This identifies the CHK condition
+and intended owner but does not establish runtime ranking details.
+
+**Implemented behavior:** open-rts compares the trigger owner's stored kills
+for the selected unit against other active modeled slots (0–7). `Any Unit`
+(ID 229) sums the per-unit counters. Equal counts qualify as least, including
+zero; this is an explicit inference from the minimum comparison, not verified
+retail behavior. Neutral/rescuable owners in active slots participate, while
+slots 8–11 are outside the runtime model. No retail executable trace confirms
+the tie, zero, or eligibility rules.
+
+The synthetic `test_mission` cases cover sole least, tie, higher count, zero
+tie, Any Unit totals, inactive-slot exclusion, and an active neutral slot.
+
 ### Most Resources trigger condition (2026-11-12)
 
 **Confirmed format mapping:** PyMS `FileFormats/TRG.py` maps condition type 10

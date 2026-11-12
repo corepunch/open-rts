@@ -295,11 +295,15 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         }
         return cmp_num(op, total, qty);
     }
-    if (type == 8) {
+    if (type == 8 || type == 18) {
         if (unit >= SC_TYPES && unit != 229) return false;
         uint64_t mine = player_kills(m, current, unit);
-        for (int p = 0; p < 8; p++)
-            if (p != current && slot_active(m, p) && player_kills(m, p, unit) > mine) return false;
+        bool most = type == 8;
+        for (int p = 0; p < 8; p++) {
+            if (p == current || !slot_active(m, p)) continue;
+            uint64_t other = player_kills(m, p, unit);
+            if (most ? other > mine : other < mine) return false;
+        }
         return true;
     }
     if (type == 10 || type == 20) {
