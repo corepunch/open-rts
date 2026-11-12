@@ -142,7 +142,9 @@ static bool in_group(const sc_mission_t *m, unsigned group, int p, int current) 
     }
     if (group == 26) {
         if (p == current || !slot_active(m, p)) return false;
-        return !allied_to(current, p) || !allied_to(p, current);
+        uint32_t pbit = UINT32_C(0x40000000) >> p;
+        uint32_t currentbit = UINT32_C(0x40000000) >> current;
+        return !(m->allied_victory[current] & pbit) || !(m->allied_victory[p] & currentbit);
     }
     return false;
 }
@@ -272,6 +274,47 @@ static uint64_t player_resource_total(int player, unsigned resource) {
     return total;
 }
 
+/* Trigger score types use the same units/buildings/resources inputs as the
+ * in-game score panel. The Custom category has no modeled SetScore state. */
+static int64_t player_score(int player, unsigned type) {
+    if (type > 6 || player < 0 || player >= 8) return 0;
+    sc_stats_t stats;
+    sc_player_stats(player, &stats);
+    int64_t units = 0, buildings = 0, kills = 0, razings = 0;
+    if (thinkercap.next) for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *mo = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || mo->owner != player || mo->hp <= 0 ||
+            !mo->type_id || mo->type_id > SC_TYPES) continue;
+        const sc_unit_t *unit = &sc_units[mo->type_id - 1];
+        if (unit->flags & SC_UNIT_BUILDING) buildings += unit->build_score;
+        else units += unit->build_score;
+    }
+    for (int i = 0; i < SC_TYPES; i++) {
+        const sc_unit_t *unit = &sc_units[i];
+        bool building = (unit->flags & SC_UNIT_BUILDING) != 0;
+        int64_t built = (int64_t)stats.lost[i] * unit->build_score;
+        int64_t destroyed = (int64_t)stats.killed[i] * unit->destroy_score;
+        if (building) {
+            buildings += built + destroyed;
+            razings += destroyed;
+        } else {
+            units += built + destroyed;
+            kills += destroyed;
+        }
+    }
+    int64_t resources = (int64_t)stats.gathered[0] + stats.gathered[1] + stats.spent;
+    switch (type) {
+    case 0: return units + buildings + resources;
+    case 1: return units;
+    case 2: return buildings;
+    case 3: return units + buildings;
+    case 4: return kills;
+    case 5: return razings;
+    case 6: return kills + razings;
+    default: return 0; /* Custom points are currently unmodeled. */
+    }
+}
+
 static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     uint8_t type = c[15], op = c[14];
     unsigned group = read_u32_le(c + 4), qty = read_u32_le(c + 8);
@@ -331,6 +374,25 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         }
         return true;
     }
+    if (type == 9 || type == 19) {
+        unsigned score_type = c[16];
+        if (score_type > 6) return false;
+        int64_t mine = player_score(current, score_type);
+        bool highest = type == 9;
+        for (int p = 0; p < 8; p++) {
+            if (p == current || !slot_active(m, p)) continue;
+            int64_t other = player_score(p, score_type);
+            if (highest ? other > mine : other < mine) return false;
+        }
+        return true;
+    }
+    if (type == 21) {
+        unsigned score_type = c[16];
+        if (score_type > 6) return false;
+        int64_t total = 0;
+        for (int i = 0; i < n; i++) total += player_score(players[i], score_type);
+        return cmp_num(op, (uint64_t)total, qty);
+    }
     if (type == 6 || type == 7 || type == 16 || type == 17) {
         players[0] = current;
         n = 1;
@@ -351,8 +413,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     if (type == 14) {
         int foes = 0;
         for (int i = 0; i < n; i++) for (int p = 0; p < 8; p++)
-            if (G_PlayerSide(players[i]) && p != players[i] && G_PlayerSide(p) &&
-                (!allied_to(players[i], p) || !allied_to(p, players[i]))) foes++;
+            if (slot_active(m, players[i]) && in_group(m, 26, p, players[i])) foes++;
         return cmp_num(op, foes, qty);
     }
     return false;
@@ -694,8 +755,11 @@ static void set_alliance(int a, int b, int status) {
     sc_mission_t *m = mission(&level);
     if (!m) return;
     uint32_t bit = UINT32_C(0x40000000) >> b;
+    if (status < 0 || status > 2) return;
     if (status == 0) m->allies[a] &= ~bit;
     else m->allies[a] |= bit;
+    if (status == 2) m->allied_victory[a] |= bit;
+    else m->allied_victory[a] &= ~bit;
 }
 
 /* OpenBW give_unit_to grants each unit's native technologies and copies the
@@ -1179,15 +1243,18 @@ bool sc_mission_bind(level_t *map) {
     }
     map->player_teams = true;
     for (int a = 0; a < 8; a++) {
-        uint32_t mask = UINT32_C(0x40000000) >> a, vision = mask;
+        uint32_t mask = UINT32_C(0x40000000) >> a, victory = mask, vision = mask;
         int force = m->force[a];
         bool allied = force < 4 && (m->force_flags[force] & 2);
+        bool allied_victory = allied && (m->force_flags[force] & 4);
         bool shared = force < 4 && (m->force_flags[force] & 16);
         for (int b = 0; b < 8; b++) {
             if (allied && m->force[b] == force) mask |= UINT32_C(0x40000000) >> b;
+            if (allied_victory && m->force[b] == force) victory |= UINT32_C(0x40000000) >> b;
             if (shared && m->force[b] == force) vision |= UINT32_C(0x40000000) >> b;
         }
         m->allies[a] = mask;
+        m->allied_victory[a] = victory;
         map->sight.allies[a] = vision;
     }
     m->rng = 1;

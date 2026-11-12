@@ -2569,3 +2569,56 @@ mapping is OpenBW reference behavior, not a retail executable trace.
 `test_mission` checks inclusion of active neutral and rescue slots, exclusion
 of a closed slot with a deliberately higher matching kill count, and exclusion
 of a mutually allied neutral slot.
+
+### Highest/Lowest Score trigger conditions (2026-11-12)
+
+**Confirmed format mapping:** checked-in PyMS `FileFormats/TRG.py` maps
+conditions 9, 19 and 21 to `HighestScore`, `LowestScore` and `Score`, and
+byte 16 to the `ScoreType` selector. Selectors 0–7 are Total, Units,
+Buildings, Units and Buildings, Kills, Razings, Kills and Razings, and Custom.
+PyMS help text says highest/lowest compare the current player's score type and
+Score compares a selected player's score with a number.
+
+**Implemented bounded behavior:** conditions 9 and 19 rank the current
+owner's score against active modeled slots; condition 21 sums the selected
+player group and applies its comparison with the requested quantity. Unit and
+building values reuse the checked-in score panel formula: positive-HP mobjs
+contribute their units.dat build score, recorded lost units contribute build
+score, and kills contribute destroy score. The live-mobj filter matches
+`m_menu.c:tally` (including its lack of a separate `remove` check). Resources
+use gathered plus spent totals. Custom is unsupported because SetScore state
+is not modeled; selector 7 returns false instead of reading as zero. Strict
+ranking lets ties qualify for both Highest and Lowest, an implementation
+inference based on the Most/Least comparison rule and still unverified against
+retail. These are bounded model formulas, not a retail executable score trace.
+`test_mission` covers leader/tie/laggard comparisons for both ranking
+conditions and condition 21's selection of each supported score category;
+Custom is checked as unsupported.
+
+### Scenario alliance and victory relationships (reference evidence)
+
+PyMS `FileFormats/TRG.py` lists action 57's encoded statuses as Enemy (0),
+Ally (1), and Allied Victory (2); its `CHKSectionFORC.py` defines separate
+force bits 0x02 (allies) and 0x04 (allied victory). OpenBW's
+`bwgame.h` `trigger_players_pred` treats group 26 as players for whom either
+directional relationship is not 2, and its unit code treats nonzero
+relationships as allied. This is reference implementation evidence, not an
+executable trace. The mission retains a directional victory mask alongside the
+combat mask, initializes it for forces with both flags, and action 57 sets or
+clears it with the corresponding combat relationship. The mask is saved with
+the mission and included in the lockstep consistency hash. A diplomacy
+command that breaks an alliance also clears its victory bit. The exact retail
+handling of a force with victory enabled but allies disabled and of manual
+alliance changes remains unknown. OpenBW also classifies plain allies as
+neutral for trigger groups 14–16; those groups currently retain their earlier
+approximation and need separate investigation.
+
+Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`; the fixture
+covers statuses 0–2, force flags, and unilateral versus mutual victory for
+group 26. OpenBW source: https://github.com/OpenBW/openbw/blob/master/bwgame.h
+OpenBW's `trigger_opponent_count` sums group 26 for each selected source
+player, so Opponents now uses that same predicate, including active neutral
+and rescue slots. The mission test exercises plain mutual allies and one-way
+and mutual victory relationships; `test_save` checks the victory bit survives
+an engine save and that breaking and reforming an alliance clears it.

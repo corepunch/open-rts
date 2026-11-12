@@ -2575,6 +2575,11 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   (`player_slot_active`, `trigger_players_pred`). Our boolean alliance masks
   cannot retain Ally versus Allied Victory as distinct states; see the
   implementation limitation in `docs/SC_EXE_FINDINGS.md`.
+- StarCraft trigger score conditions: checked-in PyMS `FileFormats/TRG.py`
+  maps conditions 9/19/21 to Highest/Lowest/Score and defines score selectors
+  0–7; its help text specifies current-player and selected-player comparisons.
+  The bounded score inputs reuse the existing score panel, and Custom remains
+  unsupported without SetScore state; see `docs/SC_EXE_FINDINGS.md`.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D

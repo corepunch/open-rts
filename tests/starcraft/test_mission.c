@@ -89,26 +89,37 @@ int main(void) {
     P_InitThinkers();
     consoleplayer = 0;
     uint8_t force_owners[12]={6,5};
-    for(int flag=2;flag<=16;flag*=8) {
+    for(int flag=2;flag<=16;flag*=2) {
         force_fixture=flag;
         CHECK(!write_map("/private/tmp/sc-forces.chk",force_owners,NULL));
         CHECK(G_DoLoadLevel("/private/tmp/sc-forces.chk",&level));
         CHECK(!!(G_AllianceMasks(&level)[0]&(UINT32_C(0x40000000)>>1)) == (flag==2));
+        CHECK(!!(((sc_mission_t *)level.mission)->allied_victory[0]&(UINT32_C(0x40000000)>>1)) == false);
         CHECK(!!(level.sight.allies[0]&(UINT32_C(0x40000000)>>1)) == (flag==16));
         unload();
     }
+    force_fixture=6;
+    CHECK(!write_map("/private/tmp/sc-forces.chk",force_owners,NULL));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-forces.chk",&level));
+    CHECK(((sc_mission_t *)level.mission)->allied_victory[0] & (UINT32_C(0x40000000)>>1));
+    unload();
     force_fixture=-1; remove("/private/tmp/sc-forces.chk");
-    uint8_t *alliance_trigger=blank_trigger(); CHECK(alliance_trigger);
-    alliance_trigger[2372+17]=0; alliance_trigger[2372]=1;
-    alliance_trigger[15]=22; alliance_trigger[320+26]=57;
-    put_u32(alliance_trigger+320+16,1); put_u16(alliance_trigger+320+24,1);
-    CHECK(!write_map("/private/tmp/sc-alliance.chk",force_owners,alliance_trigger));
-    CHECK(G_DoLoadLevel("/private/tmp/sc-alliance.chk",&level));
-    ticks(1,&(hudtext_t){0});
-    CHECK(G_AllianceMasks(&level)[0]&(UINT32_C(0x40000000)>>1));
-    CHECK(!(G_AllianceMasks(&level)[1]&(UINT32_C(0x40000000)>>0)));
-    CHECK(!(level.sight.allies[1]&(UINT32_C(0x40000000)>>0)));
-    unload(); free(alliance_trigger); remove("/private/tmp/sc-alliance.chk");
+    for (int status = 0; status <= 2; status++) {
+        uint8_t *alliance_trigger=blank_trigger(); CHECK(alliance_trigger);
+        alliance_trigger[2372+17]=0; alliance_trigger[2372]=1;
+        alliance_trigger[15]=22; alliance_trigger[320+26]=57;
+        put_u32(alliance_trigger+320+16,1); put_u16(alliance_trigger+320+24,status);
+        CHECK(!write_map("/private/tmp/sc-alliance.chk",force_owners,alliance_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-alliance.chk",&level));
+        ticks(1,&(hudtext_t){0});
+        uint32_t bit = UINT32_C(0x40000000)>>1;
+        CHECK(!!(G_AllianceMasks(&level)[0]&bit) == (status != 0));
+        CHECK(!!(((sc_mission_t *)level.mission)->allied_victory[0]&bit) == (status == 2));
+        CHECK(!(G_AllianceMasks(&level)[1]&(UINT32_C(0x40000000)>>0)));
+        CHECK(!(level.sight.allies[1]&(UINT32_C(0x40000000)>>0)));
+        unload(); free(alliance_trigger);
+    }
+    remove("/private/tmp/sc-alliance.chk");
     uint8_t *vision_trigger = blank_trigger(); CHECK(vision_trigger);
     vision_trigger[2372+17] = 0; vision_trigger[2372] = 1;
     vision_trigger[15] = 22; vision_trigger[320+26] = 15;
@@ -172,7 +183,7 @@ int main(void) {
     CHECK(level.player_resources[0][0] == 0);
     unload(); free(empty_location); remove("/private/tmp/sc-empty-location.chk");
     /* Opponents counts active slots even without units, and alliance is mutual. */
-    for (int relation = 0; relation < 3; relation++) {
+    for (int relation = 0; relation < 5; relation++) {
         uint8_t *opponent_trigger = blank_trigger(); CHECK(opponent_trigger);
         opponent_trigger[2372+17] = 0; opponent_trigger[2372] = 1;
         put_u32(opponent_trigger+8, 1); opponent_trigger[14] = 10; opponent_trigger[15] = 14;
@@ -182,9 +193,11 @@ int main(void) {
         CHECK(G_DoLoadLevel("/private/tmp/sc-opponents.chk", &level));
         sc_mission_t *opponent_mission = level.mission;
         if (relation >= 1) opponent_mission->allies[0] |= UINT32_C(0x40000000) >> 1;
-        if (relation == 2) opponent_mission->allies[1] |= UINT32_C(0x40000000);
+        if (relation >= 2) opponent_mission->allies[1] |= UINT32_C(0x40000000);
+        if (relation >= 3) opponent_mission->allied_victory[0] |= UINT32_C(0x40000000) >> 1;
+        if (relation >= 4) opponent_mission->allied_victory[1] |= UINT32_C(0x40000000);
         ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[0][0] == (relation < 2 ? 10 : 0));
+        CHECK(level.player_resources[0][0] == (relation < 4 ? 10 : 0));
         unload(); free(opponent_trigger);
     }
     remove("/private/tmp/sc-opponents.chk");
@@ -432,6 +445,12 @@ int main(void) {
         non_allied_mission->kills[3][MT_MARINE - 1] = 99;
         non_allied_mission->kills[4][MT_MARINE - 1] = 99; /* Closed slot must not join group 26. */
         ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == 0); /* Plain allies still count in group 26. */
+        non_allied_mission->allied_victory[0] |= UINT32_C(0x40000000) >> 3;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == 0); /* Victory alliance must be mutual. */
+        non_allied_mission->allied_victory[3] |= UINT32_C(0x40000000);
+        ticks(1, &(hudtext_t){0});
         CHECK(level.player_resources[0][0] == 10); /* Only neutral+rescue qualify; closed has 99 kills. */
         free(non_allied_trigger); unload();
     }
@@ -501,6 +520,63 @@ int main(void) {
         free(kills_trigger); unload();
     }
     remove("/tmp/open-rts-sc-most-kills.chk");
+    /* Highest/Lowest Score compare the current player's selected score total. */
+    const struct { uint8_t condition, selector; uint32_t mine, rival; bool qualifies; } score_cases[] = {
+        {9, 4, 5, 4, true}, {9, 4, 5, 5, true}, {9, 4, 4, 5, false},
+        {19, 4, 4, 5, true}, {19, 4, 5, 5, true}, {19, 4, 5, 4, false},
+        {9, 7, 0, 0, false}, {19, 7, 0, 0, false}
+    };
+    for (size_t i = 0; i < sizeof(score_cases) / sizeof(score_cases[0]); i++) {
+        uint8_t *score_trigger = blank_trigger(); CHECK(score_trigger);
+        score_trigger[2372 + 17] = 0; score_trigger[2372 + 1] = 1;
+        score_trigger[15] = score_cases[i].condition;
+        score_trigger[16] = score_cases[i].selector;
+        uint8_t *score_action = score_trigger + 320;
+        score_action[26] = 26; score_action[27] = 8;
+        put_u32(score_action + 16, 13); put_u32(score_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-highest-score.chk", kill_owners, score_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-highest-score.chk", &level));
+        sc_mission_t *score_mission = level.mission;
+        score_mission->kills[1][MT_MARINE - 1] = score_cases[i].mine;
+        score_mission->kills[0][MT_MARINE - 1] = score_cases[i].rival;
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[1][0] == 10) == score_cases[i].qualifies);
+        free(score_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-highest-score.chk");
+    /* Score condition selector bytes cover every modeled score category. */
+    const struct { uint8_t selector, op; uint32_t qty; bool qualifies; } score_type_cases[] = {
+        {0, 0, 1100, true}, /* Total */
+        {1, 10, 100, true}, /* Units */
+        {2, 0, 1, false},   /* Buildings */
+        {3, 10, 100, true}, /* Units and Buildings */
+        {4, 0, 100, true}, /* Kills */
+        {5, 0, 1, false},  /* Razings */
+        {6, 10, 100, true},/* Kills and Razings */
+        {7, 0, 0, false}   /* Custom is unsupported. */
+    };
+    for (size_t i = 0; i < sizeof(score_type_cases) / sizeof(score_type_cases[0]); i++) {
+        uint8_t *score_trigger = blank_trigger(); CHECK(score_trigger);
+        score_trigger[2372 + 17] = 0; score_trigger[2372 + 1] = 1;
+        score_trigger[15] = 21; /* Score */
+        score_trigger[14] = score_type_cases[i].op;
+        put_u32(score_trigger + 4, 1); /* Player 1. */
+        score_trigger[16] = score_type_cases[i].selector;
+        put_u32(score_trigger + 8, score_type_cases[i].qty);
+        uint8_t *score_action = score_trigger + 320;
+        score_action[26] = 26; score_action[27] = 8;
+        put_u32(score_action + 16, 13); put_u32(score_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-score-types.chk", kill_owners, score_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-score-types.chk", &level));
+        sc_mission_t *score_mission = level.mission;
+        score_mission->kills[1][MT_MARINE - 1] = 1;
+        score_mission->kills[0][MT_COMMAND_CENTER - 1] = 1;
+        score_mission->gathered[1][0] = 1000;
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[1][0] == 10) == score_type_cases[i].qualifies);
+        free(score_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-score-types.chk");
     /* Least Kills (condition 18) ranks the current owner's unit kill totals. */
     const struct { uint32_t mine, rival, inactive; bool any, qualifies; } least_kill_cases[] = {
         {2, 4, 0, false, true},   /* inactive slot's lower count is ignored */

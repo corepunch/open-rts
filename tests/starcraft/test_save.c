@@ -172,6 +172,15 @@ int main(void) {
     ally.target=7; ally.product=1; G_RunTiccmd(player,&ally);
     CHECK(G_AllianceMasks(&level)[player]&obit);
     CHECK(!(G_AllianceMasks(&level)[player] & (UINT32_C(0x40000000)>>7)));
+    sc_mission_t *alliance_mission = level.mission;
+    alliance_mission->allied_victory[player] |= obit;
+    uint32_t victory_hash = G_ConsistencyExtra(0);
+    ally.target=other; ally.product=0; G_RunTiccmd(player,&ally);
+    CHECK(!(alliance_mission->allies[player]&obit) && !(alliance_mission->allied_victory[player]&obit));
+    ally.product=1; G_RunTiccmd(player,&ally);
+    CHECK((alliance_mission->allies[player]&obit) && !(alliance_mission->allied_victory[player]&obit));
+    CHECK(G_ConsistencyExtra(0) != victory_hash);
+    alliance_mission->allied_victory[player] |= obit;
     CHECK(G_SaveGameBlob(&saved, &length, "custom", &app, &ai, &hud));
     P_FreeLevel(&level);
     sc_set_custom_slots(NULL, NULL);
@@ -182,6 +191,7 @@ int main(void) {
     CHECK(consoleplayer != player || sc_player_side(consoleplayer) != 2);
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
     CHECK(consoleplayer == player && sc_player_side(consoleplayer) == 2);
+    CHECK(((sc_mission_t *)level.mission)->allied_victory[player]&obit);
     CHECK((G_AllianceMasks(&level)[player]&obit) && !(G_AllianceMasks(&level)[other]&pbit));
     CHECK((level.sight.allies[other]&pbit) && !(level.sight.allies[player]&obit));
     size_t custom_extra_size = G_SaveExtraSize();

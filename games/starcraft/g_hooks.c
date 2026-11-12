@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
 /* Mission extras and projectile state differ from earlier saves. */
-uint32_t G_SaveLayout(void) { return 7; }
+uint32_t G_SaveLayout(void) { return 8; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -15,6 +15,7 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     if (m) { hash = G_HashValue(hash, m->previous_bullet_source); hash = G_HashValue(hash, m->previous_bullet_clockwise); }
     if (m) for (int i = 0; i < 8; ++i) {
         hash = G_HashValue(hash, m->allies[i]);
+        hash = G_HashValue(hash, m->allied_victory[i]);
         hash = G_HashValue(hash, level.sight.allies[i]);
         for (int t = 0; t < SC_TYPES; t++) hash = G_HashValue(hash, m->deaths[i][t]);
     }
@@ -29,6 +30,7 @@ bool G_GameCommand(int player, const ticcmd_t *cmd) {
     uint32_t *row = cmd->order == TC_ALLY ? &m->allies[player] : &level.sight.allies[cmd->target];
     uint32_t bit = UINT32_C(0x40000000) >> (cmd->order == TC_ALLY ? cmd->target : player);
     if (cmd->product) *row |= bit; else *row &= ~bit;
+    if (cmd->order == TC_ALLY && !cmd->product) m->allied_victory[player] &= ~bit;
     if (cmd->order == TC_SHARE_SIGHT) P_UpdateSight();
     return true;
 }
