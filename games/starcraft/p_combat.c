@@ -93,6 +93,21 @@ void sc_start(mobj_t *mo) {
     if (mo->type_id == MT_VULTURE || mo->type_id == HERO_RAYNOR_VULTURE) mo->sc.hangar = 3;
 }
 
+void sc_initial_vitals(mobj_t *mo, unsigned valid, unsigned shields, unsigned energy) {
+    if (!(valid & (4 | 8))) return;
+    const sc_unit_t *type = sc_unit(mo);
+    if (!type) return;
+    sc_start(mo);
+    if ((valid & 4) && type->shields) {
+        if (shields > 100) shields = 100;
+        mo->sc.shields = (type->shields * (int)shields / 100) << 8;
+    }
+    if (valid & 8) {
+        if (energy > 100) energy = 100;
+        mo->sc.energy = sc_max_energy(mo) * (int)energy / 100;
+    }
+}
+
 int sc_shields(const mobj_t *mo) {
     if (!sc_type(mo)) return 0;
     return (mo->sc.flags & SC_STARTED ? mo->sc.shields : sc_units[mo->type_id - 1].shields << 8) >> 8;
@@ -109,7 +124,7 @@ static const struct { mobjtype_id_t type; int upgrade; } reactors[] = {
 };
 int sc_max_energy(const mobj_t *mo) {
     const sc_unit_t *unit=sc_unit(mo);
-    if(unit&&(unit->flags&SC_UNIT_HERO)&&(unit->flags&SC_UNIT_SPELLCASTER))
+    if(unit&&(unit->flags&SC_UNIT_HERO))
         return SC_MAX_ENERGY+SC_REACTOR_ENERGY;
     for (unsigned i = 0; i < sizeof(reactors) / sizeof(*reactors); i++)
         if (mo->type_id == reactors[i].type && sc_upgrade_level(mo->owner, reactors[i].upgrade))

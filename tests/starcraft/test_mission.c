@@ -564,6 +564,36 @@ int main(void) {
     CHECK(placed_seen == 4); P_FreeMobjList(&placed_units); unload();
     remove("/tmp/open-rts-sc-placed-hangar.chk");
 
+    /* UNIT shields and energy use independent validity bits and native rounding. */
+    CHECK(!write_map("/tmp/open-rts-sc-placed-vitals.chk", owners, NULL));
+    placed_file = fopen("/tmp/open-rts-sc-placed-vitals.chk", "ab"); CHECK(placed_file);
+    uint8_t vital_units[8 * 36] = {0}; put_u32(unit_header + 4, sizeof(vital_units));
+    for (int i = 0; i < 8; i++) {
+        uint8_t *entry = vital_units + i * 36;
+        put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
+        put_u16(entry + 8, (i < 3 ? MT_ZEALOT : i < 6 ? MT_GHOST : i == 6 ? MT_MARINE : MT_GANTRITHOR) - 1);
+        put_u16(entry + 14, i == 2 || i == 5 ? 0 : i < 3 ? 4 : 8);
+        entry[18] = i == 0 ? 1 : 150; entry[19] = i == 3 ? 33 : i >= 6 ? 50 : 150;
+    }
+    CHECK(fwrite(unit_header, 1, sizeof(unit_header), placed_file) == sizeof(unit_header));
+    CHECK(fwrite(vital_units, 1, sizeof(vital_units), placed_file) == sizeof(vital_units)); CHECK(!fclose(placed_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-vitals.chk", &level));
+    level.upgrades[21][0].weapon = 1; /* Moebius Reactor */
+    CHECK(P_LoadThings(level.map_path) == 8);
+    placed_units = P_ListMobjs(); placed_seen = 0;
+    for (int i = 0; i < placed_units.count; i++) {
+        mobj_t *placed_unit = placed_units.items[i];
+        int index = ((placed_unit->core.position.x >> 11) - 128) / 64;
+        if (index < 0 || index >= 8) continue;
+        if (index < 3) CHECK(sc_shields(placed_unit) == (index == 0 ? 0 : sc_units[MT_ZEALOT - 1].shields));
+        else if (index == 3) CHECK(placed_unit->sc.energy == 82 * 256 + 128);
+        else if (index < 6) CHECK(sc_energy(placed_unit) == (index == 4 ? 250 : 50));
+        else CHECK(placed_unit->sc.energy == (index == 6 ? 100 : 125) * 256);
+        placed_seen++;
+    }
+    CHECK(placed_seen == 8); P_FreeMobjList(&placed_units); unload();
+    remove("/tmp/open-rts-sc-placed-vitals.chk");
+
     /* Action 11 has a one-based UPRP slot and a separate count byte. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
@@ -606,17 +636,17 @@ int main(void) {
     remove("/tmp/open-rts-sc-cuwp.chk");
 
     /* Shields and energy use their own UPRP bytes and preserve lazy defaults. */
-    for (int field = 0; field < 4; field++) {
+    for (int field = 0; field < 5; field++) {
         trig = blank_trigger(); CHECK(trig);
         trig[15] = 22; action = trig + 320;
         put_u32(action, 64); put_u32(action + 20, 1);
-        bool energy_field = field == 1 || field == 3;
-        int type = energy_field ? MT_GHOST : MT_ZEALOT;
+        bool energy_field = field == 1 || field == 3 || field == 4;
+        int type = field == 4 ? MT_MARINE : energy_field ? MT_GHOST : MT_ZEALOT;
         put_u16(action + 24, type - 1); action[26] = 11; action[27] = 1; action[28] = 28;
         CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
         cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
         memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp + 2, energy_field ? 8 : 4);
-        cuwp[energy_field ? 7 : 6] = field == 2 ? 1 : field == 3 ? 33 : 75;
+        cuwp[energy_field ? 7 : 6] = field == 2 ? 1 : field == 3 ? 33 : field == 4 ? 50 : 75;
         CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
         CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
         CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
@@ -625,7 +655,8 @@ int main(void) {
         cuwp_units = P_ListMobjs(); mobj_t *created = NULL;
         for (int i = 0; i < cuwp_units.count; i++) if (cuwp_units.items[i]->type_id == type) created = cuwp_units.items[i];
         CHECK(created && (created->sc.flags & SC_STARTED));
-        if (field == 1) CHECK(sc_energy(created) == 150);
+        if (field == 4) CHECK(created->sc.energy == 100 * 256);
+        else if (field == 1) CHECK(sc_energy(created) == 150);
         else if (field == 3) CHECK(created->sc.energy == 82 * 256 + 128);
         else if (field == 2) CHECK(created->sc.shields == 0);
         else CHECK(sc_shields(created) == sc_units[type - 1].shields * 3 / 4);

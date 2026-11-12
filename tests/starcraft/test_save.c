@@ -30,6 +30,10 @@ int main(void) {
     mobj_t *saved_carrier = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){384, 384}, 11);
     mobj_t *saved_fighter = sc_spawn_actor(MT_INTERCEPTOR - 1, (ivec2_t){384, 384}, 11);
     CHECK(saved_carrier && saved_fighter); sc_initial_hangar(saved_carrier, 3); saved_fighter->sc.parent = saved_carrier->id;
+    sc_initial_vitals(saved_carrier, 4, 33, 0);
+    mobj_t *saved_ghost = sc_spawn_actor(MT_GHOST - 1, (ivec2_t){448, 384}, 0); CHECK(saved_ghost);
+    level.upgrades[21][0].weapon = 1; sc_initial_vitals(saved_ghost, 8, 0, 33);
+    uint32_t ghost_id = saved_ghost->id;
     uint32_t carrier_id = saved_carrier->id;
     level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
     level.sight.allies[0] &= ~(UINT32_C(0x40000000) >> 2); /* revoked sharing */
@@ -67,6 +71,9 @@ int main(void) {
     CHECK(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1));
     saved_carrier = P_MobjById(carrier_id);
     CHECK(saved_carrier && saved_carrier->owner == 11 && saved_carrier->sc.hangar == 3 && sc_hangar_count(saved_carrier) == 4);
+    CHECK(saved_carrier->sc.shields == 49 * 256);
+    saved_ghost = P_MobjById(ghost_id);
+    CHECK(saved_ghost && saved_ghost->sc.energy == 82 * 256 + 128);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));

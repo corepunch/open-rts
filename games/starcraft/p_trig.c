@@ -553,18 +553,7 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
         mo->allegiance = sc_allegiance_for(p[4]);
     }
     if (data & 2) mo->hp = mo->max_hp * p[5] / 100;
-    if (data & (4 | 8)) {
-        const sc_unit_t *type = sc_unit(mo);
-        sc_start(mo);
-        if ((data & 4) && type->shields) {
-            int pct = p[6] > 100 ? 100 : p[6];
-            mo->sc.shields = (type->shields * pct / 100) << 8;
-        }
-        if ((data & 8) && (type->flags & SC_UNIT_SPELLCASTER)) {
-            int pct = p[7] > 100 ? 100 : p[7];
-            mo->sc.energy = sc_max_energy(mo) * pct / 100;
-        }
-    }
+    sc_initial_vitals(mo, data, p[6], p[7]);
     if (data & 0x20) sc_initial_hangar(mo, read_u16_le(p + 12));
     if ((special & 16) && (state & 16)) mo->sc.flags |= SC_INVINCIBLE;
     if ((special & 8) && (state & 8)) mo->sc.flags |= SC_HALLUCINATION;

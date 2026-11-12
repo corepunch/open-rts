@@ -207,6 +207,16 @@ schema. OpenBW parses but does not apply these counts, so native treatment of
 out-of-range values is unknown; this engine clamps initial counts to the
 current hangar capacity to prevent unbounded fighter creation. Fixtures cover
 validity flags, neutral ownership, oversized values and save/load.
+OpenBW's UNIT loader also applies valid shield and energy percentages at
+bytes +18/+19, with shield points truncated before fixed-point conversion and
+energy scaled against the owner's maximum, both capped at their maximum.
+UNIT and UPRP now share that initialization; fixtures cover absent flags,
+one-percent shields, upgraded fractional energy, oversized percentages and
+save/load. OpenBW stores explicit energy for non-casters too, using 200 as
+the ordinary maximum and 250 for heroes; UNIT now preserves that state, with
+the same UPRP behavior inferred from the shared property path. Non-casters
+still expose no usable energy in the engine. Initial UNIT hit-point precision
+remains a separate approximation.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
