@@ -181,11 +181,15 @@ static void finish_crane(mobj_t *unit, mobj_t *target, int site) {
         Z_RebuildBridge(target);
     } else {
         target->z.service_work = 0;
-        target->hp = target->max_hp;
-        target->traits |= MF_SELECTABLE;
-        while (target->production && target->production->queue_count)
-            G_RemoveProductionAt(target, 0);
-        P_SetMobjState(target, mobjinfo[target->type_id].spawnstate);
+        if (target->hp <= 0 && target->z.building) {
+            Z_StartBuildingRebuild(target);
+        } else {
+            target->hp = target->max_hp;
+            target->traits |= MF_SELECTABLE;
+            while (target->production && target->production->queue_count)
+                G_RemoveProductionAt(target, 0);
+            P_SetMobjState(target, mobjinfo[target->type_id].spawnstate);
+        }
         exit.y = Z_BuildingOrigin(target).y + (target->info->footprint.h + 1) * Z_TILE;
     }
     Z_CancelService(unit);

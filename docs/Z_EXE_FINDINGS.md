@@ -2380,15 +2380,70 @@ initialize runtime dword +0x45 to -1 for 0xffff, otherwise setting * 17 *
 +0x1c == 0 and an enabled timer. It subtracts 100 each step, increased by
 up to 75 for a team's held-territory percentage above 12 or 25 depending on
 global 0x10e91e (`0x680b9`, `0x45e80`);
-on negative stock it calls `0x3ece7` and reloads the timer. Active building
+on negative stock it calls `0x3ece7` and reloads the timer. That call
+queues a restoration effect if an effect slot is available. The effect
+pool has 64 slots (`0x3dfb5`, `0x24cc0`); exhaustion skips the effect even
+though the timer is reloaded. The runner `0x3dfb5` decrements slot byte
++0x0c, and when its pre-decrement value is 2 (`0x3e005..0x3e00b`,
+`0x3e225`) calls `0x24ba3`, where `0x24bbb..0x24bbf` copies max
+HP to current HP and `0x24bf1` clears the stored gun slots. Active building
 records in LEVEL01, LEVEL07 and LEVEL14 use 0xffff; LEVEL31 and LEVEL32
 include 117 and 176. The separate live auto-mend paths at `0x3e7aa` and
 `0x3e832` are skipped for zero-HP buildings. Global owner selector 0x125e58
-is assigned later in this pass at `0x3e6d2`, so the exact relationship of
-that modifier to the current building needs further tracing. Reproduce via
+is assigned later in this pass at `0x3e6d2`, so the previous selector is
+used. The effect completion path can also write that selector at `0x3e2e0`,
+and another conditional path writes it at `0x3e919`. The main loop calls
+the building pass at `0x1452f`, before the effect runner at `0x156d8`, so
+an effect completion can change the selector inherited by the next pass;
+the conditional path's mode and full ordering remain unknown. The descriptor frame count is produced dynamically during
+destruction: `0x3ee87` calls `0x6be75`, `0x6d89f..0x6d8a5` counts recorded
+particle frames, and `0x6df39..0x6df44` writes the count to descriptor
+bytes +0x0a/+0x0b without comparison, so the last completed recorded
+particle wins. Boundary exit is a distinct path: `0x6e0e6` marks the
+particle slot free directly, bypassing the descriptor write at `0x6df39`.
+The upper bounds come from `(map_dimension / 2) * 32` at
+`0x13621..0x13635`; lower bounds are -32 at `0x6dcdd`/`0x6dd30`.
+The
+`burst8` initializer `0x6be9b` calls `0x6b8e6`: a random word supplies
+independent horizontal velocities in -16..15, a second supplies initial
+vertical velocity -4..-7, and a third supplies rotation. `0x6d817..0x6d8b6`
+records on alternating particle updates. Lifetime starts at 400 at
+`0x6beab` and decrements before processing at `0x6d43b`; the decay counters
+start at 4, so `0x6ddd1..0x6deaa` reduces horizontal speed toward zero and
+increments vertical velocity every five particle updates. Ground contact
+calls `killpix`. `0x6d3b2` sets projection inputs (1, 471, -256) and angle
+0x352 before the particle pass. `0x6e25f..0x6e3ba` applies signed 16-bit
+inputs, shifted matrix products and perspective division; its zero-depth
+fallback of 1 is explicit at `0x6e382..0x6e3a3`. `0x70c0d..0x70c3b` loads
+and byte-swaps `SINCOS.DAT` from WARDATA.PAC, shifting signed words right
+by five; bytes at offsets 0x352 and 0x452 produce coefficients -898 and
+493 for this projection. Installed `data/Z/WARDATA.PAC` SHA-256:
+`3a17f168f1b7231be3bac5d324afb1311451aeb4da224b998754851aa035e035`.
+Multiple buildings of the same kind reuse
+the same descriptor (`kill_vrf` at `0x3ef32`, `kill_tmf` at `0x3f158`,
+`kill_rmf` at `0x3f448`). The descriptor's layer counts are not durations. At
+`0x3ed0f` EDI points to that descriptor, so its +0x14 write does not clear
+the effect slot's +0x14 delay. The bridge paths share allocator `0x24cc0`
+and explicitly set that slot field at `0x24911`, `0x249c0`, `0x29ca1`,
+and `0x29d4f`; slot completion `0x3e3d7` clears its descriptor pointer
+only. Thus reused slot state and allocator ordering are relevant. The engine
+loads the BUILD timer and records the four building kinds' burst particles
+as ordinary invisible thinkers, using the native 70 Hz gravity, alternating
+sample count, fixed projection and SINCOS.DAT coefficients. Crane and timer
+both start reconstruction effects; completion restores HP, clears gun stock
+and production, and reloads the timer. Bridge and building effects share a
+64-effect limit. The per-kind descriptor count, previous owner, timer and
+particle state are saved and hashed. The engine seeds a dedicated native-RNG
+stream with 0x3039, so its draws need not match retail's global stream; its
+effect count excludes unimplemented effect kinds and does not reproduce stale
+slot delays. The conditional selector write at `0x3e919` is unimplemented.
+The debris pictures themselves are not drawn. Reproduce via
 `r2 -q -e bin.cache=true -c 'pd 100 @ 0x3e551' -c 'pd 35 @ 0x3e678'
 -c 'pd 30 @ 0x3ec90' -c q data/Z/ZED.EXE` and inspect each 80-byte
-`BUILDnn.DAT` record at +0x49.
+`BUILDnn.DAT` record at +0x49. Run
+`SDL_VIDEODRIVER=dummy build/bin/tests/z/test_production` for timer boundaries,
+slot contention, descriptor overwrite, projection bounds and saved state;
+`test_commander` exercises the crane path.
 
 ### Movement modifier investigation
 

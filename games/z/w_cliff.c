@@ -258,7 +258,7 @@ bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {
 
 size_t G_SaveExtraSize(void) {
     const zmap_t *map = level.native_data;
-    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai);
+    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild);
 }
 
 void G_SaveExtra(void *out) {
@@ -267,7 +267,8 @@ void G_SaveExtra(void *out) {
     memcpy(p, map->cliffs, sizeof(map->cliffs)); p += sizeof(map->cliffs);
     memcpy(p, map->ground, sizeof(map->ground)); p += sizeof(map->ground);
     memcpy(p, map->ground_attr, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
-    memcpy(p, &map->ai, sizeof(map->ai));
+    memcpy(p, &map->ai, sizeof(map->ai)); p += sizeof(map->ai);
+    memcpy(p, &map->rebuild, sizeof(map->rebuild));
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
@@ -277,7 +278,8 @@ bool G_LoadExtra(const void *data, size_t size) {
     memcpy(map->cliffs, p, sizeof(map->cliffs)); p += sizeof(map->cliffs);
     memcpy(map->ground, p, sizeof(map->ground)); p += sizeof(map->ground);
     memcpy(map->ground_attr, p, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
-    memcpy(&map->ai, p, sizeof(map->ai));
+    memcpy(&map->ai, p, sizeof(map->ai)); p += sizeof(map->ai);
+    memcpy(&map->rebuild, p, sizeof(map->rebuild));
     Z_RebuildCliffs(&level);
     return true;
 }
@@ -292,6 +294,8 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     }
     const zai_t *ai = &map->ai;
 #define HASH(value) (hash = G_HashValue(hash, (value)))
+    HASH(map->rebuild.seed); HASH(map->rebuild.owner);
+    for (int i = 0; i < 4; ++i) HASH(map->rebuild.frames[i]);
     HASH(ai->clock); HASH(ai->order_tail); HASH(ai->last_tic); HASH(ai->fraction); HASH(ai->delay);
     HASH(ai->stray_cursor);
     HASH(ai->total); HASH(ai->mobile); HASH(ai->imbalance); HASH(ai->seed); HASH(ai->intelligence); HASH(ai->phase); HASH(ai->initialized);

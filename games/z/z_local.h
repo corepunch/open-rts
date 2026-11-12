@@ -82,6 +82,11 @@ typedef struct {
     bool initialized;
 } zai_t;
 
+typedef struct {
+    uint16_t seed;
+    uint8_t owner, frames[4];
+} zrebuild_t;
+
 /* What a level keeps of its native files after G_DoLoadLevel. */
 typedef struct {
     char root[1024], dir[1024];
@@ -89,8 +94,10 @@ typedef struct {
     int number;                      /* LEVELS.DAT entry */
     int world;                       /* LEVELS.DAT +0x6e */
     int production_speed;            /* CPUPLR +0x8a2, ZED.EXE 0x103d81. */
+    int16_t debris_trig[2];          /* SINCOS.DAT, 0x6d3d3 / 0x6e26e. */
     struct { uint8_t intelligence, allocation, territory_weight; } computer;
     zai_t ai;
+    zrebuild_t rebuild;
     uint8_t groups[Z_MAX_GROUPS];    /* ROBOTS.DAT groups, 0xff ends */
     zplaced_t placed[Z_MAX_PLACED];
     int placed_count;
@@ -137,6 +144,10 @@ bool Z_LoadUISprites(const char *root, const int *indices, int count, spriteshee
 
 /* p_capture.c: flags, vehicles and grenades, run once a tic. */
 void Z_Ticker(void);
+void Z_RebuildTicker(void);
+void Z_BuildingDestroyed(mobj_t *building);
+bool Z_StartBuildingRebuild(mobj_t *building);
+bool Z_RebuildSlotAvailable(void);
 bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target);
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 void Z_MobjTicker(mobj_t *mo);

@@ -186,6 +186,7 @@ static void find_forts(zmap_t *map, const uint8_t *tiles) {
 bool Z_LoadLevel(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
     zmap_t *map = calloc(1, sizeof(*map));
+    if (map) map->rebuild.seed = 0x3039; /* Existing deterministic native-RNG seed policy. */
     if (!map) return false;
     out->native_data = map;
     out->destroy_native_data = destroy_zmap;
@@ -226,6 +227,14 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
     M_PathJoin(path, sizeof(path), map->root, "WARDATA.PAC");
     if (!Z_ReadPac(path, "SQROOT.BIN", &map->square_roots) || map->square_roots.size < 1024) goto fail;
     for (int i = 0; i < 1024; ++i) if (!map->square_roots.bytes[i]) goto fail;
+    blob_t trig = {0};
+    if (!Z_ReadPac(path, "SINCOS.DAT", &trig) || trig.size < 0x454) { W_FreeFile(&trig); goto fail; }
+    for (int i = 0; i < 2; ++i) {
+        size_t n = 0x352 + i * 0x100;
+        int value = (int16_t)((trig.bytes[n] << 8) | trig.bytes[n + 1]);
+        map->debris_trig[i] = (int16_t)(value >> 5);
+    }
+    W_FreeFile(&trig);
     char cpuplr[LV_NAME + 1];
     snprintf(cpuplr, sizeof(cpuplr), "%.*s", LV_NAME, (const char *)entry + LV_CPUPLR);
     if (map->world >= Z_WORLDS || map->number >= Z_LEVELS || !load_cpuplr(map, cpuplr)) goto fail;
@@ -591,6 +600,8 @@ int Z_LoadThings(void) {
             if (!mo) continue;
             mo->z.building = (uint8_t)(at / 80 + 1);
             mo->z.rating = read_u32_le(r + 12);
+            mo->z.rebuild_setting = read_u16_le(r + 0x49);
+            mo->z.rebuild_stock = mo->z.rebuild_setting == UINT16_MAX ? -1 : mo->z.rebuild_setting * 1700;
             if (read_u16_le(r + 0x1a)) {
                 mo->max_hp = read_u16_le(r + 0x1a);
                 mo->hp = read_u16_le(r + 0x1c);

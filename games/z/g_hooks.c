@@ -1,7 +1,7 @@
 #include "z_local.h"
 #include "info.h"
 
-uint32_t G_SaveLayout(void) { return 4; }
+uint32_t G_SaveLayout(void) { return 5; }
 
 /* Z's share of the engine's game hooks: its rules run once a tic after the
  * thinkers, an order onto an empty vehicle or gun sends robots in, and a
@@ -15,6 +15,7 @@ void G_ClockEnd(int64_t before, int64_t clock) {
 /* 0x5969a records the projectile's owner in the struck building's territory. */
 void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
     Z_BodyDamaged(victim, old_hp);
+    if (old_hp > 0 && victim->hp <= 0 && victim->z.building) Z_BuildingDestroyed(victim);
     zmap_t *map = level.native_data;
     if (!map || netgame || !source || source->team != 0 || victim->team != 1 ||
         victim->type_id < MT_FORT || victim->type_id >= MT_UNITS) return;

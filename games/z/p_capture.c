@@ -279,6 +279,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
+    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD) return;
     if (mo->core.state_id == S_BRIDGE_REBUILD) {
         Z_BridgeEffectTick(mo);
         return;
@@ -482,6 +483,7 @@ static void tick_flag(mobj_t *flag) {
 
 void Z_Ticker(void) {
     if (!level.native_data || !thinkercap.next) return;
+    Z_RebuildTicker();
     /* Things taken out stay linked until the next tic (P_RemoveThinker). */
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;

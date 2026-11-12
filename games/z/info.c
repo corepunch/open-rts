@@ -132,6 +132,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
                    .deathstate = S_BRIDGE, .xdeathstate = S_BRIDGE },
     [MT_BRIDGE_DEBRIS] = { .doomednum = -1, .spawnstate = S_BRIDGE_DEBRIS, .spawnhealth = 1,
                           .deathstate = S_NULL, .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
+    [MT_BUILDING_DEBRIS] = { .doomednum = -1, .spawnstate = S_BRIDGE_DEBRIS, .spawnhealth = 1, .flags = MF_NOBLOCKMAP },
+    [MT_BUILDING_REBUILD] = { .doomednum = -1, .spawnstate = S_BRIDGE_DEBRIS, .spawnhealth = 1, .flags = MF_NOBLOCKMAP },
     [MT_GRENADE] = { .doomednum = -1, .spawnstate = S_GRENADE, .deathstate = S_GRENADE_BLAST,
                      .xdeathstate = S_GRENADE_BLAST, .damage = Z_GRENADE_DAMAGE,
                      .flags = MF_RENDERABLE | MF_MISSILE },

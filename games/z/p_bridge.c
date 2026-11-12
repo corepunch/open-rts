@@ -81,6 +81,7 @@ void Z_RebuildBridge(mobj_t *bridge) {
     uint16_t seed = (uint16_t)(leveltime + bridge->id);
     int first = Z_NextRandom(&seed) & 3;
     for (int i = 1; i < length - 1; ++i) {
+        if (!Z_RebuildSlotAvailable()) break;
         ivec2_t at = ivec2_add((ivec2_t){r.x,r.y}, ivec2_scale(along, i * Z_TILE));
         fixed2_t pixel = fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE);
         mobj_t *effect = P_SpawnMobj(fixed3_from_fixed2(pixel, 0), MT_BRIDGE_DEBRIS);

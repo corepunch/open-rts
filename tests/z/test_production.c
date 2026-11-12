@@ -71,6 +71,127 @@ static bool lists(const mobj_t *producer, int type) {
     return false;
 }
 
+static int test_reconstruction(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load reconstruction fixture");
+    disarm();
+    mobj_t *building = nth(MT_TANK_FACTORY, -1, 0);
+    if (!building) building = nth(MT_ROBOT_FACTORY, -1, 0);
+    if (!building) return fail("reconstruction building");
+    zmap_t *map = level.native_data;
+    if (map->debris_trig[0] != -898 || map->debris_trig[1] != 493)
+        return fail("native SINCOS projection values");
+    int kind = building->type_id == MT_TANK_FACTORY ? 1 : 2;
+    building->hp = 0;
+    building->z.rebuild_setting = UINT16_MAX;
+    building->z.rebuild_stock = -1;
+    if (!tick(model, 2) || building->hp > 0 || building->z.rebuild_stock != -1)
+        return fail("disabled reconstruction timer stays disabled");
+    mobj_t *edges[4];
+    int xs[] = {-192, -193, (level.width / 2) * 32 - 161, (level.width / 2) * 32 - 160};
+    for (int i = 0; i < 4; ++i) {
+        edges[i] = P_SpawnMobj((fixed3_t){0}, MT_BUILDING_DEBRIS);
+        if (!edges[i]) return fail("spawn projection boundary fixture");
+        edges[i]->z.debris.origin = (ivec2_t){xs[i], -50};
+        edges[i]->z.debris.rise = -4;
+    }
+    Z_RebuildTicker();
+    if (edges[0]->remove || !edges[1]->remove || edges[2]->remove || !edges[3]->remove)
+        return fail("recording uses native projected horizontal bounds");
+    P_RemoveMobj(edges[0]); P_RemoveMobj(edges[2]);
+    int ys[] = {-132, -133, (level.height / 2) * 32 - 101, (level.height / 2) * 32 - 100};
+    for (int i = 0; i < 4; ++i) {
+        edges[i] = P_SpawnMobj((fixed3_t){0}, MT_BUILDING_DEBRIS);
+        if (!edges[i]) return fail("spawn vertical boundary fixture");
+        edges[i]->z.debris.origin = (ivec2_t){0, ys[i]};
+    }
+    Z_RebuildTicker();
+    if (edges[0]->remove || !edges[1]->remove || edges[2]->remove || !edges[3]->remove)
+        return fail("recording uses native projected vertical bounds");
+    P_RemoveMobj(edges[0]); P_RemoveMobj(edges[2]);
+    mobj_t *bad = P_SpawnMobj((fixed3_t){0}, MT_BUILDING_DEBRIS);
+    if (!bad) return fail("spawn invalid recorder fixture");
+    bad->z.debris.kind = UINT8_MAX;
+    Z_RebuildTicker();
+    if (!bad->remove) return fail("invalid saved recorder kind is discarded");
+    for (int i = 0; i < 2; ++i) {
+        mobj_t *p = P_SpawnMobj((fixed3_t){0}, MT_BUILDING_DEBRIS);
+        if (!p) return fail("spawn descriptor overwrite fixture");
+        p->z.debris.kind = (uint8_t)kind;
+        p->z.debris.origin = (ivec2_t){0, 0};
+        p->z.debris.samples = (uint8_t)(i ? 7 : 11);
+        p->z.debris.rise = 1;
+    }
+    Z_RebuildTicker();
+    if (map->rebuild.frames[kind] != 7) return fail("last completed particle overwrites descriptor length");
+    mobj_t *bridge_effect = P_SpawnMobj((fixed3_t){0}, MT_BRIDGE_DEBRIS);
+    if (!bridge_effect) return fail("spawn shared effect slot fixture");
+    P_SetMobjState(bridge_effect, S_BRIDGE_REBUILD);
+    for (int i = 0; i < 63; ++i)
+        if (!Z_StartBuildingRebuild(building)) return fail("allocate native reconstruction slots");
+    if (Z_StartBuildingRebuild(building)) return fail("shared effect capacity is bounded");
+    P_RemoveMobj(bridge_effect);
+    if (!Z_StartBuildingRebuild(building)) return fail("released bridge slot admits reconstruction");
+    mobj_t *effect;
+    while ((effect = nth(MT_BUILDING_REBUILD, -1, 0))) P_RemoveMobj(effect);
+    building->z.rebuild_setting = 1;
+    building->z.rebuild_stock = 100000;
+    Z_BuildingDestroyed(building);
+    if (!tick(model, 1)) return fail("advance recorded debris");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t id = building->id, hash = G_Consistency();
+    int stock = building->z.rebuild_stock;
+    ++map->rebuild.seed;
+    if (G_Consistency() == hash) return fail("rebuild random state contributes to consistency");
+    --map->rebuild.seed;
+    if (!G_SaveGameBlob(&save, &size, "Reconstruction", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save reconstruction particles");
+    free(save);
+    building = Z_ServiceTarget(id);
+    map = level.native_data;
+    if (!building || G_Consistency() != hash || building->z.rebuild_stock != stock)
+        return fail("load reconstruction state");
+    if (!tick(model, 100) || map->rebuild.frames[kind] < 2)
+        return fail("destroyed building records a debris animation");
+    building->z.gun_count = 1;
+    building->z.guns[0] = 1;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->z.building) mo->team = Z_NEUTRAL;
+    }
+    map->rebuild.owner = 4;
+    building->z.rebuild_stock = 100 * Z_NativeSteps(leveltime, Z_NATIVE_HZ);
+    Z_RebuildTicker();
+    if (building->z.rebuild_stock != 0 || nth(MT_BUILDING_REBUILD, -1, 0))
+        return fail("zero timer stock does not reconstruct");
+    Z_RebuildTicker();
+    if (building->hp > 0 || !nth(MT_BUILDING_REBUILD, -1, 0))
+        return fail("negative timer stock queues delayed reconstruction");
+    /* 0x24ba3 completion does not test HP again. A crane can restore the
+     * target, and a subsequent destruction can precede this old effect. */
+    building->hp = building->max_hp;
+    building->hp = 0;
+    Z_SetTeam(building, 1);
+    Z_BuildingDestroyed(building);
+    production_t *production = P_EnsureMobjProduction(building);
+    if (!production) return fail("allocate stale production fixture");
+    production->queue_count = 1;
+    production->release_active = true;
+    effect = nth(MT_BUILDING_REBUILD, -1, 0);
+    effect->z.debris.samples = 2;
+    Z_RebuildTicker();
+    if (building->hp != building->max_hp || building->z.gun_count || building->team != 1 ||
+        building->z.rebuild_stock != 1700 || building->production)
+        return fail("old effect restores a captured, redestroyed building and resets its stock");
+    const StaticProductDefinition *products[32];
+    int offered = Z_ProductsFor(building, products, 32);
+    if (offered <= 0 || !G_QueueProduct(building, products[0]))
+        return fail("restored factory can start fresh production");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_catalog(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load level 1");
@@ -532,7 +653,7 @@ int main(void) {
     if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
         test_native_rates() || test_gun_placement() ||
         test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_gun_stock() ||
-        test_computer_builds()) return 1;
+        test_computer_builds() || test_reconstruction()) return 1;
     printf("z production tests passed\n");
     return 0;
 }
