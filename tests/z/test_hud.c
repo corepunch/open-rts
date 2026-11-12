@@ -234,6 +234,14 @@ static int test_hud(int scale) {
         V_BeginFrame(0xff0b0e10u);
         M_MenuDrawer(hud);
     }
+    shown.type_id = MT_UNIT_APC;
+    shown.z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    shown.core.position.z = 0;
+    hud->refresh(hud);
+    menuitem_t *eject = NULL;
+    for (int i = 0; i < hud->numitems; ++i)
+        if (hud->items[i].hotkey == SDLK_u) eject = &hud->items[i];
+    CHECK(eject && eject->visible && eject->enabled && eject->routine);
     if (scale == 2) shot("vehicle-sidebar");
     G_ShutdownHUD();
     R_FreeSpriteCache(&cache);

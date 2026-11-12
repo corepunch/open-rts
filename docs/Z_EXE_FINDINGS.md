@@ -1756,6 +1756,35 @@ make build/bin/tests/z/test_commander
 env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
 ```
 
+## Zod reference: APC crew and ejection (2026-11-12)
+
+**Confirmed in the Zod remake, not yet confirmed in ZED.EXE.** At pinned
+revision `5ccb43ab76ee08c9f624906fb465dc3ba76a7a35`,
+`src/zserver.cpp:RobotEnterObject` gives an entered object the robot's driver
+type and health. For an APC it also absorbs each member of the leader's minion
+list, with no distance check. `src/vapc.cpp:ResetDamageInfo` takes the driver's
+weapon and multiplies its damage by the crew count. `src/zserver_events.cpp`
+`eject_vehicle_event` restores the drivers' individual health and neutralizes
+the vehicle; `src/zcannon.cpp` and `src/vapc.cpp` permit ejection, but
+`src/zserver.cpp:MakeAllFortTurretsUnEjectable` excludes fort turrets.
+
+The engine represents Zod minions by its existing live same-team squad and
+stores the members' type, health, robot record and grenade count while aboard.
+Squad IDs are eight-bit and can wrap, so they are an approximation of Zod's
+explicit minion membership, not permanent unique group identities.
+The U key and sidebar EJECT button submit `TC_UNLOAD`; ejection restores those
+members and leaves an empty APC or gun. Starting APCs and guns without a stored
+crew use a Grunt driver, as in Zod's cannon setup. The per-crew weapon damage is
+applied to the current shared attack; APC weapon range, cooldown, projectile
+effects and exact retail cargo/driver mutation remain **unknown or unported**.
+The save layout is versioned for the added crew state. Reproduce with:
+
+```sh
+make build/bin/tests/z/test_capture build/bin/tests/z/test_hud
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_capture
+env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_hud
+```
+
 ## Task 7, automatic bridge reconstruction and crane poses (2026-11-11)
 
 The DOS LE image is `data/Z/ZED.EXE`, SHA-256

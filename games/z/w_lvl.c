@@ -370,6 +370,9 @@ static mobj_t *spawn_unit(const zmap_t *map, int t, ivec2_t pixel, int team) {
                        ivec2_add(pixel, (ivec2_t){0, wall ? Z_TILE : 0}), size, team);
     if (!mo) return NULL;
     mo->core.angle = P_PointToAngle(0, -FIXED_ONE);
+    if (team < Z_NEUTRAL && (t == MT_UNIT_APC - MT_UNITS || t == MT_UNIT_LIGHT_GUN - MT_UNITS ||
+        t == MT_UNIT_GATLING - MT_UNITS || t == MT_UNIT_HOWITZER - MT_UNITS ||
+        t == MT_UNIT_MISSILE_GUN - MT_UNITS)) mo->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
     if (wall) mo->core.position.z = FIXED_ONE;
     return mo;
 }

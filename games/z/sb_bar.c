@@ -55,7 +55,7 @@ enum {
 
 enum {
     IT_PANEL, IT_BAR, IT_RADAR, IT_ATTACKED, IT_T, IT_D, IT_Z, IT_ROBOTS, IT_VEHICLES, IT_BUILDINGS, IT_GUNS, IT_MENU,
-    IT_POPUP, IT_STOP, IT_PREV, IT_NEXT, IT_START,
+    IT_POPUP, IT_STOP, IT_PREV, IT_NEXT, IT_START, IT_EJECT,
     IT_COUNT
 };
 
@@ -619,6 +619,18 @@ static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action == MA_ACTIVATE && menu->app) M_StartControlPanel(menu->app);
 }
 
+static void on_eject(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    (void)menu; (void)item;
+    if (action != MA_ACTIVATE) return;
+    mobj_t *units[MAXCOMMANDUNITS];
+    int count = 0;
+    for (int i = 0; i < hudview.unit_count && count < MAXCOMMANDUNITS; ++i) {
+        mobj_t *mo = hudview.units ? hudview.units[i] : NULL;
+        if (live(mo) && P_MobjIsSelected(mo)) units[count++] = mo;
+    }
+    if (count) G_SelectedTiccmd(TC_UNLOAD, units, count, (fixed2_t){0}, 0);
+}
+
 static void on_stop(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)item;
     if (action != MA_ACTIVATE || !popup_for) return;
@@ -706,6 +718,9 @@ static void layout(void) {
     window_button(&items[IT_PREV], 4706, -1, on_step);
     window_button(&items[IT_NEXT], 4708, 1, on_step);
     window_button(&items[IT_START], 4704, 0, on_start);
+    items[IT_EJECT] = (menuitem_t){.kind = MI_BUTTON, .hotkey = SDLK_u, .release = true,
+        .routine = on_eject, .font = font_ok ? &font : NULL, .ink = INK,
+        .align = MALIGN_CENTER, .text = "EJECT (U)", .tooltip = "Eject crew"};
     for (int i = 0; i < IT_COUNT; ++i) items[i].visible = i < IT_POPUP;
 }
 
@@ -736,7 +751,7 @@ static void refresh_popup(const menu_t *menu, int scale) {
         popup_for = id;
         popup_choice = remembered(id);
     }
-    for (int i = IT_POPUP; i < IT_COUNT; ++i) items[i].visible = producer != NULL;
+    for (int i = IT_POPUP; i <= IT_START; ++i) items[i].visible = producer != NULL;
     offered_count = producer ? Z_ProductsFor(producer, offered, (int)(sizeof(offered) / sizeof(*offered))) : 0;
     if (!producer) {
         M_MenuTarget(&hud, NULL);
@@ -779,6 +794,15 @@ static void refresh(menu_t *menu) {
     for (int i = 0; i < 4; ++i) items[IT_ROBOTS + i].rect = (irect_t){6 + 30 * i, bar + BAR_BUTTON_Y, 24, 20};
     items[IT_MENU].rect = (irect_t){BAR_MENU_X, bar + BAR_BUTTON_Y, 56, 20};
     refresh_popup(menu, scale);
+    mobj_t *unit = selected(0, NULL);
+    int t = Z_UnitType(unit);
+    bool eject = unit && unit->team == consoleplayer && unit->z.driver &&
+        (!unit->core.position.z || t == MT_UNIT_APC - MT_UNITS) &&
+        (t == MT_UNIT_APC - MT_UNITS || t == MT_UNIT_LIGHT_GUN - MT_UNITS ||
+         t == MT_UNIT_GATLING - MT_UNITS || t == MT_UNIT_HOWITZER - MT_UNITS ||
+         t == MT_UNIT_MISSILE_GUN - MT_UNITS);
+    items[IT_EJECT].visible = items[IT_EJECT].enabled = eject;
+    items[IT_EJECT].rect = (irect_t){side + 4, PANEL_LABEL_Y, SIDEBAR - 8, 16};
 }
 
 /* ── the engine's entry points ────────────────────────────────────────── */

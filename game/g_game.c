@@ -335,10 +335,10 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
     if (product->product_class == RTS_PRODUCT_BUILDING) P_SyncBuildingBlocking();
     model_emit_build_completion(active_model, new_unit, producer, product);
-    G_UnitProduced(new_unit, producer);
-    S_Bark(&new_unit, 1, SE_READY, false);
     if (use_special_release)
         order_barracks_exit_spacing(new_unit, producer, spot);
+    G_UnitProduced(new_unit, producer);
+    S_Bark(&new_unit, 1, SE_READY, false);
     return true;
 }
 

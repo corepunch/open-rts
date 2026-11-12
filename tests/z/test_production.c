@@ -381,6 +381,49 @@ static int test_vehicles_come_manned(void) {
     return 0;
 }
 
+static int test_rally(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load rally fixture");
+    disarm();
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    mobj_t *fort = nth(MT_FORT, 0, 0), *enemy = nth(MT_FORT, 1, 0);
+    if (!fort || !enemy) return fail("rally producers");
+    ivec2_t point = fixed2_cell(fixed3_xy(nth(MT_UNIT_GRUNT, 0, 0)->core.position));
+    ticcmd_t cmd = {.order = TC_ORDER, .count = 1, .units = {fort->id},
+                    .position = fixed3_from_fixed2(fixed2_cell_center(point), 0)};
+    G_RunTiccmd(1, &cmd);
+    if (fort->z.rally.count) return fail("foreign producer rejects rally");
+    G_RunTiccmd(0, &cmd);
+    if (fort->z.rally.count != 1 || memcmp(&fort->z.rally.points[0], &point, sizeof(point)))
+        return fail("map order sets producer rally");
+    ticcmd_t bad = {.order = TC_PATH, .count = 1, .units = {fort->id},
+                    .path = {.count = 1, .mode = WP_ONCE, .points = {{-1, 0}}}};
+    G_RunTiccmd(0, &bad);
+    if (fort->z.rally.count != 1 || memcmp(&fort->z.rally.points[0], &point, sizeof(point)))
+        return fail("invalid rally route is rejected");
+    int before = count(MT_UNIT_GRUNT, 0);
+    order(fort, TC_BUILD, Z_ProductId(MT_UNIT_GRUNT));
+    G_ProductionTicker(1380588);
+    mobj_t *made = nth(MT_UNIT_GRUNT, 0, before);
+    if (!made || made->waypoints.count != 1 ||
+        memcmp(&made->waypoints.points[0], &point, sizeof(point))) return fail("produced unit inherits rally");
+    if (!P_HasMoveOrder(made)) return fail("produced unit starts toward rally");
+    ivec2_t next = fixed2_cell(fixed3_xy(fort->core.position));
+    cmd.position = fixed3_from_fixed2(fixed2_cell_center(next), 0);
+    G_RunTiccmd(0, &cmd);
+    if (fort->z.rally.count != 1 || memcmp(&fort->z.rally.points[0], &next, sizeof(next)) ||
+        memcmp(&made->waypoints.points[0], &point, sizeof(point)))
+        return fail("a new rally replaces the factory route without changing an existing unit");
+    fixed3_t start = made->core.position;
+    if (!tick(model, 200) || !memcmp(&made->core.position, &start, sizeof(start)))
+        return fail("produced unit travels toward rally");
+    order(fort, TC_STOP, 0);
+    if (fort->z.rally.count) return fail("stop clears producer rally");
+    order(fort, TC_CANCEL_PRODUCTION, 0);
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_computer_builds(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load level 1");
@@ -398,7 +441,7 @@ static int test_computer_builds(void) {
 int main(void) {
     if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
         test_native_rates() || test_gun_placement() ||
-        test_fort_makes_grunts() || test_vehicles_come_manned() || test_computer_builds()) return 1;
+        test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_computer_builds()) return 1;
     printf("z production tests passed\n");
     return 0;
 }

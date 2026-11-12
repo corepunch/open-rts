@@ -67,6 +67,16 @@ static const struct { int state; ivec2_t at; } entry_offsets[] = {
     {S_JEEP, {4, 7}}, {S_CRANE, {6, 6}}, {S_FIRE_TRUCK, {3, 6}},
 };
 
+static void store_crew(mobj_t *vehicle, mobj_t *robot) {
+    if (vehicle->z.crew_count >= Z_CREW_MAX) return;
+    vehicle->z.crew[vehicle->z.crew_count++] = (zcrew_t){
+        .hp = robot->hp, .robot = robot->z.robot, .type = (uint8_t)Z_UnitType(robot),
+        .grenades = robot->z.grenades, .home = robot->z.home, .manufactured = robot->z.manufactured,
+    };
+    P_MobjSetSelected(robot, false);
+    P_RemoveMobj(robot);
+}
+
 /* 0x7af62: the empty object goes and the robot drives in its place. The
  * vehicle keeps the robot's team and squad and stands where the object
  * did. It faces west, the way the crewless pictures do (0x7b21a); the
@@ -97,8 +107,62 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     vehicle->movement.goal = fixed3_xy(vehicle->core.position);
     vehicle->movement.order_arrived = true;
     P_MobjSetSelected(vehicle, P_MobjIsSelected(robot));
-    P_MobjSetSelected(robot, false);
-    P_RemoveMobj(robot);
+    store_crew(vehicle, robot);
+    if (t == MT_UNIT_APC - MT_UNITS && vehicle->z.squad)
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *mate = (mobj_t *)th;
+            if (th->function == P_MobjThinker && mate != robot && robot_type(mate) >= 0 &&
+                mate->team == vehicle->team && mate->z.squad == vehicle->z.squad)
+                store_crew(vehicle, mate);
+        }
+}
+
+/* Zod's eject command restores each crew member's health and leaves the
+ * vehicle neutral. A gun on a fort wall cannot be abandoned. */
+bool Z_EjectCrew(mobj_t *vehicle) {
+    int t = Z_UnitType(vehicle);
+    int empty = t == MT_UNIT_APC - MT_UNITS ? S_A_P_C :
+                t == MT_UNIT_LIGHT_GUN - MT_UNITS ? S_GUN :
+                t == MT_UNIT_GATLING - MT_UNITS ? S_GATTLING :
+                t == MT_UNIT_HOWITZER - MT_UNITS ? S_HOWITZER :
+                t == MT_UNIT_MISSILE_GUN - MT_UNITS ? S_MISSILE : -1;
+    if (!live(vehicle) || vehicle->team >= Z_NEUTRAL || !vehicle->z.driver ||
+        (t != MT_UNIT_APC - MT_UNITS && vehicle->core.position.z) || vehicle->z.service || empty < 0) return false;
+    int count = vehicle->z.crew_count ? vehicle->z.crew_count : 1;
+    int health = vehicle->z.crew_count ? vehicle->z.crew[0].hp :
+                 mobjinfo[MT_UNITS + vehicle->z.driver - 1].spawnhealth;
+    if (vehicle->z.crew_hurt >= health) return false;
+    int team = vehicle->team;
+    mobj_t *spawned[Z_CREW_MAX];
+    for (int i = 0; i < count; ++i) {
+        zcrew_t crew = vehicle->z.crew_count ? vehicle->z.crew[i] : (zcrew_t){
+            .type = (uint8_t)(vehicle->z.driver - 1), .robot = vehicle->z.robot,
+            .hp = mobjinfo[MT_UNITS + vehicle->z.driver - 1].spawnhealth,
+            .home = vehicle->z.home, .manufactured = vehicle->z.manufactured,
+        };
+        mobj_t *robot = P_SpawnMobj(vehicle->core.position, (uint16_t)(MT_UNITS + crew.type));
+        if (!robot) {
+            while (i) P_RemoveMobj(spawned[--i]);
+            return false;
+        }
+        spawned[i] = robot;
+        robot->hp = crew.hp - (i == 0 ? vehicle->z.crew_hurt : 0);
+        robot->z.robot = crew.robot;
+        robot->z.squad = vehicle->z.squad;
+        robot->z.grenades = crew.grenades;
+        robot->z.home = crew.home;
+        robot->z.manufactured = crew.manufactured;
+        Z_SetTeam(robot, team);
+    }
+    vehicle->z.crew_count = vehicle->z.driver = vehicle->z.squad = vehicle->z.crew_hurt = 0;
+    vehicle->traits &= ~(MF_MOBILE | MF_ATTACK);
+    vehicle->attack.target = NULL;
+    P_ClearMove(vehicle);
+    P_MobjSetSelected(vehicle, false);
+    Z_SetTeam(vehicle, Z_NEUTRAL);
+    P_SetMobjState(vehicle, empty);
+    P_MobjSetSelected(spawned[0], team == 0);
+    return true;
 }
 
 static void tick_boarding(mobj_t *robot) {
@@ -220,12 +284,12 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
     int skill = accuracy(attacker);
     if (t == MT_UNIT_LIGHT_GUN - MT_UNITS) skill /= 2;
     if (coin(attacker, target, 0x5ad72) >= skill) return false;
-    int driver_hp = mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
+    int driver_hp = target->z.crew_count ? target->z.crew[0].hp : mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
     int hurt = target->z.crew_hurt + damage;
     target->z.crew_hurt = (uint8_t)(hurt > 255 ? 255 : hurt);
     if (hurt <= driver_hp) return true;
     Z_SetTeam(target, Z_NEUTRAL);
-    target->z.driver = target->z.squad = target->z.crew_hurt = 0;
+    target->z.crew_count = target->z.driver = target->z.squad = target->z.crew_hurt = 0;
     target->traits &= ~(MF_MOBILE | MF_ATTACK);
     target->attack.target = NULL;
     P_ClearMove(target);
@@ -234,9 +298,15 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
 }
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
     (void)weapon;
+    int firing = Z_UnitType(attacker);
+    if (firing == MT_UNIT_APC - MT_UNITS && attacker->z.driver) {
+        firing = attacker->z.driver - 1;
+        const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + firing));
+        if (driver) damage = driver->attack.damage * (attacker->z.crew_count ? attacker->z.crew_count : 1);
+    }
     damage /= divisor ? divisor : 1;
     int victim = Z_UnitType(target);
-    if (!attacker || victim < 0 || Z_IsRobot(victim) || !fires_bullets(Z_UnitType(attacker))) return damage;
+    if (!attacker || victim < 0 || Z_IsRobot(victim) || !fires_bullets(firing)) return damage;
     if (hit_driver(attacker, target, damage)) return 0;
     damage -= 5;
     /* Deterministic stand-in for the native coin: same on every peer. */

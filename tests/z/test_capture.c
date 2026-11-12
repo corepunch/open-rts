@@ -179,7 +179,52 @@ static int test_grenades(void) {
     return 0;
 }
 
+static int test_apc_crew(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for APC crew");
+    disarm();
+    mobj_t *first = nth(MT_UNIT_GRUNT, 0, 0), *second = nth(MT_UNIT_GRUNT, 0, 1);
+    if (!first || !second) return fail("two Grunts");
+    first->z.squad = second->z.squad = 250;
+    first->hp = 21; second->hp = 13;
+    mobj_t *apc = P_SpawnMobj(first->core.position, MT_UNIT_APC);
+    if (!apc) return fail("spawn APC");
+    Z_SetTeam(apc, Z_NEUTRAL);
+    apc->traits &= ~(MF_MOBILE | MF_ATTACK);
+    P_SetMobjState(apc, S_A_P_C);
+    mobj_t *ordered[] = {first};
+    if (!Z_BoardOrder(ordered, 1, apc) || !tick(model, 2)) return fail("board APC");
+    if (apc->z.crew_count != 2 || alive(first) || alive(second)) return fail("APC takes its squad");
+    if (Z_HitDamage(apc, NULL, apc, 5, 1) != 5 ||
+        Z_HitDamage(apc, NULL, nth(MT_UNIT_GRUNT, 1, 0), 5, 1) != 10)
+        return fail("APC crew fires its combined weapons");
+    apc->core.position.z = FIXED_ONE;
+    apc->type_id = MT_UNIT_GATLING;
+    if (Z_EjectCrew(apc)) return fail("fort-wall crew cannot eject");
+    apc->type_id = MT_UNIT_APC;
+    apc->core.position.z = 0;
+    apc->z.crew_hurt = apc->z.crew[0].hp;
+    if (Z_EjectCrew(apc)) return fail("cannot eject a driver with no health");
+    apc->z.crew_hurt = 0;
+    ticcmd_t unload = {.order = TC_UNLOAD};
+    mobj_t *carrier[] = {apc};
+    if (!G_GameUnitCommand(0, &unload, carrier, 1, NULL) ||
+        apc->team != Z_NEUTRAL || apc->z.driver || apc->z.crew_count)
+        return fail("eject crew and leave empty APC");
+    int found21 = 0, found13 = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || mo->remove || mo->type_id != MT_UNIT_GRUNT || mo->team != 0) continue;
+        found21 += mo->hp == 21; found13 += mo->hp == 13;
+    }
+    if (!found21 || !found13) return fail("ejected crew retain individual health");
+    if (Z_EjectCrew(apc)) return fail("empty APC cannot eject");
+    puts("PASS: z APC boards and ejects its squad");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
-    if (test_flags() || test_board() || test_grenades()) return 1;
+    if (test_flags() || test_board() || test_grenades() || test_apc_crew()) return 1;
     return 0;
 }

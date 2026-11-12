@@ -118,6 +118,7 @@ void Z_SetTeam(mobj_t *mo, int team);
 bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre);
 /* Weapon type of a unit's mobj type, or -1. */
 int Z_UnitType(const mobj_t *mo);
+bool Z_EjectCrew(mobj_t *vehicle);
 int Z_GroupType(const zmap_t *map, int group, int member);
 int Z_GroupRobot(const zmap_t *map, int group, int member);
 bool Z_IsRobot(int t);

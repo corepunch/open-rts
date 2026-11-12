@@ -1,6 +1,8 @@
 #include "z_local.h"
 #include "info.h"
 
+uint32_t G_SaveLayout(void) { return 1; }
+
 /* Z's share of the engine's game hooks: its rules run once a tic after the
  * thinkers, an order onto an empty vehicle or gun sends robots in, and a
  * factory's STOP empties its queue. */
@@ -28,8 +30,31 @@ bool G_UnitCommandable(const mobj_t *unit) {
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
                        int count, mobj_t *target) {
     (void)player;
+    if (cmd->order == TC_ORDER || cmd->order == TC_SET_RALLY || cmd->order == TC_PATH || cmd->order == TC_WAYPOINT) {
+        bool producers = true;
+        for (int i = 0; i < count; ++i) producers &= Z_Producer(units[i]);
+        if (producers) {
+            ivec2_t point = fixed2_cell(fixed3_xy(cmd->position));
+            if (cmd->order != TC_PATH && !L_Contains(&level, point.x, point.y)) return true;
+            for (int i = 0; i < count; ++i) {
+                waypoints_t *rally = &units[i]->z.rally;
+                if (cmd->order == TC_PATH) *rally = cmd->path;
+                else {
+                    if (cmd->order != TC_WAYPOINT || !cmd->target) *rally = (waypoints_t){.mode = WP_ONCE};
+                    if (rally->count < MAXWAYPOINTS) rally->points[rally->count++] = point;
+                }
+                rally->mode = WP_ONCE;
+                rally->current = 0;
+                rally->backwards = false;
+            }
+            return true;
+        }
+    }
     if (cmd->order == TC_ORDER && (Z_CliffOrder(cmd, units, count) || Z_BridgeOrder(cmd, units, count))) return true;
     switch (cmd->order) {
+    case TC_UNLOAD:
+        for (int i = 0; i < count; ++i) Z_EjectCrew(units[i]);
+        return true;
     case TC_ATTACK:
         return Z_BoardOrder(units, count, target);
     case TC_CONSTRUCT:
@@ -41,6 +66,10 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
             while (units[i]->production && units[i]->production->queue_count > 0)
                 G_RemoveProductionAt(units[i], 0);
         return true;
+    case TC_STOP:
+        for (int i = 0; i < count; ++i)
+            if (Z_Producer(units[i])) units[i]->z.rally = (waypoints_t){0};
+        return false;
     default:
         return false;
     }
