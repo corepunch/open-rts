@@ -6,7 +6,7 @@ the repository or bring another game to the shared C engine.
 ## Improve an existing game
 
 1. Start in `games/<id>/` and read the game's notes linked from the
-   [README](README.md#the-six-games). Pick a behavior to reproduce, a feature
+   [README](README.md#the-games). Pick a behavior to reproduce, a feature
    to implement, or a bug to fix.
 2. Build and run that game with your retail data. For a fidelity fix, record
    the retail version, map or mission, and the steps that show the behavior.
@@ -36,14 +36,15 @@ and runs its headless suite.
 
 ```sh
 game=dark-colony
-make "$game"
+make "build/bin/$game"
 "build/bin/$game"
 make "test-$game"
 ```
 
 For StarCraft, follow the [unpack instructions](README.md#starcraft) first.
-Its build and test targets also invoke the map importer. Tests that load
-retail data need the files in the expected locations. Run `make test` for
+The `make starcraft` and `make test-starcraft` targets also invoke the map
+importer. Tests that load retail data need the files in the expected locations.
+Run `make test` for
 the broader suite when changing shared code and you have the required data.
 See [Tests](README.md#tests) for network checks and longer simulations.
 

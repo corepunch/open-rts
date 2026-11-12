@@ -308,7 +308,8 @@ weak and store nothing. Dark Colony uses its own saver, because a Dark Colony
 save also stores the mission script. A game with retail audio fills a
 `soundinfo_t` and points `gameinfo_t.sound` at it.
 
-## The six games
+<a id="the-six-games"></a>
+## The games
 
 | Game | Binary | Retail data | What that directory decodes |
 | --- | --- | --- | --- |
@@ -318,6 +319,7 @@ save also stores the mission script. A game with retail audio fills a
 | KKnD | `build/bin/kknd` | `data/KKND` | `.LVL` containers, `MAPD` terrain, `MOBD` sprites, `UNITS.CFG` |
 | Warcraft II | `build/bin/warcraft-2` | `data/WAR2` | `.PUD` maps, `DATA/MAINDAT.WAR` |
 | StarCraft | `build/bin/starcraft` | `data/STARCRAFT` | unpacked `CHK`, `GRP`, `PCX`, `FNT`, `DAT`, `TBL`, terrain |
+| Z | `build/bin/z` | `data/Z` | `.MAP` levels, native sprites and animation |
 
 ### Dark Reign
 
@@ -448,6 +450,16 @@ make starcraft
 build/bin/starcraft --map install/campaign/terran/terran01/staredit/scenario.chk
 make starcraft-catalog    # browse the 228 retail unit slots with [ and ]
 make test-starcraft
+```
+
+### Z
+
+The default map is `LEVEL01/LEVEL01.MAP`. Format details and executable
+findings are documented in [docs/Z_FORMATS.md](docs/Z_FORMATS.md) and
+[docs/Z_EXE_FINDINGS.md](docs/Z_EXE_FINDINGS.md).
+
+```sh
+make z
 ```
 
 ## Build
