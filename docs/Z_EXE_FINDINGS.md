@@ -1874,6 +1874,25 @@ flame as an immediate hit: native flame projectile `0x5a099` and its ground
 fire are unported, and native mode selection remains unknown. The robot
 record is initially zeroed at `0x5109c..0x510a3`; other possible uses of
 byte +0xb0 have not been fully traced.
+
+**Further mode investigation:** the wrapper at `0x1e9dc` calls the ordinary
+vehicle pass `0x57dd6`, then calls the scanner at `0x1ea0d`; that scanner
+returns without a salvo when all four scanned target bytes are `0xff`
+(`0x1ea17..0x1ea44`). The coordinate path at `0x58090` instead receives
+unit words +0x50/+0x52 after temporarily copying them to the body coordinates;
+the call at `0x58cc7` receives coordinates returned by `0x764e8` after its
+carry check. These call sites establish distinct acquisition paths, but do
+not establish a reliable mapping to open-rts automatic versus ordered attacks.
+More precisely, the `0x58cc7` caller is reached from `0x58b03`: it passes
+body words +0x0e/+0x10 into `0x764e8`, rotates body facing +0x15 towards the
+result, and only enters dispatch `0x58bc5` once aligned and unit +0x78 is
+zero. After successful APC dispatch, `0x58bab..0x58bb0` reloads from the
+unit's +0x75, overwriting the body-based reload in `0x1ec07`. This differs
+from the scanner's 1.5-times unit reload and from the independent coordinate
+call at `0x58090`; selection between these paths remains unproven.
+Do not infer such a mapping solely from their names. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 20 @ 0x1e9dc' -c 'pd 25 @ 0x1ea0d' -c 'pd 30 @
+0x58040' -c 'pd 80 @ 0x58b03' -c 'pd 28 @ 0x58c80' -c q data/Z/ZED.EXE`.
 `test_combat` checks three Grunt bullets against infantry, three Sniper
 bullets against tank armor, individual driver/body hit outcomes and the
 three-Pyro firing phases, independent crew phases, and save/load. `test_capture`

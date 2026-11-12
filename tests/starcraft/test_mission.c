@@ -167,8 +167,10 @@ int main(void) {
     CHECK(G_DoLoadLevel("/private/tmp/sc-give.chk", &level));
     mobj_t *carrier = spawn(MT_CARRIER - 1, 0), *fighter = spawn(MT_INTERCEPTOR - 1, 0);
     CHECK(carrier && fighter); fighter->sc.parent = carrier->id;
+    level.upgrades[43][0].weapon = 0; level.upgrades[43][1].weapon = 1; /* Carrier Capacity */
     ticks(1, &(hudtext_t){0});
     CHECK(carrier->owner == 1 && fighter->owner == 1 && fighter->sc.parent == carrier->id);
+    CHECK(sc_upgrade_level(1, 43) == 1);
     unload();
     put_u16(give_trigger+320+24, MT_MARINE - 1);
     give_trigger[320+27] = 1;
@@ -177,6 +179,9 @@ int main(void) {
     transport = spawn(MT_DROPSHIP - 1, 0); passenger = spawn(MT_MARINE - 1, 0);
     mobj_t *free_marine = spawn(MT_MARINE - 1, 0); CHECK(transport && passenger && free_marine);
     mobj_t *near_ghost = spawn(MT_GHOST - 1, 0); CHECK(near_ghost && P_InitSight());
+    level.upgrades[16][0].weapon = 1; /* U-238 Shells */
+    level.upgrades[SC_UPGRADES + SC_TECH_STIM_PACKS][0].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_STIM_PACKS][1].weapon = 0;
     P_UpdateSight();
     CHECK(mobjinfo[MT_MARINE].missilestate != mobjinfo[MT_MARINE].spawnstate);
     free_marine->core.state_id = mobjinfo[MT_MARINE].missilestate;
@@ -186,7 +191,22 @@ int main(void) {
     CHECK(transport->owner == 0 && passenger->owner == 0 && passenger->sc.parent == transport->id);
     CHECK(free_marine->owner == 1 && free_marine->core.state_id == mobjinfo[MT_MARINE].spawnstate &&
           !free_marine->attack.target && near_ghost->hp == near_ghost->max_hp);
+    CHECK(sc_upgrade_level(1, 16) == 1 && sc_has_tech(1, SC_TECH_STIM_PACKS));
+    CHECK(!sc_has_tech(0, SC_TECH_STIM_PACKS));
     unload();
+    put_u16(give_trigger+320+24, MT_GHOST - 1);
+    CHECK(!write_map("/private/tmp/sc-give.chk", force_owners, give_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-give.chk", &level));
+    mobj_t *given_ghost = spawn(MT_GHOST - 1, 0); CHECK(given_ghost);
+    level.upgrades[20][0].weapon = 1; level.upgrades[20][1].weapon = 0;
+    level.upgrades[21][0].weapon = 0; level.upgrades[21][1].weapon = 1;
+    level.upgrades[SC_UPGRADES + SC_TECH_LOCKDOWN][1].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][1].weapon = 0;
+    ticks(1, &(hudtext_t){0});
+    CHECK(given_ghost->owner == 1 && sc_upgrade_level(1, 20) == 1 && sc_upgrade_level(1, 21) == 1);
+    CHECK(sc_has_tech(1, SC_TECH_LOCKDOWN) && sc_has_tech(1, SC_TECH_PERSONNEL_CLOAKING));
+    unload();
+    put_u16(give_trigger+320+24, MT_MARINE - 1);
     give_trigger[320+27] = 0;
     CHECK(!write_map("/private/tmp/sc-give.chk", force_owners, give_trigger));
     CHECK(G_DoLoadLevel("/private/tmp/sc-give.chk", &level));

@@ -84,8 +84,11 @@ worker remains outside while mining, so transferring one same-owner worker in
 the mining phase on that refinery's vent is an approximation of that condition.
 The regression sends an SCV to mine gas, then checks the transfer, release of
 its vent claim, and a worker still traveling to the refinery. OpenBW
-also grants unit-specific technologies/upgrades; those grants, cancellation
-failure and other destination groups remain incomplete. Loaded units cannot be selected directly; they move
+also grants unit-specific technologies and copies higher upgrade levels from
+the old owner. The implemented classic-unit mappings use techdata/upgrades.dat
+rows; the mission regression checks Marine U-238 and unconditional Stim Pack
+granting. Brood War-only mappings, cancellation failure and other destination
+groups remain incomplete. Loaded units cannot be selected directly; they move
 with their transport. The action counts successful transfers and its All form
 does not use the former 256-entry buffer. OpenBW's action 48 itself
 is not implemented in the pinned source, so the trigger call is inferred from

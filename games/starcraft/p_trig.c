@@ -492,10 +492,51 @@ static void set_alliance(int a, int b, int status) {
     else m->allies[a] |= bit;
 }
 
+/* OpenBW give_unit_to grants each unit's native technologies and copies the
+ * giver's higher unit-specific upgrade levels. Bits are DAT row numbers. */
+#define SC_BIT(n) (UINT64_C(1) << (n))
+static void give_abilities(const mobj_t *mo, uint8_t owner) {
+    uint64_t upgrades = 0, techs = 0;
+    switch (mo->type_id) {
+    case MT_MARINE: upgrades = SC_BIT(16); techs = SC_BIT(SC_TECH_STIM_PACKS); break;
+    case MT_FIREBAT: techs = SC_BIT(SC_TECH_STIM_PACKS); break;
+    case MT_GHOST: upgrades = SC_BIT(20)|SC_BIT(21); techs = SC_BIT(SC_TECH_LOCKDOWN)|SC_BIT(SC_TECH_PERSONNEL_CLOAKING); break;
+    case MT_VULTURE: upgrades = SC_BIT(17); techs = SC_BIT(SC_TECH_SPIDER_MINES); break;
+    case MT_SIEGE_TANK: case MT_SIEGE_MODE: techs = SC_BIT(SC_TECH_SIEGE_MODE); break;
+    case MT_WRAITH: upgrades = SC_BIT(22); techs = SC_BIT(SC_TECH_CLOAKING_FIELD); break;
+    case MT_SCIENCE_VESSEL: upgrades = SC_BIT(19); techs = SC_BIT(SC_TECH_DEFENSIVE_MATRIX)|SC_BIT(SC_TECH_IRRADIATE)|SC_BIT(SC_TECH_EMP); break;
+    case MT_BATTLECRUISER: upgrades = SC_BIT(23); techs = SC_BIT(SC_TECH_YAMATO_GUN); break;
+    case MT_ZERGLING: upgrades = SC_BIT(27)|SC_BIT(28); techs = SC_BIT(SC_TECH_BURROWING); break;
+    case MT_HYDRALISK: upgrades = SC_BIT(29)|SC_BIT(30); techs = SC_BIT(SC_TECH_BURROWING); break;
+    case MT_DRONE: case MT_INFESTED_TERRAN: techs = SC_BIT(SC_TECH_BURROWING); break;
+    case MT_OVERLORD: upgrades = SC_BIT(24)|SC_BIT(25)|SC_BIT(26); break;
+    case MT_QUEEN: upgrades = SC_BIT(31); techs = SC_BIT(SC_TECH_INFESTATION)|SC_BIT(SC_TECH_PARASITE)|SC_BIT(SC_TECH_SPAWN_BROODLING)|SC_BIT(SC_TECH_ENSNARE); break;
+    case MT_DEFILER: upgrades = SC_BIT(32); techs = SC_BIT(SC_TECH_BURROWING)|SC_BIT(SC_TECH_DARK_SWARM)|SC_BIT(SC_TECH_PLAGUE)|SC_BIT(SC_TECH_CONSUME); break;
+    case MT_ZEALOT: upgrades = SC_BIT(34); break;
+    case MT_DRAGOON: upgrades = SC_BIT(33); break;
+    case MT_HIGH_TEMPLAR: upgrades = SC_BIT(40); techs = SC_BIT(SC_TECH_ARCHON_WARP)|SC_BIT(SC_TECH_PSIONIC_STORM)|SC_BIT(SC_TECH_HALLUCINATION); break;
+    case MT_SHUTTLE: upgrades = SC_BIT(37); break;
+    case MT_SCOUT: upgrades = SC_BIT(41)|SC_BIT(42); break;
+    case MT_ARBITER: upgrades = SC_BIT(44); techs = SC_BIT(SC_TECH_RECALL)|SC_BIT(SC_TECH_STASIS_FIELD); break;
+    case MT_CARRIER: upgrades = SC_BIT(43); break;
+    case MT_REAVER: upgrades = SC_BIT(35)|SC_BIT(36); break;
+    case MT_OBSERVER: upgrades = SC_BIT(38)|SC_BIT(39); break;
+    default: break;
+    }
+    for (int i = 0; i < SC_UPGRADES; i++) if (upgrades & SC_BIT(i)) {
+        int from = sc_upgrade_level(mo->owner, i);
+        if (from > sc_upgrade_level(owner, i)) level.upgrades[i][owner].weapon = from;
+    }
+    for (int i = 0; i < SC_TECHS; i++) if (techs & SC_BIT(i))
+        level.upgrades[SC_UPGRADES + i][owner].weapon = 1;
+}
+#undef SC_BIT
+
 /* OpenBW trigger_give_unit_to transfers cargo, launched fighters and attached
  * structures along with their owner. This representation stores them as mobjs. */
 static void give_one(mobj_t *mo, uint8_t owner) {
     if (!mo || mo->owner == owner) return;
+    give_abilities(mo, owner);
     if (mo->production && !mo->production->placed &&
         (((sc_unit(mo)->flags & SC_UNIT_BUILDING) && !(mo->traits & MF_FLY)) ||
          mo->type_id == MT_CARRIER || mo->type_id == MT_REAVER))
