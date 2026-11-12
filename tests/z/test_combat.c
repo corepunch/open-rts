@@ -855,7 +855,14 @@ static int test_fire_truck_water(void) {
     mobj_t *water = nth(MT_WATER, 0, 0);
     if (!water || water->z.water.remaining <= 8 || water->missile.damage != 10 || states[water->core.state_id].frame != 1622 || inside->hp != 100)
         return fail("water launches native sprite with half damage and delayed flight");
-    uint32_t water_id = water->id, inside_id = inside->id, outside_id = outside->id, ally_id = ally->id;
+    mobj_t *building = blast_unit(MT_ROBOT_FACTORY, 0, at, 500);
+    if (!building) return fail("spawn water impact building");
+    building->z.building = 1;
+    ivec2_t impact = fixed2_cell(fixed2_scale(water->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    ivec2_t shift = ivec2_sub(ivec2_add(impact, (ivec2_t){16,16}), Z_BuildingOrigin(building));
+    building->core.position = fixed3_from_fixed2(fixed2_add(fixed3_xy(building->core.position),
+        fixed2_scale(fixed2_from_cell(shift), FIXED_ONE / Z_TILE)), 0);
+    uint32_t water_id = water->id, inside_id = inside->id, outside_id = outside->id, ally_id = ally->id, building_id = building->id;
     int initial_distance = water->z.water.remaining;
     if (!tick(model, 1) || inside->hp != 100) return fail("water cannot hit before arrival");
     int native_steps = water->missile.age;
@@ -868,14 +875,26 @@ static int test_fire_truck_water(void) {
         !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save water projectile in flight");
     free(save);
     water = P_MobjById(water_id); inside = P_MobjById(inside_id);
-    outside = P_MobjById(outside_id); ally = P_MobjById(ally_id);
-    if (!water || !inside || !outside || !ally || water->missile.damage != 10 || water->missile.age != native_steps ||
+    outside = P_MobjById(outside_id); ally = P_MobjById(ally_id); building = P_MobjById(building_id);
+    if (!water || !inside || !outside || !ally || !building || water->missile.damage != 10 || water->missile.age != native_steps ||
         water->z.water.remaining != saved_remaining || water->z.water.error != saved_error || G_Consistency() != hash)
         return fail("restore water projectile and deterministic flight state");
     for (int i = 0; i < 60 && water->core.state_id == S_WATER; ++i)
         if (!tick(model, 1)) return fail("tick water to arrival");
+    if (water->core.state_id != S_WATER_BLAST || inside->hp != 100 || building->hp != 490)
+        return fail("water arrival damages buildings immediately and leaves units pending");
+    save = NULL; size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Water impact", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save delayed water impact");
+    free(save);
+    water = P_MobjById(water_id); inside = P_MobjById(inside_id);
+    outside = P_MobjById(outside_id); ally = P_MobjById(ally_id); building = P_MobjById(building_id);
+    if (!water || !inside || !outside || !ally || !building || building->hp != 490 || !tick(model, 2) || inside->hp != 100)
+        return fail("restored water blast waits before unit damage");
+    if (!tick(model, 1)) return fail("tick delayed water damage");
     if (inside->hp != 90 || outside->hp != 100 || ally->hp != 100)
         return fail("water impact uses native inclusive bounds and excludes allies");
+    if (!tick(model, 1) || inside->hp != 90) return fail("water blast damages each unit once");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -903,7 +922,7 @@ static int test_water_terrain(void) {
     ivec2_t hit = fixed2_cell(fixed2_scale(water->movement.goal, FIXED_FROM_INT(Z_TILE)));
     if (water->core.state_id == S_WATER || hit.x < 27 * Z_TILE || hit.x >= 28 * Z_TILE || target->hp != 100)
         return fail("raised terrain intercepts water before its target");
-    if (!tick(model, 8)) return fail("finish intercepted water effect");
+    if (!tick(model, 20)) return fail("finish intercepted water effect");
     for (int y = 24; y <= 25; ++y) {
         map->ground_attr[y * Z_MAP_STRIDE + 27] = 11; /* Height 1 equals the threshold. */
         map->ground_attr[y * Z_MAP_STRIDE + 30] = 1;

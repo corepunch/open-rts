@@ -3409,13 +3409,20 @@ top-left +(14,12), rotates body +0x15 one direction on alternate updates,
 and fires only after it reaches that bearing. `0x5a648` uses integer half-axis
 tests with asymmetric equality. Open-rts uses the native offset tables and
 bearing at shot time; it does not separately animate or time the nozzle turn.
-Non-unit aim, complete terrain/effect interactions, native effect-pool
-exhaustion, and the explosion's delayed impact remain approximations.
-The explicit projectile flight state is saved and hashed; Z save layout is
-12. `test_combat` covers normal attack dispatch, real accelerating substeps,
+The common explosion applies object and building damage immediately at
+`0x8476c`; `0x85b2f` advances its animation on alternating native updates and
+calls the unit-damage pass `0x85ce4` at frame 3. The explosion loop at
+`0x14ec2` precedes projectile updates at `0x154a0`, so a new explosion first
+advances on a subsequent update. Open-rts applies the unit pass three 30 Hz
+tics after impact, an approximation of the native five or six 70 Hz updates
+depending on phase. The saved water mobj carries this pending action; Z save
+layout 13 distinguishes the changed impact lifecycle. Non-unit aim, complete
+terrain/effect interactions, native effect-pool exhaustion, and exact update
+phase remain approximations. `test_combat` covers normal attack dispatch, real accelerating substeps,
 sprite/height boundaries, interception, terminal-tile order, save/load,
-all eight hull/nozzle headings, bearing ties and an inclusive damage boundary
-with ally exclusion.
+all eight hull/nozzle headings, bearing ties, immediate building damage,
+delayed unit damage across save/load and an inclusive damage boundary with
+ally exclusion.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x58c3a' -c 'pd 55 @
 0x59ffb' -c 'pd 30 @ 0x59b87' -c 'pd 35 @ 0x5934f' -c 'pd 20 @
 0x76849' -c 'pd 10 @ 0x76aa3' -c 'pd 40 @ 0x58b24' -c 'pd 20 @

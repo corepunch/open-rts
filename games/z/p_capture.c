@@ -752,15 +752,17 @@ void A_ZWater(mobj_t *water) {
     water->core.frame = 1622 + (water->missile.age & 3);
 }
 
-void A_ZShellBlast(mobj_t *missile) {
+static ivec2_t blast_impact(const mobj_t *missile) {
     ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
     /* Water's 0x59369 branch passes impact directly to 0x8476c, rather
      * than the shell branch's impact minus (12,24). */
     if (missile->type_id == MT_WATER) impact = ivec2_add(impact, (ivec2_t){12, 24});
+    return impact;
+}
+
+static void blast_units(mobj_t *missile, ivec2_t impact) {
     mobj_t *target = missile->attack.target;
     bool primary_hit = false;
-    blast_object(impact, missile->missile.damage);
-    blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
         if (th->function != P_MobjThinker || !live(victim) || victim == missile->target ||
@@ -780,6 +782,23 @@ void A_ZShellBlast(mobj_t *missile) {
             P_DamageMobj(target, missile->target, missile->missile.damage);
     }
 }
+
+void A_ZShellBlast(mobj_t *missile) {
+    ivec2_t impact = blast_impact(missile);
+    blast_object(impact, missile->missile.damage);
+    blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
+    blast_units(missile, impact);
+}
+
+/* 0x8476c damages effects/buildings immediately, while the unit pass runs
+ * at explosion frame 3 (0x85c24). Three 30 Hz tics approximate that delay. */
+void A_ZWaterImpact(mobj_t *water) {
+    ivec2_t impact = blast_impact(water);
+    blast_object(impact, water->missile.damage);
+    blast_building(ivec2_add(impact, (ivec2_t){4, -8}), water->target, water->missile.damage);
+}
+
+void A_ZWaterHit(mobj_t *water) { blast_units(water, blast_impact(water)); }
 
 /* ── flags ────────────────────────────────────────────────────────────── */
 
