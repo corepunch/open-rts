@@ -340,6 +340,7 @@ int main(void) {
     CHECK(P_MoveUnitTo(&level, unit, old));
     mobj_t *box = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20.5,20.5), 0), MT_GRENADES_2);
     CHECK(box);
+    Z_StampObjectTerrain(box, MT_GRENADES_2 - 1, (ivec2_t){320, 320});
     uint32_t box_id = box->id;
     Z_DetourTicker();
     CHECK(unit->z.detour.target == box_id && box->z.detour.claimant == unit->id);

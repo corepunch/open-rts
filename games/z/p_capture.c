@@ -321,6 +321,14 @@ static bool squad_mate(const mobj_t *robot, const mobj_t *other) {
                               other->team == robot->team && robot_type(other) >= 0);
 }
 
+static ivec2_t object_origin(const mobj_t *object) {
+    const zmap_t *map = level.native_data;
+    isize2_t size = {0};
+    Z_SpriteSize(map, states[mobjinfo[object->type_id].spawnstate].frame, &size);
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(object->core.position), FIXED_FROM_INT(Z_TILE)));
+    return ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+}
+
 /* 0x79bea divides among occupied group slots, giving the remainder to
  * slot zero (the leader), regardless of thinker allocation order. */
 static bool pick_up(mobj_t *robot, mobj_t *crate) {
@@ -340,6 +348,7 @@ static bool pick_up(mobj_t *robot, mobj_t *crate) {
         int count = share + (other == leader ? total % members : 0);
         other->z.grenades = (uint8_t)(count < MAX_GRENADES ? count : MAX_GRENADES);
     }
+    Z_RestoreObjectTerrain(crate, object_origin(crate));
     P_RemoveMobj(crate);
     return true;
 }
@@ -1155,7 +1164,11 @@ void Z_Ticker(void) {
         Z_Alert(mo);
         int t = robot_type(mo);
         if (t < 0) continue;
-        if (carries_grenades(t)) {
+        ivec2_t pos = ivec2_add(Z_AITopLeft(mo), (ivec2_t){8, 8});
+        ivec2_t cell = {pos.x / Z_TILE, pos.y / Z_TILE};
+        const zmap_t *map = level.native_data;
+        if (carries_grenades(t) && pos.x >= 0 && pos.y >= 0 && L_Contains(&level, cell.x, cell.y) &&
+            (map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x7f) == 0x24) {
             mobj_t *first = NULL;
             for (thinker_t *c = thinkercap.next; c != &thinkercap; c = c->next) {
                 mobj_t *box = (mobj_t *)c;

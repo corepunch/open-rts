@@ -44,6 +44,7 @@ typedef struct {
     uint16_t robot; /* ROBOTS.DAT record + 1, retained for native AI valuation. */ \
     uint8_t cliff_block, home; \
     uint8_t object, building, object_slot, object_hp; /* Native OBJECT type, slot and effect health. */ \
+    uint8_t object_terrain; bool object_stamped; /* Effect +0x14, before its terrain mark. */ \
     uint8_t driver, squad, squad_slot, formation, formation_direction, grenades, territory, flame_phase; \
     bool formation_active, formation_rejoin; \
     uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
@@ -87,6 +88,7 @@ typedef struct {
     HASH((mo)->z.gun_count); for (int z_g = 0; z_g < (mo)->z.gun_count && z_g < Z_GUN_STOCK; ++z_g) HASH((mo)->z.guns[z_g]); \
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
     HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); HASH((mo)->z.object_slot); HASH((mo)->z.object_hp); HASH((mo)->z.crew_hurt); \
+    HASH((mo)->z.object_terrain); HASH((mo)->z.object_stamped); \
     HASH((mo)->z.service); HASH((mo)->z.service_work); HASH((mo)->z.bridge); HASH((mo)->z.service_ticks); \
     HASH((mo)->z.body_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_accuracy); HASH((mo)->z.body_tracked); \
     HASH((mo)->z.manufactured); \

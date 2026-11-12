@@ -255,6 +255,8 @@ void Z_PanelPalette(zpanel_t *panel, const uint32_t palette[256]);
 /* Build the destructible cliffs into the planes, as a level start does. */
 void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int world);
 void Z_RebuildCliffs(level_t *level);
+void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin);
+void Z_RestoreObjectTerrain(mobj_t *object, ivec2_t origin);
 int Z_LoadCliffs(void);
 void Z_CliffDamage(mobj_t *cliff);
 bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count);

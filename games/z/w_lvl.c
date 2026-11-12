@@ -70,6 +70,36 @@ static const uint8_t robot_blocked[67] = {
     0,0,0,0,0,0,0,
 };
 
+static void object_terrain(ivec2_t origin, uint8_t value) {
+    zmap_t *map = level.native_data;
+    ivec2_t cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+    if (!map || origin.x < 0 || origin.y < 0 || !L_Contains(&level, cell.x, cell.y)) return;
+    int i = cell.y * Z_MAP_STRIDE + cell.x;
+    map->ground_attr[i] = map->terrain[i] = value;
+    uint8_t terrain = value & 0x7f;
+    level.blocked[L_Index(&level, cell.x, cell.y)] = terrain >= sizeof(robot_blocked) || robot_blocked[terrain] ||
+                                                    (terrain >= 1 && terrain <= 6) || terrain == 0x12;
+}
+
+void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin) {
+    if (!object || type < 0 || type >= MT_FORT - 1) return;
+    int flags = z_object_flags[type];
+    if ((type >= 0x47 && type <= 0x4d) || (!(flags & 4) && (flags & 3) >= 2)) return;
+    if ((flags & 6) == 6) origin.y += Z_TILE;
+    zmap_t *map = level.native_data;
+    ivec2_t cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+    if (!map || origin.x < 0 || origin.y < 0 || !L_Contains(&level, cell.x, cell.y)) return;
+    object->z.object_terrain = map->terrain[cell.y * Z_MAP_STRIDE + cell.x];
+    object->z.object_stamped = true;
+    object_terrain(origin, (object->z.object_terrain & 0x80) | (flags & 4 ? 0x2e : 0x24));
+}
+
+void Z_RestoreObjectTerrain(mobj_t *object, ivec2_t origin) {
+    if (!object || !object->z.object_stamped) return;
+    object_terrain(origin, object->z.object_terrain);
+    object->z.object_stamped = false;
+}
+
 void Z_RebuildCliffs(level_t *out) {
     zmap_t *map = out->native_data;
     uint8_t tiles[Z_MAP_STRIDE * Z_MAP_STRIDE];
@@ -679,6 +709,7 @@ int Z_LoadThings(void) {
             if (mo) {
                 mo->z.object_slot = (uint8_t)slot;
                 if (r[5] < Z_UNIT_TYPES) mo->z.object_hp = object_weapon_health[r[5]];
+                Z_StampObjectTerrain(mo, r[4], pixel);
                 count++;
             }
         }

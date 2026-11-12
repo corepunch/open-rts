@@ -56,6 +56,16 @@ static void place(mobj_t *mo, ivec2_t cell) {
     mo->movement.order_arrived = true;
 }
 
+static void place_crate(mobj_t *box, ivec2_t cell) {
+    isize2_t size = {0};
+    Z_SpriteSize(level.native_data, states[mobjinfo[box->type_id].spawnstate].frame, &size);
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
+    Z_RestoreObjectTerrain(box, ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2}));
+    place(box, cell);
+    centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
+    Z_StampObjectTerrain(box, box->type_id - 1, ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2}));
+}
+
 static bool tick(RtsGameModel *model, int tics) {
     RtsRenderSnapshot snap;
     for (int t = 0; t < tics; ++t)
@@ -237,6 +247,12 @@ static int test_crate_slot_order(void) {
     int slot = Z_FreeObjectSlot();
     if (!twenty || !ten || !robot || !slot || slot >= 200) return fail("crate slot order fixture");
     twenty->z.object_slot = (uint8_t)(slot + 1); ten->z.object_slot = (uint8_t)slot;
+    zmap_t *map = level.native_data;
+    int index = 25 * Z_MAP_STRIDE + 25;
+    map->terrain[index] = map->ground_attr[index] = 0x96;
+    place_crate(ten, (ivec2_t){25, 25}); place_crate(twenty, (ivec2_t){25, 25});
+    if (ten->z.object_terrain != 0x96 || twenty->z.object_terrain != 0xa4 || map->terrain[index] != 0xa4)
+        return fail("overlapping crates save preceding terrain in creation order");
     Z_SetTeam(robot, 0);
     ivec2_t centre = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
     if (!Z_UnitCentre(level.native_data, Z_UnitType(robot), ivec2_sub(centre, (ivec2_t){8,8}), &robot_at))
@@ -249,9 +265,56 @@ static int test_crate_slot_order(void) {
     free(save);
     robot = P_MobjById(robot_id); ten = P_MobjById(ten_id); twenty = P_MobjById(twenty_id);
     if (!robot || !ten || !twenty) return fail("restore crate slot order");
+    map = level.native_data;
+    if (map->terrain[index] != 0xa4 || ten->z.object_terrain != 0x96 || twenty->z.object_terrain != 0xa4)
+        return fail("save preserves marked terrain and each saved terrain byte");
     Z_Ticker();
-    if (!ten->remove || twenty->remove || robot->z.grenades != 10)
+    if (!ten->remove || twenty->remove || robot->z.grenades != 10 || map->terrain[index] != 0x96)
         return fail("pickup chooses the earlier effect slot rather than thinker order");
+    robot->z.grenades = 0;
+    Z_Ticker();
+    if (twenty->remove || robot->z.grenades) return fail("restored terrain suppresses overlapping pickup");
+    save = NULL; size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Restored terrain", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save restored terrain");
+    free(save);
+    map = level.native_data;
+    if (map->terrain[index] != 0x96 || map->ground_attr[index] != 0x96)
+        return fail("restored terrain survives reload and cliff reconstruction");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_object_terrain(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load object terrain");
+    zmap_t *map = level.native_data;
+    ivec2_t origin = {320, 320};
+    int at = 20 * Z_MAP_STRIDE + 20, below = at + Z_MAP_STRIDE;
+    map->terrain[at] = map->ground_attr[at] = 0x96;
+    map->terrain[below] = map->ground_attr[below] = 0x96;
+    mobj_t *house = P_SpawnMobj((fixed3_t){0}, MT_DESERT_HOUSE);
+    mobj_t *cactus = P_SpawnMobj((fixed3_t){0}, MT_CACTUS_DES);
+    if (!house || !cactus) return fail("object terrain fixture");
+    Z_StampObjectTerrain(house, MT_DESERT_HOUSE - 1, origin);
+    Z_StampObjectTerrain(cactus, MT_CACTUS_DES - 1, origin);
+    if (map->terrain[at] != 0xa4 || house->z.object_terrain != 0x96 ||
+        map->terrain[below] != 0xae || cactus->z.object_terrain != 0x96)
+        return fail("object flags stamp pickup and offset obstacle terrain");
+    ivec2_t other = {352, 320};
+    int other_at = 20 * Z_MAP_STRIDE + 22, node = L_Index(&level, 22, 20);
+    map->terrain[other_at] = map->ground_attr[other_at] = 0x89;
+    level.blocked[node] = 1;
+    const uint16_t *regions = P_NavRegions(&level, 0);
+    if (!regions || regions[node]) return fail("blocked terrain absent from navigation region");
+    mobj_t *box = P_SpawnMobj((fixed3_t){0}, MT_GRENADES);
+    if (!box) return fail("navigation crate fixture");
+    Z_StampObjectTerrain(box, MT_GRENADES - 1, other);
+    regions = P_NavRegions(&level, 0);
+    if (!regions || !regions[node]) return fail("navigation sees marker passability");
+    Z_RestoreObjectTerrain(box, other);
+    regions = P_NavRegions(&level, 0);
+    if (!regions || regions[node]) return fail("navigation sees restored passability");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -268,7 +331,7 @@ static int test_crate_leader_remainder(void) {
     uint8_t squad = Z_AllocateSquad(0);
     follower->z.squad = other->z.squad = leader->z.squad = squad;
     follower->z.squad_slot = 2; other->z.squad_slot = 1; leader->z.squad_slot = UINT8_MAX;
-    place(box, (ivec2_t){20, 20}); place(follower, (ivec2_t){20, 20});
+    place_crate(box, (ivec2_t){20, 20}); place(follower, (ivec2_t){20, 20});
     place(other, (ivec2_t){1, 1}); place(leader, (ivec2_t){1, 1});
     Z_Ticker();
     if (!squad || !box->remove || leader->z.grenades != 8 || follower->z.grenades != 6 || other->z.grenades != 6)
@@ -276,6 +339,7 @@ static int test_crate_leader_remainder(void) {
     mobj_t *third = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
     box = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){20, 20}), 0), MT_GRENADES_2);
     if (!third || !box) return fail("promoted grenade leader fixture");
+    place_crate(box, (ivec2_t){20, 20});
     Z_SetTeam(third, 0);
     third->z.squad = squad; third->z.squad_slot = 3;
     follower->z.grenades = other->z.grenades = leader->z.grenades = 0;
@@ -348,7 +412,7 @@ static int test_crate_order_travel(void) {
                 start = (ivec2_t){x, y}; goal = (ivec2_t){x + 4, y}; found = true; break;
             }
     if (!found || !squad) return fail("find reachable crate path");
-    place(leader, start); place(follower, start); place(box, goal);
+    place(leader, start); place(follower, start); place_crate(box, goal);
     ticcmd_t pickup = {.order = TC_ORDER, .position = box->core.position,
                        .count = 2, .units = {leader->id, follower->id}};
     G_RunTiccmd(0, &pickup);
@@ -392,8 +456,7 @@ static int test_crate_reach(void) {
         return fail("crate reach fixture");
     Z_SetTeam(robot, 0);
     ivec2_t origin = {320, 320};
-    box->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(ivec2_add(origin,
-        (ivec2_t){size.w / 2, size.h / 2})), FIXED_ONE / Z_TILE), 0);
+    place_crate(box, (ivec2_t){20, 20});
     const ivec2_t outside[] = {{16,0}, {-16,0}, {0,16}, {0,-16}};
     for (size_t i = 0; i < sizeof(outside) / sizeof(*outside); ++i) {
         fixed2_t at;
@@ -408,7 +471,12 @@ static int test_crate_reach(void) {
         return fail("crate robot origin");
     robot->core.position = fixed3_from_fixed2(at, 0);
     Z_Ticker();
-    if (!box->remove || robot->z.grenades != 20) return fail("crate square includes diagonal corner");
+    if (box->remove || robot->z.grenades) return fail("adjacent terrain does not dispatch pickup");
+    if (!Z_UnitCentre(map, Z_UnitType(robot), ivec2_add(origin, (ivec2_t){7,7}), &at))
+        return fail("crate marked tile origin");
+    robot->core.position = fixed3_from_fixed2(at, 0);
+    Z_Ticker();
+    if (!box->remove || robot->z.grenades != 20) return fail("marked terrain dispatches pickup");
     rts_game_model_destroy(model);
     puts("PASS: z crate pickup uses native strict square and sprite origins");
     return 0;
@@ -563,6 +631,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_crate_slot_order() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

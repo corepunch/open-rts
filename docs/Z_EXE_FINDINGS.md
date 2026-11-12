@@ -2940,7 +2940,7 @@ covers all four exclusive boundaries, the diagonal corner and existing squad
 sharing. The current engine still invokes collection from its per-tic robot
 pass; this does not establish exact native terrain-dispatch timing.
 
-**Terrain-dispatch correction, confirmed but not yet implemented:** The
+**Terrain-dispatch correction, confirmed and implemented:** The
 strict square above is the test *inside* the pickup handler, not by itself a
 sufficient condition for a pickup. `0x796cb..0x796f1` samples the terrain
 cell containing the robot's native origin plus (8,8). At `0x7984a` terrain
@@ -2964,12 +2964,17 @@ independent 0x24 overlay would not reproduce this behavior. Inspect with
 'pd 6 @ 0x79924' -c 'px 1 @ 0x11580e' -c 'pxw 4 @ 0x14ad34' -c 'pd 55 @
 0x4a1f1' -c 'pd 12 @ 0x79bbe' -c q data/Z/ZED.EXE`.
 
-Open-rts does not yet maintain these effect-authored terrain changes or the
-saved +0x14 byte, and its cliff rebuild reconstructs terrain from a separate
-ground plane. Applying just the crate gate would suppress real pickups until
-the object stamping, ordered restoration and their save/load interaction are
-implemented together. Other effect removal and cliff-rebuild interactions
-remain to be traced; current per-tic square behavior is an approximation.
+Open-rts stamps represented map objects in native record order, saves and
+hashes effect +0x14, gates pickup on the sampled tile and restores the saved
+byte on pickup. Crate destruction still follows its separately traced 0x16
+terrain change. `test_capture` checks a neighboring unmarked tile, overlapping
+crate order and saved bytes across reload, restoration across reload, and
+non-crate 0x24/0x2e markers. Objects which the existing loader cannot
+represent or cannot load a sprite for do not stamp terrain. Its cliff rebuild
+reconstructs terrain from the saved ground plane and may overwrite object
+marks on cliff cells; the exact interaction of subsequent native cliff
+rebuilding and effect removal remains unknown. The once-per-tic handler
+dispatch also remains an approximation of native update timing.
 
 **Confirmed slot-order correction:** `0x79bea..0x79c38` divides the crate
 total by group +0x12, then traverses the 21 member slots beginning at +0x13.
