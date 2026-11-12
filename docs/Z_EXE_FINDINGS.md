@@ -181,6 +181,24 @@ mobile units. `test_capture` checks the exclusive 7-pixel and inclusive
 bin.cache=true -c 'pd 12 @ 0x796cb' -c 'pd 25 @ 0x79936' -c q
 data/Z/ZED.EXE`.
 
+**Stationary guns can capture:** the common active-unit pass
+`0x6040c..0x60412` reaches `0x60568` and calls the terrain dispatcher unless
+unit +0x67 bit 0x40 is set. `0x7983f` applies the four-cell extension only
+to class 1; terrain 0x23 maps through `0x11580d` to table entry 6 at
+`0x14ad30`, the flag handler `0x79ddc`. That handler has no mobile-only
+gate, and its helper `0x79f5f` explicitly recognizes a class-2 taker. The
+prior engine mobile-only gate therefore incorrectly excluded all manned
+guns. All four gun types now capture from their single native sampled cell,
+not the vehicle's 2x2 probe; neutral unoccupied guns remain ineligible.
+`test_capture` checks each gun at both sides of the sample boundary and
+verifies the neutral case. Ordinary gun placement restricts flag terrain, so
+this principally matters when a later terrain or flag rebuild places 0x23
+under an existing gun. The engine still approximates native +0x67 bit 0x40
+with its existing live/team/traits eligibility. Reproduce with `r2 -q -e
+bin.cache=true -c 'pd 16 @ 0x6040c' -c 'pd 18 @ 0x60552' -c 'pd 16 @
+0x79833' -c 'px 1 @ 0x11580d' -c 'pxw 4 @ 0x14ad30' -c 'pd 38 @ 0x79f3f'
+-c q data/Z/ZED.EXE`.
+
 **Flag terrain and territory dispatch, confirmed and implemented:** `0x2a89f` writes
 terrain 0x23 at each active flag location, preserving bit 7, and is called
 again during capture at `0x79e7b`. A subsequent map effect can overwrite

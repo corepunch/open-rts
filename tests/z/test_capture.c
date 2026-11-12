@@ -117,7 +117,8 @@ static int test_flags(void) {
 }
 
 static int test_flag_origin_boundary(void) {
-    const int types[] = {MT_UNIT_GRUNT, MT_UNIT_JEEP, MT_UNIT_FIRE_TRUCK};
+    const int types[] = {MT_UNIT_GRUNT, MT_UNIT_JEEP, MT_UNIT_FIRE_TRUCK, MT_UNIT_LIGHT_GUN,
+                         MT_UNIT_MISSILE_GUN, MT_UNIT_GATLING, MT_UNIT_HOWITZER};
     for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
         RtsGameModel *model = load();
         if (!model) return fail("load flag origin fixture");
@@ -138,7 +139,9 @@ static int test_flag_origin_boundary(void) {
         mobj_t *unit = P_SpawnMobj((fixed3_t){0}, types[i]);
         if (!unit) return fail("spawn flag boundary unit");
         Z_SetTeam(unit, 0); Z_SetTeam(flag, 1);
-        int left = Z_IsRobot(Z_UnitType(unit)) ? 1 : 2;
+        if (unit->info->traits & MF_TURRET) unit->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        bool vehicle = !Z_IsRobot(Z_UnitType(unit)) && (unit->info->traits & MF_MOBILE);
+        int left = vehicle ? 2 : 1;
         ivec2_t origin = {(flag_cell.x - left) * Z_TILE + 7, flag_cell.y * Z_TILE};
         fixed2_t centre;
         if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag unit origin");
@@ -149,9 +152,15 @@ static int test_flag_origin_boundary(void) {
         origin.x++;
         if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag unit inclusive boundary");
         unit->core.position = fixed3_from_fixed2(centre, 0);
+        if (unit->info->traits & MF_TURRET) {
+            Z_SetTeam(unit, Z_NEUTRAL); unit->z.driver = 0;
+            Z_Ticker();
+            if (flag->team != 1) return fail("unmanned neutral gun does not capture a flag");
+            Z_SetTeam(unit, 0); unit->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        }
         Z_Ticker();
         if (flag->team != 0) return fail("native sample includes eight-pixel boundary");
-        if (!Z_IsRobot(Z_UnitType(unit))) {
+        if (vehicle) {
             for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
                 ivec2_t sample = ivec2_sub(flag_cell, (ivec2_t){x,y});
                 origin = ivec2_sub(ivec2_scale(sample, Z_TILE), (ivec2_t){8,8});

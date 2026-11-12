@@ -1070,15 +1070,16 @@ void A_ZBlastHit(mobj_t *missile) { blast_units(missile, blast_impact(missile));
 /* ── flags ────────────────────────────────────────────────────────────── */
 
 /* 0x796cb samples native origin +(8,8); 0x79936 also probes the cells
- * right and below it for a class-1 vehicle. Guns never move. */
+ * right and below it for a class-1 vehicle. */
 static bool on_flag(const mobj_t *unit) {
     const zmap_t *map = level.native_data;
     int t = Z_UnitType(unit);
-    if (!map || !live(unit) || t < 0 || unit->team >= Z_NEUTRAL || !(unit->traits & MF_MOBILE)) return false;
+    if (!map || !live(unit) || t < 0 || unit->team >= Z_NEUTRAL ||
+        (!(unit->traits & MF_MOBILE) && !(unit->info && (unit->info->traits & MF_TURRET)))) return false;
     ivec2_t pixel = ivec2_add(Z_AITopLeft(unit), (ivec2_t){8,8});
     if (pixel.x < 0 || pixel.y < 0) return false;
     ivec2_t cell = {pixel.x / Z_TILE, pixel.y / Z_TILE};
-    int span = Z_IsRobot(t) ? 1 : 2;
+    int span = !Z_IsRobot(t) && unit->info && (unit->info->traits & MF_MOBILE) ? 2 : 1;
     for (int y = 0; y < span; ++y) for (int x = 0; x < span; ++x) {
         ivec2_t probe = ivec2_add(cell, (ivec2_t){x,y});
         if (L_Contains(&level, probe.x, probe.y) &&
