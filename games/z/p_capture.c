@@ -502,6 +502,14 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
     }
     return true;
 }
+static int bullet_hit_damage(const mobj_t *attacker, mobj_t *target, int damage, unsigned shot) {
+    int victim = Z_UnitType(target);
+    if (victim < 0 || Z_IsRobot(victim)) return damage;
+    if (attacker && hit_driver(attacker, target, damage, shot)) return 0;
+    damage -= 5;
+    return damage > 0 ? damage : attacker ? (int)((leveltime + attacker->id + target->id + shot) & 1) : 0;
+}
+
 static int hit_damage(const mobj_t *attacker, mobj_t *target, int damage, int divisor, unsigned shot) {
     int firing = Z_UnitType(attacker);
     if (firing == MT_UNIT_APC - MT_UNITS) {
@@ -514,12 +522,7 @@ static int hit_damage(const mobj_t *attacker, mobj_t *target, int damage, int di
         }
     }
     damage /= divisor ? divisor : 1;
-    int victim = Z_UnitType(target);
-    if (!attacker || victim < 0 || Z_IsRobot(victim) || !fires_bullets(firing)) return damage;
-    if (hit_driver(attacker, target, damage, shot)) return 0;
-    damage -= 5;
-    /* Deterministic stand-in for the native coin: same on every peer. */
-    return damage > 0 ? damage : (int)((leveltime + attacker->id + target->id + shot) & 1);
+    return attacker && fires_bullets(firing) ? bullet_hit_damage(attacker, target, damage, shot) : damage;
 }
 
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
@@ -735,11 +738,14 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
 }
 
 static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
+    static const ivec2_t apc_port[] = {{5,-4},{14,-4},{21,3},{17,11},{11,14},{3,15},{-4,8},{-1,1}};
     ivec2_t origin = Z_AITopLeft(attacker);
     bool gatling = attacker->type_id == MT_UNIT_GATLING;
     bool jeep = attacker->type_id == MT_UNIT_JEEP;
+    bool apc = attacker->type_id == MT_UNIT_APC;
     int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
-    ivec2_t start = jeep ? jeep_origin(attacker) : ivec2_add(origin, gatling ? gun_pivot[facing] : (ivec2_t){2,2});
+    ivec2_t start = jeep ? jeep_origin(attacker) : ivec2_add(origin, apc ? apc_port[facing] : gatling ? gun_pivot[facing] : (ivec2_t){2,2});
+    if (apc && attacker->z.driver == MT_UNIT_LASER - MT_UNITS + 1) start = ivec2_sub(start, (ivec2_t){7,7});
     ivec2_t aim = Z_AITopLeft(target);
     if (gatling) aim = scatter_aim(attacker, start, ivec2_add(aim, (ivec2_t){0,12}), 4);
     else if (jeep) aim = scatter_aim(attacker, start, ivec2_add(aim, (ivec2_t){12,8}), 4);
@@ -766,7 +772,7 @@ static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *tar
     bullet->z.water.minor = dy > dx ? dx : dy;
     bullet->z.water.error = bullet->z.water.major / 2;
     bullet->z.water.speed = 15; /* ROBOTS.DAT weapons 2, 4, 7, 11, 13 and 18 +0x23 */
-    bullet->z.water.range = (int)((int64_t)weapon->range * Z_TILE / FIXED_ONE) + (jeep ? 8 : 0);
+    bullet->z.water.range = (int)((int64_t)weapon->range * Z_TILE / FIXED_ONE) + (jeep || apc ? 8 : 0);
     const zmap_t *map = level.native_data;
     bullet->z.water.height = map && start.x >= 0 && start.y >= 0 ? Z_TerrainHeight(map, start.x / Z_TILE, start.y / Z_TILE) + 1 : 0;
 }
@@ -832,6 +838,12 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
                 P_DamageMobj(target, attacker, driver->attack.damage);
         }
         if (t == MT_UNIT_PYRO - MT_UNITS) return true;
+    }
+    if (apc && fires_bullets(t) && target && weapon && Z_UnitType(target) >= 0) {
+        const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));
+        int count = attacker->z.crew_count ? attacker->z.crew_count : 1;
+        if (driver) for (int i = 0; i < count; ++i) fire_bullet(attacker, &driver->attack, target);
+        return true;
     }
     if (apc && fires_bullets(t) && target && weapon) {
         int count = attacker->z.crew_count ? attacker->z.crew_count : 1;
@@ -1042,8 +1054,8 @@ static bool bullet_hit(mobj_t *bullet, ivec2_t at) {
             int extent = !Z_IsRobot(Z_UnitType(victim)) && victim->info && (victim->info->traits & MF_MOBILE) ? 16 : 8;
             if (abs(d.x) > extent || abs(d.y) > extent) continue;
             mobj_t *source = bullet->target;
-            int damage = source ? hit_damage(source, victim, bullet->missile.damage, 1, 0) :
-                (Z_IsRobot(Z_UnitType(victim)) ? bullet->missile.damage : bullet->missile.damage > 5 ? bullet->missile.damage - 5 : 0);
+            unsigned shot = source && source->type_id == MT_UNIT_APC ? bullet->id : 0;
+            int damage = bullet_hit_damage(source, victim, bullet->missile.damage, shot);
             if (damage > 0) P_DamageMobj(victim, source, damage);
             else if (source) P_ProvokeMobj(victim, source);
             return true;

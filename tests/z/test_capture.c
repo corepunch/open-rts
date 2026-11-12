@@ -870,7 +870,8 @@ static int test_apc_crew(void) {
     if (!victim || armor_hit < 0 || armor_hit > 1 || Z_HitDamage(apc, NULL, victim, 5, 1) != 5)
         return fail("each APC crew bullet uses one driver's weapon");
     int hp = victim->hp;
-    if (!Z_Attack(apc, &apc->info->attack, victim) || victim->hp != hp - 10)
+    if (!Z_Attack(apc, &apc->info->attack, victim) || victim->hp != hp ||
+        !nth(MT_BULLET, 0, 0) || !nth(MT_BULLET, 0, 1) || nth(MT_BULLET, 0, 2))
         return fail("APC fires one bullet per crew member");
     if (apc->z.crew[0].flame_phase != 4 || apc->z.crew[1].flame_phase != 13)
         return fail("non-Pyro APC firing advances crew phases");

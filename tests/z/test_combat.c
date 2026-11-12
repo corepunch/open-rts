@@ -736,48 +736,109 @@ static int test_gun_drivers(void) {
 }
 
 static int test_apc_bullet_salvo(void) {
+    static const ivec2_t port[] = {{5,-4},{14,-4},{21,3},{17,11},{11,14},{3,15},{-4,8},{-1,1}};
+    static const int drivers[] = {MT_UNIT_GRUNT, MT_UNIT_SNIPER, MT_UNIT_PSYCHO, MT_UNIT_LASER};
+    static const int ranges[] = {128, 152, 128, 144}, damages[] = {5, 10, 2, 15};
     RtsGameModel *model = load();
     if (!model) return fail("load for APC bullet salvo");
-    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    zmap_t *map = level.native_data;
+    for (int y = 38; y <= 43; ++y) for (int x = 38; x <= 49; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
+    fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
-    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 500);
-    mobj_t *tank = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 32, 0), 500);
-    if (!apc || !robot || !tank) return fail("spawn APC bullet salvo fixture");
-    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 112, 0), 500);
+    mobj_t *blocker = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 500);
+    if (!apc || !robot || !blocker) return fail("spawn APC bullet salvo fixture");
+    apc->z.body_tracked = true; apc->z.body_accuracy = 127;
     apc->z.crew_count = 3;
-    if (!Z_Attack(apc, &apc->info->attack, robot) || robot->hp != 485)
-        return fail("three Grunt bullets independently hit infantry");
+    ivec2_t origin = Z_AITopLeft(apc);
+    for (int d = 0; d < 4; ++d) for (int facing = 0; facing < 8; ++facing) {
+        apc->z.driver = drivers[d] - MT_UNITS + 1;
+        apc->core.angle = direction_to_angle(facing, 8, ANG90, true);
+        if (!Z_Attack(apc, &apc->info->attack, robot)) return fail("launch APC salvo");
+        ivec2_t start = ivec2_add(origin, port[facing]);
+        if (drivers[d] == MT_UNIT_LASER) start = ivec2_sub(start, (ivec2_t){7,7});
+        for (int i = 0; i < 3; ++i) {
+            mobj_t *bullet = nth(MT_BULLET, 0, i);
+            if (!bullet || !ivec2_equal(bullet->z.water.start, start) || bullet->z.water.speed != 15 ||
+                bullet->z.water.range != ranges[d] || bullet->missile.damage != damages[d])
+                return fail("APC salvo uses driver stats and native port");
+        }
+        if (nth(MT_BULLET, 0, 3) || robot->hp != 500) return fail("APC launches three separate bullets");
+        for (int i = 0; i < 3; ++i) P_RemoveMobj(nth(MT_BULLET, 0, 0));
+    }
+    disarm_except(0, apc);
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    apc->core.angle = direction_to_angle(2, 8, ANG90, true);
+    apc->attack.target = robot;
+    P_UpdateSight();
+    if (!P_Attack(apc) || robot->hp != 500 || !nth(MT_BULLET, 0, 2)) return fail("APC attack launches salvo");
+    apc->traits &= ~MF_ATTACK;
+    if (!tick(model, 1) || !nth(MT_BULLET, 0, 2) || blocker->hp != 500) return fail("APC salvo remains in flight");
+    uint32_t apc_id = apc->id, robot_id = robot->id, blocker_id = blocker->id, hash = G_Consistency();
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "APC salvo", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save APC salvo");
+    free(save);
+    apc = P_MobjById(apc_id); robot = P_MobjById(robot_id); blocker = P_MobjById(blocker_id);
+    if (!apc || !robot || !blocker || !nth(MT_BULLET, 0, 2) || G_Consistency() != hash)
+        return fail("restore APC salvo");
     apc->z.driver = MT_UNIT_SNIPER - MT_UNITS + 1;
-    if (!Z_Attack(apc, &apc->info->attack, tank) || tank->hp != 485)
-        return fail("vehicle armor is applied to each Sniper bullet");
-    mobj_t *jeep = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 32, 0), 500);
+    for (int n = 0; n < 8 && nth(MT_BULLET, 0, 0); ++n)
+        if (!tick(model, 1)) return fail("tick APC salvo");
+    if (nth(MT_BULLET, 0, 0) || blocker->hp != 485 || robot->hp != 500)
+        return fail("APC bullets retain launch damage and hit intervening unit");
+    P_RemoveMobj(robot); P_RemoveMobj(blocker);
+    mobj_t *jeep = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 80, 0), 500);
     if (!jeep) return fail("spawn APC driver-hit fixture");
-    jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
-    bool mixed = false;
-    for (int i = 0; i < 128 && !mixed; ++i, ++leveltime) {
+    jeep->traits &= ~(MF_ATTACK | MF_MOBILE);
+    bool mixed = false, neutral = false;
+    for (int n = 0; n < 128 && !mixed; ++n) {
         jeep->hp = 500; jeep->z.crew_hurt = 0;
-        if (!Z_Attack(apc, &apc->info->attack, jeep)) return fail("fire at APC driver-hit fixture");
+        jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        jeep->z.crew_count = 1;
+        jeep->z.crew[0] = (zcrew_t){.hp = 200, .type = MT_UNIT_GRUNT - MT_UNITS};
+        if (!Z_Attack(apc, &apc->info->attack, jeep)) return fail("launch APC driver-hit salvo");
+        for (int t = 0; t < 8 && nth(MT_BULLET, 0, 0); ++t)
+            if (!tick(model, 1)) return fail("tick APC driver-hit salvo");
         mixed = jeep->z.crew_hurt && jeep->hp < 500;
     }
-    if (!mixed)
-        return fail("APC bullets independently hit driver and armored body");
-    bool stopped = false;
-    for (int i = 0; i < 128 && !stopped; ++i, ++leveltime) {
-        Z_SetTeam(jeep, 1);
+    if (!mixed) return fail("independent APC bullets hit driver and armored body");
+    for (int n = 0; n < 128 && !neutral; ++n) {
         jeep->hp = 500; jeep->z.crew_hurt = 0;
         jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
         jeep->z.crew_count = 1;
         jeep->z.crew[0] = (zcrew_t){.hp = 1, .type = MT_UNIT_GRUNT - MT_UNITS};
-        if (!Z_Attack(apc, &apc->info->attack, jeep)) return fail("fire fatal APC driver salvo");
-        stopped = jeep->team == Z_NEUTRAL && jeep->hp == 500;
+        if (!Z_Attack(apc, &apc->info->attack, jeep)) return fail("launch fatal APC salvo");
+        for (int t = 0; t < 24 && nth(MT_BULLET, 0, 0) && !neutral; ++t) {
+            A_ZBullet(nth(MT_BULLET, 0, 0));
+            neutral = jeep->team == Z_NEUTRAL;
+        }
+        if (neutral) {
+            mobj_t *remaining = nth(MT_BULLET, 0, 0);
+            if (!remaining) return fail("fatal hit leaves another bullet in flight");
+            uint32_t remaining_id = remaining->id;
+            int hp = jeep->hp;
+            ivec2_t jeep_origin = Z_AITopLeft(jeep);
+            ivec2_t start = ivec2_add(jeep_origin, (ivec2_t){-30, 8});
+            fixed2_t control_pos = fixed2_scale(fixed2_from_cell(ivec2_add(jeep_origin, (ivec2_t){8, 8})), FIXED_ONE / Z_TILE);
+            mobj_t *control = blast_unit(MT_UNIT_GRUNT, 1, control_pos, 500);
+            if (!control) return fail("spawn target behind neutralized Jeep");
+            remaining->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE), 0);
+            remaining->z.water.start = start;
+            remaining->z.water.direction = (ivec2_t){1, 0};
+            remaining->z.water.vertical = 0;
+            remaining->z.water.major = remaining->z.water.remaining = 90;
+            remaining->z.water.minor = 0;
+            remaining->z.water.error = 45;
+            for (int t = 0; t < 8 && P_MobjById(remaining_id); ++t)
+                A_ZBullet(P_MobjById(remaining_id));
+            if (P_MobjById(remaining_id) || jeep->hp != hp || control->hp >= 500)
+                return fail("remaining bullet crosses neutralized Jeep and hits control target");
+        }
     }
-    if (!stopped) return fail("APC stops salvo after target driver is killed");
-    robot->hp = 500;
-    apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
-    apc->attack.target = robot;
-    P_UpdateSight();
-    if (!P_Attack(apc) || robot->hp != 440)
-        return fail("three eligible APC Pyros each hit");
+    if (!neutral) return fail("APC bullet neutralizes Jeep after fatal driver hit");
     rts_game_model_destroy(model);
     return 0;
 }

@@ -3510,10 +3510,7 @@ bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
 (`p_capture.c`). The random coin is a deterministic hash of the tic and the
 two units, not the native stream.
 
-Engine boundaries, **not** native equivalence: APC bullets still
-hit instantly and never miss (native bullets travel and scatter by accuracy),
-so their fire remains more reliable than retail;
-shells now apply their existing engine damage over the candidate box below;
+Engine boundaries, **not** native equivalence: shells apply their existing engine damage over the candidate box below;
 vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
 terrain speed terms and the Pyro flame (`0x5a099`) remain incomplete. The
@@ -3580,8 +3577,7 @@ deterministic combat RNG to one launch-time tracked-aim sample, rather than
 the native cached aim and its additional 0x773bd scatter; impact after the
 source has been removed uses the recorded damage with a simplified armor
 fallback. The separate `0x5abad` terrain-table gate, bullet drawing, exact
-unit-slot and cross-projectile update order remain unimplemented. Other bullet
-APC bullet salvos retain their former instantaneous behavior.
+unit-slot and cross-projectile update order remain unimplemented.
 Sniper and Psycho use the same `0x77364..0x773cd` firing path as Grunt;
 Laser's `0x77542..0x77577` also adds (2,2), scatters and calls `0x5af81`,
 with additional visual flags. The engine uses the same invisible projectile
@@ -4621,3 +4617,26 @@ faithful port also needs those selection timing transitions. Reproduce with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9de4a'
 -c 'pd 35 @ 0x999e5' -c 'pd 25 @ 0x26ab4' -c 'pd 45 @ 0x420a2'
 -c 'pd 35 @ 0x42eef' -c 'pd 15 @ 0x414d8' -c q data/Z/ZED.EXE`.
+
+**APC bullet salvo:** In the coordinate-target loop `0x1eb04..0x1ebee`,
+each crew member dispatches through `0x1ec13` with port index zero.
+For bullet drivers `0x1ed92` reads the first facing-indexed word pair from
+`0x12db1e` and subtracts (6,6); Laser additionally subtracts (7,7) at
+`0x1f05d`. `0x1effd` calls tracked-target aim `0x75cc1`, and `0x1f086`
+increments the spawned bullet's range byte by one (eight pixels). The
+bullet record stores the firing damage on creation. The engine now launches
+one ordinary saved bullet per crew member for Grunt, Sniper, Psycho and
+Laser against unit targets, with that port and the driver's damage and
+range. A later driver change therefore does not alter a bullet in flight.
+`tests/z/test_combat.c` checks all eight facings and four drivers, actual
+flight, interception, and save/load before changing driver. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x1eb04'
+-c 'pd 110 @ 0x1ed92' -c 'pd 75 @ 0x1effd' -c 'px 192 @ 0x12db1e'
+-c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_combat`.
+
+The engine maps its current unit target to the native tracked-target input
+and samples its deterministic scatter independently at launch. Native
+`0x1ee09` reads the global tracked slot even in the coordinate path; its
+lifecycle and cached-aim refresh are not represented. Scanner mode's
+separate 12-port-attempt selection, non-unit target dispatch, native random
+stream and exact unit-slot update order remain approximations or unknown.
