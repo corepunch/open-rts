@@ -51,6 +51,14 @@ static int bank(void) {
     printf("StarCraft: %d native WAV samples and %d sound groups loaded\n", loaded, groups);
     CHECK(loaded > 700 && groups > 100);
     CHECK(named(gameinfo->sound->ui[UI_SOUND_CLICK], "Misc\\Button.wav"));
+    sc_mission_t mission={0}; level.mission=&mission;
+    const char *const placement[]={"ZBldgPlc.wav","TBldgPlc.wav","PBldgPlc.wav"};
+    for(int race=0;race<3;race++) {
+        mission.side[0]=(uint8_t)race;
+        CHECK(named(sc_placement_sound(true,0),placement[race]));
+        CHECK(named(sc_placement_sound(false,0),"Buzz.wav"));
+    }
+    level.mission=NULL;
     CHECK(sc_dialog_click && named(sc_dialog_click, "glue\\mousedown2.wav"));
     int handle = S_StartLocalSound(sc_dialog_click);
     CHECK(handle && S_IsPlaying(handle));
@@ -75,6 +83,26 @@ static int briefing_voice(void) {
         CHECK(!sc_brief_voice_playing());
     }
     CHECK(S_Sfx(count) && !S_Sfx(count + 1));
+    return 0;
+}
+
+static int music(void) {
+    int id = 1; while (S_Sfx(id) && !S_Sfx(id)->music) ++id;
+    CHECK(S_Sfx(id));
+    app_t app = {0};
+    S_UpdateSounds(&app, NULL);
+    CHECK(S_Sfx(id)->data && !strcmp(S_Sfx(id)->name, "music/title.wav"));
+    S_SetVolume(0); S_SetMusicVolume(60);
+    CHECK(snd_volume == 0 && snd_music_volume == 60);
+    sc_mission_t mission = {0}; mission.side[0] = 0;
+    level.mission = &mission;
+    S_UpdateSounds(&app, &level);
+    CHECK(S_Sfx(id)->data && strstr(S_Sfx(id)->name, "music/zerg"));
+    mission.side[0] = 2; S_UpdateSounds(&app, &level);
+    CHECK(S_Sfx(id)->data && strstr(S_Sfx(id)->name, "music/protoss"));
+    level.mission = NULL; S_UpdateSounds(&app, NULL);
+    CHECK(S_Sfx(id)->data && !strcmp(S_Sfx(id)->name, "music/title.wav"));
+    S_SetVolume(100); S_SetMusicVolume(100);
     return 0;
 }
 
@@ -163,6 +191,7 @@ int main(void) {
     CHECK(S_Init(root));
     RTS_RUN(bank());
     RTS_RUN(briefing_voice());
+    RTS_RUN(music());
     RTS_RUN(responses());
     P_FreeThinkers();
     P_InitThinkers();

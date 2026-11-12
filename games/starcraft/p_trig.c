@@ -102,7 +102,7 @@ static bool slot_active(const sc_mission_t *m, int p) {
 
 static bool allied_to(int self, int other) {
     return self >= 0 && self < 8 && other >= 0 && other < 8 &&
-        (level.sight.allies[self] & (UINT32_C(0x40000000) >> other));
+        (G_AllianceMasks(&level)[self] & (UINT32_C(0x40000000) >> other));
 }
 
 /* PyMS TRG.py player ids: 0..11 players, 13 Current Player, 14 Foes,
@@ -353,7 +353,6 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     if ((special & 16) && (state & 16)) mo->sc.flags |= SC_INVINCIBLE;
     if ((special & 8) && (state & 8)) mo->sc.flags |= SC_HALLUCINATION;
     if (mo->hp < 1 && !(mo->sc.flags & SC_INVINCIBLE)) mo->hp = 1;
-    mo->sc.guard_hp = mo->hp;
 }
 
 static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
@@ -390,14 +389,11 @@ static void alter_resource(int player, int which, int mod, int amount) {
 
 static void set_alliance(int a, int b, int status) {
     if (a < 0 || b < 0 || a >= 8 || b >= 8 || a == b) return;
-    uint32_t ab = UINT32_C(0x40000000) >> b, ba = UINT32_C(0x40000000) >> a;
-    if (status == 0) {
-        level.sight.allies[a] &= ~ab;
-        level.sight.allies[b] &= ~ba;
-    } else {
-        level.sight.allies[a] |= ab;
-        level.sight.allies[b] |= ba;
-    }
+    sc_mission_t *m = mission(&level);
+    if (!m) return;
+    uint32_t bit = UINT32_C(0x40000000) >> b;
+    if (status == 0) m->allies[a] &= ~bit;
+    else m->allies[a] |= bit;
 }
 
 static void finish_trigger(sc_trig_t *st) {
@@ -541,14 +537,13 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                     if (a[27] == 4) mo->sc.flags |= SC_INVINCIBLE;
                     else if (a[27] == 5) mo->sc.flags &= (uint8_t)~SC_INVINCIBLE;
                     else if (a[27] == 6) mo->sc.flags ^= SC_INVINCIBLE;
-                    mo->sc.guard_hp = mo->hp;
                 } else if (id == 48 && number < 8) {
                     mo->owner = mo->team = (uint8_t)number;
                     mo->allegiance = sc_allegiance_for((uint8_t)number);
                 } else if (id == 49) {
                     unsigned pct = read_u32_le(a + 8);
                     if (!pct) P_DamageMobj(mo, NULL, mo->hp > 0 ? mo->hp : 1);
-                    else { mo->hp = mo->max_hp * (int)pct / 100; if (mo->hp < 1) mo->hp = 1; mo->sc.guard_hp = mo->hp; }
+                    else { mo->hp = mo->max_hp * (int)pct / 100; if (mo->hp < 1) mo->hp = 1; }
                 }
             }
             continue;
@@ -627,19 +622,10 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
             }
         }
     }
-    if (thinkercap.next) for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *mo = (mobj_t *)th;
-        if (th->function == P_MobjThinker && mo->hp > 0 && !mo->remove) mo->sc.guard_hp = mo->hp;
-    }
 }
 
 void sc_note_damage(mobj_t *mo) {
     if (!mo) return;
-    if (mo->sc.flags & SC_INVINCIBLE) {
-        if (mo->sc.guard_hp > 0) mo->hp = mo->sc.guard_hp;
-        else if (mo->hp < 1) mo->hp = 1;
-        return;
-    }
     if (mo->hp > 0) return;
     sc_mission_t *m = mission(&level);
     if (!m || mo->owner >= 8 || !mo->type_id || mo->type_id > SC_TYPES) return;
@@ -692,12 +678,16 @@ bool sc_mission_bind(level_t *map) {
     }
     map->player_teams = true;
     for (int a = 0; a < 8; a++) {
-        uint32_t mask = UINT32_C(0x40000000) >> a;
+        uint32_t mask = UINT32_C(0x40000000) >> a, vision = mask;
         int force = m->force[a];
         bool allied = force < 4 && (m->force_flags[force] & 2);
-        for (int b = 0; b < 8; b++)
-            if (a == b || (allied && m->force[b] == force)) mask |= UINT32_C(0x40000000) >> b;
-        map->sight.allies[a] = mask;
+        bool shared = force < 4 && (m->force_flags[force] & 16);
+        for (int b = 0; b < 8; b++) {
+            if (allied && m->force[b] == force) mask |= UINT32_C(0x40000000) >> b;
+            if (shared && m->force[b] == force) vision |= UINT32_C(0x40000000) >> b;
+        }
+        m->allies[a] = mask;
+        map->sight.allies[a] = vision;
     }
     m->rng = 1;
     return true;

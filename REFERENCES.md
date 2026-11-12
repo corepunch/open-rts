@@ -86,6 +86,10 @@
 
 ### Z remake sources and Stargus reference recheck (2026-11-12)
 
+The [module coverage inventory](docs/REFERENCE_IMPLEMENTATION_COVERAGE.md)
+tracks the inspected gameplay and AI groups, verified reference behavior,
+conflicts with native findings, focused tests, and outstanding comparisons.
+
 Zod's `src/zplayer_events.cpp` binds Ctrl+0–9 to assign a selection and
 0–9 to recall it; `src/zplayer.cpp` `LoadControlGroup` centres the view when
 the group is already selected. The shared input implementation centres when
@@ -2635,6 +2639,15 @@ assumptions, intentional differences and remaining gaps are preserved in
 - Detailed addresses, fingerprints, the correction from PBM to planar ILBM,
   reproducible tests, and remaining unknowns are recorded in
   [Z front-end findings](docs/Z_EXE_FINDINGS.md#retail-main-menu-and-multiplayer-setup-2026-10-18).
+
+### StarCraft diplomacy (2026-11-12)
+
+- [Blizzard's StarEdit trigger FAQ](https://classic.battle.net/scc/faq/triggers.shtml)
+  states that Set Alliance Status changes only the current player's status;
+  reciprocal alliances require both players to set their own status. This
+  corrects the prior symmetric trigger implementation. The native dialog,
+  force flag evidence, reproducible tests and remaining Allied Victory limit
+  are in [StarCraft findings](docs/SC_EXE_FINDINGS.md#options-and-saved-game-dialogs-2026-11-12).
 
 ## Android build dependencies
 

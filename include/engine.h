@@ -1742,6 +1742,7 @@ typedef struct sfxinfo_s {
     int instances;      /* Simultaneous plays allowed; 0 is unlimited. */
     int volume;         /* Attenuation in centibels, <= 0 (DirectSound units). */
     bool loop;
+    bool music;        /* Uses the independent music volume. */
     int16_t links[MAXSFXLINKS]; /* Group members: sfx ids. */
     int numlinks;
     int next;           /* Group cursor: the member the next play uses. */
@@ -1784,7 +1785,7 @@ typedef struct soundinfo_s {
     void (*level_start)(const level_t *map, const char *data_root);
     /* Sfx id for an actor event, or 0. */
     int (*actor_sound)(const mobj_t *actor, soundevent_t event);
-    /* Once per rendered frame after the listener moves: ambience. */
+    /* Once per rendered frame; map is NULL in front-end menus. */
     void (*ticker)(const app_t *app, const level_t *map);
     int ui[NUMUISOUNDS]; /* Sfx ids; 0 is silent. */
     /* Distance attenuation in centibels per squared cell, and the silence
@@ -1794,7 +1795,8 @@ typedef struct soundinfo_s {
 } soundinfo_t;
 
 extern bool nosound;
-extern int snd_volume; /* Master volume percent, 0..100. */
+extern int snd_volume; /* Effects volume percent, 0..100. */
+extern int snd_music_volume; /* Music volume percent, 0..100. */
 
 /* Opens the audio device and loads the game's sounds. */
 bool S_Init(const char *data_root);
@@ -1821,8 +1823,9 @@ void S_StopSound(const mobj_t *origin);
 /* A freed origin keeps its one-shot sounds at its last position; loops stop. */
 void S_UnlinkMobj(const mobj_t *origin);
 void S_StopAllSounds(void);
-/* Sets snd_volume (0..100) and applies it to the sounds already playing. */
+/* Applies effects or music volume (0..100) to sounds already playing. */
 void S_SetVolume(int percent);
+void S_SetMusicVolume(int percent);
 bool S_IsPlaying(int handle);
 void S_StopChannel(int handle);
 /* Resolves the event through the game and plays it if the local player can

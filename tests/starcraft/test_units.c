@@ -23,6 +23,20 @@ static const StaticProductDefinition *product(int ui) { return G_ModelProductByU
 static void tick(int tics) {
     for (int t = 0; t < tics; t++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
 }
+/* Count native regeneration frames after the first wound. A unit's own
+ * status damage runs before its regeneration; external Storm runs after. */
+static int tick_wounded(mobj_t *unit, int tics, bool own_status) {
+    bool wounded = unit->hp < unit->max_hp || unit->sc.wound;
+    int frames = 0;
+    for (int t = 0; t < tics; ++t) {
+        int native = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
+        tick(1);
+        bool now = unit->hp < unit->max_hp || unit->sc.wound;
+        if (wounded || (own_status && now)) frames += native;
+        wounded |= now;
+    }
+    return frames;
+}
 /* Long enough for a product to finish (production counts whole milliseconds). */
 static void finish(int ui) { tick(G_ModelProductTrainingTimeMs(product(ui)) * RTS_TICRATE / 1000 * 21 / 20 + 2); }
 static void reset(void) {
@@ -339,8 +353,9 @@ static int protoss_spells(void) {
     G_RunTiccmd(0, &cmd);
     CHECK(sc_energy(ht) == 125 && count_of(MT_MAP_REVEALER, 0) == 1);
     CHECK(sc_cast(ht2, SC_TECH_PSIONIC_STORM, NULL, at_of(ultra)));
-    tick(frames(70));
-    CHECK(ultra->max_hp - ultra->hp == 112 && !P_MobjById(ling_id) && pool->hp == pool->max_hp);
+    int regen_frames = tick_wounded(ultra, frames(70), false);
+    CHECK((ultra->max_hp - ultra->hp) * 256 + ultra->sc.wound == 112 * 256 - regen_frames * 4 &&
+          !P_MobjById(ling_id) && pool->hp == pool->max_hp);
     CHECK(count_of(MT_MAP_REVEALER, 0) == 0);
     /* A cast from afar walks into range first. */
     ultra->hp = ultra->max_hp;
@@ -403,8 +418,9 @@ static int terran_spells(void) {
     uint32_t ling_id = ling->id;
     CHECK(!sc_cast(vessel, SC_TECH_IRRADIATE, NULL, at_of(ultra))); /* needs a unit */
     CHECK(sc_cast(vessel, SC_TECH_IRRADIATE, ultra, at_of(ultra)) && sc_energy(vessel) == 125);
-    tick(frames(37 * 8 + 16));
-    CHECK(ultra->max_hp - ultra->hp == 250 && !P_MobjById(ling_id) && goliath->hp == goliath->max_hp);
+    int regen_frames = tick_wounded(ultra, frames(37 * 8 + 16), true);
+    CHECK((ultra->max_hp - ultra->hp) * 256 + ultra->sc.wound == 250 * 256 - regen_frames * 4 &&
+          !P_MobjById(ling_id) && goliath->hp == goliath->max_hp);
     reset();
 
     /* Lockdown: a machine stands and holds fire; flesh is no target. */
@@ -526,8 +542,9 @@ static int zerg_spells(void) {
     marine = spawn(MT_MARINE, FIXED2_LIT(10.5, 4.5), 1);
     mobj_t *ultra = spawn(MT_ULTRALISK, FIXED2_LIT(11.3, 4.5), 1);
     CHECK(sc_cast(defiler, SC_TECH_PLAGUE, NULL, at_of(marine)) && sc_energy(defiler) == 50);
-    tick(frames(75 * 8 + 16));
-    CHECK(marine->hp == 1 && ultra->max_hp - ultra->hp == 300 && defiler->hp == defiler->max_hp);
+    int regen_frames = tick_wounded(ultra, frames(75 * 8 + 16), true);
+    CHECK(marine->hp == 1 && (ultra->max_hp - ultra->hp) * 256 + ultra->sc.wound == 300 * 256 - regen_frames * 4 &&
+          defiler->hp == defiler->max_hp);
     reset();
 
     /* Consume: an own zerg unit for 50 energy. */

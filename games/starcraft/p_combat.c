@@ -5,7 +5,7 @@
  * 1/256 points per 24 Hz frame. */
 enum {
     SC_UPGRADE_PLASMA_SHIELDS = 15,
-    SC_SHIELD_REGEN = 7, SC_ENERGY_REGEN = 8, SC_CLOAK_DRAIN = 13,
+    SC_HP_REGEN = 4, SC_BURN_DAMAGE = 20, SC_SHIELD_REGEN = 7, SC_ENERGY_REGEN = 8, SC_CLOAK_DRAIN = 13,
     SC_START_ENERGY = 50 << 8, SC_MAX_ENERGY = 200 << 8, SC_REACTOR_ENERGY = 50 << 8,
     /* An interceptor strikes once a pass; weapons.dat's cooldown of 1 is
      * its attack script's repeat, so this engine times a pass instead. */
@@ -261,6 +261,26 @@ static void sc_mobj_ticker(mobj_t *mo) {
     /* Lifted buildings keep their one pixel a frame; burrowed units stand. */
     if ((mo->traits & MF_MOBILE) && !(u->flags & SC_UNIT_BUILDING)) mo->speed = sc_unit_speed(mo);
     if (frames <= 0) return;
+    /* OpenBW update_unit_values heals completed units with the DAT regen
+     * flag by 4/256 HP per frame, including hidden and invincible units. */
+    if ((u->flags & SC_UNIT_REGENERATES) &&
+        !(mo->production && mo->production->product_class == RTS_PRODUCT_BUILDING) &&
+        (mo->hp < mo->max_hp || mo->sc.wound)) {
+        int64_t hp = (int64_t)mo->hp * 256 - mo->sc.wound + SC_HP_REGEN * frames;
+        int64_t max = (int64_t)mo->max_hp * 256;
+        if (hp > max) hp = max;
+        mo->hp = (int)((hp + 255) / 256);
+        mo->sc.wound = (uint8_t)((int64_t)mo->hp * 256 - hp);
+    }
+    /* Completed Terran buildings burn below one third, whether grounded or
+     * flying. Our construction sites are not mobjs until completed. */
+    if ((u->race & 2) && (u->flags & SC_UNIT_BUILDING) && mo->max_hp > 0 &&
+        (int64_t)mo->hp * 100 / mo->max_hp <= 33) {
+        int damage = mo->sc.wound + SC_BURN_DAMAGE * frames;
+        mo->sc.wound = (uint8_t)(damage & 255);
+        if (damage >= 256) P_DamageMobj(mo, NULL, damage >> 8);
+        if (mo->remove || mo->hp <= 0) return;
+    }
     if (mo->sc.shields < u->shields << 8) {
         mo->sc.shields += SC_SHIELD_REGEN * frames;
         if (mo->sc.shields > u->shields << 8) mo->sc.shields = u->shields << 8;

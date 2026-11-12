@@ -12,7 +12,7 @@ Stargus `scripts/menus/options.lua` applies speed and effects-volume changes
 from slider callbacks. The engine uses its own 10–200% speed and 0–10 sound
 settings; those ranges and rollback on Cancel are engine choices, not verified
 retail formulas. Multiplayer speed changes are disabled to preserve lockstep.
-Music, scroll speed and sound checkboxes remain unsupported and disabled.
+Scroll speed and sound checkboxes remain unsupported and disabled.
 
 `rez/savegame.bin` contains name field 2, list 1, Save 65534, Delete 3 and
 Cancel 65533; `rez/loadgame.bin` has list 1 and Load 65534. Their SHA-256
@@ -33,6 +33,59 @@ was examined, and retail save
 format and exact option behavior remain unknown. Reproduce the control catalog
 with `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_glue` and verify the
 menu actions with `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay`.
+
+**Music and shortcuts (Stargus behavior).** `scripts/sound.lua` plays title
+music in the menu and selects a random track from three race tracks during
+play; `scripts/commands.lua` maps F1/F5/F7/F8/F10/F11/F12 to Help, Options,
+Sound, Preferences, Game Menu, Save and Load. These are Stargus behaviors,
+not independently verified retail executable behavior. The native install has
+`music/title.wav` and `music/{terran,zerg,protoss}{1,2,3}.wav`, 16-bit stereo
+PCM at 22050 Hz. For example title and `terran1` SHA-256 are
+`289d139f6d920a334f0dd1127be2d0a2cc00902565b008bbc9b7972add0fe64c` and
+`c4aee48492dff7da213ff0afae28ae225d6a470828f69187e41084981806b45e`.
+One decoded music sample is retained at a time, using independent music and
+effects volume settings. A missing chosen track leaves that music mode silent
+until the next mode change; music streaming and exact retail track sequence
+are not established. The in-game shortcuts open the existing dialogs; F9
+opens the diplomacy dialog described below.
+`test_sounds`, `test_gameplay` and shared `test_sound` check track selection,
+settings, shortcuts and mixer ownership. Dark Colony's ambience callback skips
+front-end frames where no map is loaded.
+
+**Diplomacy (native controls and Stargus behavior).** Native
+`rez/allyfltr.bin`, SHA-256
+`ddf79f900279113e732e921cb82a3ab03bdd2ee93bdcb5d7e1d438a0fbd343a7`, has
+player names 65526–65518, alliance checks 1–9, shared-vision checks 13–21,
+Allied Victory 25 and Accept/Cancel 65534/65533. Stargus
+`scripts/menus/diplomacy.lua` applies each player's outgoing alliance and
+shared-vision choices separately; its shared-vision checkbox initialization
+has an upstream FIXME. `reference/PyMS/PyMS/FileFormats/CHK/Sections/CHKSectionFORC.py`
+identifies force flags 0x02 as Allies and 0x10 as Shared Vision. This corrects
+the old implementation, which used the Allies bit for both combat and sight.
+The native dialog now submits directional `TC_ALLY` and `TC_SHARE_SIGHT`
+commands; combat alliances live in the level-owned mission, sight grants in
+the receiving player's sight mask. Both are saved and included in lockstep
+consistency checks. The Allied Victory control remains disabled because that
+rule is not implemented (Stargus comments out that checkbox, although its
+help describes it). Blizzard's [StarEdit FAQ](https://classic.battle.net/scc/faq/triggers.shtml)
+states that Set Alliance Status affects the current player's direction only;
+this corrects our prior symmetric trigger implementation. `test_mission`
+checks both directions and the two force bits separately;
+`test_save` checks asymmetric changes, player validation, command queuing and
+round-trip persistence; `test_gameplay` checks F9, Cancel and Accept. No
+retail executable behavior was inferred from the dialog artwork.
+
+**Placement sounds.** Native `arr/sfxdata.dat` and `arr/sfxdata.tbl` SHA-256
+are `e9d28f58c9b78d933280d5534ab207e7f284dfd5a9b2c964cb529edddd298baa`
+and `5d0aa1af9d8dfc3f2213639e8c60de5250758758f0b7a0871e26d8aab09b1b69`.
+Rows 2 and 4–6 name `Misc\Buzz.wav` and the Zerg, Terran and Protoss
+`*BldgPlc.wav` sounds. Stargus's `scripts/sound.lua` assigns placement-success
+and placement-error sounds but uses the Terran placement sound for every race.
+The engine plays the native race-named sound when a placement order is accepted
+and Buzz when placement remains invalid; the race selection is inferred from
+native names, not independently verified against the executable. `test_sounds`
+checks the native rows and `test_gameplay` checks both placement paths with
+dummy audio.
 
 **Briefing sound observation.** Terran 01's extracted CHK (SHA-256
 `4b0e5009c4ae80cfb4cb13ede30842db0aa05bb3be2eedad695fb093fa5786f6`)
@@ -2123,3 +2176,46 @@ seven programs passed afterward. The last selection/no-larva and stale-cargo
 checks passed in the final gameplay rerun. Zero-mineral and startup BMPs
 were rendered and visually inspected. Only the existing unused-helper
 warnings in `test_mission.c` appeared during the suite relink.
+
+### Regenerating hit points (2026-11-12)
+
+**Confirmed in OpenBW, not independently executable-verified.** At OpenBW
+`4b046d5f65302b10cb0a745f0fecd37ec85b20a8`, `bwgame.h`
+`update_unit_values` checks the completed unit's `units.dat` regenerate
+flag, positive health and its maximum, then adds 4/256 hit points per 24 Hz
+frame, capped at the type maximum. The visible and hidden unit update paths
+both call it; the check does not exclude invincible or disabled units.
+Stargus also sets `RegenerationRate` on its Zerg unit/building definitions,
+but its value is not used as the retail timing evidence.
+
+The engine uses `units.dat` flag `0x80` and its existing fractional damage
+(`sc.wound`), so regeneration heals both fractional and whole wounds without
+a second HP representation. In-progress building morphs are excluded as the
+engine's representation of an incomplete building; ordinary research does not
+stop regeneration. This is an OpenBW-based implementation, not a claim that
+all construction, stasis, or damage timing is verified against the executable.
+
+Reproduce: `make build/bin/tests/starcraft/test_combat`, then
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_combat`.
+
+### Terran building fire (2026-11-12)
+
+**Confirmed in OpenBW, not independently executable-verified.** Pinned OpenBW
+`bwgame.h` `update_unit_values` applies 20/256 HP direct damage per 24 Hz frame
+to completed grounded or flying Terran buildings when the visible rounded-up
+HP percentage, truncated to an integer, is at most 33. Its `unit_deal_damage`
+does not check invincibility; weapon damage does that separately. Stargus's
+Terran building definitions also implement burning, but use their own 30%
+threshold and `BurnDamageRate` rather than this OpenBW timing.
+
+The engine accumulates burn damage in `sc.wound`, routes whole damage through
+the normal death path, and checks the threshold each frame so repair ends the
+burn. Its construction model creates the building mobj only once completed.
+Weapons and spell target filters retain their invincibility checks; the old
+post-damage health restoration was removed so direct effects, including fire
+and explicit scenario kills, can bypass them. The unused saved `guard_hp`
+field was removed, so the save signature rejects prior incompatible StarCraft
+saves. Fire visuals and native audio are not established by this change.
+
+Reproduce with `make build/bin/tests/starcraft/test_combat` and run
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_combat`.

@@ -442,7 +442,6 @@ mobj_t *sc_spawn_actor(unsigned type,ivec2_t pixel,uint8_t owner) {
     if(!mo) return NULL;
     mo->owner=mo->team=owner;
     mo->allegiance=sc_allegiance_for(owner);
-    mo->sc.guard_hp=mo->hp;
     mo->core.angle=ANG270;
     if(sc_units[type].flags&1) {
         isize2_t footprint=actor_types[type].footprint;
@@ -472,7 +471,7 @@ int sc_spawn_things(void) {
             ivec2_t pixel={read_u16_le(u+4),read_u16_le(u+6)};
             mobj_t *mo=sc_spawn_actor(type,pixel,u[16]);
             if(!mo) return count;
-            if(read_u16_le(u+14)&2) mo->hp=mo->sc.guard_hp=mo->max_hp*u[17]/100;
+            if(read_u16_le(u+14)&2) mo->hp=mo->max_hp*u[17]/100;
             bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
             if(minerals||mo->type_id==MT_VESPENE_GEYSER||mo->type_id==MT_REFINERY||
                mo->type_id==MT_EXTRACTOR||mo->type_id==MT_ASSIMILATOR) {

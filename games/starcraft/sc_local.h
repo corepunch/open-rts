@@ -29,7 +29,8 @@ enum { MT_SPIDER_MINE = 14, MT_INFESTED_TERRAN = 51, MT_INFESTED_COMMAND_CENTER 
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */
 enum {
-    SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_FLYING_BUILDING = 0x20, SC_UNIT_HERO = 0x40, SC_UNIT_CLOAKABLE = 0x200,
+    SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_FLYING_BUILDING = 0x20, SC_UNIT_HERO = 0x40,
+    SC_UNIT_REGENERATES = 0x80, SC_UNIT_CLOAKABLE = 0x200,
     SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_BURROWABLE = 0x100000, SC_UNIT_SPELLCASTER = 0x200000,
     SC_UNIT_PERMANENT_CLOAK = 0x400000, SC_UNIT_MECHANICAL = 0x40000000,
 };
@@ -197,6 +198,7 @@ typedef struct {
     int loc_left[64], loc_top[64], loc_right[64], loc_bottom[64];
     int loc_count;
     uint8_t owners[12], side[12], force[8], force_flags[4];
+    uint32_t allies[8]; /* Directional combat alliances, separate from shared vision. */
     sc_trig_t *rt;
     int trig_count;
     uint8_t switches[256];
@@ -326,5 +328,6 @@ extern const soundinfo_t sc_soundinfo;
 void sc_brief_voice(const char *scenario, const char *wav);
 void sc_stop_brief_voice(void);
 bool sc_brief_voice_playing(void);
+int sc_placement_sound(bool success, int owner);
 extern int sc_dialog_click;
 #endif

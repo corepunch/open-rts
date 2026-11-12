@@ -20,6 +20,7 @@ enum {
      * triples; Stargus names upd00 "base attacked", upd01 "units attacked",
      * upd02 "research complete" and upd06 "upgrade complete". */
     SFX_BUTTON = 15,             /* Misc\Button.wav, also buildings' what sound. */
+    SFX_BUZZ = 2, SFX_PLACEMENT = 4, /* Buzz, then Zerg/Terran/Protoss placement. */
     SFX_BASE_ATTACKED = 117,     /* ZAdUpd00, TAdUpd00, PAdUpd00 */
     SFX_UNITS_ATTACKED = 120,    /* ZAdUpd01, TAdUpd01, PAdUpd01 */
     SFX_RESEARCH_COMPLETE = 123, /* ZAdUpd02, TAdUpd02, PAdUpd02 */
@@ -49,6 +50,9 @@ static uint32_t pissed_unit;
 static int pissed_clicks, pissed_next[SC_TYPES];
 int sc_dialog_click;
 static int briefing_sfx, briefing_channel;
+static int music_sfx, music_channel, music_mode = -1;
+static bool music_missing;
+static char music_root[1024];
 
 void sc_stop_brief_voice(void) {
     S_StopChannel(briefing_channel);
@@ -87,6 +91,11 @@ void sc_brief_voice(const char *scenario, const char *wav) {
 
 static int race_of(const sc_unit_t *u) {
     return u->race & 1 ? RACE_ZERG : u->race & 2 ? RACE_TERRAN : u->race & 4 ? RACE_PROTOSS : RACE_NONE;
+}
+
+int sc_placement_sound(bool success, int owner) {
+    int race = sc_player_side(owner);
+    return success && race >= 0 && race < 3 ? SFX_PLACEMENT + race : SFX_BUZZ;
 }
 
 /* One row, or a group of rows shared by every unit that names the same set. */
@@ -181,6 +190,8 @@ static void map_units(const sc_tables_t *t) {
         for (unsigned k = 0; k < sizeof(ids) / sizeof(*ids); ++k) used[ids[k] + race] = true;
     }
     used[SFX_BUTTON] = used[SFX_ZERG_MORPH_DONE] = used[SFX_TERRAN_BUILD_DONE] = true;
+    used[SFX_BUZZ] = true;
+    for (int i = 0; i < 3; ++i) used[SFX_PLACEMENT + i] = true;
 }
 
 static bool load(const char *root, int id, const char *name) {
@@ -204,6 +215,9 @@ static bool sc_sound_init(const char *root) {
     pissed_clicks = 0; pissed_unit = 0; alert_at[0] = alert_at[1] = 0;
     sc_dialog_click = 0;
     briefing_sfx = briefing_channel = 0;
+    music_sfx = music_channel = 0; music_mode = -1; music_missing = false;
+    snprintf(music_root, sizeof(music_root), "%s", root);
+    S_SetMusicVolume(gamesettings.music * 10);
     if (!sc_read(root, "arr/sfxdata.dat", &t.dat) || !sc_read(root, "arr/sfxdata.tbl", &t.tbl) ||
         !sc_read(root, "arr/units.dat", &t.units) || !sc_read(root, "arr/flingy.dat", &t.flingy) ||
         !sc_read(root, "arr/sprites.dat", &t.sprites) || !sc_read(root, "arr/images.dat", &t.images) ||
@@ -227,12 +241,42 @@ static bool sc_sound_init(const char *root) {
     if (!sc_dialog_click || !load(root, sc_dialog_click, "glue\\mousedown2.wav")) sc_dialog_click = 0;
     briefing_sfx = S_AddSfx(&(sfxinfo_t){0});
     if (!briefing_sfx) goto done;
+    music_sfx = S_AddSfx(&(sfxinfo_t){.music = true});
+    if (!music_sfx) goto done;
     ok = true;
 done:
     W_FreeFile(&t.dat); W_FreeFile(&t.tbl); W_FreeFile(&t.units); W_FreeFile(&t.flingy);
     W_FreeFile(&t.sprites); W_FreeFile(&t.images); W_FreeFile(&t.weapons); W_FreeFile(&t.script);
     if (!ok) fprintf(stderr, "starcraft: native sound tables are missing or malformed\n");
     return ok;
+}
+
+static void sc_music_tick(const app_t *app, const level_t *map) {
+    (void)app;
+    int mode = map ? sc_player_side(consoleplayer) : 3;
+    if (mode < 0 || mode > 3) mode = 1;
+    if (mode != music_mode) {
+        S_StopChannel(music_channel); S_UnloadSound(music_sfx);
+        music_channel = 0; music_mode = mode; music_missing = false;
+    }
+    if (music_missing || S_IsPlaying(music_channel)) return;
+    if (!music_channel && S_Sfx(music_sfx)->data) {
+        music_channel = S_StartLocalSound(music_sfx);
+        return;
+    }
+    S_UnloadSound(music_sfx);
+    static const char *const races[] = {"zerg", "terran", "protoss"};
+    char name[64];
+    if (mode == 3) snprintf(name, sizeof(name), "music/title.wav");
+    else snprintf(name, sizeof(name), "music/%s%d.wav", races[mode], S_Random() % 3 + 1);
+    char path[2048]; sc_asset_path(path, sizeof(path), music_root, name);
+    blob_t wav = {0};
+    if (access(path, R_OK) || !W_ReadFile(path, &wav)) { music_missing = true; return; }
+    bool loaded = S_LoadSound(music_sfx, wav.bytes, wav.size);
+    W_FreeFile(&wav);
+    if (!loaded) { music_missing = true; return; }
+    snprintf(S_Sfx(music_sfx)->name, sizeof(S_Sfx(music_sfx)->name), "%s", name);
+    music_channel = S_StartLocalSound(music_sfx);
 }
 
 /* Whether actor is the only unit the local player has selected. */
@@ -299,5 +343,6 @@ static int sc_actor_sound(const mobj_t *actor, soundevent_t event) {
 const soundinfo_t sc_soundinfo = {
     .init = sc_sound_init,
     .actor_sound = sc_actor_sound,
+    .ticker = sc_music_tick,
     .ui = {[UI_SOUND_CLICK] = SFX_BUTTON},
 };

@@ -1507,7 +1507,8 @@ static bool wire_single(void) {
 /* Retail rez dialogs over the running world. */
 enum {
     IG_GAME, IG_OPTIONS, IG_SPEED, IG_SOUND, IG_VIDEO, IG_SAVE, IG_LOAD, IG_OBJECTIVES,
-    IG_HELP_MENU, IG_HELP, IG_END, IG_RESTART, IG_QUIT_MISSION, IG_QUIT, IG_VICTORY, IG_DEFEAT, IG_SCREENS
+    IG_HELP_MENU, IG_HELP, IG_END, IG_RESTART, IG_QUIT_MISSION, IG_QUIT, IG_DIPLOMACY,
+    IG_VICTORY, IG_DEFEAT, IG_SCREENS
 };
 static const struct { const char *dialog; int parent; } ingame_dialogs[IG_SCREENS] = {
     [IG_GAME]={"rez/gamemenu.bin",-1}, [IG_OPTIONS]={"rez/options.bin",IG_GAME},
@@ -1517,13 +1518,32 @@ static const struct { const char *dialog; int parent; } ingame_dialogs[IG_SCREEN
     [IG_HELP_MENU]={"rez/helpmenu.bin",IG_GAME}, [IG_HELP]={"rez/help.bin",IG_HELP_MENU},
     [IG_END]={"rez/abrtmenu.bin",IG_GAME}, [IG_RESTART]={"rez/restart.bin",IG_END},
     [IG_QUIT_MISSION]={"rez/quit2mnu.bin",IG_END}, [IG_QUIT]={"rez/quit.bin",IG_END},
+    [IG_DIPLOMACY]={"rez/allyfltr.bin",IG_GAME},
     [IG_VICTORY]={"rez/wmission.bin",-1}, [IG_DEFEAT]={"rez/lmission.bin",-1},
 };
 static screen_t ingame_screens[IG_SCREENS];
 static char help_text[8192];
-static int saved_speed, saved_volume;
+static int saved_speed, saved_volume, saved_music;
 static char pending_save[1200], pending_name[33];
+static int diplomacy_players[8], diplomacy_count;
 static void save_refresh(menu_t *menu);
+
+static void prepare_diplomacy(menu_t *menu) {
+    const uint32_t *allies=G_AllianceMasks(&level);
+    diplomacy_count=0;
+    for(int p=0;p<8;p++)if(p!=consoleplayer&&G_PlayerSide(p))diplomacy_players[diplomacy_count++]=p;
+    for(int row=0;row<9;row++) {
+        menuitem_t *name=M_MenuFind(menu,65526-row), *ally=M_MenuFind(menu,1+row), *vision=M_MenuFind(menu,13+row);
+        bool visible=row<diplomacy_count;
+        name->visible=ally->visible=vision->visible=visible;
+        ally->enabled=vision->enabled=visible;
+        if(!visible)continue;
+        int player=diplomacy_players[row];
+        set_text(name,M_va("Player %d%s",player+1,sc_owner_kind(player)==5?" (Computer)":""));
+        ally->value=(allies[consoleplayer]&(UINT32_C(0x40000000)>>player))!=0;
+        vision->value=(level.sight.allies[player]&(UINT32_C(0x40000000)>>consoleplayer))!=0;
+    }
+}
 
 static int ingame_index(const menu_t *menu) {
     for(int i=0;i<IG_SCREENS;i++)if(menu==&ingame_screens[i].menu)return i;
@@ -1532,6 +1552,7 @@ static int ingame_index(const menu_t *menu) {
 static void show_ingame(int index) {
     screen_t *screen=&ingame_screens[index];
     if(!screen->menu.numitems){M_ClearMenus();return;}
+    if(index==IG_DIPLOMACY)prepare_diplomacy(&screen->menu);
     if(index==IG_SPEED) {
         saved_speed=game_speed;
         menuitem_t *slider=M_MenuFind(&screen->menu,1);
@@ -1539,8 +1560,11 @@ static void show_ingame(int index) {
         slider->enabled=!netgame;
     } else if(index==IG_SOUND) {
         saved_volume=snd_volume;
+        saved_music=snd_music_volume;
         menuitem_t *slider=M_MenuFind(&screen->menu,2);
         slider->range.min=0; slider->range.max=10; slider->value=(snd_volume+5)/10;
+        slider=M_MenuFind(&screen->menu,1);
+        slider->range.min=0; slider->range.max=10; slider->value=(snd_music_volume+5)/10;
     } else if(index==IG_SAVE||index==IG_LOAD) {
         fill_saves();
         menuitem_t *list=M_MenuFind(&screen->menu,1);
@@ -1554,10 +1578,20 @@ static void show_ingame(int index) {
 static void ingame_escape(menu_t *menu) {
     int index=ingame_index(menu);
     if(index==IG_SPEED)D_SetGameSpeed(saved_speed);
-    if(index==IG_SOUND)S_SetVolume(saved_volume);
+    if(index==IG_SOUND){S_SetVolume(saved_volume);S_SetMusicVolume(saved_music);}
+    if(index==IG_DIPLOMACY){M_ClearMenus();return;}
     if(index==IG_VICTORY||index==IG_DEFEAT)return; /* the outcome is decided */
     if(index<0||ingame_dialogs[index].parent<0)M_ClearMenus();
     else show_ingame(ingame_dialogs[index].parent);
+}
+static void shortcut_ingame(menu_t *menu,menuitem_t *item,menuaction_t action) {
+    (void)menu;
+    if(action!=MA_ACTIVATE)return;
+    if(netgame&&(item->value==IG_SAVE||item->value==IG_LOAD)) {
+        M_StartMessage("Saved games are available in single-player games.");
+        return;
+    }
+    show_ingame(item->value);
 }
 /* tbl strings joined by blank lines, colour bytes dropped. */
 static void tbl_prose(const char *name,char *out,size_t size) {
@@ -1609,6 +1643,7 @@ static void ingame_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
     if(action==MA_CHANGE && item->kind==MI_SLIDER) {
         if(index==IG_SPEED && id==1 && !netgame)D_SetGameSpeed(item->value);
         if(index==IG_SOUND && id==2)S_SetVolume(item->value*10);
+        if(index==IG_SOUND && id==1)S_SetMusicVolume(item->value*10);
         return;
     }
     if(action==MA_CHANGE && index==IG_SAVE && id==1 && item->value>=0 && item->value<save_count) {
@@ -1632,10 +1667,25 @@ static void ingame_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
         if(id>=1&&id<=3)show_ingame(id==1?IG_SPEED:id==2?IG_SOUND:IG_VIDEO);
         else if(id==65533)show_ingame(IG_GAME);
         return;
+    case IG_DIPLOMACY:
+        if(id==65533){M_ClearMenus();return;}
+        if(id==65534) {
+            const uint32_t *allies=G_AllianceMasks(&level);
+            for(int row=0;row<diplomacy_count;row++) {
+                int other=diplomacy_players[row];
+                bool allied=(allies[consoleplayer]&(UINT32_C(0x40000000)>>other))!=0;
+                bool shared=(level.sight.allies[other]&(UINT32_C(0x40000000)>>consoleplayer))!=0;
+                int want_ally=M_MenuFind(menu,1+row)->value, want_vision=M_MenuFind(menu,13+row)->value;
+                if(want_ally!=allied)G_QueueTiccmd(&(ticcmd_t){.order=TC_ALLY,.target=other,.product=want_ally});
+                if(want_vision!=shared)G_QueueTiccmd(&(ticcmd_t){.order=TC_SHARE_SIGHT,.target=other,.product=want_vision});
+            }
+            M_ClearMenus();
+        }
+        return;
     case IG_SPEED: case IG_SOUND: case IG_VIDEO:
         if(id==65533){ingame_escape(menu);return;}
         if(id==65534){
-            if(index==IG_SOUND)gamesettings.sound=(snd_volume+5)/10;
+            if(index==IG_SOUND){gamesettings.sound=(snd_volume+5)/10;gamesettings.music=(snd_music_volume+5)/10;}
             if(index!=IG_VIDEO)D_SaveSettings(game_speed);
             show_ingame(IG_OPTIONS);
         }
@@ -1724,9 +1774,9 @@ static bool load_ingame(app_t *app) {
     }
     /* Network play and observers are multiplayer only; pause rows are hidden. */
     M_MenuFind(&ingame_screens[IG_OPTIONS].menu,4)->enabled=false;
+    M_MenuFind(&ingame_screens[IG_DIPLOMACY].menu,25)->enabled=false;
     /* These controls have no engine implementation yet. */
     for(int id=2;id<=3;id++)M_MenuFind(&ingame_screens[IG_SPEED].menu,id)->enabled=false;
-    M_MenuFind(&ingame_screens[IG_SOUND].menu,1)->enabled=false;
     for(int id=3;id<=6;id++)M_MenuFind(&ingame_screens[IG_SOUND].menu,id)->enabled=false;
     menuitem_t *observe=M_MenuFind(&ingame_screens[IG_QUIT_MISSION].menu,1);
     if(observe)observe->visible=false;
@@ -2130,7 +2180,15 @@ static void select_larvae(menu_t *menu,menuitem_t *item,menuaction_t action) {
 }
 static void product(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a==MA_CANCEL){build_page=0;return;}
-    if(a==MA_TARGET){HU_PlaceProduct(m,i,a);if(!m->target)build_page=0;return;}
+    if(a==MA_TARGET){
+        mobj_t *builder=P_MobjById(m->placement.builder);
+        bool valid=builder&&builder->hp>0&&!builder->remove&&P_MobjIsSelected(builder)&&
+                   G_ModelProductByUIId(NULL,m->placement.product);
+        HU_PlaceProduct(m,i,a);
+        if(valid)S_StartLocalSound(sc_placement_sound(!m->target,builder->owner));
+        if(!m->target)build_page=0;
+        return;
+    }
     if(a!=MA_ACTIVATE)return;
     const StaticProductDefinition *p=G_ModelProductByUIId(NULL,i->value);
     if(!p)return;
@@ -2549,6 +2607,13 @@ menu_t *G_InitHUD(app_t *app,const char *root) {
     /* Catalog shortcuts are input-only; retail HUD artwork remains unobscured. */
     for(int i=0;i<2;i++)huditems[hud.numitems++]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,
         .hotkey=i?SDLK_RIGHTBRACKET:SDLK_LEFTBRACKET,.value=i?1:-1,.routine=focus};
+    static const struct { SDL_Keycode key; int screen; } shortcuts[] = {
+        {SDLK_F1,IG_HELP_MENU}, {SDLK_F5,IG_OPTIONS}, {SDLK_F7,IG_SOUND},
+        {SDLK_F8,IG_SPEED}, {SDLK_F9,IG_DIPLOMACY}, {SDLK_F11,IG_SAVE}, {SDLK_F12,IG_LOAD},
+    };
+    for(size_t i=0;i<sizeof(shortcuts)/sizeof(*shortcuts);i++)
+        huditems[hud.numitems++]=(menuitem_t){.kind=MI_BUTTON,.visible=true,.enabled=true,
+            .hotkey=shortcuts[i].key,.value=shortcuts[i].screen,.routine=shortcut_ingame};
     selection_icon_start=hud.numitems;
     for(int i=0;i<SC_SELECTION_SLOTS;i++) {
         ivec2_t cell={(i%6)*36,(i/6)*37};

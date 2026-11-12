@@ -119,6 +119,93 @@ static int shields_and_hits(void) {
     return 0;
 }
 
+static int regeneration(void) {
+    mobj_t *ling = spawn(MT_ZERGLING, FIXED2_LIT(2, 2), 0);
+    mobj_t *hatch = spawn(MT_HATCHERY, FIXED2_LIT(4, 4), 0);
+    mobj_t *marine = spawn(MT_MARINE, FIXED2_LIT(6, 6), 0);
+    mobj_t *morph = spawn(MT_CREEP_COLONY, FIXED2_LIT(8, 8), 0);
+    mobj_t *dead = spawn(MT_ZERGLING, FIXED2_LIT(10, 10), 0);
+    CHECK(ling && hatch && marine && morph && dead);
+    ling->hp -= 2; hatch->hp -= 2; marine->hp -= 2; morph->hp -= 2;
+    ling->sc.flags |= SC_INVINCIBLE | SC_LOADED;
+    ling->sc.timers[SC_TIMER_STASIS] = 500;
+    morph->production = calloc(1, sizeof(*morph->production));
+    CHECK(morph->production);
+    morph->production->product_class = RTS_PRODUCT_BUILDING;
+    dead->hp = 0;
+    int ling_hp = ling->hp, hatch_hp = hatch->hp, marine_hp = marine->hp, morph_hp = morph->hp;
+    leveltime = 0;
+    for (int t = 0; t < RTS_TICRATE; ++t) {
+        ++leveltime;
+        gameinfo->mobj_ticker(ling); gameinfo->mobj_ticker(hatch);
+        gameinfo->mobj_ticker(marine); gameinfo->mobj_ticker(morph); gameinfo->mobj_ticker(dead);
+    }
+    CHECK(ling->hp == ling_hp + 1 && ling->sc.wound == 160);
+    CHECK(hatch->hp == hatch_hp + 1 && hatch->sc.wound == 160);
+    CHECK(marine->hp == marine_hp && !marine->sc.wound && morph->hp == morph_hp && !morph->sc.wound);
+    CHECK(dead->hp == 0 && !dead->sc.wound);
+    /* Fractional damage is healed first; reaching full health is clamped. */
+    hatch->hp = hatch->max_hp; hatch->sc.wound = 3;
+    for (int t = 0; t < 2; ++t) { ++leveltime; gameinfo->mobj_ticker(hatch); }
+    CHECK(hatch->hp == hatch->max_hp && hatch->sc.wound == 0);
+    CHECK(sc_hit(1, NULL, hatch, 1, 2) == 0 && hatch->sc.wound == 128);
+    for (int t = 0; t < RTS_TICRATE; ++t) { ++leveltime; gameinfo->mobj_ticker(hatch); }
+    CHECK(hatch->hp == hatch->max_hp && hatch->sc.wound == 32);
+    reset();
+    return 0;
+}
+
+static int burning(void) {
+    mobj_t *low = spawn(MT_BARRACKS, FIXED2_LIT(2, 2), 0);
+    mobj_t *safe = spawn(MT_BARRACKS, FIXED2_LIT(4, 4), 0);
+    mobj_t *flying = spawn(MT_BARRACKS, FIXED2_LIT(6, 6), 0);
+    mobj_t *protected = spawn(MT_BARRACKS, FIXED2_LIT(8, 8), 0);
+    mobj_t *zerg = spawn(MT_HATCHERY, FIXED2_LIT(10, 10), 0);
+    mobj_t *rounded = spawn(MT_FACTORY, FIXED2_LIT(12, 12), 0);
+    mobj_t *above = spawn(MT_FACTORY, FIXED2_LIT(14, 14), 0);
+    CHECK(low && safe && flying && protected && zerg && rounded && above);
+    low->max_hp = safe->max_hp = flying->max_hp = protected->max_hp = zerg->max_hp = 100;
+    low->hp = flying->hp = protected->hp = zerg->hp = 33; safe->hp = 34;
+    flying->traits |= MF_FLY;
+    protected->sc.flags |= SC_INVINCIBLE;
+    rounded->max_hp = above->max_hp = 1000;
+    rounded->hp = 339; above->hp = 340;
+    CHECK(sc_hit(1, NULL, protected, 10, 1) == 0);
+    leveltime = 0;
+    for (int t = 0; t < RTS_TICRATE; ++t) {
+        ++leveltime;
+        gameinfo->mobj_ticker(low); gameinfo->mobj_ticker(safe); gameinfo->mobj_ticker(flying);
+        gameinfo->mobj_ticker(protected); gameinfo->mobj_ticker(zerg);
+        gameinfo->mobj_ticker(rounded); gameinfo->mobj_ticker(above);
+    }
+    CHECK(low->hp == 32 && low->sc.wound == 224);
+    CHECK(flying->hp == 32 && flying->sc.wound == 224);
+    CHECK(protected->hp == 32 && protected->sc.wound == 224);
+    CHECK(safe->hp == 34 && !safe->sc.wound && zerg->hp >= 33);
+    CHECK(rounded->hp == 338 && rounded->sc.wound == 224 && above->hp == 340 && !above->sc.wound);
+    /* Repair above the integer-percent threshold ends burning. */
+    low->hp = 34; low->sc.wound = 0;
+    for (int t = 0; t < RTS_TICRATE; ++t) { ++leveltime; gameinfo->mobj_ticker(low); }
+    CHECK(low->hp == 34 && !low->sc.wound);
+    protected->hp = 1; protected->sc.wound = 0;
+    for (int t = 0; t < RTS_TICRATE && protected->hp > 0; ++t) { ++leveltime; gameinfo->mobj_ticker(protected); }
+    CHECK(protected->hp == 0);
+    reset();
+    /* Every real Terran DAT building, including add-ons, shares the rule. */
+    for (int type = 1; type <= SC_TYPES; ++type) {
+        const sc_unit_t *u = &sc_units[type - 1];
+        if (!(u->race & 2) || !(u->flags & SC_UNIT_BUILDING) || u->hp <= 0) continue;
+        mobj_t *building = spawn(type, FIXED2_LIT(4, 4), 0);
+        CHECK(building);
+        building->hp = building->max_hp / 4;
+        leveltime = 2; /* one 24 Hz frame */
+        gameinfo->mobj_ticker(building);
+        CHECK(building->sc.wound == 20);
+        reset();
+    }
+    return 0;
+}
+
 static int splash_and_bounce(void) {
     mobj_t *tank = spawn(SIEGE_MODE, FIXED2_LIT(4.5, 10.5), 0);
     mobj_t *a = spawn(ULTRALISK, FIXED2_LIT(10.5, 10.5), 1), *b = spawn(ULTRALISK, FIXED2_LIT(11.4, 10.5), 1);
@@ -276,6 +363,8 @@ int main(void) {
     CHECK(!weapons());
     CHECK(!damage_types());
     CHECK(!shields_and_hits());
+    CHECK(!regeneration());
+    CHECK(!burning());
     CHECK(!splash_and_bounce());
     CHECK(!cloaking());
     CHECK(!turrets());

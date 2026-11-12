@@ -281,6 +281,7 @@ static int view_blocktype(const app_t *app, const level_t *map) {
 }
 
 static void dc_sound_ticker(const app_t *app, const level_t *map) {
+    if (!map) return;
     uint32_t now = app->ticks_ms;
     if (!ambient_a) ambient_a = ambient_b = now;
     if (now - ambient_a > DC_AMBIENT_A_MS) ambient_a = now;

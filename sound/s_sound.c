@@ -20,6 +20,7 @@ typedef struct {
 
 bool nosound;
 int snd_volume = 100;
+int snd_music_volume = 100;
 
 static sfxinfo_t sfxtable[MAXSFX];
 static int numsfx;
@@ -137,8 +138,8 @@ static int resolve(int id) {
 /* Listener-relative volumes from DC.EXE 0x42ec44: attenuation in centibels
  * grows with the squared distance in cells. Panning follows the horizontal
  * offset from the view's centre rather than DC's distance-sized pan. */
-static bool spatialize(fvec2_t position, int base, int *left, int *right) {
-    double gain = snd_volume / 100.0;
+static bool spatialize(fvec2_t position, int base, int volume, int *left, int *right) {
+    double gain = volume / 100.0;
     double pan = 0.0;
     if (listener && game) {
         float sx, sy;
@@ -162,9 +163,11 @@ static bool spatialize(fvec2_t position, int base, int *left, int *right) {
     return true;
 }
 
-static int flat_volume(int base) {
-    return (int)(256.0 * snd_volume / 100.0 * pow(10.0, base / 2000.0) + 0.5);
+static int flat_volume(int base, int volume) {
+    return (int)(256.0 * volume / 100.0 * pow(10.0, base / 2000.0) + 0.5);
 }
+
+static int channel_volume(int id) { return sfxtable[id].music ? snd_music_volume : snd_volume; }
 
 static void reap(void) {
     for (int i = 0; i < NUMSCHANNELS; ++i)
@@ -185,8 +188,8 @@ static int start(const mobj_t *origin, bool positional, fvec2_t position, int id
         if (schannels[i].handle && schannels[i].sfx == id) ++playing;
     if (sfx->instances && playing >= sfx->instances) return 0;
     int left = 256, right = 256;
-    if (positional && !spatialize(position, sfx->volume, &left, &right)) return 0;
-    if (!positional) left = right = flat_volume(sfx->volume);
+    if (positional && !spatialize(position, sfx->volume, channel_volume(id), &left, &right)) return 0;
+    if (!positional) left = right = flat_volume(sfx->volume, channel_volume(id));
     int slot = -1;
     for (int i = 0; i < NUMSCHANNELS && slot < 0; ++i)
         if (!schannels[i].handle) slot = i;
@@ -303,18 +306,27 @@ void S_Bark(mobj_t *const *units, int count, soundevent_t event, bool selected_o
     barkhandle = S_StartLocalSound(best);
 }
 
-void S_SetVolume(int percent) {
-    snd_volume = percent < 0 ? 0 : percent > 100 ? 100 : percent;
+static void refresh_volumes(void) {
     if (!initialized) return;
     /* Playing sounds, the menu's own loop among them, take the level at once. */
     for (int i = 0; i < NUMSCHANNELS; ++i) {
         schannel_t *channel = &schannels[i];
         if (!channel->handle) continue;
         int left, right;
-        if (!channel->positional) left = right = flat_volume(channel->volume);
-        else if (!spatialize(channel->position, channel->volume, &left, &right)) left = right = 0;
+        int volume = channel_volume(channel->sfx);
+        if (!channel->positional) left = right = flat_volume(channel->volume, volume);
+        else if (!spatialize(channel->position, channel->volume, volume, &left, &right)) left = right = 0;
         I_UpdateSoundParams(channel->handle, left, right);
     }
+}
+
+void S_SetVolume(int percent) {
+    snd_volume = percent < 0 ? 0 : percent > 100 ? 100 : percent;
+    refresh_volumes();
+}
+void S_SetMusicVolume(int percent) {
+    snd_music_volume = percent < 0 ? 0 : percent > 100 ? 100 : percent;
+    refresh_volumes();
 }
 
 void S_UpdateSounds(const app_t *app, const level_t *map) {
@@ -332,8 +344,8 @@ void S_UpdateSounds(const app_t *app, const level_t *map) {
             }
         }
         int left, right;
-        if (!spatialize(channel->position, channel->volume, &left, &right)) left = right = 0;
+        if (!spatialize(channel->position, channel->volume, channel_volume(channel->sfx), &left, &right)) left = right = 0;
         I_UpdateSoundParams(channel->handle, left, right);
     }
-    if (game->ticker && map) game->ticker(app, map);
+    if (game->ticker) game->ticker(app, map);
 }

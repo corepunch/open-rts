@@ -234,7 +234,6 @@ void sc_repair_ticker(mobj_t *worker, int frames) {
         if (hp>maxhp) hp=maxhp;
         target->hp=(int)((hp+255)/256);
         target->sc.wound=(uint8_t)((int64_t)target->hp*256-hp);
-        target->sc.guard_hp=target->hp;
         if (hp==maxhp) {
             stop(worker->owner,worker);
             P_SetMobjState(worker,mobjinfo[worker->type_id].spawnstate);

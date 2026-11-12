@@ -19,10 +19,7 @@ bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (!netgame && !level.player_teams) return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
     if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
         return false;
-    const uint32_t *allies = level.sight.allies;
-#ifdef RTS_MODULE_DARK_COLONY
-    allies = level.peace;
-#endif
+    const uint32_t *allies = G_AllianceMasks(&level);
     return a->owner == b->owner || (a->team < 8 && b->team < 8 &&
         (allies[a->team] & (UINT32_C(0x40000000) >> b->team)));
 }

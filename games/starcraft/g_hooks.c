@@ -1,5 +1,35 @@
 #include "sc_local.h"
 
+/* Mission extras include directional diplomacy, incompatible with earlier saves. */
+uint32_t G_SaveLayout(void) { return 1; }
+
+const uint32_t *G_AllianceMasks(const level_t *map) {
+    if (!map) return NULL;
+    const sc_mission_t *m = map->mission;
+    return m ? m->allies : map->sight.allies;
+}
+
+uint32_t G_ConsistencyExtra(uint32_t hash) {
+    const sc_mission_t *m = level.mission;
+    if (m) for (int i = 0; i < 8; ++i) {
+        hash = G_HashValue(hash, m->allies[i]);
+        hash = G_HashValue(hash, level.sight.allies[i]);
+    }
+    return hash;
+}
+
+bool G_GameCommand(int player, const ticcmd_t *cmd) {
+    if (cmd->order != TC_ALLY && cmd->order != TC_SHARE_SIGHT) return false;
+    sc_mission_t *m = level.mission;
+    if (!m || player < 0 || player >= 8 || cmd->target >= 8 || cmd->target == (unsigned)player ||
+        (cmd->product != 0 && cmd->product != 1) || !G_PlayerSide(player) || !G_PlayerSide(cmd->target)) return true;
+    uint32_t *row = cmd->order == TC_ALLY ? &m->allies[player] : &level.sight.allies[cmd->target];
+    uint32_t bit = UINT32_C(0x40000000) >> (cmd->order == TC_ALLY ? cmd->target : player);
+    if (cmd->product) *row |= bit; else *row &= ~bit;
+    if (cmd->order == TC_SHARE_SIGHT) P_UpdateSight();
+    return true;
+}
+
 bool G_TakeCameraRequest(fvec2_t *cell) { return sc_take_camera(cell); }
 
 void G_ProductionBegin(int elapsed_ms) { sc_zerg_ticker(elapsed_ms); }

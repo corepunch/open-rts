@@ -92,8 +92,15 @@ static int hatchery_tiers(mobj_t *hatchery) {
     tick(frames(1500) / 2);
     /* Still a hatchery while it morphs: larvae and drop-off stay. */
     CHECK(hatchery->type_id == MT_HATCHERY && (hatchery->traits & MF_RESOURCE_BASE) && !available(MT_SPIRE));
-    tick(frames(1500) / 2 + 2);
-    CHECK(hatchery->type_id == MT_LAIR && hatchery->hp == 900 && !hatchery->production);
+    int healed_frames = 0;
+    for (int t = 0; t < frames(1500) / 2 + 2; ++t) {
+        bool complete = hatchery->type_id == MT_LAIR;
+        int native = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
+        tick(1);
+        if (complete) healed_frames += native;
+    }
+    CHECK(hatchery->type_id == MT_LAIR && hatchery->hp * 256 - hatchery->sc.wound == 900 * 256 + healed_frames * 4 &&
+          !hatchery->production);
     CHECK(count(0, MT_LARVA) == 3 && available(MT_SPIRE) && available(MT_EVOLUTION_CHAMBER));
     CHECK(!available(MT_HIVE));
     spawn(MT_QUEENS_NEST, FIXED2_LIT(16, 13), 0);

@@ -37,11 +37,11 @@ typedef struct { uint8_t active, phase; } sc_glow_t;
  * holds the sight bits of the teams that see through this unit. hangar
  * counts docked interceptors or scarabs, a silo's nuke or a Vulture's
  * Spider Mines. A Nydus Canal's parent is its other end. */
-#define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int guard_hp, shields, energy; \
+#define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
     sc_order_t order; sc_rally_t rally; sc_glow_t glow; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
-    HASH((mo)->sc.flags); HASH((mo)->sc.attacker); HASH((mo)->sc.guard_hp); \
+    HASH((mo)->sc.flags); HASH((mo)->sc.attacker); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
     HASH((mo)->sc.parent); HASH((mo)->sc.larva_ms); \
     for (int sc_i = 0; sc_i < SC_TIMERS; ++sc_i) HASH((mo)->sc.timers[sc_i]); \

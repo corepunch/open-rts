@@ -6,6 +6,7 @@
 
 static void put_u16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static void put_u32(uint8_t *p, unsigned v) { put_u16(p, v); put_u16(p + 2, v >> 16); }
+static int force_fixture = -1;
 
 static int write_map(const char *path, const uint8_t owners[12], const uint8_t *trig) {
     FILE *f = fopen(path, "wb");
@@ -17,6 +18,12 @@ static int write_map(const char *path, const uint8_t owners[12], const uint8_t *
     memcpy(hdr, "ERA ", 4); put_u32(hdr + 4, 2); fwrite(hdr, 1, 8, f); fwrite(era, 1, 2, f);
     memcpy(hdr, "MTXM", 4); put_u32(hdr + 4, sizeof(terrain)); fwrite(hdr, 1, 8, f); fwrite(terrain, 1, sizeof(terrain), f);
     memcpy(hdr, "OWNR", 4); put_u32(hdr + 4, 12); fwrite(hdr, 1, 8, f); fwrite(owners, 1, 12, f);
+    if(force_fixture>=0) {
+        uint8_t force[20]={0};
+        for(int i=2;i<8;i++)force[i]=1;
+        force[16]=(uint8_t)force_fixture;
+        memcpy(hdr,"FORC",4);put_u32(hdr+4,sizeof(force));fwrite(hdr,1,8,f);fwrite(force,1,sizeof(force),f);
+    }
     if (trig) {
         memcpy(hdr, "TRIG", 4); put_u32(hdr + 4, 2400); fwrite(hdr, 1, 8, f); fwrite(trig, 1, 2400, f);
     }
@@ -81,6 +88,27 @@ int main(void) {
     G_InitGame();
     P_InitThinkers();
     consoleplayer = 0;
+    uint8_t force_owners[12]={6,5};
+    for(int flag=2;flag<=16;flag*=8) {
+        force_fixture=flag;
+        CHECK(!write_map("/private/tmp/sc-forces.chk",force_owners,NULL));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-forces.chk",&level));
+        CHECK(!!(G_AllianceMasks(&level)[0]&(UINT32_C(0x40000000)>>1)) == (flag==2));
+        CHECK(!!(level.sight.allies[0]&(UINT32_C(0x40000000)>>1)) == (flag==16));
+        unload();
+    }
+    force_fixture=-1; remove("/private/tmp/sc-forces.chk");
+    uint8_t *alliance_trigger=blank_trigger(); CHECK(alliance_trigger);
+    alliance_trigger[2372+17]=0; alliance_trigger[2372]=1;
+    alliance_trigger[15]=22; alliance_trigger[320+26]=57;
+    put_u32(alliance_trigger+320+16,1); put_u16(alliance_trigger+320+24,1);
+    CHECK(!write_map("/private/tmp/sc-alliance.chk",force_owners,alliance_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-alliance.chk",&level));
+    ticks(1,&(hudtext_t){0});
+    CHECK(G_AllianceMasks(&level)[0]&(UINT32_C(0x40000000)>>1));
+    CHECK(!(G_AllianceMasks(&level)[1]&(UINT32_C(0x40000000)>>0)));
+    CHECK(!(level.sight.allies[1]&(UINT32_C(0x40000000)>>0)));
+    unload(); free(alliance_trigger); remove("/private/tmp/sc-alliance.chk");
     char next[256];
     const char *terran01 = "data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk";
     CHECK(sc_campaign_next(terran01, next, sizeof(next)));

@@ -325,7 +325,54 @@ static int collect(pid_t child, int fd, race_run_t *out) {
     return 0;
 }
 
+/* An enemy aircraft makes the doctrine build the prerequisite, colony and
+ * anti-air morph from an ordinary starting Zerg base. */
+static int spore_defense(void) {
+    static const char road[] = "maps/(2)road war.scm/staredit/scenario.chk";
+    int kinds[8] = {SC_SLOT_HUMAN, SC_SLOT_COMPUTER, SC_SLOT_CLOSED, SC_SLOT_CLOSED,
+                    SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED};
+    int races[8] = {0, 1};
+    sc_set_custom_slots(kinds, races);
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {.data_root = g_game_default_root, .map_path = road};
+    CHECK(model && rts_game_model_load(model, &config));
+    AiContext *ai = rts_game_model_ai(model);
+    int owner = -1;
+    for (int i = 0; i < 8; ++i)
+        if (i != consoleplayer && G_AiInterface()->player_level(&level, i) == AI_LEVEL_NORMAL) owner = i;
+    CHECK(owner >= 0 && sc_player_side(owner) == 0);
+    mobj_t *hall = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (alive((mobj_t *)th, owner) && ((mobj_t *)th)->type_id == MT_HATCHERY) { hall = (mobj_t *)th; break; }
+    CHECK(hall);
+    mobj_t *enemy = P_SpawnMobj(hall->core.position, MT_WRAITH);
+    CHECK(enemy);
+    enemy->owner = enemy->team = consoleplayer;
+    enemy->allegiance = ALLEGIANCE_PLAYER;
+    enemy->traits &= ~MF_ATTACK;
+    level.player_resources[owner][0] = 500;
+    level.player_resources[owner][1] = 500;
+    P_UpdateSight();
+    P_AiSetFeatures(ai, AI_FEATURE_PRODUCTION);
+    for (int t = 0; t < RTS_TICRATE * 2; ++t) CHECK(rts_game_model_tick(model, RTS_TICK_MS));
+    AiTeamState *team = &ai->teams[owner];
+    CHECK(team->plan_loaded);
+    team->plan.goal_count = 0;
+    team->plan.doctrine.workers = team->plan.doctrine.research = 0;
+    P_AiSetFeatures(ai, AI_FEATURE_PRODUCTION | AI_FEATURE_DOCTRINE | AI_FEATURE_RESEARCH | AI_FEATURE_ECONOMY);
+    level.player_resources[owner][0] = level.player_resources[owner][1] = 500;
+    for (int t = 0; t < RTS_TICRATE * 180 && !sc_owner_has(owner, MT_SPORE_COLONY); ++t)
+        CHECK(rts_game_model_tick(model, RTS_TICK_MS));
+    CHECK(team->enemy_air_pct >= 30 && sc_owner_has(owner, MT_EVOLUTION_CHAMBER) && sc_owner_has(owner, MT_SPORE_COLONY));
+    puts("PASS: Zerg AI builds the Evolution Chamber and Spore Colony after seeing enemy air");
+    rts_game_model_destroy(model);
+    sc_set_custom_slots(NULL, NULL);
+    return 0;
+}
+
 int main(void) {
+    if (getenv("AI_SPORE")) return spore_defense();
+    CHECK(spore_defense() == 0);
     race_run_t zerg, terran, protoss, *runs[] = {&zerg, &terran, &protoss};
     /* AI_RACE=n plays one race only, for tuning. */
     if (getenv("AI_RACE")) return play(atoi(getenv("AI_RACE")) % 3, runs[atoi(getenv("AI_RACE")) % 3]);

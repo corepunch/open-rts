@@ -349,7 +349,7 @@ static int dialogs(void) {
     CHECK(game && M_MenuFind(game, 65533));
     M_SetupNextMenu(game);
     draw("/private/tmp/starcraft-game-menu.bmp");
-    int old_speed=game_speed, old_volume=snd_volume;
+    int old_speed=game_speed, old_volume=snd_volume, old_music=snd_music_volume;
     CHECK(!press(3) && !press(1));
     menuitem_t *slider=M_MenuFind(currentmenu,1);
     CHECK(slider && slider->value==old_speed);
@@ -363,15 +363,22 @@ static int dialogs(void) {
     currentmenu->escape(currentmenu);
     D_SetGameSpeed(old_speed);
     CHECK(!press(2));
+    menuitem_t *music=M_MenuFind(currentmenu,1);
+    CHECK(music && music->enabled && music->value==(old_music+5)/10);
+    music->value=3; music->routine(currentmenu,music,MA_CHANGE);
+    CHECK(snd_music_volume==30 && snd_volume==old_volume);
     slider=M_MenuFind(currentmenu,2); CHECK(slider && slider->value==(old_volume+5)/10);
     slider->value=4; slider->routine(currentmenu,slider,MA_CHANGE);
     CHECK(snd_volume==40);
-    currentmenu->escape(currentmenu); CHECK(snd_volume==old_volume);
+    currentmenu->escape(currentmenu); CHECK(snd_volume==old_volume && snd_music_volume==old_music);
     CHECK(!press(2)); slider=M_MenuFind(currentmenu,2); slider->value=6;
     slider->routine(currentmenu,slider,MA_CHANGE);
-    CHECK(!press(65534) && snd_volume==60 && gamesettings.sound==6);
+    music=M_MenuFind(currentmenu,1); music->value=7; music->routine(currentmenu,music,MA_CHANGE);
+    CHECK(!press(65534) && snd_volume==60 && gamesettings.sound==6 && snd_music_volume==70 && gamesettings.music==7);
     CHECK(!press(2) && M_MenuFind(currentmenu,2)->value==6);
-    currentmenu->escape(currentmenu); S_SetVolume(old_volume); gamesettings.sound=(old_volume+5)/10;
+    CHECK(M_MenuFind(currentmenu,1)->value==7);
+    currentmenu->escape(currentmenu); S_SetVolume(old_volume); S_SetMusicVolume(old_music);
+    gamesettings.sound=(old_volume+5)/10; gamesettings.music=(old_music+5)/10;
     CHECK(!press(65533));
     struct { int press; const char *title; const char *shot; } route[] = {
         {3, "Game Options", "options"}, {1, "Speed Settings", "speed"}, {65533, "Game Options", NULL},
@@ -423,6 +430,32 @@ static int dialogs(void) {
     currentmenu->escape(currentmenu);
     currentmenu->escape(currentmenu);
     CHECK(!menuactive);
+    static const struct { SDL_Keycode key; const char *title; } shortcuts[] = {
+        {SDLK_F1,"Help Menu"}, {SDLK_F5,"Game Options"}, {SDLK_F7,"Sound Options"},
+        {SDLK_F8,"Speed Settings"}, {SDLK_F9,"Alliances"}, {SDLK_F11,"Save Game"}, {SDLK_F12,"Load Game"},
+    };
+    for(size_t i=0;i<sizeof(shortcuts)/sizeof(*shortcuts);i++) {
+        SDL_Event e={.type=SDL_KEYDOWN}; e.key.keysym.sym=shortcuts[i].key;
+        CHECK(M_MenuResponder(hudmenu,&app,&e) && menuactive && titled(shortcuts[i].title));
+        M_ClearMenus();
+    }
+    SDL_Event diplomacy={.type=SDL_KEYDOWN}; diplomacy.key.keysym.sym=SDLK_F9;
+    CHECK(M_MenuResponder(hudmenu,&app,&diplomacy) && menuactive);
+    menuitem_t *ally=M_MenuFind(currentmenu,1), *vision=M_MenuFind(currentmenu,13);
+    CHECK(ally && vision && ally->visible && vision->visible && !M_MenuFind(currentmenu,25)->enabled);
+    int old_ally=ally->value, old_vision=vision->value;
+    ally->value=!old_ally; vision->value=!old_vision;
+    CHECK(!press(65533));
+    CHECK(M_MenuResponder(hudmenu,&app,&diplomacy) && menuactive);
+    ally=M_MenuFind(currentmenu,1); vision=M_MenuFind(currentmenu,13);
+    CHECK(ally->value==old_ally && vision->value==old_vision);
+    ally->value=!old_ally; vision->value=!old_vision;
+    CHECK(!press(65534) && !menuactive);
+    CHECK(M_MenuResponder(hudmenu,&app,&diplomacy) && menuactive);
+    ally=M_MenuFind(currentmenu,1); vision=M_MenuFind(currentmenu,13);
+    CHECK(ally->value!=old_ally && vision->value!=old_vision);
+    ally->value=old_ally; vision->value=old_vision;
+    CHECK(!press(65534));
     return 0;
 }
 
@@ -997,6 +1030,29 @@ static int hud_contract(void) {
     menuitem_t *academy=card("Terran Academy",&worker,1);
     CHECK(academy&&academy->rect.y>engineering_rect.y);
     mouse_click(card("Cancel",&worker,1));
+    /* The world placement click sounds the native rejection or race-specific
+     * acceptance; use one-instance sounds to observe the playing channel. */
+    SDL_setenv("SDL_AUDIODRIVER","dummy",1); CHECK(S_Init(root));
+    int rejected=sc_placement_sound(false,consoleplayer), accepted=sc_placement_sound(true,consoleplayer);
+    S_Sfx(rejected)->instances=S_Sfx(accepted)->instances=1;
+    level.player_resources[consoleplayer][0]=1000;
+    mouse_click(card("Build Structure",&worker,1)); mouse_click(card("Terran Supply Depot",&worker,1));
+    CHECK(hudmenu->target);
+    ivec2_t build_cell; CHECK(site(MT_SUPPLY_DEPOT,hall,worker,&build_cell));
+    M_CentreView(&app,fixed3_xy_to_fvec2(hall->core.position));
+    fvec2_t spot; R_MapToScreen(&app,&level,fixed3_xy_to_fvec2(hall->core.position).x,
+                               fixed3_xy_to_fvec2(hall->core.position).y,&spot.x,&spot.y);
+    hudmenu->cursor=(ivec2_t){(int)spot.x,(int)spot.y};
+    menuitem_t *target=hudmenu->target; hudmenu->target=NULL; target->routine(hudmenu,target,MA_TARGET);
+    CHECK(hudmenu->target && !S_StartLocalSound(rejected));
+    S_StopAllSounds(); M_CentreView(&app,(fvec2_t){build_cell.x,build_cell.y});
+    R_MapToScreen(&app,&level,build_cell.x+0.5f,build_cell.y+0.5f,&spot.x,&spot.y);
+    hudmenu->cursor=(ivec2_t){(int)spot.x,(int)spot.y};
+    target=hudmenu->target; hudmenu->target=NULL; target->routine(hudmenu,target,MA_TARGET);
+    CHECK(!hudmenu->target && !S_StartLocalSound(accepted));
+    CHECK(worker->production); G_RemoveProductionAt(worker,0);
+    G_RunTiccmd(consoleplayer,&(ticcmd_t){.order=TC_STOP,.count=1,.units={worker->id}});
+    S_Shutdown();
     mobj_t *marine=spawn(MT_MARINE,FIXED2_LIT(20,20),consoleplayer);
     mobj_t *mixed[]={worker,marine};
     CHECK(card("Move",mixed,2)&&card("Attack",mixed,2)&&!card("Build Structure",mixed,2));
