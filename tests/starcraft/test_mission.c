@@ -1141,6 +1141,26 @@ int main(void) {
     CHECK(location_mission->loc_left[1] == 0 && location_mission->loc_top[1] == 0);
     CHECK(location_mission->loc_right[1] == 64 && location_mission->loc_bottom[1] == 64);
     unload();
+    for (int transport_inside = 0; transport_inside < 2; transport_inside++) {
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location.chk", &level));
+        location_mission = level.mission; location_mission->loc_count = 2;
+        location_mission->loc_right[0] = location_mission->loc_bottom[0] = 128;
+        location_mission->loc_left[1] = location_mission->loc_top[1] = 200;
+        location_mission->loc_right[1] = location_mission->loc_bottom[1] = 264;
+        location_mission->loc_elevation[0] = 8; /* exclude ground, not the flying transport */
+        if (!location_mission->terrain) location_mission->terrain = calloc((size_t)level.width * level.height, sizeof(*location_mission->terrain));
+        CHECK(location_mission->terrain);
+        mobj_t *ship = sc_spawn_actor(MT_DROPSHIP - 1,
+            (ivec2_t){transport_inside ? 32 : 512, transport_inside ? 32 : 512}, 1);
+        mobj_t *passenger = sc_spawn_actor(MT_MARINE - 1,
+            (ivec2_t){transport_inside ? 512 : 32, transport_inside ? 512 : 32}, 0);
+        CHECK(ship && passenger); ship->sc.cargo[0] = passenger->id;
+        passenger->sc.parent = ship->id; passenger->sc.flags |= SC_LOADED;
+        ticks(1, &(hudtext_t){0});
+        CHECK(location_mission->loc_left[1] == (transport_inside ? 168 : 200));
+        CHECK(location_mission->loc_top[1] == (transport_inside ? 168 : 200));
+        unload();
+    }
     put_u16(action + 24, 4); /* Goliath turret, units.dat row 4. */
     CHECK(!write_map("/tmp/open-rts-sc-location.chk", owners, trig));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location.chk", &level));

@@ -241,6 +241,12 @@ OpenBW `trigger_find_unit`. Fixtures cover all three comparisons, turret
 exclusion and Move Location. Move Location also excludes turret subunits,
 which OpenBW never inserts into its spatial unit finder. Other trigger selectors' hallucination handling
 remains approximate.
+OpenBW `trigger_unit_pred` checks a transport's loaded passengers when
+selecting a Move Location anchor, then returns the transport's position.
+Move Location now matches loaded cargo by its own owner/type while using the
+transport's position and elevation; fixtures exercise stale passenger
+positions on both sides of a location and differing ownership. Nested cargo
+and carried powerups remain unimplemented.
 OpenBW's global Kill and Remove actions explicitly skip turret subunits,
 and Remove at Location does likewise. Shared type matching now excludes
 them for those selectors and other unit-targeting actions; behavior for the

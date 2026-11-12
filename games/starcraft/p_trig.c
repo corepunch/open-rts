@@ -364,10 +364,18 @@ static int gather(const sc_mission_t *m, const int *players, int nplayers, unsig
     if (!thinkercap.next) return 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap && n < cap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit)) continue;
-        bool mine = false;
-        for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
-        if (!mine || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
+        if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !sc_unit(mo) ||
+            (sc_unit(mo)->flags & SC_UNIT_TURRET) || (mo->sc.flags & SC_LOADED) ||
+            !location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        bool matches = false;
+        if (sc_unit(mo)->space_provided) for (int c = 0; c < SC_CARGO; c++) {
+            mobj_t *passenger = P_MobjById(mo->sc.cargo[c]);
+            if (!passenger || !(passenger->sc.flags & SC_LOADED) || passenger->sc.parent != mo->id ||
+                !kind_ok(passenger, unit)) continue;
+            for (int i = 0; i < nplayers; i++) if (players[i] == passenger->owner) matches = true;
+        }
+        if (kind_ok(mo, unit)) for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) matches = true;
+        if (!matches) continue;
         out[n++] = mo;
         if (limit && n >= limit) break;
     }

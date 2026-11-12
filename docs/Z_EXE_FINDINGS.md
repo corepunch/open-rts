@@ -3232,6 +3232,44 @@ single delayed hit. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @
 Zod instead applies radial distance falloff in
 `src/zserver.cpp:ProcessMissileDamage`; that is not the retail rectangle.
 
+**Grenade flight trace, partial:** `0x636cc..0x636f8` adds the signed
+facing-indexed dword pair at `0x149174` to the robot's +0x2c/+0x2e before
+calling `0x5a205`; it derives ESI from robot byte +0 divided by eight, with
+zero replaced by one. The call's earlier branches select target coordinates,
+including +8,+8 at `0x63689..0x63694`, or an accuracy-dependent adjustment
+through `0x64250` at `0x63699..0x636c7`. That helper skips scatter when
+the SQROOT.BIN distance from `0x60be8` is at most 6; otherwise it derives a
+radius from a `0x70d37` random value divided by `65535 / max(1, DI)`,
+draws a second random value masked with 0x3fe for SINCOS.DAT lookup, and
+adds signed products shifted by 10 to the target coordinates. The caller's DI
+is `(128 - adjusted unit accuracy) / 2`; exact RNG and aim branch parity are
+not established in the engine. `0x5a205` initializes the common
+Bresenham record via `0x5a39e`, then `0x5a2b1..0x5a314` derives an arc-table
+index from squared coordinate differences shifted by seven, capped at 1023,
+and the runtime lookup at `0x104028`; its five table pointers at `0x148b9c`
+are 0x148bc0, 0x148bc2, 0x148bc6, 0x148bcc and 0x148bd4. The first byte
+of the chosen table divides the major-axis distance and the rest supply arc
+samples. Correction: `0x104028` is the allocated address of WARDATA.PAC's
+SQROOT.BIN; `0x6fb6c` assigns it and `0x70bf5..0x70c06` loads that asset.
+The level already loads the same native table, so its contents are available.
+The ESI value from the robot's +0 byte survives the call into `0x5a39e` and
+is popped into EDX at `0x5a3d5`; DL is stored as both projectile speed bytes
+at `0x5a3fc..0x5a403`. Thus grenade speed is max(1, robot byte +0 / 8).
+`0x510b7..0x510fd` resolves the manufactured member's 44-byte robot record
+and copies record +0x1c (strength) to unit +0 and +1; unit allocation at
+`0x7a66b..0x7a670` initially sets +0 to 40 before record setup. The exact
+runtime mutation of this strength and the appropriate authored C values for
+all supported robot identities remain to be established. `0x594a8..0x59518`
+advances that sample based on traveled distance,
+adds launch-terrain height +1, and can terminate flight when a terrain height
+exceeds the resulting threshold. `0x5a4c8` steps the major axis by projectile
+speed. Full target/scatter dispatch and strength mutation remain unresolved;
+the existing flight is therefore retained rather than
+applying a partial arc or guessed timing. Inspect with `r2 -q -e bin.cache=true -c 'pd 55
+@ 0x63650' -c 'pd 55 @ 0x5a2b1' -c 'pd 45 @ 0x594a8' -c 'pd 30 @ 0x5a4c8'
+-c 'pd 15 @ 0x6fb62' -c 'pd 10 @ 0x70bf5' -c 'pd 35 @ 0x5108c'
+-c 'pd 15 @ 0x7a660' -c 'pd 60 @ 0x64250' -c 'px 32 @ 0x148b9c' -c q data/Z/ZED.EXE`.
+
 **Impact effect-object path, partial:** `0x8476c` also calls `0x8523f` at
 the same impact-minus-(12,24) coordinates. Unless global +0x14c05a blocks
 it, `0x85257..0x852a9` probes four points in order: offsets (4,16),
