@@ -270,6 +270,10 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   condition field layouts and constructors, including Command Most/Least
   conditions without a player argument. This is tool-source evidence, not a
   retail executable trace; see `docs/SC_FORMATS.md` for behavioral limits.
+- [eudplib author guide](https://havonz.github.io/SCRMapDocs/epScript-Reference/Built-in-Functions/)
+  and [EUD arithmetic examples](https://gist.github.com/wdcqc/54df5ad49f7d5887a8f84c2ac0cd86ef):
+  32-bit death-based arithmetic and subtraction through two's-complement Add;
+  the natural death-overflow behavior remains unverified.
 
 - [OpenBW pinned source](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
   collision rectangles/distance, `order_Follow`, `order_Repair`,

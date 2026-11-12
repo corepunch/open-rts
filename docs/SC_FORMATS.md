@@ -123,6 +123,17 @@ neutral and rescuable players participating in Most/Least comparisons. Fixtures
 cover active OWNR 7 and 3 slots within 0–7 for both conditions; owner slot 11
 is still excluded by the engine's eight-player selector. Tie behavior,
 completion and collision-box location semantics remain incomplete or unverified.
+
+eudplib `SetDeaths` and `Deaths` use 32-bit quantities. Death counters now use
+unsigned 32-bit storage and comparisons; Add wraps at 32 bits and Subtract
+clamps at zero, consistent with eudplib trigger arithmetic. Mission tests
+cover values above INT_MAX, wrap, subtraction and a 3-billion aggregate
+resource comparison; the save test round-trips a high counter. Natural death
+increments still saturate at UINT32_MAX; native behavior at that boundary is
+unknown. Score presentation retains its former 65535 cap. The changed saved
+mission layout increments the StarCraft save signature, so older engine saves
+are rejected rather than misread.
+
 PyMS defines Modify Unit Hit Points (action 49) with a quantity that may be
 All and a percentage in 0–100. It now shares the complete traversal used by
 energy and shield modification instead of truncating All at 256 units; the

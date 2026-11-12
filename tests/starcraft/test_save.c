@@ -15,7 +15,7 @@ int main(void) {
     uint32_t random_hash=G_ConsistencyExtra(0);
     CHECK(sc_random()==346 && G_ConsistencyExtra(0)!=random_hash);
     m->switches[12] = 1;
-    m->deaths[1][0] = 7;
+    m->deaths[1][0] = UINT32_C(0x80000000);
     m->elapsed_ms = 12345;
     m->countdown_ms = 9876;
     m->ai_on[4] = false;
@@ -69,7 +69,7 @@ int main(void) {
     CHECK(saved_carrier && saved_carrier->sc.hangar == 3 && sc_hangar_count(saved_carrier) == 4);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
-    CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == 7);
+    CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
     CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);

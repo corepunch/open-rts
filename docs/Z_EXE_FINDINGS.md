@@ -3487,6 +3487,16 @@ whether to load +0x3d. This target clear must not be modeled as conditional
 on a countdown being loaded. Inspect `r2 -q -e bin.cache=true -c 'pd 38 @
 0x759a7' -c 'pd 16 @ 0x75ca3' -c 'pd 18 @ 0x7c6ba' -c q data/Z/ZED.EXE`.
 
+Damage supplies another refresh source: both `0x86ca4` (ordinary unit/body
+damage) and `0x86d1f` (driver damage) converge on `0x75ca3` with ESI set to
+the damaged unit at `0x86d0a` and `0x86d3f`. The common refresh follows the
+body-survival and protected-flag branches as well as unit-health subtraction;
+do not limit it to lethal hits or infer that every refresh implies a new
+target. The helper only updates grouped units (+0x5c nonzero). This is
+separate from the earlier acquisition and vehicle-contact refreshes. Inspect
+with `r2 -q -e bin.cache=true -c 'pd 45 @ 0x86ca4' -c 'pd 25 @ 0x86d1f'
+-c 'pd 16 @ 0x75ca3' -c q data/Z/ZED.EXE`.
+
 A broad linear disassembly search found `0x47af6` as the only direct
 `or byte [ebp + 0x98], 0x20` write; `0x7c059..0x7c0a9` iterates squad
 members but only clears specific +0x5a orders and does not set that bit.

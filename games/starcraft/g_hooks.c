@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
 /* Mission extras and projectile state differ from earlier saves. */
-uint32_t G_SaveLayout(void) { return 3; }
+uint32_t G_SaveLayout(void) { return 4; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -16,6 +16,7 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     if (m) for (int i = 0; i < 8; ++i) {
         hash = G_HashValue(hash, m->allies[i]);
         hash = G_HashValue(hash, level.sight.allies[i]);
+        for (int t = 0; t < SC_TYPES; t++) hash = G_HashValue(hash, m->deaths[i][t]);
     }
     return hash;
 }

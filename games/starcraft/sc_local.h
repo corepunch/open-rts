@@ -211,7 +211,8 @@ typedef struct {
     sc_trig_t *rt;
     int trig_count;
     uint8_t switches[256];
-    uint16_t deaths[8][SC_TYPES], kills[8][SC_TYPES];
+    uint32_t deaths[8][SC_TYPES];
+    uint16_t kills[8][SC_TYPES];
     int elapsed_ms, countdown_ms;
     bool countdown_paused, has_victory, ai_on[8];
     int result;

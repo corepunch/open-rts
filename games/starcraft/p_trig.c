@@ -202,7 +202,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
     return n;
 }
 
-static bool cmp_num(uint8_t op, int value, int qty) {
+static bool cmp_num(uint8_t op, uint64_t value, uint32_t qty) {
     if (op == 0) return value >= qty;
     if (op == 1) return value <= qty;
     if (op == 10) return value == qty;
@@ -216,8 +216,8 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     int players[8], n = collect_players(m, group, current, players);
     if (type == 22) return true;
     if (type == 23) return false;
-    if (type == 1) return cmp_num(op, m->countdown_ms / 1000, (int)qty);
-    if (type == 12) return cmp_num(op, m->elapsed_ms / 1000, (int)qty);
+    if (type == 1) return cmp_num(op, m->countdown_ms / 1000, qty);
+    if (type == 12) return cmp_num(op, m->elapsed_ms / 1000, qty);
     if (type == 11) {
         unsigned id = c[16];
         if (id > 255) return false;
@@ -227,24 +227,24 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 2 || type == 3) {
         unsigned where = type == 3 ? loc : 64;
-        return cmp_num(op, count_units(players, n, unit, where, m), (int)qty);
+        return cmp_num(op, count_units(players, n, unit, where, m), qty);
     }
     if (type == 4) {
-        int total = 0;
+        uint64_t total = 0;
         for (int i = 0; i < n; i++) {
             if (c[16] == 0 || c[16] == 2) total += level.player_resources[players[i]][0];
             if (c[16] == 1 || c[16] == 2) total += level.player_resources[players[i]][1];
         }
-        return cmp_num(op, total, (int)qty);
+        return cmp_num(op, total, qty);
     }
     if (type == 5 || type == 15) {
-        int total = 0;
+        uint64_t total = 0;
         for (int i = 0; i < n; i++) {
-            const uint16_t *row = type == 15 ? m->deaths[players[i]] : m->kills[players[i]];
-            if (unit < SC_TYPES) total += row[unit];
-            else if (unit == 229) for (int t = 0; t < SC_TYPES; t++) total += row[t];
+            if (unit < SC_TYPES) total += type == 15 ? m->deaths[players[i]][unit] : m->kills[players[i]][unit];
+            else if (unit == 229) for (int t = 0; t < SC_TYPES; t++)
+                total += type == 15 ? m->deaths[players[i]][t] : m->kills[players[i]][t];
         }
-        return cmp_num(op, total, (int)qty);
+        return cmp_num(op, total, qty);
     }
     if (type == 6 || type == 7 || type == 16 || type == 17) {
         players[0] = current;
@@ -268,7 +268,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         for (int i = 0; i < n; i++) for (int p = 0; p < 8; p++)
             if (G_PlayerSide(players[i]) && p != players[i] && G_PlayerSide(p) &&
                 (!allied_to(players[i], p) || !allied_to(p, players[i]))) foes++;
-        return cmp_num(op, foes, (int)qty);
+        return cmp_num(op, foes, qty);
     }
     return false;
 }
@@ -770,13 +770,10 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (id == 45 && unit < SC_TYPES) {
             for (int i = 0; i < n; i++) {
-                uint16_t *row = &m->deaths[players[i]][unit];
-                unsigned value = number > 65535 ? 65535 : number;
-                if (a[27] == 7) *row = (uint16_t)value;
-                else if (a[27] == 8) {
-                    unsigned sum = *row + value;
-                    *row = (uint16_t)(sum > 65535 ? 65535 : sum);
-                } else if (a[27] == 9) *row = *row > value ? (uint16_t)(*row - value) : 0;
+                uint32_t *row = &m->deaths[players[i]][unit];
+                if (a[27] == 7) *row = number;
+                else if (a[27] == 8) *row += number;
+                else if (a[27] == 9) *row = *row > number ? *row - number : 0;
             }
             continue;
         }
@@ -947,7 +944,7 @@ void sc_note_damage(mobj_t *mo) {
     sc_mission_t *m = mission(&level);
     if (!m || mo->owner >= 8 || !mo->type_id || mo->type_id > SC_TYPES) return;
     unsigned type = mo->type_id - 1;
-    if (m->deaths[mo->owner][type] < 65535) m->deaths[mo->owner][type]++;
+    if (m->deaths[mo->owner][type] < UINT32_MAX) m->deaths[mo->owner][type]++;
     if ((mo->sc.flags & SC_HIT) && mo->sc.attacker < 8 && m->kills[mo->sc.attacker][type] < 65535)
         m->kills[mo->sc.attacker][type]++;
 }
@@ -1019,7 +1016,10 @@ void sc_player_stats(int owner, sc_stats_t *out) {
     memset(out, 0, sizeof(*out));
     sc_mission_t *m = mission(&level);
     if (!m || owner < 0 || owner >= 8) return;
-    for (int t = 0; t < SC_TYPES; t++) { out->lost[t] = m->deaths[owner][t]; out->killed[t] = m->kills[owner][t]; }
+    for (int t = 0; t < SC_TYPES; t++) {
+        out->lost[t] = m->deaths[owner][t] > 65535 ? 65535 : (int)m->deaths[owner][t];
+        out->killed[t] = m->kills[owner][t];
+    }
     out->gathered[0] = m->gathered[owner][0];
     out->gathered[1] = m->gathered[owner][1];
     out->spent = m->spent[owner];

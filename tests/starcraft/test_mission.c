@@ -412,6 +412,42 @@ int main(void) {
     remove("/tmp/open-rts-sc-timer.chk");
 
     uint8_t *action;
+    /* Death counters and trigger quantities are unsigned 32-bit values. */
+    for (int operation = 7; operation <= 9; operation++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u16(action + 24, MT_MARINE - 1); action[26] = 45; action[27] = (uint8_t)operation;
+        put_u32(action + 20, operation == 7 ? 0x80000000u : operation == 8 ? 1 : 3);
+        CHECK(!write_map("/tmp/open-rts-sc-deaths.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-deaths.chk", &level));
+        sc_mission_t *deaths_mission = level.mission;
+        deaths_mission->deaths[0][MT_MARINE - 1] = operation == 8 ? UINT32_MAX : 2;
+        ticks(1, &(hudtext_t){0});
+        CHECK(deaths_mission->deaths[0][MT_MARINE - 1] == (operation == 7 ? UINT32_C(0x80000000) : 0));
+        free(trig); unload();
+    }
+    trig = blank_trigger(); CHECK(trig);
+    put_u32(trig + 8, UINT32_C(0x80000000)); put_u16(trig + 12, MT_MARINE - 1);
+    trig[14] = 10; trig[15] = 15;
+    action = trig + 320; action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+    CHECK(!write_map("/tmp/open-rts-sc-deaths.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-deaths.chk", &level));
+    ((sc_mission_t *)level.mission)->deaths[0][MT_MARINE - 1] = UINT32_C(0x80000000);
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 10);
+    free(trig); unload(); remove("/tmp/open-rts-sc-deaths.chk");
+
+    /* Aggregate resource comparisons do not overflow signed int. */
+    trig = blank_trigger(); CHECK(trig); trig[2372+17] = 0; trig[2372] = 1;
+    put_u32(trig + 4, 17); put_u32(trig + 8, UINT32_C(3000000000));
+    trig[14] = 10; trig[15] = 4;
+    action = trig + 320; action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+    CHECK(!write_map("/tmp/open-rts-sc-accumulate.chk", force_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-accumulate.chk", &level));
+    level.player_resources[0][0] = level.player_resources[1][0] = 1500000000;
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 1500000010);
+    free(trig); unload(); remove("/tmp/open-rts-sc-accumulate.chk");
+
     /* Create Unit stores its count in the action's byte at offset 27. */
     for (int create_id = 11; create_id <= 44; create_id += 33) for (int count = 0; count <= 3; count += 3) {
         trig = blank_trigger(); CHECK(trig);
