@@ -454,10 +454,14 @@ static int shell_speed(int t) {
     }
 }
 
-static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage) {
+static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter) {
     mobj_t *shell = P_SpawnMissile(attacker, target, MT_SHELL);
     if (!shell) return;
-    fixed2_t impact = fixed2_scale(fixed2_from_cell(Z_BlastAnchor(target)), FIXED_ONE / Z_TILE);
+    ivec2_t aim = Z_BlastAnchor(target);
+    if (scatter)
+        aim = ivec2_add(aim, (ivec2_t){(coin(attacker, shell, 0x1ebc1) & 15) - 8,
+                                      (coin(attacker, shell, 0x1ebd2) & 15) - 8});
+    fixed2_t impact = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
     fixed2_t delta = fixed2_sub(impact, fixed3_xy(shell->core.position));
     int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
     int64_t dy = delta.y < 0 ? -(int64_t)delta.y : delta.y;
@@ -491,7 +495,7 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         if (driver) damage = driver->attack.damage;
         count = attacker->z.crew_count ? attacker->z.crew_count : 1;
     }
-    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, damage);
+    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, damage, apc);
     /* Suppress the shared hitscan fallback if allocation fails. */
     return true;
 }

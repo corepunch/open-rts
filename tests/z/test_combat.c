@@ -390,14 +390,36 @@ static int test_apc_shell_salvo(void) {
     if (!apc || !target) return fail("spawn APC shell salvo fixture");
     apc->z.driver = MT_UNIT_TOUGH - MT_UNITS + 1;
     apc->z.crew_count = 3;
+    uint32_t apc_id = apc->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "APC before salvo", &app, rts_game_model_ai(model), &hud))
+        return fail("save before APC salvo");
     if (!Z_Attack(apc, &apc->info->attack, target)) return fail("fire APC shell salvo");
+    ivec2_t anchor = Z_BlastAnchor(target);
+    fixed2_t aims[3];
+    bool varied = false;
     for (int i = 0; i < 3; ++i) {
         mobj_t *shell = nth(MT_SHELL, 0, i);
         if (!shell || shell->missile.damage != 40) return fail("each APC crew shell has Tough damage");
+        aims[i] = shell->movement.goal;
+        ivec2_t point = fixed2_cell(fixed2_scale(aims[i], FIXED_FROM_INT(Z_TILE)));
+        ivec2_t delta = ivec2_sub(point, anchor);
+        if (delta.x < -8 || delta.x > 7 || delta.y < -8 || delta.y > 7)
+            return fail("APC scatter stays within native pixel bounds");
+        if (i && !fixed2_equal(aims[0], aims[i])) varied = true;
     }
+    if (!varied) return fail("APC shells use independent scatter");
     if (nth(MT_SHELL, 0, 3)) return fail("three crew produce three shells");
-    uint32_t target_id = target->id;
-    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t hash = G_Consistency();
+    if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("restore before APC salvo");
+    free(save); save = NULL; size = 0;
+    apc = P_MobjById(apc_id); target = P_MobjById(target_id);
+    if (!apc || !target || !Z_Attack(apc, &apc->info->attack, target) || G_Consistency() != hash)
+        return fail("APC scatter is deterministic after restoring the same state");
+    for (int i = 0; i < 3; ++i)
+        if (!nth(MT_SHELL, 0, i) || !fixed2_equal(nth(MT_SHELL, 0, i)->movement.goal, aims[i]))
+            return fail("APC scatter reproduces each shell aim");
     if (!G_SaveGameBlob(&save, &size, "APC salvo", &app, rts_game_model_ai(model), &hud) ||
         !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
         return fail("save APC shells in flight");

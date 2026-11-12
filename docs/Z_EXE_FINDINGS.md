@@ -1847,15 +1847,20 @@ The separate coordinate-target path `0x1eb04..0x1ec12`, called at
 member at `0x1eb86..0x1ebfd`. For each Tough it dispatches a separate shell
 through `0x1ed92` and `0x1eeb4`; unlike the scanner loop, this path has no
 12-port-attempt cap. It adds independent random offsets -8..7 pixels to
-the target coordinates at `0x1ebc1..0x1ebdd`. Its reload at `0x1ec07`
+the target coordinates at `0x1ebc1..0x1ebdd`. Open-rts applies those
+pixel bounds to the existing target selection anchor, using its deterministic
+Z combat coin keyed by each projectile ID; that is not the native random
+stream and the engine's anchor is an approximation of the native coordinates.
+Its reload at `0x1ec07`
 also differs from the scanner reload at `0x1ea4a`. Open-rts now spawns a
 separate Tough shell with individual damage per stored crew member, matching
 the coordinate-target path's multiplicity. It applies that rule to all APC
-attacks and gives the shells a common target and aim: native mode selection,
-port acquisition, random scatter and the alternate reload remain unmodeled.
+attacks with a common target: native mode selection, port acquisition, native
+random sequencing and the alternate reload remain unmodeled.
 The single-target implementation therefore does not establish complete APC
-combat parity. `test_combat` checks three independent shell impacts, their
-save/load, and a full 21-member salvo. Inspect with `r2 -q -e bin.cache=true
+combat parity. `test_combat` checks scatter bounds and variation, identical
+aims and consistency hash after restoring the same state, independent shell
+impacts, save/load and a full 21-member salvo. Inspect with `r2 -q -e bin.cache=true
 -c 'pd 90 @ 0x1ea5c' -c 'pd 65 @ 0x1eb64' -c 'pd 65 @ 0x1effd' -c q
 data/Z/ZED.EXE`.
 
