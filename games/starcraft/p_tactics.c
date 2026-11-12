@@ -38,7 +38,7 @@ static fixed_t reach_of(int tech) {
     }
 }
 static bool ready(const mobj_t *u, int tech) {
-    return sc_has_tech(u->owner, tech) && sc_energy(u) >= sc_techs[tech].energy;
+    return sc_unit_has_tech(u, tech) && sc_energy(u) >= sc_techs[tech].energy;
 }
 
 /* The enemy in reach whose spot catches the most enemies and none of ours. */
@@ -152,7 +152,7 @@ static bool sweep(mobj_t *const *units, int count, mobj_t *u) {
 static bool cast(mobj_t *const *units, int count, mobj_t *u) {
     if (u->sc.order.kind) return false;
     switch (u->type_id) {
-    case MT_HIGH_TEMPLAR: return storm(units, count, u);
+    case MT_HIGH_TEMPLAR: case MT_TASSADAR: return storm(units, count, u);
     case MT_SCIENCE_VESSEL: return vessel(units, count, u);
     case MT_QUEEN: return queen(units, count, u);
     case MT_DEFILER: return defiler(units, count, u);

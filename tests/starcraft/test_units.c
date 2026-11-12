@@ -375,6 +375,22 @@ static int frames(int n) { return n * RTS_TICRATE / 24 + 2; }
 static fixed2_t at_of(const mobj_t *mo) { return fixed3_xy(mo->core.position); }
 
 static int protoss_spells(void) {
+    /* Tassadar knows Storm and Hallucination without player research. */
+    mobj_t *tassadar = caster(MT_TASSADAR, FIXED2_LIT(4.5, 4.5));
+    mobj_t *hero_target = spawn(MT_ZEALOT, FIXED2_LIT(7.5, 4.5), 0);
+    CHECK(tassadar && hero_target && !sc_has_tech(0, SC_TECH_PSIONIC_STORM));
+    int hero_techs[8], hero_count = sc_unit_techs(MT_TASSADAR, hero_techs, 8);
+    bool has_storm = false, has_hallucination = false;
+    for (int i = 0; i < hero_count; i++) {
+        has_storm |= hero_techs[i] == SC_TECH_PSIONIC_STORM;
+        has_hallucination |= hero_techs[i] == SC_TECH_HALLUCINATION;
+    }
+    CHECK(has_storm && has_hallucination && sc_unit_has_tech(tassadar, SC_TECH_PSIONIC_STORM));
+    CHECK(sc_cast(tassadar, SC_TECH_HALLUCINATION, hero_target, at_of(hero_target)));
+    CHECK(count_of(MT_ZEALOT, 0) == 3 && sc_energy(tassadar) == 200 - sc_techs[SC_TECH_HALLUCINATION].energy);
+    CHECK(sc_cast(tassadar, SC_TECH_PSIONIC_STORM, NULL, FIXED2_LIT(8.5, 4.5)));
+    CHECK(sc_energy(tassadar) == 200 - sc_techs[SC_TECH_HALLUCINATION].energy - sc_techs[SC_TECH_PSIONIC_STORM].energy);
+    reset();
     /* Psionic Storm: researched first, 75 energy, 112 over 2.6 s ignoring
      * armor, storms do not stack, buildings stand. */
     mobj_t *ht = caster(MT_HIGH_TEMPLAR, FIXED2_LIT(4.5, 4.5)), *ht2 = caster(MT_HIGH_TEMPLAR, FIXED2_LIT(4.5, 6.5));
@@ -659,6 +675,12 @@ static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
 }
 
 static int computer(void) {
+    /* Hero spell access also applies to autonomous casting. */
+    mobj_t *hero = caster(MT_TASSADAR, FIXED2_LIT(4.5, 4.5));
+    for (int i = 0; i < 3; i++) CHECK(spawn(MT_ZERGLING, FIXED2_LIT(10.5 + 0.5 * i, 4.5), 1));
+    CHECK(hero && !sc_has_tech(0, SC_TECH_PSIONIC_STORM));
+    think(0); CHECK(count_of(MT_MAP_REVEALER, 0) == 1 && sc_energy(hero) == 125);
+    reset();
     /* Storm where enemies clump, never over our own. */
     learn(0, SC_TECH_PSIONIC_STORM);
     mobj_t *ht = caster(MT_HIGH_TEMPLAR, FIXED2_LIT(4.5, 4.5));

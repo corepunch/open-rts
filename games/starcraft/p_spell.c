@@ -74,8 +74,8 @@ static const sc_spell_t spells[] = {
     {SC_TECH_CONSUME, -1, FIXED_ONE * 3 / 2, {MT_DEFILER}, false},
     {SC_TECH_ENSNARE, 58, 0, {MT_QUEEN}, false},
     {SC_TECH_PARASITE, 56, 0, {MT_QUEEN}, true},
-    {SC_TECH_PSIONIC_STORM, SC_WEAPON_STORM, 0, {MT_HIGH_TEMPLAR}, false},
-    {SC_TECH_HALLUCINATION, -1, FIXED_FROM_INT(8), {MT_HIGH_TEMPLAR}, false},
+    {SC_TECH_PSIONIC_STORM, SC_WEAPON_STORM, 0, {MT_HIGH_TEMPLAR, MT_TASSADAR}, false},
+    {SC_TECH_HALLUCINATION, -1, FIXED_FROM_INT(8), {MT_HIGH_TEMPLAR, MT_TASSADAR}, false},
     {SC_TECH_RECALL, -1, -FIXED_ONE, {MT_ARBITER, HERO_DANIMOTH}, false},
     {SC_TECH_STASIS_FIELD, SC_WEAPON_STASIS, 0, {MT_ARBITER, HERO_DANIMOTH}, false},
     {SC_TECH_ARCHON_WARP, -1, 0, {MT_HIGH_TEMPLAR}, true},
@@ -106,7 +106,7 @@ bool sc_has_tech(int owner, int tech) {
     if (!sc_tech_researched(tech)) return true;
     return tech >= 0 && tech < SC_TECHS && owner >= 0 && owner < 8 && level.upgrades[SC_UPGRADES + tech][owner].weapon;
 }
-static bool may_cast(const mobj_t *caster, int tech) {
+bool sc_unit_has_tech(const mobj_t *caster, int tech) {
     return sc_has_tech(caster->owner, tech) || (sc_units[caster->type_id - 1].flags & SC_UNIT_HERO); /* heroes know all */
 }
 int sc_unit_techs(uint16_t type, int *out, int cap) {
@@ -507,7 +507,7 @@ static bool step_cast(mobj_t *caster) {
 bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     const sc_spell_t *s = spell(tech);
     if (!caster || caster->remove || caster->hp <= 0 || !s || !casts(caster->type_id, s) ||
-        (caster->sc.flags & SC_HALLUCINATION) || !may_cast(caster, tech)) return false;
+        (caster->sc.flags & SC_HALLUCINATION) || !sc_unit_has_tech(caster, tech)) return false;
     sc_start(caster);
     if (cloak(tech)) {
         if (caster->traits & MF_CLOAKED) { caster->traits &= ~MF_CLOAKED; return true; }

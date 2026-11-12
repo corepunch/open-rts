@@ -25,7 +25,7 @@ typedef struct {
 } sc_unit_t;
 extern sc_unit_t sc_units[SC_TYPES];
 /* Types info.h does not name: units.dat rows plus one. */
-enum { MT_SPIDER_MINE = 14, MT_INFESTED_TERRAN = 51, MT_WARBRINGER = 82,
+enum { MT_SPIDER_MINE = 14, MT_INFESTED_TERRAN = 51, MT_TASSADAR = 80, MT_WARBRINGER = 82,
        MT_GANTRITHOR = 83, MT_INFESTED_COMMAND_CENTER = 131 };
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */
@@ -259,6 +259,7 @@ void sc_show_result(int result);
  * saved and hashed with the level. Scanner Sweep, Defensive Matrix, Dark
  * Swarm, Parasite and Archon Warp need no research, as in retail melee. */
 bool sc_has_tech(int owner, int tech);
+bool sc_unit_has_tech(const mobj_t *caster, int tech);
 /* Whether tech is researched rather than given. */
 bool sc_tech_researched(int tech);
 /* A unit type's abilities (the techs it casts), for its command card. */

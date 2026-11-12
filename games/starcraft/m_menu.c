@@ -2450,7 +2450,7 @@ static void refresh(menu_t *menu) {
                 tech==SC_TECH_BURROWING&&burrowed?260:sc_techs[tech].icon;
             button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":
                 tech==SC_TECH_BURROWING&&burrowed?"Unburrow":sc_techs[tech].name);
-            if(!sc_has_tech(consoleplayer,tech)) {
+            if(!sc_unit_has_tech(selected,tech)) {
                 char why[96];snprintf(why,sizeof(why),"Requires: %s research",sc_techs[tech].name);
                 grey(slot,why);
             } else if(tech==SC_TECH_SPIDER_MINES&&selected->sc.hangar<=0)grey(slot,"No Spider Mines left");

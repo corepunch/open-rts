@@ -240,6 +240,11 @@ now do the same; fixtures cover a wounded target and both scarab sources.
 OpenBW `unit_tech_target_valid` rejects Interceptors as Hallucination targets.
 The spell now rejects them before spending energy; a unit fixture checks the
 rejection alongside a valid Zealot cast.
+OpenBW allows hero Tassadar (units.dat row 79) to use Psionic Storm and
+Hallucination without player research. Tassadar now exposes and casts both;
+the command card and computer tactics use the same hero-aware research check
+as casting. Fixtures exercise direct casts, enabled buttons and autonomous
+Storm without research.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

@@ -652,6 +652,11 @@ static int tech_card(void) {
     CHECK(unit && locked(card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1), "research"));
     level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
     CHECK(usable(card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1)));
+    mobj_t *tassadar = beside(MT_TASSADAR, hall, 4, 4); CHECK(tassadar);
+    level.upgrades[SC_UPGRADES + SC_TECH_PSIONIC_STORM][consoleplayer].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_HALLUCINATION][consoleplayer].weapon = 0;
+    CHECK(usable(card(sc_techs[SC_TECH_PSIONIC_STORM].name, &tassadar, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_HALLUCINATION].name, &tassadar, 1)));
     /* Engineering Bay: level 1 now, level 2 greyed until a Science Facility. */
     const char *weapons = sc_upgrades[0].name;
     menuitem_t *tier = card(weapons, &bay, 1);
