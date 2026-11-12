@@ -270,6 +270,13 @@ Hyperion and Norad II (units.dat rows 28 and 29). Both now use the existing
 casting, card and AI paths; fixtures check direct damage, autonomous use and
 unresearched buttons. OpenBW also lists the Brood War hero Gerard DuGalle,
 which is not identified in this checked-in unit table.
+OpenBW classifies Edmund Duke's tank and siege variants (units.dat rows 23
+and 25) as Siege Tanks and lets the hero transform without research. Duke now
+uses dedicated transform states and his own two unit types, including the
+command card and AI tactic. Fixtures exercise both directions, retained HP
+and selection, and saving during a transform. The transform timing remains
+the engine's existing two-second approximation; adding states shifts compiled
+script state IDs, so the StarCraft save layout version was incremented.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

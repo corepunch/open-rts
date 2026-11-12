@@ -177,9 +177,8 @@ static bool cast(mobj_t *const *units, int count, mobj_t *u) {
 /* Siege when an enemy on the ground comes within the cannon's reach, but
  * not on top of the tank; unsiege once nothing is left to shell. */
 static void siege(mobj_t *const *units, int count, mobj_t *u) {
-    if (!sc_has_tech(u->owner, SC_TECH_SIEGE_MODE) || u->core.state_id == SC_SIEGE_STATE ||
-        u->core.state_id == SC_UNSIEGE_STATE) return;
-    bool sieged = u->type_id == MT_SIEGE_MODE, near = false, close = false;
+    if (!sc_unit_has_tech(u, SC_TECH_SIEGE_MODE) || u->core.state_id == u->info->deploy.state) return;
+    bool sieged = u->type_id == MT_SIEGE_MODE || u->type_id == MT_DUKE_SIEGE, near = false, close = false;
     fixed_t reach = SC_SIEGE_REACH + (sieged ? FIXED_ONE : 0);
     for (int i = 0; i < count; i++) {
         const mobj_t *e = units[i];
@@ -241,7 +240,7 @@ void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count) {
         if (cast(units, count, u)) continue;
         switch (u->type_id) {
         case MT_CARRIER: case MT_REAVER: case MT_GANTRITHOR: case MT_WARBRINGER: refill(u); break;
-        case MT_SIEGE_TANK: case MT_SIEGE_MODE: siege(units, count, u); break;
+        case MT_SIEGE_TANK: case MT_SIEGE_MODE: case MT_DUKE_TANK: case MT_DUKE_SIEGE: siege(units, count, u); break;
         case MT_MARINE: man_bunker(units, count, u); break;
         default:
             research(units, count, u);

@@ -652,6 +652,13 @@ static int tech_card(void) {
     CHECK(unit && locked(card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1), "research"));
     level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
     CHECK(usable(card(sc_techs[SC_TECH_SIEGE_MODE].name, &unit, 1)));
+    mobj_t *duke = beside(MT_DUKE_TANK, hall, 3, 4); CHECK(duke);
+    level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 0;
+    CHECK(usable(card(sc_techs[SC_TECH_SIEGE_MODE].name, &duke, 1)));
+    CHECK(P_MorphMobj(duke, MT_DUKE_SIEGE));
+    const menuitem_t *duke_unsiege = card(sc_techs[SC_TECH_SIEGE_MODE].name, &duke, 1);
+    CHECK(usable(duke_unsiege) && duke_unsiege->look[MS_NORMAL].cell == 246);
+    level.upgrades[SC_UPGRADES + SC_TECH_SIEGE_MODE][consoleplayer].weapon = 1;
     mobj_t *tassadar = beside(MT_TASSADAR, hall, 4, 4); CHECK(tassadar);
     level.upgrades[SC_UPGRADES + SC_TECH_PSIONIC_STORM][consoleplayer].weapon = 0;
     level.upgrades[SC_UPGRADES + SC_TECH_HALLUCINATION][consoleplayer].weapon = 0;

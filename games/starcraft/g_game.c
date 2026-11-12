@@ -64,6 +64,8 @@ void sc_refresh_actors(void) {
     /* Siege mode and back are one deploy each way. */
     actors[MT_SIEGE_TANK-1].deploy.state=SC_SIEGE_STATE; actors[MT_SIEGE_TANK-1].deploy.type=MT_SIEGE_MODE;
     actors[MT_SIEGE_MODE-1].deploy.state=SC_UNSIEGE_STATE; actors[MT_SIEGE_MODE-1].deploy.type=MT_SIEGE_TANK;
+    actors[MT_DUKE_TANK-1].deploy.state=SC_DUKE_SIEGE_STATE; actors[MT_DUKE_TANK-1].deploy.type=MT_DUKE_SIEGE;
+    actors[MT_DUKE_SIEGE-1].deploy.state=SC_DUKE_UNSIEGE_STATE; actors[MT_DUKE_SIEGE-1].deploy.type=MT_DUKE_TANK;
 }
 void G_InitGame(void) {
     sc_init_info();

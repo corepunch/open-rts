@@ -37,6 +37,10 @@ int main(void) {
     sc_initial_hallucination(saved_ghost);
     saved_ghost->sc.flags |= SC_INVINCIBLE;
     uint32_t ghost_id = saved_ghost->id;
+    mobj_t *saved_duke = sc_spawn_actor(MT_DUKE_TANK - 1, (ivec2_t){512, 384}, 0); CHECK(saved_duke);
+    ticcmd_t duke_deploy = {.order = TC_DEPLOY, .count = 1, .units = {saved_duke->id}};
+    G_RunTiccmd(0, &duke_deploy); CHECK(saved_duke->core.state_id == SC_DUKE_SIEGE_STATE);
+    uint32_t duke_id = saved_duke->id;
     uint32_t carrier_id = saved_carrier->id;
     level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
     level.sight.allies[0] &= ~(UINT32_C(0x40000000) >> 2); /* revoked sharing */
@@ -79,6 +83,8 @@ int main(void) {
     CHECK(saved_ghost && saved_ghost->sc.energy == 82 * 256 + 128 &&
           saved_ghost->hp == 1 && saved_ghost->sc.wound == 141 && (saved_ghost->sc.flags & SC_INVINCIBLE) &&
           (saved_ghost->sc.flags & SC_HALLUCINATION) && saved_ghost->sc.timers[SC_TIMER_LIFE] == 1350);
+    saved_duke = P_MobjById(duke_id);
+    CHECK(saved_duke && saved_duke->core.state_id == SC_DUKE_SIEGE_STATE);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
@@ -86,6 +92,8 @@ int main(void) {
     CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);
     CHECK(m->rt[0].cursor == 3 && m->rt[0].wait_ms == 1200 && m->rt[0].running);
+    for (int i = 0; i < RTS_TICRATE * 3; i++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
+    CHECK(saved_duke->type_id == MT_DUKE_SIEGE);
     CHECK(!strcmp(m->objectives, "Saved objective"));
     free(saved);
     size_t extra_size = G_SaveExtraSize();

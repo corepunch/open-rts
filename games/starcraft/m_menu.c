@@ -2447,7 +2447,7 @@ static void refresh(menu_t *menu) {
             int tech=techs[t];
             /* Dug in, a unit can only come up again. */
             if(burrowed&&tech!=SC_TECH_BURROWING)continue;
-            int icon=tech==SC_TECH_NUCLEAR_STRIKE?311:tech==SC_TECH_SIEGE_MODE&&selected->type_id==MT_SIEGE_MODE?246:
+            int icon=tech==SC_TECH_NUCLEAR_STRIKE?311:tech==SC_TECH_SIEGE_MODE&&(selected->type_id==MT_SIEGE_MODE||selected->type_id==MT_DUKE_SIEGE)?246:
                 tech==SC_TECH_BURROWING&&burrowed?260:sc_techs[tech].icon;
             button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":
                 tech==SC_TECH_BURROWING&&burrowed?"Unburrow":sc_techs[tech].name);

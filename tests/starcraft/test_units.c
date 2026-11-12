@@ -222,6 +222,21 @@ static int siege(void) {
     tick(RTS_TICRATE * 3);
     CHECK(tank->type_id == MT_SIEGE_TANK && (tank->traits & MF_MOBILE) && tank->info->attack.range == FIXED_FROM_INT(7));
     reset();
+    mobj_t *duke = spawn(MT_DUKE_TANK, FIXED2_LIT(10.5, 10.5), 0); CHECK(duke);
+    duke->hp = 300; duke->sc.wound = 37; P_MobjSetSelected(duke, true);
+    deploy.units[0] = duke->id;
+    CHECK(!sc_has_tech(0, SC_TECH_SIEGE_MODE));
+    G_RunTiccmd(0, &deploy);
+    CHECK(duke->core.state_id == SC_DUKE_SIEGE_STATE && !(duke->traits & MF_MOBILE));
+    tick(RTS_TICRATE * 3);
+    CHECK(duke->type_id == MT_DUKE_SIEGE && duke->hp == 300 && duke->sc.wound == 37 && P_MobjIsSelected(duke));
+    CHECK(duke->info->attack.min_range > 0 && !(duke->traits & MF_MOBILE));
+    G_RunTiccmd(0, &deploy);
+    CHECK(duke->core.state_id == SC_DUKE_UNSIEGE_STATE);
+    tick(RTS_TICRATE * 3);
+    CHECK(duke->type_id == MT_DUKE_TANK && duke->hp == 300 && duke->sc.wound == 37 &&
+          P_MobjIsSelected(duke) && (duke->traits & MF_MOBILE));
+    reset();
     return 0;
 }
 
@@ -759,6 +774,14 @@ static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
 }
 
 static int computer(void) {
+    mobj_t *duke = spawn(MT_DUKE_TANK, FIXED2_LIT(10.5, 10.5), 0);
+    mobj_t *duke_enemy = spawn(MT_ULTRALISK, FIXED2_LIT(18.5, 10.5), 1);
+    CHECK(duke && duke_enemy && !sc_has_tech(0, SC_TECH_SIEGE_MODE));
+    think(0); CHECK(duke->core.state_id == SC_DUKE_SIEGE_STATE);
+    tick(RTS_TICRATE * 3); CHECK(duke->type_id == MT_DUKE_SIEGE);
+    P_RemoveMobj(duke_enemy); think(0); CHECK(duke->core.state_id == SC_DUKE_UNSIEGE_STATE);
+    tick(RTS_TICRATE * 3); CHECK(duke->type_id == MT_DUKE_TANK);
+    reset();
     const int hero_battlecruisers[] = {MT_HYPERION, MT_NORAD_II};
     for (int i = 0; i < 2; i++) {
         mobj_t *hero = caster(hero_battlecruisers[i], FIXED2_LIT(4.5, 4.5));

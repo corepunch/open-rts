@@ -57,6 +57,10 @@ void sc_init_info(void) {
     states[SC_UNSIEGE_STATE]=(state_t){.sprite=MT_SIEGE_MODE-1,.tics=frames,.nextstate=SC_UNSIEGE_STATE+1};
     states[SC_UNSIEGE_STATE+1]=(state_t){.sprite=MT_SIEGE_MODE-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_SIEGE_TANK-1)*2};
     states[SC_PROJECTILE_STATE]=(state_t){.sprite=0,.tics=-1,.nextstate=SC_PROJECTILE_STATE};
+    states[SC_DUKE_SIEGE_STATE]=(state_t){.sprite=MT_DUKE_TANK-1,.tics=frames,.nextstate=SC_DUKE_SIEGE_STATE+1};
+    states[SC_DUKE_SIEGE_STATE+1]=(state_t){.sprite=MT_DUKE_TANK-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_DUKE_SIEGE-1)*2};
+    states[SC_DUKE_UNSIEGE_STATE]=(state_t){.sprite=MT_DUKE_SIEGE-1,.tics=frames,.nextstate=SC_DUKE_UNSIEGE_STATE+1};
+    states[SC_DUKE_UNSIEGE_STATE+1]=(state_t){.sprite=MT_DUKE_SIEGE-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_DUKE_TANK-1)*2};
     mobjinfo[MT_SC_PROJECTILE]=(mobjinfo_t){.doomednum=-1,.spawnstate=SC_PROJECTILE_STATE,
         .spawnhealth=1,.flags=MF_NOBLOCKMAP};
 }

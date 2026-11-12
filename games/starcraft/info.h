@@ -136,7 +136,8 @@ enum { S_NULL, SC_TYPES = 228, MT_SC_PROJECTILE = SC_TYPES + 1, NUMMOBJTYPES = S
 /* Per type: idle and walk (1 + 2i), attack (1 + 2 SC_TYPES + i); then the
  * siege tank's two transforms, then what the native scripts compile. */
 enum { SC_SIEGE_STATE = 1 + SC_TYPES * 3, SC_UNSIEGE_STATE = SC_SIEGE_STATE + 2,
-       SC_PROJECTILE_STATE = SC_SIEGE_STATE + 4, SC_SCRIPT_STATES = SC_PROJECTILE_STATE + 1 };
+       SC_PROJECTILE_STATE = SC_SIEGE_STATE + 4, SC_DUKE_SIEGE_STATE = SC_PROJECTILE_STATE + 1,
+       SC_DUKE_UNSIEGE_STATE = SC_DUKE_SIEGE_STATE + 2, SC_SCRIPT_STATES = SC_DUKE_UNSIEGE_STATE + 2 };
 extern state_t states[SC_STATES];
 extern mobjinfo_t mobjinfo[NUMMOBJTYPES];
 extern const char *sprnames[SC_SPRITES];
