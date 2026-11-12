@@ -1,4 +1,5 @@
 #include "sc_local.h"
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -374,6 +375,35 @@ static void modify_vitals(const sc_mission_t *m, const int *players, int nplayer
     }
 }
 
+/* Resource deposits are level vents linked to the native resource mobj. */
+static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
+                            unsigned loc, unsigned amount) {
+    int l, t, r, b;
+    bool anywhere = !loc || loc == 64;
+    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
+    if (!thinkercap.next) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !alive_unit(mo)) continue;
+        bool resource = (mo->type_id >= MT_MINERAL_FIELD1 && mo->type_id <= MT_MINERAL_FIELD3) ||
+            mo->type_id == MT_VESPENE_GEYSER || mo->type_id == MT_REFINERY ||
+            mo->type_id == MT_EXTRACTOR || mo->type_id == MT_ASSIMILATOR;
+        if (!resource) continue;
+        bool matches = mo->owner < 8 ? in_group(m, player, mo->owner, current) :
+            player == mo->owner || (player == 17 && mo->owner < 12);
+        if (!matches || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        for (int i = 0; i < level.resource_vent_count; i++) {
+            resourcevent_t *vent = &level.resource_vents[i];
+            if (vent->source_id != mo->id) continue;
+            vent->amount = amount > INT_MAX ? INT_MAX : (int)amount;
+            vent->depleted = !vent->amount && vent->depleted_rate > 0;
+            vent->active = mo->type_id != MT_VESPENE_GEYSER &&
+                (vent->amount > 0 || vent->depleted);
+            break;
+        }
+    }
+}
+
 static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     if (!m->uprp || index >= m->uprp_size / 20) return;
     const uint8_t *p = m->uprp + index * 20;
@@ -540,6 +570,10 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             int status = (int)unit;
             for (int s = 0; s < ns; s++) for (int i = 0; i < n; i++)
                 set_alliance(self[s], players[i], status);
+            continue;
+        }
+        if (id == 52) {
+            modify_deposits(m, player, st->current, loc, number);
             continue;
         }
         if (id == 50 || id == 51) {

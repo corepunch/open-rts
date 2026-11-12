@@ -3120,3 +3120,33 @@ Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 35 @ 0x58214' -c 'pd 30 @ 0x58592' -c 'pd 65 @ 0x58745' -c
 'pd 35 @ 0x7c059' -c q data/Z/ZED.EXE` and search the broad disassembly
 for writes to `+ 0x98`.
+
+**Rectangle event and command dispatch refinement:** action table `0x149038`
+entries 9 and 10 both point to `0x57dd6`, which calls `0x58679` at
+`0x57df1`. That routine returns if global `0x10e91b` is nonzero or source
+unit +0x6f bit 2 is set; otherwise `0x7911a` collects up to 288 indices
+from nine spatial bins, and the inner rectangle tested at `0x58783` is
+inclusive source x−8..x+16, y−8..y+16. Qualifying opposing units outside
+classes +0x79 = 1 or 2 and actions +0x35 = 0x12, 0x17 or 0x2e refresh
+their own group's +0x10 before `0x60fe6` or `0x58910`. The latter changes
+the unit to action 0x17 or 0x2e; the wider rectangle can issue an avoidance
+order. This is the vehicle contact/knockdown path, not an ordinary enemy
+acquisition timer. Its full interaction behavior remains unported; do not
+invent proximity timer refresh on all units.
+
+For a queued ordinary command, `0x4767f..0x47692` serializes the unit's
++0x5d group ID. On receipt `0x4790d..0x47937` validates group +0x12 and
+resolves group +0x13 into a unit pointer, then `0x47988` calls the dispatcher
+which sets that unit's +0x98 bit 0x20. Thus this path selects the current
+leader by group, even if a different member supplied the queued command.
+The immediate path `0x476ed..0x47720` uses the existing pointer at
+0x104048 instead. In one selection path `0x69cbf` obtains the unit from
+one-based selection index `0x103ce1` through `0x68498`, then puts that
+pointer in 0x104048; unlike the queued path this call does not itself
+normalize it to group +0x13. Selection normalization and the full set of
+command paths remain **unknown**, so the preceding direct-write search
+alone cannot determine every local command's recipient. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 60 @ 0x58679'
+-c 'pd 45 @ 0x58745' -c 'pd 35 @ 0x7911a' -c 'px 48 @ 0x149038'
+-c 'pd 40 @ 0x47674' -c 'pd 40 @ 0x478f3' -c 'pd 25 @ 0x69cbf'
+-c 'pd 12 @ 0x68498' -c q data/Z/ZED.EXE`.
