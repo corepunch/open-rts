@@ -3140,6 +3140,23 @@ in the opposite order to their slots, saves and reloads, and verifies that
 the lower-slot 10-grenade crate is collected. Inspect with `r2 -q -e
 bin.cache=true -c 'pd 65 @ 0x79b53' -c q data/Z/ZED.EXE`.
 
+**Correction, native non-crate interaction (confirmed instructions; runtime
+address unknown):** The strict-square description above holds until the scan
+reaches a nearby active effect with +0xd bit 0x80 that is not a grenade box.
+At `0x79b8b` the handler overwrites EDI with that effect's descriptor pointer;
+`0x79b9c` and `0x79bdd..0x79be1` continue scanning without restoring it, so
+the following signed distance comparisons at `0x79b75` and `0x79b86` use the
+pointer's low word as DI. Default effect initialization sets bit 0x80 at
+`0x4a41a`, while the empty-gun/vehicle branches and object types 0x0b, 0x0c
+and 0x11 do not retain it. Terrain 0x24 still has to invoke the handler first.
+The descriptor table is shown at image address `0xe5974` with 25-byte entries,
+but its references are relocated: the actual low word at runtime has not
+been established. Consequently no fixed enlarged radius can be justified from
+the static image address. Open-rts continues to apply the 16-pixel check to
+represented crates, and therefore does not reproduce this native register
+reuse. Reproduce with `r2 -q -e bin.cache=true -c 'pd 65 @ 0x79b25' -c
+'pd 80 @ 0x4a354' -c q data/Z/ZED.EXE`.
+
 **Implemented with stated engine scope:** `games/z/p_detour.c` applies the
 native sector ordering, initial object visibility masks, direction predicates,
 SQROOT ranking, terrain line and flag-destination guard to ordinary ground
