@@ -40,6 +40,12 @@ including hallucinations and units beyond the former 256-entry temporary
 buffer. `test_mission` covers 260 units. OpenBW hides and kills those units;
 open-rts still uses its existing deferred removal, so secondary death effects
 and statistics are not established as equivalent.
+OpenBW action 25 also iterates matching units at the location without excluding
+hallucinations. The all-units form now has the same complete traversal; a
+mission fixture covers 260 inside units and one outside. The bounded-count form
+still uses a 256-entry buffer and excludes hallucinations; OpenBW's case 25
+does not apply its count field, so that reference does not establish the retail
+bounded selection rule. Center-based location matching remains an approximation.
 
 OpenBW action 22 similarly walks each selected player's full unit list without
 excluding hallucinations. Kill Unit now uses that selection and the existing

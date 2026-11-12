@@ -629,10 +629,14 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             modify_vitals(m, players, n, unit, loc, a[27], read_u32_le(a + 8), id);
             continue;
         }
-        if ((id == 22 || id == 24) && thinkercap.next) {
+        if ((id == 22 || id == 24 || (id == 25 && !a[27])) && thinkercap.next) {
+            int l, t, r, b;
+            bool anywhere = id != 25 || !loc || loc == 64;
+            if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) continue;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;
-                if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit)) continue;
+                if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+                    (!anywhere && !inside(mo, l, t, r, b))) continue;
                 for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
                     if (id == 22) P_DamageMobj(mo, NULL, mo->hp);
                     else P_RemoveMobj(mo);

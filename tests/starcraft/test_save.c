@@ -27,6 +27,7 @@ int main(void) {
     G_RunTiccmd(0,&move);CHECK(queued_unit->sc.queue.count==1);
     mobj_t *geyser = sc_spawn_actor(MT_VESPENE_GEYSER - 1, (ivec2_t){320, 320}, 11);
     CHECK(geyser && sc_add_resource_vent(geyser, 5000));
+    level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
     uint32_t geyser_id = geyser->id;
     int geyser_vent = level.resource_vent_count - 1;
     uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
@@ -57,6 +58,7 @@ int main(void) {
     CHECK(geyser && geyser->owner == 11 && geyser->type_id == MT_VESPENE_GEYSER);
     CHECK(geyser_vent < level.resource_vent_count && level.resource_vents[geyser_vent].source_id == geyser_id &&
           level.resource_vents[geyser_vent].amount == 5000 && !level.resource_vents[geyser_vent].active);
+    CHECK(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == 7);
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
