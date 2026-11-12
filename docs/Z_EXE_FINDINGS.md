@@ -3394,16 +3394,20 @@ impact +(16,16), assuming `0x14c05f` clear. This differs from the shell
 branch's (−12,−24) adjustment. In particular, these bounds do not by
 themselves guarantee that the chosen target anchor is hit.
 
-Open-rts launches a saved ordinary water missile through normal attacks,
-uses native total accelerating flight steps quantized to 30 Hz, halves
-the damage and reuses the common explosion handling with the corresponding
-offset. The shared timed-missile interpolation is uniform within the flight,
-not the native acceleration curve; it displays frame 1622 without cycling,
-does not intercept terrain, and retains the existing shared shell
-approximations for target loss, effect allocation and delayed impacts.
-Non-unit target aim and the native water spray's full terrain/effect
-interactions remain unverified. `test_combat` covers normal attack dispatch,
-delayed travel, save/load and an inclusive boundary with ally exclusion.
+Open-rts launches an ordinary saved water mobj through normal attacks. Its
+state action runs the native integer major-axis movement and acceleration
+in 70 Hz substeps, cycles the four projectile pictures, checks the native
+terrain-height table against the launch tile's height plus one, and stops
+at the first higher in-flight sample. The arrival check precedes that sample
+as in `0x59349`; equal height passes. The water effect uses the shared shell
+explosion handling with the corresponding offset. Its launch point remains
+the engine's unit center rather than the native facing-dependent muzzle;
+non-unit aim, complete terrain/effect interactions, native effect-pool
+exhaustion, and the explosion's delayed impact remain approximations.
+The explicit projectile flight state is saved and hashed; Z save layout is
+12. `test_combat` covers normal attack dispatch, real accelerating substeps,
+sprite/height boundaries, interception, terminal-tile order, save/load and
+an inclusive damage boundary with ally exclusion.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x58c3a' -c 'pd 55 @
 0x59ffb' -c 'pd 30 @ 0x59b87' -c 'pd 35 @ 0x5934f' -c 'pd 20 @
 0x76849' -c 'pd 10 @ 0x76aa3' -c q data/Z/ZED.EXE`, and inspect weapon 14

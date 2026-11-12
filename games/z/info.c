@@ -95,7 +95,7 @@ const state_t states[NUMSTATES] = {
     [S_GRENADE_SMOKE] = { SPR_RSC, Z_BLAST_SPRITE + 1, Z_BLAST_FRAMES - 1, 2, NULL, S_NULL, 4, NULL },
     [S_SHELL] = { SPR_RSC, 1634, 1, -1, NULL, S_SHELL, 0, NULL },
     [S_SHELL_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZShellBlast, S_GRENADE_SMOKE, 4, NULL },
-    [S_WATER] = { SPR_RSC, 1622, 4, 1, NULL, S_WATER, 0, NULL },
+    [S_WATER] = { SPR_RSC, 1622, 4, 1, A_ZWater, S_WATER, 0, NULL },
     [S_WATER_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZShellBlast, S_GRENADE_SMOKE, 4, NULL },
     [S_BOX_WAIT] = { SPR_RSC, Z_BLAST_SPRITE, 1, 3, NULL, S_BOX_BLAST, 4, NULL },
     [S_BOX_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZBoxBlast, S_GRENADE_SMOKE, 4, NULL },
@@ -146,7 +146,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_SHELL] = { .doomednum = -1, .spawnstate = S_SHELL, .deathstate = S_SHELL_BLAST,
                    .xdeathstate = S_SHELL_BLAST, .flags = MF_RENDERABLE | MF_MISSILE },
     [MT_WATER] = { .doomednum = -1, .spawnstate = S_WATER, .deathstate = S_WATER_BLAST,
-                   .xdeathstate = S_WATER_BLAST, .flags = MF_RENDERABLE | MF_MISSILE },
+                   .xdeathstate = S_WATER_BLAST, .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
     [MT_BOX_BLAST] = { .doomednum = -1, .spawnstate = S_BOX_WAIT, .spawnhealth = 1,
                        .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
 };

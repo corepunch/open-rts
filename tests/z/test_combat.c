@@ -853,20 +853,106 @@ static int test_fire_truck_water(void) {
     if (!P_Attack(truck)) return fail("launch Fire Truck projectile");
     truck->traits &= ~MF_ATTACK;
     mobj_t *water = nth(MT_WATER, 0, 0);
-    if (!water || water->missile.duration <= 1 || water->missile.damage != 10 || states[water->core.state_id].frame != 1622 || inside->hp != 100)
+    if (!water || water->z.water.remaining <= 8 || water->missile.damage != 10 || states[water->core.state_id].frame != 1622 || inside->hp != 100)
         return fail("water launches native sprite with half damage and delayed flight");
     uint32_t water_id = water->id, inside_id = inside->id, outside_id = outside->id, ally_id = ally->id;
+    int initial_distance = water->z.water.remaining;
     if (!tick(model, 1) || inside->hp != 100) return fail("water cannot hit before arrival");
+    int native_steps = water->missile.age;
+    if (native_steps < 2 || native_steps > 3 || initial_distance - water->z.water.remaining != native_steps * (native_steps + 1) / 2)
+        return fail("water accelerates one pixel per native update");
+    int saved_remaining = water->z.water.remaining, saved_error = water->z.water.error;
+    uint32_t hash = G_Consistency();
     app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
     if (!G_SaveGameBlob(&save, &size, "Water flight", &app, rts_game_model_ai(model), &hud) ||
         !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save water projectile in flight");
     free(save);
     water = P_MobjById(water_id); inside = P_MobjById(inside_id);
     outside = P_MobjById(outside_id); ally = P_MobjById(ally_id);
-    if (!water || !inside || !outside || !ally || water->missile.damage != 10) return fail("restore water projectile in flight");
-    int remaining = water->missile.duration - water->missile.age;
-    if (!tick(model, remaining) || inside->hp != 90 || outside->hp != 100 || ally->hp != 100)
+    if (!water || !inside || !outside || !ally || water->missile.damage != 10 || water->missile.age != native_steps ||
+        water->z.water.remaining != saved_remaining || water->z.water.error != saved_error || G_Consistency() != hash)
+        return fail("restore water projectile and deterministic flight state");
+    for (int i = 0; i < 60 && water->core.state_id == S_WATER; ++i)
+        if (!tick(model, 1)) return fail("tick water to arrival");
+    if (inside->hp != 90 || outside->hp != 100 || ally->hp != 100)
         return fail("water impact uses native inclusive bounds and excludes allies");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_water_terrain(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load water terrain fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 0, at, 200);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 100);
+    if (!map || !truck || !target) return fail("spawn water terrain fixture");
+    for (int x = 24; x <= 31; ++x) map->ground_attr[25 * Z_MAP_STRIDE + x] = 0;
+    map->ground_attr[25 * Z_MAP_STRIDE + 27] = 1; /* Native terrain height 3 exceeds launch height 0 + 1. */
+    Z_RebuildCliffs(&level);
+    target->traits &= ~(MF_ATTACK | MF_MOBILE);
+    if (!Z_Attack(truck, &truck->info->attack, target)) return fail("launch water at raised terrain");
+    truck->traits &= ~MF_ATTACK;
+    mobj_t *water = nth(MT_WATER, 0, 0);
+    if (!water) return fail("find water for terrain test");
+    for (int i = 0; i < 60 && water->core.state_id == S_WATER; ++i)
+        if (!tick(model, 1)) return fail("tick water into raised terrain");
+    ivec2_t hit = fixed2_cell(fixed2_scale(water->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    if (water->core.state_id == S_WATER || hit.x < 27 * Z_TILE || hit.x >= 28 * Z_TILE || target->hp != 100)
+        return fail("raised terrain intercepts water before its target");
+    if (!tick(model, 8)) return fail("finish intercepted water effect");
+    map->ground_attr[25 * Z_MAP_STRIDE + 27] = 11; /* Height 1 equals the threshold. */
+    map->ground_attr[25 * Z_MAP_STRIDE + 30] = 1;
+    Z_RebuildCliffs(&level);
+    target->core.position = fixed3_from_fixed2(pixel_at(at, 68, 0), 0); /* Aim is exactly x = 30 tiles. */
+    if (!Z_Attack(truck, &truck->info->attack, target)) return fail("launch water through equal-height terrain");
+    water = nth(MT_WATER, 0, 0);
+    if (!water) return fail("find second water projectile");
+    for (int i = 0; i < 60 && water->core.state_id == S_WATER; ++i)
+        if (!tick(model, 1)) return fail("tick second water projectile");
+    hit = fixed2_cell(fixed2_scale(water->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    if (water->core.state_id == S_WATER || hit.x != 30 * Z_TILE)
+        return fail("equal-height terrain passes and arrival precedes terminal terrain test");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_water_directions(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load directional water fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    zmap_t *map = level.native_data;
+    fixed2_t start = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 0, start, 200);
+    mobj_t *north = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 20, -80), 100);
+    mobj_t *west = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, -80, 20), 100);
+    if (!map || !truck || !north || !west) return fail("spawn directional water fixture");
+    for (int y = 18; y <= 31; ++y) for (int x = 18; x <= 31; ++x)
+        map->terrain[y * Z_MAP_STRIDE + x] = 0;
+    north->traits &= ~(MF_ATTACK | MF_MOBILE); west->traits &= ~(MF_ATTACK | MF_MOBILE);
+    if (!Z_Attack(truck, &truck->info->attack, north) || !Z_Attack(truck, &truck->info->attack, west))
+        return fail("launch directional water projectiles");
+    truck->traits &= ~MF_ATTACK;
+    mobj_t *a = nth(MT_WATER, 0, 0), *b = nth(MT_WATER, 0, 1);
+    if (!a || !b || !a->z.water.vertical || b->z.water.vertical) return fail("water selects the major axis");
+    fixed2_t goal_a = a->movement.goal, goal_b = b->movement.goal;
+    if (!tick(model, 1) || a->core.position.y >= start.y || b->core.position.x >= start.x)
+        return fail("steep and westward water travel along their negative axes");
+    bool arrived_a = false, arrived_b = false;
+    for (int i = 0; i < 60 && (!arrived_a || !arrived_b); ++i) {
+        if (!tick(model, 1)) return fail("tick directional water projectiles");
+        if (!arrived_a && a->core.state_id != S_WATER) {
+            if (!fixed2_equal(a->movement.goal, goal_a)) return fail("steep water reaches its exact aim");
+            arrived_a = true;
+        }
+        if (!arrived_b && b->core.state_id != S_WATER) {
+            if (!fixed2_equal(b->movement.goal, goal_b)) return fail("westward water reaches its exact aim");
+            arrived_b = true;
+        }
+    }
+    if (!arrived_a || !arrived_b) return fail("directional water reaches its destination");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -1145,7 +1231,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_fire_truck_water() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

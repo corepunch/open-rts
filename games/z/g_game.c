@@ -83,8 +83,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_ONE, .timed = true}},
     {.id = MT_WATER, .name = "Water", .sprite_name = "SPRITES.RSC",
-     .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
-     .missile = {.step = FIXED_ONE, .timed = true}},
+     .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_BOX_BLAST, .name = "Grenade box blast", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
 };

@@ -67,7 +67,7 @@ static bool cone(int dir, ivec2_t d) {
     }
 }
 
-static int height(const zmap_t *map, int x, int y) {
+int Z_TerrainHeight(const zmap_t *map, int x, int y) {
     if (x < 0 || y < 0 || x >= Z_MAP_STRIDE || y >= Z_MAP_STRIDE) return 255;
     unsigned terrain = map->terrain[y * Z_MAP_STRIDE + x] & 0x7f;
     return terrain < sizeof(heights) ? heights[terrain] : 255;
@@ -80,7 +80,7 @@ static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
     int extra = Z_IsRobot(Z_UnitType(unit)) ? 0 : 8;
     int x0 = (source.x + 8 + extra) / Z_TILE, y0 = (source.y + 8 + extra) / Z_TILE;
     int x1 = (target.x + 8) / Z_TILE, y1 = (target.y + 8) / Z_TILE;
-    int z0 = height(map, x0, y0), z1 = height(map, x1, y1);
+    int z0 = Z_TerrainHeight(map, x0, y0), z1 = Z_TerrainHeight(map, x1, y1);
     if (z0 == 255 || z1 != 0) return false;
     if (z0) ++z0;
     if (x1 <= x0) {
@@ -98,7 +98,7 @@ static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
         ex -= dx; if (ex < 0) { ex += steps; ++x0; }
         ey -= dy; if (ey < 0) { ey += steps; y0 += sy; }
         ez -= dz; if (ez < 0) { ez += steps; z0 += sz; }
-        if (height(map, x0, y0) > z0) return false;
+        if (Z_TerrainHeight(map, x0, y0) > z0) return false;
     }
     return true;
 }

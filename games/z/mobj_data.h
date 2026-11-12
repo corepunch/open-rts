@@ -30,6 +30,7 @@ typedef struct {
     uint32_t rating; /* Native building +0x0c production technology. */ \
     int32_t rebuild_stock; uint16_t rebuild_setting; /* BUILD +0x45 / +0x49. */ \
     struct { ivec2_t origin, position, velocity; int height, rise, ticks; uint8_t kind, samples; } debris; \
+    struct { ivec2_t direction; int remaining, major, minor, error, height; bool vertical; } water; \
     uint32_t service; /* Stable target ID for a crane or vehicle at a repair bay. */ \
     int service_work; /* Work on a wreck, crane animation phase, or negative repair stock. */ \
     uint16_t cliff_bit; \
@@ -63,6 +64,9 @@ typedef struct {
     HASH((mo)->z.debris.velocity.x); HASH((mo)->z.debris.velocity.y); \
     HASH((mo)->z.debris.height); HASH((mo)->z.debris.rise); HASH((mo)->z.debris.ticks); \
     HASH((mo)->z.debris.kind); HASH((mo)->z.debris.samples); \
+    HASH((mo)->z.water.direction.x); HASH((mo)->z.water.direction.y); HASH((mo)->z.water.remaining); \
+    HASH((mo)->z.water.major); HASH((mo)->z.water.minor); HASH((mo)->z.water.error); \
+    HASH((mo)->z.water.height); HASH((mo)->z.water.vertical); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
     HASH((mo)->z.gun_count); for (int z_g = 0; z_g < (mo)->z.gun_count && z_g < Z_GUN_STOCK; ++z_g) HASH((mo)->z.guns[z_g]); \
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
