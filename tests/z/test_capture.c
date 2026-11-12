@@ -112,6 +112,10 @@ static int test_board(void) {
     disarm();
     mobj_t *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0), *grunt = nth(MT_UNIT_GRUNT, 0, 0);
     if (!jeep || !grunt || (jeep->traits & MF_MOBILE)) return fail("an empty Jeep and a Grunt");
+    Z_SquadLeave(grunt);
+    uint8_t squad = Z_AllocateSquad(0);
+    grunt->z.squad = squad; grunt->z.squad_slot = UINT8_MAX;
+    zmap_t *map = level.native_data;
     P_DamageMobj(jeep, NULL, jeep->hp / 4);
     if (!jeep->z.body_tracked) return fail("the empty Jeep has tracked body damage");
     ivec2_t at = fixed2_cell(fixed3_xy(jeep->core.position));
@@ -126,6 +130,8 @@ static int test_board(void) {
     if (alive(grunt)) return fail("the Grunt gets in");
     if (jeep->team != 0 || jeep->owner != 0 || jeep->z.driver != MT_UNIT_GRUNT - MT_UNITS + 1)
         return fail("the Jeep is the player's, driven by the Grunt");
+    if (!squad || jeep->z.squad != squad || map->squad_cooldown[squad - 1])
+        return fail("boarding transfers the group without releasing its slot");
     if (jeep->z.body_accuracy != 60) return fail("boarding installs the new driver's accuracy");
     if ((jeep->traits & (MF_MOBILE | MF_SELECTABLE | MF_ATTACK)) != (MF_MOBILE | MF_SELECTABLE | MF_ATTACK) ||
         jeep->core.state_id != (int)mobjinfo[MT_UNIT_JEEP].spawnstate || !P_MobjIsSelected(jeep))
@@ -138,6 +144,9 @@ static int test_board(void) {
         .data.move_selected = { .target = fixed2_from_fvec2((fvec2_t){start.x, start.y + 4.0f}) } };
     if (!rts_game_model_command(model, &move) || !tick(model, 3 * RTS_TICRATE)) return fail("drive");
     if (fixed3_xy_to_fvec2(jeep->core.position).y < start.y + 1.0f) return fail("the Jeep moves");
+    P_DamageMobj(jeep, NULL, jeep->hp + 1000);
+    if (jeep->hp > 0 || map->squad_cooldown[squad - 1] != 200)
+        return fail("destroying a long-lived occupied Jeep releases its group");
     puts("PASS: z a Grunt gets into an empty Jeep and drives it");
     rts_game_model_destroy(model);
     return 0;

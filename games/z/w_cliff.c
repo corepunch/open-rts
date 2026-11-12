@@ -258,7 +258,7 @@ bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {
 
 size_t G_SaveExtraSize(void) {
     const zmap_t *map = level.native_data;
-    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild);
+    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild) + sizeof(map->squad_cooldown);
 }
 
 void G_SaveExtra(void *out) {
@@ -268,7 +268,8 @@ void G_SaveExtra(void *out) {
     memcpy(p, map->ground, sizeof(map->ground)); p += sizeof(map->ground);
     memcpy(p, map->ground_attr, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
     memcpy(p, &map->ai, sizeof(map->ai)); p += sizeof(map->ai);
-    memcpy(p, &map->rebuild, sizeof(map->rebuild));
+    memcpy(p, &map->rebuild, sizeof(map->rebuild)); p += sizeof(map->rebuild);
+    memcpy(p, map->squad_cooldown, sizeof(map->squad_cooldown));
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
@@ -279,7 +280,8 @@ bool G_LoadExtra(const void *data, size_t size) {
     memcpy(map->ground, p, sizeof(map->ground)); p += sizeof(map->ground);
     memcpy(map->ground_attr, p, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
     memcpy(&map->ai, p, sizeof(map->ai)); p += sizeof(map->ai);
-    memcpy(&map->rebuild, p, sizeof(map->rebuild));
+    memcpy(&map->rebuild, p, sizeof(map->rebuild)); p += sizeof(map->rebuild);
+    memcpy(map->squad_cooldown, p, sizeof(map->squad_cooldown));
     Z_RebuildCliffs(&level);
     return true;
 }
@@ -287,6 +289,7 @@ bool G_LoadExtra(const void *data, size_t size) {
 uint32_t G_ConsistencyExtra(uint32_t hash) {
     const zmap_t *map = level.native_data;
     if (!map) return hash;
+    for (size_t i = 0; i < sizeof(map->squad_cooldown); ++i) hash = G_HashValue(hash, map->squad_cooldown[i]);
     for (size_t i = 0; i < sizeof(map->cliffs); ++i) hash = G_HashValue(hash, map->cliffs[i]);
     for (size_t i = 0; i < sizeof(map->ground); ++i) {
         hash = G_HashValue(hash, map->ground[i]);

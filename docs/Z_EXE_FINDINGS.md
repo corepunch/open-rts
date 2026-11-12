@@ -3062,7 +3062,7 @@ unchanged. The shared group-ID allocator scans 240 live slots deterministically
 and gives single-player CPU groups the upper half first, following
 `0x77cc6..0x77d6d`. Native also prefers slots whose 200-pass reuse cooldown
 has expired (`0x77880`, `0x775f5`), then falls back to any empty slot; that
-preference is not modeled. If the engine cannot allocate a follower, already
+preference is modeled as described below. If the engine cannot allocate a follower, already
 spawned members remain and the engine's completed production is not retried;
 native carry propagation beyond the caller remains unverified. Inspect with
 `r2 -q -e bin.cache=true -c 'pd 70 @ 0x50665' -c 'pd 45 @ 0x77cc6' -c q data/Z/ZED.EXE`;
@@ -3081,13 +3081,27 @@ when a departing leader has no occupied follower slot to promote at
 `0x77b97`. Calls also occur during group reassignment (`0x77671`, `0x77710`),
 so this is not limited to death. The update at `0x14b8d` runs before the
 unit pass `0x14be5`, while level initialization `0x4f041` clears the table.
-Open-rts does not model the native group record or all reassignment paths,
-and its Z ticker runs after thinkers in coarser tics. Consequently an exact
-load/decrement boundary cannot yet be represented by an allocator-only timer;
-save/load and consistency state are also required. Reproduce with `r2 -q -e bin.cache=true -c
+Open-rts stores the 240 timers in level data, saves and hashes them, loads
+200 when its last live squad member leaves, and advances them by native-frame
+steps. This approximates the native group record and reassignment paths: the
+Z ticker runs after thinkers in coarser tics, so a departure during a tic can
+be decremented at that tic's end instead of on the next native pass. The
+engine does not represent the native exceptional failed-promotion case
+independently of its live member list. `test_production` checks release,
+preference, fallback, expiry, save/load and consistency. Reproduce with `r2 -q -e bin.cache=true -c
 'pd 90 @ 0x777d9' -c 'pd 65 @ 0x77b97' -c 'pd 20 @ 0x775e4' -c
 'pd 45 @ 0x77d25' -c 'pd 35 @ 0x14b75' -c q
 data/Z/ZED.EXE`.
+
+**Boarding distinction:** `0x7b225..0x7b232` removes a boarding non-APC
+unit from its former group and allocates a new group for the converted unit;
+the APC branch skips those calls. Open-rts instead transfers the existing
+squad ID to its separate vehicle mobj, so that mobj reserves the ID until
+it is destroyed or transfers its crew. `test_capture` checks boarding,
+continued reservation beyond 200 native frames, and release on destruction.
+This reservation preserves current engine identity and is not claimed to
+reproduce the native non-APC allocation sequence. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 35 @ 0x7b1e9' -c q data/Z/ZED.EXE`.
 
 **Countdown boundaries and command ownership:** for ZED.EXE SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,

@@ -317,7 +317,7 @@ fail:
 void Z_SetTeam(mobj_t *mo, int team) {
     if (team > Z_NEUTRAL) team = Z_NEUTRAL;
     if (mo->team != team) {
-        if (mo->z.squad_slot) Z_SquadLeave(mo);
+        if (mo->z.squad) Z_SquadLeave(mo);
         if (mo->z.detour.phase) P_ClearMove(mo);
         Z_DetourCancel(mo);
         mo->z.route = (zroute_t){0};
@@ -431,6 +431,7 @@ int Z_GroupFormation(const zmap_t *map, int group) {
  * rows of four; they spread out once they move. Members share a squad,
  * which shares grenades (0x79bea). */
 uint8_t Z_AllocateSquad(int team) {
+    const zmap_t *map = level.native_data;
     bool used[240] = {false};
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
@@ -438,8 +439,9 @@ uint8_t Z_AllocateSquad(int team) {
         if (!mo->remove && mo->hp > 0 && mo->z.squad && mo->z.squad <= 240)
             used[mo->z.squad - 1] = true;
     }
-    if (!netgame && team == 1)
-        for (int i = 120; i < 240; ++i) if (!used[i]) return (uint8_t)(i + 1);
+    int start = !netgame && team == 1 ? 120 : 0;
+    for (int i = start; i < 240; ++i)
+        if (!used[i] && (!map || !map->squad_cooldown[i])) return (uint8_t)(i + 1);
     for (int i = 0; i < 240; ++i) if (!used[i]) return (uint8_t)(i + 1);
     return 0;
 }

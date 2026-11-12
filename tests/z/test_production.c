@@ -469,7 +469,7 @@ static int test_fort_makes_grunts(void) {
     P_AiSetFeatures(rts_game_model_ai(model), 0);
     mobj_t *fort = nth(MT_FORT, 0, 0);
     if (!fort) return fail("the player's fort");
-    const zmap_t *map = level.native_data;
+    zmap_t *map = level.native_data;
     int members = 0, grunts = 0;
     while (members < Z_CREW_MAX && Z_GroupType(map, 2, members) >= 0) {
         grunts += Z_GroupType(map, 2, members) == MT_UNIT_GRUNT - MT_UNITS;
@@ -515,6 +515,20 @@ static int test_fort_makes_grunts(void) {
     }
     uint8_t next = Z_AllocateSquad(0), cpu = Z_AllocateSquad(1);
     if (!next || cpu < 121) return fail("allocator uses free native group ranges");
+    mobj_t *departed = P_SpawnMobj(made->core.position, MT_UNIT_GRUNT);
+    mobj_t *survivor = P_SpawnMobj(made->core.position, MT_UNIT_GRUNT);
+    if (!departed || !survivor) return fail("spawn cooldown fixture");
+    departed->z.squad = next; departed->z.squad_slot = UINT8_MAX;
+    survivor->z.squad = next; survivor->z.squad_slot = 1;
+    uint32_t hash = G_ConsistencyExtra(0);
+    Z_SquadLeave(departed);
+    if (map->squad_cooldown[next - 1] || survivor->z.squad_slot != UINT8_MAX)
+        return fail("surviving member keeps its group without cooldown");
+    Z_SquadLeave(survivor);
+    if (map->squad_cooldown[next - 1] != 200 || Z_AllocateSquad(0) == next ||
+        G_ConsistencyExtra(0) == hash) return fail("last departure cools its slot and changes consistency");
+    P_RemoveMobj(departed); P_RemoveMobj(survivor);
+    uint8_t preferred = Z_AllocateSquad(0);
     app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
     uint32_t leader_id = made->id, fort_id = fort->id;
     if (!G_SaveGameBlob(&save, &size, "Produced squad", &app, rts_game_model_ai(model), &hud) ||
@@ -522,7 +536,9 @@ static int test_fort_makes_grunts(void) {
         return fail("save produced squad");
     free(save);
     made = P_MobjById(leader_id); fort = P_MobjById(fort_id);
-    if (!made || !fort || Z_AllocateSquad(0) != next || Z_AllocateSquad(1) != cpu)
+    map = level.native_data;
+    if (!made || !fort || map->squad_cooldown[next - 1] != 200 ||
+        Z_AllocateSquad(0) != preferred || Z_AllocateSquad(1) != cpu)
         return fail("save retains produced squad and deterministic allocation");
     for (int i = 0; i < members; ++i) {
         mobj_t *member = P_MobjById(member_ids[i]);
@@ -532,10 +548,29 @@ static int test_fort_makes_grunts(void) {
     mobj_t *foreign = P_SpawnMobj(made->core.position, MT_UNIT_GRUNT);
     if (!foreign) return fail("spawn foreign squad allocation fixture");
     Z_SetTeam(foreign, 1);
-    foreign->z.squad = next; foreign->z.squad_slot = UINT8_MAX;
-    if (Z_AllocateSquad(0) == next) return fail("group IDs are globally unique across teams");
+    foreign->z.squad = preferred; foreign->z.squad_slot = UINT8_MAX;
+    if (Z_AllocateSquad(0) == preferred) return fail("group IDs are globally unique across teams");
     P_RemoveMobj(foreign);
-    if (Z_AllocateSquad(0) != next) return fail("removed group slot can be reused");
+    if (Z_AllocateSquad(0) != preferred) return fail("removed group slot can be reused");
+    memset(map->squad_cooldown, 1, sizeof(map->squad_cooldown));
+    if (Z_AllocateSquad(0) != next) return fail("allocator falls back to a cooling free slot");
+    map->squad_cooldown[next - 1] = 200;
+    int elapsed = 0, tics = 0;
+    while (elapsed + Z_NativeSteps(leveltime + tics, Z_NATIVE_HZ) < 200)
+        elapsed += Z_NativeSteps(leveltime + tics++, Z_NATIVE_HZ);
+    int remaining = 200 - elapsed;
+    if (!tick(model, tics) || map->squad_cooldown[next - 1] != remaining)
+        return fail("cooldown remains active until its final native-frame boundary");
+    save = NULL; size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Cooldown", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save nearly expired cooldown");
+    free(save);
+    map = level.native_data; fort = P_MobjById(fort_id);
+    if (!fort || map->squad_cooldown[next - 1] != remaining || !tick(model, 1))
+        return fail("load continues cooldown at the saved boundary");
+    if (map->squad_cooldown[next - 1] || Z_AllocateSquad(0) != next)
+        return fail("cooldown expires and permits preferred reuse");
     if (!fort->production || fort->production->queue_count < 1 || fort->production->time_left_ms <= 0)
         return fail("the fort starts the next Grunt by itself");
     order(fort, TC_CANCEL_PRODUCTION, 0);

@@ -101,8 +101,16 @@ void Z_SquadTick(mobj_t *unit) {
 /* Native 0x77b97 promotes the first occupied follower slot and transfers
  * the leader's order. Replan from the survivor, not the departed path origin. */
 void Z_SquadLeave(mobj_t *unit) {
-    if (!unit || !unit->z.squad || !unit->z.squad_slot) return;
+    if (!unit || !unit->z.squad) return;
+    uint8_t squad = unit->z.squad;
     mobj_t *next = NULL;
+    bool remaining = false;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *mo = (const mobj_t *)th;
+        if (mo != unit && !mo->remove && mo->hp > 0 && mo->team == unit->team &&
+            mo->z.squad == squad) { remaining = true; break; }
+    }
     if (unit->z.squad_slot == UINT8_MAX) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             if (th->function != P_MobjThinker) continue;
@@ -131,6 +139,16 @@ void Z_SquadLeave(mobj_t *unit) {
     }
     unit->z.squad = unit->z.squad_slot = 0;
     unit->z.formation_active = unit->z.formation_rejoin = false;
+    zmap_t *map = level.native_data;
+    if (map && squad <= 240 && !remaining) map->squad_cooldown[squad - 1] = 200;
+}
+
+void Z_SquadCooldownTick(void) {
+    zmap_t *map = level.native_data;
+    if (!map) return;
+    int steps = Z_NativeSteps(leveltime, Z_NATIVE_HZ);
+    for (int i = 0; i < 240; ++i)
+        map->squad_cooldown[i] = map->squad_cooldown[i] > steps ? map->squad_cooldown[i] - steps : 0;
 }
 
 /* Crew can leave at different times, and the departing leader may have

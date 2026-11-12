@@ -98,6 +98,7 @@ typedef struct {
     struct { uint8_t intelligence, allocation, territory_weight; } computer;
     zai_t ai;
     zrebuild_t rebuild;
+    uint8_t squad_cooldown[240];      /* Released group slots, native 0x11d567. */
     uint8_t groups[Z_MAX_GROUPS];    /* ROBOTS.DAT groups, 0xff ends */
     zplaced_t placed[Z_MAX_PLACED];
     int placed_count;
@@ -134,6 +135,7 @@ int Z_GroupType(const zmap_t *map, int group, int member);
 int Z_GroupRobot(const zmap_t *map, int group, int member);
 int Z_GroupFormation(const zmap_t *map, int group);
 uint8_t Z_AllocateSquad(int team);
+void Z_SquadCooldownTick(void);
 bool Z_IsRobot(int t);
 /* Size of a SPRITES.RSC picture; false for a bad index or file. */
 bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);

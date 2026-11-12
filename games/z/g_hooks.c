@@ -1,13 +1,14 @@
 #include "z_local.h"
 #include "info.h"
 
-uint32_t G_SaveLayout(void) { return 8; }
+uint32_t G_SaveLayout(void) { return 9; }
 
 /* Z's share of the engine's game hooks: its rules run once a tic after the
  * thinkers, an order onto an empty vehicle or gun sends robots in, and a
  * factory's STOP empties its queue. */
 
 void G_ClockEnd(int64_t before, int64_t clock) {
+    Z_SquadCooldownTick();
     Z_Ticker();
     if (clock != before && (clock & 3) == 0) P_UpdateSight();
 }

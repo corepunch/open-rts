@@ -275,6 +275,14 @@ static int test_body_slowdown(void) {
     for (int i = 0; i < 128 && !victim->z.crew_hurt; ++i, ++leveltime)
         Z_HitDamage(jeep, &jeep->info->attack, victim, 1, 1);
     if (!victim->z.crew_hurt) return fail("degraded accuracy is used for driver hits");
+    uint8_t squad = Z_AllocateSquad(victim->team);
+    victim->z.squad = squad;
+    zmap_t *map = level.native_data;
+    for (int i = 0; i < 128 && victim->z.driver; ++i, ++leveltime)
+        Z_HitDamage(jeep, &jeep->info->attack, victim, 255, 1);
+    if (!squad || victim->z.driver || victim->team != Z_NEUTRAL || victim->z.squad ||
+        map->squad_cooldown[squad - 1] != 200)
+        return fail("driver casualty releases the occupied vehicle's group");
     direct->hp = 160;
     P_DamageMobj(direct, NULL, 10);
     if (direct->z.body_speed != 28) return fail("damage after healing uses actual previous health");
