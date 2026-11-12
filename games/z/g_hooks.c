@@ -3,6 +3,14 @@
 
 uint32_t G_SaveLayout(void) { return 9; }
 
+/* 0x63900..0x63917 installs the boarding robot's range on an APC. */
+fixed_t Z_AttackRangeBonus(const mobj_t *unit, const weapondef_t *weapon) {
+    if (!unit || !weapon || unit->type_id != MT_UNIT_APC || !unit->z.driver ||
+        !Z_IsRobot(unit->z.driver - 1)) return 0;
+    const mobjtype_t *driver = P_ActorType(MT_UNITS + unit->z.driver - 1);
+    return driver ? driver->attack.range - weapon->range : 0;
+}
+
 /* Z's share of the engine's game hooks: its rules run once a tic after the
  * thinkers, an order onto an empty vehicle or gun sends robots in, and a
  * factory's STOP empties its queue. */

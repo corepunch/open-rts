@@ -1790,9 +1790,9 @@ explicit minion membership, not permanent unique group identities.
 The U key and sidebar EJECT button submit `TC_UNLOAD`; ejection restores those
 members and leaves an empty APC or gun. Starting APCs and guns without a stored
 crew use a Grunt driver, as in Zod's cannon setup. The per-crew weapon damage is
-applied to the current shared attack. APC range, projectile effects and exact
-retail cargo/driver mutation remain **unknown or unported**; the separately
-traced driver-dependent reload is described below.
+applied to the current shared attack. APC projectile effects and exact retail
+cargo/driver mutation remain **unknown or unported**; separately traced
+driver-dependent reload and range are described below.
 The save layout is versioned for the added crew state. Reproduce with:
 
 ```sh
@@ -1818,6 +1818,32 @@ so the 70 Hz native reload alone does not prove full firing-timing parity.
 This does not establish the native APC's projectile or damage dispatch.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 12 @ 0x6375a' -c 'pd 22 @
 0x638ac' -c 'pd 30 @ 0x1ea0d' -c q data/Z/ZED.EXE`.
+
+**Native APC range:** `0x50df7..0x50e04` stores the robot weapon's range
+in +0x71 and doubles it into the unit's +4 range. On APC conversion,
+`0x63900..0x63917` copies that saved robot +0x71 through body +0x27 to
+body +5 and the APC's +0x71, then doubles it into +4. The engine now uses
+the authored C range of the current driver: 120 pixels for Grunt, Tough,
+Psycho or Pyro, 144 for Sniper and 136 for Laser; none of the six shipped
+robot types has a shorter range than the APC's 120-pixel baseline.
+`test_combat` checks each exact boundary, live target selection, boarding
+and save/load. Its general centre-distance comparison remains an
+engine approximation; this does not prove native target acquisition parity.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 20 @ 0x50df1' -c 'pd 18 @
+0x638fc' -c q data/Z/ZED.EXE`.
+
+**APC projectile dispatch, partial trace:** `0x1ea5c..0x1eb02` iterates
+group member slots and caps a salvo at 12 projectiles. The branch at
+`0x1f037..0x1f0d1` dispatches the stored driver class: Tough (3) calls shell
+creation `0x59ed1`, Pyro (15) uses flame creation `0x5a099`, and other
+classes including Laser (16) use bullet creation `0x5af81`. The loop at
+`0x1eacd..0x1eaed` can repeat the shot selector for one group slot as CH
+changes, so neither one projectile per crew member nor one combined projectile
+is established by this trace. Target choice among the four scanned targets,
+per-slot selection and exact salvo multiplicity remain **unknown**. The
+existing combined-damage approximation is retained pending that trace.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 90 @ 0x1ea5c' -c 'pd 65 @
+0x1effd' -c q data/Z/ZED.EXE`.
 
 ## Task 7, automatic bridge reconstruction and crane poses (2026-11-11)
 

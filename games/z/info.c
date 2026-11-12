@@ -152,6 +152,7 @@ const gameinfo_t game_info = {
     .team_palettes = true,
     .mobj_ticker = Z_MobjTicker,
     .attack = Z_Attack,
+    .range_bonus = Z_AttackRangeBonus,
     .can_target = Z_CanTarget,
     .hit_damage = Z_HitDamage,
 };

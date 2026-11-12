@@ -168,6 +168,7 @@ bool Z_StartBuildingRebuild(mobj_t *building);
 bool Z_RebuildSlotAvailable(void);
 bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target);
 bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
+fixed_t Z_AttackRangeBonus(const mobj_t *attacker, const weapondef_t *weapon);
 void Z_MobjTicker(mobj_t *mo);
 void A_PyroFlame(mobj_t *mo);
 void A_PyroRecover(mobj_t *mo);

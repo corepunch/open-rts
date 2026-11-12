@@ -170,6 +170,52 @@ static int apc_firing_interval(int driver_type) {
     return interval;
 }
 
+static int test_apc_driver_range(void) {
+    static const struct { int type, range; } drivers[] = {
+        {MT_UNIT_GRUNT, 120}, {MT_UNIT_TOUGH, 120}, {MT_UNIT_SNIPER, 144},
+        {MT_UNIT_PSYCHO, 120}, {MT_UNIT_PYRO, 120}, {MT_UNIT_LASER, 136},
+    };
+    RtsGameModel *model = load();
+    if (!model) return fail("load for APC driver range");
+    fixed2_t at = fixed2_cell_center((ivec2_t){10, 10});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 128, 0), 500);
+    if (!apc || !target) return fail("spawn APC driver range fixture");
+    for (size_t i = 0; i < sizeof(drivers) / sizeof(*drivers); ++i) {
+        apc->z.driver = drivers[i].type - MT_UNITS + 1;
+        target->core.position = fixed3_from_fixed2(pixel_at(at, drivers[i].range, 0), 0);
+        if (!P_InAttackRange(apc, target)) return fail("APC reaches driver's exact range");
+        target->core.position = fixed3_from_fixed2(pixel_at(at, drivers[i].range + 1, 0), 0);
+        if (P_InAttackRange(apc, target)) return fail("APC cannot reach past driver's range");
+    }
+    target->core.position = fixed3_from_fixed2(pixel_at(at, 128, 0), 0);
+    apc->attack.target = target;
+    P_UpdateSight();
+    apc->z.driver = MT_UNIT_SNIPER - MT_UNITS + 1;
+    if (P_AttackTarget(apc) != target) return fail("Sniper APC acquires target within inherited range");
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    if (P_AttackTarget(apc) == target) return fail("Grunt APC does not acquire target outside inherited range");
+    mobj_t *driver = blast_unit(MT_UNIT_SNIPER, 0, at, 50);
+    mobj_t *empty = blast_unit(MT_UNIT_APC, Z_NEUTRAL, at, 500);
+    if (!driver || !empty) return fail("spawn APC range boarding fixture");
+    empty->traits &= ~(MF_MOBILE | MF_ATTACK);
+    P_SetMobjState(empty, S_A_P_C);
+    if (!Z_DetourBoard(driver, empty)) return fail("Sniper boards APC");
+    target->core.position = fixed3_from_fixed2(pixel_at(fixed3_xy(empty->core.position), 128, 0), 0);
+    if (!P_InAttackRange(empty, target)) return fail("boarded Sniper gives APC longer range");
+    uint32_t apc_id = empty->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "APC range", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save APC driver range");
+    free(save);
+    empty = P_MobjById(apc_id); target = P_MobjById(target_id);
+    if (!empty || !target || !P_InAttackRange(empty, target))
+        return fail("APC retains boarded driver range after load");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_apc_firing_intervals(void) {
     int grunt = apc_firing_interval(MT_UNIT_GRUNT);
     int psycho = apc_firing_interval(MT_UNIT_PSYCHO);
@@ -652,7 +698,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_firing_intervals() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
