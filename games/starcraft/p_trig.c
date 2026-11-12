@@ -366,7 +366,10 @@ static void modify_vitals(const sc_mission_t *m, const int *players, int nplayer
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine || (!anywhere && !inside(mo, l, t, r, b))) continue;
         const sc_unit_t *type = &sc_units[mo->type_id - 1];
-        if ((id == 50 && (type->flags & SC_UNIT_SPELLCASTER)) || (id == 51 && type->shields)) {
+        if (id == 49) {
+            if (!pct) P_DamageMobj(mo, NULL, mo->hp);
+            else { mo->hp = mo->max_hp * (int)pct / 100; if (mo->hp < 1) mo->hp = 1; }
+        } else if ((id == 50 && (type->flags & SC_UNIT_SPELLCASTER)) || (id == 51 && type->shields)) {
             sc_start(mo);
             if (id == 50) mo->sc.energy = sc_max_energy(mo) * (int)pct / 100;
             else mo->sc.shields = (type->shields << 8) * (int)pct / 100;
@@ -625,7 +628,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             modify_deposits(m, player, st->current, loc, number);
             continue;
         }
-        if (id == 50 || id == 51) {
+        if (id == 49 || id == 50 || id == 51) {
             modify_vitals(m, players, n, unit, loc, a[27], read_u32_le(a + 8), id);
             continue;
         }
@@ -665,9 +668,9 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             }
             continue;
         }
-        if (id == 39 || id == 48 || id == 49) {
+        if (id == 39 || id == 48) {
             unsigned where = loc;
-            int limit = (id == 39 || id == 48 || id == 49) ? a[27] : 0;
+            int limit = a[27];
             mobj_t *found[256];
             int count = gather(m, players, n, unit, where, limit, found, 256);
             fixed2_t dest = loc_center(m, number ? number : loc);
@@ -678,10 +681,6 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 } else if (id == 48 && number < 8) {
                     mo->owner = mo->team = (uint8_t)number;
                     mo->allegiance = sc_allegiance_for((uint8_t)number);
-                } else if (id == 49) {
-                    unsigned pct = read_u32_le(a + 8);
-                    if (!pct) P_DamageMobj(mo, NULL, mo->hp > 0 ? mo->hp : 1);
-                    else { mo->hp = mo->max_hp * (int)pct / 100; if (mo->hp < 1) mo->hp = 1; }
                 }
             }
             continue;

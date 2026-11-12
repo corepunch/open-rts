@@ -437,6 +437,28 @@ int main(void) {
     free(trig);
     unload();
 
+    /* Modify all hit points is not limited to the former 256-unit buffer. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action + 8, 50); put_u16(action + 24, MT_MARINE - 1); action[26] = 49;
+    CHECK(!write_map("/tmp/open-rts-sc-hp.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hp.chk", &level));
+    mobj_t *last_hp = NULL;
+    for (int i = 0; i < 260; i++) { last_hp = spawn(MT_MARINE - 1, 0); CHECK(last_hp); }
+    ticks(1, &(hudtext_t){0});
+    CHECK(last_hp->hp == last_hp->max_hp / 2);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u16(action + 24, MT_ZEALOT - 1); action[26] = 49;
+    CHECK(!write_map("/tmp/open-rts-sc-hp.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hp.chk", &level));
+    mobj_t *zero_hp = spawn(MT_ZEALOT - 1, 0); CHECK(zero_hp && sc_shields(zero_hp) > 0);
+    zero_hp->sc.flags |= SC_INVINCIBLE;
+    ticks(1, &(hudtext_t){0});
+    CHECK(zero_hp->hp == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-hp.chk");
+
     /* Modify energy and shields affect only the selected owner and count. */
     for (int id = 50; id <= 51; id++) {
         trig = blank_trigger(); CHECK(trig);

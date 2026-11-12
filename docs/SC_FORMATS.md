@@ -65,6 +65,11 @@ hallucinations, rather than truncating at 256. Inclusion of hallucinations is
 inferred from OpenBW's general location predicate; OpenBW does not implement
 action 43 directly. Tests cover enable, disable and toggle across 260 units,
 with an outside unit unchanged.
+PyMS defines Modify Unit Hit Points (action 49) with a quantity that may be
+All and a percentage in 0–100. It now shares the complete traversal used by
+energy and shield modification instead of truncating All at 256 units; the
+mission regression checks 260. The existing exclusion of hallucinations and
+center-based location matching remain unverified approximations.
 The shared `P_DamageMobj` call subtracts HP directly; shield absorption, armor,
 and invincibility checks occur in StarCraft's combat path before that call.
 The mission regression also kills a shielded Zealot and an invincible Zealot
