@@ -70,6 +70,22 @@ All and a percentage in 0–100. It now shares the complete traversal used by
 energy and shield modification instead of truncating All at 256 units; the
 mission regression checks 260. The existing exclusion of hallucinations and
 center-based location matching remain unverified approximations.
+PyMS `action_destplayer` allows Current Player (13) as a Give Units destination.
+Action 48 resolves it to the trigger owner. Pinned OpenBW `trigger_give_unit_to`
+rejects direct resource, hallucination, fighter and add-on targets and transfers
+passengers, fighters and attached structures; `give_unit_to` deselects, cancels
+production and idles completed units. The implementation transfers the linked
+mobjs, clears ordinary orders and selection, and cancels/refunds supported
+production. Completed units reset through action-free spawn initialization, so
+they cannot fire during the transfer; units retaining construction production
+keep their state. The mission test covers passengers, add-ons, fighters and a factory
+queue. OpenBW additionally grants unit-specific technologies/upgrades and moves
+a refinery's hidden worker; those cases, cancellation failure and other destination
+groups remain incomplete. Loaded units cannot be selected directly; they move
+with their transport. The action counts successful transfers and its All form
+does not use the former 256-entry buffer. OpenBW's action 48 itself
+is not implemented in the pinned source, so the trigger call is inferred from
+its ownership-transfer procedure.
 The shared `P_DamageMobj` call subtracts HP directly; shield absorption, armor,
 and invincibility checks occur in StarCraft's combat path before that call.
 The mission regression also kills a shielded Zealot and an invincible Zealot

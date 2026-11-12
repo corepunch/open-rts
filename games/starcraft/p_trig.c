@@ -492,6 +492,59 @@ static void set_alliance(int a, int b, int status) {
     else m->allies[a] |= bit;
 }
 
+/* OpenBW trigger_give_unit_to transfers cargo, launched fighters and attached
+ * structures along with their owner. This representation stores them as mobjs. */
+static void give_one(mobj_t *mo, uint8_t owner) {
+    if (!mo || mo->owner == owner) return;
+    if (mo->production && !mo->production->placed &&
+        (((sc_unit(mo)->flags & SC_UNIT_BUILDING) && !(mo->traits & MF_FLY)) ||
+         mo->type_id == MT_CARRIER || mo->type_id == MT_REAVER))
+        sc_cancel_production(mo, -1);
+    P_MobjSetSelected(mo, false);
+    if (!(mo->sc.flags & SC_LOADED) && mo->type_id != MT_INTERCEPTOR && mo->type_id != MT_SCARAB) {
+        P_ClearMove(mo);
+        mo->movement.goal = fixed3_xy(mo->core.position);
+        mo->movement.order_id = 0;
+        mo->movement.order_arrived = true;
+        mo->core.momentum = fixed3_zero();
+        mo->move_only = false;
+        mo->attack.target = NULL;
+        mo->harvest.target = -1;
+        mo->harvest.base = NULL;
+        mo->harvest.phase = mo->harvest.timer_ms = 0;
+        mo->sc.order = (sc_order_t){0};
+        mo->sc.queue = (sc_order_queue_t){0};
+        mo->sc.flags &= (uint8_t)~SC_HOLD;
+        mo->waypoints = (waypoints_t){0};
+    } else mo->sc.queue.owner = owner;
+    mo->owner = mo->team = owner;
+    mo->allegiance = sc_allegiance_for(owner);
+    if (!(mo->sc.flags & SC_LOADED) && mo->type_id != MT_INTERCEPTOR && mo->type_id != MT_SCARAB &&
+        !mo->production && gameinfo && mo->type_id < gameinfo->mobj_type_count) {
+        mo->core.state_id = 0;
+        P_InitMobj(gameinfo, mo); /* Spawn initialization does not execute an action. */
+    }
+}
+
+static bool give_unit(mobj_t *mo, uint8_t owner) {
+    if (!mo || mo->owner == owner || (mo->sc.flags & (SC_HALLUCINATION | SC_LOADED)) ||
+        (mo->type_id >= MT_MINERAL_FIELD1 && mo->type_id <= MT_MINERAL_FIELD3) ||
+        mo->type_id == MT_VESPENE_GEYSER || mo->type_id == MT_INTERCEPTOR ||
+        mo->type_id == MT_SCARAB || sc_addon_parent(mo->type_id)) return false;
+    uint32_t id = mo->id, addon = mo->sc.addon;
+    uint32_t nydus = mo->type_id == MT_NYDUS_CANAL ? mo->sc.parent : 0;
+    give_one(mo, owner);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *child = (mobj_t *)th;
+        if (th->function != P_MobjThinker || child->remove || child->hp <= 0 || child == mo) continue;
+        if (child->id == addon || child->id == nydus ||
+            (child->sc.parent == id && ((child->sc.flags & SC_LOADED) ||
+             child->type_id == MT_INTERCEPTOR || child->type_id == MT_SCARAB)))
+            give_one(child, owner);
+    }
+    return true;
+}
+
 static void finish_trigger(sc_trig_t *st) {
     if (st->preserve) { st->cursor = 0; st->running = false; st->preserve = false; }
     else st->disabled = true;
@@ -668,7 +721,25 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             }
             continue;
         }
-        if (id == 39 || id == 48) {
+        if (id == 48 && (number < 8 || number == 13) && thinkercap.next) {
+            int l, t, r, b;
+            bool anywhere = !loc || loc == 64;
+            if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) continue;
+            uint8_t owner = number == 13 ? (uint8_t)st->current : (uint8_t)number;
+            unsigned given = 0;
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+                    (!anywhere && !inside(mo, l, t, r, b))) continue;
+                for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
+                    if (give_unit(mo, owner)) given++;
+                    break;
+                }
+                if (a[27] && given >= a[27]) break;
+            }
+            continue;
+        }
+        if (id == 39) {
             unsigned where = loc;
             int limit = a[27];
             mobj_t *found[256];
@@ -678,9 +749,6 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 mobj_t *mo = found[i];
                 if (id == 39) {
                     P_MoveUnitTo(&level, mo, dest);
-                } else if (id == 48 && number < 8) {
-                    mo->owner = mo->team = (uint8_t)number;
-                    mo->allegiance = sc_allegiance_for((uint8_t)number);
                 }
             }
             continue;
