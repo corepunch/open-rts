@@ -676,6 +676,7 @@ static int test_shell_blast(void) {
     if (!Z_Attack(gun, weapon, target)) return fail("shell uses area attack");
     mobj_t *shell = nth(MT_SHELL, 0, 0);
     if (!shell || target->hp != 500) return fail("shell remains in flight before impact");
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(Z_BlastAnchor(target)), FIXED_ONE / Z_TILE);
     P_ExplodeMissile(shell);
     if (target->hp != 500 || !tick(model, 2) || target->hp != 500 || !tick(model, 1))
         return fail("shell delays unit blast until explosion frame three");
@@ -1321,6 +1322,58 @@ static int test_gun_muzzle(void) {
     return 0;
 }
 
+static int test_tank_aim(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load tank aim fixture");
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *tank = blast_unit(MT_UNIT_MED_TANK, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, at, 500);
+    if (!map || !tank || !target) return fail("spawn tank aim fixture");
+    tank->core.angle = direction_to_angle(0, 8, ANG90, true);
+    ivec2_t start = ivec2_add(Z_AITopLeft(tank), (ivec2_t){8,-13});
+    fixed2_t centre;
+    if (!Z_UnitCentre(map, Z_UnitType(target), ivec2_add(start, (ivec2_t){36,-8}), &centre))
+        return fail("place near tank target");
+    target->core.position = fixed3_from_fixed2(centre, 0);
+    uint16_t seed = map->combat_seed;
+    if (!Z_Attack(tank, &tank->info->attack, target) || map->combat_seed != seed)
+        return fail("tank aim at distance six does not scatter");
+    mobj_t *near = nth(MT_SHELL, 0, 0);
+    if (!near || !ivec2_equal(fixed2_cell(fixed2_scale(near->movement.goal, FIXED_FROM_INT(Z_TILE))),
+                              ivec2_add(start, (ivec2_t){48,0})))
+        return fail("tank targets unit origin plus twelve and eight");
+    P_RemoveMobj(near);
+    if (!Z_UnitCentre(map, Z_UnitType(target), ivec2_add(start, (ivec2_t){84,-8}), &centre))
+        return fail("place distant tank target");
+    target->core.position = fixed3_from_fixed2(centre, 0);
+    uint32_t tank_id = tank->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Tank aim", &app, rts_game_model_ai(model), &hud)) return fail("save tank aim seed");
+    uint16_t next = seed;
+    int radius = (128 - (80 + 80 / 4)) / 4;
+    int distance = Z_NextRandom(&next) / (65535 / radius);
+    int angle = Z_NextRandom(&next) & 0x3fe;
+    int sx = (int16_t)((map->trig.bytes[angle] << 8) | map->trig.bytes[angle + 1]);
+    int sy = (int16_t)((map->trig.bytes[angle + 0x100] << 8) | map->trig.bytes[angle + 0x101]);
+    ivec2_t expected = ivec2_add(ivec2_add(start, (ivec2_t){96,0}),
+        (ivec2_t){((sx >> 5) * distance) >> 10, ((sy >> 5) * distance) >> 10});
+    if (!Z_Attack(tank, &tank->info->attack, target) || map->combat_seed != next) return fail("tank draws native scatter values");
+    mobj_t *shell = nth(MT_SHELL, 0, 0);
+    if (!shell || !ivec2_equal(fixed2_cell(fixed2_scale(shell->movement.goal, FIXED_FROM_INT(Z_TILE))), expected))
+        return fail("tank uses muzzle-relative native scatter");
+    if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("restore tank aim seed");
+    free(save);
+    tank = P_MobjById(tank_id); target = P_MobjById(target_id); map = level.native_data;
+    if (!tank || !target || !Z_Attack(tank, &tank->info->attack, target) || map->combat_seed != next)
+        return fail("repeat tank aim after load");
+    shell = nth(MT_SHELL, 0, 0);
+    if (!shell || !ivec2_equal(fixed2_cell(fixed2_scale(shell->movement.goal, FIXED_FROM_INT(Z_TILE))), expected))
+        return fail("saved combat RNG reproduces tank aim");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_tank_muzzle(void) {
     const int types[] = {MT_UNIT_MED_TANK, MT_UNIT_HEAVY_TANK, MT_UNIT_LIGHT_TANK};
     static const ivec2_t offsets[3][8] = {
@@ -1880,6 +1933,6 @@ static int test_alert(void) {
 
 int main(void) {
     if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
-        test_gun_muzzle() || test_tank_muzzle() || test_tank_shell_arc() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
+        test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

@@ -545,11 +545,10 @@ static int water_direction(ivec2_t delta) {
     return ax < half ? (y < 0 ? 0 : 4) : (y < 0 ? 7 : 5);
 }
 
-/* 0x75ce9/0x63699/0x64250: scatter the chosen native target point.
+/* 0x64250: scatter the chosen target point using native distance and trig.
  * The combat stream is saved, but remains separate from retail's global RNG. */
-static ivec2_t grenade_aim(const mobj_t *attacker, ivec2_t aim, bool direct) {
+static ivec2_t scatter_aim(const mobj_t *attacker, ivec2_t origin, ivec2_t aim, int divisor) {
     zmap_t *map = level.native_data;
-    ivec2_t origin = Z_AITopLeft(attacker);
     int dx = (origin.x - aim.x) >> 3, dy = (origin.y - aim.y) >> 3;
     int index = dx * dx + dy * dy;
     if (index > 1023) index = 1023;
@@ -557,16 +556,16 @@ static ivec2_t grenade_aim(const mobj_t *attacker, ivec2_t aim, bool direct) {
         int skill = accuracy(attacker);
         skill += skill / 4;
         if (skill > 127) skill = 127;
-        int radius = (128 - skill) / (direct ? 2 : 4);
+        int radius = (128 - skill) / divisor;
         if (radius < 1) radius = 1;
-        int divisor = 65535 / radius;
-        int distance = Z_NextRandom(&map->combat_seed) / divisor;
+        int scale = 65535 / radius;
+        int distance = Z_NextRandom(&map->combat_seed) / scale;
         int angle = Z_NextRandom(&map->combat_seed) & 0x3fe;
         int sx = (int16_t)((map->trig.bytes[angle] << 8) | map->trig.bytes[angle + 1]);
         int sy = (int16_t)((map->trig.bytes[angle + 0x100] << 8) | map->trig.bytes[angle + 0x101]);
         aim = ivec2_add(aim, (ivec2_t){((sx >> 5) * distance) >> 10, ((sy >> 5) * distance) >> 10});
     }
-    return direct ? aim : ivec2_add(aim, (ivec2_t){8, 8});
+    return aim;
 }
 
 /* Native Fire Truck muzzle: hull-facing byte pairs at 0x14b474 and
@@ -629,6 +628,12 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     ivec2_t aim = Z_BlastAnchor(target);
     if (water && Z_UnitType(target) >= 0)
         aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){12, 8}); /* 0x76849/0x76aa3. */
+    bool tank = attacker->type_id == MT_UNIT_LIGHT_TANK || attacker->type_id == MT_UNIT_MED_TANK ||
+                attacker->type_id == MT_UNIT_HEAVY_TANK;
+    if (tank && Z_UnitType(target) >= 0) {
+        aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){12, 8});
+        aim = scatter_aim(attacker, tank_origin(attacker), aim, 4);
+    }
     if (scatter)
         aim = ivec2_add(aim, (ivec2_t){(coin(attacker, shell, 0x1ebc1) & 15) - 8,
                                       (coin(attacker, shell, 0x1ebd2) & 15) - 8});
@@ -724,7 +729,8 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
                        target_type == MT_UNIT_GATLING - MT_UNITS || target_type == MT_UNIT_HOWITZER - MT_UNITS;
             aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){gun ? 8 : 0, 0});
         } else aim = fixed2_cell(fixed2_scale(fixed3_xy(target->core.position), FIXED_FROM_INT(Z_TILE)));
-        aim = grenade_aim(attacker, aim, target_type < 0);
+        aim = scatter_aim(attacker, Z_AITopLeft(attacker), aim, target_type < 0 ? 2 : 4);
+        if (target_type >= 0) aim = ivec2_add(aim, (ivec2_t){8, 8});
         fixed2_t destination = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
         if (fixed2_equal(source, destination)) return true; /* 0x5a205 rejects a zero-length throw. */
         mobj_t *grenade = P_SpawnMissile(attacker, target, MT_GRENADE);

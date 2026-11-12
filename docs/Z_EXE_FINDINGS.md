@@ -3613,7 +3613,15 @@ Missiles retain their firing team and snapshotted damage if the shooter is
 removed. The existing thinker and save lifecycle preserve their originator,
 target and aim point; removing either mobj clears its borrowed pointer.
 Unit movement can evade a projectile because its impact point does not
-follow the target. Ordinary shell scatter and some weapon muzzle positions
+follow the target. Tank targeting `0x76849` reads the target unit origin and
+`0x76aa3` adds (12,8); `0x58c13..0x58c40` then calls `0x64250` with the
+actual muzzle and radius `(128 - adjusted accuracy) / 4` (Fire Truck skips
+this call). Open-rts now applies that target anchor and native distance,
+SINCOS and RNG math for tank attacks on units, using the saved combat RNG.
+The separate retail global RNG stream, +0x67 accuracy flag and cached target
+lifecycle remain approximations; structure targeting is unchanged.
+`test_combat` checks the no-scatter distance-six boundary, native trig result,
+two RNG draws and save/load reproduction. Some other weapon scatter and muzzle positions
 remain approximations. Tank muzzle placement is now traced:
 `0x590c9..0x59111` temporarily puts body +0x15 (turret facing) in unit
 +0x39, calls `0x64227` to add the signed word pair at `0x1492c8` to unit
