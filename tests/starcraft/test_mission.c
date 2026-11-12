@@ -567,12 +567,13 @@ int main(void) {
     /* UNIT shields and energy use independent validity bits and native rounding. */
     CHECK(!write_map("/tmp/open-rts-sc-placed-vitals.chk", owners, NULL));
     placed_file = fopen("/tmp/open-rts-sc-placed-vitals.chk", "ab"); CHECK(placed_file);
-    uint8_t vital_units[12 * 36] = {0}; put_u32(unit_header + 4, sizeof(vital_units));
-    for (int i = 0; i < 12; i++) {
+    uint8_t vital_units[16 * 36] = {0}; put_u32(unit_header + 4, sizeof(vital_units));
+    for (int i = 0; i < 16; i++) {
         uint8_t *entry = vital_units + i * 36;
-        put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
+        put_u16(entry + 4, 128 + i * 48); put_u16(entry + 6, 128);
         put_u16(entry + 8, (i < 3 ? MT_ZEALOT : i < 6 ? MT_GHOST : i == 7 ? MT_GANTRITHOR : MT_MARINE) - 1);
-        put_u16(entry + 14, i == 2 || i == 5 || i == 11 ? 0 : i < 3 ? 4 : i < 8 ? 8 : 2);
+        put_u16(entry + 14, i == 2 || i == 5 || i >= 11 ? 0 : i < 3 ? 4 : i < 8 ? 8 : 2);
+        if (i >= 12) { put_u16(entry + 12, (i & 1) ? 0x10 : 0); put_u16(entry + 26, (i & 2) ? 0x10 : 0); }
         entry[17] = i == 8 ? 1 : i == 9 ? 0 : 200;
         entry[18] = i == 0 ? 1 : 150; entry[19] = i == 3 ? 33 : i >= 6 ? 50 : 150;
     }
@@ -580,22 +581,26 @@ int main(void) {
     CHECK(fwrite(vital_units, 1, sizeof(vital_units), placed_file) == sizeof(vital_units)); CHECK(!fclose(placed_file));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-vitals.chk", &level));
     level.upgrades[21][0].weapon = 1; /* Moebius Reactor */
-    CHECK(P_LoadThings(level.map_path) == 12);
+    CHECK(P_LoadThings(level.map_path) == 16);
     placed_units = P_ListMobjs(); placed_seen = 0;
     for (int i = 0; i < placed_units.count; i++) {
         mobj_t *placed_unit = placed_units.items[i];
-        int index = ((placed_unit->core.position.x >> 11) - 128) / 64;
-        if (index < 0 || index >= 12) continue;
+        int index = ((placed_unit->core.position.x >> 11) - 128) / 48;
+        if (index < 0 || index >= 16) continue;
         if (index < 3) CHECK(sc_shields(placed_unit) == (index == 0 ? 0 : sc_units[MT_ZEALOT - 1].shields));
         else if (index == 3) CHECK(placed_unit->sc.energy == 82 * 256 + 128);
         else if (index < 6) CHECK(sc_energy(placed_unit) == (index == 4 ? 250 : 50));
         else if (index < 8) CHECK(placed_unit->sc.energy == (index == 6 ? 100 : 125) * 256);
         else if (index == 8) CHECK(placed_unit->hp == 1 && placed_unit->sc.wound == 154);
         else if (index == 9) CHECK(placed_unit->hp == 1 && placed_unit->sc.wound == 255);
-        else CHECK(placed_unit->hp == placed_unit->max_hp && !placed_unit->sc.wound);
+        else if (index < 12) CHECK(placed_unit->hp == placed_unit->max_hp && !placed_unit->sc.wound);
+        else {
+            CHECK(!!(placed_unit->sc.flags & SC_INVINCIBLE) == (index == 15));
+            CHECK(!!sc_hit(0, NULL, placed_unit, 10, 1) == (index != 15));
+        }
         placed_seen++;
     }
-    CHECK(placed_seen == 12); P_FreeMobjList(&placed_units); unload();
+    CHECK(placed_seen == 16); P_FreeMobjList(&placed_units); unload();
     remove("/tmp/open-rts-sc-placed-vitals.chk");
 
     /* Action 11 has a one-based UPRP slot and a separate count byte. */

@@ -223,6 +223,11 @@ cover zero, one, invalid and over-100 percentages and a save round trip.
 Modify Unit Hit Points and an Archon merge clear the previous fractional wound
 when setting whole health. General morph health scaling and hallucination
 health initialization remain separate approximations.
+OpenBW's UNIT loader enables invincibility when both the +12 valid-status
+word and +26 state word contain bit 0x10. This now initializes the existing
+invincibility flag; a fixture checks all four bit combinations and damage
+immunity. UNIT hallucination initialization remains unimplemented: OpenBW
+also starts a lifetime and adjusts linked fighters when applying that flag.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
