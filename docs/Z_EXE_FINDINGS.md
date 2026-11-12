@@ -3200,8 +3200,9 @@ separate robot-knockdown routine `0x58745` described above is not this call
 site; its relationship to other effects and complete combat remains unported.
 
 **Implementation boundary:** shells now travel to a snapshot of the target's
-selection anchor, but native scatter, terrain interception and the explosion's
-delayed third frame are not simulated. `Z_BlastAnchor` recovers the spawn
+selection anchor; native scatter and terrain interception remain incomplete.
+The delayed third-frame unit pass is approximated as described below.
+`Z_BlastAnchor` recovers the spawn
 origin from its sprite size, then applies the native selection offset;
 composed vehicles are initialized with a 16×16 spawn extent. The shell types
 are the missile-bearing units in pinned Zod `src/zsettings.cpp`; their exact
@@ -3218,8 +3219,17 @@ the damage without a team test. Open-rts selects the lowest native building
 index in that footprint and permits friendly building damage. Forts remain
 excluded by their native separate lifecycle. `test_combat` checks a friendly
 non-target factory, both inclusive edges and an outside point. Terrain and
-other object damage and retail knockdown remain incomplete. Grenades still use the engine's
-separate 3×3 weighted blast. Zod instead applies radial distance falloff in
+other object damage and retail knockdown remain incomplete. Grenades use the
+same rectangular explosion path, as confirmed by `0x5a280..0x5a288` clearing
+projectile flags then setting bit 4, and `0x59363..0x593d0` taking the
+ordinary non-water branch to `0x8476c`. This supersedes the earlier authored
+3×3 weighted blast. Open-rts retains its approximate grenade flight and uses
+the actual landing position for the explosion. Z save layout 15 distinguishes
+the new in-progress blast lifecycle. `test_combat` exercises real flight,
+pending-impact save/load, the inclusive rectangle, ally exclusion and a
+single delayed hit. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @
+0x5a26d' -c 'pd 70 @ 0x59363' -c q data/Z/ZED.EXE`.
+Zod instead applies radial distance falloff in
 `src/zserver.cpp:ProcessMissileDamage`; that is not the retail rectangle.
 
 **Impact effect-object path, partial:** `0x8476c` also calls `0x8523f` at

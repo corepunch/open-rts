@@ -603,9 +603,13 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
 }
 
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
-    if (throws_at(attacker, target) && P_SpawnMissile(attacker, target, MT_GRENADE)) {
-        attacker->z.grenades--;
-        return true;
+    if (throws_at(attacker, target)) {
+        mobj_t *grenade = P_SpawnMissile(attacker, target, MT_GRENADE);
+        if (grenade) {
+            grenade->attack.target = target;
+            attacker->z.grenades--;
+            return true;
+        }
     }
     int t = Z_UnitType(attacker);
     bool apc = t == MT_UNIT_APC - MT_UNITS;
@@ -753,7 +757,8 @@ void A_ZWater(mobj_t *water) {
 }
 
 static ivec2_t blast_impact(const mobj_t *missile) {
-    ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    fixed2_t position = missile->type_id == MT_GRENADE ? fixed3_xy(missile->core.position) : missile->movement.goal;
+    ivec2_t impact = fixed2_cell(fixed2_scale(position, FIXED_FROM_INT(Z_TILE)));
     /* Water's 0x59369 branch passes impact directly to 0x8476c, rather
      * than the shell branch's impact minus (12,24). */
     if (missile->type_id == MT_WATER) impact = ivec2_add(impact, (ivec2_t){12, 24});

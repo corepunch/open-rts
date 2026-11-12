@@ -8,7 +8,6 @@ static const fixed_t grenade_arc[] = {
     0, FIXED_ONE / 48, FIXED_ONE / 32, FIXED_ONE / 26, FIXED_ONE / 24,
     FIXED_ONE / 26, FIXED_ONE / 32, FIXED_ONE / 48, 0,
 };
-static const uint8_t grenade_blast[] = {50, 75, 50, 75, 100, 75, 50, 75, 50};
 
 /* 0x7bf10 walks a repeating pattern of whole pixels a step from 0x117e5c,
  * one per speed level 0..12; on average 1/5, 1/4, 1/3, 2/5, 1/2, 2/3, 4/5,
@@ -72,13 +71,11 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .sprite_name = "SPRITES.RSC", .traits = MF_RENDERABLE | MF_NOBLOCKMAP},
     {.id = MT_BUILDING_DEBRIS, .name = "Building debris", .max_hp = 1, .traits = MF_NOBLOCKMAP},
     {.id = MT_BUILDING_REBUILD, .name = "Building reconstruction", .max_hp = 1, .traits = MF_NOBLOCKMAP},
-    /* Lobbed along an arc; it bursts where it lands, hurting what stands
-     * within a cell (0x8476c; the radius and falloff are authored). */
+    /* Grenade flight remains an approximated arc; its impact uses 0x8476c. */
     {.id = MT_GRENADE, .name = "Grenade", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_ONE / 6, .period_ms = RTS_TICK_MS, .timed = true,
-                 .arc = grenade_arc, .arc_count = sizeof(grenade_arc) / sizeof(*grenade_arc)},
-     .blast = {grenade_blast, 3, NULL, 0}},
+                 .arc = grenade_arc, .arc_count = sizeof(grenade_arc) / sizeof(*grenade_arc)}},
     {.id = MT_SHELL, .name = "Shell", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_ONE, .timed = true}},

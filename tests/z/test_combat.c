@@ -839,6 +839,49 @@ static int test_shell_empty_object(void) {
     return 0;
 }
 
+static int test_grenade_impact(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load grenade impact fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *thrower = blast_unit(MT_UNIT_GRUNT, 0, pixel_at(at, -48, 0), 100);
+    mobj_t *target = blast_unit(MT_UNIT_MED_TANK, 1, at, 500);
+    if (!thrower || !target) return fail("spawn grenade impact fixture");
+    thrower->z.grenades = 1;
+    thrower->traits &= ~MF_ATTACK; target->traits &= ~(MF_ATTACK | MF_MOBILE);
+    if (!Z_Attack(thrower, &thrower->info->attack, target) || thrower->z.grenades)
+        return fail("launch grenade");
+    mobj_t *grenade = nth(MT_GRENADE, 0, 0);
+    if (!grenade) return fail("find flying grenade");
+    for (int i = 0; i < 80 && grenade->core.state_id == S_GRENADE; ++i)
+        if (!tick(model, 1)) return fail("tick grenade flight");
+    if (grenade->core.state_id != S_GRENADE_BLAST || target->hp != 500)
+        return fail("grenade arrival defers unit damage");
+    fixed2_t impact = fixed3_xy(grenade->core.position);
+    mobj_t *inside = blast_unit(MT_UNIT_GRUNT, 1, impact, 100);
+    mobj_t *outside = blast_unit(MT_UNIT_GRUNT, 1, impact, 100);
+    mobj_t *ally = blast_unit(MT_UNIT_GRUNT, 0, impact, 100);
+    if (!inside || !outside || !ally) return fail("spawn grenade blast units");
+    inside->traits &= ~(MF_ATTACK | MF_MOBILE); outside->traits &= ~(MF_ATTACK | MF_MOBILE);
+    ally->traits &= ~(MF_ATTACK | MF_MOBILE);
+    ivec2_t pixel = fixed2_cell(fixed2_scale(impact, FIXED_FROM_INT(Z_TILE)));
+    ivec2_t adjustment = ivec2_sub(pixel, Z_BlastAnchor(inside));
+    inside->core.position = fixed3_from_fixed2(pixel_at(impact, adjustment.x - 18, adjustment.y - 14), 0);
+    outside->core.position = fixed3_from_fixed2(pixel_at(impact, adjustment.x - 19, adjustment.y - 14), 0);
+    ally->core.position = fixed3_from_fixed2(pixel_at(impact, adjustment.x, adjustment.y), 0);
+    uint32_t inside_id = inside->id, outside_id = outside->id, ally_id = ally->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Grenade impact", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save grenade impact");
+    free(save);
+    inside = P_MobjById(inside_id); outside = P_MobjById(outside_id); ally = P_MobjById(ally_id);
+    if (!inside || !outside || !ally || !tick(model, 2) || inside->hp != 100 || !tick(model, 1) ||
+        inside->hp != 50 || outside->hp != 100 || ally->hp != 100 || !tick(model, 1) || inside->hp != 50)
+        return fail("saved grenade uses delayed native bounds exactly once");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_fire_truck_water(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load Fire Truck projectile fixture");
@@ -1307,7 +1350,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
