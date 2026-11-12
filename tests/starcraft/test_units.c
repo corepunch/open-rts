@@ -488,6 +488,22 @@ static int rejected_cast_keeps_orders(void) {
 }
 
 static int terran_spells(void) {
+    /* Sarah Kerrigan is a hero Ghost with Lockdown and cloak without research. */
+    mobj_t *sarah = caster(MT_SARAH_KERRIGAN, FIXED2_LIT(4.5, 4.5));
+    mobj_t *hero_machine = spawn(MT_GOLIATH, FIXED2_LIT(8.5, 4.5), 1);
+    CHECK(sarah && hero_machine && !sc_has_tech(0, SC_TECH_LOCKDOWN));
+    int sarah_techs[8], sarah_count = sc_unit_techs(MT_SARAH_KERRIGAN, sarah_techs, 8);
+    bool lockdown = false, personnel = false, nuke = false;
+    for (int i = 0; i < sarah_count; i++) {
+        lockdown |= sarah_techs[i] == SC_TECH_LOCKDOWN;
+        personnel |= sarah_techs[i] == SC_TECH_PERSONNEL_CLOAKING;
+        nuke |= sarah_techs[i] == SC_TECH_NUCLEAR_STRIKE;
+    }
+    CHECK(lockdown && personnel && !nuke);
+    CHECK(sc_cast(sarah, SC_TECH_LOCKDOWN, hero_machine, at_of(hero_machine)));
+    CHECK(hero_machine->sc.timers[SC_TIMER_LOCKDOWN] > 0);
+    CHECK(sc_cast(sarah, SC_TECH_PERSONNEL_CLOAKING, NULL, at_of(sarah)) && (sarah->traits & MF_CLOAKED));
+    reset();
     /* Defensive Matrix (no research): absorbs 250, then hits land. */
     mobj_t *vessel = caster(MT_SCIENCE_VESSEL, FIXED2_LIT(4.5, 4.5)), *marine = spawn(MT_MARINE, FIXED2_LIT(6.5, 4.5), 0);
     mobj_t *hydra = spawn(MT_HYDRALISK, FIXED2_LIT(9.5, 4.5), 1);
@@ -718,6 +734,11 @@ static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
 }
 
 static int computer(void) {
+    mobj_t *sarah = caster(MT_SARAH_KERRIGAN, FIXED2_LIT(4.5, 4.5));
+    mobj_t *sarah_target = spawn(MT_GOLIATH, FIXED2_LIT(8.5, 4.5), 1);
+    CHECK(sarah && sarah_target && !sc_has_tech(0, SC_TECH_LOCKDOWN));
+    think(0); CHECK(sarah_target->sc.timers[SC_TIMER_LOCKDOWN] > 0);
+    reset();
     mobj_t *kerrigan = caster(MT_INFESTED_KERRIGAN, FIXED2_LIT(4.5, 4.5));
     for (int i = 0; i < 3; i++) CHECK(spawn(MT_ZERGLING, FIXED2_LIT(10.5 + 0.5 * i, 4.5), 1));
     CHECK(kerrigan && !sc_has_tech(0, SC_TECH_PSIONIC_STORM));

@@ -158,7 +158,7 @@ static bool cast(mobj_t *const *units, int count, mobj_t *u) {
     case MT_QUEEN: case MT_MATRIARCH: return queen(units, count, u);
     case MT_DEFILER: case MT_UNCLEAN_ONE: return defiler(units, count, u);
     case MT_COMSAT_STATION: return sweep(units, count, u);
-    case MT_GHOST:
+    case MT_GHOST: case MT_SARAH_KERRIGAN:
         if (ready(u, SC_TECH_LOCKDOWN)) {
             mobj_t *e = best_target(units, count, u, FIXED_FROM_INT(8), SC_UNIT_MECHANICAL, 100);
             return e && !building(e) && !e->sc.timers[SC_TIMER_LOCKDOWN] && sc_cast(u, SC_TECH_LOCKDOWN, e, where(e));

@@ -256,6 +256,11 @@ three and uses existing spell tactics; fixtures cover direct casts, an AI
 Storm and enabled command buttons. The engine's generic card also uses an
 otherwise empty slot when a unit has four abilities; exact native card
 placement remains an approximation.
+OpenBW's Ghost classification includes Sarah Kerrigan (units.dat row 16),
+allowing her Lockdown and Personnel Cloaking without research. Her existing
+cloak path is now joined by Lockdown and the Ghost AI tactic. Fixtures check
+direct casts, enabled ability buttons and autonomous Lockdown; nuclear strike
+is not added, since OpenBW's Nuke Paint order requires the ordinary Ghost.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both
