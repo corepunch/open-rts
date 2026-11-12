@@ -28,6 +28,13 @@ enum {
  * organic units within a cell of its host; Dark Swarm's cloud is 5 by 5. */
 #define SC_SPELL_RADIUS FIXED_FROM_INT(2)
 #define SC_IRRADIATE_RADIUS FIXED_ONE
+
+/* Initial UNIT/CUWP illusions and spell-created copies share this lifetime. */
+void sc_initial_hallucination(mobj_t *mo) {
+    mo->sc.flags |= SC_HALLUCINATION;
+    if (!(sc_unit(mo)->flags & SC_UNIT_TURRET)) mo->sc.timers[SC_TIMER_LIFE] = SC_HALLUCINATION_FRAMES;
+    if (sc_hangar_type(mo->type_id) == MT_INTERCEPTOR) mo->sc.hangar = 0;
+}
 #define SC_SWARM_RADIUS (FIXED_ONE * 5 / 2)
 /* Recall takes everyone in a 128-pixel square; Stasis Field a 96-pixel one. */
 #define SC_RECALL_HALF SC_PIXELS(64)
@@ -423,8 +430,7 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
             mobj_t *copy = spawn_for(caster, target->type_id, fixed2_add(where(target), (fixed2_t){i ? FIXED_ONE * 3 / 4 : -FIXED_ONE * 3 / 4, FIXED_ONE / 2}));
             if (!copy) continue;
             copy->hp = target->hp;
-            copy->sc.flags |= SC_HALLUCINATION;
-            copy->sc.timers[SC_TIMER_LIFE] = SC_HALLUCINATION_FRAMES;
+            sc_initial_hallucination(copy);
         }
         break;
     case SC_TECH_EMP:

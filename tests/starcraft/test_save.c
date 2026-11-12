@@ -34,6 +34,7 @@ int main(void) {
     mobj_t *saved_ghost = sc_spawn_actor(MT_GHOST - 1, (ivec2_t){448, 384}, 0); CHECK(saved_ghost);
     level.upgrades[21][0].weapon = 1; sc_initial_vitals(saved_ghost, 8, 0, 33);
     sc_initial_hp(saved_ghost, 1);
+    sc_initial_hallucination(saved_ghost);
     saved_ghost->sc.flags |= SC_INVINCIBLE;
     uint32_t ghost_id = saved_ghost->id;
     uint32_t carrier_id = saved_carrier->id;
@@ -76,7 +77,8 @@ int main(void) {
     CHECK(saved_carrier->sc.shields == 49 * 256);
     saved_ghost = P_MobjById(ghost_id);
     CHECK(saved_ghost && saved_ghost->sc.energy == 82 * 256 + 128 &&
-          saved_ghost->hp == 1 && saved_ghost->sc.wound == 141 && (saved_ghost->sc.flags & SC_INVINCIBLE));
+          saved_ghost->hp == 1 && saved_ghost->sc.wound == 141 && (saved_ghost->sc.flags & SC_INVINCIBLE) &&
+          (saved_ghost->sc.flags & SC_HALLUCINATION) && saved_ghost->sc.timers[SC_TIMER_LIFE] == 1350);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));

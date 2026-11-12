@@ -30,7 +30,7 @@ enum { MT_SPIDER_MINE = 14, MT_INFESTED_TERRAN = 51, MT_WARBRINGER = 82,
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */
 enum {
-    SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_FLYING_BUILDING = 0x20, SC_UNIT_HERO = 0x40,
+    SC_UNIT_BUILDING = 0x1, SC_UNIT_WORKER = 0x8, SC_UNIT_TURRET = 0x10, SC_UNIT_FLYING_BUILDING = 0x20, SC_UNIT_HERO = 0x40,
     SC_UNIT_REGENERATES = 0x80, SC_UNIT_CLOAKABLE = 0x200,
     SC_UNIT_ROBOTIC = 0x4000, SC_UNIT_ORGANIC = 0x10000, SC_UNIT_BURROWABLE = 0x100000, SC_UNIT_SPELLCASTER = 0x200000,
     SC_UNIT_PERMANENT_CLOAK = 0x400000, SC_UNIT_MECHANICAL = 0x40000000,
@@ -285,6 +285,7 @@ void sc_initial_hp(mobj_t *mo, unsigned percent);
 uint16_t sc_hangar_type(uint16_t maker);
 int sc_hangar_capacity(const mobj_t *maker);
 void sc_initial_hangar(mobj_t *maker, unsigned count);
+void sc_initial_hallucination(mobj_t *mo);
 /* Docked plus launched (interceptors, scarabs in flight). */
 int sc_hangar_count(const mobj_t *maker);
 /* Unit upkeep each engine tic: loaded units, interceptors and scarabs,

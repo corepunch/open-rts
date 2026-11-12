@@ -158,6 +158,16 @@ static int reaver(void) {
     for (int t = 0; t < RTS_TICRATE * 4 && a->hp == hp; t++) tick(1);
     CHECK(hp - a->hp == 125 - sc_units[MT_ULTRALISK - 1].armor && r->sc.hangar == 0);
     reset();
+    r = spawn(MT_REAVER, FIXED2_LIT(6.5, 6.5), 0);
+    a = spawn(MT_ULTRALISK, FIXED2_LIT(12.5, 6.5), 1); CHECK(r && a);
+    a->traits &= ~(MF_MOBILE | MF_ATTACK);
+    r->sc.hangar = 1; sc_initial_hallucination(r);
+    CHECK(sc_launch(r, &r->info->attack, a));
+    mobj_t *illusion_scarab = first_of(MT_SCARAB);
+    CHECK(illusion_scarab && (illusion_scarab->sc.flags & SC_HALLUCINATION));
+    for (int t = 0; t < RTS_TICRATE * 5 && count_of(MT_SCARAB, r->id); t++) tick(1);
+    CHECK(!count_of(MT_SCARAB, r->id) && a->hp == a->max_hp);
+    reset();
     return 0;
 }
 

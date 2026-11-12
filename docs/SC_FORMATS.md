@@ -226,8 +226,15 @@ health initialization remain separate approximations.
 OpenBW's UNIT loader enables invincibility when both the +12 valid-status
 word and +26 state word contain bit 0x10. This now initializes the existing
 invincibility flag; a fixture checks all four bit combinations and damage
-immunity. UNIT hallucination initialization remains unimplemented: OpenBW
-also starts a lifetime and adjusts linked fighters when applying that flag.
+immunity. OpenBW initializes hallucinations when bit 8 is set in both words,
+starts a 1350-frame lifetime except for turret subunits, removes Carrier
+interceptors and marks Reaver scarabs as illusions. UNIT now initializes that
+lifecycle; UPRP shares it by inference. Fixtures cover both flag words,
+lifetime, Carrier/Reaver hangars, non-damaging illusion scarabs and save/load.
+OpenBW gives each already-stored Reaver scarab its own timer; this engine's
+integer hangar starts a scarab's lifetime only when it launches, so docked
+illusion scarabs do not independently expire.
+Some trigger selectors still exclude hallucinations and remain approximate.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution

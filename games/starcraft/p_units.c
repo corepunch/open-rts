@@ -23,6 +23,8 @@ static mobj_t *spawn_for(const mobj_t *owner, uint16_t type, fixed2_t at) {
     if (!mo) return NULL;
     mo->team = owner->team;
     mo->allegiance = owner->allegiance;
+    if ((owner->sc.flags & SC_HALLUCINATION) && (type == MT_INTERCEPTOR || type == MT_SCARAB))
+        sc_initial_hallucination(mo);
     return mo;
 }
 

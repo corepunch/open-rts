@@ -603,6 +603,38 @@ int main(void) {
     CHECK(placed_seen == 16); P_FreeMobjList(&placed_units); unload();
     remove("/tmp/open-rts-sc-placed-vitals.chk");
 
+    /* UNIT hallucination status requires both bits and starts its lifetime. */
+    CHECK(!write_map("/tmp/open-rts-sc-placed-illusion.chk", owners, NULL));
+    placed_file = fopen("/tmp/open-rts-sc-placed-illusion.chk", "ab"); CHECK(placed_file);
+    uint8_t illusions[7 * 36] = {0}; put_u32(unit_header + 4, sizeof(illusions));
+    for (int i = 0; i < 7; i++) {
+        uint8_t *entry = illusions + i * 36;
+        put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
+        put_u16(entry + 8, (i < 4 ? MT_MARINE : i == 4 ? MT_CARRIER : i == 5 ? MT_REAVER : 5) - 1); /* Goliath turret: row 4. */
+        put_u16(entry + 12, (i >= 4 || (i & 1)) ? 8 : 0);
+        put_u16(entry + 26, (i >= 4 || (i & 2)) ? 8 : 0);
+        if (i == 4 || i == 5) { put_u16(entry + 14, 0x20); put_u16(entry + 24, 3); }
+    }
+    CHECK(fwrite(unit_header, 1, sizeof(unit_header), placed_file) == sizeof(unit_header));
+    CHECK(fwrite(illusions, 1, sizeof(illusions), placed_file) == sizeof(illusions)); CHECK(!fclose(placed_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-illusion.chk", &level));
+    CHECK(P_LoadThings(level.map_path) == 7);
+    placed_units = P_ListMobjs(); placed_seen = 0;
+    for (int i = 0; i < placed_units.count; i++) {
+        mobj_t *illusion = placed_units.items[i];
+        int index = ((illusion->core.position.x >> 11) - 128) / 64;
+        if (index < 0 || index >= 7) continue;
+        bool active = index >= 3;
+        CHECK(!!(illusion->sc.flags & SC_HALLUCINATION) == active);
+        CHECK(illusion->sc.timers[SC_TIMER_LIFE] == (active && index != 6 ? 1350 : 0));
+        if (index == 4) CHECK(illusion->sc.hangar == 0);
+        if (index == 5) CHECK(illusion->sc.hangar == 3);
+        if (index == 3) { sc_spell_ticker(illusion, 1350); CHECK(illusion->remove); }
+        placed_seen++;
+    }
+    CHECK(placed_seen == 7); P_FreeMobjList(&placed_units); unload();
+    remove("/tmp/open-rts-sc-placed-illusion.chk");
+
     /* Action 11 has a one-based UPRP slot and a separate count byte. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
@@ -638,6 +670,25 @@ int main(void) {
         cuwp_units = P_ListMobjs(); mobj_t *created_hp = NULL;
         for (int i = 0; i < cuwp_units.count; i++) if (cuwp_units.items[i]->type_id == MT_MARINE) created_hp = cuwp_units.items[i];
         CHECK(created_hp && created_hp->hp == 1 && created_hp->sc.wound == (hp_percent ? 154 : 255));
+        P_FreeMobjList(&cuwp_units); free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-cuwp.chk");
+
+    /* CUWP hallucinations share the initialized lifetime. */
+    for (int bits = 0; bits < 4; bits++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 20, 1); put_u16(action + 24, MT_MARINE - 1);
+        action[26] = 11; action[27] = 1; action[28] = 28;
+        CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+        cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+        memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp, bits & 1 ? 8 : 0); put_u16(cuwp + 14, bits & 2 ? 8 : 0);
+        CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+        CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level)); ticks(1, &(hudtext_t){0});
+        cuwp_units = P_ListMobjs(); mobj_t *created_illusion = NULL;
+        for (int i = 0; i < cuwp_units.count; i++) if (cuwp_units.items[i]->type_id == MT_MARINE) created_illusion = cuwp_units.items[i];
+        CHECK(created_illusion && !!(created_illusion->sc.flags & SC_HALLUCINATION) == (bits == 3));
+        CHECK(created_illusion->sc.timers[SC_TIMER_LIFE] == (bits == 3 ? 1350 : 0));
         P_FreeMobjList(&cuwp_units); free(trig); unload();
     }
     remove("/tmp/open-rts-sc-cuwp.chk");
