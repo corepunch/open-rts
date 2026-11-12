@@ -435,10 +435,30 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
-            !(mo->traits & MF_MOBILE) || (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;
+            (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
-        if (!mine || !sc_place_near(mo, dest)) continue;
+        if (!mine) continue;
+        if (!(mo->traits & MF_MOBILE)) {
+            const sc_unit_t *type = sc_unit(mo);
+            if (!mo->info || !(type->flags & SC_UNIT_BUILDING) || mo->production || mo->sc.addon || mo->sc.parent ||
+                sc_addon_parent(mo->type_id) || mo->type_id == MT_NYDUS_CANAL ||
+                mo->type_id == MT_REFINERY || mo->type_id == MT_EXTRACTOR || mo->type_id == MT_ASSIMILATOR) continue;
+            bool linked = false;
+            for (thinker_t *child = thinkercap.next; child != &thinkercap; child = child->next)
+                if (child->function == P_MobjThinker && ((mobj_t *)child)->sc.parent == mo->id) { linked = true; break; }
+            if (linked) continue;
+            ivec2_t cell = fixed2_cell(dest);
+            cell = ivec2_sub(cell, (ivec2_t){mo->info->footprint.w / 2, mo->info->footprint.h / 2});
+            unsigned traits = mo->traits;
+            mo->traits |= MF_NOBLOCKMAP;
+            P_SyncBuildingBlocking();
+            bool clear = P_CanPlaceBuilding(mo->type_id, cell, mo);
+            mo->traits = traits;
+            if (clear) mo->core.position = fixed3_with_xy(mo->core.position, P_BuildingPosition(mo->type_id, cell));
+            P_SyncBuildingBlocking();
+            if (!clear) continue;
+        } else if (!sc_place_near(mo, dest)) continue;
         moved++;
         if (limit && moved >= limit) break;
     }

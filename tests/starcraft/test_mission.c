@@ -1010,6 +1010,76 @@ int main(void) {
     CHECK(fixed2_equal(fixed3_xy(edge_flyer->core.position), fixed3_xy(original_position)));
     free(trig); unload(); remove("/tmp/open-rts-sc-teleport-edge.chk");
 
+    /* A grounded building without links can be moved and reblocks its new site. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 20, 2); put_u16(action + 24, MT_BARRACKS - 1);
+    action[26] = 39; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-building.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    sc_mission_t *building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    mobj_t *moved_building = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){128, 128}, 0);
+    CHECK(moved_building); P_SyncBuildingBlocking();
+    irect_t before_building = P_MobjCells(moved_building);
+    CHECK(level.cell_solid[L_Index(&level, before_building.x, before_building.y)] & 2);
+    ticks(1, &(hudtext_t){0});
+    irect_t after_building = P_MobjCells(moved_building);
+    CHECK(!ivec2_equal((ivec2_t){before_building.x, before_building.y}, (ivec2_t){after_building.x, after_building.y}));
+    CHECK(!(level.cell_solid[L_Index(&level, before_building.x, before_building.y)] & 2));
+    CHECK(level.cell_solid[L_Index(&level, after_building.x, after_building.y)] & 2);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    moved_building = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){128, 128}, 0);
+    CHECK(moved_building); P_SyncBuildingBlocking();
+    before_building = P_MobjCells(moved_building);
+    level.blocked[L_Index(&level, after_building.x, after_building.y)] = 1;
+    ticks(1, &(hudtext_t){0});
+    CHECK(ivec2_equal((ivec2_t){before_building.x, before_building.y},
+                      (ivec2_t){P_MobjCells(moved_building).x, P_MobjCells(moved_building).y}));
+    unload();
+    put_u16(action + 24, MT_FACTORY - 1);
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-building.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    moved_building = sc_spawn_actor(MT_FACTORY - 1, (ivec2_t){128, 128}, 0);
+    mobj_t *attached_shop = sc_spawn_actor(MT_MACHINE_SHOP - 1, (ivec2_t){256, 128}, 0);
+    CHECK(moved_building && attached_shop);
+    moved_building->sc.addon = attached_shop->id; attached_shop->sc.parent = moved_building->id;
+    P_SyncBuildingBlocking(); before_building = P_MobjCells(moved_building);
+    ticks(1, &(hudtext_t){0});
+    CHECK(ivec2_equal((ivec2_t){before_building.x, before_building.y},
+                      (ivec2_t){P_MobjCells(moved_building).x, P_MobjCells(moved_building).y}));
+    CHECK(moved_building->sc.addon == attached_shop->id && attached_shop->sc.parent == moved_building->id);
+    unload();
+    put_u16(action + 24, MT_BARRACKS - 1);
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-building.chk", owners, trig));
+    for (int terrain = 0; terrain < 2; terrain++) {
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+        building_mission = level.mission; building_mission->loc_count = 2;
+        building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+        building_mission->loc_left[1] = building_mission->loc_right[1] = 160;
+        building_mission->loc_top[1] = building_mission->loc_bottom[1] = 112;
+        moved_building = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){128, 128}, 0);
+        CHECK(moved_building); P_SyncBuildingBlocking(); before_building = P_MobjCells(moved_building);
+        int overlap_index = L_Index(&level, before_building.x + 1, before_building.y);
+        if (terrain) level.cell_solid[overlap_index] |= 1;
+        ticks(1, &(hudtext_t){0});
+        after_building = P_MobjCells(moved_building);
+        CHECK(after_building.x == before_building.x + (terrain ? 0 : 1) && after_building.y == before_building.y);
+        if (terrain) CHECK(level.cell_solid[overlap_index] & 1);
+        unload();
+    }
+    free(trig); remove("/tmp/open-rts-sc-teleport-building.chk");
+
     memset(owners, 0, sizeof(owners));
     owners[0] = 6; owners[1] = 5;
     trig = blank_trigger();
