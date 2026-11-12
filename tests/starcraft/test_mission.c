@@ -1780,6 +1780,45 @@ int main(void) {
         }
         free(trig); unload();
     }
+    /* Vitals actions apply the MRGN-backed modified Anywhere location. */
+    for (int id = 49; id <= 51; id++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 20, 75);
+        int type = id == 49 ? MT_MARINE - 1 : id == 50 ? MT_GHOST - 1 : MT_ZEALOT - 1;
+        put_u16(action + 24, type); action[26] = (uint8_t)id;
+        CHECK(!write_map("/tmp/open-rts-sc-modify.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-modify.chk", &level));
+        sc_mission_t *vitals_mission = level.mission;
+        vitals_mission->loc_count = 64;
+        vitals_mission->loc_right[63] = vitals_mission->loc_bottom[63] = 128;
+        mobj_t *inside = sc_spawn_actor(type, (ivec2_t){32, 32}, 0);
+        mobj_t *outside = sc_spawn_actor(type, (ivec2_t){320, 320}, 0);
+        CHECK(inside && outside);
+        ticks(1, &(hudtext_t){0});
+        if (id == 49) {
+            CHECK(inside->hp == inside->max_hp * 3 / 4 && outside->hp == outside->max_hp);
+        } else if (id == 50) {
+            CHECK(sc_energy(inside) == 150 && sc_energy(outside) == 50);
+        } else {
+            CHECK(sc_shields(inside) == sc_units[type].shields * 3 / 4 &&
+                  sc_shields(outside) == sc_units[type].shields);
+        }
+        free(trig); unload();
+    }
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 75);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 49;
+    CHECK(!write_map("/tmp/open-rts-sc-modify.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-modify.chk", &level));
+    mobj_t *global_a = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){32, 32}, 0);
+    mobj_t *global_b = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){320, 320}, 0);
+    CHECK(global_a && global_b);
+    ticks(1, &(hudtext_t){0});
+    CHECK(global_a->hp == global_a->max_hp * 3 / 4 && global_b->hp == global_b->max_hp * 3 / 4);
+    free(trig); unload();
+    remove("/tmp/open-rts-sc-modify.chk");
     /* All includes units beyond the shared 256-entry gathering buffer. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

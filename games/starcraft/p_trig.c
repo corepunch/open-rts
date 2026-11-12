@@ -511,8 +511,8 @@ static int gather(const sc_mission_t *m, const int *players, int nplayers, unsig
 static void modify_vitals(const sc_mission_t *m, const int *players, int nplayers,
                           unsigned unit, unsigned loc, unsigned limit, unsigned pct, int id) {
     int l, t, r, b;
-    bool anywhere = !loc || loc == 64;
-    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
+    bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+    if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) return;
     if (!thinkercap.next) return;
     if (pct > 100) pct = 100;
     unsigned count = 0;

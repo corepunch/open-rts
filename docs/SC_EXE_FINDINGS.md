@@ -2466,6 +2466,11 @@ shields use the native unit definition; values above 100 are clamped. The
 retail handling of malformed percentages, fractional rounding, and upgraded
 energy maxima has not been verified. Reproduce the selected-unit/count and
 percentage checks with `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.
+PyMS defines Location fields for actions 49–51. Open-rts now uses a stored
+modified Anywhere MRGN record for those actions, retaining whole-map behavior
+when the 64th location is absent. This remains a CHK-field inference because
+the checked OpenBW action switch does not implement 49–51. `test_mission`
+checks inside and outside units for hit points, energy and shields.
 PyMS `action_qnumber` encodes All as zero and finite quantities as 1–255;
 All is not restricted to 256 objects. The checked OpenBW revision
 `4b046d5f65302b10cb0a745f0fecd37ec85b20a8` has no action 50 or 51 case in
