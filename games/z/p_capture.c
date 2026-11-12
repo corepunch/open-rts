@@ -156,6 +156,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
         if (entry_offsets[i].state == vehicle->core.state_id) top_left = ivec2_add(top_left, entry_offsets[i].at);
     if (!Z_UnitCentre(map, t, top_left, &centre)) return;
     vehicle->core.position = fixed3_from_fixed2(centre, vehicle->core.position.z);
+    vehicle->z.object_slot = 0;
     vehicle->core.angle = t == MT_UNIT_APC - MT_UNITS ? P_PointToAngle(0, -FIXED_ONE)
                                                       : P_PointToAngle(-FIXED_ONE, 0);
     P_SetMobjState(vehicle, mobjinfo[vehicle->type_id].spawnstate);
@@ -560,7 +561,7 @@ void A_ZBoxBlast(mobj_t *effect) {
     }
 }
 
-static void blast_box(ivec2_t impact, int damage) {
+static void blast_object(ivec2_t impact, int damage) {
     static const ivec2_t probes[] = {{-8,-8}, {8,-8}, {-8,8}, {8,8}};
     const zmap_t *map = level.native_data;
     if (!map || damage <= 0) return;
@@ -569,20 +570,29 @@ static void blast_box(ivec2_t impact, int damage) {
         mobj_t *found = NULL;
         ivec2_t origin = {0};
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
             mobj_t *box = (mobj_t *)th;
-            if (th->function != P_MobjThinker || !crate(box)) continue;
+            bool empty = live(box) && box->z.object && box->z.object_slot && box->team == Z_NEUTRAL &&
+                         !box->z.driver && Z_UnitType(box) >= 0;
+            if (!crate(box) && !empty) continue;
             isize2_t size;
-            if (!Z_SpriteSize(map, states[mobjinfo[box->type_id].spawnstate].frame, &size)) continue;
+            if (!Z_SpriteSize(map, states[box->core.state_id].frame, &size)) continue;
             ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
             ivec2_t at = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
             ivec2_t d = ivec2_sub(point, at);
-            if (d.x < 0 || d.y < 0 || d.x > 16 || d.y > 16) continue;
+            int extent = empty ? 24 : 16;
+            if (d.x < 0 || d.y < 0 || d.x > extent || d.y > extent) continue;
             if (!found || (box->z.object_slot && (!found->z.object_slot || box->z.object_slot < found->z.object_slot))) {
                 found = box; origin = at;
             }
         }
         if (!found) continue;
-        if (damage < found->z.object_hp) { found->z.object_hp -= damage; return; }
+        if (damage < found->z.object_hp) {
+            found->z.object_hp -= damage;
+            if (!crate(found)) found->hp = found->z.object_hp * 25;
+            return;
+        }
+        if (!crate(found)) { P_RemoveMobj(found); return; }
         P_RemoveMobj(found);
         blast_building(origin, NULL, 127);
         zmap_t *mutable_map = level.native_data;
@@ -601,7 +611,7 @@ void A_ZShellBlast(mobj_t *missile) {
     ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
     mobj_t *target = missile->attack.target;
     bool primary_hit = false;
-    blast_box(impact, missile->missile.damage);
+    blast_object(impact, missile->missile.damage);
     blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
@@ -614,7 +624,9 @@ void A_ZShellBlast(mobj_t *missile) {
         }
     }
     /* Terrain has a separate native path. */
-    if (!primary_hit && live(target) && !structure(target) && !crate(target) && target != missile->target && target->team != missile->team) {
+    if (!primary_hit && live(target) && !structure(target) && !crate(target) &&
+        !(target->z.object_slot && target->team == Z_NEUTRAL) &&
+        target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
             P_DamageMobj(target, missile->target, missile->missile.damage);

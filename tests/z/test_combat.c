@@ -689,6 +689,71 @@ static int test_shell_grenade_box(void) {
     return 0;
 }
 
+static int test_shell_empty_object(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for empty object impact");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *gun = blast_unit(MT_UNIT_LIGHT_TANK, 0, pixel_at(at, -80, 0), 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, -32, 0), 500);
+    mobj_t *box = blast_unit(MT_GRENADES, Z_NEUTRAL, at, 100);
+    mobj_t *jeep = blast_unit(MT_UNIT_JEEP, Z_NEUTRAL, at, 50);
+    if (!gun || !target || !box || !jeep) return fail("spawn empty-object impact fixture");
+    isize2_t box_size, jeep_size;
+    if (!Z_SpriteSize(level.native_data, states[S_GRENADES].frame, &box_size) ||
+        !Z_SpriteSize(level.native_data, states[S_JEEP].frame, &jeep_size)) return fail("empty-object sprite dimensions");
+    ivec2_t centre = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+    ivec2_t origin = ivec2_sub(centre, (ivec2_t){box_size.w / 2, box_size.h / 2});
+    ivec2_t jeep_centre = ivec2_add(origin, (ivec2_t){jeep_size.w / 2, jeep_size.h / 2});
+    jeep->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(jeep_centre), FIXED_ONE / Z_TILE), 0);
+    jeep->traits &= ~(MF_MOBILE | MF_ATTACK);
+    P_SetMobjState(jeep, S_JEEP);
+    jeep->z.object = MT_JEEP; jeep->z.object_slot = 1; jeep->z.object_hp = 2;
+    box->z.object_slot = 2;
+    if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch empty-object shell");
+    mobj_t *shell = nth(MT_SHELL, 0, 0);
+    if (!shell) return fail("find empty-object shell");
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){8,8})), FIXED_ONE / Z_TILE);
+    shell->missile.damage = 1;
+    A_ZShellBlast(shell);
+    if (jeep->z.object_hp != 1 || jeep->hp != 25 || box->remove)
+        return fail("earlier empty Jeep takes damage before overlapping box");
+    uint32_t jeep_id = jeep->id, box_id = box->id, shell_id = shell->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "Empty object", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save damaged empty object");
+    jeep = P_MobjById(jeep_id); box = P_MobjById(box_id); shell = P_MobjById(shell_id);
+    if (!jeep || !box || !shell || jeep->z.object_hp != 1 || jeep->hp != 25)
+        return fail("restore damaged empty object health");
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(jeep->core.position), 30);
+    if (!robot || !Z_DetourBoard(robot, jeep) || jeep->hp != 25 || jeep->z.object_slot)
+        return fail("boarding retains damage and releases the empty-object slot");
+    if (!G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("restore empty-object collision");
+    free(save);
+    jeep = P_MobjById(jeep_id); box = P_MobjById(box_id); shell = P_MobjById(shell_id);
+    if (!jeep || !box || !shell) return fail("restore empty-object collision fixture");
+    A_ZShellBlast(shell);
+    if (!jeep->remove || box->remove) return fail("fatal empty-object hit does not reach box");
+    mobj_t *truck = blast_unit(MT_UNIT_TRUCK, Z_NEUTRAL, at, 75);
+    isize2_t truck_size;
+    if (!truck || !Z_SpriteSize(level.native_data, states[S_TRUCK].frame, &truck_size)) return fail("spawn empty truck");
+    ivec2_t truck_centre = ivec2_add(origin, (ivec2_t){truck_size.w / 2, truck_size.h / 2});
+    truck->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(truck_centre), FIXED_ONE / Z_TILE), 0);
+    truck->traits &= ~(MF_MOBILE | MF_ATTACK);
+    P_SetMobjState(truck, S_TRUCK);
+    truck->z.object = MT_TRUCK; truck->z.object_slot = 1; truck->z.object_hp = 3;
+    if (Z_Enterable(truck)) return fail("empty truck is not boardable");
+    A_ZShellBlast(shell);
+    if (truck->z.object_hp != 2 || truck->hp != 50 || box->remove)
+        return fail("unboardable empty truck preempts the box");
+    truck->z.object_hp = 1;
+    A_ZShellBlast(shell);
+    if (!truck->remove || box->remove) return fail("empty truck destruction stops the same hit");
+    A_ZShellBlast(shell);
+    if (!box->remove || !nth(MT_BOX_BLAST, -1, 0)) return fail("subsequent shot reaches the box");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_flight(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell flight");
@@ -963,7 +1028,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

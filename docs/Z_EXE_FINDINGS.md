@@ -3296,10 +3296,16 @@ damage to the first matching crate, and on destruction creates an ordinary
 saved mobj for the delayed teamless unit blast. It applies the nested building
 hit and saves the terrain change at the box origin; pickup removes a box
 without exploding it. The engine approximates frame-3 delay with three 30 Hz
-tics, and does not reproduce native explosion-pool exhaustion. Other eligible
-non-crate effect records can preempt a crate in the native lookup; those
-records and their destruction are unmodeled here, so a crate may be hit when
-retail would first select another effect. Shell interception, remaining terrain
+tics, and does not reproduce native explosion-pool exhaustion. Map-loaded
+unoccupied vehicles and guns also participate in that lookup in OBJECT order,
+using the native 24-pixel inclusive extent for descriptor flag 0x32, raw
+effect health and 25:1 conversion to body health on boarding. Destroying one
+removes its empty mobj without triggering the box explosion. `test_combat`
+checks an empty Jeep and an unboardable Truck preempting a box, damage and boarding, save/load,
+destruction and a following shot reaching the box. Native object-destruction
+terrain and visual effects, dynamically allocated/reused effect slots (including
+objects emptied later), and other eligible effects remain unmodeled, so a
+crate can still be hit when retail would select another effect. Shell interception, remaining terrain
 effects and complete native ordering are likewise unmodeled. `test_combat`
 checks damage, non-chaining, delayed all-team damage and save/load; `test_capture`
 checks pickup without an explosion.

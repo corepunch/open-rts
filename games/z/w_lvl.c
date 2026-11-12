@@ -663,6 +663,8 @@ int Z_LoadThings(void) {
                 mobj_t *mo = spawn(MT_UNITS + r[5], mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
                 if (mo) {
                     mo->z.object = (uint8_t)(r[4] + 1);
+                    mo->z.object_slot = (uint8_t)(at / 10 + 1);
+                    mo->z.object_hp = object_weapon_health[r[5]];
                     mo->traits &= ~(MF_MOBILE | MF_ATTACK);
                     count++;
                 }
