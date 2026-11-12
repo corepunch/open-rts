@@ -415,6 +415,9 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
     int hurt = target->z.crew_hurt + damage;
     target->z.crew_hurt = (uint8_t)(hurt > 255 ? 255 : hurt);
     if (hurt <= driver_hp) return true;
+    /* 0x61bb9..0x61be3 stores body health in 25-HP units on driver death. */
+    target->hp = (target->hp / 25 ? target->hp / 25 : 1) * 25;
+    target->max_hp = target->max_hp / 25 * 25;
     Z_SetTeam(target, Z_NEUTRAL);
     target->z.crew_count = target->z.driver = target->z.squad = target->z.crew_hurt = 0;
     target->traits &= ~(MF_MOBILE | MF_ATTACK);

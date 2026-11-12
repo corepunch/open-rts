@@ -3248,6 +3248,20 @@ Inspect with `r2 -q -e bin.cache=true -c 'pd 50 @ 0x63a1d' -c 'pd 30 @
 0x4a184' -c 'pd 35 @ 0x4a28a' -c 'pd 38 @ 0x4a4cb' -c 'pd 48 @ 0x8563a'
 -c q data/Z/ZED.EXE`.
 
+**Driver-loss conversion:** when a bullet kills an exposed driver,
+`0x5ae13..0x5ae1f` sets `0x148be0` while calling `0x860fd`. The latter
+reaches the unit-removal path `0x61560`, whose `0x617f1..0x6182b` branch
+allows a surviving body to become an empty object. At `0x61bb9..0x61be3`
+the new effect gets `floor(max body HP / 25)` at +0x27 and
+`max(1, floor(current body HP / 25))` at +0x0f. Boarding converts those
+bytes back to body units through `0x63a85`; a remainder below 25 is lost,
+and a surviving body below 25 becomes 25. Open-rts applies that quantization
+on fatal driver loss while retaining the same neutral mobj; its separate
+Zod-derived voluntary ejection path is not claimed to be this retail path.
+`test_combat` checks 499/500 becomes 475/500. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 24 @ 0x5adfb' -c 'pd 32 @ 0x617ed' -c 'pd 55 @
+0x61b4e' -c 'pd 45 @ 0x63a1d' -c q data/Z/ZED.EXE`.
+
 **Grenade-box blast geometry:** `0x8567e..0x85699` calls `0x8476c` at
 box origin minus (16,16). Its building lookup consequently tests the box
 origin (assuming `0x14c05f` clear). `0x84c58..0x84c65` sees the box's

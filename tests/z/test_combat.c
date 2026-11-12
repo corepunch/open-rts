@@ -363,6 +363,7 @@ static int test_gun_drivers(void) {
     mobj_t *boundary = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 16, 0), 500);
     if (!boundary) return fail("spawn driver health boundary fixture");
     boundary->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    boundary->hp = 499;
     boundary->z.crew_count = 1;
     boundary->z.crew[0] = (zcrew_t){.hp = 15, .type = MT_UNIT_GRUNT - MT_UNITS};
     for (int n = 0; n < 256 && !boundary->z.crew_hurt; ++n, ++leveltime)
@@ -371,8 +372,20 @@ static int test_gun_drivers(void) {
         return fail("driver at zero health remains aboard at native signed boundary");
     for (int n = 0; n < 256 && boundary->z.driver; ++n, ++leveltime)
         Z_HitDamage(shooter, &shooter->info->attack, boundary, 1, 1);
-    if (boundary->z.driver || boundary->team != Z_NEUTRAL)
-        return fail("next driver hit below zero empties the Jeep");
+    if (boundary->z.driver || boundary->team != Z_NEUTRAL || boundary->hp != 475 || boundary->max_hp != 500)
+        return fail("driver death empties the Jeep and quantizes body health");
+    mobj_t *replacement = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(boundary->core.position), 30);
+    if (!replacement || !Z_DetourBoard(replacement, boundary) || boundary->hp != 475 || boundary->max_hp != 500)
+        return fail("boarding retains the quantized empty-body health");
+    mobj_t *fragile = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 16, 0), 500);
+    if (!fragile) return fail("spawn low-health driver fixture");
+    fragile->hp = 1; fragile->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    fragile->z.crew_count = 1;
+    fragile->z.crew[0] = (zcrew_t){.hp = 1, .type = MT_UNIT_GRUNT - MT_UNITS};
+    for (int n = 0; n < 256 && fragile->z.driver; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, fragile, 2, 1);
+    if (fragile->z.driver || fragile->hp != 25)
+        return fail("driver loss retains native minimum empty-body health");
     mobj_t *gun = blast_unit(MT_UNIT_GATLING, 1, pixel_at(at, 16, 0), 500);
     if (!gun) return fail("spawn gun for real attack");
     gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
@@ -383,7 +396,8 @@ static int test_gun_drivers(void) {
     for (int n = 0; n < 256 && gun->z.driver; ++n, ++leveltime) {
         int before = gun->hp;
         if (!P_Attack(shooter)) return fail("fire at gun driver");
-        if (!gun->z.driver && gun->hp != before) return fail("fatal driver hit does not damage gun body");
+        if (!gun->z.driver && gun->hp != (before / 25 ? before / 25 : 1) * 25)
+            return fail("fatal driver hit quantizes remaining gun body health");
     }
     if (gun->z.driver || gun->team != Z_NEUTRAL) return fail("real attack empties the gun");
     mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(gun->core.position), 30);
