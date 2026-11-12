@@ -2441,10 +2441,12 @@ deposit range.
 neutral selection, one-unit and All counts, elevation filtering, and a decoy
 value at +8.
 The action has no unit-type selector: only resource unit types qualify. All
-Players includes neutral slot 11. A built refinery takes over the geyser's
-vent source in `game/g_game.c`; selection therefore uses the refinery owner's
-slot. Restoring a refinery's stock reopens an inactive vent, while an unbuilt
-geyser remains inactive. This vent transition is an engine representation of
+Players includes neutral slot 11. Location 64 uses its stored MRGN bounds when
+present, as OpenBW's one-based location lookup does; without the record it
+retains the whole-map fallback. A built refinery takes over the geyser's vent
+source in `game/g_game.c`; selection therefore uses the refinery owner's slot.
+Restoring a refinery's stock reopens an inactive vent, while an unbuilt geyser
+remains inactive. This vent transition is an engine representation of
 resource-unit state, not a traced retail instruction.
 
 ### Trigger Order and Comment (2026-11-12)

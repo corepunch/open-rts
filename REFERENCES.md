@@ -2587,8 +2587,9 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   unsupported without SetScore state; see `docs/SC_EXE_FINDINGS.md`.
 - StarCraft Modify Unit Resource Amount: pinned OpenBW `bwgame.h` action 52
   filters selected units by the location's elevation flags before updating
-  resource stock. Existing runtime behavior is verified by the added test;
-  finite-count selection follows checked-in eudplib encoding noted in findings.
+  resource stock through the one-based MRGN location. The runtime uses stored
+  MRGN bounds for modified Anywhere (location 64); finite-count selection
+  follows checked-in eudplib encoding noted in findings.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D

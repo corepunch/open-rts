@@ -460,8 +460,8 @@ static fixed2_t loc_center(const sc_mission_t *m, unsigned id) {
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
-/* Order actions use a modified Anywhere record like any other location. */
-static bool order_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, int *b) {
+/* Actions that reference location 64 use the map's modified Anywhere record. */
+static bool action_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, int *b) {
     if (id != 64 || m->loc_count < 64) return loc_box(m, id, l, t, r, b);
     *l = m->loc_left[63]; *t = m->loc_top[63];
     *r = m->loc_right[63]; *b = m->loc_bottom[63];
@@ -470,7 +470,7 @@ static bool order_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, in
 
 static fixed2_t order_loc_center(const sc_mission_t *m, unsigned id) {
     int l, t, r, b;
-    if (!order_loc_box(m, id, &l, &t, &r, &b)) return loc_center(m, id);
+    if (!action_loc_box(m, id, &l, &t, &r, &b)) return loc_center(m, id);
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
@@ -539,8 +539,8 @@ static void modify_vitals(const sc_mission_t *m, const int *players, int nplayer
 static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
                             unsigned loc, unsigned amount, unsigned limit) {
     int l, t, r, b;
-    bool anywhere = !loc || loc == 64;
-    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
+    bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+    if (!anywhere && !action_loc_box(m, loc, &l, &t, &r, &b)) return;
     if (!thinkercap.next) return;
     unsigned changed = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -647,8 +647,8 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
 static void order_units(const sc_mission_t *m, const int *players, int nplayers,
                         unsigned unit, unsigned loc, unsigned destloc, unsigned order) {
     int l, t, r, b, dl, dt, dr, db;
-    if (order > 2 || !order_loc_box(m, loc, &l, &t, &r, &b) ||
-        !order_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
+    if (order > 2 || !action_loc_box(m, loc, &l, &t, &r, &b) ||
+        !action_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
     fixed2_t dest = order_loc_center(m, destloc);
     ticcmd_t cmd = {.order = order == 0 ? TC_MOVE : order == 1 ? TC_PATH : TC_ATTACK,
                     .position = fixed3_from_fixed2(dest, 0), .count = 1};

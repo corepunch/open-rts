@@ -1754,6 +1754,33 @@ int main(void) {
     CHECK(level.resource_vents[0].amount == 700 && level.resource_vents[1].amount == 30);
     free(trig); unload(); remove("/tmp/open-rts-sc-resource-height.chk");
 
+    /* Location 64 uses the modified Anywhere bounds for action 52. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 16, 17); put_u32(action + 20, 700);
+    action[26] = 52;
+    CHECK(!write_map("/tmp/open-rts-sc-resource-anywhere.chk", owners, trig));
+    FILE *resource_anywhere_file = fopen("/tmp/open-rts-sc-resource-anywhere.chk", "ab"); CHECK(resource_anywhere_file);
+    uint8_t resource_location_header[8] = {'M','R','G','N'}, resource_locations[64 * 20] = {0};
+    put_u32(resource_location_header + 4, sizeof(resource_locations));
+    put_u32(resource_locations + 63 * 20, 128); put_u32(resource_locations + 63 * 20 + 4, 128);
+    put_u32(resource_locations + 63 * 20 + 8, 160); put_u32(resource_locations + 63 * 20 + 12, 160);
+    CHECK(fwrite(resource_location_header, 1, sizeof(resource_location_header), resource_anywhere_file) ==
+          sizeof(resource_location_header));
+    CHECK(fwrite(resource_locations, 1, sizeof(resource_locations), resource_anywhere_file) ==
+          sizeof(resource_locations));
+    CHECK(!fclose(resource_anywhere_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-resource-anywhere.chk", &level));
+    mobj_t *inside_patch = sc_spawn_actor(MT_MINERAL_FIELD1 - 1, (ivec2_t){144, 144}, 11);
+    mobj_t *outside_patch = sc_spawn_actor(MT_MINERAL_FIELD1 - 1, (ivec2_t){240, 144}, 11);
+    CHECK(inside_patch && outside_patch);
+    level.resource_vents = calloc(2, sizeof(*level.resource_vents)); CHECK(level.resource_vents);
+    level.resource_vent_count = 2;
+    level.resource_vents[0] = (resourcevent_t){.source_id = inside_patch->id, .amount = 20};
+    level.resource_vents[1] = (resourcevent_t){.source_id = outside_patch->id, .amount = 30};
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.resource_vents[0].amount == 700 && level.resource_vents[1].amount == 30);
+    free(trig); unload(); remove("/tmp/open-rts-sc-resource-anywhere.chk");
+
     /* Order selects all matching units; Comment never issues an order. */
     for (int order = 0; order < 4; order++) {
         trig = blank_trigger(); CHECK(trig);
