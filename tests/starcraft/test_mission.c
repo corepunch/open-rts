@@ -475,6 +475,77 @@ int main(void) {
         free(kills_trigger); unload();
     }
     remove("/tmp/open-rts-sc-most-kills.chk");
+    /* Most Resources (condition 10) uses the current owner's selected balance. */
+    const struct {
+        uint8_t selector;
+        int mine[2], rival[2], inactive[2];
+        bool wins;
+    } resource_cases[] = {
+        {0, {5, 0}, {4, 0}, {99, 99}, true},  /* Ore; inactive slot ignored */
+        {1, {1, 6}, {1, 5}, {99, 99}, true}, /* Gas */
+        {2, {2, 3}, {5, 0}, {99, 99}, true}, /* Ore and Gas combined */
+        {0, {5, 0}, {5, 0}, {0, 0}, true},   /* tie */
+        {2, {0, 0}, {0, 0}, {0, 0}, true},   /* inferred zero tie */
+        {1, {0, 4}, {0, 5}, {0, 0}, false}
+    };
+    uint8_t resource_owners[12] = {6, 5};
+    for (size_t i = 0; i < sizeof(resource_cases) / sizeof(resource_cases[0]); i++) {
+        uint8_t *resources_trigger = blank_trigger(); CHECK(resources_trigger);
+        resources_trigger[2372 + 17] = 0; resources_trigger[2372 + 1] = 1;
+        resources_trigger[16] = resource_cases[i].selector;
+        resources_trigger[15] = 10;
+        uint8_t *resource_action = resources_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-most-resources.chk", resource_owners, resources_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-most-resources.chk", &level));
+        level.player_resources[1][0] = resource_cases[i].mine[0];
+        level.player_resources[1][1] = resource_cases[i].mine[1];
+        level.player_resources[0][0] = resource_cases[i].rival[0];
+        level.player_resources[0][1] = resource_cases[i].rival[1];
+        level.player_resources[2][0] = resource_cases[i].inactive[0];
+        level.player_resources[2][1] = resource_cases[i].inactive[1];
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[1][0] == resource_cases[i].mine[0] + (resource_cases[i].wins ? 10 : 0)));
+        free(resources_trigger); unload();
+    }
+    /* Active neutral slots participate in Most Resources comparisons. */
+    {
+        uint8_t neutral_owners[12] = {6, 5, 7};
+        uint8_t *resources_trigger = blank_trigger(); CHECK(resources_trigger);
+        resources_trigger[2372 + 17] = 0; resources_trigger[2372 + 1] = 1;
+        resources_trigger[16] = 0; resources_trigger[15] = 10;
+        uint8_t *resource_action = resources_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-most-resources.chk", neutral_owners, resources_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-most-resources.chk", &level));
+        level.player_resources[1][0] = 5;
+        level.player_resources[0][0] = 4;
+        level.player_resources[2][0] = 6;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 5);
+        free(resources_trigger); unload();
+    }
+    /* Ore plus Gas must keep totals wider than the individual int balances. */
+    {
+        uint8_t *resources_trigger = blank_trigger(); CHECK(resources_trigger);
+        resources_trigger[2372 + 17] = 0; resources_trigger[2372 + 1] = 1;
+        resources_trigger[16] = 2; resources_trigger[15] = 10;
+        uint8_t *resource_action = resources_trigger + 320;
+        resource_action[24] = 0; resource_action[26] = 26; resource_action[27] = 9;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 1);
+        CHECK(!write_map("/tmp/open-rts-sc-most-resources.chk", resource_owners, resources_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-most-resources.chk", &level));
+        level.player_resources[1][0] = 1200000000;
+        level.player_resources[1][1] = 1000000000;
+        level.player_resources[0][0] = 1000000000;
+        level.player_resources[0][1] = 1000000000;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 1199999999);
+        free(resources_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-most-resources.chk");
     /* Timer quantities are unsigned seconds; large values must not overflow ms. */
     for (int op = 7; op <= 9; op++) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22;

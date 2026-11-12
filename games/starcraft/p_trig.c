@@ -251,6 +251,13 @@ static uint64_t player_kills(const sc_mission_t *m, int player, unsigned unit) {
     return total;
 }
 
+static uint64_t player_resource_total(int player, unsigned resource) {
+    if (resource == 1) return (unsigned)level.player_resources[player][1];
+    uint64_t total = (unsigned)level.player_resources[player][0];
+    if (resource == 2) total += (unsigned)level.player_resources[player][1];
+    return total;
+}
+
 static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     uint8_t type = c[15], op = c[14];
     unsigned group = read_u32_le(c + 4), qty = read_u32_le(c + 8);
@@ -293,6 +300,16 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         uint64_t mine = player_kills(m, current, unit);
         for (int p = 0; p < 8; p++)
             if (p != current && slot_active(m, p) && player_kills(m, p, unit) > mine) return false;
+        return true;
+    }
+    if (type == 10) {
+        if (c[16] > 2) return false;
+        uint64_t mine = player_resource_total(current, c[16]);
+        for (int p = 0; p < 8; p++) {
+            if (p == current || !slot_active(m, p)) continue;
+            uint64_t other = player_resource_total(p, c[16]);
+            if (other > mine) return false;
+        }
         return true;
     }
     if (type == 6 || type == 7 || type == 16 || type == 17) {

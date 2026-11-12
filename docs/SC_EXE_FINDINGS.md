@@ -2488,3 +2488,24 @@ The synthetic CHK cases in `test_mission` cover a sole leader, tie, lower
 count, zero tie, inactive-slot decoy, active neutral slot, and Any Unit total.
 Reproduce with `env SDL_VIDEODRIVER=dummy
 build/bin/tests/starcraft/test_mission`.
+
+### Most Resources trigger condition (2026-11-12)
+
+**Confirmed format mapping:** PyMS `FileFormats/TRG.py` maps condition type 10
+to `MostResources`, and its condition parameter encoder stores `ResType` in
+byte 16. The checked-in `resource_types` table maps selector 0 to Ore, 1 to
+Gas, and 2 to Ore and Gas. `PyTRG/HelpText.py` describes type 10 as the current
+player having most of the selected resource. These references establish the
+CHK encoding and editor meaning, not retail runtime comparison details.
+
+**Implemented behavior:** open-rts compares the trigger owner against each
+other active modeled slot (0–7). Selector 2 compares the sum of Ore and Gas,
+matching the existing Accumulate condition's combined-resource behavior.
+Ties, including zero balances, qualify as most. The tie and zero rules are
+inferences; the available mapmaker tie note concerns Most Kills and does not
+verify Most Resources specifically. Neutral/rescuable owners in active slots
+0–7 participate. Players 8–11 are outside the current runtime model. No
+retail executable trace confirms these ranking details.
+
+`test_mission` covers Ore, Gas, combined Ore and Gas, tie, zero tie, lower
+balance, inactive-slot exclusion, and an active neutral slot.

@@ -2560,6 +2560,14 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   evaluator does not implement type 8. These are format/mapmaker references,
   not retail executable evidence; tie, zero-count, and neutral-slot behavior
   limitations are recorded in `docs/SC_EXE_FINDINGS.md`.
+- StarCraft trigger Most Resources references: pinned PyMS
+  `FileFormats/TRG.py` maps condition 10 to `MostResources`, stores its
+  `ResType` selector in byte 16, and defines selectors 0/1/2 as Ore, Gas, and
+  Ore and Gas. `PyTRG/HelpText.py` describes the condition as the current
+  player having most of the selected resource. This establishes format/editor
+  meaning, not retail ranking behavior; combined-resource summing, tie, zero,
+  and neutral-slot handling are recorded as implementation choices or
+  limitations in `docs/SC_EXE_FINDINGS.md`.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D
