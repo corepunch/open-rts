@@ -61,6 +61,58 @@ static void place(mobj_t *mo, ivec2_t cell) {
     mo->movement.order_arrived = true;
 }
 
+static mobj_t *blast_unit(int type, int team, fixed2_t at, int hp) {
+    mobj_t *mo = P_SpawnMobj(fixed3_from_fixed2(at, 0), (uint16_t)type);
+    if (!mo) return NULL;
+    Z_SetTeam(mo, team);
+    mo->hp = mo->max_hp = hp;
+    return mo;
+}
+
+static fixed2_t pixel_at(fixed2_t at, int x, int y) {
+    return fixed2_add(at, (fixed2_t){x * (FIXED_ONE / Z_TILE), y * (FIXED_ONE / Z_TILE)});
+}
+
+static int test_shell_blast(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for shell blast");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *gun = blast_unit(MT_UNIT_LIGHT_TANK, 0, pixel_at(at, -80, 0), 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, at, 500);
+    mobj_t *left = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, -18, -14), 500);
+    mobj_t *right = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 26, 18), 500);
+    mobj_t *outx = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 27, 0), 500);
+    mobj_t *outy = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 0, -15), 500);
+    mobj_t *ally = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    mobj_t *killed = blast_unit(MT_UNIT_GRUNT, 1, at, 1);
+    mobj_t *after = blast_unit(MT_UNIT_GRUNT, 1, at, 500);
+    mobj_t *vehicle = blast_unit(MT_UNIT_MED_TANK, 1, at, 500);
+    if (!gun || !target || !left || !right || !outx || !outy || !ally || !killed || !after || !vehicle)
+        return fail("spawn shell targets");
+    isize2_t robot_size;
+    if (!Z_SpriteSize(level.native_data, 66, &robot_size)) return fail("robot spawn sprite size");
+    ivec2_t pixel = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+    ivec2_t expected_robot = ivec2_add(pixel, (ivec2_t){8 - robot_size.w / 2, 8 - robot_size.h / 2});
+    ivec2_t expected_vehicle = ivec2_add(pixel, (ivec2_t){8, 8});
+    ivec2_t robot_anchor = Z_BlastAnchor(target), vehicle_anchor = Z_BlastAnchor(vehicle);
+    if (robot_anchor.x != expected_robot.x || robot_anchor.y != expected_robot.y ||
+        vehicle_anchor.x != expected_vehicle.x || vehicle_anchor.y != expected_vehicle.y)
+        return fail("robot and composed vehicle use their native selection anchors");
+    ivec2_t shift = ivec2_sub(expected_vehicle, expected_robot);
+    vehicle->core.position = fixed3_from_fixed2(pixel_at(at, 26 - shift.x, 18 - shift.y), 0);
+    const weapondef_t *weapon = &gun->info->attack;
+    if (!Z_Attack(gun, weapon, target)) return fail("shell uses area attack");
+    if (target->hp != 450 || left->hp != 450 || right->hp != 450 || after->hp != 450 ||
+        vehicle->hp != 450 || killed->hp > 0)
+        return fail("shell hits primary and boundary units once, including after a kill");
+    if (outx->hp != 500 || outy->hp != 500 || ally->hp != 500 || gun->hp != 500)
+        return fail("shell excludes outside and friendly units");
+    if (Z_Attack(ally, &ally->info->attack, target)) return fail("bullets do not use shell area damage");
+    puts("PASS: z shell blast hits enemies inside native bounds once");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 /* Only `squad`'s members and `keep` fight; everyone else stands down. */
 static void disarm_except(int squad, const mobj_t *keep) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -171,6 +223,6 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_death() || test_ordered_target() || test_alert()) return 1;
+    if (test_death() || test_ordered_target() || test_alert() || test_shell_blast()) return 1;
     return 0;
 }

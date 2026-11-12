@@ -219,6 +219,23 @@ static int test_apc_crew(void) {
     }
     if (!found21 || !found13) return fail("ejected crew retain individual health");
     if (Z_EjectCrew(apc)) return fail("empty APC cannot eject");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        P_MobjSetSelected((mobj_t *)th, false);
+    mobj_t *other = P_SpawnMobj(apc->core.position, MT_UNIT_APC);
+    if (!other) return fail("spawn second player's APC");
+    Z_SetTeam(other, 1);
+    other->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    int previous_player = consoleplayer;
+    consoleplayer = 1;
+    bool ejected = Z_EjectCrew(other);
+    consoleplayer = previous_player;
+    bool selected_driver = false;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && !mo->remove && mo->team == 1 &&
+            mo->type_id == MT_UNIT_GRUNT && P_MobjIsSelected(mo)) selected_driver = true;
+    }
+    if (!ejected || !selected_driver) return fail("second player selects their ejected driver");
     puts("PASS: z APC boards and ejects its squad");
     rts_game_model_destroy(model);
     return 0;

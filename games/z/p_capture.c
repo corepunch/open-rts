@@ -161,7 +161,7 @@ bool Z_EjectCrew(mobj_t *vehicle) {
     P_MobjSetSelected(vehicle, false);
     Z_SetTeam(vehicle, Z_NEUTRAL);
     P_SetMobjState(vehicle, empty);
-    P_MobjSetSelected(spawned[0], team == 0);
+    P_MobjSetSelected(spawned[0], team == consoleplayer);
     return true;
 }
 
@@ -313,10 +313,47 @@ int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *targe
     return damage > 0 ? damage : (int)((leveltime + attacker->id + target->id) & 1);
 }
 
+/* Zod's missile-bearing weapons, whose retail projectiles enter the
+ * explosion path. Grenades retain their existing separate projectile. */
+static bool shell_weapon(int t) {
+    switch (t) {
+    case MT_UNIT_TOUGH - MT_UNITS: case MT_UNIT_LIGHT_GUN - MT_UNITS:
+    case MT_UNIT_LIGHT_TANK - MT_UNITS: case MT_UNIT_MED_TANK - MT_UNITS:
+    case MT_UNIT_HEAVY_TANK - MT_UNITS: case MT_UNIT_M_MISSILE - MT_UNITS:
+    case MT_UNIT_MISSILE_GUN - MT_UNITS: case MT_UNIT_HOWITZER - MT_UNITS: return true;
+    default: return false;
+    }
+}
+
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
-    (void)weapon;
-    if (!throws_at(attacker, target) || !P_SpawnMissile(attacker, target, MT_GRENADE)) return false;
-    attacker->z.grenades--;
+    if (throws_at(attacker, target) && P_SpawnMissile(attacker, target, MT_GRENADE)) {
+        attacker->z.grenades--;
+        return true;
+    }
+    int t = Z_UnitType(attacker);
+    if (t == MT_UNIT_APC - MT_UNITS && attacker->z.driver) t = attacker->z.driver - 1;
+    if (!shell_weapon(t) || !weapon || !target) return false;
+    int damage = weapon->damage;
+    if (Z_UnitType(attacker) == MT_UNIT_APC - MT_UNITS) {
+        const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));
+        if (driver) damage = driver->attack.damage * (attacker->z.crew_count ? attacker->z.crew_count : 1);
+    }
+    ivec2_t impact = Z_BlastAnchor(target);
+    bool primary_hit = false;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *victim = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(victim) || victim == attacker ||
+            victim->team == attacker->team || victim->team >= Z_NEUTRAL || Z_UnitType(victim) < 0) continue;
+        ivec2_t delta = ivec2_sub(Z_BlastAnchor(victim), impact);
+        if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18) {
+            P_DamageMobj(victim, attacker, damage);
+            primary_hit |= victim == target;
+        }
+    }
+    /* Buildings and terrain have separate native paths; retain their
+     * direct hit until their area selection is traced. */
+    if (!primary_hit && live(target) && target != attacker && target->team != attacker->team)
+        P_DamageMobj(target, attacker, damage);
     return true;
 }
 

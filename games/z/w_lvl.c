@@ -341,6 +341,18 @@ static bool unit_size(const zmap_t *map, int t, isize2_t *size) {
            (unit_kinds[t].sprite < 0 || Z_SpriteSize(map, unit_kinds[t].sprite, size));
 }
 
+/* 0x64384 tests native unit x/y +8 for robots, +16 otherwise. The
+ * simulation stores the centre of the asset used by spawn_unit. */
+ivec2_t Z_BlastAnchor(const mobj_t *mo) {
+    const zmap_t *map = level.native_data;
+    int t = Z_UnitType(mo);
+    isize2_t size;
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(mo->core.position), FIXED_FROM_INT(Z_TILE)));
+    if (!map || !unit_size(map, t, &size)) return centre;
+    int offset = Z_IsRobot(t) ? 8 : 16;
+    return ivec2_add(centre, (ivec2_t){offset - size.w / 2, offset - size.h / 2});
+}
+
 bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre) {
     isize2_t size;
     if (!unit_size(map, t, &size)) return false;

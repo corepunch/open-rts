@@ -2397,9 +2397,10 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   success the driver takes the shot and an emptied vehicle stands for
   anyone to take (`0x5ad72..0x5ae0d`, `0x860fd`). Type 0x1b and bodies with
   +0x19 = 3 are also eligible; neither is identified.
-- Shells, rockets and grenades (`0x59ed1`/`0x5a205`/`0x5a39e`) burst at full
-  strength, without armour, on every enemy whose top-left is in a 44x32
-  box (`0x85ce4..0x85e9f`); class-0 robots throw strength 50 (`0x103f47`).
+- Shells, rockets and grenades (`0x59ed1`/`0x5a205`/`0x5a39e`) use the
+  explosion path (`0x85ce4..0x85e9f`); class-0 robots throw strength 50
+  (`0x103f47`). Correction: its selection point is not the unit top-left;
+  see the projectile impact analysis below.
 - A hit taking a body under 3/4, 1/2 or 1/4 of its hit points scales its
   speed and fire rate by 90%, 85% or 80% (`0x86d55`). A moving vehicle
   knocks down robots in a [-8, +16] pixel box (`0x586a0`).
@@ -2437,7 +2438,8 @@ two units, not the native stream.
 Engine boundaries, **not** native equivalence: direct weapons still hit
 instantly and never miss (native bullets travel and scatter by accuracy),
 so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
-shells do not splash; damage slow-down, vehicle crush, the tanks' apparent
+shells now apply their existing engine damage over the candidate box below;
+damage slow-down, vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
 terrain speed terms, the Pyro flame (`0x5a099`) and the Fire Truck
 (`0x59ffb`) are not ported.
@@ -2445,3 +2447,37 @@ terrain speed terms, the Pyro flame (`0x5a099`) and the Fire Truck
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`
 (`AI_TRACE=1` on `test_ai` prints the computer's course each minute).
+
+### Shell blast selection (2026-11-12)
+
+**Confirmed** in `data/Z/ZED.EXE`, SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+`0x592ff` reads the projectile's current x/y, and ordinary impact at
+`0x593aa` subtracts `(12,24)` before `0x8476c`; `0x84c4e` copies those
+coordinates into the explosion record. `0x85ce4..0x85cfe` selects bounds
+record x−6 through x+38 and y+10 through y+42. `0x64384..0x643bd`
+compares inclusive bounds with unit x/y plus 8, or plus 16 for class-1
+vehicles. Thus the bounds relative to the projectile impact are x−18..+26,
+y−14..+18. `0x85d33..0x85d43` filters active units and the shooter's team;
+`0x85d7a..0x85e9f` calls `0x86ca4` to damage the selected bodies. The
+separate robot-knockdown routine `0x58745` described above is not this call
+site; its relationship to other effects and complete combat remains unported.
+
+**Implementation boundary:** direct shots still resolve instantly at the
+target's selection anchor: projectile flight, scatter and the explosion's
+delayed third frame are not simulated. `Z_BlastAnchor` recovers the spawn
+origin from its sprite size, then applies the native selection offset;
+composed vehicles are initialized with a 16×16 spawn extent. The shell types
+are the missile-bearing units in pinned Zod `src/zsettings.cpp`; their exact
+retail class dispatch is not fully traced. The engine applies existing direct
+weapon damage once to each enemy unit in the box. Non-unit primary targets
+retain direct damage; area damage to buildings, neutral objects and terrain,
+and retail knockdown are not implemented. Grenades still use the engine's
+separate 3×3 weighted blast. Zod instead applies radial distance falloff in
+`src/zserver.cpp:ProcessMissileDamage`; that is not the retail rectangle.
+
+Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
+'pd 20 @ 0x84c38' -c 'pd 25 @ 0x85ce4' -c 'pd 30 @ 0x64384' -c q
+data/Z/ZED.EXE`, and run `make build/bin/tests/z/test_combat
+build/bin/tests/z/test_cliffs build/bin/tests/z/test_commander` followed by
+each binary with `SDL_VIDEODRIVER=dummy`.
