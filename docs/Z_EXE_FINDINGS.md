@@ -2401,8 +2401,8 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   explosion path (`0x85ce4..0x85e9f`); class-0 robots throw strength 50
   (`0x103f47`). Correction: its selection point is not the unit top-left;
   see the projectile impact analysis below.
-- A hit taking a body under 3/4, 1/2 or 1/4 of its hit points scales its
-  speed and fire rate by 90%, 85% or 80% (`0x86d55`). A moving vehicle
+- A hit taking a body to or below 3/4, 1/2 or 1/4 of its hit points scales its
+  mutable speed and fire-rate bytes by 90%, 85% or 80% (`0x86d55`). A moving vehicle
   knocks down robots in a [-8, +16] pixel box (`0x586a0`).
 
 Decoded values (plain ground; cooldown in 70 Hz steps):
@@ -2439,7 +2439,7 @@ Engine boundaries, **not** native equivalence: direct weapons still hit
 instantly and never miss (native bullets travel and scatter by accuracy),
 so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
-damage slow-down, vehicle crush, the tanks' apparent
+vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
 terrain speed terms, the Pyro flame (`0x5a099`) and the Fire Truck
 (`0x59ffb`) are not ported.
@@ -2481,3 +2481,33 @@ Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
 data/Z/ZED.EXE`, and run `make build/bin/tests/z/test_combat
 build/bin/tests/z/test_cliffs build/bin/tests/z/test_commander` followed by
 each binary with `SDL_VIDEODRIVER=dummy`.
+
+### Vehicle body degradation (2026-11-12)
+
+**Confirmed** for `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+`0x86d55` compares health before and after a hit against `(max/2)/2`,
+`max/2`, and `max/2 + (max/2)/2`. On a downward crossing it multiplies
+the current body +7 speed and +0x20 fire-rate bytes by 80, 85 or 90,
+then integer-divides by 100. One hit crossing multiple levels applies
+only the lowest reached scale; separate crossings compound. `0x86ded`
+retains the fire byte for unit types `0x22` and `0x16`, assigned to the
+Jeep at `0x6378f..0x639a3` and Gatling at `0x50b8c..0x50b91`.
+The vehicle firing path `0x58bb8` uses body +0x20, while paths including
+`0x60c4c` use unit +0x75. The existing C unit table provides plain-ground
+speed levels and reload durations; the shipped vehicle/gun speed bytes are
+exactly ten times those levels, so the port compiles the initial bytes from
+those literals and quantizes scaled speed through the existing native level
+table. Unit HP before the hit is supplied by the common damage lifecycle.
+
+The Z save-layout version is 2 and includes both mutable bytes and their
+initialization flag in the lockstep checksum. A repaired body's retained
+bytes and subsequent crossing compound as these instructions specify;
+whether the original repair facility separately restores body bytes remains
+**unknown**. The currently selected body-based firing path covers Light,
+Medium, Heavy and Mobile Missile vehicles; other paths retain their existing
+cooldown pending further tracing. Accuracy and damage bytes also change at
+`0x86df0..0x86e01` but are not yet applied to engine combat. Focused
+threshold, multi-threshold, Jeep, healing and save/load checks run with
+`make build/bin/tests/z/test_combat` and `SDL_VIDEODRIVER=dummy
+build/bin/tests/z/test_combat`.

@@ -709,13 +709,14 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (target->w2.buffs[W2_BUFF_ARMOR] ||
         (mobjinfo[target->type_id].w2.attributes & W2_INDESTRUCTIBLE)) return;
 #endif
+    int old_hp = target->hp;
     target->hp -= damage;
 #ifdef RTS_MODULE_STARCRAFT
     target->sc.flags = (uint8_t)(target->sc.flags | SC_HIT);
     target->sc.attacker = source && source->owner < 8 ? source->owner : 255;
 #endif
     if (target->info && target->info->damage_action) target->info->damage_action(target);
-    G_UnitDamaged(target, source);
+    G_UnitDamaged(target, source, old_hp);
     if (target->owner == consoleplayer && source && source->owner != consoleplayer)
         S_ActorSound(target, SE_ATTACKED);
     if (target->hp > 0) {

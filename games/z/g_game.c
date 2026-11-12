@@ -21,6 +21,12 @@ static const uint8_t grenade_blast[] = {50, 75, 50, 75, 100, 75, 50, 75, 50};
 #define Z_LEVEL_SPEED(l) \
     ((fixed_t)((int64_t)FIXED_ONE * Z_LEVEL_NUM(l) * Z_NATIVE_HZ / (Z_LEVEL_DEN(l) * Z_TILE)))
 
+fixed_t Z_LevelSpeed(int level) {
+    if (level < 0) level = 0;
+    if (level > 12) level = 12;
+    return Z_LEVEL_SPEED(level);
+}
+
 /* Objects and buildings stand still; units (units.inc) walk and fight. */
 static const mobjtype_t ACTOR_TYPES[] = {
 #define Z_OBJECT(native, type, label, sprite, flags, w, h, dead) \

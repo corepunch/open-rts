@@ -32,6 +32,39 @@ static int robot_type(const mobj_t *mo) {
     return live(mo) && Z_IsRobot(t) && mo->team < Z_NEUTRAL ? t : -1;
 }
 
+/* The speed byte is ten times the plain-ground level in units.inc for all
+ * vehicle and gun records in the shipped ROBOTS.DAT. */
+static const struct { uint8_t speed, fire; } body_stats[] = {
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, lvl, range, wait, ...) {(lvl) * 10, 100 - (wait)},
+#include "units.inc"
+#undef Z_UNIT
+};
+
+/* 0x86d55 scales the body's mutable speed byte only when damage crosses a
+ * health threshold; a single hit crossing several uses the lowest one. */
+void Z_BodyDamaged(mobj_t *mo, int old_hp) {
+    int t = Z_UnitType(mo);
+    if (t < 0 || Z_IsRobot(t) || mo->max_hp <= 0) return;
+    if (!mo->z.body_tracked) {
+        mo->z.body_speed = body_stats[t].speed;
+        mo->z.body_fire = body_stats[t].fire;
+        mo->z.body_tracked = true;
+    }
+    int half = mo->max_hp / 2, quarter = half / 2;
+    int threshold = 0, scale = 100;
+    if (mo->hp <= quarter) { threshold = quarter; scale = 80; }
+    else if (mo->hp <= half) { threshold = half; scale = 85; }
+    else if (mo->hp <= half + quarter) { threshold = half + quarter; scale = 90; }
+    if (threshold && old_hp > threshold && mo->hp > 0) {
+        mo->z.body_speed = mo->z.body_speed * scale / 100;
+        /* 0x86ded exempts native unit types 0x22 (Jeep) and 0x16
+         * (Gatling), assigned at 0x639a3 and 0x50b91 respectively. */
+        if (t != MT_UNIT_JEEP - MT_UNITS && t != MT_UNIT_GATLING - MT_UNITS)
+            mo->z.body_fire = mo->z.body_fire * scale / 100;
+        if (mo->info && mo->info->speed > 0) mo->speed = Z_LevelSpeed(mo->z.body_speed / 10);
+    }
+}
+
 static bool structure(const mobj_t *mo) {
     return mo && mo->type_id >= MT_FORT && mo->type_id < MT_UNITS;
 }

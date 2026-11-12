@@ -22,6 +22,7 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
     uint8_t driver, squad, grenades, territory; \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
+    uint8_t body_speed, body_fire; bool body_tracked; /* Native mutable body bytes. */ \
     uint8_t bridge; /* BRIDGEnn.DAT slot + 1. */ \
     uint8_t service_ticks; /* Service animation, pending bridge effects, or repair bay HP clock. */ \
     bool manufactured; /* CPU unit flag 0x10, set by 0x5103e. */ \
@@ -37,6 +38,7 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
     HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); HASH((mo)->z.crew_hurt); \
     HASH((mo)->z.service); HASH((mo)->z.service_work); HASH((mo)->z.bridge); HASH((mo)->z.service_ticks); \
+    HASH((mo)->z.body_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_tracked); \
     HASH((mo)->z.manufactured); \
     HASH((mo)->z.crew_count); \
     for (int z_i = 0; z_i < (mo)->z.crew_count; ++z_i) { \

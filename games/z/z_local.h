@@ -119,6 +119,8 @@ bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre);
 /* Weapon type of a unit's mobj type, or -1. */
 int Z_UnitType(const mobj_t *mo);
 ivec2_t Z_BlastAnchor(const mobj_t *mo);
+fixed_t Z_LevelSpeed(int level);
+void Z_BodyDamaged(mobj_t *mo, int old_hp);
 bool Z_EjectCrew(mobj_t *vehicle);
 int Z_GroupType(const zmap_t *map, int group, int member);
 int Z_GroupRobot(const zmap_t *map, int group, int member);
