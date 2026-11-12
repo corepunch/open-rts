@@ -2594,6 +2594,13 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   passes the one-based CHK location to `trigger_bring_count`; location 64 uses
   its MRGN Anywhere record. Regression coverage is documented in
   `docs/SC_EXE_FINDINGS.md`.
+- StarCraft Move Unit action 39: checked-in PyMS `FileFormats/TRG.py` identifies
+  source and destination Location fields. The MRGN-backed location64 behavior
+  is implemented as a documented format inference because pinned OpenBW does
+  not implement action 39.
+- StarCraft Center View action 10: checked-in PyMS `FileFormats/TRG.py` maps
+  it to a Location field. Modified Anywhere uses the stored MRGN[63] bounds;
+  the pinned OpenBW trigger action switch does not implement Center View.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D

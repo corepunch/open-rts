@@ -468,14 +468,14 @@ static fixed2_t loc_center(const sc_mission_t *m, unsigned id) {
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
-static fixed2_t order_loc_center(const sc_mission_t *m, unsigned id) {
+static fixed2_t trigger_loc_center(const sc_mission_t *m, unsigned id) {
     int l, t, r, b;
     if (!trigger_loc_box(m, id, &l, &t, &r, &b)) return loc_center(m, id);
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
 static void look_at(sc_mission_t *m, unsigned id) {
-    m->view = fvec2_from_fixed2(loc_center(m, id));
+    m->view = fvec2_from_fixed2(trigger_loc_center(m, id));
     m->view_pending = true;
     level.has_camera = true;
     level.camera = m->view;
@@ -595,9 +595,9 @@ static void modify_hangars(const sc_mission_t *m, const int *players, int nplaye
 static void move_units(const sc_mission_t *m, const int *players, int nplayers,
                        unsigned unit, unsigned loc, unsigned destloc, unsigned limit) {
     int l, t, r, b, dl, dt, dr, db;
-    if (!loc || !destloc || !loc_box(m, loc, &l, &t, &r, &b) ||
-        !loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
-    fixed2_t dest = loc_center(m, destloc);
+    if (!loc || !destloc || !trigger_loc_box(m, loc, &l, &t, &r, &b) ||
+        !trigger_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
+    fixed2_t dest = trigger_loc_center(m, destloc);
     if (!L_Contains(&level, fixed_floor_int(dest.x), fixed_floor_int(dest.y))) return;
     unsigned moved = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -649,7 +649,7 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
     int l, t, r, b, dl, dt, dr, db;
     if (order > 2 || !trigger_loc_box(m, loc, &l, &t, &r, &b) ||
         !trigger_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
-    fixed2_t dest = order_loc_center(m, destloc);
+    fixed2_t dest = trigger_loc_center(m, destloc);
     ticcmd_t cmd = {.order = order == 0 ? TC_MOVE : order == 1 ? TC_PATH : TC_ATTACK,
                     .position = fixed3_from_fixed2(dest, 0), .count = 1};
     if (order == 1) cmd.path = (waypoints_t){.count = 1, .mode = WP_BACKTRACK,

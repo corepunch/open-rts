@@ -2084,6 +2084,88 @@ int main(void) {
         free(trig); unload();
     }
     remove("/tmp/open-rts-sc-teleport.chk");
+    /* Move Unit source location 64 uses modified Anywhere bounds. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 16, 0); put_u32(action + 20, 1);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 39;
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-anywhere.chk", owners, trig));
+    FILE *teleport_file = fopen("/tmp/open-rts-sc-teleport-anywhere.chk", "ab"); CHECK(teleport_file);
+    uint8_t teleport_header[8] = {'M','R','G','N'}, teleport_locations[64 * 20] = {0};
+    put_u32(teleport_header + 4, sizeof(teleport_locations));
+    put_u32(teleport_locations, 448); put_u32(teleport_locations + 4, 448);
+    put_u32(teleport_locations + 8, 512); put_u32(teleport_locations + 12, 512);
+    put_u32(teleport_locations + 63 * 20, 128); put_u32(teleport_locations + 63 * 20 + 4, 128);
+    put_u32(teleport_locations + 63 * 20 + 8, 160); put_u32(teleport_locations + 63 * 20 + 12, 160);
+    CHECK(fwrite(teleport_header, 1, sizeof(teleport_header), teleport_file) == sizeof(teleport_header));
+    CHECK(fwrite(teleport_locations, 1, sizeof(teleport_locations), teleport_file) == sizeof(teleport_locations));
+    CHECK(!fclose(teleport_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-anywhere.chk", &level));
+    mobj_t *source_inside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0);
+    mobj_t *source_outside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0);
+    CHECK(source_inside && source_outside);
+    ticks(1, &(hudtext_t){0});
+    CHECK(fixed2_near(fixed3_xy(source_inside->core.position), FIXED2_LIT(15, 15), FIXED_LIT(0.1)));
+    CHECK(fixed2_near(fixed3_xy(source_outside->core.position), FIXED2_LIT(7.5, 4.5), FIXED_LIT(0.01)));
+    free(trig); unload();
+
+    /* Move Unit destination location 64 also uses its stored MRGN center. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 16, 0); put_u32(action + 20, 64);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 39;
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-anywhere.chk", owners, trig));
+    teleport_file = fopen("/tmp/open-rts-sc-teleport-anywhere.chk", "ab"); CHECK(teleport_file);
+    memset(teleport_locations, 0, sizeof(teleport_locations));
+    put_u32(teleport_locations, 128); put_u32(teleport_locations + 4, 128);
+    put_u32(teleport_locations + 8, 160); put_u32(teleport_locations + 12, 160);
+    put_u32(teleport_locations + 63 * 20, 320); put_u32(teleport_locations + 63 * 20 + 4, 320);
+    put_u32(teleport_locations + 63 * 20 + 8, 384); put_u32(teleport_locations + 63 * 20 + 12, 384);
+    CHECK(fwrite(teleport_header, 1, sizeof(teleport_header), teleport_file) == sizeof(teleport_header));
+    CHECK(fwrite(teleport_locations, 1, sizeof(teleport_locations), teleport_file) == sizeof(teleport_locations));
+    CHECK(!fclose(teleport_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-anywhere.chk", &level));
+    source_inside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0);
+    source_outside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0);
+    CHECK(source_inside && source_outside);
+    ticks(1, &(hudtext_t){0});
+    CHECK(fixed2_near(fixed3_xy(source_inside->core.position), FIXED2_LIT(11, 11), FIXED_LIT(0.1)));
+    CHECK(fixed2_near(fixed3_xy(source_outside->core.position), FIXED2_LIT(7.5, 4.5), FIXED_LIT(0.01)));
+    free(trig); unload();
+
+    /* Missing MRGN Anywhere still falls back to the whole map. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 16, 0); put_u32(action + 20, 64);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 39;
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-anywhere.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-anywhere.chk", &level));
+    source_inside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0); CHECK(source_inside);
+    fixed2_t fallback_position = fixed3_xy(source_inside->core.position);
+    ticks(1, &(hudtext_t){0});
+    CHECK(!fixed2_near(fixed3_xy(source_inside->core.position), fallback_position, FIXED_LIT(0.1)));
+    CHECK(fixed2_near(fixed3_xy(source_inside->core.position), FIXED2_LIT(16, 16), FIXED_LIT(0.1)));
+    free(trig); unload(); remove("/tmp/open-rts-sc-teleport-anywhere.chk");
+
+    /* Center View uses modified Anywhere bounds and keeps the missing-record fallback. */
+    for (int modified = 0; modified < 2; modified++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); action[26] = 10;
+        CHECK(!write_map("/tmp/open-rts-sc-center-anywhere.chk", owners, trig));
+        if (modified) {
+            FILE *center_file = fopen("/tmp/open-rts-sc-center-anywhere.chk", "ab"); CHECK(center_file);
+            uint8_t center_header[8] = {'M','R','G','N'}, center_locations[64 * 20] = {0};
+            put_u32(center_header + 4, sizeof(center_locations));
+            put_u32(center_locations + 63 * 20, 320); put_u32(center_locations + 63 * 20 + 4, 320);
+            put_u32(center_locations + 63 * 20 + 8, 384); put_u32(center_locations + 63 * 20 + 12, 384);
+            CHECK(fwrite(center_header, 1, sizeof(center_header), center_file) == sizeof(center_header));
+            CHECK(fwrite(center_locations, 1, sizeof(center_locations), center_file) == sizeof(center_locations));
+            CHECK(!fclose(center_file));
+        }
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-center-anywhere.chk", &level));
+        ticks(1, &(hudtext_t){0});
+        float expected_center = modified ? 11.0f : 16.0f;
+        CHECK(level.has_camera && level.camera.x == expected_center && level.camera.y == expected_center);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-center-anywhere.chk");
     /* A destination outside the level cannot place aircraft out of bounds. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

@@ -2460,6 +2460,27 @@ fallback, while out-of-range IDs produce no match. `test_mission` checks
 location 0, ordinary location 1, modified Anywhere 64 with inside/outside
 Marines using Exactly 1 and At Least 2, and invalid location 65.
 
+### Move Unit uses modified source and destination Anywhere (2026-11-12)
+
+PyMS `FileFormats/TRG.py` identifies action 39 as `MoveUnit` with both a
+source `Location` and a `DestLocation`. The checked-in MRGN format stores the
+modified Anywhere region at location64, so `move_units` now uses that record
+for source membership and destination centering. This is a format-based
+inference: the pinned OpenBW `execute_trigger_action` does not implement action
+39, so it does not confirm Move Unit runtime behavior. `test_mission` checks
+modified Anywhere independently as source and destination, plus the existing
+whole-map fallback when no MRGN location table is present. Other location
+actions retain their existing handling unless separately supported and tested.
+
+### Center View uses modified Anywhere bounds (2026-11-12)
+
+PyMS `FileFormats/TRG.py` maps action 10 to Center View with a Location field.
+`look_at` uses the trigger-specific location center, so location64 centers on
+its stored MRGN bounds and falls back to the whole-map center when no full
+location table exists. This follows the CHK location-field convention; the
+pinned OpenBW trigger action switch does not implement Center View.
+`test_mission` checks both modified and missing-record locations.
+
 ### Trigger Order and Comment (2026-11-12)
 
 **Confirmed reference:** pinned OpenBW `bwgame.h::execute_trigger_action`
