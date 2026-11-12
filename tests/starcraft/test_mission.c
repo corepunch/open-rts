@@ -140,6 +140,32 @@ int main(void) {
     free(trig);
     unload();
 
+    /* CHK action IDs 54/55 pause and resume the countdown; 56 draws. */
+    for (int id = 54; id <= 56; id++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22;
+        trig[320 + 26] = (uint8_t)id;
+        CHECK(!write_map("/tmp/open-rts-sc-timer.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-timer.chk", &level));
+        sc_mission_t *m = level.mission;
+        m->countdown_ms = 10000;
+        m->countdown_paused = id == 55;
+        ticks(1, &(hudtext_t){0});
+        if (id == 54) {
+            CHECK(m->countdown_paused && sc_mission_result() == 0);
+            int remaining = m->countdown_ms;
+            ticks(1, &(hudtext_t){0});
+            CHECK(m->countdown_ms == remaining);
+        } else if (id == 55) {
+            CHECK(!m->countdown_paused && sc_mission_result() == 0);
+            ticks(1, &(hudtext_t){0});
+            CHECK(m->countdown_ms < 10000);
+        } else CHECK(sc_mission_result() == 3);
+        free(trig);
+        unload();
+    }
+    remove("/tmp/open-rts-sc-timer.chk");
+
     trig = blank_trigger();
     CHECK(trig);
     trig[15] = 22;
@@ -244,12 +270,14 @@ int main(void) {
         CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
         CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
         mobj_t *ordered = spawn(MT_MARINE - 1, 0), *other_type = spawn(MT_GHOST - 1, 0);
-        CHECK(ordered && other_type);
+        mobj_t *hallucination = spawn(MT_MARINE - 1, 0);
+        CHECK(ordered && other_type && hallucination);
+        hallucination->sc.flags |= SC_HALLUCINATION;
         ticks(1, &(hudtext_t){0});
         CHECK(!P_HasMoveOrder(other_type));
-        if (order == 3) CHECK(!P_HasMoveOrder(ordered));
+        if (order == 3) CHECK(!P_HasMoveOrder(ordered) && !P_HasMoveOrder(hallucination));
         else {
-            CHECK(P_HasMoveOrder(ordered));
+            CHECK(P_HasMoveOrder(ordered) && P_HasMoveOrder(hallucination));
             if (order == 1) {
                 CHECK(ordered->waypoints.mode == WP_BACKTRACK && ordered->waypoints.count == 2);
                 bool returning = false, again = false;

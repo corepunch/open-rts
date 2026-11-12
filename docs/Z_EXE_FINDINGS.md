@@ -3069,6 +3069,26 @@ native carry propagation beyond the caller remains unverified. Inspect with
 run `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_production` for authored
 members, group identity and save/load allocation checks.
 
+**Confirmed reuse preference detail:** `0x77888` writes 200 to the indexed
+byte in the table at `0x11d567`; `0x77608..0x77617` decrements its 240
+nonzero entries. The allocator's first scan at `0x77d25` requires both an
+empty 72-byte group record and a zero table byte. If that scan fails,
+`0x77d4a..0x77d69` scans all 240 records for an empty one without checking
+the table. This confirms a preference, not a prohibition on reuse. Group
+removal at `0x777d9` clears the departing member's slot and decrements the
+count at group +0x12; it loads the cooldown when the count reaches zero, or
+when a departing leader has no occupied follower slot to promote at
+`0x77b97`. Calls also occur during group reassignment (`0x77671`, `0x77710`),
+so this is not limited to death. The update at `0x14b8d` runs before the
+unit pass `0x14be5`, while level initialization `0x4f041` clears the table.
+Open-rts does not model the native group record or all reassignment paths,
+and its Z ticker runs after thinkers in coarser tics. Consequently an exact
+load/decrement boundary cannot yet be represented by an allocator-only timer;
+save/load and consistency state are also required. Reproduce with `r2 -q -e bin.cache=true -c
+'pd 90 @ 0x777d9' -c 'pd 65 @ 0x77b97' -c 'pd 20 @ 0x775e4' -c
+'pd 45 @ 0x77d25' -c 'pd 35 @ 0x14b75' -c q
+data/Z/ZED.EXE`.
+
 **Countdown boundaries and command ownership:** for ZED.EXE SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x603f1` runs the group pass before iterating the 240 unit slots. In

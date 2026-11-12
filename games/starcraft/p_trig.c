@@ -417,7 +417,7 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
                                              .points = {fixed2_cell(dest)}};
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
+        if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
             !(mo->traits & MF_MOBILE) || !inside(mo, l, t, r, b)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
@@ -501,7 +501,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         /* Outcomes and messages are the local player's; another player's
          * copy of the trigger decides nothing on this screen. */
         bool local = st->current == consoleplayer;
-        if (id == 1 || id == 2 || id == 58) {
+        if (id == 1 || id == 2 || id == 56) {
             if (!local) continue;
             m->result = id == 1 ? 1 : id == 2 ? 2 : 3;
             G_EndLevel(id == 1 ? OUTCOME_VICTORY : id == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
@@ -584,8 +584,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             }
             continue;
         }
-        if (id == 55) { m->countdown_paused = true; continue; }
-        if (id == 56) { m->countdown_paused = false; continue; }
+        if (id == 54) { m->countdown_paused = true; continue; }
+        if (id == 55) { m->countdown_paused = false; continue; }
         if (id == 57) {
             int self[8], ns = 0;
             if (st->current >= 0 && st->current < 8) self[ns++] = st->current;

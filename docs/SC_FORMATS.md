@@ -1,5 +1,20 @@
 # StarCraft classic format reference
 
+The pinned PyMS `PyMS/FileFormats/TRG.py` normal-trigger action table identifies
+IDs 54, 55 and 56 as Pause Timer, Unpause Timer and Draw, respectively; 57 is
+Set Alliance Status. Earlier open-rts dispatch shifted the first three by one,
+which made a Draw unpause the timer. `tests/starcraft/test_mission.c` exercises
+the encoded IDs and countdown behavior. This is format-reference evidence,
+not a trace of the retail executable.
+
+Pinned OpenBW `bwgame.h` action 46 iterates matching units without excluding
+hallucinations; the open-rts Order trigger now does the same. Its action 52
+uses `trigger_players_pred`, which rejects player slots 8 and above, including
+neutral resource owner 11. Existing open-rts resource triggers support those
+owners; retail behavior and the reason for the OpenBW difference remain
+unverified, so this is not treated as retail proof. The mission regression
+exercises hallucinated units and resource selection separately.
+
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
 on 2026-10-08. It is an implementation reference, not a complete StarCraft
