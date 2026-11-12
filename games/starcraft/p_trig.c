@@ -247,6 +247,8 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         return cmp_num(op, total, (int)qty);
     }
     if (type == 6 || type == 7 || type == 16 || type == 17) {
+        players[0] = current;
+        n = 1;
         unsigned where = (type == 7 || type == 17) ? loc : 64;
         int mine = count_units(players, n, unit, where, m), others = 0;
         bool most = type == 6 || type == 7;

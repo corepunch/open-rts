@@ -99,6 +99,16 @@ The reviewed fields agree after the +20 vitals and action 52 count corrections.
 This audit does not assert full behavior: for example, transmission audio,
 Move Unit teleport placement, player-group cases and location geometry remain
 incomplete, and unsupported actions were not included.
+
+The implemented condition field reads were compared against eudplib
+`stockcond.py` and `condition.py`: timer (1, 12), Command/Bring/resources/kills
+(2–5), Command Most/Least and their location forms (6–7, 16–17), switch (11),
+opponents (14), deaths (15), Always/Never (22–23). Conditions 6, 7, 16 and 17
+have no player argument: they compare the executing trigger owner. They formerly
+used the unused player field, normally zero; two-player fixtures now use a
+conflicting player-field value for all four cases. This checks field use only;
+tie behavior, neutral/rescue players, completion and collision-box location
+semantics remain incomplete or unverified.
 PyMS defines Modify Unit Hit Points (action 49) with a quantity that may be
 All and a percentage in 0–100. It now shares the complete traversal used by
 energy and shield modification instead of truncating All at 256 units; the

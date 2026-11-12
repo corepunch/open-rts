@@ -200,6 +200,25 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(level.player_resources[0][0] == 0);
     unload(); free(inactive_opponents); remove("/private/tmp/sc-inactive-opponents.chk");
+    /* Most/least conditions use the trigger owner; their player field is unused. */
+    const int comparison_conditions[] = {6, 7, 16, 17};
+    for (int ci = 0; ci < 4; ci++) {
+        int condition = comparison_conditions[ci];
+        uint8_t *compare_trigger = blank_trigger(); CHECK(compare_trigger);
+        compare_trigger[2372+17] = 0; compare_trigger[2372+1] = 1;
+        put_u32(compare_trigger, 64); put_u32(compare_trigger+4, 0); /* decoy player */
+        put_u16(compare_trigger+12, MT_MARINE - 1); compare_trigger[15] = (uint8_t)condition;
+        compare_trigger[320+26] = 26; compare_trigger[320+27] = 8;
+        put_u32(compare_trigger+320+16, 1); put_u32(compare_trigger+320+20, 10);
+        CHECK(!write_map("/private/tmp/sc-compare-owner.chk", force_owners, compare_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-compare-owner.chk", &level));
+        CHECK(spawn(MT_MARINE - 1, 0) && spawn(MT_MARINE - 1, 1));
+        CHECK(spawn(MT_MARINE - 1, condition < 16 ? 1 : 0));
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 10);
+        unload(); free(compare_trigger);
+    }
+    remove("/private/tmp/sc-compare-owner.chk");
     /* Giving a transport also transfers passengers and clears its old orders. */
     uint8_t *give_trigger = blank_trigger(); CHECK(give_trigger);
     give_trigger[2372+17] = 0; give_trigger[2372+1] = 1;
