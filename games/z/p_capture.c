@@ -774,7 +774,9 @@ static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *tar
     bullet->z.water.speed = 15; /* ROBOTS.DAT weapons 2, 4, 7, 11, 13 and 18 +0x23 */
     bullet->z.water.range = (int)((int64_t)weapon->range * Z_TILE / FIXED_ONE) + (jeep || apc ? 8 : 0);
     const zmap_t *map = level.native_data;
-    bullet->z.water.height = map && start.x >= 0 && start.y >= 0 ? Z_TerrainHeight(map, start.x / Z_TILE, start.y / Z_TILE) + 1 : 0;
+    ivec2_t terrain_at = ivec2_add(origin, (ivec2_t){8,8});
+    bullet->z.water.height = map && terrain_at.x >= 0 && terrain_at.y >= 0 ?
+        Z_TerrainHeight(map, terrain_at.x / Z_TILE, terrain_at.y / Z_TILE) + 1 : 0;
 }
 
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {

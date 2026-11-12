@@ -4657,6 +4657,20 @@ bin.relocs.apply=true -c 'pd 45 @ 0x5abad' -c 'pd 30 @ 0x5ac67'
 -c 'px 128 @ 0x11662f' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
 
+**Bullet launch height:** `0x5afab` saves the firing unit's +0x10 terrain
+pointer before bullet allocation; `0x5afc5..0x5afd7` reads its masked
+terrain byte through height table `0x11714b` and stores height plus one in
+the projectile. Unit position update `0x796c7..0x796ec` computes that
+pointer from the native unit origin plus (8,8), not from its muzzle.
+The engine uses that shooter-relative cell for the saved bullet height.
+`test_bullet_launch_height` puts the muzzle and shooter in different tiles
+with both height arrangements, and exercises real bullet travel across
+equal-height terrain. The native pointer's update scheduling may differ
+from recomputing the cell at firing time. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 32 @ 0x5af81'
+-c 'pd 16 @ 0x796c7' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_combat`.
+
 **Bullet range ordering:** On an unfinished step `0x5aa57..0x5aa9b`
 compares squared displacement from the stored launch point against the
 square of the range byte times eight; equality or greater exits through
