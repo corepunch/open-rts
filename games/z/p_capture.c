@@ -1038,6 +1038,19 @@ void A_ZGrenade(mobj_t *grenade) {
  * Thinker order approximates the original reusable unit-slot order. */
 static bool bullet_hit(mobj_t *bullet, ivec2_t at) {
     static const int offsets[] = {0,-1,1,-17,-16,-15,15,16,17};
+    /* 0x5abad: table 0x11662f marks impassable bullet terrain with 0xff. */
+    static const uint64_t blocked[] = {UINT64_C(0x03014007330cf87e), UINT64_C(0x38be48fdfc6ff3f0)};
+    const zmap_t *map = level.native_data;
+    ivec2_t cell = {at.x / Z_TILE, at.y / Z_TILE};
+    if (map && L_Contains(&level, cell.x, cell.y)) {
+        unsigned terrain = map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x7f;
+        bool stop = (blocked[terrain / 64] >> (terrain % 64)) & 1;
+        if (stop && (at.y & 8) && L_Contains(&level, cell.x, cell.y + 1)) {
+            terrain = map->terrain[(cell.y + 1) * Z_MAP_STRIDE + cell.x] & 0x7f;
+            stop = (blocked[terrain / 64] >> (terrain % 64)) & 1;
+        }
+        if (stop) return true;
+    }
     if (at.x < 8 || at.y < 8) return false;
     int bin = ((at.x - 8) >> 7) + 16 * ((at.y - 8) >> 7);
     for (int i = 0; i < 9; ++i) {

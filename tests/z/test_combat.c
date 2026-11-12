@@ -172,6 +172,44 @@ static int test_grunt_bullet(void) {
     return 0;
 }
 
+static int test_bullet_terrain_gate(void) {
+    static const struct { int y, here, below; bool blocked; } cases[] = {
+        {7, 1, 0, true}, {8, 1, 0, false}, {8, 1, 1, true},
+        {8, 0, 1, false}, {7, 0x81, 0, true},
+    };
+    RtsGameModel *model = load();
+    if (!model) return fail("load bullet terrain gate");
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
+    mobj_t *shooter = blast_unit(MT_UNIT_GRUNT, 0, pixel_at(at, -48, 0), 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, at, 500);
+    if (!shooter || !target) return fail("spawn bullet terrain gate fixture");
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+        ivec2_t start = {40 * Z_TILE + 4, 40 * Z_TILE + cases[i].y};
+        ivec2_t impact = ivec2_add(start, (ivec2_t){1, 0});
+        target->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(impact), FIXED_ONE / Z_TILE), 0);
+        target->hp = 500;
+        if (!Z_Attack(shooter, &shooter->info->attack, target)) return fail("launch terrain gate bullet");
+        mobj_t *bullet = nth(MT_BULLET, 0, 0);
+        if (!bullet) return fail("spawn terrain gate bullet");
+        bullet->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE), 0);
+        bullet->z.water.start = start;
+        bullet->z.water.direction = (ivec2_t){1, 0};
+        bullet->z.water.vertical = 0;
+        bullet->z.water.major = bullet->z.water.remaining = 90;
+        bullet->z.water.minor = 0; bullet->z.water.error = 45;
+        bullet->z.water.speed = 1; bullet->z.water.height = 255;
+        map->terrain[40 * Z_MAP_STRIDE + 40] = cases[i].here;
+        map->terrain[41 * Z_MAP_STRIDE + 40] = cases[i].below;
+        A_ZBullet(bullet);
+        if ((target->hp == 500) != cases[i].blocked)
+            return fail("bullet terrain gate precedes unit collision and checks lower half");
+        P_RemoveMobj(bullet);
+    }
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_specialist_bullets(void) {
     static const struct { int type, range, damage; } cases[] = {
         {MT_UNIT_SNIPER, 144, 10}, {MT_UNIT_PSYCHO, 120, 2}, {MT_UNIT_LASER, 136, 15},
@@ -2395,7 +2433,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_bullet_terrain_gate() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

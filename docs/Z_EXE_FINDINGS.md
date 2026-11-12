@@ -3576,7 +3576,7 @@ bit and 100-record map-object interactions. It applies the existing
 deterministic combat RNG to one launch-time tracked-aim sample, rather than
 the native cached aim and its additional 0x773bd scatter; impact after the
 source has been removed uses the recorded damage with a simplified armor
-fallback. The separate `0x5abad` terrain-table gate, bullet drawing, exact
+fallback. Bullet drawing, exact
 unit-slot and cross-projectile update order remain unimplemented.
 Sniper and Psycho use the same `0x77364..0x773cd` firing path as Grunt;
 Laser's `0x77542..0x77577` also adds (2,2), scatters and calls `0x5af81`,
@@ -4640,3 +4640,19 @@ and samples its deterministic scatter independently at launch. Native
 lifecycle and cached-aim refresh are not represented. Scanner mode's
 separate 12-port-attempt selection, non-unit target dispatch, native random
 stream and exact unit-slot update order remain approximations or unknown.
+
+**Bullet terrain gate:** Before checking unit bins, `0x5ac67` calls
+`0x5abad` with the bullet's current pixel position. That function indexes
+the 128-byte terrain table at `0x11662f` using the tile attribute masked
+with `0x7f`; `0xff` marks the stopping case. For y bit 3 clear it tests
+the current tile. For y bit 3 set it tests the tile below first and stops
+only if both tiles are marked `0xff`. It returns carry and invokes the
+`0x6b641` effect on a stop; `0x5ac67` then returns without scanning units.
+The engine implements the confirmed gate for represented map tiles before
+bullet-unit collision; the effect itself and native behavior beyond the map
+edge remain unimplemented. `test_bullet_terrain_gate` covers both halves,
+both combinations of adjacent tile attributes, the high attribute bit and
+collision ordering. Reproduce with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 45 @ 0x5abad' -c 'pd 30 @ 0x5ac67'
+-c 'px 128 @ 0x11662f' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_combat`.
