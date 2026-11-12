@@ -2,6 +2,7 @@
 #define __MOBJ_DATA__
 
 enum { Z_CREW_MAX = 21 }; /* ROBOTS.DAT group has 21 member slots. */
+enum { Z_GUN_STOCK = 4 }; /* Native building +0x4b..+0x4e. */
 typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manufactured; } zcrew_t;
 
 /* A robot sent to drive an empty vehicle or gun names it in `board`; a
@@ -20,6 +21,7 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
     uint8_t cliff_block, home; \
     uint8_t object, building; /* Native OBJECT type / BUILD record index + 1. */ \
     uint8_t driver, squad, grenades, territory; \
+    uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
     uint8_t body_speed, body_fire, body_accuracy; bool body_tracked; /* Mutable native stats. */ \
@@ -35,6 +37,7 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
     } \
     HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
+    HASH((mo)->z.gun_count); for (int z_g = 0; z_g < (mo)->z.gun_count && z_g < Z_GUN_STOCK; ++z_g) HASH((mo)->z.guns[z_g]); \
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \
     HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); HASH((mo)->z.crew_hurt); \
     HASH((mo)->z.service); HASH((mo)->z.service_work); HASH((mo)->z.bridge); HASH((mo)->z.service_ticks); \

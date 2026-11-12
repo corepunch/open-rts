@@ -1102,15 +1102,17 @@ static void check_unit_targets(zmap_t *map, mobj_t *const *units, int count) {
 }
 
 static void place_gun(mobj_t *factory) {
-    int type = Z_ProductInProduction(factory)->product_type;
+    const StaticProductDefinition *stored = Z_StoredGun(factory, 0);
+    if (!stored) return;
+    int type = stored->product_type;
     irect_t base = P_MobjCells(factory);
     if (factory->type_id == MT_FORT)
-        for (int y = base.y; y < base.y + 9 && Z_GunReady(factory); ++y)
-            for (int x = base.x; x < base.x + 9 && Z_GunReady(factory); ++x)
-                Z_PlaceGun(factory, type, (ivec2_t){x,y});
-    for (int y = 0; y < level.height && Z_GunReady(factory); ++y)
-        for (int x = 0; x < level.width && Z_GunReady(factory); ++x)
-            Z_PlaceGun(factory, type, (ivec2_t){x,y});
+        for (int y = base.y; y < base.y + 9; ++y)
+            for (int x = base.x; x < base.x + 9; ++x)
+                if (Z_PlaceGun(factory, type, (ivec2_t){x,y})) return;
+    for (int y = 0; y < level.height; ++y)
+        for (int x = 0; x < level.width; ++x)
+            if (Z_PlaceGun(factory, type, (ivec2_t){x,y})) return;
 }
 static void run_factories(mobj_t *const *units, int count) {
     for (int i = 0; i < count; ++i) {

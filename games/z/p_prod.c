@@ -38,6 +38,10 @@ static void build(void) {
 
 static bool live(const mobj_t *mo) { return mo && !mo->remove && mo->hp > 0; }
 
+/* Zod's AddBuildingQueue accepts upcoming products independently of the
+ * one being built; the retail selection still gates each product. */
+bool G_QueueLocksProduct(const StaticProductDefinition *product) { (void)product; return false; }
+
 /* A fort or factory of a side; a fort that is falling or fell (p_fort.c
  * counts the fall in z.hold) makes nothing more. */
 bool Z_Producer(const mobj_t *mo) {
@@ -216,34 +220,79 @@ static bool gun_product(const StaticProductDefinition *product) {
     return actor && !(actor->traits & MF_MOBILE);
 }
 
+/* 0x26b82 counts guns, stored guns and other factories' current gun
+ * production in the territory; 0x26ad0 rejects a count of four or more. */
+static bool gun_capacity(const mobj_t *producer) {
+    const zmap_t *map = level.native_data;
+    if (!map || !producer || producer->z.gun_count > Z_GUN_STOCK) return false;
+    irect_t base = P_MobjCells(producer);
+    int territory = Z_AITerritory(map, fixed2_from_cell((ivec2_t){base.x, base.y}));
+    if (territory < 0) return false;
+    int count = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *mo = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(mo)) continue;
+        int t = Z_UnitType(mo);
+        if (t >= 0 && mo->team == producer->team && !Z_IsRobot(t) && mo->info && !(mo->info->traits & MF_MOBILE)) {
+            if (Z_AITerritory(map, fixed3_xy(mo->core.position)) == territory) ++count;
+        } else if (Z_Producer(mo)) {
+            irect_t cells = P_MobjCells(mo);
+            if (Z_AITerritory(map, fixed2_from_cell((ivec2_t){cells.x, cells.y})) != territory) continue;
+            if (mo->z.gun_count > Z_GUN_STOCK) return false;
+            count += mo->z.gun_count;
+            if (mo != producer && gun_product(Z_ProductInProduction(mo))) ++count;
+        }
+        if (count >= Z_GUN_STOCK) return false;
+    }
+    return true;
+}
+
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product, uint16_t actor_id) {
     (void)model; (void)actor_id;
     if (!gun_product(product)) return false;
-    producer->production->release_active = true;
-    producer->production->release_ready = false;
-    producer->production->time_left_ms = 0;
+    if (producer->z.gun_count >= Z_GUN_STOCK || !gun_capacity(producer)) {
+        producer->production->release_active = true;
+        producer->production->release_ready = false;
+        producer->production->time_left_ms = 0;
+        return true;
+    }
+    memmove(producer->z.guns + 1, producer->z.guns, producer->z.gun_count);
+    producer->z.guns[0] = (uint8_t)(product->product_type - MT_UNITS + 1);
+    producer->z.gun_count++;
+    if (producer->production->queue_count == 1 && gun_capacity(producer)) G_QueueProduct(producer, product);
+    G_RemoveProductionAt(producer, 0);
     return true;
 }
 
 /* Guns are stored by the producer until a placement order, never released
  * through its door (ZED.EXE 0x4209f / 0x430b2). */
 bool Z_GunReady(const mobj_t *producer) {
-    const StaticProductDefinition *product = Z_ProductInProduction(producer);
-    return Z_Producer(producer) && gun_product(product) &&
-           producer->production->release_active && !producer->production->placed;
+    return Z_Producer(producer) && producer->z.gun_count > 0 && producer->z.gun_count <= Z_GUN_STOCK;
+}
+
+const StaticProductDefinition *Z_StoredGun(const mobj_t *producer, int index) {
+    if (!Z_GunReady(producer) || index < 0 || index >= producer->z.gun_count) return NULL;
+    return G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, MT_UNITS + producer->z.guns[index] - 1);
 }
 
 bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell) {
-    const StaticProductDefinition *product = Z_ProductInProduction(producer);
     fixed3_t position;
-    if (!Z_GunReady(producer) || product->product_type != type ||
+    int index = 0;
+    while (index < (Z_GunReady(producer) ? producer->z.gun_count : 0) &&
+           MT_UNITS + producer->z.guns[index] - 1 != type) ++index;
+    if (!Z_GunReady(producer) || index >= producer->z.gun_count ||
         !Z_GunPosition(producer, type, cell, &position)) return false;
     mobj_t *gun = P_SpawnMobj(position, (uint16_t)type);
     if (!gun) return false;
     Z_SetTeam(gun, producer->team);
-    G_UnitProduced(gun, producer);
-    G_RemoveProductionAt(producer, 0);
+    G_UnitProduced(gun, NULL);
+    producer->z.gun_count--;
+    memmove(producer->z.guns + index, producer->z.guns + index + 1, producer->z.gun_count - index);
+    producer->z.guns[producer->z.gun_count] = 0;
+    const StaticProductDefinition *pending = Z_ProductInProduction(producer);
+    if (pending && producer->production->release_active)
+        G_ModelStartProductionRelease(NULL, producer, pending, producer->production->actor_id);
     return true;
 }
 
@@ -323,7 +372,7 @@ bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinitio
     bool gun = kind == 2 || kind == 4 || kind == 5 || kind == 6;
     bool vehicle = kind == 1 || kind == 8 || kind == 7 || kind == 9 ||
                    kind == 11 || kind == 10 || kind == 12 || kind == 13;
-    if ((!robot && !gun && !vehicle) || (producer->type_id == MT_TANK_FACTORY && robot) ||
+    if ((!robot && !gun && !vehicle) || (gun && !gun_capacity(producer)) || (producer->type_id == MT_TANK_FACTORY && robot) ||
         (producer->type_id == MT_ROBOT_FACTORY && !robot && !gun)) return false;
     int field = producer->type_id == MT_TANK_FACTORY ? 73 : producer->type_id == MT_ROBOT_FACTORY ? 74 : 75;
     unsigned minimum = map->roster.bytes[18000 + group * 82 + field];
@@ -346,7 +395,12 @@ void G_ProductionBegin(int elapsed_ms) {
         mobj_t *mo = (mobj_t *)th;
         production_t *queue = mo->production;
         if (th->function != P_MobjThinker || !Z_Producer(mo) || !queue || queue->queue_count <= 0) continue;
-        if (queue->release_active) continue;
+        if (queue->release_active) {
+            const StaticProductDefinition *product = Z_ProductInProduction(mo);
+            if (gun_product(product) && gun_capacity(mo))
+                G_ModelStartProductionRelease(NULL, mo, product, queue->actor_id);
+            continue;
+        }
         int rate = Z_ProductionRate(mo, held[mo->team], total);
         queue->time_left_ms -= elapsed_ms * (rate - 1);
     }

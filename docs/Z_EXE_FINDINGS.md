@@ -718,8 +718,9 @@ local console player, preserving lock-step behavior.
 **Explicit engine policy:** production holds one completed gun at the
 head of the shared queue until placement. Retail `0x4317f` instead shifts
 four built-list bytes at building +75..78, and retail AI `0x9df4f` has
-additional placement priorities and random choices. The engine does not
-yet reproduce that four-gun storage or those AI priorities. Mobile-unit
+additional placement priorities and random choices. At the time of this
+investigation the engine did not reproduce that four-gun storage or those
+AI priorities; storage is now implemented as described below. Mobile-unit
 manufacturing times and their existing linear territory acceleration are
 preserved; only the newly introduced gun timers use the native stock/rate
 calculation described next. Live technology upgrades and multiplayer
@@ -1406,8 +1407,8 @@ existing gun count (<2 for factories, <4 for forts), and planned/stored
 gun count (<4). `0x999e5` computes the reserve-adjusted territory value,
 not raw army strength. `0x26ae5` counts territory guns and gun production;
 `0x26b82` also counts stored guns and placement records. Those later
-branches, four-slot native gun storage and retail random placement remain
-unported; existing production repeat/release and gun placement are retained.
+branches and retail random placement remain unported; four-slot gun storage
+and its territory limit were implemented later as described below.
 
 ### Additional traced branches and explicit remaining scope
 
@@ -2368,6 +2369,65 @@ computer reserves' current targets on the heavy pass.
 The service and defensive response passes listed here were still missing
 on 2026-11-06. See [Commander service and defensive responses](#commander-service-and-defensive-responses-2026-11-11).
 
+### Destroyed-building automatic restoration
+
+**Confirmed**, DOS `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+the 80-byte BUILD record's u16 +0x49 is a restoration setting, not the
+Zod 600–660-second constant. `0x3e251..0x3e280` and `0x3ec90..0x3ecc1`
+initialize runtime dword +0x45 to -1 for 0xffff, otherwise setting * 17 *
+100. The per-building update `0x3e566..0x3e697` requires current HP
++0x1c == 0 and an enabled timer. It subtracts 100 each step, increased by
+up to 75 for a team's held-territory percentage above 12 or 25 depending on
+global 0x10e91e (`0x680b9`, `0x45e80`);
+on negative stock it calls `0x3ece7` and reloads the timer. Active building
+records in LEVEL01, LEVEL07 and LEVEL14 use 0xffff; LEVEL31 and LEVEL32
+include 117 and 176. The separate live auto-mend paths at `0x3e7aa` and
+`0x3e832` are skipped for zero-HP buildings. Global owner selector 0x125e58
+is assigned later in this pass at `0x3e6d2`, so the exact relationship of
+that modifier to the current building needs further tracing. Reproduce via
+`r2 -q -e bin.cache=true -c 'pd 100 @ 0x3e551' -c 'pd 35 @ 0x3e678'
+-c 'pd 30 @ 0x3ec90' -c q data/Z/ZED.EXE` and inspect each 80-byte
+`BUILDnn.DAT` record at +0x49.
+
+### Movement modifier investigation
+
+**Confirmed instruction behavior**, `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+`0x79882` computes the terrain and body-speed terms separately, adds 3
+when unit +0x5c is nonzero and the record at global 0x103f84 has a
+nonzero byte +0x3d, then adds unit byte +0x89 and clamps the result to
+0..12. The same routine sometimes substitutes terrain term 10 based on
+unit and group flags. `0x7ba2a`, `0x7ba32` and `0x7ba3a` set +0x89 to 4,
+2, or conditionally 0; `0x6126b..0x61270` and `0x612bb..0x612c0` set it
+to 2 and increment it while scheduling an object or flag interaction.
+`0x7c5a8..0x7c5ff` has additional assignments 12 and 2 based on unit
+state. Reproduce with `r2 -q -e bin.cache=true -c 'pd 65 @ 0x79882' -c
+'pd 20 @ 0x7ba2a' -c 'pd 45 @ 0x7c58c' -c q data/Z/ZED.EXE`.
+
+**Unknown:** the precise semantics, duration and all entry conditions for
+these modifiers and the identity of the +0x3d field. They do not establish
+Zod's 1.8 speed multiplier or its stamina recharge and exhaustion policy;
+those remain fork behavior, not confirmed native mechanics. The earlier
+unqualified base-speed formula below omitted these conditional modifiers.
+
+**Confirmed projectile reaction dispatch:** the per-unit update at
+`0x60579..0x6058d` dispatches action through dword table `0x149038`;
+entry `0x2b` points to `0x62cec`. With global `0x10e91b` clear, this
+handler calls `0x61fac`, advances frame byte +0x32 toward a value derived
+from facing, decrements +0x7d, then calls `0x79049`, which returns the
+eligible robot to idle action 1. `0x61fac` checks group flags and nearby
+target eligibility, not position or damage. `0x79049` may also re-evaluate
+an existing order when unit +0x5a is negative. The handler itself writes
+no position or waypoint. The proximity caller admits only actions 0 and 1,
+so an attack already in progress is not interrupted. No explicit action
+0x2b damage-immunity comparison was found. This supports an animation/state
+reaction to nearby projectiles, not Zod's random displacement waypoint;
+possible indirect effects outside this handler have not been ruled out.
+Reproduce the table and handler with
+`r2 -q -e bin.cache=true -c 'pxw 4 @ 0x1490e4' -c 'pd 18 @ 0x62cec'
+-c 'pd 24 @ 0x79049' -c q data/Z/ZED.EXE`.
+
 ### Unit statistics
 
 Spawn `0x5108c` copies a robot record's +0x1c strength (melee damage
@@ -2385,8 +2445,9 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   `0x58bb8`, `0x26ea6`). The fire animation can make the real interval
   longer: Grunt and Sniper about 4 steps at least, rate >= 92 (Psycho)
   uses action 0x39 (2 steps). The Pyro pauses 16 steps after 4 bursts.
-- Speed level = terrain term / 10 + unit speed / 10, clamped 0..12
-  (`0x79882`; terrain bytes at `0x1157ea`, not decoded per terrain). Each
+- Base speed level = terrain term / 10 + unit speed / 10, with additional
+  modifiers before clamping to 0..12 (`0x79882`; see the movement modifier
+  investigation below; terrain bytes at `0x1157ea`, not decoded per terrain). Each
   level walks a repeating pixels-a-step pattern (`0x7bf10`, table
   `0x117e5c`) averaging 1/5, 1/4, 1/3, 2/5, 1/2, 2/3, 4/5, 1, 4/3, 3/2, 2,
   7/3, 5/2.
@@ -2566,3 +2627,44 @@ using game data as runtime stat authority. On boarding, the new driver's
 configured accuracy replaces that of an empty vehicle; its subsequent body
 damage scales the mutable value. Dynamic experience or changes to robot
 records beyond the shipped groups are not represented by the C configuration.
+
+### Stored guns and territory capacity (2026-11-12)
+
+**Confirmed** on `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+`0x4317f..0x4318f` shifts the building's four built-list bytes at
+`+0x4b..+0x4e` and inserts the newly manufactured group at the front.
+`0x26aad..0x26ad6` temporarily excludes the queried building's current
+product, calls `0x26b82`, and rejects a count of four or more. That count
+includes active same-team class-2 guns in the territory, another building's
+gun in production, every building's four nonempty built-list slots, and
+pending placement records. `0x9de4a` also uses the territory count while
+choosing the CPU's production. This corrects the earlier notes that treated
+the four-slot list and its territory limit as unimplemented.
+
+The engine stores up to four product types on each producer, newest first;
+the shared production record continues to own the active product. It
+enforces the territory limit for player and CPU selection, preserves stock
+through capture and destruction, and can place any stored type via the
+production window. Placing does not free a territory slot because the gun
+then counts as deployed. A queued gun which finishes after another producer
+reserved the last slot waits until a slot becomes free; pending placement
+records do not exist because placement commands here are atomic. The Zod
+`ZBuilding::AddBuildingQueue`/`ResetProduction` behavior supports mixed
+upcoming unit products; ordinary Start with no stored gun and a running
+product still closes the window without enqueueing a duplicate. The retail
+ordering of an arbitrary mixed queue and exact destroyed-factory stock
+lifecycle remain **unknown**. Zod `ProcessKillObject` leaves the cannon
+list in place; the implementation follows it for factory destruction. Zod
+limits its upcoming queue to five (`zbuilding.h:8`); the engine retains its
+existing Z queue capacity of nine total slots as a documented policy difference.
+
+Zod `BuildingCreateUnit`/`CannonsInZone` also impose a four-cannon zone cap,
+counting stored and placed cannons. Retail's count is not identical: its
+deployed-unit pass filters by team and it includes in-progress production
+and pending placements. The tests follow the retail selection rule.
+`tests/z/test_production.c` exercises mixed stock, cross-producer reservation,
+retry after capacity is freed, the cap with deployed guns, capture and
+destruction/rebuild, invalid serialized counts, save/load and checksum;
+`tests/z/test_hud.c` covers product selection while stock exists and placing
+stock when no products are offered. Run both with `SDL_VIDEODRIVER=dummy`.

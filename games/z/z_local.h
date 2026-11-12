@@ -182,6 +182,7 @@ int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, i
 const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer);
 const StaticProductDefinition *Z_AIProduct(const mobj_t *producer);
 bool Z_GunReady(const mobj_t *producer);
+const StaticProductDefinition *Z_StoredGun(const mobj_t *producer, int index);
 int Z_ProductTimeMs(const mobj_t *producer, const StaticProductDefinition *product);
 bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell);
 bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out);

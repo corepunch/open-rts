@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <limits.h>
+#include <stdlib.h>
 
 /* Native producer ratings and group requirements gate all production.
  * Mobile units leave the door; guns wait for placement; STOP empties the
@@ -195,6 +196,7 @@ static int test_native_times(void) {
             return fail("every robot and vehicle is released at its native deadline");
         }
         order(fort, TC_CANCEL_PRODUCTION, 0);
+        fort->z.gun_count = 0; /* Isolate each product's deadline. */
     }
     rts_game_model_destroy(model);
     return 0;
@@ -285,7 +287,7 @@ static int test_gun_placement(void) {
     if (!Z_GunReady(fort) || count(MT_UNIT_GATLING, 0) != before)
         return fail("finished gun waits for placement rather than leaving the door");
     fort->hp = 1;
-    if (Z_ProductTimeMs(fort, gun) != 0) return fail("building damage cannot stall a completed gun");
+    if (Z_ProductTimeMs(fort, gun) != INT_MAX || !Z_GunReady(fort)) return fail("building damage stalls the next gun, not the stored one");
     fort->hp = health;
     irect_t base = P_MobjCells(fort), foreign = P_MobjCells(enemy);
     fixed3_t position;
@@ -314,7 +316,7 @@ static int test_gun_placement(void) {
     if (count(MT_UNIT_GATLING, 0) != before + 1) return fail("a repeated placement cannot duplicate a gun");
     G_ProductionTicker(G_ModelProductTrainingTimeMs(gun));
     order(fort, TC_CANCEL_PRODUCTION, 0);
-    if (Z_GunReady(fort) || fort->production) return fail("cancel clears a stored gun");
+    if (!Z_GunReady(fort) || fort->production) return fail("cancel stops production while retaining stored guns");
     if (!G_QueueProduct(enemy, gun)) return fail("computer starts an available gun");
     G_ProductionTicker(G_ModelProductTrainingTimeMs(gun));
     int enemy_before = count(MT_UNIT_GATLING, 1);
@@ -438,10 +440,99 @@ static int test_computer_builds(void) {
     return 0;
 }
 
+static bool finish_now(mobj_t *producer) {
+    if (!producer->production) return false;
+    producer->production->time_left_ms = 1;
+    G_ProductionTicker(1);
+    return true;
+}
+
+static int test_gun_stock(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for gun stock");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    disarm();
+    mobj_t *fort = nth(MT_FORT, 0, 0);
+    const zmap_t *map = level.native_data;
+    if (!fort) return fail("fort for gun stock");
+    irect_t base = P_MobjCells(fort);
+    int territory = Z_AITerritory(map, fixed2_from_cell((ivec2_t){base.x,base.y}));
+    if (!fort || territory < 0) return fail("fort gun territory");
+    fort->z.rating = 5000;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        int t = Z_UnitType(mo);
+        if (th->function == P_MobjThinker && t >= 0 && mo->team == 0 && mo->info &&
+            !Z_IsRobot(t) && !(mo->info->traits & MF_MOBILE) &&
+            Z_AITerritory(map, fixed3_xy(mo->core.position)) == territory) P_RemoveMobj(mo);
+    }
+    const StaticProductDefinition *gat = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_GATLING));
+    const StaticProductDefinition *how = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_HOWITZER));
+    if (!gat || !how || !G_QueueProduct(fort, gat) || !finish_now(fort) || fort->z.gun_count != 1 ||
+        Z_StoredGun(fort, 0) != gat || !Z_ProductInProduction(fort)) return fail("stored gun and next production coexist");
+    if (!G_QueueProduct(fort, how) || !finish_now(fort) || fort->z.gun_count != 2 ||
+        Z_ProductInProduction(fort) != how || !G_QueueProduct(fort, gat))
+        return fail("queued gun changes product and keeps prior stock");
+    ivec2_t other_cell = fixed2_cell(fixed3_xy(fort->core.position));
+    mobj_t *other = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(other_cell), 0), MT_ROBOT_FACTORY);
+    if (!other) return fail("spawn second producer");
+    Z_SetTeam(other, 0); other->z.rating = 5000;
+    if (!G_QueueProduct(other, gat) || !finish_now(fort) || fort->z.gun_count != 3 ||
+        !finish_now(fort) || !fort->production || !fort->production->release_active || fort->z.gun_count != 3)
+        return fail("another producer's reservation blocks a completed queued gun");
+    order(other, TC_CANCEL_PRODUCTION, 0);
+    other->z.guns[0] = (uint8_t)(MT_UNIT_GATLING - MT_UNITS + 1);
+    other->z.gun_count = 1;
+    P_DamageMobj(other, NULL, other->hp);
+    if (other->z.gun_count != 1 || Z_GunReady(other)) return fail("destroyed factory retains inaccessible stock");
+    other->hp = other->max_hp;
+    P_SetMobjState(other, mobjinfo[other->type_id].spawnstate);
+    if (!Z_GunReady(other)) return fail("rebuilt factory exposes retained stock");
+    P_RemoveMobj(other);
+    G_ProductionTicker(1);
+    if (fort->z.gun_count != 4 || fort->production ||
+        Z_StoredGun(fort, 0) != gat || Z_StoredGun(fort, 1) != how ||
+        Z_StoredGun(fort, 2) != gat || Z_StoredGun(fort, 3) != gat || G_QueueProduct(fort, gat))
+        return fail("freed capacity stores the waiting gun and stops repeat production");
+    Z_SetTeam(fort, 1);
+    if (!Z_GunReady(fort) || Z_StoredGun(fort, 2) != gat) return fail("capture transfers factory stock");
+    Z_SetTeam(fort, 0);
+    fort->z.gun_count = 255;
+    if (Z_GunReady(fort) || Z_StoredGun(fort, 0) || Z_PlaceGun(fort, MT_UNIT_GATLING, (ivec2_t){0,0}))
+        return fail("invalid stored count is rejected");
+    (void)G_Consistency();
+    fort->z.gun_count = 4;
+    uint32_t hash = G_Consistency();
+    fort->z.guns[0]++;
+    if (G_Consistency() == hash) return fail("stored gun contributes to consistency");
+    fort->z.guns[0]--;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0; uint32_t id = fort->id;
+    if (!G_SaveGameBlob(&save, &size, "Gun stock", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save four stored guns");
+    free(save);
+    fort = P_MobjById(id);
+    if (!fort || fort->z.gun_count != 4 || Z_StoredGun(fort, 2) != gat) return fail("load mixed gun stock");
+    base = P_MobjCells(fort);
+    fixed3_t spot; ivec2_t cell = {0}; bool found = false;
+    for (int y = base.y; y < base.y + 9 && !found; ++y)
+        for (int x = base.x; x < base.x + 9 && !found; ++x)
+            if (Z_GunPosition(fort, MT_UNIT_GATLING, (ivec2_t){x,y}, &spot)) { cell = (ivec2_t){x,y}; found = true; }
+    if (!found || !Z_PlaceGun(fort, MT_UNIT_GATLING, cell) || fort->z.gun_count != 3 || G_QueueProduct(fort, gat))
+        return fail("placing an older stored type keeps the territory cap full");
+    mobj_t *placed = nth(MT_UNIT_GATLING, 0, 0);
+    if (!placed) return fail("find placed gun");
+    P_RemoveMobj(placed);
+    if (!G_QueueProduct(fort, gat)) return fail("destroying the placed gun frees production capacity");
+    puts("PASS: z territory gun stock, production cap and mixed placement");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
     if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
         test_native_rates() || test_gun_placement() ||
-        test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_computer_builds()) return 1;
+        test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_gun_stock() ||
+        test_computer_builds()) return 1;
     printf("z production tests passed\n");
     return 0;
 }

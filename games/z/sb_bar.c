@@ -78,6 +78,7 @@ static bool font_ok, panel_ok, laid_out;
  * producer remembers its pick. */
 static uint32_t popup_for;
 static int popup_choice;
+static int stored_choice;
 static const StaticProductDefinition *offered[32];
 static int offered_count;
 typedef struct { uint32_t id; int choice; } pick_t;
@@ -569,14 +570,14 @@ static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect
     if (!producer) return;
     const production_t *queue = producer ? producer->production : NULL;
     bool busy = Z_ProductInProduction(producer) != NULL;
-    bool ready = Z_GunReady(producer);
+    bool ready = Z_GunReady(producer) && stored_choice >= 0;
     ivec2_t at = {rect.x, rect.y};
     window_piece(4694, at);
     window_piece(producer->type_id == MT_ROBOT_FACTORY ? 4695 : producer->type_id == MT_FORT ? 4696 : 4697,
                  ivec2_add(at, (ivec2_t){8,6}));
     V_DrawSpriteCell(ivec2_add(at, (ivec2_t){6,22}), &panel.window, Z_UI_BACKGROUND, NULL, 0);
     window_piece(ready ? 4714 : busy ? 4713 : 4712, ivec2_add(at, (ivec2_t){64,19}));
-    int time = offered_count ? Z_ProductTimeMs(producer, offered[popup_choice]) : 0;
+    int time = !ready && offered_count ? Z_ProductTimeMs(producer, offered[popup_choice]) : 0;
     int seconds = time / 1000; /* 0x26164..0x2616c: truncate native seconds. */
     char text[16];
     if (seconds > 599) seconds = 599; /* 0x2638c: saturate at 9:59. */
@@ -599,8 +600,9 @@ static void draw_window(const menu_t *menu, const menuitem_t *item, irect_t rect
             V_SetClip(clip);
         }
     }
-    if (popup_choice < 0 || popup_choice >= offered_count) return;
-    int type = offered[popup_choice]->product_type;
+    const StaticProductDefinition *stored = ready ? Z_StoredGun(producer, stored_choice) : NULL;
+    if (!stored && (popup_choice < 0 || popup_choice >= offered_count)) return;
+    int type = stored ? stored->product_type : offered[popup_choice]->product_type;
     /* 0x12ecb9/0x12eccd: production group to authored name sprite,
      * resolved through ROBOTS.DAT to the weapon types in units.inc. */
     static const int names[] = {803,808,792,791,796,800,802,793,805,787,807,801,799,798,806,804,-1,795,789};
@@ -643,7 +645,17 @@ static void on_stop(menu_t *menu, menuitem_t *item, menuaction_t action) {
 
 static void on_step(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)menu;
-    if (action != MA_ACTIVATE || offered_count <= 0) return;
+    if (action != MA_ACTIVATE) return;
+    mobj_t *producer = P_MobjById(popup_for);
+    if (Z_GunReady(producer)) {
+        int count = producer->z.gun_count + offered_count;
+        int index = stored_choice >= 0 ? stored_choice : producer->z.gun_count + popup_choice;
+        index = (index + item->step + count) % count;
+        if (index < producer->z.gun_count) stored_choice = index;
+        else { stored_choice = -1; popup_choice = index - producer->z.gun_count; }
+        return;
+    }
+    if (offered_count <= 0) return;
     popup_choice = (popup_choice + item->step + offered_count) % offered_count;
     remember(popup_for, popup_choice);
 }
@@ -654,16 +666,18 @@ static void on_start(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action == MA_TARGET) {
         if (!producer || !Z_GunReady(producer)) { M_MenuTarget(menu, NULL); return; }
         cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
-        const StaticProductDefinition *product = Z_ProductInProduction(producer);
+        const StaticProductDefinition *product = Z_StoredGun(producer, stored_choice);
         fixed3_t position;
-        if (Z_GunPosition(producer, product->product_type, (ivec2_t){cell.x,cell.y}, &position) &&
+        if (product && Z_GunPosition(producer, product->product_type, (ivec2_t){cell.x,cell.y}, &position) &&
             G_ConstructOrder(producer, product->product_type, (ivec2_t){cell.x,cell.y})) M_MenuTarget(menu, NULL);
         else M_MenuTarget(menu, item);
         return;
     }
-    if (action != MA_ACTIVATE || !producer || popup_choice < 0 || popup_choice >= offered_count) return;
-    if (Z_GunReady(producer)) { M_MenuTarget(menu, item); return; }
-    if (!Z_ProductInProduction(producer) && !G_BuildOrder(producer, offered[popup_choice]->ui_id)) return;
+    if (action != MA_ACTIVATE || !producer) return;
+    if (Z_GunReady(producer) && stored_choice >= 0) { M_MenuTarget(menu, item); return; }
+    if (popup_choice < 0 || popup_choice >= offered_count) return;
+    if ((!Z_ProductInProduction(producer) || Z_GunReady(producer)) &&
+        !G_BuildOrder(producer, offered[popup_choice]->ui_id)) return;
     P_MobjSetSelected(producer, false);
 }
 
@@ -750,6 +764,7 @@ static void refresh_popup(const menu_t *menu, int scale) {
     if (id != popup_for) {
         popup_for = id;
         popup_choice = remembered(id);
+        stored_choice = 0;
     }
     for (int i = IT_POPUP; i <= IT_START; ++i) items[i].visible = producer != NULL;
     offered_count = producer ? Z_ProductsFor(producer, offered, (int)(sizeof(offered) / sizeof(*offered))) : 0;
@@ -759,18 +774,20 @@ static void refresh_popup(const menu_t *menu, int scale) {
         return;
     }
     const StaticProductDefinition *making = Z_ProductInProduction(producer);
-    bool ready = Z_GunReady(producer);
+    bool stock = Z_GunReady(producer);
+    if (stock && (stored_choice >= producer->z.gun_count || (stored_choice < 0 && !offered_count))) stored_choice = 0;
+    bool ready = stock && stored_choice >= 0;
     if (!ready) M_MenuTarget(&hud, NULL);
     for (int state = 0; state < MS_STATES; ++state)
         items[IT_START].look[state].cell = Z_UI_WINDOW + (ready ? 4718 : 4704) - Z_UI_FIRST + (state == MS_PUSHED);
-    for (int i = 0; making && i < offered_count; ++i)
+    for (int i = 0; !stock && making && i < offered_count; ++i)
         if (offered[i] == making) popup_choice = i;
     if (popup_choice < 0 || popup_choice >= offered_count) popup_choice = 0;
     remember(id, popup_choice);
     items[IT_STOP].enabled = true;
-    items[IT_START].enabled = offered_count > 0;
-    items[IT_PREV].enabled = items[IT_NEXT].enabled = !making && offered_count > 0;
-    items[IT_PREV].visible = items[IT_NEXT].visible = items[IT_POPUP].visible && !making;
+    items[IT_START].enabled = ready || offered_count > 0;
+    items[IT_PREV].enabled = items[IT_NEXT].enabled = stock ? producer->z.gun_count + offered_count > 1 : !making && offered_count > 0;
+    items[IT_PREV].visible = items[IT_NEXT].visible = items[IT_POPUP].visible && (stock || !making);
     place_popup(menu, producer, scale);
 }
 
