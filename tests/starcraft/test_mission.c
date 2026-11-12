@@ -157,6 +157,20 @@ int main(void) {
         unload(); free(ai_trigger);
     }
     remove("/private/tmp/sc-ai-script.chk");
+    /* A zero-sized location is not the special Anywhere location. */
+    uint8_t *empty_location = blank_trigger(); CHECK(empty_location);
+    put_u32(empty_location, 1); put_u32(empty_location+8, 1);
+    put_u16(empty_location+12, MT_MARINE - 1); empty_location[15] = 3;
+    empty_location[320+26] = 26; empty_location[320+27] = 8;
+    put_u32(empty_location+320+20, 10);
+    uint8_t one_owner[12] = {6};
+    CHECK(!write_map("/private/tmp/sc-empty-location.chk", one_owner, empty_location));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-empty-location.chk", &level));
+    ((sc_mission_t *)level.mission)->loc_count = 1;
+    CHECK(spawn(MT_MARINE - 1, 0));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 0);
+    unload(); free(empty_location); remove("/private/tmp/sc-empty-location.chk");
     /* Giving a transport also transfers passengers and clears its old orders. */
     uint8_t *give_trigger = blank_trigger(); CHECK(give_trigger);
     give_trigger[2372+17] = 0; give_trigger[2372+1] = 1;

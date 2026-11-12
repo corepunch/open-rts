@@ -1875,6 +1875,55 @@ fire are unported, and native mode selection remains unknown. The robot
 record is initially zeroed at `0x5109c..0x510a3`; other possible uses of
 byte +0xb0 have not been fully traced.
 
+**Flame impact detail:** `0x5a099` creates the projectile with +0x2a set
+to 1. Impact `0x593b5..0x593c6` checks that byte and calls `0x595e6`,
+then `0x59678`; it bypasses the ordinary `0x8476c` blast call at
+`0x593d3`. In `0x595e6`, the loop counter starts at one and is saved while
+the random effect ID is formed: `(rand & 7)`, with zero changed to one,
+plus 70. Thus it attempts one effect of ID 71..77, not 70..77 effects.
+The subsequent effect and damage lifecycles remain to be traced before
+replacing the current instantaneous flame approximation. Inspect with
+`r2 -q -e bin.cache=true -c 'pd 35 @ 0x5a099' -c 'pd 45 @ 0x593aa'
+-c 'pd 45 @ 0x595e6' -c q data/Z/ZED.EXE`.
+
+**Flame effect lifecycle, partial:** `0x5969f` allocates a 40-byte effect
+record via `0x4a5d7` (200 slots), places its coordinates, selects the
+25-byte descriptor at `0xe5974 + 25 * effect ID`, stores terrain-derived
+DL in effect +0x22 and copies projectile +0x1e into effect +0x26. The
+descriptors 71..77 name the flame art. On alternating global steps,
+`0x4a677..0x4a6fc` dispatches those seven sprite IDs to `0x4aa53`.
+That routine advances a four- or six-frame cycle depending on sprite ID;
+at each wrap, it calls `0x4ab23` and then `0x868ef`. The latter invokes
+terrain damage and selects units in a 24-by-24 coordinate box, filtering
+the stored team. Unless effect +0x22 is 127, each wrap subtracts 8 and
+removes the effect when the signed result is negative. `0x4ab23` can alter
+damage and lifetime behavior according to terrain/object checks. The
+damage byte comes from global `0x144d9b`, set to 20 at `0x472b0` and also
+written from a data byte at `0x50dc9`; its full initialization and terrain
+semantics need tracing. Ground fire is therefore a recurring area effect,
+not a single immediate hit. Reproduce with `r2 -q -e bin.cache=true -c
+'pd 45 @ 0x5969f' -c 'pd 45 @ 0x4a677' -c 'pd 75 @ 0x4aa53' -c 'pd 45
+@ 0x868ef' -c q data/Z/ZED.EXE`.
+
+**Flame initialization and terrain lookup:** spawn dispatch
+`0x50cbc..0x50ccd` selects `0x50dc6` for class `0x0f` (Pyro), which copies
+its weapon record +0x20 into both global `0x144d9b` and the unit's +0x63.
+Startup `0x472b0` supplies 20 before such a spawn; the global may therefore
+change when a Pyro is created, rather than being stored per flame.
+`0x595e6` looks up the 16-pixel map cell with `0x5fcdd`, reads its terrain
+byte at cell storage +0x4000 masked by 0x7f, and indexes table `0x1157a7`
+for the effect's initial +0x22. For example table entries 0, 8, 16, 40,
+and 51 are 6, 50, 12, 100, and 127 respectively; these are terrain indices,
+not a random lifetime. The special +0x22 value 127 avoids lifetime
+decrement at the normal damage wrap. In `0x4ab23`, if the coordinate checks
+at `0x281da`/`0x29fd8` fail, damage is scaled by global `0x11d4cd` as
+`max(1, damage * factor / 100)`, and a flag selects the one-step lifetime
+decrement path. Startup at `0x4734c` writes factor 24 (the executable's
+static byte is 50); the exact checked objects and all runtime writes remain
+unknown. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @ 0x50cbc' -c
+'pd 15 @ 0x50dc6' -c 'pd 12 @ 0x5fcdd' -c 'px 64 @ 0x1157a7' -c
+'pd 45 @ 0x4ab23' -c q data/Z/ZED.EXE`.
+
 **Further mode investigation:** the wrapper at `0x1e9dc` calls the ordinary
 vehicle pass `0x57dd6`, then calls the scanner at `0x1ea0d`; that scanner
 returns without a salvo when all four scanned target bytes are `0xff`

@@ -109,6 +109,11 @@ this. OpenBW's unit finder uses collision-box overlap and spatial ordering;
 the current selector uses unit centers and thinker order. The boundary fixture
 records this known approximation, so overlapping boxes with centers outside a
 location and multiple candidates can yield different matches.
+An all-zero ordinary MRGN rectangle no longer expands to the whole map. The
+special Anywhere location remains 64; OpenBW uses the stored location rectangle
+for ordinary location searches. A Bring-condition regression checks that a
+unit away from the origin does not satisfy an all-zero location. The existing
+center-versus-collision-box difference still affects boundary cases.
 
 Pinned OpenBW action 15 recognizes AI script IDs `+Vi0` through `+Vi7` as
 granting the trigger owner vision from the named player. open-rts now applies

@@ -159,7 +159,6 @@ static bool loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, 
     if (i >= m->loc_count) return false;
     *l = m->loc_left[i]; *t = m->loc_top[i];
     *r = m->loc_right[i]; *b = m->loc_bottom[i];
-    if (!*l && !*t && !*r && !*b) { *r = level.width * 32; *b = level.height * 32; }
     return true;
 }
 
