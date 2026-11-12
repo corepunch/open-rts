@@ -213,9 +213,9 @@ robots (`ffacchoose_fort_unit_to_build`, 0x41627).
 
 | Address | What it does |
 |---|---|
-| 0x58745 | A blast's effect on the robots in its box: one with +0x3a above 10 loses 10 and is knocked down (0x58910), the rest are killed (0x60fe6, then 0x61560 and 0x777d9 take it off the map and out of its group) |
+| 0x58745 | Vehicle contact with opposing robots: one with +0x3a above 10 loses 10 and is knocked down (0x58910), the rest are killed (0x60fe6, then 0x61560 and 0x777d9 take it off the map and out of its group). Previously described as a blast; corrected by the action-9/10 dispatch trace below. |
 | 0x58910 | Knockdown: action 0x17 (sprite 315) facing directions 6, 7, 0 and 1, else 0x2e (316); direction and frame reset |
-| 0x61f43 | Actions 0x17 and 0x2e hold while an explosion in the list at 0xab81c is within 0x18 px, then become 0x18 (319..329) or 0x2f (365..375) |
+| 0x61f43 | Actions 0x17 and 0x2e hold while a class-1 vehicle in the list at 0x18b81c is within 0x18 px, then become 0x18 (319..329) or 0x2f (365..375); the previous identification as an explosion list was wrong (see vehicle contact trace) |
 | 0x61f94 | Actions 0x18 and 0x2f step a frame every second update; at frame 11 0x79049 stands the robot up in action 1 |
 
 The action table's 0x1a (304..314) is the robot sitting idle; 0x1b..0x1f
@@ -3710,13 +3710,38 @@ existing orders correctly. In particular `0x7ba9a` returns carry if the
 destination equals the current unit origin, clears +0x6f bit 2 otherwise,
 rejects classes 2, 4, 5 and 6 unless action 2 is already active, and starts
 action 2 for other classes. A knocked-down robot waits in action 0x17/0x2e
-while an explosion record is within strictly 24 pixels on each axis; absent
+while a vehicle record is within strictly 24 pixels on each axis; absent
 one, `0x61f43` changes it to get-up action 0x18/0x2f, and `0x61f94` advances
-11 frames before calling `0x79049`. The explosion-record lifecycle and
-restoration of saved orders are necessary to reproduce this without an
-invented timer. Inspect with `r2 -q -e bin.cache=true -c
-'pd 60 @ 0x58679' -c 'pd 75 @ 0x5883f' -c 'pd 50 @ 0x58948' -c q
-data/Z/ZED.EXE`.
+11 frames before calling `0x79049`. **Correction:** an earlier trace called
+this an explosion list. `0x575a3` rebuilds the list at `0x18b81c` from
+active unit records with class +0x79 equal to 1 and +0x6f bit 2 clear,
+recording their unit pointers and top-left positions. `0x575fa` refreshes
+those positions; the hold test does not compare team. `0x79049` sets robot
+action 1 and conditionally re-evaluates negative command +0x5a, so it does
+not simply restore the old action byte saved at +0x72. A byte-pattern search
+for direct EBP-relative byte reads of +0x72 (`8a4572`, `807d72`,
+`0fb64572`) found none; this does not rule out indirect or wider reads.
+The exact lifecycle
+of unit +0x6f bit 2 and mapping of pending native commands into engine route
+state remain necessary for a faithful port. The bit is not simply a
+stationary-vehicle flag: `0x57b1c..0x57b7f` sets it for class-1 vehicles
+while saving a 2×2 terrain patch into body +0x1c/+0x1e and stamping terrain
+0x13 there. `0x57b94` conditionally clears both low bits of +0x6f and
+restores that patch when body +0x17 bit 2 is set; `0x7baaf` also clears bit
+2 when starting movement. This temporary path/occupancy state is not
+currently represented by a matching vehicle flag in open-rts. Calls at
+`0x577de` and `0x57a47` follow collision-resolution paths that record
+another unit in +0x6e and set +0x6f bit 1; `0x7b33c` invokes the same
+occupancy placement on path completion if that bit is still set. While
+waiting, `0x57a61` clears the relationship when the other vehicle becomes
+inactive, moves more than 48 pixels away on either axis, or the +0x70
+counter expires. These are connected-unit and occupancy lifecycles, not a
+single motion-state predicate. Inspect with `r2 -q -e bin.cache=true -c
+'pd 60 @ 0x58679' -c 'pd 75 @ 0x5883f' -c 'pd 50 @ 0x58948'
+-c 'pd 35 @ 0x575a3' -c 'pd 20 @ 0x575fa' -c 'pd 45 @ 0x61f43'
+-c 'pd 55 @ 0x57b1c' -c 'pd 35 @ 0x57b94'
+-c 'pd 40 @ 0x57a61' -c 'pd 20 @ 0x7b31f'
+-c 'pd 55 @ 0x79049' -c q data/Z/ZED.EXE`.
 
 For a queued ordinary command, `0x4767f..0x47692` serializes the unit's
 +0x5d group ID. On receipt `0x4790d..0x47937` validates group +0x12 and
