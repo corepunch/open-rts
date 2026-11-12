@@ -323,7 +323,9 @@ static bool throws_at(const mobj_t *robot, const mobj_t *target) {
 }
 
 void A_PyroFlame(mobj_t *unit) {
-    if (throws_at(unit, unit->attack.target)) {
+    mobj_t *target = P_AttackTarget(unit);
+    if (throws_at(unit, target)) {
+        unit->attack.target = target;
         P_SetMobjState(unit, S_PYRO_THROW);
         return;
     }

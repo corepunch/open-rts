@@ -690,7 +690,7 @@ static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
     return target;
 }
 
-static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+mobj_t *P_AttackTarget(const mobj_t *attacker) {
     bool chasing;
     return find_attack_target(attacker, &chasing);
 }
@@ -1056,7 +1056,7 @@ void A_Look(mobj_t *unit) {
     if (!unit || unit->hp <= 0 || !(unit->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         unit->attack.cooldown_left_ms > 0 || !gameinfo ||
         unit->type_id >= gameinfo->mobj_type_count) return;
-    mobj_t *target = attack_target_in_range(unit);
+    mobj_t *target = P_AttackTarget(unit);
     if (!target) return;
     unit->attack.target = target;
     fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position),
@@ -1615,7 +1615,7 @@ static void tick_actor(mobj_t *u) {
         }
         if (in_attack) moving = false;
         if (moving && !in_attack) {
-            mobj_t *target = attack_target_in_range(u);
+            mobj_t *target = P_AttackTarget(u);
             if (target) {
                 u->attack.target = target;
                 fixed2_t target_delta = fixed2_sub(

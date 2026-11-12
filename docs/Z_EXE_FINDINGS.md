@@ -2805,7 +2805,10 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   the existing saved and hashed shot counter at recovery entry; the shared
   robot grenade action preserves it and sets twice the firing delay, four
   native steps for Pyro and 40 for Grunt or Laser. `test_combat` exercises
-  each through normal targeting and throw animation. With the
+  each through normal targeting and throw animation. The Pyro flame action
+  resolves the engine's current valid target before choosing whether to
+  throw, so a retargeted grenade does not advance its flame cycle. This is
+  an engine integration rule, not a recovered retail retargeting sequence. With the
   engine's 30 Hz tic quantization, a stationary test observes firing gaps
   of 2, 2, 2 and 9 tics. The separately traced 70 Hz animation does not map
   exactly to 30 Hz, and projectile and flame area remain unported. The prior

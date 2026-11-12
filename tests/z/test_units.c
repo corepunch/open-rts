@@ -177,6 +177,25 @@ static int test_vehicle_sheets(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for sheets");
     if (!R_InitSprites("data/Z", &level, NULL, 0, &cache)) return fail("load sprites");
+    cachedsprite_t *robot = R_CacheFind(&cache, "ROBOT");
+    cachedsprite_t *rsc = R_CacheFind(&cache, "SPRITES.RSC");
+    if (!robot || !rsc || robot->sprite.spritedef.numframes != Z_ROBOT_FRAMES)
+        return fail("Pyro and native sprite sheets load");
+    for (int f = 0; f < Z_ROBOT_PYRO_FRAMES; ++f) {
+        const spriteframe_t *frame = &robot->sprite.spritedef.spriteframes[Z_ROBOT_PYRO + f];
+        if (frame->rotations != 8) return fail("Pyro frame has eight directions");
+        for (int d = 0; d < 8; ++d) {
+            const spritelayer_t *layer = frame->directions[(8 - d) % 8].layers;
+            int native = 6022 + 3 * d + f;
+            if (!layer || native >= rsc->sprite.numlumps || layer->lump >= robot->sprite.numlumps)
+                return fail("Pyro native direction exists");
+            irect_t a = robot->sprite.cells[layer->lump].rect, b = rsc->sprite.cells[native].rect;
+            if (a.w != b.w || a.h != b.h || !robot->sprite.lumps[layer->lump].indices ||
+                !rsc->sprite.lumps[native].indices ||
+                memcmp(robot->sprite.lumps[layer->lump].indices, rsc->sprite.lumps[native].indices,
+                       (size_t)a.w * a.h)) return fail("Pyro direction matches its native sprite pixels");
+        }
+    }
     for (size_t v = 0; v < sizeof(vehicles) / sizeof(*vehicles); ++v) {
         cachedsprite_t *entry = R_CacheFind(&cache, vehicles[v].name);
         if (!entry) return fail("vehicle sheet loads");

@@ -1697,6 +1697,7 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type);
 bool P_SetMobjState(mobj_t *unit, int state_id);
 bool P_TickMobjState(mobj_t *unit);
 bool P_Attack(mobj_t *attacker);
+mobj_t *P_AttackTarget(const mobj_t *attacker);
 /* The weapon attacker uses on target: air_attack against a flyer when it has
  * one, otherwise attack. A NULL target gives attack. */
 const weapondef_t *P_MobjWeapon(const mobj_t *attacker, const mobj_t *target);

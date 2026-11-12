@@ -125,14 +125,15 @@ static int test_pyro_cadence(void) {
     pyro->attack.shots = 3;
     P_SetMobjState(pyro, S_PYRO_RECOVER);
     int recovery = pyro->core.tics;
-    uint32_t pyro_id = pyro->id;
+    uint32_t pyro_id = pyro->id, target_id = target->id;
     app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
     if (!G_SaveGameBlob(&save, &size, "Pyro recovery", &app, rts_game_model_ai(model), &hud) ||
         !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
         return fail("save Pyro recovery");
     free(save);
     pyro = P_MobjById(pyro_id);
-    if (!pyro || pyro->core.state_id != S_PYRO_RECOVER || pyro->core.tics != recovery || pyro->attack.shots)
+    target = P_MobjById(target_id);
+    if (!pyro || !target || pyro->core.state_id != S_PYRO_RECOVER || pyro->core.tics != recovery || pyro->attack.shots)
         return fail("load preserves Pyro recovery and cycle");
     mobj_t *vehicle = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 32, 0), 500);
     if (!vehicle) return fail("spawn Pyro grenade target");
@@ -148,6 +149,30 @@ static int test_pyro_cadence(void) {
     if (pyro->z.grenades != 1 || pyro->attack.shots != 2 ||
         pyro->attack.cooldown_left_ms != 4 * 1000 / Z_NATIVE_HZ - RTS_TICK_MS)
         return fail("grenade preserves flame cycle and uses its own native cooldown");
+    mobj_t *stale = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 500);
+    if (!stale) return fail("spawn stale Pyro target");
+    pyro->attack.shots = 1;
+    pyro->attack.cooldown_left_ms = 0;
+    pyro->z.grenades = 2;
+    pyro->attack.target = stale;
+    P_SetMobjState(pyro, S_PYRO_RECOVER);
+    stale->traits |= MF_NOBLOCKMAP;
+    target->traits |= MF_NOBLOCKMAP;
+    if (!tick(model, 1) || pyro->core.state_id != S_PYRO_THROW ||
+        pyro->attack.target != vehicle || pyro->attack.shots != 2 || pyro->z.grenades != 2)
+        return fail("Pyro selects grenade throw when its flame target becomes invalid");
+    for (int tic = 0; tic < RTS_TICRATE && pyro->z.grenades == 2; ++tic)
+        if (!tick(model, 1)) return fail("tick retargeted Pyro grenade");
+    if (pyro->z.grenades != 1 || pyro->attack.shots != 2 ||
+        pyro->attack.cooldown_left_ms != 4 * 1000 / Z_NATIVE_HZ - RTS_TICK_MS)
+        return fail("retargeted grenade preserves flame cycle and throw cooldown");
+    pyro->z.grenades = 2;
+    pyro->attack.target = stale;
+    pyro->attack.cooldown_left_ms = 0;
+    P_SetMobjState(pyro, S_PYRO_FLAME);
+    if (pyro->core.state_id != S_PYRO_THROW || pyro->attack.target != vehicle ||
+        pyro->z.grenades != 2 || pyro->attack.shots != 2)
+        return fail("flame action resolves an invalid target before choosing the throw");
     rts_game_model_destroy(model);
     return 0;
 }
