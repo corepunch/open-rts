@@ -87,7 +87,13 @@
 ### Z remake sources and Stargus reference recheck (2026-11-12)
 
 - [fenio/zod](https://github.com/fenio/zod) is a modernized SDL3 fork of
-  Zod Engine. Its `src` tree is a candidate for examining the independent
+  Zod Engine. Local `reference/zod` is a shallow, source-and-docs sparse
+  checkout at `5ccb43ab76ee08c9f624906fb465dc3ba76a7a35` (9.3 MB).
+  Reproduce with `git clone --depth 1 --filter=blob:none --sparse
+  https://github.com/fenio/zod.git reference/zod`, then
+  `git -C reference/zod sparse-checkout set src docs`; verify the revision
+  before comparing, since the upstream branch can move. Its `src` tree
+  is a candidate for examining the independent
   `ZBot` and game mechanics. [Z-Steel-Soldiers](https://github.com/sha5b/Z-Steel-Soldiers)
   is a Godot remake of the 1996 game despite its repository name; its
   [research notes](https://github.com/sha5b/Z-Steel-Soldiers/blob/main/docs/RESEARCH.md)
@@ -108,6 +114,28 @@
   not provide the missing campaign execution. This was a focused source
   recheck, not an exhaustive feature-by-feature parity audit; no new retail
   behavior or tests are claimed.
+- Focused AI comparison at open-rts `c24d49f`: Zod's active
+  `ZBot::ProcessAI` calls `Stage1AI_3` and `ChooseBuildOrders`; older Stage1/2
+  methods are not called there. The active bot selects untargeted flags,
+  equipment, repair sites and (when all-out) enemies, scales the proportion
+  and delay of orders by its flag share, and chooses its first preferred
+  available factory product. Its `zbuildlist.cpp::SetMapHasBridges` removes
+  cranes on maps without bridges as a fork-specific change. These policies
+  differ from the retail-derived pass order and manufacturing selector in
+  `games/z/p_ai.c` and `docs/Z_EXE_FINDINGS.md`; none is evidence for
+  replacing those retail rules. Useful further comparison targets are
+  `GiveOutOrders_3` / `MatchTargets_3`, `ZServer::ProcessMissileDamage`,
+  `zsettings.cpp`, and `zpath_finding*`, with retail verification for each
+  behavioral claim.
+- The pinned Stargus `scripts/ai.lua` loads Terran and Zerg scripts and a
+  passive AI, not a Protoss AI script. Both race scripts explicitly set
+  minerals and gas to 50000 before their scripted force/build sequences.
+  Open-rts instead has a three-race doctrine in `games/starcraft/rules.c`;
+  its `p_trig.c` still enables the generic AI for actions 15/16 without
+  executing the requested retail script. Stargus's scripted builds can be
+  inspected for ideas but do not resolve this campaign gap. Its
+  `scripts/spells.lua` also contains Warcraft spell declarations; treat it as
+  incomplete reference material, not a verified StarCraft spell catalog.
 
 ### Z commander passes and unit statistics (2026-11-06)
 
