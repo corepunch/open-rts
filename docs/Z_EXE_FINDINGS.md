@@ -2950,6 +2950,15 @@ which can be a follower after promotion or a different allocation order.
 8/6/6 split for 20 grenades. Inspect with `r2 -q -e bin.cache=true -c
 'pd 30 @ 0x79bea' -c q data/Z/ZED.EXE`.
 
+**Overlapping crate order:** `0x79b53..0x79bdc` walks effect slots from
+zero upward and consumes the first eligible crate within the strict pickup
+square. Open-rts now selects the lowest represented slot, with unslotted
+engine fixtures following slotted objects, rather than relying on thinker
+creation order. `test_capture` creates overlapping 20- and 10-grenade crates
+in the opposite order to their slots, saves and reloads, and verifies that
+the lower-slot 10-grenade crate is collected. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 65 @ 0x79b53' -c q data/Z/ZED.EXE`.
+
 **Implemented with stated engine scope:** `games/z/p_detour.c` applies the
 native sector ordering, initial object visibility masks, direction predicates,
 SQROOT ranking, terrain line and flag-destination guard to ordinary ground

@@ -248,15 +248,17 @@ static int test_strength_gate(void) {
 }
 
 static int test_restricted_territory(void) {
-    for (int test = 0; test < 8; ++test) {
+    for (int test = 0; test < 10; ++test) {
         RtsGameModel *model = load();
         if (!model) return fail("restricted territory load");
         mobj_t *lead = scenario(), *follower = NULL;
         zmap_t *map = level.native_data;
         uint8_t squad = lead->z.squad;
         map->territories[2].team = 1;
-        map->territories[8].options |= 0x40;
-        if (test == 5) map->territories[8].options |= 0x20;
+        bool apc_case = (test >= 3 && test <= 5) || test >= 8;
+        map->territories[8].options &= (uint8_t)~0x60;
+        if (test < 8) map->territories[8].options |= 0x40;
+        if (test == 5 || test == 8) map->territories[8].options |= 0x20;
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             if (th->function != P_MobjThinker) continue;
             mobj_t *mo = (mobj_t *)th;
@@ -264,7 +266,7 @@ static int test_restricted_territory(void) {
             if (mo->team != 1 || mo->z.squad != squad || !Z_IsRobot(Z_UnitType(mo))) continue;
             mo->z.grenades = 0;
             if (mo != lead && !follower) follower = mo;
-            if (test >= 3 && test <= 5 && mo != lead) mo->hp = 0;
+            if (apc_case && mo != lead) mo->hp = 0;
         }
         if (!follower) return fail("restricted territory squad follower");
         if (test == 1) follower->z.grenades = 1;
@@ -274,14 +276,14 @@ static int test_restricted_territory(void) {
             Z_SetTeam(foreign, 0);
             foreign->z.squad = squad; foreign->z.grenades = 1;
         }
-        if (test >= 3 && test <= 5) {
+        if (apc_case) {
             const mobjtype_t *apc = P_ActorType(MT_UNIT_APC);
             if (!apc) return fail("restricted territory APC type");
             P_ApplyActorTypeDefaults(lead, apc);
             lead->z.squad = 0;
             lead->z.driver = (test == 4 ? MT_UNIT_GRUNT : MT_UNIT_TOUGH) - MT_UNITS + 1;
         }
-        if (test >= 6) {
+        if (test == 6 || test == 7) {
             const mobjtype_t *robot = P_ActorType(test == 6 ? MT_UNIT_SNIPER : MT_UNIT_PSYCHO);
             if (!robot) return fail("restricted territory robot type");
             P_ApplyActorTypeDefaults(lead, robot);
@@ -290,7 +292,7 @@ static int test_restricted_territory(void) {
         const zaitask_t *task = task_of(lead);
         bool sent = task && task->target == 8 && task->task == 0 &&
                     (task->pending || P_HasMoveOrder(lead));
-        if (sent != (test == 1 || test == 3 || test == 6 || test == 7))
+        if (sent != (test == 1 || test == 3 || test == 6 || test == 7 || test == 9))
             return fail("native restricted territory respects squad grenades and APC driver class");
         rts_game_model_destroy(model);
     }

@@ -1156,11 +1156,14 @@ void Z_Ticker(void) {
         int t = robot_type(mo);
         if (t < 0) continue;
         if (carries_grenades(t)) {
+            mobj_t *first = NULL;
             for (thinker_t *c = thinkercap.next; c != &thinkercap; c = c->next) {
                 mobj_t *box = (mobj_t *)c;
-                if (c->function == P_MobjThinker && crate(box) && reaches_crate(mo, box) &&
-                    pick_up(mo, box)) break;
+                if (c->function != P_MobjThinker || !crate(box) || !reaches_crate(mo, box)) continue;
+                if (!first || (box->z.object_slot && (!first->z.object_slot || box->z.object_slot < first->z.object_slot)))
+                    first = box;
             }
+            if (first) pick_up(mo, first);
         }
         if (mo->z.board) tick_boarding(mo);
     }

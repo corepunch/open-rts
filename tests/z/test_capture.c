@@ -222,6 +222,40 @@ static int test_grenades(void) {
     return 0;
 }
 
+static int test_crate_slot_order(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load crate slot order");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (Z_IsRobot(Z_UnitType(mo))) P_RemoveMobj(mo);
+    }
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25}), robot_at;
+    mobj_t *twenty = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_GRENADES_2);
+    mobj_t *ten = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_GRENADES);
+    mobj_t *robot = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_UNIT_GRUNT);
+    int slot = Z_FreeObjectSlot();
+    if (!twenty || !ten || !robot || !slot || slot >= 200) return fail("crate slot order fixture");
+    twenty->z.object_slot = (uint8_t)(slot + 1); ten->z.object_slot = (uint8_t)slot;
+    Z_SetTeam(robot, 0);
+    ivec2_t centre = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+    if (!Z_UnitCentre(level.native_data, Z_UnitType(robot), ivec2_sub(centre, (ivec2_t){8,8}), &robot_at))
+        return fail("crate slot robot origin");
+    robot->core.position = fixed3_from_fixed2(robot_at, 0);
+    uint32_t robot_id = robot->id, ten_id = ten->id, twenty_id = twenty->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Crate order", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save crate slot order");
+    free(save);
+    robot = P_MobjById(robot_id); ten = P_MobjById(ten_id); twenty = P_MobjById(twenty_id);
+    if (!robot || !ten || !twenty) return fail("restore crate slot order");
+    Z_Ticker();
+    if (!ten->remove || twenty->remove || robot->z.grenades != 10)
+        return fail("pickup chooses the earlier effect slot rather than thinker order");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_crate_leader_remainder(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for grenade remainder");
@@ -529,6 +563,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_crate_slot_order() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }
