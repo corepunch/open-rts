@@ -409,7 +409,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
-    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_SHELL || mo->type_id == MT_GRENADE) return;
+    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_SHELL || mo->type_id == MT_GRENADE || mo->type_id == MT_BULLET) return;
     Z_RouteTick(mo);
     Z_SquadTick(mo);
     terrain_speed(mo);
@@ -725,6 +725,36 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     }
 }
 
+static void fire_grunt_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
+    ivec2_t origin = Z_AITopLeft(attacker);
+    ivec2_t start = ivec2_add(origin, (ivec2_t){2,2}); /* 0x773c7 */
+    ivec2_t aim = Z_AITopLeft(target);
+    if (target->info && (target->info->traits & MF_TURRET)) aim.x += 8;
+    aim = ivec2_add(scatter_aim(attacker, origin, aim, 4), (ivec2_t){8,8});
+    ivec2_t delta = ivec2_sub(aim, start);
+    int dx = abs(delta.x), dy = abs(delta.y), count = 0;
+    if (!dx && !dy) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && ((mobj_t *)th)->type_id == MT_BULLET && !((mobj_t *)th)->remove) ++count;
+    if (count >= 200) return;
+    mobj_t *bullet = P_SpawnMobj(fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE), 0), MT_BULLET);
+    if (!bullet) return;
+    bullet->target = attacker;
+    bullet->team = attacker->team;
+    bullet->owner = attacker->owner;
+    bullet->missile.damage = weapon->damage;
+    bullet->z.water.start = start;
+    bullet->z.water.direction = (ivec2_t){(delta.x > 0) - (delta.x < 0), (delta.y > 0) - (delta.y < 0)};
+    bullet->z.water.vertical = dy > dx;
+    bullet->z.water.major = bullet->z.water.remaining = dy > dx ? dy : dx;
+    bullet->z.water.minor = dy > dx ? dx : dy;
+    bullet->z.water.error = bullet->z.water.major / 2;
+    bullet->z.water.speed = 15; /* ROBOTS.DAT weapon 2 +0x23 */
+    bullet->z.water.range = 120;
+    const zmap_t *map = level.native_data;
+    bullet->z.water.height = map && start.x >= 0 && start.y >= 0 ? Z_TerrainHeight(map, start.x / Z_TILE, start.y / Z_TILE) + 1 : 0;
+}
+
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (throws_at(attacker, target)) {
         /* Facing-indexed signed pairs at 0x149174 (0x636df). */
@@ -763,6 +793,10 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         }
     }
     int t = Z_UnitType(attacker);
+    if (t == MT_UNIT_GRUNT - MT_UNITS && weapon && target && Z_UnitType(target) >= 0) {
+        fire_grunt_bullet(attacker, weapon, target);
+        return true;
+    }
     bool apc = t == MT_UNIT_APC - MT_UNITS;
     if (apc) {
         if (!valid_crew(attacker)) return true;
@@ -967,6 +1001,78 @@ void A_ZGrenade(mobj_t *grenade) {
         }
     }
     grenade->core.frame = grenade->type_id == MT_SHELL ? 1634 : Z_GRENADE_SPRITE + (grenade->missile.age & 3);
+}
+
+/* 0x5ac67 searches the current 128-pixel bin and its eight neighbors.
+ * Thinker order approximates the original reusable unit-slot order. */
+static bool bullet_hit(mobj_t *bullet, ivec2_t at) {
+    static const int offsets[] = {0,-1,1,-17,-16,-15,15,16,17};
+    if (at.x < 8 || at.y < 8) return false;
+    int bin = ((at.x - 8) >> 7) + 16 * ((at.y - 8) >> 7);
+    for (int i = 0; i < 9; ++i) {
+        int wanted = bin + offsets[i], count = 0;
+        if (wanted < 0 || wanted >= 256) continue;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *victim = (mobj_t *)th;
+            if (th->function != P_MobjThinker || !live(victim) || Z_UnitType(victim) < 0 || victim->team >= Z_NEUTRAL) continue;
+            ivec2_t origin = Z_AITopLeft(victim);
+            if (origin.x < 0 || origin.y < 0 || ((origin.x >> 7) + 16 * (origin.y >> 7)) != wanted) continue;
+            if (++count > 32) break;
+            if (victim->team == bullet->team) continue;
+            ivec2_t d = ivec2_sub(origin, ivec2_sub(at, (ivec2_t){8,8}));
+            int extent = !Z_IsRobot(Z_UnitType(victim)) && victim->info && (victim->info->traits & MF_MOBILE) ? 16 : 8;
+            if (abs(d.x) > extent || abs(d.y) > extent) continue;
+            mobj_t *source = bullet->target;
+            int damage = source ? hit_damage(source, victim, bullet->missile.damage, 1, 0) :
+                (Z_IsRobot(Z_UnitType(victim)) ? bullet->missile.damage : bullet->missile.damage > 5 ? bullet->missile.damage - 5 : 0);
+            if (damage > 0) P_DamageMobj(victim, source, damage);
+            else if (source) P_ProvokeMobj(victim, source);
+            return true;
+        }
+    }
+    return false;
+}
+
+void A_ZBullet(mobj_t *bullet) {
+    const zmap_t *map = level.native_data;
+    if (bullet->z.water.speed <= 0 || bullet->z.water.speed > 255 || bullet->z.water.major <= 0 ||
+        bullet->z.water.major > 65535 || bullet->z.water.minor < 0 || bullet->z.water.minor > bullet->z.water.major ||
+        bullet->z.water.error < 0 || bullet->z.water.error > bullet->z.water.major ||
+        bullet->z.water.remaining <= 0 || bullet->z.water.remaining > bullet->z.water.major ||
+        bullet->z.water.range <= 0 || bullet->z.water.range > 2040 ||
+        bullet->z.water.start.x < 0 || bullet->z.water.start.x > 65535 ||
+        bullet->z.water.start.y < 0 || bullet->z.water.start.y > 65535 ||
+        bullet->z.water.direction.x < -1 || bullet->z.water.direction.x > 1 ||
+        bullet->z.water.direction.y < -1 || bullet->z.water.direction.y > 1) { P_RemoveMobj(bullet); return; }
+    for (int steps = Z_NativeSteps(leveltime, Z_NATIVE_HZ); steps-- > 0;) {
+        ivec2_t at = fixed2_cell(fixed2_scale(fixed3_xy(bullet->core.position), FIXED_FROM_INT(Z_TILE)));
+        int limit = bullet->z.water.speed;
+        bool finished = false;
+        for (int pass = 0; pass < 2; ++pass) {
+            for (int i = 0; i < limit && bullet->z.water.remaining > 0; ++i) {
+                bullet->z.water.error -= bullet->z.water.minor;
+                if (bullet->z.water.vertical) at.y += bullet->z.water.direction.y;
+                else at.x += bullet->z.water.direction.x;
+                if (bullet->z.water.error < 0) {
+                    bullet->z.water.error += bullet->z.water.major;
+                    if (bullet->z.water.vertical) at.x += bullet->z.water.direction.x;
+                    else at.y += bullet->z.water.direction.y;
+                }
+                --bullet->z.water.remaining;
+            }
+            finished = bullet->z.water.remaining == 0;
+            bullet->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE), 0);
+            if (at.x < 0 || at.y < 0 || !L_Contains(&level, at.x / Z_TILE, at.y / Z_TILE)) { P_RemoveMobj(bullet); return; }
+            bool hit = bullet_hit(bullet, at);
+            if (pass) { P_RemoveMobj(bullet); return; }
+            if (!finished) {
+                if (hit || ivec2_distance_squared64(at, bullet->z.water.start) >= (int64_t)bullet->z.water.range * bullet->z.water.range ||
+                    (map && Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > bullet->z.water.height)) { P_RemoveMobj(bullet); return; }
+                break;
+            }
+            bullet->z.water.remaining = 16;
+        }
+    }
 }
 
 /* 0x5a4c8 and 0x59b63: advance each native update with an accelerating

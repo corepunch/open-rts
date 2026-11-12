@@ -83,6 +83,95 @@ static void jeep_terrain(const mobj_t *jeep, uint8_t terrain) {
         map->terrain[(tile.y + y) * Z_MAP_STRIDE + tile.x + x] = terrain;
 }
 
+static int test_grunt_bullet(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load bullet flight");
+    fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
+    mobj_t *shooter = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 112, 0), 500);
+    mobj_t *blocker = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 500);
+    if (!shooter || !target || !blocker) return fail("spawn bullet flight fixture");
+    zmap_t *map = level.native_data;
+    for (int y = 39; y <= 41; ++y) for (int x = 39; x <= 48; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = map->terrain[y * Z_MAP_STRIDE + x] = 0;
+    disarm_except(0, shooter);
+    shooter->z.body_tracked = true;
+    shooter->z.body_accuracy = 127;
+    shooter->attack.target = target;
+    P_UpdateSight();
+    if (!P_Attack(shooter) || target->hp != 500 || blocker->hp != 500 || !nth(MT_BULLET, 0, 0))
+        return fail("rifle launches a bullet before applying damage");
+    shooter->traits &= ~MF_ATTACK;
+    if (!tick(model, 1) || !nth(MT_BULLET, 0, 0) || blocker->hp != 500)
+        return fail("bullet remains in flight after its first ticker");
+    mobj_t *bullet = nth(MT_BULLET, 0, 0);
+    uint32_t bullet_id = bullet->id, blocker_id = blocker->id, target_id = target->id;
+    fixed3_t position = bullet->core.position;
+    int remaining = bullet->z.water.remaining;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "Bullet flight", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save bullet flight");
+    free(save);
+    bullet = P_MobjById(bullet_id); blocker = P_MobjById(blocker_id); target = P_MobjById(target_id);
+    if (!bullet || !blocker || !target || bullet->z.water.remaining != remaining ||
+        bullet->core.position.x != position.x || bullet->core.position.y != position.y)
+        return fail("bullet flight state survives reload");
+    for (int n = 0; n < 8 && blocker->hp == 500; ++n)
+        if (!tick(model, 1)) return fail("tick bullet interception");
+    if (blocker->hp >= 500 || target->hp != 500 || P_MobjById(bullet_id))
+        return fail("intervening enemy receives bullet instead of aimed target");
+    rts_game_model_destroy(model);
+
+    model = load();
+    if (!model) return fail("load bullet terrain");
+    map = level.native_data;
+    for (int y = 39; y <= 41; ++y) for (int x = 39; x <= 48; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    for (int y = 39; y <= 41; ++y) map->ground_attr[y * Z_MAP_STRIDE + 43] = 1;
+    Z_RebuildCliffs(&level);
+    shooter = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 112, 0), 500);
+    if (!shooter || !target) return fail("spawn bullet terrain fixture");
+    disarm_except(0, NULL);
+    shooter->z.body_tracked = true; shooter->z.body_accuracy = 127;
+    if (!Z_Attack(shooter, &shooter->info->attack, target) || !(bullet = nth(MT_BULLET, 0, 0)))
+        return fail("launch bullet toward raised terrain");
+    bullet_id = bullet->id;
+    P_RemoveMobj(shooter);
+    for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
+        if (!tick(model, 1)) return fail("tick bullet into raised terrain");
+    if (P_MobjById(bullet_id) || target->hp != 500)
+        return fail("raised terrain intercepts bullet after shooter removal");
+    for (int y = 39; y <= 41; ++y) map->ground_attr[y * Z_MAP_STRIDE + 43] = 0;
+    Z_RebuildCliffs(&level);
+    shooter = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    if (!shooter) return fail("spawn bullet orphan fixture");
+    shooter->z.body_tracked = true; shooter->z.body_accuracy = 127;
+    if (!Z_Attack(shooter, &shooter->info->attack, target) || !(bullet = nth(MT_BULLET, 0, 0)))
+        return fail("launch bullet from removed shooter");
+    bullet_id = bullet->id;
+    P_RemoveMobj(shooter);
+    for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
+        if (!tick(model, 1)) return fail("tick orphaned bullet");
+    if (P_MobjById(bullet_id) || target->hp >= 500)
+        return fail("bullet can hit after its shooter is removed");
+    shooter = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    if (!shooter) return fail("spawn moving bullet target fixture");
+    shooter->z.body_tracked = true; shooter->z.body_accuracy = 127;
+    int hp = target->hp;
+    if (!Z_Attack(shooter, &shooter->info->attack, target) || !(bullet = nth(MT_BULLET, 0, 0)))
+        return fail("launch bullet at moving target");
+    bullet_id = bullet->id;
+    target->core.position = fixed3_from_fixed2(pixel_at(at, 112, 32), 0);
+    P_RemoveMobj(shooter);
+    for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
+        if (!tick(model, 1)) return fail("tick bullet past moved target");
+    if (P_MobjById(bullet_id) || target->hp != hp)
+        return fail("bullet keeps its original aim when target moves");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_bad_crew_combat(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for malformed crew combat");
@@ -336,7 +425,7 @@ static int test_grenade_cooldown(void) {
     vehicle->traits |= MF_NOBLOCKMAP; /* Target became invalid during the throw. */
     P_UpdateSight();
     A_ZToss(robot);
-    if (robot->z.grenades != 1 || robot->attack.target != infantry || infantry->hp >= 500 ||
+    if (robot->z.grenades != 1 || robot->attack.target != infantry || infantry->hp != 500 || !nth(MT_BULLET, 0, 0) ||
         robot->attack.cooldown_left_ms != 20 * 1000 / Z_NATIVE_HZ)
         return fail("retargeted rifle shot keeps ordinary cooldown and grenade");
     rts_game_model_destroy(model);
@@ -685,7 +774,8 @@ static int test_shell_blast(void) {
         return fail("shell hits primary and boundary units once, including after a kill");
     if (outx->hp != 500 || outy->hp != 500 || ally->hp != 500 || gun->hp != 500)
         return fail("shell excludes outside and friendly units");
-    if (Z_Attack(ally, &ally->info->attack, target)) return fail("bullets do not use shell area damage");
+    if (!Z_Attack(ally, &ally->info->attack, target) || !nth(MT_BULLET, 0, 0) || left->hp != 450)
+        return fail("bullet launch does not use shell area damage");
     puts("PASS: z shell blast hits enemies inside native bounds once");
     rts_game_model_destroy(model);
     return 0;
@@ -2085,7 +2175,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

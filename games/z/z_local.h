@@ -199,6 +199,7 @@ static inline int Z_NativeSteps(int64_t tick, int hz) {
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 void A_ZBlastImpact(mobj_t *missile);
 void A_ZWater(mobj_t *water);
+void A_ZBullet(mobj_t *bullet);
 void A_ZGrenade(mobj_t *grenade);
 void A_ZBlastHit(mobj_t *missile);
 int Z_TerrainHeight(const zmap_t *map, int x, int y);

@@ -3510,8 +3510,8 @@ bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
 (`p_capture.c`). The random coin is a deterministic hash of the tic and the
 two units, not the native stream.
 
-Engine boundaries, **not** native equivalence: bullet weapons still hit
-instantly and never miss (native bullets travel and scatter by accuracy),
+Engine boundaries, **not** native equivalence: bullet weapons other than
+Grunt still hit instantly and never miss (native bullets travel and scatter by accuracy),
 so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
 vehicle crush, the tanks' apparent
@@ -3519,7 +3519,7 @@ secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
 terrain speed terms and the Pyro flame (`0x5a099`) remain incomplete. The
 Fire Truck path is now implemented in the bounded form below.
 
-**Bullet travel trace, not implemented:** `0x5af81` rejects equal endpoints
+**Bullet travel trace:** `0x5af81` rejects equal endpoints
 and zero speed before allocating; `0x5b021` chooses the first free one of 200
 28-byte records. `0x5b055..0x5b1a5` stores the source and target, owner/team,
 damage, range and speed, and initializes a signed Bresenham error and major/
@@ -3535,13 +3535,53 @@ increased by 16; those checks' return flags are not used to skip the second
 check. `0x5acca..0x5ad64` scans nearby spatial bins, skips same-team units,
 and uses inclusive native-origin rectangles of ±8 pixels for nonvehicles
 and ±16 for class-1 vehicles after subtracting (8,8) from the bullet point.
-The scan order, terrain rejection and endpoint extension matter when another
+`0x64138..0x64198` builds the unit bins before the unit pass, visiting native
+unit slots 0..239 in ascending order, excluding units whose group byte is 0xff
+or whose group +9 has bit 0x20, and accepting at most 32 indices per bin.
+`0x7a7c4` derives
+the byte bin index as `(origin.x >> 7) + 16 * (origin.y >> 7)`; the bullet
+search starts at `((bullet.x-8) >> 7) + 16 * ((bullet.y-8) >> 7)` and adds
+the signed table at `0x1047b8`: {0, -1, 1, -17, -16, -15, 15, 16, 17}.
+The index is checked against 0..255 after addition, rather than checking
+each neighbor's x coordinate independently. Before the normal range and unit
+tests, `0x5aa49` also calls `0x88b13` on the old bullet position minus (1,1).
+That routine can remove the first qualifying record in the separate
+100-entry, 64-byte map-object array at `0x191ba8` within an inclusive ±16
+square. This shares the `0x8790a` burst-animation path with the separately
+traced flame scan above; its precise record types and complete lifecycle
+remain unknown. All six shipped ROBOTS.DAT weapon records for Grunt, Sniper,
+Psycho, Gatling, Jeep and Laser have byte +0x23 equal to 15. The scan order,
+terrain rejection and endpoint extension matter when another
 unit intercepts the shot or a target moves; a delayed hit on the original
-target would not reproduce them. Exact update pacing, spawn muzzle and aim
-for every bullet weapon, bin ordering and all collision cases remain to be
-traced before replacing the existing instantaneous path. Inspect with
+target would not reproduce them. The game loop is capped at one step per
+70 Hz PIT tick (above), but the timing of a newly spawned bullet within the
+engine's 30 Hz thinker pass still needs verification. Spawn muzzle and aim
+for every bullet weapon, representation of native reusable unit-slot ordering,
+and all collision cases remain to be resolved before replacing the existing
+instantaneous paths for the other weapons. Inspect with
 `r2 -q -e bin.cache=true -c 'pd 45 @ 0x5af81' -c 'pd 110 @ 0x5b055' -c
-'pd 120 @ 0x5a8e6' -c 'pd 85 @ 0x5acca' -c q data/Z/ZED.EXE`.
+'pd 120 @ 0x5a8e6' -c 'pd 85 @ 0x5acca' -c 'pd 45 @ 0x64138' -c
+'pd 40 @ 0x88b13' -c 'pxh 18 @ 0x1047b8' -c q data/Z/ZED.EXE`. For the
+speed bytes, run `for n in 2 4 7 11 13 18; do od -An -tu1 -j
+$((0x55f0+n*42+35)) -N 1 data/Z/ROBOTS.DAT; done`.
+
+**Implemented subset:** Grunt fire against units launches an ordinary
+invisible `MT_BULLET` thinker. It snapshots the aim, uses the 15-pixel
+Bresenham step, 120-pixel range and launch-height comparison, tests represented
+enemy units using the nine native bin offsets and 8/16-pixel rectangles, and
+performs the two endpoint checks. It shares the saved and hashed trajectory
+fields already used by water projectiles. Terrain, a moving target, another
+enemy, or removal of the shooter can therefore affect a shot after launch;
+`test_combat` covers real attack dispatch, interception, terrain, source
+removal, moving targets and mid-flight save/load. The bullet uses thinker order
+as an approximation of reusable native unit slots and omits the native group
+bit and 100-record map-object interactions. It applies the existing
+deterministic combat RNG to one launch-time tracked-aim sample, rather than
+the native cached aim and its additional 0x773bd scatter; impact after the
+source has been removed uses the recorded damage with a simplified armor
+fallback. The separate `0x5abad` terrain-table gate, bullet drawing, exact
+unit-slot and cross-projectile update order remain unimplemented. Other bullet
+weapons and APC salvos retain their former instantaneous behavior.
 
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`
