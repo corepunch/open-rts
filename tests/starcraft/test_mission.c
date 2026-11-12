@@ -1134,9 +1134,16 @@ int main(void) {
         CHECK(excluded[i]); excluded[i]->traits |= MF_MOBILE;
     }
     mobj_t *normal_order = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){352, 128}, 0); CHECK(normal_order);
+    mobj_t *lifting = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){416, 128}, 0);
+    mobj_t *landing = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){576, 128}, 0);
+    CHECK(lifting && landing);
+    lifting->traits |= MF_MOBILE | MF_FLY; landing->traits |= MF_MOBILE | MF_FLY;
+    lifting->sc.order.kind = SC_ORDER_LIFT; landing->sc.order.kind = SC_ORDER_LAND;
     ticks(1, &(hudtext_t){0});
     CHECK(P_HasMoveOrder(normal_order));
     for (int i = 0; i < 5; i++) CHECK(!excluded[i]->sc.queue.active && !P_HasMoveOrder(excluded[i]));
+    CHECK(lifting->sc.order.kind == SC_ORDER_LIFT && landing->sc.order.kind == SC_ORDER_LAND);
+    CHECK(!lifting->sc.queue.active && !landing->sc.queue.active);
     free(trig); unload();
     remove("/tmp/open-rts-sc-order-trigger.chk");
 

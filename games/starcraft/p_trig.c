@@ -493,6 +493,8 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
         if (mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
             mo->type_id == MT_INTERCEPTOR || mo->type_id == MT_SCARAB || mo->type_id == MT_NUCLEAR_MISSILE ||
             (mo->owner < 8 && (m->owners[mo->owner] == 3 || m->owners[mo->owner] == 4)) ||
+            ((sc_unit(mo)->flags & SC_UNIT_BUILDING) &&
+             (mo->sc.order.kind == SC_ORDER_LIFT || mo->sc.order.kind == SC_ORDER_LAND)) ||
             (!((mo->traits & MF_MOBILE) || (emerging && mo->info &&
                                            (mo->info->traits & MF_MOBILE)))) ||
             (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;

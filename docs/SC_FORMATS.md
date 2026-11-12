@@ -159,7 +159,9 @@ trigger, checking that the latter replaces the pending order and runs after
 emerging.
 The same OpenBW action excludes Interceptors, Scarabs, Nuclear Missiles and
 units belonging to either rescuable controller type. A fixture checks these
-exclusions alongside an eligible Marine.
+exclusions alongside an eligible Marine. OpenBW also skips buildings whose
+current order is liftoff or landing; the fixture checks both transitions
+remain intact when a trigger issues an Order.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
