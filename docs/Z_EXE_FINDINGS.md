@@ -3121,6 +3121,16 @@ marks on cliff cells; the exact interaction of subsequent native cliff
 rebuilding and effect removal remains unknown. The once-per-tic handler
 dispatch also remains an approximation of native update timing.
 
+**Vehicle effect scan is not established as active:** `0x57d6a..0x57dd5`
+contains a 200-slot scan that would remove the first nearby bit-0x80 effect
+and restore its saved terrain byte. However, the vehicle update at `0x57de2`
+calls `0x57d69`, which is an immediate RET, not `0x57d6a`. The broad linear
+disassembly has no direct call or jump to `0x57d6a`; indirect entry remains
+unverified. Do not infer that vehicles destroy nearby crates from the scan
+alone. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x57d69' -c
+'pd 10 @ 0x57dd6' -c q data/Z/ZED.EXE` and search direct references in
+`reverse/z-ui/service-code.txt`.
+
 **Confirmed slot-order correction:** `0x79bea..0x79c38` divides the crate
 total by group +0x12, then traverses the 21 member slots beginning at +0x13.
 The remainder is applied to slot zero and cleared before the next slot. For
@@ -3508,6 +3518,30 @@ vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
 terrain speed terms and the Pyro flame (`0x5a099`) remain incomplete. The
 Fire Truck path is now implemented in the bounded form below.
+
+**Bullet travel trace, not implemented:** `0x5af81` rejects equal endpoints
+and zero speed before allocating; `0x5b021` chooses the first free one of 200
+28-byte records. `0x5b055..0x5b1a5` stores the source and target, owner/team,
+damage, range and speed, and initializes a signed Bresenham error and major/
+minor distance. Robot weapon +0x23 supplies unit +0x76 at `0x50e0d`, which
+the normal robot firing call passes as speed; this is not the cooldown byte.
+The main loop's `0x15387` calls the bullet pass at `0x5a8e6`, which visits
+active slots in order. Its step functions at `0x5b1a6..0x5b2e1` advance at
+most the speed byte in major-axis pixels. `0x5a90d..0x5aab6` checks the
+resulting point against units, range and terrain, rather than checking every
+intermediate pixel. A completed initial segment makes two more collision
+checks: at its endpoint and after an extra step with remaining distance
+increased by 16; those checks' return flags are not used to skip the second
+check. `0x5acca..0x5ad64` scans nearby spatial bins, skips same-team units,
+and uses inclusive native-origin rectangles of ±8 pixels for nonvehicles
+and ±16 for class-1 vehicles after subtracting (8,8) from the bullet point.
+The scan order, terrain rejection and endpoint extension matter when another
+unit intercepts the shot or a target moves; a delayed hit on the original
+target would not reproduce them. Exact update pacing, spawn muzzle and aim
+for every bullet weapon, bin ordering and all collision cases remain to be
+traced before replacing the existing instantaneous path. Inspect with
+`r2 -q -e bin.cache=true -c 'pd 45 @ 0x5af81' -c 'pd 110 @ 0x5b055' -c
+'pd 120 @ 0x5a8e6' -c 'pd 85 @ 0x5acca' -c q data/Z/ZED.EXE`.
 
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`
@@ -4008,6 +4042,37 @@ which takes its target from the gun body and does not run this scatter call.
 reproduction. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x782f2'
 -c 'pd 40 @ 0x7628f' -c 'pd 45 @ 0x78201' -c q data/Z/ZED.EXE`.
 
+**Further explicit-aim trace:** the command dispatch at `0x7c027..0x7c037`
+indexes the table at `0x14b088` by the absolute value of unit +0x5a; entry 2
+points to `0x7cc9d`. Player dispatch `0x47aec..0x47af3` writes that byte
+from AL. At `0x7480f..0x74844`, the class-2 branch sets command 2 and
+copies AX/BX into its first two argument words before calling the common
+dispatcher; `0x74862..0x74896` similarly issues command 2 after its target
+check. The surrounding UI selection and all coordinate/target validity
+gates are not yet mapped to the engine's input actions. This path is reached
+from `0x7471b` after `0x7a7ff` fails to resolve a unit under the pointer. For
+class 2, the `0x74752..0x747af` branch first applies `0x591ca`, then checks
+`0x193f0` and `0x4a03b`; a different outcome selects command 4 instead of
+the command-2 route. A resolved unit takes the separate `0x74980` branch,
+which calls `0x74a3a` to encode group or unit sentinels before sending 2.
+These tests prevent treating every empty map click as a valid attack order.
+`0x7cc9d..0x7cd5b` copies unit words +0x50/+0x52 into the gun body at
++0x0e/+0x10 before entering action 4.
+Action 4's `0x78540..0x786de` separately checks those coordinates with
+`0x764e8`, rotates the gun and, after further line-of-sight and reload
+checks, calls `0x64250` for accuracy scatter at `0x786b4` before the same
+shell dispatch. Thus the no-scatter call at `0x78201` does not prove that
+every explicit-coordinate attack omits scatter. `0x764e8` also recognizes
+the sentinel words 0xfb2e and 0xef1f as special group and unit references;
+their handlers can replace the coordinates. Open-rts attack commands require
+a target mobj (`game/g_cmd.c`), and a target's category alone does not
+establish which native action or command supplied its aim. Do not equate all
+non-unit targets with this action-4 coordinate path without tracing command
+producers and target resolution. Inspect with `r2 -q -e bin.cache=true -c
+'pd 70 @ 0x747e1' -c 'pd 50 @ 0x7cc9d' -c 'pd 100 @ 0x78540' -c 'pd 35 @ 0x764e8' -c
+'pxw 12 @ 0x14b088' -e bin.relocs.apply=true -c q
+data/Z/ZED.EXE`.
+
 **Moving-target lead refinement:** for the fixed-gun caller above, the
 ordinary branch of `0x7628f..0x763ec` admits target actions 2 and 7,
 action 8 outside vehicle class 1, or a class-1 vehicle whose body +0x17
@@ -4099,7 +4164,13 @@ bytes and their
 initialization flag in the lockstep checksum. A repaired body's retained
 bytes and subsequent crossing compound as these instructions specify;
 whether the original repair facility separately restores body bytes remains
-**unknown**. The currently selected body-based firing path covers Light,
+**unknown**. On the direct completion path, `0x3fe59..0x3fe6d` clears
+unit +0x67 bit 0x40 and copies body max HP +0x0a to HP +8 unless ownership
+changed. The subsequent visible call `0x57ce9` writes the unit and group
+orders/coordinates, rather than restoring body speed or fire bytes. This
+narrows the search but does not exclude other repair callbacks. Inspect with
+`r2 -q -e bin.cache=true -c 'pd 45 @ 0x3fe40' -c 'pd 15 @ 0x57ce9' -c q
+data/Z/ZED.EXE`. The currently selected body-based firing path covers Light,
 Medium, Heavy and Mobile Missile vehicles; other paths retain their existing
 cooldown pending further tracing. `0x86df0..0x86e01` also scales unit +2
 (accuracy) and unit +6. Accuracy now affects the driver-hit roll; unit +6's
