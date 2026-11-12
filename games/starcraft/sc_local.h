@@ -25,7 +25,8 @@ typedef struct {
 } sc_unit_t;
 extern sc_unit_t sc_units[SC_TYPES];
 /* Types info.h does not name: units.dat rows plus one. */
-enum { MT_SPIDER_MINE = 14, MT_INFESTED_TERRAN = 51, MT_TASSADAR = 80, MT_WARBRINGER = 82,
+enum { MT_SPIDER_MINE = 14, MT_MATRIARCH = 50, MT_INFESTED_TERRAN = 51, MT_UNCLEAN_ONE = 53,
+       MT_TASSADAR = 80, MT_WARBRINGER = 82,
        MT_GANTRITHOR = 83, MT_INFESTED_COMMAND_CENTER = 131 };
 enum { SC_SIZE_INDEPENDENT, SC_SIZE_SMALL, SC_SIZE_MEDIUM, SC_SIZE_LARGE };
 /* units.dat special ability flags. */

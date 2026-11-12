@@ -657,6 +657,12 @@ static int tech_card(void) {
     level.upgrades[SC_UPGRADES + SC_TECH_HALLUCINATION][consoleplayer].weapon = 0;
     CHECK(usable(card(sc_techs[SC_TECH_PSIONIC_STORM].name, &tassadar, 1)));
     CHECK(usable(card(sc_techs[SC_TECH_HALLUCINATION].name, &tassadar, 1)));
+    mobj_t *matriarch = beside(MT_MATRIARCH, hall, 5, 4);
+    mobj_t *unclean = beside(MT_UNCLEAN_ONE, hall, 6, 4); CHECK(matriarch && unclean);
+    level.upgrades[SC_UPGRADES + SC_TECH_SPAWN_BROODLING][consoleplayer].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_PLAGUE][consoleplayer].weapon = 0;
+    CHECK(usable(card(sc_techs[SC_TECH_SPAWN_BROODLING].name, &matriarch, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_PLAGUE].name, &unclean, 1)));
     /* Engineering Bay: level 1 now, level 2 greyed until a Science Facility. */
     const char *weapons = sc_upgrades[0].name;
     menuitem_t *tier = card(weapons, &bay, 1);

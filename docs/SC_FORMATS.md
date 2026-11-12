@@ -245,6 +245,11 @@ Hallucination without player research. Tassadar now exposes and casts both;
 the command card and computer tactics use the same hero-aware research check
 as casting. Fixtures exercise direct casts, enabled buttons and autonomous
 Storm without research.
+OpenBW also classifies the Matriarch (units.dat row 49) as a Queen and the
+Unclean One (row 52) as a Defiler for their spell sets, with their
+research-gated spells available to heroes. Their abilities now appear and
+work through the same card, casting and AI paths. Fixtures exercise direct
+casts, unresearched command buttons and autonomous Broodling/Plague use.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

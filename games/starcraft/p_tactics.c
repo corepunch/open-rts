@@ -132,7 +132,7 @@ static bool defiler(mobj_t *const *units, int count, mobj_t *u) {
         if (e && sc_cast(u, SC_TECH_PLAGUE, NULL, where(e))) return true;
     }
     /* Short of a Dark Swarm: eat a zergling nearby. */
-    if (sc_has_tech(u->owner, SC_TECH_CONSUME) && sc_energy(u) < sc_techs[SC_TECH_DARK_SWARM].energy)
+    if (sc_unit_has_tech(u, SC_TECH_CONSUME) && sc_energy(u) < sc_techs[SC_TECH_DARK_SWARM].energy)
         for (int i = 0; i < count; i++)
             if (alive(units[i]) && units[i]->owner == u->owner && units[i]->type_id == MT_ZERGLING &&
                 dist2(u, units[i]) <= SQ(6) && sc_cast(u, SC_TECH_CONSUME, units[i], where(units[i]))) return true;
@@ -154,8 +154,8 @@ static bool cast(mobj_t *const *units, int count, mobj_t *u) {
     switch (u->type_id) {
     case MT_HIGH_TEMPLAR: case MT_TASSADAR: return storm(units, count, u);
     case MT_SCIENCE_VESSEL: return vessel(units, count, u);
-    case MT_QUEEN: return queen(units, count, u);
-    case MT_DEFILER: return defiler(units, count, u);
+    case MT_QUEEN: case MT_MATRIARCH: return queen(units, count, u);
+    case MT_DEFILER: case MT_UNCLEAN_ONE: return defiler(units, count, u);
     case MT_COMSAT_STATION: return sweep(units, count, u);
     case MT_GHOST:
         if (ready(u, SC_TECH_LOCKDOWN)) {

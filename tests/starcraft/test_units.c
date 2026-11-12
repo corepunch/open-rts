@@ -586,6 +586,35 @@ static int terran_spells(void) {
 }
 
 static int zerg_spells(void) {
+    /* Hero Queen and Defiler variants use their native spells without research. */
+    mobj_t *matriarch = caster(MT_MATRIARCH, FIXED2_LIT(4.5, 4.5));
+    mobj_t *hero_victim = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 4.5), 1);
+    CHECK(matriarch && hero_victim && !sc_has_tech(0, SC_TECH_SPAWN_BROODLING));
+    int hero_techs[8], hero_count = sc_unit_techs(MT_MATRIARCH, hero_techs, 8);
+    bool broodling = false, parasite = false, ensnare = false, infestation = false;
+    for (int i = 0; i < hero_count; i++) {
+        broodling |= hero_techs[i] == SC_TECH_SPAWN_BROODLING;
+        parasite |= hero_techs[i] == SC_TECH_PARASITE;
+        ensnare |= hero_techs[i] == SC_TECH_ENSNARE;
+        infestation |= hero_techs[i] == SC_TECH_INFESTATION;
+    }
+    CHECK(broodling && parasite && ensnare && infestation);
+    CHECK(sc_cast(matriarch, SC_TECH_SPAWN_BROODLING, hero_victim, at_of(hero_victim)));
+    CHECK(hero_victim->hp <= 0 && count_of(MT_BROODLING, 0) == 2);
+    reset();
+    mobj_t *unclean = caster(MT_UNCLEAN_ONE, FIXED2_LIT(4.5, 4.5));
+    hero_victim = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 4.5), 1);
+    CHECK(unclean && hero_victim && !sc_has_tech(0, SC_TECH_PLAGUE));
+    hero_count = sc_unit_techs(MT_UNCLEAN_ONE, hero_techs, 8);
+    bool plague = false, swarm = false, consume = false;
+    for (int i = 0; i < hero_count; i++) {
+        plague |= hero_techs[i] == SC_TECH_PLAGUE;
+        swarm |= hero_techs[i] == SC_TECH_DARK_SWARM;
+        consume |= hero_techs[i] == SC_TECH_CONSUME;
+    }
+    CHECK(plague && swarm && consume && sc_cast(unclean, SC_TECH_PLAGUE, NULL, at_of(hero_victim)));
+    CHECK(hero_victim->sc.timers[SC_TIMER_PLAGUE] > 0);
+    reset();
     /* Parasite (no research): the host's sight is the caster's too. */
     CHECK(P_InitSight());
     mobj_t *queen = caster(MT_QUEEN, FIXED2_LIT(10.5, 30.5));
@@ -680,6 +709,16 @@ static int computer(void) {
     for (int i = 0; i < 3; i++) CHECK(spawn(MT_ZERGLING, FIXED2_LIT(10.5 + 0.5 * i, 4.5), 1));
     CHECK(hero && !sc_has_tech(0, SC_TECH_PSIONIC_STORM));
     think(0); CHECK(count_of(MT_MAP_REVEALER, 0) == 1 && sc_energy(hero) == 125);
+    reset();
+    hero = caster(MT_MATRIARCH, FIXED2_LIT(4.5, 4.5));
+    mobj_t *hero_target = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 4.5), 1);
+    CHECK(hero && hero_target && !sc_has_tech(0, SC_TECH_SPAWN_BROODLING));
+    think(0); CHECK(hero_target->hp <= 0 && count_of(MT_BROODLING, 0) == 2);
+    reset();
+    hero = caster(MT_UNCLEAN_ONE, FIXED2_LIT(4.5, 4.5));
+    for (int i = 0; i < 4; i++) CHECK(spawn(MT_ZERGLING, FIXED2_LIT(10.5 + 0.5 * i, 4.5), 1));
+    CHECK(hero && !sc_has_tech(0, SC_TECH_PLAGUE));
+    think(0); CHECK(sc_energy(hero) == 200 - sc_techs[SC_TECH_PLAGUE].energy);
     reset();
     /* Storm where enemies clump, never over our own. */
     learn(0, SC_TECH_PSIONIC_STORM);
