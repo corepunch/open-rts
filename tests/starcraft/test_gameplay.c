@@ -663,6 +663,12 @@ static int tech_card(void) {
     level.upgrades[SC_UPGRADES + SC_TECH_PLAGUE][consoleplayer].weapon = 0;
     CHECK(usable(card(sc_techs[SC_TECH_SPAWN_BROODLING].name, &matriarch, 1)));
     CHECK(usable(card(sc_techs[SC_TECH_PLAGUE].name, &unclean, 1)));
+    mobj_t *infested_kerrigan = beside(MT_INFESTED_KERRIGAN, hall, 7, 4); CHECK(infested_kerrigan);
+    level.upgrades[SC_UPGRADES + SC_TECH_ENSNARE][consoleplayer].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_CONSUME][consoleplayer].weapon = 0;
+    CHECK(usable(card(sc_techs[SC_TECH_ENSNARE].name, &infested_kerrigan, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_CONSUME].name, &infested_kerrigan, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_PSIONIC_STORM].name, &infested_kerrigan, 1)));
     /* Engineering Bay: level 1 now, level 2 greyed until a Science Facility. */
     const char *weapons = sc_upgrades[0].name;
     menuitem_t *tier = card(weapons, &bay, 1);

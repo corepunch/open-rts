@@ -153,6 +153,7 @@ static bool cast(mobj_t *const *units, int count, mobj_t *u) {
     if (u->sc.order.kind) return false;
     switch (u->type_id) {
     case MT_HIGH_TEMPLAR: case MT_TASSADAR: return storm(units, count, u);
+    case MT_INFESTED_KERRIGAN: return storm(units, count, u) || queen(units, count, u) || defiler(units, count, u);
     case MT_SCIENCE_VESSEL: return vessel(units, count, u);
     case MT_QUEEN: case MT_MATRIARCH: return queen(units, count, u);
     case MT_DEFILER: case MT_UNCLEAN_ONE: return defiler(units, count, u);

@@ -2441,6 +2441,7 @@ static void refresh(menu_t *menu) {
     /* Abilities follow, greyed until researched; a Bunker unloads. */
     if(!build_page) {
         int techs[8],n_techs=sc_unit_techs(selected->type_id,techs,8);
+        if(n_techs>3&&slot==6&&!huditems[command_start+5].visible)slot=5;
         bool burrowed=(selected->sc.flags&SC_BURROWED)!=0;
         for(int t=0;t<n_techs&&slot<9;t++) {
             int tech=techs[t];

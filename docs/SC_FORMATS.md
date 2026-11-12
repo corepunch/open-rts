@@ -250,6 +250,12 @@ Unclean One (row 52) as a Defiler for their spell sets, with their
 research-gated spells available to heroes. Their abilities now appear and
 work through the same card, casting and AI paths. Fixtures exercise direct
 casts, unresearched command buttons and autonomous Broodling/Plague use.
+OpenBW lists Infested Kerrigan (units.dat row 51) as a caster of Consume,
+Ensnare and Psionic Storm without research. She now exposes and casts all
+three and uses existing spell tactics; fixtures cover direct casts, an AI
+Storm and enabled command buttons. The engine's generic card also uses an
+otherwise empty slot when a unit has four abilities; exact native card
+placement remains an approximation.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

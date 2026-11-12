@@ -586,6 +586,20 @@ static int terran_spells(void) {
 }
 
 static int zerg_spells(void) {
+    /* Infested Kerrigan can use the three abilities listed by OpenBW. */
+    const int kerrigan_techs[] = {SC_TECH_CONSUME, SC_TECH_ENSNARE, SC_TECH_PSIONIC_STORM};
+    for (int i = 0; i < 3; i++) {
+        mobj_t *kerrigan = caster(MT_INFESTED_KERRIGAN, FIXED2_LIT(4.5, 4.5));
+        mobj_t *victim = spawn(i ? MT_MARINE : MT_ZERGLING, FIXED2_LIT(5.5, 4.5), i ? 1 : 0);
+        CHECK(kerrigan && victim && !sc_has_tech(0, kerrigan_techs[i]));
+        int abilities[8], n = sc_unit_techs(MT_INFESTED_KERRIGAN, abilities, 8); bool found = false;
+        for (int j = 0; j < n; j++) found |= abilities[j] == kerrigan_techs[i];
+        CHECK(found && sc_cast(kerrigan, kerrigan_techs[i], i ? NULL : victim, at_of(victim)));
+        if (i == 0) CHECK(victim->hp <= 0 && sc_energy(kerrigan) == 250);
+        else if (i == 1) CHECK(victim->sc.timers[SC_TIMER_ENSNARE] > 0);
+        else CHECK(count_of(MT_MAP_REVEALER, 0) == 1);
+        reset();
+    }
     /* Hero Queen and Defiler variants use their native spells without research. */
     mobj_t *matriarch = caster(MT_MATRIARCH, FIXED2_LIT(4.5, 4.5));
     mobj_t *hero_victim = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 4.5), 1);
@@ -704,6 +718,11 @@ static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
 }
 
 static int computer(void) {
+    mobj_t *kerrigan = caster(MT_INFESTED_KERRIGAN, FIXED2_LIT(4.5, 4.5));
+    for (int i = 0; i < 3; i++) CHECK(spawn(MT_ZERGLING, FIXED2_LIT(10.5 + 0.5 * i, 4.5), 1));
+    CHECK(kerrigan && !sc_has_tech(0, SC_TECH_PSIONIC_STORM));
+    think(0); CHECK(count_of(MT_MAP_REVEALER, 0) == 1 && sc_energy(kerrigan) == 125);
+    reset();
     /* Hero spell access also applies to autonomous casting. */
     mobj_t *hero = caster(MT_TASSADAR, FIXED2_LIT(4.5, 4.5));
     for (int i = 0; i < 3; i++) CHECK(spawn(MT_ZERGLING, FIXED2_LIT(10.5 + 0.5 * i, 4.5), 1));
