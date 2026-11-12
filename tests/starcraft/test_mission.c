@@ -1009,6 +1009,21 @@ int main(void) {
     for (int i = 0; i < 260; i++) CHECK(limit_units[i]->remove == (i < 255));
     free(trig); unload(); remove("/tmp/open-rts-sc-remove-area.chk");
 
+    /* Kill/Remove selectors never target DAT turret subunits. */
+    for (int id = 22; id <= 25; id++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, 229); action[26] = (uint8_t)id;
+        CHECK(!write_map("/tmp/open-rts-sc-turret-select.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-turret-select.chk", &level));
+        mobj_t *turret = sc_spawn_actor(4, (ivec2_t){128, 128}, 0); /* Goliath turret row. */
+        mobj_t *marine = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){192, 128}, 0);
+        CHECK(turret && marine); turret->hp = 1;
+        ticks(1, &(hudtext_t){0});
+        CHECK(!turret->remove && turret->hp == 1 && (marine->remove || marine->hp <= 0));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-turret-select.chk");
+
     /* Kill Unit uses the same complete selection and the normal death path. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

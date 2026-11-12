@@ -241,6 +241,11 @@ OpenBW `trigger_find_unit`. Fixtures cover all three comparisons, turret
 exclusion and Move Location. Move Location also excludes turret subunits,
 which OpenBW never inserts into its spatial unit finder. Other trigger selectors' hallucination handling
 remains approximate.
+OpenBW's global Kill and Remove actions explicitly skip turret subunits,
+and Remove at Location does likewise. Shared type matching now excludes
+them for those selectors and other unit-targeting actions; behavior for the
+remaining actions, including Kill at Location, is inferred. Fixtures verify
+all four Kill/Remove action variants against an eligible Marine.
 OpenBW initializes a preplaced resource unit's amount to zero and reads UNIT
 +20 only when +14 validity bit 0x10 is set. The loader now follows that rule
 for mineral fields, geysers and refineries, including zero-resource vent

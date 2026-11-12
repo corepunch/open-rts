@@ -182,6 +182,7 @@ static bool location_height_ok(const sc_mission_t *m, const mobj_t *mo, unsigned
 static bool kind_ok(const mobj_t *mo, unsigned id) {
     if (!mo->type_id || mo->type_id > SC_TYPES) return false;
     unsigned type = mo->type_id - 1;
+    if (sc_units[type].flags & SC_UNIT_TURRET) return false;
     int race = sc_units[type].race;
     if (id == 229) return true;
     if (id == 228) return false;
@@ -214,7 +215,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
         if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove ||
-            !sc_unit(mo) || (sc_unit(mo)->flags & SC_UNIT_TURRET) ||
+            !sc_unit(mo) ||
             (cargo < 0 && (mo->sc.flags & SC_HALLUCINATION)) ||
             (completed && !trigger_completed(mo))) continue;
         bool virtual_hangar = cargo > 0 && mo->sc.hangar > 0 &&
@@ -363,8 +364,7 @@ static int gather(const sc_mission_t *m, const int *players, int nplayers, unsig
     if (!thinkercap.next) return 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap && n < cap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
-            (sc_unit(mo)->flags & SC_UNIT_TURRET)) continue;
+        if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit)) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
