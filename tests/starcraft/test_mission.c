@@ -426,6 +426,41 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-timer.chk");
 
+    /* Waits contend per player, but a second trigger runs up to its Wait. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22;
+    uint8_t *wait_action = trig + 320;
+    put_u32(wait_action + 12, 100); wait_action[26] = 4;
+    wait_action += 32; wait_action[26] = 26; wait_action[27] = 8; put_u32(wait_action + 20, 1);
+    CHECK(!write_map("/tmp/open-rts-sc-wait.chk", owners, trig));
+    uint8_t *second_trigger = blank_trigger(); CHECK(second_trigger); second_trigger[15] = 22;
+    wait_action = second_trigger + 320; wait_action[26] = 26; wait_action[27] = 8; put_u32(wait_action + 20, 10);
+    wait_action += 32; wait_action[26] = 4; put_u32(wait_action + 12, 100);
+    wait_action += 32; wait_action[26] = 26; wait_action[27] = 8; put_u32(wait_action + 20, 100);
+    FILE *wait_file = fopen("/tmp/open-rts-sc-wait.chk", "r+b"); CHECK(wait_file);
+    CHECK(!fseek(wait_file, -2404, SEEK_END)); uint8_t wait_size[4]; put_u32(wait_size, 4800);
+    CHECK(fwrite(wait_size, 1, 4, wait_file) == 4 && !fseek(wait_file, 0, SEEK_END));
+    CHECK(fwrite(second_trigger, 1, 2400, wait_file) == 2400 && !fclose(wait_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-wait.chk", &level));
+    ticks(1, &(hudtext_t){0}); CHECK(level.player_resources[0][0] == 10);
+    ticks(1, &(hudtext_t){0}); CHECK(level.player_resources[0][0] == 10);
+    for (int i = 0; i < 10 && level.player_resources[0][0] == 10; i++) ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 11);
+    for (int i = 0; i < 10 && level.player_resources[0][0] == 11; i++) ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 111);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-wait.chk", &level));
+    sc_mission_t *wait_mission = level.mission;
+    wait_mission->rt[8] = (sc_trig_t){.cursor = 2, .wait_ms = 1, .running = true};
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 0 && wait_mission->rt[8].wait_ms == -1);
+    size_t wait_save_size = G_SaveExtraSize(); void *wait_save = malloc(wait_save_size); CHECK(wait_save);
+    G_SaveExtra(wait_save); wait_mission->rt[8].wait_ms = 0;
+    CHECK(G_LoadExtra(wait_save, wait_save_size) && wait_mission->rt[8].wait_ms == -1);
+    free(wait_save);
+    for (int i = 0; i < 10 && level.player_resources[0][0] == 0; i++) ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 101);
+    free(second_trigger); free(trig); unload(); remove("/tmp/open-rts-sc-wait.chk");
+
     uint8_t *action;
     /* Death counters and trigger quantities are unsigned 32-bit values. */
     for (int operation = 7; operation <= 9; operation++) {

@@ -161,6 +161,15 @@ The same OpenBW action excludes Interceptors, Scarabs, Nuclear Missiles and
 units belonging to either rescuable controller type. A fixture checks these
 exclusions alongside an eligible Marine.
 
+OpenBW's Wait action allows only one outstanding wait per trigger owner;
+other triggers continue until they reach their own Wait. Trigger execution
+now enforces that contention while retaining per-trigger saved progress. A
+two-trigger fixture checks that actions before the second Wait still run,
+then the two waits finish in sequence. Expired waits recheck contention when
+resuming; a reverse-order fixture also saves and restores that pending state.
+Wait timing remains tied to this engine's mission ticks rather than a claim
+of native trigger-cycle timing.
+
 OpenBW's Set Resources reads the action quantity as an unsigned 32-bit value.
 The engine stores resource balances as signed integers, so Set and Add now
 clamp to `INT_MAX` and Subtract clamps to zero instead of overflowing or

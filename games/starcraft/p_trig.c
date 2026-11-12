@@ -716,6 +716,18 @@ static void finish_trigger(sc_trig_t *st) {
     else st->disabled = true;
 }
 
+/* OpenBW permits one outstanding Wait per trigger owner; other triggers
+ * continue until they themselves reach a Wait. */
+static bool player_waiting(const sc_mission_t *m, int owner) {
+    for (int i = 0; i < m->trig_count; i++) {
+        const sc_trig_t *other = &m->rt[i * 8 + owner];
+        if (other->wait_ms <= 0 || other->cursor < 1 || other->cursor > 64) continue;
+        const uint8_t *action = m->trig + (size_t)i * 2400 + 320 + (other->cursor - 1) * 32;
+        if (action[26] == 4) return true;
+    }
+    return false;
+}
+
 static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hudtext_t *hud) {
     while (st->cursor < 64 && !m->result) {
         const uint8_t *a = trig + 320 + st->cursor * 32;
@@ -738,7 +750,11 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (!local && (id == 7 || id == 8 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
         if (id == 3) { st->preserve = true; continue; }
-        if (id == 4) { st->wait_ms = (int)time; return; }
+        if (id == 4) {
+            if (player_waiting(m, st->current)) { st->cursor--; return; }
+            st->wait_ms = time > INT_MAX ? INT_MAX : time ? (int)time : 1;
+            return;
+        }
         if (id == 7 || id == 8) {
             char wav[512];
             str_text(m, read_u32_le(a + 8), wav, sizeof(wav));
@@ -976,6 +992,14 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
             m->countdown_ms -= ms;
             if (m->countdown_ms < 0) m->countdown_ms = 0;
         }
+        /* All player wait timers advance before any trigger is revisited. */
+        for (int i = 0; i < m->trig_count * 8; i++) {
+            sc_trig_t *st = &m->rt[i];
+            if (st->wait_ms > 0) {
+                st->wait_ms -= ms;
+                if (st->wait_ms <= 0) st->wait_ms = -1;
+            }
+        }
         for (int i = 0; i < m->trig_count && !m->result; i++) {
             const uint8_t *trig = m->trig + (size_t)i * 2400, *mask = trig + 2372;
             for (int p = 0; p < 8 && !m->result; p++) {
@@ -983,9 +1007,10 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
                 sc_trig_t *st = &m->rt[i * 8 + p];
                 if (st->disabled) continue;
                 st->current = p;
-                if (st->wait_ms > 0) {
-                    st->wait_ms -= ms;
+                if (st->wait_ms) {
                     if (st->wait_ms > 0) continue;
+                    const uint8_t *last = st->cursor ? trig + 320 + (st->cursor - 1) * 32 : NULL;
+                    if (last && last[26] == 4 && player_waiting(m, p)) continue;
                     st->wait_ms = 0;
                     run_actions(m, trig, st, hud);
                     continue;
