@@ -340,13 +340,13 @@ int main(void) {
 
     uint8_t *action;
     /* Create Unit stores its count in the action's byte at offset 27. */
-    for (int count = 0; count <= 3; count += 3) {
+    for (int create_id = 11; create_id <= 44; create_id += 33) for (int count = 0; count <= 3; count += 3) {
         trig = blank_trigger(); CHECK(trig);
         trig[15] = 22;
         action = trig + 320;
         put_u32(action, 64);
         put_u16(action + 24, MT_MARINE - 1);
-        action[26] = 44; action[27] = (uint8_t)count;
+        action[26] = (uint8_t)create_id; action[27] = (uint8_t)count;
         CHECK(!write_map("/tmp/open-rts-sc-create.chk", owners, trig));
         CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create.chk", &level));
         ticks(1, &(hudtext_t){0});
@@ -359,6 +359,91 @@ int main(void) {
         free(trig); unload();
     }
     remove("/tmp/open-rts-sc-create.chk");
+
+    /* Action 11 has a one-based UPRP slot and a separate count byte. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 1);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 11; action[27] = 3; action[28] = 28;
+    CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+    FILE *cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+    uint8_t cuwp_header[8] = {'U', 'P', 'R', 'P'}, cuwp[20] = {0};
+    put_u32(cuwp_header + 4, sizeof(cuwp)); put_u16(cuwp + 2, 2); cuwp[5] = 50;
+    CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+    CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp));
+    CHECK(!fclose(cuwp_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    mobjlist_t cuwp_units = P_ListMobjs(); int cuwp_count = 0;
+    for (int i = 0; i < cuwp_units.count; i++) if (cuwp_units.items[i]->type_id == MT_MARINE) {
+        CHECK(cuwp_units.items[i]->hp == cuwp_units.items[i]->max_hp / 2);
+        cuwp_count++;
+    }
+    CHECK(cuwp_count == 3);
+    P_FreeMobjList(&cuwp_units); free(trig); unload(); remove("/tmp/open-rts-sc-cuwp.chk");
+
+    /* Property resource amount initializes a usable trigger-created patch. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 1);
+    put_u16(action + 24, MT_MINERAL_FIELD1 - 1); action[26] = 11; action[27] = 1; action[28] = 28;
+    CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+    cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+    memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp + 2, 16); put_u32(cuwp + 8, 24);
+    CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+    CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp));
+    CHECK(!fclose(cuwp_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.resource_vent_count == 1 && level.resource_vents[0].amount == 24);
+    mobj_t *cuwp_patch = P_MobjById(level.resource_vents[0].source_id);
+    CHECK(cuwp_patch && cuwp_patch->owner == 11);
+    mobj_t *cuwp_base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
+    mobj_t *cuwp_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+    CHECK(cuwp_base && cuwp_worker); P_SyncBuildingBlocking();
+    CHECK(P_HarvestUnitTo(&level, cuwp_worker, level.resource_vents[0].attachment));
+    for (int i = 0; i < 2400 && level.player_resources[0][0] < 8; i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(level.player_resources[0][0] >= 8 && level.resource_vents[0].amount < 24);
+    unload();
+    put_u16(action + 24, MT_REFINERY - 1); put_u32(cuwp + 8, 0);
+    CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+    cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+    CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+    CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp));
+    CHECK(!fclose(cuwp_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.resource_vent_count == 1 && !level.resource_vents[0].amount &&
+          level.resource_vents[0].active && level.resource_vents[0].depleted && level.resource_vents[0].rate == 2);
+    unload();
+    put_u16(action + 24, MT_VESPENE_GEYSER - 1);
+    CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+    cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+    CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+    CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.resource_vent_count == 1 && level.resource_vents[0].depleted && !level.resource_vents[0].active);
+    cuwp_base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
+    cuwp_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+    CHECK(cuwp_base && cuwp_worker); P_SyncBuildingBlocking();
+    level.player_resources[0][0] = 500;
+    ivec2_t gas_site = level.resource_vents[0].cell;
+    ticcmd_t construct_gas = {.order = TC_CONSTRUCT, .count = 1, .units = {cuwp_worker->id},
+        .product = MT_REFINERY, .position = {FIXED_FROM_INT(gas_site.x), FIXED_FROM_INT(gas_site.y), 0}};
+    G_RunTiccmd(0, &construct_gas);
+    CHECK(cuwp_worker->production && cuwp_worker->production->placed);
+    for (int i = 0; i < 4000 && cuwp_worker->production; i++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
+    CHECK(!cuwp_worker->production && level.resource_vents[0].active && level.resource_vents[0].depleted);
+    CHECK(P_MobjById(level.resource_vents[0].source_id)->type_id == MT_REFINERY);
+    CHECK(P_HarvestUnitTo(&level, cuwp_worker, level.resource_vents[0].attachment));
+    for (int i = 0; i < 2400 && level.player_resources[0][1] < 2; i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(level.player_resources[0][1] >= 2 && level.resource_vents[0].amount == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-cuwp.chk");
 
     /* Create Unit assigns mineral fields and geysers to neutral owner 11. */
     const int deposits[] = {MT_MINERAL_FIELD1, MT_VESPENE_GEYSER, MT_REFINERY, MT_EXTRACTOR, MT_ASSIMILATOR};
@@ -683,11 +768,13 @@ int main(void) {
     CHECK(refinery && neutral && nonresource);
     level.resource_vents = calloc(3, sizeof(*level.resource_vents)); CHECK(level.resource_vents);
     level.resource_vent_count = 3;
-    level.resource_vents[0] = (resourcevent_t){.source_id = refinery->id, .amount = 1, .depleted = true};
+    level.resource_vents[0] = (resourcevent_t){.source_id = refinery->id, .amount = 0, .rate = 2,
+                                               .depleted = true, .depleted_rate = 2};
     level.resource_vents[1] = (resourcevent_t){.source_id = neutral->id, .amount = 2};
     level.resource_vents[2] = (resourcevent_t){.source_id = nonresource->id, .amount = 3};
     ticks(1, &(hudtext_t){0});
-    CHECK(level.resource_vents[0].amount == 900 && !level.resource_vents[0].depleted && level.resource_vents[0].active);
+    CHECK(level.resource_vents[0].amount == 900 && !level.resource_vents[0].depleted &&
+          level.resource_vents[0].active && level.resource_vents[0].rate == 8);
     CHECK(level.resource_vents[1].amount == 900 && !level.resource_vents[1].active && level.resource_vents[2].amount == 3);
     free(trig); unload(); remove("/tmp/open-rts-sc-resource.chk");
 

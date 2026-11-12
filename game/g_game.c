@@ -326,7 +326,7 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
                 resourcevent_t *vent = &level.resource_vents[v];
                 if (vent->source_id != source->id) continue;
                 vent->source_id = new_unit->id;
-                vent->active = vent->amount > 0;
+                vent->active = vent->amount > 0 || vent->depleted;
             }
             P_RemoveMobj(source);
             break;

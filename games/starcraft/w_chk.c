@@ -512,10 +512,10 @@ bool sc_add_resource_vent(mobj_t *mo, int amount) {
     irect_t bounds = P_MobjCells(mo);
     vents[level.resource_vent_count++] = (resourcevent_t){
         .cell = {bounds.x, bounds.y}, .footprint = {bounds.w, bounds.h},
-        .attachment = fixed3_xy(mo->core.position), .amount = amount, .rate = 8,
+        .attachment = fixed3_xy(mo->core.position), .amount = amount, .rate = !amount && !minerals ? 2 : 8,
         .active = mo->type_id != MT_VESPENE_GEYSER, .exhausts_source = minerals,
         .resource_type = minerals ? 0 : 1, .source_id = mo->id,
-        .depleted_rate = minerals ? 0 : 2};
+        .depleted_rate = minerals ? 0 : 2, .depleted = !amount && !minerals};
     return true;
 }
 

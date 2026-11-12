@@ -18,8 +18,12 @@ exercises hallucinated units and resource selection separately.
 Pinned OpenBW action 44 uses the action's `num_n` byte at offset 27 as the
 Create Unit count, including zero; offset 20 is a separate 32-bit field. The
 former implementation read offset 20 and always created at least one unit.
-`test_mission` covers zero and three. Placement remains an engine approximation,
-and Create Unit with Properties (action 11) has not been independently traced.
+`test_mission` covers zero and three for both Create Unit forms. eudplib's
+`stockact.py` constructs action 11 with the property slot at +20 and count at
++27; `proptable.py` explicitly numbers slots from 1. The property lookup now
+subtracts one. A CHK fixture sets slot 1 to 50% HP and creates three Marines,
+checking both fields together. These are tool-source findings, not a retail
+executable trace; other property fields and placement remain incomplete.
 OpenBW action 44 also forces mineral fields and geysers to neutral owner 11,
 irrespective of the selected player, and initializes them with 1500 minerals
 or 5000 gas in `trigger_create_unit`. Trigger-created deposits now use the
@@ -28,11 +32,18 @@ checks both kinds, mines and returns minerals, and checks vent closure when
 the source is removed. OpenBW also initializes directly created Refinery,
 Extractor and Assimilator units with 5000 gas; these keep the selected owner
 and receive active vents. A save regression round-trips a dynamically added
-geyser and its vent. Refinery construction over a trigger-created geyser uses
-the existing geyser path; its complete lifecycle is not separately tested.
+geyser and its vent. Another fixture builds a refinery over a trigger-created
+zero-gas geyser and gathers its depleted two-gas yield.
 Resource-vent slots are appended and closed rather than removed when a source
 disappears, preserving harvester indices; repeated create/remove triggers can
 therefore grow the vent array until level teardown.
+eudplib `unitprp.py` identifies UPRP data-valid bit 0x10 and the resource u32
+at +8. Create Unit with Properties installs a vent using that amount (or the
+standard default when absent), clamped to the engine's signed range. A
+24-mineral fixture is mined and a zero-gas refinery checks depleted yield.
+Applying action 44's defaults and neutral owner to action 11 is inferred:
+OpenBW does not implement action 11 directly. Set Resource Amount restores
+the normal rate when replenishing a depleted gas vent.
 
 OpenBW action 24 walks the selected players' complete unit lists and does not
 exclude hallucinations. Remove Unit now traverses the thinker list directly,

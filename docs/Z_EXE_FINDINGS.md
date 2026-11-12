@@ -1899,8 +1899,7 @@ the stored team. Unless effect +0x22 is 127, each wrap subtracts 8 and
 removes the effect when the signed result is negative. `0x4ab23` can alter
 damage and lifetime behavior according to terrain/object checks. The
 damage byte comes from global `0x144d9b`, set to 20 at `0x472b0` and also
-written from a data byte at `0x50dc9`; its full initialization and terrain
-semantics need tracing. Ground fire is therefore a recurring area effect,
+written from a data byte at `0x50dc9`. Ground fire is a recurring area effect,
 not a single immediate hit. Reproduce with `r2 -q -e bin.cache=true -c
 'pd 45 @ 0x5969f' -c 'pd 45 @ 0x4a677' -c 'pd 75 @ 0x4aa53' -c 'pd 45
 @ 0x868ef' -c q data/Z/ZED.EXE`.
@@ -1916,13 +1915,36 @@ for the effect's initial +0x22. For example table entries 0, 8, 16, 40,
 and 51 are 6, 50, 12, 100, and 127 respectively; these are terrain indices,
 not a random lifetime. The special +0x22 value 127 avoids lifetime
 decrement at the normal damage wrap. In `0x4ab23`, if the coordinate checks
-at `0x281da`/`0x29fd8` fail, damage is scaled by global `0x11d4cd` as
-`max(1, damage * factor / 100)`, and a flag selects the one-step lifetime
-decrement path. Startup at `0x4734c` writes factor 24 (the executable's
-static byte is 50); the exact checked objects and all runtime writes remain
-unknown. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @ 0x50cbc' -c
+at `0x281da`/`0x29fd8` find an active building or an eligible bridge, damage
+is scaled by global `0x11d4cd` as `max(1, damage * factor / 100)`.
+`0x281da` scans 35 BUILD records with nonzero health and inclusive descriptor
+footprints; flag `0x14aa50` includes building type 2. If no building covers
+the point, `0x29fd8` scans 12 bridge rectangles, skipping records whose
+flags +0x0f contain bit 2. Startup at `0x4734c` writes factor 24 (the
+executable's static byte is 50); all runtime writes remain unknown. Correction:
+although `0x4aafb` contains a decrement-by-one path based on a flag set by
+these checks, `0x4aaf9` unconditionally jumps past it to the subtract-eight
+path. No incoming branch to `0x4aafb` was found in the linear disassembly,
+so the one-step path is not claimed reachable. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @ 0x50cbc' -c
 'pd 15 @ 0x50dc6' -c 'pd 12 @ 0x5fcdd' -c 'px 64 @ 0x1157a7' -c
 'pd 45 @ 0x4ab23' -c q data/Z/ZED.EXE`.
+
+**Flame sprites and area geometry:** descriptors 71..77 at `0xe6063`
+select base sprite IDs 5836, 557, 469, 5840, 5844, 5848 and 5854,
+respectively. `0x4aa74..0x4aaa5` wraps IDs 557, 5848 and 5854 after six
+advances; the other four wrap after four. Frame begins at zero. The effect
+pass is gated by global `0x10e91b` at `0x4a6c2`, but also by display-list
+limit checks at `0x4a695..0x4a6bd`; these calls alone do not prove a fixed
+offscreen simulation period. The unit candidate rectangle starts at the
+effect coordinates and ends at +24,+24, with both edges inclusive.
+`0x64364..0x643bd` tests each unit's top-left +8,+8, or +16,+16 for class 1,
+against those edges. Separately `0x88a7f` scans 100 other object records
+within absolute coordinate differences <=24 on each axis; it is not the
+unit rectangle. Effect allocation, display-list coupling, map-object damage,
+and flame projectile flight and target scatter remain unimplemented.
+Inspect with `r2 -q -e bin.cache=true -c 'px 175 @ 0xe6063' -c 'pd 65 @
+0x4a677' -c 'pd 30 @ 0x4aa74' -c 'pd 35 @ 0x868ef' -c 'pd 40 @ 0x64364'
+-c 'pd 45 @ 0x88a7f' -c q data/Z/ZED.EXE`.
 
 **Further mode investigation:** the wrapper at `0x1e9dc` calls the ordinary
 vehicle pass `0x57dd6`, then calls the scanner at `0x1ea0d`; that scanner

@@ -399,6 +399,7 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
             if (vent->source_id != mo->id) continue;
             vent->amount = amount > INT_MAX ? INT_MAX : (int)amount;
             vent->depleted = !vent->amount && vent->depleted_rate > 0;
+            vent->rate = vent->depleted ? vent->depleted_rate : 8;
             vent->active = mo->type_id != MT_VESPENE_GEYSER &&
                 (vent->amount > 0 || vent->depleted);
             break;
@@ -430,8 +431,8 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
 }
 
 static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
-    if (!m->uprp || index >= m->uprp_size / 20) return;
-    const uint8_t *p = m->uprp + index * 20;
+    if (!m->uprp || !index || index > m->uprp_size / 20) return;
+    const uint8_t *p = m->uprp + (index - 1) * 20;
     unsigned special = read_u16_le(p), data = read_u16_le(p + 2), state = read_u16_le(p + 14);
     if ((data & 1) && p[4] < 8) {
         mo->owner = mo->team = p[4];
@@ -451,7 +452,7 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     int l, t, r, b;
     if (!loc_box(m, loc ? loc : 64, &l, &t, &r, &b)) return;
     bool props = (a[28] & 8) != 0;
-    int count = a[26] == 44 ? a[27] : 1;
+    int count = a[27];
     for (int i = 0; i < n; i++) for (int c = 0; c < count; c++) {
         int col = c % 8, row = c / 8;
         ivec2_t pixel = {(l + r) / 2 + col * 32, (t + b) / 2 + row * 32};
@@ -460,9 +461,16 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
         bool resource = (unit + 1 >= MT_MINERAL_FIELD1 && unit + 1 <= MT_MINERAL_FIELD3) ||
                         unit + 1 == MT_VESPENE_GEYSER;
         bool refinery = unit + 1 == MT_REFINERY || unit + 1 == MT_EXTRACTOR || unit + 1 == MT_ASSIMILATOR;
-        mobj_t *mo = sc_spawn_actor(unit, pixel, resource && a[26] == 44 ? 11 : (uint8_t)players[i]);
-        if (mo && (resource || refinery) && a[26] == 44 &&
-            !sc_add_resource_vent(mo, unit + 1 >= MT_MINERAL_FIELD1 && unit + 1 <= MT_MINERAL_FIELD3 ? 1500 : 5000)) {
+        int amount = unit + 1 >= MT_MINERAL_FIELD1 && unit + 1 <= MT_MINERAL_FIELD3 ? 1500 : 5000;
+        if (props && number && m->uprp && number <= m->uprp_size / 20) {
+            const uint8_t *p = m->uprp + (number - 1) * 20;
+            if (read_u16_le(p + 2) & 16) {
+                unsigned value = read_u32_le(p + 8);
+                amount = value > INT_MAX ? INT_MAX : (int)value;
+            }
+        }
+        mobj_t *mo = sc_spawn_actor(unit, pixel, resource ? 11 : (uint8_t)players[i]);
+        if (mo && (resource || refinery) && !sc_add_resource_vent(mo, amount)) {
             P_RemoveMobj(mo);
             continue;
         }
