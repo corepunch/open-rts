@@ -179,8 +179,13 @@ including transported passengers at their transport's location and elevation;
 At Most uses the visible-unit count and omits hidden passengers. Bring now
 handles loaded passengers this way, including when their stored position is
 stale. A fixture tests both sides of a location boundary for all three
-comparisons. Broader completed-versus-incomplete unit counting and the native
-handling of powerups remain incomplete. OpenBW also counts stored Carrier
+comparisons. OpenBW clears completed status while Zerg units and buildings
+morph. Command and Bring now omit actively morphing Eggs, Cocoons and Zerg
+buildings from At Least/Exactly counts, while At Most still counts them;
+researching buildings and completed Eggs remain counted. Fixtures cover both
+conditions and all comparisons. The engine does not represent unfinished
+placed structures as mobjs, so broader native completion counting remains
+incomplete, as does handling of powerups. OpenBW also counts stored Carrier
 Interceptors and ready Nuclear Silo missiles in completed Bring counts;
 both now use the owning hangar's location and height, with all three
 comparison types tested. OpenBW's corresponding Reaver branch credits its

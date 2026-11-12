@@ -1230,6 +1230,29 @@ int main(void) {
             CHECK(level.player_resources[0][0] == (bring_ops[op_index] == 1 || hangar_inside ? 10 : 0));
             free(trig); unload();
         }
+    /* Completed counts omit active Zerg morphs, while At Most counts both. */
+    const int morph_types[] = {MT_EGG, MT_COCOON, MT_HATCHERY, MT_HATCHERY};
+    for (int morph = 0; morph < 4; morph++) for (int condition = 2; condition <= 3; condition++)
+        for (int op_index = 0; op_index < 3; op_index++) {
+            trig = blank_trigger(); CHECK(trig); put_u32(trig, 1);
+            put_u32(trig + 8, bring_ops[op_index] == 1 ? 1 : 2);
+            put_u16(trig + 12, morph_types[morph] - 1); trig[14] = bring_ops[op_index]; trig[15] = condition;
+            action = trig + 320; action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+            CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+            CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+            sc_mission_t *morph_mission = level.mission; morph_mission->loc_count = 1;
+            morph_mission->loc_right[0] = morph_mission->loc_bottom[0] = 256;
+            mobj_t *morphing = sc_spawn_actor(morph_types[morph] - 1, (ivec2_t){128, 128}, 0);
+            mobj_t *complete = sc_spawn_actor(morph_types[morph] - 1, (ivec2_t){192, 128}, 0);
+            CHECK(morphing && complete);
+            morphing->production = calloc(1, sizeof(*morphing->production)); CHECK(morphing->production);
+            morphing->production->queue_count = 1;
+            morphing->production->product_class = morph == 2 ? RTS_PRODUCT_BUILDING :
+                morph == 3 ? RTS_PRODUCT_UPGRADE : RTS_PRODUCT_UNIT;
+            ticks(1, &(hudtext_t){0});
+            CHECK(level.player_resources[0][0] == (morph == 3 && bring_ops[op_index] != 1 ? 10 : 0));
+            free(trig); unload();
+        }
     remove("/tmp/open-rts-sc-order-trigger.chk");
 
     /* Move Unit teleports immediately; a count limits selected units. */

@@ -195,8 +195,17 @@ static bool alive_unit(const mobj_t *mo) {
     return mo->hp > 0 && !mo->remove && !(mo->sc.flags & SC_HALLUCINATION);
 }
 
+/* OpenBW clears completed status while Zerg units and buildings morph. */
+static bool trigger_completed(const mobj_t *mo) {
+    if (!mo->production || !mo->production->queue_count) return true;
+    if (mo->type_id == MT_EGG || mo->type_id == MT_COCOON) return false;
+    const sc_unit_t *type = sc_unit(mo);
+    return !type || !(type->flags & SC_UNIT_BUILDING) || !(type->race & 1) ||
+           mo->production->product_class != RTS_PRODUCT_BUILDING;
+}
+
 static int count_units(const int *players, int nplayers, unsigned unit, unsigned loc,
-                       const sc_mission_t *m, int cargo) {
+                       const sc_mission_t *m, int cargo, bool completed) {
     int l, t, r, b;
     bool anywhere = !loc || loc == 64;
     if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return 0;
@@ -204,7 +213,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
     if (!thinkercap.next) return 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
-        if (th->function != P_MobjThinker || !alive_unit(mo)) continue;
+        if (th->function != P_MobjThinker || !alive_unit(mo) || (completed && !trigger_completed(mo))) continue;
         bool virtual_hangar = cargo > 0 && mo->sc.hangar > 0 &&
             ((mo->type_id == MT_CARRIER && unit == MT_INTERCEPTOR - 1) ||
              (mo->type_id == MT_NUCLEAR_SILO && unit == MT_NUCLEAR_MISSILE - 1));
@@ -249,7 +258,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 2 || type == 3) {
         unsigned where = type == 3 ? loc : 0;
-        return cmp_num(op, count_units(players, n, unit, where, m, type == 3 ? op != 1 : -1), qty);
+        return cmp_num(op, count_units(players, n, unit, where, m, type == 3 ? op != 1 : -1, op != 1), qty);
     }
     if (type == 4) {
         uint64_t total = 0;
@@ -272,14 +281,14 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         players[0] = current;
         n = 1;
         unsigned where = (type == 7 || type == 17) ? loc : 0;
-        int mine = count_units(players, n, unit, where, m, -1), others = 0;
+        int mine = count_units(players, n, unit, where, m, -1, false), others = 0;
         bool most = type == 6 || type == 7;
         for (int p = 0; p < 8; p++) {
             bool in = false;
             for (int i = 0; i < n; i++) if (players[i] == p) in = true;
             if (in || !slot_active(m, p)) continue;
             int one = p;
-            int count = count_units(&one, 1, unit, where, m, -1);
+            int count = count_units(&one, 1, unit, where, m, -1, false);
             others++;
             if (most ? count >= mine : count <= mine) return false;
         }
