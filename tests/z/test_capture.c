@@ -193,6 +193,39 @@ static int test_grenades(void) {
     return 0;
 }
 
+static int test_crate_leader_remainder(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for grenade remainder");
+    mobj_t *box = nth(MT_GRENADES_2, -1, 0);
+    mobj_t *follower = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    mobj_t *other = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    mobj_t *leader = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    if (!box || !follower || !other || !leader) return fail("grenade remainder fixture");
+    Z_SetTeam(follower, 0); Z_SetTeam(other, 0); Z_SetTeam(leader, 0);
+    uint8_t squad = Z_AllocateSquad(0);
+    follower->z.squad = other->z.squad = leader->z.squad = squad;
+    follower->z.squad_slot = 2; other->z.squad_slot = 1; leader->z.squad_slot = UINT8_MAX;
+    place(box, (ivec2_t){20, 20}); place(follower, (ivec2_t){20, 20});
+    place(other, (ivec2_t){1, 1}); place(leader, (ivec2_t){1, 1});
+    Z_Ticker();
+    if (!squad || !box->remove || leader->z.grenades != 8 || follower->z.grenades != 6 || other->z.grenades != 6)
+        return fail("grenade remainder follows leader slot rather than spawn order");
+    mobj_t *third = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    box = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){20, 20}), 0), MT_GRENADES_2);
+    if (!third || !box) return fail("promoted grenade leader fixture");
+    Z_SetTeam(third, 0);
+    third->z.squad = squad; third->z.squad_slot = 3;
+    follower->z.grenades = other->z.grenades = leader->z.grenades = 0;
+    Z_SquadLeave(leader);
+    if (other->z.squad_slot != UINT8_MAX) return fail("lowest surviving slot becomes leader");
+    place(third, (ivec2_t){1, 1});
+    Z_Ticker();
+    if (!box->remove || other->z.grenades != 8 || follower->z.grenades != 6 || third->z.grenades != 6)
+        return fail("promoted leader receives grenade remainder");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_crate_order(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for crate order");
@@ -454,6 +487,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_grenades() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_grenades() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

@@ -271,8 +271,8 @@ static bool squad_mate(const mobj_t *robot, const mobj_t *other) {
                               other->team == robot->team && robot_type(other) >= 0);
 }
 
-/* A crate gives 10 or 20 grenades to a squad that has none, shared out
- * over its members with the remainder to the first (0x79bea). */
+/* 0x79bea divides among occupied group slots, giving the remainder to
+ * slot zero (the leader), regardless of thinker allocation order. */
 static bool pick_up(mobj_t *robot, mobj_t *crate) {
     int held = 0, members = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -283,13 +283,12 @@ static bool pick_up(mobj_t *robot, mobj_t *crate) {
     }
     if (held || !members) return false;
     int total = crate->type_id == MT_GRENADES ? 10 : 20, share = total / members;
-    bool first = true;
+    const mobj_t *leader = Z_SquadLeader(robot);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *other = (mobj_t *)th;
         if (th->function != P_MobjThinker || !squad_mate(robot, other)) continue;
-        int count = share + (first ? total % members : 0);
+        int count = share + (other == leader ? total % members : 0);
         other->z.grenades = (uint8_t)(count < MAX_GRENADES ? count : MAX_GRENADES);
-        first = false;
     }
     P_RemoveMobj(crate);
     return true;

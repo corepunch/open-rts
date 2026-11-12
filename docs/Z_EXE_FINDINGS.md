@@ -2568,6 +2568,16 @@ covers all four exclusive boundaries, the diagonal corner and existing squad
 sharing. The current engine still invokes collection from its per-tic robot
 pass; this does not establish exact native terrain-dispatch timing.
 
+**Confirmed slot-order correction:** `0x79bea..0x79c38` divides the crate
+total by group +0x12, then traverses the 21 member slots beginning at +0x13.
+The remainder is applied to slot zero and cleared before the next slot. For
+a valid group slot zero is its leader, including a promoted leader. The
+prior open-rts code instead gave the remainder to the first matching thinker,
+which can be a follower after promotion or a different allocation order.
+`test_capture` creates followers before their leader and checks an exact
+8/6/6 split for 20 grenades. Inspect with `r2 -q -e bin.cache=true -c
+'pd 30 @ 0x79bea' -c q data/Z/ZED.EXE`.
+
 **Implemented with stated engine scope:** `games/z/p_detour.c` applies the
 native sector ordering, initial object visibility masks, direction predicates,
 SQROOT ranking, terrain line and flag-destination guard to ordinary ground
