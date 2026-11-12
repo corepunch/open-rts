@@ -106,9 +106,11 @@ The implemented condition field reads were compared against eudplib
 opponents (14), deaths (15), Always/Never (22–23). Conditions 6, 7, 16 and 17
 have no player argument: they compare the executing trigger owner. They formerly
 used the unused player field, normally zero; two-player fixtures now use a
-conflicting player-field value for all four cases. This checks field use only;
-tie behavior, neutral/rescue players, completion and collision-box location
-semantics remain incomplete or unverified.
+conflicting player-field value for all four cases. eudplib also describes
+neutral and rescuable players participating in Most/Least comparisons. Fixtures
+cover active OWNR 7 and 3 slots within 0–7 for both conditions; owner slot 11
+is still excluded by the engine's eight-player selector. Tie behavior,
+completion and collision-box location semantics remain incomplete or unverified.
 PyMS defines Modify Unit Hit Points (action 49) with a quantity that may be
 All and a percentage in 0–100. It now shares the complete traversal used by
 energy and shield modification instead of truncating All at 256 units; the

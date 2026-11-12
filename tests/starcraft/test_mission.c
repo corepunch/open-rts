@@ -219,6 +219,31 @@ int main(void) {
         unload(); free(compare_trigger);
     }
     remove("/private/tmp/sc-compare-owner.chk");
+    /* Neutral and rescuable player slots participate in Most and Least. */
+    for (int kind = 3; kind <= 7; kind += 4) for (int least = 0; least <= 1; least++) {
+        uint8_t compare_owners[12] = {6, 5, (uint8_t)kind};
+        uint8_t *compare_trigger = blank_trigger(); CHECK(compare_trigger);
+        compare_trigger[2372+17] = 0; compare_trigger[2372+1] = 1;
+        put_u16(compare_trigger+12, MT_MARINE - 1); compare_trigger[15] = least ? 16 : 6;
+        compare_trigger[320+26] = 26; compare_trigger[320+27] = 8;
+        put_u32(compare_trigger+320+16, 1); put_u32(compare_trigger+320+20, 10);
+        CHECK(!write_map("/private/tmp/sc-compare-neutral.chk", compare_owners, compare_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-compare-neutral.chk", &level));
+        CHECK(spawn(MT_MARINE - 1, 1) && spawn(MT_MARINE - 1, 1));
+        int others = least ? 3 : 1;
+        for (int i = 0; i < others; i++) CHECK(spawn(MT_MARINE - 1, 0));
+        mobj_t *third[3];
+        int third_count = least ? 1 : 3;
+        for (int i = 0; i < third_count; i++) { third[i] = spawn(MT_MARINE - 1, 2); CHECK(third[i]); }
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 0);
+        if (least) CHECK(spawn(MT_MARINE - 1, 2) && spawn(MT_MARINE - 1, 2));
+        else { P_RemoveMobj(third[1]); P_RemoveMobj(third[2]); }
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 10);
+        unload(); free(compare_trigger);
+    }
+    remove("/private/tmp/sc-compare-neutral.chk");
     /* Giving a transport also transfers passengers and clears its old orders. */
     uint8_t *give_trigger = blank_trigger(); CHECK(give_trigger);
     give_trigger[2372+17] = 0; give_trigger[2372+1] = 1;

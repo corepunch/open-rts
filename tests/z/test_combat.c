@@ -360,6 +360,19 @@ static int test_gun_drivers(void) {
     for (int n = 0; n < 256; ++n, ++leveltime)
         Z_HitDamage(shooter, &shooter->info->attack, tank, 1, 1);
     if (tank->z.crew_hurt) return fail("ordinary tank does not use the open gun driver rule");
+    mobj_t *boundary = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 16, 0), 500);
+    if (!boundary) return fail("spawn driver health boundary fixture");
+    boundary->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    boundary->z.crew_count = 1;
+    boundary->z.crew[0] = (zcrew_t){.hp = 15, .type = MT_UNIT_GRUNT - MT_UNITS};
+    for (int n = 0; n < 256 && !boundary->z.crew_hurt; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, boundary, 15, 1);
+    if (boundary->z.crew_hurt != 15 || !boundary->z.driver || boundary->team != 1)
+        return fail("driver at zero health remains aboard at native signed boundary");
+    for (int n = 0; n < 256 && boundary->z.driver; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, boundary, 1, 1);
+    if (boundary->z.driver || boundary->team != Z_NEUTRAL)
+        return fail("next driver hit below zero empties the Jeep");
     mobj_t *gun = blast_unit(MT_UNIT_GATLING, 1, pixel_at(at, 16, 0), 500);
     if (!gun) return fail("spawn gun for real attack");
     gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;

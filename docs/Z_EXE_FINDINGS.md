@@ -3079,7 +3079,9 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   runtime class +0x79 = 2 to Light Gun, Gatling, Howitzer and Missile Gun;
   `0x5ad74` accepts class 2 and sets the accuracy shift to one. The native
   subtract at `0x86d39` and signed return to `0x5ae0d` empty the gun when
-  its driver's health becomes negative. Open-rts now uses this gun set and
+its driver's health becomes negative; a result of exactly zero remains
+occupied until a further driver hit. `test_combat` checks that boundary on
+a Jeep as well as the subsequent neutralization. Open-rts uses this gun set and
   half-accuracy rule; its deterministic hit coin and impact timing remain
   approximations. `test_combat` checks driver hits and neutralization for
   all four guns and the ordinary tank exclusion. Reproduce with `r2 -q -e
