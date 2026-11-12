@@ -3658,6 +3658,25 @@ which takes its target from the gun body and does not run this scatter call.
 `test_combat` verifies shared two-rocket scatter, native trig and save/load
 reproduction. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x782f2'
 -c 'pd 40 @ 0x7628f' -c 'pd 45 @ 0x78201' -c q data/Z/ZED.EXE`.
+
+**Moving-target lead refinement:** for the fixed-gun caller above, the
+ordinary branch of `0x7628f..0x763ec` admits target actions 2 and 7,
+action 8 outside vehicle class 1, or a class-1 vehicle whose body +0x17
+bit 1 is set. The call to `0x640ff` gates extrapolation using a random
+accuracy test; its threshold conditionally includes a 25% bonus when the
+shooter +0x67 bit 0x80 is clear. It quantizes the source/target delta by
+arithmetic shift 4, indexes the square-root table with the clamped sum of
+squares, multiplies the table byte by 16, divides by shooter byte +0x76
+(default 8 if zero), and masks the quotient with 0x3f. Starting from the
+target's movement-pattern pointer +0x20, it consumes that many pattern
+entries and adds their word values along the target-facing directions in
+the eight-entry jump table at `0x14a788`. The loop executes at least one
+pattern entry even when the masked count is zero. Target action, movement
+pattern position, and the shooter flag are not presently equivalent to the
+engine's velocity and route state; applying a simple velocity-times-distance
+lead would not reproduce this branch. Reproduce with `r2 -q -e
+bin.cache=true -c 'pd 90 @ 0x7628f' -c 'pd 30 @ 0x640ff' -c 'pxw 32 @
+0x14a788' -c q data/Z/ZED.EXE`.
 A zero period for timed missiles
 now means one simulation step per tic, including flights longer than 99
 tics; other missile periods keep their existing millisecond clock.
