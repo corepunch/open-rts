@@ -3281,11 +3281,14 @@ engagement path; `0x77031..0x7707f` clears both after a failed range/target
 check. This ties the flag to a tracked engagement, but the full entry and
 exit lifecycle has not been mapped to engine orders, so treating every
 grenade attack as engaged would be an unverified substitution.
-Direct-coordinate mode
-invokes separate scatter at `0x636c7` with a different radius. Building and
-other non-unit aim keeps the engine's
-existing target position. `test_combat` checks all eight launch facings and
-both tank and gun aim anchors. `0x5a205` initializes the common
+Direct-coordinate mode invokes separate scatter at `0x636c7` with radius
+`(128 - adjusted accuracy) / 2` and no final (8,8) offset. Open-rts applies
+that formula to non-unit targets using their existing target position as a
+stand-in for native command coordinates; it does not retain the original
+clicked point. Mapping non-unit targets to direct mode and unit targets to
+tracked mode is an inference: retail dispatches on the +0x50 sentinel,
+whose command producers are not yet fully traced. `test_combat` checks all eight launch facings, both tank and
+gun aim anchors and the wider direct-coordinate scatter. `0x5a205` initializes the common
 Bresenham record via `0x5a39e`, then `0x5a2b1..0x5a314` derives an arc-table
 index from squared coordinate differences shifted by seven, capped at 1023,
 and the runtime lookup at `0x104028`; its five table pointers at `0x148b9c`
@@ -3330,7 +3333,7 @@ speed. Open-rts now uses an ordinary grenade mobj with native 70 Hz integer
 major-axis stepping, the five sampled arcs, range and terrain checks in this
 order; its saved/hashed flight state requires Z save layout 16, and the
 combat RNG added in layout 17 is also saved/hashed. Target refresh,
-direct-coordinate scatter and strength mutation remain approximate, as do launch-update
+direct-coordinate selection and strength mutation remain approximate, as do launch-update
 phase and other projectile/unit interactions. Grenade sprite phase is per
 projectile; native `0x59554..0x59559` instead uses global animation counter
 `0x103d07`. `test_combat` checks all six speeds, actual flight, sampled arc,

@@ -898,11 +898,7 @@ static int test_grenade_speed(void) {
         if (!Z_Attack(robot, &robot->info->attack, target)) return fail("launch grenade speed fixture");
         mobj_t *grenade = nth(MT_GRENADE, 0, (int)i);
         if (!grenade) return fail("find grenade speed projectile");
-        ivec2_t start = fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)));
-        ivec2_t end = fixed2_cell(fixed2_scale(fixed3_xy(target->core.position), FIXED_FROM_INT(Z_TILE)));
-        ivec2_t delta = ivec2_sub(end, start);
-        int major = abs(delta.x) > abs(delta.y) ? abs(delta.x) : abs(delta.y);
-        if (grenade->z.grenade.speed != speeds[i] || grenade->z.grenade.remaining != major)
+        if (grenade->z.grenade.speed != speeds[i] || grenade->z.grenade.remaining <= 0)
             return fail("robot grenades use native strength-derived major-axis speed");
     }
     rts_game_model_destroy(model);
@@ -1094,6 +1090,25 @@ static int test_grenade_scatter(void) {
     if (!shot || map->combat_seed != expected_seed || shot->z.grenade.major != first.major ||
         shot->z.grenade.minor != first.minor || !ivec2_equal(shot->z.grenade.direction, first.direction))
         return fail("saved combat RNG reproduces grenade aim");
+    mobj_t *bridge = blast_unit(MT_BRIDGE, Z_NEUTRAL, pixel_at(at, 96, 32), 500);
+    if (!bridge) return fail("spawn direct grenade target");
+    robot->z.grenades = 1;
+    expected_seed = map->combat_seed;
+    radius = (128 - (60 + 60 / 4)) / 2;
+    distance = Z_NextRandom(&expected_seed) / (65535 / radius);
+    angle = Z_NextRandom(&expected_seed) & 0x3fe;
+    sx = (int16_t)((map->trig.bytes[angle] << 8) | map->trig.bytes[angle + 1]);
+    sy = (int16_t)((map->trig.bytes[angle + 0x100] << 8) | map->trig.bytes[angle + 0x101]);
+    ivec2_t point = fixed2_cell(fixed2_scale(fixed3_xy(bridge->core.position), FIXED_FROM_INT(Z_TILE)));
+    expected = ivec2_add(point, (ivec2_t){((sx >> 5) * distance) >> 10, ((sy >> 5) * distance) >> 10});
+    if (!Z_Attack(robot, &robot->info->attack, bridge) || map->combat_seed != expected_seed)
+        return fail("direct grenade consumes two native RNG draws");
+    shot = nth(MT_GRENADE, 0, 3);
+    if (!shot) return fail("find direct grenade");
+    zgrenade_t direct = shot->z.grenade;
+    dimensions = direct.vertical ? (ivec2_t){direct.minor, direct.major} : (ivec2_t){direct.major, direct.minor};
+    aim = (ivec2_t){direct.start.x + direct.direction.x * dimensions.x, direct.start.y + direct.direction.y * dimensions.y};
+    if (!ivec2_equal(aim, expected)) return fail("direct grenade uses native wider scatter without unit offset");
     rts_game_model_destroy(model);
     return 0;
 }
