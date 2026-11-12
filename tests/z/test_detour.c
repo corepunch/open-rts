@@ -3,14 +3,80 @@
 #include "../../games/z/z_local.h"
 #include "../../games/z/info.h"
 #include <stdio.h>
+#include <unistd.h>
 
 #define CHECK(c) RTS_CHECK(c, "Z native detour", #c)
 
-int main(void) {
+static int test_sparse_objects(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/Z"};
     CHECK(model && rts_game_model_load(model, &config));
     zmap_t *map = level.native_data;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker) P_RemoveMobj((mobj_t *)th);
+    P_RunThinkers();
+    map->fort_count = 0; map->territory_count = 1;
+    map->territories[0].options = 0;
+    memset(map->bridges, 0, sizeof(map->bridges));
+    memset(map->cliffs, 0, sizeof(map->cliffs));
+    snprintf(map->dir, sizeof(map->dir), "/private/tmp");
+    snprintf(map->objects, sizeof(map->objects), "O%ld.DAT", (long)getpid());
+    snprintf(map->buildings, sizeof(map->buildings), "B%ld.DAT", (long)getpid());
+    char path[128], building_path[128];
+    snprintf(path, sizeof(path), "/private/tmp/%s", map->objects);
+    snprintf(building_path, sizeof(building_path), "/private/tmp/%s", map->buildings);
+    uint8_t records[5][10];
+    memset(records, 0xff, sizeof(records));
+    records[1][0] = 64; records[1][1] = 1; records[1][2] = 64; records[1][3] = 1;
+    records[1][4] = 9; records[1][5] = 0;
+    records[2][0] = 80; records[2][1] = 1; records[2][2] = 80; records[2][3] = 1;
+    records[2][4] = 0x25; records[2][5] = MT_UNIT_FIRE_TRUCK - MT_UNITS;
+    records[4][0] = 96; records[4][1] = 1; records[4][2] = 96; records[4][3] = 1;
+    records[4][4] = 33; records[4][5] = MT_UNIT_JEEP - MT_UNITS;
+    FILE *f = fopen(path, "wb");
+    CHECK(f && fwrite(records, sizeof(records), 1, f) == 1 && fclose(f) == 0);
+    f = fopen(building_path, "wb");
+    CHECK(f && fclose(f) == 0);
+    Z_LoadThings();
+    remove(path);
+    remove(building_path);
+    mobj_t *flag = NULL, *crate = NULL, *jeep = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) flag = mo;
+        if (mo->type_id == MT_GRENADES) crate = mo;
+        if (mo->type_id == MT_UNIT_JEEP) jeep = mo;
+        CHECK(mo->type_id != MT_UNIT_FIRE_TRUCK);
+    }
+    CHECK(flag && crate && jeep && flag->z.object_slot == 1 &&
+          crate->z.object_slot == 2 && jeep->z.object_slot == 3 && Z_FreeObjectSlot() == 4);
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+int main(void) {
+    if (test_sparse_objects()) return 1;
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {.data_root = "data/Z"};
+    CHECK(model && rts_game_model_load(model, &config));
+    zmap_t *map = level.native_data;
+    /* Native flag markers precede loaded effects in the same first-free
+     * array. Sparse OBJECT record indices must not become slot numbers. */
+    int expected_slot = 1, flag_count = 0, object_count = 0;
+    mobj_t *first_object = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (!mo->z.object_slot) continue;
+        CHECK(mo->z.object_slot == expected_slot++);
+        if (mo->type_id == MT_FLAG) { CHECK(!object_count); ++flag_count; }
+        else { if (!first_object) first_object = mo; ++object_count; }
+    }
+    CHECK(flag_count && object_count && first_object && Z_FreeObjectSlot() == expected_slot);
+    uint8_t freed_slot = first_object->z.object_slot;
+    P_RemoveMobj(first_object);
+    CHECK(Z_FreeObjectSlot() == freed_slot);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         if (th->function == P_MobjThinker) P_RemoveMobj((mobj_t *)th);
     P_RunThinkers();

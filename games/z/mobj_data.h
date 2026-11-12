@@ -15,7 +15,7 @@ enum { Z_DETOUR_TRAVEL = 1, Z_DETOUR_CHEER = 2 };
 typedef struct {
     fixed2_t resume;
     uint32_t target, claimant;
-    uint8_t slot, phase, cooldown;
+    uint8_t phase, cooldown;
 } zdetour_t;
 typedef struct {
     ivec2_t start, direction;
@@ -31,7 +31,7 @@ typedef struct {
  * again. */
 #define MOBJ_GAME_FIELDS struct { \
     zroute_t route; /* Player order queue, or a factory's rally template. */ \
-    zdetour_t detour; /* Native object slot, interaction reservation and interrupted goal. */ \
+    zdetour_t detour; /* Interaction reservation and interrupted goal. */ \
     uint32_t board; \
     uint32_t rating; /* Native building +0x0c production technology. */ \
     int32_t rebuild_stock; uint16_t rebuild_setting; /* BUILD +0x45 / +0x49. */ \
@@ -59,7 +59,7 @@ typedef struct {
     HASH((mo)->z.route.count); HASH((mo)->z.route.active); HASH((mo)->z.route.owner); HASH((mo)->z.route.target); \
     HASH((mo)->z.detour.resume.x); HASH((mo)->z.detour.resume.y); \
     HASH((mo)->z.detour.target); HASH((mo)->z.detour.claimant); \
-    HASH((mo)->z.detour.slot); HASH((mo)->z.detour.phase); HASH((mo)->z.detour.cooldown); \
+    HASH((mo)->z.detour.phase); HASH((mo)->z.detour.cooldown); \
     for (int zi = 0; zi < (mo)->z.route.count && zi < MAXWAYPOINTS; ++zi) { \
         HASH((mo)->z.route.steps[zi].order); HASH((mo)->z.route.steps[zi].target); \
         HASH((mo)->z.route.steps[zi].position.x); HASH((mo)->z.route.steps[zi].position.y); HASH((mo)->z.route.steps[zi].position.z); \

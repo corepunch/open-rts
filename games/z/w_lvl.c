@@ -599,6 +599,7 @@ int Z_LoadThings(void) {
         mobj_t *flag = spawn(MT_FLAG, S_FLAG, ivec2_scale(t->flag, Z_TILE), (isize2_t){Z_TILE, Z_TILE},
                              t->team);
         if (!flag) continue;
+        flag->z.object_slot = (uint8_t)Z_FreeObjectSlot();
         flag->z.territory = (uint8_t)(i + 1);
         /* draw_flags sorts a flag 32 pixels lower so a fort's roof does
          * not hide it: stand it two cells down and as high, which draws it
@@ -652,10 +653,13 @@ int Z_LoadThings(void) {
         for (size_t at = 0; at + 10 <= blob.size; at += 10) {
             const uint8_t *r = blob.bytes + at;
             int type = r[4] + 1;
-            if (read_u16_le(r) == 0xffff || type >= MT_FORT) continue;
+            /* 0x18427..0x18443 skips unused records and object type 0x25. */
+            if (read_u16_le(r) == 0xffff || type >= MT_FORT || r[4] == 0x25) continue;
             ivec2_t pixel = {read_u16_le(r), read_u16_le(r + 2)};
             isize2_t size;
             if (!Z_SpriteSize(map, states[mobjinfo[type].spawnstate].frame, &size)) continue;
+            int slot = Z_FreeObjectSlot();
+            if (!slot) continue;
             /* An empty gun or vehicle names its weapon type in byte 5.
              * Nobody drives it: it keeps the object's crewless picture
              * and neither moves nor fights until a robot gets in
@@ -664,7 +668,7 @@ int Z_LoadThings(void) {
                 mobj_t *mo = spawn(MT_UNITS + r[5], mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
                 if (mo) {
                     mo->z.object = (uint8_t)(r[4] + 1);
-                    mo->z.object_slot = (uint8_t)(at / 10 + 1);
+                    mo->z.object_slot = (uint8_t)slot;
                     mo->z.object_hp = object_weapon_health[r[5]];
                     mo->traits &= ~(MF_MOBILE | MF_ATTACK);
                     count++;
@@ -673,8 +677,8 @@ int Z_LoadThings(void) {
             }
             mobj_t *mo = spawn(type, mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
             if (mo) {
+                mo->z.object_slot = (uint8_t)slot;
                 if (type == MT_GRENADES || type == MT_GRENADES_2) {
-                    mo->z.object_slot = (uint8_t)(at / 10 + 1);
                     if (r[5] < Z_UNIT_TYPES) mo->z.object_hp = object_weapon_health[r[5]];
                 }
                 count++;

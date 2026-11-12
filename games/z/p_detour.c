@@ -110,20 +110,20 @@ static void objects(mobj_t **slots) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *mo = (mobj_t *)th;
-        if (!object(mo) || !mo->z.detour.slot || mo->z.detour.slot > OBJECT_SLOTS) continue;
-        used[mo->z.detour.slot - 1] = true;
-        slots[mo->z.detour.slot - 1] = mo;
+        if (mo->remove || !mo->z.object_slot || mo->z.object_slot > OBJECT_SLOTS) continue;
+        used[mo->z.object_slot - 1] = true;
+        if (object(mo)) slots[mo->z.object_slot - 1] = mo;
     }
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *mo = (mobj_t *)th;
-        if (!object(mo) || mo->z.detour.slot) continue;
+        if (!object(mo) || mo->z.object_slot) continue;
         int slot = 0;
         while (slot < OBJECT_SLOTS && used[slot]) ++slot;
         if (slot == OBJECT_SLOTS) break;
         used[slot] = true;
         slots[slot] = mo;
-        mo->z.detour.slot = (uint8_t)(slot + 1);
+        mo->z.object_slot = (uint8_t)(slot + 1);
     }
 }
 

@@ -28,7 +28,7 @@ static bool live(const mobj_t *mo) { return mo && !mo->remove && mo->hp > 0; }
 
 /* Native 0x4a5d7 picks the first free effect slot. We can account only for
  * represented effects; other native effects can occupy these slots too. */
-static int empty_slot(void) {
+int Z_FreeObjectSlot(void) {
     bool used[200] = {false};
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
@@ -202,7 +202,6 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
                                                       : P_PointToAngle(-FIXED_ONE, 0);
     P_SetMobjState(vehicle, mobjinfo[vehicle->type_id].spawnstate);
     vehicle->traits |= vehicle->info->traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK | MF_TURRET);
-    vehicle->z.detour.slot = 0;
     vehicle->z.detour.claimant = 0;
     Z_SetTeam(vehicle, robot->team);
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
@@ -286,7 +285,7 @@ bool Z_EjectCrew(mobj_t *vehicle) {
                         t == MT_UNIT_LIGHT_GUN - MT_UNITS ? MT_GUN :
                         t == MT_UNIT_GATLING - MT_UNITS ? MT_GATTLING :
                         t == MT_UNIT_HOWITZER - MT_UNITS ? MT_HOWITZER : MT_MISSILE);
-    vehicle->z.object_slot = (uint8_t)empty_slot();
+    vehicle->z.object_slot = (uint8_t)Z_FreeObjectSlot();
     vehicle->z.object_hp = vehicle->hp / 25 ? vehicle->hp / 25 : 1;
     vehicle->traits &= ~(MF_MOBILE | MF_ATTACK);
     vehicle->attack.target = NULL;
@@ -486,7 +485,7 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
                      t == MT_UNIT_MISSILE_GUN - MT_UNITS ? MT_MISSILE : MT_JEEP;
         fixed2_t position;
         bool fits = gun ? empty_gun_position(target, object, &position) : empty_jeep_position(target, &position);
-        int slot = empty_slot();
+        int slot = Z_FreeObjectSlot();
         if (!fits || !slot) P_RemoveMobj(target);
         else {
             target->core.position = fixed3_from_fixed2(position, target->core.position.z);

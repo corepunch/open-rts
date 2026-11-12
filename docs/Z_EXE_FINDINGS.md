@@ -2843,6 +2843,26 @@ the original object's separate search mask may be discarded. Reproduce with
 `r2 -q -e bin.cache=true -c 'pd 40 @ 0x79174' -c 'px 144 @ 0x1047ca'
 -c 'pd 85 @ 0x4a354' -c 'pd 15 @ 0x4a5d7' -c 'pd 30 @ 0x4abc4'
 -c q data/Z/ZED.EXE`.
+**Unified represented slot order:** during the traced level setup,
+`0x13562` creates flag markers through `0x2a89f`/`0x2a9fb`, and
+`0x13835` subsequently calls the OBJECT-record pass at `0x18418`.
+That pass checks 150 ten-byte records, skips x = 0xffff and type 0x25,
+and calls `0x4a184`, which uses the same first-free allocator `0x4a5d7`
+as flag markers and later empty vehicles. Holes in OBJECT files therefore
+do not reserve effect slots. Open-rts now stores one represented effect
+slot on each thinker for both detour ordering and shell selection; loaded
+flag markers and all represented OBJECT records allocate in this order,
+and removal or boarding releases their slot. It no longer uses OBJECT
+record index as the shell-selection slot or a second independent detour
+slot. Z save layout 20 records this field once. Native transient effects
+that the engine does not represent can still occupy slots and alter retail
+ordering; an unslotted represented object, including a Zod-ejected hull,
+can acquire a released represented slot on a later detour scan.
+`test_detour` covers flags, sparse records,
+the type-0x25 skip and slot reuse; combat tests cover shell ordering,
+pool exhaustion and save/load. Inspect `r2 -q -e bin.cache=true -c
+'pd 18 @ 0x1354c' -c 'pd 12 @ 0x13821' -c 'pd 25 @ 0x18418'
+-c 'pd 25 @ 0x4a184' -c 'pd 15 @ 0x4a5d7' -c q data/Z/ZED.EXE`.
 `0x603d8` rebuilds those lists before the unit pass at `0x6040c`. The
 leader-only guard at `0x78bfb` invokes `0x64473`, which for group command
 +0x3a equal to 1 resolves an object at the group's +0x2c/+0x2e destination,
