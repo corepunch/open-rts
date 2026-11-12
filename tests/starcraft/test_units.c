@@ -407,6 +407,7 @@ static int protoss_spells(void) {
     learn(0, SC_TECH_HALLUCINATION);
     ht = caster(MT_HIGH_TEMPLAR, FIXED2_LIT(4.5, 4.5));
     mobj_t *zealot = spawn(MT_ZEALOT, FIXED2_LIT(7.5, 4.5), 0), *marine = spawn(MT_MARINE, FIXED2_LIT(8.5, 5.8), 1);
+    CHECK(zealot); sc_initial_hp(zealot, 33);
     CHECK(sc_cast(ht, SC_TECH_HALLUCINATION, zealot, at_of(zealot)) && count_of(MT_ZEALOT, 0) == 3);
     int supply, cap;
     sc_supply_counts(0, &supply, &cap);
@@ -416,10 +417,29 @@ static int protoss_spells(void) {
         mobj_t *mo = (mobj_t *)th;
         if (mo->type_id == MT_ZEALOT && (mo->sc.flags & SC_HALLUCINATION)) copy = mo;
     }
-    CHECK(copy && copy->owner == 0 && shoot(copy, marine) && marine->hp == marine->max_hp);
+    CHECK(copy && copy->owner == 0 && copy->hp == copy->max_hp && !copy->sc.wound &&
+          shoot(copy, marine) && marine->hp == marine->max_hp);
     CHECK(shoot(marine, copy) && shoot(marine, zealot) && sc_shields(copy) == 80 - 12 && sc_shields(zealot) == 80 - 6);
     tick(frames(1350));
     CHECK(count_of(MT_ZEALOT, 0) == 1);
+    reset();
+
+    /* Reaver copies receive the source's stored and deployed Scarabs. */
+    learn(0, SC_TECH_HALLUCINATION);
+    ht = caster(MT_HIGH_TEMPLAR, FIXED2_LIT(4.5, 4.5));
+    mobj_t *source_reaver = spawn(MT_REAVER, FIXED2_LIT(7.5, 4.5), 0);
+    mobj_t *deployed = spawn(MT_SCARAB, FIXED2_LIT(8.5, 4.5), 0);
+    CHECK(ht && source_reaver && deployed);
+    source_reaver->sc.hangar = 2; deployed->sc.parent = source_reaver->id;
+    CHECK(sc_cast(ht, SC_TECH_HALLUCINATION, source_reaver, at_of(source_reaver)));
+    int copies = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_REAVER && (mo->sc.flags & SC_HALLUCINATION)) {
+            CHECK(mo->sc.hangar == 3); copies++;
+        }
+    }
+    CHECK(copies == 2);
     reset();
     return 0;
 }

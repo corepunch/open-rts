@@ -221,8 +221,8 @@ minimum of 1/256 HP for a nonzero-max unit. The existing integer HP and wound
 fields preserve that fraction; UPRP uses the same rule by inference. Fixtures
 cover zero, one, invalid and over-100 percentages and a save round trip.
 Modify Unit Hit Points and an Archon merge clear the previous fractional wound
-when setting whole health. General morph health scaling and hallucination
-health initialization remain separate approximations.
+when setting whole health. General morph health scaling remains a separate
+approximation.
 OpenBW's UNIT loader enables invincibility when both the +12 valid-status
 word and +26 state word contain bit 0x10. This now initializes the existing
 invincibility flag; a fixture checks all four bit combinations and damage
@@ -234,6 +234,9 @@ lifetime, Carrier/Reaver hangars, non-damaging illusion scarabs and save/load.
 OpenBW gives each already-stored Reaver scarab its own timer; this engine's
 integer hangar starts a scarab's lifetime only when it launches, so docked
 illusion scarabs do not independently expire.
+OpenBW `create_hallucination` gives each copy full hit points and duplicates
+both stored and deployed Reaver scarabs into its hangar. Spell-created copies
+now do the same; fixtures cover a wounded target and both scarab sources.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

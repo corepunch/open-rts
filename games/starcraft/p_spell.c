@@ -434,8 +434,9 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
         for (int i = 0; i < 2; i++) {
             mobj_t *copy = spawn_for(caster, target->type_id, fixed2_add(where(target), (fixed2_t){i ? FIXED_ONE * 3 / 4 : -FIXED_ONE * 3 / 4, FIXED_ONE / 2}));
             if (!copy) continue;
-            copy->hp = target->hp;
             sc_initial_hallucination(copy);
+            if (sc_hangar_type(target->type_id) == MT_SCARAB)
+                copy->sc.hangar = sc_hangar_count(target);
         }
         break;
     case SC_TECH_EMP:
