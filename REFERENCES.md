@@ -84,6 +84,31 @@
   of the two remake implementations. Retail behavior here was verified
   against the local executable and game data.
 
+### Z remake sources and Stargus reference recheck (2026-11-12)
+
+- [fenio/zod](https://github.com/fenio/zod) is a modernized SDL3 fork of
+  Zod Engine. Its `src` tree is a candidate for examining the independent
+  `ZBot` and game mechanics. [Z-Steel-Soldiers](https://github.com/sha5b/Z-Steel-Soldiers)
+  is a Godot remake of the 1996 game despite its repository name; its
+  [research notes](https://github.com/sha5b/Z-Steel-Soldiers/blob/main/docs/RESEARCH.md)
+  index Zod-derived mechanics, including `ZBot::GoAllOut_3` and missile
+  damage. [OpenZ credits](https://github.com/playopenz/OpenZ/blob/main/docs/CREDITS.md)
+  explicitly trace its bot, production, territory and pathfinding to Zod;
+  these are related implementations, not independent confirmations. Zod is
+  GPLv3 according to those credits; check the particular source and project
+  license before incorporating code. None establishes retail behavior by
+  itself. Compare hypotheses with the executable evidence in
+  [Z_EXE_FINDINGS.md](docs/Z_EXE_FINDINGS.md).
+- Stargus at the existing pin `2a4d54604949e4772f6638a8412c8ebd62444044`
+  remains useful for race command and sound inventories, IScript and CHK
+  leads, and its Terran/Zerg AI scripts (`scripts/ai.lua` loads both).
+  The [prior completeness audit](docs/BLIZZARD_COMPLETENESS_AUDIT.md#starcraft)
+  records specific open-rts gaps and Stargus limitations. In particular,
+  Stargus's commented trigger export and skipped player research chunks do
+  not provide the missing campaign execution. This was a focused source
+  recheck, not an exhaustive feature-by-feature parity audit; no new retail
+  behavior or tests are claimed.
+
 ### Z commander passes and unit statistics (2026-11-06)
 
 - Local retail `data/Z/ZED.EXE` (SHA-256 unchanged) and `ROBOTS.DAT`, read
