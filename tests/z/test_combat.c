@@ -466,7 +466,7 @@ static int test_gun_drivers(void) {
     if (!shell) return fail("spawn shell for driverless gun");
     shell->movement.goal = fixed2_scale(fixed2_from_cell(impact), FIXED_ONE / Z_TILE);
     shell->missile.damage = 1;
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (gun->z.object_hp != raw_hp - 1 || gun->hp != 25 * (raw_hp - 1)) return fail("shell damages saved driverless gun effect");
     mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(gun->core.position), 30);
     if (!robot || !Z_DetourBoard(robot, gun) || gun->team != 0 ||
@@ -624,7 +624,7 @@ static int test_apc_shell_salvo(void) {
     for (int i = 0; i < 3; ++i) {
         mobj_t *shell = nth(MT_SHELL, 0, i);
         if (!shell || shell->missile.damage != 40) return fail("restore independent APC shells");
-        A_ZShellBlast(shell);
+        A_ZBlastHit(shell);
     }
     if (target->hp != 380) return fail("each APC shell applies its own blast");
     rts_game_model_destroy(model);
@@ -657,6 +657,10 @@ static int test_shell_blast(void) {
     mobj_t *vehicle = blast_unit(MT_UNIT_MED_TANK, 1, at, 500);
     if (!gun || !target || !left || !right || !outx || !outy || !ally || !killed || !after || !vehicle)
         return fail("spawn shell targets");
+    mobj_t *victims[] = {target, left, right, outx, outy, ally, killed, after, vehicle};
+    for (size_t i = 0; i < sizeof(victims) / sizeof(*victims); ++i)
+        victims[i]->traits &= ~(MF_ATTACK | MF_MOBILE);
+    gun->traits &= ~MF_ATTACK;
     isize2_t robot_size;
     if (!Z_SpriteSize(level.native_data, 66, &robot_size)) return fail("robot spawn sprite size");
     ivec2_t pixel = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
@@ -673,6 +677,8 @@ static int test_shell_blast(void) {
     mobj_t *shell = nth(MT_SHELL, 0, 0);
     if (!shell || target->hp != 500) return fail("shell remains in flight before impact");
     P_ExplodeMissile(shell);
+    if (target->hp != 500 || !tick(model, 2) || target->hp != 500 || !tick(model, 1))
+        return fail("shell delays unit blast until explosion frame three");
     if (target->hp != 450 || left->hp != 450 || right->hp != 450 || after->hp != 450 ||
         vehicle->hp != 450 || killed->hp > 0)
         return fail("shell hits primary and boundary units once, including after a kill");
@@ -699,17 +705,17 @@ static int test_shell_building_contact(void) {
     ivec2_t origin = Z_BuildingOrigin(building);
     ivec2_t point = ivec2_add(origin, (ivec2_t){-4, 8});
     shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (building->hp != 450) return fail("shell hits friendly non-target building at inclusive origin");
     building->hp = 500;
     point.x--;
     shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (building->hp != 500) return fail("shell misses just outside building footprint");
     point = ivec2_add(origin, (ivec2_t){building->info->footprint.w * Z_TILE - 4,
                                          building->info->footprint.h * Z_TILE + 8});
     shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (building->hp != 450) return fail("shell hits inclusive far building edge");
     rts_game_model_destroy(model);
     return 0;
@@ -740,7 +746,7 @@ static int test_shell_grenade_box(void) {
     shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){8,8})), FIXED_ONE / Z_TILE);
     shell->missile.damage = 1;
     box->z.object_hp = 2; box->z.object_slot = 1; second->z.object_slot = 2;
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (box->remove || box->z.object_hp != 1) return fail("box survives first damage point");
     P_ExplodeMissile(shell);
     if (!box->remove || second->remove || !nth(MT_BOX_BLAST, -1, 0)) return fail("box schedules one non-chaining blast");
@@ -793,7 +799,7 @@ static int test_shell_empty_object(void) {
     if (!shell) return fail("find empty-object shell");
     shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){8,8})), FIXED_ONE / Z_TILE);
     shell->missile.damage = 1;
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (jeep->z.object_hp != 1 || jeep->hp != 25 || box->remove)
         return fail("earlier empty Jeep takes damage before overlapping box");
     uint32_t jeep_id = jeep->id, box_id = box->id, shell_id = shell->id;
@@ -810,7 +816,7 @@ static int test_shell_empty_object(void) {
     free(save);
     jeep = P_MobjById(jeep_id); box = P_MobjById(box_id); shell = P_MobjById(shell_id);
     if (!jeep || !box || !shell) return fail("restore empty-object collision fixture");
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (!jeep->remove || box->remove) return fail("fatal empty-object hit does not reach box");
     mobj_t *truck = blast_unit(MT_UNIT_TRUCK, Z_NEUTRAL, at, 75);
     isize2_t truck_size;
@@ -821,13 +827,13 @@ static int test_shell_empty_object(void) {
     P_SetMobjState(truck, S_TRUCK);
     truck->z.object = MT_TRUCK; truck->z.object_slot = 1; truck->z.object_hp = 3;
     if (Z_Enterable(truck)) return fail("empty truck is not boardable");
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (truck->z.object_hp != 2 || truck->hp != 50 || box->remove)
         return fail("unboardable empty truck preempts the box");
     truck->z.object_hp = 1;
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (!truck->remove || box->remove) return fail("empty truck destruction stops the same hit");
-    A_ZShellBlast(shell);
+    A_ZBlastImpact(shell);
     if (!box->remove || !nth(MT_BOX_BLAST, -1, 0)) return fail("subsequent shot reaches the box");
     rts_game_model_destroy(model);
     return 0;
@@ -1088,8 +1094,21 @@ static int test_shell_speed(void) {
         return fail("cardinal and diagonal shots use the same major-axis rate");
     if (!tick(model, 10) || cardinal->hp != 500 || diagonal->hp != 500)
         return fail("shells remain in flight before their final tick");
-    if (!tick(model, 1) || cardinal->hp != 380 || diagonal->hp != 380)
+    if (!tick(model, 1) || a->core.state_id != S_SHELL_BLAST || b->core.state_id != S_SHELL_BLAST ||
+        cardinal->hp != 500 || diagonal->hp != 500)
         return fail("shells arrive on their scheduled tick");
+    uint32_t cardinal_id = cardinal->id, diagonal_id = diagonal->id, gun_id = gun->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Shell impacts", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save pending shell impacts");
+    free(save);
+    cardinal = P_MobjById(cardinal_id); diagonal = P_MobjById(diagonal_id); gun = P_MobjById(gun_id);
+    if (!cardinal || !diagonal || !gun) return fail("restore pending shell impacts");
+    if (!tick(model, 3) || cardinal->hp != 380 || diagonal->hp != 380)
+        return fail("shells damage units after the impact delay");
+    if (!tick(model, 1) || cardinal->hp != 380 || diagonal->hp != 380)
+        return fail("shell unit impacts do not repeat");
     mobj_t *far = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 1920, 0), 500);
     if (!far || !Z_Attack(gun, &gun->info->attack, far)) return fail("launch long-flight shell");
     mobj_t *long_shot = NULL;

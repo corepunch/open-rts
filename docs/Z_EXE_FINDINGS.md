@@ -3418,7 +3418,13 @@ tics after impact, an approximation of the native five or six 70 Hz updates
 depending on phase. The saved water mobj carries this pending action; Z save
 layout 13 distinguishes the changed impact lifecycle. Non-unit aim, complete
 terrain/effect interactions, native effect-pool exhaustion, and exact update
-phase remain approximations. `test_combat` covers normal attack dispatch, real accelerating substeps,
+phase remain approximations. Shells use the same immediate object/building
+and delayed unit passes; Z save layout 14 distinguishes their changed impact
+lifecycle. When a shell destroys a grenade box, the engine's thinker order
+may differ from native explosion-slot allocation order, affecting attribution
+when both blasts kill the same unit. The existing direct non-unit target
+fallback (such as bridges) remains immediate; its native terrain path has
+not been traced. `test_combat` covers normal attack dispatch, real accelerating substeps,
 sprite/height boundaries, interception, terminal-tile order, save/load,
 all eight hull/nozzle headings, bearing ties, immediate building damage,
 delayed unit damage across save/load and an inclusive damage boundary with

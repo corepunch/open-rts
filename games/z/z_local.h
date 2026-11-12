@@ -193,10 +193,9 @@ static inline int Z_NativeSteps(int64_t tick, int hz) {
     return (int)((tick + 1) * hz / RTS_TICRATE - tick * hz / RTS_TICRATE);
 }
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
-void A_ZShellBlast(mobj_t *missile);
+void A_ZBlastImpact(mobj_t *missile);
 void A_ZWater(mobj_t *water);
-void A_ZWaterImpact(mobj_t *water);
-void A_ZWaterHit(mobj_t *water);
+void A_ZBlastHit(mobj_t *missile);
 int Z_TerrainHeight(const zmap_t *map, int x, int y);
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
 /* p_fort.c: a fort takes no harm; it falls to a unit that gets inside. */

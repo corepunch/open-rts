@@ -774,7 +774,7 @@ static void blast_units(mobj_t *missile, ivec2_t impact) {
         }
     }
     /* Terrain has a separate native path. */
-    if (!primary_hit && live(target) && !structure(target) && !crate(target) &&
+    if (!primary_hit && live(target) && Z_UnitType(target) >= 0 && !structure(target) && !crate(target) &&
         !(target->z.object_slot && target->team == Z_NEUTRAL) &&
         target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
@@ -783,22 +783,23 @@ static void blast_units(mobj_t *missile, ivec2_t impact) {
     }
 }
 
-void A_ZShellBlast(mobj_t *missile) {
+/* 0x8476c damages effects/buildings immediately, while the unit pass runs
+ * at explosion frame 3 (0x85c24). Three 30 Hz tics approximate that delay. */
+void A_ZBlastImpact(mobj_t *missile) {
     ivec2_t impact = blast_impact(missile);
     blast_object(impact, missile->missile.damage);
     blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
-    blast_units(missile, impact);
+    mobj_t *target = missile->attack.target;
+    if (live(target) && Z_UnitType(target) < 0 && !structure(target) && !crate(target) &&
+        !(target->z.object_slot && target->team == Z_NEUTRAL) &&
+        target != missile->target && target->team != missile->team) {
+        ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
+        if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
+            P_DamageMobj(target, missile->target, missile->missile.damage);
+    }
 }
 
-/* 0x8476c damages effects/buildings immediately, while the unit pass runs
- * at explosion frame 3 (0x85c24). Three 30 Hz tics approximate that delay. */
-void A_ZWaterImpact(mobj_t *water) {
-    ivec2_t impact = blast_impact(water);
-    blast_object(impact, water->missile.damage);
-    blast_building(ivec2_add(impact, (ivec2_t){4, -8}), water->target, water->missile.damage);
-}
-
-void A_ZWaterHit(mobj_t *water) { blast_units(water, blast_impact(water)); }
+void A_ZBlastHit(mobj_t *missile) { blast_units(missile, blast_impact(missile)); }
 
 /* ── flags ────────────────────────────────────────────────────────────── */
 
