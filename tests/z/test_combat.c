@@ -853,6 +853,8 @@ static int test_grenade_impact(void) {
         return fail("launch grenade");
     mobj_t *grenade = nth(MT_GRENADE, 0, 0);
     if (!grenade) return fail("find flying grenade");
+    /* 48 pixels at 3 pixels per 70 Hz native step. */
+    if (grenade->missile.duration != 7) return fail("Grunt grenade uses native strength-derived speed");
     for (int i = 0; i < 80 && grenade->core.state_id == S_GRENADE; ++i)
         if (!tick(model, 1)) return fail("tick grenade flight");
     if (grenade->core.state_id != S_GRENADE_BLAST || target->hp != 500)
@@ -878,6 +880,27 @@ static int test_grenade_impact(void) {
     if (!inside || !outside || !ally || !tick(model, 2) || inside->hp != 100 || !tick(model, 1) ||
         inside->hp != 50 || outside->hp != 100 || ally->hp != 100 || !tick(model, 1) || inside->hp != 50)
         return fail("saved grenade uses delayed native bounds exactly once");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_grenade_speed(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load grenade speed fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *target = blast_unit(MT_BRIDGE, 1, pixel_at(at, 96, 96), 500);
+    const int types[] = {MT_UNIT_GRUNT, MT_UNIT_TOUGH, MT_UNIT_SNIPER, MT_UNIT_PSYCHO, MT_UNIT_PYRO, MT_UNIT_LASER};
+    const int durations[] = {14, 4, 9, 14, 7, 7};
+    if (!target) return fail("spawn grenade speed fixture");
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        mobj_t *robot = blast_unit(types[i], 0, at, 100);
+        if (!robot) return fail("spawn grenade speed robot");
+        robot->z.grenades = 1;
+        if (!Z_Attack(robot, &robot->info->attack, target)) return fail("launch grenade speed fixture");
+        mobj_t *grenade = nth(MT_GRENADE, 0, (int)i);
+        if (!grenade || grenade->missile.duration != durations[i])
+            return fail("robot grenades use native strength-derived major-axis speed");
+    }
     rts_game_model_destroy(model);
     return 0;
 }
@@ -1350,7 +1373,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

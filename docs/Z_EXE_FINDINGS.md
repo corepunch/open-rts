@@ -3257,15 +3257,27 @@ is popped into EDX at `0x5a3d5`; DL is stored as both projectile speed bytes
 at `0x5a3fc..0x5a403`. Thus grenade speed is max(1, robot byte +0 / 8).
 `0x510b7..0x510fd` resolves the manufactured member's 44-byte robot record
 and copies record +0x1c (strength) to unit +0 and +1; unit allocation at
-`0x7a66b..0x7a670` initially sets +0 to 40 before record setup. The exact
-runtime mutation of this strength and the appropriate authored C values for
-all supported robot identities remain to be established. `0x594a8..0x59518`
+`0x7a66b..0x7a670` initially sets +0 to 40 before record setup. The shipped
+first robot records for Grunt, Tough, Sniper, Psycho, Pyro and Laser have
+strength 25, 100, 40, 30, 50 and 50, giving grenade speeds of 3, 12, 5, 3,
+6 and 6 pixels per native update. Open-rts authors those speed values and quantizes major-axis flight duration to
+30 Hz. A scan of the 48 group records and their 21 member slots finds only
+robot identities 2, 3, 4, 6, 17 and 18 for those weapon types in the shipped roster;
+custom robot identities and runtime strength changes remain unmodeled. Recheck
+the shipped group records with `od -An -v -tu1 data/Z/ROBOTS.DAT | awk
+'{for(i=1;i<=NF;i++) a[n++]=$i} END {for(g=0;g<48;g++) for(j=0;j<21;j++)
+{p=18000+g*82+28+2*j; r=a[p]+256*a[p+1]; if(r<400 &&
+(a[r*44+34]==2 || a[r*44+34]==3 || a[r*44+34]==4 || a[r*44+34]==7 ||
+a[r*44+34]==17 || a[r*44+34]==18))
+c[a[r*44+34] ":" a[r*44+28] ":" r]++} for(k in c) print k,c[k]}'`.
+`0x594a8..0x59518`
 advances that sample based on traveled distance,
 adds launch-terrain height +1, and can terminate flight when a terrain height
 exceeds the resulting threshold. `0x5a4c8` steps the major axis by projectile
-speed. Full target/scatter dispatch and strength mutation remain unresolved;
-the existing flight is therefore retained rather than
-applying a partial arc or guessed timing. Inspect with `r2 -q -e bin.cache=true -c 'pd 55
+speed. Exact native stepping, launch offset, arc, terrain interaction,
+target/scatter dispatch and strength mutation remain unmodeled. `test_combat`
+checks all six authored speeds, diagonal duration and actual grenade
+flight. Inspect with `r2 -q -e bin.cache=true -c 'pd 55
 @ 0x63650' -c 'pd 55 @ 0x5a2b1' -c 'pd 45 @ 0x594a8' -c 'pd 30 @ 0x5a4c8'
 -c 'pd 15 @ 0x6fb62' -c 'pd 10 @ 0x70bf5' -c 'pd 35 @ 0x5108c'
 -c 'pd 15 @ 0x7a660' -c 'pd 60 @ 0x64250' -c 'px 32 @ 0x148b9c' -c q data/Z/ZED.EXE`.

@@ -606,6 +606,21 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (throws_at(attacker, target)) {
         mobj_t *grenade = P_SpawnMissile(attacker, target, MT_GRENADE);
         if (grenade) {
+            /* Native strength / 8, from the first shipped robot record for
+             * each grenade-capable type (0x636d4 and 0x510fd). */
+            static const uint8_t speeds[] = {0, 0, 3, 12, 5, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6};
+            int type = Z_UnitType(attacker);
+            int speed = type >= 0 && (size_t)type < sizeof(speeds) ? speeds[type] : 0;
+            if (!speed) speed = 1;
+            fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position), fixed3_xy(attacker->core.position));
+            int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
+            int64_t dy = delta.y < 0 ? -(int64_t)delta.y : delta.y;
+            int64_t step = (int64_t)speed * FIXED_ONE * Z_NATIVE_HZ / (Z_TILE * RTS_TICRATE);
+            int64_t major = dx > dy ? dx : dy;
+            int duration = (int)((major + step - 1) / step);
+            if (duration < 1) duration = 1;
+            grenade->missile.duration = duration;
+            grenade->core.momentum = fixed3_from_fixed2((fixed2_t){delta.x / duration, delta.y / duration}, 0);
             grenade->attack.target = target;
             attacker->z.grenades--;
             return true;
