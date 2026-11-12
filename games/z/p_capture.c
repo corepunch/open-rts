@@ -1071,21 +1071,44 @@ void A_ZBlastHit(mobj_t *missile) { blast_units(missile, blast_impact(missile));
 
 /* 0x796cb samples native origin +(8,8); 0x79936 also probes the cells
  * right and below it for a class-1 vehicle. Guns never move. */
-static bool on_flag(const mobj_t *unit, ivec2_t flag) {
+static bool on_flag(const mobj_t *unit) {
+    const zmap_t *map = level.native_data;
     int t = Z_UnitType(unit);
-    if (!live(unit) || t < 0 || unit->team >= Z_NEUTRAL || !(unit->traits & MF_MOBILE)) return false;
+    if (!map || !live(unit) || t < 0 || unit->team >= Z_NEUTRAL || !(unit->traits & MF_MOBILE)) return false;
     ivec2_t pixel = ivec2_add(Z_AITopLeft(unit), (ivec2_t){8,8});
     if (pixel.x < 0 || pixel.y < 0) return false;
     ivec2_t cell = {pixel.x / Z_TILE, pixel.y / Z_TILE};
-    ivec2_t d = ivec2_sub(flag, cell);
-    return Z_IsRobot(t) ? d.x == 0 && d.y == 0 : d.x >= 0 && d.x <= 1 && d.y >= 0 && d.y <= 1;
+    int span = Z_IsRobot(t) ? 1 : 2;
+    for (int y = 0; y < span; ++y) for (int x = 0; x < span; ++x) {
+        ivec2_t probe = ivec2_add(cell, (ivec2_t){x,y});
+        if (L_Contains(&level, probe.x, probe.y) &&
+            (map->terrain[probe.y * Z_MAP_STRIDE + probe.x] & 0x7f) == 0x23) return true;
+    }
+    return false;
 }
 
-static void transfer_territory(mobj_t *flag, int team) {
-    const zmap_t *map = level.native_data;
-    const zterritory_t *territory = &map->territories[flag->z.territory - 1];
-    Z_SetTeam(flag, team);
-    flag->z.hold = REACH_FLAG_HOLD;
+static mobj_t *territory_flag(int territory) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *flag = (mobj_t *)th;
+        if (th->function == P_MobjThinker && flag->type_id == MT_FLAG && !flag->remove &&
+            flag->z.territory == territory + 1) return flag;
+    }
+    return NULL;
+}
+
+static void stamp_flags(void) {
+    zmap_t *map = level.native_data;
+    for (int i = 0; i < map->territory_count; ++i)
+        if (!(map->territories[i].options & 3)) Z_StampFlagTerrain(map->territories[i].flag);
+}
+
+static void transfer_territory(int index, int team) {
+    zmap_t *map = level.native_data;
+    zterritory_t *territory = &map->territories[index];
+    territory->team = team;
+    mobj_t *flag = territory_flag(index);
+    if (flag) Z_SetTeam(flag, team);
+    territory->capture_hold = REACH_FLAG_HOLD;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || mo->remove || !structure(mo) || mo->type_id == MT_FORT) continue;
@@ -1097,25 +1120,32 @@ static void transfer_territory(mobj_t *flag, int team) {
 }
 
 void Z_FortTerritory(mobj_t *fort, int team) {
-    const zmap_t *map = level.native_data;
+    zmap_t *map = level.native_data;
     int territory = map ? Z_AITerritory(map, fixed2_from_cell(fixed2_footprint_corner(fixed3_xy(fort->core.position), fort->info->footprint))) : -1;
     if (territory < 0) return;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        if (th->function != P_MobjThinker) continue;
-        mobj_t *flag = (mobj_t *)th;
-        if (flag->type_id == MT_FLAG && !flag->remove && flag->z.territory == territory + 1) {
-            transfer_territory(flag, team);
-            flag->z.hold = 0;
-            return;
+    zterritory_t *t = &map->territories[territory];
+    if (!territory_flag(territory) && L_Contains(&level, t->flag.x, t->flag.y)) {
+        mobj_t *flag = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(t->flag), 0), MT_FLAG);
+        if (flag) {
+            flag->z.territory = (uint8_t)(territory + 1);
+            flag->z.object_slot = (uint8_t)Z_FreeObjectSlot();
+            flag->core.position.y += 2 * FIXED_ONE;
+            flag->core.position.z = 2 * FIXED_ONE;
         }
     }
+    t->options &= 0xf0;
+    transfer_territory(territory, team);
+    t->capture_hold = 0;
+    Z_StampFlagTerrain(t->flag);
 }
 
 /* The territory and the buildings that stand in it change sides at once;
  * a robot that took it stops to cheer (0x62e3c). */
-static void take_flag(mobj_t *flag, mobj_t *taker) {
-    transfer_territory(flag, taker->team);
-    Z_DetourCaptured(taker, flag);
+static void take_flag(int territory, mobj_t *taker) {
+    mobj_t *flag = territory_flag(territory);
+    transfer_territory(territory, taker->team);
+    stamp_flags();
+    if (flag) Z_DetourCaptured(taker, flag);
     int t = robot_type(taker);
     if (t < 0) return;
     P_ClearMove(taker);
@@ -1125,26 +1155,28 @@ static void take_flag(mobj_t *flag, mobj_t *taker) {
     P_SetMobjState(taker, cheer_states[t]);
 }
 
-static void tick_flag(mobj_t *flag) {
+static void tick_flag(mobj_t *unit, const bool *blocked) {
     const zmap_t *map = level.native_data;
-    if (!map || !flag->z.territory || flag->z.territory > map->territory_count) return;
-    if (flag->z.hold > 0) {
-        flag->z.hold--;
-        return;
-    }
-    ivec2_t cell = map->territories[flag->z.territory - 1].flag;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || mo->team == flag->team || !on_flag(mo, cell)) continue;
-        take_flag(flag, mo);
-        return;
-    }
+    if (!map || !on_flag(unit)) return;
+    ivec2_t pixel = Z_AITopLeft(unit);
+    if (pixel.x < 0 || pixel.y < 0) return;
+    int territory = Z_AITerritory(map, fixed2_scale(fixed2_from_cell(pixel), FIXED_ONE / Z_TILE));
+    if (territory < 0 || blocked[territory] || map->territories[territory].capture_hold ||
+        map->territories[territory].team == unit->team) return;
+    take_flag(territory, unit);
 }
 
 /* ── each tic ─────────────────────────────────────────────────────────── */
 
 void Z_Ticker(void) {
     if (!level.native_data || !thinkercap.next) return;
+    zmap_t *map = level.native_data;
+    bool blocked[Z_MAX_TERRITORIES] = {0};
+    for (int i = 0; i < map->territory_count; ++i)
+        if (map->territories[i].capture_hold) {
+            blocked[i] = true;
+            --map->territories[i].capture_hold;
+        }
     Z_RebuildTicker();
     /* Things taken out stay linked until the next tic (P_RemoveThinker). */
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -1154,10 +1186,8 @@ void Z_Ticker(void) {
             Z_BridgeTick(mo);
             continue;
         }
-        if (mo->type_id == MT_FLAG) {
-            tick_flag(mo);
-            continue;
-        }
+        if (mo->type_id == MT_FLAG) continue;
+        tick_flag(mo, blocked);
         Z_Alert(mo);
         int t = robot_type(mo);
         if (t < 0) continue;

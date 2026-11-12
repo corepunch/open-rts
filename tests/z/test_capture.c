@@ -130,7 +130,10 @@ static int test_flag_origin_boundary(void) {
         }
         P_RunThinkers();
         ivec2_t flag_cell = {25,25};
-        map->territories[3].flag = flag_cell;
+        map->territory_count = 1;
+        map->territories[0] = (zterritory_t){.min = {0,0}, .max = {level.width,level.height}, .flag = flag_cell};
+        flag->z.territory = 1;
+        Z_StampFlagTerrain(flag_cell);
         mobj_t *unit = P_SpawnMobj((fixed3_t){0}, types[i]);
         if (!unit) return fail("spawn flag boundary unit");
         Z_SetTeam(unit, 0); Z_SetTeam(flag, 1);
@@ -139,7 +142,7 @@ static int test_flag_origin_boundary(void) {
         fixed2_t centre;
         if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag unit origin");
         unit->core.position = fixed3_from_fixed2(centre, 0);
-        flag->z.hold = 0;
+        map->territories[0].capture_hold = 0;
         Z_Ticker();
         if (flag->team != 1) return fail("native sample excludes seven-pixel boundary");
         origin.x++;
@@ -153,13 +156,134 @@ static int test_flag_origin_boundary(void) {
                 origin = ivec2_sub(ivec2_scale(sample, Z_TILE), (ivec2_t){8,8});
                 if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag vehicle probe origin");
                 unit->core.position = fixed3_from_fixed2(centre, 0);
-                Z_SetTeam(flag, 1); flag->z.hold = 0;
+                Z_SetTeam(flag, 1); map->territories[0].capture_hold = 0;
                 Z_Ticker();
                 if (flag->team != 0) return fail("vehicle checks all four native flag cells");
             }
         }
         rts_game_model_destroy(model);
     }
+    return 0;
+}
+
+static int test_flag_terrain_and_territory(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load flag terrain fixture");
+    mobj_t *west = flag_of(1), *east = flag_of(3);
+    zmap_t *map = level.native_data;
+    if (!west || !east) return fail("flag terrain markers");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (mo != west && mo != east) P_RemoveMobj(mo);
+    }
+    P_RunThinkers();
+    memset(map->ground_attr, 0, sizeof(map->ground_attr));
+    memset(map->cliffs, 0, sizeof(map->cliffs));
+    Z_RebuildCliffs(&level);
+    map->territory_count = 2;
+    map->territories[0] = (zterritory_t){.min = {0,0}, .max = {25,level.height}, .flag = {10,10}};
+    map->territories[1] = (zterritory_t){.min = {25,0}, .max = {level.width,level.height}, .flag = {25,20}};
+    west->z.territory = 1; east->z.territory = 2;
+    Z_SetTeam(west, 1); Z_SetTeam(east, 1);
+    Z_StampFlagTerrain(map->territories[0].flag); Z_StampFlagTerrain(map->territories[1].flag);
+    fixed2_t centre;
+    if (!Z_UnitCentre(map, MT_UNIT_JEEP - MT_UNITS, (ivec2_t){24 * Z_TILE,20 * Z_TILE}, &centre))
+        return fail("border Jeep origin");
+    mobj_t *jeep = P_SpawnMobj(fixed3_from_fixed2(centre, 0), MT_UNIT_JEEP);
+    if (!jeep) return fail("border Jeep");
+    Z_SetTeam(jeep, 0);
+    Z_Ticker();
+    if (west->team != 0 || east->team != 1 || map->territories[0].team != 0 || map->territories[1].team != 1 ||
+        !map->territories[0].capture_hold) return fail("neighbor marker captures territory of unit origin");
+    int total = 0;
+    if (Z_TerritoriesHeld(0, &total) != 1 || total != 2) return fail("captured territory contributes to production");
+    mobj_t *crate = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){25,20}), 0), MT_GRENADES_2);
+    mobj_t *robot = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){25,20}), 0), MT_UNIT_GRUNT);
+    if (!crate || !robot) return fail("crate on flag fixture");
+    Z_SetTeam(robot, 0); place_crate(crate, (ivec2_t){25,20}); place(robot, (ivec2_t){25,20});
+    int index = 20 * Z_MAP_STRIDE + 25;
+    if ((map->terrain[index] & 0x7f) != 0x24 || (crate->z.object_terrain & 0x7f) != 0x23)
+        return fail("crate replaces and remembers flag terrain");
+    uint32_t west_id = west->id, east_id = east->id, crate_id = crate->id, robot_id = robot->id, jeep_id = jeep->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Flag and crate", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save flag and crate");
+    free(save); map = level.native_data;
+    map->territory_count = 2; /* The fixture's geometry is not part of a retail save. */
+    map->territories[0].min = (ivec2_t){0,0}; map->territories[0].max = (ivec2_t){25,level.height};
+    map->territories[0].flag = (ivec2_t){10,10};
+    map->territories[1].min = (ivec2_t){25,0}; map->territories[1].max = (ivec2_t){level.width,level.height};
+    map->territories[1].flag = (ivec2_t){25,20};
+    west = P_MobjById(west_id); east = P_MobjById(east_id); crate = P_MobjById(crate_id); robot = P_MobjById(robot_id);
+    if (!west || !east || !crate || !robot || map->territories[0].team != 0 ||
+        !map->territories[0].capture_hold || (map->terrain[index] & 0x7f) != 0x24)
+        return fail("save restores territory, hold and crate marker");
+    Z_Ticker();
+    if (east->team != 1 || !crate->remove || robot->z.grenades != 20 || (map->terrain[index] & 0x7f) != 0x23)
+        return fail("crate suppresses flag until pickup restores its terrain");
+    Z_Ticker();
+    if (east->team != 0 || map->territories[1].team != 0) return fail("restored marker captures on next pass");
+    P_RemoveMobj(west);
+    map->territories[0].options |= 1; /* A fort territory may have no flag of its own. */
+    map->territories[0].team = 1; map->territories[0].capture_hold = 0;
+    Z_Ticker();
+    if (map->territories[0].team != 0 || !map->territories[0].capture_hold || Z_TerritoriesHeld(0, &total) != 2)
+        return fail("adjacent flag marker captures a flagless origin territory");
+    save = NULL; size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Flagless capture", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save flagless capture");
+    free(save); map = level.native_data;
+    if (map->territories[0].team != 0 || !map->territories[0].capture_hold || !(map->territories[0].options & 1))
+        return fail("save restores flagless owner, cooldown and options");
+    map->territory_count = 2;
+    map->territories[0].min = (ivec2_t){0,0}; map->territories[0].max = (ivec2_t){25,level.height};
+    map->territories[1].min = (ivec2_t){25,0}; map->territories[1].max = (ivec2_t){level.width,level.height};
+    jeep = P_MobjById(jeep_id);
+    if (!jeep) return fail("restore border Jeep");
+    Z_SetTeam(jeep, 1);
+    int hold = map->territories[0].capture_hold;
+    for (int i = 0; i < hold; ++i) {
+        Z_Ticker();
+        if (map->territories[0].team != 0) return fail("saved flagless cooldown remains active");
+    }
+    Z_Ticker();
+    if (map->territories[0].team != 1) return fail("flagless territory recaptures after saved cooldown expires");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_flag_rebuild_over_crate(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load flag rebuild fixture");
+    mobj_t *captured = flag_of(3), *covered = flag_of(1);
+    zmap_t *map = level.native_data;
+    if (!captured || !covered) return fail("flag rebuild markers");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && Z_UnitType((mobj_t *)th) >= 0) P_RemoveMobj((mobj_t *)th);
+    P_RunThinkers();
+    ivec2_t first = map->territories[captured->z.territory - 1].flag;
+    ivec2_t second = map->territories[covered->z.territory - 1].flag;
+    Z_SetTeam(captured, 1);
+    Z_StampFlagTerrain(first); Z_StampFlagTerrain(second);
+    mobj_t *crate = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(second), 0), MT_GRENADES_2);
+    mobj_t *robot = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(first), 0), MT_UNIT_GRUNT);
+    if (!crate || !robot) return fail("flag rebuild unit and crate");
+    Z_SetTeam(robot, 0); place_crate(crate, second); place(robot, first);
+    int index = second.y * Z_MAP_STRIDE + second.x;
+    if ((map->terrain[index] & 0x7f) != 0x24 || (crate->z.object_terrain & 0x7f) != 0x23)
+        return fail("crate initially masks flag marker");
+    Z_Ticker();
+    if (captured->team != 0 || crate->remove || (map->terrain[index] & 0x7f) != 0x23)
+        return fail("capture rebuilds every active flag marker over existing crates");
+    uint32_t crate_id = crate->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Flag rebuild", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save flag rebuild");
+    free(save); map = level.native_data; crate = P_MobjById(crate_id);
+    if (!crate || crate->remove || (crate->z.object_terrain & 0x7f) != 0x23 || (map->terrain[index] & 0x7f) != 0x23)
+        return fail("flag rebuild and covered crate survive save/load");
+    rts_game_model_destroy(model);
     return 0;
 }
 
@@ -760,6 +884,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_flag_origin_boundary() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_flag_origin_boundary() || test_flag_terrain_and_territory() || test_flag_rebuild_over_crate() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

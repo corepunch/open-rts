@@ -181,18 +181,28 @@ mobile units. `test_capture` checks the exclusive 7-pixel and inclusive
 bin.cache=true -c 'pd 12 @ 0x796cb' -c 'pd 25 @ 0x79936' -c q
 data/Z/ZED.EXE`.
 
-**Further flag-dispatch scope, confirmed but unported:** `0x2a89f` writes
+**Flag terrain and territory dispatch, confirmed and implemented:** `0x2a89f` writes
 terrain 0x23 at each active flag location, preserving bit 7, and is called
 again during capture at `0x79e7b`. A subsequent map effect can overwrite
 that terrain until a later flag rebuild or restoration. In addition,
 `0x79df1..0x79dfe` resolves the territory from the capturing unit's native
-origin, not from the specific neighboring 0x23 cell. The current flag thinker
-uses the stored flag location and its territory directly; overlapping effect
-markers and a vehicle crossing a territory boundary are therefore not yet
-faithful. Do not resolve that discrepancy by merely testing the current flag
-cell without also modeling marker creation, rebuild and saved terrain order.
+origin, not from the specific neighboring 0x23 cell. Open-rts now stamps
+flags before loading OBJECT effects, dispatches from sampled terrain, selects
+the origin territory and restamps active flag markers after capture. A crate
+on a flag saves 0x23 and temporarily replaces it with 0x24; picking it up
+restores 0x23, while capturing elsewhere can first overwrite its marker again.
+The territory owns the current team and capture hold even if it has no flag;
+its team, hold and mutable options are saved and hashed. `0x2a950` creates
+a flag and clears the low option bits for a fallen fort territory; the engine
+now creates an ordinary flag mobj in that case. The existing 18-tic hold is
+still a 30 Hz approximation to the native 70 Hz counter, and terrain rebuilt
+over a cliff remains subject to the existing cliff reconstruction limit.
+The current initial flag availability rules do not yet model every native
+3/4-player option gate. `test_capture` covers an adjacent-territory vehicle,
+a flagless captured territory, overlapping crate restoration, another capture
+restamping over a crate, and save/load; `test_fort` checks flag creation.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x2a89f' -c 'pd 45 @
-0x79ddc' -c q data/Z/ZED.EXE`.
+0x79ddc' -c 'pd 55 @ 0x2a950' -c q data/Z/ZED.EXE`.
 
 In level 1 each fort's flag cell is its entrance: the computer's fort has
 its gate cells (terrain 0x15, 0x9e, 0x3f) on its south side and the flag on

@@ -242,7 +242,44 @@ static int test_network_cross_capture(void) {
     return 0;
 }
 
+static int test_flagless_fort_territory(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load flagless fort fixture");
+    mobj_t *fort = nth(MT_FORT, 0, 0);
+    zmap_t *map = level.native_data;
+    if (!fort) return fail("flagless fort");
+    int territory = Z_AITerritory(map, fixed2_from_cell(fixed2_footprint_corner(fixed3_xy(fort->core.position), fort->info->footprint)));
+    if (territory < 0) return fail("flagless fort territory");
+    for (int i = 0; nth(MT_FLAG, -1, i); ++i) {
+        mobj_t *flag = nth(MT_FLAG, -1, i);
+        if (flag->z.territory == territory + 1) { P_RemoveMobj(flag); break; }
+    }
+    map->territories[territory].options |= 1;
+    ivec2_t cell = map->territories[territory].flag;
+    if (!L_Contains(&level, cell.x, cell.y)) return fail("flagless fort has valid native flag cell");
+    Z_FortTerritory(fort, 2);
+    mobj_t *made = NULL;
+    for (int i = 0; nth(MT_FLAG, -1, i); ++i) {
+        mobj_t *flag = nth(MT_FLAG, -1, i);
+        if (flag->z.territory == territory + 1) made = flag;
+    }
+    int index = cell.y * Z_MAP_STRIDE + cell.x;
+    if (!made || made->team != 2 || !made->z.object_slot || map->territories[territory].team != 2 ||
+        (map->territories[territory].options & 3) || (map->terrain[index] & 0x7f) != 0x23)
+        return fail("fort capture creates and stamps its missing flag");
+    uint32_t id = made->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Fort flag", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save created fort flag");
+    free(save); map = level.native_data; made = P_MobjById(id);
+    if (!made || made->team != 2 || map->territories[territory].team != 2 ||
+        (map->territories[territory].options & 3) || (map->terrain[index] & 0x7f) != 0x23)
+        return fail("created flag, terrain and owner survive reload");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
-    if (test_unharmed() || test_player_takes_fort() || test_player_loses_fort() || test_network_falls() || test_network_continues() || test_network_cross_capture()) return 1;
+    if (test_unharmed() || test_player_takes_fort() || test_player_loses_fort() || test_network_falls() || test_network_continues() || test_network_cross_capture() || test_flagless_fort_territory()) return 1;
     return 0;
 }

@@ -189,11 +189,6 @@ static void observations(zmap_t *map, mobj_t *const *units, int count) {
         owners[t] = (uint8_t)map->territories[t].team;
         out->known = 0;
     }
-    for (int u = 0; u < count; ++u) {
-        const mobj_t *mo = units[u];
-        if (live(mo) && mo->type_id == MT_FLAG && mo->z.territory)
-            owners[mo->z.territory - 1] = mo->team;
-    }
     /* A taken flag sets the territory's lockout to 510 frames (0x79e69). */
     for (int t = 0; t < map->territory_count; ++t) {
         if (owners[t] != ai->territories[t].owner) ai->territories[t].lockout = LOCKOUT;

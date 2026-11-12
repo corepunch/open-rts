@@ -258,7 +258,7 @@ bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {
 
 size_t G_SaveExtraSize(void) {
     const zmap_t *map = level.native_data;
-    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild) + sizeof(map->squad_cooldown) + sizeof(map->combat_seed);
+    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild) + sizeof(map->squad_cooldown) + sizeof(map->combat_seed) + Z_MAX_TERRITORIES * 3;
 }
 
 void G_SaveExtra(void *out) {
@@ -270,7 +270,12 @@ void G_SaveExtra(void *out) {
     memcpy(p, &map->ai, sizeof(map->ai)); p += sizeof(map->ai);
     memcpy(p, &map->rebuild, sizeof(map->rebuild)); p += sizeof(map->rebuild);
     memcpy(p, map->squad_cooldown, sizeof(map->squad_cooldown)); p += sizeof(map->squad_cooldown);
-    memcpy(p, &map->combat_seed, sizeof(map->combat_seed));
+    memcpy(p, &map->combat_seed, sizeof(map->combat_seed)); p += sizeof(map->combat_seed);
+    for (int i = 0; i < Z_MAX_TERRITORIES; ++i) {
+        *p++ = (uint8_t)map->territories[i].team;
+        *p++ = map->territories[i].options;
+        *p++ = map->territories[i].capture_hold;
+    }
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
@@ -283,7 +288,12 @@ bool G_LoadExtra(const void *data, size_t size) {
     memcpy(&map->ai, p, sizeof(map->ai)); p += sizeof(map->ai);
     memcpy(&map->rebuild, p, sizeof(map->rebuild)); p += sizeof(map->rebuild);
     memcpy(map->squad_cooldown, p, sizeof(map->squad_cooldown)); p += sizeof(map->squad_cooldown);
-    memcpy(&map->combat_seed, p, sizeof(map->combat_seed));
+    memcpy(&map->combat_seed, p, sizeof(map->combat_seed)); p += sizeof(map->combat_seed);
+    for (int i = 0; i < Z_MAX_TERRITORIES; ++i) {
+        map->territories[i].team = *p++;
+        map->territories[i].options = *p++;
+        map->territories[i].capture_hold = *p++;
+    }
     Z_RebuildCliffs(&level);
     return true;
 }
@@ -292,6 +302,11 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     const zmap_t *map = level.native_data;
     if (!map) return hash;
     hash = G_HashValue(hash, map->combat_seed);
+    for (int i = 0; i < map->territory_count; ++i) {
+        hash = G_HashValue(hash, map->territories[i].team);
+        hash = G_HashValue(hash, map->territories[i].options);
+        hash = G_HashValue(hash, map->territories[i].capture_hold);
+    }
     for (size_t i = 0; i < sizeof(map->squad_cooldown); ++i) hash = G_HashValue(hash, map->squad_cooldown[i]);
     for (size_t i = 0; i < sizeof(map->cliffs); ++i) hash = G_HashValue(hash, map->cliffs[i]);
     for (size_t i = 0; i < sizeof(map->ground); ++i) {

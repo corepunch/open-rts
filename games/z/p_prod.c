@@ -112,22 +112,13 @@ const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer) {
                                      producer->production->product_type);
 }
 
-/* 0x42405 counts every active territory, even one without a flag.
- * Capturable territories borrow their current ownership from the flag. */
+/* 0x42405 counts every active territory, even one without a flag. */
 static int territory_counts(int held[Z_NEUTRAL + 1]) {
     const zmap_t *map = level.native_data;
     if (!map) return 0;
     for (int i = 0; i < map->territory_count; ++i) {
         int team = map->territories[i].team;
         held[team < Z_NEUTRAL ? team : Z_NEUTRAL]++;
-    }
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        const mobj_t *mo = (const mobj_t *)th;
-        if (th->function != P_MobjThinker || mo->type_id != MT_FLAG || mo->remove ||
-            !mo->z.territory || mo->z.territory > map->territory_count) continue;
-        int initial = map->territories[mo->z.territory - 1].team;
-        held[initial < Z_NEUTRAL ? initial : Z_NEUTRAL]--;
-        held[mo->team < Z_NEUTRAL ? mo->team : Z_NEUTRAL]++;
     }
     return map->territory_count;
 }

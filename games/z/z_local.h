@@ -44,6 +44,7 @@ typedef struct {
     ivec2_t flag;     /* Cell; whoever reaches it takes the territory. */
     uint8_t options;  /* +0x18: bits 0 and 1 leave it without a flag. */
     uint8_t importance; /* CPUPLR territory +9. */
+    uint8_t capture_hold; /* Remaining engine tics before another capture. */
 } zterritory_t;
 
 /* Native computer records at 0x18d388, with native pointers represented
@@ -261,6 +262,7 @@ void Z_StampCliffs(uint8_t *tiles, uint8_t *attrs, const uint8_t *blocks, int wo
 void Z_RebuildCliffs(level_t *level);
 void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin);
 void Z_RestoreObjectTerrain(mobj_t *object, ivec2_t origin);
+void Z_StampFlagTerrain(ivec2_t cell);
 int Z_LoadCliffs(void);
 void Z_CliffDamage(mobj_t *cliff);
 bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count);

@@ -81,6 +81,13 @@ static void object_terrain(ivec2_t origin, uint8_t value) {
                                                     (terrain >= 1 && terrain <= 6) || terrain == 0x12;
 }
 
+void Z_StampFlagTerrain(ivec2_t cell) {
+    zmap_t *map = level.native_data;
+    if (!map || !L_Contains(&level, cell.x, cell.y)) return;
+    uint8_t old = map->terrain[cell.y * Z_MAP_STRIDE + cell.x];
+    object_terrain(ivec2_scale(cell, Z_TILE), (old & 0x80) | 0x23);
+}
+
 void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin) {
     if (!object || type < 0 || type >= MT_FORT - 1) return;
     int flags = z_object_flags[type];
@@ -192,7 +199,7 @@ static bool load_cpuplr(zmap_t *map, const char *name) {
         if (read_u16_le(r) == 0xffff) continue;
         map->territories[map->territory_count++] = (zterritory_t){
             {read_u16_le(r), read_u16_le(r + 2)}, {read_u16_le(r + 4), read_u16_le(r + 6)}, r[8],
-            {r[0x12], r[0x13]}, r[0x18], r[9]};
+            {r[0x12], r[0x13]}, r[0x18], r[9], 0};
     }
     for (size_t at = CP_PLACED; ok && at + CP_RECORD <= blob.size &&
                                 at < CP_PLACED + Z_MAX_PLACED * CP_RECORD; at += CP_RECORD) {
@@ -356,6 +363,9 @@ void Z_SetTeam(mobj_t *mo, int team) {
     mo->owner = team < Z_NEUTRAL ? (uint8_t)team : 7;
     mo->allegiance = team == Z_NEUTRAL ? ALLEGIANCE_NEUTRAL :
                      team == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
+    zmap_t *map = level.native_data;
+    if (map && mo->type_id == MT_FLAG && mo->z.territory && mo->z.territory <= map->territory_count)
+        map->territories[mo->z.territory - 1].team = team;
 }
 
 static fixed2_t pixel_centre(ivec2_t pixel, isize2_t size) {
@@ -654,6 +664,7 @@ int Z_LoadThings(void) {
     for (int i = 0; i < map->territory_count; ++i) {
         const zterritory_t *t = &map->territories[i];
         if (t->options & 3) continue;
+        Z_StampFlagTerrain(t->flag);
         mobj_t *flag = spawn(MT_FLAG, S_FLAG, ivec2_scale(t->flag, Z_TILE), (isize2_t){Z_TILE, Z_TILE},
                              t->team);
         if (!flag) continue;

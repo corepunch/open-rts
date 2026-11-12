@@ -187,8 +187,11 @@ int main(void) {
     memset(map->terrain, 0, sizeof(map->terrain));
     memset(level.blocked, 0, level.width * level.height);
     map->territory_count = 1;
+    map->territories[0].min = (ivec2_t){0,0};
+    map->territories[0].max = (ivec2_t){level.width,level.height};
     map->territories[0].flag = (ivec2_t){20,20};
     map->territories[0].options = 0;
+    Z_StampFlagTerrain(map->territories[0].flag);
     mobj_t *flag = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20.5,22.5), FIXED_FROM_INT(2)), MT_FLAG);
     fixed2_t start;
     CHECK(Z_UnitCentre(map, MT_UNIT_GRUNT - MT_UNITS, (ivec2_t){320,368}, &start));
@@ -317,7 +320,7 @@ int main(void) {
     mobj_t *solo = P_SpawnMobj(fixed3_from_fixed2(start, 0), MT_UNIT_GRUNT);
     CHECK(solo);
     Z_SetTeam(solo, 0); Z_SetTeam(flag, 1);
-    flag->z.hold = 0; flag->z.detour.cooldown = 0;
+    map->territories[0].capture_hold = 0; flag->z.detour.cooldown = 0;
     solo->z.route = (zroute_t){.active = TC_ORDER, .owner = 0};
     solo->core.angle = P_PointToAngle(0, -FIXED_ONE);
     CHECK(P_MoveUnitTo(&level, solo, old));
