@@ -180,7 +180,12 @@ At Most uses the visible-unit count and omits hidden passengers. Bring now
 handles loaded passengers this way, including when their stored position is
 stale. A fixture tests both sides of a location boundary for all three
 comparisons. Broader completed-versus-incomplete unit counting and the native
-handling of docked fighters, powerups and silo missiles remain incomplete.
+handling of powerups remain incomplete. OpenBW also counts stored Carrier
+Interceptors and ready Nuclear Silo missiles in completed Bring counts;
+both now use the owning hangar's location and height, with all three
+comparison types tested. OpenBW's corresponding Reaver branch credits its
+inside count to the Reaver type rather than Scarab; that behavior remains
+unverified and is not reproduced.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution

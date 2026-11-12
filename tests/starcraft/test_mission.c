@@ -1210,6 +1210,26 @@ int main(void) {
         CHECK(level.player_resources[0][0] == (bring_ops[op_index] == 1 || transport_inside ? 10 : 0));
         free(trig); unload();
     }
+    /* Stored Interceptors and ready silo missiles count only in completed Bring counts. */
+    for (int hangar_type = 0; hangar_type < 2; hangar_type++) for (int op_index = 0; op_index < 3; op_index++)
+        for (int hangar_inside = 0; hangar_inside < 2; hangar_inside++) {
+            int child = hangar_type ? MT_NUCLEAR_MISSILE : MT_INTERCEPTOR;
+            int quantity = hangar_type ? 1 : 2;
+            trig = blank_trigger(); CHECK(trig); put_u32(trig, 1);
+            put_u32(trig + 8, bring_ops[op_index] == 1 ? 0 : quantity);
+            put_u16(trig + 12, child - 1); trig[14] = bring_ops[op_index]; trig[15] = 3;
+            action = trig + 320; action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+            CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+            CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+            sc_mission_t *bring_mission = level.mission; bring_mission->loc_count = 1;
+            bring_mission->loc_right[0] = bring_mission->loc_bottom[0] = 256;
+            mobj_t *hangar = sc_spawn_actor((hangar_type ? MT_NUCLEAR_SILO : MT_CARRIER) - 1,
+                                             (ivec2_t){hangar_inside ? 128 : 640, 128}, 0);
+            CHECK(hangar); hangar->sc.hangar = quantity;
+            ticks(1, &(hudtext_t){0});
+            CHECK(level.player_resources[0][0] == (bring_ops[op_index] == 1 || hangar_inside ? 10 : 0));
+            free(trig); unload();
+        }
     remove("/tmp/open-rts-sc-order-trigger.chk");
 
     /* Move Unit teleports immediately; a count limits selected units. */

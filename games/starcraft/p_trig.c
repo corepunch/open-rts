@@ -204,7 +204,11 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
     if (!thinkercap.next) return 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
-        if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit)) continue;
+        if (th->function != P_MobjThinker || !alive_unit(mo)) continue;
+        bool virtual_hangar = cargo > 0 && mo->sc.hangar > 0 &&
+            ((mo->type_id == MT_CARRIER && unit == MT_INTERCEPTOR - 1) ||
+             (mo->type_id == MT_NUCLEAR_SILO && unit == MT_NUCLEAR_MISSILE - 1));
+        if (!kind_ok(mo, unit) && !virtual_hangar) continue;
         const mobj_t *position = mo;
         if (cargo >= 0 && (mo->sc.flags & SC_LOADED)) {
             if (!cargo) continue;
@@ -214,7 +218,8 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine || !location_height_ok(m, position, loc) || (!anywhere && !inside(position, l, t, r, b))) continue;
-        n++;
+        if (kind_ok(mo, unit)) n++;
+        if (virtual_hangar) n += mo->sc.hangar;
     }
     return n;
 }
