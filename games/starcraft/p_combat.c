@@ -93,6 +93,16 @@ void sc_start(mobj_t *mo) {
     if (mo->type_id == MT_VULTURE || mo->type_id == HERO_RAYNOR_VULTURE) mo->sc.hangar = 3;
 }
 
+void sc_initial_hp(mobj_t *mo, unsigned percent) {
+    int64_t max = (int64_t)mo->max_hp * 256;
+    if (max <= 0) { mo->hp = 0; mo->sc.wound = 0; return; }
+    int64_t hp = max * percent / 100;
+    if (hp > max) hp = max;
+    if (hp < 1) hp = 1;
+    mo->hp = (int)((hp + 255) / 256);
+    mo->sc.wound = (uint8_t)((int64_t)mo->hp * 256 - hp);
+}
+
 void sc_initial_vitals(mobj_t *mo, unsigned valid, unsigned shields, unsigned energy) {
     if (!(valid & (4 | 8))) return;
     const sc_unit_t *type = sc_unit(mo);

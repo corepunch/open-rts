@@ -279,6 +279,7 @@ int sc_max_energy(const mobj_t *mo);
 /* Shields and energy take their spawn values on first use. */
 void sc_start(mobj_t *mo);
 void sc_initial_vitals(mobj_t *mo, unsigned valid, unsigned shields, unsigned energy);
+void sc_initial_hp(mobj_t *mo, unsigned percent);
 /* Interceptors, scarabs and a silo's nuke: what a maker keeps in its
  * hangar (MT_NONE for none) and how many it holds. */
 uint16_t sc_hangar_type(uint16_t maker);

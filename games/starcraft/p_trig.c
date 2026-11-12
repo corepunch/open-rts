@@ -388,7 +388,7 @@ static void modify_vitals(const sc_mission_t *m, const int *players, int nplayer
         const sc_unit_t *type = &sc_units[mo->type_id - 1];
         if (id == 49) {
             if (!pct) P_DamageMobj(mo, NULL, mo->hp);
-            else { mo->hp = mo->max_hp * (int)pct / 100; if (mo->hp < 1) mo->hp = 1; }
+            else { mo->hp = mo->max_hp * (int)pct / 100; if (mo->hp < 1) mo->hp = 1; mo->sc.wound = 0; }
         } else if ((id == 50 && (type->flags & SC_UNIT_SPELLCASTER)) || (id == 51 && type->shields)) {
             sc_start(mo);
             if (id == 50) mo->sc.energy = sc_max_energy(mo) * (int)pct / 100;
@@ -552,12 +552,11 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
         mo->owner = mo->team = p[4];
         mo->allegiance = sc_allegiance_for(p[4]);
     }
-    if (data & 2) mo->hp = mo->max_hp * p[5] / 100;
+    if (data & 2) sc_initial_hp(mo, p[5]);
     sc_initial_vitals(mo, data, p[6], p[7]);
     if (data & 0x20) sc_initial_hangar(mo, read_u16_le(p + 12));
     if ((special & 16) && (state & 16)) mo->sc.flags |= SC_INVINCIBLE;
     if ((special & 8) && (state & 8)) mo->sc.flags |= SC_HALLUCINATION;
-    if (mo->hp < 1 && !(mo->sc.flags & SC_INVINCIBLE)) mo->hp = 1;
 }
 
 static void create_units(sc_mission_t *m, const uint8_t *a, int current) {

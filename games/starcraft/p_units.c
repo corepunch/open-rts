@@ -568,6 +568,7 @@ static void merging(mobj_t *mo, int frames) {
     if (mo->id > partner->id || (mo->sc.order.time -= frames) > 0) return;
     if (!P_MorphMobj(mo, MT_ARCHON)) return;
     mo->hp = mo->max_hp;
+    mo->sc.wound = 0;
     mo->sc.shields = sc_units[MT_ARCHON - 1].shields << 8;
     mo->sc.energy = 0;
     mo->sc.order = (sc_order_t){0};

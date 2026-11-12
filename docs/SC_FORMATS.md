@@ -216,7 +216,13 @@ save/load. OpenBW stores explicit energy for non-casters too, using 200 as
 the ordinary maximum and 250 for heroes; UNIT now preserves that state, with
 the same UPRP behavior inferred from the shared property path. Non-casters
 still expose no usable energy in the engine. Initial UNIT hit-point precision
-remains a separate approximation.
+uses OpenBW's fixed-point percent calculation, capped at maximum with a
+minimum of 1/256 HP for a nonzero-max unit. The existing integer HP and wound
+fields preserve that fraction; UPRP uses the same rule by inference. Fixtures
+cover zero, one, invalid and over-100 percentages and a save round trip.
+Modify Unit Hit Points and an Archon merge clear the previous fractional wound
+when setting whole health. General morph health scaling and hallucination
+health initialization remain separate approximations.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution

@@ -567,31 +567,35 @@ int main(void) {
     /* UNIT shields and energy use independent validity bits and native rounding. */
     CHECK(!write_map("/tmp/open-rts-sc-placed-vitals.chk", owners, NULL));
     placed_file = fopen("/tmp/open-rts-sc-placed-vitals.chk", "ab"); CHECK(placed_file);
-    uint8_t vital_units[8 * 36] = {0}; put_u32(unit_header + 4, sizeof(vital_units));
-    for (int i = 0; i < 8; i++) {
+    uint8_t vital_units[12 * 36] = {0}; put_u32(unit_header + 4, sizeof(vital_units));
+    for (int i = 0; i < 12; i++) {
         uint8_t *entry = vital_units + i * 36;
         put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
-        put_u16(entry + 8, (i < 3 ? MT_ZEALOT : i < 6 ? MT_GHOST : i == 6 ? MT_MARINE : MT_GANTRITHOR) - 1);
-        put_u16(entry + 14, i == 2 || i == 5 ? 0 : i < 3 ? 4 : 8);
+        put_u16(entry + 8, (i < 3 ? MT_ZEALOT : i < 6 ? MT_GHOST : i == 7 ? MT_GANTRITHOR : MT_MARINE) - 1);
+        put_u16(entry + 14, i == 2 || i == 5 || i == 11 ? 0 : i < 3 ? 4 : i < 8 ? 8 : 2);
+        entry[17] = i == 8 ? 1 : i == 9 ? 0 : 200;
         entry[18] = i == 0 ? 1 : 150; entry[19] = i == 3 ? 33 : i >= 6 ? 50 : 150;
     }
     CHECK(fwrite(unit_header, 1, sizeof(unit_header), placed_file) == sizeof(unit_header));
     CHECK(fwrite(vital_units, 1, sizeof(vital_units), placed_file) == sizeof(vital_units)); CHECK(!fclose(placed_file));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-vitals.chk", &level));
     level.upgrades[21][0].weapon = 1; /* Moebius Reactor */
-    CHECK(P_LoadThings(level.map_path) == 8);
+    CHECK(P_LoadThings(level.map_path) == 12);
     placed_units = P_ListMobjs(); placed_seen = 0;
     for (int i = 0; i < placed_units.count; i++) {
         mobj_t *placed_unit = placed_units.items[i];
         int index = ((placed_unit->core.position.x >> 11) - 128) / 64;
-        if (index < 0 || index >= 8) continue;
+        if (index < 0 || index >= 12) continue;
         if (index < 3) CHECK(sc_shields(placed_unit) == (index == 0 ? 0 : sc_units[MT_ZEALOT - 1].shields));
         else if (index == 3) CHECK(placed_unit->sc.energy == 82 * 256 + 128);
         else if (index < 6) CHECK(sc_energy(placed_unit) == (index == 4 ? 250 : 50));
-        else CHECK(placed_unit->sc.energy == (index == 6 ? 100 : 125) * 256);
+        else if (index < 8) CHECK(placed_unit->sc.energy == (index == 6 ? 100 : 125) * 256);
+        else if (index == 8) CHECK(placed_unit->hp == 1 && placed_unit->sc.wound == 154);
+        else if (index == 9) CHECK(placed_unit->hp == 1 && placed_unit->sc.wound == 255);
+        else CHECK(placed_unit->hp == placed_unit->max_hp && !placed_unit->sc.wound);
         placed_seen++;
     }
-    CHECK(placed_seen == 8); P_FreeMobjList(&placed_units); unload();
+    CHECK(placed_seen == 12); P_FreeMobjList(&placed_units); unload();
     remove("/tmp/open-rts-sc-placed-vitals.chk");
 
     /* Action 11 has a one-based UPRP slot and a separate count byte. */
@@ -615,6 +619,23 @@ int main(void) {
     }
     CHECK(cuwp_count == 3);
     P_FreeMobjList(&cuwp_units); free(trig); unload(); remove("/tmp/open-rts-sc-cuwp.chk");
+
+    for (int hp_percent = 0; hp_percent <= 1; hp_percent++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 20, 1); put_u16(action + 24, MT_MARINE - 1);
+        action[26] = 11; action[27] = 1; action[28] = 28;
+        CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+        cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+        memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp + 2, 2); cuwp[5] = (uint8_t)hp_percent;
+        CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+        CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level)); ticks(1, &(hudtext_t){0});
+        cuwp_units = P_ListMobjs(); mobj_t *created_hp = NULL;
+        for (int i = 0; i < cuwp_units.count; i++) if (cuwp_units.items[i]->type_id == MT_MARINE) created_hp = cuwp_units.items[i];
+        CHECK(created_hp && created_hp->hp == 1 && created_hp->sc.wound == (hp_percent ? 154 : 255));
+        P_FreeMobjList(&cuwp_units); free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-cuwp.chk");
 
     /* CUWP shares the hangar-valid bit and stores the count at +12. */
     for (int i = 0; i < 4; i++) for (int valid = 0; valid < 2; valid++) {
@@ -1027,9 +1048,16 @@ int main(void) {
     CHECK(!write_map("/tmp/open-rts-sc-hp.chk", owners, trig));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hp.chk", &level));
     mobj_t *last_hp = NULL;
-    for (int i = 0; i < 260; i++) { last_hp = spawn(MT_MARINE - 1, 0); CHECK(last_hp); }
+    for (int i = 0; i < 260; i++) { last_hp = spawn(MT_MARINE - 1, 0); CHECK(last_hp); sc_initial_hp(last_hp, 1); }
     ticks(1, &(hudtext_t){0});
-    CHECK(last_hp->hp == last_hp->max_hp / 2);
+    CHECK(last_hp->hp == last_hp->max_hp / 2 && !last_hp->sc.wound);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action + 20, 100); put_u16(action + 24, MT_MARINE - 1); action[26] = 49;
+    CHECK(!write_map("/tmp/open-rts-sc-hp.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hp.chk", &level));
+    last_hp = spawn(MT_MARINE - 1, 0); CHECK(last_hp); sc_initial_hp(last_hp, 1);
+    ticks(1, &(hudtext_t){0}); CHECK(last_hp->hp == last_hp->max_hp && !last_hp->sc.wound);
     free(trig); unload();
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

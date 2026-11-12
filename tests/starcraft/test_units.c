@@ -337,6 +337,7 @@ static int bunker(void) {
 static int archon(void) {
     mobj_t *a = spawn(MT_HIGH_TEMPLAR, FIXED2_LIT(5.5, 30.5), 0), *b = spawn(MT_HIGH_TEMPLAR, FIXED2_LIT(8.5, 30.5), 0);
     CHECK(a && b);
+    sc_initial_hp(a, 1);
     ticcmd_t merge = {.order = TC_SPELL, .count = 2, .units = {a->id, b->id}, .product = SC_TECH_ARCHON_WARP};
     G_RunTiccmd(0, &merge);
     tick(RTS_TICRATE * 3);
@@ -344,7 +345,7 @@ static int archon(void) {
     tick(sc_units[MT_ARCHON - 1].build_time * RTS_TICRATE / 24);
     CHECK(count_of(MT_HIGH_TEMPLAR, 0) == 0 && count_of(MT_ARCHON, 0) == 1);
     mobj_t *archon = first_of(MT_ARCHON);
-    CHECK(archon && archon->hp == archon->max_hp && sc_shields(archon) == 350 && (archon->traits & MF_ATTACK));
+    CHECK(archon && archon->hp == archon->max_hp && !archon->sc.wound && sc_shields(archon) == 350 && (archon->traits & MF_ATTACK));
     reset();
     return 0;
 }

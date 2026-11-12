@@ -533,7 +533,7 @@ int sc_spawn_things(void) {
             ivec2_t pixel={read_u16_le(u+4),read_u16_le(u+6)};
             mobj_t *mo=sc_spawn_actor(type,pixel,u[16]);
             if(!mo) return count;
-            if(read_u16_le(u+14)&2) mo->hp=mo->max_hp*u[17]/100;
+            if(read_u16_le(u+14)&2) sc_initial_hp(mo,u[17]);
             sc_initial_vitals(mo,read_u16_le(u+14),u[18],u[19]);
             if(read_u16_le(u+14)&0x20) sc_initial_hangar(mo,read_u16_le(u+24));
             bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
