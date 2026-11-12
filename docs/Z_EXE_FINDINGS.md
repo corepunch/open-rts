@@ -1790,8 +1790,9 @@ explicit minion membership, not permanent unique group identities.
 The U key and sidebar EJECT button submit `TC_UNLOAD`; ejection restores those
 members and leaves an empty APC or gun. Starting APCs and guns without a stored
 crew use a Grunt driver, as in Zod's cannon setup. The per-crew weapon damage is
-applied to the current shared attack; APC weapon range, cooldown, projectile
-effects and exact retail cargo/driver mutation remain **unknown or unported**.
+applied to the current shared attack. APC range, projectile effects and exact
+retail cargo/driver mutation remain **unknown or unported**; the separately
+traced driver-dependent reload is described below.
 The save layout is versioned for the added crew state. Reproduce with:
 
 ```sh
@@ -1799,6 +1800,24 @@ make build/bin/tests/z/test_capture build/bin/tests/z/test_hud
 env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_capture
 env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_hud
 ```
+
+**Native APC reload (ZED.EXE SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`):**
+`0x6375a` saves the boarding robot's fire-rate byte +0x75, and APC setup
+`0x638ac..0x638c3` restores it, using 80 only when that byte is zero. The APC
+action dispatch entry 0x38 points to `0x1e9dc`; `0x1ea4a..0x1ea59` loads
+`100 - rate` plus half that value, with a signed overflow fallback. For the
+shipped robot rates this is 30 native frames for Grunt, Tough, Sniper and
+Laser, and 3 for Psycho and Pyro. `G_WeaponCooldown` now uses the authored
+driver stats and that formula, including when the body has been damaged.
+`test_combat` covers all six driver types through actual attack dispatch,
+boarding, save/load, and real ticker intervals. In its stationary fixture
+the engine fires at 18-tic intervals with a Grunt and 6 with a Psycho;
+the shared attack animation and 30 Hz quantization affect those intervals,
+so the 70 Hz native reload alone does not prove full firing-timing parity.
+This does not establish the native APC's projectile or damage dispatch.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 12 @ 0x6375a' -c 'pd 22 @
+0x638ac' -c 'pd 30 @ 0x1ea0d' -c q data/Z/ZED.EXE`.
 
 ## Task 7, automatic bridge reconstruction and crane poses (2026-11-11)
 
@@ -2849,6 +2868,28 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   bin.cache=true -c 'pd 45 @ 0x63aa6' -c 'pd 55 @ 0x5ad72' -c 'pd 20 @
   0x86d1f' -c q data/Z/ZED.EXE`. Type 0x1b and bodies with
   +0x19 = 3 are also eligible; neither is identified.
+
+  **Additional instruction-level finding:** vehicle setup at
+  `0x637e7`, `0x63838`, `0x63889`, `0x638f4` and `0x6399b` initializes
+  body +0x19 to -1. `0x58454..0x5847b` starts an ascending sequence when
+  +0x19 is below 3; `0x584e9..0x58531` advances or reverses it using
+  body +0x1a/+0x1b, and `0x58531..0x58580` invokes a secondary firing
+  path when +0x19 reaches 3. `0x5adb0..0x5adbb` tests that same body byte
+  for driver-hit eligibility. This links the driver vulnerability to an
+  animated secondary-weapon state. The call at `0x58214` passes the acquired
+  target in ESI and the attacking vehicle in EBP to `0x583b2`: target types
+  Jeep 0x22, Gatling 0x16, and class 0 run an accuracy-dependent pair of
+  `0x640ff` tests under a +0x97 countdown, target classes 1 and 2 otherwise
+  request closure, and other classes request opening. `0x58454` starts
+  opening with a five-frame timer; the animated update and secondary-fire
+  path run from `0x57dec` every vehicle pass. Exact player/AI triggers,
+  probabilities and per-type behavior remain **unknown**. Mobile missile type 0x18 has an
+  additional facing and half-accuracy check at `0x5add9..0x5adfb` if it
+  reaches that eligibility branch; its ordinary setup is `0x63955`.
+  Open-rts does not yet model that secondary state, so do not grant all
+  vehicles permanent driver vulnerability. Reproduce with `r2 -q -e
+  bin.cache=true -c 'pd 45 @ 0x6392b' -c 'pd 90 @ 0x58454' -c 'pd 55 @
+  0x5ad72' -c q data/Z/ZED.EXE`.
 - Shells, rockets and grenades (`0x59ed1`/`0x5a205`/`0x5a39e`) use the
   explosion path (`0x85ce4..0x85e9f`); class-0 robots throw strength 50
   (`0x103f47`). Correction: its selection point is not the unit top-left;

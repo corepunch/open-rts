@@ -104,6 +104,79 @@ static int test_bad_crew_combat(void) {
     return 0;
 }
 
+static int test_apc_driver_cooldown(void) {
+    static const struct { int type, steps; } drivers[] = {
+        {MT_UNIT_GRUNT, 30}, {MT_UNIT_TOUGH, 30}, {MT_UNIT_SNIPER, 30},
+        {MT_UNIT_PSYCHO, 3}, {MT_UNIT_PYRO, 3}, {MT_UNIT_LASER, 30},
+    };
+    RtsGameModel *model = load();
+    if (!model) return fail("load for APC driver cooldown");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
+    if (!apc || !target) return fail("spawn APC cooldown fixture");
+    apc->attack.target = target;
+    apc->z.body_tracked = true; apc->z.body_fire = 1;
+    P_UpdateSight();
+    for (size_t i = 0; i < sizeof(drivers) / sizeof(*drivers); ++i) {
+        apc->z.driver = drivers[i].type - MT_UNITS + 1;
+        apc->z.crew_count = 1;
+        apc->z.crew[0] = (zcrew_t){.hp = 30, .type = drivers[i].type - MT_UNITS};
+        if (!P_Attack(apc) || apc->attack.cooldown_left_ms != drivers[i].steps * 1000 / Z_NATIVE_HZ)
+            return fail("APC reload uses driver rate plus half");
+    }
+    mobj_t *driver = blast_unit(MT_UNIT_PSYCHO, 0, at, 50);
+    mobj_t *empty = blast_unit(MT_UNIT_APC, Z_NEUTRAL, at, 500);
+    if (!driver || !empty) return fail("spawn APC boarding cooldown fixture");
+    empty->traits &= ~(MF_MOBILE | MF_ATTACK);
+    P_SetMobjState(empty, S_A_P_C);
+    if (!Z_DetourBoard(driver, empty) || empty->z.driver != MT_UNIT_PSYCHO - MT_UNITS + 1)
+        return fail("Psycho boards empty APC");
+    uint32_t id = empty->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "APC driver", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save APC driver cooldown");
+    free(save);
+    empty = P_MobjById(id);
+    if (!empty || G_WeaponCooldown(empty, &empty->info->attack, empty->info->attack.cooldown_ms) != 3 * 1000 / Z_NATIVE_HZ)
+        return fail("APC retains its boarded driver's reload after load");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int apc_firing_interval(int driver_type) {
+    RtsGameModel *model = load();
+    if (!model) return -1;
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
+    if (!apc || !target) { rts_game_model_destroy(model); return -1; }
+    apc->z.driver = driver_type - MT_UNITS + 1;
+    apc->z.crew_count = 1;
+    apc->z.crew[0] = (zcrew_t){.hp = 30, .type = driver_type - MT_UNITS};
+    apc->attack.target = target;
+    P_UpdateSight();
+    int first = -1, interval = -1, hp = target->hp;
+    for (int t = 0; t < 10 * RTS_TICRATE && interval < 0; ++t) {
+        if (!tick(model, 1)) break;
+        if (target->hp < hp) {
+            if (first >= 0) interval = t - first;
+            else first = t;
+            hp = target->hp;
+        }
+    }
+    rts_game_model_destroy(model);
+    return interval;
+}
+
+static int test_apc_firing_intervals(void) {
+    int grunt = apc_firing_interval(MT_UNIT_GRUNT);
+    int psycho = apc_firing_interval(MT_UNIT_PSYCHO);
+    if (psycho < 1 || grunt <= psycho) return fail("driver cooldown changes real APC firing intervals");
+    return 0;
+}
+
 static int test_pyro_cadence(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for Pyro cadence");
@@ -579,7 +652,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_firing_intervals() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

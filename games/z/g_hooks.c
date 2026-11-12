@@ -35,6 +35,13 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
  * Other attack paths use the unit's own +0x75 instead. */
 int G_WeaponCooldown(const mobj_t *unit, const weapondef_t *weapon, int cooldown_ms) {
     (void)weapon;
+    if (unit->type_id == MT_UNIT_APC && unit->z.driver && Z_IsRobot(unit->z.driver - 1)) {
+        const mobjtype_t *driver = P_ActorType(MT_UNITS + unit->z.driver - 1);
+        if (driver && driver->attack.cooldown_ms > 0) {
+            int steps = (driver->attack.cooldown_ms * Z_NATIVE_HZ + 999) / 1000;
+            return (steps + steps / 2) * 1000 / Z_NATIVE_HZ;
+        }
+    }
     if (!unit->z.body_tracked) return cooldown_ms;
     switch (unit->type_id) {
     case MT_UNIT_LIGHT_TANK: case MT_UNIT_MED_TANK: case MT_UNIT_HEAVY_TANK: case MT_UNIT_M_MISSILE:
