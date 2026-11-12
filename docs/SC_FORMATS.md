@@ -157,6 +157,9 @@ queues its requested order. This path uses the existing unburrow animation
 and order queue; a fixture burrows a Zergling and executes two orders in one
 trigger, checking that the latter replaces the pending order and runs after
 emerging.
+The same OpenBW action excludes Interceptors, Scarabs, Nuclear Missiles and
+units belonging to either rescuable controller type. A fixture checks these
+exclusions alongside an eligible Marine.
 
 OpenBW's Set Resources reads the action quantity as an unsigned 32-bit value.
 The engine stores resource balances as signed integers, so Set and Add now

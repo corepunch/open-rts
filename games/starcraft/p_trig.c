@@ -491,6 +491,8 @@ static void order_units(const sc_mission_t *m, const int *players, int nplayers,
         mobj_t *mo = (mobj_t *)th;
         bool emerging = (mo->sc.flags & SC_BURROWED) || mo->sc.order.kind == SC_ORDER_UNBURROW;
         if (mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+            mo->type_id == MT_INTERCEPTOR || mo->type_id == MT_SCARAB || mo->type_id == MT_NUCLEAR_MISSILE ||
+            (mo->owner < 8 && (m->owners[mo->owner] == 3 || m->owners[mo->owner] == 4)) ||
             (!((mo->traits & MF_MOBILE) || (emerging && mo->info &&
                                            (mo->info->traits & MF_MOBILE)))) ||
             (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;

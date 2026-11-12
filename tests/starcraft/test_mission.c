@@ -1085,6 +1085,24 @@ int main(void) {
     }
     CHECK(P_HasMoveOrder(burrowed) && burrowed->waypoints.mode == WP_BACKTRACK);
     free(trig); unload();
+    /* Order excludes fighters, nuclear missiles and rescuable owners. */
+    uint8_t rescue_owners[12] = {6, 3, 4};
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 16, 17); put_u32(action + 20, 64);
+    put_u16(action + 24, 229); action[26] = 46;
+    CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", rescue_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+    const int excluded_types[] = {MT_INTERCEPTOR, MT_SCARAB, MT_NUCLEAR_MISSILE, MT_MARINE, MT_MARINE};
+    mobj_t *excluded[5];
+    for (int i = 0; i < 5; i++) {
+        excluded[i] = sc_spawn_actor(excluded_types[i] - 1, (ivec2_t){128 + i * 32, 128}, i >= 3 ? i - 2 : 0);
+        CHECK(excluded[i]); excluded[i]->traits |= MF_MOBILE;
+    }
+    mobj_t *normal_order = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){352, 128}, 0); CHECK(normal_order);
+    ticks(1, &(hudtext_t){0});
+    CHECK(P_HasMoveOrder(normal_order));
+    for (int i = 0; i < 5; i++) CHECK(!excluded[i]->sc.queue.active && !P_HasMoveOrder(excluded[i]));
+    free(trig); unload();
     remove("/tmp/open-rts-sc-order-trigger.chk");
 
     /* Move Unit teleports immediately; a count limits selected units. */
