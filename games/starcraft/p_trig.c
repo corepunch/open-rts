@@ -629,6 +629,23 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             modify_vitals(m, players, n, unit, loc, a[27], read_u32_le(a + 8), id);
             continue;
         }
+        if (id == 43 && thinkercap.next) {
+            int l, t, r, b;
+            bool anywhere = !loc || loc == 64;
+            if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) continue;
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+                    (!anywhere && !inside(mo, l, t, r, b))) continue;
+                for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
+                    if (a[27] == 4) mo->sc.flags |= SC_INVINCIBLE;
+                    else if (a[27] == 5) mo->sc.flags &= (uint8_t)~SC_INVINCIBLE;
+                    else if (a[27] == 6) mo->sc.flags ^= SC_INVINCIBLE;
+                    break;
+                }
+            }
+            continue;
+        }
         if ((id == 22 || id == 23 || id == 24 || id == 25) && thinkercap.next) {
             int l, t, r, b;
             bool anywhere = (id != 23 && id != 25) || !loc || loc == 64;
@@ -648,8 +665,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             }
             continue;
         }
-        if (id == 39 || id == 43 ||
-            id == 48 || id == 49) {
+        if (id == 39 || id == 48 || id == 49) {
             unsigned where = loc;
             int limit = (id == 39 || id == 48 || id == 49) ? a[27] : 0;
             mobj_t *found[256];
@@ -659,10 +675,6 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 mobj_t *mo = found[i];
                 if (id == 39) {
                     P_MoveUnitTo(&level, mo, dest);
-                } else if (id == 43) {
-                    if (a[27] == 4) mo->sc.flags |= SC_INVINCIBLE;
-                    else if (a[27] == 5) mo->sc.flags &= (uint8_t)~SC_INVINCIBLE;
-                    else if (a[27] == 6) mo->sc.flags ^= SC_INVINCIBLE;
                 } else if (id == 48 && number < 8) {
                     mo->owner = mo->team = (uint8_t)number;
                     mo->allegiance = sc_allegiance_for((uint8_t)number);

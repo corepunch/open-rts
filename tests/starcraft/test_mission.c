@@ -364,6 +364,31 @@ int main(void) {
     CHECK(kill_mission->deaths[0][MT_ZEALOT - 1] == 2);
     free(trig); unload(); remove("/tmp/open-rts-sc-kill-defense.chk");
 
+    /* Set Invincibility applies to every matching unit, including illusions. */
+    for (int state = 4; state <= 6; state++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1);
+        action[26] = 43; action[27] = (uint8_t)state;
+        CHECK(!write_map("/tmp/open-rts-sc-invincibility.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-invincibility.chk", &level));
+        sc_mission_t *inv_mission = level.mission; inv_mission->loc_count = 1;
+        inv_mission->loc_right[0] = inv_mission->loc_bottom[0] = 64;
+        mobj_t *last_inv = NULL;
+        for (int i = 0; i < 260; i++) {
+            last_inv = spawn(MT_MARINE - 1, 0); CHECK(last_inv);
+            if (state != 4) last_inv->sc.flags |= SC_INVINCIBLE;
+        }
+        last_inv->sc.flags |= SC_HALLUCINATION;
+        mobj_t *outside_inv = spawn(MT_MARINE - 1, 0); CHECK(outside_inv);
+        outside_inv->core.position = (fixed3_t){FIXED_FROM_INT(5), FIXED_FROM_INT(5), 0};
+        ticks(1, &(hudtext_t){0});
+        CHECK(!!(last_inv->sc.flags & SC_INVINCIBLE) == (state == 4));
+        CHECK(!(outside_inv->sc.flags & SC_INVINCIBLE));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-invincibility.chk");
+
     /* Move Location shifts the destination by the match's source-relative offset. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

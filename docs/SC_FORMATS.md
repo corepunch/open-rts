@@ -59,6 +59,12 @@ selection and death path. PyMS identifies its count and location fields;
 including hallucinations is inferred from OpenBW's action 22 and location
 predicate, not a direct OpenBW action 23 implementation. Its mission tests
 cover all 260 matches, an outside unit, and a one-unit limit.
+PyMS defines Set Invincibility (action 43) with a player, unit, location and
+state but no count. Its selection now reaches every matching unit, including
+hallucinations, rather than truncating at 256. Inclusion of hallucinations is
+inferred from OpenBW's general location predicate; OpenBW does not implement
+action 43 directly. Tests cover enable, disable and toggle across 260 units,
+with an outside unit unchanged.
 The shared `P_DamageMobj` call subtracts HP directly; shield absorption, armor,
 and invincibility checks occur in StarCraft's combat path before that call.
 The mission regression also kills a shielded Zealot and an invincible Zealot
