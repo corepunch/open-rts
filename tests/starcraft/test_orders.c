@@ -338,10 +338,27 @@ static int queued_orders(void) {
     CHECK(u->sc.flags&SC_LOADED);
     return 0;
 }
+static int cloaked_ghost(void) {
+    reset();
+    mobj_t *ghost=spawn(MT_GHOST,FIXED2_LIT(5.5,5.5),0);
+    mobj_t *enemy=spawn(MT_MARINE,FIXED2_LIT(7.5,5.5),1);CHECK(ghost&&enemy);
+    ghost->traits|=MF_CLOAKED;
+    CHECK(!P_Attack(ghost) && !ghost->attack.target);
+    ghost->attack.target=enemy;CHECK(P_Attack(ghost)); /* Explicit attack. */
+    ghost->attack.target=NULL;ghost->attack.cooldown_left_ms=0;
+    P_ProvokeMobj(ghost,enemy);CHECK(ghost->attack.target==enemy && P_Attack(ghost));
+    ghost->attack.target=NULL;ghost->attack.cooldown_left_ms=0;
+    ghost->sc.flags|=SC_HOLD;CHECK(P_Attack(ghost));
+    mobj_t *hero=spawn(MT_SARAH_KERRIGAN,FIXED2_LIT(5.5,6.5),0);
+    mobj_t *wraith=spawn(MT_WRAITH,FIXED2_LIT(5.5,7.5),0);CHECK(hero&&wraith);
+    hero->traits|=MF_CLOAKED;wraith->traits|=MF_CLOAKED;
+    CHECK(!P_Attack(hero) && P_Attack(wraith));
+    return 0;
+}
 int main(void) {
     G_InitGame();P_InitThinkers();consoleplayer=0;
     static sc_mission_t mission; mission.rng=2; level.mission=&mission;
     level.width=level.height=32;level.blocked=calloc(1024,1);level.cell_solid=calloc(1024,1);
-    if(combat_orders()||repairs()||repair_bounds()||cargo()||follow_and_flight()||queued_orders())return 1;
+    if(combat_orders()||repairs()||repair_bounds()||cargo()||follow_and_flight()||queued_orders()||cloaked_ghost())return 1;
     puts("StarCraft orders: ok");return 0;
 }

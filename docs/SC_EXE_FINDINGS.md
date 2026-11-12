@@ -1,5 +1,19 @@
 # StarCraft native data and UI findings
 
+## Cloaked Ghost acquisition
+
+Pinned OpenBW `unit_target_acquisition_range` returns zero for a cloaked
+Ghost unless its order is HoldPosition. `unit_is_ghost` includes Sarah
+Kerrigan and the Brood War Ghost heroes; this classic catalog names the
+Ghost and Sarah Kerrigan. `order_PlayerGuard` handles an existing
+auto-target before scanning acquisition range, so explicit and retaliatory
+targets remain usable. `play/p_mobj.c` suppresses only the new-target scan
+for these cloaked classic types and preserves Hold, explicit targets and
+retaliation. `test_orders` exercises each case and checks that a cloaked
+Wraith still acquires. This is pinned OpenBW behavior, not an independent
+retail-executable trace. It narrows Stargus/Stratagus's broader rule that
+invisible units are not aggressive.
+
 ## Queued player orders
 
 Pinned OpenBW `bwgame.h` `issue_order` permits eight

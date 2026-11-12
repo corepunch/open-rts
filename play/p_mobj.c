@@ -662,6 +662,12 @@ static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
         }
     }
     if (attacker->traits & MF_NOAUTOTARGET) return NULL;
+#ifdef RTS_MODULE_STARCRAFT
+    /* OpenBW unit_target_acquisition_range: cloaked Ghosts do not seek a
+     * new target except on Hold. Explicit/provoked targets were checked above. */
+    if ((attacker->type_id == MT_GHOST || attacker->type_id == MT_SARAH_KERRIGAN) &&
+        (attacker->traits & MF_CLOAKED) && !(attacker->sc.flags & SC_HOLD)) return NULL;
+#endif
     target = NULL;
     int64_t best2 = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
