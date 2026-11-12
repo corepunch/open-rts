@@ -46,7 +46,7 @@ static const struct { int sprite; bool mobile, turns; } unit_kinds[] = {
 enum { Z_UNIT_TYPES = sizeof(unit_kinds) / sizeof(unit_kinds[0]) };
 
 /* objects.inc flags 0x32: guns and vehicles, standing empty. */
-static const uint8_t object_flags[] = {
+const uint8_t z_object_flags[] = {
 #define Z_OBJECT(native, type, label, sprite, flags, w, h, dead) flags,
 #include "objects.inc"
 #undef Z_OBJECT
@@ -664,7 +664,7 @@ int Z_LoadThings(void) {
              * Nobody drives it: it keeps the object's crewless picture
              * and neither moves nor fights until a robot gets in
              * (p_capture.c); it can still be picked as the place to go. */
-            if (object_flags[r[4]] == 0x32 && r[5] < Z_UNIT_TYPES) {
+            if (z_object_flags[r[4]] == 0x32 && r[5] < Z_UNIT_TYPES) {
                 mobj_t *mo = spawn(MT_UNITS + r[5], mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
                 if (mo) {
                     mo->z.object = (uint8_t)(r[4] + 1);
@@ -678,9 +678,7 @@ int Z_LoadThings(void) {
             mobj_t *mo = spawn(type, mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
             if (mo) {
                 mo->z.object_slot = (uint8_t)slot;
-                if (type == MT_GRENADES || type == MT_GRENADES_2) {
-                    if (r[5] < Z_UNIT_TYPES) mo->z.object_hp = object_weapon_health[r[5]];
-                }
+                if (r[5] < Z_UNIT_TYPES) mo->z.object_hp = object_weapon_health[r[5]];
                 count++;
             }
         }

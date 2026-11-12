@@ -1976,6 +1976,65 @@ static int test_alert(void) {
     return 0;
 }
 
+static int test_shell_wreck_preemption(void) {
+    static const int types[] = {MT_EX_DEAD_TRUCK, MT_DEAD_DML, MT_DEAD_GATTLING,
+                                MT_DEAD_FIELD_GUN, MT_DEAD_HOWITZER};
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load wreck impact fixture");
+        fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+        ivec2_t centre = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+        ivec2_t origin = ivec2_sub(centre, (ivec2_t){8, 8});
+        isize2_t size;
+        if (!Z_SpriteSize(level.native_data, states[mobjinfo[types[i]].spawnstate].frame, &size))
+            return fail("wreck sprite size");
+        fixed2_t wreck_at = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){size.w / 2, size.h / 2})), FIXED_ONE / Z_TILE);
+        mobj_t *wreck = blast_unit(types[i], Z_NEUTRAL, wreck_at, 100);
+        mobj_t *box = blast_unit(MT_GRENADES, Z_NEUTRAL, at, 100);
+        mobj_t *ordinary = blast_unit(MT_BOX, Z_NEUTRAL, at, 100);
+        mobj_t *shell = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_SHELL);
+        if (!wreck || !box || !ordinary || !shell) return fail("spawn wreck impact fixture");
+        ordinary->z.object_slot = 1; wreck->z.object_slot = 2; box->z.object_slot = 3;
+        wreck->z.object_hp = box->z.object_hp = 2;
+        shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){33, 8})), FIXED_ONE / Z_TILE);
+        shell->missile.damage = 1; shell->team = 1; shell->attack.target = wreck;
+        ivec2_t cell = {origin.x / Z_TILE, (origin.y + 16) / Z_TILE};
+        int index = cell.y * Z_MAP_STRIDE + cell.x;
+        zmap_t *map = level.native_data;
+        map->ground_attr[index] = 0x87;
+        A_ZBlastImpact(shell);
+        if (wreck->z.object_hp != 2 || box->z.object_hp != 2) return fail("wreck probe excludes 25 pixels");
+        shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){32, 8})), FIXED_ONE / Z_TILE);
+        A_ZBlastImpact(shell);
+        if (wreck->remove || wreck->z.object_hp != 1 || wreck->hp != 25 || box->z.object_hp != 2 ||
+            ordinary->remove || map->ground_attr[index] != 0x87)
+            return fail("eligible wreck preempts the crate and takes one effect hit");
+        shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){8, 8})), FIXED_ONE / Z_TILE);
+        uint32_t wreck_id = wreck->id, box_id = box->id, shell_id = shell->id;
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+        if (!G_SaveGameBlob(&save, &bytes, "Damaged wreck", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save damaged wreck");
+        free(save);
+        wreck = P_MobjById(wreck_id); box = P_MobjById(box_id); shell = P_MobjById(shell_id);
+        map = level.native_data;
+        if (!wreck || !box || !shell || wreck->z.object_hp != 1) return fail("restore damaged wreck");
+        A_ZBlastImpact(shell);
+        if (!wreck->remove || box->z.object_hp != 2 || map->ground_attr[index] != (i < 2 ? 0x87 : 0x96))
+            return fail("fatal wreck hit updates only its native terrain and stops at the wreck");
+        A_ZBlastImpact(shell);
+        if (box->remove || box->z.object_hp != 1) return fail("next impact reaches the crate");
+        save = NULL; bytes = 0;
+        if (!G_SaveGameBlob(&save, &bytes, "Destroyed wreck", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save destroyed wreck");
+        free(save);
+        map = level.native_data;
+        if (map->ground_attr[index] != (i < 2 ? 0x87 : 0x96) || map->terrain[index] != (i < 2 ? 0x87 : 0x96))
+            return fail("restore wreck terrain change");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 static int test_ejected_hull_impact(void) {
     static const int types[] = {MT_UNIT_APC, MT_UNIT_LIGHT_GUN, MT_UNIT_GATLING,
                                 MT_UNIT_HOWITZER, MT_UNIT_MISSILE_GUN, MT_UNIT_APC};
@@ -2026,7 +2085,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

@@ -839,6 +839,14 @@ void A_ZBoxBlast(mobj_t *effect) {
     }
 }
 
+static int blast_object_flags(const mobj_t *mo) {
+    bool empty = mo->z.object && mo->team == Z_NEUTRAL && !mo->z.driver && Z_UnitType(mo) >= 0;
+    int type = empty ? mo->z.object : mo->type_id;
+    if (!live(mo) || type <= MT_NULL || type >= MT_FORT || (!mo->z.object_slot && !empty)) return 0;
+    int flags = z_object_flags[type - 1];
+    return flags & 0x10 ? flags : 0;
+}
+
 static void blast_object(ivec2_t impact, int damage) {
     static const ivec2_t probes[] = {{-8,-8}, {8,-8}, {-8,8}, {8,8}};
     const zmap_t *map = level.native_data;
@@ -850,15 +858,14 @@ static void blast_object(ivec2_t impact, int damage) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             if (th->function != P_MobjThinker) continue;
             mobj_t *box = (mobj_t *)th;
-            bool empty = live(box) && box->z.object && box->team == Z_NEUTRAL &&
-                         !box->z.driver && Z_UnitType(box) >= 0;
-            if (!crate(box) && !empty) continue;
+            int flags = blast_object_flags(box);
+            if (!flags) continue;
             isize2_t size;
             if (!Z_SpriteSize(map, states[box->core.state_id].frame, &size)) continue;
             ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
             ivec2_t at = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
             ivec2_t d = ivec2_sub(point, at);
-            int extent = empty ? 24 : 16;
+            int extent = ((flags + 1) & 3) * 8;
             if (d.x < 0 || d.y < 0 || d.x > extent || d.y > extent) continue;
             if (!found || (box->z.object_slot && (!found->z.object_slot || box->z.object_slot < found->z.object_slot))) {
                 found = box; origin = at;
@@ -870,7 +877,22 @@ static void blast_object(ivec2_t impact, int damage) {
             if (!crate(found)) found->hp = found->z.object_hp * 25;
             return;
         }
-        if (!crate(found)) { P_RemoveMobj(found); return; }
+        if (!crate(found)) {
+            int type = found->z.object ? found->z.object : found->type_id;
+            int flags = z_object_flags[type - 1];
+            if (flags & 4) {
+                ivec2_t cell = ivec2_add(origin, (ivec2_t){0, flags & 2 ? 16 : 0});
+                cell = (ivec2_t){cell.x / Z_TILE, cell.y / Z_TILE};
+                if (origin.x >= 0 && origin.y >= 0 && L_Contains(&level, cell.x, cell.y)) {
+                    zmap_t *mutable_map = level.native_data;
+                    int index = cell.y * Z_MAP_STRIDE + cell.x;
+                    mutable_map->ground_attr[index] = (mutable_map->ground_attr[index] & 0x80) | 0x16;
+                    Z_RebuildCliffs(&level);
+                }
+            }
+            P_RemoveMobj(found);
+            return;
+        }
         P_RemoveMobj(found);
         blast_building(origin, NULL, 127);
         zmap_t *mutable_map = level.native_data;
@@ -1014,7 +1036,7 @@ static void blast_units(mobj_t *missile, ivec2_t impact) {
     }
     /* Terrain has a separate native path. */
     if (!primary_hit && live(target) && Z_UnitType(target) >= 0 && !structure(target) && !crate(target) &&
-        !(target->z.object && target->team == Z_NEUTRAL) &&
+        !blast_object_flags(target) &&
         target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
@@ -1030,7 +1052,7 @@ void A_ZBlastImpact(mobj_t *missile) {
     blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
     mobj_t *target = missile->attack.target;
     if (live(target) && Z_UnitType(target) < 0 && !structure(target) && !crate(target) &&
-        !(target->z.object && target->team == Z_NEUTRAL) &&
+        !blast_object_flags(target) &&
         target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)

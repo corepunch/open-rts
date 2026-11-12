@@ -3521,12 +3521,32 @@ effect health and 25:1 conversion to body health on boarding. Destroying one
 removes its empty mobj without triggering the box explosion. `test_combat`
 checks an empty Jeep and an unboardable Truck preempting a box, damage and boarding, save/load,
 destruction and a following shot reaching the box. Native object-destruction
-terrain and visual effects, complete native effect-slot occupancy, and other
-eligible effects remain unmodeled, so a
+visual effects, complete native effect-slot occupancy, and dynamic eligible
+effects remain unmodeled, so a
 crate can still be hit when retail would select another effect. Shell interception, remaining terrain
 effects and complete native ordering are likewise unmodeled. `test_combat`
 checks damage, non-chaining, delayed all-team damage and save/load; `test_capture`
 checks pickup without an explosion.
+
+**Map-loaded wreck preemption:** descriptor flag 0x10 causes the loader
+`0x4a1e4..0x4a1ed` to set runtime effect +0x0d bit 0x40, so `0x2853d`
+selects the five map-object wreck types 59 and 63..66 in addition to crates
+and empty vehicles. Their descriptor low bits yield an inclusive 24-pixel
+square, and the loader's weapon-index byte supplies effect health through
+`0x4a28a` even for these ordinary object types. If the selected wreck has
+descriptor flag 4, `0x853ee..0x85447` replaces the terrain attribute at its
+origin, adding 16 to y when flag 2 is set, with `(old & 0x80) | 0x16`;
+otherwise these five wrecks remove without that terrain write. The compare
+with 7 follows masking to bit 0x80, so it does not suppress this write.
+Open-rts now includes represented eligible wrecks in the same first-slot
+probe, initializes their saved health from the authored weapon values,
+removes them on a fatal hit, and saves/rebuilds the terrain attribute. Native
+debris animation remains unported. `test_detour` checks map-loaded weapon
+and 0xff health; `test_combat` covers all five wrecks, a noneligible earlier
+object, 24/25-pixel bounds, preemption, subsequent crate hit and save/load
+of health and terrain. Reproduce with `r2 -q -e bin.cache=true -c
+'pd 42 @ 0x4a1df' -c 'pd 35 @ 0x4a28a' -c 'pd 48 @ 0x2853d'
+-c 'pd 52 @ 0x853ee' -c q data/Z/ZED.EXE`.
 
 **Driver-loss allocation constraint:** `0x61b4e` calls `0x6140f` before
 transferring the body health into a new empty effect. Except for effect IDs

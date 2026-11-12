@@ -25,7 +25,7 @@ static int test_sparse_objects(void) {
     char path[128], building_path[128];
     snprintf(path, sizeof(path), "/private/tmp/%s", map->objects);
     snprintf(building_path, sizeof(building_path), "/private/tmp/%s", map->buildings);
-    uint8_t records[5][10];
+    uint8_t records[7][10];
     memset(records, 0xff, sizeof(records));
     records[1][0] = 64; records[1][1] = 1; records[1][2] = 64; records[1][3] = 1;
     records[1][4] = 9; records[1][5] = 0;
@@ -33,6 +33,10 @@ static int test_sparse_objects(void) {
     records[2][4] = 0x25; records[2][5] = MT_UNIT_FIRE_TRUCK - MT_UNITS;
     records[4][0] = 96; records[4][1] = 1; records[4][2] = 96; records[4][3] = 1;
     records[4][4] = 33; records[4][5] = MT_UNIT_JEEP - MT_UNITS;
+    records[5][0] = 112; records[5][1] = 1; records[5][2] = 112; records[5][3] = 1;
+    records[5][4] = 64; records[5][5] = MT_UNIT_JEEP - MT_UNITS;
+    records[6][0] = 128; records[6][1] = 1; records[6][2] = 128; records[6][3] = 1;
+    records[6][4] = 59;
     FILE *f = fopen(path, "wb");
     CHECK(f && fwrite(records, sizeof(records), 1, f) == 1 && fclose(f) == 0);
     f = fopen(building_path, "wb");
@@ -40,17 +44,21 @@ static int test_sparse_objects(void) {
     Z_LoadThings();
     remove(path);
     remove(building_path);
-    mobj_t *flag = NULL, *crate = NULL, *jeep = NULL;
+    mobj_t *flag = NULL, *crate = NULL, *jeep = NULL, *wreck = NULL, *truck_wreck = NULL;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *mo = (mobj_t *)th;
         if (mo->type_id == MT_FLAG) flag = mo;
         if (mo->type_id == MT_GRENADES) crate = mo;
         if (mo->type_id == MT_UNIT_JEEP) jeep = mo;
+        if (mo->type_id == MT_DEAD_GATTLING) wreck = mo;
+        if (mo->type_id == MT_EX_DEAD_TRUCK) truck_wreck = mo;
         CHECK(mo->type_id != MT_UNIT_FIRE_TRUCK);
     }
-    CHECK(flag && crate && jeep && flag->z.object_slot == 1 &&
-          crate->z.object_slot == 2 && jeep->z.object_slot == 3 && Z_FreeObjectSlot() == 4);
+    CHECK(flag && crate && jeep && wreck && truck_wreck && flag->z.object_slot == 1 &&
+          crate->z.object_slot == 2 && jeep->z.object_slot == 3 && wreck->z.object_slot == 4 &&
+          truck_wreck->z.object_slot == 5 && wreck->z.object_hp == 2 && !truck_wreck->z.object_hp &&
+          Z_FreeObjectSlot() == 6);
     rts_game_model_destroy(model);
     return 0;
 }

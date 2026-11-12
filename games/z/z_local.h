@@ -208,6 +208,7 @@ bool Z_FortEntrance(const mobj_t *fort, fixed2_t *at);
 void Z_Alert(mobj_t *unit);
 uint16_t Z_NextRandom(uint16_t *seed);
 int Z_FreeObjectSlot(void);
+extern const uint8_t z_object_flags[];
 void Z_InitUnitPhase(mobj_t *unit);
 int Z_AIEstimate(int value, int intelligence);
 int Z_AIUnitValue(const mobj_t *unit);
