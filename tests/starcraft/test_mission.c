@@ -197,6 +197,24 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(incomplete->owner == 1 && incomplete->production &&
           incomplete->core.state_id == mobjinfo[MT_MARINE].missilestate);
+    unload();
+    put_u16(give_trigger+320+24, MT_REFINERY - 1);
+    CHECK(!write_map("/private/tmp/sc-give.chk", force_owners, give_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-give.chk", &level));
+    mobj_t *gas_building = sc_spawn_actor(MT_REFINERY - 1, (ivec2_t){512, 528}, 0);
+    mobj_t *gas_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+    mobj_t *travel_worker = spawn(MT_SCV - 1, 0);
+    CHECK(gas_building && gas_worker && travel_worker && sc_add_resource_vent(gas_building, 5000));
+    P_SyncBuildingBlocking();
+    CHECK(P_HarvestUnitTo(&level, gas_worker, level.resource_vents[0].attachment));
+    for (int i = 0; i < 1200 && gas_worker->harvest.phase != HARVEST_PHASE_MINING; i++) P_Ticker();
+    CHECK(gas_worker->harvest.phase == HARVEST_PHASE_MINING && level.resource_vents[0].occupant == gas_worker->id);
+    travel_worker->harvest.target = 0;
+    travel_worker->harvest.phase = HARVEST_PHASE_TO_MINE;
+    ticks(1, &(hudtext_t){0});
+    CHECK(gas_building->owner == 1 && gas_worker->owner == 1 && travel_worker->owner == 0);
+    CHECK(gas_worker->harvest.phase == HARVEST_PHASE_NONE && gas_worker->harvest.target == -1);
+    CHECK(!level.resource_vents[0].occupant && level.resource_vents[0].source_id == gas_building->id);
     unload(); free(give_trigger); remove("/private/tmp/sc-give.chk");
     char next[256];
     const char *terran01 = "data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk";

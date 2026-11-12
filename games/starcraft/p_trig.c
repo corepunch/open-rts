@@ -533,6 +533,23 @@ static bool give_unit(mobj_t *mo, uint8_t owner) {
         mo->type_id == MT_SCARAB || sc_addon_parent(mo->type_id)) return false;
     uint32_t id = mo->id, addon = mo->sc.addon;
     uint32_t nydus = mo->type_id == MT_NYDUS_CANAL ? mo->sc.parent : 0;
+    /* Our gas worker stays outside, but MINING on this vent corresponds to
+     * OpenBW's hidden HarvestGas worker inside the refinery. */
+    if ((!mo->production || !mo->production->placed) &&
+        (mo->type_id == MT_REFINERY || mo->type_id == MT_EXTRACTOR || mo->type_id == MT_ASSIMILATOR)) {
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *worker = (mobj_t *)th;
+            int vent = worker->harvest.target;
+            if (th->function != P_MobjThinker || worker->remove || worker->hp <= 0 ||
+                worker->owner != mo->owner || !(worker->traits & MF_HARVESTER) ||
+                worker->harvest.phase != HARVEST_PHASE_MINING || vent < 0 || vent >= level.resource_vent_count ||
+                level.resource_vents[vent].source_id != id) continue;
+            if (level.resource_vents[vent].occupant == worker->id)
+                level.resource_vents[vent].occupant = 0;
+            give_one(worker, owner);
+            break;
+        }
+    }
     give_one(mo, owner);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *child = (mobj_t *)th;

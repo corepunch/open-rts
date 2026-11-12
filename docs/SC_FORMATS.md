@@ -79,9 +79,13 @@ mobjs, clears ordinary orders and selection, and cancels/refunds supported
 production. Completed units reset through action-free spawn initialization, so
 they cannot fire during the transfer; units retaining construction production
 keep their state. The mission test covers passengers, add-ons, fighters and a factory
-queue. OpenBW additionally grants unit-specific technologies/upgrades and moves
-a refinery's hidden worker; those cases, cancellation failure and other destination
-groups remain incomplete. Loaded units cannot be selected directly; they move
+queue. OpenBW transfers one hidden worker harvesting a completed refinery; our
+worker remains outside while mining, so transferring one same-owner worker in
+the mining phase on that refinery's vent is an approximation of that condition.
+The regression sends an SCV to mine gas, then checks the transfer, release of
+its vent claim, and a worker still traveling to the refinery. OpenBW
+also grants unit-specific technologies/upgrades; those grants, cancellation
+failure and other destination groups remain incomplete. Loaded units cannot be selected directly; they move
 with their transport. The action counts successful transfers and its All form
 does not use the former 256-entry buffer. OpenBW's action 48 itself
 is not implemented in the pinned source, so the trigger call is inferred from
