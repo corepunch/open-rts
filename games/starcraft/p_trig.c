@@ -1058,8 +1058,9 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if ((id == 22 || id == 23 || id == 24 || id == 25) && thinkercap.next) {
             int l, t, r, b;
-            bool anywhere = (id != 23 && id != 25) || !loc || loc == 64;
-            if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) continue;
+            bool at_location = id == 23 || id == 25;
+            bool anywhere = !at_location || !loc || (loc == 64 && m->loc_count < 64);
+            if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) continue;
             unsigned removed = 0;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;

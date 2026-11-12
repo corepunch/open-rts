@@ -2601,6 +2601,10 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
 - StarCraft Center View action 10: checked-in PyMS `FileFormats/TRG.py` maps
   it to a Location field. Modified Anywhere uses the stored MRGN[63] bounds;
   the pinned OpenBW trigger action switch does not implement Center View.
+- StarCraft Kill/Remove at Location actions 23/25: checked-in PyMS
+  `FileFormats/TRG.py` supplies the Location parameter. Pinned OpenBW uses
+  the stored location for action 25; the same behavior for action 23 is a
+  format-based inference. Global actions 22/24 retain whole-map semantics.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D

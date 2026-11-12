@@ -1392,6 +1392,30 @@ int main(void) {
     for (int i = 0; i < 260; i++) CHECK(limit_units[i]->remove == (i < 255));
     free(trig); unload(); remove("/tmp/open-rts-sc-remove-area.chk");
 
+    /* Kill/Remove at location use modified Anywhere; whole-map actions stay global. */
+    for (int id = 22; id <= 25; id++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, MT_MARINE - 1); action[26] = (uint8_t)id;
+        CHECK(!write_map("/tmp/open-rts-sc-area-anywhere.chk", owners, trig));
+        FILE *area_file = fopen("/tmp/open-rts-sc-area-anywhere.chk", "ab"); CHECK(area_file);
+        uint8_t area_header[8] = {'M','R','G','N'}, area_locations[64 * 20] = {0};
+        put_u32(area_header + 4, sizeof(area_locations));
+        put_u32(area_locations + 63 * 20, 128); put_u32(area_locations + 63 * 20 + 4, 128);
+        put_u32(area_locations + 63 * 20 + 8, 160); put_u32(area_locations + 63 * 20 + 12, 160);
+        CHECK(fwrite(area_header, 1, sizeof(area_header), area_file) == sizeof(area_header));
+        CHECK(fwrite(area_locations, 1, sizeof(area_locations), area_file) == sizeof(area_locations));
+        CHECK(!fclose(area_file));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-area-anywhere.chk", &level));
+        mobj_t *area_inside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0);
+        mobj_t *area_outside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0);
+        CHECK(area_inside && area_outside);
+        ticks(1, &(hudtext_t){0});
+        if (id <= 23) CHECK(area_inside->hp <= 0 && (id == 22 ? area_outside->hp <= 0 : area_outside->hp > 0));
+        else CHECK(area_inside->remove && (id == 24 ? area_outside->remove : !area_outside->remove));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-area-anywhere.chk");
+
     /* Kill/Remove selectors never target DAT turret subunits. */
     for (int id = 22; id <= 25; id++) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;

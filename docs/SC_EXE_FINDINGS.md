@@ -2481,6 +2481,17 @@ location table exists. This follows the CHK location-field convention; the
 pinned OpenBW trigger action switch does not implement Center View.
 `test_mission` checks both modified and missing-record locations.
 
+### Kill/Remove at Location uses modified Anywhere (2026-11-12)
+
+PyMS `FileFormats/TRG.py` defines action 23 as Kill Unit At Location and action
+25 as Remove Unit At Location, each with a Location parameter. The runtime now
+uses the MRGN-backed location64 box for these two location-specific actions.
+Pinned OpenBW reads the stored location for action 25; action 23 follows the
+CHK field layout as an inference. Actions 22 and 24 remain global Kill/Remove
+actions and keep their whole-map selection. `test_mission` verifies that
+modified Anywhere affects only the inside Marine for actions 23 and 25, while
+actions 22 and 24 affect both Marines.
+
 ### Trigger Order and Comment (2026-11-12)
 
 **Confirmed reference:** pinned OpenBW `bwgame.h::execute_trigger_action`
