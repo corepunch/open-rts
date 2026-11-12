@@ -532,6 +532,30 @@ static int shell_speed(int t) {
     }
 }
 
+/* 0x5a648 uses integer half-axis boundaries, including its asymmetric
+ * equality rules and arithmetic right shift for a negative y difference. */
+static int water_direction(ivec2_t delta) {
+    int x = delta.x, y = delta.y, ax = abs(x), ay = abs(y);
+    if (ax >= ay) {
+        if (x > 0) return ay <= ax / 2 ? 2 : y < 0 ? 1 : 3;
+        return ax / 2 > ay ? 6 : y < 0 ? 7 : 5;
+    }
+    int half = y < 0 ? (ay + 1) / 2 : ay / 2;
+    if (x > 0) return ax < half ? (y < 0 ? 0 : 4) : (y < 0 ? 1 : 3);
+    return ax < half ? (y < 0 ? 0 : 4) : (y < 0 ? 7 : 5);
+}
+
+/* Native Fire Truck muzzle: hull-facing byte pairs at 0x14b474 and
+ * target-facing signed word pairs at 0x148966, added to unit top-left. */
+static ivec2_t water_origin(const mobj_t *truck, ivec2_t aim) {
+    static const ivec2_t hull[] = {{0,4},{-1,3},{-3,4},{0,1},{1,0},{4,1},{6,4},{4,4}};
+    static const ivec2_t nozzle[] = {{-3,-19},{7,-16},{12,-11},{7,-5},{1,-3},{-7,-5},{-12,-9},{-10,-15}};
+    ivec2_t origin = Z_AITopLeft(truck);
+    int body = angle_to_direction(truck->core.angle, 8, ANG90, true);
+    int facing = water_direction(ivec2_sub(aim, ivec2_add(origin, (ivec2_t){14,12})));
+    return ivec2_add(origin, ivec2_add(hull[body], nozzle[facing]));
+}
+
 static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water) {
     mobj_t *shell = water ? P_SpawnMobj(attacker->core.position, MT_WATER) : P_SpawnMissile(attacker, target, MT_SHELL);
     if (!shell) return;
@@ -543,9 +567,10 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
                                       (coin(attacker, shell, 0x1ebd2) & 15) - 8});
     fixed2_t impact = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
     if (water) {
-        ivec2_t start = fixed2_cell(fixed2_scale(fixed3_xy(shell->core.position), FIXED_FROM_INT(Z_TILE)));
+        ivec2_t start = water_origin(attacker, aim);
         ivec2_t delta = ivec2_sub(aim, start);
         int dx = abs(delta.x), dy = abs(delta.y);
+        if (!dx && !dy) { P_RemoveMobj(shell); return; } /* 0x59ffb rejects equal endpoints. */
         shell->z.water.direction = (ivec2_t){(delta.x > 0) - (delta.x < 0), (delta.y > 0) - (delta.y < 0)};
         shell->z.water.vertical = dy > dx;
         shell->z.water.remaining = shell->z.water.major = dy > dx ? dy : dx;

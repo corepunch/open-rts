@@ -889,8 +889,9 @@ static int test_water_terrain(void) {
     mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 0, at, 200);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 100);
     if (!map || !truck || !target) return fail("spawn water terrain fixture");
-    for (int x = 24; x <= 31; ++x) map->ground_attr[25 * Z_MAP_STRIDE + x] = 0;
-    map->ground_attr[25 * Z_MAP_STRIDE + 27] = 1; /* Native terrain height 3 exceeds launch height 0 + 1. */
+    for (int y = 24; y <= 25; ++y) for (int x = 24; x <= 31; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    for (int y = 24; y <= 25; ++y) map->ground_attr[y * Z_MAP_STRIDE + 27] = 1; /* Height 3 exceeds launch height 0 + 1. */
     Z_RebuildCliffs(&level);
     target->traits &= ~(MF_ATTACK | MF_MOBILE);
     if (!Z_Attack(truck, &truck->info->attack, target)) return fail("launch water at raised terrain");
@@ -903,8 +904,10 @@ static int test_water_terrain(void) {
     if (water->core.state_id == S_WATER || hit.x < 27 * Z_TILE || hit.x >= 28 * Z_TILE || target->hp != 100)
         return fail("raised terrain intercepts water before its target");
     if (!tick(model, 8)) return fail("finish intercepted water effect");
-    map->ground_attr[25 * Z_MAP_STRIDE + 27] = 11; /* Height 1 equals the threshold. */
-    map->ground_attr[25 * Z_MAP_STRIDE + 30] = 1;
+    for (int y = 24; y <= 25; ++y) {
+        map->ground_attr[y * Z_MAP_STRIDE + 27] = 11; /* Height 1 equals the threshold. */
+        map->ground_attr[y * Z_MAP_STRIDE + 30] = 1;
+    }
     Z_RebuildCliffs(&level);
     target->core.position = fixed3_from_fixed2(pixel_at(at, 68, 0), 0); /* Aim is exactly x = 30 tiles. */
     if (!Z_Attack(truck, &truck->info->attack, target)) return fail("launch water through equal-height terrain");
@@ -953,6 +956,41 @@ static int test_water_directions(void) {
         }
     }
     if (!arrived_a || !arrived_b) return fail("directional water reaches its destination");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_water_launch(void) {
+    static const ivec2_t hull[] = {{0,4},{-1,3},{-3,4},{0,1},{1,0},{4,1},{6,4},{4,4}};
+    static const ivec2_t nozzle[] = {{-3,-19},{7,-16},{12,-11},{7,-5},{1,-3},{-7,-5},{-12,-9},{-10,-15}};
+    static const ivec2_t bearing[] = {{0,-80},{80,-80},{80,0},{80,80},{0,80},{-80,80},{-80,0},{-80,-80},
+                                     {80,-40},{80,40},{-80,-40},{-80,40},{39,-80},{40,-80},{-39,80},{-40,80}};
+    static const uint8_t facing[] = {0,1,2,3,4,5,6,7,2,2,7,5,0,1,4,5};
+    RtsGameModel *model = load();
+    if (!model) return fail("load water launch fixture");
+    fixed2_t start = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 0, start, 200);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, start, 100);
+    if (!truck || !target) return fail("spawn water launch fixture");
+    ivec2_t origin = Z_AITopLeft(truck);
+    for (int body = 0; body < 8; ++body) for (size_t i = 0; i < sizeof(facing); ++i) {
+        truck->core.angle = direction_to_angle(body, 8, ANG90, true);
+        ivec2_t aim = ivec2_add(ivec2_add(origin, (ivec2_t){14,12}), bearing[i]);
+        fixed2_t centre;
+        if (!Z_UnitCentre(level.native_data, Z_UnitType(target), ivec2_sub(aim, (ivec2_t){12,8}), &centre))
+            return fail("water launch target center");
+        target->core.position = fixed3_from_fixed2(centre, 0);
+        if (!Z_Attack(truck, &truck->info->attack, target)) return fail("launch water in each direction");
+        mobj_t *water = NULL;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *mo = (mobj_t *)th;
+            if (th->function == P_MobjThinker && mo->type_id == MT_WATER && !mo->remove) water = mo;
+        }
+        ivec2_t expected = ivec2_add(origin, ivec2_add(hull[body], nozzle[facing[i]]));
+        if (!water || !ivec2_equal(fixed2_cell(fixed2_scale(fixed3_xy(water->core.position), FIXED_FROM_INT(Z_TILE))), expected))
+            return fail("water launch uses native hull and nozzle offsets");
+        P_RemoveMobj(water);
+    }
     rts_game_model_destroy(model);
     return 0;
 }
@@ -1231,7 +1269,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

@@ -3400,17 +3400,27 @@ in 70 Hz substeps, cycles the four projectile pictures, checks the native
 terrain-height table against the launch tile's height plus one, and stops
 at the first higher in-flight sample. The arrival check precedes that sample
 as in `0x59349`; equal height passes. The water effect uses the shared shell
-explosion handling with the corresponding offset. Its launch point remains
-the engine's unit center rather than the native facing-dependent muzzle;
-non-unit aim, complete terrain/effect interactions, native effect-pool
+explosion handling with the corresponding offset. Its launch point now uses
+the native Fire Truck hull and nozzle offsets: `0x590a1..0x590bc` adds the
+signed byte pair at `0x14b474` indexed by unit facing to unit top-left;
+`0x59197..0x591a7` adds the signed word pair at `0x148966` indexed by body
++0x15. `0x58b24..0x58b92` computes the nozzle's desired bearing from unit
+top-left +(14,12), rotates body +0x15 one direction on alternate updates,
+and fires only after it reaches that bearing. `0x5a648` uses integer half-axis
+tests with asymmetric equality. Open-rts uses the native offset tables and
+bearing at shot time; it does not separately animate or time the nozzle turn.
+Non-unit aim, complete terrain/effect interactions, native effect-pool
 exhaustion, and the explosion's delayed impact remain approximations.
 The explicit projectile flight state is saved and hashed; Z save layout is
 12. `test_combat` covers normal attack dispatch, real accelerating substeps,
-sprite/height boundaries, interception, terminal-tile order, save/load and
-an inclusive damage boundary with ally exclusion.
+sprite/height boundaries, interception, terminal-tile order, save/load,
+all eight hull/nozzle headings, bearing ties and an inclusive damage boundary
+with ally exclusion.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x58c3a' -c 'pd 55 @
 0x59ffb' -c 'pd 30 @ 0x59b87' -c 'pd 35 @ 0x5934f' -c 'pd 20 @
-0x76849' -c 'pd 10 @ 0x76aa3' -c q data/Z/ZED.EXE`, and inspect weapon 14
+0x76849' -c 'pd 10 @ 0x76aa3' -c 'pd 40 @ 0x58b24' -c 'pd 20 @
+0x5909b' -c 'pd 20 @ 0x5915f' -c 'pd 75 @ 0x5a648' -c 'px 16 @
+0x14b474' -c 'pxw 8 @ 0x148966' -c q data/Z/ZED.EXE`, and inspect weapon 14
 with `dd if=data/Z/ROBOTS.DAT bs=1 skip=22588 count=42 2>/dev/null | od -An -tu1`.
 
 **Confirmed** on the same executable: the shot-speed byte from weapon
