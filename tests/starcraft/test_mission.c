@@ -1781,6 +1781,44 @@ int main(void) {
     CHECK(level.resource_vents[0].amount == 700 && level.resource_vents[1].amount == 30);
     free(trig); unload(); remove("/tmp/open-rts-sc-resource-anywhere.chk");
 
+    /* Bring respects ordinary, modified Anywhere, and invalid location IDs. */
+    const struct { unsigned loc, qty; uint8_t op; bool qualifies; } bring_location_cases[] = {
+        {0, 2, 10, true}, {1, 1, 10, true}, {64, 1, 10, true},
+        {64, 2, 0, false}, {65, 1, 10, false}
+    };
+    for (size_t i = 0; i < sizeof(bring_location_cases) / sizeof(bring_location_cases[0]); i++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig, bring_location_cases[i].loc);
+        put_u32(trig + 4, 0); put_u32(trig + 8, bring_location_cases[i].qty);
+        put_u16(trig + 12, MT_MARINE - 1); trig[14] = bring_location_cases[i].op; trig[15] = 3;
+        action = trig + 320; action[26] = 26; action[27] = 7;
+        put_u32(action + 16, 13); put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-bring-location.chk", owners, trig));
+        if (bring_location_cases[i].loc == 64) {
+            FILE *bring_location_file = fopen("/tmp/open-rts-sc-bring-location.chk", "ab"); CHECK(bring_location_file);
+            uint8_t location_header[8] = {'M','R','G','N'}, locations[64 * 20] = {0};
+            put_u32(location_header + 4, sizeof(locations));
+            put_u32(locations + 63 * 20, 128); put_u32(locations + 63 * 20 + 4, 128);
+            put_u32(locations + 63 * 20 + 8, 160); put_u32(locations + 63 * 20 + 12, 160);
+            CHECK(fwrite(location_header, 1, sizeof(location_header), bring_location_file) == sizeof(location_header));
+            CHECK(fwrite(locations, 1, sizeof(locations), bring_location_file) == sizeof(locations));
+            CHECK(!fclose(bring_location_file));
+        }
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-location.chk", &level));
+        if (bring_location_cases[i].loc == 1) {
+            sc_mission_t *bring_mission = level.mission;
+            bring_mission->loc_count = 1;
+            bring_mission->loc_left[0] = bring_mission->loc_top[0] = 128;
+            bring_mission->loc_right[0] = bring_mission->loc_bottom[0] = 160;
+        }
+        CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0));
+        CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0));
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[0][0] == 10) == bring_location_cases[i].qualifies);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-bring-location.chk");
+
     /* Order selects all matching units; Comment never issues an order. */
     for (int order = 0; order < 4; order++) {
         trig = blank_trigger(); CHECK(trig);

@@ -2449,6 +2449,17 @@ Restoring a refinery's stock reopens an inactive vent, while an unbuilt geyser
 remains inactive. This vent transition is an engine representation of
 resource-unit state, not a traced retail instruction.
 
+### Bring condition uses modified Anywhere bounds (2026-11-12)
+
+Pinned OpenBW `bwgame.h::test_trigger_condition` sends Bring (condition 3) to
+`trigger_bring_count(st.locations.at(c.location - 1))`; this includes MRGN
+slot 64, so modified Anywhere uses that stored box. `count_units` now uses the
+shared trigger-location lookup for location-bearing comparisons, including
+Bring and Most/Least-at variants. Location 0 retains the runtime's whole-map
+fallback, while out-of-range IDs produce no match. `test_mission` checks
+location 0, ordinary location 1, modified Anywhere 64 with inside/outside
+Marines using Exactly 1 and At Least 2, and invalid location 65.
+
 ### Trigger Order and Comment (2026-11-12)
 
 **Confirmed reference:** pinned OpenBW `bwgame.h::execute_trigger_action`

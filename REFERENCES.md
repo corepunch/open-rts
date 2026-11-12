@@ -2590,6 +2590,10 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   resource stock through the one-based MRGN location. The runtime uses stored
   MRGN bounds for modified Anywhere (location 64); finite-count selection
   follows checked-in eudplib encoding noted in findings.
+- StarCraft Bring condition: pinned OpenBW `bwgame.h::test_trigger_condition`
+  passes the one-based CHK location to `trigger_bring_count`; location 64 uses
+  its MRGN Anywhere record. Regression coverage is documented in
+  `docs/SC_EXE_FINDINGS.md`.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D

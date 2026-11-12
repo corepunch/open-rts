@@ -2940,6 +2940,37 @@ covers all four exclusive boundaries, the diagonal corner and existing squad
 sharing. The current engine still invokes collection from its per-tic robot
 pass; this does not establish exact native terrain-dispatch timing.
 
+**Terrain-dispatch correction, confirmed but not yet implemented:** The
+strict square above is the test *inside* the pickup handler, not by itself a
+sufficient condition for a pickup. `0x796cb..0x796f1` samples the terrain
+cell containing the robot's native origin plus (8,8). At `0x7984a` terrain
+0x24 maps through `0x1157ea` to 0x6b; `0x79924..0x7992a` dispatches table
+entry 7 at `0x14ad34` to pickup handler `0x79b25`. Thus the earlier statement
+that (15,15) is accepted describes only the handler's geometric check: if
+that robot's sampled cell does not contain terrain 0x24, this path does not
+run. Conversely, a nearby 0x24 cell belonging to a different effect may
+dispatch the handler, which then scans all crate slots.
+
+Map effect creation `0x4a1f1..0x4a276` saves the previous terrain byte in
+effect +0x14 and writes 0x24, retaining bit 7, for descriptors with neither
+flag 4 nor low two flag bits >= 2. This includes the two crate descriptors
+and other map objects. Flag 4 instead writes 0x2e, at y+16 when flag 2 is
+also set; effect types 0x47..0x4d skip the final terrain write. On pickup,
+`0x79bbe..0x79bd5` restores the selected crate's saved byte at its origin
+before freeing its effect slot. Overlapping effects therefore depend on
+creation and removal order; simply treating every living crate as an
+independent 0x24 overlay would not reproduce this behavior. Inspect with
+`r2 -q -e bin.cache=true -c 'pd 12 @ 0x796cb' -c 'pd 13 @ 0x7983f' -c
+'pd 6 @ 0x79924' -c 'px 1 @ 0x11580e' -c 'pxw 4 @ 0x14ad34' -c 'pd 55 @
+0x4a1f1' -c 'pd 12 @ 0x79bbe' -c q data/Z/ZED.EXE`.
+
+Open-rts does not yet maintain these effect-authored terrain changes or the
+saved +0x14 byte, and its cliff rebuild reconstructs terrain from a separate
+ground plane. Applying just the crate gate would suppress real pickups until
+the object stamping, ordered restoration and their save/load interaction are
+implemented together. Other effect removal and cliff-rebuild interactions
+remain to be traced; current per-tic square behavior is an approximation.
+
 **Confirmed slot-order correction:** `0x79bea..0x79c38` divides the crate
 total by group +0x12, then traverses the 21 member slots beginning at +0x13.
 The remainder is applied to slot zero and cleared before the next slot. For

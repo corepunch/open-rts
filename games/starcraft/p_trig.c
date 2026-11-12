@@ -178,6 +178,14 @@ static bool loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, 
     return true;
 }
 
+/* Trigger location 64 uses its stored modified Anywhere record when present. */
+static bool trigger_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, int *b) {
+    if (id != 64 || m->loc_count < 64) return loc_box(m, id, l, t, r, b);
+    *l = m->loc_left[63]; *t = m->loc_top[63];
+    *r = m->loc_right[63]; *b = m->loc_bottom[63];
+    return true;
+}
+
 static bool inside(const mobj_t *mo, int l, int t, int r, int b) {
     fixed2_t at = fixed3_xy(mo->core.position);
     int x = at.x >> 11, y = at.y >> 11; /* 32 map pixels per cell */
@@ -224,8 +232,8 @@ static bool trigger_completed(const mobj_t *mo) {
 static int count_units(const int *players, int nplayers, unsigned unit, unsigned loc,
                        const sc_mission_t *m, int cargo, bool completed) {
     int l, t, r, b;
-    bool anywhere = !loc || loc == 64;
-    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return 0;
+    bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+    if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) return 0;
     int n = 0;
     if (!thinkercap.next) return 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -460,17 +468,9 @@ static fixed2_t loc_center(const sc_mission_t *m, unsigned id) {
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
-/* Actions that reference location 64 use the map's modified Anywhere record. */
-static bool action_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, int *b) {
-    if (id != 64 || m->loc_count < 64) return loc_box(m, id, l, t, r, b);
-    *l = m->loc_left[63]; *t = m->loc_top[63];
-    *r = m->loc_right[63]; *b = m->loc_bottom[63];
-    return true;
-}
-
 static fixed2_t order_loc_center(const sc_mission_t *m, unsigned id) {
     int l, t, r, b;
-    if (!action_loc_box(m, id, &l, &t, &r, &b)) return loc_center(m, id);
+    if (!trigger_loc_box(m, id, &l, &t, &r, &b)) return loc_center(m, id);
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
@@ -484,8 +484,8 @@ static void look_at(sc_mission_t *m, unsigned id) {
 static int gather(const sc_mission_t *m, const int *players, int nplayers, unsigned unit,
                   unsigned loc, int limit, mobj_t **out, int cap) {
     int l, t, r, b, n = 0;
-    bool anywhere = !loc || loc == 64;
-    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return 0;
+    bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+    if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) return 0;
     if (!thinkercap.next) return 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap && n < cap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
@@ -540,7 +540,7 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
                             unsigned loc, unsigned amount, unsigned limit) {
     int l, t, r, b;
     bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
-    if (!anywhere && !action_loc_box(m, loc, &l, &t, &r, &b)) return;
+    if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) return;
     if (!thinkercap.next) return;
     unsigned changed = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -647,8 +647,8 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
 static void order_units(const sc_mission_t *m, const int *players, int nplayers,
                         unsigned unit, unsigned loc, unsigned destloc, unsigned order) {
     int l, t, r, b, dl, dt, dr, db;
-    if (order > 2 || !action_loc_box(m, loc, &l, &t, &r, &b) ||
-        !action_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
+    if (order > 2 || !trigger_loc_box(m, loc, &l, &t, &r, &b) ||
+        !trigger_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
     fixed2_t dest = order_loc_center(m, destloc);
     ticcmd_t cmd = {.order = order == 0 ? TC_MOVE : order == 1 ? TC_PATH : TC_ATTACK,
                     .position = fixed3_from_fixed2(dest, 0), .count = 1};
