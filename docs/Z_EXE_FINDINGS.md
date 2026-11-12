@@ -3441,9 +3441,19 @@ These observations do not rule out another writer setting the leader bit;
 they do show that copying an order to the leader is not itself sufficient
 to establish the 120-frame countdown. A faithful implementation still needs
 the selected-unit iteration, all bit writers, and target-timer lifecycle
-mapped to the engine's normalized squad commands. Inspect with `r2 -q -e
+mapped to the engine's normalized squad commands. The command-replay entry
+`0x478f6..0x47937` now supplies a further distinction: nonnegative command
+codes index the 72-byte group using the event byte at +2, reject an empty
+group or leader slot `0xff`, and resolve group +0x13 to the leader's unit
+record before setting `0x104048`. Thus that event path sets +0x98 bit 0x20
+on the resolved leader at `0x47af6`, regardless of which squad member led
+to the group event. Negative command codes bypass this group resolution and
+have separate handling. This establishes the replay/event resolution, not
+yet every local UI selection and event-generation path. A search of the
+linear service disassembly finds only the direct +0x98 bit-0x20 OR at
+`0x47af6`; indirect or bulk writes are not excluded. Inspect with `r2 -q -e
 bin.cache=true -c 'pd 35 @ 0x47aec' -c 'pd 8 @ 0x772bf' -c 'pd 38 @
-0x7d053' -c 'pd 18 @ 0x7d0a2' -c q data/Z/ZED.EXE`.
+0x7d053' -c 'pd 18 @ 0x7d0a2' -c 'pd 28 @ 0x478f6' -c q data/Z/ZED.EXE`.
 
 The preceding statement that nonzero +0x3d suppresses the walking unit's
 enemy scan is too broad: `0x7ab38..0x7ab5d` checks it only in the branch
@@ -3464,6 +3474,18 @@ against a rectangle, and reloads +0x10 to 75 for each qualifying grouped
 unit. This is an additional event source, so modeling timer refresh only on
 individual target acquisition would be incomplete. The event that invokes
 that rectangle traversal and its complete gates remain **unknown**.
+
+At the robot attack transition `0x759a7..0x759da`, the attacker's current
+group always receives the selected target in both +0x3b and +0x44 and a
+75-frame +0x10 timer. The call to `0x75ca3` independently refreshes the
+target's group when its unit has a nonzero group slot; only if that group's
++0x3b is `0xff` does this caller also install the attacker as its target.
+Thus refresh is symmetric across two groups, but target replacement is not.
+The route path `0x7c6c6` clears the current group's +0x3b whenever unit
++0x6f bit 0x10 is clear, before checking the player's +0x98 bit or deciding
+whether to load +0x3d. This target clear must not be modeled as conditional
+on a countdown being loaded. Inspect `r2 -q -e bin.cache=true -c 'pd 38 @
+0x759a7' -c 'pd 16 @ 0x75ca3' -c 'pd 18 @ 0x7c6ba' -c q data/Z/ZED.EXE`.
 
 A broad linear disassembly search found `0x47af6` as the only direct
 `or byte [ebp + 0x98], 0x20` write; `0x7c059..0x7c0a9` iterates squad

@@ -935,6 +935,45 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-order-trigger.chk");
 
+    /* Move Unit teleports immediately; a count limits selected units. */
+    for (int all = 0; all < 2; all++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 1); put_u32(action + 20, 2); put_u16(action + 24, MT_MARINE - 1);
+        action[26] = 39; action[27] = all ? 0 : 1;
+        CHECK(!write_map("/tmp/open-rts-sc-teleport.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport.chk", &level));
+        sc_mission_t *teleport_mission = level.mission; teleport_mission->loc_count = 2;
+        teleport_mission->loc_right[0] = teleport_mission->loc_bottom[0] = 128;
+        teleport_mission->loc_left[1] = teleport_mission->loc_top[1] = 448;
+        teleport_mission->loc_right[1] = teleport_mission->loc_bottom[1] = 576;
+        mobj_t *first = spawn(MT_MARINE - 1, 0), *second = spawn(MT_MARINE - 1, 0);
+        CHECK(first && second);
+        ticks(1, &(hudtext_t){0});
+        CHECK(fixed2_near(fixed3_xy(first->core.position), FIXED2_LIT(16, 16), FIXED_LIT(0.01)));
+        CHECK(!P_HasMoveOrder(first));
+        if (all) CHECK(!fixed2_near(fixed3_xy(second->core.position), FIXED2_LIT(1, 1), FIXED_LIT(0.01)) &&
+                       !fixed2_equal(fixed3_xy(first->core.position), fixed3_xy(second->core.position)));
+        else CHECK(fixed2_near(fixed3_xy(second->core.position), FIXED2_LIT(1, 1), FIXED_LIT(0.01)));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-teleport.chk");
+    /* A destination outside the level cannot place aircraft out of bounds. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 1); put_u16(action + 24, MT_WRAITH - 1);
+    action[26] = 39; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-edge.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-edge.chk", &level));
+    sc_mission_t *edge_mission = level.mission; edge_mission->loc_count = 1;
+    edge_mission->loc_left[0] = edge_mission->loc_top[0] = 1056;
+    edge_mission->loc_right[0] = edge_mission->loc_bottom[0] = 1120;
+    mobj_t *edge_flyer = spawn(MT_WRAITH - 1, 0); CHECK(edge_flyer);
+    fixed3_t original_position = edge_flyer->core.position;
+    ticks(1, &(hudtext_t){0});
+    CHECK(fixed2_equal(fixed3_xy(edge_flyer->core.position), fixed3_xy(original_position)));
+    free(trig); unload(); remove("/tmp/open-rts-sc-teleport-edge.chk");
+
     memset(owners, 0, sizeof(owners));
     owners[0] = 6; owners[1] = 5;
     trig = blank_trigger();

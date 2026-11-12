@@ -97,8 +97,20 @@ and timer (13–14, 54–56), AI scripts (15–16), kill/remove/resources
 deaths, order, ownership and vitals (43, 45–46, 48–52), and alliance (57).
 The reviewed fields agree after the +20 vitals and action 52 count corrections.
 This audit does not assert full behavior: for example, transmission audio,
-Move Unit teleport placement, player-group cases and location geometry remain
+Move Unit placement, player-group cases and location geometry remain
 incomplete, and unsupported actions were not included.
+eudplib `MoveUnit` describes action 39 as teleporting selected units, not
+issuing a movement order. Mobile units now move immediately using the existing
+Recall placement search near the destination center; a two-unit fixture checks
+bounded and All selection, immediate relocation and distinct ground positions.
+That search is an engine approximation, not native placement: buildings,
+loaded units, hallucinations and exact collision/order behavior remain open.
+The action rejects destination centers outside the map before calling the
+placement helper; this protects aircraft, whose Recall placement does not
+perform a bounds check. The previous walking implementation also accepted an
+unchecked aircraft goal. A boundary fixture covers the rejection. Retail
+out-of-bounds Move Unit behavior is unknown, so rejection is an engine guard,
+not a claim that the native game rejects rather than clamps.
 
 The implemented condition field reads were compared against eudplib
 `stockcond.py` and `condition.py`: timer (1, 12), Command/Bring/resources/kills

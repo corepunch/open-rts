@@ -422,6 +422,29 @@ static void modify_hangars(const sc_mission_t *m, const int *players, int nplaye
     }
 }
 
+/* Move Unit is an immediate teleport, not a movement order. The shared
+ * Recall placement searches for an available spot near the target. */
+static void move_units(const sc_mission_t *m, const int *players, int nplayers,
+                       unsigned unit, unsigned loc, unsigned destloc, unsigned limit) {
+    int l, t, r, b, dl, dt, dr, db;
+    if (!loc || !destloc || !loc_box(m, loc, &l, &t, &r, &b) ||
+        !loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
+    fixed2_t dest = loc_center(m, destloc);
+    if (!L_Contains(&level, fixed_floor_int(dest.x), fixed_floor_int(dest.y))) return;
+    unsigned moved = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
+            !(mo->traits & MF_MOBILE) || (mo->sc.flags & SC_LOADED) || !inside(mo, l, t, r, b)) continue;
+        bool mine = false;
+        for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
+        if (!mine || !sc_place_near(mo, dest)) continue;
+        moved++;
+        if (limit && moved >= limit) break;
+    }
+    if (moved) P_UpdateSight();
+}
+
 /* CHK Order applies to every matching mobile unit, not a limited group. */
 static void order_units(const sc_mission_t *m, const int *players, int nplayers,
                         unsigned unit, unsigned loc, unsigned destloc, unsigned order) {
@@ -839,17 +862,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 39) {
-            unsigned where = loc;
-            int limit = a[27];
-            mobj_t *found[256];
-            int count = gather(m, players, n, unit, where, limit, found, 256);
-            fixed2_t dest = loc_center(m, number ? number : loc);
-            for (int i = 0; i < count; i++) {
-                mobj_t *mo = found[i];
-                if (id == 39) {
-                    P_MoveUnitTo(&level, mo, dest);
-                }
-            }
+            move_units(m, players, n, unit, loc, number, a[27]);
             continue;
         }
     }
