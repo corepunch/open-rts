@@ -555,6 +555,12 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
             continue;
         }
         if (mo && props) apply_property(mo, m, number);
+        if (mo && (sc_unit(mo)->flags & SC_UNIT_BUILDING) && !sc_addon_parent(mo->type_id)) {
+            irect_t bounds = P_MobjCells(mo);
+            ivec2_t cell = {bounds.x, bounds.y};
+            if (fixed2_equal(fixed3_xy(mo->core.position), P_BuildingPosition(mo->type_id, cell)))
+                sc_reconnect_addon(mo, cell);
+        }
     }
 }
 

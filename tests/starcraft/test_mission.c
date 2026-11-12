@@ -621,6 +621,32 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-create-resource.chk");
 
+    /* A trigger-created Factory reconnects a neutral Machine Shop at its native offset. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u16(action + 24, MT_FACTORY - 1);
+    action[26] = 44; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-create-addon.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create-addon.chk", &level));
+    sc_mission_t *create_mission = level.mission; create_mission->loc_count = 1;
+    ivec2_t create_cell = {10, 10};
+    fixed2_t factory_pos = P_BuildingPosition(MT_FACTORY, create_cell);
+    create_mission->loc_left[0] = create_mission->loc_right[0] = factory_pos.x >> 11;
+    create_mission->loc_top[0] = create_mission->loc_bottom[0] = factory_pos.y >> 11;
+    uint16_t create_addon_type; irect_t create_addon_rect;
+    CHECK(sc_addon_place(MT_FACTORY, create_cell, &create_addon_type, &create_addon_rect));
+    fixed2_t create_addon_pos = P_BuildingPosition(create_addon_type, (ivec2_t){create_addon_rect.x, create_addon_rect.y});
+    mobj_t *create_shop = sc_spawn_actor(create_addon_type - 1,
+        (ivec2_t){create_addon_pos.x >> 11, create_addon_pos.y >> 11}, 11);
+    CHECK(create_shop);
+    int create_terrain = L_Index(&level, create_cell.x, create_cell.y);
+    level.cell_solid[create_terrain] |= 1;
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.cell_solid[create_terrain] & 1);
+    mobj_t *create_factory = P_MobjById(create_shop->sc.parent);
+    CHECK(create_factory && create_factory->type_id == MT_FACTORY && create_factory->sc.addon == create_shop->id);
+    CHECK(create_shop->owner == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-create-addon.chk");
+
     /* Remove Unit includes hallucinations and has no 256-unit truncation. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

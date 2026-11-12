@@ -496,7 +496,7 @@ mobj_t *sc_spawn_actor(unsigned type,ivec2_t pixel,uint8_t owner) {
             ivec2_t cell=ivec2_add(origin,(ivec2_t){x,y});
             if(L_Contains(&level,cell.x,cell.y)) {
                 int index=L_Index(&level,cell.x,cell.y);
-                level.cell_solid[index]=2;
+                level.cell_solid[index]|=2;
             }
         }
     }

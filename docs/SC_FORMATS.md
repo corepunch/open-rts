@@ -118,6 +118,11 @@ it using the lift lifecycle. Fixtures cover both forms of detachment,
 reconnection at the native add-on offset and keeping the original link when
 placement fails. Whether a moved add-on itself reconnects at its destination
 is unknown; only moving a parent currently attempts reconnection.
+The same 1.03 notes and OpenBW `trigger_create_unit` also reconnect an add-on
+when a building is created. Create Unit now applies the shared rule when its
+spawned building is footprint-aligned; a Factory and neutral Machine Shop
+fixture exercises it. Trigger creation still uses the existing approximate
+placement, so off-grid spawned buildings do not attempt reconnection.
 A regression checks successful relocation and a
 blocked destination. The building's own footprint is temporarily excluded
 from placement checks while authored terrain and other objects remain blocked;

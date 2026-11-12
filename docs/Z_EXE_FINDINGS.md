@@ -3248,6 +3248,22 @@ Inspect with `r2 -q -e bin.cache=true -c 'pd 50 @ 0x63a1d' -c 'pd 30 @
 0x4a184' -c 'pd 35 @ 0x4a28a' -c 'pd 38 @ 0x4a4cb' -c 'pd 48 @ 0x8563a'
 -c q data/Z/ZED.EXE`.
 
+**Grenade-box blast geometry:** `0x8567e..0x85699` calls `0x8476c` at
+box origin minus (16,16). Its building lookup consequently tests the box
+origin (assuming `0x14c05f` clear). `0x84c58..0x84c65` sees the box's
+`0x14c05b` flag and stores team and source as `0xff`; the later frame-3
+unit pass at `0x85ce4` therefore filters no team and tests inclusive unit
+anchors in box-origin-relative bounds x -22..+22, y -6..+26. The immediate
+`0x8523f` effect lookup is disabled by `0x14c05a`, so this nested call does
+not itself trigger another effect object; the delayed unit pass is separate.
+Both flags are cleared after the nested call. Its explosion record is
+allocated by the common path, so allocation exhaustion and exact pass timing
+also matter. The impact probes' eligible effect instances and initial health
+still need mapping to each map-loaded grenade box before implementing the
+trigger. Inspect with `r2 -q -e bin.cache=true -c 'pd 48 @ 0x8563a' -c
+'pd 24 @ 0x84c38' -c 'pd 48 @ 0x85ce4' -c 'pd 25 @ 0x8523f' -c q
+data/Z/ZED.EXE`.
+
 Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
 'pd 20 @ 0x84c38' -c 'pd 25 @ 0x85ce4' -c 'pd 30 @ 0x64384' -c q
 data/Z/ZED.EXE`, and run `make build/bin/tests/z/test_combat
