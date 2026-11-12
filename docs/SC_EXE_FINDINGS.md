@@ -1,5 +1,37 @@
 # StarCraft native data and UI findings
 
+## Per-player trigger outcomes (2026-11-12)
+
+Pinned OpenBW `bwgame.h` 18201–18209 records Victory and Defeat for the
+executing human/computer player and continues the action list. Its trigger
+pass at 12539–12560 finishes other players' triggers before applying outcomes;
+12583–12595 neutralizes a defeated player's units and clears its triggers.
+`player_slot_active` at 18123–18131 excludes defeated human/computer slots.
+Open-rts records each player's result independently, applies results after its
+trigger pass, neutralizes defeated units and stops that player's triggers and
+AI. Only the local player's result opens the result screen. The per-player
+state is saved and included in the consistency hash; the local screen result
+is not a simulation stop condition. Network resync preserves the receiving
+player's local screen state and local foe mask while importing synchronized outcomes; a newly
+received local outcome opens its screen on the next mission tick.
+`test_mission` checks a remote defeat,
+the following action, neutral ownership and equal outcome hashes from both
+local player perspectives; `test_save` checks serialization, hashing and
+authority-to-peer resync with distinct local outcomes.
+`make_unit_neutral` at 3217–3222 clears the secondary order; a neutralized
+hatchery accordingly stops generating larvae. The engine also cancels a
+neutralized worker's not-yet-placed building order. Transmission delays run
+for every trigger owner while its sound and text remain local. Exact
+neutralization of addons, incomplete eggs and hidden units remains an
+approximation of OpenBW's `make_unit_neutral`, and draw
+handling retains the engine's existing scenario policy. OpenBW winner
+resolution around 12563–12582 uses prior player state; automatic winner
+propagation is not inferred from it here.
+Neutralized hatcheries keep the stopped-larva sentinel if subsequently
+transferred back to a player. The current trigger player selector cannot
+select owner 11, and no other implemented hatchery ownership path was found;
+whether reactivation is required on a future transfer path remains unverified.
+
 ## Cloaked Ghost acquisition
 
 Pinned OpenBW `unit_target_acquisition_range` returns zero for a cloaked
@@ -2363,6 +2395,30 @@ all construction, stasis, or damage timing is verified against the executable.
 
 Reproduce: `make build/bin/tests/starcraft/test_combat`, then
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_combat`.
+
+### Painted map creep (2026-11-12)
+
+**Confirmed OpenBW format and placement behavior.** Pinned OpenBW
+`game_types.h::tile_id` reads the CHK MTXM painted-creep flag from raw tile-ID
+bit 15 and masks the tile group to 11 bits. Its `bwgame.h` MTXM loader sets
+`flag_has_creep` for those records, and building placement rejects creep-
+requiring units where the footprint tiles lack that flag. Open-rts previously
+used the raw 16-bit MTXM ID as a CV5 lookup key, so painted-creep maps could
+fail terrain loading; its dynamic creep check also only considered nearby
+Hatchery tiers and colonies.
+
+The StarCraft terrain record now retains the authored creep flag alongside
+CV5/VF4 metadata. After terrain decoding validates each masked tile ID,
+`level.tile_ids` is normalized for the renderer's direct tile lookup. Zerg
+placement checks each footprint cell against authored creep as well as the
+existing dynamic source-radius approximation. This static map data is derived
+from the retained CHK and remains available across engine saves; network map
+signatures hash the raw CHK, including the painted bit. Repeated terrain loads
+re-read MTXM, so normalizing renderer tile IDs does not discard the authored
+flag. `test_map` checks masked lookup IDs, repeated terrain loading, engine
+save/load reconstruction, and full building footprints crossing painted and
+unpainted tiles. Reproduce with `make build/bin/tests/starcraft/test_map` and
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_map`.
 
 ### Terran building fire (2026-11-12)
 

@@ -1,6 +1,7 @@
 #include "t_local.h"
 #include "starcraft.h"
 #include "sc_local.h"
+#include <limits.h>
 #include <stdlib.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft mission",#c)
 
@@ -421,6 +422,77 @@ int main(void) {
     CHECK(sc_mission_result() == 1 && menuleave);
     free(trig);
     unload();
+
+    /* A remote player's outcome is applied after its remaining actions;
+     * it must not stop local simulation or depend on consoleplayer. */
+    uint8_t result_owners[12] = {6, 5};
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22;
+    trig[2372 + 17] = 0; trig[2372 + 1] = 1;
+    trig[320 + 26] = 2;
+    uint8_t *after_defeat = trig + 352; after_defeat[26] = 26; after_defeat[27] = 8;
+    put_u32(after_defeat + 16, 13); put_u32(after_defeat + 20, 10);
+    CHECK(!write_map("/tmp/open-rts-sc-remote-defeat.chk", result_owners, trig));
+    consoleplayer = 0;
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remote-defeat.chk", &level));
+    mobj_t *defeated = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 1); CHECK(defeated);
+    mobj_t *lost_hatch = sc_spawn_actor(MT_HATCHERY - 1, (ivec2_t){320, 320}, 1);
+    mobj_t *lost_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){208, 144}, 1);
+    CHECK(lost_hatch && lost_worker && P_EnsureMobjProduction(lost_worker));
+    lost_hatch->sc.larva_ms = 1;
+    lost_worker->production->placed = true; lost_worker->production->queue_count = 1;
+    lost_worker->production->time_left_ms = 1;
+    ticks(1, &(hudtext_t){0});
+    sc_mission_t *result_mission = level.mission;
+    CHECK(result_mission->player_result[1] == 2 && !result_mission->player_result[0]);
+    CHECK(!sc_mission_result() && level.player_resources[1][0] == 10 && defeated->owner == 11);
+    CHECK(lost_hatch->owner == 11 && lost_hatch->sc.larva_ms == INT_MIN &&
+          lost_worker->owner == 11 && !lost_worker->production);
+    uint32_t hatch_id = lost_hatch->id, defeated_id = defeated->id;
+    app_t result_app = {0}; AiContext result_ai = {0}; hudtext_t result_hud = {0};
+    void *result_save = NULL; size_t result_size = 0;
+    CHECK(P_InitSight());
+    CHECK(G_SaveGameBlob(&result_save, &result_size, "Defeated hatchery", &result_app, &result_ai, &result_hud));
+    CHECK(G_LoadGameBlob(result_save, result_size, &result_app, &result_ai, &result_hud));
+    free(result_save);
+    result_mission = level.mission;
+    lost_hatch = P_MobjById(hatch_id); defeated = P_MobjById(defeated_id);
+    CHECK(lost_hatch && defeated && lost_hatch->sc.larva_ms == INT_MIN);
+    G_ProductionTicker(RTS_TICK_MS);
+    CHECK(lost_hatch->sc.larva_ms == INT_MIN);
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[1][0] == 10);
+    uint32_t remote_hash = G_ConsistencyExtra(0);
+    unload();
+    consoleplayer = 1;
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remote-defeat.chk", &level));
+    consoleplayer = 1;
+    defeated = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 1); CHECK(defeated);
+    ticks(2, &(hudtext_t){0});
+    result_mission = level.mission;
+    CHECK(result_mission->player_result[1] == 2 && defeated->owner == 11 && sc_mission_result() == 2);
+    CHECK(G_ConsistencyExtra(0) == remote_hash);
+    consoleplayer = 0;
+    free(trig); unload(); remove("/tmp/open-rts-sc-remote-defeat.chk");
+
+    /* Transmission's presentation is local; its wait blocks both peers. */
+    for (int perspective = 0; perspective < 2; ++perspective) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22;
+        trig[2372 + 17] = 0; trig[2372 + 1] = 1;
+        trig[320 + 26] = 7; put_u32(trig + 320 + 12, 200);
+        uint8_t *after_transmission = trig + 352;
+        after_transmission[26] = 26; after_transmission[27] = 8;
+        put_u32(after_transmission + 16, 13); put_u32(after_transmission + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-transmission-wait.chk", result_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-transmission-wait.chk", &level));
+        consoleplayer = perspective;
+        ticks(1, &(hudtext_t){0});
+        result_mission = level.mission;
+        CHECK(result_mission->rt[1].wait_ms == 200 && level.player_resources[1][0] == 0);
+        ticks(7, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 10 && !result_mission->rt[1].wait_ms);
+        free(trig); unload();
+    }
+    consoleplayer = 0; remove("/tmp/open-rts-sc-transmission-wait.chk");
 
     /* CHK action IDs 54/55 pause and resume the countdown; 56 draws. */
     for (int id = 54; id <= 56; id++) {

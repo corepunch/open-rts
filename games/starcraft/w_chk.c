@@ -12,26 +12,48 @@ static void free_chk(void *data) {
     free(mission);
 }
 
+static bool chk_mtxm(const blob_t *file, const uint8_t **data, size_t *size) {
+    bool found = false;
+    for (size_t at = 0; at < file->size;) {
+        if (file->size - at < 8) return false;
+        const uint8_t *chunk = file->bytes + at;
+        size_t length = read_u32_le(chunk + 4);
+        if (length > file->size - at - 8) return false;
+        if (!memcmp(chunk, "MTXM", 4)) {
+            *data = chunk + 8;
+            *size = length;
+            found = true;
+        }
+        at += 8 + length;
+    }
+    return found;
+}
+
 /* These native rules belong to the level even when no renderer is loaded. */
 bool G_LoadLevelData(const char *root, level_t *map) {
     sc_mission_t *mission=map->mission;
     if(!mission)return true; /* The authored catalog has no mission terrain. */
     blob_t cv={0},vf={0}; sc_terrain_t *terrain=NULL; bool ok=false;
+    const uint8_t *mtxm=NULL; size_t mtxm_size=0;
     char path[128];
+    if(!chk_mtxm(&mission->file,&mtxm,&mtxm_size))goto done;
+    size_t cells=(size_t)map->width*map->height;
+    if(mtxm_size!=cells*2)goto done;
     snprintf(path,sizeof(path),"tileset/%s.cv5",map->tileset_name);
     if(!sc_read(root,path,&cv))goto done;
     snprintf(path,sizeof(path),"tileset/%s.vf4",map->tileset_name);
     if(!sc_read(root,path,&vf)||!cv.size||cv.size%52||!vf.size||vf.size%32)goto done;
-    size_t cells=(size_t)map->width*map->height;
     terrain=malloc(cells*sizeof(*terrain));
     if(!terrain)goto done;
     for(size_t i=0;i<cells;i++) {
-        unsigned id=map->tile_ids[i];
+        unsigned encoded_id=read_u16_le(mtxm+i*2), id=encoded_id&0x7fff;
+        if ((map->tile_ids[i]&0x7fff)!=id)goto done;
         if(id/16>=cv.size/52)goto done;
         const uint8_t *group=cv.bytes+(id/16)*52;
         unsigned tile=read_u16_le(group+20+(id%16)*2),walkable=0;
         if(tile>=vf.size/32)goto done;
         terrain[i].cv5=read_u16_le(group+2);
+        terrain[i].creep=(encoded_id&0x8000)!=0;
         for(int m=0;m<16;m++) {
             terrain[i].vf4[m]=read_u16_le(vf.bytes+tile*32+m*2);
             walkable|=terrain[i].vf4[m]&1;
@@ -39,6 +61,7 @@ bool G_LoadLevelData(const char *root, level_t *map) {
         /* Shared pathing uses 32px cells; only wholly blocked cells close. */
         map->blocked[i]=!walkable;
     }
+    for(size_t i=0;i<cells;i++)map->tile_ids[i]&=0x7fff;
     free(mission->terrain);mission->terrain=terrain;terrain=NULL;
     ok=true;
 done:

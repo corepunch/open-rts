@@ -1,4 +1,5 @@
 #include "sc_local.h"
+#include <limits.h>
 #include <math.h>
 /* The Zerg production model and the ground rules of both alien races.
  * A hatchery keeps up to three larvae; a larva given an order becomes an
@@ -51,6 +52,7 @@ void sc_zerg_ticker(int elapsed_ms) {
         if (!live(th)) continue;
         mobj_t *mo = (mobj_t *)th;
         if (hatchery(mo->type_id)) {
+            if (mo->sc.larva_ms == INT_MIN) continue;
             if (larvae_of(mo) >= SC_MAX_LARVAE) { mo->sc.larva_ms = SC_LARVA_MS; continue; }
             if ((mo->sc.larva_ms -= elapsed_ms) > 0) continue;
             mo->sc.larva_ms += SC_LARVA_MS;
@@ -68,6 +70,10 @@ void sc_zerg_ticker(int elapsed_ms) {
 /* Creep is instant and round: radius 10 around a hatchery tier, 5 around
  * a colony, whoever owns it. Retail creep grows tile by tile and recedes. */
 static bool on_creep(fixed2_t at) {
+    const sc_mission_t *m=level.mission;
+    ivec2_t cell=fixed2_cell(at);
+    if(m&&m->terrain&&L_Contains(&level,cell.x,cell.y)&&m->terrain[L_Index(&level,cell.x,cell.y)].creep)
+        return true;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (!live(th)) continue;
         const mobj_t *mo = (const mobj_t *)th;

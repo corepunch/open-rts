@@ -198,7 +198,7 @@ typedef struct {
     int cursor, wait_ms, current;
     bool running, preserve, disabled;
 } sc_trig_t;
-typedef struct { uint16_t vf4[16], cv5; } sc_terrain_t;
+typedef struct { uint16_t vf4[16], cv5; bool creep; } sc_terrain_t;
 enum { SC_TERRAIN_MIDDLE = 2, SC_TERRAIN_HIGH = 4, SC_TERRAIN_COVER = 0x10 };
 unsigned sc_terrain_flags(fixed2_t position);
 uint32_t sc_random(void);
@@ -219,6 +219,7 @@ typedef struct {
     uint16_t kills[8][SC_TYPES];
     int elapsed_ms, countdown_ms;
     bool countdown_paused, has_victory, ai_on[8];
+    uint8_t player_result[8]; /* Synchronized trigger outcomes. */
     int result;
     char objectives[512], next_scenario[256];
     uint32_t rng;

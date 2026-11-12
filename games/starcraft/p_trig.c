@@ -5,9 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 /* CHK triggers are 2400 bytes: 16 conditions, 64 actions, then a 28-byte
- * execution mask at +2372. Victory and Defeat end the local human's scenario
- * even when the trigger runs for another force. Retail campaign maps do not
- * use Set Next Scenario; the next file is the next numbered mission. */
+ * execution mask at +2372. Retail campaign maps do not use Set Next Scenario;
+ * the next file is the next numbered mission. */
 
 static sc_mission_t *mission(level_t *map) {
     return map && map->mission ? map->mission : NULL;
@@ -107,6 +106,7 @@ bool sc_campaign_next(const char *map_path, char *out, size_t size) {
 
 static bool slot_active(const sc_mission_t *m, int p) {
     if (p < 0 || p >= 8) return false;
+    if ((m->owners[p] == 5 || m->owners[p] == 6) && m->player_result[p] == 2) return false;
     switch (m->owners[p]) {
     case 3: /* Rescue Passive */
     case 4: /* Unused / rescue-active */
@@ -807,7 +807,11 @@ static void give_abilities(const mobj_t *mo, uint8_t owner) {
  * structures along with their owner. This representation stores them as mobjs. */
 static void give_one(mobj_t *mo, uint8_t owner) {
     if (!mo || mo->owner == owner) return;
-    give_abilities(mo, owner);
+    if (owner < 8) give_abilities(mo, owner);
+    /* A planned worker build is an order on the worker in this engine.
+     * Neutralizing it must not create a new building later. */
+    if (owner == 11 && (mo->traits & MF_HARVESTER) && mo->production && mo->production->placed)
+        P_FreeMobjProduction(mo);
     if (mo->production && !mo->production->placed &&
         (((sc_unit(mo)->flags & SC_UNIT_BUILDING) && !(mo->traits & MF_FLY)) ||
          sc_hangar_type(mo->type_id) == MT_INTERCEPTOR || sc_hangar_type(mo->type_id) == MT_SCARAB))
@@ -831,6 +835,8 @@ static void give_one(mobj_t *mo, uint8_t owner) {
     } else mo->sc.queue.owner = owner;
     mo->owner = mo->team = owner;
     mo->allegiance = sc_allegiance_for(owner);
+    if (owner == 11 && (mo->type_id == MT_HATCHERY || mo->type_id == MT_LAIR || mo->type_id == MT_HIVE))
+        mo->sc.larva_ms = INT_MIN; /* OpenBW make_unit_neutral clears the secondary order. */
     if (!(mo->sc.flags & SC_LOADED) && mo->type_id != MT_INTERCEPTOR && mo->type_id != MT_SCARAB &&
         !mo->production && gameinfo && mo->type_id < gameinfo->mobj_type_count) {
         mo->core.state_id = 0;
@@ -891,8 +897,8 @@ static bool player_waiting(const sc_mission_t *m, int owner) {
     return false;
 }
 
-static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hudtext_t *hud) {
-    while (st->cursor < 64 && !m->result) {
+static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hudtext_t *hud, uint8_t pending[8]) {
+    while (st->cursor < 64) {
         const uint8_t *a = trig + 320 + st->cursor * 32;
         uint8_t id = a[26];
         if (!id) { finish_trigger(st); return; }
@@ -902,37 +908,37 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         unsigned loc = read_u32_le(a), unit = read_u16_le(a + 24), time = read_u32_le(a + 12);
         int players[8], n = collect_players(m, player, st->current, players);
         char text[256];
-        /* Outcomes and messages are the local player's; another player's
-         * copy of the trigger decides nothing on this screen. */
+        /* Outcomes are synchronized; presentation is local. */
         bool local = st->current == consoleplayer;
         if (id == 1 || id == 2 || id == 56) {
-            if (!local) continue;
-            m->result = id == 1 ? 1 : id == 2 ? 2 : 3;
-            G_EndLevel(id == 1 ? OUTCOME_VICTORY : id == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
-            return;
+            if (m->owners[st->current] == 5 || m->owners[st->current] == 6)
+                pending[st->current] = id == 1 ? 1 : id == 2 ? 2 : 3;
+            continue;
         }
-        if (!local && (id == 7 || id == 8 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
+        if (!local && (id == 8 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
         if (id == 3) { st->preserve = true; continue; }
         if (id == 4) {
             if (player_waiting(m, st->current)) { st->cursor--; return; }
             st->wait_ms = time > INT_MAX ? INT_MAX : time ? (int)time : 1;
             return;
         }
-        if (id == 7 || id == 8) {
+        if ((id == 7 && local) || id == 8) {
             char wav[512];
             str_text(m, read_u32_le(a + 8), wav, sizeof(wav));
             if (wav[0]) sc_brief_voice(level.map_path, wav);
             if (id == 8) continue;
         }
         if (id == 7 || id == 9 || id == 12) {
-            str_text(m, read_u32_le(a + 4), text, sizeof(text));
-            if (id == 12) {
-                if (strcmp(m->objectives, text)) {
-                    snprintf(m->objectives, sizeof(m->objectives), "%s", text);
-                    say(hud, text, 12000);
-                }
-            } else say(hud, text, id == 7 ? (int)(time ? time : 5000) : 8000);
-            if (id == 7 && time) { st->wait_ms = (int)time; return; }
+            if (local) {
+                str_text(m, read_u32_le(a + 4), text, sizeof(text));
+                if (id == 12) {
+                    if (strcmp(m->objectives, text)) {
+                        snprintf(m->objectives, sizeof(m->objectives), "%s", text);
+                        say(hud, text, 12000);
+                    }
+                } else say(hud, text, id == 7 ? (time > INT_MAX ? INT_MAX : (int)(time ? time : 5000)) : 8000);
+            }
+            if (id == 7 && time) { st->wait_ms = time > INT_MAX ? INT_MAX : (int)time; return; }
             continue;
         }
         if (id == 10 || id == 28) {
@@ -1101,7 +1107,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
     }
-    if (!m->result) finish_trigger(st);
+    finish_trigger(st);
 }
 
 /* Computer and human slots take part in elimination (not rescuable or
@@ -1128,13 +1134,17 @@ void G_ShowOutcome(outcome_t outcome) {
 unsigned G_LevelObjectives(mobj_t *const *units, int count) {
     (void)units; (void)count;
     sc_mission_t *m = mission(&level);
-    if (!m || m->result) return 0;
+    if (!m) return 0;
     return m->has_victory ? 0 : ELIMINATE_ALL;
 }
 
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
     sc_mission_t *m = mission(map);
-    if (!m || m->result) return;
+    if (!m) return;
+    if (consoleplayer >= 0 && consoleplayer < 8 && !m->result && m->player_result[consoleplayer]) {
+        int result = m->player_result[consoleplayer];
+        G_EndLevel(result == 1 ? OUTCOME_VICTORY : result == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
+    }
     int ms = dt_ms < 1 ? 1 : dt_ms;
     m->elapsed_ms += ms;
     /* Score: a rise in stock is income, a fall is spending. */
@@ -1165,10 +1175,11 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
                 if (st->wait_ms <= 0) st->wait_ms = -1;
             }
         }
-        for (int i = 0; i < m->trig_count && !m->result; i++) {
+        uint8_t pending[8] = {0};
+        for (int i = 0; i < m->trig_count; i++) {
             const uint8_t *trig = m->trig + (size_t)i * 2400, *mask = trig + 2372;
-            for (int p = 0; p < 8 && !m->result; p++) {
-                if (!owns_trigger(m, mask, p)) continue;
+            for (int p = 0; p < 8; p++) {
+                if (m->player_result[p] || !owns_trigger(m, mask, p)) continue;
                 sc_trig_t *st = &m->rt[i * 8 + p];
                 if (st->disabled) continue;
                 st->current = p;
@@ -1177,15 +1188,25 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
                     const uint8_t *last = st->cursor ? trig + 320 + (st->cursor - 1) * 32 : NULL;
                     if (last && last[26] == 4 && player_waiting(m, p)) continue;
                     st->wait_ms = 0;
-                    run_actions(m, trig, st, hud);
+                    run_actions(m, trig, st, hud, pending);
                     continue;
                 }
-                if (st->running) { run_actions(m, trig, st, hud); continue; }
+                if (st->running) { run_actions(m, trig, st, hud, pending); continue; }
                 if (!conditions_ok(m, trig, p)) continue;
                 st->running = true;
                 st->cursor = 0;
-                run_actions(m, trig, st, hud);
+                run_actions(m, trig, st, hud, pending);
             }
+        }
+        for (int p = 0; p < 8; ++p) if (pending[p] && !m->player_result[p]) {
+            m->player_result[p] = pending[p];
+            if (pending[p] == 2) for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                if (th->function != P_MobjThinker) continue;
+                mobj_t *mo = (mobj_t *)th;
+                if (!mo->remove && mo->owner == p) give_one(mo, 11);
+            }
+            if (p == consoleplayer)
+                G_EndLevel(pending[p] == 1 ? OUTCOME_VICTORY : pending[p] == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
         }
     }
 }

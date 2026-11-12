@@ -1,5 +1,6 @@
 #include "t_local.h"
 #include "starcraft.h"
+#include "../../games/starcraft/sc_local.h"
 #include <stdlib.h>
 #include <unistd.h>
 #define CHECK(c) do { if(!(c)) { fprintf(stderr,"line %d: %s\n",__LINE__,#c); return 1; } } while(0)
@@ -24,7 +25,7 @@ static int native_map(const char *mission,const char *tileset,int width,int heig
         const uint8_t *tag=chk.bytes+at,*data=tag+8;
         size_t size=read_u32_le(tag+4);
         if(!memcmp(tag,"MTXM",4)) for(size_t i=0;i<size/2;i++) {
-            unsigned tile=read_u16_le(data+i*2);
+            unsigned tile=read_u16_le(data+i*2)&0x7fff;
             CHECK(level.tile_ids[i]==tile); CHECK(tile<(unsigned)tiles.tile_lookup_count);
             if(!seen[tile]) { seen[tile]=1; ++distinct; }
         }
@@ -123,6 +124,73 @@ static bool load_fixture(const uint8_t *bytes,size_t size) {
     if(fclose(file)) return false;
     return written&&G_DoLoadLevel(fixture,&level);
 }
+static size_t append_chunk(uint8_t *out,size_t at,const char tag[4],const void *data,size_t size) {
+    memcpy(out+at,tag,4);
+    out[at+4]=(uint8_t)size; out[at+5]=(uint8_t)(size>>8);
+    out[at+6]=(uint8_t)(size>>16); out[at+7]=(uint8_t)(size>>24);
+    memcpy(out+at+8,data,size);
+    return at+8+size;
+}
+static int painted_creep(void) {
+    enum { WIDTH=32, HEIGHT=32, CELLS=WIDTH*HEIGHT };
+    uint8_t *bytes=calloc(1,64+CELLS*2); CHECK(bytes);
+    uint8_t dimensions[4]={WIDTH,0,HEIGHT,0}, era[2]={0,0}, owners[12]={0};
+    uint16_t *tiles=calloc(CELLS,sizeof(*tiles)); CHECK(tiles);
+    for(int y=0;y<HEIGHT;y++)for(int x=0;x<WIDTH;x++) {
+        tiles[y*WIDTH+x]=32;
+        if(x<16)tiles[y*WIDTH+x]|=0x8000;
+    }
+    size_t at=0;
+    at=append_chunk(bytes,at,"DIM ",dimensions,sizeof(dimensions));
+    at=append_chunk(bytes,at,"ERA ",era,sizeof(era));
+    at=append_chunk(bytes,at,"MTXM",tiles,CELLS*sizeof(*tiles));
+    at=append_chunk(bytes,at,"OWNR",owners,sizeof(owners));
+    free(tiles);
+    CHECK(load_fixture(bytes,at)); free(bytes);
+    CHECK(G_LoadLevelData(root,&level));
+    sc_mission_t *mission=level.mission;
+    CHECK(mission->terrain&&level.tile_ids[10*WIDTH+10]==32&&mission->terrain[10*WIDTH+10].creep);
+    CHECK(level.tile_ids[10*WIDTH+20]==32&&!mission->terrain[10*WIDTH+20].creep);
+    CHECK(G_LoadLevelData(root,&level));
+    CHECK(mission->terrain[10*WIDTH+10].creep&&!mission->terrain[10*WIDTH+20].creep);
+    bool inside=false,outside=false;
+    for(int y=2;y<12&&!inside;y++)for(int x=2;x<12;x++) {
+        ivec2_t cell={x,y};
+        if(P_CanPlaceBuilding(MT_HATCHERY,cell,NULL)) {
+            CHECK(P_CanPlaceBuilding(MT_HYDRALISK_DEN,cell,NULL));
+            inside=true; break;
+        }
+    }
+    for(int y=2;y<30&&!outside;y++)for(int x=18;x<30;x++) {
+        ivec2_t cell={x,y};
+        if(P_CanPlaceBuilding(MT_HATCHERY,cell,NULL)) {
+            CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN,cell,NULL));
+            outside=true; break;
+        }
+    }
+    CHECK(inside&&outside);
+
+    isize2_t den_foot=actor_types[MT_HYDRALISK_DEN-1].footprint;
+    ivec2_t crossing={16-den_foot.w+1,4};
+    CHECK(den_foot.w>1&&P_CanPlaceBuilding(MT_HATCHERY,crossing,NULL));
+    CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN,crossing,NULL));
+
+    CHECK(P_InitSight());
+    app_t app={0}; AiContext ai={0}; hudtext_t hud={0};
+    void *saved=NULL; size_t saved_size=0;
+    CHECK(G_SaveGameBlob(&saved,&saved_size,"painted-creep",&app,&ai,&hud));
+    P_FreeLevel(&level);
+    CHECK(G_DoLoadLevel(fixture,&level)&&G_LoadLevelData(root,&level)&&P_InitSight());
+    CHECK(G_LoadGameBlob(saved,saved_size,&app,&ai,&hud));
+    free(saved);
+    mission=level.mission;
+    CHECK(mission->terrain[10*WIDTH+10].creep&&!mission->terrain[10*WIDTH+20].creep);
+    CHECK(P_CanPlaceBuilding(MT_HATCHERY,crossing,NULL));
+    CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN,crossing,NULL));
+    P_FreeLevel(&level);
+    puts("PASS: painted creep survives repeated terrain load and save/load, and gates full Zerg footprints");
+    return 0;
+}
 static int malformed(void) {
     /* Chunks need not be ordered; unknown chunks are skipped. */
     uint8_t bytes[]={
@@ -155,6 +223,7 @@ int main(void) {
     CHECK(!native_map("zerg/zerg01","jungle",64,64,false));
     CHECK(!native_map("terran/tutorial","platform",64,64,false));
     CHECK(!native_map("zerg/zerg03","ashworld",64,96,false));
+    CHECK(!painted_creep());
     CHECK(!malformed()); unlink(fixture);
     SDL_Quit(); return 0;
 }

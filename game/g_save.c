@@ -316,6 +316,9 @@ bool G_ResyncSave(void **data, size_t *length, const app_t *app,
     return G_SaveGameBlob(data, length, "resync", app, ai, hud);
 }
 
+static bool resyncing;
+bool G_Resyncing(void) { return resyncing; }
+
 bool G_ResyncLoad(const void *data, size_t length, app_t *app, AiContext *ai, hudtext_t *hud) {
     int selected = 0, capacity = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
@@ -327,7 +330,13 @@ bool G_ResyncLoad(const void *data, size_t length, app_t *app, AiContext *ai, hu
             ids[selected++] = ((mobj_t *)th)->id;
     fvec2_t camera = app->cam;
     hudtext_t messages = *hud;
+#ifdef RTS_MODULE_STARCRAFT
+    outcome_t local_outcome = level.outcome;
+    uint8_t local_foes = level.foes;
+#endif
+    resyncing = true;
     bool ok = G_LoadGameBlob(data, length, app, ai, hud);
+    resyncing = false;
     if (ok) {
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
             if (th->function != P_MobjThinker) continue;
@@ -338,6 +347,12 @@ bool G_ResyncLoad(const void *data, size_t length, app_t *app, AiContext *ai, hu
         }
         app->cam = camera;
         *hud = messages;
+#ifdef RTS_MODULE_STARCRAFT
+        /* StarCraft trigger outcomes are per player, so the authority's
+         * local result screen must not replace this peer's. */
+        level.outcome = local_outcome;
+        level.foes = local_foes;
+#endif
     }
     free(ids);
     return ok;

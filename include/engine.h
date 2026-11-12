@@ -2839,6 +2839,7 @@ bool G_LoadGameBlob(const void *data, size_t length, app_t *app, AiContext *ai, 
 bool G_ResyncSave(void **data, size_t *length, const app_t *app,
                   const AiContext *ai, const hudtext_t *hud);
 bool G_ResyncLoad(const void *data, size_t length, app_t *app, AiContext *ai, hudtext_t *hud);
+bool G_Resyncing(void);
 size_t G_SaveExtraSize(void);
 void G_SaveExtra(void *out);
 bool G_LoadExtra(const void *data, size_t size);

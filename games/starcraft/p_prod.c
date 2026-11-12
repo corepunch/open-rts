@@ -476,8 +476,7 @@ bool sc_supply_ok(int owner,const StaticProductDefinition *product,const mobj_t 
 }
 
 static int sc_ai_level(const level_t *map,int owner) {
-    (void)map;
-    if(owner<0||owner>=8||sc_mission_result()) return AI_LEVEL_NONE;
+    if(owner<0||owner>=8 || (map && map->mission && ((const sc_mission_t *)map->mission)->player_result[owner])) return AI_LEVEL_NONE;
     if(netgame?D_PlayerIsHuman(owner):owner==consoleplayer) return AI_LEVEL_NONE;
     int kind=sc_owner_kind(owner);
     if(kind==1||kind==5||sc_player_ai(owner)) return AI_LEVEL_NORMAL;

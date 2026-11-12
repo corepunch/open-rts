@@ -14,6 +14,9 @@ int main(void) {
     m->rng=1;
     uint32_t random_hash=G_ConsistencyExtra(0);
     CHECK(sc_random()==346 && G_ConsistencyExtra(0)!=random_hash);
+    uint32_t outcome_hash = G_ConsistencyExtra(0);
+    m->player_result[7] = 2;
+    CHECK(G_ConsistencyExtra(0) != outcome_hash);
     m->switches[12] = 1;
     m->deaths[1][0] = UINT32_C(0x80000000);
     m->elapsed_ms = 12345;
@@ -111,6 +114,7 @@ int main(void) {
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
     CHECK(m->terrain==terrain && m->rng==22695478u);
+    CHECK(m->player_result[7] == 2);
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);
     CHECK(m->rt[0].cursor == 3 && m->rt[0].wait_ms == 1200 && m->rt[0].running);
     int target_hp=target->hp;
@@ -195,11 +199,31 @@ int main(void) {
     CHECK((G_AllianceMasks(&level)[player]&obit) && !(G_AllianceMasks(&level)[other]&pbit));
     CHECK((level.sight.allies[other]&pbit) && !(level.sight.allies[player]&obit));
     size_t custom_extra_size = G_SaveExtraSize();
+    ((sc_mission_t *)level.mission)->result = 1;
     void *extra = malloc(custom_extra_size); CHECK(extra); G_SaveExtra(extra);
+    ((sc_mission_t *)level.mission)->result = 2;
     netgame = true; consoleplayer = (player + 1) % 8;
     CHECK(G_LoadExtra(extra, custom_extra_size) && consoleplayer == (player + 1) % 8);
+    CHECK(((sc_mission_t *)level.mission)->result == 1); /* Ordinary load restores its result. */
     netgame = false; CHECK(G_LoadExtra(extra, custom_extra_size) && consoleplayer == player);
     free(extra);
+    /* A resync carries shared player outcomes, not the authority's local UI. */
+    alliance_mission = level.mission;
+    alliance_mission->player_result[player] = 1;
+    alliance_mission->player_result[other] = 2;
+    alliance_mission->result = 1; level.outcome = OUTCOME_VICTORY; level.foes = 0x80;
+    void *resync = NULL; size_t resync_size = 0;
+    CHECK(G_ResyncSave(&resync, &resync_size, &app, &ai, &hud));
+    consoleplayer = other; netgame = true;
+    alliance_mission->result = 0; level.outcome = OUTCOME_NONE; level.foes = 0x02;
+    CHECK(G_ResyncLoad(resync, resync_size, &app, &ai, &hud));
+    free(resync);
+    alliance_mission = level.mission;
+    CHECK(consoleplayer == other && !alliance_mission->result && level.outcome == OUTCOME_NONE && level.foes == 0x02 &&
+          alliance_mission->player_result[player] == 1 && alliance_mission->player_result[other] == 2);
+    sc_mission_tick(&level, &hud, RTS_TICK_MS);
+    CHECK(alliance_mission->result == 2 && level.outcome == OUTCOME_DEFEAT);
+    netgame = false; consoleplayer = player; menuleave = false;
     CHECK(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == 0);
     CHECK(M_Init(&app, "data/STARCRAFT"));
     menu_t *bar = G_InitHUD(&app, "data/STARCRAFT"); CHECK(bar);

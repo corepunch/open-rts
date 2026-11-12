@@ -37,6 +37,7 @@ bool G_LoadExtra(const void *data, size_t size) {
         saved.loc_count < 0 || saved.loc_count > 64 || saved.result < 0 || saved.result > 3 ||
         !memchr(saved.objectives, 0, sizeof(saved.objectives)) ||
         !memchr(saved.next_scenario, 0, sizeof(saved.next_scenario))) return false;
+    for (int i = 0; i < 8; ++i) if (saved.player_result[i] > 3) return false;
     const uint8_t *runtime = (const uint8_t *)data + sizeof(record);
     for (int i = 0; i < m->trig_count * 8; ++i) {
         sc_trig_t trigger;
@@ -50,6 +51,8 @@ bool G_LoadExtra(const void *data, size_t size) {
     saved.uprp = m->uprp;
     saved.rt = m->rt;
     saved.terrain = m->terrain;
+    /* A resync imports shared outcomes but not the sender's local UI state. */
+    if (G_Resyncing()) saved.result = m->result;
     *m = saved;
     if (m->trig_count)
         memcpy(m->rt, runtime, (size_t)m->trig_count * 8 * sizeof(sc_trig_t));
