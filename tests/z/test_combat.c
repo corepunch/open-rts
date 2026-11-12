@@ -210,6 +210,39 @@ static int test_bullet_terrain_gate(void) {
     return 0;
 }
 
+static int test_bullet_range_order(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load bullet range order");
+    zmap_t *map = level.native_data;
+    for (int y = 39; y <= 41; ++y) for (int x = 39; x <= 42; ++x)
+        map->terrain[y * Z_MAP_STRIDE + x] = 0;
+    fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
+    mobj_t *shooter = blast_unit(MT_UNIT_GRUNT, 0, pixel_at(at, -48, 0), 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 15, 0), 500);
+    if (!shooter || !target) return fail("spawn bullet range order fixture");
+    ivec2_t start = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+    for (int i = 0; i < 4; ++i) {
+        target->hp = 500;
+        target->core.position = fixed3_from_fixed2(pixel_at(at, i == 3 ? 30 : 15, 0), 0);
+        if (!Z_Attack(shooter, &shooter->info->attack, target)) return fail("launch range boundary bullet");
+        mobj_t *bullet = nth(MT_BULLET, 0, 0);
+        if (!bullet) return fail("spawn range boundary bullet");
+        bullet->core.position = fixed3_from_fixed2(at, 0);
+        bullet->z.water.start = start;
+        bullet->z.water.direction = (ivec2_t){1, 0};
+        bullet->z.water.vertical = 0;
+        bullet->z.water.major = bullet->z.water.remaining = i >= 2 ? 15 : 90;
+        bullet->z.water.minor = 0; bullet->z.water.error = bullet->z.water.major / 2;
+        bullet->z.water.speed = i == 0 ? 14 : 15; bullet->z.water.range = 15;
+        A_ZBullet(bullet);
+        if ((target->hp == 500) != (i == 1))
+            return fail("bullet range boundary precedes unit collision");
+        P_RemoveMobj(bullet);
+    }
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_specialist_bullets(void) {
     static const struct { int type, range, damage; } cases[] = {
         {MT_UNIT_SNIPER, 144, 10}, {MT_UNIT_PSYCHO, 120, 2}, {MT_UNIT_LASER, 136, 15},
@@ -2433,7 +2466,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_bullet_terrain_gate() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_bullet_terrain_gate() || test_bullet_range_order() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

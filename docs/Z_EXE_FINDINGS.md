@@ -4656,3 +4656,17 @@ collision ordering. Reproduce with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 45 @ 0x5abad' -c 'pd 30 @ 0x5ac67'
 -c 'px 128 @ 0x11662f' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
+
+**Bullet range ordering:** On an unfinished step `0x5aa57..0x5aa9b`
+compares squared displacement from the stored launch point against the
+square of the range byte times eight; equality or greater exits through
+`0x5a986` before `0x5ac67` scans terrain and units. An initial segment
+that completes instead takes `0x5a941..0x5a985`, performing its two collision
+passes without that range check. The engine now preserves this ordering;
+`test_bullet_range_order` checks a target one pixel inside the range,
+exactly at it, at a completed segment's endpoint, and only at the extended
+second point beyond range. The separate native
+pre-range map-object scan at `0x5aa49` is still unimplemented. Reproduce
+with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x5a90d'
+-c 'pd 35 @ 0x5aa57' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_combat`.

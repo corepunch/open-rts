@@ -1107,11 +1107,12 @@ void A_ZBullet(mobj_t *bullet) {
             finished = bullet->z.water.remaining == 0;
             bullet->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE), 0);
             if (at.x < 0 || at.y < 0 || !L_Contains(&level, at.x / Z_TILE, at.y / Z_TILE)) { P_RemoveMobj(bullet); return; }
+            if (!pass && !finished && ivec2_distance_squared64(at, bullet->z.water.start) >=
+                (int64_t)bullet->z.water.range * bullet->z.water.range) { P_RemoveMobj(bullet); return; }
             bool hit = bullet_hit(bullet, at);
             if (pass) { P_RemoveMobj(bullet); return; }
             if (!finished) {
-                if (hit || ivec2_distance_squared64(at, bullet->z.water.start) >= (int64_t)bullet->z.water.range * bullet->z.water.range ||
-                    (map && Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > bullet->z.water.height)) { P_RemoveMobj(bullet); return; }
+                if (hit || (map && Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > bullet->z.water.height)) { P_RemoveMobj(bullet); return; }
                 break;
             }
             bullet->z.water.remaining = 16;
