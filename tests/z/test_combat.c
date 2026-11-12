@@ -591,6 +591,37 @@ static int test_shell_blast(void) {
     return 0;
 }
 
+static int test_shell_building_contact(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for shell building contact");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *gun = blast_unit(MT_UNIT_LIGHT_TANK, 0, pixel_at(at, -80, 0), 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, -32, 0), 500);
+    mobj_t *building = blast_unit(MT_ROBOT_FACTORY, 0, at, 500);
+    if (!gun || !target || !building) return fail("spawn shell building contact fixture");
+    building->z.building = 1;
+    if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch building contact shell");
+    mobj_t *shell = nth(MT_SHELL, 0, 0);
+    if (!shell) return fail("find building contact shell");
+    ivec2_t origin = Z_BuildingOrigin(building);
+    ivec2_t point = ivec2_add(origin, (ivec2_t){-4, 8});
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
+    A_ZShellBlast(shell);
+    if (building->hp != 450) return fail("shell hits friendly non-target building at inclusive origin");
+    building->hp = 500;
+    point.x--;
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
+    A_ZShellBlast(shell);
+    if (building->hp != 500) return fail("shell misses just outside building footprint");
+    point = ivec2_add(origin, (ivec2_t){building->info->footprint.w * Z_TILE - 4,
+                                         building->info->footprint.h * Z_TILE + 8});
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
+    A_ZShellBlast(shell);
+    if (building->hp != 450) return fail("shell hits inclusive far building edge");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_flight(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell flight");
@@ -865,7 +896,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

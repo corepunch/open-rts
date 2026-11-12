@@ -536,6 +536,19 @@ void A_ZShellBlast(mobj_t *missile) {
     ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
     mobj_t *target = missile->attack.target;
     bool primary_hit = false;
+    mobj_t *building_hit = NULL;
+    ivec2_t point = ivec2_add(impact, (ivec2_t){4, -8});
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *building = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(building) || building->type_id <= MT_FORT ||
+            building->type_id >= MT_UNITS || !building->z.building || !building->info) continue;
+        ivec2_t origin = Z_BuildingOrigin(building);
+        ivec2_t d = ivec2_sub(point, origin);
+        if (d.x < 0 || d.y < 0 || d.x > building->info->footprint.w * Z_TILE ||
+            d.y > building->info->footprint.h * Z_TILE) continue;
+        if (!building_hit || building->z.building < building_hit->z.building) building_hit = building;
+    }
+    if (building_hit) P_DamageMobj(building_hit, missile->target, missile->missile.damage);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
         if (th->function != P_MobjThinker || !live(victim) || victim == missile->target ||
@@ -546,9 +559,8 @@ void A_ZShellBlast(mobj_t *missile) {
             primary_hit |= victim == target;
         }
     }
-    /* Buildings and terrain have separate native paths; retain their
-     * direct hit until their area selection is traced. */
-    if (!primary_hit && live(target) && target != missile->target && target->team != missile->team) {
+    /* Terrain has a separate native path. */
+    if (!primary_hit && live(target) && !structure(target) && target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
             P_DamageMobj(target, missile->target, missile->missile.damage);

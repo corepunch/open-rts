@@ -3183,9 +3183,19 @@ origin from its sprite size, then applies the native selection offset;
 composed vehicles are initialized with a 16×16 spawn extent. The shell types
 are the missile-bearing units in pinned Zod `src/zsettings.cpp`; their exact
 retail class dispatch is not fully traced. The engine applies existing direct
-weapon damage once to each enemy unit in the box. Non-unit primary targets
-retain direct damage; area damage to buildings, neutral objects and terrain,
-and retail knockdown are not implemented. Grenades still use the engine's
+weapon damage once to each enemy unit in the box. At impact, building damage
+uses a separate native point lookup: `0x593aa` passes impact minus (12,24)
+to `0x8476c`, which calls `0x3edc2`; with `0x14c05f` clear, that adds
+(16,16) and calls `0x281da`. The ordinary shell path does not set this
+flag; the flame-area routine sets it temporarily at `0x86904` and clears
+it at `0x86919`. This port assumes it is clear for ordinary shell impacts.
+The latter selects the first live BUILD record whose descriptor footprint
+contains impact plus (4,-8), with inclusive edges, and `0x3ee3f` subtracts
+the damage without a team test. Open-rts selects the lowest native building
+index in that footprint and permits friendly building damage. Forts remain
+excluded by their native separate lifecycle. `test_combat` checks a friendly
+non-target factory, both inclusive edges and an outside point. Terrain and
+other object damage and retail knockdown remain incomplete. Grenades still use the engine's
 separate 3×3 weighted blast. Zod instead applies radial distance falloff in
 `src/zserver.cpp:ProcessMissileDamage`; that is not the retail rectangle.
 
