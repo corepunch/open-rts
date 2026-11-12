@@ -12,6 +12,14 @@ static sc_mission_t *mission(level_t *map) {
     return map && map->mission ? map->mission : NULL;
 }
 
+/* OpenBW's synchronized LCG; triggers and weapon launch rolls share it. */
+uint32_t sc_random(void) {
+    sc_mission_t *m = mission(&level);
+    if (!m) return 0;
+    m->rng = m->rng * UINT32_C(22695477) + 1;
+    return (m->rng >> 16) & 0x7fff;
+}
+
 int sc_mission_result(void) {
     sc_mission_t *m = mission(&level);
     return m ? m->result : 0;
@@ -446,7 +454,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             if (a[27] == 4) bit = 1;
             else if (a[27] == 5) bit = 0;
             else if (a[27] == 6) bit = !bit;
-            else if (a[27] == 11) { m->rng = m->rng * 1664525u + 1013904223u; bit = (m->rng >> 16) & 1; }
+            else if (a[27] == 11) bit = sc_random() & 1;
             m->switches[number] = bit;
             continue;
         }

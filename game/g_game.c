@@ -610,7 +610,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     model->loaded = false;
 
     P_InitThinkers();
-    if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
+    if (!G_DoLoadLevel(map_path, &level) || !G_LoadLevelData(data_root, &level) || !P_InitSight()) {
         P_FreeLevel(&level);
         model_set_error(model, "failed to load map '%s'", map_path);
         return false;

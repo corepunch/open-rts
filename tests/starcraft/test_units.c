@@ -260,6 +260,7 @@ static int bunker(void) {
     /* One-slot Terrans only, SCVs too (OpenBW unit_can_load_target), and only its owner's. */
     CHECK(sc_can_board(m[0], b) && sc_can_board(scv, b) && !sc_can_board(zealot, b) &&
           !sc_can_board(vulture, b) && !sc_can_board(foe, b));
+    foe->sc.flags|=SC_INVINCIBLE; /* Keep the target alive while the Marines board. */
     /* Marines walk in on the board order, or on a right click on the Bunker. */
     ticcmd_t board = {.order = TC_BOARD, .count = 3, .units = {m[0]->id, m[1]->id, m[2]->id}, .target = b->id};
     G_RunTiccmd(0, &board);
@@ -275,6 +276,7 @@ static int bunker(void) {
     mobj_t *ling = spawn(MT_ZERGLING, FIXED2_LIT(16.5, 10.5), 1);
     CHECK(ling && sc_range_bonus(m[0], &m[0]->info->attack) == FIXED_ONE && P_InAttackRange(m[0], ling));
     uint32_t ling_id = ling->id;
+    foe->sc.flags&=~SC_INVINCIBLE;
     CHECK(!P_CanTarget(ling, m[0]) && !P_CanTarget(foe, m[0]) && P_CanTarget(foe, b));
     mobj_t *tank = spawn(MT_SIEGE_MODE, FIXED2_LIT(11.5, 21.5), 1);
     CHECK(tank && shoot(tank, b) && b->hp < b->max_hp && m[0]->hp == m[0]->max_hp);
@@ -774,7 +776,9 @@ int main(void) {
     level.width = level.height = 48;
     level.blocked = calloc(48 * 48, 1);
     level.cell_solid = calloc(48 * 48, 1);
-    CHECK(level.blocked && level.cell_solid);
+    level.mission = calloc(1, sizeof(sc_mission_t));
+    CHECK(level.blocked && level.cell_solid && level.mission);
+    ((sc_mission_t *)level.mission)->rng=2;
     reset();
     CHECK(!mixed_queue());
     CHECK(!carrier());
@@ -788,6 +792,7 @@ int main(void) {
     CHECK(!zerg_spells());
     CHECK(!computer());
     CHECK(!turning_and_size());
+    free(level.mission); level.mission=NULL;
     P_FreeLevel(&level);
     puts("PASS: interceptors, scarabs, siege mode, add-ons, Bunkers, Archons, research, every spell and the computer player's use of them");
     return 0;

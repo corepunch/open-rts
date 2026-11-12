@@ -565,24 +565,33 @@ static void irradiate(mobj_t *host) {
         if (!building(v) && (sc_units[v->type_id - 1].flags & SC_UNIT_ORGANIC)) P_DamageMobj(v, NULL, damage);
 }
 
-int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int dealt) {
+bool sc_dark_swarm_protects(const mobj_t *target) {
+    if(!target || (target->traits & MF_FLY) || building(target))return false;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *cloud=(const mobj_t *)th;
+        if(th->function==P_MobjThinker&&!cloud->remove&&cloud->type_id==MT_DARK_SWARM&&
+           cloud->sc.order.tech==SC_TECH_DARK_SWARM&&cloud->sc.timers[SC_TIMER_LIFE]>0&&
+           abs(cloud->core.position.x-target->core.position.x)<=SC_SWARM_RADIUS&&
+           abs(cloud->core.position.y-target->core.position.y)<=SC_SWARM_RADIUS)return true;
+    }
+    return false;
+}
+
+int sc_projectile_spell_hit(const mobj_t *attacker, mobj_t *target, int dealt) {
     if (attacker->sc.flags & SC_HALLUCINATION) return 0;
     if (target->sc.flags & SC_HALLUCINATION) dealt *= 2;
-    /* Under Dark Swarm only blows from up close land. */
-    if (!(target->traits & MF_FLY) && weapon->range > FIXED_ONE)
-        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-            const mobj_t *cloud = (const mobj_t *)th;
-            if (th->function == P_MobjThinker && !cloud->remove && cloud->type_id == MT_DARK_SWARM &&
-                cloud->sc.order.tech == SC_TECH_DARK_SWARM && cloud->sc.timers[SC_TIMER_LIFE] > 0 &&
-                abs(cloud->core.position.x - target->core.position.x) <= SC_SWARM_RADIUS &&
-                abs(cloud->core.position.y - target->core.position.y) <= SC_SWARM_RADIUS) return 0;
-        }
     if (target->sc.matrix > 0) {
         int absorbed = dealt < target->sc.matrix ? dealt : target->sc.matrix;
         target->sc.matrix -= absorbed;
         dealt -= absorbed;
     }
     return dealt;
+}
+
+int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int dealt) {
+    /* Under Dark Swarm only blows from up close land. */
+    if (weapon->range > FIXED_ONE && sc_dark_swarm_protects(target)) return 0;
+    return sc_projectile_spell_hit(attacker,target,dealt);
 }
 
 uint32_t sc_sight_teams(const mobj_t *mo) { return mo->sc.parasite; }

@@ -14,11 +14,12 @@ sc_upgrade_t sc_upgrades[SC_UPGRADES] = {
 #undef SC_UPGRADE
 };
 sc_weapon_t sc_weapons[SC_WEAPONS] = {
-#define SC_WEAPON(id,name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,inner,medium,outer,targets,icon) \
-    [id] = {name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,{inner,medium,outer},targets,icon},
+#define SC_WEAPON(id,name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,inner,medium,outer,targets,icon,flingy,speed,accel,turn,movement,lifetime,spin,forward,upward) \
+    [id] = {name,damage,bonus,cooldown,factor,upgrade,type,explosion,behavior,min,max,{inner,medium,outer},targets,icon,flingy,speed,accel,turn,movement,lifetime,spin,forward,upward},
 #include "weapons.inc"
 #undef SC_WEAPON
 };
+int sc_projectile_states[SC_WEAPONS];
 sc_tech_t sc_techs[SC_TECHS] = {
 #define SC_TECH(id,name,minerals,gas,time,energy,race,icon) [id] = {name,minerals,gas,time,energy,race,icon},
 #include "techs.inc"
@@ -36,6 +37,7 @@ gameinfo_t game_info = {
 void sc_init_info(void) {
     memset(states,0,sizeof(states));
     memset(mobjinfo,0,sizeof(mobjinfo));
+    memset(sc_projectile_states,0,sizeof(sc_projectile_states));
     for(int i=0;i<SC_TYPES;i++) {
         snprintf(sc_names[i],sizeof(sc_names[i]),"sc-%03d",i);
         sprnames[i]=sc_names[i];
@@ -54,4 +56,7 @@ void sc_init_info(void) {
     states[SC_SIEGE_STATE+1]=(state_t){.sprite=MT_SIEGE_TANK-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_SIEGE_MODE-1)*2};
     states[SC_UNSIEGE_STATE]=(state_t){.sprite=MT_SIEGE_MODE-1,.tics=frames,.nextstate=SC_UNSIEGE_STATE+1};
     states[SC_UNSIEGE_STATE+1]=(state_t){.sprite=MT_SIEGE_MODE-1,.tics=1,.action=A_Deploy,.nextstate=1+(MT_SIEGE_TANK-1)*2};
+    states[SC_PROJECTILE_STATE]=(state_t){.sprite=0,.tics=-1,.nextstate=SC_PROJECTILE_STATE};
+    mobjinfo[MT_SC_PROJECTILE]=(mobjinfo_t){.doomednum=-1,.spawnstate=SC_PROJECTILE_STATE,
+        .spawnhealth=1,.flags=MF_NOBLOCKMAP};
 }

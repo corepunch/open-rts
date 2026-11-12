@@ -7,9 +7,13 @@ int main(void) {
     G_InitGame();
     P_InitThinkers();
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
     sc_mission_t *m = level.mission;
     CHECK(m && m->trig_count > 0);
+    m->rng=1;
+    uint32_t random_hash=G_ConsistencyExtra(0);
+    CHECK(sc_random()==346 && G_ConsistencyExtra(0)!=random_hash);
     m->switches[12] = 1;
     m->deaths[1][0] = 7;
     m->elapsed_ms = 12345;
@@ -27,15 +31,19 @@ int main(void) {
      * stand in for the new level's CHK allocation or trigger runtime. */
     P_FreeLevel(&level);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
     m = level.mission;
     const uint8_t *strings = m->str;
     blob_t file = m->file;
     const uint8_t *triggers = m->trig, *properties = m->uprp;
     sc_trig_t *runtime = m->rt;
+    sc_terrain_t *terrain=m->terrain;
+    CHECK(terrain);
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == 7);
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
+    CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);
     CHECK(m->rt[0].cursor == 3 && m->rt[0].wait_ms == 1200 && m->rt[0].running);
     CHECK(!strcmp(m->objectives, "Saved objective"));
@@ -63,6 +71,7 @@ int main(void) {
     int races[8] = {0, 2};
     sc_set_custom_slots(kinds, races);
     CHECK(G_DoLoadLevel(map, &level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
     int player = consoleplayer;
     CHECK(sc_player_side(player) == 2);
@@ -97,6 +106,7 @@ int main(void) {
     sc_set_custom_slots(NULL, NULL);
     consoleplayer = 0;
     CHECK(G_DoLoadLevel(map, &level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
     CHECK(consoleplayer != player || sc_player_side(consoleplayer) != 2);
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));

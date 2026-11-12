@@ -32,6 +32,8 @@ enum { SC_CARGO = 8 };
 typedef struct { int kind, tech; uint32_t target; ivec2_t at; int time; } sc_order_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
+/* Native flingy speed and turn change independently each 24 Hz frame. */
+typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_projectile_t;
 /* Shields, energy and the Defensive Matrix are 1/256 points, as StarCraft
  * keeps them; wound is the fraction of a hit point already lost. parasite
  * holds the sight bits of the teams that see through this unit. hangar
@@ -39,7 +41,7 @@ typedef struct { uint8_t active, phase; } sc_glow_t;
  * Spider Mines. A Nydus Canal's parent is its other end. */
 #define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
-    sc_order_t order; sc_rally_t rally; sc_glow_t glow; } sc;
+    sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->sc.flags); HASH((mo)->sc.attacker); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
@@ -52,5 +54,7 @@ typedef struct { uint8_t active, phase; } sc_glow_t;
     HASH((mo)->sc.rally.at.x); HASH((mo)->sc.rally.at.y); \
     HASH((mo)->sc.rally.target); HASH((mo)->sc.rally.set); \
     HASH((mo)->sc.glow.active); HASH((mo)->sc.glow.phase); \
+    HASH((mo)->sc.projectile.weapon); HASH((mo)->sc.projectile.speed); \
+    HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
 } while (0)
 #endif

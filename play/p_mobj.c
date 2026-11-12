@@ -688,7 +688,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
 
 /* Doom's damage source wakes the victim and becomes its target. Keep an
  * existing live enemy so repeated hits do not restart its pursuit. */
-static void provoke(mobj_t *target, mobj_t *source) {
+void P_ProvokeMobj(mobj_t *target, mobj_t *source) {
 #ifdef RTS_MODULE_STARCRAFT
     if (target->sc.order.kind == SC_ORDER_REPAIR || target->sc.order.kind == SC_ORDER_FOLLOW ||
         (target->move_only && P_HasMoveOrder(target))) return;
@@ -717,7 +717,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (target->owner == consoleplayer && source && source->owner != consoleplayer)
         S_ActorSound(target, SE_ATTACKED);
     if (target->hp > 0) {
-        provoke(target, source);
+        P_ProvokeMobj(target, source);
         return;
     }
 
@@ -918,7 +918,7 @@ static void strike(mobj_t *attacker, const weapondef_t *weapon, mobj_t *victim, 
     for (int i = 0; i < (weapon->hits ? weapon->hits : 1) && !victim->remove && victim->hp > 0; ++i) {
         int damage = weapon_hit(attacker, weapon, victim, divisor);
         if (damage > 0) P_DamageMobj(victim, attacker, damage);
-        else if (gameinfo->hit_damage) provoke(victim, attacker);
+        else if (gameinfo->hit_damage) P_ProvokeMobj(victim, attacker);
     }
 }
 

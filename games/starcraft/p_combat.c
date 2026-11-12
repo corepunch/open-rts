@@ -225,6 +225,138 @@ static int hit_damage(const mobj_t *attacker, const weapondef_t *def, mobj_t *ta
     return dealt > 0 ? take(target, w && w->type < 5 ? w->type : SC_DAMAGE_NORMAL, dealt) : 0;
 }
 
+bool sc_projectile_weapon(int id) {
+    const sc_weapon_t *w=sc_weapon(id);
+    return w&&w->damage>0&&(w->behavior==0||w->behavior==1||w->behavior==SC_BEHAVIOR_BOUNCE)&&
+        w->explosion==1&&w->movement==1&&w->speed>0&&w->acceleration>0;
+}
+
+bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
+    if(!source||!target||!def||!sc_projectile_weapon(def->native_id))return false;
+    const sc_weapon_t *w=&sc_weapons[def->native_id];
+    fixed2_t heading; angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
+    fixed2_t at=fixed2_add(fixed3_xy(source->core.position),fixed2_scale(heading,SC_PIXELS(w->forward)));
+    at=fixed2_add(at,(fixed2_t){0,-SC_PIXELS(w->upward)});
+    for(int i=0;i<w->factor;i++) {
+    mobj_t *shot=P_SpawnMobj(fixed3_from_fixed2(at,source->core.position.z),MT_SC_PROJECTILE);
+    if(!shot)break;
+    shot->owner=source->owner; shot->team=source->team; shot->allegiance=source->allegiance;
+    shot->target=source; shot->attack.target=target; shot->core.angle=source->core.angle;
+    sc_mission_t *mission=level.mission;
+    if(w->spin) {
+        bool clockwise=mission&&mission->previous_bullet_source==source->id?
+            !mission->previous_bullet_clockwise:(sc_random()&1)!=0;
+        if(mission){mission->previous_bullet_source=source->id;mission->previous_bullet_clockwise=clockwise;}
+        angle_t offset=(angle_t)((uint32_t)w->spin<<24);
+        shot->core.angle+=clockwise?offset:0u-offset;
+    }
+    shot->sc.flags=source->sc.flags&SC_HALLUCINATION;
+    shot->movement.goal=fixed3_xy(target->core.position);
+    unsigned src=sc_terrain_flags(fixed3_xy(source->core.position));
+    unsigned dst=sc_terrain_flags(fixed3_xy(target->core.position));
+    int chance=0;
+    if(!(target->traits&MF_FLY)) {
+        if(sc_dark_swarm_protects(target))chance=255;
+        else if(dst&SC_TERRAIN_COVER)chance=119;
+        int source_height=(src&SC_TERRAIN_HIGH)?2:(src&SC_TERRAIN_MIDDLE)?1:0;
+        int target_height=(dst&SC_TERRAIN_HIGH)?2:(dst&SC_TERRAIN_MIDDLE)?1:0;
+        if(!(source->traits&MF_FLY)&&target_height>source_height&&chance<119)chance=119;
+    }
+    bool missed=(sc_random()&255)<=(unsigned)chance;
+    if(missed)shot->movement.goal=fixed2_sub(shot->movement.goal,fixed2_scale(heading,SC_PIXELS(30)));
+    shot->sc.projectile=(sc_projectile_t){.weapon=def->native_id,.turn=w->turn,.missed=missed};
+    if(sc_projectile_states[def->native_id]) {
+        shot->traits|=MF_RENDERABLE;
+        P_SetMobjState(shot,sc_projectile_states[def->native_id]);
+    }
+    }
+    return true;
+}
+
+static void projectile_impact(mobj_t *shot) {
+    mobj_t *target=shot->attack.target,*source=shot->target;
+    const sc_weapon_t *w=sc_weapon(shot->sc.projectile.weapon);
+    if(!w){P_RemoveMobj(shot);return;}
+    mobj_t *next=NULL;
+    if(w->behavior==SC_BEHAVIOR_BOUNCE&&shot->missile.phase<2&&source&&!source->remove&&source->hp>0) {
+        fixed2_t at=fixed3_xy(shot->core.position);
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+            mobj_t *candidate=(mobj_t *)th;
+            if(th->function!=P_MobjThinker||candidate==target||candidate->id==shot->sc.projectile.previous||
+               candidate->allegiance==ALLEGIANCE_NEUTRAL||!P_CanTarget(source,candidate)||!P_VisibleTo(source,candidate))continue;
+            fixed2_t delta=fixed2_sub(fixed3_xy(candidate->core.position),at);
+            if(abs(delta.x)<=WEAPON_BOUNCE_RANGE&&abs(delta.y)<=WEAPON_BOUNCE_RANGE){next=candidate;break;}
+        }
+    }
+    bool can_hit=!shot->sc.projectile.missed&&target&&!target->remove&&target->hp>0&&sc_type(target)&&
+        !(target->sc.flags&SC_INVINCIBLE)&&!target->sc.timers[SC_TIMER_STASIS];
+    int divisor=shot->missile.phase==0?1:shot->missile.phase==1?3:9;
+    int damage=0;
+    if(can_hit) {
+        sc_start(target);
+        int dealt=sc_projectile_spell_hit(shot,target,base_damage(shot->owner,w,w->damage,divisor));
+        damage=dealt>0?take(target,w->type<5?w->type:SC_DAMAGE_NORMAL,dealt):0;
+    }
+    if(!next)P_RemoveMobj(shot);
+    if(damage>0)P_DamageMobj(target,source?source:shot,damage);
+    else if(can_hit&&source)P_ProvokeMobj(target,source);
+    if(next) {
+        shot->sc.projectile.previous=target?target->id:0;
+        shot->attack.target=next;
+        if(!shot->sc.projectile.missed)shot->movement.goal=fixed3_xy(next->core.position);
+        ++shot->missile.phase;
+    }
+}
+
+static fixed2_t projectile_map_bounds(fixed2_t point) {
+    fixed_t max_x=FIXED_FROM_INT(level.width)-SC_PIXELS(1), max_y=FIXED_FROM_INT(level.height)-SC_PIXELS(1);
+    return (fixed2_t){point.x<0?0:point.x>max_x?max_x:point.x,
+                      point.y<0?0:point.y>max_y?max_y:point.y};
+}
+
+static void projectile_tick(mobj_t *shot,int frames) {
+    sc_projectile_t *p=&shot->sc.projectile;
+    const sc_weapon_t *w=sc_weapon(p->weapon);
+    if(!w){P_RemoveMobj(shot);return;}
+    while(frames-->0&&!shot->remove) {
+        if(++shot->missile.age<=1)continue; /* IScript Init waits one frame before sigorder. */
+        if(shot->missile.wait){projectile_impact(shot);return;}
+        bool expired=w->behavior!=SC_BEHAVIOR_BOUNCE&&shot->missile.age-1>w->lifetime;
+        if((w->behavior==1||w->behavior==SC_BEHAVIOR_BOUNCE)&&shot->attack.target&&!shot->sc.projectile.missed)
+            shot->movement.goal=fixed3_xy(shot->attack.target->core.position);
+        fixed2_t delta=fixed2_sub(shot->movement.goal,fixed3_xy(shot->core.position));
+        fixed_t distance=fixed2_length(delta);
+        if(!distance){projectile_impact(shot);return;}
+        angle_t desired=angle_from_screen_vector_fixed(delta.x,delta.y);
+        angle_t turn=p->turn>=128?ANG180:(angle_t)((uint32_t)p->turn<<24);
+        int32_t change=(int32_t)(desired-shot->core.angle);
+        uint32_t difference=angle_distance(desired,shot->core.angle);
+        int distance_px=distance/SC_PIXELS(1);
+        bool accelerate=difference==0||distance_px>=32;
+        if(!accelerate&&p->turn>0) {
+            int angle=(int)(difference>>24);
+            int64_t needed=(int64_t)(angle*2+p->turn-1)*p->speed/(p->turn*256);
+            accelerate=needed*3/2<=distance_px;
+        }
+        if(difference<=turn)shot->core.angle=desired;
+        else shot->core.angle+=change>0?turn:0u-turn;
+        if(w->flingy>=0x8d&&w->flingy<=0xab)p->turn++;
+        p->speed+=accelerate?w->acceleration:-w->acceleration;
+        if(p->speed<0)p->speed=0;
+        if(p->speed>w->speed)p->speed=w->speed;
+        fixed_t step=(fixed_t)(p->speed*8); /* 8.8 pixels to 16.16 cells. */
+        if(distance<=step&&shot->core.angle==desired){shot->core.position=fixed3_with_xy(shot->core.position,shot->movement.goal);projectile_impact(shot);return;}
+        fixed2_t direction; angle_to_screen_vector_fixed(shot->core.angle,&direction.x,&direction.y);
+        fixed2_t next=fixed2_add(fixed3_xy(shot->core.position),fixed2_scale(direction,step));
+        if(level.width>0&&level.height>0&&!L_Contains(&level,fixed_floor_int(next.x),fixed_floor_int(next.y))) {
+            next=projectile_map_bounds(next);
+            shot->missile.wait=1; /* OpenBW expires an out-of-bounds bullet on its next frame. */
+        }
+        shot->core.position=fixed3_with_xy(shot->core.position,next);
+        if(expired){projectile_impact(shot);return;}
+    }
+}
+
 static void recharge(mobj_t *battery, int frames) {
     fixed2_t at = fixed3_xy(battery->core.position);
     for (thinker_t *th = thinkercap.next; th != &thinkercap && battery->sc.energy >= 128; th = th->next) {
@@ -248,9 +380,10 @@ static void recharge(mobj_t *battery, int frames) {
  * then, once for each 24 Hz frame, shields regenerate and casters regain
  * energy, except while a cloak they switched on drains it. */
 static void sc_mobj_ticker(mobj_t *mo) {
+    int frames = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
+    if(mo->type_id==MT_SC_PROJECTILE){projectile_tick(mo,frames);return;}
     if (!sc_type(mo)) return;
     sc_start(mo);
-    int frames = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
     sc_spell_ticker(mo, frames);
     if (mo->remove || mo->hp <= 0) return;
     sc_unit_ticker(mo, frames);

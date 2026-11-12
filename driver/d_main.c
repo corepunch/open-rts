@@ -319,7 +319,7 @@ load_level:
         return 1;
     }
     P_InitThinkers();
-    if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
+    if (!G_DoLoadLevel(map_path, &level) || !G_LoadLevelData(data_root, &level) || !P_InitSight()) {
         P_FreeLevel(&level);
         M_Shutdown();
         S_Shutdown();

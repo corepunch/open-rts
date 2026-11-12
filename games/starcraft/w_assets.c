@@ -92,15 +92,15 @@ bad:
 }
 
 bool sc_load_tiles(const char *root,const level_t *map,tileset_t *out) {
-    blob_t vx={0},vr={0},cv={0},pal={0},vf={0}; bool ok=false;
-    const char *extensions[]={"vx4","vr4","cv5","wpe","vf4"};
-    blob_t *files[]={&vx,&vr,&cv,&pal,&vf};
+    blob_t vx={0},vr={0},cv={0},pal={0}; bool ok=false;
+    const char *extensions[]={"vx4","vr4","cv5","wpe"};
+    blob_t *files[]={&vx,&vr,&cv,&pal};
     memset(out,0,sizeof(*out));
-    for(int i=0;i<5;i++) {
+    for(int i=0;i<4;i++) {
         char path[128]; snprintf(path,sizeof(path),"tileset/%s.%s",map->tileset_name,extensions[i]);
         if(!sc_read(root,path,files[i])) goto done;
     }
-    if(!vx.size||vx.size%32||!vr.size||vr.size%64||!cv.size||cv.size%52||pal.size!=1024||vf.size!=vx.size) goto done;
+    if(!vx.size||vx.size%32||!vr.size||vr.size%64||!cv.size||cv.size%52||pal.size!=1024) goto done;
     out->count=(int)(vx.size/32); out->tile_w=out->tile_h=32; out->atlas_cols=16;
     out->indices=malloc((size_t)out->count*1024);
     out->tile_lookup_count=(int)(cv.size/52)*16;
@@ -125,15 +125,10 @@ bool sc_load_tiles(const char *root,const level_t *map,tileset_t *out) {
     for(size_t i=0;i<(size_t)map->width*map->height;i++) {
         unsigned id=map->tile_ids[i];
         if(id>=(unsigned)out->tile_lookup_count) goto done;
-        /* The engine currently paths in 32px cells. Keep mixed cells open;
-         * wholly unwalkable VF4 megatiles (water, void) block ground units. */
-        unsigned walkable=0,tile=(unsigned)out->tile_lookup[id];
-        for(int m=0;m<16;m++) walkable|=read_u16_le(vf.bytes+tile*32+m*2)&1;
-        if(!walkable) map->blocked[i]=1;
     }
     ok=true;
 done:
-    for(int i=0;i<5;i++) W_FreeFile(files[i]);
+    for(int i=0;i<4;i++) W_FreeFile(files[i]);
     if(!ok) R_FreeTileset(out);
     return ok;
 }
@@ -463,6 +458,27 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
             if(animation(&script,mine,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
                 sc_set_harvest_state(i+1,head);
         }
+    }
+    memset(sc_projectile_states,0,sizeof(sc_projectile_states));
+    for(int w=0;w<SC_WEAPONS;w++) {
+        if(!sc_projectile_weapon(w))continue;
+        const sc_weapon_t *weapon=&sc_weapons[w];
+        for(int prev=0;prev<w;prev++)if(sc_projectile_states[prev]&&sc_weapons[prev].flingy==weapon->flingy)
+            sc_projectile_states[w]=sc_projectile_states[prev];
+        if(sc_projectile_states[w])continue;
+        unsigned f=(unsigned)weapon->flingy;
+        if(f>=nf)goto done;
+        unsigned sprite=read_u16_le(flingy.bytes+f*2);
+        if(sprite>=ns)goto done;
+        unsigned image=read_u16_le(sprites.bytes+sprite*2);
+        int k=extra_sprite(&effects,image);
+        if(k<0||next_state>=SC_STATES)goto done;
+        unsigned scriptid=read_u32_le(images.bytes+ni*10+image*4);
+        const spritesheet_t *sheet=&cache->entries[extra_slot[k]].sprite;
+        int head=next_state++;
+        if(animation(&script,animation_start(&script,scriptid,SC_GND_ATTACK),SC_TYPES+k,head,
+                     images.bytes[ni*4+image]!=0,SC_GROUP_HOLD,sheet,NULL,0)<0)goto done;
+        sc_projectile_states[w]=head;
     }
     game_info.sprite_count=SC_TYPES+extra_count;
     spritesheet_t ramp={0}; char ramp_path[2048];

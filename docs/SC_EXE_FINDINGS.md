@@ -1,5 +1,96 @@
 # StarCraft native data and UI findings
 
+## Simulation terrain and random rolls (2026-11-12)
+
+**Confirmed native asset layout and reference behavior, not an executable trace.**
+OpenBW at the pinned commit uses CV5 group word `+2` bit `0x10` for cover.
+Its `get_ground_height_at` samples the unit's 8-pixel VF4 minitile: bit 4
+means height 2, otherwise bit 2 means height 1. A megatile has sixteen
+little-endian VF4 words. The CV5 megatile index is at `+20 + 2*(tile&15)`
+in its 52-byte group. The Badlands asset SHA-256 fingerprints are
+`b417ddd4523461159fce5357462bb2c9fe5c6f4536b10e0ddd1bdc84c56ae3ee` (CV5)
+and `7bfa246f2bc9e8d9cc1323c968fb0a74c9ab7c7abe41daf110ad82fe05090d89` (VF4).
+
+`G_LoadLevelData` now loads this simulation metadata independently of the
+renderer. This also corrects headless levels previously missing the renderer's
+wholly-unwalkable-cell mask. The mission owns the checked native flags; save
+restoration retains the freshly loaded allocation. `sc_random` uses OpenBW's
+LCG `state = state*22695477+1`, returning `(state>>16)&0x7fff`; triggers and
+projectile launches share the saved, checksummed state. This replaces the
+previous arbitrary trigger generator without claiming retail initial-seed parity.
+
+Reproduce with `make build/bin/tests/starcraft/test_map` and
+`SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_map`: it compares every
+minitile's height and cover against raw CV5/VF4 across six campaign maps.
+
+## Moving-weapon investigation (2026-11-12)
+
+**Confirmed asset records, executable behavior not independently verified.**
+The classic-disc `arr/weapons.dat` SHA-256 is
+`03551df8800a01ec1e99e3648ece6deb83c054588f52967ba76c1d85c92be461`,
+`arr/flingy.dat` is `74042e8a1f529117b79a93d8092bf41a0ad7eeee6df0a9743ddd399886d79baa`,
+`arr/sprites.dat` is `ffa606093737b71d1eaaf30f05695b9de8beb9314f44e0db3dfbb11611c162a8`,
+`arr/images.dat` is `03f596ed97f47ec7278af3633d73717ecbc59f729d99456a0a6df46be220e7e0`,
+and `scripts/iscript.bin` is `e62ecef8b5f7785d937c3125b90d1164fdc09db6c0cd6ef5d0e5d0761bafd0ca`.
+PyMS's DAT layouts give 100 weapon and 184 flingy records. Graphics is the
+weapons column at `2*N + 4*row`; behavior is at `19*N + row`; flingy speed,
+acceleration, turn and movement-control are at `2*F + 4*id`, `6*F + 2*id`,
+`12*F + id` and `14*F + id` respectively. For example,
+`od -An -tu4 -j 216 -N 4 data/STARCRAFT/native/arr/weapons.dat` prints 145,
+the flingy for weapon 4, the Vulture grenade. Its speed is 8533/256 pixels
+per 24 Hz frame, acceleration 667/256, turn 40/256 circle, behavior 0,
+flingy 145 → sprite 343 → image 532 → IScript 242. Weapons 4 and 5 share it.
+Wraith Burst Lasers 16/18 use flingy 149, speed 17067, acceleration 8533,
+turn 127, sprite 348, image 535 and script 243; Battlecruiser lasers 19–24
+use flingy 148, speed 25600, acceleration 8533, turn 127, sprite 347, image
+534 and script 243. These speed/acceleration integers are 8.8 pixel units.
+Mutalisk Glaive Wurm 48/49 is behavior 7, flingy 165, speed 8533,
+acceleration 667, turn 127, lifetime 60 frames, sprite 358, image 511,
+script 264. Firebat Flame Thrower 25/26 is behavior 5, flingy 172, zero DAT
+speed and IScript-controlled movement, sprite 370, image 503, script 292;
+the flame overlay is separately image 421. Stargus's moving Firebat flame is
+therefore not a verified native weapon path.
+
+**Confirmed in the pinned OpenBW source and Stargus IScript listing.**
+`bwgame.h` `initialize_bullet`, `bullet_state_init` and `bullet_state_move`
+use the weapon's initial target position for behavior 0; behavior 1 follows
+the unit, and behavior 7 retargets up to three bounce hits. Spawn uses the
+weapon's native forward/up offsets; a flingy starts with next speed zero and
+uses its acceleration/turn settings. Init waits for IScript `sigorder 1`.
+`reference/stargus/doc/iscript.txt` script 242 signals after one `wait 1` and
+script 243 does likewise; their Death animations execute `domissiledmg`.
+Script 264 executes that opcode in both Death and the intermediate bounce
+state. `bwgame.h` dispatches `domissiledmg` to `bullet_hit` and does not
+implement these shots as first-body collision. The corresponding weapon
+graphics and damage timing are not represented by the generic `P_SpawnMissile`,
+which uses physical first-body collision. The StarCraft path now uses ordinary
+saved nonblocking mobjs for normal-damage behaviors 0, 1 and 7; it retains
+owner/target references, native flingy speed and turn data, and the shield,
+armor and 1/3/9 bounce damage rules. Homing missile IScript headers 232, 234,
+235, 240, 260 and 266 likewise wait one frame before the signal and dispatch
+damage in Death. Heading-offset column `35*N + row` alternates twin missile
+headings per source. OpenBW rolls the synchronized random stream at launch,
+including a one-in-256 miss on level ground; cover and uphill ground attacks
+use threshold 119, Dark Swarm 255. The saved mission records the RNG and
+previous heading choice. `test_projectiles` exercises launch, terrain miss,
+flight, moving targets, twin headings, bounce and save/reload.
+
+Movement uses the engine's fixed-point angle and distance helpers, so it is
+an approximation of OpenBW's flingy math. Bounce candidates use thinker order
+inside the native square rather than OpenBW's spatial lookup order.
+OpenBW `attack_with_weapon` dispatches both projectiles consecutively when the
+weapon bullet count is two; Goliath and Scout IScript each use one `attackwith 2`.
+Trail and Death overlays and their sounds are not yet reproduced. These are
+source-derived findings, not independently traced retail executable behavior.
+Immediate-hit weapons outside the moving-projectile path still use the older
+damage rules and do not yet apply the synchronized elevation/cover miss roll.
+
+**Spider Mine movement.** `units.dat` row 13 has the normal order field zero,
+but flingy speed 4096 and turn 127. OpenBW `order_SpiderMine` sends an awakened
+mine after its target, so the actor catalog must mark it mobile despite the
+zero generic-order field. `test_abilities` checks the catalog speed and follows
+an actual mine from burrow through pursuit and detonation.
+
 ## Options and saved-game dialogs (2026-11-12)
 
 The retail `.bin` controls decoded by `test_glue` confirm that

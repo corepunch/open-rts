@@ -133,6 +133,19 @@ static void unload(void) {
 }
 
 static int animations(void) {
+    const spritesheet_t *grenade=R_CacheLookup(&cache,"sc-img-532");
+    CHECK(grenade&&grenade->numlumps==4&&sc_projectile_states[4]>0);
+    int projectile_state=sc_projectile_states[4];
+    CHECK(states[projectile_state].sprite>=SC_TYPES&&
+          !strcmp(sprnames[states[projectile_state].sprite],"sc-img-532")&&
+          states[projectile_state].frame<grenade->spritedef.numframes);
+    mobj_t *vulture=spawn(MT_VULTURE,FIXED2_LIT(4,4),0),*victim=spawn(MT_MARINE,FIXED2_LIT(7,4),1);
+    CHECK(vulture&&victim);
+    uint32_t shotid=level.next_mobj_id+1;
+    CHECK(sc_projectile_fire(vulture,&vulture->info->attack,victim));
+    mobj_t *shot=P_MobjById(shotid);
+    CHECK(shot&&(shot->traits&MF_RENDERABLE)&&shot->core.sprite_id==states[projectile_state].sprite);
+    P_RemoveMobj(shot);P_RemoveMobj(vulture);P_RemoveMobj(victim);
     const spritesheet_t *marine = R_CacheLookup(&cache, "sc-000");
     CHECK(marine && marine->numlumps == 229);
     /* Turning sets of 17, then one single-direction frame per picture. */

@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
-/* Mission extras include directional diplomacy, incompatible with earlier saves. */
-uint32_t G_SaveLayout(void) { return 1; }
+/* Mission extras and projectile state differ from earlier saves. */
+uint32_t G_SaveLayout(void) { return 2; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -11,6 +11,8 @@ const uint32_t *G_AllianceMasks(const level_t *map) {
 
 uint32_t G_ConsistencyExtra(uint32_t hash) {
     const sc_mission_t *m = level.mission;
+    if (m) hash = G_HashValue(hash, m->rng);
+    if (m) { hash = G_HashValue(hash, m->previous_bullet_source); hash = G_HashValue(hash, m->previous_bullet_clockwise); }
     if (m) for (int i = 0; i < 8; ++i) {
         hash = G_HashValue(hash, m->allies[i]);
         hash = G_HashValue(hash, level.sight.allies[i]);

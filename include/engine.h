@@ -996,6 +996,7 @@ static inline bool P_AreAllegiancesAllied(uint8_t a, uint8_t b) {
 }
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b);
+void P_ProvokeMobj(mobj_t *target, mobj_t *source);
 /* Live mobj with this id, or NULL. */
 mobj_t *P_MobjById(uint32_t id);
 /* Whether `unit` may harvest `vent`: it is active and either a terrain vent
@@ -1109,6 +1110,8 @@ void G_InterruptOrders(const ticcmd_t *cmd, mobj_t *const *units, int count, boo
 bool G_TakeCameraRequest(fvec2_t *cell);
 /* Release level data the game allocated (P_FreeLevel). */
 void G_FreeLevelData(level_t *map);
+/* Native simulation metadata needed by both headless and rendered levels. */
+bool G_LoadLevelData(const char *root, level_t *map);
 /* Environment clock (WORLD_CLOCK_MS): `begin` runs on each clock step before
  * daylight; `end` runs every tic after it and owns the fog refresh cadence. */
 void G_ClockBegin(int64_t clock);

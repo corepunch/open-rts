@@ -102,7 +102,7 @@ bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         }
         return true;
     }
-    if (attacker->type_id != MT_REAVER) return false;
+    if (attacker->type_id != MT_REAVER) return sc_projectile_fire(attacker,weapon,target);
     if (attacker->sc.hangar <= 0) return true;
     fixed2_t at = where(attacker), to = fixed2_sub(where(target), at);
     fixed_t d = fixed2_length(to);

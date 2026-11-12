@@ -14,9 +14,27 @@ static mobj_t *spawn(int type, fixed2_t at, int owner) {
     return u;
 }
 static bool shoot(mobj_t *attacker, mobj_t *target) {
+    ((sc_mission_t *)level.mission)->rng=2;
     attacker->attack.target = target;
     attacker->attack.cooldown_left_ms = 0;
-    return P_Attack(attacker);
+    const weapondef_t *weapon=P_MobjWeapon(attacker,target);
+    uint32_t previous=level.next_mobj_id;
+    if(!P_Attack(attacker))return false;
+    if(weapon&&sc_projectile_weapon(weapon->native_id)) {
+        mobj_t *shot=P_MobjById(previous+1);
+        if(!shot||shot->type_id!=MT_SC_PROJECTILE)return false;
+        uint32_t end=level.next_mobj_id;
+        for(int t=0;t<RTS_TICRATE*10;t++) {
+            bool active=false; ++leveltime;
+            for(uint32_t id=previous+1;id<=end;id++) {
+                shot=P_MobjById(id);
+                if(shot&&shot->type_id==MT_SC_PROJECTILE){active=true;gameinfo->mobj_ticker(shot);}
+            }
+            if(!active)return true;
+        }
+        for(uint32_t id=previous+1;id<=end;id++)if(P_MobjById(id))return false;
+    }
+    return true;
 }
 static void reset(void) {
     P_FreeThinkers();
@@ -359,7 +377,8 @@ int main(void) {
     level.width = level.height = 32;
     level.blocked = calloc(1024, 1);
     level.cell_solid = calloc(1024, 1);
-    CHECK(level.blocked && level.cell_solid);
+    level.mission = calloc(1, sizeof(sc_mission_t));
+    CHECK(level.blocked && level.cell_solid && level.mission);
     CHECK(!weapons());
     CHECK(!damage_types());
     CHECK(!shields_and_hits());
@@ -369,6 +388,7 @@ int main(void) {
     CHECK(!cloaking());
     CHECK(!turrets());
     CHECK(!speeds());
+    free(level.mission); level.mission=NULL;
     P_FreeLevel(&level);
     puts("PASS: ground and air weapons, damage types, shields and Shield Battery, hits, splash, glaive bounces, "
          "cloaking and detection, energy, turrets, flingy speeds");

@@ -5,12 +5,14 @@
 #define CHECK(c) do { if(!(c)) { fprintf(stderr,"line %d: %s\n",__LINE__,#c); return 1; } } while(0)
 static const char *root="data/STARCRAFT";
 static char fixture[128];
+unsigned sc_terrain_flags(fixed2_t position);
 
 static int native_map(const char *mission,const char *tileset,int width,int height,bool graphics) {
     char path[1024];
     snprintf(path,sizeof(path),"%s/install/campaign/%s/staredit/scenario.chk",root,mission);
     blob_t chk={0}; CHECK(W_ReadFile(path,&chk));
     CHECK(G_DoLoadLevel(path,&level));
+    CHECK(G_LoadLevelData(root,&level));
     CHECK(level.width==width&&level.height==height&&!strcmp(level.tileset_name,tileset));
     tileset_t tiles={0}; spritesheet_t fallback={0};
     CHECK(W_LoadAssets(root,&level,"sc-000",&tiles,&fallback));
@@ -68,7 +70,14 @@ static int native_map(const char *mission,const char *tileset,int width,int heig
         unsigned tile=read_u16_le(raw[0].bytes+(id>>4)*52+20+(id&15)*2);
         CHECK(tiles.tile_lookup[id]==(int)tile);
         unsigned walkable=0;
-        for(int m=0;m<16;m++) walkable|=read_u16_le(raw[3].bytes+tile*32+m*2)&1;
+        for(int m=0;m<16;m++) {
+            unsigned flags=read_u16_le(raw[3].bytes+tile*32+m*2);
+            walkable|=flags&1;
+            fixed2_t at=fixed2_scale(fixed2_from_cell((ivec2_t){(int)(i%width)*4+m%4,
+                (int)(i/width)*4+m/4}),FIXED_ONE/4);
+            unsigned cover=read_u16_le(raw[0].bytes+(id>>4)*52+2)&0x10;
+            CHECK(sc_terrain_flags(at)==((flags&6)|cover));
+        }
         if(!walkable) { CHECK(level.blocked[i]); ++blocked; }
         if(!seen[id]) continue;
         seen[id]=0;
@@ -81,6 +90,7 @@ static int native_map(const char *mission,const char *tileset,int width,int heig
         }
     }
     CHECK(flipped&&unflipped&&blocked);
+    CHECK(!sc_terrain_flags(FIXED2_LIT(-1,0))&&!sc_terrain_flags(fixed2_from_cell((ivec2_t){width,height})));
     for(int i=0;i<256;i++) {
         const uint8_t *p=raw[4].bytes+i*4;
         CHECK(tiles.palette[i]==(0xff000000u|p[0]<<16|p[1]<<8|p[2]));
@@ -128,6 +138,7 @@ static int malformed(void) {
     bytes[39]=3; CHECK(!load_fixture(bytes,sizeof(bytes))); bytes[39]=2;
     bytes[0]='X'; CHECK(!load_fixture(bytes,sizeof(bytes))); bytes[0]='M';
     bytes[8]=bytes[9]=255; CHECK(load_fixture(bytes,sizeof(bytes)));
+    CHECK(!G_LoadLevelData(root,&level));
     tileset_t tiles={0}; spritesheet_t sprite={0};
     CHECK(!W_LoadAssets(root,&level,"sc-000",&tiles,&sprite)); CHECK(!tiles.indices&&!tiles.tile_lookup);
     P_FreeLevel(&level);

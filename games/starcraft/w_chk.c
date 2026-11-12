@@ -7,8 +7,53 @@
 static void free_chk(void *data) {
     sc_mission_t *mission=data;
     free(mission->rt);
+    free(mission->terrain);
     W_FreeFile(&mission->file);
     free(mission);
+}
+
+/* These native rules belong to the level even when no renderer is loaded. */
+bool G_LoadLevelData(const char *root, level_t *map) {
+    sc_mission_t *mission=map->mission;
+    if(!mission)return true; /* The authored catalog has no mission terrain. */
+    blob_t cv={0},vf={0}; sc_terrain_t *terrain=NULL; bool ok=false;
+    char path[128];
+    snprintf(path,sizeof(path),"tileset/%s.cv5",map->tileset_name);
+    if(!sc_read(root,path,&cv))goto done;
+    snprintf(path,sizeof(path),"tileset/%s.vf4",map->tileset_name);
+    if(!sc_read(root,path,&vf)||!cv.size||cv.size%52||!vf.size||vf.size%32)goto done;
+    size_t cells=(size_t)map->width*map->height;
+    terrain=malloc(cells*sizeof(*terrain));
+    if(!terrain)goto done;
+    for(size_t i=0;i<cells;i++) {
+        unsigned id=map->tile_ids[i];
+        if(id/16>=cv.size/52)goto done;
+        const uint8_t *group=cv.bytes+(id/16)*52;
+        unsigned tile=read_u16_le(group+20+(id%16)*2),walkable=0;
+        if(tile>=vf.size/32)goto done;
+        terrain[i].cv5=read_u16_le(group+2);
+        for(int m=0;m<16;m++) {
+            terrain[i].vf4[m]=read_u16_le(vf.bytes+tile*32+m*2);
+            walkable|=terrain[i].vf4[m]&1;
+        }
+        /* Shared pathing uses 32px cells; only wholly blocked cells close. */
+        map->blocked[i]=!walkable;
+    }
+    free(mission->terrain);mission->terrain=terrain;terrain=NULL;
+    ok=true;
+done:
+    free(terrain);W_FreeFile(&cv);W_FreeFile(&vf);
+    return ok;
+}
+
+unsigned sc_terrain_flags(fixed2_t position) {
+    const sc_mission_t *m=level.mission;
+    ivec2_t cell=fixed2_cell(position);
+    if(!m||!m->terrain||!L_Contains(&level,cell.x,cell.y))return 0;
+    const sc_terrain_t *tile=&m->terrain[L_Index(&level,cell.x,cell.y)];
+    ivec2_t mini=fixed2_cell(fixed2_scale(position,FIXED_FROM_INT(4)));
+    return (tile->vf4[(mini.y&3)*4+(mini.x&3)]&(SC_TERRAIN_MIDDLE|SC_TERRAIN_HIGH))|
+           (tile->cv5&SC_TERRAIN_COVER);
 }
 
 bool sc_start_tip(const level_t *map, char *text, size_t size) {

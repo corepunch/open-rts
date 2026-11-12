@@ -24,6 +24,7 @@ WEAK bool G_GameLoad(const char *path, app_t *app, AiContext *ai, hudtext_t *hud
 }
 WEAK bool G_TakeCameraRequest(fvec2_t *cell) { (void)cell; return false; }
 WEAK void G_FreeLevelData(level_t *map) { (void)map; }
+WEAK bool G_LoadLevelData(const char *root, level_t *map) { (void)root; (void)map; return true; }
 WEAK void G_ClockBegin(int64_t clock) { (void)clock; }
 WEAK void G_ClockEnd(int64_t before, int64_t clock) {
     if (clock != before && (clock & 3) == 0) P_UpdateSight();

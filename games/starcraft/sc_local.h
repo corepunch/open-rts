@@ -52,8 +52,12 @@ typedef struct {
     int splash[3];
     unsigned targets;
     int icon;
+    int flingy, speed, acceleration, turn, movement, lifetime, spin, forward, upward;
 } sc_weapon_t;
 extern sc_weapon_t sc_weapons[SC_WEAPONS];
+extern int sc_projectile_states[SC_WEAPONS];
+bool sc_projectile_weapon(int id);
+bool sc_projectile_fire(mobj_t *source, const weapondef_t *weapon, mobj_t *target);
 /* techdata.dat: research cost and time, and the energy a use costs. The
  * Nuclear Strike is an order past the DAT that shares the spell command. */
 enum {
@@ -191,8 +195,13 @@ typedef struct {
     int cursor, wait_ms, current;
     bool running, preserve, disabled;
 } sc_trig_t;
+typedef struct { uint16_t vf4[16], cv5; } sc_terrain_t;
+enum { SC_TERRAIN_MIDDLE = 2, SC_TERRAIN_HIGH = 4, SC_TERRAIN_COVER = 0x10 };
+unsigned sc_terrain_flags(fixed2_t position);
+uint32_t sc_random(void);
 typedef struct {
     blob_t file;
+    sc_terrain_t *terrain; /* Native minitile heights and megatile cover. */
     const uint8_t *trig, *str, *uprp;
     size_t trig_size, str_size, uprp_size;
     int loc_left[64], loc_top[64], loc_right[64], loc_bottom[64];
@@ -208,6 +217,8 @@ typedef struct {
     int result;
     char objectives[512], next_scenario[256];
     uint32_t rng;
+    uint32_t previous_bullet_source;
+    bool previous_bullet_clockwise;
     bool view_pending;
     fvec2_t view;
     int stock[8][2], gathered[8][2], spent[8];
@@ -256,6 +267,8 @@ void sc_spell_ticker(mobj_t *mo, int frames);
 /* What spells make of one hit, in 1/256 points: hallucinations, the
  * Defensive Matrix and Dark Swarm. */
 int sc_spell_hit(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int dealt);
+bool sc_dark_swarm_protects(const mobj_t *target);
+int sc_projectile_spell_hit(const mobj_t *attacker, mobj_t *target, int dealt);
 uint32_t sc_sight_teams(const mobj_t *mo);
 /* A weapons.dat hit of damage by owner's weapon on target, through shields,
  * armor and size, as hit_damage takes it; for spells with no attacker. */

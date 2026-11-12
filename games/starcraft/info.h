@@ -131,11 +131,12 @@ typedef struct mobjinfo_s {
     fixed_t spawnz;
 } mobjinfo_t;
 /* Sprites past the unit types are death overlays and remnants (images.dat). */
-enum { S_NULL, SC_TYPES = 228, NUMMOBJTYPES = 229, SC_STATES = 16384, SC_EXTRA_SPRITES = 96,
+enum { S_NULL, SC_TYPES = 228, MT_SC_PROJECTILE = SC_TYPES + 1, NUMMOBJTYPES = SC_TYPES + 2, SC_STATES = 16384, SC_EXTRA_SPRITES = 96,
        SC_SPRITES = SC_TYPES + SC_EXTRA_SPRITES };
 /* Per type: idle and walk (1 + 2i), attack (1 + 2 SC_TYPES + i); then the
  * siege tank's two transforms, then what the native scripts compile. */
-enum { SC_SIEGE_STATE = 1 + SC_TYPES * 3, SC_UNSIEGE_STATE = SC_SIEGE_STATE + 2, SC_SCRIPT_STATES = SC_SIEGE_STATE + 4 };
+enum { SC_SIEGE_STATE = 1 + SC_TYPES * 3, SC_UNSIEGE_STATE = SC_SIEGE_STATE + 2,
+       SC_PROJECTILE_STATE = SC_SIEGE_STATE + 4, SC_SCRIPT_STATES = SC_PROJECTILE_STATE + 1 };
 extern state_t states[SC_STATES];
 extern mobjinfo_t mobjinfo[NUMMOBJTYPES];
 extern const char *sprnames[SC_SPRITES];

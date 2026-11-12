@@ -149,6 +149,7 @@ static int spider_mines(void) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         if (((mobj_t *)th)->type_id == MT_SPIDER_MINE) mine = (mobj_t *)th;
     CHECK(mine && vulture->sc.hangar == 2 && mine->owner == 0);
+    CHECK((mine->info->traits & MF_MOBILE) && mine->info->speed > 0);
     CHECK(fixed2_near(at_of(mine), spot, near_px(24)));
     CHECK((mine->sc.flags & SC_BURROWED) && (mine->traits & MF_CLOAKED) && !(mine->traits & MF_ATTACK));
     /* A hovering Probe walks by unharmed. */

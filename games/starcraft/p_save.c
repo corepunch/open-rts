@@ -18,6 +18,7 @@ void G_SaveExtra(void *out) {
     saved.mission.file = (blob_t){0};
     saved.mission.trig = saved.mission.str = saved.mission.uprp = NULL;
     saved.mission.rt = NULL;
+    saved.mission.terrain = NULL;
     memcpy(out, &saved, sizeof(saved));
     if (m->trig_count)
         memcpy((uint8_t *)out + sizeof(saved), m->rt,
@@ -48,6 +49,7 @@ bool G_LoadExtra(const void *data, size_t size) {
     saved.str = m->str;
     saved.uprp = m->uprp;
     saved.rt = m->rt;
+    saved.terrain = m->terrain;
     *m = saved;
     if (m->trig_count)
         memcpy(m->rt, runtime, (size_t)m->trig_count * 8 * sizeof(sc_trig_t));

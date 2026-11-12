@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static mobjtype_t actors[SC_TYPES];
+static mobjtype_t actors[SC_TYPES + 1];
 const char *const g_game_id="starcraft",*const g_game_name="StarCraft";
 const char *const g_game_default_root="data/STARCRAFT";
 const char *const g_game_default_map="install/campaign/terran/terran01/staredit/scenario.chk",*const g_game_default_sprite="sc-000";
@@ -10,7 +10,7 @@ const int g_cell_w=32,g_cell_h=32;
 const uint16_t g_debug_enemy_type=MT_MARINE;
 const gameinfo_t *gameinfo=&game_info;
 const mobjtype_t *const actor_types=actors;
-const int num_actor_types=SC_TYPES;
+const int num_actor_types=SC_TYPES + 1;
 static void sc_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset) {
     (void)tileset;
     R_DrawFog(app, map);
@@ -22,9 +22,9 @@ void sc_refresh_actors(void) {
         const sc_unit_t *u=&sc_units[i];
         int harvest_state=actors[i].harvest.state_id;
         mobjinfo[i+1].spawnhealth=u->hp>0?u->hp:1;
-        /* Interceptors and scarabs have no orders of their own but fly and run. */
+        /* Interceptors, scarabs and Spider Mines move under their own orders. */
         bool mobile=!(u->flags&1) && (u->orders==1||u->orders==2||u->orders==4||u->orders==5||
-            i+1==MT_INTERCEPTOR||i+1==MT_SCARAB);
+            i+1==MT_INTERCEPTOR||i+1==MT_SCARAB||i+1==MT_SPIDER_MINE);
         actors[i]=(mobjtype_t){.id=i+1,.native_type_id=i,.name=u->name,.sprite_name=sc_names[i],
             .traits=MF_SELECTABLE|MF_RENDERABLE|(mobile?MF_MOBILE:0)|((u->flags&4)?MF_FLY:0)|
                 ((u->flags&8)?MF_HARVESTER:0)|((u->flags&0x1000)?MF_RESOURCE_BASE:0)|
@@ -56,6 +56,8 @@ void sc_refresh_actors(void) {
         }
         actors[i].harvest.state_id=harvest_state;
     }
+    actors[SC_TYPES]=(mobjtype_t){.id=MT_SC_PROJECTILE,.native_type_id=-1,
+        .name="Projectile",.traits=MF_NOBLOCKMAP,.max_hp=1};
     /* Refinery/Extractor/Assimilator replace the geyser, preserving its gas. */
     actors[MT_REFINERY-1].build_on_type=actors[MT_EXTRACTOR-1].build_on_type=
         actors[MT_ASSIMILATOR-1].build_on_type=MT_VESPENE_GEYSER;
