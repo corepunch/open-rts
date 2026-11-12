@@ -3207,12 +3207,46 @@ it, `0x85257..0x852a9` probes four points in order: offsets (4,16),
 the first matching record in the 200-slot 40-byte effect table, subject to
 effect +0x0d flags and descriptor-dependent inclusive bounds. At the first
 match `0x85347` subtracts damage from effect byte +0x0f and branches on
-zero/sign into destruction handling. The relevant effect types, initialization
-of +0x0f and flag overrides have not been fully traced; this is not evidence
+zero/sign into destruction handling. `0x4a3d2..0x4a414` routes native object
+IDs 8, 24, 26, 29, 31, 33, 35 and 37 (empty vehicles in `objects.inc`) to
+`0x4a4cb`, which sets effect +0x0d bits 0x30 and copies word `0x103f2d`
+into byte +0x0f; its static executable value is 8. IDs 22 and 23 (empty
+Gatling and Howitzer) instead use `0x4a472`, copying word `0x103f21` (static
+value 5). `0x2853d` accepts their bit 0x10/0x40 for impact probes. Other
+creation paths can initialize +0x0f from weapon data (`0x4a28a`) or the
+default 50 (`0x4a41a`); this prevents treating all matched effects alike.
+On destruction, `0x853ee` branches on descriptor flags; an eligible flag-4
+object modifies the terrain byte at `0x85431..0x85447`, while other selected
+descriptor IDs enter the four-cell handler at `0x8551a`; it finally removes
+the effect at `0x85558`. The runtime writers of the global values, ownership
+and exact empty-to-occupied health transfer, and the complete destruction
+consequences remain unverified. In particular, the engine represents empty
+vehicles and guns as ordinary neutral unit mobjs rather than this effect
+record, so the field cannot be directly substituted for body HP. This is not evidence
 that all scenery mobjs can receive ordinary unit damage. `0x8476c` also calls
 the separate `0x84f9d` path and a tile-based lookup at `0x27e0f`. Reproduce
 with `r2 -q -e bin.cache=true -c 'pd 35 @ 0x84822' -c 'pd 55 @ 0x8523f'
 -c 'pd 50 @ 0x2853d' -c q data/Z/ZED.EXE`.
+
+**Empty-object transfer and grenade-box destruction:** when a robot enters
+an empty object, `0x63a1d..0x63a9d` allocates its body record and sets
+current body HP +8 to `25 * effect[+0x0f]`, and maximum body HP +0x0a to
+`25 * effect[+0x27]`. The `0x4a184` creation path calls `0x4a28a`, which
+copies weapon +5 to both effect +0x0f and +0x27; damage to the empty object
+therefore survives boarding in 25-HP increments while maximum uses the
+original value. The separate `0x4a30e`/`0x4a4cb` default-object path copies
+global `0x103f2d` to +0x0f but no +0x27 initialization was observed there;
+the interaction with prior slot contents remains unknown. Likewise, the
+globals' runtime writers were not found in the linear disassembly, which
+does not exclude indirect writes. On effect destruction, `0x8563a` checks
+base sprite 350/351 (the two grenade boxes), writes terrain value 0x16 at
+their location and calls `0x8476c` with damage 127 under flags that suppress
+recursive effect damage. This proves a box-explosion path, but its damage
+allocation, tile effects, and interaction with pickup/removal still need
+an end-to-end trace before representing it as an ordinary missile blast.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 50 @ 0x63a1d' -c 'pd 30 @
+0x4a184' -c 'pd 35 @ 0x4a28a' -c 'pd 38 @ 0x4a4cb' -c 'pd 48 @ 0x8563a'
+-c q data/Z/ZED.EXE`.
 
 Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
 'pd 20 @ 0x84c38' -c 'pd 25 @ 0x85ce4' -c 'pd 30 @ 0x64384' -c q

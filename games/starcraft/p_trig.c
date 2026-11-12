@@ -441,9 +441,12 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
         if (!mine) continue;
         if (!(mo->traits & MF_MOBILE)) {
             const sc_unit_t *type = sc_unit(mo);
-            if (!mo->info || !(type->flags & SC_UNIT_BUILDING) || mo->production || mo->sc.parent ||
-                sc_addon_parent(mo->type_id) || mo->type_id == MT_NYDUS_CANAL ||
+            bool addon = sc_addon_parent(mo->type_id) != MT_NONE;
+            if (!mo->info || !(type->flags & SC_UNIT_BUILDING) || mo->production || (mo->sc.parent && !addon) ||
+                mo->type_id == MT_NYDUS_CANAL ||
                 mo->type_id == MT_REFINERY || mo->type_id == MT_EXTRACTOR || mo->type_id == MT_ASSIMILATOR) continue;
+            mobj_t *parent = addon && mo->sc.parent ? P_MobjById(mo->sc.parent) : NULL;
+            if (mo->sc.parent && (!parent || sc_addon_of(parent) != mo)) continue;
             bool linked = false;
             for (thinker_t *child = thinkercap.next; child != &thinkercap; child = child->next)
                 if (child->function == P_MobjThinker && ((mobj_t *)child)->id != mo->sc.addon &&
@@ -457,9 +460,11 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
             bool clear = P_CanPlaceBuilding(mo->type_id, cell, mo);
             mo->traits = traits;
             if (clear) {
-                sc_detach_addon(mo);
+                if (addon && mo->sc.parent) {
+                    sc_detach_addon(parent);
+                } else if (!addon) sc_detach_addon(mo);
                 mo->core.position = fixed3_with_xy(mo->core.position, P_BuildingPosition(mo->type_id, cell));
-                sc_reconnect_addon(mo, cell);
+                if (!addon) sc_reconnect_addon(mo, cell);
             }
             P_SyncBuildingBlocking();
             if (!clear) continue;

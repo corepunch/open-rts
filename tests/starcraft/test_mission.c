@@ -1092,6 +1092,36 @@ int main(void) {
                       (ivec2_t){P_MobjCells(moved_building).x, P_MobjCells(moved_building).y}));
     CHECK(moved_building->sc.addon == attached_shop->id && attached_shop->sc.parent == moved_building->id);
     unload();
+    put_u16(action + 24, MT_MACHINE_SHOP - 1);
+    CHECK(!write_map("/tmp/open-rts-sc-teleport-building.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    moved_building = sc_spawn_actor(MT_FACTORY - 1, (ivec2_t){128, 128}, 0);
+    CHECK(moved_building); attached_shop = sc_attach_addon(moved_building, MT_MACHINE_SHOP);
+    CHECK(attached_shop); before_building = P_MobjCells(attached_shop);
+    P_SyncBuildingBlocking(); ticks(1, &(hudtext_t){0});
+    CHECK(!ivec2_equal((ivec2_t){before_building.x, before_building.y},
+                       (ivec2_t){P_MobjCells(attached_shop).x, P_MobjCells(attached_shop).y}));
+    CHECK(!moved_building->sc.addon && !attached_shop->sc.parent && attached_shop->owner == 11);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    moved_building = sc_spawn_actor(MT_FACTORY - 1, (ivec2_t){128, 128}, 0);
+    CHECK(moved_building); attached_shop = sc_attach_addon(moved_building, MT_MACHINE_SHOP);
+    CHECK(attached_shop); before_building = P_MobjCells(attached_shop);
+    ivec2_t blocked_shop = ivec2_sub((ivec2_t){16, 16}, (ivec2_t){attached_shop->info->footprint.w / 2, attached_shop->info->footprint.h / 2});
+    level.blocked[L_Index(&level, blocked_shop.x, blocked_shop.y)] = 1;
+    P_SyncBuildingBlocking(); ticks(1, &(hudtext_t){0});
+    CHECK(ivec2_equal((ivec2_t){before_building.x, before_building.y},
+                      (ivec2_t){P_MobjCells(attached_shop).x, P_MobjCells(attached_shop).y}));
+    CHECK(moved_building->sc.addon == attached_shop->id && attached_shop->sc.parent == moved_building->id && attached_shop->owner == 0);
+    unload();
     put_u16(action + 24, MT_BARRACKS - 1);
     CHECK(!write_map("/tmp/open-rts-sc-teleport-building.chk", owners, trig));
     for (int terrain = 0; terrain < 2; terrain++) {
