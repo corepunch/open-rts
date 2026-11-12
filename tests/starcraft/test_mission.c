@@ -277,6 +277,30 @@ int main(void) {
     outside->core.position = (fixed3_t){FIXED_FROM_INT(5), FIXED_FROM_INT(5), 0};
     ticks(1, &(hudtext_t){0});
     CHECK(removed_area->remove && !outside->remove);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = 25; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-area.chk", &level));
+    remove_mission = level.mission; remove_mission->loc_count = 1;
+    remove_mission->loc_right[0] = remove_mission->loc_bottom[0] = 64;
+    mobj_t *illusion = spawn(MT_MARINE - 1, 0), *survivor = spawn(MT_MARINE - 1, 0);
+    CHECK(illusion && survivor); illusion->sc.flags |= SC_HALLUCINATION;
+    ticks(1, &(hudtext_t){0});
+    CHECK(illusion->remove && !survivor->remove);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = 25; action[27] = 255;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-area.chk", &level));
+    remove_mission = level.mission; remove_mission->loc_count = 1;
+    remove_mission->loc_right[0] = remove_mission->loc_bottom[0] = 64;
+    mobj_t *limit_units[260];
+    for (int i = 0; i < 260; i++) { limit_units[i] = spawn(MT_MARINE - 1, 0); CHECK(limit_units[i]); }
+    ticks(1, &(hudtext_t){0});
+    for (int i = 0; i < 260; i++) CHECK(limit_units[i]->remove == (i < 255));
     free(trig); unload(); remove("/tmp/open-rts-sc-remove-area.chk");
 
     /* Kill Unit uses the same complete selection and the normal death path. */
