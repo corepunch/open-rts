@@ -1295,8 +1295,8 @@ static int test_water_launch(void) {
 }
 
 static int test_tank_shell_arc(void) {
-    const int types[] = {MT_UNIT_LIGHT_TANK, MT_UNIT_MED_TANK, MT_UNIT_HEAVY_TANK};
-    const int speeds[] = {12, 10, 8};
+    const int types[] = {MT_UNIT_LIGHT_TANK, MT_UNIT_MED_TANK, MT_UNIT_HEAVY_TANK, MT_UNIT_LIGHT_GUN, MT_UNIT_HOWITZER};
+    const int speeds[] = {12, 10, 8, 10, 5};
     RtsGameModel *model = load();
     if (!model) return fail("load tank arc fixture");
     P_AiSetFeatures(rts_game_model_ai(model), 0);
@@ -1355,6 +1355,87 @@ static int test_tank_shell_arc(void) {
     if (first->core.state_id != S_SHELL_BLAST || hit.x / Z_TILE != 27 ||
         !fixed2_equal(first->movement.goal, fixed3_xy(first->core.position)))
         return fail("tank arc terrain impact uses actual impact point");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_rocket_salvos(void) {
+    static const ivec2_t body[] = {{2,-2},{2,-2},{4,0},{1,-3},{2,1},{1,-2},{3,-3},{1,-4}};
+    static const ivec2_t nose[] = {{-10,-4},{-3,-3},{0,0},{1,0},{3,2},{4,4},{-5,6},{-3,3}};
+    static const ivec2_t mobile_side[2][8] = {
+        {{-6,0},{-6,-6},{0,-6},{3,-6},{6,0},{6,6},{0,6},{-6,6}},
+        {{6,0},{6,6},{0,6},{-6,6},{-6,0},{-6,-6},{0,-6},{6,-6}}
+    };
+    static const ivec2_t muzzle[2][8] = {
+        {{4,-5},{11,-2},{25,6},{18,14},{10,16},{1,15},{-8,8},{-1,-2}},
+        {{14,-5},{21,2},{25,13},{12,18},{-1,16},{-6,9},{-8,1},{2,-8}}
+    };
+    static const ivec2_t spread[2][8] = {
+        {{-3,0},{-3,-3},{0,-3},{3,-3},{3,0},{3,3},{0,3},{-3,3}},
+        {{3,0},{3,3},{0,3},{-3,3},{-3,0},{-3,-3},{0,-3},{3,-3}}
+    };
+    RtsGameModel *model = load();
+    if (!model) return fail("load rocket salvo fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *mobile = blast_unit(MT_UNIT_M_MISSILE, 0, at, 500);
+    mobj_t *gun = blast_unit(MT_UNIT_MISSILE_GUN, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 96, 0), 500);
+    if (!mobile || !gun || !target) return fail("spawn rocket salvo fixture");
+    ivec2_t aim = Z_BlastAnchor(target);
+    for (int hull = 0; hull < 8; ++hull) for (int facing = 0; facing < 8; ++facing) {
+        mobile->core.angle = direction_to_angle(hull, 8, ANG90, true);
+        mobile->attack.aim = direction_to_angle(facing, 8, ANG90, true) - mobile->core.angle;
+        if (!Z_Attack(mobile, &mobile->info->attack, target)) return fail("launch mobile missile salvo");
+        for (int i = 0; i < 3; ++i) {
+            mobj_t *shot = nth(MT_SHELL, 0, i);
+            ivec2_t side = i ? mobile_side[i - 1][facing] : (ivec2_t){0,0};
+            ivec2_t start = ivec2_add(Z_AITopLeft(mobile), ivec2_add(body[hull], ivec2_add(nose[facing], (ivec2_t){0,-8})));
+            start = ivec2_add(start, side);
+            if (!shot || shot->z.water.sprite != 5425 || shot->core.frame != 5425 ||
+                !ivec2_equal(shot->z.water.start, start) ||
+                !ivec2_equal(fixed2_cell(fixed2_scale(shot->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(aim, side)))
+                return fail("mobile missile uses native three-port geometry");
+        }
+        if (nth(MT_SHELL, 0, 3)) return fail("mobile missile fires exactly three rockets");
+        for (int i = 0; i < 3; ++i) P_RemoveMobj(nth(MT_SHELL, 0, 0));
+    }
+    for (int facing = 0; facing < 8; ++facing) {
+        gun->core.angle = direction_to_angle(facing, 8, ANG90, true);
+        if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch missile gun salvo");
+        for (int i = 0; i < 2; ++i) {
+            mobj_t *shot = nth(MT_SHELL, 0, i);
+            if (!shot || shot->z.water.sprite != 5345 || shot->core.frame != 5345 ||
+                !ivec2_equal(shot->z.water.start, ivec2_add(Z_AITopLeft(gun), muzzle[i][facing])) ||
+                !ivec2_equal(fixed2_cell(fixed2_scale(shot->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(aim, spread[i][facing])))
+                return fail("missile gun uses native two-port geometry");
+        }
+        if (nth(MT_SHELL, 0, 2)) return fail("missile gun fires exactly two rockets");
+        for (int i = 0; i < 2; ++i) P_RemoveMobj(nth(MT_SHELL, 0, 0));
+    }
+    zmap_t *map = level.native_data;
+    for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 34; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    mobile->traits &= ~MF_ATTACK; gun->traits &= ~MF_ATTACK; target->traits &= ~(MF_ATTACK | MF_MOBILE);
+    gun->core.angle = direction_to_angle(2, 8, ANG90, true);
+    if (!Z_Attack(gun, &gun->info->attack, target) || !tick(model, 1)) return fail("tick missile gun salvo");
+    mobj_t *first = nth(MT_SHELL, 0, 0), *second = nth(MT_SHELL, 0, 1);
+    if (!first || !second || first->core.state_id != S_SHELL || second->core.state_id != S_SHELL ||
+        first->core.frame != 5345 || second->core.frame != 5345)
+        return fail("both missile gun rockets remain in flight");
+    uint32_t gun_id = gun->id, target_id = target->id, first_id = first->id, second_id = second->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Missile gun salvo", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save missile gun rockets");
+    free(save);
+    gun = P_MobjById(gun_id); target = P_MobjById(target_id);
+    first = P_MobjById(first_id); second = P_MobjById(second_id);
+    if (!gun || !target || !first || !second || first->z.water.sprite != 5345 || second->z.water.sprite != 5345)
+        return fail("restore both missile gun rockets");
+    P_RemoveMobj(gun);
+    if (!tick(model, RTS_TICRATE) || target->hp != 300)
+        return fail("saved missile gun rockets hit independently after gun removal");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -1428,9 +1509,12 @@ static int test_shell_terrain(void) {
         ivec2_add(source, (ivec2_t){192,-8}), &target_centre)) return fail("spawn shell range boundary fixture");
     target->core.position = fixed3_from_fixed2(target_centre, 0);
     if (!Z_Attack(launcher, &launcher->info->attack, target)) return fail("launch boundary shell");
-    mobj_t *boundary = nth(MT_SHELL, 0, 1);
+    mobj_t *boundary = nth(MT_SHELL, 0, 3);
     if (!boundary) return fail("find boundary shell");
     boundary->z.water.range = 40; /* A valid native range multiple, reached exactly at 5 px/update. */
+    boundary->z.water.direction = (ivec2_t){1,0};
+    boundary->z.water.major = boundary->z.water.remaining = 200;
+    boundary->z.water.minor = 0; boundary->z.water.error = 100; boundary->z.water.vertical = false;
     for (int i = 0; i < 30 && boundary->core.state_id == S_SHELL; ++i)
         if (!tick(model, 1)) return fail("tick shell to exact range boundary");
     hit = fixed2_cell(fixed2_scale(fixed3_xy(boundary->core.position), FIXED_FROM_INT(Z_TILE)));
@@ -1460,7 +1544,7 @@ static int test_shell_flight(void) {
     shell = P_MobjById(shell_id); target = P_MobjById(target_id);
     if (!shell || !target || !shell->target || shell->attack.target != target) return fail("load shell references");
     P_RemoveMobj(shell->target);
-    if (!tick(model, RTS_TICRATE) || target->hp != 380) return fail("shell completes after its shooter is removed");
+    if (!tick(model, RTS_TICRATE) || target->hp != 140) return fail("shell completes after its shooter is removed");
     puts("PASS: z shell travels and survives save and shooter removal");
     rts_game_model_destroy(model);
     return 0;
@@ -1471,21 +1555,25 @@ static int test_shell_aim(void) {
     if (!model) return fail("load for shell aim");
     P_AiSetFeatures(rts_game_model_ai(model), 0);
     disarm_except(0, NULL);
+    zmap_t *map = level.native_data;
+    for (int y = 3; y <= 9; ++y) for (int x = 3; x <= 17; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
     fixed2_t start = fixed2_cell_center((ivec2_t){5, 5});
     mobj_t *gun = blast_unit(MT_UNIT_M_MISSILE, 0, start, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 96, 0), 500);
     mobj_t *first = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 96, 0), 500);
-    mobj_t *second = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 144, 0), 500);
+    mobj_t *second = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 128, 0), 500);
     if (!gun || !target || !first || !second) return fail("spawn shell aim fixtures");
     gun->traits &= ~MF_ATTACK; target->traits &= ~MF_ATTACK;
     first->traits &= ~MF_ATTACK; second->traits &= ~MF_ATTACK;
     if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch aimed shell");
-    target->core.position = fixed3_from_fixed2(pixel_at(start, 144, 0), 0);
-    if (!tick(model, RTS_TICRATE) || first->hp != 380 || target->hp != 500 || second->hp != 500)
+    target->core.position = fixed3_from_fixed2(pixel_at(start, 128, 0), 0);
+    if (!tick(model, RTS_TICRATE) || first->hp != 140 || target->hp != 500 || second->hp != 500)
         return fail("moving target does not redirect shell");
     if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch at removable target");
     P_RemoveMobj(target);
-    if (!tick(model, RTS_TICRATE) || second->hp != 380) return fail("shell survives removal of its target");
+    if (!tick(model, RTS_TICRATE) || second->hp != 260) return fail("shell survives removal of its target");
     puts("PASS: z shells retain their aim when targets move or are removed");
     rts_game_model_destroy(model);
     return 0;
@@ -1508,7 +1596,21 @@ static int test_shell_speed(void) {
     gun->traits &= ~MF_ATTACK; cardinal->traits &= ~MF_ATTACK; diagonal->traits &= ~MF_ATTACK;
     if (!Z_Attack(gun, &gun->info->attack, cardinal) || !Z_Attack(gun, &gun->info->attack, diagonal))
         return fail("launch cardinal and diagonal shells");
-    mobj_t *a = nth(MT_SHELL, 0, 0), *b = nth(MT_SHELL, 0, 1);
+    mobj_t *shots[6];
+    for (int i = 0; i < 6; ++i) shots[i] = nth(MT_SHELL, 0, i);
+    mobj_t *a = shots[0], *b = shots[3];
+    for (int i = 0; i < 6; ++i) if (i != 0 && i != 3 && shots[i]) P_RemoveMobj(shots[i]);
+    if (a && b) {
+        ivec2_t origin = fixed2_cell(fixed2_scale(start, FIXED_FROM_INT(Z_TILE)));
+        a->core.position = b->core.position = fixed3_from_fixed2(start, 0);
+        a->z.water.start = b->z.water.start = origin;
+        a->z.water.direction = (ivec2_t){1,0}; b->z.water.direction = (ivec2_t){1,1};
+        a->z.water.major = b->z.water.major = a->z.water.remaining = b->z.water.remaining = 96;
+        a->z.water.minor = 0; b->z.water.minor = 96;
+        a->z.water.error = b->z.water.error = 48;
+        a->z.water.vertical = b->z.water.vertical = false;
+        a->movement.goal = pixel_at(start, 96, 0); b->movement.goal = pixel_at(start, 96, 96);
+    }
     /* Both travel 96 major-axis pixels and accelerate to 4 pixels per native step. */
     if (!a || !b || a->z.water.remaining != 96 || b->z.water.remaining != 96 ||
         a->z.water.speed != 4 || b->z.water.speed != 4)
@@ -1721,6 +1823,6 @@ static int test_alert(void) {
 
 int main(void) {
     if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
-        test_tank_shell_arc() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
+        test_tank_shell_arc() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

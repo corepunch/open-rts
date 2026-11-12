@@ -3584,9 +3584,24 @@ those tank shells move at constant native speed. With flag 8 clear they draw
 SPRITES.RSC 1634 at `0x59538`, not the 1622..1625 sequence used by the
 accelerating `0x59ed1` branch. Open-rts now selects the saved arc state for
 Light, Medium and Heavy Tank shells; Tough/APC shells retain the confirmed
-`0x59ed1` path. Fixed-gun dispatch and the Mobile Missile's three-projectile
-special path still need complete tracing. `test_combat` checks all three tank
-speeds, actual arc travel, save/load and terrain impact. The former statement
+`0x59ed1` path. Fixed-gun dispatch `0x783d7..0x78539` sends type 0x05
+(Light Gun) and 0x17 (Howitzer) to `0x5a205` as well; type 0x16 (Gatling)
+uses bullets, while type 0x15 (Missile Gun) takes two `0x59ed1` calls at
+`0x7843d` and `0x78499`. Those two missiles use facing-indexed origin tables
+`0x14ac10`/`0x14ac50` and target-offset tables `0x14ac90`/`0x14acb0`.
+Their selector 0x2a produces flags 0x15 at `0x59f54` and fixed RSC sprite
+5345 at `0x59af0`. Mobile Missile type 0x18 takes three `0x59ed1` calls at
+`0x58ebb`, `0x58f7b` and `0x5903b`: `0x59053` forms the first origin from
+body-facing `0x1489c8`, turret-facing `0x148a48` and y−8; the next two add
+the turret-facing offsets at `0x148b08`/`0x148b28` to both the first origin
+and target. Selector 0x29 produces flags 0x25 and fixed RSC sprite 5425 at
+`0x59afd`. Open-rts now emits the two/three independently damaging saved
+mobjs with those tables, using the engine's current turret facing and target
+anchor; target acquisition, smoke and exact retail turret timing remain
+approximations. Z save layout 19 stores their sprite selection. `test_combat`
+checks all tank and fixed-gun arc speeds, salvo counts, all eight fixed-gun
+and 64 body/turret direction combinations, flight save/load and independent
+impacts. The former statement
 that all shells accelerate was an overgeneralization and is superseded here.
 The range gate compares 32-bit squared displacement from launch against
 `(+0x29 * 8)^2` by high word then low word, and detonates on equality or

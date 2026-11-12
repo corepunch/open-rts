@@ -606,7 +606,7 @@ static void init_arc(mobj_t *projectile, const mobj_t *attacker, ivec2_t start, 
     flight->segment = flight->segment_length = flight->major / (2 * flight->arc + 1);
 }
 
-static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water) {
+static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water, int port) {
     mobj_t *shell = P_SpawnMobj(attacker->core.position, water ? MT_WATER : MT_SHELL);
     if (!shell) return;
     ivec2_t aim = Z_BlastAnchor(target);
@@ -619,11 +619,40 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     {
         ivec2_t start = water ? water_origin(attacker, aim) :
             fixed2_cell(fixed2_scale(fixed3_xy(attacker->core.position), FIXED_FROM_INT(Z_TILE)));
+        int sprite = 0;
+        if (attacker->type_id == MT_UNIT_M_MISSILE) {
+            static const ivec2_t body[] = {{2,-2},{2,-2},{4,0},{1,-3},{2,1},{1,-2},{3,-3},{1,-4}};
+            static const ivec2_t nose[] = {{-10,-4},{-3,-3},{0,0},{1,0},{3,2},{4,4},{-5,6},{-3,3}};
+            static const ivec2_t side[] = {{-6,0},{-6,-6},{0,-6},{3,-6},{6,0},{6,6},{0,6},{-6,6}};
+            static const ivec2_t other[] = {{6,0},{6,6},{0,6},{-6,6},{-6,0},{-6,-6},{0,-6},{6,-6}};
+            int hull = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+            int turret = angle_to_direction(attacker->core.angle + attacker->attack.aim, 8, ANG90, true);
+            ivec2_t offset = port == 1 ? side[turret] : port == 2 ? other[turret] : (ivec2_t){0,0};
+            start = ivec2_add(Z_AITopLeft(attacker), ivec2_add(body[hull], ivec2_add(nose[turret], (ivec2_t){0,-8})));
+            start = ivec2_add(start, offset);
+            aim = ivec2_add(aim, offset);
+            sprite = 5425;
+        } else if (attacker->type_id == MT_UNIT_MISSILE_GUN) {
+            static const ivec2_t muzzle[2][8] = {
+                {{4,-5},{11,-2},{25,6},{18,14},{10,16},{1,15},{-8,8},{-1,-2}},
+                {{14,-5},{21,2},{25,13},{12,18},{-1,16},{-6,9},{-8,1},{2,-8}}
+            };
+            static const ivec2_t spread[2][8] = {
+                {{-3,0},{-3,-3},{0,-3},{3,-3},{3,0},{3,3},{0,3},{-3,3}},
+                {{3,0},{3,3},{0,3},{-3,3},{-3,0},{-3,-3},{0,-3},{3,-3}}
+            };
+            int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+            start = ivec2_add(Z_AITopLeft(attacker), muzzle[port][facing]);
+            aim = ivec2_add(aim, spread[port][facing]);
+            sprite = 5345;
+        }
+        impact = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
         ivec2_t delta = ivec2_sub(aim, start);
         int dx = abs(delta.x), dy = abs(delta.y);
         if (!dx && !dy) { P_RemoveMobj(shell); return; } /* 0x59ffb rejects equal endpoints. */
         bool arc = !water && (attacker->type_id == MT_UNIT_LIGHT_TANK || attacker->type_id == MT_UNIT_MED_TANK ||
-                              attacker->type_id == MT_UNIT_HEAVY_TANK);
+                              attacker->type_id == MT_UNIT_HEAVY_TANK || attacker->type_id == MT_UNIT_LIGHT_GUN ||
+                              attacker->type_id == MT_UNIT_HOWITZER);
         if (arc) {
             init_arc(shell, attacker, start, aim, speed);
             shell->core.frame = 1634;
@@ -635,6 +664,8 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
             shell->z.water.error = shell->z.water.major / 2;
             shell->z.water.start = start;
             shell->z.water.speed = speed;
+            shell->z.water.sprite = sprite;
+            if (sprite) shell->core.frame = sprite;
             shell->z.water.range = water ? 0 : (int)((int64_t)(attacker->info->attack.range +
                 Z_AttackRangeBonus(attacker, &attacker->info->attack)) * Z_TILE / FIXED_ONE);
             const zmap_t *map = level.native_data;
@@ -726,7 +757,9 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         if (driver) damage = driver->attack.damage;
         count = attacker->z.crew_count ? attacker->z.crew_count : 1;
     }
-    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, water ? damage / 2 : damage, apc, water);
+    if (!apc && attacker->type_id == MT_UNIT_M_MISSILE) count = 3;
+    if (!apc && attacker->type_id == MT_UNIT_MISSILE_GUN) count = 2;
+    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, water ? damage / 2 : damage, apc, water, i);
     /* Suppress the shared hitscan fallback if allocation fails. */
     return true;
 }
@@ -873,6 +906,7 @@ void A_ZWater(mobj_t *water) {
         water->z.water.minor > water->z.water.major || water->z.water.error < 0 || water->z.water.error > water->z.water.major ||
         water->z.water.remaining <= 0 || water->z.water.remaining > water->z.water.major ||
         water->z.water.range < 0 || water->z.water.range > 2040 ||
+        (water->z.water.sprite && water->z.water.sprite != 5345 && water->z.water.sprite != 5425) ||
         water->z.water.start.x < 0 || water->z.water.start.x > 65535 || water->z.water.start.y < 0 || water->z.water.start.y > 65535 ||
         water->z.water.direction.x < -1 || water->z.water.direction.x > 1 || water->z.water.direction.y < -1 || water->z.water.direction.y > 1) {
         P_RemoveMobj(water);
@@ -904,7 +938,7 @@ void A_ZWater(mobj_t *water) {
             return;
         }
     }
-    water->core.frame = 1622 + (water->missile.age & 3);
+    water->core.frame = water->z.water.sprite ? water->z.water.sprite : 1622 + (water->missile.age & 3);
 }
 
 static ivec2_t blast_impact(const mobj_t *missile) {
