@@ -362,7 +362,9 @@ static int test_bridge_and_crane(void) {
     mobj_t *bridge = nth(MT_BRIDGE, Z_NEUTRAL, 0);
     if (!bridge || bridge->hp != 600 || bridge->z.bridge != 1 || !map->bridges[0].cpu_rebuild || bridge->z.hold)
         return fail("LEVEL14 bridge slot, health and CPU eligibility");
-    mobj_t *tank = P_SpawnMobj(bridge->core.position, MT_UNIT_LIGHT_TANK);
+    fixed3_t firing_position = bridge->core.position;
+    firing_position.x -= FIXED_ONE;
+    mobj_t *tank = P_SpawnMobj(firing_position, MT_UNIT_LIGHT_TANK);
     if (!tank) return fail("spawn bridge attacker");
     Z_SetTeam(tank, 0);
     if (!Z_Attack(tank, &tank->info->attack, bridge)) return fail("fire shell at bridge");

@@ -3200,7 +3200,7 @@ separate robot-knockdown routine `0x58745` described above is not this call
 site; its relationship to other effects and complete combat remains unported.
 
 **Implementation boundary:** shells now travel to a snapshot of the target's
-selection anchor; native scatter and terrain interception remain incomplete.
+selection anchor; native scatter remains incomplete.
 The delayed third-frame unit pass is approximated as described below.
 `Z_BlastAnchor` recovers the spawn
 origin from its sprite size, then applies the native selection offset;
@@ -3560,27 +3560,40 @@ with `dd if=data/Z/ROBOTS.DAT bs=1 skip=22588 count=42 2>/dev/null | od -An -tu1
 record +0x23 is copied into the projectile at `0x5a3fc..0x5a403`.
 `0x5a4c8..0x5a523` and `0x5a528..0x5a57f` step a Bresenham major axis
 by up to projectile +0x16 pixels per native update; for the shipped shell
-weapons that byte is 4, 5, 8, 10 or 12. The normal projectile sprite is
-SPRITES.RSC index 1634 at `0x59538`. The engine authors those speed bytes
-as C literals and uses an ordinary timed missile mobj, interpolating at its
-30 Hz tic rate and storing the exact intended impact point. The sprite is
-native, while the explosion animation remains the earlier stand-in.
+weapons that byte is 4, 5, 8, 10 or 12. Correction: ordinary shell creation
+`0x59fa2..0x59faa` sets flags 3 and accumulator +0x17 to 16. `0x5948a`
+therefore selects `0x59a35`, which advances the accumulator by 16 after
+each step, giving major-axis speeds 1, 2, 3 and so on up to +0x16. This
+ordinary branch draws SPRITES.RSC 1622..1625 at `0x59b04`, not 1634: the
+earlier 1634 conclusion described the different arc branch at `0x59538`.
+It checks terrain height at `0x59a87..0x59ac3` and the shared range gate
+at `0x59440..0x59484`; destination arrival precedes both. Open-rts now
+uses an ordinary saved mobj and its state action for 70 Hz integer stepping,
+acceleration, range and terrain stops; Z save layout 18 stores this flight
+state. The explosion animation remains the earlier stand-in.
+The range gate compares 32-bit squared displacement from launch against
+`(+0x29 * 8)^2` by high word then low word, and detonates on equality or
+greater. `0x5a419` copies +0x29 from unit +0x71; `0x50df7..0x50dff` derives
+that byte from weapon u16 range shifted right three. `test_combat` exercises
+both an exact range boundary and a distant target beyond it.
 
 Missiles retain their firing team and snapshotted damage if the shooter is
 removed. The existing thinker and save lifecycle preserve their originator,
 target and aim point; removing either mobj clears its borrowed pointer.
 Unit movement can evade a projectile because its impact point does not
-follow the target. Unlike retail, current shells do not scatter or strike
-intervening terrain, and interpolate toward the point rather than running
-the native per-pixel Bresenham algorithm. A zero period for timed missiles
+follow the target. Ordinary shell scatter and exact type-specific muzzle
+positions remain approximations; the engine starts shells at the actor centre.
+A zero period for timed missiles
 now means one simulation step per tic, including flights longer than 99
 tics; other missile periods keep their existing millisecond clock.
 A failed shell allocation consumes the attack
 instead of silently falling back to an immediate hitscan shot.
-`tests/z/test_combat.c` checks cardinal and diagonal speed,
-flight duration, moving and removed targets, shooter removal and an
-in-flight save/load; `test_cliffs` and `test_commander` cover impact on the
-two terrain targets.
+`tests/z/test_combat.c` checks cardinal and diagonal acceleration, native
+sprite, terrain and range boundaries, moving and removed targets, shooter
+removal and in-flight save/load; `test_cliffs` and `test_commander` cover
+impact on the two terrain targets. Reproduce with `r2 -q -e bin.cache=true
+-c 'pd 35 @ 0x59fa2' -c 'pd 60 @ 0x59440' -c 'pd 65 @ 0x59a35'
+-c 'pd 30 @ 0x5a4c8' -c q data/Z/ZED.EXE`.
 
 The native projectile's nearby-robot pass at `0x59707` is separate from
 the remake's `DodgeMissile` waypoint: `0x59736..0x59740` accepts only

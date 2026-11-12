@@ -406,7 +406,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
-    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_GRENADE) return;
+    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_SHELL || mo->type_id == MT_GRENADE) return;
     Z_RouteTick(mo);
     Z_SquadTick(mo);
     terrain_speed(mo);
@@ -581,7 +581,7 @@ static ivec2_t water_origin(const mobj_t *truck, ivec2_t aim) {
 }
 
 static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water) {
-    mobj_t *shell = water ? P_SpawnMobj(attacker->core.position, MT_WATER) : P_SpawnMissile(attacker, target, MT_SHELL);
+    mobj_t *shell = P_SpawnMobj(attacker->core.position, water ? MT_WATER : MT_SHELL);
     if (!shell) return;
     ivec2_t aim = Z_BlastAnchor(target);
     if (water && Z_UnitType(target) >= 0)
@@ -590,8 +590,9 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
         aim = ivec2_add(aim, (ivec2_t){(coin(attacker, shell, 0x1ebc1) & 15) - 8,
                                       (coin(attacker, shell, 0x1ebd2) & 15) - 8});
     fixed2_t impact = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
-    if (water) {
-        ivec2_t start = water_origin(attacker, aim);
+    {
+        ivec2_t start = water ? water_origin(attacker, aim) :
+            fixed2_cell(fixed2_scale(fixed3_xy(attacker->core.position), FIXED_FROM_INT(Z_TILE)));
         ivec2_t delta = ivec2_sub(aim, start);
         int dx = abs(delta.x), dy = abs(delta.y);
         if (!dx && !dy) { P_RemoveMobj(shell); return; } /* 0x59ffb rejects equal endpoints. */
@@ -600,6 +601,10 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
         shell->z.water.remaining = shell->z.water.major = dy > dx ? dy : dx;
         shell->z.water.minor = dy > dx ? dx : dy;
         shell->z.water.error = shell->z.water.major / 2;
+        shell->z.water.start = start;
+        shell->z.water.speed = speed;
+        shell->z.water.range = water ? 0 : (int)((int64_t)(attacker->info->attack.range +
+            Z_AttackRangeBonus(attacker, &attacker->info->attack)) * Z_TILE / FIXED_ONE);
         const zmap_t *map = level.native_data;
         ivec2_t origin = Z_AITopLeft(attacker);
         shell->z.water.height = map && origin.x >= 0 && origin.y >= 0 ?
@@ -612,18 +617,6 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
         shell->missile.damage = damage;
         return;
     }
-    fixed2_t delta = fixed2_sub(impact, fixed3_xy(shell->core.position));
-    int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
-    int64_t dy = delta.y < 0 ? -(int64_t)delta.y : delta.y;
-    int64_t major = dx > dy ? dx : dy;
-    int64_t step = (int64_t)speed * FIXED_ONE * Z_NATIVE_HZ / (Z_TILE * RTS_TICRATE);
-    int duration = (int)((major + step - 1) / step);
-    if (duration < 1) duration = 1;
-    shell->movement.goal = impact;
-    shell->attack.target = target;
-    shell->missile.damage = damage;
-    shell->missile.duration = duration;
-    shell->core.momentum = fixed3_from_fixed2((fixed2_t){delta.x / duration, delta.y / duration}, 0);
 }
 
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
@@ -856,9 +849,19 @@ void A_ZGrenade(mobj_t *grenade) {
  * Bresenham major axis, then stop on terrain above the launch threshold. */
 void A_ZWater(mobj_t *water) {
     const zmap_t *map = level.native_data;
+    if (water->z.water.speed <= 0 || water->z.water.speed > 255 || water->missile.age < 0 || water->missile.age > 65535 ||
+        water->z.water.major <= 0 || water->z.water.major > 65535 || water->z.water.minor < 0 ||
+        water->z.water.minor > water->z.water.major || water->z.water.error < 0 || water->z.water.error > water->z.water.major ||
+        water->z.water.remaining <= 0 || water->z.water.remaining > water->z.water.major ||
+        water->z.water.range < 0 || water->z.water.range > 2040 ||
+        water->z.water.start.x < 0 || water->z.water.start.x > 65535 || water->z.water.start.y < 0 || water->z.water.start.y > 65535 ||
+        water->z.water.direction.x < -1 || water->z.water.direction.x > 1 || water->z.water.direction.y < -1 || water->z.water.direction.y > 1) {
+        P_RemoveMobj(water);
+        return;
+    }
     for (int steps = Z_NativeSteps(leveltime, Z_NATIVE_HZ); steps-- > 0;) {
         ivec2_t at = fixed2_cell(fixed2_scale(fixed3_xy(water->core.position), FIXED_FROM_INT(Z_TILE)));
-        int speed = water->missile.age < 7 ? water->missile.age + 1 : 8;
+        int speed = water->missile.age < water->z.water.speed ? water->missile.age + 1 : water->z.water.speed;
         for (int i = 0; i < speed && water->z.water.remaining > 0; ++i) {
             water->z.water.error -= water->z.water.minor;
             if (water->z.water.vertical) at.y += water->z.water.direction.y;
@@ -872,8 +875,11 @@ void A_ZWater(mobj_t *water) {
         }
         ++water->missile.age;
         water->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE), water->core.position.z);
-        if (!water->z.water.remaining || !map || at.x < 0 || at.y < 0 ||
-            Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > water->z.water.height) {
+        if (!water->z.water.remaining || (water->z.water.range &&
+            ivec2_distance_squared64(at, water->z.water.start) >= (int64_t)water->z.water.range * water->z.water.range) ||
+            (map && (at.x < 0 || at.y < 0 ||
+            Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > water->z.water.height))) {
+            water->core.position.z = 0;
             water->movement.goal = fixed3_xy(water->core.position);
             P_ExplodeMissile(water);
             return;
