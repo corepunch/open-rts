@@ -185,6 +185,10 @@ static void init_products(void) {
         /* Selecting a hatchery offers its larvae's card. */
         if(maker==MT_LARVA)
             memcpy(p->makers,(int[]){MT_LARVA,MT_HATCHERY,MT_LAIR,MT_HIVE},sizeof(int[4])),p->maker_count=4;
+        else if(type==MT_INTERCEPTOR || type==MT_SCARAB) {
+            p->makers[1]=type==MT_INTERCEPTOR?MT_GANTRITHOR:MT_WARBRINGER;
+            p->maker_count=2;
+        }
     }
     for(unsigned i=0;i<SC_RESEARCH;i++) {
         const sc_upgrade_t *u=&sc_upgrades[research[i].upgrade];
@@ -499,9 +503,10 @@ static void sc_ai_describe_unit(const mobj_t *unit,AiUnitInfo *info) {
     }
     /* The Carrier's weapon counts its first four interceptors; a Reaver
      * fights while it has a scarab. */
-    if(unit->type_id==MT_CARRIER||unit->type_id==MT_REAVER) {
-        int full=sc_hangar_count(unit),of=unit->type_id==MT_CARRIER?4:1;
-        if(full>of&&unit->type_id==MT_REAVER) full=of;
+    uint16_t hangar=sc_hangar_type(unit->type_id);
+    if(hangar==MT_INTERCEPTOR||hangar==MT_SCARAB) {
+        int full=sc_hangar_count(unit),of=hangar==MT_INTERCEPTOR?4:1;
+        if(full>of&&hangar==MT_SCARAB) full=of;
         info->ground_strength=info->ground_strength*full/of; info->air_strength=info->air_strength*full/of;
     }
 }

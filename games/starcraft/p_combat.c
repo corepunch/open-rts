@@ -69,11 +69,11 @@ void sc_unit_weapons(int type, mobjtype_t *out) {
     /* Both launchers reach 8 cells. The Carrier's four hits are its first
      * four interceptors, for the AI's strength, and it relaunches as often as
      * an interceptor passes. A scarab strikes on contact. */
-    if (type == MT_CARRIER) {
+    if (child == MT_INTERCEPTOR) {
         out->attack.range = FIXED_FROM_INT(8);
         out->attack.hits = 4;
         out->attack.cooldown_ms = frames_ms(SC_INTERCEPTOR_PASS);
-    } else if (type == MT_REAVER) {
+    } else if (child == MT_SCARAB) {
         out->attack.range = FIXED_FROM_INT(8);
         out->attack.cooldown_ms = frames_ms(SC_REAVER_COOLDOWN);
     } else if (type == MT_SCARAB) out->attack.range = FIXED_ONE;

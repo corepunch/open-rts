@@ -215,7 +215,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
         const mobj_t *mo = (const mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo) || (completed && !trigger_completed(mo))) continue;
         bool virtual_hangar = cargo > 0 && mo->sc.hangar > 0 &&
-            ((mo->type_id == MT_CARRIER && unit == MT_INTERCEPTOR - 1) ||
+            ((sc_hangar_type(mo->type_id) == MT_INTERCEPTOR && unit == MT_INTERCEPTOR - 1) ||
              (mo->type_id == MT_NUCLEAR_SILO && unit == MT_NUCLEAR_MISSILE - 1));
         if (!kind_ok(mo, unit) && !virtual_hangar) continue;
         const mobj_t *position = mo;
@@ -442,7 +442,7 @@ static void modify_hangars(const sc_mission_t *m, const int *players, int nplaye
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
-            (mo->type_id != MT_CARRIER && mo->type_id != MT_REAVER) ||
+            (sc_hangar_type(mo->type_id) != MT_INTERCEPTOR && sc_hangar_type(mo->type_id) != MT_SCARAB) ||
             (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
@@ -680,7 +680,7 @@ static void give_one(mobj_t *mo, uint8_t owner) {
     give_abilities(mo, owner);
     if (mo->production && !mo->production->placed &&
         (((sc_unit(mo)->flags & SC_UNIT_BUILDING) && !(mo->traits & MF_FLY)) ||
-         mo->type_id == MT_CARRIER || mo->type_id == MT_REAVER))
+         sc_hangar_type(mo->type_id) == MT_INTERCEPTOR || sc_hangar_type(mo->type_id) == MT_SCARAB))
         sc_cancel_production(mo, -1);
     P_MobjSetSelected(mo, false);
     if (!(mo->sc.flags & SC_LOADED) && mo->type_id != MT_INTERCEPTOR && mo->type_id != MT_SCARAB) {

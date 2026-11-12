@@ -1004,11 +1004,12 @@ int main(void) {
     remove("/tmp/open-rts-sc-modify.chk");
 
     /* Modify Hangar adds up to capacity, including launched fighters. */
-    for (int reaver = 0; reaver < 2; reaver++) for (int all = 0; all < 2; all++) for (int upgraded = 0; upgraded < 2; upgraded++) {
+    for (int reaver = 0; reaver < 2; reaver++) for (int hero = 0; hero < 2; hero++)
+      for (int all = 0; all < 2; all++) for (int upgraded = 0; upgraded < 2; upgraded++) {
         trig = blank_trigger(); CHECK(trig);
         trig[15] = 22; action = trig + 320;
         put_u32(action, 64); put_u32(action + 8, 1); put_u32(action + 20, 15);
-        int type = reaver ? MT_REAVER : MT_CARRIER;
+        int type = reaver ? (hero ? MT_WARBRINGER : MT_REAVER) : (hero ? MT_GANTRITHOR : MT_CARRIER);
         put_u16(action + 24, type - 1); action[26] = 53; action[27] = all ? 0 : 1;
         CHECK(!write_map("/tmp/open-rts-sc-hangar.chk", owners, trig));
         CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hangar.chk", &level));
@@ -1018,7 +1019,7 @@ int main(void) {
         if (upgraded) level.upgrades[reaver ? 36 : 43][0].weapon = 1;
         carrier_a->sc.hangar = 1; launched->sc.parent = carrier_a->id;
         ticks(1, &(hudtext_t){0});
-        int capacity = reaver ? (upgraded ? 10 : 5) : (upgraded ? 8 : 4);
+        int capacity = reaver ? (upgraded || hero ? 10 : 5) : (upgraded || hero ? 8 : 4);
         CHECK(carrier_a->sc.hangar == capacity - 1 && sc_hangar_count(carrier_a) == capacity);
         CHECK(carrier_b->sc.hangar == (all ? capacity : 0));
         free(trig); unload();
@@ -1211,10 +1212,10 @@ int main(void) {
         free(trig); unload();
     }
     /* Stored Interceptors and ready silo missiles count only in completed Bring counts. */
-    for (int hangar_type = 0; hangar_type < 2; hangar_type++) for (int op_index = 0; op_index < 3; op_index++)
+    for (int hangar_type = 0; hangar_type < 3; hangar_type++) for (int op_index = 0; op_index < 3; op_index++)
         for (int hangar_inside = 0; hangar_inside < 2; hangar_inside++) {
-            int child = hangar_type ? MT_NUCLEAR_MISSILE : MT_INTERCEPTOR;
-            int quantity = hangar_type ? 1 : 2;
+            int child = hangar_type == 1 ? MT_NUCLEAR_MISSILE : MT_INTERCEPTOR;
+            int quantity = hangar_type == 1 ? 1 : 2;
             trig = blank_trigger(); CHECK(trig); put_u32(trig, 1);
             put_u32(trig + 8, bring_ops[op_index] == 1 ? 0 : quantity);
             put_u16(trig + 12, child - 1); trig[14] = bring_ops[op_index]; trig[15] = 3;
@@ -1223,7 +1224,8 @@ int main(void) {
             CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
             sc_mission_t *bring_mission = level.mission; bring_mission->loc_count = 1;
             bring_mission->loc_right[0] = bring_mission->loc_bottom[0] = 256;
-            mobj_t *hangar = sc_spawn_actor((hangar_type ? MT_NUCLEAR_SILO : MT_CARRIER) - 1,
+            int parent = hangar_type == 1 ? MT_NUCLEAR_SILO : hangar_type == 2 ? MT_GANTRITHOR : MT_CARRIER;
+            mobj_t *hangar = sc_spawn_actor(parent - 1,
                                              (ivec2_t){hangar_inside ? 128 : 640, 128}, 0);
             CHECK(hangar); hangar->sc.hangar = quantity;
             ticks(1, &(hudtext_t){0});

@@ -161,6 +161,30 @@ static int reaver(void) {
     return 0;
 }
 
+static int hero_hangars(void) {
+    const int heroes[] = {MT_GANTRITHOR, MT_WARBRINGER};
+    const int fighters[] = {MT_INTERCEPTOR, MT_SCARAB};
+    const int capacities[] = {8, 10};
+    for (int i = 0; i < 2; i++) {
+        mobj_t *hero = spawn(heroes[i], FIXED2_LIT(8.5, 8.5), 0);
+        CHECK(hero && (hero->traits & MF_ATTACK));
+        CHECK(sc_hangar_type(hero->type_id) == fighters[i] && sc_hangar_capacity(hero) == capacities[i]);
+        CHECK(G_QueueProduct(hero, product(fighters[i]))); finish(fighters[i]);
+        CHECK(hero->sc.hangar == 1);
+        hero->sc.hangar = capacities[i];
+        CHECK(!G_ModelProducerHasTech(hero, product(fighters[i])));
+        mobj_t *enemy = spawn(MT_ULTRALISK, FIXED2_LIT(14.5, 8.5), 1); CHECK(enemy);
+        hero->sc.hangar = 1; hero->attack.target = enemy;
+        bool launched = false;
+        for (int t = 0; t < RTS_TICRATE * 10 && enemy->hp == enemy->max_hp; t++) {
+            tick(1); launched |= count_of(fighters[i], hero->id) > 0;
+        }
+        CHECK(launched && enemy->hp < enemy->max_hp);
+        reset();
+    }
+    return 0;
+}
+
 static int siege(void) {
     mobj_t *tank = spawn(MT_SIEGE_TANK, FIXED2_LIT(10.5, 10.5), 0);
     CHECK(tank && (tank->traits & MF_MOBILE) && tank->info->attack.range == FIXED_FROM_INT(7) && tank->info->attack.min_range == 0);
@@ -805,6 +829,7 @@ int main(void) {
     CHECK(!mixed_queue());
     CHECK(!carrier());
     CHECK(!reaver());
+    CHECK(!hero_hangars());
     CHECK(!siege());
     CHECK(!addons());
     CHECK(!bunker());

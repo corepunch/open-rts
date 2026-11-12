@@ -29,13 +29,16 @@ static mobj_t *spawn_for(const mobj_t *owner, uint16_t type, fixed2_t at) {
 /* ── hangars ─────────────────────────────────────────────────────────── */
 
 uint16_t sc_hangar_type(uint16_t maker) {
-    return maker == MT_CARRIER ? MT_INTERCEPTOR : maker == MT_REAVER ? MT_SCARAB :
+    return maker == MT_CARRIER || maker == MT_GANTRITHOR ? MT_INTERCEPTOR :
+           maker == MT_REAVER || maker == MT_WARBRINGER ? MT_SCARAB :
            maker == MT_NUCLEAR_SILO ? MT_NUCLEAR_MISSILE : MT_NONE;
 }
 /* Retail: four interceptors (eight with Carrier Capacity), five scarabs
  * (ten with Reaver Capacity), one nuke. */
 int sc_hangar_capacity(const mobj_t *maker) {
     switch (maker->type_id) {
+    case MT_GANTRITHOR: return 8;
+    case MT_WARBRINGER: return 10;
     case MT_CARRIER: return sc_upgrade_level(maker->owner, SC_UPGRADE_CARRIER_CAPACITY) ? 8 : 4;
     case MT_REAVER: return sc_upgrade_level(maker->owner, SC_UPGRADE_REAVER_CAPACITY) ? 10 : 5;
     case MT_NUCLEAR_SILO: return 1;
@@ -83,7 +86,7 @@ static bool suicide(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target)
 
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (suicide(attacker, weapon, target)) return true;
-    if (attacker->type_id == MT_CARRIER) {
+    if (sc_hangar_type(attacker->type_id) == MT_INTERCEPTOR) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *mo = (mobj_t *)th;
             if (!live(th) || mo->type_id != MT_INTERCEPTOR || mo->sc.parent != attacker->id ||
@@ -102,7 +105,7 @@ bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         }
         return true;
     }
-    if (attacker->type_id != MT_REAVER) return sc_projectile_fire(attacker,weapon,target);
+    if (sc_hangar_type(attacker->type_id) != MT_SCARAB) return sc_projectile_fire(attacker,weapon,target);
     if (attacker->sc.hangar <= 0) return true;
     fixed2_t at = where(attacker), to = fixed2_sub(where(target), at);
     fixed_t d = fixed2_length(to);

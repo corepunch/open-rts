@@ -239,7 +239,7 @@ void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count) {
         if (!alive(u) || u->owner != owner || (u->sc.flags & (SC_HALLUCINATION | SC_LOADED))) continue;
         if (cast(units, count, u)) continue;
         switch (u->type_id) {
-        case MT_CARRIER: case MT_REAVER: refill(u); break;
+        case MT_CARRIER: case MT_REAVER: case MT_GANTRITHOR: case MT_WARBRINGER: refill(u); break;
         case MT_SIEGE_TANK: case MT_SIEGE_MODE: siege(units, count, u); break;
         case MT_MARINE: man_bunker(units, count, u); break;
         default:

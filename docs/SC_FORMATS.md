@@ -192,6 +192,14 @@ comparison types tested. OpenBW's corresponding Reaver branch credits its
 inside count to the Reaver type rather than Scarab; that behavior remains
 unverified and is not reproduced.
 
+OpenBW classifies Gantrithor and Warbringer as Carrier and Reaver variants,
+allows them to build and launch Interceptors and Scarabs, and fixes their
+hangar capacities at eight and ten regardless of upgrades. The native
+units table identifies their rows as 82 and 81 respectively. These heroes
+now use the shared production, launch, AI and trigger hangar paths. Fixtures
+build and launch each fighter and exercise Modify Hangar and Gantrithor Bring.
+Preplaced UNIT hangar counts remain a separate loader limitation.
+
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
 now enforces that contention while retaining per-trigger saved progress. A
