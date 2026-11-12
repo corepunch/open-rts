@@ -734,9 +734,46 @@ allowed IDs over a 2x2 placement and checked overlap with live engine
 footprints/native unit rectangles. Roof positions use the same raised
 representation as starting guns. A robot factory can place on a friendly
 fort in the same territory. The existing computer-player scheduler places
-finished guns with these same checks, preferring fort mounts before a
-deterministic first-valid-cell ground search. No branch depends on the
-local console player, preserving lock-step behavior.
+finished guns with these same checks; its later native-priority correction
+is described below. No branch depends on the local console player,
+preserving lock-step behavior.
+
+**CPU placement priority, implemented with engine validation:** `0x430b2` calls
+`0x9df4f` for the single-player CPU. When the territory record +0x18 bit 0
+is set, that routine first probes six fort mounts using the level-indexed
+six-byte sequence at `0x11d1a3`, the permutation at `0x11d299`, the mount
+offsets at `0x145088`, and `0x4e8be`. This order is a separate table from
+the player starting-gun table at `0x11d0ad`. Otherwise, or if all six
+mounts fail, `0x9e1ab` scans the territory's min-inclusive/max-exclusive
+rectangle in row-major order for the first usable terrain marker, checking
+classes 0x2d, 0x35, 0x36 and 0x37 in that order. A successful search
+clears that marker to its high bit immediately, even when the caller later
+continues to another marker class. After each success `0x9e048..0x9e0d9`
+uses `(0x70d37() & 127) < [0x208120]` to stop; otherwise the last successful
+candidate wins. `0x982c8..0x982ff` sets that threshold to the CPU's
+effective intelligence, including its separately documented boost. No
+successful candidate makes the routine return carry instead of falling back
+to arbitrary ground. `0x9e13c..0x9e14a` subtracts (12,12) from the chosen
+point, then another (4,4) for weapon classes other than 2. The marker scan
+validates the marker point through `0x4e6b7`, which has a separate fort
+snapping path, before the final spawn conversion.
+
+The engine now uses the level's CPU mount order, then searches and consumes
+the four classes in that sequence using its saved and hashed AI random
+stream. It validates the marker point with its existing `Z_GunPosition`,
+then applies the native sub-cell origin to the spawned ground gun. The
+random stream is separate from retail's global stream. The engine uses an
+owned fort object in the producer territory and its existing placement and
+collision checks; their exact native equivalents and marker points that snap
+to a fort are not fully reproduced. It also rejects a ground gun whose
+post-conversion sprite footprint leaves the map or overlaps another selectable
+object; native behavior for the shifted footprint has not been established.
+Its product handoff timing is also an
+approximation. `test_production` covers level-1 fort order, missing markers,
+all four marker classes, early stopping, Light Gun and turning-gun origins,
+and a save/load before placement. Inspect with `r2 -q -e bin.cache=true
+-c 'pd 110 @ 0x9df4f' -c 'pd 36 @ 0x9e1ab' -c 'pd 30 @ 0x9e0f7' -c
+'pd 25 @ 0x982c8' -c 'px 36 @ 0x11d1a3' -c q data/Z/ZED.EXE`.
 
 **Explicit engine policy:** production holds one completed gun at the
 head of the shared queue until placement. Retail `0x4317f` instead shifts

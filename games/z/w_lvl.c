@@ -525,6 +525,27 @@ static int spawn_armies(const zmap_t *map, ivec2_t fort, int cpu_team) {
     return count;
 }
 
+static bool gun_clearance(const mobj_t *fort, irect_t area) {
+    const zmap_t *map = level.native_data;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *mo = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || !mo->info || mo->hp <= 0 || mo->remove ||
+            mo == fort || !(mo->traits & MF_SELECTABLE)) continue;
+        irect_t cells = P_MobjCells(mo);
+        irect_t occupied = {cells.x * Z_TILE, cells.y * Z_TILE, cells.w * Z_TILE, cells.h * Z_TILE};
+        int other = Z_UnitType(mo);
+        if (other >= 0) {
+            isize2_t size;
+            if (!unit_size(map, other, &size)) return false;
+            ivec2_t at = ivec2_sub(fixed2_cell(fixed2_scale(fixed3_xy(mo->core.position), FIXED_FROM_INT(Z_TILE))),
+                                  (ivec2_t){size.w / 2, size.h / 2 + fixed_floor_int(mo->core.position.z) * Z_TILE});
+            occupied = (irect_t){at.x,at.y,size.w,size.h};
+        }
+        if (irect_intersects(area, occupied)) return false;
+    }
+    return true;
+}
+
 /* 0x4e6b7: a gun stays in its producer's territory. On the fort it snaps
  * to one of six native mounts (0x4e676); elsewhere it occupies 2x2 cells. */
 bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out) {
@@ -571,27 +592,28 @@ bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out
             }
     }
     irect_t area = {pixel.x, pixel.y, 2 * Z_TILE, 2 * Z_TILE};
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        const mobj_t *mo = (const mobj_t *)th;
-        if (th->function != P_MobjThinker || !mo->info || mo->hp <= 0 || mo->remove ||
-            mo == fort || !(mo->traits & MF_SELECTABLE)) continue;
-        irect_t cells = P_MobjCells(mo);
-        irect_t occupied = {cells.x * Z_TILE, cells.y * Z_TILE, cells.w * Z_TILE, cells.h * Z_TILE};
-        int other = Z_UnitType(mo);
-        if (other >= 0) {
-            isize2_t size;
-            if (!unit_size(map, other, &size)) return false;
-            ivec2_t at = ivec2_sub(fixed2_cell(fixed2_scale(fixed3_xy(mo->core.position), FIXED_FROM_INT(Z_TILE))),
-                                  (ivec2_t){size.w / 2, size.h / 2 + fixed_floor_int(mo->core.position.z) * Z_TILE});
-            occupied = (irect_t){at.x,at.y,size.w,size.h};
-        }
-        if (irect_intersects(area, occupied)) return false;
-    }
+    if (!gun_clearance(fort, area)) return false;
     /* Match spawn_unit's raised fort-wall representation. */
     if (roof) pixel = ivec2_add(pixel, (ivec2_t){0,Z_TILE});
     fixed2_t centre;
     if (!Z_UnitCentre(map, t, pixel, &centre)) return false;
     *out = fixed3_from_fixed2(centre, roof ? FIXED_ONE : 0);
+    return true;
+}
+
+bool Z_AIGunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out) {
+    if (!Z_GunPosition(producer, type, cell, out)) return false;
+    if (out->z) return true;
+    int offset = type == MT_UNIT_LIGHT_GUN ? 12 : 16;
+    ivec2_t origin = ivec2_sub(ivec2_scale(cell, Z_TILE), (ivec2_t){offset, offset});
+    isize2_t size;
+    fixed2_t centre;
+    const zmap_t *map = level.native_data;
+    if (!unit_size(map, type - MT_UNITS, &size) || origin.x < 0 || origin.y < 0 ||
+        origin.x + size.w > level.width * Z_TILE || origin.y + size.h > level.height * Z_TILE ||
+        !gun_clearance(NULL, (irect_t){origin.x,origin.y,size.w,size.h}) ||
+        !Z_UnitCentre(map, type - MT_UNITS, origin, &centre)) return false;
+    *out = fixed3_from_fixed2(centre, 0);
     return true;
 }
 

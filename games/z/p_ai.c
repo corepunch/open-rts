@@ -1121,24 +1121,64 @@ static void check_unit_targets(zmap_t *map, mobj_t *const *units, int count) {
     }
 }
 
-static void place_gun(mobj_t *factory) {
+void Z_AIPlaceGun(mobj_t *factory) {
+    static const char order[] =
+        "ABCDEFEDAFCBABEFCDABEFCDABEFCDEDAFCBABEFCDABEFCDABEFCDABEFCD"
+        "ABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCD"
+        "ABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCD"
+        "ABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCDABEFCD"
+        "ABEFCD";
+    /* 0x11d299 remaps the letters to 0x145088's six fort mounts.
+     * These cells select the same six sectors in Z_GunPosition. */
+    static const ivec2_t sector[] = {{1,0},{5,0},{1,3},{5,3},{1,6},{5,6}};
+    static const uint8_t markers[] = {0x2d, 0x35, 0x36, 0x37};
     const StaticProductDefinition *stored = Z_StoredGun(factory, 0);
-    if (!stored) return;
+    zmap_t *map = level.native_data;
+    if (!stored || !map) return;
     int type = stored->product_type;
     irect_t base = P_MobjCells(factory);
-    if (factory->type_id == MT_FORT)
-        for (int y = base.y; y < base.y + 9; ++y)
-            for (int x = base.x; x < base.x + 9; ++x)
-                if (Z_PlaceGun(factory, type, (ivec2_t){x,y})) return;
-    for (int y = 0; y < level.height; ++y)
-        for (int x = 0; x < level.width; ++x)
-            if (Z_PlaceGun(factory, type, (ivec2_t){x,y})) return;
+    int territory = Z_AITerritory(map, fixed2_from_cell((ivec2_t){base.x,base.y}));
+    if (territory < 0 || territory >= map->territory_count) return;
+    if ((map->ai.territories[territory].flags & 1) &&
+        map->number >= 0 && map->number < (int)(sizeof(order) - 1) / 6) {
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *fort = (mobj_t *)th;
+            if (th->function != P_MobjThinker || fort->type_id != MT_FORT || !live(fort) || fort->team != factory->team) continue;
+            irect_t cells = P_MobjCells(fort);
+            if (Z_AITerritory(map, fixed2_from_cell((ivec2_t){cells.x,cells.y})) != territory) continue;
+            for (int i = 0; i < 6; ++i) {
+                int slot = order[map->number * 6 + i] - 'A';
+                ivec2_t at = ivec2_add((ivec2_t){cells.x,cells.y}, sector[slot]);
+                if (Z_PlaceGun(factory, type, at)) return;
+            }
+            break;
+        }
+    }
+    const zterritory_t *zone = &map->territories[territory];
+    ivec2_t chosen = {-1,-1};
+    for (size_t i = 0; i < sizeof(markers); ++i) {
+        bool found = false;
+        for (int y = zone->min.y; y < zone->max.y && !found; ++y)
+            for (int x = zone->min.x; x < zone->max.x; ++x) {
+                if (!L_Contains(&level, x, y)) continue;
+                int index = y * Z_MAP_STRIDE + x;
+                if ((map->terrain[index] & 0x7f) != markers[i]) continue;
+                fixed3_t position;
+                if (!Z_AIGunPosition(factory, type, (ivec2_t){x,y}, &position)) continue;
+                map->ground_attr[index] = map->terrain[index] &= 0x80;
+                level.blocked[L_Index(&level, x, y)] = 0;
+                chosen = (ivec2_t){x,y}; found = true;
+                break;
+            }
+        if (found && (Z_NextRandom(&map->ai.seed) & 127) < map->ai.intelligence) break;
+    }
+    if (chosen.x >= 0) Z_PlaceAIGun(factory, type, chosen);
 }
 static void run_factories(mobj_t *const *units, int count) {
     for (int i = 0; i < count; ++i) {
         mobj_t *factory = units[i];
         if (factory->owner != CPU || !Z_Producer(factory)) continue;
-        if (Z_GunReady(factory)) place_gun(factory);
+        if (Z_GunReady(factory)) Z_AIPlaceGun(factory);
         if (!Z_ProductInProduction(factory)) {
             const StaticProductDefinition *product = Z_AIProduct(factory);
             if (product) G_QueueProduct(factory, product);

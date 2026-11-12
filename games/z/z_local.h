@@ -230,6 +230,9 @@ const StaticProductDefinition *Z_StoredGun(const mobj_t *producer, int index);
 int Z_ProductTimeMs(const mobj_t *producer, const StaticProductDefinition *product);
 bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell);
 bool Z_GunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out);
+bool Z_AIGunPosition(const mobj_t *producer, int type, ivec2_t cell, fixed3_t *out);
+bool Z_PlaceAIGun(mobj_t *producer, int type, ivec2_t cell);
+void Z_AIPlaceGun(mobj_t *producer);
 /* Flags a team holds (Z_NEUTRAL: nobody's), and all of them. */
 int Z_TerritoriesHeld(int team, int *total);
 int Z_ProductionRate(const mobj_t *producer, int held, int total);

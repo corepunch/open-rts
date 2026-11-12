@@ -305,13 +305,14 @@ const StaticProductDefinition *Z_StoredGun(const mobj_t *producer, int index) {
     return G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, MT_UNITS + producer->z.guns[index] - 1);
 }
 
-bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell) {
+static bool place_gun(mobj_t *producer, int type, ivec2_t cell, bool native_marker) {
     fixed3_t position;
     int index = 0;
     while (index < (Z_GunReady(producer) ? producer->z.gun_count : 0) &&
            MT_UNITS + producer->z.guns[index] - 1 != type) ++index;
     if (!Z_GunReady(producer) || index >= producer->z.gun_count ||
-        !Z_GunPosition(producer, type, cell, &position)) return false;
+        !(native_marker ? Z_AIGunPosition(producer, type, cell, &position) :
+                          Z_GunPosition(producer, type, cell, &position))) return false;
     mobj_t *gun = P_SpawnMobj(position, (uint16_t)type);
     if (!gun) return false;
     Z_SetTeam(gun, producer->team);
@@ -323,6 +324,14 @@ bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell) {
     if (pending && producer->production->release_active)
         G_ModelStartProductionRelease(NULL, producer, pending, producer->production->actor_id);
     return true;
+}
+
+bool Z_PlaceGun(mobj_t *producer, int type, ivec2_t cell) {
+    return place_gun(producer, type, cell, false);
+}
+
+bool Z_PlaceAIGun(mobj_t *producer, int type, ivec2_t cell) {
+    return place_gun(producer, type, cell, true);
 }
 
 /* Another unit already stands at `at`. */

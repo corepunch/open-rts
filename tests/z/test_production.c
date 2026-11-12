@@ -401,6 +401,121 @@ static int test_native_rates(void) {
     return 0;
 }
 
+static int test_cpu_gun_markers(void) {
+    const int types[] = {MT_UNIT_LIGHT_GUN, MT_UNIT_GATLING};
+    const uint8_t marker[] = {0x2d, 0x35, 0x36, 0x37};
+    for (int t = 0; t < 2; ++t) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load CPU gun markers");
+        mobj_t *factory = nth(MT_ROBOT_FACTORY, -1, 0);
+        mobj_t *fort = nth(MT_FORT, 1, 0);
+        if (!factory || !fort) return fail("CPU gun factory and fort");
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+            if (th->function == P_MobjThinker && (mobj_t *)th != factory && (mobj_t *)th != fort)
+                P_RemoveMobj((mobj_t *)th);
+        P_RunThinkers();
+        zmap_t *map = level.native_data;
+        memset(map->terrain, 0, sizeof(map->terrain));
+        memset(map->ground_attr, 0, sizeof(map->ground_attr));
+        memset(map->cliffs, 0, sizeof(map->cliffs));
+        memset(level.blocked, 0, level.width * level.height);
+        map->territory_count = 1;
+        map->territories[0].min = (ivec2_t){0,0};
+        map->territories[0].max = (ivec2_t){level.width,level.height};
+        map->ai.territories[0].flags &= ~1;
+        factory->core.position = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){5,5}), 0);
+        Z_SetTeam(factory, 1);
+        factory->z.gun_count = 1; factory->z.guns[0] = (uint8_t)(types[t] - MT_UNITS + 1);
+        map->ai.seed = 0x3039; map->ai.intelligence = 0;
+        Z_AIPlaceGun(factory);
+        if (factory->z.gun_count != 1) return fail("CPU waits when no authored position exists");
+        for (int i = 0; i < 4; ++i) {
+            int index = 20 * Z_MAP_STRIDE + 20 + i * 5;
+            map->ground_attr[index] = map->terrain[index] = marker[i] | 0x80;
+        }
+        map->ground_attr[20 * Z_MAP_STRIDE] = map->terrain[20 * Z_MAP_STRIDE] = 0xad;
+        fixed2_t blocker_centre;
+        if (!Z_UnitCentre(map, MT_UNIT_GRUNT - MT_UNITS, (ivec2_t){300,320}, &blocker_centre))
+            return fail("CPU gun overlap fixture");
+        mobj_t *blocker = P_SpawnMobj(fixed3_from_fixed2(blocker_centre, 0), MT_UNIT_GRUNT);
+        fixed3_t checked;
+        if (!blocker || !Z_GunPosition(factory, types[t], (ivec2_t){20,20}, &checked) ||
+            Z_AIGunPosition(factory, types[t], (ivec2_t){20,20}, &checked))
+            return fail("CPU checks the shifted gun footprint for overlap");
+        P_RemoveMobj(blocker);
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+        uint32_t id = factory->id;
+        if (!G_SaveGameBlob(&save, &size, "CPU gun markers", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save CPU gun markers");
+        free(save); factory = P_MobjById(id); map = level.native_data;
+        if (!factory) return fail("restore CPU gun factory");
+        Z_AIPlaceGun(factory);
+        for (int i = 0; i < 4; ++i) {
+            int index = 20 * Z_MAP_STRIDE + 20 + i * 5;
+            if (map->terrain[index] != 0x80 || map->ground_attr[index] != 0x80)
+                return fail("CPU consumes every checked marker even when selecting a later one");
+        }
+        if (map->terrain[20 * Z_MAP_STRIDE] != 0xad) return fail("CPU rejects an off-map gun origin");
+        mobj_t *gun = nth(types[t], 1, 0);
+        ivec2_t origin = {35 * Z_TILE - (t ? 16 : 12), 20 * Z_TILE - (t ? 16 : 12)};
+        fixed2_t centre;
+        if (factory->z.gun_count || !gun || !Z_UnitCentre(map, types[t] - MT_UNITS, origin, &centre) ||
+            !fixed2_equal(fixed3_xy(gun->core.position), centre))
+            return fail("CPU uses last marker and native subcell gun origin");
+        uint32_t gun_id = gun->id;
+        factory->z.gun_count = 1; factory->z.guns[0] = (uint8_t)(types[t] - MT_UNITS + 1);
+        map->ai.seed = 0x3039; map->ai.intelligence = 127;
+        for (int i = 0; i < 4; ++i) {
+            int index = 20 * Z_MAP_STRIDE + 20 + i * 5;
+            map->ground_attr[index] = map->terrain[index] = marker[i] | 0x80;
+        }
+        map->ground_attr[30 * Z_MAP_STRIDE + 10] = map->terrain[30 * Z_MAP_STRIDE + 10] = 0xad;
+        Z_AIPlaceGun(factory);
+        gun = newer_than(types[t], 1, gun_id);
+        origin = (ivec2_t){20 * Z_TILE - (t ? 16 : 12), 20 * Z_TILE - (t ? 16 : 12)};
+        if (factory->z.gun_count || !gun || !Z_UnitCentre(map, types[t] - MT_UNITS, origin, &centre) ||
+            !fixed2_equal(fixed3_xy(gun->core.position), centre) ||
+            map->terrain[20 * Z_MAP_STRIDE + 20] != 0x80 ||
+            map->terrain[30 * Z_MAP_STRIDE + 10] != 0xad ||
+            map->terrain[20 * Z_MAP_STRIDE + 25] != (0x80 | marker[1]))
+            return fail("CPU intelligence stops after the first successful marker");
+        save = NULL; size = 0;
+        if (!G_SaveGameBlob(&save, &size, "Consumed CPU marker", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save consumed CPU marker");
+        free(save); map = level.native_data;
+        if (map->terrain[20 * Z_MAP_STRIDE + 20] != 0x80 || map->terrain[30 * Z_MAP_STRIDE + 10] != 0xad)
+            return fail("consumed and unused markers survive reload");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
+static int test_cpu_fort_gun_order(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load CPU fort gun order");
+    mobj_t *fort = nth(MT_FORT, 1, 0);
+    if (!fort) return fail("CPU fort gun fixture");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && (mobj_t *)th != fort) P_RemoveMobj((mobj_t *)th);
+    P_RunThinkers();
+    zmap_t *map = level.native_data;
+    map->number = 1; /* First CPU letter E selects the left-bottom mount. */
+    int territory = Z_AITerritory(map, fixed3_xy(fort->core.position));
+    if (territory < 0) return fail("CPU fort territory");
+    map->ai.territories[territory].flags |= 1;
+    fort->z.gun_count = 1; fort->z.guns[0] = MT_UNIT_LIGHT_GUN - MT_UNITS + 1;
+    irect_t base = P_MobjCells(fort);
+    fixed3_t expected;
+    if (!Z_GunPosition(fort, MT_UNIT_LIGHT_GUN, (ivec2_t){base.x + 1,base.y + 6}, &expected))
+        return fail("CPU fort first mount is available");
+    Z_AIPlaceGun(fort);
+    mobj_t *gun = nth(MT_UNIT_LIGHT_GUN, 1, 0);
+    if (fort->z.gun_count || !gun || !fixed2_equal(fixed3_xy(gun->core.position), fixed3_xy(expected)) ||
+        gun->core.position.z != expected.z) return fail("CPU uses level-specific fort mount order");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_gun_placement(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for gun placement");
@@ -949,7 +1064,7 @@ static int test_gun_stock(void) {
 
 int main(void) {
     if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
-        test_native_rates() || test_gun_placement() ||
+        test_native_rates() || test_gun_placement() || test_cpu_gun_markers() || test_cpu_fort_gun_order() ||
         test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_gun_stock() ||
         test_computer_builds() || test_computer_next_product() || test_reconstruction() || test_mixed_routes()) return 1;
     printf("z production tests passed\n");
