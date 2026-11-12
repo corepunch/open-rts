@@ -1056,6 +1056,38 @@ int main(void) {
     moved_building->sc.addon = attached_shop->id; attached_shop->sc.parent = moved_building->id;
     P_SyncBuildingBlocking(); before_building = P_MobjCells(moved_building);
     ticks(1, &(hudtext_t){0});
+    CHECK(!ivec2_equal((ivec2_t){before_building.x, before_building.y},
+                       (ivec2_t){P_MobjCells(moved_building).x, P_MobjCells(moved_building).y}));
+    CHECK(!moved_building->sc.addon && !attached_shop->sc.parent && attached_shop->owner == 11);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    moved_building = sc_spawn_actor(MT_FACTORY - 1, (ivec2_t){128, 128}, 0);
+    CHECK(moved_building); attached_shop = sc_attach_addon(moved_building, MT_MACHINE_SHOP);
+    CHECK(attached_shop);
+    ivec2_t destination_cell = {14, 15}; uint16_t addon_type; irect_t addon_rect;
+    CHECK(sc_addon_place(MT_FACTORY, destination_cell, &addon_type, &addon_rect));
+    fixed2_t addon_position = P_BuildingPosition(addon_type, (ivec2_t){addon_rect.x, addon_rect.y});
+    mobj_t *new_shop = sc_spawn_actor(addon_type - 1,
+        (ivec2_t){addon_position.x >> 11, addon_position.y >> 11}, 11);
+    CHECK(new_shop); P_SyncBuildingBlocking();
+    ticks(1, &(hudtext_t){0});
+    CHECK(!attached_shop->sc.parent && attached_shop->owner == 11);
+    CHECK(moved_building->sc.addon == new_shop->id && new_shop->sc.parent == moved_building->id && new_shop->owner == 0);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-teleport-building.chk", &level));
+    building_mission = level.mission; building_mission->loc_count = 2;
+    building_mission->loc_right[0] = building_mission->loc_bottom[0] = 256;
+    building_mission->loc_left[1] = building_mission->loc_top[1] = 448;
+    building_mission->loc_right[1] = building_mission->loc_bottom[1] = 576;
+    moved_building = sc_spawn_actor(MT_FACTORY - 1, (ivec2_t){128, 128}, 0);
+    CHECK(moved_building); attached_shop = sc_attach_addon(moved_building, MT_MACHINE_SHOP);
+    CHECK(attached_shop); before_building = P_MobjCells(moved_building);
+    level.blocked[L_Index(&level, destination_cell.x, destination_cell.y)] = 1;
+    ticks(1, &(hudtext_t){0});
     CHECK(ivec2_equal((ivec2_t){before_building.x, before_building.y},
                       (ivec2_t){P_MobjCells(moved_building).x, P_MobjCells(moved_building).y}));
     CHECK(moved_building->sc.addon == attached_shop->id && attached_shop->sc.parent == moved_building->id);

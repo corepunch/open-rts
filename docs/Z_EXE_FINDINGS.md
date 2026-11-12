@@ -3199,6 +3199,21 @@ other object damage and retail knockdown remain incomplete. Grenades still use t
 separate 3×3 weighted blast. Zod instead applies radial distance falloff in
 `src/zserver.cpp:ProcessMissileDamage`; that is not the retail rectangle.
 
+**Impact effect-object path, partial:** `0x8476c` also calls `0x8523f` at
+the same impact-minus-(12,24) coordinates. Unless global +0x14c05a blocks
+it, `0x85257..0x852a9` probes four points in order: offsets (4,16),
+(20,16), (4,32), (20,32) from that argument, or impact-relative
+(-8,-8), (8,-8), (-8,8), (8,8). Each uses `0x28646`/`0x2853d` to find
+the first matching record in the 200-slot 40-byte effect table, subject to
+effect +0x0d flags and descriptor-dependent inclusive bounds. At the first
+match `0x85347` subtracts damage from effect byte +0x0f and branches on
+zero/sign into destruction handling. The relevant effect types, initialization
+of +0x0f and flag overrides have not been fully traced; this is not evidence
+that all scenery mobjs can receive ordinary unit damage. `0x8476c` also calls
+the separate `0x84f9d` path and a tile-based lookup at `0x27e0f`. Reproduce
+with `r2 -q -e bin.cache=true -c 'pd 35 @ 0x84822' -c 'pd 55 @ 0x8523f'
+-c 'pd 50 @ 0x2853d' -c q data/Z/ZED.EXE`.
+
 Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
 'pd 20 @ 0x84c38' -c 'pd 25 @ 0x85ce4' -c 'pd 30 @ 0x64384' -c q
 data/Z/ZED.EXE`, and run `make build/bin/tests/z/test_combat

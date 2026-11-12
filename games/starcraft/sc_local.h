@@ -299,6 +299,8 @@ fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
  * units.dat's add-on position. */
 uint16_t sc_addon_parent(uint16_t type);
 mobj_t *sc_addon_of(const mobj_t *building);
+void sc_detach_addon(mobj_t *building);
+void sc_reconnect_addon(mobj_t *building, ivec2_t cell);
 bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell);
 /* The cells the first add-on of a building of type with its top-left at
  * cell would take, and that add-on; false for a type without add-ons. */

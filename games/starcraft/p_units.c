@@ -167,6 +167,30 @@ mobj_t *sc_addon_of(const mobj_t *building) {
     mobj_t *addon = building ? P_MobjById(building->sc.addon) : NULL;
     return addon && addon->sc.parent == building->id ? addon : NULL;
 }
+void sc_detach_addon(mobj_t *building) {
+    mobj_t *addon = sc_addon_of(building);
+    if (addon) {
+        sc_interrupt(addon);
+        if (addon->production) sc_cancel_production(addon, -1);
+        addon->sc.parent = 0; addon->owner = addon->team = 11;
+        addon->allegiance = ALLEGIANCE_NEUTRAL;
+        P_MobjSetSelected(addon, false);
+    }
+    building->sc.addon = 0;
+}
+void sc_reconnect_addon(mobj_t *building, ivec2_t at) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *addon = (mobj_t *)th;
+        if (!live(th) || addon->sc.parent || (addon->owner != 11 && addon->owner != building->owner) ||
+            sc_addon_parent(addon->type_id) != building->type_id) continue;
+        ivec2_t offset = sc_unit(addon)->addon;
+        ivec2_t cell = ivec2_add(at, (ivec2_t){offset.x / 32, offset.y / 32});
+        if (!fixed2_equal(P_BuildingPosition(addon->type_id, cell), fixed3_xy(addon->core.position))) continue;
+        addon->sc.parent = building->id; building->sc.addon = addon->id;
+        addon->owner = building->owner; addon->team = building->team; addon->allegiance = building->allegiance;
+        break;
+    }
+}
 /* units.dat places an add-on's top-left this many pixels from its
  * building's: right of it, level with its lower edge. */
 bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell) {

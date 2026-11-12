@@ -229,15 +229,7 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
             if(lift) {
                 if(u->traits&MF_FLY)continue;
                 stop(player,u);
-                mobj_t *addon=sc_addon_of(u);
-                if(addon) {
-                    sc_interrupt(addon);
-                    if(addon->production)sc_cancel_production(addon,-1);
-                    addon->sc.parent=0;addon->owner=addon->team=11;
-                    addon->allegiance=ALLEGIANCE_NEUTRAL;
-                    P_MobjSetSelected(addon,false);
-                }
-                u->sc.addon=0;
+                sc_detach_addon(u);
                 u->traits=(u->traits&~MF_RESOURCE_BASE)|MF_FLY|MF_MOBILE;
                 u->speed=SC_PIXELS(24); /* OpenBW leaves buildings at one pixel/frame. */
                 u->sc.order=(sc_order_t){.kind=SC_ORDER_LIFT};
@@ -409,17 +401,7 @@ void sc_order_ticker(mobj_t *mo, int frames) {
         if(mo->core.position.z)return;
         mo->traits=(mo->traits&~(MF_MOBILE|MF_FLY))|(mo->info->traits&MF_RESOURCE_BASE);
         mo->speed=0;
-        /* Reconnect a compatible abandoned add-on at its native offset. */
-        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
-            mobj_t *addon=(mobj_t *)th;
-            if(th->function!=P_MobjThinker||addon->remove||addon->hp<=0||addon->sc.parent||
-               (addon->owner!=11&&addon->owner!=mo->owner)||sc_addon_parent(addon->type_id)!=mo->type_id)continue;
-            ivec2_t offset=sc_unit(addon)->addon;
-            ivec2_t cell=ivec2_add(o->at,(ivec2_t){offset.x/32,offset.y/32});
-            if(!fixed2_equal(P_BuildingPosition(addon->type_id,cell),fixed3_xy(addon->core.position)))continue;
-            addon->sc.parent=mo->id;mo->sc.addon=addon->id;
-            addon->owner=mo->owner;addon->team=mo->team;addon->allegiance=mo->allegiance;break;
-        }
+        sc_reconnect_addon(mo, o->at);
         *o=(sc_order_t){0};
         stop(mo->owner,mo);
         P_SetMobjState(mo,mobjinfo[mo->type_id].spawnstate);

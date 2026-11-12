@@ -441,12 +441,13 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
         if (!mine) continue;
         if (!(mo->traits & MF_MOBILE)) {
             const sc_unit_t *type = sc_unit(mo);
-            if (!mo->info || !(type->flags & SC_UNIT_BUILDING) || mo->production || mo->sc.addon || mo->sc.parent ||
+            if (!mo->info || !(type->flags & SC_UNIT_BUILDING) || mo->production || mo->sc.parent ||
                 sc_addon_parent(mo->type_id) || mo->type_id == MT_NYDUS_CANAL ||
                 mo->type_id == MT_REFINERY || mo->type_id == MT_EXTRACTOR || mo->type_id == MT_ASSIMILATOR) continue;
             bool linked = false;
             for (thinker_t *child = thinkercap.next; child != &thinkercap; child = child->next)
-                if (child->function == P_MobjThinker && ((mobj_t *)child)->sc.parent == mo->id) { linked = true; break; }
+                if (child->function == P_MobjThinker && ((mobj_t *)child)->id != mo->sc.addon &&
+                    ((mobj_t *)child)->sc.parent == mo->id) { linked = true; break; }
             if (linked) continue;
             ivec2_t cell = fixed2_cell(dest);
             cell = ivec2_sub(cell, (ivec2_t){mo->info->footprint.w / 2, mo->info->footprint.h / 2});
@@ -455,7 +456,11 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
             P_SyncBuildingBlocking();
             bool clear = P_CanPlaceBuilding(mo->type_id, cell, mo);
             mo->traits = traits;
-            if (clear) mo->core.position = fixed3_with_xy(mo->core.position, P_BuildingPosition(mo->type_id, cell));
+            if (clear) {
+                sc_detach_addon(mo);
+                mo->core.position = fixed3_with_xy(mo->core.position, P_BuildingPosition(mo->type_id, cell));
+                sc_reconnect_addon(mo, cell);
+            }
             P_SyncBuildingBlocking();
             if (!clear) continue;
         } else if (!sc_place_near(mo, dest)) continue;

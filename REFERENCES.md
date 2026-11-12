@@ -274,10 +274,11 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   and [EUD arithmetic examples](https://gist.github.com/wdcqc/54df5ad49f7d5887a8f84c2ac0cd86ef):
   32-bit death-based arithmetic and subtraction through two's-complement Add;
   the natural death-overflow behavior remains unverified.
-- [Blizzard StarCraft 1.08 patch notes, mirrored](https://www.oocities.org/~rootuser/sccompat.html):
+- [Blizzard StarCraft 1.03 patch notes, mirrored](https://www.oocities.org/~rootuser/sccompat.html):
   Move Unit applies to buildings and their add-ons, with detachment and
-  reattachment rules. The checked implementation supports only unlinked
-  grounded buildings; placement remains an engine approximation.
+  reattachment rules. The checked implementation supports grounded buildings
+  and reuses lift/land add-on rules; directly moved add-ons and placement remain
+  incomplete or approximate.
 
 - [OpenBW pinned source](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
   collision rectangles/distance, `order_Follow`, `order_Repair`,

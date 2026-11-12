@@ -109,16 +109,19 @@ eudplib `MoveUnit` describes action 39 as teleporting selected units, not
 issuing a movement order. Mobile units now move immediately using the existing
 Recall placement search near the destination center; a two-unit fixture checks
 bounded and All selection, immediate relocation and distinct ground positions.
-That search is an engine approximation, not native placement. Blizzard's 1.08
-patch notes explicitly discuss Move Unit acting on buildings; unlinked grounded
+That search is an engine approximation, not native placement. Blizzard's 1.03
+patch notes explicitly discuss Move Unit acting on buildings; grounded
 buildings without production now move to a clear footprint-aligned destination,
-and blocking is rebuilt. A regression checks successful relocation and a
+and blocking is rebuilt. Existing lift/land add-on detach and reconnect rules
+are shared with this action. Fixtures cover detachment, reconnection at the
+native add-on offset and keeping the original link when placement fails.
+A regression checks successful relocation and a
 blocked destination. The building's own footprint is temporarily excluded
 from placement checks while authored terrain and other objects remain blocked;
 one-tile overlap and an authored obstacle in the overlap are tested. The
 construction check also enforces creep and psi for relocation; whether retail
 Move Unit applies those rules is unknown. Footprint placement is an engine approximation, and
-add-ons, linked buildings, construction, gas structures, loaded units,
+directly moved add-ons, other linked buildings, construction, gas structures, loaded units,
 hallucinations and exact collision/order behavior remain open.
 The action rejects destination centers outside the map before calling the
 placement helper; this protects aircraft, whose Recall placement does not
