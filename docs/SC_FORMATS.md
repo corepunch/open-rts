@@ -235,6 +235,14 @@ OpenBW gives each already-stored Reaver scarab its own timer; this engine's
 integer hangar starts a scarab's lifetime only when it launches, so docked
 illusion scarabs do not independently expire.
 Some trigger selectors still exclude hallucinations and remain approximate.
+OpenBW initializes a preplaced resource unit's amount to zero and reads UNIT
++20 only when +14 validity bit 0x10 is set. The loader now follows that rule
+for mineral fields, geysers and refineries, including zero-resource vent
+state; oversized values clamp to the engine's signed storage range. A fixture
+checks valid and invalid fields, depleted gas behavior and mining a valid
+preplaced patch. OpenBW removes a zero-resource mineral field when a worker
+finishes gathering it; such a field now remains targetable until that harvest,
+then disappears without yielding resources, as exercised by a second fixture.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution

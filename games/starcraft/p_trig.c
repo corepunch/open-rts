@@ -423,7 +423,7 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
             vent->depleted = !vent->amount && vent->depleted_rate > 0;
             vent->rate = vent->depleted ? vent->depleted_rate : 8;
             vent->active = mo->type_id != MT_VESPENE_GEYSER &&
-                (vent->amount > 0 || vent->depleted);
+                (vent->amount > 0 || vent->depleted || vent->exhausts_source);
             changed++;
             break;
         }

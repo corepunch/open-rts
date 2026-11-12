@@ -448,9 +448,10 @@ typedef struct resourcevent_s {
     int occupied_at;
 } resourcevent_t;
 
-/* A deposit a gatherer can still draw from: stocked, or empty yet trickling. */
+/* A deposit a gatherer can work: stocked, trickling, or an empty finite
+ * source that is removed when its next harvest completes. */
 static inline bool P_VentYields(const resourcevent_t *vent) {
-    return vent && vent->active && (vent->amount > 0 || vent->depleted);
+    return vent && vent->active && (vent->amount > 0 || vent->depleted || vent->exhausts_source);
 }
 
 /* Movement classes (wheels, tracks, feet, hover...). Class 0 means "plain": the

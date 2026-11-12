@@ -635,6 +635,53 @@ int main(void) {
     CHECK(placed_seen == 7); P_FreeMobjList(&placed_units); unload();
     remove("/tmp/open-rts-sc-placed-illusion.chk");
 
+    /* UNIT resource amounts are used only when the corresponding bit is valid. */
+    CHECK(!write_map("/tmp/open-rts-sc-placed-resource.chk", owners, NULL));
+    placed_file = fopen("/tmp/open-rts-sc-placed-resource.chk", "ab"); CHECK(placed_file);
+    uint8_t resource_units[6 * 36] = {0}; put_u32(unit_header + 4, sizeof(resource_units));
+    const int resource_types[] = {MT_MINERAL_FIELD1, MT_VESPENE_GEYSER, MT_REFINERY};
+    for (int i = 0; i < 6; i++) {
+        uint8_t *entry = resource_units + i * 36;
+        put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
+        put_u16(entry + 8, resource_types[i / 2] - 1);
+        put_u16(entry + 14, i & 1 ? 0x10 : 0); entry[16] = i < 4 ? 11 : 0;
+        put_u32(entry + 20, i == 5 ? UINT32_MAX : 24);
+    }
+    CHECK(fwrite(unit_header, 1, sizeof(unit_header), placed_file) == sizeof(unit_header));
+    CHECK(fwrite(resource_units, 1, sizeof(resource_units), placed_file) == sizeof(resource_units)); CHECK(!fclose(placed_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-resource.chk", &level));
+    CHECK(P_LoadThings(level.map_path) == 6 && level.resource_vent_count == 6);
+    for (int i = 0; i < 6; i++) {
+        resourcevent_t *vent = &level.resource_vents[i];
+        CHECK(vent->amount == (!(i & 1) ? 0 : i == 5 ? INT_MAX : 24));
+        CHECK(P_MobjById(vent->source_id)->type_id == resource_types[i / 2]);
+        if (i == 0) CHECK(vent->active && P_VentYields(vent));
+        if (i == 1) CHECK(vent->active);
+        if (i == 2) CHECK(!vent->active && vent->depleted && vent->rate == 2);
+        if (i == 4) CHECK(vent->active && vent->depleted && vent->rate == 2);
+    }
+    mobj_t *placed_base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
+    mobj_t *placed_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+    CHECK(placed_base && placed_worker); P_SyncBuildingBlocking();
+    CHECK(P_HarvestUnitTo(&level, placed_worker, level.resource_vents[1].attachment));
+    for (int i = 0; i < 2400 && level.player_resources[0][0] < 8; i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(level.player_resources[0][0] >= 8 && level.resource_vents[1].amount < 24);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-resource.chk", &level));
+    CHECK(P_LoadThings(level.map_path) == 6 && level.resource_vent_count == 6);
+    placed_base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
+    placed_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+    CHECK(placed_base && placed_worker); P_SyncBuildingBlocking();
+    uint32_t empty_patch_id = level.resource_vents[0].source_id;
+    CHECK(P_HarvestUnitTo(&level, placed_worker, level.resource_vents[0].attachment));
+    for (int i = 0; i < 2400 && P_MobjById(empty_patch_id); i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(!P_MobjById(empty_patch_id) && !level.resource_vents[0].active && level.player_resources[0][0] == 0);
+    unload(); remove("/tmp/open-rts-sc-placed-resource.chk");
+
     /* Action 11 has a one-based UPRP slot and a separate count byte. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
@@ -1226,6 +1273,23 @@ int main(void) {
     CHECK(level.resource_vents[0].amount == 900 && !level.resource_vents[0].depleted &&
           level.resource_vents[0].active && level.resource_vents[0].rate == 8);
     CHECK(level.resource_vents[1].amount == 900 && !level.resource_vents[1].active && level.resource_vents[2].amount == 3);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action + 16, 11); action[26] = 52;
+    CHECK(!write_map("/tmp/open-rts-sc-resource.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-resource.chk", &level));
+    patch = sc_spawn_actor(MT_MINERAL_FIELD1 - 1, (ivec2_t){480, 528}, 11);
+    placed_base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
+    placed_worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+    CHECK(patch && placed_base && placed_worker && sc_add_resource_vent(patch, 24));
+    uint32_t zeroed_patch_id = patch->id; P_SyncBuildingBlocking();
+    ticks(1, &(hudtext_t){0});
+    CHECK(!level.resource_vents[0].amount && P_VentYields(&level.resource_vents[0]));
+    CHECK(P_HarvestUnitTo(&level, placed_worker, level.resource_vents[0].attachment));
+    for (int i = 0; i < 2400 && P_MobjById(zeroed_patch_id); i++) {
+        P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+    }
+    CHECK(!P_MobjById(zeroed_patch_id) && !level.resource_vents[0].active && !level.player_resources[0][0]);
     free(trig); unload(); remove("/tmp/open-rts-sc-resource.chk");
 
     /* Order selects all matching units; Comment never issues an order. */

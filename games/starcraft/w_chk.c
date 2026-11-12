@@ -541,7 +541,8 @@ int sc_spawn_things(void) {
             bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
             if(minerals||mo->type_id==MT_VESPENE_GEYSER||mo->type_id==MT_REFINERY||
                mo->type_id==MT_EXTRACTOR||mo->type_id==MT_ASSIMILATOR) {
-                if(!sc_add_resource_vent(mo,(int)read_u32_le(u+20))) return count;
+                unsigned amount=(read_u16_le(u+14)&0x10)?read_u32_le(u+20):0;
+                if(!sc_add_resource_vent(mo,amount>INT_MAX?INT_MAX:(int)amount)) return count;
             }
             ++count;
         }
