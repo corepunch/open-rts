@@ -702,7 +702,8 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     int players[8], n = collect_players(m, player, current, players);
     if (!n || unit >= SC_TYPES) return;
     int l, t, r, b;
-    if (!loc_box(m, loc ? loc : 64, &l, &t, &r, &b)) return;
+    if (loc ? !trigger_loc_box(m, loc, &l, &t, &r, &b) :
+              !loc_box(m, 64, &l, &t, &r, &b)) return;
     bool props = (a[28] & 8) != 0;
     int count = a[27];
     for (int i = 0; i < n; i++) for (int c = 0; c < count; c++) {
@@ -1041,8 +1042,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (id == 43 && thinkercap.next) {
             int l, t, r, b;
-            bool anywhere = !loc || loc == 64;
-            if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) continue;
+            bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+            if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) continue;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;
                 if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||

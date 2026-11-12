@@ -2492,6 +2492,24 @@ actions and keep their whole-map selection. `test_mission` verifies that
 modified Anywhere affects only the inside Marine for actions 23 and 25, while
 actions 22 and 24 affect both Marines.
 
+### Set Invincibility and Create Unit use modified Anywhere (2026-11-12)
+
+PyMS `FileFormats/TRG.py` maps action 43 to `SetInvincibility`, and
+`PyTRG/HelpText.py` states that it applies to the selected unit and player at a
+Location. Pinned OpenBW does not implement action 43, so using location64's
+stored MRGN bounds here is a format-based inference. The test places two
+Marines on opposite sides of modified Anywhere and confirms only the inside
+Marine becomes invincible.
+
+PyMS maps action 11 to `CreateUnitWithProperties` and action 44 to `CreateUnit`;
+both carry a Location field. Pinned OpenBW `bwgame.h::execute_trigger_action`
+case 44 reads the stored location's center when creating units. The shared
+creation path therefore uses the stored MRGN bounds for location64 in both
+actions. Applying that behavior to action 11 follows its matching CHK location
+field and common center placement, but is not independently implemented by
+OpenBW. Tests verify both actions create at modified Anywhere's center and
+that location 0 retains its whole-map center.
+
 ### Trigger Order and Comment (2026-11-12)
 
 **Confirmed reference:** pinned OpenBW `bwgame.h::execute_trigger_action`

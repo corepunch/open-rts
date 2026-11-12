@@ -899,6 +899,37 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-create.chk");
 
+    /* Create Unit uses modified Anywhere bounds, while location 0 stays global. */
+    for (int create_id = 11; create_id <= 44; create_id += 33) for (int loc_case = 0; loc_case < 2; loc_case++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, loc_case ? 64 : 0); put_u16(action + 24, MT_MARINE - 1);
+        action[26] = (uint8_t)create_id; action[27] = 1;
+        CHECK(!write_map("/private/tmp/sc-create-location.chk", owners, trig));
+        {
+            FILE *create_location_file = fopen("/private/tmp/sc-create-location.chk", "ab"); CHECK(create_location_file);
+            uint8_t create_header[8] = {'M','R','G','N'}, create_locations[64 * 20] = {0};
+            put_u32(create_header + 4, sizeof(create_locations));
+            put_u32(create_locations + 63 * 20, 128); put_u32(create_locations + 63 * 20 + 4, 128);
+            put_u32(create_locations + 63 * 20 + 8, 160); put_u32(create_locations + 63 * 20 + 12, 160);
+            CHECK(fwrite(create_header, 1, sizeof(create_header), create_location_file) == sizeof(create_header));
+            CHECK(fwrite(create_locations, 1, sizeof(create_locations), create_location_file) == sizeof(create_locations));
+            CHECK(!fclose(create_location_file));
+        }
+        CHECK(G_DoLoadLevel("/private/tmp/sc-create-location.chk", &level));
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t created_list = P_ListMobjs();
+        mobj_t *created_marine = NULL;
+        for (int i = 0; i < created_list.count; i++)
+            if (created_list.items[i]->type_id == MT_MARINE && created_list.items[i]->owner == 0)
+                created_marine = created_list.items[i];
+        CHECK(created_marine);
+        CHECK(fixed2_near(fixed3_xy(created_marine->core.position),
+                          loc_case ? FIXED2_LIT(4.5, 4.5) : FIXED2_LIT(16, 16), FIXED_LIT(0.01)));
+        P_FreeMobjList(&created_list);
+        free(trig); unload();
+    }
+    remove("/private/tmp/sc-create-location.chk");
+
     /* UNIT hangar property applies only when valid, including neutral Carriers. */
     CHECK(!write_map("/tmp/open-rts-sc-placed-hangar.chk", owners, NULL));
     FILE *placed_file = fopen("/tmp/open-rts-sc-placed-hangar.chk", "ab"); CHECK(placed_file);
@@ -1516,6 +1547,29 @@ int main(void) {
         free(trig); unload();
     }
     remove("/tmp/open-rts-sc-invincibility.chk");
+
+    /* Set Invincibility scopes modified Anywhere to its stored MRGN bounds. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u16(action + 24, MT_MARINE - 1);
+    action[26] = 43; action[27] = 4;
+    CHECK(!write_map("/private/tmp/sc-invincibility-anywhere.chk", owners, trig));
+    FILE *inv_file = fopen("/private/tmp/sc-invincibility-anywhere.chk", "ab"); CHECK(inv_file);
+    uint8_t inv_header[8] = {'M','R','G','N'}, inv_locations[64 * 20] = {0};
+    put_u32(inv_header + 4, sizeof(inv_locations));
+    put_u32(inv_locations + 63 * 20, 128); put_u32(inv_locations + 63 * 20 + 4, 128);
+    put_u32(inv_locations + 63 * 20 + 8, 160); put_u32(inv_locations + 63 * 20 + 12, 160);
+    CHECK(fwrite(inv_header, 1, sizeof(inv_header), inv_file) == sizeof(inv_header));
+    CHECK(fwrite(inv_locations, 1, sizeof(inv_locations), inv_file) == sizeof(inv_locations));
+    CHECK(!fclose(inv_file));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-invincibility-anywhere.chk", &level));
+    mobj_t *inside_inv = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0);
+    mobj_t *outside_inv = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0);
+    CHECK(inside_inv && outside_inv);
+    ticks(1, &(hudtext_t){0});
+    CHECK(inside_inv->sc.flags & SC_INVINCIBLE);
+    CHECK(!(outside_inv->sc.flags & SC_INVINCIBLE));
+    free(trig); unload(); remove("/private/tmp/sc-invincibility-anywhere.chk");
 
     /* Move Location shifts the destination by the match's source-relative offset. */
     trig = blank_trigger(); CHECK(trig);
