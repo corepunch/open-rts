@@ -345,6 +345,7 @@ static int test_grenade_cooldown(void) {
 
 static int test_gun_drivers(void) {
     static const int types[] = {MT_UNIT_LIGHT_GUN, MT_UNIT_GATLING, MT_UNIT_HOWITZER, MT_UNIT_MISSILE_GUN};
+    static const ivec2_t offsets[] = {{-4, 0}, {-4, -1}, {-1, -6}, {0, 0}};
     RtsGameModel *model = load();
     if (!model) return fail("load for gun drivers");
     fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
@@ -353,6 +354,7 @@ static int test_gun_drivers(void) {
     for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
         mobj_t *gun = blast_unit(types[i], 1, pixel_at(at, 16, 0), 500);
         if (!gun) return fail("spawn gun driver");
+        ivec2_t expected_origin = ivec2_add(ivec2_sub(Z_BlastAnchor(gun), (ivec2_t){16, 16}), offsets[i]);
         gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
         for (int n = 0; n < 256 && !gun->z.crew_hurt; ++n, ++leveltime)
             Z_HitDamage(shooter, &shooter->info->attack, gun, 1, 1);
@@ -362,6 +364,11 @@ static int test_gun_drivers(void) {
         if (gun->z.driver || gun->team != Z_NEUTRAL || !gun->z.object_slot ||
             gun->z.object_hp != 20 || gun->core.state_id != mobjinfo[gun->z.object].spawnstate)
             return fail("fatal driver hit leaves each gun neutral");
+        isize2_t size;
+        if (!Z_SpriteSize(level.native_data, states[gun->core.state_id].frame, &size) ||
+            !ivec2_equal(fixed2_cell(fixed2_scale(fixed3_xy(gun->core.position), FIXED_FROM_INT(Z_TILE))),
+                         ivec2_add(expected_origin, (ivec2_t){size.w / 2, size.h / 2})))
+            return fail("driverless gun retains native effect origin");
         P_RemoveMobj(gun);
     }
     mobj_t *tank = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 16, 0), 500);

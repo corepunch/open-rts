@@ -61,6 +61,19 @@ static bool empty_jeep_position(const mobj_t *mo, fixed2_t *position) {
     return true;
 }
 
+/* Gun types bypass the grid-rounding check; 0x14af94 supplies these
+ * offsets before the common four-pixel x subtraction at 0x617ed. */
+static bool empty_gun_position(const mobj_t *mo, int object, fixed2_t *position) {
+    ivec2_t offset = object == MT_GUN ? (ivec2_t){-4, 0} :
+                      object == MT_MISSILE ? (ivec2_t){0, 0} :
+                      object == MT_GATTLING ? (ivec2_t){-4, -1} : (ivec2_t){-1, -6};
+    isize2_t size;
+    if (!level.native_data || !Z_SpriteSize(level.native_data, states[mobjinfo[object].spawnstate].frame, &size)) return false;
+    ivec2_t origin = ivec2_add(ivec2_sub(Z_BlastAnchor(mo), (ivec2_t){16, 16}), offset);
+    *position = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){size.w / 2, size.h / 2})), FIXED_ONE / Z_TILE);
+    return true;
+}
+
 static int robot_type(const mobj_t *mo) {
     int t = Z_UnitType(mo);
     return live(mo) && Z_IsRobot(t) && mo->team < Z_NEUTRAL ? t : -1;
@@ -466,11 +479,11 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
                      t == MT_UNIT_HOWITZER - MT_UNITS ? MT_HOWITZER :
                      t == MT_UNIT_MISSILE_GUN - MT_UNITS ? MT_MISSILE : MT_JEEP;
         fixed2_t position;
-        bool fits = gun || empty_jeep_position(target, &position);
+        bool fits = gun ? empty_gun_position(target, object, &position) : empty_jeep_position(target, &position);
         int slot = empty_slot();
         if (!fits || !slot) P_RemoveMobj(target);
         else {
-            if (!gun) target->core.position = fixed3_from_fixed2(position, target->core.position.z);
+            target->core.position = fixed3_from_fixed2(position, target->core.position.z);
             target->z.object = object;
             target->z.object_slot = slot;
             target->z.object_hp = target->hp / 25;

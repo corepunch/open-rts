@@ -3335,15 +3335,16 @@ free represented effect slot, transfers quantized health and changes to the
 empty sprite, allowing shell damage and subsequent boarding; if all represented
 slots are occupied it removes the gun. Unrepresented native effects can occupy
 slots, so allocation and collision ordering are approximations. The engine
-retains the unit center when switching sprites; native `0x6178d..0x617ed`
-adds per-type offsets from `0x14af94` and subtracts four from x before creating
-the effect, and the precise correspondence to engine sprite centers is still
-unknown for guns. `test_combat` covers each gun, save/load, a shell hit,
+converts the unit center to its native origin before applying the offsets at
+`0x14af94` and the common x−4 at `0x617ed`. The resulting gun effect offsets
+are Light Gun (−4,0), Missile (0,0), Gatling (−4,−1), and Howitzer (−1,−6).
+Unlike the Jeep, these gun IDs bypass `0x6147d` and retain unrounded origins.
+`test_combat` checks all four origins, save/load, a shell hit,
 boarding, represented pool exhaustion, and Jeep placement on permitted and
 blocked terrain. Reproduce the table with `r2 -q -e bin.cache=true -c
 'pxj 67 @ 0x11ceae' -c q data/Z/ZED.EXE`; reproduce the control flow with
 `r2 -q -e bin.cache=true -c 'pd 30 @ 0x6140f' -c 'pd 35 @ 0x6147d' -c
-'pd 15 @ 0x4a5d7' -c 'pd 10 @ 0x61c7f' -c q data/Z/ZED.EXE`.
+'pd 15 @ 0x4a5d7' -c 'pd 10 @ 0x61c7f' -c 'px 96 @ 0x14afa8' -c q data/Z/ZED.EXE`.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 25 @ 0x18418' -c 'pd 35 @
 0x4a184' -c 'pd 35 @ 0x4a28a' -c 'pd 15 @ 0x85338' -c q data/Z/ZED.EXE`,
 and `xxd -g1 -c10 data/Z/LEVEL01/OBJECT01.DAT`.
