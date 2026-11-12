@@ -3676,12 +3676,37 @@ actions 0 or 1 and `0x59766` checks squared distance at most 64 before
 calling `0x63465`. The intervening `0x5976d` comparison against action
 `0x2b` cannot succeed after that action filter; the apparent `+0x7d = 2`
 branch is therefore **disproven as reachable through this path**. The
-called action and complete displacement have not yet been traced or ported.
+called action has now been traced as described above; it has not been ported.
 `0x63465` first calls `0x62db2`, which checks terrain at unit top-left
 `(+5,+11)` and rejects terrain 0x09, 0x26, 0x27 and 0x2a. It then calls
 `0x61fac`, which can reject based on group state and a `0x78f61` search,
 before setting action 0x2b. These gates do not establish equivalence to
 Zod's idle missile-dodge waypoint.
+
+Further trace of this reaction in `ZED.EXE` (SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`):
+the projectile update calls the proximity pass at `0x59318` before the
+projectile-type movement dispatch at `0x59342`. On entry, `0x63473..0x63491`
+sets action 0x2b, frame `(facing & 0x0e) * 3 / 2`, and timer 4. The action
+table at `0x14b1b8` gives sprite base 2075; four facing groups each have
+three consecutive frames. On updates where `0x10e91b` is zero,
+`0x62cec..0x62d24` rechecks eligibility, advances twice, holds the last
+frame for four updates, and exits on the next update. No position write
+occurs in that action.
+
+The eligibility gate is materially more than a nearby-distance test:
+`0x61fac..0x62023` rejects absent or invalid squad identifiers, group
+flag +9 bit 1, nonzero group +0x3d, conditional group +0x3a, and a
+combination of group +0x10 and +0x12. Otherwise it calls `0x78f61`;
+if that returns a candidate, twice its returned distance must exceed the
+unit's +4 byte for the reaction to proceed. That search has its own unit
+and group flag filters and selects directions through `0x104558` and
+`0x104578`; it can also mutate the searcher's +0x6f and +0x74. The engine
+does not yet represent this complete eligibility/search lifecycle, so a
+simple all-idle-robots radius scan would change behavior and is not
+implemented. Reproduce with `r2 -q -e bin.cache=true -c 'pd 95 @ 0x61fac'
+-c 'pd 65 @ 0x78f61' -c 'pd 45 @ 0x62cec' -c 'pd 45 @ 0x63465'
+-c 'px 16 @ 0x14b1b8' -c q data/Z/ZED.EXE`.
 
 ### Vehicle body degradation (2026-11-12)
 
