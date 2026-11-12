@@ -677,7 +677,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 P_UpdateSight();
                 continue;
             }
-            for (int i = 0; i < n; i++) m->ai_on[players[i]] = true;
+            if (st->current >= 0 && st->current < 8) m->ai_on[st->current] = true;
             continue;
         }
         if (id == 26) {

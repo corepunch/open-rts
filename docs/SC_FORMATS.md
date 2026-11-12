@@ -123,6 +123,12 @@ refresh sight; a mission test checks that current vision ends while explored
 terrain remains. OpenBW's pinned switch only implements the enable scripts.
 The engine retains a player's own sight when the script names itself; retail
 self-target behavior is unverified.
+PyMS defines Run AI Script and Run AI Script at Location (actions 15 and 16)
+with a script ID and, for the latter, a location, but no player parameter.
+Their existing generic-AI fallback now enables the executing trigger owner
+instead of treating an unused field as a player selector; a two-player mission
+test covers both forms. The fallback is an engine approximation and does not
+execute or establish the behavior of arbitrary native AI scripts.
 
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
