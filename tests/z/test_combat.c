@@ -1469,6 +1469,45 @@ static int test_tank_shell_arc(void) {
     return 0;
 }
 
+static int test_gun_aim(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load gun aim fixture");
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *gun = blast_unit(MT_UNIT_MISSILE_GUN, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 96, 0), 500);
+    if (!map || !gun || !target) return fail("spawn gun aim fixture");
+    gun->core.angle = direction_to_angle(0, 8, ANG90, true);
+    gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1; gun->z.crew_count = 1;
+    uint16_t seed = map->combat_seed, next = seed;
+    int radius = (128 - (60 + 60 / 4)) / 4;
+    int distance = Z_NextRandom(&next) / (65535 / radius);
+    int angle = Z_NextRandom(&next) & 0x3fe;
+    int sx = (int16_t)((map->trig.bytes[angle] << 8) | map->trig.bytes[angle + 1]);
+    int sy = (int16_t)((map->trig.bytes[angle + 0x100] << 8) | map->trig.bytes[angle + 0x101]);
+    ivec2_t expected = ivec2_add(ivec2_add(Z_AITopLeft(target), (ivec2_t){0,12}),
+        (ivec2_t){((sx >> 5) * distance) >> 10, ((sy >> 5) * distance) >> 10});
+    uint32_t gun_id = gun->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Gun aim", &app, rts_game_model_ai(model), &hud)) return fail("save gun aim seed");
+    if (!Z_Attack(gun, &gun->info->attack, target) || map->combat_seed != next) return fail("gun salvo draws one scatter pair");
+    mobj_t *a = nth(MT_SHELL, 0, 0), *b = nth(MT_SHELL, 0, 1);
+    if (!a || !b || !ivec2_equal(fixed2_cell(fixed2_scale(a->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(expected, (ivec2_t){-3,0})) ||
+        !ivec2_equal(fixed2_cell(fixed2_scale(b->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(expected, (ivec2_t){3,0})))
+        return fail("gun rockets share native scattered aim before port offsets");
+    if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("restore gun aim seed");
+    free(save);
+    gun = P_MobjById(gun_id); target = P_MobjById(target_id); map = level.native_data;
+    if (!gun || !target || !Z_Attack(gun, &gun->info->attack, target) || map->combat_seed != next)
+        return fail("repeat gun aim after load");
+    a = nth(MT_SHELL, 0, 0); b = nth(MT_SHELL, 0, 1);
+    if (!a || !b || !ivec2_equal(fixed2_cell(fixed2_scale(a->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(expected, (ivec2_t){-3,0})) ||
+        !ivec2_equal(fixed2_cell(fixed2_scale(b->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(expected, (ivec2_t){3,0})))
+        return fail("saved combat RNG reproduces gun salvo aim");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_rocket_salvos(void) {
     static const ivec2_t body[] = {{2,-2},{2,-2},{4,0},{1,-3},{2,1},{1,-2},{3,-3},{1,-4}};
     static const ivec2_t nose[] = {{-10,-4},{-3,-3},{0,0},{1,0},{3,2},{4,4},{-5,6},{-3,3}};
@@ -1509,6 +1548,11 @@ static int test_rocket_salvos(void) {
         if (nth(MT_SHELL, 0, 3)) return fail("mobile missile fires exactly three rockets");
         for (int i = 0; i < 3; ++i) P_RemoveMobj(nth(MT_SHELL, 0, 0));
     }
+    fixed2_t near_target;
+    if (!Z_UnitCentre(level.native_data, Z_UnitType(target), ivec2_add(Z_AITopLeft(gun), (ivec2_t){16,0}), &near_target))
+        return fail("place near missile-gun target");
+    target->core.position = fixed3_from_fixed2(near_target, 0);
+    ivec2_t gun_aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){0,12});
     for (int facing = 0; facing < 8; ++facing) {
         gun->core.angle = direction_to_angle(facing, 8, ANG90, true);
         if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch missile gun salvo");
@@ -1516,13 +1560,14 @@ static int test_rocket_salvos(void) {
             mobj_t *shot = nth(MT_SHELL, 0, i);
             if (!shot || shot->z.water.sprite != 5345 || shot->core.frame != 5345 ||
                 !ivec2_equal(shot->z.water.start, ivec2_add(Z_AITopLeft(gun), muzzle[i][facing])) ||
-                !ivec2_equal(fixed2_cell(fixed2_scale(shot->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(aim, spread[i][facing])))
+                !ivec2_equal(fixed2_cell(fixed2_scale(shot->movement.goal, FIXED_FROM_INT(Z_TILE))), ivec2_add(gun_aim, spread[i][facing])))
                 return fail("missile gun uses native two-port geometry");
         }
         if (nth(MT_SHELL, 0, 2)) return fail("missile gun fires exactly two rockets");
         for (int i = 0; i < 2; ++i) P_RemoveMobj(nth(MT_SHELL, 0, 0));
     }
     zmap_t *map = level.native_data;
+    target->core.position = fixed3_from_fixed2(pixel_at(at, 96, 0), 0);
     for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 34; ++x)
         map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
     Z_RebuildCliffs(&level);
@@ -1933,6 +1978,6 @@ static int test_alert(void) {
 
 int main(void) {
     if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
-        test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
+        test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

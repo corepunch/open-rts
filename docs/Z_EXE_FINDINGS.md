@@ -3645,6 +3645,19 @@ now uses both offsets; `test_combat` checks all eight directions for Light
 Gun, Howitzer and Tough. Reproduce with `r2 -q -e bin.cache=true -c 'pd 45
 @ 0x7820b' -c 'pd 45 @ 0x782f2' -c 'pd 25 @ 0x60c9d' -c 'px 32 @
 0x1492c8' -c 'px 32 @ 0x14aa54' -c q data/Z/ZED.EXE`.
+For automatically targeted units, `0x78302..0x78351` uses that fixed-gun
+pivot as the source, the target origin +(0,12) as the initial aim, calls
+`0x7628f` for a possible moving-target lead, then calls `0x64250` with
+radius `(128 - adjusted accuracy) / 4`. `0x7837f` dispatches the resulting
+single aim to `0x783d7`, which applies its two port offsets if the weapon is
+a Missile Gun. Open-rts now applies the anchor and native scatter once per
+unit-target salvo using its saved combat RNG; both rockets share the result.
+It does not yet model the moving-target lead, flag-dependent accuracy,
+exact retail random stream or the explicit-coordinate branch at `0x78201`,
+which takes its target from the gun body and does not run this scatter call.
+`test_combat` verifies shared two-rocket scatter, native trig and save/load
+reproduction. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x782f2'
+-c 'pd 40 @ 0x7628f' -c 'pd 45 @ 0x78201' -c q data/Z/ZED.EXE`.
 A zero period for timed missiles
 now means one simulation step per tic, including flights longer than 99
 tics; other missile periods keep their existing millisecond clock.

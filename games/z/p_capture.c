@@ -622,10 +622,10 @@ static void init_arc(mobj_t *projectile, const mobj_t *attacker, ivec2_t start, 
     flight->segment = flight->segment_length = flight->major / (2 * flight->arc + 1);
 }
 
-static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water, int port) {
+static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water, int port, const ivec2_t *shared_aim) {
     mobj_t *shell = P_SpawnMobj(attacker->core.position, water ? MT_WATER : MT_SHELL);
     if (!shell) return;
-    ivec2_t aim = Z_BlastAnchor(target);
+    ivec2_t aim = shared_aim ? *shared_aim : Z_BlastAnchor(target);
     if (water && Z_UnitType(target) >= 0)
         aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){12, 8}); /* 0x76849/0x76aa3. */
     bool tank = attacker->type_id == MT_UNIT_LIGHT_TANK || attacker->type_id == MT_UNIT_MED_TANK ||
@@ -792,7 +792,18 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     if (!apc && attacker->type_id == MT_UNIT_M_MISSILE) count = 3;
     if (!apc && attacker->type_id == MT_UNIT_MISSILE_GUN) count = 2;
-    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, water ? damage / 2 : damage, apc, water, i);
+    bool gun = !apc && (attacker->type_id == MT_UNIT_LIGHT_GUN || attacker->type_id == MT_UNIT_HOWITZER ||
+                        attacker->type_id == MT_UNIT_MISSILE_GUN);
+    ivec2_t aim;
+    const ivec2_t *shared_aim = NULL;
+    if (gun && Z_UnitType(target) >= 0) {
+        int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+        ivec2_t origin = ivec2_add(Z_AITopLeft(attacker), gun_pivot[facing]);
+        aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){0, 12});
+        aim = scatter_aim(attacker, origin, aim, 4);
+        shared_aim = &aim;
+    }
+    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, water ? damage / 2 : damage, apc, water, i, shared_aim);
     /* Suppress the shared hitscan fallback if allocation fails. */
     return true;
 }
