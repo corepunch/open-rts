@@ -833,6 +833,44 @@ static int test_shell_empty_object(void) {
     return 0;
 }
 
+static int test_fire_truck_water(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load Fire Truck projectile fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 0, pixel_at(at, -80, 0), 200);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, at, 100);
+    mobj_t *inside = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, -2, 10), 100);
+    mobj_t *outside = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, -3, 10), 100);
+    mobj_t *ally = blast_unit(MT_UNIT_GRUNT, 0, pixel_at(at, -2, 10), 100);
+    if (!truck || !target || !inside || !outside || !ally) return fail("spawn Fire Truck projectile fixture");
+    target->traits &= ~(MF_ATTACK | MF_MOBILE);
+    inside->traits &= ~(MF_ATTACK | MF_MOBILE);
+    outside->traits &= ~(MF_ATTACK | MF_MOBILE);
+    ally->traits &= ~(MF_ATTACK | MF_MOBILE);
+    truck->attack.target = target;
+    P_UpdateSight();
+    if (!P_Attack(truck)) return fail("launch Fire Truck projectile");
+    truck->traits &= ~MF_ATTACK;
+    mobj_t *water = nth(MT_WATER, 0, 0);
+    if (!water || water->missile.duration <= 1 || water->missile.damage != 10 || states[water->core.state_id].frame != 1622 || inside->hp != 100)
+        return fail("water launches native sprite with half damage and delayed flight");
+    uint32_t water_id = water->id, inside_id = inside->id, outside_id = outside->id, ally_id = ally->id;
+    if (!tick(model, 1) || inside->hp != 100) return fail("water cannot hit before arrival");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Water flight", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save water projectile in flight");
+    free(save);
+    water = P_MobjById(water_id); inside = P_MobjById(inside_id);
+    outside = P_MobjById(outside_id); ally = P_MobjById(ally_id);
+    if (!water || !inside || !outside || !ally || water->missile.damage != 10) return fail("restore water projectile in flight");
+    int remaining = water->missile.duration - water->missile.age;
+    if (!tick(model, remaining) || inside->hp != 90 || outside->hp != 100 || ally->hp != 100)
+        return fail("water impact uses native inclusive bounds and excludes allies");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_flight(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell flight");
@@ -1107,7 +1145,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_fire_truck_water() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

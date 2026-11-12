@@ -3177,8 +3177,8 @@ so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
 vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
-terrain speed terms, the Pyro flame (`0x5a099`) and the Fire Truck
-(`0x59ffb`) are not ported.
+terrain speed terms and the Pyro flame (`0x5a099`) remain incomplete. The
+Fire Truck path is now implemented in the bounded form below.
 
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`
@@ -3379,6 +3379,35 @@ build/bin/tests/z/test_cliffs build/bin/tests/z/test_commander` followed by
 each binary with `SDL_VIDEODRIVER=dummy`.
 
 ### Shell flight (2026-11-12)
+
+**Fire Truck water:** unit type 0x26 dispatches `0x59ffb` at `0x58c60`.
+Its ROBOTS.DAT weapon 14 has damage 20 and shot-speed byte 8; the created
+projectile sets +0x21 to 0x42 and +0x17 to 16. `0x59498` selects
+`0x59b63`, whose +0x17 increment and common `0x5a4c8` step produce
+successive major-axis speeds 1 through 8 pixels per 70 Hz update; its
+drawn pictures are SPRITES.RSC 1622..1625. The unit-target branch
+`0x76849`/`0x76aa3` aims at target unit top-left +(12,8). At arrival,
+`0x59363..0x59385` halves projectile damage and calls `0x8476c` with the
+impact coordinates unchanged. Thus the common explosion's unit bounds are
+x−6..+38, y+10..+42 relative to water impact, and its building point is
+impact +(16,16), assuming `0x14c05f` clear. This differs from the shell
+branch's (−12,−24) adjustment. In particular, these bounds do not by
+themselves guarantee that the chosen target anchor is hit.
+
+Open-rts launches a saved ordinary water missile through normal attacks,
+uses native total accelerating flight steps quantized to 30 Hz, halves
+the damage and reuses the common explosion handling with the corresponding
+offset. The shared timed-missile interpolation is uniform within the flight,
+not the native acceleration curve; it displays frame 1622 without cycling,
+does not intercept terrain, and retains the existing shared shell
+approximations for target loss, effect allocation and delayed impacts.
+Non-unit target aim and the native water spray's full terrain/effect
+interactions remain unverified. `test_combat` covers normal attack dispatch,
+delayed travel, save/load and an inclusive boundary with ally exclusion.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x58c3a' -c 'pd 55 @
+0x59ffb' -c 'pd 30 @ 0x59b87' -c 'pd 35 @ 0x5934f' -c 'pd 20 @
+0x76849' -c 'pd 10 @ 0x76aa3' -c q data/Z/ZED.EXE`, and inspect weapon 14
+with `dd if=data/Z/ROBOTS.DAT bs=1 skip=22588 count=42 2>/dev/null | od -An -tu1`.
 
 **Confirmed** on the same executable: the shot-speed byte from weapon
 record +0x23 is copied into the projectile at `0x5a3fc..0x5a403`.

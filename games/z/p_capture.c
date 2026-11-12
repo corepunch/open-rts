@@ -532,10 +532,12 @@ static int shell_speed(int t) {
     }
 }
 
-static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter) {
-    mobj_t *shell = P_SpawnMissile(attacker, target, MT_SHELL);
+static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, bool scatter, bool water) {
+    mobj_t *shell = P_SpawnMissile(attacker, target, water ? MT_WATER : MT_SHELL);
     if (!shell) return;
     ivec2_t aim = Z_BlastAnchor(target);
+    if (water && Z_UnitType(target) >= 0)
+        aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){12, 8}); /* 0x76849/0x76aa3. */
     if (scatter)
         aim = ivec2_add(aim, (ivec2_t){(coin(attacker, shell, 0x1ebc1) & 15) - 8,
                                       (coin(attacker, shell, 0x1ebd2) & 15) - 8});
@@ -546,6 +548,14 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     int64_t major = dx > dy ? dx : dy;
     int64_t step = (int64_t)speed * FIXED_ONE * Z_NATIVE_HZ / (Z_TILE * RTS_TICRATE);
     int duration = (int)((major + step - 1) / step);
+    if (water) {
+        /* 0x59b63 accelerates the projectile from one to eight pixels per
+         * native update. Shared timed missiles interpolate over that total. */
+        int pixels = (int)((major * Z_TILE + FIXED_ONE - 1) / FIXED_ONE);
+        int native = 0;
+        while (pixels > 0) { ++native; pixels -= native < speed ? native : speed; }
+        duration = (native * RTS_TICRATE + Z_NATIVE_HZ - 1) / Z_NATIVE_HZ;
+    }
     if (duration < 1) duration = 1;
     shell->movement.goal = impact;
     shell->attack.target = target;
@@ -588,6 +598,8 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         return true;
     }
     int speed = shell_speed(t);
+    bool water = !apc && t == MT_UNIT_FIRE_TRUCK - MT_UNITS;
+    if (water) speed = 8; /* ROBOTS.DAT weapon 14 +0x23. */
     if (!speed || !weapon || !target) return false;
     int damage = weapon->damage, count = 1;
     if (apc) {
@@ -595,7 +607,7 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         if (driver) damage = driver->attack.damage;
         count = attacker->z.crew_count ? attacker->z.crew_count : 1;
     }
-    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, damage, apc);
+    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, water ? damage / 2 : damage, apc, water);
     /* Suppress the shared hitscan fallback if allocation fails. */
     return true;
 }
@@ -674,6 +686,9 @@ static void blast_object(ivec2_t impact, int damage) {
 
 void A_ZShellBlast(mobj_t *missile) {
     ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    /* Water's 0x59369 branch passes impact directly to 0x8476c, rather
+     * than the shell branch's impact minus (12,24). */
+    if (missile->type_id == MT_WATER) impact = ivec2_add(impact, (ivec2_t){12, 24});
     mobj_t *target = missile->attack.target;
     bool primary_hit = false;
     blast_object(impact, missile->missile.damage);
