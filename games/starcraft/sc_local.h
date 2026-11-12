@@ -282,6 +282,7 @@ void sc_start(mobj_t *mo);
  * hangar (MT_NONE for none) and how many it holds. */
 uint16_t sc_hangar_type(uint16_t maker);
 int sc_hangar_capacity(const mobj_t *maker);
+void sc_initial_hangar(mobj_t *maker, unsigned count);
 /* Docked plus launched (interceptors, scarabs in flight). */
 int sc_hangar_count(const mobj_t *maker);
 /* Unit upkeep each engine tic: loaded units, interceptors and scarabs,

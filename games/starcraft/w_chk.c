@@ -534,6 +534,7 @@ int sc_spawn_things(void) {
             mobj_t *mo=sc_spawn_actor(type,pixel,u[16]);
             if(!mo) return count;
             if(read_u16_le(u+14)&2) mo->hp=mo->max_hp*u[17]/100;
+            if(read_u16_le(u+14)&0x20) sc_initial_hangar(mo,read_u16_le(u+24));
             bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
             if(minerals||mo->type_id==MT_VESPENE_GEYSER||mo->type_id==MT_REFINERY||
                mo->type_id==MT_EXTRACTOR||mo->type_id==MT_ASSIMILATOR) {

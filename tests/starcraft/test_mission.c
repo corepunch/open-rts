@@ -537,6 +537,33 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-create.chk");
 
+    /* UNIT hangar property applies only when valid, including neutral Carriers. */
+    CHECK(!write_map("/tmp/open-rts-sc-placed-hangar.chk", owners, NULL));
+    FILE *placed_file = fopen("/tmp/open-rts-sc-placed-hangar.chk", "ab"); CHECK(placed_file);
+    uint8_t unit_header[8] = {'U','N','I','T'}, placed[4 * 36] = {0};
+    put_u32(unit_header + 4, sizeof(placed));
+    const int placed_types[] = {MT_CARRIER, MT_REAVER, MT_GANTRITHOR, MT_WARBRINGER};
+    for (int i = 0; i < 4; i++) {
+        uint8_t *entry = placed + i * 36;
+        put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
+        put_u16(entry + 8, placed_types[i] - 1); put_u16(entry + 14, i == 3 ? 0 : 0x20);
+        entry[16] = i == 0 ? 11 : 0; put_u16(entry + 24, i == 2 ? 65535 : i + 3);
+    }
+    CHECK(fwrite(unit_header, 1, sizeof(unit_header), placed_file) == sizeof(unit_header));
+    CHECK(fwrite(placed, 1, sizeof(placed), placed_file) == sizeof(placed)); CHECK(!fclose(placed_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-hangar.chk", &level));
+    CHECK(P_LoadThings(level.map_path) == 4);
+    mobjlist_t placed_units = P_ListMobjs();
+    int placed_seen = 0;
+    for (int i = 0; i < placed_units.count; i++) for (int j = 0; j < 4; j++)
+        if (placed_units.items[i]->type_id == placed_types[j]) {
+            CHECK(placed_units.items[i]->sc.hangar == (j == 2 ? 8 : j == 3 ? 0 : j + 3));
+            if (j == 0) CHECK(placed_units.items[i]->owner == 11);
+            placed_seen++;
+        }
+    CHECK(placed_seen == 4); P_FreeMobjList(&placed_units); unload();
+    remove("/tmp/open-rts-sc-placed-hangar.chk");
+
     /* Action 11 has a one-based UPRP slot and a separate count byte. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
@@ -558,6 +585,25 @@ int main(void) {
     }
     CHECK(cuwp_count == 3);
     P_FreeMobjList(&cuwp_units); free(trig); unload(); remove("/tmp/open-rts-sc-cuwp.chk");
+
+    /* CUWP shares the hangar-valid bit and stores the count at +12. */
+    for (int i = 0; i < 4; i++) for (int valid = 0; valid < 2; valid++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 20, 1); put_u16(action + 24, placed_types[i] - 1);
+        action[26] = 11; action[27] = 1; action[28] = 28;
+        CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+        cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+        memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp + 2, valid ? 0x20 : 0); put_u16(cuwp + 12, 65535);
+        CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+        CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level)); ticks(1, &(hudtext_t){0});
+        cuwp_units = P_ListMobjs(); mobj_t *created_hangar = NULL;
+        for (int j = 0; j < cuwp_units.count; j++)
+            if (cuwp_units.items[j]->type_id == placed_types[i]) created_hangar = cuwp_units.items[j];
+        CHECK(created_hangar && created_hangar->sc.hangar == (valid ? sc_hangar_capacity(created_hangar) : 0));
+        P_FreeMobjList(&cuwp_units); free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-cuwp.chk");
 
     /* Shields and energy use their own UPRP bytes and preserve lazy defaults. */
     for (int field = 0; field < 4; field++) {

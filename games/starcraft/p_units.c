@@ -45,6 +45,12 @@ int sc_hangar_capacity(const mobj_t *maker) {
     default: return 0;
     }
 }
+void sc_initial_hangar(mobj_t *maker, unsigned count) {
+    uint16_t child = sc_hangar_type(maker->type_id);
+    if (child != MT_INTERCEPTOR && child != MT_SCARAB) return;
+    int capacity = sc_hangar_capacity(maker);
+    maker->sc.hangar = count > (unsigned)capacity ? capacity : (int)count;
+}
 int sc_hangar_count(const mobj_t *maker) {
     int count = maker->sc.hangar;
     uint16_t child = sc_hangar_type(maker->type_id);

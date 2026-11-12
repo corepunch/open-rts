@@ -565,6 +565,7 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
             mo->sc.energy = sc_max_energy(mo) * pct / 100;
         }
     }
+    if (data & 0x20) sc_initial_hangar(mo, read_u16_le(p + 12));
     if ((special & 16) && (state & 16)) mo->sc.flags |= SC_INVINCIBLE;
     if ((special & 8) && (state & 8)) mo->sc.flags |= SC_HALLUCINATION;
     if (mo->hp < 1 && !(mo->sc.flags & SC_INVINCIBLE)) mo->hp = 1;

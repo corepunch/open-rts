@@ -198,7 +198,15 @@ hangar capacities at eight and ten regardless of upgrades. The native
 units table identifies their rows as 82 and 81 respectively. These heroes
 now use the shared production, launch, AI and trigger hangar paths. Fixtures
 build and launch each fighter and exercise Modify Hangar and Gantrithor Bring.
-Preplaced UNIT hangar counts remain a separate loader limitation.
+PyMS identifies the UNIT +14 validity bit 0x20 and +24 hangar count; Stargus
+also reads the count, and Blizzard 1.03 explicitly mentions neutral preplaced
+Carriers with a nonzero count. Those fields now initialize Carrier/Reaver
+variants, including neutral owners. The corresponding UPRP +12 field is
+handled for Create Unit with Properties by inference from PyMS's matching
+schema. OpenBW parses but does not apply these counts, so native treatment of
+out-of-range values is unknown; this engine clamps initial counts to the
+current hangar capacity to prevent unbounded fighter creation. Fixtures cover
+validity flags, neutral ownership, oversized values and save/load.
 
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
