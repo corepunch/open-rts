@@ -580,6 +580,21 @@ static ivec2_t water_origin(const mobj_t *truck, ivec2_t aim) {
     return ivec2_add(origin, ivec2_add(hull[body], nozzle[facing]));
 }
 
+/* 0x590c9/0x64227/0x5915f: tank turret pivot, mount and barrel. */
+static ivec2_t tank_origin(const mobj_t *tank) {
+    static const ivec2_t pivot[] = {{13,-2},{24,1},{29,9},{22,17},{13,20},{4,18},{-4,9},{2,0}};
+    static const ivec2_t mount[] = {{0,0},{-2,0},{-3,-3},{-2,-3},{0,-3},{0,-3},{0,-3},{-1,0}};
+    static const ivec2_t barrel[3][8] = {
+        {{-11,-2},{0,1},{-2,6},{-2,12},{-10,11},{-14,9},{-16,5},{-14,-3}},
+        {{-12,-4},{-7,-4},{-1,6},{-2,14},{-11,14},{-20,11},{-20,7},{-15,-3}},
+        {{-16,5},{-13,6},{-10,12},{-13,11},{-16,11},{-16,8},{-16,10},{-13,4}}
+    };
+    int type = tank->type_id == MT_UNIT_MED_TANK ? 0 : tank->type_id == MT_UNIT_HEAVY_TANK ? 1 : 2;
+    int facing = angle_to_direction(tank->core.angle + tank->attack.aim, 8, ANG90, true);
+    return ivec2_add(Z_AITopLeft(tank), ivec2_add(pivot[facing],
+        ivec2_add(mount[facing], ivec2_add((ivec2_t){6,-9}, barrel[type][facing]))));
+}
+
 /* 0x5a205: common arc trajectory for a grenade or a tank shell. */
 static void init_arc(mobj_t *projectile, const mobj_t *attacker, ivec2_t start, ivec2_t aim, int speed) {
     ivec2_t pixels = ivec2_sub(aim, start);
@@ -619,6 +634,8 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     {
         ivec2_t start = water ? water_origin(attacker, aim) :
             fixed2_cell(fixed2_scale(fixed3_xy(attacker->core.position), FIXED_FROM_INT(Z_TILE)));
+        if (attacker->type_id == MT_UNIT_LIGHT_TANK || attacker->type_id == MT_UNIT_MED_TANK ||
+            attacker->type_id == MT_UNIT_HEAVY_TANK) start = tank_origin(attacker);
         int sprite = 0;
         if (attacker->type_id == MT_UNIT_M_MISSILE) {
             static const ivec2_t body[] = {{2,-2},{2,-2},{4,0},{1,-3},{2,1},{1,-2},{3,-3},{1,-4}};

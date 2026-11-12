@@ -3613,8 +3613,21 @@ Missiles retain their firing team and snapshotted damage if the shooter is
 removed. The existing thinker and save lifecycle preserve their originator,
 target and aim point; removing either mobj clears its borrowed pointer.
 Unit movement can evade a projectile because its impact point does not
-follow the target. Ordinary shell scatter and exact type-specific muzzle
-positions remain approximations; the engine starts shells at the actor centre.
+follow the target. Ordinary shell scatter and some weapon muzzle positions
+remain approximations. Tank muzzle placement is now traced:
+`0x590c9..0x59111` temporarily puts body +0x15 (turret facing) in unit
++0x39, calls `0x64227` to add the signed word pair at `0x1492c8` to unit
+origin, then adds the signed byte pair at `0x14b283` and (6,-9).
+`0x5915f..0x591c9` adds the turret-facing word pair from `0x148946` for
+Medium Tank type 0x06, `0x1489a6` for Heavy Tank type 0x19, or `0x148986`
+for Light Tank type 0x1e. Open-rts uses these native tables and its current
+absolute turret facing; retail turret acquisition and timing remain separate
+approximations. `test_combat` checks all eight turret facings for all three
+tanks, including a hull direction different from turret direction. Reproduce
+with `r2 -q -e bin.cache=true -c 'pd 50 @ 0x590c9' -c 'pd 35 @ 0x5915f'
+-c 'pd 12 @ 0x64227' -c 'px 32 @ 0x1492c8' -c 'px 16 @ 0x14b283'
+-c 'px 32 @ 0x148946' -c 'px 32 @ 0x1489a6' -c 'px 32 @ 0x148986'
+-c q data/Z/ZED.EXE`.
 A zero period for timed missiles
 now means one simulation step per tic, including flights longer than 99
 tics; other missile periods keep their existing millisecond clock.
