@@ -17,6 +17,12 @@ typedef struct {
     uint32_t target, claimant;
     uint8_t slot, phase, cooldown;
 } zdetour_t;
+typedef struct {
+    ivec2_t start, direction;
+    int remaining, major, minor, error, height, range, speed;
+    int segment, segment_length, arc, sample;
+    bool vertical;
+} zgrenade_t;
 
 /* A robot sent to drive an empty vehicle or gun names it in `board`; a
  * manned one keeps its driver's weapon type + 1 in `driver`. Robots of a
@@ -31,6 +37,7 @@ typedef struct {
     int32_t rebuild_stock; uint16_t rebuild_setting; /* BUILD +0x45 / +0x49. */ \
     struct { ivec2_t origin, position, velocity; int height, rise, ticks; uint8_t kind, samples; } debris; \
     struct { ivec2_t direction; int remaining, major, minor, error, height; bool vertical; } water; \
+    zgrenade_t grenade; \
     uint32_t service; /* Stable target ID for a crane or vehicle at a repair bay. */ \
     int service_work; /* Work on a wreck, crane animation phase, or negative repair stock. */ \
     uint16_t cliff_bit; \
@@ -67,6 +74,12 @@ typedef struct {
     HASH((mo)->z.water.direction.x); HASH((mo)->z.water.direction.y); HASH((mo)->z.water.remaining); \
     HASH((mo)->z.water.major); HASH((mo)->z.water.minor); HASH((mo)->z.water.error); \
     HASH((mo)->z.water.height); HASH((mo)->z.water.vertical); \
+    HASH((mo)->z.grenade.start.x); HASH((mo)->z.grenade.start.y); \
+    HASH((mo)->z.grenade.direction.x); HASH((mo)->z.grenade.direction.y); \
+    HASH((mo)->z.grenade.remaining); HASH((mo)->z.grenade.major); HASH((mo)->z.grenade.minor); HASH((mo)->z.grenade.error); \
+    HASH((mo)->z.grenade.height); HASH((mo)->z.grenade.range); HASH((mo)->z.grenade.speed); \
+    HASH((mo)->z.grenade.segment); HASH((mo)->z.grenade.segment_length); HASH((mo)->z.grenade.arc); \
+    HASH((mo)->z.grenade.sample); HASH((mo)->z.grenade.vertical); \
     HASH((mo)->z.territory); HASH((mo)->z.hold); \
     HASH((mo)->z.gun_count); for (int z_g = 0; z_g < (mo)->z.gun_count && z_g < Z_GUN_STOCK; ++z_g) HASH((mo)->z.guns[z_g]); \
     HASH((mo)->z.cliff_block); HASH((mo)->z.cliff_bit); HASH((mo)->z.home); \

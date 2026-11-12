@@ -853,8 +853,7 @@ static int test_grenade_impact(void) {
         return fail("launch grenade");
     mobj_t *grenade = nth(MT_GRENADE, 0, 0);
     if (!grenade) return fail("find flying grenade");
-    /* 48 pixels at 3 pixels per 70 Hz native step. */
-    if (grenade->missile.duration != 7) return fail("Grunt grenade uses native strength-derived speed");
+    if (grenade->z.grenade.speed != 3) return fail("Grunt grenade uses native strength-derived speed");
     for (int i = 0; i < 80 && grenade->core.state_id == S_GRENADE; ++i)
         if (!tick(model, 1)) return fail("tick grenade flight");
     if (grenade->core.state_id != S_GRENADE_BLAST || target->hp != 500)
@@ -903,10 +902,91 @@ static int test_grenade_speed(void) {
         ivec2_t end = fixed2_cell(fixed2_scale(fixed3_xy(target->core.position), FIXED_FROM_INT(Z_TILE)));
         ivec2_t delta = ivec2_sub(end, start);
         int major = abs(delta.x) > abs(delta.y) ? abs(delta.x) : abs(delta.y);
-        int expected = (major * RTS_TICRATE + speeds[i] * Z_NATIVE_HZ - 1) / (speeds[i] * Z_NATIVE_HZ);
-        if (grenade->missile.duration != expected)
+        if (grenade->z.grenade.speed != speeds[i] || grenade->z.grenade.remaining != major)
             return fail("robot grenades use native strength-derived major-axis speed");
     }
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_grenade_terrain(void) {
+    for (int raised = 0; raised < 2; ++raised) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load grenade terrain fixture");
+        P_AiSetFeatures(rts_game_model_ai(model), 0);
+        zmap_t *map = level.native_data;
+        fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+        mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, at, 100);
+        mobj_t *target = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 80, 0), 500);
+        if (!map || !robot || !target) return fail("spawn grenade terrain fixture");
+        for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 34; ++x)
+            map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+        Z_RebuildCliffs(&level);
+        robot->traits &= ~MF_ATTACK; target->traits &= ~(MF_ATTACK | MF_MOBILE);
+        robot->z.grenades = 1;
+        if (!Z_Attack(robot, &robot->info->attack, target)) return fail("launch grenade over terrain");
+        mobj_t *grenade = nth(MT_GRENADE, 0, 0);
+        if (!grenade) return fail("find terrain grenade");
+        ivec2_t start = grenade->z.grenade.start;
+        int barrier = start.x / Z_TILE + 2;
+        for (int y = 23; y <= 27; ++y)
+            map->ground_attr[y * Z_MAP_STRIDE + barrier] = raised ? 1 : 11; /* Heights 3 and 1. */
+        Z_RebuildCliffs(&level);
+        uint32_t id = grenade->id;
+        if (!tick(model, 1) || grenade->core.state_id != S_GRENADE) return fail("grenade begins flight");
+        int remaining = grenade->z.grenade.remaining, error = grenade->z.grenade.error;
+        uint32_t hash = G_Consistency();
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+        if (!G_SaveGameBlob(&save, &size, "Grenade flight", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save grenade flight");
+        free(save);
+        grenade = P_MobjById(id);
+        if (!grenade || grenade->z.grenade.remaining != remaining || grenade->z.grenade.error != error || G_Consistency() != hash)
+            return fail("restore grenade flight state");
+        for (int i = 0; i < 80 && grenade->core.state_id == S_GRENADE; ++i)
+            if (!tick(model, 1)) return fail("tick grenade to terrain or arrival");
+        ivec2_t hit = fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)));
+        if (grenade->core.state_id != S_GRENADE_BLAST || grenade->core.position.z != 0 ||
+            (raised ? hit.x / Z_TILE != barrier : hit.x / Z_TILE <= barrier))
+            return fail("raised terrain intercepts and equal height passes");
+        rts_game_model_destroy(model);
+    }
+    RtsGameModel *model = load();
+    if (!model) return fail("load grenade arc fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, at, 100);
+    mobj_t *target = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 200, 0), 500);
+    if (!map || !robot || !target) return fail("spawn grenade arc fixture");
+    for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 40; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
+    robot->traits &= ~MF_ATTACK; target->traits &= ~(MF_ATTACK | MF_MOBILE); robot->z.grenades = 1;
+    if (!Z_Attack(robot, &robot->info->attack, target)) return fail("launch long grenade");
+    mobj_t *grenade = nth(MT_GRENADE, 0, 0);
+    if (!grenade || grenade->z.grenade.arc < 1) return fail("long grenade selects raised arc");
+    ivec2_t start = grenade->z.grenade.start;
+    bool rose = false;
+    for (int i = 0; i < 80 && grenade->core.state_id == S_GRENADE; ++i) {
+        if (!tick(model, 1)) return fail("tick long grenade");
+        rose |= grenade->core.position.z > 0;
+    }
+    ivec2_t hit = fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)));
+    if (!rose || grenade->core.state_id != S_GRENADE_BLAST ||
+        ivec2_distance_squared64(start, hit) < 120 * 120 || hit.x >= start.x + 200)
+        return fail("grenade follows raised arc and stops at weapon range");
+    mobj_t *bad = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_GRENADE);
+    if (!bad) return fail("spawn invalid grenade fixture");
+    bad->z.grenade.arc = 5;
+    A_ZGrenade(bad);
+    if (!bad->remove) return fail("invalid saved grenade arc is rejected");
+    bad = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_GRENADE);
+    if (!bad) return fail("spawn invalid grenade speed fixture");
+    bad->z.grenade = (zgrenade_t){.start = start, .direction = {1,0}, .remaining = 20,
+        .major = 20, .minor = 0, .error = 10, .range = 120, .speed = 1000000000};
+    A_ZGrenade(bad);
+    if (!bad->remove) return fail("invalid saved grenade speed is rejected");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -935,11 +1015,11 @@ static int test_grenade_launch(void) {
             ivec2_t aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){t ? 16 : 8, 8});
             if (!grenade || !ivec2_equal(start, fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)))))
                 return fail("grenade uses native facing-dependent launch point");
-            fixed2_t end = fixed2_add(fixed3_xy(grenade->core.position),
-                fixed2_scale(fixed3_xy(grenade->core.momentum), FIXED_FROM_INT(grenade->missile.duration)));
-            fixed2_t expected = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
-            if (llabs((int64_t)end.x - expected.x) > grenade->missile.duration ||
-                llabs((int64_t)end.y - expected.y) > grenade->missile.duration)
+            zgrenade_t *flight = &grenade->z.grenade;
+            ivec2_t offset = flight->vertical ? (ivec2_t){flight->minor, flight->major} :
+                                                (ivec2_t){flight->major, flight->minor};
+            ivec2_t end = {start.x + flight->direction.x * offset.x, start.y + flight->direction.y * offset.y};
+            if (!ivec2_equal(end, aim))
                 return fail("grenade aims at native tank or gun anchor");
             P_RemoveMobj(grenade);
         }
@@ -1428,7 +1508,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_launch() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

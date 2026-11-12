@@ -2,13 +2,6 @@
 #include "z_local.h"
 #include "info.h"
 
-/* A grenade's height per flight step, by the fraction of its flight left
- * (ZED.EXE scales its own table at 0x148b9c by distance). */
-static const fixed_t grenade_arc[] = {
-    0, FIXED_ONE / 48, FIXED_ONE / 32, FIXED_ONE / 26, FIXED_ONE / 24,
-    FIXED_ONE / 26, FIXED_ONE / 32, FIXED_ONE / 48, 0,
-};
-
 /* 0x7bf10 walks a repeating pattern of whole pixels a step from 0x117e5c,
  * one per speed level 0..12; on average 1/5, 1/4, 1/3, 2/5, 1/2, 2/3, 4/5,
  * 1, 4/3, 3/2, 2, 7/3 and 5/2 pixels a native 70 Hz step. Speeds here are
@@ -71,11 +64,10 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .sprite_name = "SPRITES.RSC", .traits = MF_RENDERABLE | MF_NOBLOCKMAP},
     {.id = MT_BUILDING_DEBRIS, .name = "Building debris", .max_hp = 1, .traits = MF_NOBLOCKMAP},
     {.id = MT_BUILDING_REBUILD, .name = "Building reconstruction", .max_hp = 1, .traits = MF_NOBLOCKMAP},
-    /* Grenade flight remains an approximated arc; its impact uses 0x8476c. */
+    /* Its state action advances the native grenade flight and impact. */
     {.id = MT_GRENADE, .name = "Grenade", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
-     .missile = {.step = FIXED_ONE / 6, .period_ms = RTS_TICK_MS, .timed = true,
-                 .arc = grenade_arc, .arc_count = sizeof(grenade_arc) / sizeof(*grenade_arc)}},
+     .missile = {.step = FIXED_ONE / 6, .period_ms = RTS_TICK_MS, .timed = true}},
     {.id = MT_SHELL, .name = "Shell", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_ONE, .timed = true}},

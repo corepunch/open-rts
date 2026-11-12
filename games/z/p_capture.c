@@ -406,7 +406,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
-    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER) return;
+    if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_GRENADE) return;
     Z_RouteTick(mo);
     Z_SquadTick(mo);
     terrain_speed(mo);
@@ -627,15 +627,31 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
             int type = Z_UnitType(attacker);
             int speed = type >= 0 && (size_t)type < sizeof(speeds) ? speeds[type] : 0;
             if (!speed) speed = 1;
-            fixed2_t delta = fixed2_sub(destination, source);
-            int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
-            int64_t dy = delta.y < 0 ? -(int64_t)delta.y : delta.y;
-            int64_t step = (int64_t)speed * FIXED_ONE * Z_NATIVE_HZ / (Z_TILE * RTS_TICRATE);
-            int64_t major = dx > dy ? dx : dy;
-            int duration = (int)((major + step - 1) / step);
-            if (duration < 1) duration = 1;
-            grenade->missile.duration = duration;
-            grenade->core.momentum = fixed3_from_fixed2((fixed2_t){delta.x / duration, delta.y / duration}, 0);
+            ivec2_t aim = fixed2_cell(fixed2_scale(destination, FIXED_FROM_INT(Z_TILE)));
+            ivec2_t pixels = ivec2_sub(aim, start);
+            int x = abs(pixels.x), y = abs(pixels.y);
+            zgrenade_t *flight = &grenade->z.grenade;
+            flight->start = start;
+            flight->direction = (ivec2_t){(pixels.x > 0) - (pixels.x < 0), (pixels.y > 0) - (pixels.y < 0)};
+            flight->vertical = y > x;
+            flight->remaining = flight->major = y > x ? y : x;
+            flight->minor = y > x ? x : y;
+            flight->error = flight->major / 2;
+            flight->speed = speed;
+            flight->range = (int)((int64_t)attacker->info->attack.range * Z_TILE / FIXED_ONE);
+            const zmap_t *map = level.native_data;
+            ivec2_t origin = Z_AITopLeft(attacker);
+            flight->height = map && origin.x >= 0 && origin.y >= 0 ?
+                Z_TerrainHeight(map, origin.x / Z_TILE, origin.y / Z_TILE) + 1 : 0;
+            int ax = (start.x - aim.x) >> 7, ay = (start.y - aim.y) >> 7;
+            int index = ax * ax + ay * ay;
+            if (index > 1023) index = 1023;
+            int root = map && map->square_roots.bytes ? map->square_roots.bytes[index] : 1;
+            flight->arc = root > 5 ? 4 : root > 0 ? root - 1 : 0;
+            flight->segment = flight->segment_length = flight->major / (2 * flight->arc + 1);
+            grenade->traits &= ~MF_MISSILE;
+            grenade->traits |= MF_NOBLOCKMAP;
+            grenade->core.momentum = fixed3_zero();
             grenade->attack.target = target;
             attacker->z.grenades--;
             return true;
@@ -754,6 +770,61 @@ static void blast_object(ivec2_t impact, int damage) {
         P_SpawnMobj(fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE), 0), MT_BOX_BLAST);
         return;
     }
+}
+
+/* 0x5a4c8, 0x59440 and 0x594a8: travel, range and arc-height terrain. */
+void A_ZGrenade(mobj_t *grenade) {
+    static const uint8_t arcs[5][9] = {
+        {16}, {16,12,16}, {16,12,8,12,16},
+        {16,12,8,4,8,12,16}, {16,12,8,4,0,4,8,12,16}
+    };
+    zgrenade_t *flight = &grenade->z.grenade;
+    const zmap_t *map = level.native_data;
+    if (flight->arc < 0 || flight->arc >= 5 || flight->sample < 0 || flight->sample > 2 * flight->arc ||
+        flight->speed <= 0 || flight->speed > 255 || flight->major <= 0 || flight->major > 65535 ||
+        flight->minor < 0 || flight->minor > flight->major || flight->error < 0 || flight->error > flight->major ||
+        flight->remaining <= 0 || flight->remaining > flight->major || flight->range <= 0 || flight->range > 2040 ||
+        flight->segment < -255 || flight->segment > 65535 || flight->segment_length < 0 || flight->segment_length > 65535 ||
+        flight->start.x < 0 || flight->start.x > 65535 || flight->start.y < 0 || flight->start.y > 65535 ||
+        flight->direction.x < -1 || flight->direction.x > 1 || flight->direction.y < -1 || flight->direction.y > 1) {
+        P_RemoveMobj(grenade);
+        return;
+    }
+    for (int steps = Z_NativeSteps(leveltime, Z_NATIVE_HZ); steps-- > 0;) {
+        ivec2_t at = fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)));
+        int moved = 0;
+        for (; moved < flight->speed && flight->remaining > 0; ++moved) {
+            flight->error -= flight->minor;
+            if (flight->vertical) at.y += flight->direction.y;
+            else at.x += flight->direction.x;
+            if (flight->error < 0) {
+                flight->error += flight->major;
+                if (flight->vertical) at.x += flight->direction.x;
+                else at.y += flight->direction.y;
+            }
+            --flight->remaining;
+        }
+        ++grenade->missile.age;
+        flight->segment -= moved;
+        grenade->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE), 0);
+        if (!flight->remaining || ivec2_distance_squared64(at, flight->start) >= (int64_t)flight->range * flight->range) {
+            P_ExplodeMissile(grenade);
+            return;
+        }
+        if (flight->segment < 0) {
+            flight->segment = flight->segment_length;
+            if (flight->sample < 2 * flight->arc) ++flight->sample;
+        }
+        int height = 16 - arcs[flight->arc][flight->sample];
+        grenade->core.position.z = (fixed_t)((int64_t)height * FIXED_ONE / Z_TILE);
+        if (!map || at.x < 0 || at.y < 0 ||
+            Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > flight->height + height / 2) {
+            grenade->core.position.z = 0;
+            P_ExplodeMissile(grenade);
+            return;
+        }
+    }
+    grenade->core.frame = Z_GRENADE_SPRITE + (grenade->missile.age & 3);
 }
 
 /* 0x5a4c8 and 0x59b63: advance each native update with an accelerating

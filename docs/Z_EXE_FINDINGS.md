@@ -3301,10 +3301,14 @@ from its stored launch point reaches the square of projectile +0x29 times
 eight; `0x5a419` initializes +0x29 from robot +0x71, which `0x50df7..0x50dff`
 initializes from weapon record u16 +2 shifted right three. The existing
 authored attack range represents this same value. `0x5a4c8` steps the major axis by projectile
-speed. Exact native stepping, arc, terrain interaction,
-target/scatter dispatch and strength mutation remain unmodeled. `test_combat`
-checks all six authored speeds, diagonal duration and actual grenade
-flight. Inspect with `r2 -q -e bin.cache=true -c 'pd 55
+speed. Open-rts now uses an ordinary grenade mobj with native 70 Hz integer
+major-axis stepping, the five sampled arcs, range and terrain checks in this
+order; its saved/hashed flight state requires Z save layout 16. Target and
+scatter dispatch and strength mutation remain approximate, as do launch-update
+phase and other projectile/unit interactions. Grenade sprite phase is per
+projectile; native `0x59554..0x59559` instead uses global animation counter
+`0x103d07`. `test_combat` checks all six speeds, actual flight, sampled arc,
+range and terrain boundaries, saved flight and invalid saved arc. Inspect with `r2 -q -e bin.cache=true -c 'pd 55
 @ 0x63650' -c 'pd 55 @ 0x5a2b1' -c 'pd 45 @ 0x594a8' -c 'pd 30 @ 0x5a4c8'
 -c 'pd 15 @ 0x6fb62' -c 'pd 10 @ 0x70bf5' -c 'pd 35 @ 0x5108c'
 -c 'pd 15 @ 0x7a660' -c 'pd 60 @ 0x64250' -c 'px 32 @ 0x148b9c' -c q data/Z/ZED.EXE`.
