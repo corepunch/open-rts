@@ -696,6 +696,22 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     if ((special & 8) && (state & 8)) sc_initial_hallucination(mo);
 }
 
+/* Keep the native collision box inside the map, matching OpenBW's
+ * restrict_unit_pos_to_bounds before its building-specific placement snap. */
+static ivec2_t create_unit_position(ivec2_t pixel, unsigned unit) {
+    irect_t bounds = sc_units[unit].bounds;
+    int left = pixel.x + bounds.x;
+    int right = left + bounds.w;
+    int top = pixel.y + bounds.y;
+    int bottom = top + bounds.h;
+    int map_width = level.width * 32, map_height = level.height * 32;
+    if (left < 0) pixel.x -= left;
+    else if (right >= map_width) pixel.x -= right - map_width;
+    if (top < 0) pixel.y -= top;
+    else if (bottom >= map_height) pixel.y -= bottom - map_height;
+    return pixel;
+}
+
 static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     unsigned player = read_u32_le(a + 16), loc = read_u32_le(a);
     unsigned unit = read_u16_le(a + 24), number = read_u32_le(a + 20);
@@ -709,8 +725,7 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     for (int i = 0; i < n; i++) for (int c = 0; c < count; c++) {
         int col = c % 8, row = c / 8;
         ivec2_t pixel = {(l + r) / 2 + col * 32, (t + b) / 2 + row * 32};
-        if (pixel.x < 0) pixel.x = 0;
-        if (pixel.y < 0) pixel.y = 0;
+        pixel = create_unit_position(pixel, unit);
         if (sc_units[unit].flags & SC_UNIT_BUILDING) {
             isize2_t foot = actor_types[unit].footprint;
             ivec2_t cell = {

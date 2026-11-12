@@ -2582,6 +2582,10 @@ footprints. The shared placement check covers modeled footprint, terrain,
 occupancy, creep, psi, and build-on-type rules, but does not reproduce OpenBW's
 owner visibility or all special refinery/resource-depot rules. Trigger
 creation still does not charge resources or run construction side effects.
+Before the building-specific path, OpenBW clamps every created unit's collision
+box to map bounds with `restrict_unit_pos_to_bounds` (698–704, 18073–18079).
+Open-rts uses the existing units.dat-derived collision bounds for that clamp;
+`test_mission` checks mobile creation at both map corners.
 The owner is passed into the placement rule: OpenBW's psionic-matrix check
 filters Pylons by that owner (2340–2345, 2378–2380). The trigger path now
 checks the selected recipient's psi rather than accepting any player's Pylon;

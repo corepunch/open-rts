@@ -1438,6 +1438,35 @@ int main(void) {
     P_FreeMobjList(&created_buildings);
     free(trig); unload(); remove("/tmp/open-rts-sc-create-snap.chk");
 
+    /* Trigger-created mobile units keep their native collision box in-map. */
+    for (int far_edge = 0; far_edge < 2; far_edge++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; memset(trig + 2372, 0, 28); trig[2372] = 1;
+        action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, MT_MARINE - 1);
+        action[26] = far_edge ? 11 : 44; action[27] = 1;
+        const char *path = far_edge ? "/tmp/open-rts-sc-create-edge-max.chk" :
+                                      "/tmp/open-rts-sc-create-edge-min.chk";
+        CHECK(!write_map(path, create_owners, trig));
+        CHECK(G_DoLoadLevel(path, &level));
+        sc_mission_t *edge_mission = level.mission;
+        edge_mission->loc_count = 64;
+        int edge = far_edge ? level.width * 32 : 0;
+        edge_mission->loc_left[63] = edge_mission->loc_right[63] = edge;
+        edge_mission->loc_top[63] = edge_mission->loc_bottom[63] = edge;
+        ticks(1, &(hudtext_t){0});
+        mobj_t *marine = NULL;
+        mobjlist_t edge_units = P_ListMobjs();
+        for (int i = 0; i < edge_units.count; i++)
+            if (edge_units.items[i]->type_id == MT_MARINE) marine = edge_units.items[i];
+        CHECK(marine);
+        /* DAT Marine extents are left/top/right/bottom = 8/9/8/10 pixels. */
+        CHECK((marine->core.position.x >> 11) == (far_edge ? 1015 : 8) &&
+              (marine->core.position.y >> 11) == (far_edge ? 1013 : 9));
+        P_FreeMobjList(&edge_units);
+        free(trig); unload(); remove(path);
+    }
+
     /* Trigger-created buildings reject blocked and creep-less footprints. */
     for (int zerg = 0; zerg < 2; zerg++) {
         trig = blank_trigger(); CHECK(trig);
