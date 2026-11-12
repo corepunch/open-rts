@@ -1394,6 +1394,29 @@ int main(void) {
         }
         free(trig); unload();
     }
+    /* Action 46 uses the edited MRGN record for Anywhere (location 64). */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 64);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 46;
+    CHECK(!write_map("/tmp/open-rts-sc-order-anywhere.chk", owners, trig));
+    FILE *anywhere_file = fopen("/tmp/open-rts-sc-order-anywhere.chk", "ab"); CHECK(anywhere_file);
+    uint8_t location_header[8] = {'M','R','G','N'}, locations[64 * 20] = {0};
+    put_u32(location_header + 4, sizeof(locations));
+    put_u32(locations + 63 * 20, 320); put_u32(locations + 63 * 20 + 4, 320);
+    put_u32(locations + 63 * 20 + 8, 448); put_u32(locations + 63 * 20 + 12, 448);
+    CHECK(fwrite(location_header, 1, sizeof(location_header), anywhere_file) == sizeof(location_header));
+    CHECK(fwrite(locations, 1, sizeof(locations), anywhere_file) == sizeof(locations));
+    CHECK(!fclose(anywhere_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-anywhere.chk", &level));
+    mobj_t *inside_anywhere = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){352, 352}, 0);
+    mobj_t *outside_anywhere = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){512, 352}, 0);
+    CHECK(inside_anywhere && outside_anywhere);
+    ticks(1, &(hudtext_t){0});
+    CHECK(P_HasMoveOrder(inside_anywhere) && !P_HasMoveOrder(outside_anywhere));
+    CHECK(inside_anywhere->movement.goal.x == FIXED_LIT(12) &&
+          inside_anywhere->movement.goal.y == FIXED_LIT(12));
+    free(trig); unload(); remove("/tmp/open-rts-sc-order-anywhere.chk");
+
     trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
     put_u32(action, 64); put_u32(action + 20, 64); put_u16(action + 24, MT_ZERGLING - 1);
     action[26] = 46;

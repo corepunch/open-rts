@@ -349,6 +349,20 @@ static fixed2_t loc_center(const sc_mission_t *m, unsigned id) {
     return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
 }
 
+/* Order actions use a modified Anywhere record like any other location. */
+static bool order_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, int *b) {
+    if (id != 64 || m->loc_count < 64) return loc_box(m, id, l, t, r, b);
+    *l = m->loc_left[63]; *t = m->loc_top[63];
+    *r = m->loc_right[63]; *b = m->loc_bottom[63];
+    return true;
+}
+
+static fixed2_t order_loc_center(const sc_mission_t *m, unsigned id) {
+    int l, t, r, b;
+    if (!order_loc_box(m, id, &l, &t, &r, &b)) return loc_center(m, id);
+    return (fixed2_t){(l + r) * (FIXED_ONE / 64), (t + b) * (FIXED_ONE / 64)};
+}
+
 static void look_at(sc_mission_t *m, unsigned id) {
     m->view = fvec2_from_fixed2(loc_center(m, id));
     m->view_pending = true;
@@ -522,9 +536,9 @@ static void move_units(const sc_mission_t *m, const int *players, int nplayers,
 static void order_units(const sc_mission_t *m, const int *players, int nplayers,
                         unsigned unit, unsigned loc, unsigned destloc, unsigned order) {
     int l, t, r, b, dl, dt, dr, db;
-    if (order > 2 || !loc_box(m, loc, &l, &t, &r, &b) ||
-        !loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
-    fixed2_t dest = loc_center(m, destloc);
+    if (order > 2 || !order_loc_box(m, loc, &l, &t, &r, &b) ||
+        !order_loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
+    fixed2_t dest = order_loc_center(m, destloc);
     ticcmd_t cmd = {.order = order == 0 ? TC_MOVE : order == 1 ? TC_PATH : TC_ATTACK,
                     .position = fixed3_from_fixed2(dest, 0), .count = 1};
     if (order == 1) cmd.path = (waypoints_t){.count = 1, .mode = WP_BACKTRACK,

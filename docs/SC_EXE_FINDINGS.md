@@ -2440,6 +2440,9 @@ uses the engine's tile waypoint representation. Run `env
 SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission` for all three
 order modes, unit selection and the Comment regression.
 The trigger patrol test runs through the destination and back to its starting
-cell. Shared `loc_box` currently treats IDs 0 and 64 as the whole map; OpenBW
-uses the actual location record, so a modified Anywhere location is not yet
-reproduced for this action (or other users of that helper).
+cell. Action 46 uses the stored MRGN bounds for location 64 (modified Anywhere)
+when that record exists; the general `loc_box` helper retains its whole-map
+handling of IDs 0 and 64 for its other callers. The order path also applies
+location elevation exclusions and unburrows selected burrowed units. Patrol
+still uses the engine's tile waypoint representation; other special-unit
+exclusions and exact retail order behavior remain unverified.
