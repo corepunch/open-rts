@@ -136,6 +136,7 @@ int Z_GroupRobot(const zmap_t *map, int group, int member);
 int Z_GroupFormation(const zmap_t *map, int group);
 uint8_t Z_AllocateSquad(int team);
 void Z_SquadCooldownTick(void);
+void A_ZBoxBlast(mobj_t *effect);
 bool Z_IsRobot(int t);
 /* Size of a SPRITES.RSC picture; false for a bad index or file. */
 bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);

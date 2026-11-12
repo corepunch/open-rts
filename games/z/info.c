@@ -95,6 +95,8 @@ const state_t states[NUMSTATES] = {
     [S_GRENADE_SMOKE] = { SPR_RSC, Z_BLAST_SPRITE + 1, Z_BLAST_FRAMES - 1, 2, NULL, S_NULL, 4, NULL },
     [S_SHELL] = { SPR_RSC, 1634, 1, -1, NULL, S_SHELL, 0, NULL },
     [S_SHELL_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZShellBlast, S_GRENADE_SMOKE, 4, NULL },
+    [S_BOX_WAIT] = { SPR_RSC, Z_BLAST_SPRITE, 1, 3, NULL, S_BOX_BLAST, 4, NULL },
+    [S_BOX_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZBoxBlast, S_GRENADE_SMOKE, 4, NULL },
     [S_PYRO_FLAME] = { SPR_PYRO, Z_ROBOT_PYRO + 2, 1, 1, A_PyroFlame, S_PYRO_RECOVER, 3, NULL },
     [S_PYRO_RECOVER] = { SPR_PYRO, Z_ROBOT_PYRO, 1, 1, A_PyroRecover, S_PYRO_STND, 3, NULL },
 };
@@ -141,6 +143,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
                      .flags = MF_RENDERABLE | MF_MISSILE },
     [MT_SHELL] = { .doomednum = -1, .spawnstate = S_SHELL, .deathstate = S_SHELL_BLAST,
                    .xdeathstate = S_SHELL_BLAST, .flags = MF_RENDERABLE | MF_MISSILE },
+    [MT_BOX_BLAST] = { .doomednum = -1, .spawnstate = S_BOX_WAIT, .spawnhealth = 1,
+                       .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
 };
 
 const gameinfo_t game_info = {

@@ -3264,6 +3264,35 @@ trigger. Inspect with `r2 -q -e bin.cache=true -c 'pd 48 @ 0x8563a' -c
 'pd 24 @ 0x84c38' -c 'pd 48 @ 0x85ce4' -c 'pd 25 @ 0x8523f' -c q
 data/Z/ZED.EXE`.
 
+**Map-loaded box trigger:** the OBJECT loader `0x18427..0x18443` passes
+the ten-byte map record's type +4 and weapon index +5 into `0x4a184`.
+That calls `0x4a28a`: index `0xff` initializes effect +0x0f to zero;
+otherwise it copies the selected 42-byte ROBOTS.DAT weapon record +5.
+Grenade box descriptors 9/10 have flag 0x31, and `0x4a1e4..0x4a1ed` sets
+effect +0x0d bit 0x40 for descriptor bit 0x10, making them eligible for the
+ordinary `0x2853d` shell probe. For example `OBJECT01.DAT` has both `0xff`
+and 13 in box record +5; shipped weapon 13 has +5 = 2. At `0x85347` a
+positive shell hit therefore destroys a zero-health box immediately, while
+a 2-health box survives one point and explodes at zero or below. Boxes are
+removed by the outer effect destruction after the nested blast is scheduled;
+the separate collection path does not invoke this destruction handler.
+Open-rts retains the per-crate effect health and OBJECT slot, using authored
+C values for weapon +5. A shell probes crates in native point order, applies
+damage to the first matching crate, and on destruction creates an ordinary
+saved mobj for the delayed teamless unit blast. It applies the nested building
+hit and saves the terrain change at the box origin; pickup removes a box
+without exploding it. The engine approximates frame-3 delay with three 30 Hz
+tics, and does not reproduce native explosion-pool exhaustion. Other eligible
+non-crate effect records can preempt a crate in the native lookup; those
+records and their destruction are unmodeled here, so a crate may be hit when
+retail would first select another effect. Shell interception, remaining terrain
+effects and complete native ordering are likewise unmodeled. `test_combat`
+checks damage, non-chaining, delayed all-team damage and save/load; `test_capture`
+checks pickup without an explosion.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 25 @ 0x18418' -c 'pd 35 @
+0x4a184' -c 'pd 35 @ 0x4a28a' -c 'pd 15 @ 0x85338' -c q data/Z/ZED.EXE`,
+and `xxd -g1 -c10 data/Z/LEVEL01/OBJECT01.DAT`.
+
 Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
 'pd 20 @ 0x84c38' -c 'pd 25 @ 0x85ce4' -c 'pd 30 @ 0x64384' -c q
 data/Z/ZED.EXE`, and run `make build/bin/tests/z/test_combat

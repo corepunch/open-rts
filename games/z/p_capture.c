@@ -532,12 +532,8 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
 }
 
 /* Shells use the native candidate box at the snapshotted impact point. */
-void A_ZShellBlast(mobj_t *missile) {
-    ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
-    mobj_t *target = missile->attack.target;
-    bool primary_hit = false;
+static void blast_building(ivec2_t point, mobj_t *source, int damage) {
     mobj_t *building_hit = NULL;
-    ivec2_t point = ivec2_add(impact, (ivec2_t){4, -8});
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *building = (mobj_t *)th;
         if (th->function != P_MobjThinker || !live(building) || building->type_id <= MT_FORT ||
@@ -548,7 +544,62 @@ void A_ZShellBlast(mobj_t *missile) {
             d.y > building->info->footprint.h * Z_TILE) continue;
         if (!building_hit || building->z.building < building_hit->z.building) building_hit = building;
     }
-    if (building_hit) P_DamageMobj(building_hit, missile->target, missile->missile.damage);
+    if (building_hit) P_DamageMobj(building_hit, source, damage);
+}
+
+void A_ZBoxBlast(mobj_t *effect) {
+    ivec2_t origin = fixed2_cell(fixed2_scale(fixed3_xy(effect->core.position), FIXED_FROM_INT(Z_TILE)));
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *victim = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(victim) || victim->team >= Z_NEUTRAL || Z_UnitType(victim) < 0) continue;
+        ivec2_t d = ivec2_sub(Z_BlastAnchor(victim), origin);
+        if (d.x >= -22 && d.x <= 22 && d.y >= -6 && d.y <= 26) P_DamageMobj(victim, NULL, 127);
+    }
+}
+
+static void blast_box(ivec2_t impact, int damage) {
+    static const ivec2_t probes[] = {{-8,-8}, {8,-8}, {-8,8}, {8,8}};
+    const zmap_t *map = level.native_data;
+    if (!map || damage <= 0) return;
+    for (int i = 0; i < 4; ++i) {
+        ivec2_t point = ivec2_add(impact, probes[i]);
+        mobj_t *found = NULL;
+        ivec2_t origin = {0};
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *box = (mobj_t *)th;
+            if (th->function != P_MobjThinker || !crate(box)) continue;
+            isize2_t size;
+            if (!Z_SpriteSize(map, states[mobjinfo[box->type_id].spawnstate].frame, &size)) continue;
+            ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
+            ivec2_t at = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+            ivec2_t d = ivec2_sub(point, at);
+            if (d.x < 0 || d.y < 0 || d.x > 16 || d.y > 16) continue;
+            if (!found || (box->z.object_slot && (!found->z.object_slot || box->z.object_slot < found->z.object_slot))) {
+                found = box; origin = at;
+            }
+        }
+        if (!found) continue;
+        if (damage < found->z.object_hp) { found->z.object_hp -= damage; return; }
+        P_RemoveMobj(found);
+        blast_building(origin, NULL, 127);
+        zmap_t *mutable_map = level.native_data;
+        ivec2_t cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+        if (origin.x >= 0 && origin.y >= 0 && L_Contains(&level, cell.x, cell.y)) {
+            int index = cell.y * Z_MAP_STRIDE + cell.x;
+            mutable_map->ground_attr[index] = (mutable_map->ground_attr[index] & 0x80) | 0x16;
+            Z_RebuildCliffs(&level);
+        }
+        P_SpawnMobj(fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE), 0), MT_BOX_BLAST);
+        return;
+    }
+}
+
+void A_ZShellBlast(mobj_t *missile) {
+    ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    mobj_t *target = missile->attack.target;
+    bool primary_hit = false;
+    blast_box(impact, missile->missile.damage);
+    blast_building(ivec2_add(impact, (ivec2_t){4, -8}), missile->target, missile->missile.damage);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
         if (th->function != P_MobjThinker || !live(victim) || victim == missile->target ||
@@ -560,7 +611,7 @@ void A_ZShellBlast(mobj_t *missile) {
         }
     }
     /* Terrain has a separate native path. */
-    if (!primary_hit && live(target) && !structure(target) && target != missile->target && target->team != missile->team) {
+    if (!primary_hit && live(target) && !structure(target) && !crate(target) && target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
             P_DamageMobj(target, missile->target, missile->missile.damage);

@@ -167,6 +167,7 @@ static int test_grenades(void) {
     place(grunt, fixed2_cell(fixed3_xy(crate->core.position)));
     if (!tick(model, 2)) return fail("tick");
     if (alive(crate)) return fail("the crate is picked up");
+    if (nth(MT_BOX_BLAST, -1, 0)) return fail("picking up a crate does not trigger its explosion");
     int held = 0, members = 0;
     for (int i = 0; nth(MT_UNIT_GRUNT, 0, i); ++i) {
         const mobj_t *mo = nth(MT_UNIT_GRUNT, 0, i);

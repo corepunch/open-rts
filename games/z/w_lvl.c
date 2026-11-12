@@ -642,6 +642,10 @@ int Z_LoadThings(void) {
         W_FreeFile(&blob);
     }
 
+    /* ROBOTS.DAT weapon +5 for the 19 shipped weapon records (0x4a2ad). */
+    static const uint8_t object_weapon_health[Z_UNIT_TYPES] = {
+        4, 8, 0, 0, 0, 12, 12, 0, 4, 4, 8, 2, 3, 2, 8, 12, 3, 0, 0
+    };
     /* OBJECTnn.DAT: 150 records of 10 bytes, x, y and the object type. */
     if (read_level_file(map, map->objects, &blob)) {
         for (size_t at = 0; at + 10 <= blob.size; at += 10) {
@@ -664,7 +668,14 @@ int Z_LoadThings(void) {
                 }
                 continue;
             }
-            if (spawn(type, mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL)) count++;
+            mobj_t *mo = spawn(type, mobjinfo[type].spawnstate, pixel, size, Z_NEUTRAL);
+            if (mo) {
+                if (type == MT_GRENADES || type == MT_GRENADES_2) {
+                    mo->z.object_slot = (uint8_t)(at / 10 + 1);
+                    if (r[5] < Z_UNIT_TYPES) mo->z.object_hp = object_weapon_health[r[5]];
+                }
+                count++;
+            }
         }
         W_FreeFile(&blob);
     }

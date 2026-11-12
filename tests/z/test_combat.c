@@ -622,6 +622,59 @@ static int test_shell_building_contact(void) {
     return 0;
 }
 
+static int test_shell_grenade_box(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for shell grenade box");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    disarm_except(0, NULL);
+    fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
+    mobj_t *gun = blast_unit(MT_UNIT_LIGHT_TANK, 0, pixel_at(at, -80, 0), 500);
+    mobj_t *box = blast_unit(MT_GRENADES, Z_NEUTRAL, at, 100);
+    mobj_t *second = blast_unit(MT_GRENADES_2, Z_NEUTRAL, pixel_at(at, 16, 0), 100);
+    if (!gun || !box || !second) return fail("spawn grenade box fixture");
+    isize2_t size;
+    if (!Z_SpriteSize(level.native_data, states[mobjinfo[MT_GRENADES].spawnstate].frame, &size)) return fail("box sprite size");
+    ivec2_t centre = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+    ivec2_t origin = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+    fixed2_t blast_origin = fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE);
+    mobj_t *ally = blast_unit(MT_UNIT_GRUNT, 0, blast_origin, 500);
+    mobj_t *enemy = blast_unit(MT_UNIT_GRUNT, 1, blast_origin, 500);
+    mobj_t *outside = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(blast_origin, 80, 0), 500);
+    if (!ally || !enemy || !outside || !Z_Attack(gun, &gun->info->attack, enemy)) return fail("launch box test shell");
+    ally->traits &= ~MF_ATTACK; enemy->traits &= ~MF_ATTACK; outside->traits &= ~MF_ATTACK;
+    mobj_t *shell = nth(MT_SHELL, 0, 0);
+    if (!shell) return fail("find box shell");
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){8,8})), FIXED_ONE / Z_TILE);
+    shell->missile.damage = 1;
+    box->z.object_hp = 2; box->z.object_slot = 1; second->z.object_slot = 2;
+    A_ZShellBlast(shell);
+    if (box->remove || box->z.object_hp != 1) return fail("box survives first damage point");
+    P_ExplodeMissile(shell);
+    if (!box->remove || second->remove || !nth(MT_BOX_BLAST, -1, 0)) return fail("box schedules one non-chaining blast");
+    P_RemoveMobj(shell);
+    uint32_t ally_id = ally->id, enemy_id = enemy->id, outside_id = outside->id, second_id = second->id;
+    ivec2_t cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+    int terrain_index = cell.y * Z_MAP_STRIDE + cell.x;
+    if ((((zmap_t *)level.native_data)->ground_attr[terrain_index] & 0x7f) != 0x16)
+        return fail("box blast changes saved ground attribute");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    bool saved = G_SaveGameBlob(&save, &bytes, "Box explosion", &app, rts_game_model_ai(model), &hud);
+    bool loaded = saved && G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud);
+    if (!loaded) return fail("save delayed box blast");
+    free(save);
+    ally = P_MobjById(ally_id); enemy = P_MobjById(enemy_id); outside = P_MobjById(outside_id);
+    second = P_MobjById(second_id);
+    if (!ally || !enemy || !outside || !second ||
+        (((zmap_t *)level.native_data)->terrain[terrain_index] & 0x7f) != 0x16)
+        return fail("restore delayed box targets and terrain");
+    int ally_hp = ally->hp, enemy_hp = enemy->hp, outside_hp = outside->hp;
+    bool advanced = tick(model, 4);
+    if (!advanced || ally->hp != ally_hp - 127 || enemy->hp != enemy_hp - 127 || outside->hp != outside_hp || second->remove)
+        return fail("delayed box blast hits both teams and excludes outside units");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_flight(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell flight");
@@ -896,7 +949,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
