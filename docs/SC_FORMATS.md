@@ -21,6 +21,13 @@ former implementation read offset 20 and always created at least one unit.
 `test_mission` covers zero and three. Placement remains an engine approximation,
 and Create Unit with Properties (action 11) has not been independently traced.
 
+OpenBW action 24 walks the selected players' complete unit lists and does not
+exclude hallucinations. Remove Unit now traverses the thinker list directly,
+including hallucinations and units beyond the former 256-entry temporary
+buffer. `test_mission` covers 260 units. OpenBW hides and kills those units;
+open-rts still uses its existing deferred removal, so secondary death effects
+and statistics are not established as equivalent.
+
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
 on 2026-10-08. It is an implementation reference, not a complete StarCraft

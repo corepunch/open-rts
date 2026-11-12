@@ -188,6 +188,22 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-create.chk");
 
+    /* Remove Unit includes hallucinations and has no 256-unit truncation. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 24;
+    CHECK(!write_map("/tmp/open-rts-sc-remove.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove.chk", &level));
+    mobj_t *removed = NULL;
+    for (int i = 0; i < 260; i++) { removed = spawn(MT_MARINE - 1, 0); CHECK(removed); }
+    removed->sc.flags |= SC_HALLUCINATION;
+    ticks(1, &(hudtext_t){0});
+    CHECK(removed->remove);
+    mobjlist_t remaining = P_ListMobjs();
+    for (int i = 0; i < remaining.count; i++) CHECK(remaining.items[i]->type_id != MT_MARINE);
+    P_FreeMobjList(&remaining);
+    free(trig); unload(); remove("/tmp/open-rts-sc-remove.chk");
+
     trig = blank_trigger();
     CHECK(trig);
     trig[15] = 22;

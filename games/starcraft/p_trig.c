@@ -606,9 +606,20 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             modify_vitals(m, players, n, unit, loc, a[27], read_u32_le(a + 8), id);
             continue;
         }
-        if (id == 22 || id == 23 || id == 24 || id == 25 || id == 39 || id == 43 ||
+        if (id == 24 && thinkercap.next) {
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit)) continue;
+                for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
+                    P_RemoveMobj(mo);
+                    break;
+                }
+            }
+            continue;
+        }
+        if (id == 22 || id == 23 || id == 25 || id == 39 || id == 43 ||
             id == 48 || id == 49) {
-            unsigned where = (id == 22 || id == 24 || id == 43) ? (id == 43 ? loc : 64) : loc;
+            unsigned where = (id == 22 || id == 43) ? (id == 43 ? loc : 64) : loc;
             int limit = (id == 23 || id == 25 || id == 39 || id == 48 || id == 49) ? a[27] : 0;
             mobj_t *found[256];
             int count = gather(m, players, n, unit, where, limit, found, 256);
@@ -616,7 +627,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             for (int i = 0; i < count; i++) {
                 mobj_t *mo = found[i];
                 if (id == 22 || id == 23) P_DamageMobj(mo, NULL, mo->hp > 0 ? mo->hp : 1);
-                else if (id == 24 || id == 25) P_RemoveMobj(mo);
+                else if (id == 25) P_RemoveMobj(mo);
                 else if (id == 39) {
                     P_MoveUnitTo(&level, mo, dest);
                 } else if (id == 43) {
