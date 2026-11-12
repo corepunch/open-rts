@@ -86,8 +86,11 @@ with an outside unit unchanged.
 PyMS defines Modify Unit Hit Points (action 49) with a quantity that may be
 All and a percentage in 0–100. It now shares the complete traversal used by
 energy and shield modification instead of truncating All at 256 units; the
-mission regression checks 260. The existing exclusion of hallucinations and
-center-based location matching remain unverified approximations.
+mission regression checks 260. Correction: eudplib `stockact.py` encodes the
+percentage for actions 49–51 at +20, not +8 as previously implemented and
+tested. Fixtures now use conflicting values in those two fields to verify the
+correct field. The existing exclusion of hallucinations and center-based
+location matching remain unverified approximations.
 PyMS `action_destplayer` allows Current Player (13) as a Give Units destination.
 Action 48 resolves it to the trigger owner. Pinned OpenBW `trigger_give_unit_to`
 rejects direct resource, hallucination, fighter and add-on targets and transfers

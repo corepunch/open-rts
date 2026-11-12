@@ -1989,7 +1989,14 @@ This is a flame-specific movement reaction and does not establish that the
 previously traced generic missile reaction action 0x2b displaces units.
 One test in this routine reads `[ebp+0x67]` while EBP refers to the 44-byte
 projectile record; its intended meaning and effects of that out-of-record
-read need runtime verification before reproducing the radius formula.
+read need runtime verification before reproducing the radius formula. Given
+the 44-byte stride, for projectile slots 0..47 that address is byte +0x0f
+of the slot two positions later; for slots 48 and 49 it is beyond the
+50-record array. It is not the candidate unit's +0x67. Another apparent
+register anomaly at `0x599f0` adds the second random value to AX while the
+following sign test and y-coordinate arithmetic use BX. A literal port
+would preserve those reads and register effects; treating them as intended
+unit flags or symmetric scatter would be an unsupported correction.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 12 @ 0x595d5' -c 'pd 105 @
 0x59894' -c 'pd 45 @ 0x7ba9a' -c q data/Z/ZED.EXE`.
 

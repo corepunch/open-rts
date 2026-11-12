@@ -2370,12 +2370,20 @@ Reproduce with `make build/bin/tests/starcraft/test_combat` and run
 
 ### Trigger energy and shield actions (2026-11-12)
 
-**Confirmed format:** the checked-in PyMS `FileFormats/TRG.py` normal-action
+**Superseded field conclusion:** the checked-in PyMS `FileFormats/TRG.py` normal-action
 catalog assigns 50 to Modify Unit Energy and 51 to Modify Unit Shield Points.
 Both use the same player, quantity, unit, location and percentage arguments as
 Modify Unit Hit Points (49). `action_percentage` stores a value from 0 to 100
 in the third action field, at byte +8 of the 32-byte CHK action. The quantity
-is the modifier byte at +27. This is format evidence, not an executable trace.
+is the modifier byte at +27. PyMS's `action_percentage` is inconsistent: its
+compile path writes field 2 (+8), while its decompile validation reads field 5
+(+20). The earlier +8 conclusion followed the former and was wrong.
+
+**Corrected format, reference-defined:** eudplib `stockact.py` constructs
+actions 49–51 with `percent` as the sixth dword, at +20, and `action.py`
+documents the action layout. open-rts now reads +20. Mission fixtures put
+different values at +8 and +20 to verify the correction. This is tool-source
+evidence, not a retail executable trace; source links are in `REFERENCES.md`.
 
 **Inferred implementation:** these actions set the selected units' energy or
 shields to the specified percentage of their current maximum, initializing

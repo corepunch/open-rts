@@ -750,7 +750,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 49 || id == 50 || id == 51) {
-            modify_vitals(m, players, n, unit, loc, a[27], read_u32_le(a + 8), id);
+            modify_vitals(m, players, n, unit, loc, a[27], number, id);
             continue;
         }
         if (id == 43 && thinkercap.next) {

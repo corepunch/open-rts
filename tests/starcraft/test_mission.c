@@ -736,7 +736,8 @@ int main(void) {
     /* Modify all hit points is not limited to the former 256-unit buffer. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
-    put_u32(action + 8, 50); put_u16(action + 24, MT_MARINE - 1); action[26] = 49;
+    put_u32(action + 8, 25); put_u32(action + 20, 50);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 49;
     CHECK(!write_map("/tmp/open-rts-sc-hp.chk", owners, trig));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hp.chk", &level));
     mobj_t *last_hp = NULL;
@@ -760,7 +761,7 @@ int main(void) {
         trig = blank_trigger(); CHECK(trig);
         trig[15] = 22;
         action = trig + 320;
-        put_u32(action + 8, 75);
+        put_u32(action + 8, 25); put_u32(action + 20, 75);
         put_u16(action + 24, id == 50 ? MT_GHOST - 1 : MT_ZEALOT - 1);
         action[26] = (uint8_t)id;
         action[27] = 1;

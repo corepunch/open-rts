@@ -261,8 +261,9 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   [`proptable.py`](https://github.com/armoha/eudplib/blob/main/src/eudplib/core/mapdata/proptable.py),
   and [`unitprp.py`](https://github.com/armoha/eudplib/blob/main/src/eudplib/core/mapdata/unitprp.py):
   Create Unit with Properties encodes slot at +20, count at +27, and slots are
-  one-based; UPRP bit 0x10 selects the resource u32 at +8. This is tool-source
-  evidence, not a retail executable trace; see
+  one-based; UPRP bit 0x10 selects the resource u32 at +8. Modify hit points,
+  energy and shields actions 49–51 encode their percentage at action +20.
+  This is tool-source evidence, not a retail executable trace; see
   `docs/SC_FORMATS.md` for remaining unknowns.
 
 - [OpenBW pinned source](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
