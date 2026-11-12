@@ -890,7 +890,7 @@ static int test_grenade_speed(void) {
     fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
     mobj_t *target = blast_unit(MT_BRIDGE, 1, pixel_at(at, 96, 96), 500);
     const int types[] = {MT_UNIT_GRUNT, MT_UNIT_TOUGH, MT_UNIT_SNIPER, MT_UNIT_PSYCHO, MT_UNIT_PYRO, MT_UNIT_LASER};
-    const int durations[] = {14, 4, 9, 14, 7, 7};
+    const int speeds[] = {3, 12, 5, 3, 6, 6};
     if (!target) return fail("spawn grenade speed fixture");
     for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
         mobj_t *robot = blast_unit(types[i], 0, at, 100);
@@ -898,9 +898,64 @@ static int test_grenade_speed(void) {
         robot->z.grenades = 1;
         if (!Z_Attack(robot, &robot->info->attack, target)) return fail("launch grenade speed fixture");
         mobj_t *grenade = nth(MT_GRENADE, 0, (int)i);
-        if (!grenade || grenade->missile.duration != durations[i])
+        if (!grenade) return fail("find grenade speed projectile");
+        ivec2_t start = fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)));
+        ivec2_t end = fixed2_cell(fixed2_scale(fixed3_xy(target->core.position), FIXED_FROM_INT(Z_TILE)));
+        ivec2_t delta = ivec2_sub(end, start);
+        int major = abs(delta.x) > abs(delta.y) ? abs(delta.x) : abs(delta.y);
+        int expected = (major * RTS_TICRATE + speeds[i] * Z_NATIVE_HZ - 1) / (speeds[i] * Z_NATIVE_HZ);
+        if (grenade->missile.duration != expected)
             return fail("robot grenades use native strength-derived major-axis speed");
     }
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_grenade_launch(void) {
+    static const ivec2_t muzzle[] = {{5,-4},{7,-3},{12,3},{6,5},{2,6},{-2,6},{-6,2},{0,-2}};
+    const int types[] = {MT_UNIT_MED_TANK, MT_UNIT_LIGHT_GUN};
+    RtsGameModel *model = load();
+    if (!model) return fail("load grenade launch fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, at, 100);
+    if (!robot) return fail("spawn grenade thrower");
+    for (size_t t = 0; t < sizeof(types) / sizeof(*types); ++t) {
+        mobj_t *target = blast_unit(types[t], 1, pixel_at(at, 64, 32), 500);
+        if (!target) return fail("spawn grenade launch target");
+        for (int d = 0; d < 8; ++d) {
+            robot->core.angle = direction_to_angle(d, 8, ANG90, true);
+            robot->z.grenades = 1;
+            if (!Z_Attack(robot, &robot->info->attack, target)) return fail("launch grenade by facing");
+            mobj_t *grenade = NULL;
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (th->function == P_MobjThinker && mo->type_id == MT_GRENADE && !mo->remove) grenade = mo;
+            }
+            ivec2_t start = ivec2_add(Z_AITopLeft(robot), muzzle[d]);
+            ivec2_t aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){t ? 16 : 8, 8});
+            if (!grenade || !ivec2_equal(start, fixed2_cell(fixed2_scale(fixed3_xy(grenade->core.position), FIXED_FROM_INT(Z_TILE)))))
+                return fail("grenade uses native facing-dependent launch point");
+            fixed2_t end = fixed2_add(fixed3_xy(grenade->core.position),
+                fixed2_scale(fixed3_xy(grenade->core.momentum), FIXED_FROM_INT(grenade->missile.duration)));
+            fixed2_t expected = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
+            if (llabs((int64_t)end.x - expected.x) > grenade->missile.duration ||
+                llabs((int64_t)end.y - expected.y) > grenade->missile.duration)
+                return fail("grenade aims at native tank or gun anchor");
+            P_RemoveMobj(grenade);
+        }
+        P_RemoveMobj(target);
+    }
+    robot->core.angle = direction_to_angle(0, 8, ANG90, true);
+    ivec2_t start = ivec2_add(Z_AITopLeft(robot), muzzle[0]);
+    fixed2_t centre;
+    if (!Z_UnitCentre(level.native_data, MT_UNIT_LIGHT_GUN - MT_UNITS,
+                      ivec2_sub(start, (ivec2_t){16,8}), &centre))
+        return fail("place zero-length grenade target");
+    mobj_t *target = blast_unit(MT_UNIT_LIGHT_GUN, 1, centre, 500);
+    if (!target) return fail("spawn zero-length grenade target");
+    robot->z.grenades = 1;
+    if (!Z_Attack(robot, &robot->info->attack, target) || robot->z.grenades != 1)
+        return fail("zero-length grenade retains ammunition");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -1373,7 +1428,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_launch() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

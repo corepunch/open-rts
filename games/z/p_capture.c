@@ -604,15 +604,30 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
 
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (throws_at(attacker, target)) {
+        /* Facing-indexed signed pairs at 0x149174 (0x636df). */
+        static const ivec2_t muzzle[] = {{5,-4}, {7,-3}, {12,3}, {6,5}, {2,6}, {-2,6}, {-6,2}, {0,-2}};
+        int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+        ivec2_t start = ivec2_add(Z_AITopLeft(attacker), muzzle[facing]);
+        fixed2_t source = fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE);
+        fixed2_t destination = fixed3_xy(target->core.position);
+        int target_type = Z_UnitType(target);
+        if (target_type >= 0) {
+            bool gun = target_type == MT_UNIT_LIGHT_GUN - MT_UNITS || target_type == MT_UNIT_MISSILE_GUN - MT_UNITS ||
+                       target_type == MT_UNIT_GATLING - MT_UNITS || target_type == MT_UNIT_HOWITZER - MT_UNITS;
+            ivec2_t aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){gun ? 16 : 8, 8});
+            destination = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
+        }
+        if (fixed2_equal(source, destination)) return true; /* 0x5a205 rejects a zero-length throw. */
         mobj_t *grenade = P_SpawnMissile(attacker, target, MT_GRENADE);
         if (grenade) {
+            grenade->core.position = fixed3_from_fixed2(source, 0);
             /* Native strength / 8, from the first shipped robot record for
              * each grenade-capable type (0x636d4 and 0x510fd). */
             static const uint8_t speeds[] = {0, 0, 3, 12, 5, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6};
             int type = Z_UnitType(attacker);
             int speed = type >= 0 && (size_t)type < sizeof(speeds) ? speeds[type] : 0;
             if (!speed) speed = 1;
-            fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position), fixed3_xy(attacker->core.position));
+            fixed2_t delta = fixed2_sub(destination, source);
             int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
             int64_t dy = delta.y < 0 ? -(int64_t)delta.y : delta.y;
             int64_t step = (int64_t)speed * FIXED_ONE * Z_NATIVE_HZ / (Z_TILE * RTS_TICRATE);

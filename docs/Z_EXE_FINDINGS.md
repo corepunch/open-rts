@@ -3243,7 +3243,24 @@ radius from a `0x70d37` random value divided by `65535 / max(1, DI)`,
 draws a second random value masked with 0x3fe for SINCOS.DAT lookup, and
 adds signed products shifted by 10 to the target coordinates. The caller's DI
 is `(128 - adjusted unit accuracy) / 2`; exact RNG and aim branch parity are
-not established in the engine. `0x5a205` initializes the common
+not established in the engine. For a tracked unit, `0x75cc1..0x75d3a`
+reads the target unit's top-left into CX/DX, adds eight to CX when target
+class +0x79 is 2, applies `0x64250`, and writes the resulting point into
+attacker +0x42/+0x44 with +0x46 = -1. The grenade action adds (8,8) to
+that point, so its pre-scatter destination is target top-left +(16,8) for
+class-2 guns and +(8,8) otherwise. If +0x46 names an indexed target with
+high byte 0x55, the throw first refreshes those coordinates through the
+same helper; other nonnegative high bytes reject the throw. The direct
+coordinate branch instead uses +0x52/+0x54 when the low word of +0x50 is
+0x0d80. `0x7ce72..0x7ce86` and `0x7d089..0x7d09d` copy command-record
+words +0x2c/+0x2e/+0x30 into unit +0x50/+0x52/+0x54, and `0x7ce98..0x7cebe`
+distinguishes the sentinel to resolve the latter as map coordinates. The
+exact command producers and complete automatic targeting sequence remain
+unresolved. Open-rts uses these pre-scatter unit aim points and the eight
+signed muzzle pairs; it does not yet reproduce native scatter or cached
+target refresh timing. Building and other non-unit aim keeps the engine's
+existing target position. `test_combat` checks all eight launch facings and
+both tank and gun aim anchors. `0x5a205` initializes the common
 Bresenham record via `0x5a39e`, then `0x5a2b1..0x5a314` derives an arc-table
 index from squared coordinate differences shifted by seven, capped at 1023,
 and the runtime lookup at `0x104028`; its five table pointers at `0x148b9c`
@@ -3273,8 +3290,18 @@ c[a[r*44+34] ":" a[r*44+28] ":" r]++} for(k in c) print k,c[k]}'`.
 `0x594a8..0x59518`
 advances that sample based on traveled distance,
 adds launch-terrain height +1, and can terminate flight when a terrain height
-exceeds the resulting threshold. `0x5a4c8` steps the major axis by projectile
-speed. Exact native stepping, launch offset, arc, terrain interaction,
+exceeds the resulting threshold. The sample pointer advances only once per
+native update when the signed segment counter is negative, resetting that
+counter to its initial quotient; `0x5a4c8` subtracts actual major-axis pixels
+from it. The five tables contain respectively {16}, {16,12,16},
+{16,12,8,12,16}, {16,12,8,4,8,12,16}, and {16,12,8,4,0,4,8,12,16};
+their leading bytes are the sample counts. Before the terrain test,
+`0x59440..0x59484` also terminates the projectile once squared distance
+from its stored launch point reaches the square of projectile +0x29 times
+eight; `0x5a419` initializes +0x29 from robot +0x71, which `0x50df7..0x50dff`
+initializes from weapon record u16 +2 shifted right three. The existing
+authored attack range represents this same value. `0x5a4c8` steps the major axis by projectile
+speed. Exact native stepping, arc, terrain interaction,
 target/scatter dispatch and strength mutation remain unmodeled. `test_combat`
 checks all six authored speeds, diagonal duration and actual grenade
 flight. Inspect with `r2 -q -e bin.cache=true -c 'pd 55
