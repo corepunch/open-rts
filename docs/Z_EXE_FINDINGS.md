@@ -2035,6 +2035,101 @@ perl -e '
 ' SAVE0.Z
 ```
 
+#### Z95 Replay Expansion Kit (2026-11-12)
+
+The Replay edition archived by Abandonware France contains a
+387,500,032-byte `ZAndZExpansionKit.ISO` with volume label `Z95VOLUME`
+and a volume creation stamp of 1998-03-02 18:51:12 UTC. Its SHA-256 is
+`9fc5aaa9b7f3c3bb787ebf4b679137abe162aa9b0dd65ea3254793c1e2d93634`.
+The analysis used `Z/WINZ.EXE` directly from the disc image. No installer
+or fan patch was run. The disc image was not independently matched to
+a physical pressing.
+
+`WINZ.EXE` is 2,016,256 bytes with SHA-256
+`feab885dd04f5ee76a53d89e14f73847049e7bfa335cbdcb4e9ba26c233bf22e`.
+Its PE32 header has timestamp `0x34fae468` (1998-03-02 16:55:04 UTC),
+Microsoft linker version 5.10, a preferred image base of `0x400000`,
+and no base relocation directory. The Rich header includes
+`Cvtomf510` and the image imports DirectDraw, DirectInput and
+DirectSound. The commander code retains the DOS register and table
+conventions, with extra DS prefixes on EBP accesses. The `.text`
+section starts at VA `0x401000`, file offset `0x400`, and has
+`0x9e400` bytes on disk. Addresses here use the preferred image base.
+
+- **Confirmed task 7 consumer.** The heavy dispatcher calls the
+  validator at `0x477b31 -> 0x47810c`. It iterates 240 task rows of
+  22 bytes at `0x524b80` alongside 72-byte lead records at
+  `0x52bbf0`. Task is row `+0x11` and active is `+0x15`.
+  The idle cleanup at `0x45478c` and validator at `0x478139`,
+  `0x4781a5` and `0x47822b` compare the task against 7.
+  The validator resolves the lead's target at unit `+0x28`.
+  After the ownership check, `0x4782c4` retains the order
+  only if signed current building HP `+0x1c` is positive and below
+  maximum `+0x1a`. The return path queues the fort approach
+  `(+80,+200)` and stores **8** at `0x47821c`.
+- **Assignment unverified.** Scanning every little-endian 32-bit
+  window in `.text` found 60 operands equal to the task table base.
+  The only genuine interior references are the active and flags
+  tests at `0x47a485` and `0x47a48e`. Two other interior
+  matches are bytes from relative calls at `0x42b35a` and
+  `0x493f79`. Row-derived stores assign `ff,00,01,02,03,04,05,06,08,09,0a,0b`.
+  The opening pass at `0x47a04e` initializes the task to `ff`.
+  The apparent register writer at `0x478f78` stores a Crane index
+  in a **bridge** record. Save and load at `0x46f1b6` and
+  `0x46fd65` copy all `0x14a0` bytes, so the loader can restore a 7
+  from an existing save. No gameplay writer of 7 was identified.
+- **Confirmed damaged-building and service paths.** The damaged
+  list at `0x5a4820` is initialized at `0x446663`. Its cursor at
+  `0x5a3ed8` has only the initializer and the append accesses
+  at `0x44314f` and `0x443158`. The dead-building list at
+  `0x5a4794` has a dispatcher at `0x478b03` that reaches the
+  task **9** store at `0x478f33`. The two preceding `ret`
+  instructions at `0x478b01` and `0x478b02` have no identified
+  caller. The idle return pass recognizes runtime Fire Truck type
+  `0x26` at `0x478aa5` and assigns **8** at `0x478aad`.
+  The Fire Truck action at `0x48aa13` still exists.
+- **Fire Truck availability.** The 25-byte object-name table places
+  `Fire Truck` at VA `0x4b873b`, index 37. The 150-record
+  map-object loop at `0x42cb62` explicitly skips type `0x25` at
+  `0x42cb80`. The opening-group conversion at
+  `0x44a2a5..0x44a304` handles Crane category `0x0c` and
+  omits Fire Truck category `0x0d`. The manual product table
+  at `0x5b3899` places Fire Truck group 15 at index 17.
+  The forward and reverse bounds at `0x44ce0d` and `0x44ce7f`
+  cap the cycle at index 16 or 15, depending on mode and level.
+  The initial CPU production chooser at `0x47a9b2` also excludes
+  category `0x0d` from each family list at `0x5d3988..0x5d39a5`.
+- **Shipped maps.** All 92 loose `OBJECTnn.DAT` files retain
+  150 ten-byte records. None places type `0x25` or wreck type
+  `0x26`, and none of the 1,153 boardable object records uses
+  weapon byte 14. `ROBOTS.EXP` (SHA-256
+  `d1a2bc5f88f1fb66be9e47b79cd39dafb8c471bf8650d2e2bb3f72268c49c168`)
+  maps group 15 at `0x4b1e` through robot 15 to weapon 14 at
+  `0x583c`, category `0x0d` at weapon `+1`. No active entry
+  in the 92 `CPUPLRnn.DAT` starting-group lists references it.
+  The embedded object-name list in `ZEDITOR.EXE` includes Crane and
+  omits Fire Truck. Dynamic editor options were not traced.
+
+The Replay comparison was static. It establishes no shipped Fire Truck
+map or gameplay assignment of task 7. The existing port retains the
+verified validator without a new dispatch trigger.
+
+The executable can be extracted from the verified archive by streaming
+its ISO member. The on-disc executable starts at ISO sector 183814.
+
+```sh
+bsdtar -xOf jeu-01043-z-pcwin.7z ZAndZExpansionKit.ISO 2>/dev/null |
+  dd iflag=fullblock bs=2048 skip=183814 count=985 |
+  head -c 2016256 > WINZ.EXE
+shasum -a 256 WINZ.EXE
+objdump -d --x86-asm-syntax=intel WINZ.EXE |
+  rg '0x524b(80|90|95)|0x5a(3ed8|4820)|0x11\], 0x7\b'
+r2 -q -c 'pd 17 @ 0x42cb62' -c 'pd 26 @ 0x44a29a' \
+  -c 'pd 22 @ 0x47810c' -c 'pd 13 @ 0x4782c4' \
+  -c 'pd 14 @ 0x44665e' -c 'pd 16 @ 0x443126' \
+  -c 'pd 18 @ 0x44ce0d' -c 'px 30 @ 0x5d3988' -c q WINZ.EXE
+```
+
 ### Bridge timer and segment effects
 
 - **Confirmed.** `0x29803` initializes bridge runtime stock at

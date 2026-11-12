@@ -1,5 +1,23 @@
 # Reverse Engineering References
 
+### Z95 Replay Expansion Kit task 7 (2026-11-12)
+
+- Abandonware France lists the [Windows 95 CD-ROM](https://www.abandonware-france.org/ltf_abandon/ltf_jeu.php?fic=liens&id=1043)
+  as the Replay edition. Its [download entry](https://www.abandonware-france.org/telechargement/7559/)
+  supplies `jeu-01043-z-pcwin.7z`, 252,762,649 bytes, SHA-256
+  `171e1b07f35f282e5780a9e13f373fe9582789ab72dce20863a953c6491edc6a`.
+  The analysis streamed the ISO and read its on-disc executable,
+  roster, editor and map data.
+- The [MobyGames release record](https://www.mobygames.com/game/38930/z-and-z-expansion-kit/releases/windows/)
+  identifies GT Interactive's 1998 German Replay release. The
+  [Redump catalog](https://redump.info/discs?letter=Z&region=&status=&system=)
+  lists German and Spanish original pressings. The
+  [Z Expansion XP patch author](https://www.old-games.ru/forum/threads/z-expansion-na-windows-xp.21659/)
+  documents changes to save loading, networking and level selection in
+  that separate release. The Replay executable and asset fingerprints,
+  command-table audit and Fire Truck checks are in the
+  [Z95 findings](docs/Z_EXE_FINDINGS.md#z95-replay-expansion-kit-2026-11-12).
+
 ### Z demo and retail task 7 comparison (2026-11-11)
 
 - RGB Classic Games' [Z demo catalog](https://www.classicdosgames.com/game/Z.html)
