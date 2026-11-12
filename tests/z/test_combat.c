@@ -61,6 +61,8 @@ static void place(mobj_t *mo, ivec2_t cell) {
     mo->movement.order_arrived = true;
 }
 
+static void disarm_except(int squad, const mobj_t *keep);
+
 static mobj_t *blast_unit(int type, int team, fixed2_t at, int hp) {
     mobj_t *mo = P_SpawnMobj(fixed3_from_fixed2(at, 0), (uint16_t)type);
     if (!mo) return NULL;
@@ -102,6 +104,9 @@ static int test_shell_blast(void) {
     vehicle->core.position = fixed3_from_fixed2(pixel_at(at, 26 - shift.x, 18 - shift.y), 0);
     const weapondef_t *weapon = &gun->info->attack;
     if (!Z_Attack(gun, weapon, target)) return fail("shell uses area attack");
+    mobj_t *shell = nth(MT_SHELL, 0, 0);
+    if (!shell || target->hp != 500) return fail("shell remains in flight before impact");
+    P_ExplodeMissile(shell);
     if (target->hp != 450 || left->hp != 450 || right->hp != 450 || after->hp != 450 ||
         vehicle->hp != 450 || killed->hp > 0)
         return fail("shell hits primary and boundary units once, including after a kill");
@@ -109,6 +114,98 @@ static int test_shell_blast(void) {
         return fail("shell excludes outside and friendly units");
     if (Z_Attack(ally, &ally->info->attack, target)) return fail("bullets do not use shell area damage");
     puts("PASS: z shell blast hits enemies inside native bounds once");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_shell_flight(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for shell flight");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    disarm_except(0, NULL);
+    fixed2_t start = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *gun = blast_unit(MT_UNIT_M_MISSILE, 0, start, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 96, 0), 500);
+    if (!gun || !target || !Z_Attack(gun, &gun->info->attack, target)) return fail("launch shell");
+    mobj_t *shell = nth(MT_SHELL, 0, 0);
+    if (!shell || shell->missile.duration <= 1 || target->hp != 500) return fail("shell takes time to travel");
+    uint32_t shell_id = shell->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!tick(model, 1) || target->hp != 500 ||
+        !G_SaveGameBlob(&save, &size, "Shell flight", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save shell in flight");
+    free(save);
+    shell = P_MobjById(shell_id); target = P_MobjById(target_id);
+    if (!shell || !target || !shell->target || shell->attack.target != target) return fail("load shell references");
+    P_RemoveMobj(shell->target);
+    if (!tick(model, RTS_TICRATE) || target->hp != 380) return fail("shell completes after its shooter is removed");
+    puts("PASS: z shell travels and survives save and shooter removal");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_shell_aim(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for shell aim");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    disarm_except(0, NULL);
+    fixed2_t start = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *gun = blast_unit(MT_UNIT_M_MISSILE, 0, start, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 96, 0), 500);
+    mobj_t *first = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 96, 0), 500);
+    mobj_t *second = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 160, 0), 500);
+    if (!gun || !target || !first || !second) return fail("spawn shell aim fixtures");
+    gun->traits &= ~MF_ATTACK; target->traits &= ~MF_ATTACK;
+    first->traits &= ~MF_ATTACK; second->traits &= ~MF_ATTACK;
+    if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch aimed shell");
+    target->core.position = fixed3_from_fixed2(pixel_at(start, 160, 0), 0);
+    if (!tick(model, RTS_TICRATE) || first->hp != 380 || target->hp != 500 || second->hp != 500)
+        return fail("moving target does not redirect shell");
+    if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch at removable target");
+    P_RemoveMobj(target);
+    if (!tick(model, RTS_TICRATE) || second->hp != 380) return fail("shell survives removal of its target");
+    puts("PASS: z shells retain their aim when targets move or are removed");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_shell_speed(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for shell speed");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    disarm_except(0, NULL);
+    fixed2_t start = fixed2_cell_center((ivec2_t){5, 5});
+    isize2_t robot_size;
+    if (!Z_SpriteSize(level.native_data, 66, &robot_size)) return fail("shell timing sprite size");
+    int x = 96 - 8 + robot_size.w / 2;
+    int y = -8 + robot_size.h / 2;
+    mobj_t *gun = blast_unit(MT_UNIT_M_MISSILE, 0, start, 500);
+    mobj_t *cardinal = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, x, y), 500);
+    mobj_t *diagonal = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, x, y + 96), 500);
+    if (!gun || !cardinal || !diagonal) return fail("spawn shell speed fixtures");
+    gun->traits &= ~MF_ATTACK; cardinal->traits &= ~MF_ATTACK; diagonal->traits &= ~MF_ATTACK;
+    if (!Z_Attack(gun, &gun->info->attack, cardinal) || !Z_Attack(gun, &gun->info->attack, diagonal))
+        return fail("launch cardinal and diagonal shells");
+    mobj_t *a = nth(MT_SHELL, 0, 0), *b = nth(MT_SHELL, 0, 1);
+    /* 96 major-axis pixels, 4 pixels per 70 Hz step, at 30 engine tics/s. */
+    if (!a || !b || a->missile.duration != 11 || b->missile.duration != 11)
+        return fail("cardinal and diagonal shots use the same major-axis rate");
+    if (!tick(model, 10) || cardinal->hp != 500 || diagonal->hp != 500)
+        return fail("shells remain in flight before their final tick");
+    if (!tick(model, 1) || cardinal->hp != 380 || diagonal->hp != 380)
+        return fail("shells arrive on their scheduled tick");
+    mobj_t *far = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(start, 1920, 0), 500);
+    if (!far || !Z_Attack(gun, &gun->info->attack, far)) return fail("launch long-flight shell");
+    mobj_t *long_shot = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_SHELL && (mo->traits & MF_MISSILE)) long_shot = mo;
+    }
+    if (!long_shot || long_shot->missile.duration <= 100) return fail("long flight exceeds 100 tics");
+    for (int i = 0; i < 100; ++i) P_MobjThinker(long_shot);
+    if (long_shot->missile.age != 100 || !(long_shot->traits & MF_MISSILE))
+        return fail("long flight takes exactly one step per engine tic");
+    puts("PASS: z shell flight uses native major-axis speed");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -274,6 +371,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_death() || test_ordered_target() || test_alert() || test_shell_blast() || test_body_slowdown()) return 1;
+    if (test_death() || test_ordered_target() || test_alert() || test_shell_blast() || test_body_slowdown() ||
+        test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

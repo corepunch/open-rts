@@ -83,7 +83,12 @@ int main(void) {
     cmd.position = cliff->core.position;
     cmd.units[0] = tank->id;
     G_RunTiccmd(0, &cmd);
-    if (tank->attack.target != cliff || !P_Attack(tank) || !cliff->remove) return fail("tank shell destroys cliff");
+    if (tank->attack.target != cliff || !P_Attack(tank)) return fail("tank fires at cliff");
+    for (int i = 0; i < RTS_TICRATE && !cliff->remove; ++i) {
+        RtsRenderSnapshot snap;
+        if (!rts_tick(model, &snap)) return fail("tick tank shell");
+    }
+    if (!cliff->remove) return fail("tank shell destroys cliff");
     if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("load rubble");
     free(save);
     if (cliff_at(rubble_at) || !cliff_at(at) || !L_IsWalkable(&level, rubble_at.x, rubble_at.y) ||

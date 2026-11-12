@@ -635,7 +635,7 @@ typedef struct {
 
 typedef struct {
     fixed_t step;
-    int period_ms, lifetime;
+    int period_ms, lifetime; /* A timed missile with period 0 steps once per tic. */
     bool timed;
     const fixed_t *arc; /* Height per flight tick, indexed by remaining fraction. */
     int arc_count;

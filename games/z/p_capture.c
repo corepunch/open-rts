@@ -348,13 +348,16 @@ int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *targe
 
 /* Zod's missile-bearing weapons, whose retail projectiles enter the
  * explosion path. Grenades retain their existing separate projectile. */
-static bool shell_weapon(int t) {
+static int shell_speed(int t) {
     switch (t) {
+    /* ROBOTS.DAT weapon +0x23, pixels per 70 Hz step. */
     case MT_UNIT_TOUGH - MT_UNITS: case MT_UNIT_LIGHT_GUN - MT_UNITS:
-    case MT_UNIT_LIGHT_TANK - MT_UNITS: case MT_UNIT_MED_TANK - MT_UNITS:
-    case MT_UNIT_HEAVY_TANK - MT_UNITS: case MT_UNIT_M_MISSILE - MT_UNITS:
-    case MT_UNIT_MISSILE_GUN - MT_UNITS: case MT_UNIT_HOWITZER - MT_UNITS: return true;
-    default: return false;
+    case MT_UNIT_MED_TANK - MT_UNITS: return 10;
+    case MT_UNIT_LIGHT_TANK - MT_UNITS: return 12;
+    case MT_UNIT_HEAVY_TANK - MT_UNITS: return 8;
+    case MT_UNIT_M_MISSILE - MT_UNITS: return 4;
+    case MT_UNIT_MISSILE_GUN - MT_UNITS: case MT_UNIT_HOWITZER - MT_UNITS: return 5;
+    default: return 0;
     }
 }
 
@@ -365,29 +368,54 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     int t = Z_UnitType(attacker);
     if (t == MT_UNIT_APC - MT_UNITS && attacker->z.driver) t = attacker->z.driver - 1;
-    if (!shell_weapon(t) || !weapon || !target) return false;
+    int speed = shell_speed(t);
+    if (!speed || !weapon || !target) return false;
     int damage = weapon->damage;
     if (Z_UnitType(attacker) == MT_UNIT_APC - MT_UNITS) {
         const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));
         if (driver) damage = driver->attack.damage * (attacker->z.crew_count ? attacker->z.crew_count : 1);
     }
-    ivec2_t impact = Z_BlastAnchor(target);
+    mobj_t *shell = P_SpawnMissile(attacker, target, MT_SHELL);
+    /* Suppress the shared hitscan fallback if allocation fails. */
+    if (!shell) return true;
+    fixed2_t impact = fixed2_scale(fixed2_from_cell(Z_BlastAnchor(target)), FIXED_ONE / Z_TILE);
+    fixed2_t delta = fixed2_sub(impact, fixed3_xy(shell->core.position));
+    int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
+    int64_t dy = delta.y < 0 ? -(int64_t)delta.y : delta.y;
+    int64_t major = dx > dy ? dx : dy;
+    int64_t step = (int64_t)speed * FIXED_ONE * Z_NATIVE_HZ / (Z_TILE * RTS_TICRATE);
+    int duration = (int)((major + step - 1) / step);
+    if (duration < 1) duration = 1;
+    shell->movement.goal = impact;
+    shell->attack.target = target;
+    shell->missile.damage = damage;
+    shell->missile.duration = duration;
+    shell->core.momentum = fixed3_from_fixed2((fixed2_t){delta.x / duration, delta.y / duration}, 0);
+    return true;
+}
+
+/* Shells use the native candidate box at the snapshotted impact point. */
+void A_ZShellBlast(mobj_t *missile) {
+    ivec2_t impact = fixed2_cell(fixed2_scale(missile->movement.goal, FIXED_FROM_INT(Z_TILE)));
+    mobj_t *target = missile->attack.target;
     bool primary_hit = false;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
-        if (th->function != P_MobjThinker || !live(victim) || victim == attacker ||
-            victim->team == attacker->team || victim->team >= Z_NEUTRAL || Z_UnitType(victim) < 0) continue;
+        if (th->function != P_MobjThinker || !live(victim) || victim == missile->target ||
+            victim->team == missile->team || victim->team >= Z_NEUTRAL || Z_UnitType(victim) < 0) continue;
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(victim), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18) {
-            P_DamageMobj(victim, attacker, damage);
+            P_DamageMobj(victim, missile->target, missile->missile.damage);
             primary_hit |= victim == target;
         }
     }
     /* Buildings and terrain have separate native paths; retain their
      * direct hit until their area selection is traced. */
-    if (!primary_hit && live(target) && target != attacker && target->team != attacker->team)
-        P_DamageMobj(target, attacker, damage);
-    return true;
+    if (!primary_hit && live(target) && target != missile->target && target->team != missile->team) {
+        ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
+        if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
+            P_DamageMobj(target, missile->target, missile->missile.damage);
+    }
 }
 
 /* ── flags ────────────────────────────────────────────────────────────── */

@@ -67,6 +67,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .missile = {.step = FIXED_ONE / 6, .period_ms = RTS_TICK_MS, .timed = true,
                  .arc = grenade_arc, .arc_count = sizeof(grenade_arc) / sizeof(*grenade_arc)},
      .blast = {grenade_blast, 3, NULL, 0}},
+    {.id = MT_SHELL, .name = "Shell", .sprite_name = "SPRITES.RSC",
+     .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_ONE, .timed = true}},
 };
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */

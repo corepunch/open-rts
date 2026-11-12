@@ -2435,7 +2435,7 @@ bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
 (`p_capture.c`). The random coin is a deterministic hash of the tic and the
 two units, not the native stream.
 
-Engine boundaries, **not** native equivalence: direct weapons still hit
+Engine boundaries, **not** native equivalence: bullet weapons still hit
 instantly and never miss (native bullets travel and scatter by accuracy),
 so fast weapons (Psycho, Gatling, Jeep) are more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
@@ -2463,8 +2463,8 @@ y−14..+18. `0x85d33..0x85d43` filters active units and the shooter's team;
 separate robot-knockdown routine `0x58745` described above is not this call
 site; its relationship to other effects and complete combat remains unported.
 
-**Implementation boundary:** direct shots still resolve instantly at the
-target's selection anchor: projectile flight, scatter and the explosion's
+**Implementation boundary:** shells now travel to a snapshot of the target's
+selection anchor, but native scatter, terrain interception and the explosion's
 delayed third frame are not simulated. `Z_BlastAnchor` recovers the spawn
 origin from its sprite size, then applies the native selection offset;
 composed vehicles are initialized with a 16×16 spawn extent. The shell types
@@ -2481,6 +2481,34 @@ Reproduce the trace with `r2 -q -e bin.cache=true -c 'pd 72 @ 0x592ff' -c
 data/Z/ZED.EXE`, and run `make build/bin/tests/z/test_combat
 build/bin/tests/z/test_cliffs build/bin/tests/z/test_commander` followed by
 each binary with `SDL_VIDEODRIVER=dummy`.
+
+### Shell flight (2026-11-12)
+
+**Confirmed** on the same executable: the shot-speed byte from weapon
+record +0x23 is copied into the projectile at `0x5a3fc..0x5a403`.
+`0x5a4c8..0x5a523` and `0x5a528..0x5a57f` step a Bresenham major axis
+by up to projectile +0x16 pixels per native update; for the shipped shell
+weapons that byte is 4, 5, 8, 10 or 12. The normal projectile sprite is
+SPRITES.RSC index 1634 at `0x59538`. The engine authors those speed bytes
+as C literals and uses an ordinary timed missile mobj, interpolating at its
+30 Hz tic rate and storing the exact intended impact point. The sprite is
+native, while the explosion animation remains the earlier stand-in.
+
+Missiles retain their firing team and snapshotted damage if the shooter is
+removed. The existing thinker and save lifecycle preserve their originator,
+target and aim point; removing either mobj clears its borrowed pointer.
+Unit movement can evade a projectile because its impact point does not
+follow the target. Unlike retail, current shells do not scatter or strike
+intervening terrain, and interpolate toward the point rather than running
+the native per-pixel Bresenham algorithm. A zero period for timed missiles
+now means one simulation step per tic, including flights longer than 99
+tics; other missile periods keep their existing millisecond clock.
+A failed shell allocation consumes the attack
+instead of silently falling back to an immediate hitscan shot.
+`tests/z/test_combat.c` checks cardinal and diagonal speed,
+flight duration, moving and removed targets, shooter removal and an
+in-flight save/load; `test_cliffs` and `test_commander` cover impact on the
+two terrain targets.
 
 ### Vehicle body degradation (2026-11-12)
 

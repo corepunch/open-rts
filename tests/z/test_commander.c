@@ -350,7 +350,11 @@ static int test_bridge_and_crane(void) {
     mobj_t *tank = P_SpawnMobj(bridge->core.position, MT_UNIT_LIGHT_TANK);
     if (!tank) return fail("spawn bridge attacker");
     Z_SetTeam(tank, 0);
-    if (!Z_Attack(tank, &tank->info->attack, bridge) || bridge->hp != 550)
+    if (!Z_Attack(tank, &tank->info->attack, bridge)) return fail("fire shell at bridge");
+    mobj_t *shot = nth(MT_SHELL, 0, 0);
+    if (!shot) return fail("bridge shell exists");
+    P_ExplodeMissile(shot);
+    if (bridge->hp != 550)
         return fail("shell deals its direct damage to a bridge exactly once");
     P_RemoveMobj(tank);
     P_DamageMobj(bridge, NULL, bridge->hp);

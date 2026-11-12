@@ -780,7 +780,7 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
     }
 #endif
     missile->core.angle = angle_from_map_vector_fixed(&level, direction.x, direction.y);
-    if (flight && flight->period_ms > 0 && flight->step > 0) {
+    if (flight && (flight->period_ms > 0 || flight->timed) && flight->step > 0) {
 #ifdef RTS_MODULE_DARK_COLONY
         DC_AimMissile(missile, target->core.position);
 #else
@@ -1131,10 +1131,11 @@ static void tick_missile(mobj_t *missile) {
     if (!missile || missile->remove) return;
 
     const missiledef_t *flight = missile->info ? &missile->info->missile : NULL;
-    if (flight && flight->period_ms > 0) {
+    if (flight && (flight->period_ms > 0 || flight->timed)) {
+        int period = flight->period_ms > 0 ? flight->period_ms * RTS_TICRATE : 1000;
         missile->missile.clock += 1000;
-        while (missile->missile.clock >= flight->period_ms * RTS_TICRATE) {
-            missile->missile.clock -= flight->period_ms * RTS_TICRATE;
+        while (missile->missile.clock >= period) {
+            missile->missile.clock -= period;
             if (missile->missile.wait > 0) { missile->missile.wait--; continue; }
             missile->traits |= missile->info->traits & MF_RENDERABLE;
             fixed2_t start = fixed3_xy(missile->core.position);

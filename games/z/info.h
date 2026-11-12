@@ -115,6 +115,7 @@ typedef enum {
 #undef Z_BUILDING
     S_CRANE_WORK,
     S_BRIDGE_REBUILD,
+    S_SHELL, S_SHELL_BLAST,
     NUMSTATES
 } statenum_t;
 
@@ -138,6 +139,7 @@ enum {
     MT_CLIFF,
     MT_BRIDGE,
     MT_BRIDGE_DEBRIS,
+    MT_SHELL,
     NUMMOBJTYPES
 };
 
