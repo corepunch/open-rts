@@ -144,13 +144,6 @@ static bool structure(const mobj_t *mo) {
     return mo && mo->type_id >= MT_FORT && mo->type_id < MT_UNITS;
 }
 
-static fixed_t pixels(int n) { return n * (FIXED_ONE / Z_TILE); }
-
-static bool within(const mobj_t *a, const mobj_t *b, int reach) {
-    return fixed2_distance_squared64(fixed3_xy(a->core.position), fixed3_xy(b->core.position)) <=
-           fixed_sq64(pixels(reach));
-}
-
 /* ── vehicles and guns ────────────────────────────────────────────────── */
 
 /* 0x61022 lets robots into every vehicle but the truck and into all four
@@ -305,8 +298,8 @@ static void tick_boarding(mobj_t *robot) {
         robot->z.board = 0;
         return;
     }
-    if (within(robot, vehicle, REACH_ENTER)) get_in(robot, vehicle);
-    else if (!P_HasMoveOrder(robot) && leveltime % BOARD_RETRY == 0) walk_to(robot, vehicle);
+    if (Z_DetourBoard(robot, vehicle)) return;
+    if (!P_HasMoveOrder(robot) && leveltime % BOARD_RETRY == 0) walk_to(robot, vehicle);
 }
 
 /* ── grenades ─────────────────────────────────────────────────────────── */

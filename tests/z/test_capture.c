@@ -152,6 +152,34 @@ static int test_board(void) {
     return 0;
 }
 
+/* Ordered boarding and opportunistic boarding share the native origin test. */
+static int test_board_reach(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for boarding boundary");
+    disarm();
+    mobj_t *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0), *robot = nth(MT_UNIT_GRUNT, 0, 0);
+    const zmap_t *map = level.native_data;
+    isize2_t size;
+    if (!jeep || !robot || !Z_SpriteSize(map, states[jeep->core.state_id].frame, &size))
+        return fail("boarding boundary fixture");
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(jeep->core.position), FIXED_FROM_INT(Z_TILE)));
+    ivec2_t origin = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+    fixed2_t at;
+    if (!Z_UnitCentre(map, Z_UnitType(robot), ivec2_add(origin, (ivec2_t){21, 0}), &at))
+        return fail("boarding robot position");
+    robot->core.position = fixed3_from_fixed2(at, 0);
+    if (!Z_BoardOrder(&robot, 1, jeep)) return fail("order boarding at boundary");
+    Z_Ticker();
+    if (robot->remove || jeep->team != Z_NEUTRAL) return fail("ordered boarding rejects 21 pixels");
+    if (!Z_UnitCentre(map, Z_UnitType(robot), ivec2_add(origin, (ivec2_t){-20, 0}), &at))
+        return fail("boarding robot boundary position");
+    robot->core.position = fixed3_from_fixed2(at, 0);
+    Z_Ticker();
+    if (!robot->remove || jeep->team != 0) return fail("ordered boarding accepts 20 pixels from object origin");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 /* A Grunt walking over a crate of 20 shares them with its squad of three;
  * then it may attack a building, which it throws them at. */
 static int test_grenades(void) {
@@ -499,6 +527,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_grenades() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

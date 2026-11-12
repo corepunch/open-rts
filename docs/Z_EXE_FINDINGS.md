@@ -1796,6 +1796,16 @@ are not implemented by this change.
 
 ## Zod reference: APC crew and ejection (2026-11-12)
 
+**Ordered boarding reach correction:** `0x7afc9..0x7aff4` squares the
+differences between the empty effect's origin (+0/+2) and robot's origin
+(+0x2c/+0x2e), and allows boarding at a sum at most 400. Explicit boarding
+orders now use the same native-origin test as opportunistic detours; the
+former centre-to-centre test could board too early from one side and too
+late from the other. `test_capture` exercises an explicit order through
+`Z_Ticker` at origin offsets +21 and -20 pixels. Reproduce with `r2 -q -e
+bin.cache=true -c 'pd 35 @ 0x7afb1' -c q data/Z/ZED.EXE` and
+`SDL_VIDEODRIVER=dummy build/bin/tests/z/test_capture`.
+
 **Confirmed in the Zod remake, not yet confirmed in ZED.EXE.** At pinned
 revision `5ccb43ab76ee08c9f624906fb465dc3ba76a7a35`,
 `src/zserver.cpp:RobotEnterObject` gives an entered object the robot's driver
