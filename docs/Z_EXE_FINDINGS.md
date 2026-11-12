@@ -2790,6 +2790,20 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   `0x58bb8`, `0x26ea6`). The fire animation can make the real interval
   longer: Grunt and Sniper about 4 steps at least, rate >= 92 (Psycho)
   uses action 0x39 (2 steps). The Pyro pauses 16 steps after 4 bursts.
+  Specifically, action `0x76098` fires at frame 2 when unit +0x78 is zero;
+  after the animation cycle `0x760d5..0x760f0` increments unit +0x9c modulo
+  four and, on zero, loads the frame timer with eight times `(100 - +0x75)`,
+  saturated at 127. The shipped Pyro's fire-rate byte gives 16. A grenade
+  uses a different action: `0x63628..0x6362f` loads twice `(100 - +0x75)`
+  into +0x78, four steps for a Pyro, and does not increment the flame cycle
+  counter. An attempted shared four-shot reload implementation was rejected:
+  the engine's generic six-tic attack state dominates its cooldown, and a
+  measured stationary firing fixture produced shots at tics 11, 23, 35 and
+  47 even with that reload. Its reload also starts at the shot rather than
+  after the native animation cycle. The prior six-step average remains; exact
+  flame and grenade timing, projectile and flame area are unported. Inspect
+  with `r2 -q -e bin.cache=true -c 'pd 65 @ 0x76098' -c 'pd 20 @ 0x6360e'
+  -c q data/Z/ZED.EXE`.
 - Base speed level = terrain term / 10 + unit speed / 10, with additional
   modifiers before clamping to 0..12 (`0x79882`; see the movement modifier
   investigation below; terrain bytes at `0x1157ea`, not decoded per terrain). Each
