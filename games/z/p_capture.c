@@ -402,13 +402,13 @@ static bool valid_crew(const mobj_t *vehicle) {
  * instead, when `rand & 0x7f` falls under the shooter's accuracy (halved
  * against a gun). The driver takes the whole shot; once he is dead the
  * vehicle stands empty for anyone to take (0x860fd). */
-static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
+static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsigned shot) {
     int t = Z_UnitType(target);
     bool gun = target->info && (target->info->traits & MF_TURRET);
     if (!valid_crew(target) || (t != MT_UNIT_JEEP - MT_UNITS && !gun)) return false;
     int skill = accuracy(attacker);
     if (gun) skill /= 2;
-    if (coin(attacker, target, 0x5ad72) >= skill) return false;
+    if (coin(attacker, target, 0x5ad72 + shot) >= skill) return false;
     int driver_hp = target->z.crew_count ? target->z.crew[0].hp : mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
     int hurt = target->z.crew_hurt + damage;
     target->z.crew_hurt = (uint8_t)(hurt > 255 ? 255 : hurt);
@@ -421,22 +421,29 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
     P_MobjSetSelected(target, false);
     return true;
 }
-int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
-    (void)weapon;
+static int hit_damage(const mobj_t *attacker, mobj_t *target, int damage, int divisor, unsigned shot) {
     int firing = Z_UnitType(attacker);
     if (firing == MT_UNIT_APC - MT_UNITS) {
         if (!valid_crew(attacker)) return 0;
         firing = attacker->z.driver - 1;
         const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + firing));
-        if (driver) damage = driver->attack.damage * (attacker->z.crew_count ? attacker->z.crew_count : 1);
+        if (driver) {
+            damage = driver->attack.damage;
+            if (!fires_bullets(firing)) damage *= attacker->z.crew_count ? attacker->z.crew_count : 1;
+        }
     }
     damage /= divisor ? divisor : 1;
     int victim = Z_UnitType(target);
     if (!attacker || victim < 0 || Z_IsRobot(victim) || !fires_bullets(firing)) return damage;
-    if (hit_driver(attacker, target, damage)) return 0;
+    if (hit_driver(attacker, target, damage, shot)) return 0;
     damage -= 5;
     /* Deterministic stand-in for the native coin: same on every peer. */
-    return damage > 0 ? damage : (int)((leveltime + attacker->id + target->id) & 1);
+    return damage > 0 ? damage : (int)((leveltime + attacker->id + target->id + shot) & 1);
+}
+
+int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
+    (void)weapon;
+    return hit_damage(attacker, target, damage, divisor, 0);
 }
 
 /* Zod's missile-bearing weapons, whose retail projectiles enter the
@@ -486,6 +493,16 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (apc) {
         if (!valid_crew(attacker)) return true;
         t = attacker->z.driver - 1;
+    }
+    if (apc && fires_bullets(t) && target && weapon) {
+        int count = attacker->z.crew_count ? attacker->z.crew_count : 1;
+        int team = target->team;
+        for (int i = 0; i < count && live(target) && target->team == team; ++i) {
+            int damage = hit_damage(attacker, target, weapon->damage, 1, (unsigned)i);
+            if (damage > 0) P_DamageMobj(target, attacker, damage);
+            else P_ProvokeMobj(target, attacker);
+        }
+        return true;
     }
     int speed = shell_speed(t);
     if (!speed || !weapon || !target) return false;

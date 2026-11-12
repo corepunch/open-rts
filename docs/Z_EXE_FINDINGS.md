@@ -1789,8 +1789,8 @@ Squad IDs are eight-bit and can wrap, so they are an approximation of Zod's
 explicit minion membership, not permanent unique group identities.
 The U key and sidebar EJECT button submit `TC_UNLOAD`; ejection restores those
 members and leaves an empty APC or gun. Starting APCs and guns without a stored
-crew use a Grunt driver, as in Zod's cannon setup. The per-crew weapon damage is
-applied to the current shared attack. APC projectile effects and exact retail
+crew use a Grunt driver, as in Zod's cannon setup. APC bullets and Tough shells
+now resolve separately per stored crew member. APC projectile effects and exact retail
 cargo/driver mutation remain **unknown or unported**; separately traced
 driver-dependent reload and range are described below.
 The save layout is versioned for the added crew state. Reproduce with:
@@ -1858,7 +1858,17 @@ the coordinate-target path's multiplicity. It applies that rule to all APC
 attacks with a common target: native mode selection, port acquisition, native
 random sequencing and the alternate reload remain unmodeled.
 The single-target implementation therefore does not establish complete APC
-combat parity. `test_combat` checks scatter bounds and variation, identical
+combat parity. Bullet-equipped APCs also apply the driver's single-shot damage
+and vehicle armor separately for each crew member, rather than multiplying
+damage before one armor and driver-hit roll. Each roll uses the existing
+deterministic Z coin with a per-shot salt, not the retail random stream;
+the engine applies all shots to its single current target and stops if that
+target is removed or changes team. Pyro-driven APCs retain the earlier
+combined-damage fallback because native APC flame creation is unported.
+`test_combat` checks three Grunt bullets against infantry, three Sniper
+bullets against tank armor, individual driver/body hit outcomes and the
+three-Pyro fallback. `test_combat`
+also checks scatter bounds and variation, identical
 aims and consistency hash after restoring the same state, independent shell
 impacts, save/load and a full 21-member salvo. Inspect with `r2 -q -e bin.cache=true
 -c 'pd 90 @ 0x1ea5c' -c 'pd 65 @ 0x1eb64' -c 'pd 65 @ 0x1effd' -c q

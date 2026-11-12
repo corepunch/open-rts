@@ -381,6 +381,53 @@ static int test_gun_drivers(void) {
     return 0;
 }
 
+static int test_apc_bullet_salvo(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for APC bullet salvo");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 500);
+    mobj_t *tank = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 32, 0), 500);
+    if (!apc || !robot || !tank) return fail("spawn APC bullet salvo fixture");
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    apc->z.crew_count = 3;
+    if (!Z_Attack(apc, &apc->info->attack, robot) || robot->hp != 485)
+        return fail("three Grunt bullets independently hit infantry");
+    apc->z.driver = MT_UNIT_SNIPER - MT_UNITS + 1;
+    if (!Z_Attack(apc, &apc->info->attack, tank) || tank->hp != 485)
+        return fail("vehicle armor is applied to each Sniper bullet");
+    mobj_t *jeep = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 32, 0), 500);
+    if (!jeep) return fail("spawn APC driver-hit fixture");
+    jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    bool mixed = false;
+    for (int i = 0; i < 128 && !mixed; ++i, ++leveltime) {
+        jeep->hp = 500; jeep->z.crew_hurt = 0;
+        if (!Z_Attack(apc, &apc->info->attack, jeep)) return fail("fire at APC driver-hit fixture");
+        mixed = jeep->z.crew_hurt && jeep->hp < 500;
+    }
+    if (!mixed)
+        return fail("APC bullets independently hit driver and armored body");
+    bool stopped = false;
+    for (int i = 0; i < 128 && !stopped; ++i, ++leveltime) {
+        Z_SetTeam(jeep, 1);
+        jeep->hp = 500; jeep->z.crew_hurt = 0;
+        jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        jeep->z.crew_count = 1;
+        jeep->z.crew[0] = (zcrew_t){.hp = 1, .type = MT_UNIT_GRUNT - MT_UNITS};
+        if (!Z_Attack(apc, &apc->info->attack, jeep)) return fail("fire fatal APC driver salvo");
+        stopped = jeep->team == Z_NEUTRAL && jeep->hp == 500;
+    }
+    if (!stopped) return fail("APC stops salvo after target driver is killed");
+    robot->hp = 500;
+    apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
+    apc->attack.target = robot;
+    P_UpdateSight();
+    if (!P_Attack(apc) || robot->hp != 440)
+        return fail("unimplemented APC flame retains combined crew damage");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_apc_shell_salvo(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for APC shell salvo");
@@ -763,7 +810,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

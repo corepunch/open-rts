@@ -379,9 +379,13 @@ static int test_apc_crew(void) {
     if (!survivor) return fail("spawn outside squad survivor");
     Z_SetTeam(survivor, 0);
     survivor->z.squad = 250; survivor->z.squad_slot = UINT8_MAX;
-    if (Z_HitDamage(apc, NULL, apc, 5, 1) != 5 ||
-        Z_HitDamage(apc, NULL, nth(MT_UNIT_GRUNT, 1, 0), 5, 1) != 10)
-        return fail("APC crew fires its combined weapons");
+    mobj_t *victim = nth(MT_UNIT_GRUNT, 1, 0);
+    int armor_hit = Z_HitDamage(apc, NULL, apc, 5, 1);
+    if (!victim || armor_hit < 0 || armor_hit > 1 || Z_HitDamage(apc, NULL, victim, 5, 1) != 5)
+        return fail("each APC crew bullet uses one driver's weapon");
+    int hp = victim->hp;
+    if (!Z_Attack(apc, &apc->info->attack, victim) || victim->hp != hp - 10)
+        return fail("APC fires one bullet per crew member");
     apc->core.position.z = FIXED_ONE;
     apc->type_id = MT_UNIT_GATLING;
     if (Z_EjectCrew(apc)) return fail("fort-wall crew cannot eject");
