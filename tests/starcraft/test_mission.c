@@ -797,7 +797,7 @@ int main(void) {
     /* Resource amounts target the neutral resource object, not player stock. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
-    put_u32(action + 16, 11); put_u32(action + 20, 700);
+    put_u32(action + 8, 123); put_u32(action + 16, 11); put_u32(action + 20, 700);
     action[26] = 52; action[27] = 1;
     CHECK(!write_map("/tmp/open-rts-sc-resource.chk", owners, trig));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-resource.chk", &level));
@@ -810,7 +810,7 @@ int main(void) {
     level.resource_vents[0] = (resourcevent_t){.source_id = patch->id, .amount = 20};
     level.resource_vents[1] = (resourcevent_t){.source_id = second->id, .amount = 30};
     ticks(1, &(hudtext_t){0});
-    CHECK(level.resource_vents[0].amount == 700 && level.resource_vents[1].amount == 700);
+    CHECK(level.resource_vents[0].amount == 700 && level.resource_vents[1].amount == 30);
     CHECK(level.player_resources[0][0] == 0);
     free(trig); unload();
     trig = blank_trigger(); CHECK(trig);

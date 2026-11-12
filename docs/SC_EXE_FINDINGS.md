@@ -2409,13 +2409,16 @@ setter affects resource units and changes mineral animation at resource
 thresholds. PyMS identifies this action as Modify Unit Resource Amount and
 encodes player, quantity, location and amount; a zero quantity means All.
 OpenBW's case does not apply the quantity field, so retail finite-count
-behavior remains unknown. The checked-in implementation follows OpenBW and ignores the count,
-supports explicit neutral player 12 (slot 11),
-and changes deposit stock rather than player stock. The finite-count behavior
-is reference behavior, not a retail executable finding. It does not reproduce OpenBW's
-mineral threshold animation or elevation filtering; amounts above INT_MAX are
-clamped to the engine's signed deposit range. `env SDL_VIDEODRIVER=dummy
-build/bin/tests/starcraft/test_mission` exercises neutral selection and the ignored count.
+behavior remains unknown. **Superseded:** open-rts previously followed that
+case and ignored the count. The eudplib `stockact.py` constructor instead
+encodes a count at +27 and describes a bounded quantity; open-rts now honors
+that field, with zero meaning All. This is a tool-reference choice rather than
+a retail executable finding. It supports explicit neutral player 12 (slot 11)
+and changes deposit stock rather than player stock. It does not reproduce
+OpenBW's mineral threshold animation or elevation filtering; amounts above
+INT_MAX are clamped to the engine's signed deposit range.
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission` exercises
+neutral selection, one-unit and All counts, and a decoy value at +8.
 The action has no unit-type selector: only resource unit types qualify. All
 Players includes neutral slot 11. A built refinery takes over the geyser's
 vent source in `game/g_game.c`; selection therefore uses the refinery owner's

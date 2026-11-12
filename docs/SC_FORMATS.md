@@ -44,6 +44,11 @@ standard default when absent), clamped to the engine's signed range. A
 Applying action 44's defaults and neutral owner to action 11 is inferred:
 OpenBW does not implement action 11 directly. Set Resource Amount restores
 the normal rate when replenishing a depleted gas vent.
+The action 52 quantity at +27 was previously ignored: the eudplib constructor
+defines a bounded count (zero means All). It is now honored; a fixture sets a
+different decoy at +8 and verifies only one of two deposits changes. Pinned
+OpenBW's action 52 ignores the count, so this is an explicit tool-reference
+choice rather than a claim of OpenBW or retail equivalence.
 UPRP data-valid bits 0x04 and 0x08 select shield and energy percentages at
 bytes +6 and +7, respectively, per eudplib `unitprp.py`; those values now
 initialize the corresponding native fixed-point fields. Mission fixtures create
@@ -83,6 +88,17 @@ hallucinations, rather than truncating at 256. Inclusion of hallucinations is
 inferred from OpenBW's general location predicate; OpenBW does not implement
 action 43 directly. Tests cover enable, disable and toggle across 260 units,
 with an outside unit unchanged.
+
+The implemented TRIG action field reads were compared against eudplib's
+`stockact.py` constructors and `action.py` layout: outcomes/preserve/wait
+(1–4), transmission/text/view (7, 9–10, 12, 28), create (11, 44), switch
+and timer (13–14, 54–56), AI scripts (15–16), kill/remove/resources
+(22–26), location/unit movement and next scenario (38–39, 41), invincibility,
+deaths, order, ownership and vitals (43, 45–46, 48–52), and alliance (57).
+The reviewed fields agree after the +20 vitals and action 52 count corrections.
+This audit does not assert full behavior: for example, transmission audio,
+Move Unit teleport placement, player-group cases and location geometry remain
+incomplete, and unsupported actions were not included.
 PyMS defines Modify Unit Hit Points (action 49) with a quantity that may be
 All and a percentage in 0–100. It now shares the complete traversal used by
 energy and shield modification instead of truncating All at 256 units; the

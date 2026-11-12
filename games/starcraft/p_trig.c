@@ -367,11 +367,12 @@ static void modify_vitals(const sc_mission_t *m, const int *players, int nplayer
 
 /* Resource deposits are level vents linked to the native resource mobj. */
 static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
-                            unsigned loc, unsigned amount) {
+                            unsigned loc, unsigned amount, unsigned limit) {
     int l, t, r, b;
     bool anywhere = !loc || loc == 64;
     if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
     if (!thinkercap.next) return;
+    unsigned changed = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo)) continue;
@@ -390,8 +391,10 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
             vent->rate = vent->depleted ? vent->depleted_rate : 8;
             vent->active = mo->type_id != MT_VESPENE_GEYSER &&
                 (vent->amount > 0 || vent->depleted);
+            changed++;
             break;
         }
+        if (limit && changed >= limit) break;
     }
 }
 
@@ -746,7 +749,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 52) {
-            modify_deposits(m, player, st->current, loc, number);
+            modify_deposits(m, player, st->current, loc, number, a[27]);
             continue;
         }
         if (id == 49 || id == 50 || id == 51) {
