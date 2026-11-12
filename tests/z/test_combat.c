@@ -1294,6 +1294,71 @@ static int test_water_launch(void) {
     return 0;
 }
 
+static int test_tank_shell_arc(void) {
+    const int types[] = {MT_UNIT_LIGHT_TANK, MT_UNIT_MED_TANK, MT_UNIT_HEAVY_TANK};
+    const int speeds[] = {12, 10, 8};
+    RtsGameModel *model = load();
+    if (!model) return fail("load tank arc fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 96, 0), 500);
+    if (!map || !target) return fail("spawn tank arc target");
+    for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 34; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
+    target->traits &= ~(MF_ATTACK | MF_MOBILE);
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        mobj_t *tank = blast_unit(types[i], 0, at, 500);
+        if (!tank) return fail("spawn tank arc attacker");
+        tank->traits &= ~MF_ATTACK;
+        if (!Z_Attack(tank, &tank->info->attack, target)) return fail("launch tank arc shell");
+        mobj_t *shell = nth(MT_SHELL, 0, (int)i);
+        if (!shell || shell->z.grenade.speed != speeds[i] || shell->z.water.major || shell->core.frame != 1634)
+            return fail("tank selects native arc projectile and artwork");
+    }
+    if (!tick(model, 1)) return fail("tick tank arc shells");
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        mobj_t *shell = nth(MT_SHELL, 0, (int)i);
+        if (!shell || shell->core.state_id != S_SHELL || shell->missile.age < 2 || shell->missile.age > 3 ||
+            shell->z.grenade.major - shell->z.grenade.remaining != shell->missile.age * speeds[i])
+            return fail("tank arc shell travels at constant native speed");
+    }
+    mobj_t *first = nth(MT_SHELL, 0, 0);
+    uint32_t id = first->id, hash = G_Consistency();
+    int remaining = first->z.grenade.remaining, sample = first->z.grenade.sample;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Tank arc flight", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save tank arc flight");
+    free(save);
+    first = P_MobjById(id);
+    if (!first || first->z.grenade.remaining != remaining || first->z.grenade.sample != sample || G_Consistency() != hash)
+        return fail("restore tank arc flight");
+    rts_game_model_destroy(model);
+    model = load();
+    if (!model) return fail("load tank arc terrain fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    map = level.native_data;
+    mobj_t *tank = blast_unit(MT_UNIT_LIGHT_TANK, 0, at, 500);
+    target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 500);
+    if (!map || !tank || !target) return fail("spawn tank arc terrain fixture");
+    for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 34; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = x == 27 ? 1 : 0;
+    Z_RebuildCliffs(&level);
+    tank->traits &= ~MF_ATTACK; target->traits &= ~(MF_ATTACK | MF_MOBILE);
+    if (!Z_Attack(tank, &tank->info->attack, target)) return fail("launch tank shell into terrain");
+    first = nth(MT_SHELL, 0, 0);
+    if (!first) return fail("find terrain tank shell");
+    for (int i = 0; i < 40 && first->core.state_id == S_SHELL; ++i)
+        if (!tick(model, 1)) return fail("tick tank shell into terrain");
+    ivec2_t hit = fixed2_cell(fixed2_scale(fixed3_xy(first->core.position), FIXED_FROM_INT(Z_TILE)));
+    if (first->core.state_id != S_SHELL_BLAST || hit.x / Z_TILE != 27 ||
+        !fixed2_equal(first->movement.goal, fixed3_xy(first->core.position)))
+        return fail("tank arc terrain impact uses actual impact point");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_terrain(void) {
     for (int raised = 0; raised < 2; ++raised) {
         RtsGameModel *model = load();
@@ -1301,7 +1366,7 @@ static int test_shell_terrain(void) {
         P_AiSetFeatures(rts_game_model_ai(model), 0);
         zmap_t *map = level.native_data;
         fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
-        mobj_t *gun = blast_unit(MT_UNIT_LIGHT_TANK, 0, at, 500);
+        mobj_t *gun = blast_unit(MT_UNIT_M_MISSILE, 0, at, 500);
         mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 500);
         if (!map || !gun || !target) return fail("spawn shell terrain fixture");
         for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 34; ++x)
@@ -1338,7 +1403,7 @@ static int test_shell_terrain(void) {
     P_AiSetFeatures(rts_game_model_ai(model), 0);
     zmap_t *map = level.native_data;
     fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
-    mobj_t *gun = blast_unit(MT_UNIT_LIGHT_TANK, 0, at, 500);
+    mobj_t *gun = blast_unit(MT_UNIT_M_MISSILE, 0, at, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 200, 0), 500);
     if (!map || !gun || !target) return fail("spawn shell range fixture");
     for (int y = 23; y <= 27; ++y) for (int x = 23; x <= 40; ++x)
@@ -1347,14 +1412,14 @@ static int test_shell_terrain(void) {
     gun->traits &= ~MF_ATTACK; target->traits &= ~(MF_ATTACK | MF_MOBILE);
     if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch shell beyond range");
     mobj_t *shell = nth(MT_SHELL, 0, 0);
-    if (!shell || shell->z.water.range != 120 || states[S_SHELL].frame != 1622)
+    if (!shell || shell->z.water.range != 160 || states[S_SHELL].frame != 1622)
         return fail("shell uses native range and projectile artwork");
     ivec2_t start = shell->z.water.start;
     for (int i = 0; i < 80 && shell->core.state_id == S_SHELL; ++i)
         if (!tick(model, 1)) return fail("tick shell to range limit");
     ivec2_t hit = fixed2_cell(fixed2_scale(fixed3_xy(shell->core.position), FIXED_FROM_INT(Z_TILE)));
     if (shell->core.state_id != S_SHELL_BLAST || target->hp != 500 ||
-        ivec2_distance_squared64(start, hit) < 120 * 120 || hit.x >= start.x + 200)
+        ivec2_distance_squared64(start, hit) < 160 * 160 || hit.x >= start.x + 200)
         return fail("shell stops at native weapon range");
     mobj_t *launcher = blast_unit(MT_UNIT_MISSILE_GUN, 0, at, 500);
     fixed2_t target_centre;
@@ -1656,6 +1721,6 @@ static int test_alert(void) {
 
 int main(void) {
     if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
-        test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
+        test_tank_shell_arc() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

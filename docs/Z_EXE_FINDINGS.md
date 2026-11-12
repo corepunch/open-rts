@@ -3571,6 +3571,23 @@ at `0x59440..0x59484`; destination arrival precedes both. Open-rts now
 uses an ordinary saved mobj and its state action for 70 Hz integer stepping,
 acceleration, range and terrain stops; Z save layout 18 stores this flight
 state. The explosion animation remains the earlier stand-in.
+**Dispatch correction:** the preceding conclusion applies to the
+`0x59ed1` initializer, not every shell-bearing unit. Vehicle firing dispatch
+`0x58bcc..0x58c71` sends native type 0x18 (Mobile Missile) to the special
+multi-shot `0x58e2f`/`0x59ed1` path, while ordinary tank types 0x06, 0x19
+and 0x1e use `0x5a205` at `0x58c71`; the direct firing path `0x580da..0x580ee`
+does the same. `0x5a205` stores the weapon speed in +0x16 and +0x17 through
+`0x5a39e`, leaves flags 4 at `0x5a280..0x5a288`, and uses the same sampled
+arc/terrain path as grenades. Since +0x17 is less than 16 for the shipped
+tank speeds, `0x5a4d8..0x5a4e5` selects +0x16 directly on every update:
+those tank shells move at constant native speed. With flag 8 clear they draw
+SPRITES.RSC 1634 at `0x59538`, not the 1622..1625 sequence used by the
+accelerating `0x59ed1` branch. Open-rts now selects the saved arc state for
+Light, Medium and Heavy Tank shells; Tough/APC shells retain the confirmed
+`0x59ed1` path. Fixed-gun dispatch and the Mobile Missile's three-projectile
+special path still need complete tracing. `test_combat` checks all three tank
+speeds, actual arc travel, save/load and terrain impact. The former statement
+that all shells accelerate was an overgeneralization and is superseded here.
 The range gate compares 32-bit squared displacement from launch against
 `(+0x29 * 8)^2` by high word then low word, and detonates on equality or
 greater. `0x5a419` copies +0x29 from unit +0x71; `0x50df7..0x50dff` derives
