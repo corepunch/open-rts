@@ -3497,6 +3497,18 @@ separate from the earlier acquisition and vehicle-contact refreshes. Inspect
 with `r2 -q -e bin.cache=true -c 'pd 45 @ 0x86ca4' -c 'pd 25 @ 0x86d1f'
 -c 'pd 16 @ 0x75ca3' -c q data/Z/ZED.EXE`.
 
+**Engine integration boundary:** `Z_RouteTick` runs both player route steps
+and producer-inherited rally templates through the same internal `issue()`
+and `G_RunTiccmd` path, while `Z_SquadOrder` also serves internal commands.
+Consequently neither call by itself proves native player command bit +0x98
+was set. Similarly the engine's current attack target pointer can be assigned
+before native attack-transition timing and does not encode vehicle-contact
+refreshes. Loading +0x3d on every route execution or refreshing +0x10 on
+every nonnull pointer would therefore add unsupported speed boosts. A port
+needs explicit player-command provenance and group target/response state,
+including save/load and squad reuse, together with tests of player, AI,
+factory rally, acquisition and damage paths. These are unresolved here.
+
 A broad linear disassembly search found `0x47af6` as the only direct
 `or byte [ebp + 0x98], 0x20` write; `0x7c059..0x7c0a9` iterates squad
 members but only clears specific +0x5a orders and does not set that bit.

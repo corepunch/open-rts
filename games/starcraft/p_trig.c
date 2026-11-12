@@ -685,9 +685,15 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             G_EndLevel(id == 1 ? OUTCOME_VICTORY : id == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
             return;
         }
-        if (!local && (id == 7 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
+        if (!local && (id == 7 || id == 8 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
         if (id == 3) { st->preserve = true; continue; }
         if (id == 4) { st->wait_ms = (int)time; return; }
+        if (id == 7 || id == 8) {
+            char wav[512];
+            str_text(m, read_u32_le(a + 8), wav, sizeof(wav));
+            if (wav[0]) sc_brief_voice(level.map_path, wav);
+            if (id == 8) continue;
+        }
         if (id == 7 || id == 9 || id == 12) {
             str_text(m, read_u32_le(a + 4), text, sizeof(text));
             if (id == 12) {

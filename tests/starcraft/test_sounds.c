@@ -86,6 +86,45 @@ static int briefing_voice(void) {
     return 0;
 }
 
+static int trigger_voice(void) {
+    const char *map = "data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk";
+    const char wav[] = "staredit\\wav\\T1B00tad.wav";
+    uint8_t trigger[2400] = {0}, strings[4 + sizeof(wav)] = {1, 0, 4, 0};
+    sc_trig_t runtime[8] = {0};
+    sc_mission_t mission = {.trig = trigger, .trig_count = 1, .rt = runtime,
+                            .str = strings, .str_size = sizeof(strings)};
+    memcpy(strings + 4, wav, sizeof(wav));
+    mission.owners[0] = 6; trigger[15] = 22; trigger[2372] = 1;
+    trigger[320 + 8] = 1; /* WAV string ID */
+    snprintf(level.map_path, sizeof(level.map_path), "%s", map);
+    level.mission = &mission;
+    for (int id = 7; id <= 8; id++) {
+        trigger[320 + 26] = (uint8_t)id;
+        runtime[0] = (sc_trig_t){0};
+        sc_mission_tick(&level, &(hudtext_t){0}, RTS_TICK_MS);
+        CHECK(sc_brief_voice_playing());
+        sc_stop_brief_voice();
+    }
+    mission.owners[1] = 5; trigger[2372] = 0; trigger[2372 + 1] = 1;
+    for (int id = 7; id <= 8; id++) {
+        trigger[320 + 26] = (uint8_t)id;
+        runtime[1] = (sc_trig_t){0};
+        sc_mission_tick(&level, &(hudtext_t){0}, RTS_TICK_MS);
+        CHECK(!sc_brief_voice_playing());
+    }
+    trigger[2372] = 1; trigger[2372 + 1] = 0;
+    snprintf((char *)strings + 4, sizeof(strings) - 4, "%s", "staredit\\wav\\missing.wav");
+    for (int id = 7; id <= 8; id++) {
+        trigger[320 + 26] = (uint8_t)id;
+        runtime[0] = (sc_trig_t){0};
+        sc_mission_tick(&level, &(hudtext_t){0}, RTS_TICK_MS);
+        CHECK(!sc_brief_voice_playing());
+    }
+    level.mission = NULL;
+    level.map_path[0] = '\0';
+    return 0;
+}
+
 static int music(void) {
     int id = 1; while (S_Sfx(id) && !S_Sfx(id)->music) ++id;
     CHECK(S_Sfx(id));
@@ -191,6 +230,7 @@ int main(void) {
     CHECK(S_Init(root));
     RTS_RUN(bank());
     RTS_RUN(briefing_voice());
+    RTS_RUN(trigger_voice());
     RTS_RUN(music());
     RTS_RUN(responses());
     P_FreeThinkers();

@@ -96,9 +96,15 @@ and timer (13–14, 54–56), AI scripts (15–16), kill/remove/resources
 (22–26), location/unit movement and next scenario (38–39, 41), invincibility,
 deaths, order, ownership and vitals (43, 45–46, 48–52), and alliance (57).
 The reviewed fields agree after the +20 vitals and action 52 count corrections.
-This audit does not assert full behavior: for example, transmission audio,
+This audit does not assert full behavior: for example, transmission timing,
 Move Unit placement, player-group cases and location geometry remain
 incomplete, and unsupported actions were not included.
+eudplib `stockact.py` identifies Play WAV (8) and Transmission (7) sound
+string IDs at +8. Both now play extracted scenario WAVs for the local trigger
+owner using the existing briefing voice channel. The dummy-audio test checks
+both paths with a native Terran 01 recording. This shared single channel,
+transmission timing and portrait behavior remain approximations; unsupported
+or missing WAVs are silent.
 eudplib `MoveUnit` describes action 39 as teleporting selected units, not
 issuing a movement order. Mobile units now move immediately using the existing
 Recall placement search near the destination center; a two-unit fixture checks
