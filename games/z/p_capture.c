@@ -40,6 +40,27 @@ static int empty_slot(void) {
     return 0;
 }
 
+/* 0x6178d..0x617ed and the Jeep's 0x14af94 row place its empty
+ * object at (-4,-7) from the unit origin. 0x6147d checks four terrain
+ * cells at the object's rounded position before allocating the effect. */
+static bool empty_jeep_position(const mobj_t *mo, fixed2_t *position) {
+    const zmap_t *map = level.native_data;
+    isize2_t size;
+    if (!map || !Z_SpriteSize(map, states[S_JEEP].frame, &size)) return false;
+    ivec2_t origin = ivec2_sub(Z_BlastAnchor(mo), (ivec2_t){20, 23});
+    ivec2_t tile = {(origin.x + 7) / Z_TILE, (origin.y + 7) / Z_TILE};
+    if (origin.x + 7 < 0 || origin.y + 7 < 0 || tile.x + 1 >= level.width || tile.y + 1 >= level.height)
+        return false;
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
+        int terrain = map->terrain[(tile.y + y) * Z_MAP_STRIDE + tile.x + x] & 0x7f;
+        if (terrain != 0 && terrain != 7 && terrain != 8 && terrain != 10 &&
+            terrain != 22 && terrain != 23 && terrain != 59) return false;
+    }
+    origin = ivec2_scale(tile, Z_TILE);
+    *position = fixed2_scale(fixed2_from_cell(ivec2_add(origin, (ivec2_t){size.w / 2, size.h / 2})), FIXED_ONE / Z_TILE);
+    return true;
+}
+
 static int robot_type(const mobj_t *mo) {
     int t = Z_UnitType(mo);
     return live(mo) && Z_IsRobot(t) && mo->team < Z_NEUTRAL ? t : -1;
@@ -439,13 +460,17 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
     target->attack.target = NULL;
     P_ClearMove(target);
     P_MobjSetSelected(target, false);
-    if (gun) {
+    if (gun || t == MT_UNIT_JEEP - MT_UNITS) {
         int object = t == MT_UNIT_LIGHT_GUN - MT_UNITS ? MT_GUN :
                      t == MT_UNIT_GATLING - MT_UNITS ? MT_GATTLING :
-                     t == MT_UNIT_HOWITZER - MT_UNITS ? MT_HOWITZER : MT_MISSILE;
+                     t == MT_UNIT_HOWITZER - MT_UNITS ? MT_HOWITZER :
+                     t == MT_UNIT_MISSILE_GUN - MT_UNITS ? MT_MISSILE : MT_JEEP;
+        fixed2_t position;
+        bool fits = gun || empty_jeep_position(target, &position);
         int slot = empty_slot();
-        if (!slot) P_RemoveMobj(target);
+        if (!fits || !slot) P_RemoveMobj(target);
         else {
+            if (!gun) target->core.position = fixed3_from_fixed2(position, target->core.position.z);
             target->z.object = object;
             target->z.object_slot = slot;
             target->z.object_hp = target->hp / 25;

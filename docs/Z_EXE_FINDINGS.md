@@ -3324,7 +3324,13 @@ modeled would miss terrain rejection and competition with other effects.
 after `0x6147d` adds 0x4000 this is the terrain plane represented by
 `zmap_t.terrain`. For the shipped terrain IDs 0..66, the table permits only
 0, 7, 8, 10, 22, 23 and 59. The four gun IDs skip this terrain check;
-the exposed-driver Jeep does not. On gun driver loss open-rts uses the first
+the exposed-driver Jeep does not. The Jeep unit type 0x22 selects signed
+offset (0,-7) at `0x14b01c`; the subsequent subtraction of four from x
+places the object at unit origin +(-4,-7). `0x6147d` rounds both coordinates
+to `(coordinate + 7) & 0xfff0` and returns those rounded coordinates to
+`0x61440..0x61443`, which stores the empty effect there. Open-rts converts
+its unit center back to native origin and applies this placement and terrain
+test on Jeep driver loss. On gun driver loss open-rts uses the first
 free represented effect slot, transfers quantized health and changes to the
 empty sprite, allowing shell damage and subsequent boarding; if all represented
 slots are occupied it removes the gun. Unrepresented native effects can occupy
@@ -3332,9 +3338,9 @@ slots, so allocation and collision ordering are approximations. The engine
 retains the unit center when switching sprites; native `0x6178d..0x617ed`
 adds per-type offsets from `0x14af94` and subtracts four from x before creating
 the effect, and the precise correspondence to engine sprite centers is still
-unknown. Jeep loss remains outside the effect selector until that coordinate
-mapping is established. `test_combat` covers each gun, save/load, a shell hit,
-boarding, and represented pool exhaustion. Reproduce the table with `r2 -q -e bin.cache=true -c
+unknown for guns. `test_combat` covers each gun, save/load, a shell hit,
+boarding, represented pool exhaustion, and Jeep placement on permitted and
+blocked terrain. Reproduce the table with `r2 -q -e bin.cache=true -c
 'pxj 67 @ 0x11ceae' -c q data/Z/ZED.EXE`; reproduce the control flow with
 `r2 -q -e bin.cache=true -c 'pd 30 @ 0x6140f' -c 'pd 35 @ 0x6147d' -c
 'pd 15 @ 0x4a5d7' -c 'pd 10 @ 0x61c7f' -c q data/Z/ZED.EXE`.

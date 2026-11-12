@@ -247,6 +247,11 @@ static int test_retail_stats(void) {
         if (th->function == P_MobjThinker && mo->z.robot && Z_IsRobot(Z_UnitType(mo))) sniper = mo;
     }
     if (!jeep || !sniper) return fail("driver fixture");
+    ivec2_t origin = ivec2_sub(Z_BlastAnchor(jeep), (ivec2_t){20, 23});
+    ivec2_t tile = {(origin.x + 7) / Z_TILE, (origin.y + 7) / Z_TILE};
+    zmap_t *terrain_map = level.native_data;
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x)
+        terrain_map->terrain[(tile.y + y) * Z_MAP_STRIDE + tile.x + x] = 0;
     Z_SetTeam(jeep, 0);
     jeep->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
     sniper->z.robot = 4 + 1; /* ROBOTS.DAT record 4, the Sniper: accuracy 120. */

@@ -75,6 +75,14 @@ static fixed2_t pixel_at(fixed2_t at, int x, int y) {
     return fixed2_add(at, (fixed2_t){x * (FIXED_ONE / Z_TILE), y * (FIXED_ONE / Z_TILE)});
 }
 
+static void jeep_terrain(const mobj_t *jeep, uint8_t terrain) {
+    zmap_t *map = level.native_data;
+    ivec2_t origin = ivec2_sub(Z_BlastAnchor(jeep), (ivec2_t){20, 23});
+    ivec2_t tile = {(origin.x + 7) / Z_TILE, (origin.y + 7) / Z_TILE};
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x)
+        map->terrain[(tile.y + y) * Z_MAP_STRIDE + tile.x + x] = terrain;
+}
+
 static int test_bad_crew_combat(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for malformed crew combat");
@@ -364,6 +372,9 @@ static int test_gun_drivers(void) {
     if (tank->z.crew_hurt) return fail("ordinary tank does not use the open gun driver rule");
     mobj_t *boundary = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 16, 0), 500);
     if (!boundary) return fail("spawn driver health boundary fixture");
+    jeep_terrain(boundary, 7);
+    ivec2_t jeep_origin = ivec2_sub(Z_BlastAnchor(boundary), (ivec2_t){20, 23});
+    ivec2_t rounded = {(jeep_origin.x + 7) / Z_TILE * Z_TILE, (jeep_origin.y + 7) / Z_TILE * Z_TILE};
     boundary->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
     boundary->hp = 499;
     boundary->z.crew_count = 1;
@@ -374,13 +385,32 @@ static int test_gun_drivers(void) {
         return fail("driver at zero health remains aboard at native signed boundary");
     for (int n = 0; n < 256 && boundary->z.driver; ++n, ++leveltime)
         Z_HitDamage(shooter, &shooter->info->attack, boundary, 1, 1);
-    if (boundary->z.driver || boundary->team != Z_NEUTRAL || boundary->hp != 475 || boundary->max_hp != 500)
+    if (boundary->remove || boundary->z.driver || boundary->team != Z_NEUTRAL || boundary->hp != 475 || boundary->max_hp != 500 ||
+        boundary->z.object != MT_JEEP || boundary->z.object_hp != 19 || !boundary->z.object_slot)
         return fail("driver death empties the Jeep and quantizes body health");
+    isize2_t jeep_size;
+    if (!Z_SpriteSize(level.native_data, states[S_JEEP].frame, &jeep_size) ||
+        !ivec2_equal(fixed2_cell(fixed2_scale(fixed3_xy(boundary->core.position), FIXED_FROM_INT(Z_TILE))),
+                     ivec2_add(rounded, (ivec2_t){jeep_size.w / 2, jeep_size.h / 2})))
+        return fail("driverless Jeep origin is rounded to the native terrain grid");
+    uint32_t boundary_id = boundary->id, initial_shooter_id = shooter->id;
+    app_t jeep_app = {0}; hudtext_t jeep_hud = {0}; void *jeep_save = NULL; size_t jeep_bytes = 0;
+    if (!G_SaveGameBlob(&jeep_save, &jeep_bytes, "Empty Jeep", &jeep_app, rts_game_model_ai(model), &jeep_hud) ||
+        !G_LoadGameBlob(jeep_save, jeep_bytes, &jeep_app, rts_game_model_ai(model), &jeep_hud))
+        return fail("save driverless Jeep");
+    free(jeep_save);
+    boundary = P_MobjById(boundary_id); shooter = P_MobjById(initial_shooter_id);
+    if (!boundary || !shooter || boundary->z.object != MT_JEEP || boundary->z.object_hp != 19 ||
+        !boundary->z.object_slot ||
+        !ivec2_equal(fixed2_cell(fixed2_scale(fixed3_xy(boundary->core.position), FIXED_FROM_INT(Z_TILE))),
+                     ivec2_add(rounded, (ivec2_t){jeep_size.w / 2, jeep_size.h / 2})))
+        return fail("restore driverless Jeep position and effect health");
     mobj_t *replacement = blast_unit(MT_UNIT_GRUNT, 0, fixed3_xy(boundary->core.position), 30);
     if (!replacement || !Z_DetourBoard(replacement, boundary) || boundary->hp != 475 || boundary->max_hp != 500)
         return fail("boarding retains the quantized empty-body health");
     mobj_t *fragile = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 16, 0), 500);
     if (!fragile) return fail("spawn low-health driver fixture");
+    jeep_terrain(fragile, 23);
     fragile->hp = 1; fragile->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
     fragile->z.crew_count = 1;
     fragile->z.crew[0] = (zcrew_t){.hp = 1, .type = MT_UNIT_GRUNT - MT_UNITS};
@@ -388,6 +418,16 @@ static int test_gun_drivers(void) {
         Z_HitDamage(shooter, &shooter->info->attack, fragile, 2, 1);
     if (fragile->z.driver || fragile->hp != 25)
         return fail("driver loss retains native minimum empty-body health");
+    mobj_t *blocked = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 64, 0), 500);
+    if (!blocked) return fail("spawn blocked driver fixture");
+    jeep_terrain(blocked, 0);
+    ivec2_t blocked_origin = ivec2_sub(Z_BlastAnchor(blocked), (ivec2_t){20, 23});
+    ivec2_t blocked_tile = {(blocked_origin.x + 7) / Z_TILE, (blocked_origin.y + 7) / Z_TILE};
+    ((zmap_t *)level.native_data)->terrain[(blocked_tile.y + 1) * Z_MAP_STRIDE + blocked_tile.x + 1] = 1;
+    blocked->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    for (int n = 0; n < 256 && !blocked->remove; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, blocked, 255, 1);
+    if (!blocked->remove) return fail("blocked terrain prevents driverless Jeep placement");
     mobj_t *gun = blast_unit(MT_UNIT_GATLING, 1, pixel_at(at, 16, 0), 500);
     if (!gun) return fail("spawn gun for real attack");
     gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
