@@ -635,6 +635,27 @@ int main(void) {
     CHECK(placed_seen == 7); P_FreeMobjList(&placed_units); unload();
     remove("/tmp/open-rts-sc-placed-illusion.chk");
 
+    /* Preplaced Broodlings age out; hallucination keeps its shorter lifetime. */
+    CHECK(!write_map("/tmp/open-rts-sc-placed-brood.chk", owners, NULL));
+    placed_file = fopen("/tmp/open-rts-sc-placed-brood.chk", "ab"); CHECK(placed_file);
+    uint8_t brood_units[2 * 36] = {0}; put_u32(unit_header + 4, sizeof(brood_units));
+    for (int i = 0; i < 2; i++) {
+        uint8_t *entry = brood_units + i * 36;
+        put_u16(entry + 4, 128 + i * 64); put_u16(entry + 6, 128);
+        put_u16(entry + 8, MT_BROODLING - 1);
+        if (i) { put_u16(entry + 12, 8); put_u16(entry + 26, 8); }
+    }
+    CHECK(fwrite(unit_header, 1, sizeof(unit_header), placed_file) == sizeof(unit_header));
+    CHECK(fwrite(brood_units, 1, sizeof(brood_units), placed_file) == sizeof(brood_units)); CHECK(!fclose(placed_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-placed-brood.chk", &level)); CHECK(P_LoadThings(level.map_path) == 2);
+    placed_units = P_ListMobjs(); CHECK(placed_units.count == 2);
+    mobj_t *brood = placed_units.items[0], *illusion_brood = placed_units.items[1];
+    CHECK(brood->sc.timers[SC_TIMER_LIFE] == 1800 && illusion_brood->sc.timers[SC_TIMER_LIFE] == 1350);
+    sc_spell_ticker(brood, 1799); CHECK(brood->hp > 0 && brood->sc.timers[SC_TIMER_LIFE] == 1);
+    sc_spell_ticker(brood, 1); CHECK(brood->hp <= 0 || brood->remove);
+    sc_spell_ticker(illusion_brood, 1350); CHECK(illusion_brood->remove);
+    P_FreeMobjList(&placed_units); unload(); remove("/tmp/open-rts-sc-placed-brood.chk");
+
     /* UNIT resource amounts are used only when the corresponding bit is valid. */
     CHECK(!write_map("/tmp/open-rts-sc-placed-resource.chk", owners, NULL));
     placed_file = fopen("/tmp/open-rts-sc-placed-resource.chk", "ab"); CHECK(placed_file);

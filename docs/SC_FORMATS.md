@@ -234,6 +234,10 @@ lifetime, Carrier/Reaver hangars, non-damaging illusion scarabs and save/load.
 OpenBW gives each already-stored Reaver scarab its own timer; this engine's
 integer hangar starts a scarab's lifetime only when it launches, so docked
 illusion scarabs do not independently expire.
+OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
+timer. It now uses the same lifecycle as spawned Broodlings, retaining the
+shorter 1350-frame timer when also hallucinated. A fixture checks both
+lifetimes and expiration.
 OpenBW's global Command counters exclude hallucinations, while Bring's
 spatial counters include them; both exclude turret subunits. The engine now
 mirrors that distinction, and Move Location can select an illusion as in

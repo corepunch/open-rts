@@ -35,6 +35,11 @@ void sc_initial_hallucination(mobj_t *mo) {
     if (!(sc_unit(mo)->flags & SC_UNIT_TURRET)) mo->sc.timers[SC_TIMER_LIFE] = SC_HALLUCINATION_FRAMES;
     if (sc_hangar_type(mo->type_id) == MT_INTERCEPTOR) mo->sc.hangar = 0;
 }
+
+void sc_initial_broodling(mobj_t *mo) {
+    int *life = &mo->sc.timers[SC_TIMER_LIFE];
+    if (!*life || *life > SC_BROODLING_FRAMES) *life = SC_BROODLING_FRAMES;
+}
 #define SC_SWARM_RADIUS (FIXED_ONE * 5 / 2)
 /* Recall takes everyone in a 128-pixel square; Stasis Field a 96-pixel one. */
 #define SC_RECALL_HALF SC_PIXELS(64)
@@ -416,7 +421,7 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
         P_DamageMobj(target, caster, target->hp);
         for (int i = 0; i < 2; i++) {
             mobj_t *brood = spawn_for(caster, MT_BROODLING, fixed2_add(at, (fixed2_t){i ? 26214 : -26214, 0}));
-            if (brood) brood->sc.timers[SC_TIMER_LIFE] = SC_BROODLING_FRAMES;
+            if (brood) sc_initial_broodling(brood);
         }
         break;
     case SC_TECH_CONSUME:

@@ -538,6 +538,7 @@ int sc_spawn_things(void) {
             if(read_u16_le(u+14)&0x20) sc_initial_hangar(mo,read_u16_le(u+24));
             if((read_u16_le(u+12)&8)&&(read_u16_le(u+26)&8)) sc_initial_hallucination(mo);
             if((read_u16_le(u+12)&0x10)&&(read_u16_le(u+26)&0x10)) mo->sc.flags|=SC_INVINCIBLE;
+            if(mo->type_id==MT_BROODLING) sc_initial_broodling(mo);
             bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
             if(minerals||mo->type_id==MT_VESPENE_GEYSER||mo->type_id==MT_REFINERY||
                mo->type_id==MT_EXTRACTOR||mo->type_id==MT_ASSIMILATOR) {
