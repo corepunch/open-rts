@@ -368,10 +368,10 @@ static bool reaches_crate(const mobj_t *robot, const mobj_t *box) {
  * carries can hurt (0x753bb). */
 static bool throws_at(const mobj_t *robot, const mobj_t *target) {
     int t = robot_type(robot), u = Z_UnitType(target);
-    if (t < 0 || !robot->z.grenades || !live(target)) return false;
+    if (t < 0 || t == MT_UNIT_TOUGH - MT_UNITS || !robot->z.grenades || !live(target)) return false;
     if (structure(target)) return true;
     if (target->type_id == MT_CLIFF || target->type_id == MT_BRIDGE) return true;
-    return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS && t != MT_UNIT_TOUGH - MT_UNITS;
+    return u >= 0 && !Z_IsRobot(u) && t != MT_UNIT_LASER - MT_UNITS;
 }
 
 void A_PyroFlame(mobj_t *unit) {
@@ -403,7 +403,8 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
     if (victim->type_id == MT_CLIFF || victim->type_id == MT_BRIDGE)
         return attacker->attack.target == victim && Z_CliffWeapon(attacker);
     if (victim->type_id == MT_FORT) return false;
-    return !structure(victim) || robot_type(attacker) < 0 || attacker->z.grenades;
+    int type = robot_type(attacker);
+    return !structure(victim) || type < 0 || type == MT_UNIT_TOUGH - MT_UNITS || attacker->z.grenades;
 }
 
 /* A robot about to fire that will throw instead plays the throw. */

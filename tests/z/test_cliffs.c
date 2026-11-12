@@ -89,9 +89,27 @@ int main(void) {
         if (!rts_tick(model, &snap)) return fail("tick tank shell");
     }
     if (!cliff->remove) return fail("tank shell destroys cliff");
+    cliff = NULL;
+    ivec2_t tough_at = {0};
+    for (int y = 1; y < level.height && !cliff; ++y)
+        for (int x = 2; x < level.width && !cliff; ++x)
+            if (L_IsWalkable(&level, x - 1, y) && (cliff = cliff_at((ivec2_t){x,y}))) tough_at = (ivec2_t){x,y};
+    if (!cliff) return fail("third cliff");
+    mobj_t *tough = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){tough_at.x-1,tough_at.y}),0), MT_UNIT_TOUGH);
+    if (!tough) return fail("spawn Tough");
+    Z_SetTeam(tough, 0);
+    cmd.position = cliff->core.position; cmd.units[0] = tough->id;
+    G_RunTiccmd(0, &cmd);
+    if (tough->attack.target != cliff || !P_Attack(tough) || tough->z.grenades)
+        return fail("Tough fires its launcher at a cliff without grenades");
+    for (int i = 0; i < RTS_TICRATE && !cliff->remove; ++i) {
+        RtsRenderSnapshot snap;
+        if (!rts_tick(model, &snap)) return fail("tick Tough shell");
+    }
+    if (!cliff->remove) return fail("Tough shell destroys cliff");
     if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("load rubble");
     free(save);
-    if (cliff_at(rubble_at) || !cliff_at(at) || !L_IsWalkable(&level, rubble_at.x, rubble_at.y) ||
+    if (cliff_at(rubble_at) || !cliff_at(at) || !cliff_at(tough_at) || !L_IsWalkable(&level, rubble_at.x, rubble_at.y) ||
         level.tile_ids[L_Index(&level, rubble_at.x, rubble_at.y)] != rubble_tile || L_IsWalkable(&level, at.x, at.y))
         return fail("save restores destroyed and intact cliffs independently");
     printf("PASS: z %d cliff tops and %d faces block movement; grenades and shells leave traversable rubble\n", tops, faces);

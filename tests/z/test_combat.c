@@ -889,8 +889,8 @@ static int test_grenade_speed(void) {
     if (!model) return fail("load grenade speed fixture");
     fixed2_t at = fixed2_cell_center((ivec2_t){25, 25});
     mobj_t *target = blast_unit(MT_BRIDGE, 1, pixel_at(at, 96, 96), 500);
-    const int types[] = {MT_UNIT_GRUNT, MT_UNIT_TOUGH, MT_UNIT_SNIPER, MT_UNIT_PSYCHO, MT_UNIT_PYRO, MT_UNIT_LASER};
-    const int speeds[] = {3, 12, 5, 3, 6, 6};
+    const int types[] = {MT_UNIT_GRUNT, MT_UNIT_SNIPER, MT_UNIT_PSYCHO, MT_UNIT_PYRO, MT_UNIT_LASER};
+    const int speeds[] = {3, 5, 3, 6, 6};
     if (!target) return fail("spawn grenade speed fixture");
     for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
         mobj_t *robot = blast_unit(types[i], 0, at, 100);

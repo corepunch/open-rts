@@ -284,6 +284,35 @@ static int test_specialist_grenades(void) {
     return 0;
 }
 
+static int test_tough_building_attack(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load Tough building attack");
+    disarm();
+    mobj_t *factory = nth(MT_ROBOT_FACTORY, -1, 0);
+    mobj_t *tough = P_SpawnMobj((fixed3_t){0}, MT_UNIT_TOUGH);
+    mobj_t *grunt = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    if (!factory || !tough || !grunt) return fail("Tough building fixture");
+    Z_SetTeam(factory, 1); Z_SetTeam(tough, 0); Z_SetTeam(grunt, 0);
+    if (!P_CanTarget(tough, factory) || P_CanTarget(grunt, factory) ||
+        !Z_CliffWeapon(tough) || Z_CliffWeapon(grunt)) return fail("Tough launcher targets structures without grenades");
+    ivec2_t at = fixed2_cell(fixed3_xy(factory->core.position));
+    place(tough, (ivec2_t){at.x, at.y + 5});
+    tough->attack.target = factory;
+    int hp = factory->hp;
+    bool shell = false;
+    for (int tic = 0; tic < 10 * RTS_TICRATE && factory->hp == hp; ++tic) {
+        if (!tick(model, 1)) return fail("tick Tough building attack");
+        shell |= nth(MT_SHELL, 0, 0) != NULL;
+    }
+    if (!shell || factory->hp >= hp || tough->z.grenades)
+        return fail("Tough launcher flies and damages an enemy factory");
+    tough->z.grenades = 1; /* A mixed squad can allocate one to a Tough. */
+    if (!Z_Attack(tough, &tough->info->attack, factory) || tough->z.grenades != 1 || nth(MT_GRENADE, 0, 0))
+        return fail("Tough keeps using launcher against buildings when carrying a grenade");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_crate_slot_order(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load crate slot order");
@@ -683,6 +712,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

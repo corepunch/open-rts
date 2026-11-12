@@ -222,7 +222,7 @@ void Z_CliffDamage(mobj_t *cliff) {
 }
 
 bool Z_CliffWeapon(const mobj_t *unit) {
-    if (Z_IsRobot(Z_UnitType(unit))) return unit->z.grenades > 0;
+    if (Z_IsRobot(Z_UnitType(unit))) return unit->type_id == MT_UNIT_TOUGH || unit->z.grenades > 0;
     switch (unit->type_id) {
     case MT_UNIT_LIGHT_GUN: case MT_UNIT_MED_TANK: case MT_UNIT_HEAVY_TANK:
     case MT_UNIT_LIGHT_TANK: case MT_UNIT_M_MISSILE: case MT_UNIT_MISSILE_GUN:

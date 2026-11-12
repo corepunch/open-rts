@@ -166,7 +166,7 @@ cells with terrain 0x23 and grenade crates with 0x24.
 | 0x61022 | Robots walk to the empty vehicle or gun they are sent to; 0x7af62 deletes the object within 20 px and turns the robot's record into the vehicle (type kept at +0x8a) |
 | 0x61821 | A vehicle whose driver dies with hit points left goes back to an empty object; a destroyed one leaves its wreck |
 | 0x79b25 | Terrain 0x24: a Grunt, Sniper, Psycho, Pyro or Laser (runtime classes 0, 0xf, 0x10) within 16 px of a crate, whose squad holds no grenades, takes 10 (type 9) or 20 (type 10) for the squad, the remainder to the first member (0x79bea), at most 127 |
-| 0x75939 | A robot with grenades throws at vehicles and guns (Lasers and Tough use their own weapons), action 0x31 (0x6360e: 2522 + direction * 4 + frame); attacking a building needs grenades (0x753bb) |
+| 0x75939 | A robot with grenades throws at vehicles and guns (Lasers and Tough use their own weapons), action 0x31 (0x6360e: 2522 + direction * 4 + frame); class-0 and Laser building attacks use grenades (0x753bb), while Tough uses its launcher (0x752bc) |
 | 0x636a0 | The grenade leaves on the throw's last frame; 0x5a205 launches it, drawn as 1336..1339 (0x59538); it bursts through 0x8476c with strength 0x32 for a Grunt |
 
 In level 1 each fort's flag cell is its entrance: the computer's fort has
@@ -1415,6 +1415,31 @@ and unchanged ammunition in that case. Its separate building-order path is
 unchanged. Inspect `r2 -q -e bin.cache=true -c
 'pd 16 @ 0x50e1a' -c 'pd 30 @ 0x79b8b' -c 'pd 24 @ 0x9a19e' -c
 'pd 24 @ 0x9957c' -c q data/Z/ZED.EXE`.
+
+**Tough structure attacks:** `0x75297..0x752bc` dispatches a coordinate
+attack by runtime class: class 0 and Laser reach the grenade path at
+`0x753bb`, whereas class 3 (Tough) proceeds to launcher action 0x13 at
+`0x752c3` without checking its grenade count. Action table entry 0x13 at
+`0x149084` points to `0x60c2a`, which calls the Tough launcher path
+`0x60c9d`. The former engine gate incorrectly required grenades for every
+robot to attack a building, bridge or cliff, and could send a Tough holding
+a shared grenade through the grenade action. Tough now uses its shell for
+those targets regardless of grenade count. `test_capture` runs a launcher
+shot into an enemy factory with no grenades and checks the case where one
+is held; `test_cliffs` orders and flies a Tough shell into a cliff, then
+restores a save containing that cliff. Reproduce with `r2 -q -e bin.cache=true
+-c 'pd 28 @ 0x75297' -c 'pxw 4 @ 0x149084' -c 'pd 38 @ 0x60c2a'
+-c 'pd 35 @ 0x60c9d' -c q data/Z/ZED.EXE`.
+
+The nearby Pyro branch is distinct: `0x752ff..0x7537c` tests the target's
+terrain through `0x193f0`. With no squad grenades, that routine indexes
+`0x117214`, whose entries for terrain 0..66 contain no value 2; the branch
+therefore selects flame action 0x41 rather than the grenade path. Ground fire
+and its building damage are still incomplete in the engine, so this finding
+does not by itself justify treating its existing full-damage instantaneous
+hit as equivalent building damage. Inspect with `r2 -q -e bin.cache=true -c
+'pd 50 @ 0x752ff' -c 'pd 30 @ 0x193f0' -c 'px 67 @ 0x117214'
+-c q data/Z/ZED.EXE`.
 
 The mobile budget (`0x97f50`, `0x97fad`, `0x9b679`) uses these integer rules:
 
