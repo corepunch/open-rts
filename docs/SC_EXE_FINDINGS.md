@@ -2509,3 +2509,22 @@ retail executable trace confirms these ranking details.
 
 `test_mission` covers Ore, Gas, combined Ore and Gas, tie, zero tie, lower
 balance, inactive-slot exclusion, and an active neutral slot.
+
+### Least Resources trigger condition (2026-11-12)
+
+**Confirmed format mapping:** PyMS `FileFormats/TRG.py` maps condition type 20
+to `LeastResources` and uses the same `ResType` byte and 0/1/2 Ore, Gas, and
+Ore and Gas selectors as Most Resources. `PyTRG/HelpText.py` describes it as
+the current player having least of the selected resource. This confirms the
+CHK/editor meaning, not retail tie or player eligibility behavior.
+
+**Implemented behavior:** open-rts compares the trigger owner with all other
+active modeled slots (0–7), with selector 2 summing Ore and Gas as in the
+existing Accumulate condition. Equal balances, including all-zero balances,
+qualify as least; this tie rule is an inference applied consistently with the
+Most Resources comparison, not verified retail behavior. Active neutral slots
+participate, and slots 8–11 remain outside the runtime model. No retail
+executable trace confirms the comparison details.
+
+`test_mission` covers all three selectors, tie and zero tie, a non-qualifying
+higher/lower case, and an active neutral slot.

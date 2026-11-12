@@ -546,6 +546,56 @@ int main(void) {
         free(resources_trigger); unload();
     }
     remove("/tmp/open-rts-sc-most-resources.chk");
+    /* Least Resources (condition 20) uses the same Ore/Gas selector. */
+    const struct {
+        uint8_t selector;
+        int mine[2], rival[2];
+        bool qualifies;
+    } least_resource_cases[] = {
+        {0, {4, 0}, {5, 0}, true},
+        {1, {0, 5}, {0, 4}, false},
+        {2, {2, 3}, {5, 1}, true},
+        {0, {5, 0}, {5, 0}, true},  /* inferred tied least */
+        {2, {0, 0}, {0, 0}, true}   /* inferred zero tie */
+    };
+    for (size_t i = 0; i < sizeof(least_resource_cases) / sizeof(least_resource_cases[0]); i++) {
+        uint8_t *resources_trigger = blank_trigger(); CHECK(resources_trigger);
+        resources_trigger[2372 + 17] = 0; resources_trigger[2372 + 1] = 1;
+        resources_trigger[16] = least_resource_cases[i].selector;
+        resources_trigger[15] = 20;
+        uint8_t *resource_action = resources_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-least-resources.chk", resource_owners, resources_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-least-resources.chk", &level));
+        level.player_resources[1][0] = least_resource_cases[i].mine[0];
+        level.player_resources[1][1] = least_resource_cases[i].mine[1];
+        level.player_resources[0][0] = least_resource_cases[i].rival[0];
+        level.player_resources[0][1] = least_resource_cases[i].rival[1];
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == least_resource_cases[i].mine[0] +
+              (least_resource_cases[i].qualifies ? 10 : 0));
+        free(resources_trigger); unload();
+    }
+    /* Active neutral slots also affect Least Resources rankings. */
+    {
+        uint8_t neutral_owners[12] = {6, 5, 7};
+        uint8_t *resources_trigger = blank_trigger(); CHECK(resources_trigger);
+        resources_trigger[2372 + 17] = 0; resources_trigger[2372 + 1] = 1;
+        resources_trigger[16] = 0; resources_trigger[15] = 20;
+        uint8_t *resource_action = resources_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-least-resources.chk", neutral_owners, resources_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-least-resources.chk", &level));
+        level.player_resources[1][0] = 5;
+        level.player_resources[0][0] = 6;
+        level.player_resources[2][0] = 2;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 5);
+        free(resources_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-least-resources.chk");
     /* Timer quantities are unsigned seconds; large values must not overflow ms. */
     for (int op = 7; op <= 9; op++) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22;

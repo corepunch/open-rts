@@ -302,13 +302,14 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
             if (p != current && slot_active(m, p) && player_kills(m, p, unit) > mine) return false;
         return true;
     }
-    if (type == 10) {
+    if (type == 10 || type == 20) {
         if (c[16] > 2) return false;
         uint64_t mine = player_resource_total(current, c[16]);
+        bool most = type == 10;
         for (int p = 0; p < 8; p++) {
             if (p == current || !slot_active(m, p)) continue;
             uint64_t other = player_resource_total(p, c[16]);
-            if (other > mine) return false;
+            if (most ? other > mine : other < mine) return false;
         }
         return true;
     }
