@@ -400,6 +400,28 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
     }
 }
 
+/* CHK action 53 adds fighters to selected hangars, up to their capacity. */
+static void modify_hangars(const sc_mission_t *m, const int *players, int nplayers,
+                           unsigned unit, unsigned loc, unsigned limit, unsigned add) {
+    int l, t, r, b;
+    bool anywhere = !loc || loc == 64;
+    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
+    if (!thinkercap.next) return;
+    unsigned changed = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
+            (mo->type_id != MT_CARRIER && mo->type_id != MT_REAVER) ||
+            (!anywhere && !inside(mo, l, t, r, b))) continue;
+        bool mine = false;
+        for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
+        if (!mine) continue;
+        int room = sc_hangar_capacity(mo) - sc_hangar_count(mo);
+        if (room > 0) mo->sc.hangar += add < (unsigned)room ? (int)add : room;
+        if (limit && ++changed >= limit) break;
+    }
+}
+
 /* CHK Order applies to every matching mobile unit, not a limited group. */
 static void order_units(const sc_mission_t *m, const int *players, int nplayers,
                         unsigned unit, unsigned loc, unsigned destloc, unsigned order) {
@@ -752,6 +774,10 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (id == 52) {
             modify_deposits(m, player, st->current, loc, number, a[27]);
+            continue;
+        }
+        if (id == 53) {
+            modify_hangars(m, players, n, unit, loc, a[27], number);
             continue;
         }
         if (id == 49 || id == 50 || id == 51) {

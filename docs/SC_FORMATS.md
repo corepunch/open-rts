@@ -187,6 +187,16 @@ open-rts collapses that action's Ally and Allied Victory values to the same
 mask, so any distinct victory-status effects are not modeled. Rescue/neutral
 controller treatment and defeated-player state remain incomplete; this is not
 a claim of full opponent-count parity.
+eudplib `ModifyUnitHangarCount` defines action 53 as adding at most the +20
+quantity to the hangars of the +27 count of units at a location (zero means
+All). It now adds docked interceptors or scarabs to Carrier/Reaver hangars,
+bounded by the engine's upgrade-aware capacity and counting launched fighters
+already linked to the unit. Fixtures cover both types, normal and upgraded
+capacities, bounded and All selection, an in-flight fighter and a decoy +8
+field; a save fixture round-trips the hangar and its linked fighter. The capacity accounting,
+center-based selection, hallucination exclusion, heroes and other unit types
+remain approximations; OpenBW does not implement action 53 in its trigger
+switch, so this is not an executable or full retail behavior claim.
 PyMS defines Run AI Script and Run AI Script at Location (actions 15 and 16)
 with a script ID and, for the latter, a location, but no player parameter.
 Their existing generic-AI fallback now enables the executing trigger owner

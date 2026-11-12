@@ -3432,6 +3432,19 @@ bit 0x20. Whether another path sets that bit on the leader after a follower
 selection remains **unknown**. Route setup clears the bit even when unit
 +0x6f bit 0x10 prevents loading +0x3d.
 
+Additional command lifecycle check: `0x7d053` copies squad command and
+operands only to a unit with leader slot `0xff`, and `0x772bf` invoked by
+both the direct dispatcher and this copy does not propagate the command bit
+for ordinary robot classes. Separately `0x7d0a2` clears unit +0x98 bit
+0x20 before clearing the squad command byte +0x3a and unit order +0x5a.
+These observations do not rule out another writer setting the leader bit;
+they do show that copying an order to the leader is not itself sufficient
+to establish the 120-frame countdown. A faithful implementation still needs
+the selected-unit iteration, all bit writers, and target-timer lifecycle
+mapped to the engine's normalized squad commands. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 35 @ 0x47aec' -c 'pd 8 @ 0x772bf' -c 'pd 38 @
+0x7d053' -c 'pd 18 @ 0x7d0a2' -c q data/Z/ZED.EXE`.
+
 The preceding statement that nonzero +0x3d suppresses the walking unit's
 enemy scan is too broad: `0x7ab38..0x7ab5d` checks it only in the branch
 where global `0x10e91b` is zero. The other alternating branch calls `0x78fed`

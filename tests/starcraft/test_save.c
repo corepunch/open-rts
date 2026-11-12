@@ -27,6 +27,10 @@ int main(void) {
     G_RunTiccmd(0,&move);CHECK(queued_unit->sc.queue.count==1);
     mobj_t *geyser = sc_spawn_actor(MT_VESPENE_GEYSER - 1, (ivec2_t){320, 320}, 11);
     CHECK(geyser && sc_add_resource_vent(geyser, 5000));
+    mobj_t *saved_carrier = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){384, 384}, 0);
+    mobj_t *saved_fighter = sc_spawn_actor(MT_INTERCEPTOR - 1, (ivec2_t){384, 384}, 0);
+    CHECK(saved_carrier && saved_fighter); saved_carrier->sc.hangar = 3; saved_fighter->sc.parent = saved_carrier->id;
+    uint32_t carrier_id = saved_carrier->id;
     level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
     level.sight.allies[0] &= ~(UINT32_C(0x40000000) >> 2); /* revoked sharing */
     uint32_t geyser_id = geyser->id;
@@ -61,6 +65,8 @@ int main(void) {
     CHECK(geyser_vent < level.resource_vent_count && level.resource_vents[geyser_vent].source_id == geyser_id &&
           level.resource_vents[geyser_vent].amount == 5000 && !level.resource_vents[geyser_vent].active);
     CHECK(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1));
+    saved_carrier = P_MobjById(carrier_id);
+    CHECK(saved_carrier && saved_carrier->sc.hangar == 3 && sc_hangar_count(saved_carrier) == 4);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == 7);

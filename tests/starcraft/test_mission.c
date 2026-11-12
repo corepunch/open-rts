@@ -838,6 +838,28 @@ int main(void) {
     free(trig); unload();
     remove("/tmp/open-rts-sc-modify.chk");
 
+    /* Modify Hangar adds up to capacity, including launched fighters. */
+    for (int reaver = 0; reaver < 2; reaver++) for (int all = 0; all < 2; all++) for (int upgraded = 0; upgraded < 2; upgraded++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 8, 1); put_u32(action + 20, 15);
+        int type = reaver ? MT_REAVER : MT_CARRIER;
+        put_u16(action + 24, type - 1); action[26] = 53; action[27] = all ? 0 : 1;
+        CHECK(!write_map("/tmp/open-rts-sc-hangar.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hangar.chk", &level));
+        mobj_t *carrier_a = spawn(type - 1, 0), *carrier_b = spawn(type - 1, 0);
+        mobj_t *launched = spawn((reaver ? MT_SCARAB : MT_INTERCEPTOR) - 1, 0);
+        CHECK(carrier_a && carrier_b && launched);
+        if (upgraded) level.upgrades[reaver ? 36 : 43][0].weapon = 1;
+        carrier_a->sc.hangar = 1; launched->sc.parent = carrier_a->id;
+        ticks(1, &(hudtext_t){0});
+        int capacity = reaver ? (upgraded ? 10 : 5) : (upgraded ? 8 : 4);
+        CHECK(carrier_a->sc.hangar == capacity - 1 && sc_hangar_count(carrier_a) == capacity);
+        CHECK(carrier_b->sc.hangar == (all ? capacity : 0));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-hangar.chk");
+
     /* Resource amounts target the neutral resource object, not player stock. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
