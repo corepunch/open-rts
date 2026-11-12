@@ -381,6 +381,49 @@ static int test_gun_drivers(void) {
     return 0;
 }
 
+static int test_apc_shell_salvo(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for APC shell salvo");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 32, 0), 500);
+    if (!apc || !target) return fail("spawn APC shell salvo fixture");
+    apc->z.driver = MT_UNIT_TOUGH - MT_UNITS + 1;
+    apc->z.crew_count = 3;
+    if (!Z_Attack(apc, &apc->info->attack, target)) return fail("fire APC shell salvo");
+    for (int i = 0; i < 3; ++i) {
+        mobj_t *shell = nth(MT_SHELL, 0, i);
+        if (!shell || shell->missile.damage != 40) return fail("each APC crew shell has Tough damage");
+    }
+    if (nth(MT_SHELL, 0, 3)) return fail("three crew produce three shells");
+    uint32_t target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "APC salvo", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save APC shells in flight");
+    free(save);
+    target = P_MobjById(target_id);
+    if (!target) return fail("restore APC shell target");
+    for (int i = 0; i < 3; ++i) {
+        mobj_t *shell = nth(MT_SHELL, 0, i);
+        if (!shell || shell->missile.damage != 40) return fail("restore independent APC shells");
+        A_ZShellBlast(shell);
+    }
+    if (target->hp != 380) return fail("each APC shell applies its own blast");
+    rts_game_model_destroy(model);
+    model = load();
+    if (!model) return fail("load for full APC salvo");
+    apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 32, 0), 500);
+    if (!apc || !target) return fail("spawn full APC salvo fixture");
+    apc->z.driver = MT_UNIT_TOUGH - MT_UNITS + 1;
+    apc->z.crew_count = Z_CREW_MAX;
+    if (!Z_Attack(apc, &apc->info->attack, target) || !nth(MT_SHELL, 0, Z_CREW_MAX - 1) ||
+        nth(MT_SHELL, 0, Z_CREW_MAX)) return fail("targeted APC salvo includes all 21 crew");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_blast(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell blast");
@@ -698,7 +741,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

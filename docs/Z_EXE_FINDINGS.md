@@ -1833,17 +1833,31 @@ Inspect with `r2 -q -e bin.cache=true -c 'pd 20 @ 0x50df1' -c 'pd 18 @
 0x638fc' -c q data/Z/ZED.EXE`.
 
 **APC projectile dispatch, partial trace:** `0x1ea5c..0x1eb02` iterates
-group member slots and caps a salvo at 12 projectiles. The branch at
+group member slots and caps a salvo at 12 port attempts. The branch at
 `0x1f037..0x1f0d1` dispatches the stored driver class: Tough (3) calls shell
 creation `0x59ed1`, Pyro (15) uses flame creation `0x5a099`, and other
-classes including Laser (16) use bullet creation `0x5af81`. The loop at
-`0x1eacd..0x1eaed` can repeat the shot selector for one group slot as CH
-changes, so neither one projectile per crew member nor one combined projectile
-is established by this trace. Target choice among the four scanned targets,
-per-slot selection and exact salvo multiplicity remain **unknown**. The
-existing combined-damage approximation is retained pending that trace.
-Inspect with `r2 -q -e bin.cache=true -c 'pd 90 @ 0x1ea5c' -c 'pd 65 @
-0x1effd' -c q data/Z/ZED.EXE`.
+classes including Laser (16) use bullet creation `0x5af81`. The scanner loop
+at `0x1eacd..0x1eaed` retries a port while CH is unchanged; in its normal
+mode a successful shot increments CH and moves on to the next group member.
+Target choice among four scanned targets and skipped or blocked ports are
+not yet implemented.
+
+The separate coordinate-target path `0x1eb04..0x1ec12`, called at
+`0x58090` and `0x58cc7`, sets mode +0x12dd2b and loops once per group
+member at `0x1eb86..0x1ebfd`. For each Tough it dispatches a separate shell
+through `0x1ed92` and `0x1eeb4`; unlike the scanner loop, this path has no
+12-port-attempt cap. It adds independent random offsets -8..7 pixels to
+the target coordinates at `0x1ebc1..0x1ebdd`. Its reload at `0x1ec07`
+also differs from the scanner reload at `0x1ea4a`. Open-rts now spawns a
+separate Tough shell with individual damage per stored crew member, matching
+the coordinate-target path's multiplicity. It applies that rule to all APC
+attacks and gives the shells a common target and aim: native mode selection,
+port acquisition, random scatter and the alternate reload remain unmodeled.
+The single-target implementation therefore does not establish complete APC
+combat parity. `test_combat` checks three independent shell impacts, their
+save/load, and a full 21-member salvo. Inspect with `r2 -q -e bin.cache=true
+-c 'pd 90 @ 0x1ea5c' -c 'pd 65 @ 0x1eb64' -c 'pd 65 @ 0x1effd' -c q
+data/Z/ZED.EXE`.
 
 ## Task 7, automatic bridge reconstruction and crane poses (2026-11-11)
 

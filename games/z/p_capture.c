@@ -454,26 +454,9 @@ static int shell_speed(int t) {
     }
 }
 
-bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
-    if (throws_at(attacker, target) && P_SpawnMissile(attacker, target, MT_GRENADE)) {
-        attacker->z.grenades--;
-        return true;
-    }
-    int t = Z_UnitType(attacker);
-    if (t == MT_UNIT_APC - MT_UNITS) {
-        if (!valid_crew(attacker)) return true;
-        t = attacker->z.driver - 1;
-    }
-    int speed = shell_speed(t);
-    if (!speed || !weapon || !target) return false;
-    int damage = weapon->damage;
-    if (Z_UnitType(attacker) == MT_UNIT_APC - MT_UNITS) {
-        const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));
-        if (driver) damage = driver->attack.damage * (attacker->z.crew_count ? attacker->z.crew_count : 1);
-    }
+static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage) {
     mobj_t *shell = P_SpawnMissile(attacker, target, MT_SHELL);
-    /* Suppress the shared hitscan fallback if allocation fails. */
-    if (!shell) return true;
+    if (!shell) return;
     fixed2_t impact = fixed2_scale(fixed2_from_cell(Z_BlastAnchor(target)), FIXED_ONE / Z_TILE);
     fixed2_t delta = fixed2_sub(impact, fixed3_xy(shell->core.position));
     int64_t dx = delta.x < 0 ? -(int64_t)delta.x : delta.x;
@@ -487,6 +470,29 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     shell->missile.damage = damage;
     shell->missile.duration = duration;
     shell->core.momentum = fixed3_from_fixed2((fixed2_t){delta.x / duration, delta.y / duration}, 0);
+}
+
+bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
+    if (throws_at(attacker, target) && P_SpawnMissile(attacker, target, MT_GRENADE)) {
+        attacker->z.grenades--;
+        return true;
+    }
+    int t = Z_UnitType(attacker);
+    bool apc = t == MT_UNIT_APC - MT_UNITS;
+    if (apc) {
+        if (!valid_crew(attacker)) return true;
+        t = attacker->z.driver - 1;
+    }
+    int speed = shell_speed(t);
+    if (!speed || !weapon || !target) return false;
+    int damage = weapon->damage, count = 1;
+    if (apc) {
+        const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));
+        if (driver) damage = driver->attack.damage;
+        count = attacker->z.crew_count ? attacker->z.crew_count : 1;
+    }
+    for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, damage);
+    /* Suppress the shared hitscan fallback if allocation fails. */
     return true;
 }
 
