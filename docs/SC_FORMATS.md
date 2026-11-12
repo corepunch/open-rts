@@ -161,6 +161,11 @@ approximation. A fixture exercises all three operations with `0x80000000`.
 Harvest income, production refunds and the approximate gathered/spent
 counters also saturate at the signed storage limit; mining and cancellation
 fixtures cover credits arriving near that limit.
+Countdown action 14 also carries an unsigned seconds quantity. Set, Add and
+Subtract use widened millisecond arithmetic and clamp to the current signed
+storage range; a high-bit quantity fixture covers all three. Blizzard's 1.03
+notes state a countdown maximum of 99:99:99, but its exact internal limit is
+not established here, so this storage clamp is not claimed as native timing.
 
 The implemented condition field reads were compared against eudplib
 `stockcond.py` and `condition.py`: timer (1, 12), Command/Bring/resources/kills

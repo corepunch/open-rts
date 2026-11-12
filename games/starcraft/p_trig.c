@@ -759,11 +759,11 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 14) {
-            int ms = (int)time * 1000, mod = a[27];
-            if (mod == 7) m->countdown_ms = ms;
-            else if (mod == 8) m->countdown_ms += ms;
-            else if (mod == 9) m->countdown_ms -= ms;
-            if (m->countdown_ms < 0) m->countdown_ms = 0;
+            int64_t ms = (int64_t)time * 1000, value = m->countdown_ms;
+            if (a[27] == 7) value = ms;
+            else if (a[27] == 8) value += ms;
+            else if (a[27] == 9) value -= ms;
+            m->countdown_ms = value < 0 ? 0 : value > INT_MAX ? INT_MAX : (int)value;
             continue;
         }
         if (id == 15 || id == 16) {

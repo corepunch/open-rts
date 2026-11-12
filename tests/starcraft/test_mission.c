@@ -410,6 +410,20 @@ int main(void) {
         free(trig);
         unload();
     }
+    /* Timer quantities are unsigned seconds; large values must not overflow ms. */
+    for (int op = 7; op <= 9; op++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22;
+        uint8_t *timer_action = trig + 320;
+        put_u32(timer_action + 12, UINT32_C(0x80000000));
+        timer_action[26] = 14; timer_action[27] = (uint8_t)op;
+        CHECK(!write_map("/tmp/open-rts-sc-timer.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-timer.chk", &level));
+        sc_mission_t *m = level.mission;
+        m->countdown_ms = 10000; m->countdown_paused = true;
+        ticks(1, &(hudtext_t){0});
+        CHECK(m->countdown_ms == (op == 9 ? 0 : INT_MAX));
+        free(trig); unload();
+    }
     remove("/tmp/open-rts-sc-timer.chk");
 
     uint8_t *action;
