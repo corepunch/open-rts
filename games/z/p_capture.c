@@ -1099,7 +1099,7 @@ static mobj_t *territory_flag(int territory) {
 static void stamp_flags(void) {
     zmap_t *map = level.native_data;
     for (int i = 0; i < map->territory_count; ++i)
-        if (!(map->territories[i].options & 3)) Z_StampFlagTerrain(map->territories[i].flag);
+        if (Z_FlagAvailable(map, &map->territories[i])) Z_StampFlagTerrain(map->territories[i].flag);
 }
 
 static void transfer_territory(int index, int team) {

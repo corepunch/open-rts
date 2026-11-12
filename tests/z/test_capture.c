@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static int fail(const char *msg) { return rts_fail("z capture", msg); }
 
@@ -284,6 +285,95 @@ static int test_flag_rebuild_over_crate(void) {
     if (!crate || crate->remove || (crate->z.object_terrain & 0x7f) != 0x23 || (map->terrain[index] & 0x7f) != 0x23)
         return fail("flag rebuild and covered crate survive save/load");
     rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_flag_player_options(void) {
+    static const uint8_t options[] = {0,4,8,3};
+    for (int players = 2; players <= 4; ++players) {
+        doomcom_t net = {.numplayers = players};
+        doomcom_t *old_doomcom = doomcom;
+        bool old_netgame = netgame;
+        doomcom = &net; netgame = true;
+        level_t loaded = {0};
+        bool ok = Z_LoadLevel("data/Z/LEVEL01/LEVEL01.MAP", &loaded);
+        doomcom = old_doomcom; netgame = old_netgame;
+        if (!ok || ((zmap_t *)loaded.native_data)->flag_players != players)
+            return fail("match player count initializes native flag rules");
+        P_FreeLevel(&loaded);
+        RtsGameModel *model = load();
+        if (!model) return fail("load flag player options fixture");
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+            if (th->function == P_MobjThinker) P_RemoveMobj((mobj_t *)th);
+        P_RunThinkers();
+        zmap_t *map = level.native_data;
+        memset(map->ground_attr, 0, sizeof(map->ground_attr));
+        memset(map->cliffs, 0, sizeof(map->cliffs));
+        memset(map->bridges, 0, sizeof(map->bridges));
+        Z_RebuildCliffs(&level);
+        map->flag_players = (uint8_t)players;
+        zterritory_t hidden = {.options = 1};
+        if (Z_FlagAvailable(map, &hidden)) return fail("option bit zero hides flags");
+        hidden.options = 2;
+        if (Z_FlagAvailable(map, &hidden)) return fail("option bit one hides flags");
+        map->fort_count = map->placed_count = 0; map->groups[0] = 0xff;
+        snprintf(map->dir, sizeof(map->dir), "/private/tmp");
+        snprintf(map->objects, sizeof(map->objects), "ZF%ld.DAT", (long)getpid());
+        snprintf(map->buildings, sizeof(map->buildings), "%s", map->objects);
+        char path[128];
+        snprintf(path, sizeof(path), "/private/tmp/%s", map->objects);
+        FILE *empty = fopen(path, "wb");
+        if (!empty || fclose(empty)) return fail("create empty flag fixture");
+        map->territory_count = 4;
+        for (int i = 0; i < 4; ++i) {
+            map->territories[i] = (zterritory_t){.min = {i * 16,0}, .max = {(i + 1) * 16,level.height},
+                                                 .team = 1, .flag = {i * 16 + 8,8}, .options = options[i]};
+        }
+        Z_LoadThings();
+        remove(path);
+        for (int i = 0; i < 4; ++i) {
+            bool expected = i == 0 || (i == 1 && players == 2) || (i == 2 && players < 4);
+            int index = 8 * Z_MAP_STRIDE + i * 16 + 8;
+            if (!!flag_of(i) != expected || ((map->terrain[index] & 0x7f) == 0x23) != expected)
+                return fail("startup flags and terrain follow player-count option gates");
+        }
+        mobj_t *robot = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+        if (!robot) return fail("flag option capture unit");
+        Z_SetTeam(robot, 0); place(robot, map->territories[0].flag);
+        Z_Ticker();
+        if (map->territories[0].team != 0) return fail("capture triggers flag terrain rebuild");
+        for (int i = 0; i < 4; ++i) {
+            bool expected = i == 0 || (i == 1 && players == 2) || (i == 2 && players < 4);
+            int index = 8 * Z_MAP_STRIDE + i * 16 + 8;
+            if (((map->terrain[index] & 0x7f) == 0x23) != expected)
+                return fail("capture rebuild respects player-count option gates");
+        }
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+        if (!G_SaveGameBlob(&save, &size, "Flag options", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save flag player options");
+        free(save); map = level.native_data;
+        if (map->flag_players != players) return fail("saved match player count survives reload");
+        for (int i = 0; i < 4; ++i) {
+            bool expected = i == 0 || (i == 1 && players == 2) || (i == 2 && players < 4);
+            int index = 8 * Z_MAP_STRIDE + i * 16 + 8;
+            if (!!flag_of(i) != expected || ((map->terrain[index] & 0x7f) == 0x23) != expected ||
+                map->territories[i].options != options[i]) return fail("saved flag options and markers survive reload");
+        }
+        size_t extra_size = G_SaveExtraSize();
+        uint8_t *extra = malloc(extra_size);
+        if (!extra) return fail("allocate flag save validation fixture");
+        G_SaveExtra(extra);
+        uint32_t hash = G_Consistency();
+        extra[0] ^= 1; /* A later validation must not partly overwrite cliffs. */
+        extra[extra_size - 1] = 0;
+        if (G_LoadExtra(extra, extra_size) || G_Consistency() != hash)
+            return fail("zero player count rejects without mutating level");
+        extra[extra_size - 1] = 5;
+        if (G_LoadExtra(extra, extra_size) || G_Consistency() != hash)
+            return fail("out-of-range player count rejects without mutating level");
+        free(extra);
+        rts_game_model_destroy(model);
+    }
     return 0;
 }
 
@@ -884,6 +974,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_flag_origin_boundary() || test_flag_terrain_and_territory() || test_flag_rebuild_over_crate() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_flag_origin_boundary() || test_flag_terrain_and_territory() || test_flag_rebuild_over_crate() || test_flag_player_options() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

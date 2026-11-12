@@ -258,7 +258,7 @@ bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count) {
 
 size_t G_SaveExtraSize(void) {
     const zmap_t *map = level.native_data;
-    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild) + sizeof(map->squad_cooldown) + sizeof(map->combat_seed) + Z_MAX_TERRITORIES * 3;
+    return sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr) + sizeof(map->ai) + sizeof(map->rebuild) + sizeof(map->squad_cooldown) + sizeof(map->combat_seed) + Z_MAX_TERRITORIES * 3 + 1;
 }
 
 void G_SaveExtra(void *out) {
@@ -276,12 +276,15 @@ void G_SaveExtra(void *out) {
         *p++ = map->territories[i].options;
         *p++ = map->territories[i].capture_hold;
     }
+    *p = map->flag_players;
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
-    if (size != G_SaveExtraSize() || !level.native_data) return false;
+    if (!data || size != G_SaveExtraSize() || !level.native_data) return false;
+    const uint8_t *bytes = data;
+    if (bytes[size - 1] < 1 || bytes[size - 1] > 4) return false;
     zmap_t *map = level.native_data;
-    const uint8_t *p = data;
+    const uint8_t *p = bytes;
     memcpy(map->cliffs, p, sizeof(map->cliffs)); p += sizeof(map->cliffs);
     memcpy(map->ground, p, sizeof(map->ground)); p += sizeof(map->ground);
     memcpy(map->ground_attr, p, sizeof(map->ground_attr)); p += sizeof(map->ground_attr);
@@ -294,6 +297,7 @@ bool G_LoadExtra(const void *data, size_t size) {
         map->territories[i].options = *p++;
         map->territories[i].capture_hold = *p++;
     }
+    map->flag_players = *p;
     Z_RebuildCliffs(&level);
     return true;
 }
@@ -302,6 +306,7 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     const zmap_t *map = level.native_data;
     if (!map) return hash;
     hash = G_HashValue(hash, map->combat_seed);
+    hash = G_HashValue(hash, map->flag_players);
     for (int i = 0; i < map->territory_count; ++i) {
         hash = G_HashValue(hash, map->territories[i].team);
         hash = G_HashValue(hash, map->territories[i].options);

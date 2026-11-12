@@ -165,7 +165,7 @@ static bool flag_destination(const zmap_t *map, const mobj_t *unit) {
     ivec2_t goal = fixed2_cell(fixed2_scale(unit->movement.goal, FIXED_FROM_INT(Z_TILE)));
     for (int i = 0; i < map->territory_count; ++i) {
         const zterritory_t *t = &map->territories[i];
-        if (t->options & 3) continue;
+        if (!Z_FlagAvailable(map, t)) continue;
         ivec2_t pos = ivec2_add(ivec2_scale(t->flag, Z_TILE), (ivec2_t){4,8});
         if (abs(goal.x - pos.x) <= 8 && abs(goal.y - pos.y) <= 8) return true;
     }

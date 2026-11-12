@@ -94,6 +94,7 @@ typedef struct {
     char objects[16], buildings[16], robots[16]; /* LEVELS.DAT file names. */
     int number;                      /* LEVELS.DAT entry */
     int world;                       /* LEVELS.DAT +0x6e */
+    uint8_t flag_players;            /* Native 0x103d7f, fixed at match start. */
     int production_speed;            /* CPUPLR +0x8a2, ZED.EXE 0x103d81. */
     int16_t debris_trig[2];          /* SINCOS.DAT, 0x6d3d3 / 0x6e26e. */
     struct { uint8_t intelligence, allocation, territory_weight; } computer;
@@ -263,6 +264,7 @@ void Z_RebuildCliffs(level_t *level);
 void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin);
 void Z_RestoreObjectTerrain(mobj_t *object, ivec2_t origin);
 void Z_StampFlagTerrain(ivec2_t cell);
+bool Z_FlagAvailable(const zmap_t *map, const zterritory_t *territory);
 int Z_LoadCliffs(void);
 void Z_CliffDamage(mobj_t *cliff);
 bool Z_CliffOrder(const ticcmd_t *cmd, mobj_t *const *units, int count);

@@ -88,6 +88,14 @@ void Z_StampFlagTerrain(ivec2_t cell) {
     object_terrain(ivec2_scale(cell, Z_TILE), (old & 0x80) | 0x23);
 }
 
+/* 0x2a8c7..0x2a8ef: bit 2 hides a flag in 3/4-player matches, and
+ * bit 3 hides it in 4-player matches. */
+bool Z_FlagAvailable(const zmap_t *map, const zterritory_t *territory) {
+    return !(territory->options & 3) &&
+           !(map->flag_players > 2 && (territory->options & 4)) &&
+           !(map->flag_players > 3 && (territory->options & 8));
+}
+
 void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin) {
     if (!object || type < 0 || type >= MT_FORT - 1) return;
     int flags = z_object_flags[type];
@@ -226,6 +234,8 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
     zmap_t *map = calloc(1, sizeof(*map));
     if (map) map->rebuild.seed = 0x3039; /* Existing deterministic native-RNG seed policy. */
     if (!map) return false;
+    map->flag_players = netgame && doomcom && doomcom->numplayers > 0 && doomcom->numplayers <= 4 ?
+                        (uint8_t)doomcom->numplayers : 2;
     out->native_data = map;
     out->destroy_native_data = destroy_zmap;
     blob_t levels = {0}, file = {0};
@@ -663,7 +673,7 @@ int Z_LoadThings(void) {
     /* 0x2a89f: a flag on each territory's flag cell, in its team's colour. */
     for (int i = 0; i < map->territory_count; ++i) {
         const zterritory_t *t = &map->territories[i];
-        if (t->options & 3) continue;
+        if (!Z_FlagAvailable(map, t)) continue;
         Z_StampFlagTerrain(t->flag);
         mobj_t *flag = spawn(MT_FLAG, S_FLAG, ivec2_scale(t->flag, Z_TILE), (isize2_t){Z_TILE, Z_TILE},
                              t->team);

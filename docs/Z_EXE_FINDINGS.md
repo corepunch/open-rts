@@ -197,12 +197,24 @@ a flag and clears the low option bits for a fallen fort territory; the engine
 now creates an ordinary flag mobj in that case. The existing 18-tic hold is
 still a 30 Hz approximation to the native 70 Hz counter, and terrain rebuilt
 over a cliff remains subject to the existing cliff reconstruction limit.
-The current initial flag availability rules do not yet model every native
-3/4-player option gate. `test_capture` covers an adjacent-territory vehicle,
+`test_capture` covers an adjacent-territory vehicle,
 a flagless captured territory, overlapping crate restoration, another capture
 restamping over a crate, and save/load; `test_fort` checks flag creation.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x2a89f' -c 'pd 45 @
 0x79ddc' -c 'pd 55 @ 0x2a950' -c q data/Z/ZED.EXE`.
+
+**Multiplayer flag availability:** `0x2a8c7..0x2a8ef` skips a territory's
+flag when option bits 0 or 1 are set; it also skips bit 2 in matches with
+more than two players, and bit 3 in matches with more than three. The word
+at `0x103d7f` supplies the participant count; `0x49e3e` stores it and enables
+that many player slots. Open-rts now applies the same gate when creating
+flags, rebuilding their terrain and checking flag destinations for detours.
+It retains the configured match count in saved and hashed level state, so a
+reload or later player departure does not silently change the marker set.
+`test_capture` checks the actual 2/3/4-player initialization, startup
+objects and terrain, rebuild after a capture, and save/load for all four
+option cases. Inspect with `r2 -q -e bin.cache=true -c 'pd 36 @ 0x2a8bc'
+-c 'pd 16 @ 0x49e3e' -c q data/Z/ZED.EXE`.
 
 In level 1 each fort's flag cell is its entrance: the computer's fort has
 its gate cells (terrain 0x15, 0x9e, 0x3f) on its south side and the flag on
