@@ -209,16 +209,6 @@ static bool cmp_num(uint8_t op, int value, int qty) {
     return false;
 }
 
-static bool owns_any(int owner) {
-    if (!thinkercap.next) return false;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        const mobj_t *mo = (const mobj_t *)th;
-        if (th->function == P_MobjThinker && mo->owner == owner && mo->hp > 0 && !mo->remove &&
-            mo->type_id && mo->type_id <= SC_TYPES) return true;
-    }
-    return false;
-}
-
 static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     uint8_t type = c[15], op = c[14];
     unsigned group = read_u32_le(c + 4), qty = read_u32_le(c + 8);
@@ -273,11 +263,9 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 14) {
         int foes = 0;
-        for (int p = 0; p < 8; p++) {
-            bool self = false;
-            for (int i = 0; i < n; i++) if (players[i] == p) self = true;
-            if (!self && in_group(m, 14, p, n == 1 ? players[0] : current) && owns_any(p)) foes++;
-        }
+        for (int i = 0; i < n; i++) for (int p = 0; p < 8; p++)
+            if (G_PlayerSide(players[i]) && p != players[i] && G_PlayerSide(p) &&
+                (!allied_to(players[i], p) || !allied_to(p, players[i]))) foes++;
         return cmp_num(op, foes, (int)qty);
     }
     return false;

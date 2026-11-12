@@ -171,6 +171,35 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(level.player_resources[0][0] == 0);
     unload(); free(empty_location); remove("/private/tmp/sc-empty-location.chk");
+    /* Opponents counts active slots even without units, and alliance is mutual. */
+    for (int relation = 0; relation < 3; relation++) {
+        uint8_t *opponent_trigger = blank_trigger(); CHECK(opponent_trigger);
+        opponent_trigger[2372+17] = 0; opponent_trigger[2372] = 1;
+        put_u32(opponent_trigger+8, 1); opponent_trigger[14] = 10; opponent_trigger[15] = 14;
+        opponent_trigger[320+26] = 26; opponent_trigger[320+27] = 8;
+        put_u32(opponent_trigger+320+20, 10);
+        CHECK(!write_map("/private/tmp/sc-opponents.chk", force_owners, opponent_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-opponents.chk", &level));
+        sc_mission_t *opponent_mission = level.mission;
+        if (relation >= 1) opponent_mission->allies[0] |= UINT32_C(0x40000000) >> 1;
+        if (relation == 2) opponent_mission->allies[1] |= UINT32_C(0x40000000);
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (relation < 2 ? 10 : 0));
+        unload(); free(opponent_trigger);
+    }
+    remove("/private/tmp/sc-opponents.chk");
+    /* An inactive source slot contributes no opponents. */
+    uint8_t inactive_owners[12] = {0, 6};
+    uint8_t *inactive_opponents = blank_trigger(); CHECK(inactive_opponents);
+    inactive_opponents[2372+17] = 0; inactive_opponents[2372+1] = 1;
+    put_u32(inactive_opponents+8, 1); inactive_opponents[14] = 10; inactive_opponents[15] = 14;
+    inactive_opponents[320+26] = 26; inactive_opponents[320+27] = 8;
+    put_u32(inactive_opponents+320+20, 10);
+    CHECK(!write_map("/private/tmp/sc-inactive-opponents.chk", inactive_owners, inactive_opponents));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-inactive-opponents.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 0);
+    unload(); free(inactive_opponents); remove("/private/tmp/sc-inactive-opponents.chk");
     /* Giving a transport also transfers passengers and clears its old orders. */
     uint8_t *give_trigger = blank_trigger(); CHECK(give_trigger);
     give_trigger[2372+17] = 0; give_trigger[2372+1] = 1;

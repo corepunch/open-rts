@@ -146,6 +146,16 @@ refresh sight; a mission test checks that current vision ends while explored
 terrain remains. OpenBW's pinned switch only implements the enable scripts.
 The engine retains a player's own sight when the script names itself; retail
 self-target behavior is unverified.
+OpenBW `trigger_opponent_count` counts active player slots without requiring
+units and uses non-allied-victory status, which requires alliance in both
+directions. Opponents conditions now follow those two rules for playable slots;
+the regression covers empty and asymmetrically allied players and an inactive
+source. OpenBW's `trigger_players_pred` implements its group 26 check with
+mutual alliance but does not implement Set Alliance Status (action 57).
+open-rts collapses that action's Ally and Allied Victory values to the same
+mask, so any distinct victory-status effects are not modeled. Rescue/neutral
+controller treatment and defeated-player state remain incomplete; this is not
+a claim of full opponent-count parity.
 PyMS defines Run AI Script and Run AI Script at Location (actions 15 and 16)
 with a script ID and, for the latter, a location, but no player parameter.
 Their existing generic-AI fallback now enables the executing trigger owner

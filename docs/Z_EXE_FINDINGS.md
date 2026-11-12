@@ -1961,9 +1961,37 @@ map-object records, excludes unused and several flagged/state cases, and
 for eligible objects within ±24 pixels sets state fields and calls
 `0x8790a`; that routine dispatches visual/audio and object-specific work.
 The semantics of these object fields and resulting gameplay changes remain
-unknown. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x5a39e' -c
+unknown. The Pyro firing action calls `0x60ed5`, which supplies its +0x76
+weapon speed and derives a facing-dependent launch position; object targets
+pass through `0x75cc1`, while the alternate coordinate branch at `0x60f54`
+computes an accuracy-dependent spread via `0x64250`. Flame creation forces
+projectile +0x17 to 16 while retaining the original speed in +0x16; each
+`0x59c2b` update adds 16 to +0x17, and movement `0x5a4c8` uses the smaller
+of +0x17 shifted right four and +0x16. Thus a speed-4 Pyro flame accelerates
+through major-axis steps of 1, 2, 3, then 4 pixels, limited by remaining
+distance. This is separate from the existing constant-speed shell model.
+`0x59c71..0x59ca0` also stops flight when the terrain-height table exceeds
+the projectile's recorded launch threshold. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x5a39e' -c
 'pd 30 @ 0x592a8' -c 'pd 55 @ 0x593aa' -c 'pd 45 @ 0x595e6' -c 'pd 55
-@ 0x88a7f' -c 'pd 45 @ 0x8790a' -c q data/Z/ZED.EXE`.
+@ 0x88a7f' -c 'pd 45 @ 0x8790a' -c 'pd 75 @ 0x60ed5' -c 'pd 40 @
+0x5a4c8' -c 'pd 45 @ 0x59c2b' -c q data/Z/ZED.EXE`.
+
+**Flame in-flight unit response:** while still traveling, the flame branch
+`0x595d5` invokes `0x59894` after the terrain check. It looks up candidates
+around the stored aim, excludes same-team units, class 2 and several state
+flags/actions, requires each candidate's +8,+8 position to be within 32
+pixels of the aim on both axes, and compares squared distance from the
+projectile's current position with a threshold derived from unit byte +2.
+For a passing candidate it derives a destination using two random -8..7
+values, sets unit +0x62 bit 0x40, calls `0x7ba32` (sets speed modifier +0x89
+to 2), and `0x7ba9a` (starts movement toward that destination where permitted).
+This is a flame-specific movement reaction and does not establish that the
+previously traced generic missile reaction action 0x2b displaces units.
+One test in this routine reads `[ebp+0x67]` while EBP refers to the 44-byte
+projectile record; its intended meaning and effects of that out-of-record
+read need runtime verification before reproducing the radius formula.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 12 @ 0x595d5' -c 'pd 105 @
+0x59894' -c 'pd 45 @ 0x7ba9a' -c q data/Z/ZED.EXE`.
 
 **Further mode investigation:** the wrapper at `0x1e9dc` calls the ordinary
 vehicle pass `0x57dd6`, then calls the scanner at `0x1ea0d`; that scanner
