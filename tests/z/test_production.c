@@ -788,6 +788,59 @@ static int test_computer_builds(void) {
     return 0;
 }
 
+static bool cannon(int type) {
+    return type == MT_UNIT_LIGHT_GUN || type == MT_UNIT_GATLING ||
+           type == MT_UNIT_HOWITZER || type == MT_UNIT_MISSILE_GUN;
+}
+
+static int test_computer_next_product(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load CPU next-product fixture");
+    mobj_t *fort = nth(MT_FORT, 1, 0);
+    zmap_t *map = level.native_data;
+    if (!fort || !map) return fail("CPU next-product fort");
+    irect_t base = P_MobjCells(fort);
+    int territory = Z_AITerritory(map, fixed2_from_cell((ivec2_t){base.x, base.y}));
+    if (territory < 0) return fail("CPU fort territory");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->team == 1 && cannon(mo->type_id)) P_RemoveMobj(mo);
+    }
+    fort->z.rating = 5000;
+    map->ai.total = 1000; map->ai.mobile = 500;
+    map->ai.territories[territory].value = 998;
+    const StaticProductDefinition *grunt = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_GRUNT));
+    if (!grunt || !G_QueueProduct(fort, grunt)) return fail("queue initial CPU product");
+    mobj_t *unit = P_SpawnMobj(fort->core.position, MT_UNIT_GRUNT);
+    if (!unit) return fail("spawn completed CPU product");
+    Z_SetTeam(unit, 1);
+    G_UnitProduced(unit, fort);
+    if (fort->production->queue_count != 2 || cannon(fort->production->pending[0].product_type))
+        return fail("CPU retains mobile selection below native reserve threshold");
+    G_RemoveProductionAt(fort, 1);
+    map->ai.territories[territory].value = 1000;
+    fort->z.rating = 1000;
+    G_UnitProduced(unit, fort);
+    if (fort->production->queue_count != 2 || cannon(fort->production->pending[0].product_type))
+        return fail("CPU fort does not select guns at rating 1000");
+    G_RemoveProductionAt(fort, 1);
+    fort->z.rating = 5000;
+    G_UnitProduced(unit, fort);
+    if (fort->production->queue_count != 2 || !cannon(fort->production->pending[0].product_type))
+        return fail("CPU selects a gun at the native reserve threshold");
+    G_RemoveProductionAt(fort, 0);
+    const StaticProductDefinition *gun = Z_ProductInProduction(fort);
+    fort->z.gun_count = 3;
+    fort->z.guns[0] = fort->z.guns[1] = fort->z.guns[2] = MT_UNIT_LIGHT_GUN - MT_UNITS + 1;
+    if (!gun || !G_ModelStartProductionRelease(NULL, fort, gun, fort->production->actor_id) ||
+        fort->z.gun_count != 4 || !fort->production || fort->production->queue_count != 1 ||
+        cannon(fort->production->product_type))
+        return fail("CPU resumes mobile production when its fourth gun fills the stock");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static bool finish_now(mobj_t *producer) {
     if (!producer->production) return false;
     producer->production->time_left_ms = 1;
@@ -880,7 +933,7 @@ int main(void) {
     if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
         test_native_rates() || test_gun_placement() ||
         test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_gun_stock() ||
-        test_computer_builds() || test_reconstruction() || test_mixed_routes()) return 1;
+        test_computer_builds() || test_computer_next_product() || test_reconstruction() || test_mixed_routes()) return 1;
     printf("z production tests passed\n");
     return 0;
 }

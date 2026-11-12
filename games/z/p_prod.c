@@ -62,14 +62,15 @@ int Z_ProductsFor(const mobj_t *producer, const StaticProductDefinition **out, i
 /* Initial selectors 0x9e275/0x9e2b5/0x9e2f5. 0x9e33a walks increasing
  * technology, ascending group ID, exchanging the last pair if the new
  * group's stock is lower. Forts then sort the whole list by stock. */
-const StaticProductDefinition *Z_AIProduct(const mobj_t *producer) {
+static const StaticProductDefinition *ai_product(const mobj_t *producer, bool guns) {
     const zmap_t *map = level.native_data;
     int list[CATALOG], count = 0, human = 0, cpu = 0;
     static const uint8_t robots[] = {0,3,15,16,17,18};
     static const uint8_t tanks[] = {1,7,8,9,11};
-    const uint8_t *classes = producer->type_id == MT_TANK_FACTORY ? tanks : robots;
-    int class_count = producer->type_id == MT_TANK_FACTORY ? sizeof(tanks) : sizeof(robots);
-    int field = producer->type_id == MT_TANK_FACTORY ? 73 : producer->type_id == MT_ROBOT_FACTORY ? 74 : 75;
+    static const uint8_t cannons[] = {2,4,5,6};
+    const uint8_t *classes = guns ? cannons : producer->type_id == MT_TANK_FACTORY ? tanks : robots;
+    int class_count = guns ? sizeof(cannons) : producer->type_id == MT_TANK_FACTORY ? sizeof(tanks) : sizeof(robots);
+    int field = guns && producer->type_id == MT_FORT ? 74 : producer->type_id == MT_TANK_FACTORY ? 73 : producer->type_id == MT_ROBOT_FACTORY ? 74 : 75;
     build();
     for (unsigned tech = 1; tech * 1000 <= producer->z.rating && tech <= 255; ++tech)
         for (int group = 0; group < 32; ++group)
@@ -79,7 +80,7 @@ const StaticProductDefinition *Z_AIProduct(const mobj_t *producer) {
                 int t = Z_GroupType(map, group, 0), cls = map->roster.bytes[22000 + t * 42 + 1];
                 bool allowed = false;
                 for (int c = 0; c < class_count; ++c) allowed |= cls == classes[c];
-                if (producer->type_id == MT_FORT)
+                if (!guns && producer->type_id == MT_FORT)
                     for (size_t c = 0; c < sizeof(tanks); ++c) allowed |= cls == tanks[c];
                 if (!allowed) continue;
                 list[count++] = i;
@@ -88,7 +89,7 @@ const StaticProductDefinition *Z_AIProduct(const mobj_t *producer) {
                 }
             }
     if (!count) return NULL;
-    if (producer->type_id == MT_FORT)
+    if (!guns && producer->type_id == MT_FORT)
         for (int i = 1; i < count; ++i)
             for (int j = i; j && catalog[list[j]].stock < catalog[list[j - 1]].stock; --j) {
                 int swap = list[j]; list[j] = list[j - 1]; list[j - 1] = swap;
@@ -102,6 +103,8 @@ const StaticProductDefinition *Z_AIProduct(const mobj_t *producer) {
     if (index >= count) index = count - 1;
     return &products[list[index]];
 }
+
+const StaticProductDefinition *Z_AIProduct(const mobj_t *producer) { return ai_product(producer, false); }
 
 const StaticProductDefinition *Z_ProductInProduction(const mobj_t *producer) {
     if (!producer || !producer->production || producer->production->queue_count <= 0) return NULL;
@@ -247,6 +250,28 @@ static bool gun_capacity(const mobj_t *producer) {
     return true;
 }
 
+/* Subsequent CPU selections (0x9de4a/0x9de9b/0x9def5) can prefer a
+ * gun when local reserve value and the native two capacity checks allow it. */
+static const StaticProductDefinition *next_ai_product(const mobj_t *producer) {
+    const zmap_t *map = level.native_data;
+    irect_t base = P_MobjCells(producer);
+    int territory = map ? Z_AITerritory(map, fixed2_from_cell((ivec2_t){base.x, base.y})) : -1;
+    int deployed = 0;
+    if (territory < 0 || (producer->type_id != MT_TANK_FACTORY && producer->z.rating <= 1000) ||
+        Z_AIReserveValue(&map->ai, territory) < 500 || !gun_capacity(producer)) return Z_AIProduct(producer);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *mo = (mobj_t *)th;
+        int t = Z_UnitType(mo);
+        if (live(mo) && mo->team == producer->team && t >= 0 && !Z_IsRobot(t) &&
+            mo->info && !(mo->info->traits & MF_MOBILE) &&
+            Z_AITerritory(map, fixed3_xy(mo->core.position)) == territory) ++deployed;
+    }
+    int limit = producer->type_id == MT_FORT ? 4 : 2;
+    const StaticProductDefinition *gun = deployed < limit ? ai_product(producer, true) : NULL;
+    return gun ? gun : Z_AIProduct(producer);
+}
+
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product, uint16_t actor_id) {
     (void)model; (void)actor_id;
@@ -260,7 +285,11 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
     memmove(producer->z.guns + 1, producer->z.guns, producer->z.gun_count);
     producer->z.guns[0] = (uint8_t)(product->product_type - MT_UNITS + 1);
     producer->z.gun_count++;
-    if (producer->production->queue_count == 1 && gun_capacity(producer)) G_QueueProduct(producer, product);
+    bool computer = producer->team == 1 && !netgame;
+    if (producer->production->queue_count == 1 && (computer || gun_capacity(producer))) {
+        const StaticProductDefinition *next = computer ? Z_AIProduct(producer) : product;
+        if (next) G_QueueProduct(producer, next);
+    }
     G_RemoveProductionAt(producer, 0);
     return true;
 }
@@ -449,5 +478,8 @@ void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     if (unit->z.squad_slot == UINT8_MAX) unit->z.formation_active = P_HasMoveOrder(unit);
     mobj_t *factory = producer ? P_MobjById(producer->id) : NULL;
     const StaticProductDefinition *again = Z_ProductInProduction(factory);
-    if (again && factory->production->queue_count == 1) G_QueueProduct(factory, again);
+    if (again && factory->production->queue_count == 1) {
+        const StaticProductDefinition *next = factory->team == 1 && !netgame ? next_ai_product(factory) : again;
+        if (next) G_QueueProduct(factory, next);
+    }
 }

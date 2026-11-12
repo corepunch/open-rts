@@ -1430,8 +1430,8 @@ existing gun count (<2 for factories, <4 for forts), and planned/stored
 gun count (<4). `0x999e5` computes the reserve-adjusted territory value,
 not raw army strength. `0x26ae5` counts territory guns and gun production;
 `0x26b82` also counts stored guns and placement records. Those later
-branches and retail random placement remain unported; four-slot gun storage
-and its territory limit were implemented later as described below.
+branches were subsequently implemented as described below; retail random
+placement remains unported.
 
 ### Additional traced branches and explicit remaining scope
 
@@ -3503,6 +3503,25 @@ retry after capacity is freed, the cap with deployed guns, capture and
 destruction/rebuild, invalid serialized counts, save/load and checksum;
 `tests/z/test_hud.c` covers product selection while stock exists and placing
 stock when no products are offered. Run both with `SDL_VIDEODRIVER=dummy`.
+
+**Later CPU product selection:** `0x410bd`/`0x42775` choose the first
+robot/tank product, while `0x41336`/`0x42a2c` choose again after production.
+The corresponding selectors `0x9de4a`, `0x9de9b` and `0x9def5` use gun
+class list `0x152ee2` after their first selection when the reserve-adjusted
+territory value is at least 500, deployed guns number below two (four for a
+fort), and the combined gun capacity `0x26ab4` is below four. Robot
+factories and forts also require rating strictly greater than 1000; tank
+factories have no such extra test. `0x42044`/`0x42e91` set the temporary
+flag at `0x20a448` on the gun placement path, forcing the following
+selection back to the normal unit list. Open-rts selects the CPU's next
+product in its existing production callbacks and uses its existing
+reserve and territory counts; its immediate stored-gun handoff approximates
+retail placement timing, and generic producer-availability checks still
+apply. Player factories retain their existing repeat behavior.
+`test_production` covers the reserve threshold, rating boundary and a
+fourth gun followed by mobile production. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 90 @ 0x9de4a' -c 'pd 35 @ 0x9def5' -c 'pd 30 @
+0x26ab4' -c 'pd 40 @ 0x42044' -c 'pd 30 @ 0x42b64' -c q data/Z/ZED.EXE`.
 
 ### Typed player routes and factory rallies
 
