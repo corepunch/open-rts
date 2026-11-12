@@ -117,6 +117,12 @@ these IDs to its per-viewer sight masks without changing combat alliances;
 save data. The action refreshes sight immediately so newly shared terrain is
 marked explored, and the mission and save tests cover that and persistence.
 Other AI scripts remain outside this focused implementation.
+PyMS `Docs/PyTRG.html` also identifies `-Vi0` through `-Vi7` as disabling
+shared vision. These scripts now clear the corresponding viewer mask and
+refresh sight; a mission test checks that current vision ends while explored
+terrain remains. OpenBW's pinned switch only implements the enable scripts.
+The engine retains a player's own sight when the script names itself; retail
+self-target behavior is unverified.
 
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources

@@ -125,6 +125,24 @@ int main(void) {
     CHECK(level.sight.cells[sight_cell] & SIGHT_EXPLORED);
     CHECK(!(level.sight.allies[1] & (UINT32_C(0x40000000) >> 0)));
     CHECK(!(G_AllianceMasks(&level)[0] & (UINT32_C(0x40000000) >> 1)));
+    unload();
+    put_u32(vision_trigger+320+20, 0x3169562d); /* -Vi1 */
+    CHECK(!write_map("/private/tmp/sc-vision.chk", force_owners, vision_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-vision.chk", &level));
+    CHECK(P_InitSight() && spawn(MT_MARINE - 1, 1));
+    level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
+    P_UpdateSight();
+    CHECK(level.sight.cells[sight_cell] & SIGHT_EXPLORED);
+    ticks(1, &(hudtext_t){0});
+    CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1)));
+    CHECK(level.sight.cells[sight_cell] & SIGHT_EXPLORED);
+    CHECK(!(level.sight.cells[sight_cell] & level.sight.allies[0]));
+    unload();
+    put_u32(vision_trigger+320+20, 0x3069562d); /* -Vi0 */
+    CHECK(!write_map("/private/tmp/sc-vision.chk", force_owners, vision_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-vision.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.sight.allies[0] & UINT32_C(0x40000000));
     unload(); free(vision_trigger); remove("/private/tmp/sc-vision.chk");
     /* Giving a transport also transfers passengers and clears its old orders. */
     uint8_t *give_trigger = blank_trigger(); CHECK(give_trigger);

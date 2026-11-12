@@ -28,6 +28,7 @@ int main(void) {
     mobj_t *geyser = sc_spawn_actor(MT_VESPENE_GEYSER - 1, (ivec2_t){320, 320}, 11);
     CHECK(geyser && sc_add_resource_vent(geyser, 5000));
     level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
+    level.sight.allies[0] &= ~(UINT32_C(0x40000000) >> 2); /* revoked sharing */
     uint32_t geyser_id = geyser->id;
     int geyser_vent = level.resource_vent_count - 1;
     uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
@@ -51,6 +52,7 @@ int main(void) {
     sc_trig_t *runtime = m->rt;
     sc_terrain_t *terrain=m->terrain;
     CHECK(terrain);
+    level.sight.allies[0] |= UINT32_C(0x40000000) >> 2;
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
     queued_unit=P_MobjById(queued_id);
     CHECK(queued_unit && queued_unit->sc.queue.count==1 && queued_unit->sc.queue.pending[0].position.x==FIXED_LIT(12.5));
@@ -59,6 +61,7 @@ int main(void) {
     CHECK(geyser_vent < level.resource_vent_count && level.resource_vents[geyser_vent].source_id == geyser_id &&
           level.resource_vents[geyser_vent].amount == 5000 && !level.resource_vents[geyser_vent].active);
     CHECK(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1));
+    CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == 7);
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);

@@ -1890,9 +1890,18 @@ zero. After successful APC dispatch, `0x58bab..0x58bb0` reloads from the
 unit's +0x75, overwriting the body-based reload in `0x1ec07`. This differs
 from the scanner's 1.5-times unit reload and from the independent coordinate
 call at `0x58090`; selection between these paths remains unproven.
+The path through `0x58b03` is also reached when unit +0x67 bit 0x80 is set
+(`0x58040..0x58044`). `0x771f9..0x7723b` encodes an object reference in
+body +0x0e/+0x10 using sentinel `0xef1f` and the target's unit-record offset,
+then sets unit +0x62 bit 8 and +0x67 bit 0x80. This establishes an
+object-target route into that firing path, but does not establish whether
+the target arose from a player order, automatic response, or both. The
+scanner wrapper executes the vehicle pass before checking its own cooldown,
+so a coordinate shot in that pass can suppress the scanner in the same pass.
 Do not infer such a mapping solely from their names. Inspect with `r2 -q -e
 bin.cache=true -c 'pd 20 @ 0x1e9dc' -c 'pd 25 @ 0x1ea0d' -c 'pd 30 @
-0x58040' -c 'pd 80 @ 0x58b03' -c 'pd 28 @ 0x58c80' -c q data/Z/ZED.EXE`.
+0x58040' -c 'pd 80 @ 0x58b03' -c 'pd 28 @ 0x58c80' -c 'pd 28 @
+0x771f9' -c q data/Z/ZED.EXE`.
 `test_combat` checks three Grunt bullets against infantry, three Sniper
 bullets against tank armor, individual driver/body hit outcomes and the
 three-Pyro firing phases, independent crew phases, and save/load. `test_capture`
