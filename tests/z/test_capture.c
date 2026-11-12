@@ -4,6 +4,8 @@
 #include "../../games/z/info.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static int fail(const char *msg) { return rts_fail("z capture", msg); }
 
@@ -299,7 +301,60 @@ static int test_apc_crew(void) {
     return 0;
 }
 
+static bool rejected_crew_unchanged(mobj_t *vehicle) {
+    mobj_t before = *vehicle;
+    uint32_t hash = G_Consistency();
+    return !Z_EjectCrew(vehicle) && !memcmp(&before.z, &vehicle->z, sizeof(before.z)) &&
+           before.traits == vehicle->traits && before.core.state_id == vehicle->core.state_id &&
+           G_Consistency() == hash;
+}
+
+static int test_malformed_crew(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load malformed crew fixture");
+    mobj_t *unit = nth(MT_UNIT_GRUNT, 0, 0);
+    mobj_t *apc = unit ? P_SpawnMobj(unit->core.position, MT_UNIT_APC) : NULL;
+    if (!apc) return fail("spawn malformed crew carrier");
+    Z_SetTeam(apc, 0);
+    apc->z.driver = UINT8_MAX;
+    if (!rejected_crew_unchanged(apc)) return fail("out-of-range fallback driver is rejected");
+    apc->z.driver = MT_UNIT_APC - MT_UNITS + 1;
+    if (!rejected_crew_unchanged(apc)) return fail("non-robot fallback driver is rejected");
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    apc->z.crew_count = 2;
+    apc->z.crew[0] = (zcrew_t){.type = MT_UNIT_GRUNT - MT_UNITS, .hp = 20};
+    apc->z.crew[1] = (zcrew_t){.type = MT_UNIT_GRUNT - MT_UNITS, .hp = 12};
+    apc->z.driver = UINT8_MAX;
+    if (!rejected_crew_unchanged(apc)) return fail("invalid driver with stored crew is rejected");
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    apc->z.crew[1].type = UINT8_MAX;
+    if (!rejected_crew_unchanged(apc)) return fail("out-of-range crew member is rejected");
+    apc->z.crew[1].type = MT_UNIT_APC - MT_UNITS;
+    if (!rejected_crew_unchanged(apc)) return fail("non-robot crew member is rejected");
+    apc->z.crew[1].type = MT_UNIT_GRUNT - MT_UNITS;
+    apc->z.crew[1].hp = 0;
+    if (!rejected_crew_unchanged(apc)) return fail("dead crew member is rejected");
+    apc->z.crew[1].hp = -1;
+    if (!rejected_crew_unchanged(apc)) return fail("negative-health crew member is rejected");
+    apc->z.crew[1].hp = 12;
+    apc->z.crew_count = UINT8_MAX;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t id = apc->id, hash = G_Consistency();
+    if (!G_SaveGameBlob(&save, &size, "Malformed crew", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save and load oversized crew count");
+    free(save);
+    apc = P_MobjById(id);
+    if (!apc || apc->z.crew_count != UINT8_MAX || G_Consistency() != hash || !rejected_crew_unchanged(apc))
+        return fail("oversized saved crew is bounded and rejected without changes");
+    apc->z.crew_count = 2;
+    if (!Z_EjectCrew(apc)) return fail("valid crew still ejects after malformed cases");
+    rts_game_model_destroy(model);
+    puts("PASS: z malformed crew records are rejected without changes");
+    return 0;
+}
+
 int main(void) {
-    if (test_flags() || test_board() || test_grenades() || test_crate_reach() || test_apc_crew()) return 1;
+    if (test_flags() || test_board() || test_grenades() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

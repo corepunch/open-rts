@@ -189,6 +189,9 @@ bool Z_EjectCrew(mobj_t *vehicle) {
                 t == MT_UNIT_MISSILE_GUN - MT_UNITS ? S_MISSILE : -1;
     if (!live(vehicle) || vehicle->team >= Z_NEUTRAL || !vehicle->z.driver ||
         (t != MT_UNIT_APC - MT_UNITS && vehicle->core.position.z) || vehicle->z.service || empty < 0) return false;
+    if (vehicle->z.crew_count > Z_CREW_MAX || !Z_IsRobot(vehicle->z.driver - 1)) return false;
+    for (int i = 0; i < vehicle->z.crew_count; ++i)
+        if (!Z_IsRobot(vehicle->z.crew[i].type) || vehicle->z.crew[i].hp <= 0) return false;
     int count = vehicle->z.crew_count ? vehicle->z.crew_count : 1;
     int health = vehicle->z.crew_count ? vehicle->z.crew[0].hp :
                  mobjinfo[MT_UNITS + vehicle->z.driver - 1].spawnhealth;

@@ -60,7 +60,7 @@ typedef struct {
     HASH((mo)->z.body_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_accuracy); HASH((mo)->z.body_tracked); \
     HASH((mo)->z.manufactured); \
     HASH((mo)->z.crew_count); \
-    for (int z_i = 0; z_i < (mo)->z.crew_count; ++z_i) { \
+    for (int z_i = 0; z_i < (mo)->z.crew_count && z_i < Z_CREW_MAX; ++z_i) { \
         HASH((mo)->z.crew[z_i].hp); HASH((mo)->z.crew[z_i].robot); HASH((mo)->z.crew[z_i].type); \
         HASH((mo)->z.crew[z_i].grenades); HASH((mo)->z.crew[z_i].home); HASH((mo)->z.crew[z_i].manufactured); \
     } \
