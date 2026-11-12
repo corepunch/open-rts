@@ -680,6 +680,11 @@ static int tech_card(void) {
     CHECK(usable(card(sc_techs[SC_TECH_DEFENSIVE_MATRIX].name, &magellan, 1)));
     CHECK(usable(card(sc_techs[SC_TECH_EMP].name, &magellan, 1)));
     CHECK(usable(card(sc_techs[SC_TECH_IRRADIATE].name, &magellan, 1)));
+    level.upgrades[SC_UPGRADES + SC_TECH_YAMATO_GUN][consoleplayer].weapon = 0;
+    mobj_t *hyperion = beside(MT_HYPERION, hall, 10, 4), *norad = beside(MT_NORAD_II, hall, 11, 4);
+    CHECK(hyperion && norad);
+    CHECK(usable(card(sc_techs[SC_TECH_YAMATO_GUN].name, &hyperion, 1)));
+    CHECK(usable(card(sc_techs[SC_TECH_YAMATO_GUN].name, &norad, 1)));
     /* Engineering Bay: level 1 now, level 2 greyed until a Science Facility. */
     const char *weapons = sc_upgrades[0].name;
     menuitem_t *tier = card(weapons, &bay, 1);

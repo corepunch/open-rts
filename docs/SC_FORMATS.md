@@ -265,6 +265,11 @@ OpenBW likewise names Magellan (units.dat row 22) as a Science Vessel caster
 of Defensive Matrix, EMP and Irradiate, with hero research exemptions for
 the latter two. Magellan now has those casting, card and AI paths; fixtures
 cover each spell, autonomous Irradiate and enabled buttons without research.
+OpenBW also grants Yamato Gun without research to the Battlecruiser heroes
+Hyperion and Norad II (units.dat rows 28 and 29). Both now use the existing
+casting, card and AI paths; fixtures check direct damage, autonomous use and
+unresearched buttons. OpenBW also lists the Brood War hero Gerard DuGalle,
+which is not identified in this checked-in unit table.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

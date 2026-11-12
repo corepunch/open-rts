@@ -164,7 +164,7 @@ static bool cast(mobj_t *const *units, int count, mobj_t *u) {
             return e && !building(e) && !e->sc.timers[SC_TIMER_LOCKDOWN] && sc_cast(u, SC_TECH_LOCKDOWN, e, where(e));
         }
         return false;
-    case MT_BATTLECRUISER:
+    case MT_BATTLECRUISER: case MT_HYPERION: case MT_NORAD_II:
         if (ready(u, SC_TECH_YAMATO_GUN)) {
             mobj_t *e = best_target(units, count, u, FIXED_FROM_INT(10), 0, 200);
             return e && sc_cast(u, SC_TECH_YAMATO_GUN, e, where(e));

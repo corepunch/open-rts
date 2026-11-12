@@ -488,6 +488,17 @@ static int rejected_cast_keeps_orders(void) {
 }
 
 static int terran_spells(void) {
+    const int hero_battlecruisers[] = {MT_HYPERION, MT_NORAD_II};
+    for (int i = 0; i < 2; i++) {
+        mobj_t *hero = caster(hero_battlecruisers[i], FIXED2_LIT(4.5, 4.5));
+        mobj_t *target = spawn(MT_ULTRALISK, FIXED2_LIT(10.5, 4.5), 1);
+        CHECK(hero && target && !sc_has_tech(0, SC_TECH_YAMATO_GUN));
+        int abilities[8], n = sc_unit_techs(hero->type_id, abilities, 8); bool found = false;
+        for (int j = 0; j < n; j++) found |= abilities[j] == SC_TECH_YAMATO_GUN;
+        CHECK(found && sc_cast(hero, SC_TECH_YAMATO_GUN, target, at_of(target)));
+        CHECK(target->max_hp - target->hp == 250 - sc_units[MT_ULTRALISK - 1].armor);
+        reset();
+    }
     /* Magellan uses Science Vessel abilities without player research. */
     const int magellan_techs[] = {SC_TECH_DEFENSIVE_MATRIX, SC_TECH_EMP, SC_TECH_IRRADIATE};
     for (int i = 0; i < 3; i++) {
@@ -748,6 +759,14 @@ static bool small_plan(const level_t *map, int owner, int level_, AiPlan *out) {
 }
 
 static int computer(void) {
+    const int hero_battlecruisers[] = {MT_HYPERION, MT_NORAD_II};
+    for (int i = 0; i < 2; i++) {
+        mobj_t *hero = caster(hero_battlecruisers[i], FIXED2_LIT(4.5, 4.5));
+        mobj_t *target = spawn(MT_ULTRALISK, FIXED2_LIT(10.5, 4.5), 1);
+        CHECK(hero && target && !sc_has_tech(0, SC_TECH_YAMATO_GUN));
+        think(0); CHECK(target->hp < target->max_hp);
+        reset();
+    }
     mobj_t *magellan = caster(MT_MAGELLAN, FIXED2_LIT(4.5, 4.5));
     mobj_t *magellan_target = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 4.5), 1);
     CHECK(magellan && magellan_target && !sc_has_tech(0, SC_TECH_IRRADIATE));
