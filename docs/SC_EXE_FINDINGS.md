@@ -2571,6 +2571,28 @@ field and common center placement, but is not independently implemented by
 OpenBW. Tests verify both actions create at modified Anywhere's center and
 that location 0 retains its whole-map center.
 
+Pinned OpenBW `bwgame.h::trigger_create_unit` clamps creation positions, snaps
+building positions to the placement footprint's 32-pixel tile grid, then calls
+`can_place_building` before spawning (18073–18084). Open-rts applies snapping
+and its shared `P_CanPlaceBuilding` checks to building units created through
+actions 11 and 44; action 44 is directly shown calling the OpenBW helper, while
+action 11's shared-path behavior is an inference. `test_mission` checks an
+off-grid Supply Depot center and rejects occupied, blocked, and creep-less
+footprints. The shared placement check covers modeled footprint, terrain,
+occupancy, creep, psi, and build-on-type rules, but does not reproduce OpenBW's
+owner visibility or all special refinery/resource-depot rules. Trigger
+creation still does not charge resources or run construction side effects.
+The owner is passed into the placement rule: OpenBW's psionic-matrix check
+filters Pylons by that owner (2340–2345, 2378–2380). The trigger path now
+checks the selected recipient's psi rather than accepting any player's Pylon;
+`test_mission` contrasts an owned and an enemy Pylon.
+OpenBW's trigger helper creates a new unit and initializes resource units
+afterward (18104–18112); unlike the separate worker `build_refinery` path
+(2845–2858), it does not morph the geyser. The resource fixture therefore
+keeps the underlying geyser vent and the trigger-created refinery's independent
+resource vent. Its native owner-visibility exception for refinery placement
+is still not modeled.
+
 ### Give Units and Modify Hangar Count use modified Anywhere (2026-11-13)
 
 PyMS `TRG.py` assigns action 48 (`GiveUnitstoPlayer`) and action 53

@@ -114,7 +114,7 @@ bool sc_powered(const mobj_t *mo) {
         in_psi(mo->owner, fixed3_xy(mo->core.position));
 }
 /* Without a builder any player's pylon will do. */
-bool sc_ground_ok(uint16_t type, ivec2_t cell, const mobj_t *builder) {
+bool sc_ground_ok(uint16_t type, ivec2_t cell, int owner) {
     if (type < 1 || type > SC_TYPES) return true;
     uint32_t flags = sc_units[type - 1].flags;
     isize2_t foot = actor_types[type - 1].footprint;
@@ -122,6 +122,6 @@ bool sc_ground_ok(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         for (int y = 0; y < foot.h; ++y)
             for (int x = 0; x < foot.w; ++x)
                 if (!on_creep(fixed2_cell_center(ivec2_add(cell, (ivec2_t){x, y})))) return false;
-    if (flags & 0x80000) return in_psi(builder ? builder->owner : -1, P_BuildingPosition(type, cell));
+    if (flags & 0x80000) return in_psi(owner, P_BuildingPosition(type, cell));
     return true;
 }

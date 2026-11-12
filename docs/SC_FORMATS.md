@@ -119,18 +119,24 @@ reconnection at the native add-on offset and keeping the original link when
 placement fails. Whether a moved add-on itself reconnects at its destination
 is unknown; only moving a parent currently attempts reconnection.
 The same 1.03 notes and OpenBW `trigger_create_unit` also reconnect an add-on
-when a building is created. Create Unit now applies the shared rule when its
-spawned building is footprint-aligned; a Factory and neutral Machine Shop
-fixture exercises it. Trigger creation still uses the existing approximate
-placement, so off-grid spawned buildings do not attempt reconnection.
+when a building is created. Create Unit applies the shared rule after snapping
+its spawned building to a footprint-aligned position; a Factory and neutral
+Machine Shop fixture exercises it.
 OpenBW `trigger_create_unit` first clamps the unit's native collision bounds,
 snaps the building's placement top-left to 32-pixel tiles, then invokes
 `can_place_building` with the trigger owner and flags `(true, false)` before
 spawning. Its placement check includes owner visibility, creep and psi,
-resource-depot spacing, refinery/geyser handling and unit collision. The shared
-`P_CanPlaceBuilding` construction check does not reproduce all of those
-rules, so replacing trigger placement with it would change valid creation
-cases. Native snapping, boundary handling and placement rejection remain open.
+resource-depot spacing, refinery/geyser handling and unit collision. Trigger
+creation now applies the modeled `P_CanPlaceBuilding` subset (terrain,
+occupancy, creep, recipient-owned psi and build-on-type) plus footprint snapping. It still
+does not reproduce owner visibility or all special refinery/resource-depot
+rules, and intentionally does not charge resources or invoke construction
+side effects. Those remaining native differences are open.
+OpenBW directly creates trigger-created refineries and initializes their
+resource count; the worker construction path instead morphs the existing
+geyser. The model retains separate geyser and trigger-refinery resource
+records, and does not claim to reproduce the native hidden-tile refinery
+placement exception.
 OpenBW `trigger_create_unit` also assigns directly created add-ons to neutral
 owner 11. Both Create Unit actions use this default here; the action 11
 case is inferred from the shared creation path because OpenBW does not

@@ -97,7 +97,8 @@ void P_SyncBuildingBlocking(void) {
 #endif
 }
 
-bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
+static bool can_place_building(uint16_t type, ivec2_t cell, const mobj_t *builder, int owner) {
+    (void)owner;
 #ifdef RTS_MODULE_WARCRAFT_2
     return W2_CanPlace(type, cell, builder);
 #else
@@ -116,7 +117,7 @@ bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         if (!found) return false;
     }
 #ifdef RTS_MODULE_STARCRAFT
-    if (!sc_ground_ok(type, cell, builder)) return false;
+    if (!sc_ground_ok(type, cell, builder ? builder->owner : owner)) return false;
 #endif
     isize2_t foot = actor->footprint;
     for (int y = 0; y < foot.h; ++y)
@@ -126,6 +127,14 @@ bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
         }
     return true;
 #endif
+}
+
+bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder) {
+    return can_place_building(type, cell, builder, -1);
+}
+
+bool P_CanPlaceBuildingForOwner(uint16_t type, ivec2_t cell, int owner) {
+    return can_place_building(type, cell, NULL, owner);
 }
 
 bool P_MorphMobj(mobj_t *mo, uint16_t type) {

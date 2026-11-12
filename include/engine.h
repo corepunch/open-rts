@@ -1665,6 +1665,7 @@ const mobjtype_t *P_ActorType(uint16_t type);
 fixed2_t P_BuildingPosition(uint16_t type, ivec2_t cell);
 bool P_BuildingCellClear(uint16_t type, ivec2_t cell, const mobj_t *builder);
 bool P_CanPlaceBuilding(uint16_t type, ivec2_t cell, const mobj_t *builder);
+bool P_CanPlaceBuildingForOwner(uint16_t type, ivec2_t cell, int owner);
 void P_SyncBuildingBlocking(void);
 /* In-place morph (Zerg egg, Lair, Sunken Colony): the mobj keeps its id,
  * owner, place and selection, takes the new type's actor and state, and

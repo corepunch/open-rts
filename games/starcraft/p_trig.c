@@ -711,6 +711,20 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
         ivec2_t pixel = {(l + r) / 2 + col * 32, (t + b) / 2 + row * 32};
         if (pixel.x < 0) pixel.x = 0;
         if (pixel.y < 0) pixel.y = 0;
+        if (sc_units[unit].flags & SC_UNIT_BUILDING) {
+            isize2_t foot = actor_types[unit].footprint;
+            ivec2_t cell = {
+                (pixel.x - foot.w * 16) / 32,
+                (pixel.y - foot.h * 16) / 32,
+            };
+            if (cell.x < 0) cell.x = 0;
+            if (cell.y < 0) cell.y = 0;
+            if (cell.x + foot.w > level.width) cell.x = level.width - foot.w;
+            if (cell.y + foot.h > level.height) cell.y = level.height - foot.h;
+            if (!P_CanPlaceBuildingForOwner((uint16_t)(unit + 1), cell, players[i])) continue;
+            fixed2_t snapped = P_BuildingPosition((uint16_t)(unit + 1), cell);
+            pixel = (ivec2_t){snapped.x >> 11, snapped.y >> 11};
+        }
         bool resource = (unit + 1 >= MT_MINERAL_FIELD1 && unit + 1 <= MT_MINERAL_FIELD3) ||
                         unit + 1 == MT_VESPENE_GEYSER;
         bool refinery = unit + 1 == MT_REFINERY || unit + 1 == MT_EXTRACTOR || unit + 1 == MT_ASSIMILATOR;

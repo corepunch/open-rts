@@ -1305,9 +1305,13 @@ int main(void) {
     CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp));
     CHECK(!fclose(cuwp_file));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
+    mobj_t *trigger_geyser = sc_spawn_actor(MT_VESPENE_GEYSER - 1, (ivec2_t){512, 512}, 11);
+    CHECK(trigger_geyser && sc_add_resource_vent(trigger_geyser, 0));
     ticks(1, &(hudtext_t){0});
-    CHECK(level.resource_vent_count == 1 && !level.resource_vents[0].amount &&
-          level.resource_vents[0].active && level.resource_vents[0].depleted && level.resource_vents[0].rate == 2);
+    CHECK(level.resource_vent_count == 2 && level.resource_vents[0].source_id == trigger_geyser->id &&
+          !level.resource_vents[0].amount &&
+          !level.resource_vents[0].active && level.resource_vents[1].amount == 0 &&
+          level.resource_vents[1].active && level.resource_vents[1].depleted && level.resource_vents[1].rate == 2);
     unload();
     put_u16(action + 24, MT_VESPENE_GEYSER - 1);
     CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
@@ -1346,15 +1350,21 @@ int main(void) {
         action[26] = 44; action[27] = 1;
         CHECK(!write_map("/tmp/open-rts-sc-create-resource.chk", owners, trig));
         CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create-resource.chk", &level));
+        if (d >= 2) {
+            mobj_t *geyser = sc_spawn_actor(MT_VESPENE_GEYSER - 1, (ivec2_t){512, 512}, 11);
+            CHECK(geyser && sc_add_resource_vent(geyser, 5000));
+        }
         ticks(1, &(hudtext_t){0});
         mobjlist_t list = P_ListMobjs();
         bool found = false;
         for (int i = 0; i < list.count; i++)
             if (list.items[i]->type_id == type && list.items[i]->owner == (d < 2 ? 11 : 0)) found = true;
         CHECK(found);
-        CHECK(level.resource_vent_count == 1);
-        CHECK(level.resource_vents[0].amount == (type == MT_MINERAL_FIELD1 ? 1500 : 5000));
-        CHECK(level.resource_vents[0].active == (type != MT_VESPENE_GEYSER));
+        CHECK(level.resource_vent_count == (d >= 2 ? 2 : 1));
+        resourcevent_t *created_vent = &level.resource_vents[d >= 2 ? 1 : 0];
+        CHECK(created_vent->amount == (type == MT_MINERAL_FIELD1 ? 1500 : 5000));
+        CHECK(created_vent->active == (type != MT_VESPENE_GEYSER));
+        if (d >= 2) CHECK(level.resource_vents[0].source_id && level.resource_vents[0].amount == 5000);
         P_FreeMobjList(&list);
         if (type == MT_MINERAL_FIELD1) {
             mobj_t *base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
@@ -1393,7 +1403,7 @@ int main(void) {
     mobj_t *create_shop = sc_spawn_actor(create_addon_type - 1,
         (ivec2_t){create_addon_pos.x >> 11, create_addon_pos.y >> 11}, 11);
     CHECK(create_shop);
-    int create_terrain = L_Index(&level, create_cell.x, create_cell.y);
+    int create_terrain = L_Index(&level, 1, 1);
     level.cell_solid[create_terrain] |= 1;
     ticks(1, &(hudtext_t){0});
     CHECK(level.cell_solid[create_terrain] & 1);
@@ -1401,6 +1411,82 @@ int main(void) {
     CHECK(create_factory && create_factory->type_id == MT_FACTORY && create_factory->sc.addon == create_shop->id);
     CHECK(create_shop->owner == 0);
     free(trig); unload(); remove("/tmp/open-rts-sc-create-addon.chk");
+
+    /* Trigger-created buildings snap their placement footprint to 32px tiles. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; memset(trig + 2372, 0, 28); trig[2372] = 1;
+    action = trig + 320;
+    put_u32(action, 64); put_u16(action + 24, MT_SUPPLY_DEPOT - 1);
+    action[26] = 44; action[27] = 1;
+    action[32 + 26] = 3; /* Preserve and retry the same placement next tic. */
+    uint8_t create_owners[12] = {6, 5};
+    CHECK(!write_map("/tmp/open-rts-sc-create-snap.chk", create_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create-snap.chk", &level));
+    sc_mission_t *snap_mission = level.mission;
+    snap_mission->loc_count = 64;
+    snap_mission->loc_left[63] = snap_mission->loc_top[63] = 48;
+    snap_mission->loc_right[63] = snap_mission->loc_bottom[63] = 112;
+    ticks(2, &(hudtext_t){0});
+    mobjlist_t created_buildings = P_ListMobjs();
+    mobj_t *snapped_depot = NULL;
+    int depot_count = 0;
+    for (int i = 0; i < created_buildings.count; i++)
+        if (created_buildings.items[i]->type_id == MT_SUPPLY_DEPOT) { snapped_depot = created_buildings.items[i]; depot_count++; }
+    CHECK(snapped_depot && depot_count == 1);
+    fixed2_t expected_depot = P_BuildingPosition(MT_SUPPLY_DEPOT, (ivec2_t){1, 1});
+    CHECK(fixed2_equal(fixed3_xy(snapped_depot->core.position), expected_depot));
+    P_FreeMobjList(&created_buildings);
+    free(trig); unload(); remove("/tmp/open-rts-sc-create-snap.chk");
+
+    /* Trigger-created buildings reject blocked and creep-less footprints. */
+    for (int zerg = 0; zerg < 2; zerg++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; memset(trig + 2372, 0, 28); trig[2372] = 1;
+        action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24,
+            (zerg ? MT_HYDRALISK_DEN : MT_SUPPLY_DEPOT) - 1);
+        action[26] = 44; action[27] = 1;
+        const char *path = zerg ? "/tmp/open-rts-sc-create-no-creep.chk" : "/tmp/open-rts-sc-create-blocked.chk";
+        CHECK(!write_map(path, create_owners, trig));
+        CHECK(G_DoLoadLevel(path, &level));
+        sc_mission_t *placement_mission = level.mission;
+        placement_mission->loc_count = 64;
+        placement_mission->loc_left[63] = placement_mission->loc_top[63] = 48;
+        placement_mission->loc_right[63] = placement_mission->loc_bottom[63] = 112;
+        if (!zerg) level.blocked[L_Index(&level, 1, 1)] = 1;
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t placed = P_ListMobjs();
+        uint16_t building = zerg ? MT_HYDRALISK_DEN : MT_SUPPLY_DEPOT;
+        for (int i = 0; i < placed.count; i++) CHECK(placed.items[i]->type_id != building);
+        P_FreeMobjList(&placed);
+        free(trig); unload(); remove(path);
+    }
+
+    /* Trigger-created Protoss buildings require the target player's psi. */
+    for (int pylon_owner = 0; pylon_owner < 2; pylon_owner++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; memset(trig + 2372, 0, 28); trig[2372] = 1;
+        action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, MT_PHOTON_CANNON - 1);
+        action[26] = 44; action[27] = 1;
+        const char *path = pylon_owner ? "/tmp/open-rts-sc-create-foreign-psi.chk" :
+                                         "/tmp/open-rts-sc-create-own-psi.chk";
+        CHECK(!write_map(path, create_owners, trig));
+        CHECK(G_DoLoadLevel(path, &level));
+        sc_mission_t *psi_mission = level.mission;
+        psi_mission->loc_count = 64;
+        psi_mission->loc_left[63] = psi_mission->loc_right[63] = 256;
+        psi_mission->loc_top[63] = psi_mission->loc_bottom[63] = 256;
+        CHECK(sc_spawn_actor(MT_PYLON - 1, (ivec2_t){160, 256}, pylon_owner));
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t powered = P_ListMobjs();
+        int cannon_count = 0;
+        for (int i = 0; i < powered.count; i++)
+            if (powered.items[i]->type_id == MT_PHOTON_CANNON && powered.items[i]->owner == 0) cannon_count++;
+        CHECK(cannon_count == (pylon_owner == 0 ? 1 : 0));
+        P_FreeMobjList(&powered);
+        free(trig); unload(); remove(path);
+    }
 
     /* Both creation actions leave a directly created add-on neutral. */
     for (int create_action = 11; create_action <= 44; create_action += 33) {
