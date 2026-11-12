@@ -152,6 +152,7 @@ static bool target_ok(const mobj_t *caster, int tech, const mobj_t *target) {
     if (!target || !body(target) || target == caster || !P_VisibleTo(caster, target)) return false;
     uint32_t flags = sc_units[target->type_id - 1].flags;
     switch (tech) {
+    case SC_TECH_HALLUCINATION: return !building(target) && target->type_id != MT_INTERCEPTOR;
     case SC_TECH_YAMATO_GUN: return true;
     case SC_TECH_LOCKDOWN: return !building(target) && (flags & SC_UNIT_MECHANICAL);
     case SC_TECH_SPAWN_BROODLING:

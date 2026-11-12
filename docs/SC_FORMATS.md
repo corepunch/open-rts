@@ -237,6 +237,9 @@ illusion scarabs do not independently expire.
 OpenBW `create_hallucination` gives each copy full hit points and duplicates
 both stored and deployed Reaver scarabs into its hangar. Spell-created copies
 now do the same; fixtures cover a wounded target and both scarab sources.
+OpenBW `unit_tech_target_valid` rejects Interceptors as Hallucination targets.
+The spell now rejects them before spending energy; a unit fixture checks the
+rejection alongside a valid Zealot cast.
 OpenBW's UNIT loader also assigns a preplaced Broodling a 1800-frame removal
 timer. It now uses the same lifecycle as spawned Broodlings, retaining the
 shorter 1350-frame timer when also hallucinated. A fixture checks both

@@ -407,6 +407,11 @@ static int protoss_spells(void) {
     learn(0, SC_TECH_HALLUCINATION);
     ht = caster(MT_HIGH_TEMPLAR, FIXED2_LIT(4.5, 4.5));
     mobj_t *zealot = spawn(MT_ZEALOT, FIXED2_LIT(7.5, 4.5), 0), *marine = spawn(MT_MARINE, FIXED2_LIT(8.5, 5.8), 1);
+    mobj_t *interceptor_target = spawn(MT_INTERCEPTOR, FIXED2_LIT(6.5, 4.5), 0);
+    CHECK(interceptor_target); interceptor_target->traits &= ~(MF_NOBLOCKMAP | MF_MISSILE);
+    int before_cast = ht->sc.energy;
+    CHECK(!sc_cast(ht, SC_TECH_HALLUCINATION, interceptor_target, at_of(interceptor_target)) && ht->sc.energy == before_cast);
+    P_RemoveMobj(interceptor_target);
     CHECK(zealot); sc_initial_hp(zealot, 33);
     CHECK(sc_cast(ht, SC_TECH_HALLUCINATION, zealot, at_of(zealot)) && count_of(MT_ZEALOT, 0) == 3);
     int supply, cap;
