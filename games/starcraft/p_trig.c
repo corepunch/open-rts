@@ -244,6 +244,13 @@ static bool cmp_num(uint8_t op, uint64_t value, uint32_t qty) {
     return false;
 }
 
+static uint64_t player_kills(const sc_mission_t *m, int player, unsigned unit) {
+    if (unit < SC_TYPES) return m->kills[player][unit];
+    uint64_t total = 0;
+    for (int t = 0; t < SC_TYPES; t++) total += m->kills[player][t];
+    return total;
+}
+
 static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     uint8_t type = c[15], op = c[14];
     unsigned group = read_u32_le(c + 4), qty = read_u32_le(c + 8);
@@ -280,6 +287,13 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
                 total += type == 15 ? m->deaths[players[i]][t] : m->kills[players[i]][t];
         }
         return cmp_num(op, total, qty);
+    }
+    if (type == 8) {
+        if (unit >= SC_TYPES && unit != 229) return false;
+        uint64_t mine = player_kills(m, current, unit);
+        for (int p = 0; p < 8; p++)
+            if (p != current && slot_active(m, p) && player_kills(m, p, unit) > mine) return false;
+        return true;
     }
     if (type == 6 || type == 7 || type == 16 || type == 17) {
         players[0] = current;

@@ -410,6 +410,71 @@ int main(void) {
         free(trig);
         unload();
     }
+    /* Most Kills (condition 8) compares the current owner by victim type. */
+    const struct { uint32_t mine, rival, inactive; bool wins; } kill_cases[] = {
+        {5, 4, 99, true},  /* sole leader; inactive slot's larger count is ignored */
+        {5, 5, 0, true},   /* mapmaker documentation says ties share Most */
+        {4, 5, 0, false},
+        {0, 0, 99, true},  /* all active counts are zero; inferred max tie */
+        {0, 1, 0, false}
+    };
+    uint8_t kill_owners[12] = {6, 5};
+    for (size_t i = 0; i < sizeof(kill_cases) / sizeof(kill_cases[0]); i++) {
+        uint8_t *kills_trigger = blank_trigger(); CHECK(kills_trigger);
+        kills_trigger[2372 + 17] = 0; kills_trigger[2372 + 1] = 1;
+        put_u32(kills_trigger + 4, 0); /* Player field is unused by MostKills. */
+        put_u16(kills_trigger + 12, MT_MARINE - 1); kills_trigger[15] = 8;
+        uint8_t *resource_action = kills_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-most-kills.chk", kill_owners, kills_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-most-kills.chk", &level));
+        sc_mission_t *kills_mission = level.mission;
+        kills_mission->kills[1][MT_MARINE - 1] = kill_cases[i].mine;
+        kills_mission->kills[0][MT_MARINE - 1] = kill_cases[i].rival;
+        kills_mission->kills[2][MT_MARINE - 1] = kill_cases[i].inactive;
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[1][0] == 10) == kill_cases[i].wins);
+        free(kills_trigger); unload();
+    }
+    /* Neutral slots are active participants in Most comparisons. */
+    {
+        uint8_t neutral_owners[12] = {6, 5, 7};
+        uint8_t *kills_trigger = blank_trigger(); CHECK(kills_trigger);
+        kills_trigger[2372 + 17] = 0; kills_trigger[2372 + 1] = 1;
+        put_u16(kills_trigger + 12, MT_MARINE - 1); kills_trigger[15] = 8;
+        uint8_t *resource_action = kills_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-most-kills.chk", neutral_owners, kills_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-most-kills.chk", &level));
+        sc_mission_t *kills_mission = level.mission;
+        kills_mission->kills[1][MT_MARINE - 1] = 5;
+        kills_mission->kills[0][MT_MARINE - 1] = 4;
+        kills_mission->kills[2][MT_MARINE - 1] = 6;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 0);
+        free(kills_trigger); unload();
+    }
+    /* Any Unit compares the sum of the current owner's per-type kill counters. */
+    {
+        uint8_t *kills_trigger = blank_trigger(); CHECK(kills_trigger);
+        kills_trigger[2372 + 17] = 0; kills_trigger[2372 + 1] = 1;
+        put_u16(kills_trigger + 12, 229); kills_trigger[15] = 8;
+        uint8_t *resource_action = kills_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-most-kills.chk", kill_owners, kills_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-most-kills.chk", &level));
+        sc_mission_t *kills_mission = level.mission;
+        kills_mission->kills[1][MT_MARINE - 1] = 2;
+        kills_mission->kills[1][MT_GHOST - 1] = 3;
+        kills_mission->kills[0][MT_MARINE - 1] = 4;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 10);
+        free(kills_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-most-kills.chk");
     /* Timer quantities are unsigned seconds; large values must not overflow ms. */
     for (int op = 7; op <= 9; op++) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22;

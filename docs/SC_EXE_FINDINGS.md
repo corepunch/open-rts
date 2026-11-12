@@ -2464,3 +2464,27 @@ handling of IDs 0 and 64 for its other callers. The order path also applies
 location elevation exclusions and unburrows selected burrowed units. Patrol
 still uses the engine's tile waypoint representation; other special-unit
 exclusions and exact retail order behavior remain unverified.
+
+### Most Kills trigger condition (2026-11-12)
+
+**Confirmed format mapping:** PyMS `FileFormats/TRG.py` maps condition type 8
+to `MostKills`, and `PyTRG/HelpText.py` describes it as the current trigger
+owner having the most kills of the selected unit. Its encoder in eudplib's
+`stockcond.py` writes type 8 and the selected unit ID; it does not define
+runtime comparison behavior. Pinned OpenBW `bwgame.h::test_trigger_condition`
+does not implement type 8 and falls through to its unknown-condition error.
+
+**Implemented reference behavior:** open-rts compares the trigger owner's
+stored kill count for the requested unit against every other active modeled
+slot (0–7). Equal counts qualify as Most Kills, following Staredit Network's
+mapmaker documentation that tied players both have the most. `Any Unit` (ID
+229) sums the per-unit counters. The zero-kill case treats every tied zero as
+the maximum; this is an explicit inference from the maximum comparison, not a
+verified retail rule. Neutral/rescuable owners within slots 0–7 participate
+when active; players 8–11 are outside the current runtime model. No retail
+executable trace established tie, zero, or neutral-slot details.
+
+The synthetic CHK cases in `test_mission` cover a sole leader, tie, lower
+count, zero tie, inactive-slot decoy, active neutral slot, and Any Unit total.
+Reproduce with `env SDL_VIDEODRIVER=dummy
+build/bin/tests/starcraft/test_mission`.

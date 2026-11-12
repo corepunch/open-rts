@@ -2550,6 +2550,16 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   `glue/palnl/dlg.grp` scrollbar and combobox artwork used by Create Game.
   Its two-pixel track spacing and five-pixel arrow inset are editor-preview
   rules, not traced retail executable constants; see `docs/SC_EXE_FINDINGS.md`.
+- StarCraft trigger Most Kills references: pinned PyMS
+  `FileFormats/TRG.py` maps condition 8 to `MostKills`, and
+  `PyTRG/HelpText.py` describes the condition as the current player having the
+  most kills of the selected unit. [eudplib `stockcond.py`](https://github.com/armoha/eudplib/blob/main/src/eudplib/core/rawtrigger/stockcond.py)
+  serializes condition type 8 and the unit operand; it does not establish game
+  evaluation semantics. [Staredit Network's kills-to-cash documentation](https://wiki.staredit.net/wiki/Kills_to_cash)
+  says tied players both have the most kills. The pinned OpenBW condition
+  evaluator does not implement type 8. These are format/mapmaker references,
+  not retail executable evidence; tie, zero-count, and neutral-slot behavior
+  limitations are recorded in `docs/SC_EXE_FINDINGS.md`.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D
