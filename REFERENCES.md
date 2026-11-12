@@ -2575,6 +2575,11 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   (`player_slot_active`, `trigger_players_pred`). Our boolean alliance masks
   cannot retain Ally versus Allied Victory as distinct states; see the
   implementation limitation in `docs/SC_EXE_FINDINGS.md`.
+- StarCraft Neutral Players trigger group: PyMS `FileFormats/TRG.py` labels
+  group 16 `Neutral Players`; pinned OpenBW `bwgame.h::trigger_players_pred`
+  excludes the trigger owner for this group. The runtime maps it to other OWNR
+  7 slots; see the documented alliance-neutral-state limitation in
+  `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger score conditions: checked-in PyMS `FileFormats/TRG.py`
   maps conditions 9/19/21 to Highest/Lowest/Score and defines score selectors
   0–7; its help text specifies current-player and selected-player comparisons.

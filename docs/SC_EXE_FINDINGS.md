@@ -2570,6 +2570,17 @@ mapping is OpenBW reference behavior, not a retail executable trace.
 of a closed slot with a deliberately higher matching kill count, and exclusion
 of a mutually allied neutral slot.
 
+### Neutral Players trigger group excludes the current owner (2026-11-12)
+
+Pinned OpenBW `bwgame.h::trigger_players_pred` handles player group 16 by
+excluding the trigger owner and matching neutral alliance status (18133–18148).
+PyMS `FileFormats/TRG.py` labels group 16 `Neutral Players`. The runtime models
+the group as other OWNR 7 slots, because it has no independent alliance-neutral
+state. `in_group` now excludes `current`; a `test_mission` Accumulate condition
+checks that resources owned only by the current neutral slot do not satisfy
+the group, while resources owned by a second neutral slot do. This is pinned
+OpenBW behavior, not a retail executable trace.
+
 ### Highest/Lowest Score trigger conditions (2026-11-12)
 
 **Confirmed format mapping:** checked-in PyMS `FileFormats/TRG.py` maps

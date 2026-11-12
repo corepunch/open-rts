@@ -201,6 +201,29 @@ int main(void) {
         unload(); free(opponent_trigger);
     }
     remove("/private/tmp/sc-opponents.chk");
+    /* Neutral Players excludes the neutral slot that owns this trigger. */
+    const int neutral_resource_cases[][3] = {{5, 0, 0}, {0, 5, 1}};
+    uint8_t neutral_group_owners[12] = {6, 5, 7, 7};
+    for (int i = 0; i < 2; i++) {
+        uint8_t *neutral_group_trigger = blank_trigger(); CHECK(neutral_group_trigger);
+        neutral_group_trigger[2372 + 2] = 1;
+        put_u32(neutral_group_trigger + 4, 16); /* Neutral Players. */
+        put_u32(neutral_group_trigger + 8, 5);
+        neutral_group_trigger[14] = 0; neutral_group_trigger[15] = 4;
+        neutral_group_trigger[16] = 0; /* Ore. */
+        uint8_t *set_resources = neutral_group_trigger + 320;
+        set_resources[26] = 26; set_resources[27] = 7;
+        put_u32(set_resources + 16, 13); /* Current Player. */
+        put_u32(set_resources + 20, 10);
+        CHECK(!write_map("/private/tmp/sc-neutral-group.chk", neutral_group_owners, neutral_group_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-neutral-group.chk", &level));
+        level.player_resources[2][0] = neutral_resource_cases[i][0];
+        level.player_resources[3][0] = neutral_resource_cases[i][1];
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[2][0] == (neutral_resource_cases[i][2] ? 10 : 5));
+        unload(); free(neutral_group_trigger);
+    }
+    remove("/private/tmp/sc-neutral-group.chk");
     /* An inactive source slot contributes no opponents. */
     uint8_t inactive_owners[12] = {0, 6};
     uint8_t *inactive_opponents = blank_trigger(); CHECK(inactive_opponents);
