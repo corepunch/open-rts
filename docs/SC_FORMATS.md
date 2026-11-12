@@ -174,6 +174,14 @@ native terrain is unavailable or the unit is outside the map, filtering is
 skipped because its native height is unknown. This adds fields to the saved
 mission layout and increments its version.
 
+OpenBW's Bring condition uses completed-unit counts for At Least and Exactly,
+including transported passengers at their transport's location and elevation;
+At Most uses the visible-unit count and omits hidden passengers. Bring now
+handles loaded passengers this way, including when their stored position is
+stale. A fixture tests both sides of a location boundary for all three
+comparisons. Broader completed-versus-incomplete unit counting and the native
+handling of docked fighters, powerups and silo missiles remain incomplete.
+
 OpenBW's Wait action allows only one outstanding wait per trigger owner;
 other triggers continue until they reach their own Wait. Trigger execution
 now enforces that contention while retaining per-trigger saved progress. A

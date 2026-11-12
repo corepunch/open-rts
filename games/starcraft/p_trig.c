@@ -196,7 +196,7 @@ static bool alive_unit(const mobj_t *mo) {
 }
 
 static int count_units(const int *players, int nplayers, unsigned unit, unsigned loc,
-                       const sc_mission_t *m) {
+                       const sc_mission_t *m, int cargo) {
     int l, t, r, b;
     bool anywhere = !loc || loc == 64;
     if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return 0;
@@ -205,9 +205,15 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
         if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit)) continue;
+        const mobj_t *position = mo;
+        if (cargo >= 0 && (mo->sc.flags & SC_LOADED)) {
+            if (!cargo) continue;
+            position = P_MobjById(mo->sc.parent);
+            if (!position || position->remove || position->hp <= 0) continue;
+        }
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
-        if (!mine || (!location_height_ok(m, mo, loc) || (!anywhere && !inside(mo, l, t, r, b)))) continue;
+        if (!mine || !location_height_ok(m, position, loc) || (!anywhere && !inside(position, l, t, r, b))) continue;
         n++;
     }
     return n;
@@ -238,7 +244,7 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 2 || type == 3) {
         unsigned where = type == 3 ? loc : 0;
-        return cmp_num(op, count_units(players, n, unit, where, m), qty);
+        return cmp_num(op, count_units(players, n, unit, where, m, type == 3 ? op != 1 : -1), qty);
     }
     if (type == 4) {
         uint64_t total = 0;
@@ -261,14 +267,14 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         players[0] = current;
         n = 1;
         unsigned where = (type == 7 || type == 17) ? loc : 0;
-        int mine = count_units(players, n, unit, where, m), others = 0;
+        int mine = count_units(players, n, unit, where, m, -1), others = 0;
         bool most = type == 6 || type == 7;
         for (int p = 0; p < 8; p++) {
             bool in = false;
             for (int i = 0; i < n; i++) if (players[i] == p) in = true;
             if (in || !slot_active(m, p)) continue;
             int one = p;
-            int count = count_units(&one, 1, unit, where, m);
+            int count = count_units(&one, 1, unit, where, m, -1);
             others++;
             if (most ? count >= mine : count <= mine) return false;
         }
