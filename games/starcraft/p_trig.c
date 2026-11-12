@@ -455,7 +455,15 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
         ivec2_t pixel = {(l + r) / 2 + col * 32, (t + b) / 2 + row * 32};
         if (pixel.x < 0) pixel.x = 0;
         if (pixel.y < 0) pixel.y = 0;
-        mobj_t *mo = sc_spawn_actor(unit, pixel, (uint8_t)players[i]);
+        bool resource = (unit + 1 >= MT_MINERAL_FIELD1 && unit + 1 <= MT_MINERAL_FIELD3) ||
+                        unit + 1 == MT_VESPENE_GEYSER;
+        bool refinery = unit + 1 == MT_REFINERY || unit + 1 == MT_EXTRACTOR || unit + 1 == MT_ASSIMILATOR;
+        mobj_t *mo = sc_spawn_actor(unit, pixel, resource && a[26] == 44 ? 11 : (uint8_t)players[i]);
+        if (mo && (resource || refinery) && a[26] == 44 &&
+            !sc_add_resource_vent(mo, unit + 1 >= MT_MINERAL_FIELD1 && unit + 1 <= MT_MINERAL_FIELD3 ? 1500 : 5000)) {
+            P_RemoveMobj(mo);
+            continue;
+        }
         if (mo && props) apply_property(mo, m, number);
     }
 }

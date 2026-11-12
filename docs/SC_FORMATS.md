@@ -20,6 +20,19 @@ Create Unit count, including zero; offset 20 is a separate 32-bit field. The
 former implementation read offset 20 and always created at least one unit.
 `test_mission` covers zero and three. Placement remains an engine approximation,
 and Create Unit with Properties (action 11) has not been independently traced.
+OpenBW action 44 also forces mineral fields and geysers to neutral owner 11,
+irrespective of the selected player, and initializes them with 1500 minerals
+or 5000 gas in `trigger_create_unit`. Trigger-created deposits now use the
+same vent representation as map-loaded resources. The mission regression
+checks both kinds, mines and returns minerals, and checks vent closure when
+the source is removed. OpenBW also initializes directly created Refinery,
+Extractor and Assimilator units with 5000 gas; these keep the selected owner
+and receive active vents. A save regression round-trips a dynamically added
+geyser and its vent. Refinery construction over a trigger-created geyser uses
+the existing geyser path; its complete lifecycle is not separately tested.
+Resource-vent slots are appended and closed rather than removed when a source
+disappears, preserving harvester indices; repeated create/remove triggers can
+therefore grow the vent array until level teardown.
 
 OpenBW action 24 walks the selected players' complete unit lists and does not
 exclude hallucinations. Remove Unit now traverses the thinker list directly,

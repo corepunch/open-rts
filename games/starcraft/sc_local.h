@@ -232,6 +232,7 @@ bool sc_mission_bind(level_t *map);
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms);
 void sc_note_damage(mobj_t *mo);
 mobj_t *sc_spawn_actor(unsigned type, ivec2_t pixel, uint8_t owner);
+bool sc_add_resource_vent(mobj_t *source, int amount);
 uint8_t sc_allegiance_for(uint8_t owner);
 int sc_owner_kind(int owner);
 int sc_player_side(int owner);

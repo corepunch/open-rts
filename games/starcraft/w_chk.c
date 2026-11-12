@@ -503,6 +503,22 @@ mobj_t *sc_spawn_actor(unsigned type,ivec2_t pixel,uint8_t owner) {
     return mo;
 }
 
+bool sc_add_resource_vent(mobj_t *mo, int amount) {
+    bool minerals = mo->type_id >= MT_MINERAL_FIELD1 && mo->type_id <= MT_MINERAL_FIELD3;
+    resourcevent_t *vents = realloc(level.resource_vents,
+        (size_t)(level.resource_vent_count + 1) * sizeof(*vents));
+    if (!vents) return false;
+    level.resource_vents = vents;
+    irect_t bounds = P_MobjCells(mo);
+    vents[level.resource_vent_count++] = (resourcevent_t){
+        .cell = {bounds.x, bounds.y}, .footprint = {bounds.w, bounds.h},
+        .attachment = fixed3_xy(mo->core.position), .amount = amount, .rate = 8,
+        .active = mo->type_id != MT_VESPENE_GEYSER, .exhausts_source = minerals,
+        .resource_type = minerals ? 0 : 1, .source_id = mo->id,
+        .depleted_rate = minerals ? 0 : 2};
+    return true;
+}
+
 int sc_spawn_things(void) {
     const blob_t *file=level.mission;
     int count=0;
@@ -520,19 +536,7 @@ int sc_spawn_things(void) {
             bool minerals=mo->type_id>=MT_MINERAL_FIELD1&&mo->type_id<=MT_MINERAL_FIELD3;
             if(minerals||mo->type_id==MT_VESPENE_GEYSER||mo->type_id==MT_REFINERY||
                mo->type_id==MT_EXTRACTOR||mo->type_id==MT_ASSIMILATOR) {
-                resourcevent_t *vents=realloc(level.resource_vents,
-                    (size_t)(level.resource_vent_count+1)*sizeof(*vents));
-                if(!vents) return count;
-                level.resource_vents=vents;
-                irect_t bounds=P_MobjCells(mo);
-                vents[level.resource_vent_count++]=(resourcevent_t){
-                    .cell={bounds.x,bounds.y},.footprint={bounds.w,bounds.h},
-                    .attachment=fixed3_xy(mo->core.position),
-                    .amount=(int)read_u32_le(u+20),.rate=8,.active=mo->type_id!=MT_VESPENE_GEYSER,
-                    .exhausts_source=minerals,
-                    .resource_type=minerals?0:1,.source_id=mo->id,
-                    /* An exhausted geyser still yields 2 gas a trip. */
-                    .depleted_rate=minerals?0:2};
+                if(!sc_add_resource_vent(mo,(int)read_u32_le(u+20))) return count;
             }
             ++count;
         }

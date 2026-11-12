@@ -188,6 +188,46 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-create.chk");
 
+    /* Create Unit assigns mineral fields and geysers to neutral owner 11. */
+    const int deposits[] = {MT_MINERAL_FIELD1, MT_VESPENE_GEYSER, MT_REFINERY, MT_EXTRACTOR, MT_ASSIMILATOR};
+    for (int d = 0; d < 5; d++) {
+        int type = deposits[d];
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, type - 1);
+        action[26] = 44; action[27] = 1;
+        CHECK(!write_map("/tmp/open-rts-sc-create-resource.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create-resource.chk", &level));
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t list = P_ListMobjs();
+        bool found = false;
+        for (int i = 0; i < list.count; i++)
+            if (list.items[i]->type_id == type && list.items[i]->owner == (d < 2 ? 11 : 0)) found = true;
+        CHECK(found);
+        CHECK(level.resource_vent_count == 1);
+        CHECK(level.resource_vents[0].amount == (type == MT_MINERAL_FIELD1 ? 1500 : 5000));
+        CHECK(level.resource_vents[0].active == (type != MT_VESPENE_GEYSER));
+        P_FreeMobjList(&list);
+        if (type == MT_MINERAL_FIELD1) {
+            mobj_t *base = sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){192, 528}, 0);
+            mobj_t *worker = sc_spawn_actor(MT_SCV - 1, (ivec2_t){336, 528}, 0);
+            CHECK(base && worker);
+            P_SyncBuildingBlocking();
+            CHECK(P_HarvestUnitTo(&level, worker, level.resource_vents[0].attachment));
+            for (int i = 0; i < 2400 && level.player_resources[0][0] < 8; i++) {
+                P_Ticker(); G_ProductionTicker(RTS_TICK_MS);
+            }
+            CHECK(level.player_resources[0][0] >= 8 && level.resource_vents[0].amount < 1500);
+        }
+        mobj_t *deposit = P_MobjById(level.resource_vents[0].source_id);
+        CHECK(deposit);
+        P_RemoveMobj(deposit);
+        P_SyncDepositStructures(&level);
+        CHECK(!level.resource_vents[0].active && level.resource_vents[0].amount == 0);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-create-resource.chk");
+
     /* Remove Unit includes hallucinations and has no 256-unit truncation. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
