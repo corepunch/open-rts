@@ -106,7 +106,17 @@ bool sc_campaign_next(const char *map_path, char *out, size_t size) {
 }
 
 static bool slot_active(const sc_mission_t *m, int p) {
-    return p >= 0 && p < 8 && m->owners[p] != 0;
+    if (p < 0 || p >= 8) return false;
+    switch (m->owners[p]) {
+    case 3: /* Rescue Passive */
+    case 4: /* Unused / rescue-active */
+    case 5: /* Computer */
+    case 6: /* Human */
+    case 7: /* Neutral */
+        return true;
+    default: /* Inactive and invalid owner values, including Closed (8). */
+        return false;
+    }
 }
 
 static bool allied_to(int self, int other) {
@@ -125,10 +135,14 @@ static bool in_group(const sc_mission_t *m, unsigned group, int p, int current) 
     if (group == 16) return m->owners[p] == 7;
     if (group == 17) return slot_active(m, p);
     if (group >= 18 && group <= 21) return slot_active(m, p) && m->force[p] == (int)group - 18;
-    if (group == 14 || group == 15 || group == 26) {
+    if (group == 14 || group == 15) {
         if (p == current || !slot_active(m, p) || m->owners[p] == 7 || m->owners[p] == 3) return false;
         bool ally = allied_to(current, p);
         return group == 15 ? ally : !ally;
+    }
+    if (group == 26) {
+        if (p == current || !slot_active(m, p)) return false;
+        return !allied_to(current, p) || !allied_to(p, current);
     }
     return false;
 }

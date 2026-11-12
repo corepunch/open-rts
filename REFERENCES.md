@@ -2569,6 +2569,12 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   establishes format/editor meaning, not retail ranking behavior;
   combined-resource summing, tie, zero, and neutral-slot handling are recorded
   as implementation choices or limitations in `docs/SC_EXE_FINDINGS.md`.
+- StarCraft trigger group 26: PyMS `FileFormats/TRG.py` names player group 26
+  `Non Allied Victory Players`. Pinned OpenBW `bwgame.h` includes active
+  neutral/rescue slots in the group and filters mutual allied-victory pairs
+  (`player_slot_active`, `trigger_players_pred`). Our boolean alliance masks
+  cannot retain Ally versus Allied Victory as distinct states; see the
+  implementation limitation in `docs/SC_EXE_FINDINGS.md`.
 - [Starcraft Palettes](https://github.com/andreas-volz/stargus/wiki/Starcraft-Palettes),
   Stargus author's notes: native team ramps, command-icon palettes,
   full-health wireframe mappings, and the destination-dependent PCX2D

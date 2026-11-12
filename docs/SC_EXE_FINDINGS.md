@@ -2546,3 +2546,26 @@ executable trace confirms the comparison details.
 
 `test_mission` covers all three selectors, tie and zero tie, a non-qualifying
 higher/lower case, and an active neutral slot.
+
+### Non Allied Victory Players trigger group (2026-11-12)
+
+**Confirmed format mapping:** PyMS `FileFormats/TRG.py` names player group 26
+`Non Allied Victory Players`. In pinned OpenBW `bwgame.h`,
+`player_slot_active` includes neutral, rescue-passive, and unused-rescue-active
+slots (18123–18131); `trigger_players_pred` accepts group 26 when the candidate
+is not the owner and the two alliance directions are not both allied-victory
+(18133–18148).
+
+**Implemented behavior:** group 26 considers modeled active slots (OWNR 3–7)
+except the current owner and excludes mutually allied slots. It excludes OWNR
+0 (Inactive) and OWNR 8 (Closed, marked invalid by the checked-in PyMS CHK
+definition), as well as other unsupported owner values. This includes active
+neutral and rescue owners. The runtime has no per-player defeated/eliminated
+state in `sc_mission_t`, so it cannot filter defeated controllers separately.
+It also stores a boolean alliance mask, not a separate Allied versus Allied
+Victory status; mutual alliance is therefore the available proxy. This group
+mapping is OpenBW reference behavior, not a retail executable trace.
+
+`test_mission` checks inclusion of active neutral and rescue slots, exclusion
+of a closed slot with a deliberately higher matching kill count, and exclusion
+of a mutually allied neutral slot.

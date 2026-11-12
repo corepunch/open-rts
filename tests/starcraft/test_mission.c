@@ -410,6 +410,32 @@ int main(void) {
         free(trig);
         unload();
     }
+    /* Non Allied Victory Players includes active neutral and rescue slots. */
+    {
+        uint8_t non_allied_owners[12] = {6, 7, 3, 7, 8};
+        uint8_t *non_allied_trigger = blank_trigger(); CHECK(non_allied_trigger);
+        non_allied_trigger[2372 + 17] = 0; non_allied_trigger[2372] = 1;
+        put_u32(non_allied_trigger + 4, 26);
+        put_u32(non_allied_trigger + 8, 2);
+        put_u16(non_allied_trigger + 12, MT_MARINE - 1);
+        non_allied_trigger[14] = 10; non_allied_trigger[15] = 5;
+        uint8_t *resource_action = non_allied_trigger + 320;
+        resource_action[26] = 26; resource_action[27] = 8;
+        put_u32(resource_action + 16, 13); put_u32(resource_action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-non-allied-victory.chk", non_allied_owners, non_allied_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-non-allied-victory.chk", &level));
+        sc_mission_t *non_allied_mission = level.mission;
+        non_allied_mission->allies[0] |= UINT32_C(0x40000000) >> 3;
+        non_allied_mission->allies[3] |= UINT32_C(0x40000000);
+        non_allied_mission->kills[1][MT_MARINE - 1] = 1;
+        non_allied_mission->kills[2][MT_MARINE - 1] = 1;
+        non_allied_mission->kills[3][MT_MARINE - 1] = 99;
+        non_allied_mission->kills[4][MT_MARINE - 1] = 99; /* Closed slot must not join group 26. */
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == 10); /* Only neutral+rescue qualify; closed has 99 kills. */
+        free(non_allied_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-non-allied-victory.chk");
     /* Most Kills (condition 8) compares the current owner by victim type. */
     const struct { uint32_t mine, rival, inactive; bool wins; } kill_cases[] = {
         {5, 4, 99, true},  /* sole leader; inactive slot's larger count is ignored */
