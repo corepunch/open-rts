@@ -68,11 +68,56 @@ static void tick_fall(mobj_t *fort, mobj_t *const *units, int count) {
     }
 }
 
+/* Multiplayer keeps a separate fall record per fort (0x11dfa). The first
+ * update eliminates that fort's team (0x19d9a); a finished fall ends the
+ * match only after fewer than two teams remain. */
+static unsigned network_forts(const zmap_t *map, mobj_t *const *units, int count) {
+    int standing = 0, forts = 0, winner = -1;
+    bool completed = false;
+    for (int i = 0; i < count; ++i) {
+        mobj_t *fort = units[i];
+        if (fort->type_id != MT_FORT || fort->remove || fort->team >= Z_NEUTRAL) continue;
+        ++forts;
+        if (!fallen(fort) || fort->z.hold == 1) ++standing;
+    }
+    if (!forts) return ELIMINATE_ALL;
+    for (int i = 0; i < count; ++i) {
+        mobj_t *fort = units[i];
+        if (fort->type_id != MT_FORT || fort->remove || fort->team >= Z_NEUTRAL) continue;
+        if (fort->z.hold) {
+            int t = ++fort->z.hold;
+            if (t == 2) {
+                --standing;
+                lose_units(units, count, fort->team, count);
+            }
+            if (t == FALL_WRECK)
+                P_SetMobjState(fort, fort->core.state_id == S_FORT_CPU ? S_FORT_CPU_WRECK : S_FORT_WRECK);
+            if (t >= FALL_END) { fort->z.hold = 0; completed = true; }
+        }
+    }
+    for (int i = 0; i < count; ++i) {
+        mobj_t *fort = units[i];
+        if (fort->type_id != MT_FORT || fort->remove || fort->team >= Z_NEUTRAL) continue;
+        if (!fallen(fort) && standing >= 2) {
+            mobj_t *taker = intruder(map, units, count, fort);
+            if (taker) {
+                if (standing > 2) Z_FortTerritory(fort, taker->team);
+                fort->z.hold = 1;
+            }
+        }
+        if (!fallen(fort)) winner = fort->owner;
+    }
+    if (completed && standing < 2)
+        G_EndLevel(standing == 0 ? OUTCOME_DRAW : winner == consoleplayer ? OUTCOME_VICTORY : OUTCOME_DEFEAT);
+    return 0;
+}
+
 /* Once a tic, before the engine's elimination rules: the falling fort, or
  * a fort whose entrance someone has reached. While the forts stand they
  * keep both sides alive, so elimination only settles maps without them. */
 unsigned G_LevelObjectives(mobj_t *const *units, int count) {
     const zmap_t *map = level.native_data;
+    if (map && netgame) return network_forts(map, units, count);
     mobj_t *falling = NULL, *entered = NULL;
     bool any_fallen = false;
     for (int i = 0; map && i < count; ++i) {

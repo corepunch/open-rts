@@ -193,6 +193,29 @@ first unit of another team inside it. Its state byte at 0x11d43d + team is
 | 0x4613e | After 0x4611b: one of the local player's units dies (0x60fe6) each step, until step 169 |
 | 0x460ac | After 0x46089: 0x470f5 runs for the winner's units one at a time (a sample, not traced) |
 | 0x123e0 | The fort's wall terrain 0x10 becomes 0x13 |
+
+**Network fort falls:** `0x11ea5` allocates a per-fall record and
+`0x11dfa` advances up to four independently. On its first update, the
+multiplayer branch at `0x1284b` calls `0x19d9a`, which marks the defeated
+team inactive, decrements the active-player word at `0x11d436` once, and
+calls `0x60fe6` for every active unit of that team. A fall started with
+more than two active players locates the fort territory with `0x9dc69`
+and `0x2a950` plants a flag owned by the entering team. `0x1241f` rejects
+new falls once fewer than two remain; `0x11dfa` ends the game when a queued
+fall finishes and fewer than two remain. Open-rts queues concurrent
+fort-owned fall timers, transfers the territory for a capture with more
+than two standing forts, eliminates each defeated team on the following
+fall update, and delays its local outcome until a fall finishes. It uses
+the existing saved fort state and assigns a draw when simultaneous falls
+leave no standing fort; native zero-survivor presentation is not established.
+Counting forts assumes one fort per active team and does not model a team
+without a fort. The original four-record capacity, ordering of simultaneous
+captures and the exact flag allocation failure path are not reproduced.
+`test_fort` covers cross-captures, parallel falls, territory transfer,
+continuation with two survivors, local victory/defeat and save/load.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x11dfa' -c 'pd 40 @
+0x11ea5' -c 'pd 40 @ 0x19d9a' -c 'pd 15 @ 0x1241f' -c 'pd 35 @
+0x12024' -c 'pd 45 @ 0x2a950' -c q data/Z/ZED.EXE`.
 | 0x12606 | A gone fort draws from the world's second set of pieces (0x117de2 entries at +10: 1675, 2148, 2431, 2845, 2725) in the standing fort's layout |
 
 The game steps at most 70 times a second, so a fall takes about 2.4

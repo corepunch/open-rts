@@ -121,6 +121,7 @@ int Z_LoadThings(void);
 int Z_TeamAt(const zmap_t *map, ivec2_t pixel);
 /* Give a thing to team 0..3, or Z_NEUTRAL for nobody (owner 7). */
 void Z_SetTeam(mobj_t *mo, int team);
+void Z_FortTerritory(mobj_t *fort, int team);
 /* Centre of a unit of weapon type `t` whose first picture's top-left is
  * at `pixel`; false for a bad type. */
 bool Z_UnitCentre(const zmap_t *map, int t, ivec2_t pixel, fixed2_t *centre);

@@ -710,12 +710,10 @@ static bool on_flag(const mobj_t *unit, ivec2_t flag) {
     return Z_IsRobot(t) ? d.x == 0 && d.y == 0 : d.x >= 0 && d.x <= 1 && d.y >= 0 && d.y <= 1;
 }
 
-/* The territory and the buildings that stand in it change sides at once;
- * a robot that took it stops to cheer (0x62e3c). */
-static void take_flag(mobj_t *flag, mobj_t *taker) {
+static void transfer_territory(mobj_t *flag, int team) {
     const zmap_t *map = level.native_data;
     const zterritory_t *territory = &map->territories[flag->z.territory - 1];
-    Z_SetTeam(flag, taker->team);
+    Z_SetTeam(flag, team);
     flag->z.hold = REACH_FLAG_HOLD;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
@@ -723,8 +721,29 @@ static void take_flag(mobj_t *flag, mobj_t *taker) {
         ivec2_t at = Z_BuildingOrigin(mo);
         ivec2_t cell = {at.x / Z_TILE, at.y / Z_TILE};
         if (cell.x >= territory->min.x && cell.x < territory->max.x &&
-            cell.y >= territory->min.y && cell.y < territory->max.y) Z_SetTeam(mo, taker->team);
+            cell.y >= territory->min.y && cell.y < territory->max.y) Z_SetTeam(mo, team);
     }
+}
+
+void Z_FortTerritory(mobj_t *fort, int team) {
+    const zmap_t *map = level.native_data;
+    int territory = map ? Z_AITerritory(map, fixed2_from_cell(fixed2_footprint_corner(fixed3_xy(fort->core.position), fort->info->footprint))) : -1;
+    if (territory < 0) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *flag = (mobj_t *)th;
+        if (flag->type_id == MT_FLAG && !flag->remove && flag->z.territory == territory + 1) {
+            transfer_territory(flag, team);
+            flag->z.hold = 0;
+            return;
+        }
+    }
+}
+
+/* The territory and the buildings that stand in it change sides at once;
+ * a robot that took it stops to cheer (0x62e3c). */
+static void take_flag(mobj_t *flag, mobj_t *taker) {
+    transfer_territory(flag, taker->team);
     Z_DetourCaptured(taker, flag);
     int t = robot_type(taker);
     if (t < 0) return;
