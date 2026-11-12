@@ -555,15 +555,22 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         if (id == 38 && loc && number) {
             mobj_t *found[1];
             int dest_players[8], dn = collect_players(m, player, st->current, dest_players);
-            if (gather(m, dest_players, dn, unit, number, 1, found, 1)) {
-                fixed2_t at = fixed3_xy(found[0]->core.position);
-                int i = (int)loc - 1;
-                if (i >= 0 && i < m->loc_count) {
-                    int w = m->loc_right[i] - m->loc_left[i], h = m->loc_bottom[i] - m->loc_top[i];
-                    int cx = at.x >> 11, cy = at.y >> 11;
-                    m->loc_left[i] = cx - w / 2; m->loc_right[i] = m->loc_left[i] + w;
-                    m->loc_top[i] = cy - h / 2; m->loc_bottom[i] = m->loc_top[i] + h;
+            int src = (int)loc - 1, dst = (int)number - 1;
+            if (src >= 0 && src < m->loc_count && dst >= 0 && dst < m->loc_count) {
+                int dx = 0, dy = 0;
+                if (gather(m, dest_players, dn, unit, loc, 1, found, 1)) {
+                    fixed2_t at = fixed3_xy(found[0]->core.position);
+                    dx = (at.x >> 11) - (m->loc_left[src] + m->loc_right[src]) / 2;
+                    dy = (at.y >> 11) - (m->loc_top[src] + m->loc_bottom[src]) / 2;
                 }
+                int l = m->loc_left[dst] + dx, r = m->loc_right[dst] + dx;
+                int t = m->loc_top[dst] + dy, b = m->loc_bottom[dst] + dy;
+                if (l < 0) { r -= l; l = 0; }
+                if (t < 0) { b -= t; t = 0; }
+                if (r >= level.width * 32) { l += level.width * 32 - 1 - r; r = level.width * 32 - 1; }
+                if (b >= level.height * 32) { t += level.height * 32 - 1 - b; b = level.height * 32 - 1; }
+                m->loc_left[dst] = l; m->loc_right[dst] = r;
+                m->loc_top[dst] = t; m->loc_bottom[dst] = b;
             }
             continue;
         }

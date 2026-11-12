@@ -39,6 +39,18 @@ and invincibility checks occur in StarCraft's combat path before that call.
 The mission regression also kills a shielded Zealot and an invincible Zealot
 and verifies both death counts, consistent with OpenBW's direct `kill_unit`.
 
+Pinned OpenBW action 38 searches the action's first location for a matching
+unit, shifts the second location by the unit's offset from the first location's
+center, and clamps the shifted rectangle to map bounds. The previous open-rts
+implementation searched the second location and recentered the first. The
+mission regression checks an offset match and both locations. Location
+elevation flags and OpenBW's recursive loaded-unit matching remain unmodeled.
+When no unit matches, OpenBW still clamps the target location; the test covers
+this. OpenBW's unit finder uses collision-box overlap and spatial ordering;
+the current selector uses unit centers and thinker order. The boundary fixture
+records this known approximation, so overlapping boxes with centers outside a
+location and multiple candidates can yield different matches.
+
 This document records the native formats examined while adding the StarCraft
 catalog, checked against the local retail files and pinned reference sources
 on 2026-10-08. It is an implementation reference, not a complete StarCraft

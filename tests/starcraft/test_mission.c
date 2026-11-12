@@ -235,6 +235,37 @@ int main(void) {
     CHECK(kill_mission->deaths[0][MT_ZEALOT - 1] == 2);
     free(trig); unload(); remove("/tmp/open-rts-sc-kill-defense.chk");
 
+    /* Move Location shifts the destination by the match's source-relative offset. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 20, 2);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 38;
+    CHECK(!write_map("/tmp/open-rts-sc-location.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location.chk", &level));
+    sc_mission_t *location_mission = level.mission;
+    location_mission->loc_count = 2;
+    location_mission->loc_right[0] = location_mission->loc_bottom[0] = 128;
+    location_mission->loc_left[1] = location_mission->loc_top[1] = 200;
+    location_mission->loc_right[1] = location_mission->loc_bottom[1] = 264;
+    CHECK(spawn(MT_MARINE - 1, 0));
+    ticks(1, &(hudtext_t){0});
+    CHECK(location_mission->loc_left[0] == 0 && location_mission->loc_right[0] == 128);
+    CHECK(location_mission->loc_left[1] == 168 && location_mission->loc_top[1] == 168);
+    CHECK(location_mission->loc_right[1] == 232 && location_mission->loc_bottom[1] == 232);
+    unload();
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location.chk", &level));
+    location_mission = level.mission;
+    location_mission->loc_count = 2;
+    location_mission->loc_left[0] = 33; /* Marine center is just outside. */
+    location_mission->loc_right[0] = location_mission->loc_bottom[0] = 128;
+    location_mission->loc_left[1] = location_mission->loc_top[1] = -10;
+    location_mission->loc_right[1] = location_mission->loc_bottom[1] = 54;
+    CHECK(spawn(MT_MARINE - 1, 0));
+    ticks(1, &(hudtext_t){0});
+    CHECK(location_mission->loc_left[1] == 0 && location_mission->loc_top[1] == 0);
+    CHECK(location_mission->loc_right[1] == 64 && location_mission->loc_bottom[1] == 64);
+    free(trig); unload(); remove("/tmp/open-rts-sc-location.chk");
+
     trig = blank_trigger();
     CHECK(trig);
     trig[15] = 22;
