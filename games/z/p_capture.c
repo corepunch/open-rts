@@ -545,6 +545,31 @@ static int water_direction(ivec2_t delta) {
     return ax < half ? (y < 0 ? 0 : 4) : (y < 0 ? 7 : 5);
 }
 
+/* 0x75ce9/0x64250: tracked-unit aim scatters in a native trig direction.
+ * The combat stream is saved, but remains separate from retail's global RNG. */
+static ivec2_t grenade_aim(const mobj_t *attacker, const mobj_t *target, bool gun) {
+    zmap_t *map = level.native_data;
+    ivec2_t origin = Z_AITopLeft(attacker);
+    ivec2_t aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){gun ? 8 : 0, 0});
+    int dx = (origin.x - aim.x) >> 3, dy = (origin.y - aim.y) >> 3;
+    int index = dx * dx + dy * dy;
+    if (index > 1023) index = 1023;
+    if (map && map->square_roots.bytes && map->trig.bytes && map->square_roots.bytes[index] > 6) {
+        int skill = accuracy(attacker);
+        skill += skill / 4;
+        if (skill > 127) skill = 127;
+        int radius = (128 - skill) / 4;
+        if (radius < 1) radius = 1;
+        int divisor = 65535 / radius;
+        int distance = Z_NextRandom(&map->combat_seed) / divisor;
+        int angle = Z_NextRandom(&map->combat_seed) & 0x3fe;
+        int sx = (int16_t)((map->trig.bytes[angle] << 8) | map->trig.bytes[angle + 1]);
+        int sy = (int16_t)((map->trig.bytes[angle + 0x100] << 8) | map->trig.bytes[angle + 0x101]);
+        aim = ivec2_add(aim, (ivec2_t){((sx >> 5) * distance) >> 10, ((sy >> 5) * distance) >> 10});
+    }
+    return ivec2_add(aim, (ivec2_t){8, 8});
+}
+
 /* Native Fire Truck muzzle: hull-facing byte pairs at 0x14b474 and
  * target-facing signed word pairs at 0x148966, added to unit top-left. */
 static ivec2_t water_origin(const mobj_t *truck, ivec2_t aim) {
@@ -614,7 +639,7 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         if (target_type >= 0) {
             bool gun = target_type == MT_UNIT_LIGHT_GUN - MT_UNITS || target_type == MT_UNIT_MISSILE_GUN - MT_UNITS ||
                        target_type == MT_UNIT_GATLING - MT_UNITS || target_type == MT_UNIT_HOWITZER - MT_UNITS;
-            ivec2_t aim = ivec2_add(Z_AITopLeft(target), (ivec2_t){gun ? 16 : 8, 8});
+            ivec2_t aim = grenade_aim(attacker, target, gun);
             destination = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
         }
         if (fixed2_equal(source, destination)) return true; /* 0x5a205 rejects a zero-length throw. */

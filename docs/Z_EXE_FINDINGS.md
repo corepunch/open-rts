@@ -3223,8 +3223,8 @@ other object damage and retail knockdown remain incomplete. Grenades use the
 same rectangular explosion path, as confirmed by `0x5a280..0x5a288` clearing
 projectile flags then setting bit 4, and `0x59363..0x593d0` taking the
 ordinary non-water branch to `0x8476c`. This supersedes the earlier authored
-3×3 weighted blast. Open-rts retains its approximate grenade flight and uses
-the actual landing position for the explosion. Z save layout 15 distinguishes
+3×3 weighted blast. Open-rts uses
+the actual landing position for the explosion. Z save layout 15 distinguished
 the new in-progress blast lifecycle. `test_combat` exercises real flight,
 pending-impact save/load, the inclusive rectangle, ally exclusion and a
 single delayed hit. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @
@@ -3256,9 +3256,18 @@ coordinate branch instead uses +0x52/+0x54 when the low word of +0x50 is
 words +0x2c/+0x2e/+0x30 into unit +0x50/+0x52/+0x54, and `0x7ce98..0x7cebe`
 distinguishes the sentinel to resolve the latter as map coordinates. The
 exact command producers and complete automatic targeting sequence remain
-unresolved. Open-rts uses these pre-scatter unit aim points and the eight
-signed muzzle pairs; it does not yet reproduce native scatter or cached
-target refresh timing. Building and other non-unit aim keeps the engine's
+unresolved. Open-rts uses these unit aim points, the eight signed muzzle
+pairs, the native tracked-unit distance gate and scatter formula, and the
+SINCOS.DAT words preprocessed as at `0x70c24..0x70c3b`. It draws from a
+saved/hashed combat seed using the native `0x70d37` generator. This stream is
+separate from retail's global RNG and is sampled at throw time; retail caches
+tracked aim and refreshes it on its own schedule, and its +0x93 flag doubles
+the tracked scatter radius at `0x75d10..0x75d19`, which is not yet modeled.
+The engine always applies the 25% accuracy bonus; retail skips it when unit
++0x67 bit 0x80 is set (`0x75cf4..0x75d04`), a flag not yet modeled.
+Direct-coordinate mode
+invokes separate scatter at `0x636c7` with a different radius. Building and
+other non-unit aim keeps the engine's
 existing target position. `test_combat` checks all eight launch facings and
 both tank and gun aim anchors. `0x5a205` initializes the common
 Bresenham record via `0x5a39e`, then `0x5a2b1..0x5a314` derives an arc-table
@@ -3277,8 +3286,8 @@ and copies record +0x1c (strength) to unit +0 and +1; unit allocation at
 `0x7a66b..0x7a670` initially sets +0 to 40 before record setup. The shipped
 first robot records for Grunt, Tough, Sniper, Psycho, Pyro and Laser have
 strength 25, 100, 40, 30, 50 and 50, giving grenade speeds of 3, 12, 5, 3,
-6 and 6 pixels per native update. Open-rts authors those speed values and quantizes major-axis flight duration to
-30 Hz. A scan of the 48 group records and their 21 member slots finds only
+6 and 6 pixels per native update. Open-rts authors those speed values and runs
+native updates within its 30 Hz simulation. A scan of the 48 group records and their 21 member slots finds only
 robot identities 2, 3, 4, 6, 17 and 18 for those weapon types in the shipped roster;
 custom robot identities and runtime strength changes remain unmodeled. Recheck
 the shipped group records with `od -An -v -tu1 data/Z/ROBOTS.DAT | awk
@@ -3303,8 +3312,9 @@ initializes from weapon record u16 +2 shifted right three. The existing
 authored attack range represents this same value. `0x5a4c8` steps the major axis by projectile
 speed. Open-rts now uses an ordinary grenade mobj with native 70 Hz integer
 major-axis stepping, the five sampled arcs, range and terrain checks in this
-order; its saved/hashed flight state requires Z save layout 16. Target and
-scatter dispatch and strength mutation remain approximate, as do launch-update
+order; its saved/hashed flight state requires Z save layout 16, and the
+combat RNG added in layout 17 is also saved/hashed. Target refresh,
+direct-coordinate scatter and strength mutation remain approximate, as do launch-update
 phase and other projectile/unit interactions. Grenade sprite phase is per
 projectile; native `0x59554..0x59559` instead uses global animation counter
 `0x103d07`. `test_combat` checks all six speeds, actual flight, sampled arc,

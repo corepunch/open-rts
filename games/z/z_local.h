@@ -113,7 +113,8 @@ typedef struct {
     uint8_t cliffs[Z_CLIFF_BLOCKS * Z_CLIFF_BYTES + 1];
     blob_t rsc;                      /* SPRITES.RSC */
     blob_t roster;                   /* ROBOTS.DAT, including production requirements. */
-    blob_t weights, square_roots;    /* MULT.DAT and WARDATA.PAC/SQROOT.BIN. */
+    blob_t weights, square_roots, trig; /* MULT.DAT and WARDATA.PAC lookup tables. */
+    uint16_t combat_seed;
 } zmap_t;
 
 bool Z_LoadLevel(const char *map_path, level_t *out);

@@ -106,6 +106,7 @@ static void destroy_zmap(void *opaque) {
     W_FreeFile(&map->roster);
     W_FreeFile(&map->weights);
     W_FreeFile(&map->square_roots);
+    W_FreeFile(&map->trig);
     for (int i = 0; i < Z_BRIDGE_SCRIPTS; ++i) W_FreeFile(&map->bridge_scripts[i]);
     free(map);
 }
@@ -227,14 +228,13 @@ bool Z_LoadLevel(const char *map_path, level_t *out) {
     M_PathJoin(path, sizeof(path), map->root, "WARDATA.PAC");
     if (!Z_ReadPac(path, "SQROOT.BIN", &map->square_roots) || map->square_roots.size < 1024) goto fail;
     for (int i = 0; i < 1024; ++i) if (!map->square_roots.bytes[i]) goto fail;
-    blob_t trig = {0};
-    if (!Z_ReadPac(path, "SINCOS.DAT", &trig) || trig.size < 0x454) { W_FreeFile(&trig); goto fail; }
+    if (!Z_ReadPac(path, "SINCOS.DAT", &map->trig) || map->trig.size < 0x500) goto fail;
     for (int i = 0; i < 2; ++i) {
         size_t n = 0x352 + i * 0x100;
-        int value = (int16_t)((trig.bytes[n] << 8) | trig.bytes[n + 1]);
+        int value = (int16_t)((map->trig.bytes[n] << 8) | map->trig.bytes[n + 1]);
         map->debris_trig[i] = (int16_t)(value >> 5);
     }
-    W_FreeFile(&trig);
+    map->combat_seed = 0x3039;
     char cpuplr[LV_NAME + 1];
     snprintf(cpuplr, sizeof(cpuplr), "%.*s", LV_NAME, (const char *)entry + LV_CPUPLR);
     if (map->world >= Z_WORLDS || map->number >= Z_LEVELS || !load_cpuplr(map, cpuplr)) goto fail;

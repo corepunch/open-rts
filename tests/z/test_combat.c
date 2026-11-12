@@ -1000,7 +1000,7 @@ static int test_grenade_launch(void) {
     mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, at, 100);
     if (!robot) return fail("spawn grenade thrower");
     for (size_t t = 0; t < sizeof(types) / sizeof(*types); ++t) {
-        mobj_t *target = blast_unit(types[t], 1, pixel_at(at, 64, 32), 500);
+        mobj_t *target = blast_unit(types[t], 1, pixel_at(at, 24, 8), 500);
         if (!target) return fail("spawn grenade launch target");
         for (int d = 0; d < 8; ++d) {
             robot->core.angle = direction_to_angle(d, 8, ANG90, true);
@@ -1036,6 +1036,64 @@ static int test_grenade_launch(void) {
     robot->z.grenades = 1;
     if (!Z_Attack(robot, &robot->info->attack, target) || robot->z.grenades != 1)
         return fail("zero-length grenade retains ammunition");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_grenade_scatter(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load grenade scatter fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, at, 100);
+    mobj_t *target = blast_unit(MT_UNIT_MED_TANK, 1, pixel_at(at, 24, 0), 500);
+    zmap_t *map = level.native_data;
+    if (!robot || !target || !map) return fail("spawn grenade scatter fixture");
+    robot->z.grenades = 4;
+    uint16_t initial = map->combat_seed;
+    ivec2_t origin = Z_AITopLeft(robot);
+    fixed2_t boundary;
+    if (!Z_UnitCentre(map, Z_UnitType(target), ivec2_add(origin, (ivec2_t){48,0}), &boundary))
+        return fail("place grenade scatter boundary");
+    target->core.position = fixed3_from_fixed2(boundary, 0);
+    if (map->square_roots.bytes[36] != 6 || map->square_roots.bytes[49] != 7)
+        return fail("native scatter distance boundary data");
+    if (!Z_Attack(robot, &robot->info->attack, target) || map->combat_seed != initial)
+        return fail("distance six consumes no scatter randomness");
+    if (!Z_UnitCentre(map, Z_UnitType(target), ivec2_add(origin, (ivec2_t){56,0}), &boundary))
+        return fail("place outside grenade scatter boundary");
+    target->core.position = fixed3_from_fixed2(boundary, 0);
+    if (!Z_Attack(robot, &robot->info->attack, target) || map->combat_seed == initial)
+        return fail("distance seven consumes scatter randomness");
+    map->combat_seed = initial;
+    target->core.position = fixed3_from_fixed2(pixel_at(at, 96, 0), 0);
+    uint32_t robot_id = robot->id, target_id = target->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Grenade scatter", &app, rts_game_model_ai(model), &hud))
+        return fail("save grenade scatter seed");
+    uint16_t expected_seed = initial;
+    int radius = (128 - (60 + 60 / 4)) / 4;
+    int distance = Z_NextRandom(&expected_seed) / (65535 / radius);
+    int angle = Z_NextRandom(&expected_seed) & 0x3fe;
+    int sx = (int16_t)((map->trig.bytes[angle] << 8) | map->trig.bytes[angle + 1]);
+    int sy = (int16_t)((map->trig.bytes[angle + 0x100] << 8) | map->trig.bytes[angle + 0x101]);
+    ivec2_t expected = ivec2_add(Z_AITopLeft(target), (ivec2_t){8 + (((sx >> 5) * distance) >> 10),
+                                                                 8 + (((sy >> 5) * distance) >> 10)});
+    if (!Z_Attack(robot, &robot->info->attack, target) || map->combat_seed != expected_seed)
+        return fail("far grenade consumes two native RNG draws");
+    mobj_t *shot = nth(MT_GRENADE, 0, 2);
+    if (!shot) return fail("find scattered grenade");
+    zgrenade_t first = shot->z.grenade;
+    ivec2_t dimensions = first.vertical ? (ivec2_t){first.minor, first.major} : (ivec2_t){first.major, first.minor};
+    ivec2_t aim = {first.start.x + first.direction.x * dimensions.x, first.start.y + first.direction.y * dimensions.y};
+    if (!ivec2_equal(aim, expected)) return fail("grenade uses native trig and scatter radius");
+    if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("restore grenade scatter seed");
+    free(save);
+    robot = P_MobjById(robot_id); target = P_MobjById(target_id); map = level.native_data;
+    if (!robot || !target || !Z_Attack(robot, &robot->info->attack, target)) return fail("repeat saved grenade scatter");
+    shot = nth(MT_GRENADE, 0, 2);
+    if (!shot || map->combat_seed != expected_seed || shot->z.grenade.major != first.major ||
+        shot->z.grenade.minor != first.minor || !ivec2_equal(shot->z.grenade.direction, first.direction))
+        return fail("saved combat RNG reproduces grenade aim");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -1508,7 +1566,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }
