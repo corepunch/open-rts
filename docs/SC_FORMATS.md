@@ -234,7 +234,13 @@ lifetime, Carrier/Reaver hangars, non-damaging illusion scarabs and save/load.
 OpenBW gives each already-stored Reaver scarab its own timer; this engine's
 integer hangar starts a scarab's lifetime only when it launches, so docked
 illusion scarabs do not independently expire.
-Some trigger selectors still exclude hallucinations and remain approximate.
+OpenBW's global Command counters exclude hallucinations, while Bring's
+spatial counters include them; both exclude turret subunits. The engine now
+mirrors that distinction, and Move Location can select an illusion as in
+OpenBW `trigger_find_unit`. Fixtures cover all three comparisons, turret
+exclusion and Move Location. Move Location also excludes turret subunits,
+which OpenBW never inserts into its spatial unit finder. Other trigger selectors' hallucination handling
+remains approximate.
 OpenBW initializes a preplaced resource unit's amount to zero and reads UNIT
 +20 only when +14 validity bit 0x10 is set. The loader now follows that rule
 for mineral fields, geysers and refineries, including zero-resource vent

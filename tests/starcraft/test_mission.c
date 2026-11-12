@@ -1107,7 +1107,8 @@ int main(void) {
     location_mission->loc_right[0] = location_mission->loc_bottom[0] = 128;
     location_mission->loc_left[1] = location_mission->loc_top[1] = 200;
     location_mission->loc_right[1] = location_mission->loc_bottom[1] = 264;
-    CHECK(spawn(MT_MARINE - 1, 0));
+    mobj_t *location_illusion = spawn(MT_MARINE - 1, 0); CHECK(location_illusion);
+    sc_initial_hallucination(location_illusion);
     ticks(1, &(hudtext_t){0});
     CHECK(location_mission->loc_left[0] == 0 && location_mission->loc_right[0] == 128);
     CHECK(location_mission->loc_left[1] == 168 && location_mission->loc_top[1] == 168);
@@ -1124,6 +1125,19 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(location_mission->loc_left[1] == 0 && location_mission->loc_top[1] == 0);
     CHECK(location_mission->loc_right[1] == 64 && location_mission->loc_bottom[1] == 64);
+    unload();
+    put_u16(action + 24, 4); /* Goliath turret, units.dat row 4. */
+    CHECK(!write_map("/tmp/open-rts-sc-location.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location.chk", &level));
+    location_mission = level.mission; location_mission->loc_count = 2;
+    location_mission->loc_right[0] = location_mission->loc_bottom[0] = 128;
+    location_mission->loc_left[1] = location_mission->loc_top[1] = 200;
+    location_mission->loc_right[1] = location_mission->loc_bottom[1] = 264;
+    mobj_t *location_turret = sc_spawn_actor(4, (ivec2_t){32, 32}, 0); CHECK(location_turret);
+    location_turret->hp = 1;
+    ticks(1, &(hudtext_t){0});
+    CHECK(location_mission->loc_left[1] == 200 && location_mission->loc_top[1] == 200);
+    CHECK(location_mission->loc_right[1] == 264 && location_mission->loc_bottom[1] == 264);
     free(trig); unload(); remove("/tmp/open-rts-sc-location.chk");
 
     trig = blank_trigger();
@@ -1414,6 +1428,35 @@ int main(void) {
         CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0));
         ticks(1, &(hudtext_t){0});
         CHECK(level.player_resources[0][0] == (condition == 2 ? 10 : 0));
+        free(trig); unload();
+    }
+    /* Command ignores hallucinations; Bring includes visible illusions. */
+    const int illusion_ops[] = {0, 1, 10};
+    for (int condition = 2; condition <= 3; condition++) for (int op = 0; op < 3; op++) {
+        trig = blank_trigger(); CHECK(trig); put_u32(trig, 1);
+        put_u32(trig + 8, illusion_ops[op] == 1 ? 0 : 1); put_u16(trig + 12, MT_MARINE - 1);
+        trig[14] = illusion_ops[op]; trig[15] = (uint8_t)condition; action = trig + 320;
+        action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+        sc_mission_t *illusion_mission = level.mission; illusion_mission->loc_count = 1;
+        illusion_mission->loc_right[0] = illusion_mission->loc_bottom[0] = 256;
+        mobj_t *illusion = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0); CHECK(illusion);
+        sc_initial_hallucination(illusion); ticks(1, &(hudtext_t){0});
+        bool expected = (condition == 2) == (illusion_ops[op] == 1);
+        CHECK(level.player_resources[0][0] == (expected ? 10 : 0));
+        free(trig); unload();
+    }
+    for (int condition = 2; condition <= 3; condition++) {
+        trig = blank_trigger(); CHECK(trig); put_u32(trig, 1);
+        put_u16(trig + 12, 4); trig[14] = 10; trig[15] = (uint8_t)condition; action = trig + 320; /* Goliath turret row. */
+        action[26] = 26; action[27] = 8; put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+        sc_mission_t *turret_mission = level.mission; turret_mission->loc_count = 1;
+        turret_mission->loc_right[0] = turret_mission->loc_bottom[0] = 256;
+        mobj_t *turret = sc_spawn_actor(4, (ivec2_t){128, 128}, 0); CHECK(turret); turret->hp = 1;
+        ticks(1, &(hudtext_t){0}); CHECK(level.player_resources[0][0] == 10);
         free(trig); unload();
     }
     /* Bring uses the transport's location for completed cargo; At Most omits it. */
