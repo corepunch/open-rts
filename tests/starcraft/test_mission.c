@@ -234,6 +234,38 @@ int main(void) {
     CHECK(level.resource_vents[1].amount == 900 && !level.resource_vents[1].active && level.resource_vents[2].amount == 3);
     free(trig); unload(); remove("/tmp/open-rts-sc-resource.chk");
 
+    /* Order selects all matching units; Comment never issues an order. */
+    for (int order = 0; order < 4; order++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 20, 64);
+        put_u16(action + 24, MT_MARINE - 1);
+        action[26] = order == 3 ? 47 : 46; action[27] = (uint8_t)order;
+        CHECK(!write_map("/tmp/open-rts-sc-order-trigger.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-order-trigger.chk", &level));
+        mobj_t *ordered = spawn(MT_MARINE - 1, 0), *other_type = spawn(MT_GHOST - 1, 0);
+        CHECK(ordered && other_type);
+        ticks(1, &(hudtext_t){0});
+        CHECK(!P_HasMoveOrder(other_type));
+        if (order == 3) CHECK(!P_HasMoveOrder(ordered));
+        else {
+            CHECK(P_HasMoveOrder(ordered));
+            if (order == 1) {
+                CHECK(ordered->waypoints.mode == WP_BACKTRACK && ordered->waypoints.count == 2);
+                bool returning = false, again = false;
+                for (int i = 0; i < 1500 && !again; i++) {
+                    P_Ticker();
+                    returning |= ordered->waypoints.current == 1;
+                    again = returning && ordered->waypoints.current == 0;
+                }
+                CHECK(returning && again);
+            }
+            if (order == 2) CHECK(ordered->waypoints.mode == WP_ONCE && ordered->waypoints.count == 1);
+        }
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-order-trigger.chk");
+
     memset(owners, 0, sizeof(owners));
     owners[0] = 6; owners[1] = 5;
     trig = blank_trigger();

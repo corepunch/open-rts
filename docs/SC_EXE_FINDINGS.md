@@ -2414,3 +2414,21 @@ vent source in `game/g_game.c`; selection therefore uses the refinery owner's
 slot. Restoring a refinery's stock reopens an inactive vent, while an unbuilt
 geyser remains inactive. This vent transition is an engine representation of
 resource-unit state, not a traced retail instruction.
+
+### Trigger Order and Comment (2026-11-12)
+
+**Confirmed reference:** pinned OpenBW `bwgame.h::execute_trigger_action`
+case 46 selects matching player, unit type and source location and orders
+mobile units to the destination location's center. Modifier 0 is Move, 1 is
+Patrol and 2 is Attack Move. PyMS `TRG.py` identifies action 47 as Comment,
+not Order. The previous engine treated 47 as an order and ignored 46. The
+engine now dispatches those orders through its existing player-order path and
+ignores Comment. This does not yet reproduce OpenBW's location elevation
+filter, burrowed-unit unburrowing, or all of its special unit exclusions; patrol
+uses the engine's tile waypoint representation. Run `env
+SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission` for all three
+order modes, unit selection and the Comment regression.
+The trigger patrol test runs through the destination and back to its starting
+cell. Shared `loc_box` currently treats IDs 0 and 64 as the whole map; OpenBW
+uses the actual location record, so a modified Anywhere location is not yet
+reproduced for this action (or other users of that helper).

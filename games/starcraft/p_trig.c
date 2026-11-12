@@ -404,6 +404,29 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
     }
 }
 
+/* CHK Order applies to every matching mobile unit, not a limited group. */
+static void order_units(const sc_mission_t *m, const int *players, int nplayers,
+                        unsigned unit, unsigned loc, unsigned destloc, unsigned order) {
+    int l, t, r, b, dl, dt, dr, db;
+    if (order > 2 || !loc_box(m, loc, &l, &t, &r, &b) ||
+        !loc_box(m, destloc, &dl, &dt, &dr, &db) || !thinkercap.next) return;
+    fixed2_t dest = loc_center(m, destloc);
+    ticcmd_t cmd = {.order = order == 0 ? TC_MOVE : order == 1 ? TC_PATH : TC_ATTACK,
+                    .position = fixed3_from_fixed2(dest, 0), .count = 1};
+    if (order == 1) cmd.path = (waypoints_t){.count = 1, .mode = WP_BACKTRACK,
+                                             .points = {fixed2_cell(dest)}};
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit) ||
+            !(mo->traits & MF_MOBILE) || !inside(mo, l, t, r, b)) continue;
+        bool mine = false;
+        for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
+        if (!mine) continue;
+        cmd.units[0] = mo->id;
+        G_RunTiccmd(mo->owner, &cmd);
+    }
+}
+
 static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     if (!m->uprp || index >= m->uprp_size / 20) return;
     const uint8_t *p = m->uprp + index * 20;
@@ -572,6 +595,10 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 set_alliance(self[s], players[i], status);
             continue;
         }
+        if (id == 46) {
+            order_units(m, players, n, unit, loc, number, a[27]);
+            continue;
+        }
         if (id == 52) {
             modify_deposits(m, player, st->current, loc, number);
             continue;
@@ -581,8 +608,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 22 || id == 23 || id == 24 || id == 25 || id == 39 || id == 43 ||
-            id == 47 || id == 48 || id == 49) {
-            unsigned where = (id == 22 || id == 24 || id == 43 || id == 47) ? (id == 43 || id == 47 ? loc : 64) : loc;
+            id == 48 || id == 49) {
+            unsigned where = (id == 22 || id == 24 || id == 43) ? (id == 43 ? loc : 64) : loc;
             int limit = (id == 23 || id == 25 || id == 39 || id == 48 || id == 49) ? a[27] : 0;
             mobj_t *found[256];
             int count = gather(m, players, n, unit, where, limit, found, 256);
@@ -591,19 +618,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 mobj_t *mo = found[i];
                 if (id == 22 || id == 23) P_DamageMobj(mo, NULL, mo->hp > 0 ? mo->hp : 1);
                 else if (id == 24 || id == 25) P_RemoveMobj(mo);
-                else if (id == 39 || id == 47) {
-                    mobj_t *enemy = NULL;
-                    if (id == 47 && a[27] == 2 && thinkercap.next) {
-                        int l, t, r, b;
-                        if (loc_box(m, number, &l, &t, &r, &b))
-                            for (thinker_t *th = thinkercap.next; th != &thinkercap && !enemy; th = th->next) {
-                                mobj_t *other = (mobj_t *)th;
-                                if (th->function == P_MobjThinker && alive_unit(other) &&
-                                    inside(other, l, t, r, b) && !P_IsAlly(mo, other)) enemy = other;
-                            }
-                    }
+                else if (id == 39) {
                     P_MoveUnitTo(&level, mo, dest);
-                    if (enemy) mo->attack.target = enemy;
                 } else if (id == 43) {
                     if (a[27] == 4) mo->sc.flags |= SC_INVINCIBLE;
                     else if (a[27] == 5) mo->sc.flags &= (uint8_t)~SC_INVINCIBLE;

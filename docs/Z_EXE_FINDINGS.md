@@ -3150,3 +3150,23 @@ alone cannot determine every local command's recipient. Reproduce with
 -c 'pd 45 @ 0x58745' -c 'pd 35 @ 0x7911a' -c 'px 48 @ 0x149038'
 -c 'pd 40 @ 0x47674' -c 'pd 40 @ 0x478f3' -c 'pd 25 @ 0x69cbf'
 -c 'pd 12 @ 0x68498' -c q data/Z/ZED.EXE`.
+
+**Later CPU gun selection boundary:** `0x9de4a`, `0x9de9b` and `0x9def5`
+choose the regular family when global `0x20a448` is nonzero or building
++6 bit 2 is initially clear; they set that bit on the regular path. Otherwise
+they call `0x999e5` and require its result >=500, require fewer than two
+existing territory guns for a factory or four for a fort (`0x26ae5`), and
+require `0x26ab4` to accept the four-slot territory capacity before choosing
+the gun family through `0x9e235`. Robot factories and forts additionally
+require building +0xc >1000; tank factories do not. `0x20a448` is cleared
+at `0x42051`/`0x42e9e`, set after successful `0x430b2` at
+`0x420ca`/`0x42f17`, and reset after selection at `0x414e8`/`0x42b98`.
+Thus it is not safe to replace the initial selector with an unconditional
+periodic gun choice. The precise building update lifecycle, initial/reset
+state of +6 bit 2 on ownership changes, and mapping of the placement result
+to `0x20a448` remain **unknown**. The current AI calls the initial selector
+when no product is active and retains a product through repeats, so a
+faithful port also needs those selection timing transitions. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9de4a'
+-c 'pd 35 @ 0x999e5' -c 'pd 25 @ 0x26ab4' -c 'pd 45 @ 0x420a2'
+-c 'pd 35 @ 0x42eef' -c 'pd 15 @ 0x414d8' -c q data/Z/ZED.EXE`.
