@@ -44,6 +44,13 @@ standard default when absent), clamped to the engine's signed range. A
 Applying action 44's defaults and neutral owner to action 11 is inferred:
 OpenBW does not implement action 11 directly. Set Resource Amount restores
 the normal rate when replenishing a depleted gas vent.
+UPRP data-valid bits 0x04 and 0x08 select shield and energy percentages at
+bytes +6 and +7, respectively, per eudplib `unitprp.py`; those values now
+initialize the corresponding native fixed-point fields. Mission fixtures create
+a 75%-shield Zealot and a 75%-energy Ghost. The OpenBW initial-UNIT loader
+truncates shields to whole points before shifting, but computes energy in
+fixed point. One-percent shields and an upgraded 33%-energy Ghost exercise the
+rounding difference; applying these formulas to action 11 is inferred.
 
 OpenBW action 24 walks the selected players' complete unit lists and does not
 exclude hallucinations. Remove Unit now traverses the thinker list directly,

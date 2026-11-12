@@ -1946,6 +1946,25 @@ Inspect with `r2 -q -e bin.cache=true -c 'px 175 @ 0xe6063' -c 'pd 65 @
 0x4a677' -c 'pd 30 @ 0x4aa74' -c 'pd 35 @ 0x868ef' -c 'pd 40 @ 0x64364'
 -c 'pd 45 @ 0x88a7f' -c q data/Z/ZED.EXE`.
 
+**Flame flight and impact, partial:** `0x5a099` uses the common projectile
+initializer `0x5a39e`, which allocates one of 50 44-byte records through
+`0x592a8`, retains launch and aim coordinates, owner/team and a Bresenham-like
+major-axis movement state. `0x592df` iterates these records and `0x592ff`
+dispatches movement through the direction table at `0x148bb0`. At arrival
+`0x593aa` subtracts (12,24), then flame creator `0x595e6` adds (9,21):
+the effect origin is impact minus (3,3) pixels. Although `0x59637..0x59655`
+calls the random generator twice and shifts the results, subsequent `mov
+ax,0` instructions discard both values, so this routine adds no random
+offset to the effect origin. Earlier aim selection/scatter and projectile
+speed still need tracing. The separate `0x88a7f` callback scans 100 64-byte
+map-object records, excludes unused and several flagged/state cases, and
+for eligible objects within ±24 pixels sets state fields and calls
+`0x8790a`; that routine dispatches visual/audio and object-specific work.
+The semantics of these object fields and resulting gameplay changes remain
+unknown. Reproduce with `r2 -q -e bin.cache=true -c 'pd 55 @ 0x5a39e' -c
+'pd 30 @ 0x592a8' -c 'pd 55 @ 0x593aa' -c 'pd 45 @ 0x595e6' -c 'pd 55
+@ 0x88a7f' -c 'pd 45 @ 0x8790a' -c q data/Z/ZED.EXE`.
+
 **Further mode investigation:** the wrapper at `0x1e9dc` calls the ordinary
 vehicle pass `0x57dd6`, then calls the scanner at `0x1ea0d`; that scanner
 returns without a salvo when all four scanned target bytes are `0xff`

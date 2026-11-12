@@ -382,6 +382,33 @@ int main(void) {
     CHECK(cuwp_count == 3);
     P_FreeMobjList(&cuwp_units); free(trig); unload(); remove("/tmp/open-rts-sc-cuwp.chk");
 
+    /* Shields and energy use their own UPRP bytes and preserve lazy defaults. */
+    for (int field = 0; field < 4; field++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u32(action + 20, 1);
+        bool energy_field = field == 1 || field == 3;
+        int type = energy_field ? MT_GHOST : MT_ZEALOT;
+        put_u16(action + 24, type - 1); action[26] = 11; action[27] = 1; action[28] = 28;
+        CHECK(!write_map("/tmp/open-rts-sc-cuwp.chk", owners, trig));
+        cuwp_file = fopen("/tmp/open-rts-sc-cuwp.chk", "ab"); CHECK(cuwp_file);
+        memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp + 2, energy_field ? 8 : 4);
+        cuwp[energy_field ? 7 : 6] = field == 2 ? 1 : field == 3 ? 33 : 75;
+        CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+        CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-cuwp.chk", &level));
+        if (field == 3) level.upgrades[21][0].weapon = 1; /* Moebius Reactor */
+        ticks(1, &(hudtext_t){0});
+        cuwp_units = P_ListMobjs(); mobj_t *created = NULL;
+        for (int i = 0; i < cuwp_units.count; i++) if (cuwp_units.items[i]->type_id == type) created = cuwp_units.items[i];
+        CHECK(created && (created->sc.flags & SC_STARTED));
+        if (field == 1) CHECK(sc_energy(created) == 150);
+        else if (field == 3) CHECK(created->sc.energy == 82 * 256 + 128);
+        else if (field == 2) CHECK(created->sc.shields == 0);
+        else CHECK(sc_shields(created) == sc_units[type - 1].shields * 3 / 4);
+        P_FreeMobjList(&cuwp_units); free(trig); unload();
+    }
+
     /* Property resource amount initializes a usable trigger-created patch. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
