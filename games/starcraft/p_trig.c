@@ -216,6 +216,14 @@ static bool kind_ok(const mobj_t *mo, unsigned id) {
     return type == id;
 }
 
+static bool count_kind_ok(const mobj_t *mo, unsigned id, bool completed) {
+    if (!kind_ok(mo, id)) return false;
+    if (id != 229) return true;
+    const sc_unit_t *type = sc_unit(mo);
+    return (type->race & (8 | 16)) || (!completed &&
+           (mo->type_id == MT_EGG || mo->type_id == MT_COCOON));
+}
+
 static bool alive_unit(const mobj_t *mo) {
     return mo->hp > 0 && !mo->remove && !(mo->sc.flags & SC_HALLUCINATION);
 }
@@ -245,7 +253,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
         bool virtual_hangar = cargo > 0 && mo->sc.hangar > 0 &&
             ((sc_hangar_type(mo->type_id) == MT_INTERCEPTOR && unit == MT_INTERCEPTOR - 1) ||
              (mo->type_id == MT_NUCLEAR_SILO && unit == MT_NUCLEAR_MISSILE - 1));
-        if (!kind_ok(mo, unit) && !virtual_hangar) continue;
+        if (!count_kind_ok(mo, unit, completed) && !virtual_hangar) continue;
         const mobj_t *position = mo;
         if (cargo >= 0 && (mo->sc.flags & SC_LOADED)) {
             if (!cargo) continue;
@@ -255,7 +263,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
         bool mine = false;
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine || !location_height_ok(m, position, loc) || (!anywhere && !inside(position, l, t, r, b))) continue;
-        if (kind_ok(mo, unit)) n++;
+        if (count_kind_ok(mo, unit, completed)) n++;
         if (virtual_hangar) n += mo->sc.hangar;
     }
     return n;

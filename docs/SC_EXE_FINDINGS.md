@@ -32,6 +32,33 @@ transferred back to a player. The current trigger player selector cannot
 select owner 11, and no other implemented hatchery ownership path was found;
 whether reactivation is required on a future transfer path remains unverified.
 
+## Any Unit trigger counts
+
+Pinned OpenBW `bwgame.h` `trigger_command_count` at 17967–17981 defines the
+Any Unit selector (229) as the sum of non-building and building counters.
+`trigger_bring_count` at 18035–18042 populates those counters from units with
+the `Men` or `Building` group flag, plus Egg, Cocoon, and Lurker Egg. The
+completed-counter builder at 18014–18034 adds only Men and Building groups;
+eggs are counted in the all-unit Bring counters, not completed counters.
+Global completed counters use the same groups in `add_completed_unit` at
+15949–15965, while `increment_unit_counts` at 14733–14763 adds Eggs to the
+all-unit non-building count.
+The existing Stargus unit catalog exposes the first two egg types but not Lurker
+Egg. Its previous Any Unit predicate accepted every non-turret type, which
+incorrectly made a player's Mineral Field satisfy Command/Bring Any Unit
+counts. Counting now uses the native groups for selector 229 while preserving
+the existing selector-specific behavior elsewhere. `test_mission` puts a
+Marine and a rival Mineral Field on the map and checks that Exactly 1 Any Unit
+fires. Separate Command and Bring tests verify an Egg satisfies At most 1,
+fails At most 0, and does not satisfy At least 1 or Exactly 1. These cases
+distinguish Egg's inclusion in all-unit counters from the completed-only
+counters. The shared `count_units` path also supplies Most/Least Units
+conditions 6/7/16/17, so selector 229 uses these same group rules there as an
+inference; the checked OpenBW switch does not implement those conditions.
+Retail executable behavior has not been independently traced. OpenBW also handles loaded units, carrier/reaver
+hangars, nuclear silo state, and full BW Egg variants; those cases remain
+outside this narrow correction.
+
 ## Cloaked Ghost acquisition
 
 Pinned OpenBW `unit_target_acquisition_range` returns zero for a cloaked

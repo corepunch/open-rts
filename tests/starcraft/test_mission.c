@@ -2278,6 +2278,39 @@ int main(void) {
     CHECK(lifting->sc.order.kind == SC_ORDER_LIFT && landing->sc.order.kind == SC_ORDER_LAND);
     CHECK(!lifting->sc.queue.active && !landing->sc.queue.active);
     free(trig); unload();
+    /* Any Unit counts native Men/Building groups, not resource objects. */
+    uint8_t any_unit_owners[12] = {6, 5};
+    trig = blank_trigger(); CHECK(trig);
+    put_u32(trig + 4, 17); put_u32(trig + 8, 1); put_u16(trig + 12, 229);
+    trig[14] = 10; trig[15] = 2; action = trig + 320;
+    put_u32(action + 16, 0); put_u32(action + 20, 10); action[24] = 0;
+    action[26] = 26; action[27] = 7;
+    CHECK(!write_map("/tmp/open-rts-sc-any-unit-count.chk", any_unit_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-any-unit-count.chk", &level));
+    CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0));
+    CHECK(sc_spawn_actor(MT_MINERAL_FIELD1 - 1, (ivec2_t){256, 128}, 1));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 10);
+    free(trig); unload(); remove("/tmp/open-rts-sc-any-unit-count.chk");
+    /* Eggs count toward incomplete Any Unit totals, but not completed totals. */
+    const int any_egg_ops[] = {0, 1, 1, 10};
+    const int any_egg_quantities[] = {1, 1, 0, 1};
+    const bool any_egg_expected[] = {false, true, false, false};
+    for (int condition = 2; condition <= 3; condition++) for (int i = 0; i < 4; i++) {
+        int op = any_egg_ops[i];
+        trig = blank_trigger(); CHECK(trig);
+        if (condition == 3) put_u32(trig, 64);
+        put_u32(trig + 8, (unsigned)any_egg_quantities[i]); put_u16(trig + 12, 229);
+        trig[14] = (uint8_t)op; trig[15] = (uint8_t)condition; action = trig + 320;
+        put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-any-egg-count.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-any-egg-count.chk", &level));
+        CHECK(sc_spawn_actor(MT_EGG - 1, (ivec2_t){128, 128}, 0));
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (any_egg_expected[i] ? 10 : 0));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-any-egg-count.chk");
     /* MRGN flags exclude individual air/ground terrain heights. */
     for (int flight = 0; flight < 2; flight++) for (int height = 0; height < 3; height++)
         for (int excluded_height = 0; excluded_height < 2; excluded_height++) {
