@@ -1855,6 +1855,39 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-hangar.chk");
 
+    /* Give Units and Modify Hangar Count use modified Anywhere bounds. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 1);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
+    CHECK(!write_map("/tmp/open-rts-sc-give-location.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-give-location.chk", &level));
+    sc_mission_t *give_location_mission = level.mission;
+    give_location_mission->loc_count = 64;
+    give_location_mission->loc_right[63] = give_location_mission->loc_bottom[63] = 128;
+    mobj_t *given_inside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){32, 32}, 0);
+    mobj_t *given_outside = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){320, 320}, 0);
+    CHECK(given_inside && given_outside);
+    ticks(1, &(hudtext_t){0});
+    CHECK(given_inside->owner == 1 && given_outside->owner == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-give-location.chk");
+
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 2);
+    put_u16(action + 24, MT_CARRIER - 1); action[26] = 53;
+    CHECK(!write_map("/tmp/open-rts-sc-hangar-location.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-hangar-location.chk", &level));
+    sc_mission_t *hangar_location_mission = level.mission;
+    hangar_location_mission->loc_count = 64;
+    hangar_location_mission->loc_right[63] = hangar_location_mission->loc_bottom[63] = 128;
+    mobj_t *hangar_inside = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){32, 32}, 0);
+    mobj_t *hangar_outside = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){320, 320}, 0);
+    CHECK(hangar_inside && hangar_outside);
+    ticks(1, &(hudtext_t){0});
+    CHECK(hangar_inside->sc.hangar == 2 && hangar_outside->sc.hangar == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-hangar-location.chk");
+
     /* Resource amounts target the neutral resource object, not player stock. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

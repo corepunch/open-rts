@@ -572,8 +572,8 @@ static void modify_deposits(const sc_mission_t *m, unsigned player, int current,
 static void modify_hangars(const sc_mission_t *m, const int *players, int nplayers,
                            unsigned unit, unsigned loc, unsigned limit, unsigned add) {
     int l, t, r, b;
-    bool anywhere = !loc || loc == 64;
-    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
+    bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+    if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) return;
     if (!thinkercap.next) return;
     unsigned changed = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -1086,8 +1086,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (id == 48 && (number < 8 || number == 13) && thinkercap.next) {
             int l, t, r, b;
-            bool anywhere = !loc || loc == 64;
-            if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) continue;
+            bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+            if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) continue;
             uint8_t owner = number == 13 ? (uint8_t)st->current : (uint8_t)number;
             unsigned given = 0;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {

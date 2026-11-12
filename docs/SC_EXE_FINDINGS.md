@@ -2571,6 +2571,17 @@ field and common center placement, but is not independently implemented by
 OpenBW. Tests verify both actions create at modified Anywhere's center and
 that location 0 retains its whole-map center.
 
+### Give Units and Modify Hangar Count use modified Anywhere (2026-11-13)
+
+PyMS `TRG.py` assigns action 48 (`GiveUnitstoPlayer`) and action 53
+(`ModifyUnitHangerCount`) a Location field; `HelpText.py` describes both as
+selecting units at a location. Neither action is implemented in OpenBW's
+trigger action switch, so use of the stored 64th MRGN record for modified
+Anywhere is a CHK-field inference. Open-rts retains whole-map selection when
+the 64th record is absent. `test_mission` puts matching units on opposite
+sides of the modified bounds and verifies only the inside Marine transfers
+owner or the inside Carrier receives hangar units.
+
 ### Trigger Order and Comment (2026-11-12)
 
 **Confirmed reference:** pinned OpenBW `bwgame.h::execute_trigger_action`
