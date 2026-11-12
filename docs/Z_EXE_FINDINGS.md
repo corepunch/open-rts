@@ -3068,3 +3068,55 @@ native carry propagation beyond the caller remains unverified. Inspect with
 `r2 -q -e bin.cache=true -c 'pd 70 @ 0x50665' -c 'pd 45 @ 0x77cc6' -c q data/Z/ZED.EXE`;
 run `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_production` for authored
 members, group identity and save/load allocation checks.
+
+**Countdown boundaries and command ownership:** for ZED.EXE SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x603f1` runs the group pass before iterating the 240 unit slots. In
+`0x780b3`, the +0x3d decrement saturates at zero for the reachable 0..120
+range; its signed-byte `jns` sequence is not general unsigned saturation for
+128..255. When group +0x10 is zero or decrements to zero, the same pass
+clears both +0x3d and +0x40. If group +9 bit 0x40 is set at expiration,
+`0x7810e` compacts member slots and the pass clears that bit. A 30 loaded by
+route setup while +0x10 is zero is therefore cleared on the next group pass,
+not sustained for 30 frames. It may affect work during the current unit pass;
+the exact intervening calls remain **unknown**. For example, `(countdown,
+target timer) = (120, 1)` becomes `(0, 0)` on the next group pass, while
+`(120, 75)` becomes `(119, 74)`; target events can refresh the latter timer.
+
+The player dispatcher sets +0x98 bit 0x20 on the selected unit. It skips the
+group command copy for command codes 8, 9, 11 and 12; for other commands it
+copies the group fields when +0x5c is nonzero. Leader dispatch `0x7d053`
+copies the command and operands under its own gates but does not copy +0x98
+bit 0x20. Whether another path sets that bit on the leader after a follower
+selection remains **unknown**. Route setup clears the bit even when unit
++0x6f bit 0x10 prevents loading +0x3d.
+
+The preceding statement that nonzero +0x3d suppresses the walking unit's
+enemy scan is too broad: `0x7ab38..0x7ab5d` checks it only in the branch
+where global `0x10e91b` is zero. The other alternating branch calls `0x78fed`
+without that check. Do not suppress both scans based on this countdown.
+Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 35 @ 0x603cc' -c 'pd 50 @ 0x780b3' -c 'pd 25 @ 0x7c6ba' -c
+'pd 45 @ 0x47aec' -c 'pd 35 @ 0x7d053' -c 'pd 35 @ 0x7ab0c' -c q
+ data/Z/ZED.EXE`.
+
+**Additional target-timer writes:** `0x58219..0x58237` and
+`0x5859f..0x585bf` call `0x75ca3`, which reloads the other unit's squad
++0x10 to 75 whenever that unit has a nonzero +0x5c. If the other group's
++0x3b is `0xff`, those callers also populate +0x3b/+0x44 and +0x3e and
+reload the timer. Separately, `0x58745..0x587d0` walks unit indices,
+excludes same-team units and several unit types/actions, tests position
+against a rectangle, and reloads +0x10 to 75 for each qualifying grouped
+unit. This is an additional event source, so modeling timer refresh only on
+individual target acquisition would be incomplete. The event that invokes
+that rectangle traversal and its complete gates remain **unknown**.
+
+A broad linear disassembly search found `0x47af6` as the only direct
+`or byte [ebp + 0x98], 0x20` write; `0x7c059..0x7c0a9` iterates squad
+members but only clears specific +0x5a orders and does not set that bit.
+This search does not exclude indirect or whole-byte writes, so it is not
+proof that player selection never sets a leader's bit through another path.
+Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 35 @ 0x58214' -c 'pd 30 @ 0x58592' -c 'pd 65 @ 0x58745' -c
+'pd 35 @ 0x7c059' -c q data/Z/ZED.EXE` and search the broad disassembly
+for writes to `+ 0x98`.

@@ -2367,3 +2367,27 @@ saves. Fire visuals and native audio are not established by this change.
 
 Reproduce with `make build/bin/tests/starcraft/test_combat` and run
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_combat`.
+
+### Trigger energy and shield actions (2026-11-12)
+
+**Confirmed format:** the checked-in PyMS `FileFormats/TRG.py` normal-action
+catalog assigns 50 to Modify Unit Energy and 51 to Modify Unit Shield Points.
+Both use the same player, quantity, unit, location and percentage arguments as
+Modify Unit Hit Points (49). `action_percentage` stores a value from 0 to 100
+in the third action field, at byte +8 of the 32-byte CHK action. The quantity
+is the modifier byte at +27. This is format evidence, not an executable trace.
+
+**Inferred implementation:** these actions set the selected units' energy or
+shields to the specified percentage of their current maximum, initializing
+unit combat state first. Energy uses the existing reactor-aware maximum and
+shields use the native unit definition; values above 100 are clamped. The
+retail handling of malformed percentages, fractional rounding, and upgraded
+energy maxima has not been verified. Reproduce the selected-unit/count and
+percentage checks with `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.
+PyMS `action_qnumber` encodes All as zero and finite quantities as 1–255;
+All is not restricted to 256 objects. The checked OpenBW revision
+`4b046d5f65302b10cb0a745f0fecd37ec85b20a8` has no action 50 or 51 case in
+`bwgame.h::execute_trigger_action`, so it does not establish their semantics.
+The engine starts combat state only on selected units that have the relevant
+energy or shields; the native handling of ineligible units when a finite
+quantity is specified remains unknown.

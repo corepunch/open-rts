@@ -157,6 +157,44 @@ int main(void) {
     free(trig);
     unload();
 
+    /* Modify energy and shields affect only the selected owner and count. */
+    for (int id = 50; id <= 51; id++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[15] = 22;
+        action = trig + 320;
+        put_u32(action + 8, 75);
+        put_u16(action + 24, id == 50 ? MT_GHOST - 1 : MT_ZEALOT - 1);
+        action[26] = (uint8_t)id;
+        action[27] = 1;
+        CHECK(!write_map("/tmp/open-rts-sc-modify.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-modify.chk", &level));
+        int type = id == 50 ? MT_GHOST - 1 : MT_ZEALOT - 1;
+        mobj_t *selected = spawn(type, 0), *other = spawn(type, 0);
+        CHECK(selected && other);
+        ticks(1, &(hudtext_t){0});
+        if (id == 50) {
+            CHECK(sc_energy(selected) == 150 && sc_energy(other) == 50);
+            CHECK(selected->sc.flags & SC_STARTED);
+            CHECK(!(other->sc.flags & SC_STARTED));
+        } else {
+            CHECK(sc_shields(selected) == sc_units[type].shields * 3 / 4);
+            CHECK(sc_shields(other) == sc_units[type].shields);
+        }
+        free(trig); unload();
+    }
+    /* All includes units beyond the shared 256-entry gathering buffer. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u16(action + 24, MT_GHOST - 1); action[26] = 50;
+    CHECK(!write_map("/tmp/open-rts-sc-modify.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-modify.chk", &level));
+    mobj_t *last = NULL;
+    for (int i = 0; i < 260; i++) { last = spawn(MT_GHOST - 1, 0); CHECK(last); }
+    ticks(1, &(hudtext_t){0});
+    CHECK(last && sc_energy(last) == 0);
+    free(trig); unload();
+    remove("/tmp/open-rts-sc-modify.chk");
+
     memset(owners, 0, sizeof(owners));
     owners[0] = 6; owners[1] = 5;
     trig = blank_trigger();

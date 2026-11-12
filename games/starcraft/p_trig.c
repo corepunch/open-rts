@@ -349,6 +349,31 @@ static int gather(const sc_mission_t *m, const int *players, int nplayers, unsig
     return n;
 }
 
+/* A quantity of zero means all matching units, including more than 256. */
+static void modify_vitals(const sc_mission_t *m, const int *players, int nplayers,
+                          unsigned unit, unsigned loc, unsigned limit, unsigned pct, int id) {
+    int l, t, r, b;
+    bool anywhere = !loc || loc == 64;
+    if (!anywhere && !loc_box(m, loc, &l, &t, &r, &b)) return;
+    if (!thinkercap.next) return;
+    if (pct > 100) pct = 100;
+    unsigned count = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !alive_unit(mo) || !kind_ok(mo, unit)) continue;
+        bool mine = false;
+        for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
+        if (!mine || (!anywhere && !inside(mo, l, t, r, b))) continue;
+        const sc_unit_t *type = &sc_units[mo->type_id - 1];
+        if ((id == 50 && (type->flags & SC_UNIT_SPELLCASTER)) || (id == 51 && type->shields)) {
+            sc_start(mo);
+            if (id == 50) mo->sc.energy = sc_max_energy(mo) * (int)pct / 100;
+            else mo->sc.shields = (type->shields << 8) * (int)pct / 100;
+        }
+        if (limit && ++count >= limit) break;
+    }
+}
+
 static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     if (!m->uprp || index >= m->uprp_size / 20) return;
     const uint8_t *p = m->uprp + index * 20;
@@ -515,6 +540,10 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             int status = (int)unit;
             for (int s = 0; s < ns; s++) for (int i = 0; i < n; i++)
                 set_alliance(self[s], players[i], status);
+            continue;
+        }
+        if (id == 50 || id == 51) {
+            modify_vitals(m, players, n, unit, loc, a[27], read_u32_le(a + 8), id);
             continue;
         }
         if (id == 22 || id == 23 || id == 24 || id == 25 || id == 39 || id == 43 ||
