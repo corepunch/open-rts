@@ -226,6 +226,54 @@ static int test_specialist_bullets(void) {
     return 0;
 }
 
+static int test_gatling_bullet(void) {
+    static const ivec2_t muzzle[] = {{13,-2},{24,1},{29,9},{22,17},{13,20},{4,18},{-4,9},{2,0}};
+    RtsGameModel *model = load();
+    if (!model) return fail("load Gatling bullet");
+    zmap_t *map = level.native_data;
+    for (int y = 38; y <= 43; ++y) for (int x = 38; x <= 47; ++x)
+        map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    Z_RebuildCliffs(&level);
+    fixed2_t at = fixed2_cell_center((ivec2_t){40, 40});
+    mobj_t *gun = blast_unit(MT_UNIT_GATLING, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 80, 0), 500);
+    if (!gun || !target) return fail("spawn Gatling bullet fixture");
+    gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    gun->z.body_tracked = true; gun->z.body_accuracy = 127;
+    ivec2_t origin = Z_AITopLeft(gun);
+    for (int facing = 0; facing < 8; ++facing) {
+        gun->core.angle = direction_to_angle(facing, 8, ANG90, true);
+        if (!Z_Attack(gun, &gun->info->attack, target)) return fail("launch Gatling facing");
+        mobj_t *bullet = nth(MT_BULLET, 0, 0);
+        if (!bullet || !ivec2_equal(bullet->z.water.start, ivec2_add(origin, muzzle[facing])) ||
+            bullet->z.water.speed != 15 || bullet->z.water.range != 120 || bullet->missile.damage != 6)
+            return fail("Gatling uses native facing muzzle and bullet stats");
+        P_RemoveMobj(bullet);
+    }
+    disarm_except(0, gun);
+    gun->core.angle = direction_to_angle(2, 8, ANG90, true);
+    gun->attack.target = target;
+    P_UpdateSight();
+    if (!P_Attack(gun)) return fail("Gatling fires through attack dispatch");
+    mobj_t *bullet = nth(MT_BULLET, 0, 0);
+    if (!bullet || target->hp != 500) return fail("Gatling does not hit instantly");
+    gun->traits &= ~MF_ATTACK;
+    if (!tick(model, 1) || !nth(MT_BULLET, 0, 0)) return fail("Gatling bullet remains in flight");
+    uint32_t bullet_id = bullet->id, target_id = target->id, hash = G_Consistency();
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "Gatling bullet", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save Gatling bullet");
+    free(save);
+    bullet = P_MobjById(bullet_id); target = P_MobjById(target_id);
+    if (!bullet || !target || G_Consistency() != hash) return fail("restore Gatling bullet flight");
+    for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
+        if (!tick(model, 1)) return fail("tick Gatling bullet");
+    if (P_MobjById(bullet_id) || target->hp != 488)
+        return fail("Gatling endpoint checks can both hit the target");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_bad_crew_combat(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for malformed crew combat");
@@ -2234,7 +2282,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_specialist_bullets() || test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

@@ -3510,9 +3510,9 @@ bullet armour and the Jeep/Light Gun driver kill are in `Z_HitDamage`
 (`p_capture.c`). The random coin is a deterministic hash of the tic and the
 two units, not the native stream.
 
-Engine boundaries, **not** native equivalence: vehicle and gun bullets still
+Engine boundaries, **not** native equivalence: Jeep and APC bullets still
 hit instantly and never miss (native bullets travel and scatter by accuracy),
-so Gatling and Jeep fire remains more reliable than retail;
+so their fire remains more reliable than retail;
 shells now apply their existing engine damage over the candidate box below;
 vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
@@ -3581,7 +3581,7 @@ the native cached aim and its additional 0x773bd scatter; impact after the
 source has been removed uses the recorded damage with a simplified armor
 fallback. The separate `0x5abad` terrain-table gate, bullet drawing, exact
 unit-slot and cross-projectile update order remain unimplemented. Other bullet
-vehicle and gun weapons and APC salvos retain their former instantaneous behavior.
+Jeep weapons and APC salvos retain their former instantaneous behavior.
 Sniper and Psycho use the same `0x77364..0x773cd` firing path as Grunt;
 Laser's `0x77542..0x77577` also adds (2,2), scatters and calls `0x5af81`,
 with additional visual flags. The engine uses the same invisible projectile
@@ -3589,6 +3589,16 @@ for all four; Laser's native drawing is not implemented. `test_combat`
 checks each specialist's muzzle, speed, damage and range, real thinker flight,
 and save/load before impact. Inspect with `r2 -q -e bin.cache=true -c
 'pd 45 @ 0x77364' -c 'pd 45 @ 0x77512' -c q data/Z/ZED.EXE`.
+
+Gatling also fires an ordinary bullet: `0x783d7..0x783e6` selects type 0x16
+and `0x784b5..0x784f3` calls `0x5af81` using the facing-dependent pivot
+selected by `0x64227`. The engine uses that eight-entry pivot and the
+existing fixed-gun tracked-aim scatter, 15-pixel speed, 120-pixel range and
+6 damage. `test_combat` checks all eight muzzle origins, normal attack
+dispatch, saved flight and a target hit by both native endpoint checks.
+Its invisible tracer and the same slot, terrain and RNG approximations
+described above remain. Inspect with `r2 -q -e bin.cache=true -c 'pd 105 @
+0x783d7' -c 'pd 14 @ 0x64227' -c q data/Z/ZED.EXE`.
 
 Reproduce: `make build/bin/tests/z/test_units build/bin/tests/z/test_commander
 build/bin/tests/z/test_ai`, then run each with `SDL_VIDEODRIVER=dummy`

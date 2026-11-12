@@ -725,12 +725,17 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     }
 }
 
-static void fire_robot_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
+static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     ivec2_t origin = Z_AITopLeft(attacker);
-    ivec2_t start = ivec2_add(origin, (ivec2_t){2,2}); /* 0x773c7 */
+    bool gatling = attacker->type_id == MT_UNIT_GATLING;
+    int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+    ivec2_t start = ivec2_add(origin, gatling ? gun_pivot[facing] : (ivec2_t){2,2});
     ivec2_t aim = Z_AITopLeft(target);
-    if (target->info && (target->info->traits & MF_TURRET)) aim.x += 8;
-    aim = ivec2_add(scatter_aim(attacker, origin, aim, 4), (ivec2_t){8,8});
+    if (gatling) aim = scatter_aim(attacker, start, ivec2_add(aim, (ivec2_t){0,12}), 4);
+    else {
+        if (target->info && (target->info->traits & MF_TURRET)) aim.x += 8;
+        aim = ivec2_add(scatter_aim(attacker, origin, aim, 4), (ivec2_t){8,8});
+    }
     ivec2_t delta = ivec2_sub(aim, start);
     int dx = abs(delta.x), dy = abs(delta.y), count = 0;
     if (!dx && !dy) return;
@@ -749,7 +754,7 @@ static void fire_robot_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_
     bullet->z.water.major = bullet->z.water.remaining = dy > dx ? dy : dx;
     bullet->z.water.minor = dy > dx ? dx : dy;
     bullet->z.water.error = bullet->z.water.major / 2;
-    bullet->z.water.speed = 15; /* ROBOTS.DAT weapons 2, 4, 7 and 18 +0x23 */
+    bullet->z.water.speed = 15; /* ROBOTS.DAT weapons 2, 4, 7, 11 and 18 +0x23 */
     bullet->z.water.range = (int)((int64_t)weapon->range * Z_TILE / FIXED_ONE);
     const zmap_t *map = level.native_data;
     bullet->z.water.height = map && start.x >= 0 && start.y >= 0 ? Z_TerrainHeight(map, start.x / Z_TILE, start.y / Z_TILE) + 1 : 0;
@@ -794,9 +799,10 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     int t = Z_UnitType(attacker);
     if ((t == MT_UNIT_GRUNT - MT_UNITS || t == MT_UNIT_SNIPER - MT_UNITS ||
-         t == MT_UNIT_PSYCHO - MT_UNITS || t == MT_UNIT_LASER - MT_UNITS) &&
+         t == MT_UNIT_PSYCHO - MT_UNITS || t == MT_UNIT_LASER - MT_UNITS ||
+         t == MT_UNIT_GATLING - MT_UNITS) &&
         weapon && target && Z_UnitType(target) >= 0) {
-        fire_robot_bullet(attacker, weapon, target);
+        fire_bullet(attacker, weapon, target);
         return true;
     }
     bool apc = t == MT_UNIT_APC - MT_UNITS;
