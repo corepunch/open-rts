@@ -115,6 +115,54 @@ static int test_flags(void) {
     return 0;
 }
 
+static int test_flag_origin_boundary(void) {
+    const int types[] = {MT_UNIT_GRUNT, MT_UNIT_JEEP, MT_UNIT_FIRE_TRUCK};
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load flag origin fixture");
+        mobj_t *flag = flag_of(3);
+        zmap_t *map = level.native_data;
+        if (!flag) return fail("flag origin marker");
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *mo = (mobj_t *)th;
+            if (Z_UnitType(mo) >= 0 || (mo->type_id == MT_FLAG && mo != flag)) P_RemoveMobj(mo);
+        }
+        P_RunThinkers();
+        ivec2_t flag_cell = {25,25};
+        map->territories[3].flag = flag_cell;
+        mobj_t *unit = P_SpawnMobj((fixed3_t){0}, types[i]);
+        if (!unit) return fail("spawn flag boundary unit");
+        Z_SetTeam(unit, 0); Z_SetTeam(flag, 1);
+        int left = Z_IsRobot(Z_UnitType(unit)) ? 1 : 2;
+        ivec2_t origin = {(flag_cell.x - left) * Z_TILE + 7, flag_cell.y * Z_TILE};
+        fixed2_t centre;
+        if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag unit origin");
+        unit->core.position = fixed3_from_fixed2(centre, 0);
+        flag->z.hold = 0;
+        Z_Ticker();
+        if (flag->team != 1) return fail("native sample excludes seven-pixel boundary");
+        origin.x++;
+        if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag unit inclusive boundary");
+        unit->core.position = fixed3_from_fixed2(centre, 0);
+        Z_Ticker();
+        if (flag->team != 0) return fail("native sample includes eight-pixel boundary");
+        if (!Z_IsRobot(Z_UnitType(unit))) {
+            for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
+                ivec2_t sample = ivec2_sub(flag_cell, (ivec2_t){x,y});
+                origin = ivec2_sub(ivec2_scale(sample, Z_TILE), (ivec2_t){8,8});
+                if (!Z_UnitCentre(map, Z_UnitType(unit), origin, &centre)) return fail("flag vehicle probe origin");
+                unit->core.position = fixed3_from_fixed2(centre, 0);
+                Z_SetTeam(flag, 1); flag->z.hold = 0;
+                Z_Ticker();
+                if (flag->team != 0) return fail("vehicle checks all four native flag cells");
+            }
+        }
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 /* A Grunt ordered onto an empty Jeep walks over and drives it away. */
 static int test_board(void) {
     RtsGameModel *model = load();
@@ -712,6 +760,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_flag_origin_boundary() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

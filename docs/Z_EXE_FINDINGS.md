@@ -169,6 +169,31 @@ cells with terrain 0x23 and grenade crates with 0x24.
 | 0x75939 | A robot with grenades throws at vehicles and guns (Lasers and Tough use their own weapons), action 0x31 (0x6360e: 2522 + direction * 4 + frame); class-0 and Laser building attacks use grenades (0x753bb), while Tough uses its launcher (0x752bc) |
 | 0x636a0 | The grenade leaves on the throw's last frame; 0x5a205 launches it, drawn as 1336..1339 (0x59538); it bursts through 0x8476c with strength 0x32 for a Grunt |
 
+**Flag sampling correction:** `0x796cb..0x796f1` chooses the map cell at
+native unit origin +(8,8). For runtime class 1, `0x79936..0x79964` also
+checks the cells to its right, below and diagonally below-right. The engine
+previously started that 2x2 window at the loaded sprite centre. Composed
+vehicles use a 16x16 spawn extent, but Fire Truck uses its 32x32 native
+sprite, so its centre is eight pixels farther right and down than the native
+sample. `on_flag` now derives the sample from the native origin for all
+mobile units. `test_capture` checks the exclusive 7-pixel and inclusive
+8-pixel boundary for a Grunt, Jeep and Fire Truck. Inspect with `r2 -q -e
+bin.cache=true -c 'pd 12 @ 0x796cb' -c 'pd 25 @ 0x79936' -c q
+data/Z/ZED.EXE`.
+
+**Further flag-dispatch scope, confirmed but unported:** `0x2a89f` writes
+terrain 0x23 at each active flag location, preserving bit 7, and is called
+again during capture at `0x79e7b`. A subsequent map effect can overwrite
+that terrain until a later flag rebuild or restoration. In addition,
+`0x79df1..0x79dfe` resolves the territory from the capturing unit's native
+origin, not from the specific neighboring 0x23 cell. The current flag thinker
+uses the stored flag location and its territory directly; overlapping effect
+markers and a vehicle crossing a territory boundary are therefore not yet
+faithful. Do not resolve that discrepancy by merely testing the current flag
+cell without also modeling marker creation, rebuild and saved terrain order.
+Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x2a89f' -c 'pd 45 @
+0x79ddc' -c q data/Z/ZED.EXE`.
+
 In level 1 each fort's flag cell is its entrance: the computer's fort has
 its gate cells (terrain 0x15, 0x9e, 0x3f) on its south side and the flag on
 the cell below them, while the player's fort has them (0x1e, 0x3e) on its

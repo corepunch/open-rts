@@ -1069,12 +1069,14 @@ void A_ZBlastHit(mobj_t *missile) { blast_units(missile, blast_impact(missile));
 
 /* ── flags ────────────────────────────────────────────────────────────── */
 
-/* 0x79ddc: a robot takes the flag under its centre; a vehicle also takes
- * one on the cells right of and below it (0x79936). Guns never move. */
+/* 0x796cb samples native origin +(8,8); 0x79936 also probes the cells
+ * right and below it for a class-1 vehicle. Guns never move. */
 static bool on_flag(const mobj_t *unit, ivec2_t flag) {
     int t = Z_UnitType(unit);
     if (!live(unit) || t < 0 || unit->team >= Z_NEUTRAL || !(unit->traits & MF_MOBILE)) return false;
-    ivec2_t cell = fixed2_cell(fixed3_xy(unit->core.position));
+    ivec2_t pixel = ivec2_add(Z_AITopLeft(unit), (ivec2_t){8,8});
+    if (pixel.x < 0 || pixel.y < 0) return false;
+    ivec2_t cell = {pixel.x / Z_TILE, pixel.y / Z_TILE};
     ivec2_t d = ivec2_sub(flag, cell);
     return Z_IsRobot(t) ? d.x == 0 && d.y == 0 : d.x >= 0 && d.x <= 1 && d.y >= 0 && d.y <= 1;
 }
