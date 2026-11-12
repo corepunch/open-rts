@@ -1993,7 +1993,27 @@ map-object records, excludes unused and several flagged/state cases, and
 for eligible objects within ±24 pixels sets state fields and calls
 `0x8790a`; that routine dispatches visual/audio and object-specific work.
 The semantics of these object fields and resulting gameplay changes remain
-unknown. The Pyro firing action calls `0x60ed5`, which supplies its +0x76
+partly unknown. Further trace: `0x88a7f..0x88b12` invalidates each selected
+record's x word before calling `0x8790a`. That function starts the animation
+whose embedded debug name is `burst_an` (`0x6c292..0x6c2b8`), and its
+subsequent `an_shrap` callback at `0x6c2ee..0x6c32c` calls `0x86963`
+with strength 10. The latter calls `0x8476c`, invokes another `0x88a7f`
+pass, and selects nearby units for damage through `0x64309` and `0x86ca4`.
+This is a potential secondary and chained gameplay effect, not merely a
+visual callback. The record-type mapping, animation callback timing, and
+complete damage flags and ordering remain unresolved; do not apply a
+generic immediate second blast to ordinary map objects. Reproduce with
+`r2 -q -e bin.cache=true -c 'pd 55 @ 0x88a7f' -c 'pd 50 @ 0x8790a'
+-c 'pd 45 @ 0x6c292' -c 'pd 80 @ 0x86963' -c q data/Z/ZED.EXE`.
+`0x6d093` additionally suppresses that animation when global `0x10f33a`
+is nonzero and returns if its animation allocator fails; successful setup
+installs `0x6c2ee` as its later callback and a 400-unit field at +0x12.
+Consequently the secondary blast is conditional on successful animation
+allocation, and that field alone does not establish its delay. The scanned
+64-byte records are constructed at `0x875c7`; their +0x20/+0x21 and +0x3d
+come from a 16-byte type descriptor at `0x14c309`. Their semantic types
+are not yet identified.
+The Pyro firing action calls `0x60ed5`, which supplies its +0x76
 weapon speed and derives a facing-dependent launch position; object targets
 pass through `0x75cc1`, while the alternate coordinate branch at `0x60f54`
 computes an accuracy-dependent spread via `0x64250`. Flame creation forces
