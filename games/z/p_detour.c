@@ -195,6 +195,7 @@ static bool destination(const zmap_t *map, const mobj_t *unit, const mobj_t *tar
     ivec2_t offset;
     if (Z_CrateEligible(unit, target)) offset = (ivec2_t){0,0};
     else if (Z_IsRobot(Z_UnitType(unit)) && Z_Enterable(target)) {
+        if (unit->z.just_left_cannon && target->info && (target->info->traits & MF_TURRET)) return false;
         int sprite = states[target->core.state_id].frame;
         if (sprite == 0x1435) return false; /* APC requires an explicit target at 0x611a7. */
         offset = sprite == 0x669 || sprite == 0x679 || sprite == 0x1685 ?

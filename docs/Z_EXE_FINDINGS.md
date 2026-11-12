@@ -1796,6 +1796,23 @@ are not implemented by this change.
 
 ## Zod reference: APC crew and ejection (2026-11-12)
 
+**Zod cannon re-entry policy:** pinned Zod `zserver_events.cpp` sets
+`just_left_cannon` on every robot released from a cannon; its idle and
+`CheckOpportunisticGrab` searches in `zobject.cpp` exclude cannons while
+that flag is set. An explicit enter waypoint clears it, and
+`CloneMinionWayPoints` propagates the leader's value to followers. This is
+fork behavior for the already-adopted voluntary ejection command, not a
+confirmed retail rule. Open-rts now saves and hashes the per-robot flag,
+retains it across ordinary movement, and clears it for the squad when a
+board order begins, including a queued board when it reaches the front.
+The internal AI board path shares that clearing rule. Its detour continues
+to use native candidate ranking before this eligibility check, rather than
+Zod's separate candidate-list ranking; idle auto-entry is not introduced.
+APC ejection does not set the flag. Z save layout 21 records it.
+`test_detour` exercises movement suppression, save/load and consistency,
+direct and queued board orders, resumption of automatic entry, and squad
+isolation; `test_capture` checks the APC exception.
+
 **Voluntary ejection and empty-hull damage:** pinned Zod `exit_vehicle_event`
 clears the drivers and leaves the same hull at its position with neutral
 ownership; its `ProcessMissileDamage` also considers neutral objects. The

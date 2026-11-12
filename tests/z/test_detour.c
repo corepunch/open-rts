@@ -63,8 +63,104 @@ static int test_sparse_objects(void) {
     return 0;
 }
 
+static int test_ejected_cannon(void) {
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {.data_root = "data/Z"};
+    CHECK(model && rts_game_model_load(model, &config));
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker) P_RemoveMobj((mobj_t *)th);
+    P_RunThinkers();
+    zmap_t *map = level.native_data;
+    memset(map->terrain, 0, sizeof(map->terrain));
+    memset(level.blocked, 0, level.width * level.height);
+    map->territory_count = 0;
+    fixed2_t cannon_at = FIXED2_LIT(20.5,20.5);
+    mobj_t *gun = P_SpawnMobj(fixed3_from_fixed2(cannon_at, 0), MT_UNIT_LIGHT_GUN);
+    CHECK(gun);
+    Z_SetTeam(gun, 0);
+    gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    gun->z.squad = 200;
+    CHECK(Z_EjectCrew(gun));
+    mobj_t *robot = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_UNIT_GRUNT && mo->team == 0) robot = mo;
+    }
+    CHECK(robot && robot->z.just_left_cannon);
+    isize2_t size;
+    CHECK(Z_SpriteSize(map, states[gun->core.state_id].frame, &size));
+    ivec2_t centre = fixed2_cell(fixed2_scale(cannon_at, FIXED_FROM_INT(Z_TILE)));
+    ivec2_t origin = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+    fixed2_t start;
+    CHECK(Z_UnitCentre(map, Z_UnitType(robot), ivec2_add(origin, (ivec2_t){0,48}), &start));
+    robot->core.position = fixed3_from_fixed2(start, 0);
+    robot->core.angle = P_PointToAngle(0, -FIXED_ONE);
+    ticcmd_t move = {.order = TC_ORDER, .position = fixed3_from_fixed2(FIXED2_LIT(20.5,10.5), 0),
+                     .count = 1, .units = {robot->id}};
+    G_RunTiccmd(0, &move);
+    Z_DetourTicker();
+    CHECK(robot->z.just_left_cannon && !robot->z.detour.phase);
+    uint32_t robot_id = robot->id, gun_id = gun->id, hash = G_Consistency();
+    robot->z.just_left_cannon = false;
+    CHECK(G_Consistency() != hash);
+    robot->z.just_left_cannon = true;
+    void *save = NULL; size_t bytes = 0; app_t app = {0}; hudtext_t hud = {0};
+    CHECK(G_SaveGameBlob(&save, &bytes, "Ejected cannon", &app, rts_game_model_ai(model), &hud));
+    CHECK(G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud));
+    free(save);
+    robot = P_MobjById(robot_id); gun = P_MobjById(gun_id); map = level.native_data;
+    CHECK(robot && gun && robot->z.just_left_cannon);
+    memset(map->terrain, 0, sizeof(map->terrain));
+    memset(level.blocked, 0, level.width * level.height);
+    Z_DetourTicker();
+    CHECK(robot->z.just_left_cannon && !robot->z.detour.phase);
+    mobj_t *follower = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5.5,5.5), 0), MT_UNIT_GRUNT);
+    mobj_t *outsider = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(6.5,5.5), 0), MT_UNIT_GRUNT);
+    CHECK(follower && outsider);
+    Z_SetTeam(follower, 0); Z_SetTeam(outsider, 0);
+    follower->z.squad = robot->z.squad; follower->z.squad_slot = 1;
+    outsider->z.squad = 201; outsider->z.squad_slot = UINT8_MAX;
+    follower->z.just_left_cannon = outsider->z.just_left_cannon = true;
+    ticcmd_t board = {.order = TC_BOARD, .target = gun->id, .position = gun->core.position,
+                      .count = 1, .units = {robot->id}};
+    G_RunTiccmd(0, &board);
+    CHECK(!robot->z.just_left_cannon && !follower->z.just_left_cannon &&
+          outsider->z.just_left_cannon && robot->z.board == gun->id);
+    P_RemoveMobj(follower); P_RemoveMobj(outsider);
+    ticcmd_t stop = {.order = TC_STOP, .count = 1, .units = {robot->id}};
+    G_RunTiccmd(0, &stop);
+    G_RunTiccmd(0, &move);
+    Z_DetourTicker();
+    CHECK(robot->z.detour.target == gun->id);
+    Z_DetourCancel(robot);
+    robot->core.position = gun->core.position;
+    CHECK(Z_DetourBoard(robot, gun));
+    CHECK(Z_EjectCrew(gun));
+    robot = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_UNIT_GRUNT && !mo->remove && mo->team == 0) robot = mo;
+    }
+    CHECK(robot && robot->z.just_left_cannon);
+    robot->core.position = fixed3_from_fixed2(start, 0);
+    robot->core.angle = P_PointToAngle(0, -FIXED_ONE);
+    move.units[0] = robot->id;
+    G_RunTiccmd(0, &move);
+    board.units[0] = robot->id; board.queued = true;
+    G_RunTiccmd(0, &board);
+    CHECK(robot->z.just_left_cannon && robot->z.route.count == 1);
+    Z_DetourTicker();
+    CHECK(robot->z.just_left_cannon && !robot->z.detour.phase);
+    P_ClearMove(robot); robot->movement.order_arrived = true;
+    Z_RouteTick(robot);
+    CHECK(!robot->z.just_left_cannon && robot->z.board == gun->id);
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
     if (test_sparse_objects()) return 1;
+    if (test_ejected_cannon()) return 1;
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/Z"};
     CHECK(model && rts_game_model_load(model, &config));

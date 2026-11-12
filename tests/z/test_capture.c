@@ -441,6 +441,8 @@ static int test_apc_crew(void) {
         found21 += mo->hp == 21; found13 += mo->hp == 13;
         if ((mo->hp == 21 && mo->z.flame_phase != 4) || (mo->hp == 13 && mo->z.flame_phase != 13))
             return fail("ejected crew retain their phases");
+        if ((mo->hp == 21 || mo->hp == 13) && mo->z.just_left_cannon)
+            return fail("APC ejection does not suppress cannon entry");
         if (mo->z.squad == 250) {
             if (mo->z.squad_slot == UINT8_MAX) ++leaders;
             else if (mo->z.squad_slot && mo->z.squad_slot < Z_CREW_MAX && !slots[mo->z.squad_slot]) {

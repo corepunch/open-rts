@@ -53,6 +53,7 @@ typedef struct {
     uint8_t bridge; /* BRIDGEnn.DAT slot + 1. */ \
     uint8_t service_ticks; /* Service animation, pending bridge effects, or repair bay HP clock. */ \
     bool manufactured; /* CPU unit flag 0x10, set by 0x5103e. */ \
+    bool just_left_cannon; /* Zod voluntary ejection suppresses automatic cannon entry. */ \
     int hold; \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
@@ -65,6 +66,7 @@ typedef struct {
         HASH((mo)->z.route.steps[zi].position.x); HASH((mo)->z.route.steps[zi].position.y); HASH((mo)->z.route.steps[zi].position.z); \
     } \
     HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.formation); HASH((mo)->z.formation_direction); HASH((mo)->z.formation_active); HASH((mo)->z.formation_rejoin); HASH((mo)->z.grenades); HASH((mo)->z.flame_phase); \
+    HASH((mo)->z.just_left_cannon); \
     HASH((mo)->z.rebuild_stock); HASH((mo)->z.rebuild_setting); \
     HASH((mo)->z.debris.origin.x); HASH((mo)->z.debris.origin.y); \
     HASH((mo)->z.debris.position.x); HASH((mo)->z.debris.position.y); \

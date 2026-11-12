@@ -276,6 +276,7 @@ bool Z_EjectCrew(mobj_t *vehicle) {
         robot->z.flame_phase = crew.flame_phase;
         robot->z.home = crew.home;
         robot->z.manufactured = crew.manufactured;
+        robot->z.just_left_cannon = t != MT_UNIT_APC - MT_UNITS;
         Z_SetTeam(robot, team);
         robot->z.squad = vehicle->z.squad;
     }
@@ -1173,6 +1174,13 @@ bool Z_BoardOrder(mobj_t *const *units, int count, mobj_t *target) {
     bool any = false;
     for (int i = 0; i < count; ++i) {
         if (robot_type(units[i]) < 0) continue;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *member = (mobj_t *)th;
+            if (member == units[i] || (units[i]->z.squad && member->z.squad == units[i]->z.squad &&
+                member->team == units[i]->team && Z_IsRobot(Z_UnitType(member))))
+                member->z.just_left_cannon = false;
+        }
         units[i]->z.board = target->id;
         units[i]->waypoints = (waypoints_t){0};
         walk_to(units[i], target);
