@@ -1,5 +1,48 @@
 # StarCraft native data and UI findings
 
+## Options and saved-game dialogs (2026-11-12)
+
+The retail `.bin` controls decoded by `test_glue` confirm that
+`rez/spd_dlg.bin` contains sliders 1–3 for Game Speed, Mouse Scroll and Key
+Scroll, and `rez/snd_dlg.bin` contains sliders 1–2 for Music Volume and Digital
+Volume. Both use 65534 for OK and 65533 for Cancel. Their SHA-256 hashes are
+`9d7cc3b5287d8b33ab4604d6c07227246b5c8b58202b286e46caa49b28acc932` and
+`7bc6cf141979d8657af1e80c737511af530866030299d85ce97621e0a7e61b01`, respectively.
+Stargus `scripts/menus/options.lua` applies speed and effects-volume changes
+from slider callbacks. The engine uses its own 10–200% speed and 0–10 sound
+settings; those ranges and rollback on Cancel are engine choices, not verified
+retail formulas. Multiplayer speed changes are disabled to preserve lockstep.
+Music, scroll speed and sound checkboxes remain unsupported and disabled.
+
+`rez/savegame.bin` contains name field 2, list 1, Save 65534, Delete 3 and
+Cancel 65533; `rez/loadgame.bin` has list 1 and Load 65534. Their SHA-256
+hashes are `dbf0933fb22c4392016bab939b0c907b27cf217292443194d498705d720b4f94`
+and `fa9f979ae8f4cecf0e0e5a31013647ec6d2d9045c24b0bb6d64d065efedb22bb`.
+The controls now use the engine's `.sav` format; retail `.snx` files are still
+listed but cannot be loaded. The engine save hooks preserve CHK trigger cursors
+and waits, switches, death and kill counters, timers, AI enablement, objectives,
+locations, statistics and RNG. The newly loaded level retains ownership of its
+CHK blob and pointers; these are never restored from saved addresses. The hooks
+follow the lifecycle in `game/g_save.c` and Warcraft II's `G_SaveExtra`.
+`test_save` saves a full blob, frees and reloads the level, restores the blob,
+and rejects malformed trigger counts and truncated extra data. The saved local
+player and mission side are restored before HUD creation, including when the
+custom lobby is absent in a new session; multiplayer resynchronization retains
+the receiving player's identity. No executable
+was examined, and retail save
+format and exact option behavior remain unknown. Reproduce the control catalog
+with `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_glue` and verify the
+menu actions with `SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_gameplay`.
+
+**Briefing sound observation.** Terran 01's extracted CHK (SHA-256
+`4b0e5009c4ae80cfb4cb13ede30842db0aa05bb3be2eedad695fb093fa5786f6`)
+contains the string `staredit\wav\T1B00tad.wav`. The extracted WAV exists
+relative to that campaign mission directory as `staredit/wav/t1b00tad.wav`
+(SHA-256 `8fa86646edde24a841f9295fffae61254ee7373c88c87cb70388b00830a5a8ec`).
+Stargus `scripts/menus/campaign.lua` starts briefing voices and stops the
+channel on Continue. Our MBRF parser retains WAV references, but playback is
+not implemented. This identifies a source path, not verified retail timing.
+
 ## Repair bounds, Follow, flight and gathering waits (2026-10-11)
 
 This follow-up supersedes the one-tile repair approximation and the missing

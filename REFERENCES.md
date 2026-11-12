@@ -86,6 +86,17 @@
 
 ### Z remake sources and Stargus reference recheck (2026-11-12)
 
+Implementation follow-up: the pinned Zod `src/zserver_events.cpp`
+(`EJECT_VEHICLE`, rally-point messages), `src/zserver.cpp`
+(`RobotEnterObject`, manufactured-unit rally assignment), `src/vapc.cpp`
+and `src/zcannon.cpp` supply reference behavior for explicit crew ejection
+and factory rally routes. These requested remake features are distinguished
+from the existing retail-derived commander. Stargus's
+`scripts/menus/options.lua`, `save.lua` and `load.lua` supply working-menu
+behavior references; open-rts uses its own engine speed, volume and save
+format. StarCraft mission save ownership follows `game/g_save.c` and the
+existing Warcraft II extra-state hooks, not the retail SNX format.
+
 - [fenio/zod](https://github.com/fenio/zod) is a modernized SDL3 fork of
   Zod Engine. Local `reference/zod` is a shallow, source-and-docs sparse
   checkout at `5ccb43ab76ee08c9f624906fb465dc3ba76a7a35` (9.3 MB).

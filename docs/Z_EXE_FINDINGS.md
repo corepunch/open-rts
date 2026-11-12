@@ -1756,6 +1756,20 @@ make build/bin/tests/z/test_commander
 env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander
 ```
 
+## Zod reference: factory rally routes (2026-11-12)
+
+**Confirmed remake behavior, not a retail executable finding.** Zod revision
+`5ccb43ab76ee08c9f624906fb465dc3ba76a7a35`, `zserver_events.cpp` rally
+messages and `zserver.cpp` manufactured-unit setup supply factory waypoint
+lists. A selected open-rts producer now accepts a map-click rally point or
+the shared waypoint route; Stop clears it. New mobile units inherit the
+route. Existing units keep their previous orders. The shared produced-unit
+hook runs after exit spacing, so the exit order cannot erase the rally.
+`test_production` verifies ownership, invalid paths, replacement, travel and
+clearing; StarCraft's gameplay test verifies its existing rally destination
+survives the same hook ordering. Rally markers and target-object rally orders
+are not implemented by this change.
+
 ## Zod reference: APC crew and ejection (2026-11-12)
 
 **Confirmed in the Zod remake, not yet confirmed in ZED.EXE.** At pinned

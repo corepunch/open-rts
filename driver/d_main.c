@@ -376,7 +376,6 @@ load_level:
            R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS ? "left select/drag, right order" : "left select/drag/order, right deselect",
            (R_Policy()->f10 == F10_CONTROL_MENU) ? "F10 menu" : "F10 +100 resources");
 
-    menu_t *hud = G_InitHUD(&app, data_root);
     AiContext ai;
     P_AiInit(&ai);
     P_AiAttachGame(&ai, G_AiInterface());
@@ -390,6 +389,8 @@ load_level:
         objects = P_ListMobjs(); units = objects.items; unit_count = objects.count;
         R_InitSprites(data_root, &level, units, unit_count, &decoration_sprites);
     }
+    /* Loading may restore the local player and race used to build the HUD. */
+    menu_t *hud = G_InitHUD(&app, data_root);
     resync.app = &app; resync.ai = &ai; resync.hud = &hud_text;
     resync.objects = &objects; resync.units = &units; resync.unit_count = &unit_count;
     resync.sprites = &decoration_sprites; resync.data_root = data_root;

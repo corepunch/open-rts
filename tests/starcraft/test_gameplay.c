@@ -2,6 +2,8 @@
 #include "starcraft.h"
 #include "sc_local.h"
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft gameplay",#c)
 /* A whole game on retail data: native animations (Stargus/PyMS iscript),
  * gathering, construction, training, research, combat, deaths, the mission
@@ -347,6 +349,30 @@ static int dialogs(void) {
     CHECK(game && M_MenuFind(game, 65533));
     M_SetupNextMenu(game);
     draw("/private/tmp/starcraft-game-menu.bmp");
+    int old_speed=game_speed, old_volume=snd_volume;
+    CHECK(!press(3) && !press(1));
+    menuitem_t *slider=M_MenuFind(currentmenu,1);
+    CHECK(slider && slider->value==old_speed);
+    slider->value=140; slider->routine(currentmenu,slider,MA_CHANGE);
+    CHECK(game_speed==140);
+    CHECK(!press(65533) && game_speed==old_speed);
+    CHECK(!press(1) && M_MenuFind(currentmenu,1)->value==old_speed);
+    slider=M_MenuFind(currentmenu,1); slider->value=120; slider->routine(currentmenu,slider,MA_CHANGE);
+    CHECK(!press(65534) && game_speed==120);
+    CHECK(!press(1) && M_MenuFind(currentmenu,1)->value==120);
+    currentmenu->escape(currentmenu);
+    D_SetGameSpeed(old_speed);
+    CHECK(!press(2));
+    slider=M_MenuFind(currentmenu,2); CHECK(slider && slider->value==(old_volume+5)/10);
+    slider->value=4; slider->routine(currentmenu,slider,MA_CHANGE);
+    CHECK(snd_volume==40);
+    currentmenu->escape(currentmenu); CHECK(snd_volume==old_volume);
+    CHECK(!press(2)); slider=M_MenuFind(currentmenu,2); slider->value=6;
+    slider->routine(currentmenu,slider,MA_CHANGE);
+    CHECK(!press(65534) && snd_volume==60 && gamesettings.sound==6);
+    CHECK(!press(2) && M_MenuFind(currentmenu,2)->value==6);
+    currentmenu->escape(currentmenu); S_SetVolume(old_volume); gamesettings.sound=(old_volume+5)/10;
+    CHECK(!press(65533));
     struct { int press; const char *title; const char *shot; } route[] = {
         {3, "Game Options", "options"}, {1, "Speed Settings", "speed"}, {65533, "Game Options", NULL},
         {2, "Sound Options", "sound"}, {65534, "Game Options", NULL}, {3, "Video Options", "video"},
@@ -369,6 +395,27 @@ static int dialogs(void) {
         if (!strcmp(route[i].title, "Starcraft Help")) CHECK(strlen(text(1)) > 100);
         if (!strcmp(route[i].title, "Save Game")) CHECK(M_MenuFind(currentmenu, 2)->kind == MI_TEXTFIELD);
     }
+    CHECK(!press(1));
+    snprintf(M_MenuFind(currentmenu,2)->text,sizeof(M_MenuFind(currentmenu,2)->text),"UI test save");
+    CHECK(!press(65534) && !menuactive && strstr(g_savefile,"UI test save.sav"));
+    AiContext ai={0};
+    CHECK(G_SaveGame(g_savefile,g_savename,&app,&ai,&hudtext));
+    char path[sizeof(g_savefile)]; snprintf(path,sizeof(path),"%s",g_savefile); g_savefile[0]=0;
+    M_SetupNextMenu(game); CHECK(!press(1));
+    snprintf(M_MenuFind(currentmenu,2)->text,sizeof(M_MenuFind(currentmenu,2)->text),"UI test save");
+    CHECK(!press(65534) && menuactive && !g_savefile[0]);
+    CHECK(!press(3) && !g_savefile[0]); /* Cancel overwrite. */
+    CHECK(!press(65534) && !press(1) && !strcmp(g_savefile,path));
+    g_savefile[0]=0;
+    M_SetupNextMenu(game); CHECK(!press(2));
+    menuitem_t *list=M_MenuFind(currentmenu,1);
+    int row=-1;
+    for(int i=0;i<list->rows;i++)if(!strcmp(list->row(list,i),"UI test save"))row=i;
+    CHECK(row>=0); list->value=row;
+    CHECK(!press(65534) && !menuactive && !strcmp(g_loadfile,path) && menumap);
+    CHECK(strstr(menumap,"scenario.chk"));
+    g_loadfile[0]=0; menumap=NULL; CHECK(!remove(path));
+    M_SetupNextMenu(game);
     /* Escape walks back up; on the Game Menu it resumes. */
     CHECK(!press(3) && !press(1));
     currentmenu->escape(currentmenu);
@@ -695,6 +742,7 @@ static int command_card(void) {
             if(mo->type_id==MT_SCV&&mo->id>last_scv)rallied=mo;
         }
     CHECK(rallied&&P_HasMoveOrder(rallied));
+    CHECK(fixed2_near(rallied->movement.goal, fixed2_cell_center(rally_cell), FIXED_ONE / 8));
     CHECK(locked(card("Terran Comsat Station",&hall,1),"Academy"));
     mobj_t *worker = find(consoleplayer, MT_SCV);
     CHECK(worker);
@@ -1014,6 +1062,10 @@ static int hud_contract(void) {
 }
 
 int main(void) {
+    char user_dir[128],settings[160];
+    snprintf(user_dir,sizeof(user_dir),"/private/tmp/open-rts-sc-gameplay-%ld",(long)getpid());
+    CHECK(!mkdir(user_dir,0700));
+    CHECK(!SDL_setenv("OPEN_RTS_USER_DIR",user_dir,1));
     CHECK(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == 0);
     G_InitGame();
     V_AllocScreen(640, 480);
@@ -1050,6 +1102,8 @@ int main(void) {
     R_FreeSpriteCache(&cache);
     R_FreeTileset(&tiles);
     SDL_Quit();
+    snprintf(settings,sizeof(settings),"%s/settings.cfg",user_dir);
+    remove(settings); CHECK(!rmdir(user_dir));
     puts("PASS: native animations, gathering, construction, training, research, combat, deaths, "
          "victory, defeat, score, in-level dialogs, campaign flow, briefing portraits, the ability command card and its tech-tree buttons");
     return 0;

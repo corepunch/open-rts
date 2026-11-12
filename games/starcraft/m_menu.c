@@ -1234,6 +1234,7 @@ static void free_art(screen_t *screen) {
 static void popup(screen_t *screen, const char *dialog, const char *picture, const char *text, void (*yes)(void)) {
     menu_t *under = currentmenu;
     theme_t *theme = under && under != &notice.menu && under != &confirm.menu ? under->owner : NULL;
+    if(theme==&ingame)theme=main_screen.theme;
     if (!theme) { M_StartMessage(text); return; }
     if (screen->theme != theme) {
         char palette[160];
@@ -1268,6 +1269,7 @@ typedef struct { char path[1024], name[64]; } sc_save_t;
 static sc_save_t saves[SC_SAVES];
 static int save_count;
 static const char no_saves[] = "No saved games found.";
+static char saved_map[1024];
 
 static void scan_save_dir(const char *dir, const char *ext) {
     DIR *listing = dir && dir[0] ? opendir(dir) : NULL;
@@ -1310,6 +1312,9 @@ static void fill_saves(void) {
     snprintf(dir, sizeof(dir), "%s/save", asset_root);
     scan_save_dir(dir, ".snx");
     qsort(saves, (size_t)save_count, sizeof(saves[0]), compare_saves);
+}
+
+static void select_load_rows(void) {
     menuitem_t *list = M_MenuFind(&load_game.menu, 6);
     M_MenuSetRows(list, save_count);
     list->prose = save_count ? NULL : no_saves;
@@ -1318,6 +1323,7 @@ static void fill_saves(void) {
 
 static void show_load(void) {
     fill_saves();
+    select_load_rows();
     menuitem_t *list = M_MenuFind(&load_game.menu, 6);
     load_game.menu.itemOn = (int)(list - load_game.items);
     load_game.menu.app = front.app;
@@ -1330,6 +1336,22 @@ static void delete_save(void) {
     if (row < 0 || row >= save_count) return;
     if (remove(saves[row].path)) show_notice("The saved game could not be deleted.");
     fill_saves();
+    select_load_rows();
+}
+
+static void load_saved(int row) {
+    if(row<0||row>=save_count)return;
+    saveinfo_t info;
+    if(!G_SaveInfo(saves[row].path,&info)) {
+        M_StartMessage("Retail saved games are not supported, or this saved game is invalid.");
+        return;
+    }
+    const char *path=info.map;
+    size_t n=strlen(asset_root);
+    if(n&&!strncmp(path,asset_root,n)&&path[n]=='/')path+=n+1;
+    snprintf(saved_map,sizeof(saved_map),"%s",path);
+    snprintf(g_loadfile,sizeof(g_loadfile),"%s",saves[row].path);
+    menumap=saved_map; M_ClearMenus();
 }
 
 static void load_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -1339,8 +1361,7 @@ static void load_action(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (item->id == 5) single_escape(menu);
     /* gluall.tbl 22. */
     else if (item->id == 7 && chosen) ask("Delete this saved game?", delete_save);
-    else if ((item->id == 4 || item->id == 6) && chosen)
-        show_notice("Loading saved games is not available yet.");
+    else if ((item->id == 4 || item->id == 6) && chosen) load_saved(row);
 }
 
 /* glucustm: the first playable slot is the player; the others are Computer
@@ -1475,8 +1496,7 @@ static bool wire_single(void) {
 
 /* ── in-level dialogs ───────────────────────────────────────────────────── */
 
-/* Retail rez dialogs over the running world. Their routes follow the button
- * texts; Save, Load and the option sliders are not wired to anything yet. */
+/* Retail rez dialogs over the running world. */
 enum {
     IG_GAME, IG_OPTIONS, IG_SPEED, IG_SOUND, IG_VIDEO, IG_SAVE, IG_LOAD, IG_OBJECTIVES,
     IG_HELP_MENU, IG_HELP, IG_END, IG_RESTART, IG_QUIT_MISSION, IG_QUIT, IG_VICTORY, IG_DEFEAT, IG_SCREENS
@@ -1493,6 +1513,9 @@ static const struct { const char *dialog; int parent; } ingame_dialogs[IG_SCREEN
 };
 static screen_t ingame_screens[IG_SCREENS];
 static char help_text[8192];
+static int saved_speed, saved_volume;
+static char pending_save[1200], pending_name[33];
+static void save_refresh(menu_t *menu);
 
 static int ingame_index(const menu_t *menu) {
     for(int i=0;i<IG_SCREENS;i++)if(menu==&ingame_screens[i].menu)return i;
@@ -1501,12 +1524,29 @@ static int ingame_index(const menu_t *menu) {
 static void show_ingame(int index) {
     screen_t *screen=&ingame_screens[index];
     if(!screen->menu.numitems){M_ClearMenus();return;}
+    if(index==IG_SPEED) {
+        saved_speed=game_speed;
+        menuitem_t *slider=M_MenuFind(&screen->menu,1);
+        slider->range.min=10; slider->range.max=200; slider->value=game_speed;
+        slider->enabled=!netgame;
+    } else if(index==IG_SOUND) {
+        saved_volume=snd_volume;
+        menuitem_t *slider=M_MenuFind(&screen->menu,2);
+        slider->range.min=0; slider->range.max=10; slider->value=(snd_volume+5)/10;
+    } else if(index==IG_SAVE||index==IG_LOAD) {
+        fill_saves();
+        menuitem_t *list=M_MenuFind(&screen->menu,1);
+        list->value=save_count?0:-1;
+        if(index==IG_SAVE)M_MenuFind(&screen->menu,2)->text[0]=0;
+    }
     screen->menu.app=hud.app?hud.app:front.app;
     if(screen->menu.refresh)screen->menu.refresh(&screen->menu);
     M_SetupNextMenu(&screen->menu);
 }
 static void ingame_escape(menu_t *menu) {
     int index=ingame_index(menu);
+    if(index==IG_SPEED)D_SetGameSpeed(saved_speed);
+    if(index==IG_SOUND)S_SetVolume(saved_volume);
     if(index==IG_VICTORY||index==IG_DEFEAT)return; /* the outcome is decided */
     if(index<0||ingame_dialogs[index].parent<0)M_ClearMenus();
     else show_ingame(ingame_dialogs[index].parent);
@@ -1535,14 +1575,46 @@ static void note_paths(void) {
         snprintf(restart_path,sizeof(restart_path),"%s",install?install:path);
     }
 }
+static bool valid_save_name(const char *name) {
+    if(!*name)return false;
+    for(const unsigned char *p=(const unsigned char *)name;*p;p++)
+        if(!((*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||(*p>='0'&&*p<='9')||
+             *p==' '||*p=='_'||*p=='-'))return false;
+    return true;
+}
+static void commit_save(void) {
+    snprintf(g_savename,sizeof(g_savename),"%s",pending_name);
+    snprintf(g_savefile,sizeof(g_savefile),"%s",pending_save);
+    M_ClearMenus();
+}
+static void delete_ingame_save(void) {
+    menu_t *menu=&ingame_screens[IG_SAVE].menu;
+    int row=M_MenuFind(menu,1)->value;
+    if(row<0||row>=save_count)return;
+    if(remove(saves[row].path))M_StartMessage("The saved game could not be deleted.");
+    fill_saves();
+    M_MenuFind(menu,1)->value=save_count?0:-1;
+    save_refresh(menu);
+}
 static void ingame_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
-    if(action!=MA_ACTIVATE)return;
     int index=ingame_index(menu),id=item->id;
+    if(action==MA_CHANGE && item->kind==MI_SLIDER) {
+        if(index==IG_SPEED && id==1 && !netgame)D_SetGameSpeed(item->value);
+        if(index==IG_SOUND && id==2)S_SetVolume(item->value*10);
+        return;
+    }
+    if(action==MA_CHANGE && index==IG_SAVE && id==1 && item->value>=0 && item->value<save_count) {
+        snprintf(M_MenuFind(menu,2)->text,sizeof(M_MenuFind(menu,2)->text),"%.24s",saves[item->value].name);
+        return;
+    }
+    if(action!=MA_ACTIVATE)return;
     switch(index) {
     case IG_GAME:
         if(id==65533)M_ClearMenus();
-        else if(id==1)show_ingame(IG_SAVE);
-        else if(id==2)show_ingame(IG_LOAD);
+        else if(id==1||id==2) {
+            if(netgame)M_StartMessage("Saved games are available in single-player games.");
+            else show_ingame(id==1?IG_SAVE:IG_LOAD);
+        }
         else if(id==3)show_ingame(IG_OPTIONS);
         else if(id==4)show_ingame(IG_HELP_MENU);
         else if(id==5)show_ingame(IG_OBJECTIVES);
@@ -1553,12 +1625,29 @@ static void ingame_action(menu_t *menu,menuitem_t *item,menuaction_t action) {
         else if(id==65533)show_ingame(IG_GAME);
         return;
     case IG_SPEED: case IG_SOUND: case IG_VIDEO:
-        if(id==65534||id==65533)show_ingame(IG_OPTIONS);
+        if(id==65533){ingame_escape(menu);return;}
+        if(id==65534){
+            if(index==IG_SOUND)gamesettings.sound=(snd_volume+5)/10;
+            if(index!=IG_VIDEO)D_SaveSettings(game_speed);
+            show_ingame(IG_OPTIONS);
+        }
         return;
     case IG_SAVE: case IG_LOAD:
         if(id==65533)show_ingame(IG_GAME);
-        else if(id==65534||id==3)M_StartMessage(index==IG_SAVE?"Saving games is not available yet.":
-                                                "Loading saved games is not available yet.");
+        else if(id==3 && index==IG_SAVE)ask("Delete this saved game?",delete_ingame_save);
+        else if(id==65534||id==1) {
+            if(netgame){M_StartMessage("Saved games are available in single-player games.");return;}
+            if(index==IG_LOAD)load_saved(M_MenuFind(menu,1)->value);
+            else {
+                const char *name=M_MenuFind(menu,2)->text;
+                if(!valid_save_name(name)){M_StartMessage("Use letters, numbers, spaces, hyphens or underscores.");return;}
+                snprintf(pending_name,sizeof(pending_name),"%.24s",name);
+                M_PathJoin(pending_save,sizeof(pending_save),D_UserDirectory(),M_va("%s.sav",pending_name));
+                FILE *existing=fopen(pending_save,"rb");
+                if(existing){fclose(existing);ask("Replace this saved game?",commit_save);}
+                else commit_save();
+            }
+        }
         return;
     case IG_OBJECTIVES:
         if(id==65533)show_ingame(IG_GAME);
@@ -1627,6 +1716,10 @@ static bool load_ingame(app_t *app) {
     }
     /* Network play and observers are multiplayer only; pause rows are hidden. */
     M_MenuFind(&ingame_screens[IG_OPTIONS].menu,4)->enabled=false;
+    /* These controls have no engine implementation yet. */
+    for(int id=2;id<=3;id++)M_MenuFind(&ingame_screens[IG_SPEED].menu,id)->enabled=false;
+    M_MenuFind(&ingame_screens[IG_SOUND].menu,1)->enabled=false;
+    for(int id=3;id<=6;id++)M_MenuFind(&ingame_screens[IG_SOUND].menu,id)->enabled=false;
     menuitem_t *observe=M_MenuFind(&ingame_screens[IG_QUIT_MISSION].menu,1);
     if(observe)observe->visible=false;
     observe=M_MenuFind(&ingame_screens[IG_DEFEAT].menu,1);
