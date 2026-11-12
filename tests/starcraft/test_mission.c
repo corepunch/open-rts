@@ -647,6 +647,41 @@ int main(void) {
     CHECK(create_shop->owner == 0);
     free(trig); unload(); remove("/tmp/open-rts-sc-create-addon.chk");
 
+    /* Both creation actions leave a directly created add-on neutral. */
+    for (int create_action = 11; create_action <= 44; create_action += 33) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, MT_MACHINE_SHOP - 1);
+        action[26] = create_action; action[27] = 1;
+        CHECK(!write_map("/tmp/open-rts-sc-create-addon.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create-addon.chk", &level));
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t created = P_ListMobjs();
+        bool neutral_shop = false;
+        for (int i = 0; i < created.count; i++)
+            if (created.items[i]->type_id == MT_MACHINE_SHOP && created.items[i]->owner == 11)
+                neutral_shop = true;
+        CHECK(neutral_shop);
+        P_FreeMobjList(&created); free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-create-addon.chk");
+    /* UPRP owner currently overrides the neutral default for action 11. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 64); put_u32(action + 20, 1); put_u16(action + 24, MT_MACHINE_SHOP - 1);
+    action[26] = 11; action[27] = 1; action[28] = 28;
+    CHECK(!write_map("/tmp/open-rts-sc-create-addon.chk", owners, trig));
+    cuwp_file = fopen("/tmp/open-rts-sc-create-addon.chk", "ab"); CHECK(cuwp_file);
+    memset(cuwp, 0, sizeof(cuwp)); put_u16(cuwp + 2, 1); cuwp[4] = 1;
+    CHECK(fwrite(cuwp_header, 1, sizeof(cuwp_header), cuwp_file) == sizeof(cuwp_header));
+    CHECK(fwrite(cuwp, 1, sizeof(cuwp), cuwp_file) == sizeof(cuwp)); CHECK(!fclose(cuwp_file));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-create-addon.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    mobjlist_t owner_shop = P_ListMobjs(); bool owner_found = false;
+    for (int i = 0; i < owner_shop.count; i++)
+        if (owner_shop.items[i]->type_id == MT_MACHINE_SHOP && owner_shop.items[i]->owner == 1)
+            owner_found = true;
+    CHECK(owner_found);
+    P_FreeMobjList(&owner_shop); free(trig); unload(); remove("/tmp/open-rts-sc-create-addon.chk");
+
     /* Remove Unit includes hallucinations and has no 256-unit truncation. */
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

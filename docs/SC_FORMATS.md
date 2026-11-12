@@ -131,6 +131,12 @@ resource-depot spacing, refinery/geyser handling and unit collision. The shared
 `P_CanPlaceBuilding` construction check does not reproduce all of those
 rules, so replacing trigger placement with it would change valid creation
 cases. Native snapping, boundary handling and placement rejection remain open.
+OpenBW `trigger_create_unit` also assigns directly created add-ons to neutral
+owner 11. Both Create Unit actions use this default here; the action 11
+case is inferred from the shared creation path because OpenBW does not
+implement that action. An action 11 UPRP owner property currently overrides
+the neutral default; its native precedence remains unverified. Fixtures check
+both defaults and the current property override.
 A regression checks successful relocation and a
 blocked destination. The building's own footprint is temporarily excluded
 from placement checks while authored terrain and other objects remain blocked;

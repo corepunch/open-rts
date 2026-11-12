@@ -549,7 +549,8 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
                 amount = value > INT_MAX ? INT_MAX : (int)value;
             }
         }
-        mobj_t *mo = sc_spawn_actor(unit, pixel, resource ? 11 : (uint8_t)players[i]);
+        mobj_t *mo = sc_spawn_actor(unit, pixel,
+                                    resource || sc_addon_parent(unit + 1) ? 11 : (uint8_t)players[i]);
         if (mo && (resource || refinery) && !sc_add_resource_vent(mo, amount)) {
             P_RemoveMobj(mo);
             continue;
