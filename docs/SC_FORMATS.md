@@ -123,6 +123,14 @@ when a building is created. Create Unit now applies the shared rule when its
 spawned building is footprint-aligned; a Factory and neutral Machine Shop
 fixture exercises it. Trigger creation still uses the existing approximate
 placement, so off-grid spawned buildings do not attempt reconnection.
+OpenBW `trigger_create_unit` first clamps the unit's native collision bounds,
+snaps the building's placement top-left to 32-pixel tiles, then invokes
+`can_place_building` with the trigger owner and flags `(true, false)` before
+spawning. Its placement check includes owner visibility, creep and psi,
+resource-depot spacing, refinery/geyser handling and unit collision. The shared
+`P_CanPlaceBuilding` construction check does not reproduce all of those
+rules, so replacing trigger placement with it would change valid creation
+cases. Native snapping, boundary handling and placement rejection remain open.
 A regression checks successful relocation and a
 blocked destination. The building's own footprint is temporarily excluded
 from placement checks while authored terrain and other objects remain blocked;
