@@ -336,9 +336,12 @@ void A_PyroRecover(mobj_t *unit) {
         unit->core.tics = ((16 + 1) * RTS_TICRATE + Z_NATIVE_HZ - 1) / Z_NATIVE_HZ;
 }
 
-void A_PyroToss(mobj_t *unit) {
-    if (throws_at(unit, unit->attack.target) && P_Attack(unit))
-        unit->attack.cooldown_left_ms = 4 * 1000 / Z_NATIVE_HZ;
+void A_ZToss(mobj_t *unit) {
+    if (!throws_at(unit, unit->attack.target)) return;
+    int grenades = unit->z.grenades;
+    if (!P_Attack(unit) || unit->z.grenades == grenades) return;
+    int steps = (unit->info->attack.cooldown_ms * Z_NATIVE_HZ + 999) / 1000;
+    unit->attack.cooldown_left_ms = 2 * steps * 1000 / Z_NATIVE_HZ;
 }
 
 /* Forts are taken from inside, never shot (p_fort.c). */

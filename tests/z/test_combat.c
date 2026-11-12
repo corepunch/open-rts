@@ -152,6 +152,45 @@ static int test_pyro_cadence(void) {
     return 0;
 }
 
+static int test_grenade_cooldown(void) {
+    static const struct { int type, target; } cases[] = {
+        {MT_UNIT_GRUNT, MT_UNIT_JEEP}, {MT_UNIT_LASER, MT_ROBOT_FACTORY},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load for grenade cooldown");
+        fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+        mobj_t *robot = blast_unit(cases[i].type, 0, at, 500);
+        mobj_t *target = blast_unit(cases[i].target, 1, pixel_at(at, 32, 0), 500);
+        if (!robot || !target) return fail("spawn grenade cooldown fixture");
+        robot->z.grenades = 1;
+        robot->attack.target = target;
+        P_UpdateSight();
+        for (int t = 0; t < RTS_TICRATE && robot->z.grenades; ++t)
+            if (!tick(model, 1)) return fail("tick grenade throw");
+        if (robot->z.grenades || robot->attack.cooldown_left_ms != 40 * 1000 / Z_NATIVE_HZ - RTS_TICK_MS)
+            return fail("Grunt and Laser grenade throws use doubled native fire delay");
+        rts_game_model_destroy(model);
+    }
+    RtsGameModel *model = load();
+    if (!model) return fail("load for changed grenade target");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *robot = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    mobj_t *vehicle = blast_unit(MT_UNIT_JEEP, 1, pixel_at(at, 32, 0), 500);
+    mobj_t *infantry = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 500);
+    if (!robot || !vehicle || !infantry) return fail("spawn changed grenade target fixture");
+    robot->z.grenades = 1;
+    robot->attack.target = vehicle;
+    vehicle->traits |= MF_NOBLOCKMAP; /* Target became invalid during the throw. */
+    P_UpdateSight();
+    A_ZToss(robot);
+    if (robot->z.grenades != 1 || robot->attack.target != infantry || infantry->hp >= 500 ||
+        robot->attack.cooldown_left_ms != 20 * 1000 / Z_NATIVE_HZ)
+        return fail("retargeted rifle shot keeps ordinary cooldown and grenade");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_shell_blast(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell blast");
@@ -469,7 +508,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

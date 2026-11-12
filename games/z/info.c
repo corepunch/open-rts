@@ -28,7 +28,7 @@ const char *const sprnames[NUMSPRITES] = {
     [S_##type##_DIE] = { SPR_##type, die, dies, 3, NULL, S_##type##_DEAD, 4, NULL }, \
     [S_##type##_DEAD] = { SPR_##type, dead, 1, dead_tics, NULL, S_NULL, 4, NULL }, \
     [S_##type##_THROW] = { SPR_##type, throw, throws, 2, NULL, S_##type##_TOSS, 3, NULL }, \
-    [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, MT_UNIT_##type == MT_UNIT_PYRO ? A_PyroToss : A_Attack, S_##type##_STND, 3, NULL }, \
+    [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, A_ZToss, S_##type##_STND, 3, NULL }, \
     [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL },
 /* Robots walk, aim, flash on the last fire frame and blow apart; nothing
  * of them stays once the last sparks fade. A grenade leaves on the

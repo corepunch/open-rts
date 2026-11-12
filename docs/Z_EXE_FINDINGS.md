@@ -2802,8 +2802,10 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   `0x76098`; its drawing record at `0x14b210` specifies base sprite 6022
   with three pictures per facing. The shot displays frame 2, and the cycle
   resets to frame 0 before its recovery wait. Dedicated Pyro shot/recovery states now advance
-  the existing saved and hashed shot counter at recovery entry; their
-  grenade action preserves it and sets the four-step cooldown. With the
+  the existing saved and hashed shot counter at recovery entry; the shared
+  robot grenade action preserves it and sets twice the firing delay, four
+  native steps for Pyro and 40 for Grunt or Laser. `test_combat` exercises
+  each through normal targeting and throw animation. With the
   engine's 30 Hz tic quantization, a stationary test observes firing gaps
   of 2, 2, 2 and 9 tics. The separately traced 70 Hz animation does not map
   exactly to 30 Hz, and projectile and flame area remain unported. The prior

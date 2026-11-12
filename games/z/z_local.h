@@ -171,7 +171,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 void Z_MobjTicker(mobj_t *mo);
 void A_PyroFlame(mobj_t *mo);
 void A_PyroRecover(mobj_t *mo);
-void A_PyroToss(mobj_t *mo);
+void A_ZToss(mobj_t *mo);
 void Z_ServiceTick(mobj_t *unit);
 bool Z_ServiceOrder(mobj_t *unit, const mobj_t *target, fixed2_t goal);
 bool Z_ServiceApproach(const mobj_t *unit, const mobj_t *target, fixed2_t *goal);
