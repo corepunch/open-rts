@@ -300,7 +300,8 @@ static int test_specialist_bullets(void) {
         ivec2_t start = ivec2_add(Z_AITopLeft(shooter), (ivec2_t){2,2});
         if (!P_Attack(shooter)) return fail("specialist fires at infantry");
         mobj_t *bullet = nth(MT_BULLET, 0, 0);
-        if (!bullet || bullet->z.water.speed != 15 || bullet->z.water.range != cases[i].range ||
+        if (!bullet || !!(bullet->traits & MF_RENDERABLE) != (cases[i].type != MT_UNIT_LASER) ||
+            bullet->z.water.speed != 15 || bullet->z.water.range != cases[i].range ||
             bullet->missile.damage != cases[i].damage || !ivec2_equal(bullet->z.water.start, start) || target->hp != 500)
             return fail("specialist bullet keeps native muzzle, speed, range and damage");
         shooter->traits &= ~MF_ATTACK;
@@ -312,7 +313,8 @@ static int test_specialist_bullets(void) {
             !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud)) return fail("save specialist bullet");
         free(save);
         bullet = P_MobjById(bullet_id); target = P_MobjById(target_id); shooter = P_MobjById(shooter_id);
-        if (!bullet || !target || !shooter || bullet->z.water.range != cases[i].range || bullet->missile.damage != cases[i].damage)
+        if (!bullet || !target || !shooter || !!(bullet->traits & MF_RENDERABLE) != (cases[i].type != MT_UNIT_LASER) ||
+            bullet->z.water.range != cases[i].range || bullet->missile.damage != cases[i].damage)
             return fail("restore specialist bullet range and damage");
         for (int n = 0; n < 8 && P_MobjById(bullet_id); ++n)
             if (!tick(model, 1)) return fail("tick specialist bullet");
@@ -867,7 +869,7 @@ static int test_apc_bullet_salvo(void) {
         if (drivers[d] == MT_UNIT_LASER) start = ivec2_sub(start, (ivec2_t){7,7});
         for (int i = 0; i < 3; ++i) {
             mobj_t *bullet = nth(MT_BULLET, 0, i);
-            if (!bullet || !ivec2_equal(bullet->z.water.start, start) || bullet->z.water.speed != 15 ||
+        if (!bullet || !ivec2_equal(bullet->z.water.start, start) || bullet->z.water.speed != 15 ||
                 bullet->z.water.range != ranges[d] || bullet->missile.damage != damages[d])
                 return fail("APC salvo uses driver stats and native port");
         }

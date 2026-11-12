@@ -3563,7 +3563,7 @@ speed bytes, run `for n in 2 4 7 11 13 18; do od -An -tu1 -j
 $((0x55f0+n*42+35)) -N 1 data/Z/ROBOTS.DAT; done`.
 
 **Implemented subset:** Grunt, Sniper, Psycho and Laser fire against units launch an ordinary
-invisible `MT_BULLET` thinker. It snapshots the aim, uses the 15-pixel
+`MT_BULLET` thinker. It snapshots the aim, uses the 15-pixel
 Bresenham step, the shooter's 120/144/120/136-pixel range and launch-height comparison, tests represented
 enemy units using the nine native bin offsets and 8/16-pixel rectangles, and
 performs the two endpoint checks. It shares the saved and hashed trajectory
@@ -3576,12 +3576,12 @@ bit and 100-record map-object interactions. It applies the existing
 deterministic combat RNG to one launch-time tracked-aim sample, rather than
 the native cached aim and its additional 0x773bd scatter; impact after the
 source has been removed uses the recorded damage with a simplified armor
-fallback. Bullet drawing, exact
+fallback. Laser drawing, exact
 unit-slot and cross-projectile update order remain unimplemented.
 Sniper and Psycho use the same `0x77364..0x773cd` firing path as Grunt;
 Laser's `0x77542..0x77577` also adds (2,2), scatters and calls `0x5af81`,
-with additional visual flags. The engine uses the same invisible projectile
-for all four; Laser's native drawing is not implemented. `test_combat`
+with additional visual flags. The engine draws the normal tracer for the
+first three; Laser's native drawing is not implemented. `test_combat`
 checks each specialist's muzzle, speed, damage and range, real thinker flight,
 and save/load before impact. Inspect with `r2 -q -e bin.cache=true -c
 'pd 45 @ 0x77364' -c 'pd 45 @ 0x77512' -c q data/Z/ZED.EXE`.
@@ -3592,7 +3592,7 @@ selected by `0x64227`. The engine uses that eight-entry pivot and the
 existing fixed-gun tracked-aim scatter, 15-pixel speed, 120-pixel range and
 6 damage. `test_combat` checks all eight muzzle origins, normal attack
 dispatch, saved flight and a target hit by both native endpoint checks.
-Its invisible tracer and the same slot, terrain and RNG approximations
+The same slot, terrain and RNG approximations
 described above remain. Inspect with `r2 -q -e bin.cache=true -c 'pd 105 @
 0x783d7' -c 'pd 14 @ 0x64227' -c q data/Z/ZED.EXE`.
 
@@ -3605,8 +3605,8 @@ to the vehicle origin. The firing path scatters the aim at `0x58d87`, calls
 engine implements those offsets, 15-pixel speed and 4 damage using the same
 ordinary bullet thinker. `test_combat` verifies all 64 hull/weapon facing
 combinations, normal attack dispatch, saved flight, and impact after source
-removal. Its moving-target prediction, input-mode aim, native RNG, tracer,
-native slot order, terrain-table gate and chain effects remain approximate
+removal. Its moving-target prediction, input-mode aim, native RNG,
+native slot order and chain effects remain approximate
 or unimplemented as described above. Inspect with `r2 -q -e bin.cache=true
 -c 'pd 45 @ 0x58bc5' -c 'pd 85 @ 0x58d20' -c 'pd 30 @ 0x59116' -c
 'px 16 @ 0x14b484' -c 'pxh 32 @ 0x148b60' -c q data/Z/ZED.EXE`.
@@ -4656,6 +4656,21 @@ collision ordering. Reproduce with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 45 @ 0x5abad' -c 'pd 30 @ 0x5ac67'
 -c 'px 128 @ 0x11662f' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
+
+**Ordinary bullet tracer:** `0x5ab34..0x5ab3d` constructs palette index
+`0x17 + 16 * (bullet +4 high nibble)` and calls the function pointer at
+`0x104378`, whose initialized target is `0x81aba`. That VGA routine draws
+four pixels at the bullet position as `(index+3, index; index, index-3)`.
+The engine builds this native 2x2 indexed picture directly, using its
+existing team palette translations, and draws it with the bullet mobj.
+`test_units` checks the indices and palette mappings; `test_combat` checks
+ordinary bullets are renderable across save/load. The separate Laser path
+at `0x5ab44..0x5abac` uses sprites 1364 and 1365 with a continuous angle;
+it remains invisible until that drawing path is reproduced. Simulation and
+render frame timing still differ from the 70 Hz native pass. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 35 @ 0x5ab04'
+-c 'pxw 4 @ 0x104378' -c 'pd 28 @ 0x81aba' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_units build/bin/tests/z/test_combat`.
 
 **Bullet launch height:** `0x5afab` saves the firing unit's +0x10 terrain
 pointer before bullet allocation; `0x5afc5..0x5afd7` reads its masked

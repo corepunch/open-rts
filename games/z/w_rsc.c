@@ -670,6 +670,15 @@ static bool load_turret(const zmap_t *map, const char *name, const uint32_t pale
 static bool load_named(const zmap_t *map, const char *name, const uint32_t palette[256],
                        spritesheet_t *sheet) {
     if (!strcmp(name, sprnames[SPR_RSC])) return load_rsc(map, palette, sheet);
+    if (!strcmp(name, sprnames[SPR_BULLET])) {
+        /* 0x81aba draws this 2x2 indexed tracer using the team's palette run. */
+        static const uint8_t pixels[] = {0x1a, 0x17, 0x17, 0x14};
+        if (!R_AllocSpriteCells(sheet, 1)) return false;
+        uint8_t *copy = malloc(sizeof(pixels));
+        if (!copy) return false;
+        memcpy(copy, pixels, sizeof(pixels));
+        return put_lump(sheet, 0, copy, (isize2_t){2, 2}) && finish_sheet(sheet, palette, (ivec2_t){0, 0});
+    }
     if (!strcmp(name, "ROBOT")) {
         /* Actions 0, 2 and 5 of 0x14b10c, the burst (290..295), the
          * grenade throw (0x6360e: 2522 + direction * 4 + frame) and the

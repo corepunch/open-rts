@@ -46,6 +46,7 @@ typedef enum {
     SPR_FLAG,
     SPR_CRANE_WORK,
     SPR_BRIDGE_REBUILD,
+    SPR_BULLET,
     NUMSPRITES
 } spritenum_t;
 

@@ -764,6 +764,8 @@ static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *tar
     bullet->target = attacker;
     bullet->team = attacker->team;
     bullet->owner = attacker->owner;
+    if (attacker->type_id != MT_UNIT_LASER && !(apc && attacker->z.driver == MT_UNIT_LASER - MT_UNITS + 1))
+        bullet->traits |= MF_RENDERABLE;
     bullet->missile.damage = weapon->damage;
     bullet->z.water.start = start;
     bullet->z.water.direction = (ivec2_t){(delta.x > 0) - (delta.x < 0), (delta.y > 0) - (delta.y < 0)};

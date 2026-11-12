@@ -179,6 +179,15 @@ static int test_vehicle_sheets(void) {
     if (!R_InitSprites("data/Z", &level, NULL, 0, &cache)) return fail("load sprites");
     cachedsprite_t *robot = R_CacheFind(&cache, "ROBOT");
     cachedsprite_t *rsc = R_CacheFind(&cache, "SPRITES.RSC");
+    cachedsprite_t *bullet = R_CacheFind(&cache, "BULLET");
+    static const uint8_t tracer[] = {0x1a, 0x17, 0x17, 0x14};
+    if (!bullet || bullet->sprite.numlumps != 1 || bullet->sprite.cells[0].rect.w != 2 ||
+        bullet->sprite.cells[0].rect.h != 2 || !bullet->sprite.lumps[0].indices ||
+        memcmp(bullet->sprite.lumps[0].indices, tracer, sizeof(tracer)))
+        return fail("bullet tracer uses native indexed 2x2 pixels");
+    for (int team = 1; team < Z_NEUTRAL; ++team)
+        if (bullet->sprite.palette_maps[team - 1].indices[0x17] != 0x17 + 16 * team)
+            return fail("bullet tracer uses native team palette ramp");
     if (!robot || !rsc || robot->sprite.spritedef.numframes != Z_ROBOT_FRAMES)
         return fail("Pyro and native sprite sheets load");
     for (int f = 0; f < Z_ROBOT_PYRO_FRAMES; ++f) {
