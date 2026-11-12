@@ -9,7 +9,6 @@
 enum {
     REACH_FLAG_HOLD = 18,          /* 43 ticks of 70 Hz (0x9cb40) before a flag can turn again. */
     REACH_ENTER = 20,              /* Pixels from a vehicle at which a robot gets in (0x7af62). */
-    REACH_CRATE = Z_TILE,          /* Pixels from a crate at which a robot picks it up (0x79b25). */
     MAX_GRENADES = 127,
     BOARD_RETRY = RTS_TICRATE / 2, /* Tics between walks towards a vehicle that has not been reached. */
 };
@@ -45,6 +44,25 @@ static const struct { uint8_t speed, fire; } body_stats[] = {
 #include "units.inc"
 #undef Z_UNIT
 };
+
+/* 0x1157ea's signed terrain modifiers, divided by ten as at 0x798c3.
+ * Entries 100..112 dispatch terrain interactions and return zero speed term. */
+static void terrain_speed(mobj_t *mo) {
+    static const int8_t levels[67] = {
+        [7] = 2, [8] = -2, [9] = -1, [17] = 2, [22] = -2,
+        [23] = 2, [31] = 9, [39] = -2, [42] = -3, [59] = -2,
+    };
+    const zmap_t *map = level.native_data;
+    int t = Z_UnitType(mo);
+    if (!map || t < 0 || !(mo->traits & MF_MOBILE)) return;
+    ivec2_t pixel = Z_BlastAnchor(mo);
+    if (!Z_IsRobot(t)) pixel = ivec2_sub(pixel, (ivec2_t){8, 8});
+    ivec2_t cell = {pixel.x / Z_TILE, pixel.y / Z_TILE};
+    if (pixel.x < 0 || pixel.y < 0 || !L_Contains(&level, cell.x, cell.y)) return;
+    unsigned terrain = map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x7f;
+    int base = mo->z.body_tracked ? mo->z.body_speed / 10 : body_stats[t].speed / 10;
+    mo->speed = Z_LevelSpeed(base + (terrain < sizeof(levels) ? levels[terrain] : 0));
+}
 
 /* 0x86d55 scales the body's mutable speed byte only when damage crosses a
  * health threshold; a single hit crossing several uses the lowest one. */
@@ -114,6 +132,7 @@ static void store_crew(mobj_t *vehicle, mobj_t *robot) {
         .hp = robot->hp, .robot = robot->z.robot, .type = (uint8_t)Z_UnitType(robot),
         .grenades = robot->z.grenades, .home = robot->z.home, .manufactured = robot->z.manufactured,
     };
+    Z_SquadLeave(robot);
     P_MobjSetSelected(robot, false);
     P_RemoveMobj(robot);
 }
@@ -190,12 +209,13 @@ bool Z_EjectCrew(mobj_t *vehicle) {
         spawned[i] = robot;
         robot->hp = crew.hp - (i == 0 ? vehicle->z.crew_hurt : 0);
         robot->z.robot = crew.robot;
-        robot->z.squad = vehicle->z.squad;
         robot->z.grenades = crew.grenades;
         robot->z.home = crew.home;
         robot->z.manufactured = crew.manufactured;
         Z_SetTeam(robot, team);
+        robot->z.squad = vehicle->z.squad;
     }
+    Z_SquadEjected(spawned, count);
     vehicle->z.crew_count = vehicle->z.driver = vehicle->z.squad = vehicle->z.crew_hurt = 0;
     vehicle->traits &= ~(MF_MOBILE | MF_ATTACK);
     vehicle->attack.target = NULL;
@@ -258,6 +278,18 @@ static bool crate(const mobj_t *mo) {
     return live(mo) && (mo->type_id == MT_GRENADES || mo->type_id == MT_GRENADES_2);
 }
 
+/* 0x79b25 compares native top-left coordinates, strictly within 16 pixels
+ * on each axis. The object mobj is stored at its sprite centre. */
+static bool reaches_crate(const mobj_t *robot, const mobj_t *box) {
+    const zmap_t *map = level.native_data;
+    isize2_t size;
+    if (!map || !Z_SpriteSize(map, states[mobjinfo[box->type_id].spawnstate].frame, &size)) return false;
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(box->core.position), FIXED_FROM_INT(Z_TILE)));
+    ivec2_t origin = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+    ivec2_t delta = ivec2_sub(Z_AITopLeft(robot), origin);
+    return delta.x > -Z_TILE && delta.x < Z_TILE && delta.y > -Z_TILE && delta.y < Z_TILE;
+}
+
 /* 0x75939: a robot with grenades throws them at vehicles and guns (a Laser
  * keeps its laser for those) and at buildings, which nothing else it
  * carries can hurt (0x753bb). */
@@ -280,6 +312,8 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 /* A robot about to fire that will throw instead plays the throw. */
 void Z_MobjTicker(mobj_t *mo) {
     if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD) return;
+    Z_RouteTick(mo);
+    terrain_speed(mo);
     if (mo->core.state_id == S_BRIDGE_REBUILD) {
         Z_BridgeEffectTick(mo);
         return;
@@ -502,7 +536,7 @@ void Z_Ticker(void) {
         if (carries_grenades(t)) {
             for (thinker_t *c = thinkercap.next; c != &thinkercap; c = c->next) {
                 mobj_t *box = (mobj_t *)c;
-                if (c->function == P_MobjThinker && crate(box) && within(mo, box, REACH_CRATE) &&
+                if (c->function == P_MobjThinker && crate(box) && reaches_crate(mo, box) &&
                     pick_up(mo, box)) break;
             }
         }

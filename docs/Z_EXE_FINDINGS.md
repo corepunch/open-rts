@@ -2445,6 +2445,189 @@ The debris pictures themselves are not drawn. Reproduce via
 slot contention, descriptor overwrite, projection bounds and saved state;
 `test_commander` exercises the crane path.
 
+### Moving-unit object search (2026-11-12)
+
+**Confirmed** in `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+action-table entry 2 at `0x149040` points to `0x7a9e4`, the movement handler
+that advances unit position at `0x7aa61..0x7aaa2`. On action 2, with unit
+byte +0x5b zero, its `0x7ab0c..0x7ab36` branch searches for an object via
+`0x78fed` on nonzero `0x10e91b`, checks `2*DL <= unit[+4]`, calls the
+`0x78bfb` guard and dispatches the selected record to `0x61022`. That global
+is a parity byte: initialized to zero at `0x4f0f0`, complemented each step
+at `0x19e72`; it is not a user preference or 0.5-second timer. The +4 field
+is twice the weapon range in eight-pixel units (see unit-stat findings below).
+
+The search uses direction-indexed region and sector tables (`0x78fff`,
+`0x79174`, `0x791cd`), the object's +0x13 team visibility mask, signed
+coordinate deltas shifted by three, and SQROOT.BIN to rank candidates;
+`0x6e491` checks the terrain line between the unit and object. Selection
+precedes the type/eligibility dispatch in `0x61022`; its sprite 0x1e0 branch
+is the invisible flag marker (`0x61293`), and other accepted records enter
+the separate interaction branches. Eligible interactions reserve unit/object
+flags, set the interaction target and temporarily change movement speed
+modifier +0x89 to 3 (`0x61259..0x612c6`). The marker branch invokes
+`0x7ba9a` without replacing the existing waypoint-chain pointer at unit +0x14;
+on capture, `0x79e91` starts the robot's cheer and `0x79e96..0x79ec7`
+clears the marker reservation and interaction target, then clears the route
+only when unit +0x5c is not 0xff. Independent tracing identifies 0xff as
+squad leader, 1..20 as follower slot and 0 as ungrouped. Cheer action 0x21
+ends through `0x62adb` and `0x79049`; the latter resumes an existing path
+only under the signed +0x5a condition. A leader's `0x7d053` copies group
+command +0x3a through `0x772bf` into +0x5a. The exact sign lifecycle and
+continuation for every other object type remain **unknown**.
+
+This confirms an opportunistic movement-time object search, but does not
+establish equivalence to Zod `CheckOpportunisticGrab`: that fork scans every
+0.5 seconds, combines separate flag, vehicle and grenade lists and applies
+its own eligibility rules. The native direction cones, object reservation,
+line-of-sight gates and continuation must be preserved before implementing a
+retail detour. Reproduce with `r2 -q -e bin.cache=true -c 'pxw 12 @
+0x149038' -c 'pd 45 @ 0x7aaf2' -c 'pd 55 @ 0x791cd' -c 'pd 75 @ 0x61022'
+-c 'pd 25 @ 0x61293' -c 'pd 15 @ 0x19e4b' -c q data/Z/ZED.EXE`.
+
+Additional **confirmed** selection details: `0x2a9fb..0x2aa3e` allocates an
+invisible object type 28 at the flag's native cell origin. `0x2aa44..0x2aa75`
+sets its +0x13 team mask to the complement of `1 << territory owner`, so
+the owner's own search excludes its marker. This is distinct from the drawn
+flag; the current visible `MT_FLAG` alone is not that native object record.
+The direction predicates at `0x79275..0x7931f` select north/east/south/west
+45-degree cones and the intervening diagonal quadrants, with signed boundary
+tests. `0x791cd..0x79272` performs the visibility and cone tests first, ranks
+signed pixel differences shifted by three using SQROOT.BIN, and accepts an
+equal rank later in the sector list. It tests line of sight before replacing
+the candidate. `0x6e491` rejects a target on nonzero terrain height from the
+table at `0x11714b`; `0x6e5b7..0x6e61f` steps a 3-D line and rejects
+any intervening cell whose terrain height exceeds the line height. The source
+height lookup uses the unit's native terrain cell; `0x6e928` obtains the line
+start from native position +8, adding another 8 for unit class 1. This is not
+the blocked-cell test used by pathfinding. `0x7ba32` sets the temporary speed
+modifier to 2 and each successful interaction increments it to 3. The
+vehicle/crate path `0x61337` through `0x612da..0x61336` prepends a route node, unlike the direct
+flag correction. On release, `0x7b1c7` clears both reservation bits and sets
+object +0x1f to 85; `0x4a677` decrements this timer to zero, and the flag
+branch refuses a nonzero timer. This is separate from territory lockout.
+Reproduce with `r2 -q -e bin.cache=true -c 'pd 45 @ 0x2a9fb'
+-c 'pd 95 @ 0x791cd' -c 'pd 100 @ 0x6e491' -c 'pd 40 @ 0x6131a'
+-c 'pd 5 @ 0x7ba32' -c 'pd 6 @ 0x7b1c7' -c 'pd 8 @ 0x4a677'
+-c q data/Z/ZED.EXE`.
+
+`0x79174` concatenates the object IDs in nine direction-dependent sectors,
+not global object order. The signed word offsets are eight rows of nine at
+`0x1047ca`; the sector number is `(x >> 7) + 16 * (y >> 7)`, and each
+sector has a 32-byte list and count at `0x1c4b34` / `0x1c6b34`. Native object
+allocation `0x4a5d7` reuses the first free one of 200 records. `0x4abc4`
+rebuilds the sector lists by scanning those records in ascending native slot
+order, appending no more than 32 objects per sector. At `0x4a354`,
+ordinary object types start with visibility mask 1, types 9 and 10 use 0xf,
+and types 11, 12 and 17 use zero; special vehicle classes have their own
+initialization. Therefore iterating every world mobj as visible would not
+preserve the native candidate set or equal-distance ordering. In particular,
+the engine currently uses `SIGHT_OPEN`, which is not by itself evidence that
+the original object's separate search mask may be discarded. Reproduce with
+`r2 -q -e bin.cache=true -c 'pd 40 @ 0x79174' -c 'px 144 @ 0x1047ca'
+-c 'pd 85 @ 0x4a354' -c 'pd 15 @ 0x4a5d7' -c 'pd 30 @ 0x4abc4'
+-c q data/Z/ZED.EXE`.
+`0x603d8` rebuilds those lists before the unit pass at `0x6040c`. The
+leader-only guard at `0x78bfb` invokes `0x64473`, which for group command
++0x3a equal to 1 resolves an object at the group's +0x2c/+0x2e destination,
+or a flag there via `0x2aa76`; its result and unit +0x99 control whether the
+selected object may divert the leader. This is a separate gate after candidate
+selection, not merely a group-membership check.
+For continuation, `0x7d053..0x7d09d` copies the group's positive command and
+destination into the leader's +0x5a/+0x50..+0x54; `0x7c780` and `0x7c949`
+negate +0x5a after particular command dispatches. On reaching a movement
+destination with no interaction in progress, `0x7ae93..0x7aea8` negates
+the special value -5 back to 5 only when no path node remains and +0x31 bit
+0x20 is clear. Other negative commands enter the branches at `0x790a2` after
+the cheer. These observations constrain the signed lifecycle but do not yet
+prove a complete mapping for every command or failed path.
+
+**Confirmed and implemented:** crate collection at `0x79b25..0x79b9e` scans
+objects and tests `abs(unit.x-object.x) < 16` and `abs(unit.y-object.y) < 16`
+for eligible robot classes, using native sprite origins rather than sprite
+centres. Thus an offset of (15,15) is accepted and either axis at 16 is not.
+`games/z/p_capture.c` uses the native robot and crate origins and this strict
+square; the focused `env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_capture`
+covers all four exclusive boundaries, the diagonal corner and existing squad
+sharing. The current engine still invokes collection from its per-tic robot
+pass; this does not establish exact native terrain-dispatch timing.
+
+### Native squad leadership
+
+**Confirmed**, DOS `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+`0x77fd6..0x78079` attaches a unit to a 72-byte group at
+`0x1943f8 + 0x48 * unit[+0x5d]`. Group +0x12 counts members; +0x13
+stores the leader unit index and +0x14 onward holds follower indices.
+The first member receives unit +0x5c = 0xff; later members receive their
+slot number 1..20. Zero means no group. The removal path
+`0x77821..0x77870` clears the departing member's slot and decrements the
+count. When the removed unit was leader and members remain, `0x77b97`
+scans the follower slots in ascending order, promotes the first non-0xff
+entry to group +0x13, sets its unit +0x5c to 0xff and transfers the former
+leader's path pointer +0x14 and unit bytes +0x5a/+0x5f and words
++0x50/+0x52/+0x54. `0x77c61` also updates references to the old leader.
+This establishes native first-survivor promotion, but not the semantics of
+every transferred order field or the complete movement formation policy.
+Zod's leader-held grenade transfer remains distinct from the native
+member distribution traced at `0x79bea`. Reproduce with
+`r2 -q -e bin.cache=true -c 'pd 45 @ 0x77fd6' -c 'pd 50 @ 0x77821'
+-c 'pd 50 @ 0x77b97' -c q data/Z/ZED.EXE`.
+
+**Additional confirmed field uses:** when +0x50 equals `0xd80`,
+`0x756b7..0x756d5` compares +0x52/+0x54 to the unit's +0x2c/+0x2e
+position as coordinates. The different `0x7bf4e` path instead tests
++0x54 for 2 and passes +0x50/+0x52 as coordinates. These words are
+state-dependent; they cannot all be given one universal coordinate meaning.
+Reproduce with `r2 -q -e bin.cache=true -c 'pd 50 @ 0x756a1' -c
+'pd 25 @ 0x7bf4e' -c q data/Z/ZED.EXE`.
+
+The current implementation stores a group ID and native-style slot on each
+member, promotes the lowest live slot on death, boarding or team departure,
+and replans the transferred movement goal from the new leader's position.
+It replaces the survivor's old movement, boarding and service work and
+transfers the engine route and attack target. This translates the observed
+promotion into existing engine orders; exact retail state-field mapping,
+boarding continuation and follower formation movement remain **unknown**.
+`SDL_VIDEODRIVER=dummy build/bin/tests/z/test_squad` exercises selection,
+slot promotion, route transfer, stale work cleanup, lethal damage, ownership
+change, crew slot normalization, a save/load checksum round trip and travel
+after load; it does not establish exact retail formation behavior.
+When the new leader cannot replan, shared navigation discards the old follower
+path and the old leader's path is not copied. No retry timing is inferred;
+the blocked-promotion case is covered by the same test.
+
+**Follower formation confirmed, dispatch incomplete:** `0x506c2` copies byte
++1 of the ROBOTS.DAT 82-byte group record into group +8 and +0x3c.
+Startup `0x77f62..0x77fd5` converts five 15-by-15 grids beginning at
+`0xe63d4` (225 bytes each) into five 20-pair tables at `0x1582a0`, using
+signed grid positions −7..7 shifted left by the five values at `0x14aa75`
+(all 4 in this executable). Missing numbered cells leave zero entries.
+`0x78e21` uses positive unit +0x5c minus one as a table index, group +8
+plus one as the pointer-table index at `0xe63bc`, rotates its signed pair
+using native trig scaled by 1024 (`0x642ec`), and adds the leader's
++0x2c/+0x2e position. It refuses ordinary following without group +9 bit 0.
+`0x78d7d` calls it and uses a 32-pixel squared-distance boundary at
+`0x78df3`; `0x7aefb` temporarily sets the group bit to calculate a rejoin
+target. `0x7815e` temporarily sets the bit while refreshing each follower,
+called when group +0x3f counts down to zero at `0x60517`. Leader movement
+sets the group bit at `0x7bb24` and `0x7aabe` when group +0x3f is zero;
+the leader's `0x7ae44..0x7ae6a` path clears it. The complete unit-state
+gates, other enable/disable transitions, and individual-order interaction
+remain **unknown**. Do not substitute Zod's replan cadence or
+force a follower away from a player order based on this partial trace.
+The player-order path `0x47aec..0x47b52` writes the selected unit's +0x5a
+and, whenever its +0x5c is nonzero, also writes the command and operands
+to group +0x3a/+0x2c/+0x2e/+0x30; `0x7d053` copies those group fields to
+the leader. Group rotation `0x61eed` transforms the eight-way result of
+`0x5a648` into 0..1023 in steps of 128, clearing each member's +0x31 bit
+0x80 when the direction changes. This confirms group propagation on that
+path, not every possible individual-order exception.
+Inspect with `r2 -q -e bin.cache=true -c 'px 1125 @ 0xe63d4' -c
+'pd 45 @ 0x77f62' -c 'pd 90 @ 0x78e21' -c 'pd 60 @ 0x78d7d' -c
+'pd 35 @ 0x7aec2' -c q data/Z/ZED.EXE`.
+
 ### Movement modifier investigation
 
 **Confirmed instruction behavior**, `ZED.EXE` SHA-256
@@ -2460,8 +2643,39 @@ to 2 and increment it while scheduling an object or flag interaction.
 state. Reproduce with `r2 -q -e bin.cache=true -c 'pd 65 @ 0x79882' -c
 'pd 20 @ 0x7ba2a' -c 'pd 45 @ 0x7c58c' -c q data/Z/ZED.EXE`.
 
-**Unknown:** the precise semantics, duration and all entry conditions for
-these modifiers and the identity of the +0x3d field. They do not establish
+`0x796cc..0x796f1` samples the native terrain byte at unit top-left +8,+8,
+masks off bit 7 and indexes the signed table at `0x1157ea`. Fixed entries
+are +20 for terrain 7, 17, 23; -20 for 8, 22, 39, 59; -10 for 9; -30
+for 42; +90 for 31; other ordinary entries are zero. Values 100..112
+dispatch interactions at `0x14ad18` and return a zero terrain term. The
+two signed divisions at `0x798c3..0x798cf` occur separately before addition,
+so e.g. body speed 39 and terrain -20 give level 1. `Z_MobjTicker` now
+applies these independent terrain terms and clamps through `Z_LevelSpeed`;
+vehicle body degradation uses its mutable speed byte. Other conditional
+movement terms described here remain unmodeled. `test_terrain_speed` checks
+positive/negative terrain, high-bit masking, clamp, interaction terrain,
+vehicle damage, and return to plain ground. The shared movement engine uses
+average speeds, not the executable's whole-pixel-per-frame pattern.
+
+**Confirmed countdown correction:** the record at `0x103f84` is the active
+72-byte squad record. Its +0x3d byte is a countdown, not a rechargeable
+stamina value. Player command dispatch sets unit +0x98 bit 0x20 at
+`0x47af6`. The leader's route setup (`0x7c6ba..0x7c6e1`) tests that bit
+and excludes unit +0x6f bit 0x10, then sets squad +0x3d to 120, or 30 when
+squad +0x10 is zero, and clears the command bit. The group pass
+`0x780b3..0x78108`, called before the unit pass at `0x603f1`, decrements
++0x3d with saturation at zero; it also clears +0x3d when the group's
++0x10 countdown is zero or expires. Target-response paths `0x759b3`,
+`0x759d6` and `0x75cb9` load +0x10 with 75. Nonzero +0x3d both adds the
+three movement levels above and suppresses the walking unit's enemy scan
+at `0x7ab3d..0x7ab41`. This is coupled order/target state, so merely giving
+every move order a 30- or 120-frame speed boost would be incorrect.
+Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+-c 'pd 50 @ 0x780b3' -c 'pd 20 @ 0x7c6ba' -c 'pd 20 @ 0x47aec'
+-c 'pd 35 @ 0x759a7' -c q data/Z/ZED.EXE`.
+
+**Unknown:** the precise semantics and all entry conditions for the other
+modifiers and the complete squad target-state lifecycle. They do not establish
 Zod's 1.8 speed multiplier or its stamina recharge and exhaustion policy;
 those remain fork behavior, not confirmed native mechanics. The earlier
 unqualified base-speed formula below omitted these conditional modifiers.
@@ -2723,3 +2937,29 @@ retry after capacity is freed, the cap with deployed guns, capture and
 destruction/rebuild, invalid serialized counts, save/load and checksum;
 `tests/z/test_hud.c` covers product selection while stock exists and placing
 stock when no products are offered. Run both with `SDL_VIDEODRIVER=dummy`.
+
+### Typed player routes and factory rallies
+
+**Reference-derived, not a claim of retail parity.** Pinned Zod
+`5ccb43ab76ee08c9f624906fb465dc3ba76a7a35` defines waypoint action,
+position and target reference in `zobject.h:82..86,162..170` and processes
+move, attack, enter and crane/unit repair at `zobject.cpp:2853`, `3140`,
+`3286`, `3577` and `3756`. `zserver.cpp:1889..1892` copies every factory
+rally waypoint to a newly produced unit. The engine keeps one Z route per
+unit or producer, storing stable target IDs, and dispatches actions through
+its ordinary move, attack, boarding and service code. Shift appends actions;
+STOP, death and ownership changes clear the relevant route. Attack target
+death or ownership change ends that attack step. A crane ground click on a
+wreck resolves its ID using the building or bridge footprint, since wrecks
+are not selectable in the shared picker. Enemy-fort attack orders use the
+previously traced native entrance tiles and the existing fort-fall path.
+
+`MAXWAYPOINTS` is an engine limit of eight pending actions. A queued
+`TC_PATH` with `WP_ONCE` appends all its points atomically; if they do not
+fit, or the requested queued mode is loop/backtrack, the existing route is
+retained. An unqueued `TC_PATH` keeps its existing engine mode. Factory
+rallies are one-shot templates. Zod's internal dodge and aggression policies
+are not inferred from these player commands. Route state participates in
+save/load and consistency hashing. Headless `tests/z/test_production`,
+`test_capture`, `test_commander` and `test_fort` cover mixed routes, Shift,
+target loss, bounded paths, boarding, wreck service and fort entry.

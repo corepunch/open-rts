@@ -418,10 +418,7 @@ void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     unit->z.manufactured = t >= 0 && unit->team == 1 && !netgame;
     unit->core.angle = P_PointToAngle(0, FIXED_ONE);
     /* Zod appends a factory's rally route to each new mobile unit. */
-    if ((unit->traits & MF_MOBILE) && producer && producer->z.rally.count) {
-        unit->waypoints = producer->z.rally;
-        P_MoveUnitTo(&level, unit, fixed2_cell_center(unit->waypoints.points[0]));
-    }
+    if ((unit->traits & MF_MOBILE) && producer) Z_RouteProduced(unit, producer);
     mobj_t *factory = producer ? P_MobjById(producer->id) : NULL;
     const StaticProductDefinition *again = Z_ProductInProduction(factory);
     if (again && factory->production->queue_count == 1) G_QueueProduct(factory, again);

@@ -536,6 +536,33 @@ static int test_building_service(void) {
     P_DamageMobj(facility, NULL, facility->hp);
     if (facility->remove || facility->core.state_id != S_REPAIR_WRECK)
         return fail("ruin stays on the map with its native wreck state");
+    ticcmd_t move = {.order = TC_MOVE, .position = crane->core.position, .count = 1, .units = {crane->id}};
+    G_RunTiccmd(1, &move);
+    zroute_t previous = crane->z.route;
+    fixed3_t crane_position = crane->core.position;
+    crane->core.position = (fixed3_t){-FIXED_FROM_INT(100), -FIXED_FROM_INT(100), 0};
+    ticcmd_t unreachable = {.order = TC_REPAIR, .target = facility->id, .position = facility->core.position,
+                            .count = 1, .units = {crane->id}};
+    G_RunTiccmd(1, &unreachable);
+    if (memcmp(&crane->z.route, &previous, sizeof(previous)) || crane->z.service)
+        return fail("unreachable repair preserves the active order");
+    unreachable.queued = true;
+    G_RunTiccmd(1, &unreachable);
+    P_ClearMove(crane); crane->movement.order_arrived = true;
+    Z_RouteTick(crane);
+    if (crane->z.route.count || crane->z.route.active || crane->z.service)
+        return fail("unreachable queued repair is skipped");
+    crane->core.position = crane_position;
+    G_RunTiccmd(1, &move);
+    ticcmd_t repair = {.order = TC_ORDER, .position = facility->core.position, .queued = true,
+                       .count = 1, .units = {crane->id}};
+    G_RunTiccmd(1, &repair);
+    if (crane->z.route.count != 1 || crane->z.route.steps[0].order != TC_REPAIR ||
+        crane->z.route.steps[0].target != facility->id) return fail("queued ground click resolves wreck ID");
+    P_ClearMove(crane); crane->movement.order_arrived = true;
+    Z_RouteTick(crane);
+    if (crane->z.service != facility->id) return fail("queued wreck order starts crane service");
+    Z_CancelService(crane); P_ClearMove(crane); crane->z.route = (zroute_t){0};
     think(0); think(1);
     if (crane->z.service != facility->id) return fail("crane gets the dead building before bridge work");
     for (int i = 0; i < 8 * RTS_TICRATE && crane->core.state_id != S_CRANE_WORK; ++i)

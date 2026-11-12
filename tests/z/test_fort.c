@@ -97,7 +97,17 @@ static int test_player_takes_fort(void) {
     /* The cliff detour crosses a territory flag. Keep this test about
      * entering the fort, without stopping to cheer at an incidental capture. */
     for (int i = 0; nth(MT_FLAG, -1, i); ++i) Z_SetTeam(nth(MT_FLAG, -1, i), 0);
-    if (!P_MoveUnitTo(&level, grunt, entrance)) return fail("a path into the fort");
+    ticcmd_t enter = {.order = TC_ATTACK, .position = fort->core.position, .target = fort->id,
+                      .count = 1, .units = {grunt->id}};
+    ticcmd_t move = {.order = TC_MOVE, .position = grunt->core.position, .count = 1, .units = {grunt->id}};
+    G_RunTiccmd(0, &move);
+    fixed3_t saved_position = grunt->core.position;
+    grunt->core.position = (fixed3_t){-FIXED_FROM_INT(100), -FIXED_FROM_INT(100), 0};
+    G_RunTiccmd(0, &enter);
+    if (grunt->z.route.active != TC_MOVE) return fail("unreachable fort preserves existing order");
+    grunt->core.position = saved_position;
+    G_RunTiccmd(0, &enter);
+    if (!P_HasMoveOrder(grunt)) return fail("fort order enters through the native entrance");
     for (int t = 0; t < 120 * RTS_TICRATE && !fort->z.hold; ++t)
         if (!tick(model, 1)) return fail("tick");
     if (!fort->z.hold) return fail("the Grunt walks in and the fort falls");

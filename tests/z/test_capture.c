@@ -182,6 +182,41 @@ static int test_grenades(void) {
     return 0;
 }
 
+/* 0x79b25 checks native sprite origins in a strict 16px square. */
+static int test_crate_reach(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for crate reach");
+    disarm();
+    const zmap_t *map = level.native_data;
+    mobj_t *box = nth(MT_GRENADES_2, -1, 0);
+    mobj_t *robot = P_SpawnMobj((fixed3_t){0}, MT_UNIT_GRUNT);
+    isize2_t size;
+    if (!box || !robot || !Z_SpriteSize(map, states[mobjinfo[box->type_id].spawnstate].frame, &size))
+        return fail("crate reach fixture");
+    Z_SetTeam(robot, 0);
+    ivec2_t origin = {320, 320};
+    box->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(ivec2_add(origin,
+        (ivec2_t){size.w / 2, size.h / 2})), FIXED_ONE / Z_TILE), 0);
+    const ivec2_t outside[] = {{16,0}, {-16,0}, {0,16}, {0,-16}};
+    for (size_t i = 0; i < sizeof(outside) / sizeof(*outside); ++i) {
+        fixed2_t at;
+        if (!Z_UnitCentre(map, Z_UnitType(robot), ivec2_add(origin, outside[i]), &at))
+            return fail("crate robot origin");
+        robot->core.position = fixed3_from_fixed2(at, 0);
+        Z_Ticker();
+        if (box->remove || robot->z.grenades) return fail("crate boundary is exclusive");
+    }
+    fixed2_t at;
+    if (!Z_UnitCentre(map, Z_UnitType(robot), ivec2_add(origin, (ivec2_t){15,15}), &at))
+        return fail("crate robot origin");
+    robot->core.position = fixed3_from_fixed2(at, 0);
+    Z_Ticker();
+    if (!box->remove || robot->z.grenades != 20) return fail("crate square includes diagonal corner");
+    rts_game_model_destroy(model);
+    puts("PASS: z crate pickup uses native strict square and sprite origins");
+    return 0;
+}
+
 static int test_apc_crew(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for APC crew");
@@ -189,15 +224,27 @@ static int test_apc_crew(void) {
     mobj_t *first = nth(MT_UNIT_GRUNT, 0, 0), *second = nth(MT_UNIT_GRUNT, 0, 1);
     if (!first || !second) return fail("two Grunts");
     first->z.squad = second->z.squad = 250;
+    first->z.squad_slot = UINT8_MAX; second->z.squad_slot = 1;
     first->hp = 21; second->hp = 13;
     mobj_t *apc = P_SpawnMobj(first->core.position, MT_UNIT_APC);
     if (!apc) return fail("spawn APC");
     Z_SetTeam(apc, Z_NEUTRAL);
     apc->traits &= ~(MF_MOBILE | MF_ATTACK);
     P_SetMobjState(apc, S_A_P_C);
-    mobj_t *ordered[] = {first};
-    if (!Z_BoardOrder(ordered, 1, apc) || !tick(model, 2)) return fail("board APC");
+    ticcmd_t move = {.order = TC_MOVE, .position = first->core.position, .count = 1, .units = {first->id}};
+    G_RunTiccmd(0, &move);
+    ticcmd_t board = {.order = TC_BOARD, .target = apc->id, .position = apc->core.position,
+                      .queued = true, .count = 1, .units = {first->id}};
+    G_RunTiccmd(0, &board);
+    if (first->z.route.count != 1) return fail("queue APC boarding after movement");
+    P_ClearMove(first); first->movement.order_arrived = true;
+    Z_RouteTick(first);
+    if (first->z.board != apc->id || !tick(model, 2)) return fail("board APC");
     if (apc->z.crew_count != 2 || alive(first) || alive(second)) return fail("APC takes its squad");
+    mobj_t *survivor = P_SpawnMobj(apc->core.position, MT_UNIT_GRUNT);
+    if (!survivor) return fail("spawn outside squad survivor");
+    Z_SetTeam(survivor, 0);
+    survivor->z.squad = 250; survivor->z.squad_slot = UINT8_MAX;
     if (Z_HitDamage(apc, NULL, apc, 5, 1) != 5 ||
         Z_HitDamage(apc, NULL, nth(MT_UNIT_GRUNT, 1, 0), 5, 1) != 10)
         return fail("APC crew fires its combined weapons");
@@ -214,13 +261,21 @@ static int test_apc_crew(void) {
     if (!G_GameUnitCommand(0, &unload, carrier, 1, NULL) ||
         apc->team != Z_NEUTRAL || apc->z.driver || apc->z.crew_count)
         return fail("eject crew and leave empty APC");
-    int found21 = 0, found13 = 0;
+    int found21 = 0, found13 = 0, leaders = 0, followers = 0;
+    bool slots[Z_CREW_MAX] = {false};
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
         if (th->function != P_MobjThinker || mo->remove || mo->type_id != MT_UNIT_GRUNT || mo->team != 0) continue;
         found21 += mo->hp == 21; found13 += mo->hp == 13;
+        if (mo->z.squad == 250) {
+            if (mo->z.squad_slot == UINT8_MAX) ++leaders;
+            else if (mo->z.squad_slot && mo->z.squad_slot < Z_CREW_MAX && !slots[mo->z.squad_slot]) {
+                slots[mo->z.squad_slot] = true; ++followers;
+            } else return fail("ejected squad slots are unique");
+        }
     }
-    if (!found21 || !found13) return fail("ejected crew retain individual health");
+    if (!found21 || !found13 || leaders != 1 || followers != 2)
+        return fail("ejected crew retain health and one squad leader");
     if (Z_EjectCrew(apc)) return fail("empty APC cannot eject");
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         P_MobjSetSelected((mobj_t *)th, false);
@@ -245,6 +300,6 @@ static int test_apc_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_board() || test_grenades() || test_apc_crew()) return 1;
+    if (test_flags() || test_board() || test_grenades() || test_crate_reach() || test_apc_crew()) return 1;
     return 0;
 }

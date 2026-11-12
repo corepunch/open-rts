@@ -316,6 +316,10 @@ fail:
 
 void Z_SetTeam(mobj_t *mo, int team) {
     if (team > Z_NEUTRAL) team = Z_NEUTRAL;
+    if (mo->team != team) {
+        if (mo->z.squad_slot) Z_SquadLeave(mo);
+        mo->z.route = (zroute_t){0};
+    }
     mo->team = (uint8_t)team;
     mo->owner = team < Z_NEUTRAL ? (uint8_t)team : 7;
     mo->allegiance = team == Z_NEUTRAL ? ALLEGIANCE_NEUTRAL :
@@ -422,11 +426,22 @@ static uint8_t squads;
 
 static int spawn_group(const zmap_t *map, int group, ivec2_t at, int team, int home) {
     int count = 0;
-    uint8_t squad = ++squads ? squads : ++squads;
+    uint8_t squad = 0;
+    for (int attempt = 0; attempt < UINT8_MAX; ++attempt) {
+        uint8_t candidate = ++squads ? squads : ++squads;
+        bool used = false;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            const mobj_t *mo = (const mobj_t *)th;
+            if (!mo->remove && mo->hp > 0 && mo->team == team && mo->z.squad == candidate) { used = true; break; }
+        }
+        if (!used) { squad = candidate; break; }
+    }
     for (int i = 0, t; (t = Z_GroupType(map, group, i)) >= 0; ++i) {
         mobj_t *mo = spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team);
         if (!mo) continue;
         mo->z.squad = squad;
+        mo->z.squad_slot = squad ? (count ? (uint8_t)count : UINT8_MAX) : 0;
         mo->z.robot = (uint16_t)(Z_GroupRobot(map, group, i) + 1);
         mo->z.home = (uint8_t)home;
         count++;

@@ -36,7 +36,7 @@ void G_BuildTiccmd(ticcmd_t *cmd) {
 }
 
 static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
-#ifdef RTS_GAME_STARCRAFT
+#ifdef RTS_QUEUED_ORDERS
     cmd->queued = (SDL_GetModState() & KMOD_SHIFT) != 0;
 #endif
     for (int i = 0; i < count; ++i) {

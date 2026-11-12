@@ -145,6 +145,11 @@ bool Z_LoadUISprites(const char *root, const int *indices, int count, spriteshee
 /* p_capture.c: flags, vehicles and grenades, run once a tic. */
 void Z_Ticker(void);
 void Z_RebuildTicker(void);
+bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int count);
+void Z_RouteTick(mobj_t *unit);
+void Z_RouteProduced(mobj_t *unit, const mobj_t *producer);
+void Z_SquadLeave(mobj_t *unit);
+void Z_SquadEjected(mobj_t **units, int count);
 void Z_BuildingDestroyed(mobj_t *building);
 bool Z_StartBuildingRebuild(mobj_t *building);
 bool Z_RebuildSlotAvailable(void);

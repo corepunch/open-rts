@@ -4,6 +4,13 @@
 enum { Z_CREW_MAX = 21 }; /* ROBOTS.DAT group has 21 member slots. */
 enum { Z_GUN_STOCK = 4 }; /* Native building +0x4b..+0x4e. */
 typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manufactured; } zcrew_t;
+typedef struct { fixed3_t position; uint32_t target; int order; } zroute_step_t;
+typedef struct {
+    zroute_step_t steps[MAXWAYPOINTS];
+    uint32_t target;
+    int active;
+    uint8_t count, owner;
+} zroute_t;
 
 /* A robot sent to drive an empty vehicle or gun names it in `board`; a
  * manned one keeps its driver's weapon type + 1 in `driver`. Robots of a
@@ -11,7 +18,7 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
  * A flag carries its territory + 1 and the tics before it can be taken
  * again. */
 #define MOBJ_GAME_FIELDS struct { \
-    waypoints_t rally; /* Zod factory rally route for subsequently manufactured units. */ \
+    zroute_t route; /* Player order queue, or a factory's rally template. */ \
     uint32_t board; \
     uint32_t rating; /* Native building +0x0c production technology. */ \
     int32_t rebuild_stock; uint16_t rebuild_setting; /* BUILD +0x45 / +0x49. */ \
@@ -22,7 +29,7 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
     uint16_t robot; /* ROBOTS.DAT record + 1, retained for native AI valuation. */ \
     uint8_t cliff_block, home; \
     uint8_t object, building; /* Native OBJECT type / BUILD record index + 1. */ \
-    uint8_t driver, squad, grenades, territory; \
+    uint8_t driver, squad, squad_slot, grenades, territory; \
     uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
@@ -33,11 +40,12 @@ typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home; bool manu
     int hold; \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
-    HASH((mo)->z.rally.count); HASH((mo)->z.rally.mode); \
-    for (int zi = 0; zi < (mo)->z.rally.count; ++zi) { \
-        HASH((mo)->z.rally.points[zi].x); HASH((mo)->z.rally.points[zi].y); \
+    HASH((mo)->z.route.count); HASH((mo)->z.route.active); HASH((mo)->z.route.owner); HASH((mo)->z.route.target); \
+    for (int zi = 0; zi < (mo)->z.route.count && zi < MAXWAYPOINTS; ++zi) { \
+        HASH((mo)->z.route.steps[zi].order); HASH((mo)->z.route.steps[zi].target); \
+        HASH((mo)->z.route.steps[zi].position.x); HASH((mo)->z.route.steps[zi].position.y); HASH((mo)->z.route.steps[zi].position.z); \
     } \
-    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.grenades); \
+    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.grenades); \
     HASH((mo)->z.rebuild_stock); HASH((mo)->z.rebuild_setting); \
     HASH((mo)->z.debris.origin.x); HASH((mo)->z.debris.origin.y); \
     HASH((mo)->z.debris.position.x); HASH((mo)->z.debris.position.y); \

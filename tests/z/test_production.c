@@ -512,37 +512,156 @@ static int test_rally(void) {
     mobj_t *fort = nth(MT_FORT, 0, 0), *enemy = nth(MT_FORT, 1, 0);
     if (!fort || !enemy) return fail("rally producers");
     ivec2_t point = fixed2_cell(fixed3_xy(nth(MT_UNIT_GRUNT, 0, 0)->core.position));
+    ticcmd_t enemy_rally = {.order = TC_ORDER, .count = 1, .units = {enemy->id}, .queued = true,
+                            .position = fixed3_from_fixed2(fixed2_cell_center(point), 0)};
+    G_RunTiccmd(1, &enemy_rally);
+    Z_RouteTick(enemy);
+    if (enemy->z.route.count != 1 || enemy->z.route.owner != 1)
+        return fail("first Shift rally retains second player's ownership");
     ticcmd_t cmd = {.order = TC_ORDER, .count = 1, .units = {fort->id},
                     .position = fixed3_from_fixed2(fixed2_cell_center(point), 0)};
     G_RunTiccmd(1, &cmd);
-    if (fort->z.rally.count) return fail("foreign producer rejects rally");
+    if (fort->z.route.count) return fail("foreign producer rejects rally");
     G_RunTiccmd(0, &cmd);
-    if (fort->z.rally.count != 1 || memcmp(&fort->z.rally.points[0], &point, sizeof(point)))
+    if (fort->z.route.count != 1 || !ivec2_equal(fixed2_cell(fixed3_xy(fort->z.route.steps[0].position)), point))
         return fail("map order sets producer rally");
     ticcmd_t bad = {.order = TC_PATH, .count = 1, .units = {fort->id},
                     .path = {.count = 1, .mode = WP_ONCE, .points = {{-1, 0}}}};
     G_RunTiccmd(0, &bad);
-    if (fort->z.rally.count != 1 || memcmp(&fort->z.rally.points[0], &point, sizeof(point)))
+    if (fort->z.route.count != 1 || !ivec2_equal(fixed2_cell(fixed3_xy(fort->z.route.steps[0].position)), point))
         return fail("invalid rally route is rejected");
     int before = count(MT_UNIT_GRUNT, 0);
     order(fort, TC_BUILD, Z_ProductId(MT_UNIT_GRUNT));
     G_ProductionTicker(1380588);
     mobj_t *made = nth(MT_UNIT_GRUNT, 0, before);
-    if (!made || made->waypoints.count != 1 ||
-        memcmp(&made->waypoints.points[0], &point, sizeof(point))) return fail("produced unit inherits rally");
+    if (!made || made->z.route.active != TC_ORDER) return fail("produced unit inherits rally");
     if (!P_HasMoveOrder(made)) return fail("produced unit starts toward rally");
     ivec2_t next = fixed2_cell(fixed3_xy(fort->core.position));
     cmd.position = fixed3_from_fixed2(fixed2_cell_center(next), 0);
     G_RunTiccmd(0, &cmd);
-    if (fort->z.rally.count != 1 || memcmp(&fort->z.rally.points[0], &next, sizeof(next)) ||
-        memcmp(&made->waypoints.points[0], &point, sizeof(point)))
+    if (fort->z.route.count != 1 || !ivec2_equal(fixed2_cell(fixed3_xy(fort->z.route.steps[0].position)), next) ||
+        made->z.route.active != TC_ORDER)
         return fail("a new rally replaces the factory route without changing an existing unit");
     fixed3_t start = made->core.position;
     if (!tick(model, 200) || !memcmp(&made->core.position, &start, sizeof(start)))
         return fail("produced unit travels toward rally");
     order(fort, TC_STOP, 0);
-    if (fort->z.rally.count) return fail("stop clears producer rally");
+    if (fort->z.route.count) return fail("stop clears producer rally");
     order(fort, TC_CANCEL_PRODUCTION, 0);
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_mixed_routes(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load mixed route fixture");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    mobj_t *unit = nth(MT_UNIT_GRUNT, 0, 0), *enemy = nth(MT_UNIT_GRUNT, 1, 0);
+    mobj_t *mate = nth(MT_UNIT_GRUNT, 0, 1);
+    if (!unit || !enemy || !mate) return fail("mixed route units");
+    ticcmd_t group = {.order = TC_MOVE, .count = 2, .units = {unit->id, mate->id},
+                      .position = fixed3_from_fixed2(fixed2_add(fixed3_xy(unit->core.position),
+                                                               (fixed2_t){FIXED_FROM_INT(3), 0}), 0)};
+    G_RunTiccmd(0, &group);
+    if (!unit->movement.order_id || unit->movement.order_id != mate->movement.order_id)
+        return fail("immediate group move retains one formation order");
+    P_MobjSetSelected(unit, true);
+    fixed2_t origin = fixed3_xy(unit->core.position);
+    RtsGameCommand move = {.kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+                           .data.move_selected = {.target = fixed2_add(origin, (fixed2_t){FIXED_FROM_INT(3), 0})}};
+    if (!rts_game_model_command(model, &move) || !tick(model, 1)) return fail("start model move");
+    SDL_SetModState(KMOD_SHIFT);
+    move.data.move_selected.target = fixed2_add(origin, (fixed2_t){FIXED_FROM_INT(4), FIXED_ONE});
+    bool accepted = rts_game_model_command(model, &move);
+    SDL_SetModState(KMOD_NONE);
+    if (!accepted || !tick(model, 1) || unit->z.route.count != 1 || unit->z.route.steps[0].order != TC_MOVE)
+        return fail("model Shift move appends to active order");
+    ticcmd_t attack = {.order = TC_ATTACK, .target = enemy->id, .position = enemy->core.position,
+                       .queued = true, .count = 1, .units = {unit->id}};
+    G_RunTiccmd(0, &attack);
+    if (unit->z.route.count != 2 || unit->z.route.steps[1].target != enemy->id)
+        return fail("mixed route retains target ID");
+    ticcmd_t path = {.order = TC_PATH, .queued = true, .count = 1, .units = {unit->id},
+                     .path = {.count = 2, .mode = WP_ONCE, .points = {{3,3}, {4,4}}}};
+    G_RunTiccmd(0, &path);
+    if (unit->z.route.count != 4 || unit->z.route.steps[2].order != TC_ORDER ||
+        !ivec2_equal(fixed2_cell(fixed3_xy(unit->z.route.steps[3].position)), (ivec2_t){4,4}))
+        return fail("queued one-shot path appends all points");
+    path.path.mode = WP_LOOP;
+    G_RunTiccmd(0, &path);
+    if (unit->z.route.count != 4) return fail("queued looping path preserves existing route");
+    for (int i = 0; i < 9; ++i) G_RunTiccmd(0, &attack);
+    if (unit->z.route.count != MAXWAYPOINTS) return fail("mixed route is bounded");
+    ticcmd_t invalid = attack; invalid.queued = false; invalid.target = UINT32_MAX;
+    G_RunTiccmd(0, &invalid);
+    if (unit->z.route.count != MAXWAYPOINTS) return fail("invalid target preserves active route");
+    invalid.order = TC_ORDER;
+    invalid.position = group.position;
+    G_RunTiccmd(0, &invalid);
+    if (unit->z.route.count != MAXWAYPOINTS) return fail("stale order target preserves active route");
+    path.path.mode = WP_ONCE;
+    G_RunTiccmd(0, &path);
+    if (unit->z.route.count != MAXWAYPOINTS) return fail("queued path capacity is atomic");
+    order(unit, TC_STOP, 0);
+    if (unit->z.route.count || unit->z.route.active) return fail("stop clears mixed route");
+    unit->z.route = (zroute_t){.owner = 0, .active = TC_MOVE, .count = 2,
+        .steps = {{.order = TC_UNLOAD}, {.order = TC_MOVE, .position = group.position}}};
+    P_ClearMove(unit); unit->movement.order_arrived = true;
+    Z_RouteTick(unit);
+    if (unit->z.route.active != TC_MOVE || unit->z.route.count)
+        return fail("malformed saved step is skipped");
+    mobj_t *fort = nth(MT_FORT, 0, 0);
+    if (!fort) return fail("mixed rally factory");
+    ticcmd_t mixed = {.order = TC_ORDER, .position = group.position, .count = 2, .units = {unit->id, fort->id}};
+    G_RunTiccmd(0, &mixed);
+    if (fort->z.route.count != 1 || unit->z.route.active != TC_ORDER)
+        return fail("mixed producer and mobile selection receives both orders");
+    G_RunTiccmd(1, &mixed);
+    if (fort->z.route.count != 1 || unit->z.route.active != TC_ORDER)
+        return fail("foreign player cannot replace mixed routes");
+    ticcmd_t rally = {.order = TC_ORDER, .position = fixed3_from_fixed2(move.data.move_selected.target, 0),
+                      .count = 1, .units = {fort->id}};
+    G_RunTiccmd(0, &rally);
+    rally.order = TC_ATTACK; rally.target = enemy->id; rally.position = enemy->core.position; rally.queued = true;
+    G_RunTiccmd(0, &rally);
+    if (fort->z.route.count != 2 || fort->z.route.steps[1].target != enemy->id)
+        return fail("factory stores mixed movement and attack rally");
+    mobj_t *made = P_SpawnMobj(fort->core.position, MT_UNIT_GRUNT);
+    if (!made) return fail("spawn mixed rally unit");
+    Z_SetTeam(made, 0);
+    G_UnitProduced(made, fort);
+    if (made->z.route.active != TC_ORDER || made->z.route.count != 1 || made->z.route.steps[0].target != enemy->id)
+        return fail("produced unit receives independent mixed rally");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t made_id = made->id, enemy_id = enemy->id, fort_id = fort->id, hash = G_Consistency();
+    if (!G_SaveGameBlob(&save, &size, "Mixed rally", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save mixed rally and active route");
+    free(save);
+    made = P_MobjById(made_id); enemy = P_MobjById(enemy_id); fort = P_MobjById(fort_id);
+    if (!made || !enemy || !fort || G_Consistency() != hash || made->z.route.count != 1)
+        return fail("load mixed rally and active route");
+    Z_SetTeam(fort, 1);
+    if (fort->z.route.count || made->z.route.count != 1) return fail("capture clears only factory rally");
+    P_ClearMove(made); made->movement.order_arrived = true;
+    Z_RouteTick(made);
+    if (made->z.route.active != TC_ATTACK || made->attack.target != enemy)
+        return fail("rally advances from movement to attack target");
+    ticcmd_t after = {.order = TC_MOVE, .position = group.position, .queued = true,
+                      .count = 1, .units = {made->id}};
+    G_RunTiccmd(0, &after);
+    Z_SetTeam(enemy, 0);
+    Z_RouteTick(made);
+    if (made->z.route.active != TC_MOVE || made->z.route.count || made->attack.target)
+        return fail("captured attack target advances immediately to next order");
+    Z_SetTeam(enemy, 1);
+    attack.units[0] = made->id; attack.target = enemy->id; attack.queued = false;
+    G_RunTiccmd(0, &attack);
+    G_RunTiccmd(0, &after);
+    enemy->hp = 0;
+    Z_RouteTick(made);
+    if (made->z.route.active != TC_MOVE || made->z.route.count || made->attack.target)
+        return fail("dead attack target advances immediately to next order");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -653,7 +772,7 @@ int main(void) {
     if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
         test_native_rates() || test_gun_placement() ||
         test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_gun_stock() ||
-        test_computer_builds() || test_reconstruction()) return 1;
+        test_computer_builds() || test_reconstruction() || test_mixed_routes()) return 1;
     printf("z production tests passed\n");
     return 0;
 }
