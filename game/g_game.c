@@ -746,11 +746,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         P_MobjSetSelected(model->objects.items[command->data.select_unit_index.unit_index], true);
         return true;
     case RTS_GAME_COMMAND_MOVE_SELECTED: {
-        if (netactive)
-            return G_SelectedTiccmd(TC_MOVE, model->objects.items, model->objects.count,
-                                   command->data.move_selected.target, 0);
-        P_MoveOrderAt(&level, model->objects.items, model->objects.count,
-                      command->data.move_selected.target);
+        if (!G_SelectedTiccmd(TC_MOVE, model->objects.items, model->objects.count,
+                             command->data.move_selected.target, 0)) return false;
+        if (netactive) return true;
         for (int i = 0; i < model->objects.count; ++i)
             if (P_MobjIsSelected(model->objects.items[i]) && model->objects.items[i]->movement.order_arrived)
                 model_emit_event(model, RTS_GAME_EVENT_UNIT_ARRIVED, model->objects.items[i], NULL, 0, 0);
@@ -764,11 +762,8 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
     case RTS_GAME_COMMAND_STOP_SELECTED:
         return G_SelectedTiccmd(TC_STOP, model->objects.items, model->objects.count, (fixed2_t){0}, 0);
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
-        if (netactive)
-            return G_SelectedTiccmd(TC_HARVEST, model->objects.items, model->objects.count,
-                                   command->data.harvest_selected.target, 0);
-        return P_HarvestOrderAt(&level, model->objects.items, model->objects.count,
-                                command->data.harvest_selected.target);
+        return G_SelectedTiccmd(TC_HARVEST, model->objects.items, model->objects.count,
+                               command->data.harvest_selected.target, 0);
     case RTS_GAME_COMMAND_ATTACK_UNIT: {
         int target = command->data.attack_unit.target_index;
         if (command->data.attack_unit.target_id != 0) {
