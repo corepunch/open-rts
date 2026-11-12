@@ -41,6 +41,19 @@ static int members(const zaitask_t *task, mobj_t *const *units, int count, mobj_
             out[n++] = units[i];
     return n;
 }
+
+static void move_group(mobj_t **group, int count, fixed2_t goal) {
+    if (!count) return;
+    mobj_t *leader = Z_SquadLeader(group[0]);
+    if (leader->z.squad_slot == UINT8_MAX) {
+        ticcmd_t cmd = {.order = TC_ORDER, .count = 1, .units = {leader->id},
+                        .position = fixed3_from_fixed2(goal, 0)};
+        G_RunTiccmd(leader->owner, &cmd);
+    } else {
+        P_MoveUnitsAt(&level, group, count, goal);
+        P_MoveUnitTo(&level, group[0], goal);
+    }
+}
 static bool reachable(const mobj_t *mo, fixed2_t goal) {
     int cls = P_MobjMoveClass(mo);
     return (mo->traits & MF_MOBILE) &&
@@ -818,8 +831,7 @@ static void local_orders(zmap_t *map, mobj_t *const *units, int count) {
             /* The native flag correction is immediate (0x7ba9a). */
             mobj_t *group[MEMBERS];
             int n = members(task, units, count, group);
-            P_MoveUnitsAt(&level, group, n, goal);
-            P_MoveUnitTo(&level, mo, goal);
+            move_group(group, n, goal);
             task->retry = 100;
         }
     }
@@ -845,8 +857,7 @@ static void execute_orders(zai_t *ai, mobj_t *const *units, int count) {
             } else if (task->service) Z_ServiceOrder(group[0], Z_ServiceTarget(task->service), task->order);
             else if (task->boarding) Z_BoardOrder(group, n, P_MobjById(task->boarding));
             else {
-                P_MoveUnitsAt(&level, group, n, task->order);
-                P_MoveUnitTo(&level, group[0], task->order);
+                move_group(group, n, task->order);
             }
         }
         task->pending = false;

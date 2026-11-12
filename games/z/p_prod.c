@@ -411,14 +411,42 @@ void G_ProductionBegin(int elapsed_ms) {
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     int t = Z_UnitType(unit);
     const zmap_t *map = level.native_data;
+    int group = -1;
     for (int i = 0; map && i < CATALOG; ++i)
-        if (unit->type_id == catalog[i].type)
+        if (unit->type_id == catalog[i].type) {
+            group = catalog[i].group;
             unit->z.robot = (uint16_t)(Z_GroupRobot(map, catalog[i].group, 0) + 1);
+        }
     if (t >= 0 && !Z_IsRobot(t)) unit->z.driver = (uint8_t)(MT_UNIT_GRUNT - MT_UNITS + 1);
     unit->z.manufactured = t >= 0 && unit->team == 1 && !netgame;
     unit->core.angle = P_PointToAngle(0, FIXED_ONE);
+    if (producer && group >= 0 && Z_IsRobot(t)) {
+        uint8_t squad = Z_AllocateSquad(unit->team);
+        unit->z.squad = squad;
+        unit->z.squad_slot = squad ? UINT8_MAX : 0;
+        unit->z.formation = (uint8_t)Z_GroupFormation(map, group);
+        ivec2_t origin = ivec2_sub(Z_BlastAnchor(unit), (ivec2_t){8,8});
+        for (int member = 1; squad && member < Z_CREW_MAX; ++member) {
+            int robot = Z_GroupRobot(map, group, member);
+            int type = Z_GroupType(map, group, member);
+            if (robot < 0 || type < 0) break;
+            if (!Z_IsRobot(type)) break;
+            fixed2_t centre;
+            if (!Z_UnitCentre(map, type, origin, &centre)) break;
+            mobj_t *follower = P_SpawnMobj(fixed3_from_fixed2(centre, unit->core.position.z), MT_UNITS + type);
+            if (!follower) break;
+            Z_SetTeam(follower, unit->team);
+            follower->z.robot = (uint16_t)(robot + 1);
+            follower->z.squad = squad;
+            follower->z.squad_slot = (uint8_t)member;
+            follower->z.home = unit->z.home;
+            follower->z.manufactured = unit->z.manufactured;
+            follower->core.angle = unit->core.angle;
+        }
+    }
     /* Zod appends a factory's rally route to each new mobile unit. */
     if ((unit->traits & MF_MOBILE) && producer) Z_RouteProduced(unit, producer);
+    if (unit->z.squad_slot == UINT8_MAX) unit->z.formation_active = P_HasMoveOrder(unit);
     mobj_t *factory = producer ? P_MobjById(producer->id) : NULL;
     const StaticProductDefinition *again = Z_ProductInProduction(factory);
     if (again && factory->production->queue_count == 1) G_QueueProduct(factory, again);

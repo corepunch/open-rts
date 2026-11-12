@@ -318,6 +318,8 @@ void Z_SetTeam(mobj_t *mo, int team) {
     if (team > Z_NEUTRAL) team = Z_NEUTRAL;
     if (mo->team != team) {
         if (mo->z.squad_slot) Z_SquadLeave(mo);
+        if (mo->z.detour.phase) P_ClearMove(mo);
+        Z_DetourCancel(mo);
         mo->z.route = (zroute_t){0};
     }
     mo->team = (uint8_t)team;
@@ -419,29 +421,38 @@ int Z_GroupType(const zmap_t *map, int group, int member) {
     return robot < 0 ? -1 : map->roster.bytes[robot * RB_ROBOT + RB_WEAPON];
 }
 
+int Z_GroupFormation(const zmap_t *map, int group) {
+    if (!map || group < 0) return 0;
+    size_t at = RB_GROUPS + (size_t)group * RB_GROUP;
+    return at + RB_GROUP <= map->roster.size ? map->roster.bytes[at + 1] : 0;
+}
+
 /* ZED.EXE 0x50665: the first member at `at`, the rest four pixels apart in
  * rows of four; they spread out once they move. Members share a squad,
  * which shares grenades (0x79bea). */
-static uint8_t squads;
+uint8_t Z_AllocateSquad(int team) {
+    bool used[240] = {false};
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *mo = (const mobj_t *)th;
+        if (!mo->remove && mo->hp > 0 && mo->z.squad && mo->z.squad <= 240)
+            used[mo->z.squad - 1] = true;
+    }
+    if (!netgame && team == 1)
+        for (int i = 120; i < 240; ++i) if (!used[i]) return (uint8_t)(i + 1);
+    for (int i = 0; i < 240; ++i) if (!used[i]) return (uint8_t)(i + 1);
+    return 0;
+}
 
 static int spawn_group(const zmap_t *map, int group, ivec2_t at, int team, int home) {
     int count = 0;
-    uint8_t squad = 0;
-    for (int attempt = 0; attempt < UINT8_MAX; ++attempt) {
-        uint8_t candidate = ++squads ? squads : ++squads;
-        bool used = false;
-        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-            if (th->function != P_MobjThinker) continue;
-            const mobj_t *mo = (const mobj_t *)th;
-            if (!mo->remove && mo->hp > 0 && mo->team == team && mo->z.squad == candidate) { used = true; break; }
-        }
-        if (!used) { squad = candidate; break; }
-    }
+    uint8_t squad = Z_AllocateSquad(team);
     for (int i = 0, t; (t = Z_GroupType(map, group, i)) >= 0; ++i) {
         mobj_t *mo = spawn_unit(map, t, ivec2_add(at, (ivec2_t){(i & 3) * 4, i & ~3}), team);
         if (!mo) continue;
         mo->z.squad = squad;
         mo->z.squad_slot = squad ? (count ? (uint8_t)count : UINT8_MAX) : 0;
+        if (!count) mo->z.formation = (uint8_t)Z_GroupFormation(map, group);
         mo->z.robot = (uint16_t)(Z_GroupRobot(map, group, i) + 1);
         mo->z.home = (uint8_t)home;
         count++;
@@ -556,7 +567,6 @@ int Z_LoadThings(void) {
     if (!map) return 0;
     int count = 0, cpu_team = 1;
     ivec2_t player_fort = {-1, -1};
-    squads = 0;
     /* Startup writes 0x4735a..0x4751b; 0x4ee67 installs rating * 1000. */
     static const uint8_t fort_rating[Z_LEVELS] = {
         0, 1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4, 5,5,5,5,

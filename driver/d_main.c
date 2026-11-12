@@ -39,6 +39,7 @@ static void apply_actor_defaults(mobj_t *const *units, int count) {
     }
 }
 
+#ifndef RTS_ORDER_MODIFIERS
 static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
                                    int sx, int sy) {
     if (!map || !app) return false;
@@ -59,6 +60,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     P_InitMobj(gameinfo, unit);
     return true;
 }
+#endif
 
 static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
                                               mobj_t *const *units, int unit_count) {
@@ -371,10 +373,15 @@ load_level:
     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
     S_Start(&level, data_root);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: %s, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: %s, %s, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
            level.decoration_count, level.resource_vent_count,
            R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS ? "left select/drag, right order" : "left select/drag/order, right deselect",
+#ifdef RTS_ORDER_MODIFIERS
+           "Alt+left move without attacking, Ctrl+left attack-move",
+#else
+           "Alt+left spawn enemy",
+#endif
            (R_Policy()->f10 == F10_CONTROL_MENU) ? "F10 menu" : "F10 +100 resources");
 
     AiContext ai;
@@ -510,6 +517,7 @@ load_level:
                 HU_PushMessage(&hud_text, "CHEAT: +100 RESOURCES", 2000);
                 continue;
             }
+#ifndef RTS_ORDER_MODIFIERS
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
                 (SDL_GetModState() & KMOD_ALT) != 0) {
                 if (netgame) continue;
@@ -526,6 +534,7 @@ load_level:
                 }
                 continue;
             }
+#endif
             /* Cancellation applies over the HUD too, before its responders
              * consume mouse buttons. Future games can retain right orders. */
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT &&

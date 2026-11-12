@@ -36,6 +36,13 @@ void G_BuildTiccmd(ticcmd_t *cmd) {
 }
 
 static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
+#ifdef RTS_ORDER_MODIFIERS
+    if ((cmd->order == TC_ORDER || cmd->order == TC_MOVE) && !cmd->target) {
+        SDL_Keymod mods = SDL_GetModState();
+        if (mods & KMOD_ALT) cmd->order = TC_MOVE;
+        else if (mods & KMOD_CTRL) cmd->order = TC_ORDER;
+    }
+#endif
 #ifdef RTS_QUEUED_ORDERS
     cmd->queued = (SDL_GetModState() & KMOD_SHIFT) != 0;
 #endif

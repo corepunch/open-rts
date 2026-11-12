@@ -273,6 +273,11 @@ static int test_campaign_ratings(void) {
 /* Stock outputs from ZED.EXE 0x98acc, scaled by 0x41a69/0x41afc.
  * Speed 20 includes odd native tick counts: halve before converting to ms. */
 static int test_native_times(void) {
+    static const int groups[] = {
+#define Z_PRODUCT(group, type, stock) group,
+#include "../../games/z/products.inc"
+#undef Z_PRODUCT
+    };
     static const struct { int type, speed10, speed20; } cases[] = {
         {MT_UNIT_GATLING, 1908352, 954176},
         {MT_UNIT_LIGHT_GUN, 2269764, 1134882},
@@ -311,9 +316,18 @@ static int test_native_times(void) {
         G_ProductionTicker((cases[i].speed10 - 1) / 3);
         if (count(cases[i].type, 0) != before || Z_GunReady(fort)) return fail("no product finishes before its native deadline");
         G_ProductionTicker(1);
+        int made = 1;
+        if (Z_IsRobot(cases[i].type - MT_UNITS)) {
+            made = 0;
+            for (int member = 0, type; member < Z_CREW_MAX &&
+                 (type = Z_GroupType(map, groups[product->row_id], member)) >= 0; ++member) {
+                if (!Z_IsRobot(type)) return fail("native robot product group contains only robots");
+                made += type == cases[i].type - MT_UNITS;
+            }
+        }
         if (i < 4) {
             if (!Z_GunReady(fort) || count(cases[i].type, 0) != before) return fail("only guns wait for placement");
-        } else if (Z_GunReady(fort) || count(cases[i].type, 0) != before + 1) {
+        } else if (Z_GunReady(fort) || count(cases[i].type, 0) != before + made) {
             return fail("every robot and vehicle is released at its native deadline");
         }
         order(fort, TC_CANCEL_PRODUCTION, 0);
@@ -455,6 +469,13 @@ static int test_fort_makes_grunts(void) {
     P_AiSetFeatures(rts_game_model_ai(model), 0);
     mobj_t *fort = nth(MT_FORT, 0, 0);
     if (!fort) return fail("the player's fort");
+    const zmap_t *map = level.native_data;
+    int members = 0, grunts = 0;
+    while (members < Z_CREW_MAX && Z_GroupType(map, 2, members) >= 0) {
+        grunts += Z_GroupType(map, 2, members) == MT_UNIT_GRUNT - MT_UNITS;
+        ++members;
+    }
+    if (members < 2) return fail("authored Grunt group contains multiple members");
     int before = count(MT_UNIT_GRUNT, 0), total, held = Z_TerritoriesHeld(0, &total);
     if (total != 9 || held != 1) return fail("one of nine native territories belongs to the player");
     order(fort, TC_BUILD, Z_ProductId(MT_UNIT_GRUNT));
@@ -466,20 +487,61 @@ static int test_fort_makes_grunts(void) {
     G_ProductionTicker((expected - 1) / 3);
     if (count(MT_UNIT_GRUNT, 0) != before || Z_GunReady(fort)) return fail("Grunt cannot finish early or become a stored gun");
     G_ProductionTicker(1);
-    if (count(MT_UNIT_GRUNT, 0) != before + 1 || Z_GunReady(fort)) return fail("Grunt leaves the door at its native deadline");
+    if (count(MT_UNIT_GRUNT, 0) != before + grunts || Z_GunReady(fort)) return fail("Grunt squad leaves the door at its native deadline");
     mobj_t *made = nth(MT_UNIT_GRUNT, 0, before);
     irect_t fort_cells = P_MobjCells(fort);
     ivec2_t at = fixed2_cell(fixed3_xy(made->core.position));
     if (at.x >= fort_cells.x && at.x < fort_cells.x + fort_cells.w && at.y >= fort_cells.y &&
         at.y < fort_cells.y + fort_cells.h) return fail("the Grunt stands outside the fort");
-    if (!L_IsWalkable(&level, at.x, at.y) || made->z.squad || made->owner != 0 || !(made->traits & MF_MOBILE))
-        return fail("the Grunt stands on open ground, the player's, in no squad");
+    if (!L_IsWalkable(&level, at.x, at.y) || !made->z.squad || made->z.squad_slot != UINT8_MAX ||
+        made->z.formation != Z_GroupFormation(map, 2) || made->owner != 0 || !(made->traits & MF_MOBILE))
+        return fail("produced leader retains native group identity and formation");
+    uint32_t last_id = made->id;
+    uint32_t member_ids[Z_CREW_MAX] = {made->id};
+    ivec2_t anchor = Z_BlastAnchor(made);
+    for (int i = 1; i < members; ++i) {
+        mobj_t *follower = NULL;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *mo = (mobj_t *)th;
+            if (th->function == P_MobjThinker && !mo->remove && mo->z.squad == made->z.squad && mo->z.squad_slot == i)
+                follower = mo;
+        }
+        if (!follower || follower->type_id != MT_UNITS + Z_GroupType(map, 2, i) ||
+            follower->z.robot != Z_GroupRobot(map, 2, i) + 1 || !ivec2_equal(Z_BlastAnchor(follower), anchor) ||
+            follower->z.route.count || follower->z.route.active)
+            return fail("produced squad matches authored members at common origin");
+        member_ids[i] = follower->id;
+        if (follower->id > last_id) last_id = follower->id;
+    }
+    uint8_t next = Z_AllocateSquad(0), cpu = Z_AllocateSquad(1);
+    if (!next || cpu < 121) return fail("allocator uses free native group ranges");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t leader_id = made->id, fort_id = fort->id;
+    if (!G_SaveGameBlob(&save, &size, "Produced squad", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save produced squad");
+    free(save);
+    made = P_MobjById(leader_id); fort = P_MobjById(fort_id);
+    if (!made || !fort || Z_AllocateSquad(0) != next || Z_AllocateSquad(1) != cpu)
+        return fail("save retains produced squad and deterministic allocation");
+    for (int i = 0; i < members; ++i) {
+        mobj_t *member = P_MobjById(member_ids[i]);
+        if (!member || member->z.squad != made->z.squad ||
+            member->z.squad_slot != (i ? i : UINT8_MAX)) return fail("save retains produced squad membership");
+    }
+    mobj_t *foreign = P_SpawnMobj(made->core.position, MT_UNIT_GRUNT);
+    if (!foreign) return fail("spawn foreign squad allocation fixture");
+    Z_SetTeam(foreign, 1);
+    foreign->z.squad = next; foreign->z.squad_slot = UINT8_MAX;
+    if (Z_AllocateSquad(0) == next) return fail("group IDs are globally unique across teams");
+    P_RemoveMobj(foreign);
+    if (Z_AllocateSquad(0) != next) return fail("removed group slot can be reused");
     if (!fort->production || fort->production->queue_count < 1 || fort->production->time_left_ms <= 0)
         return fail("the fort starts the next Grunt by itself");
     order(fort, TC_CANCEL_PRODUCTION, 0);
     if (fort->production && fort->production->queue_count) return fail("STOP empties the queue");
     G_ProductionTicker(1380588);
-    if (newer_than(MT_UNIT_GRUNT, 0, made->id)) return fail("nothing more is made after STOP");
+    if (newer_than(MT_UNIT_GRUNT, 0, last_id)) return fail("nothing more is made after STOP");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -559,6 +621,8 @@ static int test_mixed_routes(void) {
     mobj_t *unit = nth(MT_UNIT_GRUNT, 0, 0), *enemy = nth(MT_UNIT_GRUNT, 1, 0);
     mobj_t *mate = nth(MT_UNIT_GRUNT, 0, 1);
     if (!unit || !enemy || !mate) return fail("mixed route units");
+    Z_SquadLeave(unit);
+    Z_SquadLeave(mate);
     ticcmd_t group = {.order = TC_MOVE, .count = 2, .units = {unit->id, mate->id},
                       .position = fixed3_from_fixed2(fixed2_add(fixed3_xy(unit->core.position),
                                                                (fixed2_t){FIXED_FROM_INT(3), 0}), 0)};
@@ -676,6 +740,15 @@ static int test_computer_builds(void) {
     while (!Z_ProductInProduction(fort) && tics++ < 10 * RTS_TICRATE)
         if (!tick(model, 1)) return fail("tick");
     if (!Z_ProductInProduction(fort)) return fail("the computer sets its fort going");
+    order(fort, TC_CANCEL_PRODUCTION, 0);
+    const StaticProductDefinition *grunt = G_ModelProductByUIId(NULL, Z_ProductId(MT_UNIT_GRUNT));
+    int before = count(MT_UNIT_GRUNT, 1);
+    if (!grunt || !G_QueueProduct(fort, grunt)) return fail("CPU queues a robot squad");
+    fort->production->time_left_ms = 1;
+    G_ProductionTicker(1);
+    mobj_t *leader = nth(MT_UNIT_GRUNT, 1, before);
+    if (!leader || !leader->z.manufactured || leader->z.squad < 121 || leader->z.squad_slot != UINT8_MAX)
+        return fail("CPU robot production creates a native-range squad leader");
     rts_game_model_destroy(model);
     return 0;
 }

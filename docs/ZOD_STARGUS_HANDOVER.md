@@ -1,8 +1,15 @@
 # Zod / Stargus implementation handover
 
-Checkpoint: 2026-11-12, committed code through `bb88cd9`. Work continued after
-this checkpoint; inspect `git status`, recent commits and current tests before
-relying on any pending-item description below.
+Checkpoint: 2026-11-12. The initial snapshot below ended at `bb88cd9`.
+The route/promotion/terrain/crate tranche is now committed as `fe72795`:
+all 26 integrated Z checks passed, followed by focused production fixes for
+stale targets and player-1 rally ownership and a blocked-promotion regression.
+Native formation/rejoin, opportunistic detours, malformed crew guards, and
+full robot-squad production are implemented and passed 27 integrated Z tests.
+The seven game binaries also passed headless smoke checks. Remaining work
+includes native squad order timing and StarCraft scenario trigger coverage.
+Inspect `git status`, recent commits and current tests before relying on
+the historical pending-item descriptions below.
 
 ## Request and working agreement
 

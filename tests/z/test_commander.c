@@ -142,6 +142,17 @@ static int test_initial_and_save(void) {
     if (!model) return fail("initial orders load");
     mobj_t *lead = nth(MT_UNIT_GRUNT, 1, 0);
     uint32_t id = lead->id;
+    mobj_t *follower = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo != lead && mo->team == lead->team &&
+            mo->z.squad == lead->z.squad && mo->z.squad_slot && mo->z.squad_slot != UINT8_MAX) {
+            follower = mo; break;
+        }
+    }
+    if (!follower) return fail("CPU squad follower fixture");
+    uint32_t follower_id = follower->id;
+    fixed2_t follower_start = fixed3_xy(follower->core.position);
     think(0);
     zmap_t *map = level.native_data;
     zaitask_t *task = task_of(lead);
@@ -156,6 +167,10 @@ static int test_initial_and_save(void) {
     if (!G_SaveGameBlob(&save, &size, "Native AI", &app, rts_game_model_ai(model), &hud)) return fail("save AI queue");
     if (!tick(model, RTS_TICRATE)) return fail("execute queued order");
     if (task_of(P_MobjById(id))->pending || !P_HasMoveOrder(P_MobjById(id))) return fail("queued command executes");
+    follower = P_MobjById(follower_id);
+    if (!follower || !P_MobjById(id)->z.formation_active || follower->z.route.active ||
+        (!P_HasMoveOrder(follower) && fixed2_equal(follower_start, fixed3_xy(follower->core.position))))
+        return fail("CPU order uses leader route and moving follower formation");
     if (!G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("restore AI queue");
     free(save);
     map = level.native_data;

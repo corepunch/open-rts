@@ -2534,14 +2534,29 @@ leader-only guard at `0x78bfb` invokes `0x64473`, which for group command
 or a flag there via `0x2aa76`; its result and unit +0x99 control whether the
 selected object may divert the leader. This is a separate gate after candidate
 selection, not merely a group-membership check.
+For the flag lookup, `0x2aa8b..0x2aa94` constructs a rectangle extending
+eight pixels from the group destination, and `0x2aaa3..0x2aaaf` tests the
+stored flag origin + (4,8). The shared point-in-rectangle function `0x28369`
+rejects only values below the low edge or above the high edge, so both edges
+are inclusive. For candidate ranks, `0x7923b..0x79241` branches when the
+squared index is at least 1024 to `0x7926e`, which sets the rank to 0x30 (48).
+Reproduce with `r2 -q -e bin.cache=true -c 'pd 30 @ 0x28369' -c 'pd 45 @
+0x2aa76' -c 'pd 30 @ 0x7921b' -c q data/Z/ZED.EXE`.
 For continuation, `0x7d053..0x7d09d` copies the group's positive command and
 destination into the leader's +0x5a/+0x50..+0x54; `0x7c780` and `0x7c949`
 negate +0x5a after particular command dispatches. On reaching a movement
 destination with no interaction in progress, `0x7ae93..0x7aea8` negates
 the special value -5 back to 5 only when no path node remains and +0x31 bit
 0x20 is clear. Other negative commands enter the branches at `0x790a2` after
-the cheer. These observations constrain the signed lifecycle but do not yet
-prove a complete mapping for every command or failed path.
+the cheer. `0x7c027..0x7c037` dispatches the magnitude of +0x5a through the
+table at `0x14b088`; entry 1, `0x7c560`, places the stored destination in a
+path node before negating the command. `0x7bd1f` subtracts (8,8) from a node's
+stored centre to produce native top-left coordinates; `0x7bde1` consumes the
+node only at that exact top-left. `0x7cdaf` treats magnitude 1 as complete
+when native position +8,+8 equals the unit destination +0x50/+0x52; the leader
+clears group command +0x3a when this point also equals group destination
++0x2c/+0x2e. These observations do not prove a complete mapping for every
+command or failed path.
 
 **Confirmed and implemented:** crate collection at `0x79b25..0x79b9e` scans
 objects and tests `abs(unit.x-object.x) < 16` and `abs(unit.y-object.y) < 16`
@@ -2552,6 +2567,33 @@ square; the focused `env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_capture`
 covers all four exclusive boundaries, the diagonal corner and existing squad
 sharing. The current engine still invokes collection from its per-tic robot
 pass; this does not establish exact native terrain-dispatch timing.
+
+**Implemented with stated engine scope:** `games/z/p_detour.c` applies the
+native sector ordering, initial object visibility masks, direction predicates,
+SQROOT ranking, terrain line and flag-destination guard to ordinary ground
+`TC_ORDER` movement. The chosen object is dispatched after ranking; eligible
+flag markers, grenade crates and empty vehicles reserve their target. A flag
+diversion preserves the leader's destination through the capture cheer;
+followers and ungrouped robots clear that native path. Crates resume the
+interrupted movement; boarding ends it, matching `0x7b257..0x7b264`, which
+clears group command +0x3a, unit command +0x5a and the path. New commands,
+ownership changes, death and removed or already-captured targets release
+reservations. The stable IDs, slot, interrupted destination and interaction
+state are saved and included in consistency checks.
+
+The restriction to ordinary orders is **Zod policy**, not a proven mapping of
+native action 2: Zod `CheckOpportunisticGrab` excludes `FORCE_MOVE_WP`, so
+engine `TC_MOVE` remains forced movement. The engine samples at its 30 Hz
+tick; retail checks on alternate 70 Hz frames. Its open-sight policy and
+initial object masks do not implement the full native changing-visibility
+lifecycle, and the native object allocation/sector view is reconstructed from
+the loaded thinker-owned objects. The one-shot formation rejoin after a
+follower's flag cheer is Zod-derived engine behavior, not a proven direct
+native flag-capture branch. The focused `env SDL_VIDEODRIVER=dummy
+build/bin/tests/z/test_detour` exercises the three object classes, forced
+movement, range and destination boundaries, direction and height, selection
+order/ties, save/restore and queued order continuation, ownership changes and
+the different ungrouped flag outcome.
 
 ### Native squad leadership
 
@@ -2570,6 +2612,14 @@ leader's path pointer +0x14 and unit bytes +0x5a/+0x5f and words
 +0x50/+0x52/+0x54. `0x77c61` also updates references to the old leader.
 This establishes native first-survivor promotion, but not the semantics of
 every transferred order field or the complete movement formation policy.
+When a group becomes empty, `0x77880..0x77888` writes 200 to its byte at
+`0x11d567 + group index`. `0x775f5..0x77619` decrements each nonzero byte
+once per pass. The first allocation scan at `0x77d25` prefers empty group
+records with a zero byte; its fallback at `0x77d49` accepts any empty
+group, so this is a delayed-reuse preference rather than a capacity limit.
+`0x775e4` clears all 240 cooldown bytes. In the production spawn loop,
+failure from `0x50fc9` or `0x50c5c` returns carry immediately at `0x506f0`
+or `0x5078c`; no rollback of earlier members appears on those exits.
 Zod's leader-held grenade transfer remains distinct from the native
 member distribution traced at `0x79bea`. Reproduce with
 `r2 -q -e bin.cache=true -c 'pd 45 @ 0x77fd6' -c 'pd 50 @ 0x77821'
@@ -2608,6 +2658,16 @@ signed grid positions −7..7 shifted left by the five values at `0x14aa75`
 plus one as the pointer-table index at `0xe63bc`, rotates its signed pair
 using native trig scaled by 1024 (`0x642ec`), and adds the leader's
 +0x2c/+0x2e position. It refuses ordinary following without group +9 bit 0.
+The angle is quantized to eight directions by `0x61eed`; the native
+SINCOS.DAT (sine, cosine) coefficients after byte swap and signed >>5 are
+`(0,1023), (724,724), (1023,0), (724,-725), (0,-1024),
+(-725,-725), (-1024,0), (-725,724)`. `Z_FormationOffset` stores these and
+the five derived grids as C literals; `test_squad` compares all eight
+rotations with the decoded asset. Each product is shifted separately before
+addition or subtraction, including the negative rounding: `x' = (x*cos >>
+10) + (y*sin >> 10)` and `y' = (y*cos >> 10) - (x*sin >> 10)`. This is
+the register order at `0x78eef..0x78f2b`; it corrects a first investigation
+that had interchanged sine and cosine.
 `0x78d7d` calls it and uses a 32-pixel squared-distance boundary at
 `0x78df3`; `0x7aefb` temporarily sets the group bit to calculate a rejoin
 target. `0x7815e` temporarily sets the bit while refreshing each follower,
@@ -2617,6 +2677,22 @@ the leader's `0x7ae44..0x7ae6a` path clears it. The complete unit-state
 gates, other enable/disable transitions, and individual-order interaction
 remain **unknown**. Do not substitute Zod's replan cadence or
 force a follower away from a player order based on this partial trace.
+The current implementation dispatches a grouped player order once to the
+leader, rotates native slot offsets using the leader's current path leg,
+and replans an idle follower when its slot is at least 32 pixels away while
+the leader has an active movement order. Active diversions are not
+interrupted. Following a flag diversion, the explicitly adopted Zod rejoin
+behavior requests one formation plan even if the leader has stopped; group
+Stop or a new group order cancels it. Native `0x7bd39` sets +0x62 bit 0x80
+for an alternative path and `0x7aee5..0x7af0a` consumes it to refresh the
+formation once with group +9 bit 0 temporarily set. Whether the native flag
+capture path always establishes that bit is **unknown**; its use here to
+connect flag diversion to stopped-leader rejoin is an engine adaptation.
+The engine's path planner and moving-leader gate are not a complete port of
+native +9/+0x3f state transitions. Both player and AI group orders use one
+leader route. `test_squad` compares the grids against file offset `0x11bdd4`
+in ZED.EXE and tests turns, route deduplication, diversion, stopped-leader
+rejoin, cancellation and save/load; `test_commander` covers AI following.
 The player-order path `0x47aec..0x47b52` writes the selected unit's +0x5a
 and, whenever its +0x5c is nonzero, also writes the command and operands
 to group +0x3a/+0x2c/+0x2e/+0x30; `0x7d053` copies those group fields to
@@ -2963,3 +3039,32 @@ are not inferred from these player commands. Route state participates in
 save/load and consistency hashing. Headless `tests/z/test_production`,
 `test_capture`, `test_commander` and `test_fort` cover mixed routes, Shift,
 target loss, bounded paths, boarding, wreck service and fort entry.
+
+### Manufactured robot groups
+
+**Confirmed**, DOS `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`:
+fort and factory completion call `0x5060c` at `0x42131` and `0x42f8f`.
+With manufacture flag `0x10f37b` set, `0x50a83` selects the production's
+82-byte ROBOTS.DAT group and `0x50665..0x50683` walks up to 21 member words
+at group +0x1c. `0x508cc` gives every manufactured member the same factory
+origin; the initial-map four-pixel stagger at `0x50757..0x50770` is skipped.
+`0x51044..0x51071` makes a leader with `0x77cc6` and attaches later
+members through `0x77fd6`; `0x506c2` copies group +1 as formation selector.
+Failures return carry at `0x506f0`/`0x5078c` without observed rollback of
+already allocated members. Zod `zserver.cpp:1124..1157,2212..2251` also
+creates a group at a common origin and gives its leader the factory route.
+
+The port spawns each authored robot member as an ordinary mobj, retains its
+ROBOTS.DAT record and leader/follower identity, and applies the factory route
+once to the leader. Non-robot production and the production queue remain
+unchanged. The shared group-ID allocator scans 240 live slots deterministically
+and gives single-player CPU groups the upper half first, following
+`0x77cc6..0x77d6d`. Native also prefers slots whose 200-pass reuse cooldown
+has expired (`0x77880`, `0x775f5`), then falls back to any empty slot; that
+preference is not modeled. If the engine cannot allocate a follower, already
+spawned members remain and the engine's completed production is not retried;
+native carry propagation beyond the caller remains unverified. Inspect with
+`r2 -q -e bin.cache=true -c 'pd 70 @ 0x50665' -c 'pd 45 @ 0x77cc6' -c q data/Z/ZED.EXE`;
+run `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_production` for authored
+members, group identity and save/load allocation checks.

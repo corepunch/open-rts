@@ -1594,7 +1594,10 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                         picked = R_PickUnit(app, map, units, unit_count, fallback_sprite, cache,
                                             game_info, bx, by, -1);
                 }
-                if (!box && !additive && picked < 0 &&
+                if (!box && picked < 0 &&
+#ifndef RTS_ORDER_MODIFIERS
+                    !additive &&
+#endif
                     !(R_Policy()->input == INPUT_RIGHT_CLICK_ORDERS)) {
                     for (int i = 0; i < unit_count; ++i) {
                         if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->hp > 0) {

@@ -132,6 +132,8 @@ void Z_BodyDamaged(mobj_t *mo, int old_hp);
 bool Z_EjectCrew(mobj_t *vehicle);
 int Z_GroupType(const zmap_t *map, int group, int member);
 int Z_GroupRobot(const zmap_t *map, int group, int member);
+int Z_GroupFormation(const zmap_t *map, int group);
+uint8_t Z_AllocateSquad(int team);
 bool Z_IsRobot(int t);
 /* Size of a SPRITES.RSC picture; false for a bad index or file. */
 bool Z_SpriteSize(const zmap_t *map, int index, isize2_t *size);
@@ -144,11 +146,19 @@ bool Z_LoadUISprites(const char *root, const int *indices, int count, spriteshee
 
 /* p_capture.c: flags, vehicles and grenades, run once a tic. */
 void Z_Ticker(void);
+void Z_DetourTicker(void);
+void Z_DetourCancel(mobj_t *unit);
+void Z_DetourCaptured(mobj_t *unit, mobj_t *flag);
+bool Z_DetourBoard(mobj_t *unit, mobj_t *target);
 void Z_RebuildTicker(void);
 bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int count);
 void Z_RouteTick(mobj_t *unit);
 void Z_RouteProduced(mobj_t *unit, const mobj_t *producer);
 void Z_SquadLeave(mobj_t *unit);
+ivec2_t Z_FormationOffset(int shape, int slot, int direction);
+mobj_t *Z_SquadLeader(mobj_t *unit);
+void Z_SquadTick(mobj_t *unit);
+void Z_SquadOrder(mobj_t *leader, bool active);
 void Z_SquadEjected(mobj_t **units, int count);
 void Z_BuildingDestroyed(mobj_t *building);
 bool Z_StartBuildingRebuild(mobj_t *building);

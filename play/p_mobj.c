@@ -639,6 +639,9 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
  * way: then this is NULL and `chasing` is set. */
 static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
     *chasing = false;
+#ifdef RTS_ORDER_MODIFIERS
+    if (attacker->move_only && P_HasMoveOrder(attacker)) return NULL;
+#endif
 #ifdef RTS_MODULE_STARCRAFT
     if (attacker->sc.order.kind == SC_ORDER_REPAIR || attacker->sc.order.kind == SC_ORDER_FOLLOW ||
         (attacker->move_only && P_HasMoveOrder(attacker))) return NULL;

@@ -40,7 +40,7 @@ static bool service(mobj_t *unit, mobj_t *target) {
 static bool done(const mobj_t *unit) {
     const zroute_t *route = &unit->z.route;
     if (!route->active) return true;
-    if (unit->z.board || unit->z.service || unit->waypoints.count) return false;
+    if (unit->z.board || unit->z.service || unit->z.detour.phase || unit->waypoints.count) return false;
     if ((route->active == TC_ATTACK || route->active == TC_ORDER) && route->target) {
         const mobj_t *target = Z_ServiceTarget(route->target);
         if (target && target->hp > 0 && P_CanTarget(unit, target)) return false;
@@ -139,6 +139,11 @@ void Z_RouteProduced(mobj_t *unit, const mobj_t *producer) {
 
 bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int count) {
     if (cmd->internal) {
+        if (queueable(cmd->order) || cmd->order == TC_PATH || cmd->order == TC_WAYPOINT)
+            for (int i = 0; i < count; ++i) {
+                units[i]->move_only = cmd->order == TC_MOVE;
+                Z_SquadOrder(units[i], true);
+            }
         mobj_t *target = Z_ServiceTarget(cmd->target);
         if ((cmd->order == TC_ATTACK || cmd->order == TC_ORDER) && target) {
             bool handled = false;
@@ -167,13 +172,39 @@ bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
         }
         return false;
     }
+    /* 0x47b1b gives orders on grouped members to their group, and 0x7d053
+     * installs them on its leader. Store a single route for that leader. */
+    mobj_t *leaders[MAXCOMMANDUNITS];
+    if (queueable(cmd->order) || cmd->order == TC_PATH || cmd->order == TC_WAYPOINT || cmd->order == TC_STOP) {
+        int n = 0;
+        for (int i = 0; i < count; ++i) {
+            mobj_t *leader = Z_SquadLeader(units[i]);
+            bool seen = false;
+            for (int j = 0; j < n; ++j) if (leaders[j] == leader) { seen = true; break; }
+            if (!seen) leaders[n++] = leader;
+        }
+        units = leaders;
+        count = n;
+    }
     bool producers = false, mobiles = false;
     for (int i = 0; i < count; ++i) {
         producers |= Z_Producer(units[i]);
         mobiles |= (units[i]->traits & MF_MOBILE) != 0;
     }
     if (cmd->order == TC_STOP || cmd->order == TC_UNLOAD) {
-        for (int i = 0; i < count; ++i) units[i]->z.route = (zroute_t){0};
+        for (int i = 0; i < count; ++i) {
+            Z_DetourCancel(units[i]);
+            units[i]->z.route = (zroute_t){0};
+            if (cmd->order == TC_STOP) Z_SquadOrder(units[i], false);
+        }
+        if (cmd->order == TC_STOP) {
+            ticcmd_t stop = *cmd;
+            stop.internal = true;
+            stop.count = count;
+            for (int i = 0; i < count; ++i) stop.units[i] = units[i]->id;
+            G_RunTiccmd(player, &stop);
+            return true;
+        }
         return false;
     }
     if (cmd->order == TC_ORDER && cmd->target && !Z_ServiceTarget(cmd->target)) return true;
@@ -252,6 +283,7 @@ bool Z_RouteCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
             append(route, step.order, step.position, step.target);
             continue;
         }
+        Z_DetourCancel(unit);
         *route = (zroute_t){.active = step.order, .target = step.target, .owner = player};
         if ((cmd->order == TC_ORDER && !step.target) || cmd->order == TC_MOVE ||
             cmd->order == TC_PATH || cmd->order == TC_WAYPOINT) {

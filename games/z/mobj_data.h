@@ -11,6 +11,12 @@ typedef struct {
     int active;
     uint8_t count, owner;
 } zroute_t;
+enum { Z_DETOUR_TRAVEL = 1, Z_DETOUR_CHEER = 2 };
+typedef struct {
+    fixed2_t resume;
+    uint32_t target, claimant;
+    uint8_t slot, phase, cooldown;
+} zdetour_t;
 
 /* A robot sent to drive an empty vehicle or gun names it in `board`; a
  * manned one keeps its driver's weapon type + 1 in `driver`. Robots of a
@@ -19,6 +25,7 @@ typedef struct {
  * again. */
 #define MOBJ_GAME_FIELDS struct { \
     zroute_t route; /* Player order queue, or a factory's rally template. */ \
+    zdetour_t detour; /* Native object slot, interaction reservation and interrupted goal. */ \
     uint32_t board; \
     uint32_t rating; /* Native building +0x0c production technology. */ \
     int32_t rebuild_stock; uint16_t rebuild_setting; /* BUILD +0x45 / +0x49. */ \
@@ -29,7 +36,8 @@ typedef struct {
     uint16_t robot; /* ROBOTS.DAT record + 1, retained for native AI valuation. */ \
     uint8_t cliff_block, home; \
     uint8_t object, building; /* Native OBJECT type / BUILD record index + 1. */ \
-    uint8_t driver, squad, squad_slot, grenades, territory; \
+    uint8_t driver, squad, squad_slot, formation, formation_direction, grenades, territory; \
+    bool formation_active, formation_rejoin; \
     uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
@@ -41,11 +49,14 @@ typedef struct {
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->z.route.count); HASH((mo)->z.route.active); HASH((mo)->z.route.owner); HASH((mo)->z.route.target); \
+    HASH((mo)->z.detour.resume.x); HASH((mo)->z.detour.resume.y); \
+    HASH((mo)->z.detour.target); HASH((mo)->z.detour.claimant); \
+    HASH((mo)->z.detour.slot); HASH((mo)->z.detour.phase); HASH((mo)->z.detour.cooldown); \
     for (int zi = 0; zi < (mo)->z.route.count && zi < MAXWAYPOINTS; ++zi) { \
         HASH((mo)->z.route.steps[zi].order); HASH((mo)->z.route.steps[zi].target); \
         HASH((mo)->z.route.steps[zi].position.x); HASH((mo)->z.route.steps[zi].position.y); HASH((mo)->z.route.steps[zi].position.z); \
     } \
-    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.grenades); \
+    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.formation); HASH((mo)->z.formation_direction); HASH((mo)->z.formation_active); HASH((mo)->z.formation_rejoin); HASH((mo)->z.grenades); \
     HASH((mo)->z.rebuild_stock); HASH((mo)->z.rebuild_setting); \
     HASH((mo)->z.debris.origin.x); HASH((mo)->z.debris.origin.y); \
     HASH((mo)->z.debris.position.x); HASH((mo)->z.debris.position.y); \

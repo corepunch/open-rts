@@ -4,5 +4,6 @@
  * capability macros and these level fields; it never names the game. */
 #define RTS_MAX_PRODUCTION_QUEUE 9
 #define RTS_QUEUED_ORDERS 1
+#define RTS_ORDER_MODIFIERS 1
 #define LEVEL_GAME_FIELDS
 #endif

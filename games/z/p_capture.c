@@ -61,7 +61,8 @@ static void terrain_speed(mobj_t *mo) {
     if (pixel.x < 0 || pixel.y < 0 || !L_Contains(&level, cell.x, cell.y)) return;
     unsigned terrain = map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x7f;
     int base = mo->z.body_tracked ? mo->z.body_speed / 10 : body_stats[t].speed / 10;
-    mo->speed = Z_LevelSpeed(base + (terrain < sizeof(levels) ? levels[terrain] : 0));
+    mo->speed = Z_LevelSpeed(base + (terrain < sizeof(levels) ? levels[terrain] : 0) +
+                             (mo->z.detour.phase == Z_DETOUR_TRAVEL ? 3 : 0));
 }
 
 /* 0x86d55 scales the body's mutable speed byte only when damage crosses a
@@ -133,6 +134,7 @@ static void store_crew(mobj_t *vehicle, mobj_t *robot) {
         .grenades = robot->z.grenades, .home = robot->z.home, .manufactured = robot->z.manufactured,
     };
     Z_SquadLeave(robot);
+    Z_DetourCancel(robot);
     P_MobjSetSelected(robot, false);
     P_RemoveMobj(robot);
 }
@@ -157,6 +159,8 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
                                                       : P_PointToAngle(-FIXED_ONE, 0);
     P_SetMobjState(vehicle, mobjinfo[vehicle->type_id].spawnstate);
     vehicle->traits |= vehicle->info->traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK | MF_TURRET);
+    vehicle->z.detour.slot = 0;
+    vehicle->z.detour.claimant = 0;
     Z_SetTeam(vehicle, robot->team);
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
     if (vehicle->z.body_tracked) vehicle->z.body_accuracy = (uint8_t)base_accuracy(robot);
@@ -176,6 +180,20 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
                 mate->team == vehicle->team && mate->z.squad == vehicle->z.squad)
                 store_crew(vehicle, mate);
         }
+}
+
+/* 0x7afbf..0x7aff4 compares native unit and object origins to 20px. */
+bool Z_DetourBoard(mobj_t *unit, mobj_t *target) {
+    const zmap_t *map = level.native_data;
+    isize2_t size;
+    if (!map || robot_type(unit) < 0 || !Z_Enterable(target) ||
+        !Z_SpriteSize(map, states[target->core.state_id].frame, &size)) return false;
+    ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(target->core.position), FIXED_FROM_INT(Z_TILE)));
+    ivec2_t at = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+    ivec2_t delta = ivec2_sub(Z_AITopLeft(unit), at);
+    if ((int64_t)delta.x * delta.x + (int64_t)delta.y * delta.y > REACH_ENTER * REACH_ENTER) return false;
+    get_in(unit, target);
+    return true;
 }
 
 /* Zod's eject command restores each crew member's health and leaves the
@@ -316,6 +334,7 @@ bool Z_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
 void Z_MobjTicker(mobj_t *mo) {
     if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD) return;
     Z_RouteTick(mo);
+    Z_SquadTick(mo);
     terrain_speed(mo);
     if (mo->core.state_id == S_BRIDGE_REBUILD) {
         Z_BridgeEffectTick(mo);
@@ -353,13 +372,16 @@ static int coin(const mobj_t *a, const mobj_t *b, uint32_t salt) {
 static int accuracy(const mobj_t *mo) {
     return mo->z.body_tracked ? mo->z.body_accuracy : base_accuracy(mo);
 }
+static bool valid_crew(const mobj_t *vehicle) {
+    return vehicle->z.crew_count <= Z_CREW_MAX && vehicle->z.driver && Z_IsRobot(vehicle->z.driver - 1);
+}
 /* 0x5ad72: a bullet that hits a Jeep or a Light Gun may hit its driver
  * instead, when `rand & 0x7f` falls under the shooter's accuracy (halved
  * against a gun). The driver takes the whole shot; once he is dead the
  * vehicle stands empty for anyone to take (0x860fd). */
 static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
     int t = Z_UnitType(target);
-    if (!target->z.driver || (t != MT_UNIT_JEEP - MT_UNITS && t != MT_UNIT_LIGHT_GUN - MT_UNITS)) return false;
+    if (!valid_crew(target) || (t != MT_UNIT_JEEP - MT_UNITS && t != MT_UNIT_LIGHT_GUN - MT_UNITS)) return false;
     int skill = accuracy(attacker);
     if (t == MT_UNIT_LIGHT_GUN - MT_UNITS) skill /= 2;
     if (coin(attacker, target, 0x5ad72) >= skill) return false;
@@ -378,7 +400,8 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage) {
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
     (void)weapon;
     int firing = Z_UnitType(attacker);
-    if (firing == MT_UNIT_APC - MT_UNITS && attacker->z.driver) {
+    if (firing == MT_UNIT_APC - MT_UNITS) {
+        if (!valid_crew(attacker)) return 0;
         firing = attacker->z.driver - 1;
         const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + firing));
         if (driver) damage = driver->attack.damage * (attacker->z.crew_count ? attacker->z.crew_count : 1);
@@ -413,7 +436,10 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         return true;
     }
     int t = Z_UnitType(attacker);
-    if (t == MT_UNIT_APC - MT_UNITS && attacker->z.driver) t = attacker->z.driver - 1;
+    if (t == MT_UNIT_APC - MT_UNITS) {
+        if (!valid_crew(attacker)) return true;
+        t = attacker->z.driver - 1;
+    }
     int speed = shell_speed(t);
     if (!speed || !weapon || !target) return false;
     int damage = weapon->damage;
@@ -491,6 +517,7 @@ static void take_flag(mobj_t *flag, mobj_t *taker) {
         if (cell.x >= territory->min.x && cell.x < territory->max.x &&
             cell.y >= territory->min.y && cell.y < territory->max.y) Z_SetTeam(mo, taker->team);
     }
+    Z_DetourCaptured(taker, flag);
     int t = robot_type(taker);
     if (t < 0) return;
     P_ClearMove(taker);
@@ -545,6 +572,7 @@ void Z_Ticker(void) {
         }
         if (mo->z.board) tick_boarding(mo);
     }
+    Z_DetourTicker();
 }
 
 /* Robots told onto an empty vehicle or gun walk to it and the first there

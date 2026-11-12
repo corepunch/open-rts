@@ -75,6 +75,35 @@ static fixed2_t pixel_at(fixed2_t at, int x, int y) {
     return fixed2_add(at, (fixed2_t){x * (FIXED_ONE / Z_TILE), y * (FIXED_ONE / Z_TILE)});
 }
 
+static int test_bad_crew_combat(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for malformed crew combat");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *grunt = blast_unit(MT_UNIT_GRUNT, 0, at, 500);
+    mobj_t *jeep = blast_unit(MT_UNIT_JEEP, 1, at, 500);
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    if (!grunt || !jeep || !apc) return fail("spawn malformed crew combat units");
+    grunt->z.body_tracked = true;
+    grunt->z.body_accuracy = 127;
+    jeep->z.driver = 255;
+    for (int i = 0; i < 128; ++i, ++leveltime)
+        Z_HitDamage(grunt, &grunt->info->attack, jeep, 10, 1);
+    if (jeep->z.crew_hurt || jeep->z.driver != 255) return fail("invalid driver cannot be hit");
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    apc->z.crew_count = 255;
+    if (Z_HitDamage(apc, &apc->info->attack, grunt, 10, 1) != 0)
+        return fail("oversized APC crew cannot amplify hitscan damage");
+    apc->z.driver = MT_UNIT_TOUGH - MT_UNITS + 1;
+    if (!Z_Attack(apc, &apc->info->attack, grunt) || nth(MT_SHELL, 0, 0))
+        return fail("oversized APC crew cannot fire a shell or fall back to hitscan");
+    apc->z.crew_count = 1;
+    if (!Z_Attack(apc, &apc->info->attack, grunt) || !nth(MT_SHELL, 0, 0))
+        return fail("valid APC crew can fire a shell");
+    rts_game_model_destroy(model);
+    puts("PASS: z malformed crews cannot affect combat");
+    return 0;
+}
+
 static int test_shell_blast(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for shell blast");
@@ -384,7 +413,7 @@ static int test_alert(void) {
 }
 
 int main(void) {
-    if (test_death() || test_ordered_target() || test_alert() || test_shell_blast() || test_body_slowdown() ||
+    if (test_bad_crew_combat() || test_death() || test_ordered_target() || test_alert() || test_shell_blast() || test_body_slowdown() ||
         test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

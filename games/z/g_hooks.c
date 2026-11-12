@@ -1,7 +1,7 @@
 #include "z_local.h"
 #include "info.h"
 
-uint32_t G_SaveLayout(void) { return 7; }
+uint32_t G_SaveLayout(void) { return 8; }
 
 /* Z's share of the engine's game hooks: its rules run once a tic after the
  * thinkers, an order onto an empty vehicle or gun sends robots in, and a
@@ -17,6 +17,7 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
     Z_BodyDamaged(victim, old_hp);
     if (old_hp > 0 && victim->hp <= 0) {
         Z_SquadLeave(victim);
+        Z_DetourCancel(victim);
         victim->z.route = (zroute_t){0};
         if (victim->z.building) Z_BuildingDestroyed(victim);
     }
