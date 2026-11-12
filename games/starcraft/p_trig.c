@@ -716,7 +716,7 @@ static void create_units(sc_mission_t *m, const uint8_t *a, int current) {
     unsigned player = read_u32_le(a + 16), loc = read_u32_le(a);
     unsigned unit = read_u16_le(a + 24), number = read_u32_le(a + 20);
     int players[8], n = collect_players(m, player, current, players);
-    if (!n || unit >= SC_TYPES) return;
+    if (!n || unit >= SC_TYPES || !(sc_units[unit].availability & 2)) return;
     int l, t, r, b;
     if (loc ? !trigger_loc_box(m, loc, &l, &t, &r, &b) :
               !loc_box(m, 64, &l, &t, &r, &b)) return;

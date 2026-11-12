@@ -1386,6 +1386,26 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-create-resource.chk");
 
+    /* Create Unit honors units.dat's unit-listing availability bit. */
+    CHECK(sc_units[MT_MARINE - 1].availability == 207);
+    CHECK(sc_units[MT_INTERCEPTOR - 1].availability == 196);
+    CHECK(sc_units[MT_VESPENE_GEYSER - 1].availability == 2);
+    for (int create_action = 11; create_action <= 44; create_action += 33) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action, 64); put_u16(action + 24, MT_INTERCEPTOR - 1);
+        action[26] = (uint8_t)create_action; action[27] = 1;
+        const char *path = create_action == 11 ? "/tmp/open-rts-sc-create-unavailable-11.chk" :
+                                                 "/tmp/open-rts-sc-create-unavailable-44.chk";
+        CHECK(!write_map(path, owners, trig));
+        CHECK(G_DoLoadLevel(path, &level));
+        ticks(1, &(hudtext_t){0});
+        mobjlist_t unavailable_units = P_ListMobjs();
+        for (int i = 0; i < unavailable_units.count; i++)
+            CHECK(unavailable_units.items[i]->type_id != MT_INTERCEPTOR);
+        P_FreeMobjList(&unavailable_units);
+        free(trig); unload(); remove(path);
+    }
+
     /* A trigger-created Factory reconnects a neutral Machine Shop at its native offset. */
     trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
     put_u32(action, 1); put_u16(action + 24, MT_FACTORY - 1);

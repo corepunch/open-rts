@@ -22,6 +22,7 @@ typedef struct {
     ivec2_t addon; /* An add-on's top-left from its parent's, in pixels */
     irect_t bounds; /* units.dat collision box, relative to the centre, pixels. */
     int turn;       /* flingy.dat turn rate, 1/256 of a circle per 24 Hz frame */
+    uint16_t availability; /* units.dat staredit_availability_flags. */
 } sc_unit_t;
 extern sc_unit_t sc_units[SC_TYPES];
 /* Types info.h does not name: units.dat rows plus one. */

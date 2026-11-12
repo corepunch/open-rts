@@ -2596,6 +2596,14 @@ afterward (18104–18112); unlike the separate worker `build_refinery` path
 keeps the underlying geyser vent and the trigger-created refinery's independent
 resource vent. Its native owner-visibility exception for refinery placement
 is still not modeled.
+OpenBW rejects trigger-created types whose `staredit_availability_flags`
+omit bit `0x02` (`trigger_create_unit`, 18073–18074). The SC catalog now carries
+the complete DAT u16 column 53 for all 228 rows by `tools/sc_catalog`: byte
+offset 18736 in classic DAT and 19420 in expanded Brood War DAT. Action 11
+shares the action 44 implementation here as a format inference. Tests check
+DAT rows Marine=207, Interceptor=196, and Vespene Geyser=2, then confirm that
+both creation actions reject Interceptor. This static editor/listing flag is
+separate from per-player PUNI build availability.
 
 ### Give Units and Modify Hangar Count use modified Anywhere (2026-11-13)
 

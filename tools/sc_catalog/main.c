@@ -1,4 +1,4 @@
-/* Offline DAT balance importer. Runtime balance remains committed C literals. */
+/* Offline DAT catalog importer. Runtime balance remains committed C literals. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -163,8 +163,9 @@ int main(int argc,char **argv) {
             d[offsets[6]+i]?u16(d+offsets[7]+2*i):0,u16(d+offsets[1]+2*i),
             d[offsets[17]+i],d[offsets[19]+i],d[offsets[26]+i],speed,
             d[offsets[47]+i],d[offsets[48]+i],addon_x,addon_y);
-        printf(", %u, %u, %u, %u, %u)\n", u16(d+offsets[38]+8*i), u16(d+offsets[38]+8*i+2),
-            u16(d+offsets[38]+8*i+4), u16(d+offsets[38]+8*i+6), turn);
+        printf(", %u, %u, %u, %u, %u, %u)\n", u16(d+offsets[38]+8*i), u16(d+offsets[38]+8*i+2),
+            u16(d+offsets[38]+8*i+4), u16(d+offsets[38]+8*i+6), turn,
+            u16(d+offsets[53]+2*i));
     }
     return 0;
 }

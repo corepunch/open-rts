@@ -623,7 +623,10 @@ accepted file lengths. Names for unused fields are reference-defined.
 
 The committed `units.inc` contains name, integer HP, special flags, placement
 width/height, sight, right-click action, editor group bits, mineral/gas costs,
-and portrait ID. HP is stored in DAT as a u32 with eight fractional bits;
+portrait ID, and `staredit_availability_flags`. That final u16 comes from
+column 53 at byte offset 18736 in classic DAT and 19420 in expanded Brood War
+DAT, and covers all 228 units. HP is stored in DAT as a u32 with eight
+fractional bits;
 our importer shifts it right by eight. Placement is two u16 pixel dimensions;
 unit dimensions are a separate eight-byte field and are not substituted for
 placement dimensions. The current field named `race` stores editor group bits,
