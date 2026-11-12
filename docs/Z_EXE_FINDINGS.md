@@ -3263,8 +3263,24 @@ saved/hashed combat seed using the native `0x70d37` generator. This stream is
 separate from retail's global RNG and is sampled at throw time; retail caches
 tracked aim and refreshes it on its own schedule, and its +0x93 flag doubles
 the tracked scatter radius at `0x75d10..0x75d19`, which is not yet modeled.
+`0x7dc90..0x7dceb` updates +0x93 one unit toward the terrain-dependent value
+at `0x11742c`, sampled at unit origin +(5,11), unless global 0x12ec7e is
+nonzero. Nonzero values are used to offset and clip the unit drawing at
+`0x7ddbf..0x7de06`; at values at least 16 `0x7e0f8` sometimes creates an
+effect. This routine is reached from `0x7d2e3` in the unit drawing path;
+`0x2666f` also calls that drawing routine for the hardware preview but sets
+0x12ec7e to 1 around the call (`0x26668..0x26674`), so preview does not
+mutate depth. For terrain IDs 0..66, table `0x11742c` contains nonzero
+targets only at IDs 9 → 7, 38 → 4, 39 → 11 and 42 → 16. Therefore the
+timing, simulation/render coupling and any other consumers need tracing
+before a lock-step depth ticker or a direct terrain test can replace it.
 The engine always applies the 25% accuracy bonus; retail skips it when unit
 +0x67 bit 0x80 is set (`0x75cf4..0x75d04`), a flag not yet modeled.
+`0x77237..0x7723b` sets this bit with unit +0x62 bit 3 during an enemy-unit
+engagement path; `0x77031..0x7707f` clears both after a failed range/target
+check. This ties the flag to a tracked engagement, but the full entry and
+exit lifecycle has not been mapped to engine orders, so treating every
+grenade attack as engaged would be an unverified substitution.
 Direct-coordinate mode
 invokes separate scatter at `0x636c7` with a different radius. Building and
 other non-unit aim keeps the engine's
