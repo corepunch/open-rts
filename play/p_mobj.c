@@ -164,8 +164,8 @@ static int weapon_cooldown_ms(const mobj_t *unit, const weapondef_t *weapon) {
 }
 
 static void start_attack_cooldown(mobj_t *attacker, const weapondef_t *weapon) {
-    if (weapon_cooldown_ms(attacker, weapon) > 0)
-        attacker->attack.cooldown_left_ms = weapon_cooldown_ms(attacker, weapon);
+    int cooldown_ms = weapon_cooldown_ms(attacker, weapon);
+    if (cooldown_ms > 0) attacker->attack.cooldown_left_ms = cooldown_ms;
     if (weapon->shots > 0 && ++attacker->attack.shots >= weapon->shots) {
         attacker->attack.shots = 0;
         attacker->attack.cooldown_left_ms = weapon->reload_ms;

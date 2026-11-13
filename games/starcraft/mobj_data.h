@@ -21,6 +21,8 @@ enum { SC_TIMER_LIFE, SC_TIMER_MATRIX, SC_TIMER_IRRADIATE, SC_TIMER_PLAGUE, SC_T
        SC_TIMER_LOCKDOWN, SC_TIMER_STORM, SC_TIMER_STIM, SC_TIMER_STASIS,
        SC_TIMER_MAIN_ORDER, SC_TIMER_SPELL_COOLDOWN, SC_TIMER_GROUND_COOLDOWN,
        SC_TIMER_AIR_COOLDOWN, SC_TIMERS };
+/* Corrosive Acid: at most nine spores, each counting down from 150 frames. */
+enum { SC_ACID_SPORES = 9, SC_ACID_FRAMES = 150 };
 /* A transport's slots: eight one-slot passengers at most. */
 enum { SC_CARGO = 8 };
 /* A pending order a unit walks to carry out:
@@ -54,7 +56,7 @@ typedef struct { uint16_t pc, ret, wait; uint8_t anim, active; } sc_script_t;
  * counts docked interceptors or scarabs, a silo's nuke or a Vulture's
  * Spider Mines. A Nydus Canal's parent is its other end. */
 #define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound, sprite_owner; uint16_t kills; int shields, energy; \
-    uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
+    uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; uint8_t acid[SC_ACID_SPORES]; \
     sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; sc_order_queue_t queue; \
     sc_construction_t construction; \
     sc_script_t script; } sc;
@@ -63,6 +65,7 @@ typedef struct { uint16_t pc, ret, wait; uint8_t anim, active; } sc_script_t;
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
     HASH((mo)->sc.parent); HASH((mo)->sc.larva_ms); \
     for (int sc_i = 0; sc_i < SC_TIMERS; ++sc_i) HASH((mo)->sc.timers[sc_i]); \
+    for (int sc_i = 0; sc_i < SC_ACID_SPORES; ++sc_i) HASH((mo)->sc.acid[sc_i]); \
     HASH((mo)->sc.matrix); HASH((mo)->sc.hangar); HASH((mo)->sc.parasite); HASH((mo)->sc.addon); \
     for (int sc_i = 0; sc_i < SC_CARGO; ++sc_i) HASH((mo)->sc.cargo[sc_i]); \
     HASH((mo)->sc.order.kind); HASH((mo)->sc.order.tech); HASH((mo)->sc.order.target); \

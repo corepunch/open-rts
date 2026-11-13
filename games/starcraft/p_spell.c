@@ -724,6 +724,7 @@ void sc_spell_ticker(mobj_t *mo, int frames) {
     burrow_step(mo);
     if (mo->remove || mo->hp <= 0) return;
     if (frames > 0) {
+        sc_acid_tick(mo, frames);
         static const int countdown[] = {SC_TIMER_MATRIX, SC_TIMER_ENSNARE, SC_TIMER_LOCKDOWN, SC_TIMER_STORM,
                                         SC_TIMER_STIM, SC_TIMER_STASIS};
         for (unsigned i = 0; i < sizeof(countdown) / sizeof(*countdown); i++)
