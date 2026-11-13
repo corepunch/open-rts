@@ -1634,8 +1634,11 @@ than being replaced with numeric approximations:
   unlike native it leaves a task unchanged when that validation fails.
   This follow-up uses the ordered edge-equality branches of `0x9d641`:
   nested or partially overlapping rectangles without a matching edge are
-  excluded, while touching edges and corners qualify. Other AI paths retain
-  their existing broader overlap helper.
+  excluded, while touching edges and corners qualify. The same native
+  function is called for frontier selection at `0x98dc6`, staged-attack
+  handling at `0x99733`/`0x99780`, and defence at `0x9d166`; these engine
+  paths now share the corrected predicate. `test_frontier_overlap` checks
+  a normal AI pass with an enemy territory nested inside a friendly one.
   `test_fort_followup` exercises nearby occupied, remote, nonmobile and
   already assigned tasks and starts an attack through the normal heavy AI
   pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true

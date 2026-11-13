@@ -324,6 +324,36 @@ static int test_fort_followup(void) {
     return 0;
 }
 
+static int test_frontier_overlap(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("frontier overlap load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->territory_count = 2; map->fort_count = 0;
+    map->territories[1].min = (ivec2_t){0,0}; map->territories[1].max = (ivec2_t){100,100};
+    map->territories[1].flag = (ivec2_t){40,40}; map->territories[1].team = 1;
+    map->territories[0].min = (ivec2_t){60,60}; map->territories[0].max = (ivec2_t){70,70};
+    map->territories[0].flag = (ivec2_t){65,65}; map->territories[0].team = 0;
+    map->territories[0].options = map->territories[1].options = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (Z_UnitType(mo) < 0) continue;
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) {
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){40,40}), 0);
+            P_ClearMove(mo);
+        } else if (mo->team == 0) {
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){65,65}), 0);
+            P_ClearMove(mo);
+        }
+    }
+    think(0); map->ai.delay = 0; think(1);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->task != -1 || task->current != 1 || task->passes < 1)
+        return fail("nested enemy territory does not turn inland force into frontier force");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_restricted_territory(void) {
     for (int test = 0; test < 12; ++test) {
         RtsGameModel *model = load();
@@ -780,7 +810,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_fort_followup() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_fort_followup() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

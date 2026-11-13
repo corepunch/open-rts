@@ -342,14 +342,8 @@ static bool other_in(const zai_t *ai, const zaitask_t *self, int state, int terr
     }
     return false;
 }
-/* 0x9d61e: rectangles that touch, corners included. */
-static bool adjacent(const zmap_t *map, int a, int b) {
-    if (a < 0 || b < 0 || a == b) return false;
-    const zterritory_t *p = &map->territories[a], *q = &map->territories[b];
-    return p->min.x <= q->max.x && q->min.x <= p->max.x && p->min.y <= q->max.y && q->min.y <= p->max.y;
-}
 /* 0x9d641: same-side equality is checked before opposite-side overlap. */
-static bool fort_adjacent(const zmap_t *map, int a, int b) {
+static bool adjacent(const zmap_t *map, int a, int b) {
     if (a < 0 || b < 0 || a == b) return false;
     const zterritory_t *p = &map->territories[a], *q = &map->territories[b];
     if (p->min.x == q->min.x || p->max.x == q->max.x)
@@ -441,7 +435,7 @@ static int enough(const pooled_t *pool, int n, int need) {
 void Z_AIFortFollowup(zmap_t *map, int territory) {
     if (territory < 0 || territory >= map->territory_count || !(map->ai.territories[territory].flags & 2)) return;
     for (int t = 0; t < map->territory_count; ++t) {
-        if (!fort_adjacent(map, territory, t)) continue;
+        if (!adjacent(map, territory, t)) continue;
         for (int i = 0; i < Z_AI_TASKS; ++i) {
             zaitask_t *task = &map->ai.tasks[i];
             if (!task->unit || task->current != t || (task->flags & (USABLE | MOBILE)) != (USABLE | MOBILE) ||
