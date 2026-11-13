@@ -1,6 +1,7 @@
 #include "t_local.h"
 #include "starcraft.h"
 #include "sc_local.h"
+#include "../../play/p_ai_local.h"
 #include <limits.h>
 #include <stdlib.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft mission",#c)
@@ -2006,6 +2007,137 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(given_inside->owner == 1 && given_outside->owner == 0);
     free(trig); unload(); remove("/tmp/open-rts-sc-give-location.chk");
+
+    /* Production initializes the sprite owner, an active Give Unit changes it,
+     * and a later defeat preserves that owner while making the unit neutral. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22;
+    trig[2372 + 17] = 0; trig[2372] = 1; /* Player 0 executes the trigger. */
+    action = trig + 320;
+    put_u32(action + 16, 1); put_u32(action + 20, 0);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
+    action[32 + 26] = 2;
+    CHECK(!write_map("/tmp/open-rts-sc-produced-neutral.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-produced-neutral.chk", &level));
+    CHECK(sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){128, 128}, 1));
+    mobj_t *enemy_barracks = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){256, 256}, 1);
+    CHECK(enemy_barracks);
+    const StaticProductDefinition *enemy_marine_product = G_ModelProductByUIId(NULL, MT_MARINE);
+    level.player_resources[1][0] = 1000;
+    CHECK(enemy_marine_product && G_QueueProduct(enemy_barracks, enemy_marine_product));
+    enemy_barracks->production->time_left_ms = 1;
+    CHECK(G_ProductionTicker(RTS_TICK_MS));
+    mobj_t *produced_enemy = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *candidate = (mobj_t *)th;
+        if (th->function == P_MobjThinker && candidate->type_id == MT_MARINE && candidate->owner == 1)
+            produced_enemy = candidate;
+    }
+    CHECK(produced_enemy && produced_enemy->sc.sprite_owner == 1);
+    ticks(1, &(hudtext_t){0});
+    CHECK(((sc_mission_t *)level.mission)->player_result[0] == 2);
+    CHECK(produced_enemy->owner == 11 && produced_enemy->team == 11 && produced_enemy->sc.sprite_owner == 0);
+    level.player_colors[0] = 5;
+    CHECK(gameinfo && gameinfo->mobj_palette && gameinfo->mobj_palette(produced_enemy) == 5);
+    mobj_t *initially_neutral = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){192, 192}, 11);
+    CHECK(initially_neutral);
+    initially_neutral->sc.sprite_owner = 11;
+    CHECK(gameinfo->mobj_palette(initially_neutral) == 11);
+    free(trig); unload(); remove("/tmp/open-rts-sc-produced-neutral.chk");
+
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action + 16, 1); put_u32(action + 20, 0);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
+    CHECK(!write_map("/tmp/open-rts-sc-give-target.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-give-target.chk", &level));
+    mobj_t *transferred_target = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){320, 128}, 1);
+    mobj_t *current_attacker = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0);
+    CHECK(transferred_target && current_attacker);
+    mobj_t *lockdown_caster = sc_spawn_actor(MT_GHOST - 1, (ivec2_t){32, 160}, 0);
+    mobj_t *irradiate_caster = sc_spawn_actor(MT_SCIENCE_VESSEL - 1, (ivec2_t){128, 192}, 0);
+    CHECK(lockdown_caster && irradiate_caster);
+    lockdown_caster->sc.order = (sc_order_t){.kind=SC_ORDER_CAST,.tech=SC_TECH_LOCKDOWN,
+                                              .target=transferred_target->id};
+    CHECK(P_MoveUnitTo(&level, lockdown_caster, fixed3_xy(transferred_target->core.position)));
+    lockdown_caster->move_only = true;
+    CHECK(P_HasMoveOrder(lockdown_caster));
+    irradiate_caster->sc.order = (sc_order_t){.kind=SC_ORDER_CAST,.tech=SC_TECH_IRRADIATE,
+                                               .target=transferred_target->id};
+    current_attacker->attack.target = transferred_target;
+    current_attacker->sc.queue.count = 1;
+    current_attacker->sc.queue.pending[0] = (sc_pending_order_t){
+        .order = TC_ATTACK, .target = transferred_target->id
+    };
+    ticks(1, &(hudtext_t){0});
+    CHECK(transferred_target->owner == 0 && current_attacker->attack.target == NULL);
+    CHECK(lockdown_caster->sc.order.kind == SC_ORDER_NONE && !lockdown_caster->move_only &&
+          !P_HasMoveOrder(lockdown_caster) && lockdown_caster->movement.order_arrived &&
+          fixed2_near(lockdown_caster->movement.goal, fixed3_xy(lockdown_caster->core.position), 1));
+    CHECK(irradiate_caster->sc.order.kind == SC_ORDER_CAST &&
+          irradiate_caster->sc.order.tech == SC_TECH_IRRADIATE);
+    CHECK(current_attacker->sc.queue.count == 1 &&
+          current_attacker->sc.queue.pending[0].order == TC_ATTACK &&
+          current_attacker->sc.queue.pending[0].target == transferred_target->id);
+    current_attacker->movement.order_arrived = true;
+    P_Ticker();
+    CHECK(current_attacker->sc.queue.count == 0 &&
+          current_attacker->sc.queue.active == TC_ATTACK &&
+          current_attacker->attack.target == transferred_target);
+    free(trig); unload(); remove("/tmp/open-rts-sc-give-target.chk");
+
+    /* Active support targets survive transfers under directed non-enemy status. */
+    const uint32_t support_traits[] = {MF_HEAL, MF_REPAIR};
+    for (size_t i = 0; i < sizeof(support_traits) / sizeof(support_traits[0]); i++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+        put_u32(action + 16, 1); put_u32(action + 20, 0);
+        put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
+        CHECK(!write_map("/tmp/open-rts-sc-give-support.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-give-support.chk", &level));
+        sc_mission_t *support_mission = level.mission;
+        support_mission->allies[0] |= UINT32_C(0x40000000) >> 1;
+        mobj_t *support_target = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){160, 128}, 1);
+        mobj_t *support_unit = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0);
+        CHECK(support_target && support_unit);
+        support_unit->traits |= support_traits[i];
+        support_unit->attack.target = support_target;
+        ticks(1, &(hudtext_t){0});
+        CHECK(support_target->owner == 0 && support_unit->attack.target == support_target);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-give-support.chk");
+
+    /* Defeat retains the target's native sprite owner for directional hostility. */
+    uint8_t neutral_target_owners[12] = {6, 5};
+    for (int allied_direction = 0; allied_direction < 2; allied_direction++) {
+        trig = blank_trigger(); CHECK(trig); trig[15] = 22;
+        trig[2372 + 17] = 0; trig[2372 + 1] = 1;
+        trig[320 + 26] = 2;
+        CHECK(!write_map("/tmp/open-rts-sc-neutral-target.chk", neutral_target_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-neutral-target.chk", &level));
+        sc_mission_t *neutral_target_mission = level.mission;
+        uint32_t p0_bit = UINT32_C(0x40000000);
+        uint32_t p1_bit = UINT32_C(0x20000000);
+        if (allied_direction) neutral_target_mission->allies[0] |= p1_bit;
+        else neutral_target_mission->allies[1] |= p0_bit;
+        level.player_teams = true;
+        CHECK(P_InitSight());
+        mobj_t *neutral_target = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){160, 128}, 1);
+        mobj_t *neutral_attacker = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0);
+        CHECK(neutral_target && neutral_attacker);
+        AiTeamState neutral_ai_team = {.allegiance = ALLEGIANCE_PLAYER};
+        CHECK(P_AiIsAlly(&level, &neutral_ai_team, 0, neutral_target) == !!allied_direction);
+        P_UpdateSight();
+        size_t target_cell = L_Index(&level, 160 / 32, 128 / 32);
+        CHECK(level.sight.cells[target_cell] & p1_bit);
+        neutral_attacker->attack.target = neutral_target;
+        ticks(1, &(hudtext_t){0});
+        CHECK(neutral_target->owner == 11 && neutral_target->team == 11 && neutral_target->sc.sprite_owner == 1);
+        CHECK(!P_AiIsAlly(&level, &neutral_ai_team, 0, neutral_target));
+        P_UpdateSight();
+        CHECK(!(level.sight.cells[target_cell] & p1_bit));
+        CHECK((neutral_attacker->attack.target == NULL) == !!allied_direction);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-neutral-target.chk");
 
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;

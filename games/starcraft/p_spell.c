@@ -370,6 +370,7 @@ static void infest(mobj_t *queen, mobj_t *cc) {
     cc->hp = hp;
     cc->owner = queen->owner;
     cc->team = queen->team;
+    cc->sc.sprite_owner = queen->owner;
     cc->allegiance = queen->allegiance;
     P_MobjSetSelected(cc, false);
     P_SyncBuildingBlocking();

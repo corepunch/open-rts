@@ -859,6 +859,9 @@ struct gameinfo_s {
     /* Sprite sheets carry one palette map per team, by team id: a unit
      * without a remap of its own draws through its team's. */
     bool team_palettes;
+    /* Optional per-object palette translation. Used when a game's sprite
+     * owner can differ from its sight/AI team after ownership changes. */
+    int (*mobj_palette)(const struct mobj_s *mobj);
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

@@ -58,6 +58,13 @@ int main(void) {
     saved_ghost->sc.flags |= SC_INVINCIBLE;
     uint32_t ghost_id = saved_ghost->id;
     mobj_t *saved_duke = sc_spawn_actor(MT_DUKE_TANK - 1, (ivec2_t){512, 384}, 0); CHECK(saved_duke);
+    mobj_t *saved_neutral = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){576, 384}, 1); CHECK(saved_neutral);
+    saved_neutral->owner = saved_neutral->team = 11;
+    uint32_t neutral_id = saved_neutral->id;
+    uint32_t sprite_owner_hash = G_Consistency();
+    saved_neutral->sc.sprite_owner = 2;
+    CHECK(G_Consistency() != sprite_owner_hash);
+    saved_neutral->sc.sprite_owner = 1;
     ticcmd_t duke_deploy = {.order = TC_DEPLOY, .count = 1, .units = {saved_duke->id}};
     G_RunTiccmd(0, &duke_deploy); CHECK(saved_duke->core.state_id == SC_DUKE_SIEGE_STATE);
     uint32_t duke_id = saved_duke->id;
@@ -109,6 +116,9 @@ int main(void) {
           (saved_ghost->sc.flags & SC_HALLUCINATION) && saved_ghost->sc.timers[SC_TIMER_LIFE] == 1350);
     saved_duke = P_MobjById(duke_id);
     CHECK(saved_duke && saved_duke->core.state_id == SC_DUKE_SIEGE_STATE);
+    saved_neutral = P_MobjById(neutral_id);
+    CHECK(saved_neutral && saved_neutral->owner == 11 && saved_neutral->team == 11 &&
+          saved_neutral->sc.sprite_owner == 1);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));

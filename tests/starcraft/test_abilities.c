@@ -241,7 +241,8 @@ static int infestation(void) {
     tick(RTS_TICRATE * 10);
     mobj_t *infested = P_MobjById(cc_id);
     /* The completed infested building regenerates while the Queen exits. */
-    CHECK(infested && infested->type_id == MT_INFESTED_COMMAND_CENTER && infested->owner == 0 && infested->hp > hp);
+    CHECK(infested && infested->type_id == MT_INFESTED_COMMAND_CENTER && infested->owner == 0 &&
+          infested->sc.sprite_owner == 0 && infested->hp > hp);
     CHECK(!P_MobjIsHidden(queen) && (queen->traits & MF_SELECTABLE) && queen->sc.order.kind == SC_ORDER_NONE);
     /* It trains Infested Terrans, which blow up on their target and themselves. */
     CHECK(G_QueueProduct(infested, product(MT_INFESTED_TERRAN)));

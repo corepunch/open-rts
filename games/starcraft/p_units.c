@@ -198,7 +198,8 @@ void sc_reconnect_addon(mobj_t *building, ivec2_t at) {
         ivec2_t cell = ivec2_add(at, (ivec2_t){offset.x / 32, offset.y / 32});
         if (!fixed2_equal(P_BuildingPosition(addon->type_id, cell), fixed3_xy(addon->core.position))) continue;
         addon->sc.parent = building->id; building->sc.addon = addon->id;
-        addon->owner = building->owner; addon->team = building->team; addon->allegiance = building->allegiance;
+        addon->owner = building->owner; addon->team = building->team;
+        addon->sc.sprite_owner = building->owner; addon->allegiance = building->allegiance;
         break;
     }
 }

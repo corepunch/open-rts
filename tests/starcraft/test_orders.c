@@ -202,8 +202,10 @@ static int follow_and_flight(void) {
     P_SyncBuildingBlocking();mobj_t *shop=sc_attach_addon(factory,MT_MACHINE_SHOP);CHECK(shop);
     order(factory,TC_LIFT,(fixed2_t){0},NULL);tick(100);
     CHECK(!shop->sc.parent&&!factory->sc.addon&&shop->owner==11);
+    factory->owner=factory->team=1; factory->allegiance=ALLEGIANCE_ENEMY;
     order(factory,TC_LAND,FIXED2_LIT(4,4),NULL);tick(100);
-    CHECK(!(factory->traits&MF_FLY)&&sc_addon_of(factory)==shop&&shop->owner==factory->owner);
+    CHECK(!(factory->traits&MF_FLY)&&sc_addon_of(factory)==shop&&shop->owner==factory->owner&&
+          shop->sc.sprite_owner==1);
     /* A unit entering the site during travel prevents landing. */
     order(factory,TC_LIFT,(fixed2_t){0},NULL);tick(100);
     order(factory,TC_LAND,FIXED2_LIT(14,4),NULL);

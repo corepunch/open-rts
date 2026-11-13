@@ -37,16 +37,19 @@ typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
 typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_projectile_t;
-/* Shields, energy and the Defensive Matrix are 1/256 points, as StarCraft
+/* sprite_owner is the native sprite owner retained when owner becomes 11;
+ * owner/team still drive sight and AI, while neutral rendering uses this
+ * retained owner for the native player-color remap.
+ * Shields, energy and the Defensive Matrix are 1/256 points, as StarCraft
  * keeps them; wound is the fraction of a hit point already lost. parasite
  * holds the sight bits of the teams that see through this unit. hangar
  * counts docked interceptors or scarabs, a silo's nuke or a Vulture's
  * Spider Mines. A Nydus Canal's parent is its other end. */
-#define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound; uint16_t kills; int shields, energy; \
+#define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound, sprite_owner; uint16_t kills; int shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
     sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; sc_order_queue_t queue; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
-    HASH((mo)->sc.flags); HASH((mo)->sc.attacker); \
+    HASH((mo)->sc.flags); HASH((mo)->sc.attacker); HASH((mo)->sc.sprite_owner); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
     HASH((mo)->sc.parent); HASH((mo)->sc.larva_ms); \
     for (int sc_i = 0; sc_i < SC_TIMERS; ++sc_i) HASH((mo)->sc.timers[sc_i]); \

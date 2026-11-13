@@ -9,6 +9,11 @@ const char *const g_game_default_map="install/campaign/terran/terran01/staredit/
 const int g_cell_w=32,g_cell_h=32;
 const uint16_t g_debug_enemy_type=MT_MARINE;
 const gameinfo_t *gameinfo=&game_info;
+static int sc_mobj_palette(const mobj_t *mo) {
+    int owner = mo->owner == 11 ? mo->sc.sprite_owner : mo->team;
+    if (owner >= 8) return owner;
+    return level.player_teams ? level.player_colors[owner] : owner;
+}
 const mobjtype_t *const actor_types=actors;
 const int num_actor_types=SC_TYPES + 1;
 static void sc_draw_fog(app_t *app, const level_t *map, const tileset_t *tileset) {
@@ -70,6 +75,7 @@ void sc_refresh_actors(void) {
 void G_InitGame(void) {
     sc_init_info();
     game_info.draw_fog=sc_draw_fog;
+    game_info.mobj_palette=sc_mobj_palette;
     sc_init_combat();
     sc_refresh_actors();
 }
@@ -116,7 +122,7 @@ int P_LoadThings(const char *path) {
         ivec2_t pixel={192+(i%16)*240,192+(i/16)*240};
         fixed3_t pos={(fixed_t)(pixel.x*(FIXED_ONE/32)),(fixed_t)(pixel.y*(FIXED_ONE/32)),0};
         mobj_t *mo=P_SpawnMobj(pos,(uint16_t)(i+1)); if(!mo) break;
-        mo->owner=consoleplayer; mo->team=consoleplayer; mo->allegiance=ALLEGIANCE_PLAYER;
+        mo->owner=consoleplayer; mo->team=consoleplayer; mo->sc.sprite_owner=consoleplayer; mo->allegiance=ALLEGIANCE_PLAYER;
         mo->core.angle=ANG270;
         if(!(mo->traits&MF_MOBILE)) {
             const mobjtype_t *a=&actors[i];

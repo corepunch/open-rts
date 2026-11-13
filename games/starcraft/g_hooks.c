@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
 /* Mission extras and projectile state differ from earlier saves. */
-uint32_t G_SaveLayout(void) { return 9; }
+uint32_t G_SaveLayout(void) { return 10; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -45,6 +45,7 @@ bool G_QueueLocksProduct(const StaticProductDefinition *product) {
 }
 
 void G_UnitProduced(mobj_t *unit,const mobj_t *producer) {
+    if (unit && producer) unit->sc.sprite_owner = producer->owner;
     if(!unit||!producer||!(unit->traits&MF_MOBILE)||!producer->sc.rally.set)return;
     mobj_t *target=P_MobjById(producer->sc.rally.target);
     fixed2_t point=target&&target->hp>0&&!target->remove?

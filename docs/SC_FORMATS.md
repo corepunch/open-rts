@@ -338,6 +338,17 @@ storage range; a high-bit quantity fixture covers all three. Blizzard's 1.03
 notes state a countdown maximum of 99:99:99, but its exact internal limit is
 not established here, so this storage clamp is not claimed as native timing.
 
+OpenBW's `orders.dat` `targets_enemies` flag covers Fire Yamato Gun,
+Move-to-Fire Yamato Gun, Cast Lockdown, Cast Parasite and Cast Spawn
+Broodlings. When Give Units changes a target so one of these active casts is
+no longer against an enemy, OpenBW clears the order's target-unit reference.
+This runtime cancels that cast and stops its approach, because its cast step
+would otherwise continue moving toward the cached target position. Other
+casts, such as Irradiate, retain their order because their native flag is
+clear. A fixture checks a moving Lockdown caster and verifies that a
+previously queued attack survives the target's transfer and activates; this
+engine's command queue is separate from the active cast/order state.
+
 The implemented condition field reads were compared against eudplib
 `stockcond.py` and `condition.py`: timer (1, 12), Command/Bring/resources/kills
 (2–5), Command Most/Least and their location forms (6–7, 16–17), switch (11),
@@ -390,7 +401,28 @@ groups remain incomplete. Loaded units cannot be selected directly; they move
 with their transport. The action counts successful transfers and its All form
 does not use the former 256-entry buffer. OpenBW's action 48 itself
 is not implemented in the pinned source, so the trigger call is inferred from
-its ownership-transfer procedure.
+its ownership-transfer procedure. OpenBW `set_unit_owner` at 2699–2726 clears
+an active order target only when that order targets enemies and the transferred
+unit is no longer an enemy. The runtime therefore preserves `attack.target`
+for `MF_HEAL`/`MF_REPAIR` support orders, and uses the attacker's directed
+alliance bit to classify the target after transfer. OpenBW's
+`unit_target_is_enemy` at 8156–60 uses `sprite.owner` when `owner` is 11.
+The model stores that value separately as `sc.sprite_owner`; neutralized units
+keep `team == 11`, so sight and AI allegiance continue to use the neutral
+team. OpenBW `give_unit_to` sets sprite owner to a new active
+owner (lines 3196–3198) but keeps it when transferring to owner 11; the engine
+does the same. Scenario and production spawns initialize the field, as do
+UPRP owner overrides; add-on reconnection and Command Center infestation set
+it to their new active owner. In-place morphs preserve it. It is saved and
+hashed. OpenBW image modifier 14 also reads `sprite.owner` at lines 14540–14543;
+the StarCraft renderer now selects the sprite-owner palette only for neutral
+units while leaving `team` untouched for sight and AI. A retained player owner
+uses that player's palette map; an originally neutral owner retains palette
+id 11 because player palette maps only cover IDs 0–7. The mapping follows
+source ownership fields; retail pixels were not independently traced. Pending
+queued attacks remain untouched; mission tests cover
+one-way alliance, neutralization, sight and AI behavior, support targets, and
+queued target retention. The save test checks persistence and hash coverage.
 The shared `P_DamageMobj` call subtracts HP directly; shield absorption, armor,
 and invincibility checks occur in StarCraft's combat path before that call.
 The mission regression also kills a shielded Zealot and an invincible Zealot

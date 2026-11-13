@@ -1007,8 +1007,10 @@ static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *
 
 /* A mobj's own remap, or its team's palette where the game keeps one. */
 static int mobj_remap(const mobj_t *mobj, const gameinfo_t *game_info) {
-    if (!mobj->core.render_remap && game_info && game_info->team_palettes) return mobj->team;
-    return mobj->core.render_remap;
+    if (mobj->core.render_remap) return mobj->core.render_remap;
+    if (game_info && game_info->mobj_palette) return game_info->mobj_palette(mobj);
+    if (game_info && game_info->team_palettes) return mobj->team;
+    return 0;
 }
 
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
@@ -1052,7 +1054,8 @@ static void draw_sprite_layers(app_t *app, const mobj_t *u, const spritesheet_t 
                                  part_flags, part->layer)) continue;
         /* DC.EXE queues object team color separately from FIN remap,
          * which selects a clipping path, not a palette translation. */
-        int translation = level.player_teams && u->team < 8 ? level.player_colors[u->team] : u->team;
+        int translation = game_info && game_info->mobj_palette ? game_info->mobj_palette(u) :
+            level.player_teams && u->team < 8 ? level.player_colors[u->team] : u->team;
         uint32_t part_flip = (part_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
         if (part->layer == 3) {
             const uint8_t *team = R_PaletteMap(source, translation);

@@ -510,6 +510,7 @@ mobj_t *sc_spawn_actor(unsigned type,ivec2_t pixel,uint8_t owner) {
     mobj_t *mo=P_SpawnMobj(pos,(uint16_t)(type+1));
     if(!mo) return NULL;
     mo->owner=mo->team=owner;
+    mo->sc.sprite_owner=owner;
     mo->allegiance=sc_allegiance_for(owner);
     mo->core.angle=ANG270;
     if(sc_units[type].flags&1) {

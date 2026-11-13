@@ -695,6 +695,7 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     unsigned special = read_u16_le(p), data = read_u16_le(p + 2), state = read_u16_le(p + 14);
     if ((data & 1) && p[4] < 8) {
         mo->owner = mo->team = p[4];
+        mo->sc.sprite_owner = p[4];
         mo->allegiance = sc_allegiance_for(p[4]);
     }
     if (data & 2) sc_initial_hp(mo, p[5]);
@@ -840,6 +841,22 @@ static void give_abilities(const mobj_t *mo, uint8_t owner) {
 }
 #undef SC_BIT
 
+/* OpenBW resolves owner-11 targets through the retained sprite owner. */
+static bool target_is_enemy_for_owner(const mobj_t *attacker, const mobj_t *target) {
+    int target_owner = target->owner == 11 ? target->sc.sprite_owner : target->owner;
+    if (attacker->owner >= 8 || target_owner >= 8) return false;
+    if (attacker->owner == target_owner) return false;
+    const uint32_t *allies = G_AllianceMasks(&level);
+    return !allies || !(allies[attacker->owner] & (UINT32_C(0x40000000) >> target_owner));
+}
+
+/* The target-enemy flag in native orders.dat is set for the targeted casts
+ * represented by these tech IDs (Lockdown, Yamato, Parasite, Broodlings). */
+static bool cast_targets_enemies(int tech) {
+    return tech == SC_TECH_LOCKDOWN || tech == SC_TECH_YAMATO_GUN ||
+           tech == SC_TECH_PARASITE || tech == SC_TECH_SPAWN_BROODLING;
+}
+
 /* OpenBW trigger_give_unit_to transfers cargo, launched fighters and attached
  * structures along with their owner. This representation stores them as mobjs. */
 static void give_one(mobj_t *mo, uint8_t owner) {
@@ -871,7 +888,27 @@ static void give_one(mobj_t *mo, uint8_t owner) {
         mo->waypoints = (waypoints_t){0};
     } else mo->sc.queue.owner = owner;
     mo->owner = mo->team = owner;
+    if (owner < 8) mo->sc.sprite_owner = owner;
     mo->allegiance = sc_allegiance_for(owner);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *attacker = (mobj_t *)th;
+        if (th->function != P_MobjThinker) continue;
+        if (attacker->attack.target == mo && !(attacker->traits & (MF_HEAL | MF_REPAIR)) &&
+            !target_is_enemy_for_owner(attacker, mo)) attacker->attack.target = NULL;
+        if (attacker->sc.order.kind == SC_ORDER_CAST && cast_targets_enemies(attacker->sc.order.tech) &&
+            attacker->sc.order.target == mo->id && !target_is_enemy_for_owner(attacker, mo)) {
+            /* The cast's target is no longer an enemy. Stop the approach too:
+             * otherwise this runtime keeps walking toward its cached target. */
+            attacker->sc.order = (sc_order_t){0};
+            P_ClearMove(attacker);
+            attacker->movement.goal = fixed3_xy(attacker->core.position);
+            attacker->movement.order_id = 0;
+            attacker->movement.order_arrived = true;
+            attacker->core.momentum = fixed3_zero();
+            attacker->move_only = false;
+            attacker->waypoints = (waypoints_t){0};
+        }
+    }
     if (owner == 11 && (mo->type_id == MT_HATCHERY || mo->type_id == MT_LAIR || mo->type_id == MT_HIVE))
         mo->sc.larva_ms = INT_MIN; /* OpenBW make_unit_neutral clears the secondary order. */
     if (!(mo->sc.flags & SC_LOADED) && mo->type_id != MT_INTERCEPTOR && mo->type_id != MT_SCARAB &&
