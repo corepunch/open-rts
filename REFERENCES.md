@@ -2582,6 +2582,11 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   57 statuses to Enemy, Ally and Allied Victory; OpenBW does not implement that
   action, so its directed transition is documented as inference in
   `docs/SC_EXE_FINDINGS.md`.
+- StarCraft direct trigger player selectors: pinned OpenBW
+  `bwgame.h::trigger_players_pred` checks `player_slot_active` before testing
+  any selector, including player IDs 0–7. The mission runtime applies that
+  gate to direct selectors as well as relation groups; see
+  `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger score conditions: checked-in PyMS `FileFormats/TRG.py`
   maps conditions 9/19/21 to Highest/Lowest/Score and defines score selectors
   0–7; its help text specifies current-player and selected-player comparisons.

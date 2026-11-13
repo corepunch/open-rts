@@ -2851,3 +2851,20 @@ and rescue slots. The mission test exercises plain mutual allies, a one-way
 ally, and neutral status overlapping force masks; `test_save` checks the
 victory bit survives an engine save and that breaking and reforming an
 alliance clears it.
+
+### Explicit player selectors ignore inactive slots (2026-11-13)
+
+Pinned OpenBW `trigger_players_pred` calls `player_slot_active(n)` before
+matching any group, including direct player selectors 0–7 (18123–18135).
+`in_group` now applies the same eligibility gate before matching the requested
+player or group. This means an otherwise matching unit or resource owned by
+an OWNR Inactive or Closed slot does not satisfy a direct-player selector.
+The mission test contrasts a group-2 Modify Resources action with player 2
+active versus OWNR 0 Inactive; the first changes the resource and the second
+leaves it untouched. Since `collect_players` is shared by trigger conditions
+and actions, the same rule covers both paths. Confirmed OpenBW reference
+behavior, not a retail executable trace. The separate resource-deposit path
+continues to handle owners 8–11 outside `in_group`.
+
+Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.

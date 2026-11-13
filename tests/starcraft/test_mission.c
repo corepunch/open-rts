@@ -208,6 +208,24 @@ int main(void) {
         unload(); free(opponent_trigger);
     }
     remove("/private/tmp/sc-opponents.chk");
+    /* Direct player selectors exclude inactive slots like every other group. */
+    for (int inactive_case = 0; inactive_case < 2; inactive_case++) {
+        uint8_t selector_owners[12] = {6, 5, inactive_case ? 0 : 6};
+        uint8_t *selector_trigger = blank_trigger(); CHECK(selector_trigger);
+        selector_trigger[2372 + 17] = 0; selector_trigger[2372] = 1;
+        selector_trigger[15] = 22; /* Always. */
+        uint8_t *selector_action = selector_trigger + 320;
+        selector_action[26] = 26; selector_action[27] = 7;
+        put_u32(selector_action + 16, 2); /* Player 2. */
+        put_u32(selector_action + 20, 10); selector_action[24] = 0;
+        CHECK(!write_map("/private/tmp/sc-player-selector.chk", selector_owners, selector_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-player-selector.chk", &level));
+        level.player_resources[2][0] = 3;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[2][0] == (inactive_case ? 3 : 10));
+        unload(); free(selector_trigger);
+    }
+    remove("/private/tmp/sc-player-selector.chk");
     /* Neutral Players reads directed relation state, excluding the owner. */
     uint8_t neutral_group_owners[12] = {6, 5, 7, 7, 3};
     for (int neutral_case = 0; neutral_case < 4; neutral_case++) {
@@ -2111,7 +2129,8 @@ int main(void) {
     put_u32(action + 16, 1); put_u32(action + 20, 0);
     put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
     action[32 + 26] = 2;
-    CHECK(!write_map("/tmp/open-rts-sc-produced-neutral.chk", owners, trig));
+    uint8_t produced_owners[12] = {6, 6};
+    CHECK(!write_map("/tmp/open-rts-sc-produced-neutral.chk", produced_owners, trig));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-produced-neutral.chk", &level));
     CHECK(sc_spawn_actor(MT_COMMAND_CENTER - 1, (ivec2_t){128, 128}, 1));
     mobj_t *enemy_barracks = sc_spawn_actor(MT_BARRACKS - 1, (ivec2_t){256, 256}, 1);
@@ -2139,10 +2158,11 @@ int main(void) {
     CHECK(gameinfo->mobj_palette(initially_neutral) == 11);
     free(trig); unload(); remove("/tmp/open-rts-sc-produced-neutral.chk");
 
+    uint8_t active_pair_owners[12] = {6, 5};
     trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
     put_u32(action + 16, 1); put_u32(action + 20, 0);
     put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
-    CHECK(!write_map("/tmp/open-rts-sc-give-target.chk", owners, trig));
+    CHECK(!write_map("/tmp/open-rts-sc-give-target.chk", active_pair_owners, trig));
     CHECK(G_DoLoadLevel("/tmp/open-rts-sc-give-target.chk", &level));
     mobj_t *transferred_target = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){320, 128}, 1);
     mobj_t *current_attacker = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0);
@@ -2185,7 +2205,7 @@ int main(void) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
         put_u32(action + 16, 1); put_u32(action + 20, 0);
         put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
-        CHECK(!write_map("/tmp/open-rts-sc-give-support.chk", owners, trig));
+        CHECK(!write_map("/tmp/open-rts-sc-give-support.chk", active_pair_owners, trig));
         CHECK(G_DoLoadLevel("/tmp/open-rts-sc-give-support.chk", &level));
         sc_mission_t *support_mission = level.mission;
         support_mission->allies[0] |= UINT32_C(0x40000000) >> 1;

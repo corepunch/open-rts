@@ -130,18 +130,18 @@ static int trigger_alliance_status(const sc_mission_t *m, int current, int other
  * Allied Victory Players. Each trigger runs once per owning player, so the
  * current player is always one slot. */
 static bool in_group(const sc_mission_t *m, unsigned group, int p, int current) {
-    if (p < 0 || p >= 8) return false;
+    if (!slot_active(m, p)) return false;
     if (group < 8) return p == (int)group;
     if (group == 13) return p == current;
-    if (group == 17) return slot_active(m, p);
-    if (group >= 18 && group <= 21) return slot_active(m, p) && m->force[p] == (int)group - 18;
+    if (group == 17) return true;
+    if (group >= 18 && group <= 21) return m->force[p] == (int)group - 18;
     if (group >= 14 && group <= 16) {
-        if (p == current || !slot_active(m, p) || current < 0 || current >= 8) return false;
+        if (p == current || current < 0 || current >= 8) return false;
         int status = group == 14 ? 0 : group == 15 ? 2 : 1;
         return trigger_alliance_status(m, current, p) == status;
     }
     if (group == 26) {
-        if (p == current || !slot_active(m, p)) return false;
+        if (p == current) return false;
         return trigger_alliance_status(m, current, p) != 2 ||
                trigger_alliance_status(m, p, current) != 2;
     }

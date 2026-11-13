@@ -179,6 +179,10 @@ PyMS maps action 57 to Enemy, Ally and Allied Victory; OpenBW does not
 implement it, so replacing the directed neutral relation on those assignments
 is a format-based inference. Mission and save tests cover group actions,
 Accumulate conditions, directed transitions and save/hash persistence.
+OpenBW checks `player_slot_active` before testing every player selector.
+Direct selectors for modeled slots 0–7 now use this gate too; the existing
+resource-deposit path handles owners 8–11 separately. A mission test contrasts
+active and OWNR Inactive player 2 for a Modify Resources action.
 
 MRGN's 16-bit field at +18 excludes low, middle and high air and ground
 heights. OpenBW checks it using VF4 minitile height for Bring, Move Location,
