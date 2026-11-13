@@ -164,6 +164,20 @@ static int collect_players(const sc_mission_t *m, unsigned group, int current, i
     return n;
 }
 
+/* Blizzard's StarEdit FAQ documents inactive slots as resource and score
+ * variables. Keep that exception to direct selectors; groups retain their
+ * ordinary active-slot rules. */
+static int collect_variable_players(const sc_mission_t *m, unsigned group, int current, int *out) {
+    if (group < 8) {
+        if (slot_active(m, (int)group) || m->owners[group] == 0 || m->owners[group] == 8) {
+            out[0] = (int)group;
+            return 1;
+        }
+        return 0;
+    }
+    return collect_players(m, group, current, out);
+}
+
 static bool loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, int *b) {
     if (id == 64 || id == 0) {
         *l = *t = 0;
@@ -391,9 +405,11 @@ static uint64_t player_resource_total(int player, unsigned resource) {
 }
 
 /* Trigger score types use the same units/buildings/resources inputs as the
- * in-game score panel. The Custom category has no modeled SetScore state. */
-static int64_t player_score(int player, unsigned type) {
-    if (type > 6 || player < 0 || player >= 8) return 0;
+ * in-game score panel; Custom is the value written by Set Score. */
+static int64_t player_score(const sc_mission_t *m, int player, unsigned type) {
+    if (type > 7 || player < 0 || player >= 8) return 0;
+    if (type == 7) return m->custom_score[player];
+    if (m->owners[player] == 0 || m->owners[player] == 8) return m->score_variables[player][type];
     sc_stats_t stats;
     sc_player_stats(player, &stats);
     int64_t units = 0, buildings = 0, kills = 0, razings = 0;
@@ -427,7 +443,7 @@ static int64_t player_score(int player, unsigned type) {
     case 4: return kills;
     case 5: return razings;
     case 6: return kills + razings;
-    default: return 0; /* Custom points are currently unmodeled. */
+    default: return 0; /* Invalid score selector. */
     }
 }
 
@@ -462,10 +478,11 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
                                        type == 3 ? op != 1 : -1, op != 1, type == 2), qty);
     }
     if (type == 4) {
+        int resource_players[8], resource_count = collect_variable_players(m, group, current, resource_players);
         uint64_t total = 0;
-        for (int i = 0; i < n; i++) {
-            if (c[16] == 0 || c[16] == 2) total += level.player_resources[players[i]][0];
-            if (c[16] == 1 || c[16] == 2) total += level.player_resources[players[i]][1];
+        for (int i = 0; i < resource_count; i++) {
+            if (c[16] == 0 || c[16] == 2) total += level.player_resources[resource_players[i]][0];
+            if (c[16] == 1 || c[16] == 2) total += level.player_resources[resource_players[i]][1];
         }
         return cmp_num(op, total, qty);
     }
@@ -502,21 +519,22 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 9 || type == 19) {
         unsigned score_type = c[16];
-        if (score_type > 6) return false;
-        int64_t mine = player_score(current, score_type);
+        if (score_type > 7) return false;
+        int64_t mine = player_score(m, current, score_type);
         bool highest = type == 9;
         for (int p = 0; p < 8; p++) {
             if (p == current || !slot_active(m, p)) continue;
-            int64_t other = player_score(p, score_type);
+            int64_t other = player_score(m, p, score_type);
             if (highest ? other > mine : other < mine) return false;
         }
         return true;
     }
     if (type == 21) {
         unsigned score_type = c[16];
-        if (score_type > 6) return false;
+        if (score_type > 7) return false;
+        int score_players[8], score_count = collect_variable_players(m, group, current, score_players);
         int64_t total = 0;
-        for (int i = 0; i < n; i++) total += player_score(players[i], score_type);
+        for (int i = 0; i < score_count; i++) total += player_score(m, score_players[i], score_type);
         return cmp_num(op, (uint64_t)total, qty);
     }
     if (type == 6 || type == 7 || type == 16 || type == 17) {
@@ -1168,8 +1186,24 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 26) {
-            for (int i = 0; i < n; i++)
-                alter_resource(players[i], (int)unit, a[27], number);
+            int resource_players[8], resource_count = collect_variable_players(m, player, st->current, resource_players);
+            for (int i = 0; i < resource_count; i++)
+                alter_resource(resource_players[i], (int)unit, a[27], number);
+            continue;
+        }
+        if (id == 27) {
+            /* Active score categories 0-6 are computed; Custom and inactive
+             * player variables have stored values. */
+            int score_players[8], score_count = collect_variable_players(m, player, st->current, score_players);
+            if (unit <= 7) for (int i = 0; i < score_count; i++) {
+                int owner = score_players[i];
+                uint32_t *score = unit == 7 ? &m->custom_score[owner] :
+                    (m->owners[owner] == 0 || m->owners[owner] == 8) ? &m->score_variables[owner][unit] : NULL;
+                if (!score) continue;
+                if (a[27] == 7) *score = number;
+                else if (a[27] == 8) *score += number;
+                else if (a[27] == 9) *score = *score > number ? *score - number : 0;
+            }
             continue;
         }
         if (id == 38 && loc && number) {

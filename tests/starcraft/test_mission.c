@@ -214,7 +214,7 @@ int main(void) {
         unload(); free(opponent_trigger);
     }
     remove("/private/tmp/sc-opponents.chk");
-    /* Direct player selectors exclude inactive slots like every other group. */
+    /* Direct resource selectors can address inactive-player variables. */
     for (int inactive_case = 0; inactive_case < 2; inactive_case++) {
         uint8_t selector_owners[12] = {6, 5, inactive_case ? 0 : 6};
         uint8_t *selector_trigger = blank_trigger(); CHECK(selector_trigger);
@@ -228,7 +228,7 @@ int main(void) {
         CHECK(G_DoLoadLevel("/private/tmp/sc-player-selector.chk", &level));
         level.player_resources[2][0] = 3;
         ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[2][0] == (inactive_case ? 3 : 10));
+        CHECK(level.player_resources[2][0] == 10);
         unload(); free(selector_trigger);
     }
     remove("/private/tmp/sc-player-selector.chk");
@@ -757,7 +757,8 @@ int main(void) {
     const struct { uint8_t condition, selector; uint32_t mine, rival; bool qualifies; } score_cases[] = {
         {9, 4, 5, 4, true}, {9, 4, 5, 5, true}, {9, 4, 4, 5, false},
         {19, 4, 4, 5, true}, {19, 4, 5, 5, true}, {19, 4, 5, 4, false},
-        {9, 7, 0, 0, false}, {19, 7, 0, 0, false}
+        {9, 7, 5, 4, true}, {9, 7, 4, 5, false},
+        {19, 7, 4, 5, true}, {19, 7, 5, 4, false}
     };
     for (size_t i = 0; i < sizeof(score_cases) / sizeof(score_cases[0]); i++) {
         uint8_t *score_trigger = blank_trigger(); CHECK(score_trigger);
@@ -772,6 +773,10 @@ int main(void) {
         sc_mission_t *score_mission = level.mission;
         score_mission->kills[1][MT_MARINE - 1] = score_cases[i].mine;
         score_mission->kills[0][MT_MARINE - 1] = score_cases[i].rival;
+        if (score_cases[i].selector == 7) {
+            score_mission->custom_score[1] = score_cases[i].mine;
+            score_mission->custom_score[0] = score_cases[i].rival;
+        }
         ticks(1, &(hudtext_t){0});
         CHECK((level.player_resources[1][0] == 10) == score_cases[i].qualifies);
         free(score_trigger); unload();
@@ -786,7 +791,7 @@ int main(void) {
         {4, 0, 100, true}, /* Kills */
         {5, 0, 1, false},  /* Razings */
         {6, 10, 100, true},/* Kills and Razings */
-        {7, 0, 0, false}   /* Custom is unsupported. */
+        {7, 0, 100, true}  /* Custom is supplied by Set Score. */
     };
     for (size_t i = 0; i < sizeof(score_type_cases) / sizeof(score_type_cases[0]); i++) {
         uint8_t *score_trigger = blank_trigger(); CHECK(score_trigger);
@@ -805,11 +810,153 @@ int main(void) {
         score_mission->kills[1][MT_MARINE - 1] = 1;
         score_mission->kills[0][MT_COMMAND_CENTER - 1] = 1;
         score_mission->gathered[1][0] = 1000;
+        if (score_type_cases[i].selector == 7) score_mission->custom_score[1] = 100;
         ticks(1, &(hudtext_t){0});
         CHECK((level.player_resources[1][0] == 10) == score_type_cases[i].qualifies);
         free(score_trigger); unload();
     }
     remove("/tmp/open-rts-sc-score-types.chk");
+    /* Set Score action 27 updates the selected player's Custom score. */
+    const struct { uint8_t modifier; uint32_t initial, quantity, expected; } custom_score_actions[] = {
+        {7, 40, 100, 100}, {8, 40, 100, 140}, {9, 140, 100, 40}, {9, 40, 100, 0}
+    };
+    for (size_t i = 0; i < sizeof(custom_score_actions) / sizeof(custom_score_actions[0]); i++) {
+        uint8_t *score_trigger = blank_trigger(); CHECK(score_trigger);
+        score_trigger[2372 + 17] = 0; score_trigger[2372 + 1] = 1;
+        score_trigger[15] = 22; /* Always. */
+        uint8_t *score_action = score_trigger + 320;
+        score_action[26] = 27; score_action[27] = custom_score_actions[i].modifier;
+        put_u32(score_action + 16, 13); put_u32(score_action + 20, custom_score_actions[i].quantity);
+        put_u16(score_action + 24, 7); /* Custom. */
+        CHECK(!write_map("/tmp/open-rts-sc-set-custom-score.chk", kill_owners, score_trigger));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-set-custom-score.chk", &level));
+        sc_mission_t *score_mission = level.mission;
+        score_mission->custom_score[1] = custom_score_actions[i].initial;
+        ticks(1, &(hudtext_t){0});
+        CHECK(score_mission->custom_score[1] == custom_score_actions[i].expected);
+        free(score_trigger); unload();
+    }
+    remove("/tmp/open-rts-sc-set-custom-score.chk");
+    /* Direct score selectors can use every score type on Inactive and Closed slots. */
+    for (int closed_case = 0; closed_case < 2; closed_case++) {
+    uint8_t inactive_score_owners[12] = {6, 5, 0};
+    if (closed_case) inactive_score_owners[2] = 8;
+    for (unsigned score_type = 0; score_type < 8; score_type++) {
+        uint8_t *inactive_score_action = blank_trigger(); CHECK(inactive_score_action);
+        inactive_score_action[2372 + 17] = 0; inactive_score_action[2372 + 1] = 1;
+        inactive_score_action[15] = 22;
+        uint8_t *set_inactive_score = inactive_score_action + 320;
+        set_inactive_score[26] = 27; set_inactive_score[27] = 7;
+        put_u32(set_inactive_score + 16, 2); put_u32(set_inactive_score + 20, 77);
+        put_u16(set_inactive_score + 24, (uint16_t)score_type);
+        CHECK(!write_map("/tmp/open-rts-sc-inactive-score.chk", inactive_score_owners, inactive_score_action));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-inactive-score.chk", &level));
+        sc_mission_t *inactive_score_mission = level.mission;
+        ticks(1, &(hudtext_t){0});
+        if (score_type == 7) CHECK(inactive_score_mission->custom_score[2] == 77);
+        else CHECK(inactive_score_mission->score_variables[2][score_type] == 77);
+        free(inactive_score_action); unload();
+
+        uint8_t *inactive_score_condition = blank_trigger(); CHECK(inactive_score_condition);
+        inactive_score_condition[2372 + 17] = 0; inactive_score_condition[2372 + 1] = 1;
+        inactive_score_condition[14] = 10; /* Exactly. */
+        put_u32(inactive_score_condition + 4, 2); put_u32(inactive_score_condition + 8, 77);
+        inactive_score_condition[15] = 21; inactive_score_condition[16] = (uint8_t)score_type;
+        uint8_t *inactive_score_result = inactive_score_condition + 320;
+        inactive_score_result[26] = 26; inactive_score_result[27] = 8;
+        put_u32(inactive_score_result + 16, 13); put_u32(inactive_score_result + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-inactive-score.chk", inactive_score_owners, inactive_score_condition));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-inactive-score.chk", &level));
+        inactive_score_mission = level.mission;
+        if (score_type == 7) inactive_score_mission->custom_score[2] = 77;
+        else inactive_score_mission->score_variables[2][score_type] = 77;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[1][0] == 10);
+        free(inactive_score_condition); unload();
+    }
+    const struct { uint8_t modifier; uint32_t initial, expected; } inactive_score_ops[] = {
+        {8, 40, 140}, {9, 140, 40}, {9, 40, 0}
+    };
+    for (unsigned score_type = 0; score_type < 8; score_type++)
+    for (size_t i = 0; i < sizeof(inactive_score_ops) / sizeof(inactive_score_ops[0]); i++) {
+        uint8_t *inactive_score_action = blank_trigger(); CHECK(inactive_score_action);
+        inactive_score_action[2372 + 17] = 0; inactive_score_action[2372 + 1] = 1;
+        inactive_score_action[15] = 22;
+        uint8_t *set_inactive_score = inactive_score_action + 320;
+        set_inactive_score[26] = 27; set_inactive_score[27] = inactive_score_ops[i].modifier;
+        put_u32(set_inactive_score + 16, 2); put_u32(set_inactive_score + 20, 100);
+        put_u16(set_inactive_score + 24, (uint16_t)score_type);
+        CHECK(!write_map("/tmp/open-rts-sc-inactive-score-ops.chk", inactive_score_owners, inactive_score_action));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-inactive-score-ops.chk", &level));
+        sc_mission_t *inactive_score_mission = level.mission;
+        if (score_type == 7) inactive_score_mission->custom_score[2] = inactive_score_ops[i].initial;
+        else inactive_score_mission->score_variables[2][score_type] = inactive_score_ops[i].initial;
+        ticks(1, &(hudtext_t){0});
+        uint32_t actual = score_type == 7 ? inactive_score_mission->custom_score[2] :
+            inactive_score_mission->score_variables[2][score_type];
+        CHECK(actual == inactive_score_ops[i].expected);
+        free(inactive_score_action); unload();
+    }
+    remove("/tmp/open-rts-sc-inactive-score-ops.chk");
+    }
+
+    /* Direct resource actions and Accumulate use Inactive and Closed slots as variables. */
+    for (int closed_case = 0; closed_case < 2; closed_case++) {
+    uint8_t inactive_resource_owners[12] = {6, 5, 0};
+    if (closed_case) inactive_resource_owners[2] = 8;
+    uint8_t *inactive_resource_action = blank_trigger(); CHECK(inactive_resource_action);
+    inactive_resource_action[2372 + 17] = 0; inactive_resource_action[2372 + 1] = 1;
+    inactive_resource_action[15] = 22;
+    uint8_t *set_inactive_resource = inactive_resource_action + 320;
+    set_inactive_resource[26] = 26; set_inactive_resource[27] = 7;
+    put_u32(set_inactive_resource + 16, 2); put_u32(set_inactive_resource + 20, 77);
+    put_u16(set_inactive_resource + 24, 0); /* Ore. */
+    CHECK(!write_map("/tmp/open-rts-sc-inactive-resource.chk", inactive_resource_owners, inactive_resource_action));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-inactive-resource.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[2][0] == 77);
+    free(inactive_resource_action); unload();
+
+    uint8_t *inactive_resource_condition = blank_trigger(); CHECK(inactive_resource_condition);
+    inactive_resource_condition[2372 + 17] = 0; inactive_resource_condition[2372 + 1] = 1;
+    inactive_resource_condition[14] = 10; /* Exactly. */
+    put_u32(inactive_resource_condition + 4, 2); put_u32(inactive_resource_condition + 8, 77);
+    inactive_resource_condition[15] = 4; inactive_resource_condition[16] = 0;
+    uint8_t *inactive_resource_result = inactive_resource_condition + 320;
+    inactive_resource_result[26] = 26; inactive_resource_result[27] = 8;
+    put_u32(inactive_resource_result + 16, 13); put_u32(inactive_resource_result + 20, 10);
+    CHECK(!write_map("/tmp/open-rts-sc-inactive-resource.chk", inactive_resource_owners, inactive_resource_condition));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-inactive-resource.chk", &level));
+    level.player_resources[2][0] = 77;
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[1][0] == 10);
+    free(inactive_resource_condition); unload();
+    remove("/tmp/open-rts-sc-inactive-resource.chk");
+    remove("/tmp/open-rts-sc-inactive-score.chk");
+    }
+    /* A defeated playable slot is not an inactive variable slot. */
+    uint8_t defeated_owners[12] = {6, 5, 5};
+    uint8_t *defeated_variable_trigger = blank_trigger(); CHECK(defeated_variable_trigger);
+    defeated_variable_trigger[2372 + 17] = 0; defeated_variable_trigger[2372 + 1] = 1;
+    defeated_variable_trigger[15] = 22;
+    uint8_t *defeated_resource_action = defeated_variable_trigger + 320;
+    defeated_resource_action[26] = 26; defeated_resource_action[27] = 7;
+    put_u32(defeated_resource_action + 16, 2); put_u32(defeated_resource_action + 20, 77);
+    put_u16(defeated_resource_action + 24, 0);
+    uint8_t *defeated_score_action = defeated_resource_action + 32;
+    defeated_score_action[26] = 27; defeated_score_action[27] = 7;
+    put_u32(defeated_score_action + 16, 2); put_u32(defeated_score_action + 20, 88);
+    put_u16(defeated_score_action + 24, 0);
+    CHECK(!write_map("/tmp/open-rts-sc-defeated-variables.chk", defeated_owners, defeated_variable_trigger));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-defeated-variables.chk", &level));
+    sc_mission_t *defeated_variable_mission = level.mission;
+    defeated_variable_mission->player_result[2] = 2;
+    defeated_variable_mission->score_variables[2][0] = 5;
+    level.player_resources[2][0] = 3;
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[2][0] == 3 && defeated_variable_mission->score_variables[2][0] == 5);
+    free(defeated_variable_trigger); unload();
+    remove("/tmp/open-rts-sc-defeated-variables.chk");
     /* Least Kills (condition 18) ranks the current owner's unit kill totals. */
     const struct { uint32_t mine, rival, inactive; bool any, qualifies; } least_kill_cases[] = {
         {2, 4, 0, false, true},   /* inactive slot's lower count is ignored */

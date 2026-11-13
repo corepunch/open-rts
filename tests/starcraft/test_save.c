@@ -17,6 +17,12 @@ int main(void) {
     uint32_t outcome_hash = G_ConsistencyExtra(0);
     m->player_result[7] = 2;
     CHECK(G_ConsistencyExtra(0) != outcome_hash);
+    uint32_t custom_score_hash = G_ConsistencyExtra(0);
+    m->custom_score[1] = 123456;
+    CHECK(G_ConsistencyExtra(0) != custom_score_hash);
+    uint32_t inactive_score_hash = G_ConsistencyExtra(0);
+    m->score_variables[2][4] = 654321;
+    CHECK(G_ConsistencyExtra(0) != inactive_score_hash);
     m->switches[12] = 1;
     m->deaths[1][0] = UINT32_C(0x80000000);
     m->elapsed_ms = 12345;
@@ -124,7 +130,8 @@ int main(void) {
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
     CHECK(m->terrain==terrain && m->rng==22695478u);
-    CHECK(m->player_result[7] == 2);
+    CHECK(m->player_result[7] == 2 && m->custom_score[1] == 123456 &&
+          m->score_variables[2][4] == 654321);
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);
     CHECK(m->rt[0].cursor == 3 && m->rt[0].wait_ms == 1200 && m->rt[0].running);
     int target_hp=target->hp;

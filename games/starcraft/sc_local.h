@@ -223,6 +223,8 @@ typedef struct {
     uint8_t switches[256];
     uint32_t deaths[8][SC_TYPES];
     uint16_t kills[8][SC_TYPES];
+    uint32_t custom_score[8];
+    uint32_t score_variables[8][7];
     int elapsed_ms, countdown_ms;
     bool countdown_paused, has_victory, ai_on[8];
     uint8_t player_result[8]; /* Synchronized trigger outcomes. */

@@ -2875,14 +2875,46 @@ building values reuse the checked-in score panel formula: positive-HP mobjs
 contribute their units.dat build score, recorded lost units contribute build
 score, and kills contribute destroy score. The live-mobj filter matches
 `m_menu.c:tally` (including its lack of a separate `remove` check). Resources
-use gathered plus spent totals. Custom is unsupported because SetScore state
-is not modeled; selector 7 returns false instead of reading as zero. Strict
+use gathered plus spent totals. Custom reads the per-player unsigned score
+state written by Set Score action 27. Blizzard's FAQ also documents all score
+types as variables for inactive players; direct Score and Set Score selectors
+use saved per-type values for fixed non-player slots, while active players
+retain the computed score categories. Direct Set Resources and Accumulate
+selectors likewise operate on non-player slots. Strict
 ranking lets ties qualify for both Highest and Lowest, an implementation
 inference based on the Most/Least comparison rule and still unverified against
-retail. These are bounded model formulas, not a retail executable score trace.
-`test_mission` covers leader/tie/laggard comparisons for both ranking
-conditions and condition 21's selection of each supported score category;
-Custom is checked as unsupported.
+retail. PyMS defines action 27's Player/Modifier/Number/ScoreType fields and
+Set/Add/Subtract operation codes. The implementation handles the Custom
+selector for any eligible player and selectors 0–6 as variables for fixed
+non-player slots. Unsigned 32-bit score Add wraps and Subtract floors at zero;
+these are inferred from the stored representation and matching SetDeaths
+arithmetic because OpenBW does not implement this action and retail score
+overflow behavior is unverified. Resource Add/Subtract use a 64-bit
+intermediate and clamp to `[0, INT_MAX]`, matching the engine's signed
+resource storage; retail overflow behavior is also unverified. These are bounded model
+formulas, not a retail executable score trace. `test_mission` covers
+leader/tie/laggard comparisons for both ranking conditions, condition 21's
+score selectors, and Set/Add/Subtract on Custom. `test_save` checks that the
+custom score survives save/load and affects the consistency hash.
+
+Blizzard's StarEdit [trigger FAQ](https://classic.battle.net/scc/faq/triggers.shtml)
+explicitly says minerals, gas and all score types can be used as variables for
+players who are not active in the game. Set Resources, Set Score and the direct
+player forms of Accumulate and Score condition address OWNR Inactive (0) and
+Closed (8) slots. The FAQ describes the general non-active case; PyMS marks
+OWNR 8 as `Closed (Invalid)`, so including it as a variable slot is an
+implementation inference, not a separate retail executable finding. Defeated
+Human/Computer slots remain distinct: their OWNR value stays 5/6, and direct
+variable selectors reject them even though `slot_active` excludes them.
+Ordinary unit selectors continue to use `slot_active`; score groups do too,
+since the FAQ does not define group membership. The runtime stores fixed
+non-player categories 0–6 separately while active players keep computed scores;
+Set Score on active categories 0–6 is not modeled because the FAQ only confirms
+their use as non-player variables. Highest/Lowest Score has no player argument
+and the FAQ does not state which inactive slots participate in ranking, so
+ranking retains the active-player comparison pending stronger evidence. Mission
+tests exercise OWNR 0 and 8 direct score reads/writes, defeated OWNR 5
+exclusion, and inactive resource access.
 
 ### Scenario alliance and victory relationships (reference evidence)
 
@@ -2915,19 +2947,21 @@ ally, and neutral status overlapping force masks; `test_save` checks the
 victory bit survives an engine save and that breaking and reforming an
 alliance clears it.
 
-### Explicit player selectors ignore inactive slots (2026-11-13)
+### Direct selectors distinguish units from variables (2026-11-13)
 
 Pinned OpenBW `trigger_players_pred` calls `player_slot_active(n)` before
 matching any group, including direct player selectors 0–7 (18123–18135).
-`in_group` now applies the same eligibility gate before matching the requested
-player or group. This means an otherwise matching unit or resource owned by
-an OWNR Inactive or Closed slot does not satisfy a direct-player selector.
-The mission test contrasts a group-2 Modify Resources action with player 2
-active versus OWNR 0 Inactive; the first changes the resource and the second
-leaves it untouched. Since `collect_players` is shared by trigger conditions
-and actions, the same rule covers both paths. Confirmed OpenBW reference
-behavior, not a retail executable trace. The separate resource-deposit path
-continues to handle owners 8–11 outside `in_group`.
+Ordinary unit selectors continue to follow this rule. Blizzard's official
+StarEdit FAQ separately documents minerals, gas and every score type as
+variables for players who are not active in the game, so direct
+resource/score-variable selectors have a dedicated path for OWNR 0. OWNR 8
+(`Closed (Invalid)` in PyMS) is also treated as a non-player variable slot;
+that extension is an inference from the FAQ's non-active-player wording and
+the CHK owner definition, not retail executable evidence. Defeated playable
+slots retain OWNR 5/6 and are not variable slots. Tests cover OWNR 0, OWNR 8,
+and defeated OWNR 5. This exception is limited to direct resource/score
+selectors; ordinary unit lookups still skip inactive slots. The separate
+resource-deposit path continues to handle owners 8–11 outside `in_group`.
 
 Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.

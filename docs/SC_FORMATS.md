@@ -125,13 +125,33 @@ with an outside unit unchanged.
 The implemented TRIG action field reads were compared against eudplib's
 `stockact.py` constructors and `action.py` layout: outcomes/preserve/wait
 (1–4), transmission/text/view (7, 9–10, 12, 28), create (11, 44), switch
-and timer (13–14, 54–56), AI scripts (15–16), kill/remove/resources
-(22–26), location/unit movement and next scenario (38–39, 41), invincibility,
+and timer (13–14, 54–56), AI scripts (15–16), kill/remove/resources/score
+(22–27), location/unit movement and next scenario (38–39, 41), invincibility,
 deaths, order, ownership and vitals (43, 45–46, 48–52), and alliance (57).
 The reviewed fields agree after the +20 vitals and action 52 count corrections.
 This audit does not assert full behavior: for example, transmission timing,
 Move Unit placement, player-group cases and location geometry remain
 incomplete, and unsupported actions were not included.
+PyMS identifies action 27 as Set Score with Player, Modifier, Number and
+ScoreType fields. The engine now stores the Custom category per player and
+supports its Set/Add/Subtract operations for Custom. Blizzard's StarEdit
+trigger FAQ also identifies minerals, gas and all score types as variables for
+players who are not active in the game. Direct Set Resources/Set Score actions
+and Accumulate/Score conditions use direct selectors for OWNR Inactive (0) and
+Closed (8) slots. The FAQ confirms the non-active-player rule; including
+Closed is an inference from the checked-in PyMS `Closed (Invalid)` owner
+definition, not a retail executable finding. Defeated Human/Computer slots
+(OWNR 5/6 with a defeat result) remain distinct and are not variable slots.
+Ordinary unit selectors, groups and Highest/Lowest ranking participants retain
+their active-slot filtering; the FAQ does not specify group/ranking membership.
+Fixed non-player score categories 0–6 use separate saved variables while
+active slots retain computed game scores; Custom is stored for all eligible
+slots. Set Score on active categories 0–6 remains unsupported. OpenBW does not
+implement action 27, so its operation semantics are format-based inference.
+Score Add wraps at uint32 and score Subtract floors at zero; resource
+Add/Subtract instead clamp to `[0, INT_MAX]` using a 64-bit intermediate.
+Retail overflow behavior for both is unverified. These values are saved and
+hashed.
 eudplib `stockact.py` identifies Play WAV (8) and Transmission (7) sound
 string IDs at +8. Both now play extracted scenario WAVs for the local trigger
 owner using the existing briefing voice channel. The dummy-audio test checks
