@@ -412,6 +412,9 @@ static int test_ejected_object_health_value(void) {
     if (!hull) return fail("ejected object value spawn");
     Z_SetTeam(hull, 1);
     hull->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    P_DamageMobj(hull, NULL, hull->max_hp / 4);
+    if (!hull->z.body_tracked || hull->z.body_speed != 45)
+        return fail("damaged APC retains native speed");
     hull->hp = 1;
     if (!Z_EjectCrew(hull) || !hull->z.object_slot || hull->z.object_hp != 1 || hull->hp != 1)
         return fail("ejected object value fixture");
@@ -429,6 +432,13 @@ static int test_ejected_object_health_value(void) {
     }
     think(0); think(1);
     int before = Z_AIEmptyValue(hull), score = map->ai.territories[0].value;
+    hull->z.body_speed = 50;
+    map->ai.phase = 1; think(1);
+    if (Z_AIEmptyValue(hull) <= before || map->ai.territories[0].value <= score)
+        return fail("empty APC valuation uses retained speed");
+    hull->z.body_speed = 45;
+    map->ai.phase = 1; think(1);
+    if (map->ai.territories[0].value != score) return fail("empty APC speed restores value");
     hull->hp = 25;
     map->ai.phase = 1; think(1);
     int after = Z_AIEmptyValue(hull);
@@ -438,6 +448,38 @@ static int test_ejected_object_health_value(void) {
     map->ai.phase = 1; think(1);
     if (Z_AIEmptyValue(hull) <= after || map->ai.territories[0].value <= score)
         return fail("effect health changes AI territory value");
+    mobj_t *gun = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_UNIT_LIGHT_GUN);
+    if (!gun) return fail("empty gun value spawn");
+    Z_SetTeam(gun, 1); gun->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    P_DamageMobj(gun, NULL, gun->max_hp / 4);
+    mobj_t *shooter = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_UNIT_SNIPER);
+    if (!shooter) return fail("empty gun value shooter");
+    Z_SetTeam(shooter, 0);
+    for (int n = 0; n < 256 && gun->z.driver; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, gun, 255, 1);
+    if (!gun->z.body_tracked || gun->z.body_fire != 54 || gun->z.driver ||
+        gun->remove || !gun->z.object_slot)
+        return fail("fatal driver hit retains damaged gun fire byte");
+    shooter->hp = 0;
+    map->ai.phase = 1; think(1);
+    int damaged_score = map->ai.territories[0].value;
+    int damaged_gun = Z_AIEmptyValue(gun);
+    gun->z.body_fire = 60;
+    map->ai.phase = 1; think(1);
+    if (Z_AIEmptyValue(gun) <= damaged_gun || map->ai.territories[0].value <= damaged_score)
+        return fail("empty gun valuation uses retained fire byte");
+    gun->z.body_fire = 54;
+    int saved_hull = Z_AIEmptyValue(hull);
+    uint32_t hull_id = hull->id, gun_id = gun->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "empty values", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud))
+        return fail("save damaged empty object values");
+    free(save);
+    hull = P_MobjById(hull_id); gun = P_MobjById(gun_id);
+    if (!hull || !gun || hull->z.body_speed != 45 || gun->z.body_fire != 54 || Z_AIEmptyValue(hull) != saved_hull ||
+        Z_AIEmptyValue(gun) != damaged_gun)
+        return fail("saved empty object stats affect valuation after load");
     rts_game_model_destroy(model);
     puts("PASS: z empty-object valuation reads represented health");
     return 0;

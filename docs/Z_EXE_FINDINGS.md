@@ -5430,6 +5430,22 @@ an engine/Zod choice, not a claim about native voluntary ejection. Inspect
 with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 20 @ 0x98a7a'
 -c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
 
+**Damaged empty-body strategic value:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x61b89..0x61b92` transfers the damaged body's speed +7 and fire byte
++0x20 into the empty effect at +0x10 and +0x18. The evaluator reads those
+effect bytes at `0x989a9` and `0x989d7`. Open-rts now values its saved and
+hashed body speed and fire bytes when body tracking is active; map-loaded
+objects without tracked damage retain their weapon defaults. The extended
+`test_ejected_object_health_value` checks an actually damaged APC after the
+Zod voluntary-ejection path and verifies the normal territory score; it
+also kills a damaged Light Gun's driver through the native-modeled hit path
+and checks its fire contribution and save/load. Voluntary APC ejection is
+Zod policy, not an assertion of native conversion. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 20 @ 0x61b89'
+-c 'pd 55 @ 0x9899c' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.
+
 **Damaged accuracy in strategic strength:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x983e0..0x9842a` weights the current unit bytes +0 and +2; the latter is
