@@ -5341,3 +5341,18 @@ Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 40 @ 0x999e5' -c 'pd 18 @ 0x998ed' -c 'pd 18 @ 0x99167'
 -c 'pd 18 @ 0x99952' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Destroyed building territory value:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x987ee..0x9882c` walks the 35 BUILD records, skips an invalid type byte
+at +4, resolves the building's territory, and adds an estimate of its rating
+at +0x0c. The loop has no building-health test. The engine retains a
+building mobj in its wreck state and now includes its rating in AI territory
+value until the mobj is removed; empty-object eligibility remains unchanged.
+`test_destroyed_building_value` compares the same territory before and after
+actual factory destruction and checks that its rating remains; the previous
+live-only filter fails the test. Native BUILD-slot ordering and cached
+territory membership may differ from the engine's thinker iteration and
+recomputed position. Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 32 @ 0x987ee' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

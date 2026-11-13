@@ -260,14 +260,13 @@ static void observations(zmap_t *map, mobj_t *const *units, int count) {
             16 * map->computer.territory_weight * map->territories[t].importance;
         for (int u = 0; u < count; ++u) {
             const mobj_t *mo = units[u];
-            if (!live(mo)) continue;
-            if (Z_Enterable(mo) && at_unit(map, mo) == t)
-                out->value += Z_AIEstimate(Z_AIEmptyValue(mo), ai->intelligence);
-            else if (mo->type_id > MT_FORT && mo->type_id < MT_UNITS) {
+            if (mo->remove) continue;
+            if (mo->type_id > MT_FORT && mo->type_id < MT_UNITS) {
                 irect_t cells = P_MobjCells(mo);
                 if (Z_AITerritory(map, fixed2_from_cell((ivec2_t){cells.x,cells.y})) == t)
                     out->value += Z_AIEstimate((int)mo->z.rating, ai->intelligence);
-            }
+            } else if (Z_Enterable(mo) && at_unit(map, mo) == t)
+                out->value += Z_AIEstimate(Z_AIEmptyValue(mo), ai->intelligence);
         }
     }
 }

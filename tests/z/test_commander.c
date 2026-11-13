@@ -232,6 +232,38 @@ static int test_scores(void) {
     return 0;
 }
 
+/* 0x987ee counts every present BUILD record, including a wreck. */
+static int test_destroyed_building_value(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("destroyed building value load");
+    scenario();
+    zmap_t *map = level.native_data;
+    mobj_t *factory = nth(MT_ROBOT_FACTORY, -1, 0);
+    if (!factory) return fail("destroyed building value factory");
+    irect_t cells = P_MobjCells(factory);
+    int territory = Z_AITerritory(map, fixed2_from_cell((ivec2_t){cells.x,cells.y}));
+    if (territory < 0) return fail("destroyed building value territory");
+    for (int t = 0; t < map->territory_count; ++t) map->territories[t].importance = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    factory->z.rating = 1234;
+    think(0); think(1);
+    int before = map->ai.territories[territory].value;
+    if (before != 1234) return fail("live building contributes its rating");
+    P_DamageMobj(factory, NULL, factory->hp);
+    if (factory->hp > 0 || factory->remove || factory->z.rating != 1234)
+        return fail("building persists as a rated wreck");
+    map->ai.phase = 1;
+    think(1);
+    if (map->ai.territories[territory].value != before)
+        return fail("destroyed building retains its territory rating");
+    rts_game_model_destroy(model);
+    puts("PASS: z destroyed building retains strategic territory value");
+    return 0;
+}
+
 static int test_blocked_flag_retry(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load blocked flag fixture");
@@ -2126,7 +2158,7 @@ static int test_building_alert(void) {
 }
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
-           test_initial_and_save() || test_scores() ||
+           test_initial_and_save() || test_scores() || test_destroyed_building_value() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
