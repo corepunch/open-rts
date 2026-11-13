@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
-/* Mission extras and projectile state differ from earlier saves. */
-uint32_t G_SaveLayout(void) { return 12; }
+/* Research restrictions and projectile state add persistent save data. */
+uint32_t G_SaveLayout(void) { return 13; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -12,6 +12,13 @@ const uint32_t *G_AllianceMasks(const level_t *map) {
 uint32_t G_ConsistencyExtra(uint32_t hash) {
     const sc_mission_t *m = level.mission;
     if (m) hash = G_HashValue(hash, m->rng);
+    if (m) hash = G_HashValue(hash, m->map_mode);
+    if (m) hash = G_HashValue(hash, m->research_rules_loaded);
+    if (m) hash = G_HashValue(hash, m->custom_slots_set);
+    if (m) for (int i = 0; i < 8; ++i) {
+        hash = G_HashValue(hash, m->custom_slot_kind[i]);
+        hash = G_HashValue(hash, m->custom_slot_race[i]);
+    }
     if (m) { hash = G_HashValue(hash, m->previous_bullet_source); hash = G_HashValue(hash, m->previous_bullet_clockwise); }
     if (m) for (int i = 0; i < 8; ++i) {
         hash = G_HashValue(hash, m->allies[i]);
@@ -20,6 +27,8 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         hash = G_HashValue(hash, m->player_result[i]);
         hash = G_HashValue(hash, m->custom_score[i]);
         for (int t = 0; t < 7; t++) hash = G_HashValue(hash, m->score_variables[i][t]);
+        for (int u = 0; u < SC_UPGRADES; u++) hash = G_HashValue(hash, m->upgrade_max_level[i][u]);
+        for (int t = 0; t < SC_TECHS; t++) hash = G_HashValue(hash, m->tech_available[i][t]);
         hash = G_HashValue(hash, level.sight.allies[i]);
         for (int t = 0; t < SC_TYPES; t++) hash = G_HashValue(hash, m->deaths[i][t]);
     }

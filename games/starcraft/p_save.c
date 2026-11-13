@@ -32,13 +32,20 @@ bool G_LoadExtra(const void *data, size_t size) {
     memcpy(&record, data, sizeof(record));
     sc_mission_t saved = record.mission;
     if (record.player < 0 || record.player >= 8) return false;
-    if (saved.trig_count != m->trig_count || saved.trig_size != m->trig_size ||
+    if (saved.map_mode > SC_MAP_MELEE || saved.research_rules_loaded > 1 ||
+        saved.custom_slots_set > 1 ||
+        saved.trig_count != m->trig_count || saved.trig_size != m->trig_size ||
         saved.str_size != m->str_size || saved.uprp_size != m->uprp_size ||
         saved.loc_count < 0 || saved.loc_count > 64 || saved.result < 0 || saved.result > 3 ||
         !memchr(saved.objectives, 0, sizeof(saved.objectives)) ||
         !memchr(saved.next_scenario, 0, sizeof(saved.next_scenario))) return false;
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 8; ++i) {
+        if (saved.custom_slots_set &&
+            (saved.custom_slot_kind[i] > SC_SLOT_CLOSED || saved.custom_slot_race[i] > 2)) return false;
         if (saved.player_result[i] > 3 || (saved.neutral_relations[i] & ~UINT32_C(0x7f800000))) return false;
+        for (int tech = 0; tech < SC_TECHS; ++tech)
+            if (saved.tech_available[i][tech] > 1) return false;
+    }
     const uint8_t *runtime = (const uint8_t *)data + sizeof(record);
     for (int i = 0; i < m->trig_count * 8; ++i) {
         sc_trig_t trigger;
@@ -55,6 +62,8 @@ bool G_LoadExtra(const void *data, size_t size) {
     /* A resync imports shared outcomes but not the sender's local UI state. */
     if (G_Resyncing()) saved.result = m->result;
     *m = saved;
+    sc_restore_map_session((sc_map_mode_t)m->map_mode,m->custom_slots_set,
+                           m->custom_slot_kind,m->custom_slot_race);
     if (m->trig_count)
         memcpy(m->rt, runtime, (size_t)m->trig_count * 8 * sizeof(sc_trig_t));
     if (!netgame) consoleplayer = record.player;

@@ -3,6 +3,10 @@
 #include "engine.h"
 /* Native indexed GRP decoder; retains every original image and its pivot. */
 bool sc_decode_grp(const blob_t *file, const uint32_t *palette, bool turns, spritesheet_t *out);
+/* Compiled native missile IScript death and trail visuals; zero when absent. */
+int sc_projectile_death_state(int weapon);
+int sc_projectile_trail_state(int weapon);
+bool sc_projectile_trail_repeats(int weapon);
 bool sc_movie(const char *path, spritesheet_t *out, unsigned *frame_ms, uint32_t **palettes);
 #define SC_DIALOG_CONTROLS 96
 #define SC_CONTROL_MOVIES 4

@@ -32,6 +32,53 @@ transferred back to a player. The current trigger player selector cannot
 select owner 11, and no other implemented hatchery ownership path was found;
 whether reactivation is required on a future transfer path remains unverified.
 
+## CHK per-player research rules (2026-11-13)
+
+This is source/format evidence, not a retail executable finding. PyMS defines
+UPGR/PUPx as 46/61 upgrade rows and PTEC/PTEx as 24/44 tech rows, but its
+reader/writer interleaves each player's two tables. That conflicts with
+scmJS's offsets and OpenBW `bwgame.h` readers at 20517–20543, which read two
+complete player-major tables; the decoder follows the latter evidence.
+Stargus `src/Chk.cpp:327-373` checks payload lengths only and skips these
+sections.
+
+scmJS documents UPGR/PTEC as UMS sections for `VER` 59/63/64, and ignored in
+Brood War `VER` 205/206 where PUPx/PTEx are used; PUPx/PTEx also overlay on
+59/63/64. OpenBW's reader dispatch agrees for 59/63 and 205; 64/206 support
+follows the scmJS format reference. OpenBW derives UMS from external setup,
+not a CHK flag: map settings are enabled when `victory_condition`,
+`tournament_mode`, and `starting_units` are all zero (`bwgame.h:18906-14,
+20826`). The runtime does not represent those three setup fields. As an
+explicit approximation, Campaign and explicit UMS modes decode these
+sections; Melee does not. This lets campaign maps such as
+`install/campaign/terran/terran01/staredit/scenario.chk` use their UPGR and
+PTEC chunks. That file contains both sections. The exact retail/OpenBW campaign
+setup values remain unverified. Campaign briefing launches set Campaign, the
+local custom-map screen and host/join set Melee, and direct level loads default
+to Campaign. No current UI selects explicit UMS. The mission saves and hashes
+its mode, decoded marker, and pending single-player custom seat/race selection;
+`G_LoadExtra` restores that state before later map loads and during resync, so
+Restart Mission after loading a save can reapply the custom selection. Starting
+a new mode explicitly clears stale custom selections. Network UMS is not
+represented. TYPE
+marks file flavor, and neither TYPE nor TRIG identifies the selected mode.
+
+`w_chk.c` decodes revision-appropriate sections: UPGR/PTEC for 59/63/64,
+PUPx/PTEx for 205/206, and extended overlays on classic/remastered rows.
+Starting levels/research initialize the already saved
+`level.upgrades` entries; mission-owned upgrade caps and research availability
+are saved and included in the consistency hash. `p_prod.c::sc_upgrade_offered`
+uses these rules to constrain offers. Since the game has only 46 upgrade
+definitions, expanded upgrade rows 47–61 are length-validated but not
+implemented. Exact retail interpretation of malformed/non-boolean bytes and
+availability after research remains unverified. Reproduce with
+`build/bin/tests/starcraft/test_map` and `build/bin/tests/starcraft/test_save`
+under the dummy SDL video driver. Tests cover custom single-player Melee vs
+Campaign, explicit UMS, revision gating, saved-mode restoration, custom-seat
+save/load/restart and new-session cleanup. Campaign mode's UMS interpretation
+is an approximation based on OpenBW's default setup values and the real
+campaign map sections, not a retail setup trace.
+
 ## Any Unit trigger counts
 
 Pinned OpenBW `bwgame.h` `trigger_command_count` at 17967–17981 defines the
@@ -556,11 +603,18 @@ The [current source/regression audit](BLIZZARD_COMPLETENESS_AUDIT.md#starcraft)
 supersedes older broad status statements while preserving their evidence below.
 No new executable analysis or fingerprint is claimed. Confirmed source gaps
 include core orders, six base abilities, full mobile transports and Nydus,
-selectable construction sites, per-player CHK upgrade/technology initialization,
-partial trigger/IScript/AI execution, save/load/options and gameplay audio.
+selectable construction sites, partial trigger/IScript/AI execution,
+save/load/options and gameplay audio. Per-player CHK upgrade/technology
+initialization has since been implemented for supported CHK revisions. The
+current UI offers Campaign and Melee only; it does not select explicit UMS.
+Campaign rules are applied as an approximation from OpenBW's default setup
+values and the real campaign UPGR/PTEC sections. Offline custom Melee is
+represented, while network UMS is not. Exact retail semantics remain
+unverified.
 `game_info.sound` is unset; sound event calls alone do not implement playback.
-UPGR/PUPx/PTEC/PTEx restrictions are distinct from supported cost patches and
-PUNI. `p_trig.c` silently skips unhandled actions and uses movement orders for
+UPGR/PUPx/PTEC/PTEx restrictions remain distinct from cost patches and PUNI;
+their base rows are now decoded, while PUPx upgrade rows 47–61 remain outside
+the runtime upgrade catalog. `p_trig.c` silently skips unhandled actions and uses movement orders for
 Move Unit; these require semantic tests before campaign completion claims.
 
 Corrections: Shield Battery recharge, Zerg tiers, add-on research and selected

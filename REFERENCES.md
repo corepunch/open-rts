@@ -2578,6 +2578,21 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
 
 ## StarCraft / Stargus (2026-10-08)
 
+- [scmJS CHK UPGR](https://docs.scmjs.dev/chk/upgr/),
+  [PTEC](https://docs.scmjs.dev/chk/ptec/),
+  [PUPx](https://docs.scmjs.dev/chk/pupx/), [PTEx](https://docs.scmjs.dev/chk/ptex/),
+  [VER](https://docs.scmjs.dev/chk/ver/), and
+  [TYPE](https://docs.scmjs.dev/chk/type/): byte offsets, revision support,
+  and the distinction between game-file type and run mode.
+  Pinned OpenBW [`bwgame.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h)
+  reads the two research tables as separate player-major blocks and gates
+  them through external Use Map Settings setup values.
+  Checked-in PyMS parsers are `reference/PyMS/PyMS/FileFormats/CHK/Sections/
+  CHKSectionUPGR.py`, `CHKSectionPUPx.py`, `CHKSectionPTEC.py`, and
+  `CHKSectionPTEx.py`. Stargus `reference/stargus/src/Chk.cpp:327-373`
+  validates payload sizes but skips these sections, so it corroborates sizes
+  only, not runtime semantics.
+
 - [Stargus](https://github.com/Wargus/stargus), locally `reference/stargus`,
   commit `2a4d54604949e4772f6638a8412c8ebd62444044` (GPL-2.0). Format and
   behavior reference only: `mpqlist.txt`, `src/kaitai/*_dat.ksy`,

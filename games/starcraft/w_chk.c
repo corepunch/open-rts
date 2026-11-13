@@ -134,6 +134,7 @@ bool sc_start_tip(const level_t *map, char *text, size_t size) {
 static int net_race[MAXPLAYERS];
 static bool net_race_set;
 static int net_seats;
+static sc_map_mode_t map_mode=SC_MAP_CAMPAIGN;
 static bool melee_start[MAXPLAYERS], melee_unit[MAXPLAYERS];
 static ivec2_t melee_at[MAXPLAYERS];
 
@@ -152,6 +153,27 @@ void sc_set_custom_slots(const int *kinds, const int *races) {
         custom_race[i] = custom_set ? races[i] : 0;
     }
 }
+
+void sc_set_map_mode(sc_map_mode_t mode) {
+    if(mode<SC_MAP_CAMPAIGN||mode>SC_MAP_MELEE) mode=SC_MAP_CAMPAIGN;
+    map_mode=mode;
+    /* Custom seat overrides belong to the one pending local custom load. */
+    custom_set=false;
+    for(int i=0;i<8;i++) { custom_kind[i]=SC_SLOT_CLOSED; custom_race[i]=0; }
+}
+void sc_restore_map_session(sc_map_mode_t mode,bool slots_set,
+                            const uint8_t kinds[8],const uint8_t races[8]) {
+    if(mode<SC_MAP_CAMPAIGN||mode>SC_MAP_MELEE) mode=SC_MAP_CAMPAIGN;
+    map_mode=mode;
+    if(!slots_set||!kinds||!races) { sc_set_custom_slots(NULL,NULL); return; }
+    int restored_kinds[8],restored_races[8];
+    for(int i=0;i<8;i++) {
+        restored_kinds[i]=kinds[i];
+        restored_races[i]=races[i];
+    }
+    sc_set_custom_slots(restored_kinds,restored_races);
+}
+sc_map_mode_t sc_current_map_mode(void) { return map_mode; }
 
 static int side_byte(int race) {
     if (race == 1) return 0;
@@ -315,6 +337,51 @@ enum { UNITS=228, UNIS_BYTES=3648 };
 /* Bytes before the arrays of `n` upgrades or techs, and their size. */
 enum { UPGS_BYTES=46+46*12, UPGX_BYTES=61+1+61*12, TECS_BYTES=24+24*8, TECX_BYTES=44+44*8 };
 enum { PUNI_BYTES=12*228+228+12*228 };
+enum { UPGR_BYTES=46*12*2+46*2+46*12, PUPX_BYTES=61*12*2+61*2+61*12,
+       PTEC_BYTES=24*12*2+24*2+24*12, PTEX_BYTES=44*12*2+44*2+44*12 };
+
+static void decode_upgrade_restrictions(const uint8_t *d, int count, level_t *map, sc_mission_t *mission) {
+    const uint8_t *global_max=d+count*24,*global_start=d+count*25,*defaults=d+count*26;
+    int supported=count<SC_UPGRADES?count:SC_UPGRADES;
+    for(int player=0;player<8;player++) for(int upgrade=0;upgrade<supported;upgrade++) {
+        bool use_default=defaults[player*count+upgrade]!=0;
+        uint8_t max=use_default?global_max[upgrade]:d[player*count+upgrade];
+        uint8_t start=use_default?global_start[upgrade]:d[count*12+player*count+upgrade];
+        mission->upgrade_max_level[player][upgrade]=max;
+        map->upgrades[upgrade][player].weapon=start;
+    }
+}
+
+static void decode_tech_restrictions(const uint8_t *d, int count, level_t *map, sc_mission_t *mission) {
+    const uint8_t *global_available=d+count*24,*global_researched=d+count*25,*defaults=d+count*26;
+    int supported=count<SC_TECHS?count:SC_TECHS;
+    for(int player=0;player<8;player++) for(int tech=0;tech<supported;tech++) {
+        bool use_default=defaults[player*count+tech]!=0;
+        uint8_t available=use_default?global_available[tech]:d[player*count+tech];
+        uint8_t researched=use_default?global_researched[tech]:d[count*12+player*count+tech];
+        mission->tech_available[player][tech]=available!=0;
+        map->upgrades[SC_UPGRADES+tech][player].weapon=researched!=0;
+    }
+}
+
+static void decode_research_restrictions(const sc_rule_sections_t *rules, level_t *map, sc_mission_t *mission,
+                                         unsigned version, bool use_map_settings) {
+    bool original=version==59||version==63||version==64;
+    bool broodwar=version==205||version==206;
+    if(!use_map_settings||(!original&&!broodwar)) return;
+    mission->research_rules_loaded=1;
+    for(int player=0;player<8;player++) {
+        for(int upgrade=0;upgrade<SC_UPGRADES;upgrade++)
+            mission->upgrade_max_level[player][upgrade]=(uint8_t)sc_upgrades[upgrade].max_level;
+        memset(mission->tech_available[player],1,sizeof(mission->tech_available[player]));
+    }
+    if(original) {
+        if(rules->upgr) decode_upgrade_restrictions(rules->upgr,46,map,mission);
+        if(rules->ptec) decode_tech_restrictions(rules->ptec,24,map,mission);
+    }
+    if(rules->pupx) decode_upgrade_restrictions(rules->pupx,61,map,mission);
+    if(rules->ptex) decode_tech_restrictions(rules->ptex,44,map,mission);
+}
 
 static void decode_units(const uint8_t *d,size_t size,rulepatchset_t *out) {
     const uint8_t *use_default=d,*armor=d+1596;
@@ -388,19 +455,29 @@ bool sc_load_chk(const char *path,level_t *out) {
     memset(out,0,sizeof(*out));
     sc_mission_t *mission=calloc(1,sizeof(*mission));
     if(!mission) return false;
+    mission->map_mode=(uint8_t)map_mode;
+    mission->custom_slots_set=(uint8_t)(!netgame&&custom_set);
+    if(mission->custom_slots_set) for(int i=0;i<8;i++) {
+        mission->custom_slot_kind[i]=(uint8_t)custom_kind[i];
+        mission->custom_slot_race[i]=(uint8_t)custom_race[i];
+    }
     blob_t *file=&mission->file;
     out->mission=mission; out->destroy_mission=free_chk;
     if(!W_ReadFile(path,file)) goto bad;
     const uint8_t *terrain=NULL,*owners=NULL;
     size_t terrain_size=0;
-    int era=-1;
+    int era=-1,version=0;
+    bool has_version=false;
     sc_rule_sections_t rules={0};
     for(size_t at=0;at<file->size;) {
         if(file->size-at<8) goto bad;
         const uint8_t *tag=file->bytes+at,*data=tag+8;
         size_t size=read_u32_le(tag+4);
         if(size>file->size-at-8) goto bad;
-        if(!memcmp(tag,"DIM ",4)) {
+        if(!memcmp(tag,"VER ",4)) {
+            if(size!=2) goto bad;
+            version=read_u16_le(data); has_version=true;
+        } else if(!memcmp(tag,"DIM ",4)) {
             if(size!=4) goto bad;
             out->width=read_u16_le(data); out->height=read_u16_le(data+2);
         } else if(!memcmp(tag,"ERA ",4)) {
@@ -424,6 +501,18 @@ bool sc_load_chk(const char *path,level_t *out) {
         } else if(!memcmp(tag,"TECS",4)) { rules.tecs=data; rules.tecs_size=size;
         } else if(!memcmp(tag,"TECx",4)) { rules.tecx=data; rules.tecx_size=size;
         } else if(!memcmp(tag,"PUNI",4)) { rules.puni=data; rules.puni_size=size;
+        } else if(!memcmp(tag,"UPGR",4)) {
+            if(size!=UPGR_BYTES) goto bad;
+            rules.upgr=data; rules.upgr_size=size;
+        } else if(!memcmp(tag,"PUPx",4)) {
+            if(size!=PUPX_BYTES) goto bad;
+            rules.pupx=data; rules.pupx_size=size;
+        } else if(!memcmp(tag,"PTEC",4)) {
+            if(size!=PTEC_BYTES) goto bad;
+            rules.ptec=data; rules.ptec_size=size;
+        } else if(!memcmp(tag,"PTEx",4)) {
+            if(size!=PTEX_BYTES) goto bad;
+            rules.ptex=data; rules.ptex_size=size;
         } else if(!memcmp(tag,"THG2",4)) {
             if(size%10) goto bad;
             for(size_t i=0;i<size;i+=10) {
@@ -451,6 +540,8 @@ bool sc_load_chk(const char *path,level_t *out) {
     for(int i=0;i<8;i++) out->player_colors[i]=i;
     g_rulepatch.count=0;
     sc_decode_rules(&rules,&g_rulepatch);
+    decode_research_restrictions(&rules,out,mission,has_version?(unsigned)version:0,
+                                 mission->map_mode!=SC_MAP_MELEE);
     clear_melee();
     if(!netgame) {
         net_race_set = false;

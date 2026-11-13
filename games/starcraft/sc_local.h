@@ -100,6 +100,7 @@ int sc_upgrade_product(int upgrade, int level);
 /* Whether owner has a building of type, or one that counts as it. */
 bool sc_owner_has(int owner, uint16_t type);
 bool sc_upgrade_offered(int owner, const StaticProductDefinition *product);
+bool sc_tech_available(int owner, int tech);
 typedef enum { SC_LOCK_OPEN, SC_LOCK_GREYED, SC_LOCK_HIDDEN } sc_lock_t;
 /* How a command card shows a product: usable, greyed with what it needs
  * written to `why`, or not at all. */
@@ -167,11 +168,18 @@ enum { SC_UNIT_HP, SC_UNIT_SHIELDS, SC_UNIT_ARMOR, SC_UNIT_BUILD_TIME, SC_UNIT_M
 enum { SC_UPGRADE_MINERALS, SC_UPGRADE_MINERAL_FACTOR, SC_UPGRADE_GAS, SC_UPGRADE_GAS_FACTOR,
        SC_UPGRADE_TIME, SC_UPGRADE_TIME_FACTOR };
 enum { SC_TECH_MINERALS, SC_TECH_GAS, SC_TECH_TIME, SC_TECH_ENERGY };
-/* Section payloads of one scenario; NULL when absent. Broodwar's x sections win. */
+/* Scenario section payloads; for research rules, x sections overlay base rows. */
 typedef struct {
     const uint8_t *unis, *unix_, *upgs, *upgx, *tecs, *tecx, *puni;
+    const uint8_t *upgr, *pupx, *ptec, *ptex;
     size_t unis_size, unix_size, upgs_size, upgx_size, tecs_size, tecx_size, puni_size;
+    size_t upgr_size, pupx_size, ptec_size, ptex_size;
 } sc_rule_sections_t;
+typedef enum { SC_MAP_CAMPAIGN, SC_MAP_USE_MAP_SETTINGS, SC_MAP_MELEE } sc_map_mode_t;
+void sc_set_map_mode(sc_map_mode_t mode);
+void sc_restore_map_session(sc_map_mode_t mode, bool custom_slots_set,
+                            const uint8_t kinds[8], const uint8_t races[8]);
+sc_map_mode_t sc_current_map_mode(void);
 /* Adds an entry for every value the scenario overrides: a unit, upgrade or
  * tech whose "use defaults" byte is clear, and each unit a player may not
  * build (row = player, field = unit). Returns the entries added. */
@@ -216,6 +224,12 @@ typedef struct {
     uint16_t loc_elevation[64]; /* MRGN exclusion flags, low/mid/high air then ground. */
     int loc_count;
     uint8_t owners[12], side[12], force[8], force_flags[4];
+    uint8_t map_mode;
+    uint8_t research_rules_loaded;
+    uint8_t custom_slots_set;
+    uint8_t custom_slot_kind[8], custom_slot_race[8];
+    uint8_t upgrade_max_level[8][SC_UPGRADES];
+    uint8_t tech_available[8][SC_TECHS];
     uint32_t allies[8], allied_victory[8], neutral_relations[8];
     /* Directional OpenBW relation states; neutral is separate from combat ally and shared vision. */
     sc_trig_t *rt;

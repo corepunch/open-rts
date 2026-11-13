@@ -354,7 +354,10 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
     shot->movement.goal=fixed3_xy(target->core.position);
     bool missed=weapon_misses(source,target);
     if(missed)shot->movement.goal=fixed2_sub(shot->movement.goal,fixed2_scale(heading,SC_PIXELS(30)));
-    shot->sc.projectile=(sc_projectile_t){.weapon=def->native_id,.turn=w->turn,.missed=missed};
+    shot->sc.projectile=(sc_projectile_t){.weapon=def->native_id,.turn=w->turn,
+        .death_state=sc_projectile_death_state(def->native_id),
+        .trail_state=sc_projectile_trail_state(def->native_id),.missed=missed,
+        .trail_repeat=sc_projectile_trail_repeats(def->native_id)};
     if(sc_projectile_states[def->native_id]) {
         shot->traits|=MF_RENDERABLE;
         P_SetMobjState(shot,sc_projectile_states[def->native_id]);
@@ -387,7 +390,11 @@ static void projectile_impact(mobj_t *shot) {
         int dealt=sc_projectile_spell_hit(shot,target,base_damage(shot->owner,w,w->damage,divisor));
         damage=dealt>0?take(target,w->type<5?w->type:SC_DAMAGE_NORMAL,dealt):0;
     }
-    if(!next)P_RemoveMobj(shot);
+    if(!next) {
+        int death=shot->sc.projectile.death_state;
+        if(death>0&&P_SetMobjState(shot,death)) shot->sc.projectile.weapon=-1;
+        else P_RemoveMobj(shot);
+    }
     if(damage>0)P_DamageMobj(target,source?source:shot,damage);
     else if(can_hit&&source)P_ProvokeMobj(target,source);
     if(next) {
@@ -404,6 +411,15 @@ static fixed2_t projectile_map_bounds(fixed2_t point) {
                       point.y<0?0:point.y>max_y?max_y:point.y};
 }
 
+static void projectile_visual(fixed3_t position,int state) {
+    if(state<=0)return;
+    mobj_t *effect=P_SpawnMobj(position,MT_SC_PROJECTILE);
+    if(!effect)return;
+    effect->traits|=MF_RENDERABLE;
+    effect->sc.projectile.weapon=-1;
+    P_SetMobjState(effect,state);
+}
+
 static void projectile_tick(mobj_t *shot,int frames) {
     sc_projectile_t *p=&shot->sc.projectile;
     const sc_weapon_t *w=sc_weapon(p->weapon);
@@ -411,6 +427,10 @@ static void projectile_tick(mobj_t *shot,int frames) {
     while(frames-->0&&!shot->remove) {
         if(++shot->missile.age<=1)continue; /* IScript Init waits one frame before sigorder. */
         if(shot->missile.wait){projectile_impact(shot);return;}
+        if(p->trail_state>0&&(p->trail_repeat||!p->trail_emitted)) {
+            projectile_visual(shot->core.position,p->trail_state);
+            p->trail_emitted=true;
+        }
         bool expired=w->behavior!=SC_BEHAVIOR_BOUNCE&&shot->missile.age-1>w->lifetime;
         if((w->behavior==1||w->behavior==SC_BEHAVIOR_BOUNCE)&&shot->attack.target&&!shot->sc.projectile.missed)
             shot->movement.goal=fixed3_xy(shot->attack.target->core.position);
@@ -488,7 +508,10 @@ static void recharge(mobj_t *battery, int frames) {
  * energy, except while a cloak they switched on drains it. */
 static void sc_mobj_ticker(mobj_t *mo) {
     int frames = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
-    if(mo->type_id==MT_SC_PROJECTILE){projectile_tick(mo,frames);return;}
+    if(mo->type_id==MT_SC_PROJECTILE) {
+        if(mo->sc.projectile.weapon>=0)projectile_tick(mo,frames);
+        return;
+    }
     if (!sc_type(mo)) return;
     sc_start(mo);
     sc_spell_ticker(mo, frames);

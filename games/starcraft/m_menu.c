@@ -230,7 +230,7 @@ static void frontend(menu_t *m,menuitem_t *i,menuaction_t a) {
         snprintf(map,sizeof(map),"install/campaign/%s/%s01/staredit/scenario.chk",race,race);
         if(!open_briefing(map))show_notice("Could not read this campaign briefing.");
     } else if(is_briefing(m)) {
-        if(i->id==13){sc_stop_brief_voice();sc_set_net_races(NULL);sc_set_custom_slots(NULL,NULL);menumap=campaign_map;M_ClearMenus();}
+        if(i->id==13){sc_stop_brief_voice();sc_set_map_mode(SC_MAP_CAMPAIGN);sc_set_net_races(NULL);sc_set_custom_slots(NULL,NULL);menumap=campaign_map;M_ClearMenus();}
         else if(i->id==14){sc_stop_brief_voice();M_SetupNextMenu(&campaign.menu);}
         else if(i->id==20){restart_script();run_script(0);}
     }
@@ -1021,6 +1021,7 @@ static void host_game(void) {
         set_text(M_MenuFind(&create.menu, 6), M_NetNotice());
         return;
     }
+    sc_set_map_mode(SC_MAP_MELEE);
     status_note[0] = '\0';
     show_screen(&chat);
     menuitem_t *field = M_MenuFind(&chat.menu, 9);
@@ -1076,6 +1077,7 @@ static void join_game(void) {
         set_text(M_MenuFind(&join.menu, 6), status_note);
         return;
     }
+    sc_set_map_mode(SC_MAP_MELEE);
     status_note[0] = '\0';
     set_text(M_MenuFind(&join.menu, 6), "");
 }
@@ -1144,6 +1146,7 @@ static void open_multi(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)item;
     if (action != MA_ACTIVATE) return;
     M_NetStop();
+    sc_set_map_mode(SC_MAP_MELEE);
     use_net();
     if (menu && menu->app) front.app = menu->app;
     show_conn();
@@ -1452,6 +1455,7 @@ static void start_custom(void) {
     /* gluall.tbl 54. */
     if (!computers) { show_notice("You must have at least one computer opponent."); return; }
     sc_set_net_races(NULL);
+    sc_set_map_mode(SC_MAP_MELEE);
     sc_set_custom_slots(kinds, races);
     snprintf(custom_map, sizeof(custom_map), "%s", map->path);
     menumap = custom_map;

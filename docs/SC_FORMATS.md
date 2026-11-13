@@ -1,5 +1,56 @@
 # StarCraft classic format reference
 
+## Per-player research rules (2026-11-13)
+
+CHK `UPGR`/`PTEC` carry base-game per-player starting upgrade levels and
+technology availability/researched flags. `PUPx`/`PTEx` carry expanded rows
+and overlay the base sections when present. Their byte layout is two complete
+player-major tables followed by global defaults and per-player `useDefault`
+bytes. UPGR blocks are max levels at offset 0, starting levels at 552, global
+max at 1104, global start at 1150, and default flags at 1196. PTEC blocks are
+availability at 0, researched at 288, global availability at 576, global
+researched at 600, and default flags at 624. PUPx/PTEx use this order with
+61/44 rows.
+
+The sources conflict: PyMS's `CHKSectionUPGR.py` and `CHKSectionPTEC.py`
+interleave the two per-player tables in their reader/writer. Independent
+scmJS byte offsets and OpenBW's `upgrade_restrictions` / `tech_restrictions`
+instead use complete tables, and the runtime follows those offsets. Exact
+payload lengths are UPGR 1748, PUPx 2318, PTEC 912, PTEx 1672 bytes. Values
+initialize saved `level.upgrades`; availability gates new research and
+upgrade caps also honor the DAT maximum.
+
+The format reference identifies these as Use Map Settings rules. UPGR/PTEC
+apply to `VER` 59, 63 and 64; Brood War `VER` 205/206 ignores those base
+sections and reads PUPx/PTEx. Extended sections overlay base values on 59, 63
+and 64. The runtime has explicit Campaign, Use Map Settings and Melee modes.
+OpenBW enables Use Map Settings when external `victory_condition`,
+`tournament_mode`, and `starting_units` are all zero; these setup fields are
+not present in CHK. As an approximation, Campaign and explicit Use Map Settings
+decode the sections, while Melee ignores them. This permits real campaign maps
+such as Terran 01, whose CHK contains UPGR and PTEC, to use their authored
+rules. Exact retail/OpenBW campaign setup values have not been traced.
+Campaign briefing launches set Campaign; the single-player custom-map screen
+and network lobby set Melee. Direct map loads default to Campaign. No current
+UI selects explicit UMS; network UMS is not represented. `TYPE` identifies
+RAWS/RAWB file flavor, not the selected mode. Each loaded mission saves and
+hashes its mode, decoded marker, and pending single-player custom slot/race
+selection. Save/load restores them before later map loads so Restart Mission
+can apply the same custom roster; an explicit new mode clears the pending
+selection. Peers share the same network Melee mode. Tests distinguish custom
+single-player Melee from Campaign, exercise
+explicit UMS decoding, and load the real Terran 01 campaign CHK. Treat
+Campaign's UMS mapping as a documented inference until a retail setup trace is
+available.
+
+The runtime has the 46 base upgrade definitions, so PUPx rows 47–61 are
+parsed as part of the section size but are not applied. Brood War's 44 tech
+rows are represented in the existing technology slots. This is CHK-format
+source evidence, not a trace of the retail executable; Stargus only validates
+these lengths and skips the chunks. Focused regression:
+`build/bin/tests/starcraft/test_map` (run with `SDL_VIDEODRIVER=dummy`); save
+and synchronization coverage is in `test_save`.
+
 The pinned PyMS `PyMS/FileFormats/TRG.py` normal-trigger action table identifies
 IDs 54, 55 and 56 as Pause Timer, Unpause Timer and Draw, respectively; 57 is
 Set Alliance Status. Earlier open-rts dispatch shifted the first three by one,

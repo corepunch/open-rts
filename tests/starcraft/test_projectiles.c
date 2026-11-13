@@ -4,6 +4,10 @@
 #define CHECK(c) RTS_CHECK(c,"StarCraft projectiles",#c)
 
 static const char *map="data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk";
+static const char *root="data/STARCRAFT";
+static tileset_t tiles;
+static spritesheet_t fallback;
+static spritecache_t cache;
 static mobj_t *spawn(int type,fixed2_t at,int owner) {
     mobj_t *u=P_SpawnMobj(fixed3_from_fixed2(at,0),(uint16_t)type);
     if(u){u->owner=u->team=owner;u->allegiance=owner?ALLEGIANCE_ENEMY:ALLEGIANCE_PLAYER;}
@@ -16,12 +20,66 @@ static mobj_t *fire(mobj_t *source,mobj_t *target) {
     return P_MobjById(id);
 }
 static void flight(mobj_t *shot,int ticks) {
-    while(ticks--&&!shot->remove){++leveltime;gameinfo->mobj_ticker(shot);}
+    while(ticks--&&!shot->remove){++leveltime;P_TickMobjState(shot);if(!shot->remove)gameinfo->mobj_ticker(shot);}
+}
+static int visuals(void) {
+    int count=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        if(th->function==P_MobjThinker&&!mo->remove&&mo->type_id==MT_SC_PROJECTILE&&mo->sc.projectile.weapon<0)++count;
+    }
+    return count;
+}
+static int trail_lifecycle(void) {
+    CHECK(G_DoLoadLevel(map,&level)&&P_InitSight());
+    mobj_t *muta=spawn(MT_MUTALISK,FIXED2_LIT(5,5),0),*target=spawn(MT_MARINE,FIXED2_LIT(7,5),1);
+    CHECK(muta&&target&&sc_projectile_trail_repeats(48));
+    mobj_t *shot=fire(muta,target);CHECK(shot&&!shot->sc.projectile.missed);
+    uint32_t ids[32];int count=0;
+    for(int tic=0;tic<12;tic++) {
+        P_Ticker();
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+            mobj_t *mo=(mobj_t *)th;
+            if(th->function!=P_MobjThinker||mo->remove||mo->type_id!=MT_SC_PROJECTILE||mo->sc.projectile.weapon>=0)continue;
+            bool known=false;for(int i=0;i<count;i++)known|=ids[i]==mo->id;
+            if(known)continue;
+            CHECK(count<(int)(sizeof(ids)/sizeof(*ids)));
+            CHECK(mo->traits&MF_RENDERABLE);
+            CHECK(mo->core.state_id>0&&mo->core.state_id<SC_STATES);
+            CHECK(mo->core.sprite_id>=SC_TYPES&&mo->core.sprite_id<gameinfo->sprite_count);
+            const spritesheet_t *sheet=R_CacheLookup(&cache,sprnames[mo->core.sprite_id]);
+            CHECK(sheet&&mo->core.frame>=0&&mo->core.frame<sheet->spritedef.numframes);
+            ids[count++]=mo->id;
+        }
+    }
+    CHECK(count>=2);
+    for(int tic=0;tic<RTS_TICRATE*3;tic++) {
+        bool alive=false;
+        for(int i=0;i<count;i++)alive|=P_MobjById(ids[i])!=NULL;
+        if(!alive)break;
+        P_Ticker();
+    }
+    for(int i=0;i<count;i++)CHECK(P_MobjById(ids[i])==NULL);
+    P_FreeLevel(&level);return 0;
+}
+static bool state_chain_has_sprite(int state,const char *name) {
+    for(int n=0;state>0&&state<SC_STATES&&n<256;n++,state=states[state].nextstate) {
+        int sprite=states[state].sprite;
+        if(sprite>=0&&sprite<SC_SPRITES&&sprnames[sprite]&&!strcmp(sprnames[sprite],name))return true;
+        if(states[state].nextstate==state)return false;
+    }
+    return false;
 }
 static int scenario(void) {
     CHECK(sc_projectile_weapon(4)&&sc_projectile_weapon(16)&&sc_projectile_weapon(19));
     CHECK(!sc_projectile_weapon(25)&&sc_projectile_weapon(48));
     CHECK(sc_weapons[4].flingy==145&&sc_weapons[4].speed==8533&&sc_weapons[4].acceleration==667);
+    CHECK(sc_projectile_death_state(4)>0&&sc_projectile_trail_state(4)>0);
+    CHECK(sc_projectile_death_state(16)>0&&sc_projectile_death_state(18)>0);
+    CHECK(!sc_projectile_trail_repeats(4)&&sc_projectile_trail_repeats(48));
+    CHECK(state_chain_has_sprite(sc_projectile_death_state(4),"sc-img-440"));
+    CHECK(state_chain_has_sprite(sc_projectile_death_state(16),"sc-img-447"));
+    CHECK(state_chain_has_sprite(sc_projectile_trail_state(48),"sc-img-513"));
     mobj_t *source=spawn(MT_VULTURE,FIXED2_LIT(8,8),0),*target=spawn(MT_ZEALOT,FIXED2_LIT(12,8),1);
     CHECK(source&&target); source->core.angle=0; sc_start(target);
     sc_mission_t *mission=level.mission;
@@ -51,8 +109,10 @@ static int scenario(void) {
     CHECK(shot->sc.projectile.speed==667 && shot->core.position.x-initial.x==667*8);
     target->core.position=fixed3_from_fixed2(FIXED2_LIT(16,8),0);
     level.upgrades[sc_weapons[4].upgrade][0].weapon=2; /* evaluated at impact */
-    flight(shot,RTS_TICRATE*3);
-    CHECK(shot->remove && fixed2_equal(shot->movement.goal,aim));
+    for(int i=0;i<RTS_TICRATE*3&&!shot->remove&&shot->sc.projectile.weapon>=0;i++)flight(shot,1);
+    CHECK(!shot->remove&&shot->sc.projectile.weapon==-1&&shot->core.state_id==shot->sc.projectile.death_state);
+    CHECK(fixed2_equal(shot->movement.goal,aim));
+    flight(shot,RTS_TICRATE*3);CHECK(shot->remove);
     CHECK(target->sc.shields==shields-(24<<8));
     CHECK(target->attack.target==source); /* Shield-only hits still provoke. */
 
@@ -91,7 +151,8 @@ static int scenario(void) {
     CHECK(!shot->remove&&shot->missile.wait&&shot->core.position.x==FIXED_FROM_INT(level.width)-SC_PIXELS(1));
     int old_age=shot->missile.age;
     while(!shot->remove&&shot->missile.age==old_age)flight(shot,1);
-    CHECK(shot->remove); /* bounds expiry enters Death on the next native frame */
+    CHECK(!shot->remove&&shot->sc.projectile.weapon==-1&&shot->core.state_id==shot->sc.projectile.death_state);
+    flight(shot,RTS_TICRATE*3);CHECK(shot->remove); /* bounds expiry enters Death on the next native frame */
     int life=sc_weapons[4].lifetime;sc_weapons[4].lifetime=2;
     source=spawn(MT_VULTURE,FIXED2_LIT(4,4),0);target=spawn(MT_MARINE,FIXED2_LIT(20,4),1);
     CHECK(source&&target);source->core.angle=0;
@@ -111,6 +172,9 @@ static int bounce(void) {
            *c=spawn(MT_MARINE,FIXED2_LIT(9,5),1);
     CHECK(muta&&a&&b&&c);P_UpdateSight();
     mobj_t *shot=fire(muta,a);CHECK(shot&&!shot->sc.projectile.missed);
+    CHECK(sc_projectile_trail_state(48)>0);
+    int old_visuals=visuals();
+    flight(shot,4);CHECK(visuals()>=old_visuals+2);
     int hp=a->hp;
     for(int t=0;t<RTS_TICRATE*5&&!shot->remove&&shot->missile.phase==0;t++)flight(shot,1);
     CHECK(!shot->remove&&shot->missile.phase==1&&a->hp==hp-9&&b->hp==hp&&c->hp==hp);
@@ -132,7 +196,9 @@ static int homing(void) {
     fixed2_t destination=FIXED2_LIT(9,6);target->core.position=fixed3_from_fixed2(destination,0);
     int hp=target->hp;
     for(int t=0;t<RTS_TICRATE*5&&(!a->remove||!b->remove);t++) {
-        ++leveltime;if(!a->remove)gameinfo->mobj_ticker(a);if(!b->remove)gameinfo->mobj_ticker(b);
+        ++leveltime;
+        if(!a->remove){P_TickMobjState(a);if(!a->remove)gameinfo->mobj_ticker(a);}
+        if(!b->remove){P_TickMobjState(b);if(!b->remove)gameinfo->mobj_ticker(b);}
     }
     CHECK(a->remove&&b->remove&&fixed2_equal(a->movement.goal,destination)&&fixed2_equal(b->movement.goal,destination));
     CHECK(target->hp==hp-2*(10-sc_units[MT_BATTLECRUISER-1].armor));
@@ -157,8 +223,14 @@ static int bounce_lifetimes(void) {
     P_FreeLevel(&level);return 0;
 }
 int main(void) {
+    CHECK(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO)==0);
     G_InitGame();P_InitThinkers();CHECK(G_DoLoadLevel(map,&level)&&P_InitSight());
-    CHECK(!scenario());P_InitThinkers();CHECK(!bounce());P_InitThinkers();CHECK(!homing());
+    CHECK(W_LoadAssets(root,&level,"sc-000",&tiles,&fallback));
+    CHECK(P_LoadThings(level.map_path)>0);
+    mobjlist_t units=P_ListMobjs();
+    CHECK(R_InitSprites(root,&level,units.items,units.count,&cache));
+    P_FreeMobjList(&units);P_FreeThinkers();P_InitThinkers();CHECK(P_InitSight());
+    CHECK(!scenario());P_InitThinkers();CHECK(!bounce());P_InitThinkers();CHECK(!trail_lifecycle());P_InitThinkers();CHECK(!homing());
     P_InitThinkers();CHECK(!bounce_lifetimes());
     puts("PASS: native flight delay, acceleration, fixed aim, upgrades, dead shooter and save");
     return 0;

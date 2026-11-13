@@ -36,7 +36,7 @@ typedef struct { int active, count, owner, harvest_phase, target_owner; bool for
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
-typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_projectile_t;
+typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t previous; bool missed, trail_repeat, trail_emitted; } sc_projectile_t;
 /* sprite_owner is the native sprite owner retained when owner becomes 11;
  * owner/team still drive sight and AI, while neutral rendering uses this
  * retained owner for the native player-color remap.
@@ -61,7 +61,9 @@ typedef struct { int weapon, speed, turn; uint32_t previous; bool missed; } sc_p
     HASH((mo)->sc.rally.target); HASH((mo)->sc.rally.set); \
     HASH((mo)->sc.glow.active); HASH((mo)->sc.glow.phase); \
     HASH((mo)->sc.projectile.weapon); HASH((mo)->sc.projectile.speed); \
-    HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
+    HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.death_state); HASH((mo)->sc.projectile.trail_state); \
+    HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
+    HASH((mo)->sc.projectile.trail_repeat); HASH((mo)->sc.projectile.trail_emitted); \
     HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target_owner); HASH((mo)->sc.queue.forced); HASH((mo)->sc.queue.target); \
     for (int sc_q=0; sc_q<(mo)->sc.queue.count && sc_q<SC_QUEUED_ORDERS; ++sc_q) { \
         const sc_pending_order_t *q=&(mo)->sc.queue.pending[sc_q]; \

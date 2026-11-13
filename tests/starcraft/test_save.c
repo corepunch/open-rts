@@ -6,11 +6,18 @@
 int main(void) {
     G_InitGame();
     P_InitThinkers();
+    sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
     sc_mission_t *m = level.mission;
-    CHECK(m && m->trig_count > 0);
+    CHECK(m && m->trig_count > 0 && m->research_rules_loaded &&
+          m->map_mode==SC_MAP_CAMPAIGN && m->upgrade_max_level[0][0]==3 &&
+          m->tech_available[0][0]);
+    uint32_t mode_hash=G_ConsistencyExtra(0);
+    m->map_mode=SC_MAP_MELEE;
+    CHECK(G_ConsistencyExtra(0)!=mode_hash);
+    m->map_mode=SC_MAP_CAMPAIGN;
     m->rng=1;
     uint32_t random_hash=G_ConsistencyExtra(0);
     CHECK(sc_random()==346 && G_ConsistencyExtra(0)!=random_hash);
@@ -23,6 +30,10 @@ int main(void) {
     uint32_t inactive_score_hash = G_ConsistencyExtra(0);
     m->score_variables[2][4] = 654321;
     CHECK(G_ConsistencyExtra(0) != inactive_score_hash);
+    uint32_t research_rules_hash = G_ConsistencyExtra(0);
+    m->upgrade_max_level[0][7] = 2;
+    m->tech_available[2][SC_TECH_SIEGE_MODE] = 0;
+    CHECK(G_ConsistencyExtra(0) != research_rules_hash);
     m->switches[12] = 1;
     m->deaths[1][0] = UINT32_C(0x80000000);
     m->elapsed_ms = 12345;
@@ -90,6 +101,7 @@ int main(void) {
     /* Reload the map as the driver does, so no saved pointer can accidentally
      * stand in for the new level's CHK allocation or trigger runtime. */
     P_FreeLevel(&level);
+    sc_set_map_mode(SC_MAP_MELEE);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
@@ -132,6 +144,14 @@ int main(void) {
     CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->player_result[7] == 2 && m->custom_score[1] == 123456 &&
           m->score_variables[2][4] == 654321);
+    CHECK(m->map_mode==SC_MAP_CAMPAIGN&&sc_current_map_mode()==SC_MAP_CAMPAIGN&&
+          m->research_rules_loaded && m->upgrade_max_level[0][7] == 2 &&
+          !m->tech_available[2][SC_TECH_SIEGE_MODE]);
+    uint32_t slots_hash=G_ConsistencyExtra(0);
+    m->custom_slots_set=1; m->custom_slot_kind[1]=SC_SLOT_HUMAN;
+    m->custom_slot_race[1]=2;
+    CHECK(G_ConsistencyExtra(0)!=slots_hash);
+    m->custom_slots_set=0; m->custom_slot_kind[1]=0; m->custom_slot_race[1]=0;
     CHECK(m->elapsed_ms == 12345 && m->countdown_ms == 9876 && !m->ai_on[4]);
     CHECK(m->rt[0].cursor == 3 && m->rt[0].wait_ms == 1200 && m->rt[0].running);
     int target_hp=target->hp;
@@ -161,12 +181,26 @@ int main(void) {
     int kinds[8] = {SC_SLOT_COMPUTER, SC_SLOT_HUMAN, SC_SLOT_CLOSED, SC_SLOT_CLOSED,
                     SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED, SC_SLOT_CLOSED};
     int races[8] = {0, 2};
+    sc_set_map_mode(SC_MAP_CAMPAIGN); sc_set_custom_slots(NULL,NULL);
+    CHECK(G_DoLoadLevel(map, &level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
+    CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
+    int base_player=consoleplayer,base_side=sc_player_side(base_player);
+    P_FreeLevel(&level);
+    sc_set_map_mode(SC_MAP_MELEE);
     sc_set_custom_slots(kinds, races);
     CHECK(G_DoLoadLevel(map, &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
     CHECK(P_LoadThings(level.map_path) > 0 && P_InitSight());
     int player = consoleplayer;
     CHECK(sc_player_side(player) == 2);
+    sc_mission_t *custom_session=level.mission;
+    CHECK(custom_session->custom_slots_set && custom_session->custom_slot_kind[1]==SC_SLOT_HUMAN &&
+          custom_session->custom_slot_race[1]==2);
+    uint32_t custom_session_hash=G_ConsistencyExtra(0);
+    custom_session->custom_slot_race[1]=1;
+    CHECK(G_ConsistencyExtra(0)!=custom_session_hash);
+    custom_session->custom_slot_race[1]=2;
     int other = player == 0 ? 1 : 0;
     uint32_t pbit = UINT32_C(0x40000000) >> player, obit = UINT32_C(0x40000000) >> other;
     ticcmd_t ally = {.order=TC_ALLY,.target=other,.product=1};
@@ -246,6 +280,37 @@ int main(void) {
           alliance_mission->player_result[player] == 1 && alliance_mission->player_result[other] == 2);
     sc_mission_tick(&level, &hud, RTS_TICK_MS);
     CHECK(alliance_mission->result == 2 && level.outcome == OUTCOME_DEFEAT);
+    /* Loading a custom Melee save restores its seat/race selection for a later
+     * Restart Mission map decode. A new session setter still clears it. */
+    netgame=false;
+    P_FreeLevel(&level);
+    sc_set_map_mode(SC_MAP_CAMPAIGN);
+    CHECK(G_DoLoadLevel(map,&level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
+    CHECK(P_LoadThings(level.map_path)>0&&P_InitSight());
+    CHECK(G_LoadGameBlob(saved,length,&app,&ai,&hud));
+    alliance_mission=level.mission;
+    CHECK(sc_current_map_mode()==SC_MAP_MELEE&&alliance_mission->custom_slots_set&&
+          alliance_mission->custom_slot_kind[1]==SC_SLOT_HUMAN&&
+          alliance_mission->custom_slot_race[1]==2);
+    P_FreeLevel(&level);
+    CHECK(G_DoLoadLevel(map,&level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
+    CHECK(P_LoadThings(level.map_path)>0&&P_InitSight());
+    CHECK(consoleplayer==player&&sc_player_side(consoleplayer)==2&&
+          ((sc_mission_t *)level.mission)->custom_slots_set);
+    P_FreeLevel(&level);
+    sc_set_map_mode(SC_MAP_CAMPAIGN);
+    CHECK(G_DoLoadLevel(map,&level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
+    CHECK(P_LoadThings(level.map_path)>0&&P_InitSight());
+    CHECK(!((sc_mission_t *)level.mission)->custom_slots_set&&
+          consoleplayer==base_player&&sc_player_side(consoleplayer)==base_side);
+    P_FreeLevel(&level);
+    sc_set_map_mode(SC_MAP_MELEE); sc_set_custom_slots(kinds,races);
+    CHECK(G_DoLoadLevel(map,&level));
+    CHECK(G_LoadLevelData(g_game_default_root,&level));
+    CHECK(P_LoadThings(level.map_path)>0&&P_InitSight());
     netgame = false; consoleplayer = player; menuleave = false;
     CHECK(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == 0);
     CHECK(M_Init(&app, "data/STARCRAFT"));

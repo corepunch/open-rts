@@ -131,6 +131,17 @@ static size_t append_chunk(uint8_t *out,size_t at,const char tag[4],const void *
     memcpy(out+at+8,data,size);
     return at+8+size;
 }
+static size_t append_research_map_prefix(uint8_t *bytes,uint16_t version) {
+    uint8_t ver[2]={(uint8_t)version,(uint8_t)(version>>8)},dimensions[4]={2,0,2,0},era[2]={0,0},owners[12]={6,5,5};
+    uint16_t tiles[4]={32,32,32,32};
+    size_t at=0;
+    at=append_chunk(bytes,at,"VER ",ver,sizeof(ver));
+    at=append_chunk(bytes,at,"DIM ",dimensions,sizeof(dimensions));
+    at=append_chunk(bytes,at,"ERA ",era,sizeof(era));
+    at=append_chunk(bytes,at,"MTXM",tiles,sizeof(tiles));
+    at=append_chunk(bytes,at,"OWNR",owners,sizeof(owners));
+    return at;
+}
 static int painted_creep(void) {
     enum { WIDTH=32, HEIGHT=32, CELLS=WIDTH*HEIGHT };
     uint8_t *bytes=calloc(1,64+CELLS*2); CHECK(bytes);
@@ -269,6 +280,136 @@ static int malformed(void) {
     puts("PASS: reordered/unknown CHK chunks, truncated sections, invalid dimensions, missing MTXM and invalid tile IDs");
     return 0;
 }
+static int research_rules(void) {
+    enum { CELLS=4, UPGR=46*12*2+46*2+46*12, PUPX=61*12*2+61*2+61*12,
+           PTEC=24*12*2+24*2+24*12, PTEX=44*12*2+44*2+44*12 };
+    size_t size=64+4+2+CELLS*2+12+10+UPGR+PUPX+PTEC+PTEX;
+    uint8_t *bytes=calloc(1,size); CHECK(bytes);
+    uint8_t *upgr=calloc(1,UPGR),*pupx=calloc(1,PUPX),*ptec=calloc(1,PTEC),*ptex=calloc(1,PTEX);
+    CHECK(upgr&&pupx&&ptec&&ptex);
+    sc_set_map_mode(SC_MAP_USE_MAP_SETTINGS);
+    /* UPGR: player 0's explicit cap/start, player 1 uses the global pair. */
+    upgr[7]=1; upgr[46*12+7]=1;
+    upgr[46*24+7]=2; upgr[46*25+7]=1;
+    upgr[46*26+1*46+7]=1;
+    /* PUPx overrides player 0 and gives player 1 a three-level global cap. */
+    pupx[7]=3; pupx[61*12+7]=2;
+    pupx[61*24+7]=3; pupx[61*25+7]=1;
+    pupx[61*26+1*61+7]=1;
+    /* PTEC enables Siege Mode by default; player 0 is explicitly enabled. */
+    ptec[5]=1; ptec[24*12+5]=1; ptec[24*24+5]=1;
+    ptec[24*26+2*24+5]=1;
+    /* PTEx overrides that restriction, starts owner 0 with Siege Mode, and
+     * adds the extended tech rows. */
+    ptex[5]=0; ptex[44*12+5]=1; ptex[24]=1;
+    ptex[44*24+5]=1; ptex[44*25+5]=1; ptex[44*26+2*44+5]=1;
+    size_t at=append_research_map_prefix(bytes,63);
+    at=append_chunk(bytes,at,"UPGR",upgr,UPGR);
+    at=append_chunk(bytes,at,"PUPx",pupx,PUPX);
+    at=append_chunk(bytes,at,"PTEC",ptec,PTEC);
+    at=append_chunk(bytes,at,"PTEx",ptex,PTEX);
+    CHECK(load_fixture(bytes,at));
+    sc_mission_t *mission=level.mission;
+    CHECK(mission->upgrade_max_level[0][7]==3&&sc_upgrade_level(0,7)==2);
+    CHECK(mission->upgrade_max_level[1][7]==3&&sc_upgrade_level(1,7)==1);
+    CHECK(sc_upgrade_offered(0,G_ModelProductByUIId(NULL,sc_upgrade_product(7,3))));
+    CHECK(sc_upgrade_offered(1,G_ModelProductByUIId(NULL,sc_upgrade_product(7,2))));
+    CHECK(!sc_upgrade_offered(0,G_ModelProductByUIId(NULL,SC_TECH_UI+SC_TECH_SIEGE_MODE)));
+    CHECK(sc_tech_available(2,SC_TECH_SIEGE_MODE));
+    CHECK(level.upgrades[SC_UPGRADES+SC_TECH_SIEGE_MODE][0].weapon==1);
+    CHECK(mission->tech_available[0][24]);
+    P_FreeLevel(&level);
+
+    for(unsigned version=59;version<=64;version+=5) {
+        at=append_research_map_prefix(bytes,(uint16_t)version);
+        at=append_chunk(bytes,at,"UPGR",upgr,UPGR);
+        at=append_chunk(bytes,at,"PTEC",ptec,PTEC);
+        CHECK(load_fixture(bytes,at));
+        CHECK(((sc_mission_t *)level.mission)->research_rules_loaded);
+        CHECK(sc_upgrade_level(0,7)==1);
+        P_FreeLevel(&level);
+    }
+
+    /* Single-player custom game changes seats, but still runs Melee rules. */
+    int kinds[8]={SC_SLOT_COMPUTER,SC_SLOT_HUMAN},races[8]={0,1};
+    sc_set_map_mode(SC_MAP_MELEE); sc_set_custom_slots(kinds,races);
+    CHECK(load_fixture(bytes,at));
+    CHECK(((sc_mission_t *)level.mission)->map_mode==SC_MAP_MELEE);
+    CHECK(consoleplayer==1);
+    CHECK(!((sc_mission_t *)level.mission)->research_rules_loaded);
+    CHECK(sc_tech_available(0,SC_TECH_SIEGE_MODE));
+    P_FreeLevel(&level);
+
+    /* Switching from a custom single-player selection to network Melee clears
+     * pending seat overrides before the next map load. */
+    sc_set_custom_slots(kinds,races);
+    sc_set_map_mode(SC_MAP_MELEE);
+    CHECK(load_fixture(bytes,at));
+    CHECK(consoleplayer==0&&((sc_mission_t *)level.mission)->map_mode==SC_MAP_MELEE);
+    CHECK(!((sc_mission_t *)level.mission)->research_rules_loaded);
+    P_FreeLevel(&level); sc_set_custom_slots(NULL,NULL);
+
+    /* Campaign uses the engine's default setup_info values (0,0,0), for
+     * which OpenBW enables use_map_settings. */
+    sc_set_map_mode(SC_MAP_CAMPAIGN);
+    at=append_research_map_prefix(bytes,63);
+    at=append_chunk(bytes,at,"UPGR",upgr,UPGR);
+    at=append_chunk(bytes,at,"PTEC",ptec,PTEC);
+    CHECK(load_fixture(bytes,at));
+    CHECK(((sc_mission_t *)level.mission)->map_mode==SC_MAP_CAMPAIGN);
+    CHECK(((sc_mission_t *)level.mission)->research_rules_loaded);
+    CHECK(sc_upgrade_level(0,7)==1);
+    CHECK(sc_tech_available(0,SC_TECH_SIEGE_MODE));
+    CHECK(level.upgrades[SC_UPGRADES+SC_TECH_SIEGE_MODE][0].weapon==1);
+    P_FreeLevel(&level);
+    sc_set_map_mode(SC_MAP_USE_MAP_SETTINGS);
+
+    /* Brood War revisions ignore base chunks; only their extended sections
+     * initialize the per-player levels and research state. */
+    at=append_research_map_prefix(bytes,205);
+    at=append_chunk(bytes,at,"UPGR",upgr,UPGR);
+    at=append_chunk(bytes,at,"PTEC",ptec,PTEC);
+    CHECK(load_fixture(bytes,at));
+    mission=level.mission;
+    CHECK(mission->research_rules_loaded);
+    CHECK(sc_upgrade_level(0,7)==0&&mission->upgrade_max_level[0][7]==sc_upgrades[7].max_level);
+    CHECK(sc_tech_available(0,SC_TECH_SIEGE_MODE));
+    CHECK(level.upgrades[SC_UPGRADES+SC_TECH_SIEGE_MODE][0].weapon==0);
+    P_FreeLevel(&level);
+
+    at=append_research_map_prefix(bytes,205);
+    at=append_chunk(bytes,at,"PUPx",pupx,PUPX);
+    at=append_chunk(bytes,at,"PTEx",ptex,PTEX);
+    CHECK(load_fixture(bytes,at));
+    mission=level.mission;
+    CHECK(mission->upgrade_max_level[0][7]==3&&sc_upgrade_level(0,7)==2);
+    CHECK(!sc_tech_available(0,SC_TECH_SIEGE_MODE));
+    CHECK(level.upgrades[SC_UPGRADES+SC_TECH_SIEGE_MODE][0].weapon==1);
+    P_FreeLevel(&level);
+
+    at=append_research_map_prefix(bytes,206);
+    at=append_chunk(bytes,at,"PUPx",pupx,PUPX);
+    at=append_chunk(bytes,at,"PTEx",ptex,PTEX);
+    CHECK(load_fixture(bytes,at));
+    CHECK(((sc_mission_t *)level.mission)->upgrade_max_level[0][7]==3);
+    P_FreeLevel(&level);
+
+    at=append_research_map_prefix(bytes,999);
+    at=append_chunk(bytes,at,"UPGR",upgr,UPGR);
+    at=append_chunk(bytes,at,"PTEC",ptec,PTEC);
+    CHECK(load_fixture(bytes,at));
+    CHECK(!((sc_mission_t *)level.mission)->research_rules_loaded);
+    CHECK(sc_tech_available(0,SC_TECH_SIEGE_MODE));
+    P_FreeLevel(&level);
+
+    /* The section size is fixed; reject a truncated restrictions table. */
+    at=append_research_map_prefix(bytes,63);
+    at=append_chunk(bytes,at,"UPGR",upgr,UPGR-1);
+    CHECK(!load_fixture(bytes,at));
+    free(bytes);free(upgr);free(pupx);free(ptec);free(ptex);
+    puts("PASS: UPGR/PUPx per-player levels and PTEC/PTEx availability/research initialize and constrain research");
+    return 0;
+}
 int main(void) {
     CHECK(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO)==0);
     G_InitGame(); P_InitThinkers();
@@ -282,5 +423,6 @@ int main(void) {
     CHECK(!painted_creep());
     CHECK(!cv5_buildability());
     CHECK(!malformed()); unlink(fixture);
+    CHECK(!research_rules()); unlink(fixture);
     SDL_Quit(); return 0;
 }

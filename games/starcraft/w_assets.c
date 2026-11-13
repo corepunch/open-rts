@@ -146,6 +146,17 @@ const char *sc_tbl_string(const blob_t *tbl,unsigned index) {
  * weapon's further hits (two attackmelee for the Zealot), which the engine
  * deals from weapondef_t.hits, so they do not strike again. */
 static int next_state;
+static int projectile_death_states[SC_WEAPONS], projectile_trail_states[SC_WEAPONS];
+static bool projectile_trail_repeats[SC_WEAPONS];
+int sc_projectile_death_state(int weapon) {
+    return weapon >= 0 && weapon < SC_WEAPONS ? projectile_death_states[weapon] : 0;
+}
+int sc_projectile_trail_state(int weapon) {
+    return weapon >= 0 && weapon < SC_WEAPONS ? projectile_trail_states[weapon] : 0;
+}
+bool sc_projectile_trail_repeats(int weapon) {
+    return weapon >= 0 && weapon < SC_WEAPONS && projectile_trail_repeats[weapon];
+}
 static const uint8_t oplen[69]={
     2,2,1,1,2,1,2,2,4,4,2,2,0,4,4,4,4,4,2,4,4,3,0,1,2,255,4,0,255,0,3,1,
     1,0,1,1,1,1,0,0,1,1,0,1,1,0,0,0,0,1,0,0,1,2,0,2,1,2,4,6,6,2,0,2,2,1,4,0,0
@@ -207,7 +218,7 @@ static int script_frame(const spritesheet_t *sheet,bool turns,unsigned arg,bool 
     int turning=(sheet->numlumps+16)/17;
     return !fixed&&arg%17==0?(int)arg/17:turning+(int)arg;
 }
-typedef struct { int image, sprite; } sc_trail_t; /* What a death leaves: overlay and remnant. */
+typedef struct { int image, sprite, sprite_count; } sc_trail_t; /* What a death leaves, or a projectile emits. */
 /* Returns the last state compiled, or -1. A death or effect ends in S_NULL
  * unless the caller chains a trail onto it. */
 /* A script that waits before its first playfram keeps showing frame, the
@@ -248,8 +259,10 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
         else if(op==0x36) { if(!sp) break; at=stack[--sp]; }
         else if(op==27||op==28||op==37||op==38||op==40||op==68) strike=!struck;
         else if(trail&&(op==8||op==9||op==13||op==14)&&trail->image<0) trail->image=read_u16_le(arg);
-        else if(trail&&(op==15||op==16||op==17||op==19||op==20||op==21||op==66)&&trail->sprite<0)
-            trail->sprite=read_u16_le(arg);
+        else if(trail&&(op==15||op==16||op==17||op==19||op==20||op==21||op==66)) {
+            if(trail->sprite<0)trail->sprite=read_u16_le(arg);
+            if(trail->sprite==read_u16_le(arg))++trail->sprite_count;
+        }
         else if(op==0x16) break;
         else if(op==42&&group==SC_GROUP_WORK) break; /* engframe: the swing is done. */
         else if(op==0x30) break;
@@ -441,7 +454,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         }
         if(death&&next_state<SC_STATES) {
             int head=next_state++;
-            sc_trail_t trail={-1,-1};
+            sc_trail_t trail={.image=-1,.sprite=-1};
             int tail=animation(&script,death,i,head,turns,SC_GROUP_DEATH,sheet,&trail,states[1+i*2].frame);
             if(tail>=0) {
                 mobjinfo[i+1].deathstate=head;
@@ -460,11 +473,18 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         }
     }
     memset(sc_projectile_states,0,sizeof(sc_projectile_states));
+    memset(projectile_death_states,0,sizeof(projectile_death_states));
+    memset(projectile_trail_states,0,sizeof(projectile_trail_states));
+    memset(projectile_trail_repeats,0,sizeof(projectile_trail_repeats));
     for(int w=0;w<SC_WEAPONS;w++) {
         if(!sc_projectile_weapon(w))continue;
         const sc_weapon_t *weapon=&sc_weapons[w];
-        for(int prev=0;prev<w;prev++)if(sc_projectile_states[prev]&&sc_weapons[prev].flingy==weapon->flingy)
+        for(int prev=0;prev<w;prev++)if(sc_projectile_states[prev]&&sc_weapons[prev].flingy==weapon->flingy) {
             sc_projectile_states[w]=sc_projectile_states[prev];
+            projectile_death_states[w]=projectile_death_states[prev];
+            projectile_trail_states[w]=projectile_trail_states[prev];
+            projectile_trail_repeats[w]=projectile_trail_repeats[prev];
+        }
         if(sc_projectile_states[w])continue;
         unsigned f=(unsigned)weapon->flingy;
         if(f>=nf)goto done;
@@ -476,9 +496,39 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         unsigned scriptid=read_u32_le(images.bytes+ni*10+image*4);
         const spritesheet_t *sheet=&cache->entries[extra_slot[k]].sprite;
         int head=next_state++;
+        sc_trail_t trail={.image=-1,.sprite=-1};
         if(animation(&script,animation_start(&script,scriptid,SC_GND_ATTACK),SC_TYPES+k,head,
-                     images.bytes[ni*4+image]!=0,SC_GROUP_HOLD,sheet,NULL,0)<0)goto done;
+                     images.bytes[ni*4+image]!=0,SC_GROUP_HOLD,sheet,&trail,0)<0)goto done;
         sc_projectile_states[w]=head;
+        if(trail.sprite>=0&&(unsigned)trail.sprite<ns) {
+            unsigned trail_image=read_u16_le(sprites.bytes+trail.sprite*2);
+            int trail_slot=extra_sprite(&effects,trail_image);
+            if(trail_slot>=0&&next_state<SC_STATES) {
+                int trail_head=next_state++;
+                int trail_tail=animation(&script,animation_start(&script,
+                    read_u32_le(images.bytes+ni*10+trail_image*4),SC_INIT),SC_TYPES+trail_slot,
+                    trail_head,images.bytes[ni*4+trail_image]!=0,SC_GROUP_DEATH,
+                    &cache->entries[extra_slot[trail_slot]].sprite,NULL,0);
+                if(trail_tail>=0) {
+                    projectile_trail_states[w]=trail_head;
+                    projectile_trail_repeats[w]=trail.sprite_count>1;
+                }
+            }
+        }
+        unsigned death=animation_start(&script,scriptid,SC_DEATH);
+        if(death&&next_state<SC_STATES) {
+            int death_head=next_state++;
+            sc_trail_t impact={.image=-1,.sprite=-1};
+            int death_tail=animation(&script,death,SC_TYPES+k,death_head,
+                images.bytes[ni*4+image]!=0,SC_GROUP_DEATH,sheet,&impact,0);
+            if(death_tail>=0) {
+                if(impact.image>=0) death_tail=effect(&effects,death_tail,(unsigned)impact.image,false);
+                if(impact.sprite>=0&&(unsigned)impact.sprite<ns)
+                    death_tail=effect(&effects,death_tail,
+                        read_u16_le(sprites.bytes+(size_t)impact.sprite*2),false);
+                projectile_death_states[w]=death_head;
+            }
+        }
     }
     game_info.sprite_count=SC_TYPES+extra_count;
     spritesheet_t ramp={0}; char ramp_path[2048];

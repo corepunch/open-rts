@@ -168,6 +168,11 @@ int sc_upgrade_product(int upgrade,int level) {
 int sc_upgrade_level(int owner,int upgrade) {
     return owner>=0&&owner<8&&upgrade>=0&&upgrade<SC_UPGRADES?level.upgrades[upgrade][owner].weapon:0;
 }
+bool sc_tech_available(int owner,int tech) {
+    const sc_mission_t *mission=level.mission;
+    return owner>=0&&owner<8&&tech>=0&&tech<SC_TECHS&&
+        (!mission||!mission->research_rules_loaded||mission->tech_available[owner][tech]);
+}
 static bool products_built;
 static void init_products(void) {
     if(products_built)return;
@@ -254,9 +259,13 @@ static bool researching(int owner,int product_type) {
 }
 bool sc_upgrade_offered(int owner,const StaticProductDefinition *p) {
     int upgrade,tier,tech=tech_product(p);
-    if(tech>=0)return owner>=0&&owner<8&&!level.upgrades[SC_UPGRADES+tech][owner].weapon;
+    if(tech>=0)return sc_tech_available(owner,tech)&&!level.upgrades[SC_UPGRADES+tech][owner].weapon;
     if(!upgrade_product(p,&upgrade,&tier))return true;
-    return tier==sc_upgrade_level(owner,upgrade)&&tier<sc_upgrades[upgrade].max_level;
+    if(owner<0||owner>=8)return false;
+    const sc_mission_t *mission=level.mission;
+    int max_level=mission&&mission->research_rules_loaded?
+        mission->upgrade_max_level[owner][upgrade]:sc_upgrades[upgrade].max_level;
+    return tier==sc_upgrade_level(owner,upgrade)&&tier<max_level&&tier<sc_upgrades[upgrade].max_level;
 }
 int G_ModelGetProducts(const RtsGameModel *m,int owner,StaticProductDefinition *out,int cap) {
     (void)m;(void)owner;init_products();int n=product_count;
