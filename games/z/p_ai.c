@@ -1000,7 +1000,8 @@ static void send_cranes(zmap_t *map, mobj_t *const *units, int count, bool bridg
             displaced = other;
             previous = other_task;
         }
-        if (best && order_service(ai, task, unit, best, CRANE_WORK) && displaced) {
+        if (!best) break; /* 0x9c663/0x9c7f2: no target ends this pass. */
+        if (order_service(ai, task, unit, best, CRANE_WORK) && displaced) {
             Z_CancelService(displaced);
             P_ClearMove(displaced);
             previous->pending = false;

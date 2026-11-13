@@ -5258,3 +5258,19 @@ and the engine's thinker-based task order remain approximations. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9c2c4'
 -c 'pd 45 @ 0x9c39b' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Crane target search stops on the first miss:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9c880` collects eligible cranes in task order. Both the ruined-building
+pass (`0x9c58d`, branch `0x9c663`) and the bridge pass (`0x9c68b`, branch
+`0x9c7f2`) return immediately when the current crane has no eligible target.
+The bridge selector can reject a bridge already assigned to a closer crane,
+while a later, still closer crane would be eligible. Open-rts now stops each
+pass on that first miss. `test_bridge_scan_stops` supplies an assigned crane,
+a farther first candidate and a closer second candidate; it verifies the
+first miss preserves the assignment, then removes the farther candidate and
+checks takeover on the next pass. The former continue behavior fails this
+test. Native fixed-slot and engine thinker ordering remain approximations.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 28 @ 0x9c652' -c 'pd 30 @ 0x9c7dc' -c 'pd 38 @ 0x9c880' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

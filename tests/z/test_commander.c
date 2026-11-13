@@ -1565,6 +1565,47 @@ static int test_bridge_takeover_unreachable_return(void) {
     return 0;
 }
 
+/* 0x9c7f2 stops at the first crane that cannot take any bridge. */
+static int test_bridge_scan_stops(void) {
+    RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
+    if (!model) return fail("bridge scan load");
+    service_fixture();
+    zmap_t *map = level.native_data;
+    mobj_t *bridge = nth(MT_BRIDGE, Z_NEUTRAL, 0);
+    if (!bridge || !map->bridges[bridge->z.bridge - 1].cpu_rebuild) return fail("bridge scan target");
+    for (int i = 0; i < Z_BRIDGES; ++i)
+        if (i != bridge->z.bridge - 1) map->bridges[i].cpu_rebuild = false;
+    bridge->hp = 0;
+    fixed2_t centre = fixed3_xy(bridge->core.position);
+    mobj_t *old = service_unit(MT_UNIT_CRANE, centre);
+    mobj_t *far = service_unit(MT_UNIT_CRANE, fixed2_cell_center(map->territories[4].flag));
+    mobj_t *near = service_unit(MT_UNIT_CRANE, centre);
+    if (!old || !far || !near) return fail("bridge scan cranes");
+    /* Place the existing owner between the first and second candidate. */
+    old->core.position = fixed3_from_fixed2(fixed2_add(centre, (fixed2_t){FIXED_ONE * 3, 0}), 0);
+    near->core.position = fixed3_from_fixed2(centre, 0);
+    if (fixed2_distance_squared64(fixed3_xy(far->core.position), centre) <=
+        fixed2_distance_squared64(fixed3_xy(old->core.position), centre))
+        return fail("bridge scan first crane is farther away");
+    think(0);
+    zaitask_t *owner = task_of(old), *first = task_of(far), *second = task_of(near);
+    if (!owner || !first || !second) return fail("bridge scan register");
+    owner->task = 9; owner->service = bridge->id; owner->pending = true;
+    owner->execute_at = map->ai.clock + 10000;
+    map->ai.delay = 0;
+    think(1);
+    if (owner->task != 9 || owner->service != bridge->id || second->task == 9 || near->z.service)
+        return fail("farther first crane ends bridge pass");
+    far->hp = 0;
+    map->ai.delay = 0;
+    think(1);
+    if (second->task != 9 || (second->service != bridge->id && near->z.service != bridge->id))
+        return fail("closer crane takes over on next bridge pass");
+    rts_game_model_destroy(model);
+    puts("PASS: z bridge search stops at first unsuccessful crane");
+    return 0;
+}
+
 static int test_bridge_and_crane(void) {
     RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
     if (!model) return fail("bridge campaign load");
@@ -1883,6 +1924,6 @@ int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
-           test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
+           test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
 }
