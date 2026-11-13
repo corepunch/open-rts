@@ -805,12 +805,13 @@ static const ivec2_t pyro_muzzle[] = {
     {-2,-15}, {8,-10}, {13,-2}, {7,4}, {0,13}, {-9,12}, {-15,2}, {-12,-11},
 };
 
-static bool fire_pyro_flame(mobj_t *attacker, mobj_t *target) {
+/* `start` overrides the solo Pyro muzzle; p_apc.c supplies the APC port. */
+bool Z_FireFlameFrom(mobj_t *attacker, mobj_t *target, const ivec2_t *port) {
     const zmap_t *map = level.native_data;
     if (!map || !live(attacker) || !live(target)) return false;
     int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
     ivec2_t origin = Z_AITopLeft(attacker);
-    ivec2_t start = ivec2_add(origin, pyro_muzzle[facing]);
+    ivec2_t start = port ? *port : ivec2_add(origin, pyro_muzzle[facing]);
     ivec2_t launch_cell = {origin.x / Z_TILE, origin.y / Z_TILE};
     if (origin.x < 0 || origin.y < 0 || !L_Contains(&level, launch_cell.x, launch_cell.y)) return false;
     ivec2_t aim = Z_AITopLeft(target);
@@ -825,7 +826,7 @@ static bool fire_pyro_flame(mobj_t *attacker, mobj_t *target) {
     if (!flame) return true;
     flame->team = attacker->team;
     flame->owner = attacker->owner;
-    flame->missile.damage = attacker->info->attack.damage;
+    flame->missile.damage = (port && P_ActorType(MT_UNIT_PYRO) ? P_ActorType(MT_UNIT_PYRO)->attack.damage : attacker->info->attack.damage);
     flame->z.flame.direction = (ivec2_t){(delta.x > 0) - (delta.x < 0), (delta.y > 0) - (delta.y < 0)};
     flame->z.flame.vertical = dy > dx;
     flame->z.flame.major = flame->z.flame.remaining = dy > dx ? dy : dx;
@@ -835,6 +836,7 @@ static bool fire_pyro_flame(mobj_t *attacker, mobj_t *target) {
     flame->movement.goal = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
     return true;
 }
+static bool fire_pyro_flame(mobj_t *attacker, mobj_t *target) { return Z_FireFlameFrom(attacker, target, NULL); }
 
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (throws_at(attacker, target)) {
@@ -888,19 +890,8 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     if (!apc && t == MT_UNIT_PYRO - MT_UNITS && target)
         return fire_pyro_flame(attacker, target);
-    if (apc && target && weapon) {
-        int count = attacker->z.crew_count ? attacker->z.crew_count : 1;
-        int team = target->team;
-        const mobjtype_t *driver = P_ActorType(MT_UNIT_PYRO);
-        for (int i = 0; i < count; ++i) {
-            uint8_t *phase = attacker->z.crew_count ? &attacker->z.crew[i].flame_phase : &attacker->z.flame_phase;
-            *phase = (*phase + 1) & 15;
-            if (t == MT_UNIT_PYRO - MT_UNITS && *phase < 4 && live(target) && target->team == team && driver &&
-                target->type_id != MT_UNIT_FIRE_TRUCK)
-                P_DamageMobj(target, attacker, driver->attack.damage);
-        }
-        if (t == MT_UNIT_PYRO - MT_UNITS) return true;
-    }
+    if (apc && target && weapon && t == MT_UNIT_PYRO - MT_UNITS) return Z_APCScannerPyro(attacker, target);
+    if (apc && target && weapon) Z_APCAdvancePhases(attacker);
     if (apc && fires_bullets(t) && target && weapon && Z_UnitType(target) >= 0) {
         const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));
         int count = attacker->z.crew_count ? attacker->z.crew_count : 1;

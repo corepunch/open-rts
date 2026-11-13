@@ -1275,6 +1275,13 @@ static int test_apc_bullet_salvo(void) {
     return 0;
 }
 
+static int count_flames(void) {
+    int n = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && ((mobj_t *)th)->type_id == MT_PYRO_PROJECTILE) ++n;
+    return n;
+}
+
 static int test_flame_fire_truck(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load Fire Truck flame fixture");
@@ -1296,8 +1303,11 @@ static int test_flame_fire_truck(void) {
         apc->z.crew[0].flame_phase != 1 || apc->z.crew[2].flame_phase != 1)
         return fail("APC flame spares Fire Truck while advancing crew phases");
     mobj_t *control = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 16), 500);
-    if (!control || !Z_Attack(apc, &apc->info->attack, control) || control->hp != 440)
-        return fail("APC flame still damages other units");
+    if (!control || !Z_Attack(apc, &apc->info->attack, control) || control->hp != 500)
+        return fail("APC flame travels instead of hitting immediately");
+    for (int t = 0; t < 400 && control->hp == 500; ++t)
+        if (!tick(model, 1)) return fail("tick APC flame");
+    if (control->hp >= 500 || truck->hp != 500) return fail("APC flame still burns other units and spares the Fire Truck");
     pyro->z.grenades = 1; pyro->attack.target = truck;
     if (!P_Attack(pyro) || pyro->z.grenades) return fail("Pyro throws grenade at Fire Truck");
     mobj_t *grenade = nth(MT_GRENADE, 0, 0);
@@ -1323,10 +1333,10 @@ static int test_apc_pyro_phase(void) {
     uint32_t apc_id = apc->id, target_id = target->id;
     app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
     for (int i = 1; i <= 16; ++i) {
-        int hp = target->hp;
-        if (!Z_Attack(apc, &apc->info->attack, target) ||
-            target->hp != hp - ((i <= 3 || i == 16) ? 60 : 0))
-            return fail("APC Pyro fires only during four phases of sixteen");
+        int hp = target->hp, flames = count_flames();
+        if (!Z_Attack(apc, &apc->info->attack, target) || target->hp != hp ||
+            count_flames() - flames != ((i <= 9 || i == 16) ? 3 : 0))
+            return fail("APC scanner Pyro fires only below phase ten, one flame per crew port");
         for (int j = 0; j < 3; ++j)
             if (apc->z.crew[j].flame_phase != (i & 15)) return fail("each Pyro phase advances");
         if (i == 4 && !G_SaveGameBlob(&save, &size, "APC flame phase", &app, rts_game_model_ai(model), &hud))
@@ -1340,16 +1350,130 @@ static int test_apc_pyro_phase(void) {
     apc->z.crew[1].flame_phase = 2;
     if (G_Consistency() == hash) return fail("crew phase contributes to consistency");
     apc->z.crew[2].flame_phase = 15;
-    int hp = target->hp;
-    if (!Z_Attack(apc, &apc->info->attack, target) || target->hp != hp - 40 ||
+    int hp = target->hp, flames = count_flames();
+    if (!Z_Attack(apc, &apc->info->attack, target) || target->hp != hp || count_flames() - flames != 3 ||
         apc->z.crew[0].flame_phase != 5 || apc->z.crew[1].flame_phase != 3 ||
         apc->z.crew[2].flame_phase != 0) return fail("independent crew phases survive restoration");
     apc->z.crew_count = 0;
     apc->z.flame_phase = 3;
     hash = G_Consistency();
-    if (!Z_Attack(apc, &apc->info->attack, target) || target->hp != hp - 40 ||
+    flames = count_flames();
+    if (!Z_Attack(apc, &apc->info->attack, target) || count_flames() - flames != 1 ||
         apc->z.flame_phase != 4 || G_Consistency() == hash) return fail("implicit driver phase advances and is hashed");
     rts_game_model_destroy(model);
+    return 0;
+}
+
+/* Native scan ports 0x12db1e/0x12dabe/0x12db7e/0x12da5e (x,y minus 6) plus
+ * the Pyro facing pair 0x12dbfe, for a north-facing APC. */
+static ivec2_t apc_flame_start(const mobj_t *apc, int group, int sub) {
+    static const int8_t ports[4][3][2] = {
+        {{11,2},{14,2},{17,2}}, {{26,5},{26,10},{26,15}},
+        {{11,16},{14,16},{17,16}}, {{4,5},{4,10},{4,15}},
+    };
+    ivec2_t from = Z_AITopLeft(apc);
+    return (ivec2_t){from.x + ports[group][sub][0] - 6 - 3, from.y + ports[group][sub][1] - 6 - 16};
+}
+
+static int flames_at(ivec2_t *out, int max) {
+    int n = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap && n < max; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->type_id == MT_PYRO_PROJECTILE)
+            out[n++] = fixed2_cell(fixed2_scale(fixed3_xy(mo->core.position), FIXED_FROM_INT(Z_TILE)));
+    }
+    return n;
+}
+
+static void clear_flames(void) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && ((mobj_t *)th)->type_id == MT_PYRO_PROJECTILE)
+            P_RemoveMobj((mobj_t *)th);
+}
+
+static int test_apc_scanner_pyro(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load APC scanner fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
+    if (!apc || !target) return fail("spawn APC scanner fixture");
+    disarm_except(0, apc);
+    apc->core.angle = P_PointToAngle(0, -FIXED_ONE);
+    apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
+    apc->z.crew_count = 3;
+    ivec2_t starts[16];
+    /* Port group follows the sector holding the target: ahead 0, right 1,
+     * behind 2, left 3 for a north-facing APC. */
+    static const struct { int x, y, group; } sectors[] = {
+        {0, -40, 0}, {16, 0, 1}, {0, 30, 2}, {-30, 0, 3},
+    };
+    for (int s = 0; s < 4; ++s) {
+        clear_flames();
+        target->core.position = fixed3_from_fixed2(pixel_at(at, sectors[s].x, sectors[s].y), 0);
+        for (int i = 0; i < 3; ++i) apc->z.crew[i].flame_phase = 0;
+        if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3)
+            return fail("scanner salvo fires one flame per crew member from its group's ports");
+        for (int sub = 0; sub < 3; ++sub) {
+            ivec2_t want = apc_flame_start(apc, sectors[s].group, sub);
+            if (starts[sub].x != want.x || starts[sub].y != want.y)
+                return fail("scanner flame starts at the group's port plus the Pyro offset");
+        }
+    }
+    /* 12 attempts are shared by the group: five crew still fire only three
+     * flames, and the fourth member's phase advances but not the fifth's. */
+    clear_flames();
+    target->core.position = fixed3_from_fixed2(pixel_at(at, 16, 0), 0);
+    apc->z.crew_count = 5;
+    for (int i = 0; i < 5; ++i) apc->z.crew[i].flame_phase = 0;
+    if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3 ||
+        apc->z.crew[3].flame_phase != 1 || apc->z.crew[4].flame_phase != 0)
+        return fail("scanner stops after twelve port attempts");
+    /* The per-crew gate is phase < 10 after the increment: 9 is skipped. */
+    clear_flames();
+    apc->z.crew_count = 3;
+    apc->z.crew[0].flame_phase = 9; apc->z.crew[1].flame_phase = 8; apc->z.crew[2].flame_phase = 15;
+    if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 2 ||
+        apc->z.crew[0].flame_phase != 10 || apc->z.crew[1].flame_phase != 9 || apc->z.crew[2].flame_phase != 0)
+        return fail("scanner phase gate skips 10 and wraps 15 to 0");
+    ivec2_t second = apc_flame_start(apc, 1, 1), first = apc_flame_start(apc, 1, 0);
+    if (starts[0].x != first.x || starts[0].y != first.y || starts[1].x != second.x || starts[1].y != second.y)
+        return fail("scanner attempts continue from the last port tried");
+    /* A salvo whose every member is gated still reloads (0x1ea4a precedes the ports). */
+    clear_flames();
+    for (int i = 0; i < 3; ++i) apc->z.crew[i].flame_phase = 9;
+    apc->traits |= MF_ATTACK; apc->attack.target = target; apc->attack.cooldown_left_ms = 0;
+    P_UpdateSight();
+    if (!P_Attack(apc) || flames_at(starts, 16) != 0 || apc->attack.cooldown_left_ms <= 0)
+        return fail("a fully gated scanner pass still starts the reload");
+    /* A non-Pyro driver creates no flame. */
+    apc->z.driver = MT_UNIT_TOUGH - MT_UNITS + 1;
+    for (int i = 0; i < 3; ++i) apc->z.crew[i].flame_phase = 0;
+    apc->attack.cooldown_left_ms = 0;
+    if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 0)
+        return fail("only Pyro drivers launch scanner flames");
+    /* Flight and impact survive save and load. */
+    apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
+    for (int i = 0; i < 3; ++i) apc->z.crew[i].flame_phase = 0;
+    uint32_t target_id = target->id;
+    int hp = target->hp;
+    if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3 || target->hp != hp)
+        return fail("scanner flames do not hit immediately");
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t hash = G_Consistency();
+    if (!tick(model, 1) || !G_SaveGameBlob(&save, &size, "APC flames", &app, rts_game_model_ai(model), &hud))
+        return fail("save APC flames in flight");
+    int saved_flames = flames_at(starts, 16);
+    if (!saved_flames || !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("load APC flames in flight");
+    free(save);
+    if (flames_at(starts, 16) != saved_flames) return fail("loaded scanner flames");
+    target = P_MobjById(target_id);
+    for (int t = 0; t < 400 && target && target->hp == hp; ++t)
+        if (!tick(model, 1)) return fail("tick loaded APC flames");
+    if (!target || target->hp >= hp || hash == 0) return fail("loaded scanner flames still burn the target");
+    rts_game_model_destroy(model);
+    puts("PASS: z APC scanner Pyro ports, phase gate, attempt cap, reload and flight");
     return 0;
 }
 
@@ -2891,7 +3015,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_pyro_building_bridge_damage_scale() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_scanner_pyro() || test_apc_scanner_pyro() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_pyro_building_bridge_damage_scale() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

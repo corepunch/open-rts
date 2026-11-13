@@ -5630,11 +5630,63 @@ and a dynamic run of `0x9a9ae` to read the return value. Reproduce with `r2 -q
 0x57ce9' -c 'pd 12 @ 0x1e9dc' -c 'pd 75 @ 0x1ea0d' -c 'pd 70 @ 0x1eb04' -c
 'pd 130 @ 0x1ec13' -c 'pd 60 @ 0x1f158' -c 'pd 50 @ 0x78f61' -c 'pd 28 @
 0x1ef4a' -c 'pd 40 @ 0x1f0d1' -c 'pd 45 @ 0x58040' -c q data/Z/ZED.EXE`.
-No code changed for item 97; the open-rts single-target APC attack remains an
-approximation of scanner mode (its Pyro phase gate of 4 is the coordinate-mode
-value, the scanner uses 10; left untouched because changing it without the
-sector scan would change behavior without the matching target model).
+The APC scanner Pyro salvo was subsequently implemented (next paragraph); task 6 and scanner target acquisition were not.
 
+**Follow-up: scanner Pyro salvo implemented, task 6 and sector scan still open
+(2026-11-13, issue 97).** *Implemented* (`games/z/p_apc.c`, `Z_APCScannerPyro`,
+`test_apc_scanner_pyro`): an APC with a Pyro driver now runs the traced
+scanner salvo instead of an immediate hit. Reload: every Z_Attack that
+reaches the salvo returns true, so the normal reload starts even if all
+members are gated (retail writes `+0x78` at `0x1ea4a` before any port).
+Phases: each member advances `+0xb0` mod 16 and a Pyro member whose new phase is
+`>= 10` is skipped (previously the coordinate-mode value, `< 4`, was used). Ports:
+one attempt counter for the salvo, 12 attempts, 4 groups (`port % 4`) by
+3 sub-ports (`port / 4`); a port fires only if its group's scan sector
+holds the target; a successful port moves to the next member, otherwise the
+next port is tried. Consequently one target yields at most three flames per
+salvo, whatever its group. Flame start: APC top-left + port pair - (6,6) +
+Pyro facing pair `0x12dbfe` (tables copied verbatim from the exe: ports at
+`0x12db1e`, `0x12dabe`, `0x12db7e`, `0x12da5e`). The flame is the ordinary
+solo-Pyro projectile (`Z_FireFlameFrom`, shared with `fire_pyro_flame`),
+with the Pyro driver's damage. The group test uses the sector shapes decoded
+from `0x793e6..0x7948c`: direction d is a cone (0, 2, 4, 6: `|dx| <= -dy`, `dx >= |dy|`,
+`|dx| <= dy`, `-dx >= |dy|`) or a quadrant (1: dx>=0,dy<0; 3: dx>=0,dy>=0; 5:
+dx<0,dy>=0; 7: dx<0,dy<0), scanned at facing+0 (port group 0), +2 (1), +4 (2), +6 (3),
+boundaries inclusive. Provenance (scanner versus coordinate) is not stored:
+every engine APC attack is a scanner pass, and coordinate mode has no
+trigger (command 12 / flag `+0x67 & 0x20`). Non-Pyro APC drivers keep the
+old per-attack phase advance only. The engine keeps choosing the single target
+(`find_attack_target`), so sectors only decide which ports fire.
+
+*Sector scan (C), how far it got.* `0x78f61` rejects when `+0x67 & 0x40`, `+0xa5`
+non-zero, `+0x87 & 0x10`, `+0x62 & 0x20` or the group's `+9 & 0x20`; for classes
+1 and 2 the direction is `(al + facing) & 7`. `0x7911f/0x79174` gather up to 288
+unit bytes from nine bin lists around the unit's bin `+0x38` using the word offsets
+at `0x104558[direction]`, and `0x79320` walks them: candidates of the other team
+(`+0x31 & 3`), `+0xa5 == 0`, `+0x67 & 0x40` clear, own `+0x93 < 0x10`, own `+0x67 & 4`
+set, candidate action `+0x35 != 0x12`, inside the direction sector, with
+squared distance in 8-pixel cells `< 0x400` indexing the table pointed to by
+`0x104028` (the loaded square-root table); the lowest table value wins, equal values
+go to the later candidate, then `0x6e583` may veto it. Not resolved: the bin geometry
+(`0x1c2a34..0x1c8c34`, built at run time), `0x6e583`, and the post-filters `0x591ca`,
+`0x9bded`, `0x9de02`. Scanner target acquisition was therefore not
+implemented; its sector tests are used only for port selection above.
+
+*Task 6 (A), what changed in the picture.* The `0x7cb85` call to the grenade sum
+`0x7a776` branches to `0x7c872` (a real coordinate attack) when it is non-zero;
+only with zero grenades do classes 0 and 0x10 reach the rewrite into a ranged move
+(mode 2). The `0x9a801` filter demands a non-zero grenade count for exactly
+those classes, so the rewrite is reachable from task 6 only if the
+count drops between the selection and the delayed command. The normal
+class 0/0x10 path is robot action 8 (`0x75046`, table `0x149038`), whose point branch
+`0x751d0` checks `0x29fd8`, `0x4a03b`, `0x193f0` at `+0x52/+0x54`, then
+`0x75297` dispatches Pyro (class 0xf) to `0x752ff`, Laser/class 0 to the grenade carrier
+choice `0x7545c` and action 0x31 (`0x75432`, aimed with `0x5a648`), and class 3
+(Tough) to launcher action 0x13. Those bodies (`0x7527a`, `0x752ff`, `0x7545c`, action
+0x31 at `0x6360e`, action 0x13 at `0x60c2a`) are traced only to their entries. Vehicle
+classes use action ids 0x35..0x3c, untraced. Since task 6 is set "regardless of the
+result", adding the task without a working order would park the army, so task 6
+was not added; nothing in the commander changed.
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks even
