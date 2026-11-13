@@ -168,7 +168,40 @@ and the visibility tests in `can_place_building` are not applied to creep.
 Tests: `tests/starcraft/test_creep.c` (hand-derived first steps, final
 ellipse, blocked tiles, completion, morph, pre-placed state from code and from a
 CHK, recession order and timing, sustained creep, placement, determinism,
-save/load mid-growth and mid-recession, malformed state). Save layout 22.
+save/load mid-growth and mid-recession, malformed state). Save layout 22 (now 26, see the larva section).
 
 Commands: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o
 starcraft-maps test-starcraft`.
+
+## Larva model versus OpenBW (issue 99 follow-up)
+
+Code: `games/starcraft/p_larva.c`; tests: `tests/starcraft/test_larva.c`. Save
+layout 25 to 26 (a hatchery's `larva_ms` now packs timer, run phase and morph
+mark; a larva keeps phase, side and move target in `sc.order`; both are
+validated in `G_SavedObjectValid`).
+
+| Aspect | OpenBW | Local | Status |
+| --- | --- | --- | --- |
+| Spawn timer | `secondary_order_SpawningLarva`: runs only when `order_process_timer` is 0 (once per 9 frames), spawns at timer 0 then sets 37 (3 after a failed spawn) | same; spawns at native frames 1, 343, 685 | done; absolute phase per unit untraced (OpenBW re-phases every 150 frames from list order) |
+| Reset rule | `initialize_unit_type` zeroes `larva_timer` on morph end; timer frozen at the cap and while the order is not set | morph mark resets timer at morph end; frozen at cap and while incomplete | done (old code reset the timer to 342 frames at the cap) |
+| Cap | 3 larvae with `connected_unit == hatchery`, not hidden, found in a 256 px square | parent id, centre within 256 px | done |
+| Spawn position | `get_spawn_larva_position`: sides 3,0,2,1 scored by `larva_spawn_side_values`, creep and occupied/walkable tests, fallback offsets | same with all side values 0: below the box centre, 10 px under it; larvae start stacked | side values NOT done (worker return needs a hook in shared play code) |
+| Side | `spawn_larva` order_state 0-3 | same (`sc.order.time` bits 4-5) | done |
+| Wander | `order_Larva` every 9 frames: `lcg_rand(20)`, bits 8 and 0x80 pick a +-10 px diagonal, target needs map bounds and creep, must stay on the larva's side of the hatchery box, else side point 10 px out | same, `sc_random` | done |
+| Return to hatchery | beyond 10 px of the hatchery box (`units_distance`, `xy_length`) `move_to_target` | walks to the nearest point of the box grown by the larva's extent | stop position approximated |
+| Movement | iscript/flingy movement | straight line at units.dat speed (2 px/frame), exact arrival | dynamics untraced |
+| Death off creep | at a run, at its move target (or a creepless target not the hatchery), position tile without creep: `kill_unit` | same (`orphan` test) | done |
+| Hatchery dies | `destroy_unit_impl` -> `remove_target_references` clears `connected_unit`; larvae live on and die by the creep rule | parent lookup fails, larva wanders unrestricted | done (old code killed them at once) |
+| Hatchery morph | same unit, larvae stay | same | done |
+| Larva used by a command | UI selection; no engine rule in OpenBW | `G_PlayerBuildProduct` takes the first free larva | unknown (needs a retail trace of the AI pick) |
+| Cancelled egg | `cancel_building_unit`: egg refunded and killed (cocoon/lurker egg morph back) | same; larva is not returned | done (test_gameplay assertion changed) |
+| Melee start | `create_starting_units`: two `spawn_larva`, third by the first run (frame 1) | three at load (shared lobby test pins 9 units at load); same count a frame later | unchanged on purpose |
+
+Changed assertions: `test_zerg` first larva needs tick(2) (the first tic holds
+no native frame) and the incomplete-hatchery check uses the packed timer;
+`test_gameplay` cancel of an egg now expects the egg dead; `test_creep`
+hatcheries are created without a larva order (larvae draw the shared LCG).
+
+Item 3 (creep and walkability for non-Zerg) was not started: `is_walkable`
+treats creep as walkable, `sc_ground_ok` already refuses non-Zerg buildings on
+creep; no further change was traced.

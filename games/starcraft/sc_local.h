@@ -329,6 +329,8 @@ void sc_supply_counts(int owner, int *used, int *provided);
  * given an order, MT_NONE for other makers. */
 uint16_t sc_egg_for(uint16_t maker);
 mobj_t *sc_spawn_larva(mobj_t *hatchery);
+void sc_larva_ticker(void);
+bool sc_larva_state_valid(const mobj_t *mo);
 /* Retail tech tree: a Lair or Hive counts as a Hatchery, a Hive as a
  * Lair, a Greater Spire as a Spire. */
 bool sc_counts_as(uint16_t type, uint16_t as);

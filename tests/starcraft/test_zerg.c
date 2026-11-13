@@ -44,7 +44,9 @@ static int larvae_of(uint32_t parent) {
 }
 
 static int larvae_and_eggs(mobj_t *hatchery) {
-    tick(1);
+    /* The first tic holds no native frame (24 frames in 30 tics); the second
+     * holds the hatchery's first spawn run. */
+    tick(2);
     CHECK(count(0, MT_LARVA) == 1);
     tick(frames(342) * 2);
     CHECK(count(0, MT_LARVA) == 3);
@@ -138,7 +140,7 @@ static int hatchery_tiers(mobj_t *hatchery) {
 static int incomplete_hatchery(void) {
     mobj_t *hatchery=spawn(MT_HATCHERY,FIXED2_LIT(34,34),0);
     CHECK(hatchery);
-    hatchery->sc.larva_ms=1;
+    hatchery->sc.larva_ms=3<<6; /* timer 0, run phase 3: frozen while incomplete */
     hatchery->production=calloc(1,sizeof(*hatchery->production));
     CHECK(hatchery->production);
     *hatchery->production=(production_t){.actor_id=MT_HATCHERY,
@@ -146,10 +148,10 @@ static int incomplete_hatchery(void) {
         .queue_count=1,.time_ms=1000,.time_left_ms=1000,.placed=true};
     CHECK(!G_ModelUnitReady(hatchery));
     tick(1);
-    CHECK(larvae_of(hatchery->id)==0&&hatchery->sc.larva_ms==1);
+    CHECK(larvae_of(hatchery->id)==0&&hatchery->sc.larva_ms==3<<6);
     P_FreeMobjProduction(hatchery);
     CHECK(G_ModelUnitReady(hatchery));
-    tick(1);
+    tick(12);
     CHECK(larvae_of(hatchery->id)==1);
     return 0;
 }

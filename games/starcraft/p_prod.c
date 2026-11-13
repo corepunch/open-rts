@@ -765,12 +765,17 @@ bool sc_cancel_production(mobj_t *producer,int slot) {
     if(!p)return false;
     /* Our egg/cocoon is an in-place morph, so dismissing its order must
      * restore the maker as well as refunding it. Buildings keep their type
-     * until completion and need no restoration. */
-    if(slot==0&&zerg_morph(p)&&sc_egg_for((uint16_t)p->makers[0])==producer->type_id&&
-       !P_MorphMobj(producer,(uint16_t)p->makers[0]))return false;
+     * until completion and need no restoration. A cancelled Cocoon (or Lurker
+     * Egg) becomes its Mutalisk again, but cancel_building_unit has no morph
+     * for an Egg: it refunds the product and kills the egg, so the larva is
+     * lost. */
+    bool egg=slot==0&&zerg_morph(p)&&sc_egg_for((uint16_t)p->makers[0])==producer->type_id;
+    bool lost_larva=egg&&p->makers[0]==MT_LARVA;
+    if(egg&&!lost_larva&&!P_MorphMobj(producer,(uint16_t)p->makers[0]))return false;
     P_AddResource(&level,producer->owner,0,p->cost);
     for(int r=1;r<RTS_MAX_RESOURCES;r++)P_AddResource(&level,producer->owner,r,p->extra_costs[r-1]);
     G_RemoveProductionAt(producer,slot);
+    if(lost_larva)P_DamageMobj(producer,NULL,producer->hp);
     return true;
 }
 /* An order on a hatchery goes to the first of its larvae that is free. */

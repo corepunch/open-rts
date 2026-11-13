@@ -2,6 +2,7 @@
 #include "starcraft.h"
 #include "sc_local.h"
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #define CHECK(c) RTS_CHECK(c,"StarCraft creep",#c)
@@ -28,6 +29,9 @@ static void reset(uint32_t seed) {
 static mobj_t *spawn(int type,fixed2_t at,int owner) {
     mobj_t *u=sc_spawn_actor((unsigned)type-1,(ivec2_t){at.x>>(FIXED_FRAC_BITS-5),at.y>>(FIXED_FRAC_BITS-5)},(uint8_t)owner);
     if(u)u->allegiance=owner==consoleplayer?ALLEGIANCE_PLAYER:ALLEGIANCE_ENEMY;
+    /* Larvae draw from the shared LCG (order_Larva), which would shift the
+     * hand-derived creep draws: these hatcheries make none. */
+    if(u&&(type==MT_HATCHERY||type==MT_LAIR||type==MT_HIVE))u->sc.larva_ms=INT_MIN;
     return u;
 }
 static void tick(void) {

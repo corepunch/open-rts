@@ -197,7 +197,7 @@ bool sc_script_valid(const sc_script_t *c) {
 bool G_SavedObjectValid(const mobj_t *mo) {
     /* A pending hit needs a weapon row to deal it from. */
     if (mo->type_id == MT_SC_PROJECTILE && mo->sc.projectile.pending && !sc_weapon(mo->sc.projectile.weapon)) return false;
-    return sc_script_valid(&mo->sc.script);
+    return sc_larva_state_valid(mo) && sc_script_valid(&mo->sc.script);
 }
 
 /* The retained program, and which unit and bullet image scripts play. */
