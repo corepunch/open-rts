@@ -301,14 +301,21 @@ static bool weapon_misses(const mobj_t *source,const mobj_t *target) {
     return (sc_random()&255)<=(unsigned)chance;
 }
 
-static void immediate_hit(mobj_t *source,const sc_weapon_t *w,mobj_t *target,int divisor) {
+/* The damage of an appear-on-target bullet, dealt when its Death script
+ * reaches domissiledmg (OpenBW bullet_hit). The bullet is the shot mobj: its
+ * owner, allegiance and hallucination flag were taken when it was fired, its
+ * source and target are cleared if either unit is removed first (as OpenBW's
+ * remove_target_references does), and upgrades are read now. A source that
+ * is gone still gets the damage, credited to the bullet's player. */
+static void shot_hit(mobj_t *shot,const sc_weapon_t *w,mobj_t *target,int divisor) {
     if(!sc_type(target)||target->remove||target->hp<=0||
        (target->sc.flags&SC_INVINCIBLE)||target->sc.timers[SC_TIMER_STASIS])return;
+    mobj_t *by=shot->target?shot->target:shot;
     sc_start(target);
-    int dealt=sc_projectile_spell_hit(source,target,base_damage(source->owner,w,w->damage,divisor));
+    int dealt=sc_projectile_spell_hit(shot,target,base_damage(shot->owner,w,w->damage,divisor));
     int damage=dealt>0?take(target,w->type<5?w->type:SC_DAMAGE_NORMAL,dealt):0;
-    if(damage>0)P_DamageMobj(target,source,damage);
-    else P_ProvokeMobj(target,source);
+    if(damage>0)P_DamageMobj(target,by,damage);
+    else if(shot->target)P_ProvokeMobj(target,by);
 }
 
 /* OpenBW fire_weapon: clip the line from the target's shrunken inner box
@@ -332,30 +339,68 @@ static fixed2_t immediate_position(const mobj_t *source,const mobj_t *target) {
     return (fixed2_t){SC_PIXELS(to.x),SC_PIXELS(to.y)};
 }
 
-/* OpenBW bullet type 2 appears at the target and rolls once per projectile. */
+/* OpenBW bullet type 2 appears at the target, rolls once per bullet and
+ * damages from its Death script. */
 enum { SC_BEHAVIOR_APPEAR_TARGET = 2 };
-static void immediate_fire(mobj_t *source,const weapondef_t *def,mobj_t *target,const sc_weapon_t *w) {
-    for(int i=0;i<(def->hits?def->hits:1);i++) {
-        bool missed=weapon_misses(source,target);
-        if(w->explosion==1) {
-            if(!missed)immediate_hit(source,w,target,1);
-            continue;
-        }
-        fixed2_t at=immediate_position(source,target);
-        if(missed) {
-            fixed2_t heading;angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
-            at=fixed2_sub(at,fixed2_scale(heading,SC_PIXELS(30)));
-        }
+
+/* domissiledmg of a pending bullet: single-target weapons hit the target the
+ * bullet still has unless the roll missed; splash weapons hit by distance
+ * from where the bullet appeared. The shot is spent. */
+static void pending_hit(mobj_t *shot) {
+    sc_projectile_t *p=&shot->sc.projectile;
+    const sc_weapon_t *w=sc_weapon(p->weapon);
+    mobj_t *source=shot->target,*target=shot->attack.target;
+    if(!p->pending)return;
+    p->pending=false;
+    if(w&&w->explosion==1) {
+        if(!p->missed&&target)shot_hit(shot,w,target,1);
+    } else if(w) {
+        fixed2_t at=fixed3_xy(shot->core.position);
         for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
             mobj_t *victim=(mobj_t *)th;
             if(th->function!=P_MobjThinker||victim==source||victim->remove||victim->hp<=0||
                !sc_type(victim)||(victim->traits&(MF_NOBLOCKMAP|MF_MISSILE))||
                !(w->targets&((victim->traits&MF_FLY)?1u:2u))||
-               (w->explosion==SC_EXPLOSION_ENEMY&&victim!=target&&P_IsAlly(source,victim)))continue;
+               (w->explosion==SC_EXPLOSION_ENEMY&&victim!=target&&P_IsAlly(shot,victim)))continue;
             int d=sc_point_distance(victim,at);
             int divisor=d<=w->splash[0]?1:d<=w->splash[1]?2:d<=w->splash[2]?4:0;
-            if(divisor)immediate_hit(source,w,victim,divisor);
+            if(divisor)shot_hit(shot,w,victim,divisor);
         }
+    }
+    P_RemoveMobj(shot);
+}
+
+void sc_projectile_script_hit(mobj_t *shot) {
+    if(shot&&shot->type_id==MT_SC_PROJECTILE&&shot->sc.projectile.pending)pending_hit(shot);
+}
+
+/* A pending bullet runs its Death script on the frame it is fired (OpenBW
+ * runs Init and starts Death in that same frame); script frame k then runs on
+ * the k-th 24 Hz frame after the firing tick, and its first tick is the
+ * firing tick's own. */
+static void pending_tick(mobj_t *shot,int frames) {
+    if(shot->missile.age++>0)sc_script_tick(shot,frames);
+    if(!shot->remove&&shot->sc.projectile.pending&&!shot->sc.script.active)pending_hit(shot);
+}
+
+static void immediate_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
+    for(int i=0;i<(def->hits?def->hits:1);i++) {
+        bool missed=weapon_misses(source,target);
+        fixed2_t at=immediate_position(source,target);
+        if(missed) {
+            fixed2_t heading;angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
+            at=fixed2_sub(at,fixed2_scale(heading,SC_PIXELS(30)));
+        }
+        mobj_t *shot=P_SpawnMobj(fixed3_from_fixed2(at,source->core.position.z),MT_SC_PROJECTILE);
+        if(!shot)continue;
+        shot->owner=source->owner;shot->team=source->team;shot->allegiance=source->allegiance;
+        shot->target=source;shot->attack.target=target;shot->core.angle=source->core.angle;
+        shot->sc.flags=source->sc.flags&SC_HALLUCINATION;
+        shot->sc.projectile=(sc_projectile_t){.weapon=def->native_id,.missed=missed,.pending=true};
+        if(!sc_iscript_bin()||sc_weapon_script[def->native_id]<0)pending_hit(shot);
+        else sc_script_begin(shot,sc_weapon_script[def->native_id],SC_ANIM_DEATH);
+        /* A script that ended without reaching domissiledmg still deals the hit. */
+        if(!shot->remove&&shot->sc.projectile.pending&&!shot->sc.script.active)pending_hit(shot);
     }
 }
 
@@ -364,7 +409,7 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
     const sc_weapon_t *w=sc_weapon(def->native_id);
     if(!w)return false;
     if(w->behavior==SC_BEHAVIOR_APPEAR_TARGET&&w->damage>0&&(w->explosion==1||w->explosion==SC_EXPLOSION_RADIAL||w->explosion==SC_EXPLOSION_ENEMY)) {
-        immediate_fire(source,def,target,w);return true;
+        immediate_fire(source,def,target);return true;
     }
     if(!sc_projectile_weapon(def->native_id))return false;
     fixed2_t heading; angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
@@ -399,20 +444,43 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
     return true;
 }
 
+/* OpenBW bullet_state_bounce takes the first unit find_unit_noexpand yields over
+ * the 96 pixel square around the glaive. The unit finder lists every unit's
+ * inner box twice, at its left and right edge, in one array sorted by x, and
+ * walks the entries with x in [left, right) of the square, skipping a unit
+ * already seen and any whose box misses the square in y (or starts past its right
+ * side). So a unit's place in the order is its left edge, or its right edge when
+ * the left one lies west of the square, and the first candidate is the one with the
+ * smallest such x; units with the same x come out in the reverse of the order they
+ * entered the finder, which is not kept here, so they stay in thinker order. A
+ * candidate qualifies by its box, not its centre. */
+static mobj_t *bounce_target(const mobj_t *shot,const mobj_t *source,const mobj_t *target) {
+    ivec2_t at={shot->core.position.x/SC_PIXELS(1),shot->core.position.y/SC_PIXELS(1)};
+    int left=at.x-96,right=at.x+96,top=at.y-96,bottom=at.y+96;
+    mobj_t *best=NULL;
+    int best_x=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *candidate=(mobj_t *)th;
+        const sc_unit_t *type=sc_unit(candidate);
+        if(th->function!=P_MobjThinker||!type||candidate==target||candidate->id==shot->sc.projectile.previous||
+           candidate->allegiance==ALLEGIANCE_NEUTRAL||!P_CanTarget(source,candidate)||!P_VisibleTo(source,candidate))continue;
+        int x0=candidate->core.position.x/SC_PIXELS(1)+type->bounds.x,x1=x0+type->bounds.w-1;
+        int y0=candidate->core.position.y/SC_PIXELS(1)+type->bounds.y,y1=y0+type->bounds.h-1;
+        if(x0>=right||y0>=bottom||y1<top)continue;
+        int x=x0>=left?x0:x1;
+        if(x<left||x>=right)continue;
+        if(!best||x<best_x){best=candidate;best_x=x;}
+    }
+    return best;
+}
+
 static void projectile_impact(mobj_t *shot) {
     mobj_t *target=shot->attack.target,*source=shot->target;
     const sc_weapon_t *w=sc_weapon(shot->sc.projectile.weapon);
     if(!w){P_RemoveMobj(shot);return;}
     mobj_t *next=NULL;
     if(w->behavior==SC_BEHAVIOR_BOUNCE&&shot->missile.phase<2&&source&&!source->remove&&source->hp>0) {
-        fixed2_t at=fixed3_xy(shot->core.position);
-        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
-            mobj_t *candidate=(mobj_t *)th;
-            if(th->function!=P_MobjThinker||candidate==target||candidate->id==shot->sc.projectile.previous||
-               candidate->allegiance==ALLEGIANCE_NEUTRAL||!P_CanTarget(source,candidate)||!P_VisibleTo(source,candidate))continue;
-            fixed2_t delta=fixed2_sub(fixed3_xy(candidate->core.position),at);
-            if(abs(delta.x)<=WEAPON_BOUNCE_RANGE&&abs(delta.y)<=WEAPON_BOUNCE_RANGE){next=candidate;break;}
-        }
+        next=bounce_target(shot,source,target);
     }
     bool can_hit=!shot->sc.projectile.missed&&target&&!target->remove&&target->hp>0&&sc_type(target)&&
         !(target->sc.flags&SC_INVINCIBLE)&&!target->sc.timers[SC_TIMER_STASIS];
@@ -559,6 +627,7 @@ static void recharge(mobj_t *battery, int frames) {
  * energy, except while a cloak they switched on drains it. */
 static void sc_mobj_ticker(mobj_t *mo) {
     int frames = tic_frames();
+    if (mo->type_id == MT_SC_PROJECTILE && mo->sc.projectile.pending) { pending_tick(mo, frames); return; }
     sc_script_tick(mo, frames);
     if(mo->type_id==MT_SC_PROJECTILE) {
         if(mo->sc.projectile.weapon>=0)projectile_tick(mo,frames);

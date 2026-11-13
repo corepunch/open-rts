@@ -43,7 +43,7 @@ typedef struct { uint8_t active, phase; } sc_glow_t;
  * extra frames after the timer ends. worker_hp is the Drone HP a cancel restores. */
 typedef struct { int worker_hp, frames, stage; } sc_construction_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
-typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t previous; bool missed, trail_repeat, trail_emitted; } sc_projectile_t;
+typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t previous; bool missed, trail_repeat, trail_emitted, pending; } sc_projectile_t;
 /* A running IScript animation (p_iscript.c): program offset, return address,
  * frames still to wait, the animation number; active is 0 or 1. */
 typedef struct { uint16_t pc, ret, wait; uint8_t anim, active; } sc_script_t;
@@ -76,7 +76,7 @@ typedef struct { uint16_t pc, ret, wait; uint8_t anim, active; } sc_script_t;
     HASH((mo)->sc.projectile.weapon); HASH((mo)->sc.projectile.speed); \
     HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.death_state); HASH((mo)->sc.projectile.trail_state); \
     HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
-    HASH((mo)->sc.projectile.trail_repeat); HASH((mo)->sc.projectile.trail_emitted); \
+    HASH((mo)->sc.projectile.trail_repeat); HASH((mo)->sc.projectile.trail_emitted); HASH((mo)->sc.projectile.pending); \
     HASH((mo)->sc.script.pc); HASH((mo)->sc.script.ret); HASH((mo)->sc.script.wait); \
     HASH((mo)->sc.script.anim); HASH((mo)->sc.script.active); \
     HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target_owner); HASH((mo)->sc.queue.forced); HASH((mo)->sc.queue.target); \

@@ -242,7 +242,7 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
             if(trail->sprite==read_u16_le(arg))++trail->sprite_count;
         }
         else if(op==0x16) break;
-        else if(op==42&&group==SC_GROUP_WORK) break; /* engframe: the swing is done. */
+        else if(op==42&&group==SC_GROUP_WORK) break; /* gotorepeatattk (42; engframe is 43): the last opcode of every worker swing, before its ignorerest */
         else if(op==0x30) break;
     }
     if(last<0) {

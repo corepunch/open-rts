@@ -220,6 +220,53 @@ static int bounce(void) {
     flight(shot,RTS_TICRATE*5);CHECK(shot->remove&&c->hp==hp-1);
     P_FreeLevel(&level);return 0;
 }
+/* The first bounce target, from a glaive that lands on the first marine at pixel (224, 160):
+ * OpenBW's unit finder walks the units' box edges by x. Fresh level per case. */
+static int first_bounce(const fixed2_t *at,int count,int *index) {
+    CHECK(G_DoLoadLevel(map,&level)&&P_InitSight());
+    mobj_t *muta=spawn(MT_MUTALISK,FIXED2_LIT(5,5),0),*first=spawn(MT_MARINE,FIXED2_LIT(7,5),1);
+    CHECK(muta&&first);
+    mobj_t *others[4]={0};
+    for(int i=0;i<count;i++){others[i]=spawn(MT_MARINE,at[i],1);CHECK(others[i]);}
+    P_UpdateSight();
+    mobj_t *shot=fire(muta,first);CHECK(shot&&!shot->sc.projectile.missed);
+    CHECK(fixed3_xy(first->core.position).x/SC_PIXELS(1)==224&&fixed3_xy(first->core.position).y/SC_PIXELS(1)==160);
+    for(int t=0;t<RTS_TICRATE*5&&!shot->remove&&shot->missile.phase==0;t++)flight(shot,1);
+    *index=-1;
+    if(!shot->remove&&shot->missile.phase==1)
+        for(int i=0;i<count;i++)if(shot->attack.target==others[i])*index=i;
+    P_FreeLevel(&level);
+    return 0;
+}
+static int bounce_order(void) {
+    const irect_t box=sc_units[MT_MARINE-1].bounds;
+    CHECK(box.x==-8&&box.w==17&&box.y==-9&&box.h==20); /* left 8, right 8, up 9, down 10 around the centre */
+    int pick=-2;
+    /* Both inside the square: the one with the smaller box x wins whichever came first. */
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(9.5,5),FIXED2_LIT(8.5,5)},2,&pick));
+    CHECK(pick==1);
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(8.5,5),FIXED2_LIT(9.5,5)},2,&pick));
+    CHECK(pick==0);
+    /* The box counts, not the centre: 100 pixels east, its left edge is at 316 < 320. */
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(10.125,5)},1,&pick));
+    CHECK(pick==0);
+    /* 100 pixels north: its bottom edge, 70, is below the square's top, 64. */
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(7,1.875)},1,&pick));
+    CHECK(pick==0);
+    /* Past the square on either axis there is no bounce: left edge 320 on the east, bottom edge 63 north. */
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(10.25,5)},1,&pick));
+    CHECK(pick<0);
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(7,1.65625)},1,&pick));
+    CHECK(pick<0);
+    /* West of the square by centre (102 pixels), right edge 130 inside it: an entry at x = 130 comes
+     * before one at 276 although the east one was created first. */
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(8.875,5),FIXED2_LIT(3.8125,5)},2,&pick));
+    CHECK(pick==1);
+    /* Entirely west: right edge 126 before the window starts at 128: no entry, no bounce. */
+    CHECK(!first_bounce((fixed2_t[]){FIXED2_LIT(3.6875,5)},1,&pick));
+    CHECK(pick<0);
+    return 0;
+}
 static int homing(void) {
     CHECK(G_DoLoadLevel(map,&level)&&P_InitSight());
     mobj_t *source=spawn(MT_GOLIATH,FIXED2_LIT(5,5),0),*target=spawn(MT_BATTLECRUISER,FIXED2_LIT(8,5),1);
@@ -268,7 +315,7 @@ int main(void) {
     CHECK(R_InitSprites(root,&level,units.items,units.count,&cache));
     P_FreeMobjList(&units);P_FreeThinkers();P_InitThinkers();CHECK(P_InitSight());
     CHECK(!scenario());P_InitThinkers();CHECK(!bounce());P_InitThinkers();CHECK(!trail_lifecycle());P_InitThinkers();CHECK(!homing());
-    P_InitThinkers();CHECK(!bounce_lifetimes());
+    P_InitThinkers();CHECK(!bounce_lifetimes());P_InitThinkers();CHECK(!bounce_order());
     puts("PASS: native flight delay, acceleration, fixed aim, upgrades, dead shooter and save");
     return 0;
 }

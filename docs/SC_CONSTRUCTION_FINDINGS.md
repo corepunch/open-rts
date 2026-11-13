@@ -90,13 +90,51 @@ separately. A cancelled Zerg building returns its Drone with a zero wound;
 cancelling an Extractor returns a fresh full-HP Drone, as `cancel_building_unit`
 does (its previous HP is the geyser's, capped at a Drone's maximum).
 
-Not modelled: the IScript signals that end the Protoss warp-in hand-over (states
-1 to 3) and the Zerg state 6 wait. The local foundation completes on the frame
-after the last stage, so Protoss and Zerg buildings finish at least one or two
-frames earlier than retail by that animation delay (unknown without running
-the building IScripts; a retail trace of completion frame per type would settle
-it). Native construction image stages, worker construction animations and exact
-SCV movement/placement timing remain out of scope.
+### Script-signalled completion (Protoss warp-in and Zerg final state)
+
+`sc.construction.stage` now counts the frames since T, the first frame on which
+OpenBW's state machine sees the build timer at zero, and the foundation
+completes after `sc_hand_over(type)` such frames (`games/starcraft/p_handover.c`,
+read from `iscript.bin` when it loads). Each number below is a script wait count
+combined with OpenBW's frame order: a unit's order runs first and its sprite's
+image scripts after, in every frame; `sprite_run_anim` and `create_image` run
+call 0 of a script at once, the sprite pass of the same frame runs call 1, and
+call j (j >= 1) runs in the frame start + j - 1; an order sees a signal one
+frame after the sprite pass that set it.
+
+- Zerg (`order_IncompleteMorphing`): T is state 4 (timer zero), state 5 at T + 1
+  runs AlmostBuilt on the construction image (units.dat `construction_animation`
+  column, PyMS `UnitsDAT`), which signals `sigorder 4` on call 6 (every Zerg
+  construction image 102 to 105 has it, the Extractor's 102 included; 101, the Infested Command Center's, has no animations). State 6 sees it
+  in frame T + 1 + 6 = T + 7 and completes without a step (it returns). Steps stay
+  on T and T + 1: `build_time + 2`. The first batch took the signal as instant and
+  completed on T + 2: five frames early.
+- Protoss (`order_IncompleteWarping`): the foundation sprite holds the Warp Anchor
+  image (211, script 191). State 0 at T runs its SpecialState1, `sigorder 1` on
+  call 4, which state 1 takes on T + 4. State 1 then starts the Warp Texture script
+  193 Init (two calls in that frame; `sigorder 1` on call 19), which state 2 sees
+  18 frames later, T + 22, when it runs WarpIn on the building. WarpIn overlays
+  the warp-flash image (draw function 17: `image_update_warpin`, data1 48 to 63,
+  data2 2 reloading to 2: increments on frames 2, 5, ... 44 after creation, the
+  signal on frame 47, seen by state 3 on frame 48): T + 22 + 48 = T + 70 for
+  every warped-in building (Nexus, Pylon, Assimilator, Gateway and so on; types
+  whose WarpIn overlays nothing, such as the Stasis Cell and the Khaydarin
+  Crystal, have none). States 1 to 3 return without a step, but state 3 falls
+  through to the HP and shield step after `complete_unit`, so the completing frame
+  steps once more: `build_time + 2` steps, not `build_time + 1`. The first batch
+  completed on T + 1 and without that last step.
+
+Without `iscript.bin` the table is empty and the first batch's instant signals
+remain (Protoss T + 1, Zerg T + 2, no step on completion). Terran
+(`resume_building_unit`) needs no signal. Save layout is unchanged by this: only
+the meaning and range of the existing `stage` field grew.
+
+Not modelled: the images the hand-over runs (construction graphic stages, the
+warp-in picture), worker animations and exact SCV movement and placement timing;
+which frame of the creating order the foundation's first step lands on is the
+first batch's mapping. The frame order assumption (order, then sprite pass)
+and the call counting are from reading `update_unit`, `iscript_execute_sprite`
+and `sprite_run_anim` in the pinned OpenBW, not a retail trace.
 
 The command card status panel shows the site's queue and progress bar and
 offers cancellation for the site. Incomplete sites are excluded from
@@ -145,8 +183,14 @@ The per-frame arithmetic is OpenBW's; presentation gaps are listed above.
 64/256), SCV leave and replacement, 75 percent refund; Pylon (HP +154, shields
 +153 and regeneration, 452 frames, Probe released at once, refund); Spawning Pool
 (+144, 1203 frames, damaged-Drone restoration, refund) and Extractor cancel.
+The Pylon completes on frame 521 (T + 70; 452 steps) and the Spawning Pool
+1100 frames after the 100th step plus 8 (T + 7; steps unchanged), `hand_over_table`
+checks 70 and 7 for every warped-in and Zerg building and none for Terran types,
+`protoss_hand_over` checks the step on T, none on T + 1 to T + 69 and one on the
+completing frame, and cancelling during the hand-over; `unmodelled` checks the
+first batch's numbers without script data.
 Commands run: `make build/bin/starcraft`; `env SDL_VIDEODRIVER=dummy
-TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft` (24 passed,
+TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft` (31 passed,
 0 failed).
 
 `tests/starcraft/test_construction.c` covers Terran SCV attachment, damage,

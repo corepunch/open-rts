@@ -186,12 +186,17 @@ static int protoss_steps_and_release(void) {
     P_DamageMobj(site,NULL,50);
     CHECK(raw(site)==23080-50*256);
     for(int i=0;i<4000&&site->production;i++)tick();
-    /* Warp-in: 451 steps (the extra one is the frame that starts the
-     * hand-over), then a frame without a step before completion. Shield
-     * regeneration refills the shield to 300, HP keeps the damage. */
-    CHECK(frames_between(start,leveltime)+first==452);
+    /* Warp-in (order_IncompleteWarping): frame 451 is T, the first that sees the
+     * timer at zero, and steps. States 1 to 3 wait for the IScript signals, 70
+     * frames in all (p_handover.c: 4 + 18 + 48), without steps; the completion
+     * frame T + 70 = 521 steps once more (state 3 falls through to the step),
+     * 452 steps in all. Shield regeneration refills the shield to 300, HP
+     * keeps the damage. */
+    CHECK(sc_hand_over(MT_PYLON)==70);
+    CHECK(frames_between(start,leveltime)+first==521);
     CHECK(site->sc.shields==300*256);
-    CHECK(raw(site)==7680+154*451-50*256&&site->hp==252&&site->sc.wound==178);
+    /* 7680+154*452-50*256 = 64488 = 252*256-24 */
+    CHECK(raw(site)==7680+154*452-50*256&&site->hp==252&&site->sc.wound==24);
     return 0;
 }
 
@@ -226,9 +231,12 @@ static int zerg_steps_and_cancel(void) {
     int start=leveltime;
     P_DamageMobj(site,NULL,10);
     for(int i=0;i<4000&&site->production;i++)tick();
-    /* order_IncompleteMorphing steps while the timer runs and for two more
-     * frames; the IScript signal that ends it is not modelled. */
-    CHECK(frames_between(start,leveltime)>=1100+2);
+    /* order_IncompleteMorphing steps while the timer runs (1100 more frames) and
+     * on the two frames after it (states 4 and 5); state 6 then waits for the
+     * AlmostBuilt signal (sigorder 4 on call 6) and completes 7 frames after T,
+     * the frame after the timer ends, without a step: 1100 + 1 + 7 = 1108. */
+    CHECK(sc_hand_over(MT_SPAWNING_POOL)==7);
+    CHECK(frames_between(start,leveltime)==1108);
     CHECK(raw(site)==19200+144*1202-10*256&&site->hp==742&&site->sc.wound==224);
 
     /* Cancelling a second pool returns the Drone at its old HP. */
@@ -243,6 +251,80 @@ static int zerg_steps_and_cancel(void) {
     CHECK(sc_cancel_production(site,-1));
     CHECK(level.player_resources[0][0]==before+product->cost*3/4);
     CHECK(drone->type_id==MT_DRONE&&drone->hp==17&&drone->sc.wound==0);
+    return 0;
+}
+
+/* The hand-over frames come from iscript.bin: 70 for every warped-in building (4 frames
+ * for the Warp Anchor's SpecialState1 sigorder on call 4, 18 for the Warp Texture Init
+ * sigorder on call 19, 48 for the warp flash's counter), 7 for every Zerg building (1 +
+ * the AlmostBuilt sigorder on call 6), none where a script has no such path. */
+static int hand_over_table(void) {
+    static const int protoss[]={MT_NEXUS,MT_ROBOTICS_FACILITY,MT_PYLON,MT_ASSIMILATOR,MT_OBSERVATORY,MT_GATEWAY,
+        MT_PHOTON_CANNON,MT_CITADEL_OF_ADUN,MT_CYBERNETICS_CORE,MT_TEMPLAR_ARCHIVES,MT_FORGE,MT_STARGATE,
+        MT_FLEET_BEACON,MT_ARBITER_TRIBUNAL,MT_ROBOTICS_SUPPORT_BAY,MT_SHIELD_BATTERY};
+    static const int zerg[]={MT_HATCHERY,MT_NYDUS_CANAL,MT_HYDRALISK_DEN,MT_DEFILER_MOUND,MT_GREATER_SPIRE,
+        MT_QUEENS_NEST,MT_EVOLUTION_CHAMBER,MT_ULTRALISK_CAVERN,MT_SPIRE,MT_SPAWNING_POOL,MT_CREEP_COLONY,
+        MT_SPORE_COLONY,MT_SUNKEN_COLONY,MT_EXTRACTOR};
+    for(unsigned i=0;i<sizeof(protoss)/sizeof(*protoss);i++)CHECK(sc_hand_over(protoss[i])==70);
+    for(unsigned i=0;i<sizeof(zerg)/sizeof(*zerg);i++)CHECK(sc_hand_over(zerg[i])==7);
+    /* Terran buildings and units, and the Protoss buildings whose WarpIn overlays nothing, have none. */
+    CHECK(!sc_hand_over(MT_BARRACKS)&&!sc_hand_over(MT_COMMAND_CENTER)&&!sc_hand_over(MT_MARINE)&&
+          !sc_hand_over(MT_SCV)&&!sc_hand_over(169)&&!sc_hand_over(174)&&!sc_hand_over(0)&&!sc_hand_over(SC_TYPES+1));
+    return 0;
+}
+
+/* The frame before completion is still a foundation; damage and cancellation work in the hand-over. */
+static int protoss_hand_over(void) {
+    reset();
+    mobj_t *probe=spawn(MT_PROBE,FIXED2_LIT(7.5,22.5),0);
+    const StaticProductDefinition *product=G_ModelProductByUIId(NULL,MT_PYLON);
+    CHECK(probe&&product&&G_PlaceProduct(probe,product,(ivec2_t){18,24}));
+    mobj_t *site=reach_site(MT_PYLON,NULL);
+    CHECK(site&&until_frames(site,0));
+    /* The timer ran out on frame A; T = A + 1 steps, frames T + 1 to T + 69 do not, and the
+     * completing frame T + 70 = A + 71 steps once more. */
+    /* HP is already full, so take some off to see the steps. */
+    P_DamageMobj(site,NULL,50);
+    int64_t at_timer_end=raw(site);
+    int start=leveltime;
+    uint32_t id=site->id;
+    int done=0;
+    for(int i=0;i<200&&site->production;i++) {
+        tick();
+        done=frames_between(start,leveltime);
+        if(site->production&&done>=1)CHECK(raw(site)==at_timer_end+154);
+    }
+    CHECK(!site->production&&P_MobjById(id)==site&&done==71&&raw(site)==at_timer_end+2*154);
+    /* Cancelling a foundation that is warping in refunds it like any other. */
+    reset();
+    probe=spawn(MT_PROBE,FIXED2_LIT(7.5,22.5),0);
+    CHECK(probe&&G_PlaceProduct(probe,product,(ivec2_t){18,24}));
+    site=reach_site(MT_PYLON,NULL);
+    CHECK(site&&until_frames(site,0));
+    for(int i=0;i<60;i++)tick();
+    CHECK(site->production&&site->type_id==MT_PYLON);
+    int before=level.player_resources[0][0];
+    CHECK(sc_cancel_production(site,-1));
+    CHECK(level.player_resources[0][0]==before+75);
+    return 0;
+}
+
+/* With no iscript.bin the signals are taken as instant: the Pylon completes on the frame
+ * after T without a step (the first batch's 452). */
+static int unmodelled(void) {
+    sc_handover_load("data/none",NULL);
+    CHECK(!sc_hand_over(MT_PYLON)&&!sc_hand_over(MT_SPAWNING_POOL));
+    reset();
+    mobj_t *probe=spawn(MT_PROBE,FIXED2_LIT(7.5,22.5),0);
+    const StaticProductDefinition *product=G_ModelProductByUIId(NULL,MT_PYLON);
+    CHECK(probe&&product&&G_PlaceProduct(probe,product,(ivec2_t){18,24}));
+    mobj_t *site=reach_site(MT_PYLON,NULL);
+    CHECK(site);
+    int first=450-site->sc.construction.frames,start=leveltime;
+    for(int i=0;i<4000&&site->production;i++)tick();
+    CHECK(frames_between(start,leveltime)+first==452);
+    sc_handover_load("data/STARCRAFT",sc_iscript_bin());
+    CHECK(sc_hand_over(MT_PYLON)==70);
     return 0;
 }
 
@@ -288,11 +370,12 @@ int main(void) {
     level.map_path[0]='x';level.map_path[1]=0;
     static sc_mission_t mission;mission.rng=1;level.mission=&mission;
     CHECK(level.blocked&&level.cell_solid);
+    CHECK(sc_iscript_load("data/STARCRAFT")&&sc_hand_over(MT_PYLON)>0);
     RTS_RUN(terran_hp_steps());RTS_RUN(terran_completion_frame_count());
     RTS_RUN(terran_early_damage());RTS_RUN(terran_late_damage());
     RTS_RUN(terran_interrupted_and_resumed());RTS_RUN(terran_cancel_refund());
-    RTS_RUN(protoss_steps_and_release());RTS_RUN(protoss_cancel());
-    RTS_RUN(zerg_steps_and_cancel());RTS_RUN(extractor_cancel());
+    RTS_RUN(hand_over_table());RTS_RUN(protoss_steps_and_release());RTS_RUN(protoss_cancel());RTS_RUN(protoss_hand_over());
+    RTS_RUN(zerg_steps_and_cancel());RTS_RUN(extractor_cancel());RTS_RUN(unmodelled());
     P_FreeLevel(&level);
     puts("PASS: StarCraft construction HP and shields follow OpenBW per-frame steps");
     return 0;

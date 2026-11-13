@@ -306,6 +306,54 @@ static int real_scripts(void) {
     return 0;
 }
 
+/* A worker swing (the compiled harvest states) ends where its script's opcode 42 is. That
+ * opcode is gotorepeatattk, as PyMS and OpenBW name it (engframe is 43); the SCV, Drone and
+ * Probe attack scripts all end their blow with it, then ignorerest, and none uses engframe. */
+static bool saw_engframe;
+static void find_engframe(void *ctx, unsigned pc, unsigned op, const uint8_t *arg, unsigned len) {
+    (void)ctx; (void)pc; (void)arg; (void)len;
+    if (op == 43) saw_engframe = true;
+}
+static int worker_swings(void) {
+    CHECK(!strcmp(sc_iscript_op_name(42), "gotorepeatattk") && !strcmp(sc_iscript_op_name(43), "engframe"));
+    const blob_t bin = *sc_iscript_bin();
+    static const struct { int type, waits; } workers[] = {{MT_SCV, 3}, {MT_DRONE, 1}, {MT_PROBE, 1}};
+    for (unsigned i = 0; i < sizeof(workers) / sizeof(*workers); ++i) {
+        int type = workers[i].type, script = sc_unit_script[type - 1];
+        CHECK(script >= 0);
+        /* The script: the first path of the repeating attack runs to gotorepeatattk after
+         * the waits counted, then ignorerest; engframe is nowhere in it. */
+        unsigned start = sc_iscript_animation(&bin, (unsigned)script, 5);
+        CHECK(start);
+        uint8_t *seen = calloc(bin.size, 1);
+        CHECK(seen);
+        saw_engframe = false;
+        CHECK(sc_iscript_walk(&bin, start, seen, find_engframe, NULL));
+        free(seen);
+        CHECK(!saw_engframe);
+        sc_script_t c;
+        event_count = 0; frame_now = 0;
+        sc_script_start(&bin, &c, (unsigned)script, 5, &host);
+        for (frame_now = 1; frame_now < 30 && c.active; ++frame_now) sc_script_frame(&bin, &c, &host);
+        int repeat_frame = -1;
+        for (int k = 0; k < event_count; ++k) {
+            if (events[k].value == 42 && events[k].kind == 'o' && repeat_frame < 0) repeat_frame = events[k].frame;
+            if (events[k].value == 43 && events[k].kind == 'o') return 1;
+        }
+        CHECK(repeat_frame == workers[i].waits);
+        /* The compiled swing: one state per wait before that opcode, then back to the idle state. */
+        const mobjtype_t *info = P_ActorType((uint16_t)type);
+        int head = info->harvest.state_id, idle = 1 + (type - 1) * 2, count = 0;
+        CHECK(head > 0 && head < SC_STATES && states[head].group == 6);
+        for (int s = head; s != idle && count <= 8; s = states[s].nextstate) {
+            CHECK(s > 0 && s < SC_STATES && states[s].group == 6 && states[s].tics >= 1);
+            ++count;
+        }
+        CHECK(count == workers[i].waits);
+    }
+    return 0;
+}
+
 /* A Mutalisk's Glave Wurm: row 91 when it bounces, 93 when the last hit lands. */
 static int missile_sounds(void) {
     sc_script_play = record;
@@ -450,7 +498,7 @@ int main(void) {
     mobjlist_t units = P_ListMobjs();
     CHECK(R_InitSprites(root, &level, units.items, units.count, &cache));
     P_FreeMobjList(&units); P_FreeThinkers(); P_InitThinkers(); CHECK(P_InitSight());
-    if (real_scripts()) return 1; if (missile_sounds()) return 1; if (saves()) return 1;
+    if (real_scripts()) return 1; if (missile_sounds()) return 1; if (worker_swings()) return 1; if (saves()) return 1;
     puts("PASS: IScript timing, branches, random draws, sounds and cursor saves");
     return 0;
 }

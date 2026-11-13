@@ -135,9 +135,15 @@ Statuses: "yes" is handled as OpenBW does for the visual; "partial" feeds only
 the death, bullet or trail effect chain; "ignored" has no visual effect in the
 compiled states; "mis-handled" compiles to something other than the opcode's
 meaning (`playframtile` omits the tileset offset; `waitrand` waits its minimum).
-The compiler's `op == 42` branch ends a worker's swing, but 42 is
-`gotorepeatattk` (its comment says `engframe`, 43): left as it was, because
-changing it moves worker swing visuals and no trace says which was intended.
+The compiler's `op == 42` branch ends a worker's swing at `gotorepeatattk` (42;
+`engframe` is 43). The branch was right and its comment wrong: the SCV, Drone
+and Probe attack scripts (`GndAttkInit`, `GndAttkRpt`) end the blow with
+`gotorepeatattk` (OpenBW clears movement flag 8 there) and then `ignorerest`,
+which ends the compiled path anyway, and none of them uses `engframe`. The
+comment is fixed and `worker_swings` in `test_iscript` pins it: the opcode
+names, the call on which the real script reaches opcode 42 (SCV 3, Drone 1,
+Probe 1 waits) and the compiled harvest chain having exactly that many states
+before it returns to idle.
 
 ## Runtime (`games/starcraft/p_iscript.c`)
 
@@ -209,18 +215,80 @@ the Death scripts of the installed `iscript.bin`:
 |---|---|---|---|
 | 0 fly | `state_move`, aim fixed at creation, miss roll source 1 | `projectile_tick`, fixed aim, `weapon_misses` | none found |
 | 1 follow | `state_follow`, re-aims at the target each frame unless it missed | same | none found |
-| 7 bounce | `state_bounce`, 3 arrivals, divisors 1, 3, 9, search 96 px square, no lifetime | same divisors and count; `WEAPON_BOUNCE_RANGE` scan in thinker order | candidate order: OpenBW takes the first unit its unit finder yields, this engine the first thinker; which is first is not established |
-| 2 appear on target | Init sigorder, then Death; damage on the Death script's `domissiledmg` | damage on the firing tick | Death delays damage by 0 frames for most, 1 (Arclite Shock Cannon), 3 (Psionic Shockwave), 5 (Subterranean Tentacle, Acid Spray); plus the one-frame Init wait |
+| 7 bounce | `state_bounce`, 3 arrivals, divisors 1, 3, 9, search 96 px square, no lifetime | same divisors and count; target by `bounce_target` (below) | none left except ties between equal box edges |
+| 2 appear on target | Init sigorder, then Death; damage on the Death script's `domissiledmg` | a pending-hit shot mobj deals damage on the Death script's `domissiledmg` frame | none left: 0 frames for most, 1 (Arclite Shock Cannon), 3 (Psionic Shockwave), 5 (Subterranean Tentacle, Acid Spray); see "Delayed damage" |
 | 3 persist | `state_damage_over_time`, hit every 7 frames | spell code | not compared |
 | 4, 5, 6 | Death script, `domissiledmg` at frame 5 for the shared placeholder flingy 172 | not projectile weapons here | Flame Thrower, Nuclear Strike, Suicide, Scarab, Spider Mine delay 5 frames in OpenBW |
 
 For behaviors 0, 1 and 7 every Death script deals damage on its first frame
 (asserted for all weapons in `test_iscript_inventory`), so damage at the
 impact tick matches OpenBW. Behavior 8 (3x3 area) and 9 (max range) have no
-weapon with damage in this table. Not implemented: the delayed damage of
-behavior 2 and 5 weapons. It needs a pending-hit entity (new persistent state
-and a layout change) in the attack-launch path, and the OpenBW delay has no
-retail trace here; the table above is the list of what a trace should confirm.
+weapon with damage in this table. Behavior 2 is implemented below. Behavior 5
+and 6 are not (see "Delayed damage").
+
+## Delayed damage (behavior 2)
+
+Evidence is OpenBW: `fire_weapon` and `create_bullet` make the bullet inside
+the attacker's `iscript_execute` (an `attackwith` opcode); `process_frame` then
+runs `update_units` and `update_bullets` in one frame, and `update_bullets`
+executes the new bullet's sprite script (its Init, which is `wait 1` then
+`sigorder 1`) and `bullet_execute`, whose `bullet_state_init` sees the signal
+and calls `bullet_kill`, i.e. `sprite_run_anim(Death)`, which runs Death frame
+0 at once. So Death frame 0 runs on the firing frame, not one frame later (the
+"one-frame Init wait" of the first batch is absorbed in the same frame), and
+`domissiledmg` (`bullet_hit`, via `bullet_deal_damage` or `bullet_deal_splash_damage`)
+runs on Death frame k, k = 0, 1, 3 or 5 as in the table. The Death scripts of
+the installed `iscript.bin` give k (from `test_iscript_inventory`): Gauss Rifle,
+Needle Spines and the other single-frame bullets 0; Arclite Shock Cannon 1;
+Psionic Shockwave 3; Subterranean Tentacle and Acid Spray 5.
+
+The engine now fires an appear-on-target weapon (`immediate_fire` in
+`p_combat.c`) by spawning the existing `MT_SC_PROJECTILE` mobj at the bullet
+position with `sc_projectile_t.pending` set and starting its Death script
+(`sc_script_begin`). The mobj carries the pending hit: its owner, team and
+allegiance, the hallucination flag and the miss roll are taken at the firing
+tick (OpenBW `initialize_bullet`, which rolls once per bullet); its source and
+target are the mobj's own `target` and `attack.target`. `domissiledmg`
+(`host_op` in `p_iscript.c`, opcode 27 or `dogrddamage` 68) calls
+`sc_projectile_script_hit`, which deals the damage and removes the mobj; no
+new pool. Script frame k runs on the k-th tick whose 24 Hz counter advances
+after the firing tick (the shot's own tick in the firing tick does not advance
+the script), so frame 0 damage is still on the firing tick.
+
+At the hit, as OpenBW does: upgrades are read then (`weapon_damage_amount` at
+`bullet_hit`), not at the firing tick; a target removed before the frame has
+been cleared from the bullet (`remove_target_references`), so a single-target
+hit deals nothing, while a target that moved is still hit; a splash hit
+(`bullet_deal_splash_damage`) is centred on where the bullet appeared and
+measures each unit's distance now, so units that moved in or out count and a
+removed target only drops out; an attacker removed before the frame no longer
+excludes itself from splash, and the damage is credited to the bullet's
+player. The shot's own sound rows are not played by the script (`host_sound`):
+sounds.c already plays a weapon whose attack script is silent from its bullet's
+sounds at the firing tick, and in the installed script those sounds sit on
+frame 0 of Init or of Death (Tentacle: Init, the rest: Death), the firing frame.
+
+If `iscript.bin` is not loaded or the weapon has no script, the hit is dealt at
+the firing tick as before. A saved pending shot is validated against its weapon
+row (`G_SavedObjectValid`). Save layout 22 (the `pending` flag).
+
+Not done: behavior 5 and 6 (Flame Thrower, Suicide, Scarab, Spider Mine, Nuclear
+Strike, Warp Blades) also delay `domissiledmg` by 5 frames after the same
+flingy-172 Init, but the engine does not create those bullets: Firebat flames
+are dealt by the shared attack path around the target, and the others are units
+or orders with their own code. Delaying them needs the OpenBW bullet geometry
+(appear at the source, `forward_offset`, splash around that point) first; no
+trace here establishes that the engine's target-centred flames equal it.
+
+## Unit idle and walk loops: still stopped at sigorder
+
+Second batch: continuing the cursor past `sigorder` was not done, because the draw sequence cannot be shown to match OpenBW's. In `update_units` OpenBW runs, per frame, the dead units, the movement of every visible unit, then for each visible unit in list order its values, main order, secondary order, subunit and, last, `iscript_execute_sprite` over every image of its sprite (main image, shadow, overlays and glow images each with their own script and their own `waitrand` or `randcondjmp`), and only afterwards the hidden units, bullets and thingies; every `lcg_rand` of those orders and scripts draws from the one stream. Matching it needs three things this engine lacks: the unit list order (it depends on units moving between OpenBW's visible and hidden lists, not on creation order alone); the scripts of every image of every sprite, where only the main image's script is known here (shadow and overlay images are not run), so the number of draws per frame would differ; and the same order of the other `lcg_rand` consumers (unit orders, acquisition, AI) around the scripts, where `sc_mobj_ticker` runs the script first and its own orders after. `sc_random` already serves launch rolls and triggers in an order of its own, so a partially matching stream would be worse than the documented limit; unit scripts stop at `sigorder` as before. A trace of per-frame `lcg_rand` source and count from OpenBW over a recorded game, set against the engine's `sc_random` calls on the same orders, would be the evidence to settle it.
+
+## Glaive Wurm bounce target
+
+OpenBW `bullet_state_bounce` calls `find_unit_noexpand(square_at(glaive position, 96), pred)`, which returns the first unit of `find_units_noexpand`: `unit_finder_search` walks `state.unit_finder_x`, the array of every non-turret unit's inner box (`unit_sprite_inner_bounding_box`: position minus and plus `dimensions`) inserted twice, at its left and its right x, sorted by that value (`unit_finder_insert`, `lower_bound`), over the entries with value in `[from.x, to.x)` of the square. An entry counts if its unit's box starts left of the square's east side and overlaps it in y (`in_bounds`), and a unit already seen through its other entry is skipped. The predicate is `unit_can_attack_target`, an enemy (`unit_target_is_enemy`), not the current or previous target. So the target is the qualifying unit with the smallest of: its box left edge if that is at or east of the square's west side, else its right edge.
+
+`bounce_target` in `p_combat.c` computes exactly that key from `units.dat` boxes (`sc_unit_t.bounds`) instead of the old rule (first thinker whose centre is within 96 px on both axes), without a spatial finder. Test: `bounce_order` in `test_projectiles` (two candidates in either creation order, the box rather than the centre east and north, the square's edges, a unit west of the square whose right edge is inside it). Not established: units whose entries have the same x come out of OpenBW in the reverse of the order they entered the finder (`lower_bound` inserts before equal values), a history this engine does not keep; they stay in thinker order. The engine's own `P_CanTarget` and `P_VisibleTo` filters replace `unit_can_attack_target` (which has no fog test); that difference is unchanged.
 
 ## Limits
 
@@ -235,10 +303,11 @@ not a retail executable trace.
 ## Verification
 
 ```sh
-make build/bin/tests/starcraft/test_iscript build/bin/tests/starcraft/test_iscript_inventory
+make build/bin/tests/starcraft/test_iscript build/bin/tests/starcraft/test_iscript_inventory build/bin/tests/starcraft/test_delayed_damage
 env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_iscript
+env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_delayed_damage
 env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_iscript_inventory --table
 env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft
 ```
 
-StarCraft save layout is now 18 (the script cursor is part of the mobj).
+StarCraft save layout is now 22 (18: the script cursor is part of the mobj; 22: the pending-hit flag).
