@@ -590,6 +590,18 @@ bool G_ModelCompleteConstruction(RtsGameModel *m,mobj_t *site,
     S_Bark(&site,1,SE_READY,false);
     site->sc.construction=(sc_construction_t){0};
     P_SyncBuildingBlocking();
+    /* OpenBW's ConstructingBuilding completion path hands an SCV that built
+     * a refinery directly into gas harvesting. Keep queued player orders
+     * behind that active gas order. */
+    if(site->type_id==MT_REFINERY&&builder&&!builder->remove&&builder->hp>0&&
+       builder->type_id==MT_SCV) {
+        for(int i=0;i<level.resource_vent_count;i++) {
+            resourcevent_t *vent=&level.resource_vents[i];
+            if(vent->source_id!=site->id||vent->resource_type!=1)continue;
+            P_HarvestUnitsAt(&level,&builder,1,vent->attachment,true);
+            break;
+        }
+    }
     return true;
 }
 /* Finished research raises the owner's level, a Zerg morph turns the egg

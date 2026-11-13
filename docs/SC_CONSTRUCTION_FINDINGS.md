@@ -30,7 +30,8 @@ its construction order. A successful direct Harvest proceeds through travel
 to mining, becomes the active queue order, and keeps subsequent Shift orders
 pending. If a Terran SCV leaves an active foundation to harvest, the SCV and
 site links are cleared immediately and the site pauses at its current progress.
-A failed arrival-time
+A Terran SCV that finishes a Refinery is handed to the remapped gas vent, as
+OpenBW's `order_ConstructingBuilding` completion path does. A failed arrival-time
 placement or resource check discards the active build but keeps queued orders.
 Queued orders remain behind an active construction and resume after completion.
 A queued order added while the SCV walks to the site survives foundation
@@ -69,9 +70,13 @@ The pinned OpenBW reference is documented in `REFERENCES.md` and its source is
   movement; on success it creates an incomplete building and links the SCV
   (`bwgame.h`, around lines 4312–4355). `order_ConstructingBuilding` maintains
   the SCV connection and calls `resume_building_unit` while construction is
-  active (around 4383–4475). The local model approximates this with a linked
+  active (around 4383–4475); on completion, it sends an SCV that built a
+  Refinery into gas harvesting (around 4385–4395). The local model approximates this with a linked
   SCV and one progress update per game tick; it does not reproduce the worker's
   random construction animation positions.
+- `order_Repair` rejects incomplete, Stasis, loaded, non-mechanical, and
+  non-Terran targets (around 4656–4668). Local repair now checks construction
+  readiness and Stasis again while the order is active.
 - `order_PlaceProtossBuilding` revalidates after movement, spends resources,
   creates the incomplete foundation, then releases the Probe (around
   6603–6660). `order_IncompleteWarping` advances remaining time, HP, and
@@ -99,9 +104,12 @@ repair replacing a pending placement, pending-order Stop/Move/cancel, mixed
 reachable and isolated SCV Harvest selection, empty-cell Harvest preserving
 Shift orders, direct Harvest reaching the mining phase and retaining a queued
 Move, direct Harvest detaching a Terran SCV from a paused foundation, queued
-Move surviving a failed site revalidation, site death cleanup, Terran refund,
+Move surviving a failed site revalidation, refinery gas handoff after
+completion, site death cleanup, Terran refund,
 supply exclusion and invalidated placement without charge. It also
 covers Protoss Probe release, partial shields and cancellation, plus Zerg
 Drone morph/cancel with damaged-worker HP restoration. `tests/starcraft/test_save.c`
 verifies construction production, builder references, progress fields and
 construction HP survive save/load and contribute to the consistency hash.
+`tests/starcraft/test_orders.c` checks that repair orders reject unfinished
+mechanical foundations and Stasis targets and stop if a target enters Stasis.

@@ -230,6 +230,7 @@ static bool repairable(const mobj_t *worker, const mobj_t *target) {
     const sc_unit_t *u=sc_unit(target);
     return worker->type_id==MT_SCV && target && target!=worker && u &&
         !target->remove && target->hp>0 && P_IsAlly(worker,target) &&
+        G_ModelUnitReady(target) && target->sc.timers[SC_TIMER_STASIS]==0 &&
         (target->hp<target->max_hp || target->sc.wound) &&
         (u->race&2) && (u->flags&SC_UNIT_MECHANICAL) &&
         !(target->sc.flags&(SC_LOADED|SC_HALLUCINATION)) &&

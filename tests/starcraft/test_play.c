@@ -45,8 +45,9 @@ int main(void) {
     CHECK(P_CanPlaceBuilding(111,(ivec2_t){22,19},worker));
     order(worker,TC_CONSTRUCT,FIXED2_LIT(22,19),NULL,111);
     CHECK(worker->production);tick(1600);
-    CHECK(G_ModelHasActorType(NULL,0,111)&&level.resource_vents[1].active);
-    order(worker,TC_ORDER,FIXED2_LIT(24,20),NULL,0);tick(2000);
+    CHECK(G_ModelHasActorType(NULL,0,111)&&!level.resource_vents[1].active&&
+        level.resource_vents[1].amount==0&&level.player_resources[0][1]+worker->harvest.cargo==24);
+    tick(1200);
     CHECK(level.player_resources[0][1]==24&&level.resource_vents[1].amount==0);
     mobj_t *marine=spawn(0,FIXED2_LIT(10.5, 20.5),0),*enemy=spawn(0,FIXED2_LIT(13.5, 20.5),1);
     CHECK(marine&&enemy);int hp=enemy->hp;

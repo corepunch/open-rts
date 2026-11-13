@@ -106,6 +106,24 @@ static int repairs(void) {
     order(scv,TC_REPAIR,(fixed2_t){0},marine);CHECK(!scv->sc.order.kind);
     order(scv,TC_REPAIR,(fixed2_t){0},dragoon);CHECK(!scv->sc.order.kind);
     order(scv,TC_REPAIR,(fixed2_t){0},scv);CHECK(!scv->sc.order.kind);
+    mobj_t *unfinished=spawn(MT_BARRACKS,FIXED2_LIT(10.5,10.5),0);
+    CHECK(unfinished);
+    unfinished->production=calloc(1,sizeof(*unfinished->production));CHECK(unfinished->production);
+    *unfinished->production=(production_t){.actor_id=MT_BARRACKS,
+        .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_BARRACKS,
+        .queue_count=1,.time_ms=1000,.time_left_ms=500,.placed=true};
+    unfinished->hp=unfinished->max_hp/2;
+    order(scv,TC_REPAIR,(fixed2_t){0},unfinished);CHECK(!scv->sc.order.kind);
+    P_FreeMobjProduction(unfinished);
+    vulture->hp=50;vulture->sc.timers[SC_TIMER_STASIS]=10;
+    order(scv,TC_REPAIR,(fixed2_t){0},vulture);CHECK(!scv->sc.order.kind);
+    vulture->sc.timers[SC_TIMER_STASIS]=0;
+    order(scv,TC_REPAIR,(fixed2_t){0},vulture);CHECK(scv->sc.order.kind==SC_ORDER_REPAIR);
+    vulture->sc.timers[SC_TIMER_STASIS]=10;
+    int stasis_hp=vulture->hp;
+    sc_repair_ticker(scv,1);
+    CHECK(!scv->sc.order.kind&&vulture->hp==stasis_hp);
+    vulture->sc.timers[SC_TIMER_STASIS]=0;
     vulture->owner=vulture->team=1;vulture->allegiance=ALLEGIANCE_ENEMY;
     order(scv,TC_REPAIR,(fixed2_t){0},vulture);CHECK(!scv->sc.order.kind);
     vulture->owner=vulture->team=0;vulture->allegiance=ALLEGIANCE_PLAYER;

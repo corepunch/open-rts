@@ -284,6 +284,48 @@ static int harvest_stops_foundation(void) {
     return 0;
 }
 
+static int refinery_gas_handoff(void) {
+    P_FreeThinkers();P_InitThinkers();
+    memset(level.cell_solid,0,(size_t)level.width*level.height);
+    free(level.resource_vents);
+    level.resource_vents=calloc(1,sizeof(*level.resource_vents));
+    level.resource_vent_count=1;
+    level.player_resources[0][1]=0;
+    CHECK(spawn(MT_COMMAND_CENTER,FIXED2_LIT(5.5,5.5),0));
+    ivec2_t cell={20,16};
+    fixed2_t at=P_BuildingPosition(MT_REFINERY,cell);
+    mobj_t *geyser=spawn(MT_VESPENE_GEYSER,at,11);
+    mobj_t *refinery=spawn(MT_REFINERY,at,0);
+    mobj_t *scv=spawn(MT_SCV,fixed2_add(at,FIXED2_LIT(4,0)),0);
+    CHECK(geyser&&refinery&&scv&&refinery->production==NULL);
+    ivec2_t geyser_cell=fixed2_cell(at);
+    const mobjtype_t *geyser_type=P_ActorType(MT_VESPENE_GEYSER);
+    CHECK(geyser_type);
+    level.resource_vents[0]=(resourcevent_t){.cell=geyser_cell,
+        .footprint=geyser_type->footprint,
+        .attachment=fixed2_cell_center((ivec2_t){geyser_cell.x+geyser_type->footprint.w/2,
+                                                  geyser_cell.y+geyser_type->footprint.h/2}),
+        .resource_type=1,.amount=80,.rate=8,.source_id=geyser->id,.active=true};
+    refinery->production=calloc(1,sizeof(*refinery->production));
+    CHECK(refinery->production);
+    *refinery->production=(production_t){.actor_id=MT_REFINERY,
+        .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_REFINERY,
+        .queue_count=1,.time_ms=1000,.time_left_ms=1000,.placed=true};
+    refinery->target=scv;scv->target=refinery;
+    scv->sc.queue=(sc_order_queue_t){.active=TC_CONSTRUCT,.owner=0,.target=refinery->id};
+    sc_start(refinery);
+    bool handled=false;
+    const StaticProductDefinition *product=G_ModelProductByUIId(NULL,MT_REFINERY);
+    CHECK(product&&G_ModelCompleteConstruction(NULL,refinery,product,&handled)&&handled);
+    CHECK(level.resource_vents[0].source_id==refinery->id&&scv->target==NULL&&
+          refinery->target==NULL&&scv->harvest.target==0&&
+          scv->harvest.phase!=HARVEST_PHASE_NONE&&scv->sc.queue.active==TC_HARVEST);
+    P_FreeMobjProduction(refinery);
+    for(int i=0;i<3000&&level.player_resources[0][1]==0;i++)tick();
+    CHECK(level.player_resources[0][1]>0);
+    return 0;
+}
+
 static int harvest_group_acceptance(void) {
     P_FreeThinkers();P_InitThinkers();
     memset(level.cell_solid,0,(size_t)level.width*level.height);
@@ -452,6 +494,7 @@ int main(void) {
     RTS_RUN(terran());RTS_RUN(blocked_start());RTS_RUN(pending_interrupts());
     RTS_RUN(harvest_group_acceptance());
     RTS_RUN(harvest_stops_foundation());
+    RTS_RUN(refinery_gas_handoff());
     RTS_RUN(pending_repair());
     RTS_RUN(shift_before_foundation());
     RTS_RUN(terran_cancel());RTS_RUN(killed_foundation_and_supply());
