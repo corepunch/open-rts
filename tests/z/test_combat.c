@@ -850,6 +850,90 @@ static int test_pyro_fire_geometry_and_byte_lifetime(void) {
     return 0;
 }
 
+static int test_pyro_building_bridge_damage_scale(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for Pyro BUILD and bridge scaling");
+    zmap_t *map = level.native_data;
+    const ivec2_t points[] = {{320,320}, {400,400}, {500,500}};
+    mobj_t *targets[3] = {0};
+    mobj_t *fires[3] = {0};
+    for (int i = 0; i < 3; ++i) {
+        fires[i] = P_SpawnMobj(fixed3_from_fixed2(
+            fixed2_scale(fixed2_from_cell(points[i]), FIXED_ONE / Z_TILE), 0), MT_GROUND_FIRE);
+        targets[i] = blast_unit(MT_UNIT_GRUNT, 1,
+            fixed2_scale(fixed2_from_cell(points[i]), FIXED_ONE / Z_TILE), 500);
+        if (!fires[i] || !targets[i]) return fail("spawn Pyro scaling fixtures");
+        fires[i]->team = 0;
+        fires[i]->z.fire.damage = 20;
+        fires[i]->z.fire.lifetime = 127;
+        fires[i]->z.fire.sprite = 71;
+        fires[i]->z.fire.frame_count = 4;
+        fires[i]->z.fire.frame = 3;
+        fires[i]->z.fire.native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+        place_top_left(targets[i], ivec2_add(points[i], (ivec2_t){8,8}));
+    }
+
+    mobj_t *building = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell((ivec2_t){400 + 32,400 + 40}), FIXED_ONE / Z_TILE), 0), MT_ROBOT_FACTORY);
+    if (!building) return fail("spawn Pyro BUILD fixture");
+    building->native_type_id = 4;
+    building->z.building = 1;
+    building->hp = building->max_hp = 500;
+
+    map->bridges[0].bounds = (irect_t){500,500,16,16};
+    mobj_t *bridge = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *candidate = (mobj_t *)th;
+        if (th->function == P_MobjThinker && candidate->type_id == MT_BRIDGE && candidate->z.bridge == 1) {
+            bridge = candidate;
+            break;
+        }
+    }
+    if (!bridge) {
+        bridge = P_SpawnMobj(fixed3_from_fixed2(
+            fixed2_scale(fixed2_from_cell((ivec2_t){508,508}), FIXED_ONE / Z_TILE), 0), MT_BRIDGE);
+    }
+    if (!bridge) return fail("spawn Pyro bridge fixture");
+    bridge->z.bridge = 1;
+    bridge->hp = bridge->max_hp = 600;
+
+    A_ZGroundFire(fires[0]);
+    A_ZGroundFire(fires[1]);
+    A_ZGroundFire(fires[2]);
+    if (targets[0]->hp != 480 || targets[1]->hp != 496 || building->hp != 496 ||
+        targets[2]->hp != 496 || bridge->hp != 600)
+        return fail("BUILD and intact bridge scale flame damage to 24 percent; BUILD also takes damage");
+
+    ivec2_t fort_point = map->forts[0];
+    mobj_t *fort_fire = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(fort_point), FIXED_ONE / Z_TILE), 0), MT_GROUND_FIRE);
+    mobj_t *fort_target = blast_unit(MT_UNIT_GRUNT, 1,
+        fixed2_scale(fixed2_from_cell(ivec2_add(fort_point, (ivec2_t){8,8})), FIXED_ONE / Z_TILE), 500);
+    if (!fort_fire || !fort_target) return fail("spawn Pyro Fort exclusion fixture");
+    fort_fire->team = 0;
+    fort_fire->z.fire.damage = 20;
+    fort_fire->z.fire.lifetime = 127;
+    fort_fire->z.fire.sprite = 71;
+    fort_fire->z.fire.frame_count = 4;
+    fort_fire->z.fire.frame = 3;
+    fort_fire->z.fire.native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+    place_top_left(fort_target, ivec2_add(fort_point, (ivec2_t){8,8}));
+    A_ZGroundFire(fort_fire);
+    if (fort_target->hp != 480)
+        return fail("fire inside a Fort does not trigger BUILD scaling");
+
+    bridge->hp = 0;
+    targets[2]->hp = 500;
+    fires[2]->z.fire.frame = 3;
+    fires[2]->z.fire.native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+    A_ZGroundFire(fires[2]);
+    if (targets[2]->hp != 480 || bridge->hp != 0)
+        return fail("the same bridge rectangle stops scaling after its record is destroyed");
+    puts("PASS: Pyro flame damage uses native BUILD and bridge scaling");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_grenade_cooldown(void) {
     static const struct { int type, target; } cases[] = {
         {MT_UNIT_GRUNT, MT_UNIT_JEEP}, {MT_UNIT_LASER, MT_ROBOT_FACTORY},
@@ -2734,7 +2818,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_pyro_building_bridge_damage_scale() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

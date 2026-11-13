@@ -2481,16 +2481,44 @@ decrement at the normal damage wrap. In `0x4ab23`, if the coordinate checks
 at `0x281da`/`0x29fd8` find an active building or an eligible bridge, damage
 is scaled by global `0x11d4cd` as `max(1, damage * factor / 100)`.
 `0x281da` scans 35 BUILD records with nonzero health and inclusive descriptor
-footprints; flag `0x14aa50` includes building type 2. If no building covers
-the point, `0x29fd8` scans 12 bridge rectangles, skipping records whose
-flags +0x0f contain bit 2. Startup at `0x4734c` writes factor 24 (the
-executable's static byte is 50); all runtime writes remain unknown. Correction:
+footprints; flag `0x14aa50` would permit type 2, but startup `0x3ded8` converts
+type-2 Fort records to type `0xff`, which `0x281f2` skips. Forts therefore do
+not participate in this lookup. If no building covers the point, `0x29fd8`
+scans 12 bridge rectangles, skipping records whose flags +0x0f contain bit 2.
+Startup at `0x4734c` writes factor 24 (the
+executable's static byte is 50); direct xrefs show this as the only write
+instruction to the factor, though indirect or dynamically generated writes
+are not excluded. Correction:
 although `0x4aafb` contains a decrement-by-one path based on a flag set by
 these checks, `0x4aaf9` unconditionally jumps past it to the subtract-eight
 path. No incoming branch to `0x4aafb` was found in the linear disassembly,
 so the one-step path is not claimed reachable. Inspect with `r2 -q -e bin.cache=true -c 'pd 30 @ 0x50cbc' -c
 'pd 15 @ 0x50dc6' -c 'pd 12 @ 0x5fcdd' -c 'px 64 @ 0x1157a7' -c
 'pd 45 @ 0x4ab23' -c q data/Z/ZED.EXE`.
+
+**Ground-fire BUILD/bridge damage scaling (2026-11-13):** the complete
+damage route confirms `0x4ab23` runs immediately before `0x868ef` on every
+flame animation wrap. It performs `0x281da` at the fire's exact coordinates;
+if a live BUILD record matches, it scales DL by 24 percent (integer division,
+minimum 1). Otherwise it calls `0x29fd8`; an intact bridge rectangle uses the
+same scaled value. The subsequent `0x8476c` pass receives that adjusted DL,
+calls `0x3edc2` to damage the matching BUILD record, then calls separate
+effect and tile paths (`0x8523f`, `0x84f9d`, `0x27e0f`). Thus a BUILD under
+the fire both scales area damage and itself loses the scaled amount. A bridge
+is only used as the scale gate in this traced route: `0x29fd8` has no HP write,
+and the following `0x8476c` passes contain no bridge HP update. Fort type 2 is
+normalized to `0xff` during startup and is not a BUILD hit. The engine models
+this by scaling recurring unit damage and damaging a matching non-Fort
+building; an eligible bridge remains undamaged. It uses BUILD type 0's native
+tested height (descriptor height minus two cells) and inclusive bridge
+rectangles. The test `test_pyro_building_bridge_damage_scale` checks unscaled 20
+damage without a match, 4 damage with BUILD or intact bridge, direct 4 damage
+to BUILD, no bridge HP damage, and scaling off after destroying that same
+registered bridge. This does not claim the unrelated native effect-object / tile pass at
+`0x84f9d` is fully reproduced. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 45 @ 0x4ab23' -c 'pd 65 @ 0x8476c'
+-c 'pd 90 @ 0x3edc2' -c 'pd 40 @ 0x29fd8' -c 'axt @ 0x11d4cd' -c q
+data/Z/ZED.EXE`.
 
 **Pyro travel and ground-fire implementation (2026-11-13):** native
 `0x19e72` toggles global `0x10e91b` on each main update; `0x4a617` walks the
@@ -5441,6 +5469,32 @@ cannot be reached. Reproduce with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 50 @ 0x9a9ae' -c 'pd 100 @ 0x475d5'
 -c 'pxw 20 @ 0x14b088' -c 'pd 150 @ 0x7c560' -c 'pd 90 @ 0x7c83e'
 -c 'pd 55 @ 0x756a1' -c q data/Z/ZED.EXE`.
+
+**Task-6 command continuation boundary (2026-11-13):** A closer trace of the
+queued direct-point command confirms that it becomes a native path command,
+but does not reveal the later firing call. `0x7c560` reads the two queued
+coordinate words, allocates an 8-byte path record from the 0x12c0-record
+queue at `0xe7adb`, writes the destination, and calls the path/collision
+helpers `0x7c7cd` and `0x7c7f5`. In the unit update, `0x7c83e` distinguishes
+target sentinel `0x0d80`; its direct-point branch at `0x7cb27` loads +0x52/+0x54
+into the shared coordinate globals, checks bridge rectangles through
+`0x29fd8`, checks map-effect occupancy through `0x4a03b`, then evaluates the
+native group strength helper `0x7a776` before it can rebuild a command/path.
+The point is therefore carried through movement and interaction checks as a
+coordinate; that alone does not prove a shot is issued at the BUILD record.
+The recovered task-6 caller `0x9a9ae` and this receiver trace still do not
+expose which routine turns a reached/blocked direct point into a weapon
+projectile, or whether the commander observes another task outcome beyond
+destination capture. This is the concrete unresolved seam for implementation:
+trace the point-mode unit firing/update continuation and its success/failure
+return before adding a Z point-target API. Files likely affected after that
+trace are `games/z/p_ai.c`, `games/z/p_capture.c`, `games/z/z_local.h`,
+`games/z/mobj_data.h`, `game/g_cmd.c`, `game/g_save.c`, and focused Z AI/combat
+tests; do not create an attack-point state until it can share the traced
+native firing and completion lifecycle. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 55 @ 0x7c560' -c 'pd 45 @ 0x7c83e' -c
+'pd 85 @ 0x7cb27' -c 'pd 45 @ 0x29fd8' -c 'pd 35 @ 0x4a03b' -c 'pd 35
+@ 0x7a776' -c q data/Z/ZED.EXE`.
 
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,

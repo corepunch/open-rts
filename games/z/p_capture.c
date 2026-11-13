@@ -1230,9 +1230,48 @@ void A_ZWater(mobj_t *water) {
     water->core.frame = water->z.water.sprite ? water->z.water.sprite : 1622 + (water->missile.age & 3);
 }
 
+static mobj_t *ground_fire_building_at(ivec2_t point) {
+    mobj_t *found = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *building = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(building) || !building->info ||
+            building->type_id <= MT_FORT || building->type_id >= MT_UNITS || !building->z.building) continue;
+        ivec2_t origin = Z_BuildingOrigin(building);
+        isize2_t size = building->info->footprint;
+        /* Native BUILD type 0 shortens its tested height by two cells. */
+        if (building->native_type_id == 0) size.h -= 2;
+        ivec2_t d = ivec2_sub(point, origin);
+        if (d.x < 0 || d.y < 0 || d.x > size.w * Z_TILE || d.y > size.h * Z_TILE) continue;
+        if (!found || building->z.building < found->z.building) found = building;
+    }
+    return found;
+}
+
+static bool ground_fire_bridge_at(ivec2_t point) {
+    const zmap_t *map = level.native_data;
+    if (!map) return false;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *bridge = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(bridge) || bridge->type_id != MT_BRIDGE ||
+            !bridge->z.bridge || bridge->z.bridge > Z_BRIDGES || bridge->hp <= 0) continue;
+        irect_t r = map->bridges[bridge->z.bridge - 1].bounds;
+        if (point.x >= r.x && point.x <= r.x + r.w &&
+            point.y >= r.y && point.y <= r.y + r.h) return true;
+    }
+    return false;
+}
+
 static void damage_ground_fire(const mobj_t *fire) {
     ivec2_t origin = fixed2_cell(fixed2_scale(fixed3_xy(fire->core.position), FIXED_FROM_INT(Z_TILE)));
     ivec2_t max = ivec2_add(origin, (ivec2_t){24,24});
+    int damage = fire->z.fire.damage;
+    mobj_t *building = ground_fire_building_at(origin);
+    bool scaled = building || ground_fire_bridge_at(origin);
+    if (scaled) {
+        damage = damage * 24 / 100;
+        if (!damage) damage = 1;
+        if (building) P_DamageMobj(building, fire->target, damage);
+    }
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
         if (th->function != P_MobjThinker || !live(victim) || victim == fire ||
@@ -1244,7 +1283,7 @@ static void damage_ground_fire(const mobj_t *fire) {
         int offset = class_one ? 16 : 8;
         ivec2_t anchor = ivec2_add(Z_AITopLeft(victim), (ivec2_t){offset,offset});
         if (anchor.x >= origin.x && anchor.x <= max.x && anchor.y >= origin.y && anchor.y <= max.y)
-            P_DamageMobj(victim, fire->target, fire->z.fire.damage);
+            P_DamageMobj(victim, fire->target, damage);
     }
 }
 
