@@ -5025,3 +5025,17 @@ sprite +0x18 and `0x88c76` skips the remaining effect update. The full
 duration and cleanup of that state are still unknown. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x8953e'
 -c 'pd 24 @ 0x88c43' -c 'pd 24 @ 0x89280' -c q data/Z/ZED.EXE`.
+
+**Reserve recapture mark after failed routing:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9c174..0x9c1a5` selects a recently lost territory with CPU strength and
+no enemy strength. `0x9c1bd..0x9c253` selects its first eligible reserve and
+prepares the flag-centre order; after calling `0x475d5`, `0x9c25c` sets
+its task flag 0x02 unconditionally. Open-rts now sets RECAPTURE even when
+its pathfinder cannot route to the flag. As with frontier orders, the engine
+omits the native delayed order when the destination is unreachable, so its
+later timing can differ. `test_unreachable_recapture` blocks the flag node,
+checks the mark without a queued order, and checks that retaking clears it;
+`test_recapture` covers the reachable path. Reproduce with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9c174' -c q
+ data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

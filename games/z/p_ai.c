@@ -692,8 +692,8 @@ static void recapture(zmap_t *map) {
             if (task->flags & RECAPTURE) break;
             fixed2_t goal = pixel_point(ivec2_add(ivec2_scale(map->territories[t].flag, Z_TILE), (ivec2_t){8,8}));
             mobj_t *mo = P_MobjById(task->unit);
-            if (live(mo) && reachable(mo, goal)) {
-                queue(ai, task, goal, 0);
+            if (live(mo)) {
+                if (reachable(mo, goal)) queue(ai, task, goal, 0);
                 task->flags |= RECAPTURE;
             }
             break;

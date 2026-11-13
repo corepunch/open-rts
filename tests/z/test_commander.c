@@ -859,6 +859,43 @@ static int test_recapture(void) {
     return 0;
 }
 
+/* 0x9c25c marks the reserve even if its delayed order cannot be routed. */
+static int test_unreachable_recapture(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("unreachable recapture load");
+    mobj_t *lead = scenario(), *flag = NULL;
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 100;
+    for (int i = 0; nth(MT_FLAG, -1, i); ++i)
+        if (nth(MT_FLAG, -1, i)->z.territory == 5) flag = nth(MT_FLAG, -1, i);
+    if (!flag) return fail("unreachable recapture flag");
+    ivec2_t cell = ivec2_add(map->territories[4].flag, (ivec2_t){0, 3});
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->team == 1 && mo->hp > 0 && mo->z.squad == lead->z.squad)
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(cell), 0);
+    }
+    ivec2_t target = map->territories[4].flag;
+    level.blocked[L_Index(&level, target.x, target.y)] = 1;
+    P_NavFree(&level);
+    int cls = P_MobjMoveClass(lead);
+    if (P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(lead->core.position)),
+                       P_NavNodeAt(&level, cls, fixed2_cell_center(target))))
+        return fail("recapture fixture destination is unreachable");
+    think(0); think(1);
+    if (task_of(lead)->flags & 16) return fail("unreachable recapture reserve");
+    Z_SetTeam(flag, 0);
+    think(1);
+    if (!map->ai.territories[4].lockout || !(task_of(lead)->flags & 2) || task_of(lead)->pending)
+        return fail("unreachable recapture records mark without queue");
+    Z_SetTeam(flag, 1);
+    think(1);
+    if (task_of(lead)->flags & 2) return fail("unreachable recapture mark clears on retake");
+    rts_game_model_destroy(model);
+    puts("PASS: z unreachable recapture retains native mark");
+    return 0;
+}
+
 static void service_fixture(void) {
     zmap_t *map = level.native_data;
     map->computer.intelligence = 127;
@@ -1347,7 +1384,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_retreat_without_staging() || test_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
