@@ -276,11 +276,15 @@ Command counter now counts that order as one virtual missile until the channel
 resolves, avoiding a gap after Silo consumption. The local model still resolves
 the strike immediately at the end of the paint order instead of creating and
 tracking OpenBW's missile projectile during flight.
-One OpenBW quirk remains unmatched: Command At Most's specific-unit branch
-reads `unit_counts[owner]` rather than the selected-player counter, while its
-group branch loops selected players. The local model counts the selected owner
-for both; multi-player Command At Most behavior is therefore not full OpenBW
-parity.
+OpenBW's specific-unit At Most branch reads `unit_counts[owner]` once for
+every selected player, while its group branch reads each selected player's
+counter. Both Command and Bring call this shared counter function, so the same
+owner quirk applies to Bring's location-specific visible-unit count; loaded
+passengers and stored hangar contents remain omitted from Bring At Most. The
+local model preserves this source behavior, including repeated counting when
+multiple players are selected. `test_mission` contrasts the trigger owner with
+a different selected player, checks a location, and verifies the multi-player
+repetition.
 
 OpenBW classifies Gantrithor and Warbringer as Carrier and Reaver variants,
 allows them to build and launch Interceptors and Scarabs, and fixes their

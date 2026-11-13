@@ -449,6 +449,15 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 2 || type == 3) {
         unsigned where = type == 3 ? loc : 0;
+        if (op == 1 && unit < SC_TYPES) {
+            /* OpenBW's Command At Most specific-unit branch reads the
+             * trigger owner's counter once for each selected player. Bring
+             * passes its location counter through the same function. */
+            int owner = current;
+            int count = count_units(&owner, 1, unit, where, m, type == 3 ? 0 : -1,
+                                    false, type == 2);
+            return cmp_num(op, (uint64_t)count * (unsigned)n, qty);
+        }
         return cmp_num(op, count_units(players, n, unit, where, m,
                                        type == 3 ? op != 1 : -1, op != 1, type == 2), qty);
     }

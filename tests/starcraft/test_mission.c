@@ -2858,7 +2858,8 @@ int main(void) {
         uint32_t quantity = i == 1 ? expected_count - 1 : expected_count;
         bool qualifies = i != 1;
         trig = blank_trigger(); CHECK(trig);
-        put_u32(trig + 4, 17); put_u32(trig + 8, quantity);
+        if (i == 1) { trig[2372 + 17] = 0; trig[2372] = 1; }
+        put_u32(trig + 4, i == 1 ? 0 : 17); put_u32(trig + 8, quantity);
         put_u16(trig + 12, command_hangar_children[maker] - 1);
         trig[14] = i == 0 ? 0 : i == 1 ? 1 : 10; trig[15] = 2; action = trig + 320;
         put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
@@ -2929,7 +2930,8 @@ int main(void) {
     const bool active_order_expected[] = {false, true};
     for (int i = 0; i < 2; i++) {
         trig = blank_trigger(); CHECK(trig);
-        put_u32(trig + 4, 17); put_u32(trig + 8, active_order_limits[i]);
+        trig[2372 + 17] = 0; trig[2372] = 1;
+        put_u32(trig + 4, 0); put_u32(trig + 8, active_order_limits[i]);
         put_u16(trig + 12, MT_INTERCEPTOR - 1); trig[14] = 1; trig[15] = 2; action = trig + 320;
         put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
         CHECK(!write_map("/tmp/open-rts-sc-active-fighter.chk", any_unit_owners, trig));
@@ -2947,6 +2949,57 @@ int main(void) {
         free(trig); unload();
     }
     remove("/tmp/open-rts-sc-active-fighter.chk");
+    /* OpenBW Command At Most's specific-unit branch uses the trigger owner
+     * counter, even when the selected player group names someone else. */
+    for (int owner_has_unit = 0; owner_has_unit < 2; owner_has_unit++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[2372 + 17] = 0; trig[2372] = 1; /* This trigger runs only for player 0. */
+        put_u32(trig + 4, 1); put_u32(trig + 8, 0); put_u16(trig + 12, MT_MARINE - 1);
+        trig[14] = 1; trig[15] = 2; action = trig + 320;
+        put_u32(action + 16, 0); put_u32(action + 20, 10); action[24] = 0;
+        action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-command-atmost-owner.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-command-atmost-owner.chk", &level));
+        CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, owner_has_unit ? 0 : 1));
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (owner_has_unit ? 0 : 10));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-command-atmost-owner.chk");
+    /* Bring At Most shares the owner-specific counter quirk, within location 1. */
+    for (int owner_has_unit = 0; owner_has_unit < 2; owner_has_unit++) {
+        trig = blank_trigger(); CHECK(trig);
+        trig[2372 + 17] = 0; trig[2372] = 1;
+        put_u32(trig, 1); put_u32(trig + 4, 1); put_u32(trig + 8, 0);
+        put_u16(trig + 12, MT_MARINE - 1); trig[14] = 1; trig[15] = 3; action = trig + 320;
+        put_u32(action + 16, 0); put_u32(action + 20, 10); action[24] = 0;
+        action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-bring-atmost-owner.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-atmost-owner.chk", &level));
+        sc_mission_t *bring_owner_mission = level.mission;
+        bring_owner_mission->loc_count = 1;
+        bring_owner_mission->loc_right[0] = bring_owner_mission->loc_bottom[0] = 256;
+        CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, owner_has_unit ? 0 : 1));
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (owner_has_unit ? 0 : 10));
+        free(trig); unload();
+    }
+    /* Selecting both players duplicates the trigger owner's local count. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[2372 + 17] = 0; trig[2372] = 1;
+    put_u32(trig, 1); put_u32(trig + 4, 17); put_u32(trig + 8, 1);
+    put_u16(trig + 12, MT_MARINE - 1); trig[14] = 1; trig[15] = 3; action = trig + 320;
+    put_u32(action + 16, 0); put_u32(action + 20, 10); action[24] = 0;
+    action[26] = 26; action[27] = 7;
+    CHECK(!write_map("/tmp/open-rts-sc-bring-atmost-owner.chk", any_unit_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-atmost-owner.chk", &level));
+    sc_mission_t *bring_owner_mission = level.mission;
+    bring_owner_mission->loc_count = 1;
+    bring_owner_mission->loc_right[0] = bring_owner_mission->loc_bottom[0] = 256;
+    CHECK(sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0));
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-bring-atmost-owner.chk");
     /* Bring completed group counters count the Carrier only, not its fighters. */
     const uint16_t bring_group_selectors[] = {229, 230};
     for (int i = 0; i < 2; i++) {
