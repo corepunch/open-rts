@@ -303,8 +303,11 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
 - [OpenBW pinned `bwgame.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
   `update_unit_status_timers` skips Plague damage when `u_invincible(u)` is
   true (1046–1073); Irradiate uses `weapon_deal_damage`, which exits for
-  invincible targets (13030–13033). This supports the matching guards in the
-  local periodic spell ticks; no retail execution was performed.
+  invincible targets (13030–13033). `deal_irradiate_damage` (966–988) applies
+  burrowed hosts' damage to the host alone, redirects loaded hosts to their
+  carrier, and excludes buried nearby units plus Larva, Egg and Lurker Egg.
+  These support the matching local guards and target selection; no retail
+  execution was performed.
 - [OpenBW pinned `game_types.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/game_types.h):
   `tile_id::has_creep` applies `((raw_value >> 4) & 0x8000)` to a `uint16_t`,
   making the check always false; this corrects the earlier interpretation of

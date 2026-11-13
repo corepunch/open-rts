@@ -294,7 +294,11 @@ immunity. Tests use their native 37- and 75-beat durations: an invincible
 Irradiate host still damages a vulnerable neighbor while a separate invincible
 neighbor stays unharmed; combat is disabled on all three units. Both effects
 expire while their invincible host stays unharmed, and Plague damage resumes if
-invincibility clears before its timer ends. OpenBW initializes hallucinations
+invincibility clears before its timer ends. OpenBW's `deal_irradiate_damage`
+also handles a burrowed host as a self-only target and redirects a loaded
+host's effect to its carrier; area ticks exclude other burrowed units, Larva,
+Eggs and Lurker Eggs. Focused fixtures check the burrowed and loaded paths.
+These edge cases are OpenBW source parity, not retail verification. OpenBW initializes hallucinations
 when bit 8 is set in both words,
 starts a 1350-frame lifetime except for turret subunits, removes Carrier
 interceptors and marks Reaver scarabs as illusions. UNIT now initializes that

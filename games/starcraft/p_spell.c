@@ -583,13 +583,24 @@ void sc_interrupt(mobj_t *unit) {
     unit->sc.flags &= ~SC_HOLD;
 }
 
+static void irradiate_target(mobj_t *host, mobj_t *target, int damage) {
+    if (!sc_unit(target) || (target->sc.flags & SC_INVINCIBLE) || building(target) ||
+        !(sc_units[target->type_id - 1].flags & SC_UNIT_ORGANIC) ||
+        target->type_id == MT_LARVA || target->type_id == MT_EGG || target->type_id == MT_LURKER_EGG ||
+        ((target->sc.flags & SC_BURROWED) && target != host)) return;
+    P_DamageMobj(target, NULL, damage);
+}
 static void irradiate(mobj_t *host) {
     int k = SC_IRRADIATE_BEATS - host->sc.timers[SC_TIMER_IRRADIATE]--;
     int damage = SC_IRRADIATE_DAMAGE * (k + 1) / SC_IRRADIATE_BEATS - SC_IRRADIATE_DAMAGE * k / SC_IRRADIATE_BEATS;
-    fixed2_t at = where(host);
-    AROUND(v, at, SC_IRRADIATE_RADIUS, NULL)
-        if (!(v->sc.flags & SC_INVINCIBLE) && !building(v) &&
-            (sc_units[v->type_id - 1].flags & SC_UNIT_ORGANIC)) P_DamageMobj(v, NULL, damage);
+    if (host->sc.flags & SC_BURROWED) {
+        irradiate_target(host, host, damage);
+    } else if (host->sc.flags & SC_LOADED) {
+        irradiate_target(host, P_MobjById(host->sc.parent), damage);
+    } else {
+        fixed2_t at = where(host);
+        AROUND(v, at, SC_IRRADIATE_RADIUS, NULL) irradiate_target(host, v, damage);
+    }
 }
 
 bool sc_dark_swarm_protects(const mobj_t *target) {
