@@ -169,6 +169,17 @@ exclusions alongside an eligible Marine. OpenBW also skips buildings whose
 current order is liftoff or landing; the fixture checks both transitions
 remain intact when a trigger issues an Order.
 
+OpenBW classifies trigger groups 14/15/16 from directed relation statuses
+Enemy/Ally/Neutral (0/2/1), excluding the current owner and inactive slots.
+During load, Rescue Passive and Neutral controllers receive neutral relation
+in both directions with every player slot; the runtime keeps this third state
+separate from combat alliance and shared vision. A normal owner selects
+neutral/rescue slots, while a neutral owner can select all active players.
+PyMS maps action 57 to Enemy, Ally and Allied Victory; OpenBW does not
+implement it, so replacing the directed neutral relation on those assignments
+is a format-based inference. Mission and save tests cover group actions,
+Accumulate conditions, directed transitions and save/hash persistence.
+
 MRGN's 16-bit field at +18 excludes low, middle and high air and ground
 heights. OpenBW checks it using VF4 minitile height for Bring, Move Location,
 Order, Remove Unit at Location and Modify Unit Resources. Location-based

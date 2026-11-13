@@ -119,9 +119,10 @@ static bool slot_active(const sc_mission_t *m, int p) {
     }
 }
 
-static bool allied_to(int self, int other) {
-    return self >= 0 && self < 8 && other >= 0 && other < 8 &&
-        (G_AllianceMasks(&level)[self] & (UINT32_C(0x40000000) >> other));
+static int trigger_alliance_status(const sc_mission_t *m, int current, int other) {
+    uint32_t bit = UINT32_C(0x40000000) >> other;
+    if (m->neutral_relations[current] & bit) return 1;
+    return m->allies[current] & bit ? 2 : 0;
 }
 
 /* PyMS TRG.py player ids: 0..11 players, 13 Current Player, 14 Foes,
@@ -132,19 +133,17 @@ static bool in_group(const sc_mission_t *m, unsigned group, int p, int current) 
     if (p < 0 || p >= 8) return false;
     if (group < 8) return p == (int)group;
     if (group == 13) return p == current;
-    if (group == 16) return p != current && m->owners[p] == 7;
     if (group == 17) return slot_active(m, p);
     if (group >= 18 && group <= 21) return slot_active(m, p) && m->force[p] == (int)group - 18;
-    if (group == 14 || group == 15) {
-        if (p == current || !slot_active(m, p) || m->owners[p] == 7 || m->owners[p] == 3) return false;
-        bool ally = allied_to(current, p);
-        return group == 15 ? ally : !ally;
+    if (group >= 14 && group <= 16) {
+        if (p == current || !slot_active(m, p) || current < 0 || current >= 8) return false;
+        int status = group == 14 ? 0 : group == 15 ? 2 : 1;
+        return trigger_alliance_status(m, current, p) == status;
     }
     if (group == 26) {
         if (p == current || !slot_active(m, p)) return false;
-        uint32_t pbit = UINT32_C(0x40000000) >> p;
-        uint32_t currentbit = UINT32_C(0x40000000) >> current;
-        return !(m->allied_victory[current] & pbit) || !(m->allied_victory[p] & currentbit);
+        return trigger_alliance_status(m, current, p) != 2 ||
+               trigger_alliance_status(m, p, current) != 2;
     }
     return false;
 }
@@ -795,6 +794,7 @@ static void set_alliance(int a, int b, int status) {
     if (!m) return;
     uint32_t bit = UINT32_C(0x40000000) >> b;
     if (status < 0 || status > 2) return;
+    m->neutral_relations[a] &= ~bit;
     if (status == 0) m->allies[a] &= ~bit;
     else m->allies[a] |= bit;
     if (status == 2) m->allied_victory[a] |= bit;
@@ -846,6 +846,9 @@ static bool target_is_enemy_for_owner(const mobj_t *attacker, const mobj_t *targ
     int target_owner = target->owner == 11 ? target->sc.sprite_owner : target->owner;
     if (attacker->owner >= 8 || target_owner >= 8) return false;
     if (attacker->owner == target_owner) return false;
+    sc_mission_t *m = mission(&level);
+    uint32_t target_bit = UINT32_C(0x40000000) >> target_owner;
+    if (m && (m->neutral_relations[attacker->owner] & target_bit)) return false;
     const uint32_t *allies = G_AllianceMasks(&level);
     return !allies || !(allies[attacker->owner] & (UINT32_C(0x40000000) >> target_owner));
 }
@@ -1352,6 +1355,9 @@ bool sc_mission_bind(level_t *map) {
         }
         m->allies[a] = mask;
         m->allied_victory[a] = victory;
+        for (int b = 0; b < 8; b++)
+            if (m->owners[a] == 3 || m->owners[a] == 7 || m->owners[b] == 3 || m->owners[b] == 7)
+                m->neutral_relations[a] |= UINT32_C(0x40000000) >> b;
         map->sight.allies[a] = vision;
     }
     m->rng = 1;

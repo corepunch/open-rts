@@ -195,6 +195,11 @@ int main(void) {
     CHECK((alliance_mission->allies[player]&obit) && !(alliance_mission->allied_victory[player]&obit));
     CHECK(G_ConsistencyExtra(0) != victory_hash);
     alliance_mission->allied_victory[player] |= obit;
+    alliance_mission->neutral_relations[player] |= obit;
+    uint32_t neutral_hash = G_ConsistencyExtra(0);
+    alliance_mission->neutral_relations[player] &= ~obit;
+    CHECK(G_ConsistencyExtra(0) != neutral_hash);
+    alliance_mission->neutral_relations[player] |= obit;
     CHECK(G_SaveGameBlob(&saved, &length, "custom", &app, &ai, &hud));
     P_FreeLevel(&level);
     sc_set_custom_slots(NULL, NULL);
@@ -206,6 +211,7 @@ int main(void) {
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
     CHECK(consoleplayer == player && sc_player_side(consoleplayer) == 2);
     CHECK(((sc_mission_t *)level.mission)->allied_victory[player]&obit);
+    CHECK(((sc_mission_t *)level.mission)->neutral_relations[player]&obit);
     CHECK((G_AllianceMasks(&level)[player]&obit) && !(G_AllianceMasks(&level)[other]&pbit));
     CHECK((level.sight.allies[other]&pbit) && !(level.sight.allies[player]&obit));
     size_t custom_extra_size = G_SaveExtraSize();

@@ -2570,15 +2570,17 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   combined-resource summing, tie, zero, and neutral-slot handling are recorded
   as implementation choices or limitations in `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger group 26: PyMS `FileFormats/TRG.py` names player group 26
-  `Non Allied Victory Players`. Pinned OpenBW `bwgame.h` includes active
-  neutral/rescue slots in the group and filters mutual allied-victory pairs
-  (`player_slot_active`, `trigger_players_pred`). Our boolean alliance masks
-  cannot retain Ally versus Allied Victory as distinct states; see the
-  implementation limitation in `docs/SC_EXE_FINDINGS.md`.
-- StarCraft Neutral Players trigger group: PyMS `FileFormats/TRG.py` labels
-  group 16 `Neutral Players`; pinned OpenBW `bwgame.h::trigger_players_pred`
-  excludes the trigger owner for this group. The runtime maps it to other OWNR
-  7 slots; see the documented alliance-neutral-state limitation in
+  `Non Allied Victory Players`. Pinned OpenBW `bwgame.h::trigger_players_pred`
+  includes active neutral/rescue slots unless both directed alliance statuses
+  equal 2. Status 2 is also the status used by the Allies group; this predicate
+  does not read a separate Allied Victory flag. See `docs/SC_EXE_FINDINGS.md`.
+- StarCraft Foes/Allies/Neutral Players trigger groups: pinned OpenBW
+  `bwgame.h::trigger_players_pred` uses directed relation statuses 0/2/1 for
+  groups 14/15/16 and excludes the current owner and inactive slots. OpenBW
+  initializes neutral relations both ways between every slot and
+  rescue-passive or neutral controllers (CHK OWNR 3 and 7). PyMS maps action
+  57 statuses to Enemy, Ally and Allied Victory; OpenBW does not implement that
+  action, so its directed transition is documented as inference in
   `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger score conditions: checked-in PyMS `FileFormats/TRG.py`
   maps conditions 9/19/21 to Highest/Lowest/Score and defines score selectors

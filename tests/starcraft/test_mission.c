@@ -10,7 +10,7 @@ static void put_u16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t
 static void put_u32(uint8_t *p, unsigned v) { put_u16(p, v); put_u16(p + 2, v >> 16); }
 static int force_fixture = -1;
 
-static int write_map(const char *path, const uint8_t owners[12], const uint8_t *trig) {
+static int write_map_sized(const char *path, const uint8_t owners[12], const uint8_t *trig, size_t trig_size) {
     FILE *f = fopen(path, "wb");
     if (!f) return 1;
     uint8_t hdr[8], dim[4], era[2] = {0}, terrain[32 * 32 * 2];
@@ -27,11 +27,16 @@ static int write_map(const char *path, const uint8_t owners[12], const uint8_t *
         memcpy(hdr,"FORC",4);put_u32(hdr+4,sizeof(force));fwrite(hdr,1,8,f);fwrite(force,1,sizeof(force),f);
     }
     if (trig) {
-        memcpy(hdr, "TRIG", 4); put_u32(hdr + 4, 2400); fwrite(hdr, 1, 8, f); fwrite(trig, 1, 2400, f);
+        memcpy(hdr, "TRIG", 4); put_u32(hdr + 4, (unsigned)trig_size); fwrite(hdr, 1, 8, f);
+        fwrite(trig, 1, trig_size, f);
     }
     int bad = ferror(f);
     fclose(f);
     return bad;
+}
+
+static int write_map(const char *path, const uint8_t owners[12], const uint8_t *trig) {
+    return write_map_sized(path, owners, trig, trig ? 2400 : 0);
 }
 
 static uint8_t *blank_trigger(void) {
@@ -199,33 +204,124 @@ int main(void) {
         if (relation >= 3) opponent_mission->allied_victory[0] |= UINT32_C(0x40000000) >> 1;
         if (relation >= 4) opponent_mission->allied_victory[1] |= UINT32_C(0x40000000);
         ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[0][0] == (relation < 4 ? 10 : 0));
+        CHECK(level.player_resources[0][0] == (relation < 2 ? 10 : 0));
         unload(); free(opponent_trigger);
     }
     remove("/private/tmp/sc-opponents.chk");
-    /* Neutral Players excludes the neutral slot that owns this trigger. */
-    const int neutral_resource_cases[][3] = {{5, 0, 0}, {0, 5, 1}};
-    uint8_t neutral_group_owners[12] = {6, 5, 7, 7};
-    for (int i = 0; i < 2; i++) {
+    /* Neutral Players reads directed relation state, excluding the owner. */
+    uint8_t neutral_group_owners[12] = {6, 5, 7, 7, 3};
+    for (int neutral_case = 0; neutral_case < 4; neutral_case++) {
         uint8_t *neutral_group_trigger = blank_trigger(); CHECK(neutral_group_trigger);
-        neutral_group_trigger[2372 + 2] = 1;
-        put_u32(neutral_group_trigger + 4, 16); /* Neutral Players. */
-        put_u32(neutral_group_trigger + 8, 5);
-        neutral_group_trigger[14] = 0; neutral_group_trigger[15] = 4;
-        neutral_group_trigger[16] = 0; /* Ore. */
-        uint8_t *set_resources = neutral_group_trigger + 320;
-        set_resources[26] = 26; set_resources[27] = 7;
-        put_u32(set_resources + 16, 13); /* Current Player. */
-        put_u32(set_resources + 20, 10);
+        neutral_group_trigger[2372 + 17] = 0;
+        int current = neutral_case == 0 ? 0 : 2;
+        neutral_group_trigger[2372 + current] = 1;
+        neutral_group_trigger[15] = 22; /* Always. */
+        uint8_t *neutral_group_action = neutral_group_trigger + 320;
+        if (neutral_case >= 2) {
+            neutral_group_action[26] = 57; /* Ally or Enemy overrides current->slot 3. */
+            put_u32(neutral_group_action + 16, 3);
+            put_u16(neutral_group_action + 24, neutral_case == 2 ? 1 : 0);
+            neutral_group_action += 32;
+        }
+        neutral_group_action[26] = 26; neutral_group_action[27] = 7;
+        put_u32(neutral_group_action + 16, neutral_case < 2 ? 16 : neutral_case == 2 ? 15 : 14);
+        put_u32(neutral_group_action + 20, 10);
         CHECK(!write_map("/private/tmp/sc-neutral-group.chk", neutral_group_owners, neutral_group_trigger));
         CHECK(G_DoLoadLevel("/private/tmp/sc-neutral-group.chk", &level));
-        level.player_resources[2][0] = neutral_resource_cases[i][0];
-        level.player_resources[3][0] = neutral_resource_cases[i][1];
+        level.player_resources[2][0] = 5;
         ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[2][0] == (neutral_resource_cases[i][2] ? 10 : 5));
+        CHECK(level.player_resources[0][0] == (neutral_case == 1 ? 10 : 0));
+        CHECK(level.player_resources[1][0] == (neutral_case == 1 ? 10 : 0));
+        CHECK(level.player_resources[2][0] == (neutral_case == 0 ? 10 : 5));
+        CHECK(level.player_resources[3][0] == 10);
+        CHECK(level.player_resources[4][0] == (neutral_case < 2 ? 10 : 0));
         unload(); free(neutral_group_trigger);
     }
     remove("/private/tmp/sc-neutral-group.chk");
+    /* Accumulate conditions use the same directed Enemy/Ally/Neutral groups. */
+    const unsigned relation_groups[] = {14, 15, 16};
+    for (size_t i = 0; i < sizeof(relation_groups) / sizeof(relation_groups[0]); i++) {
+        uint8_t *relation_condition = blank_trigger(); CHECK(relation_condition);
+        relation_condition[2372 + 17] = 0; relation_condition[2372 + 2] = 1;
+        relation_condition[14] = 0; relation_condition[15] = 4;
+        put_u32(relation_condition + 4, relation_groups[i]);
+        put_u32(relation_condition + 8, 1); relation_condition[16] = 0;
+        uint8_t *set_current = relation_condition + 320;
+        set_current[26] = 26; set_current[27] = 7;
+        put_u32(set_current + 16, 13); put_u32(set_current + 20, 10);
+        CHECK(!write_map("/private/tmp/sc-neutral-condition.chk", neutral_group_owners, relation_condition));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-neutral-condition.chk", &level));
+        sc_mission_t *relation_mission = level.mission;
+        uint32_t p3_bit = UINT32_C(0x40000000) >> 3;
+        if (relation_groups[i] != 16) relation_mission->neutral_relations[2] &= ~p3_bit;
+        if (relation_groups[i] == 15) relation_mission->allies[2] |= p3_bit;
+        else relation_mission->allies[2] &= ~p3_bit;
+        level.player_resources[3][0] = 1;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[2][0] == 10 && level.player_resources[3][0] == 1);
+        unload(); free(relation_condition);
+    }
+    remove("/private/tmp/sc-neutral-condition.chk");
+    /* Group 26 excludes a bilateral Ally state even without Allied Victory. */
+    uint8_t *allied_group_triggers = calloc(3, 2400); CHECK(allied_group_triggers);
+    uint8_t *set_allies = allied_group_triggers;
+    set_allies[2372] = set_allies[2373] = 1; set_allies[2372 + 17] = 0;
+    set_allies[15] = 22;
+    set_allies[320 + 26] = 57;
+    put_u32(set_allies + 320 + 16, 17); /* All Players. */
+    put_u16(set_allies + 320 + 24, 1); /* CHK Ally. */
+    uint8_t *allied_group_action = allied_group_triggers + 2400;
+    allied_group_action[2372] = 1; allied_group_action[2372 + 17] = 0;
+    allied_group_action[15] = 22;
+    allied_group_action[320 + 26] = 26; allied_group_action[320 + 27] = 7;
+    put_u32(allied_group_action + 320 + 16, 26); /* Non Allied Victory Players. */
+    put_u32(allied_group_action + 320 + 20, 10);
+    uint8_t *allied_group_condition = allied_group_triggers + 4800;
+    allied_group_condition[2372] = 1; allied_group_condition[2372 + 17] = 0;
+    allied_group_condition[14] = 0; allied_group_condition[15] = 4;
+    put_u32(allied_group_condition + 4, 26); put_u32(allied_group_condition + 8, 1);
+    allied_group_condition[16] = 0;
+    allied_group_condition[320 + 26] = 26; allied_group_condition[320 + 27] = 7;
+    put_u32(allied_group_condition + 320 + 16, 13); /* Current Player. */
+    put_u32(allied_group_condition + 320 + 20, 10);
+    uint8_t plain_allies[12] = {6, 5};
+    CHECK(!write_map_sized("/private/tmp/sc-plain-allies-group26.chk", plain_allies,
+                           allied_group_triggers, 3 * 2400));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-plain-allies-group26.chk", &level));
+    level.player_resources[1][0] = 1;
+    ticks(1, &(hudtext_t){0});
+    sc_mission_t *plain_allies_mission = level.mission;
+    uint32_t p1_bit = UINT32_C(0x40000000) >> 1;
+    CHECK((plain_allies_mission->allies[0] & p1_bit) &&
+          (plain_allies_mission->allies[1] & UINT32_C(0x40000000)));
+    CHECK(!(plain_allies_mission->allied_victory[0] & p1_bit) &&
+          !(plain_allies_mission->allied_victory[1] & UINT32_C(0x40000000)));
+    CHECK(level.player_resources[1][0] == 1 && level.player_resources[0][0] == 0);
+    unload(); free(allied_group_triggers); remove("/private/tmp/sc-plain-allies-group26.chk");
+
+    /* Neutral-controller status overrides coincident force ally/victory masks. */
+    force_fixture = 6;
+    uint8_t neutral_force_owners[12] = {7, 6};
+    uint8_t *neutral_force_trigger = blank_trigger(); CHECK(neutral_force_trigger);
+    neutral_force_trigger[2372 + 17] = 0; neutral_force_trigger[2372] = 1;
+    neutral_force_trigger[15] = 22;
+    uint8_t *force_action = neutral_force_trigger + 320;
+    force_action[26] = 26; force_action[27] = 7; put_u32(force_action + 16, 15);
+    put_u32(force_action + 20, 5); put_u16(force_action + 24, 1); /* Allies -> gas 5. */
+    force_action += 32; force_action[26] = 26; force_action[27] = 7; put_u32(force_action + 16, 16);
+    put_u32(force_action + 20, 10); put_u16(force_action + 24, 0); /* Neutral -> ore 10. */
+    force_action += 32; force_action[26] = 26; force_action[27] = 7; put_u32(force_action + 16, 26);
+    put_u32(force_action + 20, 7); put_u16(force_action + 24, 1); /* Not Allied Victory -> gas 7. */
+    CHECK(!write_map("/private/tmp/sc-neutral-force-relation.chk", neutral_force_owners, neutral_force_trigger));
+    CHECK(G_DoLoadLevel("/private/tmp/sc-neutral-force-relation.chk", &level));
+    ticks(1, &(hudtext_t){0});
+    sc_mission_t *neutral_force_mission = level.mission;
+    CHECK((neutral_force_mission->neutral_relations[0] & p1_bit) &&
+          (neutral_force_mission->allies[0] & p1_bit) &&
+          (neutral_force_mission->allied_victory[0] & p1_bit));
+    CHECK(level.player_resources[1][0] == 10 && level.player_resources[1][1] == 7);
+    unload(); free(neutral_force_trigger); remove("/private/tmp/sc-neutral-force-relation.chk");
+    force_fixture = -1;
     /* An inactive source slot contributes no opponents. */
     uint8_t inactive_owners[12] = {0, 6};
     uint8_t *inactive_opponents = blank_trigger(); CHECK(inactive_opponents);
@@ -541,13 +637,12 @@ int main(void) {
         non_allied_mission->kills[3][MT_MARINE - 1] = 99;
         non_allied_mission->kills[4][MT_MARINE - 1] = 99; /* Closed slot must not join group 26. */
         ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[0][0] == 0); /* Plain allies still count in group 26. */
-        non_allied_mission->allied_victory[0] |= UINT32_C(0x40000000) >> 3;
+        CHECK(level.player_resources[0][0] == 0); /* A one-way status 2 is not enough. */
+        non_allied_mission->neutral_relations[0] &= ~(UINT32_C(0x40000000) >> 3);
+        non_allied_mission->neutral_relations[3] &= ~UINT32_C(0x40000000);
+        non_allied_mission->allies[3] |= UINT32_C(0x40000000);
         ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[0][0] == 0); /* Victory alliance must be mutual. */
-        non_allied_mission->allied_victory[3] |= UINT32_C(0x40000000);
-        ticks(1, &(hudtext_t){0});
-        CHECK(level.player_resources[0][0] == 10); /* Only neutral+rescue qualify; closed has 99 kills. */
+        CHECK(level.player_resources[0][0] == 10); /* Plain mutual Ally excludes p3; closed is excluded. */
         free(non_allied_trigger); unload();
     }
     remove("/tmp/open-rts-sc-non-allied-victory.chk");
@@ -2104,6 +2199,22 @@ int main(void) {
         free(trig); unload();
     }
     remove("/tmp/open-rts-sc-give-support.chk");
+
+    /* A rescued neutral owner is not an enemy solely because it is not allied. */
+    uint8_t neutral_give_owners[12] = {6, 5, 7};
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; trig[2372 + 17] = 0; trig[2372] = 1;
+    action = trig + 320;
+    put_u32(action + 16, 1); put_u32(action + 20, 2);
+    put_u16(action + 24, MT_MARINE - 1); action[26] = 48;
+    CHECK(!write_map("/tmp/open-rts-sc-give-neutral.chk", neutral_give_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-give-neutral.chk", &level));
+    mobj_t *neutral_give_target = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){160, 128}, 1);
+    mobj_t *neutral_give_attacker = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0);
+    CHECK(neutral_give_target && neutral_give_attacker);
+    neutral_give_attacker->attack.target = neutral_give_target;
+    ticks(1, &(hudtext_t){0});
+    CHECK(neutral_give_target->owner == 2 && neutral_give_attacker->attack.target == NULL);
+    free(trig); unload(); remove("/tmp/open-rts-sc-give-neutral.chk");
 
     /* Defeat retains the target's native sprite owner for directional hostility. */
     uint8_t neutral_target_owners[12] = {6, 5};

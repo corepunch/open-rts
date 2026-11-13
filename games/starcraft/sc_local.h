@@ -212,7 +212,8 @@ typedef struct {
     uint16_t loc_elevation[64]; /* MRGN exclusion flags, low/mid/high air then ground. */
     int loc_count;
     uint8_t owners[12], side[12], force[8], force_flags[4];
-    uint32_t allies[8], allied_victory[8]; /* Directional relationships, separate from shared vision. */
+    uint32_t allies[8], allied_victory[8], neutral_relations[8];
+    /* Directional OpenBW relation states; neutral is separate from combat ally and shared vision. */
     sc_trig_t *rt;
     int trig_count;
     uint8_t switches[256];

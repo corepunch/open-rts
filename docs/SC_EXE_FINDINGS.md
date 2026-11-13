@@ -2752,33 +2752,49 @@ higher/lower case, and an active neutral slot.
 `Non Allied Victory Players`. In pinned OpenBW `bwgame.h`,
 `player_slot_active` includes neutral, rescue-passive, and unused-rescue-active
 slots (18123–18131); `trigger_players_pred` accepts group 26 when the candidate
-is not the owner and the two alliance directions are not both allied-victory
-(18133–18148).
+is not the owner and both directed alliance statuses are not 2
+(18133–18148). In that source, status 2 is also the status used by the Allies
+group; group 26 does not read a separate Allied Victory flag.
 
 **Implemented behavior:** group 26 considers modeled active slots (OWNR 3–7)
 except the current owner and excludes mutually allied slots. It excludes OWNR
 0 (Inactive) and OWNR 8 (Closed, marked invalid by the checked-in PyMS CHK
 definition), as well as other unsupported owner values. This includes active
-neutral and rescue owners. The runtime has no per-player defeated/eliminated
-state in `sc_mission_t`, so it cannot filter defeated controllers separately.
-It also stores a boolean alliance mask, not a separate Allied versus Allied
-Victory status; mutual alliance is therefore the available proxy. This group
-mapping is OpenBW reference behavior, not a retail executable trace.
+neutral and rescue owners. Defeated human and computer controllers are excluded
+using the per-player mission outcome state.
+The runtime uses status 2 for a directed ally bit, so group 26 excludes a
+candidate only when that status is present in both directions. The separate
+Allied Victory mask does not affect this predicate. Neutral relation status 1
+takes precedence over a coincident force-derived combat mask, following the
+OpenBW neutral initialization; the source applies this initialization after
+reset and before calling setup_f (20801–20818). The callback's possible
+force-specific alliance changes are external to this header and remain
+unverified. This group mapping is OpenBW reference behavior, not a retail
+executable trace.
 
 `test_mission` checks inclusion of active neutral and rescue slots, exclusion
 of a closed slot with a deliberately higher matching kill count, and exclusion
 of a mutually allied neutral slot.
 
-### Neutral Players trigger group excludes the current owner (2026-11-12)
+### Directed Enemy, Ally and Neutral trigger groups (2026-11-12)
 
-Pinned OpenBW `bwgame.h::trigger_players_pred` handles player group 16 by
-excluding the trigger owner and matching neutral alliance status (18133–18148).
-PyMS `FileFormats/TRG.py` labels group 16 `Neutral Players`. The runtime models
-the group as other OWNR 7 slots, because it has no independent alliance-neutral
-state. `in_group` now excludes `current`; a `test_mission` Accumulate condition
-checks that resources owned only by the current neutral slot do not satisfy
-the group, while resources owned by a second neutral slot do. This is pinned
-OpenBW behavior, not a retail executable trace.
+Pinned OpenBW `bwgame.h::trigger_players_pred` classifies groups 14, 15 and 16
+from the current owner's directed alliance entry: Enemy is status 0, Allies is
+status 2, and Neutral Players is status 1 (18133–18148). All groups exclude
+the current owner and inactive slots. During load OpenBW sets status 1 in both
+directions between every Rescue Passive or Neutral controller and all 12
+slots (20805–20809); these are CHK OWNR 3 and 7. The runtime keeps this
+three-state relation separate from combat alliance, Allied Victory and shared
+vision, and stores the modeled directed edges in `neutral_relations`.
+
+PyMS `TRG.py` maps Set Alliance Status values to Enemy, Ally and Allied
+Victory (action 57). OpenBW does not implement action 57 directly; replacing
+the directed neutral edge when this action selects a state is a format-based
+inference. Tests cover normal and neutral current owners, status transitions
+to Ally and Enemy in action selectors, all three groups in Accumulate
+conditions, and a neutral target transferred by Give Units. Save/hash tests
+cover the relation state. This is pinned OpenBW plus format-tool evidence,
+not a retail executable trace.
 
 ### Highest/Lowest Score trigger conditions (2026-11-12)
 
@@ -2811,24 +2827,27 @@ PyMS `FileFormats/TRG.py` lists action 57's encoded statuses as Enemy (0),
 Ally (1), and Allied Victory (2); its `CHKSectionFORC.py` defines separate
 force bits 0x02 (allies) and 0x04 (allied victory). OpenBW's
 `bwgame.h` `trigger_players_pred` treats group 26 as players for whom either
-directional relationship is not 2, and its unit code treats nonzero
-relationships as allied. This is reference implementation evidence, not an
-executable trace. The mission retains a directional victory mask alongside the
-combat mask, initializes it for forces with both flags, and action 57 sets or
-clears it with the corresponding combat relationship. The mask is saved with
-the mission and included in the lockstep consistency hash. A diplomacy
-command that breaks an alliance also clears its victory bit. The exact retail
-handling of a force with victory enabled but allies disabled and of manual
-alliance changes remains unknown. OpenBW also classifies plain allies as
-neutral for trigger groups 14–16; those groups currently retain their earlier
-approximation and need separate investigation.
+directional relationship is not status 2; this is the ordinary directed
+alliance relation, separate from the CHK Allied Victory flag. Its unit code
+treats nonzero relationships as allied. This is reference implementation
+evidence, not an executable trace. The mission also retains a directional
+victory mask alongside the combat mask, initializes it for forces with both
+flags, and action 57 sets or clears it with the corresponding combat
+relationship. The mask is saved with the mission and included in the lockstep
+consistency hash. A diplomacy command that breaks an alliance also clears its
+victory bit. The exact retail handling of a force with victory enabled but
+allies disabled and of manual alliance changes remains unknown. Enemy, Ally
+and Neutral trigger groups use the separate directed relation state described
+above.
 
 Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`; the fixture
-covers statuses 0–2, force flags, and unilateral versus mutual victory for
-group 26. OpenBW source: https://github.com/OpenBW/openbw/blob/master/bwgame.h
+covers statuses 0–2, force flags, bilateral plain Ally, and neutral-controller
+overlap for group 26. OpenBW source:
+https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h
 OpenBW's `trigger_opponent_count` sums group 26 for each selected source
 player, so Opponents now uses that same predicate, including active neutral
-and rescue slots. The mission test exercises plain mutual allies and one-way
-and mutual victory relationships; `test_save` checks the victory bit survives
-an engine save and that breaking and reforming an alliance clears it.
+and rescue slots. The mission test exercises plain mutual allies, a one-way
+ally, and neutral status overlapping force masks; `test_save` checks the
+victory bit survives an engine save and that breaking and reforming an
+alliance clears it.
