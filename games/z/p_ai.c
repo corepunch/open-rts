@@ -655,7 +655,11 @@ static void advance(zmap_t *map, mobj_t *const *units, int count) {
         zaitask_t *task = &ai->tasks[i];
         if (!offensive(task)) continue;
         int t = task->destination;
-        if (t < 0 || task->task == GARRISON || task->task == VEHICLE) continue;
+        if (t < 0) {
+            local_flag(map, task, units, count);
+            continue;
+        }
+        if (task->task == GARRISON || task->task == VEHICLE) continue;
         if (task->task == MARCH || task->task == ASSAULT || task->task == FLAG || task->task == STAGED) {
             if (owned(ai, t)) {
                 task->task = IDLE;

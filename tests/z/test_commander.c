@@ -599,6 +599,15 @@ static int test_flag_follower(void) {
             (!last || unit->z.squad_slot > last->z.squad_slot)) last = unit;
     }
     if (!last) return fail("flag follower fixture has followers");
+    *task = (zaitask_t){.unit=lead->id, .squad=lead->z.squad, .current=2, .task=8,
+                        .target=-1, .destination=-1, .flags=24, .retry=100};
+    map->ai.delay = 0;
+    map->ai.intelligence = 127;
+    think(1);
+    if (!last->z.flag_runner || !P_HasMoveOrder(last) || P_HasMoveOrder(lead))
+        return fail("local flag dispatches follower with no strategic destination");
+    Z_SquadOrder(lead, false);
+    if (last->z.flag_runner || P_HasMoveOrder(last)) return fail("clear destinationless flag fixture");
     *task = (zaitask_t){.unit=lead->id, .squad=lead->z.squad, .current=2, .task=6,
                         .target=8, .destination=8, .flags=24, .retry=100};
     map->territories[8].importance = 0;

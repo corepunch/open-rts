@@ -5223,7 +5223,10 @@ duration and cleanup of that state are still unknown. Inspect with
 
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
-the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks. For
+the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks even
+when the preceding `0x99818` returns for a missing strategic destination.
+`0x99abd` then applies its own task and territory gates; it does not require
+that destination except for its task-3 strength comparison. For
 an unowned non-fort current territory it excludes tasks -1, 1, 4 and 5,
 checks other task-1 groups, an existing member mark, territory restrictions,
 and a strict 160-pixel distance (`0x99bce`). Task 3 additionally requires
@@ -5255,7 +5258,8 @@ to check that destination even for task 1. Actual flag capture also calls
 territory to task 0, preserving its other fields. The engine applies that
 release in the capture event. `test_flag_follower` and
 `test_flag_solo_and_promotion` cover cancellation, redispatch, promotion,
-distinct current/destination, save/load and real flag capture. Inspect with
+distinct current/destination, save/load and real flag capture; the former
+also exercises a task 8 with no strategic destination. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 95 @ 0x99abd' -c 'pd 65 @ 0x99cbd' -c 'pd 40 @ 0x99d4d' -c 'pd 45 @
 0x79f07' -c q data/Z/ZED.EXE`.
