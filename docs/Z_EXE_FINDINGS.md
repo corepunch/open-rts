@@ -5143,3 +5143,19 @@ own, and checks that the attack retreats. Other later AI passes can still
 reassign the garrison. Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 45 @ 0x99e60' -c 'pd 65 @ 0x9a126' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Unsigned garrison-value selection:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x99386..0x993bf` initializes the cheapest value to `0xffffffff`, scans
+eligible garrisons and uses unsigned `jb` at `0x993ae`, keeping the last
+of equal values. A final value of `0xffffffff` is the no-candidate sentinel.
+`0x99ea4..0x99ead` compares the candidate territory value to the attack
+territory using unsigned `ja`. Open-rts now uses the same dword comparison
+and sentinel. A negative signed territory value therefore ranks above a
+positive value instead of being treated as cheaper. The normal AI test
+`test_reinforce_negative_garrison` supplies a negative-value garrison,
+positive-value attack and insufficient idle force, and checks that the
+attack retreats; it fails with the previous signed comparison. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 35 @ 0x9937f'
+-c 'pd 35 @ 0x99e9b' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

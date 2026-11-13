@@ -495,16 +495,16 @@ static bool reinforce(zmap_t *map, int territory) {
     int use = enough(pool, n, need);
     if (!use) {
         zaitask_t *cheapest = NULL;
-        int32_t value = INT32_MAX;
+        uint32_t value = UINT32_MAX;
         for (int i = 0; i < Z_AI_TASKS; ++i) {
             zaitask_t *task = &ai->tasks[i];
             if (offensive(task) && task->task == GARRISON && task->target >= 0 &&
-                ai->territories[task->target].value <= value) {
-                value = ai->territories[task->target].value;
+                (uint32_t)ai->territories[task->target].value <= value) {
+                value = (uint32_t)ai->territories[task->target].value;
                 cheapest = task;
             }
         }
-        if (!cheapest || value > ai->territories[territory].value) return false;
+        if (value == UINT32_MAX || value > (uint32_t)ai->territories[territory].value) return false;
         pool[n++] = (pooled_t){cheapest, 0};
         if (!(use = enough(pool, n, need))) return false;
     }
