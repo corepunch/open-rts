@@ -139,10 +139,13 @@ typedef struct {
     bool done, victory;
     int countdown;
     int hold;   /* Human level 2: checks the rescue victory has held so far. */
+    bool hero_seen; /* Orc mission 2: the local player has held Zuljin (p_obj_orc.c). */
 } w2_mission_t;
 void W2_SetCampaign(int number, bool orc);
 /* Human campaign missions 2-14 (p_obj_human.c): the ELIMINATE_* rules still in force. */
 unsigned W2_HumanObjectives(w2_mission_t *mission, mobj_t *const *units, int count);
+/* Orc campaign missions 2..14 (p_obj_orc.c): ends the level and returns the ELIMINATE_* rules. */
+unsigned W2_OrcObjectives(w2_mission_t *mission, mobj_t *const *units, int count);
 bool w2_init_mission(level_t *map);
 /* One archive read for the whole campaign; a level that is absent has width 0. */
 bool w2_campaign_infos(const char *root, bool orc, w2_pud_info_t infos[W2_CAMPAIGN_LEVELS]);
