@@ -394,12 +394,14 @@ static void projectile_impact(mobj_t *shot) {
     }
     if(!next) {
         int death=shot->sc.projectile.death_state;
+        sc_script_begin(shot,sc_weapon_script[shot->sc.projectile.weapon],SC_ANIM_DEATH);
         if(death>0&&P_SetMobjState(shot,death)) shot->sc.projectile.weapon=-1;
         else P_RemoveMobj(shot);
     }
     if(damage>0)P_DamageMobj(target,source?source:shot,damage);
     else if(can_hit&&source)P_ProvokeMobj(target,source);
     if(next) {
+        sc_script_begin(shot,sc_weapon_script[shot->sc.projectile.weapon],SC_ANIM_SPECIAL1);
         /* GlaveWurmSpecialState1 spawns image 512 (SporeHit) at every
          * intermediate hit. The compiled Death chain shares that image's
          * Init state, so reuse it without adding projectile save state. */
@@ -526,6 +528,7 @@ static void recharge(mobj_t *battery, int frames) {
  * energy, except while a cloak they switched on drains it. */
 static void sc_mobj_ticker(mobj_t *mo) {
     int frames = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
+    sc_script_tick(mo, frames);
     if(mo->type_id==MT_SC_PROJECTILE) {
         if(mo->sc.projectile.weapon>=0)projectile_tick(mo,frames);
         return;

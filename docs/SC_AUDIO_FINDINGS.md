@@ -72,21 +72,58 @@ WAV actions while muted)
 and `tests/starcraft/test_save.c` (ordinary save/load, peer-local resync, hash
 exclusion, and save-layout version).
 
-## Confirmed gaps outside this package
+## Script-timed sounds (implemented)
+
+The IScript runtime in `games/starcraft/p_iscript.c` (see
+[SC_PROJECTILE_VISUALS.md](SC_PROJECTILE_VISUALS.md)) now plays sounds from the
+script frame that carries them, with OpenBW's `playsnd`, `playsndrand` and
+`playsndbtwn` semantics: a fixed row, `ids[r % n]` from `lcg_rand` source 4,
+or `a + r % (b - a + 1)` from source 5. The draws come from `sc_random`, the
+synchronized LCG OpenBW uses for them, and are made whether or not the sound
+is audible. Wired animations: missile Death (impact) and bounce
+(`SpecialState1`), Burrow, UnBurrow, Lift Off and Landing. Rows 471/472 are the
+Terran lift-off (frame 0) and landing (frames 15 to 25) sounds, 354 a Spider
+Mine's burrow, 91 and 93 a Glave Wurm's bounce and impact, and 72, 79, 9, 66,
+614 and others the impact sounds of the other bullets. Sound rows named by
+these scripts are loaded with the bank (`mark_rows` in `sounds.c`). A script
+sound honors Mute Unit Speech per chosen row (choose, then suppress) and the
+fog rule of `S_ActorSound`, and goes through `sc_script_play` so tests can
+observe it. Attack and death sounds still use the first-sound lookup at the
+engine's attack and death events.
+
+## Channel priority and never_preempt (traced, not implemented)
+
+What is established:
+
+- `sfxdata.dat` has 968 rows here: SoundPriority (the second column) is 0 for
+  12 rows, 1 for 825, 2 for 130 and 3 for one; `never_preempt` (flag bit 5,
+  PyMS `Sound.Flag.never_preempt`) is set on 753 rows, `unit_speech` on 697,
+  `one_at_a_time` on 27 (counted from the installed file).
+- PyMS's `SoundPriority` hint: higher priority may override a lower one that is
+  playing when Brood War has no free sound channel.
+- OpenBW has no policy: its `state_functions::play_sound` is an empty virtual
+  hook and `sound_type_t` merely carries `priority`, `flags`, `race` and
+  `min_volume` (`openbw-data_types.h`); nothing in `bwgame.h` reads them.
+
+What is not established, so nothing is implemented: how many channels retail
+has, which sound is the victim when several are lower, how a tie between equal
+priorities resolves, whether `never_preempt` sounds can themselves preempt,
+and what a saturated set of non-preemptible sounds does to a new sound. The
+trace that would settle it is a `STARCRAFT.EXE` read of the sound-start routine
+that consumes the `sfxdata` priority and flag columns (the code that finds a
+free channel), plus a channel-saturation recording. `SoundPriority` is not
+routed through `sfxinfo_t.priority`. Independent trigger WAV playback and the
+speech mute are untouched (`tests/starcraft/test_sounds.c` passes unchanged).
+
+## Remaining gaps outside this package
 
 Several broader audio omissions remain documented in
 `docs/SC_EXE_FINDINGS.md` and require additional source work:
 
-- Missile impact sounds require mapping weapon/projectile identity through the
-  current combat lifecycle (`p_combat.c`) and/or compiling more IScript events
-  (`w_assets.c`).
-- Lift, land, burrow and spell sounds need sound events tied to script/state
-  timing. The current actor callback only receives coarse engine events; a
-  correct implementation needs the IScript/action path rather than guessing
-  timing from the order request.
-- Arbitrary `playsnd`, `playsndrand`, and `playsndbtwn` playback remains outside
-  the limited first-sound lookup. Completing this requires a broader script
-  runtime/compiler change, not a static WAV mapping.
+- Spell sounds and the attack and death sounds are not yet driven by their
+  scripts; only the animations listed above are.
+- Arbitrary scripts' idle loops are not played, so their random draws are not
+  made (retail draws them).
 - Sfxdata minimum-volume behavior, positional falloff, music sequence fidelity,
   and exact retail option semantics remain outside this investigation.
 

@@ -331,6 +331,7 @@ void sc_burrow(mobj_t *mo) {
     mo->sc.order = (sc_order_t){.kind = SC_ORDER_BURROW};
     int state = sc_burrow_states[mo->type_id - 1][0];
     if (state) P_SetMobjState(mo, state);
+    sc_script_begin(mo, sc_unit_script[mo->type_id - 1], SC_ANIM_BURROW);
 }
 static void dug_in(mobj_t *mo) {
     mo->sc.flags |= SC_BURROWED;
@@ -346,6 +347,7 @@ void sc_unburrow(mobj_t *mo) {
     mo->sc.order = (sc_order_t){.kind = SC_ORDER_UNBURROW};
     int state = sc_burrow_states[mo->type_id - 1][1];
     if (state) P_SetMobjState(mo, state);
+    sc_script_begin(mo, sc_unit_script[mo->type_id - 1], SC_ANIM_UNBURROW);
 }
 static void dug_out(mobj_t *mo) {
     /* A mine only bursts; it keeps the prey it woke for. */

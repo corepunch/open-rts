@@ -157,10 +157,6 @@ int sc_projectile_trail_state(int weapon) {
 bool sc_projectile_trail_repeats(int weapon) {
     return weapon >= 0 && weapon < SC_WEAPONS && projectile_trail_repeats[weapon];
 }
-static const uint8_t oplen[69]={
-    2,2,1,1,2,1,2,2,4,4,2,2,0,4,4,4,4,4,2,4,4,3,0,1,2,255,4,0,255,0,3,1,
-    1,0,1,1,1,1,0,0,1,1,0,1,1,0,0,0,0,1,0,0,1,2,0,2,1,2,4,6,6,2,0,2,2,1,4,0,0
-};
 enum {
     SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_GND_ATTACK_RPT=5, SC_WALKING=11,
     SC_LANDING=17, SC_LIFT_OFF=18, SC_STAREDIT_INIT=23, SC_BURROW=25, SC_UNBURROW=26,
@@ -168,34 +164,17 @@ enum {
 /* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. A work
  * swing (6) plays once and returns to idle, like an attack without the blow. */
 enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6, SC_GROUP_HOLD=7 };
-static unsigned animation_start(const blob_t *s,unsigned id,int anim) {
-    if(s->size<6) return 0;
-    size_t table=read_u32_le(s->bytes+2)==0?read_u16_le(s->bytes):0;
-    for(size_t at=table;at+4<=s->size;at+=4) {
-        unsigned key=read_u16_le(s->bytes+at),off=read_u16_le(s->bytes+at+2);
-        if(key==65535) break;
-        if(key!=id) continue;
-        if(off+8u>s->size||memcmp(s->bytes+off,"SCPE",4)) return 0;
-        unsigned type=s->bytes[off+4];
-        unsigned count=type<=1?2:type==2?4:type<=13?14:type<=15?16:type<=21?22:type==23?24:
-                       type==24?26:type<=29?28:0;
-        if(anim<0||(unsigned)anim>=count||off+8u+count*2>s->size) return 0;
-        return read_u16_le(s->bytes+off+8+anim*2);
-    }
-    return 0;
-}
 /* The sfxdata.dat ids of the first sound an animation plays, following its
  * gotos and calls: playsnd (0x18), playsndrand (0x19), playsndbtwn (0x1a) or
  * the hit sounds of attackmelee (0x1c), whose operands are PyMS's. A strike
  * reached first means the animation has no sound of its own. */
 int sc_iscript_sounds(const blob_t *script,unsigned id,int anim,uint16_t *out,int max) {
-    unsigned at=animation_start(script,id,anim),stack[16],sp=0;
+    unsigned at=sc_iscript_animation(script,id,anim),stack[16],sp=0;
     for(int step=0;at&&step<512&&at<script->size;step++) {
         unsigned op=script->bytes[at++];
-        if(op>=sizeof(oplen)) return 0;
-        unsigned len=oplen[op];
-        if(len==255) { if(at>=script->size) return 0; len=1+script->bytes[at]*2; }
-        if(len>script->size-at) return 0;
+        int size=sc_iscript_op_length(op,script->bytes+at,script->size-at);
+        if(size<0) return 0;
+        unsigned len=(unsigned)size;
         const uint8_t *arg=script->bytes+at; at+=len;
         int n=0;
         if(op==0x18) out[n++]=read_u16_le(arg);
@@ -231,10 +210,9 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
     unsigned at=start,stack[16],sp=0,visited[128]; int ids[128],n=0,last=-1;
     for(int step=0;step<2048 && at<script->size;step++) {
         unsigned here=at,op=script->bytes[at++];
-        if(op>=sizeof(oplen)) break;
-        unsigned len=oplen[op];
-        if(len==255) { if(at>=script->size) break; len=1+script->bytes[at]*2; }
-        if(len>script->size-at) break;
+        int size=sc_iscript_op_length(op,script->bytes+at,script->size-at);
+        if(size<0) break;
+        unsigned len=(unsigned)size;
         const uint8_t *arg=script->bytes+at; at+=len;
         if(op==0||op==1) { int f=script_frame(sheet,turns,read_u16_le(arg),fixed); if(f<0) break; frame=f; }
         else if(op==0x34) fixed=true;
@@ -325,7 +303,7 @@ static int effect(const sc_effects_t *e,int tail,unsigned image,bool followed) {
     if(next_state>=SC_STATES) return tail;
     const spritesheet_t *sheet=&e->cache->entries[extra_slot[k]].sprite;
     int head=next_state++;
-    int last=animation(e->script,animation_start(e->script,read_u32_le(e->images->bytes+e->ni*10+image*4),SC_INIT),
+    int last=animation(e->script,sc_iscript_animation(e->script,read_u32_le(e->images->bytes+e->ni*10+image*4),SC_INIT),
                        SC_TYPES+k,head,e->images->bytes[e->ni*4+image]!=0,SC_GROUP_DEATH,sheet,NULL,0);
     if(last<0) { next_state--; return tail; }
     states[tail].nextstate=head;
@@ -391,6 +369,8 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
     next_state=SC_SCRIPT_STATES;
     memset(sc_flight_states,0,sizeof(sc_flight_states));
     extra_count=0;
+    memset(sc_unit_script,-1,sizeof(sc_unit_script)); memset(sc_weapon_script,-1,sizeof(sc_weapon_script));
+    if(!sc_iscript_load(root)) goto done;
     for(int i=1;i<NUMMOBJTYPES;i++) mobjinfo[i].deathstate=S_NULL;
     int loaded=0; unsigned image_ids[SC_TYPES];
     for(int i=0;i<SC_TYPES;i++) {
@@ -416,13 +396,14 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         cache->count++;
         const spritesheet_t *sheet=slot->alias?slot->alias:&slot->sprite;
         unsigned scriptid=read_u32_le(images.bytes+ni*10+im*4);
-        unsigned init=animation_start(&script,scriptid,SC_STAREDIT_INIT);
-        if(!init) init=animation_start(&script,scriptid,SC_INIT);
-        unsigned attack=animation_start(&script,scriptid,SC_GND_ATTACK);
-        if(!attack) attack=animation_start(&script,scriptid,SC_AIR_ATTACK);
+        sc_unit_script[i]=(int)scriptid;
+        unsigned init=sc_iscript_animation(&script,scriptid,SC_STAREDIT_INIT);
+        if(!init) init=sc_iscript_animation(&script,scriptid,SC_INIT);
+        unsigned attack=sc_iscript_animation(&script,scriptid,SC_GND_ATTACK);
+        if(!attack) attack=sc_iscript_animation(&script,scriptid,SC_AIR_ATTACK);
         animation(&script,init,i,1+i*2,turns,SC_GROUP_IDLE,sheet,NULL,0);
         int pose=states[1+i*2].frame;
-        animation(&script,animation_start(&script,scriptid,SC_WALKING),i,2+i*2,turns,SC_GROUP_WALK,sheet,NULL,pose);
+        animation(&script,sc_iscript_animation(&script,scriptid,SC_WALKING),i,2+i*2,turns,SC_GROUP_WALK,sheet,NULL,pose);
         animation(&script,attack,i,1+SC_TYPES*2+i,turns,SC_GROUP_ATTACK,sheet,NULL,pose);
     }
     /* Deaths, after every unit has its cache slot: overlays and remnants are
@@ -433,9 +414,9 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         const spritesheet_t *sheet=cache->entries[i].alias?cache->entries[i].alias:&cache->entries[i].sprite;
         unsigned im=image_ids[i],scriptid=read_u32_le(images.bytes+ni*10+im*4);
         bool turns=images.bytes[ni*4+im]!=0;
-        unsigned death=animation_start(&script,scriptid,SC_DEATH);
+        unsigned death=sc_iscript_animation(&script,scriptid,SC_DEATH);
         if(sc_units[i].flags&SC_UNIT_FLYING_BUILDING)for(int phase=0;phase<2;phase++) {
-            unsigned start=animation_start(&script,scriptid,phase?SC_LANDING:SC_LIFT_OFF);
+            unsigned start=sc_iscript_animation(&script,scriptid,phase?SC_LANDING:SC_LIFT_OFF);
             if(start&&next_state<SC_STATES) {
                 int head=next_state++;
                 if(animation(&script,start,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
@@ -445,7 +426,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         /* Burrow and UnBurrow hold their last frame: dug in, or up again
          * until the unit's order puts it back to its idle pose. */
         if((sc_units[i].flags&SC_UNIT_BURROWABLE)||i+1==MT_SPIDER_MINE)for(int phase=0;phase<2;phase++) {
-            unsigned start=animation_start(&script,scriptid,phase?SC_UNBURROW:SC_BURROW);
+            unsigned start=sc_iscript_animation(&script,scriptid,phase?SC_UNBURROW:SC_BURROW);
             if(start&&next_state<SC_STATES) {
                 int head=next_state++;
                 int final=animation(&script,start,i,head,turns,SC_GROUP_HOLD,sheet,NULL,states[1+i*2].frame);
@@ -467,8 +448,8 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
             }
         }
         /* A worker mines with its ground attack's repeat: the cutter swings. */
-        unsigned mine=animation_start(&script,scriptid,SC_GND_ATTACK_RPT);
-        if(!mine) mine=animation_start(&script,scriptid,SC_GND_ATTACK);
+        unsigned mine=sc_iscript_animation(&script,scriptid,SC_GND_ATTACK_RPT);
+        if(!mine) mine=sc_iscript_animation(&script,scriptid,SC_GND_ATTACK);
         if((sc_units[i].flags&8)&&mine&&next_state<SC_STATES) {
             int head=next_state++;
             if(animation(&script,mine,i,head,turns,SC_GROUP_WORK,sheet,NULL,states[1+i*2].frame)>=0)
@@ -476,6 +457,11 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         }
     }
     memset(sc_projectile_states,0,sizeof(sc_projectile_states));
+    for(int w=0;w<SC_WEAPONS;w++) {
+        unsigned f=(unsigned)sc_weapons[w].flingy,sprite,image;
+        if(f>=nf||(sprite=read_u16_le(flingy.bytes+f*2))>=ns||(image=read_u16_le(sprites.bytes+sprite*2))>=ni) continue;
+        sc_weapon_script[w]=(int)read_u32_le(images.bytes+ni*10+image*4);
+    }
     memset(projectile_death_states,0,sizeof(projectile_death_states));
     memset(projectile_trail_states,0,sizeof(projectile_trail_states));
     memset(projectile_trail_repeats,0,sizeof(projectile_trail_repeats));
@@ -500,7 +486,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
         const spritesheet_t *sheet=&cache->entries[extra_slot[k]].sprite;
         int head=next_state++;
         sc_trail_t trail={.image=-1,.sprite=-1};
-        if(animation(&script,animation_start(&script,scriptid,SC_GND_ATTACK),SC_TYPES+k,head,
+        if(animation(&script,sc_iscript_animation(&script,scriptid,SC_GND_ATTACK),SC_TYPES+k,head,
                      images.bytes[ni*4+image]!=0,SC_GROUP_HOLD,sheet,&trail,0)<0)goto done;
         sc_projectile_states[w]=head;
         if(trail.sprite>=0&&(unsigned)trail.sprite<ns) {
@@ -508,7 +494,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
             int trail_slot=extra_sprite(&effects,trail_image);
             if(trail_slot>=0&&next_state<SC_STATES) {
                 int trail_head=next_state++;
-                int trail_tail=animation(&script,animation_start(&script,
+                int trail_tail=animation(&script,sc_iscript_animation(&script,
                     read_u32_le(images.bytes+ni*10+trail_image*4),SC_INIT),SC_TYPES+trail_slot,
                     trail_head,images.bytes[ni*4+trail_image]!=0,SC_GROUP_DEATH,
                     &cache->entries[extra_slot[trail_slot]].sprite,NULL,0);
@@ -518,7 +504,7 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
                 }
             }
         }
-        unsigned death=animation_start(&script,scriptid,SC_DEATH);
+        unsigned death=sc_iscript_animation(&script,scriptid,SC_DEATH);
         if(death&&next_state<SC_STATES) {
             int death_head=next_state++;
             sc_trail_t impact={.image=-1,.sprite=-1};
