@@ -3571,6 +3571,72 @@ env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test
 env SDL_VIDEODRIVER=dummy build/bin/starcraft --check                     # Smoke check OK
 ```
 
+#### Door and trap state machine trace (2026-11-13, third batch; no code)
+
+All addresses are in data/STARCRAFT/install/files/starcraft.exe.
+
+- Unit fields: `[unit+0x4f]` is the order signal byte (OpenBW `order_signal`);
+  iscript `sigorder 1` ORs bit0 in. Status `0x2000` is iscript_nobrk (Enable and
+  Disable skip the animation while it is set); `0x200000` is no_collide;
+  `0x400` is disabled; `0x40000` is the collision flag; `0x4177e0(unit, n)`
+  stores n in status bits 8-9 (`0x300`: cloaked and requires-detector), so a
+  disabled trap is made cloaked (hidden) with n = 3. The `[unit+0xe4]` write is
+  0x80000000 and `[unit+0x91]` is cleared for traps.
+- Disable Doodad (0x423d80) on a door (205-208): iscript anim 24 on the
+  sprite, sprite elevation `[sprite+0xd]` = 1, sound from the u16 table at
+  0x68d988 through 0x442890 (a distance-attenuated sound call, not state), then
+  order 168 Open Door queued with 0x425960. Enable (0x423c80): anim 27,
+  elevation restored from the units.dat table 0x690698, sound from table
+  0x68cd00, order 169 Close Door. The disabled flag 0x400 is NOT set by the
+  action for doors; Open Door sets it, and the Set Doodad State Enable clears it.
+- Open Door (0x423e90): does nothing until `[unit+0x4f]` bit0 is set; then
+  clears the bit, sets 0x200000 (no_collide), elevation 1, issues the type's
+  idle order (table 0x68fbd8), sets 0x400, calls 0x4253e0 and 0x482f10 (sets
+  the AI-side refresh flag `[0x65bdcc]`, which the periodic 0x482fb0 uses to
+  clear status bit 0x80 on a unit list). Close Door (0x423ef0): same wait for
+  bit0; clears the bit and 0x200000, restores the elevation, issues idle, calls
+  0x4253e0, then 0x429e40.
+- 0x429e40 (close): visits every unit whose box overlaps the door's box (table
+  0x68fcc0, left, top, right, bottom; callback 0x429df0). Callback: if the
+  visited unit is a grounded building (status 2) the DOOR gets 0x40000;
+  else a ground (not flying) unit, unless it is a gathering unit and the door
+  is not a building, for which 0x4133a0(unit, door) reports overlap gets
+  0x40000 set on it. So units in a closing door are only FLAGGED; what 0x40000
+  does to them (push-out in the movement code, OpenBW lines using
+  `u_collision`) was not traced.
+- Animations (real iscript.bin): doors use scripts 340 (units 205, 207) and
+  341 (206, 208, same with setflipstate 1). Init (0) shows frame 0 = closed.
+  AlmostBuilt (15) shows frame 9 = open. Disable (24): frames 0..9, each held
+  `wait 2`, `sigorder 1` after frame 9 (9 waits = 18 frames after the start).
+  Enable (27, also InitTurret 23): frames 9..0, `wait 2` each, `sigorder 1`
+  after frame 0, also 18 frames. So the passability change (no_collide flip)
+  is when the order handler sees the signal: in the per-unit update
+  (0x434030) the order dispatcher 0x434e50 runs BEFORE the sprite/image
+  iscript step (0x411d00 -> 0x40f9c0), so the handler sees a `sigorder` one
+  frame after the script executed it.
+- Initial state: THG2 loader 0x460790 (records of 10 bytes). Door types 205-208
+  are forced to owner 11. A record whose u16 flags (+8) has 0x8000 set creates
+  the unit and then calls 0x423fc0: sets 0x400, runs iscript anim 15 (open
+  frame), sets 0x200000 and elevation 1 at once (no animation wait), and for
+  traps 203 and 209-213 the 0x4177e0(3) cloak and the 0xe4/0x91 writes. So the
+  disabled doodad is an OPEN door. Campaign THG2 doors carry flag bytes with
+  0x80 in the high byte only for some records (Terran04 none of 205-208;
+  Protoss06 208 id 0xe0 and Zerg05 208 id 0xe0 have it).
+- Engine facts for the next step: doors are non-mobile mobjs; P_SyncBuildingBlocking
+  blocks the footprint of ceil(136/32) cells (placement box), which is larger
+  than the units.dat collision box 0x68fcc0 (205: 25,17,44,20), and retail
+  blocks by unit collision, not terrain. The engine's existing mobj ticker
+  runs the script BEFORE orders, the reverse of retail.
+
+NOT IMPLEMENTED (the trace stops here): (1) what flag 0x40000 does to a unit
+inside a closing door, and 0x4133a0; (2) retail closed-door pathing and
+whether regions or only collision block the footprint (placement box versus
+collision box mismatch in the engine, so unblocking "the footprint" would
+change passability by cells retail never blocks); (3) 0x4253e0 and the AI
+refresh effect. Per the brief no door is shipped on a guessed frame or
+footprint. Needed: trace 0x4133a0 and the 0x40000 readers in the movement
+code (0x434bf0), and the door box versus path-region data.
+
 Open items and the trace each needs: the door state machine (decode 0x423e90
 and 0x423ef0 readers of status 0x200000 and `[unit+0x4f]`, and the door
 iscript animations); the paused-mode sprite update list at 0x620a54 and the
