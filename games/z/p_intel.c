@@ -111,8 +111,7 @@ int Z_AIEmptyValue(const mobj_t *mo) {
     default: return object < 0 ? 0 : object; /* Native early return, including Fire Truck. */
     }
     if (!w) return 0;
-    int body = mo->max_hp ? w[5] * mo->hp / mo->max_hp : 0;
-    int values[] = {(uint8_t)(read_u16_le(w + 2) >> 3) * 8,w[4],body * 25,
+    int values[] = {(uint8_t)(read_u16_le(w + 2) >> 3) * 8,w[4],mo->z.object_hp * 25,
                     w[32],w[34],w[35],8 * w[36],w[37],w[38],w[39]};
     const uint8_t *ww = map->weights.bytes + weapon_weights[cls];
     return weighted(ww, values, 10, ww[10]);

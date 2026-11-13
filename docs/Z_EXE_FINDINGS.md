@@ -5375,3 +5375,18 @@ boardability score fails. Pool-full ejection itself remains covered by the
 combat tests. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
 -c 'pd 70 @ 0x98840' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Empty-object health in strategic value:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98a7a..0x98a95` takes the active effect record's byte +0x0f, multiplies
+it by 25 and the authored weight, and adds it to the `0x9890b` value.
+Open-rts now reads its saved `z.object_hp` field directly instead of
+reconstructing that byte from unit HP and maximum HP. This also handles
+our documented ejection policy where a hull with 1–24 HP has object_hp 1
+but retains its unit HP. `test_ejected_object_health_value` performs an
+actual low-HP APC ejection, checks AI territory scoring against the stored
+byte while varying hull HP, then changes the byte and checks the score;
+the former reconstruction fails the test. The ejection policy itself is
+an engine/Zod choice, not a claim about native voluntary ejection. Inspect
+with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 20 @ 0x98a7a'
+-c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

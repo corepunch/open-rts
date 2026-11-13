@@ -275,6 +275,46 @@ static int test_empty_object_value_slots(void) {
     return 0;
 }
 
+/* 0x98a80 reads the represented effect's health byte directly. */
+static int test_ejected_object_health_value(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("ejected object value load");
+    fixed2_t at = fixed2_cell_center((ivec2_t){25,25});
+    mobj_t *hull = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_UNIT_APC);
+    if (!hull) return fail("ejected object value spawn");
+    Z_SetTeam(hull, 1);
+    hull->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    hull->hp = 1;
+    if (!Z_EjectCrew(hull) || !hull->z.object_slot || hull->z.object_hp != 1 || hull->hp != 1)
+        return fail("ejected object value fixture");
+    zmap_t *map = level.native_data;
+    map->territory_count = 1; map->fort_count = 0;
+    map->territories[0].min = (ivec2_t){0,0};
+    map->territories[0].max = (ivec2_t){level.width,level.height};
+    map->territories[0].team = 1; map->territories[0].importance = 0;
+    map->computer.intelligence = 127;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id > MT_FORT && mo->type_id < MT_UNITS) mo->z.rating = 0;
+        if (mo != hull && Z_Enterable(mo)) mo->z.driver = 1;
+        if (mo->team < Z_NEUTRAL && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    think(0); think(1);
+    int before = Z_AIEmptyValue(hull), score = map->ai.territories[0].value;
+    hull->hp = 25;
+    map->ai.phase = 1; think(1);
+    int after = Z_AIEmptyValue(hull);
+    if (!before || before != after || map->ai.territories[0].value != score)
+        return fail("effect health, not hull health, determines AI value");
+    hull->z.object_hp = 2;
+    map->ai.phase = 1; think(1);
+    if (Z_AIEmptyValue(hull) <= after || map->ai.territories[0].value <= score)
+        return fail("effect health changes AI territory value");
+    rts_game_model_destroy(model);
+    puts("PASS: z empty-object valuation reads represented health");
+    return 0;
+}
+
 static int test_destroyed_building_value(void) {
     RtsGameModel *model = load();
     if (!model) return fail("destroyed building value load");
@@ -2200,7 +2240,7 @@ static int test_building_alert(void) {
 }
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
-           test_initial_and_save() || test_scores() || test_empty_object_value_slots() || test_destroyed_building_value() ||
+           test_initial_and_save() || test_scores() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
