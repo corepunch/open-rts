@@ -4721,3 +4721,37 @@ pre-range map-object scan at `0x5aa49` is still unimplemented. Reproduce
 with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x5a90d'
 -c 'pd 35 @ 0x5aa57' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
+
+**Possible ambient house inhabitants (inferred):** `0x87410` scans the 200 effect records;
+`0x87591` compares each live record's first sprite against 16 entries at
+`0x14c205`. The five populated entries are 2937, 2938, 2939, 2935 and
+2936, the Desert, Jungle, Volcano, Arctic and City house pictures in
+`objects.inc`. For a match `0x874c5..0x87585` clears the effect record's
+flag 0x80, creates a linked record through `0x889e4`, then makes up to six
+calls to `0x875c7`; each call selects type 2, 3, 5 or 11 from `0x14c1d5`.
+Before each allocation `0x87578` calls `0x873f0`, which writes terrain
+`0x11` at the house's pixel origin and preserves attribute bit 7; loop
+counts 6 through 3 always execute this path. The normal startup call is
+`0x13846`, after the placed-object pass. Open-rts reproduces this terrain
+stamp after all placed objects, including crates, have been loaded; it
+stores the changed ground attribute for consistency and saves. The shipped
+level-one houses and save/rebuild behavior are checked in
+`test_terrain_speed`. `test_capture` exercises all five types, attribute
+bit 7, a flag and crate sharing a house cell, suppression of crate pickup
+under the later house mark, and restoration of the crate's saved flag mark.
+The native effect record's separate flag 0x80 clear at `0x874cd` is not
+modeled; it is distinct from the preserved terrain attribute bit.
+Those types' descriptors at `0x14c309` have nonzero high byte at offset 3,
+which the constructor stores in the spawned 64-byte record +0x20 at
+`0x876a0..0x876ac`. `0x8752e..0x8753b` sets a random 32..42 delay,
+stored at record +0x27; `0x88c5c..0x88c68` decrements that word before
+processing, while the bullet filter `0x88b26` rejects a nonzero low byte.
+Once the delay clears, these records pass both the +0x27 and +0x20 parts
+of the bullet's `0x88b13` eligibility gate. This establishes one source of relevant native
+dynamic effects, not their complete movement, lifetime, position update,
+or gameplay semantics. Open-rts does not yet create these inhabitants, so
+it cannot faithfully reproduce bullet preemption against them. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 110 @ 0x87475'
+-c 'pd 25 @ 0x87591' -c 'pxh 64 @ 0x14c205' -c 'pxh 8 @ 0x14c1d5'
+-c 'pd 16 @ 0x873f0' -c 'pd 55 @ 0x875c7' -c 'pd 20 @ 0x88c43' -c 'pd 45 @ 0x88b13'
+-c q data/Z/ZED.EXE`.

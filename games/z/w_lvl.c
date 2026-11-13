@@ -115,6 +115,27 @@ void Z_RestoreObjectTerrain(mobj_t *object, ivec2_t origin) {
     object->z.object_stamped = false;
 }
 
+/* 0x87475..0x87578 visits houses after the OBJECT pass and stamps the
+ * house cell before attempting to create its ambient inhabitants. */
+void Z_StampHouseTerrain(void) {
+    const zmap_t *map = level.native_data;
+    if (!map) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *house = (mobj_t *)th;
+        if (th->function != P_MobjThinker || house->remove || !house->z.object_slot ||
+            (house->type_id != MT_DESERT_HOUSE && house->type_id != MT_JUNGLE_HOUSE &&
+             house->type_id != MT_VOLCANO_HOUSE && house->type_id != MT_CITY_HOUSE &&
+             house->type_id != MT_ARCTIC_HOUSE)) continue;
+        isize2_t size;
+        if (!Z_SpriteSize(map, states[house->core.state_id].frame, &size)) continue;
+        ivec2_t centre = fixed2_cell(fixed2_scale(fixed3_xy(house->core.position), FIXED_FROM_INT(Z_TILE)));
+        ivec2_t origin = ivec2_sub(centre, (ivec2_t){size.w / 2, size.h / 2});
+        ivec2_t cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+        if (origin.x >= 0 && origin.y >= 0 && L_Contains(&level, cell.x, cell.y))
+            object_terrain(origin, (map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x80) | 0x11);
+    }
+}
+
 void Z_RebuildCliffs(level_t *out) {
     zmap_t *map = out->native_data;
     uint8_t tiles[Z_MAP_STRIDE * Z_MAP_STRIDE];
@@ -764,6 +785,7 @@ int Z_LoadThings(void) {
         }
         W_FreeFile(&blob);
     }
+    Z_StampHouseTerrain();
     for (int i = 0; i < Z_BRIDGES; ++i) {
         const zbridge_t *record = &map->bridges[i];
         irect_t r = record->bounds;

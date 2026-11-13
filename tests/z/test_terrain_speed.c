@@ -3,6 +3,7 @@
 #include "../../games/z/z_local.h"
 #include "../../games/z/info.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 #define CHECK(c) RTS_CHECK(c,"Z native terrain speed",#c)
 
@@ -11,6 +12,31 @@ int main(void) {
     RtsGameModelConfig config={.data_root="data/Z"};
     CHECK(model&&rts_game_model_load(model,&config));
     zmap_t *map=level.native_data;
+    int houses=0; ivec2_t house_cell={0};
+    for (thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        if (th->function!=P_MobjThinker || (mo->type_id!=MT_DESERT_HOUSE && mo->type_id!=MT_JUNGLE_HOUSE &&
+            mo->type_id!=MT_VOLCANO_HOUSE && mo->type_id!=MT_CITY_HOUSE && mo->type_id!=MT_ARCTIC_HOUSE)) continue;
+        isize2_t size; CHECK(Z_SpriteSize(map,states[mo->core.state_id].frame,&size));
+        ivec2_t centre=fixed2_cell(fixed2_scale(fixed3_xy(mo->core.position),FIXED_FROM_INT(Z_TILE)));
+        ivec2_t origin=ivec2_sub(centre,(ivec2_t){size.w/2,size.h/2});
+        ivec2_t cell={origin.x/Z_TILE,origin.y/Z_TILE};
+        CHECK(L_Contains(&level,cell.x,cell.y));
+        CHECK((map->ground_attr[cell.y*Z_MAP_STRIDE+cell.x]&0x7f)==0x11);
+        house_cell=cell; houses++;
+    }
+    CHECK(houses>0);
+    uint8_t saved=map->ground_attr[house_cell.y*Z_MAP_STRIDE+house_cell.x];
+    uint32_t hash=G_Consistency(); app_t app={0}; hudtext_t hud={0}; void *blob=NULL; size_t bytes=0;
+    CHECK(G_SaveGameBlob(&blob,&bytes,"House terrain",&app,rts_game_model_ai(model),&hud));
+    map->ground_attr[house_cell.y*Z_MAP_STRIDE+house_cell.x]=0;
+    Z_RebuildCliffs(&level);
+    CHECK(G_LoadGameBlob(blob,bytes,&app,rts_game_model_ai(model),&hud)); free(blob);
+    map=level.native_data;
+    CHECK(map->ground_attr[house_cell.y*Z_MAP_STRIDE+house_cell.x]==saved);
+    CHECK(G_Consistency()==hash);
+    Z_RebuildCliffs(&level);
+    CHECK((map->terrain[house_cell.y*Z_MAP_STRIDE+house_cell.x]&0x7f)==0x11);
     mobj_t *robot=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(6.5,6.5),0),MT_UNIT_GRUNT);
     mobj_t *vehicle=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(10.5,10.5),0),MT_UNIT_LIGHT_TANK);
     CHECK(robot&&vehicle);Z_SetTeam(robot,0);Z_SetTeam(vehicle,0);

@@ -671,6 +671,52 @@ static int test_object_terrain(void) {
     return 0;
 }
 
+static int test_house_terrain(void) {
+    static const int types[] = {MT_DESERT_HOUSE, MT_JUNGLE_HOUSE, MT_VOLCANO_HOUSE, MT_CITY_HOUSE, MT_ARCTIC_HOUSE};
+    RtsGameModel *model = load();
+    if (!model) return fail("load house terrain fixture");
+    zmap_t *map = level.native_data;
+    mobj_t *crate = NULL;
+    for (int i = 0; i < 5; ++i) {
+        ivec2_t cell = {40 + i * 2, 40}, origin = ivec2_scale(cell, Z_TILE);
+        int index = cell.y * Z_MAP_STRIDE + cell.x;
+        map->terrain[index] = map->ground_attr[index] = 0x96;
+        Z_StampFlagTerrain(cell);
+        mobj_t *house = P_SpawnMobj((fixed3_t){0}, types[i]);
+        isize2_t size;
+        if (!house || !Z_SpriteSize(map, states[house->core.state_id].frame, &size)) return fail("spawn synthetic house");
+        ivec2_t centre = ivec2_add(origin, (ivec2_t){size.w / 2, size.h / 2});
+        house->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(centre), FIXED_ONE / Z_TILE), 0);
+        house->z.object_slot = (uint8_t)(150 + i);
+        Z_StampObjectTerrain(house, types[i] - 1, origin);
+        if (types[i] == MT_CITY_HOUSE) {
+            crate = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(cell), 0), MT_GRENADES);
+            if (!crate) return fail("spawn crate on house and flag");
+            crate->z.object_slot = 160;
+            Z_StampObjectTerrain(crate, MT_GRENADES - 1, origin);
+            if (crate->z.object_terrain != 0xa3 || map->terrain[index] != 0xa4)
+                return fail("crate stores preceding flag marker");
+        }
+    }
+    Z_StampHouseTerrain();
+    for (int i = 0; i < 5; ++i) {
+        int index = 40 * Z_MAP_STRIDE + 40 + i * 2;
+        if (map->terrain[index] != 0x91 || map->ground_attr[index] != 0x91)
+            return fail("each house stamps 0x11 while preserving high bit");
+    }
+    ivec2_t cell = {46, 40}, origin = ivec2_scale(cell, Z_TILE);
+    mobj_t *robot = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(cell), 0), MT_UNIT_GRUNT);
+    if (!robot) return fail("spawn robot on house crate");
+    Z_SetTeam(robot, 0); robot->z.grenades = 0;
+    Z_Ticker();
+    if (crate->remove || robot->z.grenades) return fail("house marker suppresses overlapping crate pickup");
+    Z_RestoreObjectTerrain(crate, origin);
+    if (map->terrain[cell.y * Z_MAP_STRIDE + cell.x] != 0xa3)
+        return fail("crate restoration retains its previously saved flag marker");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_crate_leader_remainder(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for grenade remainder");
@@ -984,6 +1030,6 @@ static int test_malformed_crew(void) {
 }
 
 int main(void) {
-    if (test_flags() || test_flag_origin_boundary() || test_flag_terrain_and_territory() || test_flag_rebuild_over_crate() || test_flag_player_options() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
+    if (test_flags() || test_flag_origin_boundary() || test_flag_terrain_and_territory() || test_flag_rebuild_over_crate() || test_flag_player_options() || test_board() || test_board_reach() || test_grenades() || test_specialist_grenades() || test_tough_building_attack() || test_crate_slot_order() || test_object_terrain() || test_house_terrain() || test_crate_leader_remainder() || test_crate_order() || test_crate_order_travel() || test_crate_reach() || test_apc_crew() || test_malformed_crew()) return 1;
     return 0;
 }

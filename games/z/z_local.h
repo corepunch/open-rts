@@ -265,6 +265,7 @@ void Z_RebuildCliffs(level_t *level);
 void Z_StampObjectTerrain(mobj_t *object, int type, ivec2_t origin);
 void Z_RestoreObjectTerrain(mobj_t *object, ivec2_t origin);
 void Z_StampFlagTerrain(ivec2_t cell);
+void Z_StampHouseTerrain(void);
 bool Z_FlagAvailable(const zmap_t *map, const zterritory_t *territory);
 int Z_LoadCliffs(void);
 void Z_CliffDamage(mobj_t *cliff);
