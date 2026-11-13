@@ -951,6 +951,42 @@ static int test_apc_bullet_salvo(void) {
     return 0;
 }
 
+static int test_flame_fire_truck(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load Fire Truck flame fixture");
+    fixed2_t at = fixed2_cell_center((ivec2_t){5, 5});
+    mobj_t *pyro = blast_unit(MT_UNIT_PYRO, 0, at, 500);
+    mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 1, pixel_at(at, 16, 0), 500);
+    mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
+    if (!pyro || !truck || !apc) return fail("spawn Fire Truck flame fixture");
+    disarm_except(0, pyro);
+    pyro->z.grenades = 0;
+    pyro->attack.target = truck;
+    P_UpdateSight();
+    if (!P_Attack(pyro) || truck->hp != 500)
+        return fail("ordinary Pyro flame does not damage Fire Truck");
+    apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
+    apc->z.crew_count = 3;
+    apc->traits |= MF_ATTACK; apc->attack.target = truck;
+    if (!P_Attack(apc) || truck->hp != 500 ||
+        apc->z.crew[0].flame_phase != 1 || apc->z.crew[2].flame_phase != 1)
+        return fail("APC flame spares Fire Truck while advancing crew phases");
+    mobj_t *control = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 16), 500);
+    if (!control || !Z_Attack(apc, &apc->info->attack, control) || control->hp != 440)
+        return fail("APC flame still damages other units");
+    pyro->z.grenades = 1; pyro->attack.target = truck;
+    if (!P_Attack(pyro) || pyro->z.grenades) return fail("Pyro throws grenade at Fire Truck");
+    mobj_t *grenade = nth(MT_GRENADE, 0, 0);
+    if (!grenade) return fail("Fire Truck grenade spawned");
+    ivec2_t anchor = Z_BlastAnchor(truck);
+    grenade->core.position = fixed3_from_fixed2(fixed2_scale(fixed2_from_cell(anchor), FIXED_ONE / Z_TILE), 0);
+    A_ZBlastHit(grenade);
+    if (truck->hp >= 500) return fail("grenade still damages Fire Truck");
+    rts_game_model_destroy(model);
+    puts("PASS: z Fire Trucks resist flame but not grenades");
+    return 0;
+}
+
 static int test_apc_pyro_phase(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for APC Pyro phase");
@@ -2503,7 +2539,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

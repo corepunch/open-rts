@@ -517,6 +517,9 @@ static int bullet_hit_damage(const mobj_t *attacker, mobj_t *target, int damage,
 
 static int hit_damage(const mobj_t *attacker, mobj_t *target, int damage, int divisor, unsigned shot) {
     int firing = Z_UnitType(attacker);
+    /* The ground-fire damage pass sets 0x14c05f; 0x86cd4 exempts
+     * Fire Trucks. Pyro's current direct hit stands in for that fire. */
+    if (firing == MT_UNIT_PYRO - MT_UNITS && target && target->type_id == MT_UNIT_FIRE_TRUCK) return 0;
     if (firing == MT_UNIT_APC - MT_UNITS) {
         if (!valid_crew(attacker)) return 0;
         firing = attacker->z.driver - 1;
@@ -843,7 +846,8 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         for (int i = 0; i < count; ++i) {
             uint8_t *phase = attacker->z.crew_count ? &attacker->z.crew[i].flame_phase : &attacker->z.flame_phase;
             *phase = (*phase + 1) & 15;
-            if (t == MT_UNIT_PYRO - MT_UNITS && *phase < 4 && live(target) && target->team == team && driver)
+            if (t == MT_UNIT_PYRO - MT_UNITS && *phase < 4 && live(target) && target->team == team && driver &&
+                target->type_id != MT_UNIT_FIRE_TRUCK)
                 P_DamageMobj(target, attacker, driver->attack.damage);
         }
         if (t == MT_UNIT_PYRO - MT_UNITS) return true;

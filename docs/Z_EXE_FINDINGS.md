@@ -1372,9 +1372,10 @@ Borrowing the stock literals for combat would change the algorithm.
 The engine retains the native robot-record identity through spawning,
 manufacturing and boarding. AI reads this metadata; gameplay HP, damage,
 speed and cooldown remain the existing C configuration. Current body HP
-is mapped proportionally to native initial health for scoring. Dynamic
-APC driver-weapon swaps, native experience/stat changes and every combat
-mutation of the raw retail fields are not yet represented by engine mobjs.
+is mapped proportionally to native initial health for scoring. APC driver
+range/fire swaps and selected damaged body fields are represented as described
+below; native experience/stat changes and every combat mutation of the raw
+retail fields are not yet represented by engine mobjs.
 
 Empty objects use `0x9890b`, not a fake driver. Native object -> weight class:
 `5->2,8->1,35->12,26->8,29->9,31->10,21->4,22->5,23->6,33->11,24->7`.
@@ -1439,7 +1440,7 @@ is **1 when human strength is zero**, otherwise
 squad strength before ordering any of that pool. `0x99f46` writes task 0
 and the target/destination territory. Existing tasks 0,2,1,3 reserve their
 destinations. Territory flag 0x20 bars vehicles; 0x40 bars Jeeps/APCs and
-requires grenades for Grunt, Sniper, Psycho, Pyro and Laser (the native APC cargo-class-3
+requires grenades for Grunt, Pyro and Laser (the native APC cargo-class-3
 exception is now supported as described below). This replaces the former 8-cell fort
 penalty and 2-cell proximity claim heuristic; neither was a retail rule.
 
@@ -2334,6 +2335,22 @@ The subsequent effect and damage lifecycles remain to be traced before
 replacing the current instantaneous flame approximation. Inspect with
 `r2 -q -e bin.cache=true -c 'pd 35 @ 0x5a099' -c 'pd 45 @ 0x593aa'
 -c 'pd 45 @ 0x595e6' -c q data/Z/ZED.EXE`.
+
+**Fire Truck immunity to ground fire:** In ZED.EXE SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+the flame area pass sets global 0x14c05f before the unit scan at
+`0x86946..0x8694d` and clears it afterward. During that pass,
+`0x86cc4..0x86ce7` protects unit type 0x26 (Fire Truck) from health damage,
+clears its unit +0x62 bit 2, sets +0x87 mask 2, and sets word +0x8e to 2. The engine now
+applies the health exemption to its current immediate Pyro and APC Pyro
+flame approximations, while preserving APC member-phase advancement.
+It does not yet model those native state effects or the fire projectile
+and persistent area. Grenades and other explosion damage remain separate.
+`test_flame_fire_truck` uses ordinary attack dispatch for both Pyro and APC,
+checks a vulnerable control unit, and verifies a Pyro grenade still damages
+the truck. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+-c 'pd 50 @ 0x868ef' -c 'pd 35 @ 0x86ca4' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_combat`.
 
 **Flame effect lifecycle, partial:** `0x5969f` allocates a 40-byte effect
 record via `0x4a5d7` (200 slots), places its coordinates, selects the
@@ -4198,6 +4215,18 @@ top-left +(14,12), rotates body +0x15 one direction on alternate updates,
 and fires only after it reaches that bearing. `0x5a648` uses integer half-axis
 tests with asymmetric equality. Open-rts uses the native offset tables and
 bearing at shot time; it does not separately animate or time the nozzle turn.
+In the tracked-target branch, `0x58b0f..0x58b18` decrements the signed
+unit +0x3c timer and reaches the aiming calculation only after it becomes
+negative. `0x58b71..0x58b8d` changes one heading on the appropriate global
+phase and resets that timer to 2, so a subsequent attempt requires three
+branch visits. This is not a universal firing gate: a distinct path at
+`0x58040..0x58114` can write heading directly at `0x580ad..0x580b4`.
+Its unit +0x67/+0x78 gates and target mode are not fully mapped to engine
+orders, and the engine's 30 Hz attack-state lock introduces separate timing.
+Waiting for a turn on every engine attack would therefore assert an
+unverified correspondence. Inspect `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 100 @ 0x57f8b' -c 'pd 65 @ 0x58040'
+-c 'pd 55 @ 0x58acb' -c q data/Z/ZED.EXE`.
 The common explosion applies object and building damage immediately at
 `0x8476c`; `0x85b2f` advances its animation on alternating native updates and
 calls the unit-damage pass `0x85ce4` at frame 3. The explosion loop at
@@ -4840,6 +4869,14 @@ transitions are not represented, so selection timing still differs. Reproduce wi
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9de4a'
 -c 'pd 35 @ 0x999e5' -c 'pd 25 @ 0x26ab4' -c 'pd 45 @ 0x420a2'
 -c 'pd 35 @ 0x42eef' -c 'pd 15 @ 0x414d8' -c q data/Z/ZED.EXE`.
+The robot-factory first selection at `0x410bd` and the subsequent selection
+at `0x41336` both call `0x9de9b`: the first normal-list path there sets
+building +6 bit 2. A scan of active 80-byte BUILD records in LEVEL01–20
+finds that bit clear initially. This supports allowing a gun on a later
+selection after the initial normal choice; it does not resolve the bit's
+ownership-change lifecycle or the global placement flag. The scan can be
+repeated by reading byte 6 of each active record whose type byte +4 is not
+0xff; no runtime extraction is required by the implementation.
 
 **APC bullet salvo:** In the coordinate-target loop `0x1eb04..0x1ebee`,
 each crew member dispatches through `0x1ec13` with port index zero.
@@ -5474,6 +5511,29 @@ wounded robot and applies a driver hit without damaging the Jeep body.
 Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 12 @ 0x9845e' -c 'pd 12 @ 0x86d30' -c q data/Z/ZED.EXE` and run
 `make build/bin/tests/z/test_commander`.
+
+**Unit zero-health boundary remains unported:** In the same ZED.EXE,
+`0x86ca4..0x86d15` subtracts the damage from the driven body's 16-bit
+HP at +8 when present, after the unit +0x98 mask 0x14 protection check;
+a nonnegative body result returns without subtracting
+driver HP. For a robot with no body, or after body HP becomes negative, it
+subtracts from the unit's byte +0x3a. The bullet caller `0x5af53..0x5af58`
+and the explosion caller `0x85e9f..0x85ea4` branch past death when the
+result's sign flag is clear, including exactly zero. This is distinct from
+the already modeled driver-only `0x86d1f` boundary. Open-rts's shared
+`P_DamageMobj` and many live-unit checks treat zero as dead; neither changing
+only the impact call nor forcing one HP would represent native zero across
+subsequent hits, repair, selection, AI, save and hash. The byte/word
+subtraction also wraps before the sign test. A complete representation and
+its downstream conversions remain to be designed; no blanket +1 HP change
+is justified by this trace. In particular the shared damage function also
+serves the forced elimination of a defeated team's units in `p_fort.c`,
+which currently passes exactly their HP; rescuing every such zero result
+would leave those units alive. Crew transfer and service repair also need
+the distinction between native zero and the engine's positive live HP.
+Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 45 @ 0x86ca4' -c 'pd 20 @ 0x5af4d'
+-c 'pd 15 @ 0x85e9f' -c q data/Z/ZED.EXE`.
 
 **APC driver range in strategic strength:** For ZED.EXE SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
