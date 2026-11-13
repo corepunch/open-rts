@@ -177,22 +177,44 @@ fixed_t sc_unit_speed(const mobj_t *mo) {
     speed += speed / 2;
     return speed < SC_PIXELS(10 * 24) / 3 ? SC_PIXELS(10 * 24) / 3 : speed;
 }
-/* OpenBW get_modified_weapon_cooldown on whole frames (no acid spores yet). */
+/* Corrosive Acid (OpenBW add_acid_spore, update_unit_values): the count is
+ * the number of live spores; a tenth hit renews the one nearest to expiring. */
+int sc_acid_spores(const mobj_t *unit) {
+    int count = 0;
+    for (int i = 0; i < SC_ACID_SPORES; i++) count += unit->sc.acid[i] != 0;
+    return count;
+}
+void sc_add_acid_spore(mobj_t *unit) {
+    uint8_t *best = unit->sc.acid;
+    for (int i = 1; i < SC_ACID_SPORES; i++) if (unit->sc.acid[i] < *best) best = &unit->sc.acid[i];
+    *best = SC_ACID_FRAMES;
+}
+void sc_acid_tick(mobj_t *unit, int frames) {
+    for (int i = 0; i < SC_ACID_SPORES; i++)
+        if (unit->sc.acid[i]) unit->sc.acid[i] = unit->sc.acid[i] > frames ? (uint8_t)(unit->sc.acid[i] - frames) : 0;
+}
+/* OpenBW get_modified_weapon_cooldown on whole frames, in its order: acid
+ * spores add an eighth (at least 3) each, Stim Packs and a cooldown upgrade
+ * halve, Ensnare adds a quarter (the three net out as one step), then the
+ * result is kept to 5..250 frames. */
 int sc_modified_cooldown_frames(const mobj_t *unit, int frames) {
+    int spores = sc_acid_spores(unit);
+    if (spores) frames += (frames / 8 > 3 ? frames / 8 : 3) * spores;
     int mod = speed_mod(unit, cooldown_upgraded(unit));
     if (mod > 0) frames /= 2;
     if (mod < 0) frames += frames / 4;
     return frames > 250 ? 250 : frames < 5 ? 5 : frames;
 }
-/* OpenBW get_modified_weapon_cooldown: halved when hastened, a quarter
- * longer when slowed, kept to 5..250 frames. */
+/* The cooldown a shot sets (OpenBW attack_unit_fire_weapon and
+ * try_attack_something): the modified cooldown plus the shared LCG's
+ * (roll & 3) - 1, which is added after the clamp. An interceptor's pass and
+ * a Carrier's relaunch are this engine's own timings, not a weapon row,
+ * and stay as set. */
 int G_WeaponCooldown(const mobj_t *unit, const weapondef_t *weapon, int cooldown_ms) {
     (void)weapon;
-    if (!sc_type(unit)) return cooldown_ms;
-    int mod = speed_mod(unit, cooldown_upgraded(unit));
-    if (!mod) return cooldown_ms;
-    cooldown_ms = mod > 0 ? cooldown_ms / 2 : cooldown_ms + cooldown_ms / 4;
-    return cooldown_ms < frames_ms(5) ? frames_ms(5) : cooldown_ms > frames_ms(250) ? frames_ms(250) : cooldown_ms;
+    if (!sc_type(unit) || unit->type_id == MT_INTERCEPTOR || sc_hangar_type(unit->type_id) == MT_INTERCEPTOR) return cooldown_ms;
+    int frames = sc_modified_cooldown_frames(unit, (cooldown_ms * 24 + 500) / 1000) + (int)(sc_random() & 3) - 1;
+    return frames_ms(frames);
 }
 /* Ocular Implants, Antennae, Sensor Array and Apial Sensors: 11 cells.
  * A unit aboard a flying transport sees nothing of its own. */

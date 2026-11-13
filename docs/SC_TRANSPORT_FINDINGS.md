@@ -112,9 +112,8 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
   decrement-before-orders, so an explicit Reaver attack fires on exactly the
   frame the 30 run out; automatic acquisition adds the idle state's own look
   cadence (0 to 2 frames in the tests).
-- Still not modelled: OpenBW sets `spell_cooldown` again after each cast
-  (weapon cooldown plus a random 0..3 minus 1) and counts acid spores in the
-  modified cooldown; neither exists locally. A Warbringer's weapon timer uses
+- Still not modelled: acid spores are now counted in the
+  modified cooldown, but nothing applies a spore yet. A Warbringer's weapon timer uses
   the DAT Scarab row, while its launch cooldown keeps the local 60 frames.
   Mobj fields are saved whole behind the layout number and checksum; no
   per-field range check of `sc.timers` exists for any timer.
@@ -161,3 +160,76 @@ rows, and the failure-path candidate count on 128x128 and 256x256.
 - `env SDL_VIDEODRIVER=dummy build/bin/starcraft --check`: smoke check OK.
 - Mutation checks: with the hook unregistered, `reaver_delay` fails; with the
   building-region fallback removed, the Bunker connection test fails.
+
+## Second batch: modified weapon cooldown
+
+OpenBW `get_modified_weapon_cooldown` against local `sc_modified_cooldown_frames`
+and `G_WeaponCooldown` (`p_combat.c`):
+
+| Term | OpenBW | Local before | Local now |
+| --- | --- | --- | --- |
+| Acid spores | first: `cooldown += max(cooldown / 8, 3) * count` | absent | same (`sc.acid[9]`) |
+| Stim Packs | `+1` to `mod` | `+1` | same |
+| Cooldown upgrade | `+1` to `mod` (Adrenal Glands, Devouring One) | `+1` | same |
+| Ensnare | `-1` to `mod` | `-1` | same |
+| Application | `mod > 0`: `/ 2`; `mod < 0`: `+ cooldown / 4` | same, on milliseconds | same, on whole frames |
+| Clamp | always `5..250` | only when `mod != 0` (plain weapons unclamped) | always, except Interceptor/Carrier pass |
+| Jitter | attack path adds `(lcg_rand(12) & 3) - 1` after the clamp (`try_attack_something`/`attack_unit_fire_weapon`) | none | `(sc_random() & 3) - 1`, one roll per shot |
+| Unload | `unit_unload` uses the modified value, no roll | modified, no acid | same, acid included |
+
+- RNG source: `lcg_rand` is the shared synchronized LCG, which is `sc_random`
+  here (`mission->rng`); a shot takes exactly one roll. The shared attack path
+  (`play/p_mobj.c start_attack_cooldown`) used to call the hook twice per shot;
+  it now calls it once (behavior-neutral for other games whose hooks are pure).
+- Order difference: OpenBW rolls the cooldown before creating the bullet; here
+  it is rolled after the hit roll of the attack hook. The streams are the same
+  LCG but the interleaving differs; a retail replay comparison would need the
+  attack path reordered, which is not done.
+- The Interceptor pass (30 frames) and a Carrier's relaunch are this engine's
+  own timings (weapons.dat gives 1 and 60), so they get neither clamp nor roll.
+- Acid spore state: nine byte timers of 150 frames (`add_acid_spore` renews the
+  one nearest to expiring when full), decayed per 24 Hz frame as in
+  `update_unit_values`. Saved with the mobj and hashed; save layout 22.
+- Not applied yet: nothing adds a spore (the Corrosive Acid bullet hit,
+  `hit_type_corrosive_acid`, is projectile code owned elsewhere), the +1 damage
+  per spore in `weapon_deal_damage`, spore detection, removal by Restoration.
+- Tests: `tests/starcraft/test_cooldowns.c` (every term, the clamp boundaries at
+  5/250, one/five/nine spores, Zergling with and without Adrenal Glands, the
+  roll's range and single draw, shot-to-shot tics in the running attack path,
+  unload value, spore decay, save/hash).
+
+## Second batch: spell cooldown after a cast
+
+- OpenBW `order_Spell` is the only reader of `spell_cooldown` (besides the
+  per-frame decrement in `update_unit_values` and the reset in unit creation).
+  When the caster is in range, the cooldown is 0, `unit_can_fire_weapon` holds
+  and it is at its move target, the cast starts and sets
+  `spell_cooldown = get_modified_weapon_cooldown(u, weapon) + (lcg_rand(49) & 3) - 1`,
+  `weapon` being the order's own weapon row. The 30-frame value after a mobile
+  unload (`unit_unload`) is the other writer.
+- Orders that go through `order_Spell`: Fire Yamato Gun, Lockdown, Dark Swarm,
+  Parasite, Spawn Broodlings, EMP, Psionic Storm, Irradiate, Plague, Consume,
+  Ensnare, Stasis Field, Restoration, Disruption Web, Optical Flare, Maelstrom.
+  Mind Control, Feedback, Hallucination, Defensive Matrix, Scanner Sweep, Recall,
+  nukes, mines and the self-casts have their own order functions and ignore it.
+  Restoration, Disruption Web, Optical Flare and Maelstrom are Brood War techs
+  that this port does not model.
+- Weapon per order (native `arr/orders.dat`, weapon column, checked by row):
+  Yamato 30, Lockdown 32, EMP 33, Irradiate 34, Parasite 56, Spawn Broodlings 57,
+  Ensnare 58, Dark Swarm 59, Plague 60, Consume 61, Stasis 83, Psionic Storm 84.
+  weapons.dat cooldowns: Yamato 15, Storm 45, the rest 1 (so 5 after the clamp).
+- Implemented in `p_spell.c` (`spell_weapon`, `rearm_spell_cooldown`): the
+  re-arm happens right after `cast_now`, uses the same modified cooldown as
+  weapons (Stim, Ensnare, spores, upgrades) and one `sc_random` roll, and adds
+  back the frames the ticker is about to count off so the next cast waits the
+  exact count. A command that casts at once (in range) is between two tics;
+  the next cast is allowed on the tic that brings the frame total to the timer.
+- Tests (`test_cooldowns.c`): two casts by one caster (second held, energy kept,
+  fires on exactly `timer` frames), a second caster unaffected, Ensnare
+  lengthening it, Hallucination/Defensive Matrix/cloak unaffected and not
+  touching the timer, and a Yamato cooldown saved and loaded mid-way.
+  Three AI tests in `test_units.c` that chain two spells from one caster in a
+  single think now clear the timer between them.
+- Observed, not investigated: a save taken while a Psionic Storm area exists
+  failed `G_LoadGameBlob` in the first draft of the save test (the final test
+  uses Yamato, which creates no area).

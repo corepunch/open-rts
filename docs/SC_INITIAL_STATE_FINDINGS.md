@@ -36,3 +36,46 @@ energy. Without a retail command trace or the OpenBW action source the local gat
 is kept: changing it either way would be a guess. The trace to take: issue
 Unburrow and Decloak on a trigger-created unit with no research and observe whether
 the command card offers and executes them.
+
+## Manual toggle gate, second search (batch two): still not settled
+
+Searched `/tmp/openbw-bwgame.h`, `openbw-game_types.h` and `openbw-data_types.h`
+for burrow, unburrow, cloak and decloak by name, by `Orders::` id and by command
+wording (`action_`, `user_action`, `issue_order`, `unit_can_receive_order`,
+`unit_order_allowed`, `set_queued_order`).
+
+What exists in the pinned source:
+
+- Order functions `order_Burrowing`, `order_Burrowed`, `order_Unburrowing`;
+  secondary orders `secondary_order_Cloak` (cloak) and `secondary_order_Decloak`
+  (just sets the secondary order to Nothing). None checks research or CHK state.
+- `unburrow_unit` (hit reaction), the energy-out decloak in `update_unit_energy`,
+  and `give_unit_to`, which on an ownership change grants the new owner the
+  techs of each unit type (Marine/Firebat Stim, Ghost Lockdown and Personnel
+  Cloaking, Wraith Cloaking Field, Zergling/Hydralisk/Drone/Defiler/Infested
+  Terran Burrowing, and so on), so a given or rescued unit can use its tech.
+- `unit_can_receive_order`: a burrowed non-Lurker accepts only `Unburrowing`.
+  `unit_order_allowed` has no case for Burrowing, Unburrowing, Cloak or Decloak.
+  `set_queued_order` raises `error("cloak fixme")` for a Cloak order, so Cloak
+  never comes through that path.
+- `unit_can_use_tech` has only three callers in the pinned files (Healing,
+  `order_SpiderMine`); the research test for Burrowing and the two cloaks is
+  reached by nothing that turns a click into an order.
+
+What is absent: every player-command handler that creates a `Burrowing`,
+`Unburrowing`, `Cloak` or `Decloak` order (`grep Orders::Decloak` finds only the
+secondary-order dispatch). The pinned files contain no action/command layer at
+all. Whether a unit that starts cloaked or burrowed from CHK state without the
+research may decloak/unburrow and re-toggle therefore cannot be decided from this
+source, so the gate is unchanged and no gate test was added (a test could only
+pin the current local behavior, not retail).
+
+Lurker: the exemption in `unit_can_use_tech` cannot be aligned because the
+Lurker is a Brood War unit this port does not have (no `MT_LURKER`); hero
+exemption already exists in `sc_unit_has_tech`.
+
+Not done, and what would settle it: the OpenBW action source (not pinned) for
+the Burrow/Unburrow/Cloak/Decloak commands, or a retail trace of Unburrow and
+Decloak on a trigger-created unit with no research. A separate, evidence-backed
+gap is that this port does not grant a unit type's techs on an ownership change
+(`give_unit_to`); that belongs with the trigger Give Units action.

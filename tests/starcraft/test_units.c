@@ -908,6 +908,7 @@ static int computer(void) {
     think(0);
     CHECK(sc_shields(z1) == 0 && sc_energy(vessel) == 100);
     mobj_t *ultra = spawn(MT_ULTRALISK, FIXED2_LIT(8.5, 8.5), 1);
+    vessel->sc.timers[SC_TIMER_SPELL_COOLDOWN] = 0; /* the EMP just armed it */
     think(0);
     CHECK(ultra->sc.timers[SC_TIMER_IRRADIATE] > 0 && sc_energy(vessel) == 25);
     reset();
@@ -923,6 +924,7 @@ static int computer(void) {
     CHECK(!P_MobjById(tank_id) && count_of(MT_BROODLING, 0) == 2);
     for (int i = 0; i < 3; i++) spawn(MT_MARINE, FIXED2_LIT(10.5 + 0.5 * i, 6.5), 1);
     queen->sc.energy = 200 << 8;
+    queen->sc.timers[SC_TIMER_SPELL_COOLDOWN] = 0; /* the Broodling cast just armed it */
     think(0);
     mobj_t *slowed = first_of(MT_MARINE);
     CHECK(slowed && slowed->sc.timers[SC_TIMER_ENSNARE] > 0 && sc_energy(queen) == 125);
@@ -939,6 +941,7 @@ static int computer(void) {
     P_RemoveMobj(shooter);
     for (int i = 0; i < 4; i++) spawn(MT_MARINE, FIXED2_LIT(10.5 + 0.4 * i, 8.5), 1);
     defiler->sc.energy = 200 << 8;
+    defiler->sc.timers[SC_TIMER_SPELL_COOLDOWN] = 0; /* the Swarm cast just armed it */
     think(0);
     CHECK(sc_energy(defiler) == 50 && first_of(MT_MARINE)->sc.timers[SC_TIMER_PLAGUE] > 0);
     uint32_t ling_id = ling->id;

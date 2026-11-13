@@ -558,6 +558,37 @@ static bool spell_order(int tech) {
     }
     return false;
 }
+/* The weapons.dat row orders.dat gives each spell order (native
+ * arr/orders.dat: Fire Yamato Gun 30, Cast Lockdown 32, EMP 33, Irradiate 34,
+ * Parasite 56, Spawn Broodlings 57, Ensnare 58, Dark Swarm 59, Plague 60,
+ * Consume 61, Stasis 83, Psionic Storm 84). */
+static int spell_weapon(int tech) {
+    switch (tech) {
+    case SC_TECH_YAMATO_GUN: return SC_WEAPON_YAMATO;
+    case SC_TECH_LOCKDOWN: return 32;
+    case SC_TECH_EMP: return SC_WEAPON_EMP;
+    case SC_TECH_IRRADIATE: return 34;
+    case SC_TECH_PARASITE: return 56;
+    case SC_TECH_SPAWN_BROODLING: return 57;
+    case SC_TECH_ENSNARE: return 58;
+    case SC_TECH_DARK_SWARM: return 59;
+    case SC_TECH_PLAGUE: return 60;
+    case SC_TECH_CONSUME: return 61;
+    case SC_TECH_STASIS_FIELD: return SC_WEAPON_STASIS;
+    case SC_TECH_PSIONIC_STORM: return SC_WEAPON_STORM;
+    }
+    return -1;
+}
+/* OpenBW order_Spell sets spell_cooldown as it starts a cast: the spell
+ * weapon's modified cooldown plus (lcg_rand(49) & 3) - 1. The caster's
+ * ticker counts this tic's frames off at once, so they are added back and
+ * the next cast waits the full count. */
+static void rearm_spell_cooldown(mobj_t *caster, int tech, int frames) {
+    const sc_weapon_t *w = sc_weapon(spell_weapon(tech));
+    if (!w) return;
+    int cooldown = sc_modified_cooldown_frames(caster, w->cooldown) + (int)(sc_random() & 3) - 1;
+    caster->sc.timers[SC_TIMER_SPELL_COOLDOWN] = cooldown + frames;
+}
 /* Walks into range, then casts; false when the cast cannot go on. */
 static bool step_cast(mobj_t *caster, int frames) {
     sc_order_t *o = &caster->sc.order;
@@ -572,7 +603,9 @@ static bool step_cast(mobj_t *caster, int frames) {
         P_ClearMove(caster);
         if (spell_order(o->tech) && caster->sc.timers[SC_TIMER_SPELL_COOLDOWN] > frames) return true;
         caster->move_only = false;
-        cast_now(caster, o->tech, target, at);
+        int tech = o->tech; /* cast_now clears the order */
+        cast_now(caster, tech, target, at);
+        if (spell_order(tech) && caster->hp > 0 && !caster->remove) rearm_spell_cooldown(caster, tech, frames);
         return true;
     }
     if (!(caster->traits & MF_MOBILE)) return false;
@@ -724,6 +757,7 @@ void sc_spell_ticker(mobj_t *mo, int frames) {
     burrow_step(mo);
     if (mo->remove || mo->hp <= 0) return;
     if (frames > 0) {
+        sc_acid_tick(mo, frames);
         static const int countdown[] = {SC_TIMER_MATRIX, SC_TIMER_ENSNARE, SC_TIMER_LOCKDOWN, SC_TIMER_STORM,
                                         SC_TIMER_STIM, SC_TIMER_STASIS};
         for (unsigned i = 0; i < sizeof(countdown) / sizeof(*countdown); i++)

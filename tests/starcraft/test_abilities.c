@@ -97,10 +97,10 @@ static int upgrades(void) {
     tick(1);
     CHECK(ling->speed == ling_base + ling_base / 2);
     /* Adrenal Glands halves the Zergling's cooldown, kept to five frames. */
-    int cooldown = ling->info->attack.cooldown_ms;
-    CHECK(G_WeaponCooldown(ling, &ling->info->attack, cooldown) == cooldown);
+    int cooldown = ling->info->attack.cooldown_ms, base = (cooldown * 24 + 500) / 1000;
+    CHECK(sc_modified_cooldown_frames(ling, base) == base);
     upgrade(0, 28);
-    CHECK(G_WeaponCooldown(ling, &ling->info->attack, cooldown) == (cooldown / 2 < 209 ? 209 : cooldown / 2));
+    CHECK(sc_modified_cooldown_frames(ling, base) == (base / 2 < 5 ? 5 : base / 2));
     /* Ocular Implants, Antennae, Apial Sensors: eleven cells. */
     int radius = 9;
     CHECK(G_SightRadius(ghost, &radius) && radius == 9);
@@ -122,8 +122,8 @@ static int stim(void) {
     CHECK(marine->hp == marine->max_hp - 10 && marine->sc.timers[SC_TIMER_STIM] == 37 * 8);
     tick(1);
     CHECK(marine->speed == base + base / 2);
-    int cooldown = marine->info->attack.cooldown_ms;
-    CHECK(G_WeaponCooldown(marine, &marine->info->attack, cooldown) == cooldown / 2);
+    int frames_base = (marine->info->attack.cooldown_ms * 24 + 500) / 1000;
+    CHECK(sc_modified_cooldown_frames(marine, frames_base) == frames_base / 2);
     /* At ten hit points or fewer it is refused. */
     marine->hp = 10;
     CHECK(!sc_cast(marine, SC_TECH_STIM_PACKS, NULL, (fixed2_t){0}) && marine->hp == 10);
