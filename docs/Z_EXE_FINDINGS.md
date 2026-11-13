@@ -5092,6 +5092,28 @@ through travelling bullets after source removal. Inspect with `r2 -q -e
 bin.cache=true -e bin.relocs.apply=true -c 'pd 25 @ 0x5adbd' -c 'pd 18 @
 0x5ae29' -c q data/Z/ZED.EXE`.
 
+**Target-notification gate, partial:** the bullet launch helper
+`0x5afdc..0x5b01a` locates a unit at the aim coordinates and calls
+`0x75a73` with that unit in ESI. The latter returns early for unit types
+0x24 (Crane) and 0x26 (Fire Truck), as well as same-team units and units
+with +0x87 bit 8. For an eligible robot that passes further group and mode
+gates, `0x75b67..0x75b92` cancels its current route, writes order 0xfb and
+the opponent's slot at +0x50, and sets +0x67 bit 0x80. Vehicles and fixed
+guns take separate branches at `0x75be7`/`0x75bf5`. The combat path at
+`0x758f9..0x75918` calls the same
+routine in both directions, swapping ESI and EBP. Body and driver damage
+instead call `0x75ca3`, which refreshes a group timer when the unit has a group. These gates alone
+do not establish whether a Fire Truck can later acquire an attacker through
+another path, or how to map the native notification to the engine's shared
+retaliation and alert logic. The vehicle/gun notification routine `0x77088`
+also rejects Crane at `0x7709d` and Fire Truck at `0x77113`. The vehicle
+scan calls it in both directions at `0x58204`/`0x5820d` but continues to
+`0x583b2` afterward, so the rejection alone does not establish that the
+vehicle cannot fire at an independently scanned target. No gameplay change
+follows from this partial trace. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 35 @ 0x5afdc' -c 'pd 35 @ 0x75a73' -c 'pd 20 @ 0x758e1' -c 'pd 12 @
+0x75ca3' -c 'pd 70 @ 0x77088' -c q data/Z/ZED.EXE`.
+
 **Bullet range ordering:** On an unfinished step `0x5aa57..0x5aa9b`
 compares squared displacement from the stored launch point against the
 square of the range byte times eight; equality or greater exits through
