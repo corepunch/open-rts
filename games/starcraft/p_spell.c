@@ -197,6 +197,10 @@ static bool needs_target(int tech) {
         tech == SC_TECH_PARASITE || tech == SC_TECH_HALLUCINATION || tech == SC_TECH_INFESTATION;
 }
 
+/* An area that reveals for nobody. The engine reads any team from 8 up as
+ * having no sight, and a saved object's team must stay below 16. */
+enum { SC_NO_TEAM = 15 };
+
 /* An area that lingers. The neutral owner keeps it out of triggers and
  * scores; team decides whose sight it gives (none past 8). */
 static mobj_t *spawn_area(uint16_t type, fixed2_t at, const mobj_t *caster, int tech, int frames, uint8_t team) {
@@ -520,11 +524,11 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
         AROUND(v, at, SC_SPELL_RADIUS, caster) v->sc.timers[SC_TIMER_PLAGUE] = SC_PLAGUE_BEATS;
         break;
     case SC_TECH_PSIONIC_STORM: {
-        mobj_t *storm = spawn_area(MT_MAP_REVEALER, at, caster, tech, SC_STORM_FRAMES, 255);
+        mobj_t *storm = spawn_area(MT_MAP_REVEALER, at, caster, tech, SC_STORM_FRAMES, SC_NO_TEAM);
         if (storm) storm_strike(storm);
         break;
     }
-    case SC_TECH_DARK_SWARM: spawn_area(MT_DARK_SWARM, at, caster, tech, SC_SWARM_FRAMES, 255); break;
+    case SC_TECH_DARK_SWARM: spawn_area(MT_DARK_SWARM, at, caster, tech, SC_SWARM_FRAMES, SC_NO_TEAM); break;
     case SC_TECH_SCANNER_SWEEP: {
         mobj_t *sweep = spawn_area(MT_MAP_REVEALER, at, caster, tech, SC_SWEEP_FRAMES, caster->team);
         if (sweep) sweep->traits |= MF_DETECTOR;
@@ -534,7 +538,7 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     case SC_TECH_INFESTATION: infest(caster, target); return;
     case SC_TECH_STASIS_FIELD: stasis(caster, at); break;
     case SC_TECH_RECALL: {
-        mobj_t *field = spawn_area(MT_MAP_REVEALER, at, caster, tech, SC_RECALL_DELAY, 255);
+        mobj_t *field = spawn_area(MT_MAP_REVEALER, at, caster, tech, SC_RECALL_DELAY, SC_NO_TEAM);
         (void)field;
         break;
     }

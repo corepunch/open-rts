@@ -398,6 +398,37 @@ static int spell_save(void) {
     return 0;
 }
 
+/* A save taken while a lingering spell area exists must load: the area's
+ * "no team" value has to pass the engine's saved-object team bound. */
+static int area_save(void) {
+    static const int techs[] = {SC_TECH_PSIONIC_STORM, SC_TECH_DARK_SWARM};
+    static const uint16_t casters[] = {MT_HIGH_TEMPLAR, MT_DEFILER};
+    for (int i = 0; i < 2; ++i) {
+        reset();
+        learn(techs[i]);
+        mobj_t *a = spawn(casters[i], FIXED2_LIT(8.5, 8.5), 0);
+        CHECK(a);
+        a->sc.energy = 200 << 8;
+        CHECK(cast_now(a, techs[i], NULL, FIXED2_LIT(12.5, 8.5)));
+        tick(2);
+        uint32_t hash = G_Consistency();
+        app_t app = {0};
+        AiContext ai = {0};
+        hudtext_t hud = {0};
+        void *blob = NULL;
+        size_t length = 0;
+        CHECK(G_SaveGameBlob(&blob, &length, "spell area", &app, &ai, &hud));
+        P_FreeLevel(&level);
+        P_InitThinkers();
+        CHECK(G_DoLoadLevel(map, &level) && P_InitSight());
+        CHECK(G_LoadGameBlob(blob, length, &app, &ai, &hud));
+        free(blob);
+        CHECK(G_Consistency() == hash);
+    }
+    reset();
+    return 0;
+}
+
 int main(void) {
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
     SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
@@ -418,6 +449,7 @@ int main(void) {
     CHECK(!spell_rearm());
     CHECK(!spell_save());
     CHECK(!spores_saved());
+    CHECK(!area_save());
     S_Shutdown();
     puts("PASS: StarCraft weapon cooldowns");
     return 0;
