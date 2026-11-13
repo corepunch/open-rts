@@ -32,6 +32,16 @@ static bool vehicle_candidate(const mobj_t *mo) {
     default: return false;
     }
 }
+/* 0x98840 values only these active effect descriptors. */
+static bool valued_object(const mobj_t *mo) {
+    if (!Z_Enterable(mo) || !mo->z.object_slot) return false;
+    switch (mo->z.object) {
+    case MT_GUN: case MT_MEDIUM: case MT_MISSILE: case MT_GATTLING:
+    case MT_HOWITZER: case MT_M_MISSILE: case MT_HEAVY: case MT_LIGHT:
+    case MT_A_P_C: case MT_JEEP: case MT_CRANE: case MT_FIRE_TRUCK: return true;
+    default: return false;
+    }
+}
 static int members(const zaitask_t *task, mobj_t *const *units, int count, mobj_t **out) {
     int n = 0;
     for (int i = 0; i < count && n < MEMBERS; ++i)
@@ -265,7 +275,7 @@ static void observations(zmap_t *map, mobj_t *const *units, int count) {
                 irect_t cells = P_MobjCells(mo);
                 if (Z_AITerritory(map, fixed2_from_cell((ivec2_t){cells.x,cells.y})) == t)
                     out->value += Z_AIEstimate((int)mo->z.rating, ai->intelligence);
-            } else if (Z_Enterable(mo) && at_unit(map, mo) == t)
+            } else if (valued_object(mo) && at_unit(map, mo) == t)
                 out->value += Z_AIEstimate(Z_AIEmptyValue(mo), ai->intelligence);
         }
     }

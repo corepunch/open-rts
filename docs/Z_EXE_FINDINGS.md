@@ -5356,3 +5356,22 @@ territory membership may differ from the engine's thinker iteration and
 recomputed position. Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 32 @ 0x987ee' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Empty-object strategic value and effect slots:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98840..0x98904` scans the 200 active effect records and accepts descriptor
+IDs 5, 8, 21, 22, 23, 24, 26, 29, 31, 33, 35 and 37 before adding the
+estimated `0x9890b` value to the territory. Open-rts now applies that list
+and requires a represented effect slot when scoring an empty vehicle. This
+matters for the documented engine policy that leaves a boardable but unslotted
+hull if the effect pool is full: that hull no longer creates an effect score.
+The existing shared `Z_Enterable` gate remains an approximation for unusual
+native records whose descriptor and weapon/unit type disagree. The engine
+uses the unit origin for territory lookup; the native path uses the effect
+position, so membership can differ at territory boundaries.
+`test_empty_object_value_slots` checks the same boardable hull slotted,
+unslotted, with an unlisted descriptor and restored; the prior unconditional
+boardability score fails. Pool-full ejection itself remains covered by the
+combat tests. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+-c 'pd 70 @ 0x98840' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.
