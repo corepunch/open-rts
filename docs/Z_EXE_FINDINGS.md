@@ -5429,6 +5429,135 @@ duration and cleanup of that state are still unknown. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x8953e'
 -c 'pd 24 @ 0x88c43' -c 'pd 24 @ 0x89280' -c q data/Z/ZED.EXE`.
 
+**Issue 100 trace: ambient records, flame side effects and list gating
+(2026-11-13, trace only, no gameplay change):** Evidence labels are
+**confirmed** (read from ZED.EXE disassembly), **inferred** or **unknown**.
+All addresses are in the SHA-256 `3635cb69...4676` image.
+
+*Naming correction (confirmed).* The "100-record map-object table" at
+`0x191ba8` is not the placed-object table. Placed `OBJECTnn.DAT` records
+(including types 39..57 trees/rocks/cacti and the houses) go through
+`0x18418..0x1844d` and `0x4a184` into the 40-byte effect/object slots
+(`0x4a5d7`, 200 slots, descriptors at `0xe5974`), which open-rts already
+models as ordinary mobjs. The 64-byte table is a separate sprite-object
+pool (saved as `0x1900` bytes at `0x1c549`) allocated by `0x889fc`
+(first record whose x word is `0xffff`) and filled by `0x875c7` from the
+52 16-byte type descriptors at `0x14c309`. Descriptor fields: word +0 sprite
+base (record +0x1c), high byte of word +2 (record +0x20, the "hit class")
+and low byte (+0x21, frames per direction), words +4/+6/+8 (+0x1e/+0x18/+0x1a),
++0xa nonzero sets +0x37, +0xc low byte is the class +0x3d, +0xe is +6.
+Record +0 and +2 hold x and y (word `0xffff` = free); +0x27 is a start delay,
++0x35/+0x36 flag bytes (`0x36 & 0x10` = bursting, `0x20` = frightened).
+**Confirmed:** only descriptors whose +0x20 is nonzero can be hit: types
+2, 3, 5, 8..11, 15..20, 32..37, 43, 44, 52 (+0x20 = 6 or 8) and 46
+(+0x20 = 1); all other types of the 0..52 table have +0x20 = 0 (types 36 and 44
+also have class 6 and are skipped). The house-inhabitant rows use types 2, 3,
+8..11, 15, 16, 18..20, 32, 33, 37 and 52, all eligible, and 41 and 42, which are
+not; **unknown:** which callers create the remaining eligible types
+5, 17, 34, 35, 43 and 46 (they are among the 54 `0x875c7` call sites at
+`0x87a1c..0x88788`, none of which was identified as a house).
+
+*Scanners (confirmed).* Three scans share one body shape. For each of the
+100 records in ascending order they skip a free record, a nonzero low byte
+of +0x27, `+0x36 & 0x30`, class +0x3d = 6 and +0x20 = 0, then compare
+|record.x - ax| and |record.y - ay| with an inclusive limit:
+- `0x88b13` (bullet, called from `0x5aa49` with the bullet's previous
+  position minus (1,1)): limit 16, additionally skips +0x20 = 0xff, stops at
+  the first hit and returns carry set; the caller then clears the bullet
+  (`0x5ac55`, `0x5aa32`). One record dies per bullet and the bullet is
+  consumed before the unit and terrain scans in `0x5ac67`.
+- `0x88a7f` (area): limit 24, no 0xff test, continues through all 100
+  records and bursts every match. Its two callers are the flame unit pass
+  (`0x86934..0x86995`, after setting `0x14c05f`; box origin = flame origin)
+  and the common explosion's unit pass `0x85ce4..0x85d02` (ax = x-6,
+  bx = y+10, the shell, grenade and water blast, ahead of the unit damage
+  call `0x64309`), plus the animation callback `0x86963..0x86995`
+  (ax-10, bx-5).
+- A hit writes +0x2e = 0, +0x35 = 0, +0x36 = 0x10, +0x3a = 0, sets x to
+  `0xffff`, and calls `0x8790a(ax = old x, bx = y, cx = |+0x16|, edx = +0x21)`.
+  `0x8790a` plays sounds 7 and 0x73 only when `0x84660` says the point is
+  within 32 pixels of the viewport, then always starts the `burst_an`
+  animation (`0x6c292`), whose `an_shrap` callback `0x6c2ee` runs the
+  strength-10 chained blast `0x86963` (which itself rescans these records and
+  damages units through `0x64309/0x86ca4`). `0x6d093` suppresses the animation
+  when `0x10f33a` is nonzero.
+**Ordering (confirmed):** in both explosion and flame passes the
+record scan precedes the unit-box damage call, so a record is burst before
+units in the same blast are damaged. A bullet consumes the first record
+before any unit hit test.
+
+*Why not implemented.* **Unknown/not confirmed:** the lifecycle needed to
+have records at all (creation timing at world start, the 32..42 and
+160..287 delays, movement, return-home, recreation) is only partly traced
+(see the house-animal notes above), and the chained `an_shrap` blast delay
+is not measured. open-rts has no such records, no ordinary mobj stands for
+them and the placed map objects (houses, rocks, trees) are not scanned by
+any of these routines, so applying the 16/24-pixel tests to ordinary map
+objects, crates or vehicles would invent behavior. No bullet/flame
+map-object damage was added. The bullet scan at `0x5aa49` and the chained
+blast remain the first pieces to port once inhabitants exist.
+
+*Fire Truck and flame side effects (`0x86ca4`, the common damage routine).*
+**Confirmed:** every damage call first sets unit +0x62 bit 4 and +0x94 = 7
+(`0x86ca9`, `0x86cad`). If +0x98 & 0x14 is clear, +0x87 bit 1 is cleared
+(`0x86cbd`); while flame global `0x14c05f` is set, +0x87 bit 1 is set
+again (`0x86ccd`), and for type 0x26 the routine also clears +0x62 bit 4,
+writes word +0x8e = 2 and skips the health subtraction (`0x86cda..0x86ce7`).
+Non-truck units keep the normal health path and therefore end a flame hit with
++0x87 bit 1 set and +0x62 bit 4 set; any later ordinary damage clears
++0x87 bit 1. **Confirmed readers:** +0x62 bit 4 is tested and cleared only in
+the robot animation handlers (`0x7e486`, `0x7e5c6`, `0x7e700` ... `0x7ef4b`,
+`0x7d46f..0x7ddff`), i.e. a robot hit reaction; no vehicle code reads it, so
+clearing it on a Fire Truck has no further observable effect. The only
+reader of +0x87 bit 1 is `0x24c21`, inside the handler `0x24c14` that
+dispatch table `0x149038` entries 0x3c and 0x3f point to; `0x74f79` selects
+action 0x3c for type 0x26. When the bit is set that handler, once per
+update, increments the body byte +0x15 of the record at unit +8 modulo 8,
+builds the Fire Truck nozzle position (`0x5909b` hull offset plus `0x5915f`
+nozzle offset, as for normal water), takes a target at nozzle + the pair
+`0x12ddac[dir]` ({0,-10},{10,-10},{10,0},{10,10},{0,10},{-10,10},{-10,0},
+{-10,-10} as word x,y), and calls the water launcher `0x59ffb` twice with
+speed byte +0x76 (`0x24c6e`, `0x24c75`). Then, if byte +0x8e is negative, the
+bit is cleared; otherwise +0x8e is decremented (`0x24c82..0x24c94`). A
+flame hit therefore makes a Fire Truck spray two water shells per native
+update for four updates in a rotating eight-way pattern (2, 1, 0, then
+0xff clears; byte semantics inferred from `jns`).
+**Not implemented, because unconfirmed:** the initial value of the nozzle
+byte +0x15 (open-rts keeps no nozzle state and derives the bearing at shot
+time), whether the handler runs on every native update for a truck that is
+carrying out another order, and the damage and friendly-fire consequences
+of the 8 resulting shells have not been verified on retail. The word at
++0x8e is also read by an unrelated handler (`0x244e4`, table entry 0x3d)
+and by the net/snapshot code (`0x2d66e`), so it is a shared field. Applying
+only the bit and counter without the spray would be unobservable in the
+port, so no state was added and the existing health immunity stays the only
+modeled effect. Reproduce with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 36 @ 0x86ca4' -c 'pd 70 @ 0x24c14' -c 'pd 18 @
+0x74f40' -c 'pxw 32 @ 0x149120' -c 'pxh 32 @ 0x12ddac' -c q data/Z/ZED.EXE`.
+
+*Display-list capacity gating (`0x4a677`).* **Confirmed:** frame start
+(`0x14193`, `0x2647d`) resets two list pointers, `0x104010` = `0x104978` and
+`0x10401c` = `0x1055fa`. The list at `0x104010` advances by 8 bytes per
+entry (`0x40587`) and the one at `0x10401c` by 16 (`0x2b3f4`). In the effect
+loop (`0x4a655` loads `0x104010` into EDI), an effect record is processed
+only if sticky flag `0x1d3cb0` is zero, EDI < `0x1055f8` and
+`0x10401c` < `0x1068ba`; otherwise `0x4a6b6` sets the flag and skips the
+whole record. The capacities are therefore (0x1055f8-0x104978)/8 = 400 and
+(0x1068ba-0x1055fa)/16 = 300 entries, filled by the on-screen sprite builders
+(`0x2aae7..0x2b275`, `0x40539..0x405e0`) before effects are reached.
+**Not implemented:** occupancy is the number of sprites the native
+renderer has queued this frame, which depends on the viewport and drawing
+order; open-rts builds no such lists, and the point where `0x1d3cb0` is
+cleared was not found (no explicit store of 0 exists, so a bulk clear is
+inferred). Inventing an occupancy would make fire lifetime depend on an
+unrelated renderer number. The in-flight unit reaction at `0x59894` remains
+untraced beyond the earlier notes.
+
+Verification this pass: `git diff --check` only; no code or test changed.
+Reproduce the list pass with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+-c 'pd 75 @ 0x4a64b' -c 'pd 22 @ 0x40539' -c 'p8 832 @ 0x14c309' -c q
+data/Z/ZED.EXE`.
+
 **CPU building attack task 6, partial trace:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 heavy-pass routine `0x9a801` checks active usable mobile tasks 1 and 3 whose
