@@ -4529,13 +4529,38 @@ bin.relocs.apply=true -c 'pd 40 @ 0x7a03f' -c 'pd 18 @ 0x50c0e'
 builder `0x64138..0x64190` skips units whose group +9 has bit 0x20. The
 direct writes inspected include `0x3ff8f` on bay exit and the separate
 transition at `0x7c00d`, with clears at `0x7b2d8`/`0x7b31b`; entry itself
-does not establish when that group bit is set. Thus the native occupant's
+does not establish when that group bit is set. The latter transition also
+depends on unit +0x98 bit 0x10; `0x7c5a8..0x7c5f6` sets that bit for
+native order +0x54 equal to 3, or equal to 4 for class-1 vehicle types 0x18/0x19.
+Those order values are not mapped to every engine route. Thus the native occupant's
 complete projectile immunity cannot be inferred from its hidden state alone.
 The engine's shared target selector excludes its `MF_NOBLOCKMAP` bay
 occupant, while Z's custom bullet and blast scans have separate eligibility;
 their exact relationship to native occupancy remains unverified. Inspect
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x64138'
--c 'pd 40 @ 0x7a03f' -c 'pd 25 @ 0x3ff66' -c q data/Z/ZED.EXE`.
+-c 'pd 40 @ 0x7a03f' -c 'pd 25 @ 0x3ff66' -c 'pd 35 @ 0x7c5a8'
+-c q data/Z/ZED.EXE`.
+
+**Terrain-speed command override:** `0x7988e..0x798c1` replaces the
+terrain modifier with +10 before its signed division by ten when a vehicle
+has unit +0x31 bit 0x10 or unit +0x6f bit 0x20; for robots, group +9 bit 8
+when a group exists, or unit +0x6f bit 0x20, has the same effect. The latter unit bit is set at
+`0x750b0`, and is cleared then conditionally set according to unit +0x54
+at `0x7c85c..0x7c866` and `0x7cd6b..0x7cd75`. These are distinct native
+order/target paths, so a nonnull engine attack target alone does not prove
+the override applies. Its full lifecycle remains unmodeled. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x79882'
+-c 'pd 25 @ 0x75090' -c 'pd 20 @ 0x7c83e' -c 'pd 15 @ 0x7cd5b'
+-c q data/Z/ZED.EXE`.
+
+**Campaign empty-vehicle record check:** scanning active ten-byte
+OBJECT01–20 records for descriptors with flag 0x32 found only the matching
+weapon index for each descriptor (for example Jeep 33→13 and APC 31→10).
+No active empty Truck, Fire Truck, or weapon index 0xff occurred in those
+records. This establishes the loader's input for these campaign files only;
+it does not establish retail behavior for malformed or custom mismatches.
+Reproduce by inspecting each `data/Z/LEVELnn/OBJECTnn.DAT` record's u16 X,
+type byte +4 and weapon byte +5 against `games/z/objects.inc`.
 
 **Accuracy configuration.** The 32 ROBOTS.DAT group records at `0x4650`
 contain up to 21 little-endian robot indices at +0x1c; each 44-byte robot
