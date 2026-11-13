@@ -391,8 +391,91 @@ static int task_six_filters(void) {
     return 0;
 }
 
+/* Vehicles: command 5 on a point runs action 9 (0x57dd6); 0x764e8 only tests the
+ * reach (0x591ca) and stops the unit. No shot is fired at the point. */
+static int test_vehicle_reach(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("vehicle reach load");
+    mobj_t *tank = robot(MT_UNIT_LIGHT_TANK, 0, (ivec2_t){400, 400}, 0, UINT8_MAX, 0);
+    if (!tank) return fail("vehicle reach fixture");
+    ivec2_t at = Z_AITopLeft(tank);
+    if (!Z_PointReach(tank, (ivec2_t){at.x + 12 + 120, at.y + 8}) || Z_PointReach(tank, (ivec2_t){at.x + 12 + 121, at.y + 8}) ||
+        !Z_PointReach(tank, (ivec2_t){at.x + 12 - 72, at.y + 8 + 96}) || Z_PointReach(tank, (ivec2_t){at.x + 12 - 73, at.y + 8 + 96}))
+        return fail("0x591ca reach is inclusive, squared and measured from top-left + (12,8)");
+    puts("PASS: z vehicle point reach boundary");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_vehicle_order(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("vehicle load");
+    mobj_t *building = first_building(-1);
+    ivec2_t aim = aim_of(building);
+    int hp = building->hp;
+    mobj_t *tank = robot(MT_UNIT_HEAVY_TANK, 0, (ivec2_t){aim.x + 300, aim.y}, 0, UINT8_MAX, 0);
+    if (!tank) return fail("vehicle fixture");
+    if (!Z_PointAttackOrder(tank, aim) || tank->z.point_mode != 3 || !P_HasMoveOrder(tank)) return fail("out of range: the vehicle is ordered to approach");
+    int shells = 0, seen = 0;
+    for (int t = 0; t < 1500 && tank->z.point_mode; ++t) {
+        tick(model, 1);
+        int now = count_type(MT_SHELL) + count_type(MT_GRENADE);
+        if (now > seen) shells += now - seen;
+        seen = now;
+    }
+    ivec2_t at = Z_AITopLeft(tank);
+    int64_t dx = at.x + 12 - aim.x, dy = at.y + 8 - aim.y;
+    if (tank->z.point_mode || P_HasMoveOrder(tank) || !Z_PointReach(tank, aim) || dx * dx + dy * dy < 100 * 100)
+        return fail("the vehicle stops as soon as the point is in reach, not at the point");
+    if (shells || building->hp != hp) return fail("a vehicle fires nothing at the point (0x764e8 only stops it)");
+    /* Already deep inside the reach (five times the root below +4): no path is planned. */
+    mobj_t *close = robot(MT_UNIT_LIGHT_TANK, 0, (ivec2_t){aim.x - 40, aim.y}, 0, UINT8_MAX, 0);
+    if (!close || !Z_PointAttackOrder(close, aim) || P_HasMoveOrder(close) || close->z.point_mode != 3)
+        return fail("0x7c906: a point well inside the range plans no path");
+    if (!tick(model, 2) || close->z.point_mode) return fail("the order ends on the first reach test");
+    /* Negative: unattackable terrain is rejected (0x7cb27), nothing is left behind. */
+    zmap_t *map = level.native_data;
+    map->terrain[(aim.y / Z_TILE) * Z_MAP_STRIDE + aim.x / Z_TILE] = 0;
+    mobj_t *other = robot(MT_UNIT_LIGHT_TANK, 0, (ivec2_t){aim.x - 40, aim.y}, 0, UINT8_MAX, 0);
+    if (!other || Z_PointAttackOrder(other, aim) || Z_PointActive(other)) return fail("plain ground is refused for a vehicle");
+    puts("PASS: z vehicle point order approaches, stops in reach and fires nothing");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_vehicle_save(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("vehicle save load");
+    mobj_t *building = first_building(-1);
+    ivec2_t aim = aim_of(building);
+    mobj_t *tank = robot(MT_UNIT_MED_TANK, 0, (ivec2_t){aim.x + 300, aim.y}, 0, UINT8_MAX, 0);
+    if (!tank) return fail("vehicle save fixture");
+    uint32_t id = tank->id;
+    if (!Z_PointAttackOrder(tank, aim) || !tick(model, 5)) return fail("vehicle save order");
+    uint32_t hash = G_Consistency();
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Vehicle point", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("vehicle save and load");
+    tank = P_MobjById(id);
+    if (!tank || tank->z.point_mode != 3 || !ivec2_equal(tank->z.point, aim) || G_Consistency() != hash)
+        return fail("vehicle order and hash survive the save");
+    if (!tick(model, 1500) || Z_PointActive(P_MobjById(id)) || !Z_PointReach(P_MobjById(id), aim))
+        return fail("the restored vehicle order finishes in reach");
+    /* A vehicle mode on a robot is malformed. */
+    mobj_t *grunt = robot(MT_UNIT_GRUNT, 0, (ivec2_t){400, 400}, 213, UINT8_MAX, 0);
+    grunt->z.point_mode = 3; grunt->z.point = aim;
+    free(save); save = NULL;
+    if (!G_SaveGameBlob(&save, &size, "Bad vehicle point", &app, rts_game_model_ai(model), &hud)) return fail("save malformed vehicle order");
+    if (G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("a robot with vehicle mode is rejected");
+    free(save);
+    puts("PASS: z vehicle point order survives save and load");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
     return test_range_rule() || test_attackable_point() || test_leader_throw() || test_carrier_choice() ||
            test_approach() || test_no_grenade_move() || test_tough() || test_save_mid_order() ||
+           test_vehicle_reach() || test_vehicle_order() || test_vehicle_save() ||
            task_six(false) || task_six(true) || task_six_filters();
 }
