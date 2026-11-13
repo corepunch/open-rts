@@ -417,7 +417,7 @@ static int idle_pool(zmap_t *map, int territory, pooled_t *pool) {
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &map->ai.tasks[i];
         mobj_t *mo = P_MobjById(task->unit);
-        if (!live(mo) || !offensive(task) || task->task != IDLE || task->pending ||
+        if (!live(mo) || !offensive(task) || task->task != IDLE ||
             !allowed(mo, map->ai.territories[territory].flags, true)) continue;
         int64_t distance = ivec2_distance_squared64(Z_AITopLeft(mo), ivec2_scale(map->territories[territory].flag, Z_TILE));
         int at = n++;

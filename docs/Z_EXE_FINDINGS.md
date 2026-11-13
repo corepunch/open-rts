@@ -5088,3 +5088,16 @@ engine's candidate and task-resolution approximations remain as documented
 above. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 35 @ 0x98ee1' -c 'pd 27 @ 0x9902f' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Queued idle force in the assault pool:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9a126..0x9a1c6` collects usable, mobile, idle task records and applies
+territory restrictions without checking the group's delayed command queue.
+Open-rts now includes idle tasks with a pending order in this pool; a
+successful staging dispatch replaces the previous pending order using the
+existing queue behavior. If staging cannot dispatch, the existing pending
+order remains, as documented for `0x9d4f4`. `test_pending_assault_force`
+checks that an idle group with a later queued command is assigned to an
+assault and its command is replaced. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 65 @ 0x9a126' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.
