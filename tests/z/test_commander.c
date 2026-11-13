@@ -356,7 +356,21 @@ static int test_apc_driver_value(void) {
     if (!Z_DetourBoard(psycho, apc) || apc->z.body_fire != 98)
         return fail("replacement APC driver restores driver's fire byte");
     P_DamageMobj(apc, NULL, apc->max_hp / 4);
-    if (apc->z.body_fire != 83) return fail("reboarded APC fire scales at next threshold");
+    if (apc->z.body_fire != 83 || apc->z.body_speed != 38 || apc->z.body_base_speed != 45)
+        return fail("reboarded APC retains its boarding speed baseline");
+    uint32_t apc_id = apc->id, hash = G_Consistency();
+    apc->z.body_base_speed++;
+    if (G_Consistency() == hash) return fail("repair baseline contributes to consistency");
+    apc->z.body_base_speed--;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+    if (!G_SaveGameBlob(&save, &bytes, "APC repair baseline", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud))
+        return fail("save APC repair baseline");
+    free(save); apc = P_MobjById(apc_id);
+    if (!apc || apc->z.body_base_speed != 45) return fail("restore APC repair baseline");
+    Z_RepairBody(apc);
+    if (apc->z.body_speed != 45 || apc->z.body_fire != 83 || apc->z.body_accuracy != Z_UnitAccuracy(MT_UNIT_PSYCHO - MT_UNITS))
+        return fail("repair restores reboarded speed and driver accuracy only");
     rts_game_model_destroy(model);
     puts("PASS: z APC strategic range and damaged body fire follow driver");
     return 0;
@@ -2299,7 +2313,9 @@ static int test_repair_facility(void) {
     Z_SetTeam(facility, 1);
     mobj_t *tank = service_unit(MT_UNIT_MED_TANK, fixed3_xy(facility->core.position));
     if (!tank) return fail("tank fixture near repair bay");
-    tank->hp = tank->max_hp / 2;
+    P_DamageMobj(tank, NULL, tank->max_hp / 2);
+    if (!tank->z.body_tracked || tank->z.body_speed != 34 || tank->z.body_accuracy != 68 || tank->z.body_fire != 59)
+        return fail("repair fixture has actual body degradation");
     think(0); think(1);
     if (tank->z.service) return fail("exactly half health does not trigger repairs");
     zaitask_t *task = task_of(tank);
@@ -2315,6 +2331,9 @@ static int test_repair_facility(void) {
     for (int i = 0; i < 4 * RTS_TICRATE && tank->z.service_work >= 0; ++i)
         if (!tick(model, 1)) return fail("repair approach simulation");
     if (tank->z.service_work >= 0) return fail("tank enters the repair bay");
+    if (tank->hp >= tank->max_hp || tank->z.body_speed != 40 || tank->z.body_base_speed != 40 ||
+        tank->z.body_accuracy != 80 || tank->z.body_fire != 59)
+        return fail("bay entry restores speed and accuracy before health, retaining fire rate");
     uint32_t tank_id = tank->id, facility_id = facility->id;
     int remaining = tank->z.service_work;
     app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
@@ -2322,7 +2341,8 @@ static int test_repair_facility(void) {
         !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save active vehicle repair");
     free(save);
     tank = P_MobjById(tank_id); facility = P_MobjById(facility_id);
-    if (!tank || !facility || tank->z.service != facility_id || tank->z.service_work != remaining)
+    if (!tank || !facility || tank->z.service != facility_id || tank->z.service_work != remaining ||
+        tank->z.body_speed != 40 || tank->z.body_base_speed != 40 || tank->z.body_accuracy != 80 || tank->z.body_fire != 59)
         return fail("restore bay occupant and exact timer");
     Z_SetTeam(facility, 0);
     if (!tick(model, 1) || tank->z.service || !(tank->traits & MF_MOBILE) || tank->hp == tank->max_hp)
@@ -2331,6 +2351,34 @@ static int test_repair_facility(void) {
     tank->hp = 40;
     if (!tick(model, 15 * RTS_TICRATE) || tank->z.service || tank->hp != tank->max_hp)
         return fail("friendly repair bay restores health and releases the tank");
+    P_DamageMobj(tank, NULL, tank->max_hp / 4);
+    if (tank->z.body_speed != 36 || tank->z.body_accuracy != 72 || tank->z.body_fire != 53)
+        return fail("new damage scales restored speed and accuracy but retained fire rate");
+    P_RemoveMobj(tank);
+    mobj_t *apc = service_unit(MT_UNIT_APC, fixed3_xy(facility->core.position));
+    if (!apc) return fail("reboarded APC repair fixture");
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    P_DamageMobj(apc, NULL, apc->max_hp / 4);
+    if (!Z_EjectCrew(apc)) return fail("damaged APC exits before repair");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->team == 1 && Z_IsRobot(Z_UnitType(mo))) P_RemoveMobj(mo);
+    }
+    mobj_t *psycho = P_SpawnMobj(apc->core.position, MT_UNIT_PSYCHO);
+    if (!psycho) return fail("APC replacement driver for repair");
+    Z_SetTeam(psycho, 1);
+    if (!Z_DetourBoard(psycho, apc)) return fail("replacement driver boards APC for repair");
+    P_DamageMobj(apc, NULL, apc->max_hp / 4 + 1);
+    if (apc->z.body_speed != 38 || apc->z.body_base_speed != 45 || apc->z.body_fire != 83)
+        return fail("reboarded APC has independently damaged speed and fire");
+    fixed2_t goal;
+    if (!Z_ServiceApproach(apc, facility, &goal) || !Z_ServiceOrder(apc, facility, goal))
+        return fail("reboarded APC starts repair order");
+    for (int i = 0; i < 8 * RTS_TICRATE && apc->z.service_work >= 0; ++i)
+        if (!tick(model, 1)) return fail("reboarded APC approaches repair bay");
+    if (apc->z.service_work >= 0 || apc->z.body_speed != 45 ||
+        apc->z.body_accuracy != Z_UnitAccuracy(MT_UNIT_PSYCHO - MT_UNITS) || apc->z.body_fire != 83)
+        return fail("repair bay restores speed retained when APC was boarded");
     puts("PASS: z reserve repair threshold, bay ownership and release");
     rts_game_model_destroy(model);
     return 0;

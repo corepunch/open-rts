@@ -120,6 +120,7 @@ void Z_BodyDamaged(mobj_t *mo, int old_hp) {
     if (t < 0 || Z_IsRobot(t) || mo->max_hp <= 0) return;
     if (!mo->z.body_tracked) {
         mo->z.body_speed = body_stats[t].speed;
+        mo->z.body_base_speed = mo->z.body_speed;
         int fire_type = t == MT_UNIT_APC - MT_UNITS && mo->z.driver && Z_IsRobot(mo->z.driver - 1)
                       ? mo->z.driver - 1 : t;
         mo->z.body_fire = body_stats[fire_type].fire;
@@ -140,6 +141,14 @@ void Z_BodyDamaged(mobj_t *mo, int old_hp) {
             mo->z.body_fire = mo->z.body_fire * scale / 100;
         if (mo->info && mo->info->speed > 0) mo->speed = Z_LevelSpeed(mo->z.body_speed / 10);
     }
+}
+
+/* 0x7a05b..62 and 0x7a09c..9f restore speed and driver accuracy on bay entry. */
+void Z_RepairBody(mobj_t *mo) {
+    if (!mo->z.body_tracked) return;
+    mo->z.body_speed = mo->z.body_base_speed;
+    mo->z.body_accuracy = (uint8_t)base_accuracy(mo);
+    terrain_speed(mo);
 }
 
 static bool structure(const mobj_t *mo) {
@@ -208,6 +217,7 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     Z_SetTeam(vehicle, robot->team);
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
     if (vehicle->z.body_tracked) {
+        vehicle->z.body_base_speed = vehicle->z.body_speed;
         vehicle->z.body_accuracy = (uint8_t)base_accuracy(robot);
         if (t == MT_UNIT_APC - MT_UNITS) vehicle->z.body_fire = body_stats[Z_UnitType(robot)].fire;
     }

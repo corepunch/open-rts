@@ -136,6 +136,7 @@ static void service_vehicle(mobj_t *unit, const mobj_t *facility) {
         /* 0x7a065 and 0x41ae1 initialize the remaining repair stock. */
         int stock = (unit->max_hp - unit->hp) / 20;
         unit->z.service_work = -((1 + (stock > 0 ? stock : 1)) * 880 / map->production_speed);
+        Z_RepairBody(unit);
         unit->traits &= ~(MF_MOBILE | MF_ATTACK | MF_RENDERABLE | MF_SELECTABLE);
         unit->traits |= MF_NOBLOCKMAP;
         P_MobjSetSelected(unit, false);

@@ -50,7 +50,7 @@ typedef struct {
     uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
-    uint8_t body_speed, body_fire, body_accuracy; bool body_tracked; /* Mutable native stats. */ \
+    uint8_t body_speed, body_base_speed, body_fire, body_accuracy; bool body_tracked; /* Mutable native stats. */ \
     uint8_t bridge; /* BRIDGEnn.DAT slot + 1. */ \
     uint8_t service_ticks; /* Service animation, pending bridge effects, or repair bay HP clock. */ \
     bool manufactured; /* CPU unit flag 0x10, set by 0x5103e. */ \
@@ -90,7 +90,7 @@ typedef struct {
     HASH((mo)->z.robot); HASH((mo)->z.object); HASH((mo)->z.building); HASH((mo)->z.object_slot); HASH((mo)->z.object_hp); HASH((mo)->z.crew_hurt); \
     HASH((mo)->z.object_terrain); HASH((mo)->z.object_stamped); \
     HASH((mo)->z.service); HASH((mo)->z.service_work); HASH((mo)->z.bridge); HASH((mo)->z.service_ticks); \
-    HASH((mo)->z.body_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_accuracy); HASH((mo)->z.body_tracked); \
+    HASH((mo)->z.body_speed); HASH((mo)->z.body_base_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_accuracy); HASH((mo)->z.body_tracked); \
     HASH((mo)->z.manufactured); \
     HASH((mo)->z.crew_count); \
     for (int z_i = 0; z_i < (mo)->z.crew_count && z_i < Z_CREW_MAX; ++z_i) { \

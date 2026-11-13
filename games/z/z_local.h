@@ -134,6 +134,7 @@ int Z_UnitAccuracy(int type);
 ivec2_t Z_BlastAnchor(const mobj_t *mo);
 fixed_t Z_LevelSpeed(int level);
 void Z_BodyDamaged(mobj_t *mo, int old_hp);
+void Z_RepairBody(mobj_t *mo);
 bool Z_EjectCrew(mobj_t *vehicle);
 int Z_GroupType(const zmap_t *map, int group, int member);
 int Z_GroupRobot(const zmap_t *map, int group, int member);

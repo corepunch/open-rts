@@ -4479,10 +4479,9 @@ table. Unit HP before the hit is supplied by the common damage lifecycle.
 
 The Z save-layout version is 3 and includes mutable speed, fire and accuracy
 bytes and their
-initialization flag in the lockstep checksum. A repaired body's retained
-bytes and subsequent crossing compound as these instructions specify;
-whether the original repair facility separately restores body bytes remains
-**unknown**. On the direct completion path, `0x3fe59..0x3fe6d` clears
+initialization flag in the lockstep checksum. Correction: the repair bay
+also restores selected bytes on entry, as documented below. On the direct
+completion path, `0x3fe59..0x3fe6d` clears
 unit +0x67 bit 0x40 and copies body max HP +0x0a to HP +8 unless ownership
 changed. The subsequent visible call `0x57ce9` writes the unit and group
 orders/coordinates, rather than restoring body speed or fire bytes. This
@@ -4497,6 +4496,25 @@ damage was incorrect. Focused
 threshold, multi-threshold, Jeep, healing and save/load checks run with
 `make build/bin/tests/z/test_combat` and `SDL_VIDEODRIVER=dummy
 build/bin/tests/z/test_combat`.
+
+**Repair bay restores speed and accuracy on entry:** In the same executable,
+the owned-bay branch at `0x7a03f..0x7a09f` copies body +0x0c into +7
+and unit +3 into +2. This happens on entry, before repair stock is spent,
+and does not restore body fire +0x20. `0x50c14..0x50c1a` initializes the
+speed baseline from weapon +4; after boarding, `0x63a64..0x63a6a` initializes
+both current and baseline speed from the empty effect's +0x10. Boarding a
+previously damaged hull therefore makes its retained speed the new baseline.
+Open-rts now keeps that baseline in saved and hashed mobj state (Z save
+layout 25), restores it and configured driver accuracy on owned-bay entry,
+and retains the damaged fire byte. Accuracy uses the existing authored
+per-type configuration; native experience and mutable robot identity remain
+approximations. `test_repair_facility` checks real damage, approach, entry
+before health recovery, save/load, ownership loss and completed repair.
+`test_apc_driver_value` checks a damaged, ejected and reboarded APC baseline
+and save/hash continuity. Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 40 @ 0x7a03f' -c 'pd 18 @ 0x50c0e'
+-c 'pd 20 @ 0x63a50' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.
 
 **Accuracy configuration.** The 32 ROBOTS.DAT group records at `0x4650`
 contain up to 21 little-endian robot indices at +0x1c; each 44-byte robot
