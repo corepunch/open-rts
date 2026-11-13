@@ -239,6 +239,8 @@ bool Z_FortEntrance(const mobj_t *fort, fixed2_t *at);
 /* p_alert.c: an idle unit takes its squad's enemy or one close by. */
 void Z_Alert(mobj_t *unit);
 uint16_t Z_NextRandom(uint16_t *seed);
+bool Z_LeadGate(int accuracy, unsigned roll);
+ivec2_t Z_LeadAim(const uint8_t *roots, ivec2_t source, ivec2_t aim, int target_speed, int facing, int shot_speed);
 int Z_FreeObjectSlot(void);
 extern const uint8_t z_object_flags[];
 void Z_InitUnitPhase(mobj_t *unit);

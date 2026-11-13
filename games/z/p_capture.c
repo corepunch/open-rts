@@ -763,6 +763,22 @@ static void fire_shell(mobj_t *attacker, mobj_t *target, int speed, int damage, 
     }
 }
 
+/* 0x763ed..0x764e3: the speed-byte lead of the Gatling's aim at a unit that
+ * is moving (action 2 or 7, or action 8 for a robot, or a vehicle with its
+ * move bit). Only the moving case is represented: an order stands in for
+ * those actions and the standing actions 7 and 8 are not. The target's speed
+ * byte is unit +6 for a robot and body +7 for a vehicle, shifted right by two.
+ * The draw comes before the scatter's two, as at 0x640ff. */
+static ivec2_t lead_aim(const mobj_t *attacker, ivec2_t source, const mobj_t *target, ivec2_t aim) {
+    zmap_t *map = level.native_data;
+    int t = Z_UnitType(target);
+    if (!map || !map->square_roots.bytes || map->square_roots.size < 1024 || t < 0 || !(target->traits & MF_MOBILE) || !P_HasMoveOrder(target)) return aim;
+    if (!Z_LeadGate(accuracy(attacker), Z_NextRandom(&map->combat_seed))) return aim;
+    int speed = !Z_IsRobot(t) && target->z.body_tracked ? target->z.body_speed : body_stats[t].speed;
+    int facing = angle_to_direction(target->core.angle, 8, ANG90, true);
+    return Z_LeadAim(map->square_roots.bytes, source, aim, speed >> 2, facing, 15);
+}
+
 static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     static const ivec2_t apc_port[] = {{5,-4},{14,-4},{21,3},{17,11},{11,14},{3,15},{-4,8},{-1,1}};
     ivec2_t origin = Z_AITopLeft(attacker);
@@ -773,7 +789,7 @@ static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *tar
     ivec2_t start = jeep ? jeep_origin(attacker) : ivec2_add(origin, apc ? apc_port[facing] : gatling ? gun_pivot[facing] : (ivec2_t){2,2});
     if (apc && attacker->z.driver == MT_UNIT_LASER - MT_UNITS + 1) start = ivec2_sub(start, (ivec2_t){7,7});
     ivec2_t aim = Z_AITopLeft(target);
-    if (gatling) aim = scatter_aim(attacker, start, ivec2_add(aim, (ivec2_t){0,12}), 4);
+    if (gatling) aim = scatter_aim(attacker, start, lead_aim(attacker, start, target, ivec2_add(aim, (ivec2_t){0,12})), 4);
     else if (jeep) aim = scatter_aim(attacker, start, ivec2_add(aim, (ivec2_t){12,8}), 4);
     else {
         if (target->info && (target->info->traits & MF_TURRET)) aim.x += 8;
