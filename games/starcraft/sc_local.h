@@ -336,6 +336,12 @@ int sc_unit_distance(const mobj_t *a, const mobj_t *b);
 extern int sc_flight_states[SC_TYPES][2];
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 int sc_modified_cooldown_frames(const mobj_t *unit, int frames);
+/* Where a passenger leaves its container (OpenBW find_unit_placement): true
+ * with the unit moved to the spot, false when there is none. The counters
+ * tally the work of the last searches for tests. */
+bool sc_unload_position(mobj_t *unit, const mobj_t *container, fixed2_t at);
+typedef struct { int searches, candidates, blocker_scans, reach_tests, fit_tests; } sc_placement_stats_t;
+extern sc_placement_stats_t sc_placement_stats;
 fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
 /* Add-ons: the building that builds an add-on type (MT_NONE if it is not
  * one), the add-on attached to a building, and attaching a new one at

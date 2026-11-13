@@ -15,13 +15,47 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
   passenger cannot be placed. The passenger remains aboard and may be
   unloaded by a later order. Previously, an impossible `drop()` was retried
   every tick.
-- Placement first tests the container center. If terrain there cannot fit the
-  passenger, OpenBW returns failure before displacement. If a unit blocks the
-  center, it samples 8-pixel candidates inside the `[-128,+127]` pixel bounds.
-  The local implementation applies the same box and terrain-before-unit rule
-  when the origin bbox is inside the map. If it crosses the map boundary,
-  placement proceeds to displacement search instead of failing at origin;
-  Recall retains its separate eight-cell search in `p_spell.c`.
+- Placement follows `find_unit_placement` literally in
+  `games/starcraft/p_place.c` (`sc_unload_position`). It first tests the
+  container center: with no unit of the passenger's layer in the way and the
+  passenger's inclusive box inside `{0,0,W,H-32}` (the last 32 pixel rows are
+  not playable), terrain that cannot hold it fails at once (`terrain_displaces_unit`
+  is false for unloads), else the center is used. A blocker or an out-of-map box
+  starts the ring search. Rings start at 8 pixels, or at the passenger's
+  `from.x + blocker.to.x + 2` by `from.y + blocker.to.y + 2` when something
+  blocks the origin, and grow by 16 until all four sides pass the `[-128,+127]`
+  bounds (clamped to the map and to `H-32-1`); that last ring is not walked, so
+  the farthest reachable row is -120, not -128 (this corrects an earlier note
+  that the -128 edge is a reachable candidate). Each ring is the rectangle from
+  `pos - (width,height)`, size `2*width` by `2*height`, floored/ceiled to the 8
+  pixel grid and clamped to the bounds, walked bottom edge left to right,
+  right edge upward, top edge right to left, left edge downward. A ring wider
+  than twice the passenger's width skips the first
+  `(from.x+to.x+1+7)/8*8` pixels of the bottom edge. A blocked spot is jumped
+  to the far side of its blocker and back onto the 8 pixel grid, so scans are
+  on the global grid only until a clamped bound or a jump re-phases them.
+  The candidate must keep its box in the playable map, clear of blockers, fit
+  on the ground and be reachable. The old nearest-first sort over a 33x33
+  grid is gone. Unit tests hand-derive the first spots of a symmetric
+  Marine-on-Marine ring (1000,1024), the jump to (1024,1024) and the turn
+  onto the right edge (1024,1000), and pass.
+- Reachability: OpenBW compares static region groups of the container's pixel
+  and the candidate (`is_reachable`, only for ground passengers). Here that is
+  the navigation component of the passenger's movement class from
+  `P_NavRegions`, built once per terrain snapshot and read in O(1), never a
+  path search. A container cell blocked only by a building (a Bunker) has no
+  component, so the components around the building's footprint stand for it,
+  because OpenBW's regions ignore buildings. Differences kept: terrain fit
+  is the engine's 32 pixel cell test, not OpenBW's pixel contours; the
+  first-found blocker that sets the initial ring size and jump distance is
+  the first in thinker order, where OpenBW's is first in its spatial finder;
+  OpenBW's no-collide units, power-ups and the Starport/Robotics/Stargate
+  exceptions (flyers only) are not modelled.
+- Cost: a search with nowhere to go walks 511 spots for a Marine over a
+  Marine (the tests count them: identical on 128x128 and 256x256, against
+  1089 for the old grid), each tested against the region table, plus one
+  scan of the unit list per spot (512). `sc_placement_stats`
+  exposes the counters.
 - Bunker unloading remains immediate, uses the Bunker center as its origin,
   and fails while disabled. Bunker passengers do not receive mobile-carrier
   cooldowns. The container is kept as an occupancy blocker during death
@@ -29,7 +63,6 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
 - Addressed passenger unloads use the same disabled-container checks as
   Unload All. A disabled Bunker destroyed before it can unload fails
   `unit_unload`; its cargo dies, matching the pinned OpenBW kill path.
-- Displaced candidates are sampled on the global 8-pixel grid.
 - Successfully unloaded units clear movement/attack targets and return to
   their spawn/idle state. Mobile transport passengers' weapon cooldown is
   reset through `G_WeaponCooldown`, which applies current speed effects and
@@ -110,11 +143,21 @@ delay), per-class cooldowns (shared-weapon Marine, ground-only Zergling,
 turret-hull Goliath, independent ground/air gating), spell cooldown for
 Psionic Storm versus Hallucination, Bunker exit and death ejection,
 two passengers in sequence, and disabled, blocked and destroyed
-transports. The current navigation API cannot
-directly check reachability from an unloaded passenger's origin:
-`P_NavReachable` rejects a Bunker center because the building blocks that cell,
-while `P_NavPlan` performs a full plan and may relocate an unreachable goal.
-A bounded connectivity query that handles a blocked container origin is still
-needed; the current unload search does not reject a free placement isolated
-from the passenger by terrain. Candidate ordering favors nearest valid spots;
-OpenBW's exact collision-finder traversal order is not reproduced.
+transports.
+
+`tests/starcraft/test_placement.c` covers placement: hand-derived ring order
+and blocker jumps, an isolated cell versus a connected one, a Bunker plugging
+a one-cell gap, map edges and corners including the unplayable bottom 32
+rows, and the failure-path candidate count on 128x128 and 256x256.
+`test_abilities.c::transport_unload_failures` now expects the -120 row.
+
+## Verification run
+
+- `make build/bin/starcraft`, then `env SDL_VIDEODRIVER=dummy TEST_JOBS=4
+  TEST_BUDGET=60 make -o starcraft-maps test-starcraft`: 25 tests, 0 failed
+  (baseline 23; new binaries `test_transport` and `test_placement`).
+- `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make test-z`: 27 tests,
+  0 failed (the shared `attack_blocked` hook is NULL there).
+- `env SDL_VIDEODRIVER=dummy build/bin/starcraft --check`: smoke check OK.
+- Mutation checks: with the hook unregistered, `reaver_delay` fails; with the
+  building-region fallback removed, the Bunker connection test fails.
