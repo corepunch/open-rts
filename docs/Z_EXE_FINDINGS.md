@@ -1461,8 +1461,13 @@ empty squad, a grenade held by a follower, an enemy with the same squad
 number, Tough- and Grunt-driven APCs, Sniper and Psycho, and the separate
 vehicle prohibition. It also checks initial general dispatch with a Jeep,
 APC, Grunt, Sniper and Psycho, including both empty and armed specialists.
+When `0x9956a` rejects a mobile unit, `0x9d42c` branches to `0x9d4c2`:
+it queues a command at that unit's current native origin instead of leaving
+its previous order active. Class-2 guns return before this branch. The
+engine queues a stop at its corresponding current position; the commander
+test checks both the queued point and cancellation of a pre-existing move.
 Reproduce with `r2 -q -e bin.cache=true -c 'pd 45 @ 0x9a165'
--c 'pd 32 @ 0x9956a' -c 'pd 20 @ 0x7a776' -c 'pd 8 @ 0x638ac'
+-c 'pd 32 @ 0x9956a' -c 'pd 18 @ 0x9d4c2' -c 'pd 20 @ 0x7a776' -c 'pd 8 @ 0x638ac'
 -c q data/Z/ZED.EXE`.
 
 The same distinction applies to grenade pickup: `0x79b9e..0x79bae` accepts

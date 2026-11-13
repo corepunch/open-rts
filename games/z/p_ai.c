@@ -96,7 +96,12 @@ static void queue(zai_t *ai, zaitask_t *task, fixed2_t goal, uint32_t vehicle) {
 static bool send(zmap_t *map, zaitask_t *task, int territory) {
     if (territory < 0 || territory >= map->territory_count) return false;
     mobj_t *mo = P_MobjById(task->unit);
-    if (!live(mo) || !allowed(mo, map->ai.territories[territory].flags, false)) return false;
+    if (!live(mo)) return false;
+    if (!allowed(mo, map->ai.territories[territory].flags, false)) {
+        if (!(mo->traits & MF_MOBILE)) return false; /* Native class-2 guns return at 0x9d430. */
+        queue(&map->ai, task, fixed3_xy(mo->core.position), 0);
+        return true;
+    }
     ivec2_t pixel = ivec2_scale(map->territories[territory].flag, Z_TILE);
     uint8_t flags = map->ai.territories[territory].flags;
     if ((flags & 1) && map->fort_count) pixel = ivec2_add(map->forts[0], (ivec2_t){80,220});

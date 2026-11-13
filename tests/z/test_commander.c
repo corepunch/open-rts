@@ -432,10 +432,19 @@ static int test_restricted_dispatch(void) {
         if (test < 2) lead->z.squad = 0;
         lead->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
         lead->z.home = 9;
+        fixed2_t at = fixed3_xy(lead->core.position);
+        P_MoveUnitTo(&level, lead, fixed2_add(at, FIXED2_LIT(2, 0)));
+        if (!P_HasMoveOrder(lead)) return fail("restricted dispatch starts with an active move");
         think(0);
         const zaitask_t *task = task_of(lead);
-        bool sent = task && task->target == 8 && task->pending;
-        if (sent != (test < 2 || test >= 5)) return fail("general dispatch uses its distinct restricted-territory gate");
+        bool allowed = test < 2 || test >= 5;
+        if (!task || task->target != 8 || !task->pending || fixed2_equal(task->order, at) == allowed)
+            return fail("restricted dispatch queues a stop at the current position");
+        if (!allowed) {
+            map->ai.delay = 1000;
+            think(1);
+            if (P_HasMoveOrder(lead)) return fail("restricted dispatch cancels the previous move");
+        }
         rts_game_model_destroy(model);
     }
     return 0;
