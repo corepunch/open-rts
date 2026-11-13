@@ -127,12 +127,97 @@ static int shields_and_hits(void) {
     /* Two psi blades a swing. */
     int hp = ling->hp;
     CHECK(shoot(zealot, ling) && hp - ling->hp == 2 * (8 - armor(MT_ZERGLING)));
-    /* A Shield Battery trades its energy for nearby shields. */
+    reset();
     mobj_t *battery = spawn(MT_SHIELD_BATTERY, FIXED2_LIT(8.5, 5.5), 0);
-    CHECK(battery && sc_energy(battery) == 50);
+    zealot = spawn(MT_ZEALOT, FIXED2_LIT(8.5, 5.5), 0);
+    CHECK(battery && zealot);
+    sc_start(zealot);
     zealot->sc.shields = 0;
-    for (int t = 0; t < RTS_TICRATE; t++) { ++leveltime; gameinfo->mobj_ticker(battery); }
-    CHECK(sc_shields(zealot) >= 48 && sc_energy(battery) < 50);
+    ticcmd_t right_click = {.order = TC_ORDER, .count = 1, .units = {zealot->id}, .target = battery->id};
+    G_RunTiccmd(0, &right_click); /* Battery receives its first command before any ticker initializes energy. */
+    CHECK(zealot->sc.order.kind == SC_ORDER_FOLLOW && sc_energy(battery) == 50);
+
+    reset();
+    /* Right-clicking a battery starts recharge; mere proximity does not. */
+    battery = spawn(MT_SHIELD_BATTERY, FIXED2_LIT(8.5, 5.5), 0);
+    zealot = spawn(MT_ZEALOT, FIXED2_LIT(8.5, 5.5), 0);
+    CHECK(battery && zealot && sc_energy(battery) == 50);
+    zealot->traits &= ~MF_ATTACK;
+    sc_start(zealot);
+    zealot->sc.shields = 0;
+    for (int t = 0; t < RTS_TICRATE; t++) P_Ticker();
+    CHECK(sc_shields(zealot) < 2 && sc_energy(battery) >= 50);
+    right_click = (ticcmd_t){.order = TC_ORDER, .count = 1, .units = {zealot->id}, .target = battery->id};
+    G_RunTiccmd(0, &right_click);
+    CHECK(zealot->sc.order.kind == SC_ORDER_FOLLOW && zealot->sc.order.target == battery->id);
+    ticcmd_t queued_move = {.order = TC_MOVE, .count = 1, .units = {zealot->id},
+        .position = fixed3_from_fixed2(FIXED2_LIT(18.5, 5.5), 0), .queued = true};
+    G_RunTiccmd(0, &queued_move);
+    CHECK(zealot->sc.queue.count == 1);
+    for (int t = 0; t < RTS_TICRATE; t++) P_Ticker();
+    CHECK(sc_shields(zealot) == 80 && sc_energy(battery) <= 11);
+    CHECK(zealot->sc.order.kind == SC_ORDER_NONE && zealot->sc.queue.active == TC_MOVE &&
+          zealot->move_only && P_HasMoveOrder(zealot)); /* Full shields resume the queued Shift-Move. */
+
+    reset();
+    battery = spawn(MT_SHIELD_BATTERY, FIXED2_LIT(8.5, 5.5), 0);
+    mobj_t *nexus = spawn(MT_NEXUS, FIXED2_LIT(8.5, 5.5), 0);
+    CHECK(battery && nexus);
+    sc_start(nexus);
+    nexus->sc.shields = 0;
+    ticcmd_t follow = {.order = TC_FOLLOW, .count = 1, .units = {nexus->id}, .target = battery->id};
+    G_RunTiccmd(0, &follow);
+    for (int t = 0; t < RTS_TICRATE; t++) P_Ticker();
+    CHECK(sc_shields(nexus) == 0 && sc_energy(battery) == 50); /* Grounded buildings are ineligible. */
+
+    reset();
+    battery = spawn(MT_SHIELD_BATTERY, FIXED2_LIT(8.5, 5.5), 0);
+    mobj_t *carrier = spawn(MT_CARRIER,
+        fixed2_add(FIXED2_LIT(8.5, 5.5), (fixed2_t){SC_PIXELS(140), 0}), 0);
+    CHECK(battery && carrier && sc_unit_distance(carrier, battery) < 128);
+    carrier->traits &= ~MF_ATTACK;
+    carrier->production = calloc(1, sizeof(*carrier->production));
+    CHECK(carrier->production);
+    carrier->production->product_class = RTS_PRODUCT_UNIT;
+    carrier->production->product_type = MT_INTERCEPTOR;
+    carrier->production->queue_count = 1; /* Completed Carrier while Interceptors are in production. */
+    sc_start(carrier);
+    carrier->sc.shields = 0;
+    right_click = (ticcmd_t){.order = TC_ORDER, .count = 1, .units = {carrier->id}, .target = battery->id};
+    G_RunTiccmd(0, &right_click);
+    CHECK(carrier->sc.order.kind == SC_ORDER_FOLLOW);
+    for (int t = 0; t < RTS_TICRATE / 2; t++) P_Ticker();
+    CHECK(sc_shields(carrier) > 0); /* One shared bbox radius governs approach and charging despite 140px centers. */
+
+    reset();
+    battery = spawn(MT_SHIELD_BATTERY, FIXED2_LIT(8.5, 5.5), 0);
+    zealot = spawn(MT_ZEALOT, FIXED2_LIT(8.5, 5.5), 0);
+    CHECK(battery && zealot);
+    sc_start(battery); battery->sc.energy = 1 << 8;
+    sc_start(zealot); zealot->sc.shields = 0;
+    right_click = (ticcmd_t){.order = TC_ORDER, .count = 1, .units = {zealot->id}, .target = battery->id};
+    G_RunTiccmd(0, &right_click);
+    queued_move.units[0] = zealot->id;
+    G_RunTiccmd(0, &queued_move);
+    CHECK(zealot->sc.queue.count == 1);
+    for (int t = 0; t < 3; t++) P_Ticker();
+    CHECK(zealot->sc.order.kind == SC_ORDER_NONE && zealot->sc.queue.active == TC_MOVE &&
+          zealot->move_only && P_HasMoveOrder(zealot)); /* Exhausting the battery also completes recharge. */
+
+    reset();
+    battery = spawn(MT_SHIELD_BATTERY, FIXED2_LIT(8.5, 5.5), 0);
+    zealot = spawn(MT_ZEALOT, FIXED2_LIT(8.5, 5.5), 0);
+    CHECK(battery && zealot);
+    sc_start(zealot); zealot->sc.shields = 0;
+    right_click = (ticcmd_t){.order = TC_ORDER, .count = 1, .units = {zealot->id}, .target = battery->id};
+    G_RunTiccmd(0, &right_click);
+    queued_move.units[0] = zealot->id;
+    G_RunTiccmd(0, &queued_move);
+    CHECK(zealot->sc.queue.count == 1);
+    P_RemoveMobj(battery);
+    for (int t = 0; t < 3; t++) P_Ticker();
+    CHECK(zealot->sc.order.kind == SC_ORDER_NONE && zealot->sc.queue.active == TC_MOVE &&
+          zealot->move_only && P_HasMoveOrder(zealot)); /* A destroyed battery relinquishes its follower. */
     reset();
     return 0;
 }

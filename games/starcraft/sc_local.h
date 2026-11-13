@@ -306,6 +306,8 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int co
 int sc_point_distance(const mobj_t *unit, fixed2_t at);
 bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count);
 void sc_repair_ticker(mobj_t *mo, int frames);
+bool sc_can_recharge_shields(const mobj_t *unit, mobj_t *battery);
+void sc_finish_recharge_order(mobj_t *unit, uint32_t battery_id);
 void sc_order_ticker(mobj_t *mo, int frames);
 int sc_unit_distance(const mobj_t *a, const mobj_t *b);
 extern int sc_flight_states[SC_TYPES][2];

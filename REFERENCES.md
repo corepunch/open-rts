@@ -285,6 +285,11 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   `order_BuildingLiftoff`, `order_LiftingOff`, `order_BuildingLand`,
   `building_abandon_addon`, `make_unit_neutral`, `find_connecting_addon`,
   `connect_addon`. Reference behavior; no retail execution or new disassembly.
+- [OpenBW pinned `bwgame.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
+  `unit_can_use_shield_battery` (2472–2485), `order_Follow` (4503–4507), and
+  `order_RechargeShieldsUnit` (7126–7170) define recharge eligibility, the
+  right-click transition, five-shield-point update cap and half-energy cost.
+  Implemented as reference behavior; no retail executable trace.
 - [OpenBW pinned trigger unit finder](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
   `unit_sprite_inner_bounding_box`, `find_units`, and `unit_finder_search`
   implement trigger selection. The x endpoint scan is extended to the maximum

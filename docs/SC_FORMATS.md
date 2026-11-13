@@ -1000,13 +1000,14 @@ first-frame state. Tick conversion currently assumes native 24 Hz and computes
 not an independently measured retail timing trace. The log's “1,322 visual
 states” is the next-free state index, including reserved slot zero in its span.
 
-**Known audit finding:** the current operand-length table is not a complete
-validated VM description. Comparison with both references exposes differences,
-including 0x3f (`liftoffcondjmp`: u16 target, current length zero), 0x41
-(`orderdone`: u8, current zero), and 0x42 (`grdsprol`: u16 plus two bytes,
-current zero). Encountering these can misalign subsequent decoding. Existing
-catalog tests do not prove every instruction path is correct. This documentation
-records the issue; it does not change runtime code or claim a full VM fix.
+**Correction to the earlier audit finding:** the current `oplen` entries for
+0x3f (`liftoffcondjmp`, two-byte target), 0x41 (`orderdone`, one-byte signal)
+and 0x42 (`grdsprol`, four-byte sprite/offset operands) match both pinned
+Stargus `doc/iscript.txt` and PyMS `FileFormats/IScriptBIN.py` (opcode entries
+63–66 and 526–529 respectively). The prior finding that these entries were
+zero was incorrect; `games/starcraft/w_assets.c` already carries the correct
+lengths. A complete opcode audit and control-flow semantics are still
+outstanding; these three corrections alone do not prove general VM fidelity.
 
 ## 7. Terrain composition
 

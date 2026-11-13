@@ -820,12 +820,11 @@ schemas, current C readers and local data. Additional findings:
   Only unconditional jumps and calls/returns are followed; conditional jumps
   are skipped, and waitrand deterministically uses its first bound. The earlier
   summary is corrected above.
-- **Known discrepancy, not repaired by this documentation change:** the current
-  IScript operand-length table differs from both Stargus and PyMS for several
-  instructions, including 0x3f, 0x41 and 0x42. Those instructions require 2, 1,
-  and 4 operand bytes; the current table gives zero. Paths encountering them
-  can decode subsequent bytes incorrectly. A full opcode audit and focused
-  fixtures are needed before claiming general animation correctness.
+- **Correction to the earlier IScript audit:** the current table already has
+  lengths 2, 1 and 4 for opcodes 0x3f, 0x41 and 0x42, matching PyMS and
+  Stargus. The earlier note misread those entries as zero; see
+  [SC_FORMATS.md](SC_FORMATS.md#6-iscript-animation-bin). A full opcode audit
+  is still needed before claiming general animation correctness.
 - **Unknown retail behavior:** exact timing, callback semantics, virtual-key
   mapping, damaged wireframe randomization and hover movie restart behavior
   have not been traced in STARCRAFT.EXE. Existing data and visual tests cannot
@@ -2012,10 +2011,32 @@ make build/bin/tests/starcraft/test_combat && build/bin/tests/starcraft/test_com
   casters start with 50. A switched-on cloak drains 13/256 energy per frame
   instead of regenerating and drops at zero.
 
-**Engine choices, not retail.** The Shield Battery restores up to two shield
-points a frame to one unit within four cells for one energy per two points.
-Cloaking requires its research, and the sieged tank's 64-pixel minimum range
-is enforced (`weapondef_t.min_range`).
+**Shield Battery (pinned OpenBW behavior; retail trace unverified).** OpenBW's
+`unit_can_use_shield_battery` (`bwgame.h` 2472–2485) accepts only completed,
+damaged, mobile Protoss units that are not grounded buildings, Interceptors or
+Scarabs, with the same owner as a completed, enabled battery with energy.
+`order_Follow` (4503–4507) converts a right-click follow into the recharge
+order; `order_RechargeShieldsUnit` (7126–7170) restores up to five shield
+points per update and charges half as much energy. Open-rts now applies those
+eligibility checks, requires an explicit Follow/right-click order to that
+battery, uses the five-point rate and uses the same collision-box distance for
+the 128-pixel stop and recharge bounds. A producer's nonempty queue does not
+mean its Carrier or Reaver is incomplete, so the recharge predicate does not
+use `production.queue_count` as a completion flag. Retail execution has not been traced;
+movement timing, recharge animation and the native battery's multi-unit
+dispatch remain incomplete.
+`tests/starcraft/test_combat.c::shields_and_hits` checks that proximity alone
+does not recharge, a real right-click starts and completes charging, and a
+grounded Nexus is not a valid recharge target. It also right-clicks before the
+first ticker initializes the battery, and checks a queued Carrier whose centers
+are 140 pixels apart but whose collision-box distance is under 128. A queued
+Shift-Move resumes after full shields, battery energy depletion and battery
+death; recharge completion uses an internal stop while retaining the pending
+queue. No new save field was needed; the order uses the existing saved
+`SC_ORDER_FOLLOW` target.
+
+**Other engine choices, not retail.** Cloaking requires its research, and the
+sieged tank's 64-pixel minimum range is enforced (`weapondef_t.min_range`).
 
 This supersedes two statements of the Research section above: weapon upgrade
 and bonus now come from each weapons.dat row (so the Goliath's turret weapons

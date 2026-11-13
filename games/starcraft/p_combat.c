@@ -12,11 +12,9 @@ enum {
     SC_INTERCEPTOR_PASS = 30,
     SC_REAVER_COOLDOWN = 60, /* Retail Reaver: a scarab every 60 frames. */
 };
-/* A simple Shield Battery: each frame it restores up to two shield points
- * to a unit in reach, at one energy per two points, as the retail battery
- * trades energy for shields. Reach and rate are this engine's choice. */
-#define SC_BATTERY_RANGE FIXED_FROM_INT(4)
-enum { SC_BATTERY_RATE = 2 << 8 };
+/* The native recharge order accepts completed, damaged Protoss mobile units
+ * owned by the battery's player, excluding Interceptors and Scarabs. */
+enum { SC_BATTERY_RATE = 5 << 8 };
 
 const sc_weapon_t *sc_weapon(int id) {
     return id >= 0 && id < SC_WEAPONS && sc_weapons[id].name ? &sc_weapons[id] : NULL;
@@ -449,22 +447,39 @@ static void projectile_tick(mobj_t *shot,int frames) {
     }
 }
 
+bool sc_can_recharge_shields(const mobj_t *unit, mobj_t *battery) {
+    if (!unit || !battery || battery->type_id != MT_SHIELD_BATTERY || battery->owner != unit->owner) return false;
+    sc_start(battery);
+    if (battery->sc.energy <= 0 || sc_disabled(battery) ||
+        !sc_type(unit) || unit->owner >= 12 || unit->type_id == MT_INTERCEPTOR ||
+        unit->type_id == MT_SCARAB || unit->type_id == MT_SHIELD_BATTERY ||
+        !(unit->traits & MF_MOBILE) || (sc_units[unit->type_id - 1].flags & SC_UNIT_BUILDING) ||
+        !(sc_units[unit->type_id - 1].race & 4) || !sc_units[unit->type_id - 1].shields ||
+        unit->type_id == MT_EGG || unit->type_id == MT_COCOON || sc_disabled(unit)) return false;
+    return sc_shields(unit) < sc_units[unit->type_id - 1].shields;
+}
+
+static void finish_recharging(mobj_t *unit, const mobj_t *battery) {
+    sc_finish_recharge_order(unit, battery->id);
+}
+
 static void recharge(mobj_t *battery, int frames) {
-    fixed2_t at = fixed3_xy(battery->core.position);
-    for (thinker_t *th = thinkercap.next; th != &thinkercap && battery->sc.energy >= 128; th = th->next) {
+    if (battery->sc.energy <= 0 || sc_disabled(battery)) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap && battery->sc.energy > 0; th = th->next) {
         mobj_t *mo = (mobj_t *)th;
-        if (th->function != P_MobjThinker || mo == battery || mo->remove || mo->hp <= 0 || !sc_type(mo) ||
-            !P_IsAlly(battery, mo) || fixed2_distance_squared64(at, fixed3_xy(mo->core.position)) >
-            fixed_sq64(SC_BATTERY_RANGE)) continue;
+        if (th->function != P_MobjThinker || mo->sc.order.kind != SC_ORDER_FOLLOW ||
+            mo->sc.order.target != battery->id || mo->remove || mo->hp <= 0 ||
+            !sc_can_recharge_shields(mo, battery) || sc_unit_distance(mo, battery) > 128) continue;
         sc_start(mo);
         int room = (sc_units[mo->type_id - 1].shields << 8) - mo->sc.shields;
         int give = SC_BATTERY_RATE * frames;
         if (give > room) give = room;
         if (give > battery->sc.energy * 2) give = battery->sc.energy * 2;
-        if (give <= 0) continue;
+        if (give <= 0) { finish_recharging(mo, battery); continue; }
         mo->sc.shields += give;
-        battery->sc.energy -= (give + 1) / 2;
-        return;
+        battery->sc.energy -= give / 2;
+        if (mo->sc.shields >= sc_units[mo->type_id - 1].shields << 8 || battery->sc.energy <= 0)
+            finish_recharging(mo, battery);
     }
 }
 

@@ -188,6 +188,21 @@ static void stop(int player, mobj_t *unit) {
     queue_run(player,&cmd);
 }
 
+void sc_finish_recharge_order(mobj_t *unit, uint32_t battery_id) {
+    if (!unit || unit->sc.order.kind != SC_ORDER_FOLLOW || unit->sc.order.target != battery_id) return;
+    sc_order_queue_t *queue = &unit->sc.queue;
+    if (queue->count > 0 && queue->count <= SC_QUEUED_ORDERS) {
+        queue->active = 0;
+        queue->target = 0;
+        queue->target_owner = 0;
+        queue->forced = false;
+    } else {
+        *queue = (sc_order_queue_t){0};
+    }
+    ticcmd_t cmd = {.order=TC_STOP,.count=1,.units={unit->id},.internal=true};
+    G_RunTiccmd(unit->owner,&cmd);
+}
+
 bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
                    int count, mobj_t *target) {
     bool patrol=cmd->order==TC_PATH && cmd->path.mode==WP_BACKTRACK && cmd->path.count==1;
@@ -207,8 +222,10 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
             bool cargo=(u->traits&MF_HARVESTER) && u->harvest.cargo>0 &&
                 (target->traits&MF_RESOURCE_BASE) && target->owner==u->owner;
             bool fix=target->type_id!=MT_REFINERY && repairable(u,target);
-            bool trail=target!=u&&P_IsAlly(u,target)&&(target->traits&MF_MOBILE)&&
-                !sc_can_board(u,target)&&!(sc_unit(u)->space_provided&&sc_can_board(target,u));
+            bool trail=target!=u&&P_IsAlly(u,target)&&
+                (((target->traits&MF_MOBILE)&&!sc_can_board(u,target)&&
+                  !(sc_unit(u)->space_provided&&sc_can_board(target,u)))||
+                 sc_can_recharge_shields(u,target));
             if (!cargo && !fix && !trail) {remaining.units[remaining.count++]=u->id;continue;}
             ticcmd_t next=*cmd;
             next.order=cargo?TC_RETURN_GOODS:fix?TC_REPAIR:TC_FOLLOW;
@@ -372,9 +389,11 @@ void sc_order_ticker(mobj_t *mo, int frames) {
         }
         if(o->time>0){o->time-=frames;return;}
         o->time=7;
-        if(sc_unit_distance(mo,target)<=96) {
+        bool recharge=sc_can_recharge_shields(mo,target);
+        int reach=recharge?128:96;
+        if(sc_unit_distance(mo,target)<=reach) {
             P_ClearMove(mo);
-            if(!(target->traits&MF_MOBILE))stop(mo->owner,mo);
+            if(!(target->traits&MF_MOBILE)&&!recharge)stop(mo->owner,mo);
         }else {
             fixed2_t at=fixed3_xy(target->core.position);
             if(!(target->traits&(MF_MOBILE|MF_FLY))) {
