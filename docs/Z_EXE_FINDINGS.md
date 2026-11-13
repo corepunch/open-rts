@@ -445,7 +445,10 @@ second world click can reopen it.
 leave the window partially outside the viewport; our resizable-window policy
 clamps it to keep controls reachable. This clamp is engine behavior, not a
 retail coordinate correction. The original supports dragging the frame
-(`0x25a74`); that interaction remains unported.
+(`0x25a74`); the input bounds and button exclusions are traced below. The Z
+HUD now routes clicks in the remaining frame area to its drag behavior. It
+still keeps the moved window inside the viewport under the engine's resizable-
+window policy.
 
 ### Confirmed: sidebar coordinates and portrait composition
 
@@ -530,7 +533,37 @@ not the complete factory simulation. Product availability, manufacturing
 times, territory acceleration and the preview's animation/orientation
 still follow the existing engine implementation. Repair/radar structures
 do not acquire invented production controls. Gun placement, star ratings,
-frame dragging, UI status flashing and speech animation remain unported.
+UI status flashing and speech animation remain unported.
+
+### Production window dragging (2026-11-13)
+
+The retail mouse dispatcher `0x695b7` first bounds a click against the
+production frame at `0x1f3d4c/0x1f3d50`, with inclusive offsets `x=0..0x70`
+and `y=0..0x4e`, through `0x28369`. The nested handler `0x25977` subtracts
+that origin and checks Cancel/Stop at `(67..105,47..61)`, the two arrows at
+`(53..61,21..28)` and `(53..61,65..72)`, and the preview at `(6..49,22..59)`.
+Clicks in the frame that do not take one of those handlers fall through to
+`0x25a74`. That routine records the initial pointer and starts the drag; the
+in-level pass calls it again while drag flag `0x12ec75` is set (`0x68c20`), and
+`0x25a5a` clears the flag after the mouse button is released. The traced
+left/top/right/bottom offsets are therefore sufficient to derive the frame's
+drag hit region; the remaining uncertainty is how retail behaves at viewport
+edges, where open-rts applies its existing clamp.
+
+The Z HUD models the inclusive native bounds in its half-open rectangle
+representation, sends the native controls and preview region to their own
+handlers, and uses the unclaimed frame area as the drag target. A click inside
+the preview keeps its existing start/place action. Dragging moves the frame
+and all control hitboxes together; its displacement is kept relative to the
+producer anchor recomputed by `0x24e72`, so camera movement continues to move
+the window with its producer. The viewport clamp remains engine UI policy.
+
+`tests/z/test_hud.c` sends mouse down, motion, and up at both 1x and 2x UI scale
+from unclaimed frame area, confirms a click-and-drag over a hidden product arrow
+does not move the frame while production is busy, and checks that controls move
+by the same logical offset. Reproduce with
+`make build/bin/tests/z/test_hud` and `env SDL_VIDEODRIVER=dummy
+build/bin/tests/z/test_hud`.
 
 ## Production preview portraits and complete vehicles (2026-10-15)
 
@@ -5093,10 +5126,21 @@ the bullet's source mobj is removed as well. Its roll is not the native RNG
 stream; the separate exposed-driver check still depends on a live engine
 source, while native `0x5adc1..0x5add6` reads the bullet's stored source slot
 and the accuracy currently in that slot. Slot reuse and its exact lifecycle
-remain unmodeled. `test_orphan_bullet_armour` exercises both armour outcomes
+remain unmodeled. In the unit-removal helper `0x61d0a`, the active flag at
+unit +0x31 is cleared without directly clearing +2. The later four-byte write
+at `0x61d6f..0x61d78` is to an independently allocated eight-byte record
+returned by `0x61df8`, not to the unit slot; it cannot be used as evidence
+that removal overwrites source accuracy. Other removal callbacks and the
+complete reuse lifecycle still need tracing before replacing the engine's
+missing-source rule.
+The robot constructor `0x5109c..0x510d1` does clear all 184 bytes of a
+selected slot and writes the new robot's accuracy to +2, so a reused slot
+can make an already-flying native bullet use the replacement's accuracy.
+`test_orphan_bullet_armour` exercises both armour outcomes
 through travelling bullets after source removal. Inspect with `r2 -q -e
 bin.cache=true -e bin.relocs.apply=true -c 'pd 25 @ 0x5adbd' -c 'pd 18 @
-0x5ae29' -c q data/Z/ZED.EXE`.
+0x5ae29' -c 'pd 40 @ 0x61d0a' -c 'pd 25 @ 0x61df8' -c 'pd 25 @ 0x5108c'
+-c q data/Z/ZED.EXE`.
 
 **Target-notification gate, partial:** the bullet launch helper
 `0x5afdc..0x5b01a` locates a unit at the aim coordinates and calls
@@ -5226,6 +5270,29 @@ sprite +0x18 and `0x88c76` skips the remaining effect update. The full
 duration and cleanup of that state are still unknown. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x8953e'
 -c 'pd 24 @ 0x88c43' -c 'pd 24 @ 0x89280' -c q data/Z/ZED.EXE`.
+
+**CPU building attack task 6, partial trace:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+heavy-pass routine `0x9a801` checks active usable mobile tasks 1 and 3 whose
+current and destination territories match. It excludes fort territories,
+requires the territory owner to be team 0 and importance nonzero, and
+filters the unit's class/type; runtime classes 0 and 0x10 also require a
+nonzero group grenade count. It searches the 128-by-128 square centred on
+the flag for any non-CPU unit, first using the 0x64309 bin scan with unit
+anchors and then checking native unit top-left against the same inclusive
+bounds (`0x9a8d8..0x9a962`). On a hit, `0x9a96f..0x9a996` selects the first
+valid BUILD record linked to that territory, without checking its HP, calls
+`0x9a9ae` and sets task 6 regardless of the command result. The latter
+uses building origin plus descriptor bytes +0x32/+0x33 as a coordinate
+target (repair 31,28; tank factory 32,60; robot factory 40,48; radar 23,9),
+and sends command 5 with target sentinel 0x0d80. `0x99818` includes task 6
+when checking destination capture. The current engine's structure attacks
+require a live target mobj and aim at its centre; its attack-ground command
+and task-6 completion are not modeled. Therefore neither a destroyed first
+building nor the native target point can be represented faithfully yet.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 110 @
+0x9a801' -c 'pd 75 @ 0x9a90f' -c 'pd 30 @ 0x9a9ae' -c 'pd 45 @ 0x99818'
+-c 'px 740 @ 0xe6120' -c q data/Z/ZED.EXE`.
 
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,

@@ -55,7 +55,7 @@ enum {
 
 enum {
     IT_PANEL, IT_BAR, IT_RADAR, IT_ATTACKED, IT_T, IT_D, IT_Z, IT_ROBOTS, IT_VEHICLES, IT_BUILDINGS, IT_GUNS, IT_MENU,
-    IT_POPUP, IT_STOP, IT_PREV, IT_NEXT, IT_START, IT_EJECT,
+    IT_POPUP, IT_STOP, IT_PREV, IT_NEXT, IT_START, IT_PREVIEW, IT_DRAG, IT_EJECT,
     IT_COUNT
 };
 
@@ -79,6 +79,8 @@ static bool font_ok, panel_ok, laid_out;
 static uint32_t popup_for;
 static int popup_choice;
 static int stored_choice;
+static bool popup_position_valid, popup_dragging;
+static ivec2_t popup_offset, popup_anchor, popup_drag_origin, popup_drag_start;
 static const StaticProductDefinition *offered[32];
 static int offered_count;
 typedef struct { uint32_t id; int choice; } pick_t;
@@ -681,6 +683,34 @@ static void on_start(menu_t *menu, menuitem_t *item, menuaction_t action) {
     P_MobjSetSelected(producer, false);
 }
 
+/* The retail dispatcher routes the frame's unused area here after its button
+ * hit tests; 0x25a74 then tracks the held pointer and moves the frame. */
+static bool item_hit(const menu_t *menu, const menuitem_t *item) {
+    irect_t rect = item->rect;
+    if (item->hitbox.w > 0 && item->hitbox.h > 0) {
+        rect.x += item->hitbox.x;
+        rect.y += item->hitbox.y;
+        rect.w = item->hitbox.w;
+        rect.h = item->hitbox.h;
+    }
+    menuitem_t area = {.rect = rect, .anchor = item->anchor};
+    return irect_contains(M_MenuItemRect(menu, &area), menu->cursor);
+}
+
+static void on_popup_drag(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    if (action != MA_ACTIVATE || menu->held != item) return;
+    /* Native 0x25977 tests these controls before falling through to drag.
+     * The menu router skips invisible/disabled buttons, so absorb their
+     * native rectangles here instead of treating those clicks as a drag. */
+    if (item_hit(menu, &items[IT_STOP]) || item_hit(menu, &items[IT_PREV]) ||
+        item_hit(menu, &items[IT_NEXT]) || item_hit(menu, &items[IT_START]) ||
+        item_hit(menu, &items[IT_PREVIEW])) return;
+    int scale = R_UIScale(menu->app);
+    popup_dragging = true;
+    popup_drag_start = (ivec2_t){menu->cursor.x / scale, menu->cursor.y / scale};
+    popup_drag_origin = ivec2_sub((ivec2_t){item->rect.x, item->rect.y}, popup_anchor);
+}
+
 /* A button drawn from the panel art: up, pressed and greyed pieces in a
  * row from `piece`. One without a routine stays up. */
 static void picture_button(menuitem_t *item, int piece, SDL_Keycode hotkey, int kind, menuroutine_t routine) {
@@ -732,6 +762,10 @@ static void layout(void) {
     window_button(&items[IT_PREV], 4706, -1, on_step);
     window_button(&items[IT_NEXT], 4708, 1, on_step);
     window_button(&items[IT_START], 4704, 0, on_start);
+    items[IT_PREVIEW] = (menuitem_t){.kind = MI_BUTTON, .release = true,
+        .routine = on_start};
+    items[IT_DRAG] = (menuitem_t){.kind = MI_BUTTON, .id = 4694, .enabled = true,
+        .release = false, .routine = on_popup_drag};
     items[IT_EJECT] = (menuitem_t){.kind = MI_BUTTON, .hotkey = SDLK_u, .release = true,
         .routine = on_eject, .font = font_ok ? &font : NULL, .ink = INK,
         .align = MALIGN_CENTER, .text = "EJECT (U)", .tooltip = "Eject crew"};
@@ -746,27 +780,39 @@ static void place_popup(const menu_t *menu, const mobj_t *producer, int scale) {
     R_MapToScreen(menu->app, &level, (float)cells.x, (float)cells.y, &a.x, &a.y);
     irect_t world = G_WorldViewport(menu->app);
     irect_t view = {world.x / scale, world.y / scale, world.w / scale, world.h / scale};
-    int x = (int)a.x / scale - 96, y = (int)a.y / scale - 48;
+    popup_anchor = (ivec2_t){(int)a.x / scale - 96, (int)a.y / scale - 48};
+    int x = popup_anchor.x + (popup_position_valid ? popup_offset.x : 0);
+    int y = popup_anchor.y + (popup_position_valid ? popup_offset.y : 0);
     if (x + POPUP_W > view.x + view.w) x = view.x + view.w - POPUP_W;
     if (x < view.x) x = view.x;
     if (y + POPUP_H > view.y + view.h) y = view.y + view.h - POPUP_H;
     if (y < view.y) y = view.y;
+    if (popup_position_valid) popup_offset = (ivec2_t){x - popup_anchor.x, y - popup_anchor.y};
+    /* 0x695b7 hit-tests offsets 0..0x70 and 0..0x4e inclusively.
+     * Use one extra pixel in each rect extent for the shared half-open API. */
+    items[IT_DRAG].rect = (irect_t){x,y,POPUP_W + 1,79};
     items[IT_POPUP].rect = (irect_t){x, y, POPUP_W, POPUP_H};
     items[IT_STOP].rect = (irect_t){x + 67, y + 47, 40, 14};
     items[IT_PREV].rect = (irect_t){x + 50, y + 21, 16, 8};
     items[IT_NEXT].rect = (irect_t){x + 50, y + 64, 16, 8};
     items[IT_START].rect = (irect_t){x + 67, y + 62, 40, 15};
+    items[IT_STOP].hitbox = items[IT_START].hitbox = (irect_t){0,0,39,15};
+    items[IT_PREV].hitbox = (irect_t){3,0,9,8};
+    items[IT_NEXT].hitbox = (irect_t){3,1,9,8};
+    items[IT_PREVIEW].rect = (irect_t){x + 6, y + 22, 44, 38};
 }
 
 static void refresh_popup(const menu_t *menu, int scale) {
+    if (popup_dragging && menu->held != &items[IT_DRAG]) popup_dragging = false;
     mobj_t *producer = selected_producer();
     uint32_t id = producer ? producer->id : 0;
     if (id != popup_for) {
         popup_for = id;
         popup_choice = remembered(id);
         stored_choice = 0;
+        popup_position_valid = false;
     }
-    for (int i = IT_POPUP; i <= IT_START; ++i) items[i].visible = producer != NULL;
+    for (int i = IT_POPUP; i <= IT_DRAG; ++i) items[i].visible = producer != NULL;
     offered_count = producer ? Z_ProductsFor(producer, offered, (int)(sizeof(offered) / sizeof(*offered))) : 0;
     if (!producer) {
         M_MenuTarget(&hud, NULL);
@@ -785,9 +831,14 @@ static void refresh_popup(const menu_t *menu, int scale) {
     if (popup_choice < 0 || popup_choice >= offered_count) popup_choice = 0;
     remember(id, popup_choice);
     items[IT_STOP].enabled = true;
-    items[IT_START].enabled = ready || offered_count > 0;
+    items[IT_START].enabled = items[IT_PREVIEW].enabled = ready || offered_count > 0;
     items[IT_PREV].enabled = items[IT_NEXT].enabled = stock ? producer->z.gun_count + offered_count > 1 : !making && offered_count > 0;
     items[IT_PREV].visible = items[IT_NEXT].visible = items[IT_POPUP].visible && (stock || !making);
+    if (popup_dragging) {
+        popup_offset = ivec2_add(popup_drag_origin,
+            ivec2_sub((ivec2_t){menu->cursor.x / scale, menu->cursor.y / scale}, popup_drag_start));
+        popup_position_valid = true;
+    }
     place_popup(menu, producer, scale);
 }
 
@@ -839,6 +890,7 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
         laid_out = true;
     }
     popup_for = 0;
+    popup_position_valid = popup_dragging = false;
     memset(picks, 0, sizeof(picks));
     hud.app = app;
     return &hud;
@@ -850,4 +902,5 @@ void G_ShutdownHUD(void) {
     if (panel_ok) Z_FreePanel(&panel);
     font_ok = panel_ok = false;
     laid_out = false;
+    popup_position_valid = popup_dragging = false;
 }

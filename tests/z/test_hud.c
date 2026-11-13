@@ -28,6 +28,22 @@ static void click(menu_t *hud, menuitem_t *item) {
     hud->refresh(hud);
 }
 
+static void drag(menu_t *hud, ivec2_t from, ivec2_t to, int scale) {
+    SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = from.x * scale; event.button.y = from.y * scale;
+    M_MenuResponder(hud, hud->app, &event);
+    event = (SDL_Event){.type = SDL_MOUSEMOTION};
+    event.motion.x = to.x * scale; event.motion.y = to.y * scale;
+    M_MenuResponder(hud, hud->app, &event);
+    hud->refresh(hud);
+    event = (SDL_Event){.type = SDL_MOUSEBUTTONUP};
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = to.x * scale; event.button.y = to.y * scale;
+    M_MenuResponder(hud, hud->app, &event);
+    hud->refresh(hud);
+}
+
 /* Optional visual evidence, using exactly the renderer exercised by the test. */
 static void shot(const char *name) {
     const char *dir = getenv("OPEN_RTS_Z_UI_SHOTS");
@@ -143,6 +159,12 @@ static int test_hud(int scale) {
     P_MobjSetSelected(fort, true);
     hud->refresh(hud);
     CHECK(ok->visible && !up->visible && !down->visible);
+    menuitem_t *drag_area = M_MenuFind(hud, 4694);
+    CHECK(drag_area);
+    int busy_x = drag_area->rect.x, busy_y = drag_area->rect.y;
+    ivec2_t hidden_arrow = {up->rect.x + 8, up->rect.y + 4};
+    drag(hud, hidden_arrow, ivec2_add(hidden_arrow, (ivec2_t){12, 0}), scale);
+    CHECK(drag_area->rect.x == busy_x && drag_area->rect.y == busy_y);
     int pending_before = fort->production->queue_count;
     click(hud, ok);
     CHECK(fort->production && fort->production->queue_count == pending_before);
@@ -252,6 +274,19 @@ static int test_hud(int scale) {
     CHECK(cancel->rect.x >= 67 && cancel->rect.y >= 47);
     CHECK(ok->rect.x + ok->rect.w <= 544 && ok->rect.y + ok->rect.h <= 448);
     app.cam = camera;
+    P_MobjSetSelected(fort, true);
+    hud->refresh(hud);
+    menuitem_t *title = M_MenuFind(hud, 4694);
+    CHECK(title && title->visible && title->rect.w == 113 && title->rect.h == 79);
+    int old_x = title->rect.x, old_y = title->rect.y;
+    click(hud, up);
+    CHECK(title->rect.x == old_x && title->rect.y == old_y);
+    int dx = old_x > 0 ? -12 : 12, dy = old_y > 0 ? -12 : 12;
+    drag(hud, (ivec2_t){old_x + 20, old_y + 70},
+         (ivec2_t){old_x + 20 + dx, old_y + 70 + dy}, scale);
+    CHECK(title->rect.x == old_x + dx && title->rect.y == old_y + dy &&
+          cancel->rect.x == old_x + dx + 67 && cancel->rect.y == old_y + dy + 47 &&
+          ok->rect.x == old_x + dx + 67 && ok->rect.y == old_y + dy + 62);
     P_MobjSetSelected(fort, false);
     P_MobjSetSelected(enemy, true);
     hud->refresh(hud);
@@ -295,6 +330,6 @@ static int test_hud(int scale) {
 
 int main(void) {
     if (test_hud(1) || test_hud(2)) return 1;
-    puts("PASS: Z HUD, native level-1 options, 17 product previews at 1x/2x, production and reopening");
+    puts("PASS: Z HUD, native level-1 options, 17 product previews at 1x/2x, production and draggable window");
     return 0;
 }
