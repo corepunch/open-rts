@@ -1991,9 +1991,13 @@ queue (`0x98098`). The port uses that queue for service dispatch and return.
   engine now preserves those fields and the assignment when its reachability
   check rejects the point. `test_unreachable_service_return` checks an idle
   Fire Truck through the normal AI pass with reachable and unreachable forts.
-  Engine path validation remains an approximation. Inspect with
+  CPU command dispatch `0x98098` calls `0x9821d` to remove an existing
+  queued command for the same group before queuing the replacement. The
+  engine likewise discards a superseded pending command even if its return
+  point is unreachable; `test_task_seven` checks that path with stale
+  service and enemy IDs. Engine path validation remains an approximation. Inspect with
   `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 55 @ 0x9c4f2'
-  -c q data/Z/ZED.EXE`.
+  -c 'pd 35 @ 0x98098' -c 'pd 20 @ 0x9821d' -c q data/Z/ZED.EXE`.
 - `0x13855` calls `0x29768` during startup. It copies BRIDGE record
   `+0x0a` (max HP) to `+8` (live HP), so LEVEL14 slot 0 starts at 600
   despite the file's 300 in `+8`. Zero at `+0x0a` initializes a collapsed

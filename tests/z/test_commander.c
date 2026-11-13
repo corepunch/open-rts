@@ -967,6 +967,18 @@ static int test_task_seven(void) {
     unit->target = facility;
     think(1);
     if (task->task != 8 || unit->target) return fail("task 7 returns when building territory changes hands");
+    task->task = 7;
+    task->idle = 0;
+    task->pending = true;
+    task->service = facility->id;
+    task->enemy = facility->id;
+    task->execute_at = map->ai.clock + 10000;
+    unit->target = facility;
+    map->forts[0] = (ivec2_t){-10000, -10000};
+    map->ai.delay = 0;
+    think(1);
+    if (task->task != 8 || task->pending || task->service || task->enemy || unit->target)
+        return fail("unreachable service return cancels the superseded pending order");
     puts("PASS: z task 7 retains damaged owned buildings and returns when healed");
     rts_game_model_destroy(model);
     return 0;
