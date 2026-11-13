@@ -2934,6 +2934,13 @@ particle state are saved and hashed. The engine seeds a dedicated native-RNG
 stream with 0x3039, so its draws need not match retail's global stream; its
 effect count excludes unimplemented effect kinds and does not reproduce stale
 slot delays. The conditional selector write at `0x3e919` is unimplemented.
+It tests global byte `0x1eb263` at `0x3e8e2`; the same byte is tested by
+building paths `0x3fcb0`, `0x41026`, `0x41534` and `0x426e5`, where a nonzero value
+skips normal production or display work. Direct absolute references found
+in the executable are reads; its initialization and meaning remain
+unknown, so this does not establish when to reset the selector. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 40 @ 0x3e8c0'
+-c 'pd 20 @ 0x4100d' -c 'pd 20 @ 0x426e0' -c '/x 63b21e00' -c q data/Z/ZED.EXE`.
 The debris pictures themselves are not drawn. Reproduce via
 `r2 -q -e bin.cache=true -c 'pd 100 @ 0x3e551' -c 'pd 35 @ 0x3e678'
 -c 'pd 30 @ 0x3ec90' -c q data/Z/ZED.EXE` and inspect each 80-byte
