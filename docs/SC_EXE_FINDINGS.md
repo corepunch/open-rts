@@ -3653,3 +3653,145 @@ it for human slots and for ids missing from aiscript.bin. The gate is traced
 (0x489eb0) but the existing scenario fixtures run scripts from a human-owned
 trigger, so applying it needs those fixtures reworked together with a native
 script interpreter; it was left for that change.
+
+### AI script inventory and opcode traces (third batch, 2026-11-13)
+
+Inventory by `tests/starcraft/test_aiscript_inventory.c` (`--table` prints the
+table below; no Python). `native/scripts/aiscript.bin` is the original-SC
+layout: a 16-byte table (id, file offset, string, flags; 83 entries, zero id
+ends it) at the file start, the bytecode, and a second copy of the table at the
+end. The retail interpreter 0x48a0b0 has 80 opcodes (0-0x4f, jump table
+0x48af5c), so Brood War opcodes (patrol, junkyard dog, transports, 0x50+) do
+not exist in this executable or this file. The 35 installed campaign CHKs hold
+9 action-15 and 89 action-16 records (zerg11, zerg12, protoss11 and protoss12 do
+not exist). "Owner types" counts the OWNR kinds of the players each record
+runs for (direct slot bytes, All Players, forces). Rscu has two unreferenced
+trailing opcodes (fatal_error, stop). +Vi0-7 / -Vi0-7 are not in this file.
+
+| ID | Uses | Opcodes | First opcode | Owner types (OWNR runs) | Class |
+| --- | ---: | ---: | --- | --- | --- |
+| Ter3 | 1 | 127 | start_campaign | Computer 1 | campaign build script |
+| Ter5 | 1 | 103 | start_campaign | Computer 1 | campaign build script |
+| Te5H | 1 | 9 | start_campaign | Computer 1 | campaign build script |
+| Ter6 | 1 | 94 | start_campaign | Computer 1 | campaign build script |
+| Te6b | 1 | 94 | start_campaign | Computer 1 | campaign build script |
+| Te6c | 0 | 20 | start_campaign | - | campaign build script |
+| Ter7 | 1 | 133 | start_campaign | Computer 1 | campaign build script |
+| Te7s | 1 | 23 | start_campaign | Computer 1 | campaign build script |
+| Te7m | 1 | 133 | start_campaign | Computer 1 | campaign build script |
+| Ter8 | 1 | 124 | start_campaign | Computer 1 | campaign build script |
+| Tr9L | 1 | 57 | start_campaign | Computer 1 | campaign build script |
+| Tr9H | 1 | 84 | start_campaign | Computer 1 | campaign build script |
+| Te10 | 3 | 41 | start_campaign | Computer 3 | campaign build script |
+| T11z | 1 | 86 | start_campaign | Computer 1 | campaign build script |
+| T11a | 1 | 11 | start_campaign | Computer 1 | campaign build script |
+| T11b | 1 | 90 | start_campaign | Computer 1 | campaign build script |
+| T12N | 1 | 115 | start_campaign | Computer 1 | campaign build script |
+| T12P | 1 | 137 | start_campaign | Computer 1 | campaign build script |
+| T12T | 0 | 57 | start_campaign | - | campaign build script |
+| Zer1 | 1 | 58 | start_campaign | Computer 1 | campaign build script |
+| Zer2 | 1 | 71 | start_campaign | Computer 1 | campaign build script |
+| Zer3 | 1 | 92 | start_campaign | Computer 1 | campaign build script |
+| Zer4 | 1 | 115 | start_campaign | Computer 1 | campaign build script |
+| Ze4S | 1 | 14 | start_campaign | Computer 1 | campaign build script |
+| Zer6 | 1 | 89 | start_campaign | Computer 1 | campaign build script |
+| Zr7a | 1 | 90 | start_campaign | Computer 1 | campaign build script |
+| Zr7g | 1 | 82 | start_campaign | Computer 1 | campaign build script |
+| Zr7s | 2 | 9 | start_campaign | Computer 2 | campaign build script |
+| Zer8 | 1 | 100 | start_campaign | Computer 1 | campaign build script |
+| Ze8T | 1 | 60 | start_campaign | Computer 1 | campaign build script |
+| Zer9 | 1 | 58 | start_campaign | Rescue 1, Computer 1, Neutral 1 | campaign build script |
+| Z9ly | 1 | 9 | start_campaign | Computer 1 | campaign build script |
+| Z9ry | 1 | 40 | start_campaign | Computer 1 | campaign build script |
+| Z9lo | 1 | 10 | start_campaign | Computer 1 | campaign build script |
+| Z9ro | 1 | 59 | start_campaign | Computer 1 | campaign build script |
+| Z10a | 1 | 122 | start_campaign | Computer 1 | campaign build script |
+| Z10b | 1 | 9 | start_campaign | Computer 1 | campaign build script |
+| Z10c | 1 | 9 | start_campaign | Computer 1 | campaign build script |
+| Z10d | 1 | 84 | start_campaign | Computer 1 | campaign build script |
+| Z10e | 1 | 83 | start_campaign | Computer 1 | campaign build script |
+| Pro1 | 2 | 93 | start_campaign | Computer 2 | campaign build script |
+| Pro2 | 1 | 80 | start_campaign | Computer 1 | campaign build script |
+| Pr3R | 1 | 81 | start_campaign | Computer 1 | campaign build script |
+| Pr3G | 1 | 78 | start_campaign | Computer 1 | campaign build script |
+| Pro4 | 1 | 102 | start_campaign | Computer 1 | campaign build script |
+| Pr5I | 1 | 105 | start_campaign | Computer 1 | campaign build script |
+| Pr5B | 1 | 102 | start_campaign | Computer 1 | campaign build script |
+| Pro7 | 1 | 59 | start_campaign | Computer 1 | campaign build script |
+| Pr7B | 1 | 35 | start_campaign | Computer 1 | campaign build script |
+| Pr7S | 1 | 109 | start_campaign | Computer 1 | campaign build script |
+| Pro8 | 1 | 115 | start_campaign | Computer 1 | campaign build script |
+| Pr8B | 1 | 11 | start_campaign | Computer 1 | campaign build script |
+| Pr8D | 1 | 97 | start_campaign | Computer 1 | campaign build script |
+| Pro9 | 1 | 82 | start_campaign | Computer 1 | campaign build script |
+| Pr9W | 1 | 92 | start_campaign | Computer 1 | campaign build script |
+| Pr9Y | 1 | 90 | start_campaign | Computer 1 | campaign build script |
+| Pr10 | 3 | 10 | start_campaign | Computer 3 | campaign build script |
+| P10C | 1 | 103 | start_campaign | Computer 1 | campaign build script |
+| P10o | 1 | 74 | start_campaign | Computer 1 | campaign build script |
+| TMCu | 0 | 956 | start_town | - | expansion |
+| ZMCu | 0 | 819 | start_town | - | expansion |
+| PMCu | 0 | 776 | start_town | - | expansion |
+| TLOf | 0 | 149 | start_campaign | - | campaign build script |
+| TMED | 0 | 153 | start_campaign | - | campaign build script |
+| THIf | 0 | 203 | start_campaign | - | campaign build script |
+| TARE | 0 | 10 | start_campaign | - | campaign build script |
+| ZLOf | 0 | 147 | start_campaign | - | campaign build script |
+| ZMED | 0 | 143 | start_campaign | - | campaign build script |
+| ZHIf | 0 | 163 | start_campaign | - | campaign build script |
+| ZARE | 0 | 10 | start_campaign | - | campaign build script |
+| PLOf | 0 | 113 | start_campaign | - | campaign build script |
+| PMED | 0 | 134 | start_campaign | - | campaign build script |
+| PHIf | 0 | 164 | start_campaign | - | campaign build script |
+| PARE | 0 | 10 | start_campaign | - | campaign build script |
+| Suic | 5 | 2 | send_suicide | Computer 5 | single-opcode utility |
+| SuiR | 2 | 2 | send_suicide | Computer 2 | single-opcode utility |
+| Rscu | 2 | 4 | switch_rescue | Rescue 2, Neutral 2 | single-opcode utility |
+| MvTe | 6 | 2 | move_dt | Computer 6 | single-opcode utility |
+| ClrC | 1 | 2 | clear_combatdata | Computer 1 | single-opcode utility |
+| Enmy | 0 | 2 | player_enemy | - | single-opcode utility |
+| Ally | 0 | 2 | player_ally | - | single-opcode utility |
+| VluA | 13 | 2 | value_area | Computer 13 | single-opcode utility |
+| EnBk | 6 | 2 | enter_bunker | Rescue 1, Computer 5, Neutral 1 | single-opcode utility |
+
+Opcode map (corrects the table above in "Run AI Script"): 0x1f send_suicide
+0x48aa88, 0x20 player_enemy 0x483100, 0x21 player_ally 0x483170, 0x25
+switch_rescue 0x483e30, 0x26 move_dt 0x483de0, 0x29 enter_bunker 0x4a4140,
+0x2a value_area 0x4a74c0, 0x2f clear_combatdata 0x4a7520 (the earlier note
+swapped 0x29/0x2f). The thread (0x489f20) stores the player at +8, the script
+pc at +0x10, the location rectangle (4 dwords) at +0x14 and its center at
++0x24/+0x28; action 15 gives an all-zero rectangle, and action 16 reads only
+the low byte of the location (0 = nothing runs; rectangle = table 0x4fe458 +
+(n-1)*20). Units in the rectangle come from 0x41c980 (the same sweep finder as
+trigger locations). Relation table 0x4fe34c is [player*12 + owner]: 0 enemy,
+1 neutral, 2 ally.
+
+Traced effects:
+
+| Script | Effect | Status |
+| --- | --- | --- |
+| Rscu | owner type := 3; both relation row and column of the player := 1 for all 12 owners; every unit of the player gets AI and target state cleared (0x4a3900, 0x47c330, 0x4a8dd0, +0x11c := 0) and order 161. Order 161 handler 0x483ec0: when a unit of a human (type 2) player is within 64 px, the unit changes owner (0x420ed0) to that player and takes its default order | traced; not implemented here (needs the rescue-on-approach mechanism the engine lacks) |
+| Enmy / Ally | for each unit in the rectangle with owner != player: relation[player][owner] := 0 / 2 (one direction) | traced; not implemented (no campaign uses them) |
+| EnBk | for each unit of the player in the rectangle: if the player owns a Bunker (0x40e4a0 type 125), take the nearest same-owner Bunker by approximate distance 0x4b58eb (0x42e4d0 via 0x43ec70, callback 0x42e500, no range limit, completed or not); if 0x4326d0 allows it (bunker complete and enabled, same owner, Terran infantry with space 1, room left) issue order 92 (Enter Transport) at it; mirrors `sc_can_board` | traced; not implemented |
+| SuiR (byte 1) | 0x479230(player,1) clears the AI attack arrays, then 0x4a6e00 per unit of the player (alive, not a subunit, sprite not hidden, can move, and 0x41ba50 = not already inside its current target's weapon range): pick a random enemy player (0x46f200, 54) among players whose first unit is an enemy, nearest attackable enemy unit of that player (0x418390 can-attack); then 0x483070 releases the unit from AI and it gets attack-unit (0x419dc0) if it has a weapon, otherwise Move (order 6) to the target; then 0x479490(player,5) sets the attack timer | traced except weapon-range detail of 0x41ba50 (0x41c390); not implemented |
+| Suic (byte 0) | same wrapper, but the units are bound to AI regions as guard nodes (0x4a4f40, 0x479690, 0x4a5dd0) | AI region planner state; effect not traced |
+| MvTe | each living Dark Templar (type 74): released from AI (0x483070), bound as a guard node of the AI region containing the rectangle center (0x4a4f40) and sent there with order 157 (0x4a5030) | needs AI regions; not implemented |
+| VluA | AI region at the center: if its byte +5 < 5, 0x4a1330, then region words +0xc and +0xe raised to at least 200 | AI region data; not implemented |
+| ClrC | for every AI region whose center lies in the rectangle: 0x4a1330(region, 0) | AI region data; not implemented |
+
+Retail gate (0x489eb0) as before: Computer owners run any ID present in the
+table, Neutral owners only Rscu and EnBk, ids missing from the table do
+nothing. Not applied: the engine still records the ID and enables the shared
+planner for every owner, and the existing human-owned fixtures in
+`test_triggers.c` are unchanged.
+
+Not done in this batch (stopped by the coordinator): native `p_aiscript.c`,
+the owner gate, fixtures per script, layout bump (StarCraft layout stays 25).
+Next steps: implement Rscu/Enmy/Ally/EnBk from the rows above, rework
+`ai_scripts()` and `save_state()` fixtures to Computer-owned triggers, add
+campaign segments (Rscu 2 records, EnBk 6, in the zerg and protoss CHKs the
+table lists), and trace 0x41c390 for SuiR.
+
+Commands run: `make build/bin/tests/starcraft/test_aiscript_inventory`;
+`build/bin/tests/starcraft/test_aiscript_inventory` (ok);
+`build/bin/tests/starcraft/test_aiscript_inventory --table`.
