@@ -27,7 +27,6 @@ enum {
  * leaves their radius 0); EMP's 64 pixels are the same. Irradiate burns
  * organic units within a cell of its host; Dark Swarm's cloud is 5 by 5. */
 #define SC_SPELL_RADIUS FIXED_FROM_INT(2)
-#define SC_IRRADIATE_RADIUS FIXED_ONE
 
 /* Initial UNIT/CUWP illusions and spell-created copies share this lifetime. */
 void sc_initial_hallucination(mobj_t *mo) {
@@ -590,6 +589,20 @@ static void irradiate_target(mobj_t *host, mobj_t *target, int damage) {
         ((target->sc.flags & SC_BURROWED) && target != host)) return;
     P_DamageMobj(target, NULL, damage);
 }
+/* OpenBW measures Irradiate's 32-pixel range between the DAT collision boxes,
+ * using its integer distance approximation. */
+static bool irradiate_in_range(const mobj_t *a, const mobj_t *b) {
+    const irect_t ab = sc_unit(a)->bounds, bb = sc_unit(b)->bounds;
+    ivec2_t ap = {a->core.position.x / SC_PIXELS(1), a->core.position.y / SC_PIXELS(1)};
+    ivec2_t bp = {b->core.position.x / SC_PIXELS(1), b->core.position.y / SC_PIXELS(1)};
+    int al = ap.x + ab.x, at = ap.y + ab.y, ar = al + ab.w, ad = at + ab.h;
+    int bl = bp.x + bb.x, bt = bp.y + bb.y, br = bl + bb.w, bd = bt + bb.h;
+    int x = al > br ? al - br : bl > ar ? bl - ar : 0;
+    int y = at > bd ? at - bd : bt > ad ? bt - ad : 0;
+    if (x < y) { int t = x; x = y; y = t; }
+    if (x / 4 < y) x = x - x / 16 + y * 3 / 8 - x / 64 + y * 3 / 256;
+    return x <= 32;
+}
 static void irradiate(mobj_t *host) {
     int k = SC_IRRADIATE_BEATS - host->sc.timers[SC_TIMER_IRRADIATE]--;
     int damage = SC_IRRADIATE_DAMAGE * (k + 1) / SC_IRRADIATE_BEATS - SC_IRRADIATE_DAMAGE * k / SC_IRRADIATE_BEATS;
@@ -598,8 +611,10 @@ static void irradiate(mobj_t *host) {
     } else if (host->sc.flags & SC_LOADED) {
         irradiate_target(host, P_MobjById(host->sc.parent), damage);
     } else {
-        fixed2_t at = where(host);
-        AROUND(v, at, SC_IRRADIATE_RADIUS, NULL) irradiate_target(host, v, damage);
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *target = (mobj_t *)th;
+            if (body(target) && irradiate_in_range(host, target)) irradiate_target(host, target, damage);
+        }
     }
 }
 

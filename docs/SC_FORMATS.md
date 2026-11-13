@@ -298,6 +298,13 @@ invincibility clears before its timer ends. OpenBW's `deal_irradiate_damage`
 also handles a burrowed host as a self-only target and redirects a loaded
 host's effect to its carrier; area ticks exclude other burrowed units, Larva,
 Eggs and Lurker Eggs. Focused fixtures check the burrowed and loaded paths.
+OpenBW measures area distance between unit bounding boxes; a test confirms a
+large Ultralisk 36 pixels from the host is still within range although its
+centre is beyond 32 pixels. Frozen Marine fixtures distinguish 32-pixel from
+33-pixel box gaps and diagonal `(24,24)` / `(25,24)` gaps, which OpenBW's
+integer approximation counts as 32 / 33 respectively. These diagonal gaps
+use the asymmetric Ghost and Marine DAT boxes. Allied and enemy organic
+victims are both tested.
 These edge cases are OpenBW source parity, not retail verification. OpenBW initializes hallucinations
 when bit 8 is set in both words,
 starts a 1350-frame lifetime except for turret subunits, removes Carrier

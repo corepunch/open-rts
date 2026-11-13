@@ -282,16 +282,32 @@ static int invincible_status_effects(void) {
     mobj_t *larva_home = spawn(MT_HATCHERY, FIXED2_LIT(30.5, 30.5), 0);
     mobj_t *larva = spawn(MT_LARVA, FIXED2_LIT(11, 11), 0);
     mobj_t *egg = spawn(MT_EGG, FIXED2_LIT(9.5, 10.5), 0);
-    CHECK(host && neighbor && invincible_neighbor && enemy && burrowed && larva_home && larva && egg);
+    mobj_t *large_neighbor = spawn(MT_ULTRALISK, fixed2_add(FIXED2_LIT(10.5, 10.5), (fixed2_t){SC_PIXELS(36), 0}), 0);
+    fixed2_t origin = FIXED2_LIT(10.5, 10.5);
+    mobj_t *range32 = spawn(MT_MARINE, fixed2_add(origin, (fixed2_t){SC_PIXELS(48), 0}), 0);
+    mobj_t *range33 = spawn(MT_MARINE, fixed2_add(origin, (fixed2_t){SC_PIXELS(49), 0}), 0);
+    /* Ghost/Marine bounds make the box gaps (24,24) and (25,24). */
+    mobj_t *diagonal32 = spawn(MT_MARINE, fixed2_add(origin, (fixed2_t){SC_PIXELS(40), SC_PIXELS(45)}), 0);
+    mobj_t *diagonal33 = spawn(MT_MARINE, fixed2_add(origin, (fixed2_t){SC_PIXELS(41), SC_PIXELS(45)}), 0);
+    CHECK(host && neighbor && invincible_neighbor && enemy && burrowed && larva_home && larva && egg &&
+          large_neighbor && range32 && range33 && diagonal32 && diagonal33);
     larva->sc.parent = larva_home->id;
-    host->traits &= ~MF_ATTACK;
-    neighbor->traits &= ~MF_ATTACK;
-    invincible_neighbor->traits &= ~MF_ATTACK;
-    enemy->traits &= ~MF_ATTACK;
-    burrowed->traits &= ~MF_ATTACK;
+    host->traits &= ~(MF_ATTACK | MF_MOBILE);
+    neighbor->traits &= ~(MF_ATTACK | MF_MOBILE);
+    invincible_neighbor->traits &= ~(MF_ATTACK | MF_MOBILE);
+    enemy->traits &= ~(MF_ATTACK | MF_MOBILE);
+    burrowed->traits &= ~(MF_ATTACK | MF_MOBILE);
+    large_neighbor->traits &= ~(MF_ATTACK | MF_MOBILE);
+    range32->traits &= ~(MF_ATTACK | MF_MOBILE);
+    range33->traits &= ~(MF_ATTACK | MF_MOBILE);
+    diagonal32->traits &= ~(MF_ATTACK | MF_MOBILE);
+    diagonal33->traits &= ~(MF_ATTACK | MF_MOBILE);
     burrowed->sc.flags |= SC_BURROWED;
     int host_hp = host->hp, neighbor_hp = neighbor->hp, invincible_neighbor_hp = invincible_neighbor->hp;
     int enemy_hp = enemy->hp, burrowed_hp = burrowed->hp, larva_hp = larva->hp, egg_hp = egg->hp;
+    int large_neighbor_hp = large_neighbor->hp;
+    int range32_hp = range32->hp, range33_hp = range33->hp;
+    int diagonal32_hp = diagonal32->hp, diagonal33_hp = diagonal33->hp;
     uint32_t host_id = host->id, neighbor_id = neighbor->id, invincible_neighbor_id = invincible_neighbor->id;
     host->sc.timers[SC_TIMER_IRRADIATE] = IRRADIATE_BEATS;
     host->sc.flags |= SC_INVINCIBLE;
@@ -301,6 +317,9 @@ static int invincible_status_effects(void) {
     CHECK(host->hp == host_hp && host->sc.timers[SC_TIMER_IRRADIATE] > 0);
     CHECK(neighbor->hp < neighbor_hp && invincible_neighbor->hp == invincible_neighbor_hp);
     CHECK(enemy->hp < enemy_hp);
+    CHECK(large_neighbor->hp < large_neighbor_hp);
+    CHECK(range32->hp < range32_hp && range33->hp == range33_hp);
+    CHECK(diagonal32->hp < diagonal32_hp && diagonal33->hp == diagonal33_hp);
     CHECK(burrowed->hp == burrowed_hp);
     CHECK(larva->hp == larva_hp);
     CHECK(egg->hp == egg_hp);
