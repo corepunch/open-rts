@@ -5669,6 +5669,24 @@ Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 70 @
 'pd 30 @ 0x5a892' -c 'pxw 32 @ 0x149120' data/Z/ZED.EXE`. No code or test
 changed; verification: `git diff --check`.
 
+*Robot-side follow-up (same day).* **Confirmed:** robots (classes 2, 4, 5, 3:
+types 5, 0x15, 0x16, 0x17) are built by `0x50b77..0x50ba3` -> `0x63aa6` ->
+`0x63a1d` (allocates the body record, `0x5a892`) and `0x50bfb`; none of them
+writes `+0x15`, so a robot's weapon byte is pool contents (0xff from the
+`0x5a8d4` fill, or a stale octant). Writers of `+0x15` afterwards (masked
+0..7): `0x58b81/0x58b86` aim, `0x580b4` snap, `0x58180`, `0x245d8`. The
+vehicle constructors `0x637b9..0x639be` (reached from `0x6375a`, descriptor
+types 0x18, 0x1a, 0x1d, 0x1f, 0x21, 0x23) write 0, and boarding through
+`0x646d2 -> 0x646e4 -> 0x7b1e9` calls `0x6375a` (new record) and then sets
+hull facing 6 and `[record+0x15] = 6` (`0x7b21a..0x7b221`, skipped for type
+0x20). **Where it ends:** the descriptor of the Fire Truck object is index
+0x25 (names in the `0xe5974` table: Light 0x1d, A.P.C. 0x1f, Jeep 0x21, Crane
+0x23, Fire Truck 0x25), which `0x6375a` does not list; its default branch
+`0x637a3 -> 0x637b9` would write unit type 6, contradicting type 0x26. Whether
+a Fire Truck passes through `0x6375a`/`0x7b1e9` (nozzle 6) or only through
+`0x7b0bd` (driver record kept, nozzle = driver's stale byte) is not settled,
+and the pre-crewed map-loader path was not found. No state was added.
+
 **CPU building attack task 6, partial trace:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 heavy-pass routine `0x9a801` checks active usable mobile tasks 1 and 3 whose
