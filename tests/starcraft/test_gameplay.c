@@ -61,6 +61,18 @@ static mobj_t *find(int owner, int type) {
     }
     return NULL;
 }
+static mobj_t *find_completed_building(int owner, int type) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function != P_MobjThinker || mo->remove || mo->hp <= 0 ||
+            mo->owner != owner || mo->type_id != type) continue;
+        if (mo->production && mo->production->placed &&
+            mo->production->product_class == RTS_PRODUCT_BUILDING &&
+            mo->production->actor_id == mo->type_id) continue;
+        return mo;
+    }
+    return NULL;
+}
 static bool alive(const mobj_t *unit) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         if ((const mobj_t *)th == unit && th->function == P_MobjThinker) return true;
@@ -252,18 +264,19 @@ static int economy_and_combat(void) {
     CHECK(site(MT_BARRACKS, hall, scv, &cell));
     order(scv, TC_CONSTRUCT, FIXED2_LIT(cell.x, cell.y), NULL, MT_BARRACKS);
     CHECK(scv->production && scv->production->placed);
-    for (int t = 0; t < 4000 && !find(consoleplayer, MT_BARRACKS); t++) tick(1);
-    mobj_t *barracks = find(consoleplayer, MT_BARRACKS);
+    for (int t = 0; t < 4000 && !find_completed_building(consoleplayer, MT_BARRACKS); t++) tick(1);
+    mobj_t *barracks = find_completed_building(consoleplayer, MT_BARRACKS);
     CHECK(barracks && !scv->production);
     CHECK(site(MT_ENGINEERING_BAY, hall, scv, &cell));
     order(scv, TC_CONSTRUCT, FIXED2_LIT(cell.x, cell.y), NULL, MT_ENGINEERING_BAY);
-    for (int t = 0; t < 4000 && !find(consoleplayer, MT_ENGINEERING_BAY); t++) tick(1);
-    mobj_t *bay = find(consoleplayer, MT_ENGINEERING_BAY);
+    for (int t = 0; t < 4000 && !find_completed_building(consoleplayer, MT_ENGINEERING_BAY); t++) tick(1);
+    mobj_t *bay = find_completed_building(consoleplayer, MT_ENGINEERING_BAY);
     CHECK(bay);
     /* Training: a marine costs 50 and one supply. */
     int minerals = level.player_resources[consoleplayer][0], used, have;
     order(barracks, TC_BUILD, (fixed2_t){0}, NULL, MT_MARINE);
-    CHECK(barracks->production && level.player_resources[consoleplayer][0] == minerals - 50);
+    CHECK(barracks->production && barracks->production->product_type == MT_MARINE &&
+          level.player_resources[consoleplayer][0] == minerals - 50);
     sc_supply_counts(consoleplayer, &used, &have);
     CHECK(used == 2 * 5 && have == 2 * 10); /* four SCVs plus the queued marine; the centre gives 10 */
     for (int t = 0; t < 1000 && !find(consoleplayer, MT_MARINE); t++) tick(1);
@@ -877,7 +890,7 @@ static int command_card(void) {
     M_MenuResponder(hudmenu, &app, &mouse);
     CHECK(!hudmenu->target && worker->production && worker->production->placed &&
           worker->production->product_type==MT_SUPPLY_DEPOT &&
-          level.player_resources[consoleplayer][0]==900);
+          level.player_resources[consoleplayer][0]==1000);
     fixed2_t at = fixed2_add(fixed3_xy(hall->core.position), FIXED2_LIT(0, 4));
     mobj_t *ghost = spawn(MT_GHOST, at, consoleplayer), *tank = spawn(MT_SIEGE_TANK, fixed2_add(at, FIXED2_LIT(2, 0)), consoleplayer);
     mobj_t *a = spawn(MT_HIGH_TEMPLAR, fixed2_add(at, FIXED2_LIT(-2, 0)), consoleplayer);

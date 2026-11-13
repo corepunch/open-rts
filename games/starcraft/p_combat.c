@@ -552,9 +552,11 @@ static void sc_mobj_ticker(mobj_t *mo) {
         mo->hp = (int)((hp + 255) / 256);
         mo->sc.wound = (uint8_t)((int64_t)mo->hp * 256 - hp);
     }
-    /* Completed Terran buildings burn below one third, whether grounded or
-     * flying. Our construction sites are not mobjs until completed. */
+    /* OpenBW updates burn damage only for completed buildings. */
     if ((u->race & 2) && (u->flags & SC_UNIT_BUILDING) && mo->max_hp > 0 &&
+        !(mo->production && mo->production->placed &&
+          mo->production->product_class == RTS_PRODUCT_BUILDING &&
+          mo->production->actor_id == mo->type_id) &&
         (int64_t)mo->hp * 100 / mo->max_hp <= 33) {
         int damage = mo->sc.wound + SC_BURN_DAMAGE * frames;
         mo->sc.wound = (uint8_t)(damage & 255);

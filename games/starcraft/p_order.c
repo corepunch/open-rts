@@ -15,12 +15,58 @@ static void queue_run(int player, const ticcmd_t *cmd) {
     G_RunTiccmd(player,&continuation);
 }
 
+void sc_cancel_pending_construction(mobj_t *worker,bool preserve_move) {
+    production_t *production=worker?worker->production:NULL;
+    bool pending=production&&production->placed&&
+        production->product_class==RTS_PRODUCT_BUILDING&&production->actor_id!=worker->type_id;
+    mobj_t *site=worker?worker->target:NULL;
+    bool attached=site&&!site->remove&&site->target==worker&&site->production&&
+        site->production->placed&&site->production->product_class==RTS_PRODUCT_BUILDING&&
+        site->production->actor_id==site->type_id;
+    if(!pending&&!attached)return;
+    sc_order_queue_t replacement=worker->sc.queue;
+    bool has_replacement=replacement.active!=TC_CONSTRUCT||replacement.target!=0;
+    navpath_t path=worker->movement.path;
+    int stuck=worker->movement.stuck_tics,replans=worker->movement.replans;
+    fixed_t best_goal=worker->movement.best_goal_dist,best_leg=worker->movement.best_leg_dist;
+    bool plan_pending=worker->movement.plan_pending;
+    if(pending)sc_cancel_production(worker,0);
+    if(attached) {
+        site->target=NULL;
+        worker->target=NULL;
+    }
+    if(has_replacement)worker->sc.queue=replacement;
+    if(preserve_move) {
+        worker->movement.path=path;
+        worker->movement.stuck_tics=stuck;
+        worker->movement.replans=replans;
+        worker->movement.best_goal_dist=best_goal;
+        worker->movement.best_leg_dist=best_leg;
+        worker->movement.plan_pending=plan_pending;
+    }
+}
+
+static bool immediate_replacement_order(int order) {
+    return order==TC_STOP||order==TC_MOVE||order==TC_ORDER||order==TC_ATTACK||
+        order==TC_REPAIR||order==TC_PATH||order==TC_BOARD||
+        order==TC_STAND_GROUND||order==TC_WAYPOINT;
+}
+
 bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int count) {
     if(cmd->internal)return false;
     if(cmd->order==TC_SPELL)return false; /* Accepted casts own cancellation. */
+    /* A direct harvest command can fail (for example, when aimed at empty
+     * ground). P_HarvestUnitsAt commits it per worker only after pathing and
+     * resource validation succeed, so leave the existing queue untouched. */
+    if(cmd->order==TC_HARVEST&&!cmd->queued)return false;
     if(cmd->order==TC_CONSTRUCT) {
         const StaticProductDefinition *product=G_ModelProductByUIId(NULL,cmd->product);
+        if(cmd->product==0) {
+            if(count)sc_cancel_production(units[0],-1);
+            return true;
+        }
         ivec2_t cell=fixed2_cell(fixed3_xy(cmd->position));
+        if(count&&sc_resume_construction(units[0],product,cell))return true;
         if(count && G_PlaceProduct(units[0],product,cell))
             units[0]->sc.queue=(sc_order_queue_t){.active=TC_CONSTRUCT,.owner=player};
         return true;
@@ -64,6 +110,8 @@ bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
             }
             appended=true; continue;
         }
+        if(!cmd->queued&&immediate_replacement_order(cmd->order))
+            sc_cancel_pending_construction(u,false);
         *q=(sc_order_queue_t){0};
         immediate.units[immediate.count++]=u->id;
         if(cmd->order!=TC_STOP){q->active=cmd->order;q->owner=player;q->target=cmd->target;q->harvest_phase=u->harvest.phase;
@@ -77,6 +125,13 @@ bool sc_queue_order(int player, const ticcmd_t *cmd, mobj_t *const *units, int c
 static bool queue_done(const mobj_t *u) {
     const sc_order_queue_t *q=&u->sc.queue;
     if(!q->active)return true;
+    if(q->active==TC_CONSTRUCT&&q->target) {
+        const mobj_t *site=P_MobjById(q->target);
+        if(site&&!site->remove&&site->hp>0&&site->owner==u->owner&&site->target==u&&
+           site->production&&site->production->placed&&
+           site->production->product_class==RTS_PRODUCT_BUILDING&&
+           site->production->actor_id==site->type_id)return false;
+    }
     if(q->active==TC_STAND_GROUND && (u->sc.flags&SC_HOLD))return false;
     if((q->active==TC_ATTACK || q->active==TC_ORDER) && q->target) {
         mobj_t *target=P_MobjById(q->target);
@@ -179,7 +234,9 @@ static bool repairable(const mobj_t *worker, const mobj_t *target) {
         (u->race&2) && (u->flags&SC_UNIT_MECHANICAL) &&
         !(target->sc.flags&(SC_LOADED|SC_HALLUCINATION)) &&
         !(worker->sc.flags&(SC_LOADED|SC_HALLUCINATION)) &&
-        !(worker->production && worker->production->placed);
+        !(worker->production&&worker->production->placed&&
+          worker->production->product_class==RTS_PRODUCT_BUILDING&&
+          worker->production->actor_id==worker->type_id);
 }
 
 /* Use the normal Stop command so orders share one cancellation lifecycle. */
@@ -219,6 +276,17 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
         ticcmd_t remaining=*cmd;remaining.count=0;
         for (int i=0;i<count;i++) {
             mobj_t *u=units[i];
+            bool construction=target->owner==u->owner&&u->type_id==MT_SCV&&target->production&&
+                target->production->placed&&target->production->product_class==RTS_PRODUCT_BUILDING&&
+                target->production->actor_id==target->type_id;
+            if(construction) {
+                const StaticProductDefinition *product=G_ModelProductByClassType(NULL,
+                    target->production->product_class,target->production->product_type);
+                if(product&&sc_resume_construction(u,product,target->production->cell)) {
+                    handled=true;
+                    continue;
+                }
+            }
             bool cargo=(u->traits&MF_HARVESTER) && u->harvest.cargo>0 &&
                 (target->traits&MF_RESOURCE_BASE) && target->owner==u->owner;
             bool fix=target->type_id!=MT_REFINERY && repairable(u,target);
@@ -227,6 +295,7 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
                   !(sc_unit(u)->space_provided&&sc_can_board(target,u)))||
                  sc_can_recharge_shields(u,target));
             if (!cargo && !fix && !trail) {remaining.units[remaining.count++]=u->id;continue;}
+            sc_cancel_pending_construction(u,false);
             ticcmd_t next=*cmd;
             next.order=cargo?TC_RETURN_GOODS:fix?TC_REPAIR:TC_FOLLOW;
             next.count=1;next.units[0]=u->id;
@@ -267,10 +336,12 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
             continue;
         }
         if (!(u->traits&MF_MOBILE) || (u->sc.flags&SC_LOADED) ||
-            u->sc.timers[SC_TIMER_LOCKDOWN]>0 || (u->production&&u->production->placed)) continue;
+            u->sc.timers[SC_TIMER_LOCKDOWN]>0 ||
+            (u->production&&u->production->placed&&u->production->actor_id==u->type_id)) continue;
         if (repair && !repairable(u,target)) continue;
         if (follow&&(!target||target==u||!P_IsAlly(u,target)||(target->sc.flags&SC_LOADED)))continue;
         if (returning && (!(u->traits&MF_HARVESTER) || u->harvest.cargo<=0)) continue;
+        sc_cancel_pending_construction(u,false);
         int resource=u->harvest.target;
         stop(player,u);
         if (repair) u->sc.order=(sc_order_t){.kind=SC_ORDER_REPAIR,.target=target->id};

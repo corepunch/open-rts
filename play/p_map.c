@@ -430,7 +430,7 @@ static int find_resource_vent_at(const level_t *map, fixed2_t position) {
 }
 
 bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
-                     fixed2_t position) {
+                     fixed2_t position, bool queued_execution) {
     bool handled_issue = false;
     if (G_GameHarvestAt(units, unit_count, position, &handled_issue)) return handled_issue;
     int vent_index = find_resource_vent_at(map, position);
@@ -483,6 +483,11 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         unit->harvest.phase = HARVEST_PHASE_TO_MINE;
         unit->movement.order_id = 0; /* A shared resource bay requires exact arrival. */
         unit->movement.order_arrived = false;
+        if (map == &level) {
+            ticcmd_t accepted = { .order = TC_HARVEST, .queued = queued_execution,
+                .count = 1, .units = { unit->id } };
+            G_InterruptOrders(&accepted, &unit, 1, true);
+        }
         issued = true;
     }
     return issued;
@@ -497,12 +502,12 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
             units[i]->waypoints = (waypoints_t){0};
             selected[count++] = units[i];
         }
-    return P_HarvestUnitsAt(map, selected, count, position);
+    return P_HarvestUnitsAt(map, selected, count, position, false);
 }
 
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fixed2_t position) {
     if (!unit || unit->hp <= 0) return false;
-    return P_HarvestUnitsAt(map, &unit, 1, position);
+    return P_HarvestUnitsAt(map, &unit, 1, position, false);
 }
 
 void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,

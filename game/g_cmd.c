@@ -224,7 +224,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     } else {
         target = NULL;
         if (cmd->order == TC_HARVEST || cmd->order == TC_ORDER) {
-            bool harvested = P_HarvestUnitsAt(&level, units, count, goal);
+            bool harvested = P_HarvestUnitsAt(&level, units, count, goal, cmd->internal);
             if (harvested || cmd->order == TC_HARVEST) return;
         }
     }

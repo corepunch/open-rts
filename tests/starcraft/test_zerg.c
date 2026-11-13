@@ -33,6 +33,15 @@ static mobj_t *find(int owner, int type) {
 }
 static void fund(void) { level.player_resources[0][0] = level.player_resources[0][1] = 5000; }
 static bool available(int type) { return G_ModelProductAvailable(NULL, 0, G_ModelProductByUIId(NULL, type)); }
+static int larvae_of(uint32_t parent) {
+    int n=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        const mobj_t *unit=(const mobj_t *)th;
+        n+=th->function==P_MobjThinker&&!unit->remove&&unit->hp>0&&
+            unit->type_id==MT_LARVA&&unit->sc.parent==parent;
+    }
+    return n;
+}
 
 static int larvae_and_eggs(mobj_t *hatchery) {
     tick(1);
@@ -89,6 +98,7 @@ static int hatchery_tiers(mobj_t *hatchery) {
     hatchery->hp = hatchery->max_hp / 2;
     build(hatchery, MT_LAIR);
     CHECK(hatchery->production && level.player_resources[0][0] == 5000 - 150);
+    CHECK(G_ModelUnitReady(hatchery)); /* In-place building morph is still operational. */
     tick(frames(1500) / 2);
     /* Still a hatchery while it morphs: larvae and drop-off stay. */
     CHECK(hatchery->type_id == MT_HATCHERY && (hatchery->traits & MF_RESOURCE_BASE) && !available(MT_SPIRE));
@@ -122,6 +132,25 @@ static int hatchery_tiers(mobj_t *hatchery) {
     CHECK(muta->type_id == MT_COCOON && !(muta->traits & MF_MOBILE));
     tick(frames(600));
     CHECK(muta->type_id == MT_GUARDIAN && (muta->traits & MF_MOBILE) && (muta->traits & MF_ATTACK));
+    return 0;
+}
+
+static int incomplete_hatchery(void) {
+    mobj_t *hatchery=spawn(MT_HATCHERY,FIXED2_LIT(34,34),0);
+    CHECK(hatchery);
+    hatchery->sc.larva_ms=1;
+    hatchery->production=calloc(1,sizeof(*hatchery->production));
+    CHECK(hatchery->production);
+    *hatchery->production=(production_t){.actor_id=MT_HATCHERY,
+        .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_HATCHERY,
+        .queue_count=1,.time_ms=1000,.time_left_ms=1000,.placed=true};
+    CHECK(!G_ModelUnitReady(hatchery));
+    tick(1);
+    CHECK(larvae_of(hatchery->id)==0&&hatchery->sc.larva_ms==1);
+    P_FreeMobjProduction(hatchery);
+    CHECK(G_ModelUnitReady(hatchery));
+    tick(1);
+    CHECK(larvae_of(hatchery->id)==1);
     return 0;
 }
 
@@ -163,6 +192,14 @@ static int creep_and_psi(void) {
     CHECK(P_CanPlaceBuilding(MT_NEXUS, (ivec2_t){50, 40}, probe));
     CHECK(P_CanPlaceBuilding(MT_PYLON, (ivec2_t){44, 44}, probe));
     mobj_t *pylon = spawn(MT_PYLON, FIXED2_LIT(46, 46), 0);
+    CHECK(pylon);
+    pylon->production=calloc(1,sizeof(*pylon->production));CHECK(pylon->production);
+    *pylon->production=(production_t){.actor_id=MT_PYLON,.product_class=RTS_PRODUCT_BUILDING,
+        .product_type=MT_PYLON,.queue_count=1,.placed=true,.time_ms=1000,.time_left_ms=1000};
+    CHECK(!G_ModelUnitReady(pylon));
+    CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){48, 44}, probe));
+    P_FreeMobjProduction(pylon);
+    CHECK(G_ModelUnitReady(pylon));
     CHECK(P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){48, 44}, probe));
     CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){48, 44}, enemy));
     CHECK(!P_CanPlaceBuilding(MT_GATEWAY, (ivec2_t){54, 44}, probe));
@@ -193,6 +230,7 @@ int main(void) {
     CHECK(hatchery);
     CHECK(larvae_and_eggs(hatchery) == 0);
     CHECK(hatchery_tiers(hatchery) == 0);
+    CHECK(incomplete_hatchery() == 0);
     CHECK(colonies() == 0);
     CHECK(creep_and_psi() == 0);
     P_FreeLevel(&level);

@@ -52,6 +52,7 @@ void sc_zerg_ticker(int elapsed_ms) {
         if (!live(th)) continue;
         mobj_t *mo = (mobj_t *)th;
         if (hatchery(mo->type_id)) {
+            if (!G_ModelUnitReady(mo)) continue;
             if (mo->sc.larva_ms == INT_MIN) continue;
             if (larvae_of(mo) >= SC_MAX_LARVAE) { mo->sc.larva_ms = SC_LARVA_MS; continue; }
             if ((mo->sc.larva_ms -= elapsed_ms) > 0) continue;
@@ -77,6 +78,7 @@ static bool on_creep(fixed2_t at) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (!live(th)) continue;
         const mobj_t *mo = (const mobj_t *)th;
+        if (!G_ModelUnitReady(mo)) continue;
         int radius = hatchery(mo->type_id) ? SC_HATCHERY_CREEP :
             mo->type_id == MT_CREEP_COLONY || mo->type_id == MT_SUNKEN_COLONY ||
             mo->type_id == MT_SPORE_COLONY ? SC_COLONY_CREEP : 0;
@@ -102,7 +104,8 @@ static const char psi_field[10][17] = {
 static bool in_psi(int owner, fixed2_t at) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         const mobj_t *mo = (const mobj_t *)th;
-        if (!live(th) || mo->type_id != MT_PYLON || (owner >= 0 && mo->owner != owner)) continue;
+        if (!live(th) || mo->type_id != MT_PYLON || (owner >= 0 && mo->owner != owner) ||
+            !G_ModelUnitReady(mo)) continue;
         fixed2_t rel = fixed2_sub(at, fixed3_xy(mo->core.position));
         int x = (rel.x + FIXED_FROM_INT(8)) >> FIXED_FRAC_BITS, y = (rel.y + FIXED_FROM_INT(5)) >> FIXED_FRAC_BITS;
         if (x >= 0 && x < 16 && y >= 0 && y < 10 && psi_field[y][x] == 'x') return true;

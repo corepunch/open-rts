@@ -377,7 +377,8 @@ bool sc_can_board(const mobj_t *unit, const mobj_t *carrier) {
     if (!u || !b || unit == carrier || unit->owner != carrier->owner || !sc_carries(carrier) ||
         (unit->sc.flags & (SC_LOADED | SC_HALLUCINATION | SC_BURROWED)) || !(unit->traits & MF_MOBILE) ||
         (unit->traits & MF_FLY) || (u->flags & SC_UNIT_BUILDING) || u->space < 1 || u->space > 8 ||
-        sc_disabled(unit) || unit->sc.order.kind == SC_ORDER_INFEST) return false;
+        sc_disabled(unit) || unit->sc.order.kind == SC_ORDER_INFEST ||
+        !G_ModelUnitReady(carrier)) return false;
     if (is_building(carrier) && (!(u->race & 2) || u->space > 1)) return false;
     return sc_cargo_space(carrier) + u->space <= b->space_provided;
 }

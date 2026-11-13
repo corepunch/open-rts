@@ -63,6 +63,62 @@ static const mobjtype_t *type_info(uint16_t type) {
     return NULL;
 }
 
+static bool valid_saved_queue_item(uint16_t actor_id, uint8_t product_class,
+                                   int product_type, int time_ms) {
+    const StaticProductDefinition *product = G_ModelProductByClassType(
+        NULL, product_class, product_type);
+    return product && time_ms >= 0 &&
+        actor_id == G_ModelActorIdForProduct(product);
+}
+
+static bool valid_saved_production(const production_t *queue, int width, int height) {
+    if (queue->queue_count < 1 || queue->queue_count > RTS_MAX_PRODUCTION_QUEUE ||
+        !valid_saved_queue_item(queue->actor_id, queue->product_class,
+                                queue->product_type, queue->time_ms)) return false;
+    int latest_retry = queue->time_ms > 250 ? queue->time_ms : 250;
+    if (queue->time_left_ms < 0 || queue->time_left_ms > latest_retry) return false;
+    for (int i = 1; i < queue->queue_count; ++i) {
+        const productionitem_t *item = &queue->pending[i - 1];
+        if (!valid_saved_queue_item(item->actor_id, item->product_class,
+                                    item->product_type, item->time_ms)) return false;
+    }
+    if (queue->placed) {
+        const StaticProductDefinition *product = G_ModelProductByClassType(
+            NULL, queue->product_class, queue->product_type);
+        const mobjtype_t *type = product ? P_ActorType(
+            G_ModelActorIdForProduct(product)) : NULL;
+        if (queue->queue_count != 1 || queue->product_class != RTS_PRODUCT_BUILDING ||
+            !type || type->footprint.w <= 0 || type->footprint.h <= 0 ||
+            queue->cell.x < 0 || queue->cell.y < 0 ||
+            queue->cell.x > width - type->footprint.w ||
+            queue->cell.y > height - type->footprint.h ||
+            queue->time_left_ms > queue->time_ms)
+            return false;
+    }
+    return true;
+}
+
+static bool saved_production_durations_match(const blob_t *file, const save_t *save) {
+    size_t cells = (size_t)save->width * save->height;
+    const uint8_t *records = file->bytes + sizeof(*save) + cells * 5 +
+        (size_t)save->vents * sizeof(resourcevent_t);
+    for (int i = 0; i < save->objects; ++i) {
+        savedmobj_t record;
+        memcpy(&record, records + (size_t)i * sizeof(record), sizeof(record));
+        if (!record.production) continue;
+        const production_t *queue = &record.queue;
+        const StaticProductDefinition *product=G_ModelProductByClassType(
+            NULL, queue->product_class, queue->product_type);
+        if (!product || queue->time_ms != G_ModelProductTrainingTimeMs(product)) return false;
+        for (int j = 1; j < queue->queue_count; ++j) {
+            const productionitem_t *item = &queue->pending[j - 1];
+            product = G_ModelProductByClassType(NULL, item->product_class, item->product_type);
+            if (!product || item->time_ms != G_ModelProductTrainingTimeMs(product)) return false;
+        }
+    }
+    return true;
+}
+
 /* The map file and the shape of the game tables: a save made against other
  * data or another build is refused instead of misread. */
 static bool save_signature(const char *path, uint32_t *signature) {
@@ -111,6 +167,8 @@ static bool parse_save(const blob_t *file, save_t *save) {
         savedmobj_t record;
         memcpy(&record, records + (size_t)i * sizeof(record), sizeof(record));
         const mobj_t *object = &record.object;
+        if (record.production && !valid_saved_production(&record.queue,
+            save->width, save->height)) goto fail;
         if (!object->id || !type_info(object->type_id) || object->info || object->target ||
             object->attack.target || object->harvest.base || object->production ||
             object->thinker.next || object->thinker.prev || object->thinker.function ||
@@ -237,7 +295,8 @@ bool G_LoadGameBlob(const void *data, size_t length, app_t *app, AiContext *ai, 
     resourcevent_t *vents = save.vents ? malloc((size_t)save.vents * sizeof(*vents)) : NULL;
     mobj_t **objects = calloc((size_t)save.objects + 1, sizeof(*objects));
     if ((save.vents && !vents) || !objects || save.width != level.width ||
-        save.height != level.height || strcmp(save.info.map, level.map_path)) goto done;
+        save.height != level.height || strcmp(save.info.map, level.map_path) ||
+        !saved_production_durations_match(&file, &save)) goto done;
     if (save.vents) memcpy(vents, next, (size_t)save.vents * sizeof(*vents));
     next += (size_t)save.vents * sizeof(*vents);
     for (int i = 0; i < save.objects; ++i) {

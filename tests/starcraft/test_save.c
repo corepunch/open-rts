@@ -1,12 +1,166 @@
 #include "t_local.h"
 #include "sc_local.h"
+#include <limits.h>
 #include <stdlib.h>
 #define CHECK(c) RTS_CHECK(c, "StarCraft saves", #c)
+
+typedef struct {
+    char magic[8];
+    uint32_t version, header_size, object_size, body_size, checksum, signature;
+    saveinfo_t info;
+    int width, height, time, speed, vents, objects;
+    bool paused;
+    fvec2_t camera;
+    daylight_t daylight;
+    int resources[8][RTS_MAX_RESOURCES];
+    uint8_t random;
+    uint32_t vision[8], next_id, next_order;
+    uint16_t income_scale[8];
+    uint8_t upgrades[sizeof(level.upgrades)];
+    outcome_t outcome;
+    uint8_t sides, foes;
+    sidestats_t side_stats[8];
+    size_t extra_size;
+    AiContext ai;
+    hudtext_t hud;
+} test_save_header_t;
+
+typedef struct {
+    mobj_t object;
+    uint32_t target, attack, base;
+    bool production, removed;
+    production_t queue;
+} test_savedmobj_t;
+
+static uint32_t save_test_checksum(const void *data, size_t length) {
+    const uint8_t *bytes=data;
+    uint32_t hash=UINT32_C(2166136261);
+    for(size_t i=0;i<length;i++)hash=(hash^bytes[i])*UINT32_C(16777619);
+    return hash;
+}
+
+enum { BAD_QUEUE_DEPTH, BAD_TIME_LEFT, BAD_TIME_TOTAL, BAD_CELL, BAD_PRODUCT };
+
+static bool reject_malformed_construction(const void *data,size_t length,uint32_t site_id,int defect,
+                                           app_t *app,AiContext *ai,hudtext_t *hud) {
+    uint8_t *copy=malloc(length);
+    if(!copy)return false;
+    memcpy(copy,data,length);
+    test_save_header_t *header=(test_save_header_t *)copy;
+    if(header->header_size!=sizeof(*header)||header->object_size!=sizeof(test_savedmobj_t)) {
+        free(copy);
+        return false;
+    }
+    size_t cells=(size_t)header->width*header->height;
+    size_t offset=sizeof(*header)+cells*5+(size_t)header->vents*sizeof(resourcevent_t);
+    int site_index=-1;
+    test_savedmobj_t site;
+    for(int i=0;i<header->objects;i++) {
+        test_savedmobj_t record;
+        memcpy(&record,copy+offset+(size_t)i*sizeof(record),sizeof(record));
+        if(record.object.id==site_id) { site_index=i; site=record; break; }
+    }
+    if(site_index<0||!site.production) { free(copy); return false; }
+    switch(defect) {
+        case BAD_QUEUE_DEPTH:
+            site.queue.pending[0]=(productionitem_t){site.queue.actor_id,
+                site.queue.product_class,site.queue.product_type,site.queue.time_ms};
+            site.queue.queue_count=2;
+            break;
+        case BAD_TIME_LEFT: site.queue.time_left_ms=INT_MIN; break;
+        case BAD_TIME_TOTAL: site.queue.time_ms=INT_MAX; break;
+        case BAD_CELL: site.queue.cell.x=header->width; break;
+        case BAD_PRODUCT: site.queue.product_type=INT_MAX; break;
+    }
+    memcpy(copy+offset+(size_t)site_index*sizeof(site),&site,sizeof(site));
+    header->checksum=0;
+    header->checksum=save_test_checksum(header,sizeof(*header)) ^
+        save_test_checksum(copy+sizeof(*header),header->body_size);
+    bool rejected=!G_LoadGameBlob(copy,length,app,ai,hud);
+    free(copy);
+    return rejected;
+}
+
+static bool reject_malformed_queue_duration(const void *data,size_t length,uint32_t object_id,
+                                             bool pending,app_t *app,AiContext *ai,hudtext_t *hud) {
+    uint8_t *copy=malloc(length);
+    if(!copy)return false;
+    memcpy(copy,data,length);
+    test_save_header_t *header=(test_save_header_t *)copy;
+    if(header->header_size!=sizeof(*header)||header->object_size!=sizeof(test_savedmobj_t)) {
+        free(copy);
+        return false;
+    }
+    size_t cells=(size_t)header->width*header->height;
+    size_t offset=sizeof(*header)+cells*5+(size_t)header->vents*sizeof(resourcevent_t);
+    int found=-1;
+    test_savedmobj_t record;
+    for(int i=0;i<header->objects;i++) {
+        memcpy(&record,copy+offset+(size_t)i*sizeof(record),sizeof(record));
+        if(record.object.id==object_id) { found=i; break; }
+    }
+    if(found<0||!record.production|| (pending&&record.queue.queue_count<2)) {
+        free(copy);
+        return false;
+    }
+    if(pending) record.queue.pending[0].time_ms=INT_MAX;
+    else record.queue.time_ms=INT_MAX;
+    memcpy(copy+offset+(size_t)found*sizeof(record),&record,sizeof(record));
+    header->checksum=0;
+    header->checksum=save_test_checksum(header,sizeof(*header)) ^
+        save_test_checksum(copy+sizeof(*header),header->body_size);
+    bool rejected=!G_LoadGameBlob(copy,length,app,ai,hud);
+    free(copy);
+    return rejected;
+}
+
+static bool accepts_retry_or_release_state(const void *data,size_t length,uint32_t object_id,
+                                          bool release,app_t *app,AiContext *ai,hudtext_t *hud) {
+    uint8_t *copy=malloc(length);
+    if(!copy)return false;
+    memcpy(copy,data,length);
+    test_save_header_t *header=(test_save_header_t *)copy;
+    if(header->header_size!=sizeof(*header)||header->object_size!=sizeof(test_savedmobj_t)) {
+        free(copy);
+        return false;
+    }
+    size_t cells=(size_t)header->width*header->height;
+    size_t offset=sizeof(*header)+cells*5+(size_t)header->vents*sizeof(resourcevent_t);
+    int found=-1;
+    test_savedmobj_t record;
+    for(int i=0;i<header->objects;i++) {
+        memcpy(&record,copy+offset+(size_t)i*sizeof(record),sizeof(record));
+        if(record.object.id==object_id) { found=i; break; }
+    }
+    if(found<0||!record.production) { free(copy); return false; }
+    if(release) {
+        record.queue.release_active=true;
+        record.queue.release_ready=false;
+        record.queue.time_left_ms=0;
+    } else {
+        record.queue.blocked=true;
+        record.queue.time_left_ms=250;
+    }
+    memcpy(copy+offset+(size_t)found*sizeof(record),&record,sizeof(record));
+    header->checksum=0;
+    header->checksum=save_test_checksum(header,sizeof(*header)) ^
+        save_test_checksum(copy+sizeof(*header),header->body_size);
+    bool loaded=G_LoadGameBlob(copy,length,app,ai,hud);
+    if(loaded) {
+        mobj_t *unit=P_MobjById(object_id);
+        loaded=unit&&unit->production&&unit->production->queue_count==2&&
+            (release?(unit->production->release_active&&!unit->production->release_ready&&
+                       unit->production->time_left_ms==0):
+                     (unit->production->blocked&&unit->production->time_left_ms==250));
+    }
+    free(copy);
+    return loaded;
+}
 
 int main(void) {
     G_InitGame();
     P_InitThinkers();
-    CHECK(G_SaveLayout() == 16);
+    CHECK(G_SaveLayout() == 17);
     sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
@@ -46,6 +200,16 @@ int main(void) {
     ticcmd_t move={.order=TC_MOVE,.count=1,.units={queued_unit->id},.position=fixed3_from_fixed2(FIXED2_LIT(9.5,4.5),0)};
     G_RunTiccmd(0,&move);move.queued=true;move.position=fixed3_from_fixed2(FIXED2_LIT(12.5,4.5),0);
     G_RunTiccmd(0,&move);CHECK(queued_unit->sc.queue.count==1);
+    const StaticProductDefinition *marine_product=G_ModelProductByClassType(NULL,
+        RTS_PRODUCT_UNIT,MT_MARINE);
+    CHECK(marine_product);
+    int marine_time=G_ModelProductTrainingTimeMs(marine_product);
+    queued_unit->production=calloc(1,sizeof(*queued_unit->production));
+    CHECK(queued_unit->production);
+    *queued_unit->production=(production_t){.actor_id=MT_MARINE,
+        .product_class=RTS_PRODUCT_UNIT,.product_type=MT_MARINE,.queue_count=2,
+        .time_ms=marine_time,.time_left_ms=marine_time,.pending={{MT_MARINE,
+            RTS_PRODUCT_UNIT,MT_MARINE,marine_time}}};
     mobj_t *attacker=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(5.5,5.5),0),MT_MARINE);
     mobj_t *target=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(7.5,5.5),0),MT_MARINE);
     CHECK(attacker && target);
@@ -103,6 +267,48 @@ int main(void) {
     uint32_t geyser_id = geyser->id;
     int geyser_vent = level.resource_vent_count - 1;
     uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
+    mobj_t *foundation=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(20.5,20.5),0),MT_BARRACKS);
+    mobj_t *builder=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(19.5,20.5),0),MT_SCV);
+    const StaticProductDefinition *barracks=G_ModelProductByClassType(NULL,
+        RTS_PRODUCT_BUILDING,MT_BARRACKS);
+    CHECK(foundation&&builder&&barracks);
+    foundation->owner=foundation->team=builder->owner=builder->team=0;
+    foundation->target=builder;
+    builder->target=foundation;
+    builder->sc.queue=(sc_order_queue_t){.active=TC_CONSTRUCT,.owner=0,
+        .target=foundation->id};
+    foundation->production=calloc(1,sizeof(*foundation->production));
+    CHECK(foundation->production);
+    int barracks_time=G_ModelProductTrainingTimeMs(barracks);
+    *foundation->production=(production_t){.actor_id=MT_BARRACKS,
+        .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_BARRACKS,.queue_count=1,
+        .time_ms=barracks_time,.time_left_ms=barracks_time-barracks_time/4,
+        .placed=true,.cell={20,20}};
+    foundation->sc.construction=(sc_construction_t){.hp=foundation->hp,
+        .shields=foundation->sc.shields,.worker_hp=builder->hp};
+    uint32_t foundation_id=foundation->id, foundation_builder_id=builder->id;
+    mobj_t *pending_builder=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(30.5,20.5),0),MT_SCV);
+    CHECK(pending_builder);
+    pending_builder->owner=pending_builder->team=0;
+    pending_builder->production=calloc(1,sizeof(*pending_builder->production));
+    CHECK(pending_builder->production);
+    *pending_builder->production=(production_t){.actor_id=MT_BARRACKS,
+        .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_BARRACKS,.queue_count=1,
+        .time_ms=barracks_time,.time_left_ms=barracks_time,.placed=true,.cell={31,20}};
+    uint32_t pending_builder_id=pending_builder->id;
+    uint32_t construction_hash=G_Consistency();
+    foundation->sc.construction.hp++;
+    CHECK(G_Consistency()!=construction_hash);
+    foundation->sc.construction.hp--;
+    construction_hash=G_Consistency();
+    foundation->sc.construction.shields++;
+    CHECK(G_Consistency()!=construction_hash);
+    foundation->sc.construction.shields--;
+    construction_hash=G_Consistency();
+    foundation->sc.construction.worker_hp++;
+    CHECK(G_Consistency()!=construction_hash);
+    foundation->sc.construction.worker_hp--;
+    queued_hash=G_Consistency();
     saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] = 14;
     CHECK(G_Consistency() != queued_hash);
     saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] = 15;
@@ -117,6 +323,20 @@ int main(void) {
     void *saved = NULL;
     size_t length = 0;
     CHECK(G_SaveGameBlob(&saved, &length, "mission", &app, &ai, &hud));
+    for(int defect=BAD_QUEUE_DEPTH;defect<=BAD_PRODUCT;defect++) {
+        uint32_t before=G_Consistency();
+        CHECK(reject_malformed_construction(saved,length,foundation_id,defect,&app,&ai,&hud));
+        CHECK(G_Consistency()==before);
+    }
+    uint32_t before_bad_duration=G_Consistency();
+    CHECK(reject_malformed_queue_duration(saved,length,queued_id,false,&app,&ai,&hud));
+    CHECK(G_Consistency()==before_bad_duration);
+    CHECK(reject_malformed_queue_duration(saved,length,queued_id,true,&app,&ai,&hud));
+    CHECK(G_Consistency()==before_bad_duration);
+    CHECK(accepts_retry_or_release_state(saved,length,queued_id,false,&app,&ai,&hud));
+    CHECK(G_LoadGameBlob(saved,length,&app,&ai,&hud));
+    CHECK(accepts_retry_or_release_state(saved,length,queued_id,true,&app,&ai,&hud));
+    CHECK(G_LoadGameBlob(saved,length,&app,&ai,&hud));
     /* Reload the map as the driver does, so no saved pointer can accidentally
      * stand in for the new level's CHK allocation or trigger runtime. */
     P_FreeLevel(&level);
@@ -134,7 +354,23 @@ int main(void) {
     level.sight.allies[0] |= UINT32_C(0x40000000) >> 2;
     CHECK(G_LoadGameBlob(saved, length, &app, &ai, &hud));
     queued_unit=P_MobjById(queued_id);
-    CHECK(queued_unit && queued_unit->sc.queue.count==1 && queued_unit->sc.queue.pending[0].position.x==FIXED_LIT(12.5));
+    CHECK(queued_unit && queued_unit->sc.queue.count==1 && queued_unit->sc.queue.pending[0].position.x==FIXED_LIT(12.5)&&
+          queued_unit->production&&queued_unit->production->queue_count==2&&
+          queued_unit->production->time_ms==marine_time&&
+          queued_unit->production->pending[0].time_ms==marine_time);
+    foundation=P_MobjById(foundation_id);
+    CHECK(foundation&&foundation->type_id==MT_BARRACKS&&foundation->target&&
+          foundation->target->id==foundation_builder_id&&foundation->target->target==foundation&&
+          foundation->target->sc.queue.active==TC_CONSTRUCT&&
+          foundation->target->sc.queue.target==foundation_id&&foundation->production&&
+          foundation->production->time_left_ms==barracks_time-barracks_time/4&&
+          foundation->production->cell.x==20&&
+          foundation->sc.construction.hp==foundation->hp&&
+          foundation->sc.construction.worker_hp==foundation->target->hp);
+    pending_builder=P_MobjById(pending_builder_id);
+    CHECK(pending_builder&&pending_builder->type_id==MT_SCV&&pending_builder->production&&
+          pending_builder->production->placed&&!pending_builder->target&&
+          pending_builder->production->cell.x==31);
     attacker=P_MobjById(attacker_id); target=P_MobjById(target_id);
     CHECK(attacker && target && attacker->sc.queue.active==TC_ATTACK && attacker->sc.queue.forced &&
           attacker->sc.queue.target_owner==target->owner && attacker->attack.target==target &&
@@ -159,6 +395,10 @@ int main(void) {
           saved_neutral->sc.sprite_owner == 1);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
+    int construction_time_left=foundation->production->time_left_ms;
+    G_ProductionTicker(RTS_TICK_MS);
+    CHECK(foundation->production&&foundation->production->time_left_ms==
+          construction_time_left-RTS_TICK_MS);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
     CHECK(m->loc_count == SC_LOCATION_COUNT && m->loc_left[SC_LOCATION_COUNT - 1] == 17 &&

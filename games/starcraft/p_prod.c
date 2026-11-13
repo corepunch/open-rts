@@ -342,6 +342,256 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *p) {
     if(tech_product(p)>=0)return (sc_techs[tech_product(p)].time*1000+23)/24;
     return p?(sc_units[p->product_type-1].build_time*1000+23)/24:0;
 }
+
+static bool sc_worker_build_product(const mobj_t *builder,const StaticProductDefinition *p) {
+    return builder&&p&&p->product_class==RTS_PRODUCT_BUILDING&&
+        p->product_type>0&&p->product_type<=SC_TYPES&&
+        ((p->worker_build&&p->makers[0]==builder->type_id) ||
+         (builder->type_id==MT_DRONE&&p->makers[0]==MT_DRONE));
+}
+
+static bool sc_builder_adjacent(const mobj_t *builder,const mobj_t *site) {
+    irect_t worker=P_MobjCells(builder),building=P_MobjCells(site);
+    int dx=SDL_max(0,SDL_max(building.x-(worker.x+worker.w),worker.x-(building.x+building.w)));
+    int dy=SDL_max(0,SDL_max(building.y-(worker.y+worker.h),worker.y-(building.y+building.h)));
+    return dx<=1&&dy<=1;
+}
+
+bool G_ModelConstructionNeedsWorker(const mobj_t *unit,const StaticProductDefinition *p) {
+    return sc_worker_build_product(unit,p);
+}
+
+bool G_ModelIsConstructionSite(const mobj_t *unit,const StaticProductDefinition *p) {
+    return unit&&p&&unit->production&&unit->production->placed&&
+        unit->production->product_class==RTS_PRODUCT_BUILDING&&
+        unit->production->actor_id==unit->type_id&&p->product_type==unit->type_id;
+}
+
+bool G_ModelCanProgressConstruction(mobj_t *site,const StaticProductDefinition *p) {
+    if(!G_ModelIsConstructionSite(site,p))return false;
+    if(p->makers[0]!=MT_SCV)return true;
+    mobj_t *builder=site->target;
+    if(!builder||builder->remove||builder->hp<=0||builder->type_id!=MT_SCV||
+       builder->owner!=site->owner||builder->sc.queue.active!=TC_CONSTRUCT||
+       builder->sc.queue.target!=site->id||builder->target!=site) {
+        if(builder&&builder->target==site)builder->target=NULL;
+        site->target=NULL;
+        return false;
+    }
+    if(P_HasMoveOrder(builder))return false;
+    /* Placement and resume paths already route the SCV to an approach bay.
+     * Recomputing it after the foundation exists can reject that same bay
+     * against the new building footprint (notably at refineries). */
+    return sc_builder_adjacent(builder,site);
+}
+
+bool sc_resume_construction(mobj_t *worker,const StaticProductDefinition *p,ivec2_t cell) {
+    if(!worker||!p||worker->type_id!=MT_SCV||p->makers[0]!=MT_SCV||
+       p->product_class!=RTS_PRODUCT_BUILDING)return false;
+    mobj_t *site=NULL;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap&&!site;th=th->next) {
+        if(th->function!=P_MobjThinker)continue;
+        mobj_t *candidate=(mobj_t *)th;
+        if(candidate->remove||candidate->owner!=worker->owner||
+           !G_ModelIsConstructionSite(candidate,p)||candidate->target)continue;
+        if(ivec2_equal(candidate->production->cell,cell))site=candidate;
+    }
+    if(!site)return false;
+    fixed2_t bay;
+    const mobjtype_t *type=P_ActorType(site->type_id);
+    if(!type||worker->production||!P_ApproachFootprint(worker,cell,type->footprint,&bay)||
+       !P_MoveUnitTo(&level,worker,bay))return true;
+    site->target=worker;
+    worker->target=site;
+    worker->sc.queue=(sc_order_queue_t){.active=TC_CONSTRUCT,.owner=worker->owner,
+        .target=site->id};
+    worker->attack.target=NULL;
+    worker->harvest.phase=HARVEST_PHASE_NONE;
+    worker->harvest.target=-1;
+    return true;
+}
+
+bool G_ModelPlaceConstruction(RtsGameModel *m,mobj_t *builder,
+                              const StaticProductDefinition *p,ivec2_t cell,bool *handled) {
+    (void)m;
+    *handled=sc_worker_build_product(builder,p);
+    if(!*handled)return false;
+    const mobjtype_t *type=P_ActorType((uint16_t)p->product_type);
+    fixed2_t bay;
+    if(!type||builder->production||!P_ApproachFootprint(builder,cell,type->footprint,&bay))return false;
+    production_t *queue=P_EnsureMobjProduction(builder);
+    if(!queue)return false;
+    if(!P_MoveUnitTo(&level,builder,bay)) { P_FreeMobjProduction(builder); return false; }
+    int time=G_ModelProductTrainingTimeMs(p);
+    *queue=(production_t){.actor_id=(uint16_t)p->product_type,
+        .product_class=(uint8_t)p->product_class,.product_type=p->product_type,
+        .queue_count=1,.time_ms=time,.time_left_ms=time,.placed=true,.cell=cell};
+    builder->attack.target=NULL;
+    builder->harvest.phase=HARVEST_PHASE_NONE;
+    builder->harvest.target=-1;
+    return true;
+}
+
+static int construction_percent(int base,int maximum,const production_t *queue) {
+    if(!queue||queue->time_ms<=0)return maximum;
+    int done=queue->time_ms-queue->time_left_ms;
+    if(done<0)done=0;
+    if(done>queue->time_ms)done=queue->time_ms;
+    return base+(int)((int64_t)(maximum-base)*done/queue->time_ms);
+}
+
+bool G_ModelStartConstruction(RtsGameModel *m,mobj_t *builder,
+                              const StaticProductDefinition *p,bool *handled) {
+    *handled=sc_worker_build_product(builder,p);
+    if(!*handled)return false;
+    if(!builder->production||!builder->production->placed||
+       builder->production->actor_id!=(uint16_t)p->product_type)return false;
+    production_t saved=*builder->production;
+    sc_order_queue_t builder_queue=builder->sc.queue;
+    ivec2_t cell=saved.cell;
+    uint16_t type_id=(uint16_t)p->product_type;
+    int previous_worker_hp=builder->hp;
+    bool zerg=builder->type_id==MT_DRONE;
+    production_t *construction=zerg?builder->production:malloc(sizeof(*construction));
+    if(!construction)return false;
+    fixed2_t at=P_BuildingPosition(type_id,cell);
+    ivec2_t pixel={fixed_floor_int(at.x*32),fixed_floor_int(at.y*32)};
+    bool can_pay=builder->owner>=0&&builder->owner<8&&
+        level.player_resources[builder->owner][0]>=p->cost;
+    for(int r=1;r<RTS_MAX_RESOURCES&&can_pay;r++)
+        can_pay=p->extra_costs[r-1]>=0&&level.player_resources[builder->owner][r]>=p->extra_costs[r-1];
+    if(!can_pay||!G_ModelProductAvailable(m,builder->owner,p)||
+       !P_CanPlaceBuilding(type_id,cell,builder)) {
+        sc_order_queue_t queued=builder->sc.queue;
+        if(!zerg)free(construction);
+        P_FreeMobjProduction(builder);
+        P_ClearMove(builder);
+        builder->movement.order_arrived=true;
+        if(queued.count>0&&queued.count<=SC_QUEUED_ORDERS) {
+            queued.active=0;
+            queued.target=0;
+            queued.target_owner=0;
+            queued.forced=false;
+            queued.harvest_phase=HARVEST_PHASE_NONE;
+            builder->sc.queue=queued;
+        } else builder->sc.queue=(sc_order_queue_t){0};
+        builder->target=NULL;
+        return false;
+    }
+    mobj_t *site=builder;
+    if(zerg) {
+        if(!P_MorphMobj(builder,type_id))return false;
+        builder->core.position=fixed3_with_xy(builder->core.position,at);
+        builder->sc.queue=(sc_order_queue_t){0};
+        builder->target=NULL;
+    } else {
+        site=sc_spawn_actor(type_id-1,pixel,builder->owner);
+        if(!site) { free(construction); return false; }
+        site->team=builder->team;
+        site->allegiance=builder->allegiance;
+        site->target=builder->type_id==MT_SCV?builder:NULL;
+        builder->target=site->target?site:NULL;
+        builder->sc.queue=builder_queue;
+        if(site->target) {
+            builder->sc.queue.active=TC_CONSTRUCT;
+            builder->sc.queue.owner=builder->owner;
+            builder->sc.queue.target=site->id;
+            builder->sc.queue.target_owner=0;
+            builder->sc.queue.forced=false;
+            builder->sc.queue.harvest_phase=HARVEST_PHASE_NONE;
+        } else {
+            /* Protoss releases the Probe as soon as the foundation appears. */
+            builder->sc.queue.active=0;
+            builder->sc.queue.target=0;
+            builder->sc.queue.target_owner=0;
+            builder->sc.queue.forced=false;
+            builder->sc.queue.harvest_phase=HARVEST_PHASE_NONE;
+        }
+        P_ClearMove(builder);
+        builder->movement.order_arrived=true;
+    }
+    sc_start(site);
+    site->hp=site->max_hp/10;
+    if(site->hp<1)site->hp=1;
+    site->sc.wound=0;
+    site->sc.shields=sc_unit(site)->shields*256/10;
+    saved.time_left_ms=saved.time_ms;
+    site->sc.construction=(sc_construction_t){.hp=site->hp,.shields=site->sc.shields,
+        .worker_hp=zerg?previous_worker_hp:0};
+    *construction=saved;
+    if(site!=builder) {
+        site->production=construction;
+        P_FreeMobjProduction(builder);
+    }
+    level.player_resources[builder->owner][0]-=p->cost;
+    for(int r=1;r<RTS_MAX_RESOURCES;r++)level.player_resources[builder->owner][r]-=p->extra_costs[r-1];
+    P_SyncBuildingBlocking();
+    return true;
+}
+
+void G_ModelUpdateConstruction(RtsGameModel *m,mobj_t *site,const StaticProductDefinition *p) {
+    (void)m;(void)p;
+    production_t *queue=site?site->production:NULL;
+    const sc_unit_t *type=sc_unit(site);
+    if(!queue||!type||queue->time_ms<=0)return;
+    int hp=construction_percent(site->max_hp/10,site->max_hp,queue);
+    int shields=construction_percent(type->shields*256/10,type->shields*256,queue);
+    if(hp>site->sc.construction.hp) {
+        site->hp+=hp-site->sc.construction.hp;
+        site->sc.construction.hp=hp;
+    }
+    if(shields>site->sc.construction.shields) {
+        site->sc.shields+=shields-site->sc.construction.shields;
+        site->sc.construction.shields=shields;
+    }
+}
+
+bool G_ModelCompleteConstruction(RtsGameModel *m,mobj_t *site,
+                                 const StaticProductDefinition *p,bool *handled) {
+    (void)m;(void)p;
+    *handled=site&&site->production&&site->production->placed&&
+        site->production->product_class==RTS_PRODUCT_BUILDING&&
+        site->production->actor_id==site->type_id;
+    if(!*handled)return false;
+    mobj_t *builder=site->target;
+    if(builder&&builder->sc.queue.target==site->id) {
+        sc_order_queue_t *queue=&builder->sc.queue;
+        if(queue->count>0&&queue->count<=SC_QUEUED_ORDERS) {
+            queue->active=0;
+            queue->target=0;
+            queue->target_owner=0;
+            queue->forced=false;
+            queue->harvest_phase=HARVEST_PHASE_NONE;
+        } else *queue=(sc_order_queue_t){0};
+        builder->target=NULL;
+    }
+    const mobjtype_t *type=P_ActorType(site->type_id);
+    if(type&&type->build_on_type) {
+        irect_t bounds=P_MobjCells(site);
+        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+            if(th->function!=P_MobjThinker)continue;
+            mobj_t *source=(mobj_t *)th;
+            if(source==site||source->remove||source->type_id!=type->build_on_type)continue;
+            irect_t source_bounds=P_MobjCells(source);
+            if(source_bounds.x!=bounds.x||source_bounds.y!=bounds.y||
+               source_bounds.w!=bounds.w||source_bounds.h!=bounds.h)continue;
+            for(int i=0;i<level.resource_vent_count;i++) {
+                resourcevent_t *vent=&level.resource_vents[i];
+                if(vent->source_id!=source->id)continue;
+                vent->source_id=site->id;
+                vent->active=vent->amount>0||vent->depleted;
+            }
+            P_RemoveMobj(source);
+            break;
+        }
+    }
+    site->target=NULL;
+    G_UnitProduced(site,builder);
+    S_Bark(&site,1,SE_READY,false);
+    site->sc.construction=(sc_construction_t){0};
+    P_SyncBuildingBlocking();
+    return true;
+}
 /* Finished research raises the owner's level, a Zerg morph turns the egg
  * or building into the product, a hangar keeps what it made and an add-on
  * goes up beside its building; all leave the queue here. An unpowered
@@ -388,6 +638,41 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
 bool sc_cancel_production(mobj_t *producer,int slot) {
     production_t *queue=producer?producer->production:NULL;
+    if(queue&&queue->placed&&queue->product_class==RTS_PRODUCT_BUILDING&&
+       queue->actor_id==producer->type_id&&producer->owner>=0&&producer->owner<8&&
+       slot<=0) {
+        production_t saved=*queue;
+        const StaticProductDefinition *product=G_ModelProductByClassType(NULL,
+            saved.product_class,saved.product_type);
+        if(!product)return false;
+        mobj_t *builder=producer->target;
+        if(builder&&builder->sc.queue.target==producer->id) {
+            builder->sc.queue=(sc_order_queue_t){0};
+            builder->target=NULL;
+        }
+        int refund=product->cost*3/4;
+        P_AddResource(&level,producer->owner,0,refund);
+        for(int r=1;r<RTS_MAX_RESOURCES;r++)
+            P_AddResource(&level,producer->owner,r,product->extra_costs[r-1]*3/4);
+        if(product->makers[0]==MT_DRONE) {
+            int restore_hp=producer->sc.construction.worker_hp;
+            if(!P_MorphMobj(producer,MT_DRONE))return false;
+            producer->hp=restore_hp>0&&restore_hp<producer->max_hp?restore_hp:producer->max_hp;
+            producer->sc.construction=(sc_construction_t){0};
+        } else {
+            P_RemoveMobj(producer);
+        }
+        P_FreeMobjProduction(producer);
+        P_SyncBuildingBlocking();
+        return true;
+    }
+    if(queue&&queue->placed&&slot<=0&&queue->actor_id!=producer->type_id) {
+        P_FreeMobjProduction(producer);
+        P_ClearMove(producer);
+        producer->sc.queue=(sc_order_queue_t){0};
+        producer->target=NULL;
+        return true;
+    }
     if(queue&&!queue->placed&&slot==-1) {
         while(producer->production)
             if(!sc_cancel_production(producer,0))return false;
@@ -452,6 +737,9 @@ void sc_supply_counts(int owner,int *used,int *provided) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||
            (mo->sc.flags&SC_HALLUCINATION)) continue;
+        if(mo->production&&mo->production->placed&&
+           mo->production->product_class==RTS_PRODUCT_BUILDING&&
+           mo->production->actor_id==mo->type_id)continue;
         if(mo->type_id&&mo->type_id<=SC_TYPES) {
             have+=sc_units[mo->type_id-1].supply_provided;
             need+=sc_units[mo->type_id-1].supply_required;
@@ -558,6 +846,7 @@ static uint16_t missing_addon(int owner,const StaticProductDefinition *p) {
     return MT_NONE;
 }
 static mobj_t *idle_maker(int owner,int maker);
+static bool sc_ai_busy(const mobj_t *unit);
 static bool find_site(const mobj_t *builder,uint16_t type,ivec2_t *out);
 /* Puts missing power or an add-on in place; true while one is coming. */
 static bool sc_ai_develop(level_t *map,int owner,int ui) {
@@ -630,7 +919,8 @@ static mobj_t *idle_maker(int owner,int maker) {
     }
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         mobj_t *mo=(mobj_t *)th;
-        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||mo->type_id!=maker||mo->production||
+        if(th->function!=P_MobjThinker||mo->owner!=owner||mo->remove||mo->hp<=0||mo->type_id!=maker||
+           sc_ai_busy(mo)||
            (mo->harvest.phase==HARVEST_PHASE_NONE&&P_HasMoveOrder(mo))) continue;
         int64_t d=fixed2_distance_squared64(fixed3_xy(mo->core.position),home);
         if(!best||d<best_d) { best=mo; best_d=d; }
@@ -931,7 +1221,14 @@ static bool sc_ai_anchor(const mobj_t *unit) {
     return unit->type_id>0&&unit->type_id<=SC_TYPES&&(sc_units[unit->type_id-1].flags&1)&&G_AiIsStructure(unit);
 }
 static bool sc_ai_busy(const mobj_t *unit) {
-    return unit&&unit->production&&unit->production->placed;
+    if(!unit)return false;
+    if(unit->production&&unit->production->placed)return true;
+    if(unit->sc.queue.active!=TC_CONSTRUCT||!unit->sc.queue.target)return false;
+    const mobj_t *site=P_MobjById(unit->sc.queue.target);
+    return site&&!site->remove&&site->owner==unit->owner&&site->target==unit&&
+        site->production&&site->production->placed&&
+        site->production->product_class==RTS_PRODUCT_BUILDING&&
+        site->production->actor_id==site->type_id;
 }
 static const AiGameInterface sc_ai={
     .name="starcraft",.features=AI_FEATURE_ALL,.player_level=sc_ai_level,

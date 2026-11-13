@@ -190,7 +190,7 @@ static int test_mining_group(void) {
         units[i] = P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(9.5f, 7.5f + i), 0), 3);
         units[i]->owner = 0;
     }
-    CHECK(P_HarvestUnitsAt(&level, units, 3, FIXED2_LIT(13.5, 6.5)));
+    CHECK(P_HarvestUnitsAt(&level, units, 3, FIXED2_LIT(13.5, 6.5), false));
     for (int i = 0; i < 6000 && level.player_resources[0][0] < 1000; ++i) tick(1);
     CHECK(level.player_resources[0][0] == 1000);
     for (int i = 0; i < 3; ++i)

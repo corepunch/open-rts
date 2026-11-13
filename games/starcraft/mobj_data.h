@@ -36,6 +36,7 @@ typedef struct { int order, product; fixed3_t position; uint32_t target; ivec2_t
 typedef struct { int active, count, owner, harvest_phase, target_owner; bool forced; uint32_t target; sc_pending_order_t pending[SC_QUEUED_ORDERS]; } sc_order_queue_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
+typedef struct { int hp, shields, worker_hp; } sc_construction_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
 typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t previous; bool missed, trail_repeat, trail_emitted; } sc_projectile_t;
 /* sprite_owner is the native sprite owner retained when owner becomes 11;
@@ -48,7 +49,8 @@ typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t pre
  * Spider Mines. A Nydus Canal's parent is its other end. */
 #define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound, sprite_owner; uint16_t kills; int shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
-    sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; sc_order_queue_t queue; } sc;
+    sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; sc_order_queue_t queue; \
+    sc_construction_t construction; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->sc.flags); HASH((mo)->sc.attacker); HASH((mo)->sc.sprite_owner); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
@@ -66,6 +68,7 @@ typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t pre
     HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
     HASH((mo)->sc.projectile.trail_repeat); HASH((mo)->sc.projectile.trail_emitted); \
     HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target_owner); HASH((mo)->sc.queue.forced); HASH((mo)->sc.queue.target); \
+    HASH((mo)->sc.construction.hp); HASH((mo)->sc.construction.shields); HASH((mo)->sc.construction.worker_hp); \
     for (int sc_q=0; sc_q<(mo)->sc.queue.count && sc_q<SC_QUEUED_ORDERS; ++sc_q) { \
         const sc_pending_order_t *q=&(mo)->sc.queue.pending[sc_q]; \
         HASH(q->order); HASH(q->product); HASH(q->position.x); HASH(q->position.y); HASH(q->position.z); \

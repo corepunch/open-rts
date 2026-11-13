@@ -1,7 +1,8 @@
 #include "sc_local.h"
 
-/* Research restrictions, projectiles, transport timers and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 16; }
+/* Research restrictions, projectiles, construction progress, transport timers
+ * and mission presentation are saved. */
+uint32_t G_SaveLayout(void) { return 17; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -77,7 +78,24 @@ void G_UnitProduced(mobj_t *unit,const mobj_t *producer) {
 }
 
 void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
-    if(victim)victim->sc.queue=(sc_order_queue_t){0};
+    if(victim) {
+        production_t *production=victim->production;
+        bool construction_site=production&&production->placed&&
+            production->product_class==RTS_PRODUCT_BUILDING&&production->actor_id==victim->type_id;
+        if(construction_site) {
+            mobj_t *builder=victim->target;
+            if(builder&&builder->target==victim) {
+                builder->target=NULL;
+                builder->sc.queue=(sc_order_queue_t){0};
+            }
+            victim->target=NULL;
+        }
+        if(victim->sc.queue.active==TC_CONSTRUCT&&victim->sc.queue.target) {
+            mobj_t *site=P_MobjById(victim->sc.queue.target);
+            if(site&&site->target==victim)site->target=NULL;
+        }
+        victim->sc.queue=(sc_order_queue_t){0};
+    }
     sc_transport_killed(victim);
     if(killer&&victim&&killer!=victim&&!P_IsAlly(killer,victim)&&killer->sc.kills<UINT16_MAX)
         killer->sc.kills++;
@@ -99,8 +117,31 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
 }
 
 void G_InterruptOrders(const ticcmd_t *cmd, mobj_t *const *units, int count, bool late) {
-    if (!late && (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK || cmd->order == TC_ORDER ||
-        cmd->order == TC_PATH || cmd->order == TC_HARVEST || cmd->order == TC_WAYPOINT))
+    bool replaces=cmd->order==TC_STOP||cmd->order==TC_MOVE||cmd->order==TC_ATTACK||
+        cmd->order==TC_ORDER||cmd->order==TC_PATH||
+        cmd->order==TC_WAYPOINT||cmd->order==TC_REPAIR||cmd->order==TC_FOLLOW||
+        cmd->order==TC_RETURN_GOODS||cmd->order==TC_BOARD;
+    if(cmd->order==TC_HARVEST&&late)replaces=true;
+    if(replaces&&(!cmd->queued||(late&&cmd->order==TC_HARVEST)))
+        for(int i=0;i<count;i++) {
+            sc_order_queue_t accepted_queue=units[i]->sc.queue;
+            sc_cancel_pending_construction(units[i],late&&cmd->order==TC_HARVEST);
+            if(late&&cmd->order==TC_HARVEST) {
+                if(!cmd->queued) {
+                    accepted_queue.count=0;
+                    memset(accepted_queue.pending,0,sizeof(accepted_queue.pending));
+                }
+                accepted_queue.active=TC_HARVEST;
+                accepted_queue.owner=units[i]->owner;
+                accepted_queue.target=0;
+                accepted_queue.target_owner=0;
+                accepted_queue.harvest_phase=units[i]->harvest.phase;
+                accepted_queue.forced=false;
+                units[i]->sc.queue=accepted_queue;
+            }
+        }
+    if ((!late && (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK || cmd->order == TC_ORDER ||
+        cmd->order == TC_PATH || cmd->order == TC_WAYPOINT)) || (late&&cmd->order==TC_HARVEST))
         for (int i = 0; i < count; ++i) {
             sc_interrupt(units[i]);
             units[i]->move_only=false;

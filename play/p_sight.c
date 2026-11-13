@@ -80,16 +80,28 @@ void P_UpdateSight(void) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;
         if (actor->remove || actor->hp <= 0 || !actor->info || actor->team >= 8) continue;
+        bool unfinished_foundation = false;
+#ifdef RTS_MODULE_STARCRAFT
+        const production_t *production = actor->production;
+        unfinished_foundation = !(actor->traits & MF_FLY) && production &&
+            production->placed && production->product_class == RTS_PRODUCT_BUILDING &&
+            production->actor_id == actor->type_id;
+        if (!G_ModelUnitReady(actor) && !unfinished_foundation) continue;
+#endif
         int radius = (level.daylight.weight * actor->info->sight.night +
                       (256 - level.daylight.weight) * actor->info->sight.day) >> 8;
         if (!G_SightRadius(actor, &radius)) continue;
         /* Engine default for games whose sight stats have not yet been ported. */
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
+#ifdef RTS_MODULE_STARCRAFT
+        if (unfinished_foundation) radius = 4;
+#endif
         ivec2_t origin = {actor->core.position.x >> FIXED_FRAC_BITS, actor->core.position.y >> FIXED_FRAC_BITS};
         uint32_t mask = UINT32_C(0x40000000) >> actor->team;
         if (gameinfo && gameinfo->sight_teams) mask |= gameinfo->sight_teams(actor);
         bool airborne = actor->info->sight.airborne || (actor->traits & MF_FLY);
+        bool detector = !unfinished_foundation && (actor->traits & MF_DETECTOR);
         isize2_t foot = actor->info->footprint;
         if (actor->info->sight_from_footprint && foot.w > 0 && foot.h > 0) {
             /* Warcraft measures sight from the building's edge. */
@@ -99,11 +111,11 @@ void P_UpdateSight(void) {
                 for (int x = 0; x < foot.w; ++x) {
                     ivec2_t cell = {corner.x + x, corner.y + y};
                     if (L_Contains(&level, cell.x, cell.y))
-                        reveal_sight(cell, radius, mask, airborne, actor->traits & MF_DETECTOR);
+                        reveal_sight(cell, radius, mask, airborne, detector);
                 }
             continue;
         }
-        reveal_sight(origin, radius, mask, airborne, actor->traits & MF_DETECTOR);
+        reveal_sight(origin, radius, mask, airborne, detector);
     }
 }
 

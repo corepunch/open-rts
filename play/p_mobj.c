@@ -218,6 +218,9 @@ bool P_ReturnHarvest(level_t *map, mobj_t *unit, mobj_t *destination) {
         mobj_t *base = (mobj_t *)th;
         if (destination && base != destination) continue;
         if (base->remove || base->hp <= 0) continue;
+#ifdef RTS_MODULE_STARCRAFT
+        if (!G_ModelUnitReady(base)) continue;
+#endif
         if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
 #ifdef RTS_MODULE_STARCRAFT
         if (base->owner != unit->owner) continue;
@@ -652,6 +655,14 @@ bool P_InAttackRange(const mobj_t *attacker, const mobj_t *target) {
  * way: then this is NULL and `chasing` is set. */
 static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
     *chasing = false;
+#ifdef RTS_MODULE_STARCRAFT
+    const production_t *production = attacker ? attacker->production : NULL;
+    if (production && production->placed &&
+        production->product_class == RTS_PRODUCT_BUILDING &&
+        production->actor_id == attacker->type_id &&
+        production->product_type == attacker->type_id)
+        return NULL;
+#endif
 #ifdef RTS_ORDER_MODIFIERS
     if (attacker->move_only && P_HasMoveOrder(attacker)) return NULL;
 #endif
@@ -1364,6 +1375,9 @@ static bool update_unit_harvest(level_t *map,
         mobj_t *base = unit->harvest.base;
         fixed2_t bay = unit->harvest.return_position;
         if (!base || base->remove || base->hp <= 0 || !(base->traits & MF_RESOURCE_BASE) || !P_IsAlly(unit, base) ||
+#ifdef RTS_MODULE_STARCRAFT
+            !G_ModelUnitReady(base) ||
+#endif
             (game_info->harvest_dropoff_matches &&
              (!game_info->harvest_dropoff_matches(unit, unit->harvest.resource_type, base, &bay) ||
               !fixed2_near(bay, unit->harvest.return_position, FIXED_LIT(0.001)) ||

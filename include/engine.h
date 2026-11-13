@@ -2256,6 +2256,26 @@ int      G_ModelProductTrainingTimeMs(const StaticProductDefinition *product);
 bool     G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                        const StaticProductDefinition *product,
                                        uint16_t actor_id);
+/* Games may replace the generic worker queue with a persistent construction
+ * site after the worker reaches its approach position. `handled` separates
+ * an unsupported hook from a handled placement failure. */
+bool     G_ModelPlaceConstruction(RtsGameModel *model, mobj_t *builder,
+                                  const StaticProductDefinition *product,
+                                  ivec2_t cell, bool *handled);
+bool     G_ModelStartConstruction(RtsGameModel *model, mobj_t *builder,
+                                  const StaticProductDefinition *product,
+                                  bool *handled);
+bool     G_ModelCompleteConstruction(RtsGameModel *model, mobj_t *site,
+                                     const StaticProductDefinition *product,
+                                     bool *handled);
+void     G_ModelUpdateConstruction(RtsGameModel *model, mobj_t *site,
+                                    const StaticProductDefinition *product);
+bool     G_ModelIsConstructionSite(const mobj_t *unit,
+                                   const StaticProductDefinition *product);
+bool     G_ModelConstructionNeedsWorker(const mobj_t *unit,
+                                         const StaticProductDefinition *product);
+bool     G_ModelCanProgressConstruction(mobj_t *site,
+                                         const StaticProductDefinition *product);
 bool     G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
                                          const StaticProductDefinition *product,
                                          const mobj_t *new_unit,
@@ -2263,6 +2283,7 @@ bool     G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t
 
 /* Check if a player/owner currently possesses an alive unit of actor_id. */
 bool     G_ModelHasActorType(const RtsGameModel *model, int owner, uint16_t actor_id);
+bool     G_ModelUnitReady(const mobj_t *unit);
 
 /* Emit declarative UI script from model and snapshot state. */
 void     G_ModelBuildUIScript(const RtsGameModel *model,
@@ -2941,7 +2962,8 @@ bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved);
 bool P_ReplanUnit(const level_t *map, mobj_t *unit);
 void P_SeparateUnits(const level_t *map);
 void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int count, fixed2_t goal);
-bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count, fixed2_t goal);
+bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count,
+                      fixed2_t goal, bool queued_execution);
 /* Return cargo to destination, or the nearest usable depot when NULL. */
 bool P_ReturnHarvest(level_t *map, mobj_t *unit, mobj_t *destination);
 

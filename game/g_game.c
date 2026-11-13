@@ -21,6 +21,44 @@ struct RtsGameModel {
 
 static RtsGameModel *active_model;
 
+__attribute__((weak)) bool G_ModelPlaceConstruction(RtsGameModel *model, mobj_t *builder,
+        const StaticProductDefinition *product, ivec2_t cell, bool *handled) {
+    (void)model; (void)builder; (void)product; (void)cell;
+    *handled=false;
+    return false;
+}
+__attribute__((weak)) bool G_ModelStartConstruction(RtsGameModel *model, mobj_t *builder,
+        const StaticProductDefinition *product, bool *handled) {
+    (void)model; (void)builder; (void)product;
+    *handled=false;
+    return false;
+}
+__attribute__((weak)) bool G_ModelCompleteConstruction(RtsGameModel *model, mobj_t *site,
+        const StaticProductDefinition *product, bool *handled) {
+    (void)model; (void)site; (void)product;
+    *handled=false;
+    return false;
+}
+__attribute__((weak)) void G_ModelUpdateConstruction(RtsGameModel *model, mobj_t *site,
+        const StaticProductDefinition *product) {
+    (void)model; (void)site; (void)product;
+}
+__attribute__((weak)) bool G_ModelIsConstructionSite(const mobj_t *unit,
+        const StaticProductDefinition *product) {
+    (void)unit; (void)product;
+    return false;
+}
+__attribute__((weak)) bool G_ModelConstructionNeedsWorker(const mobj_t *unit,
+        const StaticProductDefinition *product) {
+    (void)unit; (void)product;
+    return false;
+}
+__attribute__((weak)) bool G_ModelCanProgressConstruction(mobj_t *site,
+        const StaticProductDefinition *product) {
+    (void)site; (void)product;
+    return true;
+}
+
 static void refresh_model_objects(RtsGameModel *model) {
     P_FreeMobjList(&model->objects);
     model->objects = P_ListMobjs();
@@ -92,10 +130,17 @@ static void apply_plugin_actor_defaults(RtsGameModel *model) {
 
 static bool model_unit_is_ready(const mobj_t *unit) {
     if (!unit || unit->remove || unit->hp <= 0) return false;
+    if (unit->production && unit->production->placed &&
+        unit->production->product_class == RTS_PRODUCT_BUILDING &&
+        unit->production->actor_id == unit->type_id) return false;
     if (gameinfo && gameinfo->states && unit->core.state_id >= 0 &&
         unit->core.state_id < gameinfo->state_count &&
         gameinfo->states[unit->core.state_id].group == 6) return false;
     return true;
+}
+
+bool G_ModelUnitReady(const mobj_t *unit) {
+    return model_unit_is_ready(unit);
 }
 
 bool G_ModelHasActorType(const RtsGameModel *model, int owner, uint16_t actor_id) {
@@ -453,6 +498,9 @@ bool G_PlaceProduct(mobj_t *producer, const StaticProductDefinition *product, iv
         !G_ModelProductAvailable(active_model, producer->owner, product) ||
         !afford_product(producer->owner, product))
         return false;
+    bool handled = false;
+    bool placed = G_ModelPlaceConstruction(active_model, producer, product, cell, &handled);
+    if (handled) return placed;
     if (product->worker_build) {
         const mobjtype_t *type = P_ActorType(G_ModelActorIdForProduct(product));
         fixed2_t bay;
@@ -506,7 +554,10 @@ bool G_ProductionTicker(int elapsed_ms) {
         }
         const StaticProductDefinition *pending = G_ModelProductByClassType(active_model,
             production->product_class, production->product_type);
-        if (production->placed && pending && pending->worker_build) {
+        bool is_site = production->placed && pending && G_ModelIsConstructionSite(producer,pending);
+        bool needs_builder = production->placed && pending && pending->product_class == RTS_PRODUCT_BUILDING &&
+            (pending->worker_build || G_ModelConstructionNeedsWorker(producer,pending));
+        if (needs_builder && !is_site) {
             fixed2_t bay;
             const mobjtype_t *type = P_ActorType(production->actor_id);
             if (!type || P_HasMoveOrder(producer) ||
@@ -516,6 +567,32 @@ bool G_ProductionTicker(int elapsed_ms) {
                 P_MoveUnitTo(&level, producer, bay);
                 continue;
             }
+            bool handled = false;
+            bool started=G_ModelStartConstruction(active_model,producer,pending,&handled);
+            if(handled) {
+                if(started)spawned=true;
+                continue;
+            }
+        }
+        if (is_site) {
+            if (!G_ModelCanProgressConstruction(producer,pending)) continue;
+            production->time_left_ms -= elapsed_ms;
+            G_ModelUpdateConstruction(active_model, producer, pending);
+            if (production->time_left_ms <= 0) {
+                bool handled = false;
+                bool completed = G_ModelCompleteConstruction(active_model, producer, pending, &handled);
+                if (handled && !completed) {
+                    production->blocked = true;
+                    continue;
+                }
+                if (!handled) {
+                    producer->hp = producer->max_hp;
+                    G_UnitProduced(producer, NULL);
+                }
+                G_RemoveProductionAt(producer, 0);
+                spawned = true;
+            }
+            continue;
         }
         production->time_left_ms -= elapsed_ms;
         while (production->queue_count > 0 && production->time_left_ms <= 0) {

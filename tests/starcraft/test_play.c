@@ -30,9 +30,9 @@ int main(void) {
     CHECK(!level.resource_vents[0].active&&!level.cell_solid[L_Index(&level,14,6)]);
     level.player_resources[0][0]=500;
     order(worker,TC_CONSTRUCT,FIXED2_LIT(20,10),NULL,110);
-    CHECK(worker->production&&worker->production->placed&&level.player_resources[0][0]==400);
+    CHECK(worker->production&&worker->production->placed&&level.player_resources[0][0]==500);
     CHECK(!G_ModelHasActorType(NULL,0,110));
-    tick(1600);CHECK(G_ModelHasActorType(NULL,0,110)&&!worker->production);
+    tick(1600);CHECK(G_ModelHasActorType(NULL,0,110)&&!worker->production&&level.player_resources[0][0]==400);
     CHECK(level.cell_solid[L_Index(&level,20,10)]);
     order(hall,TC_BUILD,(fixed2_t){0},NULL,8);CHECK(hall->production&&level.player_resources[0][0]==350);
     tick(500);CHECK(G_CountPlannedActors(0,8)==2&&!hall->production);

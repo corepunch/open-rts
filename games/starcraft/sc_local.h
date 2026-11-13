@@ -109,6 +109,9 @@ sc_lock_t sc_product_lock(int owner, const mobj_t *maker, const StaticProductDef
 /* The "Requires ..." line of a greyed command-card button, or "". */
 const char *sc_command_note(const menuitem_t *item);
 bool sc_cancel_production(mobj_t *producer, int slot);
+void sc_cancel_pending_construction(mobj_t *worker, bool preserve_move);
+bool sc_resume_construction(mobj_t *worker, const StaticProductDefinition *product,
+                            ivec2_t cell);
 bool sc_status_init(menu_t *menu, menuitem_t *items, int capacity, int stat_first, int stat_end,
                     const char *root, const uint32_t *palette,
                     spritesheet_t *wireframe, const spritesheet_t *cmdicons);

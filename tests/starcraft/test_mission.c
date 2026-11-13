@@ -1628,8 +1628,13 @@ int main(void) {
         .product = MT_REFINERY, .position = {FIXED_FROM_INT(gas_site.x), FIXED_FROM_INT(gas_site.y), 0}};
     G_RunTiccmd(0, &construct_gas);
     CHECK(cuwp_worker->production && cuwp_worker->production->placed);
-    for (int i = 0; i < 4000 && cuwp_worker->production; i++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
-    CHECK(!cuwp_worker->production && level.resource_vents[0].active && level.resource_vents[0].depleted);
+    for (int i = 0; i < 12000 && cuwp_worker->production; i++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
+    mobj_t *cuwp_refinery = cuwp_worker->target;
+    CHECK(!cuwp_worker->production && cuwp_refinery && cuwp_refinery->production);
+    for (int i = 0; i < 12000 && cuwp_refinery->production; i++) { P_Ticker(); G_ProductionTicker(RTS_TICK_MS); }
+    CHECK(!cuwp_worker->production && !cuwp_worker->target &&
+          level.resource_vents[0].active && level.resource_vents[0].depleted);
+    CHECK(level.resource_vents[0].source_id == cuwp_refinery->id);
     CHECK(P_MobjById(level.resource_vents[0].source_id)->type_id == MT_REFINERY);
     CHECK(P_HarvestUnitTo(&level, cuwp_worker, level.resource_vents[0].attachment));
     for (int i = 0; i < 2400 && level.player_resources[0][1] < 2; i++) {

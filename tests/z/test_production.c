@@ -71,6 +71,40 @@ static bool lists(const mobj_t *producer, int type) {
     return false;
 }
 
+static int test_save_info_without_matching_level(void) {
+    RtsGameModel *model=load();
+    if(!model)return fail("load save-info source map");
+    zmap_t *map=level.native_data;
+    mobj_t *fort=nth(MT_FORT,0,0);
+    const StaticProductDefinition *grunt=G_ModelProductByUIId(NULL,Z_ProductId(MT_UNIT_GRUNT));
+    if(!map||!fort||!grunt)return fail("active factory and catalog product");
+    int saved_speed=map->production_speed;
+    int saved_time=G_ModelProductTrainingTimeMs(grunt);
+    if(saved_time<=0||!G_QueueProduct(fort,grunt))return fail("queue product at source CP_SPEED");
+    const char *path="build/z-save-info-production.sav";
+    remove(path);
+    app_t app={0};
+    hudtext_t hud={0};
+    if(!G_SaveGame(path,"Z save-info",&app,rts_game_model_ai(model),&hud))
+        return fail("write production save for metadata parsing");
+    rts_game_model_destroy(model);
+    saveinfo_t info;
+    if(level.native_data||!G_SaveInfo(path,&info)||strcmp(info.name,"Z save-info"))
+        return fail("read save metadata with no active level");
+    model=load_map("LEVEL02/LEVEL02.MAP");
+    if(!model)return fail("load another CP_SPEED map");
+    map=level.native_data;
+    if(!map)return fail("alternate map native data");
+    map->production_speed=saved_speed==10?20:10;
+    if(G_ModelProductTrainingTimeMs(grunt)==saved_time)
+        return fail("alternate CP_SPEED changes the catalog duration");
+    if(!G_SaveInfo(path,&info)||strcmp(info.name,"Z save-info"))
+        return fail("read source-map save metadata with another CP_SPEED loaded");
+    rts_game_model_destroy(model);
+    remove(path);
+    return 0;
+}
+
 static int test_reconstruction(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load reconstruction fixture");
@@ -1063,7 +1097,7 @@ static int test_gun_stock(void) {
 }
 
 int main(void) {
-    if (test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
+    if (test_save_info_without_matching_level() || test_catalog() || test_factory_thresholds() || test_campaign_ratings() || test_native_times() ||
         test_native_rates() || test_gun_placement() || test_cpu_gun_markers() || test_cpu_fort_gun_order() ||
         test_fort_makes_grunts() || test_vehicles_come_manned() || test_rally() || test_gun_stock() ||
         test_computer_builds() || test_computer_next_product() || test_reconstruction() || test_mixed_routes()) return 1;

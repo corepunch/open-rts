@@ -209,8 +209,11 @@ void sc_status_refresh(const mobj_t *selected,int selection_count) {
         menuitem_t *item=&status_items[slot_start+slot];
         bool training=queue&&queue->product_class==RTS_PRODUCT_UNIT&&
             shown->type_id!=MT_EGG&&shown->type_id!=MT_COCOON;
-        item->visible=queue&&!queue->placed&&(training||slot==0);
-        item->enabled=queue&&slot<queue->queue_count&&!queue->placed&&shown->owner==consoleplayer;
+        bool construction_site=queue&&queue->placed&&queue->product_class==RTS_PRODUCT_BUILDING&&
+            queue->actor_id==shown->type_id;
+        item->visible=queue&&(!queue->placed||construction_site)&&(training||slot==0);
+        item->enabled=queue&&slot<queue->queue_count&&(!queue->placed||construction_site)&&
+            shown->owner==consoleplayer;
     }
     menuitem_t *caption=&status_items[caption_item];
     caption->visible=queue!=NULL;
