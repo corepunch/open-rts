@@ -2204,6 +2204,14 @@ static int test_automatic_bridge(void) {
     if (!bridge || bridge->hp || bridge->z.service_ticks != effects || level.blocked[deck] ||
         !tick(model, RTS_TICRATE) || bridge->hp != 600 || bridge->z.service_ticks ||
         bridge->z.hold != 58 * 17 + 1) return fail("restored effects finish and reset the bridge timer");
+    bridge->hp = 0;
+    Z_BridgeDamage(bridge);
+    for (int i = 0; i < 64; ++i)
+        if (!P_SpawnMobj((fixed3_t){0}, MT_BUILDING_REBUILD)) return fail("fill reconstruction effect slots");
+    if (Z_RebuildSlotAvailable()) return fail("reconstruction effect slots are full");
+    Z_RebuildBridge(bridge);
+    if (bridge->hp != 600 || bridge->z.service_ticks || level.blocked[deck] ||
+        bridge->z.hold != 58 * 17 + 1) return fail("full effect pool immediately restores the bridge");
     puts("PASS: z native bridge timer, crane reservation, segment effects and save/load");
     rts_game_model_destroy(model);
     return 0;

@@ -2929,6 +2929,15 @@ r2 -q -c 'pd 17 @ 0x42cb62' -c 'pd 26 @ 0x44a29a' \
   `u16 x, y, sprite`, with an all-zero triple skipped. Sprite IDs 0–16
   add the world base from `0x1430b0` via `0x45ae5`. `0x3e2ff`
   restores HP and resets the timer on the last segment's completion.
+- **Confirmed.** If no segment effect can be allocated, `0x29d60..0x29d9f`
+  immediately restores the bridge and resets its timer. Both this fallback
+  and the last-segment path use record +0x0a as HP, falling back to 300 if
+  it is zero. This does not make initially collapsed bridges 300 HP:
+  initialization at `0x29783` first replaces their +0x0a with 600. The
+  port's zero-effect fallback and initial 600 HP therefore match that path.
+  Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+  'pd 15 @ 0x29783' -c 'pd 25 @ 0x29d60' -c 'pd 22 @ 0x3e2ff' -c q
+  data/Z/ZED.EXE`.
 - The port keeps the remaining ticks and the segment count on the bridge
   and plays the scripts on ordinary effect mobjs. A queued or active
   crane pauses the timer. The segment variant's first choice uses a
