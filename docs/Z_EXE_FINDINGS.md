@@ -2046,13 +2046,18 @@ time. The engine plans to a reachable cell outside the footprint and holds
 the vehicle there while it is in the bay.
 
 `0x9c4de..0x9c4e8` writes task 11 after dispatch without testing whether the
-destination is reachable. The engine currently leaves an idle vehicle
-unassigned when `Z_ServiceApproach` fails. A direct assignment alone is not
-an adequate port: the engine's `service_returns` clears task 11 without an
-active service in the same AI pass, while native `0x991c4` skips its general
-idle-task cleanup for non-mobile reserve groups (except task 7). The complete
-native task-11 cancellation and failed-path lifecycle remain unknown; do
-not treat the engine's immediate clear/retry as established retail behavior.
+destination is reachable. Native `0x991c4` skips general idle-task cleanup
+for non-mobile reserve groups (except task 7), so an unreachable order is
+not immediately cleared by that path. Correction: retaining that failed
+assignment indefinitely could prevent repair after the route or facilities
+change. The engine now holds task 11 until the next heavy AI pass, then
+releases it for another search, using the existing saved AI clock; this retry
+is engine policy, as native cancellation and failed-path lifecycle remain
+unknown. For a successful approach it retains the existing saved service ID
+until active service ends, so a cancelled or completed bay visit releases the
+task. `test_unreachable_vehicle_repair` checks save/load and hash, a newly
+opened route, capture and destruction of the old facility, and replacement
+with another; `test_repair_facility` checks reachable entry, bay loss and repair.
 Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 45 @ 0x9c485' -c 'pd 45 @ 0x991c4' -c q data/Z/ZED.EXE`.
 

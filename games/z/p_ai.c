@@ -898,7 +898,7 @@ static void execute_orders(zai_t *ai, mobj_t *const *units, int count) {
             }
         }
         task->pending = false;
-        task->service = 0;
+        if (task->task != REPAIR) task->service = 0;
         task->enemy = 0;
     }
 }
@@ -930,15 +930,14 @@ static int64_t service_distance(const mobj_t *unit, const mobj_t *target) {
 static bool order_service(zai_t *ai, zaitask_t *task, mobj_t *unit, mobj_t *target, int type) {
     fixed2_t goal;
     if (!Z_ServiceApproach(unit, target, &goal)) {
-        if (type != CRANE_WORK) return false;
-        clear(task);
         task->pending = false;
         task->boarding = task->enemy = 0;
-        task->service = target->id;
-        task->task = CRANE_WORK;
+        task->service = type == CRANE_WORK ? target->id : 0;
+        task->task = (int8_t)type;
+        if (type == REPAIR) task->execute_at = ai->clock;
         return true;
     }
-    clear(task);
+    if (type == CRANE_WORK) clear(task);
     queue(ai, task, goal, 0);
     task->service = target->id;
     task->task = (int8_t)type;
@@ -1026,12 +1025,18 @@ static void service_returns(zmap_t *map, bool validate) {
             if (!return_service(map, task, unit)) clear(task);
             continue;
         }
+        if (validate && task->task == REPAIR && task->service && !task->pending && !unit->z.service) {
+            task->service = 0;
+            clear(task);
+            continue;
+        }
         if (unit->z.service || task->service) continue;
         if (validate) {
             if (task->task == CRANE_WORK) {
                 if (P_HasMoveOrder(unit)) continue; /* Egress from a completed repair. */
                 if (!return_service(map, task, unit)) clear(task);
-            } else if (task->task == REPAIR) clear(task);
+            } else if (task->task == REPAIR &&
+                       (unit->hp >= unit->max_hp || map->ai.clock != task->execute_at)) clear(task);
         } else if (task->task == IDLE && !task->pending && task->current >= 0 &&
                    !(map->ai.territories[task->current].flags & 1) &&
                    (unit->type_id == MT_UNIT_CRANE || unit->type_id == MT_UNIT_FIRE_TRUCK)) {
@@ -1272,7 +1277,7 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
                 /* 0x991c4 spares waiting (staged) forces. */
                 if ((task->flags & USABLE) && ((task->flags & MOBILE) || task->task == BUILDING_SUPPORT) &&
                     task->task != IDLE && task->task != VEHICLE && task->task != STAGED &&
-                    task->task != CRANE_WORK && task->task != REPAIR &&
+                    task->task != CRANE_WORK &&
                     !busy && ++task->idle >= 3) {
                     clear(task); task->idle = 0;
                 }

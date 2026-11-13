@@ -831,6 +831,79 @@ static int test_unreachable_crane_assignment(void) {
     return 0;
 }
 
+static int test_unreachable_vehicle_repair(void) {
+    for (int mode = 0; mode < 3; ++mode) {
+        RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+        if (!model) return fail("load unreachable vehicle repair fixture");
+        service_fixture();
+        zmap_t *map = level.native_data;
+        map->computer.intelligence = 126;
+        mobj_t *facility = nth(MT_REPAIR, -1, 0);
+        if (!facility) return fail("unreachable vehicle repair facility");
+        Z_SetTeam(facility, 1);
+        fixed2_t near = fixed2_add(fixed3_xy(facility->core.position), fixed2_from_cell((ivec2_t){6, 0}));
+        mobj_t *tank = service_unit(MT_UNIT_MED_TANK, near);
+        if (!tank) return fail("spawn unreachable damaged tank");
+        tank->hp = tank->max_hp / 2 - 1;
+        ivec2_t cell = fixed2_cell(fixed3_xy(tank->core.position));
+        for (int y = -3; y <= 3; ++y)
+            for (int x = -3; x <= 3; ++x)
+                if ((x || y) && L_Contains(&level, cell.x + x, cell.y + y))
+                    level.blocked[L_Index(&level, cell.x + x, cell.y + y)] = 1;
+        P_NavFree(&level);
+        fixed2_t goal;
+        if (Z_ServiceApproach(tank, facility, &goal)) return fail("tank fixture has no reachable approach");
+        think(0);
+        zaitask_t *task = task_of(tank);
+        if (!task) return fail("register unreachable damaged tank");
+        task->target = 4;
+        task->destination = 7;
+        map->ai.delay = 0;
+        think(1);
+        if (task->task != 11 || task->pending || task->service || tank->z.service ||
+            task->target != 4 || task->destination != 7 || (task->flags & 16))
+            return fail("unreachable reserve vehicle retains repair assignment and task fields");
+        uint32_t id = tank->id, facility_id = facility->id, hash = G_ConsistencyExtra(0);
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+        if (!G_SaveGameBlob(&save, &size, "Unreachable vehicle repair", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+            return fail("save unreachable vehicle repair");
+        free(save);
+        tank = P_MobjById(id);
+        facility = P_MobjById(facility_id);
+        map = level.native_data;
+        task = tank ? task_of(tank) : NULL;
+        if (!task || !facility || task->task != 11 || G_ConsistencyExtra(0) != hash)
+            return fail("unreachable repair assignment survives save and hash");
+        for (int y = -3; y <= 3; ++y)
+            for (int x = -3; x <= 3; ++x)
+                if ((x || y) && L_Contains(&level, cell.x + x, cell.y + y))
+                    level.blocked[L_Index(&level, cell.x + x, cell.y + y)] = 0;
+        P_NavFree(&level);
+        if (mode) {
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (th->function == P_MobjThinker && mo->type_id == MT_REPAIR && mo != facility) Z_SetTeam(mo, 0);
+            }
+            if (mode == 1) Z_SetTeam(facility, 0);
+            else facility->hp = 0;
+            for (int i = 0; i < 5; ++i) { map->ai.delay = 0; think(1); }
+            if (task->task == 11 || task->pending || tank->z.service)
+                return fail("lost repair facility releases failed assignment");
+            mobj_t *replacement = P_SpawnMobj(facility->core.position, MT_REPAIR);
+            if (!replacement) return fail("spawn replacement repair facility");
+            Z_SetTeam(replacement, 1);
+            facility = replacement;
+        }
+        if (!Z_ServiceApproach(tank, facility, &goal)) return fail("repair route opens after load");
+        for (int i = 0; i < 10 && tank->z.service != facility->id; ++i) { map->ai.delay = 0; think(1); }
+        if (tank->z.service != facility->id)
+            return fail("damaged vehicle retries repair after route or facility changes");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 static int test_bridge_takeover_unreachable_return(void) {
     RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
     if (!model) return fail("load bridge takeover fixture");
@@ -1139,6 +1212,6 @@ int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
            test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
-           test_unreachable_service_return() || test_unreachable_crane_assignment() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
+           test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
