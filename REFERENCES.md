@@ -285,6 +285,14 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   `order_BuildingLiftoff`, `order_LiftingOff`, `order_BuildingLand`,
   `building_abandon_addon`, `make_unit_neutral`, `find_connecting_addon`,
   `connect_addon`. Reference behavior; no retail execution or new disassembly.
+- [OpenBW pinned trigger unit finder](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/bwgame.h):
+  `unit_sprite_inner_bounding_box`, `find_units`, and `unit_finder_search`
+  implement trigger selection. The x endpoint scan is extended to the maximum
+  unit width; its strict `area.to` filters are extended by one only when the
+  location span is smaller than the maximum unit width or height. `trigger_find_unit`,
+  `trigger_bring_count`, action 25, and action 46 use this iterator. The separate
+  `is_intersecting` helper is inclusive but is not the query path for these
+  selectors. This is reference-source evidence, not retail verification.
 - [OpenBW pinned `game_types.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/game_types.h):
   `tile_id::has_creep` applies `((raw_value >> 4) & 0x8000)` to a `uint16_t`,
   making the check always false; this corrects the earlier interpretation of

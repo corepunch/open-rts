@@ -186,10 +186,35 @@ static bool trigger_loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, 
     return true;
 }
 
+static isize2_t trigger_max_unit_size(void) {
+    static isize2_t size;
+    if (size.w) return size;
+    for (int i = 0; i < SC_TYPES; i++) {
+        if (sc_units[i].bounds.w > size.w) size.w = sc_units[i].bounds.w;
+        if (sc_units[i].bounds.h > size.h) size.h = sc_units[i].bounds.h;
+    }
+    return size;
+}
+
 static bool inside(const mobj_t *mo, int l, int t, int r, int b) {
-    fixed2_t at = fixed3_xy(mo->core.position);
-    int x = at.x >> 11, y = at.y >> 11; /* 32 map pixels per cell */
-    return x >= l && x <= r && y >= t && y <= b;
+    const sc_unit_t *type = sc_unit(mo);
+    if (!type) return false;
+    isize2_t max_size = trigger_max_unit_size();
+    int64_t x = mo->core.position.x / SC_PIXELS(1);
+    int64_t y = mo->core.position.y / SC_PIXELS(1);
+    irect_t bounds = type->bounds;
+    int64_t left = x + bounds.x, top = y + bounds.y;
+    int64_t right = left + bounds.w - 1, bottom = top + bounds.h - 1;
+    int64_t search_end_x = r, search_end_y = b;
+    int64_t width = (int64_t)r - l + 1, height = (int64_t)b - t + 1;
+    bool expand_x = width < max_size.w, expand_y = height < max_size.h;
+    if (expand_x) search_end_x = (int64_t)l + max_size.w - 1;
+    if (expand_y) search_end_y++;
+    bool x_event_in_search =
+        (left >= l && left < search_end_x) ||
+        (right >= l && right < search_end_x);
+    return x_event_in_search && left < (int64_t)r + expand_x &&
+        top < search_end_y && bottom >= t;
 }
 
 static bool location_height_ok(const sc_mission_t *m, const mobj_t *mo, unsigned loc) {

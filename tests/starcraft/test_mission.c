@@ -95,6 +95,12 @@ int main(void) {
     G_InitGame();
     P_InitThinkers();
     consoleplayer = 0;
+    int max_unit_width = 0, max_unit_height = 0;
+    for (int i = 0; i < SC_TYPES; i++) {
+        if (sc_units[i].bounds.w > max_unit_width) max_unit_width = sc_units[i].bounds.w;
+        if (sc_units[i].bounds.h > max_unit_height) max_unit_height = sc_units[i].bounds.h;
+    }
+    CHECK(max_unit_width == 256 && max_unit_height == 160);
     uint8_t force_owners[12]={6,5};
     for(int flag=2;flag<=16;flag*=2) {
         force_fixture=flag;
@@ -1786,6 +1792,62 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-area-anywhere.chk");
 
+    /* Location selections intersect inclusive DAT collision boxes. */
+    const ivec2_t area_edge_positions[] = {{70, 70}, {72, 73}, {73, 70}};
+    const bool area_edge_matches[] = {true, true, false};
+    for (int id = 23; id <= 25; id += 2) {
+        for (size_t i = 0; i < sizeof(area_edge_positions) / sizeof(area_edge_positions[0]); i++) {
+            trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+            put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = (uint8_t)id;
+            if (id == 25) action[27] = 1;
+            CHECK(!write_map("/tmp/open-rts-sc-area-collision.chk", owners, trig));
+            CHECK(G_DoLoadLevel("/tmp/open-rts-sc-area-collision.chk", &level));
+            sc_mission_t *collision_mission = level.mission;
+            collision_mission->loc_count = 1;
+            collision_mission->loc_right[0] = collision_mission->loc_bottom[0] = 64;
+            mobj_t *edge_unit = sc_spawn_actor(MT_MARINE - 1, area_edge_positions[i], 0);
+            CHECK(edge_unit);
+            ticks(1, &(hudtext_t){0});
+            if (id == 23) CHECK((edge_unit->hp <= 0) == area_edge_matches[i]);
+            else CHECK(edge_unit->remove == area_edge_matches[i]);
+            free(trig); unload();
+        }
+    }
+    remove("/tmp/open-rts-sc-area-collision.chk");
+
+    const struct {
+        int left, top, right, bottom, x, y;
+        bool matches;
+    } action_location_bounds[] = {
+        {-64, -64, -1, -1, 7, 7, true},
+        {0, 0, 255, 159, 262, 80, true},
+        {0, 0, 255, 159, 263, 80, false},
+        {0, 0, 255, 159, 128, 168, false},
+    };
+    for (int id = 23; id <= 25; id += 2) {
+        for (size_t i = 0; i < sizeof(action_location_bounds) / sizeof(action_location_bounds[0]); i++) {
+            trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+            put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = (uint8_t)id;
+            if (id == 25) action[27] = 1;
+            CHECK(!write_map("/tmp/open-rts-sc-area-finder-bounds.chk", owners, trig));
+            CHECK(G_DoLoadLevel("/tmp/open-rts-sc-area-finder-bounds.chk", &level));
+            sc_mission_t *finder_mission = level.mission;
+            finder_mission->loc_count = 1;
+            finder_mission->loc_left[0] = action_location_bounds[i].left;
+            finder_mission->loc_top[0] = action_location_bounds[i].top;
+            finder_mission->loc_right[0] = action_location_bounds[i].right;
+            finder_mission->loc_bottom[0] = action_location_bounds[i].bottom;
+            mobj_t *finder_unit = sc_spawn_actor(MT_MARINE - 1,
+                (ivec2_t){action_location_bounds[i].x, action_location_bounds[i].y}, 0);
+            CHECK(finder_unit);
+            ticks(1, &(hudtext_t){0});
+            if (id == 23) CHECK((finder_unit->hp <= 0) == action_location_bounds[i].matches);
+            else CHECK(finder_unit->remove == action_location_bounds[i].matches);
+            free(trig); unload();
+        }
+    }
+    remove("/tmp/open-rts-sc-area-finder-bounds.chk");
+
     /* Kill/Remove selectors never target DAT turret subunits. */
     for (int id = 22; id <= 25; id++) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
@@ -2456,6 +2518,81 @@ int main(void) {
         free(trig); unload();
     }
     remove("/tmp/open-rts-sc-bring-location.chk");
+
+    /* Bring also tests the unit box, including an edge-only contact. */
+    for (size_t i = 0; i < sizeof(area_edge_positions) / sizeof(area_edge_positions[0]); i++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig, 1); put_u32(trig + 4, 0); put_u32(trig + 8, 1);
+        put_u16(trig + 12, MT_MARINE - 1); trig[14] = 10; trig[15] = 3;
+        action = trig + 320; action[26] = 26; action[27] = 7;
+        put_u32(action + 16, 13); put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-bring-collision.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-collision.chk", &level));
+        sc_mission_t *collision_mission = level.mission;
+        collision_mission->loc_count = 1;
+        collision_mission->loc_right[0] = collision_mission->loc_bottom[0] = 64;
+        CHECK(sc_spawn_actor(MT_MARINE - 1, area_edge_positions[i], 0));
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[0][0] == 10) == area_edge_matches[i]);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-bring-collision.chk");
+
+    const struct {
+        int left, top, right, bottom, x, y;
+        bool qualifies;
+    } bring_location_bounds[] = {
+        {-64, -64, -1, -1, 7, 7, true},
+        {0, 0, 255, 159, 262, 80, true},
+        {0, 0, 255, 159, 263, 80, false},
+        {0, 0, 255, 159, 128, 167, true},
+        {0, 0, 255, 159, 128, 168, false},
+    };
+    for (size_t i = 0; i < sizeof(bring_location_bounds) / sizeof(bring_location_bounds[0]); i++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig, 1); put_u32(trig + 4, 0); put_u32(trig + 8, 1);
+        put_u16(trig + 12, MT_MARINE - 1); trig[14] = 10; trig[15] = 3;
+        action = trig + 320; action[26] = 26; action[27] = 7;
+        put_u32(action + 16, 13); put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-bring-finder-bounds.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-finder-bounds.chk", &level));
+        sc_mission_t *finder_mission = level.mission;
+        finder_mission->loc_count = 1;
+        finder_mission->loc_left[0] = bring_location_bounds[i].left;
+        finder_mission->loc_top[0] = bring_location_bounds[i].top;
+        finder_mission->loc_right[0] = bring_location_bounds[i].right;
+        finder_mission->loc_bottom[0] = bring_location_bounds[i].bottom;
+        CHECK(sc_spawn_actor(MT_MARINE - 1,
+                             (ivec2_t){bring_location_bounds[i].x, bring_location_bounds[i].y}, 0));
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[0][0] == 10) == bring_location_bounds[i].qualifies);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-bring-finder-bounds.chk");
+
+    for (int wide = 0; wide < 2; wide++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig, 1); put_u32(trig + 4, 0); put_u32(trig + 8, 1);
+        put_u16(trig + 12, MT_MARINE - 1); trig[14] = 10; trig[15] = 3;
+        action = trig + 320; action[26] = 26; action[27] = 7;
+        put_u32(action + 16, 13); put_u32(action + 20, 10);
+        CHECK(!write_map("/tmp/open-rts-sc-bring-loaded-collision.chk", owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-loaded-collision.chk", &level));
+        sc_mission_t *loaded_collision_mission = level.mission;
+        loaded_collision_mission->loc_count = 1;
+        loaded_collision_mission->loc_right[0] = wide ? 255 : 64;
+        loaded_collision_mission->loc_bottom[0] = wide ? 159 : 64;
+        mobj_t *loaded_carrier = sc_spawn_actor(MT_DROPSHIP - 1,
+            wide ? (ivec2_t){279, 80} : (ivec2_t){80, 32}, 0);
+        mobj_t *loaded_marine = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){320, 32}, 0);
+        CHECK(loaded_carrier && loaded_marine);
+        loaded_carrier->sc.cargo[0] = loaded_marine->id;
+        loaded_marine->sc.parent = loaded_carrier->id; loaded_marine->sc.flags |= SC_LOADED;
+        ticks(1, &(hudtext_t){0});
+        CHECK((level.player_resources[0][0] == 10) == !wide);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-bring-loaded-collision.chk");
 
     /* Order selects all matching units; Comment never issues an order. */
     for (int order = 0; order < 4; order++) {

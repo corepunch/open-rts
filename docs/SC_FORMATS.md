@@ -68,8 +68,17 @@ hallucinations. The all-units form now has the same complete traversal; a
 mission fixture covers 260 inside units and one outside. The bounded-count form
 also includes hallucinations and stops at the count in the PyMS CHK action
 definition; its test checks one removal. OpenBW's case 25 does not apply that
-field, so its exact retail selection ordering remains unknown. Center-based
-location matching remains an approximation.
+field, so its exact retail selection ordering remains unknown. Location
+selection follows OpenBW's `find_units` scan over DAT inner collision bounds.
+The scan's `to` edge is strict, except that it extends that edge by one when
+the query's inclusive span is smaller than the largest unit extent. The x
+scan also extends its endpoint range to the maximum unit width. This makes
+small rectangles include edge contact while broad rectangles can exclude a
+unit whose bound begins exactly at `to`; fixtures cover both, negative bounds,
+and a one-pixel gap. The checked-in DAT-derived dimensions have maximum extents
+of 256 pixels wide and 160 pixels high; the test asserts those values. This
+matches the pinned finder implementation, not independently verified retail
+behavior.
 
 OpenBW action 22 similarly walks each selected player's full unit list without
 excluding hallucinations. Kill Unit now uses that selection and the existing
@@ -457,15 +466,18 @@ implementation searched the second location and recentered the first. The
 mission regression checks an offset match and both locations. Location
 elevation flags and OpenBW's recursive loaded-unit matching remain unmodeled.
 When no unit matches, OpenBW still clamps the target location; the test covers
-this. OpenBW's unit finder uses collision-box overlap and spatial ordering;
-the current selector uses unit centers and thinker order. The boundary fixture
-records this known approximation, so overlapping boxes with centers outside a
-location and multiple candidates can yield different matches.
+this. OpenBW's unit finder scans inner collision-box endpoint entries and
+applies span-dependent bounds as described above; the current selector applies
+the same candidate bounds in thinker order. Bring and actions 23/25 now have
+boundary tests. Multiple candidates can still differ because open-rts does not
+use OpenBW's spatial ordering.
 An all-zero ordinary MRGN rectangle no longer expands to the whole map. The
 special Anywhere location remains 64; OpenBW uses the stored location rectangle
 for ordinary location searches. A Bring-condition regression checks that a
-unit away from the origin does not satisfy an all-zero location. The existing
-center-versus-collision-box difference still affects boundary cases.
+unit away from the origin does not satisfy an all-zero location. OpenBW's
+Bring finder visits the carrier, then counts its loaded units recursively; the
+carrier must first pass the same span-dependent finder bounds. The loaded
+passenger fixture covers both a match and a wide-rectangle edge exclusion.
 
 Pinned OpenBW action 15 recognizes AI script IDs `+Vi0` through `+Vi7` as
 granting the trigger owner vision from the named player. open-rts now applies
