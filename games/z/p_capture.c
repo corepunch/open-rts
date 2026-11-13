@@ -120,7 +120,9 @@ void Z_BodyDamaged(mobj_t *mo, int old_hp) {
     if (t < 0 || Z_IsRobot(t) || mo->max_hp <= 0) return;
     if (!mo->z.body_tracked) {
         mo->z.body_speed = body_stats[t].speed;
-        mo->z.body_fire = body_stats[t].fire;
+        int fire_type = t == MT_UNIT_APC - MT_UNITS && mo->z.driver && Z_IsRobot(mo->z.driver - 1)
+                      ? mo->z.driver - 1 : t;
+        mo->z.body_fire = body_stats[fire_type].fire;
         mo->z.body_accuracy = (uint8_t)base_accuracy(mo);
         mo->z.body_tracked = true;
     }
@@ -205,7 +207,10 @@ static void get_in(mobj_t *robot, mobj_t *vehicle) {
     vehicle->z.detour.claimant = 0;
     Z_SetTeam(vehicle, robot->team);
     vehicle->z.driver = (uint8_t)(Z_UnitType(robot) + 1);
-    if (vehicle->z.body_tracked) vehicle->z.body_accuracy = (uint8_t)base_accuracy(robot);
+    if (vehicle->z.body_tracked) {
+        vehicle->z.body_accuracy = (uint8_t)base_accuracy(robot);
+        if (t == MT_UNIT_APC - MT_UNITS) vehicle->z.body_fire = body_stats[Z_UnitType(robot)].fire;
+    }
     vehicle->z.squad = robot->z.squad;
     vehicle->z.home = robot->z.home;
     vehicle->z.robot = robot->z.robot;

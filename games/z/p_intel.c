@@ -92,7 +92,12 @@ int Z_AIUnitValue(const mobj_t *mo) {
         if (driver_health < 0) driver_health = 0;
         if (max_health > 0) health = r[32] * driver_health / max_health;
     }
-    int reach = (uint8_t)(read_u16_le(w + 2) >> 3);
+    const uint8_t *driver_weapon = w;
+    if (mo->type_id == MT_UNIT_APC && mo->z.driver && Z_IsRobot(mo->z.driver - 1)) {
+        size_t at = 22000 + (size_t)(mo->z.driver - 1) * 42;
+        if (at + 42 <= map->roster.size) driver_weapon = map->roster.bytes + at;
+    }
+    int reach = (uint8_t)(read_u16_le(driver_weapon + 2) >> 3);
     int accuracy = mo->z.body_tracked ? mo->z.body_accuracy : r[29];
     int human[] = {r[28],accuracy,(uint8_t)(reach * 2),r[31],health,r[29],r[36]};
     int arm[] = {reach * 8,0,0,w[32],w[34],w[35],0,0,0,0};
@@ -102,7 +107,7 @@ int Z_AIUnitValue(const mobj_t *mo) {
          * object +27 to vehicle +35 instead (0x63a73). */
         arm[1] = mo->z.body_tracked ? mo->z.body_speed : w[4];
         arm[2] = body;
-        arm[4] = mo->z.body_tracked ? mo->z.body_fire : w[34];
+        arm[4] = mo->z.body_tracked ? mo->z.body_fire : driver_weapon[34];
         arm[6] = 8 * w[36];
         arm[7] = w[37]; arm[8] = w[38]; arm[9] = w[39];
     }

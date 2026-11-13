@@ -322,6 +322,46 @@ static int test_driver_health_value(void) {
     return 0;
 }
 
+static int test_apc_driver_value(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("APC driver value load");
+    mobj_t *reference = nth(MT_UNIT_GRUNT, 1, 0);
+    fixed3_t at = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){25,25}), 0);
+    mobj_t *apc = P_SpawnMobj(at, MT_UNIT_APC), *sniper = P_SpawnMobj(at, MT_UNIT_SNIPER);
+    if (!reference || !apc || !sniper) return fail("APC driver value fixtures");
+    Z_SetTeam(apc, Z_NEUTRAL); Z_SetTeam(sniper, 1);
+    sniper->z.robot = reference->z.robot;
+    apc->traits &= ~(MF_MOBILE | MF_ATTACK);
+    P_SetMobjState(apc, S_A_P_C);
+    if (!Z_DetourBoard(sniper, apc)) return fail("Sniper boards APC for AI value");
+    int sniper_value = Z_AIUnitValue(apc);
+    apc->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    apc->z.crew[0].hp = mobjinfo[MT_UNIT_GRUNT].spawnhealth;
+    int grunt_value = Z_AIUnitValue(apc);
+    apc->z.driver = MT_UNIT_LASER - MT_UNITS + 1;
+    apc->z.crew[0].hp = mobjinfo[MT_UNIT_LASER].spawnhealth;
+    int laser_value = Z_AIUnitValue(apc);
+    if (sniper_value - grunt_value != 12 || laser_value - grunt_value != 8)
+        return fail("APC AI range follows driver weapon");
+    apc->z.driver = MT_UNIT_PSYCHO - MT_UNITS + 1;
+    P_DamageMobj(apc, NULL, apc->max_hp / 4);
+    if (!apc->z.body_tracked || apc->z.body_fire != 88)
+        return fail("damaged APC starts from driver's fire byte");
+    apc->z.driver = MT_UNIT_SNIPER - MT_UNITS + 1;
+    apc->z.crew[0].hp = mobjinfo[MT_UNIT_SNIPER].spawnhealth;
+    if (!Z_EjectCrew(apc)) return fail("damaged APC driver exits");
+    mobj_t *psycho = P_SpawnMobj(apc->core.position, MT_UNIT_PSYCHO);
+    if (!psycho) return fail("replacement APC driver");
+    Z_SetTeam(psycho, 1); psycho->z.robot = reference->z.robot;
+    if (!Z_DetourBoard(psycho, apc) || apc->z.body_fire != 98)
+        return fail("replacement APC driver restores driver's fire byte");
+    P_DamageMobj(apc, NULL, apc->max_hp / 4);
+    if (apc->z.body_fire != 83) return fail("reboarded APC fire scales at next threshold");
+    rts_game_model_destroy(model);
+    puts("PASS: z APC strategic range and damaged body fire follow driver");
+    return 0;
+}
+
 static int test_empty_object_value_slots(void) {
     RtsGameModel *model = load();
     if (!model) return fail("empty object value load");
@@ -2328,7 +2368,7 @@ static int test_building_alert(void) {
 }
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
-           test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_driver_health_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
+           test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_driver_health_value() || test_apc_driver_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();

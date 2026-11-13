@@ -5459,6 +5459,26 @@ Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 12 @ 0x9845e' -c 'pd 12 @ 0x86d30' -c q data/Z/ZED.EXE` and run
 `make build/bin/tests/z/test_commander`.
 
+**APC driver range in strategic strength:** For ZED.EXE SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x638ac..0x638c3` copies the driver's fire byte to the APC body +0x20,
+using 80 when it is zero; `0x63900..0x63917` puts the driver's range/8 in
+body +5 and unit +0x71, and its doubled byte (with wrap) in unit +4.
+`0x98438` weights unit +4, and `0x9853d` weights body +0x20. Open-rts
+now uses the driver's weapon range in APC value and initializes the saved
+body fire byte from the driver, including when another driver boards a
+previously damaged APC. Damage still scales the saved body byte at the
+existing native thresholds. In the shipped APC weights the human range
+weight is 10 and body fire weight is zero, so the range change affects
+strategic strength while the fire-byte correction preserves the native
+state for other consumers. `test_apc_driver_value` exercises boarding,
+Sniper/Laser/Grunt range scoring, damage, ejection and replacement by a
+Psycho. Robot identity is held constant in the controlled score comparison.
+Native experience and other unmodeled mutable driver stats remain outside
+this change. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+-c 'pd 40 @ 0x638ac' -c 'pd 20 @ 0x98430' -c 'pd 10 @ 0x98535'
+-c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
 **Damaged body speed in strategic strength:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x98507..0x98518` weights the current driven-body byte +7, while
