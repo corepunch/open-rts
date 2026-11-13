@@ -40,7 +40,7 @@ void G_ShowOutcome(outcome_t outcome) {
 
 void W2_VictoryReset(void) {
     w2_mission_t *mission = level.mission;
-    if (mission) { mission->done = false; mission->countdown = 0; }
+    if (mission) { mission->done = false; mission->countdown = 0; mission->hold = 0; }
     level.outcome = OUTCOME_NONE;
 }
 
@@ -52,6 +52,11 @@ unsigned G_LevelObjectives(mobj_t *const *units, int count) {
     mission->countdown = 30;
     if (!level.native_data) return 0;
     if (!mission->campaign.number) return ELIMINATE_ALL;
+    /* Human missions 2-14 have their own triggers (p_obj_human.c). Orc missions
+     * and campaign 1 keep the rules below. */
+    if (!mission->campaign.orc && mission->campaign.number >= 2 &&
+        mission->campaign.number <= W2_CAMPAIGN_LEVELS)
+        return W2_HumanObjectives(mission, units, count);
     /* Other campaign objectives (rescue, regions, named targets) must not
      * accidentally fall through to generic elimination. */
     if (mission->campaign.number == 1 && consoleplayer >= 0 && consoleplayer < 8) {
