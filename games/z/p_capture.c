@@ -522,7 +522,7 @@ static int bullet_hit_damage(const mobj_t *attacker, mobj_t *target, int damage,
     if (victim < 0 || Z_IsRobot(victim)) return damage;
     if (attacker && hit_driver(attacker, target, damage, shot)) return 0;
     damage -= 5;
-    return damage > 0 ? damage : attacker ? (int)((leveltime + attacker->id + target->id + shot) & 1) : 0;
+    return damage > 0 ? damage : (int)((leveltime + (attacker ? attacker->id : 0) + target->id + shot) & 1);
 }
 
 static int hit_damage(const mobj_t *attacker, mobj_t *target, int damage, int divisor, unsigned shot) {

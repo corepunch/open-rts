@@ -2175,7 +2175,11 @@ hook runs after exit spacing, so the exit order cannot erase the rally.
 `test_production` verifies ownership, invalid paths, replacement, travel and
 clearing; StarCraft's gameplay test verifies its existing rally destination
 survives the same hook ordering. Rally markers and target-object rally orders
-are not implemented by this change.
+are not implemented by this change. In Zod's separate factory-window branch,
+`zplayer.cpp:4244..4255` explicitly creates `MOVE_WP` with `ref_id = -1`;
+the preceding selected-unit branch chooses pickup and other target-specific
+actions. Thus the factory-window code alone does not establish that clicking
+a crate should create a pickup rally order.
 
 ## Zod reference: APC crew and ejection (2026-11-12)
 
@@ -5074,6 +5078,19 @@ from recomputing the cell at firing time. Reproduce with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 32 @ 0x5af81'
 -c 'pd 16 @ 0x796c7' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
+
+**Bullet armour with a removed shooter:** `0x5ae44..0x5ae5a` subtracts
+the armour byte and, if the signed result is nonpositive, draws a random
+bit to choose zero or one damage. This branch does not check the shooter's
+unit slot. The engine now retains its deterministic zero-or-one roll after
+the bullet's source mobj is removed as well. Its roll is not the native RNG
+stream; the separate exposed-driver check still depends on a live engine
+source, while native `0x5adc1..0x5add6` reads the bullet's stored source slot
+and the accuracy currently in that slot. Slot reuse and its exact lifecycle
+remain unmodeled. `test_orphan_bullet_armour` exercises both armour outcomes
+through travelling bullets after source removal. Inspect with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 25 @ 0x5adbd' -c 'pd 18 @
+0x5ae29' -c q data/Z/ZED.EXE`.
 
 **Bullet range ordering:** On an unfinished step `0x5aa57..0x5aa9b`
 compares squared displacement from the stored launch point against the
