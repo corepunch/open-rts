@@ -1123,8 +1123,10 @@ static void return_strays(zmap_t *map, mobj_t *const *units, int count) {
             int keep = 16 * map->computer.territory_weight * map->territories[t].importance;
             if (ai->territories[t].lockout && (int16_t)(surplus(ai, t) - keep) >= 0) break;
             int home = nearest_own(map, CPU, t, Z_AITopLeft(unit));
-            if (home >= 0 && (!P_HasMoveOrder(unit) || Z_AITerritory(map, unit->movement.goal) != home) &&
-                send(map, task, home) && task->home == t) task->home = (int16_t)home;
+            if (home >= 0 && (!P_HasMoveOrder(unit) || Z_AITerritory(map, unit->movement.goal) != home)) {
+                send(map, task, home);
+                if (task->home == t) task->home = (int16_t)home;
+            }
             break;
         }
     }

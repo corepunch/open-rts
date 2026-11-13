@@ -1638,6 +1638,15 @@ than being replaced with numeric approximations:
   approximation of native fixed unit-slot iteration. `0x9cde8` recognizes
   an existing destination only under specific action/group conditions,
   whose mapping to all engine movement states remains unconfirmed.
+  Correction: `0x9cf33` first stores the current territory in `0x104134`.
+  When `0x9cde8` reports an already matching order, `0x9cd83` skips the
+  write of the chosen territory, so `0x9cdb4` retains the current home.
+  Neither `0x9cde8` nor its `0x9dc69` lookup writes that global. Otherwise
+  `0x9cd85` stores the chosen territory before calling `0x9d42c`, and
+  `0x9cd95..0x9cdb4` replaces a home equal to the current territory even
+  if dispatch fails. The engine models both branches using its existing
+  movement-order approximation. `test_stray_home_reassignment` checks an
+  existing order and rejected staging point through the normal AI pass.
   Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
   -c 'pd 100 @ 0x9cc83' -c 'pd 45 @ 0x9cf33' -c 'pd 35 @ 0x9cde8'
   -c q data/Z/ZED.EXE`.

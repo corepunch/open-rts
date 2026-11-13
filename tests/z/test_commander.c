@@ -435,6 +435,52 @@ static int test_unreachable_initial_staging(void) {
     return 0;
 }
 
+static int test_stray_home_reassignment(void) {
+    for (int unreachable = 0; unreachable < 2; ++unreachable) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load stray home fixture");
+        mobj_t *lead = scenario();
+        zmap_t *map = level.native_data;
+        map->computer.allocation = 100;
+        for (int t = 0; t < map->territory_count; ++t)
+            map->territories[t].team = t == 4 ? 1 : Z_NEUTRAL;
+        map->territories[8].importance = 255;
+        fixed2_t at = fixed2_cell_center(map->territories[8].flag);
+        fixed2_t home = fixed2_cell_center(map->territories[4].flag);
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *mo = (mobj_t *)th;
+            if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 5 ? 1 : Z_NEUTRAL);
+            if (mo->team == 1 && mo->z.squad == lead->z.squad) {
+                mo->core.position = fixed3_from_fixed2(at, 0);
+                mo->z.manufactured = true;
+            }
+        }
+        think(0);
+        zaitask_t *task = task_of(lead);
+        if (!task || task->current != 8) return fail("register manufactured stray");
+        task->home = 8;
+        task->task = -1;
+        task->target = task->destination = -1;
+        task->pending = false;
+        task->retry = 100;
+        if (unreachable) {
+            P_ClearMove(lead);
+            map->territories[4].flag = (ivec2_t){-1000, -1000};
+        } else {
+            P_MoveUnitTo(&level, lead, home);
+            if (!P_HasMoveOrder(lead) || Z_AITerritory(map, lead->movement.goal) != 4)
+                return fail("stray already heads for chosen territory");
+        }
+        map->ai.stray_cursor = lead->id - 1;
+        map->ai.delay = 0;
+        think(1);
+        if (task->home != (unreachable ? 4 : 8) || task->pending || (unreachable && P_HasMoveOrder(lead)))
+            return fail("stray home follows the native existing-order and failed-dispatch branches");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 static int test_frontier_overlap(void) {
     RtsGameModel *model = load();
     if (!model) return fail("frontier overlap load");
@@ -930,7 +976,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
