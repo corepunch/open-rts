@@ -414,12 +414,11 @@ typedef struct { zaitask_t *task; int64_t distance; } pooled_t;
 /* 0x9a126/0x9a080: idle offensive tasks that may go, nearest first. */
 static int idle_pool(zmap_t *map, int territory, pooled_t *pool) {
     int n = 0;
-    fixed2_t goal = fixed2_cell_center(map->territories[territory].flag);
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &map->ai.tasks[i];
         mobj_t *mo = P_MobjById(task->unit);
         if (!live(mo) || !offensive(task) || task->task != IDLE || task->pending ||
-            !allowed(mo, map->ai.territories[territory].flags, true) || !reachable(mo, goal)) continue;
+            !allowed(mo, map->ai.territories[territory].flags, true)) continue;
         int64_t distance = ivec2_distance_squared64(Z_AITopLeft(mo), ivec2_scale(map->territories[territory].flag, Z_TILE));
         int at = n++;
         while (at && pool[at - 1].distance > distance) { pool[at] = pool[at - 1]; at--; }

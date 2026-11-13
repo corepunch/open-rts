@@ -296,6 +296,35 @@ static int test_strength_gate(void) {
     return 0;
 }
 
+/* 0x9a126 ranks available forces without testing the flag route. */
+static int test_blocked_assault_flag(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("blocked assault flag load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->territories[2].team = 1;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG && mo->z.territory == 3) Z_SetTeam(mo, 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    ivec2_t flag = map->territories[8].flag;
+    level.blocked[L_Index(&level, flag.x, flag.y)] = 1;
+    P_NavFree(&level);
+    int cls = P_MobjMoveClass(lead);
+    if (P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(lead->core.position)),
+                       P_NavNodeAt(&level, cls, fixed2_cell_center(flag))))
+        return fail("assault flag fixture is unreachable");
+    think(0); think(1);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->task != 0 || task->target != 8 || task->destination != 8 ||
+        (!task->pending && !P_HasMoveOrder(lead)))
+        return fail("blocked flag does not exclude force from assault staging");
+    rts_game_model_destroy(model);
+    puts("PASS: z assault force selection does not require flag route");
+    return 0;
+}
+
 static int test_fort_followup(void) {
     RtsGameModel *model = load();
     if (!model) return fail("fort followup load");
@@ -1454,7 +1483,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

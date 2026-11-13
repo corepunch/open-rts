@@ -5059,3 +5059,16 @@ checks that boarding retry and the idle task clear. `test_vehicles` covers
 successful boarding. Inspect with `r2 -q -e
 bin.cache=true -e bin.relocs.apply=true -c 'pd 140 @ 0x98f32' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Assault pool and blocked flag:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9a126..0x9a1c6` collects idle offensive groups after the territory's class
+and ammunition gates, without a route query. `0x9a0c2..0x9a118` calculates
+squared distance to the flag for sorting. The subsequent dispatch chooses
+staging points separately. Open-rts no longer excludes a group just because
+the flag cell itself is blocked. `test_blocked_assault_flag` verifies that
+an eligible force receives the assault and starts moving to a staging point
+while its target flag cell is unreachable. Exact native staging pathfinding
+remains an approximation. Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 65 @ 0x9a126' -c 'pd 40 @ 0x9a0c2' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
