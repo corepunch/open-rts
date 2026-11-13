@@ -546,8 +546,18 @@ static void cast_now(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     caster->sc.order = (sc_order_t){0};
 }
 
+/* The spells OpenBW runs through order_Spell: its spell_cooldown, set when a
+ * passenger leaves a mobile transport, holds the cast back in range. */
+static bool spell_order(int tech) {
+    switch (tech) {
+    case SC_TECH_YAMATO_GUN: case SC_TECH_LOCKDOWN: case SC_TECH_DARK_SWARM: case SC_TECH_PARASITE:
+    case SC_TECH_SPAWN_BROODLING: case SC_TECH_EMP: case SC_TECH_PSIONIC_STORM: case SC_TECH_IRRADIATE:
+    case SC_TECH_PLAGUE: case SC_TECH_CONSUME: case SC_TECH_ENSNARE: case SC_TECH_STASIS_FIELD: return true;
+    }
+    return false;
+}
 /* Walks into range, then casts; false when the cast cannot go on. */
-static bool step_cast(mobj_t *caster) {
+static bool step_cast(mobj_t *caster, int frames) {
     sc_order_t *o = &caster->sc.order;
     mobj_t *target = o->target ? P_MobjById(o->target) : NULL;
     if (o->target && !target_ok(caster, o->tech, target)) return false;
@@ -558,6 +568,7 @@ static bool step_cast(mobj_t *caster) {
     fixed_t range = reach(spell(o->tech));
     if (range < 0 || near(caster, at, range + FIXED_ONE / 2 + (target ? P_MobjRadius(target) : 0))) {
         P_ClearMove(caster);
+        if (spell_order(o->tech) && caster->sc.timers[SC_TIMER_SPELL_COOLDOWN] > frames) return true;
         caster->move_only = false;
         cast_now(caster, o->tech, target, at);
         return true;
@@ -627,7 +638,7 @@ bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
                                     .at = pixel(target ? where(target) : at)};
     caster->attack.target = NULL;
     if (!in_range) { caster->move_only=true; return true; }
-    if (step_cast(caster)) return true;
+    if (step_cast(caster, 0)) return true;
     caster->sc.order = (sc_order_t){0};
     return false;
 }
@@ -741,7 +752,7 @@ void sc_spell_ticker(mobj_t *mo, int frames) {
             t[SC_TIMER_LIFE] % SC_STORM_STRIKE == 0) storm_strike(mo);
     }
     sc_order_t *o = &mo->sc.order;
-    if (o->kind == SC_ORDER_CAST && !step_cast(mo)) { *o = (sc_order_t){0}; mo->move_only = false; }
+    if (o->kind == SC_ORDER_CAST && !step_cast(mo, frames)) { *o = (sc_order_t){0}; mo->move_only = false; }
     else if (o->kind == SC_ORDER_NUKE && (o->time -= frames) <= 0) {
         fixed2_t at = from_pixel(o->at);
         *o = (sc_order_t){0};

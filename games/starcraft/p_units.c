@@ -116,6 +116,7 @@ static bool unload_position(mobj_t *unit, const mobj_t *container, fixed2_t at) 
     unit->core.position = fixed3_with_xy(unit->core.position, candidates[0].at);
     return true;
 }
+enum { SC_UNLOAD_COOLDOWN_FRAMES = 15, SC_REAVER_UNLOAD_FRAMES = 30, SC_UNLOAD_SPELL_FRAMES = 30 };
 static void unloaded(mobj_t *unit, bool mobile_transport) {
     P_ClearMove(unit);
     unit->movement.goal = where(unit);
@@ -123,11 +124,24 @@ static void unloaded(mobj_t *unit, bool mobile_transport) {
     unit->waypoints = (waypoints_t){0};
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
-    if (mobjinfo[unit->type_id].spawnstate > 0) P_SetMobjState(unit, mobjinfo[unit->type_id].spawnstate);
+    /* OpenBW unit_unload: a Reaver waits 30 frames on its main-order timer;
+     * any other passenger gets its own hull's ground and air weapon
+     * cooldowns (a turret subunit's weapons do not count) and a 30-frame
+     * spell cooldown. The weapons themselves keep their cooldown untouched.
+     * The timers come first: entering the idle state may already look for
+     * a target and fire. */
     if (mobile_transport) {
-        int cooldown = unit->info->attack.cooldown_ms;
-        unit->attack.cooldown_left_ms = G_WeaponCooldown(unit, &unit->info->attack, cooldown);
+        int *timers = unit->sc.timers;
+        if (unit->type_id == MT_REAVER) timers[SC_TIMER_MAIN_ORDER] = SC_REAVER_UNLOAD_FRAMES;
+        else {
+            const sc_unit_t *hull = &sc_units[unit->type_id - 1];
+            const sc_weapon_t *ground = sc_weapon(hull->ground_weapon), *air = sc_weapon(hull->air_weapon);
+            if (ground) timers[SC_TIMER_GROUND_COOLDOWN] = sc_modified_cooldown_frames(unit, ground->cooldown);
+            if (air) timers[SC_TIMER_AIR_COOLDOWN] = sc_modified_cooldown_frames(unit, air->cooldown);
+            timers[SC_TIMER_SPELL_COOLDOWN] = SC_UNLOAD_SPELL_FRAMES;
+        }
     }
+    if (mobjinfo[unit->type_id].spawnstate > 0) P_SetMobjState(unit, mobjinfo[unit->type_id].spawnstate);
 }
 static ivec2_t pixel(fixed2_t at) { return (ivec2_t){(at.x + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5), (at.y + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5)}; }
 /* A unit of type on owner's side at a spot. */
@@ -349,7 +363,7 @@ mobj_t *sc_attach_addon(mobj_t *building, uint16_t type) {
 
 /* ── bunkers and transports ──────────────────────────────────────────── */
 
-enum { SC_UPGRADE_VENTRAL_SACS = 24, SC_UNLOAD_COOLDOWN_FRAMES = 15 };
+enum { SC_UPGRADE_VENTRAL_SACS = 24 };
 static bool is_building(const mobj_t *mo) { return (sc_units[mo->type_id - 1].flags & SC_UNIT_BUILDING) != 0; }
 /* OpenBW unit_provides_space: an Overlord carries once Ventral Sacs are
  * evolved; hallucinations carry nothing. */
@@ -735,9 +749,11 @@ static void mining(mobj_t *mo) {
 }
 
 void sc_unit_ticker(mobj_t *mo, int frames) {
-    int *main_order_timer = &mo->sc.timers[SC_TIMER_MAIN_ORDER];
-    if (frames > 0 && *main_order_timer > 0 && (*main_order_timer -= frames) < 0)
-        *main_order_timer = 0;
+    static const int counting[] = {SC_TIMER_MAIN_ORDER, SC_TIMER_SPELL_COOLDOWN, SC_TIMER_GROUND_COOLDOWN, SC_TIMER_AIR_COOLDOWN};
+    for (unsigned i = 0; frames > 0 && i < sizeof(counting) / sizeof(*counting); i++) {
+        int *timer = &mo->sc.timers[counting[i]];
+        if (*timer > 0 && (*timer -= frames) < 0) *timer = 0;
+    }
     if (mo->type_id == MT_SCV) {
         bool walking = gameinfo && mo->core.state_id > 0 &&
             mo->core.state_id < gameinfo->state_count &&

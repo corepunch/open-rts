@@ -515,7 +515,7 @@ static int transport_unload_failures(void) {
     mobj_t *blocker = spawn(MT_MARINE, at_of(ship), 0);
     CHECK(blocker);
     marine->sc.timers[SC_TIMER_STIM] = RTS_TICRATE;
-    int expected_cooldown = G_WeaponCooldown(marine, &marine->info->attack, marine->info->attack.cooldown_ms);
+    int expected_cooldown = sc_modified_cooldown_frames(marine, sc_weapon(sc_units[MT_MARINE - 1].ground_weapon)->cooldown);
     marine->attack.cooldown_left_ms = 0;
     sc_unload_at(ship, at_of(ship));
     tick(1);
@@ -524,7 +524,10 @@ static int transport_unload_failures(void) {
     int x_remainder = (at_of(marine).x / SC_PIXELS(1)) & 7;
     int y_remainder = (at_of(marine).y / SC_PIXELS(1)) & 7;
     CHECK((x_remainder <= 1 || x_remainder >= 7) && (y_remainder <= 1 || y_remainder >= 7));
-    CHECK(marine->attack.cooldown_left_ms + RTS_TICK_MS >= expected_cooldown);
+    /* The modified weapon cooldown runs in its own ground and air timers, not the engine's shared one. */
+    CHECK(marine->attack.cooldown_left_ms == 0 && expected_cooldown == 7);
+    CHECK(marine->sc.timers[SC_TIMER_GROUND_COOLDOWN] >= expected_cooldown - 1 && marine->sc.timers[SC_TIMER_GROUND_COOLDOWN] <= expected_cooldown);
+    CHECK(marine->sc.timers[SC_TIMER_AIR_COOLDOWN] == marine->sc.timers[SC_TIMER_GROUND_COOLDOWN]);
     CHECK(marine->core.state_id == mobjinfo[marine->type_id].spawnstate);
     CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 15);
 

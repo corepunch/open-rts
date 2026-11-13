@@ -43,15 +43,48 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
   [SC_CONSTRUCTION_FINDINGS.md](SC_CONSTRUCTION_FINDINGS.md).
   When the last passenger unloads, the unload order ends immediately, so a
   queued move can start while the container timer continues to count down.
-- Remaining passenger timers are not implemented: Protoss Reavers receive a
-  30-frame main-order timer; other mobile cargo receive a separate 30-frame
-  spell cooldown. OpenBW also sets independent modified ground and air weapon
-  cooldowns where those weapons exist, while the local combat runtime currently
-  has one shared cooldown. Do not emulate these by borrowing the container
-  timer, weapon cooldown or status timer. Reaver's timer requires coverage of
-  its main-order/attack lifecycle; spell cooldown needs a verified equivalent
-  gate; independent weapon timers require combat-path changes. Save/hash tests
-  must cover any further serialized fields and layout bumps.
+- Passenger timers from `unit_unload` for a mobile container (a Bunker sets
+  none; `u_grounded_building(container)` skips the whole block, so Bunker
+  exits and Bunker death ejection give no cooldowns, which the tests pin):
+  a Protoss Reaver (exactly `Protoss_Reaver`, not the Warbringer) gets a
+  30-frame `main_order_timer`; every other passenger gets
+  `ground_weapon_cooldown` and `air_weapon_cooldown` set to
+  `get_modified_weapon_cooldown` of the weapons of its own hull
+  (`unit_ground_weapon`/`unit_air_weapon`, so a Goliath or Siege Tank, whose
+  guns sit on the turret subunit, gets none) and a 30-frame `spell_cooldown`.
+  All four count down once per frame in `update_unit_values`.
+- Where they bite in OpenBW: `main_order_timer` stops the Reaver/Carrier
+  attack order (`order_AttackUnit` returns before reacquiring or firing);
+  `attack_unit_fire_weapon` reads the ground or air cooldown by target
+  flight; `order_Spell` waits in range on `spell_cooldown` (Yamato, Lockdown,
+  Dark Swarm, Parasite, Spawn Broodlings, EMP, Psionic Storm, Irradiate,
+  Plague, Consume, Ensnare, Stasis Field, Restoration, Disruption Web).
+  Hallucination, Recall, Mind Control, Defensive Matrix, Scanner Sweep,
+  Infest and Nuclear Strike have their own orders and ignore it.
+- Implemented. The engine's single `attack.cooldown_left_ms` cannot hold
+  these, and the earlier Reaver patch failed because it spent that cooldown
+  and played the sound on a blocked shot. Instead the SC mobj has three more
+  frame timers (`SC_TIMER_SPELL_COOLDOWN`, `SC_TIMER_GROUND_COOLDOWN`,
+  `SC_TIMER_AIR_COOLDOWN`, beside the existing `SC_TIMER_MAIN_ORDER`; save
+  layout 18) and a new optional `gameinfo_t.attack_blocked(attacker, target)`
+  hook checked in `P_Attack` and `A_Look` before anything is spent. A blocked
+  attempt returns without sound, Scarab, cooldown or loss of the target. The
+  hook blocks a Reaver or Carrier on its main-order timer, others on the
+  timer matching the target's flight, and any passenger still aboard a mobile
+  transport (previously a loaded Marine could shoot from a Dropship once it
+  saw an enemy). `step_cast` holds the listed spells in range on the spell
+  cooldown without spending energy. The timers are set before the passenger
+  enters its idle state, because that state's first action may already fire.
+  A timer on its last frame no longer blocks, matching OpenBW's
+  decrement-before-orders, so an explicit Reaver attack fires on exactly the
+  frame the 30 run out; automatic acquisition adds the idle state's own look
+  cadence (0 to 2 frames in the tests).
+- Still not modelled: OpenBW sets `spell_cooldown` again after each cast
+  (weapon cooldown plus a random 0..3 minus 1) and counts acid spores in the
+  modified cooldown; neither exists locally. A Warbringer's weapon timer uses
+  the DAT Scarab row, while its launch cooldown keeps the local 60 frames.
+  Mobj fields are saved whole behind the layout number and checksum; no
+  per-field range check of `sc.timers` exists for any timer.
 - OpenBW's Bunker death path invokes `unit_unload` for each passenger and kills
   the passenger when placement fails (`bwgame.h` 15365–15369). The local
   Bunker death path uses the same center search and retains its existing
@@ -71,8 +104,13 @@ center-origin placement, ordinary Bunker death ejection, and cargo death when
 a disabled Bunker is destroyed.
 Run `make test-starcraft` for the StarCraft suite.
 
-The unimplemented Reaver/spell and independent weapon cooldowns above are
-pending verified runtime gates and focused save/hash coverage. The current navigation API cannot
+`tests/starcraft/test_transport.c` covers the timers: Reaver exact frames
+(explicit and automatic, Move/Stop, blocked-attempt cost, save/hash mid
+delay), per-class cooldowns (shared-weapon Marine, ground-only Zergling,
+turret-hull Goliath, independent ground/air gating), spell cooldown for
+Psionic Storm versus Hallucination, Bunker exit and death ejection,
+two passengers in sequence, and disabled, blocked and destroyed
+transports. The current navigation API cannot
 directly check reachability from an unloaded passenger's origin:
 `P_NavReachable` rejects a Bunker center because the building blocks that cell,
 while `P_NavPlan` performs a full plan and may relocate an unreachable goal.
