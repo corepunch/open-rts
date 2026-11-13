@@ -3119,7 +3119,12 @@ pool has 64 slots (`0x3dfb5`, `0x24cc0`); exhaustion skips the effect even
 though the timer is reloaded. The runner `0x3dfb5` decrements slot byte
 +0x0c, and when its pre-decrement value is 2 (`0x3e005..0x3e00b`,
 `0x3e225`) calls `0x24ba3`, where `0x24bbb..0x24bbf` copies max
-HP to current HP and `0x24bf1` clears the stored gun slots. Active building
+HP to current HP and `0x24bf1` clears the stored gun slots. The counter
+wraps as a byte: a zero count becomes 255, while the separate 16-bit
+comparison value becomes 0xffff; completion occurs when the byte later
+reaches 2. The engine's unsigned byte decrement preserves this behavior.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 15 @
+0x3dffc' -c 'pd 8 @ 0x3e225' -c q data/Z/ZED.EXE`. Active building
 records in LEVEL01, LEVEL07 and LEVEL14 use 0xffff; LEVEL31 and LEVEL32
 include 117 and 176. The separate live auto-mend paths at `0x3e7aa` and
 `0x3e832` are skipped for zero-HP buildings. Global owner selector 0x125e58
