@@ -485,7 +485,8 @@ static void projectile_tick(mobj_t *shot,int frames) {
 }
 
 bool sc_can_recharge_shields(const mobj_t *unit, mobj_t *battery) {
-    if (!unit || !battery || battery->type_id != MT_SHIELD_BATTERY || battery->owner != unit->owner) return false;
+    if (!unit || !battery || battery->type_id != MT_SHIELD_BATTERY || battery->owner != unit->owner ||
+        sc_foundation(battery)) return false; /* unit_can_use_shield_battery needs a completed battery */
     sc_start(battery);
     if (battery->sc.energy <= 0 || sc_disabled(battery) ||
         !sc_type(unit) || unit->owner >= 12 || unit->type_id == MT_INTERCEPTOR ||
@@ -567,6 +568,7 @@ static void sc_mobj_ticker(mobj_t *mo) {
         mo->sc.shields += SC_SHIELD_REGEN * frames;
         if (mo->sc.shields > u->shields << 8) mo->sc.shields = u->shields << 8;
     }
+    if (sc_foundation(mo)) return; /* update_unit_energy runs only for completed units */
     if (!(u->flags & SC_UNIT_SPELLCASTER)) return;
     if ((mo->traits & MF_CLOAKED) && !(mo->info->traits & MF_CLOAKED) &&
         !(mo->sc.flags & SC_BURROWED)) {

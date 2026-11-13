@@ -361,6 +361,12 @@ bool G_ModelConstructionNeedsWorker(const mobj_t *unit,const StaticProductDefini
     return sc_worker_build_product(unit,p);
 }
 
+bool sc_foundation(const mobj_t *unit) {
+    return unit&&unit->production&&unit->production->placed&&
+        unit->production->product_class==RTS_PRODUCT_BUILDING&&
+        unit->production->actor_id==unit->type_id;
+}
+
 bool G_ModelIsConstructionSite(const mobj_t *unit,const StaticProductDefinition *p) {
     return unit&&p&&unit->production&&unit->production->placed&&
         unit->production->product_class==RTS_PRODUCT_BUILDING&&
