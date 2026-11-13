@@ -3579,3 +3579,11 @@ input path during a trigger pause; the retail Rescue and AI planner effects
 value_area, enter_bunker, clear_combatdata) which also need a rescue
 mechanism and an AI planner the engine does not have; the leaderboard display
 and Goal/Greed outcomes; and the Talking Portrait presentation (0x49e090).
+
+Known divergence, not changed: `p_trig.c` still enables the shared planner for
+whichever owner runs an unrecognized AI script, while retail runs a script
+only for a Computer-type owner (and Rscu/EnBk for a Neutral one) and ignores
+it for human slots and for ids missing from aiscript.bin. The gate is traced
+(0x489eb0) but the existing scenario fixtures run scripts from a human-owned
+trigger, so applying it needs those fixtures reworked together with a native
+script interpreter; it was left for that change.
