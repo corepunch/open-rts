@@ -2509,12 +2509,13 @@ is only used as the scale gate in this traced route: `0x29fd8` has no HP write,
 and the following `0x8476c` passes contain no bridge HP update. Fort type 2 is
 normalized to `0xff` during startup and is not a BUILD hit. The engine models
 this by scaling recurring unit damage and damaging a matching non-Fort
-building; an eligible bridge remains undamaged. It uses BUILD type 0's native
-tested height (descriptor height minus two cells) and inclusive bridge
-rectangles. The test `test_pyro_building_bridge_damage_scale` checks unscaled 20
+building; an eligible bridge remains undamaged. The test
+`test_pyro_building_bridge_damage_scale` checks unscaled 20
 damage without a match, 4 damage with BUILD or intact bridge, direct 4 damage
-to BUILD, no bridge HP damage, and scaling off after destroying that same
-registered bridge. This does not claim the unrelated native effect-object / tile pass at
+to BUILD, Repair Facility scaling in its lower half and at the inclusive
+64-pixel edge (but not at 65), no bridge HP damage, and scaling off after
+destroying that same registered bridge. This does not claim the unrelated
+native effect-object / tile pass at
 `0x84f9d` is fully reproduced. Inspect with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 45 @ 0x4ab23' -c 'pd 65 @ 0x8476c'
 -c 'pd 90 @ 0x3edc2' -c 'pd 40 @ 0x29fd8' -c 'axt @ 0x11d4cd' -c q
@@ -4085,8 +4086,26 @@ flag; the flame-area routine sets it temporarily at `0x86904` and clears
 it at `0x86919`. This port assumes it is clear for ordinary shell impacts.
 The latter selects the first live BUILD record whose descriptor footprint
 contains impact plus (4,-8), with inclusive edges, and `0x3ee3f` subtracts
-the damage without a team test. Open-rts selects the lowest native building
-index in that footprint and permits friendly building damage. Forts remain
+the damage without a team test. Open-rts shares this native bounds lookup
+between shell/grenade/water and ground-fire damage.
+
+**Correction to the Repair Facility footprint trace (2026-11-13):** the
+earlier claim that native `0x2824f..0x28258` subtracts two cells from BUILD
+type 0 was incorrect. At `0x28238..0x2823b`, EBP is changed from the BUILD
+record pointer to the descriptor pointer at `0xe6120 + 74 * type`; therefore
+the later compare at `0x2824f` reads descriptor byte +4, not the type ID.
+For Repair Facility descriptor 0, that byte is ASCII `c` (`0x63`) from
+"Vehicle Repair Facility", so the compare with zero fails and `sub bl,2`
+is skipped. Its tested bounds use the full 5-by-4-cell descriptor. The
+earlier implementation and two-cell boundary test are superseded. The shell
+and ground-fire tests now cover the Repair Facility lower half, the inclusive
+64-pixel bottom edge, and rejection at 65 pixels. Reproduce the correction
+with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 50 @ 0x28233'
+-c 'px 16 @ 0xe6120' -c q data/Z/ZED.EXE`.
+
+Open-rts
+selects the lowest native building index in that footprint and permits
+friendly building damage. Forts remain
 excluded by their native separate lifecycle. `test_combat` checks a friendly
 non-target factory, both inclusive edges and an outside point. Terrain and
 other object damage and retail knockdown remain incomplete. Grenades use the

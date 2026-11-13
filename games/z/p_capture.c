@@ -946,18 +946,10 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
 }
 
 /* Shells use the native candidate box at the snapshotted impact point. */
+static mobj_t *native_building_at(ivec2_t point);
+
 static void blast_building(ivec2_t point, mobj_t *source, int damage) {
-    mobj_t *building_hit = NULL;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *building = (mobj_t *)th;
-        if (th->function != P_MobjThinker || !live(building) || building->type_id <= MT_FORT ||
-            building->type_id >= MT_UNITS || !building->z.building || !building->info) continue;
-        ivec2_t origin = Z_BuildingOrigin(building);
-        ivec2_t d = ivec2_sub(point, origin);
-        if (d.x < 0 || d.y < 0 || d.x > building->info->footprint.w * Z_TILE ||
-            d.y > building->info->footprint.h * Z_TILE) continue;
-        if (!building_hit || building->z.building < building_hit->z.building) building_hit = building;
-    }
+    mobj_t *building_hit = native_building_at(point);
     if (building_hit) P_DamageMobj(building_hit, source, damage);
 }
 
@@ -1230,7 +1222,7 @@ void A_ZWater(mobj_t *water) {
     water->core.frame = water->z.water.sprite ? water->z.water.sprite : 1622 + (water->missile.age & 3);
 }
 
-static mobj_t *ground_fire_building_at(ivec2_t point) {
+static mobj_t *native_building_at(ivec2_t point) {
     mobj_t *found = NULL;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *building = (mobj_t *)th;
@@ -1238,8 +1230,6 @@ static mobj_t *ground_fire_building_at(ivec2_t point) {
             building->type_id <= MT_FORT || building->type_id >= MT_UNITS || !building->z.building) continue;
         ivec2_t origin = Z_BuildingOrigin(building);
         isize2_t size = building->info->footprint;
-        /* Native BUILD type 0 shortens its tested height by two cells. */
-        if (building->native_type_id == 0) size.h -= 2;
         ivec2_t d = ivec2_sub(point, origin);
         if (d.x < 0 || d.y < 0 || d.x > size.w * Z_TILE || d.y > size.h * Z_TILE) continue;
         if (!found || building->z.building < found->z.building) found = building;
@@ -1265,7 +1255,7 @@ static void damage_ground_fire(const mobj_t *fire) {
     ivec2_t origin = fixed2_cell(fixed2_scale(fixed3_xy(fire->core.position), FIXED_FROM_INT(Z_TILE)));
     ivec2_t max = ivec2_add(origin, (ivec2_t){24,24});
     int damage = fire->z.fire.damage;
-    mobj_t *building = ground_fire_building_at(origin);
+    mobj_t *building = native_building_at(origin);
     bool scaled = building || ground_fire_bridge_at(origin);
     if (scaled) {
         damage = damage * 24 / 100;

@@ -850,6 +850,20 @@ static int test_pyro_fire_geometry_and_byte_lifetime(void) {
     return 0;
 }
 
+static mobj_t *pyro_ground_fire_fixture(ivec2_t origin, int damage) {
+    mobj_t *fire = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE), 0), MT_GROUND_FIRE);
+    if (!fire) return NULL;
+    fire->team = 0;
+    fire->z.fire.damage = damage;
+    fire->z.fire.lifetime = 127;
+    fire->z.fire.sprite = 71;
+    fire->z.fire.frame_count = 4;
+    fire->z.fire.frame = 3;
+    fire->z.fire.native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+    return fire;
+}
+
 static int test_pyro_building_bridge_damage_scale(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for Pyro BUILD and bridge scaling");
@@ -921,6 +935,37 @@ static int test_pyro_building_bridge_damage_scale(void) {
     A_ZGroundFire(fort_fire);
     if (fort_target->hp != 480)
         return fail("fire inside a Fort does not trigger BUILD scaling");
+
+    isize2_t repair_size;
+    if (!Z_SpriteSize(map, Z_BuildingSprite(0, map->world), &repair_size))
+        return fail("Repair Facility sprite size for flame bounds");
+    ivec2_t repair_origin = {700,700};
+    ivec2_t repair_centre = ivec2_add(repair_origin,
+        (ivec2_t){repair_size.w / 2, repair_size.h / 2});
+    mobj_t *repair = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(repair_centre), FIXED_ONE / Z_TILE), 0), MT_REPAIR);
+    if (!repair) return fail("spawn Repair Facility flame fixture");
+    repair->native_type_id = 0;
+    repair->z.building = 2;
+    repair->hp = repair->max_hp = 500;
+    if (!ivec2_equal(Z_BuildingOrigin(repair), repair_origin))
+        return fail("Repair Facility native origin fixture");
+    static const struct { int y, expected_hp; } repair_points[] = {
+        {48, 496}, {64, 496}, {65, 480},
+    };
+    for (size_t i = 0; i < sizeof(repair_points) / sizeof(*repair_points); ++i) {
+        ivec2_t fire_point = ivec2_add(repair_origin, (ivec2_t){8, repair_points[i].y});
+        mobj_t *fire = pyro_ground_fire_fixture(fire_point, 20);
+        mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1,
+            fixed2_scale(fixed2_from_cell(ivec2_add(fire_point, (ivec2_t){8,8})), FIXED_ONE / Z_TILE), 500);
+        if (!fire || !target) return fail("spawn Repair Facility fire-boundary target");
+        place_top_left(target, ivec2_add(fire_point, (ivec2_t){8,8}));
+        repair->hp = 500;
+        A_ZGroundFire(fire);
+        if (target->hp != repair_points[i].expected_hp ||
+            repair->hp != (repair_points[i].y <= 64 ? 496 : 500))
+            return fail("Pyro Repair Facility bounds include the lower half through 64 pixels");
+    }
 
     bridge->hp = 0;
     targets[2]->hp = 500;
@@ -1451,6 +1496,34 @@ static int test_shell_building_contact(void) {
     shell->movement.goal = fixed2_scale(fixed2_from_cell(point), FIXED_ONE / Z_TILE);
     A_ZBlastImpact(shell);
     if (building->hp != 450) return fail("shell hits inclusive far building edge");
+
+    zmap_t *map = level.native_data;
+    isize2_t repair_size;
+    if (!Z_SpriteSize(map, Z_BuildingSprite(0, map->world), &repair_size))
+        return fail("repair facility sprite size");
+    ivec2_t repair_origin = {450,450};
+    ivec2_t repair_centre = ivec2_add(repair_origin,
+        (ivec2_t){repair_size.w / 2, repair_size.h / 2});
+    mobj_t *repair = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(repair_centre), FIXED_ONE / Z_TILE), 0), MT_REPAIR);
+    if (!repair) return fail("spawn Repair Facility footprint fixture");
+    repair->native_type_id = 0;
+    repair->z.building = 2;
+    repair->hp = repair->max_hp = 500;
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(
+        ivec2_add(repair_origin, (ivec2_t){4,56})), FIXED_ONE / Z_TILE);
+    A_ZBlastImpact(shell);
+    if (repair->hp != 450) return fail("shell hits Repair Facility's lower half");
+    repair->hp = 500;
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(
+        ivec2_add(repair_origin, (ivec2_t){4,72})), FIXED_ONE / Z_TILE);
+    A_ZBlastImpact(shell);
+    if (repair->hp != 450) return fail("shell hits inclusive Repair Facility boundary at 64 pixels");
+    repair->hp = 500;
+    shell->movement.goal = fixed2_scale(fixed2_from_cell(
+        ivec2_add(repair_origin, (ivec2_t){4,73})), FIXED_ONE / Z_TILE);
+    A_ZBlastImpact(shell);
+    if (repair->hp != 500) return fail("shell misses Repair Facility one pixel below 64-pixel boundary");
     rts_game_model_destroy(model);
     return 0;
 }
