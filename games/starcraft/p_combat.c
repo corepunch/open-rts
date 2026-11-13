@@ -422,20 +422,43 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
     return true;
 }
 
+/* OpenBW bullet_state_bounce takes the first unit find_unit_noexpand yields over
+ * the 96 pixel square around the glaive. The unit finder lists every unit's
+ * inner box twice, at its left and right edge, in one array sorted by x, and
+ * walks the entries with x in [left, right) of the square, skipping a unit
+ * already seen and any whose box misses the square in y (or starts past its right
+ * side). So a unit's place in the order is its left edge, or its right edge when
+ * the left one lies west of the square, and the first candidate is the one with the
+ * smallest such x; units with the same x come out in the reverse of the order they
+ * entered the finder, which is not kept here, so they stay in thinker order. A
+ * candidate qualifies by its box, not its centre. */
+static mobj_t *bounce_target(const mobj_t *shot,const mobj_t *source,const mobj_t *target) {
+    ivec2_t at={shot->core.position.x/SC_PIXELS(1),shot->core.position.y/SC_PIXELS(1)};
+    int left=at.x-96,right=at.x+96,top=at.y-96,bottom=at.y+96;
+    mobj_t *best=NULL;
+    int best_x=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *candidate=(mobj_t *)th;
+        const sc_unit_t *type=sc_unit(candidate);
+        if(th->function!=P_MobjThinker||!type||candidate==target||candidate->id==shot->sc.projectile.previous||
+           candidate->allegiance==ALLEGIANCE_NEUTRAL||!P_CanTarget(source,candidate)||!P_VisibleTo(source,candidate))continue;
+        int x0=candidate->core.position.x/SC_PIXELS(1)+type->bounds.x,x1=x0+type->bounds.w-1;
+        int y0=candidate->core.position.y/SC_PIXELS(1)+type->bounds.y,y1=y0+type->bounds.h-1;
+        if(x0>=right||y0>=bottom||y1<top)continue;
+        int x=x0>=left?x0:x1;
+        if(x<left||x>=right)continue;
+        if(!best||x<best_x){best=candidate;best_x=x;}
+    }
+    return best;
+}
+
 static void projectile_impact(mobj_t *shot) {
     mobj_t *target=shot->attack.target,*source=shot->target;
     const sc_weapon_t *w=sc_weapon(shot->sc.projectile.weapon);
     if(!w){P_RemoveMobj(shot);return;}
     mobj_t *next=NULL;
     if(w->behavior==SC_BEHAVIOR_BOUNCE&&shot->missile.phase<2&&source&&!source->remove&&source->hp>0) {
-        fixed2_t at=fixed3_xy(shot->core.position);
-        for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
-            mobj_t *candidate=(mobj_t *)th;
-            if(th->function!=P_MobjThinker||candidate==target||candidate->id==shot->sc.projectile.previous||
-               candidate->allegiance==ALLEGIANCE_NEUTRAL||!P_CanTarget(source,candidate)||!P_VisibleTo(source,candidate))continue;
-            fixed2_t delta=fixed2_sub(fixed3_xy(candidate->core.position),at);
-            if(abs(delta.x)<=WEAPON_BOUNCE_RANGE&&abs(delta.y)<=WEAPON_BOUNCE_RANGE){next=candidate;break;}
-        }
+        next=bounce_target(shot,source,target);
     }
     bool can_hit=!shot->sc.projectile.missed&&target&&!target->remove&&target->hp>0&&sc_type(target)&&
         !(target->sc.flags&SC_INVINCIBLE)&&!target->sc.timers[SC_TIMER_STASIS];

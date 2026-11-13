@@ -215,7 +215,7 @@ the Death scripts of the installed `iscript.bin`:
 |---|---|---|---|
 | 0 fly | `state_move`, aim fixed at creation, miss roll source 1 | `projectile_tick`, fixed aim, `weapon_misses` | none found |
 | 1 follow | `state_follow`, re-aims at the target each frame unless it missed | same | none found |
-| 7 bounce | `state_bounce`, 3 arrivals, divisors 1, 3, 9, search 96 px square, no lifetime | same divisors and count; `WEAPON_BOUNCE_RANGE` scan in thinker order | candidate order: OpenBW takes the first unit its unit finder yields, this engine the first thinker; which is first is not established |
+| 7 bounce | `state_bounce`, 3 arrivals, divisors 1, 3, 9, search 96 px square, no lifetime | same divisors and count; target by `bounce_target` (below) | none left except ties between equal box edges |
 | 2 appear on target | Init sigorder, then Death; damage on the Death script's `domissiledmg` | a pending-hit shot mobj deals damage on the Death script's `domissiledmg` frame | none left: 0 frames for most, 1 (Arclite Shock Cannon), 3 (Psionic Shockwave), 5 (Subterranean Tentacle, Acid Spray); see "Delayed damage" |
 | 3 persist | `state_damage_over_time`, hit every 7 frames | spell code | not compared |
 | 4, 5, 6 | Death script, `domissiledmg` at frame 5 for the shared placeholder flingy 172 | not projectile weapons here | Flame Thrower, Nuclear Strike, Suicide, Scarab, Spider Mine delay 5 frames in OpenBW |
@@ -279,6 +279,12 @@ are dealt by the shared attack path around the target, and the others are units
 or orders with their own code. Delaying them needs the OpenBW bullet geometry
 (appear at the source, `forward_offset`, splash around that point) first; no
 trace here establishes that the engine's target-centred flames equal it.
+
+## Glaive Wurm bounce target
+
+OpenBW `bullet_state_bounce` calls `find_unit_noexpand(square_at(glaive position, 96), pred)`, which returns the first unit of `find_units_noexpand`: `unit_finder_search` walks `state.unit_finder_x`, the array of every non-turret unit's inner box (`unit_sprite_inner_bounding_box`: position minus and plus `dimensions`) inserted twice, at its left and its right x, sorted by that value (`unit_finder_insert`, `lower_bound`), over the entries with value in `[from.x, to.x)` of the square. An entry counts if its unit's box starts left of the square's east side and overlaps it in y (`in_bounds`), and a unit already seen through its other entry is skipped. The predicate is `unit_can_attack_target`, an enemy (`unit_target_is_enemy`), not the current or previous target. So the target is the qualifying unit with the smallest of: its box left edge if that is at or east of the square's west side, else its right edge.
+
+`bounce_target` in `p_combat.c` computes exactly that key from `units.dat` boxes (`sc_unit_t.bounds`) instead of the old rule (first thinker whose centre is within 96 px on both axes), without a spatial finder. Test: `bounce_order` in `test_projectiles` (two candidates in either creation order, the box rather than the centre east and north, the square's edges, a unit west of the square whose right edge is inside it). Not established: units whose entries have the same x come out of OpenBW in the reverse of the order they entered the finder (`lower_bound` inserts before equal values), a history this engine does not keep; they stay in thinker order. The engine's own `P_CanTarget` and `P_VisibleTo` filters replace `unit_can_attack_target` (which has no fog test); that difference is unchanged.
 
 ## Limits
 
