@@ -1721,6 +1721,18 @@ than being replaced with numeric approximations:
   bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x991c4' -c q
   data/Z/ZED.EXE` and run `SDL_VIDEODRIVER=dummy
   build/bin/tests/z/test_commander`.
+- `0x99502..0x99538` releases an offensive task after first checking the
+  current territory with `0x9956a`. If allowed, it calls `0x9d42c`; when
+  `0x9d4f4` finds no staging point, `0x9d4ab` returns without dispatching a
+  replacement command, then the task fields are cleared. If the territory is
+  restricted, `0x99539..0x99568` instead dispatches a stop at the unit origin.
+  The engine now preserves an existing queued order in the failed-staging
+  case and still queues the stop for the restricted case. Its path and
+  reservation validation remain approximations of `0x9d4f4`.
+  `test_retreat_without_staging` checks both branches through a normal AI
+  retreat pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+  -c 'pd 40 @ 0x99502' -c 'pd 40 @ 0x9d42c' -c q data/Z/ZED.EXE` and
+  run `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - For a march that must wait for another force, `0x997a9..0x997d4` calls
   `0x9d42c` for the current territory and then writes task state 2 and its
   current-territory target without checking the dispatch result. The engine

@@ -399,8 +399,7 @@ static bool to_flag(zmap_t *map, zaitask_t *task, int territory) {
 /* 0x99502: re-stage in the current territory (or stop) and forget. */
 static void release(zmap_t *map, zaitask_t *task) {
     mobj_t *mo = P_MobjById(task->unit);
-    if (live(mo) && !send(map, task, task->current))
-        queue(&map->ai, task, fixed3_xy(mo->core.position), 0);
+    if (live(mo)) send(map, task, task->current);
     clear(task);
 }
 /* 0x999c2: hold a territory. */

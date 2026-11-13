@@ -741,6 +741,47 @@ static int test_retreat(void) {
     return 0;
 }
 
+static int test_retreat_without_staging(void) {
+    for (int restricted = 0; restricted < 2; ++restricted) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load retreat staging fixture");
+        mobj_t *lead = scenario();
+        zmap_t *map = level.native_data;
+        map->computer.intelligence = 126;
+        think(0);
+        zaitask_t *task = task_of(lead);
+        if (!task || task->current < 0 || task->current == 8) return fail("register retreat staging task");
+        int current = task->current;
+        map->ai.territories[current].flags &= ~(32 | 64);
+        if (restricted) {
+            map->ai.territories[current].flags |= 64;
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (mo->team == lead->team && mo->z.squad == lead->z.squad) mo->z.grenades = 0;
+            }
+        } else if (map->ai.territories[current].flags & 1) map->forts[0] = (ivec2_t){-10000, -10000};
+        else if (map->ai.territories[current].flags & 2) map->forts[1] = (ivec2_t){-10000, -10000};
+        else map->territories[current].flag = (ivec2_t){-1000, -1000};
+        fixed2_t old_order = fixed2_cell_center(map->territories[8].flag);
+        fixed2_t expected = restricted ? fixed3_xy(lead->core.position) : old_order;
+        task->task = 0;
+        task->target = task->destination = 8;
+        task->pending = true;
+        task->order = old_order;
+        task->execute_at = map->ai.clock + 10000;
+        for (int i = 0; nth(MT_UNIT_GRUNT, 0, i); ++i)
+            nth(MT_UNIT_GRUNT, 0, i)->core.position = fixed3_from_fixed2(old_order, 0);
+        map->ai.delay = 0;
+        map->ai.fraction = 0;
+        think(1);
+        if (task->task != -1 || task->target != -1 || task->destination != -1 ||
+            !task->pending || !fixed2_equal(task->order, expected))
+            return fail("retreat preserves a blocked order and stops for a restricted territory");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 /* 0x9c174/0x9cab4: a reserve standing in a territory whose flag was just
  * taken, with no enemy there, runs back onto the flag and retakes it. */
 static int test_recapture(void) {
@@ -1260,7 +1301,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_retreat_without_staging() || test_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
