@@ -747,15 +747,16 @@ bool rts_game_model_tick(RtsGameModel *model, int dt_ms) {
         old_state[i] = model->objects.items[i]->core.state_id;
         old_arrived[i] = model->objects.items[i]->movement.order_arrived;
     }
-    P_Ticker();
+    bool frozen = G_WorldFrozen();
+    if (!frozen) P_Ticker();
     refresh_model_objects(model);
-    P_AiTick(&model->ai, &level, model->objects.items, model->objects.count,
-             gameinfo, dt_ms);
+    if (!frozen) P_AiTick(&model->ai, &level, model->objects.items, model->objects.count,
+                          gameinfo, dt_ms);
     G_MissionTicker(&level, model->objects.items, &model->objects.count,
                     &model->hud, dt_ms);
     refresh_model_objects(model);
     G_OutcomeTicker(model->objects.items, model->objects.count);
-    G_ProductionTicker(dt_ms);
+    if (!frozen) G_ProductionTicker(dt_ms);
 
     refresh_model_objects(model);
     HU_Ticker(&model->hud, (float)dt_ms / 1000.0f);

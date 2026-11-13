@@ -73,8 +73,8 @@ static mobj_t *spawn(int native, int owner) {
 }
 
 /* The inventory in docs/SC_EXE_FINDINGS.md: every action and condition type
- * in the installed campaign CHKs is classified, and the unsupported ones are
- * exactly Pause Game, Unpause Game and Set Doodad State. */
+ * in the installed campaign CHKs is classified, and the only unsupported one
+ * is Set Doodad State. */
 static unsigned action_count[256], condition_count[256];
 static int scan_chk(const char *file) {
     FILE *f = fopen(file, "rb");
@@ -114,7 +114,7 @@ static int inventory(void) {
         if (action_count[id]) CHECK(id < SC_TRIG_ACTION_TYPES);
         if (condition_count[id]) CHECK(id < SC_TRIG_CONDITION_TYPES);
         bool unsupported = action_count[id] && sc_trigger_action_status(id) == SC_TRIG_UNSUPPORTED;
-        CHECK(unsupported == (id == 5 || id == 6 || id == 42));
+        CHECK(unsupported == (id == 42));
         CHECK(!condition_count[id] || sc_trigger_condition_status(id) != SC_TRIG_UNSUPPORTED);
     }
     CHECK(action_count[5] == 81 && action_count[6] == 23 && action_count[42] == 69);
@@ -128,10 +128,10 @@ static int reports(void) {
     uint8_t *t = trigger();
     CHECK(t);
     action(t, 0, 3, 0, 0, 0, 0, 0, 0, 0);
-    action(t, 1, 5, 0, 0, 0, 0, 0, 0, 0);
-    action(t, 2, 6, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 58, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 2, 59, 0, 0, 0, 0, 0, 0, 0);
     action(t, 3, 42, 5, 0, 0, 0, 17, 0, 207);
-    action(t, 4, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 4, 58, 0, 0, 0, 0, 0, 0, 0);
     action(t, 5, 200, 0, 0, 0, 0, 0, 0, 0);
     action(t, 6, 54, 0, 0, 0, 0, 0, 0, 0);
     CHECK(load(t, NULL, 0));
@@ -139,7 +139,7 @@ static int reports(void) {
     CHECK(!m->trigger_warnings);
     tick(3);
     CHECK(m->trigger_warnings == 4);
-    CHECK(sc_trigger_reported(m, true, 5) && sc_trigger_reported(m, true, 6) &&
+    CHECK(sc_trigger_reported(m, true, 58) && sc_trigger_reported(m, true, 59) &&
           sc_trigger_reported(m, true, 42) && sc_trigger_reported(m, true, 200));
     CHECK(!sc_trigger_reported(m, true, 54) && !sc_trigger_reported(m, true, 3));
     unload();
@@ -147,7 +147,7 @@ static int reports(void) {
     /* A disabled action is skipped, not reported; a supported one is silent. */
     t = trigger();
     CHECK(t);
-    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 0, 58, 0, 0, 0, 0, 0, 0, 0);
     t[320 + 28] = 2;
     action(t, 1, 13, 4, 0, 0, 0, 0, 1, 0);
     CHECK(load(t, NULL, 0));
@@ -370,11 +370,180 @@ static int save_state(void) {
     return 0;
 }
 
+/* Several triggers in one map. */
+static bool load_many(uint8_t *t, size_t count) {
+    bool ok = !write_map(t, count, NULL, 0) && G_DoLoadLevel(path, &level) && level.mission;
+    free(t);
+    return ok;
+}
+
+static uint8_t *triggers(size_t count) {
+    uint8_t *t = calloc(count, 2400);
+    for (size_t i = 0; t && i < count; i++) { t[i * 2400 + 2372] = 1; t[i * 2400 + 15] = 22; }
+    return t;
+}
+
+/* Pause Game and Unpause Game (actions 5 and 6, 0x4ac330 and 0x4ac3a0): one
+ * boolean, human-owned triggers only, never in a network game; triggers and
+ * Wait timers keep running while elapsed time and the countdown stop; a
+ * trigger that holds the pause releases it when its list ends. */
+static int pausing(void) {
+    /* Pause freezes the world, and elapsed time and the countdown with it. */
+    uint8_t *t = trigger();
+    CHECK(t);
+    action(t, 0, 14, 7, 0, 0, 10, 0, 0, 0);
+    action(t, 1, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 2, 4, 0, 0, 0, 10 * RTS_TICK_MS, 0, 0, 0);
+    action(t, 3, 13, 4, 0, 0, 0, 0, 0, 0);
+    action(t, 4, 6, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    sc_mission_t *m = level.mission;
+    CHECK(!sc_world_frozen() && !G_WorldFrozen());
+    tick(1);
+    CHECK(sc_world_frozen() && G_WorldFrozen() && m->rt[0].pauser);
+    CHECK(m->elapsed_ms == RTS_TICK_MS && m->countdown_ms == 10000);
+    int ticks = 0;
+    while (!m->switches[0] && ticks < 40) {
+        tick(1);
+        ticks++;
+        if (!m->switches[0]) CHECK(sc_world_frozen() && m->elapsed_ms == RTS_TICK_MS && m->countdown_ms == 10000);
+    }
+    /* The Wait kept counting while paused; Unpause then ran. */
+    CHECK(m->switches[0] == 1 && ticks >= 9 && ticks <= 11);
+    CHECK(!sc_world_frozen() && !m->rt[0].pauser);
+    int elapsed = m->elapsed_ms;
+    tick(2);
+    CHECK(m->elapsed_ms == elapsed + 2 * RTS_TICK_MS && m->countdown_ms == 10000 - 2 * RTS_TICK_MS);
+    unload();
+
+    /* Pausing twice and unpausing once is not paused: no count. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 2, 6, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 3, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    tick(1);
+    CHECK(!sc_world_frozen());
+    unload();
+
+    /* A computer-owned trigger cannot pause. */
+    t = trigger();
+    CHECK(t);
+    memset(t + 2372, 0, 8); t[2373] = 1;
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(2);
+    CHECK(!sc_world_frozen() && !m->rt[1].pauser);
+    unload();
+
+    /* ... and cannot end a human's pause, or unpause when none is held. */
+    t = triggers(2);
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    memset(t + 2400 + 2372, 0, 8); t[2400 + 2373] = 1;
+    action(t + 2400, 0, 6, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(load_many(t, 2));
+    m = level.mission;
+    tick(3);
+    CHECK(sc_world_frozen() && m->rt[0].pauser);
+    unload();
+
+    /* A network game ignores both actions. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    netgame = true;
+    tick(1);
+    CHECK(!sc_world_frozen());
+    unload();
+
+    /* Another trigger can unpause, but only the pausing trigger's mark is
+     * cleared; the mark stays until that trigger's own list ends. */
+    t = triggers(2);
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 5 * RTS_TICK_MS, 0, 0, 0);
+    action(t + 2400, 0, 6, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(load_many(t, 2));
+    m = level.mission;
+    tick(1);
+    CHECK(!sc_world_frozen() && m->rt[0].pauser && !m->rt[8].pauser);
+    for (int n = 0; n < 12; n++) tick(1);
+    CHECK(!sc_world_frozen() && m->rt[0].disabled);
+    unload();
+
+    /* A trigger that holds the pause releases it when its list ends. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 5 * RTS_TICK_MS, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(1);
+    CHECK(sc_world_frozen());
+    tick(3);
+    CHECK(sc_world_frozen() && !m->rt[0].disabled);
+    for (int n = 0; n < 6 && !m->rt[0].disabled; n++) tick(1);
+    CHECK(m->rt[0].disabled && !sc_world_frozen() && !m->rt[0].pauser);
+    unload();
+
+    /* Save and load while paused, with malformed records rejected. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(2);
+    CHECK(sc_world_frozen());
+    uint32_t hash = G_ConsistencyExtra(0);
+    size_t size = G_SaveExtraSize();
+    uint8_t *blob = malloc(size);
+    CHECK(blob);
+    G_SaveExtra(blob);
+    m->trigger_paused = false;
+    m->rt[0].pauser = false;
+    CHECK(G_ConsistencyExtra(0) != hash);
+    CHECK(G_LoadExtra(blob, size));
+    m = level.mission;
+    CHECK(sc_world_frozen() && m->rt[0].pauser && G_ConsistencyExtra(0) == hash);
+    m->trigger_paused = false;
+    CHECK(G_ConsistencyExtra(0) != hash);
+    m->trigger_paused = true;
+    m->rt[0].pauser = false;
+    CHECK(G_ConsistencyExtra(0) != hash);
+    m->rt[0].pauser = true;
+    CHECK(G_ConsistencyExtra(0) == hash);
+    sc_mission_t *saved = (sc_mission_t *)blob;
+    unsigned char good = *(unsigned char *)&saved->trigger_paused;
+    *(unsigned char *)&saved->trigger_paused = 2;
+    CHECK(!G_LoadExtra(blob, size));
+    *(unsigned char *)&saved->trigger_paused = good;
+    CHECK(G_LoadExtra(blob, size));
+    sc_trig_t *runtime = (sc_trig_t *)(blob + size - 8 * sizeof(sc_trig_t));
+    unsigned char *mark = (unsigned char *)&runtime[0].pauser, mark_good = *mark;
+    *mark = 2;
+    CHECK(!G_LoadExtra(blob, size));
+    *mark = mark_good;
+    CHECK(G_LoadExtra(blob, size));
+    free(blob);
+    CHECK(G_SaveLayout() == 22);
+    unload();
+    return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
     consoleplayer = 0;
-    if (inventory() || reports() || leaderboards() || portrait() || ai_scripts() || save_state()) return 1;
+    if (inventory() || reports() || leaderboards() || portrait() || ai_scripts() || save_state() || pausing()) return 1;
     remove(path);
     puts("PASS: trigger coverage, leaderboards, portrait, AI scripts and saves");
     return 0;

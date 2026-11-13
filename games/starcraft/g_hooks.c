@@ -2,7 +2,9 @@
 
 /* Research restrictions, projectiles, construction progress, transport timers
  * and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 21; }
+uint32_t G_SaveLayout(void) { return 22; }
+
+bool G_WorldFrozen(void) { return sc_world_frozen(); }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -39,6 +41,8 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         hash = G_HashValue(hash, lb->quantity);
         hash = G_HashValue(hash, m->leaderboard_computers);
         hash = G_HashValue(hash, m->portrait_unit); hash = G_HashValue(hash, m->portrait_ms);
+        hash = G_HashValue(hash, m->trigger_paused);
+        for (int i = 0; i < m->trig_count * 8; ++i) hash = G_HashValue(hash, m->rt[i].pauser);
         for (int i = 0; i < 8; ++i) {
             hash = G_HashValue(hash, (uint32_t)lb->value[i]);
             hash = G_HashValue(hash, (uint32_t)((uint64_t)lb->value[i] >> 32));

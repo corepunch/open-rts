@@ -1088,7 +1088,34 @@ static bool give_unit(mobj_t *mo, uint8_t owner) {
     return true;
 }
 
-static void finish_trigger(sc_trig_t *st) {
+/* Pause Game (action 5, 0x4ac330) and Unpause Game (action 6, 0x4ac3a0). The
+ * pause is one boolean, not a count; only a trigger owned by a human slot
+ * takes effect, and never in a network game. Unpause clears only the
+ * executing trigger's own mark, and a trigger that still holds its mark when
+ * its action list ends runs Unpause itself. */
+static bool pause_owner(const sc_mission_t *m, int owner) {
+    return !netgame && owner >= 0 && owner < 12 && (m->owners[owner] == 2 || m->owners[owner] == 6);
+}
+
+static void trigger_pause(sc_mission_t *m, sc_trig_t *st) {
+    if (m->trigger_paused || !pause_owner(m, st->current)) return;
+    m->trigger_paused = true;
+    st->pauser = true;
+}
+
+static void trigger_unpause(sc_mission_t *m, sc_trig_t *st) {
+    if (!m->trigger_paused || !pause_owner(m, st->current)) return;
+    st->pauser = false;
+    m->trigger_paused = false;
+}
+
+bool sc_world_frozen(void) {
+    const sc_mission_t *m = mission(&level);
+    return m && m->trigger_paused;
+}
+
+static void finish_trigger(sc_mission_t *m, sc_trig_t *st) {
+    if (st->pauser) trigger_unpause(m, st);
     if (st->preserve) { st->cursor = 0; st->running = false; st->preserve = false; }
     else st->disabled = true;
 }
@@ -1153,7 +1180,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
     while (st->cursor < 64) {
         const uint8_t *a = trig + 320 + st->cursor * 32;
         uint8_t id = a[26];
-        if (!id) { finish_trigger(st); return; }
+        if (!id) { finish_trigger(m, st); return; }
         st->cursor++;
         if (a[28] & 2) continue;
         sc_trigger_note(m, true, id);
@@ -1174,6 +1201,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         }
         if (!local && (id == 8 || id == 9 || id == 10 || id == 12 || id == 28)) continue;
         if (id == 3) { st->preserve = true; continue; }
+        if (id == 5) { trigger_pause(m, st); continue; }
+        if (id == 6) { trigger_unpause(m, st); continue; }
         if (id == 4) {
             if (player_waiting(m, st->current)) { st->cursor--; return; }
             st->wait_ms = time > INT_MAX ? INT_MAX : time ? (int)time : 1;
@@ -1413,7 +1442,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
     }
-    finish_trigger(st);
+    finish_trigger(m, st);
 }
 
 /* Computer and human slots take part in elimination (not rescuable or
@@ -1452,7 +1481,10 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
         G_EndLevel(result == 1 ? OUTCOME_VICTORY : result == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
     }
     int ms = dt_ms < 1 ? 1 : dt_ms;
-    m->elapsed_ms += ms;
+    /* While a trigger holds the pause the retail executor (0x4b4120) keeps
+     * evaluating triggers and counting Wait timers but skips the block that
+     * advances elapsed game time and the countdown timer. */
+    if (!m->trigger_paused) m->elapsed_ms += ms;
     if (m->portrait_ms > 0) {
         m->portrait_ms -= ms;
         if (m->portrait_ms <= 0) { m->portrait_ms = 0; m->portrait_unit = 0; }
@@ -1473,7 +1505,7 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
     /* A melee map can omit TRIG. Campaign maps carry a Victory action, so
      * elimination applies only when the map never declares its own winner. */
     if (m->trig) {
-        if (!m->countdown_paused && m->countdown_ms > 0) {
+        if (!m->trigger_paused && !m->countdown_paused && m->countdown_ms > 0) {
             m->countdown_ms -= ms;
             if (m->countdown_ms < 0) m->countdown_ms = 0;
         }

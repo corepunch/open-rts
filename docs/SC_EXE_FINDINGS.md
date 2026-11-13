@@ -3503,3 +3503,35 @@ Of these, only Rscu has an effect that does not need the retail AI planner,
 and it needs a rescue mechanism (a Rescue Passive owner whose units become
 the rescuer's on approach) that this engine does not have; see "Run AI
 Script" above. Nothing was implemented for the scripts.
+
+#### Implemented: Pause Game and Unpause Game (2026-11-13)
+
+`games/starcraft/p_trig.c` now executes actions 5 and 6 as traced: one
+boolean `sc_mission_t.trigger_paused` (no count), a per-trigger-owner mark
+`sc_trig_t.pauser` (retail flag bit 0x20), no effect in a network game
+(`netgame`) or when the trigger owner is not a human slot (OWNR 2 or 6),
+Unpause clearing only the executing trigger's mark, and a trigger that still
+holds its mark when its action list ends running Unpause itself. While the
+pause is in force `sc_mission_tick` still evaluates triggers and counts Wait
+timers but does not advance `elapsed_ms` or the countdown timer, as the
+retail executor 0x4b4120 skips that block.
+
+The only shared-code change is an optional hook, `G_WorldFrozen()` (weak
+default `false` in `game/g_hooks.c`, declared in `include/engine.h`), used by
+`driver/d_main.c` and `rts_game_model_tick` (`game/g_game.c`): when it is true
+`P_Ticker`, `P_AiTick` and `G_UpdateProduction` do not run for that tick while
+the mission ticker and `G_OutcomeTicker` still do. The value is read before
+the mission ticker, so a pause takes effect from the next tick, matching the
+retail order (simulation step 0x4419d0, then 0x4b4120). For every game other
+than StarCraft the hook is a constant false.
+
+Save layout 21 to 22 (`sc_trig_t.pauser` and `trigger_paused`, both hashed,
+both validated as raw bytes on load). Not done: the paused-mode cursor, and
+whichever sprite-level updates retail keeps running while paused (0x433fc0
+list), because neither was traced to its effect; the local player's ability to
+issue commands during a trigger pause was not traced either.
+Tests: `tests/starcraft/test_triggers.c::pausing` (freeze, elapsed time and
+countdown stop with Wait still counting, nesting, computer owner, network,
+foreign unpause leaving the pauser mark, end-of-list unpause, save/load and
+malformed records) and the updated campaign inventory (only action 42 remains
+unsupported).

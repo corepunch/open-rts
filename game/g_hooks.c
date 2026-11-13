@@ -22,6 +22,7 @@ WEAK bool G_GameSave(const char *path, const char *name, const app_t *app,
 WEAK bool G_GameLoad(const char *path, app_t *app, AiContext *ai, hudtext_t *hud) {
     return G_LoadGame(path, app, ai, hud);
 }
+WEAK bool G_WorldFrozen(void) { return false; }
 WEAK bool G_TakeCameraRequest(fvec2_t *cell) { (void)cell; return false; }
 WEAK void G_FreeLevelData(level_t *map) { (void)map; }
 WEAK bool G_LoadLevelData(const char *root, level_t *map) { (void)root; (void)map; return true; }

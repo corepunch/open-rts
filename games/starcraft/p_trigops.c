@@ -13,7 +13,7 @@ typedef struct { const char *name; sc_trig_status_t status; } trig_op_t;
 
 static const trig_op_t actions[SC_TRIG_ACTION_TYPES] = {
     {"No Action", N}, {"Victory", S}, {"Defeat", S}, {"Preserve Trigger", S}, {"Wait", S},
-    {"Pause Game", U}, {"Unpause Game", U}, {"Transmission", S}, {"Play WAV", S},
+    {"Pause Game", S}, {"Unpause Game", S}, {"Transmission", S}, {"Play WAV", S},
     {"Display Text Message", S}, {"Center View", S}, {"Create Unit with Properties", S},
     {"Set Mission Objectives", S}, {"Set Switch", S}, {"Set Countdown Timer", S},
     {"Run AI Script", P}, {"Run AI Script At Location", P},

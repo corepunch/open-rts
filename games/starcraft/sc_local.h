@@ -213,6 +213,7 @@ bool sc_font(const char *root, const char *name, bitmapfont_t *font);
 typedef struct {
     int cursor, wait_ms, current;
     bool running, preserve, disabled;
+    bool pauser; /* This trigger holds the game pause (retail trigger flag 0x20). */
 } sc_trig_t;
 typedef struct { uint16_t vf4[16], cv5; } sc_terrain_t;
 enum { SC_LOCATION_COUNT = 256 };
@@ -248,6 +249,7 @@ typedef struct {
     uint32_t custom_score[8];
     uint32_t score_variables[8][7];
     int elapsed_ms, countdown_ms;
+    bool trigger_paused; /* Pause Game (5) is in force: the world is frozen. */
     bool countdown_paused, has_victory, ai_on[8];
     uint8_t player_result[8]; /* Synchronized trigger outcomes. */
     int result;
@@ -285,6 +287,8 @@ const sc_leaderboard_t *sc_leaderboard(void);
 bool sc_talking_portrait(uint16_t *unit, int *ms);
 bool sc_mission_bind(level_t *map);
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms);
+/* True while a trigger has paused the game: the world does not advance. */
+bool sc_world_frozen(void);
 void sc_note_damage(mobj_t *mo);
 mobj_t *sc_spawn_actor(unsigned type, ivec2_t pixel, uint8_t owner);
 bool sc_add_resource_vent(mobj_t *source, int amount);

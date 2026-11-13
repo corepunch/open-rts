@@ -575,7 +575,10 @@ load_level:
                 NetUpdate();
                 continue;
             }
-            P_Ticker();
+            /* A campaign trigger can freeze the world while the mission
+             * ticker keeps running (G_WorldFrozen). */
+            bool frozen = G_WorldFrozen();
+            if (!frozen) P_Ticker();
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
             units = objects.items;
@@ -610,8 +613,8 @@ load_level:
             int before_production_count = unit_count;
             bool production_spawned;
             /* Every game's computer players buy through the universal AI. */
-            P_AiTick(&ai, &level, units, unit_count, gameinfo, RTS_TICK_MS);
-            production_spawned = G_UpdateProduction(&level, units, &unit_count, RTS_TICK_MS);
+            if (!frozen) P_AiTick(&ai, &level, units, unit_count, gameinfo, RTS_TICK_MS);
+            production_spawned = !frozen && G_UpdateProduction(&level, units, &unit_count, RTS_TICK_MS);
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
             units = objects.items;
