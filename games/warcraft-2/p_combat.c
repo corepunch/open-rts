@@ -67,9 +67,84 @@ int W2_AttackDamage(const mobj_t *attacker, const mobj_t *target, uint32_t roll)
     return damage < 1 ? 1 : damage;
 }
 
+/* Siege, ships and towers whose weapon splashes: Wargus lists them for
+ * attack-ground. A melee blow or an arrow has no point to land on. */
+bool W2_CanAttackGround(const mobj_t *unit) {
+    if (!unit || unit->remove || unit->hp <= 0 || !(unit->traits & MF_ATTACK) ||
+        unit->type_id == 0 || unit->type_id >= NUMMOBJTYPES || W2_UnderConstruction(unit)) return false;
+    int shot = mobjinfo[unit->type_id].w2.projectile;
+    return shot > W2_FX_NONE && shot < W2_FX_COUNT && w2_effects[shot].range > 0;
+}
+
+/* Reach is whole tiles, as the unit's attack range and minimum are. */
+static bool ground_in_reach(const mobj_t *unit, fixed3_t point) {
+    ivec2_t from = fixed2_cell(fixed3_xy(unit->core.position));
+    ivec2_t to = fixed2_cell(fixed3_xy(point));
+    int dx = abs(from.x - to.x), dy = abs(from.y - to.y);
+    int distance = dx > dy ? dx : dy;
+    return distance <= fixed_floor_int(W2_AttackRange(unit)) &&
+           distance >= mobjinfo[unit->type_id].w2.min_attack_range;
+}
+
+/* A new order drops whatever the unit was doing, as TC_ATTACK does, and
+ * stops it chasing or picking up units: it fires at the point only. */
+bool W2_GroundOrder(mobj_t *unit, fixed3_t point) {
+    if (!W2_CanAttackGround(unit)) return false;
+    W2_InterruptRepair(unit);
+    W2_InterruptHarvest(unit);
+    W2_InterruptBuild(unit);
+    unit->w2.carrier = 0;
+    unit->w2.unloading = false;
+    unit->w2.stand_ground = false;
+    unit->w2.cast.spell = 0;
+    unit->waypoints = (waypoints_t){0};
+    unit->attack.target = NULL;
+    unit->harvest.target = -1;
+    unit->harvest.base = NULL;
+    unit->harvest.phase = 0;
+    unit->harvest.timer_ms = 0;
+    P_ClearMove(unit);
+    unit->w2.ground.active = true;
+    unit->w2.ground.position = point;
+    return true;
+}
+
+/* The shot itself: the release frame of the attack row, once, then idle. */
+static void fire_ground(mobj_t *unit) {
+    fixed3_t point = unit->w2.ground.position;
+    bool reached = ground_in_reach(unit, point);
+    unit->w2.ground.active = false;
+    if (!reached) return;
+    S_ActorSound(unit, SE_ATTACK);
+    unit->w2.buffs[W2_BUFF_INVISIBLE] = 0;
+    w2_fire_ground(unit, point);
+}
+
+/* Walk until the point is in reach, then enter the attack row. A unit that
+ * cannot move to it, or a point it cannot see, gives the order up. */
+void W2_TickGroundAttack(mobj_t *unit) {
+    if (!unit->w2.ground.active) return;
+    if (!W2_CanAttackGround(unit)) { unit->w2.ground.active = false; return; }
+    if (states[unit->core.state_id].group == W2_GROUP_ATTACK) return;
+    fixed3_t point = unit->w2.ground.position;
+    if (ground_in_reach(unit, point)) {
+        int attack = mobjinfo[unit->type_id].missilestate;
+        if (!attack) { unit->w2.ground.active = false; return; }
+        P_ClearMove(unit);
+        fixed2_t facing = fixed2_sub(fixed3_xy(point), fixed3_xy(unit->core.position));
+        unit->core.angle = P_PointToAngle(facing.x, facing.y);
+        P_SetMobjState(unit, attack);
+        return;
+    }
+    if (P_HasMoveOrder(unit)) return;
+    if (!(unit->traits & MF_MOBILE) || !P_MoveUnitTo(&level, unit, fixed3_xy(point)))
+        unit->w2.ground.active = false;
+}
+
 /* The blow of the attack row: the target may have moved since the windup. */
 void A_W2_Attack(mobj_t *unit) {
     if (unit && unit->w2.cast.spell) { A_W2_Cast(unit); return; }
+    if (unit && unit->w2.ground.active) { fire_ground(unit); return; }
     mobj_t *target = unit ? unit->attack.target : NULL;
     if (!target || target->remove || target->hp <= 0 || unit->hp <= 0 ||
         !P_CanTarget(unit, target) || !P_InAttackRange(unit, target)) return;

@@ -80,13 +80,15 @@ void W2_Burning(mobj_t *unit) {
     if (fire) { fire->w2.fx.subject = unit->id; unit->w2.fire = fire->id; }
 }
 
-bool w2_fire_projectile(mobj_t *source, mobj_t *target) {
+/* A shot from the source's weapon flying to `end`. Subject 0 is a shot at
+ * the ground: it damages what stands in its splash and no unit by name. */
+static bool launch(mobj_t *source, fixed3_t end, uint32_t subject) {
     const w2_stats_t *stats = &mobjinfo[source->type_id].w2;
     if (stats->projectile == W2_FX_NONE) return false;
     mobj_t *shot = w2_spawn_effect(source, stats->projectile, source->core.position);
     if (!shot) return true; /* An unavailable effect must not turn into a hitscan. */
-    shot->w2.fx.subject = target->id;
-    shot->w2.fx.end = target->core.position;
+    shot->w2.fx.subject = subject;
+    shot->w2.fx.end = end;
     shot->w2.fx.basic = stats->basic_damage;
     shot->w2.fx.piercing = W2_PiercingDamage(source);
     if (source->w2.buffs[W2_BUFF_BLOODLUST]) {
@@ -94,10 +96,17 @@ bool w2_fire_projectile(mobj_t *source, mobj_t *target) {
         shot->w2.fx.piercing *= 2;
     }
     shot->w2.fx.mask = stats->target_mask;
-    fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position),
-                                fixed3_xy(source->core.position));
+    fixed2_t delta = fixed2_sub(fixed3_xy(end), fixed3_xy(source->core.position));
     shot->core.angle = P_PointToAngle(delta.x, delta.y);
     return true;
+}
+
+bool w2_fire_projectile(mobj_t *source, mobj_t *target) {
+    return launch(source, target->core.position, target->id);
+}
+
+bool w2_fire_ground(mobj_t *source, fixed3_t point) {
+    return launch(source, point, 0);
 }
 
 static void hit(mobj_t *shot, mobj_t *victim, int divisor) {

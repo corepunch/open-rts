@@ -1065,6 +1065,7 @@ typedef enum {
     TC_BOARD, TC_UNLOAD,
     TC_CANCEL_PRODUCTION, TC_SET_RALLY,
     TC_FOLLOW, TC_LIFT, TC_LAND,
+    TC_ATTACK_GROUND, /* Warcraft II: fire at a point, no unit target. */
     TC_RESYNC, /* Network only: one chunk of a resync save, never queued or run. */
     TC_MAX = TC_RESYNC
 } ticorder_t;

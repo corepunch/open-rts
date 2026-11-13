@@ -79,6 +79,7 @@ extern const w2_effect_t w2_effects[W2_FX_COUNT];
 void A_W2_Effect(mobj_t *effect);
 mobj_t *w2_spawn_effect(mobj_t *source, int kind, fixed3_t position);
 bool w2_fire_projectile(mobj_t *source, mobj_t *target);
+bool w2_fire_ground(mobj_t *source, fixed3_t point);
 extern const int w2_spell_sounds[W2_SPELL_COUNT];
 void w2_build_states(int pud, int phases);
 int w2_pud_named(const char *name);
