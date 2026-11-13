@@ -2304,6 +2304,52 @@ static int test_repair_scan_stops(void) {
     return 0;
 }
 
+static int test_full_health_repair(void) {
+    for (int mode = 0; mode < 3; ++mode) {
+        bool queued = mode == 1;
+        RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+        if (!model) return fail("full-health repair load");
+        service_fixture();
+        mobj_t *facility = nth(MT_REPAIR, -1, 0);
+        if (!facility) return fail("full-health repair facility");
+        Z_SetTeam(facility, 1);
+        mobj_t *tank = service_unit(MT_UNIT_MED_TANK, fixed3_xy(facility->core.position));
+        if (!tank) return fail("full-health repair tank");
+        if (mode == 2) tank->hp--;
+        if (queued) {
+            ticcmd_t move = {.order = TC_MOVE, .position = tank->core.position, .count = 1, .units = {tank->id}};
+            G_RunTiccmd(1, &move);
+        }
+        ticcmd_t repair = {.order = TC_REPAIR, .target = facility->id, .position = facility->core.position,
+                           .queued = queued, .count = 1, .units = {tank->id}};
+        G_RunTiccmd(1, &repair);
+        if (queued && !tank->z.route.count) return fail("full-health repair is queued");
+        if (queued) {
+            uint32_t tank_id = tank->id, facility_id = facility->id;
+            app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t bytes = 0;
+            if (!G_SaveGameBlob(&save, &bytes, "Full-health repair", &app, rts_game_model_ai(model), &hud) ||
+                !G_LoadGameBlob(save, bytes, &app, rts_game_model_ai(model), &hud))
+                return fail("save queued full-health repair");
+            free(save); tank = P_MobjById(tank_id); facility = P_MobjById(facility_id);
+            if (!tank || !facility || !tank->z.route.count) return fail("restore queued full-health repair");
+        }
+        if (mode == 2) tank->hp = tank->max_hp; /* Health changes during approach. */
+        for (int i = 0; i < 8 * RTS_TICRATE && tank->z.service_work >= 0; ++i)
+            if (!tick(model, 1)) return fail("full-health tank approaches repair bay");
+        const zmap_t *map = level.native_data;
+        if (tank->z.service_work != -(2 * 880 / map->production_speed) ||
+            tank->hp != tank->max_hp || tank->z.service != facility->id)
+            return fail("full-health tank enters friendly repair bay");
+        for (int i = 0; i < 15 * RTS_TICRATE && tank->z.service; ++i)
+            if (!tick(model, 1)) return fail("full-health repair completes");
+        if (tank->z.service || tank->hp != tank->max_hp || !(tank->traits & MF_MOBILE))
+            return fail("full-health tank leaves repair bay");
+        rts_game_model_destroy(model);
+    }
+    puts("PASS: z full-health vehicles accept immediate and queued repair orders");
+    return 0;
+}
+
 static int test_repair_facility(void) {
     RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
     if (!model) return fail("repair campaign load");
@@ -2461,5 +2507,5 @@ int main(void) {
            test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_driver_health_value() || test_apc_driver_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
-           test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
+           test_repair_scan_stops() || test_full_health_repair() || test_repair_facility() || test_building_service() || test_building_alert();
 }

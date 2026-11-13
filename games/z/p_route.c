@@ -20,7 +20,7 @@ static bool service_allowed(const mobj_t *unit, const mobj_t *target) {
     if (!target || target->remove || !Z_RepairVehicle(unit)) return false;
     bool wreck = unit->type_id == MT_UNIT_CRANE && target->hp <= 0 &&
                  (target->z.building || target->type_id == MT_BRIDGE);
-    bool bay = target->type_id == MT_REPAIR && target->hp > 0 && unit->hp < unit->max_hp;
+    bool bay = target->type_id == MT_REPAIR && target->hp > 0;
     if ((!wreck && !bay) || (target->type_id != MT_BRIDGE && target->team != unit->team)) return false;
     if (target->type_id == MT_BRIDGE) {
         const zmap_t *map = level.native_data;

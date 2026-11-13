@@ -250,8 +250,7 @@ void Z_ServiceTick(mobj_t *unit) {
     mobj_t *target = Z_ServiceTarget(unit->z.service);
     bool bridge = target && target->type_id == MT_BRIDGE;
     bool rebuild = target && unit->type_id == MT_UNIT_CRANE && (bridge || building(target)) && target->hp == 0;
-    bool facility = target && target->type_id == MT_REPAIR && target->hp > 0 &&
-                    (unit->z.service_work < 0 || unit->hp < unit->max_hp);
+    bool facility = target && target->type_id == MT_REPAIR && target->hp > 0;
     if (bridge) {
         const zmap_t *map = level.native_data;
         int t = Z_BridgeTerritory(map, target);

@@ -1440,7 +1440,7 @@ is **1 when human strength is zero**, otherwise
 squad strength before ordering any of that pool. `0x99f46` writes task 0
 and the target/destination territory. Existing tasks 0,2,1,3 reserve their
 destinations. Territory flag 0x20 bars vehicles; 0x40 bars Jeeps/APCs and
-requires grenades for Grunt, Pyro and Laser (the native APC cargo-class-3
+requires grenades for Grunt, Sniper, Psycho, Pyro and Laser (the native APC cargo-class-3
 exception is now supported as described below). This replaces the former 8-cell fort
 penalty and 2-cell proximity claim heuristic; neither was a retail rule.
 
@@ -2116,6 +2116,14 @@ Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 45 @ 0x9c485' -c 'pd 45 @ 0x991c4' -c q data/Z/ZED.EXE`.
 
 `0x7a065..0x7a091` calls `0x41ae1` with `max(1, missing_HP / 20)`.
+The admission path `0x79cf0..0x79d1a` checks for a free bay and
+`0x79f7d..0x7a03f` checks ownership, but neither rejects full-health
+vehicles. Open-rts now accepts an explicit immediate or queued repair
+order for a full-health friendly vehicle and continues an existing approach
+if health reaches maximum on the way. `test_full_health_repair` executes
+both command forms through entry and release and checks a health change
+during approach. Automatic AI repair retains its separately traced
+below-half-health selection rule.
 The initial stock is `floor((1 + max(1, missing_HP / 20)) * 880 / speed)`.
 `0x3fd5c` uses the ordinary production accelerator. Every 17 facility
 ticks, `0x3fe09` computes `remaining_seconds = stock / rate / 17`; for a
@@ -4515,6 +4523,19 @@ and save/hash continuity. Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 40 @ 0x7a03f' -c 'pd 18 @ 0x50c0e'
 -c 'pd 20 @ 0x63a50' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Repair occupants and projectile selection remain unresolved:** bay entry
+`0x7a03f` sets unit +0x67 bit 0x40, while the bullet/explosion spatial-bin
+builder `0x64138..0x64190` skips units whose group +9 has bit 0x20. The
+direct writes inspected include `0x3ff8f` on bay exit and the separate
+transition at `0x7c00d`, with clears at `0x7b2d8`/`0x7b31b`; entry itself
+does not establish when that group bit is set. Thus the native occupant's
+complete projectile immunity cannot be inferred from its hidden state alone.
+The engine's shared target selector excludes its `MF_NOBLOCKMAP` bay
+occupant, while Z's custom bullet and blast scans have separate eligibility;
+their exact relationship to native occupancy remains unverified. Inspect
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x64138'
+-c 'pd 40 @ 0x7a03f' -c 'pd 25 @ 0x3ff66' -c q data/Z/ZED.EXE`.
 
 **Accuracy configuration.** The 32 ROBOTS.DAT group records at `0x4650`
 contain up to 21 little-endian robot indices at +0x1c; each 44-byte robot
