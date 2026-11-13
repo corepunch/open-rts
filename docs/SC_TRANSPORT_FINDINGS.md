@@ -37,7 +37,10 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
 - OpenBW `unit_unload` sets the container main-order timer to 15 native frames.
   The local runtime now stores and ticks `SC_TIMER_MAIN_ORDER`; mobile unload
   all and addressed unloads both respect it. The timer is part of the object's
-  save data and consistency hash, and StarCraft save layout is now 16.
+  save data and consistency hash. At the time this transport finding was
+  recorded, StarCraft save layout was 16; that version number is historical.
+  Construction data later advanced the current layout to 17; see
+  [SC_CONSTRUCTION_FINDINGS.md](SC_CONSTRUCTION_FINDINGS.md).
   When the last passenger unloads, the unload order ends immediately, so a
   queued move can start while the container timer continues to count down.
 - Remaining passenger timers are not implemented: Protoss Reavers receive a

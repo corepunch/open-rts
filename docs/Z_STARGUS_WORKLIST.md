@@ -7,7 +7,8 @@ either retail game. “Confirmed” describes the inspected source/test state;
 available evidence does not establish the native behavior. Reference-source
 behavior is identified separately from executable-confirmed behavior.
 
-The worklist is a temporary snapshot checked against the current tree on 2026-11-13. The broad
+The worklist is a temporary snapshot checked against the current tree on 2026-11-13 and
+reconciled after `cef9178e` / `1fab3bf8`. The broad
 StarCraft rows in [BLIZZARD_COMPLETENESS_AUDIT.md](BLIZZARD_COMPLETENESS_AUDIT.md)
 are dated 2026-10-11 and should not be used without its later corrections or
 newer focused findings. Per-player CHK research rules and a subset of
@@ -40,9 +41,9 @@ building-attack task needs further work on coordinate-target firing.
   is synthetic, and the OpenBW and PyMS maximum counts differ. Trigger action
   42 (doodad state) occurs in bundled Terran04,
   Zerg05 and Protoss06, but its runtime behavior is absent. Actions 5/6
-  (pause/unpause), 30/31 (unit speech), and leaderboard actions are also
-  unimplemented; their exact effect and required UI or simulation behavior
-  must be established per action. Campaign AI script IDs and locations are
+  (pause/unpause) and leaderboard actions remain unimplemented; their exact
+  effect and required UI or simulation behavior must be established per action.
+  Campaign AI script IDs and locations are
   reduced to a shared planner. These are distinct from already supported
   Play WAV, score, resources and campaign transitions.
 - Incomplete construction selection, transport placement, creep lifecycle,
@@ -54,20 +55,22 @@ building-attack task needs further work on coordinate-target firing.
 
 ### Third audit, 2026-11-13
 
-- Campaign actions 30/31 mute and unmute unit speech; PyMS identifies this as
-  a property of individual sound records, leaving trigger WAV separate. These
-  actions occur 121 and 119 times respectively in 35 installed campaign CHKs.
-  Set Doodad State occurs 69 times, targeting THG2 trap and door units. Its
+- Campaign actions 30/31 mute and unmute unit speech. This is implemented in
+  `1a9565c1`, with per-SFX-row filtering and save/load coverage in
+  `tests/starcraft/test_sounds.c` and `test_save.c`; trigger WAV playback stays
+  separate. The actions occur 121 and 119 times respectively in 35 installed
+  campaign CHKs. Set Doodad State occurs 69 times, targeting THG2 trap and door units. Its
   frequently occurring raw state 0 is not explained by the inspected PyMS,
   Stargus or OpenBW sources and must not be assigned a guessed meaning.
 - This audit found that the worker-held production timer created a completed
   building only at the end. `cef9178e` replaced that path with incomplete
   sites and distinct SCV, Probe and Drone lifecycles; remaining limitations are
   recorded in [SC_CONSTRUCTION_FINDINGS.md](SC_CONSTRUCTION_FINDINGS.md).
-- Mobile unload currently retries failed placement every tick; OpenBW ends the
-  order on failure. Placement bounds and unloaded-unit cooldowns also differ.
-  The older claim that no placement search exists is stale: the current code
-  searches, but its range and Bunker handling differ from the reference.
+- Mobile unload now ends the order when placement fails, implemented in
+  `3f852201`; it no longer retries every tick. Placement reachability, boundary
+  behavior, exact candidate traversal and passenger cooldowns still differ
+  from the OpenBW reference. The older claim that no placement search exists
+  is stale: the current code searches, but its range and Bunker handling differ.
 - Z's task-6 coordinate path is traced further through map-effect, bridge and
   group checks, but its handoff to weapon dispatch is still unknown. APC
   scanner and coordinate firing modes require distinct attack provenance.
@@ -76,15 +79,18 @@ building-attack task needs further work on coordinate-target firing.
 
 The third batch implemented Pyro building/bridge scaling in `8f54232b`,
 unit-speech mute/unmute triggers in `1a9565c1`, and a subset of transport
-unload rules in `3f852201`. Transport reachability and the native unload
-timers remain open; see [SC_TRANSPORT_FINDINGS.md](SC_TRANSPORT_FINDINGS.md).
+unload rules in `3f852201`. Transport reachability and passenger cooldowns
+remain open; see [SC_TRANSPORT_FINDINGS.md](SC_TRANSPORT_FINDINGS.md).
 The remaining Pyro map-effect and APC paths remain separate work.
 
 The next batch added the 15-frame mobile unload timer in `ad8ec669` and
 incomplete construction sites in `cef9178e`. It also corrected the previously
-misread Z Repair Facility bounds in `a3bf5972`. These changes have focused
-regressions and full StarCraft (22/22) and Z (27/27) suite coverage; they do
-not establish complete retail parity.
+misread Z Repair Facility bounds in `a3bf5972`. StarCraft construction save
+validation is implemented and covered by malformed-save and round-trip cases in
+`tests/starcraft/test_save.c`; the current StarCraft save layout is 17. The
+listed suite counts describe the earlier verification snapshot (StarCraft
+22/22, Z 27/27), not a claim that every current host can run network tests.
+These changes do not establish complete retail parity.
 
 ### Z: commander, orders and object lifecycle
 

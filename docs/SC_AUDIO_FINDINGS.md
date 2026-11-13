@@ -48,8 +48,11 @@ callbacks remain audible.
 The trigger's WAV actions 7/8 use `sc_brief_voice` and a dedicated briefing
 sound slot, outside the SFX-row callback, so mute does not suppress scenario
 audio. Ordinary UI/placement sounds also use their own direct sound calls and
-remain unaffected. This local flag persists in engine save data; the save
-layout is 15. It is intentionally excluded from the consistency hash, and
+remain unaffected. This local flag persists in engine save data. At the time
+this audio finding was recorded, the save layout was 15; that version number
+is historical. Later StarCraft state advanced the current save layout to 17;
+see [SC_CONSTRUCTION_FINDINGS.md](SC_CONSTRUCTION_FINDINGS.md). The mute flag
+is intentionally excluded from the consistency hash, and
 resync keeps the receiving peer's value instead of importing the sender's
 local presentation setting.
 
