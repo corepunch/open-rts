@@ -150,7 +150,8 @@ static bool in_group(const sc_mission_t *m, unsigned group, int p, int current) 
 
 /* The players a trigger belongs to: its own bits and the groups it names. */
 static bool owns_trigger(const sc_mission_t *m, const uint8_t *mask, int p) {
-    if (mask[p] == 1) return true;
+    /* Direct owner bits cannot start a trigger for an inactive slot. */
+    if (mask[p] == 1) return slot_active(m, p);
     if (mask[17] == 1 && slot_active(m, p)) return true;
     for (int f = 0; f < 4; f++) if (mask[18 + f] == 1 && slot_active(m, p) && m->force[p] == f) return true;
     return false;

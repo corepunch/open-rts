@@ -183,6 +183,10 @@ OpenBW checks `player_slot_active` before testing every player selector.
 Direct selectors for modeled slots 0–7 now use this gate too; the existing
 resource-deposit path handles owners 8–11 separately. A mission test contrasts
 active and OWNR Inactive player 2 for a Modify Resources action.
+OpenBW creates running trigger instances only for occupied owners; triggers
+enabled only for an inactive owner do not run. This supports excluding
+inactive owners, but does not establish parity for the additional active
+controller classes modeled by this runtime.
 
 MRGN's 16-bit field at +18 excludes low, middle and high air and ground
 heights. OpenBW checks it using VF4 minitile height for Bring, Move Location,

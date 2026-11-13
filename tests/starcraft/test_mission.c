@@ -226,6 +226,24 @@ int main(void) {
         unload(); free(selector_trigger);
     }
     remove("/private/tmp/sc-player-selector.chk");
+    /* An inactive slot cannot own and execute a trigger. */
+    for (int inactive_case = 0; inactive_case < 2; inactive_case++) {
+        uint8_t trigger_owners[12] = {6, 5, inactive_case ? 0 : 6};
+        uint8_t *owned_trigger = blank_trigger(); CHECK(owned_trigger);
+        owned_trigger[2372 + 17] = 0; owned_trigger[2372 + 2] = 1;
+        owned_trigger[15] = 22; /* Always. */
+        uint8_t *owner_action = owned_trigger + 320;
+        owner_action[26] = 26; owner_action[27] = 7;
+        put_u32(owner_action + 16, 0); /* Active Player 0, independent of trigger owner. */
+        put_u32(owner_action + 20, 10); owner_action[24] = 0;
+        CHECK(!write_map("/private/tmp/sc-inactive-trigger-owner.chk", trigger_owners, owned_trigger));
+        CHECK(G_DoLoadLevel("/private/tmp/sc-inactive-trigger-owner.chk", &level));
+        level.player_resources[0][0] = 3;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (inactive_case ? 3 : 10));
+        unload(); free(owned_trigger);
+    }
+    remove("/private/tmp/sc-inactive-trigger-owner.chk");
     /* Neutral Players reads directed relation state, excluding the owner. */
     uint8_t neutral_group_owners[12] = {6, 5, 7, 7, 3};
     for (int neutral_case = 0; neutral_case < 4; neutral_case++) {

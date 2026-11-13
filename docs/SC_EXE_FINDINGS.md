@@ -2868,3 +2868,22 @@ continues to handle owners 8–11 outside `in_group`.
 
 Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.
+
+### Inactive slots do not own running triggers (2026-11-13)
+
+Pinned OpenBW's TRIG loader registers running instances for slots whose
+controller is occupied after setup, then checks direct player, force and
+all-player enable bits (20769–20777). Its controller enum identifies Inactive
+as value 0 and Open as value 6 (`game_types.h` 109–123). This confirms that an
+inactive controller is excluded, but does not establish parity for every
+controller that this runtime models as active. The runtime now rejects a
+direct owner bit for a slot that `slot_active` classifies inactive, while
+retaining its existing active neutral and rescue behavior. `test_mission`
+compares a trigger enabled only for player 2 when OWNR marks that slot Human
+versus Inactive; the action targets active player 0, so the test detects an
+inactive owner executing it independently of player-group filtering. Bounded
+OpenBW loader evidence, not a retail executable trace or a claim of full
+controller parity.
+
+Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.

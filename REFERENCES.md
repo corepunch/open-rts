@@ -2587,6 +2587,11 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   any selector, including player IDs 0–7. The mission runtime applies that
   gate to direct selectors as well as relation groups; see
   `docs/SC_EXE_FINDINGS.md`.
+- StarCraft trigger ownership: pinned OpenBW's TRIG loader creates running
+  instances for occupied owners after setup, then checks direct player, force
+  and all-player enable bits (`bwgame.h::tag_funcs["TRIG"]`). This supports
+  excluding inactive owners, not full parity for every controller class;
+  details are in `docs/SC_EXE_FINDINGS.md`.
 - StarCraft trigger score conditions: checked-in PyMS `FileFormats/TRG.py`
   maps conditions 9/19/21 to Highest/Lowest/Score and defines score selectors
   0–7; its help text specifies current-player and selected-player comparisons.
