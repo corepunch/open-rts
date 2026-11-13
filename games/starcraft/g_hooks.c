@@ -2,7 +2,7 @@
 
 /* Research restrictions, projectiles, construction progress, transport timers
  * and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 17; }
+uint32_t G_SaveLayout(void) { return 18; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -31,6 +31,22 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         hash = G_HashValue(hash, m->custom_slot_race[i]);
     }
     if (m) { hash = G_HashValue(hash, m->previous_bullet_source); hash = G_HashValue(hash, m->previous_bullet_clockwise); }
+    if (m) {
+        const sc_leaderboard_t *lb = &m->leaderboard;
+        hash = G_HashValue(hash, lb->kind); hash = G_HashValue(hash, lb->goal);
+        hash = G_HashValue(hash, lb->selector); hash = G_HashValue(hash, lb->unit);
+        hash = G_HashValue(hash, lb->title); hash = G_HashValue(hash, lb->location);
+        hash = G_HashValue(hash, lb->quantity);
+        hash = G_HashValue(hash, m->leaderboard_computers);
+        hash = G_HashValue(hash, m->portrait_unit); hash = G_HashValue(hash, m->portrait_ms);
+        for (int i = 0; i < 8; ++i) {
+            hash = G_HashValue(hash, (uint32_t)lb->value[i]);
+            hash = G_HashValue(hash, (uint32_t)((uint64_t)lb->value[i] >> 32));
+            hash = G_HashValue(hash, m->ai_script[i].id);
+            hash = G_HashValue(hash, m->ai_script[i].location);
+            hash = G_HashValue(hash, m->ai_script[i].runs);
+        }
+    }
     if (m) for (int i = 0; i < 8; ++i) {
         hash = G_HashValue(hash, m->allies[i]);
         hash = G_HashValue(hash, m->allied_victory[i]);

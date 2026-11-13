@@ -41,10 +41,11 @@ building-attack task needs further work on coordinate-target firing.
   is synthetic, and the OpenBW and PyMS maximum counts differ. Trigger action
   42 (doodad state) occurs in bundled Terran04,
   Zerg05 and Protoss06, but its runtime behavior is absent. Actions 5/6
-  (pause/unpause) and leaderboard actions remain unimplemented; their exact
-  effect and required UI or simulation behavior must be established per action.
-  Campaign AI script IDs and locations are
-  reduced to a shared planner. These are distinct from already supported
+  (pause/unpause) remain unimplemented and are now reported once per mission;
+  leaderboard actions and Talking Portrait store saved state without a display
+  (see SC_EXE_FINDINGS "Trigger coverage, leaderboards, portrait and AI script
+  state"). Campaign AI script IDs and locations are now preserved per player,
+  but every script except shared vision still falls back to a shared planner. These are distinct from already supported
   Play WAV, score, resources and campaign transitions.
 - Incomplete construction selection, transport placement, creep lifecycle,
   additional weapon behavior, general IScript playback and script-timed

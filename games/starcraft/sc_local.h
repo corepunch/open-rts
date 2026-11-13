@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "starcraft.h"
 #include "info.h"
+#include "sc_trigops.h"
 typedef struct {
     const char *name, *rank;
     int hp;
@@ -257,11 +258,29 @@ typedef struct {
     int stock[8][2], gathered[8][2], spent[8];
     bool stock_seen;
     bool unit_speech_muted; /* Local presentation state from TRIG actions 30/31. */
+    /* TRIG coverage and unimplemented-operation reports (p_trigops.c). */
+    uint8_t warned_action[32], warned_condition[32];
+    uint32_t trigger_warnings;
+    /* Leaderboard actions, Talking Portrait and Run AI Script state. */
+    sc_leaderboard_t leaderboard;
+    bool leaderboard_computers;
+    uint16_t portrait_unit;
+    int portrait_ms;
+    sc_ai_script_t ai_script[8];
+    uint32_t ai_fallback[SC_AI_FALLBACK_LOG];
+    int ai_fallback_count;
 } sc_mission_t;
+/* Trigger coverage (p_trigops.c). sc_trigger_note reports an unsupported type
+ * once per mission; sc_trigger_reported tells a test whether it did. */
+void sc_trigger_note(sc_mission_t *m, bool action, unsigned id);
+bool sc_trigger_reported(const sc_mission_t *m, bool action, unsigned id);
+void sc_ai_script_fallback(sc_mission_t *m, uint32_t id);
 /* Score inputs: deaths and kills by type, income and spending since the start. */
 typedef struct { int lost[SC_TYPES], killed[SC_TYPES], gathered[2], spent; } sc_stats_t;
 void sc_player_stats(int owner, sc_stats_t *out);
 int sc_elapsed_ms(void);
+const sc_leaderboard_t *sc_leaderboard(void);
+bool sc_talking_portrait(uint16_t *unit, int *ms);
 bool sc_mission_bind(level_t *map);
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms);
 void sc_note_damage(mobj_t *mo);
