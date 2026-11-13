@@ -60,24 +60,31 @@ building-attack task needs further work on coordinate-target firing.
   Set Doodad State occurs 69 times, targeting THG2 trap and door units. Its
   frequently occurring raw state 0 is not explained by the inspected PyMS,
   Stargus or OpenBW sources and must not be assigned a guessed meaning.
-- OpenBW constructs an incomplete building at the site, with distinct SCV,
-  Probe and Drone lifecycles. The current worker-held production timer creates
-  a completed building only at the end and charges before arrival. Construction
-  interruption, cancellation, damage, placement and saves need a joint design.
+- This audit found that the worker-held production timer created a completed
+  building only at the end. `cef9178e` replaced that path with incomplete
+  sites and distinct SCV, Probe and Drone lifecycles; remaining limitations are
+  recorded in [SC_CONSTRUCTION_FINDINGS.md](SC_CONSTRUCTION_FINDINGS.md).
 - Mobile unload currently retries failed placement every tick; OpenBW ends the
   order on failure. Placement bounds and unloaded-unit cooldowns also differ.
   The older claim that no placement search exists is stale: the current code
   searches, but its range and Bunker handling differ from the reference.
 - Z's task-6 coordinate path is traced further through map-effect, bridge and
   group checks, but its handoff to weapon dispatch is still unknown. APC
-  scanner and coordinate firing modes require distinct attack provenance;
-  Pyro ground-fire BUILD/bridge interaction needs its scaling rule traced.
+  scanner and coordinate firing modes require distinct attack provenance.
+  Pyro ground-fire BUILD/bridge scaling was implemented in `8f54232b`, with
+  the Repair Facility bounds corrected in `a3bf5972`.
 
 The third batch implemented Pyro building/bridge scaling in `8f54232b`,
 unit-speech mute/unmute triggers in `1a9565c1`, and a subset of transport
 unload rules in `3f852201`. Transport reachability and the native unload
 timers remain open; see [SC_TRANSPORT_FINDINGS.md](SC_TRANSPORT_FINDINGS.md).
 The remaining Pyro map-effect and APC paths remain separate work.
+
+The next batch added the 15-frame mobile unload timer in `ad8ec669` and
+incomplete construction sites in `cef9178e`. It also corrected the previously
+misread Z Repair Facility bounds in `a3bf5972`. These changes have focused
+regressions and full StarCraft (22/22) and Z (27/27) suite coverage; they do
+not establish complete retail parity.
 
 ### Z: commander, orders and object lifecycle
 
