@@ -93,6 +93,8 @@ void W2_Burning(mobj_t *unit);
 void W2_RestoreOilPatch(mobj_t *site);
 bool W2_BoardOrder(mobj_t *unit, mobj_t *ship);
 bool W2_UnloadOrder(mobj_t *ship, fixed2_t goal);
+bool W2_UnloadPassengerOrder(mobj_t *ship, uint32_t passenger, fixed2_t goal);
+int W2_PassengerIds(const mobj_t *ship, uint32_t *ids, int max);
 bool W2_TickTransport(mobj_t *unit);
 
 #endif

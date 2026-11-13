@@ -88,6 +88,11 @@ static int portrait_count;
 static int page;
 static uint32_t command_id;
 static bool laid_out;
+/* A single selected transport lists its passengers in the status slots. */
+static uint32_t cargo_ship;
+static int cargo_count;
+static uint32_t cargo_id[9];
+static char cargo_tip[9][48];
 
 void w2_draw_selection(const unitoverlaycontext_t *ctx) {
     const mobj_t *unit = ctx->unit;
@@ -478,13 +483,30 @@ static void refresh(menu_t *menu) {
                      product ? product->icon_frame : -1;
     }
     for (int s = 0; s < MS_STATES; ++s) items[IT_TRAIN].look[s].cell = train_icon;
+    cargo_ship = 0;
+    cargo_count = 0;
+    if (count == 1 && own && mobjinfo[own->type_id].w2.transport_capacity) {
+        cargo_ship = own->id;
+        cargo_count = W2_PassengerIds(own, cargo_id, 9);
+    }
     for (int i = 0; i < 9; ++i) {
         menuitem_t *slot = &items[IT_SLOT + i];
-        bool show = count > 0 && slot_unit[i];
+        bool cargo = i < cargo_count;
+        const mobj_t *shown_unit = cargo ? P_MobjById(cargo_id[i]) : slot_unit[i];
+        bool show = shown_unit != NULL;
         slot->visible = show;
-        slot->enabled = show && count > 1;
+        slot->enabled = cargo ? show : show && count > 1;
+        slot->tooltip = NULL;
+        if (cargo && show) {
+            const mobjinfo_t *type = &mobjinfo[shown_unit->type_id];
+            char name[40];
+            if (type->label) snprintf(name, sizeof(name), "%s", type->label);
+            else pretty_name(type->name, name, sizeof(name));
+            snprintf(cargo_tip[i], sizeof(cargo_tip[i]), "Unload %s", name);
+            slot->tooltip = cargo_tip[i];
+        }
         int frame = -1;
-        if (show) frame = icon_of((int)slot_unit[i]->type_id - 1);
+        if (show) frame = icon_of((int)shown_unit->type_id - 1);
         slot->sheet = show && art.icons.numlumps ? &art.icons : NULL;
         if (!slot->sheet || frame < 0 || frame >= slot->sheet->numlumps) frame = -1;
         for (int s = 0; s < MS_STATES; ++s) slot->look[s].cell = frame;
@@ -499,6 +521,15 @@ static void refresh(menu_t *menu) {
 static fvec2_t cursor_goal(const menu_t *menu) {
     cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
     return (fvec2_t){ cell.x + 0.5f, cell.y + 0.5f };
+}
+
+/* Selective unload: the transport sails to the clicked shore and drops
+ * only this passenger there. The unload-all button is unchanged. */
+static void unload_one(const menu_t *menu, uint32_t passenger) {
+    if (!cargo_ship || !passenger) return;
+    ticcmd_t order = {.order = TC_UNLOAD, .count = 1, .units = {cargo_ship}, .target = passenger,
+        .position = fixed3_from_fixed2(fixed2_from_fvec2(cursor_goal(menu)), 0)};
+    G_QueueTiccmd(&order);
 }
 
 static void order_at(const menu_t *menu, int kind) {
@@ -606,8 +637,13 @@ static void on_menu(menu_t *menu, menuitem_t *item, menuaction_t action) {
 }
 
 static void on_slot(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    (void)menu;
-    if (action != MA_ACTIVATE || item->id < 0 || item->id >= 9) return;
+    if (item->id < 0 || item->id >= 9) return;
+    if (item->id < cargo_count) {
+        if (action == MA_ACTIVATE) M_MenuTarget(menu, item);
+        else if (action == MA_TARGET) unload_one(menu, cargo_id[item->id]);
+        return;
+    }
+    if (action != MA_ACTIVATE) return;
     mobj_t *unit = slot_unit[item->id];
     if (!unit || unit->remove || unit->hp <= 0) return;
     for (int i = 0; i < hudview.unit_count; ++i)
