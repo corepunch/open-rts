@@ -39,6 +39,7 @@ static int base_frames(const mobj_t *u) {
     const sc_unit_t *hull = &sc_units[u->type_id - 1];
     return sc_weapon(hull->ground_weapon)->cooldown;
 }
+static fixed2_t at_of(const mobj_t *mo) { return fixed3_xy(mo->core.position); }
 static sc_mission_t *mission(void) { return level.mission; }
 /* The LCG roll G_WeaponCooldown will take next, without taking it. */
 static int next_jitter(void) { return (int)(((mission()->rng * UINT32_C(22695477) + 1) >> 16) & 3) - 1; }
@@ -290,6 +291,113 @@ static int spores_saved(void) {
     return 0;
 }
 
+/* ---- spell cooldown ---- */
+static void learn(int tech) { level.upgrades[SC_UPGRADES + tech][0].weapon = 1; }
+static int tic_frames(void) { return (leveltime - 1) * 24 / RTS_TICRATE - (leveltime - 2) * 24 / RTS_TICRATE; }
+static int timer(const mobj_t *u) { return u->sc.timers[SC_TIMER_SPELL_COOLDOWN]; }
+static mobj_t *templar(fixed2_t at) {
+    mobj_t *t = spawn(MT_HIGH_TEMPLAR, at, 0);
+    if (t) t->sc.energy = 200 << 8;
+    return t;
+}
+/* A cast in range goes off inside the command, between two tics. */
+static bool cast_now(mobj_t *caster, int tech, const mobj_t *target, fixed2_t at) {
+    int energy = caster->sc.energy;
+    return sc_cast(caster, tech, (mobj_t *)target, at) && caster->sc.energy < energy;
+}
+/* Native frames, counting every tic after the call, until the caster casts;
+ * -1 if it never does. The order must stay pending and the energy whole
+ * until then. */
+static int frames_until_cast(mobj_t *caster, int limit) {
+    int energy = caster->sc.energy, frames = 0;
+    for (int t = 0; t < limit; t++) {
+        tick(1);
+        frames += tic_frames();
+        if (caster->sc.energy < energy) return frames;
+        if (caster->sc.order.kind != SC_ORDER_CAST) return -2;
+    }
+    return -1;
+}
+static int spell_rearm(void) {
+    reset();
+    learn(SC_TECH_PSIONIC_STORM); learn(SC_TECH_EMP);
+    mobj_t *a = templar(FIXED2_LIT(8.5, 8.5)), *b = templar(FIXED2_LIT(8.5, 12.5)), *c = templar(FIXED2_LIT(8.5, 16.5));
+    CHECK(a && b && c);
+    c->sc.timers[SC_TIMER_ENSNARE] = 1000;
+    CHECK(!timer(a) && !timer(b));
+    CHECK(cast_now(a, SC_TECH_PSIONIC_STORM, NULL, FIXED2_LIT(12.5, 8.5))); /* nothing held the first cast */
+    /* Storm's weapon is 45 frames; the roll makes it 44..47. */
+    int first = timer(a);
+    CHECK(first >= 44 && first <= 47);
+    /* The same caster again is kept waiting with its energy untouched, then
+     * casts on exactly the frame the timer runs out. */
+    int energy = a->sc.energy;
+    CHECK(sc_cast(a, SC_TECH_PSIONIC_STORM, NULL, FIXED2_LIT(12.5, 8.5)) && a->sc.energy == energy);
+    CHECK(a->sc.order.kind == SC_ORDER_CAST);
+    CHECK(frames_until_cast(a, 100) == first);
+    CHECK(timer(a) >= 44 && timer(a) <= 47); /* and is armed again */
+    /* Another caster is not held by it. */
+    CHECK(cast_now(b, SC_TECH_PSIONIC_STORM, NULL, FIXED2_LIT(12.5, 12.5)) && timer(b) >= 44);
+    /* Ensnare lengthens it: 45 + 45 / 4 = 56, rolled 55..58. */
+    CHECK(cast_now(c, SC_TECH_PSIONIC_STORM, NULL, FIXED2_LIT(12.5, 16.5)) && timer(c) >= 55 && timer(c) <= 58);
+    reset();
+
+    /* Spells outside order_Spell ignore it: Hallucination, Defensive Matrix
+     * and a cloak cast at once during the cooldown, and leave the timer. */
+    learn(SC_TECH_PSIONIC_STORM); learn(SC_TECH_HALLUCINATION); learn(SC_TECH_EMP); learn(SC_TECH_PERSONNEL_CLOAKING);
+    a = templar(FIXED2_LIT(8.5, 8.5));
+    mobj_t *friend = spawn(MT_MARINE, FIXED2_LIT(9.5, 9.5), 0);
+    mobj_t *vessel = spawn(MT_SCIENCE_VESSEL, FIXED2_LIT(8.5, 16.5), 0), *ghost = spawn(MT_GHOST, FIXED2_LIT(30.5, 16.5), 0);
+    CHECK(a && friend && vessel && ghost);
+    vessel->sc.energy = ghost->sc.energy = 200 << 8;
+    CHECK(cast_now(a, SC_TECH_PSIONIC_STORM, NULL, FIXED2_LIT(12.5, 8.5)));
+    int held = timer(a);
+    CHECK(held > 0 && cast_now(a, SC_TECH_HALLUCINATION, friend, at_of(friend)) && timer(a) == held);
+    CHECK(cast_now(vessel, SC_TECH_EMP, NULL, FIXED2_LIT(12.5, 16.5)));
+    held = timer(vessel);
+    CHECK(held > 0 && cast_now(vessel, SC_TECH_DEFENSIVE_MATRIX, friend, at_of(friend)) && timer(vessel) == held);
+    CHECK(sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0}) && (ghost->traits & MF_CLOAKED));
+    CHECK(!timer(ghost));
+    reset();
+    return 0;
+}
+
+static int spell_save(void) {
+    reset();
+    learn(SC_TECH_YAMATO_GUN);
+    mobj_t *a = spawn(MT_BATTLECRUISER, FIXED2_LIT(8.5, 8.5), 0), *dummy = spawn(MT_ZERGLING, FIXED2_LIT(12.5, 8.5), 1);
+    CHECK(a && dummy);
+    dummy->traits &= ~(MF_ATTACK | MF_MOBILE);
+    dummy->hp = dummy->max_hp = 20000;
+    a->sc.energy = 200 << 8;
+    CHECK(cast_now(a, SC_TECH_YAMATO_GUN, dummy, at_of(dummy)));
+    while (timer(a) > 8) tick(1);
+    int remaining = timer(a);
+    CHECK(remaining > 0 && remaining <= 8);
+    uint32_t dummy_id = dummy->id;
+    uint32_t id = a->id, hash = G_Consistency();
+    app_t app = {0};
+    AiContext ai = {0};
+    hudtext_t hud = {0};
+    void *blob = NULL;
+    size_t length = 0;
+    CHECK(G_SaveGameBlob(&blob, &length, "spell cooldown", &app, &ai, &hud));
+    P_FreeLevel(&level);
+    P_InitThinkers();
+    CHECK(G_DoLoadLevel(map, &level) && P_InitSight());
+    CHECK(G_LoadGameBlob(blob, length, &app, &ai, &hud));
+    free(blob);
+    CHECK(G_Consistency() == hash);
+    a = P_MobjById(id);
+    dummy = P_MobjById(dummy_id);
+    CHECK(a && dummy && timer(a) == remaining);
+    a->sc.energy = 200 << 8; /* enough for the cast, though Yamato took 150 */
+    CHECK(sc_cast(a, SC_TECH_YAMATO_GUN, dummy, at_of(dummy)));
+    CHECK(frames_until_cast(a, 100) == remaining);
+    reset();
+    return 0;
+}
+
 int main(void) {
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
     SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
@@ -307,6 +415,8 @@ int main(void) {
     CHECK(!shot_cooldown());
     CHECK(!running_attack());
     CHECK(!unload_value());
+    CHECK(!spell_rearm());
+    CHECK(!spell_save());
     CHECK(!spores_saved());
     S_Shutdown();
     puts("PASS: StarCraft weapon cooldowns");
