@@ -327,7 +327,9 @@ static int splash_and_bounce(void) {
     mobj_t *ling = spawn(MT_ZERGLING, FIXED2_LIT(6.4, 5.5), 1), *ling2 = spawn(MT_ZERGLING, FIXED2_LIT(6.4, 6.0), 1);
     mobj_t *marine = spawn(MT_MARINE, FIXED2_LIT(6.4, 5.0), 0);
     CHECK(firebat && ling && ling2 && marine);
-    CHECK(shoot(firebat, ling) && ling->hp == ling->max_hp - 2 * 8 && ling2->hp < ling2->max_hp);
+    /* Flames appear 24, 52 and 80 pixels ahead (no scripts here, so all at once): the first is
+     * inside the target's box (8), the second 16 pixels off its east edge (medium, 4). */
+    CHECK(shoot(firebat, ling) && ling->hp == ling->max_hp - (8 + 4) && ling2->hp < ling2->max_hp);
     CHECK(marine->hp == marine->max_hp);
     reset();
     /* The Mutalisk's glaive: 9, then 3, then 1 on the next nearest enemies. */

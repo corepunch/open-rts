@@ -211,14 +211,21 @@ matching picture by up to one 30 Hz tick.
 Compared with OpenBW `initialize_bullet`, `bullet_state_*`, `bullet_hit` and
 the Death scripts of the installed `iscript.bin`:
 
-| weapons.dat behavior | OpenBW state | This engine | Difference |
-|---|---|---|---|
-| 0 fly | `state_move`, aim fixed at creation, miss roll source 1 | `projectile_tick`, fixed aim, `weapon_misses` | none found |
-| 1 follow | `state_follow`, re-aims at the target each frame unless it missed | same | none found |
-| 7 bounce | `state_bounce`, 3 arrivals, divisors 1, 3, 9, search 96 px square, no lifetime | same divisors and count; target by `bounce_target` (below) | none left except ties between equal box edges |
-| 2 appear on target | Init sigorder, then Death; damage on the Death script's `domissiledmg` | a pending-hit shot mobj deals damage on the Death script's `domissiledmg` frame | none left: 0 frames for most, 1 (Arclite Shock Cannon), 3 (Psionic Shockwave), 5 (Subterranean Tentacle, Acid Spray); see "Delayed damage" |
-| 3 persist | `state_damage_over_time`, hit every 7 frames | spell code | not compared |
-| 4, 5, 6 | Death script, `domissiledmg` at frame 5 for the shared placeholder flingy 172 | not projectile weapons here | Flame Thrower, Nuclear Strike, Suicide, Scarab, Spider Mine delay 5 frames in OpenBW |
+Evidence: OpenBW `fire_weapon`, `initialize_bullet`, `create_bullet`, `bullet_execute` and its `bullet_state_*`, `bullet_hit`, `bullet_deal_splash_damage`; weapons.dat names are PyMS's. Every bullet is created inside the attacker's script (`attackwith`, `attkshiftproj`, `useweapon`, `castspell`), then its Init script signals and it flies or dies as below; its damage runs when its Death script reaches `domissiledmg` (frame 0 for fly/follow/bounce weapons, 1 to 5 as listed for the rest).
+
+| id | name (OpenBW state) | start position and target point | movement | Death/damage | users in the supported data |
+|---|---|---|---|---|---|
+| 0 | fly (`state_move`) | attacker position + `forward_offset` along heading, y - `upward_offset`; heading turned by `bullet_heading_offset` (random side, alternating per source); aimed at the target position; miss roll `lcg_rand(1)&255 <= miss chance` (only with a target unit and an owner) sets hit flag 1 and moves the aim 30 px back | flingy movement until position == target or `lifetime` runs out | Death frame 0; `bullet_hit` by hit type | Grenades, Gemini/Burst, ATS/ATA, Interceptor Pulse, trap/merc missiles, Yamato, EMP, Venom |
+| 1 | follow (`state_follow`) | as 0 | re-aims at the target every frame unless missed; target gone -> `state_move` to the old point | Death frame 0 | Hellfire, Longbolt, Acid Spore, Seeker Spores, Phase Disruptor(s), Anti-matter, Photon Cannon, Lockdown, Parasite, Broodlings, Ensnare |
+| 2 | appear on target unit | `get_bullet_appear_at_target_pos` (line from the target's quarter-shrunk box centre toward the attacker, clipped to the box); roll as 0 (miss: 30 px back toward the attacker) | none; Init -> `bullet_kill` | Death frame 0, 1 (Arclite Shock Cannon), 3 (Psionic Shockwave), 5 (Tentacle, Acid Spray) | Gauss, C-10, Twin Autocannons, Arclite, Needle Spines, Spines, Tentacle, Particle Beam, Psi Assault, Dual Blasters, Shockwave, Irradiate, Consume |
+| 3 | persist on target site (`state_damage_over_time`) | the target unit's or order point | none; `bullet_hit` every 7 frames for `lifetime` | repeated | Psionic Storm (spell) |
+| 4 | appear on target site | the order point (`fire_weapon`); roll as 0 | none | Death | Plague (spell) |
+| 5 | appear on attacker | attacker position + `forward_offset` (an `attkshiftproj` operand replaces it), y - `upward_offset`; `useweapon` uses the order point instead; no roll | none | Death frame 5 for the placeholder flingy 172 | Flame Thrower (25, 26, 98), Spider Mines, Suicide (Infested Terran), Scarab, Nuclear Strike, Warp Blades (85, 86), Stasis Field, Dark Swarm; melee rows (Claws, Blades, Spores) have no flingy and strike on `attackmelee` |
+| 6 | attack and self-destruct | as 5; `initialize_bullet` kills the owner at once | none | Death frame 5 | Suicide (Scourge) |
+| 7 | bounce (`state_bounce`) | as 0; 3 arrivals | follows target, 96 px square search | Death frame 0 per arrival, divisors 1, 3, 9 | Glave Wurm |
+| 8, 9 | attack nearby area, extend to max range | (table of 14 offsets; max range + 20) | | | no weapon row uses them |
+
+What `bullet_hit` strikes: hit type 1 (normal) the bullet's target if it still has one and the roll did not miss (divisor 1; 3 and 9 for bounces). Types 2, 3 and 5 (radial, enemy, nuclear) run `bullet_deal_splash_damage` around the bullet's position: every unit except the bullet owner's unit that the weapon's target flags allow (air 1, ground 2, mechanical 4, organic 8, non-building 0x10, non-robotic 0x20, 0x80) whose box lies within the outer radius takes full damage inside the inner radius, and, unless burrowed, half inside the medium and a quarter inside the outer; an enemy splash (type 3) skips units of the bullet's own player except its target, a radial one does not. The remaining hit types are spells.
 
 For behaviors 0, 1 and 7 every Death script deals damage on its first frame
 (asserted for all weapons in `test_iscript_inventory`), so damage at the
@@ -272,13 +279,19 @@ If `iscript.bin` is not loaded or the weapon has no script, the hit is dealt at
 the firing tick as before. A saved pending shot is validated against its weapon
 row (`G_SavedObjectValid`). Save layout 22 (the `pending` flag).
 
-Not done: behavior 5 and 6 (Flame Thrower, Suicide, Scarab, Spider Mine, Nuclear
-Strike, Warp Blades) also delay `domissiledmg` by 5 frames after the same
+Behavior 5 Flame Thrower is done (next section). Not done: Suicide, Scarab, Spider Mine, Nuclear
+Strike, Warp Blades (all behavior 5 or 6) also delay `domissiledmg` by 5 frames after the same
 flingy-172 Init, but the engine does not create those bullets: Firebat flames
 are dealt by the shared attack path around the target, and the others are units
 or orders with their own code. Delaying them needs the OpenBW bullet geometry
 (appear at the source, `forward_offset`, splash around that point) first; no
 trace here establishes that the engine's target-centred flames equal it.
+
+## Flame Thrower (behavior 5, `test_flames`)
+
+The Firebat, Gui Montag and the wall Flame Traps run `attkshiftproj 24`, `wait 2`, `attkshiftproj 52`, `wait 1`, `attkshiftproj 80` after one frame in GndAttkInit and GndAttkRpt (asserted from `iscript.bin` by `test_flames`). `attkshiftproj` is OpenBW `attack_with_forward_offset`: it makes the bullet only if the attacker still has an order target. So an attack makes three bullets on script frames 1, 3 and 4, 24, 52 and 80 px ahead of the attacker along its heading, and each strikes on frame 5 of its Death script (frames 6, 8 and 9 after the attack tick), centred where it appeared, with weapons.dat's 15/20/25 px rings (enemy splash, ground only). `sc_projectile_fire` spawns the three pending shots with `sc_projectile_t.delay` (frames before the attacker's script makes it) and `shift`; at that frame the attacker must be alive, enabled and have a living target, otherwise nothing is made. Without `iscript.bin` all three are made at once. The Firebat's old `hits = 2` stand-in is no longer used for these (it stays as the unit's display value).
+
+The splash now follows OpenBW for the existing behavior 2 splash weapons too: the enemy splash spares units of the bullet's own player rather than allies, the weapon's target flags decide who can be hit, and a burrowed unit takes only the inner ring. Wall Flame Trap heading comes from `setfldirect` in OpenBW; this engine does not run that opcode, so traps flame along the engine's facing (unverified). Save layout is now 26 (`delay`, `shift`).
 
 ## Unit idle and walk loops: still stopped at sigorder
 
@@ -310,4 +323,6 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_iscript_inventory --tab
 env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft
 ```
 
-StarCraft save layout is now 22 (18: the script cursor is part of the mobj; 22: the pending-hit flag).
+StarCraft save layout is now 26 (18: the script cursor is part of the mobj; 22: the pending-hit flag; 26: flame delay and shift).
+
+Not done in this batch: Suicide (Scourge, Infested Terran: OpenBW kills the Scourge at its `attackwith 2` and the Infested Terran blasts at its own position from `SpecialState1`; the engine blasts around the target), Spider Mine (castspell in SpecialState1, bullet at the mine, mine killed next order frame), Scarab (bullet at the Scarab via `useweapon 82` when within `inner_splash/2` = 10 px, spawn 25 px along the Reaver heading, only one Scarab outside at a time, a Scarab whose target dies flies on to its last move target and explodes there), Warp Blades (single-target hit 5 frames after `attackwith`). All traced above, none implemented.

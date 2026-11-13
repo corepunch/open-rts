@@ -64,6 +64,10 @@ extern sc_weapon_t sc_weapons[SC_WEAPONS];
 extern int sc_projectile_states[SC_WEAPONS];
 bool sc_projectile_weapon(int id);
 bool sc_projectile_fire(mobj_t *source, const weapondef_t *weapon, mobj_t *target);
+/* A bullet of weapons.dat row weapon that appears on source (behavior 5 or 6),
+ * made now (delay 0) or after delay 24 Hz frames of its attacker's script;
+ * shift replaces the weapon's forward offset. Returns the pending shot. */
+mobj_t *sc_source_bullet(mobj_t *source, int weapon, mobj_t *target, int delay, int shift);
 /* A bullet script reached domissiledmg: deal a pending hit (p_combat.c). */
 void sc_projectile_script_hit(mobj_t *shot);
 /* techdata.dat: research cost and time, and the energy a use costs. The
