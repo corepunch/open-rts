@@ -490,7 +490,9 @@ static void attack_territories(zmap_t *map) {
 static bool reinforce(zmap_t *map, int territory) {
     zai_t *ai = &map->ai;
     pooled_t pool[Z_AI_TASKS + 1];
-    int n = idle_pool(map, territory, pool), need = required(ai, territory), use = enough(pool, n, need);
+    int n = idle_pool(map, territory, pool), need = required(ai, territory);
+    if (!n) return false; /* 0x99e67: an empty pool cannot borrow a garrison. */
+    int use = enough(pool, n, need);
     if (!use) {
         zaitask_t *cheapest = NULL;
         int32_t value = INT32_MAX;

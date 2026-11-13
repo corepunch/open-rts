@@ -5130,3 +5130,16 @@ assignment, then checks the next pass adds a second group. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 48 @ 0x99149'
 -c 'pd 20 @ 0x999c2' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Reinforcement requires an idle pool:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x99e60` calls `0x9a126` to collect eligible idle groups and `0x99e67`
+returns failure immediately when the pool is empty. Only a nonempty pool
+reaches the strength test and the possible garrison borrowing at
+`0x99e9b..0x99ec4`. Open-rts now observes that gate; previously a garrison
+alone could reinforce an attack. `test_reinforce_requires_idle` creates an
+understrength attack, no idle pool, and a garrison strong enough on its
+own, and checks that the attack retreats. Other later AI passes can still
+reassign the garrison. Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 45 @ 0x99e60' -c 'pd 65 @ 0x9a126' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

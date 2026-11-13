@@ -1030,6 +1030,48 @@ static int test_vehicle_scan_stops(void) {
 
 /* 0x993ff: an attack that becomes too weak, with nobody to help, falls
  * back and forgets its target. */
+/* 0x99e67 refuses reinforcement with no idle group before borrowing a garrison. */
+static int test_reinforce_requires_idle(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("reinforcement load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 0;
+    map->computer.intelligence = 127;
+    map->computer.territory_weight = 10;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = t == 8 ? 0 : 1;
+        map->territories[t].importance = t == 4 ? 5 : t == 8 ? 10 : 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 9 ? 0 : 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    mobj_t *guard = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[4].flag), 0), MT_UNIT_HEAVY_TANK);
+    mobj_t *enemy = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag), 0), MT_UNIT_GRUNT);
+    if (!guard || !enemy) return fail("reinforcement spawn");
+    Z_SetTeam(guard, 1); Z_SetTeam(enemy, 0);
+    guard->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    guard->z.robot = enemy->z.robot = lead->z.robot;
+    guard->traits &= ~MF_ATTACK;
+    enemy->traits &= ~MF_ATTACK;
+    think(0);
+    zaitask_t *attack = task_of(lead), *garrison = task_of(guard);
+    if (!attack || !garrison) return fail("reinforcement register tasks");
+    attack->task = 0; attack->target = attack->destination = 8;
+    garrison->task = 4; garrison->target = 4;
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    int required = 2 * map->ai.territories[8].strength[0] + map->ai.territories[8].value;
+    if (garrison->strength < required || attack->strength >= required || attack->task != -1)
+        return fail("attack retreats when no idle group can initiate reinforcement");
+    rts_game_model_destroy(model);
+    puts("PASS: z reinforcement needs an idle group before borrowing garrison");
+    return 0;
+}
+
 static int test_retreat(void) {
     RtsGameModel *model = load();
     if (!model) return fail("retreat load");
@@ -1645,7 +1687,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_reinforce_requires_idle() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
