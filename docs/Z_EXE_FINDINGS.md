@@ -5515,6 +5515,126 @@ native firing and completion lifecycle. Inspect with `r2 -q -e bin.cache=true
 'pd 85 @ 0x7cb27' -c 'pd 45 @ 0x29fd8' -c 'pd 35 @ 0x4a03b' -c 'pd 35
 @ 0x7a776' -c q data/Z/ZED.EXE`.
 
+**Command 5 is the attack handler, and APC scanner/coordinate modes
+(2026-11-13, issue 97; SHA-256 `3635cb69...4676`):** This corrects the two
+paragraphs above, which routed command 5 to `0x7c560`. The dispatcher
+`0x7c027..0x7c037` computes `jmp [|cmd|*4 + 0x14b088]`, so command N uses
+table entry N (0-based): 0 `0x7c55c`, 1 `0x7c560` (move), 2 `0x7cc9d`,
+3 `0x7cbdb`, 4 `0x7cd86`, **5 `0x7c817`**, 6 `0x7c55e`, 7 `0x7cdac`,
+12 `0x7c506`. `0x7c560` is the ordinary move command. The unit command record
+for 5 is `+0x50` target word (positive: unit index, negative: building
+index via `0x74d84`, `0x0d80`: no object), `+0x52`/`+0x54` the point;
+command 1 instead reads `+0x50/+0x52` as the point and `+0x54` as a mode.
+
+*Task-6 handoff, as far as it is now traced.* `0x7c817` with `+0x50 ==
+0x0d80` jumps to `0x7cb27`: it loads the point from `+0x52/+0x54` into
+`0x104138/0x10413c`, runs the bridge-rectangle (`0x29fd8`), map-effect
+(`0x4a03b`) and `0x193f0` checks and the group strength helper `0x7a776`
+(non-zero strength rejects into the generic attack setup at `0x7c872`). Then
+`0x7cb93..0x7cbb5` branches on unit class `+0x79`:
+- class `0` or `0x10` (numerically the classes that need grenades in the task-6
+  filter): the attack is **rewritten into command 1 to the point with mode
+  `+0x54 = 2`** (`mov [+0x5a],1; jmp 0x7c560`). Mode 2 is consumed in the
+  movement update at `0x7bf4e`: when the unit is within `+0x71 * 8` pixels of
+  the point (`0x7bf85`, squared compare), `0x7b2a1`, `0x57ce9` (destination
+  := own position + 8, group `+0x3a := 1`, `0x7cdaf` completion) and `0x79049`
+  stop it and return carry. No weapon call is made there: for these robots
+  task 6 is "move to weapon range of the aim point and stop"; any shot then
+  has to come from the generic acquisition code, not from this command.
+- every other class: `0x7c872` completes the generic attack setup (random
+  jitter if within 32 pixels, `0x7ba3a`, `0x74eb7`), negates `+0x5a` and
+  `0x7c962..0x7ca7c` picks a per-vehicle-type action id in EBX with the
+  point copied into the unit record `+0xe/+0x10`: type 0x18 -> 0x35,
+  0x19 -> 0x36, 0x1e -> 0x37, 0x20 (APC) and 0x22 -> 0x38, 0x24 -> 0x3b,
+  0x26 -> 0x3c, `0x7ca42` -> 0x3a, anything else -> 9.
+- completion: `0x7cdaf` calls `0x7ce8c` for command 5; for the point case
+  (`0x7ceb5`) it re-checks `0x29fd8`, `0x4a03b`, `0x193f0` at `+0x52/+0x54`,
+  carry meaning "still attackable". The commander task-6 retire condition
+  remains the territory capture test at `0x99818`.
+The per-type action bodies (0x35, 0x36, 0x37, 0x3a, 0x3b, 0x3c, 9) were not
+traced, so how a non-APC vehicle turns the stored point into a shot is still
+unknown; neither is the failure return into the commander (task 6 is set
+"regardless of the command result" by `0x9a9ae`).
+
+*APC action 0x38 is the scanner.* `0x1e9dc` (action 0x38) sets state 9,
+calls `0x57dd6`, then `0x1ea0d` (scanner mode), restores the tracked-target
+words `+0x42/+0x46` and sets state 0x38. So an APC given command 5 (explicit
+unit target OR point) runs the *scanner*, never `0x1eb04`. The coordinate mode
+`0x1eb04` is only reached from the unit update `0x58040` (called at `0x58090`
+for type 0x20, `+0x78 == 0`), which is entered from `0x57fac` when unit flag
+`+0x67 & 0x20` is set. That flag is set only at `0x7c515` (command 12,
+`0x7c506`, any type except 4) and `0x580bd` (type 0x18). The engine has no
+command 12 equivalent (an attack-ground order), so APC coordinate mode has no
+trigger in open-rts, and nothing in the task-6 path reaches it.
+
+*Scanner mode details verified (`0x1ea0d..0x1eb03`).* Reload `+0x78` must be 0.
+`0x1f158/0x1f16f/0x1f186/0x1f19d` run four sector scans via `0x1f1b4`
+(`0x78f61` acquisition, then `0x591ca`, `0x9bded`, `0x9de02` filters) with
+direction offsets al = 2, 0xfe, 0, 4 relative to facing `+0x39`, storing the
+chosen unit (or 0xff) in `0x12da59`, `0x12da5a`, `0x12da5b`, `0x12da5c`. If
+all four are 0xff the action returns with no shot and no reload. Otherwise
+the reload `(100 - [+0x75]) * 3/2` is written first (`0x1ea4a`), even if no
+port later fires. The group's 21 member slots (`0x19440a` count, list at
+`0x19440b`, unit records `0x171aa8 + 0xb8 * index`) are walked in order; each
+member's `+0xb0` phase is incremented mod 16 (`0x1eaac`), a Pyro driver
+(`+0x8b == 0xf`) with phase >= 10 skips the member, otherwise port attempts
+run through `0x1ec13` with the **global** attempt counter `0x1d448f` (reset
+at `0x1ea73`): each attempt increments it, a successful port (CH changed;
+`0x1ec13` does `inc ch`) moves to the next member, an unsuccessful one retries
+the next port, and the loop ends when the counter reaches 12 (`0x1eae2`,
+`0x1eaf1`). The 12 ports are 4 groups by `port % 4` x 3 sub-ports `port / 4`:
+0,4,8 use scan result `0x12da5b` (facing+0), 1,5,9 `0x12da59` (facing+2),
+2,6,10 `0x12da5c` (facing+4), 3,7,11 `0x12da5a` (facing-2); a port whose scan
+result is 0xff returns without incrementing CH. The port origin is the
+facing-indexed table pair (`0x12dabe`, `0x12da5e`, `0x12db1e`, `0x12db7e` by
+group) minus (6,6) added to `+0x2c/+0x2e`. For a Pyro the scanner branch
+(`0x1f047 -> 0x1f0d1`) adds the facing pair at `0x12dbfe` (x,y: (-3,-16),
+(-6,-16), (-3,-16), (-8,-16), (-3,-16), (-3,-16), (-3,-16), ...) and aims at
+the tracked target (`0x75cc1`, target `+0x2c/+0x2e` plus 8 for class 2) before
+calling `0x5a099`. Bullets and Tough shells use `0x5af81` and `0x59ed1`.
+
+*Coordinate mode details verified (`0x1eb04..0x1ec12`).* Same `+0x78 == 0`
+gate; global mode `0x12dd2b = 1`; the facing is derived with `0x5a648` from
+the point (a small search over four candidates stores the matching sector
+index in `0x12dd2a`, but the Pyro branch does not use it); every group
+member advances `+0xb0` mod 16, a Pyro with phase >= 4 skips, the target
+point is jittered `(rand & 15) - 8` on each axis and sent through
+`0x1ec13` with port 0 (no 12-attempt cap, no per-port scan lookup). The Pyro
+branch `0x1ef4a` calls `0x5a099` from the raw `+0x2c/+0x2e` (no port or
+facing offset) at the jittered point; it does not `inc ch`. Reload is
+written afterwards at `0x1ec00..0x1ec0f` as `100 - [object + 0x20]`, where
+the object is the movement record at `+8`, not the scanner's `+0x75`.
+Both modes therefore create travelling flames through `0x5a099`
+(`0x1ef84` coordinate, `0x1f111` scanner), confirming that fact; the
+12-port cap, per-crew phase gates (10 versus 4), distinct reloads and
+distinct origins are all confirmed.
+
+*Why nothing was implemented.* (1) Scanner target acquisition is the
+sector scan `0x78f61 -> 0x7911f -> 0x79320`: nine bin lists selected by the
+direction table at `0x104558`, per-octant half-plane tests dispatched through
+`0x104578`, a range grid at `0x104028`, team, visibility and `0x6e583`
+checks, and the follow-up `0x591ca/0x9bded/0x9de02`. Selecting which of the
+four port groups owns a target, and therefore which ports fire and how many
+flames each crew member makes, depends on it; the engine's single
+`find_attack_target` result cannot reproduce it without inventing sector
+geometry. (2) Coordinate mode is reachable only by command 12 / flag `+0x67
+& 0x20`, which open-rts does not model, and is not reached by task 6.
+(3) For robot classes 0 and 0x10 the retail task-6 order is a ranged move,
+not a point attack; for vehicles the per-type action bodies are untraced.
+The next traces that would settle this: `0x57dd6`, `0x7911f/0x79320` tables
+(`px` of `0x104558`, `0x104578`, `0x1c4a34`, `0x1c2a34`), `0x591ca`, `0x9bded`,
+`0x9de02`, the action bodies for ids 0x35..0x3c, the producer of command 12,
+and a dynamic run of `0x9a9ae` to read the return value. Reproduce with `r2 -q
+-e bin.cache=true -e bin.relocs.apply=true -c 'pxw 24 @ 0x14b088' -c 'pd
+110 @ 0x7c817' -c 'pd 95 @ 0x7cb27' -c 'pd 30 @ 0x7bf4e' -c 'pd 30 @
+0x57ce9' -c 'pd 12 @ 0x1e9dc' -c 'pd 75 @ 0x1ea0d' -c 'pd 70 @ 0x1eb04' -c
+'pd 130 @ 0x1ec13' -c 'pd 60 @ 0x1f158' -c 'pd 50 @ 0x78f61' -c 'pd 28 @
+0x1ef4a' -c 'pd 40 @ 0x1f0d1' -c 'pd 45 @ 0x58040' -c q data/Z/ZED.EXE`.
+No code changed for item 97; the open-rts single-target APC attack remains an
+approximation of scanner mode (its Pyro phase gate of 4 is the coordinate-mode
+value, the scanner uses 10; left untouched because changing it without the
+sector scan would change behavior without the matching target model).
+
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks even
