@@ -3012,8 +3012,9 @@ first attack, ported before), then:
   `0x991c4` retires tasks idle for three heavy passes — tasks 2 (waiting)
   are exempt, which the port previously got wrong.
 - `0x99149`: the first CPU-owned non-fort territory whose reserve-adjusted
-  value is >= 500 and above its guards (`0x99976`) gets enough idle offensive
-  force to make up the difference, as task 4. Only that territory, each pass.
+  value is >= 500 and above its guards (`0x99976`) must have enough idle
+  offensive force to make up the difference. It assigns only the first group
+  as task 4 per pass; only that territory is considered in the pass.
   `0x99976` counts task-4 guards of the territory **and every gun anywhere**
   (the class-2 test skips the territory check); the port keeps that.
 - `0x98ee1` vehicles (ported before), then `0x98d95`: an idle offensive task
@@ -5115,3 +5116,17 @@ command after its existing movement check; the mapping from native group
 the two subsequent quiet passes. Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 48 @ 0x98df5' -c 'pd 20 @ 0x9823f' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**One garrison per heavy pass:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x99149..0x99181` selects the first qualifying owned non-fort territory;
+`0x9918f..0x991b4` builds and sorts an idle force pool and tests whether it
+contains enough strength. On success, `0x991b8..0x991be` loads only the
+first pool entry and calls `0x999c2` once. The earlier finding above that
+the whole sufficient set is assigned in that pass was incorrect. Open-rts
+now assigns one group per heavy pass. `test_garrison_one_per_pass` sets a
+required strength larger than one group but achievable with two, checks one
+assignment, then checks the next pass adds a second group. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 48 @ 0x99149'
+-c 'pd 20 @ 0x999c2' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

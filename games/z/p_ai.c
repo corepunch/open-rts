@@ -635,7 +635,7 @@ static void hold_territories(zmap_t *map) {
         if (worth < WORTH_HOLDING || have > worth) continue;
         pooled_t pool[Z_AI_TASKS];
         int n = enough(pool, idle_pool(map, t, pool), worth - have);
-        for (int i = 0; i < n; ++i) garrison(map, pool[i].task, t);
+        if (n) garrison(map, pool[0].task, t);
         return;
     }
 }

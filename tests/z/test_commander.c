@@ -326,6 +326,68 @@ static int test_pending_assault_force(void) {
     return 0;
 }
 
+/* 0x991be assigns just the first group after checking sufficient strength. */
+static int test_garrison_one_per_pass(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("garrison pass load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.intelligence = 126;
+    map->computer.allocation = 50;
+    map->computer.territory_weight = 10;
+    map->territory_count = 2;
+    map->fort_count = 0;
+    for (int t = 0; t < 2; ++t) {
+        map->territories[t].min = (ivec2_t){t * 50, 0};
+        map->territories[t].max = (ivec2_t){(t + 1) * 50, 50};
+        map->territories[t].flag = (ivec2_t){t * 50 + 25, 25};
+        map->territories[t].team = t ? 0 : 1;
+        map->territories[t].importance = t ? 0 : 8;
+        map->territories[t].options = 0;
+        map->ai.territories[t].flags = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) P_RemoveMobj(mo);
+        if (mo->team == 1 && Z_UnitType(mo) >= 0 && mo != lead) mo->hp = 0;
+        if (mo->team == 0 && Z_UnitType(mo) >= 0)
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[1].flag), 0);
+    }
+    lead->z.squad = 0;
+    lead->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[0].flag), 0);
+    for (int i = 0; i < 4; ++i) {
+        mobj_t *mo = P_SpawnMobj(lead->core.position, MT_UNIT_GRUNT);
+        if (!mo) return fail("garrison pass group spawn");
+        Z_SetTeam(mo, 1);
+        mo->z.robot = lead->z.robot;
+        mo->traits &= ~MF_ATTACK;
+        mo->z.squad = 0;
+    }
+    think(0);
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    int guards = 0, idle = 0, strength = 0;
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &map->ai.tasks[i];
+        if (!task->unit) continue;
+        if (task->task == 4) { guards++; strength = task->strength; }
+        if (task->task == -1 && (task->flags & 16)) idle++;
+    }
+    int wanted = Z_AIReserveValue(&map->ai, 0);
+    if (guards != 1 || idle < 1 || wanted <= strength)
+        return fail("one group holds despite a larger required force");
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    guards = 0;
+    for (int i = 0; i < Z_AI_TASKS; ++i) guards += map->ai.tasks[i].unit && map->ai.tasks[i].task == 4;
+    if (guards != 2) return fail("next pass assigns the next garrison");
+    rts_game_model_destroy(model);
+    puts("PASS: z garrisons add one group per heavy pass");
+    return 0;
+}
+
 static int test_blocked_assault_flag(void) {
     RtsGameModel *model = load();
     if (!model) return fail("blocked assault flag load");
@@ -1583,7 +1645,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
