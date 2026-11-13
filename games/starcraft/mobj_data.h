@@ -36,7 +36,9 @@ typedef struct { int order, product; fixed3_t position; uint32_t target; ivec2_t
 typedef struct { int active, count, owner, harvest_phase, target_owner; bool forced; uint32_t target; sc_pending_order_t pending[SC_QUEUED_ORDERS]; } sc_order_queue_t;
 typedef struct { fixed2_t at; uint32_t target; bool set; } sc_rally_t;
 typedef struct { uint8_t active, phase; } sc_glow_t;
-typedef struct { int hp, shields, worker_hp; } sc_construction_t;
+/* A foundation counts its build time in 24 Hz frames; stage counts the
+ * extra frames after the timer ends. worker_hp is the Drone HP a cancel restores. */
+typedef struct { int worker_hp, frames, stage; } sc_construction_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
 typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t previous; bool missed, trail_repeat, trail_emitted; } sc_projectile_t;
 /* sprite_owner is the native sprite owner retained when owner becomes 11;
@@ -68,7 +70,7 @@ typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t pre
     HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
     HASH((mo)->sc.projectile.trail_repeat); HASH((mo)->sc.projectile.trail_emitted); \
     HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target_owner); HASH((mo)->sc.queue.forced); HASH((mo)->sc.queue.target); \
-    HASH((mo)->sc.construction.hp); HASH((mo)->sc.construction.shields); HASH((mo)->sc.construction.worker_hp); \
+    HASH((mo)->sc.construction.worker_hp); HASH((mo)->sc.construction.frames); HASH((mo)->sc.construction.stage); \
     for (int sc_q=0; sc_q<(mo)->sc.queue.count && sc_q<SC_QUEUED_ORDERS; ++sc_q) { \
         const sc_pending_order_t *q=&(mo)->sc.queue.pending[sc_q]; \
         HASH(q->order); HASH(q->product); HASH(q->position.x); HASH(q->position.y); HASH(q->position.z); \

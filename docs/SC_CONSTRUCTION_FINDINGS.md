@@ -4,9 +4,9 @@
 
 Construction now creates a selectable, damageable StarCraft building object
 after the worker reaches the chosen approach position. The object carries its
-remaining build time in the existing `production_t` and construction-produced
-HP/shields plus Zerg Drone return HP in `sc.construction`. The latter is saved
-and hashed with StarCraft's mobj state. StarCraft save layout is 17.
+remaining build time in the existing `production_t`, and its frame countdown,
+hand-over stage and Zerg Drone return HP in `sc.construction`. The latter is saved
+and hashed with StarCraft's mobj state. StarCraft save layout is 18.
 
 The shared game layer exposes construction lifecycle hooks, but their weak
 defaults preserve other plugins' existing worker-build behavior. StarCraft
@@ -45,14 +45,58 @@ building is cancelled. Cancelling an incomplete building refunds 75 percent
 of its mineral and gas cost, matching OpenBW's `partially_refund_unit_costs`.
 Cancelling a worker's pending order before a foundation exists charges nothing.
 
-Construction-produced HP and shields increase with elapsed build time. These
-counters are separate from current vitals so damage received during
-construction is not healed by later progress. Current HP/shields are not
-filled on completion. The implementation uses a linear time interpolation;
-OpenBW instead increments per-frame using an integer construction rate, so
-per-tic rounding is an engine approximation. Native construction image stages,
-worker construction animations, creep growth/decay, and exact movement/placement
-timing are not implemented here.
+## Per-frame HP and shield update (OpenBW, implemented)
+
+Confirmed in the pinned OpenBW source (function names, not line numbers):
+
+- `initialize_unit_type`: a new unit starts at `hitpoints/10` (raw 1/256 HP
+  truncating division; `create_unit` and `zerg_building_start_construction`
+  set the same value). `hp_construction_rate = (hp - hp/10 + build_time - 1) /
+  build_time` in raw 1/256 HP (a round-up division, minimum 1 raw). For grounded
+  buildings with shields the start is `shield/10` and
+  `shield_construction_rate = (shield - shield/10) / build_time` (truncating,
+  floor of one whole point). Build time 0 uses remaining 1 and rate 1.0.
+- Terran, `resume_building_unit` (called from `order_ConstructingBuilding`
+  while the SCV is in its building states 4 and up): `set_unit_hp(hp + rate)`,
+  then if time remains decrement it and return, otherwise `finish_building_unit`
+  and `complete_unit`. So a Terran building takes `build_time + 1` steps.
+- Protoss, `order_IncompleteWarping`: state 0 moves to state 1 on the frame that
+  sees remaining time 0, and every state 0 frame then decrements remaining time and
+  adds HP and shield steps (`build_time + 1` steps). States 1 to 3 add nothing and
+  wait on IScript signals before `finish_building_unit`/`complete_unit`.
+- Zerg, `order_IncompleteMorphing` (also used for the Extractor): remaining time and
+  HP step together while time remains, plus the two frames of states 4 and 5
+  (`build_time + 2` steps); state 6 waits for IScript signal 4. Building morphs
+  (`unit_type_is_morphing_building`, Hatchery to Lair and so on) skip the HP step,
+  and on completion add the new type's HP minus the old type's.
+- `set_unit_hp` and `set_unit_shield_points` clamp at the maximum, so a step never
+  overfills. `finish_building_unit` fills HP and shields only when time remains,
+  which none of the three normal paths reach: a building completes with whatever it
+  holds. Damage (`unit_deal_damage`) has no special case for incomplete units; it
+  just subtracts. Early damage is therefore not healed, apart from the rounding
+  overshoot of the last steps being clamped at the maximum.
+- Shields also regenerate by 7 raw per frame in `update_unit_values`, for incomplete
+  buildings too (HP regeneration and Terran burning need `u_completed`).
+
+Local implementation: `G_ModelUpdateConstruction` in `games/starcraft/p_prod.c`
+runs the steps once per 24 Hz frame the tic covers, using raw 1/256 HP held as
+`hp` and `sc.wound`. Authoritative build progress is `sc.construction.frames`
+(frames left) and `sc.construction.stage` (hand-over frames after the timer);
+`production->time_left_ms` is rewritten from the frame count each tic so the
+status bar and the saved-duration validation keep working. Both fields are hashed
+and saved with the mobj (save layout 18). The shared ticker still subtracts the
+tic from `time_left_ms` before the hook, which is why the frame count is kept
+separately. A cancelled Zerg building returns its Drone with a zero wound;
+cancelling an Extractor returns a fresh full-HP Drone, as `cancel_building_unit`
+does (its previous HP is the geyser's, capped at a Drone's maximum).
+
+Not modelled: the IScript signals that end the Protoss warp-in hand-over (states
+1 to 3) and the Zerg state 6 wait. The local foundation completes on the frame
+after the last stage, so Protoss and Zerg buildings finish at least one or two
+frames earlier than retail by that animation delay (unknown without running
+the building IScripts; a retail trace of completion frame per type would settle
+it). Native construction image stages, worker construction animations and exact
+SCV movement/placement timing remain out of scope.
 
 The command card status panel shows the site's queue and progress bar and
 offers cancellation for the site. Incomplete sites are excluded from
@@ -91,10 +135,19 @@ The pinned OpenBW reference is documented in `REFERENCES.md` and its source is
   2171–2228).
 
 These are OpenBW behavioral references, not a new retail executable trace.
-The code intentionally documents its linear progress and presentation gaps
-instead of claiming exact retail timing or construction art.
+The per-frame arithmetic is OpenBW's; presentation gaps are listed above.
 
 ## Verification
+
+`tests/starcraft/test_construction_frames.c` pins exact integer values: Barracks
+(start 25600 raw, +192 per frame) at frames 100 and 600 and over its whole life
+(1201 frames), early and late damage (final 951 HP plus 64/256 and 1000 HP plus
+64/256), SCV leave and replacement, 75 percent refund; Pylon (HP +154, shields
++153 and regeneration, 452 frames, Probe released at once, refund); Spawning Pool
+(+144, 1203 frames, damaged-Drone restoration, refund) and Extractor cancel.
+Commands run: `make build/bin/starcraft`; `env SDL_VIDEODRIVER=dummy
+TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft` (24 passed,
+0 failed).
 
 `tests/starcraft/test_construction.c` covers Terran SCV attachment, damage,
 pause on builder loss or movement, contextual and explicit resume, queued Move

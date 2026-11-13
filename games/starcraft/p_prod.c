@@ -361,6 +361,12 @@ bool G_ModelConstructionNeedsWorker(const mobj_t *unit,const StaticProductDefini
     return sc_worker_build_product(unit,p);
 }
 
+bool sc_foundation(const mobj_t *unit) {
+    return unit&&unit->production&&unit->production->placed&&
+        unit->production->product_class==RTS_PRODUCT_BUILDING&&
+        unit->production->actor_id==unit->type_id;
+}
+
 bool G_ModelIsConstructionSite(const mobj_t *unit,const StaticProductDefinition *p) {
     return unit&&p&&unit->production&&unit->production->placed&&
         unit->production->product_class==RTS_PRODUCT_BUILDING&&
@@ -432,12 +438,32 @@ bool G_ModelPlaceConstruction(RtsGameModel *m,mobj_t *builder,
     return true;
 }
 
-static int construction_percent(int base,int maximum,const production_t *queue) {
-    if(!queue||queue->time_ms<=0)return maximum;
-    int done=queue->time_ms-queue->time_left_ms;
-    if(done<0)done=0;
-    if(done>queue->time_ms)done=queue->time_ms;
-    return base+(int)((int64_t)(maximum-base)*done/queue->time_ms);
+/* production->time_left_ms mirrors the frame countdown for the status bar
+ * and the saved-duration checks; sc.construction holds the authoritative
+ * frames and hand-over stage (the shared ticker subtracts whole tics from the
+ * mirror first). */
+static int frames_to_ms(int frames) { return (frames*1000+23)/24; }
+static int64_t raw_hp(const mobj_t *unit) { return (int64_t)unit->hp*256-unit->sc.wound; }
+static void set_raw_hp(mobj_t *unit,int64_t raw) {
+    int64_t maximum=(int64_t)unit->max_hp*256;
+    if(raw>maximum)raw=maximum;
+    unit->hp=(int)((raw+255)/256);
+    unit->sc.wound=(uint8_t)((int64_t)unit->hp*256-raw);
+}
+/* OpenBW initialize_unit_type: the HP gained per frame is the missing
+ * nine tenths divided over the build time, rounded up in 1/256 HP and never
+ * zero; shields use a truncating division with a one point floor. */
+static int64_t construction_hp_rate(const mobj_t *unit,int build_time) {
+    int64_t maximum=(int64_t)unit->max_hp*256;
+    if(build_time<=0)return 256;
+    int64_t rate=(maximum-maximum/10+build_time-1)/build_time;
+    return rate?rate:1;
+}
+static int construction_shield_rate(const sc_unit_t *type) {
+    if(type->build_time<=0)return 256;
+    int maximum=type->shields*256;
+    int rate=(maximum-maximum/10)/type->build_time;
+    return rate?rate:256;
 }
 
 bool G_ModelStartConstruction(RtsGameModel *m,mobj_t *builder,
@@ -511,13 +537,13 @@ bool G_ModelStartConstruction(RtsGameModel *m,mobj_t *builder,
         builder->movement.order_arrived=true;
     }
     sc_start(site);
-    site->hp=site->max_hp/10;
-    if(site->hp<1)site->hp=1;
     site->sc.wound=0;
+    site->hp=1;
+    set_raw_hp(site,(int64_t)site->max_hp*256/10);
     site->sc.shields=sc_unit(site)->shields*256/10;
     saved.time_left_ms=saved.time_ms;
-    site->sc.construction=(sc_construction_t){.hp=site->hp,.shields=site->sc.shields,
-        .worker_hp=zerg?previous_worker_hp:0};
+    site->sc.construction=(sc_construction_t){.worker_hp=zerg?previous_worker_hp:0,
+        .frames=sc_unit(site)->build_time};
     *construction=saved;
     if(site!=builder) {
         site->production=construction;
@@ -529,21 +555,50 @@ bool G_ModelStartConstruction(RtsGameModel *m,mobj_t *builder,
     return true;
 }
 
+/* One OpenBW update per 24 Hz frame: Terran resume_building_unit, Protoss
+ * order_IncompleteWarping and Zerg order_IncompleteMorphing. All three add the
+ * per-frame HP (and Protoss shield) step to the current value, so damage taken
+ * is never healed and the building finishes with whatever it holds. The
+ * IScript signals that end the Protoss and Zerg hand-over are not modelled: the
+ * foundation completes on the frame after the last stage. */
 void G_ModelUpdateConstruction(RtsGameModel *m,mobj_t *site,const StaticProductDefinition *p) {
-    (void)m;(void)p;
+    (void)m;
     production_t *queue=site?site->production:NULL;
     const sc_unit_t *type=sc_unit(site);
-    if(!queue||!type||queue->time_ms<=0)return;
-    int hp=construction_percent(site->max_hp/10,site->max_hp,queue);
-    int shields=construction_percent(type->shields*256/10,type->shields*256,queue);
-    if(hp>site->sc.construction.hp) {
-        site->hp+=hp-site->sc.construction.hp;
-        site->sc.construction.hp=hp;
+    if(!queue||!type||queue->time_ms<=0||!p)return;
+    int frames=leveltime*24/RTS_TICRATE-(leveltime-1)*24/RTS_TICRATE;
+    sc_construction_t *state=&site->sc.construction;
+    int remaining=state->frames,stage=state->stage;
+    if(remaining<0||remaining>type->build_time)remaining=type->build_time;
+    if(stage<0||stage>2)stage=2;
+    uint16_t maker=p->makers[0];
+    int64_t hp_rate=construction_hp_rate(site,type->build_time);
+    int shield_rate=construction_shield_rate(type);
+    bool shielded=maker==MT_PROBE&&type->shields>0;
+    for(int f=0;f<frames;f++) {
+        bool done=false,step=true;
+        if(maker==MT_SCV) {
+            if(!remaining)done=true;
+        } else if(maker==MT_PROBE) {
+            if(stage>=1)done=true,step=false;
+            else if(!remaining)stage=1;
+        } else {
+            if(!remaining&&stage>=2)done=true,step=false;
+            else if(!remaining)++stage;
+        }
+        if(step) {
+            set_raw_hp(site,raw_hp(site)+hp_rate);
+            if(shielded) {
+                site->sc.shields+=shield_rate;
+                if(site->sc.shields>type->shields*256)site->sc.shields=type->shields*256;
+            }
+            if(remaining>0)--remaining;
+        }
+        if(done) { state->frames=0;state->stage=stage;queue->time_left_ms=0;return; }
     }
-    if(shields>site->sc.construction.shields) {
-        site->sc.shields+=shields-site->sc.construction.shields;
-        site->sc.construction.shields=shields;
-    }
+    state->frames=remaining;
+    state->stage=stage;
+    queue->time_left_ms=remaining>0?frames_to_ms(remaining):1;
 }
 
 bool G_ModelCompleteConstruction(RtsGameModel *m,mobj_t *site,
@@ -667,9 +722,12 @@ bool sc_cancel_production(mobj_t *producer,int slot) {
         for(int r=1;r<RTS_MAX_RESOURCES;r++)
             P_AddResource(&level,producer->owner,r,product->extra_costs[r-1]*3/4);
         if(product->makers[0]==MT_DRONE) {
-            int restore_hp=producer->sc.construction.worker_hp;
+            /* cancel_building_unit builds a fresh Drone for an Extractor, whose
+             * HP is the geyser's, capped at a Drone's maximum. */
+            int restore_hp=product->product_type==MT_EXTRACTOR?0:producer->sc.construction.worker_hp;
             if(!P_MorphMobj(producer,MT_DRONE))return false;
             producer->hp=restore_hp>0&&restore_hp<producer->max_hp?restore_hp:producer->max_hp;
+            producer->sc.wound=0;
             producer->sc.construction=(sc_construction_t){0};
         } else {
             P_RemoveMobj(producer);
