@@ -73,6 +73,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
     {.id = MT_WATER, .name = "Water", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_BULLET, .name = "Bullet", .traits = MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_PYRO_PROJECTILE, .name = "Pyro flame projectile", .traits = MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_GROUND_FIRE, .name = "Pyro ground fire", .sprite_name = "SPRITES.RSC",
+     .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_BOX_BLAST, .name = "Grenade box blast", .sprite_name = "SPRITES.RSC",
      .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
 };

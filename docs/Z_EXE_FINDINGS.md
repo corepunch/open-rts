@@ -2361,9 +2361,10 @@ every driver class and dispatches Pyro flame only when the resulting phase
 is below 4. The scanner loop
 `0x1eab2..0x1eacb` instead uses a threshold of 10. Open-rts applies the
 coordinate-target gate to its single-target attacks, retaining each member's
-phase through boarding, ejection and save/load. The engine still approximates
-flame as an immediate hit: native flame projectile `0x5a099` and its ground
-fire are unported, and native mode selection remains unknown. The robot
+phase through boarding, ejection and save/load. At the time of this trace,
+solo Pyro still used an immediate hit; the 2026-11-13 implementation below
+adds the native flight and area-fire core for solo Pyros. APC Pyro remains an
+immediate-hit approximation, and native APC mode selection remains unknown. The robot
 record is initially zeroed at `0x5109c..0x510a3`. Correction: constructor
 `0x5117d..0x51185` then assigns byte +0xb0 to `0x70d37() & 15`, so zero
 is not its final initialization. Open-rts initializes each newly placed or
@@ -2446,6 +2447,68 @@ so the one-step path is not claimed reachable. Inspect with `r2 -q -e bin.cache=
 'pd 15 @ 0x50dc6' -c 'pd 12 @ 0x5fcdd' -c 'px 64 @ 0x1157a7' -c
 'pd 45 @ 0x4ab23' -c q data/Z/ZED.EXE`.
 
+**Pyro travel and ground-fire implementation (2026-11-13):** native
+`0x19e72` toggles global `0x10e91b` on each main update; `0x4a617` walks the
+200 effect records on each top-level pass. `0x4a677` checks available
+display-list capacity before it reaches each record. At `0x4a6c2`, a
+nonzero global skips the flame-frame, damage and lifetime branch but still
+allows the record traversal and timer work to continue. When the value is
+zero, sprites 557, 469, 5836, 5840, 5844, 5848 and 5854 dispatch to
+`0x4aa53`. Open-rts models the alternating gate using native 70 Hz steps.
+The projectile records the exact impact step; the newly linked fire thinker
+can then consume only later native steps in that same engine tic. The cursor
+is saved and hashed, so save/load retains the correct gate phase. It does not
+model capacity-driven suppression because presentation list occupancy is
+renderer-dependent here.
+
+`Z_Attack` now creates an invisible, nonblocking projectile mobj for a solo
+Pyro. The authored eight-facing muzzle offsets and 0x60ed5 launch lookup are
+used; projectile speed accelerates 1, 2, 3, then 4 pixels per native update,
+and the flight stops on the traced terrain-height threshold. Arrival creates
+one ground-fire mobj at impact minus (3,3), with one effect ID 71..77 selected
+by `(combat_rng & 7)`, remapping zero to one. The lifetime lookup is the full
+128-entry table at `0x1157a7`, indexed by the impact terrain ID masked with
+0x7f. Each selected 4- or 6-frame cycle follows the corresponding native
+sprite count; on wrap, the implementation applies the inclusive +24,+24
+team-filtered damage box and subtracts 8 lifetime, preserving 127 as
+permanent. Fire Truck health immunity remains active for this area pass.
+Area candidates use their native anchor: +8,+8 for robot and gun classes,
++16,+16 for class-1 mobile vehicles. Byte lifetime decrements wrap at 8 bits;
+the native signed test removes a flame when bit 7 becomes set. Thus terrain
+76's authored lifetime 246 expires on its first cycle wrap, unlike an
+unbounded integer decrement. The Z save layout is now 27; new state IDs are
+appended after the prior `S_BULLET` value so existing state IDs stay stable.
+Class selection reads the actor type's immutable traits, not transient
+runtime movement flags such as the ones cleared while a vehicle is being
+serviced. If an otherwise valid unit lacks its actor descriptor, the native
+unit-kind table supplies the class fallback.
+The engine combat RNG is deterministic and separate from ZED.EXE's global
+random stream, so random effect choices are structurally equivalent but not
+sequence-identical. The regular native source-attribution semantics have
+not been recovered; damage currently has no retained attacker pointer.
+
+The pinned Zod remake (`reference/zod/src/eflame.cpp` and
+`epyrofire.cpp`) independently confirms a traveling Pyro visual effect that
+creates `EPyroFire` at arrival, and 4/6-frame fire variants. Zod advances
+those visuals every 0.06 seconds and has no native area-damage model in these
+classes. Its timing is not used for this native implementation. A focused
+`test_pyro_flame_lifecycle` verifies no immediate hit, delayed damage and a
+save taken immediately after impact. `test_pyro_fire_geometry_and_byte_lifetime`
+checks robot, vehicle and gun anchors at the inclusive boundary, Fire Truck
+immunity, terrain 76's high-bit expiry, class-one tanks with `MF_MOBILE`
+cleared and missing actor metadata, two native update phases and impact
+save/load. `test_pyro_cadence` verifies firing cadence and recovery save/load.
+Reproduce with `make build/bin/tests/z/test_combat` and
+`env SDL_VIDEODRIVER=dummy build/bin/tests/z/test_combat`.
+
+Still unknown or partial: exact projectile art selection/rotation;
+display-list exhaustion effects; active-building and bridge checks in
+`0x4ab23`; the separate 100-record map-object damage pass; native source/kill
+attribution; and the flame-specific unit movement reaction at `0x59894`,
+whose bounds and register anomalies are described above. APC Pyro attacks
+still use their existing crew-phase immediate-hit approximation. No claim is
+made that these paths match retail yet.
+
 **Flame sprites and area geometry:** descriptors 71..77 at `0xe6063`
 select base sprite IDs 5836, 557, 469, 5840, 5844, 5848 and 5854,
 respectively. `0x4aa74..0x4aaa5` wraps IDs 557, 5848 and 5854 after six
@@ -2457,8 +2520,10 @@ effect coordinates and ends at +24,+24, with both edges inclusive.
 `0x64364..0x643bd` tests each unit's top-left +8,+8, or +16,+16 for class 1,
 against those edges. Separately `0x88a7f` scans 100 other object records
 within absolute coordinate differences <=24 on each axis; it is not the
-unit rectangle. Effect allocation, display-list coupling, map-object damage,
-and flame projectile flight and target scatter remain unimplemented.
+unit rectangle. The implementation now uses ordinary mobjs for the flight
+and persistent fire, and applies the traced unit-area geometry. Native
+display-list-capacity coupling, map-object damage, building/bridge scaling,
+and the flame-specific in-flight unit response remain unimplemented.
 Inspect with `r2 -q -e bin.cache=true -c 'px 175 @ 0xe6063' -c 'pd 65 @
 0x4a677' -c 'pd 30 @ 0x4aa74' -c 'pd 35 @ 0x868ef' -c 'pd 40 @ 0x64364'
 -c 'pd 45 @ 0x88a7f' -c q data/Z/ZED.EXE`.
@@ -3710,7 +3775,8 @@ speed weapon +4 (+7), damage (+6), fire rate (+0x20), shot speed (+0x21).
   an engine integration rule, not a recovered retail retargeting sequence. With the
   engine's 30 Hz tic quantization, a stationary test observes firing gaps
   of 2, 2, 2 and 9 tics. The separately traced 70 Hz animation does not map
-  exactly to 30 Hz, and projectile and flame area remain unported. The prior
+  exactly to 30 Hz, and its frame timing remains an engine approximation. The
+  later native projectile and flame-area core is documented below. The prior
   shared-reload attempt was discarded: its generic attack animation produced
   shots every 12 engine tics regardless of the intended reload. Inspect with
   `r2 -q -e bin.cache=true -c 'px 4 @ 0x14913c' -c 'px 4 @ 0x14b210' -c 'pd 65 @ 0x76098' -c 'pd 20 @ 0x6360e'
@@ -3813,7 +3879,7 @@ two units, not the native stream.
 Engine boundaries, **not** native equivalence: shells apply their existing engine damage over the candidate box below;
 vehicle crush, the tanks' apparent
 secondary gun (weapon +0x25..+0x27: 4 damage, rate 80; inferred only),
-terrain speed terms and the Pyro flame (`0x5a099`) remain incomplete. The
+terrain speed terms and residual Pyro flame paths remain incomplete. The
 Fire Truck path is now implemented in the bounded form below.
 
 **Bullet travel trace:** `0x5af81` rejects equal endpoints

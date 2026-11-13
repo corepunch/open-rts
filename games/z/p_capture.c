@@ -799,6 +799,43 @@ static void fire_bullet(mobj_t *attacker, const weapondef_t *weapon, mobj_t *tar
         Z_TerrainHeight(map, terrain_at.x / Z_TILE, terrain_at.y / Z_TILE) + 1 : 0;
 }
 
+/* Native 0x60ed5 adds one of these signed offset pairs to unit +0x2c/+0x2e,
+ * then subtracts (8,8). These are therefore relative to the sprite top-left. */
+static const ivec2_t pyro_muzzle[] = {
+    {-2,-15}, {8,-10}, {13,-2}, {7,4}, {0,13}, {-9,12}, {-15,2}, {-12,-11},
+};
+
+static bool fire_pyro_flame(mobj_t *attacker, mobj_t *target) {
+    const zmap_t *map = level.native_data;
+    if (!map || !live(attacker) || !live(target)) return false;
+    int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+    ivec2_t origin = Z_AITopLeft(attacker);
+    ivec2_t start = ivec2_add(origin, pyro_muzzle[facing]);
+    ivec2_t launch_cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+    if (origin.x < 0 || origin.y < 0 || !L_Contains(&level, launch_cell.x, launch_cell.y)) return false;
+    ivec2_t aim = Z_AITopLeft(target);
+    if (target->info && (target->info->traits & MF_TURRET)) aim.x += 8;
+    aim = scatter_aim(attacker, origin, aim, 4);
+    ivec2_t delta = ivec2_sub(aim, start);
+    int dx = abs(delta.x), dy = abs(delta.y);
+    if (!dx && !dy) return true;
+
+    mobj_t *flame = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE), 0), MT_PYRO_PROJECTILE);
+    if (!flame) return true;
+    flame->team = attacker->team;
+    flame->owner = attacker->owner;
+    flame->missile.damage = attacker->info->attack.damage;
+    flame->z.flame.direction = (ivec2_t){(delta.x > 0) - (delta.x < 0), (delta.y > 0) - (delta.y < 0)};
+    flame->z.flame.vertical = dy > dx;
+    flame->z.flame.major = flame->z.flame.remaining = dy > dx ? dy : dx;
+    flame->z.flame.minor = dy > dx ? dx : dy;
+    flame->z.flame.error = flame->z.flame.major / 2;
+    flame->z.flame.height = Z_TerrainHeight(map, launch_cell.x, launch_cell.y) + 1;
+    flame->movement.goal = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
+    return true;
+}
+
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (throws_at(attacker, target)) {
         /* Facing-indexed signed pairs at 0x149174 (0x636df). */
@@ -849,6 +886,8 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         if (!valid_crew(attacker)) return true;
         t = attacker->z.driver - 1;
     }
+    if (!apc && t == MT_UNIT_PYRO - MT_UNITS && target)
+        return fire_pyro_flame(attacker, target);
     if (apc && target && weapon) {
         int count = attacker->z.crew_count ? attacker->z.crew_count : 1;
         int team = target->team;
@@ -1189,6 +1228,126 @@ void A_ZWater(mobj_t *water) {
         }
     }
     water->core.frame = water->z.water.sprite ? water->z.water.sprite : 1622 + (water->missile.age & 3);
+}
+
+static void damage_ground_fire(const mobj_t *fire) {
+    ivec2_t origin = fixed2_cell(fixed2_scale(fixed3_xy(fire->core.position), FIXED_FROM_INT(Z_TILE)));
+    ivec2_t max = ivec2_add(origin, (ivec2_t){24,24});
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *victim = (mobj_t *)th;
+        if (th->function != P_MobjThinker || !live(victim) || victim == fire ||
+            victim->team >= Z_NEUTRAL || victim->team == fire->team || Z_UnitType(victim) < 0 ||
+            victim->type_id == MT_UNIT_FIRE_TRUCK) continue;
+        int type = Z_UnitType(victim);
+        bool class_one = victim->info ?
+            (victim->info->traits & MF_MOBILE) && !Z_IsRobot(type) : Z_IsClassOneUnit(type);
+        int offset = class_one ? 16 : 8;
+        ivec2_t anchor = ivec2_add(Z_AITopLeft(victim), (ivec2_t){offset,offset});
+        if (anchor.x >= origin.x && anchor.x <= max.x && anchor.y >= origin.y && anchor.y <= max.y)
+            P_DamageMobj(victim, fire->target, fire->z.fire.damage);
+    }
+}
+
+static bool spawn_ground_fire(const mobj_t *projectile, ivec2_t impact, uint32_t impact_step) {
+    static const int sprites[] = {5836, 557, 469, 5840, 5844, 5848, 5854};
+    static const uint8_t lifetime_by_terrain[128] = {
+         6,  1,  1,  1,  1,  1,  1,  6, 50,  1,  6,  6,  1,  1,  1,  1,
+        12,  1,  1,  1,  1,  1,  6,  6,  1,  1, 12, 12,  6,  1,  6,  6,
+        12, 12, 12,  6, 12, 12,  1,  1,100, 12,100,  6, 12,  6, 12,  6,
+         6,  1,  1,127,  0,  6,  6,  6,  6,  6,  1,127,  1,  1,  6,  6,
+         6,  6,  0,  0,  0,  0,  0,  0,  0,  0, 20,236,246,  0,  0,  0,
+         0,  0,  0,  0, 20,  0,  0,100,101,236, 20,  0,  0,102,103,  0,
+         0,  0, 90,  0,104,105,106,107,108,  0,236,109,110,226,  0,  0,
+         0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,236,111,
+    };
+    const zmap_t *map = level.native_data;
+    if (!map || impact.x < 0 || impact.y < 0) return false;
+    ivec2_t origin = ivec2_sub(impact, (ivec2_t){3,3});
+    ivec2_t cell = {origin.x / Z_TILE, origin.y / Z_TILE};
+    if (!L_Contains(&level, cell.x, cell.y)) return false;
+    unsigned terrain = map->terrain[cell.y * Z_MAP_STRIDE + cell.x] & 0x7f;
+    unsigned effect = Z_NextRandom(&((zmap_t *)map)->combat_seed) & 7;
+    if (!effect) effect = 1;
+    effect += 70;
+    unsigned sprite_index = effect - 71;
+    mobj_t *fire = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE), 0), MT_GROUND_FIRE);
+    if (!fire) return false;
+    fire->team = projectile->team;
+    fire->owner = projectile->owner;
+    /* The native effect retains scalar projectile metadata; source-object
+     * attribution remains untraced, so do not keep an unsafe mobj pointer. */
+    fire->z.fire.damage = projectile->missile.damage;
+    fire->z.fire.lifetime = lifetime_by_terrain[terrain];
+    fire->z.fire.native_step = impact_step;
+    fire->z.fire.sprite = (uint8_t)effect;
+    fire->z.fire.frame_count = sprite_index == 1 || sprite_index == 5 || sprite_index == 6 ? 6 : 4;
+    fire->core.frame = sprites[sprite_index];
+    return true;
+}
+
+void A_ZPyroFlame(mobj_t *flame) {
+    zflame_t *flight = &flame->z.flame;
+    const zmap_t *map = level.native_data;
+    if (!map || flight->remaining <= 0 || flight->major <= 0 || flame->missile.age < 0) {
+        P_RemoveMobj(flame);
+        return;
+    }
+    int steps = Z_NativeSteps(leveltime, Z_NATIVE_HZ);
+    uint32_t native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+    for (int step = 0; step < steps; ++step) {
+        ++native_step;
+        ivec2_t at = fixed2_cell(fixed2_scale(fixed3_xy(flame->core.position), FIXED_FROM_INT(Z_TILE)));
+        int speed = flame->missile.age < 4 ? flame->missile.age + 1 : 4;
+        for (int i = 0; i < speed && flight->remaining > 0; ++i) {
+            flight->error -= flight->minor;
+            if (flight->vertical) at.y += flight->direction.y;
+            else at.x += flight->direction.x;
+            if (flight->error < 0) {
+                flight->error += flight->major;
+                if (flight->vertical) at.x += flight->direction.x;
+                else at.y += flight->direction.y;
+            }
+            --flight->remaining;
+        }
+        ++flame->missile.age;
+        flame->core.position = fixed3_from_fixed2(
+            fixed2_scale(fixed2_from_cell(at), FIXED_ONE / Z_TILE), 0);
+        bool hit_height = at.x < 0 || at.y < 0 || !L_Contains(&level, at.x / Z_TILE, at.y / Z_TILE) ||
+            Z_TerrainHeight(map, at.x / Z_TILE, at.y / Z_TILE) > flight->height;
+        if (hit_height || !flight->remaining) {
+            spawn_ground_fire(flame, at, native_step);
+            P_RemoveMobj(flame);
+            return;
+        }
+    }
+}
+
+void A_ZGroundFire(mobj_t *fire) {
+    static const int sprites[] = {5836, 557, 469, 5840, 5844, 5848, 5854};
+    int sprite_index = fire->z.fire.sprite - 71;
+    if (sprite_index < 0 || sprite_index >= (int)(sizeof(sprites) / sizeof(*sprites)) ||
+        (fire->z.fire.frame_count != 4 && fire->z.fire.frame_count != 6)) {
+        P_RemoveMobj(fire);
+        return;
+    }
+    uint32_t native_end = (uint32_t)(((int64_t)leveltime + 1) * Z_NATIVE_HZ / RTS_TICRATE);
+    while (fire->z.fire.native_step < native_end) {
+        uint32_t native_step = ++fire->z.fire.native_step;
+        /* 0x19e72 toggles this global on each native update; 0x4a677 runs
+         * flame frames, damage and lifetime only when the new value is zero. */
+        if (native_step & 1) continue;
+        if (++fire->z.fire.frame < fire->z.fire.frame_count) continue;
+        fire->z.fire.frame = 0;
+        damage_ground_fire(fire);
+        if (fire->z.fire.lifetime == 127) continue;
+        fire->z.fire.lifetime = (uint8_t)(fire->z.fire.lifetime - 8);
+        if (fire->z.fire.lifetime & 0x80) {
+            P_RemoveMobj(fire);
+            return;
+        }
+    }
+    fire->core.frame = sprites[sprite_index] + fire->z.fire.frame;
 }
 
 static ivec2_t blast_impact(const mobj_t *missile) {

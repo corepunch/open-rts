@@ -628,12 +628,14 @@ static int test_pyro_cadence(void) {
     if (!pyro || !target) return fail("spawn Pyro cadence fixture");
     pyro->attack.target = target;
     P_UpdateSight();
-    int times[5], count = 0, hp = target->hp;
+    int times[5], count = 0;
+    int shots = pyro->attack.shots;
     for (int tic = 0; tic < 10 * RTS_TICRATE && count < 5; ++tic) {
         if (!tick(model, 1)) return fail("tick Pyro cadence");
-        if (target->hp < hp) { times[count++] = tic; hp = target->hp; }
+        if (pyro->attack.shots != shots) times[count++] = tic;
+        shots = pyro->attack.shots;
     }
-    if (count != 5) return fail("Pyro fires five bursts");
+    if (count != 5) return fail("Pyro completes five attack cycles");
     if (times[1] - times[0] != 2 || times[2] - times[1] != 2 ||
         times[3] - times[2] != 2 || times[4] - times[3] != 9)
         return fail("four-burst pause changes real firing timestamps");
@@ -689,6 +691,162 @@ static int test_pyro_cadence(void) {
         pyro->z.grenades != 2 || pyro->attack.shots != 2)
         return fail("flame action resolves an invalid target before choosing the throw");
     rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_pyro_flame_lifecycle(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load for Pyro flame lifecycle");
+    if (G_SaveLayout() != 27 || S_WATER != S_PYRO_RECOVER + 1 ||
+        S_PYRO_PROJECTILE != S_BULLET + 1 || S_GROUND_FIRE + 1 != NUMSTATES)
+        return fail("Pyro states preserve prior IDs and version the Z save layout");
+    fixed2_t at = fixed2_cell_center((ivec2_t){20, 20});
+    mobj_t *pyro = blast_unit(MT_UNIT_PYRO, 0, at, 500);
+    mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 16), 500);
+    if (!pyro || !target) return fail("spawn Pyro flame lifecycle fixture");
+    disarm_except(0, pyro);
+    pyro->z.grenades = 0;
+    pyro->attack.target = target;
+    zmap_t *map = level.native_data;
+    ivec2_t cell = fixed2_cell(fixed2_scale(at, FIXED_FROM_INT(Z_TILE)));
+    for (int y = cell.y - 2; y <= cell.y + 3; ++y)
+        for (int x = cell.x - 2; x <= cell.x + 3; ++x)
+            map->terrain[y * Z_MAP_STRIDE + x] = map->ground_attr[y * Z_MAP_STRIDE + x] = 0;
+    if (!Z_Attack(pyro, &pyro->info->attack, target) || target->hp != 500 ||
+        !nth(MT_PYRO_PROJECTILE, -1, 0))
+        return fail("Pyro creates a traveling flame without an immediate hit");
+    uint32_t target_id = target->id;
+    bool damaged = false, saved_impact = false;
+    for (int tic = 0; tic < RTS_TICRATE && !damaged; ++tic) {
+        if (!tick(model, 1)) return fail("tick Pyro flame lifecycle");
+        mobj_t *fire = nth(MT_GROUND_FIRE, -1, 0);
+        if (fire && !saved_impact) {
+            uint32_t fire_id = fire->id;
+            uint32_t native_begin = (uint32_t)((int64_t)(leveltime - 1) * Z_NATIVE_HZ / RTS_TICRATE);
+            uint32_t native_end = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+            uint32_t saved_native_step = fire->z.fire.native_step;
+            int saved_frame = fire->z.fire.frame;
+            if (fire->z.fire.native_step <= native_begin || fire->z.fire.native_step > native_end ||
+                fire->z.fire.frame < 0 || fire->z.fire.frame >= fire->z.fire.frame_count)
+                return fail("new ground fire starts at impact phase and advances only later native steps");
+            app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+            if (!G_SaveGameBlob(&save, &size, "Pyro impact", &app, rts_game_model_ai(model), &hud) ||
+                !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+                return fail("save and load immediately after Pyro impact");
+            free(save);
+            target = P_MobjById(target_id);
+            fire = P_MobjById(fire_id);
+            if (!target || !fire || fire->z.fire.native_step != saved_native_step ||
+                fire->z.fire.frame != saved_frame)
+                return fail("save preserves ground-fire phase at impact");
+            saved_impact = true;
+        }
+        damaged = target->hp < 500;
+    }
+    if (!damaged || !saved_impact) return fail("Pyro ground fire damages on its animated cycle");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static void place_top_left(mobj_t *unit, ivec2_t top_left) {
+    ivec2_t delta = ivec2_sub(top_left, Z_AITopLeft(unit));
+    fixed2_t position = fixed2_add(fixed3_xy(unit->core.position),
+        fixed2_scale(fixed2_from_cell(delta), FIXED_ONE / Z_TILE));
+    unit->core.position = fixed3_from_fixed2(position, unit->core.position.z);
+}
+
+static int test_pyro_fire_geometry_and_byte_lifetime(void) {
+    static const struct { int type, offset, y, inside, suppress_mobile, null_info; } fixtures[] = {
+        {MT_UNIT_GRUNT, 8, 8, 1, 0, 0}, {MT_UNIT_GRUNT, 8, 12, 0, 0, 0},
+        {MT_UNIT_MED_TANK, 16, 16, 1, 0, 0}, {MT_UNIT_MED_TANK, 16, 20, 0, 0, 0},
+        {MT_UNIT_MED_TANK, 16, 18, 1, 1, 0}, {MT_UNIT_MED_TANK, 16, 19, 1, 1, 1},
+        {MT_UNIT_GATLING, 8, 22, 1, 0, 0}, {MT_UNIT_GATLING, 8, 23, 0, 0, 0},
+        {MT_UNIT_FIRE_TRUCK, 16, 6, 1, 0, 0},
+    };
+    RtsGameModel *model = load();
+    if (!model) return fail("load for Pyro area geometry");
+    ivec2_t origin = {320, 320};
+    mobj_t *fire = P_SpawnMobj(fixed3_from_fixed2(
+        fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE), 0), MT_GROUND_FIRE);
+    if (!fire) return fail("spawn Pyro area geometry fixture");
+    fire->team = 0;
+    fire->z.fire.damage = 20;
+    fire->z.fire.lifetime = 127;
+    fire->z.fire.sprite = 71;
+    fire->z.fire.frame_count = 4;
+    fire->z.fire.frame = 3;
+    fire->z.fire.native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+    mobj_t *targets[sizeof(fixtures) / sizeof(*fixtures)];
+    for (size_t i = 0; i < sizeof(fixtures) / sizeof(*fixtures); ++i) {
+        targets[i] = blast_unit(fixtures[i].type, 1,
+            fixed2_cell_center((ivec2_t){20, 20}), 100);
+        if (!targets[i]) return fail("spawn Pyro area geometry target");
+        bool class_one = targets[i]->info->traits & MF_MOBILE && !Z_IsRobot(Z_UnitType(targets[i]));
+        int offset = class_one ? 16 : 8;
+        if (offset != fixtures[i].offset) return fail("native class anchor fixture");
+        place_top_left(targets[i], (ivec2_t){origin.x + (fixtures[i].inside ? 24 : 25) - offset,
+                                             origin.y + fixtures[i].y - offset});
+        if (fixtures[i].suppress_mobile) targets[i]->traits &= ~MF_MOBILE;
+        if (fixtures[i].null_info) targets[i]->info = NULL;
+    }
+    if (!tick(model, 1)) return fail("tick Pyro area geometry");
+    for (size_t i = 0; i < sizeof(fixtures) / sizeof(*fixtures); ++i) {
+        int expected_hp = fixtures[i].inside && fixtures[i].type != MT_UNIT_FIRE_TRUCK ? 80 : 100;
+        if (targets[i]->hp != expected_hp) {
+            return fail("Pyro area uses class-specific anchors and inclusive boundary");
+        }
+    }
+    rts_game_model_destroy(model);
+
+    /* Terrain 76's descriptor lifetime is 246. Its first SUB 8 sets the
+     * sign bit and the native signed-byte branch removes the fire. */
+    static const int start_ticks[] = {0, 3};
+    for (size_t phase = 0; phase < sizeof(start_ticks) / sizeof(*start_ticks); ++phase) {
+        model = load();
+        if (!model) return fail("load for high-bit Pyro fire lifetime");
+        disarm_except(0, NULL);
+        if (start_ticks[phase] && !tick(model, start_ticks[phase])) return fail("advance to alternate native phase");
+        zmap_t *map = level.native_data;
+        const ivec2_t tile = {20, 20};
+        map->terrain[tile.y * Z_MAP_STRIDE + tile.x - 1] = 0;
+        map->terrain[tile.y * Z_MAP_STRIDE + tile.x] = 76;
+        mobj_t *projectile = P_SpawnMobj(fixed3_from_fixed2(
+            fixed2_scale(fixed2_from_cell((ivec2_t){tile.x * Z_TILE - 1, tile.y * Z_TILE + 8}),
+                         FIXED_ONE / Z_TILE), 0), MT_PYRO_PROJECTILE);
+        if (!projectile) return fail("spawn high-bit Pyro projectile");
+        projectile->team = 0;
+        projectile->missile.age = 3;
+        projectile->missile.damage = 20;
+        projectile->z.flame.direction = (ivec2_t){1, 0};
+        projectile->z.flame.remaining = projectile->z.flame.major = 20;
+        projectile->z.flame.error = 10;
+        projectile->z.flame.height = 1;
+        if (!tick(model, 1)) return fail("tick high-bit Pyro impact");
+        mobj_t *ground = nth(MT_GROUND_FIRE, -1, 0);
+        uint32_t fire_id = ground ? ground->id : 0;
+        uint32_t native_begin = (uint32_t)((int64_t)(leveltime - 1) * Z_NATIVE_HZ / RTS_TICRATE);
+        uint32_t native_end = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+        uint32_t impact_step = native_begin + 1;
+        int expected_frame = ground ? (int)(native_end / 2 - impact_step / 2) : 0;
+        if (ground) expected_frame %= ground->z.fire.frame_count;
+        if (!ground || ground->z.fire.lifetime != 246 ||
+            ground->z.fire.native_step != native_end ||
+            ground->z.fire.frame != expected_frame)
+            return fail("terrain 76 impact initializes lifetime at the exact native phase");
+        app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+        if (!G_SaveGameBlob(&save, &size, "High-bit Pyro impact", &app, rts_game_model_ai(model), &hud) ||
+            !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+            return fail("save and load high-bit Pyro impact");
+        free(save);
+        ground = P_MobjById(fire_id);
+        if (!ground || ground->z.fire.native_step != native_end ||
+            ground->z.fire.frame != expected_frame || ground->z.fire.lifetime != 246)
+            return fail("save preserves signed lifetime phase after impact");
+        for (int t = 0; t < 8 && P_MobjById(fire_id); ++t)
+            if (!tick(model, 1)) return fail("tick high-bit Pyro fire");
+        if (P_MobjById(fire_id)) return fail("signed byte lifetime expires at first cycle wrap");
+        rts_game_model_destroy(model);
+    }
     return 0;
 }
 
@@ -2576,7 +2734,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

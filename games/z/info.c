@@ -105,6 +105,8 @@ const state_t states[NUMSTATES] = {
     [S_BOX_BLAST] = { SPR_RSC, Z_BLAST_SPRITE, 1, 2, A_ZBoxBlast, S_GRENADE_SMOKE, 4, NULL },
     [S_PYRO_FLAME] = { SPR_PYRO, Z_ROBOT_PYRO + 2, 1, 1, A_PyroFlame, S_PYRO_RECOVER, 3, NULL },
     [S_PYRO_RECOVER] = { SPR_PYRO, Z_ROBOT_PYRO, 1, 1, A_PyroRecover, S_PYRO_STND, 3, NULL },
+    [S_PYRO_PROJECTILE] = { SPR_RSC, 0, 1, 1, A_ZPyroFlame, S_PYRO_PROJECTILE, 0, NULL },
+    [S_GROUND_FIRE] = { SPR_RSC, 0, 1, 1, A_ZGroundFire, S_GROUND_FIRE, 0, NULL },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -152,6 +154,11 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_WATER] = { .doomednum = -1, .spawnstate = S_WATER, .deathstate = S_WATER_BLAST,
                    .xdeathstate = S_WATER_BLAST, .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
     [MT_BULLET] = { .doomednum = -1, .spawnstate = S_BULLET, .spawnhealth = 1, .flags = MF_NOBLOCKMAP },
+    [MT_PYRO_PROJECTILE] = { .doomednum = -1, .spawnstate = S_PYRO_PROJECTILE,
+                             .deathstate = S_NULL, .xdeathstate = S_NULL, .flags = MF_NOBLOCKMAP },
+    [MT_GROUND_FIRE] = { .doomednum = -1, .spawnstate = S_GROUND_FIRE,
+                         .deathstate = S_NULL, .xdeathstate = S_NULL,
+                         .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
     [MT_BOX_BLAST] = { .doomednum = -1, .spawnstate = S_BOX_WAIT, .spawnhealth = 1,
                        .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
 };
