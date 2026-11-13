@@ -236,6 +236,7 @@ static int cv5_buildability(void) {
     P_RemoveMobj(geyser);
 
     mobj_t *hatchery=sc_spawn_actor(MT_HATCHERY-1,(ivec2_t){24*32,23*32},0); CHECK(hatchery);
+    sc_creep_initial(hatchery); /* A pre-placed Hatchery starts with its full creep. */
     CHECK(P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){27,26},NULL));
     CHECK(!P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){27,26},NULL));
     P_RemoveMobj(hatchery);
@@ -252,6 +253,7 @@ static int cv5_buildability(void) {
     CHECK(G_DoLoadLevel(fixture,&level)); /* Deliberately do not load terrain assets. */
     CHECK(!((sc_mission_t *)level.mission)->terrain);
     hatchery=sc_spawn_actor(MT_HATCHERY-1,(ivec2_t){24*32,23*32},0); CHECK(hatchery);
+    sc_creep_initial(hatchery);
     CHECK(!P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){27,26},NULL));
     CHECK(P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){27,26},NULL));
     P_FreeLevel(&level);

@@ -708,7 +708,7 @@ static int pausing(void) {
     *mark = mark_good;
     CHECK(G_LoadExtra(blob, size));
     free(blob);
-    CHECK(G_SaveLayout() == 23);
+    CHECK(G_SaveLayout() == 24);
     unload();
     return 0;
 }

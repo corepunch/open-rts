@@ -61,7 +61,7 @@ Local status was checked by `tests/starcraft/test_service_audit.c`,
 | Detector | `unit_can_detect` needs `u_completed` | Matches (turret foundation) |
 | Supply provided | `add_completed_unit` at `complete_unit`; a morph never removes it until `morph_unit` swaps the type | Matches (foundation excluded; supply unchanged through a Lair morph) |
 | Psi power | `order_InitializePsiProvider` after completion | Matches |
-| Creep | `zerg_building_start_construction` calls `add_creep_provider` (footprint only until `unit_type_spreads_creep` with completion); `set_creep_building_tiles` at completion; spreading by `secondary_order_SpreadCreep` | Differs: creep is a stateless radius, see the creep section below |
+| Creep | `zerg_building_start_construction` calls `add_creep_provider` (footprint only until `unit_type_spreads_creep` with completion); `set_creep_building_tiles` at completion; spreading by `secondary_order_SpreadCreep` | Matches: per-tile state in `p_creep.c` (see the creep section below); a foundation and a morphing Hatchery or Colony cover their footprint only |
 | Weapons | main order `IncompleteBuilding`, `IncompleteWarping` or `IncompleteMorphing` never runs the attack order | Matches (turret foundation) |
 | Resource depot | `unit_is_active_resource_depot`: completed, Lair, Hive, or a Hatchery that is morphing | Matches (foundation rejects return cargo; morph keeps it) |
 | Gas harvesting | `unit_can_gather_gas` needs a completed refinery | Matches (nothing mined from an Assimilator foundation, gas flows after completion) |
@@ -75,46 +75,100 @@ Local status was checked by `tests/starcraft/test_service_audit.c`,
 Commands: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o
 starcraft-maps test-starcraft` (25 passed, 0 failed).
 
-## Creep growth and recession (issue 99, item 3): not implemented
+## Creep growth and recession (issue 99, item 3)
 
-Local creep (`on_creep` in `games/starcraft/p_zerg.c`) is stateless: map creep
-tiles from the terrain plus instant radius 10 around a ready Hatchery tier and
-radius 5 around a ready colony, for any owner. The pinned OpenBW source states the
-real algorithm, which is a persistent per-tile flag with timers:
+Creep is per-map tile state in `games/starcraft/p_creep.c`, ported from the
+pinned OpenBW functions named below. The old stateless predicate (instant radius
+10 and 5 circles) is gone; placement (`sc_ground_ok`) reads `sc_creep_at`. The
+renderer has no creep art to rewire: the world draws terrain tiles only, and the
+MTXM creep bit stays masked, so nothing there reads the state.
 
-- `get_max_creep_bb`, `unit_type_spreads_creep`: a Hatchery (once completed),
-  Lair, Hive, Creep Colony (once completed), Spore and Sunken Colony cover an
-  ellipse, `dx*dx*25 + dy*dy*64 <= 320*320*25` (10 tiles by 6.25 tiles) in pixel
-  distance from the building centre; every other Zerg building covers only its
-  footprint.
-- `secondary_order_SpreadCreep` (started by `order_InitCreepGrowth` for a
-  Hatchery, Lair, Hive or Creep Colony, ended by `StoppingCreepGrowth` for Spore
-  and Sunken): every 16 frames call `spread_creep` with the Hive footprint. It
-  gathers the creep-free tiles of the ellipse that `tile_can_have_creep` accepts
-  (not unbuildable or partly walkable, and the tile below not unbuildable), skips
-  occupied tiles, counts each candidate's creep neighbours (8-neighbourhood),
-  buckets candidates by that count and picks one at random from the bucket with
-  the most neighbours. It stops when nothing is left to grow and no tile was
-  skipped as occupied.
-- `set_creep_building_tiles` paints the footprint (with the Hatchery's two-tile
-  rounded margin) at completion; `spread_creep_completely` seeds pre-placed
-  buildings at once; `add_creep_provider` at `zerg_building_start_construction`
-  only protects existing creep under the footprint.
-- Recession: `remove_creep_provider` marks each creep tile of the dead provider
-  that no other Zerg building sustains (`creep_is_being_sustained`) as receding,
-  filed in one of nine lists by creep-neighbour count; `recede_creep` removes one
-  tile per timer period (`{1,3,5,6,7,8,9,9,9}[free_list_size>>7]` frames), taking a
-  random entry from the first non-empty list, so tiles with the fewest neighbours
-  recede first. The pool holds 1024 entries.
+Rules, all confirmed in `bwgame.h`:
 
-Why it is not done here: porting this changes a stateless predicate used by
-placement, larva, Nydus and the AI into level state that must be created per
-map, seeded for pre-placed and trigger-created buildings, saved and hashed, and
-the existing tests rely on instant radius creep around spawned Hatcheries. The
-parts the pinned source does not settle are the dead-unit retry path (`status_flag_4000`
-and `check_dead_unit_timer`, which retries `remove_creep_provider` when the 1024-entry
-pool is empty), how pre-placed buildings differ from trigger-created ones for the
-initial seed (`create_initial_unit` versus the trigger path both appear), and the
-shared OpenBW RNG stream (`lcg_rand(26)` and `lcg_rand(27)`) that local
-code cannot reproduce frame for frame. A retail trace of tile growth after a Hatchery
-completes (tile order and 16-frame cadence) would settle the last of these.
+- Tiles: bit `flag_has_creep` and `flag_creep_receding`. A map starts with creep
+  on every tile whose CV5 group carries flag 0x40 (the MTXM bit 15 of `tile_id`
+  is never set: `has_creep` shifts it out); the bottom row and the first and
+  last five tiles of the row above it lose creep and become unbuildable.
+- `tile_can_have_creep`: not unbuildable, not partly walkable, and the tile
+  below is not unbuildable (the last row is exempt from that test).
+- `get_max_creep_bb`, `unit_type_spreads_creep`: Hatchery (completed), Lair,
+  Hive, Creep Colony (completed), Spore and Sunken Colony cover the ellipse
+  `dx*dx*25 + dy*dy*64 <= 320*320*25` (pixels from the building centre to the
+  tile centre, 10 by 6.25 tiles); any other Zerg building only its footprint.
+- `secondary_order_SpreadCreep`: every 16 frames (timer 0 spreads at once, then
+  15) `spread_creep` runs with the Hive's box for every provider, a Creep Colony
+  included. It collects creep-free tiles that can hold creep, are not occupied
+  (`flag_occupied`, the footprints of grounded buildings, resources included),
+  lie in the ellipse and touch at least one creep tile, buckets them by creep
+  neighbours (1 to 8), scans row by row, and takes
+  `bucket[(lcg_rand(26) >> 4) % size]` from the fullest bucket. It ends only
+  when nothing was found and no occupied candidate was skipped.
+- Who runs it: `order_InitCreepGrowth` (the idle order of exactly Hatchery,
+  Lair, Hive and Creep Colony) sets the secondary order on `complete_unit`.
+  A foundation, a drone-built Hatchery or Colony not yet complete, and a Sunken
+  or Spore Colony created whole never start it (`StoppingCreepGrowth` has no
+  handler: the `default:` of the order switch ignores it). A morph keeps
+  whatever secondary order the building had and resets `creep_timer` at the end
+  of the morph (`reinitialize_unit_type`); during a morph the unit still has
+  its old type and is not completed, so it spreads (the order runs regardless)
+  but sustains only its footprint.
+- Completion (`order_IncompleteMorphing` last state): `add_creep_provider`
+  (receding tiles under the provider stop receding) and
+  `set_creep_building_tiles`: the footprint, and for a unit type with flag
+  0x80000000 (Hatchery, Lair, Hive) a ring two tiles wider left and right and one
+  above and below without its four corners; tiles that cannot hold creep or
+  are occupied by another building are skipped. A creep-requiring non-provider
+  returns at once.
+- Recession: `remove_creep_provider` (on `kill_unit`, after the unit left the
+  finder and its tiles were freed) marks every creep, non-receding,
+  non-occupied tile of the dead provider's area that `creep_is_being_sustained`
+  does not cover (any live Zerg building, completed ones with the ellipse) as
+  receding and files it in the list of its creep-neighbour count (0 to 8,
+  `push_front`); `set_tile_creep` moves a receding neighbour to the front of
+  its new list when its count changes. `recede_creep` runs first in
+  `process_frame`: while its timer is 0 it sets the timer to
+  `{1,3,5,6,7,8,9,9,9}[free_entries >> 7]` (free = 1024 minus receding tiles)
+  and removes one tile, the entry `lcg_rand(27, 0, n - 1)` of the first
+  non-empty list from list 0 up, so the fewest neighbours go first, ten frames
+  apart while at most 256 tiles recede. An Extractor death clears its
+  footprint at once (`remove_extractor_creep`). A building standing on receding
+  creep takes no damage: the only readers of `flag_has_creep` are placement,
+  `is_walkable`, larva movement (`order_Larva` kills a larva off creep),
+  Spider Mine validity and larva spawning; none touches hit points.
+
+The three points the earlier write-up left open, resolved from the source:
+
+1. Dead-unit retry. `remove_creep_provider` returns false when the 1024 entries
+   are used up and `kill_unit` sets `status_flag_4000`; the only reader is
+   `update_dead_unit`, which calls `error("fixme some creep stuff?")`, and
+   `check_dead_unit_timer` is only ever assigned 0. There is no retry to copy.
+   Here the tiles that did not fit stay (a state OpenBW itself aborts on).
+2. Pre-placed versus created. `create_initial_unit` (map start, CHK UNIT order,
+   also melee start units) calls `spread_creep_completely` before the unit is
+   placed: footprint, then `spread_creep` until it returns false, so a
+   pre-placed Hatchery, Lair, Hive, Colony, Spore or Sunken Colony (and any
+   creep-requiring building) has its full ellipse at frame 0, blocked only by
+   buildings created earlier in the file. A building made by a trigger
+   (`trigger_create_unit`) or by construction takes the footprint and ring and
+   grows from there. Local: `sc_creep_initial`, called by `sc_spawn_things`;
+   anything else is noticed by `sc_creep_ticker`.
+3. RNG. `spread_creep` calls `lcg_rand(26)` and `recede_creep` calls
+   `lcg_rand(27, 0, size - 1)` = `(lcg_rand(27) * size) >> 15`. The source id
+   only feeds a statistics counter, so both draw from the one stream that
+   `sc_random` implements.
+
+Local differences that cannot be closed without a retail trace or per-frame unit
+updates: buildings are noticed once per engine tic (a spread or recession starts
+at the first native frame of the tic after a completion or death, with 24 native
+frames mapped onto 30 Hz tics), the shared LCG sees the other local draws in a
+different order than OpenBW's unit order, `is_walkable` for creep over partly
+walkable tiles and `order_Larva` are not modelled (local larvae do not wander),
+and the visibility tests in `can_place_building` are not applied to creep.
+
+Tests: `tests/starcraft/test_creep.c` (hand-derived first steps, final
+ellipse, blocked tiles, completion, morph, pre-placed state from code and from a
+CHK, recession order and timing, sustained creep, placement, determinism,
+save/load mid-growth and mid-recession, malformed state). Save layout 22.
+
+Commands: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o
+starcraft-maps test-starcraft`.

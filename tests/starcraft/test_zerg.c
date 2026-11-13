@@ -182,8 +182,10 @@ static int colonies(void) {
 static int creep_and_psi(void) {
     mobj_t *drone = spawn(MT_DRONE, FIXED2_LIT(30, 30), 0), *probe = spawn(MT_PROBE, FIXED2_LIT(50, 50), 0);
     mobj_t *enemy = spawn(MT_PROBE, FIXED2_LIT(52, 52), 1);
-    /* Creep: around the hatchery at (10, 8), not out at (40, 20). */
-    CHECK(P_CanPlaceBuilding(MT_HYDRALISK_DEN, (ivec2_t){14, 2}, drone));
+    /* Creep: around the hatchery at (10, 8), not out at (40, 20). It has had
+     * thousands of frames to spread, so a Den three tiles from the Hatchery's
+     * edge stands on it (the ellipse is 10 tiles wide and 6.25 high). */
+    CHECK(P_CanPlaceBuilding(MT_HYDRALISK_DEN, (ivec2_t){12, 4}, drone));
     CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN, (ivec2_t){40, 20}, drone));
     CHECK(!P_CanPlaceBuilding(MT_CREEP_COLONY, (ivec2_t){40, 20}, drone));
     CHECK(P_CanPlaceBuilding(MT_HATCHERY, (ivec2_t){40, 20}, drone));

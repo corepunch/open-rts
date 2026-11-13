@@ -8,6 +8,7 @@ static void free_chk(void *data) {
     sc_mission_t *mission=data;
     free(mission->rt);
     free(mission->terrain);
+    sc_creep_reset(mission);
     W_FreeFile(&mission->file);
     free(mission);
 }
@@ -62,6 +63,7 @@ bool G_LoadLevelData(const char *root, level_t *map) {
     }
     for(size_t i=0;i<cells;i++)map->tile_ids[i]&=0x7fff;
     free(mission->terrain);mission->terrain=terrain;terrain=NULL;
+    sc_creep_reset(mission);
     ok=true;
 done:
     free(terrain);W_FreeFile(&cv);W_FreeFile(&vf);
@@ -647,6 +649,7 @@ int sc_spawn_things(void) {
             ivec2_t pixel={read_u16_le(u+4),read_u16_le(u+6)};
             mobj_t *mo=sc_spawn_actor(type,pixel,u[16]);
             if(!mo) return count;
+            sc_creep_initial(mo);
             if(read_u16_le(u+14)&2) sc_initial_hp(mo,u[17]);
             sc_initial_vitals(mo,read_u16_le(u+14),u[18],u[19]);
             sc_initial_ability_state(mo, read_u16_le(u + 12), read_u16_le(u + 26));
@@ -683,6 +686,7 @@ int sc_spawn_things(void) {
         for(int p=0;p<n;p++) {
             mobj_t *unit = sc_spawn_actor(places[p].type-1, places[p].at, (uint8_t)i);
             if(!unit) { clear_melee(); return count; }
+            sc_creep_initial(unit);
             /* A Zerg start has its three larvae. */
             for(int l=0;places[p].type==MT_HATCHERY&&l<3;l++) if(sc_spawn_larva(unit)) ++count;
             ++count;
