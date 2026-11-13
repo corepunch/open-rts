@@ -6025,7 +6025,7 @@ no move order"; 0x4a03b (a point on a destructible map effect) is not accepted;
 the 1.25 x pre-test and the 32-pixel jitter are not modeled; a Pyro leader
 (`0x752ff`, flame action 0x41 or grenades by `0x11729a`) and every vehicle class
 are skipped by task 6, since their orders are not implemented (see below), which
-retail would send. 
+retail would send.
 Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 150 @
 0x75046' -c 'pd 150 @ 0x751d0' -c 'pd 60 @ 0x60bb2' -c 'pd 60 @ 0x7545c' -c 'pd 50
 @ 0x6360e' -c 'pd 70 @ 0x60c2a' -c 'pd 70 @ 0x9a801' -c 'pd 40 @ 0x9a9ae' -c 'pd 40

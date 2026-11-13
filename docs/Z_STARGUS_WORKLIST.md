@@ -112,6 +112,26 @@ None of this establishes retail parity; see
 | #102 | Reaver 30-frame post-unload delay in the attack path, passenger weapon/spell cooldowns, OpenBW ring placement (`p_place.c`, `test_transport.c`, `test_placement.c`). | Pixel-contour terrain fit, spatial-finder blocker order, spell cooldown re-arm after cast. |
 | #103 | Evidence ledger in `RETAIL_PARITY_MATRIX.md`. | No retail StarCraft run is recorded; most rows are reference-source only or unknown. |
 
+### Fifth batch, 2026-11-13 (follow-ups to #96–#102)
+
+Seven follow-up packages ran in parallel worktrees. Suites after integration:
+Z 29/29, StarCraft 33/33, the other five games and the network suite
+unchanged. Z save layout is 29 and StarCraft save layout is 25. The table in
+the fourth batch above is superseded where this one differs.
+
+| Follow-up to | Landed | Still open (evidence needed) |
+|---|---|---|
+| #96 | Complete caller table of `0x86ca4`: all seven callers test only the sign, so ground fire (Pyro) and grenade-box blasts also spare exact zero. Byte wrap proven unreachable with retail data. | Knockdown get-up continuation (target scan, `+0x5a` command sign); lead records; Laser tracer. |
+| #97 | Robot coordinate grenade attack and commander task 6 (`games/z/p_point.c`, `tests/z/test_point.c`), including the no-grenade ranged move. | Vehicle point orders (trace ends at `0x7628f`); Pyro squads; scanner acquisition (`0x6e583` via pointer `0x104070`, `0x9de02`); map objects `0x4a03b`. |
+| #100 | Trace only: reaction cadence and launcher resolved. | Which boarding routine a Fire Truck takes (`0x7b1e9` sets nozzle 6, `0x7b0bd` keeps the driver's unset byte). |
+| #98 | Retail trigger dispatchers located (`0x4e9ff0` actions, `0x4ea0a8` conditions). Pause/Unpause as traced; Set Doodad State on traps, raw state 0 is toggle; leaderboard inferences confirmed. | Doors 205–208; Run AI Script owner gate and opcode effects; leaderboard display; commands during pause. |
+| #99 | Creep growth and recession as saved tile state (`p_creep.c`, `test_creep.c`). | Creep effects on larva and walkability; unit-order RNG interleaving; manual cloak/burrow gate (no command layer in pinned OpenBW). |
+| #101 | Appear-on-target damage on the script frame; Protoss/Zerg completion on the script signal (`p_handover.c`); Glaive Wurm bounce order. | Behavior 5/6 weapons (Flame Thrower, Scarab); idle-loop script RNG; sound priority. |
+| #102 | Modified weapon cooldown term by term incl. acid spores and the per-shot roll; spell cooldown re-arm (`test_cooldowns.c`). | Nothing applies an acid spore yet (Devourer hit). |
+
+Also fixed: a StarCraft save taken during a Psionic Storm, Dark Swarm or
+Recall area could not be loaded (`facbfeb9`).
+
 ### Z: commander, orders and object lifecycle
 
 | Status | Work item | Evidence and next check |
