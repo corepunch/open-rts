@@ -1721,6 +1721,28 @@ than being replaced with numeric approximations:
   Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
   'pd 35 @ 0x99df0' -c 'pd 12 @ 0x99ca9' -c 'pd 16 @ 0x7c0aa'
   -c 'pd 16 @ 0x646f9' -c 'pd 16 @ 0x6474b' -c q data/Z/ZED.EXE`.
+- Additional evidence for +0x87 bit 0x20: `0x64517..0x64542` sets it
+  at the end of a transition animation, sets action 0x3e, clears unit
+  +0x67 bit 2 and moves unit X to 10000. The reverse transition at
+  `0x64549..0x6457b` clears the bit. The group routine `0x6476e` invokes
+  `0x60fe6` only for members carrying it. Startup paths `0x50795..0x507a6`
+  also set the bit and place those members at (10000,10000). This supports
+  an off-map/embedded member interpretation, but does not establish every
+  producer and cancellation case. Open-rts immediately transfers all APC
+  squad members into its crew on boarding, so native partial boarding is
+  not represented; equating this bit solely with the engine vehicle type
+  would be incorrect. Inspect with `r2 -q -e bin.cache=true -e
+  bin.relocs.apply=true -c 'pd 55 @ 0x64517' -c 'pd 30 @ 0x6476e'
+  -c 'pd 20 @ 0x5078e' -c q data/Z/ZED.EXE`.
+- For the separate unit +0x98 bit 0x04, `0x3ff66` sets the bit and
+  action byte +0xa5 to 0x66 in the repair-facility path; `0x7bfec` also
+  sets it when bits 0x20 and 0x10 are set, changes action to 0x22 and
+  clears bit 0x10. `0x7b2c6` and `0x7b320` clear bit 0x04 during unit
+  transitions. These writes narrow the guard's lifecycle but do not prove
+  a complete mapping to the engine's facility or order states. Reproduce
+  with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+  'pd 30 @ 0x3ff5f' -c 'pd 35 @ 0x7bfd1' -c 'pd 30 @ 0x7b2e2'
+  -c q data/Z/ZED.EXE`.
 - `0x991cb..0x991e1` applies the three-pass idle-task cleanup only to active,
   usable tasks that are mobile, with an explicit exception for task 7.
   Ordinary reserve tasks do not enter that cleanup. The engine now applies
@@ -4810,9 +4832,11 @@ at `0x42051`/`0x42e9e`, set after successful `0x430b2` at
 Thus it is not safe to replace the initial selector with an unconditional
 periodic gun choice. The precise building update lifecycle, initial/reset
 state of +6 bit 2 on ownership changes, and mapping of the placement result
-to `0x20a448` remain **unknown**. The current AI calls the initial selector
-when no product is active and retains a product through repeats, so a
-faithful port also needs those selection timing transitions. Reproduce with
+to `0x20a448` remain **unknown**. Correction: subsequent mobile-product
+completion now calls `next_ai_product`, which applies the represented
+reserve, rating, deployed-gun and capacity checks described above. Gun
+completion uses the regular selector. The native flag and placement-result
+transitions are not represented, so selection timing still differs. Reproduce with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9de4a'
 -c 'pd 35 @ 0x999e5' -c 'pd 25 @ 0x26ab4' -c 'pd 45 @ 0x420a2'
 -c 'pd 35 @ 0x42eef' -c 'pd 15 @ 0x414d8' -c q data/Z/ZED.EXE`.
@@ -4944,11 +4968,26 @@ that completes instead takes `0x5a941..0x5a985`, performing its two collision
 passes without that range check. The engine now preserves this ordering;
 `test_bullet_range_order` checks a target one pixel inside the range,
 exactly at it, at a completed segment's endpoint, and only at the extended
-second point beyond range. The separate native
-pre-range map-object scan at `0x5aa49` is still unimplemented. Reproduce
+second point beyond range. The separate native pre-range ambient-record
+scan at `0x5aa49` is still unimplemented (see correction below). Reproduce
 with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x5a90d'
 -c 'pd 35 @ 0x5aa57' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
+
+**Correction — pre-range scan addresses ambient records:** `0x5aa39..0x5aa49`
+passes the bullet's previous position less (1,1) to `0x88b13`, which scans
+100 records of 64 bytes at `0x191ba8`, not the map's 200 effect slots.
+The same record allocator `0x889fc` is used by the house-inhabitant
+constructor `0x875c7`. A candidate must be active, have the low byte at +0x27 zero,
+neither +0x36 bit 0x10 nor 0x20, type +0x3d other than 6, and +0x20
+neither zero nor 255; its X and Y distances must each be at most 16.
+The first match sets several state bytes, frees its position, and calls
+`0x8790a`; its caller invokes `0x5ac55` and frees the bullet at `0x5aa32`. The
+engine does not represent these inhabitants, so applying this test to
+ordinary crate or vehicle effects would be unsupported. The meanings and
+full lifecycle of the ambient fields remain unknown. Reproduce with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 70 @ 0x88b13'
+-c 'pd 25 @ 0x875c7' -c 'pd 30 @ 0x5aa39' -c q data/Z/ZED.EXE`.
 
 **Possible ambient house inhabitants (inferred):** `0x87410` scans the 200 effect records;
 `0x87591` compares each live record's first sprite against 16 entries at
