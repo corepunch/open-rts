@@ -856,6 +856,10 @@ struct gameinfo_s {
     /* Optional: false when the game's rules keep this attacker off this
      * victim whatever the weapon (Z robots need grenades for buildings). */
     bool (*can_target)(const struct mobj_s *attacker, const struct mobj_s *victim);
+    /* Optional: true while the game keeps this attacker from firing on this
+     * target for now (StarCraft cooldowns that follow an unload). Nothing is
+     * spent: no sound, no cooldown, and the target is kept for later. */
+    bool (*attack_blocked)(const struct mobj_s *attacker, const struct mobj_s *target);
     /* Sprite sheets carry one palette map per team, by team id: a unit
      * without a remap of its own draws through its team's. */
     bool team_palettes;

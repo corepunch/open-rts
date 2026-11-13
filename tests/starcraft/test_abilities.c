@@ -515,7 +515,7 @@ static int transport_unload_failures(void) {
     mobj_t *blocker = spawn(MT_MARINE, at_of(ship), 0);
     CHECK(blocker);
     marine->sc.timers[SC_TIMER_STIM] = RTS_TICRATE;
-    int expected_cooldown = G_WeaponCooldown(marine, &marine->info->attack, marine->info->attack.cooldown_ms);
+    int expected_cooldown = sc_modified_cooldown_frames(marine, sc_weapon(sc_units[MT_MARINE - 1].ground_weapon)->cooldown);
     marine->attack.cooldown_left_ms = 0;
     sc_unload_at(ship, at_of(ship));
     tick(1);
@@ -524,7 +524,10 @@ static int transport_unload_failures(void) {
     int x_remainder = (at_of(marine).x / SC_PIXELS(1)) & 7;
     int y_remainder = (at_of(marine).y / SC_PIXELS(1)) & 7;
     CHECK((x_remainder <= 1 || x_remainder >= 7) && (y_remainder <= 1 || y_remainder >= 7));
-    CHECK(marine->attack.cooldown_left_ms + RTS_TICK_MS >= expected_cooldown);
+    /* The modified weapon cooldown runs in its own ground and air timers, not the engine's shared one. */
+    CHECK(marine->attack.cooldown_left_ms == 0 && expected_cooldown == 7);
+    CHECK(marine->sc.timers[SC_TIMER_GROUND_COOLDOWN] >= expected_cooldown - 1 && marine->sc.timers[SC_TIMER_GROUND_COOLDOWN] <= expected_cooldown);
+    CHECK(marine->sc.timers[SC_TIMER_AIR_COOLDOWN] == marine->sc.timers[SC_TIMER_GROUND_COOLDOWN]);
     CHECK(marine->core.state_id == mobjinfo[marine->type_id].spawnstate);
     CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 15);
 
@@ -553,23 +556,31 @@ static int transport_unload_failures(void) {
     tick(RTS_TICRATE);
     CHECK(ship->sc.order.kind == SC_ORDER_NONE);
 
-    /* Native's northern displacement edge is inclusive: dy=-128 is in the
-     * search box even though +128 is outside it. Keep only that passenger
-     * footprint traversable so a rejected edge cannot choose another point. */
+    /* Native rings grow 8, 24, ..., 120, 136 pixels and the 136 ring is
+     * never walked (all four sides lie past the +-128 bounds), so the
+     * farthest row reached is dy=-120, not the box edge at dy=-128. Only the
+     * column of cells x=20, y=16..20 is ground, so a spot must be connected to
+     * the origin to count; Marines every 16 pixels fill the column below that
+     * row so that no nearer point can replace it. */
     reset();
     ship = spawn(MT_DROPSHIP, FIXED2_LIT(20.5, 20.5), 0);
     marine = spawn(MT_MARINE, FIXED2_LIT(20.5, 20.5), 0);
     CHECK(ship && marine && sc_board(marine, ship));
     memset(level.blocked, 1, (size_t)level.width * level.height);
-    level.blocked[16 * level.width + 20] = 0;
+    for (int y = 16; y <= 20; ++y) level.blocked[y * level.width + 20] = 0;
     P_NavFree(&level);
     P_NavBeginTick();
-    blocker = spawn(MT_MARINE, at_of(ship), 1);
-    CHECK(blocker);
+    for (int y = 560; y <= 664; y += 16) {
+        blocker = spawn(MT_MARINE, (fixed2_t){SC_PIXELS(656), SC_PIXELS(y)}, 1);
+        CHECK(blocker);
+        blocker->traits &= ~MF_ATTACK;
+    }
     sc_unload_at(ship, at_of(ship));
     tick(1);
     CHECK(!(marine->sc.flags & SC_LOADED));
     CHECK(fixed2_cell(at_of(marine)).x == 20 && fixed2_cell(at_of(marine)).y == 16);
+    /* The tic's own separation moves it a pixel or so from the placed 536. */
+    CHECK(at_of(marine).y / SC_PIXELS(1) >= 534 && at_of(marine).y / SC_PIXELS(1) <= 538);
 
     /* A clear passenger origin whose bounding box crosses the map edge must
      * run the displacement search instead of treating the edge as blocked

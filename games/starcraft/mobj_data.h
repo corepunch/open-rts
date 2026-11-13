@@ -19,7 +19,8 @@ enum { SC_ORDER_NONE, SC_ORDER_CAST, SC_ORDER_BOARD, SC_ORDER_MERGE, SC_ORDER_NU
  * 8-frame beats on which they hurt. LIFE ends a timed unit or effect. */
 enum { SC_TIMER_LIFE, SC_TIMER_MATRIX, SC_TIMER_IRRADIATE, SC_TIMER_PLAGUE, SC_TIMER_ENSNARE,
        SC_TIMER_LOCKDOWN, SC_TIMER_STORM, SC_TIMER_STIM, SC_TIMER_STASIS,
-       SC_TIMER_MAIN_ORDER, SC_TIMERS };
+       SC_TIMER_MAIN_ORDER, SC_TIMER_SPELL_COOLDOWN, SC_TIMER_GROUND_COOLDOWN,
+       SC_TIMER_AIR_COOLDOWN, SC_TIMERS };
 /* A transport's slots: eight one-slot passengers at most. */
 enum { SC_CARGO = 8 };
 /* A pending order a unit walks to carry out:

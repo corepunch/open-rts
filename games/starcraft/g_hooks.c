@@ -2,7 +2,7 @@
 
 /* Research restrictions, projectiles, construction progress, transport timers
  * and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 20; }
+uint32_t G_SaveLayout(void) { return 21; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;

@@ -18,104 +18,7 @@ static bool live(const thinker_t *th) {
     return th->function == P_MobjThinker && !mo->remove && mo->hp > 0;
 }
 static ivec2_t pixel(fixed2_t at);
-static bool unload_bbox_in_map(const mobj_t *unit, fixed2_t at) {
-    irect_t bounds = sc_unit(unit)->bounds;
-    int x0 = fixed_floor_int(at.x + SC_PIXELS(bounds.x));
-    int y0 = fixed_floor_int(at.y + SC_PIXELS(bounds.y));
-    int x1 = fixed_floor_int(at.x + SC_PIXELS(bounds.x + bounds.w));
-    int y1 = fixed_floor_int(at.y + SC_PIXELS(bounds.y + bounds.h));
-    return L_Contains(&level, x0, y0) && L_Contains(&level, x1, y1);
-}
-/* Transport placement checks the origin then 8-pixel points inside the native
- * [-128,+127] box. Recall retains its separate search. */
-static bool unload_terrain_fits(const mobj_t *unit, fixed2_t at) {
-    irect_t bounds = sc_unit(unit)->bounds;
-    int x0 = fixed_floor_int(at.x + SC_PIXELS(bounds.x));
-    int y0 = fixed_floor_int(at.y + SC_PIXELS(bounds.y));
-    int x1 = fixed_floor_int(at.x + SC_PIXELS(bounds.x + bounds.w));
-    int y1 = fixed_floor_int(at.y + SC_PIXELS(bounds.y + bounds.h));
-    int cls = P_MobjMoveClass(unit);
-    for (int y = y0; y <= y1; ++y) for (int x = x0; x <= x1; ++x) {
-        if (!L_Contains(&level, x, y)) return false;
-        size_t index = L_Index(&level, x, y);
-        if ((level.blocked && level.blocked[index]) ||
-            (level.cell_solid && (level.cell_solid[index] & 1))) return false;
-        if (level.speeds && cls > 0 && cls < level.speeds->class_count) {
-            int effect = level.cell_effect ? level.cell_effect[index] : 255;
-            int speed = effect < 8 ? level.speeds->overlay[cls][effect] :
-                level.speeds->terrain[cls][(level.cell_terrain ? level.cell_terrain[index] : 15) & 15];
-            if (speed <= 0) return false;
-        }
-    }
-    return true;
-}
-static bool unload_units_clear(const mobj_t *unit, const mobj_t *container, fixed2_t at) {
-    irect_t bounds = sc_unit(unit)->bounds;
-    fixed2_t from = fixed2_add(at, (fixed2_t){SC_PIXELS(bounds.x), SC_PIXELS(bounds.y)});
-    fixed2_t to = fixed2_add(at, (fixed2_t){SC_PIXELS(bounds.x + bounds.w), SC_PIXELS(bounds.y + bounds.h)});
-    bool flying = (unit->traits & MF_FLY) != 0;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        if (th->function != P_MobjThinker) continue;
-        const mobj_t *other = (const mobj_t *)th;
-        const sc_unit_t *other_type = sc_unit(other);
-        if ((!live(th) && other != container) || other == unit || (other->traits & MF_NOBLOCKMAP) ||
-            !other_type || ((other->traits & MF_FLY) != 0) != flying) continue;
-        if (other == container && other->type_id == MT_BUNKER) {
-            irect_t footprint = P_MobjCells(other);
-            ivec2_t cell = fixed2_cell(at);
-            if (cell.x >= footprint.x && cell.y >= footprint.y &&
-                cell.x < footprint.x + footprint.w && cell.y < footprint.y + footprint.h) return false;
-        }
-        irect_t other_bounds = other_type->bounds;
-        fixed2_t other_at = where(other);
-        fixed_t left = other_at.x + SC_PIXELS(other_bounds.x);
-        fixed_t top = other_at.y + SC_PIXELS(other_bounds.y);
-        fixed_t right = other_at.x + SC_PIXELS(other_bounds.x + other_bounds.w);
-        fixed_t bottom = other_at.y + SC_PIXELS(other_bounds.y + other_bounds.h);
-        if (from.x < right && to.x > left && from.y < bottom && to.y > top) return false;
-    }
-    return true;
-}
-typedef struct { fixed2_t at; int distance; } unload_candidate_t;
-static int unload_candidate_order(const void *a, const void *b) {
-    const unload_candidate_t *left = a, *right = b;
-    if (left->distance != right->distance) return left->distance < right->distance ? -1 : 1;
-    if (left->at.y != right->at.y) return left->at.y < right->at.y ? -1 : 1;
-    return (left->at.x > right->at.x) - (left->at.x < right->at.x);
-}
-static bool unload_position(mobj_t *unit, const mobj_t *container, fixed2_t at) {
-    if (unit->traits & MF_FLY) {
-        unit->core.position = fixed3_with_xy(unit->core.position, at);
-        return true;
-    }
-    bool origin_clear = unload_units_clear(unit, container, at);
-    if (origin_clear) {
-        if (unload_terrain_fits(unit, at)) {
-            unit->core.position = fixed3_with_xy(unit->core.position, at);
-            return true;
-        }
-        if (unload_bbox_in_map(unit, at)) return false;
-    }
-    ivec2_t origin = pixel(at);
-    int min_x = origin.x - 128, max_x = origin.x + 127;
-    int min_y = origin.y - 128, max_y = origin.y + 127;
-    min_x -= ((min_x % 8) + 8) % 8;
-    min_y -= ((min_y % 8) + 8) % 8;
-    unload_candidate_t candidates[33 * 33];
-    int count = 0;
-    for (int y = min_y; y <= max_y; y += 8) for (int x = min_x; x <= max_x; x += 8) {
-        int dx = x - origin.x, dy = y - origin.y;
-        int distance = dx * dx + dy * dy;
-        if (dx < -128 || dx > 127 || dy < -128 || dy > 127) continue;
-        fixed2_t candidate = {SC_PIXELS(x), SC_PIXELS(y)};
-        if (!unload_terrain_fits(unit, candidate) || !unload_units_clear(unit, container, candidate)) continue;
-        candidates[count++] = (unload_candidate_t){candidate, distance};
-    }
-    if (!count) return false;
-    qsort(candidates, (size_t)count, sizeof(*candidates), unload_candidate_order);
-    unit->core.position = fixed3_with_xy(unit->core.position, candidates[0].at);
-    return true;
-}
+enum { SC_UNLOAD_COOLDOWN_FRAMES = 15, SC_REAVER_UNLOAD_FRAMES = 30, SC_UNLOAD_SPELL_FRAMES = 30 };
 static void unloaded(mobj_t *unit, bool mobile_transport) {
     P_ClearMove(unit);
     unit->movement.goal = where(unit);
@@ -123,11 +26,24 @@ static void unloaded(mobj_t *unit, bool mobile_transport) {
     unit->waypoints = (waypoints_t){0};
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
-    if (mobjinfo[unit->type_id].spawnstate > 0) P_SetMobjState(unit, mobjinfo[unit->type_id].spawnstate);
+    /* OpenBW unit_unload: a Reaver waits 30 frames on its main-order timer;
+     * any other passenger gets its own hull's ground and air weapon
+     * cooldowns (a turret subunit's weapons do not count) and a 30-frame
+     * spell cooldown. The weapons themselves keep their cooldown untouched.
+     * The timers come first: entering the idle state may already look for
+     * a target and fire. */
     if (mobile_transport) {
-        int cooldown = unit->info->attack.cooldown_ms;
-        unit->attack.cooldown_left_ms = G_WeaponCooldown(unit, &unit->info->attack, cooldown);
+        int *timers = unit->sc.timers;
+        if (unit->type_id == MT_REAVER) timers[SC_TIMER_MAIN_ORDER] = SC_REAVER_UNLOAD_FRAMES;
+        else {
+            const sc_unit_t *hull = &sc_units[unit->type_id - 1];
+            const sc_weapon_t *ground = sc_weapon(hull->ground_weapon), *air = sc_weapon(hull->air_weapon);
+            if (ground) timers[SC_TIMER_GROUND_COOLDOWN] = sc_modified_cooldown_frames(unit, ground->cooldown);
+            if (air) timers[SC_TIMER_AIR_COOLDOWN] = sc_modified_cooldown_frames(unit, air->cooldown);
+            timers[SC_TIMER_SPELL_COOLDOWN] = SC_UNLOAD_SPELL_FRAMES;
+        }
     }
+    if (mobjinfo[unit->type_id].spawnstate > 0) P_SetMobjState(unit, mobjinfo[unit->type_id].spawnstate);
 }
 static ivec2_t pixel(fixed2_t at) { return (ivec2_t){(at.x + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5), (at.y + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5)}; }
 /* A unit of type on owner's side at a spot. */
@@ -349,7 +265,7 @@ mobj_t *sc_attach_addon(mobj_t *building, uint16_t type) {
 
 /* ── bunkers and transports ──────────────────────────────────────────── */
 
-enum { SC_UPGRADE_VENTRAL_SACS = 24, SC_UNLOAD_COOLDOWN_FRAMES = 15 };
+enum { SC_UPGRADE_VENTRAL_SACS = 24 };
 static bool is_building(const mobj_t *mo) { return (sc_units[mo->type_id - 1].flags & SC_UNIT_BUILDING) != 0; }
 /* OpenBW unit_provides_space: an Overlord carries once Ventral Sacs are
  * evolved; hallucinations carry nothing. */
@@ -459,7 +375,7 @@ static bool pop_out(mobj_t *unit, const mobj_t *container) {
     unit->sc.flags &= ~SC_LOADED;
     unit->sc.parent = 0;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
-    if (!unload_position(unit, container, where(unit))) {
+    if (!sc_unload_position(unit, container, where(unit))) {
         unit->sc.flags = flags;
         unit->sc.parent = parent;
         unit->traits = traits;
@@ -475,7 +391,7 @@ static bool drop(mobj_t *unit, mobj_t *carrier) {
     if (sc_disabled(carrier) || carrier->sc.timers[SC_TIMER_MAIN_ORDER] > 0) return false;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
     unit->sc.flags &= ~SC_LOADED;
-    if (!unload_position(unit, carrier, where(carrier))) {
+    if (!sc_unload_position(unit, carrier, where(carrier))) {
         unit->sc.flags |= SC_LOADED;
         unit->traits = (unit->traits & ~(MF_SELECTABLE | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
         return false;
@@ -735,9 +651,11 @@ static void mining(mobj_t *mo) {
 }
 
 void sc_unit_ticker(mobj_t *mo, int frames) {
-    int *main_order_timer = &mo->sc.timers[SC_TIMER_MAIN_ORDER];
-    if (frames > 0 && *main_order_timer > 0 && (*main_order_timer -= frames) < 0)
-        *main_order_timer = 0;
+    static const int counting[] = {SC_TIMER_MAIN_ORDER, SC_TIMER_SPELL_COOLDOWN, SC_TIMER_GROUND_COOLDOWN, SC_TIMER_AIR_COOLDOWN};
+    for (unsigned i = 0; frames > 0 && i < sizeof(counting) / sizeof(*counting); i++) {
+        int *timer = &mo->sc.timers[counting[i]];
+        if (*timer > 0 && (*timer -= frames) < 0) *timer = 0;
+    }
     if (mo->type_id == MT_SCV) {
         bool walking = gameinfo && mo->core.state_id > 0 &&
             mo->core.state_id < gameinfo->state_count &&

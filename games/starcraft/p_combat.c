@@ -26,6 +26,8 @@ const sc_weapon_t *sc_weapon(int id) {
  * weapons.dat's damage factor already gives the Goliath and Scout 2 air hits. */
 static const mobjtype_id_t strikes_twice[] = {MT_FIREBAT, MT_ZEALOT, 10 + 1 /* Gui Montag */, 77 + 1 /* Fenix */};
 
+/* The 24 Hz frames this engine tic spans (0 or 1 at 35 tics a second). */
+static int tic_frames(void) { return leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE; }
 static int frames_ms(int frames) { return (frames * 1000 + 23) / 24; }
 static bool sc_type(const mobj_t *mo) { return sc_unit(mo) != NULL; }
 enum { HERO_RAYNOR_VULTURE = 20, HERO_HUNTER_KILLER = 54, HERO_DEVOURING_ONE = 55, HERO_YGGDRASILL = 58,
@@ -174,6 +176,13 @@ fixed_t sc_unit_speed(const mobj_t *mo) {
     if (mo->type_id == MT_SCOUT) return SC_PIXELS(20 * 24) / 3;
     speed += speed / 2;
     return speed < SC_PIXELS(10 * 24) / 3 ? SC_PIXELS(10 * 24) / 3 : speed;
+}
+/* OpenBW get_modified_weapon_cooldown on whole frames (no acid spores yet). */
+int sc_modified_cooldown_frames(const mobj_t *unit, int frames) {
+    int mod = speed_mod(unit, cooldown_upgraded(unit));
+    if (mod > 0) frames /= 2;
+    if (mod < 0) frames += frames / 4;
+    return frames > 250 ? 250 : frames < 5 ? 5 : frames;
 }
 /* OpenBW get_modified_weapon_cooldown: halved when hastened, a quarter
  * longer when slowed, kept to 5..250 frames. */
@@ -527,7 +536,7 @@ static void recharge(mobj_t *battery, int frames) {
  * then, once for each 24 Hz frame, shields regenerate and casters regain
  * energy, except while a cloak they switched on drains it. */
 static void sc_mobj_ticker(mobj_t *mo) {
-    int frames = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
+    int frames = tic_frames();
     sc_script_tick(mo, frames);
     if(mo->type_id==MT_SC_PROJECTILE) {
         if(mo->sc.projectile.weapon>=0)projectile_tick(mo,frames);
@@ -592,7 +601,29 @@ static bool can_target(const mobj_t *attacker, const mobj_t *victim) {
         !(attacker->sc.flags & SC_BURROWED);
 }
 
+/* A passenger aboard a mobile transport may not fire at all; one set down
+ * from it may not fire until the
+ * timers OpenBW unit_unload sets run out: a Reaver's main-order timer
+ * blocks its attacks at any target, other units wait for the ground or air
+ * weapon cooldown that matches the target. */
+static bool attack_blocked(const mobj_t *attacker, const mobj_t *target) {
+    if (!sc_type(attacker)) return false;
+    /* Only a Bunker's passengers shoot from inside. */
+    if (attacker->sc.flags & SC_LOADED) {
+        const mobj_t *carrier = P_MobjById(attacker->sc.parent);
+        if (!carrier || !(sc_units[carrier->type_id - 1].flags & SC_UNIT_BUILDING)) return true;
+    }
+    /* States run before the ticker counts this tic's frame down, and
+     * OpenBW counts a frame down before orders run, so a timer on its last
+     * frame no longer blocks. */
+    int frames = tic_frames();
+    uint16_t child = sc_hangar_type(attacker->type_id);
+    if ((child == MT_SCARAB || child == MT_INTERCEPTOR) && attacker->sc.timers[SC_TIMER_MAIN_ORDER] > frames) return true;
+    return attacker->sc.timers[(target->traits & MF_FLY) ? SC_TIMER_AIR_COOLDOWN : SC_TIMER_GROUND_COOLDOWN] > frames;
+}
+
 void sc_init_combat(void) {
+    game_info.attack_blocked = attack_blocked;
     game_info.can_target = can_target;
     game_info.hit_damage = hit_damage;
     game_info.mobj_ticker = sc_mobj_ticker;

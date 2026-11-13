@@ -1018,6 +1018,7 @@ bool P_Attack(mobj_t *attacker) {
         return false;
     }
     attacker->attack.target = target;
+    if (gameinfo && gameinfo->attack_blocked && gameinfo->attack_blocked(attacker, target)) return false;
     const char *sprite_name = "(unknown)";
     if (gameinfo && attacker->core.sprite_id >= 0 &&
         attacker->core.sprite_id < gameinfo->sprite_count &&
@@ -1089,6 +1090,7 @@ void A_Look(mobj_t *unit) {
         unit->type_id >= gameinfo->mobj_type_count) return;
     mobj_t *target = P_AttackTarget(unit);
     if (!target) return;
+    if (gameinfo->attack_blocked && gameinfo->attack_blocked(unit, target)) return;
     unit->attack.target = target;
     fixed2_t delta = fixed2_sub(fixed3_xy(target->core.position),
                                 fixed3_xy(unit->core.position));
