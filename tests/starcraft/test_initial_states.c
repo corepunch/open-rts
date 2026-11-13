@@ -96,6 +96,31 @@ int main(void) {
     sc_initial_ability_state(marine, 0, 3); /* State without valid ability. */
     CHECK(!(marine->traits & MF_CLOAKED) && !(marine->sc.flags & SC_BURROWED));
 
+    /* Retail CanUseTech (0x4019f0) gates Cloak, Decloak, Burrow and Unburrow alike:
+     * research or hero, so CHK-granted states stay stuck without research. */
+    CHECK(!sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0})); /* Decloak refused. */
+    CHECK(ghost->traits & MF_CLOAKED);
+    CHECK(!sc_cast(ling, SC_TECH_BURROWING, NULL, (fixed2_t){0})); /* Unburrow refused. */
+    CHECK(ling->sc.flags & SC_BURROWED);
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][0].weapon = 1;
+    level.upgrades[SC_UPGRADES + SC_TECH_BURROWING][0].weapon = 1;
+    ghost->sc.timers[SC_TIMER_LOCKDOWN] = 100;
+    CHECK(!sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0})); /* Disabled. */
+    ghost->sc.timers[SC_TIMER_LOCKDOWN] = 0;
+    CHECK(sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0}) && !(ghost->traits & MF_CLOAKED));
+    ghost->sc.energy = 24 << 8; /* Cloak costs 25: one short fails, exactly 25 passes. */
+    CHECK(!sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0}) && !(ghost->traits & MF_CLOAKED));
+    ghost->sc.energy = 25 << 8;
+    CHECK(sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0}) && (ghost->traits & MF_CLOAKED));
+    CHECK(sc_cast(ghost, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0}) && !(ghost->traits & MF_CLOAKED)); /* Decloak is free. */
+    CHECK(sc_cast(ling, SC_TECH_BURROWING, NULL, (fixed2_t){0}) && ling->sc.order.kind == SC_ORDER_UNBURROW);
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][0].weapon = 0;
+    level.upgrades[SC_UPGRADES + SC_TECH_BURROWING][0].weapon = 0;
+    mobj_t *hero = spawn(MT_SARAH_KERRIGAN);
+    CHECK(hero);
+    sc_initial_ability_state(hero, 1, 1);
+    CHECK(sc_cast(hero, SC_TECH_PERSONNEL_CLOAKING, NULL, (fixed2_t){0}) && !(hero->traits & MF_CLOAKED)); /* Heroes need no research. */
+
     /* Exercise the retail UNIT parser and loaded Burrow iscript, not just the helper. */
     P_FreeThinkers(); P_InitThinkers(); P_FreeLevel(&level);
     const char *map = "/private/tmp/open-rts-sc-initial-unit.chk";
