@@ -247,6 +247,83 @@ static int test_strength_gate(void) {
     return 0;
 }
 
+static int test_fort_followup(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("fort followup load");
+    think(0);
+    zmap_t *map = level.native_data;
+    mobj_t *lead = nth(MT_UNIT_GRUNT, 1, 0), *units[4];
+    if (!lead || !(map->ai.territories[7].flags & 2)) return fail("human fort fixture");
+    memset(map->ai.tasks, 0, sizeof(map->ai.tasks));
+    map->ai.intelligence = 127;
+    for (int i = 0; i < 4; ++i) {
+        units[i] = P_SpawnMobj(lead->core.position, MT_UNIT_MED_TANK);
+        if (!units[i]) return fail("spawn fort followup unit");
+        Z_SetTeam(units[i], 1);
+        map->ai.tasks[i] = (zaitask_t){.unit=units[i]->id, .current=i == 1 ? 0 : 4,
+            .task=i == 3 ? 3 : 4, .target=i == 3 ? 7 : 4, .destination=i == 3 ? 7 : 4,
+            .flags=i == 2 ? 8 : 24};
+    }
+    Z_AIFortFollowup(map, 7);
+    if (map->ai.tasks[0].task != 3 || map->ai.tasks[0].target != 7 ||
+        map->ai.tasks[0].destination != 7 || !map->ai.tasks[0].pending)
+        return fail("adjacent mobile force joins fort assault");
+    if (map->ai.tasks[1].task != 4 || map->ai.tasks[1].pending ||
+        map->ai.tasks[2].task != 4 || map->ai.tasks[2].pending ||
+        map->ai.tasks[3].task != 3 || map->ai.tasks[3].pending)
+        return fail("distant, nonmobile and already assigned forces stay unchanged");
+    const zterritory_t fort = map->territories[7];
+    map->territories[0].min = ivec2_add(fort.min, (ivec2_t){1,1});
+    map->territories[0].max = ivec2_sub(fort.max, (ivec2_t){1,1});
+    map->territories[1].min = ivec2_sub(fort.min, (ivec2_t){1,1});
+    map->territories[1].max = ivec2_sub(fort.max, (ivec2_t){2,2});
+    map->territories[2].min = (ivec2_t){fort.min.x - 8, fort.min.y + 2};
+    map->territories[2].max = (ivec2_t){fort.min.x, fort.max.y - 2};
+    map->territories[3].min = fort.max;
+    map->territories[3].max = ivec2_add(fort.max, (ivec2_t){8,8});
+    for (int i = 0; i < 4; ++i)
+        map->ai.tasks[i] = (zaitask_t){.unit=units[i]->id, .current=i, .task=4,
+            .target=i, .destination=i, .flags=24};
+    Z_AIFortFollowup(map, 7);
+    if (map->ai.tasks[0].pending || map->ai.tasks[1].pending ||
+        !map->ai.tasks[2].pending || !map->ai.tasks[3].pending)
+        return fail("fort adjacency excludes overlap and includes touching edges and corners");
+    rts_game_model_destroy(model);
+
+    model = load();
+    if (!model) return fail("load fort attack integration");
+    lead = scenario(); map = level.native_data;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = t == 7 ? 0 : 1;
+        map->territories[t].importance = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 8 ? 0 : 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    mobj_t *near = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[4].flag), 0), MT_UNIT_MED_TANK);
+    if (!near) return fail("spawn nearby fort support");
+    Z_SetTeam(near, 1); near->hp = near->max_hp = 200;
+    near->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1; near->z.robot = lead->z.robot; near->traits &= ~MF_ATTACK;
+    for (int i = 0; i < 10; ++i) {
+        mobj_t *enemy = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag), 0), MT_UNIT_HEAVY_TANK);
+        if (!enemy) return fail("spawn opposing army fixture");
+        Z_SetTeam(enemy, 0); enemy->hp = enemy->max_hp = 300;
+        enemy->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1; enemy->z.robot = lead->z.robot; enemy->traits &= ~MF_ATTACK;
+    }
+    think(0);
+    zaitask_t *support = task_of(near);
+    if (!support) return fail("register fort support task");
+    support->task = 4; support->target = support->destination = 4;
+    map->ai.delay = 0;
+    think(1);
+    if (task_of(lead)->target != 7 || support->task != 3 || support->target != 7)
+        return fail("normal fort attack pulls adjacent active task into assault");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_restricted_territory(void) {
     for (int test = 0; test < 12; ++test) {
         RtsGameModel *model = load();
@@ -703,7 +780,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_fort_followup() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

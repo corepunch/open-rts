@@ -1623,6 +1623,24 @@ than being replaced with numeric approximations:
   CPU strength and zero human strength, selecting a usable local reserve
   not marked with task flags 2/4. `0x9cb5e` returns reserves to assigned
   home territories. Both are ported as of 2026-11-06 (below).
+- `0x99f46` calls `0x99f95` after assigning an attack. When the target
+  has territory +0x18 bit 1 (the human fort), `0x9d61e` enumerates adjacent
+  territories in record order. `0x99fc5..0x9a013` scans their active task
+  records for both +0x10 bits 3 and 4, skips tasks already in state 3 with
+  this destination, and sets every other qualifying task to state 3 with
+  target and destination set to the fort before calling `0x9d42c`. The
+  engine follows this pass after at least one initial order succeeds, using
+  its existing path, destination-reservation and delayed-order validation;
+  unlike native it leaves a task unchanged when that validation fails.
+  This follow-up uses the ordered edge-equality branches of `0x9d641`:
+  nested or partially overlapping rectangles without a matching edge are
+  excluded, while touching edges and corners qualify. Other AI paths retain
+  their existing broader overlap helper.
+  `test_fort_followup` exercises nearby occupied, remote, nonmobile and
+  already assigned tasks and starts an attack through the normal heavy AI
+  pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+  -c 'pd 70 @ 0x99f46' -c 'pd 65 @ 0x9d61e' -c q data/Z/ZED.EXE` and
+  `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - `0x9d390` values a potential donor squad, caps it at 65535, and requires
   the donor territory's remaining own strength to be at least
   `16*weight*importance` with native word/sign checks. `0x9d330` chooses

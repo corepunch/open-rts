@@ -348,6 +348,20 @@ static bool adjacent(const zmap_t *map, int a, int b) {
     const zterritory_t *p = &map->territories[a], *q = &map->territories[b];
     return p->min.x <= q->max.x && q->min.x <= p->max.x && p->min.y <= q->max.y && q->min.y <= p->max.y;
 }
+/* 0x9d641: same-side equality is checked before opposite-side overlap. */
+static bool fort_adjacent(const zmap_t *map, int a, int b) {
+    if (a < 0 || b < 0 || a == b) return false;
+    const zterritory_t *p = &map->territories[a], *q = &map->territories[b];
+    if (p->min.x == q->min.x || p->max.x == q->max.x)
+        return p->min.y == q->max.y || p->max.y == q->min.y;
+    if (p->max.x == q->min.x || p->min.x == q->max.x)
+        return p->max.y >= q->min.y && p->min.y <= q->max.y;
+    if (p->min.y == q->min.y || p->max.y == q->max.y)
+        return p->min.x == q->max.x || p->max.x == q->min.x;
+    if (p->max.y == q->min.y || p->min.y == q->max.y)
+        return p->max.x >= q->min.x && p->min.x <= q->max.x;
+    return false;
+}
 /* 0x999e5: a territory's value scaled by the share of the army held back. */
 int Z_AIReserveValue(const zai_t *ai, int territory) {
     int total = ai->mobile + (ai->total - ai->mobile);
@@ -422,13 +436,34 @@ static int enough(const pooled_t *pool, int n, int need) {
         if ((sum += pool[i].task->strength) >= need) return i + 1;
     return 0;
 }
+/* 0x99f95: attacking the human fort also draws mobile tasks from every
+ * adjacent territory directly into that assault. */
+void Z_AIFortFollowup(zmap_t *map, int territory) {
+    if (territory < 0 || territory >= map->territory_count || !(map->ai.territories[territory].flags & 2)) return;
+    for (int t = 0; t < map->territory_count; ++t) {
+        if (!fort_adjacent(map, territory, t)) continue;
+        for (int i = 0; i < Z_AI_TASKS; ++i) {
+            zaitask_t *task = &map->ai.tasks[i];
+            if (!task->unit || task->current != t || (task->flags & (USABLE | MOBILE)) != (USABLE | MOBILE) ||
+                (task->task == ASSAULT && task->destination == territory)) continue;
+            if (send(map, task, territory)) {
+                task->task = ASSAULT;
+                task->target = task->destination = (int16_t)territory;
+            }
+        }
+    }
+}
+
 /* 0x99f46: march the first `n` on the territory. */
 static void commit(zmap_t *map, pooled_t *pool, int n, int territory) {
+    bool sent = false;
     for (int i = 0; i < n; ++i)
         if (send(map, pool[i].task, territory)) {
             pool[i].task->task = MARCH;
             pool[i].task->target = pool[i].task->destination = (int16_t)territory;
+            sent = true;
         }
+    if (sent) Z_AIFortFollowup(map, territory);
 }
 
 /* 0x9a1dd/0x99e3f: this first attack pass visits the entire stable ranking.
