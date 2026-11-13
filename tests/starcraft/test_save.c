@@ -160,7 +160,7 @@ static bool accepts_retry_or_release_state(const void *data,size_t length,uint32
 int main(void) {
     G_InitGame();
     P_InitThinkers();
-    CHECK(G_SaveLayout() == 17);
+    CHECK(G_SaveLayout() == 18);
     sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
@@ -284,8 +284,8 @@ int main(void) {
         .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_BARRACKS,.queue_count=1,
         .time_ms=barracks_time,.time_left_ms=barracks_time-barracks_time/4,
         .placed=true,.cell={20,20}};
-    foundation->sc.construction=(sc_construction_t){.hp=foundation->hp,
-        .shields=foundation->sc.shields,.worker_hp=builder->hp};
+    foundation->sc.construction=(sc_construction_t){.worker_hp=builder->hp,
+        .frames=barracks_time*3/4*24/1000,.stage=1};
     uint32_t foundation_id=foundation->id, foundation_builder_id=builder->id;
     mobj_t *pending_builder=P_SpawnMobj(fixed3_from_fixed2(FIXED2_LIT(30.5,20.5),0),MT_SCV);
     CHECK(pending_builder);
@@ -297,17 +297,17 @@ int main(void) {
         .time_ms=barracks_time,.time_left_ms=barracks_time,.placed=true,.cell={31,20}};
     uint32_t pending_builder_id=pending_builder->id;
     uint32_t construction_hash=G_Consistency();
-    foundation->sc.construction.hp++;
-    CHECK(G_Consistency()!=construction_hash);
-    foundation->sc.construction.hp--;
-    construction_hash=G_Consistency();
-    foundation->sc.construction.shields++;
-    CHECK(G_Consistency()!=construction_hash);
-    foundation->sc.construction.shields--;
-    construction_hash=G_Consistency();
     foundation->sc.construction.worker_hp++;
     CHECK(G_Consistency()!=construction_hash);
     foundation->sc.construction.worker_hp--;
+    construction_hash=G_Consistency();
+    foundation->sc.construction.frames++;
+    CHECK(G_Consistency()!=construction_hash);
+    foundation->sc.construction.frames--;
+    construction_hash=G_Consistency();
+    foundation->sc.construction.stage++;
+    CHECK(G_Consistency()!=construction_hash);
+    foundation->sc.construction.stage--;
     queued_hash=G_Consistency();
     saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] = 14;
     CHECK(G_Consistency() != queued_hash);
@@ -365,7 +365,6 @@ int main(void) {
           foundation->target->sc.queue.target==foundation_id&&foundation->production&&
           foundation->production->time_left_ms==barracks_time-barracks_time/4&&
           foundation->production->cell.x==20&&
-          foundation->sc.construction.hp==foundation->hp&&
           foundation->sc.construction.worker_hp==foundation->target->hp);
     pending_builder=P_MobjById(pending_builder_id);
     CHECK(pending_builder&&pending_builder->type_id==MT_SCV&&pending_builder->production&&
@@ -395,10 +394,12 @@ int main(void) {
           saved_neutral->sc.sprite_owner == 1);
     CHECK(!(level.sight.allies[0] & (UINT32_C(0x40000000) >> 2)));
     CHECK(G_Consistency()==queued_hash);
-    int construction_time_left=foundation->production->time_left_ms;
-    G_ProductionTicker(RTS_TICK_MS);
-    CHECK(foundation->production&&foundation->production->time_left_ms==
-          construction_time_left-RTS_TICK_MS);
+    /* Construction counts 24 Hz frames: five tics advance four of them. */
+    for(int i=0;i<5;i++) { leveltime++;G_ProductionTicker(RTS_TICK_MS); }
+    CHECK(foundation->production&&foundation->sc.construction.frames==
+          barracks_time*3/4*24/1000-4&&foundation->sc.construction.stage==1&&
+          foundation->production->time_left_ms==
+          (foundation->sc.construction.frames*1000+23)/24);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
     CHECK(m->loc_count == SC_LOCATION_COUNT && m->loc_left[SC_LOCATION_COUNT - 1] == 17 &&
