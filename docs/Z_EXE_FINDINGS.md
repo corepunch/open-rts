@@ -5072,3 +5072,19 @@ while its target flag cell is unreachable. Exact native staging pathfinding
 remains an approximation. Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 65 @ 0x9a126' -c 'pd 40 @ 0x9a0c2' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Vehicle search stops on a miss:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98ee1..0x98f29` visits eligible offensive groups and calls `0x98f32`.
+When that routine finds no vehicle or fails to resolve the destination task,
+`0x99083..0x99085` returns carry set and `0x98f29` exits the entire search;
+a successful dispatch returns carry clear and continues to the next group.
+The engine now stops the current vehicle-search pass when its first eligible
+group sees no candidate. `test_vehicle_scan_stops` uses two groups and a
+seed whose first outside-radar observation fails and second succeeds: it
+checks that only the first random value is consumed and the second group is
+not assigned, then confirms a later pass can discover the vehicle. The
+engine's candidate and task-resolution approximations remain as documented
+above. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 35 @ 0x98ee1' -c 'pd 27 @ 0x9902f' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

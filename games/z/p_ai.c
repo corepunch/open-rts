@@ -829,11 +829,10 @@ static void seek_vehicles(zmap_t *map, mobj_t *const *units, int count) {
             int64_t d = ivec2_distance_squared64(Z_AITopLeft(mo), Z_AITopLeft(vehicle));
             if (d < distance) { best = vehicle; distance = d; target = t; }
         }
-        if (best) {
-            task->task = 5;
-            task->target = (int16_t)target;
-            queue(ai, task, fixed3_xy(best->core.position), best->id);
-        }
+        if (!best) break; /* 0x98f29: no object stops this pass. */
+        task->task = 5;
+        task->target = (int16_t)target;
+        queue(ai, task, fixed3_xy(best->core.position), best->id);
     }
 }
 

@@ -866,6 +866,54 @@ static int test_unreachable_vehicle_choice(void) {
     return 0;
 }
 
+/* 0x98f29 ends the pass after the first eligible group finds no object. */
+static int test_vehicle_scan_stops(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("vehicle scan load");
+    mobj_t *lead = scenario(), *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
+    zmap_t *map = level.native_data;
+    if (!jeep) return fail("vehicle scan jeep");
+    mobj_t *second = P_SpawnMobj(lead->core.position, MT_UNIT_GRUNT);
+    if (!second) return fail("vehicle scan second group");
+    Z_SetTeam(second, 1);
+    second->traits &= ~MF_ATTACK;
+    second->z.squad = 0;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = 1;
+        map->territories[t].importance = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, 1);
+    }
+    jeep->z.driver = 0;
+    jeep->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[4].flag), 0);
+    map->computer.intelligence = 126;
+    think(0);
+    zaitask_t *first = task_of(lead), *other = task_of(second);
+    if (!first || !other) return fail("vehicle scan register groups");
+    uint16_t seed = 0, after = 0;
+    for (unsigned candidate = 0; candidate <= UINT16_MAX; ++candidate) {
+        uint16_t next = (uint16_t)candidate;
+        if (!(Z_NextRandom(&next) & 1)) {
+            uint16_t next2 = next;
+            if (Z_NextRandom(&next2) & 1) { seed = (uint16_t)candidate; after = next; break; }
+        }
+    }
+    map->ai.seed = seed;
+    map->ai.delay = 0;
+    think(1);
+    if (map->ai.seed != after || first->task == 5 || other->task == 5)
+        return fail("failed first observation ends vehicle scan");
+    map->ai.delay = 0;
+    think(1);
+    if (first->task != 5 || first->boarding != jeep->id)
+        return fail("later pass can find the same vehicle");
+    rts_game_model_destroy(model);
+    puts("PASS: z failed vehicle observation ends the current pass");
+    return 0;
+}
+
 /* 0x993ff: an attack that becomes too weak, with nobody to help, falls
  * back and forgets its target. */
 static int test_retreat(void) {
@@ -1483,7 +1531,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
