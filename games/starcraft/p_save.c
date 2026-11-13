@@ -25,6 +25,10 @@ void G_SaveExtra(void *out) {
                (size_t)m->trig_count * 8 * sizeof(sc_trig_t));
 }
 
+/* A bool read from a save is checked as its stored byte; the compiler may
+ * assume a bool is 0 or 1 and fold a cast comparison away. */
+static bool raw_bool(const bool *value) { return *(const uint8_t *)value <= 1; }
+
 bool G_LoadExtra(const void *data, size_t size) {
     sc_mission_t *m = level.mission;
     sc_save_t record;
@@ -41,9 +45,11 @@ bool G_LoadExtra(const void *data, size_t size) {
         !memchr(saved.next_scenario, 0, sizeof(saved.next_scenario))) return false;
     const sc_leaderboard_t *lb = &saved.leaderboard;
     if (lb->kind > SC_LB_GREED || lb->goal > 1 ||
-        (uint8_t)saved.leaderboard_computers > 1 || saved.portrait_ms < 0 ||
+        (uint8_t)saved.leaderboard_computers > 1 || !raw_bool(&saved.trigger_paused) || saved.portrait_ms < 0 ||
         (!saved.portrait_ms && saved.portrait_unit) ||
-        saved.ai_fallback_count < 0 || saved.ai_fallback_count > SC_AI_FALLBACK_LOG) return false;
+        saved.ai_fallback_count < 0 || saved.ai_fallback_count > SC_AI_FALLBACK_LOG ||
+        saved.doodad_off_count < 0 || saved.doodad_off_count > SC_DOODAD_OFF) return false;
+    for (int i = 0; i < saved.doodad_off_count; ++i) if (!saved.doodad_off[i]) return false;
     for (int i = 0; i < 8; ++i) {
         if (saved.custom_slots_set &&
             (saved.custom_slot_kind[i] > SC_SLOT_CLOSED || saved.custom_slot_race[i] > 2)) return false;
@@ -56,7 +62,7 @@ bool G_LoadExtra(const void *data, size_t size) {
         sc_trig_t trigger;
         memcpy(&trigger, runtime + (size_t)i * sizeof(trigger), sizeof(trigger));
         if (trigger.cursor < 0 || trigger.cursor > 64 || trigger.current < 0 ||
-            trigger.current >= 8) return false;
+            trigger.current >= 8 || !raw_bool(&trigger.pauser)) return false;
     }
     saved.file = m->file;
     saved.trig = m->trig;

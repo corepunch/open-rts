@@ -3059,8 +3059,8 @@ fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
 | 2 | Defeat | 75 | supported |
 | 3 | Preserve Trigger | 33 | supported |
 | 4 | Wait | 236 | supported |
-| 5 | Pause Game | 81 | UNSUPPORTED (reported once) |
-| 6 | Unpause Game | 23 | UNSUPPORTED (reported once) |
+| 5 | Pause Game | 81 | supported (2026-11-13) |
+| 6 | Unpause Game | 23 | supported (2026-11-13) |
 | 7 | Transmission | 233 | supported |
 | 8 | Play WAV | 144 | supported |
 | 9 | Display Text Message | 120 | supported |
@@ -3096,7 +3096,7 @@ fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
 | 39 | Move Unit | 16 | supported |
 | 40 | Leaderboard Greed | 0 | stored (saved, hashed; no presentation) |
 | 41 | Set Next Scenario | 0 | supported |
-| 42 | Set Doodad State | 69 | UNSUPPORTED (reported once) |
+| 42 | Set Doodad State | 69 | partial (traps; doors untraced) |
 | 43 | Set Invincibility | 6 | supported |
 | 44 | Create Unit | 0 | supported |
 | 45 | Set Deaths | 0 | supported |
@@ -3240,6 +3240,350 @@ round-trip with hash sensitivity and malformed-record rejection.
 ```
 make build/bin/starcraft
 env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_triggers
-env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 24 tests, 0 failed
+env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 24 tests, 0 failed (2026-11-13: 30 tests, 0 failed)
 env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
 ```
+
+### Retail trigger dispatchers (2026-11-13)
+
+`data/STARCRAFT/install/files/starcraft.exe` (sha256 `16cd8f0d...b2f5`,
+image base 0x400000, `.text` 0x401000-0x4d7000, `.rdata` 0x4d7000, `.data`
+0x4db000). It is the original StarCraft trigger set: the action table has 45
+live entries (0-44, entry 45 is null) and the condition table 24, so actions
+45-59 (Set Deaths, Order, Comment, Give Units, the Modify actions, Pause Timer
+and later) do not exist in this executable at all; they come from a later
+build and are not evidenced here.
+
+**How they were found.** The earlier jump-table scan looked only for
+`jmp [reg*4+table]`; the dispatchers are `call [reg*4+table]` through arrays of
+plain function pointers. A pointer-run scan of `.rdata`/`.data` (runs of
+pointers into `.text`, file offsets 0xd5a00 and 0xd8e00, vaddr = 0x4d7000 +
+(off-0xd5a00) and 0x4db000 + (off-0xd8e00)) found a 46-entry run at 0x4e9ff0
+and a 24-entry run at 0x4ea0a8 (the only run of 24 distinct-looking entries
+whose entries 22 and 23 are the "always true" and "always false" stubs). A raw
+byte search of `.text` for the little-endian table address then found the
+single user of each (`python -I` over the extracted bytes; r2 `/x` did not
+search the mapped image). r2 was used only for `pd`/`pxw`:
+
+```
+r2 -q -e bin.relocs.apply=true -c 'pxw 0x200 @ 0x4e9fe0' starcraft.exe
+r2 -q -e bin.relocs.apply=true -c 'e asm.bytes=false;pd 110 @ 0x4b43f0' starcraft.exe
+```
+
+**Per-tick trigger executor 0x4b4120** (`ecx` = tick length in milliseconds,
+`byte [0x4d764c + game speed]`; called once per game tick from 0x4418eb).
+Trigger records are 0x948+ bytes in a list per player (`0x690f10 + player*12`;
+`[edi+0x948]` is the trigger flag dword: bit0 started, bit2 Preserve, bit3
+finished, bit4 skipped, bit5 paused-the-game). The condition loop at 0x4b4375
+walks 16 20-byte conditions, type at record byte 15, byte 17 bit1 = disabled,
+and calls `[type*4 + 0x4ea0a8]`; the action loop 0x4b43f0 walks up to 64
+32-byte actions (record at trigger+0x148, type at byte 26 = record +0x1a,
+`[ptr+0x967]` is the action cursor, 0x40 = finished), skipping an action whose
+byte 28 bit1 is set, and calls `[type*4 + 0x4e9ff0]`. There is no bounds
+check on the type byte, only a null test (`je` to "finished").
+
+Action table at 0x4e9ff0 (index: function). Every entry takes the 32-byte
+record in `ecx` and returns 1 to continue or 0 to stop the list (Wait, Defeat
+when the player already lost):
+
+| Index | Action | Address |
+| ---: | --- | --- |
+| 0 | No Action | 0x4ac220 (`mov eax,1`) |
+| 1 | Victory | 0x4ac230 |
+| 2 | Defeat | 0x4ac260 |
+| 3 | Preserve Trigger | 0x4ac2c0 |
+| 4 | Wait | 0x4ac2d0 |
+| 5 | Pause Game | 0x4ac330 |
+| 6 | Unpause Game | 0x4ac3a0 |
+| 7 | Transmission | 0x4ac490 |
+| 8 | Play WAV | 0x4ac910 |
+| 9 | Display Text Message | 0x4ac9b0 |
+| 10 | Center View | 0x4aca50 |
+| 11 | Create Unit with Properties | 0x4acc00 |
+| 12 | Set Mission Objectives | 0x4acda0 |
+| 13 | Set Switch | 0x4acdc0 |
+| 14 | Set Countdown Timer | 0x4ace30 |
+| 15 | Run AI Script | 0x4ace90 |
+| 16 | Run AI Script At Location | 0x4aceb0 |
+| 17-21 | Leaderboard Control, Control At Location, Resources, Kills, Points | 0x4acef0 (one function) |
+| 22 | Kill Unit | 0x4ad010 |
+| 23 | Kill Unit At Location | 0x4ad4b0 |
+| 24 | Remove Unit | 0x4ad4e0 |
+| 25 | Remove Unit At Location | 0x4ad510 |
+| 26 | Set Resources | 0x4ad540 |
+| 27 | Set Score | 0x4ad9a0 |
+| 28 | Minimap Ping | 0x4acf60 |
+| 29 | Talking Portrait | 0x4acfd0 |
+| 30 | Mute Unit Speech | 0x4ac400 |
+| 31 | Unmute Unit Speech | 0x4ac430 |
+| 32 | Leaderboard Computer Players | 0x4ac450 |
+| 33-37 | Leaderboard Goal Control, Control At Location, Resources, Kills, Points | 0x4acef0 |
+| 38 | Move Location | 0x4ae120 |
+| 39 | Move Unit | 0x4ae2d0 |
+| 40 | Leaderboard Greed | 0x4acef0 |
+| 41 | Set Next Scenario | 0x4ae780 |
+| 42 | Set Doodad State | 0x4ae7b0 |
+| 43 | Set Invincibility | 0x4ae8a0 |
+| 44 | Create Unit | 0x4acc00 (same function as 11) |
+| 45 | (null) | 0 |
+
+Condition table at 0x4ea0a8 (24 entries, called with the 20-byte record in
+`ecx`, returns nonzero for true): 0 No Condition 0x4ac220, 1 Countdown Timer
+0x4aeb00, 2 Command 0x4aeba0, 3 Bring 0x4aebf0, 4 Accumulate 0x4aec40, 5 Kill
+0x4aec80, 6 Command the Most 0x4aed90, 7 Commands the Most At 0x4aee70, 8 Most
+Kills 0x4aef70, 9 Highest Score 0x4af050, 10 Most Resources 0x4af130, 11 Switch
+0x4aeb60, 12 Elapsed Time 0x4aeb30, 13 Mission Briefing 0x4aeaf0 (the "never"
+stub, also entry 23), 14 Opponents 0x4aed00, 15 Deaths 0x4aecc0, 16 Command the
+Least 0x4aee00, 17 Command the Least At 0x4aeef0, 18 Least Kills 0x4aefe0, 19
+Lowest Score 0x4af0c0, 20 Least Resources 0x4af1a0, 21 Score 0x4aed50, 22
+Always 0x4ac220, 23 Never 0x4aeaf0. The table reproduces the PyMS condition
+numbering exactly.
+
+The tick executor also shows the scheduling that the engine already models
+(`sc_mission_tick`): triggers are evaluated on a 30-tick counter
+(`[0x690f68]`, reloaded to 30; a finished Wait sets it to 1), Wait timers are
+per player (`0x690f80 + player*4`, active flag `0x690fa8 + player`) and are
+decremented by the tick milliseconds, and the countdown timer (`[0x4fe40c]`)
+and elapsed game time (`[0x4fe410]`) are advanced once per 15 ticks inside a
+block that the game-paused flag skips (below).
+
+#### Pause Game (5, 0x4ac330) and Unpause Game (6, 0x4ac3a0)
+
+Pause Game, in order:
+
+1. If `byte [0x633dbc]` (multiplayer game) is set, return, no effect.
+2. If `byte [0x690fa0]` (the trigger-pause flag) is already set, return.
+   So the representation is one boolean: pausing twice is one pause.
+3. Let `p` = the trigger owner (`[0x690fb4]`) and `t` = its in-game player type
+   (`byte [0x633bc0 + p*36]`). If `t` is 1 (Computer), 3 (Rescue Passive), 4
+   (Unused) or 7 (Neutral) (function 0x46f910), return. In CHK OWNR terms the
+   in-game 1 is OWNR 5 (Computer) and 2 is OWNR 6 (Human): action 1 Victory
+   sets the result only for types 1 and 2 (0x4b3fc0), the same 5/6 test
+   `sc_mission_tick` applies. Only a trigger owned by a human slot pauses.
+4. If trigger flag bit4 (the "skipped" flag, set by 0x4b4050 when the local
+   player skips a cutscene wait; read by 0x4b40d0) is set, return.
+5. Otherwise: 0x43aa20 and 0x43aaa0 swap the cursor handler
+   (`[0x620d58] = 0x43ff20`) and 0x439d00 hides the cursor
+   (`byte [0x695db0] = 0`, the cursor update in `cur.cpp`); 0x4734b0 sets the
+   global game-paused flag `[0x635918] = 1` and, through 0x4b3910, cancels a
+   drag-select in progress; 0x4b4030 sets bit5 (0x20) of the current trigger's
+   flag dword; `[0x690fa0] = 1`. Return 1.
+
+Unpause Game: returns unless `[0x633dbc]` is clear and `[0x690fa0]` is set and
+the owner's type passes the same 0x46f910 test. It then clears the current
+trigger's bit5 (0x4b4040), `[0x690fa0] = 0`, clears `[0x635918]` (0x4734c0),
+restores the cursor (0x439d10, 0x43aa40 and a 320-unit init 0x4c80a0). Any
+trigger may unpause; only the executing trigger's own bit5 is cleared.
+
+Unpause is also called by the engine itself: when an action list finishes
+(0x4b447f) and the trigger's bit5 is still set, the executor calls the
+Unpause function (`call [0x4ea008]`, table entry 6) before finishing or
+re-arming the trigger. A trigger that paused the game therefore unpauses it
+when its own list ends, unless another trigger has paused in the meantime
+(that trigger's pause is then ended by the first trigger's exit).
+
+Readers of the pause. `[0x635918]` has one accessor each in 0x473480 (get),
+0x4734b0 (set), 0x4734c0 (clear), 0x473490 (test). The frame at 0x4418aa runs
+`if (paused) { for each node of list [0x620a54] call 0x433fc0 } else call
+0x4419d0` (the full simulation step: 0x4aae30, 0x482fb0, 0x433940, 0x4024e0,
+0x404840, 0x411d30); then, unconditionally, 0x4b4120. 0x4b4120 starts with
+`if (paused && !trigger_paused) return`, so while a trigger has paused the
+game, triggers keep running, Wait timers keep counting, and only the block
+that advances the countdown timer and elapsed game time (and the 15-tick
+counters) is skipped (`call 0x473480; jne` at 0x4b41c9). The list walked by
+0x433fc0 while paused is per-sprite iscript-level updating (it tests a sprite
+flag and calls 0x410420 or 0x4103f0); it was not traced further, so which
+visual animations continue during a trigger pause is not established.
+Multiplayer pause by a player goes through the same flag
+(0x465e2b/0x4696c5 call 0x4734b0) and is not the trigger pause. Whether the
+local player can still issue commands while a trigger holds the pause was not
+traced (the input path was not followed beyond the cursor handler swap).
+
+#### Set Doodad State (42, 0x4ae7b0)
+
+Record fields: +0 location (1-based, 0 = no location; every campaign record
+carries one, 1 to 62), +0x10 player group, +0x18 unit type, +0x1b state.
+The earlier note that the records have "no location" was wrong: the location
+is the u32 at +0, with values 1-62 in Terran04, Zerg05 and Protoss06.
+
+1. Location 0: return without effect.
+2. The location rectangle (20-byte table at 0x4fe458: left +0, top +4, right
+   +8, bottom +0xc) and the unit/group pair (+0x18 type, +0x10 group) go to
+   the shared find-first-unit-in-rectangle helper 0x43eba0 with the shared
+   match callback 0x4ac7a0 (the unit and player matcher used by the other
+   unit actions). Only the FIRST matching unit is affected.
+3. The state byte is switched through a 7-entry table at 0x4ae880:
+   0 -> toggle (0x424090), 1, 2, 3 -> no effect, 4 -> enable (0x423f50),
+   5 -> disable (0x423f90), 6 -> toggle. The raw state 0 used 62 times by the
+   campaigns is Toggle, the same as 6; values 1-3 and above 6 do nothing.
+4. "Is disabled" is: unit status flag 0x400 (`[unit+0xdc]`), or a nonzero
+   byte at +0x10f, or a nonzero byte at +0x111 (OpenBW's `unit_is_disabled`
+   tests the disabled flag, lockdown, stasis and maelstrom; the byte
+   identities were not confirmed).
+   - Enable: if disabled, clear flag 0x400 and issue order 172
+     (Enable Doodad) with `0x424b50`; otherwise nothing.
+   - Disable: if NOT disabled, issue order 173 (Disable Doodad); the order
+     handler sets the flag. Otherwise nothing.
+   - Toggle: if disabled, as Enable; otherwise as Disable.
+   `0x424b50(order)` sets `[unit+0x93] |= 1` and replaces the unit's order
+   (0x424820 then 0x4242e0).
+5. The order dispatcher (0x43504e: `[unit+0x4d]-1` through byte table 0x435768
+   and jump table 0x4355a8) sends order 167 Idle (Trap) to 0x423b20, 168 Open
+   Door to 0x423e90, 169 Close Door to 0x423ef0, 170 Stop (Trap) to 0x423a20,
+   171 Attack (Trap) to 0x4239c0, 172 Enable Doodad to 0x423c80 and 173
+   Disable Doodad to 0x423d80.
+   - Enable (0x423c80), unit not disabled: if status bit 0x2000 is clear, run
+     iscript animation 27 (Enable) on the sprite's images (0x40fd40); for
+     types 203, 205-209 restore the sprite elevation `[sprite+0xd]` from the
+     units.dat elevation table (0x690698). For the four door types 205-208 it
+     then closes the door (order 169 through 0x425960 and 0x442890 positions
+     from per-type tables 0x68cd00); for the rest it issues the type's idle
+     order from the table at 0x68fbd8 (0x424b50), which for traps 203 and 209
+     is Idle (Trap).
+   - Disable (0x423d80): run iscript animation 24 (Disable) on the sprite;
+     for 203, 205-209 set the sprite elevation `[sprite+0xd]` to 1; for door
+     types open the door (order 168); for the rest run 0x4177e0(unit, 3), set
+     status flag 0x400, set `[unit+0xe4] = 0x80000000` and clear `[unit+0x91]`.
+   - Orders 168/169 (0x423e90/0x423ef0) toggle `[unit+0x4f]` bit0 and status
+     bit 0x200000, set the sprite elevation, and run the Open/Close
+     animation. The iscript animation numbers are the PyMS header indices
+     (24 Disable, 27 Enable); the door and trap animation scripts themselves
+     were not decoded here.
+   Not traced: how the engine's open door affects ground pathing (the
+   0x200000 flag and the `[unit+0x4f]` bit are set; their readers were not
+   followed), and the collision footprint.
+
+#### Leaderboards (17-21, 32-37, 40)
+
+All of 17-21, 33-37 and 40 are ONE function, 0x4acef0, so the inference that
+a single leaderboard is active at a time is confirmed: it stores a global
+descriptor (type byte = the action type at 0x4fe424; location-1 at 0x4fe425
+for the At-Location kinds 18 and 34; unit/type word +0x18 at 0x4fe426;
+quantity +0x14 at 0x4fe428; title string +4 at 0x4fe42c) and a later action
+overwrites it; Greed (40) stores only its quantity. It then sets the 15-tick
+counter `[0x690f00] = 1`, so 0x4b0fc0 recomputes the values on the next tick.
+That function switches on the kind (jump table 0x4b141c, byte table 0x4b144c)
+and, for each player of in-game type 2 (human) or any player when the
+Computer Players flag `[0x4fe420]` is set, stores a value computed by the
+same helper as the like-named condition: Control 0x4af8d0 with a cleared
+location (condition 2 Command, 0x4aeba0), Control At Location 0x4af8d0 with
+the location set (condition 3 Bring), Resources 0x4afcb0 (condition 4
+Accumulate), Kills 0x4affa0 (condition 5 Kill), Points 0x4b0980 (condition 21
+Score). So the second inference (value equals the matching condition's
+measure) is confirmed. Correction: only human players are listed unless the
+Computer Players flag is on; the engine currently computes all slots, which
+only matters for the display that does not exist. Action 32 (0x4ac450) sets
+`[0x4fe420]` from the state byte: 4 = 1, 5 = 0, 6 = xor 1, other = unchanged.
+
+#### Talking Portrait (29, 0x4acfd0) and Run AI Script (15, 16)
+
+Talking Portrait runs only for the local player's trigger, and not when the
+skip flag is set; it calls 0x49e090 with the unit type word (+0x18) and the
+duration (+0xc). It does occur in no installed campaign TRIG record.
+
+Run AI Script 0x4ace90 and At Location 0x4aceb0 call 0x489eb0(player, script
+id = u32 at +0x14, location rectangle or none). 0x489eb0 gates on the
+in-game player type: type 1 (Computer) may run any script; type 7 (Neutral)
+only 'Rscu' and 'EnBk'; every other type, human slots included, does nothing.
+It then searches the 16-byte entries of the loaded aiscript.bin
+(`[0x662278]`, id u32 at +0, offset at +4) for the id, does nothing if it is
+absent, and otherwise starts a script thread (0x489f20) at that offset with
+the location. The bytecode interpreter is 0x48a0b0 with an 80-entry jump
+table at 0x48af5c (opcode byte 0-0x4f). The traced single-command scripts are:
+
+| Script | Opcode | Handler | What it does |
+| --- | --- | --- | --- |
+| Rscu | 0x25 switch_rescue | 0x483e30 | player type := 3 (Rescue Passive); both directions of the 12x12 relation table (0x4fe34c) set to 1 for that player; every unit of the player has its AI and target state cleared and gets order 161 (Idle (Rescuable)) |
+| Ally | 0x21 player_ally | 0x483170 | relation [player][owner] := 2 for the owner of every unit in the thread's location rectangle |
+| Enmy | 0x20 player_enemy | 0x483100 | the same walk, relation set to enemy |
+| Suic | 0x1f send_suicide | 0x48aa88 | 0x479230(player,1), 0x4a6e00(player, byte), 0x479490(player,5) (AI attack-wave state; not decoded) |
+| MvTe, ClrC, VluA, EnBk | 0x26, 0x29, 0x2a, 0x2f | 0x483de0, 0x4a4140, 0x4a74c0, 0x4a7520 | AI planner state; not decoded |
+
+Of these, only Rscu has an effect that does not need the retail AI planner,
+and it needs a rescue mechanism (a Rescue Passive owner whose units become
+the rescuer's on approach) that this engine does not have; see "Run AI
+Script" above. Nothing was implemented for the scripts.
+
+#### Implemented: Pause Game and Unpause Game (2026-11-13)
+
+`games/starcraft/p_trig.c` now executes actions 5 and 6 as traced: one
+boolean `sc_mission_t.trigger_paused` (no count), a per-trigger-owner mark
+`sc_trig_t.pauser` (retail flag bit 0x20), no effect in a network game
+(`netgame`) or when the trigger owner is not a human slot (OWNR 2 or 6),
+Unpause clearing only the executing trigger's mark, and a trigger that still
+holds its mark when its action list ends running Unpause itself. While the
+pause is in force `sc_mission_tick` still evaluates triggers and counts Wait
+timers but does not advance `elapsed_ms` or the countdown timer, as the
+retail executor 0x4b4120 skips that block.
+
+The only shared-code change is an optional hook, `G_WorldFrozen()` (weak
+default `false` in `game/g_hooks.c`, declared in `include/engine.h`), used by
+`driver/d_main.c` and `rts_game_model_tick` (`game/g_game.c`): when it is true
+`P_Ticker`, `P_AiTick` and `G_UpdateProduction` do not run for that tick while
+the mission ticker and `G_OutcomeTicker` still do. The value is read before
+the mission ticker, so a pause takes effect from the next tick, matching the
+retail order (simulation step 0x4419d0, then 0x4b4120). For every game other
+than StarCraft the hook is a constant false.
+
+Save layout 21 to 22 (`sc_trig_t.pauser` and `trigger_paused`, both hashed,
+both validated as raw bytes on load). Not done: the paused-mode cursor, and
+whichever sprite-level updates retail keeps running while paused (0x433fc0
+list), because neither was traced to its effect; the local player's ability to
+issue commands during a trigger pause was not traced either.
+Tests: `tests/starcraft/test_triggers.c::pausing` (freeze, elapsed time and
+countdown stop with Wait still counting, nesting, computer owner, network,
+foreign unpause leaving the pauser mark, end-of-list unpause, save/load and
+malformed records) and the updated campaign inventory (only action 42 remains
+unsupported).
+
+#### Implemented: Set Doodad State for traps (2026-11-13)
+
+`set_doodad_state` in `games/starcraft/p_trig.c` follows the trace above: no
+location does nothing; the first matching unit in the location (unit type and
+player group through the shared `gather`) is the target; state 4 enables, 5
+disables, 0 and 6 toggle, 1-3 and above 6 do nothing; Enable acts only on a
+disabled unit and Disable only on an enabled one, where disabled is the
+existing `sc_disabled` (lockdown, stasis) or the new trigger flag. The flag is
+a list of unit ids in `sc_mission_t.doodad_off` (128 entries, saved, hashed,
+validated, in the layout 22 bump) read by `sc_disabled`, so a disabled Floor
+Gun or Missile Trap (or any non-door unit) stops firing through the engine's
+existing "a disabled unit fires on nobody" rule. Not implemented, because the
+trace did not reach their effect: the four door types 205-208 (their Open and
+Close Door state machine and its readers: status bits 0x2000 and 0x200000,
+`[unit+0x4f]` bit0), the Enable and Disable iscript animations (24 and 27) and
+sprite elevation changes, `0x4177e0(unit, 3)` and the `[unit+0xe4]` write for
+disabled traps, and collision of an open door. Doors therefore stay closed and
+action 42 is classified partial, no longer reported.
+Tests: `tests/starcraft/test_triggers.c::doodads` (disabled trap does not
+hurt an adjacent marine and an enabled one does, every state value, no
+location, wrong type, outside the location, doors, first match only,
+lockdown, save/load and malformed counts) and `doodads_terran04` (the first
+real Terran04 Set Doodad State record on a trap, raw state 0, run against the
+mission's own locations and placed units: toggles twice to enabled, once to
+disabled).
+
+Verification of this batch:
+
+```
+make build/bin/starcraft
+env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_triggers        # PASS
+env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 30 tests, 0 failed
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check                     # Smoke check OK
+```
+
+Open items and the trace each needs: the door state machine (decode 0x423e90
+and 0x423ef0 readers of status 0x200000 and `[unit+0x4f]`, and the door
+iscript animations); the paused-mode sprite update list at 0x620a54 and the
+input path during a trigger pause; the retail Rescue and AI planner effects
+(0x483e30, 0x4796b0/0x4796f0, the planner state behind send_suicide, move_dt,
+value_area, enter_bunker, clear_combatdata) which also need a rescue
+mechanism and an AI planner the engine does not have; the leaderboard display
+and Goal/Greed outcomes; and the Talking Portrait presentation (0x49e090).
+
+Known divergence, not changed: `p_trig.c` still enables the shared planner for
+whichever owner runs an unrecognized AI script, while retail runs a script
+only for a Computer-type owner (and Rscu/EnBk for a Neutral one) and ignores
+it for human slots and for ids missing from aiscript.bin. The gate is traced
+(0x489eb0) but the existing scenario fixtures run scripts from a human-owned
+trigger, so applying it needs those fixtures reworked together with a native
+script interpreter; it was left for that change.

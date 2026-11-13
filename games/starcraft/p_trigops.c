@@ -13,7 +13,7 @@ typedef struct { const char *name; sc_trig_status_t status; } trig_op_t;
 
 static const trig_op_t actions[SC_TRIG_ACTION_TYPES] = {
     {"No Action", N}, {"Victory", S}, {"Defeat", S}, {"Preserve Trigger", S}, {"Wait", S},
-    {"Pause Game", U}, {"Unpause Game", U}, {"Transmission", S}, {"Play WAV", S},
+    {"Pause Game", S}, {"Unpause Game", S}, {"Transmission", S}, {"Play WAV", S},
     {"Display Text Message", S}, {"Center View", S}, {"Create Unit with Properties", S},
     {"Set Mission Objectives", S}, {"Set Switch", S}, {"Set Countdown Timer", S},
     {"Run AI Script", P}, {"Run AI Script At Location", P},
@@ -26,7 +26,7 @@ static const trig_op_t actions[SC_TRIG_ACTION_TYPES] = {
     {"Leaderboard Goal Control", T}, {"Leaderboard Goal Control At Location", T},
     {"Leaderboard Goal Resources", T}, {"Leaderboard Goal Kills", T},
     {"Leaderboard Goal Points", T}, {"Move Location", S}, {"Move Unit", S},
-    {"Leaderboard Greed", T}, {"Set Next Scenario", S}, {"Set Doodad State", U},
+    {"Leaderboard Greed", T}, {"Set Next Scenario", S}, {"Set Doodad State", P},
     {"Set Invincibility", S}, {"Create Unit", S}, {"Set Deaths", S}, {"Order", S},
     {"Comment", N}, {"Give Units to Player", S}, {"Modify Unit Hit Points", S},
     {"Modify Unit Energy", S}, {"Modify Unit Shield Points", S},

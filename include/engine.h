@@ -1116,6 +1116,10 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
 /* Called twice per order, before it takes effect: phase 0 for orders that
  * replace what the unit was doing, phase 1 for TC_ORDER once it is accepted. */
 void G_InterruptOrders(const ticcmd_t *cmd, mobj_t *const *units, int count, bool late);
+/* True while the game holds the world frozen for its own reasons (a campaign
+ * trigger pause): thinkers, AI and production do not run, but the mission
+ * ticker still does. The default is false. */
+bool G_WorldFrozen(void);
 /* A campaign script may ask the camera to jump to a map cell. */
 bool G_TakeCameraRequest(fvec2_t *cell);
 /* Release level data the game allocated (P_FreeLevel). */

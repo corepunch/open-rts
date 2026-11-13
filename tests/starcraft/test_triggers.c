@@ -73,8 +73,8 @@ static mobj_t *spawn(int native, int owner) {
 }
 
 /* The inventory in docs/SC_EXE_FINDINGS.md: every action and condition type
- * in the installed campaign CHKs is classified, and the unsupported ones are
- * exactly Pause Game, Unpause Game and Set Doodad State. */
+ * in the installed campaign CHKs is classified, and none is unsupported (Set
+ * Doodad State is partial: traps only). */
 static unsigned action_count[256], condition_count[256];
 static int scan_chk(const char *file) {
     FILE *f = fopen(file, "rb");
@@ -114,7 +114,7 @@ static int inventory(void) {
         if (action_count[id]) CHECK(id < SC_TRIG_ACTION_TYPES);
         if (condition_count[id]) CHECK(id < SC_TRIG_CONDITION_TYPES);
         bool unsupported = action_count[id] && sc_trigger_action_status(id) == SC_TRIG_UNSUPPORTED;
-        CHECK(unsupported == (id == 5 || id == 6 || id == 42));
+        CHECK(!unsupported);
         CHECK(!condition_count[id] || sc_trigger_condition_status(id) != SC_TRIG_UNSUPPORTED);
     }
     CHECK(action_count[5] == 81 && action_count[6] == 23 && action_count[42] == 69);
@@ -128,26 +128,26 @@ static int reports(void) {
     uint8_t *t = trigger();
     CHECK(t);
     action(t, 0, 3, 0, 0, 0, 0, 0, 0, 0);
-    action(t, 1, 5, 0, 0, 0, 0, 0, 0, 0);
-    action(t, 2, 6, 0, 0, 0, 0, 0, 0, 0);
-    action(t, 3, 42, 5, 0, 0, 0, 17, 0, 207);
-    action(t, 4, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 58, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 2, 59, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 3, 57, 5, 0, 0, 0, 17, 0, 207);
+    action(t, 4, 58, 0, 0, 0, 0, 0, 0, 0);
     action(t, 5, 200, 0, 0, 0, 0, 0, 0, 0);
     action(t, 6, 54, 0, 0, 0, 0, 0, 0, 0);
     CHECK(load(t, NULL, 0));
     sc_mission_t *m = level.mission;
     CHECK(!m->trigger_warnings);
     tick(3);
-    CHECK(m->trigger_warnings == 4);
-    CHECK(sc_trigger_reported(m, true, 5) && sc_trigger_reported(m, true, 6) &&
-          sc_trigger_reported(m, true, 42) && sc_trigger_reported(m, true, 200));
+    CHECK(m->trigger_warnings == 3);
+    CHECK(sc_trigger_reported(m, true, 58) && sc_trigger_reported(m, true, 59) &&
+          sc_trigger_reported(m, true, 200));
     CHECK(!sc_trigger_reported(m, true, 54) && !sc_trigger_reported(m, true, 3));
     unload();
 
     /* A disabled action is skipped, not reported; a supported one is silent. */
     t = trigger();
     CHECK(t);
-    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 0, 58, 0, 0, 0, 0, 0, 0, 0);
     t[320 + 28] = 2;
     action(t, 1, 13, 4, 0, 0, 0, 0, 1, 0);
     CHECK(load(t, NULL, 0));
@@ -370,11 +370,354 @@ static int save_state(void) {
     return 0;
 }
 
+static mobj_t *spawn_at(int type_id, int owner, int cx, int cy) {
+    mobj_t *u = P_SpawnMobj((fixed3_t){cx * FIXED_ONE, cy * FIXED_ONE, 0}, (uint16_t)type_id);
+    if (u) {
+        u->owner = u->team = (uint8_t)owner;
+        u->allegiance = owner == consoleplayer ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
+    }
+    return u;
+}
+
+/* One map with a Set Doodad State action over location 1 (the whole map) for
+ * unit `unit`, All Players, with the given state. */
+static bool doodad_map(unsigned loc, unsigned state, unsigned unit) {
+    uint8_t whole[20] = {0};
+    put_u32(whole + 8, 1023); put_u32(whole + 12, 1023);
+    uint8_t *t = trigger();
+    if (!t) return false;
+    action(t, 0, 42, state, loc, 0, 0, 17, 0, unit);
+    return load(t, whole, 1);
+}
+
+enum { TRAP_FLOOR_GUN = 210, DOOR_LEFT_PIT = 208 };
+
+/* Set Doodad State (action 42, 0x4ae7b0): decoding, selection and the
+ * disabled trap. Raw state 0, which the campaigns use 62 times, toggles like
+ * 6; 4 enables and 5 disables; 1-3 and values above 6 do nothing; no
+ * location does nothing; only the first matching unit is affected. */
+static int doodads(void) {
+    /* Disable (5): the trap stops shooting. A marine next to an enabled trap
+     * is hurt; next to a disabled one it is not. */
+    for (int pass = 0; pass < 2; pass++) {
+        CHECK(pass ? doodad_map(1, 5, TRAP_FLOOR_GUN - 1) : doodad_map(1, 2, TRAP_FLOOR_GUN - 1));
+        sc_mission_t *m = level.mission;
+        mobj_t *trap = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5), *marine = spawn_at(MT_MARINE, 0, 7, 5);
+        CHECK(trap && marine);
+        int full = marine->hp;
+        tick(1);
+        CHECK(sc_doodad_disabled(trap) == (pass == 1) && sc_disabled(trap) == (pass == 1));
+        CHECK(m->doodad_off_count == pass);
+        for (int n = 0; n < 300; n++) P_Ticker();
+        if (pass) CHECK(marine->hp == full);
+        else CHECK(marine->hp < full);
+        unload();
+    }
+
+    /* Raw 0 and 6 toggle, 4 enables, 5 disables; the rest do nothing. */
+    static const struct { unsigned state; bool before, after; } cases[] = {
+        {0, false, true}, {0, true, false}, {6, false, true}, {6, true, false},
+        {4, true, false}, {4, false, false}, {5, false, true}, {5, true, true},
+        {1, false, false}, {2, true, true}, {3, false, false}, {7, true, true}, {255, false, false},
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        CHECK(doodad_map(1, cases[i].state, TRAP_FLOOR_GUN - 1));
+        mobj_t *trap = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5);
+        CHECK(trap);
+        sc_mission_t *m = level.mission;
+        if (cases[i].before) m->doodad_off[m->doodad_off_count++] = trap->id;
+        tick(1);
+        CHECK(sc_doodad_disabled(trap) == cases[i].after);
+        unload();
+    }
+
+    /* No location, a different unit type and a unit outside the location do
+     * nothing; doors take another path and are left alone. */
+    CHECK(doodad_map(0, 5, TRAP_FLOOR_GUN - 1));
+    mobj_t *trap = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5);
+    tick(1);
+    CHECK(trap && !sc_doodad_disabled(trap));
+    unload();
+    CHECK(doodad_map(1, 5, TRAP_FLOOR_GUN));
+    trap = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5);
+    tick(1);
+    CHECK(trap && !sc_doodad_disabled(trap));
+    unload();
+    CHECK(doodad_map(1, 5, DOOR_LEFT_PIT - 1));
+    mobj_t *door = spawn_at(DOOR_LEFT_PIT, 1, 5, 5);
+    tick(1);
+    CHECK(door && !sc_doodad_disabled(door));
+    unload();
+    CHECK(doodad_map(1, 5, TRAP_FLOOR_GUN - 1));
+    trap = spawn_at(TRAP_FLOOR_GUN, 1, 100, 100);
+    tick(1);
+    CHECK(trap && !sc_doodad_disabled(trap));
+    unload();
+
+    /* Only the first matching unit; an already disabled unit (lockdown) is
+     * not flagged by Disable; Enable on a locked down unit clears only the
+     * flag. */
+    CHECK(doodad_map(1, 5, TRAP_FLOOR_GUN - 1));
+    mobj_t *first = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5), *second = spawn_at(TRAP_FLOOR_GUN, 1, 8, 5);
+    CHECK(first && second);
+    tick(1);
+    CHECK(sc_doodad_disabled(first) + sc_doodad_disabled(second) == 1);
+    unload();
+    CHECK(doodad_map(1, 5, TRAP_FLOOR_GUN - 1));
+    trap = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5);
+    CHECK(trap);
+    trap->sc.timers[SC_TIMER_LOCKDOWN] = 1000;
+    tick(1);
+    CHECK(!sc_doodad_disabled(trap) && ((sc_mission_t *)level.mission)->doodad_off_count == 0);
+    unload();
+
+    /* The state is saved, hashed and validated. */
+    CHECK(doodad_map(1, 5, TRAP_FLOOR_GUN - 1));
+    trap = spawn_at(TRAP_FLOOR_GUN, 1, 5, 5);
+    CHECK(trap);
+    tick(1);
+    CHECK(sc_doodad_disabled(trap));
+    uint32_t hash = G_ConsistencyExtra(0);
+    size_t size = G_SaveExtraSize();
+    uint8_t *blob = malloc(size);
+    CHECK(blob);
+    G_SaveExtra(blob);
+    sc_mission_t *m = level.mission;
+    m->doodad_off_count = 0;
+    CHECK(!sc_doodad_disabled(trap) && G_ConsistencyExtra(0) != hash);
+    CHECK(G_LoadExtra(blob, size));
+    CHECK(sc_doodad_disabled(trap) && G_ConsistencyExtra(0) == hash);
+    sc_mission_t *saved = (sc_mission_t *)blob;
+    saved->doodad_off_count = SC_DOODAD_OFF + 1;
+    CHECK(!G_LoadExtra(blob, size));
+    saved->doodad_off_count = 1; saved->doodad_off[0] = 0;
+    CHECK(!G_LoadExtra(blob, size));
+    saved->doodad_off[0] = trap->id;
+    CHECK(G_LoadExtra(blob, size));
+    free(blob);
+    unload();
+    return 0;
+}
+
+/* A real mission segment: the first Set Doodad State record of the installed
+ * Terran04 that names a trap, run against the mission's own locations and
+ * placed units. */
+static int doodads_terran04(void) {
+    const char *file = "data/STARCRAFT/install/campaign/terran/terran04/staredit/scenario.chk";
+    CHECK(G_DoLoadLevel(file, &level) && level.mission);
+    sc_mission_t *m = level.mission;
+    CHECK(sc_spawn_things() > 0);
+    const uint8_t *record = NULL;
+    for (int i = 0; i < m->trig_count && !record; i++) for (int a = 0; a < 64; a++) {
+        const uint8_t *r = m->trig + (size_t)i * 2400 + 320 + a * 32;
+        if (r[26] == 42 && (read_u16_le(r + 24) == 203 || read_u16_le(r + 24) == 209)) { record = r; break; }
+    }
+    CHECK(record && record[27] == 0);
+    uint8_t *t = trigger();
+    CHECK(t);
+    memcpy(t + 320, record, 32);
+    memcpy(t + 320 + 32, record, 32);
+    int human = 0;
+    while (human < 8 && m->owners[human] != 6) human++;
+    CHECK(human < 8);
+    memset(t + 2372, 0, 8); t[2372 + human] = 1;
+    /* Swap in one synthetic trigger; the map, locations and units stay real. */
+    free(m->rt);
+    m->trig = t; m->trig_size = 2400; m->trig_count = 1;
+    m->rt = calloc(8, sizeof(*m->rt));
+    CHECK(m->rt);
+    int before = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && sc_doodad_disabled((mobj_t *)th)) before++;
+    CHECK(before == 0);
+    tick(1);
+    /* Two toggles of the same trap: disabled, then enabled again. */
+    CHECK(m->doodad_off_count == 0);
+    t[320 + 32 + 26] = 0;
+    m->rt[human] = (sc_trig_t){0};
+    tick(1);
+    CHECK(m->doodad_off_count == 1);
+    m->trig = NULL; m->trig_size = 0;
+    free(t);
+    P_FreeLevel(&level);
+    menuleave = false; menuactive = false; netgame = false;
+    return 0;
+}
+
+/* Several triggers in one map. */
+static bool load_many(uint8_t *t, size_t count) {
+    bool ok = !write_map(t, count, NULL, 0) && G_DoLoadLevel(path, &level) && level.mission;
+    free(t);
+    return ok;
+}
+
+static uint8_t *triggers(size_t count) {
+    uint8_t *t = calloc(count, 2400);
+    for (size_t i = 0; t && i < count; i++) { t[i * 2400 + 2372] = 1; t[i * 2400 + 15] = 22; }
+    return t;
+}
+
+/* Pause Game and Unpause Game (actions 5 and 6, 0x4ac330 and 0x4ac3a0): one
+ * boolean, human-owned triggers only, never in a network game; triggers and
+ * Wait timers keep running while elapsed time and the countdown stop; a
+ * trigger that holds the pause releases it when its list ends. */
+static int pausing(void) {
+    /* Pause freezes the world, and elapsed time and the countdown with it. */
+    uint8_t *t = trigger();
+    CHECK(t);
+    action(t, 0, 14, 7, 0, 0, 10, 0, 0, 0);
+    action(t, 1, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 2, 4, 0, 0, 0, 10 * RTS_TICK_MS, 0, 0, 0);
+    action(t, 3, 13, 4, 0, 0, 0, 0, 0, 0);
+    action(t, 4, 6, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    sc_mission_t *m = level.mission;
+    CHECK(!sc_world_frozen() && !G_WorldFrozen());
+    tick(1);
+    CHECK(sc_world_frozen() && G_WorldFrozen() && m->rt[0].pauser);
+    CHECK(m->elapsed_ms == RTS_TICK_MS && m->countdown_ms == 10000);
+    int ticks = 0;
+    while (!m->switches[0] && ticks < 40) {
+        tick(1);
+        ticks++;
+        if (!m->switches[0]) CHECK(sc_world_frozen() && m->elapsed_ms == RTS_TICK_MS && m->countdown_ms == 10000);
+    }
+    /* The Wait kept counting while paused; Unpause then ran. */
+    CHECK(m->switches[0] == 1 && ticks >= 9 && ticks <= 11);
+    CHECK(!sc_world_frozen() && !m->rt[0].pauser);
+    int elapsed = m->elapsed_ms;
+    tick(2);
+    CHECK(m->elapsed_ms == elapsed + 2 * RTS_TICK_MS && m->countdown_ms == 10000 - 2 * RTS_TICK_MS);
+    unload();
+
+    /* Pausing twice and unpausing once is not paused: no count. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 2, 6, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 3, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    tick(1);
+    CHECK(!sc_world_frozen());
+    unload();
+
+    /* A computer-owned trigger cannot pause. */
+    t = trigger();
+    CHECK(t);
+    memset(t + 2372, 0, 8); t[2373] = 1;
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(2);
+    CHECK(!sc_world_frozen() && !m->rt[1].pauser);
+    unload();
+
+    /* ... and cannot end a human's pause, or unpause when none is held. */
+    t = triggers(2);
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    memset(t + 2400 + 2372, 0, 8); t[2400 + 2373] = 1;
+    action(t + 2400, 0, 6, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(load_many(t, 2));
+    m = level.mission;
+    tick(3);
+    CHECK(sc_world_frozen() && m->rt[0].pauser);
+    unload();
+
+    /* A network game ignores both actions. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    netgame = true;
+    tick(1);
+    CHECK(!sc_world_frozen());
+    unload();
+
+    /* Another trigger can unpause, but only the pausing trigger's mark is
+     * cleared; the mark stays until that trigger's own list ends. */
+    t = triggers(2);
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 5 * RTS_TICK_MS, 0, 0, 0);
+    action(t + 2400, 0, 6, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(load_many(t, 2));
+    m = level.mission;
+    tick(1);
+    CHECK(!sc_world_frozen() && m->rt[0].pauser && !m->rt[8].pauser);
+    for (int n = 0; n < 12; n++) tick(1);
+    CHECK(!sc_world_frozen() && m->rt[0].disabled);
+    unload();
+
+    /* A trigger that holds the pause releases it when its list ends. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 5 * RTS_TICK_MS, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(1);
+    CHECK(sc_world_frozen());
+    tick(3);
+    CHECK(sc_world_frozen() && !m->rt[0].disabled);
+    for (int n = 0; n < 6 && !m->rt[0].disabled; n++) tick(1);
+    CHECK(m->rt[0].disabled && !sc_world_frozen() && !m->rt[0].pauser);
+    unload();
+
+    /* Save and load while paused, with malformed records rejected. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 5, 0, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 4, 0, 0, 0, 100000, 0, 0, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(2);
+    CHECK(sc_world_frozen());
+    uint32_t hash = G_ConsistencyExtra(0);
+    size_t size = G_SaveExtraSize();
+    uint8_t *blob = malloc(size);
+    CHECK(blob);
+    G_SaveExtra(blob);
+    m->trigger_paused = false;
+    m->rt[0].pauser = false;
+    CHECK(G_ConsistencyExtra(0) != hash);
+    CHECK(G_LoadExtra(blob, size));
+    m = level.mission;
+    CHECK(sc_world_frozen() && m->rt[0].pauser && G_ConsistencyExtra(0) == hash);
+    m->trigger_paused = false;
+    CHECK(G_ConsistencyExtra(0) != hash);
+    m->trigger_paused = true;
+    m->rt[0].pauser = false;
+    CHECK(G_ConsistencyExtra(0) != hash);
+    m->rt[0].pauser = true;
+    CHECK(G_ConsistencyExtra(0) == hash);
+    sc_mission_t *saved = (sc_mission_t *)blob;
+    unsigned char good = *(unsigned char *)&saved->trigger_paused;
+    *(unsigned char *)&saved->trigger_paused = 2;
+    CHECK(!G_LoadExtra(blob, size));
+    *(unsigned char *)&saved->trigger_paused = good;
+    CHECK(G_LoadExtra(blob, size));
+    sc_trig_t *runtime = (sc_trig_t *)(blob + size - 8 * sizeof(sc_trig_t));
+    unsigned char *mark = (unsigned char *)&runtime[0].pauser, mark_good = *mark;
+    *mark = 2;
+    CHECK(!G_LoadExtra(blob, size));
+    *mark = mark_good;
+    CHECK(G_LoadExtra(blob, size));
+    free(blob);
+    CHECK(G_SaveLayout() == 23);
+    unload();
+    return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
     consoleplayer = 0;
-    if (inventory() || reports() || leaderboards() || portrait() || ai_scripts() || save_state()) return 1;
+    if (inventory() || reports() || leaderboards() || portrait() || ai_scripts() || save_state() || pausing() || doodads() || doodads_terran04()) return 1;
     remove(path);
     puts("PASS: trigger coverage, leaderboards, portrait, AI scripts and saves");
     return 0;
