@@ -39,6 +39,9 @@ typedef struct { uint8_t active, phase; } sc_glow_t;
 typedef struct { int hp, shields, worker_hp; } sc_construction_t;
 /* Native flingy speed and turn change independently each 24 Hz frame. */
 typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t previous; bool missed, trail_repeat, trail_emitted; } sc_projectile_t;
+/* A running IScript animation (p_iscript.c): program offset, return address,
+ * frames still to wait, the animation number; active is 0 or 1. */
+typedef struct { uint16_t pc, ret, wait; uint8_t anim, active; } sc_script_t;
 /* sprite_owner is the native sprite owner retained when owner becomes 11;
  * owner/team still drive sight and AI, while neutral rendering uses this
  * retained owner for the native player-color remap.
@@ -50,7 +53,8 @@ typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t pre
 #define MOBJ_GAME_FIELDS struct { uint8_t flags, attacker, wound, sprite_owner; uint16_t kills; int shields, energy; \
     uint32_t parent; int larva_ms; int timers[SC_TIMERS], matrix, hangar; uint32_t parasite, addon, cargo[SC_CARGO]; \
     sc_order_t order; sc_rally_t rally; sc_glow_t glow; sc_projectile_t projectile; sc_order_queue_t queue; \
-    sc_construction_t construction; } sc;
+    sc_construction_t construction; \
+    sc_script_t script; } sc;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->sc.flags); HASH((mo)->sc.attacker); HASH((mo)->sc.sprite_owner); \
     HASH((mo)->sc.wound); HASH((mo)->sc.kills); HASH((mo)->sc.shields); HASH((mo)->sc.energy); \
@@ -67,6 +71,8 @@ typedef struct { int weapon, speed, turn, death_state, trail_state; uint32_t pre
     HASH((mo)->sc.projectile.turn); HASH((mo)->sc.projectile.death_state); HASH((mo)->sc.projectile.trail_state); \
     HASH((mo)->sc.projectile.previous); HASH((mo)->sc.projectile.missed); \
     HASH((mo)->sc.projectile.trail_repeat); HASH((mo)->sc.projectile.trail_emitted); \
+    HASH((mo)->sc.script.pc); HASH((mo)->sc.script.ret); HASH((mo)->sc.script.wait); \
+    HASH((mo)->sc.script.anim); HASH((mo)->sc.script.active); \
     HASH((mo)->sc.queue.active); HASH((mo)->sc.queue.count); HASH((mo)->sc.queue.owner); HASH((mo)->sc.queue.harvest_phase); HASH((mo)->sc.queue.target_owner); HASH((mo)->sc.queue.forced); HASH((mo)->sc.queue.target); \
     HASH((mo)->sc.construction.hp); HASH((mo)->sc.construction.shields); HASH((mo)->sc.construction.worker_hp); \
     for (int sc_q=0; sc_q<(mo)->sc.queue.count && sc_q<SC_QUEUED_ORDERS; ++sc_q) { \

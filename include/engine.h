@@ -1131,6 +1131,8 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp);
 void G_UnitKilled(mobj_t *victim, mobj_t *killer);
 /* Distinguishes save bodies whose layout the game changed. */
 uint32_t G_SaveLayout(void);
+/* Whether a game's own per-mobj state in a save is well formed; a save that fails is refused. */
+bool G_SavedMobjValid(const mobj_t *mo);
 bool G_NetSignature(const char *map_path, uint32_t *signature);
 bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
                      fixed2_t position, uint32_t target);

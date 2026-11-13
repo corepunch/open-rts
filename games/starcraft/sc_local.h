@@ -381,6 +381,34 @@ mobj_t *sc_armed_silo(int owner);
 void sc_ai_tactics(level_t *map, int owner, mobj_t *const *units, int count);
 /* Product ids: research of techdata row t is SC_TECH_UI + t. */
 enum { SC_TECH_UI = 2000 };
+/* p_iscript.c: the IScript runtime (OpenBW iscript_execute). */
+enum { SC_ISCRIPT_OPS = 69 };
+typedef struct {
+    uint32_t (*random)(void *ctx, int source);          /* OpenBW lcg_rand, 15 bits; source is its call-site index */
+    void (*op)(void *ctx, int op, const int *arg, int n); /* an opcode that acts on the world, in script order */
+    bool (*cond)(void *ctx, int op, const int *arg);     /* a world-dependent jump or ignorerest: whether it is taken */
+    void (*sound)(void *ctx, int row);                   /* an sfxdata row to play */
+    void *ctx;
+} sc_script_host_t;
+typedef void (*sc_iscript_visit_t)(void *ctx, unsigned pc, unsigned op, const uint8_t *arg, unsigned len);
+const char *sc_iscript_op_name(unsigned op);
+int sc_iscript_op_length(unsigned op, const uint8_t *p, size_t left);
+unsigned sc_iscript_animation(const blob_t *bin, unsigned script, int anim);
+bool sc_iscript_walk(const blob_t *bin, unsigned start, uint8_t *seen, sc_iscript_visit_t visit, void *ctx);
+bool sc_script_start(const blob_t *bin, sc_script_t *c, unsigned script, int anim, const sc_script_host_t *host);
+bool sc_script_frame(const blob_t *bin, sc_script_t *c, const sc_script_host_t *host);
+bool sc_script_valid(const sc_script_t *c);
+bool sc_iscript_load(const char *root);
+const blob_t *sc_iscript_bin(void);
+/* iscript ids of each unit row's and weapon's bullet image, or -1; filled by w_assets.c. */
+extern int sc_unit_script[SC_TYPES], sc_weapon_script[SC_WEAPONS];
+/* Animations the game starts on a running mobj (PyMS HEADER order). */
+enum { SC_ANIM_DEATH = 1, SC_ANIM_SPECIAL1 = 13, SC_ANIM_LANDING = 17, SC_ANIM_LIFT_OFF = 18,
+       SC_ANIM_BURROW = 25, SC_ANIM_UNBURROW = 26 };
+void sc_script_begin(mobj_t *mo, int script, int anim);
+void sc_script_tick(mobj_t *mo, int frames);
+/* Where script sounds go; sounds.c plays them (tests replace it). */
+extern void (*sc_script_play)(const mobj_t *actor, int row);
 /* sfxdata.dat ids of the first sound of an iscript animation; see w_assets.c. */
 int sc_iscript_sounds(const blob_t *script, unsigned id, int anim, uint16_t *out, int max);
 /* sounds.c: native sfx; a dialog button's press sound, 0 while silent. */

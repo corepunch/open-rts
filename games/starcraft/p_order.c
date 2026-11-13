@@ -326,6 +326,7 @@ bool sc_core_order(int player, const ticcmd_t *cmd, mobj_t *const *units,
                 u->sc.order=(sc_order_t){.kind=SC_ORDER_LIFT};
                 int state=sc_flight_states[u->type_id-1][0];
                 if(state)P_SetMobjState(u,state);
+                sc_script_begin(u,sc_unit_script[u->type_id-1],SC_ANIM_LIFT_OFF);
                 P_SyncBuildingBlocking();
             }else {
                 if(!(u->traits&MF_FLY)||!P_CanPlaceBuilding(u->type_id,at,u))continue;
@@ -491,6 +492,7 @@ void sc_order_ticker(mobj_t *mo, int frames) {
             o->time=1;
             int state=sc_flight_states[mo->type_id-1][1];
             if(state)P_SetMobjState(mo,state);
+            sc_script_begin(mo,sc_unit_script[mo->type_id-1],SC_ANIM_LANDING);
         }
         mo->core.position.z=fixed_max(0,mo->core.position.z-SC_PIXELS(frames));
         if(mo->core.position.z)return;

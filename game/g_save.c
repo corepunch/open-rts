@@ -173,6 +173,7 @@ static bool parse_save(const blob_t *file, save_t *save) {
             object->attack.target || object->harvest.base || object->production ||
             object->thinker.next || object->thinker.prev || object->thinker.function ||
             object->owner >= 16 || object->team >= 16 || object->core.state_id < 0 ||
+            !G_SavedMobjValid(object) ||
             (states && object->core.state_id >= states) || object->waypoints.count < 0 ||
             object->waypoints.count > MAXWAYPOINTS || object->movement.path.count < 0 ||
             object->movement.path.count > NAV_MAX_WAYPOINTS) goto fail;

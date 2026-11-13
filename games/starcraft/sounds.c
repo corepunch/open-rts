@@ -164,6 +164,27 @@ static int script_sound(const sc_tables_t *t, long script, int anim) {
     return script < 0 ? 0 : group(ids, sc_iscript_sounds(&t->script, (unsigned)script, anim, ids, MAXSFXLINKS));
 }
 
+/* Rows a script can play while its animation runs are loaded with the bank
+ * whichever branch is taken: every reachable playsnd, playsndrand,
+ * playsndbtwn and attackmelee operand. */
+static void mark_rows(void *ctx, unsigned pc, unsigned op, const uint8_t *arg, unsigned len) {
+    (void)ctx; (void)pc; (void)len;
+    unsigned first = 0, last = 0;
+    if (op == 0x18) first = last = read_u16_le(arg);
+    else if (op == 0x1a) { first = read_u16_le(arg); last = read_u16_le(arg + 2); }
+    for (unsigned id = first; id && id <= last && id < (unsigned)rows; ++id) used[id] = true;
+    if (op == 0x19 || op == 0x1c)
+        for (unsigned i = 0; i < arg[0]; ++i) {
+            unsigned id = read_u16_le(arg + 1 + i * 2);
+            if (id < (unsigned)rows) used[id] = true;
+        }
+}
+static void mark_script(const sc_tables_t *t, long script, int anim) {
+    uint8_t *seen = script < 0 ? NULL : calloc(t->script.size, 1);
+    if (seen) sc_iscript_walk(&t->script, sc_iscript_animation(&t->script, (unsigned)script, anim), seen, mark_rows, NULL);
+    free(seen);
+}
+
 /* PyMS UnitsDAT column offsets; Brood War's file adds max ground and air
  * hits (18, 20) and its own flag (52). Columns 3 and 37 have 96 rows, ready
  * and the pissed and yes ranges (29, 32..35) have 106: units only. */
@@ -195,6 +216,9 @@ static void map_units(const sc_tables_t *t) {
             }
         }
         s->death = (uint16_t)script_sound(t, scripts[i], 1);
+        /* Lift-off, landing, burrow and unburrow sound while their scripts run (p_iscript.c). */
+        static const int timed[] = {17, 18, 25, 26}; /* Landing, LiftOff, Burrow, UnBurrow */
+        for (unsigned k = 0; k < sizeof(timed) / sizeof(*timed); ++k) mark_script(t, scripts[i], timed[k]);
         /* Goliaths and tanks fire from their turret's script; Carriers and
          * Reavers launch silently, and what they launch sounds for itself. */
         if (sc_hangar_type((uint16_t)(i + 1))) continue;
@@ -208,7 +232,11 @@ static void map_units(const sc_tables_t *t) {
     /* A weapon whose unit's attack is silent sounds from its bullet's Init. */
     unsigned nw = (unsigned)(t->weapons.size / 42);
     for (unsigned w = 0; w < nw && w < SC_WEAPONS; ++w)
-        weapon_sfx[w] = (uint16_t)script_sound(t, flingy_script(t, read_u32_le(t->weapons.bytes + 2 * nw + 4 * w)), 0);
+    {
+        long bullet = flingy_script(t, read_u32_le(t->weapons.bytes + 2 * nw + 4 * w));
+        weapon_sfx[w] = (uint16_t)script_sound(t, bullet, 0);
+        mark_script(t, bullet, 1); /* a missile's impact sounds while its Death script runs */
+    }
     for (int race = 0; race < 3; ++race) {
         int ids[] = {SFX_BASE_ATTACKED, SFX_UNITS_ATTACKED, SFX_RESEARCH_COMPLETE, SFX_UPGRADE_COMPLETE};
         for (unsigned k = 0; k < sizeof(ids) / sizeof(*ids); ++k) used[ids[k] + race] = true;
@@ -217,6 +245,15 @@ static void map_units(const sc_tables_t *t) {
     used[SFX_BUZZ] = true;
     for (int i = 0; i < 3; ++i) used[SFX_PLACEMENT + i] = true;
 }
+
+/* One script sound: speech mutes like any unit row; the fog hides what the
+ * local player cannot see. */
+static void play_script_sound(const mobj_t *actor, int row) {
+    if (row <= 0 || row >= rows || (unit_speech[row] && sc_unit_speech_muted())) return;
+    if (actor->owner != consoleplayer && !S_PositionVisible(&level, fixed3_xy(actor->core.position))) return;
+    S_StartSound(actor, row);
+}
+void (*sc_script_play)(const mobj_t *actor, int row) = play_script_sound;
 
 static bool load(const char *root, int id, const char *name) {
     char path[256];
@@ -243,7 +280,7 @@ static bool sc_sound_init(const char *root) {
     music_sfx = music_channel = 0; music_mode = -1; music_missing = false;
     snprintf(music_root, sizeof(music_root), "%s", root);
     S_SetMusicVolume(gamesettings.music * 10);
-    if (!sc_read(root, "arr/sfxdata.dat", &t.dat) || !sc_read(root, "arr/sfxdata.tbl", &t.tbl) ||
+    if (!sc_iscript_load(root) || !sc_read(root, "arr/sfxdata.dat", &t.dat) || !sc_read(root, "arr/sfxdata.tbl", &t.tbl) ||
         !sc_read(root, "arr/units.dat", &t.units) || !sc_read(root, "arr/flingy.dat", &t.flingy) ||
         !sc_read(root, "arr/sprites.dat", &t.sprites) || !sc_read(root, "arr/images.dat", &t.images) ||
         !sc_read(root, "arr/weapons.dat", &t.weapons) || !sc_read(root, "scripts/iscript.bin", &t.script))
