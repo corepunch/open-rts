@@ -599,6 +599,52 @@ static int test_frontier_overlap(void) {
     return 0;
 }
 
+static int test_unreachable_frontier(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load unreachable frontier fixture");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.intelligence = 126;
+    map->territory_count = 3;
+    map->fort_count = 0;
+    for (int t = 0; t < 3; ++t) {
+        map->territories[t].min = (ivec2_t){t * 40, 0};
+        map->territories[t].max = (ivec2_t){(t + 1) * 40, 40};
+        map->territories[t].flag = (ivec2_t){t * 40 + 20, 20};
+        map->territories[t].team = t == 2 ? 0 : 1;
+        map->territories[t].importance = 0;
+        map->territories[t].options = 0;
+        map->ai.territories[t].flags = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) P_RemoveMobj(mo);
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) {
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[0].flag), 0);
+            P_ClearMove(mo);
+        } else if (mo->team == 0 && Z_UnitType(mo) >= 0)
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[2].flag), 0);
+    }
+    ivec2_t flag = map->territories[1].flag;
+    level.blocked[L_Index(&level, flag.x, flag.y)] = 1;
+    P_NavFree(&level);
+    int cls = P_MobjMoveClass(lead);
+    if (P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(lead->core.position)),
+                       P_NavNodeAt(&level, cls, fixed2_cell_center(flag))))
+        return fail("frontier fixture destination is unreachable");
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->current != 0) return fail("register inland force");
+    task->passes = 1;
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    if (task->task != 10 || task->destination != 1 || task->pending || task->passes)
+        return fail("unreachable frontier still receives native assignment");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_restricted_territory(void) {
     for (int test = 0; test < 12; ++test) {
         RtsGameModel *model = load();
@@ -1301,7 +1347,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_retreat_without_staging() || test_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_retreat_without_staging() || test_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

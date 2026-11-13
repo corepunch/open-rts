@@ -1700,6 +1700,16 @@ than being replaced with numeric approximations:
   with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
   -c 'pd 70 @ 0x99f46' -c 'pd 65 @ 0x9d61e' -c q data/Z/ZED.EXE` and
   `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
+- For an idle inland mobile force, `0x98e4b` selects the first eligible
+  friendly frontier and calls `0x475d5` for its flag; `0x98e2f..0x98e37`
+  then clears the quiet-pass counter and records task 10 and destination.
+  The engine now records that assignment even when its navigation rejects
+  the flag. It does not queue the rejected order, so native delayed-command
+  timing and later idle cleanup may still differ. `test_unreachable_frontier`
+  exercises the normal AI pass with a verified blocked flag node. Inspect
+  with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @
+  0x98d95' -c 'pd 55 @ 0x98e4b' -c q data/Z/ZED.EXE` and run
+  `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - The direct assault helper `0x99df0` first calls `0x99ca9`, then removes
   the group's old delayed command via `0x9820c/0x9821d` before issuing its
   direct flag order. The guard calls `0x7c0aa`: `0x646f9` detects any squad

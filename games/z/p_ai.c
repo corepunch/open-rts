@@ -666,8 +666,7 @@ static void to_frontier(zmap_t *map, mobj_t *const *units, int count) {
                 border = adjacent(map, t, a) && !owned(ai, a);
             if (!border) continue;
             fixed2_t goal = pixel_point(ivec2_add(ivec2_scale(map->territories[t].flag, Z_TILE), (ivec2_t){8,8}));
-            if (!reachable(group[0], goal)) break;
-            queue(ai, task, goal, 0);
+            if (reachable(group[0], goal)) queue(ai, task, goal, 0);
             task->passes = 0;
             task->task = FRONTIER;
             task->destination = (int16_t)t;
