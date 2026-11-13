@@ -318,6 +318,7 @@ uint16_t sc_hangar_type(uint16_t maker);
 int sc_hangar_capacity(const mobj_t *maker);
 void sc_initial_hangar(mobj_t *maker, unsigned count);
 void sc_initial_hallucination(mobj_t *mo);
+void sc_initial_ability_state(mobj_t *mo, unsigned valid, unsigned state);
 void sc_initial_broodling(mobj_t *mo);
 /* Docked plus launched (interceptors, scarabs in flight). */
 int sc_hangar_count(const mobj_t *maker);
@@ -364,6 +365,7 @@ bool sc_enter_nydus(mobj_t *unit, mobj_t *canal);
 bool sc_disabled(const mobj_t *mo);
 /* Burrow (iscript Burrow/UnBurrow states loaded with the graphics). */
 extern int sc_burrow_states[SC_TYPES][2];
+extern int sc_burrow_final_states[SC_TYPES];
 void sc_burrow(mobj_t *mo);
 void sc_unburrow(mobj_t *mo);
 void sc_lay_mine(mobj_t *vulture, fixed2_t at);

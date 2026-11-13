@@ -828,6 +828,7 @@ static void apply_property(mobj_t *mo, const sc_mission_t *m, unsigned index) {
     }
     if (data & 2) sc_initial_hp(mo, p[5]);
     sc_initial_vitals(mo, data, p[6], p[7]);
+    sc_initial_ability_state(mo, special, state);
     if (data & 0x20) sc_initial_hangar(mo, read_u16_le(p + 12));
     if ((special & 16) && (state & 16)) mo->sc.flags |= SC_INVINCIBLE;
     if ((special & 8) && (state & 8)) sc_initial_hallucination(mo);

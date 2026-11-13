@@ -568,7 +568,8 @@ static void sc_mobj_ticker(mobj_t *mo) {
         if (mo->sc.shields > u->shields << 8) mo->sc.shields = u->shields << 8;
     }
     if (!(u->flags & SC_UNIT_SPELLCASTER)) return;
-    if ((mo->traits & MF_CLOAKED) && !(mo->info->traits & MF_CLOAKED)) {
+    if ((mo->traits & MF_CLOAKED) && !(mo->info->traits & MF_CLOAKED) &&
+        !(mo->sc.flags & SC_BURROWED)) {
         mo->sc.energy -= SC_CLOAK_DRAIN * frames;
         if (mo->sc.energy <= 0) { mo->sc.energy = 0; mo->traits &= ~MF_CLOAKED; }
     } else if (mo->sc.energy < sc_max_energy(mo)) {

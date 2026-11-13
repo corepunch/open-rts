@@ -649,6 +649,7 @@ int sc_spawn_things(void) {
             if(!mo) return count;
             if(read_u16_le(u+14)&2) sc_initial_hp(mo,u[17]);
             sc_initial_vitals(mo,read_u16_le(u+14),u[18],u[19]);
+            sc_initial_ability_state(mo, read_u16_le(u + 12), read_u16_le(u + 26));
             if(read_u16_le(u+14)&0x20) sc_initial_hangar(mo,read_u16_le(u+24));
             if((read_u16_le(u+12)&8)&&(read_u16_le(u+26)&8)) sc_initial_hallucination(mo);
             if((read_u16_le(u+12)&0x10)&&(read_u16_le(u+26)&0x10)) mo->sc.flags|=SC_INVINCIBLE;

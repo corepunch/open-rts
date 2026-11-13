@@ -139,7 +139,16 @@ bool R_InitSprites(const char *root,const level_t *map,mobj_t *const *mobjs,int 
     if(cache->count>=SC_TYPES)return true;
     if(!sc_load_graphics(root,map,cache)) return false;
     sc_refresh_actors(); /* Turret poses come from the loaded animations. */
-    for(int i=0;i<count;i++) P_SetMobjState(mobjs[i],mobjinfo[mobjs[i]->type_id].spawnstate);
+    for(int i=0;i<count;i++) {
+        mobj_t *mo=mobjs[i];
+        int state=mobjinfo[mo->type_id].spawnstate;
+        if((mo->sc.flags&SC_BURROWED)&&mo->type_id>0&&mo->type_id<=SC_TYPES) {
+            int burrowed=sc_burrow_final_states[mo->type_id-1];
+            if(!burrowed) burrowed=sc_burrow_states[mo->type_id-1][0];
+            if(burrowed) state=burrowed;
+        }
+        P_SetMobjState(mo,state);
+    }
     return true;
 }
 void G_MissionTicker(level_t *map,mobj_t *const *mobjs,int *count,hudtext_t *hud,int dt_ms) {

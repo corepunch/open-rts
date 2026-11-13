@@ -35,6 +35,30 @@ void sc_initial_hallucination(mobj_t *mo) {
     if (sc_hangar_type(mo->type_id) == MT_INTERCEPTOR) mo->sc.hangar = 0;
 }
 
+/* CHK UNIT and UPRP share these valid-ability/state bits. Initial cloak and
+ * burrow are already active at spawn; they do not play the transition order. */
+void sc_initial_ability_state(mobj_t *mo, unsigned valid, unsigned state) {
+    enum { CHK_CLOAK = 1, CHK_BURROW = 2 };
+    if (!mo) return;
+    unsigned active = valid & state;
+    if (active & CHK_CLOAK) {
+        sc_start(mo);
+        mo->traits |= MF_CLOAKED;
+    }
+    if (active & CHK_BURROW) {
+        mo->sc.flags |= SC_BURROWED;
+        mo->traits &= ~(MF_MOBILE | MF_ATTACK);
+        mo->traits |= MF_CLOAKED;
+        mo->sc.order = (sc_order_t){0};
+        mo->waypoints = (waypoints_t){0};
+        int state = mo->type_id > 0 && mo->type_id <= SC_TYPES ?
+            sc_burrow_final_states[mo->type_id - 1] : 0;
+        if (!state && mo->type_id > 0 && mo->type_id <= SC_TYPES)
+            state = sc_burrow_states[mo->type_id - 1][0];
+        if (state) P_SetMobjState(mo, state);
+    }
+}
+
 void sc_initial_broodling(mobj_t *mo) {
     int *life = &mo->sc.timers[SC_TIMER_LIFE];
     if (!*life || *life > SC_BROODLING_FRAMES) *life = SC_BROODLING_FRAMES;
@@ -284,6 +308,7 @@ static void hold(mobj_t *mo) {
 
 /* iscript Burrow and UnBurrow, where a unit has them (w_assets.c). */
 int sc_burrow_states[SC_TYPES][2];
+int sc_burrow_final_states[SC_TYPES];
 /* An animation that has reached the frame it holds is done. */
 static bool settled(const mobj_t *mo) {
     int id = mo->core.state_id;

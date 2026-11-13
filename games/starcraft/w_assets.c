@@ -448,8 +448,11 @@ bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) 
             unsigned start=animation_start(&script,scriptid,phase?SC_UNBURROW:SC_BURROW);
             if(start&&next_state<SC_STATES) {
                 int head=next_state++;
-                if(animation(&script,start,i,head,turns,SC_GROUP_HOLD,sheet,NULL,states[1+i*2].frame)>=0)
+                int final=animation(&script,start,i,head,turns,SC_GROUP_HOLD,sheet,NULL,states[1+i*2].frame);
+                if(final>=0) {
                     sc_burrow_states[i][phase]=head;
+                    if(!phase) sc_burrow_final_states[i]=final;
+                }
             }
         }
         if(death&&next_state<SC_STATES) {
