@@ -88,6 +88,11 @@ int W2_PiercingDamage(const mobj_t *unit);
 int W2_Armor(const mobj_t *unit);
 int W2_AttackDamage(const mobj_t *attacker, const mobj_t *target, uint32_t roll);
 void A_W2_Attack(mobj_t *unit);
+/* Attack Ground (p_combat.c): siege, ships and towers with a splash shot
+ * walk into reach of a point, loose one shot at it and then idle. */
+bool W2_CanAttackGround(const mobj_t *unit);
+bool W2_GroundOrder(mobj_t *unit, fixed3_t point);
+void W2_TickGroundAttack(mobj_t *unit);
 void A_W2_Collapse(mobj_t *unit);
 void W2_Burning(mobj_t *unit);
 void W2_RestoreOilPatch(mobj_t *site);

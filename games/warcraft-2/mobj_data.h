@@ -19,6 +19,7 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
     struct { int phase, wait; ivec2_t to; } ferry; \
     int mana, buffs[5], ttl; \
     struct { int spell; uint32_t target; fixed3_t position; } cast; \
+    struct { bool active; fixed3_t position; } ground; \
     struct { int kind, age, clock, basic, piercing, mask, bounces; uint32_t subject; fixed3_t end; } fx; \
 } w2;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
@@ -39,6 +40,8 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
     HASH((mo)->w2.cast.spell); HASH((mo)->w2.cast.target); \
     HASH((mo)->w2.cast.position.x); HASH((mo)->w2.cast.position.y); \
     HASH((mo)->w2.cast.position.z); \
+    HASH((mo)->w2.ground.active); HASH((mo)->w2.ground.position.x); \
+    HASH((mo)->w2.ground.position.y); HASH((mo)->w2.ground.position.z); \
 } while (0)
 
 #endif

@@ -20,7 +20,7 @@ enum {
 enum {
     CK_NONE, CK_MOVE, CK_STOP, CK_ATTACK, CK_PATROL, CK_STAND,
     CK_REPAIR, CK_HARVEST, CK_RETURN, CK_PAGE, CK_CANCEL, CK_TRAIN, CK_PLACE, CK_CANCEL_BUILD, CK_SPELL,
-    CK_BOARD, CK_UNLOAD, CK_CANCEL_PRODUCTION
+    CK_BOARD, CK_UNLOAD, CK_CANCEL_PRODUCTION, CK_GROUND
 };
 
 typedef struct {
@@ -364,6 +364,13 @@ static int attack_icon(const mobj_t *unit, bool orc) {
     return (orc ? 119 : 116) + tier;
 }
 
+/* Wargus buttons.lua attack-ground sits at position 6 (slot 5), the place
+ * of the spell page, which only casters have. Icons are 182 human, 183 orc. */
+static void put_ground(const mobj_t *unit, bool orc) {
+    if (W2_CanAttackGround(unit))
+        put_cmd(5, CK_GROUND, orc ? 183 : 182, 0, 0, 0, 0, SDLK_g, "Attack ground");
+}
+
 static void fill_mobile(const mobj_t *unit, bool orc) {
     bool harvest = (unit->traits & MF_HARVESTER) != 0;
     bool sea = mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_SEA;
@@ -393,6 +400,7 @@ static void fill_mobile(const mobj_t *unit, bool orc) {
     }
     put_cmd(3, CK_PATROL, orc ? 179 : 178, 0, 0, 0, 0, SDLK_p, "Patrol");
     put_cmd(4, CK_STAND, orc ? 181 : 180, 0, 0, 0, 0, SDLK_t, "Stand ground");
+    put_ground(unit, orc);
     if (mobjinfo[unit->type_id].w2.transport_capacity)
         put_cmd(6, CK_UNLOAD, orc ? 163 : 162, 0, 0, 0, 0, SDLK_u, "Unload");
     else if (mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_LAND)
@@ -465,7 +473,10 @@ static void refresh(menu_t *menu) {
     }
     else if (own && page == 1) fill_page(own, basic_page, orc_side());
     else if (own && page == 2) fill_page(own, advanced_page, orc_side());
-    else if (own && !(own->traits & MF_MOBILE)) fill_train(own);
+    else if (own && !(own->traits & MF_MOBILE)) {
+        fill_train(own);
+        put_ground(own, orc_side());
+    }
     else if (own) fill_mobile(own, orc_side());
     apply_commands();
     int info_frame = count == 1 ? 1 : 0;
@@ -539,6 +550,10 @@ static void order_at(const menu_t *menu, int kind) {
                              hudview.sprites, &game_info, menu->cursor.x, menu->cursor.y, -1);
         if (hit >= 0) G_SelectedTiccmd(kind == CK_REPAIR ? TC_REPAIR : TC_BOARD, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal),
                                       hudview.units[hit]->id);
+        return;
+    }
+    if (kind == CK_GROUND) {
+        G_SelectedTiccmd(TC_ATTACK_GROUND, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal), 0);
         return;
     }
     if (kind == CK_PATROL) {
@@ -671,7 +686,8 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         }
         else if (cmd->kind == CK_PLACE) place_building(menu, item, cmd);
         else if (cmd->kind == CK_MOVE || cmd->kind == CK_ATTACK || cmd->kind == CK_HARVEST ||
-                 cmd->kind == CK_REPAIR || cmd->kind == CK_PATROL || cmd->kind == CK_BOARD || cmd->kind == CK_UNLOAD)
+                 cmd->kind == CK_REPAIR || cmd->kind == CK_PATROL || cmd->kind == CK_BOARD || cmd->kind == CK_UNLOAD ||
+                 cmd->kind == CK_GROUND)
             order_at(menu, cmd->kind);
         return;
     }
@@ -681,7 +697,7 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         G_SelectedTiccmd(TC_CANCEL_PRODUCTION, hudview.units, hudview.unit_count, (fixed2_t){0}, 0);
         break;
     case CK_MOVE: case CK_ATTACK: case CK_HARVEST: case CK_PLACE: case CK_REPAIR: case CK_PATROL: case CK_SPELL:
-    case CK_BOARD: case CK_UNLOAD:
+    case CK_BOARD: case CK_UNLOAD: case CK_GROUND:
         M_MenuTarget(menu, item);
         break;
     case CK_STOP:

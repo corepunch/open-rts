@@ -671,7 +671,8 @@ static mobj_t *find_attack_target(const mobj_t *attacker, bool *chasing) {
         (attacker->move_only && P_HasMoveOrder(attacker))) return NULL;
 #endif
 #ifdef RTS_MODULE_WARCRAFT_2
-    if (attacker->w2.cast.spell || attacker->w2.repair.target || attacker->w2.carrier) return NULL;
+    if (attacker->w2.cast.spell || attacker->w2.repair.target || attacker->w2.carrier ||
+        attacker->w2.ground.active) return NULL;
 #endif
     if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
     if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
@@ -1595,6 +1596,7 @@ static void tick_actor(mobj_t *u) {
 #ifdef RTS_MODULE_WARCRAFT_2
     W2_UpgradeUnit(u);
     W2_TickSpells(u);
+    W2_TickGroundAttack(u);
     if (u->hp > 0 && W2_TickTransport(u)) return;
     if (u->hp > 0 && u->hp < u->max_hp && leveltime % (2 * RTS_TICRATE) == 0 &&
         (u->type_id == MT_AXETHROWER || u->type_id == MT_BERSERKER) &&
@@ -1639,7 +1641,7 @@ static void tick_actor(mobj_t *u) {
             (u->move_only && moving)) enemy = NULL;
 #endif
 #ifdef RTS_MODULE_WARCRAFT_2
-        if (u->w2.stand_ground || u->w2.cast.spell || u->w2.carrier) enemy = NULL;
+        if (u->w2.stand_ground || u->w2.cast.spell || u->w2.carrier || u->w2.ground.active) enemy = NULL;
 #endif
         if (!in_attack && (u->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
             enemy && !enemy->remove && enemy->hp > 0 &&

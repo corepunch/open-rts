@@ -45,6 +45,11 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
     case TC_RETURN_GOODS:
         for (int i = 0; i < count; ++i) W2_ReturnGoods(units[i]);
         return true;
+    case TC_ATTACK_GROUND:
+        if (!L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS))
+            return true;
+        for (int i = 0; i < count; ++i) W2_GroundOrder(units[i], cmd->position);
+        return true;
     case TC_CONSTRUCT: {
         if (cmd->product == 0) {
             for (int i = 0; i < count; ++i) W2_CancelConstruction(units[i]);
@@ -68,6 +73,7 @@ void G_InterruptOrders(const ticcmd_t *cmd, mobj_t *const *units, int count, boo
     for (int i = 0; i < count; ++i) {
         W2_InterruptRepair(units[i]); W2_InterruptHarvest(units[i]); W2_InterruptBuild(units[i]);
         units[i]->w2.stand_ground = false;
+        units[i]->w2.ground.active = false;
         units[i]->w2.cast.spell = 0;
         if (!units[i]->w2.boarded) units[i]->w2.carrier = 0;
         units[i]->w2.unloading = false;
