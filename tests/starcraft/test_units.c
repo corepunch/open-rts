@@ -729,6 +729,30 @@ static int zerg_spells(void) {
     mobj_t *ling = spawn(MT_ZERGLING, FIXED2_LIT(10.5, 4.5), 0), *marine = spawn(MT_MARINE, FIXED2_LIT(13.5, 4.5), 1);
     zealot = spawn(MT_ZEALOT, FIXED2_LIT(11.4, 4.5), 1);
     CHECK(sc_cast(defiler, SC_TECH_DARK_SWARM, NULL, at_of(ling)) && count_of(MT_DARK_SWARM, 0) == 1);
+    fixed2_t swarm_at = at_of(ling);
+    mobj_t *edge_x = spawn(MT_ULTRALISK, fixed2_add(swarm_at, (fixed2_t){SC_PIXELS(98), 0}), 0);
+    mobj_t *outside_x99 = spawn(MT_ULTRALISK, fixed2_add(swarm_at, (fixed2_t){SC_PIXELS(99), 0}), 0);
+    mobj_t *outside_x100 = spawn(MT_ULTRALISK, fixed2_add(swarm_at, (fixed2_t){SC_PIXELS(100), 0}), 0);
+    mobj_t *edge_y = spawn(MT_ULTRALISK, fixed2_add(swarm_at, (fixed2_t){0, SC_PIXELS(95)}), 0);
+    mobj_t *outside_y96 = spawn(MT_ULTRALISK, fixed2_add(swarm_at, (fixed2_t){0, SC_PIXELS(96)}), 0);
+    CHECK(edge_x && outside_x99 && outside_x100 && edge_y && outside_y96);
+    CHECK(sc_dark_swarm_protects(edge_x) && !sc_dark_swarm_protects(outside_x99) &&
+          !sc_dark_swarm_protects(outside_x100));
+    CHECK(sc_dark_swarm_protects(edge_y) && !sc_dark_swarm_protects(outside_y96));
+    mobj_t *max_width = spawn(MT_FLOOR_HATCH, FIXED2_LIT(20.5, 20.5), 0);
+    CHECK(max_width && !(sc_units[MT_FLOOR_HATCH - 1].flags & SC_UNIT_BUILDING));
+    fixed2_t max_width_at = at_of(max_width);
+    mobj_t *cloud = spawn(MT_DARK_SWARM, fixed2_add(max_width_at, (fixed2_t){SC_PIXELS(206), 0}), 0);
+    CHECK(cloud);
+    cloud->sc.order.tech = SC_TECH_DARK_SWARM;
+    cloud->sc.timers[SC_TIMER_LIFE] = 100;
+    CHECK(sc_dark_swarm_protects(max_width)); /* 256px inner query expands neither x edge. */
+    P_RemoveMobj(cloud);
+    cloud = spawn(MT_DARK_SWARM, fixed2_add(max_width_at, (fixed2_t){SC_PIXELS(207), 0}), 0);
+    CHECK(cloud);
+    cloud->sc.order.tech = SC_TECH_DARK_SWARM;
+    cloud->sc.timers[SC_TIMER_LIFE] = 100;
+    CHECK(!sc_dark_swarm_protects(max_width));
     CHECK(shoot(marine, ling) && ling->hp == ling->max_hp);
     CHECK(shoot(zealot, ling) && ling->hp < ling->max_hp);
     tick(frames(900));

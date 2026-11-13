@@ -312,8 +312,17 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   its box-distance behavior. Psionic Storm's `bullet_deal_splash_damage`
   (13165–13183) likewise uses `unit_distance_to` (1528–1530) for its outer
   radius; the local storm strike now applies that rule to unit boxes. A fixture
-  checks a 60-pixel-center Ultralisk inside Storm's 48-pixel box range. These
-  behaviors are source parity, not retail verification.
+  checks 48/49-pixel axis and diagonal bounds. `unit_is_under_dark_swarm`
+  (13706–13711) searches the target's inner bounding box for a Dark Swarm unit.
+  The unit finder indexes both endpoints of each unit's inner box (14765–14807)
+  and its search checks the stored bounds (14866–14871); DAT extents come from
+  `unit_sprite_inner_bounding_box` (691–692). Its constructor expands a query's
+  upper edge by one per axis only when that query span is smaller than the
+  maximum unit width/height (14917–14929). The local check models this
+  conditional edge rule. A Floor Hatch DAT row 204 fixture (256px wide, marked
+  UNUSED and non-building) covers the strict max-width endpoint. This is source
+  parity, not retail proof.
+  These behaviors are source parity, not retail verification.
 - [OpenBW pinned `game_types.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/game_types.h):
   `tile_id::has_creep` applies `((raw_value >> 4) & 0x8000)` to a `uint16_t`,
   making the check always false; this corrects the earlier interpretation of

@@ -331,6 +331,16 @@ Frozen Ultralisk fixtures distinguish 48-pixel from 49-pixel box gaps and
 diagonal gaps `(37,35)` / `(38,35)`, which OpenBW's integer approximation
 counts as 48 / 49 respectively. The point-to-box cases use the Ultralisk DAT
 box and one immediate cast, without duplicate storm creation.
+OpenBW indexes each unit by its inner box, and Dark Swarm protection searches
+the target's inner box in that index. The finder expands each query's upper
+edge by one only when that query axis is smaller than the largest unit extent
+(OpenBW `unit_finder` constructor); a max-width query keeps its strict upper
+edge. The local check models that per-axis rule. Ultralisk fixtures check
+horizontal centers at 98/99/100 pixels and vertical centers at 95/96 pixels,
+matching the asymmetric DAT extents. The 256-pixel Floor Hatch type (units.dat
+row 204, marked UNUSED and non-building) checks the maximum-width case: a cloud
+whose inner `from.x` is one pixel before the query's `to.x` overlaps, while a
+cloud whose `from.x == query.to.x` is excluded because no expansion applies.
 OpenBW also classifies the Matriarch (units.dat row 49) as a Queen and the
 Unclean One (row 52) as a Defiler for their spell sets, with their
 research-gated spells available to heroes. Their abilities now appear and

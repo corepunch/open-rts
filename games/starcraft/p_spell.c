@@ -39,7 +39,6 @@ void sc_initial_broodling(mobj_t *mo) {
     int *life = &mo->sc.timers[SC_TIMER_LIFE];
     if (!*life || *life > SC_BROODLING_FRAMES) *life = SC_BROODLING_FRAMES;
 }
-#define SC_SWARM_RADIUS (FIXED_ONE * 5 / 2)
 /* Recall takes everyone in a 128-pixel square; Stasis Field a 96-pixel one. */
 #define SC_RECALL_HALF SC_PIXELS(64)
 #define SC_STASIS_HALF SC_PIXELS(48)
@@ -213,6 +212,26 @@ static int unit_distance_to_point(const mobj_t *unit, fixed2_t at) {
     int x = point.x < left ? left - point.x : point.x > right ? point.x - right : 0;
     int y = point.y < top ? top - point.y : point.y > bottom ? point.y - bottom : 0;
     return sc_xy_length(x, y);
+}
+static int max_unit_extent(bool vertical) {
+    int extent = 0;
+    for (int i = 0; i < SC_TYPES; i++) {
+        int size = vertical ? sc_units[i].bounds.h : sc_units[i].bounds.w;
+        if (size > extent) extent = size;
+    }
+    return extent;
+}
+static bool unit_box_overlaps(const mobj_t *unit, const mobj_t *area) {
+    const irect_t ub = sc_unit(unit)->bounds, ab = sc_unit(area)->bounds;
+    ivec2_t up = {unit->core.position.x / SC_PIXELS(1), unit->core.position.y / SC_PIXELS(1)};
+    ivec2_t ap = {area->core.position.x / SC_PIXELS(1), area->core.position.y / SC_PIXELS(1)};
+    int ul = up.x + ub.x, ut = up.y + ub.y, ur = ul + ub.w - 1, ud = ut + ub.h - 1;
+    int al = ap.x + ab.x, at = ap.y + ab.y, ar = al + ab.w - 1, ad = at + ab.h - 1;
+    /* find_units expands narrow query boxes by one at the upper edge, but
+     * leaves an axis at its strict endpoint when the query is max-sized. */
+    if (ub.w < max_unit_extent(false)) ++ur;
+    if (ub.h < max_unit_extent(true)) ++ud;
+    return al < ur && ar >= ul && at < ud && ad >= ut;
 }
 
 static void storm_strike(mobj_t *storm) {
@@ -642,8 +661,7 @@ bool sc_dark_swarm_protects(const mobj_t *target) {
         const mobj_t *cloud=(const mobj_t *)th;
         if(th->function==P_MobjThinker&&!cloud->remove&&cloud->type_id==MT_DARK_SWARM&&
            cloud->sc.order.tech==SC_TECH_DARK_SWARM&&cloud->sc.timers[SC_TIMER_LIFE]>0&&
-           abs(cloud->core.position.x-target->core.position.x)<=SC_SWARM_RADIUS&&
-           abs(cloud->core.position.y-target->core.position.y)<=SC_SWARM_RADIUS)return true;
+           unit_box_overlaps(target,cloud))return true;
     }
     return false;
 }
