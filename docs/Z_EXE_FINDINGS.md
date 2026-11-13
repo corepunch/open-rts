@@ -4690,6 +4690,35 @@ bin.relocs.apply=true -c 'pd 45 @ 0x5abad' -c 'pd 30 @ 0x5ac67'
 -c 'px 128 @ 0x11662f' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_combat`.
 
+The omitted terrain-hit effect is not an immediate damage operation:
+`0x6b641` dispatches a `burst3` particle constructor via `0x6d093`.
+At `0x6b667..0x6b6c7` it samples a four-way variant, randomized signed
+horizontal velocities, and a vertical velocity from -4 through -11; it
+sets a 200-step field and selects a callback, with a special callback when
+the global sprite word is 0x76f. The constructor iterates the caller's
+count, obtaining the first free 44-byte particle through `0x6e0f1`; the
+pool is initialized with 2000 records at `0x6e10f`, while the active scan
+count is the runtime value at `0x1d4458`. The ordinary callback `0x6d23e`
+frees the record. The special callback `0x6b759` can invoke explosion
+`0x8476c` for terrain types 9, 0x26, 0x27, 0x28 and 0x2a, and otherwise
+tries to create a separate effect record. The circumstances that supply
+sprite 0x76f elsewhere, particle motion and update timing still need tracing before
+an ordinary mobj can reproduce the effect. Reproduce with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 55 @ 0x6b641' -c 'pd 50 @ 0x6d093'
+-c 'pd 65 @ 0x6b7c8' -c 'pd 30 @ 0x6e0f1'
+-c q data/Z/ZED.EXE`.
+The bullet terrain-hit caller `0x5ac2e..0x5ac3c` supplies sprite 0xfa and
+count 1, so it selects the ordinary freeing callback, not the special 0x76f
+explosion path. The particle update at `0x6d43b` decrements its +0x12 word
+and enters the termination branch only when the result becomes negative;
+the relation of this update pass to simulation tics is still unconfirmed.
+On a surviving pass `0x6dd79` adds signed byte +0x0c to vertical word
++0x04; crossing above zero clamps it and normally terminates, while +0x18
+bit 0 selects a bounce. The bullet caller sets +0x18 to 4, so its particle
+takes the termination branch on that crossing. Bounds can also end the
+particle before its timer expires. Projection and velocity decay still
+require tracing.
+
 **Ordinary bullet tracer:** `0x5ab34..0x5ab3d` constructs palette index
 `0x17 + 16 * (bullet +4 high nibble)` and calls the function pointer at
 `0x104378`, whose initialized target is `0x81aba`. That VGA routine draws
