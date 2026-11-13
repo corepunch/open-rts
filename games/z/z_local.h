@@ -57,11 +57,12 @@ typedef struct {
     int16_t home;     /* Group +0xc: where a donated reserve returns, or -1. */
     int8_t task;      /* +0x11: -1 idle, 0 march, 1 flag, 2 staged, 3 assault,
                        * 4 garrison, 5 vehicle, 7 building support, 8 return, 9 crane work,
-                       * 10 frontier, 11 vehicle repair. */
+                       * 6 building attack, 10 frontier, 11 vehicle repair. */
     uint8_t squad, flags, idle;
     uint8_t passes;   /* +0x12: heavy passes spent idle inside CPU land. */
     int8_t retry;
     bool pending;
+    bool point;       /* The pending order is a coordinate attack (task 6, 0x9a9ae). */
 } zaitask_t;
 
 typedef struct {
@@ -185,6 +186,21 @@ void Z_MobjTicker(mobj_t *mo);
 void A_PyroFlame(mobj_t *mo);
 void A_PyroRecover(mobj_t *mo);
 void A_ZToss(mobj_t *mo);
+/* p_point.c: the robot coordinate attack (ZED.EXE command 5, target 0x0d80). */
+bool Z_PointCanAttack(const mobj_t *unit);
+bool Z_PointAttackable(ivec2_t point);
+bool Z_PointInRange(const mobj_t *unit, ivec2_t point);
+bool Z_PointMoveDone(const mobj_t *unit, ivec2_t point);
+bool Z_PointActive(const mobj_t *unit);
+bool Z_PointPhaseValid(const mobj_t *unit);
+bool Z_PointAttackOrder(mobj_t *leader, ivec2_t point);
+int Z_SquadGrenades(const mobj_t *unit);
+void Z_PointCancel(mobj_t *unit);
+void Z_PointTick(mobj_t *unit);
+void Z_PointToss(mobj_t *unit);
+/* p_capture.c: the projectiles a coordinate attack launches. */
+bool Z_ThrowAtPoint(mobj_t *attacker, ivec2_t point);
+bool Z_ShellAtPoint(mobj_t *attacker, ivec2_t point);
 void Z_ServiceTick(mobj_t *unit);
 bool Z_ServiceOrder(mobj_t *unit, const mobj_t *target, fixed2_t goal);
 bool Z_ServiceApproach(const mobj_t *unit, const mobj_t *target, fixed2_t *goal);

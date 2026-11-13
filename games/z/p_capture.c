@@ -412,6 +412,7 @@ void A_PyroRecover(mobj_t *unit) {
 }
 
 void A_ZToss(mobj_t *unit) {
+    if (unit->z.point_throw) { Z_PointToss(unit); return; }
     if (!throws_at(unit, unit->attack.target)) return;
     int grenades = unit->z.grenades;
     if (!P_Attack(unit) || unit->z.grenades == grenades) return;
@@ -433,6 +434,7 @@ void Z_MobjTicker(mobj_t *mo) {
     if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_SHELL || mo->type_id == MT_GRENADE || mo->type_id == MT_BULLET) return;
     Z_RouteTick(mo);
     Z_SquadTick(mo);
+    Z_PointTick(mo);
     terrain_speed(mo);
     if (mo->core.state_id == S_BRIDGE_REBUILD) {
         Z_BridgeEffectTick(mo);
@@ -844,13 +846,36 @@ bool Z_FireFlameFrom(mobj_t *attacker, mobj_t *target, const ivec2_t *port) {
 }
 static bool fire_pyro_flame(mobj_t *attacker, mobj_t *target) { return Z_FireFlameFrom(attacker, target, NULL); }
 
+/* 0x636cc..0x636f8 and 0x5a205: launch a grenade from the facing-indexed
+ * muzzle (0x149174) to `aim`, a pixel point. `target` may be NULL for a
+ * coordinate attack. False if no projectile could be allocated. */
+static bool launch_grenade(mobj_t *attacker, mobj_t *target, ivec2_t aim) {
+    static const ivec2_t muzzle[] = {{5,-4}, {7,-3}, {12,3}, {6,5}, {2,6}, {-2,6}, {-6,2}, {0,-2}};
+    int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
+    ivec2_t start = ivec2_add(Z_AITopLeft(attacker), muzzle[facing]);
+    fixed2_t source = fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE);
+    fixed2_t destination = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
+    if (fixed2_equal(source, destination)) return true; /* 0x5a205 rejects a zero-length throw. */
+    mobj_t *grenade = P_SpawnMissile(attacker, target ? target : attacker, MT_GRENADE);
+    if (!grenade) return false;
+    grenade->core.position = fixed3_from_fixed2(source, 0);
+    /* Native strength / 8, from the first shipped robot record for
+     * each grenade-capable type (0x636d4 and 0x510fd). */
+    static const uint8_t speeds[] = {0, 0, 3, 12, 5, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6};
+    int type = Z_UnitType(attacker);
+    int speed = type >= 0 && (size_t)type < sizeof(speeds) ? speeds[type] : 0;
+    if (!speed) speed = 1;
+    init_arc(grenade, attacker, start, fixed2_cell(fixed2_scale(destination, FIXED_FROM_INT(Z_TILE))), speed);
+    grenade->traits &= ~MF_MISSILE;
+    grenade->traits |= MF_NOBLOCKMAP;
+    grenade->core.momentum = fixed3_zero();
+    grenade->attack.target = target;
+    attacker->z.grenades--;
+    return true;
+}
+
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (throws_at(attacker, target)) {
-        /* Facing-indexed signed pairs at 0x149174 (0x636df). */
-        static const ivec2_t muzzle[] = {{5,-4}, {7,-3}, {12,3}, {6,5}, {2,6}, {-2,6}, {-6,2}, {0,-2}};
-        int facing = angle_to_direction(attacker->core.angle, 8, ANG90, true);
-        ivec2_t start = ivec2_add(Z_AITopLeft(attacker), muzzle[facing]);
-        fixed2_t source = fixed2_scale(fixed2_from_cell(start), FIXED_ONE / Z_TILE);
         int target_type = Z_UnitType(target);
         ivec2_t aim;
         if (target_type >= 0) {
@@ -860,26 +885,7 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         } else aim = fixed2_cell(fixed2_scale(fixed3_xy(target->core.position), FIXED_FROM_INT(Z_TILE)));
         aim = scatter_aim(attacker, Z_AITopLeft(attacker), aim, target_type < 0 ? 2 : 4);
         if (target_type >= 0) aim = ivec2_add(aim, (ivec2_t){8, 8});
-        fixed2_t destination = fixed2_scale(fixed2_from_cell(aim), FIXED_ONE / Z_TILE);
-        if (fixed2_equal(source, destination)) return true; /* 0x5a205 rejects a zero-length throw. */
-        mobj_t *grenade = P_SpawnMissile(attacker, target, MT_GRENADE);
-        if (grenade) {
-            grenade->core.position = fixed3_from_fixed2(source, 0);
-            /* Native strength / 8, from the first shipped robot record for
-             * each grenade-capable type (0x636d4 and 0x510fd). */
-            static const uint8_t speeds[] = {0, 0, 3, 12, 5, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6};
-            int type = Z_UnitType(attacker);
-            int speed = type >= 0 && (size_t)type < sizeof(speeds) ? speeds[type] : 0;
-            if (!speed) speed = 1;
-            ivec2_t aim = fixed2_cell(fixed2_scale(destination, FIXED_FROM_INT(Z_TILE)));
-            init_arc(grenade, attacker, start, aim, speed);
-            grenade->traits &= ~MF_MISSILE;
-            grenade->traits |= MF_NOBLOCKMAP;
-            grenade->core.momentum = fixed3_zero();
-            grenade->attack.target = target;
-            attacker->z.grenades--;
-            return true;
-        }
+        if (launch_grenade(attacker, target, aim)) return true;
     }
     int t = Z_UnitType(attacker);
     if ((t == MT_UNIT_GRUNT - MT_UNITS || t == MT_UNIT_SNIPER - MT_UNITS ||
@@ -939,6 +945,23 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     for (int i = 0; i < count; ++i) fire_shell(attacker, target, speed, water ? damage / 2 : damage, apc, water, i, shared_aim);
     /* Suppress the shared hitscan fallback if allocation fails. */
+    return true;
+}
+
+/* 0x63699..0x636c7: a coordinate throw scatters the point by (128 - adjusted
+ * accuracy) / 2 and keeps no target. */
+bool Z_ThrowAtPoint(mobj_t *attacker, ivec2_t point) {
+    if (!attacker->z.grenades) return false;
+    return launch_grenade(attacker, NULL, scatter_aim(attacker, Z_AITopLeft(attacker), point, 2));
+}
+
+/* 0x60c9d..0x60d58: the launcher shell of action 0x13 aimed at a point with
+ * the same scatter. */
+bool Z_ShellAtPoint(mobj_t *attacker, ivec2_t point) {
+    int speed = shell_speed(Z_UnitType(attacker));
+    if (!speed) return false;
+    ivec2_t aim = scatter_aim(attacker, Z_AITopLeft(attacker), point, 2);
+    fire_shell(attacker, NULL, speed, attacker->info->attack.damage, false, false, 0, &aim);
     return true;
 }
 

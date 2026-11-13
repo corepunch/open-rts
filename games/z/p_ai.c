@@ -9,7 +9,7 @@ enum {
     CPU = 1, MEMBERS = 21,
     RECAPTURE = 2, USABLE = 8, MOBILE = 16,             /* Task +0x10 bits. */
     IDLE = -1, MARCH = 0, FLAG = 1, STAGED = 2, ASSAULT = 3, GARRISON = 4,
-    VEHICLE = 5, BUILDING_SUPPORT = 7, RETURN = 8, CRANE_WORK = 9, FRONTIER = 10, REPAIR = 11, /* Task +0x11. */
+    VEHICLE = 5, BUILDING_ATTACK = 6, BUILDING_SUPPORT = 7, RETURN = 8, CRANE_WORK = 9, FRONTIER = 10, REPAIR = 11, /* Task +0x11. */
     LOCKOUT = 0x1fe,                                     /* 0x79e69 */
     WORTH_HOLDING = 500,                                 /* 0x99171, 0x998f4 */
 };
@@ -96,6 +96,7 @@ static void queue(zai_t *ai, zaitask_t *task, fixed2_t goal, uint32_t vehicle) {
     task->boarding = vehicle;
     task->service = 0;
     task->enemy = 0;
+    task->point = false;
     task->execute_at = ai->clock + 2 * (127 - ai->intelligence) + ai->order_tail;
     ai->order_tail += 127 - ai->intelligence;
     task->pending = true;
@@ -166,7 +167,7 @@ static void sync_tasks(zmap_t *map, mobj_t *const *units, int count) {
         bool moving = false, fighting = false;
         mobj_t *enemy = NULL;
         for (int j = 0; j < n; ++j) {
-            moving |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service;
+            moving |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service || Z_PointActive(group[j]);
             if (live(group[j]->attack.target)) enemy = group[j]->attack.target;
         }
         for (int j = 0; enemy && j < n; ++j)
@@ -660,7 +661,8 @@ static void advance(zmap_t *map, mobj_t *const *units, int count) {
             continue;
         }
         if (task->task == GARRISON || task->task == VEHICLE) continue;
-        if (task->task == MARCH || task->task == ASSAULT || task->task == FLAG || task->task == STAGED) {
+        if (task->task == MARCH || task->task == ASSAULT || task->task == FLAG || task->task == STAGED ||
+            task->task == BUILDING_ATTACK) {
             if (owned(ai, t)) {
                 task->task = IDLE;
                 hold_captured(map, t);
@@ -707,6 +709,59 @@ static void advance(zmap_t *map, mobj_t *const *units, int count) {
             send(map, task, t);
             task->task = ASSAULT;
         }
+    }
+}
+
+/* 0x9a801, run right after the 0x9962c pass: a force that stands in its
+ * destination, a human territory with importance and no fort, with a human
+ * unit inside the 128-pixel square about the flag, attacks that territory's
+ * first BUILD record, destroyed or not, at the descriptor's aim point
+ * (0x9a9ae). The task becomes 6 whatever the command does. */
+static bool building_aim(const mobj_t *building, ivec2_t *aim) {
+    ivec2_t offset;
+    switch (building->native_type_id) { /* Descriptor +0x32/+0x33 of BUILDnn.DAT type 0, 1, 4, 8. */
+    case 0: offset = (ivec2_t){31, 28}; break;
+    case 1: offset = (ivec2_t){32, 60}; break;
+    case 4: offset = (ivec2_t){40, 48}; break;
+    case 8: offset = (ivec2_t){23, 9}; break;
+    default: return false;
+    }
+    *aim = ivec2_add(Z_BuildingOrigin(building), offset);
+    return true;
+}
+static void building_attacks(zmap_t *map, mobj_t *const *units, int count) {
+    zai_t *ai = &map->ai;
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &ai->tasks[i];
+        int t = task->destination;
+        if (!offensive(task) || (task->task != FLAG && task->task != ASSAULT) || t < 0 || task->current != t ||
+            (ai->territories[t].flags & 3) || ai->territories[t].owner != 0 || !map->territories[t].importance) continue;
+        mobj_t *lead = P_MobjById(task->unit);
+        mobj_t *group[MEMBERS];
+        if (!live(lead) || lead->team != CPU || members(task, units, count, group) == 0) continue;
+        /* Only classes the engine can order are accepted: grenadiers with grenades, and Tough. */
+        if (!Z_PointCanAttack(lead) || (lead->type_id != MT_UNIT_TOUGH && !Z_SquadGrenades(lead))) continue;
+        ivec2_t flag = ivec2_scale(map->territories[t].flag, Z_TILE), min = {flag.x - 64, flag.y - 64},
+                max = {flag.x + 64, flag.y + 64};
+        bool hostile = false;
+        for (int u = 0; u < count && !hostile; ++u) {
+            const mobj_t *unit = units[u];
+            ivec2_t at = Z_AITopLeft(unit);
+            hostile = soldier(unit) && unit->team != CPU && unit->team < Z_NEUTRAL &&
+                      at.x >= min.x && at.x <= max.x && at.y >= min.y && at.y <= max.y;
+        }
+        if (!hostile) continue;
+        const mobj_t *first = NULL;
+        for (int u = 0; u < count; ++u) {
+            const mobj_t *b = units[u];
+            if (!b->remove && b->z.building && (!first || b->z.building < first->z.building) &&
+                Z_AITerritory(map, pixel_point(Z_BuildingOrigin(b))) == t) first = b;
+        }
+        ivec2_t aim;
+        if (!first || !building_aim(first, &aim)) continue;
+        queue(ai, task, pixel_point(aim), 0);
+        task->point = true;
+        task->task = BUILDING_ATTACK;
     }
 }
 
@@ -974,10 +1029,14 @@ static void execute_orders(zai_t *ai, mobj_t *const *units, int count) {
                     mobj_t *unit = group[j];
                     if (unit->z.service || !P_CanTarget(unit, enemy)) continue;
                     P_ClearMove(unit);
+                    Z_PointCancel(unit);
                     unit->z.board = 0;
                     unit->move_only = false;
                     unit->attack.target = enemy;
                 }
+            } else if (task->point) {
+                /* 0x9a9ae: command 5 at the aim point, sent to the group's leader. */
+                Z_PointAttackOrder(Z_SquadLeader(group[0]), fixed2_cell(fixed2_scale(task->order, FIXED_FROM_INT(Z_TILE))));
             } else if (task->service) Z_ServiceOrder(group[0], Z_ServiceTarget(task->service), task->order);
             else if (task->boarding) Z_BoardOrder(group, n, P_MobjById(task->boarding));
             else {
@@ -985,6 +1044,7 @@ static void execute_orders(zai_t *ai, mobj_t *const *units, int count) {
             }
         }
         task->pending = false;
+        task->point = false;
         if (task->task != REPAIR) task->service = 0;
         task->enemy = 0;
     }
@@ -1367,7 +1427,8 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
                         mobj_t *vehicle = P_MobjById(group[j]->z.board);
                         if (!Z_DetourBoard(group[j], vehicle)) group[j]->z.board = 0;
                     }
-                    busy |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service || live(group[j]->attack.target);
+                    busy |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service || Z_PointActive(group[j]) ||
+                            live(group[j]->attack.target);
                 }
                 if (task->task == VEHICLE && !busy) task->boarding = 0;
                 /* 0x991c4 spares waiting (staged) forces. */
@@ -1384,6 +1445,7 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
             check_forces(map);
             release_garrisons(map);
             advance(map, units, count);
+            building_attacks(map, units, count);
             for (int t = 0; t < map->territory_count; ++t)
                 if (owned(ai, t)) Z_AIFlagRunners(map, CPU, t, true);
             hold_territories(map);

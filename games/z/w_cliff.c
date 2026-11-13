@@ -1,6 +1,7 @@
 #include "z_local.h"
 #include "info.h"
 
+#include <stddef.h>
 #include <string.h>
 
 /* Destructible cliffs. The map keeps them as twenty 138-byte blocks (u16 x,
@@ -284,6 +285,9 @@ bool G_LoadExtra(const void *data, size_t size) {
     const uint8_t *bytes = data;
     if (bytes[size - 1] < 1 || bytes[size - 1] > 4) return false;
     zmap_t *map = level.native_data;
+    const uint8_t *ai_bytes = bytes + sizeof(map->cliffs) + sizeof(map->ground) + sizeof(map->ground_attr);
+    for (int i = 0; i < Z_AI_TASKS; ++i)
+        if (ai_bytes[offsetof(zai_t, tasks) + i * sizeof(zaitask_t) + offsetof(zaitask_t, point)] > 1) return false;
     const uint8_t *p = bytes;
     memcpy(map->cliffs, p, sizeof(map->cliffs)); p += sizeof(map->cliffs);
     memcpy(map->ground, p, sizeof(map->ground)); p += sizeof(map->ground);
@@ -330,7 +334,7 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         HASH(t->unit); HASH(t->boarding); HASH(t->service); HASH(t->enemy);
         HASH(t->execute_at); HASH(t->order.x); HASH(t->order.y);
         HASH(t->strength); HASH(t->current); HASH(t->target); HASH(t->destination);
-        HASH(t->home); HASH(t->passes); HASH(t->task); HASH(t->squad); HASH(t->flags); HASH(t->retry); HASH(t->idle); HASH(t->pending);
+        HASH(t->home); HASH(t->passes); HASH(t->task); HASH(t->squad); HASH(t->flags); HASH(t->retry); HASH(t->idle); HASH(t->pending); HASH(t->point);
     }
     for (int i = 0; i < map->territory_count; ++i) {
         const zai_territory_t *t = &ai->territories[i];
