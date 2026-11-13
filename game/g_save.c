@@ -175,7 +175,7 @@ static bool parse_save(const blob_t *file, save_t *save) {
             object->owner >= 16 || object->team >= 16 || object->core.state_id < 0 ||
             (states && object->core.state_id >= states) || object->waypoints.count < 0 ||
             object->waypoints.count > MAXWAYPOINTS || object->movement.path.count < 0 ||
-            object->movement.path.count > NAV_MAX_WAYPOINTS) goto fail;
+            object->movement.path.count > NAV_MAX_WAYPOINTS || !G_SavedObjectValid(object)) goto fail;
         for (int j = 0; j < i; ++j) {
             savedmobj_t previous;
             memcpy(&previous, records + (size_t)j * sizeof(previous), sizeof(previous));

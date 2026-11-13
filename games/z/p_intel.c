@@ -84,10 +84,10 @@ int Z_AIUnitValue(const mobj_t *mo) {
     if (!w || w[1] >= 19 || !mo->z.robot || mo->z.robot * 44u > 18000) return 0;
     const uint8_t *r = map->roster.bytes + (mo->z.robot - 1) * 44;
     bool robot = Z_IsRobot(Z_UnitType(mo));
-    int health = robot && mo->max_hp ? r[32] * mo->hp / mo->max_hp : r[32];
+    int health = robot && mo->max_hp ? r[32] * Z_NativeHp(mo) / mo->max_hp : r[32];
     if (!robot && mo->z.driver && Z_IsRobot(mo->z.driver - 1)) {
         int max_health = mobjinfo[MT_UNITS + mo->z.driver - 1].spawnhealth;
-        int driver_health = mo->z.crew_count ? mo->z.crew[0].hp : max_health;
+        int driver_health = mo->z.crew_count ? mo->z.crew[0].hp - mo->z.crew[0].zero : max_health;
         driver_health -= mo->z.crew_hurt;
         if (driver_health < 0) driver_health = 0;
         if (max_health > 0) health = r[32] * driver_health / max_health;
@@ -102,7 +102,7 @@ int Z_AIUnitValue(const mobj_t *mo) {
     int human[] = {r[28],accuracy,(uint8_t)(reach * 2),r[31],health,r[29],r[36]};
     int arm[] = {reach * 8,0,0,w[32],w[34],w[35],0,0,0,0};
     if (!robot) {
-        int body = mo->max_hp ? 25 * w[5] * mo->hp / mo->max_hp : 0;
+        int body = mo->max_hp ? 25 * w[5] * Z_NativeHp(mo) / mo->max_hp : 0;
         /* 0x50c23 copies weapon +37 to vehicle +35. Boarding follows
          * object +27 to vehicle +35 instead (0x63a73). */
         arm[1] = mo->z.body_tracked ? mo->z.body_speed : w[4];

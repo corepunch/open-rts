@@ -346,8 +346,8 @@ static void draw_selection(ivec2_t at) {
     if (!structure(mo) && mo->max_hp > 0) {
         ivec2_t bar = {at.x + PANEL_HEALTH_X, at.y + PANEL_HEALTH_Y};
         draw_piece(PC_HEALTH_NONE, bar, true);
-        int fill = PANEL_HEALTH_W * mo->hp / mo->max_hp;
-        if (fill > 0) draw_piece_part(mo->hp * 3 >= mo->max_hp ? PC_HEALTH_GOOD : PC_HEALTH_POOR, bar, fill);
+        int fill = PANEL_HEALTH_W * Z_NativeHp(mo) / mo->max_hp;
+        if (fill > 0) draw_piece_part(Z_NativeHp(mo) * 3 >= mo->max_hp ? PC_HEALTH_GOOD : PC_HEALTH_POOR, bar, fill);
     }
 }
 

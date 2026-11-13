@@ -135,6 +135,10 @@ ivec2_t Z_BlastAnchor(const mobj_t *mo);
 fixed_t Z_LevelSpeed(int level);
 void Z_BodyDamaged(mobj_t *mo, int old_hp);
 void Z_RepairBody(mobj_t *mo);
+/* p_damage.c: retail unit health keeps a unit alive at exactly zero. */
+int Z_NativeHp(const mobj_t *mo);
+void Z_SetNativeHp(mobj_t *mo, int hp);
+void Z_NativeDamage(mobj_t *target, mobj_t *source, int damage);
 bool Z_EjectCrew(mobj_t *vehicle);
 int Z_GroupType(const zmap_t *map, int group, int member);
 int Z_GroupRobot(const zmap_t *map, int group, int member);

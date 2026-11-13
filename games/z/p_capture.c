@@ -179,10 +179,13 @@ static const struct { int state; ivec2_t at; } entry_offsets[] = {
     {S_JEEP, {4, 7}}, {S_CRANE, {6, 6}}, {S_FIRE_TRUCK, {3, 6}},
 };
 
+/* A boarded robot's retail health: its engine hp less the zero marker. */
+static int crew_hp(const zcrew_t *crew) { return crew->hp - crew->zero; }
+
 static void store_crew(mobj_t *vehicle, mobj_t *robot) {
     if (vehicle->z.crew_count >= Z_CREW_MAX) return;
     vehicle->z.crew[vehicle->z.crew_count++] = (zcrew_t){
-        .hp = robot->hp, .robot = robot->z.robot, .type = (uint8_t)Z_UnitType(robot),
+        .hp = robot->hp, .zero = robot->z.zero_hp, .robot = robot->z.robot, .type = (uint8_t)Z_UnitType(robot),
         .grenades = robot->z.grenades, .home = robot->z.home, .flame_phase = robot->z.flame_phase,
         .manufactured = robot->z.manufactured,
     };
@@ -266,11 +269,14 @@ bool Z_EjectCrew(mobj_t *vehicle) {
         (t != MT_UNIT_APC - MT_UNITS && vehicle->core.position.z) || vehicle->z.service || empty < 0) return false;
     if (vehicle->z.crew_count > Z_CREW_MAX || !Z_IsRobot(vehicle->z.driver - 1)) return false;
     for (int i = 0; i < vehicle->z.crew_count; ++i)
-        if (!Z_IsRobot(vehicle->z.crew[i].type) || vehicle->z.crew[i].hp <= 0) return false;
+        if (!Z_IsRobot(vehicle->z.crew[i].type) || vehicle->z.crew[i].hp <= 0 ||
+            vehicle->z.crew[i].zero > 1 || (vehicle->z.crew[i].zero && vehicle->z.crew[i].hp != 1)) return false;
     int count = vehicle->z.crew_count ? vehicle->z.crew_count : 1;
-    int health = vehicle->z.crew_count ? vehicle->z.crew[0].hp :
+    int health = vehicle->z.crew_count ? crew_hp(&vehicle->z.crew[0]) :
                  mobjinfo[MT_UNITS + vehicle->z.driver - 1].spawnhealth;
-    if (vehicle->z.crew_hurt >= health) return false;
+    /* A driver worn to zero by bullets stays aboard (modelled earlier); a robot
+     * that boarded at native zero and was never hurt may leave. */
+    if (vehicle->z.crew_hurt >= health && (vehicle->z.crew_hurt || health > 0)) return false;
     int team = vehicle->team;
     mobj_t *spawned[Z_CREW_MAX];
     for (int i = 0; i < count; ++i) {
@@ -285,7 +291,7 @@ bool Z_EjectCrew(mobj_t *vehicle) {
             return false;
         }
         spawned[i] = robot;
-        robot->hp = crew.hp - (i == 0 ? vehicle->z.crew_hurt : 0);
+        Z_SetNativeHp(robot, crew_hp(&crew) - (i == 0 ? vehicle->z.crew_hurt : 0));
         robot->z.robot = crew.robot;
         robot->z.grenades = crew.grenades;
         robot->z.flame_phase = crew.flame_phase;
@@ -485,7 +491,7 @@ static bool hit_driver(const mobj_t *attacker, mobj_t *target, int damage, unsig
     int skill = accuracy(attacker);
     if (gun) skill /= 2;
     if (coin(attacker, target, 0x5ad72 + shot) >= skill) return false;
-    int driver_hp = target->z.crew_count ? target->z.crew[0].hp : mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
+    int driver_hp = target->z.crew_count ? crew_hp(&target->z.crew[0]) : mobjinfo[MT_UNITS + target->z.driver - 1].spawnhealth;
     int hurt = target->z.crew_hurt + damage;
     target->z.crew_hurt = (uint8_t)(hurt > 255 ? 255 : hurt);
     if (hurt <= driver_hp) return true;
@@ -1123,7 +1129,7 @@ static bool bullet_hit(mobj_t *bullet, ivec2_t at) {
             mobj_t *source = bullet->target;
             unsigned shot = source && source->type_id == MT_UNIT_APC ? bullet->id : 0;
             int damage = bullet_hit_damage(source, victim, bullet->missile.damage, shot);
-            if (damage > 0) P_DamageMobj(victim, source, damage);
+            if (damage > 0) Z_NativeDamage(victim, source, damage);
             else if (source) P_ProvokeMobj(victim, source);
             return true;
         }
@@ -1397,7 +1403,7 @@ static void blast_units(mobj_t *missile, ivec2_t impact) {
             victim->team == missile->team || victim->team >= Z_NEUTRAL || Z_UnitType(victim) < 0) continue;
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(victim), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18) {
-            P_DamageMobj(victim, missile->target, missile->missile.damage);
+            Z_NativeDamage(victim, missile->target, missile->missile.damage);
             primary_hit |= victim == target;
         }
     }
@@ -1407,7 +1413,7 @@ static void blast_units(mobj_t *missile, ivec2_t impact) {
         target != missile->target && target->team != missile->team) {
         ivec2_t delta = ivec2_sub(Z_BlastAnchor(target), impact);
         if (delta.x >= -18 && delta.x <= 26 && delta.y >= -14 && delta.y <= 18)
-            P_DamageMobj(target, missile->target, missile->missile.damage);
+            Z_NativeDamage(target, missile->target, missile->missile.damage);
     }
 }
 

@@ -134,7 +134,7 @@ static void service_vehicle(mobj_t *unit, const mobj_t *facility) {
     if (!unit->z.service_work) {
         if (P_HasMoveOrder(unit) || !unit->movement.order_arrived || bay_busy(unit, facility)) return;
         /* 0x7a065 and 0x41ae1 initialize the remaining repair stock. */
-        int stock = (unit->max_hp - unit->hp) / 20;
+        int stock = (unit->max_hp - Z_NativeHp(unit)) / 20;
         unit->z.service_work = -((1 + (stock > 0 ? stock : 1)) * 880 / map->production_speed);
         Z_RepairBody(unit);
         unit->traits &= ~(MF_MOBILE | MF_ATTACK | MF_RENDERABLE | MF_SELECTABLE);
@@ -149,13 +149,14 @@ static void service_vehicle(mobj_t *unit, const mobj_t *facility) {
         if (++unit->z.service_ticks == 17) {
             unit->z.service_ticks = 0;
             int seconds = -unit->z.service_work / rate / 17;
-            if (seconds && unit->hp < unit->max_hp) {
-                int hp = unit->hp + 1 + (unit->max_hp - unit->hp) / seconds;
-                unit->hp = hp < unit->max_hp ? hp : unit->max_hp;
+            if (seconds && Z_NativeHp(unit) < unit->max_hp) {
+                int now = Z_NativeHp(unit);
+                int hp = now + 1 + (unit->max_hp - now) / seconds;
+                Z_SetNativeHp(unit, hp < unit->max_hp ? hp : unit->max_hp);
             }
         }
         if (-unit->z.service_work <= rate) {
-            unit->hp = unit->max_hp;
+            Z_SetNativeHp(unit, unit->max_hp);
             leave_bay(unit, facility);
             break;
         }

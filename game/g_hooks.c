@@ -34,6 +34,8 @@ WEAK void G_ProductionBegin(int elapsed_ms) { (void)elapsed_ms; }
 WEAK void G_UnitProduced(mobj_t *unit, const mobj_t *producer) { (void)unit; (void)producer; }
 WEAK void G_UnitKilled(mobj_t *victim, mobj_t *killer) { (void)victim; (void)killer; }
 WEAK void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) { (void)victim; (void)source; (void)old_hp; }
+WEAK bool G_DamageSurvives(mobj_t *target, const mobj_t *source) { (void)target; (void)source; return false; }
+WEAK bool G_SavedObjectValid(const mobj_t *object) { (void)object; return true; }
 WEAK uint32_t G_SaveLayout(void) { return 0; }
 WEAK bool G_SightRadius(const mobj_t *actor, int *radius) { (void)actor; (void)radius; return true; }
 WEAK int G_WeaponCooldown(const mobj_t *unit, const weapondef_t *weapon, int cooldown_ms) {

@@ -3,7 +3,7 @@
 
 enum { Z_CREW_MAX = 21 }; /* ROBOTS.DAT group has 21 member slots. */
 enum { Z_GUN_STOCK = 4 }; /* Native building +0x4b..+0x4e. */
-typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home, flame_phase; bool manufactured; } zcrew_t;
+typedef struct { int hp; uint16_t robot; uint8_t type, grenades, home, flame_phase, zero; bool manufactured; } zcrew_t;
 typedef struct { fixed3_t position; uint32_t target; int order; } zroute_step_t;
 typedef struct {
     zroute_step_t steps[MAXWAYPOINTS];
@@ -68,6 +68,7 @@ typedef struct {
     bool manufactured; /* CPU unit flag 0x10, set by 0x5103e. */ \
     bool just_left_cannon; /* Zod voluntary ejection suppresses automatic cannon entry. */ \
     int hold; \
+    bool zero_hp; /* Native hp is exactly zero: alive, and the next hit kills. */ \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
     HASH((mo)->z.route.count); HASH((mo)->z.route.active); HASH((mo)->z.route.owner); HASH((mo)->z.route.target); \
@@ -108,10 +109,10 @@ typedef struct {
     HASH((mo)->z.object_terrain); HASH((mo)->z.object_stamped); \
     HASH((mo)->z.service); HASH((mo)->z.service_work); HASH((mo)->z.bridge); HASH((mo)->z.service_ticks); \
     HASH((mo)->z.body_speed); HASH((mo)->z.body_base_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_accuracy); HASH((mo)->z.body_tracked); \
-    HASH((mo)->z.manufactured); \
+    HASH((mo)->z.manufactured); HASH((mo)->z.zero_hp); \
     HASH((mo)->z.crew_count); \
     for (int z_i = 0; z_i < (mo)->z.crew_count && z_i < Z_CREW_MAX; ++z_i) { \
-        HASH((mo)->z.crew[z_i].hp); HASH((mo)->z.crew[z_i].robot); HASH((mo)->z.crew[z_i].type); \
+        HASH((mo)->z.crew[z_i].hp); HASH((mo)->z.crew[z_i].zero); HASH((mo)->z.crew[z_i].robot); HASH((mo)->z.crew[z_i].type); \
         HASH((mo)->z.crew[z_i].grenades); HASH((mo)->z.crew[z_i].home); HASH((mo)->z.crew[z_i].flame_phase); HASH((mo)->z.crew[z_i].manufactured); \
     } \
 } while (0)

@@ -747,6 +747,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
 #endif
     int old_hp = target->hp;
     target->hp -= damage;
+    if (target->hp == 0) G_DamageSurvives(target, source);
 #ifdef RTS_MODULE_STARCRAFT
     target->sc.flags = (uint8_t)(target->sc.flags | SC_HIT);
     target->sc.attacker = source && source->owner < 8 ? source->owner : 255;

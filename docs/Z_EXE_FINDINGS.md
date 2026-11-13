@@ -5966,7 +5966,7 @@ Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 12 @ 0x9845e' -c 'pd 12 @ 0x86d30' -c q data/Z/ZED.EXE` and run
 `make build/bin/tests/z/test_commander`.
 
-**Unit zero-health boundary remains unported:** In the same ZED.EXE,
+**Unit zero-health boundary (superseded below by the implemented representation):** In the same ZED.EXE,
 `0x86ca4..0x86d15` subtracts the damage from the driven body's 16-bit
 HP at +8 when present, after the unit +0x98 mask 0x14 protection check;
 a nonnegative body result returns without subtracting
@@ -5988,6 +5988,68 @@ the distinction between native zero and the engine's positive live HP.
 Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 45 @ 0x86ca4' -c 'pd 20 @ 0x5af4d'
 -c 'pd 15 @ 0x85e9f' -c q data/Z/ZED.EXE`.
+
+**Unit zero-health boundary implemented (issue #96, item 1):** The exact
+native branch, re-inspected in ZED.EXE SHA-256 `3635cb69...4676`: `0x86ca4`
+runs `sub word [edi + 8], ax` at `0x86cfa` on the driven body, and `jns
+0x86d16` at `0x86cfe` leaves through `mov eax, 1; add eax, eax` (SF clear) for
+any result of zero or more; only a negative body clears unit +0x3a (`0x86d00`)
+and does `sub byte [ebp + 0x3a], dh` (`0x86d04`), whose flags `pushfd` at
+`0x86d07` carries to the callers. The bullet pass at `0x5af53` (`jns` at
+`0x5af58`) and the explosion unit pass at `0x85e9f` (`jns` at `0x85ea4`)
+branch past the death code on a clear sign flag. A zero result therefore
+survives and the next positive hit makes it negative. Open-rts keeps the
+shared liveness rule `hp > 0` and adds the explicit state `z.zero_hp`
+(`games/z/p_damage.c`): native zero is stored as engine hp 1 plus the flag,
+set only when a bullet (`bullet_hit`) or explosion unit pass (`blast_units`,
+via `Z_NativeDamage`) lands exactly on zero. Every other hp is stored
+unchanged, so no other unit's threshold moves, and because the stored engine
+hp is 1 any later damage drives it to zero or below and kills it, exactly as
+native zero minus a hit is negative. `Z_NativeHp()` (engine hp minus the
+flag) is the retail value and is used by the panel health bar, AI unit value,
+repair-bay stock and ticks, and the boarded-driver value; `Z_SetNativeHp()`
+stores a retail value (repair clears the flag). The shared pieces are two
+weak hooks consulted by `P_DamageMobj` and the save loader
+(`G_DamageSurvives`, asked only when a hit lands on exactly zero, and
+`G_SavedObjectValid`); other games keep the defaults (die at zero, accept all
+objects) and are unchanged. Forced elimination (`p_fort.c`) still kills with
+`P_DamageMobj(mo, NULL, mo->hp)`, which kills a flagged unit too. A zero-health
+robot that boards keeps its marker in `zcrew_t.zero` (crew hp stays the engine
+value, so the earlier rule that crew hp 0 is dead is untouched) and is
+restored on ejection; the existing refusal to eject a driver worn to zero by
+bullets (`crew_hurt >= health`) is retained, except that an unhurt crew at
+native zero may leave. Save layout is now 28; saves with a malformed marker
+(flag with hp other than 1, a non-unit, or a crew marker without hp 1) are
+rejected. Not modelled and not verified: the byte/word wrap before the sign
+test (a 16-bit subtraction cannot wrap for shipped HP, but the byte +0x3a
+subtraction of a damage byte larger than the unit byte can), the `0x86cbb`
+protection mask 0x14 and `0x14c05f` ground-fire exemptions in this branch,
+and the zero rule for other damage producers (Pyro flame, ground fire,
+grenades, `0x86d1f` driver damage, run-over and box blasts), which keep the
+engine rule until their callers are traced. Buildings are untouched.
+Tests: `tests/z/test_damage.c` (exact zero, negative result, next hit,
+non-bullet damage, a real bullet and shell, selection and a move order,
+save/load and hash, malformed markers, crew boarding and ejection, team
+elimination, repair from zero in a bay). Reproduce with `r2 -q -e
+scr.color=0 -e bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x86ca4'
+-c 'pd 12 @ 0x5af4d' -c 'pd 14 @ 0x85e9f' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_damage && build/bin/tests/z/test_damage`.
+
+**Issue #96 items 2-4 not implemented (state of evidence):** Vehicle knockdown:
+entry is traced (`0x58679`/`0x58910` set action 0x17 or 0x2e under the
+inclusive rectangle and class/action filters above) and the hold/get-up lifecycle
+is traced in part (`0x61f43` to 0x18/0x2f, `0x61f94` eleven frames then
+`0x79049`), but `0x79049` re-evaluates a negative command +0x5a rather than
+restoring the saved +0x72, and the order interrupted at entry, the `0x7ba9a`
+movement gates and which commands survive are not traced, so continuation is
+unconfirmed; skipped. Moving-target lead: the `0x7628f..0x763ec` / `0x640ff`
+chain and the 0x14a788 direction table are described above, but the
+movement-pattern record layout behind target +0x20 / +0xa6 and its cycle
+heads (`0x117e5c`, `0x65087`), and the native bullet slot order (200 records,
+first free slot at `0x5b021`, visited in slot order by `0x5a8e6`) versus open-rts
+thinker order are not reproduced; skipped until the pattern records are
+decoded. Laser tracer: no image, frame or direction table for the Laser bullet
+was traced in this pass; skipped.
 
 **APC driver range in strategic strength:** For ZED.EXE SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,

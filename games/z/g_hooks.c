@@ -1,7 +1,7 @@
 #include "z_local.h"
 #include "info.h"
 
-uint32_t G_SaveLayout(void) { return 27; }
+uint32_t G_SaveLayout(void) { return 28; }
 
 /* 0x63900..0x63917 installs the boarding robot's range on an APC. */
 fixed_t Z_AttackRangeBonus(const mobj_t *unit, const weapondef_t *weapon) {
@@ -25,6 +25,7 @@ void G_ClockEnd(int64_t before, int64_t clock) {
 void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
     Z_BodyDamaged(victim, old_hp);
     if (old_hp > 0 && victim->hp <= 0) {
+        victim->z.zero_hp = false;
         Z_SquadLeave(victim);
         Z_DetourCancel(victim);
         victim->z.route = (zroute_t){0};

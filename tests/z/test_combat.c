@@ -697,7 +697,7 @@ static int test_pyro_cadence(void) {
 static int test_pyro_flame_lifecycle(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for Pyro flame lifecycle");
-    if (G_SaveLayout() != 27 || S_WATER != S_PYRO_RECOVER + 1 ||
+    if (G_SaveLayout() != 28 || S_WATER != S_PYRO_RECOVER + 1 ||
         S_PYRO_PROJECTILE != S_BULLET + 1 || S_GROUND_FIRE + 1 != NUMSTATES)
         return fail("Pyro states preserve prior IDs and version the Z save layout");
     fixed2_t at = fixed2_cell_center((ivec2_t){20, 20});

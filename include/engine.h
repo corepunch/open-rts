@@ -1129,6 +1129,12 @@ void G_ProductionBegin(int elapsed_ms);
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer);
 void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp);
 void G_UnitKilled(mobj_t *victim, mobj_t *killer);
+/* Asked when a hit leaves `target` at exactly zero hp. A game whose retail
+ * damage test spares zero returns true after leaving the target alive with
+ * positive hp; the default lets the target die. */
+bool G_DamageSurvives(mobj_t *target, const mobj_t *source);
+/* Asked of every object read from a save; false rejects the save. */
+bool G_SavedObjectValid(const mobj_t *object);
 /* Distinguishes save bodies whose layout the game changed. */
 uint32_t G_SaveLayout(void);
 bool G_NetSignature(const char *map_path, uint32_t *signature);
