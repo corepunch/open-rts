@@ -958,10 +958,16 @@ static int test_unreachable_vehicle_choice(void) {
                         P_NavNodeAt(&level, cls, fixed3_xy(far->core.position))))
         return fail("farther vehicle fixture is reachable");
     think(0);
-    think(1);
     zaitask_t *task = task_of(lead);
-    if (!task || task->task != 5 || task->boarding != near->id)
-        return fail("nearest unreachable vehicle remains selected");
+    if (!task) return fail("unreachable vehicle task registration");
+    task->pending = true;
+    task->execute_at = map->ai.clock + 1000;
+    task->order = fixed3_xy(lead->core.position);
+    map->ai.delay = 0;
+    think(1);
+    if (task->task != 5 || task->boarding != near->id ||
+        task->execute_at >= map->ai.clock + 1000)
+        return fail("nearest unreachable vehicle replaces prior pending order");
     bool dispatched = false, released = false;
     for (int i = 0; i < 15 * RTS_TICRATE; ++i) {
         if (!tick(model, 1)) return fail("unreachable vehicle order execution");

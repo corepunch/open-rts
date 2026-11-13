@@ -5159,3 +5159,18 @@ attack retreats; it fails with the previous signed comparison. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 35 @ 0x9937f'
 -c 'pd 35 @ 0x99e9b' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Vehicle search with a delayed order:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98eeb..0x98f24` checks active, usable, mobile, idle tasks and the leader
+class before calling the vehicle selector; it does not check the delayed
+command queue. After choosing a vehicle, `0x99074..0x9907b` records task 5
+and dispatches its order. Open-rts now includes an idle group with a pending
+command in vehicle discovery, replacing that command through its existing
+queue behavior. The extended `test_unreachable_vehicle_choice` installs a
+later pending order, checks vehicle assignment and replacement, then executes
+and clears the isolated boarding attempt; it fails with the old pending
+filter. Native candidate visibility and failed-route behavior remain subject
+to the approximations described above. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 30 @ 0x98ee1' -c 'pd 25 @ 0x9902f'
+-c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

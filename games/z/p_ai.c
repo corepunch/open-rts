@@ -822,7 +822,7 @@ static void seek_vehicles(zmap_t *map, mobj_t *const *units, int count) {
         zaitask_t *task = &ai->tasks[i];
         mobj_t *mo = P_MobjById(task->unit), *best = NULL;
         if (!live(mo) || (task->flags & (USABLE | MOBILE)) != (USABLE | MOBILE) ||
-            task->task != -1 || task->pending || !Z_IsRobot(Z_UnitType(mo))) continue;
+            task->task != -1 || !Z_IsRobot(Z_UnitType(mo))) continue;
         int64_t distance = INT64_MAX;
         int target = -1;
         for (int u = 0; u < count; ++u) {
