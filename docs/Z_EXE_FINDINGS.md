@@ -1628,6 +1628,19 @@ than being replaced with numeric approximations:
   CPU strength and zero human strength, selecting a usable local reserve
   not marked with task flags 2/4. `0x9cb5e` returns reserves to assigned
   home territories. Both are ported as of 2026-11-06 (below).
+- The stray-reserve pass at `0x9cc83` visits 20 unit slots per pass. For
+  a qualifying unit outside its owner's territory, `0x9cf33` scans 64
+  territory records for the same owner, excluding the current record, and
+  selects the smallest squared distance from the unit origin to the flag
+  coordinates (+0x12/+0x13 multiplied by 16). Its `jae` comparison keeps
+  the first equal-distance record. This confirms the distance and tie
+  ordering in `nearest_own`; the engine's live-object cursor is still an
+  approximation of native fixed unit-slot iteration. `0x9cde8` recognizes
+  an existing destination only under specific action/group conditions,
+  whose mapping to all engine movement states remains unconfirmed.
+  Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+  -c 'pd 100 @ 0x9cc83' -c 'pd 45 @ 0x9cf33' -c 'pd 35 @ 0x9cde8'
+  -c q data/Z/ZED.EXE`.
 - `0x99f46` calls `0x99f95` after assigning an attack. When the target
   has territory +0x18 bit 1 (the human fort), `0x9d61e` enumerates adjacent
   territories in record order. `0x99fc5..0x9a013` scans their active task
