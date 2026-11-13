@@ -5928,6 +5928,69 @@ Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 150 @
 @ 0x6360e' -c 'pd 70 @ 0x60c2a' -c 'pd 70 @ 0x9a801' -c 'pd 40 @ 0x9a9ae' -c 'pd 40
 @ 0x79049' -c 'px 67 @ 0x1171d1' -c q data/Z/ZED.EXE`.
 
+**Vehicle point-attack actions 0x35..0x3c and 9, and the scanner's target
+acquisition: how far the traces got (2026-11-13, issue 97, not implemented).**
+*Per action id* (table `0x149038`, entry = id; `0x7c962..0x7ca7b` picks the id and
+copies the point into **body** `+0xe/+0x10` with unit `+0x62 |= 8`):
+- **9** (`0x57dd6`) is the generic vehicle update: `0x57a61`, `0x57d69`, `0x5842e`,
+  `0x5849e`, `0x58679`, the move step through the class table `0x149164`, and the
+  weapon/aim block at `0x57f8b`.
+- **0x35** (`0x244af`, Mobile Missile `0x18`), **0x36** (`0x244bd`, Heavy Tank `0x19`),
+  **0x37** (`0x244a1`, Light Tank `0x1e`) are three identical stubs: set action 9, call
+  `0x57dd6`, restore the id. There is **no per-class firing difference** in the action
+  body; the id only selects the picture set. Medium Tank (`6`), Gatling (`0x16`),
+  Howitzer (`0x17`), Light Gun (`5`) and Missile Gun (`0x15`) fall through to id 9.
+- **0x3a** (`0x24490`) clears `+0x98` bit 0 then runs `0x57dd6`; its setter at `0x7ca42`
+  has no caller in the executable (no jump or call reaches it), so it is not used.
+- **0x38** is the APC scanner (`0x1e9dc`, documented above); **0x3b** (`0x244cb`) is the
+  Crane (reads `+0x83/+0x8e/+0x90`, crane work); **0x3c** (`0x24c14`, Fire Truck) runs
+  `0x57dd6` then, when `+0x87` bit 1 is set, fires two water shells through `0x59ffb`
+  from the nozzle (`0x5909b`, `0x5915f`) and ends the order at `0x57ce9` when the
+  target's health word `+0x1a == +0x1c`. The Fire Truck belongs to the flame-reaction
+  work and was not touched.
+- The point is consumed at `0x58128..0x58166`: with `+0x62` bit 3 set the update calls
+  `0x764e8(ax,bx = unit, cx,dx = body point)` before the target scan (`0x5819b`,
+  `0x78f61`). `0x764e8`'s coordinate branch runs the reach test `0x591ca` (squared
+  distance from unit +(12,8) to the point against the weapon range byte), the
+  effect/bridge tests `0x4a03b`/`0x2a01c`/`0x281da`, the obstacle search `0x76af2`
+  (offset table `0x14a7c8`) and, when done, clears `+0x62` bit 3, `+0x31` bit 4, calls
+  `0x7cdaf` and returns carry (`0x76816..0x76847`). **Knowledge ends** at `0x7628f`: a
+  line trace stepping through the facing jump table `0x14a788`; no call to the tank
+  shot (`0x5a205`, `0x58cd2`, `0x58e2f`) was found below `0x764e8`. The only direct
+  shots at a stored point are `0x580da..0x580ee` and `0x58e2f`, reached solely through
+  `0x58040` when `+0x67 & 0x20` is set (command 12 / `0x580bd`), the same flag as the APC
+  coordinate mode. Whether a vehicle given command 5 on a point fires at all, or only
+  turns and approaches until the generic scan finds a target, is therefore **unknown**;
+  nothing was implemented for vehicles, and the commander's task 6 skips them.
+  Next trace: `0x764e8` from `0x7660b` to its returns, `0x77031`, `0x76abe`.
+
+*Scanner target acquisition* (`0x78f61` -> `0x7911f`/`0x79174` -> `0x79320`). Resolved
+now: the run-time bin lists are 256 counters at `0x1c4a34` and 32-byte lists at
+`0x1c2a34`, rebuilt by `0x64138` each pass over the 240 unit slots (ascending slot
+order): only units with `+0x31 & 4`, a group `+0x5d != 0xff` whose record `+9 & 0x20`
+is clear, appended to bin `+0x38` unless it already holds 32. The bin is
+`(x >> 7) + (y >> 7) * 16` of the top-left (`0x7a7c4`), so 16 x 16 bins of 128 pixels.
+`0x104558[direction]` points to nine signed word offsets (18 bytes each, from
+`0x1047ca`): direction 0 is {0,-1,1,-17,-16,-15,-32,-33,-31} and direction 1
+{0,1,2,-16,-15,-14,-32,-31,-30}; each is added to the unit's bin (bounds
+0..255 only), and a list is copied into the 288-byte candidate buffer only while the
+running total stays <= 288. So the candidate order is bin-offset order, then native unit
+slot order, which fixes the "later candidate wins ties" rule; open-rts mobjs have no
+native slot order, so that tie could be reproduced only by creation order. `0x9bded`
+accepts a candidate only if it has `+0x31 & 4` and its team differs; `0x591ca` is the
+squared range test above. **Still unknown:** `0x6e583` (a line-of-sight check that calls
+through the pointer `0x104070`, patched to `0x6e7ba`, `0x6e834` or `0x6e8ae` by the slope
+setup at `0x6e74c..0x6e7af`; the variants step a Bresenham line using terrain height words
+whose source was not traced) and `0x9de02` (CPU-only territory/task protection test:
+`0x10e91e == 0`, task record flag 8, `0x9dc69`, territory `+0x18 & 2`, group `+0x3d`).
+Without them the four-sector acquisition cannot be reproduced exactly, so
+`find_attack_target` still chooses the APC scanner's single target. Next trace: the
+height lookup in `0x6e7ba..0x6e8ae` and `0x9dc69`. Reproduce with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pxw 12 @ 0x149104' -c 'pd 14 @ 0x244a1' -c 'pd 95 @
+0x7c962' -c 'pd 60 @ 0x58128' -c 'pd 100 @ 0x764e8' -c 'pd 60 @ 0x76774' -c 'pd 70 @
+0x24c14' -c 'pd 40 @ 0x64138' -c 'pd 8 @ 0x7a7c4' -c 'px 180 @ 0x1047ca' -c 'pd 30 @
+0x9bded' -c 'pd 30 @ 0x9de02' -c 'pd 40 @ 0x6e74c' -c q data/Z/ZED.EXE`.
+
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks even
