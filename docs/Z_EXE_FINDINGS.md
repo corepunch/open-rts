@@ -1691,6 +1691,27 @@ than being replaced with numeric approximations:
   with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
   -c 'pd 70 @ 0x99f46' -c 'pd 65 @ 0x9d61e' -c q data/Z/ZED.EXE` and
   `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
+- The direct assault helper `0x99df0` first calls `0x99ca9`, then removes
+  the group's old delayed command via `0x9820c/0x9821d` before issuing its
+  direct flag order. The guard calls `0x7c0aa`: `0x646f9` detects any squad
+  member with unit +0x87 mask 0x20, and `0x6474b` detects any member without
+  it; if both exist, the guard rejects the order. It also rejects leader
+  +0x98 mask 0x04. The complete meaning and lifecycle of these unit bits are not
+  mapped to engine squad state, so a failed engine path check does not yet
+  imply that the native helper would have reached its queue cancellation.
+  Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+  'pd 35 @ 0x99df0' -c 'pd 12 @ 0x99ca9' -c 'pd 16 @ 0x7c0aa'
+  -c 'pd 16 @ 0x646f9' -c 'pd 16 @ 0x6474b' -c q data/Z/ZED.EXE`.
+- `0x991cb..0x991e1` applies the three-pass idle-task cleanup only to active,
+  usable tasks that are mobile, with an explicit exception for task 7.
+  Ordinary reserve tasks do not enter that cleanup. The engine now applies
+  the same usable/mobile gate; its existing state exclusions and busy-order
+  approximations remain. `test_reserve_task_not_expired` checks a stationary
+  usable reserve over five normal AI passes, then confirms a mobile task
+  still expires. Inspect with `r2 -q -e
+  bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x991c4' -c q
+  data/Z/ZED.EXE` and run `SDL_VIDEODRIVER=dummy
+  build/bin/tests/z/test_commander`.
 - For a march that must wait for another force, `0x997a9..0x997d4` calls
   `0x9d42c` for the current territory and then writes task state 2 and its
   current-territory target without checking the dispatch result. The engine
@@ -2023,6 +2044,17 @@ orders the vehicle toward the type's `(31,28)` entry and writes task 11.
 `0x79cf9` tests the repair facility and `0x79d08` admits one vehicle at a
 time. The engine plans to a reachable cell outside the footprint and holds
 the vehicle there while it is in the bay.
+
+`0x9c4de..0x9c4e8` writes task 11 after dispatch without testing whether the
+destination is reachable. The engine currently leaves an idle vehicle
+unassigned when `Z_ServiceApproach` fails. A direct assignment alone is not
+an adequate port: the engine's `service_returns` clears task 11 without an
+active service in the same AI pass, while native `0x991c4` skips its general
+idle-task cleanup for non-mobile reserve groups (except task 7). The complete
+native task-11 cancellation and failed-path lifecycle remain unknown; do
+not treat the engine's immediate clear/retry as established retail behavior.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 45 @ 0x9c485' -c 'pd 45 @ 0x991c4' -c q data/Z/ZED.EXE`.
 
 `0x7a065..0x7a091` calls `0x41ae1` with `max(1, missing_HP / 20)`.
 The initial stock is `floor((1 + max(1, missing_HP / 20)) * 880 / speed)`.

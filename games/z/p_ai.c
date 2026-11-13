@@ -1270,7 +1270,8 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
                 for (int j = 0; j < n; ++j)
                     busy |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service || live(group[j]->attack.target);
                 /* 0x991c4 spares waiting (staged) forces. */
-                if (task->task != IDLE && task->task != VEHICLE && task->task != STAGED &&
+                if ((task->flags & USABLE) && ((task->flags & MOBILE) || task->task == BUILDING_SUPPORT) &&
+                    task->task != IDLE && task->task != VEHICLE && task->task != STAGED &&
                     task->task != CRANE_WORK && task->task != REPAIR &&
                     !busy && ++task->idle >= 3) {
                     clear(task); task->idle = 0;

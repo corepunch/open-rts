@@ -481,6 +481,45 @@ static int test_stray_home_reassignment(void) {
     return 0;
 }
 
+static int test_reserve_task_not_expired(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load reserve task fixture");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 100;
+    for (int t = 0; t < map->territory_count; ++t) map->territories[t].team = 1;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, 1);
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) P_ClearMove(mo);
+    }
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task) return fail("register reserve task");
+    task->task = 4;
+    task->target = 4;
+    task->destination = -1;
+    task->pending = false;
+    task->idle = 0;
+    for (int i = 0; i < 5; ++i) {
+        map->ai.delay = 0;
+        think(1);
+    }
+    if ((task->flags & 24) != 8 || task->task != 4 || task->target != 4 || task->idle != 0)
+        return fail("idle reserve task survives mobile-only expiration");
+    map->computer.allocation = 0;
+    task->task = 8;
+    task->idle = 0;
+    for (int i = 0; i < 5; ++i) {
+        map->ai.delay = 0;
+        think(1);
+    }
+    if (!(task->flags & 16) || task->task != -1)
+        return fail("idle mobile task still expires");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_frontier_overlap(void) {
     RtsGameModel *model = load();
     if (!model) return fail("frontier overlap load");
@@ -1099,7 +1138,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
