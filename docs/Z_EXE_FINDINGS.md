@@ -1565,7 +1565,16 @@ retains the robot's identity for valuation.
 `0x9b816` retries a local flag order when its signed-byte counter underflows,
 then resets it to **100 native frames** after an order. It excludes forts,
 CPU-held territory, Sniper/native type 4, and gun category 2. Its distance
-test is **<16384 square pixels** from unit top-left to flag origin.
+test is **<16384 square pixels** from unit top-left to flag origin. The
+`0x9b8d3..0x9b8da` path sets that counter after the direct order call without
+a reachability-result test. The engine now starts the same countdown even
+when its own navigation rejects the destination. It retains the current
+movement in that case; native failed-path effects are not established.
+`test_blocked_flag_retry` verifies the blocked node, opens it, checks the
+remaining wait and observes a real retry after the countdown. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 60 @ 0x9b816'
+-c q data/Z/ZED.EXE` and `SDL_VIDEODRIVER=dummy
+build/bin/tests/z/test_commander`.
 `0x9a49a` sends offensive mobile units in the player's fort territory to
 fort origin +(80,72). Normal territory orders `0x9d42c` stage outside the
 CPU fort at +(80,220) or the player fort at +(80,-80). `0x9d4f4` tries eight

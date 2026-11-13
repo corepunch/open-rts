@@ -863,12 +863,13 @@ static void local_orders(zmap_t *map, mobj_t *const *units, int count) {
         if (t->owner == CPU || (t->flags & 3) || mo->type_id == MT_UNIT_SNIPER ||
             !(task->flags & USABLE) || task->boarding || live(mo->attack.target)) continue;
         fixed2_t goal = fixed2_cell_center(map->territories[task->current].flag);
-        if (ivec2_distance_squared64(Z_AITopLeft(mo), ivec2_scale(map->territories[task->current].flag, Z_TILE)) < 16384 &&
-            reachable(mo, goal)) {
+        if (ivec2_distance_squared64(Z_AITopLeft(mo), ivec2_scale(map->territories[task->current].flag, Z_TILE)) < 16384) {
             /* The native flag correction is immediate (0x7ba9a). */
-            mobj_t *group[MEMBERS];
-            int n = members(task, units, count, group);
-            move_group(group, n, goal);
+            if (reachable(mo, goal)) {
+                mobj_t *group[MEMBERS];
+                int n = members(task, units, count, group);
+                move_group(group, n, goal);
+            }
             task->retry = 100;
         }
     }

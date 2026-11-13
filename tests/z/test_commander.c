@@ -224,6 +224,55 @@ static int test_scores(void) {
     rts_game_model_destroy(model);
     return 0;
 }
+
+static int test_blocked_flag_retry(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load blocked flag fixture");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    ivec2_t flag = map->territories[8].flag;
+    ivec2_t start = ivec2_add(flag, (ivec2_t){4, 0});
+    if (!L_Contains(&level, start.x, start.y)) return fail("blocked flag fixture bounds");
+    map->territory_count = 1;
+    map->fort_count = 0;
+    map->territories[0].min = (ivec2_t){0, 0};
+    map->territories[0].max = (ivec2_t){level.width, level.height};
+    map->territories[0].flag = flag;
+    map->territories[0].team = Z_NEUTRAL;
+    map->ai.territories[0].flags = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) {
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(start), 0);
+            P_ClearMove(mo);
+        }
+    }
+    level.blocked[L_Index(&level, flag.x, flag.y)] = 1;
+    P_NavFree(&level);
+    int cls = P_MobjMoveClass(lead);
+    if (P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(lead->core.position)),
+                       P_NavNodeAt(&level, cls, fixed2_cell_center(flag))))
+        return fail("flag fixture destination is unreachable");
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->current != 0) return fail("register blocked flag group");
+    task->retry = 0;
+    map->ai.delay = 1000;
+    map->ai.fraction = 0;
+    think(1);
+    if (task->retry != 99 || P_HasMoveOrder(lead))
+        return fail("blocked flag correction starts native retry countdown");
+    level.blocked[L_Index(&level, flag.x, flag.y)] = 0;
+    P_NavFree(&level);
+    for (int i = 0; i < 30; ++i) {
+        think(1);
+        if (P_HasMoveOrder(lead) || task->retry <= 0) return fail("opened flag waits for retry countdown");
+    }
+    for (int i = 0; i < 30 && !P_HasMoveOrder(lead); ++i) think(1);
+    if (!P_HasMoveOrder(lead)) return fail("flag correction retries after countdown");
+    rts_game_model_destroy(model);
+    return 0;
+}
 static int test_strength_gate(void) {
     RtsGameModel *model = load();
     if (!model) return fail("force gate load");
@@ -1211,7 +1260,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
