@@ -1647,8 +1647,10 @@ than being replaced with numeric approximations:
   records for both +0x10 bits 3 and 4, skips tasks already in state 3 with
   this destination, and sets every other qualifying task to state 3 with
   target and destination set to the fort before calling `0x9d42c`. The
-  engine follows this pass after at least one initial order succeeds, using
-  its existing path, destination-reservation and delayed-order validation.
+  `0x99f46..0x99f89` records each selected initial task as marching before
+  attempting its order, then invokes this pass regardless of order success.
+  The engine now follows the same assignment and follow-up order, using its
+  existing path, destination-reservation and delayed-order validation.
   It now records the assault assignment before attempting dispatch as native
   does, even if no represented staging point passes that validation. Native
   and engine path validation remain different.
@@ -1661,7 +1663,9 @@ than being replaced with numeric approximations:
   a normal AI pass with an enemy territory nested inside a friendly one.
   `test_fort_followup` exercises nearby occupied, remote, nonmobile and
   already assigned tasks, an unreachable staging point, and starts an attack
-  through the normal heavy AI pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+  through the normal heavy AI pass. `test_unreachable_initial_staging` checks
+  initial assignment and fort follow-up when both dispatches fail. Inspect
+  with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
   -c 'pd 70 @ 0x99f46' -c 'pd 65 @ 0x9d61e' -c q data/Z/ZED.EXE` and
   `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - For a march that must wait for another force, `0x997a9..0x997d4` calls

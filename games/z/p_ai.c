@@ -454,14 +454,12 @@ void Z_AIFortFollowup(zmap_t *map, int territory) {
 
 /* 0x99f46: march the first `n` on the territory. */
 static void commit(zmap_t *map, pooled_t *pool, int n, int territory) {
-    bool sent = false;
-    for (int i = 0; i < n; ++i)
-        if (send(map, pool[i].task, territory)) {
-            pool[i].task->task = MARCH;
-            pool[i].task->target = pool[i].task->destination = (int16_t)territory;
-            sent = true;
-        }
-    if (sent) Z_AIFortFollowup(map, territory);
+    for (int i = 0; i < n; ++i) {
+        pool[i].task->task = MARCH;
+        pool[i].task->target = pool[i].task->destination = (int16_t)territory;
+        send(map, pool[i].task, territory);
+    }
+    Z_AIFortFollowup(map, territory);
 }
 
 /* 0x9a1dd/0x99e3f: this first attack pass visits the entire stable ranking.

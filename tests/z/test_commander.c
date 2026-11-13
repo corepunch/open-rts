@@ -399,6 +399,42 @@ static int test_unreachable_flag(void) {
     return 0;
 }
 
+static int test_unreachable_initial_staging(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load initial staging fixture");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = t == 7 ? 0 : 1;
+        map->territories[t].importance = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 8 ? 0 : 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    mobj_t *support = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[4].flag), 0), MT_UNIT_MED_TANK);
+    if (!support) return fail("spawn initial staging support");
+    Z_SetTeam(support, 1);
+    support->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    support->z.robot = lead->z.robot;
+    support->traits &= ~MF_ATTACK;
+    think(0);
+    zaitask_t *first = task_of(lead), *near = task_of(support);
+    if (!first || !near) return fail("register initial staging groups");
+    near->task = 4;
+    near->target = near->destination = 4;
+    map->territories[7].flag = fixed2_cell(fixed3_xy(lead->core.position));
+    map->forts[1] = (ivec2_t){-10000, -10000};
+    map->ai.delay = 0;
+    think(1);
+    if (first->task != 0 || first->destination != 7 || first->target != 7 || first->pending ||
+        near->task != 3 || near->target != 7 || near->destination != 7 || near->pending)
+        return fail("initial assignment and followup survive rejected staging point");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_frontier_overlap(void) {
     RtsGameModel *model = load();
     if (!model) return fail("frontier overlap load");
@@ -894,7 +930,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
