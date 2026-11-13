@@ -623,6 +623,7 @@ bool sc_cast(mobj_t *caster, int tech, mobj_t *target, fixed2_t at) {
     const sc_spell_t *s = spell(tech);
     if (!caster || caster->remove || caster->hp <= 0 || !s || !casts(caster->type_id, s) ||
         (caster->sc.flags & SC_HALLUCINATION) || !sc_unit_has_tech(caster, tech)) return false;
+    if (cloak(tech) && sc_disabled(caster)) return false; /* Retail 0x4019f0 refuses a disabled unit. */
     sc_start(caster);
     if (cloak(tech)) {
         if (caster->traits & MF_CLOAKED) { caster->traits &= ~MF_CLOAKED; return true; }
