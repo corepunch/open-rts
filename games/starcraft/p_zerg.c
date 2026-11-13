@@ -70,10 +70,6 @@ void sc_zerg_ticker(int elapsed_ms) {
 /* Creep is instant and round: radius 10 around a hatchery tier, 5 around
  * a colony, whoever owns it. Retail creep grows tile by tile and recedes. */
 static bool on_creep(fixed2_t at) {
-    const sc_mission_t *m=level.mission;
-    ivec2_t cell=fixed2_cell(at);
-    if(m&&m->terrain&&L_Contains(&level,cell.x,cell.y)&&m->terrain[L_Index(&level,cell.x,cell.y)].creep)
-        return true;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (!live(th)) continue;
         const mobj_t *mo = (const mobj_t *)th;

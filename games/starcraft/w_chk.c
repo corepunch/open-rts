@@ -46,14 +46,13 @@ bool G_LoadLevelData(const char *root, level_t *map) {
     terrain=malloc(cells*sizeof(*terrain));
     if(!terrain)goto done;
     for(size_t i=0;i<cells;i++) {
-        unsigned encoded_id=read_u16_le(mtxm+i*2), id=encoded_id&0x7fff;
+        unsigned id=read_u16_le(mtxm+i*2)&0x7fff;
         if ((map->tile_ids[i]&0x7fff)!=id)goto done;
         if(id/16>=cv.size/52)goto done;
         const uint8_t *group=cv.bytes+(id/16)*52;
         unsigned tile=read_u16_le(group+20+(id%16)*2),walkable=0;
         if(tile>=vf.size/32)goto done;
         terrain[i].cv5=read_u16_le(group+2);
-        terrain[i].creep=(encoded_id&0x8000)!=0;
         for(int m=0;m<16;m++) {
             terrain[i].vf4[m]=read_u16_le(vf.bytes+tile*32+m*2);
             walkable|=terrain[i].vf4[m]&1;

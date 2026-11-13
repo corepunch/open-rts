@@ -199,7 +199,7 @@ typedef struct {
     int cursor, wait_ms, current;
     bool running, preserve, disabled;
 } sc_trig_t;
-typedef struct { uint16_t vf4[16], cv5; bool creep; } sc_terrain_t;
+typedef struct { uint16_t vf4[16], cv5; } sc_terrain_t;
 enum { SC_TERRAIN_MIDDLE = 2, SC_TERRAIN_HIGH = 4, SC_TERRAIN_COVER = 0x10 };
 unsigned sc_terrain_flags(fixed2_t position);
 uint32_t sc_random(void);

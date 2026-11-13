@@ -2423,28 +2423,30 @@ all construction, stasis, or damage timing is verified against the executable.
 Reproduce: `make build/bin/tests/starcraft/test_combat`, then
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_combat`.
 
-### Painted map creep (2026-11-12)
+### MTXM bit 15 and creep (2026-11-13; supersedes the 2026-11-12 finding)
 
-**Confirmed OpenBW format and placement behavior.** Pinned OpenBW
-`game_types.h::tile_id` reads the CHK MTXM painted-creep flag from raw tile-ID
-bit 15 and masks the tile group to 11 bits. Its `bwgame.h` MTXM loader sets
-`flag_has_creep` for those records, and building placement rejects creep-
-requiring units where the footprint tiles lack that flag. Open-rts previously
-used the raw 16-bit MTXM ID as a CV5 lookup key, so painted-creep maps could
-fail terrain loading; its dynamic creep check also only considered nearby
-Hatchery tiers and colonies.
+**Correction: gameplay creep from MTXM bit 15 is not supported by the checked
+evidence.** The earlier finding claimed pinned OpenBW decoded this bit into a
+per-tile creep flag and used it for building placement. That reading was
+incorrect. In pinned OpenBW
+`game_types.h::tile_id::has_creep`, `raw_value` is `uint16_t` and the
+expression is `((raw_value >> 4) & 0x8000)`. A 16-bit value shifted right by
+four is at most `0x0fff`, so this test is always false; the loader's branch
+which would set `flag_has_creep` is unreachable. The documentation in scmJS's
+“How terrain is drawn” likewise says the high bit is drawn as the plain tile
+and grants no Zerg building placement. Neither source is a retail executable
+trace, so retail behavior remains unverified.
 
-The StarCraft terrain record now retains the authored creep flag alongside
-CV5/VF4 metadata. After terrain decoding validates each masked tile ID,
-`level.tile_ids` is normalized for the renderer's direct tile lookup. Zerg
-placement checks each footprint cell against authored creep as well as the
-existing dynamic source-radius approximation. This static map data is derived
-from the retained CHK and remains available across engine saves; network map
-signatures hash the raw CHK, including the painted bit. Repeated terrain loads
-re-read MTXM, so normalizing renderer tile IDs does not discard the authored
-flag. `test_map` checks masked lookup IDs, repeated terrain loading, engine
-save/load reconstruction, and full building footprints crossing painted and
-unpainted tiles. Reproduce with `make build/bin/tests/starcraft/test_map` and
+Open-rts still masks MTXM with `0x7fff` before CV5 lookup and normalizes
+renderer tile IDs, but no longer retains bit 15 as gameplay state or lets it
+satisfy creep-required placement. Creep from nearby Hatchery tiers and
+colonies remains the separate existing approximation. CV5 flags are retained,
+but CV5 creep and buildability rules are not yet implemented in placement;
+VF4 walkability and elevation remain independent terrain data. The
+`test_map` fixture marks one map half with bit 15 and checks that graphics IDs
+are masked on both halves while a Hydralisk Den is denied on both; the same
+result is checked after repeated terrain loading and save/load reconstruction.
+Reproduce with `make build/bin/tests/starcraft/test_map` and
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_map`.
 
 ### Terran building fire (2026-11-12)

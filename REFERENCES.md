@@ -285,6 +285,14 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   `order_BuildingLiftoff`, `order_LiftingOff`, `order_BuildingLand`,
   `building_abandon_addon`, `make_unit_neutral`, `find_connecting_addon`,
   `connect_addon`. Reference behavior; no retail execution or new disassembly.
+- [OpenBW pinned `game_types.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/game_types.h):
+  `tile_id::has_creep` applies `((raw_value >> 4) & 0x8000)` to a `uint16_t`,
+  making the check always false; this corrects the earlier interpretation of
+  the corresponding `bwgame.h` loader branch. This source is not retail proof.
+- [scmJS terrain rendering notes](https://docs.scmjs.dev/game-data/how-terrain-is-drawn/):
+  describes MTXM bit 15 as visually masked without gameplay creep or Zerg
+  building access. Documentation evidence only; retail behavior remains
+  unverified.
 - [Stargus worker definitions](https://github.com/Wargus/stargus/tree/2a4d54604949e4772f6638a8412c8ebd62444044/scripts):
   Terran SCV, Zerg Drone and Protoss Probe scripts, capacity 8 and waits
   150/50/50; `src/kaitai/units_dat.ksy` for collision extents.

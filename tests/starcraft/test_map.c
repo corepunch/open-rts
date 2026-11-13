@@ -149,15 +149,15 @@ static int painted_creep(void) {
     CHECK(load_fixture(bytes,at)); free(bytes);
     CHECK(G_LoadLevelData(root,&level));
     sc_mission_t *mission=level.mission;
-    CHECK(mission->terrain&&level.tile_ids[10*WIDTH+10]==32&&mission->terrain[10*WIDTH+10].creep);
-    CHECK(level.tile_ids[10*WIDTH+20]==32&&!mission->terrain[10*WIDTH+20].creep);
+    CHECK(mission->terrain&&level.tile_ids[10*WIDTH+10]==32);
+    CHECK(level.tile_ids[10*WIDTH+20]==32);
     CHECK(G_LoadLevelData(root,&level));
-    CHECK(mission->terrain[10*WIDTH+10].creep&&!mission->terrain[10*WIDTH+20].creep);
+    CHECK(mission->terrain&&level.tile_ids[10*WIDTH+10]==32&&level.tile_ids[10*WIDTH+20]==32);
     bool inside=false,outside=false;
     for(int y=2;y<12&&!inside;y++)for(int x=2;x<12;x++) {
         ivec2_t cell={x,y};
         if(P_CanPlaceBuilding(MT_HATCHERY,cell,NULL)) {
-            CHECK(P_CanPlaceBuilding(MT_HYDRALISK_DEN,cell,NULL));
+            CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN,cell,NULL));
             inside=true; break;
         }
     }
@@ -184,11 +184,11 @@ static int painted_creep(void) {
     CHECK(G_LoadGameBlob(saved,saved_size,&app,&ai,&hud));
     free(saved);
     mission=level.mission;
-    CHECK(mission->terrain[10*WIDTH+10].creep&&!mission->terrain[10*WIDTH+20].creep);
+    CHECK(mission->terrain&&level.tile_ids[10*WIDTH+10]==32&&level.tile_ids[10*WIDTH+20]==32);
     CHECK(P_CanPlaceBuilding(MT_HATCHERY,crossing,NULL));
     CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN,crossing,NULL));
     P_FreeLevel(&level);
-    puts("PASS: painted creep survives repeated terrain load and save/load, and gates full Zerg footprints");
+    puts("PASS: MTXM bit 15 is masked for graphics without granting Zerg creep placement");
     return 0;
 }
 static int malformed(void) {
