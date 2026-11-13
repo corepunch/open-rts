@@ -1676,6 +1676,15 @@ than being replaced with numeric approximations:
   with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 40 @
   0x997a9' -c q data/Z/ZED.EXE` and run
   `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
+- On arrival in the target territory, `0x99894..0x998a1` issues its flag
+  order and then records state 1 and the destination as target, without a
+  dispatch-result test. The engine now records the assignment even when its
+  own reachability check rejects the flag point. `test_unreachable_flag`
+  exercises this transition through the normal heavy AI pass; existing
+  engine path validation and its pending-order gate still apply. Inspect
+  with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @
+  0x9984c' -c q data/Z/ZED.EXE` and run
+  `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - `0x9d390` values a potential donor squad, caps it at 65535, and requires
   the donor territory's remaining own strength to be at least
   `16*weight*importance` with native word/sign checks. `0x9d330` chooses

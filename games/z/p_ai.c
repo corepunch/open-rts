@@ -590,7 +590,8 @@ static void advance(zmap_t *map) {
             bool taken = false;
             for (int j = 0; j < Z_AI_TASKS; ++j)
                 taken |= offensive(&ai->tasks[j]) && ai->tasks[j].task == FLAG && ai->tasks[j].target == t;
-            if (task->current == t && !taken && !task->pending && to_flag(map, task, t)) {
+            if (task->current == t && !taken && !task->pending) {
+                to_flag(map, task, t);
                 task->task = FLAG;
                 task->target = (int16_t)t;
             }

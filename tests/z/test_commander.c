@@ -372,6 +372,33 @@ static int test_unreachable_staging(void) {
     return 0;
 }
 
+static int test_unreachable_flag(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load flag arrival fixture");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    fixed2_t at = fixed2_cell_center(map->territories[8].flag);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->team == 1 && mo->z.squad == lead->z.squad)
+            mo->core.position = fixed3_from_fixed2(at, 0);
+        else if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+    }
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->current != 8) return fail("register group at enemy territory");
+    task->task = 3;
+    task->target = task->destination = 8;
+    task->pending = false;
+    map->territories[8].flag = (ivec2_t){-1000, -1000};
+    map->ai.delay = 0;
+    think(1);
+    if (task->task != 1 || task->target != 8 || task->destination != 8 || task->pending)
+        return fail("flag assignment survives rejected flag destination");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_frontier_overlap(void) {
     RtsGameModel *model = load();
     if (!model) return fail("frontier overlap load");
@@ -867,7 +894,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
+           test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
            test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }
