@@ -5292,3 +5292,18 @@ mobile-only donor filter fails the test. Inspect with `r2 -q -e
 bin.cache=true -e bin.relocs.apply=true -c 'pd 95 @ 0x9d330' -c
 'pd 32 @ 0x9d23c' -c 'pd 10 @ 0x9d42c' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Signed defence importance comparison:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9d1c5..0x9d225` searches other territories for reserve defence donors.
+`0x9d203..0x9d209` compares the candidate and threatened territory's +9
+importance bytes using signed `jg`; a candidate is rejected when its signed
+importance exceeds the threatened area's. Open-rts now casts both bytes to
+`int8_t` at this comparison. `test_defence_signed_importance` constructs two
+nonadjacent territories with importances 1 and 128, a stronger enemy and a
+reserve in each: the distant candidate is rejected and the threatened
+reserve falls back. The previous unsigned comparison fails this test. These
+values are a synthetic boundary case, and other native target-acquisition and
+pathing differences remain as documented. Inspect with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x9d1c5' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

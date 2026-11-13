@@ -808,7 +808,8 @@ static void defend(zmap_t *map, mobj_t *const *units, int count) {
                 zaitask_t *task = &ai->tasks[i];
                 int c = task->current;
                 if (!reserve(task) || c < 0 || c == t ||
-                    map->territories[c].importance > map->territories[t].importance ||
+                    (int)(map->territories[c].importance ^ 0x80) >
+                    (int)(map->territories[t].importance ^ 0x80) ||
                     surplus(ai, c) < 0 || surplus(ai, c) < best) continue;
                 zaitask_t *d = donor(map, c, units, count);
                 if (d) { help = d; best = surplus(ai, c); }
