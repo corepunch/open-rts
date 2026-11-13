@@ -827,9 +827,8 @@ static void seek_vehicles(zmap_t *map, mobj_t *const *units, int count) {
             if (!vehicle_candidate(vehicle)) continue;
             int t = at_unit(map, vehicle);
             if (t < 0 || reserved(ai, t, true) || (!ai->territories[t].known && !(Z_NextRandom(&ai->seed) & 1))) continue;
-            fixed2_t goal = fixed3_xy(vehicle->core.position);
             int64_t d = ivec2_distance_squared64(Z_AITopLeft(mo), Z_AITopLeft(vehicle));
-            if (d < distance && reachable(mo, goal)) { best = vehicle; distance = d; target = t; }
+            if (d < distance) { best = vehicle; distance = d; target = t; }
         }
         if (best) {
             task->task = 5;
@@ -1271,11 +1270,18 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
                 mobj_t *group[MEMBERS];
                 int n = members(task, units, count, group);
                 bool busy = task->pending;
-                for (int j = 0; j < n; ++j)
+                for (int j = 0; j < n; ++j) {
+                    if (task->task == VEHICLE && !task->pending && group[j]->z.board &&
+                        !P_HasMoveOrder(group[j])) {
+                        mobj_t *vehicle = P_MobjById(group[j]->z.board);
+                        if (!Z_DetourBoard(group[j], vehicle)) group[j]->z.board = 0;
+                    }
                     busy |= P_HasMoveOrder(group[j]) || group[j]->z.board || group[j]->z.service || live(group[j]->attack.target);
+                }
+                if (task->task == VEHICLE && !busy) task->boarding = 0;
                 /* 0x991c4 spares waiting (staged) forces. */
                 if ((task->flags & USABLE) && ((task->flags & MOBILE) || task->task == BUILDING_SUPPORT) &&
-                    task->task != IDLE && task->task != VEHICLE && task->task != STAGED &&
+                    task->task != IDLE && task->task != STAGED &&
                     task->task != CRANE_WORK &&
                     !busy && ++task->idle >= 3) {
                     clear(task); task->idle = 0;

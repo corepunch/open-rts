@@ -767,6 +767,76 @@ static int test_vehicles(void) {
     rts_game_model_destroy(model);
     return 0;
 }
+/* 0x98fec chooses by distance before the boarding order is dispatched. */
+static int test_unreachable_vehicle_choice(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("unreachable vehicle load");
+    mobj_t *lead = scenario(), *near = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
+    zmap_t *map = level.native_data;
+    if (!near) return fail("unreachable vehicle fixture");
+    mobj_t *far = P_SpawnMobj(near->core.position, MT_UNIT_JEEP);
+    if (!far) return fail("second vehicle fixture");
+    far->z.object = near->z.object;
+    Z_SetTeam(far, Z_NEUTRAL);
+    mobj_t *radar = P_SpawnMobj(lead->core.position, MT_RADAR);
+    if (!radar) return fail("vehicle radar fixture");
+    Z_SetTeam(radar, 1);
+    radar->z.building = 1;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = 1;
+        map->territories[t].importance = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, 1);
+    }
+    ivec2_t start = map->territories[4].flag;
+    radar->core.position = fixed3_from_fixed2(fixed2_cell_center(start), 0);
+    ivec2_t cell = ivec2_add(start, (ivec2_t){3, 0});
+    near->z.driver = 0;
+    near->core.position = fixed3_from_fixed2(fixed2_cell_center(cell), 0);
+    far->core.position = fixed3_from_fixed2(fixed2_cell_center(ivec2_add(start, (ivec2_t){6, 0})), 0);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->team == 1 && mo->hp > 0 && mo->z.squad == lead->z.squad)
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(start), 0);
+    }
+    for (int y = -2; y <= 2; ++y)
+        for (int x = -2; x <= 2; ++x)
+            level.blocked[L_Index(&level, cell.x + x, cell.y + y)] = 1;
+    P_NavFree(&level);
+    int cls = P_MobjMoveClass(lead);
+    for (int y = -2; y <= 2; ++y)
+        for (int x = -2; x <= 2; ++x)
+            if (P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(lead->core.position)),
+                               P_NavNodeAt(&level, cls, fixed2_cell_center(ivec2_add(cell, (ivec2_t){x,y})))))
+                return fail("vehicle and its approach are unreachable");
+    if (!P_NavReachable(&level, cls, P_NavNodeAt(&level, cls, fixed3_xy(lead->core.position)),
+                        P_NavNodeAt(&level, cls, fixed3_xy(far->core.position))))
+        return fail("farther vehicle fixture is reachable");
+    think(0);
+    think(1);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->task != 5 || task->boarding != near->id)
+        return fail("nearest unreachable vehicle remains selected");
+    bool dispatched = false, released = false;
+    for (int i = 0; i < 15 * RTS_TICRATE; ++i) {
+        if (!tick(model, 1)) return fail("unreachable vehicle order execution");
+        dispatched |= lead->z.board == near->id;
+        if (dispatched && !lead->z.board && !task->boarding) { released = true; break; }
+    }
+    if (!dispatched || !released || near->team != Z_NEUTRAL)
+        return fail("isolated vehicle order is dispatched then released");
+    near->z.driver = 1;
+    far->z.driver = 1;
+    for (int i = 0; i < 10 && task->task == 5; ++i) think(1);
+    if (task->task == 5 || task->boarding || lead->z.board)
+        return fail("idle vehicle task clears when no target remains");
+    rts_game_model_destroy(model);
+    puts("PASS: z vehicle selection precedes route dispatch");
+    return 0;
+}
+
 /* 0x993ff: an attack that becomes too weak, with nobody to help, falls
  * back and forgets its target. */
 static int test_retreat(void) {
@@ -1384,7 +1454,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

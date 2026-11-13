@@ -5039,3 +5039,23 @@ checks the mark without a queued order, and checks that retaking clears it;
 `test_recapture` covers the reachable path. Reproduce with `r2 -q -e
 bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9c174' -c q
  data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Vehicle selection precedes routing:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98f32..0x99029` scans eligible empty objects, applies territory and radar
+rules, and chooses the shortest squared distance without a route check.
+`0x99074..0x9907b` records task 5 and its territory before dispatching the
+boarding order through `0x475d5`. Open-rts no longer substitutes a farther
+reachable vehicle for an unreachable nearer candidate. Native
+`0x991e3..0x99235` includes task 5 in the three-pass idle cleanup, but the
+native treatment of a failed boarding route remains unknown. As an engine
+policy, an AI group that has finished its route without reaching boarding
+distance releases the boarding retry, permitting that idle cleanup; the
+ordinary player boarding retry remains unchanged. If the candidate remains,
+the AI can select it again, so this does not establish native retry timing.
+`test_unreachable_vehicle_choice` isolates the nearer vehicle with a 5x5
+blocked area, confirms the farther one is reachable, executes the order and
+checks that boarding retry and the idle task clear. `test_vehicles` covers
+successful boarding. Inspect with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 140 @ 0x98f32' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
