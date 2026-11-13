@@ -5221,6 +5221,45 @@ duration and cleanup of that state are still unknown. Inspect with
 `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x8953e'
 -c 'pd 24 @ 0x88c43' -c 'pd 24 @ 0x89280' -c q data/Z/ZED.EXE`.
 
+**Local flag follower:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks. For
+an unowned non-fort current territory it excludes tasks -1, 1, 4 and 5,
+checks other task-1 groups, an existing member mark, territory restrictions,
+and a strict 160-pixel distance (`0x99bce`). Task 3 additionally requires
+its own strength to equal all strength bound to its destination. `0x99cbd`
+uses `0x77f32` to select the highest occupied follower slot, falling back
+to the leader if none exists. The individual follower gets a route toward
+flag origin +(4,4) and unit +0x87 bit 4; the leader fallback records task 1.
+When a friendly unit touches a flag, `0x79f07` clears that mark on matching
+units in the territory and calls `0x99d97` to restore their formation path,
+except when the touching unit is class 2. The heavy pass `0x99d4d` also
+clears it and restores the path when the marked unit's territory becomes
+computer-owned. `0x99d97` has additional native path-state gates.
+
+The engine stores the follower mark on its mobj (Z save layout 26), hashes
+it, and uses ordinary movement and formation destinations for the two return
+paths. Existing group flag correction is suppressed while a marked follower
+is away. Engine path reachability, pending-order exclusion, map ownership
+and thinker iteration approximate native path-list and slot behavior; a
+failed engine path does not set the mark. The engine processes a capture
+before restoring its follower so its cheer action cannot clear the restored
+route. A new group command or leader promotion clears the mark when this
+engine cancels the follower's independent route; the examined native direct
+writes do not show a mark clear on a new group command, and `0x7b581` instead
+tests the mark while the follower is moving. This cleanup is an engine
+lifecycle policy. For a leader fallback, `0x99d42` stores current territory
+in task +4 without changing strategic destination +0xc; `0x99818` continues
+to check that destination even for task 1. Actual flag capture also calls
+`0x99aa7`, which changes every usable mobile task 1 whose +4 names that
+territory to task 0, preserving its other fields. The engine applies that
+release in the capture event. `test_flag_follower` and
+`test_flag_solo_and_promotion` cover cancellation, redispatch, promotion,
+distinct current/destination, save/load and real flag capture. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 95 @ 0x99abd' -c 'pd 65 @ 0x99cbd' -c 'pd 40 @ 0x99d4d' -c 'pd 45 @
+0x79f07' -c q data/Z/ZED.EXE`.
+
 **Reserve recapture mark after failed routing:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x9c174..0x9c1a5` selects a recently lost territory with CPU strength and

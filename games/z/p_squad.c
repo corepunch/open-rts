@@ -50,6 +50,7 @@ void Z_SquadOrder(mobj_t *leader, bool active) {
             mo->z.squad != leader->z.squad || !mo->z.squad_slot || mo->z.squad_slot == UINT8_MAX ||
             !Z_IsRobot(Z_UnitType(mo))) continue;
         Z_DetourCancel(mo);
+        mo->z.flag_runner = false;
         mo->z.formation_rejoin = false;
         mo->z.board = 0;
         mo->z.service = 0;
@@ -123,6 +124,7 @@ void Z_SquadLeave(mobj_t *unit) {
     }
     if (next) {
         next->z.squad_slot = UINT8_MAX;
+        next->z.flag_runner = false;
         next->z.formation = unit->z.formation;
         next->z.formation_direction = unit->z.formation_direction;
         next->z.formation_active = unit->z.formation_active;
@@ -138,7 +140,7 @@ void Z_SquadLeave(mobj_t *unit) {
         if (P_MobjIsSelected(unit)) P_MobjSetSelected(next, true);
     }
     unit->z.squad = unit->z.squad_slot = 0;
-    unit->z.formation_active = unit->z.formation_rejoin = false;
+    unit->z.formation_active = unit->z.formation_rejoin = unit->z.flag_runner = false;
     zmap_t *map = level.native_data;
     if (map && squad <= 240 && !remaining) map->squad_cooldown[squad - 1] = 200;
 }

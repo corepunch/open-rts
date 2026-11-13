@@ -46,7 +46,7 @@ typedef struct {
     uint8_t object, building, object_slot, object_hp; /* Native OBJECT type, slot and effect health. */ \
     uint8_t object_terrain; bool object_stamped; /* Effect +0x14, before its terrain mark. */ \
     uint8_t driver, squad, squad_slot, formation, formation_direction, grenades, territory, flame_phase; \
-    bool formation_active, formation_rejoin; \
+    bool formation_active, formation_rejoin, flag_runner; \
     uint8_t gun_count, guns[Z_GUN_STOCK]; /* Stored weapon types + 1, newest first. */ \
     uint8_t crew_count; zcrew_t crew[Z_CREW_MAX]; \
     uint8_t crew_hurt; /* Damage the driver has taken from bullets. */ \
@@ -66,7 +66,7 @@ typedef struct {
         HASH((mo)->z.route.steps[zi].order); HASH((mo)->z.route.steps[zi].target); \
         HASH((mo)->z.route.steps[zi].position.x); HASH((mo)->z.route.steps[zi].position.y); HASH((mo)->z.route.steps[zi].position.z); \
     } \
-    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.formation); HASH((mo)->z.formation_direction); HASH((mo)->z.formation_active); HASH((mo)->z.formation_rejoin); HASH((mo)->z.grenades); HASH((mo)->z.flame_phase); \
+    HASH((mo)->z.board); HASH((mo)->z.rating); HASH((mo)->z.driver); HASH((mo)->z.squad); HASH((mo)->z.squad_slot); HASH((mo)->z.formation); HASH((mo)->z.formation_direction); HASH((mo)->z.formation_active); HASH((mo)->z.formation_rejoin); HASH((mo)->z.flag_runner); HASH((mo)->z.grenades); HASH((mo)->z.flame_phase); \
     HASH((mo)->z.just_left_cannon); \
     HASH((mo)->z.rebuild_stock); HASH((mo)->z.rebuild_setting); \
     HASH((mo)->z.debris.origin.x); HASH((mo)->z.debris.origin.y); \

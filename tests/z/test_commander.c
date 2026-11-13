@@ -578,6 +578,126 @@ static int test_blocked_flag_retry(void) {
     rts_game_model_destroy(model);
     return 0;
 }
+static int test_flag_follower(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load flag follower fixture");
+    mobj_t *lead = scenario(), *last = NULL;
+    zmap_t *map = level.native_data;
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task) return fail("register flag follower squad");
+    ivec2_t flag = map->territories[2].flag;
+    ivec2_t start = ivec2_add(flag, (ivec2_t){3,0});
+    if (Z_AITerritory(map, fixed2_cell_center(start)) != 2) return fail("flag follower fixture territory");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit->team != 1 || unit->z.squad != lead->z.squad || unit->hp <= 0) continue;
+        unit->core.position = fixed3_from_fixed2(fixed2_cell_center(start), 0);
+        P_ClearMove(unit);
+        if (unit->z.squad_slot && unit->z.squad_slot != UINT8_MAX &&
+            (!last || unit->z.squad_slot > last->z.squad_slot)) last = unit;
+    }
+    if (!last) return fail("flag follower fixture has followers");
+    *task = (zaitask_t){.unit=lead->id, .squad=lead->z.squad, .current=2, .task=6,
+                        .target=8, .destination=8, .flags=24, .retry=100};
+    map->territories[8].importance = 0;
+    map->ai.delay = 0;
+    map->ai.intelligence = 127;
+    think(1);
+    if (!last->z.flag_runner || !P_HasMoveOrder(last) || P_HasMoveOrder(lead) || task->task != 6)
+        return fail("local flag dispatches last follower without moving leader");
+    ticcmd_t move = {.order=TC_ORDER, .position=fixed3_from_fixed2(fixed2_cell_center(start), 0),
+                     .internal=true, .count=1, .units={lead->id}};
+    G_RunTiccmd(lead->owner, &move);
+    if (last->z.flag_runner || P_HasMoveOrder(last))
+        return fail("new squad order cancels the follower's flag route and mark");
+    P_ClearMove(lead);
+    task->task = 6; task->target = task->destination = 8; task->retry = 100;
+    map->ai.delay = 0;
+    think(1);
+    if (!last->z.flag_runner || !P_HasMoveOrder(last)) return fail("cancelled follower can be dispatched again");
+    uint32_t id = last->id, leader_id = lead->id, hash = G_Consistency();
+    last->z.flag_runner = false;
+    if (G_Consistency() == hash) return fail("flag follower contributes to consistency");
+    last->z.flag_runner = true;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    if (!G_SaveGameBlob(&save, &size, "Flag follower", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud)) return fail("save flag follower");
+    free(save);
+    last = P_MobjById(id); lead = P_MobjById(leader_id); map = level.native_data;
+    if (!last || !lead || !last->z.flag_runner || G_Consistency() != hash) return fail("load flag follower");
+    lead->core.position = fixed3_from_fixed2(fixed2_cell_center(flag), 0);
+    Z_Ticker();
+    ivec2_t offset = Z_FormationOffset(lead->z.formation, last->z.squad_slot, lead->z.formation_direction);
+    fixed2_t rejoin = fixed2_add(fixed3_xy(lead->core.position),
+                                 (fixed2_t){offset.x * (FIXED_ONE / Z_TILE), offset.y * (FIXED_ONE / Z_TILE)});
+    if (map->territories[2].team != 1 || last->z.flag_runner || !P_HasMoveOrder(last) ||
+        !fixed2_equal(last->movement.goal, rejoin))
+        return fail("flag capture returns marked follower to squad");
+    rts_game_model_destroy(model);
+    puts("PASS: z local flag detaches and restores the last squad follower");
+    return 0;
+}
+
+static int test_flag_solo_and_promotion(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("load solo flag fixture");
+    mobj_t *lead = scenario(), *follower = NULL;
+    zmap_t *map = level.native_data;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit == lead || unit->team != 1 || unit->z.squad != lead->z.squad || unit->hp <= 0) continue;
+        if (!follower || unit->z.squad_slot < follower->z.squad_slot) follower = unit;
+    }
+    if (!follower) return fail("promotion follower fixture");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit != lead && unit != follower && unit->team == 1 && unit->z.squad == lead->z.squad) unit->hp = 0;
+    }
+    follower->z.flag_runner = true;
+    P_MoveUnitTo(&level, follower, fixed2_cell_center((ivec2_t){25,25}));
+    P_DamageMobj(lead, NULL, lead->hp);
+    if (follower->z.squad_slot != UINT8_MAX || follower->z.flag_runner || P_HasMoveOrder(follower))
+        return fail("promoting flag follower clears its cancelled route and mark");
+    rts_game_model_destroy(model);
+
+    model = load();
+    if (!model) return fail("load solo local flag fixture");
+    lead = scenario(); map = level.native_data;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit != lead && unit->team == 1 && unit->z.squad == lead->z.squad) unit->hp = 0;
+    }
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task) return fail("register solo flag squad");
+    ivec2_t flag = map->territories[2].flag, start = ivec2_add(flag, (ivec2_t){3,0});
+    lead->core.position = fixed3_from_fixed2(fixed2_cell_center(start), 0);
+    P_ClearMove(lead);
+    *task = (zaitask_t){.unit=lead->id, .squad=lead->z.squad, .current=2, .task=6,
+                        .target=8, .destination=8, .flags=24, .retry=100};
+    map->territories[8].importance = 0;
+    map->ai.delay = 0; map->ai.intelligence = 127;
+    think(1);
+    if (task->task != 1 || task->target != 2 || task->destination != 8 || !P_HasMoveOrder(lead))
+        return fail("solo leader records current flag separately from strategic destination");
+    map->territories[2].team = 1;
+    think(1);
+    if (task->task != 1 || task->target != 2 || task->destination != 8)
+        return fail("solo flag task still follows its strategic destination");
+    map->territories[2].team = Z_NEUTRAL;
+    lead->core.position = fixed3_from_fixed2(fixed2_cell_center(flag), 0);
+    Z_Ticker();
+    if (map->territories[2].team != 1 || task->task != 0 || task->target != 2 || task->destination != 8)
+        return fail("actual flag capture releases task 1 without losing strategic destination");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_strength_gate(void) {
     RtsGameModel *model = load();
     if (!model) return fail("force gate load");
@@ -2513,7 +2633,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_driver_health_value() || test_apc_driver_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_flag_follower() || test_flag_solo_and_promotion() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_full_health_repair() || test_repair_facility() || test_building_service() || test_building_alert();
 }

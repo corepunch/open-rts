@@ -418,6 +418,60 @@ static bool to_flag(zmap_t *map, zaitask_t *task, int territory) {
     queue(&map->ai, task, goal, 0);
     return true;
 }
+
+/* 0x99aa7 releases every task-1 assignment to the captured flag. */
+void Z_AIFlagCaptured(zmap_t *map, int territory) {
+    if (netgame) return;
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &map->ai.tasks[i];
+        if (offensive(task) && task->task == FLAG && task->target == territory) task->task = MARCH;
+    }
+}
+
+/* 0x79f07 clears marked followers in the flag's territory; 0x99d4d
+ * also does so when their current territory becomes computer-owned. */
+void Z_AIFlagRunners(zmap_t *map, int team, int territory, bool rejoin) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (!live(unit) || !unit->z.flag_runner || unit->team != team || at_unit(map, unit) != territory) continue;
+        unit->z.flag_runner = false;
+        if (!rejoin) continue;
+        mobj_t *leader = Z_SquadLeader(unit);
+        if (leader == unit) continue;
+        ivec2_t offset = Z_FormationOffset(leader->z.formation, unit->z.squad_slot, leader->z.formation_direction);
+        fixed2_t goal = fixed2_add(fixed3_xy(leader->core.position), pixel_point(offset));
+        P_ClearMove(unit);
+        P_MoveUnitTo(&level, unit, goal);
+    }
+}
+
+/* 0x99abd chooses one follower for a nearby unowned local flag. */
+static void local_flag(zmap_t *map, zaitask_t *task, mobj_t *const *units, int count) {
+    zai_t *ai = &map->ai;
+    int t = task->current;
+    if (t < 0 || t >= map->territory_count || owned(ai, t) || (ai->territories[t].flags & 2) ||
+        task->task == IDLE || task->task == FLAG || task->task == VEHICLE || task->task == GARRISON || task->pending ||
+        (task->task == ASSAULT && heading(ai, task->destination) != task->strength)) return;
+    mobj_t *lead = P_MobjById(task->unit);
+    if (!live(lead) || lead->z.service || live(lead->attack.target) ||
+        !Z_FlagAvailable(map, &map->territories[t]) || !allowed(lead, ai->territories[t].flags, true)) return;
+    ivec2_t flag = ivec2_scale(map->territories[t].flag, Z_TILE);
+    if (ivec2_distance_squared64(Z_AITopLeft(lead), flag) >= 160 * 160) return;
+    for (int i = 0; i < Z_AI_TASKS; ++i)
+        if (&ai->tasks[i] != task && ai->tasks[i].unit && ai->tasks[i].current == t && ai->tasks[i].task == FLAG) return;
+    mobj_t *group[MEMBERS], *runner = lead;
+    int n = members(task, units, count, group);
+    for (int i = 0; i < n; ++i) {
+        if (group[i]->z.flag_runner) return;
+        if (group[i]->z.squad_slot != UINT8_MAX && group[i]->z.squad_slot &&
+            (runner == lead || group[i]->z.squad_slot > runner->z.squad_slot)) runner = group[i];
+    }
+    fixed2_t goal = pixel_point(ivec2_add(flag, (ivec2_t){4,4}));
+    if (!reachable(runner, goal) || !P_MoveUnitTo(&level, runner, goal)) return;
+    if (runner != lead) runner->z.flag_runner = true;
+    else { task->task = FLAG; task->target = (int16_t)t; }
+}
 /* 0x99502: re-stage in the current territory (or stop) and forget. */
 static void release(zmap_t *map, zaitask_t *task) {
     mobj_t *mo = P_MobjById(task->unit);
@@ -595,7 +649,7 @@ static void hold_captured(zmap_t *map, int territory) {
 
 /* 0x9962c: each offensive task's march. 0x99818 notices a capture or an
  * arrival; 0x99708 waits beside the target for the others, then all go. */
-static void advance(zmap_t *map) {
+static void advance(zmap_t *map, mobj_t *const *units, int count) {
     zai_t *ai = &map->ai;
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &ai->tasks[i];
@@ -617,6 +671,7 @@ static void advance(zmap_t *map) {
                 task->target = (int16_t)t;
             }
         }
+        local_flag(map, task, units, count);
         if (task->task == MARCH) {
             int staged = 0;
             for (int j = 0; j < Z_AI_TASKS; ++j) {
@@ -884,14 +939,17 @@ static void local_orders(zmap_t *map, mobj_t *const *units, int count) {
         }
         if (--task->retry >= 0) continue;
         task->retry = 0;
+        mobj_t *group[MEMBERS];
+        int n = members(task, units, count, group);
+        bool runner = false;
+        for (int j = 0; j < n; ++j) runner |= group[j]->z.flag_runner;
+        if (runner) continue;
         if (t->owner == CPU || (t->flags & 3) || mo->type_id == MT_UNIT_SNIPER ||
             !(task->flags & USABLE) || task->boarding || live(mo->attack.target)) continue;
         fixed2_t goal = fixed2_cell_center(map->territories[task->current].flag);
         if (ivec2_distance_squared64(Z_AITopLeft(mo), ivec2_scale(map->territories[task->current].flag, Z_TILE)) < 16384) {
             /* The native flag correction is immediate (0x7ba9a). */
             if (reachable(mo, goal)) {
-                mobj_t *group[MEMBERS];
-                int n = members(task, units, count, group);
                 move_group(group, n, goal);
             }
             task->retry = 100;
@@ -1321,7 +1379,9 @@ static void z_ai_tactics(level_t *level_map, int owner, mobj_t *const *units, in
             attack_territories(map);
             check_forces(map);
             release_garrisons(map);
-            advance(map);
+            advance(map, units, count);
+            for (int t = 0; t < map->territory_count; ++t)
+                if (owned(ai, t)) Z_AIFlagRunners(map, CPU, t, true);
             hold_territories(map);
             seek_vehicles(map, units, count);
             to_frontier(map, units, count);

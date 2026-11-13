@@ -1319,6 +1319,7 @@ void Z_FortTerritory(mobj_t *fort, int team) {
 static void take_flag(int territory, mobj_t *taker) {
     mobj_t *flag = territory_flag(territory);
     transfer_territory(territory, taker->team);
+    Z_AIFlagCaptured(level.native_data, territory);
     stamp_flags();
     if (flag) Z_DetourCaptured(taker, flag);
     int t = robot_type(taker);
@@ -1331,14 +1332,16 @@ static void take_flag(int territory, mobj_t *taker) {
 }
 
 static void tick_flag(mobj_t *unit, const bool *blocked) {
-    const zmap_t *map = level.native_data;
+    zmap_t *map = level.native_data;
     if (!map || !on_flag(unit)) return;
     ivec2_t pixel = Z_AITopLeft(unit);
     if (pixel.x < 0 || pixel.y < 0) return;
     int territory = Z_AITerritory(map, fixed2_scale(fixed2_from_cell(pixel), FIXED_ONE / Z_TILE));
-    if (territory < 0 || blocked[territory] || map->territories[territory].capture_hold ||
-        map->territories[territory].team == unit->team) return;
-    take_flag(territory, unit);
+    if (territory < 0) return;
+    if (!blocked[territory] && !map->territories[territory].capture_hold &&
+        map->territories[territory].team != unit->team) take_flag(territory, unit);
+    bool gun = unit->info && (unit->info->traits & MF_TURRET);
+    Z_AIFlagRunners(map, unit->team, territory, !gun);
 }
 
 /* ── each tic ─────────────────────────────────────────────────────────── */
