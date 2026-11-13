@@ -127,11 +127,14 @@ snaps the building's placement top-left to 32-pixel tiles, then invokes
 `can_place_building` with the trigger owner and flags `(true, false)` before
 spawning. Its placement check includes owner visibility, creep and psi,
 resource-depot spacing, refinery/geyser handling and unit collision. Trigger
-creation now applies the modeled `P_CanPlaceBuilding` subset (terrain,
-occupancy, creep, recipient-owned psi and build-on-type) plus footprint snapping. It still
-does not reproduce owner visibility or all special refinery/resource-depot
-rules, and intentionally does not charge resources or invoke construction
-side effects. Those remaining native differences are open.
+creation now applies the modeled `P_CanPlaceBuilding` subset (CV5 and VF4
+terrain flags, occupancy, static/dynamic creep, recipient-owned psi and
+build-on-type) plus footprint snapping. Refineries bypass these terrain
+checks, matching OpenBW's early refinery branch, while existing build-on-type
+and occupancy checks remain. It still does not reproduce owner visibility or
+all special refinery/resource-depot rules, and intentionally does not charge
+resources or invoke construction side effects. Those remaining native
+differences are open.
 OpenBW directly creates trigger-created refineries and initializes their
 resource count; the worker construction path instead morphs the existing
 geyser. The model retains separate geyser and trigger-refinery resource
@@ -909,8 +912,13 @@ and WPE 1,024 bytes. VF4 is retained but not read by the catalog loader.
 
 - WPE: 256 entries of red, green, blue, unused byte. The fourth byte is not
   interpreted as alpha.
-- CV5: 52-byte group records. Sixteen u16 megatile IDs begin at byte 20.
-  The first 20 metadata bytes are not interpreted by the current loader.
+- CV5: 52-byte group records. The flag word is at byte 2; sixteen u16
+  megatile IDs begin at byte 20. Open-rts retains these flags for terrain
+  cover and placement: OpenBW maps low-byte 0x40 to creep and 0x80 to
+  unbuildable. Terrain placement also rejects partially walkable VF4
+  megatiles. This is pinned-reference behavior, not retail trace evidence;
+  see [CV5 findings](SC_EXE_FINDINGS.md#cv5-terrain-placement-flags-2026-11-13)
+  for the implemented subset and limitations.
 - VX4: each megatile is 16 u16 references, arranged 4×4. `reference >> 1`
   is a VR4 minitile ID; bit zero reflects that minitile horizontally.
 - VR4: each minitile is 64 palette indices, 8×8 row-major pixels.

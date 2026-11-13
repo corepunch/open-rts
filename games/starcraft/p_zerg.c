@@ -70,6 +70,10 @@ void sc_zerg_ticker(int elapsed_ms) {
 /* Creep is instant and round: radius 10 around a hatchery tier, 5 around
  * a colony, whoever owns it. Retail creep grows tile by tile and recedes. */
 static bool on_creep(fixed2_t at) {
+    const sc_mission_t *m=level.mission;
+    ivec2_t cell=fixed2_cell(at);
+    if(m&&m->terrain&&L_Contains(&level,cell.x,cell.y)&&
+       (m->terrain[L_Index(&level,cell.x,cell.y)].cv5&SC_TERRAIN_CREEP))return true;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (!live(th)) continue;
         const mobj_t *mo = (const mobj_t *)th;
@@ -114,10 +118,21 @@ bool sc_ground_ok(uint16_t type, ivec2_t cell, int owner) {
     if (type < 1 || type > SC_TYPES) return true;
     uint32_t flags = sc_units[type - 1].flags;
     isize2_t foot = actor_types[type - 1].footprint;
-    if (flags & 0x20000)
-        for (int y = 0; y < foot.h; ++y)
-            for (int x = 0; x < foot.w; ++x)
-                if (!on_creep(fixed2_cell_center(ivec2_add(cell, (ivec2_t){x, y})))) return false;
+    bool requires_creep=(flags&0x20000)!=0;
+    bool is_zerg=(sc_units[type-1].race&1)!=0;
+    bool terrain_checks=actor_types[type-1].build_on_type==0;
+    const sc_mission_t *m=level.mission;
+    for (int y = 0; y < foot.h; ++y) for (int x = 0; x < foot.w; ++x) {
+        ivec2_t at=ivec2_add(cell,(ivec2_t){x,y});
+        if(requires_creep&&!on_creep(fixed2_cell_center(at)))return false;
+        if(!requires_creep&&terrain_checks&&!is_zerg&&on_creep(fixed2_cell_center(at)))return false;
+        if(requires_creep||!terrain_checks||!m||!m->terrain||!L_Contains(&level,at.x,at.y))continue;
+        const sc_terrain_t *tile=&m->terrain[L_Index(&level,at.x,at.y)];
+        if(tile->cv5&SC_TERRAIN_UNBUILDABLE)return false;
+        int walkable=0;
+        for(int i=0;i<16;i++)walkable+=tile->vf4[i]&1;
+        if(walkable&&walkable<16)return false;
+    }
     if (flags & 0x80000) return in_psi(owner, P_BuildingPosition(type, cell));
     return true;
 }

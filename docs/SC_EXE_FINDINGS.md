@@ -2441,12 +2441,52 @@ Open-rts still masks MTXM with `0x7fff` before CV5 lookup and normalizes
 renderer tile IDs, but no longer retains bit 15 as gameplay state or lets it
 satisfy creep-required placement. Creep from nearby Hatchery tiers and
 colonies remains the separate existing approximation. CV5 flags are retained,
-but CV5 creep and buildability rules are not yet implemented in placement;
-VF4 walkability and elevation remain independent terrain data. The
+but now drive the separate CV5 placement rules below. VF4 walkability and
+elevation remain independent terrain data. The
 `test_map` fixture marks one map half with bit 15 and checks that graphics IDs
 are masked on both halves while a Hydralisk Den is denied on both; the same
 result is checked after repeated terrain loading and save/load reconstruction.
 Reproduce with `make build/bin/tests/starcraft/test_map` and
+`env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_map`.
+
+### CV5 terrain placement flags (2026-11-13)
+
+**Confirmed in pinned OpenBW and checked-in Badlands assets; not retail-trace
+verified.** OpenBW `bwgame.h::load_tile_stuff` retains CV5 group's `+2` flag
+word, and MTXM loading merges its unmasked terrain flags into each tile
+(`bwgame.h` 20175–20195, 20393–20402). `game_types.h` assigns tile flag
+`0x40` to `flag_has_creep` and `0x80` to `flag_unbuildable`. In
+`can_place_building` (2347–2445), ordinary buildings reject `flag_unbuildable`
+and `flag_partially_walkable`; non-Zerg buildings also reject `flag_has_creep`.
+The separate Zerg creep-required branch instead requires `flag_has_creep` for
+each footprint tile. `load_tile_stuff` derives `flag_partially_walkable` from
+VF4 when a megatile has between 1 and 15 walkable minitiles out of 16
+(20138–20164). This is distinct from the MTXM bit-15 check in
+`tile_id::has_creep`, which is always false for its `uint16_t` input.
+
+Open-rts now uses CV5 `0x40` and live Hatchery/Colony creep for Zerg
+creep-required placement, and rejects both static and dynamic creep for
+non-Zerg buildings. Zerg race is tested as the race bit (`race & 1`), because
+the `units.dat` race field is a bit group and Hatchery/Lair/Hive have value 49.
+Ordinary placement rejects CV5 unbuildable `0x80` and partially walkable VF4
+megatiles. Refineries skip these terrain tests, matching OpenBW's early
+refinery branch; open-rts still checks its existing exact build-on resource and
+occupancy requirements. The `test_map` fixture uses Badlands CV5 group 1
+(`0x40`) and group 12 (`0x80`); their tested megatiles are fully walkable in
+VF4, so placement results isolate CV5 flags. It also checks a Hatchery on
+creep, a non-Zerg building on dynamic creep, a refinery over a geyser on an
+unbuildable CV5 group (all three race-specific refineries), and mutates a plain
+VF4 record to one walkable minitile to verify ordinary placement is rejected.
+It reloads the same map without `G_LoadLevelData` to verify dynamic creep still
+blocks non-Zerg placement when terrain metadata is absent.
+
+This is a terrain-rule subset, not full OpenBW placement parity: visibility and
+exploration checks and special non-flag-beacon handling are not modeled. The
+shared `P_BuildingCellClear` also rejects wholly unwalkable VF4 cells, including
+for creep-required Zerg buildings, while OpenBW's partial-walkability mask
+alone does not reject a fully unwalkable megatile. No retail executable trace
+establishes these rules. Reproduce with
+`make build/bin/tests/starcraft/test_map` and
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_map`.
 
 ### Terran building fire (2026-11-12)

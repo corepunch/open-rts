@@ -191,6 +191,62 @@ static int painted_creep(void) {
     puts("PASS: MTXM bit 15 is masked for graphics without granting Zerg creep placement");
     return 0;
 }
+static int cv5_buildability(void) {
+    enum { WIDTH=32, HEIGHT=32, CELLS=WIDTH*HEIGHT };
+    uint8_t *bytes=calloc(1,64+CELLS*2); CHECK(bytes);
+    uint8_t dimensions[4]={WIDTH,0,HEIGHT,0}, era[2]={0,0}, owners[12]={0};
+    uint16_t *tiles=calloc(CELLS,sizeof(*tiles)); CHECK(tiles);
+    for(int y=0;y<HEIGHT;y++)for(int x=0;x<WIDTH;x++)
+        tiles[y*WIDTH+x]=x<10?16:x<20?192:32; /* Badlands CV5 groups 1, 12, 2. */
+    size_t at=0;
+    at=append_chunk(bytes,at,"DIM ",dimensions,sizeof(dimensions));
+    at=append_chunk(bytes,at,"ERA ",era,sizeof(era));
+    at=append_chunk(bytes,at,"MTXM",tiles,CELLS*sizeof(*tiles));
+    at=append_chunk(bytes,at,"OWNR",owners,sizeof(owners));
+    free(tiles);
+    CHECK(load_fixture(bytes,at)); free(bytes);
+    CHECK(G_LoadLevelData(root,&level));
+    sc_mission_t *mission=level.mission;
+    CHECK(mission->terrain[2*WIDTH+2].cv5&SC_TERRAIN_CREEP);
+    CHECK(mission->terrain[2*WIDTH+12].cv5&SC_TERRAIN_UNBUILDABLE);
+    CHECK(P_CanPlaceBuilding(MT_HYDRALISK_DEN,(ivec2_t){2,2},NULL));
+    CHECK(!P_CanPlaceBuilding(MT_HYDRALISK_DEN,(ivec2_t){22,2},NULL));
+    CHECK(!P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){2,10},NULL));
+    CHECK(P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){2,10},NULL));
+    CHECK(P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){22,10},NULL));
+    CHECK(!P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){12,16},NULL));
+    CHECK(P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){22,16},NULL));
+
+    mobj_t *geyser=sc_spawn_actor(MT_VESPENE_GEYSER-1,(ivec2_t){15*32,18*32},11); CHECK(geyser);
+    irect_t vent=P_MobjCells(geyser);
+    const uint16_t refineries[]={MT_REFINERY,MT_EXTRACTOR,MT_ASSIMILATOR};
+    for(size_t i=0;i<sizeof(refineries)/sizeof(refineries[0]);i++)
+        CHECK(P_CanPlaceBuilding(refineries[i],(ivec2_t){vent.x,vent.y},NULL));
+    P_RemoveMobj(geyser);
+
+    mobj_t *hatchery=sc_spawn_actor(MT_HATCHERY-1,(ivec2_t){24*32,23*32},0); CHECK(hatchery);
+    CHECK(P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){27,26},NULL));
+    CHECK(!P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){27,26},NULL));
+    P_RemoveMobj(hatchery);
+
+    sc_terrain_t *partial=&mission->terrain[5*WIDTH+25];
+    uint16_t vf4[16]; memcpy(vf4,partial->vf4,sizeof(vf4));
+    memset(partial->vf4,0,sizeof(partial->vf4));
+    partial->vf4[0]=1; /* A walkable minitile makes this megatile partial. */
+    CHECK(!P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){25,5},NULL));
+    memcpy(partial->vf4,vf4,sizeof(vf4));
+    CHECK(P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){25,5},NULL));
+    P_FreeLevel(&level);
+
+    CHECK(G_DoLoadLevel(fixture,&level)); /* Deliberately do not load terrain assets. */
+    CHECK(!((sc_mission_t *)level.mission)->terrain);
+    hatchery=sc_spawn_actor(MT_HATCHERY-1,(ivec2_t){24*32,23*32},0); CHECK(hatchery);
+    CHECK(!P_CanPlaceBuilding(MT_SUPPLY_DEPOT,(ivec2_t){27,26},NULL));
+    CHECK(P_CanPlaceBuilding(MT_HATCHERY,(ivec2_t){27,26},NULL));
+    P_FreeLevel(&level);
+    puts("PASS: CV5 terrain flags, dynamic creep, refinery exceptions and partial VF4 constrain placement");
+    return 0;
+}
 static int malformed(void) {
     /* Chunks need not be ordered; unknown chunks are skipped. */
     uint8_t bytes[]={
@@ -224,6 +280,7 @@ int main(void) {
     CHECK(!native_map("terran/tutorial","platform",64,64,false));
     CHECK(!native_map("zerg/zerg03","ashworld",64,96,false));
     CHECK(!painted_creep());
+    CHECK(!cv5_buildability());
     CHECK(!malformed()); unlink(fixture);
     SDL_Quit(); return 0;
 }
