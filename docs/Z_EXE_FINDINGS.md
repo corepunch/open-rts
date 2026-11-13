@@ -3024,7 +3024,8 @@ first attack, ported before), then:
 
 `0x999e5`: `value * (100 - 100 * mobile / (mobile + reserve)) / 100`,
 with the mobile budget at `0x152f3c` and the rest at `0x152f34`
-(`0x9b775..0x9b79a`). A negative value is treated as zero in the port.
+(`0x9b775..0x9b79a`). Correction: the original multiplication is unsigned;
+negative dword values are not clamped to zero (see the later reserve-value trace).
 
 Lockout: a taken flag sets territory +0x16 to **510** (`0x79e69`); `0x9cb40`
 counts it down once a frame and `0x79e04` refuses a capture while it is above
@@ -5321,3 +5322,22 @@ threatened CPU land, then checks that a reserve reacts to the last one; the
 previous 84-entry bound fails the test. Inspect with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 30 @ 0x9dc25' -c 'pd 25 @ 0x9d115'
 -c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Unsigned reserve-value arithmetic:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x999e5..0x99a1f` computes the reserve percentage then uses unsigned `mul`
+and `div` on the territory value dword. For example, value -354 with a 50%
+reserve share yields 2147483471, not zero. `0x998f4..0x998f9` compares the
+result to 500 with signed `jl`, while `0x99171..0x9917b` and
+`0x9de72..0x9de77` use unsigned comparisons; `0x99958..0x9995b` tests
+the sign bit of the subtraction while holding a captured territory.
+Open-rts now represents the result as a uint32 dword and applies the
+respective signed/unsigned tests without signed overflow. The sufficient-force
+accumulator uses unsigned dword arithmetic as in `0x9a027..0x9a04a`.
+`test_arithmetic` covers negative and zero-share boundaries, while
+`test_negative_garrison_value` runs an actual contested territory and checks
+that a mobile garrison is retained when the native result is signed-positive.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 40 @ 0x999e5' -c 'pd 18 @ 0x998ed' -c 'pd 18 @ 0x99167'
+-c 'pd 18 @ 0x99952' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

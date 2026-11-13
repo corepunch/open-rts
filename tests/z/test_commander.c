@@ -87,6 +87,13 @@ static int test_arithmetic(void) {
         Z_AIMobileBudget(10000,0,4000,8000,40) != 6000 ||
         Z_AIMobileBudget(10000,0,9000,12000,50) != 1000)
         return fail("native reserve formula and home strength correction");
+    zai_t probe = {0};
+    probe.total = 100; probe.mobile = 50; probe.territories[0].value = -354;
+    if (Z_AIReserveValue(&probe, 0) != 2147483471u) return fail("unsigned negative reserve value");
+    probe.mobile = 0; probe.territories[0].value = -1;
+    if (Z_AIReserveValue(&probe, 0) != UINT32_MAX) return fail("unsigned reserve value maximum");
+    probe.mobile = 100;
+    if (Z_AIReserveValue(&probe, 0) != 0) return fail("zero reserve share");
     puts("PASS: z native integer ranking and reserve arithmetic");
     rts_game_model_destroy(model);
     return 0;
@@ -327,6 +334,46 @@ static int test_pending_assault_force(void) {
 }
 
 /* 0x991be assigns just the first group after checking sufficient strength. */
+/* 0x999e5 uses unsigned multiplication even for a negative territory value. */
+static int test_negative_garrison_value(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("negative garrison reserve load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.intelligence = 127; map->computer.allocation = 50;
+    map->computer.territory_weight = 10;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = 1; map->territories[t].importance = 0;
+    }
+    fixed3_t at = fixed3_from_fixed2(fixed2_cell_center(map->territories[4].flag), 0);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) mo->core.position = at;
+    }
+    mobj_t *reserve = P_SpawnMobj(at, MT_UNIT_HEAVY_TANK);
+    mobj_t *enemy = P_SpawnMobj(at, MT_UNIT_HEAVY_TANK);
+    if (!reserve || !enemy) return fail("negative garrison reserve spawn");
+    Z_SetTeam(reserve, 1); Z_SetTeam(enemy, 0);
+    reserve->z.driver = enemy->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    reserve->z.robot = enemy->z.robot = lead->z.robot;
+    reserve->traits &= ~MF_ATTACK; enemy->traits &= ~MF_ATTACK;
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->current != 4) return fail("negative garrison register");
+    task->task = 4; task->target = 4;
+    map->ai.delay = 0; map->ai.fraction = 0;
+    think(1);
+    uint32_t worth = Z_AIReserveValue(&map->ai, 4);
+    if (!(task->flags & 16) || map->ai.territories[4].value >= 0 || worth < 500 ||
+        (worth & 0x80000000u) || task->task != 4 || task->target != 4)
+        return fail("negative territory retains garrison when native signed result is positive");
+    rts_game_model_destroy(model);
+    puts("PASS: z garrison uses native unsigned reserve valuation");
+    return 0;
+}
+
 static int test_garrison_one_per_pass(void) {
     RtsGameModel *model = load();
     if (!model) return fail("garrison pass load");
@@ -2080,7 +2127,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
 }

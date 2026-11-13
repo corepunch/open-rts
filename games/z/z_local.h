@@ -220,7 +220,7 @@ int Z_AIEmptyValue(const mobj_t *unit);
 ivec2_t Z_AITopLeft(const mobj_t *unit);
 int Z_AITerritory(const zmap_t *map, fixed2_t at);
 void Z_AIFortFollowup(zmap_t *map, int territory);
-int Z_AIReserveValue(const zai_t *ai, int territory);
+uint32_t Z_AIReserveValue(const zai_t *ai, int territory);
 uint32_t Z_AIRank(int value, ivec2_t from, ivec2_t to, const uint8_t *roots);
 int Z_AIMobileBudget(int total, int imbalance, int home_human, int home_computer, int allocation);
 

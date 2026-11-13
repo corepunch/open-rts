@@ -376,11 +376,10 @@ static bool adjacent(const zmap_t *map, int a, int b) {
     return false;
 }
 /* 0x999e5: a territory's value scaled by the share of the army held back. */
-int Z_AIReserveValue(const zai_t *ai, int territory) {
+uint32_t Z_AIReserveValue(const zai_t *ai, int territory) {
     int total = ai->mobile + (ai->total - ai->mobile);
     int share = 100 - ai->mobile * 100 / (total ? total : 1);
-    int64_t value = ai->territories[territory].value;
-    return value > 0 ? (int)(value * share / 100) : 0;
+    return (uint32_t)((uint64_t)(uint32_t)ai->territories[territory].value * (uint32_t)share / 100);
 }
 /* 0x99976: garrisons in a territory; the loop also counts every gun. */
 static int guards(const zai_t *ai, int territory) {
@@ -441,8 +440,8 @@ static int idle_pool(zmap_t *map, int territory, pooled_t *pool) {
     return n;
 }
 /* 0x9a027: how many of the pool, in order, make up `need`; 0 if not enough. */
-static int enough(const pooled_t *pool, int n, int need) {
-    int sum = 0;
+static int enough(const pooled_t *pool, int n, uint32_t need) {
+    uint32_t sum = 0;
     for (int i = 0; i < n; ++i)
         if ((sum += pool[i].task->strength) >= need) return i + 1;
     return 0;
@@ -559,8 +558,9 @@ static void release_garrisons(zmap_t *map) {
     zai_t *ai = &map->ai;
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &ai->tasks[i];
-        if (offensive(task) && task->task == GARRISON &&
-            (!owned(ai, task->target) || Z_AIReserveValue(ai, task->target) < WORTH_HOLDING)) {
+        if (!offensive(task) || task->task != GARRISON) continue;
+        uint32_t worth = task->target >= 0 ? Z_AIReserveValue(ai, task->target) : 0;
+        if (!owned(ai, task->target) || worth < WORTH_HOLDING || (worth & 0x80000000u)) {
             task->task = IDLE;
             task->target = -1;
         }
@@ -570,13 +570,13 @@ static void release_garrisons(zmap_t *map) {
 /* 0x99910: after a capture, idle forces standing there hold it. */
 static void hold_captured(zmap_t *map, int territory) {
     zai_t *ai = &map->ai;
-    int left = Z_AIReserveValue(ai, territory);
-    if (ai->territories[territory].value < WORTH_HOLDING || !left || guards(ai, territory)) return;
+    uint32_t left = Z_AIReserveValue(ai, territory);
+    if ((uint32_t)ai->territories[territory].value < WORTH_HOLDING || !left || guards(ai, territory)) return;
     bool first = true;
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &ai->tasks[i];
         if (!offensive(task) || task->current != territory || task->task != IDLE) continue;
-        bool last = !first && left - task->strength < 0;
+        bool last = !first && ((left - (uint32_t)task->strength) & 0x80000000u);
         garrison(map, task, territory);
         left -= task->strength;
         first = false;
@@ -647,7 +647,7 @@ static void hold_territories(zmap_t *map) {
     zai_t *ai = &map->ai;
     for (int t = 0; t < map->territory_count; ++t) {
         if (!owned(ai, t) || (ai->territories[t].flags & 3)) continue;
-        int have = guards(ai, t), worth = Z_AIReserveValue(ai, t);
+        uint32_t have = (uint32_t)guards(ai, t), worth = Z_AIReserveValue(ai, t);
         if (worth < WORTH_HOLDING || have > worth) continue;
         pooled_t pool[Z_AI_TASKS];
         int n = enough(pool, idle_pool(map, t, pool), worth - have);
