@@ -52,6 +52,33 @@ building-attack task needs further work on coordinate-target firing.
   Consult [SC_EXE_FINDINGS.md](SC_EXE_FINDINGS.md) and
   [SC_PROJECTILE_VISUALS.md](SC_PROJECTILE_VISUALS.md) for evidence boundaries.
 
+### Third audit, 2026-11-13
+
+- Campaign actions 30/31 mute and unmute unit speech; PyMS identifies this as
+  a property of individual sound records, leaving trigger WAV separate. These
+  actions occur 121 and 119 times respectively in 35 installed campaign CHKs.
+  Set Doodad State occurs 69 times, targeting THG2 trap and door units. Its
+  frequently occurring raw state 0 is not explained by the inspected PyMS,
+  Stargus or OpenBW sources and must not be assigned a guessed meaning.
+- OpenBW constructs an incomplete building at the site, with distinct SCV,
+  Probe and Drone lifecycles. The current worker-held production timer creates
+  a completed building only at the end and charges before arrival. Construction
+  interruption, cancellation, damage, placement and saves need a joint design.
+- Mobile unload currently retries failed placement every tick; OpenBW ends the
+  order on failure. Placement bounds and unloaded-unit cooldowns also differ.
+  The older claim that no placement search exists is stale: the current code
+  searches, but its range and Bunker handling differ from the reference.
+- Z's task-6 coordinate path is traced further through map-effect, bridge and
+  group checks, but its handoff to weapon dispatch is still unknown. APC
+  scanner and coordinate firing modes require distinct attack provenance;
+  Pyro ground-fire BUILD/bridge interaction needs its scaling rule traced.
+
+The third batch implemented Pyro building/bridge scaling in `8f54232b`,
+unit-speech mute/unmute triggers in `1a9565c1`, and a subset of transport
+unload rules in `3f852201`. Transport reachability and the native unload
+timers remain open; see [SC_TRANSPORT_FINDINGS.md](SC_TRANSPORT_FINDINGS.md).
+The remaining Pyro map-effect and APC paths remain separate work.
+
 ### Z: commander, orders and object lifecycle
 
 | Status | Work item | Evidence and next check |
