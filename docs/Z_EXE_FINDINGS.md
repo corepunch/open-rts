@@ -5842,6 +5842,92 @@ choice `0x7545c` and action 0x31 (`0x75432`, aimed with `0x5a648`), and class 3
 classes use action ids 0x35..0x3c, untraced. Since task 6 is set "regardless of the
 result", adding the task without a working order would park the army, so task 6
 was not added; nothing in the commander changed.
+**Robot coordinate attack and CPU task 6, fully traced and implemented
+(2026-11-13, issue 97, SHA-256 `3635cb69...4676`).** *Receiver.* `0x7c817` ->
+`0x7cb27` stops the unit (`0x7bd72`), copies the point into `0x104138/0x10413c`,
+and accepts it only if the bridge rectangle (`0x29fd8`), the terrain class
+(`0x193f0`, table `0x1171d1` for robots) or a map effect (`0x4a03b`) holds it;
+`0x7cb85` then sums grenades over the group (`0x7a776`, byte +0x95 of the 21
+slots). Non-zero, or any class but 0/0x10, goes to `0x7c872`: a point within 32
+pixels is jittered, otherwise the 1.25 x range test (`0x7c906`, `al*4 + al` against
+unit +4) decides whether a path to the point is built (`0x74eb7`); `+0x5a` is
+negated (-5) and action 8 returned in EBX. Zero grenades and class 0/0x10 rewrite
+the order into command 1, mode +0x54 = 2, `+0x5a = 1`.
+
+*Action 8, point branch (`0x75046` -> `0x751d0`).* Leader (+0x5c negative)
+clears group +9 bit 0. A CPU unit (`+0x31 & 3 == 1`) whose point lies in a team-1
+BUILD (`0x281da`, `+8 & 3`) ends at `0x75423` (stop, `+0x5a = 0`). Then
+`0x29fd8`, `0x4a03b`, `0x193f0` store the class in `0x200e03`; class 0 with no
+effect ends at `0x75254` (`0x46d37` speech, stops, `0x7cdaf`, `0x79049`,
+`0x62e3c`). Range (`0x7527a`): `0x60bb2` squares the 16-pixel cell offsets
+(`sar 4`, **8-bit** `imul al`), fails above 0x400 (carry -> out of range), else
+returns SQROOT.BIN[sum]; the throw starts only when `4 * root < [+4]` (`jae`
+rejects), `+4` being twice `(range >> 3)`. Out of range the action runs the
+generic move step `0x75547` toward the destination (0x75090..0x750f4); a unit
+that did not move (`+0x60`, same position) is flagged `+0x5a = 5` (`0x75189`),
+and a path that ends short is not re-planned: the engine ends the order there.
+
+*Throw.* Class 0/0x10 (`0x75297`..`0x753bb`): a leader holding grenades
+(`+0x95 != 0`) enters action 0x31 itself (`0x75432`: frame 0, delay +0x3c = 3,
+facing `0x5a648`). Otherwise `0x7a776` == 0 stops the order (`0x75423`);
+non-zero calls the carrier choice `0x7545c`: the **first of the 21 slots**
+holding grenades whose action is 7 or 1, else (carry) `0x75411` (`+0x66 = 10`,
+`0x7bd72`, action 8 stays, so the leader polls again next step). A carrier
+receives `+0x50/+0x52/+0x54` and `+0x42/+0x44`, runs `0x75432`, and the leader
+stays in action 8. Because carrier actions leave 1/7, **every** standing holder
+is picked on consecutive steps, and each re-enters the pool after its throw.
+Action 0x31 (`0x6360e`): +0x3c counts 3 steps per frame; frame 3 loads
+`+0x78 = 2 * (100 - [+0x75])` and throws (`0x63639`: `0x84660`, direct point
+branch `0x63699`: aim = point, scatter `0x64250` with DI = `(128 - acc') / 2`,
+`acc' = acc + acc/4` capped at 127 unless +0x67 bit 0x80, muzzle pair
+`0x149174`, `0x5a205`; carry clear -> `dec +0x95`); frame 4 calls `0x79049`.
+**No `+0x78` test exists on this path**; the cooldown only gates later
+automatic fire. `0x79049` puts the unit in action 1; if `+0x5a == 0xfb` it
+reaches `0x790c9`, where group +0x3b == 0xff (always, for a point order) sets
+`+0x5a = 0`. So a leader that throws itself ends the order after exactly **one**
+grenade; a grenade-less leader keeps issuing carriers until the group sum is zero.
+Class 3 (Tough, `0x752bc`): action 0x13 (`0x60c2a`): wind-up from global
+`0x103ec7`, a launcher shell via `0x60c9d` -> `0x59ed1` (same scatter, no +12 on
+a point) at frame 1 when `+0x78 == 0`, reload `100 - [+0x75]`; the first cycle ends
+turning `+0x5a` from 0xfb into 5, the second shell fires after the reload, then the group
+scans (`0x78f61`) and, finding nothing, stops (`0x79049`): **two shells**, no
+grenade needed. The commander never reads a result (`0x9a9ae` ends `clc`).
+
+*Commander (`0x9a801`, run right after `0x9962c`).* Per task with `+0x15`, flags
+8 and 0x10, type 1 or 3, current == destination (`+0xc`), territory `+0x18 & 3`
+clear, owner 0 (`+8`), word +0xa non-zero; lead class 0/0x10 needs a non-zero
+group grenade sum (Pyro 0xf, Tough 3 and vehicle types 0x1e, 6, 0x1a, 0x19,
+0x1b, 0x18 do not). A non-CPU unit's top-left inside the flag +- 64 square
+(inclusive), then the **first** BUILD record (x >= 0, type >= 0, territory
+pointer +0x1e equal) **without any HP test**, so a destroyed one counts. The
+aim point is origin + descriptor +0x32/+0x33 (repair 31,28; tank 32,60; robot
+40,48; radar 23,9); the order is delayed like every command (`0x475d5`) and the
+task becomes 6. `0x99818` handles 6 like 0/1/2/3: a captured destination retires it;
+with current == destination and no other flag taker it sends the force to the
+flag (task 1), which `0x9a801` reissues next pass. Terrain under all 270
+shipped aim points is 31 or 32 (attackable, table value 1), also for a destroyed
+BUILD, whose terrain the engine does not change.
+
+*Implemented* (`games/z/p_point.c`, `p_capture.c` `Z_ThrowAtPoint`,
+`Z_ShellAtPoint`, `p_ai.c` `building_attacks`, `tests/z/test_point.c`): the
+order for Grunt, Sniper, Psycho, Laser and Tough leaders as traced above (squad
+leader only, followers stay in formation; per-step polling is the engine tic),
+the no-grenade rewrite with the inclusive squared stop test (`0x7bf85`), and
+task 6 with its filters. State is `z.point_mode/phase/shots/throw/point`
+and `zaitask_t.point`; all hashed; saved (layout **29**) and validated in
+`G_SavedObjectValid` / `G_LoadExtra`. *Approximations, stated:* any other order
+cancels it (`Z_SquadOrder`); a live attack target pauses it, where retail
+re-acquires at the end of `0x75547`; carrier "action 1 or 7" is "standing,
+no move order"; 0x4a03b (a point on a destructible map effect) is not accepted;
+the 1.25 x pre-test and the 32-pixel jitter are not modeled; a Pyro leader
+(`0x752ff`, flame action 0x41 or grenades by `0x11729a`) and every vehicle class
+are skipped by task 6, since their orders are not implemented (see below), which
+retail would send. 
+Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 150 @
+0x75046' -c 'pd 150 @ 0x751d0' -c 'pd 60 @ 0x60bb2' -c 'pd 60 @ 0x7545c' -c 'pd 50
+@ 0x6360e' -c 'pd 70 @ 0x60c2a' -c 'pd 70 @ 0x9a801' -c 'pd 40 @ 0x9a9ae' -c 'pd 40
+@ 0x79049' -c 'px 67 @ 0x1171d1' -c q data/Z/ZED.EXE`.
+
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 the heavy-pass call `0x99651` runs `0x99abd` for active mobile tasks even

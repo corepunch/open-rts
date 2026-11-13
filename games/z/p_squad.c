@@ -41,6 +41,7 @@ mobj_t *Z_SquadLeader(mobj_t *unit) {
 }
 
 void Z_SquadOrder(mobj_t *leader, bool active) {
+    if (leader) Z_PointCancel(leader); /* Any other order replaces a coordinate attack. */
     if (!leader || !leader->z.squad || leader->z.squad_slot != UINT8_MAX) return;
     leader->z.formation_active = active;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {

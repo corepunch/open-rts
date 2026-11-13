@@ -68,6 +68,8 @@ typedef struct {
     bool manufactured; /* CPU unit flag 0x10, set by 0x5103e. */ \
     bool just_left_cannon; /* Zod voluntary ejection suppresses automatic cannon entry. */ \
     int hold; \
+    uint8_t point_mode, point_phase, point_shots; bool point_throw; /* p_point.c coordinate attack. */ \
+    ivec2_t point; \
     bool zero_hp; /* Native hp is exactly zero: alive, and the next hit kills. */ \
 } z;
 #define MOBJ_GAME_CHECKSUM(HASH, mo) do { \
@@ -110,6 +112,8 @@ typedef struct {
     HASH((mo)->z.service); HASH((mo)->z.service_work); HASH((mo)->z.bridge); HASH((mo)->z.service_ticks); \
     HASH((mo)->z.body_speed); HASH((mo)->z.body_base_speed); HASH((mo)->z.body_fire); HASH((mo)->z.body_accuracy); HASH((mo)->z.body_tracked); \
     HASH((mo)->z.manufactured); HASH((mo)->z.zero_hp); \
+    HASH((mo)->z.point_mode); HASH((mo)->z.point_phase); HASH((mo)->z.point_shots); HASH((mo)->z.point_throw); \
+    HASH((mo)->z.point.x); HASH((mo)->z.point.y); \
     HASH((mo)->z.crew_count); \
     for (int z_i = 0; z_i < (mo)->z.crew_count && z_i < Z_CREW_MAX; ++z_i) { \
         HASH((mo)->z.crew[z_i].hp); HASH((mo)->z.crew[z_i].zero); HASH((mo)->z.crew[z_i].robot); HASH((mo)->z.crew[z_i].type); \

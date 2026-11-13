@@ -46,5 +46,5 @@ bool G_SavedObjectValid(const mobj_t *object) {
     if (flag > 1 || (flag && (Z_UnitType(object) < 0 || object->hp != 1))) return false;
     for (int i = 0; i < object->z.crew_count && i < Z_CREW_MAX; ++i)
         if (object->z.crew[i].zero > 1 || (object->z.crew[i].zero && object->z.crew[i].hp != 1)) return false;
-    return true;
+    return Z_PointPhaseValid(object);
 }
