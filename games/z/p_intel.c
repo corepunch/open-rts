@@ -85,7 +85,8 @@ int Z_AIUnitValue(const mobj_t *mo) {
     bool robot = Z_IsRobot(Z_UnitType(mo));
     int health = robot && mo->max_hp ? r[32] * mo->hp / mo->max_hp : r[32];
     int reach = (uint8_t)(read_u16_le(w + 2) >> 3);
-    int human[] = {r[28],r[29],(uint8_t)(reach * 2),r[31],health,r[29],r[36]};
+    int accuracy = mo->z.body_tracked ? mo->z.body_accuracy : r[29];
+    int human[] = {r[28],accuracy,(uint8_t)(reach * 2),r[31],health,r[29],r[36]};
     int arm[] = {reach * 8,0,0,w[32],w[34],w[35],0,0,0,0};
     if (!robot) {
         int body = mo->max_hp ? 25 * w[5] * mo->hp / mo->max_hp : 0;

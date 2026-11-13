@@ -5390,3 +5390,19 @@ the former reconstruction fails the test. The ejection policy itself is
 an engine/Zod choice, not a claim about native voluntary ejection. Inspect
 with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 20 @ 0x98a7a'
 -c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Damaged accuracy in strategic strength:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x983e0..0x9842a` weights the current unit bytes +0 and +2; the latter is
+accuracy, reduced at body-damage thresholds by `0x86df0..0x86df7`. The
+separate +0x3e input is read at `0x98475..0x9848c` and is not the same
+mutable byte. Open-rts now uses its already saved/hashed `body_accuracy`
+for the +2 contribution when body tracking is active, retaining the robot
+record for the separate +0x3e input. `test_damaged_accuracy_value` damages
+a driven Medium Tank across a real threshold, then changes only its tracked
+accuracy at fixed HP and checks both `Z_AIUnitValue` and the AI territory's
+strength; the old static-accuracy valuation fails. Other native experience,
+crew-stat and weapon mutations remain approximations as described above.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 32 @ 0x983e0' -c 'pd 14 @ 0x98475' -c 'pd 8 @ 0x86df0' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

@@ -234,6 +234,47 @@ static int test_scores(void) {
 
 /* 0x987ee counts every present BUILD record, including a wreck. */
 /* 0x98840 scores active slots by native object descriptor. */
+/* 0x983e0 values mutable unit +2 after a body-damage threshold. */
+static int test_damaged_accuracy_value(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("damaged accuracy value load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (Z_UnitType(mo) >= 0 && mo->team < Z_NEUTRAL) mo->hp = 0;
+    }
+    mobj_t *tank = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center((ivec2_t){25,25}), 0), MT_UNIT_MED_TANK);
+    if (!tank) return fail("damaged accuracy value tank");
+    Z_SetTeam(tank, 1);
+    tank->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    tank->z.crew_count = 1;
+    tank->z.robot = lead->z.robot;
+    tank->traits &= ~MF_ATTACK;
+    map->territory_count = 1; map->fort_count = 0;
+    map->territories[0].min = (ivec2_t){0,0};
+    map->territories[0].max = (ivec2_t){level.width,level.height};
+    map->territories[0].team = 1; map->territories[0].importance = 0;
+    map->computer.intelligence = 127;
+    P_DamageMobj(tank, NULL, tank->max_hp / 4);
+    if (!tank->z.body_tracked || tank->z.body_accuracy >= Z_UnitAccuracy(tank->z.driver - 1))
+        return fail("damage crosses native accuracy threshold");
+    think(0); think(1);
+    int damaged_value = Z_AIUnitValue(tank);
+    int damaged_strength = map->ai.territories[0].strength[1];
+    uint8_t damaged_accuracy = tank->z.body_accuracy;
+    tank->z.body_accuracy = (uint8_t)Z_UnitAccuracy(tank->z.driver - 1);
+    think(1);
+    int restored_value = Z_AIUnitValue(tank);
+    if (restored_value <= damaged_value || damaged_strength != damaged_value ||
+        map->ai.territories[0].strength[1] != restored_value)
+        return fail("mutable accuracy affects AI force estimate at unchanged body HP");
+    tank->z.body_accuracy = damaged_accuracy;
+    rts_game_model_destroy(model);
+    puts("PASS: z body damage accuracy affects strategic force value");
+    return 0;
+}
+
 static int test_empty_object_value_slots(void) {
     RtsGameModel *model = load();
     if (!model) return fail("empty object value load");
@@ -2240,7 +2281,7 @@ static int test_building_alert(void) {
 }
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
-           test_initial_and_save() || test_scores() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
+           test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
