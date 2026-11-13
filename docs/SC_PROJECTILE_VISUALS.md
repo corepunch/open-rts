@@ -135,9 +135,15 @@ Statuses: "yes" is handled as OpenBW does for the visual; "partial" feeds only
 the death, bullet or trail effect chain; "ignored" has no visual effect in the
 compiled states; "mis-handled" compiles to something other than the opcode's
 meaning (`playframtile` omits the tileset offset; `waitrand` waits its minimum).
-The compiler's `op == 42` branch ends a worker's swing, but 42 is
-`gotorepeatattk` (its comment says `engframe`, 43): left as it was, because
-changing it moves worker swing visuals and no trace says which was intended.
+The compiler's `op == 42` branch ends a worker's swing at `gotorepeatattk` (42;
+`engframe` is 43). The branch was right and its comment wrong: the SCV, Drone
+and Probe attack scripts (`GndAttkInit`, `GndAttkRpt`) end the blow with
+`gotorepeatattk` (OpenBW clears movement flag 8 there) and then `ignorerest`,
+which ends the compiled path anyway, and none of them uses `engframe`. The
+comment is fixed and `worker_swings` in `test_iscript` pins it: the opcode
+names, the call on which the real script reaches opcode 42 (SCV 3, Drone 1,
+Probe 1 waits) and the compiled harvest chain having exactly that many states
+before it returns to idle.
 
 ## Runtime (`games/starcraft/p_iscript.c`)
 
