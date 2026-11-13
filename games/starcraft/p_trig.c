@@ -570,6 +570,7 @@ static bool conditions_ok(sc_mission_t *m, const uint8_t *trig, int current) {
         if (!c[15]) break;
         any = true;
         if (c[17] & 2) continue;
+        sc_trigger_note(m, false, c[15]);
         if (!condition_ok(m, c, current)) return false;
     }
     return any;
@@ -1104,6 +1105,50 @@ static bool player_waiting(const sc_mission_t *m, int owner) {
     return false;
 }
 
+/* Leaderboard actions 17-21, 32-37 and 40 (PyMS TRG.py parameter lists: a
+ * string at +4, a location at +0, a quantity at +20 and a unit, resource or
+ * score type in the unit field at +24). Each replaces the active
+ * leaderboard. Each player's value is the quantity the matching condition
+ * measures (Command, Bring, Accumulate, Kill and Score); the retail display
+ * and any goal or Greed outcome are not evidenced and not applied. */
+static void leaderboard_refresh(sc_mission_t *m) {
+    sc_leaderboard_t *lb = &m->leaderboard;
+    if (!lb->kind) return;
+    for (int p = 0; p < 8; p++) {
+        int64_t value = 0;
+        if (slot_active(m, p)) switch (lb->kind) {
+        case SC_LB_CONTROL: value = count_units(&p, 1, lb->unit, 0, m, -1, true, true); break;
+        case SC_LB_CONTROL_AT: value = count_units(&p, 1, lb->unit, lb->location, m, 1, true, false); break;
+        case SC_LB_RESOURCES: value = lb->selector <= 2 ? (int64_t)player_resource_total(p, lb->selector) : 0; break;
+        case SC_LB_KILLS: value = (int64_t)player_kills(m, p, lb->unit); break;
+        case SC_LB_POINTS: value = player_score(m, p, lb->selector); break;
+        default: break; /* Greed: the goal is stored; no value is evidenced. */
+        }
+        lb->value[p] = value;
+    }
+}
+
+static bool leaderboard_action(sc_mission_t *m, const uint8_t *a, unsigned id) {
+    static const uint8_t kind[SC_TRIG_ACTION_TYPES] = {
+        [17] = SC_LB_CONTROL, [18] = SC_LB_CONTROL_AT, [19] = SC_LB_RESOURCES,
+        [20] = SC_LB_KILLS, [21] = SC_LB_POINTS, [33] = SC_LB_CONTROL,
+        [34] = SC_LB_CONTROL_AT, [35] = SC_LB_RESOURCES, [36] = SC_LB_KILLS,
+        [37] = SC_LB_POINTS, [40] = SC_LB_GREED,
+    };
+    if (id >= SC_TRIG_ACTION_TYPES || !kind[id]) return false;
+    sc_leaderboard_t *lb = &m->leaderboard;
+    *lb = (sc_leaderboard_t){.kind = kind[id], .goal = id >= 33,
+        .title = id == 40 ? 0 : read_u32_le(a + 4), .unit = read_u16_le(a + 24),
+        .location = kind[id] == SC_LB_CONTROL_AT ? read_u32_le(a) : 0,
+        .quantity = id >= 33 ? read_u32_le(a + 20) : 0};
+    if (lb->kind == SC_LB_RESOURCES || lb->kind == SC_LB_POINTS) {
+        lb->selector = lb->unit > 255 ? 255 : (uint8_t)lb->unit;
+        lb->unit = 0;
+    }
+    leaderboard_refresh(m);
+    return true;
+}
+
 static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hudtext_t *hud, uint8_t pending[8]) {
     while (st->cursor < 64) {
         const uint8_t *a = trig + 320 + st->cursor * 32;
@@ -1111,6 +1156,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         if (!id) { finish_trigger(st); return; }
         st->cursor++;
         if (a[28] & 2) continue;
+        sc_trigger_note(m, true, id);
         unsigned player = read_u32_le(a + 16), number = read_u32_le(a + 20);
         unsigned loc = read_u32_le(a), unit = read_u16_le(a + 24), time = read_u32_le(a + 12);
         int players[8], n = collect_players(m, player, st->current, players);
@@ -1176,6 +1222,12 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 15 || id == 16) {
+            if (st->current >= 0 && st->current < 8) {
+                sc_ai_script_t *script = &m->ai_script[st->current];
+                script->id = number;
+                script->location = id == 16 ? loc : 0;
+                script->runs++;
+            }
             /* OpenBW +Vi and PyMS -Vi scripts change shared vision. */
             if (id == 15 && ((number & 0x00ffffffu) == 0x0069562bu ||
                              (number & 0x00ffffffu) == 0x0069562du) &&
@@ -1187,9 +1239,22 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 P_UpdateSight();
                 continue;
             }
+            sc_ai_script_fallback(m, number);
             if (st->current >= 0 && st->current < 8) m->ai_on[st->current] = true;
             continue;
         }
+        if (id == 29) {
+            m->portrait_unit = (uint16_t)unit;
+            m->portrait_ms = time > INT_MAX ? INT_MAX : (int)time;
+            continue;
+        }
+        if (id == 32) {
+            if (a[27] == 4) m->leaderboard_computers = true;
+            else if (a[27] == 5) m->leaderboard_computers = false;
+            else if (a[27] == 6) m->leaderboard_computers = !m->leaderboard_computers;
+            continue;
+        }
+        if (leaderboard_action(m, a, id)) continue;
         if (id == 26) {
             int resource_players[8], resource_count = collect_variable_players(m, player, st->current, resource_players);
             for (int i = 0; i < resource_count; i++)
@@ -1388,6 +1453,10 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
     }
     int ms = dt_ms < 1 ? 1 : dt_ms;
     m->elapsed_ms += ms;
+    if (m->portrait_ms > 0) {
+        m->portrait_ms -= ms;
+        if (m->portrait_ms <= 0) { m->portrait_ms = 0; m->portrait_unit = 0; }
+    }
     /* Score: a rise in stock is income, a fall is spending. */
     for (int p = 0; p < 8; p++) for (int r = 0; r < 2; r++) {
         int now = map->player_resources[p][r], delta = now - m->stock[p][r];
@@ -1449,6 +1518,7 @@ void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms) {
             if (p == consoleplayer)
                 G_EndLevel(pending[p] == 1 ? OUTCOME_VICTORY : pending[p] == 2 ? OUTCOME_DEFEAT : OUTCOME_DRAW);
         }
+        leaderboard_refresh(m);
     }
 }
 
@@ -1525,6 +1595,21 @@ bool sc_mission_bind(level_t *map) {
         map->sight.allies[a] = vision;
     }
     m->rng = 1;
+    return true;
+}
+
+/* The active leaderboard, or NULL. Values are per player slot. */
+const sc_leaderboard_t *sc_leaderboard(void) {
+    sc_mission_t *m = mission(&level);
+    return m && m->leaderboard.kind ? &m->leaderboard : NULL;
+}
+
+/* The Talking Portrait unit and the milliseconds it has left. */
+bool sc_talking_portrait(uint16_t *unit, int *ms) {
+    sc_mission_t *m = mission(&level);
+    if (!m || m->portrait_ms <= 0) return false;
+    if (unit) *unit = m->portrait_unit;
+    if (ms) *ms = m->portrait_ms;
     return true;
 }
 
