@@ -249,9 +249,38 @@ placed structures as mobjs, so broader native completion counting remains
 incomplete, as does handling of powerups. OpenBW also counts stored Carrier
 Interceptors and ready Nuclear Silo missiles in completed Bring counts;
 both now use the owning hangar's location and height, with all three
-comparison types tested. OpenBW's corresponding Reaver branch credits its
-inside count to the Reaver type rather than Scarab; that behavior remains
-unverified and is not reproduced.
+comparison types tested. Its completed Reaver branch credits its inside count
+to the Reaver type rather than Scarab; the local Bring counter now preserves
+that source-specific behavior, while a Scarab selector does not count those
+stored Reaver contents. The nested hangar contents are added only to specific
+unit-type counters: they do not increment the completed Men or Any Unit
+counters, which reflect the Carrier/Reaver itself.
+Global Command reads the persistent unit counters instead of spatially
+searching, and its fighter production creates real unit records before hiding
+them inside the Carrier/Reaver. Those completed hidden fighters therefore
+count in Command as well. Because this engine stores docked fighters only as a
+hangar count, Command now adds it only for the matching fighter and the
+fighter's DAT group flags. Scarabs have only the Protoss group flag, so they
+count for the specific Scarab selector but not Men or Any Unit; Interceptors
+carry the Men flag. A ready Silo missile is also a hidden unit in global
+Command counters, including At Most. When fighter training starts, OpenBW
+creates one hidden, incomplete unit immediately; Command At Most counts that
+active product, but not later queued products. The local check reads only the
+active production item plus stored hangar contents. Bring retains its separate
+completed-only rules above. `test_mission` checks stored Interceptors and
+Scarabs across all comparisons, Scarab Any Unit, Carrier+Interceptor Bring
+Any/Men, the Reaver-specific Bring credit, a ready missile, and an active
+fighter production with a queued tail. Starting Nuclear Strike consumes the
+Silo's stored missile locally and records `SC_ORDER_NUKE` on the Ghost; the
+Command counter now counts that order as one virtual missile until the channel
+resolves, avoiding a gap after Silo consumption. The local model still resolves
+the strike immediately at the end of the paint order instead of creating and
+tracking OpenBW's missile projectile during flight.
+One OpenBW quirk remains unmatched: Command At Most's specific-unit branch
+reads `unit_counts[owner]` rather than the selected-player counter, while its
+group branch loops selected players. The local model counts the selected owner
+for both; multi-player Command At Most behavior is therefore not full OpenBW
+parity.
 
 OpenBW classifies Gantrithor and Warbringer as Carrier and Reaver variants,
 allows them to build and launch Interceptors and Scarabs, and fixes their

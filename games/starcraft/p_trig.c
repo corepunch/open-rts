@@ -250,6 +250,43 @@ static bool count_kind_ok(const mobj_t *mo, unsigned id, bool completed) {
            (mo->type_id == MT_EGG || mo->type_id == MT_COCOON));
 }
 
+static bool trigger_count_type(unsigned type, unsigned selector, bool groups) {
+    if (!type || type > SC_TYPES) return false;
+    if (selector == type - 1) return true;
+    if (!groups) return false;
+    unsigned flags = sc_units[type - 1].race; /* units.dat Staredit group flags */
+    if (selector == 229) return (flags & (8 | 16)) != 0;
+    if (selector == 230) return (flags & 8) != 0;
+    if (selector == 231) return (flags & 16) != 0;
+    if (selector == 232) return (flags & 32) != 0;
+    return false;
+}
+
+static int command_hangar_count(const mobj_t *mo, unsigned selector, bool completed) {
+    unsigned child = sc_hangar_type(mo->type_id);
+    if (!child || !trigger_count_type(child, selector, true)) return 0;
+    int count = mo->sc.hangar;
+    const production_t *production = mo->production;
+    if (!completed && production && production->queue_count > 0 &&
+        production->product_class == RTS_PRODUCT_UNIT && production->product_type == (int)child)
+        count++;
+    return count;
+}
+
+static int command_nuke_order_count(const mobj_t *mo, unsigned selector) {
+    if (mo->sc.order.kind != SC_ORDER_NUKE || mo->sc.order.tech != SC_TECH_NUCLEAR_STRIKE ||
+        !trigger_count_type(MT_NUCLEAR_MISSILE, selector, true)) return 0;
+    return 1;
+}
+
+static int bring_hangar_count(const mobj_t *mo, unsigned selector) {
+    unsigned child = sc_hangar_type(mo->type_id);
+    if (!child || !mo->sc.hangar) return 0;
+    /* OpenBW's completed Reaver counter credits its stored Scarabs as Reavers. */
+    if (child == MT_SCARAB) child = MT_REAVER;
+    return selector == child - 1 ? mo->sc.hangar : 0;
+}
+
 static bool alive_unit(const mobj_t *mo) {
     return mo->hp > 0 && !mo->remove && !(mo->sc.flags & SC_HALLUCINATION);
 }
@@ -300,7 +337,7 @@ static bool trigger_completed(const mobj_t *mo) {
 }
 
 static int count_units(const int *players, int nplayers, unsigned unit, unsigned loc,
-                       const sc_mission_t *m, int cargo, bool completed) {
+                       const sc_mission_t *m, int cargo, bool completed, bool command) {
     int l, t, r, b;
     bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
     if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) return 0;
@@ -312,9 +349,10 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
             !sc_unit(mo) ||
             (cargo < 0 && (mo->sc.flags & SC_HALLUCINATION)) ||
             (completed && !trigger_completed(mo))) continue;
-        bool virtual_hangar = cargo > 0 && mo->sc.hangar > 0 &&
-            ((sc_hangar_type(mo->type_id) == MT_INTERCEPTOR && unit == MT_INTERCEPTOR - 1) ||
-             (mo->type_id == MT_NUCLEAR_SILO && unit == MT_NUCLEAR_MISSILE - 1));
+        int hangar_count = command ? command_hangar_count(mo, unit, completed) :
+                           cargo > 0 ? bring_hangar_count(mo, unit) : 0;
+        if (command) hangar_count += command_nuke_order_count(mo, unit);
+        bool virtual_hangar = hangar_count > 0;
         if (!count_kind_ok(mo, unit, completed) && !virtual_hangar) continue;
         const mobj_t *position = mo;
         if (cargo >= 0 && (mo->sc.flags & SC_LOADED)) {
@@ -326,7 +364,7 @@ static int count_units(const int *players, int nplayers, unsigned unit, unsigned
         for (int i = 0; i < nplayers; i++) if (players[i] == mo->owner) mine = true;
         if (!mine || !location_height_ok(m, position, loc) || (!anywhere && !inside(position, l, t, r, b))) continue;
         if (count_kind_ok(mo, unit, completed)) n++;
-        if (virtual_hangar) n += mo->sc.hangar;
+        n += hangar_count;
     }
     return n;
 }
@@ -411,7 +449,8 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     }
     if (type == 2 || type == 3) {
         unsigned where = type == 3 ? loc : 0;
-        return cmp_num(op, count_units(players, n, unit, where, m, type == 3 ? op != 1 : -1, op != 1), qty);
+        return cmp_num(op, count_units(players, n, unit, where, m,
+                                       type == 3 ? op != 1 : -1, op != 1, type == 2), qty);
     }
     if (type == 4) {
         uint64_t total = 0;
@@ -475,14 +514,14 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
         players[0] = current;
         n = 1;
         unsigned where = (type == 7 || type == 17) ? loc : 0;
-        int mine = count_units(players, n, unit, where, m, -1, false), others = 0;
+        int mine = count_units(players, n, unit, where, m, -1, false, false), others = 0;
         bool most = type == 6 || type == 7;
         for (int p = 0; p < 8; p++) {
             bool in = false;
             for (int i = 0; i < n; i++) if (players[i] == p) in = true;
             if (in || !slot_active(m, p)) continue;
             int one = p;
-            int count = count_units(&one, 1, unit, where, m, -1, false);
+            int count = count_units(&one, 1, unit, where, m, -1, false, false);
             others++;
             if (most ? count >= mine : count <= mine) return false;
         }

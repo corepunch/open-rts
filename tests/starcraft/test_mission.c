@@ -2849,6 +2849,136 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(level.player_resources[0][0] == 10);
     free(trig); unload(); remove("/tmp/open-rts-sc-any-unit-count.chk");
+    /* Global Command counts fighters and ready nukes stored in their hangars. */
+    const int command_hangar_makers[] = {MT_CARRIER, MT_REAVER, MT_NUCLEAR_SILO};
+    const int command_hangar_children[] = {MT_INTERCEPTOR, MT_SCARAB, MT_NUCLEAR_MISSILE};
+    const int command_hangar_counts[] = {2, 2, 1};
+    for (int maker = 0; maker < 3; maker++) for (int i = 0; i < 3; i++) {
+        uint32_t expected_count = (uint32_t)command_hangar_counts[maker];
+        uint32_t quantity = i == 1 ? expected_count - 1 : expected_count;
+        bool qualifies = i != 1;
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig + 4, 17); put_u32(trig + 8, quantity);
+        put_u16(trig + 12, command_hangar_children[maker] - 1);
+        trig[14] = i == 0 ? 0 : i == 1 ? 1 : 10; trig[15] = 2; action = trig + 320;
+        put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-command-hangar.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-command-hangar.chk", &level));
+        mobj_t *maker_unit = sc_spawn_actor(command_hangar_makers[maker] - 1, (ivec2_t){128, 128}, 0);
+        CHECK(maker_unit); maker_unit->sc.hangar = command_hangar_counts[maker];
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (qualifies ? 10 : 0));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-command-hangar.chk");
+    /* A painted nuke remains a Command missile until the local strike resolves. */
+    trig = calloc(1, 4800); CHECK(trig);
+    for (int i = 0; i < 2; i++) {
+        uint8_t *condition = trig + i * 2400;
+        uint8_t *nuke_action = condition + 320;
+        put_u32(condition + 4, 17); put_u32(condition + 8, i ? 0 : 1);
+        put_u16(condition + 12, MT_NUCLEAR_MISSILE - 1);
+        condition[14] = i ? 10 : 0; condition[15] = 2;
+        put_u32(nuke_action + 20, i ? 20 : 10); nuke_action[24] = 0;
+        nuke_action[26] = 26; nuke_action[27] = 7;
+        condition[2372 + 17] = 1;
+    }
+    CHECK(!write_map_sized("/tmp/open-rts-sc-command-painted-nuke.chk", any_unit_owners, trig, 4800));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-command-painted-nuke.chk", &level));
+    mobj_t *painted_silo = sc_spawn_actor(MT_NUCLEAR_SILO - 1, (ivec2_t){640, 640}, 0);
+    mobj_t *painting_ghost = sc_spawn_actor(MT_GHOST - 1, (ivec2_t){128, 128}, 0);
+    CHECK(painted_silo && painting_ghost); painted_silo->sc.hangar = 1;
+    painting_ghost->sc.energy = 200 * 256; painting_ghost->sc.flags |= SC_INVINCIBLE;
+    level.upgrades[SC_UPGRADES + SC_TECH_NUCLEAR_STRIKE][0].weapon = 1;
+    CHECK(sc_cast(painting_ghost, SC_TECH_NUCLEAR_STRIKE, NULL,
+                  fixed3_xy(painting_ghost->core.position)));
+    CHECK(painted_silo->sc.hangar == 0 && painting_ghost->sc.order.kind == SC_ORDER_NUKE);
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 10);
+    sc_spell_ticker(painting_ghost, 14 * 24);
+    CHECK(painting_ghost->sc.order.kind == SC_ORDER_NONE);
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 20);
+    free(trig); unload(); remove("/tmp/open-rts-sc-command-painted-nuke.chk");
+    /* Any Unit includes the Carrier and both of its stored Interceptors. */
+    trig = blank_trigger(); CHECK(trig);
+    put_u32(trig + 4, 17); put_u32(trig + 8, 3); put_u16(trig + 12, 229);
+    trig[14] = 10; trig[15] = 2; action = trig + 320;
+    put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+    CHECK(!write_map("/tmp/open-rts-sc-command-hangar.chk", any_unit_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-command-hangar.chk", &level));
+    mobj_t *command_carrier = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){128, 128}, 0);
+    CHECK(command_carrier); command_carrier->sc.hangar = 2;
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 10);
+    free(trig); unload(); remove("/tmp/open-rts-sc-command-hangar.chk");
+    /* Command Any Unit follows Scarab's units.dat group flags (Protoss only). */
+    trig = blank_trigger(); CHECK(trig);
+    put_u32(trig + 4, 17); put_u32(trig + 8, 1); put_u16(trig + 12, 229);
+    trig[14] = 10; trig[15] = 2; action = trig + 320;
+    put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+    CHECK(!write_map("/tmp/open-rts-sc-command-scarab.chk", any_unit_owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-command-scarab.chk", &level));
+    mobj_t *reaver = sc_spawn_actor(MT_REAVER - 1, (ivec2_t){128, 128}, 0);
+    CHECK(reaver && sc_units[MT_SCARAB - 1].race == 4); reaver->sc.hangar = 2;
+    ticks(1, &(hudtext_t){0});
+    CHECK(level.player_resources[0][0] == 10);
+    free(trig); unload(); remove("/tmp/open-rts-sc-command-scarab.chk");
+    /* Command At Most sees one active fighter build, not its queued tail. */
+    const uint32_t active_order_limits[] = {0, 1};
+    const bool active_order_expected[] = {false, true};
+    for (int i = 0; i < 2; i++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig + 4, 17); put_u32(trig + 8, active_order_limits[i]);
+        put_u16(trig + 12, MT_INTERCEPTOR - 1); trig[14] = 1; trig[15] = 2; action = trig + 320;
+        put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-active-fighter.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-active-fighter.chk", &level));
+        mobj_t *building_carrier = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){128, 128}, 0);
+        const StaticProductDefinition *interceptor_product = G_ModelProductByUIId(NULL, MT_INTERCEPTOR);
+        CHECK(building_carrier && interceptor_product);
+        level.player_resources[0][0] = 1000;
+        CHECK(G_QueueProduct(building_carrier, interceptor_product));
+        CHECK(G_QueueProduct(building_carrier, interceptor_product));
+        CHECK(building_carrier->production && building_carrier->production->queue_count == 2);
+        int resources = level.player_resources[0][0];
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (active_order_expected[i] ? 10 : resources));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-active-fighter.chk");
+    /* Bring completed group counters count the Carrier only, not its fighters. */
+    const uint16_t bring_group_selectors[] = {229, 230};
+    for (int i = 0; i < 2; i++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig + 4, 17); put_u32(trig + 8, 1);
+        put_u16(trig + 12, bring_group_selectors[i]); trig[14] = 10; trig[15] = 3;
+        action = trig + 320; put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-bring-hangar-group.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-hangar-group.chk", &level));
+        mobj_t *bring_carrier = sc_spawn_actor(MT_CARRIER - 1, (ivec2_t){128, 128}, 0);
+        CHECK(bring_carrier); bring_carrier->sc.hangar = 2;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == 10);
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-bring-hangar-group.chk");
+    /* OpenBW's completed Reaver branch credits stored Scarabs as Reavers. */
+    for (int kind = 0; kind < 2; kind++) {
+        trig = blank_trigger(); CHECK(trig);
+        put_u32(trig + 4, 17); put_u32(trig + 8, kind ? 1 : 3);
+        put_u16(trig + 12, (kind ? MT_SCARAB : MT_REAVER) - 1);
+        trig[14] = 10; trig[15] = 3; action = trig + 320;
+        put_u32(action + 20, 10); action[24] = 0; action[26] = 26; action[27] = 7;
+        CHECK(!write_map("/tmp/open-rts-sc-bring-reaver-hangar.chk", any_unit_owners, trig));
+        CHECK(G_DoLoadLevel("/tmp/open-rts-sc-bring-reaver-hangar.chk", &level));
+        mobj_t *bring_reaver = sc_spawn_actor(MT_REAVER - 1, (ivec2_t){128, 128}, 0);
+        CHECK(bring_reaver); bring_reaver->sc.hangar = 2;
+        ticks(1, &(hudtext_t){0});
+        CHECK(level.player_resources[0][0] == (kind ? 0 : 10));
+        free(trig); unload();
+    }
+    remove("/tmp/open-rts-sc-bring-reaver-hangar.chk");
     /* Eggs count toward incomplete Any Unit totals, but not completed totals. */
     const int any_egg_ops[] = {0, 1, 1, 10};
     const int any_egg_quantities[] = {1, 1, 0, 1};

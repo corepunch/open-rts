@@ -2660,6 +2660,26 @@ is recorded in `docs/DR_EXE_FINDINGS.md`; KKnD reference scope in
   passes the one-based CHK location to `trigger_bring_count`; location 64 uses
   its MRGN Anywhere record. Regression coverage is documented in
   `docs/SC_EXE_FINDINGS.md`.
+- StarCraft Command hangar counts: pinned OpenBW `bwgame.h::trigger_command_count`
+  (17967–17985) reads persistent completed and all-unit counters. Fighter
+  production creates hidden Interceptor/Scarab unit records (7952–7990), and
+  `initialize_unit` adds them to those counters (15533–15535). At Most's
+  specific-unit branch reads `unit_counts[owner]` at 17981 rather than the
+  selected player counter; this remains an explicitly documented local
+  difference. Bring uses a separate path: its completed builder adds Carrier
+  Interceptors and credits Reaver Scarabs to the Reaver unit type, without
+  adding nested fighters to Men/Any Unit group counts (18014–18033). The local
+  integer hangar is virtualized with those separate rules. DAT group masks are
+  in units.dat's Staredit group flags; Scarab row 85 has only the Protoss bit,
+  while the Interceptor row 73 has the Men bit. See `docs/SC_FORMATS.md`.
+- StarCraft Nuclear Strike Command counts: pinned OpenBW
+  `bwgame.h::order_CastNuclearStrike` (5849–5855) consumes the Silo's ready
+  missile and transfers the existing missile unit into its launch order, so it
+  remains present in unit counters until that unit is destroyed. This runtime
+  has no projectile entity during the Ghost's paint order; it counts an active
+  `SC_ORDER_NUKE` as one virtual missile, then resolves the strike immediately
+  when painting ends. `test_mission` checks Command count before and after that
+  transition. The projectile flight phase remains unmodeled.
 - StarCraft Move Unit action 39: checked-in PyMS `FileFormats/TRG.py` identifies
   source and destination Location fields. The MRGN-backed location64 behavior
   is implemented as a documented format inference because pinned OpenBW does
