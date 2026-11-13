@@ -738,6 +738,93 @@ static int test_unreachable_service_return(void) {
     return 0;
 }
 
+static int test_unreachable_crane_assignment(void) {
+    RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+    if (!model) return fail("load crane reservation fixture");
+    service_fixture();
+    mobj_t *building = nth(MT_REPAIR, -1, 0);
+    if (!building) return fail("crane reservation building");
+    Z_SetTeam(building, 1);
+    building->hp = 0;
+    zmap_t *map = level.native_data;
+    mobj_t *crane = service_unit(MT_UNIT_CRANE, fixed2_cell_center(map->territories[4].flag));
+    if (!crane) return fail("spawn crane reservation fixture");
+    ivec2_t cell = fixed2_cell(fixed3_xy(crane->core.position));
+    for (int y = -3; y <= 3; ++y)
+        for (int x = -3; x <= 3; ++x)
+            if ((x || y) && L_Contains(&level, cell.x + x, cell.y + y))
+                level.blocked[L_Index(&level, cell.x + x, cell.y + y)] = 1;
+    P_NavFree(&level);
+    fixed2_t goal;
+    if (Z_ServiceApproach(crane, building, &goal)) return fail("crane fixture has no reachable approach");
+    mobj_t *other = service_unit(MT_UNIT_CRANE, fixed3_xy(building->core.position));
+    if (!other || !Z_ServiceApproach(other, building, &goal)) return fail("second crane can reach building");
+    think(0);
+    zaitask_t *task = task_of(crane);
+    zaitask_t *other_task = task_of(other);
+    if (!task || !other_task) return fail("register crane reservation tasks");
+    task->pending = true;
+    task->enemy = other->id;
+    task->execute_at = map->ai.clock + 10000;
+    map->ai.delay = 0;
+    think(1);
+    if (task->task != 9 || task->service != building->id || task->pending || task->enemy || crane->z.service ||
+        other_task->service == building->id)
+        return fail("unreachable building remains assigned to crane");
+    uint32_t crane_id = crane->id, building_id = building->id;
+    app_t app = {0}; hudtext_t hud = {0}; void *save = NULL; size_t size = 0;
+    uint32_t hash = G_ConsistencyExtra(0);
+    if (!G_SaveGameBlob(&save, &size, "Crane assignment", &app, rts_game_model_ai(model), &hud) ||
+        !G_LoadGameBlob(save, size, &app, rts_game_model_ai(model), &hud))
+        return fail("save and load unreachable crane assignment");
+    free(save);
+    crane = P_MobjById(crane_id);
+    building = Z_ServiceTarget(building_id);
+    map = level.native_data;
+    task = crane ? task_of(crane) : NULL;
+    if (!crane || !building || !task || task->task != 9 || task->service != building_id ||
+        G_ConsistencyExtra(0) != hash) return fail("saved crane reservation and hash survive load");
+    building->hp = building->max_hp;
+    map->ai.delay = 0;
+    think(1);
+    if (task->task != 8 || task->service) return fail("completed building releases unreachable crane assignment");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_bridge_takeover_unreachable_return(void) {
+    RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
+    if (!model) return fail("load bridge takeover fixture");
+    service_fixture();
+    zmap_t *map = level.native_data;
+    mobj_t *bridge = nth(MT_BRIDGE, Z_NEUTRAL, 0);
+    if (!bridge || !map->bridges[bridge->z.bridge - 1].cpu_rebuild)
+        return fail("bridge takeover target");
+    bridge->hp = 0;
+    mobj_t *old = service_unit(MT_UNIT_CRANE, fixed2_cell_center(map->territories[4].flag));
+    mobj_t *near = service_unit(MT_UNIT_CRANE, fixed3_xy(bridge->core.position));
+    if (!old || !near) return fail("spawn bridge takeover cranes");
+    think(0);
+    zaitask_t *previous = task_of(old), *next = task_of(near);
+    if (!previous || !next) return fail("register bridge takeover tasks");
+    previous->task = 9;
+    previous->service = bridge->id;
+    previous->pending = true;
+    previous->execute_at = map->ai.clock + 10000;
+    map->forts[0] = (ivec2_t){-10000, -10000};
+    map->ai.delay = 0;
+    think(1);
+    if (previous->task != 8 || previous->pending || previous->service || old->z.service ||
+        next->task != 9 || (next->service != bridge->id && near->z.service != bridge->id))
+        return fail("bridge takeover clears displaced pending assignment when fort is unreachable");
+    for (int i = 0; i < 3; ++i) think(1);
+    if (previous->service == bridge->id || old->z.service == bridge->id ||
+        (next->service != bridge->id && near->z.service != bridge->id))
+        return fail("displaced crane does not reclaim bridge");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int test_bridge_and_crane(void) {
     RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
     if (!model) return fail("bridge campaign load");
@@ -1001,6 +1088,6 @@ int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
            test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
-           test_unreachable_service_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
+           test_unreachable_service_return() || test_unreachable_crane_assignment() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

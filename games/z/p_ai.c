@@ -927,7 +927,15 @@ static int64_t service_distance(const mobj_t *unit, const mobj_t *target) {
 
 static bool order_service(zai_t *ai, zaitask_t *task, mobj_t *unit, mobj_t *target, int type) {
     fixed2_t goal;
-    if (!Z_ServiceApproach(unit, target, &goal)) return false;
+    if (!Z_ServiceApproach(unit, target, &goal)) {
+        if (type != CRANE_WORK) return false;
+        clear(task);
+        task->pending = false;
+        task->boarding = task->enemy = 0;
+        task->service = target->id;
+        task->task = CRANE_WORK;
+        return true;
+    }
     clear(task);
     queue(ai, task, goal, 0);
     task->service = target->id;
@@ -980,11 +988,9 @@ static void send_cranes(zmap_t *map, mobj_t *const *units, int count, bool bridg
         if (best && order_service(ai, task, unit, best, CRANE_WORK) && displaced) {
             Z_CancelService(displaced);
             P_ClearMove(displaced);
-            if (!return_service(map, previous, displaced)) {
-                clear(previous);
-                previous->pending = false;
-                previous->service = 0;
-            }
+            previous->pending = false;
+            previous->service = 0;
+            if (!return_service(map, previous, displaced)) clear(previous);
         }
     }
 }
@@ -1006,6 +1012,15 @@ static void service_returns(zmap_t *map, bool validate) {
             if (t >= 0 && map->ai.territories[t].owner == CPU && target->hp > 0 && target->hp < target->max_hp)
                 continue;
             unit->target = NULL;
+            if (!return_service(map, task, unit)) clear(task);
+            continue;
+        }
+        if (validate && task->task == CRANE_WORK && task->service && !task->pending && !unit->z.service) {
+            mobj_t *target = Z_ServiceTarget(task->service);
+            int territory = target && target->type_id == MT_BRIDGE ? Z_BridgeTerritory(map, target) : -1;
+            if (target && !target->remove && target->hp <= 0 &&
+                (target->type_id == MT_BRIDGE ? owned(&map->ai, territory) : target->team == CPU)) continue;
+            task->service = 0;
             if (!return_service(map, task, unit)) clear(task);
             continue;
         }

@@ -1947,6 +1947,18 @@ queue (`0x98098`). The port uses that queue for service dispatch and return.
   by squared distance to `origin + footprint_cells * 8 - (8,8)`. It
   reserves the building at `0x9c948` and puts the crane on task 9. The
   ordered point is the signed offset at building type `+0x34/+0x35`.
+  `0x9c948..0x9c9a4` reserves the building and assigns task 9 around the
+  command dispatch, without a path-result check. The engine now keeps the
+  reservation in its saved AI task when its own approach search fails,
+  preventing another crane from claiming that building; it releases the
+  reservation when the building is repaired, removed, or no longer owned.
+  A failed approach discards a superseded pending AI command, while an
+  already active movement is retained; native command/path failure timing
+  is not established. `test_unreachable_crane_assignment` isolates a crane
+  with blocked navigation, checks a competing crane, save/load and hash,
+  and release after repair. Native reservation and invalidation can be
+  inspected with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+  'pd 40 @ 0x9c948' -c 'pd 75 @ 0x9bc14' -c q data/Z/ZED.EXE`.
   `BUILDnn.DAT +0x1a` holds maximum HP and `+0x1c` holds current HP
   (`0x3e838`, `0x422a7`). The port retains a destroyed building in its
   native wreck state, then restores it and clears its old production
@@ -1960,7 +1972,13 @@ queue (`0x98098`). The port uses that queue for service dispatch and return.
   shorter squared distance. `0x9c9ae` installs the assignment and checks
   four points for terrain `0x2b`, in the order `(0,0)`, `(16,0)`, `(0,16)`,
   `(16,16)`. The port uses a reachable end of the span when that point
-  cannot be routed to on the engine's cell grid.
+  cannot be routed to on the engine's cell grid. On takeover,
+  `0x9c815..0x9c85a` assigns the displaced crane task 8 and dispatches its
+  return before `0x9c86c` installs the new crane. The engine clears the
+  displaced task's pending command and service reservation even if its fort
+  return point is unreachable; otherwise the superseded bridge order could
+  execute later. `test_bridge_takeover_unreachable_return` exercises this
+  ordering and verifies the old crane does not reclaim that bridge.
 - `0x24675` uses the high nibble of vehicle body `+6`, copied from weapon
   record `+0x20` at `0x50c1d`. The Crane's byte is 120, so the work rate
   is seven HP per 70 Hz frame. A collapsed bridge starts at signed HP -1.
