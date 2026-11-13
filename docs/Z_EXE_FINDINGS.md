@@ -5558,6 +5558,32 @@ Reproduce the list pass with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
 -c 'pd 75 @ 0x4a64b' -c 'pd 22 @ 0x40539' -c 'p8 832 @ 0x14c309' -c q
 data/Z/ZED.EXE`.
 
+**Issue 100 follow-up (2026-11-13, still trace only):**
+*Fire Truck reaction (`0x24c14`), unknowns re-examined.* **Confirmed:** the
+"body +0x15" the handler rotates is not a field of the unit record. It is
+byte +0x15 of the record at unit +8 (`mov edi,[ebp+8]` at `0x24c31`; the same
+pointer the aim code at `0x58b7a..0x58b89` and `0x5915f` use), which the
+unit initializers at `0x26531`, `0x637d3..0x639d8` and the copy loops at
+`0x32d5a..0x34148` treat as a generic sprite/effect record. Of its writers
+the truck-relevant ones are the aim rotation (`0x58b81..0x58b89`), the
+handler's own increment and `0x7a239`, which copies the byte from the
+shared terrain-side buffer at `0x7a231`. **Unknown, so action A stops:**
+the initial value for a freshly created truck (no constructor writing type
+0x26's +0x15 was isolated among those writers), and therefore the first
+nozzle bearing of the spray. Items (2) and (3) were not pursued because this
+one blocks any faithful implementation; the open-rts port keeps no nozzle
+state, and inventing an initial bearing would change every spray shot.
+*Ambient pool creators.* **Confirmed:** the callers of `0x875c7` at
+`0x87a1c..0x88653` are blast-debris spawners, each loading the type in ECX
+(0x19, 0x1a, 0x1f, 0x23 = 35, 0x24 = 36, 0x2b = 43, 0x2c = 44, 0x2e = 46,
+0x2d..0x33) with a random direction byte and a per-frame callback (for
+example `0x87b83`, `0x882de`, `0x8832d`). So eligible types 35, 43 and 46
+(and the class-6 types 36 and 44, which scans skip) are transient explosion
+debris, not things on the map. **Inferred:** types 5, 17 and 34 have no
+direct creator (no ECX immediate or world-row entry selects them) and appear
+unused. None of these corresponds to anything open-rts spawns as a mobj, so
+no scan was applied and no code changed.
+
 **CPU building attack task 6, partial trace:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 heavy-pass routine `0x9a801` checks active usable mobile tasks 1 and 3 whose
