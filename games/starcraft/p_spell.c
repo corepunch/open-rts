@@ -196,6 +196,25 @@ static mobj_t *spawn_for(const mobj_t *caster, uint16_t type, fixed2_t at) {
     return mo;
 }
 
+/* OpenBW's area and unit range checks share this integer distance estimate. */
+static int sc_xy_length(int x, int y) {
+    if (x < 0) x = -x;
+    if (y < 0) y = -y;
+    if (x < y) { int t = x; x = y; y = t; }
+    if (x / 4 < y) x = x - x / 16 + y * 3 / 8 - x / 64 + y * 3 / 256;
+    return x;
+}
+static int unit_distance_to_point(const mobj_t *unit, fixed2_t at) {
+    const irect_t bounds = sc_unit(unit)->bounds;
+    ivec2_t pos = {unit->core.position.x / SC_PIXELS(1), unit->core.position.y / SC_PIXELS(1)};
+    ivec2_t point = {at.x / SC_PIXELS(1), at.y / SC_PIXELS(1)};
+    int left = pos.x + bounds.x, top = pos.y + bounds.y;
+    int right = left + bounds.w, bottom = top + bounds.h;
+    int x = point.x < left ? left - point.x : point.x > right ? point.x - right : 0;
+    int y = point.y < top ? top - point.y : point.y > bottom ? point.y - bottom : 0;
+    return sc_xy_length(x, y);
+}
+
 static void storm_strike(mobj_t *storm) {
     fixed2_t at = where(storm);
     const sc_weapon_t *w = sc_weapon(SC_WEAPON_STORM);
@@ -203,7 +222,8 @@ static void storm_strike(mobj_t *storm) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *v = (mobj_t *)th;
         /* A unit already hurt by a storm this strike is spared: storms do not stack. */
-        if (!body(v) || building(v) || v->sc.timers[SC_TIMER_STORM] > 0 || !near(v, at, SC_PIXELS(w->splash[0]))) continue;
+        if (!body(v) || building(v) || v->sc.timers[SC_TIMER_STORM] > 0 ||
+            unit_distance_to_point(v, at) > w->splash[0]) continue;
         v->sc.timers[SC_TIMER_STORM] = SC_STORM_STRIKE;
         int damage = sc_hit(storm->sc.attacker, w, v, w->damage, 1);
         if (damage > 0) P_DamageMobj(v, source, damage);
@@ -599,9 +619,7 @@ static bool irradiate_in_range(const mobj_t *a, const mobj_t *b) {
     int bl = bp.x + bb.x, bt = bp.y + bb.y, br = bl + bb.w, bd = bt + bb.h;
     int x = al > br ? al - br : bl > ar ? bl - ar : 0;
     int y = at > bd ? at - bd : bt > ad ? bt - ad : 0;
-    if (x < y) { int t = x; x = y; y = t; }
-    if (x / 4 < y) x = x - x / 16 + y * 3 / 8 - x / 64 + y * 3 / 256;
-    return x <= 32;
+    return sc_xy_length(x, y) <= 32;
 }
 static void irradiate(mobj_t *host) {
     int k = SC_IRRADIATE_BEATS - host->sc.timers[SC_TIMER_IRRADIATE]--;

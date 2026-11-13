@@ -485,6 +485,30 @@ static int transports(void) {
     return 0;
 }
 
+static int storm_unit_box_range(void) {
+    fixed2_t center = FIXED2_LIT(10.5, 10.5);
+    learn(0, SC_TECH_PSIONIC_STORM);
+    mobj_t *templar = spawn(MT_HIGH_TEMPLAR, center, 0);
+    mobj_t *range48 = spawn(MT_ULTRALISK, fixed2_add(center, (fixed2_t){SC_PIXELS(67), 0}), 0);
+    mobj_t *range49 = spawn(MT_ULTRALISK, fixed2_add(center, (fixed2_t){SC_PIXELS(68), 0}), 0);
+    mobj_t *diagonal48 = spawn(MT_ULTRALISK, fixed2_add(center, (fixed2_t){SC_PIXELS(56), SC_PIXELS(51)}), 0);
+    mobj_t *diagonal49 = spawn(MT_ULTRALISK, fixed2_add(center, (fixed2_t){SC_PIXELS(57), SC_PIXELS(51)}), 0);
+    CHECK(templar && range48 && range49 && diagonal48 && diagonal49);
+    templar->sc.energy = 250 << 8;
+    templar->traits &= ~(MF_ATTACK | MF_MOBILE);
+    range48->traits &= ~(MF_ATTACK | MF_MOBILE);
+    range49->traits &= ~(MF_ATTACK | MF_MOBILE);
+    diagonal48->traits &= ~(MF_ATTACK | MF_MOBILE);
+    diagonal49->traits &= ~(MF_ATTACK | MF_MOBILE);
+    int hp48 = range48->hp, hp49 = range49->hp;
+    int hp_diagonal48 = diagonal48->hp, hp_diagonal49 = diagonal49->hp;
+    CHECK(sc_cast(templar, SC_TECH_PSIONIC_STORM, NULL, center));
+    CHECK(range48->hp < hp48 && range49->hp == hp49);
+    CHECK(diagonal48->hp < hp_diagonal48 && diagonal49->hp == hp_diagonal49);
+    reset();
+    return 0;
+}
+
 static int nydus(void) {
     mobj_t *hatch = building(MT_HATCHERY, (ivec2_t){4, 4}, 0), *hatch2 = building(MT_HATCHERY, (ivec2_t){30, 30}, 0);
     mobj_t *canal = building(MT_NYDUS_CANAL, (ivec2_t){9, 4}, 0);
@@ -521,11 +545,12 @@ int main(void) {
     CHECK(!arbiter());
     CHECK(!infestation());
     CHECK(!invincible_status_effects());
+    CHECK(!storm_unit_box_range());
     CHECK(!transports());
     CHECK(!nydus());
     free(level.mission);level.mission=NULL;
     P_FreeLevel(&level);
-    puts("PASS: Stim Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, invincible status effects, suicide attacks, speed/sight/cooldown "
+    puts("PASS: Stim Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, invincible status effects, Psionic Storm, suicide attacks, speed/sight/cooldown "
          "upgrades and their research, Dropship/Shuttle/Overlord transport and the Nydus Canal");
     return 0;
 }

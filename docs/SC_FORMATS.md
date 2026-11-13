@@ -325,6 +325,12 @@ Hallucination without player research. Tassadar now exposes and casts both;
 the command card and computer tactics use the same hero-aware research check
 as casting. Fixtures exercise direct casts, enabled buttons and autonomous
 Storm without research.
+OpenBW's Psionic Storm splash loop measures each target from the spell point
+to the target's bounding box; the local strike now uses that same range rule.
+Frozen Ultralisk fixtures distinguish 48-pixel from 49-pixel box gaps and
+diagonal gaps `(37,35)` / `(38,35)`, which OpenBW's integer approximation
+counts as 48 / 49 respectively. The point-to-box cases use the Ultralisk DAT
+box and one immediate cast, without duplicate storm creation.
 OpenBW also classifies the Matriarch (units.dat row 49) as a Queen and the
 Unclean One (row 52) as a Defiler for their spell sets, with their
 research-gated spells available to heroes. Their abilities now appear and

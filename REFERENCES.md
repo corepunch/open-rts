@@ -309,7 +309,11 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   tests 32-pixel distance between unit bounding boxes via `units_distance`
   (1486–1525; boxes at 679–680; integer distance at 1505–1510). The local
   Irradiate area path follows those source rules; a large-unit fixture checks
-  its box-distance behavior. This is source parity, not retail verification.
+  its box-distance behavior. Psionic Storm's `bullet_deal_splash_damage`
+  (13165–13183) likewise uses `unit_distance_to` (1528–1530) for its outer
+  radius; the local storm strike now applies that rule to unit boxes. A fixture
+  checks a 60-pixel-center Ultralisk inside Storm's 48-pixel box range. These
+  behaviors are source parity, not retail verification.
 - [OpenBW pinned `game_types.h`](https://github.com/OpenBW/openbw/blob/4b046d5f65302b10cb0a745f0fecd37ec85b20a8/game_types.h):
   `tile_id::has_creep` applies `((raw_value >> 4) & 0x8000)` to a `uint16_t`,
   making the check always false; this corrects the earlier interpretation of
