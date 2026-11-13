@@ -214,6 +214,7 @@ bool sc_iscript_load(const char *root) {
     program = (blob_t){0};
     if (!sc_read(root, "scripts/iscript.bin", &program)) return false;
     snprintf(program_root, sizeof(program_root), "%s", root);
+    sc_handover_load(root, &program);
     return true;
 }
 

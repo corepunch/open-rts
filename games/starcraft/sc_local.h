@@ -429,6 +429,10 @@ bool sc_script_start(const blob_t *bin, sc_script_t *c, unsigned script, int ani
 bool sc_script_frame(const blob_t *bin, sc_script_t *c, const sc_script_host_t *host);
 bool sc_script_valid(const sc_script_t *c);
 bool sc_iscript_load(const char *root);
+/* Frames after a foundation's timer ends until the IScript signals that complete it (p_handover.c), or 0 when unknown. */
+enum { SC_HAND_OVER_MAX = 255 };
+int sc_hand_over(int type_id);
+void sc_handover_load(const char *root, const blob_t *bin);
 const blob_t *sc_iscript_bin(void);
 /* iscript ids of each unit row's and weapon's bullet image, or -1; filled by w_assets.c. */
 extern int sc_unit_script[SC_TYPES], sc_weapon_script[SC_WEAPONS];

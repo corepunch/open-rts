@@ -558,9 +558,16 @@ bool G_ModelStartConstruction(RtsGameModel *m,mobj_t *builder,
 /* One OpenBW update per 24 Hz frame: Terran resume_building_unit, Protoss
  * order_IncompleteWarping and Zerg order_IncompleteMorphing. All three add the
  * per-frame HP (and Protoss shield) step to the current value, so damage taken
- * is never healed and the building finishes with whatever it holds. The
- * IScript signals that end the Protoss and Zerg hand-over are not modelled: the
- * foundation completes on the frame after the last stage. */
+ * is never healed and the building finishes with whatever it holds.
+ *
+ * Once the timer has run out, stage counts the frames since T, the first frame
+ * that sees it at zero. A Protoss foundation steps on T, waits without steps
+ * for the IScript signals of states 1 to 3 and completes on frame T + d with
+ * one more step (that state falls through to the step); a Zerg one steps on T
+ * and T + 1 and completes without a step on T + d (state 6 returns). d is
+ * sc_hand_over, counted from the scripts (p_handover.c). With no iscript.bin
+ * loaded d is unknown and the signals are taken as instant: Protoss completes
+ * on T + 1 and Zerg on T + 2, both without a step. */
 void G_ModelUpdateConstruction(RtsGameModel *m,mobj_t *site,const StaticProductDefinition *p) {
     (void)m;
     production_t *queue=site?site->production:NULL;
@@ -570,21 +577,24 @@ void G_ModelUpdateConstruction(RtsGameModel *m,mobj_t *site,const StaticProductD
     sc_construction_t *state=&site->sc.construction;
     int remaining=state->frames,stage=state->stage;
     if(remaining<0||remaining>type->build_time)remaining=type->build_time;
-    if(stage<0||stage>2)stage=2;
+    if(stage<0||stage>SC_HAND_OVER_MAX)stage=SC_HAND_OVER_MAX;
     uint16_t maker=p->makers[0];
     int64_t hp_rate=construction_hp_rate(site,type->build_time);
     int shield_rate=construction_shield_rate(type);
     bool shielded=maker==MT_PROBE&&type->shields>0;
+    int hand_over=sc_hand_over(site->type_id);
+    bool modelled=hand_over>0;
+    if(!modelled)hand_over=maker==MT_PROBE?1:2;
     for(int f=0;f<frames;f++) {
         bool done=false,step=true;
         if(maker==MT_SCV) {
             if(!remaining)done=true;
-        } else if(maker==MT_PROBE) {
-            if(stage>=1)done=true,step=false;
-            else if(!remaining)stage=1;
-        } else {
-            if(!remaining&&stage>=2)done=true,step=false;
-            else if(!remaining)++stage;
+        } else if(!remaining) {
+            if(stage>=hand_over) done=true,step=modelled&&maker==MT_PROBE;
+            else {
+                step=maker==MT_PROBE?stage==0:stage<=1;
+                ++stage;
+            }
         }
         if(step) {
             set_raw_hp(site,raw_hp(site)+hp_rate);
