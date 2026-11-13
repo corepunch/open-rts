@@ -212,12 +212,18 @@ restores 0x23, while capturing elsewhere can first overwrite its marker again.
 The territory owns the current team and capture hold even if it has no flag;
 its team, hold and mutable options are saved and hashed. `0x2a950` creates
 a flag and clears the low option bits for a fallen fort territory; the engine
-now creates an ordinary flag mobj in that case. The existing 18-tic hold is
-still a 30 Hz approximation to the native 70 Hz counter, and terrain rebuilt
-over a cliff remains subject to the existing cliff reconstruction limit.
+now creates an ordinary flag mobj in that case. The native unit pass at
+`0x14be5` runs before the `0x9cb40` decrement called through `0x14c3e`, so
+the capture frame reduces the newly set 510 to 509. There are then 42 more
+native decrements before the threshold reaches 467; 42/70 seconds is exactly
+18/30 seconds at any phase. The engine blocks the next 18 tics and permits
+capture on the following tic, matching this boundary when the engine capture
+is aligned to the final native frame of its tic. Capture timing within the
+coarser engine tic remains approximate, and terrain rebuilt over a cliff
+remains subject to the existing cliff reconstruction limit.
 `test_capture` covers an adjacent-territory vehicle,
 a flagless captured territory, overlapping crate restoration, another capture
-restamping over a crate, and save/load; `test_fort` checks flag creation.
+restamping over a crate, save/load and real ticker cooldown; `test_fort` checks flag creation.
 Inspect with `r2 -q -e bin.cache=true -c 'pd 40 @ 0x2a89f' -c 'pd 45 @
 0x79ddc' -c 'pd 55 @ 0x2a950' -c q data/Z/ZED.EXE`.
 

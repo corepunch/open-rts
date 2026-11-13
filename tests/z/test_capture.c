@@ -253,11 +253,15 @@ static int test_flag_terrain_and_territory(void) {
     if (!jeep) return fail("restore border Jeep");
     Z_SetTeam(jeep, 1);
     int hold = map->territories[0].capture_hold;
+    int native_steps = 0;
+    if (hold != 18) return fail("saved capture cooldown has native duration");
     for (int i = 0; i < hold; ++i) {
-        Z_Ticker();
+        native_steps += Z_NativeSteps(leveltime, Z_NATIVE_HZ);
+        if (!tick(model, 1)) return fail("tick saved flagless cooldown");
         if (map->territories[0].team != 0) return fail("saved flagless cooldown remains active");
     }
-    Z_Ticker();
+    if (native_steps != 42) return fail("capture cooldown spans 42 native frames after capture");
+    if (!tick(model, 1)) return fail("tick expired flagless cooldown");
     if (map->territories[0].team != 1) return fail("flagless territory recaptures after saved cooldown expires");
     rts_game_model_destroy(model);
     return 0;

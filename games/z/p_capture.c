@@ -7,7 +7,7 @@
  * here one pass a tic looks at where everyone stands. */
 
 enum {
-    REACH_FLAG_HOLD = 18,          /* 43 ticks of 70 Hz (0x9cb40) before a flag can turn again. */
+    REACH_FLAG_HOLD = 18,          /* 42 native ticks remain after the capture-frame decrement. */
     REACH_ENTER = 20,              /* Pixels from a vehicle at which a robot gets in (0x7af62). */
     MAX_GRENADES = 127,
     BOARD_RETRY = RTS_TICRATE / 2, /* Tics between walks towards a vehicle that has not been reached. */
