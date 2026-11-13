@@ -253,6 +253,7 @@ typedef struct {
     fvec2_t view;
     int stock[8][2], gathered[8][2], spent[8];
     bool stock_seen;
+    bool unit_speech_muted; /* Local presentation state from TRIG actions 30/31. */
 } sc_mission_t;
 /* Score inputs: deaths and kills by type, income and spending since the start. */
 typedef struct { int lost[SC_TYPES], killed[SC_TYPES], gathered[2], spent; } sc_stats_t;
@@ -383,5 +384,6 @@ void sc_brief_voice(const char *scenario, const char *wav);
 void sc_stop_brief_voice(void);
 bool sc_brief_voice_playing(void);
 int sc_placement_sound(bool success, int owner);
+bool sc_unit_speech_muted(void);
 extern int sc_dialog_click;
 #endif

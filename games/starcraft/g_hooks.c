@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
-/* Research restrictions and projectile state add persistent save data. */
-uint32_t G_SaveLayout(void) { return 14; }
+/* Research restrictions, projectile and mission presentation state are saved. */
+uint32_t G_SaveLayout(void) { return 15; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;

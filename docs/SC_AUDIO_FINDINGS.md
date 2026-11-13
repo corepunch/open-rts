@@ -27,6 +27,48 @@ channel count. Therefore channel arbitration is not implemented from this
 evidence alone. It needs additional authoritative behavior evidence and a
 focused channel-exhaustion regression before a parity claim is appropriate.
 
+## Mute Unit Speech trigger actions
+
+PyMS defines `Sound.Flag.unit_speech` as bit 1 (`0x02`) in the flags column of
+`sfxdata.dat` (`reference/PyMS/PyMS/FileFormats/DAT/SoundsDAT.py:14-20`). Its
+hint at `reference/PyMS/PyMS/Data/Hints.txt:490` explicitly says sounds carrying
+this property are suppressed by the Mute Unit Speech trigger action. The
+StarCraft loader now retains this bit per native SFX row. TRIG action 30 sets
+and action 31 clears a mission-owned, local presentation flag, gated to the
+trigger's current player matching `consoleplayer`; `sc_actor_sound` suppresses
+flagged rows. For synthetic ranged SFX groups it builds/reuses a group of the
+unflagged members. This is an engine approximation: it filters before the
+random group member is selected, so a mixed group's probabilities differ from
+selecting first and then suppressing a flagged sample. PyMS documents the
+flag's suppression effect but does not establish when retail applies it
+relative to group selection. Actor responses, barks, and other sounds routed
+through the actor callback follow the native row metadata, while unflagged
+callbacks remain audible.
+
+The trigger's WAV actions 7/8 use `sc_brief_voice` and a dedicated briefing
+sound slot, outside the SFX-row callback, so mute does not suppress scenario
+audio. Ordinary UI/placement sounds also use their own direct sound calls and
+remain unaffected. This local flag persists in engine save data; the save
+layout is 15. It is intentionally excluded from the consistency hash, and
+resync keeps the receiving peer's value instead of importing the sender's
+local presentation setting.
+
+Evidence confirms the per-row flag and that Mute Unit Speech suppresses such
+rows. Native mixed-group selection order remains unknown; no retail trace has
+verified whether the flag is checked before or after random member selection.
+The repository does not model the separate Unit Speech, Unit
+Acknowledgements, or Building Sounds user preferences mentioned by the same
+PyMS hint, nor does it reproduce retail portrait-length adjustment. Trigger
+ownership/local-player presentation is the implementation boundary; this is
+not a claim that every retail audio preference has been reproduced.
+
+Focused regression coverage is in `tests/starcraft/test_sounds.c` (TRIG 30/31,
+grouped Marine SELECT/ACK playback, unflagged SCV attack group playback, a
+synthetic mixed group, a nonlocal trigger owner, ordinary placement sound, and
+WAV actions while muted)
+and `tests/starcraft/test_save.c` (ordinary save/load, peer-local resync, hash
+exclusion, and save-layout version).
+
 ## Confirmed gaps outside this package
 
 Several broader audio omissions remain documented in

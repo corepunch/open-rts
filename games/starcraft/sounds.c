@@ -27,6 +27,7 @@ enum {
     SFX_UPGRADE_COMPLETE = 131,  /* ZAdUpd02, TAdUpd06, PAdUpd06 */
     SFX_ZERG_MORPH_DONE = 135,   /* ZChRdy00 */
     SFX_TERRAN_BUILD_DONE = 136, /* TSCUpd00, the SCV's "job's finished" */
+    SFX_UNIT_SPEECH = 0x02,      /* PyMS Sound.Flag.unit_speech */
     SFX_ONE_AT_A_TIME = 0x10,    /* PyMS Sound.Flag.one_at_a_time */
     /* This engine's choices: the click on one unit alone from which it is
      * annoyed, the most time between such clicks, and the least time
@@ -45,6 +46,7 @@ static sc_unitsfx_t unit_sfx[SC_TYPES];
 static uint16_t weapon_sfx[SC_WEAPONS];
 static int rows;
 static bool used[SC_MAX_SFX_ROWS];
+static bool unit_speech[SC_MAX_SFX_ROWS];
 static uint32_t pissed_at, alert_at[2];
 static uint32_t pissed_unit;
 static int pissed_clicks, pissed_next[SC_TYPES];
@@ -61,6 +63,11 @@ void sc_stop_brief_voice(void) {
 }
 
 bool sc_brief_voice_playing(void) { return S_IsPlaying(briefing_channel); }
+
+bool sc_unit_speech_muted(void) {
+    const sc_mission_t *m = level.mission;
+    return m && m->unit_speech_muted;
+}
 
 void sc_brief_voice(const char *scenario, const char *wav) {
     sc_stop_brief_voice();
@@ -121,6 +128,23 @@ static int range(unsigned first, unsigned last) {
     if (!first || first > last) return 0;
     for (unsigned id = first; id <= last && n < MAXSFXLINKS; ++id) ids[n++] = (uint16_t)id;
     return group(ids, n);
+}
+
+/* A ranged unit voice can be represented by a synthetic sound group. Filter
+ * out flagged members so a mixed group still retains its non-speech samples
+ * while mute is active. */
+static int unmuted_variant(int id) {
+    if (id <= 0) return 0;
+    if (id < rows) return unit_speech[id] ? 0 : id;
+    const sfxinfo_t *sfx = S_Sfx(id);
+    if (!sfx || !sfx->numlinks) return 0;
+    uint16_t ids[MAXSFXLINKS];
+    int count = 0;
+    for (int i = 0; i < sfx->numlinks; ++i) {
+        int member = sfx->links[i];
+        if (member > 0 && member < rows && !unit_speech[member]) ids[count++] = (uint16_t)member;
+    }
+    return group(ids, count);
 }
 
 typedef struct { blob_t units, flingy, sprites, images, weapons, script, dat, tbl; } sc_tables_t;
@@ -211,6 +235,7 @@ static bool sc_sound_init(const char *root) {
     memset(unit_sfx, 0, sizeof(unit_sfx));
     memset(weapon_sfx, 0, sizeof(weapon_sfx));
     memset(used, 0, sizeof(used));
+    memset(unit_speech, 0, sizeof(unit_speech));
     memset(pissed_next, 0, sizeof(pissed_next));
     pissed_clicks = 0; pissed_unit = 0; alert_at[0] = alert_at[1] = 0;
     sc_dialog_click = 0;
@@ -228,7 +253,9 @@ static bool sc_sound_init(const char *root) {
         (t.units.size != 19192 && t.units.size != 19876) || t.weapons.size % 42 || t.images.size % 38)
         goto done;
     for (int id = 1; id < rows; ++id) {
-        sfxinfo_t sfx = {.instances = t.dat.bytes[rows * 5 + id] & SFX_ONE_AT_A_TIME ? 1 : 0};
+        uint8_t flags = t.dat.bytes[rows * 5 + id];
+        unit_speech[id] = (flags & SFX_UNIT_SPEECH) != 0;
+        sfxinfo_t sfx = {.instances = flags & SFX_ONE_AT_A_TIME ? 1 : 0};
         if (S_AddSfx(&sfx) != id) goto done;
     }
     map_units(&t);
@@ -309,35 +336,42 @@ static int sc_actor_sound(const mobj_t *actor, soundevent_t event) {
     const sc_unitsfx_t *s = &unit_sfx[actor->type_id - 1];
     int race = race_of(u);
     bool building = (u->flags & SC_UNIT_BUILDING) != 0;
+    int id = 0;
     switch (event) {
-    case SE_SELECT: return select_sound(actor, s);
-    case SE_ACK: return s->yes;
+    case SE_SELECT: id = select_sound(actor, s); break;
+    case SE_ACK: id = s->yes; break;
     case SE_READY:
-        if (!building) return s->ready;
-        return race == RACE_TERRAN ? SFX_TERRAN_BUILD_DONE : race == RACE_ZERG ? SFX_ZERG_MORPH_DONE : 0;
+        if (!building) id = s->ready;
+        else id = race == RACE_TERRAN ? SFX_TERRAN_BUILD_DONE : race == RACE_ZERG ? SFX_ZERG_MORPH_DONE : 0;
+        break;
     case SE_ATTACK: {
         const mobj_t *target = actor->attack.target;
-        int sfx = s->attack[target && (target->traits & MF_FLY) ? 1 : 0];
-        if (sfx || !target || sc_hangar_type(actor->type_id)) return sfx;
-        const weapondef_t *w = P_MobjWeapon(actor, target);
-        return w && w->damage && w->native_id < SC_WEAPONS ? weapon_sfx[w->native_id] : 0;
+        id = s->attack[target && (target->traits & MF_FLY) ? 1 : 0];
+        if (!id && target && !sc_hangar_type(actor->type_id)) {
+            const weapondef_t *w = P_MobjWeapon(actor, target);
+            id = w && w->damage && w->native_id < SC_WEAPONS ? weapon_sfx[w->native_id] : 0;
+        }
+        break;
     }
-    case SE_DEATH: return s->death;
+    case SE_DEATH: id = s->death; break;
     case SE_RESEARCH_COMPLETE: {
-        if (race == RACE_NONE) return 0;
+        if (race == RACE_NONE) break;
         const production_t *p = actor->production;
         bool tech = p && p->product_type >= SC_TECH_UI && p->product_type < SC_TECH_UI + SC_TECHS;
-        return (tech ? SFX_RESEARCH_COMPLETE : SFX_UPGRADE_COMPLETE) + race;
+        id = (tech ? SFX_RESEARCH_COMPLETE : SFX_UPGRADE_COMPLETE) + race;
+        break;
     }
     case SE_ATTACKED: {
-        if (race == RACE_NONE) return 0;
+        if (race == RACE_NONE) break;
         uint32_t now = SDL_GetTicks();
-        if (alert_at[building] && now - alert_at[building] < SC_ALERT_GAP_MS) return 0;
+        if (alert_at[building] && now - alert_at[building] < SC_ALERT_GAP_MS) break;
         alert_at[building] = now ? now : 1;
-        return (building ? SFX_BASE_ATTACKED : SFX_UNITS_ATTACKED) + race;
+        id = (building ? SFX_BASE_ATTACKED : SFX_UNITS_ATTACKED) + race;
+        break;
     }
-    default: return 0;
+    default: break;
     }
+    return sc_unit_speech_muted() ? unmuted_variant(id) : id;
 }
 
 const soundinfo_t sc_soundinfo = {

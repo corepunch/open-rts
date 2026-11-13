@@ -6,7 +6,7 @@
 int main(void) {
     G_InitGame();
     P_InitThinkers();
-    CHECK(G_SaveLayout() == 14);
+    CHECK(G_SaveLayout() == 15);
     sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
@@ -103,6 +103,9 @@ int main(void) {
     int geyser_vent = level.resource_vent_count - 1;
     uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
     snprintf(m->objectives, sizeof(m->objectives), "Saved objective");
+    uint32_t presentation_hash = G_ConsistencyExtra(0);
+    m->unit_speech_muted = true;
+    CHECK(G_ConsistencyExtra(0) == presentation_hash); /* Local audio preference is not lockstep state. */
     app_t app = {0};
     AiContext ai = {0};
     hudtext_t hud = {0};
@@ -158,6 +161,7 @@ int main(void) {
     CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->player_result[7] == 2 && m->custom_score[1] == 123456 &&
           m->score_variables[2][4] == 654321);
+    CHECK(m->unit_speech_muted); /* Ordinary save/load restores the local trigger state. */
     CHECK(m->map_mode==SC_MAP_CAMPAIGN&&sc_current_map_mode()==SC_MAP_CAMPAIGN&&
           m->research_rules_loaded && m->upgrade_max_level[0][7] == 2 &&
           !m->tech_available[2][SC_TECH_SIEGE_MODE]);
@@ -282,16 +286,19 @@ int main(void) {
     alliance_mission = level.mission;
     alliance_mission->player_result[player] = 1;
     alliance_mission->player_result[other] = 2;
+    alliance_mission->unit_speech_muted = true; /* Sender's presentation state is not authoritative. */
     alliance_mission->result = 1; level.outcome = OUTCOME_VICTORY; level.foes = 0x80;
     void *resync = NULL; size_t resync_size = 0;
     CHECK(G_ResyncSave(&resync, &resync_size, &app, &ai, &hud));
     consoleplayer = other; netgame = true;
+    alliance_mission->unit_speech_muted = false;
     alliance_mission->result = 0; level.outcome = OUTCOME_NONE; level.foes = 0x02;
     CHECK(G_ResyncLoad(resync, resync_size, &app, &ai, &hud));
     free(resync);
     alliance_mission = level.mission;
     CHECK(consoleplayer == other && !alliance_mission->result && level.outcome == OUTCOME_NONE && level.foes == 0x02 &&
-          alliance_mission->player_result[player] == 1 && alliance_mission->player_result[other] == 2);
+          alliance_mission->player_result[player] == 1 && alliance_mission->player_result[other] == 2 &&
+          !alliance_mission->unit_speech_muted);
     sc_mission_tick(&level, &hud, RTS_TICK_MS);
     CHECK(alliance_mission->result == 2 && level.outcome == OUTCOME_DEFEAT);
     /* Loading a custom Melee save restores its seat/race selection for a later

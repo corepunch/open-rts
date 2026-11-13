@@ -98,6 +98,40 @@ static int trigger_voice(void) {
     trigger[320 + 8] = 1; /* WAV string ID */
     snprintf(level.map_path, sizeof(level.map_path), "%s", map);
     level.mission = &mission;
+    mobj_t *marine = spawn(MT_MARINE, consoleplayer);
+    CHECK(marine);
+    int select_group = sound_for(marine, SE_SELECT), ack_group = sound_for(marine, SE_ACK);
+    CHECK(S_Sfx(select_group) && S_Sfx(select_group)->numlinks > 1 &&
+          S_Sfx(ack_group) && S_Sfx(ack_group)->numlinks > 1);
+    trigger[320 + 26] = 30; /* Mute Unit Speech, local trigger owner. */
+    sc_mission_tick(&level, &(hudtext_t){0}, RTS_TICK_MS);
+    CHECK(sc_unit_speech_muted() && mission.unit_speech_muted);
+    CHECK(sound_for(marine, SE_READY) == 0);
+    CHECK(!S_ActorSound(marine, SE_SELECT) && !S_ActorSound(marine, SE_ACK));
+    /* Synthetic mixed group: the unflagged member remains playable while
+     * native speech members are filtered out. */
+    sfxinfo_t *ack = S_Sfx(ack_group);
+    int16_t first_ack = ack->links[0];
+    int nonspeech = sc_placement_sound(true, consoleplayer);
+    ack->links[0] = (int16_t)nonspeech;
+    CHECK(sound_for(marine, SE_ACK) == nonspeech);
+    int mixed_channel = S_ActorSound(marine, SE_ACK);
+    CHECK(mixed_channel && S_IsPlaying(mixed_channel));
+    S_StopChannel(mixed_channel);
+    ack->links[0] = first_ack;
+    mobj_t *scv = spawn(MT_SCV, consoleplayer), *enemy = spawn(MT_ZERGLING, 1);
+    CHECK(scv && enemy);
+    scv->attack.target = enemy;
+    int non_speech_group = sound_for(scv, SE_ATTACK);
+    CHECK(non_speech_group && S_Sfx(non_speech_group)->numlinks > 1);
+    int attack_channel = S_ActorSound(scv, SE_ATTACK);
+    CHECK(attack_channel && S_IsPlaying(attack_channel));
+    S_StopSound(scv);
+    /* Placement/UI SFX are local sounds, not unit speech rows. */
+    int ordinary = sc_placement_sound(true, consoleplayer);
+    int ordinary_channel = ordinary ? S_StartLocalSound(ordinary) : 0;
+    CHECK(ordinary_channel && S_IsPlaying(ordinary_channel));
+    S_StopChannel(ordinary_channel);
     for (int id = 7; id <= 8; id++) {
         trigger[320 + 26] = (uint8_t)id;
         runtime[0] = (sc_trig_t){0};
@@ -105,6 +139,23 @@ static int trigger_voice(void) {
         CHECK(sc_brief_voice_playing());
         sc_stop_brief_voice();
     }
+    trigger[320 + 26] = 31; /* Unmute Unit Speech. */
+    runtime[0] = (sc_trig_t){0};
+    sc_mission_tick(&level, &(hudtext_t){0}, RTS_TICK_MS);
+    CHECK(!sc_unit_speech_muted() && sound_for(marine, SE_READY) != 0);
+    int select_channel = S_ActorSound(marine, SE_SELECT);
+    CHECK(select_channel && S_IsPlaying(select_channel));
+    S_StopSound(marine);
+    int ack_channel = S_ActorSound(marine, SE_ACK);
+    CHECK(ack_channel && S_IsPlaying(ack_channel));
+    S_StopSound(marine);
+    /* A different trigger owner must not change this peer's local mute. */
+    trigger[2372] = 0; trigger[2373] = 1;
+    mission.owners[1] = 6;
+    trigger[320 + 26] = 30;
+    runtime[0] = (sc_trig_t){0}; runtime[1] = (sc_trig_t){0};
+    sc_mission_tick(&level, &(hudtext_t){0}, RTS_TICK_MS);
+    CHECK(!sc_unit_speech_muted());
     mission.owners[1] = 5; trigger[2372] = 0; trigger[2372 + 1] = 1;
     for (int id = 7; id <= 8; id++) {
         trigger[320 + 26] = (uint8_t)id;

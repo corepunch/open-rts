@@ -1116,6 +1116,10 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         char text[256];
         /* Outcomes are synchronized; presentation is local. */
         bool local = st->current == consoleplayer;
+        if ((id == 30 || id == 31) && local) {
+            m->unit_speech_muted = id == 30;
+            continue;
+        }
         if (id == 1 || id == 2 || id == 56) {
             if (m->owners[st->current] == 5 || m->owners[st->current] == 6)
                 pending[st->current] = id == 1 ? 1 : id == 2 ? 2 : 3;

@@ -60,7 +60,10 @@ bool G_LoadExtra(const void *data, size_t size) {
     saved.rt = m->rt;
     saved.terrain = m->terrain;
     /* A resync imports shared outcomes but not the sender's local UI state. */
-    if (G_Resyncing()) saved.result = m->result;
+    if (G_Resyncing()) {
+        saved.result = m->result;
+        saved.unit_speech_muted = m->unit_speech_muted;
+    }
     *m = saved;
     sc_restore_map_session((sc_map_mode_t)m->map_mode,m->custom_slots_set,
                            m->custom_slot_kind,m->custom_slot_race);
