@@ -4672,6 +4672,28 @@ render frame timing still differ from the 70 Hz native pass. Reproduce with
 -c 'pxw 4 @ 0x104378' -c 'pd 28 @ 0x81aba' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_units build/bin/tests/z/test_combat`.
 
+**Laser tracer rotation details:** The Laser firing path sets `0x148be1`
+before `0x5af81`; the bullet constructor `0x5b0b1..0x5b0f5` computes an
+angle from launch and aim through `0x11ad5`, scales its integer degrees by
+256/360 and stores the low byte at bullet +0x18. `0x11ad5` returns north 0,
+east 90, south 180 and west 270. After passing screen clipping, the display
+path `0x5ab44..0x5abac` flips bullet +0x19 on each visible draw, chooses
+`1364 + phase`, and passes `255 - angle`
+to `0x47208` with scale word `0xe052c = 1`; `0x47232` adds 16 to that
+scale. Both native pictures are 16x16 in `SPRITES.RSC`. The caller subtracts
+(8,8) from the bullet position; `0x47251` then adds half the source width
+to both coordinates before the rotation routine. `0x3d814` uses a 256-step
+trigonometric table at `0x1422c4` for the transformation; `0x3d1b4` is an
+alternate drawing-mode branch. Phase advances on draw, not on simulation
+update. The engine currently selects preauthored directional frames and has
+no equivalent per-sprite arbitrary-angle rasterizer, so neither substituting
+eight directions nor advancing the phase on the thinker establishes native
+visual parity. Laser tracers remain invisible pending a verified rendering
+implementation. Reproduce with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 35 @ 0x5ab44' -c 'pd 45 @ 0x5b0b1'
+-c 'pd 45 @ 0x11ad5' -c 'pd 30 @ 0x47208' -c 'pd 100 @ 0x3d814'
+-c q data/Z/ZED.EXE`; `Z_SpriteSize` confirms both source dimensions.
+
 **Bullet launch height:** `0x5afab` saves the firing unit's +0x10 terrain
 pointer before bullet allocation; `0x5afc5..0x5afd7` reads its masked
 terrain byte through height table `0x11714b` and stores height plus one in
