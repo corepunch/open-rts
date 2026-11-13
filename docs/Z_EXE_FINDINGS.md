@@ -5242,3 +5242,19 @@ point in the same territory. Inspect with `r2 -q -e bin.cache=true -e
 bin.relocs.apply=true -c 'pd 40 @ 0x98098' -c 'pd 20 @ 0x98117'
 -c 'pd 20 @ 0x98137' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Repair pass stops at an out-of-range vehicle:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9c39b` collects damaged idle reserve vehicles in task order and
+`0x9c42c` collects friendly facilities. For each vehicle, `0x9c2d8..0x9c366`
+searches for the nearest facility strictly within squared distance 0x10000;
+if none is found, `0x9c373` branches to the return at `0x9c39a`, leaving later
+vehicles for a future pass. Open-rts now stops this pass at the first vehicle
+without a candidate. `test_repair_scan_stops` places one damaged vehicle past
+256 pixels and a later vehicle beside the bay, checks neither is assigned,
+then heals the first and checks that the second is serviced on the next pass.
+The test fails with the previous continue behavior. Native fixed-slot ordering
+and the engine's thinker-based task order remain approximations. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @ 0x9c2c4'
+-c 'pd 45 @ 0x9c39b' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

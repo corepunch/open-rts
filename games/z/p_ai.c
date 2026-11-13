@@ -1075,7 +1075,8 @@ static void send_damaged_vehicles(zmap_t *map, mobj_t *const *units, int count) 
             int64_t d = service_distance(unit, facility);
             if (d < distance) { best = facility; distance = d; }
         }
-        if (best) order_service(&map->ai, task, unit, best, REPAIR);
+        if (!best) break; /* 0x9c373: no facility ends this pass. */
+        order_service(&map->ai, task, unit, best, REPAIR);
     }
 }
 

@@ -1724,6 +1724,43 @@ static int test_task_seven(void) {
     return 0;
 }
 
+/* 0x9c373 stops the repair pass if its first vehicle has no nearby bay. */
+static int test_repair_scan_stops(void) {
+    RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
+    if (!model) return fail("repair scan load");
+    service_fixture();
+    mobj_t *facility = nth(MT_REPAIR, -1, 0);
+    if (!facility) return fail("repair scan facility");
+    for (int i = 0; nth(MT_REPAIR, -1, i); ++i) Z_SetTeam(nth(MT_REPAIR, -1, i), 0);
+    Z_SetTeam(facility, 1);
+    mobj_t *far = service_unit(MT_UNIT_MED_TANK, fixed3_xy(facility->core.position));
+    mobj_t *near = service_unit(MT_UNIT_MED_TANK, fixed3_xy(facility->core.position));
+    if (!far || !near) return fail("repair scan vehicles");
+    far->core.position = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){1,1}), 0);
+    ivec2_t origin = Z_BuildingOrigin(facility);
+    isize2_t size = facility->info->footprint;
+    ivec2_t centre = ivec2_add(origin, (ivec2_t){size.w * 8 - 8, size.h * 8 - 8});
+    if (ivec2_distance_squared64(Z_AITopLeft(far), centre) < 256 * 256)
+        far->core.position = fixed3_from_fixed2(fixed2_cell_center((ivec2_t){level.width - 2,level.height - 2}), 0);
+    if (ivec2_distance_squared64(Z_AITopLeft(far), centre) < 256 * 256 ||
+        ivec2_distance_squared64(Z_AITopLeft(near), centre) >= 256 * 256)
+        return fail("repair scan distance fixtures");
+    far->hp = far->max_hp / 2 - 1;
+    near->hp = near->max_hp / 2 - 1;
+    think(0); think(1);
+    zaitask_t *first = task_of(far), *second = task_of(near);
+    if (!first || !second || (first->flags & 16) || (second->flags & 16) ||
+        first->task != -1 || second->task != -1 || near->z.service)
+        return fail("first out-of-range vehicle stops repair pass");
+    far->hp = far->max_hp;
+    think(1);
+    if (second->task != 11 || near->z.service != facility->id)
+        return fail("next repair pass can service the nearby vehicle");
+    rts_game_model_destroy(model);
+    puts("PASS: z out-of-range vehicle stops the repair pass");
+    return 0;
+}
+
 static int test_repair_facility(void) {
     RtsGameModel *model = load_map("LEVEL12/LEVEL12.MAP");
     if (!model) return fail("repair campaign load");
@@ -1847,5 +1884,5 @@ int main(void) {
            test_initial_and_save() || test_scores() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
-           test_repair_facility() || test_building_service() || test_building_alert();
+           test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
 }
