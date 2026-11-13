@@ -778,7 +778,7 @@ static int nearest_own(const zmap_t *map, int team, int except, ivec2_t pixel) {
  * more important (0x9d1c5); failing both, reserves there fall back. */
 static void defend(zmap_t *map, mobj_t *const *units, int count) {
     zai_t *ai = &map->ai;
-    uint32_t seen[MEMBERS * 4];
+    uint32_t seen[Z_AI_TASKS];
     int seen_count = 0;
     for (int u = 0; u < count && seen_count < (int)(sizeof(seen) / sizeof(seen[0])); ++u) {
         const mobj_t *mo = units[u], *enemy = mo->attack.target;

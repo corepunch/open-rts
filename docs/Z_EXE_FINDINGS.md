@@ -5307,3 +5307,17 @@ values are a synthetic boundary case, and other native target-acquisition and
 pathing differences remain as documented. Inspect with `r2 -q -e
 bin.cache=true -e bin.relocs.apply=true -c 'pd 45 @ 0x9d1c5' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Defence sighting capacity:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9dc25..0x9dc63` deduplicates observed enemy unit-slot bytes and appends
+new sightings to the list; `0x9d115..0x9d165` processes the stored count.
+The native unit table contains 240 slots. Open-rts had an unrelated limit of
+84 (`MEMBERS * 4`) in its temporary sighting list; it now uses the existing
+240-task limit. This does not change the engine's approximate use of attack
+targets as sightings or its thinker ordering. `test_defence_many_sightings`
+creates 84 earlier distinct sightings in enemy land and a final sighting in
+threatened CPU land, then checks that a reserve reacts to the last one; the
+previous 84-entry bound fails the test. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 30 @ 0x9dc25' -c 'pd 25 @ 0x9d115'
+-c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
