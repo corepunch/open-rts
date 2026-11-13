@@ -132,6 +132,28 @@ the fourth batch above is superseded where this one differs.
 Also fixed: a StarCraft save taken during a Psionic Storm, Dark Swarm or
 Recall area could not be loaded (`facbfeb9`).
 
+### Sixth batch, 2026-11-13 (wrap-up)
+
+Eight packages; several were cut short and finished only the item in hand.
+Suites after integration: Z 30/30, StarCraft 36/36, the other five games and
+the network suite unchanged. Z save layout is 29 and StarCraft save layout is
+27. Rows here supersede the earlier batches where they differ.
+
+| Area | Landed | Still open (evidence needed) |
+|---|---|---|
+| Z point orders (#97) | A tank or Mobile Missile given a point order approaches into reach and stops; retail never fires at the point (`0x764e8` point branch calls no launcher). | Commander task 6 still skips tanks (an attempt was cancelled within the same tactics pass, cause not found) and Pyros (line trace `0x6e6ee..0x6e830`, `0x76fe4`); map objects `0x4a03b`. |
+| Z target scan (#97, #96) | Trace only: sight pointer `0x104070` targets, 3-D terrain ray, scan order, ranking and the `0x9de02` veto chain. The port's `Z_TerrainHeight` already holds the same height table. | Implement scanner acquisition in `p_apc.c`; unit slot order for rank ties; knockdown `+0x5a` lifecycle. |
+| Z lead (#96) | Gatling leads moving targets by the traced speed-byte formula (`games/z/p_lead.c`, `tests/z/test_lead.c`). | Pattern-branch lead for Light Gun, Howitzer and Missile Gun needs the target's cycle cursor `+0x20`, which the port does not keep; bullet slot order; Laser tracer (sprites 1364/1365, angle at `0x5ab44`). |
+| Z Fire Truck (#100) | Not attempted again. | Needs a live DOSBox-X session to see which boarding routine a truck takes. |
+| SC doors (#98) | Trace only: Enable/Disable Doodad, Open/Close Door handlers, flags, iscripts 340/341 (18 frames to the signal), initial open state. | What status `0x40000` does to a unit inside a closing door; retail blocks by collision box, the engine by a 5x5 placement footprint. |
+| SC AI scripts (#98) | Inventory test over `aiscript.bin` and the campaign CHKs (98 records: 35 utility, 63 town scripts); Rscu, Enmy, Ally, EnBk traced to full effect. | Native execution and the Computer-owner gate; Suic, MvTe, VluA, ClrC need AI region data the engine lacks. |
+| SC cloak/burrow gate (#99) | Settled from the retail command handlers: research or hero is required in both directions, CHK origin is irrelevant. A disabled unit can no longer toggle cloak. | Retail hides unresearched buttons where the menu greys them; multi-selection rule. |
+| SC larva (#99) | Spawn timer and cap, wander on creep, death off creep, larvae outliving a hatchery, cancelled egg refunded (`p_larva.c`, `test_larva.c`). | Worker-return spawn side bias; which larva a morph uses; exact run phase; tests for creep receding under a larva, morph timer reset and egg refund amount. |
+| SC flames (#101) | Firebat flame as three script-timed bullets with ring splash; enemy splash spares only the bullet's own player (`test_flames.c`). | Suicide weapons, Scarab (one outside at a time, flies on after target death), Warp Blades; wall trap heading (`setfldirect`). |
+
+`RETAIL_PARITY_MATRIX.md` predates the fifth and sixth batches and has not
+been refreshed.
+
 ### Z: commander, orders and object lifecycle
 
 | Status | Work item | Evidence and next check |
