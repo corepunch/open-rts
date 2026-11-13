@@ -5584,6 +5584,109 @@ direct creator (no ECX immediate or world-row entry selects them) and appear
 unused. None of these corresponds to anything open-rts spawns as a mobj, so
 no scan was applied and no code changed.
 
+**Issue 100 Fire Truck reaction, batch two (2026-11-13, trace only, no
+gameplay change):** the three unknowns of the `0x24c14` handler were traced
+independently. Labels: **confirmed** (ZED.EXE disassembly), **inferred**,
+**unknown**.
+
+*(1) The nozzle byte.* **Confirmed:** `unit +8` is a 42-byte body record from
+the pool at `0x186bc8` (240 records, first word `0xffff` = free; allocator
+`0x5a892`, which writes only the first word, so it does not clear `+0x15`).
+The pool is filled with `0xffff` words once, by `0x5a8d4`, whose only caller
+is `0x4efe7`. `+0x15` of this record is the unit's weapon facing, the same byte
+for every user: the aim routine `0x58b65..0x58b89` takes the wanted direction
+from `0x5a648`, compares it with `[edi+0x15]` and, if different, moves one
+octant (`dec`/`inc`, `and 7`) and otherwise fires (`0x58b92`); `0x580b4`
+snaps it to the wanted direction; `0x5909b/0x5915f` read it for the muzzle.
+So a normal Fire Truck shot only happens when the nozzle already equals the
+direction the port derives at shot time (`water_direction`), and `0x24c34`
+rotates the very same byte (it is the nozzle, not extra state). The writers
+`0x32d9f`, `0x32ea5`, `0x335cf`, `0x33882`, `0x33f48` and `0x3414f` are whole-record
+save/net-snapshot byte copies, not initialisers. Initialisers that write 0 are
+the vehicle constructors `0x637b9`, `0x6380a`, `0x6385b`, `0x638ac`, `0x6392b`,
+`0x6396d`, `0x639be` (types 6, 0x19, 0x1e, 0x20, 0x18, 0x22, 0x24; type 0x24
+gets 2 at `0x26531`). **No constructor exists for type 0x26.** A Fire Truck is
+made by a unit entering a vehicle object: `0x7b0bd` (and `0x646d2`) replace
+unit `+0x30` with the object descriptor type ((`descriptor - 0xe5974`) / 25)
+and, unless the type is 5, 0x15, 0x16 or 0x17 (`0x7b0dc` calls `0x63aa6`, a
+new record), return keeping the driver's existing body record untouched
+(`0x7b124`). **Therefore the first nozzle octant of a truck is the driver
+record's last weapon facing**: unknown for a record that never aimed (stale
+contents of a recycled pool slot, or `0xff` from the initial fill, which would
+make the first nozzle 0 after `inc`/`and 7`, whereas a stored 0 would give 1).
+**Not resolved, and where knowledge ends:** the value of `[record+0x15]` at
+the moment a driver boards, i.e. what the driver-robot constructors
+(`0x50ba3` -> `0x63aa6`, `0x50d20..0x50f85`, the factory spawn path) and the
+freeing of body records leave there; the body-record free routine was not
+found. The port also has no gradual nozzle turn for trucks (retail rotates
+one octant per update toward the target before firing, `0x58b6c`), so the
+byte between shots cannot be reproduced; no state was added.
+
+*(2) Cadence.* **Confirmed:** the per-unit update at `0x604d8..0x6058d` runs
+for every unit each native update and calls `[0x149038 + action*4]` with
+`action = [ebp+0x35]`. Table entries 0x3c and 0x3f are both `0x24c14`
+(`pxw @ 0x149120`). The stop routine `0x74eb7` (also called from the movement
+completion sites `0x7c8e8`, `0x7c944`, `0x7cb16`) sets the per-type idle
+action in `0x74f35..0x74f79`: 0x35, 0x36, 0x37, 0x38, 0x3a, 0x3c, ... for
+types 0x18, 0x19, 0x1e, 0x20, 0x22, 0x26; nothing in the dump sets action
+0x3f. So `0x24c14` is the Fire Truck's stationary action: it first runs the
+common pass `0x57dd6` with action temporarily 9 (`0x24c14`, `0x24c18`),
+restores 0x3c and then applies the flame check. **Confirmed consequence:**
+the spray runs once per native (70 Hz) update only while the truck is in
+action 0x3c. A truck that is moving or executing a service order dispatches a
+different handler; the `+0x87` bit and `+0x8e` stay as set and the countdown
+does not advance until the truck stops. **Inferred:** that every other truck
+order leaves action 0x3c; the movement and service action numbers were not
+enumerated. Countdown (confirmed): `+0x8e` = 2 at the hit; sprays happen at
+2, 1, 0 and 0xff (the `jns` at `0x24c89` decrements 0 to 0xff and the next
+update clears the bit), four updates, eight shells.
+
+*(3) The launcher `0x59ffb`.* **Confirmed:** it is the SAME launcher as the
+normal water cannon: the only other caller is `0x58c60`, inside the
+firing routine (`0x58bc5`, type 0x26 branch, muzzle `0x5909b` plus `0x5915f`,
+speed byte `+0x76`, shot counter `inc [ebp+0x1f]`). Both calls of `0x24c14`
+pass the same registers (origin in ax/bx, target in cx/dx, speed in esi) around
+a `pushal`/`popal`, so the two shells of one update are identical; `0x59ffb`
+returns carry when the endpoints are equal or the speed is 0 (the port's
+`0x59ffb rejects equal endpoints` case). It builds a straight Bresenham
+record through `0x5a39e` (owner byte from `+0x62`/`+0x31`, shooter index
+`0x10e980` = the current unit number set at `0x60405`), type bytes `+0x21` and
+`+0x17`, then provokes a unit found at the target point (`0x5a12f`). The
+normal path differs only by the line/range gate `0x764e8` and the shot counter,
+which the reaction skips. The reaction target is nozzle position +
+`0x12ddac[dir]` for the incremented nozzle, i.e. 10 pixels from the muzzle.
+Impact and damage are the common water bullet, which the port already models
+(`MT_WATER`, `A_ZWater`, `A_ZBlastImpact`, damage half the weapon value, team
+filtered). **Unknown (not traced):** whether a water impact changes ground fire
+or any other effect record; no reader was seen in the `0x59369` water branch
+of the common explosion, but it was not searched exhaustively.
+
+**Decision:** items (2) and (3) resolve, item (1) does not (first nozzle
+octant and nozzle drift between shots), so the reaction is still not
+implemented; the port's only modelled effect remains the health immunity.
+Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 70 @
+0x24c14' -c 'pd 40 @ 0x58b40' -c 'pd 24 @ 0x7b0a8' -c 'pd 40 @ 0x74f00' -c
+'pd 30 @ 0x5a892' -c 'pxw 32 @ 0x149120' data/Z/ZED.EXE`. No code or test
+changed; verification: `git diff --check`.
+
+*Robot-side follow-up (same day).* **Confirmed:** robots (classes 2, 4, 5, 3:
+types 5, 0x15, 0x16, 0x17) are built by `0x50b77..0x50ba3` -> `0x63aa6` ->
+`0x63a1d` (allocates the body record, `0x5a892`) and `0x50bfb`; none of them
+writes `+0x15`, so a robot's weapon byte is pool contents (0xff from the
+`0x5a8d4` fill, or a stale octant). Writers of `+0x15` afterwards (masked
+0..7): `0x58b81/0x58b86` aim, `0x580b4` snap, `0x58180`, `0x245d8`. The
+vehicle constructors `0x637b9..0x639be` (reached from `0x6375a`, descriptor
+types 0x18, 0x1a, 0x1d, 0x1f, 0x21, 0x23) write 0, and boarding through
+`0x646d2 -> 0x646e4 -> 0x7b1e9` calls `0x6375a` (new record) and then sets
+hull facing 6 and `[record+0x15] = 6` (`0x7b21a..0x7b221`, skipped for type
+0x20). **Where it ends:** the descriptor of the Fire Truck object is index
+0x25 (names in the `0xe5974` table: Light 0x1d, A.P.C. 0x1f, Jeep 0x21, Crane
+0x23, Fire Truck 0x25), which `0x6375a` does not list; its default branch
+`0x637a3 -> 0x637b9` would write unit type 6, contradicting type 0x26. Whether
+a Fire Truck passes through `0x6375a`/`0x7b1e9` (nozzle 6) or only through
+`0x7b0bd` (driver record kept, nozzle = driver's stale byte) is not settled,
+and the pre-crewed map-loader path was not found. No state was added.
+
 **CPU building attack task 6, partial trace:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 heavy-pass routine `0x9a801` checks active usable mobile tasks 1 and 3 whose
