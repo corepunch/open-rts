@@ -272,6 +272,56 @@ static int infestation(void) {
     return 0;
 }
 
+static int invincible_status_effects(void) {
+    enum { IRRADIATE_BEATS = 37, PLAGUE_BEATS = 75 };
+    mobj_t *host = spawn(MT_GHOST, FIXED2_LIT(10.5, 10.5), 0);
+    mobj_t *neighbor = spawn(MT_MARINE, FIXED2_LIT(11, 10.5), 0);
+    mobj_t *invincible_neighbor = spawn(MT_MARINE, FIXED2_LIT(10.5, 11), 0);
+    CHECK(host && neighbor && invincible_neighbor);
+    host->traits &= ~MF_ATTACK;
+    neighbor->traits &= ~MF_ATTACK;
+    invincible_neighbor->traits &= ~MF_ATTACK;
+    int host_hp = host->hp, neighbor_hp = neighbor->hp, invincible_neighbor_hp = invincible_neighbor->hp;
+    uint32_t host_id = host->id, neighbor_id = neighbor->id, invincible_neighbor_id = invincible_neighbor->id;
+    host->sc.timers[SC_TIMER_IRRADIATE] = IRRADIATE_BEATS;
+    host->sc.flags |= SC_INVINCIBLE;
+    invincible_neighbor->sc.flags |= SC_INVINCIBLE;
+    leveltime = 0;
+    tick(40);
+    CHECK(host->hp == host_hp && host->sc.timers[SC_TIMER_IRRADIATE] > 0);
+    CHECK(neighbor->hp < neighbor_hp && invincible_neighbor->hp == invincible_neighbor_hp);
+    tick(RTS_TICRATE * 13);
+    host = P_MobjById(host_id);
+    invincible_neighbor = P_MobjById(invincible_neighbor_id);
+    CHECK(host && host->hp == host_hp && host->sc.timers[SC_TIMER_IRRADIATE] == 0);
+    CHECK(invincible_neighbor && invincible_neighbor->hp == invincible_neighbor_hp);
+    neighbor = P_MobjById(neighbor_id);
+    CHECK(!neighbor || neighbor->hp < neighbor_hp);
+
+    reset();
+    mobj_t *plagued = spawn(MT_MARINE, FIXED2_LIT(10.5, 10.5), 0);
+    CHECK(plagued);
+    int hp = plagued->hp;
+    plagued->sc.timers[SC_TIMER_PLAGUE] = PLAGUE_BEATS;
+    plagued->sc.flags |= SC_INVINCIBLE;
+    tick(RTS_TICRATE * 27);
+    CHECK(plagued->hp == hp && plagued->sc.timers[SC_TIMER_PLAGUE] == 0);
+
+    reset();
+    plagued = spawn(MT_MARINE, FIXED2_LIT(10.5, 10.5), 0);
+    CHECK(plagued);
+    hp = plagued->hp;
+    plagued->sc.timers[SC_TIMER_PLAGUE] = PLAGUE_BEATS;
+    plagued->sc.flags |= SC_INVINCIBLE;
+    tick(10);
+    CHECK(plagued->hp == hp && plagued->sc.timers[SC_TIMER_PLAGUE] > 0);
+    plagued->sc.flags &= (uint8_t)~SC_INVINCIBLE;
+    for (int i = 0; i < RTS_TICRATE && plagued->hp == hp; i++) tick(1);
+    CHECK(plagued->hp < hp && plagued->sc.timers[SC_TIMER_PLAGUE] > 0);
+    reset();
+    return 0;
+}
+
 static int transports(void) {
     mobj_t *ship = spawn(MT_DROPSHIP, FIXED2_LIT(10.5, 10.5), 0);
     mobj_t *m1 = spawn(MT_MARINE, FIXED2_LIT(8.5, 12.5), 0), *m2 = spawn(MT_MARINE, FIXED2_LIT(9.5, 12.5), 0);
@@ -361,11 +411,12 @@ int main(void) {
     CHECK(!burrow());
     CHECK(!arbiter());
     CHECK(!infestation());
+    CHECK(!invincible_status_effects());
     CHECK(!transports());
     CHECK(!nydus());
     free(level.mission);level.mission=NULL;
     P_FreeLevel(&level);
-    puts("PASS: Stim Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, suicide attacks, speed/sight/cooldown "
+    puts("PASS: Stim Packs, Spider Mines, Burrow, Recall, Stasis Field, Infestation, invincible status effects, suicide attacks, speed/sight/cooldown "
          "upgrades and their research, Dropship/Shuttle/Overlord transport and the Nydus Canal");
     return 0;
 }

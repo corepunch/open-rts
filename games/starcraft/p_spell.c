@@ -588,7 +588,8 @@ static void irradiate(mobj_t *host) {
     int damage = SC_IRRADIATE_DAMAGE * (k + 1) / SC_IRRADIATE_BEATS - SC_IRRADIATE_DAMAGE * k / SC_IRRADIATE_BEATS;
     fixed2_t at = where(host);
     AROUND(v, at, SC_IRRADIATE_RADIUS, NULL)
-        if (!building(v) && (sc_units[v->type_id - 1].flags & SC_UNIT_ORGANIC)) P_DamageMobj(v, NULL, damage);
+        if (!(v->sc.flags & SC_INVINCIBLE) && !building(v) &&
+            (sc_units[v->type_id - 1].flags & SC_UNIT_ORGANIC)) P_DamageMobj(v, NULL, damage);
 }
 
 bool sc_dark_swarm_protects(const mobj_t *target) {
@@ -636,7 +637,7 @@ void sc_spell_ticker(mobj_t *mo, int frames) {
                 t[SC_TIMER_PLAGUE]--;
                 int damage = SC_PLAGUE_DAMAGE / SC_PLAGUE_BEATS;
                 if (damage > mo->hp - 1) damage = mo->hp - 1; /* Plague never kills. */
-                if (damage > 0) P_DamageMobj(mo, NULL, damage);
+                if (!(mo->sc.flags & SC_INVINCIBLE) && damage > 0) P_DamageMobj(mo, NULL, damage);
             }
             if (mo->remove || mo->hp <= 0) return;
         }

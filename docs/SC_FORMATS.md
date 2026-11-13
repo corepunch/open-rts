@@ -287,7 +287,15 @@ approximation.
 OpenBW's UNIT loader enables invincibility when both the +12 valid-status
 word and +26 state word contain bit 0x10. This now initializes the existing
 invincibility flag; a fixture checks all four bit combinations and damage
-immunity. OpenBW initializes hallucinations when bit 8 is set in both words,
+immunity. Its status ticker also skips Plague damage while a unit is
+invincible, and Irradiate uses `weapon_deal_damage`, which rejects invincible
+targets. The local periodic Irradiate and Plague ticks now preserve that
+immunity. Tests use their native 37- and 75-beat durations: an invincible
+Irradiate host still damages a vulnerable neighbor while a separate invincible
+neighbor stays unharmed; combat is disabled on all three units. Both effects
+expire while their invincible host stays unharmed, and Plague damage resumes if
+invincibility clears before its timer ends. OpenBW initializes hallucinations
+when bit 8 is set in both words,
 starts a 1350-frame lifetime except for turret subunits, removes Carrier
 interceptors and marks Reaver scarabs as illusions. UNIT now initializes that
 lifecycle; UPRP shares it by inference. Fixtures cover both flag words,
