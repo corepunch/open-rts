@@ -485,6 +485,89 @@ static int transports(void) {
     return 0;
 }
 
+static int transport_unload_failures(void) {
+    mobj_t *ship = spawn(MT_DROPSHIP, FIXED2_LIT(20.6, 20.6), 0);
+    mobj_t *marine = spawn(MT_MARINE, FIXED2_LIT(20.6, 20.6), 0);
+    CHECK(ship && marine && sc_board(marine, ship) && (marine->sc.flags & SC_LOADED));
+    ship->sc.timers[SC_TIMER_STASIS] = 3;
+    ticcmd_t addressed = {.order = TC_UNLOAD, .count = 1, .units = {ship->id}, .target = marine->id};
+    G_RunTiccmd(0, &addressed);
+    CHECK(marine->sc.flags & SC_LOADED);
+    sc_unload_at(ship, at_of(ship));
+    tick(1);
+    CHECK(ship->sc.order.kind == SC_ORDER_NONE && (marine->sc.flags & SC_LOADED));
+    ship->sc.timers[SC_TIMER_STASIS] = 0;
+
+    memset(level.blocked, 1, (size_t)level.width * level.height);
+    for (int y = 18; y <= 22; ++y) for (int x = 24; x <= 27; ++x)
+        level.blocked[y * level.width + x] = 0;
+    P_NavFree(&level);
+    P_NavBeginTick();
+    sc_unload_at(ship, at_of(ship));
+    tick(1);
+    /* Nearby ground is clear, but blocked terrain at the exact origin makes
+     * native find_unit_placement fail before displacement search. */
+    CHECK(ship->sc.order.kind == SC_ORDER_NONE && (marine->sc.flags & SC_LOADED));
+
+    memset(level.blocked, 0, (size_t)level.width * level.height);
+    P_NavFree(&level);
+    P_NavBeginTick();
+    mobj_t *blocker = spawn(MT_MARINE, at_of(ship), 0);
+    CHECK(blocker);
+    marine->sc.timers[SC_TIMER_STIM] = RTS_TICRATE;
+    int expected_cooldown = G_WeaponCooldown(marine, &marine->info->attack, marine->info->attack.cooldown_ms);
+    marine->attack.cooldown_left_ms = 0;
+    sc_unload_at(ship, at_of(ship));
+    tick(1);
+    CHECK(!(marine->sc.flags & SC_LOADED));
+    CHECK(fixed2_distance_squared64(at_of(marine), at_of(ship)) <= fixed_sq64(SC_PIXELS(128)));
+    int x_remainder = (at_of(marine).x / SC_PIXELS(1)) & 7;
+    int y_remainder = (at_of(marine).y / SC_PIXELS(1)) & 7;
+    CHECK((x_remainder <= 1 || x_remainder >= 7) && (y_remainder <= 1 || y_remainder >= 7));
+    CHECK(marine->attack.cooldown_left_ms + RTS_TICK_MS >= expected_cooldown);
+    CHECK(marine->core.state_id == mobjinfo[marine->type_id].spawnstate);
+    tick(RTS_TICRATE);
+    CHECK(ship->sc.order.kind == SC_ORDER_NONE);
+
+    /* Native's northern displacement edge is inclusive: dy=-128 is in the
+     * search box even though +128 is outside it. Keep only that passenger
+     * footprint traversable so a rejected edge cannot choose another point. */
+    reset();
+    ship = spawn(MT_DROPSHIP, FIXED2_LIT(20.5, 20.5), 0);
+    marine = spawn(MT_MARINE, FIXED2_LIT(20.5, 20.5), 0);
+    CHECK(ship && marine && sc_board(marine, ship));
+    memset(level.blocked, 1, (size_t)level.width * level.height);
+    level.blocked[16 * level.width + 20] = 0;
+    P_NavFree(&level);
+    P_NavBeginTick();
+    blocker = spawn(MT_MARINE, at_of(ship), 1);
+    CHECK(blocker);
+    sc_unload_at(ship, at_of(ship));
+    tick(1);
+    CHECK(!(marine->sc.flags & SC_LOADED));
+    CHECK(fixed2_cell(at_of(marine)).x == 20 && fixed2_cell(at_of(marine)).y == 16);
+
+    /* A clear passenger origin whose bounding box crosses the map edge must
+     * run the displacement search instead of treating the edge as blocked
+     * terrain at an otherwise in-map origin. */
+    memset(level.blocked, 0, (size_t)level.width * level.height);
+    P_NavFree(&level);
+    P_NavBeginTick();
+    reset();
+    ship = spawn(MT_DROPSHIP, FIXED2_LIT(0.1, 10.5), 0);
+    marine = spawn(MT_MARINE, FIXED2_LIT(0.1, 10.5), 0);
+    CHECK(ship && marine && sc_board(marine, ship));
+    sc_unload_at(ship, at_of(ship));
+    tick(1);
+    CHECK(!(marine->sc.flags & SC_LOADED));
+    CHECK(fixed2_cell(at_of(marine)).x >= 0);
+
+    memset(level.blocked, 0, (size_t)level.width * level.height);
+    P_NavFree(&level);
+    reset();
+    return 0;
+}
+
 static int storm_unit_box_range(void) {
     fixed2_t center = FIXED2_LIT(10.5, 10.5);
     learn(0, SC_TECH_PSIONIC_STORM);
@@ -547,6 +630,7 @@ int main(void) {
     CHECK(!invincible_status_effects());
     CHECK(!storm_unit_box_range());
     CHECK(!transports());
+    CHECK(!transport_unload_failures());
     CHECK(!nydus());
     free(level.mission);level.mission=NULL;
     P_FreeLevel(&level);

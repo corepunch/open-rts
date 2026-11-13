@@ -344,9 +344,10 @@ static int bunker(void) {
     irect_t cells = P_MobjCells(b);
     P_DamageMobj(b, NULL, b->hp);
     tick(2);
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++) {
         CHECK(!(m[i]->sc.flags & SC_LOADED) && m[i]->hp > 0 && (m[i]->traits & MF_SELECTABLE) &&
               (m[i]->traits & MF_MOBILE) && !P_MobjIsHidden(m[i]) && !inside(m[i], cells));
+    }
     /* Unload All empties one on order. */
     mobj_t *b2 = building(MT_BUNKER, (ivec2_t){20, 20}, 0);
     mobj_t *a = spawn(MT_GHOST, FIXED2_LIT(21.5, 22.6), 0), *f = spawn(MT_FIREBAT, FIXED2_LIT(20.5, 22.6), 0);
@@ -355,6 +356,37 @@ static int bunker(void) {
     G_RunTiccmd(0, &unload);
     CHECK(!(a->sc.flags & SC_LOADED) && !(f->sc.flags & SC_LOADED) && sc_cargo_space(b2) == 0 &&
           !inside(a, P_MobjCells(b2)) && !inside(f, P_MobjCells(b2)));
+
+    /* A disabled Bunker cannot unload. On a later order, placement starts at
+     * its center and moves the passenger out of the colliding container. */
+    mobj_t *b3 = building(MT_BUNKER, (ivec2_t){30, 30}, 0);
+    mobj_t *c = spawn(MT_MARINE, FIXED2_LIT(30.5, 33.5), 0);
+    CHECK(b3 && c && sc_board(c, b3));
+    tick(RTS_TICRATE * 4);
+    CHECK(c->sc.flags & SC_LOADED);
+    b3->sc.timers[SC_TIMER_STASIS] = 2;
+    ticcmd_t addressed = {.order = TC_UNLOAD, .count = 1, .units = {b3->id}, .target = c->id};
+    G_RunTiccmd(0, &addressed);
+    CHECK(c->sc.flags & SC_LOADED);
+    sc_unload(b3);
+    CHECK(c->sc.flags & SC_LOADED);
+    b3->sc.timers[SC_TIMER_STASIS] = 0;
+    mobj_t *blocker = spawn(MT_MARINE, fixed3_xy(b3->core.position), 0);
+    CHECK(blocker);
+    irect_t footprint = P_MobjCells(b3);
+    sc_unload(b3);
+    CHECK(!(c->sc.flags & SC_LOADED) && !inside(c, footprint) &&
+          fixed2_distance_squared64(fixed3_xy(c->core.position), fixed3_xy(b3->core.position)) <= fixed_sq64(SC_PIXELS(128)));
+
+    mobj_t *b4 = building(MT_BUNKER, (ivec2_t){36, 30}, 0);
+    mobj_t *d = spawn(MT_MARINE, FIXED2_LIT(36.5, 34.5), 0);
+    CHECK(b4 && d && sc_board(d, b4));
+    tick(RTS_TICRATE * 4);
+    CHECK(d->sc.flags & SC_LOADED);
+    uint32_t d_id = d->id;
+    b4->sc.timers[SC_TIMER_STASIS] = 2;
+    P_DamageMobj(b4, NULL, b4->hp);
+    CHECK(!P_MobjById(d_id)); /* disabled Bunker fails unit_unload, then kills cargo */
     reset();
     return 0;
 }

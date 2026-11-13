@@ -1,5 +1,6 @@
 #include "sc_local.h"
 #include <math.h>
+#include <stdlib.h>
 /* StarCraft units that carry, launch or join others: Carrier interceptors
  * and Reaver scarabs from a hangar, Terran add-ons beside their building,
  * Bunkers that hold infantry, Nuclear Silos, and High Templar merging into
@@ -15,6 +16,118 @@ static fixed2_t where(const mobj_t *mo) { return fixed3_xy(mo->core.position); }
 static bool live(const thinker_t *th) {
     const mobj_t *mo = (const mobj_t *)th;
     return th->function == P_MobjThinker && !mo->remove && mo->hp > 0;
+}
+static ivec2_t pixel(fixed2_t at);
+static bool unload_bbox_in_map(const mobj_t *unit, fixed2_t at) {
+    irect_t bounds = sc_unit(unit)->bounds;
+    int x0 = fixed_floor_int(at.x + SC_PIXELS(bounds.x));
+    int y0 = fixed_floor_int(at.y + SC_PIXELS(bounds.y));
+    int x1 = fixed_floor_int(at.x + SC_PIXELS(bounds.x + bounds.w));
+    int y1 = fixed_floor_int(at.y + SC_PIXELS(bounds.y + bounds.h));
+    return L_Contains(&level, x0, y0) && L_Contains(&level, x1, y1);
+}
+/* Transport placement checks the origin then 8-pixel points inside the native
+ * [-128,+127] box. Recall retains its separate search. */
+static bool unload_terrain_fits(const mobj_t *unit, fixed2_t at) {
+    irect_t bounds = sc_unit(unit)->bounds;
+    int x0 = fixed_floor_int(at.x + SC_PIXELS(bounds.x));
+    int y0 = fixed_floor_int(at.y + SC_PIXELS(bounds.y));
+    int x1 = fixed_floor_int(at.x + SC_PIXELS(bounds.x + bounds.w));
+    int y1 = fixed_floor_int(at.y + SC_PIXELS(bounds.y + bounds.h));
+    int cls = P_MobjMoveClass(unit);
+    for (int y = y0; y <= y1; ++y) for (int x = x0; x <= x1; ++x) {
+        if (!L_Contains(&level, x, y)) return false;
+        size_t index = L_Index(&level, x, y);
+        if ((level.blocked && level.blocked[index]) ||
+            (level.cell_solid && (level.cell_solid[index] & 1))) return false;
+        if (level.speeds && cls > 0 && cls < level.speeds->class_count) {
+            int effect = level.cell_effect ? level.cell_effect[index] : 255;
+            int speed = effect < 8 ? level.speeds->overlay[cls][effect] :
+                level.speeds->terrain[cls][(level.cell_terrain ? level.cell_terrain[index] : 15) & 15];
+            if (speed <= 0) return false;
+        }
+    }
+    return true;
+}
+static bool unload_units_clear(const mobj_t *unit, const mobj_t *container, fixed2_t at) {
+    irect_t bounds = sc_unit(unit)->bounds;
+    fixed2_t from = fixed2_add(at, (fixed2_t){SC_PIXELS(bounds.x), SC_PIXELS(bounds.y)});
+    fixed2_t to = fixed2_add(at, (fixed2_t){SC_PIXELS(bounds.x + bounds.w), SC_PIXELS(bounds.y + bounds.h)});
+    bool flying = (unit->traits & MF_FLY) != 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *other = (const mobj_t *)th;
+        const sc_unit_t *other_type = sc_unit(other);
+        if ((!live(th) && other != container) || other == unit || (other->traits & MF_NOBLOCKMAP) ||
+            !other_type || ((other->traits & MF_FLY) != 0) != flying) continue;
+        if (other == container && other->type_id == MT_BUNKER) {
+            irect_t footprint = P_MobjCells(other);
+            ivec2_t cell = fixed2_cell(at);
+            if (cell.x >= footprint.x && cell.y >= footprint.y &&
+                cell.x < footprint.x + footprint.w && cell.y < footprint.y + footprint.h) return false;
+        }
+        irect_t other_bounds = other_type->bounds;
+        fixed2_t other_at = where(other);
+        fixed_t left = other_at.x + SC_PIXELS(other_bounds.x);
+        fixed_t top = other_at.y + SC_PIXELS(other_bounds.y);
+        fixed_t right = other_at.x + SC_PIXELS(other_bounds.x + other_bounds.w);
+        fixed_t bottom = other_at.y + SC_PIXELS(other_bounds.y + other_bounds.h);
+        if (from.x < right && to.x > left && from.y < bottom && to.y > top) return false;
+    }
+    return true;
+}
+typedef struct { fixed2_t at; int distance; } unload_candidate_t;
+static int unload_candidate_order(const void *a, const void *b) {
+    const unload_candidate_t *left = a, *right = b;
+    if (left->distance != right->distance) return left->distance < right->distance ? -1 : 1;
+    if (left->at.y != right->at.y) return left->at.y < right->at.y ? -1 : 1;
+    return (left->at.x > right->at.x) - (left->at.x < right->at.x);
+}
+static bool unload_position(mobj_t *unit, const mobj_t *container, fixed2_t at) {
+    if (unit->traits & MF_FLY) {
+        unit->core.position = fixed3_with_xy(unit->core.position, at);
+        return true;
+    }
+    bool origin_clear = unload_units_clear(unit, container, at);
+    if (origin_clear) {
+        if (unload_terrain_fits(unit, at)) {
+            unit->core.position = fixed3_with_xy(unit->core.position, at);
+            return true;
+        }
+        if (unload_bbox_in_map(unit, at)) return false;
+    }
+    ivec2_t origin = pixel(at);
+    int min_x = origin.x - 128, max_x = origin.x + 127;
+    int min_y = origin.y - 128, max_y = origin.y + 127;
+    min_x -= ((min_x % 8) + 8) % 8;
+    min_y -= ((min_y % 8) + 8) % 8;
+    unload_candidate_t candidates[33 * 33];
+    int count = 0;
+    for (int y = min_y; y <= max_y; y += 8) for (int x = min_x; x <= max_x; x += 8) {
+        int dx = x - origin.x, dy = y - origin.y;
+        int distance = dx * dx + dy * dy;
+        if (dx < -128 || dx > 127 || dy < -128 || dy > 127) continue;
+        fixed2_t candidate = {SC_PIXELS(x), SC_PIXELS(y)};
+        if (!unload_terrain_fits(unit, candidate) || !unload_units_clear(unit, container, candidate)) continue;
+        candidates[count++] = (unload_candidate_t){candidate, distance};
+    }
+    if (!count) return false;
+    qsort(candidates, (size_t)count, sizeof(*candidates), unload_candidate_order);
+    unit->core.position = fixed3_with_xy(unit->core.position, candidates[0].at);
+    return true;
+}
+static void unloaded(mobj_t *unit, bool mobile_transport) {
+    P_ClearMove(unit);
+    unit->movement.goal = where(unit);
+    unit->movement.order_arrived = true;
+    unit->waypoints = (waypoints_t){0};
+    unit->core.momentum = fixed3_zero();
+    unit->attack.target = NULL;
+    if (mobjinfo[unit->type_id].spawnstate > 0) P_SetMobjState(unit, mobjinfo[unit->type_id].spawnstate);
+    if (mobile_transport) {
+        int cooldown = unit->info->attack.cooldown_ms;
+        unit->attack.cooldown_left_ms = G_WeaponCooldown(unit, &unit->info->attack, cooldown);
+    }
 }
 static ivec2_t pixel(fixed2_t at) { return (ivec2_t){(at.x + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5), (at.y + FIXED_ONE / 64) >> (FIXED_FRAC_BITS - 5)}; }
 /* A unit of type on owner's side at a spot. */
@@ -336,7 +449,8 @@ bool sc_board(mobj_t *unit, mobj_t *carrier) {
 }
 /* Out beside the cells it was in, nearest the middle of their lower edge,
  * wherever the ground is open and nobody stands. */
-static bool pop_out(mobj_t *unit, irect_t r) {
+static bool pop_out(mobj_t *unit, const mobj_t *container) {
+    if (container && sc_disabled(container)) return false;
     uint8_t flags = unit->sc.flags;
     uint32_t parent = unit->sc.parent;
     uint32_t traits = unit->traits;
@@ -344,63 +458,44 @@ static bool pop_out(mobj_t *unit, irect_t r) {
     unit->sc.flags &= ~SC_LOADED;
     unit->sc.parent = 0;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
-    fixed2_t door = {FIXED_FROM_INT(r.x) + FIXED_FROM_INT(r.w) / 2, FIXED_FROM_INT(r.y + r.h)}, best = where(unit);
-    int64_t best_d = -1;
-    for (int y = -1; y <= r.h; y++)
-        for (int x = -1; x <= r.w; x++) {
-            if (x >= 0 && y >= 0 && x < r.w && y < r.h) continue;
-            fixed2_t at = fixed2_cell_center((ivec2_t){r.x + x, r.y + y});
-            int64_t d = fixed2_distance_squared64(at, door);
-            if ((best_d >= 0 && d >= best_d) || !P_CheckPosition(&level, unit, at)) continue;
-            bool taken = false;
-            for (thinker_t *th = thinkercap.next; th != &thinkercap && !taken; th = th->next) {
-                const mobj_t *mo = (const mobj_t *)th;
-                fixed_t room = P_MobjRadius(unit) + P_MobjRadius(mo);
-                taken = live(th) && mo != unit && (mo->traits & MF_MOBILE) && !(mo->traits & MF_FLY) &&
-                    fixed2_distance_squared64(where(mo), at) < fixed_sq64(room);
-            }
-            if (!taken) { best = at; best_d = d; }
-        }
-    if (best_d < 0) {
+    if (!unload_position(unit, container, where(unit))) {
         unit->sc.flags = flags;
         unit->sc.parent = parent;
         unit->traits = traits;
         unit->core.position = position;
         return false;
     }
-    unit->core.position = fixed3_with_xy(unit->core.position, best);
-    P_ClearMove(unit);
-    unit->movement.goal = where(unit);
-    unit->movement.order_arrived = true;
+    unloaded(unit, false);
     return true;
 }
 /* Down from a transport onto open ground beneath it; false when there is
  * none, and the passenger stays aboard. */
 static bool drop(mobj_t *unit, mobj_t *carrier) {
+    if (sc_disabled(carrier)) return false;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
     unit->sc.flags &= ~SC_LOADED;
-    if (!sc_place_near(unit, where(carrier))) {
+    if (!unload_position(unit, carrier, where(carrier))) {
         unit->sc.flags |= SC_LOADED;
         unit->traits = (unit->traits & ~(MF_SELECTABLE | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
         return false;
     }
     for (int i = 0; i < SC_CARGO; i++) if (carrier->sc.cargo[i] == unit->id) carrier->sc.cargo[i] = 0;
     unit->sc.parent = 0;
-    P_ClearMove(unit);
-    unit->movement.goal = where(unit);
-    unit->movement.order_arrived = true;
+    unloaded(unit, true);
     return true;
 }
 /* A Bunker empties at once. */
 void sc_unload(mobj_t *bunker) {
+    if (sc_disabled(bunker)) return;
     for (int i = 0; i < SC_CARGO; i++) {
         mobj_t *mo = P_MobjById(bunker->sc.cargo[i]);
-        if (aboard(mo, bunker) && pop_out(mo, P_MobjCells(bunker))) bunker->sc.cargo[i] = 0;
+        if (aboard(mo, bunker) && pop_out(mo, bunker)) bunker->sc.cargo[i] = 0;
     }
 }
 /* A transport flies to the spot and sets its passengers down there, one
  * every 15 frames (OpenBW order_MoveUnload and unit_unload). */
 void sc_unload_at(mobj_t *carrier, fixed2_t at) {
+    if (sc_disabled(carrier)) return;
     if (is_building(carrier)) { sc_unload(carrier); return; }
     if (!sc_cargo_space(carrier)) return;
     sc_interrupt(carrier);
@@ -410,6 +505,7 @@ void sc_unload_at(mobj_t *carrier, fixed2_t at) {
 }
 static void unloading(mobj_t *carrier, int frames) {
     sc_order_t *o = &carrier->sc.order;
+    if (sc_disabled(carrier)) { *o = (sc_order_t){0}; return; }
     fixed2_t at = {SC_PIXELS(o->at.x), SC_PIXELS(o->at.y)};
     if (!fixed2_near(where(carrier), at, SC_PIXELS(16))) {
         if (!P_HasMoveOrder(carrier)) P_MoveUnitTo(&level, carrier, at);
@@ -420,7 +516,8 @@ static void unloading(mobj_t *carrier, int frames) {
     for (int i = 0; i < SC_CARGO; i++) {
         mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
         if (!aboard(mo, carrier)) continue;
-        if (drop(mo, carrier)) o->time = SC_UNLOAD_FRAMES;
+        if (!drop(mo, carrier)) { *o = (sc_order_t){0}; return; }
+        o->time = SC_UNLOAD_FRAMES;
         return;
     }
     *o = (sc_order_t){0};
@@ -434,11 +531,7 @@ static void loaded(mobj_t *mo) {
         return;
     }
     if (carrier && !is_building(carrier)) { mo->sc.flags &= ~SC_LOADED; P_DamageMobj(mo, NULL, mo->hp); return; }
-    isize2_t foot = actor_types[MT_BUNKER - 1].footprint;
-    fixed2_t at = where(mo);
-    if (!pop_out(mo, (irect_t){(at.x - FIXED_FROM_INT(foot.w) / 2 + 66) >> FIXED_FRAC_BITS,
-                              (at.y - FIXED_FROM_INT(foot.h) / 2 + 66) >> FIXED_FRAC_BITS, foot.w, foot.h}))
-        kill_loaded(mo);
+    if (!pop_out(mo, carrier)) kill_loaded(mo);
 }
 /* A transport shot down takes its passengers with it. */
 void sc_transport_killed(mobj_t *carrier) {
@@ -448,7 +541,7 @@ void sc_transport_killed(mobj_t *carrier) {
     for (int i = 0; i < SC_CARGO; i++) {
         mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
         if (!aboard(mo, carrier)) { carrier->sc.cargo[i] = 0; continue; }
-        if (bunker && pop_out(mo, P_MobjCells(carrier))) {
+        if (bunker && pop_out(mo, carrier)) {
             carrier->sc.cargo[i] = 0;
             continue;
         }
@@ -736,7 +829,7 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
                 sc_unload_at(units[i],here?where(units[i]):at);
             } else if(aboard(target,units[i])) {
                 if(is_building(units[i])) {
-                    if (pop_out(target, P_MobjCells(units[i])))
+                    if (pop_out(target, units[i]))
                         for (int j = 0; j < SC_CARGO; j++)
                             if (units[i]->sc.cargo[j] == target->id) units[i]->sc.cargo[j] = 0;
                 } else drop(target,units[i]);
