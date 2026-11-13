@@ -694,6 +694,29 @@ static int test_unreachable_frontier(void) {
     zaitask_t *task = task_of(lead);
     if (!task || task->current != 0) return fail("register inland force");
     task->passes = 1;
+    task->pending = true;
+    task->execute_at = map->ai.clock + 1000;
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    if (task->passes || task->task != -1 || !task->pending)
+        return fail("pending order resets frontier quiet passes");
+    task->pending = false;
+    task->passes = 1;
+    if (!P_MoveUnitTo(&level, lead, fixed2_cell_center(ivec2_add(map->territories[0].flag, (ivec2_t){3, 0}))))
+        return fail("frontier moving fixture");
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    if (task->passes != 1 || task->task != -1)
+        return fail("moving force preserves frontier quiet passes");
+    P_ClearMove(lead);
+    task->passes = 0;
+    map->ai.delay = 0;
+    map->ai.fraction = 0;
+    think(1);
+    if (task->passes != 1 || task->task != -1)
+        return fail("frontier waits for a new first quiet pass");
     map->ai.delay = 0;
     map->ai.fraction = 0;
     think(1);

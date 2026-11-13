@@ -5101,3 +5101,17 @@ checks that an idle group with a later queued command is assigned to an
 assault and its command is replaced. Inspect with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 65 @ 0x9a126' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Frontier countdown and delayed commands:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98e0e` first skips groups whose +0x3a byte is nonzero without changing
+their frontier counter. Otherwise `0x98e17` calls `0x9823f`, which scans
+active delayed-command records for the group, and a match branches to
+`0x98e3c` to reset task +0x12. A clear result increments it and the second
+pass attempts frontier dispatch. Open-rts resets `passes` for a pending
+command after its existing movement check; the mapping from native group
++0x3a to engine movement remains an approximation. The extended
+`test_unreachable_frontier` checks pending reset, moving preservation, and
+the two subsequent quiet passes. Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 48 @ 0x98df5' -c 'pd 20 @ 0x9823f' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.

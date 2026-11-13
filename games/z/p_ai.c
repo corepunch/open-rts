@@ -654,9 +654,11 @@ static void to_frontier(zmap_t *map, mobj_t *const *units, int count) {
         if (!inland) { task->passes = 0; continue; }
         mobj_t *group[MEMBERS];
         int n = members(task, units, count, group);
-        bool busy = task->pending;
-        for (int j = 0; j < n; ++j) busy |= P_HasMoveOrder(group[j]);
-        if (busy || ++task->passes < 2) continue;
+        bool moving = false;
+        for (int j = 0; j < n; ++j) moving |= P_HasMoveOrder(group[j]);
+        if (moving) continue;
+        if (task->pending) { task->passes = 0; continue; }
+        if (++task->passes < 2) continue;
         for (int t = 0; t < map->territory_count; ++t) {
             if (!owned(ai, t) || (ai->territories[t].flags & 3) || !n ||
                 !allowed(group[0], ai->territories[t].flags, false)) continue;
