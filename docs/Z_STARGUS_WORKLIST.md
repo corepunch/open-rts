@@ -24,6 +24,34 @@ projectile visuals landed in `0746869e`, and Z Pyro fire landed in `5948c07b`.
 
 ## Independent implementation packages
 
+### Second audit, 2026-11-13
+
+The second batch added extended StarCraft MRGN locations in `6aa9de99` and
+the Glaive Wurm intermediate-bounce visual in `c2af8e2f`. The Z commander
+building-attack task needs further work on coordinate-target firing.
+
+- Z's native task 6 uses the first territory building and descriptor attack
+  coordinates, including a destroyed first building; the current AI requires
+  a live object target. Vehicle knockdown and avoidance, the APC's separate
+  scanner and coordinate firing modes, zero-HP boundaries, native slot order,
+  and some projectile interactions remain separate investigations; see the
+  corresponding executable traces in [Z_EXE_FINDINGS.md](Z_EXE_FINDINGS.md).
+- StarCraft `MRGN` now accepts up to 256 locations; the test above location 64
+  is synthetic, and the OpenBW and PyMS maximum counts differ. Trigger action
+  42 (doodad state) occurs in bundled Terran04,
+  Zerg05 and Protoss06, but its runtime behavior is absent. Actions 5/6
+  (pause/unpause), 30/31 (unit speech), and leaderboard actions are also
+  unimplemented; their exact effect and required UI or simulation behavior
+  must be established per action. Campaign AI script IDs and locations are
+  reduced to a shared planner. These are distinct from already supported
+  Play WAV, score, resources and campaign transitions.
+- Incomplete construction selection, transport placement, creep lifecycle,
+  additional weapon behavior, general IScript playback and script-timed
+  sounds remain separate StarCraft packages. Expanded upgrade rows 47–61 have
+  no runtime definitions. Engine `.sav` loading exists; retail `.snx` does not.
+  Consult [SC_EXE_FINDINGS.md](SC_EXE_FINDINGS.md) and
+  [SC_PROJECTILE_VISUALS.md](SC_PROJECTILE_VISUALS.md) for evidence boundaries.
+
 ### Z: commander, orders and object lifecycle
 
 | Status | Work item | Evidence and next check |

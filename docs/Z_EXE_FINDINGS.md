@@ -2377,6 +2377,51 @@ Z unit creation paths. Other possible uses of +0xb0 remain untraced.
 `test_combat` covers per-crew advancement. Reproduce with `r2 -q -e
 bin.cache=true -c 'pd 90 @ 0x5108c' -c q data/Z/ZED.EXE`.
 
+**APC Pyro mode selection and firing boundary (2026-11-13):** The two native
+Pyro dispatch modes are now traced to separate callers. The coordinate-target
+mode starts at `0x1eb04`, called from the APC unit-update branch at `0x58090`
+and the direct coordinate handler at `0x58cc7`. In the first caller,
+`0x58054..0x58073` reads the APC's stored `+0x50/+0x52` destination; it invokes
+`0x1eb04` only when reload `+0x78` is zero. `0x1eb04` sets global mode
+`0x12dd2b`, advances each crew member's +0xb0 phase modulo 16, uses Pyro's
+phase `<4` gate, perturbs the supplied destination by independent
+`(rand & 15) - 8` coordinates, and sends each eligible slot through
+`0x1ec13`. Its Pyro branch at `0x1ef4a` launches `0x5a099` from the APC's
+`+0x2c/+0x2e` origin toward the randomized global destination. The APC
+scanner is separate: `0x1ea0d` enters `0x1ea5c` when reload is zero and the
+four scan masks find a target; it advances phases, applies Pyro's different
+`<10` gate and sends accepted ports through `0x1ec13`. Its Pyro branch
+`0x1f0d1` computes a target from the selected scan port and calls the same
+`0x5a099` creator. The scanner has its own 12-port-attempt cap and reload
+calculation. These traces prove both modes create traveling flames, and that
+the mode changes phase gating, target acquisition/aim and dispatch cadence.
+
+The engine attack callback cannot yet select either native mode faithfully.
+`P_Attack` calls `Z_Attack` with a single target mobj after
+`find_attack_target`; `attack.target` does not preserve whether the target
+came from an explicit command or automatic acquisition. `Z_Attack` has no
+coordinate target argument or command provenance. Reusing its mobj anchor for
+the native coordinate mode would substitute an object target for APC
+destination +0x50/+0x52; using its one target for scanner mode would bypass the
+four native scan masks and selected port. The shared native flame projectile
+creator is confirmed, but invoking it from the current callback would require
+inventing which mode, target point, scan port, and phase gate apply. Therefore
+this pass intentionally leaves APC Pyro's current immediate-hit approximation
+unchanged and adds no partial firing state. The unresolved implementation
+boundary is the missing Z attack-origin/mode distinction and coordinate attack
+dispatch; once that is represented, both native modes can share projectile
+initialization while retaining their separate target and phase logic.
+
+The pinned Zod classes `reference/zod/src/vapc.cpp`, `rpyro.cpp`, and
+`eflame.cpp` confirm APC and Pyro visuals and a flame visual that creates
+`EPyroFire`, but provide no authoritative native mode-selection or area-damage
+rule. They are not used to fill this native gap. Reproduce the native trace
+with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 48 @ 0x58040'
+-c 'pd 48 @ 0x58c80' -c 'pd 40 @ 0x1ea0d' -c 'pd 55 @ 0x1eb04' -c 'pd 42
+@ 0x1f0d1' -c 'pd 18 @ 0x1ef4a' -c q data/Z/ZED.EXE`; inspect the engine
+boundary with `rg -n 'find_attack_target|Z_Attack\(' play/p_mobj.c
+games/z/p_capture.c`.
+
 **Flame impact detail:** `0x5a099` creates the projectile with +0x2a set
 to 1. Impact `0x593b5..0x593c6` checks that byte and calls `0x595e6`,
 then `0x59678`; it bypasses the ordinary `0x8476c` blast call at
@@ -5359,6 +5404,43 @@ building nor the native target point can be represented faithfully yet.
 Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 110 @
 0x9a801' -c 'pd 75 @ 0x9a90f' -c 'pd 30 @ 0x9a9ae' -c 'pd 45 @ 0x99818'
 -c 'px 740 @ 0xe6120' -c q data/Z/ZED.EXE`.
+
+**Task-6 command-dispatch refinement (2026-11-13):** The attack order is a
+native coordinate-target command, not a command to attack the selected BUILD
+record as an object. `0x9a9ae` resolves the structure descriptor using its
+BUILD type byte (`record +4`), reads the descriptor's signed/byte offsets at
++0x32/+0x33, adds them to the BUILD origin, writes selected unit `EBP` to
+`0x104048`, command 5 to `0x10f210`, target sentinel `0x0d80` to
+`0x103e0f`, and the resulting coordinates to `0x103e11/+0x103e13`, then
+calls `0x475d5`. This uses the descriptor data directly: repair facility
+(31,28), tank factory (32,60), robot factory (40,48), radar (23,9).
+`0x475d5` allocates and fills the delayed command record with these operands;
+the queued event later reaches the unit command dispatcher at `0x7c037`,
+whose command table entry 5 is `0x7c560`. That handler copies the command's
+coordinates into the unit destination, installs path state and follows the
+coordinate-target branches; it is not equivalent to native `P_CanTarget` on
+the BUILD object. The movement update uses the direct-target sentinel
+`0x0d80` at `0x7c83e`; `0x756a1` also branches on that sentinel when evaluating
+the direct-point case. Task 6 is included in the destination-capture test at
+`0x99818`, so capturing its strategic destination retires it through that
+existing check.
+
+The engine still cannot execute this command faithfully. `G_GameUnitCommand`
+maps `TC_ATTACK` to Z boarding, `TC_ORDER` without an object target to ordinary
+movement, and `Z_Attack`/`P_Attack` require a live mobj target. No existing Z
+order stores and executes a fixed attack point through facing, range, weapon
+dispatch, projectile launch and impact. A task-6 record that only stores the
+coordinate or moves units there would therefore be inert as an attack (or
+change it into a move order); neither was added. First-building selection,
+including a destroyed first BUILD record, the descriptor aim point, and
+capture completion are confirmed, but full task-6 combat remains open until
+the `0x7c560`/unit update firing continuation and a Z-only coordinate-attack
+path can be represented together. This trace does not establish the complete
+failure/completion lifecycle when the command is rejected or the destination
+cannot be reached. Reproduce with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 50 @ 0x9a9ae' -c 'pd 100 @ 0x475d5'
+-c 'pxw 20 @ 0x14b088' -c 'pd 150 @ 0x7c560' -c 'pd 90 @ 0x7c83e'
+-c 'pd 55 @ 0x756a1' -c q data/Z/ZED.EXE`.
 
 **Local flag follower:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
