@@ -10,3 +10,29 @@
 ## Residual: manual toggle without research
 
 OpenBW's `can_use_tech` check for `TechTypes::Burrowing` requires Burrowing researched for ordinary units, with exceptions for heroes and Lurkers (`bwgame.h`, lines 17879–82). It also has a separate `unburrow_unit()` path used by automatic reactions, which does not repeat that research check (lines 12906–11). These facts do not establish whether a player can manually unburrow or decloak a unit whose initial state came from UNIT/UPRP while the technology is unavailable. The implementation leaves the existing manual command gate unchanged pending a direct native trace or a narrower OpenBW command-path proof.
+
+## Manual toggle gate (issue 99, item 4): documented, not changed
+
+Pinned OpenBW checks that decide whether a unit may start Burrow or Cloak
+(`unit_can_use_tech`): `u_completed`, not hallucinated, not disabled, tech
+available to the player, then per tech: Burrowing needs the research unless the
+unit is a hero or a Lurker, and the unit must be one of Lurker, Drone, Infested
+Terran, Defiler, Zergling, Hydralisk or the Unclean One, Devouring One and Hunter
+Killer heroes; Cloaking Field and Personnel Cloaking need the research unless the
+unit is a hero, and the unit must be a Wraith or Ghost respectively. No check reads
+the unit's current burrowed or cloaked state, its initial CHK state or its energy:
+energy is paid by the cloak upkeep in `update_unit_energy`, which skips passively
+cloaked and burrowed units. `unburrow_unit` (automatic reaction to damage) does
+not repeat the research check.
+
+Not in the pinned files: the player command handlers that turn a Burrow, Unburrow,
+Cloak or Decloak click into an order. They (not `unit_can_use_tech`) decide whether
+an Unburrow or Decloak command for a unit that has no research is accepted, and
+whether a CHK-granted state counts as owned. `unit_can_receive_order` lets only
+`Unburrowing` through for a burrowed unit, but `unit_order_allowed` has no entry for
+it, so that function alone cannot be the gate. The local `sc_cast` requires the
+research (or hero status) for both directions of both toggles and charges cloak
+energy. Without a retail command trace or the OpenBW action source the local gate
+is kept: changing it either way would be a guess. The trace to take: issue
+Unburrow and Decloak on a trigger-created unit with no research and observe whether
+the command card offers and executes them.
