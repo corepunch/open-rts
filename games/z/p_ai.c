@@ -445,10 +445,9 @@ void Z_AIFortFollowup(zmap_t *map, int territory) {
             zaitask_t *task = &map->ai.tasks[i];
             if (!task->unit || task->current != t || (task->flags & (USABLE | MOBILE)) != (USABLE | MOBILE) ||
                 (task->task == ASSAULT && task->destination == territory)) continue;
-            if (send(map, task, territory)) {
-                task->task = ASSAULT;
-                task->target = task->destination = (int16_t)territory;
-            }
+            task->task = ASSAULT;
+            task->target = task->destination = (int16_t)territory;
+            send(map, task, territory);
         }
     }
 }

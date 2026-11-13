@@ -272,6 +272,15 @@ static int test_fort_followup(void) {
         map->ai.tasks[2].task != 4 || map->ai.tasks[2].pending ||
         map->ai.tasks[3].task != 3 || map->ai.tasks[3].pending)
         return fail("distant, nonmobile and already assigned forces stay unchanged");
+    ivec2_t entrance = map->forts[1];
+    map->forts[1] = (ivec2_t){-10000, -10000};
+    map->ai.tasks[0] = (zaitask_t){.unit=units[0]->id, .current=4, .task=4,
+        .target=4, .destination=4, .flags=24};
+    Z_AIFortFollowup(map, 7);
+    if (map->ai.tasks[0].task != 3 || map->ai.tasks[0].target != 7 ||
+        map->ai.tasks[0].destination != 7 || map->ai.tasks[0].pending)
+        return fail("fort followup records assignment when no staging point is reachable");
+    map->forts[1] = entrance;
     const zterritory_t fort = map->territories[7];
     map->territories[0].min = ivec2_add(fort.min, (ivec2_t){1,1});
     map->territories[0].max = ivec2_sub(fort.max, (ivec2_t){1,1});

@@ -1648,8 +1648,10 @@ than being replaced with numeric approximations:
   this destination, and sets every other qualifying task to state 3 with
   target and destination set to the fort before calling `0x9d42c`. The
   engine follows this pass after at least one initial order succeeds, using
-  its existing path, destination-reservation and delayed-order validation;
-  unlike native it leaves a task unchanged when that validation fails.
+  its existing path, destination-reservation and delayed-order validation.
+  It now records the assault assignment before attempting dispatch as native
+  does, even if no represented staging point passes that validation. Native
+  and engine path validation remain different.
   This follow-up uses the ordered edge-equality branches of `0x9d641`:
   nested or partially overlapping rectangles without a matching edge are
   excluded, while touching edges and corners qualify. The same native
@@ -1658,8 +1660,8 @@ than being replaced with numeric approximations:
   paths now share the corrected predicate. `test_frontier_overlap` checks
   a normal AI pass with an enemy territory nested inside a friendly one.
   `test_fort_followup` exercises nearby occupied, remote, nonmobile and
-  already assigned tasks and starts an attack through the normal heavy AI
-  pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
+  already assigned tasks, an unreachable staging point, and starts an attack
+  through the normal heavy AI pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
   -c 'pd 70 @ 0x99f46' -c 'pd 65 @ 0x9d61e' -c q data/Z/ZED.EXE` and
   `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - `0x9d390` values a potential donor squad, caps it at 65535, and requires
@@ -4190,8 +4192,8 @@ data/Z/ZED.EXE`.
 **Moving-target lead refinement:** for the fixed-gun caller above, the
 ordinary branch of `0x7628f..0x763ec` admits target actions 2 and 7,
 action 8 outside vehicle class 1, or a class-1 vehicle whose body +0x17
-bit 1 is set. The call to `0x640ff` gates extrapolation using a random
-accuracy test; its threshold conditionally includes a 25% bonus when the
+bit 0 is set (`test 1` at `0x762db`). The call to `0x640ff` gates
+extrapolation using a random accuracy test; its threshold conditionally includes a 25% bonus when the
 shooter +0x67 bit 0x80 is clear. It quantizes the source/target delta by
 arithmetic shift 4, indexes the square-root table with the clamped sum of
 squares, multiplies the table byte by 16, divides by shooter byte +0x76
@@ -4199,7 +4201,10 @@ squares, multiplies the table byte by 16, divides by shooter byte +0x76
 target's movement-pattern pointer +0x20, it consumes that many pattern
 entries and adds their word values along the target-facing directions in
 the eight-entry jump table at `0x14a788`. The loop executes at least one
-pattern entry even when the masked count is zero. Target action, movement
+pattern entry even when the masked count is zero. `0x7bec6..0x7bf05` chooses
+the cycle head using the speed-indexed pointer table at `0x117e5c`;
+`0x7bf10..0x7bf31` advances the current pointer when it matches +0xa6 and
+its next pointer is nonzero, otherwise dispatching through `0x65087`. Target action, movement
 pattern position, and the shooter flag are not presently equivalent to the
 engine's velocity and route state; applying a simple velocity-times-distance
 lead would not reproduce this branch. Reproduce with `r2 -q -e
