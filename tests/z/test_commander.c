@@ -604,6 +604,103 @@ static int test_unreachable_initial_staging(void) {
     return 0;
 }
 
+/* 0x9cb5e does not test delayed commands before sending a quiet reserve home. */
+static int test_pending_reserve_home(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("pending reserve home load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 100;
+    map->computer.intelligence = 126;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = t == 8 ? Z_NEUTRAL : t == 2 ? 0 : 1;
+        map->territories[t].importance = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 9 ? Z_NEUTRAL : mo->z.territory == 3 ? 0 : 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) {
+            mo->core.position = fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag), 0);
+            mo->z.manufactured = false;
+            P_ClearMove(mo);
+        }
+    }
+    mobj_t *enemy = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[2].flag), 0), MT_UNIT_HEAVY_TANK);
+    if (!enemy) return fail("pending reserve home enemy");
+    Z_SetTeam(enemy, 0);
+    enemy->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    enemy->z.robot = lead->z.robot;
+    enemy->traits &= ~MF_ATTACK;
+    think(0);
+    zaitask_t *task = task_of(lead);
+    if (!task || task->current != 8) return fail("pending reserve home register");
+    task->home = 4;
+    task->task = -1;
+    task->pending = true;
+    task->execute_at = map->ai.clock + 1000;
+    task->order = fixed2_cell_center(map->territories[4].flag);
+    map->ai.delay = 0; map->ai.fraction = 0;
+    think(1);
+    if ((task->flags & 16) || !task->pending || task->execute_at >= map->ai.clock + 1000 ||
+        Z_AITerritory(map, task->order) != 4)
+        return fail("quiet reserve replaces pending command with home order");
+    rts_game_model_destroy(model);
+    puts("PASS: z quiet reserve returns home despite pending order");
+    return 0;
+}
+
+/* Several return orders can delay the last past the next heavy AI pass. */
+static int test_home_order_backlog(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("home backlog load");
+    mobj_t *lead = scenario(), *last = NULL;
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 100;
+    map->computer.intelligence = 50;
+    for (int t = 0; t < map->territory_count; ++t) {
+        map->territories[t].team = t == 8 ? Z_NEUTRAL : t == 2 ? 0 : 1;
+        map->territories[t].importance = 0;
+    }
+    fixed3_t start = fixed3_from_fixed2(fixed2_cell_center(map->territories[8].flag), 0);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) Z_SetTeam(mo, mo->z.territory == 9 ? Z_NEUTRAL : mo->z.territory == 3 ? 0 : 1);
+        if (mo->team == 0 && Z_UnitType(mo) >= 0) mo->hp = 0;
+        if (mo->team == 1 && mo->z.squad == lead->z.squad) {
+            mo->core.position = start;
+            mo->z.manufactured = false;
+            P_ClearMove(mo);
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        last = P_SpawnMobj(start, MT_UNIT_GRUNT);
+        mobj_t *enemy = P_SpawnMobj(fixed3_from_fixed2(fixed2_cell_center(map->territories[2].flag), 0), MT_UNIT_HEAVY_TANK);
+        if (!last || !enemy) return fail("home backlog spawn");
+        Z_SetTeam(last, 1); Z_SetTeam(enemy, 0);
+        last->z.robot = enemy->z.robot = lead->z.robot;
+        enemy->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+        last->traits &= ~MF_ATTACK; enemy->traits &= ~MF_ATTACK;
+    }
+    think(0);
+    for (int i = 0; i < Z_AI_TASKS; ++i) {
+        zaitask_t *task = &map->ai.tasks[i];
+        if (task->unit && task->current == 8) { task->home = 4; task->task = -1; task->pending = false; }
+    }
+    map->ai.delay = 0; map->ai.fraction = 0;
+    think(1);
+    zaitask_t *task = task_of(last);
+    if (!task || !task->pending || Z_AITerritory(map, task->order) != 4 ||
+        task->execute_at - map->ai.clock <= (uint32_t)(map->ai.delay + 1))
+        return fail("home backlog crosses next heavy pass");
+    uint32_t due = task->execute_at;
+    while (task->pending && map->ai.clock <= due + 2) think(1);
+    if (task->pending || !P_HasMoveOrder(last)) return fail("backlogged home order eventually executes");
+    rts_game_model_destroy(model);
+    puts("PASS: z backlogged home order survives later heavy passes");
+    return 0;
+}
+
 static int test_stray_home_reassignment(void) {
     for (int unreachable = 0; unreachable < 2; ++unreachable) {
         RtsGameModel *model = load();
@@ -1748,7 +1845,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

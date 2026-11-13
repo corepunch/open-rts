@@ -91,6 +91,23 @@ static void queue(zai_t *ai, zaitask_t *task, fixed2_t goal, uint32_t vehicle) {
     task->pending = true;
 }
 
+static const ivec2_t staging_offsets[] = {{-48,-48},{0,-48},{48,-48},{48,0},{48,48},{0,48},{-48,48},{-48,0}};
+static ivec2_t staging_origin(const zmap_t *map, int territory) {
+    ivec2_t pixel = ivec2_scale(map->territories[territory].flag, Z_TILE);
+    uint8_t flags = map->ai.territories[territory].flags;
+    if ((flags & 1) && map->fort_count) pixel = ivec2_add(map->forts[0], (ivec2_t){80,220});
+    if ((flags & 2) && map->fort_count > 1) pixel = ivec2_add(map->forts[1], (ivec2_t){80,-80});
+    return pixel;
+}
+static bool pending_home_order(const zmap_t *map, const zaitask_t *task) {
+    if (!task->pending || task->home < 0 || task->home >= map->territory_count || task->boarding || task->service || task->enemy)
+        return false;
+    ivec2_t origin = staging_origin(map, task->home);
+    for (int i = 0; i < 8; ++i)
+        if (fixed2_equal(task->order, pixel_point(ivec2_add(origin, staging_offsets[i])))) return true;
+    return false;
+}
+
 /* 0x9d42c/0x9d4f4: fort staging coordinates and the eight authored
  * 48-pixel offsets, starting at a random offset and testing each in turn. */
 static bool send(zmap_t *map, zaitask_t *task, int territory) {
@@ -102,14 +119,10 @@ static bool send(zmap_t *map, zaitask_t *task, int territory) {
         queue(&map->ai, task, fixed3_xy(mo->core.position), 0);
         return true;
     }
-    ivec2_t pixel = ivec2_scale(map->territories[territory].flag, Z_TILE);
-    uint8_t flags = map->ai.territories[territory].flags;
-    if ((flags & 1) && map->fort_count) pixel = ivec2_add(map->forts[0], (ivec2_t){80,220});
-    if ((flags & 2) && map->fort_count > 1) pixel = ivec2_add(map->forts[1], (ivec2_t){80,-80});
-    static const ivec2_t offsets[] = {{-48,-48},{0,-48},{48,-48},{48,0},{48,48},{0,48},{-48,48},{-48,0}};
+    ivec2_t pixel = staging_origin(map, territory);
     int start = Z_NextRandom(&map->ai.seed) & 7;
     for (int n = 0; n < 8; ++n) {
-        fixed2_t goal = pixel_point(ivec2_add(pixel, offsets[(start + n) & 7]));
+        fixed2_t goal = pixel_point(ivec2_add(pixel, staging_offsets[(start + n) & 7]));
         if (!reachable(mo, goal)) continue;
         bool reserved = false;
         for (int i = 0; i < Z_AI_TASKS; ++i) {
@@ -711,8 +724,9 @@ static void go_home(zmap_t *map) {
         zaitask_t *task = &ai->tasks[i];
         mobj_t *mo = P_MobjById(task->unit);
         if (!task->unit || (task->flags & MOBILE) || task->home < 0 || task->home == task->current ||
-            !live(mo) || !(mo->traits & MF_MOBILE) || task->pending || (task->flags & RECAPTURE) ||
+            !live(mo) || !(mo->traits & MF_MOBILE) || (task->flags & RECAPTURE) ||
             mo->z.service || mo->type_id == MT_UNIT_CRANE || mo->type_id == MT_UNIT_FIRE_TRUCK || task->current < 0) continue;
+        if (pending_home_order(map, task)) continue;
         const zai_territory_t *here = &ai->territories[task->current];
         int enemy = 0;
         for (int team = 0; team < 4; ++team) if (team != CPU) enemy += here->strength[team];

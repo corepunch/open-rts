@@ -5205,3 +5205,40 @@ an old pending command and exercises both reachable and unreachable forts;
 the former pending filter fails it. Inspect with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 48 @ 0x9c4f2' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Reserve home order with a delayed command:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9cb5e..0x9cc5b` checks a reserve's home/current territories, unit action,
+recapture flag and enemy strength; this branch does not scan the delayed
+command queue. When eligible, `0x9cc68..0x9cc73` calls `0x9d42c` for the
+home territory. Open-rts no longer blocks this return solely because the
+reserve has a pending command; successful staging replaces that command,
+while a failed staging attempt preserves it. The engine's unit-action and
+pathfinding checks remain approximations of the native gates.
+`test_pending_reserve_home` uses a stationary reserve outside home, an older
+pending command and a quiet current territory; it verifies the new home
+order and fails under the former pending filter. Inspect with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x9cb5e' -c q
+data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Repeated reserve return and queue backlog:** `0x98098..0x980bd` removes the
+first existing delayed command for a group via `0x9821d`, then allocates a
+new one. `0x98117..0x98130` assigns its delay as twice `(127-intelligence)`
+plus the current queue tail, and increments that tail by `(127-intelligence)`;
+`0x98137..0x98157` decrements active records and executes them once negative.
+The engine likewise replaces its single pending group order, but repeated
+home dispatches can keep postponing a backlogged order past each heavy pass.
+As an explicit engine policy, `go_home` preserves an already pending plain
+move to one of the eight staging points for the current home. Other pending
+orders, including another point within that territory, remain replaceable.
+This uses existing saved and hashed fields; a separately issued command to an
+identical staging point is indistinguishable from a return. Native action
+and path gates may prevent some re-dispatches, so exact native starvation
+behavior remains unknown. `test_home_order_backlog` uses low intelligence
+and four real reserve orders so the last delay exceeds the next heavy pass,
+then verifies that it executes; the prior implementation fails the test.
+`test_pending_reserve_home` also confirms replacement of a different pending
+point in the same territory. Inspect with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 40 @ 0x98098' -c 'pd 20 @ 0x98117'
+-c 'pd 20 @ 0x98137' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.
