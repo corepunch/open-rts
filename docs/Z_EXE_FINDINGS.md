@@ -6378,6 +6378,122 @@ thinker order are not reproduced; skipped until the pattern records are
 decoded. Laser tracer: no image, frame or direction table for the Laser bullet
 was traced in this pass; skipped.
 
+**Complete caller table of the damage routine `0x86ca4` (issue #96, batch two):**
+In ZED.EXE SHA-256 `3635cb69...4676` an r2 `aaa` + `axt 0x86ca4` lists seven
+call sites, and an independent raw scan of every executable page for `e8`/`e9`
+rel32 targets, absolute dwords and short or near jumps to `0x86ca4`, `0x86ca9`,
+`0x86cbd`, `0x86ce9`, `0x86d04`, `0x86d07` and `0x86d16` finds the same seven
+and no other entry (the only entries are the internal branches inside the
+routine itself). Every site tests only the sign flag that `0x86d07` `pushfd`
+and `0x86d0f` `popfd` carry back (SF clear for any result of zero or more),
+so none kills at exactly zero:
+
+| Call | In | Retail path | After the call | Local path |
+|---|---|---|---|---|
+| `0x5af53` | bullet pass `0x5acca` | bullet unit hit | `jns 0x5af58`; negative: class +0x79 not 0/3/0xf/0x10 calls `0x85f5e`, then `0x60fe6` | `bullet_hit` via `Z_NativeDamage` (batch one) |
+| `0x85dfa` | explosion unit pass `0x85b2f` (+0x79 = 1, class-1 vehicles) | shell, grenade, water and grenade-box blast unit pass | `jns 0x85d1f`; negative: `0x85f5e` + `0x60fe6` | `blast_units`, `A_ZBoxBlast` |
+| `0x85e9f` | same pass, other classes (robots, guns) | same | `jns 0x85d1f`; negative: `0x860fd` (class 2: `0x85f5e` with `0x1d4482`) + `0x60fe6` | `blast_units` (batch one), `A_ZBoxBlast` (damage 127, team filter `0xff`, converted here) |
+| `0x86a3e` | flame/shrapnel pass `0x86995`, class-1 vehicles | ground fire (`0x868ef` from the fire effect wrap `0x4aa53`, `0x14c05e`/`0x14c05f` set, same team skipped); also the chained `burst_an` blast `0x86963` (strength 10, flags clear) | `jns 0x869ae`; negative: `0x86a75`, `0x60fe6` | `damage_ground_fire` via `Z_NativeDamage` (converted here) |
+| `0x86c71` | same pass, other classes | same | `jns 0x869ae`; negative: `0x60fe6` (flame) or `0x860fd` | `damage_ground_fire` (converted here) |
+| `0x60fcb` | loop at `0x60fa3` over the unit list `0x1bfbd9` skipping the caller's team | unknown | `jns 0x60fb0`; negative and +0x31 bit 4: `0x60fe6` | none: no static reference |
+| `0x61009` | loop `0x60ff0` over the same list, damage byte DH = `0x50` from `0x5a865` (box x-6..x+38, y+10..y+36 via `0x64309`) | unknown | `jns 0x60ff7`; negative and +0x31 bit 4: `0x61dab` | none: no static reference |
+
+`0x60fa3` has no caller, jump or immediate reference in the executable, and
+`0x5a865` (the only caller of `0x60ff0`, so of `0x61009`) has none either:
+no `e8`/`e9`/short/near-conditional rel displacement, no dword in any page
+(code, tables or relocated immediates searched with r2 `/x` on the relocated
+image) names them. They are not reachable by any static route and are treated as
+dead code; a runtime breakpoint would be needed to rule out a computed jump.
+The pyro "flame" is the same ground-fire path: the projectile only spawns the
+fire effect, and the unit damage is the `0x868ef` call at each animation wrap.
+`0x86d1f` (driver damage, one caller `0x5ae08` in the bullet pass) is a
+separate routine already modeled with the same sign rule (`test_combat`).
+Not callers of `0x86ca4`, and therefore not covered by the zero rule: robot
+contact with a vehicle (`0x58745`: +0x3a above 10 loses 10 and is knocked
+down, otherwise `0x60fe6` kills without `0x86ca4`, i.e. the run-over path),
+the Crane, repair, and the fort or building guns (they fire the ordinary bullet
+and shell paths above). No caller kills at zero, so no kill-at-zero test exists.
+Local changes: `damage_ground_fire` and `A_ZBoxBlast` in `games/z/p_capture.c`
+now call `Z_NativeDamage` (a one-line change each; building damage, the
+fort-elimination kill, the APC hitscan fallback and non-unit targets keep
+`P_DamageMobj`). Tests `test_ground_fire` and `test_box_blast` in
+`tests/z/test_damage.c` cover robot and class-1 vehicle: exact zero survives,
+the next pass kills, one over kills, one under keeps one health. Both fail
+without the change. Not modelled: the `burst_an` chained blast (`0x86963`,
+callers `0x6c327`, `0x6c5c2`, `0x6c82b`), because open-rts has no map-object
+records. Reproduce with `r2 -q -e scr.color=0 -e bin.cache=true -e
+bin.relocs.apply=true -c aaa -c 'axt 0x86ca4' data/Z/ZED.EXE` and
+`pd` at each call site.
+
+**Byte wrap in `0x86ca4` (issue #96, batch two):** `sub byte [ebp + 0x3a], dh`
+(`0x86d04`) sets SF from bit 7 of the 8-bit result, and `sub word [edi + 8], ax`
+(`0x86cfa`) from bit 15 of the body word. A byte-health unit h (0..255) hit by
+damage d wraps to a nonnegative result only when `(h - d) mod 256 < 128` while
+`h - d < 0`, that is d >= h + 129; a vehicle whose body went negative first
+stores 0 at `0x86d00`, so it needs d >= 129. The word cannot wrap (it would need
+a difference beyond 32768). With the retail data the wrap is unreachable: the
+largest weapon damage in ROBOTS.DAT (+0x20 of the 71 weapon records at file
+offset 22000) is 120, ground fire uses the weapon byte (20), the grenade box is
+127, every named robot health byte (+0x20 of the 44-byte records) is one of 30,
+40, 50, 60, 80, 100, and every damage byte reaching `0x86ca4` is a single weapon
+or box value (never a sum or a crew multiple; the local APC crew multiplication
+applies to the engine's hitscan fallback, not to a native damage byte).
+Consequently `h - d` stays within -127..100 and the sign is the plain sign.
+No code change; `test_byte_wrap_unreachable` re-derives the maxima from
+`units.inc` (120 and 100) and checks the sign equivalence for every h up to
+100 and d up to 127 and that the spent-body byte path cannot survive.
+
+**Knockdown and get-up, continuation trace (issue #96, batch two):** *Entry,
+confirmed.* `0x58745` (via `0x58679` from the action 9/10 handler `0x57dd6`)
+visits opposing units that are not class 1 or 2 and not already in action
+0x12/0x17/0x2e inside the vehicle rectangle (`0x58783`); it sets that unit's
+group +0x10 timer to 75, then for +0x3a above 10 calls `0x58910`, otherwise
+kills it through `0x60fe6` (with `0x10f334` set) and, when +0x67 bit 4 is set,
+stores a position record through `0x4a0b5` (purpose not traced). `0x58910` subtracts 10 from +0x3a (a negative result is
+clamped to 10, which cannot happen after the above-10 gate), copies the current
+action +0x35 to +0x72, sets action 0x17 or 0x2e (0x2e when `(facing+2)&7` has
+bit 2, i.e. facings 2..5 after the +2 rotation), frame +0x32 = 0, facing +0x39 =
+0, +0x73 = 0xe0. It does not write +0x5a, +0x14 or any path or group field.
+*Hold and get-up, confirmed.* `0x61f43` holds while any class-1 record in
+`0x18b81c` is strictly within 24 pixels on both axes, else switches to 0x18 or
+0x2f and clears +0x73; `0x61f94` advances +0x32 once per update (when
+`0x10e91b` is clear) and at 11 calls `0x79049`. *Why +0x72 is not restored:* a
+scan of every executable page for byte or word reads of displacement 0x72
+(all `8a`/`0f b6`/ALU modrm forms with mod 01) finds exactly one use of unit
++0x72, the write at `0x58921`, and a read at `0x2d644` inside the network
+snapshot packer, which copies every fourth byte of the unit record; the
+saved action is only snapshot payload and nothing resumes it. For a robot
+(class not 1 or 2) `0x79049` always sets action 1, frame 1, +0x3d = 8,
+a random facing step `0x70d37 & 3` and a random timer (`0x70e0e`), then
+looks at the command byte +0x5a: nonnegative returns (the robot is simply idle),
+negative continues. For -5 it jumps straight to `0x790c9`; for any other
+negative value it requires a path pointer +0x14 and `0x7bd1f` (re-issues
+`0x7ba9a` toward the next path node, or +0x0c with +0x31 bit 0x20) and
+`0x7bde1` (the node is consumed only when the unit stands on its exact top-left)
+before reaching `0x790c9`. There it reads group +0x3b (0xff: clears +0x5a and
+returns), calls the target search `0x78f61` (candidate scan via `0x7911f` and
+table `0x104558`, `0x79320`), and either starts an attack through `0x7585a`,
+or negates +0x5a back to positive. Movement gates in `0x7ba9a`: returns carry
+when the destination equals the unit's top-left; clears +0x6f bit 2; rejects
+classes 2, 4, 5 and 6 unless action 2 is current; otherwise sets action 2.
+*Verdict:* the order is KEPT through a knockdown (no field of it is written at
+entry), and after the 11-frame get-up a robot with an in-progress command
+(+0x5a negative) resumes its path or re-queues the command; one with a
+nonnegative +0x5a idles. *Where the trace ends:* the continuation after
+`0x790c9` depends on `0x78f61`/`0x79320`/`0x7911f` target scanning and the native path
+node and command-sign model (+0x5a magnitude table `0x14b088`, `0x7c027`),
+which open-rts represents with different route state; the sign lifecycle of
++0x5a for each command type, the construction of +0x14 nodes, and `0x7bde1`'s
+tail are not traced to their end, and the run-over decision (kill at +0x3a <= 10)
+and vehicle avoidance rectangle are not represented locally either.
+Entry plus continuation are therefore not both fully traced and nothing was
+implemented. The trace that would settle it: follow `0x790c9..0x7910a` and
+`0x78f61` with a robot whose +0x5a is each of 1 (move), 5 (attack point) and -5,
+and decode `0x7bde1`'s tail (`0x7be16..0x7be6d`). Reproduce with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 20 @ 0x58910' -c 'pd 45 @
+0x61f43' -c 'pd 60 @ 0x79049' -c 'pd 45 @ 0x7bd1f' -c 'pd 30 @ 0x7bde1' -c 'pd 55
+@ 0x7ba9a' -c 'pd 30 @ 0x2d630' -c q data/Z/ZED.EXE`.
+
 **APC driver range in strategic strength:** For ZED.EXE SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x638ac..0x638c3` copies the driver's fire byte to the APC body +0x20,

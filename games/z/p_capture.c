@@ -956,7 +956,7 @@ void A_ZBoxBlast(mobj_t *effect) {
         mobj_t *victim = (mobj_t *)th;
         if (th->function != P_MobjThinker || !live(victim) || victim->team >= Z_NEUTRAL || Z_UnitType(victim) < 0) continue;
         ivec2_t d = ivec2_sub(Z_BlastAnchor(victim), origin);
-        if (d.x >= -22 && d.x <= 22 && d.y >= -6 && d.y <= 26) P_DamageMobj(victim, NULL, 127);
+        if (d.x >= -22 && d.x <= 22 && d.y >= -6 && d.y <= 26) Z_NativeDamage(victim, NULL, 127);
     }
 }
 
@@ -1270,7 +1270,7 @@ static void damage_ground_fire(const mobj_t *fire) {
         int offset = class_one ? 16 : 8;
         ivec2_t anchor = ivec2_add(Z_AITopLeft(victim), (ivec2_t){offset,offset});
         if (anchor.x >= origin.x && anchor.x <= max.x && anchor.y >= origin.y && anchor.y <= max.y)
-            P_DamageMobj(victim, fire->target, damage);
+            Z_NativeDamage(victim, fire->target, damage);
     }
 }
 

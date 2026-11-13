@@ -311,7 +311,107 @@ static int test_repair(void) {
     return 0;
 }
 
+static void place_top_left(mobj_t *unit, ivec2_t top_left) {
+    ivec2_t delta = ivec2_sub(top_left, Z_AITopLeft(unit));
+    fixed2_t position = fixed2_add(fixed3_xy(unit->core.position),
+        fixed2_scale(fixed2_from_cell(delta), FIXED_ONE / Z_TILE));
+    unit->core.position = fixed3_from_fixed2(position, unit->core.position.z);
+}
+
+static void burn(mobj_t *fire) {
+    fire->z.fire.frame = 3;
+    fire->z.fire.native_step = (uint32_t)((int64_t)leveltime * Z_NATIVE_HZ / RTS_TICRATE);
+    A_ZGroundFire(fire);
+}
+
+/* Ground fire (the flame pass 0x86934 -> 0x86995, damage sites 0x86a3e for
+ * class-1 vehicles and 0x86c71 for the rest) tests only the sign. */
+static int test_ground_fire(void) {
+    static const int types[] = {MT_UNIT_GRUNT, MT_UNIT_MED_TANK};
+    RtsGameModel *model = load_map(NULL);
+    if (!model) return fail("load ground fire fixture");
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        ivec2_t origin = {400 + 100 * (int)i, 400};
+        mobj_t *fire = P_SpawnMobj(fixed3_from_fixed2(
+            fixed2_scale(fixed2_from_cell(origin), FIXED_ONE / Z_TILE), 0), MT_GROUND_FIRE);
+        if (!fire) return fail("spawn ground fire");
+        fire->team = 0;
+        fire->z.fire.damage = 20;
+        fire->z.fire.lifetime = 127;
+        fire->z.fire.sprite = 71;
+        fire->z.fire.frame_count = 4;
+        mobj_t *exact = spawn(types[i], 1, (ivec2_t){40, 40}, 20);
+        mobj_t *over = spawn(types[i], 1, (ivec2_t){44, 40}, 19);
+        mobj_t *under = spawn(types[i], 1, (ivec2_t){48, 40}, 21);
+        if (!exact || !over || !under) return fail("spawn ground fire victims");
+        mobj_t *victims[] = {exact, over, under};
+        for (int v = 0; v < 3; ++v) place_top_left(victims[v], ivec2_add(origin, (ivec2_t){8, 8}));
+        burn(fire);
+        if (!at_zero(exact)) return fail("ground fire leaving exactly zero health survives");
+        if (!dead(over)) return fail("ground fire with a negative result kills");
+        if (dead(under) || under->z.zero_hp || Z_NativeHp(under) != 1) return fail("ground fire leaving one health");
+        burn(fire);
+        if (!dead(exact)) return fail("the next ground fire pass kills a zero-health unit");
+    }
+    rts_game_model_destroy(model);
+    puts("PASS: z ground fire leaves exactly zero health alive");
+    return 0;
+}
+
+/* The grenade-box unit pass (the explosion pass 0x85ce4..0x85ea4, damage 127,
+ * sites 0x85dfa for class-1 vehicles and 0x85e9f for the rest). */
+static int test_box_blast(void) {
+    static const int types[] = {MT_UNIT_GRUNT, MT_UNIT_MED_TANK};
+    RtsGameModel *model = load_map(NULL);
+    if (!model) return fail("load box blast fixture");
+    for (size_t i = 0; i < sizeof(types) / sizeof(*types); ++i) {
+        fixed2_t at = fixed2_cell_center((ivec2_t){40 + 8 * (int)i, 60});
+        mobj_t *exact = spawn(types[i], 1, (ivec2_t){40 + 8 * (int)i, 60}, 127);
+        mobj_t *over = spawn(types[i], 1, (ivec2_t){40 + 8 * (int)i, 60}, 126);
+        mobj_t *under = spawn(types[i], 1, (ivec2_t){40 + 8 * (int)i, 60}, 128);
+        mobj_t *box = P_SpawnMobj(fixed3_from_fixed2(at, 0), MT_BOX_BLAST);
+        if (!exact || !over || !under || !box) return fail("spawn box blast fixture");
+        A_ZBoxBlast(box);
+        if (!at_zero(exact)) return fail("a box blast leaving exactly zero health survives");
+        if (!dead(over)) return fail("a box blast with a negative result kills");
+        if (dead(under) || under->z.zero_hp || Z_NativeHp(under) != 1) return fail("a box blast leaving one health");
+        A_ZBoxBlast(box);
+        if (!dead(exact)) return fail("the next box blast kills a zero-health unit");
+    }
+    rts_game_model_destroy(model);
+    puts("PASS: z box blast leaves exactly zero health alive");
+    return 0;
+}
+
+/* 0x86d04 subtracts the damage byte from the byte at +0x3a and its sign flag
+ * is the bit 7 of the result, so a wrap needs the damage to exceed the health
+ * by 128 or more. Retail data never does: every weapon damage is at most 120,
+ * the ground fire byte is 20, the box blast is 127, and every robot health
+ * byte is at most 100. A vehicle whose body is spent reaches the byte path
+ * with +0x3a cleared, so it needs a damage of 129. */
+static int test_byte_wrap_unreachable(void) {
+    int max_damage = 0, max_robot_hp = 0;
+#define Z_UNIT(t, type, label, kind, mobile, hp, dmg, ...) \
+    do { \
+        if ((dmg) > max_damage) max_damage = (dmg); \
+        if (!strcmp(#kind, "ROBOT") && (hp) > max_robot_hp) max_robot_hp = (hp); \
+    } while (0);
+#include "../../games/z/units.inc"
+#undef Z_UNIT
+    if (max_damage != 120 || max_robot_hp != 100) return fail("retail damage and robot health bounds");
+    for (int hp = 0; hp <= max_robot_hp; ++hp)
+        for (int damage = 1; damage <= 127; ++damage) {
+            unsigned char byte = (unsigned char)(hp - damage);
+            if ((byte < 128) != (hp - damage >= 0)) return fail("byte subtraction sign equals the plain sign");
+        }
+    for (int damage = 1; damage <= 127; ++damage)
+        if ((unsigned char)(0 - damage) < 128) return fail("a spent body byte path cannot survive");
+    puts("PASS: z byte health subtraction cannot wrap with retail data");
+    return 0;
+}
+
 int main(void) {
-    if (test_boundary() || test_shot() || test_state() || test_crew() || test_elimination() || test_repair()) return 1;
+    if (test_boundary() || test_shot() || test_state() || test_crew() || test_elimination() || test_repair() ||
+        test_ground_fire() || test_box_blast() || test_byte_wrap_unreachable()) return 1;
     return 0;
 }
