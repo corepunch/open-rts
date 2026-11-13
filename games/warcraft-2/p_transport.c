@@ -15,9 +15,10 @@ static int passengers(const mobj_t *ship) {
     return count;
 }
 
+/* Allied owners may board one another's transports (Wargus: same team). */
 static bool can_board(const mobj_t *unit, const mobj_t *ship) {
     return unit && ship && !unit->remove && !ship->remove && unit->hp > 0 && ship->hp > 0 &&
-        unit->owner == ship->owner && (unit->traits & MF_MOBILE) &&
+        (unit->owner == ship->owner || P_IsAlly(unit, ship)) && (unit->traits & MF_MOBILE) &&
         mobjinfo[unit->type_id].w2.domain == W2_DOMAIN_LAND &&
         passengers(ship) < mobjinfo[ship->type_id].w2.transport_capacity;
 }
@@ -35,11 +36,36 @@ bool W2_BoardOrder(mobj_t *unit, mobj_t *ship) {
     return true;
 }
 
-bool W2_UnloadOrder(mobj_t *ship, fixed2_t goal) {
+/* Ids of the passengers aboard `ship`, in thinker order, at most `max`. */
+int W2_PassengerIds(const mobj_t *ship, uint32_t *ids, int max) {
+    int count = 0;
+    if (!ship) return 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *unit = (mobj_t *)th;
+        if (th->function != P_MobjThinker || unit->remove || unit->hp <= 0 ||
+            !unit->w2.boarded || unit->w2.carrier != ship->id) continue;
+        if (count < max) ids[count++] = unit->id;
+    }
+    return count;
+}
+
+static bool start_unload(mobj_t *ship, fixed2_t goal, uint32_t passenger) {
     if (!ship || !mobjinfo[ship->type_id].w2.transport_capacity || !passengers(ship)) return false;
     if (!P_MoveUnitTo(&level, ship, goal)) return false;
     ship->w2.unloading = true;
+    ship->w2.unload_one = passenger;
     return true;
+}
+
+/* Unload every passenger at the shore. */
+bool W2_UnloadOrder(mobj_t *ship, fixed2_t goal) { return start_unload(ship, goal, 0); }
+
+/* Unload only `passenger`, which must be aboard `ship`. */
+bool W2_UnloadPassengerOrder(mobj_t *ship, uint32_t passenger, fixed2_t goal) {
+    const mobj_t *unit = passenger ? P_MobjById(passenger) : NULL;
+    if (!unit || !ship || unit->remove || unit->hp <= 0 || !unit->w2.boarded || unit->w2.carrier != ship->id)
+        return false;
+    return start_unload(ship, goal, passenger);
 }
 
 static bool free_bay(mobj_t *unit, const mobj_t *ship, fixed2_t *bay) {
@@ -96,6 +122,7 @@ bool W2_TickTransport(mobj_t *unit) {
             mobj_t *passenger = (mobj_t *)th;
             if (th->function != P_MobjThinker || passenger->remove || passenger->hp <= 0 ||
                 !passenger->w2.boarded || passenger->w2.carrier != unit->id) continue;
+            if (unit->w2.unload_one && passenger->id != unit->w2.unload_one) continue;
             fixed2_t bay;
             if (!free_bay(passenger, unit, &bay)) continue;
             passenger->w2.carrier = 0; passenger->w2.boarded = false;
@@ -105,6 +132,7 @@ bool W2_TickTransport(mobj_t *unit) {
             P_SetMobjState(passenger, mobjinfo[passenger->type_id].spawnstate);
         }
         unit->w2.unloading = false;
+        unit->w2.unload_one = 0;
     }
     return false;
 }

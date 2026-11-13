@@ -15,7 +15,7 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
     int build_left_tics, build_tics; uint32_t builder; \
     w2_repair_t repair; bool stand_ground; \
     uint32_t fire; \
-    uint32_t carrier; bool boarded, unloading; \
+    uint32_t carrier; bool boarded, unloading; uint32_t unload_one; \
     struct { int phase, wait; ivec2_t to; } ferry; \
     int mana, buffs[5], ttl; \
     struct { int spell; uint32_t target; fixed3_t position; } cast; \
@@ -27,7 +27,7 @@ typedef struct { uint32_t target; int tics; } w2_repair_t;
     HASH((mo)->w2.build_left_tics); HASH((mo)->w2.builder); \
     HASH((mo)->w2.build_tics); HASH((mo)->w2.build_tries); \
     HASH((mo)->w2.repair.target); HASH((mo)->w2.repair.tics); HASH((mo)->w2.stand_ground); \
-    HASH((mo)->w2.carrier); HASH((mo)->w2.boarded); HASH((mo)->w2.unloading); \
+    HASH((mo)->w2.carrier); HASH((mo)->w2.boarded); HASH((mo)->w2.unloading); HASH((mo)->w2.unload_one); \
     HASH((mo)->w2.ferry.phase); HASH((mo)->w2.ferry.wait); \
     HASH((mo)->w2.ferry.to.x); HASH((mo)->w2.ferry.to.y); \
     HASH((mo)->w2.fire); HASH((mo)->w2.fx.kind); HASH((mo)->w2.fx.age); HASH((mo)->w2.fx.clock); \

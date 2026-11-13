@@ -25,6 +25,7 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units,
     case TC_UNLOAD:
         for (int i = 0; i < count; ++i) {
             if (cmd->order == TC_BOARD) W2_BoardOrder(units[i], target);
+            else if (cmd->target) W2_UnloadPassengerOrder(units[i], cmd->target, fixed3_xy(cmd->position));
             else W2_UnloadOrder(units[i], fixed3_xy(cmd->position));
         }
         return true;
