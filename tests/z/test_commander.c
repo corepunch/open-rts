@@ -270,8 +270,26 @@ static int test_damaged_accuracy_value(void) {
         map->ai.territories[0].strength[1] != restored_value)
         return fail("mutable accuracy affects AI force estimate at unchanged body HP");
     tank->z.body_accuracy = damaged_accuracy;
+    uint8_t damaged_speed = tank->z.body_speed, damaged_fire = tank->z.body_fire;
+    const uint8_t *weapon = map->roster.bytes + 22000 + (size_t)Z_UnitType(tank) * 42;
+    if (weapon[1] != 1 || map->weights.bytes[0x3b + 4] != 2 ||
+        damaged_speed >= weapon[4] || damaged_fire >= weapon[34])
+        return fail("Medium weight and native body speed/fire bytes");
+    int damaged = Z_AIUnitValue(tank);
+    tank->z.body_speed = weapon[4];
+    think(1);
+    int faster = Z_AIUnitValue(tank);
+    if (faster <= damaged || map->ai.territories[0].strength[1] != faster)
+        return fail("mutable speed affects AI force estimate at unchanged body HP");
+    tank->z.body_speed = damaged_speed;
+    tank->z.body_fire = weapon[34];
+    think(1);
+    int faster_fire = Z_AIUnitValue(tank);
+    if (faster_fire <= damaged || map->ai.territories[0].strength[1] != faster_fire)
+        return fail("mutable body fire byte affects AI force estimate at unchanged body HP");
+    tank->z.body_fire = damaged_fire;
     rts_game_model_destroy(model);
-    puts("PASS: z body damage accuracy affects strategic force value");
+    puts("PASS: z body accuracy, speed and fire rate affect strategic force value");
     return 0;
 }
 

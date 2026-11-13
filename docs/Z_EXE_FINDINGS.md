@@ -5406,3 +5406,30 @@ crew-stat and weapon mutations remain approximations as described above.
 Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 32 @ 0x983e0' -c 'pd 14 @ 0x98475' -c 'pd 8 @ 0x86df0' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Damaged body speed in strategic strength:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x98507..0x98518` weights the current driven-body byte +7, while
+`0x86dc7..0x86dce` reduces that byte at body-damage thresholds. Open-rts now
+uses its already saved/hashed `body_speed` for that contribution when body
+tracking is active. The extended `test_damaged_accuracy_value` crosses an
+actual Medium Tank damage threshold, then restores only its speed byte at
+fixed HP and accuracy and verifies both unit value and territory strength;
+the old static weapon-speed calculation fails the test.
+
+**Correction — damaged fire rate is another weighted field:** The earlier
+claim that changing `body_fire` leaves AI value unchanged overlooked the
+separate `0x9853d` read of driven-body +0x20. That byte starts from weapon
++0x22 (`0x50c39..0x50c43`) and is reduced by `0x86dd1..0x86dda` at damage
+thresholds, except for the traced Jeep/Gatling cases. The engine's existing
+`body_fire` is this byte (100 minus the authored wait), so it now supplies
+weighted index 4 when body tracking is active. The previous weighted index 3
+remains the distinct body +6 read at `0x98526`; `0x86df0..0x86e01` modifies
+unit +2 and +6 after EBP has been restored to the unit, and does not establish
+a body +6 mutation. The Medium Tank's MULT.DAT index-4 weight is 2. The test
+restores its body fire byte from weapon +0x22 at fixed HP, accuracy and speed,
+and independently verifies unit value and territory strength; the earlier
+static fire-rate value fails this test. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 26 @ 0x98504' -c 'pd 38 @ 0x86dbe'
+-c 'pd 12 @ 0x50c39' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

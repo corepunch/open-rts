@@ -92,7 +92,10 @@ int Z_AIUnitValue(const mobj_t *mo) {
         int body = mo->max_hp ? 25 * w[5] * mo->hp / mo->max_hp : 0;
         /* 0x50c23 copies weapon +37 to vehicle +35. Boarding follows
          * object +27 to vehicle +35 instead (0x63a73). */
-        arm[1] = w[4]; arm[2] = body; arm[6] = 8 * w[36];
+        arm[1] = mo->z.body_tracked ? mo->z.body_speed : w[4];
+        arm[2] = body;
+        arm[4] = mo->z.body_tracked ? mo->z.body_fire : w[34];
+        arm[6] = 8 * w[36];
         arm[7] = w[37]; arm[8] = w[38]; arm[9] = w[39];
     }
     const uint8_t *rw = map->weights.bytes + robot_weights[w[1]];
