@@ -64,6 +64,8 @@ extern sc_weapon_t sc_weapons[SC_WEAPONS];
 extern int sc_projectile_states[SC_WEAPONS];
 bool sc_projectile_weapon(int id);
 bool sc_projectile_fire(mobj_t *source, const weapondef_t *weapon, mobj_t *target);
+/* A bullet script reached domissiledmg: deal a pending hit (p_combat.c). */
+void sc_projectile_script_hit(mobj_t *shot);
 /* techdata.dat: research cost and time, and the energy a use costs. The
  * Nuclear Strike is an order past the DAT that shares the spell command. */
 enum {

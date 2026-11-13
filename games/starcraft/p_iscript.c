@@ -194,7 +194,11 @@ bool sc_script_valid(const sc_script_t *c) {
 }
 
 /* The engine asks each saved mobj (game/g_save.c parse_save). */
-bool G_SavedObjectValid(const mobj_t *mo) { return sc_script_valid(&mo->sc.script); }
+bool G_SavedObjectValid(const mobj_t *mo) {
+    /* A pending hit needs a weapon row to deal it from. */
+    if (mo->type_id == MT_SC_PROJECTILE && mo->sc.projectile.pending && !sc_weapon(mo->sc.projectile.weapon)) return false;
+    return sc_script_valid(&mo->sc.script);
+}
 
 /* The retained program, and which unit and bullet image scripts play. */
 static blob_t program;
@@ -214,7 +218,12 @@ bool sc_iscript_load(const char *root) {
 }
 
 static uint32_t host_random(void *ctx, int source) { (void)ctx; (void)source; return sc_random(); }
-static void host_sound(void *ctx, int row) { sc_script_play(ctx, row); }
+/* A pending hit's sound is the weapon's own, played when it fires (sounds.c). */
+static void host_sound(void *ctx, int row) {
+    const mobj_t *mo = ctx;
+    if (mo->type_id == MT_SC_PROJECTILE && mo->sc.projectile.pending) return;
+    sc_script_play(ctx, row);
+}
 static bool host_cond(void *ctx, int op, const int *arg) {
     const mobj_t *mo = ctx;
     (void)arg;
@@ -227,6 +236,7 @@ static bool host_cond(void *ctx, int op, const int *arg) {
 static void host_op(void *ctx, int op, const int *arg, int n) {
     (void)arg; (void)n;
     if (op == 36) ((mobj_t *)ctx)->sc.script = (sc_script_t){0};
+    else if (op == 27 || op == 68) sc_projectile_script_hit(ctx); /* domissiledmg, dogrddamage */
 }
 static const sc_script_host_t mobj_host_template = {host_random, host_op, host_cond, host_sound, NULL};
 
