@@ -47,7 +47,9 @@ bool G_LoadExtra(const void *data, size_t size) {
     if (lb->kind > SC_LB_GREED || lb->goal > 1 ||
         (uint8_t)saved.leaderboard_computers > 1 || !raw_bool(&saved.trigger_paused) || saved.portrait_ms < 0 ||
         (!saved.portrait_ms && saved.portrait_unit) ||
-        saved.ai_fallback_count < 0 || saved.ai_fallback_count > SC_AI_FALLBACK_LOG) return false;
+        saved.ai_fallback_count < 0 || saved.ai_fallback_count > SC_AI_FALLBACK_LOG ||
+        saved.doodad_off_count < 0 || saved.doodad_off_count > SC_DOODAD_OFF) return false;
+    for (int i = 0; i < saved.doodad_off_count; ++i) if (!saved.doodad_off[i]) return false;
     for (int i = 0; i < 8; ++i) {
         if (saved.custom_slots_set &&
             (saved.custom_slot_kind[i] > SC_SLOT_CLOSED || saved.custom_slot_race[i] > 2)) return false;

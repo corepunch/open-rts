@@ -26,7 +26,7 @@ static const trig_op_t actions[SC_TRIG_ACTION_TYPES] = {
     {"Leaderboard Goal Control", T}, {"Leaderboard Goal Control At Location", T},
     {"Leaderboard Goal Resources", T}, {"Leaderboard Goal Kills", T},
     {"Leaderboard Goal Points", T}, {"Move Location", S}, {"Move Unit", S},
-    {"Leaderboard Greed", T}, {"Set Next Scenario", S}, {"Set Doodad State", U},
+    {"Leaderboard Greed", T}, {"Set Next Scenario", S}, {"Set Doodad State", P},
     {"Set Invincibility", S}, {"Create Unit", S}, {"Set Deaths", S}, {"Order", S},
     {"Comment", N}, {"Give Units to Player", S}, {"Modify Unit Hit Points", S},
     {"Modify Unit Energy", S}, {"Modify Unit Shield Points", S},

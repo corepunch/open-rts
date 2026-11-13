@@ -3059,8 +3059,8 @@ fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
 | 2 | Defeat | 75 | supported |
 | 3 | Preserve Trigger | 33 | supported |
 | 4 | Wait | 236 | supported |
-| 5 | Pause Game | 81 | UNSUPPORTED (reported once) |
-| 6 | Unpause Game | 23 | UNSUPPORTED (reported once) |
+| 5 | Pause Game | 81 | supported (2026-11-13) |
+| 6 | Unpause Game | 23 | supported (2026-11-13) |
 | 7 | Transmission | 233 | supported |
 | 8 | Play WAV | 144 | supported |
 | 9 | Display Text Message | 120 | supported |
@@ -3096,7 +3096,7 @@ fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
 | 39 | Move Unit | 16 | supported |
 | 40 | Leaderboard Greed | 0 | stored (saved, hashed; no presentation) |
 | 41 | Set Next Scenario | 0 | supported |
-| 42 | Set Doodad State | 69 | UNSUPPORTED (reported once) |
+| 42 | Set Doodad State | 69 | partial (traps; doors untraced) |
 | 43 | Set Invincibility | 6 | supported |
 | 44 | Create Unit | 0 | supported |
 | 45 | Set Deaths | 0 | supported |
@@ -3240,7 +3240,7 @@ round-trip with hash sensitivity and malformed-record rejection.
 ```
 make build/bin/starcraft
 env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_triggers
-env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 24 tests, 0 failed
+env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 24 tests, 0 failed (2026-11-13: 30 tests, 0 failed)
 env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
 ```
 
@@ -3535,3 +3535,47 @@ countdown stop with Wait still counting, nesting, computer owner, network,
 foreign unpause leaving the pauser mark, end-of-list unpause, save/load and
 malformed records) and the updated campaign inventory (only action 42 remains
 unsupported).
+
+#### Implemented: Set Doodad State for traps (2026-11-13)
+
+`set_doodad_state` in `games/starcraft/p_trig.c` follows the trace above: no
+location does nothing; the first matching unit in the location (unit type and
+player group through the shared `gather`) is the target; state 4 enables, 5
+disables, 0 and 6 toggle, 1-3 and above 6 do nothing; Enable acts only on a
+disabled unit and Disable only on an enabled one, where disabled is the
+existing `sc_disabled` (lockdown, stasis) or the new trigger flag. The flag is
+a list of unit ids in `sc_mission_t.doodad_off` (128 entries, saved, hashed,
+validated, in the layout 22 bump) read by `sc_disabled`, so a disabled Floor
+Gun or Missile Trap (or any non-door unit) stops firing through the engine's
+existing "a disabled unit fires on nobody" rule. Not implemented, because the
+trace did not reach their effect: the four door types 205-208 (their Open and
+Close Door state machine and its readers: status bits 0x2000 and 0x200000,
+`[unit+0x4f]` bit0), the Enable and Disable iscript animations (24 and 27) and
+sprite elevation changes, `0x4177e0(unit, 3)` and the `[unit+0xe4]` write for
+disabled traps, and collision of an open door. Doors therefore stay closed and
+action 42 is classified partial, no longer reported.
+Tests: `tests/starcraft/test_triggers.c::doodads` (disabled trap does not
+hurt an adjacent marine and an enabled one does, every state value, no
+location, wrong type, outside the location, doors, first match only,
+lockdown, save/load and malformed counts) and `doodads_terran04` (the first
+real Terran04 Set Doodad State record on a trap, raw state 0, run against the
+mission's own locations and placed units: toggles twice to enabled, once to
+disabled).
+
+Verification of this batch:
+
+```
+make build/bin/starcraft
+env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_triggers        # PASS
+env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 30 tests, 0 failed
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check                     # Smoke check OK
+```
+
+Open items and the trace each needs: the door state machine (decode 0x423e90
+and 0x423ef0 readers of status 0x200000 and `[unit+0x4f]`, and the door
+iscript animations); the paused-mode sprite update list at 0x620a54 and the
+input path during a trigger pause; the retail Rescue and AI planner effects
+(0x483e30, 0x4796b0/0x4796f0, the planner state behind send_suicide, move_dt,
+value_area, enter_bunker, clear_combatdata) which also need a rescue
+mechanism and an AI planner the engine does not have; the leaderboard display
+and Goal/Greed outcomes; and the Talking Portrait presentation (0x49e090).

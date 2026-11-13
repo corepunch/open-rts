@@ -1114,6 +1114,41 @@ bool sc_world_frozen(void) {
     return m && m->trigger_paused;
 }
 
+/* Set Doodad State (action 42, 0x4ae7b0). Only a trigger with a location
+ * acts, and only on the first matching unit in it. State 4 enables, 5
+ * disables, 0 and 6 toggle; 1-3 and anything above 6 do nothing. "Disabled"
+ * is the unit's disabled flag or a lockdown/stasis timer; Enable acts only on
+ * a disabled unit, Disable only on an enabled one. The four door types
+ * (205-208) take a different path in the executable (Open Door and Close Door
+ * orders, never the disabled flag) whose door state was not traced, so they
+ * are left alone. */
+bool sc_doodad_disabled(const mobj_t *mo) {
+    const sc_mission_t *m = mission(&level);
+    if (!m || !mo || mo->type_id < 1) return false;
+    for (int i = 0; i < m->doodad_off_count; i++) if (m->doodad_off[i] == mo->id) return true;
+    return false;
+}
+
+static void set_doodad_state(sc_mission_t *m, const uint8_t *a, int current) {
+    unsigned loc = read_u32_le(a), unit = read_u16_le(a + 24), state = a[27];
+    if (!loc || state == 1 || state == 2 || state == 3 || state > 6) return;
+    int players[8], n = collect_players(m, read_u32_le(a + 16), current, players);
+    mobj_t *target;
+    if (!n || gather(m, players, n, unit, loc, 1, &target, 1) < 1) return;
+    if (target->type_id >= 206 && target->type_id <= 209) return;
+    bool off = sc_disabled(target), flagged = sc_doodad_disabled(target);
+    bool disable = state == 5 || (state != 4 && !off);
+    if (disable == off) return;
+    if (disable) {
+        if (m->doodad_off_count < SC_DOODAD_OFF) m->doodad_off[m->doodad_off_count++] = target->id;
+    } else if (flagged) {
+        for (int i = 0; i < m->doodad_off_count; i++) if (m->doodad_off[i] == target->id) {
+            m->doodad_off[i] = m->doodad_off[--m->doodad_off_count];
+            break;
+        }
+    }
+}
+
 static void finish_trigger(sc_mission_t *m, sc_trig_t *st) {
     if (st->pauser) trigger_unpause(m, st);
     if (st->preserve) { st->cursor = 0; st->running = false; st->preserve = false; }
@@ -1203,6 +1238,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
         if (id == 3) { st->preserve = true; continue; }
         if (id == 5) { trigger_pause(m, st); continue; }
         if (id == 6) { trigger_unpause(m, st); continue; }
+        if (id == 42) { set_doodad_state(m, a, st->current); continue; }
         if (id == 4) {
             if (player_waiting(m, st->current)) { st->cursor--; return; }
             st->wait_ms = time > INT_MAX ? INT_MAX : time ? (int)time : 1;

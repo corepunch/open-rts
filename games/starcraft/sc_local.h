@@ -223,6 +223,7 @@ enum {
 };
 unsigned sc_terrain_flags(fixed2_t position);
 uint32_t sc_random(void);
+enum { SC_DOODAD_OFF = 128 };
 typedef struct {
     blob_t file;
     sc_terrain_t *terrain; /* Native minitile heights and megatile cover. */
@@ -273,6 +274,9 @@ typedef struct {
     sc_ai_script_t ai_script[8];
     uint32_t ai_fallback[SC_AI_FALLBACK_LOG];
     int ai_fallback_count;
+    /* Set Doodad State: ids of the units a trigger has disabled. */
+    uint32_t doodad_off[SC_DOODAD_OFF];
+    int doodad_off_count;
 } sc_mission_t;
 /* Trigger coverage (p_trigops.c). sc_trigger_note reports an unsupported type
  * once per mission; sc_trigger_reported tells a test whether it did. */
@@ -289,6 +293,8 @@ bool sc_mission_bind(level_t *map);
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms);
 /* True while a trigger has paused the game: the world does not advance. */
 bool sc_world_frozen(void);
+/* A unit that Set Doodad State has disabled (a trap that no longer fires). */
+bool sc_doodad_disabled(const mobj_t *mo);
 void sc_note_damage(mobj_t *mo);
 mobj_t *sc_spawn_actor(unsigned type, ivec2_t pixel, uint8_t owner);
 bool sc_add_resource_vent(mobj_t *source, int amount);

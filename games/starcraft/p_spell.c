@@ -146,7 +146,8 @@ bool sc_tech_aimed(int tech) {
     return s && !self_cast(tech) && tech != SC_TECH_ARCHON_WARP;
 }
 bool sc_disabled(const mobj_t *mo) {
-    return mo->sc.timers[SC_TIMER_LOCKDOWN] > 0 || mo->sc.timers[SC_TIMER_STASIS] > 0;
+    return mo->sc.timers[SC_TIMER_LOCKDOWN] > 0 || mo->sc.timers[SC_TIMER_STASIS] > 0 ||
+           sc_doodad_disabled(mo);
 }
 static fixed_t reach(const sc_spell_t *s) {
     const sc_weapon_t *w = sc_weapon(s->weapon);
