@@ -2,7 +2,7 @@
 
 /* Research restrictions, projectiles, construction progress, transport timers
  * and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 25; }
+uint32_t G_SaveLayout(void) { return 26; }
 
 bool G_WorldFrozen(void) { return sc_world_frozen(); }
 

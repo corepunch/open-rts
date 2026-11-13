@@ -1182,7 +1182,8 @@ static int hud_contract(void) {
     G_ProductionTicker(RTS_TICK_MS);
     CHECK(larva->type_id==MT_EGG&&card("Cancel Production",&larva,1));
     mouse_click(card("Cancel Production",&larva,1));
-    CHECK(larva->type_id==MT_LARVA&&!larva->production);
+    /* cancel_building_unit has no morph for an Egg: it is refunded and killed. */
+    CHECK(larva->hp<=0&&!card("Cancel Production",&larva,1));
     mobj_t *drone=spawn(MT_DRONE,FIXED2_LIT(40,28),consoleplayer);
     CHECK(drone);
     mouse_click(card("Advanced Structures",&drone,1));
