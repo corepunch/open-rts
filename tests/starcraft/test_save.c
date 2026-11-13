@@ -6,6 +6,7 @@
 int main(void) {
     G_InitGame();
     P_InitThinkers();
+    CHECK(G_SaveLayout() == 14);
     sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
@@ -88,6 +89,16 @@ int main(void) {
     uint32_t carrier_id = saved_carrier->id;
     level.sight.allies[0] |= UINT32_C(0x40000000) >> 1;
     level.sight.allies[0] &= ~(UINT32_C(0x40000000) >> 2); /* revoked sharing */
+    m->loc_count = SC_LOCATION_COUNT;
+    m->loc_left[SC_LOCATION_COUNT - 1] = 17;
+    m->loc_top[SC_LOCATION_COUNT - 1] = 29;
+    m->loc_right[SC_LOCATION_COUNT - 1] = 41;
+    m->loc_bottom[SC_LOCATION_COUNT - 1] = 53;
+    m->loc_elevation[SC_LOCATION_COUNT - 1] = 0x35;
+    uint32_t location_hash = G_ConsistencyExtra(0);
+    m->loc_right[SC_LOCATION_COUNT - 1]++;
+    CHECK(G_ConsistencyExtra(0) != location_hash);
+    m->loc_right[SC_LOCATION_COUNT - 1]--;
     uint32_t geyser_id = geyser->id;
     int geyser_vent = level.resource_vent_count - 1;
     uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
@@ -141,6 +152,9 @@ int main(void) {
     CHECK(G_Consistency()==queued_hash);
     CHECK(m->str == strings && m->switches[12] == 1 && m->deaths[1][0] == UINT32_C(0x80000000));
     CHECK(m->file.bytes == file.bytes && m->trig == triggers && m->uprp == properties && m->rt == runtime);
+    CHECK(m->loc_count == SC_LOCATION_COUNT && m->loc_left[SC_LOCATION_COUNT - 1] == 17 &&
+          m->loc_top[SC_LOCATION_COUNT - 1] == 29 && m->loc_right[SC_LOCATION_COUNT - 1] == 41 &&
+          m->loc_bottom[SC_LOCATION_COUNT - 1] == 53 && m->loc_elevation[SC_LOCATION_COUNT - 1] == 0x35);
     CHECK(m->terrain==terrain && m->rng==22695478u);
     CHECK(m->player_result[7] == 2 && m->custom_score[1] == 123456 &&
           m->score_variables[2][4] == 654321);

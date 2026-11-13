@@ -39,6 +39,19 @@ static int write_map(const char *path, const uint8_t owners[12], const uint8_t *
     return write_map_sized(path, owners, trig, trig ? 2400 : 0);
 }
 
+static int append_locations(const char *path, const void *locations, size_t count) {
+    FILE *f = fopen(path, "ab");
+    if (!f) return 1;
+    uint8_t hdr[8];
+    memcpy(hdr, "MRGN", 4);
+    put_u32(hdr + 4, (unsigned)(count * 20));
+    int bad = fwrite(hdr, 1, sizeof(hdr), f) != sizeof(hdr) ||
+        fwrite(locations, 20, count, f) != count;
+    bad |= ferror(f);
+    fclose(f);
+    return bad;
+}
+
 static uint8_t *blank_trigger(void) {
     uint8_t *t = calloc(1, 2400);
     if (t) t[2372 + 17] = 1; /* All Players */
@@ -2181,6 +2194,45 @@ int main(void) {
     CHECK(killed->hp == 0 && outside_kill->hp > 0);
     CHECK(kill_mission->deaths[0][MT_MARINE - 1] == 260);
     free(trig); unload();
+
+    /* Extended MRGN records beyond legacy location 64 remain addressable by triggers. */
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, 65); put_u16(action + 24, MT_MARINE - 1); action[26] = 23;
+    CHECK(!write_map("/tmp/open-rts-sc-location-65.chk", owners, trig));
+    uint8_t extended_location_chunk[SC_LOCATION_COUNT][20] = {{0}};
+    put_u32(extended_location_chunk[64], 128); put_u32(extended_location_chunk[64] + 4, 128);
+    put_u32(extended_location_chunk[64] + 8, 160); put_u32(extended_location_chunk[64] + 12, 160);
+    memcpy(extended_location_chunk[SC_LOCATION_COUNT - 1], extended_location_chunk[64], 20);
+    CHECK(!append_locations("/tmp/open-rts-sc-location-65.chk", extended_location_chunk, SC_LOCATION_COUNT));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location-65.chk", &level));
+    sc_mission_t *extended_locations = level.mission;
+    CHECK(extended_locations->loc_count == SC_LOCATION_COUNT);
+    mobj_t *at_extended_location = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0);
+    mobj_t *outside_extended_location = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0);
+    CHECK(at_extended_location && outside_extended_location);
+    ticks(1, &(hudtext_t){0});
+    CHECK(at_extended_location->hp <= 0 && outside_extended_location->hp > 0);
+    free(trig); unload();
+    trig = blank_trigger(); CHECK(trig);
+    trig[15] = 22; action = trig + 320;
+    put_u32(action, SC_LOCATION_COUNT); put_u16(action + 24, MT_MARINE - 1); action[26] = 23;
+    CHECK(!write_map("/tmp/open-rts-sc-location-256.chk", owners, trig));
+    CHECK(!append_locations("/tmp/open-rts-sc-location-256.chk", extended_location_chunk, SC_LOCATION_COUNT));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-location-256.chk", &level));
+    at_extended_location = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){144, 144}, 0);
+    outside_extended_location = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){240, 144}, 0);
+    CHECK(at_extended_location && outside_extended_location);
+    ticks(1, &(hudtext_t){0});
+    CHECK(at_extended_location->hp <= 0 && outside_extended_location->hp > 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-location-256.chk");
+    remove("/tmp/open-rts-sc-location-65.chk");
+    uint8_t too_many_locations[SC_LOCATION_COUNT + 1][20] = {{0}};
+    CHECK(!write_map("/tmp/open-rts-sc-location-limit.chk", owners, NULL));
+    CHECK(!append_locations("/tmp/open-rts-sc-location-limit.chk", too_many_locations,
+                            SC_LOCATION_COUNT + 1));
+    CHECK(!G_DoLoadLevel("/tmp/open-rts-sc-location-limit.chk", &level));
+    remove("/tmp/open-rts-sc-location-limit.chk");
     trig = blank_trigger(); CHECK(trig);
     trig[15] = 22; action = trig + 320;
     put_u32(action, 1); put_u16(action + 24, MT_MARINE - 1); action[26] = 23; action[27] = 1;

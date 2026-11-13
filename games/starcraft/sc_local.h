@@ -209,6 +209,7 @@ typedef struct {
     bool running, preserve, disabled;
 } sc_trig_t;
 typedef struct { uint16_t vf4[16], cv5; } sc_terrain_t;
+enum { SC_LOCATION_COUNT = 256 };
 enum {
     SC_TERRAIN_MIDDLE = 2, SC_TERRAIN_HIGH = 4, SC_TERRAIN_COVER = 0x10,
     SC_TERRAIN_CREEP = 0x40, SC_TERRAIN_UNBUILDABLE = 0x80
@@ -220,8 +221,9 @@ typedef struct {
     sc_terrain_t *terrain; /* Native minitile heights and megatile cover. */
     const uint8_t *trig, *str, *uprp;
     size_t trig_size, str_size, uprp_size;
-    int loc_left[64], loc_top[64], loc_right[64], loc_bottom[64];
-    uint16_t loc_elevation[64]; /* MRGN exclusion flags, low/mid/high air then ground. */
+    int loc_left[SC_LOCATION_COUNT], loc_top[SC_LOCATION_COUNT];
+    int loc_right[SC_LOCATION_COUNT], loc_bottom[SC_LOCATION_COUNT];
+    uint16_t loc_elevation[SC_LOCATION_COUNT]; /* MRGN exclusion flags, low/mid/high air then ground. */
     int loc_count;
     uint8_t owners[12], side[12], force[8], force_flags[4];
     uint8_t map_mode;

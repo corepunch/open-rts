@@ -1,7 +1,7 @@
 #include "sc_local.h"
 
 /* Research restrictions and projectile state add persistent save data. */
-uint32_t G_SaveLayout(void) { return 13; }
+uint32_t G_SaveLayout(void) { return 14; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -15,6 +15,16 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     if (m) hash = G_HashValue(hash, m->map_mode);
     if (m) hash = G_HashValue(hash, m->research_rules_loaded);
     if (m) hash = G_HashValue(hash, m->custom_slots_set);
+    if (m) {
+        hash = G_HashValue(hash, m->loc_count);
+        for (int i = 0; i < m->loc_count; ++i) {
+            hash = G_HashValue(hash, m->loc_left[i]);
+            hash = G_HashValue(hash, m->loc_top[i]);
+            hash = G_HashValue(hash, m->loc_right[i]);
+            hash = G_HashValue(hash, m->loc_bottom[i]);
+            hash = G_HashValue(hash, m->loc_elevation[i]);
+        }
+    }
     if (m) for (int i = 0; i < 8; ++i) {
         hash = G_HashValue(hash, m->custom_slot_kind[i]);
         hash = G_HashValue(hash, m->custom_slot_race[i]);

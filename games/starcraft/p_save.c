@@ -36,7 +36,7 @@ bool G_LoadExtra(const void *data, size_t size) {
         saved.custom_slots_set > 1 ||
         saved.trig_count != m->trig_count || saved.trig_size != m->trig_size ||
         saved.str_size != m->str_size || saved.uprp_size != m->uprp_size ||
-        saved.loc_count < 0 || saved.loc_count > 64 || saved.result < 0 || saved.result > 3 ||
+        saved.loc_count < 0 || saved.loc_count > SC_LOCATION_COUNT || saved.result < 0 || saved.result > 3 ||
         !memchr(saved.objectives, 0, sizeof(saved.objectives)) ||
         !memchr(saved.next_scenario, 0, sizeof(saved.next_scenario))) return false;
     for (int i = 0; i < 8; ++i) {

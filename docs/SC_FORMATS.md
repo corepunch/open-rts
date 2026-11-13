@@ -642,6 +642,15 @@ Bring finder visits the carrier, then counts its loaded units recursively; the
 carrier must first pass the same span-dependent finder bounds. The loaded
 passenger fixture covers both a match and a wide-rectangle edge exclusion.
 
+The mission runtime accepts up to 256 MRGN records and preserves all of them
+through save/load and consistency hashing. OpenBW's `bwgame.h` documents MRGN
+as 64 or 256 entries and reads each 20-byte record; Stargus `Chk.cpp` accepts
+any MRGN length divisible by 20. PyMS `CHKSectionMRGN.py` instead pads older
+maps to 64 records and VER SC104+ maps to 255. This is an unresolved source
+conflict about the extended count; the runtime uses the requested 256-record
+bound and rejects malformed or larger sections. A synthetic CHK verifies
+trigger selection with location 65 and rejects 257 records.
+
 Pinned OpenBW action 15 recognizes AI script IDs `+Vi0` through `+Vi7` as
 granting the trigger owner vision from the named player. open-rts now applies
 these IDs to its per-viewer sight masks without changing combat alliances;

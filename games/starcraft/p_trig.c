@@ -185,7 +185,7 @@ static bool loc_box(const sc_mission_t *m, unsigned id, int *l, int *t, int *r, 
         *b = level.height * 32;
         return true;
     }
-    if (id > 64) return false;
+    if (id > SC_LOCATION_COUNT) return false;
     int i = (int)id - 1;
     if (i >= m->loc_count) return false;
     *l = m->loc_left[i]; *t = m->loc_top[i];
@@ -233,7 +233,7 @@ static bool inside(const mobj_t *mo, int l, int t, int r, int b) {
 }
 
 static bool location_height_ok(const sc_mission_t *m, const mobj_t *mo, unsigned loc) {
-    if (!loc || loc > (unsigned)m->loc_count || loc > 64) return true;
+    if (!loc || loc > (unsigned)m->loc_count || loc > SC_LOCATION_COUNT) return true;
     unsigned flags = m->loc_elevation[loc - 1];
     if (!flags) return true;
     if (!m->terrain || !L_Contains(&level, fixed_floor_int(mo->core.position.x),
@@ -1476,8 +1476,8 @@ bool sc_mission_bind(level_t *map) {
             memcpy(m->force, data, 8);
             memcpy(m->force_flags, data + 16, 4);
         } else if (!memcmp(tag, "MRGN", 4)) {
+            if (n % 20 || n / 20 > SC_LOCATION_COUNT) return false;
             m->loc_count = (int)(n / 20);
-            if (m->loc_count > 64) m->loc_count = 64;
             for (int i = 0; i < m->loc_count; i++) {
                 const uint8_t *loc = data + (size_t)i * 20;
                 m->loc_left[i] = (int)read_u32_le(loc);
