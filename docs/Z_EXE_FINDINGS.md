@@ -5174,3 +5174,19 @@ filter. Native candidate visibility and failed-route behavior remain subject
 to the approximations described above. Inspect with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 30 @ 0x98ee1' -c 'pd 25 @ 0x9902f'
 -c q data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Repair candidate with a delayed order:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9c3c8..0x9c407` collects active, usable, reserve idle vehicle tasks
+whose body health is below half, without checking for a delayed command.
+`0x9c272..0x9c387` chooses a nearby friendly repair facility and calls
+`0x9c485`, whose `0x9c4de..0x9c4e8` dispatches the order and sets task 11.
+Open-rts now includes an idle damaged reserve with a pending command and
+uses the existing service dispatch to replace it. The extended
+`test_repair_facility` installs a later pending order, verifies the repair
+assignment and actual bay entry, and still tests save/load and capture;
+the former pending filter fails this test. Existing failed-approach retry
+policy and native pathfinding limitations remain as documented above.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 45 @ 0x9c39b' -c 'pd 35 @ 0x9c485' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

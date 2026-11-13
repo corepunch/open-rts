@@ -1051,7 +1051,7 @@ static void send_damaged_vehicles(zmap_t *map, mobj_t *const *units, int count) 
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &map->ai.tasks[i];
         mobj_t *unit = P_MobjById(task->unit);
-        if (!unit || task->task != IDLE || !reserve(task) || task->pending || unit->z.service ||
+        if (!unit || task->task != IDLE || !reserve(task) || unit->z.service ||
             !Z_RepairVehicle(unit) || unit->hp >= unit->max_hp / 2) continue;
         mobj_t *best = NULL;
         int64_t distance = 256 * 256;

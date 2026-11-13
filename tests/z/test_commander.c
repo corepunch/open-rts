@@ -1636,10 +1636,16 @@ static int test_repair_facility(void) {
     tank->hp = tank->max_hp / 2;
     think(0); think(1);
     if (tank->z.service) return fail("exactly half health does not trigger repairs");
+    zaitask_t *task = task_of(tank);
+    if (!task || task->task != -1) return fail("register idle repair candidate");
+    task->pending = true;
+    task->execute_at = ((zmap_t *)level.native_data)->ai.clock + 1000;
+    task->order = fixed3_xy(tank->core.position);
     tank->hp--;
     think(1);
-    if (tank->z.service != facility->id || task_of(tank)->task != 11)
-        return fail("idle damaged reserve goes to its nearest friendly facility");
+    if (tank->z.service != facility->id || task->task != 11 ||
+        task->execute_at >= ((zmap_t *)level.native_data)->ai.clock + 1000)
+        return fail("damaged reserve replaces its queued order with repair");
     for (int i = 0; i < 4 * RTS_TICRATE && tank->z.service_work >= 0; ++i)
         if (!tick(model, 1)) return fail("repair approach simulation");
     if (tank->z.service_work >= 0) return fail("tank enters the repair bay");
