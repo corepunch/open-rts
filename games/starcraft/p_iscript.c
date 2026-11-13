@@ -197,6 +197,9 @@ bool sc_script_valid(const sc_script_t *c) {
 bool G_SavedObjectValid(const mobj_t *mo) {
     /* A pending hit needs a weapon row to deal it from. */
     if (mo->type_id == MT_SC_PROJECTILE && mo->sc.projectile.pending && !sc_weapon(mo->sc.projectile.weapon)) return false;
+    /* A shot waiting for its attacker's script (a flame) is at most four frames from being made. */
+    if (mo->type_id == MT_SC_PROJECTILE && (mo->sc.projectile.delay > 4 || mo->sc.projectile.shift > 80 ||
+        (mo->sc.projectile.delay && (!mo->sc.projectile.pending || sc_weapon(mo->sc.projectile.weapon)->behavior != 5)))) return false;
     return sc_larva_state_valid(mo) && sc_script_valid(&mo->sc.script);
 }
 

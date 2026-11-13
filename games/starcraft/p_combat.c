@@ -339,13 +339,35 @@ static fixed2_t immediate_position(const mobj_t *source,const mobj_t *target) {
     return (fixed2_t){SC_PIXELS(to.x),SC_PIXELS(to.y)};
 }
 
-/* OpenBW bullet type 2 appears at the target, rolls once per bullet and
- * damages from its Death script. */
-enum { SC_BEHAVIOR_APPEAR_TARGET = 2 };
+/* OpenBW bullet types that never fly: 2 appears at the target, rolls once per
+ * bullet and damages from its Death script; 5 appears at the attacker and 6
+ * does too and kills it as the bullet is made. */
+enum { SC_BEHAVIOR_APPEAR_TARGET = 2, SC_BEHAVIOR_APPEAR_SOURCE = 5, SC_BEHAVIOR_SELF_DESTRUCT = 6 };
+
+/* OpenBW weapon_can_target_unit for a unit the bullet's splash reaches:
+ * weapons.dat target flags (air 1, ground 2, mechanical 4, organic 8, not a
+ * building 0x10, not robotic 0x20, organic or mechanical 0x80). */
+static bool splash_can_hit(const sc_weapon_t *w,const mobj_t *victim) {
+    const sc_unit_t *type=sc_unit(victim);
+    if(!type||(victim->sc.flags&SC_INVINCIBLE))return false;
+    unsigned f=w->targets;
+    if(!(f&((victim->traits&MF_FLY)?1u:2u)))return false;
+    if((f&4)&&!(type->flags&SC_UNIT_MECHANICAL))return false;
+    if((f&8)&&!(type->flags&SC_UNIT_ORGANIC))return false;
+    if((f&0x10)&&(type->flags&SC_UNIT_BUILDING))return false;
+    if((f&0x20)&&(type->flags&SC_UNIT_ROBOTIC))return false;
+    if((f&0x80)&&!(type->flags&(SC_UNIT_MECHANICAL|SC_UNIT_ORGANIC)))return false;
+    return true;
+}
 
 /* domissiledmg of a pending bullet: single-target weapons hit the target the
- * bullet still has unless the roll missed; splash weapons hit by distance
- * from where the bullet appeared. The shot is spent. */
+ * bullet still has unless the roll missed; splash weapons are OpenBW
+ * bullet_deal_splash_damage around where the bullet appeared: not the
+ * bullet's source, an enemy splash spares units of the bullet's own player
+ * (but not the bullet's target), every unit the weapon can target whose box
+ * lies within the outer radius takes the full damage inside the inner
+ * radius, and, unless it is burrowed, a half inside the medium and a quarter
+ * inside the outer. The shot is spent. */
 static void pending_hit(mobj_t *shot) {
     sc_projectile_t *p=&shot->sc.projectile;
     const sc_weapon_t *w=sc_weapon(p->weapon);
@@ -359,11 +381,10 @@ static void pending_hit(mobj_t *shot) {
         for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
             mobj_t *victim=(mobj_t *)th;
             if(th->function!=P_MobjThinker||victim==source||victim->remove||victim->hp<=0||
-               !sc_type(victim)||(victim->traits&(MF_NOBLOCKMAP|MF_MISSILE))||
-               !(w->targets&((victim->traits&MF_FLY)?1u:2u))||
-               (w->explosion==SC_EXPLOSION_ENEMY&&victim!=target&&P_IsAlly(shot,victim)))continue;
+               (victim->traits&(MF_NOBLOCKMAP|MF_MISSILE))||!splash_can_hit(w,victim)||
+               (w->explosion==SC_EXPLOSION_ENEMY&&victim->owner==shot->owner&&victim!=target))continue;
             int d=sc_point_distance(victim,at);
-            int divisor=d<=w->splash[0]?1:d<=w->splash[1]?2:d<=w->splash[2]?4:0;
+            int divisor=d<=w->splash[0]?1:(victim->sc.flags&SC_BURROWED)?0:d<=w->splash[1]?2:d<=w->splash[2]?4:0;
             if(divisor)shot_hit(shot,w,victim,divisor);
         }
     }
@@ -374,13 +395,68 @@ void sc_projectile_script_hit(mobj_t *shot) {
     if(shot&&shot->type_id==MT_SC_PROJECTILE&&shot->sc.projectile.pending)pending_hit(shot);
 }
 
-/* A pending bullet runs its Death script on the frame it is fired (OpenBW
- * runs Init and starts Death in that same frame); script frame k then runs on
- * the k-th 24 Hz frame after the firing tick, and its first tick is the
- * firing tick's own. */
-static void pending_tick(mobj_t *shot,int frames) {
-    if(shot->missile.age++>0)sc_script_tick(shot,frames);
+/* Runs a made pending bullet's Death script. A script that ended without
+ * reaching domissiledmg still deals the hit. */
+static void start_death(mobj_t *shot) {
+    int script=sc_weapon_script[shot->sc.projectile.weapon];
+    if(!sc_iscript_bin()||script<0)pending_hit(shot);
+    else sc_script_begin(shot,script,SC_ANIM_DEATH);
     if(!shot->remove&&shot->sc.projectile.pending&&!shot->sc.script.active)pending_hit(shot);
+}
+
+/* OpenBW fire_weapon for a bullet that appears on its attacker (types 5 and
+ * 6): the attacker's position moved forward_offset along its heading (an
+ * attkshiftproj shift replaces it) and upward_offset up. */
+static fixed2_t source_position(const mobj_t *source,const sc_weapon_t *w,int shift) {
+    fixed2_t heading;angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
+    fixed2_t at=fixed2_add(fixed3_xy(source->core.position),fixed2_scale(heading,SC_PIXELS(shift?shift:w->forward)));
+    return fixed2_add(at,(fixed2_t){0,-SC_PIXELS(w->upward)});
+}
+
+/* The unit a bullet credits (OpenBW initialize_bullet): a Scarab's is the
+ * Reaver that launched it. */
+static mobj_t *bullet_owner(mobj_t *source) {
+    return source->type_id==MT_SCARAB?P_MobjById(source->sc.parent):source;
+}
+
+/* OpenBW create_bullet and initialize_bullet for a type 5 or 6 weapon, with
+ * no miss roll (only flying and appear-at-target bullets roll): the bullet
+ * is made at position at, owned by the player of source, aimed at target, and
+ * its Death script starts on this frame. */
+static mobj_t *make_source_bullet(mobj_t *source,mobj_t *shot,mobj_t *target,fixed2_t at) {
+    sc_projectile_t *p=&shot->sc.projectile;
+    shot->core.position=fixed3_from_fixed2(at,source->core.position.z);
+    shot->owner=source->owner;shot->team=source->team;shot->allegiance=source->allegiance;
+    shot->core.angle=source->core.angle;
+    shot->target=bullet_owner(source);shot->attack.target=target;
+    shot->sc.flags=source->sc.flags&SC_HALLUCINATION;
+    p->delay=0;
+    start_death(shot);
+    return shot;
+}
+
+/* A pending bullet runs its Death script on the frame it is made (OpenBW
+ * runs Init and starts Death in that same frame); script frame k then runs on
+ * the k-th 24 Hz frame after that tick, and its first tick is the making
+ * tick's own. A shot that waits for its attacker's script (delay) is made on
+ * the delay-th such frame, from the attacker as it is then: a dead,
+ * disabled or target-less attacker makes nothing (OpenBW attack_with
+ * returns without an order target, a dead unit's script has left its attack
+ * animation, and create_bullet refuses a unit that cannot attack). */
+static void pending_tick(mobj_t *shot,int frames) {
+    sc_projectile_t *p=&shot->sc.projectile;
+    if(shot->missile.age++==0)return;
+    if(p->delay>0) {
+        if((p->delay=(uint8_t)(p->delay>frames?p->delay-frames:0))>0)return;
+        mobj_t *source=shot->target,*target=source?source->attack.target:NULL;
+        const sc_weapon_t *w=sc_weapon(p->weapon);
+        if(!w||!source||source->remove||source->hp<=0||sc_disabled(source)||!target||target->remove||target->hp<=0)
+            {P_RemoveMobj(shot);return;}
+        make_source_bullet(source,shot,target,source_position(source,w,p->shift));
+        return;
+    }
+    sc_script_tick(shot,frames);
+    if(!shot->remove&&p->pending&&!shot->sc.script.active)pending_hit(shot);
 }
 
 static void immediate_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
@@ -397,11 +473,32 @@ static void immediate_fire(mobj_t *source,const weapondef_t *def,mobj_t *target)
         shot->target=source;shot->attack.target=target;shot->core.angle=source->core.angle;
         shot->sc.flags=source->sc.flags&SC_HALLUCINATION;
         shot->sc.projectile=(sc_projectile_t){.weapon=def->native_id,.missed=missed,.pending=true};
-        if(!sc_iscript_bin()||sc_weapon_script[def->native_id]<0)pending_hit(shot);
-        else sc_script_begin(shot,sc_weapon_script[def->native_id],SC_ANIM_DEATH);
-        /* A script that ended without reaching domissiledmg still deals the hit. */
-        if(!shot->remove&&shot->sc.projectile.pending&&!shot->sc.script.active)pending_hit(shot);
+        start_death(shot);
     }
+}
+
+/* The shots a Firebat's attack script makes, in script frames after it
+ * starts and the pixels forward each attkshiftproj moves them: GndAttkInit
+ * and GndAttkRpt of the Firebat and Gui Montag, and the wall Flame Traps'
+ * attack, all play attkshiftproj 24, wait 2, attkshiftproj 52, wait 1,
+ * attkshiftproj 80 after one frame (test_flames reads this from iscript.bin). */
+static const struct { uint8_t frame, shift; } volley[]={{1,24},{3,52},{4,80}};
+
+/* Weapons of those units: Flame Thrower, its hero and wall trap rows. */
+static bool volley_weapon(int id) { return id==25||id==26||id==98; }
+
+/* A bullet of weapon def that appears on its attacker (types 5 and 6),
+ * either now (a delay of 0) or when its attacker's script makes it. */
+mobj_t *sc_source_bullet(mobj_t *source,int weapon,mobj_t *target,int delay,int shift) {
+    const sc_weapon_t *w=sc_weapon(weapon);
+    if(!source||!w||w->flingy<=0||w->damage<=0)return NULL;
+    if(!sc_iscript_bin())delay=0; /* no scripts, no script timing: every shot at once */
+    mobj_t *shot=P_SpawnMobj(source->core.position,MT_SC_PROJECTILE);
+    if(!shot)return NULL;
+    shot->sc.projectile=(sc_projectile_t){.weapon=weapon,.pending=true,.delay=(uint8_t)delay,.shift=(uint8_t)shift};
+    shot->target=source;
+    if(delay>0)return shot;
+    return make_source_bullet(source,shot,target,source_position(source,w,shift));
 }
 
 bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
@@ -410,6 +507,12 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
     if(!w)return false;
     if(w->behavior==SC_BEHAVIOR_APPEAR_TARGET&&w->damage>0&&(w->explosion==1||w->explosion==SC_EXPLOSION_RADIAL||w->explosion==SC_EXPLOSION_ENEMY)) {
         immediate_fire(source,def,target);return true;
+    }
+    /* Flame Thrower bullets (behavior 5) never leave their attacker: three per attack,
+     * made by the attacker's script, striking where weapons.dat's splash radii say. */
+    if(volley_weapon(def->native_id)&&w->behavior==SC_BEHAVIOR_APPEAR_SOURCE&&w->flingy>0&&w->explosion==SC_EXPLOSION_ENEMY) {
+        for(unsigned i=0;i<sizeof(volley)/sizeof(*volley);i++)sc_source_bullet(source,def->native_id,target,volley[i].frame,volley[i].shift);
+        return true;
     }
     if(!sc_projectile_weapon(def->native_id))return false;
     fixed2_t heading; angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);

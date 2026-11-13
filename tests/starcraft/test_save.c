@@ -160,7 +160,7 @@ static bool accepts_retry_or_release_state(const void *data,size_t length,uint32
 int main(void) {
     G_InitGame();
     P_InitThinkers();
-    CHECK(G_SaveLayout() == 26);
+    CHECK(G_SaveLayout() == 27);
     sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
