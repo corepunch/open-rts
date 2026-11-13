@@ -1664,6 +1664,18 @@ than being replaced with numeric approximations:
   through the normal heavy AI pass. Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true
   -c 'pd 70 @ 0x99f46' -c 'pd 65 @ 0x9d61e' -c q data/Z/ZED.EXE` and
   `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
+- For a march that must wait for another force, `0x997a9..0x997d4` calls
+  `0x9d42c` for the current territory and then writes task state 2 and its
+  current-territory target without checking the dispatch result. The engine
+  now retains the same staged assignment when its own staging-point
+  validation fails. `test_unreachable_staging` exercises two active groups
+  through the normal heavy AI pass with an unreachable staging point; the
+  engine's path and reservation validation remain approximations. Native code
+  temporarily sets global `0x152dbc` around dispatch; its effect on staging
+  selection remains unverified. Inspect
+  with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 40 @
+  0x997a9' -c q data/Z/ZED.EXE` and run
+  `SDL_VIDEODRIVER=dummy build/bin/tests/z/test_commander`.
 - `0x9d390` values a potential donor squad, caps it at 65535, and requires
   the donor territory's remaining own strength to be at least
   `16*weight*importance` with native word/sign checks. `0x9d330` chooses

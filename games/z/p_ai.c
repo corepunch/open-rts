@@ -612,7 +612,8 @@ static void advance(zmap_t *map) {
                     }
                 }
             } else if (other_in(ai, task, MARCH, t) || other_in(ai, task, FLAG, t)) {
-                if (adjacent(map, task->current, t) && send(map, task, task->current)) {
+                if (adjacent(map, task->current, t)) {
+                    send(map, task, task->current);
                     task->task = STAGED;
                     task->target = task->current;
                 }
