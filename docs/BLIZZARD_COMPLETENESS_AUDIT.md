@@ -82,12 +82,17 @@ cannot independently validate our decoder.
 
 `p_trig.c` demonstrates gaps beyond a generic statement that triggers are partial:
 
-- `condition_ok` supports IDs 1–7, 11, 12, 14–17, 22 and 23. Other condition
-  IDs return false. A mission that relies on another condition can stall.
-- `run_actions` has no execution path for Play WAV (8), leaderboard actions,
-  several score/property actions, or doodad state. Pause/Unpause (5/6) are
-  skipped. Transmission (7) displays text/waits without its audio.
-- Run AI Script (15/16) sets `ai_on`; it ignores the actual script program.
+- `condition_ok` supports IDs 1-12 and 14-23; Mission Briefing (13) and unknown
+  types never hold and are reported once per mission (2026-11-13).
+- `run_actions` reports every unimplemented action type once per mission
+  (`p_trigops.c`). Pause/Unpause (5/6), Set Doodad State (42) and debug mode
+  (58/59) remain unimplemented; the leaderboard family and Talking Portrait
+  store saved, hashed state without presentation. Play WAV and Transmission audio
+  are implemented. The table of every ID with campaign occurrences is in
+  [SC_EXE_FINDINGS.md](SC_EXE_FINDINGS.md#trigger-coverage-leaderboards-portrait-and-ai-script-state-2026-11-13).
+- Run AI Script (15/16) keeps the script ID and location per player and executes
+  only the `+Vi`/`-Vi` shared-vision scripts; every other script falls back to
+  the shared planner and is reported per script ID.
 - Move Unit (39) and Order (47) share `P_MoveUnitTo`, so instant relocation
   and distinct patrol/attack order semantics are not fully represented.
 - `apply_property` handles owner, HP, invincibility and hallucination, not the

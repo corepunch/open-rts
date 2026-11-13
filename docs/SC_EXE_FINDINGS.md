@@ -3038,3 +3038,208 @@ controller parity.
 
 Reproduce with `make build/bin/tests/starcraft/test_mission` followed by
 `env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_mission`.
+
+### Trigger coverage, leaderboards, portrait and AI script state (2026-11-13)
+
+**Inventory.** `games/starcraft/p_trigops.c` classifies every TRIG action
+(0-59) and condition (0-23) type, with names from PyMS `FileFormats/TRG.py`.
+A type whose status is UNSUPPORTED is skipped, reported once per mission on
+stderr (`starcraft: trigger action 5 (Pause Game) is not implemented and was
+skipped`) and recorded in `sc_mission_t.warned_action/warned_condition`, which
+`sc_trigger_reported` exposes to tests. A disabled action or condition is
+skipped before this check and never reported. Occurrences count every record
+in the 35 installed campaign `scenario.chk` files (tutorial plus 12 or 10
+missions per race, including disabled records). Reproduce with
+`tests/starcraft/test_triggers.c::inventory`, which rescans the files and
+fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
+
+| ID | Action | Occurrences | Status |
+| ---: | --- | ---: | --- |
+| 1 | Victory | 37 | supported |
+| 2 | Defeat | 75 | supported |
+| 3 | Preserve Trigger | 33 | supported |
+| 4 | Wait | 236 | supported |
+| 5 | Pause Game | 81 | UNSUPPORTED (reported once) |
+| 6 | Unpause Game | 23 | UNSUPPORTED (reported once) |
+| 7 | Transmission | 233 | supported |
+| 8 | Play WAV | 144 | supported |
+| 9 | Display Text Message | 120 | supported |
+| 10 | Center View | 67 | supported |
+| 11 | Create Unit with Properties | 452 | supported |
+| 12 | Set Mission Objectives | 49 | supported |
+| 13 | Set Switch | 152 | supported |
+| 14 | Set Countdown Timer | 6 | supported |
+| 15 | Run AI Script | 9 | partial |
+| 16 | Run AI Script At Location | 89 | partial |
+| 17 | Leaderboard Control | 1 | stored (saved, hashed; no presentation) |
+| 18 | Leaderboard Control At Location | 0 | stored (saved, hashed; no presentation) |
+| 19 | Leaderboard Resources | 1 | stored (saved, hashed; no presentation) |
+| 20 | Leaderboard Kills | 0 | stored (saved, hashed; no presentation) |
+| 21 | Leaderboard Points | 0 | stored (saved, hashed; no presentation) |
+| 22 | Kill Unit | 11 | supported |
+| 23 | Kill Unit At Location | 18 | supported |
+| 24 | Remove Unit | 1 | supported |
+| 25 | Remove Unit At Location | 4 | supported |
+| 26 | Set Resources | 85 | supported |
+| 27 | Set Score | 0 | supported |
+| 28 | Minimap Ping | 27 | supported |
+| 29 | Talking Portrait | 0 | stored (saved, hashed; no presentation) |
+| 30 | Mute Unit Speech | 121 | supported |
+| 31 | Unmute Unit Speech | 119 | supported |
+| 32 | Leaderboard Computer Players | 2 | stored (saved, hashed; no presentation) |
+| 33 | Leaderboard Goal Control | 0 | stored (saved, hashed; no presentation) |
+| 34 | Leaderboard Goal Control At Location | 0 | stored (saved, hashed; no presentation) |
+| 35 | Leaderboard Goal Resources | 0 | stored (saved, hashed; no presentation) |
+| 36 | Leaderboard Goal Kills | 0 | stored (saved, hashed; no presentation) |
+| 37 | Leaderboard Goal Points | 0 | stored (saved, hashed; no presentation) |
+| 38 | Move Location | 25 | supported |
+| 39 | Move Unit | 16 | supported |
+| 40 | Leaderboard Greed | 0 | stored (saved, hashed; no presentation) |
+| 41 | Set Next Scenario | 0 | supported |
+| 42 | Set Doodad State | 69 | UNSUPPORTED (reported once) |
+| 43 | Set Invincibility | 6 | supported |
+| 44 | Create Unit | 0 | supported |
+| 45 | Set Deaths | 0 | supported |
+| 46 | Order | 0 | supported |
+| 47 | Comment | 0 | no effect by definition |
+| 48 | Give Units to Player | 0 | supported |
+| 49 | Modify Unit Hit Points | 0 | supported |
+| 50 | Modify Unit Energy | 0 | supported |
+| 51 | Modify Unit Shield Points | 0 | supported |
+| 52 | Modify Unit Resource Amount | 0 | supported |
+| 53 | Modify Unit Hangar Count | 0 | supported |
+| 54 | Pause Timer | 0 | supported |
+| 55 | Unpause Timer | 0 | supported |
+| 56 | Draw | 0 | supported |
+| 57 | Set Alliance Status | 0 | supported |
+| 58 | Disable Debug Mode | 0 | UNSUPPORTED (reported once) |
+| 59 | Enable Debug Mode | 0 | UNSUPPORTED (reported once) |
+
+
+| ID | Condition | Occurrences | Status |
+| ---: | --- | ---: | --- |
+| 1 | Countdown Timer | 15 | supported |
+| 2 | Command | 206 | supported |
+| 3 | Bring | 163 | supported |
+| 4 | Accumulate | 7 | supported |
+| 5 | Kill | 5 | supported |
+| 6 | Command the Most | 0 | supported |
+| 7 | Commands the Most At | 1 | supported |
+| 8 | Most Kills | 0 | supported |
+| 9 | Highest Score | 0 | supported |
+| 10 | Most Resources | 0 | supported |
+| 11 | Switch | 126 | supported |
+| 12 | Elapsed Time | 75 | supported |
+| 13 | Mission Briefing | 0 | UNSUPPORTED (reported once) |
+| 14 | Opponents | 0 | supported |
+| 15 | Deaths | 7 | supported |
+| 16 | Command the Least | 0 | supported |
+| 17 | Command the Least At | 1 | supported |
+| 18 | Least Kills | 0 | supported |
+| 19 | Lowest Score | 0 | supported |
+| 20 | Least Resources | 0 | supported |
+| 21 | Score | 0 | supported |
+| 22 | Always | 0 | supported |
+| 23 | Never | 0 | supported |
+
+Action 0 and condition 0 end a record's list. Action 47 Comment has no game
+effect by definition. Condition 13 (Mission Briefing) and actions 58/59
+(debug mode) do not occur in the campaigns. Actions 5 and 6 occur 81 and 23
+times, so every campaign mission that uses them now logs the report; the
+unsupported set in the campaigns is exactly actions 5, 6 and 42.
+
+**What OpenBW establishes.** The pinned `execute_trigger_action` implements
+only actions 1, 2, 3, 4, 15 (the `+Vi0` to `+Vi7` shared-vision scripts; any
+other ID reaches `error("unknown ai script")`), 22, 24, 25, 26, 38, 44, 46
+and 52. Everything else, including 5, 6, 17-21, 29, 32-37, 40 and 42, reaches
+`error("unknown trigger action %d")`. `test_trigger_condition` implements
+only conditions 2, 3, 12, 14 and 22. OpenBW's order executor errors on
+`OpenDoor`, `CloseDoor`, `HideTrap`, `RevealTrap` and `EnableDoodad`, the
+orders a doodad state change would issue. So OpenBW is not evidence for
+the semantics of Pause Game, the leaderboards, Talking Portrait, Set Doodad
+State or any AI script other than shared vision; the retail
+`starcraft.exe` trigger executor was not traced in this pass (an attempt to
+locate its action dispatch by jump-table and string scans found only the AI
+bytecode interpreters and UI code).
+
+**Pause Game / Unpause Game (5, 6): not implemented.** The reasons are the
+missing evidence, not difficulty. Unknown and needing a retail trace: whether
+triggers, Wait timers, the countdown and elapsed-time conditions keep running
+while a trigger has paused the game, whether players can still issue commands
+or unpause, and how it interacts with the player pause command
+(`TC_PAUSE`). The shared driver skips the whole tic, mission tick included,
+while `paused` is set, so a faithful implementation also needs a shared-loop
+change. The trace that would settle it is the retail handlers of actions 5 and
+6 and the main-loop use of the flag they set.
+
+**Leaderboards (17-21, 32-37, 40): state stored, not displayed.** Parameter
+fields follow PyMS: text at +4, location at +0, quantity at +20 and the unit,
+resource type or score type in the unit field at +24; action 32 takes its
+state from the modifier byte (4 set, 5 clear, 6 toggle). Each leaderboard
+action replaces the active `sc_leaderboard_t`; the Computer Players flag
+is separate. Every mission tick the per-player value is recomputed from the
+measure of the matching condition: Control is Command (completed units),
+Control At Location is Bring, Resources is Accumulate's current stock
+(ore, gas or both), Kills is Kill, Points is the Score condition's value. Goal
+variants and Greed store their quantity; the retail goal/Greed outcome and
+the display are not applied. The state, values and flag are saved, validated
+on load and hashed. Unverified inferences: that one leaderboard is active at a
+time, and that each value is the same measure as the like-named condition.
+Occurrences: action 17 once, 19 once, 32 twice.
+
+**Talking Portrait (29): state stored, not drawn.** The action stores the unit
+and its duration; the remaining time counts down by the elapsed milliseconds
+and the portrait clears at zero (`sc_talking_portrait`). It does not occur in
+the campaign TRIG records (only in briefing scripts). The in-game HUD has no
+transmission portrait path, so there is no presentation yet.
+
+**Run AI Script (15) and At Location (16).** The four script characters and
+the raw location field (zero for action 15) are kept per trigger owner with a
+run count (`sc_mission_t.ai_script`), saved and hashed. `+Vi0-7` and `-Vi0-7`
+keep their native shared-vision behavior. Every other script still enables
+the shared planner and is reported once per script ID
+(`sc_mission_t.ai_fallback`, up to 64 IDs). Installed campaigns use 9
+action-15 and 89 action-16 records over these IDs: Suic 5, SuiR 2, Rscu 2 (no
+location); MvTe 6, EnBk 6, VluA 13, ClrC 1 (with locations); and 63 town build
+scripts. The local `native/scripts/aiscript.bin` shows that the simple scripts
+are single commands followed by `stop`: Suic is `send_suicide 0`, SuiR
+`send_suicide 1`, Rscu `switch_rescue`, Enmy `player_enemy`, Ally
+`player_ally`, MvTe `move_dt`, ClrC `clear_combatdata`, VluA `value_area`,
+EnBk `enter_bunker`. Their effects are named only by PyMS descriptions and
+the engine has no AI model for them (OpenBW has no AI), so none was
+implemented: for example switching a computer slot to Rescue Passive would
+change slot kind, allegiance and AI ownership without evidence of the retail
+result. The trace needed is the retail AI command handlers for opcodes 0x1F,
+0x25, 0x20, 0x21, 0x26, 0x29, 0x2A and 0x2F.
+
+**Set Doodad State (42): not implemented.** PyMS defines its state as the
+modifier byte 4 (Set), 5 (Clear) or 6 (Toggle), like Set Invincibility.
+The campaign records carry 62 with raw state 0, which is outside that domain,
+two with 5 and five with 6 (Terran04 20 of state 0; Zerg05 24 of 0, 2 of 5,
+5 of 6; Protoss06 18 of 0), all with group 17 (All Players), no location, and
+units 203 and 205-209 (the THG2 door and trap units). OpenBW ignores the
+field and cannot execute the door/trap orders. No meaning is assigned to
+0, and 4-6 are left unimplemented too: enabling or disabling a door has
+effects on animation, collision, vision and selection that no source here
+specifies. Evidence needed: the retail doodad handler and the door/trap
+iscript animations.
+
+**Save layout 17 to 18.** `sc_mission_t` gained the warning bitmaps, the
+leaderboard, Computer Players flag, portrait, AI script and fallback tables;
+`G_ConsistencyExtra` hashes leaderboard, portrait and AI script state.
+Malformed leaderboard kinds, negative or inconsistent portrait times and an
+oversized fallback count are rejected on load.
+
+**Verification.** `tests/starcraft/test_triggers.c` (new): campaign inventory,
+once-per-ID reports for unsupported, unknown, disabled and supported actions
+and for conditions, fourteen leaderboard fixtures with values for both
+players and live updates, replacement and Computer Players set/clear/toggle,
+portrait timing, AI script ID/location/fallback reporting, and a save
+round-trip with hash sensitivity and malformed-record rejection.
+
+```
+make build/bin/starcraft
+env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_triggers
+env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps test-starcraft   # 24 tests, 0 failed
+env SDL_VIDEODRIVER=dummy build/bin/starcraft --check
+```
