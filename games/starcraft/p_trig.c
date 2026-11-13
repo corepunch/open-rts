@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+enum { SC_UPGRADE_VENTRAL_SACS = 24 };
 /* CHK triggers are 2400 bytes: 16 conditions, 64 actions, then a 28-byte
  * execution mask at +2372. Retail campaign maps do not use Set Next Scenario;
  * the next file is the next numbered mission. */
@@ -251,6 +252,42 @@ static bool count_kind_ok(const mobj_t *mo, unsigned id, bool completed) {
 
 static bool alive_unit(const mobj_t *mo) {
     return mo->hp > 0 && !mo->remove && !(mo->sc.flags & SC_HALLUCINATION);
+}
+
+static bool trigger_selects_owner(const int *players, int nplayers, int owner) {
+    for (int i = 0; i < nplayers; i++) if (players[i] == owner) return true;
+    return false;
+}
+
+static bool trigger_provides_space(const mobj_t *mo) {
+    const sc_unit_t *type = sc_unit(mo);
+    if (!type || !type->space_provided || (mo->sc.flags & SC_HALLUCINATION)) return false;
+    return mo->type_id != MT_OVERLORD ||
+        sc_upgrade_level(mo->owner, SC_UPGRADE_VENTRAL_SACS) > 0;
+}
+
+static bool remove_at_location_tree(mobj_t *mo, const sc_mission_t *m, const int *players,
+                                    int nplayers, unsigned unit, unsigned loc,
+                                    unsigned limit, unsigned *removed) {
+    if (!mo || !location_height_ok(m, mo, loc)) return false;
+    if (trigger_provides_space(mo)) for (int i = 0; i < SC_CARGO; i++) {
+        mobj_t *passenger = P_MobjById(mo->sc.cargo[i]);
+        if (!passenger || !(passenger->sc.flags & SC_LOADED) || passenger->sc.parent != mo->id) continue;
+        if (remove_at_location_tree(passenger, m, players, nplayers, unit, loc, limit, removed)) return true;
+    }
+    if (mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
+        !trigger_selects_owner(players, nplayers, mo->owner)) return false;
+    if (mo->sc.flags & SC_LOADED) {
+        mobj_t *carrier = P_MobjById(mo->sc.parent);
+        if (carrier) for (int i = 0; i < SC_CARGO; i++)
+            if (carrier->sc.cargo[i] == mo->id) carrier->sc.cargo[i] = 0;
+        mo->sc.flags &= (uint8_t)~SC_LOADED;
+        mo->sc.parent = 0;
+    }
+    G_UnitKilled(mo, NULL);
+    P_RemoveMobj(mo);
+    (*removed)++;
+    return limit && *removed >= limit;
 }
 
 /* OpenBW clears completed status while Zerg units and buildings morph. */
@@ -1166,24 +1203,38 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             }
             continue;
         }
-        if ((id == 22 || id == 23 || id == 24 || id == 25) && thinkercap.next) {
+        if (id == 25 && thinkercap.next) {
             int l, t, r, b;
-            bool at_location = id == 23 || id == 25;
+            bool anywhere = !loc || (loc == 64 && m->loc_count < 64);
+            if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) continue;
+            unsigned removed = 0;
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *mo = (mobj_t *)th;
+                if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove ||
+                    (mo->sc.flags & SC_LOADED) ||
+                    (!anywhere && !inside(mo, l, t, r, b))) continue;
+                if (remove_at_location_tree(mo, m, players, n, unit, loc, a[27], &removed)) break;
+            }
+            continue;
+        }
+        if ((id == 22 || id == 23 || id == 24) && thinkercap.next) {
+            int l, t, r, b;
+            bool at_location = id == 23;
             bool anywhere = !at_location || !loc || (loc == 64 && m->loc_count < 64);
             if (!anywhere && !trigger_loc_box(m, loc, &l, &t, &r, &b)) continue;
             unsigned removed = 0;
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *mo = (mobj_t *)th;
                 if (th->function != P_MobjThinker || mo->hp <= 0 || mo->remove || !kind_ok(mo, unit) ||
-                    ((id == 23 || id == 25) && !location_height_ok(m, mo, loc)) ||
+                    (id == 23 && !location_height_ok(m, mo, loc)) ||
                     (!anywhere && !inside(mo, l, t, r, b))) continue;
                 for (int i = 0; i < n; i++) if (players[i] == mo->owner) {
                     if (id == 22 || id == 23) P_DamageMobj(mo, NULL, mo->hp);
-                    else P_RemoveMobj(mo);
+                    else { G_UnitKilled(mo, NULL); P_RemoveMobj(mo); }
                     removed++;
                     break;
                 }
-                if ((id == 23 || id == 25) && a[27] && removed >= a[27]) break;
+                if (id == 23 && a[27] && removed >= a[27]) break;
             }
             continue;
         }

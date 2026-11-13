@@ -61,8 +61,10 @@ OpenBW action 24 walks the selected players' complete unit lists and does not
 exclude hallucinations. Remove Unit now traverses the thinker list directly,
 including hallucinations and units beyond the former 256-entry temporary
 buffer. `test_mission` covers 260 units. OpenBW hides and kills those units;
-open-rts still uses its existing deferred removal, so secondary death effects
-and statistics are not established as equivalent.
+open-rts invokes the unit-killed hook before its existing deferred removal so
+transport cargo cleanup runs. It does not call the ordinary damage death
+path, so secondary death effects and death statistics are not established as
+equivalent.
 OpenBW action 25 also iterates matching units at the location without excluding
 hallucinations. The all-units form now has the same complete traversal; a
 mission fixture covers 260 inside units and one outside. The bounded-count form
@@ -79,6 +81,28 @@ and a one-pixel gap. The checked-in DAT-derived dimensions have maximum extents
 of 256 pixels wide and 160 pixels high; the test asserts those values. This
 matches the pinned finder implementation, not independently verified retail
 behavior.
+OpenBW action 25 also descends from each matched carrier into its loaded
+passengers before applying owner/type selection. The mission fixture uses a
+carrier whose bounds overlap the location while the passenger's own bounds do
+not; it verifies that the passenger is removed for its owner while the
+carrier remains. Removing a selected carrier now runs the unit-killed hook
+first: mobile transports kill remaining cargo, while a Bunker unloads
+passengers into free adjacent cells and kills those that cannot exit. A
+regression removes a Dropship with an unselected passenger, then ticks the
+simulation, and another removes a Bunker with room to eject its passenger. A
+blocked Bunker ejection kills the passenger, and an orphaned loaded passenger
+also dies if no Bunker ejection cell is available, preventing invisible cargo
+from remaining stuck.
+OpenBW's `kill_unit` unloads Bunker cargo and kills cargo in mobile transports;
+the blocked-exit result follows the local placement check and has not been
+verified against retail. The bounded count continues to use the PyMS-derived
+engine behavior because OpenBW ignores that field. Loaded-unit elevation uses
+the passenger's stored position, which loading and the transport ticker
+synchronize with its carrier; if the passenger thinker runs before a moving
+carrier in the same tick, that synchronization can lag by one movement update.
+OpenBW checks the passenger sprite position rather than substituting the
+carrier position, so the local predicate preserves the directly observed
+source behavior despite that update-order limitation.
 
 OpenBW action 22 similarly walks each selected player's full unit list without
 excluding hallucinations. Kill Unit now uses that selection and the existing

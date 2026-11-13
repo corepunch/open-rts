@@ -1848,6 +1848,145 @@ int main(void) {
     }
     remove("/tmp/open-rts-sc-area-finder-bounds.chk");
 
+    /* Remove-at-location recurses through the selected carrier, then matches cargo by owner/type. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 16, 0); put_u16(action + 24, MT_MARINE - 1);
+    action[26] = 25; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-loaded-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-loaded-area.chk", &level));
+    sc_mission_t *remove_loaded_mission = level.mission;
+    remove_loaded_mission->loc_count = 1;
+    remove_loaded_mission->loc_right[0] = remove_loaded_mission->loc_bottom[0] = 64;
+    mobj_t *remove_loaded_carrier = sc_spawn_actor(MT_DROPSHIP - 1, (ivec2_t){80, 32}, 1);
+    mobj_t *remove_loaded_marine = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){160, 32}, 0);
+    CHECK(remove_loaded_carrier && remove_loaded_marine);
+    remove_loaded_carrier->sc.cargo[0] = remove_loaded_marine->id;
+    remove_loaded_marine->sc.parent = remove_loaded_carrier->id;
+    remove_loaded_marine->sc.flags |= SC_LOADED;
+    remove_loaded_marine->core.position = remove_loaded_carrier->core.position;
+    ticks(1, &(hudtext_t){0});
+    CHECK(remove_loaded_marine->remove && !remove_loaded_carrier->remove);
+    CHECK(remove_loaded_carrier->sc.cargo[0] == 0);
+    free(trig); unload(); remove("/tmp/open-rts-sc-remove-loaded-area.chk");
+
+    /* Removing a selected mobile carrier kills cargo that did not match action25. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 16, 0); put_u16(action + 24, MT_DROPSHIP - 1);
+    action[26] = 25; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-carrier-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-carrier-area.chk", &level));
+    sc_mission_t *remove_carrier_mission = level.mission;
+    remove_carrier_mission->loc_count = 1;
+    remove_carrier_mission->loc_right[0] = remove_carrier_mission->loc_bottom[0] = 64;
+    mobj_t *remove_carrier = sc_spawn_actor(MT_DROPSHIP - 1, (ivec2_t){32, 32}, 0);
+    mobj_t *unselected_cargo = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){160, 32}, 1);
+    CHECK(remove_carrier && unselected_cargo);
+    remove_carrier->sc.cargo[0] = unselected_cargo->id;
+    unselected_cargo->sc.parent = remove_carrier->id;
+    unselected_cargo->sc.flags |= SC_LOADED;
+    unselected_cargo->traits = (unselected_cargo->traits & ~(MF_SELECTABLE | MF_SELECTED | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
+    unselected_cargo->core.position = remove_carrier->core.position;
+    ticks(1, &(hudtext_t){0});
+    CHECK(remove_carrier->remove && unselected_cargo->hp <= 0);
+    CHECK(!(unselected_cargo->sc.flags & SC_LOADED) && remove_carrier->sc.cargo[0] == 0);
+    uint32_t unselected_cargo_id = unselected_cargo->id;
+    P_Ticker();
+    CHECK(!P_MobjById(unselected_cargo_id));
+    free(trig); unload(); remove("/tmp/open-rts-sc-remove-carrier-area.chk");
+
+    /* Global Remove Unit also runs carrier cleanup before deferred removal. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u16(action + 24, MT_DROPSHIP - 1); action[26] = 24;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-carrier-global.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-carrier-global.chk", &level));
+    remove_carrier = sc_spawn_actor(MT_DROPSHIP - 1, (ivec2_t){128, 128}, 0);
+    unselected_cargo = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){192, 128}, 1);
+    CHECK(remove_carrier && unselected_cargo);
+    remove_carrier->sc.cargo[0] = unselected_cargo->id;
+    unselected_cargo->sc.parent = remove_carrier->id;
+    unselected_cargo->sc.flags |= SC_LOADED;
+    unselected_cargo->traits = (unselected_cargo->traits & ~(MF_SELECTABLE | MF_SELECTED | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
+    unselected_cargo->core.position = remove_carrier->core.position;
+    uint32_t global_cargo_id = unselected_cargo->id;
+    ticks(1, &(hudtext_t){0});
+    CHECK(remove_carrier->remove && unselected_cargo->hp <= 0);
+    CHECK(remove_carrier->sc.cargo[0] == 0 && !(unselected_cargo->sc.flags & SC_LOADED));
+    P_Ticker();
+    CHECK(!P_MobjById(global_cargo_id));
+    free(trig); unload(); remove("/tmp/open-rts-sc-remove-carrier-global.chk");
+
+    /* A removed Bunker unloads its passenger into an available cell. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 16, 0); put_u16(action + 24, MT_BUNKER - 1);
+    action[26] = 25; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-bunker-area.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-bunker-area.chk", &level));
+    sc_mission_t *remove_bunker_mission = level.mission;
+    remove_bunker_mission->loc_count = 1;
+    remove_bunker_mission->loc_right[0] = remove_bunker_mission->loc_bottom[0] = 256;
+    mobj_t *remove_bunker = sc_spawn_actor(MT_BUNKER - 1, (ivec2_t){128, 128}, 0);
+    mobj_t *bunker_cargo = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){192, 128}, 0);
+    CHECK(remove_bunker && bunker_cargo);
+    remove_bunker->sc.cargo[0] = bunker_cargo->id;
+    bunker_cargo->sc.parent = remove_bunker->id;
+    bunker_cargo->sc.flags |= SC_LOADED;
+    bunker_cargo->traits = (bunker_cargo->traits & ~(MF_SELECTABLE | MF_SELECTED | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
+    bunker_cargo->core.position = remove_bunker->core.position;
+    fixed3_t bunker_cargo_before = bunker_cargo->core.position;
+    ticks(1, &(hudtext_t){0});
+    CHECK(remove_bunker->remove && bunker_cargo->hp > 0);
+    CHECK(!(bunker_cargo->sc.flags & SC_LOADED) && remove_bunker->sc.cargo[0] == 0);
+    CHECK(bunker_cargo->core.position.x != bunker_cargo_before.x || bunker_cargo->core.position.y != bunker_cargo_before.y);
+    uint32_t bunker_cargo_id = bunker_cargo->id;
+    P_Ticker();
+    CHECK(P_MobjById(bunker_cargo_id) && !(P_MobjById(bunker_cargo_id)->sc.flags & SC_LOADED));
+    free(trig); unload(); remove("/tmp/open-rts-sc-remove-bunker-area.chk");
+
+    /* A Bunker with every adjacent cell blocked kills cargo instead of orphaning it. */
+    trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;
+    put_u32(action, 1); put_u32(action + 16, 0); put_u16(action + 24, MT_BUNKER - 1);
+    action[26] = 25; action[27] = 1;
+    CHECK(!write_map("/tmp/open-rts-sc-remove-bunker-blocked.chk", owners, trig));
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-bunker-blocked.chk", &level));
+    remove_bunker_mission = level.mission;
+    remove_bunker_mission->loc_count = 1;
+    remove_bunker_mission->loc_right[0] = remove_bunker_mission->loc_bottom[0] = 256;
+    remove_bunker = sc_spawn_actor(MT_BUNKER - 1, (ivec2_t){128, 128}, 0);
+    bunker_cargo = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){192, 128}, 0);
+    CHECK(remove_bunker && bunker_cargo);
+    remove_bunker->sc.cargo[0] = bunker_cargo->id;
+    bunker_cargo->sc.parent = remove_bunker->id;
+    bunker_cargo->sc.flags |= SC_LOADED;
+    bunker_cargo->traits = (bunker_cargo->traits & ~(MF_SELECTABLE | MF_SELECTED | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
+    bunker_cargo->core.position = remove_bunker->core.position;
+    size_t blocked_cells = (size_t)level.width * level.height;
+    if (!level.cell_solid) level.cell_solid = calloc(blocked_cells, sizeof(*level.cell_solid));
+    CHECK(level.cell_solid);
+    memset(level.cell_solid, 1, blocked_cells);
+    uint32_t blocked_cargo_id = bunker_cargo->id;
+    ticks(1, &(hudtext_t){0});
+    CHECK(remove_bunker->remove && bunker_cargo->hp <= 0);
+    CHECK(remove_bunker->sc.cargo[0] == 0 && !(bunker_cargo->sc.flags & SC_LOADED));
+    P_Ticker();
+    CHECK(!P_MobjById(blocked_cargo_id));
+    free(trig); unload();
+
+    /* A loaded orphan also dies if no Bunker ejection cell is available. */
+    CHECK(G_DoLoadLevel("/tmp/open-rts-sc-remove-bunker-blocked.chk", &level));
+    mobj_t *orphan_cargo = sc_spawn_actor(MT_MARINE - 1, (ivec2_t){128, 128}, 0);
+    CHECK(orphan_cargo);
+    orphan_cargo->sc.flags |= SC_LOADED;
+    orphan_cargo->sc.parent = UINT32_MAX;
+    orphan_cargo->traits = (orphan_cargo->traits & ~(MF_SELECTABLE | MF_SELECTED | MF_MOBILE)) | MF_NOBLOCKMAP | MF_DONTDRAW;
+    blocked_cells = (size_t)level.width * level.height;
+    if (!level.cell_solid) level.cell_solid = calloc(blocked_cells, sizeof(*level.cell_solid));
+    CHECK(level.cell_solid);
+    memset(level.cell_solid, 1, blocked_cells);
+    uint32_t orphan_cargo_id = orphan_cargo->id;
+    P_Ticker();
+    CHECK(!P_MobjById(orphan_cargo_id));
+    unload(); remove("/tmp/open-rts-sc-remove-bunker-blocked.chk");
+
     /* Kill/Remove selectors never target DAT turret subunits. */
     for (int id = 22; id <= 25; id++) {
         trig = blank_trigger(); CHECK(trig); trig[15] = 22; action = trig + 320;

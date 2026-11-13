@@ -279,6 +279,13 @@ static fixed_t gap(const mobj_t *unit, irect_t r) {
 static bool at_door(const mobj_t *unit, const mobj_t *carrier) {
     return is_building(carrier) ? gap(unit, P_MobjCells(carrier)) <= FIXED_ONE : sc_unit_distance(unit, carrier) <= 4;
 }
+static void kill_loaded(mobj_t *unit) {
+    unit->sc.flags &= (uint8_t)~SC_LOADED;
+    unit->sc.parent = 0;
+    unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) |
+        (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
+    P_DamageMobj(unit, NULL, unit->hp);
+}
 static void load(mobj_t *unit, mobj_t *carrier) {
     for (int i = 0; i < SC_CARGO; i++) {
         if (aboard(P_MobjById(carrier->sc.cargo[i]), carrier)) continue;
@@ -329,7 +336,11 @@ bool sc_board(mobj_t *unit, mobj_t *carrier) {
 }
 /* Out beside the cells it was in, nearest the middle of their lower edge,
  * wherever the ground is open and nobody stands. */
-static void pop_out(mobj_t *unit, irect_t r) {
+static bool pop_out(mobj_t *unit, irect_t r) {
+    uint8_t flags = unit->sc.flags;
+    uint32_t parent = unit->sc.parent;
+    uint32_t traits = unit->traits;
+    fixed3_t position = unit->core.position;
     unit->sc.flags &= ~SC_LOADED;
     unit->sc.parent = 0;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
@@ -350,10 +361,18 @@ static void pop_out(mobj_t *unit, irect_t r) {
             }
             if (!taken) { best = at; best_d = d; }
         }
+    if (best_d < 0) {
+        unit->sc.flags = flags;
+        unit->sc.parent = parent;
+        unit->traits = traits;
+        unit->core.position = position;
+        return false;
+    }
     unit->core.position = fixed3_with_xy(unit->core.position, best);
     P_ClearMove(unit);
     unit->movement.goal = where(unit);
     unit->movement.order_arrived = true;
+    return true;
 }
 /* Down from a transport onto open ground beneath it; false when there is
  * none, and the passenger stays aboard. */
@@ -376,8 +395,7 @@ static bool drop(mobj_t *unit, mobj_t *carrier) {
 void sc_unload(mobj_t *bunker) {
     for (int i = 0; i < SC_CARGO; i++) {
         mobj_t *mo = P_MobjById(bunker->sc.cargo[i]);
-        bunker->sc.cargo[i] = 0;
-        if (aboard(mo, bunker)) pop_out(mo, P_MobjCells(bunker));
+        if (aboard(mo, bunker) && pop_out(mo, P_MobjCells(bunker))) bunker->sc.cargo[i] = 0;
     }
 }
 /* A transport flies to the spot and sets its passengers down there, one
@@ -418,16 +436,24 @@ static void loaded(mobj_t *mo) {
     if (carrier && !is_building(carrier)) { mo->sc.flags &= ~SC_LOADED; P_DamageMobj(mo, NULL, mo->hp); return; }
     isize2_t foot = actor_types[MT_BUNKER - 1].footprint;
     fixed2_t at = where(mo);
-    pop_out(mo, (irect_t){(at.x - FIXED_FROM_INT(foot.w) / 2 + 66) >> FIXED_FRAC_BITS,
-                          (at.y - FIXED_FROM_INT(foot.h) / 2 + 66) >> FIXED_FRAC_BITS, foot.w, foot.h});
+    if (!pop_out(mo, (irect_t){(at.x - FIXED_FROM_INT(foot.w) / 2 + 66) >> FIXED_FRAC_BITS,
+                              (at.y - FIXED_FROM_INT(foot.h) / 2 + 66) >> FIXED_FRAC_BITS, foot.w, foot.h}))
+        kill_loaded(mo);
 }
 /* A transport shot down takes its passengers with it. */
 void sc_transport_killed(mobj_t *carrier) {
-    if (!sc_unit(carrier) || is_building(carrier)) return;
+    if (!sc_unit(carrier)) return;
+    bool bunker = carrier->type_id == MT_BUNKER;
+    if (is_building(carrier) && !bunker) return;
     for (int i = 0; i < SC_CARGO; i++) {
         mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
+        if (!aboard(mo, carrier)) { carrier->sc.cargo[i] = 0; continue; }
+        if (bunker && pop_out(mo, P_MobjCells(carrier))) {
+            carrier->sc.cargo[i] = 0;
+            continue;
+        }
         carrier->sc.cargo[i] = 0;
-        if (aboard(mo, carrier)) { mo->sc.flags &= ~SC_LOADED; P_DamageMobj(mo, NULL, mo->hp); }
+        kill_loaded(mo);
     }
 }
 
@@ -710,8 +736,9 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
                 sc_unload_at(units[i],here?where(units[i]):at);
             } else if(aboard(target,units[i])) {
                 if(is_building(units[i])) {
-                    for(int j=0;j<SC_CARGO;j++)if(units[i]->sc.cargo[j]==target->id)units[i]->sc.cargo[j]=0;
-                    pop_out(target,P_MobjCells(units[i]));
+                    if (pop_out(target, P_MobjCells(units[i])))
+                        for (int j = 0; j < SC_CARGO; j++)
+                            if (units[i]->sc.cargo[j] == target->id) units[i]->sc.cargo[j] = 0;
                 } else drop(target,units[i]);
             }
         }
