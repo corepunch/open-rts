@@ -192,6 +192,7 @@ bool Z_PointAttackable(ivec2_t point);
 bool Z_PointInRange(const mobj_t *unit, ivec2_t point);
 bool Z_PointMoveDone(const mobj_t *unit, ivec2_t point);
 bool Z_PointActive(const mobj_t *unit);
+bool Z_PointReach(const mobj_t *unit, ivec2_t point);
 bool Z_PointPhaseValid(const mobj_t *unit);
 bool Z_PointAttackOrder(mobj_t *leader, ivec2_t point);
 int Z_SquadGrenades(const mobj_t *unit);

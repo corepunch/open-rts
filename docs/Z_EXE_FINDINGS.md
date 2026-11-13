@@ -6898,3 +6898,46 @@ Verification: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=120 make test-z
 0 failed. Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @
 0x7628f' -c 'pd 60 @ 0x763ed' -c 'pd 30 @ 0x640ff' -c 'pxw 52 @ 0x117e5c' -c 'pxw 400 @
 0x117e90' -c 'pd 60 @ 0x7bec6' -c q data/Z/ZED.EXE`.
+
+**Vehicle point order: traced to its end and implemented (2026-11-13, issue 97, SHA-256 `3635cb69...4676`).**
+*Result: a tank given command 5 on a point never fires at it; it moves into weapon reach and stops.*
+- `0x7cb27` sends every class but 0/0x10 to `0x7c872`: a point within 32 pixels is jittered
+  (not modeled; such a unit is always in reach), otherwise `0x7c906` plans a path unless
+  `5 * root` (8-bit, `0x60bb2`) is below unit `+4` (twice range>>3). Then action id 0x35/0x36/0x37/9.
+- `+0x67` bit 0x80 (the aim-and-fire path `0x58acb..0x58b92`, which does fire at body `+0xe/+0x10`)
+  is set only by object orders (`0x75b92`, `0x7723b`) and cleared for command 5 (`0x47b6e`, `0x47bf4`),
+  so a point order never enters it. The `0x58040` coordinate shot needs `+0x67 & 0x20` (command 12).
+- `0x58128..0x58166` (on the steps where `0x10e91b` is non-zero, it toggles per update) calls `0x764e8`
+  and ignores its result; the code then runs the ordinary scan (`0x58388`, `0x78f61`).
+- `0x764e8`, point branch: reach test `0x591ca` (carry = out of reach, body `+5` range byte * 8 pixels,
+  squared, inclusive, from unit `+0x2c+12`, `+0x2e+8`); out of reach returns clc, nothing changes.
+  In reach: `+0x31 |= 0x10`; then either end the order (`0x76698`: `+0x31` bit 4, `+0x62` bit 3 and
+  `+0x5a` cleared: bridge rectangle `0x2a01c`, own-team repair facility `0x27f1b`, no valid spot
+  `0x76af2`/`0x282ab`) or `0x76737`: a moving unit (`body +0x17` bit 0) is stopped (`0x7bd72`, clc).
+  `0x76af2`/`0x7700b` = terrain `0x193f0` plus reach, carry = valid. `0x7628f` belongs to the
+  unit-target branch only (moving-target lead), not this one. No call to `0x5a205`, `0x58cd2`,
+  `0x58e2f` or any launcher exists on this path.
+- Implemented (`p_point.c`): Light, Medium, Heavy tank and Mobile Missile (`0x9a801` types 0x1e, 6, 0x19,
+  0x18), `point_mode` 3: accept on attackable terrain (`0x1171d1`, vehicles use it), plan a path
+  unless deep inside reach, stop and end as soon as `Z_PointReach` holds, end if the path ends short.
+  Task 6 still skips tanks: with the grenade filter relaxed, a CPU Heavy Tank task reached the queue
+  and `Z_PointAttackOrder` returned true, yet after the same `tactics` pass the task was back to -1 and
+  `point_mode` 0 (cause not found: something else cancels the order in that pass); not committed. Approximations: the order record
+  is retired at the stop (retail leaves `+0x62` bit 3 set, no consumer found); a live attack target
+  pauses it; the every-second-step polling and `0x58483` turret timer are not modeled. Save layout unchanged (29).
+- Tests: `test_vehicle_reach`, `test_vehicle_order`, `test_vehicle_save`, `task_six` with tanks.
+- Fire Truck (0x26), Crane, APC/Jeep (0x38) unchanged.
+
+**Pyro under command 5, traced, NOT implemented.** `0x7c872` always plans a path for class 0xf
+(`0x756a1` clc). Action 8: after the range gate (`4*root < +4`) `0x752ff` runs the line trace `0x6e45e`
+(from +8,+8 to point +8, flame terrain heights `0x11714b`, or `0x11718e` over a BUILD); blocked means keep
+moving (`0x75090`); clear and point terrain (table `0x117214`, with grenades `0x11729a`) not 2 starts
+flame action 0x41 (`0x76098`), whose frame-2 shot `0x60ed5` calls `0x76c3e` (valid spot, jitter table
+`0x14a930`), scatters with `0x64250` (divisor 2 like grenades) and calls the flame creator `0x5a099`;
+the order ends at the cycle end when `0x76c3e` reports no valid spot. Not ported because the 3-D line
+trace cell walk (`0x6e6ee..0x6e830`, variant function `0x104070`) and `0x76fe4` were not traced and
+`Z_FireFlameFrom` takes a target mobj. Task 6 still skips Pyro squads. Next trace: `0x6e6ee..0x6e830`, `0x76fe4`.
+
+**Map objects `0x4a03b` and the 1.25 pre-test.** The 1.25 pre-test (`0x7c906`) is now ported for vehicles
+only. `0x4a03b` (200 records at `0x1c04d0`, 40 bytes, flag `+0x12 & 0x10`, box test) is not ported: the
+port has no equivalent destructible-object list; unit `+0xad` records its hit for commands 2/5 (`0x47b72`).

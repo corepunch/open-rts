@@ -10,7 +10,7 @@
  * `point_shots`; a unit about to throw or fire at the point carries
  * `point_throw` with its own copy of the point (0x753d4..0x753f8). */
 
-enum { MODE_ATTACK = 1, MODE_MOVE = 2, PHASE_THROWING = 1, PHASE_APPROACH = 2, TOUGH_SHOTS = 2 };
+enum { MODE_ATTACK = 1, MODE_MOVE = 2, MODE_VEHICLE = 3, PHASE_THROWING = 1, PHASE_APPROACH = 2, TOUGH_SHOTS = 2 };
 
 static const int throw_states[] = {
 #define Z_UNIT(t, type, ...) S_##type##_THROW,
@@ -39,10 +39,18 @@ static bool grenadier(int type) {
 }
 static bool tough(const mobj_t *mo) { return mo->type_id == MT_UNIT_TOUGH; }
 
+/* Light, Medium, Heavy tank and Mobile Missile: the vehicle types 0x9a801
+ * lets through (+0x30 = 0x1e, 6, 0x19, 0x18). Their order is action 9. */
+static bool tank(int type) {
+    return type == MT_UNIT_LIGHT_TANK - MT_UNITS || type == MT_UNIT_MED_TANK - MT_UNITS ||
+           type == MT_UNIT_HEAVY_TANK - MT_UNITS || type == MT_UNIT_M_MISSILE - MT_UNITS;
+}
+
 bool Z_PointCanAttack(const mobj_t *unit) {
     int type = Z_UnitType(unit);
-    return live(unit) && type >= 0 && (grenadier(type) || type == MT_UNIT_TOUGH - MT_UNITS);
+    return live(unit) && type >= 0 && (grenadier(type) || type == MT_UNIT_TOUGH - MT_UNITS || tank(type));
 }
+
 
 static bool same_squad(const mobj_t *a, const mobj_t *b) {
     return a == b || (a->z.squad && a->z.squad == b->z.squad && a->team == b->team &&
@@ -119,6 +127,26 @@ bool Z_PointMoveDone(const mobj_t *unit, ivec2_t point) {
     return reach * reach >= dx * dx + dy * dy;
 }
 
+/* 0x591ca, the reach test 0x764e8 runs on a vehicle every step: squared
+ * distance from the unit's top-left + (12,8) to the point, inclusive, against
+ * (range byte * 8)^2 (body +5, the weapon range in 8-pixel units). */
+bool Z_PointReach(const mobj_t *unit, ivec2_t point) {
+    ivec2_t at = Z_AITopLeft(unit);
+    int64_t dx = at.x + 12 - point.x, dy = at.y + 8 - point.y, reach = (range_pixels(unit) >> 3) * 8;
+    return reach * reach >= dx * dx + dy * dy;
+}
+
+/* 0x7c906..0x7c933: a vehicle plans a path to the point unless five times
+ * the root of the 16-pixel-cell distance (8-bit, 0x60bb2) is below +4. */
+static bool vehicle_needs_path(const mobj_t *unit, ivec2_t point) {
+    const zmap_t *map = level.native_data;
+    ivec2_t at = Z_AITopLeft(unit);
+    int dx = (int16_t)(at.x - point.x) >> 4, dy = (int16_t)(at.y - point.y) >> 4;
+    int sum = (int16_t)((int8_t)dx * (int8_t)dx) + (int16_t)((int8_t)dy * (int8_t)dy);
+    if (sum >= 0x400 || sum < 0 || !map || !map->square_roots.bytes) return true;
+    return (uint8_t)(5 * map->square_roots.bytes[sum]) >= 2 * (range_pixels(unit) >> 3);
+}
+
 /* 0x5a648: eight directions with half-axis boundaries. */
 static angle_t facing(ivec2_t delta) {
     int x = delta.x, y = delta.y, ax = abs(x), ay = abs(y), d;
@@ -157,8 +185,9 @@ bool Z_PointPhaseValid(const mobj_t *unit) {
     memcpy(&flag, &unit->z.point_throw, 1);
     if (flag > 1) return false;
     if (!unit->z.point_mode && !unit->z.point_phase && !unit->z.point_shots && !flag) return true;
-    return unit->z.point_mode <= MODE_MOVE && unit->z.point_phase <= PHASE_APPROACH &&
-           unit->z.point_shots <= TOUGH_SHOTS && Z_IsRobot(type) && unit->z.point.x >= 0 && unit->z.point.y >= 0 &&
+    return unit->z.point_mode <= MODE_VEHICLE && unit->z.point_phase <= PHASE_APPROACH &&
+           unit->z.point_shots <= TOUGH_SHOTS &&
+           (unit->z.point_mode == MODE_VEHICLE ? tank(type) : Z_IsRobot(type)) && unit->z.point.x >= 0 && unit->z.point.y >= 0 &&
            unit->z.point.x < Z_MAP_STRIDE * Z_TILE && unit->z.point.y < Z_MAP_STRIDE * Z_TILE;
 }
 
@@ -198,6 +227,13 @@ bool Z_PointAttackOrder(mobj_t *leader, ivec2_t point) {
     leader->z.route = (zroute_t){0};
     leader->z.point = point;
     Z_PointCancel(leader);
+    if (tank(Z_UnitType(leader))) {
+        /* 0x7c872: path to the point unless already well inside the range. */
+        /* A failed path plan (0x74eb7) does not refuse the order; it ends at the first step. */
+        if (vehicle_needs_path(leader, point)) P_MoveUnitTo(&level, leader, pixel_goal(point));
+        leader->z.point_mode = MODE_VEHICLE;
+        return true;
+    }
     if (grenadier(Z_UnitType(leader)) && !Z_SquadGrenades(leader)) {
         /* 0x7cb93: no grenade anywhere in the group, so go to weapon range. */
         if (!P_MoveUnitTo(&level, leader, pixel_goal(point))) return false;
@@ -273,7 +309,11 @@ void Z_PointTick(mobj_t *unit) {
                                                                     unit->core.state_id == S_TOUGH_SHOT)))
         unit->z.point_throw = false;
     if (type < 0 || live(unit->attack.target)) return;
-    if (unit->z.point_mode == MODE_MOVE) {
+    if (unit->z.point_mode == MODE_VEHICLE) {
+        /* 0x764e8: in reach the vehicle stops and fires nothing; a path that
+         * ends short of the reach ends the order. */
+        if (Z_PointReach(unit, unit->z.point) || !P_HasMoveOrder(unit)) finish(unit);
+    } else if (unit->z.point_mode == MODE_MOVE) {
         if (Z_PointMoveDone(unit, unit->z.point) || !P_HasMoveOrder(unit)) finish(unit);
     } else if (unit->z.point_mode == MODE_ATTACK) attack_tick(unit);
 }
