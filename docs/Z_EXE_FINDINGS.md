@@ -1574,6 +1574,20 @@ already targeted cells. These authored native offsets replace no guessed
 visual compensation. The engine uses its existing nav reachability and
 formation helpers to execute orders; its movement, tactical notice radius
 and combat animation behavior are not claimed to be instruction-level ports.
+Further trace of `0x9a49a`: it excludes task flag 4 and state 5, checks
+`0x9cde8` for an existing destination in the current territory, and otherwise
+issues the fort order before setting task state 5, target=current territory,
+and task flag 4 at `0x9a523..0x9a52c`. The engine instead uses FLAG state 1
+and its pending/path checks. Native state 5 is also used for empty-object
+selection; `0x993c7` clears it unless `0x9da79` finds a qualifying object in
+the target territory. Independently, `0x9cac0..0x9cb3f` checks flag 4 on
+active tasks and clears it when `0x9cde8` cannot resolve a destination and
+the leader's +0x31 bit 0x40 is clear. The complete mapping of these native
+order and combat gates to engine movement remains unverified, so this
+distinction is not yet ported.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 70 @
+0x9a49a' -c 'pd 30 @ 0x993c7' -c 'pd 100 @ 0x9da79' -c 'pd 55 @
+0x9cac0' -c q data/Z/ZED.EXE`.
 
 ### Confirmed initial manufacturing choice
 
@@ -1954,6 +1968,14 @@ queue (`0x98098`). The port uses that queue for service dispatch and return.
   idle cranes and Fire Trucks outside the CPU fort territory to fort
   origin plus `(80,200)` on task 8. `0x9bc08` uses the same return order
   when a crane's work is complete or its assignment is invalidated.
+  `0x9c538` writes task 8 before `0x475d5` dispatches the order, without
+  a path-result check, and does not clear task target or destination. The
+  engine now preserves those fields and the assignment when its reachability
+  check rejects the point. `test_unreachable_service_return` checks an idle
+  Fire Truck through the normal AI pass with reachable and unreachable forts.
+  Engine path validation remains an approximation. Inspect with
+  `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 55 @ 0x9c4f2'
+  -c q data/Z/ZED.EXE`.
 - `0x13855` calls `0x29768` during startup. It copies BRIDGE record
   `+0x0a` (max HP) to `+8` (live HP), so LEVEL14 slot 0 starts at 600
   despite the file's 300 in `+8`. Zero at `+0x0a` initializes a collapsed

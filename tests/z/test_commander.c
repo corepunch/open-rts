@@ -714,6 +714,30 @@ static mobj_t *service_unit(int type, fixed2_t near) {
     return NULL;
 }
 
+static int test_unreachable_service_return(void) {
+    for (int unreachable = 0; unreachable < 2; ++unreachable) {
+        RtsGameModel *model = load();
+        if (!model) return fail("load service return fixture");
+        service_fixture();
+        zmap_t *map = level.native_data;
+        mobj_t *unit = service_unit(MT_UNIT_FIRE_TRUCK, fixed2_cell_center(map->territories[4].flag));
+        if (!unit) return fail("spawn returning fire truck");
+        think(0);
+        zaitask_t *task = task_of(unit);
+        if (!task || task->current != 4 || task->task != -1) return fail("idle service unit outside fort");
+        task->target = 4;
+        task->destination = 7;
+        if (unreachable) map->forts[0] = (ivec2_t){-10000, -10000};
+        map->ai.delay = 0;
+        think(1);
+        if (task->task != 8 || task->target != 4 || task->destination != 7 ||
+            task->pending || P_HasMoveOrder(unit) == (bool)unreachable)
+            return fail("service return preserves task coordinates with reachable and unreachable fort");
+        rts_game_model_destroy(model);
+    }
+    return 0;
+}
+
 static int test_bridge_and_crane(void) {
     RtsGameModel *model = load_map("LEVEL14/LEVEL14.MAP");
     if (!model) return fail("bridge campaign load");
@@ -977,6 +1001,6 @@ int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
            test_strength_gate() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_stray_home_reassignment() || test_frontier_overlap() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_retreat() || test_recapture() ||
-           test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
+           test_unreachable_service_return() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_facility() || test_building_service() || test_building_alert();
 }

@@ -906,10 +906,8 @@ static void execute_orders(zai_t *ai, mobj_t *const *units, int count) {
 static bool return_service(zmap_t *map, zaitask_t *task, mobj_t *unit) {
     if (!map->fort_count) return false;
     fixed2_t goal = pixel_point(ivec2_add(map->forts[0], (ivec2_t){80,200}));
-    if (!reachable(unit, goal)) return false;
-    clear(task);
     task->task = RETURN;
-    queue(&map->ai, task, goal, 0);
+    if (reachable(unit, goal)) queue(&map->ai, task, goal, 0);
     return true;
 }
 
