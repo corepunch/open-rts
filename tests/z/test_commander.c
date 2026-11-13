@@ -1294,12 +1294,15 @@ static int test_unreachable_service_return(void) {
         if (!task || task->current != 4 || task->task != -1) return fail("idle service unit outside fort");
         task->target = 4;
         task->destination = 7;
+        task->pending = true;
+        task->execute_at = map->ai.clock + 1000;
+        task->order = fixed3_xy(unit->core.position);
         if (unreachable) map->forts[0] = (ivec2_t){-10000, -10000};
         map->ai.delay = 0;
         think(1);
         if (task->task != 8 || task->target != 4 || task->destination != 7 ||
             task->pending || P_HasMoveOrder(unit) == (bool)unreachable)
-            return fail("service return preserves task coordinates with reachable and unreachable fort");
+            return fail("service return replaces pending order and preserves task coordinates");
         rts_game_model_destroy(model);
     }
     return 0;

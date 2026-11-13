@@ -1037,7 +1037,7 @@ static void service_returns(zmap_t *map, bool validate) {
                 if (!return_service(map, task, unit)) clear(task);
             } else if (task->task == REPAIR &&
                        (unit->hp >= unit->max_hp || map->ai.clock != task->execute_at)) clear(task);
-        } else if (task->task == IDLE && !task->pending && task->current >= 0 &&
+        } else if (task->task == IDLE && task->current >= 0 &&
                    !(map->ai.territories[task->current].flags & 1) &&
                    (unit->type_id == MT_UNIT_CRANE || unit->type_id == MT_UNIT_FIRE_TRUCK)) {
             return_service(map, task, unit);

@@ -5190,3 +5190,18 @@ policy and native pathfinding limitations remain as documented above.
 Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 45 @ 0x9c39b' -c 'pd 35 @ 0x9c485' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+**Idle service return with a delayed order:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9c4f2..0x9c536` checks an active idle task, group bytes +0x12/+0x13,
+its territory and Crane/Fire Truck class without scanning delayed commands.
+`0x9c538` writes task 8 before `0x9c574` dispatches the fort return.
+Open-rts no longer excludes an idle service unit solely for a pending order.
+The existing return implementation replaces or clears that pending order,
+retains the task's target/destination fields and, when its path check fails,
+omits the native delayed command; group-byte and path-check mappings remain
+approximations. The extended `test_unreachable_service_return` starts with
+an old pending command and exercises both reachable and unreachable forts;
+the former pending filter fails it. Inspect with `r2 -q -e bin.cache=true
+-e bin.relocs.apply=true -c 'pd 48 @ 0x9c4f2' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.
