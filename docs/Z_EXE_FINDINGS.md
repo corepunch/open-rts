@@ -4728,7 +4728,15 @@ with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x5a90d'
 2936, the Desert, Jungle, Volcano, Arctic and City house pictures in
 `objects.inc`. For a match `0x874c5..0x87585` clears the effect record's
 flag 0x80, creates a linked record through `0x889e4`, then makes up to six
-calls to `0x875c7`; each call selects type 2, 3, 5 or 11 from `0x14c1d5`.
+calls to `0x875c7`; each call selects one of four types from `0x14c1d5`.
+Correction: the static bytes at `0x14c1d5` are overwritten by world setup
+`0x45a62..0x45a77` from `0x14c1dd`, so the earlier interpretation of
+2, 3, 5 and 11 as the fixed runtime choices was incorrect. In world order
+Desert, Arctic, City, Volcanic and Jungle the rows are respectively
+`{2,3,11,2}`, `{15,16,42,15}`, `{32,32,33,41}`, `{8,9,10,37}` and
+`{18,19,20,52}`. Zod calls comparable hut occupants animals and has
+world-dependent species in `reference/zod/src/ahutanimal.cpp` and
+`ohut.cpp`; its independent implementation is not proof of native identity.
 Before each allocation `0x87578` calls `0x873f0`, which writes terrain
 `0x11` at the house's pixel origin and preserves attribute bit 7; loop
 counts 6 through 3 always execute this path. The normal startup call is
@@ -4741,11 +4749,13 @@ bit 7, a flag and crate sharing a house cell, suppression of crate pickup
 under the later house mark, and restoration of the crate's saved flag mark.
 The native effect record's separate flag 0x80 clear at `0x874cd` is not
 modeled; it is distinct from the preserved terrain attribute bit.
-Those types' descriptors at `0x14c309` have nonzero high byte at offset 3,
+Desert types 2, 3 and 11 have descriptors at `0x14c309` with nonzero high byte at offset 3,
 which the constructor stores in the spawned 64-byte record +0x20 at
 `0x876a0..0x876ac`. `0x8752e..0x8753b` sets a random 32..42 delay,
 stored at record +0x27; `0x88c5c..0x88c68` decrements that word before
 processing, while the bullet filter `0x88b26` rejects a nonzero low byte.
+That distinction also matters for the later 160..287 delay: at exactly 256
+the bullet test sees a zero low byte even though the full delay is nonzero.
 Once the delay clears, these records pass both the +0x27 and +0x20 parts
 of the bullet's `0x88b13` eligibility gate. This establishes one source of relevant native
 dynamic effects, not their complete movement, lifetime, position update,
@@ -4755,3 +4765,37 @@ it cannot faithfully reproduce bullet preemption against them. Reproduce with
 -c 'pd 25 @ 0x87591' -c 'pxh 64 @ 0x14c205' -c 'pxh 8 @ 0x14c1d5'
 -c 'pd 16 @ 0x873f0' -c 'pd 55 @ 0x875c7' -c 'pd 20 @ 0x88c43' -c 'pd 45 @ 0x88b13'
 -c q data/Z/ZED.EXE`.
+
+**House-animal lifecycle trace:** `0x889fc` allocates the first free of
+100 records; `0x88c43` decrements a nonzero +0x27 delay and skips the rest of
+that update even when the decrement reaches zero. Processing resumes on the
+next pass. `0x8924b` gates animation
+and movement on the byte timer +0x2f; `0x89219` selects a direction's frame
+run from the descriptor, and `0x88f1f` advances position using signed pairs
+at `0x14c1a0`. At `0x88d72` the routine selects a turn and probes terrain
+through table `0x1172dd`; it removes the record after ten failed attempts
+(`0x88dae..0x88dbc`). A return-home path (`0x88fed..0x8908f`) uses the
+saved creation coordinates and chooses the eight-way bearing; on its
+arrival `0x88d1d..0x88d40` sets a 160..287 native-step delay. `0x8953e`
+also searches for nearby units and affects its state. The exact fear and
+avoidance thresholds, successful movement state transitions, recreation
+policy after a bullet or flame burst, and representation of the shared
+100-slot priority are not yet fully mapped. Zod's `OHut::Process` maintains
+and periodically changes a preferred population, and `AHutAnimal::Process`
+has walking, looking and return-home states, but those rules differ in shape
+and timing from this native trace. Do not infer a native implementation from
+the Zod timers. Reproduce with `r2 -q -e bin.cache=true -e
+bin.relocs.apply=true -c 'pd 160 @ 0x88c43' -c 'pd 60 @ 0x88f1f'
+-c 'pd 75 @ 0x88fed' -c 'pd 80 @ 0x8953e' -c 'px 32 @ 0x14c1a0'
+-c q data/Z/ZED.EXE`.
+
+The nearby-unit branch `0x8953e..0x89653` is more specific than generic
+fear: for effect class +0x3d equal to 0, 1 or 2, it scans the unit list
+returned by `0x7911a`. A class-1 vehicle or unit in action 0x12 whose
+origin lies inclusively within `[effect.x-8,effect.x+16]` and
+`[effect.y-8,effect.y+16]` sets effect +0x36 bit 0x20, resets +0x2e,
+and sets +0x2f to 127. On subsequent passes `0x89280` chooses descriptor
+sprite +0x18 and `0x88c76` skips the remaining effect update. The full
+duration and cleanup of that state are still unknown. Inspect with
+`r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 100 @ 0x8953e'
+-c 'pd 24 @ 0x88c43' -c 'pd 24 @ 0x89280' -c q data/Z/ZED.EXE`.
