@@ -6843,3 +6843,58 @@ reproducible statically.
 `+0x5a` lifecycle not completed.
 
 Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 140 @ 0x6e491' -c 'pd 40 @ 0x6e928' -c 'pd 120 @ 0x79320' -c 'pd 70 @ 0x1f158' -c 'pd 45 @ 0x591ca' -c 'pd 50 @ 0x9de02' data/Z/ZED.EXE`.
+
+### Moving-target lead records (issue #96, batch three)
+
+**Confirmed** in `ZED.EXE` (SHA-256 `3635cb69...4676`). `0x7628f` has five callers
+(`0x78325`, `0x785be`, `0x78678` in the fixed-gun paths; `0x7695b`, `0x769b7` inside
+`0x764e8`). Shooter type (+0x30) 0x16 (Gatling), 0x21 and 0x22 take the speed-byte branch
+`0x763ed`; every other gun takes the pattern branch `0x7628f..0x763e5`.
+
+- Pattern records: a movement pattern is a circular singly linked list of 8-byte nodes
+  `{dword pixels_this_step, dword next}`. `0x117e5c` is 13 head pointers, one per speed level
+  (unit +0x88, set by `0x7bec6`, which also resets +0x20/+0xa6/+0xb2 to the head when the level
+  changes). Cycles (values): 0 [1,0,0,0,0]; 1 [1,0,0,0]; 2 [1,0,0]; 3 [1,0,0,1,0]; 4 [1,0];
+  5 [1,1,0]; 6 [1,1,1,0]; 7 [1]; 8 [2,1,1]; 9 [2,1]; 10 [2]; 11 [3,2,2]; 12 [3,2].
+  `0x7bf10` consumes the node at +0x20 once per native step, advancing +0x20/+0xa6 to the next
+  node. `0x65087` is not a pattern routine: it is the cooperative yield into the scheduler
+  (saves registers, switches stack, code 0x14), reached when +0x20 != +0xa6.
+- Lead (pattern branch): admits target action 2, 7, or 8 (non-vehicle), or a class-1 vehicle
+  with body +0x17 bit 0 (set by `0x7baef`, cleared by `0x7bd72`). Action table `0x149038`:
+  2 = move handler `0x7a9e4`, 7 = `0x77e15` (a standing scan state), 8 = robot order handler
+  `0x75046`, 1 = idle `0x788fb`. Then `0x640ff` gate, steps = (sqrt[min(0x3ff, sum of squares
+  of the signed low bytes of (source-aim)>>4)] * 16 / shot speed(+0x76, 8 if zero)) & 0x3f
+  (note the `imul al`: only the low byte survives), then max(steps,1) nodes from the
+  target's current +0x20 node are summed along facing +0x39 (table `0x14a788`; whole value on
+  both axes for diagonals), without modifying the target's cursor.
+- Lead (speed-byte branch): same gate and quotient but 8 bits (`& 0xff`), amount =
+  (quotient * speed byte) >> 3 along facing (`0x14a7a8`, same direction order), speed byte =
+  unit +6 >> 2 for a robot (+6 is the robot record +0x1f, copied at `0x510e0`; `0x86df0`
+  scales it with +2) or body +7 >> 2 for a vehicle.
+- RNG: `0x70d37` is the global 16-bit LFSR (already `Z_NextRandom`). `0x640ff` draws once
+  (`& 0x7f`): with shooter +0x67 bit 7 clear, threshold = accuracy + accuracy/4 as an 8-bit
+  add (sign bit set: always leads), lead applies when threshold >= draw; with the bit set the
+  bare accuracy is used. The gate draw precedes the `0x64250` scatter's two draws.
+
+**Implemented** (`games/z/p_lead.c`, `lead_aim` in `p_capture.c`, `tests/z/test_lead.c`): the
+speed-byte branch for the Gatling's bullet at a unit with a move order (`P_HasMoveOrder`
+stands for action 2 / the vehicle move bit), shot speed 15, accuracy gate, one draw before
+the scatter. Port limits: +0x67 bit 7 is not modelled (assumed clear, as `scatter_aim`),
+standing targets in actions 7/8 (retail leads them) are not represented, robot +6 damage
+scaling is not tracked.
+
+**Not implemented, no port equivalent:** the pattern branch (Light Gun, Howitzer, Missile
+Gun). It needs the target's cycle cursor (+0x20), i.e. the number of native 70 Hz steps since
+the last level change, but open-rts moves units by a smooth average speed and keeps no
+cursor; any phase would be invented. Also missing: the action 7/8 state. Next trace: where
+else +0x20 is reset (stop/turn) to confirm the phase is purely a step count.
+
+**Not traced this batch (stopped by instruction):** bullet slot order (allocator `0x5b021`
+first free of 200 records, pass `0x5a8e6` ascending, already documented above; iteration
+direction and observable difference vs thinker order not worked out), and Laser tracer
+tables (sprites 1364/1365 and angle path documented above; direction table not decoded).
+
+Verification: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=120 make test-z` -> 30 tests,
+0 failed. Reproduce with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 90 @
+0x7628f' -c 'pd 60 @ 0x763ed' -c 'pd 30 @ 0x640ff' -c 'pxw 52 @ 0x117e5c' -c 'pxw 400 @
+0x117e90' -c 'pd 60 @ 0x7bec6' -c q data/Z/ZED.EXE`.
