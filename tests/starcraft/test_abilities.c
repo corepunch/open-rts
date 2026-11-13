@@ -526,6 +526,30 @@ static int transport_unload_failures(void) {
     CHECK((x_remainder <= 1 || x_remainder >= 7) && (y_remainder <= 1 || y_remainder >= 7));
     CHECK(marine->attack.cooldown_left_ms + RTS_TICK_MS >= expected_cooldown);
     CHECK(marine->core.state_id == mobjinfo[marine->type_id].spawnstate);
+    CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 15);
+
+    /* A second passenger cannot use an addressed command to bypass the
+     * transport's 15 native-frame main-order timer. A replacement Unload All
+     * order must preserve the same deadline and unload at expiry. */
+    mobj_t *second = spawn(MT_MARINE, at_of(ship), 0);
+    CHECK(second && sc_board(second, ship) && (second->sc.flags & SC_LOADED));
+    addressed.target = second->id;
+    G_RunTiccmd(0, &addressed);
+    CHECK(second->sc.flags & SC_LOADED);
+    while (ship->sc.timers[SC_TIMER_MAIN_ORDER] > 1) {
+        tick(1);
+        CHECK(second->sc.flags & SC_LOADED);
+    }
+    CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 1);
+    G_RunTiccmd(0, &addressed);
+    CHECK(second->sc.flags & SC_LOADED);
+    ticcmd_t unload_all = {.order = TC_UNLOAD, .count = 1, .units = {ship->id},
+                           .position = ship->core.position};
+    G_RunTiccmd(0, &unload_all);
+    CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 1 && (second->sc.flags & SC_LOADED));
+    while (second->sc.flags & SC_LOADED) tick(1);
+    CHECK(!(second->sc.flags & SC_LOADED));
+    CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 15);
     tick(RTS_TICRATE);
     CHECK(ship->sc.order.kind == SC_ORDER_NONE);
 
@@ -564,6 +588,24 @@ static int transport_unload_failures(void) {
 
     memset(level.blocked, 0, (size_t)level.width * level.height);
     P_NavFree(&level);
+    reset();
+    return 0;
+}
+
+static int transport_unload_queue_completion(void) {
+    reset();
+    mobj_t *ship = spawn(MT_DROPSHIP, FIXED2_LIT(20.5, 20.5), 0);
+    mobj_t *marine = spawn(MT_MARINE, FIXED2_LIT(20.5, 20.5), 0);
+    CHECK(ship && marine && sc_board(marine, ship));
+    sc_unload_at(ship, at_of(ship));
+    ship->sc.queue = (sc_order_queue_t){.active = TC_UNLOAD, .owner = 0, .count = 1,
+        .pending = {{.order = TC_MOVE, .position = fixed3_from_fixed2(FIXED2_LIT(26.5, 20.5), 0)}}};
+    tick(1);
+    CHECK(!(marine->sc.flags & SC_LOADED));
+    CHECK(ship->sc.timers[SC_TIMER_MAIN_ORDER] == 15);
+    CHECK(ship->sc.order.kind == SC_ORDER_NONE);
+    CHECK(ship->sc.queue.active == TC_MOVE && ship->sc.queue.count == 0);
+    CHECK(fixed2_equal(ship->movement.goal, FIXED2_LIT(26.5, 20.5)));
     reset();
     return 0;
 }
@@ -631,6 +673,7 @@ int main(void) {
     CHECK(!storm_unit_box_range());
     CHECK(!transports());
     CHECK(!transport_unload_failures());
+    CHECK(!transport_unload_queue_completion());
     CHECK(!nydus());
     free(level.mission);level.mission=NULL;
     P_FreeLevel(&level);

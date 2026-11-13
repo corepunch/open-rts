@@ -6,7 +6,7 @@
 int main(void) {
     G_InitGame();
     P_InitThinkers();
-    CHECK(G_SaveLayout() == 15);
+    CHECK(G_SaveLayout() == 16);
     sc_set_map_mode(SC_MAP_CAMPAIGN);
     CHECK(G_DoLoadLevel("data/STARCRAFT/install/campaign/terran/terran01/staredit/scenario.chk", &level));
     CHECK(G_LoadLevelData(g_game_default_root,&level));
@@ -69,6 +69,7 @@ int main(void) {
     mobj_t *saved_fighter = sc_spawn_actor(MT_INTERCEPTOR - 1, (ivec2_t){384, 384}, 11);
     CHECK(saved_carrier && saved_fighter); sc_initial_hangar(saved_carrier, 3); saved_fighter->sc.parent = saved_carrier->id;
     sc_initial_vitals(saved_carrier, 4, 33, 0);
+    saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] = 15;
     mobj_t *saved_ghost = sc_spawn_actor(MT_GHOST - 1, (ivec2_t){448, 384}, 0); CHECK(saved_ghost);
     level.upgrades[21][0].weapon = 1; sc_initial_vitals(saved_ghost, 8, 0, 33);
     sc_initial_hp(saved_ghost, 1);
@@ -102,6 +103,10 @@ int main(void) {
     uint32_t geyser_id = geyser->id;
     int geyser_vent = level.resource_vent_count - 1;
     uint32_t queued_id=queued_unit->id, queued_hash=G_Consistency();
+    saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] = 14;
+    CHECK(G_Consistency() != queued_hash);
+    saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] = 15;
+    queued_hash = G_Consistency();
     snprintf(m->objectives, sizeof(m->objectives), "Saved objective");
     uint32_t presentation_hash = G_ConsistencyExtra(0);
     m->unit_speech_muted = true;
@@ -140,7 +145,8 @@ int main(void) {
           level.resource_vents[geyser_vent].amount == 5000 && !level.resource_vents[geyser_vent].active);
     CHECK(level.sight.allies[0] & (UINT32_C(0x40000000) >> 1));
     saved_carrier = P_MobjById(carrier_id);
-    CHECK(saved_carrier && saved_carrier->owner == 11 && saved_carrier->sc.hangar == 3 && sc_hangar_count(saved_carrier) == 4);
+    CHECK(saved_carrier && saved_carrier->owner == 11 && saved_carrier->sc.hangar == 3 && sc_hangar_count(saved_carrier) == 4 &&
+          saved_carrier->sc.timers[SC_TIMER_MAIN_ORDER] == 15);
     CHECK(saved_carrier->sc.shields == 49 * 256);
     saved_ghost = P_MobjById(ghost_id);
     CHECK(saved_ghost && saved_ghost->sc.energy == 82 * 256 + 128 &&

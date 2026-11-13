@@ -349,7 +349,7 @@ mobj_t *sc_attach_addon(mobj_t *building, uint16_t type) {
 
 /* ── bunkers and transports ──────────────────────────────────────────── */
 
-enum { SC_UPGRADE_VENTRAL_SACS = 24, SC_UNLOAD_FRAMES = 15 };
+enum { SC_UPGRADE_VENTRAL_SACS = 24, SC_UNLOAD_COOLDOWN_FRAMES = 15 };
 static bool is_building(const mobj_t *mo) { return (sc_units[mo->type_id - 1].flags & SC_UNIT_BUILDING) != 0; }
 /* OpenBW unit_provides_space: an Overlord carries once Ventral Sacs are
  * evolved; hallucinations carry nothing. */
@@ -471,7 +471,7 @@ static bool pop_out(mobj_t *unit, const mobj_t *container) {
 /* Down from a transport onto open ground beneath it; false when there is
  * none, and the passenger stays aboard. */
 static bool drop(mobj_t *unit, mobj_t *carrier) {
-    if (sc_disabled(carrier)) return false;
+    if (sc_disabled(carrier) || carrier->sc.timers[SC_TIMER_MAIN_ORDER] > 0) return false;
     unit->traits = (unit->traits & ~(MF_NOBLOCKMAP | MF_DONTDRAW)) | (unit->info->traits & (MF_SELECTABLE | MF_MOBILE));
     unit->sc.flags &= ~SC_LOADED;
     if (!unload_position(unit, carrier, where(carrier))) {
@@ -481,6 +481,7 @@ static bool drop(mobj_t *unit, mobj_t *carrier) {
     }
     for (int i = 0; i < SC_CARGO; i++) if (carrier->sc.cargo[i] == unit->id) carrier->sc.cargo[i] = 0;
     unit->sc.parent = 0;
+    carrier->sc.timers[SC_TIMER_MAIN_ORDER] = SC_UNLOAD_COOLDOWN_FRAMES;
     unloaded(unit, true);
     return true;
 }
@@ -506,6 +507,7 @@ void sc_unload_at(mobj_t *carrier, fixed2_t at) {
 static void unloading(mobj_t *carrier, int frames) {
     sc_order_t *o = &carrier->sc.order;
     if (sc_disabled(carrier)) { *o = (sc_order_t){0}; return; }
+    if (carrier->sc.timers[SC_TIMER_MAIN_ORDER] > 0) return;
     fixed2_t at = {SC_PIXELS(o->at.x), SC_PIXELS(o->at.y)};
     if (!fixed2_near(where(carrier), at, SC_PIXELS(16))) {
         if (!P_HasMoveOrder(carrier)) P_MoveUnitTo(&level, carrier, at);
@@ -517,7 +519,7 @@ static void unloading(mobj_t *carrier, int frames) {
         mobj_t *mo = P_MobjById(carrier->sc.cargo[i]);
         if (!aboard(mo, carrier)) continue;
         if (!drop(mo, carrier)) { *o = (sc_order_t){0}; return; }
-        o->time = SC_UNLOAD_FRAMES;
+        if (!sc_cargo_space(carrier)) *o = (sc_order_t){0};
         return;
     }
     *o = (sc_order_t){0};
@@ -732,6 +734,9 @@ static void mining(mobj_t *mo) {
 }
 
 void sc_unit_ticker(mobj_t *mo, int frames) {
+    int *main_order_timer = &mo->sc.timers[SC_TIMER_MAIN_ORDER];
+    if (frames > 0 && *main_order_timer > 0 && (*main_order_timer -= frames) < 0)
+        *main_order_timer = 0;
     if (mo->type_id == MT_SCV) {
         bool walking = gameinfo && mo->core.state_id > 0 &&
             mo->core.state_id < gameinfo->state_count &&

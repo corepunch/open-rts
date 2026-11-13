@@ -34,16 +34,21 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
   their spawn/idle state. Mobile transport passengers' weapon cooldown is
   reset through `G_WeaponCooldown`, which applies current speed effects and
   upgrades.
-- OpenBW `unit_unload` sets the mobile container's main-order timer to 15.
-  Protoss Reavers receive their own main-order timer of 30; other mobile cargo
-  receive ground/air weapon cooldowns and a separate 30-frame spell cooldown.
-  The local runtime has no serialized per-unit spell cooldown field, and the
-  relevant save/hash layout is concurrently owned elsewhere, so these three
-  timers remain incomplete. Do not emulate spell cooldown by borrowing a
-  weapon or status timer. Follow-up files are `games/starcraft/mobj_data.h`
-  (runtime/hash fields), `games/starcraft/p_save.c` and
-  `tests/starcraft/test_save.c` (serialization/layout), `games/starcraft/p_units.c`
-  (15/30-frame countdown), and `games/starcraft/p_spell.c` (spell gate).
+- OpenBW `unit_unload` sets the container main-order timer to 15 native frames.
+  The local runtime now stores and ticks `SC_TIMER_MAIN_ORDER`; mobile unload
+  all and addressed unloads both respect it. The timer is part of the object's
+  save data and consistency hash, and StarCraft save layout is now 16.
+  When the last passenger unloads, the unload order ends immediately, so a
+  queued move can start while the container timer continues to count down.
+- Remaining passenger timers are not implemented: Protoss Reavers receive a
+  30-frame main-order timer; other mobile cargo receive a separate 30-frame
+  spell cooldown. OpenBW also sets independent modified ground and air weapon
+  cooldowns where those weapons exist, while the local combat runtime currently
+  has one shared cooldown. Do not emulate these by borrowing the container
+  timer, weapon cooldown or status timer. Reaver's timer requires coverage of
+  its main-order/attack lifecycle; spell cooldown needs a verified equivalent
+  gate; independent weapon timers require combat-path changes. Save/hash tests
+  must cover any further serialized fields and layout bumps.
 - OpenBW's Bunker death path invokes `unit_unload` for each passenger and kills
   the passenger when placement fails (`bwgame.h` 15365–15369). The local
   Bunker death path uses the same center search and retains its existing
@@ -54,14 +59,17 @@ OpenBW is behavioral reference evidence, not a new retail executable trace.
 `tests/starcraft/test_abilities.c::transport_unload_failures` covers disabled
 carrier and invalid-origin-terrain failure despite nearby free cells,
 passenger retention, global-grid displacement from an occupied origin, idle
-state, and a modified weapon cooldown.
+state, a modified weapon cooldown, addressed unload rejection during the
+15-frame container timer, and Unload All resumption at timer expiry.
+`transport_unload_queue_completion` checks that the final passenger clears the
+unload order and starts a queued move immediately without clearing the timer.
 `tests/starcraft/test_units.c::bunker` covers disabled addressed Bunker unload,
 center-origin placement, ordinary Bunker death ejection, and cargo death when
 a disabled Bunker is destroyed.
 Run `make test-starcraft` for the StarCraft suite.
 
-The three unimplemented mobile timers above are pending a serialized-state
-change and focused save/hash coverage. The current navigation API cannot
+The unimplemented Reaver/spell and independent weapon cooldowns above are
+pending verified runtime gates and focused save/hash coverage. The current navigation API cannot
 directly check reachability from an unloaded passenger's origin:
 `P_NavReachable` rejects a Bunker center because the building blocks that cell,
 while `P_NavPlan` performs a full plan and may relocate an unreachable goal.
