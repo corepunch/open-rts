@@ -4,11 +4,11 @@
 /* The Zerg production model and the ground rules of both alien races.
  * A hatchery keeps up to three larvae; a larva given an order becomes an
  * egg (a mutalisk a cocoon) that carries the order and hatches in place.
- * Buildings that need creep or psi check it where they are placed. */
+ * Buildings that need creep or psi check it where they are placed; creep is
+ * the per-map tile state of p_creep.c. */
 enum {
     SC_MAX_LARVAE = 3,
     SC_LARVA_MS = (342 * 1000 + 23) / 24,  /* Retail: a larva every 342 frames. */
-    SC_HATCHERY_CREEP = 10, SC_COLONY_CREEP = 5,
 };
 static bool hatchery(uint16_t type) { return type == MT_HATCHERY || type == MT_LAIR || type == MT_HIVE; }
 uint16_t sc_egg_for(uint16_t maker) {
@@ -68,25 +68,6 @@ void sc_zerg_ticker(int elapsed_ms) {
     }
 }
 
-/* Creep is instant and round: radius 10 around a hatchery tier, 5 around
- * a colony, whoever owns it. Retail creep grows tile by tile and recedes. */
-static bool on_creep(fixed2_t at) {
-    const sc_mission_t *m=level.mission;
-    ivec2_t cell=fixed2_cell(at);
-    if(m&&m->terrain&&L_Contains(&level,cell.x,cell.y)&&
-       (m->terrain[L_Index(&level,cell.x,cell.y)].cv5&SC_TERRAIN_CREEP))return true;
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        if (!live(th)) continue;
-        const mobj_t *mo = (const mobj_t *)th;
-        if (!G_ModelUnitReady(mo)) continue;
-        int radius = hatchery(mo->type_id) ? SC_HATCHERY_CREEP :
-            mo->type_id == MT_CREEP_COLONY || mo->type_id == MT_SUNKEN_COLONY ||
-            mo->type_id == MT_SPORE_COLONY ? SC_COLONY_CREEP : 0;
-        if (radius && fixed2_distance_squared64(fixed3_xy(mo->core.position), at) <= fixed_sq64(FIXED_FROM_INT(radius)))
-            return true;
-    }
-    return false;
-}
 /* OpenBW's psi field: 16 by 10 cells centred on the pylon, rounded at the
  * corners. A building is powered while its centre lies inside one. */
 static const char psi_field[10][17] = {
@@ -127,8 +108,8 @@ bool sc_ground_ok(uint16_t type, ivec2_t cell, int owner) {
     const sc_mission_t *m=level.mission;
     for (int y = 0; y < foot.h; ++y) for (int x = 0; x < foot.w; ++x) {
         ivec2_t at=ivec2_add(cell,(ivec2_t){x,y});
-        if(requires_creep&&!on_creep(fixed2_cell_center(at)))return false;
-        if(!requires_creep&&terrain_checks&&!is_zerg&&on_creep(fixed2_cell_center(at)))return false;
+        if(requires_creep&&!sc_creep_at(at))return false;
+        if(!requires_creep&&terrain_checks&&!is_zerg&&sc_creep_at(at))return false;
         if(requires_creep||!terrain_checks||!m||!m->terrain||!L_Contains(&level,at.x,at.y))continue;
         const sc_terrain_t *tile=&m->terrain[L_Index(&level,at.x,at.y)];
         if(tile->cv5&SC_TERRAIN_UNBUILDABLE)return false;

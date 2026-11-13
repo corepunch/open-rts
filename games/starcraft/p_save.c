@@ -8,7 +8,7 @@ typedef struct { sc_mission_t mission; int player; } sc_save_t;
  * are restored here. These are engine saves, not retail .snx files. */
 size_t G_SaveExtraSize(void) {
     const sc_mission_t *m = level.mission;
-    return m ? sizeof(sc_save_t) + (size_t)m->trig_count * 8 * sizeof(sc_trig_t) : 0;
+    return m ? sizeof(sc_save_t) + (size_t)m->trig_count * 8 * sizeof(sc_trig_t) + sc_creep_save_size() : 0;
 }
 
 void G_SaveExtra(void *out) {
@@ -19,10 +19,12 @@ void G_SaveExtra(void *out) {
     saved.mission.trig = saved.mission.str = saved.mission.uprp = NULL;
     saved.mission.rt = NULL;
     saved.mission.terrain = NULL;
+    saved.mission.creep = NULL;
     memcpy(out, &saved, sizeof(saved));
     if (m->trig_count)
         memcpy((uint8_t *)out + sizeof(saved), m->rt,
                (size_t)m->trig_count * 8 * sizeof(sc_trig_t));
+    sc_creep_save((uint8_t *)out + sizeof(saved) + (size_t)m->trig_count * 8 * sizeof(sc_trig_t));
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
@@ -58,12 +60,18 @@ bool G_LoadExtra(const void *data, size_t size) {
         if (trigger.cursor < 0 || trigger.cursor > 64 || trigger.current < 0 ||
             trigger.current >= 8) return false;
     }
+    size_t creep_size = sc_creep_save_size();
+    sc_creep_t *creep = NULL;
+    if (creep_size && !(creep = sc_creep_parse(runtime + (size_t)m->trig_count * 8 * sizeof(sc_trig_t), creep_size)))
+        return false;
     saved.file = m->file;
     saved.trig = m->trig;
     saved.str = m->str;
     saved.uprp = m->uprp;
     saved.rt = m->rt;
     saved.terrain = m->terrain;
+    sc_creep_free(m->creep);
+    saved.creep = creep;
     /* A resync imports shared outcomes but not the sender's local UI state. */
     if (G_Resyncing()) {
         saved.result = m->result;

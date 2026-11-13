@@ -2,7 +2,7 @@
 
 /* Research restrictions, projectiles, construction progress, transport timers
  * and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 21; }
+uint32_t G_SaveLayout(void) { return 22; }
 
 const uint32_t *G_AllianceMasks(const level_t *map) {
     if (!map) return NULL;
@@ -13,6 +13,7 @@ const uint32_t *G_AllianceMasks(const level_t *map) {
 uint32_t G_ConsistencyExtra(uint32_t hash) {
     const sc_mission_t *m = level.mission;
     if (m) hash = G_HashValue(hash, m->rng);
+    hash = sc_creep_hash(hash);
     if (m) hash = G_HashValue(hash, m->map_mode);
     if (m) hash = G_HashValue(hash, m->research_rules_loaded);
     if (m) hash = G_HashValue(hash, m->custom_slots_set);
@@ -78,7 +79,7 @@ bool G_GameCommand(int player, const ticcmd_t *cmd) {
 
 bool G_TakeCameraRequest(fvec2_t *cell) { return sc_take_camera(cell); }
 
-void G_ProductionBegin(int elapsed_ms) { sc_zerg_ticker(elapsed_ms); }
+void G_ProductionBegin(int elapsed_ms) { sc_creep_ticker(); sc_zerg_ticker(elapsed_ms); }
 
 bool G_QueueLocksProduct(const StaticProductDefinition *product) {
     return product->product_class!=RTS_PRODUCT_UNIT;

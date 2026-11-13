@@ -15,6 +15,8 @@ static mobj_t *spawn(int type,fixed2_t at,int owner) {
     return unit;
 }
 
+static void tick(void) { P_Ticker();G_ProductionTicker(RTS_TICK_MS); }
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
@@ -81,19 +83,24 @@ int main(void) {
     *colony->production=(production_t){.actor_id=MT_CREEP_COLONY,
         .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_CREEP_COLONY,
         .queue_count=1,.time_ms=1000,.time_left_ms=1000,.placed=true};
-    CHECK(!sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){10,20},0));
-    CHECK(!sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){24,20},0));
+    /* A foundation holds no creep: OpenBW gives a Hatchery or Creep Colony its
+     * footprint and ring only when it completes (set_creep_building_tiles).
+     * Creep lives in tile state, so the tics must run for it to appear. */
+    tick();tick();
+    CHECK(!sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){9,20},0));
+    CHECK(!sc_ground_ok(MT_CREEP_COLONY,(ivec2_t){22,19},0));
     P_FreeMobjProduction(hatchery);
     P_FreeMobjProduction(colony);
-    CHECK(sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){10,20},0));
-    CHECK(sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){24,20},0));
+    tick();
+    CHECK(sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){9,20},0)); /* inside the Hatchery's ring */
+    CHECK(sc_ground_ok(MT_CREEP_COLONY,(ivec2_t){22,19},0)); /* the Colony's footprint */
     /* A completed Hatchery remains operational during its in-place Lair morph. */
     hatchery->production=calloc(1,sizeof(*hatchery->production));
     CHECK(hatchery->production);
     *hatchery->production=(production_t){.actor_id=MT_LAIR,
         .product_class=RTS_PRODUCT_BUILDING,.product_type=MT_LAIR,
         .queue_count=1,.time_ms=1000,.time_left_ms=1000};
-    CHECK(G_ModelUnitReady(hatchery)&&sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){10,20},0));
+    CHECK(G_ModelUnitReady(hatchery)&&sc_ground_ok(MT_SPAWNING_POOL,(ivec2_t){9,20},0));
     P_FreeMobjProduction(hatchery);
 
     mobj_t *depot=spawn(MT_COMMAND_CENTER,FIXED2_LIT(7,28),0);

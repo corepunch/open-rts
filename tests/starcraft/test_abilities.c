@@ -32,6 +32,7 @@ static fixed2_t at_of(const mobj_t *mo) { return fixed3_xy(mo->core.position); }
 static void reset(void) {
     P_FreeThinkers();
     P_InitThinkers();
+    sc_creep_reset(level.mission);
     memset(level.upgrades, 0, sizeof(level.upgrades));
     level.player_resources[0][0] = level.player_resources[0][1] = 5000;
 }
@@ -649,6 +650,7 @@ static int nydus(void) {
     mobj_t *hatch = building(MT_HATCHERY, (ivec2_t){4, 4}, 0), *hatch2 = building(MT_HATCHERY, (ivec2_t){30, 30}, 0);
     mobj_t *canal = building(MT_NYDUS_CANAL, (ivec2_t){9, 4}, 0);
     CHECK(hatch && hatch2 && canal && !sc_nydus_other(canal));
+    sc_creep_initial(hatch2); /* The far Hatchery is pre-placed: its creep reaches the exit site. */
     /* The exit is placed like a spell, on creep. */
     cast(canal, SC_TECH_NYDUS_EXIT, NULL, FIXED2_LIT(35, 31));
     mobj_t *exit = sc_nydus_other(canal);

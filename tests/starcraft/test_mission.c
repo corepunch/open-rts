@@ -613,6 +613,9 @@ int main(void) {
     CHECK(lost_hatch->sc.larva_ms == INT_MIN);
     ticks(1, &(hudtext_t){0});
     CHECK(level.player_resources[1][0] == 10);
+    /* Creep is world state: this world grew some around the Hatchery, the peer
+     * built below has none. The mission part of the hash is what must agree. */
+    sc_creep_reset(level.mission);
     uint32_t remote_hash = G_ConsistencyExtra(0);
     unload();
     consoleplayer = 1;
@@ -622,6 +625,7 @@ int main(void) {
     ticks(2, &(hudtext_t){0});
     result_mission = level.mission;
     CHECK(result_mission->player_result[1] == 2 && defeated->owner == 11 && sc_mission_result() == 2);
+    sc_creep_reset(level.mission);
     CHECK(G_ConsistencyExtra(0) == remote_hash);
     consoleplayer = 0;
     free(trig); unload(); remove("/tmp/open-rts-sc-remote-defeat.chk");

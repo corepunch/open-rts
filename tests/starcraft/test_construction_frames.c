@@ -48,6 +48,7 @@ static void reset(void) {
     P_FreeThinkers();P_InitThinkers();
     memset(level.cell_solid,0,(size_t)level.width*level.height);
     memset(level.blocked,0,(size_t)level.width*level.height);
+    sc_creep_reset(level.mission);
     level.player_resources[0][0]=1000;
 }
 static mobj_t *terran_site(mobj_t **scv_out,const StaticProductDefinition **product_out) {
@@ -210,7 +211,7 @@ static int protoss_cancel(void) {
 
 static int zerg_steps_and_cancel(void) {
     reset();
-    spawn(MT_HATCHERY,FIXED2_LIT(10.5,34.5),0);
+    sc_creep_initial(spawn(MT_HATCHERY,FIXED2_LIT(10.5,34.5),0)); /* pre-placed: full creep */
     mobj_t *drone=spawn(MT_DRONE,FIXED2_LIT(13.5,34.5),0);
     const StaticProductDefinition *product=G_ModelProductByUIId(NULL,MT_SPAWNING_POOL);
     CHECK(drone&&product);
@@ -232,7 +233,7 @@ static int zerg_steps_and_cancel(void) {
 
     /* Cancelling a second pool returns the Drone at its old HP. */
     reset();
-    spawn(MT_HATCHERY,FIXED2_LIT(10.5,34.5),0);
+    sc_creep_initial(spawn(MT_HATCHERY,FIXED2_LIT(10.5,34.5),0));
     drone=spawn(MT_DRONE,FIXED2_LIT(13.5,34.5),0);
     drone->hp=17;
     CHECK(G_PlaceProduct(drone,product,(ivec2_t){16,34}));

@@ -216,6 +216,7 @@ typedef struct {
 } sc_trig_t;
 typedef struct { uint16_t vf4[16], cv5; } sc_terrain_t;
 enum { SC_LOCATION_COUNT = 256 };
+typedef struct sc_creep sc_creep_t;
 enum {
     SC_TERRAIN_MIDDLE = 2, SC_TERRAIN_HIGH = 4, SC_TERRAIN_COVER = 0x10,
     SC_TERRAIN_CREEP = 0x40, SC_TERRAIN_UNBUILDABLE = 0x80
@@ -225,6 +226,7 @@ uint32_t sc_random(void);
 typedef struct {
     blob_t file;
     sc_terrain_t *terrain; /* Native minitile heights and megatile cover. */
+    sc_creep_t *creep;     /* Creep tiles and recession (p_creep.c); saved apart from this record. */
     const uint8_t *trig, *str, *uprp;
     size_t trig_size, str_size, uprp_size;
     int loc_left[SC_LOCATION_COUNT], loc_top[SC_LOCATION_COUNT];
@@ -284,6 +286,22 @@ int sc_elapsed_ms(void);
 const sc_leaderboard_t *sc_leaderboard(void);
 bool sc_talking_portrait(uint16_t *unit, int *ms);
 bool sc_mission_bind(level_t *map);
+/* p_creep.c: creep as per-map tile state. sc_creep_at is the tile flag every
+ * consumer reads; sc_creep_ticker runs each engine tic (native frames derived
+ * from leveltime); sc_creep_initial gives a pre-placed building OpenBW's
+ * create_initial_unit creep; sc_creep_reset drops the state so it is rebuilt
+ * from the terrain. */
+bool sc_creep_at(ivec2_t cell);
+bool sc_creep_receding(ivec2_t cell);
+int sc_creep_receding_count(void);
+void sc_creep_ticker(void);
+void sc_creep_initial(mobj_t *mo);
+void sc_creep_reset(sc_mission_t *m);
+void sc_creep_free(sc_creep_t *c);
+size_t sc_creep_save_size(void);
+void sc_creep_save(void *out);
+sc_creep_t *sc_creep_parse(const void *data, size_t size);
+uint32_t sc_creep_hash(uint32_t hash);
 void sc_mission_tick(level_t *map, hudtext_t *hud, int dt_ms);
 void sc_note_damage(mobj_t *mo);
 mobj_t *sc_spawn_actor(unsigned type, ivec2_t pixel, uint8_t owner);
