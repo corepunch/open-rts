@@ -36,10 +36,18 @@ ends. Its selected death and trail state IDs, repetition flag and emitted
 flag are in `sc_projectile_t`; the game's mobj save and consistency mechanisms
 include these fields.
 
+Intermediate Glaive Wurm hits now spawn the compiled Init state for image 512
+(`SporeHit`) when a following bounce target is acquired. This is sourced from
+`GlaveWurmSpecialState1`, which emits `sprol 365` before `domissiledmg` and
+returns to its ground-attack script. The visual state is located in the
+already compiled projectile Death chain, so no projectile save fields or save
+layout changes are added for this visual.
+
 The presentation regression loads the native assets and compiles IScript,
 then checks grenade/laser impact images, the Glaive trail, repeated versus
-one-shot trail behavior, and projectile death-state lifetime. It also retains
-flight and save/reload checks.
+one-shot trail behavior, projectile death-state lifetime, and the intermediate
+Glaive hit image's renderability, initial frame and eventual thinker removal.
+It also retains flight and save/reload checks.
 
 Run:
 
@@ -53,6 +61,7 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/starcraft/test_projectiles
 This does not interpret every IScript opcode. Trail emission follows the
 compiled ground-attack path and is advanced at projectile frame cadence; it
 does not reproduce arbitrary script branches, per-command timing gaps, or
-native sound playback. Intermediate Glaive Wurm hit visuals from
-`SpecialState1` are not yet connected to bounce transitions. The evidence is
-Stargus/OpenBW source and native asset data, not a retail executable trace.
+native sound playback. Bounce visuals are currently connected for the
+confirmed Glaive Wurm `SporeHit` image; other potential bounce weapon scripts
+remain unverified. The evidence is Stargus/OpenBW source and native asset data,
+not a retail executable trace.

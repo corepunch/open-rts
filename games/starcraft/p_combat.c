@@ -254,6 +254,8 @@ bool sc_projectile_weapon(int id) {
         w->explosion==1&&w->movement==1&&w->speed>0&&w->acceleration>0;
 }
 
+static void projectile_visual(fixed3_t position,int state);
+
 static bool weapon_misses(const mobj_t *source,const mobj_t *target) {
     unsigned src=sc_terrain_flags(fixed3_xy(source->core.position));
     unsigned dst=sc_terrain_flags(fixed3_xy(target->core.position));
@@ -398,6 +400,21 @@ static void projectile_impact(mobj_t *shot) {
     if(damage>0)P_DamageMobj(target,source?source:shot,damage);
     else if(can_hit&&source)P_ProvokeMobj(target,source);
     if(next) {
+        /* GlaveWurmSpecialState1 spawns image 512 (SporeHit) at every
+         * intermediate hit. The compiled Death chain shares that image's
+         * Init state, so reuse it without adding projectile save state. */
+        int hit_state=shot->sc.projectile.death_state;
+        for(int n=0;hit_state>0&&hit_state<SC_STATES&&n<256;n++) {
+            int sprite=states[hit_state].sprite;
+            if(sprite>=SC_TYPES&&sprite<SC_SPRITES&&sprnames[sprite]&&
+               !strcmp(sprnames[sprite],"sc-img-512")) {
+                projectile_visual(shot->core.position,hit_state);
+                break;
+            }
+            int following=states[hit_state].nextstate;
+            if(following==hit_state)break;
+            hit_state=following;
+        }
         shot->sc.projectile.previous=target?target->id:0;
         shot->attack.target=next;
         if(!shot->sc.projectile.missed)shot->movement.goal=fixed3_xy(next->core.position);

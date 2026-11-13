@@ -30,6 +30,29 @@ static int visuals(void) {
     }
     return count;
 }
+static mobj_t *effect_for_image(unsigned image) {
+    char name[16];snprintf(name,sizeof(name),"sc-img-%03u",image);
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->remove||mo->type_id!=MT_SC_PROJECTILE||
+           mo->sc.projectile.weapon>=0||mo->core.state_id<=0||mo->core.state_id>=SC_STATES)continue;
+        int sprite=states[mo->core.state_id].sprite;
+        if(sprite>=SC_TYPES&&sprite<SC_SPRITES&&sprnames[sprite]&&!strcmp(sprnames[sprite],name))return mo;
+    }
+    return NULL;
+}
+static int effects_for_image(unsigned image) {
+    char name[16];snprintf(name,sizeof(name),"sc-img-%03u",image);
+    int count=0;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->remove||mo->type_id!=MT_SC_PROJECTILE||
+           mo->sc.projectile.weapon>=0||mo->core.state_id<=0||mo->core.state_id>=SC_STATES)continue;
+        int sprite=states[mo->core.state_id].sprite;
+        if(sprite>=SC_TYPES&&sprite<SC_SPRITES&&sprnames[sprite]&&!strcmp(sprnames[sprite],name))++count;
+    }
+    return count;
+}
 static int trail_lifecycle(void) {
     CHECK(G_DoLoadLevel(map,&level)&&P_InitSight());
     mobj_t *muta=spawn(MT_MUTALISK,FIXED2_LIT(5,5),0),*target=spawn(MT_MARINE,FIXED2_LIT(7,5),1);
@@ -178,8 +201,22 @@ static int bounce(void) {
     int hp=a->hp;
     for(int t=0;t<RTS_TICRATE*5&&!shot->remove&&shot->missile.phase==0;t++)flight(shot,1);
     CHECK(!shot->remove&&shot->missile.phase==1&&a->hp==hp-9&&b->hp==hp&&c->hp==hp);
+    mobj_t *bounce_hit=effect_for_image(512);CHECK(bounce_hit);
+    uint32_t bounce_hit_id=bounce_hit->id;
+    CHECK((bounce_hit->traits&MF_RENDERABLE)&&bounce_hit->core.state_id>0&&
+          bounce_hit->core.state_id<SC_STATES&&bounce_hit->core.frame>=0);
+    CHECK(bounce_hit->core.frame==0&&states[bounce_hit->core.state_id].frame==0);
+    CHECK(bounce_hit->core.sprite_id>=SC_TYPES&&bounce_hit->core.sprite_id<gameinfo->sprite_count);
     for(int t=0;t<RTS_TICRATE*5&&!shot->remove&&shot->missile.phase==1;t++)flight(shot,1);
     CHECK(!shot->remove&&shot->missile.phase==2&&b->hp==hp-3&&c->hp==hp);
+    CHECK(effects_for_image(512)>=2);
+    bounce_hit=P_MobjById(bounce_hit_id);CHECK(bounce_hit);
+    for(int tic=0;tic<RTS_TICRATE;tic++) {
+        if(bounce_hit->remove)break;
+        ++leveltime;P_TickMobjState(bounce_hit);
+    }
+    CHECK(bounce_hit->remove);
+    P_RunThinkers();CHECK(!P_MobjById(bounce_hit_id));
     flight(shot,RTS_TICRATE*5);CHECK(shot->remove&&c->hp==hp-1);
     P_FreeLevel(&level);return 0;
 }
