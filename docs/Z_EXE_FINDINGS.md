@@ -5407,6 +5407,19 @@ Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 32 @ 0x983e0' -c 'pd 14 @ 0x98475' -c 'pd 8 @ 0x86df0' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
 
+**Driven unit health in strategic strength:** In the same executable,
+`0x9845e..0x9846f` weights the current unit byte +0x3a; the driver-hit
+path subtracts damage from this byte at `0x86d39`. Open-rts now uses the
+saved first crew member's HP minus accumulated driver damage for driven
+vehicles, scaled to the robot record's health using the configured robot
+maximum, as it already does for infantry. This scaling is an engine
+approximation; an unrepresented crew uses the configured full health, as
+the existing driver-hit path does. `test_driver_health_value` boards a
+wounded robot and applies a driver hit without damaging the Jeep body.
+Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
+'pd 12 @ 0x9845e' -c 'pd 12 @ 0x86d30' -c q data/Z/ZED.EXE` and run
+`make build/bin/tests/z/test_commander`.
+
 **Damaged body speed in strategic strength:** In `ZED.EXE` SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x98507..0x98518` weights the current driven-body byte +7, while

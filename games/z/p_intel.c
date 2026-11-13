@@ -1,4 +1,5 @@
 #include "z_local.h"
+#include "info.h"
 
 /* ZED.EXE 0x9830b: estimates borrow a seed from the value and restore the
  * game's random stream. Repeated observations therefore have the same error. */
@@ -84,6 +85,13 @@ int Z_AIUnitValue(const mobj_t *mo) {
     const uint8_t *r = map->roster.bytes + (mo->z.robot - 1) * 44;
     bool robot = Z_IsRobot(Z_UnitType(mo));
     int health = robot && mo->max_hp ? r[32] * mo->hp / mo->max_hp : r[32];
+    if (!robot && mo->z.driver && Z_IsRobot(mo->z.driver - 1)) {
+        int max_health = mobjinfo[MT_UNITS + mo->z.driver - 1].spawnhealth;
+        int driver_health = mo->z.crew_count ? mo->z.crew[0].hp : max_health;
+        driver_health -= mo->z.crew_hurt;
+        if (driver_health < 0) driver_health = 0;
+        if (max_health > 0) health = r[32] * driver_health / max_health;
+    }
     int reach = (uint8_t)(read_u16_le(w + 2) >> 3);
     int accuracy = mo->z.body_tracked ? mo->z.body_accuracy : r[29];
     int human[] = {r[28],accuracy,(uint8_t)(reach * 2),r[31],health,r[29],r[36]};

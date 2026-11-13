@@ -249,6 +249,7 @@ static int test_damaged_accuracy_value(void) {
     Z_SetTeam(tank, 1);
     tank->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
     tank->z.crew_count = 1;
+    tank->z.crew[0].hp = mobjinfo[MT_UNIT_GRUNT].spawnhealth;
     tank->z.robot = lead->z.robot;
     tank->traits &= ~MF_ATTACK;
     map->territory_count = 1; map->fort_count = 0;
@@ -290,6 +291,34 @@ static int test_damaged_accuracy_value(void) {
     tank->z.body_fire = damaged_fire;
     rts_game_model_destroy(model);
     puts("PASS: z body accuracy, speed and fire rate affect strategic force value");
+    return 0;
+}
+
+static int test_driver_health_value(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("driver value load");
+    mobj_t *driver = nth(MT_UNIT_GRUNT, 1, 0), *jeep = nth(MT_UNIT_JEEP, Z_NEUTRAL, 0);
+    if (!driver || !jeep) return fail("driver value fixtures");
+    driver->core.position = jeep->core.position;
+    driver->hp = driver->max_hp * 2 / 3;
+    int wounded = driver->hp;
+    if (!Z_DetourBoard(driver, jeep) || jeep->z.crew[0].hp != wounded)
+        return fail("wounded driver boards Jeep");
+    int wounded_value = Z_AIUnitValue(jeep);
+    jeep->z.crew[0].hp = mobjinfo[MT_UNIT_GRUNT].spawnhealth;
+    int full_value = Z_AIUnitValue(jeep);
+    jeep->z.crew[0].hp = wounded;
+    if (full_value <= wounded_value) return fail("boarding preserves wounded driver value");
+    mobj_t *shooter = P_SpawnMobj(jeep->core.position, MT_UNIT_SNIPER);
+    if (!shooter) return fail("driver value shooter");
+    Z_SetTeam(shooter, 0);
+    int body_hp = jeep->hp;
+    for (int n = 0; n < 256 && !jeep->z.crew_hurt; ++n, ++leveltime)
+        Z_HitDamage(shooter, &shooter->info->attack, jeep, 5, 1);
+    if (jeep->z.crew_hurt != 5 || jeep->hp != body_hp || Z_AIUnitValue(jeep) >= wounded_value)
+        return fail("driver hit reduces value without body damage");
+    rts_game_model_destroy(model);
+    puts("PASS: z AI values boarded driver health and subsequent driver hits");
     return 0;
 }
 
@@ -2299,7 +2328,7 @@ static int test_building_alert(void) {
 }
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
-           test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
+           test_initial_and_save() || test_scores() || test_damaged_accuracy_value() || test_driver_health_value() || test_empty_object_value_slots() || test_ejected_object_health_value() || test_destroyed_building_value() ||
            test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_negative_garrison_value() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_defence_signed_importance() || test_defence_many_sightings() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
