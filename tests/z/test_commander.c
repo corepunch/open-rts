@@ -1134,6 +1134,56 @@ static int test_vehicle_scan_stops(void) {
 /* 0x993ff: an attack that becomes too weak, with nobody to help, falls
  * back and forgets its target. */
 /* 0x99e67 refuses reinforcement with no idle group before borrowing a garrison. */
+/* 0x9d330 may choose a fixed gun, whose subsequent 0x9d42c call returns. */
+static int test_fixed_gun_defence_donor(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("fixed gun donor load");
+    mobj_t *lead = scenario();
+    zmap_t *map = level.native_data;
+    map->computer.allocation = 100;
+    map->computer.intelligence = 127;
+    map->computer.territory_weight = 10;
+    map->territory_count = 2; map->fort_count = 0;
+    for (int t = 0; t < 2; ++t) {
+        map->territories[t].min = (ivec2_t){t * 50, 0};
+        map->territories[t].max = (ivec2_t){(t + 1) * 50, 50};
+        map->territories[t].flag = (ivec2_t){t * 50 + 25, 25};
+        map->territories[t].team = 1;
+        map->territories[t].importance = 0;
+        map->territories[t].options = 0;
+        map->ai.territories[t].flags = 0;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->type_id == MT_FLAG) P_RemoveMobj(mo);
+        if (Z_UnitType(mo) >= 0 && mo != lead) mo->hp = 0;
+    }
+    fixed3_t donor = fixed3_from_fixed2(fixed2_cell_center(map->territories[0].flag), 0);
+    fixed3_t threatened = fixed3_from_fixed2(fixed2_cell_center(map->territories[1].flag), 0);
+    lead->z.squad = 0; lead->core.position = donor; lead->traits &= ~MF_ATTACK;
+    mobj_t *gun = P_SpawnMobj(donor, MT_UNIT_GATLING);
+    mobj_t *defender = P_SpawnMobj(threatened, MT_UNIT_GRUNT);
+    mobj_t *enemy = P_SpawnMobj(threatened, MT_UNIT_HEAVY_TANK);
+    if (!gun || !defender || !enemy) return fail("fixed gun donor spawn");
+    Z_SetTeam(gun, 1); Z_SetTeam(defender, 1); Z_SetTeam(enemy, 0);
+    gun->z.driver = enemy->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1;
+    gun->z.robot = defender->z.robot = enemy->z.robot = lead->z.robot;
+    gun->traits &= ~(MF_MOBILE | MF_ATTACK);
+    defender->traits &= ~MF_ATTACK; enemy->traits &= ~MF_ATTACK;
+    defender->attack.target = enemy;
+    think(0);
+    zaitask_t *gt = task_of(gun), *lt = task_of(lead), *dt = task_of(defender);
+    if (!gt || !lt || !dt) return fail("fixed gun donor register");
+    map->ai.delay = 0; map->ai.fraction = 0;
+    think(1);
+    if (Z_AIUnitValue(gun) <= Z_AIUnitValue(lead) || !map->ai.territories[1].strength[0] ||
+        gt->home != 0 || gt->pending || lt->pending || P_HasMoveOrder(lead))
+        return fail("fixed gun selected as donor without a move order");
+    rts_game_model_destroy(model);
+    puts("PASS: z fixed gun can be selected as a defence donor");
+    return 0;
+}
+
 static int test_reinforce_requires_idle(void) {
     RtsGameModel *model = load();
     if (!model) return fail("reinforcement load");
@@ -1923,7 +1973,7 @@ static int test_building_alert(void) {
 int main(void) {
     return test_settings() || test_arithmetic() || test_factory_choice() || test_intelligence_and_radar() ||
            test_initial_and_save() || test_scores() ||
-           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
+           test_blocked_flag_retry() || test_strength_gate() || test_pending_assault_force() || test_garrison_one_per_pass() || test_blocked_assault_flag() || test_fort_followup() || test_unreachable_staging() || test_unreachable_flag() || test_unreachable_initial_staging() || test_pending_reserve_home() || test_home_order_backlog() || test_stray_home_reassignment() || test_reserve_task_not_expired() || test_frontier_overlap() || test_unreachable_frontier() || test_restricted_territory() || test_restricted_dispatch() || test_vehicles() || test_unreachable_vehicle_choice() || test_vehicle_scan_stops() || test_fixed_gun_defence_donor() || test_reinforce_requires_idle() || test_reinforce_negative_garrison() || test_retreat() || test_retreat_without_staging() || test_recapture() || test_unreachable_recapture() ||
            test_unreachable_service_return() || test_unreachable_crane_assignment() || test_unreachable_vehicle_repair() || test_bridge_takeover_unreachable_return() || test_bridge_scan_stops() || test_bridge_and_crane() || test_automatic_bridge() || test_task_seven() ||
            test_repair_scan_stops() || test_repair_facility() || test_building_service() || test_building_alert();
 }

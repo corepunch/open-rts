@@ -5274,3 +5274,21 @@ test. Native fixed-slot and engine thinker ordering remain approximations.
 Inspect with `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c
 'pd 28 @ 0x9c652' -c 'pd 30 @ 0x9c7dc' -c 'pd 38 @ 0x9c880' -c q
 data/Z/ZED.EXE` and `make build/bin/tests/z/test_commander`.
+
+**Fixed gun as a defence donor:** In `ZED.EXE` SHA-256
+`3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
+`0x9d330..0x9d38e` ranks active tasks in a donor territory by the value
+computed for their live group members at `0x9d390..0x9d42a`, without a
+leader-class or mobile test. After selection `0x9d23c..0x9d255` records a
+missing home, then calls `0x9d42c`, which returns immediately for native
+class 2 at `0x9d42c..0x9d430`. A fixed gun can therefore be selected as
+strongest donor without receiving a move order. Open-rts now includes fixed
+guns in donor ranking and rejects their staging dispatch based on the
+immutable unit-type traits; the existing service and pathing restrictions
+remain approximations. `test_fixed_gun_defence_donor` runs the normal AI
+pass with a Gatling and infantry in a neighboring territory and a threatened
+reserve: the gun's home is recorded, neither donor is moved, and the former
+mobile-only donor filter fails the test. Inspect with `r2 -q -e
+bin.cache=true -e bin.relocs.apply=true -c 'pd 95 @ 0x9d330' -c
+'pd 32 @ 0x9d23c' -c 'pd 10 @ 0x9d42c' -c q data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_commander`.

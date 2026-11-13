@@ -113,9 +113,10 @@ static bool pending_home_order(const zmap_t *map, const zaitask_t *task) {
 static bool send(zmap_t *map, zaitask_t *task, int territory) {
     if (territory < 0 || territory >= map->territory_count) return false;
     mobj_t *mo = P_MobjById(task->unit);
-    if (!live(mo)) return false;
+    int type = Z_UnitType(mo);
+    if (!live(mo) || (type >= 0 && !Z_IsRobot(type) && mo->info && !(mo->info->traits & MF_MOBILE)))
+        return false; /* Native class-2 guns return at 0x9d430. */
     if (!allowed(mo, map->ai.territories[territory].flags, false)) {
-        if (!(mo->traits & MF_MOBILE)) return false; /* Native class-2 guns return at 0x9d430. */
         queue(&map->ai, task, fixed3_xy(mo->core.position), 0);
         return true;
     }
@@ -744,7 +745,7 @@ static zaitask_t *donor(zmap_t *map, int territory, mobj_t *const *units, int co
     for (int i = 0; i < Z_AI_TASKS; ++i) {
         zaitask_t *task = &ai->tasks[i];
         mobj_t *group[MEMBERS], *mo = P_MobjById(task->unit);
-        if (!task->unit || task->current != territory || !live(mo) || !(mo->traits & MF_MOBILE) || mo->z.service) continue;
+        if (!task->unit || task->current != territory || !live(mo) || mo->z.service) continue;
         int n = members(task, units, count, group), value = 0;
         for (int j = 0; j < n; ++j) value += Z_AIUnitValue(group[j]);
         if (!value) continue;
