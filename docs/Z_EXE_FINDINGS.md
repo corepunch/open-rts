@@ -6792,3 +6792,54 @@ static fire-rate value fails this test. Inspect with `r2 -q -e bin.cache=true
 -e bin.relocs.apply=true -c 'pd 26 @ 0x98504' -c 'pd 38 @ 0x86dbe'
 -c 'pd 12 @ 0x50c39' -c q data/Z/ZED.EXE` and
 `make build/bin/tests/z/test_commander`.
+
+## Target scan: sight pointer, terrain ray and veto traced (2026-11-13, fid3/z-scan)
+
+*Pointer `0x104070`.* Nine references in the code object; all stores are immediate:
+`0x6e74c` installs `0x6e7ba`, `0x6e780` installs `0x6e834`, `0x6e7af` installs `0x6e8ae`
+(all inside the setup `0x6e64b`, run at the start of every line check). Calls through it:
+`0x6e419` (path-free 2-D variant `0x6e400`), `0x6e5df` (the ray loop) and `0x2702b`
+(a separate map routine whose own stores at `0x27157/0x2718b/0x271ba` install
+`0x271c5/0x2723f/0x272b9`, not used by the scan). The three scan variants are one
+3-D Bresenham step: `0x6e7ba` x-major, `0x6e834` y-major, `0x6e8ae` z-major.
+
+*Terrain ray (`0x6e583` unit/unit, `0x6e491` unit/object, `0x6e509` unit/effect pool,
+`0x6e45e` point/point; common body `0x6e5b7`).* Endpoint builder `0x6e928`: x and y are
+`(pos + 8 + (class +0x79 == 1 ? 8 : 0)) & 0xfff0` of unit +0x2c/+0x2e (top-left pixels);
+z is table `[0x149648]` (= `0x11714b`, the terrain height class, 67 bytes; the alternate
+`0x11718e` is only installed around the robot grenade check at `0x75325..0x75354`)
+indexed by the terrain byte `& 0x7f` of the unit's own cell pointer `+0x10`, which
+`0x796c7` sets to the 128-wide plane `0x10a910` at (top-left + 8, + 8) (so z uses the +8 cell,
+not the class-1 extra cell). `0x6e64b`: nonzero z is incremented, coordinates `>> 4` (cells), the
+endpoints are swapped when `x1 <= x0`, step counts are |dx|, |dy|, |dz| with signs for y and z,
+count = the largest (z major only when dz is strictly larger than both), error terms start at
+count/2. The loop (`0x6e5de..0x6e61c`) steps first and then compares: the start cell is not tested,
+the end cell is; the ray is blocked when the signed height class of the plane cell (`0x10a910`,
+`& 0x7f`, through `[0x149648]`) is greater than the interpolated z. Blocking inputs are therefore
+only the terrain plane (cliff classes 3..8 and 1..5, building and fort terrain ids with class 1),
+there is no building list or map-cell blocked test. Count zero is clear. `0x6e491` additionally
+rejects a target whose own cell class (plane `0x10a910` via `0x5fcdd`, base `0x106910` + `0x4000`)
+is nonzero and uses z = 0 for the target. `0x6e620` is a debug draw gated on `0x10f356`.
+Open-rts `Z_TerrainHeight` (p_detour.c) is the same table and plane.
+
+*Scan body.* `0x79320` ranks by `table[(int8)(dx>>3)^2 + (int8)(dy>>3)^2]` (48 when the sum is
+`>= 1024`), `jbe`-style acceptance (equal rank replaces), then calls `0x6e583` with al = the
+scanning unit's index (`0x10e980`) and ah = the candidate; carry (blocked) skips. Four scans:
+`0x1f158` (al 2 -> `0x12da59`, port group 1), `0x1f16f` (al 0xfe -> `0x12da5a`, group 3),
+`0x1f186` (al 0 -> `0x12da5b`, group 0), `0x1f19d` (al 4 -> `0x12da5c`, group 2); each
+runs `0x1f1b4`: `0x78f61`, then `0x591ca`, `0x9bded`, `0x9de02`, and only the single
+best candidate is tested (a failing post-filter leaves that scan empty). `0x1ea0d` returns
+without arming the reload when all four are empty (`0x1ea44`). Reach `0x591ca`: squared
+distance of top-left positions (the +12,+8 offsets cancel through `0x76aa3`) `<=` `((body+5 + 1) * 8)^2`
+for classes 1/2 (body +5 = the boarded robot's range byte, `0x63906`). `0x9bded`: candidate
+`+0x31 & 4` and team differs. `0x9de02`: veto only when `0x10e91e == 0`, then a read of
+`[22 * group + 0x15]` WITHOUT the table base (a retail bug: it reads low memory; the intended
+row `+0x15` test is at `0x98d9f` with base `0x18d388`), task row flag `+0x10 & 8` (set only by
+commander code, `0x9d5fc`, `0x9da13`, `0x9da69`, `0x99eec`, `0x9a695`), unit inside a
+`0x18cadc` rectangle with `+0x18 & 2` and group `+0x3d != 0`. The low-memory byte is not
+reproducible statically.
+
+*Knockdown (item 3).* Not traced further than the existing findings; not implemented.
+`+0x5a` lifecycle not completed.
+
+Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 140 @ 0x6e491' -c 'pd 40 @ 0x6e928' -c 'pd 120 @ 0x79320' -c 'pd 70 @ 0x1f158' -c 'pd 45 @ 0x591ca' -c 'pd 50 @ 0x9de02' data/Z/ZED.EXE`.
