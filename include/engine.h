@@ -848,6 +848,10 @@ struct gameinfo_s {
      * interceptors, Reavers scarabs). True when it took the attack; the
      * engine then only starts the cooldown. */
     bool (*attack)(struct mobj_s *attacker, const weapondef_t *weapon, struct mobj_s *target);
+    /* An autonomous weapon acquires its own targets without changing the
+     * unit's tracked order target or facing. Its attack receives NULL. */
+    bool (*autonomous_attack)(const struct mobj_s *attacker);
+    bool (*autonomous_attack_ready)(const struct mobj_s *attacker);
     /* Optional: cells added to a weapon's reach (a StarCraft Bunker's +1). */
     fixed_t (*range_bonus)(const struct mobj_s *attacker, const weapondef_t *weapon);
     /* Optional: further teams (sight bits, 0x40000000 >> team) that see what

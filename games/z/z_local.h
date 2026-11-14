@@ -222,7 +222,12 @@ static inline int Z_NativeSteps(int64_t tick, int hz) {
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 /* p_apc.c: the APC scanner salvo of travelling flames (0x1ea5c). */
 bool Z_FireFlameFrom(mobj_t *attacker, mobj_t *target, const ivec2_t *port);
-bool Z_APCScannerPyro(mobj_t *apc, mobj_t *target);
+bool Z_UsesAPCScanner(const mobj_t *apc);
+bool Z_APCScannerReady(const mobj_t *apc);
+bool Z_APCScannerPyro(mobj_t *apc);
+extern const int16_t z_scan_sectors[8][9];
+bool Z_InScanSector(int direction, ivec2_t delta);
+bool Z_TerrainRayClear(const zmap_t *map, ivec2_t from, int z0, ivec2_t to, int z1);
 void Z_APCAdvancePhases(mobj_t *apc);
 void A_ZBlastImpact(mobj_t *missile);
 void A_ZWater(mobj_t *water);

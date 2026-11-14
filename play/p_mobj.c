@@ -1005,10 +1005,21 @@ static void bounce(mobj_t *attacker, const weapondef_t *weapon, const mobj_t *fr
     }
 }
 
+static bool autonomous_attack(const mobj_t *unit) {
+    return gameinfo && gameinfo->autonomous_attack && gameinfo->autonomous_attack(unit);
+}
+
 bool P_Attack(mobj_t *attacker) {
     if (!attacker || !(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         ((attacker->traits & (MF_HEAL | MF_REPAIR)) &&
          attacker->attack.cooldown_left_ms > 0)) return false;
+    if (autonomous_attack(attacker)) {
+        const weapondef_t *weapon = &attacker->info->attack;
+        if (attacker->attack.cooldown_left_ms > 0 || !gameinfo->attack(attacker, weapon, NULL)) return false;
+        S_ActorSound(attacker, SE_ATTACK);
+        start_attack_cooldown(attacker, weapon);
+        return true;
+    }
     /* State actions must recheck range: the target can move during windup.
      * One that only got out of reach stays the target, to be chased. */
     bool chasing;
@@ -1088,6 +1099,13 @@ void A_Look(mobj_t *unit) {
     if (!unit || unit->hp <= 0 || !(unit->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         unit->attack.cooldown_left_ms > 0 || !gameinfo ||
         unit->type_id >= gameinfo->mobj_type_count) return;
+    if (autonomous_attack(unit)) {
+        int state = gameinfo->mobjinfo[unit->type_id].missilestate;
+        if (state != gameinfo->null_state && !(unit->traits & MF_NOAUTOTARGET) &&
+            !(unit->move_only && P_HasMoveOrder(unit)) && gameinfo->autonomous_attack_ready(unit))
+            P_SetMobjState(unit, state);
+        return;
+    }
     mobj_t *target = P_AttackTarget(unit);
     if (!target) return;
     if (gameinfo->attack_blocked && gameinfo->attack_blocked(unit, target)) return;
@@ -1655,7 +1673,7 @@ static void tick_actor(mobj_t *u) {
                 moving = P_MoveUnitTo(map, u, goal);
         }
         if (in_attack) moving = false;
-        if (moving && !in_attack) {
+        if (moving && !in_attack && !autonomous_attack(u)) {
             mobj_t *target = P_AttackTarget(u);
             if (target) {
                 u->attack.target = target;

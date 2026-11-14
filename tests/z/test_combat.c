@@ -1303,6 +1303,7 @@ static int test_flame_fire_truck(void) {
         apc->z.crew[0].flame_phase != 1 || apc->z.crew[2].flame_phase != 1)
         return fail("APC flame spares Fire Truck while advancing crew phases");
     mobj_t *control = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 16), 500);
+    P_UpdateSight();
     if (!control || !Z_Attack(apc, &apc->info->attack, control) || control->hp != 500)
         return fail("APC flame travels instead of hitting immediately");
     for (int t = 0; t < 400 && control->hp == 500; ++t)
@@ -1321,6 +1322,18 @@ static int test_flame_fire_truck(void) {
     return 0;
 }
 
+/* Keep these retail-data flight tests focused on their one enemy. The
+ * scanner no longer treats the caller-supplied target as its whole sector. */
+static void isolate_apc_target(const mobj_t *apc, const mobj_t *target) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit != target && Z_UnitType(unit) >= 0 && unit->team != apc->team)
+            P_RemoveMobj(unit);
+    }
+    P_UpdateSight();
+}
+
 static int test_apc_pyro_phase(void) {
     RtsGameModel *model = load();
     if (!model) return fail("load for APC Pyro phase");
@@ -1328,6 +1341,7 @@ static int test_apc_pyro_phase(void) {
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC Pyro fixture");
+    isolate_apc_target(apc, target);
     apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
     apc->z.crew_count = 3;
     uint32_t apc_id = apc->id, target_id = target->id;
@@ -1398,6 +1412,7 @@ static int test_apc_scanner_pyro(void) {
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC scanner fixture");
+    isolate_apc_target(apc, target);
     disarm_except(0, apc);
     apc->core.angle = P_PointToAngle(0, -FIXED_ONE);
     apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
@@ -1411,6 +1426,7 @@ static int test_apc_scanner_pyro(void) {
     for (int s = 0; s < 4; ++s) {
         clear_flames();
         target->core.position = fixed3_from_fixed2(pixel_at(at, sectors[s].x, sectors[s].y), 0);
+        P_UpdateSight();
         for (int i = 0; i < 3; ++i) apc->z.crew[i].flame_phase = 0;
         if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3)
             return fail("scanner salvo fires one flame per crew member from its group's ports");
@@ -1424,6 +1440,7 @@ static int test_apc_scanner_pyro(void) {
      * flames, and the fourth member's phase advances but not the fifth's. */
     clear_flames();
     target->core.position = fixed3_from_fixed2(pixel_at(at, 16, 0), 0);
+    P_UpdateSight();
     apc->z.crew_count = 5;
     for (int i = 0; i < 5; ++i) apc->z.crew[i].flame_phase = 0;
     if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3 ||
@@ -3015,7 +3032,7 @@ static int test_ejected_hull_impact(void) {
 }
 
 int main(void) {
-    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_scanner_pyro() || test_apc_scanner_pyro() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_pyro_building_bridge_damage_scale() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
+    if (test_jeep_bullet() || test_gatling_bullet() || test_specialist_bullets() || test_grunt_bullet() || test_orphan_bullet_armour() || test_bullet_terrain_gate() || test_bullet_range_order() || test_bullet_launch_height() || test_shell_wreck_preemption() || test_ejected_hull_impact() || test_bad_crew_combat() || test_apc_driver_cooldown() || test_apc_driver_range() || test_apc_firing_intervals() || test_apc_bullet_salvo() || test_flame_fire_truck() || test_apc_pyro_phase() || test_apc_scanner_pyro() || test_apc_shell_salvo() || test_death() || test_ordered_target() || test_alert() || test_pyro_cadence() || test_pyro_flame_lifecycle() || test_pyro_fire_geometry_and_byte_lifetime() || test_pyro_building_bridge_damage_scale() || test_grenade_cooldown() || test_gun_drivers() || test_shell_blast() || test_shell_building_contact() || test_shell_grenade_box() || test_shell_empty_object() || test_grenade_impact() || test_grenade_speed() || test_grenade_terrain() || test_grenade_launch() || test_grenade_scatter() || test_fire_truck_water() || test_water_terrain() || test_water_directions() || test_water_launch() || test_body_slowdown() ||
         test_gun_muzzle() || test_tank_aim() || test_tank_muzzle() || test_tank_shell_arc() || test_gun_aim() || test_rocket_salvos() || test_shell_terrain() || test_shell_flight() || test_shell_aim() || test_shell_speed()) return 1;
     return 0;
 }

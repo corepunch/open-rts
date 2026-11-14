@@ -6844,6 +6844,33 @@ reproducible statically.
 
 Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 140 @ 0x6e491' -c 'pd 40 @ 0x6e928' -c 'pd 120 @ 0x79320' -c 'pd 70 @ 0x1f158' -c 'pd 45 @ 0x591ca' -c 'pd 50 @ 0x9de02' data/Z/ZED.EXE`.
 
+### Open-rts Pyro APC scanner acquisition (issue #97)
+
+`p_apc.c` uses the bin offsets at `0x1047ca`, the native 32-entry bin cap
+and nine-list walk (at most 288 candidates), the sector tests at
+`0x793e6..0x7948c`, and the loaded `SQROOT.BIN` to select one target per
+port group. Equal ranks replace earlier candidates that passed the terrain
+ray. Range is checked only on the winner, with the inclusive unit reach
+from `0x1f1b4` (128 pixels for a Pyro driver). The shared terrain-ray body
+uses the traced unit/unit endpoints and height plane for this path.
+
+The engine builds transient bins from live, non-neutral unit thinkers in
+creation order. The save and resync archive restores that order. Native
+reusable unit slots and native group/action eligibility flags lack exact
+engine counterparts. The scan uses the engine's targetability and visibility
+checks alongside the native team, sector, and terrain tests. The engine
+keeps the tracked order target separate from the four transient port targets.
+An empty scan starts neither the reload nor the crew phase cycle. Projectile
+dispatch for other drivers stays on its existing path.
+
+The `0x9de02` CPU veto remains open. Its instruction sequence reads low
+memory without the group-table base. Static evidence establishes the
+following task and territory tests, but does not establish the byte value
+supplied by the DOS runtime or which candidates it vetoes in practice.
+The implementation does not substitute the apparent intended lookup.
+Recheck with the disassembly command above and
+`SDL_VIDEODRIVER=dummy build/bin/tests/z/test_apc_scan`.
+
 ### Moving-target lead records (issue #96, batch three)
 
 **Confirmed** in `ZED.EXE` (SHA-256 `3635cb69...4676`). `0x7628f` has five callers
