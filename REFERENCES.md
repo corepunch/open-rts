@@ -128,6 +128,13 @@ existing Warcraft II extra-state hooks, not the retail SNX format.
   license before incorporating code. None establishes retail behavior by
   itself. Compare hypotheses with the executable evidence in
   [Z_EXE_FINDINGS.md](docs/Z_EXE_FINDINGS.md).
+- APC comparison at the same Zod pin: [`ZObject::CheckPassiveEngage`](https://github.com/fenio/zod/blob/5ccb43ab76ee08c9f624906fb465dc3ba76a7a35/src/zobject.cpp#L1719-L1782)
+  holds one target and otherwise engages the first eligible in-range enemy
+  from the passive engagement list. [`WithinAttackRadius`](https://github.com/fenio/zod/blob/5ccb43ab76ee08c9f624906fb465dc3ba76a7a35/src/zobject.cpp#L894-L916)
+  checks centre distance and map engagement barriers. [`VAPC::Process`](https://github.com/fenio/zod/blob/5ccb43ab76ee08c9f624906fb465dc3ba76a7a35/src/vapc.cpp#L119-L164)
+  sends each Pyro flame effect toward that single target. The four sector
+  winners, bin limits, terrain ray, and port-attempt sequence for open-rts
+  issue #97 come from the retail ZED.EXE trace in `docs/Z_EXE_FINDINGS.md`.
 - Stargus at the existing pin `2a4d54604949e4772f6638a8412c8ebd62444044`
   remains useful for race command and sound inventories, IScript and CHK
   leads, and its Terran/Zerg AI scripts (`scripts/ai.lua` loads both).

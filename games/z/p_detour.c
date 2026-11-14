@@ -2,7 +2,7 @@
 #include "info.h"
 
 /* ZED.EXE 0x1047ca: nine sectors in each native search direction. */
-static const int16_t sectors[8][9] = {
+const int16_t z_scan_sectors[8][9] = {
     {0,-1,1,-17,-16,-15,-32,-33,-31},
     {0,1,2,-16,-15,-14,-32,-31,-30},
     {0,-16,16,1,-15,17,2,-14,18},
@@ -54,7 +54,7 @@ static bool visible(const mobj_t *mo, int team) {
     return team == 0;
 }
 
-static bool cone(int dir, ivec2_t d) {
+bool Z_InScanSector(int dir, ivec2_t d) {
     switch (dir) {
     case 0: return abs(d.x) <= -d.y;
     case 1: return d.x >= 0 && d.y < 0;
@@ -73,16 +73,13 @@ int Z_TerrainHeight(const zmap_t *map, int x, int y) {
     return terrain < sizeof(heights) ? heights[terrain] : 255;
 }
 
-/* 0x6e491/0x6e64b: the target must be at height zero. Trace the same
- * three-axis integer line, swapping endpoints when x is not increasing. */
-static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
-    ivec2_t source = Z_AITopLeft(unit);
-    int extra = Z_IsRobot(Z_UnitType(unit)) ? 0 : 8;
-    int x0 = (source.x + 8 + extra) / Z_TILE, y0 = (source.y + 8 + extra) / Z_TILE;
-    int x1 = (target.x + 8) / Z_TILE, y1 = (target.y + 8) / Z_TILE;
-    int z0 = Z_TerrainHeight(map, x0, y0), z1 = Z_TerrainHeight(map, x1, y1);
-    if (z0 == 255 || z1 != 0) return false;
+/* Shared ray body at 0x6e5b7. Callers supply endpoint cells and the
+ * heights read from their respective native terrain cells. */
+bool Z_TerrainRayClear(const zmap_t *map, ivec2_t from, int z0, ivec2_t to, int z1) {
+    if (z0 == 255 || z1 == 255) return false;
+    int x0 = from.x, y0 = from.y, x1 = to.x, y1 = to.y;
     if (z0) ++z0;
+    if (z1) ++z1;
     if (x1 <= x0) {
         int t = x0; x0 = x1; x1 = t;
         t = y0; y0 = y1; y1 = t;
@@ -101,6 +98,16 @@ static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
         if (Z_TerrainHeight(map, x0, y0) > z0) return false;
     }
     return true;
+}
+
+/* 0x6e491: the unit-to-object ray requires a height-zero target. */
+static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
+    ivec2_t source = Z_AITopLeft(unit);
+    int extra = Z_IsRobot(Z_UnitType(unit)) ? 0 : 8;
+    ivec2_t from = {(source.x + 8 + extra) / Z_TILE, (source.y + 8 + extra) / Z_TILE};
+    ivec2_t to = {(target.x + 8) / Z_TILE, (target.y + 8) / Z_TILE};
+    return Z_TerrainHeight(map, to.x, to.y) == 0 &&
+           Z_TerrainRayClear(map, from, Z_TerrainHeight(map, from.x, from.y), to, 0);
 }
 
 /* The native sector lists are rebuilt by ascending reusable object slot.
@@ -135,7 +142,7 @@ static mobj_t *candidate(const zmap_t *map, const mobj_t *unit, mobj_t *const *s
     mobj_t *best = NULL;
     int distance = 255;
     for (int i = 0; i < 9; ++i) {
-        int s = sector + sectors[dir][i], count = 0;
+        int s = sector + z_scan_sectors[dir][i], count = 0;
         if (s < 0 || s >= 256) continue;
         for (int j = 0; j < OBJECT_SLOTS; ++j) {
             mobj_t *mo = slots[j];
@@ -144,7 +151,7 @@ static mobj_t *candidate(const zmap_t *map, const mobj_t *unit, mobj_t *const *s
                 (pos.x >> 7) + 16 * (pos.y >> 7) != s) continue;
             if (++count > 32) break;
             ivec2_t delta = ivec2_sub(pos, at);
-            if (!visible(mo, unit->team) || !cone(dir, delta)) continue;
+            if (!visible(mo, unit->team) || !Z_InScanSector(dir, delta)) continue;
             int dx = (int8_t)(delta.x >> 3), dy = (int8_t)(delta.y >> 3);
             int index = dx * dx + dy * dy;
             int rank = index < 1024 ? map->square_roots.bytes[index] : 48;
