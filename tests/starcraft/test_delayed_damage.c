@@ -2,7 +2,9 @@
  * their bullet's Death script reaches domissiledmg, not on the firing tick:
  * the exact 24 Hz script frame per weapon from the real iscript.bin, a target
  * or an attacker that goes before the frame, a target that moves, the
- * upgrade level read at the hit, and a pending hit through a save. */
+ * upgrade level read at the hit, and a pending hit through a save. The same
+ * holds for the appear-at-source (5) and self-destruct (6) weapons, whose
+ * bullet is left on the unit that fired it. */
 #include "t_local.h"
 #include "sc_local.h"
 #include <stdlib.h>
@@ -216,6 +218,41 @@ static int upgrade_at_hit(void) {
     return 0;
 }
 
+/* Appear-at-source (behavior 5) and self-destruct (behavior 6) weapons:
+ * the bullet is made on the unit that fires it and strikes five frames later
+ * from where that unit stood. A splash weapon's rings run from the bullet, so
+ * its target has to be next to the attacker; a single-target weapon hits its
+ * target wherever it is and leaves the neighbours alone. */
+static int source_weapons(void) {
+    static const int weapon[] = {6, 54, 55, 82, 85, 86};
+    for (unsigned i = 0; i < sizeof(weapon) / sizeof(*weapon); ++i) {
+        int w = weapon[i];
+        const sc_weapon_t *def = &sc_weapons[w];
+        CHECK(setup(w));
+        if (def->explosion != 1) victim->core.position = fixed3_from_fixed2(FIXED2_LIT(6, 5), 0);
+        mobj_t *near_unit = spawn(MT_MARINE, FIXED2_LIT(5, 6), 1);
+        mobj_t *far_unit = spawn(MT_MARINE, FIXED2_LIT(15, 15), 1);
+        CHECK(near_unit && far_unit);
+        int target0 = vitals(victim), near0 = vitals(near_unit), far0 = vitals(far_unit);
+        int start = leveltime;
+        mobj_t *shot = fire();
+        CHECK(shot && shot->sc.projectile.pending);
+        fixed2_t at = fixed3_xy(shot->core.position), from = fixed3_xy(shooter->core.position);
+        CHECK(at.x == from.x && at.y == from.y);
+        same_tick(shot);
+        CHECK(vitals(victim) == target0 && vitals(near_unit) == near0 && vitals(far_unit) == far0);
+        int hit = -1;
+        for (int t = 1; t < 60 && hit < 0; ++t) {
+            tick(shot);
+            if (vitals(victim) < target0 || vitals(near_unit) < near0) hit = leveltime - start;
+        }
+        CHECK(hit == tick_of_frame(start, 5) - start && hit > 0);
+        CHECK(vitals(far_unit) == far0);
+        CHECK((vitals(near_unit) < near0) == (def->explosion != 1));
+    }
+    return 0;
+}
+
 /* A pending hit through a save. */
 typedef struct {
     char magic[8];
@@ -317,7 +354,8 @@ int main(void) {
     CHECK(R_InitSprites(root, &level, units.items, units.count, &cache));
     P_FreeMobjList(&units); P_FreeThinkers(); P_InitThinkers(); CHECK(P_InitSight());
     CHECK(sc_iscript_load(root));
-    if (frames() || single_target() || attacker_gone() || splash_centre() || upgrade_at_hit() || saved_pending()) return 1;
+    if (frames() || single_target() || attacker_gone() || splash_centre() || upgrade_at_hit() ||
+        source_weapons() || saved_pending()) return 1;
     puts("PASS: delayed weapon damage from the Death script");
     return 0;
 }

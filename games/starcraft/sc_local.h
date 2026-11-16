@@ -51,6 +51,10 @@ static inline const sc_unit_t *sc_unit(const mobj_t *mo) {
 enum { SC_WEAPONS = 130 };
 enum { SC_DAMAGE_INDEPENDENT, SC_DAMAGE_EXPLOSIVE, SC_DAMAGE_CONCUSSIVE, SC_DAMAGE_NORMAL, SC_DAMAGE_IGNORE_ARMOR };
 enum { SC_EXPLOSION_RADIAL = 2, SC_EXPLOSION_ENEMY = 3, SC_EXPLOSION_AIR = 24 };
+/* OpenBW bullet types that never fly: 2 appears at the target, rolls once per
+ * bullet and damages from its Death script; 5 appears at the attacker and 6
+ * does too and kills it as the bullet is made. */
+enum { SC_BEHAVIOR_APPEAR_TARGET = 2, SC_BEHAVIOR_APPEAR_SOURCE = 5, SC_BEHAVIOR_SELF_DESTRUCT = 6 };
 enum { SC_BEHAVIOR_BOUNCE = 7 };
 typedef struct {
     const char *name;
@@ -389,7 +393,6 @@ void sc_repair_ticker(mobj_t *mo, int frames);
 bool sc_can_recharge_shields(const mobj_t *unit, mobj_t *battery);
 void sc_finish_recharge_order(mobj_t *unit, uint32_t battery_id);
 void sc_order_ticker(mobj_t *mo, int frames);
-int sc_unit_distance(const mobj_t *a, const mobj_t *b);
 extern int sc_flight_states[SC_TYPES][2];
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 int sc_modified_cooldown_frames(const mobj_t *unit, int frames);

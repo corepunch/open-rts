@@ -6,6 +6,9 @@
 #ifdef RTS_MODULE_DARK_COLONY
 #include "dark-colony.h"
 #endif
+#ifdef RTS_MODULE_STARCRAFT
+#include "starcraft.h"
+#endif
 #include "info.h"
 #include <limits.h>
 
@@ -631,6 +634,16 @@ static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, fi
 #endif
     const weapondef_t *weapon = P_MobjWeapon(attacker, target);
     fixed_t least = weapon ? weapon->min_range : 0;
+#ifdef RTS_MODULE_STARCRAFT
+    /* A self-destructing unit closes to a pixel distance OpenBW fires at;
+     * see sc_suicide_range. Its bullet is left on the unit itself, so the
+     * tile gap alone would stop it a cell short of its own splash. */
+    int close = sc_suicide_range(attacker);
+    if (close > 0) {
+        int d = sc_unit_distance(attacker, target);
+        return d <= close && d >= (int)(least / (FIXED_ONE / 32));
+    }
+#endif
     if (target->info && target->info->footprint.w > 0 && target->info->footprint.h > 0) {
         irect_t a = P_MobjCells(attacker), b = P_MobjCells(target);
         int dx = b.x > a.x + a.w - 1 ? b.x - (a.x + a.w - 1) :

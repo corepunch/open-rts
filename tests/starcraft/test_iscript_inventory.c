@@ -159,6 +159,15 @@ int main(int argc, char **argv) {
     CHECK(death_hit_frame(70) == 3 && death_hit_frame(71) == 3); /* Psionic Shockwave */
     CHECK(death_hit_frame(53) == 5 && death_hit_frame(45) == 5); /* Subterranean Tentacle, Acid Spray */
     CHECK(death_hit_frame(0) == 0 && death_hit_frame(25) == 5);  /* Gauss Rifle, Flame Thrower */
+    /* Appear-at-source (5) and self-destruct (6) bullets are made on the unit
+     * that fires them and wait in their Death before dealing damage: Spider
+     * Mines, the Infested Terran, the Scourge, Scarabs and the Warp Blades. */
+    for (int w = 0; w < SC_WEAPONS; ++w) {
+        int b = sc_weapons[w].behavior;
+        if ((b == SC_BEHAVIOR_APPEAR_SOURCE || b == SC_BEHAVIOR_SELF_DESTRUCT) &&
+            sc_weapons[w].damage > 0 && sc_weapons[w].flingy > 0)
+            CHECK(death_hit_frame(w) == 5);
+    }
     puts("PASS: iscript.bin opcode inventory");
     return 0;
 }
