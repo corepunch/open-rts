@@ -367,7 +367,14 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
     mobj->frame = state->frame + mobj->state_frame;
+#ifdef RTS_MODULE_STARCRAFT
+    /* setflipstate pins the flip and setfldirect pins the facing; every other
+     * state follows the sprite frame and the angle the unit is turning to. */
+    mobj->render_flags = state->flip ? RTS_FRAME_FLIP_X : 0;
+    if (state->dir1) mobj->angle = direction_to_angle((32 - (state->dir1 - 1)) % 32, 32, ANG90, false);
+#else
     mobj->render_flags = 0;
+#endif
     mobj->render_remap = 0;
     mobj->render_intensity = 16;
     if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };

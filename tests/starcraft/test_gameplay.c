@@ -310,7 +310,11 @@ static int economy_and_combat(void) {
     int hp = zergling->hp, expected = 6 + 1 - sc_units[MT_ZERGLING - 1].armor;
     order(marine, TC_ATTACK, fixed3_xy(zergling->core.position), zergling, 0);
     for (int t = 0; t < 200 && zergling->hp == hp; t++) tick(1);
-    CHECK(hp - zergling->hp == expected);
+    /* Zerg regeneration can run in the frame the hit lands, and StarCraft shows
+     * hit points rounded up, so compare the 1/256-point loss: the whole hit,
+     * less at most one point of regeneration. */
+    int lost = hp * 256 - (zergling->hp * 256 - zergling->sc.wound);
+    CHECK(lost > (expected - 1) * 256 && lost <= expected * 256);
     look(marine);
     draw("/private/tmp/starcraft-gameplay-attack.bmp");
     /* Dying: the zergling plays its death and is removed when it ends. */

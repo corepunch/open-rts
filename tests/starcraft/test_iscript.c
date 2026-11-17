@@ -487,6 +487,25 @@ static int saves(void) {
     return 0;
 }
 
+/* The IScript fields w_assets.c compiles into a state rather than executing:
+ * waitrand's roll, setfldirect's facing and setflipstate's flip. */
+static int compiled_fields(void) {
+    int rolls = 0, dirs = 0, flips = 0;
+    for (int s = 0; s < SC_STATES; ++s) {
+        if (states[s].action == A_WaitRand || states[s].action == A_WaitRandAction) ++rolls;
+        if (states[s].dir1) ++dirs;
+        if (states[s].flip) ++flips;
+    }
+    CHECK(rolls > 0 && dirs > 0 && flips > 0);
+    /* ScourgeInit's `waitrand 1 5` (iscript.txt:31): one and five script
+     * frames at 24 Hz are 1 and 6 engine ticks, and an idle wait keeps the
+     * group's own action so the unit still looks for a target. */
+    const state_t *scourge = &states[1 + (MT_SCOURGE - 1) * 2];
+    CHECK(scourge->tics == 1 && scourge->tics_max == 6);
+    CHECK(scourge->group == SC_GROUP_IDLE && scourge->action == A_WaitRandAction);
+    return 0;
+}
+
 int main(void) {
     CHECK(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == 0);
     if (synthetic()) return 1;
@@ -497,6 +516,7 @@ int main(void) {
     CHECK(P_LoadThings(level.map_path) > 0);
     mobjlist_t units = P_ListMobjs();
     CHECK(R_InitSprites(root, &level, units.items, units.count, &cache));
+    if (compiled_fields()) return 1;
     P_FreeMobjList(&units); P_FreeThinkers(); P_InitThinkers(); CHECK(P_InitSight());
     if (real_scripts()) return 1; if (missile_sounds()) return 1; if (worker_swings()) return 1; if (saves()) return 1;
     puts("PASS: IScript timing, branches, random draws, sounds and cursor saves");

@@ -222,6 +222,30 @@ bool sc_iscript_load(const char *root) {
 }
 
 static uint32_t host_random(void *ctx, int source) { (void)ctx; (void)source; return sc_random(); }
+
+/* waitrand's compiled wait: the state table carries both ends of the roll, and
+ * P_SetMobjStateFrame has already set the minimum when the action runs
+ * (play/p_mobj.c executes the action on state entry, after the tics). */
+static const state_t *wait_state(const mobj_t *unit) {
+    if (!gameinfo || !gameinfo->states || unit->core.state_id < 0 ||
+        unit->core.state_id >= gameinfo->state_count) return NULL;
+    return &gameinfo->states[unit->core.state_id];
+}
+void A_WaitRand(mobj_t *unit) {
+    const state_t *st = wait_state(unit);
+    if (!st || st->tics_max <= st->tics) return;
+    unit->core.tics = st->tics + (int)(sc_random() % (uint32_t)(st->tics_max - st->tics + 1));
+}
+/* The group's own action, so a random wait still looks and acts like the wait
+ * it replaces. w_assets.c names this only where that action exists. */
+void A_WaitRandAction(mobj_t *unit) {
+    A_WaitRand(unit);
+    const state_t *st = wait_state(unit);
+    if (!st) return;
+    if (st->group == SC_GROUP_IDLE) A_Look(unit);
+    else if (st->group == SC_GROUP_WALK) A_Chase(unit);
+    else if (st->group == SC_GROUP_ATTACK) A_Attack(unit);
+}
 /* A pending hit's sound is the weapon's own, played when it fires (sounds.c). */
 static void host_sound(void *ctx, int row) {
     const mobj_t *mo = ctx;

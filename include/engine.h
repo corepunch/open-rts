@@ -506,6 +506,7 @@ typedef struct level_s {
     bool player_teams; /* Independent players use the alliance masks. */
     uint8_t player_colors[8];
     char tileset_name[32];
+    int tileset; /* The ERA index behind tileset_name; playframtile offsets its frame by it. */
     void *native_data;
     void (*destroy_native_data)(void *);
     void *mission;
@@ -737,6 +738,13 @@ typedef struct state_s {
     int nextstate;
     int group; /* Gameplay animation group, independent of sprite presentation. */
     const int16_t *frame_tics; /* Optional per-frame durations, `count` entries. */
+#ifdef RTS_MODULE_STARCRAFT
+    /* IScript's own per-state values, compiled by w_assets.c. Every other game
+     * builds without them, so its positional state tables stay eight wide. */
+    int tics_max; /* waitrand's slow end in ticks; zero means tics is exact. */
+    uint8_t dir1; /* setfldirect's facing plus one; zero follows the mobj angle. */
+    bool flip;    /* setflipstate: true pins the flip, false follows the sprite frame. */
+#endif
 } state_t;
 
 /* Per-frame durations of a state-table row with uneven native timing. */

@@ -23,9 +23,10 @@ static int zero_waits, inverted_waitrands, scripts_walked, images_walked;
 /* How w_assets.c compiles an opcode: the visual states it builds, or the
  * runtime in p_iscript.c, which executes every opcode below the line. */
 static const char *const ASSET_STATUS[SC_ISCRIPT_OPS] = {
-    [0] = "yes", [1] = "mis-handled: frame without the tileset offset",
-    [5] = "yes", [6] = "mis-handled: compiled as a wait of its minimum",
+    [0] = "yes", [1] = "yes",
+    [5] = "yes", [6] = "yes",
     [7] = "yes", [22] = "yes", [30] = "ignored: the jump is never taken", [53] = "yes", [54] = "yes",
+    [23] = "yes",
     [8] = "partial: first image of a death or bullet script", [9] = "ignored",
     [13] = "partial: as imgol", [14] = "ignored",
     [15] = "partial: first sprite of a death, trail or impact", [16] = "partial: as sprol",
@@ -33,7 +34,8 @@ static const char *const ASSET_STATUS[SC_ISCRIPT_OPS] = {
     [21] = "partial: as sprol", [66] = "partial: as sprol",
     [27] = "yes: strike", [28] = "yes: strike", [37] = "yes: strike", [38] = "yes: strike",
     [40] = "yes: strike", [68] = "yes: strike",
-    [42] = "partial: ends a worker swing", [48] = "partial: ends the path", [52] = "partial: frames stay unflipped",
+    [42] = "partial: ends a worker swing", [48] = "partial: ends the path",
+    [52] = "yes", [55] = "ignored: sc_unit_ticker sets speed from ActorType",
     [24] = "ignored: first sound only, in sounds.c", [25] = "ignored: first sound only, in sounds.c",
     [26] = "ignored: first sound only, in sounds.c",
     [57] = "ignored: never taken", [58] = "ignored: never taken", [59] = "ignored: never taken",
