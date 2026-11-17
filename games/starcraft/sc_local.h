@@ -429,6 +429,12 @@ fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
  * units.dat's add-on position. */
 uint16_t sc_addon_parent(uint16_t type);
 mobj_t *sc_addon_of(const mobj_t *building);
+/* The linked add-on once complete (what tech checks need), or the one still
+ * under construction beside its building (OpenBW current_build_unit). */
+mobj_t *sc_addon_ready(const mobj_t *building);
+mobj_t *sc_addon_building(const mobj_t *building);
+/* Turns a queued add-on order into an incomplete add-on site (p_prod.c). */
+void sc_addon_ticker(void);
 void sc_detach_addon(mobj_t *building);
 void sc_reconnect_addon(mobj_t *building, ivec2_t cell);
 bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell);

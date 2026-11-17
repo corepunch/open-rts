@@ -662,6 +662,16 @@ static int tech_card(void) {
     CHECK(!card(name(MT_MACHINE_SHOP), &factory, 1)); /* one add-on: the button leaves */
     CHECK(locked(card(name(MT_SIEGE_TANK), &other, 1), "Machine Shop"));
     CHECK(usable(card(name(MT_MACHINE_SHOP), &other, 1)));
+    /* Putting one up, the Factory offers Cancel Addon and nothing else. */
+    int minerals = level.player_resources[consoleplayer][0], gas = level.player_resources[consoleplayer][1];
+    level.player_resources[consoleplayer][0] = level.player_resources[consoleplayer][1] = 1000;
+    CHECK(G_QueueProduct(other, G_ModelProductByUIId(NULL, MT_MACHINE_SHOP)));
+    G_ProductionTicker(RTS_TICK_MS);
+    CHECK(sc_addon_building(other) && usable(card("Cancel Addon", &other, 1)));
+    CHECK(!card(name(MT_VULTURE), &other, 1) && !card("Lift Off", &other, 1));
+    CHECK(sc_cancel_production(other, -1) && !sc_addon_of(other));
+    level.player_resources[consoleplayer][0] = minerals; level.player_resources[consoleplayer][1] = gas;
+    CHECK(usable(card(name(MT_MACHINE_SHOP), &other, 1)));
     beside(MT_ARMORY, hall, 0, -6);
     CHECK(usable(card(name(MT_GOLIATH), &factory, 1)));
     /* Siege Mode stays greyed on the tank until the Machine Shop researches it. */

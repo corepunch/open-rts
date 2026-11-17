@@ -69,11 +69,74 @@ Local status was checked by `tests/starcraft/test_service_audit.c`,
 | Shield Battery | `unit_can_use_shield_battery` and `update_unit_energy` need `u_completed` | Was different: a foundation battery recharged shields and regenerated energy. Fixed (`sc_foundation`, two guards in `p_combat.c`) |
 | Train, research, upgrade, tech, orders | `unit_can_build`, `unit_can_research`, `unit_can_upgrade`, `unit_can_use_tech`, `unit_can_receive_order` (rally excepted) all need `u_completed` | Matches: a foundation or a morphing Hatchery refuses a Queen and a research order, accepts them once the morph ends |
 | Larva | `secondary_order_SpawningLarva` has no completion test | Matches (larvae continue through a Lair morph, none from a Hatchery foundation) |
-| Terran add-on under construction | `secondary_order_BuildAddon` steps the add-on unit with `resume_building_unit` | Not modelled: the local add-on appears at completion, so it has no HP ramp and cannot be attacked or cancelled mid-build |
+| Terran add-on under construction | `secondary_order_BuildAddon` steps the add-on unit with `resume_building_unit` | Matches: the add-on is an incomplete site from the start (see the add-on section below) |
 | Auto-target priority | `unit_target_attack_priority` ranks an incomplete target one step lower | Not modelled for any target (no priority model in `p_combat.c`, which another agent owns) |
 
 Commands: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=60 make -o
 starcraft-maps test-starcraft` (25 passed, 0 failed).
+
+## Terran add-on under construction (issue 99)
+
+Pinned OpenBW `bwgame.h` and `actions.h` (commit 4b046d5f), confirmed by
+reading the functions named here:
+
+- `order_PlaceAddon`: once the building is grounded at its spot, the add-on
+  must pass `player_has_supply_and_resources_for` and `can_place_building`;
+  otherwise nothing is created and nothing is paid. Then `create_unit` makes
+  it (an incomplete building: a tenth of its HP, `hp_construction_rate` from
+  `initialize_unit_type`), the cost is taken, the building gets secondary
+  order `BuildAddon` with the add-on as `current_build_unit`, and the add-on
+  takes `IncompleteBuilding`.
+- `secondary_order_BuildAddon`, each frame of the building: nothing while
+  `unit_is_disabled`; if the building is no longer grounded and the add-on is
+  incomplete, `cancel_building_unit(addon)`; otherwise
+  `resume_building_unit(addon)` (HP step, then the timer; the frame that finds
+  it at zero steps once more and completes) and, once complete,
+  `connect_addon`. `building.addon` is set only there, so `unit_has_addon`
+  (the tech checks) never sees an incomplete one.
+- `unit_is_building_addon` (secondary BuildAddon, grounded, add-on incomplete)
+  makes `unit_is_constructing` true: the building trains, researches and
+  upgrades nothing meanwhile. Lift Off is not refused by
+  `unit_can_receive_order`; it cancels the add-on through the rule above.
+- Cancel: `action_cancel_addon` (action 52, the building selected alone,
+  completed, grounded) and `action_cancel_building_unit` (action 24, the
+  add-on itself) both call `cancel_building_unit`, which for a grounded
+  Terran building is `partially_refund_unit_costs` (3/4 of each, rounded
+  down) and `kill_unit`. stat_txt.tbl has the "Cancel Addon" label.
+- Kill path (`destroy_unit_impl` area): a building dying with an incomplete
+  add-on cancels it (3/4 back); a finished add-on is abandoned
+  (`building_abandon_addon`: neutral, LiftOff animation). `make_unit_neutral`
+  cancels the same way. `give_unit_to` passes the incomplete add-on to the new
+  owner with the building.
+- `order_InfestedCommandCenter` abandons only a finished add-on, then
+  `set_secondary_order(Nothing)` clears `current_build_unit` without a
+  cancel: the add-on stays its old owner's, incomplete, and nothing steps it.
+
+Local model (`games/starcraft/p_prod.c` `sc_addon_ticker`, run from
+`G_ProductionBegin`): the queued add-on order (paid at queue time, as before)
+becomes a placed construction site on the next production tick, linked by
+`sc.parent` and `sc.addon` from the start; `sc_addon_ready` is the completed
+add-on for tech checks, `sc_addon_building` the one under construction. If the
+place is taken by then, the full cost comes back (OpenBW never takes it).
+`G_ModelCanProgressConstruction` runs the BuildAddon rules on the site, and
+`G_ModelUpdateConstruction` steps it as an SCV building. No new saved fields:
+the link, the site's production and `sc.construction` were already saved and
+hashed, so `G_SaveLayout` stays 28; an older save with a queued add-on is
+converted on its first tick. The Factory card shows only Cancel Addon.
+`tests/starcraft/test_addon_construction.c` covers the ramp (Machine Shop
+19200 + 288 per frame in 1/256 HP, 601 steps), damage, completion and tech,
+both cancels (37/37 back), Lift Off, the building's death (incomplete
+cancelled, finished one neutral), a destroyed site (no refund), a blocked
+place (full refund), infestation leaving it frozen, and a save round trip.
+
+Not modelled: the add-on's progress shown on the building's status panel
+(the local panel shows it only when the add-on is selected); an SCV Repair
+order on an incomplete add-on (OpenBW `order_Repair` falls into
+`ConstructingBuilding`, which would also step it; the default right-click
+excludes add-ons); the retail button set for a building whose add-on is
+under construction beyond the Cancel Addon button (not traced in
+starcraft.exe); infestation is not refused for a building putting up an
+add-on in OpenBW either, and the frozen add-on cannot be finished locally.
 
 ## Creep growth and recession (issue 99, item 3)
 

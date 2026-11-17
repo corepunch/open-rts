@@ -2117,7 +2117,7 @@ static void cancel_production(menu_t *m,menuitem_t *i,menuaction_t a) {
     if(a!=MA_ACTIVATE)return;
     for(int j=0;j<hudview.unit_count;j++) {
         mobj_t *u=hudview.units[j];
-        if(!P_MobjIsSelected(u)||u->owner!=consoleplayer||!u->production)continue;
+        if(!P_MobjIsSelected(u)||u->owner!=consoleplayer||(!u->production&&!sc_addon_building(u)))continue;
         ticcmd_t cmd={.order=TC_CANCEL_PRODUCTION,.product=-1,.count=1,.units={u->id}};
         G_QueueTiccmd(&cmd);
         return;
@@ -2381,6 +2381,12 @@ static void refresh(menu_t *menu) {
             button(8,283,SDLK_l,command,TC_LAND,"Land");
             return;
         }
+    }
+    /* Putting up an add-on, the building offers only Cancel Addon
+     * (stat_txt; OpenBW action_cancel_addon). */
+    if(selection_count==1&&!queue&&sc_addon_building(selected)) {
+        button(8,236,SDLK_ESCAPE,cancel_production,0,"Cancel Addon");
+        return;
     }
     if(queue&&!queue->placed&&(queue->product_class!=RTS_PRODUCT_UNIT||
        selected->type_id==MT_EGG||selected->type_id==MT_COCOON)) {

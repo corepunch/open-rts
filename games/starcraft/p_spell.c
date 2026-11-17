@@ -430,8 +430,12 @@ static void stasis(mobj_t *caster, fixed2_t at) {
 /* The Queen goes in, the Command Center turns Zerg under her owner, and she
  * comes out 60 frames later (OpenBW order_InfestingCommandCenter). */
 static void infest(mobj_t *queen, mobj_t *cc) {
+    /* building_abandon_addon leaves a finished add-on neutral; one still
+     * under construction is only let go of (set_secondary_order clears
+     * current_build_unit), so it stays its owner's, frozen, until cancelled. */
     mobj_t *addon = sc_addon_of(cc);
-    if (addon) { addon->sc.parent = 0; addon->owner = addon->team = 11; addon->allegiance = ALLEGIANCE_NEUTRAL; }
+    if (addon && sc_foundation(addon)) addon->sc.parent = 0;
+    else if (addon) { addon->sc.parent = 0; addon->owner = addon->team = 11; addon->allegiance = ALLEGIANCE_NEUTRAL; }
     cc->sc.addon = 0;
     if (cc->production) sc_cancel_production(cc, -1);
     cc->sc.rally = (sc_rally_t){0};

@@ -230,12 +230,26 @@ uint16_t sc_addon_parent(uint16_t type) {
     return MT_NONE;
 }
 mobj_t *sc_addon_of(const mobj_t *building) {
-    mobj_t *addon = building ? P_MobjById(building->sc.addon) : NULL;
-    return addon && addon->sc.parent == building->id ? addon : NULL;
+    mobj_t *addon = building && building->sc.addon ? P_MobjById(building->sc.addon) : NULL;
+    return addon && !addon->remove && addon->hp > 0 && addon->sc.parent == building->id ? addon : NULL;
 }
+mobj_t *sc_addon_ready(const mobj_t *building) {
+    mobj_t *addon = sc_addon_of(building);
+    return addon && !sc_foundation(addon) ? addon : NULL;
+}
+mobj_t *sc_addon_building(const mobj_t *building) {
+    mobj_t *addon = sc_addon_of(building);
+    return addon && sc_foundation(addon) ? addon : NULL;
+}
+/* OpenBW secondary_order_BuildAddon, make_unit_neutral and the kill path
+ * cancel an add-on still under construction (cancel_building_unit: three
+ * quarters back, the site dies); building_abandon_addon leaves a finished
+ * one neutral. */
 void sc_detach_addon(mobj_t *building) {
     mobj_t *addon = sc_addon_of(building);
-    if (addon) {
+    if (addon && sc_foundation(addon)) {
+        sc_cancel_production(addon, 0);
+    } else if (addon) {
         sc_interrupt(addon);
         if (addon->production) sc_cancel_production(addon, -1);
         addon->sc.parent = 0; addon->owner = addon->team = 11;
@@ -247,7 +261,7 @@ void sc_detach_addon(mobj_t *building) {
 void sc_reconnect_addon(mobj_t *building, ivec2_t at) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *addon = (mobj_t *)th;
-        if (!live(th) || addon->sc.parent || (addon->owner != 11 && addon->owner != building->owner) ||
+        if (!live(th) || addon->sc.parent || sc_foundation(addon) || (addon->owner != 11 && addon->owner != building->owner) ||
             sc_addon_parent(addon->type_id) != building->type_id) continue;
         ivec2_t offset = sc_unit(addon)->addon;
         ivec2_t cell = ivec2_add(at, (ivec2_t){offset.x / 32, offset.y / 32});
