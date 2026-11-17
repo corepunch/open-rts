@@ -918,7 +918,7 @@ bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     if (!apc && t == MT_UNIT_PYRO - MT_UNITS && target)
         return fire_pyro_flame(attacker, target);
-    if (apc && target && weapon && t == MT_UNIT_PYRO - MT_UNITS) return Z_APCScannerPyro(attacker, target);
+    if (apc && target && weapon && t == MT_UNIT_PYRO - MT_UNITS) return Z_APCScannerPyro(attacker);
     if (apc && target && weapon) Z_APCAdvancePhases(attacker);
     if (apc && fires_bullets(t) && target && weapon && Z_UnitType(target) >= 0) {
         const mobjtype_t *driver = P_ActorType((uint16_t)(MT_UNITS + t));

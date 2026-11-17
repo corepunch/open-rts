@@ -75,6 +75,18 @@ static fixed2_t pixel_at(fixed2_t at, int x, int y) {
     return fixed2_add(at, (fixed2_t){x * (FIXED_ONE / Z_TILE), y * (FIXED_ONE / Z_TILE)});
 }
 
+/* The scanner walk (0x79320) only sees grouped units: native +0x5d is 0xff
+ * for an ungrouped one. The fixture clears the map's armies out of that set
+ * and gives its own target a squad, so a salvo aims at what the test placed
+ * rather than at whatever LEVEL01 starts with. */
+static void scan_target(mobj_t *mo) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *other = (mobj_t *)th;
+        if (th->function == P_MobjThinker && other->team) other->z.squad = 0;
+    }
+    mo->z.squad = Z_AllocateSquad(mo->team);
+}
+
 static void jeep_terrain(const mobj_t *jeep, uint8_t terrain) {
     zmap_t *map = level.native_data;
     ivec2_t origin = ivec2_sub(Z_BlastAnchor(jeep), (ivec2_t){20, 23});
@@ -1290,6 +1302,7 @@ static int test_flame_fire_truck(void) {
     mobj_t *truck = blast_unit(MT_UNIT_FIRE_TRUCK, 1, pixel_at(at, 16, 0), 500);
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
     if (!pyro || !truck || !apc) return fail("spawn Fire Truck flame fixture");
+    scan_target(truck);
     disarm_except(0, pyro);
     pyro->z.grenades = 0;
     pyro->attack.target = truck;
@@ -1303,7 +1316,9 @@ static int test_flame_fire_truck(void) {
         apc->z.crew[0].flame_phase != 1 || apc->z.crew[2].flame_phase != 1)
         return fail("APC flame spares Fire Truck while advancing crew phases");
     mobj_t *control = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 16), 500);
-    if (!control || !Z_Attack(apc, &apc->info->attack, control) || control->hp != 500)
+    if (!control) return fail("spawn Fire Truck control");
+    scan_target(control); /* the truck leaves the scan, so this is what the salvo aims at */
+    if (!Z_Attack(apc, &apc->info->attack, control) || control->hp != 500)
         return fail("APC flame travels instead of hitting immediately");
     for (int t = 0; t < 400 && control->hp == 500; ++t)
         if (!tick(model, 1)) return fail("tick APC flame");
@@ -1328,6 +1343,7 @@ static int test_apc_pyro_phase(void) {
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC Pyro fixture");
+    scan_target(target);
     apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
     apc->z.crew_count = 3;
     uint32_t apc_id = apc->id, target_id = target->id;
@@ -1398,6 +1414,7 @@ static int test_apc_scanner_pyro(void) {
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC scanner fixture");
+    scan_target(target);
     disarm_except(0, apc);
     apc->core.angle = P_PointToAngle(0, -FIXED_ONE);
     apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;

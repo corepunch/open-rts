@@ -55,16 +55,59 @@ void Z_APCAdvancePhases(mobj_t *apc) {
     }
 }
 
-/* One scanner pass (0x1ea5c..0x1eb02) against the single target the engine
- * acquired. The four scan groups that contain it are the ports that can
- * fire; all 12 port attempts, successful or not, share one counter. */
-bool Z_APCScannerPyro(mobj_t *apc, mobj_t *target) {
+/* 0x78f61 -> 0x7911f -> 0x79320: the unit one port group aims at. The nine
+ * bins around the APC hold the live grouped units 0x64138 collected; the
+ * walk keeps the other team's units inside `direction` (0x793e6..0x7948c),
+ * ranks them with SQROOT.BIN and accepts the nearest with a clear 0x6e583
+ * ray. 0x591ca then rejects a best candidate out of reach, which leaves
+ * that group empty rather than falling back to the next nearest. */
+static mobj_t *scan(const mobj_t *apc, int direction) {
+    const zmap_t *map = level.native_data;
+    if (!map || !map->square_roots.bytes || map->square_roots.size < 1024) return NULL;
+    if (apc->z.service_work < 0 || apc->z.flag_runner) return NULL; /* 0x78f61 gates. */
+    ivec2_t at = Z_AITopLeft(apc);
+    if (at.x < 0 || at.y < 0) return NULL;
+    int bin = (at.x >> 7) + 16 * (at.y >> 7);
+    mobj_t *best = NULL;
+    int best_rank = 255;
+    for (int i = 0; i < 9; ++i) {
+        int s = bin + z_sectors[direction & 7][i], count = 0;
+        if (s < 0 || s >= 256) continue;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            mobj_t *mo = (mobj_t *)th;
+            if (Z_UnitType(mo) < 0 || mo->remove || mo->hp <= 0 || !mo->z.squad) continue;
+            ivec2_t pos = Z_AITopLeft(mo);
+            if ((pos.x >> 7) + 16 * (pos.y >> 7) != s) continue;
+            if (++count > 32) break;
+            if (mo->team == apc->team || mo->z.service_work < 0) continue;
+            ivec2_t delta = ivec2_sub(pos, at);
+            if (!in_sector(direction, delta.x, delta.y)) continue;
+            int dx = (int8_t)(delta.x >> 3), dy = (int8_t)(delta.y >> 3);
+            int index = dx * dx + dy * dy;
+            int rank = index < 1024 ? map->square_roots.bytes[index] : 48;
+            if (rank > best_rank || !Z_UnitLineClear(map, apc, mo)) continue;
+            best_rank = rank;
+            best = mo;
+        }
+    }
+    /* 0x591ca adds +12/+8 to the scanner and compares against the
+     * candidate's stored +12/+8, so the offsets cancel and Z_PointReach
+     * decides it with the point shifted back. */
+    if (!best || !Z_PointReach(apc, ivec2_add(Z_AITopLeft(best), (ivec2_t){12, 8}))) return NULL;
+    return best;
+}
+
+/* One scanner pass (0x1ea0d..0x1eb02). The four groups each fire at their
+ * own scan result; all 12 port attempts, successful or not, share one
+ * counter, and four empty scans return before the phases advance. */
+bool Z_APCScannerPyro(mobj_t *apc) {
     if (apc->z.crew_count > Z_CREW_MAX) return true;
     int facing = angle_to_direction(apc->core.angle, 8, ANG90, true);
-    ivec2_t from = Z_AITopLeft(apc), to = Z_AITopLeft(target);
-    bool group[4];
-    for (int g = 0; g < 4; ++g)
-        group[g] = in_sector(facing + scan_offset[g], to.x - from.x, to.y - from.y);
+    mobj_t *hit[4];
+    for (int g = 0; g < 4; ++g) hit[g] = scan(apc, facing + scan_offset[g]);
+    if (!hit[0] && !hit[1] && !hit[2] && !hit[3]) return true;
+    ivec2_t from = Z_AITopLeft(apc);
     int count = apc->z.crew_count ? apc->z.crew_count : 1;
     int attempts = 0;
     for (int member = 0; member < count && attempts < PORT_ATTEMPTS; ++member) {
@@ -73,11 +116,11 @@ bool Z_APCScannerPyro(mobj_t *apc, mobj_t *target) {
         if (*phase >= PYRO_PHASE_LIMIT) continue;
         while (attempts < PORT_ATTEMPTS) {
             int port = attempts++, g = port & 3;
-            if (!group[g]) continue;
+            if (!hit[g]) continue;
             const int8_t *pair = port_xy[g][facing * 3 + port / 4];
             ivec2_t start = {from.x + pair[0] - 6 + flame_xy[facing][0],
                              from.y + pair[1] - 6 + flame_xy[facing][1]};
-            Z_FireFlameFrom(apc, target, &start);
+            Z_FireFlameFrom(apc, hit[g], &start);
             break;
         }
     }
