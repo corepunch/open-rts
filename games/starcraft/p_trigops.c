@@ -39,7 +39,7 @@ static const trig_op_t conditions[SC_TRIG_CONDITION_TYPES] = {
     {"No Condition", N}, {"Countdown Timer", S}, {"Command", S}, {"Bring", S},
     {"Accumulate", S}, {"Kill", S}, {"Command the Most", S}, {"Commands the Most At", S},
     {"Most Kills", S}, {"Highest Score", S}, {"Most Resources", S}, {"Switch", S},
-    {"Elapsed Time", S}, {"Mission Briefing", U}, {"Opponents", S}, {"Deaths", S},
+    {"Elapsed Time", S}, {"Mission Briefing", S}, {"Opponents", S}, {"Deaths", S},
     {"Command the Least", S}, {"Command the Least At", S}, {"Least Kills", S},
     {"Lowest Score", S}, {"Least Resources", S}, {"Score", S}, {"Always", S}, {"Never", S},
 };
@@ -78,14 +78,21 @@ bool sc_trigger_reported(const sc_mission_t *m, bool action, unsigned id) {
     return id <= 255 && (bits[id >> 3] & (1u << (id & 7)));
 }
 
-/* Run AI Script keeps the script and location. Only the shared-vision
- * scripts have native behavior; every other script falls back to the shared
- * planner, reported once per script ID. */
+/* Set Doodad State on a door (types 206-209) leaves the action's own
+ * status at PARTIAL, so it needs its own report: 0x4ae7b0 issues Open Door
+ * and Close Door instead of the disabled flag, and that path was not traced. */
+void sc_doodad_door_note(sc_mission_t *m) {
+    if (m) report_once(m, true, 42, "was skipped on a door: the Open and Close Door path was not traced");
+}
+
+/* Run AI Script keeps the script and location when the owner gate and the
+ * aiscript.bin lookup let it through. Every id the engine cannot carry out
+ * is reported once. */
 void sc_ai_script_fallback(sc_mission_t *m, uint32_t id) {
     for (int i = 0; i < m->ai_fallback_count; i++) if (m->ai_fallback[i] == id) return;
     if (m->ai_fallback_count < SC_AI_FALLBACK_LOG) m->ai_fallback[m->ai_fallback_count++] = id;
     m->trigger_warnings++;
     fprintf(stderr, "starcraft: AI script '%c%c%c%c' has no native implementation; "
-            "using the shared planner\n", (char)id, (char)(id >> 8), (char)(id >> 16),
+            "its commands are skipped\n", (char)id, (char)(id >> 8), (char)(id >> 16),
             (char)(id >> 24));
 }

@@ -453,7 +453,9 @@ static bool condition_ok(sc_mission_t *m, const uint8_t *c, int current) {
     unsigned unit = read_u16_le(c + 12), loc = read_u32_le(c);
     int players[8], n = collect_players(m, group, current, players);
     if (type == 22) return true;
-    if (type == 23) return false;
+    /* Mission Briefing (13) is retail's "never" stub 0x4aeaf0, the handler
+     * Never (23) also uses: neither is ever satisfied. */
+    if (type == 13 || type == 23) return false;
     if (type == 1) return cmp_num(op, m->countdown_ms / 1000, qty);
     if (type == 12) return cmp_num(op, m->elapsed_ms / 1000, qty);
     if (type == 11) {
@@ -1088,6 +1090,102 @@ static bool give_unit(mobj_t *mo, uint8_t owner) {
     return true;
 }
 
+/* switch_rescue (0x483e30): the player becomes Rescue Passive, is neutral to
+ * every player in both directions of the relation table, and its units take
+ * order 161 (Idle (Rescuable)) with their AI and target state cleared. */
+void sc_ai_switch_rescue(sc_mission_t *m, int player) {
+    if (!m || player < 0 || player >= 8) return;
+    m->owners[player] = 3;
+    for (int i = 0; i < 8; i++) {
+        uint32_t bit = UINT32_C(0x40000000) >> i, own = UINT32_C(0x40000000) >> player;
+        m->neutral_relations[player] |= bit;
+        m->neutral_relations[i] |= own;
+        m->allies[player] &= ~bit;
+        m->allies[i] &= ~own;
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->owner != player || mo->remove || mo->hp <= 0) continue;
+        P_ClearMove(mo);
+        mo->movement.goal = fixed3_xy(mo->core.position);
+        mo->movement.order_id = 0;
+        mo->movement.order_arrived = true;
+        mo->core.momentum = fixed3_zero();
+        mo->move_only = false;
+        mo->attack.target = NULL;
+        mo->sc.queue = (sc_order_queue_t){0};
+        mo->waypoints = (waypoints_t){0};
+        mo->sc.order = (sc_order_t){.kind = SC_ORDER_RESCUE};
+    }
+}
+
+/* player_enemy (0x483100) and player_ally (0x483170): the trigger owner's
+ * relation to the owner of every unit standing in the location rectangle,
+ * one direction of the table only. The rectangle is the thread's own, so an
+ * action without a location walks nothing. */
+void sc_ai_relation(sc_mission_t *m, int player, uint32_t loc, bool ally) {
+    if (!m || player < 0 || player >= 8 || !loc) return;
+    int l, t, r, b;
+    if (!trigger_loc_box(m, loc, &l, &t, &r, &b)) return;
+    uint32_t found = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->remove || mo->hp <= 0 || mo->owner == player || mo->owner >= 8) continue;
+        if (inside(mo, l, t, r, b)) found |= UINT32_C(0x40000000) >> mo->owner;
+    }
+    for (int i = 0; i < 8; i++) {
+        uint32_t bit = UINT32_C(0x40000000) >> i;
+        if (!(found & bit)) continue;
+        m->neutral_relations[player] &= ~bit;
+        if (ally) m->allies[player] |= bit;
+        else m->allies[player] &= ~bit;
+    }
+}
+
+/* enter_bunker (0x4a7520): every unit of the trigger owner inside the
+ * location rectangle walks into the nearest Bunker of the same owner that
+ * 0x4326d0 (sc_can_board) allows. */
+void sc_ai_enter_bunker(sc_mission_t *m, int player, uint32_t loc) {
+    if (!m || player < 0 || player >= 8 || !loc) return;
+    int l, t, r, b;
+    if (!trigger_loc_box(m, loc, &l, &t, &r, &b)) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit->remove || unit->hp <= 0 || unit->owner != player ||
+            (unit->sc.flags & SC_LOADED) || !inside(unit, l, t, r, b)) continue;
+        mobj_t *bunker = NULL;
+        int nearest = 0;
+        for (thinker_t *bh = thinkercap.next; bh != &thinkercap; bh = bh->next) {
+            if (bh->function != P_MobjThinker) continue;
+            mobj_t *cand = (mobj_t *)bh;
+            if (cand->type_id != MT_BUNKER || cand->owner != player ||
+                cand->remove || cand->hp <= 0 || !sc_can_board(unit, cand)) continue;
+            int d = sc_unit_distance(unit, cand);
+            if (!bunker || d < nearest) { bunker = cand; nearest = d; }
+        }
+        if (bunker) sc_board(unit, bunker);
+    }
+}
+
+/* Order 161 (0x483ec0): the first unit of a human (in-game type 2) player
+ * within 64 pixels takes the rescuable unit over and gives it back the
+ * default order. */
+void sc_rescue_transfer(mobj_t *mo) {
+    const sc_mission_t *m = mission(&level);
+    if (!m || !mo || mo->remove || mo->hp <= 0 || mo->owner >= 8) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *human = (mobj_t *)th;
+        if (human == mo || human->remove || human->hp <= 0 || human->owner >= 8 ||
+            m->owners[human->owner] != 6 || sc_unit_distance(mo, human) > 64) continue;
+        give_one(mo, (uint8_t)human->owner);
+        return;
+    }
+}
+
 /* Pause Game (action 5, 0x4ac330) and Unpause Game (action 6, 0x4ac3a0). The
  * pause is one boolean, not a count; only a trigger owned by a human slot
  * takes effect, and never in a network game. Unpause clears only the
@@ -1121,7 +1219,7 @@ bool sc_world_frozen(void) {
  * a disabled unit, Disable only on an enabled one. The four door types
  * (205-208) take a different path in the executable (Open Door and Close Door
  * orders, never the disabled flag) whose door state was not traced, so they
- * are left alone. */
+ * are left alone and say so once through sc_doodad_door_note. */
 bool sc_doodad_disabled(const mobj_t *mo) {
     const sc_mission_t *m = mission(&level);
     if (!m || !mo || mo->type_id < 1) return false;
@@ -1135,7 +1233,7 @@ static void set_doodad_state(sc_mission_t *m, const uint8_t *a, int current) {
     int players[8], n = collect_players(m, read_u32_le(a + 16), current, players);
     mobj_t *target;
     if (!n || gather(m, players, n, unit, loc, 1, &target, 1) < 1) return;
-    if (target->type_id >= 206 && target->type_id <= 209) return;
+    if (target->type_id >= 206 && target->type_id <= 209) { sc_doodad_door_note(m); return; }
     bool off = sc_disabled(target), flagged = sc_doodad_disabled(target);
     bool disable = state == 5 || (state != 4 && !off);
     if (disable == off) return;
@@ -1172,13 +1270,15 @@ static bool player_waiting(const sc_mission_t *m, int owner) {
  * score type in the unit field at +24). Each replaces the active
  * leaderboard. Each player's value is the quantity the matching condition
  * measures (Command, Bring, Accumulate, Kill and Score); the retail display
- * and any goal or Greed outcome are not evidenced and not applied. */
+ * and any goal or Greed outcome are not evidenced and not applied.
+ * 0x4b0fc0 lists in-game type 2 (CHK OWNR 6) players only, and every active
+ * slot when the Computer Players flag (action 32) is set. */
 static void leaderboard_refresh(sc_mission_t *m) {
     sc_leaderboard_t *lb = &m->leaderboard;
     if (!lb->kind) return;
     for (int p = 0; p < 8; p++) {
         int64_t value = 0;
-        if (slot_active(m, p)) switch (lb->kind) {
+        if (slot_active(m, p) && (m->leaderboard_computers || m->owners[p] == 6)) switch (lb->kind) {
         case SC_LB_CONTROL: value = count_units(&p, 1, lb->unit, 0, m, -1, true, true); break;
         case SC_LB_CONTROL_AT: value = count_units(&p, 1, lb->unit, lb->location, m, 1, true, false); break;
         case SC_LB_RESOURCES: value = lb->selector <= 2 ? (int64_t)player_resource_total(p, lb->selector) : 0; break;
@@ -1287,13 +1387,8 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
             continue;
         }
         if (id == 15 || id == 16) {
-            if (st->current >= 0 && st->current < 8) {
-                sc_ai_script_t *script = &m->ai_script[st->current];
-                script->id = number;
-                script->location = id == 16 ? loc : 0;
-                script->runs++;
-            }
-            /* OpenBW +Vi and PyMS -Vi scripts change shared vision. */
+            /* OpenBW +Vi and PyMS -Vi scripts change shared vision. They are
+             * not in aiscript.bin and do not pass the retail owner gate. */
             if (id == 15 && ((number & 0x00ffffffu) == 0x0069562bu ||
                              (number & 0x00ffffffu) == 0x0069562du) &&
                 (number >> 24) >= '0' && (number >> 24) <= '7') {
@@ -1304,8 +1399,7 @@ static void run_actions(sc_mission_t *m, const uint8_t *trig, sc_trig_t *st, hud
                 P_UpdateSight();
                 continue;
             }
-            sc_ai_script_fallback(m, number);
-            if (st->current >= 0 && st->current < 8) m->ai_on[st->current] = true;
+            sc_ai_script_start(m, st->current, number, id == 16 ? loc : 0);
             continue;
         }
         if (id == 29) {

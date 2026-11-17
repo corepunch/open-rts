@@ -503,5 +503,11 @@ void sc_order_ticker(mobj_t *mo, int frames) {
         stop(mo->owner,mo);
         P_SetMobjState(mo,mobjinfo[mo->type_id].spawnstate);
         P_SyncBuildingBlocking();
+    }else if(o->kind==SC_ORDER_RESCUE) {
+        /* Retail order 161 (Idle (Rescuable)): the unit waits for a human
+         * unit to take it over, checked on the same cadence as Follow. */
+        if(o->time>0){o->time-=frames;return;}
+        o->time=7;
+        sc_rescue_transfer(mo);
     }
 }

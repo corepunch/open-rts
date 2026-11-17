@@ -14,7 +14,11 @@ enum { SC_INVINCIBLE = 1, SC_HALLUCINATION = 2, SC_HIT = 4, SC_STARTED = 8, SC_L
        SC_BURROWED = 128 };
 enum { SC_ORDER_NONE, SC_ORDER_CAST, SC_ORDER_BOARD, SC_ORDER_MERGE, SC_ORDER_NUKE, SC_ORDER_REPAIR,
        SC_ORDER_FOLLOW, SC_ORDER_LIFT, SC_ORDER_LAND, SC_ORDER_MINE, SC_ORDER_BURROW, SC_ORDER_UNBURROW,
-       SC_ORDER_INFEST, SC_ORDER_UNLOAD, SC_ORDER_NYDUS };
+       SC_ORDER_INFEST, SC_ORDER_UNLOAD, SC_ORDER_NYDUS,
+       /* Retail order 161 (Idle (Rescuable)) from the Rscu script; a unit
+        * waits for a human player's unit to take it over. Kept last so the
+        * persisted kinds keep their numbers. */
+       SC_ORDER_RESCUE };
 /* SC timers count 24 Hz frames down to zero; Irradiate and Plague count the
  * 8-frame beats on which they hurt. LIFE ends a timed unit or effect. */
 enum { SC_TIMER_LIFE, SC_TIMER_MATRIX, SC_TIMER_IRRADIATE, SC_TIMER_PLAGUE, SC_TIMER_ENSNARE,

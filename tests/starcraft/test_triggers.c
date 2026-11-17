@@ -17,18 +17,24 @@ static int write_chunk(FILE *f, const char *tag, const void *data, size_t size) 
     return fwrite(hdr, 1, 8, f) != 8 || (size && fwrite(data, 1, size, f) != size);
 }
 
-/* One 32x32 map, owners human (0) and computer (1), the given TRIG records
- * and, optionally, MRGN locations. */
-static int write_map(const uint8_t *trig, size_t triggers, const uint8_t *locations, size_t count) {
+/* One 32x32 map with the given owners, TRIG records and, optionally, MRGN
+ * locations. The default owners are human (0) and computer (1). */
+static int write_map_owned(const uint8_t *trig, size_t triggers, const uint8_t *locations,
+                           size_t count, const uint8_t *owners) {
     FILE *f = fopen(path, "wb");
     if (!f) return 1;
-    uint8_t dim[4], era[2] = {0}, terrain[32 * 32 * 2] = {0}, owners[12] = {6, 5};
+    uint8_t dim[4], era[2] = {0}, terrain[32 * 32 * 2] = {0};
     put_u16(dim, 32); put_u16(dim + 2, 32);
     int bad = write_chunk(f, "DIM ", dim, 4) || write_chunk(f, "ERA ", era, 2) ||
         write_chunk(f, "MTXM", terrain, sizeof(terrain)) || write_chunk(f, "OWNR", owners, 12) ||
         (trig && write_chunk(f, "TRIG", trig, triggers * 2400)) ||
         (count && write_chunk(f, "MRGN", locations, count * 20));
     return fclose(f) || bad;
+}
+
+static int write_map(const uint8_t *trig, size_t triggers, const uint8_t *locations, size_t count) {
+    static const uint8_t owners[12] = {6, 5};
+    return write_map_owned(trig, triggers, locations, count, owners);
 }
 
 /* A trigger for player 0 with an Always condition and no actions. */
@@ -51,11 +57,15 @@ static void tick(int n) {
     while (n--) G_MissionTicker(&level, NULL, &(int){0}, &hud, RTS_TICK_MS);
 }
 
-static bool load(uint8_t *t, const uint8_t *locations, size_t count) {
-    bool ok = !write_map(t, t ? 1 : 0, locations, count) && G_DoLoadLevel(path, &level) &&
+static bool load_owned(uint8_t *t, const uint8_t *locations, size_t count, const uint8_t *owners) {
+    bool ok = !write_map_owned(t, t ? 1 : 0, locations, count, owners) && G_DoLoadLevel(path, &level) &&
         level.mission;
     free(t);
     return ok;
+}
+
+static bool load(uint8_t *t, const uint8_t *locations, size_t count) {
+    return load_owned(t, locations, count, (const uint8_t[12]){6, 5});
 }
 
 static void unload(void) {
@@ -155,20 +165,29 @@ static int reports(void) {
     CHECK(!((sc_mission_t *)level.mission)->trigger_warnings);
     unload();
 
-    /* Conditions: Mission Briefing (13) and an unknown type are reported and
-     * never satisfied. */
-    for (unsigned type = 13; type <= 99; type += 86) {
-        t = trigger();
-        CHECK(t);
-        t[15] = (uint8_t)type;
-        action(t, 0, 13, 4, 0, 0, 0, 0, 3, 0);
-        CHECK(load(t, NULL, 0));
-        tick(2);
-        m = level.mission;
-        CHECK(m->trigger_warnings == 1 && sc_trigger_reported(m, false, type));
-        CHECK(!m->switches[3]);
-        unload();
-    }
+    /* Conditions: Mission Briefing (13) shares retail's never-stub 0x4aeaf0
+     * with Never (23), so it is never satisfied and never reported; an
+     * unknown type is reported once and never satisfied. */
+    t = trigger();
+    CHECK(t);
+    t[15] = 13;
+    action(t, 0, 13, 4, 0, 0, 0, 0, 3, 0);
+    CHECK(load(t, NULL, 0));
+    tick(2);
+    m = level.mission;
+    CHECK(!m->trigger_warnings && !sc_trigger_reported(m, false, 13));
+    CHECK(!m->switches[3]);
+    unload();
+    t = trigger();
+    CHECK(t);
+    t[15] = 99;
+    action(t, 0, 13, 4, 0, 0, 0, 0, 3, 0);
+    CHECK(load(t, NULL, 0));
+    tick(2);
+    m = level.mission;
+    CHECK(m->trigger_warnings == 1 && sc_trigger_reported(m, false, 99));
+    CHECK(!m->switches[3]);
+    unload();
     return 0;
 }
 
@@ -196,7 +215,10 @@ static int leaderboards(void) {
     for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); i++) {
         uint8_t *t = trigger();
         CHECK(t);
-        action(t, 0, rows[i].type, 0, rows[i].loc, 77, 0, 0, rows[i].number, rows[i].unit);
+        /* The Computer Players flag lists every active slot, so both the
+         * human and the computer values below are computed. */
+        action(t, 0, 32, 4, 0, 0, 0, 0, 0, 0);
+        action(t, 1, rows[i].type, 0, rows[i].loc, 77, 0, 0, rows[i].number, rows[i].unit);
         CHECK(load(t, loc, 2));
         consoleplayer = 0;
         for (int n = 0; n < 3; n++) CHECK(spawn(MT_MARINE - 1, 0));
@@ -245,6 +267,36 @@ static int leaderboards(void) {
     tick(1);
     CHECK(((sc_mission_t *)level.mission)->leaderboard_computers && !sc_leaderboard());
     unload();
+
+    /* 0x4b0fc0 lists in-game type 2 (CHK OWNR 6) players only, and every
+     * active slot once the Computer Players flag is set. */
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 20, 0, 0, 77, 0, 0, 0, MT_MARINE - 1);
+    CHECK(load(t, NULL, 0));
+    consoleplayer = 0;
+    for (int n = 0; n < 3; n++) CHECK(spawn(MT_MARINE - 1, 0));
+    for (int n = 0; n < 2; n++) CHECK(spawn(MT_MARINE - 1, 1));
+    sc_mission_t *cm = level.mission;
+    cm->kills[0][MT_MARINE - 1] = 5; cm->kills[1][MT_MARINE - 1] = 6;
+    tick(1);
+    lb = sc_leaderboard();
+    CHECK(lb && lb->value[0] == 5 && lb->value[1] == 0);
+    unload();
+    t = trigger();
+    CHECK(t);
+    action(t, 0, 32, 4, 0, 0, 0, 0, 0, 0);
+    action(t, 1, 20, 0, 0, 77, 0, 0, 0, MT_MARINE - 1);
+    CHECK(load(t, NULL, 0));
+    consoleplayer = 0;
+    for (int n = 0; n < 3; n++) CHECK(spawn(MT_MARINE - 1, 0));
+    for (int n = 0; n < 2; n++) CHECK(spawn(MT_MARINE - 1, 1));
+    cm = level.mission;
+    cm->kills[0][MT_MARINE - 1] = 5; cm->kills[1][MT_MARINE - 1] = 6;
+    tick(1);
+    lb = sc_leaderboard();
+    CHECK(lb && lb->value[0] == 5 && lb->value[1] == 6);
+    unload();
     return 0;
 }
 
@@ -276,32 +328,63 @@ static int portrait(void) {
 }
 
 static int ai_scripts(void) {
-    /* The script and location are kept for the trigger owner. Shared vision
-     * scripts are native and not reported; the rest report their fallback
-     * once per script ID. */
+    /* Retail 0x489eb0 gates the whole path: a Computer (CHK OWNR 5) owner
+     * runs any id present in aiscript.bin, every other owner does nothing.
+     * A present script is kept for the owner; one the engine cannot carry
+     * out reports once per id. Shared-vision +Vi is handled before the gate
+     * and is not recorded. */
     uint8_t *t = trigger();
     CHECK(t);
-    action(t, 0, 3, 0, 0, 0, 0, 0, 0, 0);
-    action(t, 1, 16, 0, 9, 0, 0, 0, 0x41756c56, 0);   /* VluA at location 9. */
-    action(t, 2, 15, 0, 0, 0, 0, 0, 0x63697553, 0);   /* Suic. */
-    action(t, 3, 15, 0, 0, 0, 0, 0, 0x3169562b, 0);   /* +Vi1. */
+    memset(t + 2372, 0, 8); t[2373] = 1;               /* Player 1: Computer. */
+    action(t, 0, 3, 0, 0, 0, 0, 0, 0, 0);              /* Preserve Trigger. */
+    action(t, 1, 16, 0, 9, 0, 0, 0, 0x41756c56, 0);    /* VluA at location 9. */
+    action(t, 2, 15, 0, 0, 0, 0, 0, 0x63697553, 0);    /* Suic. */
+    action(t, 3, 15, 0, 0, 0, 0, 0, 0x3169562b, 0);    /* +Vi1. */
     CHECK(load(t, NULL, 0));
     sc_mission_t *m = level.mission;
     tick(1);
-    CHECK(m->ai_script[0].id == 0x3169562b && m->ai_script[0].location == 0 && m->ai_script[0].runs == 3);
+    CHECK(m->ai_script[1].id == 0x63697553 && m->ai_script[1].location == 0 && m->ai_script[1].runs == 2);
+    CHECK(m->ai_script[0].id == 0);
     CHECK(m->ai_fallback_count == 2 && m->ai_fallback[0] == 0x41756c56 && m->ai_fallback[1] == 0x63697553);
     CHECK(m->trigger_warnings == 2);
     tick(2);
-    CHECK(m->ai_fallback_count == 2 && m->trigger_warnings == 2 && m->ai_script[0].runs == 9);
-    CHECK(m->ai_script[1].id == 0 && sc_player_ai(0) && !sc_player_ai(1));
+    CHECK(m->ai_fallback_count == 2 && m->trigger_warnings == 2 && m->ai_script[1].runs == 6);
+    CHECK(sc_player_ai(1) && !sc_player_ai(0));
     unload();
+
+    /* A human (OWNR 6) owner runs nothing at all: no record, no report. */
     t = trigger();
     CHECK(t);
+    action(t, 0, 16, 0, 9, 0, 0, 0, 0x41756c56, 0);
+    action(t, 1, 15, 0, 0, 0, 0, 0, 0x63697553, 0);
+    action(t, 2, 15, 0, 0, 0, 0, 0, 0x3169562b, 0);
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(1);
+    CHECK(m->ai_script[0].id == 0 && !m->ai_fallback_count && !m->trigger_warnings);
+    CHECK(!sc_player_ai(0));
+    unload();
+
+    /* An id absent from aiscript.bin does nothing, even for a Computer. */
+    t = trigger();
+    CHECK(t);
+    memset(t + 2372, 0, 8); t[2373] = 1;
+    action(t, 0, 16, 0, 20, 0, 0, 0, 0x74657374, 0);   /* absent from the table. */
+    CHECK(load(t, NULL, 0));
+    m = level.mission;
+    tick(1);
+    CHECK(m->ai_script[1].id == 0 && !sc_player_ai(1) && m->trigger_warnings == 1);
+    unload();
+
+    /* ClrC keeps its location. */
+    t = trigger();
+    CHECK(t);
+    memset(t + 2372, 0, 8); t[2373] = 1;
     action(t, 0, 16, 0, 20, 0, 0, 0, 0x43726c43, 0);   /* ClrC at location 20. */
     CHECK(load(t, NULL, 0));
-    tick(1);
     m = level.mission;
-    CHECK(m->ai_script[0].id == 0x43726c43 && m->ai_script[0].location == 20 && m->ai_script[0].runs == 1);
+    tick(1);
+    CHECK(m->ai_script[1].id == 0x43726c43 && m->ai_script[1].location == 20 && m->ai_script[1].runs == 1);
     unload();
     return 0;
 }
@@ -311,6 +394,9 @@ static int save_state(void) {
     put_u32(loc + 8, 1023); put_u32(loc + 12, 1023);
     uint8_t *t = trigger();
     CHECK(t);
+    /* Player 1 is the Computer (OWNR 5), so the Run AI Script record passes
+     * the retail owner gate and is saved. */
+    memset(t + 2372, 0, 8); t[2373] = 1;
     action(t, 0, 18, 0, 1, 31, 0, 0, 0, MT_MARINE - 1);
     action(t, 1, 29, 0, 0, 0, 5000, 0, 0, MT_MARINE - 1);
     action(t, 2, 32, 4, 0, 0, 0, 0, 0, 0);
@@ -340,13 +426,15 @@ static int save_state(void) {
     CHECK(m->leaderboard.kind == SC_LB_CONTROL_AT && m->leaderboard.title == 31 &&
           m->leaderboard.location == 1 && m->leaderboard.value[0] == 4);
     CHECK(m->leaderboard_computers && m->portrait_unit == MT_MARINE - 1 && m->portrait_ms == before.portrait_ms);
-    CHECK(m->ai_script[0].id == 0x41756c56 && m->ai_script[0].location == 12 && m->ai_script[0].runs == 1);
+    CHECK(m->ai_script[1].id == 0x41756c56 && m->ai_script[1].location == 12 && m->ai_script[1].runs == 1);
     CHECK(m->ai_fallback_count == 1 && sc_trigger_reported(m, true, 5) == false);
     /* Each field changes the consistency hash. */
     m->leaderboard.value[3]++; CHECK(G_ConsistencyExtra(0) != hash); m->leaderboard.value[3]--;
     m->leaderboard_computers = false; CHECK(G_ConsistencyExtra(0) != hash); m->leaderboard_computers = true;
     m->ai_script[2].location = 3; CHECK(G_ConsistencyExtra(0) != hash); m->ai_script[2].location = 0;
     m->portrait_ms++; CHECK(G_ConsistencyExtra(0) != hash); m->portrait_ms--;
+    /* Rscu rewrites an owner type, so the types are hashed too. */
+    m->owners[3] = 3; CHECK(G_ConsistencyExtra(0) != hash); m->owners[3] = 0;
     CHECK(G_ConsistencyExtra(0) == hash);
 
     /* Malformed records are rejected without changing the mission. */
@@ -365,6 +453,8 @@ static int save_state(void) {
     CHECK(!G_LoadExtra(blob, size));
     saved->ai_fallback_count = 1;
     CHECK(G_LoadExtra(blob, size) && G_ConsistencyExtra(0) != hash);
+    saved->owners[1] = 9; /* CHK OWNR stops at Closed (8). */
+    CHECK(!G_LoadExtra(blob, size));
     free(blob);
     unload();
     return 0;
@@ -713,12 +803,84 @@ static int pausing(void) {
     return 0;
 }
 
+/* One map with a single At Location action for a computer-owned (OWNR 5)
+ * trigger, the given script id and location; location 0 writes no MRGN. */
+static bool script_map(uint32_t id, unsigned loc) {
+    uint8_t whole[20] = {0};
+    put_u32(whole + 8, 1023); put_u32(whole + 12, 1023);
+    uint8_t *t = trigger();
+    if (!t) return false;
+    memset(t + 2372, 0, 8); t[2373] = 1;
+    action(t, 0, 16, 0, loc, 0, 0, 0, id, 0);
+    return load_owned(t, loc ? whole : NULL, loc ? 1 : 0, (const uint8_t[12]){6, 5});
+}
+
+/* The single-command utility scripts the retail gate lets a Computer run:
+ * Rscu 0x483e30, Ally 0x483170, Enmy 0x483100 and EnBk 0x4a7520. */
+static int ai_effects(void) {
+    const uint32_t bit1 = 0x40000000u >> 1, bit0 = 0x40000000u >> 0;
+    sc_mission_t *m;
+
+    /* Rscu: the owner becomes Rescue Passive, is neutral to every player in
+     * both directions of the relation table, and its units take order 161
+     * until a human unit within 64 pixels takes them over. */
+    CHECK(script_map(0x75637352u, 0)); /* Rscu. */
+    m = level.mission;
+    m->allies[0] |= bit1; m->allies[1] |= bit0;
+    m->neutral_relations[0] &= ~bit1; m->neutral_relations[1] = 0;
+    mobj_t *rescued = spawn_at(MT_MARINE, 1, 10, 10);
+    CHECK(rescued);
+    tick(1);
+    CHECK(m->owners[1] == 3);
+    CHECK(!(m->allies[0] & bit1) && !(m->allies[1] & bit0));
+    CHECK((m->neutral_relations[0] & bit1) && (m->neutral_relations[1] & bit0));
+    CHECK(rescued->sc.order.kind == SC_ORDER_RESCUE);
+    CHECK(spawn_at(MT_MARINE, 0, 11, 10));
+    for (int n = 0; n < 4; n++) P_Ticker();
+    CHECK(rescued->owner == 0 && rescued->sc.order.kind == SC_ORDER_NONE);
+    unload();
+
+    /* Ally and Enmy write one direction of the table for the owner of every
+     * unit standing in the thread's location rectangle. */
+    CHECK(script_map(0x796c6c41u, 1)); /* Ally. */
+    m = level.mission;
+    CHECK(spawn_at(MT_MARINE, 0, 5, 5));
+    m->allies[1] = 0;
+    tick(1);
+    CHECK(m->allies[1] & bit0);
+    unload();
+
+    CHECK(script_map(0x796d6e45u, 1)); /* Enmy. */
+    m = level.mission;
+    CHECK(spawn_at(MT_MARINE, 0, 5, 5));
+    m->allies[1] = bit0;
+    tick(1);
+    CHECK(!(m->allies[1] & bit0));
+    unload();
+
+    /* EnBk: every unit of the owner in the rectangle boards the nearest
+     * same-owner Bunker that sc_can_board allows. */
+    CHECK(script_map(0x6b426e45u, 1)); /* EnBk. */
+    m = level.mission;
+    mobj_t *bunker = spawn_at(MT_BUNKER, 1, 10, 10);
+    mobj_t *first = spawn_at(MT_MARINE, 1, 12, 10);
+    mobj_t *second = spawn_at(MT_MARINE, 1, 12, 12);
+    CHECK(bunker && first && second);
+    tick(1);
+    for (int n = 0; n < 200; n++) P_Ticker();
+    CHECK((first->sc.flags & SC_LOADED) && first->sc.parent == bunker->id);
+    CHECK((second->sc.flags & SC_LOADED) && second->sc.parent == bunker->id);
+    unload();
+    return 0;
+}
+
 int main(void) {
     G_InitGame();
     P_InitThinkers();
     consoleplayer = 0;
-    if (inventory() || reports() || leaderboards() || portrait() || ai_scripts() || save_state() || pausing() || doodads() || doodads_terran04()) return 1;
+    if (inventory() || reports() || leaderboards() || portrait() || ai_scripts() || ai_effects() ||
+        save_state() || pausing() || doodads() || doodads_terran04()) return 1;
     remove(path);
-    puts("PASS: trigger coverage, leaderboards, portrait, AI scripts and saves");
+    puts("PASS: trigger coverage, leaderboards, portrait, AI scripts, AI effects and saves");
     return 0;
 }

@@ -1226,8 +1226,11 @@ Without `player_teams`, every computer enemy is treated as allied to the
 others. Terran 01's force flags are all zero, so the human in slot 1 is not
 allied with the computer in slot 4. Flag bit 8 (shared vision) does not by
 itself ally the players. Rescue is neutral and does not receive the build AI.
-OWNR 1 and 5 do. Run AI Script (actions 15 and 16) also marks that player as
-a computer. The retail AI bytecode is not executed.
+OWNR 1 and 5 do. Run AI Script (actions 15 and 16) marks that player as a
+computer only when the retail owner gate 0x489eb0 lets the script run (see
+"Run AI Script gate and the utility interpreter", 2026-11-16). The retail AI
+bytecode is executed only for the single-command utility scripts that need no
+planner state.
 
 **Confirmed UPRP:** 64 records of 20 bytes. Special-valid and data-valid are
 u16s, then player, hit-point percent, shield percent, energy percent, resource
@@ -3130,7 +3133,7 @@ fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
 | 10 | Most Resources | 0 | supported |
 | 11 | Switch | 126 | supported |
 | 12 | Elapsed Time | 75 | supported |
-| 13 | Mission Briefing | 0 | UNSUPPORTED (reported once) |
+| 13 | Mission Briefing | 0 | supported; never true (retail never-stub, 2026-11-16) |
 | 14 | Opponents | 0 | supported |
 | 15 | Deaths | 7 | supported |
 | 16 | Command the Least | 0 | supported |
@@ -3144,7 +3147,9 @@ fails if the unsupported set in the campaigns differs from actions 5, 6 and 42.
 
 Action 0 and condition 0 end a record's list. Action 47 Comment has no game
 effect by definition. Condition 13 (Mission Briefing) and actions 58/59
-(debug mode) do not occur in the campaigns. Actions 5 and 6 occur 81 and 23
+(debug mode) do not occur in the campaigns; condition 13 is now classified
+supported because it is retail's never-stub (see "Run AI Script gate" below),
+not a missing handler. Actions 5 and 6 occur 81 and 23
 times, so every campaign mission that uses them now logs the report; the
 unsupported set in the campaigns is exactly actions 5, 6 and 42.
 
@@ -3196,7 +3201,11 @@ transmission portrait path, so there is no presentation yet.
 **Run AI Script (15) and At Location (16).** The four script characters and
 the raw location field (zero for action 15) are kept per trigger owner with a
 run count (`sc_mission_t.ai_script`), saved and hashed. `+Vi0-7` and `-Vi0-7`
-keep their native shared-vision behavior. Every other script still enables
+keep their native shared-vision behavior. Superseded 2026-11-16: the retail
+owner gate and a native single-command interpreter now run before this
+record is kept; see "Run AI Script gate and the utility interpreter" at the
+end of this file. The rest of this paragraph describes what the engine did
+before that change. Every other script still enables
 the shared planner and is reported once per script ID
 (`sc_mission_t.ai_fallback`, up to 64 IDs). Installed campaigns use 9
 action-15 and 89 action-16 records over these IDs: Suic 5, SuiR 2, Rscu 2 (no
@@ -3471,8 +3480,9 @@ the location set (condition 3 Bring), Resources 0x4afcb0 (condition 4
 Accumulate), Kills 0x4affa0 (condition 5 Kill), Points 0x4b0980 (condition 21
 Score). So the second inference (value equals the matching condition's
 measure) is confirmed. Correction: only human players are listed unless the
-Computer Players flag is on; the engine currently computes all slots, which
-only matters for the display that does not exist. Action 32 (0x4ac450) sets
+Computer Players flag is on; `leaderboard_refresh` now applies exactly that
+gate (2026-11-16), so a skipped slot keeps value 0 instead of the previous
+measure. Action 32 (0x4ac450) sets
 `[0x4fe420]` from the state byte: 4 = 1, 5 = 0, 6 = xor 1, other = unchanged.
 
 #### Talking Portrait (29, 0x4acfd0) and Run AI Script (15, 16)
@@ -3502,7 +3512,9 @@ table at 0x48af5c (opcode byte 0-0x4f). The traced single-command scripts are:
 Of these, only Rscu has an effect that does not need the retail AI planner,
 and it needs a rescue mechanism (a Rescue Passive owner whose units become
 the rescuer's on approach) that this engine does not have; see "Run AI
-Script" above. Nothing was implemented for the scripts.
+Script" above. Superseded 2026-11-16: the gate, the lookup and the four
+effects that need no planner are implemented; see "Run AI Script gate and
+the utility interpreter" at the end of this file.
 
 #### Implemented: Pause Game and Unpause Game (2026-11-13)
 
@@ -3553,7 +3565,10 @@ Close Door state machine and its readers: status bits 0x2000 and 0x200000,
 `[unit+0x4f]` bit0), the Enable and Disable iscript animations (24 and 27) and
 sprite elevation changes, `0x4177e0(unit, 3)` and the `[unit+0xe4]` write for
 disabled traps, and collision of an open door. Doors therefore stay closed and
-action 42 is classified partial, no longer reported.
+action 42 is classified partial. Correction 2026-11-16: a door target now
+reports once through `sc_doodad_door_note`, so action 42 no longer succeeds
+silently on the Open Door / Close Door path; the door state machine itself is
+still not implemented.
 Tests: `tests/starcraft/test_triggers.c::doodads` (disabled trap does not
 hurt an adjacent marine and an enabled one does, every state value, no
 location, wrong type, outside the location, doors, first match only,
@@ -3646,7 +3661,12 @@ value_area, enter_bunker, clear_combatdata) which also need a rescue
 mechanism and an AI planner the engine does not have; the leaderboard display
 and Goal/Greed outcomes; and the Talking Portrait presentation (0x49e090).
 
-Known divergence, not changed: `p_trig.c` still enables the shared planner for
+Superseded 2026-11-16: the gate is applied and the fixture reworked. The
+paragraph below is kept because it explains why the old fixture used a
+human-owned trigger.
+
+Known divergence, not changed (2026-11-13, superseded): `p_trig.c` still
+enables the shared planner for
 whichever owner runs an unrecognized AI script, while retail runs a script
 only for a Computer-type owner (and Rscu/EnBk for a Neutral one) and ignores
 it for human slots and for ids missing from aiscript.bin. The gate is traced
@@ -3770,10 +3790,10 @@ Traced effects:
 
 | Script | Effect | Status |
 | --- | --- | --- |
-| Rscu | owner type := 3; both relation row and column of the player := 1 for all 12 owners; every unit of the player gets AI and target state cleared (0x4a3900, 0x47c330, 0x4a8dd0, +0x11c := 0) and order 161. Order 161 handler 0x483ec0: when a unit of a human (type 2) player is within 64 px, the unit changes owner (0x420ed0) to that player and takes its default order | traced; not implemented here (needs the rescue-on-approach mechanism the engine lacks) |
-| Enmy / Ally | for each unit in the rectangle with owner != player: relation[player][owner] := 0 / 2 (one direction) | traced; not implemented (no campaign uses them) |
-| EnBk | for each unit of the player in the rectangle: if the player owns a Bunker (0x40e4a0 type 125), take the nearest same-owner Bunker by approximate distance 0x4b58eb (0x42e4d0 via 0x43ec70, callback 0x42e500, no range limit, completed or not); if 0x4326d0 allows it (bunker complete and enabled, same owner, Terran infantry with space 1, room left) issue order 92 (Enter Transport) at it; mirrors `sc_can_board` | traced; not implemented |
-| SuiR (byte 1) | 0x479230(player,1) clears the AI attack arrays, then 0x4a6e00 per unit of the player (alive, not a subunit, sprite not hidden, can move, and 0x41ba50 = not already inside its current target's weapon range): pick a random enemy player (0x46f200, 54) among players whose first unit is an enemy, nearest attackable enemy unit of that player (0x418390 can-attack); then 0x483070 releases the unit from AI and it gets attack-unit (0x419dc0) if it has a weapon, otherwise Move (order 6) to the target; then 0x479490(player,5) sets the attack timer | traced except weapon-range detail of 0x41ba50 (0x41c390); not implemented |
+| Rscu | owner type := 3; both relation row and column of the player := 1 for all 12 owners; every unit of the player gets AI and target state cleared (0x4a3900, 0x47c330, 0x4a8dd0, +0x11c := 0) and order 161. Order 161 handler 0x483ec0: when a unit of a human (type 2) player is within 64 px, the unit changes owner (0x420ed0) to that player and takes its default order | traced; implemented 2026-11-16 (`sc_ai_switch_rescue`, order `SC_ORDER_RESCUE`, `sc_rescue_transfer`) |
+| Enmy / Ally | for each unit in the rectangle with owner != player: relation[player][owner] := 0 / 2 (one direction) | traced; implemented 2026-11-16 (`sc_ai_relation`) |
+| EnBk | for each unit of the player in the rectangle: if the player owns a Bunker (0x40e4a0 type 125), take the nearest same-owner Bunker by approximate distance 0x4b58eb (0x42e4d0 via 0x43ec70, callback 0x42e500, no range limit, completed or not); if 0x4326d0 allows it (bunker complete and enabled, same owner, Terran infantry with space 1, room left) issue order 92 (Enter Transport) at it; mirrors `sc_can_board` | traced; implemented 2026-11-16 (`sc_ai_enter_bunker` over `sc_board`) |
+| SuiR (byte 1) | 0x479230(player,1) clears the AI attack arrays, then 0x4a6e00 per unit of the player (alive, not a subunit, sprite not hidden, can move, and 0x41ba50 = not already inside its current target's weapon range): pick a random enemy player (0x46f200, 54) among players whose first unit is an enemy, nearest attackable enemy unit of that player (0x418390 can-attack); then 0x483070 releases the unit from AI and it gets attack-unit (0x419dc0) if it has a weapon, otherwise Move (order 6) to the target; then 0x479490(player,5) sets the attack timer | traced except weapon-range detail of 0x41ba50 (0x41c390); not implemented (needs the AI attack arrays) |
 | Suic (byte 0) | same wrapper, but the units are bound to AI regions as guard nodes (0x4a4f40, 0x479690, 0x4a5dd0) | AI region planner state; effect not traced |
 | MvTe | each living Dark Templar (type 74): released from AI (0x483070), bound as a guard node of the AI region containing the rectangle center (0x4a4f40) and sent there with order 157 (0x4a5030) | needs AI regions; not implemented |
 | VluA | AI region at the center: if its byte +5 < 5, 0x4a1330, then region words +0xc and +0xe raised to at least 200 | AI region data; not implemented |
@@ -3781,17 +3801,117 @@ Traced effects:
 
 Retail gate (0x489eb0) as before: Computer owners run any ID present in the
 table, Neutral owners only Rscu and EnBk, ids missing from the table do
-nothing. Not applied: the engine still records the ID and enables the shared
-planner for every owner, and the existing human-owned fixtures in
-`test_triggers.c` are unchanged.
+nothing. Superseded 2026-11-16: the gate is applied in
+`sc_ai_script_start`, and the four rows above that need no planner state run.
 
-Not done in this batch (stopped by the coordinator): native `p_aiscript.c`,
-the owner gate, fixtures per script, layout bump (StarCraft layout stays 25).
-Next steps: implement Rscu/Enmy/Ally/EnBk from the rows above, rework
-`ai_scripts()` and `save_state()` fixtures to Computer-owned triggers, add
-campaign segments (Rscu 2 records, EnBk 6, in the zerg and protoss CHKs the
-table lists), and trace 0x41c390 for SuiR.
+Superseded 2026-11-16: `p_aiscript.c`, the owner gate and the four
+non-planner effects are implemented; `ai_scripts()` and `save_state()` now
+use Computer-owned triggers and the mission fixture runs `EnBk` instead of
+the absent id `0x74657374`. Still open: the campaign segments (Rscu 2
+records, EnBk 6, in the zerg and protoss CHKs the table lists) and the
+trace of 0x41c390 for SuiR. The save layout is 27, not 25: no field was
+added for this change, but `owners[]` became runtime-mutable and is now
+hashed and validated.
 
 Commands run: `make build/bin/tests/starcraft/test_aiscript_inventory`;
 `build/bin/tests/starcraft/test_aiscript_inventory` (ok);
 `build/bin/tests/starcraft/test_aiscript_inventory --table`.
+
+#### Run AI Script gate and the utility interpreter (2026-11-16)
+
+Issue #98. `games/starcraft/p_aiscript.c` now owns the retail path for
+actions 15 and 16, and `sc_local.h` declares the entry point
+`sc_ai_script_start(m, owner, id, location)`.
+
+**Gate 0x489eb0 (confirmed).** `m->owners[owner]` is the CHK OWNR type read
+at load: type 5 (Computer, in-game type 1) may run any id; type 7 (Neutral,
+in-game type 7) may run only `Rscu` (`0x75637352`) and `EnBk` (`0x6b426e45`);
+every other type, human slots included, does nothing at all. The gate runs
+before the table lookup, so a gated-out owner gets no `ai_script[]` record,
+no `ai_on[]` and no report. The `+Vi0-7`/`-Vi0-7` shared-vision branch is
+handled before the gate (it is not in aiscript.bin) and still records
+nothing.
+
+**Table lookup (confirmed).** `aiscript.bin` (`data/STARCRAFT/native/scripts/`,
+30228 bytes) keeps its retail layout: 16-byte entries `{id u32, offset u32,
+string, flags}`, 83 of them, terminated by a zero id, then the bytecode, then
+a second copy of the table and four bytes. The scan bound is
+`(n+1)*16 <= size/2`, the limit is `size - n*16 - 4` = 28896, and the copy at
+the limit must equal the first `n*16` bytes. A script runs from its offset to
+the next higher offset, or to the limit for the last one. An id absent from
+the table does nothing to game state; unlike retail's silence it is reported
+once through `sc_ai_script_fallback`, so a renamed or missing asset is
+visible instead of the trigger silently succeeding.
+
+**Interpreter (inferred, bounded).** The traced scripts the campaigns run are
+one command followed by `stop` (0x24) or `fatal_error` (0x28); the retail
+interpreter 0x48a0b0 stops there too, so running that one command when the
+action fires is the same sequence. Implemented opcodes: 0x20 `player_enemy`
+and 0x21 `player_ally` (`sc_ai_relation`), 0x25 `switch_rescue`
+(`sc_ai_switch_rescue`), 0x29 `enter_bunker` (`sc_ai_enter_bunker`). Anything
+else, including a script longer than one command, reports once through
+`sc_ai_script_fallback` instead of half-running: `send_suicide` (0x1f),
+`move_dt` (0x26), `value_area` (0x2a), `clear_combatdata` (0x2f) and the 63
+town scripts all need the AI region or attack-wave state this engine does not
+hold. `sc_ai_script_fallback` keeps its old signature and table; only the
+stderr wording changed to "... has no native implementation; its commands are
+skipped".
+
+**Effects.**
+- `sc_ai_switch_rescue` (0x483e30): `m->owners[player] = 3`, both directions
+  of `allies`/`neutral_relations` written for all 8 players, and every live
+  mobj of the player gets its move, target and queue cleared and
+  `sc.order = SC_ORDER_RESCUE` (appended to the order-kind enum so persisted
+  kinds keep their numbers). `sc_rescue_transfer` then runs from
+  `sc_order_ticker` on the same 7-frame cadence as Follow: the first live
+  mobj of a player whose `m->owners[]` is 6 (CHK OWNR 6, human) within 64
+  `sc_unit_distance` pixels takes the unit with `give_one`, which restores the
+  default order. `ai_on[]` is set only for a Computer owner, so a Neutral slot
+  that Rscu converts does not start building (`sc_ai_level`).
+- `sc_ai_relation` (0x483100 / 0x483170): walks the action's location
+  rectangle (`trigger_loc_box`, so location 0 and Anywhere behave like the
+  rest of the trigger code) and writes one direction of the table for the
+  owner of every unit standing in it. It does not touch `allied_victory`, so
+  `set_alliance` (action 57) keeps its own semantics.
+- `sc_ai_enter_bunker` (0x4a7520): every live unit of the owner inside the
+  rectangle without `SC_LOADED` boards the nearest same-owner Bunker that
+  `sc_can_board` allows, through the existing `sc_board` (approach, then
+  load), which is the engine equivalent of retail's order 92.
+
+**Related fixes in the same change.**
+- Condition 13 Mission Briefing is retail's never-stub `0x4aeaf0`, the same
+  handler Never (23) uses (findings, condition inventory): `condition_ok`
+  returns false for 13 and 23 together. It is classified supported, so it is
+  no longer reported as missing.
+- `leaderboard_refresh` now lists only in-game type 2 players unless the
+  Computer Players flag is set, matching 0x4b0fc0; a skipped slot keeps value
+  0 because `value` starts at 0 each refresh.
+- `set_doodad_state` on a door type (206-209) reports once through
+  `sc_doodad_door_note` before it returns, so action 42 no longer succeeds
+  silently on the path retail takes through Open Door / Close Door.
+- `sc_mission_t.owners[]` is rewritten by Rscu at run time, so it is part of
+  the saved state: `G_ConsistencyExtra` hashes all 12 bytes and
+  `G_LoadExtra` rejects `owners[i] > 8`. The save layout stays 27.
+
+**Unknowns.** SuiR's weapon-range predicate 0x41c390; the AI region and
+attack-wave state behind 0x1f, 0x26, 0x2a and 0x2f; whether retail's silent
+"absent id" should ever be made visible in a shipping build; the retail door
+state machine (unchanged, still reported).
+
+**Verification.**
+
+```
+make
+env SDL_VIDEODRIVER=dummy make test-starcraft        # 36 tests, 0 failed
+```
+
+`tests/starcraft/test_triggers.c` gained `ai_effects` (Rscu relations,
+order-161 transfer to a human unit within 64 px, Ally and Enmy one-direction
+relations, EnBk boarding two Marines into a Bunker) and reworked `reports`
+(condition 13 vs an unknown type), `leaderboards` (flag on at index 0 with
+both players measured, flag off leaves the computer value 0),
+`ai_scripts` (Computer-owned `+Vi1`/VluA/Suic, human-owned does nothing,
+absent id reports with no record or `ai_on`, ClrC keeps its location) and
+`save_state` (Computer owner, `owners[]` hash and `owners[i] > 8` rejection).
+`tests/starcraft/test_mission.c` now runs `EnBk` (`0x6b426e45`) instead of
+the absent id `0x74657374`, because the gate is applied.
