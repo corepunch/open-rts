@@ -92,35 +92,23 @@ int sc_hangar_count(const mobj_t *maker) {
     return count;
 }
 
-/* A Carrier sends out every docked interceptor and turns back the ones on
- * their way home; a Reaver fires one scarab, if it has one. */
-/* Scourge and Infested Terrans spend themselves on their one blow: the
- * Scourge on its target, the Infested Terran's blast around it with
- * weapons.dat's three splash rings. */
+/* Scourge, Infested Terrans, Spider Mines and Scarabs spend themselves on
+ * their one blow. OpenBW order_SuicideUnit (Scourge, Infested Terran), the
+ * mine's SpecialState1 castspell and order_ScarabAttack each make the
+ * weapon's type 5 or 6 bullet on the unit itself and kill the unit on that
+ * script's sigorder, so the damage lands five frames later from where the
+ * unit stood. */
 static bool suicide(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
-    const sc_weapon_t *w = sc_weapon(weapon->native_id);
-    if (!w || (attacker->type_id != MT_SCOURGE && attacker->type_id != MT_INFESTED_TERRAN)) return false;
+    if (attacker->type_id != MT_SCOURGE && attacker->type_id != MT_INFESTED_TERRAN &&
+        attacker->type_id != MT_SPIDER_MINE && attacker->type_id != MT_SCARAB) return false;
     if (attacker->sc.flags & SC_HALLUCINATION) { P_DamageMobj(attacker, NULL, attacker->hp); return true; }
-    if (w->splash[0] <= 0) {
-        int damage = sc_hit(attacker->owner, w, target, w->damage, 1);
-        if (damage > 0) P_DamageMobj(target, attacker, damage);
-    } else {
-        fixed2_t at = where(target);
-        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-            mobj_t *v = (mobj_t *)th;
-            if (!live(th) || v == attacker || !sc_unit(v) || (v->traits & (MF_FLY | MF_NOBLOCKMAP)) ||
-                (v->sc.flags & SC_LOADED)) continue;
-            fixed_t d = fixed2_length(fixed2_sub(where(v), at)) - P_MobjRadius(v);
-            int divisor = d <= SC_PIXELS(w->splash[0]) ? 1 : d <= SC_PIXELS(w->splash[1]) ? 2 :
-                          d <= SC_PIXELS(w->splash[2]) ? 4 : 0;
-            int damage = divisor ? sc_hit(attacker->owner, w, v, w->damage, divisor) : 0;
-            if (damage > 0) P_DamageMobj(v, attacker, damage);
-        }
-    }
+    if (!sc_projectile_fire(attacker, weapon, target)) return false;
     P_DamageMobj(attacker, NULL, attacker->hp);
     return true;
 }
 
+/* A Carrier sends out every docked interceptor and turns back the ones on
+ * their way home; a Reaver fires one scarab, if it has one. */
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     if (suicide(attacker, weapon, target)) return true;
     if (sc_hangar_type(attacker->type_id) == MT_INTERCEPTOR) {
@@ -144,13 +132,20 @@ bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     }
     if (sc_hangar_type(attacker->type_id) != MT_SCARAB) return sc_projectile_fire(attacker,weapon,target);
     if (attacker->sc.hangar <= 0) return true;
-    fixed2_t at = where(attacker), to = fixed2_sub(where(target), at);
-    fixed_t d = fixed2_length(to);
-    mobj_t *mo = spawn_for(attacker, MT_SCARAB, d > FIXED_ONE / 2 ? fixed2_add(at, fixed2_rescale(to, d, FIXED_ONE / 2)) : at);
+    /* OpenBW order_Reaver holds the next scarab back while one of its own is
+     * still outside. */
+    if (sc_hangar_count(attacker) > attacker->sc.hangar) return true;
+    /* release_fighter: the scarab appears 25 pixels along the Reaver's
+     * heading and takes that heading. */
+    fixed2_t heading;
+    angle_to_screen_vector_fixed(attacker->core.angle, &heading.x, &heading.y);
+    mobj_t *mo = spawn_for(attacker, MT_SCARAB, fixed2_add(where(attacker), fixed2_scale(heading, SC_PIXELS(25))));
     if (!mo) return true;
     attacker->sc.hangar--;
-    /* Nobody can target a scarab. */
-    mo->traits = (mo->traits & ~MF_SELECTABLE) | MF_NOBLOCKMAP;
+    /* Nobody can target a scarab, and order_ScarabAttack never seeks a
+     * second target: it flies at the one it was launched against. */
+    mo->traits = (mo->traits & ~MF_SELECTABLE) | MF_NOBLOCKMAP | MF_NOAUTOTARGET;
+    mo->core.angle = attacker->core.angle;
     mo->sc.parent = attacker->id;
     mo->sc.timers[SC_TIMER_LIFE] = SC_SCARAB_FRAMES;
     mo->attack.target = target;
@@ -176,6 +171,37 @@ static void interceptor(mobj_t *mo) {
     /* Docked interceptors come back whole: the hangar repairs them. */
     if (d2 <= fixed_sq64(FIXED_ONE)) { carrier->sc.hangar++; P_RemoveMobj(mo); return; }
     if (!P_HasMoveOrder(mo) || !fixed2_near(mo->movement.goal, home, FIXED_ONE)) P_MoveUnitTo(&level, mo, home);
+}
+
+/* OpenBW order_ScarabAttack: while its target lives the scarab flies at it
+ * and fires there; a target that dies leaves it flying on to its last move
+ * target, and it blasts where it stops. */
+static void scarab(mobj_t *mo) {
+    mobj_t *target = mo->attack.target;
+    if (target && !target->remove && target->hp > 0) return;
+    if (P_HasMoveOrder(mo)) return;
+    sc_source_bullet(mo, mo->info->attack.native_id, NULL, 0, 0);
+    P_DamageMobj(mo, NULL, mo->hp);
+}
+
+/* OpenBW stops these four on a pixel distance rather than a cell gap:
+ * order_ScarabAttack fires at half the weapon's inner splash radius and
+ * order_SuicideUnit at contact. The engine's tile gap can read as "in
+ * range" while the boxes are still a cell apart, which would drop the
+ * splash into the medium ring. Half the inner radius is returned for a
+ * weapon that has one; the Scourge's row has none, so it keeps the shared
+ * range rule and its single-target hit lands wherever it detonates. */
+int sc_suicide_range(const mobj_t *attacker) {
+    if (!attacker || !attacker->info) return 0;
+    switch (attacker->type_id) {
+    case MT_SCOURGE:
+    case MT_INFESTED_TERRAN:
+    case MT_SPIDER_MINE:
+    case MT_SCARAB: break;
+    default: return 0;
+    }
+    const sc_weapon_t *w = sc_weapon(attacker->info->attack.native_id);
+    return w && w->splash[0] > 0 ? w->splash[0] / 2 : 0;
 }
 
 /* ── range ───────────────────────────────────────────────────────────── */
@@ -528,20 +554,11 @@ static bool hovers(uint16_t type) {
     return false;
 }
 enum { SC_MINE_REACH = 3 * 32, SC_MINE_CHASE = 576, SC_MINE_BLAST = 30, SC_WEAPON_SPIDER_MINE = 6 };
+/* OpenBW: the mine's SpecialState1 castspell makes a type 5 bullet at the
+ * mine itself and the script's sigorder kills it on that tick; the splash
+ * lands five frames later from the bullet's Death script. */
 static void blast(mobj_t *mine) {
-    const sc_weapon_t *w = sc_weapon(SC_WEAPON_SPIDER_MINE);
-    fixed2_t at = where(mine);
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *v = (mobj_t *)th;
-        if (!live(th) || v == mine || !sc_unit(v) || (v->traits & (MF_FLY | MF_NOBLOCKMAP)) ||
-            (v->sc.flags & SC_LOADED)) continue;
-        fixed_t d = fixed2_length(fixed2_sub(where(v), at)) - P_MobjRadius(v);
-        int divisor = d <= SC_PIXELS(w->splash[0]) ? 1 : d <= SC_PIXELS(w->splash[1]) ? 2 :
-                      d <= SC_PIXELS(w->splash[2]) ? 4 : 0;
-        if (!divisor) continue;
-        int damage = sc_hit(mine->owner, w, v, w->damage, divisor);
-        if (damage > 0) P_DamageMobj(v, mine, damage);
-    }
+    sc_source_bullet(mine, SC_WEAPON_SPIDER_MINE, NULL, 0, 0);
     P_DamageMobj(mine, NULL, mine->hp);
 }
 /* OpenBW order_SpiderMine: a dug-in mine wakes for the nearest enemy walker
@@ -666,8 +683,7 @@ void sc_unit_ticker(mobj_t *mo, int frames) {
     }
     if (mo->sc.flags & SC_LOADED) { loaded(mo); return; }
     if (mo->type_id == MT_INTERCEPTOR && mo->sc.parent) interceptor(mo);
-    else if (mo->type_id == MT_SCARAB && mo->sc.parent &&
-             (mo->attack.cooldown_left_ms > 0 || !mo->attack.target || mo->attack.target->hp <= 0)) P_RemoveMobj(mo);
+    else if (mo->type_id == MT_SCARAB && mo->sc.parent) scarab(mo);
     if (mo->remove || mo->hp <= 0) return;
     mining(mo);
     if (mo->type_id == MT_SPIDER_MINE) { spider_mine(mo); return; }

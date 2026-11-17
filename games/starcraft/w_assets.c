@@ -161,9 +161,6 @@ enum {
     SC_INIT=0, SC_DEATH=1, SC_GND_ATTACK=2, SC_AIR_ATTACK=3, SC_GND_ATTACK_RPT=5, SC_WALKING=11,
     SC_LANDING=17, SC_LIFT_OFF=18, SC_STAREDIT_INIT=23, SC_BURROW=25, SC_UNBURROW=26,
 };
-/* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. A work
- * swing (6) plays once and returns to idle, like an attack without the blow. */
-enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6, SC_GROUP_HOLD=7 };
 /* The sfxdata.dat ids of the first sound an animation plays, following its
  * gotos and calls: playsnd (0x18), playsndrand (0x19), playsndbtwn (0x1a) or
  * the hit sounds of attackmelee (0x1c), whose operands are PyMS's. A strike
@@ -190,7 +187,10 @@ int sc_iscript_sounds(const blob_t *script,unsigned id,int anim,uint16_t *out,in
 }
 /* A turning GRP's playfram argument is a multiple of 17 plus the facing slot.
  * After setfldirect, or off a multiple of 17, it names one picture: those are
- * the extra one-direction frames that follow the turning ones. */
+ * the extra one-direction frames that follow the turning ones. playframtile's
+ * argument is one of those, and the CHK ERA offsets it onto the tileset's own
+ * frame. */
+static int script_tileset;
 static int script_frame(const spritesheet_t *sheet,bool turns,unsigned arg,bool fixed) {
     if(arg>=(unsigned)sheet->numlumps) return -1;
     if(!turns) return (int)arg;
@@ -205,7 +205,8 @@ typedef struct { int image, sprite, sprite_count; } sc_trail_t; /* What a death 
 static int animation(const blob_t *script,unsigned start,int sprite,int head,bool turns,int group,
                      const spritesheet_t *sheet,sc_trail_t *trail,int frame) {
     if(!start||start>=script->size) return -1;
-    bool once=group==SC_GROUP_DEATH,fixed=false,strike=false,struck=false;
+    bool once=group==SC_GROUP_DEATH,fixed=false,strike=false,struck=false,flip=false;
+    uint8_t dir1=0;
     (void)once;
     unsigned at=start,stack[16],sp=0,visited[128]; int ids[128],n=0,last=-1;
     for(int step=0;step<2048 && at<script->size;step++) {
@@ -214,8 +215,15 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
         if(size<0) break;
         unsigned len=(unsigned)size;
         const uint8_t *arg=script->bytes+at; at+=len;
-        if(op==0||op==1) { int f=script_frame(sheet,turns,read_u16_le(arg),fixed); if(f<0) break; frame=f; }
-        else if(op==0x34) fixed=true;
+        if(op==0) { int f=script_frame(sheet,turns,read_u16_le(arg),fixed); if(f<0) break; frame=f; }
+        else if(op==1) {
+            /* playframtile's operand plus the CHK ERA names one of the tileset's own frames. */
+            int f=script_frame(sheet,turns,read_u16_le(arg)+(unsigned)script_tileset,fixed); if(f<0) break; frame=f;
+        }
+        /* setfldirect pins the picture to one facing: a raw lump for the rest
+         * of this pass, and the heading the renderer keeps for the state. */
+        else if(op==0x34) { fixed=true; dir1=(uint8_t)(arg[0]+1); }
+        else if(op==23) flip=arg[0]!=0;
         else if(op==5||op==6) {
             for(int i=0;i<n;i++) if(visited[i]==here) {
                 if(last>=0) states[last].nextstate=group==SC_GROUP_ATTACK||group==SC_GROUP_WORK?1+sprite*2:ids[i];
@@ -224,12 +232,17 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
             if(n==128||next_state>=SC_STATES) break;
             int id=n?next_state++:head;
             int ticks=arg[0]; if(ticks<1) ticks=1;
+            int ticks_max=op==6&&arg[1]>arg[0]?arg[1]:0;
             /* Native script waits count 24 Hz frames; engine ticks are 30 Hz. */
             ticks=(ticks*RTS_TICRATE+12)/24;
+            if(ticks_max) ticks_max=(ticks_max*RTS_TICRATE+12)/24;
             actionf_p1 action=group==SC_GROUP_ATTACK?(strike?A_Attack:NULL):group==SC_GROUP_WALK?A_Chase:
                               group==SC_GROUP_IDLE?A_Look:NULL;
+            /* A random wait rolls its length, then runs the action this wait replaces. */
+            if(op==6) action=action?A_WaitRandAction:A_WaitRand;
             if(strike) { strike=false; struck=true; }
-            states[id]=(state_t){.sprite=sprite,.frame=frame,.tics=ticks,.group=group,.nextstate=head,.action=action};
+            states[id]=(state_t){.sprite=sprite,.frame=frame,.tics=ticks,.tics_max=ticks_max,
+                .group=group,.nextstate=head,.action=action,.dir1=dir1,.flip=flip};
             if(last>=0) states[last].nextstate=id;
             visited[n]=here; ids[n++]=id; last=id;
         } else if(op==7) at=read_u16_le(arg);
@@ -248,11 +261,12 @@ static int animation(const blob_t *script,unsigned start,int sprite,int head,boo
     if(last<0) {
         if(next_state>=SC_STATES) return -1;
         states[head]=(state_t){.sprite=sprite,.frame=frame,.tics=1,.group=group,.nextstate=head,
-            .action=group==SC_GROUP_WALK?A_Chase:group==SC_GROUP_IDLE?A_Look:NULL};
+            .action=group==SC_GROUP_WALK?A_Chase:group==SC_GROUP_IDLE?A_Look:NULL,.dir1=dir1,.flip=flip};
         last=head;
     }
     /* Attack scripts without an attack opcode still strike on their first frame. */
-    if(group==SC_GROUP_ATTACK&&!struck) states[head].action=A_Attack;
+    if(group==SC_GROUP_ATTACK&&!struck)
+        states[head].action=states[head].action==A_WaitRand?A_WaitRandAction:A_Attack;
     if(group==SC_GROUP_ATTACK||group==SC_GROUP_WORK) states[last].nextstate=1+sprite*2;
     else if(once) states[last].nextstate=S_NULL;
     else { states[last].nextstate=last; states[last].tics=1; }
@@ -358,6 +372,7 @@ static bool compose_turrets(const char *root, const blob_t *units, const blob_t 
 
 bool sc_load_graphics(const char *root,const level_t *map,spritecache_t *cache) {
     blob_t units={0},flingy={0},sprites={0},images={0},names={0},script={0}; bool ok=false;
+    script_tileset=map?map->tileset:0; /* playframtile's operand is offset by the CHK ERA */
     if(!sc_read(root,"arr/units.dat",&units)||!sc_read(root,"arr/flingy.dat",&flingy)||
        !sc_read(root,"arr/sprites.dat",&sprites)||!sc_read(root,"arr/images.dat",&images)||
        !sc_read(root,"arr/images.tbl",&names)||!sc_read(root,"scripts/iscript.bin",&script)) goto done;

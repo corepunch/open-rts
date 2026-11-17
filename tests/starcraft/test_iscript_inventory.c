@@ -23,9 +23,10 @@ static int zero_waits, inverted_waitrands, scripts_walked, images_walked;
 /* How w_assets.c compiles an opcode: the visual states it builds, or the
  * runtime in p_iscript.c, which executes every opcode below the line. */
 static const char *const ASSET_STATUS[SC_ISCRIPT_OPS] = {
-    [0] = "yes", [1] = "mis-handled: frame without the tileset offset",
-    [5] = "yes", [6] = "mis-handled: compiled as a wait of its minimum",
+    [0] = "yes", [1] = "yes",
+    [5] = "yes", [6] = "yes",
     [7] = "yes", [22] = "yes", [30] = "ignored: the jump is never taken", [53] = "yes", [54] = "yes",
+    [23] = "yes",
     [8] = "partial: first image of a death or bullet script", [9] = "ignored",
     [13] = "partial: as imgol", [14] = "ignored",
     [15] = "partial: first sprite of a death, trail or impact", [16] = "partial: as sprol",
@@ -33,7 +34,8 @@ static const char *const ASSET_STATUS[SC_ISCRIPT_OPS] = {
     [21] = "partial: as sprol", [66] = "partial: as sprol",
     [27] = "yes: strike", [28] = "yes: strike", [37] = "yes: strike", [38] = "yes: strike",
     [40] = "yes: strike", [68] = "yes: strike",
-    [42] = "partial: ends a worker swing", [48] = "partial: ends the path", [52] = "partial: frames stay unflipped",
+    [42] = "partial: ends a worker swing", [48] = "partial: ends the path",
+    [52] = "yes", [55] = "ignored: sc_unit_ticker sets speed from ActorType",
     [24] = "ignored: first sound only, in sounds.c", [25] = "ignored: first sound only, in sounds.c",
     [26] = "ignored: first sound only, in sounds.c",
     [57] = "ignored: never taken", [58] = "ignored: never taken", [59] = "ignored: never taken",
@@ -159,6 +161,15 @@ int main(int argc, char **argv) {
     CHECK(death_hit_frame(70) == 3 && death_hit_frame(71) == 3); /* Psionic Shockwave */
     CHECK(death_hit_frame(53) == 5 && death_hit_frame(45) == 5); /* Subterranean Tentacle, Acid Spray */
     CHECK(death_hit_frame(0) == 0 && death_hit_frame(25) == 5);  /* Gauss Rifle, Flame Thrower */
+    /* Appear-at-source (5) and self-destruct (6) bullets are made on the unit
+     * that fires them and wait in their Death before dealing damage: Spider
+     * Mines, the Infested Terran, the Scourge, Scarabs and the Warp Blades. */
+    for (int w = 0; w < SC_WEAPONS; ++w) {
+        int b = sc_weapons[w].behavior;
+        if ((b == SC_BEHAVIOR_APPEAR_SOURCE || b == SC_BEHAVIOR_SELF_DESTRUCT) &&
+            sc_weapons[w].damage > 0 && sc_weapons[w].flingy > 0)
+            CHECK(death_hit_frame(w) == 5);
+    }
     puts("PASS: iscript.bin opcode inventory");
     return 0;
 }

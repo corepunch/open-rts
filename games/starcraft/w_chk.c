@@ -540,6 +540,7 @@ bool sc_load_chk(const char *path,level_t *out) {
     for(size_t i=0;i<cells;i++) out->tile_ids[i]=read_u16_le(terrain+i*2);
     snprintf(out->map_path,sizeof(out->map_path),"%s",path);
     snprintf(out->tileset_name,sizeof(out->tileset_name),"%s",tilesets[era]);
+    out->tileset=era;
     for(int i=0;i<8;i++) out->player_colors[i]=i;
     g_rulepatch.count=0;
     sc_decode_rules(&rules,&g_rulepatch);

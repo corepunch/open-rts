@@ -339,11 +339,6 @@ static fixed2_t immediate_position(const mobj_t *source,const mobj_t *target) {
     return (fixed2_t){SC_PIXELS(to.x),SC_PIXELS(to.y)};
 }
 
-/* OpenBW bullet types that never fly: 2 appears at the target, rolls once per
- * bullet and damages from its Death script; 5 appears at the attacker and 6
- * does too and kills it as the bullet is made. */
-enum { SC_BEHAVIOR_APPEAR_TARGET = 2, SC_BEHAVIOR_APPEAR_SOURCE = 5, SC_BEHAVIOR_SELF_DESTRUCT = 6 };
-
 /* OpenBW weapon_can_target_unit for a unit the bullet's splash reaches:
  * weapons.dat target flags (air 1, ground 2, mechanical 4, organic 8, not a
  * building 0x10, not robotic 0x20, organic or mechanical 0x80). */
@@ -514,6 +509,14 @@ bool sc_projectile_fire(mobj_t *source,const weapondef_t *def,mobj_t *target) {
         for(unsigned i=0;i<sizeof(volley)/sizeof(*volley);i++)sc_source_bullet(source,def->native_id,target,volley[i].frame,volley[i].shift);
         return true;
     }
+    /* Types 5 and 6 appear on their attacker (OpenBW initialize_bullet) and
+     * strike from their Death script: Spider Mines, the Scourge, Infested
+     * Terrans, Scarabs and the Zealot's Warp Blades. Rows with no flingy
+     * bullet or no damage (melee claws, repair cutters) keep the shared
+     * strike below. */
+    if((w->behavior==SC_BEHAVIOR_APPEAR_SOURCE||w->behavior==SC_BEHAVIOR_SELF_DESTRUCT)&&
+       w->flingy>0&&w->damage>0)
+        return sc_source_bullet(source,def->native_id,target,0,0)!=NULL;
     if(!sc_projectile_weapon(def->native_id))return false;
     fixed2_t heading; angle_to_screen_vector_fixed(source->core.angle,&heading.x,&heading.y);
     fixed2_t at=fixed2_add(fixed3_xy(source->core.position),fixed2_scale(heading,SC_PIXELS(w->forward)));

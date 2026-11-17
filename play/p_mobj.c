@@ -6,6 +6,9 @@
 #ifdef RTS_MODULE_DARK_COLONY
 #include "dark-colony.h"
 #endif
+#ifdef RTS_MODULE_STARCRAFT
+#include "starcraft.h"
+#endif
 #include "info.h"
 #include <limits.h>
 
@@ -364,7 +367,14 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
     mobj->frame = state->frame + mobj->state_frame;
+#ifdef RTS_MODULE_STARCRAFT
+    /* setflipstate pins the flip and setfldirect pins the facing; every other
+     * state follows the sprite frame and the angle the unit is turning to. */
+    mobj->render_flags = state->flip ? RTS_FRAME_FLIP_X : 0;
+    if (state->dir1) mobj->angle = direction_to_angle((32 - (state->dir1 - 1)) % 32, 32, ANG90, false);
+#else
     mobj->render_flags = 0;
+#endif
     mobj->render_remap = 0;
     mobj->render_intensity = 16;
     if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };
@@ -631,6 +641,16 @@ static bool within_attack_range(const mobj_t *attacker, const mobj_t *target, fi
 #endif
     const weapondef_t *weapon = P_MobjWeapon(attacker, target);
     fixed_t least = weapon ? weapon->min_range : 0;
+#ifdef RTS_MODULE_STARCRAFT
+    /* A self-destructing unit closes to a pixel distance OpenBW fires at;
+     * see sc_suicide_range. Its bullet is left on the unit itself, so the
+     * tile gap alone would stop it a cell short of its own splash. */
+    int close = sc_suicide_range(attacker);
+    if (close > 0) {
+        int d = sc_unit_distance(attacker, target);
+        return d <= close && d >= (int)(least / (FIXED_ONE / 32));
+    }
+#endif
     if (target->info && target->info->footprint.w > 0 && target->info->footprint.h > 0) {
         irect_t a = P_MobjCells(attacker), b = P_MobjCells(target);
         int dx = b.x > a.x + a.w - 1 ? b.x - (a.x + a.w - 1) :

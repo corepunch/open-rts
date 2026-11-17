@@ -51,7 +51,14 @@ static inline const sc_unit_t *sc_unit(const mobj_t *mo) {
 enum { SC_WEAPONS = 130 };
 enum { SC_DAMAGE_INDEPENDENT, SC_DAMAGE_EXPLOSIVE, SC_DAMAGE_CONCUSSIVE, SC_DAMAGE_NORMAL, SC_DAMAGE_IGNORE_ARMOR };
 enum { SC_EXPLOSION_RADIAL = 2, SC_EXPLOSION_ENEMY = 3, SC_EXPLOSION_AIR = 24 };
+/* OpenBW bullet types that never fly: 2 appears at the target, rolls once per
+ * bullet and damages from its Death script; 5 appears at the attacker and 6
+ * does too and kills it as the bullet is made. */
+enum { SC_BEHAVIOR_APPEAR_TARGET = 2, SC_BEHAVIOR_APPEAR_SOURCE = 5, SC_BEHAVIOR_SELF_DESTRUCT = 6 };
 enum { SC_BEHAVIOR_BOUNCE = 7 };
+/* Engine groups 2 and 3 move and attack; 4 and 6 are only this game's. A work
+ * swing (6) plays once and returns to idle, like an attack without the blow. */
+enum { SC_GROUP_IDLE=0, SC_GROUP_WALK=2, SC_GROUP_ATTACK=3, SC_GROUP_DEATH=4, SC_GROUP_WORK=6, SC_GROUP_HOLD=7 };
 typedef struct {
     const char *name;
     int damage, bonus, cooldown, factor, upgrade, type, explosion, behavior, min_range, max_range;
@@ -404,7 +411,6 @@ void sc_repair_ticker(mobj_t *mo, int frames);
 bool sc_can_recharge_shields(const mobj_t *unit, mobj_t *battery);
 void sc_finish_recharge_order(mobj_t *unit, uint32_t battery_id);
 void sc_order_ticker(mobj_t *mo, int frames);
-int sc_unit_distance(const mobj_t *a, const mobj_t *b);
 extern int sc_flight_states[SC_TYPES][2];
 bool sc_launch(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 int sc_modified_cooldown_frames(const mobj_t *unit, int frames);
@@ -497,6 +503,11 @@ void sc_script_tick(mobj_t *mo, int frames);
 extern void (*sc_script_play)(const mobj_t *actor, int row);
 /* sfxdata.dat ids of the first sound of an iscript animation; see w_assets.c. */
 int sc_iscript_sounds(const blob_t *script, unsigned id, int anim, uint16_t *out, int max);
+/* waitrand's compiled wait (w_assets.c names it on the state): the roll, and
+ * the roll plus the animation group's own action where one would otherwise
+ * have run. Only assigned where that action exists. */
+void A_WaitRand(mobj_t *unit);
+void A_WaitRandAction(mobj_t *unit);
 /* sounds.c: native sfx; a dialog button's press sound, 0 while silent. */
 extern const soundinfo_t sc_soundinfo;
 void sc_brief_voice(const char *scenario, const char *wav);

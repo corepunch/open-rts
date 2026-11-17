@@ -45,4 +45,14 @@ void sc_interrupt(mobj_t *unit);
 /* Current shields and energy in whole points, for the HUD and tests. */
 int sc_shields(const mobj_t *mo);
 int sc_energy(const mobj_t *mo);
+/* OpenBW stops a self-destructing unit on a pixel distance rather than a
+ * cell gap: order_ScarabAttack fires at half the weapon's inner splash
+ * radius, order_SuicideUnit at contact. Their bullet is left on the unit
+ * itself, so stopping a cell short would land the splash in the medium
+ * ring instead of the inner one. Returns half the inner splash radius in
+ * pixels for the self-destructing types, or 0 for a unit that keeps the
+ * shared range rule. */
+int sc_suicide_range(const mobj_t *attacker);
+/* Box-to-box distance in pixels, OpenBW's units_distance. */
+int sc_unit_distance(const mobj_t *a, const mobj_t *b);
 #endif
