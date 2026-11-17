@@ -88,7 +88,7 @@ bool G_GameCommand(int player, const ticcmd_t *cmd) {
 
 bool G_TakeCameraRequest(fvec2_t *cell) { return sc_take_camera(cell); }
 
-void G_ProductionBegin(int elapsed_ms) { sc_creep_ticker(); sc_zerg_ticker(elapsed_ms); }
+void G_ProductionBegin(int elapsed_ms) { sc_creep_ticker(); sc_zerg_ticker(elapsed_ms); sc_addon_ticker(); }
 
 bool G_QueueLocksProduct(const StaticProductDefinition *product) {
     return product->product_class!=RTS_PRODUCT_UNIT;
@@ -121,6 +121,11 @@ void G_UnitKilled(mobj_t *victim,mobj_t *killer) {
             if(site&&site->target==victim)site->target=NULL;
         }
         victim->sc.queue=(sc_order_queue_t){0};
+        /* The kill path cancels an add-on under construction (three quarters
+         * back) and abandons a finished one; a dead add-on frees its building. */
+        if(sc_addon_of(victim))sc_detach_addon(victim);
+        mobj_t *parent=sc_addon_parent(victim->type_id)?P_MobjById(victim->sc.parent):NULL;
+        if(parent&&parent->sc.addon==victim->id)parent->sc.addon=0;
     }
     sc_transport_killed(victim);
     if(killer&&victim&&killer!=victim&&!P_IsAlly(killer,victim)&&killer->sc.kills<UINT16_MAX)

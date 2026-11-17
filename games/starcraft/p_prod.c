@@ -306,7 +306,7 @@ sc_lock_t sc_product_lock(int owner,const mobj_t *maker,const StaticProductDefin
     int missing[4],count=0;
     for(int i=0;i<p->prerequisite_count&&count<4;i++) {
         int need=p->prerequisites[i];
-        const mobj_t *own=maker?sc_addon_of(maker):NULL;
+        const mobj_t *own=maker?sc_addon_ready(maker):NULL;
         bool attached=maker&&sc_addon_parent((uint16_t)need)==maker->type_id;
         if(attached?(!own||own->type_id!=need):!sc_owner_has(owner,(uint16_t)need))missing[count++]=need;
     }
@@ -375,6 +375,16 @@ bool G_ModelIsConstructionSite(const mobj_t *unit,const StaticProductDefinition 
 
 bool G_ModelCanProgressConstruction(mobj_t *site,const StaticProductDefinition *p) {
     if(!G_ModelIsConstructionSite(site,p))return false;
+    if(sc_addon_parent(site->type_id)) {
+        /* secondary_order_BuildAddon runs on the building: it steps the add-on
+         * while grounded and not disabled, and cancels it once lifted. An
+         * add-on its building let go of (infestation clears the secondary
+         * order) stays as it is until its owner cancels it. */
+        mobj_t *parent=P_MobjById(site->sc.parent);
+        if(!parent||parent->remove||parent->hp<=0||parent->sc.addon!=site->id)return false;
+        if(parent->traits&MF_FLY) { sc_cancel_production(site,0); return false; }
+        return !sc_disabled(parent);
+    }
     if(p->makers[0]!=MT_SCV)return true;
     mobj_t *builder=site->target;
     if(!builder||builder->remove||builder->hp<=0||builder->type_id!=MT_SCV||
@@ -555,6 +565,61 @@ bool G_ModelStartConstruction(RtsGameModel *m,mobj_t *builder,
     return true;
 }
 
+/* OpenBW order_PlaceAddon: a grounded building creates the add-on at once
+ * as an incomplete building (create_unit, so a tenth of its HP), pays for
+ * it and keeps it as current_build_unit under secondary order BuildAddon;
+ * connect_addon happens only at completion. Here the queued order (paid
+ * when queued) becomes that site on the next production tick, linked
+ * through sc.parent and sc.addon from the start; sc_addon_ready tells the
+ * two stages apart. If the place is taken by then nothing is built and the
+ * cost comes back, as OpenBW never takes it. */
+static void start_addon(mobj_t *u) {
+    production_t saved=*u->production;
+    uint16_t type=(uint16_t)saved.product_type;
+    const StaticProductDefinition *p=G_ModelProductByClassType(NULL,saved.product_class,saved.product_type);
+    ivec2_t cell;
+    mobj_t *site=NULL;
+    P_FreeMobjProduction(u);
+    if(p&&!(u->traits&MF_FLY)&&!sc_addon_of(u)&&sc_addon_site(u,type,&cell)) {
+        fixed2_t at=P_BuildingPosition(type,cell);
+        site=sc_spawn_actor(type-1u,(ivec2_t){fixed_floor_int(at.x*32),fixed_floor_int(at.y*32)},u->owner);
+    }
+    production_t *construction=site?P_EnsureMobjProduction(site):NULL;
+    if(!construction) {
+        if(site)P_RemoveMobj(site);
+        if(p&&u->owner>=0&&u->owner<8) {
+            P_AddResource(&level,u->owner,0,p->cost);
+            for(int r=1;r<RTS_MAX_RESOURCES;r++)P_AddResource(&level,u->owner,r,p->extra_costs[r-1]);
+        }
+        return;
+    }
+    site->team=u->team;
+    site->allegiance=u->allegiance;
+    site->sc.sprite_owner=u->owner;
+    sc_start(site);
+    site->sc.wound=0;
+    site->hp=1;
+    set_raw_hp(site,(int64_t)site->max_hp*256/10);
+    int time=G_ModelProductTrainingTimeMs(p);
+    *construction=(production_t){.actor_id=type,.product_class=RTS_PRODUCT_BUILDING,.product_type=type,
+        .queue_count=1,.time_ms=time,.time_left_ms=time,.placed=true,.cell=cell};
+    site->sc.construction=(sc_construction_t){.frames=sc_unit(site)->build_time};
+    site->sc.parent=u->id;
+    u->sc.addon=site->id;
+    P_SyncBuildingBlocking();
+}
+void sc_addon_ticker(void) {
+    if(!thinkercap.next)return;
+    for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
+        mobj_t *mo=(mobj_t *)th;
+        if(th->function!=P_MobjThinker||mo->remove||mo->hp<=0||!mo->production||
+           mo->production->placed||mo->production->queue_count<=0||mo->production->release_active||
+           mo->production->product_class!=RTS_PRODUCT_BUILDING||
+           sc_addon_parent((uint16_t)mo->production->product_type)!=mo->type_id)continue;
+        start_addon(mo);
+    }
+}
+
 /* One OpenBW update per 24 Hz frame: Terran resume_building_unit, Protoss
  * order_IncompleteWarping and Zerg order_IncompleteMorphing. All three add the
  * per-frame HP (and Protoss shield) step to the current value, so damage taken
@@ -578,7 +643,8 @@ void G_ModelUpdateConstruction(RtsGameModel *m,mobj_t *site,const StaticProductD
     int remaining=state->frames,stage=state->stage;
     if(remaining<0||remaining>type->build_time)remaining=type->build_time;
     if(stage<0||stage>SC_HAND_OVER_MAX)stage=SC_HAND_OVER_MAX;
-    uint16_t maker=p->makers[0];
+    /* An add-on steps like an SCV's building (resume_building_unit). */
+    uint16_t maker=sc_addon_parent(site->type_id)?MT_SCV:p->makers[0];
     int64_t hp_rate=construction_hp_rate(site,type->build_time);
     int shield_rate=construction_shield_rate(type);
     bool shielded=maker==MT_PROBE&&type->shields>0;
@@ -670,21 +736,19 @@ bool G_ModelCompleteConstruction(RtsGameModel *m,mobj_t *site,
     return true;
 }
 /* Finished research raises the owner's level, a Zerg morph turns the egg
- * or building into the product, a hangar keeps what it made and an add-on
- * goes up beside its building; all leave the queue here. An unpowered
- * Protoss building, or an add-on whose place is taken, holds what it
- * finished until it can let it out. */
+ * or building into the product and a hangar keeps what it made; all leave
+ * the queue here. An unpowered Protoss building holds what it finished until
+ * it can let it out. Add-ons never get here: sc_addon_ticker turns the order
+ * into a construction site first. */
 bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProductDefinition *p,uint16_t id) {
     (void)m;(void)id;
     int upgrade,tier,tech=tech_product(p);
     if(!u||!p)return false;
-    bool addon=sc_addon_parent((uint16_t)p->product_type)==u->type_id;
-    if(!sc_powered(u)||(addon&&!sc_attach_addon(u,(uint16_t)p->product_type))) {
+    if(!sc_powered(u)) {
         if(u->production)u->production->time_left_ms=0;
         return true;
     }
-    if(addon) S_Bark(&u,1,SE_READY,false);
-    else if(sc_hangar_type(u->type_id)==p->product_type) u->sc.hangar++;
+    if(sc_hangar_type(u->type_id)==p->product_type) u->sc.hangar++;
     else if(tech>=0) {
         if(u->owner<8)level.upgrades[SC_UPGRADES+tech][u->owner].weapon=1;
         S_Bark(&u,1,SE_RESEARCH_COMPLETE,false);
@@ -714,6 +778,10 @@ bool G_ModelStartProductionRelease(RtsGameModel *m,mobj_t *u,const StaticProduct
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *m,const mobj_t *u,const StaticProductDefinition *p,const mobj_t *n,fixed2_t *out) { (void)m;(void)u;(void)p;(void)n;(void)out; return false; }
 void G_ModelBuildUIScript(const RtsGameModel *m,const RtsRenderSnapshot *s,char *out,size_t n) { (void)m;(void)s;if(n)*out=0; }
 bool sc_cancel_production(mobj_t *producer,int slot) {
+    /* OpenBW action_cancel_addon: the building's Cancel Addon cancels the
+     * add-on it is putting up. */
+    mobj_t *pending_addon=producer&&!producer->production&&slot<=0?sc_addon_building(producer):NULL;
+    if(pending_addon)return sc_cancel_production(pending_addon,0);
     production_t *queue=producer?producer->production:NULL;
     if(queue&&queue->placed&&queue->product_class==RTS_PRODUCT_BUILDING&&
        queue->actor_id==producer->type_id&&producer->owner>=0&&producer->owner<8&&
@@ -740,6 +808,9 @@ bool sc_cancel_production(mobj_t *producer,int slot) {
             producer->sc.wound=0;
             producer->sc.construction=(sc_construction_t){0};
         } else {
+            mobj_t *parent=sc_addon_parent(producer->type_id)?P_MobjById(producer->sc.parent):NULL;
+            if(parent&&parent->sc.addon==producer->id)parent->sc.addon=0;
+            producer->sc.parent=0;
             P_RemoveMobj(producer);
         }
         P_FreeMobjProduction(producer);
@@ -798,6 +869,10 @@ bool G_ModelProducerHasTech(const mobj_t *u,const StaticProductDefinition *p) {
     if(!u||!p||(p->makers[0]==MT_LARVA&&u->type_id!=MT_LARVA)||!sc_powered(u))return false;
     if((sc_unit(u)->flags&SC_UNIT_BUILDING)&&(u->traits&MF_FLY))return false;
     if(sc_addon_parent(u->type_id)&&u->owner==11)return false;
+    /* unit_is_constructing: a building putting up an add-on trains,
+     * researches and upgrades nothing. */
+    if(sc_addon_building(u)||(u->production&&u->production->queue_count&&!u->production->placed&&
+       sc_addon_parent((uint16_t)u->production->product_type)==u->type_id))return false;
     int queued=u->production?u->production->queue_count:0;
     bool addon=sc_addon_parent((uint16_t)p->product_type)==u->type_id;
     ivec2_t cell;
@@ -805,7 +880,7 @@ bool G_ModelProducerHasTech(const mobj_t *u,const StaticProductDefinition *p) {
     if(addon&&(sc_addon_of(u)||!sc_addon_site(u,(uint16_t)p->product_type,&cell)))return false;
     if(sc_hangar_type(u->type_id)==p->product_type&&sc_hangar_count(u)+queued>=sc_hangar_capacity(u))return false;
     for(int i=0;i<p->prerequisite_count;i++) {
-        const mobj_t *own=sc_addon_of(u);
+        const mobj_t *own=sc_addon_ready(u);
         if(sc_addon_parent((uint16_t)p->prerequisites[i])==u->type_id&&(!own||own->type_id!=p->prerequisites[i]))
             return false;
     }
@@ -914,7 +989,7 @@ static bool has_attached(int owner,uint16_t type,uint16_t addon) {
     for(thinker_t *th=thinkercap.next;th!=&thinkercap;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th,*own;
         if(th->function==P_MobjThinker&&!mo->remove&&mo->hp>0&&mo->owner==owner&&mo->type_id==type&&
-           (own=sc_addon_of(mo))&&own->type_id==addon) return true;
+           (own=sc_addon_ready(mo))&&own->type_id==addon) return true;
     }
     return false;
 }
@@ -958,7 +1033,8 @@ static bool sc_ai_develop(level_t *map,int owner,int ui) {
         mobj_t *mo=(mobj_t *)th;
         if(th->function!=P_MobjThinker||mo->remove||mo->hp<=0||mo->owner!=owner||mo->type_id!=sc_addon_parent(addon))
             continue;
-        if(mo->production&&mo->production->product_type==addon) return true;
+        const mobj_t *pending=sc_addon_building(mo);
+        if((mo->production&&mo->production->product_type==addon)||(pending&&pending->type_id==addon)) return true;
         if(!sc_addon_of(mo)&&G_QueueProduct(mo,build)) return true;
     }
     return false;
@@ -970,7 +1046,7 @@ static bool addon_waits(int owner,uint16_t addon) {
     for(thinker_t *th=thinkercap.next;parent&&th!=&thinkercap;th=th->next) {
         const mobj_t *mo=(const mobj_t *)th;
         if(th->function==P_MobjThinker&&mo->owner==owner&&!mo->remove&&mo->hp>0&&mo->type_id==parent&&
-           !sc_addon_of(mo)&&mo->production) return true;
+           ((!sc_addon_of(mo)&&mo->production)||sc_addon_building(mo))) return true;
     }
     return false;
 }

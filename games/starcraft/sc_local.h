@@ -370,6 +370,8 @@ void sc_show_result(int result);
  * Swarm, Parasite and Archon Warp need no research, as in retail melee. */
 bool sc_has_tech(int owner, int tech);
 bool sc_unit_has_tech(const mobj_t *caster, int tech);
+/* The cloak a unit type casts (Cloaking Field or Personnel Cloaking), or -1. */
+int sc_cloak_tech(uint16_t type);
 /* Whether tech is researched rather than given. */
 bool sc_tech_researched(int tech);
 /* A unit type's abilities (the techs it casts), for its command card. */
@@ -429,6 +431,12 @@ fixed_t sc_range_bonus(const mobj_t *attacker, const weapondef_t *weapon);
  * units.dat's add-on position. */
 uint16_t sc_addon_parent(uint16_t type);
 mobj_t *sc_addon_of(const mobj_t *building);
+/* The linked add-on once complete (what tech checks need), or the one still
+ * under construction beside its building (OpenBW current_build_unit). */
+mobj_t *sc_addon_ready(const mobj_t *building);
+mobj_t *sc_addon_building(const mobj_t *building);
+/* Turns a queued add-on order into an incomplete add-on site (p_prod.c). */
+void sc_addon_ticker(void);
 void sc_detach_addon(mobj_t *building);
 void sc_reconnect_addon(mobj_t *building, ivec2_t cell);
 bool sc_addon_site(const mobj_t *building, uint16_t type, ivec2_t *cell);
