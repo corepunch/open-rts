@@ -32,6 +32,7 @@ static bool chk_mtxm(const blob_t *file, const uint8_t **data, size_t *size) {
 
 /* These native rules belong to the level even when no renderer is loaded. */
 bool G_LoadLevelData(const char *root, level_t *map) {
+    sc_aiscript_root(root); /* scripts/aiscript.bin lives under the same root. */
     sc_mission_t *mission=map->mission;
     if(!mission)return true; /* The authored catalog has no mission terrain. */
     blob_t cv={0},vf={0}; sc_terrain_t *terrain=NULL; bool ok=false;

@@ -291,6 +291,19 @@ typedef struct {
 void sc_trigger_note(sc_mission_t *m, bool action, unsigned id);
 bool sc_trigger_reported(const sc_mission_t *m, bool action, unsigned id);
 void sc_ai_script_fallback(sc_mission_t *m, uint32_t id);
+/* Set Doodad State on a door, whose Open and Close Door path is not traced
+ * (p_trigops.c). */
+void sc_doodad_door_note(sc_mission_t *m);
+/* Run AI Script (p_aiscript.c): the retail owner gate 0x489eb0, the
+ * aiscript.bin lookup and the bytecode the engine can carry out.
+ * sc_aiscript_root binds the asset root before the first script runs. */
+void sc_aiscript_root(const char *root);
+void sc_ai_script_start(sc_mission_t *m, int owner, uint32_t id, uint32_t location);
+/* The Rscu, Enmy, Ally and EnBk effects and order 161 (p_trig.c). */
+void sc_ai_switch_rescue(sc_mission_t *m, int player);
+void sc_ai_relation(sc_mission_t *m, int player, uint32_t loc, bool ally);
+void sc_ai_enter_bunker(sc_mission_t *m, int player, uint32_t loc);
+void sc_rescue_transfer(mobj_t *mo);
 /* Score inputs: deaths and kills by type, income and spending since the start. */
 typedef struct { int lost[SC_TYPES], killed[SC_TYPES], gathered[2], spent; } sc_stats_t;
 void sc_player_stats(int owner, sc_stats_t *out);

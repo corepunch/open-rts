@@ -181,12 +181,14 @@ int main(void) {
     ticks(1, &(hudtext_t){0});
     CHECK(level.sight.allies[0] & UINT32_C(0x40000000));
     unload(); free(vision_trigger); remove("/private/tmp/sc-vision.chk");
-    /* Both AI-script forms act for the trigger owner, not an unused player field. */
+    /* Both AI-script forms act for the trigger owner, not an unused player
+     * field, and only a Computer (OWNR 5) owner passes the retail gate: use
+     * EnBk, which aiscript.bin holds, so a present id reaches the planner. */
     for (int id = 15; id <= 16; id++) {
         uint8_t *ai_trigger = blank_trigger(); CHECK(ai_trigger);
         ai_trigger[2372+17] = 0; ai_trigger[2372+1] = 1;
         ai_trigger[15] = 22; ai_trigger[320+26] = (uint8_t)id;
-        put_u32(ai_trigger+320+16, 0); put_u32(ai_trigger+320+20, 0x74657374);
+        put_u32(ai_trigger+320+16, 0); put_u32(ai_trigger+320+20, 0x6b426e45);
         CHECK(!write_map("/private/tmp/sc-ai-script.chk", force_owners, ai_trigger));
         CHECK(G_DoLoadLevel("/private/tmp/sc-ai-script.chk", &level));
         ticks(1, &(hudtext_t){0});
