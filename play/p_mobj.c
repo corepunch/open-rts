@@ -1431,6 +1431,7 @@ static bool update_unit_harvest(level_t *map,
             if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
             return true;
         }
+        if (game_info->harvest_deposited) game_info->harvest_deposited(base, unit);
         if (!vent || vent->rate <= 0 || !P_VentOpenTo(map, vent, unit)) {
             unit->harvest.target = -1;
             unit->harvest.timer_ms = 0;

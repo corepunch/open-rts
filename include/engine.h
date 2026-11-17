@@ -831,6 +831,10 @@ struct gameinfo_s {
     /* Sprite shadows need at least this detail setting; translucency likewise. 0: always drawn. */
     int shadow_detail_min, blend_detail_min;
     harvestdropoffmatchf_t harvest_dropoff_matches;
+    /* Optional: a worker finished delivering its whole cargo to base (a
+     * StarCraft hatchery biases its larva spawn sides from where its drones
+     * return). NULL: nothing records the delivery. */
+    void (*harvest_deposited)(struct mobj_s *base, const struct mobj_s *worker);
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
     const struct soundinfo_s *sound; /* NULL: the game has no sounds yet. */

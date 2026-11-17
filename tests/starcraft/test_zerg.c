@@ -48,7 +48,8 @@ static int larvae_and_eggs(mobj_t *hatchery) {
      * holds the hatchery's first spawn run. */
     tick(2);
     CHECK(count(0, MT_LARVA) == 1);
-    tick(frames(342) * 2);
+    /* The 150-frame rephases delay the later spawns: frames 363 and 717. */
+    tick(frames(716));
     CHECK(count(0, MT_LARVA) == 3);
     tick(frames(342) * 3);
     CHECK(count(0, MT_LARVA) == 3);
@@ -88,8 +89,9 @@ static int larvae_and_eggs(mobj_t *hatchery) {
     P_DamageMobj(egg, NULL, 1000);
     tick(frames(300));
     CHECK(count(0, MT_DRONE) == 0 && level.player_resources[0][0] == 0);
-    /* Used larvae grow back to three. */
-    tick(frames(342) * 2);
+    /* Used larvae grow back to three: the worst case for two spawns across
+     * the rephases is 711 frames (the model: kill at 756). */
+    tick(frames(716));
     CHECK(count(0, MT_LARVA) == 3);
     return 0;
 }
