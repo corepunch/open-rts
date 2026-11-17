@@ -1,8 +1,9 @@
 #include "z_local.h"
 #include "info.h"
 
-/* ZED.EXE 0x1047ca: nine sectors in each native search direction. */
-static const int16_t sectors[8][9] = {
+/* ZED.EXE 0x1047ca: nine sectors in each native search direction. The
+ * pointer table 0x104558 hands these rows to the acquisition walks. */
+const int16_t z_sectors[8][9] = {
     {0,-1,1,-17,-16,-15,-32,-33,-31},
     {0,1,2,-16,-15,-14,-32,-31,-30},
     {0,-16,16,1,-15,17,2,-14,18},
@@ -73,21 +74,28 @@ int Z_TerrainHeight(const zmap_t *map, int x, int y) {
     return terrain < sizeof(heights) ? heights[terrain] : 255;
 }
 
-/* 0x6e491/0x6e64b: the target must be at height zero. Trace the same
- * three-axis integer line, swapping endpoints when x is not increasing. */
-static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
-    ivec2_t source = Z_AITopLeft(unit);
-    int extra = Z_IsRobot(Z_UnitType(unit)) ? 0 : 8;
-    int x0 = (source.x + 8 + extra) / Z_TILE, y0 = (source.y + 8 + extra) / Z_TILE;
-    int x1 = (target.x + 8) / Z_TILE, y1 = (target.y + 8) / Z_TILE;
-    int z0 = Z_TerrainHeight(map, x0, y0), z1 = Z_TerrainHeight(map, x1, y1);
-    if (z0 == 255 || z1 != 0) return false;
+typedef struct { ivec2_t cell; int z; } rayend_t;
+
+/* 0x6e928: one end of a terrain ray. x and y add 8 and, for a class-1
+ * vehicle, another 8 before rounding down to the cell; z is the height of
+ * the +8 cell, which 0x796c7 keeps apart from that extra. */
+static rayend_t ray_end(const zmap_t *map, const mobj_t *mo) {
+    ivec2_t at = Z_AITopLeft(mo);
+    int extra = Z_IsClassOneUnit(Z_UnitType(mo)) ? 8 : 0;
+    return (rayend_t){{(at.x + 8 + extra) / Z_TILE, (at.y + 8 + extra) / Z_TILE},
+                      Z_TerrainHeight(map, (at.x + 8) / Z_TILE, (at.y + 8) / Z_TILE)};
+}
+
+/* 0x6e64b: nonzero z is incremented, the cells swap when x is not
+ * increasing, and the loop steps before it compares, so the start cell is
+ * never tested and the end cell always is. The ray is blocked when a
+ * cell's height class exceeds the interpolated z. */
+static bool ray(const zmap_t *map, rayend_t a, rayend_t b) {
+    if (b.cell.x <= a.cell.x) { rayend_t t = a; a = b; b = t; }
+    int x0 = a.cell.x, y0 = a.cell.y, z0 = a.z;
+    int x1 = b.cell.x, y1 = b.cell.y, z1 = b.z;
     if (z0) ++z0;
-    if (x1 <= x0) {
-        int t = x0; x0 = x1; x1 = t;
-        t = y0; y0 = y1; y1 = t;
-        t = z0; z0 = z1; z1 = t;
-    }
+    if (z1) ++z1;
     int dx = x1 - x0, dy = abs(y1 - y0), dz = abs(z1 - z0);
     int sy = y1 < y0 ? -1 : 1, sz = z1 < z0 ? -1 : 1;
     int steps = dx > dy ? dx : dy;
@@ -101,6 +109,22 @@ static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
         if (Z_TerrainHeight(map, x0, y0) > z0) return false;
     }
     return true;
+}
+
+/* 0x6e491: the target must be at height zero and is reached at z = 0. */
+static bool line_clear(const zmap_t *map, const mobj_t *unit, ivec2_t target) {
+    rayend_t from = ray_end(map, unit);
+    ivec2_t cell = {(target.x + 8) / Z_TILE, (target.y + 8) / Z_TILE};
+    if (from.z == 255 || Z_TerrainHeight(map, cell.x, cell.y) != 0) return false;
+    return ray(map, from, (rayend_t){cell, 0});
+}
+
+/* 0x6e583: the unit-to-unit ray an APC scan needs. */
+bool Z_UnitLineClear(const zmap_t *map, const mobj_t *a, const mobj_t *b) {
+    if (!map || !a || !b) return false;
+    rayend_t from = ray_end(map, a), to = ray_end(map, b);
+    if (from.z == 255 || to.z == 255) return false;
+    return ray(map, from, to);
 }
 
 /* The native sector lists are rebuilt by ascending reusable object slot.
@@ -135,7 +159,7 @@ static mobj_t *candidate(const zmap_t *map, const mobj_t *unit, mobj_t *const *s
     mobj_t *best = NULL;
     int distance = 255;
     for (int i = 0; i < 9; ++i) {
-        int s = sector + sectors[dir][i], count = 0;
+        int s = sector + z_sectors[dir][i], count = 0;
         if (s < 0 || s >= 256) continue;
         for (int j = 0; j < OBJECT_SLOTS; ++j) {
             mobj_t *mo = slots[j];

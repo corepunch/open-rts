@@ -220,9 +220,11 @@ static inline int Z_NativeSteps(int64_t tick, int hz) {
     return (int)((tick + 1) * hz / RTS_TICRATE - tick * hz / RTS_TICRATE);
 }
 bool Z_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
-/* p_apc.c: the APC scanner salvo of travelling flames (0x1ea5c). */
+/* p_apc.c: the APC scanner salvo of travelling flames (0x1ea5c). Each port
+ * group fires at the unit its own scan (0x78f61) found, not at `target`,
+ * which is only the engine's gate into the salvo. */
 bool Z_FireFlameFrom(mobj_t *attacker, mobj_t *target, const ivec2_t *port);
-bool Z_APCScannerPyro(mobj_t *apc, mobj_t *target);
+bool Z_APCScannerPyro(mobj_t *apc);
 void Z_APCAdvancePhases(mobj_t *apc);
 void A_ZBlastImpact(mobj_t *missile);
 void A_ZWater(mobj_t *water);
@@ -231,7 +233,11 @@ void A_ZGrenade(mobj_t *grenade);
 void A_ZPyroFlame(mobj_t *flame);
 void A_ZGroundFire(mobj_t *fire);
 void A_ZBlastHit(mobj_t *missile);
+/* p_detour.c: terrain heights, the rays that test them, and the nine bins
+ * each native search direction (0x1047ca) covers. */
 int Z_TerrainHeight(const zmap_t *map, int x, int y);
+bool Z_UnitLineClear(const zmap_t *map, const mobj_t *a, const mobj_t *b);
+extern const int16_t z_sectors[8][9];
 int Z_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
 /* p_fort.c: a fort takes no harm; it falls to a unit that gets inside. */
 void Z_FortUnharmed(mobj_t *fort);
