@@ -61,14 +61,19 @@ typedef enum {
  * (action 0x21, 0x62a9a: 1959..1962, the same every way). The death is
  * 290..295, a robot bursting into bits and sparks, the same every way;
  * which routine draws it is not traced. (304..314, used before, is the
- * idle sit of action 0x1a; 315..329 and 365..375 are the knockdown by a
- * nearby blast and the getting up, actions 0x17, 0x18, 0x2e and 0x2f.) */
+ * idle sit of action 0x1a.) A robot a vehicle knocks down (0x58910) lies
+ * in action 0x17 (315) or 0x2e (316) and gets up through 0x18 (319..329)
+ * or 0x2f (365..375), stride 0 in 0x14b10c: the knock pictures are the two
+ * lying ones, the rise pictures the two eleven-frame runs back to back. */
 enum {
     Z_ROBOT_STAND = 0, Z_ROBOT_WALK = 1, Z_ROBOT_FIRE = 5, Z_ROBOT_DIE = 10,
     Z_ROBOT_DIE_FRAMES = 6, Z_ROBOT_THROW = Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES,
     Z_ROBOT_THROW_FRAMES = 4, Z_ROBOT_CHEER = Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES,
     Z_ROBOT_CHEER_FRAMES = 4, Z_ROBOT_PYRO = Z_ROBOT_CHEER + Z_ROBOT_CHEER_FRAMES,
-    Z_ROBOT_PYRO_FRAMES = 3, Z_ROBOT_FRAMES = Z_ROBOT_PYRO + Z_ROBOT_PYRO_FRAMES,
+    Z_ROBOT_PYRO_FRAMES = 3, Z_ROBOT_KNOCK = Z_ROBOT_PYRO + Z_ROBOT_PYRO_FRAMES,
+    Z_ROBOT_KNOCK_FRAMES = 2, Z_ROBOT_RISE = Z_ROBOT_KNOCK + Z_ROBOT_KNOCK_FRAMES,
+    Z_ROBOT_RISE_STEPS = 11, Z_ROBOT_RISE_FRAMES = 2 * Z_ROBOT_RISE_STEPS,
+    Z_ROBOT_FRAMES = Z_ROBOT_RISE + Z_ROBOT_RISE_FRAMES,
 };
 
 /* Grenades: crates of 10 and 20 (0x79bea); a Grunt's throws burst with
@@ -101,7 +106,7 @@ typedef enum {
 #undef Z_OBJECT
 #define Z_UNIT(t, type, ...) S_##type##_STND, S_##type##_WALK, S_##type##_FIRE, \
     S_##type##_SHOT, S_##type##_DIE, S_##type##_DEAD, S_##type##_THROW, S_##type##_TOSS, \
-    S_##type##_CHEER,
+    S_##type##_CHEER, S_##type##_KNOCK, S_##type##_RISE,
 #include "units.inc"
 #undef Z_UNIT
     S_FLAG,

@@ -197,6 +197,7 @@ bool Z_PointPhaseValid(const mobj_t *unit);
 bool Z_PointAttackOrder(mobj_t *leader, ivec2_t point);
 int Z_SquadGrenades(const mobj_t *unit);
 void Z_PointCancel(mobj_t *unit);
+void Z_PointGetUp(mobj_t *unit);
 void Z_PointTick(mobj_t *unit);
 void Z_PointToss(mobj_t *unit);
 /* p_capture.c: the projectiles a coordinate attack launches. */
@@ -233,6 +234,10 @@ void A_ZGrenade(mobj_t *grenade);
 void A_ZPyroFlame(mobj_t *flame);
 void A_ZGroundFire(mobj_t *fire);
 void A_ZBlastHit(mobj_t *missile);
+/* p_knock.c: vehicles knock down or run over opposing robots (0x58679);
+ * a knocked robot lies while a vehicle is near, then gets up (0x61f43). */
+void Z_KnockdownTicker(void);
+bool Z_Knocked(const mobj_t *mo);
 /* p_detour.c: terrain heights, the rays that test them, and the nine bins
  * each native search direction (0x1047ca) covers. */
 int Z_TerrainHeight(const zmap_t *map, int x, int y);

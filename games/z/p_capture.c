@@ -434,7 +434,7 @@ void Z_MobjTicker(mobj_t *mo) {
     if (mo->type_id == MT_BUILDING_DEBRIS || mo->type_id == MT_BUILDING_REBUILD || mo->type_id == MT_WATER || mo->type_id == MT_SHELL || mo->type_id == MT_GRENADE || mo->type_id == MT_BULLET) return;
     Z_RouteTick(mo);
     Z_SquadTick(mo);
-    Z_PointTick(mo);
+    if (!Z_Knocked(mo)) Z_PointTick(mo); /* A knocked robot runs action 0x17, not 8. */
     terrain_speed(mo);
     if (mo->core.state_id == S_BRIDGE_REBUILD) {
         Z_BridgeEffectTick(mo);
@@ -1547,7 +1547,8 @@ static void take_flag(int territory, mobj_t *taker) {
     stamp_flags();
     if (flag) Z_DetourCaptured(taker, flag);
     int t = robot_type(taker);
-    if (t < 0) return;
+    /* 0x62e70 only queues the cheer in +0x85; a knocked robot keeps lying. */
+    if (t < 0 || Z_Knocked(taker)) return;
     P_ClearMove(taker);
     taker->movement.goal = fixed3_xy(taker->core.position);
     taker->movement.order_arrived = true;
@@ -1607,8 +1608,9 @@ void Z_Ticker(void) {
             }
             if (first) pick_up(mo, first);
         }
-        if (mo->z.board) tick_boarding(mo);
+        if (mo->z.board && !Z_Knocked(mo)) tick_boarding(mo);
     }
+    Z_KnockdownTicker();
     Z_DetourTicker();
 }
 

@@ -244,6 +244,13 @@ bool Z_PointAttackOrder(mobj_t *leader, ivec2_t point) {
     return true;
 }
 
+/* 0x79049 after a knockdown: a robot whose command is -5 reaches 0x790c9.
+ * The leader's 0x7905c has just set group +0x3b to 0xff, so 0x790d6 ends
+ * the order (+0x5a = 0) and the robot stands idle. */
+void Z_PointGetUp(mobj_t *unit) {
+    if (unit->z.point_mode == MODE_ATTACK) finish(unit);
+}
+
 void Z_PointToss(mobj_t *unit) {
     int grenades = unit->z.grenades;
     unit->z.point_throw = false;

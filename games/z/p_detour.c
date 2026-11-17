@@ -282,6 +282,7 @@ void Z_DetourTicker(void) {
             Z_DetourCancel(unit);
             continue;
         }
+        if (Z_Knocked(unit)) continue;
         if (d->phase == Z_DETOUR_CHEER) {
             int t = Z_UnitType(unit);
             if (t >= 0 && unit->core.state_id == mobjinfo[unit->type_id].spawnstate) {
