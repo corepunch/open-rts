@@ -310,7 +310,7 @@ robots (`ffacchoose_fort_unit_to_build`, 0x41627).
 | 0x58745 | Vehicle contact with opposing robots: one with +0x3a above 10 loses 10 and is knocked down (0x58910), the rest are killed (0x60fe6, then 0x61560 and 0x777d9 take it off the map and out of its group). Previously described as a blast; corrected by the action-9/10 dispatch trace below. |
 | 0x58910 | Knockdown: action 0x17 (sprite 315) facing directions 6, 7, 0 and 1, else 0x2e (316); direction and frame reset |
 | 0x61f43 | Actions 0x17 and 0x2e hold while a class-1 vehicle in the list at 0x18b81c is within 0x18 px, then become 0x18 (319..329) or 0x2f (365..375); the previous identification as an explosion list was wrong (see vehicle contact trace) |
-| 0x61f94 | Actions 0x18 and 0x2f step a frame every second update; at frame 11 0x79049 stands the robot up in action 1 |
+| 0x61f94 | Actions 0x18 and 0x2f step a frame every second update; at frame 11 0x79049 stands the robot up in action 1 (ported in `games/z/p_knock.c`) |
 
 The action table's 0x1a (304..314) is the robot sitting idle; 0x1b..0x1f
 (2445, 2457, 2496, 2462, 2500) and 0x23..0x29 look like other idle antics.
@@ -6746,6 +6746,97 @@ bin.cache=true -e bin.relocs.apply=true -c 'pd 20 @ 0x58910' -c 'pd 45 @
 0x61f43' -c 'pd 60 @ 0x79049' -c 'pd 45 @ 0x7bd1f' -c 'pd 30 @ 0x7bde1' -c 'pd 55
 @ 0x7ba9a' -c 'pd 30 @ 0x2d630' -c q data/Z/ZED.EXE`.
 
+**Knockdown, get-up and run-over implemented (issue #96, batch six):**
+Re-traced in `ZED.EXE` SHA-256 `3635cb69...4676` and implemented in
+`games/z/p_knock.c` (`tests/z/test_knockdown.c`).
+*Who runs the contact pass.* Action table `0x149038` entries 9 and 10 are
+`0x57dd6`; the per-type vehicle actions 0x35, 0x36, 0x37, 0x38 (APC,
+`0x1e9e7`), 0x3a, 0x3b (Crane), 0x3c (Fire Truck, `0x24c18`) and
+`0x245c9` all call it (r2 `axt 0x57dd6`), and `0x74f2f..0x74f83` puts every
+class-1 vehicle in one of these when it moves. `0x57dd6` calls `0x58679` at
+`0x57df1` before its moving/standing test (`0x57e45`), so a standing vehicle
+knocks robots down too. Guns are not sources: their actions 0x32..0x34
+(`0x26e7c`, `0x26e90`, `0x26ebb`, set by `0x63afb..0x63b1f` with class 2)
+run `0x78198` instead. `0x58679` returns when `0x10e91b` is set (every other
+native update) or when the source's +0x6f has mask 2 (the collision wait of
+`0x57b1c`, which also stamps a 2x2 terrain patch); open-rts has no such
+wait, so the mask is always clear here.
+*Candidates.* `0x7911a` copies the bins of `0x1047b8` {0, -1, 1, -17, -16,
+-15, 15, 16, 17} around the source's bin +0x38, as filled by `0x64138`
+(active, grouped, at most 32 a bin, ascending slot order). The filter at
+`0x5875c..0x58781` skips class 1 and 2, actions 0x12, 0x17 and 0x2e, and the
+source's team (`+0x31 & 3`); the inclusive rectangle is
+x-8..x+16, y-8..y+16 of the source's top-left (`0x586ac..0x586b8`,
+`0x58783..0x587b9`, `jl`/`jg`). In open-rts the sources are live manned
+class-1 units (team below neutral), the victims grouped robots.
+*Decision.* `0x587d5..0x587db`: `cmp byte [+0x3a], 10; jle` (signed), so a
+robot with more than 10 health calls `0x58910`; one with 10 or less (native
+zero included) is killed by `0x60fe6` (`0x61560`) with `0x10f334` set, with
+no call to `0x86ca4` and no zero-health survival. Open-rts kills it with
+`P_DamageMobj(robot, vehicle, hp)`. `0x58910` subtracts 10 (the negative clamp
+to 10 at `0x5891a` is unreachable after the gate), saves +0x35 in +0x72
+(never read back, see above), picks 0x17 or 0x2e by `(facing + 2) & 4`
+(0x2e for facings 2..5), and zeroes frame +0x32 and facing +0x39; +0x73 =
+0xe0. No order, path or target field is written. Health is set directly, so
+the `0x86d55` speed/fire thresholds are not applied (they live in `0x86ca4`).
+*Hold and get-up.* `0x61f43` (actions 0x17 and 0x2e) runs on every native
+update: it holds while any record of `0x18b81c` (`0x575a3`: active class-1
+units without +0x6f mask 2, positions refreshed by `0x575fa`; no team test)
+has |dx| < 24 and |dy| < 24 against the robot's top-left, else sets 0x18 or
+0x2f and clears +0x73. `0x61f94` (0x18, 0x2f) increments +0x32 only when
+`0x10e91b` is clear and calls `0x79049` at 11. The pictures are table
+`0x14b10c` entries 0x17 = 315, 0x18 = 319, 0x2e = 316, 0x2f = 365, all with
+stride 0, so the rise shows 319..329 or 365..375, one frame every second
+update (frame 0 first, frame 11 never drawn). The engine state and frame
+carry the native action and frame (`S_*_KNOCK` frames 0/1, `S_*_RISE` frames
+0..10 and 11..21, tics -1, state group 3 so the engine neither walks nor
+fires), so no unit field was added; the save layout is 30 because the state
+table was renumbered.
+*Continuation, `0x79049..0x7910d`.* For class 0/3/0xf/0x10 it sets action 1,
+frame word 1, +0x3d = 8, a random +0x3c and +0x7a; first, a squad leader
+(+0x5c = 0xff, `0x79056..0x7905c`) gets group +0x3b = 0xff. Command +0x5a
+nonnegative: idle. Negative and not -5: with a path +0x14, `0x7bd1f`
+re-issues `0x7ba9a` toward the next node (top-left = node - (8,8)) and
+returns when that starts a move (carry clear); otherwise `0x7bde1` consumes
+a node reached exactly and, when one remains (al = 1), `0x7bd1f` runs again
+before falling into `0x790c9`. -5 (coordinate attack) goes straight to
+`0x790c9`: group +0x3b = 0xff clears +0x5a and returns; else `0x78f61` with
+AL = 0 (the facing, which the knockdown set to 0) scans, `2 * rank <= unit
++4` and `0x9bded` gate it, and `0x7585a` attacks, or +0x5a is negated back
+to positive. Open-rts: the robot stands (`S_*_STND`); a move order in
+progress is kept by the engine and walked on (the path re-issue case); a
+leader's coordinate attack (`point_mode` attack, native -5) ends at once
+(`Z_PointGetUp`), since its own `0x7905c` has just cleared the group target;
+a robot interrupted mid-throw loses the throw (`point_throw` cleared). While
+knocked down a robot does not run the coordinate-attack tick, board a
+vehicle, start the flag cheer (`0x62e70` only queues it in +0x85/+0x86) or
+take a detour.
+*Not modelled, unknown:* the group target timer refresh (`0x587c5..0x587d0`:
+victim group +0x10 = 75, group records at `0x1943f8`) and every group +0x3b
+consumer, because open-rts keeps no group target; therefore the `0x790c9`
+target scan for a follower with a negative command, and a -5 command on a
+robot that is not its group's leader (it reads the stale `0x103f84` group
+when +0x5c is 0), are not reproduced, and such a robot keeps its engine
+target instead. The +0x5a sign of attack and service commands, and the
+`0x7bde1` cases where the robot stands exactly on a path node, have no
+engine route equivalent. The run-over death differs from the ordinary one
+(`0x617f8..0x6180d` and `0x61d3d..0x61d44` branch on `0x10f334`, to
+`0x61c84` and past `0x61df8`), and with victim +0x67 bit 4 `0x4a0b5` stores
+a 6-byte record (x, negated for lying picture 0x2e; y; +0x62 & 3) in the
+50-entry list at `0x189508`, drawn by `0x4a0ce`, presumably the remains;
+neither visual is traced, so the ordinary death plays. The outer avoidance
+rectangle (`0x5883f..0x588ff`) stays unported. Whether an emptied vehicle is
+still an active class-1 record is not settled; here it is neutral and does
+nothing. The thinker order stands in for slot order. As in `0x64138` and
+`0x575a3`, the bins and the vehicle list are rebuilt once per native update
+before the units run; the rectangle and hold tests read current positions. Reproduce with
+`r2 -q -e scr.color=0 -e bin.cache=true -e bin.relocs.apply=true -c 'pd 75 @
+0x58679' -c 'pd 70 @ 0x587fd' -c 'pd 30 @ 0x58910' -c 'pd 60 @ 0x61f43' -c
+'pd 90 @ 0x79049' -c 'pd 50 @ 0x7bd1f' -c 'pd 40 @ 0x7bde1' -c 'pd 45 @
+0x575a3' -c 'pd 45 @ 0x64138' -c 'pxw 0x120 @ 0x149038' -c 'pxw 16 @
+0x14b168' -c 'pxw 16 @ 0x14b1c4' data/Z/ZED.EXE` and
+`make build/bin/tests/z/test_knockdown && build/bin/tests/z/test_knockdown`.
+
 **APC driver range in strategic strength:** For ZED.EXE SHA-256
 `3635cb6960637eecd2298a84e8d6bdc4fe571ce88c716d3235151b7964184676`,
 `0x638ac..0x638c3` copies the driver's fire byte to the APC body +0x20,
@@ -6839,8 +6930,8 @@ commander code, `0x9d5fc`, `0x9da13`, `0x9da69`, `0x99eec`, `0x9a695`), unit ins
 `0x18cadc` rectangle with `+0x18 & 2` and group `+0x3d != 0`. The low-memory byte is not
 reproducible statically.
 
-*Knockdown (item 3).* Not traced further than the existing findings; not implemented.
-`+0x5a` lifecycle not completed.
+*Knockdown (item 3).* Implemented later; see "Knockdown, get-up and run-over
+ implemented (issue #96, batch six)" above.
 
 Reproduce: `r2 -q -e bin.cache=true -e bin.relocs.apply=true -c 'pd 140 @ 0x6e491' -c 'pd 40 @ 0x6e928' -c 'pd 120 @ 0x79320' -c 'pd 70 @ 0x1f158' -c 'pd 45 @ 0x591ca' -c 'pd 50 @ 0x9de02' data/Z/ZED.EXE`.
 

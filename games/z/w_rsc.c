@@ -681,12 +681,14 @@ static bool load_named(const zmap_t *map, const char *name, const uint32_t palet
     }
     if (!strcmp(name, "ROBOT")) {
         /* Actions 0, 2 and 5 of 0x14b10c, the burst (290..295), the
-         * grenade throw (0x6360e: 2522 + direction * 4 + frame) and the
-         * cheer. */
+         * grenade throw (0x6360e: 2522 + direction * 4 + frame), the
+         * cheer, the Pyro's flame, and the knockdown: actions 0x17 and 0x2e
+         * lying (315, 316), then 0x18 and 0x2f getting up (319, 365). */
         static const zrun_t robot[] = {{66, 1, 1}, {74, 4, 4}, {127, 5, 5}, {290, 0, Z_ROBOT_DIE_FRAMES},
                                        {2522, 4, Z_ROBOT_THROW_FRAMES}, {1959, 0, Z_ROBOT_CHEER_FRAMES},
-                                       {6022, 3, Z_ROBOT_PYRO_FRAMES}};
-        return load_runs(map, robot, 7, palette, sheet);
+                                       {6022, 3, Z_ROBOT_PYRO_FRAMES}, {315, 0, Z_ROBOT_KNOCK_FRAMES},
+                                       {319, 0, Z_ROBOT_RISE_STEPS}, {365, 0, Z_ROBOT_RISE_STEPS}};
+        return load_runs(map, robot, 10, palette, sheet);
     }
     if (!strcmp(name, sprnames[SPR_FLAG])) return load_flag(map, palette, sheet);
     if (!strcmp(name, sprnames[SPR_CRANE_WORK])) return load_crane_work(map, palette, sheet);

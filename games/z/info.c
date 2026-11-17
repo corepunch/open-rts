@@ -21,7 +21,7 @@ const char *const sprnames[NUMSPRITES] = {
  * Throwing a grenade is an attack of its own pictures (p_capture.c). A
  * unit that stands in several pictures steps through them every tic. */
 #define UNIT_STATES(type, stand, stands, walk, walks, fire, fires, shot, die, dies, dead, dead_tics, \
-                    throw, throws, toss, cheer, cheers) \
+                    throw, throws, toss, cheer, cheers, knock, knocks, rise, rises) \
     [S_##type##_STND] = { SPR_##type, stand, stands, (stands) > 1 ? 1 : 4, A_Look, S_##type##_STND, 0, NULL }, \
     [S_##type##_WALK] = { SPR_##type, walk, walks, 3, A_Chase, S_##type##_WALK, 2, NULL }, \
     [S_##type##_FIRE] = { SPR_##type, fire, fires, 2, NULL, S_##type##_SHOT, 3, NULL }, \
@@ -30,7 +30,9 @@ const char *const sprnames[NUMSPRITES] = {
     [S_##type##_DEAD] = { SPR_##type, dead, 1, dead_tics, NULL, S_NULL, 4, NULL }, \
     [S_##type##_THROW] = { SPR_##type, throw, throws, 2, NULL, S_##type##_TOSS, 3, NULL }, \
     [S_##type##_TOSS] = { SPR_##type, toss, 1, 2, A_ZToss, S_##type##_STND, 3, NULL }, \
-    [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL },
+    [S_##type##_CHEER] = { SPR_##type, cheer, cheers, 4, NULL, S_##type##_STND, 0, NULL }, \
+    [S_##type##_KNOCK] = { SPR_##type, knock, knocks, -1, NULL, S_##type##_KNOCK, 3, NULL }, \
+    [S_##type##_RISE] = { SPR_##type, rise, rises, -1, NULL, S_##type##_STND, 3, NULL },
 /* Robots walk, aim, flash on the last fire frame and blow apart; nothing
  * of them stays once the last sparks fade. A grenade leaves on the
  * throw's last frame (0x636a0). */
@@ -38,21 +40,22 @@ const char *const sprnames[NUMSPRITES] = {
     UNIT_STATES(type, Z_ROBOT_STAND, 1, Z_ROBOT_WALK, 4, Z_ROBOT_FIRE, 4, Z_ROBOT_FIRE + 4, \
                 Z_ROBOT_DIE, Z_ROBOT_DIE_FRAMES - 1, Z_ROBOT_DIE + Z_ROBOT_DIE_FRAMES - 1, \
                 3, Z_ROBOT_THROW, Z_ROBOT_THROW_FRAMES - 1, \
-                Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES - 1, Z_ROBOT_CHEER, Z_ROBOT_CHEER_FRAMES)
+                Z_ROBOT_THROW + Z_ROBOT_THROW_FRAMES - 1, Z_ROBOT_CHEER, Z_ROBOT_CHEER_FRAMES, \
+                Z_ROBOT_KNOCK, Z_ROBOT_KNOCK_FRAMES, Z_ROBOT_RISE, Z_ROBOT_RISE_FRAMES)
 /* A gun's last frame is its muzzle flash; its wreck follows the turns. */
 #define STATES_GUN(type, sprite, turn, frames, idle, dead) \
     UNIT_STATES(type, 0, 1, 0, 1, 0, 1, (frames) - 1, frames, 1, frames, 10 * RTS_TICRATE, \
-                0, 1, (frames) - 1, 0, 1)
+                0, 1, (frames) - 1, 0, 1, 0, 1, 0, 1)
 /* Vehicles roll through their track frames and stand in the `idle`
  * pictures after them (w_rsc.c); the wreck follows. */
 #define STATES_VEHICLE(type, sprite, turn, frames, idle, dead) \
     UNIT_STATES(type, frames, idle, 0, frames, 0, 1, 0, (frames) + (idle), 1, \
-                (frames) + (idle), 10 * RTS_TICRATE, 0, 1, 0, 0, 1)
+                (frames) + (idle), 10 * RTS_TICRATE, 0, 1, 0, 0, 1, 0, 1, 0, 1)
 /* One picture for everything but the wreck; no wreck art removes it. */
 #define STATES_STILL(type, sprite, turn, frames, idle, dead) \
     UNIT_STATES(type, sprite, 1, sprite, 1, sprite, 1, sprite, (dead) < 0 ? (sprite) : (dead), 1, \
                 (dead) < 0 ? (sprite) : (dead), (dead) < 0 ? 1 : 10 * RTS_TICRATE, \
-                sprite, 1, sprite, sprite, 1)
+                sprite, 1, sprite, sprite, 1, sprite, 1, sprite, 1)
 
 /* 0x182d3 copies each world's bridge pair to 0x117dd8. */
 #define BRIDGE_DEBRIS(world, sprite) \
