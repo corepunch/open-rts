@@ -768,6 +768,71 @@ static int tech_card(void) {
     return 0;
 }
 
+/* starcraft.exe command-card conditions for Burrow (0x495fa0), Unburrow
+ * (0x496010), Cloak (0x495c30, mixed 0x495d00) and Decloak (0x495ca0,
+ * 0x495d60): unresearched greys (CanUseTech -1), a disabled unit hides
+ * (0), and the state follows the whole selection. */
+static int toggle_cards(void) {
+    mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER);
+    CHECK(hall);
+    int burrowing = SC_UPGRADES + SC_TECH_BURROWING;
+    const char *burrow = sc_techs[SC_TECH_BURROWING].name;
+    mobj_t *pair[2] = {beside(MT_ZERGLING, hall, 4, 4), beside(MT_ZERGLING, hall, 5, 4)};
+    CHECK(pair[0] && pair[1]);
+    level.upgrades[burrowing][consoleplayer].weapon = 0;
+    CHECK(locked(card(burrow, pair, 2), "Burrowing research"));
+    level.upgrades[burrowing][consoleplayer].weapon = 1;
+    CHECK(usable(card(burrow, pair, 2)) && !card("Unburrow", pair, 2));
+    /* One down, one up: Burrow keeps the slot and digs in only the one up. */
+    pair[0]->sc.flags |= SC_BURROWED;
+    menuitem_t *dig = card(burrow, pair, 2);
+    CHECK(usable(dig) && !card("Unburrow", pair, 2) && dig->look[MS_NORMAL].cell == 259);
+    click(dig);
+    CHECK(pair[1]->sc.order.kind == SC_ORDER_BURROW && (pair[0]->sc.flags & SC_BURROWED) &&
+          pair[0]->sc.order.kind != SC_ORDER_UNBURROW);
+    /* Both down: Unburrow. */
+    pair[1]->sc.order = (sc_order_t){0}; pair[1]->sc.flags |= SC_BURROWED;
+    menuitem_t *up = card("Unburrow", pair, 2);
+    CHECK(usable(up) && !card(burrow, pair, 2) && up->look[MS_NORMAL].cell == 260);
+    /* A locked-down unit hides both (CanUseTech 0). */
+    pair[0]->sc.timers[SC_TIMER_LOCKDOWN] = 100;
+    CHECK(!card("Unburrow", pair, 2) && !card(burrow, pair, 2));
+    pair[0]->sc.timers[SC_TIMER_LOCKDOWN] = 0;
+    /* A burrowed unit without the research shows Burrow greyed, not Unburrow. */
+    level.upgrades[burrowing][consoleplayer].weapon = 0;
+    CHECK(locked(card(burrow, pair, 2), "research") && !card("Unburrow", pair, 2));
+    level.upgrades[burrowing][consoleplayer].weapon = 1;
+    pair[0]->sc.flags &= ~SC_BURROWED; pair[1]->sc.flags &= ~SC_BURROWED;
+    /* Mixed button set 0xf5: Zerg on the ground with one that burrows. */
+    mobj_t *mixed[2] = {pair[0], beside(MT_ULTRALISK, hall, 6, 6)};
+    CHECK(mixed[1] && usable(card(burrow, mixed, 2)));
+    mixed[1] = beside(MT_OVERLORD, hall, 6, 8);
+    CHECK(mixed[1] && !card(burrow, mixed, 2));
+    /* Mixed button set 0xf4: a Ghost and a Wraith cloak from one button. */
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][consoleplayer].weapon = 1;
+    level.upgrades[SC_UPGRADES + SC_TECH_CLOAKING_FIELD][consoleplayer].weapon = 1;
+    mobj_t *cloakers[2] = {beside(MT_GHOST, hall, 3, 6), beside(MT_WRAITH, hall, 3, 8)};
+    CHECK(cloakers[0] && cloakers[1]);
+    cloakers[0]->sc.energy = cloakers[1]->sc.energy = 200 << 8;
+    menuitem_t *cloak = card("Cloak", cloakers, 2);
+    CHECK(usable(cloak) && cloak->look[MS_NORMAL].cell == 252);
+    click(cloak);
+    CHECK((cloakers[0]->traits & MF_CLOAKED) && (cloakers[1]->traits & MF_CLOAKED));
+    CHECK(usable(card("Decloak", cloakers, 2)) && !card("Cloak", cloakers, 2));
+    /* One uncloaked again: Cloak returns and leaves the cloaked one alone. */
+    cloakers[1]->traits &= ~MF_CLOAKED;
+    click(card("Cloak", cloakers, 2));
+    CHECK((cloakers[0]->traits & MF_CLOAKED) && (cloakers[1]->traits & MF_CLOAKED));
+    /* The mixed card skips a unit that cannot cloak; the one-type card
+     * lets it decide. */
+    level.upgrades[SC_UPGRADES + SC_TECH_PERSONNEL_CLOAKING][consoleplayer].weapon = 0;
+    cloakers[0]->traits &= ~MF_CLOAKED; cloakers[1]->traits &= ~MF_CLOAKED;
+    CHECK(usable(card("Cloak", cloakers, 2)));
+    mobj_t *ghosts[2] = {cloakers[0], beside(MT_GHOST, hall, 2, 6)};
+    CHECK(ghosts[1] && locked(card(sc_techs[SC_TECH_PERSONNEL_CLOAKING].name, ghosts, 2), "research"));
+    return 0;
+}
+
 /* Abilities, siege mode, Archon Warp and Unload All from the command card. */
 static int command_card(void) {
     mobj_t *hall = find(consoleplayer, MT_COMMAND_CENTER);
@@ -1243,6 +1308,7 @@ int main(void) {
     unload();
     CHECK(load(kinds, races));
     CHECK(!tech_card());
+    CHECK(!toggle_cards());
     unload();
     CHECK(load(kinds, races));
     CHECK(!hud_contract());

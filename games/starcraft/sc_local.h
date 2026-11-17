@@ -370,6 +370,8 @@ void sc_show_result(int result);
  * Swarm, Parasite and Archon Warp need no research, as in retail melee. */
 bool sc_has_tech(int owner, int tech);
 bool sc_unit_has_tech(const mobj_t *caster, int tech);
+/* The cloak a unit type casts (Cloaking Field or Personnel Cloaking), or -1. */
+int sc_cloak_tech(uint16_t type);
 /* Whether tech is researched rather than given. */
 bool sc_tech_researched(int tech);
 /* A unit type's abilities (the techs it casts), for its command card. */

@@ -2160,6 +2160,77 @@ static void ability(menu_t *m,menuitem_t *i,menuaction_t a) {
     }
     if(order.count)G_QueueTiccmd(&order);
 }
+/* starcraft.exe 0x4019f0 (CanUseTech) as the command card reads it: 0
+ * hides the button (another player's unit, unfinished, disabled, a
+ * hallucination, or the map withholds the tech), -1 shows it greyed (the
+ * requirement list 0x4db4f8 fails: "Hero OR Researched", 0xff1c/0xff0f,
+ * error 8), 1 enables it. The renderer at 0x497640 skips a 0 record and
+ * greys a negative one. */
+static int can_use_tech(const mobj_t *u,int tech) {
+    if(tech<0||u->owner!=consoleplayer||sc_foundation(u)||sc_disabled(u)||
+       (u->sc.flags&SC_HALLUCINATION)||!sc_tech_available(u->owner,tech))return 0;
+    return sc_unit_has_tech(u,tech)?1:-1;
+}
+static bool burrowable(const mobj_t *u) { return (sc_units[u->type_id-1].flags&SC_UNIT_BURROWABLE)!=0; }
+/* Burrow (0x495fa0) and Unburrow (0x496010) share position 9; Burrow wins
+ * when it is not hidden. Burrow: the first burrowable unit of the selection
+ * that cannot burrow decides (greyed or hidden), else the first one up shows
+ * it. Unburrow: every burrowable unit is down and may come up. Units that
+ * cannot burrow are skipped by both. */
+static int burrow_button(bool *up) {
+    *up=false;
+    for(int i=0;i<selection_count;i++) {
+        const mobj_t *u=selection_units[i];
+        if(!burrowable(u))continue;
+        int use=can_use_tech(u,SC_TECH_BURROWING);
+        if(use!=1)return use;
+        if(!(u->sc.flags&SC_BURROWED))return 1;
+    }
+    for(int i=0;i<selection_count;i++) {
+        const mobj_t *u=selection_units[i];
+        if(burrowable(u)&&(!(u->sc.flags&SC_BURROWED)||can_use_tech(u,SC_TECH_BURROWING)!=1))return 0;
+    }
+    *up=true;
+    return 1;
+}
+/* Cloak and Decloak share position 7. A one-type card (0x495c30) lets the
+ * first unit that cannot cloak decide, as Burrow does; the mixed Ghost and
+ * Wraith card (button set 0xf4, 0x495d00) skips it. Decloak (0x495ca0,
+ * 0x495d60): every unit may use its cloak and is cloaked. Passive cloaking
+ * (status 0x800, an Arbiter's field) is not modelled. */
+static int cloak_button(bool mixed,bool *off) {
+    *off=false;
+    for(int i=0;i<selection_count;i++) {
+        const mobj_t *u=selection_units[i];
+        int use=can_use_tech(u,sc_cloak_tech(u->type_id));
+        if(use!=1) { if(mixed)continue; return use; }
+        if(!(u->traits&MF_CLOAKED))return 1;
+    }
+    for(int i=0;i<selection_count;i++) {
+        const mobj_t *u=selection_units[i];
+        if(!(u->traits&MF_CLOAKED)||can_use_tech(u,sc_cloak_tech(u->type_id))!=1)return 0;
+    }
+    *off=true;
+    return 1;
+}
+/* value is tech*2 plus 1 for Unburrow or Decloak. OpenBW action_burrow,
+ * action_cloak and their reverses act on each selected unit they apply to,
+ * so a toggle is sent only to the units on the button's side. */
+static void toggle(menu_t *m,menuitem_t *i,menuaction_t a) {
+    (void)m;
+    if(a!=MA_ACTIVATE)return;
+    int tech=i->value/2;bool off=i->value&1;
+    ticcmd_t order={.order=TC_SPELL,.product=tech};
+    for(int j=0;j<hudview.unit_count&&order.count<MAXCOMMANDUNITS;j++) {
+        mobj_t *u=hudview.units[j];
+        if(!P_MobjIsSelected(u)||u->owner!=consoleplayer||u->hp<=0)continue;
+        bool on=tech==SC_TECH_BURROWING?burrowable(u)&&(u->sc.flags&SC_BURROWED):
+            sc_cloak_tech(u->type_id)>=0&&(u->traits&MF_CLOAKED);
+        if(tech==SC_TECH_BURROWING?!burrowable(u):sc_cloak_tech(u->type_id)<0)continue;
+        if(on==off)order.units[order.count++]=u->id;
+    }
+    if(order.count)G_QueueTiccmd(&order);
+}
 static void unload(menu_t *m,menuitem_t *i,menuaction_t a) {
     (void)m;(void)i;if(a==MA_ACTIVATE)HU_SelectedOrder(TC_UNLOAD,(fvec2_t){0},0);
 }
@@ -2414,7 +2485,30 @@ static void refresh(menu_t *menu) {
             button(7,selected->type_id==MT_DRONE?258:235,SDLK_v,build_menu,2,"Advanced Structures");
         }
     }
-    if(!same_type)return;
+    if(!same_type) {
+        /* starcraft.exe 0x4977a0 picks a mixed button set: 0xf3 when all are
+         * workers (not modelled here), 0xf4 when all can cloak, 0xf5 when all
+         * are Zerg on the ground and one can burrow. */
+        bool workers=true,cloakers=true,zerg=true,digger=false;
+        for(int i=0;i<selection_count;i++) {
+            const mobj_t *u=selection_units[i];
+            const sc_unit_t *type=&sc_units[u->type_id-1];
+            workers&=(type->flags&SC_UNIT_WORKER)!=0;
+            cloakers&=(type->flags&SC_UNIT_CLOAKABLE)!=0;
+            zerg&=(type->race&1)&&!(u->traits&MF_FLY);
+            digger|=burrowable(u);
+        }
+        bool up,off;
+        int use;
+        if(build_page||workers) return;
+        if(cloakers&&(use=cloak_button(true,&off))!=0) {
+            button(6,off?253:252,SDLK_c,toggle,SC_TECH_PERSONNEL_CLOAKING*2+off,off?"Decloak":"Cloak");
+        } else if(!cloakers&&zerg&&digger&&(use=burrow_button(&up))!=0) {
+            button(8,up?260:259,SDLK_u,toggle,SC_TECH_BURROWING*2+up,up?"Unburrow":sc_techs[SC_TECH_BURROWING].name);
+            if(use<0)grey(8,"Requires: Burrowing research");
+        }
+        return;
+    }
     StaticProductDefinition list[SC_TYPES];int n=G_ModelGetProducts(NULL,consoleplayer,list,SC_TYPES);
     /* A unit's own morph (Guardian) goes under its move and attack row. */
     int slot=!build_page&&(selected->traits&MF_MOBILE)?6:0;
@@ -2457,6 +2551,22 @@ static void refresh(menu_t *menu) {
             int tech=techs[t];
             /* Dug in, a unit can only come up again. */
             if(burrowed&&tech!=SC_TECH_BURROWING)continue;
+            bool cloak=tech==SC_TECH_CLOAKING_FIELD||tech==SC_TECH_PERSONNEL_CLOAKING;
+            if(tech==SC_TECH_BURROWING||cloak) {
+                /* Their state and visibility follow the whole selection. */
+                bool second;
+                int use=cloak?cloak_button(false,&second):burrow_button(&second);
+                if(!use)continue;
+                const char *name=cloak?(second?"Decloak":sc_techs[tech].name):
+                    second?"Unburrow":sc_techs[tech].name;
+                button(slot,cloak?(second?253:252):(second?260:259),cloak?SDLK_c:SDLK_u,toggle,tech*2+second,name);
+                if(use<0) {
+                    char why[96];snprintf(why,sizeof(why),"Requires: %s research",sc_techs[tech].name);
+                    grey(slot,why);
+                }
+                slot++;
+                continue;
+            }
             int icon=tech==SC_TECH_NUCLEAR_STRIKE?311:tech==SC_TECH_SIEGE_MODE&&(selected->type_id==MT_SIEGE_MODE||selected->type_id==MT_DUKE_SIEGE)?246:
                 tech==SC_TECH_BURROWING&&burrowed?260:sc_techs[tech].icon;
             button(slot,icon,SDLK_1+slot,ability,tech,tech==SC_TECH_NUCLEAR_STRIKE?"Nuclear Strike":

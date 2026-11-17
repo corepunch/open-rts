@@ -763,8 +763,13 @@ bool sc_order(ticorder_t order, mobj_t *const *units, int count, int tech, mobj_
         }
         /* One caster serves an aimed spell; toggles switch every caster. */
         for (int i = 0; i < count && (!any || !sc_tech_aimed(tech)); i++) {
-            bool accepted=sc_cast(units[i], tech, target, at);
-            if(accepted && tech!=SC_TECH_STIM_PACKS && tech!=SC_TECH_CLOAKING_FIELD && tech!=SC_TECH_PERSONNEL_CLOAKING)
+            /* OpenBW action_cloak picks each unit's own cloak: a mixed Ghost
+             * and Wraith group cloaks both from one button. */
+            int own = tech == SC_TECH_CLOAKING_FIELD || tech == SC_TECH_PERSONNEL_CLOAKING ?
+                sc_cloak_tech(units[i]->type_id) : tech;
+            if (own < 0) continue;
+            bool accepted=sc_cast(units[i], own, target, at);
+            if(accepted && own!=SC_TECH_STIM_PACKS && own!=SC_TECH_CLOAKING_FIELD && own!=SC_TECH_PERSONNEL_CLOAKING)
                 units[i]->sc.queue=(sc_order_queue_t){.active=TC_SPELL,.owner=units[i]->owner};
             any |= accepted;
         }

@@ -138,8 +138,8 @@ Cloak 0x4e729c / 0x4e74fc, Decloak 0x4e72b0 / 0x4e7510). Burrow 0x495fa0: any se
 Burrowable unit that passes `CanUseTech(11)` and is not burrowed. Unburrow 0x496010:
 every selected Burrowable unit is burrowed and passes `CanUseTech(11)`. Cloak 0x495c30:
 a selected unit passes `CanUseTech`, is not passively cloaked (0x800) and bit 0x100 is
-clear. Decloak 0x495ca0: all pass `CanUseTech`, none passive, bit 0x100 set. So retail
-HIDES these buttons without research; the UI gate equals the command gate.
+clear. Decloak 0x495ca0: all pass `CanUseTech`, none passive, bit 0x100 set. (Corrected
+below: an unresearched button is greyed, not hidden.)
 
 **Engine.** `sc_cast` already required research or hero for both directions of both
 toggles and charged cloak energy with the same boundary. The one divergence fixed: a
@@ -147,10 +147,58 @@ disabled (lockdown/stasis) unit could still toggle cloak (Burrow already refused
 `tests/starcraft/test_initial_states.c` (unresearched Ghost and Zergling stuck, researched
 toggles, lockdown, energy 24/25, free decloak, hero without research).
 
-**Residual unknowns.** (1) `m_menu.c` greys unresearched ability buttons instead of
-hiding them as retail does; not changed here (UI layout, needs the visible-slot logic).
-(2) Retail requires all selected units to pass for Unburrow/Decloak; the engine UI is
-single-selection. (3) Cheat flag 0x50a100 bit 0x1000/0x800 meaning not identified.
+**Command card, settled (issue 99).** Read again in starcraft.exe:
+
+- Values. The card builder at 0x497640 calls each record's condition (`call [edi+4]`)
+  for its slot: 0 skips the record (hidden; the next record may take the slot), a
+  positive value enables the button, a negative one greys it (0x4cbbc0) and its
+  second string becomes the tooltip (Burrow: "Burrow: Evolve at Hatchery", Wraith
+  Cloak: "Cloaking Field: Research at Control Tower").
+- `CanUseTech` 0x4019f0 returns 0 for another player's unit (error 1), an unfinished
+  one (0x14), a disabled one (0xa: status 0x400, timers +0x10f/+0x111), a
+  hallucination (0x16) or a tech the map withholds (0x4fdb3c, the per-player
+  availability table, error 2), all before research is looked at. Research is the
+  requirement list at 0x4db4f8, run by 0x401280: Burrowing, Personnel Cloaking and
+  Cloaking Field all begin `0xff1c OR 0xff0f` (units.dat flag 0x40 Hero, or the
+  researched table 0x4fdc5c that 0x4360f2 sets when research ends), then the caster
+  types. A failed group with nothing yet matched returns -1 (error 8). So an
+  unresearched Burrow or Cloak is GREYED, as `m_menu.c` already did; the earlier
+  "hides" reading took error 2 (availability) for research.
+- Multiple units. Burrow 0x495fa0 walks the selection, skips types that cannot
+  burrow, and the first burrowable unit decides: `CanUseTech` other than 1 is
+  returned as is (greyed or hidden), a unit up returns 1, a unit already down passes
+  to the next; none left is 0. Unburrow 0x496010: every burrowable unit is down and
+  passes, else 0 (never greyed). Both sit at position 9 and Burrow, listed first,
+  wins when not hidden; so a burrowed unit without the research shows Burrow greyed.
+  Cloak 0x495c30 and Decloak 0x495ca0 (position 7) follow the same pattern over every
+  selected unit.
+- Mixed selections (0x4977a0). The active unit's set is kept when every selected
+  unit's set is the same, shares its record array (Zergling and Hydralisk: 0x4e5e58)
+  or is the other's fallback; otherwise set 0xf2 (Move, Stop, Attack, Patrol, Hold),
+  replaced by 0xf3 when all are workers (flag 0x8), 0xf4 when all can cloak (flag
+  0x200: Cloak 0x495d00, Decloak 0x495d60, each unit's own tech via 0x4305f0; a unit
+  failing `CanUseTech` is skipped rather than deciding), or 0xf5 when all are Zerg
+  (group flag 1) and not airborne (status 0x4) and one can burrow (the Zergling
+  record array).
+- The actions (OpenBW `action_burrow`, `action_cloak` and reverses) act on each
+  selected unit they apply to.
+
+Implemented in `games/starcraft/m_menu.c` (`can_use_tech`, `burrow_button`,
+`cloak_button`, `toggle`): Burrow/Unburrow and Cloak/Decloak take their state and
+lock from the whole selection by the rules above, retail icons (259/260, 252/253) and
+hotkeys (U, C from stat_txt), and a press goes only to the units on the button's
+side; sets 0xf4 and 0xf5 for mixed selections. `p_units.c` maps a cloak order to
+each unit's own cloak tech. Tests: `toggle_cards` in `tests/starcraft/test_gameplay.c`.
+
+**Residual unknowns.** (1) Passive cloaking (status 0x800, an Arbiter's field) is not
+modelled locally, so it never blocks Cloak or Decloak. (2) Set 0xf3 (mixed workers)
+and the shared-record rule for other types (Marine and Firebat Stim, for one) are not
+modelled: a mixed selection still shows only movement buttons plus 0xf4/0xf5. (3)
+Button positions: the local card lays abilities out in order, not at the retail
+positions (Burrow 9, Cloak 7) except on the mixed cards. (4) The exact role of the flag
+that `0xff02` "current unit is" clears (it reads the unit-count table 0x4f5afc and
+seems to turn a later failed group from -1 into a skip) was not traced; it does not
+change the result for these casters, whose research group runs first. (5) Cheat flag 0x50a100 bit 0x1000/0x800 meaning not identified.
 (4) Timers +0x10f/+0x111 named by community CUnit layout, not verified here.
 (5) Lurker is absent from this executable's whitelist (it predates Brood War).
 Commands: `make build/bin/starcraft`; `TEST_JOBS=4 TEST_BUDGET=60 make -o starcraft-maps

@@ -123,6 +123,12 @@ static bool casts(uint16_t type, const sc_spell_t *s) {
     return false;
 }
 
+int sc_cloak_tech(uint16_t type) {
+    const sc_spell_t *field = spell(SC_TECH_CLOAKING_FIELD), *personnel = spell(SC_TECH_PERSONNEL_CLOAKING);
+    if (field && casts(type, field)) return SC_TECH_CLOAKING_FIELD;
+    if (personnel && casts(type, personnel)) return SC_TECH_PERSONNEL_CLOAKING;
+    return -1;
+}
 bool sc_tech_researched(int tech) { const sc_spell_t *s = spell(tech); return !s || !s->given; }
 bool sc_has_tech(int owner, int tech) {
     if (!sc_tech_researched(tech)) return true;
