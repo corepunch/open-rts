@@ -1,8 +1,8 @@
 #include "sc_local.h"
 
-/* Research restrictions, projectiles, construction progress, transport timers
- * and mission presentation are saved. */
-uint32_t G_SaveLayout(void) { return 27; }
+/* Research restrictions, projectiles, construction progress, transport timers,
+ * larva spawn sides and mission presentation are saved. */
+uint32_t G_SaveLayout(void) { return 28; }
 
 bool G_WorldFrozen(void) { return sc_world_frozen(); }
 

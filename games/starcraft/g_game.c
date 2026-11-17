@@ -76,6 +76,7 @@ void G_InitGame(void) {
     sc_init_info();
     game_info.draw_fog=sc_draw_fog;
     game_info.mobj_palette=sc_mobj_palette;
+    game_info.harvest_deposited=sc_harvest_deposited;
     sc_init_combat();
     sc_refresh_actors();
 }

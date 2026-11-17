@@ -16,15 +16,21 @@
  * reinitialize_unit_type does). A larva keeps its run phase (bits 0-3), the
  * side of the hatchery it lives on (bits 4-5, OpenBW's order_state), and its
  * move target (sc.order.at, valid with bit 6; bit 7 marks a trip back to the
- * hatchery) in sc.order, which a larva never otherwise uses.
+ * hatchery) in sc.order, which a larva never otherwise uses. A hatchery also
+ * keeps its four larva spawn side values (sc.larva_side, OpenBW's
+ * larva_spawn_side_values) that worker deliveries bias.
  *
- * Differences from OpenBW that no trace here settles (see
+ * Every 150 frames OpenBW restarts each unit's order timer from its place in
+ * the unit list (update_units; the counter starts at 10, so frames 10, 160,
+ * 310, ...). The thinker list stands in for that list. OpenBW's timer counts
+ * down to its run at 0, and a hatchery's spawn — its secondary order, which
+ * runs only once the main order has counted the timer down to 0 — fires one
+ * frame later when the timer reads 1. The stored run phase counts up to its
+ * run at 0 instead, so it restarts at (1 - v) for a hatchery and at (9 - v)
+ * for a larva, whose order runs on the timer's 0 itself.
+ *
+ * Difference from OpenBW that no trace here settles (see
  * docs/SC_CONSTRUCTION_READINESS.md):
- * - The run phase is 0 for every unit; OpenBW restarts every unit's phase from
- *   its place in the unit list every 150 frames, which cannot be reproduced
- *   without that list, so only the nine-frame period is exact.
- * - larva_spawn_side_values (worker returns bias the spawn side) is not kept:
- *   no hook tells this engine where a worker delivered, so every value is 0.
  * - A larva walks a straight line at its walking-script speed and stops exactly
  *   on its target; OpenBW's flingy movement, collision and the position a
  *   larva stops at beside its hatchery are not traced. */
@@ -43,6 +49,7 @@ bool sc_larva_state_valid(const mobj_t *mo) {
     int v = mo->sc.larva_ms;
     if (v != INT_MIN && (v < 0 || (v & ~(H_TIMER | H_PHASE | H_MORPH)) || (v & H_TIMER) > TIMER_SPAWNED ||
                          ((v & H_PHASE) >> H_PHASE_SHIFT) >= RUN_PERIOD)) return false;
+    for (int i = 0; i < SC_LARVA_SIDES; i++) if (mo->sc.larva_side[i] > SC_LARVA_SIDE_MAX) return false;
     if (mo->type_id != MT_LARVA) return true;
     unsigned s = (unsigned)mo->sc.order.time;
     return !(s & ~0xffu) && (s & L_PHASE) < RUN_PERIOD;
@@ -97,9 +104,9 @@ static bool tile_occupied(ivec2_t c) { return L_Contains(&level, c.x, c.y) && (l
 
 typedef struct { int best; pt at; bool found; dims_t larva; } spawn_t;
 /* The test lambda of get_spawn_larva_position. val is the side's
- * larva_spawn_side_values entry, always 0 here. */
-static bool test_side(spawn_t *s, pt pos, pt neighbor) {
-    int val = 0;
+ * larva_spawn_side_values entry; the lowest value wins, ties going to the
+ * earlier test. */
+static bool test_side(spawn_t *s, pt pos, pt neighbor, int val) {
     if (val >= s->best || !inside(pos, s->larva) || !creep_at(pos)) return false;
     pt op = {pos.x + neighbor.x, pos.y + neighbor.y};
     if (!inside(op, s->larva) || !in_map(op)) return false;
@@ -116,17 +123,21 @@ static bool spawn_position(const mobj_t *h, pt *out) {
     dims_t d = dims(h->type_id);
     pt c = where(h), from, to;
     inner_box(c, d, &from, &to);
-    test_side(&s, (pt){c.x, to.y + 10}, (pt){0, 22});
-    test_side(&s, (pt){from.x - 10, c.y}, (pt){-22, 0});
-    test_side(&s, (pt){to.x + 10, c.y}, (pt){22, 0});
-    test_side(&s, (pt){c.x, from.y - 10}, (pt){0, -22});
+    test_side(&s, (pt){c.x, to.y + 10}, (pt){0, 22}, h->sc.larva_side[3]);
+    test_side(&s, (pt){from.x - 10, c.y}, (pt){-22, 0}, h->sc.larva_side[0]);
+    test_side(&s, (pt){to.x + 10, c.y}, (pt){22, 0}, h->sc.larva_side[2]);
+    test_side(&s, (pt){c.x, from.y - 10}, (pt){0, -22}, h->sc.larva_side[1]);
     if (!s.found) {
         int w = (d.left + d.right + 1 + 1) / 2, hh = (d.top + d.bottom + 1 + 1) / 2;
         s.best = 0x10000;
-        if (!test_side(&s, (pt){c.x - w, to.y + 10}, (pt){0, 22}) && !test_side(&s, (pt){c.x + w, to.y + 10}, (pt){0, 22})) s.best = 101;
-        if (!test_side(&s, (pt){from.x - 10, c.y - hh}, (pt){-22, 0})) test_side(&s, (pt){from.x - 10, c.y + hh}, (pt){-22, 0});
-        if (!test_side(&s, (pt){to.x + 10, c.y - hh}, (pt){22, 0})) test_side(&s, (pt){to.x + 10, c.y + hh}, (pt){22, 0});
-        if (!test_side(&s, (pt){c.x - w, from.y - 10}, (pt){0, -22})) test_side(&s, (pt){c.x + w, from.y - 10}, (pt){0, -22});
+        if (!test_side(&s, (pt){c.x - w, to.y + 10}, (pt){0, 22}, h->sc.larva_side[3]) &&
+            !test_side(&s, (pt){c.x + w, to.y + 10}, (pt){0, 22}, h->sc.larva_side[3])) s.best = 101;
+        if (!test_side(&s, (pt){from.x - 10, c.y - hh}, (pt){-22, 0}, h->sc.larva_side[0]))
+            test_side(&s, (pt){from.x - 10, c.y + hh}, (pt){-22, 0}, h->sc.larva_side[0]);
+        if (!test_side(&s, (pt){to.x + 10, c.y - hh}, (pt){22, 0}, h->sc.larva_side[2]))
+            test_side(&s, (pt){to.x + 10, c.y + hh}, (pt){22, 0}, h->sc.larva_side[2]);
+        if (!test_side(&s, (pt){c.x - w, from.y - 10}, (pt){0, -22}, h->sc.larva_side[1]))
+            test_side(&s, (pt){c.x + w, from.y - 10}, (pt){0, -22}, h->sc.larva_side[1]);
     }
     *out = s.at;
     return s.found;
@@ -146,6 +157,18 @@ mobj_t *sc_spawn_larva(mobj_t *h) {
     int side = p.x < c.x - d.left ? 0 : p.y < c.y - d.top ? 1 : p.x > c.x + d.right ? 2 : 3;
     larva->sc.order = (sc_order_t){.time = side << L_SIDE_SHIFT};
     return larva;
+}
+
+/* order_ReturnCargo's delivery to a hatchery: every stored value drops by one,
+ * then the side the worker delivered from (its sprite against the hatchery's
+ * box) gains 25, capped at 100 before the gain, so 124 at most. */
+void sc_harvest_deposited(mobj_t *base, const mobj_t *worker) {
+    if (!base || !worker || !hatchery(base->type_id)) return;
+    for (int i = 0; i < SC_LARVA_SIDES; i++) if (base->sc.larva_side[i]) base->sc.larva_side[i]--;
+    dims_t d = dims(base->type_id);
+    pt c = where(base), p = where(worker);
+    int side = p.y < c.y - d.top ? 1 : p.y > c.y + d.bottom ? 3 : p.x < c.x - d.left ? 0 : 2;
+    if (base->sc.larva_side[side] < 100) base->sc.larva_side[side] += 25;
 }
 
 static int larvae_near(const mobj_t *h) {
@@ -243,13 +266,41 @@ static void larva_frame(mobj_t *l) {
     l->sc.order.time = (l->sc.order.time & ~L_PHASE) | (phase + 1) % RUN_PERIOD;
 }
 
+/* update_units: every 150 frames each live unit's order timer restarts from
+ * its place in the unit list, cycling 0 to 7. The thinker list stands in for
+ * that list; the run phase stored here is the frame on which the unit runs
+ * (0 to run now, counting up), so the timer's value v maps to (1 - v) for a
+ * hatchery — its spawn fires when the timer reads 1 — and to (9 - v) for a
+ * larva, whose order runs when the timer reads 0. */
+static void rephase(void) {
+    int v = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (!live(th)) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (hatchery(mo->type_id)) {
+            if (mo->sc.larva_ms != INT_MIN) {
+                int p = (1 - v) % RUN_PERIOD;
+                if (p < 0) p += RUN_PERIOD;
+                mo->sc.larva_ms = (mo->sc.larva_ms & ~H_PHASE) | p << H_PHASE_SHIFT;
+            }
+        } else if (mo->type_id == MT_LARVA) {
+            mo->sc.order.time = (mo->sc.order.time & ~L_PHASE) | (RUN_PERIOD - v) % RUN_PERIOD;
+        }
+        if (++v == 8) v = 0;
+    }
+}
+
 void sc_larva_ticker(void) {
     int frames = leveltime * 24 / RTS_TICRATE - (leveltime - 1) * 24 / RTS_TICRATE;
-    for (int f = 0; f < frames; f++)
+    int base = (leveltime - 1) * 24 / RTS_TICRATE;
+    for (int f = 0; f < frames; f++) {
+        int nf = base + f + 1;
+        if (nf >= 10 && !((nf - 10) % 150)) rephase();
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
             if (!live(th)) continue;
             mobj_t *mo = (mobj_t *)th;
             if (hatchery(mo->type_id)) hatchery_frame(mo);
             else if (mo->type_id == MT_LARVA) larva_frame(mo);
         }
+    }
 }

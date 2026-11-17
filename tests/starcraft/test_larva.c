@@ -10,7 +10,10 @@
  * (secondary_order_SpawningLarva, get_spawn_larva_position, order_Larva).
  * The spawn run happens once per 9 native frames, starting at frame 1 here
  * (the run phase is 0 at completion), and a spawn sets a 37-count timer that
- * one run in each 9 frames counts down: spawns at frames 1, 343, 685. */
+ * one run in each 9 frames counts down. Every 150 frames the run phase
+ * restarts from the unit's thinker-list place (rephase), which delays the
+ * next run: intervals of 362 then 354, so the spawns fall at frames 1, 363
+ * and 717 — the frames OpenBW's order timer produces (see p_larva.c). */
 enum { W = 64, SEED = 777 };
 static sc_mission_t mission;
 static int native;
@@ -61,20 +64,25 @@ static int cadence(void) {
     until(0);tick();
     CHECK(larvae(h)==0);          /* creep and the first run come with frame 1 */
     until(1);CHECK(larvae(h)==1);
-    until(342);CHECK(larvae(h)==1);
-    until(343);CHECK(larvae(h)==2);
-    until(684);CHECK(larvae(h)==2);
-    until(685);CHECK(larvae(h)==3);
-    /* The cap freezes the timer: nothing spawns however long it waits. */
+    until(362);CHECK(larvae(h)==1);   /* the rephases at 10, 160, ... shift the runs */
+    until(363);CHECK(larvae(h)==2);
+    until(716);CHECK(larvae(h)==2);
+    until(717);CHECK(larvae(h)==3);
+    /* The cap freezes the timer at 37: nothing spawns however long it waits. */
     until(5000);CHECK(larvae(h)==3);
-    /* A larva used at frame 5000 (runs fall on frames 1 mod 9): the timer
-     * resumes from 37, so the next spawn is 37 decrements and a spawn later. */
+    /* A larva used at frame 5000: the timer resumes from 37, so the next
+     * spawn waits 37 runs of decrement and one spawning run (frame 5349). */
     mobj_t *used=nth(h,0);
     P_DamageMobj(used,NULL,used->hp);
     CHECK(larvae(h)==2);
-    int first=5001;while((first-1)%9)first++;
-    until(first+37*9-1);CHECK(larvae(h)==2);
-    until(first+37*9);CHECK(larvae(h)==3);
+    int decrements=0,prev=h->sc.larva_ms&63;
+    while(larvae(h)==2) {
+        tick();
+        if(larvae(h)==3)break;
+        int now=h->sc.larva_ms&63;
+        if(now!=prev){++decrements;prev=now;}
+    }
+    CHECK(decrements==37);
     return 0;
 }
 
@@ -105,7 +113,9 @@ static int blocked(void) {
     h->sc.construction.frames=sc_units[MT_HATCHERY-1].build_time;
     CHECK(!G_ModelUnitReady(h));
     until(100);
-    CHECK(larvae(h)==0&&h->sc.larva_ms==0);
+    /* Rephased at frame 10 from the hatchery's list place (0 -> run phase 1);
+     * the timer itself stays 0 while the building is incomplete. */
+    CHECK(larvae(h)==0&&h->sc.larva_ms==1<<6);
     return 0;
 }
 
@@ -176,10 +186,11 @@ static int orphan(void) {
     int alive_until=0;
     while(native<30000&&k->hp>0) { tick();alive_until=native; }
     CHECK(k->hp<=0&&alive_until>101);
-    /* Death was at a run frame and on a tile with no creep. */
+    /* Death was in a run — the stored phase counts up from the run's 0, so it
+     * reads 1 on the death frame — and on a tile with no creep. */
     ivec2_t at={(int)(k->core.position.x/(FIXED_ONE/32))/32,(int)(k->core.position.y/(FIXED_ONE/32))/32};
     CHECK(!sc_creep_at(at));
-    CHECK((alive_until-1)%9==0);
+    CHECK((k->sc.order.time&15)==1);
     return 0;
 }
 
@@ -197,7 +208,7 @@ static int save_load(void) {
     uint32_t hash=G_ConsistencyExtra(0);
     CHECK(G_LoadExtra(blob,size)&&G_ConsistencyExtra(0)==hash);
     CHECK(h->sc.larva_ms>=0&&(h->sc.larva_ms&63)<=37&&larvae(h)==1);
-    until(343);
+    until(363);
     CHECK(larvae(h)==2);
     free(blob);
     /* A malformed timer is refused. */
