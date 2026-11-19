@@ -51,6 +51,7 @@ bool Z_PointCanAttack(const mobj_t *unit) {
     return live(unit) && type >= 0 && (grenadier(type) || type == MT_UNIT_TOUGH - MT_UNITS || tank(type));
 }
 
+bool Z_PointVehicle(const mobj_t *unit) { int type = Z_UnitType(unit); return type >= 0 && tank(type); }
 
 static bool same_squad(const mobj_t *a, const mobj_t *b) {
     return a == b || (a->z.squad && a->z.squad == b->z.squad && a->team == b->team &&

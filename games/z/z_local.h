@@ -188,6 +188,7 @@ void A_PyroRecover(mobj_t *mo);
 void A_ZToss(mobj_t *mo);
 /* p_point.c: the robot coordinate attack (ZED.EXE command 5, target 0x0d80). */
 bool Z_PointCanAttack(const mobj_t *unit);
+bool Z_PointVehicle(const mobj_t *unit);
 bool Z_PointAttackable(ivec2_t point);
 bool Z_PointInRange(const mobj_t *unit, ivec2_t point);
 bool Z_PointMoveDone(const mobj_t *unit, ivec2_t point);

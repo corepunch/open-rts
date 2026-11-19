@@ -7018,6 +7018,18 @@ Verification: `env SDL_VIDEODRIVER=dummy TEST_JOBS=4 TEST_BUDGET=120 make test-z
   pauses it; the every-second-step polling and `0x58483` turret timer are not modeled. Save layout unchanged (29).
 - Tests: `test_vehicle_reach`, `test_vehicle_order`, `test_vehicle_save`, `task_six` with tanks.
 - Fire Truck (0x26), Crane, APC/Jeep (0x38) unchanged.
+- **Task 6 with tanks (resolved).** The earlier "cancelled within the same tactics pass" was a fixture
+  artefact, not an engine or retail cause: a vehicle without a driver has Z_AIUnitValue 0, so
+  `observations` gives the task strength 0, drops MOBILE (`task->flags`), and the task is reset to -1.
+  A crewed tank (driver, crew record, `z.robot`) keeps its task. `building_attacks` now admits the
+  `0x9a801` vehicle leaders (types 0x1e, 6, 0x19, 0x18, via `Z_PointVehicle`) without a grenade
+  sum, as retail does (only classes 0/0x10 need one); their command 5 is the vehicle branch above.
+  Test: `task_six_tank` in `tests/z/test_point.c`. Pyro (class 0xf) and type 0x1a/0x1b leaders stay
+  excluded (no port order for them).
+- **Pattern-branch lead re-checked, still not implemented.** `0x7bec6` resets +0x20/+0xa6/+0xb2 to the
+  speed-level head on every level change, `0x7bf10` advances one node per native 70 Hz step; the
+  port moves by a smooth average speed and takes 30 Hz tics, so the node index at a given tic has no
+  retail counterpart. Any cursor would be an invented phase.
 
 **Pyro under command 5, traced, NOT implemented.** `0x7c872` always plans a path for class 0xf
 (`0x756a1` clc). Action 8: after the range gate (`4*root < +4`) `0x752ff` runs the line trace `0x6e45e`

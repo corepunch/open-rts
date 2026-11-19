@@ -740,7 +740,7 @@ static void building_attacks(zmap_t *map, mobj_t *const *units, int count) {
         mobj_t *group[MEMBERS];
         if (!live(lead) || lead->team != CPU || members(task, units, count, group) == 0) continue;
         /* Only classes the engine can order are accepted: grenadiers with grenades, and Tough. */
-        if (!Z_PointCanAttack(lead) || (lead->type_id != MT_UNIT_TOUGH && !Z_SquadGrenades(lead))) continue;
+        if (!Z_PointCanAttack(lead) || (!Z_PointVehicle(lead) && lead->type_id != MT_UNIT_TOUGH && !Z_SquadGrenades(lead))) continue;
         ivec2_t flag = ivec2_scale(map->territories[t].flag, Z_TILE), min = {flag.x - 64, flag.y - 64},
                 max = {flag.x + 64, flag.y + 64};
         bool hostile = false;

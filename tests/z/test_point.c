@@ -391,6 +391,54 @@ static int task_six_filters(void) {
     return 0;
 }
 
+/* 0x9a801 lets vehicle leaders through without a grenade sum; their command 5
+ * is the vehicle branch (approach into reach, stop). */
+static int task_six_tank(void) {
+    RtsGameModel *model = load();
+    if (!model) return fail("task 6 tank load");
+    P_AiSetFeatures(rts_game_model_ai(model), 0);
+    zmap_t *map = level.native_data;
+    mobj_t *first = first_building(-1);
+    int t = territory_of(first);
+    if (t < 0) return fail("tank building territory");
+    first = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *mo = (mobj_t *)th;
+        if (th->function == P_MobjThinker && mo->z.building && !mo->remove && territory_of(mo) == t &&
+            (!first || mo->z.building < first->z.building)) first = mo;
+    }
+    map->territories[t].importance = 200;
+    ivec2_t flag = ivec2_scale(map->territories[t].flag, Z_TILE);
+    mobj_t *lead = robot(MT_UNIT_HEAVY_TANK, 1, (ivec2_t){flag.x + 24, flag.y + 8}, 0, UINT8_MAX, 0);
+    mobj_t *human = robot(MT_UNIT_GRUNT, 0, (ivec2_t){flag.x + 64, flag.y - 64}, 214, UINT8_MAX, 0);
+    if (!lead || !human) return fail("task 6 tank fixture");
+    lead->z.driver = MT_UNIT_GRUNT - MT_UNITS + 1; /* An empty vehicle has no strength to commit. */
+    lead->z.crew_count = 1;
+    lead->z.crew[0].hp = mobjinfo[MT_UNIT_GRUNT].spawnhealth;
+    lead->z.robot = human->z.robot;
+    map->computer.intelligence = 127;
+    map->computer.allocation = 0;
+    think(0);
+    map->territories[t].team = 0;
+    map->ai.territories[t].owner = 0;
+    map->ai.territories[t].flags &= ~3;
+    zaitask_t *task = task_of(lead);
+    if (!task) return fail("task for the tank");
+    task->task = 3;
+    task->target = task->destination = task->current = (int16_t)t;
+    task->flags |= 8 | 16;
+    task->pending = false;
+    map->ai.delay = 0;
+    think(1);
+    task = task_of(lead);
+    if (!task || task->task != 6) return fail("a tank leader needs no grenades for task 6 (0x9a801)");
+    if (!ivec2_equal(lead->z.point, aim_of(first))) return fail("the tank's coordinate order carries the descriptor point");
+    if (lead->z.point_mode != 3) return fail("the tank takes the vehicle branch");
+    puts("PASS: z task 6 with a tank leader");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 /* Vehicles: command 5 on a point runs action 9 (0x57dd6); 0x764e8 only tests the
  * reach (0x591ca) and stops the unit. No shot is fired at the point. */
 static int test_vehicle_reach(void) {
@@ -477,5 +525,5 @@ int main(void) {
     return test_range_rule() || test_attackable_point() || test_leader_throw() || test_carrier_choice() ||
            test_approach() || test_no_grenade_move() || test_tough() || test_save_mid_order() ||
            test_vehicle_reach() || test_vehicle_order() || test_vehicle_save() ||
-           task_six(false) || task_six(true) || task_six_filters();
+           task_six(false) || task_six(true) || task_six_filters() || task_six_tank();
 }
