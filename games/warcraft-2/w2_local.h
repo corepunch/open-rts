@@ -20,6 +20,8 @@ bool w2_blocks_mining(int owner, ivec2_t cell, isize2_t foot);
 enum {
     W2_TILE_REMOVED_TREE = W2_TILE_LOOKUP,
     W2_TILE_TREE_TOP, W2_TILE_TREE_MIDDLE, W2_TILE_TREE_BOTTOM,
+    /* Wargus "removed-rock" and "top/mid/bot-one-rock" specials; megatile numbers differ per era. */
+    W2_TILE_REMOVED_ROCK, W2_TILE_ROCK_TOP, W2_TILE_ROCK_MIDDLE, W2_TILE_ROCK_BOTTOM,
     W2_TILE_COUNT,
 };
 /* Stratagus Speed is not cells per second. This divisor is an engine
@@ -161,6 +163,23 @@ void W2_ShowResult(bool victory);
 int w2_spawn_units(void);
 bool w2_init_resources(level_t *map);
 void w2_remove_tree(ivec2_t cell);
+void w2_remove_rock(ivec2_t cell);
+/* cell_terrain value of a rock cell: impassable like forest, but no lumber. */
+#define W2_TERRAIN_ROCK 4
+
+/* Tile walls and rocks (p_wall.c). Wargus/Stratagus keep a wall as a map
+ * tile whose Value is its hit points, not as a unit. */
+void w2_walls_init(const level_t *map);   /* Scan map->tile_ids once the tiles are set. */
+bool w2_wall_tile(uint16_t tile);         /* A standing wall tile (intact or broken). */
+bool w2_rock_tile(uint16_t tile);
+bool W2_WallAt(ivec2_t cell);             /* A standing wall (intact or broken). */
+int W2_WallHp(ivec2_t cell);
+int W2_WallRace(ivec2_t cell);            /* 1 human, 2 orc, 0 none. */
+void W2_HitWall(ivec2_t cell, int damage); /* CMap::HitWall */
+void W2_ClearTile(ivec2_t cell);          /* CMap::ClearTile: wall, rock or tree. */
+int W2_WallDamage(const mobj_t *attacker, int basic, int piercing, uint32_t roll);
+/* Stratagus Spell_Demolish terrain effect: wall, rock and forest inside `range`. */
+void w2_demolish_terrain(ivec2_t centre, int range);
 bool w2_load_shared_sprites(const w2_archive_t *arc, const uint32_t palette[256], int era,
                             spritecache_t *cache);
 /* A free cell beside a footprint that the unit can reach (p_harvest.c). */

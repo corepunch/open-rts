@@ -574,6 +574,12 @@ static void order_at(const menu_t *menu, int kind) {
                              hudview.units[hit]->id);
             return;
         }
+        /* Stratagus DoRightButton_Attack: a wall of the other race is attacked, not walked onto. */
+        ivec2_t cell = {(int)goal.x, (int)goal.y};
+        if (W2_WallRace(cell) == (orc_side() ? 1 : 2)) {
+            G_SelectedTiccmd(TC_ATTACK_GROUND, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal), 0);
+            return;
+        }
         G_SelectedTiccmd(TC_MOVE, hudview.units, hudview.unit_count, fixed2_from_fvec2(goal), 0);
         return;
     }
@@ -607,7 +613,7 @@ static void draw_placement(const menu_t *menu, const menuitem_t *item, irect_t r
 static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
     int pud = cmd->arg;
     if (pud < 0 || pud >= W2_TYPE_COUNT || !W2_Buildable((uint16_t)(pud + 1))) {
-        set_note("Walls are not built.");
+        set_note("Walls are not built in single player (Wargus allows them only in network games).");
         M_MenuTarget(menu, NULL);
         return;
     }

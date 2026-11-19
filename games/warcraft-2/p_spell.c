@@ -258,15 +258,8 @@ void A_W2_Cast(mobj_t *unit) {
             if (th->function == P_MobjThinker && victim->type_id <= W2_TYPE_COUNT &&
                 !(victim->traits & MF_FLY) && W2_Distance(unit, victim) <= 3) P_DamageMobj(victim, unit, 400);
         }
-        for (int i = 0; i < level.resource_vent_count; ++i) {
-            resourcevent_t *vent = &level.resource_vents[i];
-            ivec2_t cell = fixed2_cell(fixed3_xy(unit->core.position));
-            int dx = cell.x - vent->cell.x, dy = cell.y - vent->cell.y;
-            if (vent->resource_type == 1 && vent->active && dx * dx + dy * dy <= 9) {
-                vent->amount = 0; vent->active = false;
-                w2_remove_tree(vent->cell);
-            }
-        }
+        /* Wargus spells.lua: demolish range 3; Spell_Demolish clears wall, rock and forest tiles. */
+        w2_demolish_terrain(fixed2_cell(fixed3_xy(unit->core.position)), 3);
         break;
     default: success = false; break;
     }

@@ -230,6 +230,17 @@ bool w2_decode_tileset(const w2_archive_t *arc, int era, tileset_t *out) {
     lookup[W2_TILE_TREE_TOP] = 121;
     lookup[W2_TILE_TREE_MIDDLE] = 122;
     lookup[W2_TILE_TREE_BOTTOM] = 123;
+    /* Wargus era tileset scripts, "special": top/mid/bot-one-rock and removed-rock. */
+    static const int rocks[4][4] = {
+        {166, 161, 162, 163}, /* summer: removed, top, middle, bottom */
+        {161, 156, 157, 158}, /* winter */
+        {163, 158, 159, 160}, /* wasteland */
+        {161, 155, 156, 157}, /* swamp */
+    };
+    lookup[W2_TILE_REMOVED_ROCK] = rocks[era][0];
+    lookup[W2_TILE_ROCK_TOP] = rocks[era][1];
+    lookup[W2_TILE_ROCK_MIDDLE] = rocks[era][2];
+    lookup[W2_TILE_ROCK_BOTTOM] = rocks[era][3];
     out->tile_lookup = lookup;
     out->tile_lookup_count = W2_TILE_COUNT;
     out->count = count;
