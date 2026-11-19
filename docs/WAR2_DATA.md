@@ -84,20 +84,60 @@ present. Dimensions are 1..256 and `MTXM` must cover `width * height` cells.
 `ALAMO` owners are `[3,5,4,4,4,4,4,4, 3,3,3,3,3,3,3,2]`. No loose map uses
 era 3 or `MTXM` at or above `0x9E0`.
 
-**Passability.** `SQM` bit `0x0080` is forest (terrain 2), else bit `0x0040`
-is water (terrain 1), else land (terrain 0). `ALAMO` is land 6429, water 0,
-forest 2787. `CHANNEL` is land 3968, water 3609. Forests are not
-`cell_solid`, so air can cross them and `tile_flags` stays null, which means
-forests do not block sight. Wall MTXM values set `cell_solid`: orc
-`(v & 0xFFF0) == 0x00A0`, `(v & 0xFFF0) == 0x00C0`, or `(v & 0xFF00) == 0x0900`;
-human `(v & 0x00F0) == 0x0090`, `(v & 0xFFF0) == 0x00B0`, or
-`(v & 0xFF00) == 0x0800`. Water and forest also set `blocked[]`. Building
-footprints set both. Felling a tree clears its forest collision and selects
-native removed-tree megatile 126; neighboring forest edges are not recomputed.
+**Passability.** `SQM` bit `0x0080` is forest/rock (terrain 2), else bit
+`0x0040` is water (terrain 1), else land (terrain 0). A `0x0080` cell whose
+MTXM tile is a rock tile (`0x80`, or mixed `0x400..0x4df`) is terrain 4
+(`W2_TERRAIN_ROCK`): impassable like forest, air crosses it, no lumber and no
+resource vent. `ALAMO` is land 6429, water 0, forest 2267, rock 520 (the 2787
+`0x0080` cells; rocks were once harvestable trees). `CHANNEL` is land 3968,
+water 3609. Forests are not `cell_solid`, so air can cross them and
+`tile_flags` stays null, which means forests do not block sight. Building
+footprints set `cell_solid` and `blocked`. Felling a tree clears its forest
+collision and selects native removed-tree megatile 126; neighbouring borders
+are rebuilt (see the forest section of the findings).
+
+**Walls and rocks (`p_wall.c`, `p_terrain.c`).** Wargus/Stratagus keep a wall
+as a map field whose Value is its hit points (`map_wall.cpp` `SetWall`,
+`HitWall`, `RemoveWall`, `MapFixWallTile`), not as a unit; the PUD has no wall
+UNIT records (types 103/104 are skipped). Wall tiles: human `0x090` (no
+neighbour), `0x0B0` (all four), mixed `0x800..0x8D0`; orc `0x0A0`, `0x0C0`,
+`0x900..0x9D0` (the direction table is `CTileset::buildWallReplacementTable`,
+index N=1 E=2 S=4 W=8, the map edge counts as wall). Each group lists intact
+tiles, a gap, broken tiles, a gap, destroyed tiles (Wargus
+`tilesets/wargus/summer.lua`, identical in all four eras): groups `0x840`,
+`0x890`, `0x940`, `0x990` have two tiles per condition, every other group
+one, so broken is `base + n + 1` and destroyed `base + 2n + 2`. HP is 40 and
+armor 20 (Wargus `human/units.lua`, `orc/units.lua`); a tile is drawn broken
+at HP <= 20 (`getWallTile`). Destroying a wall (`HitWall` -> `ClearTile` ->
+`RemoveWall`) sets the destroyed tile, clears `cell_solid`/`blocked`, and
+re-fixes the four neighbours so they stop joining it. Wall tiles also force
+terrain 0, whatever SQM says. The old matcher `(v & 0xF0) == 0x90` caught
+ordinary terrain such as `0x590`; the corrected one tests the whole group.
+No retail PUD in `data/WAR2` contains wall tiles, so the loader path is
+covered by unit tests only.
+
+Damage: `CalculateDamageStats` against the wall (basic minus armor 20, at
+least 1, plus piercing, minus the roll). A splash shot hits every tile in its
+range over distance times the splash factor (`MissileHit` "Missile hits
+ground"), including via attack-ground; melee and archers attack a wall by an
+attack-ground order on its tile (the Attack button then a click on an
+enemy-race wall, Stratagus `DoRightButton_Attack`), repeating until it falls.
+Demolish (`spells.lua`, range 3; `Spell_Demolish`) removes wall, rock and
+forest tiles in the circle. `ClearRockTile` uses the same corner machinery as
+forests in mixed group `0x400` and solid `0x80`, ending in the era's removed-rock
+megatile (runtime slot `0x9E4`; summer 166, winter 161, wasteland 163, swamp
+161; single-rock slots `0x9E5..0x9E7`).
+
+Not built: peasants and peons do not build walls. Wargus `human/buttons.lua`
+and `orc/buttons.lua` offer the Wall button only when `check-network` passes
+or the `single-player-walls` debug switch is set, so the base single-player
+game has no wall building; the command card shows the button and the note says
+so. Right-click on a wall (engine input) and AI wall attacks are not wired,
+and wall hit points are not in saved games.
 
 **Units.** A `UNIT` record is `u16 x, y; u8 type, player; u16 data`. The
 spawned actor id is `type + 1` because `P_InitMobj` rejects type 0. Starts
-(types 94 and 95) and walls (103 and 104) are not spawned. `ALAMO` therefore
+(types 94 and 95) and walls (103 and 104) are not spawned as units. `ALAMO` therefore
 spawns 64 of 71 records. Placement is the footprint center. Structures mark
 that footprint solid. Gold-mine reserves use `data * 2500`, checked against
 the PUD records and Wargus's PUD reader. Oil patches retain their PUD data;

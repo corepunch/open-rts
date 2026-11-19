@@ -25,12 +25,6 @@ static bool tag_is(const uint8_t *p, const char *tag) {
     return memcmp(p, tag, 4) == 0;
 }
 
-static bool wall_tile(uint16_t value) {
-    return (value & 0xfff0u) == 0x00a0u || (value & 0xfff0u) == 0x00c0u ||
-           (value & 0xff00u) == 0x0900u || (value & 0x00f0u) == 0x0090u ||
-           (value & 0xfff0u) == 0x00b0u || (value & 0xff00u) == 0x0800u;
-}
-
 static uint8_t terrain_of(uint16_t sqm) {
     if ((sqm & 0x00ffu) == 0x0002u || (sqm & 0x00ffu) == 0x0082u) return 3;
     if (sqm & 0x0080u) return 2;
@@ -46,6 +40,7 @@ static void fill_speeds(terrainspeeds_t *speeds) {
     speeds->terrain[3][1] = 100;
     speeds->terrain[3][2] = 100;
     speeds->terrain[3][3] = 100;
+    speeds->terrain[3][W2_TERRAIN_ROCK] = 100;
     /* Wargus transports can enter coast; other ships stay in water. */
     speeds->terrain[4][1] = speeds->terrain[4][3] = 100;
     /* Every ship covers 2x2 tiles, so ships sail and dock on tile corners. */
@@ -473,7 +468,7 @@ bool w2_load_pud(const char *path, level_t *out) {
     for (size_t i = 0; i < cells; ++i) {
         uint16_t value = read_u16_le(mtxm + i * 2u);
         out->tile_ids[i] = value;
-        if (wall_tile(value)) {
+        if (w2_wall_tile(value)) {
             out->cell_solid[i] = 1;
             out->blocked[i] = 1;
         }
@@ -483,10 +478,15 @@ bool w2_load_pud(const char *path, level_t *out) {
     } else {
         for (size_t i = 0; i < cells; ++i) {
             uint8_t terrain = terrain_of(read_u16_le(sqm + i * 2u));
+            /* Rocks share the forest bit in SQM; the tile tells them apart. */
+            if (terrain == 2 && w2_rock_tile(out->tile_ids[i])) terrain = W2_TERRAIN_ROCK;
+            /* A wall is solid through cell_solid; whatever SQM says, it is not a tree. */
+            if (w2_wall_tile(out->tile_ids[i])) terrain = 0;
             out->cell_terrain[i] = terrain;
             if (terrain != 0) out->blocked[i] = 1;
         }
     }
+    w2_walls_init(out);
     if (units && unit_len >= 8) {
         int count = (int)(unit_len / 8u);
         pud->units = calloc((size_t)count, sizeof(w2_pud_unit_t));

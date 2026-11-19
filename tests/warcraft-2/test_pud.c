@@ -37,8 +37,10 @@ static int test_alamo(void) {
     int land = count_terrain(0);
     int water = count_terrain(1);
     int forest = count_terrain(2);
-    fprintf(stderr, "alamo land=%d water=%d forest=%d\n", land, water, forest);
-    RTS_CHECK(water == 0 && land > 6000 && forest > 2500, "alamo", "terrain");
+    int rocks = count_terrain(W2_TERRAIN_ROCK);
+    fprintf(stderr, "alamo land=%d water=%d forest=%d rocks=%d\n", land, water, forest, rocks);
+    /* SQM marks 2787 cells forest-or-rock; 520 of them carry rock tiles. */
+    RTS_CHECK(water == 0 && land > 6000 && forest == 2267 && rocks == 520, "alamo", "terrain");
     RTS_CHECK(level.player_resources[1][0] == 3000 &&
               level.player_resources[1][1] == 1400 &&
               level.player_resources[1][2] == 2000, "alamo", "human stock");
@@ -67,7 +69,7 @@ static int test_alamo(void) {
     int spawned = P_LoadThings(NULL);
     fprintf(stderr, "alamo spawned=%d thinkers=%d\n", spawned, count_units());
     RTS_CHECK(spawned == 64 && count_units() == 64, "alamo", "spawn count");
-    RTS_CHECK(level.resource_vent_count == 2798, "alamo", "2787 trees and 11 gold mines");
+    RTS_CHECK(level.resource_vent_count == 2278, "alamo", "2267 trees (rocks give no lumber) and 11 gold mines");
     const w2_pud_t *pud = level.native_data;
     for (int i = 0; i < pud->unit_count; ++i) {
         const w2_pud_unit_t *rec = &pud->units[i];

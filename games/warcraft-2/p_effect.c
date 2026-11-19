@@ -129,6 +129,33 @@ static void hit(mobj_t *shot, mobj_t *victim, int divisor) {
     P_DamageMobj(victim, shot->target, damage / divisor);
 }
 
+/* Stratagus MissileHit "Missile hits ground": every tile within the splash
+ * range takes the shot's damage over its distance (MissileHitsWall); a shot
+ * without splash and without a unit subject (a ground or wall target) hits
+ * its own tile. Blizzard and decay roll like they do against units. */
+static void hit_walls(mobj_t *shot) {
+    const w2_effect_t *def = &w2_effects[shot->w2.fx.kind];
+    if (!def->range && shot->w2.fx.subject) return;
+    int spell = shot->w2.cast.spell;
+    bool rolled = spell == W2_SPELL_BLIZZARD || spell == W2_SPELL_DECAY;
+    if (spell && !rolled && !shot->missile.damage) return;
+    ivec2_t at = fixed2_cell(fixed3_xy(shot->core.position));
+    int reach = def->range > 0 ? def->range - 1 : 0;
+    for (int dx = -reach; dx <= reach; ++dx)
+        for (int dy = -reach; dy <= reach; ++dy) {
+            ivec2_t cell = {at.x + dx, at.y + dy};
+            if (!W2_WallAt(cell)) continue;
+            int d = 0;
+            while ((d + 1) * (d + 1) <= dx * dx + dy * dy) ++d; /* isqrt, as Stratagus Distance */
+            d = d ? d * def->splash : 1;
+            int damage;
+            if (rolled) damage = (int)(W2_SyncRand() % 10);
+            else if (shot->missile.damage) damage = shot->missile.damage;
+            else damage = W2_WallDamage(shot->target, shot->w2.fx.basic, shot->w2.fx.piercing, W2_SyncRand());
+            W2_HitWall(cell, damage / d);
+        }
+}
+
 static void impact(mobj_t *shot) {
     const w2_effect_t *def = &w2_effects[shot->w2.fx.kind];
     int kind = shot->w2.fx.kind;
@@ -146,6 +173,7 @@ static void impact(mobj_t *shot) {
         int distance = W2_Distance(shot, victim);
         if (distance < def->range) hit(shot, victim, distance ? distance * def->splash : 1);
     }
+    hit_walls(shot);
     if (def->impact >= 0) w2_spawn_effect(shot->target, def->impact, shot->core.position);
 }
 

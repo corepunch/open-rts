@@ -76,6 +76,14 @@ bool W2_CanAttackGround(const mobj_t *unit) {
     return shot > W2_FX_NONE && shot < W2_FX_COUNT && w2_effects[shot].range > 0;
 }
 
+/* A wall tile is attackable by any fighter (Stratagus DoRightButton_Attack). */
+static bool can_ground(const mobj_t *unit, fixed3_t point) {
+    if (W2_CanAttackGround(unit)) return true;
+    return unit && !unit->remove && unit->hp > 0 && (unit->traits & MF_ATTACK) &&
+           unit->type_id > 0 && unit->type_id < NUMMOBJTYPES && !W2_UnderConstruction(unit) &&
+           W2_WallAt(fixed2_cell(fixed3_xy(point)));
+}
+
 /* Reach is whole tiles, as the unit's attack range and minimum are. */
 static bool ground_in_reach(const mobj_t *unit, fixed3_t point) {
     ivec2_t from = fixed2_cell(fixed3_xy(unit->core.position));
@@ -89,7 +97,7 @@ static bool ground_in_reach(const mobj_t *unit, fixed3_t point) {
 /* A new order drops whatever the unit was doing, as TC_ATTACK does, and
  * stops it chasing or picking up units: it fires at the point only. */
 bool W2_GroundOrder(mobj_t *unit, fixed3_t point) {
-    if (!W2_CanAttackGround(unit)) return false;
+    if (!can_ground(unit, point)) return false;
     W2_InterruptRepair(unit);
     W2_InterruptHarvest(unit);
     W2_InterruptBuild(unit);
@@ -117,14 +125,24 @@ static void fire_ground(mobj_t *unit) {
     if (!reached) return;
     S_ActorSound(unit, SE_ATTACK);
     unit->w2.buffs[W2_BUFF_INVISIBLE] = 0;
-    w2_fire_ground(unit, point);
+    /* A melee blow has no flight: Stratagus Missile-none hits the wall
+     * with CalculateDamageStats at once. */
+    if (!w2_fire_ground(unit, point) || !mobjinfo[unit->type_id].w2.projectile) {
+        ivec2_t cell = fixed2_cell(fixed3_xy(point));
+        int basic = mobjinfo[unit->type_id].w2.basic_damage, piercing = W2_PiercingDamage(unit);
+        if (unit->w2.buffs[W2_BUFF_BLOODLUST]) { basic *= 2; piercing *= 2; }
+        if (W2_WallAt(cell)) W2_HitWall(cell, W2_WallDamage(unit, basic, piercing, W2_SyncRand()));
+    }
+    /* A wall order lasts until the wall falls (Stratagus attack-tile order); only
+     * a splash weapon's attack-ground is a single shot. */
+    if (!W2_CanAttackGround(unit)) unit->w2.ground.active = W2_WallAt(fixed2_cell(fixed3_xy(point)));
 }
 
 /* Walk until the point is in reach, then enter the attack row. A unit that
  * cannot move to it, or a point it cannot see, gives the order up. */
 void W2_TickGroundAttack(mobj_t *unit) {
     if (!unit->w2.ground.active) return;
-    if (!W2_CanAttackGround(unit)) { unit->w2.ground.active = false; return; }
+    if (!can_ground(unit, unit->w2.ground.position)) { unit->w2.ground.active = false; return; }
     if (states[unit->core.state_id].group == W2_GROUP_ATTACK) return;
     fixed3_t point = unit->w2.ground.position;
     if (ground_in_reach(unit, point)) {
@@ -137,8 +155,18 @@ void W2_TickGroundAttack(mobj_t *unit) {
         return;
     }
     if (P_HasMoveOrder(unit)) return;
-    if (!(unit->traits & MF_MOBILE) || !P_MoveUnitTo(&level, unit, fixed3_xy(point)))
-        unit->w2.ground.active = false;
+    if (!(unit->traits & MF_MOBILE)) { unit->w2.ground.active = false; return; }
+    if (P_MoveUnitTo(&level, unit, fixed3_xy(point))) return;
+    /* A wall cell is solid: walk to a free cell beside it instead. */
+    ivec2_t wall = fixed2_cell(fixed3_xy(point));
+    static const ivec2_t around[8] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+    if (W2_WallAt(wall))
+        for (int i = 0; i < 8; ++i) {
+            ivec2_t cell = ivec2_add(wall, around[i]);
+            if (L_Contains(&level, cell.x, cell.y) && !level.blocked[L_Index(&level, cell.x, cell.y)] &&
+                P_MoveUnitTo(&level, unit, fixed2_cell_center(cell))) return;
+        }
+    unit->w2.ground.active = false;
 }
 
 /* The blow of the attack row: the target may have moved since the windup. */
