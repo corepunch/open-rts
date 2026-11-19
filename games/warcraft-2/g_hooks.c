@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "warcraft-2.h"
+#include "w2_local.h"
 
 /* Warcraft II's share of the engine's game hooks: orders only it has, the
  * state it adds to the lockstep checksum, and how it interrupts a unit. */
@@ -10,7 +11,7 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         hash = G_HashValue(hash, (uint32_t)level.w2_research[p]);
         hash = G_HashValue(hash, (uint32_t)(level.w2_research[p] >> 32));
     }
-    return hash;
+    return W2_TallyHash(hash);
 }
 
 bool G_UnitCommandable(const mobj_t *unit) { return !unit->w2.boarded; }
@@ -103,4 +104,7 @@ bool G_GameHarvestAt(mobj_t *const *units, int count, fixed2_t position, bool *i
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     (void)producer;
     W2_UpgradeUnit(unit);
+    W2_TallyProduced(unit);
 }
+
+void G_UnitKilled(mobj_t *victim, mobj_t *killer) { W2_TallyKill(victim, killer); }

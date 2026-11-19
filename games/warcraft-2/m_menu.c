@@ -1079,15 +1079,74 @@ static void leave_match(void) {
     M_ClearMenus();
 }
 
+/* Best victory score of each campaign mission this session, by race. Wargus
+ * adds the earlier missions' best scores to the rank score
+ * (reference/wargus/scripts/menus/results.lua); it persists them in
+ * preferences, this build keeps them for the session only. */
+static int best_score[2][W2_CAMPAIGN_LEVELS + 1];
+
+static void set_text(menu_t *menu, int id, const char *text) {
+    menuitem_t *item = M_MenuFind(menu, id);
+    if (item) snprintf(item->text, sizeof(item->text), "%s", text);
+}
+
+/* Score scene: 3059 for at most two participants, 3060 up to four, 3061 up
+ * to six and 3062 beyond (0x48318, participant count inferred). Row p has its
+ * name in control 4+p and statistic column c in control 12+8c+p. The native
+ * records carry no text for these; the engine fills them from the per-player
+ * counters in p_stats.c. */
 static void open_stats(bool victory) {
+    const w2_pud_t *pud = level.native_data;
+    int owners[8], count = 0;
+    for (int o = 0; pud && o < 8; ++o)
+        if (G_PlayerSide(o)) owners[count++] = o;
+    int resource = count <= 2 ? 3059 : count <= 4 ? 3060 : count <= 6 ? 3061 : 3062;
     int race = button_race = side();
-    if (!native_scene(&stats_screen, 3059, &art.results[race][victory ? 0 : 1], NULL, result_escape)) return;
-    menuitem_t *result = M_MenuFind(&stats_screen.menu, 1);
+    if (!native_scene(&stats_screen, resource, &art.results[race][victory ? 0 : 1], NULL, result_escape)) return;
+    menu_t *menu = &stats_screen.menu;
+    menuitem_t *result = M_MenuFind(menu, 1);
     if (result) apply_label(result, L(victory ? STR_WIN : STR_LOSE, 1, ""));
-    menuitem_t *next = M_MenuFind(&stats_screen.menu, -2);
+    menuitem_t *next = M_MenuFind(menu, -2);
+    if (!next && resource == 3062) {
+        /* The eight-row record has no Continue control. Borrow the one from
+         * 3059, at the same place on the same 640x480 canvas. */
+        static screen_t donor;
+        screen_begin(&donor, NULL, NULL);
+        if (append_scene(&donor, 3059, NULL)) {
+            const menuitem_t *button = M_MenuFind(&donor.menu, -2);
+            if (button) {
+                menuitem_t *copy = screen_add(&stats_screen, MI_BUTTON, button->rect);
+                *copy = *button;
+                next = copy;
+            }
+        }
+    }
     if (next) { next->routine = result_action; next->hotkey = SDLK_RETURN; }
+
+    const w2_mission_t *mission = level.mission;
+    const w2_tally_t *own = W2_Tally(consoleplayer);
+    int mine = own ? own->score + (victory ? 500 : 0) : 0;
+    int rank_score = mine;
+    int number = mission && !netgame ? mission->campaign.number : 0;
+    if (number > 0) {
+        for (int i = 1; i < number; ++i) rank_score += best_score[race][i];
+        if (victory && mine > best_score[race][number]) best_score[race][number] = mine;
+    }
+    set_text(menu, 2, W2_RankName(race == 1, rank_score));
+    set_text(menu, 3, M_va("%d", rank_score));
+    for (int row = 0; row < count; ++row) {
+        int owner = owners[row];
+        const w2_tally_t *t = W2_Tally(owner);
+        bool orc = pud->sides[owner] == 1;
+        const char *relation = owner == consoleplayer ? "You" :
+            (G_AllianceMasks(&level)[consoleplayer] >> owner & 1) ? "Ally" : "Enemy";
+        set_text(menu, 4 + row, M_va("%s - %s", orc ? "Orc" : "Human", relation));
+        const int columns[7] = {t->units, t->buildings, t->resources[0], t->resources[1],
+                                t->resources[2], t->kills, t->razings};
+        for (int c = 0; c < 7; ++c) set_text(menu, 12 + 8 * c + row, M_va("%d", columns[c]));
+    }
     button_race = 1;
-    show(&stats_screen.menu);
+    show(menu);
 }
 
 /* Acknowledgement 3057/3058, then the score scene. A network game skips the
@@ -1257,15 +1316,16 @@ static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action) {
 }
 
 /* The campaign, the dice and the launch survive a save, so a loaded campaign level goes on. */
-typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resources; uint64_t research[8]; } extra_t;
+typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resources; uint64_t research[8]; w2_tally_t tally[8]; } extra_t;
 
 size_t G_SaveExtraSize(void) { return sizeof(extra_t); }
 
 void G_SaveExtra(void *out) {
     const w2_mission_t *mission = level.mission;
     extra_t extra = {W2_CombatState(), mission && mission->campaign.orc,
-                    mission ? mission->campaign.number : 0, launch_resources, {0}};
+                    mission ? mission->campaign.number : 0, launch_resources, {0}, {{0}}};
     memcpy(extra.research, level.w2_research, sizeof(extra.research));
+    memcpy(extra.tally, level.w2_tally, sizeof(extra.tally));
     memcpy(out, &extra, sizeof(extra));
 }
 
@@ -1276,6 +1336,7 @@ bool G_LoadExtra(const void *data, size_t size) {
     if (extra.campaign_level < 0 || extra.campaign_level > W2_CAMPAIGN_LEVELS) return false;
     W2_SetCombatState(extra.dice);
     memcpy(level.w2_research, extra.research, sizeof(level.w2_research));
+    memcpy(level.w2_tally, extra.tally, sizeof(level.w2_tally));
     w2_mission_t *mission = level.mission;
     if (!mission) return false;
     mission->campaign = (w2_campaign_t){extra.campaign_level, extra.campaign_orc != 0};

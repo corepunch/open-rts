@@ -1376,9 +1376,9 @@ retail pixel identity.
 are not implemented; they deliberately cannot fall through to generic
 victory, though losing all owned actors still causes defeat. Briefings,
 chapter transitions and final campaign ending remain incomplete. Runtime
-result fields for player names, historical counters, score and rank remain
-unbound; only the outcome is populated. The engine currently selects the
-two-row stats scene rather than tracing the retail participant-count field.
+result fields are bound by the engine from Wargus rules, not traced from the
+executable (see "Result statistics" below). Whether retail names, counts and
+scores the same way is unverified.
 Retail palette composition for controls over the result artwork and full
 result callback behavior are unverified. Do not claim that native scene
 decoding alone implements all scene behavior or proves pixel equivalence.
@@ -2310,7 +2310,8 @@ Network games skip the acknowledgement. Continue then does one of:
 - campaign loss, including mission 14: the same mission's briefing, then
   that map. The mission index does not advance.
 - campaign win on mission 14: the title. The ending `0x21a48` is not
-  implemented.
+  implemented: the only evidence is that state 9 calls it and then enters
+  state 4, and its body was not read, so no ending is invented.
 - custom or skirmish win or loss, including ALAMO: the title. This
   replaces the old defeat reload.
 - network win or loss: the finished session is torn down and the TCP
@@ -2441,4 +2442,39 @@ network permission resolves those failures. Reproduce with:
 env SDL_VIDEODRIVER=dummy make test-warcraft-2
 env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_multiplayer
 env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_nav
+```
+
+## Result statistics (engine adaptation)
+
+The native score scene records carry only static headings; every runtime
+value is filled by the engine (`open_stats` in `m_menu.c`, counters in
+`p_stats.c`). The rules are Stratagus/Wargus
+(`reference/wargus/scripts/menus/results.lua`, `reference/stratagus/src/unit/unit.cpp`),
+not decoded from WAR2.EXE.
+
+- Scene: 3059, 3060, 3061 or 3062 for at most 2/4/6/more participants,
+  matching the static selector at `0x48318` (participant byte inferred, here
+  the person and computer slots of the map). Row `p` has its name in control
+  `4+p` and statistic column `c` (units, buildings, gold, lumber, oil, kills,
+  razings, the headings 71-77) in control `12+8c+p`. Control 1 is the outcome,
+  2 the rank and 3 the score. Scene 3062 has no Continue record, so the
+  engine borrows the one from 3059.
+- Counters (`level.w2_tally[8]`, in the lockstep checksum and in saved games
+  through the game extra block): units and buildings count when produced or
+  finished (walls and neutrals excluded; map-start units are not counted);
+  gold, lumber and oil count as banked after the income percentage; a kill
+  credits the killer's player (not the owner, no credit without a killer) with
+  `kills` or, for a structure, `razings`, and adds the victim type's Points
+  (`.points`, from Wargus unit definitions).
+- Score is the sum of those Points, plus 500 on the local player's victory.
+  Campaign missions add the best victory score of each earlier mission of
+  that race, kept for the session only (Wargus persists them). Rank is the
+  Wargus table (Servant..Designer, Slave..Designer): the highest floor the
+  score strictly exceeds (0, 2000, 5000, 8000, 18000, ... 280000). Rank and
+  player-row names are English engine strings, "Human - You", "Orc - Enemy".
+- Not done: retail strings for ranks and names, the animated count-up, the
+  Save Replay button, and the mission 14 ending (`0x21a48`).
+
+```sh
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_stats
 ```
