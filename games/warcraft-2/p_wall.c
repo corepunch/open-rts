@@ -33,6 +33,14 @@ enum { INTACT, BROKEN, DESTROYED };
 
 static uint8_t *wall_hp;
 static int wall_cells;
+/* Sum of hp * (cell + 1) over every cell, kept as walls change so the
+ * lockstep checksum covers wall damage without a per-tic map scan. */
+static uint32_t wall_digest;
+
+static void set_hp(int i, int hp) {
+    wall_digest += (uint32_t)(hp - wall_hp[i]) * (uint32_t)(i + 1);
+    wall_hp[i] = (uint8_t)hp;
+}
 
 static int wall_max_hp(void) { return mobjinfo[MT_HUMAN_WALL].spawnhealth; }
 
@@ -71,6 +79,7 @@ void w2_walls_init(const level_t *map) {
     free(wall_hp);
     wall_hp = NULL;
     wall_cells = 0;
+    wall_digest = 0;
     if (!map || !map->tile_ids || map->width <= 0 || map->height <= 0) return;
     wall_cells = map->width * map->height;
     wall_hp = calloc((size_t)wall_cells, 1);
@@ -79,7 +88,7 @@ void w2_walls_init(const level_t *map) {
         int state;
         if (classify(map->tile_ids[i], &state) == NO_WALL || state == DESTROYED) continue;
         /* A PUD tile already drawn broken stands at half hit points. */
-        wall_hp[i] = (uint8_t)(state == BROKEN ? wall_max_hp() / 2 : wall_max_hp());
+        set_hp(i, state == BROKEN ? wall_max_hp() / 2 : wall_max_hp());
     }
 }
 
@@ -135,7 +144,7 @@ static void fix_neighbors(ivec2_t cell) {
  * being a wall and its neighbors re-join around the gap. */
 static void remove_wall(ivec2_t cell) {
     int i = L_Index(&level, cell.x, cell.y);
-    wall_hp[i] = 0;
+    set_hp(i, 0);
     fix_wall(cell);
     if (level.cell_solid) level.cell_solid[i] = 0;
     level.blocked[i] = level.cell_terrain[i] != 0;
@@ -147,7 +156,7 @@ void W2_HitWall(ivec2_t cell, int damage) {
     int i = L_Index(&level, cell.x, cell.y);
     if (wall_hp[i] <= damage) W2_ClearTile(cell);
     else {
-        wall_hp[i] = (uint8_t)(wall_hp[i] - damage);
+        set_hp(i, wall_hp[i] - damage);
         fix_wall(cell);
     }
 }
@@ -183,4 +192,46 @@ void w2_demolish_terrain(ivec2_t centre, int range) {
 int W2_WallRace(ivec2_t cell) {
     if (!W2_WallAt(cell)) return 0;
     return classify(level.tile_ids[L_Index(&level, cell.x, cell.y)], NULL);
+}
+
+uint32_t W2_WallHash(uint32_t hash) { return G_HashValue(hash, wall_digest); }
+
+/* Saved games carry one hit-point byte per cell. The engine restores only
+ * `blocked`, so loading rebuilds each wall cell's tile and solidity. */
+size_t W2_WallSaveSize(void) { return (size_t)level.width * level.height; }
+
+void W2_WallSave(uint8_t *out) {
+    size_t cells = W2_WallSaveSize();
+    if (wall_hp && (size_t)wall_cells == cells) memcpy(out, wall_hp, cells);
+    else memset(out, 0, cells);
+}
+
+bool W2_WallLoad(const uint8_t *in, size_t size) {
+    if (size != W2_WallSaveSize()) return false;
+    bool table = wall_hp && (size_t)wall_cells == size;
+    for (size_t i = 0; i < size; ++i)
+        if (in[i] > wall_max_hp() || (!table && in[i])) return false;
+    if (!table) return true;
+    /* Cells whose hit points differ take the saved condition; they and
+     * their neighbors then re-join, as a hit would have fixed them. Cells
+     * the save agrees with keep their tiles. */
+    uint8_t *changed = calloc((size_t)wall_cells, 1);
+    if (!changed) return false;
+    for (int i = 0; i < wall_cells; ++i) {
+        int state, race = classify(level.tile_ids[i], &state);
+        if (in[i] == wall_hp[i] || race == NO_WALL) continue;
+        set_hp(i, in[i]);
+        level.tile_ids[i] = wall_tile_for(race, 0, wall_hp[i]);
+        if (level.cell_solid) level.cell_solid[i] = wall_hp[i] > 0;
+        changed[i] = 1;
+    }
+    for (int i = 0; i < wall_cells; ++i) {
+        if (!changed[i]) continue;
+        ivec2_t cell = {i % level.width, i / level.width};
+        int state, race = classify(level.tile_ids[i], &state);
+        level.tile_ids[i] = wall_tile_for(race, direction(cell, race), wall_hp[i]);
+        fix_neighbors(cell);
+    }
+    free(changed);
+    return true;
 }

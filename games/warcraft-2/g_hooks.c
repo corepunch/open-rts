@@ -11,7 +11,7 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
         hash = G_HashValue(hash, (uint32_t)level.w2_research[p]);
         hash = G_HashValue(hash, (uint32_t)(level.w2_research[p] >> 32));
     }
-    return W2_TallyHash(hash);
+    return W2_WallHash(W2_TallyHash(hash));
 }
 
 bool G_UnitCommandable(const mobj_t *unit) { return !unit->w2.boarded; }

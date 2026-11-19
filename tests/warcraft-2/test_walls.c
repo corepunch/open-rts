@@ -153,6 +153,40 @@ static int test_catapult_shot(void) {
     return 0;
 }
 
+/* Saved wall hit points restore tiles, solidity and the checksum share,
+ * whatever happened to the walls after the save. */
+static int test_save_restore(void) {
+    fixture();
+    put_wall(3, 4, 0x090); put_wall(4, 4, 0x090); put_wall(5, 4, 0x090);
+    w2_walls_init(&level);
+    /* Join the pieces as a map would draw them. */
+    for (int x = 3; x <= 5; ++x) W2_HitWall((ivec2_t){x, 4}, 0);
+    uint32_t fresh = W2_WallHash(0);
+    W2_HitWall((ivec2_t){4, 4}, 25);
+    CHECK(W2_WallHash(0) != fresh);
+    uint8_t saved[N * N];
+    CHECK(W2_WallSaveSize() == N * N);
+    W2_WallSave(saved);
+    uint32_t hash = W2_WallHash(0);
+    uint16_t tiles[N * N];
+    uint8_t solid[N * N];
+    memcpy(tiles, level.tile_ids, sizeof(tiles));
+    memcpy(solid, level.cell_solid, sizeof(solid));
+    /* Destroy the damaged middle and damage an end after the save. */
+    W2_HitWall((ivec2_t){4, 4}, 40);
+    W2_HitWall((ivec2_t){5, 4}, 30);
+    CHECK(!W2_WallAt((ivec2_t){4, 4}) && W2_WallHash(0) != hash);
+    CHECK(W2_WallLoad(saved, sizeof(saved)));
+    CHECK(W2_WallHp((ivec2_t){4, 4}) == 15 && W2_WallHp((ivec2_t){5, 4}) == 40);
+    CHECK(W2_WallAt((ivec2_t){4, 4}) && W2_WallHash(0) == hash);
+    CHECK(!memcmp(tiles, level.tile_ids, sizeof(tiles)) && !memcmp(solid, level.cell_solid, sizeof(solid)));
+    /* A record of the wrong size or over the wall's hit points is refused. */
+    CHECK(!W2_WallLoad(saved, sizeof(saved) - 1));
+    saved[idx(3, 4)] = 41;
+    CHECK(!W2_WallLoad(saved, sizeof(saved)));
+    return 0;
+}
+
 int main(void) {
     int failed = 0;
     failed += test_classify();
@@ -163,6 +197,7 @@ int main(void) {
     failed += test_demolish_terrain();
     failed += test_rock_borders();
     failed += test_catapult_shot();
+    failed += test_save_restore();
     if (!failed) printf("PASS: warcraft-2 tile walls and rocks\n");
     return failed;
 }

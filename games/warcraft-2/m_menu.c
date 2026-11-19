@@ -1318,7 +1318,8 @@ static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action) {
 /* The campaign, the dice and the launch survive a save, so a loaded campaign level goes on. */
 typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resources; uint64_t research[8]; w2_tally_t tally[8]; } extra_t;
 
-size_t G_SaveExtraSize(void) { return sizeof(extra_t); }
+/* The wall hit points follow the fixed record. */
+size_t G_SaveExtraSize(void) { return sizeof(extra_t) + W2_WallSaveSize(); }
 
 void G_SaveExtra(void *out) {
     const w2_mission_t *mission = level.mission;
@@ -1327,13 +1328,15 @@ void G_SaveExtra(void *out) {
     memcpy(extra.research, level.w2_research, sizeof(extra.research));
     memcpy(extra.tally, level.w2_tally, sizeof(extra.tally));
     memcpy(out, &extra, sizeof(extra));
+    W2_WallSave((uint8_t *)out + sizeof(extra));
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
     extra_t extra;
-    if (size != sizeof(extra)) return false;
+    if (size < sizeof(extra)) return false;
     memcpy(&extra, data, sizeof(extra));
     if (extra.campaign_level < 0 || extra.campaign_level > W2_CAMPAIGN_LEVELS) return false;
+    if (!W2_WallLoad((const uint8_t *)data + sizeof(extra), size - sizeof(extra))) return false;
     W2_SetCombatState(extra.dice);
     memcpy(level.w2_research, extra.research, sizeof(level.w2_research));
     memcpy(level.w2_tally, extra.tally, sizeof(level.w2_tally));

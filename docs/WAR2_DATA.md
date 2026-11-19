@@ -132,8 +132,15 @@ Not built: peasants and peons do not build walls. Wargus `human/buttons.lua`
 and `orc/buttons.lua` offer the Wall button only when `check-network` passes
 or the `single-player-walls` debug switch is set, so the base single-player
 game has no wall building; the command card shows the button and the note says
-so. Right-click on a wall (engine input) and AI wall attacks are not wired,
-and wall hit points are not in saved games.
+so. Right-click on a wall (engine input) and AI wall attacks are not wired.
+
+Wall hit points are part of the lockstep checksum (a running sum of
+hp * (cell + 1), `W2_WallHash`) and of saved games: one byte per map cell
+follows the fixed W2 save record. The engine restores only `blocked`, so
+`W2_WallLoad` gives each cell whose hit points differ its saved condition and
+solidity, then re-joins it and its neighbours as a hit would. Removed trees
+and rocks are still not restored by a load (tiles and `cell_solid` come from
+the loaded map as it stands).
 
 **Units.** A `UNIT` record is `u16 x, y; u8 type, player; u16 data`. The
 spawned actor id is `type + 1` because `P_InitMobj` rejects type 0. Starts

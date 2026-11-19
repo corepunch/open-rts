@@ -184,6 +184,10 @@ bool W2_WallAt(ivec2_t cell);             /* A standing wall (intact or broken).
 int W2_WallHp(ivec2_t cell);
 int W2_WallRace(ivec2_t cell);            /* 1 human, 2 orc, 0 none. */
 void W2_HitWall(ivec2_t cell, int damage); /* CMap::HitWall */
+uint32_t W2_WallHash(uint32_t hash);
+size_t W2_WallSaveSize(void);       /* One hit-point byte per map cell. */
+void W2_WallSave(uint8_t *out);
+bool W2_WallLoad(const uint8_t *in, size_t size);
 void W2_ClearTile(ivec2_t cell);          /* CMap::ClearTile: wall, rock or tree. */
 int W2_WallDamage(const mobj_t *attacker, int basic, int piercing, uint32_t roll);
 /* Stratagus Spell_Demolish terrain effect: wall, rock and forest inside `range`. */
