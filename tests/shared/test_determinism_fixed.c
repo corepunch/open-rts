@@ -124,7 +124,7 @@ static uint32_t scripted_run(int type, uint32_t *consistency) {
  * and every networked peer must be rebuilt together.  * changed when G_Consistency() began hashing each unit's speed and radius as
  * fixed-point integers, and again when it became the per-subsystem vector that
  * also folds in the ruleset patch hash, and again when Dark Colony's mine detection became the shared
- * MF_CLOAKED rule (no detected_by to hash) and Warcraft II began hashing a transport's ferry job and its selective unload target, and again when it began hashing a pending attack-ground order (the sim hash did not move); the position/facing hash did not move; it moved when units began to face along their route rather than a neighbour sidestep, and for Warcraft II when its eight-way heading snap first produced diagonals, and for KKnD when mid-route progress began to be measured toward the next waypoint.) Per game because the
+ * MF_CLOAKED rule (no detected_by to hash) and Warcraft II began hashing a transport's ferry job and its selective unload target, and again when it began hashing a pending attack-ground order (the sim hash did not move), and again when Warcraft II began hashing its per-player result counters; the position/facing hash did not move; it moved when units began to face along their route rather than a neighbour sidestep, and for Warcraft II when its eight-way heading snap first produced diagonals, and for KKnD when mid-route progress began to be measured toward the next waypoint.) Per game because the
  * unit tables behind G_Consistency() differ. */
 #if defined(RTS_GAME_DARK_COLONY)
 #define EXPECTED_SIM_HASH UINT32_C(0x249064d2)
@@ -137,7 +137,7 @@ static uint32_t scripted_run(int type, uint32_t *consistency) {
 #define EXPECTED_CONSISTENCY UINT32_C(0x99dd8746)
 #elif defined(RTS_GAME_WARCRAFT_2)
 #define EXPECTED_SIM_HASH UINT32_C(0xeb2089f0)
-#define EXPECTED_CONSISTENCY UINT32_C(0x3d555f58)
+#define EXPECTED_CONSISTENCY UINT32_C(0xbd02e6d3)
 #else /* KKnD */
 #define EXPECTED_SIM_HASH UINT32_C(0x88ee8e1d)
 #define EXPECTED_CONSISTENCY UINT32_C(0x0502885a)

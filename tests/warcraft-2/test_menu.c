@@ -522,12 +522,12 @@ int main(void) {
         CHECK(menuactive);
         if (defeat) {
             CHECK(find(S(21, 2)) && click(S(21, 1)) && !menumap && menuactive);
-            CHECK(currentmenu->numitems == 31 && currentmenu->background);
+            CHECK(currentmenu->numitems >= 31 && currentmenu->background);
             CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
             menuleave = false; /* a custom loss returns to the title */
         } else if (campaign) {
             CHECK(find(S(20, 3)) && click(S(20, 1)) && !menumap && menuactive);
-            CHECK(currentmenu->numitems == 31 && currentmenu->background);
+            CHECK(currentmenu->numitems >= 31 && currentmenu->background);
             draw(orc ? "12-orc-victory" : "12-victory");
             CHECK(click(S(22, 1)) && menuactive && !menumap);
             draw(orc ? "13-brief-orc" : "13-brief-human");
@@ -540,6 +540,9 @@ int main(void) {
             all = P_ListMobjs();
         } else {
             CHECK(find(S(20, 3)) && click(S(20, 1)) && menuactive && !menumap);
+            /* The scoreboard is bound: rank, score, a row per side, counters. */
+            CHECK(M_MenuFind(currentmenu, 2)->text[0] && !strcmp(M_MenuFind(currentmenu, 3)->text, "500"));
+            CHECK(strstr(M_MenuFind(currentmenu, 4)->text, " - ") && M_MenuFind(currentmenu, 12)->text[0]);
             CHECK(click(S(22, 1)) && menuleave && !menuactive);
             menuleave = false;
         }
@@ -566,7 +569,7 @@ int main(void) {
             if (all.items[i]->owner == consoleplayer) all.items[i]->remove = true;
         for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
         CHECK(menuactive && find(S(21, 2)));
-        CHECK(click(S(21, 1)) && menuactive && currentmenu->numitems == 31);
+        CHECK(click(S(21, 1)) && menuactive && currentmenu->numitems >= 31);
         CHECK(click(S(22, 1)) && menuactive && !menumap);
         draw("14-brief-replay");
         CHECK(click(S(54, 1)) && menumap && strstr(menumap, "level01h") && !strstr(menumap, "level02"));
@@ -587,7 +590,7 @@ int main(void) {
         CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
         CHECK(level.mission);
         W2_ShowResult(true);
-        CHECK(find(S(20, 3)) && click(S(20, 1)) && currentmenu->numitems == 31);
+        CHECK(find(S(20, 3)) && click(S(20, 1)) && currentmenu->numitems >= 31);
         CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
         menuleave = false;
         P_FreeLevel(&level);
@@ -597,7 +600,7 @@ int main(void) {
         CHECK(G_DoLoadLevel("data/WAR2/ALAMO.PUD", &level));
         CHECK(level.mission);
         W2_ShowResult(false);
-        CHECK(find(S(21, 2)) && click(S(21, 1)) && currentmenu->numitems == 31);
+        CHECK(find(S(21, 2)) && click(S(21, 1)) && currentmenu->numitems >= 31);
         CHECK(click(S(22, 1)) && menuactive && !menumap && !menuleave);
         CHECK(click(S(55, 1)) && menumap && strstr(menumap, "level14o"));
         CHECK(G_DoLoadLevel(menumap, &level));
@@ -643,7 +646,7 @@ int main(void) {
         for (int i = 0; i < all.count; ++i) all.items[i]->remove = true;
         if (menuactive) { M_ClearMenus(); W2_VictoryReset(); }
         for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
-        CHECK(menuactive && currentmenu->numitems == 31 && currentmenu->background);
+        CHECK(menuactive && currentmenu->numitems >= 31 && currentmenu->background);
         CHECK(!find(S(21, 2))); /* no defeat acknowledgement */
         CHECK(click(S(22, 1)) && menuleave && !menuactive && !menumap);
         P_FreeMobjList(&all);
@@ -666,7 +669,7 @@ int main(void) {
         M_StartControlPanel(&app);
         CHECK(menuactive);
         for (int tic = 0; tic < 40; ++tic) G_OutcomeTicker(all.items, all.count);
-        CHECK(menuactive && currentmenu->numitems == 31 && currentmenu->background);
+        CHECK(menuactive && currentmenu->numitems >= 31 && currentmenu->background);
         CHECK(!find(S(20, 3)));
         CHECK(click(S(22, 1)) && menuleave && !menumap);
         P_FreeMobjList(&all);

@@ -35,6 +35,8 @@ int main(void) {
     first->w2.carrier = other->id;
     level.w2_research[consoleplayer] = UINT64_C(1) << W2_UPGRADE_DEATH_AND_DECAY;
     level.player_resources[consoleplayer][0] = 1234;
+    level.w2_tally[consoleplayer] = (w2_tally_t){.units = 4, .buildings = 2, .resources = {900, 450, 70},
+                                                 .kills = 3, .razings = 1, .score = 640};
     leveltime = 321;
     W2_SeedCombat(777);
     W2_SyncRand();
@@ -69,6 +71,7 @@ int main(void) {
     leveltime = 0;
     level.sides = level.foes = 0;
     memset(level.side_stats, 0, sizeof(level.side_stats));
+    memset(level.w2_tally, 0, sizeof(level.w2_tally));
     W2_SeedCombat(1);
     app.cam = (fvec2_t){0, 0};
     CHECK(G_LoadGame(path, &app, &ai, &hud));
@@ -86,6 +89,10 @@ int main(void) {
           G_SideStats(consoleplayer)->team == 1);
     CHECK(app.cam.x == 12.5f && app.cam.y == 30.0f);
     CHECK(W2_CombatState() == dice);
+    CHECK(W2_Tally(consoleplayer)->units == 4 && W2_Tally(consoleplayer)->buildings == 2 &&
+          W2_Tally(consoleplayer)->resources[0] == 900 && W2_Tally(consoleplayer)->resources[1] == 450 &&
+          W2_Tally(consoleplayer)->resources[2] == 70 && W2_Tally(consoleplayer)->kills == 3 &&
+          W2_Tally(consoleplayer)->razings == 1 && W2_Tally(consoleplayer)->score == 640);
     CHECK(first->w2.mana == 123 && first->w2.buffs[W2_BUFF_HASTE] == 456);
     CHECK(first->w2.cast.spell == W2_SPELL_HASTE && first->w2.cast.target == other_id);
     CHECK(first->w2.repair.target == other_id && first->w2.carrier == other_id);

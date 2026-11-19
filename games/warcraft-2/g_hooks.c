@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "warcraft-2.h"
+#include "w2_local.h"
 
 /* Warcraft II's share of the engine's game hooks: orders only it has, the
  * state it adds to the lockstep checksum, and how it interrupts a unit. */
