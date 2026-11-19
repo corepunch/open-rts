@@ -197,9 +197,11 @@ bool W2_TickHarvest(mobj_t *unit) {
         if (group == 5) return true;
         mobj_t *base = unit->harvest.base;
         if (!base || base->remove || base->hp <= 0) { W2_ReturnGoods(unit); return true; }
-        if (unit->owner < 8)
-            level.player_resources[unit->owner][unit->harvest.resource_type] +=
-                unit->harvest.cargo * W2_ResourceIncome(unit->owner, unit->harvest.resource_type) / 100;
+        if (unit->owner < 8) {
+            int banked = unit->harvest.cargo * W2_ResourceIncome(unit->owner, unit->harvest.resource_type) / 100;
+            level.player_resources[unit->owner][unit->harvest.resource_type] += banked;
+            W2_TallyResource(unit->owner, unit->harvest.resource_type, banked);
+        }
         unit->harvest.cargo = 0;
         W2_InterruptHarvest(unit);
         unit->harvest.base = NULL;

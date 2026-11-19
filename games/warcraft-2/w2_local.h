@@ -142,6 +142,14 @@ typedef struct {
     int hold;   /* Human level 2: checks the rescue victory has held so far. */
     bool hero_seen; /* Orc mission 2: the local player has held Zuljin (p_obj_orc.c). */
 } w2_mission_t;
+/* Result-scene counters, score and rank (p_stats.c). */
+const w2_tally_t *W2_Tally(int owner);
+void W2_TallyProduced(const mobj_t *unit);
+void W2_TallyKill(const mobj_t *victim, const mobj_t *killer);
+void W2_TallyResource(int owner, int resource, int amount);
+uint32_t W2_TallyHash(uint32_t hash);
+int W2_RankIndex(int score);
+const char *W2_RankName(bool orc, int score);
 void W2_SetCampaign(int number, bool orc);
 /* Human campaign missions 2-14 (p_obj_human.c): the ELIMINATE_* rules still in force. */
 unsigned W2_HumanObjectives(w2_mission_t *mission, mobj_t *const *units, int count);

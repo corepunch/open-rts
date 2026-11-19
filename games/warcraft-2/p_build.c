@@ -340,6 +340,7 @@ void w2_advance_build(mobj_t *site, int ticks) {
         site->w2.build_left_tics = 0;
         site->w2.builder = 0;
         P_SetMobjState(site, mobjinfo[site->type_id].spawnstate);
+        W2_TallyProduced(site);
         if (builder) {
             S_Bark(&builder, 1, SE_WORK_COMPLETE, false);
             release(builder);
