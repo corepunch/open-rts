@@ -64,13 +64,15 @@ static const uint8_t *script_bytes(uint32_t id, uint32_t *size) {
 
 /* True when the script is one command the engine can carry out followed by
  * stop or fatal_error. send_suicide (0x1f) is the only one of them with an
- * operand byte. */
-static bool one_command(const uint8_t *code, uint32_t len, unsigned *op) {
+ * operand byte; 1 (SuiR) runs, 0 (Suic) needs AI regions. */
+static bool one_command(const uint8_t *code, uint32_t len, unsigned *op, unsigned *arg) {
     if (!len) return false;
     *op = code[0];
+    *arg = 0;
     uint32_t at = 1;
     if (*op == 0x1f) {
         if (len < 3) return false;
+        *arg = code[1];
         at = 2;
     } else if (*op != 0x20 && *op != 0x21 && *op != 0x25 && *op != 0x26 &&
                *op != 0x29 && *op != 0x2a && *op != 0x2f) return false;
@@ -81,8 +83,12 @@ static bool one_command(const uint8_t *code, uint32_t len, unsigned *op) {
  * write one direction of the relation table; send_suicide, move_dt,
  * value_area and clear_combatdata need planner state the engine does not
  * have. */
-static bool run_one(sc_mission_t *m, int owner, uint32_t location, unsigned op) {
+static bool run_one(sc_mission_t *m, int owner, uint32_t location, unsigned op, unsigned arg) {
     switch (op) {
+    case 0x1f:
+        if (arg != 1) return false; /* Suic binds AI regions. */
+        sc_ai_suicide_rush(m, owner);
+        break;
     case 0x20: sc_ai_relation(m, owner, location, false); break;
     case 0x21: sc_ai_relation(m, owner, location, true); break;
     case 0x25: sc_ai_switch_rescue(m, owner); break;
@@ -110,7 +116,7 @@ void sc_ai_script_start(sc_mission_t *m, int owner, uint32_t id, uint32_t locati
     /* The shared planner follows the thread only for a Computer owner; a
      * Neutral one that Rscu converts must not start building. */
     if (kind == 5) m->ai_on[owner] = true;
-    unsigned op = 0;
-    if (!one_command(code, len, &op) || !run_one(m, owner, location, op))
+    unsigned op = 0, arg = 0;
+    if (!one_command(code, len, &op, &arg) || !run_one(m, owner, location, op, arg))
         sc_ai_script_fallback(m, id);
 }
