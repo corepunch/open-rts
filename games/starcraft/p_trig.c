@@ -1170,6 +1170,63 @@ void sc_ai_enter_bunker(sc_mission_t *m, int player, uint32_t loc) {
     }
 }
 
+/* send_suicide with operand 1, the SuiR script (0x48aa88 -> 0x4a6e00). Every
+ * live, mobile unit of the owner that is not a subunit is released from the
+ * AI and sent at the nearest attackable unit of a randomly chosen enemy
+ * player: a random start index modulo the enemy count (0x46f200 with 54),
+ * walking on to the next enemy player while the chosen one has no
+ * attackable unit. A unit with a weapon takes attack-unit (0x419dc0);
+ * without one it takes Move (order 6) to the target. Operand 0 (Suic) binds
+ * the units to AI regions the engine does not have and is not run. Not
+ * reproduced: the 0x41ba50 skip for a unit already within range of its
+ * target, whose range predicate (0x41c390) was not traced, and the clearing
+ * of the AI attack arrays (0x479230) and attack timer (0x479490), which
+ * have no counterpart here. */
+void sc_ai_suicide_rush(sc_mission_t *m, int player) {
+    if (!m || player < 0 || player >= 8) return;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *mo = (mobj_t *)th;
+        if (mo->owner != player || mo->remove || mo->hp <= 0 || (mo->sc.flags & SC_LOADED) ||
+            mo->type_id == MT_INTERCEPTOR || mo->type_id == MT_SCARAB ||
+            !(mo->traits & MF_MOBILE) || (sc_unit(mo)->flags & (SC_UNIT_BUILDING | SC_UNIT_TURRET))) continue;
+        mobjtype_t weapons = {0};
+        sc_unit_weapons(mo->type_id, &weapons);
+        bool armed = weapons.attack.damage || weapons.air_attack.damage;
+        int enemies[8], ne = 0;
+        for (int p = 0; p < 8; p++) {
+            if (p == player || !slot_active(m, p)) continue;
+            for (thinker_t *oh = thinkercap.next; oh != &thinkercap; oh = oh->next) {
+                const mobj_t *other = (const mobj_t *)oh;
+                if (oh->function != P_MobjThinker || other->owner != p || other->remove || other->hp <= 0) continue;
+                if (target_is_enemy_for_owner(mo, other)) { enemies[ne++] = p; }
+                break;
+            }
+        }
+        if (!ne) continue;
+        unsigned start = sc_random() % (unsigned)ne;
+        mobj_t *best = NULL;
+        for (int k = 0; k < ne && !best; k++) {
+            int p = enemies[(start + (unsigned)k) % (unsigned)ne];
+            int64_t best_d = 0;
+            for (thinker_t *oh = thinkercap.next; oh != &thinkercap; oh = oh->next) {
+                mobj_t *other = (mobj_t *)oh;
+                if (oh->function != P_MobjThinker || other->owner != p || other->remove || other->hp <= 0 ||
+                    (other->sc.flags & SC_LOADED) || (armed && !P_CanTarget(mo, other))) continue;
+                int64_t dx = (other->core.position.x - mo->core.position.x) / SC_PIXELS(1);
+                int64_t dy = (other->core.position.y - mo->core.position.y) / SC_PIXELS(1);
+                int64_t d = dx * dx + dy * dy;
+                if (!best || d < best_d) { best = other; best_d = d; }
+            }
+        }
+        if (!best) continue;
+        ticcmd_t cmd = {.order = armed ? TC_ATTACK : TC_MOVE, .count = 1, .target = best->id,
+                        .position = best->core.position, .internal = true};
+        cmd.units[0] = mo->id;
+        G_RunTiccmd(mo->owner, &cmd);
+    }
+}
+
 /* Order 161 (0x483ec0): the first unit of a human (in-game type 2) player
  * within 64 pixels takes the rescuable unit over and gives it back the
  * default order. */

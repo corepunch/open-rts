@@ -3915,3 +3915,25 @@ absent id reports with no record or `ai_on`, ClrC keeps its location) and
 `save_state` (Computer owner, `owners[]` hash and `owners[i] > 8` rejection).
 `tests/starcraft/test_mission.c` now runs `EnBk` (`0x6b426e45`) instead of
 the absent id `0x74657374`, because the gate is applied.
+
+#### SuiR: send_suicide operand 1 (2026-11-19)
+
+Issue #98. `sc_ai_suicide_rush` (`p_trig.c`, called from `p_aiscript.c`
+through `run_one`, opcode 0x1f with operand byte 1) implements the traced
+0x4a6e00 path: every live mobile non-building unit of the Computer owner that
+is not loaded goes at the nearest attackable unit (squared center distance)
+of an enemy player chosen as `random % enemy_count` (retail `0x46f200(54)`),
+trying the following enemy player while the chosen one has no attackable
+unit. An armed unit takes attack-unit (a `TC_ATTACK` ticcmd through
+`G_RunTiccmd`, which checks `P_CanTarget`); an unarmed one takes Move to the
+target position (retail order 6). Operand 0 (`Suic`) is still reported and
+skipped: it binds units to AI regions. Not reproduced: the skip for a unit
+already inside its target's weapon range (`0x41ba50`, range predicate
+`0x41c390` untraced), and the AI attack array/timer resets (`0x479230`,
+`0x479490`), which the engine has no counterpart for. Enemy players are those
+with a live unit that `target_is_enemy_for_owner` accepts (retail tests the
+first unit of the player's list with `0x422f00`).
+Test: `tests/starcraft/test_triggers.c::ai_effects` (nearest of two enemy
+marines targeted; an allied player's unit is left alone).
+Remaining open in #98: Suic, MvTe, VluA, ClrC (AI regions), the 63 town
+scripts, door state machine, leaderboard/portrait display.

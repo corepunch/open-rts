@@ -310,6 +310,7 @@ void sc_ai_script_start(sc_mission_t *m, int owner, uint32_t id, uint32_t locati
 void sc_ai_switch_rescue(sc_mission_t *m, int player);
 void sc_ai_relation(sc_mission_t *m, int player, uint32_t loc, bool ally);
 void sc_ai_enter_bunker(sc_mission_t *m, int player, uint32_t loc);
+void sc_ai_suicide_rush(sc_mission_t *m, int player);
 void sc_rescue_transfer(mobj_t *mo);
 /* Score inputs: deaths and kills by type, income and spending since the start. */
 typedef struct { int lost[SC_TYPES], killed[SC_TYPES], gathered[2], spent; } sc_stats_t;

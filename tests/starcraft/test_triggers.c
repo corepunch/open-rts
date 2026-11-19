@@ -871,6 +871,31 @@ static int ai_effects(void) {
     CHECK((first->sc.flags & SC_LOADED) && first->sc.parent == bunker->id);
     CHECK((second->sc.flags & SC_LOADED) && second->sc.parent == bunker->id);
     unload();
+    /* SuiR (send_suicide 1, 0x4a6e00): every mobile unit of the owner goes
+     * at the nearest attackable unit of an enemy player; an unarmed one
+     * moves to it. Suic (operand 0) is not run. */
+    CHECK(script_map(0x52697553u, 0)); /* SuiR. */
+    m = level.mission;
+    m->allies[0] = m->allies[1] = 0; m->neutral_relations[0] = m->neutral_relations[1] = 0;
+    mobj_t *rusher = spawn_at(MT_MARINE, 1, 5, 5);
+    mobj_t *far_foe = spawn_at(MT_MARINE, 0, 30, 30);
+    mobj_t *near_foe = spawn_at(MT_MARINE, 0, 12, 5);
+    CHECK(rusher && far_foe && near_foe);
+    tick(1);
+    CHECK(rusher->attack.target == near_foe);
+    CHECK(m->ai_script[1].runs == 1);
+    unload();
+
+    CHECK(script_map(0x52697553u, 0));
+    m = level.mission;
+    m->allies[0] = m->allies[1] = 0; m->neutral_relations[0] = m->neutral_relations[1] = 0;
+    mobj_t *friend_unit = spawn_at(MT_MARINE, 1, 5, 5);
+    CHECK(spawn_at(MT_MARINE, 0, 12, 5) && friend_unit);
+    m->allies[1] = bit0;
+    tick(1);
+    CHECK(!friend_unit->attack.target && !friend_unit->movement.order_id);
+    unload();
+
     return 0;
 }
 
