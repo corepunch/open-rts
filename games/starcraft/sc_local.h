@@ -504,7 +504,7 @@ const blob_t *sc_iscript_bin(void);
 /* iscript ids of each unit row's and weapon's bullet image, or -1; filled by w_assets.c. */
 extern int sc_unit_script[SC_TYPES], sc_weapon_script[SC_WEAPONS];
 /* Animations the game starts on a running mobj (PyMS HEADER order). */
-enum { SC_ANIM_DEATH = 1, SC_ANIM_SPECIAL1 = 13, SC_ANIM_LANDING = 17, SC_ANIM_LIFT_OFF = 18,
+enum { SC_ANIM_INIT = 0, SC_ANIM_DEATH = 1, SC_ANIM_SPECIAL1 = 13, SC_ANIM_SPECIAL2 = 14, SC_ANIM_LANDING = 17, SC_ANIM_LIFT_OFF = 18,
        SC_ANIM_BURROW = 25, SC_ANIM_UNBURROW = 26 };
 void sc_script_begin(mobj_t *mo, int script, int anim);
 void sc_script_tick(mobj_t *mo, int frames);
@@ -516,6 +516,8 @@ int sc_iscript_sounds(const blob_t *script, unsigned id, int anim, uint16_t *out
  * the roll plus the animation group's own action where one would otherwise
  * have run. Only assigned where that action exists. */
 void A_WaitRand(mobj_t *unit);
+void A_SiegeBegin(mobj_t *unit); /* unsiege start: SpecialState2 sounds */
+void A_SiegeMorph(mobj_t *unit); /* deploy swap, then the new type's Init */
 void A_WaitRandAction(mobj_t *unit);
 /* sounds.c: native sfx; a dialog button's press sound, 0 while silent. */
 extern const soundinfo_t sc_soundinfo;

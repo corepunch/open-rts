@@ -276,6 +276,33 @@ void sc_script_begin(mobj_t *mo, int script, int anim) {
     if (bin && script >= 0) sc_script_start(bin, &mo->sc.script, (unsigned)script, anim, &host);
 }
 
+/* A sub-unit's (turret's) animation plays only its first frame here, which is
+ * where the installed scripts put the sounds of the animations the game starts
+ * on it (Siege Tank turret SpecialState2: playsnd 318 before its first wait);
+ * the cursor is a throwaway, so the turret's later frames are not run. */
+static void turret_first_frame(mobj_t *mo, int anim) {
+    const blob_t *bin = sc_iscript_bin();
+    int sub = mo->type_id >= 1 && mo->type_id <= SC_TYPES ? sc_units[mo->type_id - 1].subunit : -1;
+    if (!bin || sub < 0 || sub >= SC_TYPES || sc_unit_script[sub] < 0) return;
+    sc_script_host_t host = {host_random, NULL, NULL, host_sound, mo};
+    sc_script_t cursor;
+    sc_script_start(bin, &cursor, (unsigned)sc_unit_script[sub], anim, &host);
+}
+
+/* Siege and unsiege (OpenBW order_Sieging and order_Unsieging): the morph into
+ * the sieged type runs that type's Init, whose frame 1 plays row 319; the
+ * unsiege starts SpecialState2 on the base (row 319 on frame 38) and on the
+ * turret (row 318 on frame 0), and the unit morphs back when it ends. The
+ * engine's fixed deploy time stays; only the sounds follow the scripts. */
+void A_SiegeBegin(mobj_t *mo) {
+    sc_script_begin(mo, sc_unit_script[mo->type_id - 1], SC_ANIM_SPECIAL2);
+    turret_first_frame(mo, SC_ANIM_SPECIAL2);
+}
+void A_SiegeMorph(mobj_t *mo) {
+    A_Deploy(mo);
+    if (mo->type_id >= 1 && mo->type_id <= SC_TYPES) sc_script_begin(mo, sc_unit_script[mo->type_id - 1], SC_ANIM_INIT);
+}
+
 void sc_script_tick(mobj_t *mo, int frames) {
     const blob_t *bin = sc_iscript_bin();
     if (!mo->sc.script.active || !bin) return;
