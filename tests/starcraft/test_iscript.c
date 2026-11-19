@@ -303,6 +303,38 @@ static int real_scripts(void) {
     CHECK(sound_count == 1 && sounds[0].row == 472 && sounds[0].tick == tick_of_frame(started, 18));
     for (int i = 0; i < 100; ++i) P_Ticker();
     CHECK(sound_count == 1 && !cc->sc.script.active);
+
+    /* Siege Tank: the siege base's Init plays 319 on its frame 1 and SpecialState2 plays 319 on
+     * frame 38, the turret's SpecialState2 plays 318 on frame 0 (iscript.txt: SiegeTank_Siege_*). */
+    event_count = 0; frame_now = 0;
+    sc_script_start(&bin, &c, (unsigned)sc_unit_script[MT_SIEGE_MODE - 1], SC_ANIM_INIT, &host);
+    for (frame_now = 1; frame_now < 80 && c.active; ++frame_now) sc_script_frame(&bin, &c, &host);
+    CHECK(has(1, 's', 319));
+    event_count = 0; frame_now = 0;
+    sc_script_start(&bin, &c, (unsigned)sc_unit_script[MT_SIEGE_MODE - 1], SC_ANIM_SPECIAL2, &host);
+    for (frame_now = 1; frame_now < 80 && c.active; ++frame_now) sc_script_frame(&bin, &c, &host);
+    CHECK(has(38, 's', 319));
+    clear_level();
+    mobj_t *tank = spawn(MT_SIEGE_TANK, FIXED2_LIT(6, 6), 0);
+    CHECK(tank);
+    sound_count = 0;
+    CHECK(P_Deploy(tank));
+    CHECK(sound_count == 0); /* sieging is silent until the morph runs the sieged Init */
+    for (int i = 0; i < 200 && tank->type_id != MT_SIEGE_MODE; ++i) P_Ticker();
+    CHECK(tank->type_id == MT_SIEGE_MODE);
+    int morphed = leveltime - 1;
+    for (int i = 0; i < 20 && !sound_count; ++i) P_Ticker();
+    /* Init frame 1 is the first advancing tick from the morph tick: begun inside the ticker, so the tick itself is the cursor's first. */
+    CHECK(sound_count == 1 && sounds[0].row == 319 && sounds[0].tick == tick_of_frame(morphed - 1, 1));
+    for (int i = 0; i < 100; ++i) P_Ticker();
+    CHECK(sound_count == 1 && !tank->sc.script.active); /* Init stops at sigorder */
+    sound_count = 0;
+    int unsiege = leveltime;
+    CHECK(P_Deploy(tank));
+    CHECK(sound_count == 1 && sounds[0].row == 318 && sounds[0].tick == unsiege);
+    for (int i = 0; i < 200 && tank->type_id != MT_SIEGE_TANK; ++i) P_Ticker();
+    CHECK(tank->type_id == MT_SIEGE_TANK);
+    CHECK(sound_count >= 2 && sounds[1].row == 319 && sounds[1].tick == tick_of_frame(unsiege - 1, 38));
     return 0;
 }
 

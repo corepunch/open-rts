@@ -219,6 +219,14 @@ static void map_units(const sc_tables_t *t) {
         /* Lift-off, landing, burrow and unburrow sound while their scripts run (p_iscript.c). */
         static const int timed[] = {17, 18, 25, 26}; /* Landing, LiftOff, Burrow, UnBurrow */
         for (unsigned k = 0; k < sizeof(timed) / sizeof(*timed); ++k) mark_script(t, scripts[i], timed[k]);
+        /* Siege and unsiege sound from Init (the morph into siege mode) and SpecialState2
+         * of the base and its turret (p_iscript.c A_SiegeBegin, A_SiegeMorph). */
+        int tank = i + 1 == MT_SIEGE_TANK || i + 1 == MT_SIEGE_MODE || i + 1 == MT_DUKE_TANK || i + 1 == MT_DUKE_SIEGE;
+        if (tank) {
+            mark_script(t, scripts[i], 0); mark_script(t, scripts[i], 14);
+            int turret = sc_units[i].subunit;
+            if (turret >= 0 && turret < SC_TYPES) mark_script(t, scripts[turret], 14);
+        }
         /* Goliaths and tanks fire from their turret's script; Carriers and
          * Reavers launch silently, and what they launch sounds for itself. */
         if (sc_hangar_type((uint16_t)(i + 1))) continue;

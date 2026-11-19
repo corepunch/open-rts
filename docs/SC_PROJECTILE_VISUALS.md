@@ -187,7 +187,8 @@ unit's or bullet's image script and runs its first frame at once, as
 `iscript_run_anim` does; `sc_mobj_ticker` then advances it by the engine's
 24 Hz frame cadence. Started by: a bullet entering its Death
 (`projectile_impact`), a bounce (`SpecialState1`), Burrow, UnBurrow, Lift Off
-and Landing (`p_spell.c`, `p_order.c`). The game host plays sounds and stops
+and Landing (`p_spell.c`, `p_order.c`), and Siege Tank / Duke siege and
+unsiege (below). The game host plays sounds and stops
 the cursor at `sigorder`: the animation has then signalled its order done and
 what follows is the idle loop, which this runtime does not play (so scripts'
 idle `waitrand`/`randcondjmp` do not draw here, unlike OpenBW; that makes the
@@ -205,6 +206,20 @@ Frame to tick mapping is the engine's existing one: script frame `k` after a
 start runs on the `k`-th tick whose 24 Hz frame counter advances. The compiled
 visual states still round each wait separately, so a sound can differ from the
 matching picture by up to one 30 Hz tick.
+
+### Siege and unsiege sounds
+
+OpenBW `order_Sieging` morphs the tank into its sieged type, which runs that
+type's Init; `order_Unsieging` runs SpecialState2 on the turret and then on
+the base. In the installed scripts the sieged base's Init plays row 319 on its
+frame 1 (`wait 1`, `playsnd 319`), its SpecialState2 plays 319 on frame 38, and
+the turret's SpecialState2 plays 318 on frame 0. The deploy states in `info.c`
+now run these: `A_SiegeMorph` (the old `A_Deploy` plus the new type's Init)
+and, at the start of an unsiege, `A_SiegeBegin` (the base cursor, plus the
+turret's first frame played on a throwaway cursor, which is all the turret
+script's sounds need). Before this the transform was silent. Not changed: the
+engine's fixed 48-frame transform time (the script's own run is 64 frames for
+sieging, and OpenBW also waits for facing); `test_iscript` pins the timings.
 
 ## Weapon behaviors against OpenBW
 
