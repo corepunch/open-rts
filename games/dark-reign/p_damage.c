@@ -13,7 +13,7 @@
 #include "info.h"
 
 typedef struct { int16_t vuln; uint8_t variation, critical; } dr_vulnerability_t;
-typedef struct { uint16_t native; int8_t defense; uint8_t strength; int8_t offense; } dr_defense_t;
+typedef struct { uint16_t native; int8_t defense; uint8_t strength; int8_t offense; uint8_t sight; } dr_defense_t;
 typedef struct {
     uint16_t native;
     int16_t area, hitsize;
@@ -241,5 +241,12 @@ bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, in
     (void)player; (void)target;
     if (cmd->order != TC_SPELL || cmd->product != DR_SPELL_SELF_DESTRUCT) return false;
     for (int i = 0; i < count; ++i) DR_SelfDestruct(units[i]);
+    return true;
+}
+
+/* SetSeeingRange (cells) for every type that declares one. */
+bool G_SightRadius(const mobj_t *actor, int *radius) {
+    const dr_defense_t *d = defense_of(actor);
+    if (d && d->sight) *radius = d->sight;
     return true;
 }

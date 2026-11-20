@@ -81,7 +81,7 @@ def main():
         for header, body in blocks(text, kw):
             name = header[0]
             t = {'name': name, 'type': None, 'defense': None, 'strength': 100, 'weapons': [], 'parts': [],
-                 'hitsize': 0}
+                 'hitsize': 0, 'sight': 0}
             for line in body:
                 m = re.search(r'SetType\((\d+)\)', line)
                 if m and t['type'] is None:
@@ -89,6 +89,9 @@ def main():
                 m = re.search(r'SetVulnerability\(\s*(\w+)\s+(\d+)', line)
                 if m:
                     t['defense'], t['strength'] = m.group(1), int(m.group(2))
+                m = re.search(r'SetSeeingRange\(\s*(\d+)', line)
+                if m:
+                    t['sight'] = int(m.group(1))
                 m = re.search(r'SetHitSize\(\s*(\d+)', line)
                 if m:
                     t['hitsize'] = int(m.group(1))
@@ -138,7 +141,7 @@ def main():
             f.write('    },\n')
         f.write('};\n\n')
         f.write('/* Each native type: SetVulnerability class and strength, and the offense\n'
-                ' * of its first weapon (-1: unarmed). */\n')
+                ' * of its first weapon (-1: unarmed), and SetSeeingRange in cells. */\n')
         f.write('static const dr_defense_t dr_defenses[] = {\n')
         for t in sorted(types, key=lambda t: t['type']):
             ground = -1
@@ -147,7 +150,7 @@ def main():
                 if w and w['offense'] is not None:
                     ground = cat(w['offense'])
                     break
-            f.write(f'    {{ {t["type"]}, {class_index[t["defense"]]}, {t["strength"]}, {ground} }}, /* {t["name"]} */\n')
+            f.write(f'    {{ {t["type"]}, {class_index[t["defense"]]}, {t["strength"]}, {ground}, {t["sight"]} }}, /* {t["name"]} */\n')
         f.write('};\n\n')
         f.write('/* Each armed native type: its first weapon\'s SetOffense area, SetHitSize,\n'
                 ' * PersistentDamage(times cycles offense strength area) and a\n'

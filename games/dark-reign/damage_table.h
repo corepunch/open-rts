@@ -347,166 +347,166 @@ static const dr_vulnerability_t dr_vulnerability[DR_DEFENSE_CLASSES][DR_OFFENSES
 };
 
 /* Each native type: SetVulnerability class and strength, and the offense
- * of its first weapon (-1: unarmed). */
+ * of its first weapon (-1: unarmed), and SetSeeingRange in cells. */
 static const dr_defense_t dr_defenses[] = {
-    { 1, 6, 100, 4 }, /* FGSpiderBike */
-    { 2, 1, 100, 20 }, /* FGMechanic */
-    { 3, 1, 100, -1 }, /* FGSaboteur */
-    { 4, 1, 100, -1 }, /* FGSpy */
-    { 5, 1, 100, 6 }, /* FGSuicideNuker */
-    { 6, 1, 100, -1 }, /* FGScout */
-    { 7, 1, 100, 13 }, /* FGMedic */
-    { 8, 1, 100, 22 }, /* FGSniper */
-    { 9, 1, 100, 5 }, /* FGFreedomFighter */
-    { 10, 1, 100, 4 }, /* FGMercenary */
-    { 11, 6, 100, -1 }, /* FGConstructionCrew */
-    { 12, 6, 100, 3 }, /* FGConstructionMAD */
-    { 13, 6, 100, -1 }, /* FGGroundTransporter */
-    { 14, 5, 100, 5 }, /* FGHoverTransporter */
-    { 15, 5, 100, -1 }, /* FGIFV */
-    { 16, 5, 100, 4 }, /* FGTripleRailHoverTank */
-    { 17, 6, 100, 8 }, /* FGTankHunterTank */
-    { 18, 6, 100, 25 }, /* FGShockWave */
-    { 19, 6, 100, 15 }, /* FGSPA */
-    { 20, 6, 100, 17 }, /* FGMediumTank */
-    { 21, 6, 100, 5 }, /* FGAmbushTank */
-    { 22, 5, 100, -1 }, /* FGundergtunnel */
-    { 23, 4, 100, 0 }, /* FGSkyBike */
-    { 24, 4, 100, 16 }, /* FGDualSkyBike */
-    { 25, 6, 100, -1 }, /* FGBaseMover */
-    { 30, 6, 100, 21 }, /* FGContaminator */
-    { 1001, 1, 100, -1 }, /* IMPSpy */
-    { 1002, 3, 100, 5 }, /* IMPStrikeMarine */
-    { 1003, 3, 100, 6 }, /* IMPFireSupportMarine */
-    { 1004, 2, 100, 18 }, /* IMPHoverMarine */
-    { 1005, 6, 100, -1 }, /* IMPConstructionCrew */
-    { 1006, 6, 100, -1 }, /* ImpGroundTransporter */
-    { 1007, 5, 100, 5 }, /* ImpHoverTransporter */
-    { 1008, 6, 100, 13 }, /* IMPAmper */
-    { 1009, 5, 100, 5 }, /* IMPAssaultVehicle */
-    { 1010, 5, 100, 5 }, /* IMPScoutTank */
-    { 1011, 5, 100, 6 }, /* IMPPlasmaTank */
-    { 1012, 5, 100, 7 }, /* IMPTachyonTank */
-    { 1013, 5, 100, 0 }, /* IMPMAD */
-    { 1014, 6, 100, -1 }, /* IMPHostageTaker */
-    { 1015, 5, 100, 23 }, /* IMPShredder */
-    { 1016, 6, 100, 21 }, /* IMPContaminator */
-    { 1017, 5, 100, 15 }, /* IMPSPA */
-    { 1018, 4, 100, 6 }, /* IMPSkyFortress */
-    { 1019, 4, 100, -1 }, /* IMPReconSaucer */
-    { 1020, 4, 100, 10 }, /* ImpVTOL */
-    { 1026, 5, 10, -1 }, /* IMPShieldedSPA */
-    { 1099, 1, 100, 6 }, /* IMPSuicideZombie */
-    { 1109, 5, 100, -1 }, /* IMPAssaultVehicleDecoy */
-    { 1111, 5, 100, -1 }, /* IMPPlasmaTankDecoy */
-    { 1112, 5, 100, -1 }, /* IMPTachyonTankDecoy */
-    { 1113, 5, 100, -1 }, /* IMPMADDecoy */
-    { 1115, 5, 100, -1 }, /* IMPShredderDecoy */
-    { 1117, 5, 100, -1 }, /* IMPSPADecoy */
-    { 3002, 1, 100, -1 }, /* MaleCivilian */
-    { 3004, 1, 100, 5 }, /* RowdyMaleCivilian */
-    { 3006, 5, 100, -1 }, /* CameraTower */
-    { 3010, 1, 100, -1 }, /* CivSpy */
-    { 3012, 2, 100, -1 }, /* CIVHoverTransporter */
-    { 3018, 1, 100, -1 }, /* Prisoner */
-    { 3019, 6, 100, -1 }, /* CivWheelTransporter */
-    { 3116, 1, 100, 22 }, /* JebRadec */
-    { 3117, 1, 100, -1 }, /* Karoch */
-    { 3120, 1, 100, -1 }, /* ColonelMartel */
-    { 4100, 5, 100, 0 }, /* FGAntiAirSite */
-    { 4101, 5, 100, 5 }, /* FGGuardTower */
-    { 4102, 5, 100, 4 }, /* FGAdvancedGuardTower */
-    { 5100, 5, 100, 0 }, /* IMPAntiAirSite */
-    { 5101, 5, 100, 6 }, /* IMPGuardTower */
-    { 5102, 5, 100, 6 }, /* IMPAdvancedGuardTower */
-    { 10001, 7, 100, -1 }, /* fh1 */
-    { 10002, 7, 100, -1 }, /* fh2 */
-    { 10003, 7, 100, -1 }, /* fh3 */
-    { 10004, 7, 100, -1 }, /* fu1 */
-    { 10005, 7, 100, -1 }, /* fu2 */
-    { 10006, 7, 100, -1 }, /* fc1 */
-    { 10007, 7, 100, -1 }, /* fc2 */
-    { 10008, 7, 100, -1 }, /* fgho */
-    { 10009, 7, 100, -1 }, /* fgre */
-    { 10010, 7, 100, -1 }, /* fgca */
-    { 10011, 7, 100, -1 }, /* fgar */
-    { 10012, 7, 100, 0 }, /* fs */
-    { 10013, 7, 100, 5 }, /* fg */
-    { 10014, 7, 100, 4 }, /* fa */
-    { 10015, 7, 100, -1 }, /* ft1 */
-    { 10016, 7, 100, -1 }, /* ft2 */
-    { 10019, 7, 100, -1 }, /* fglp */
-    { 10020, 7, 100, -1 }, /* fgpp */
-    { 10021, 7, 100, -1 }, /* fc1_decoy */
-    { 10022, 7, 100, -1 }, /* fc2_decoy */
-    { 10023, 7, 100, -1 }, /* ft1_decoy */
-    { 10024, 7, 100, -1 }, /* ft2_decoy */
-    { 10040, 7, 100, -1 }, /* SmallHorizontalBridge1 */
-    { 10041, 7, 100, -1 }, /* SmallVerticalBridge1 */
-    { 10042, 7, 100, -1 }, /* SmallCentreBridge1 */
-    { 10101, 7, 100, -1 }, /* fh1_decoy */
-    { 10102, 7, 100, -1 }, /* fh2_decoy */
-    { 10103, 7, 100, -1 }, /* fh3_decoy */
-    { 10105, 7, 100, -1 }, /* fu2_decoy */
-    { 10108, 7, 100, -1 }, /* fgho_decoy */
-    { 10109, 7, 100, -1 }, /* fgre_decoy */
-    { 10111, 7, 100, -1 }, /* fgar_decoy */
-    { 10120, 7, 100, -1 }, /* fgpp_decoy */
-    { 10121, 7, 100, -1 }, /* fu1_decoy */
-    { 11001, 7, 100, -1 }, /* ih1 */
-    { 11002, 7, 100, -1 }, /* ih2 */
-    { 11003, 7, 100, -1 }, /* ih3 */
-    { 11004, 7, 100, -1 }, /* iu1 */
-    { 11005, 7, 100, -1 }, /* iu2 */
-    { 11006, 7, 100, -1 }, /* ic1 */
-    { 11007, 7, 100, -1 }, /* ic2 */
-    { 11008, 7, 100, -1 }, /* it */
-    { 11009, 7, 100, -1 }, /* impho */
-    { 11010, 7, 100, -1 }, /* impre */
-    { 11011, 7, 100, -1 }, /* impca */
-    { 11012, 7, 100, -1 }, /* impar */
-    { 11013, 7, 100, 0 }, /* is */
-    { 11014, 7, 100, 6 }, /* ig */
-    { 11015, 7, 100, 6 }, /* ia */
-    { 11019, 7, 100, -1 }, /* implp */
-    { 11020, 7, 100, -1 }, /* imppp */
-    { 11021, 7, 100, 24 }, /* itrc */
-    { 11040, 7, 100, -1 }, /* SmallHorizontalBridge */
-    { 11041, 7, 100, -1 }, /* SmallVerticalBridge */
-    { 11042, 7, 100, -1 }, /* SmallCentreBridge */
-    { 11044, 7, 100, -1 }, /* SmallWall1 */
-    { 11045, 7, 100, -1 }, /* SmallWall2 */
-    { 11046, 7, 100, -1 }, /* LargeWall1 */
-    { 11047, 7, 100, -1 }, /* LargeWall2 */
-    { 11103, 5, 100, 24 }, /* IMPriftCreator */
-    { 13004, 7, 100, -1 }, /* ce */
-    { 14005, 8, 100, -1 }, /* impww */
-    { 14006, 9, 100, -1 }, /* impmn */
-    { 50005, 7, 100, -1 }, /* impwr */
-    { 50007, 7, 100, -1 }, /* imphr */
-    { 50009, 7, 100, -1 }, /* impdr */
-    { 50011, 7, 100, -1 }, /* impmr */
-    { 50026, 7, 100, -1 }, /* civshl */
-    { 50028, 7, 100, -1 }, /* civsub */
-    { 50030, 7, 100, -1 }, /* civtcn */
-    { 50042, 7, 100, -1 }, /* fgth */
-    { 50050, 7, 100, -1 }, /* thq */
-    { 50052, 7, 100, -1 }, /* tm */
-    { 50053, 7, 100, -1 }, /* td */
-    { 50054, 7, 100, -1 }, /* rp */
-    { 50055, 7, 100, -1 }, /* fpd */
-    { 50056, 7, 100, -1 }, /* cc */
-    { 50058, 7, 100, -1 }, /* cp */
-    { 50059, 7, 100, -1 }, /* imppri */
-    { 50060, 7, 100, -1 }, /* cr */
-    { 50062, 7, 100, -1 }, /* cgf */
-    { 50064, 7, 100, -1 }, /* chf */
-    { 50066, 7, 100, -1 }, /* cf1 */
-    { 50070, 7, 100, -1 }, /* CivilianBridge */
-    { 50071, 7, 100, -1 }, /* CivilianVerticalBridge */
-    { 55500, 7, 100, -1 }, /* TogranSmallHorizontalBridge1 */
-    { 55502, 7, 100, -1 }, /* TogranSmallVerticalBridge1 */
-    { 55504, 7, 100, -1 }, /* TogranSmallCentreBridge1 */
+    { 1, 6, 100, 4, 9 }, /* FGSpiderBike */
+    { 2, 1, 100, 20, 8 }, /* FGMechanic */
+    { 3, 1, 100, -1, 9 }, /* FGSaboteur */
+    { 4, 1, 100, -1, 9 }, /* FGSpy */
+    { 5, 1, 100, 6, 8 }, /* FGSuicideNuker */
+    { 6, 1, 100, -1, 12 }, /* FGScout */
+    { 7, 1, 100, 13, 8 }, /* FGMedic */
+    { 8, 1, 100, 22, 12 }, /* FGSniper */
+    { 9, 1, 100, 5, 8 }, /* FGFreedomFighter */
+    { 10, 1, 100, 4, 8 }, /* FGMercenary */
+    { 11, 6, 100, -1, 9 }, /* FGConstructionCrew */
+    { 12, 6, 100, 3, 9 }, /* FGConstructionMAD */
+    { 13, 6, 100, -1, 9 }, /* FGGroundTransporter */
+    { 14, 5, 100, 5, 9 }, /* FGHoverTransporter */
+    { 15, 5, 100, -1, 9 }, /* FGIFV */
+    { 16, 5, 100, 4, 9 }, /* FGTripleRailHoverTank */
+    { 17, 6, 100, 8, 9 }, /* FGTankHunterTank */
+    { 18, 6, 100, 25, 9 }, /* FGShockWave */
+    { 19, 6, 100, 15, 9 }, /* FGSPA */
+    { 20, 6, 100, 17, 9 }, /* FGMediumTank */
+    { 21, 6, 100, 5, 9 }, /* FGAmbushTank */
+    { 22, 5, 100, -1, 1 }, /* FGundergtunnel */
+    { 23, 4, 100, 0, 9 }, /* FGSkyBike */
+    { 24, 4, 100, 16, 9 }, /* FGDualSkyBike */
+    { 25, 6, 100, -1, 9 }, /* FGBaseMover */
+    { 30, 6, 100, 21, 9 }, /* FGContaminator */
+    { 1001, 1, 100, -1, 9 }, /* IMPSpy */
+    { 1002, 3, 100, 5, 8 }, /* IMPStrikeMarine */
+    { 1003, 3, 100, 6, 8 }, /* IMPFireSupportMarine */
+    { 1004, 2, 100, 18, 8 }, /* IMPHoverMarine */
+    { 1005, 6, 100, -1, 9 }, /* IMPConstructionCrew */
+    { 1006, 6, 100, -1, 9 }, /* ImpGroundTransporter */
+    { 1007, 5, 100, 5, 9 }, /* ImpHoverTransporter */
+    { 1008, 6, 100, 13, 9 }, /* IMPAmper */
+    { 1009, 5, 100, 5, 9 }, /* IMPAssaultVehicle */
+    { 1010, 5, 100, 5, 13 }, /* IMPScoutTank */
+    { 1011, 5, 100, 6, 9 }, /* IMPPlasmaTank */
+    { 1012, 5, 100, 7, 9 }, /* IMPTachyonTank */
+    { 1013, 5, 100, 0, 9 }, /* IMPMAD */
+    { 1014, 6, 100, -1, 9 }, /* IMPHostageTaker */
+    { 1015, 5, 100, 23, 9 }, /* IMPShredder */
+    { 1016, 6, 100, 21, 9 }, /* IMPContaminator */
+    { 1017, 5, 100, 15, 9 }, /* IMPSPA */
+    { 1018, 4, 100, 6, 9 }, /* IMPSkyFortress */
+    { 1019, 4, 100, -1, 9 }, /* IMPReconSaucer */
+    { 1020, 4, 100, 10, 9 }, /* ImpVTOL */
+    { 1026, 5, 10, -1, 6 }, /* IMPShieldedSPA */
+    { 1099, 1, 100, 6, 8 }, /* IMPSuicideZombie */
+    { 1109, 5, 100, -1, 8 }, /* IMPAssaultVehicleDecoy */
+    { 1111, 5, 100, -1, 8 }, /* IMPPlasmaTankDecoy */
+    { 1112, 5, 100, -1, 8 }, /* IMPTachyonTankDecoy */
+    { 1113, 5, 100, -1, 8 }, /* IMPMADDecoy */
+    { 1115, 5, 100, -1, 8 }, /* IMPShredderDecoy */
+    { 1117, 5, 100, -1, 8 }, /* IMPSPADecoy */
+    { 3002, 1, 100, -1, 4 }, /* MaleCivilian */
+    { 3004, 1, 100, 5, 4 }, /* RowdyMaleCivilian */
+    { 3006, 5, 100, -1, 0 }, /* CameraTower */
+    { 3010, 1, 100, -1, 9 }, /* CivSpy */
+    { 3012, 2, 100, -1, 9 }, /* CIVHoverTransporter */
+    { 3018, 1, 100, -1, 4 }, /* Prisoner */
+    { 3019, 6, 100, -1, 9 }, /* CivWheelTransporter */
+    { 3116, 1, 100, 22, 12 }, /* JebRadec */
+    { 3117, 1, 100, -1, 8 }, /* Karoch */
+    { 3120, 1, 100, -1, 4 }, /* ColonelMartel */
+    { 4100, 5, 100, 0, 12 }, /* FGAntiAirSite */
+    { 4101, 5, 100, 5, 9 }, /* FGGuardTower */
+    { 4102, 5, 100, 4, 12 }, /* FGAdvancedGuardTower */
+    { 5100, 5, 100, 0, 12 }, /* IMPAntiAirSite */
+    { 5101, 5, 100, 6, 9 }, /* IMPGuardTower */
+    { 5102, 5, 100, 6, 12 }, /* IMPAdvancedGuardTower */
+    { 10001, 7, 100, -1, 8 }, /* fh1 */
+    { 10002, 7, 100, -1, 8 }, /* fh2 */
+    { 10003, 7, 100, -1, 16 }, /* fh3 */
+    { 10004, 7, 100, -1, 8 }, /* fu1 */
+    { 10005, 7, 100, -1, 8 }, /* fu2 */
+    { 10006, 7, 100, -1, 8 }, /* fc1 */
+    { 10007, 7, 100, -1, 8 }, /* fc2 */
+    { 10008, 7, 100, -1, 8 }, /* fgho */
+    { 10009, 7, 100, -1, 8 }, /* fgre */
+    { 10010, 7, 100, -1, 16 }, /* fgca */
+    { 10011, 7, 100, -1, 8 }, /* fgar */
+    { 10012, 7, 100, 0, 12 }, /* fs */
+    { 10013, 7, 100, 5, 8 }, /* fg */
+    { 10014, 7, 100, 4, 12 }, /* fa */
+    { 10015, 7, 100, -1, 8 }, /* ft1 */
+    { 10016, 7, 100, -1, 8 }, /* ft2 */
+    { 10019, 7, 100, -1, 8 }, /* fglp */
+    { 10020, 7, 100, -1, 8 }, /* fgpp */
+    { 10021, 7, 100, -1, 8 }, /* fc1_decoy */
+    { 10022, 7, 100, -1, 8 }, /* fc2_decoy */
+    { 10023, 7, 100, -1, 8 }, /* ft1_decoy */
+    { 10024, 7, 100, -1, 8 }, /* ft2_decoy */
+    { 10040, 7, 100, -1, 0 }, /* SmallHorizontalBridge1 */
+    { 10041, 7, 100, -1, 0 }, /* SmallVerticalBridge1 */
+    { 10042, 7, 100, -1, 0 }, /* SmallCentreBridge1 */
+    { 10101, 7, 100, -1, 8 }, /* fh1_decoy */
+    { 10102, 7, 100, -1, 8 }, /* fh2_decoy */
+    { 10103, 7, 100, -1, 8 }, /* fh3_decoy */
+    { 10105, 7, 100, -1, 8 }, /* fu2_decoy */
+    { 10108, 7, 100, -1, 8 }, /* fgho_decoy */
+    { 10109, 7, 100, -1, 8 }, /* fgre_decoy */
+    { 10111, 7, 100, -1, 8 }, /* fgar_decoy */
+    { 10120, 7, 100, -1, 8 }, /* fgpp_decoy */
+    { 10121, 7, 100, -1, 8 }, /* fu1_decoy */
+    { 11001, 7, 100, -1, 8 }, /* ih1 */
+    { 11002, 7, 100, -1, 8 }, /* ih2 */
+    { 11003, 7, 100, -1, 16 }, /* ih3 */
+    { 11004, 7, 100, -1, 8 }, /* iu1 */
+    { 11005, 7, 100, -1, 8 }, /* iu2 */
+    { 11006, 7, 100, -1, 8 }, /* ic1 */
+    { 11007, 7, 100, -1, 8 }, /* ic2 */
+    { 11008, 7, 100, -1, 8 }, /* it */
+    { 11009, 7, 100, -1, 8 }, /* impho */
+    { 11010, 7, 100, -1, 8 }, /* impre */
+    { 11011, 7, 100, -1, 16 }, /* impca */
+    { 11012, 7, 100, -1, 8 }, /* impar */
+    { 11013, 7, 100, 0, 12 }, /* is */
+    { 11014, 7, 100, 6, 8 }, /* ig */
+    { 11015, 7, 100, 6, 12 }, /* ia */
+    { 11019, 7, 100, -1, 8 }, /* implp */
+    { 11020, 7, 100, -1, 8 }, /* imppp */
+    { 11021, 7, 100, 24, 8 }, /* itrc */
+    { 11040, 7, 100, -1, 0 }, /* SmallHorizontalBridge */
+    { 11041, 7, 100, -1, 0 }, /* SmallVerticalBridge */
+    { 11042, 7, 100, -1, 0 }, /* SmallCentreBridge */
+    { 11044, 7, 100, -1, 0 }, /* SmallWall1 */
+    { 11045, 7, 100, -1, 0 }, /* SmallWall2 */
+    { 11046, 7, 100, -1, 0 }, /* LargeWall1 */
+    { 11047, 7, 100, -1, 0 }, /* LargeWall2 */
+    { 11103, 5, 100, 24, 8 }, /* IMPriftCreator */
+    { 13004, 7, 100, -1, 8 }, /* ce */
+    { 14005, 8, 100, -1, 0 }, /* impww */
+    { 14006, 9, 100, -1, 0 }, /* impmn */
+    { 50005, 7, 100, -1, 8 }, /* impwr */
+    { 50007, 7, 100, -1, 8 }, /* imphr */
+    { 50009, 7, 100, -1, 8 }, /* impdr */
+    { 50011, 7, 100, -1, 1 }, /* impmr */
+    { 50026, 7, 100, -1, 8 }, /* civshl */
+    { 50028, 7, 100, -1, 8 }, /* civsub */
+    { 50030, 7, 100, -1, 8 }, /* civtcn */
+    { 50042, 7, 100, -1, 8 }, /* fgth */
+    { 50050, 7, 100, -1, 8 }, /* thq */
+    { 50052, 7, 100, -1, 8 }, /* tm */
+    { 50053, 7, 100, -1, 8 }, /* td */
+    { 50054, 7, 100, -1, 1 }, /* rp */
+    { 50055, 7, 100, -1, 7 }, /* fpd */
+    { 50056, 7, 100, -1, 8 }, /* cc */
+    { 50058, 7, 100, -1, 8 }, /* cp */
+    { 50059, 7, 100, -1, 7 }, /* imppri */
+    { 50060, 7, 100, -1, 8 }, /* cr */
+    { 50062, 7, 100, -1, 8 }, /* cgf */
+    { 50064, 7, 100, -1, 8 }, /* chf */
+    { 50066, 7, 100, -1, 8 }, /* cf1 */
+    { 50070, 7, 100, -1, 0 }, /* CivilianBridge */
+    { 50071, 7, 100, -1, 0 }, /* CivilianVerticalBridge */
+    { 55500, 7, 100, -1, 0 }, /* TogranSmallHorizontalBridge1 */
+    { 55502, 7, 100, -1, 0 }, /* TogranSmallVerticalBridge1 */
+    { 55504, 7, 100, -1, 0 }, /* TogranSmallCentreBridge1 */
 };
 
 /* Each armed native type: its first weapon's SetOffense area, SetHitSize,

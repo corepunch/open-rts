@@ -15,6 +15,10 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), \
       { (m0_), (m1_) }, ((m1_) == 0 ? 1 : 2), {0}, false }
+/* Three SetPrereqs (an HQ tier on top of a factory and a facility). */
+#define UNIT3(ui_, label_, cost_, type_, p0_, p1_, p2_, m0_, m1_) \
+    { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
+      { (p0_), (p1_), (p2_) }, 3, { (m0_), (m1_) }, 2, {0}, false }
 #define BUILD_IMP(ui_, label_, cost_, type_, p0_, p1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_IMP_CONSTRUCTION_CREW }, 1, {0}, false }
@@ -45,7 +49,7 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     UNIT(10, "Mercenary", 300, 10, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(8, "Sniper", 700, 8, 10005, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(6, "Scout", 300, 6, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
-    UNIT(7, "Medic", 500, 7, 10004, 10009, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(7, "Medic", 500, 7, 10004, 10008, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(3, "Saboteur", 800, 3, 10005, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(2, "Mechanic", 500, 2, 10004, 10009, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
     UNIT(5, "Martyr", 600, 5, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
@@ -60,7 +64,7 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     UNIT(19, "Hellstorm Artillery", 1100, 19, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(23, "Sky Bike", 800, 23, 10006, 10011, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(24, "Outrider", 1400, 24, 10006, 10011, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
-    UNIT(18, "Shockwave", 4000, 18, 10006, 10003, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT3(18, "Shockwave", 4000, 18, 10006, 10003, 10016, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(13, "Freighter", 1000, 13, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
@@ -99,14 +103,15 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     UNIT(1014, "Hostage Taker", 600, 1014, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
     UNIT(1012, "Tachyon Tank", 1500, 1012, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
     UNIT(1017, "S.C.A.R.A.B.", 1300, 1017, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
-    UNIT(1020, "Cyclone", 1500, 1020, 11006, 11012, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
-    UNIT(1018, "Sky Fortress", 2500, 1018, 11006, 11012, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT3(1020, "Cyclone", 1500, 1020, 11006, 11012, 11003, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT3(1018, "Sky Fortress", 2500, 1018, 11006, 11012, 11003, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
     UNIT(1016, "Imp Contaminator", 10000, 1016, 11007, 11003, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
     UNIT(1006, "Imp Freighter", 1000, 1006, 11006, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
     UNIT(1007, "Imp Hover Freighter", 1500, 1007, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
 #undef BUILD
 #undef BUILD_IMP
 #undef UNIT
+#undef UNIT3
 };
 
 static int product_count(void) {

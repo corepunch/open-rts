@@ -90,10 +90,11 @@ void P_UpdateSight(void) {
 #endif
         int radius = (level.daylight.weight * actor->info->sight.night +
                       (256 - level.daylight.weight) * actor->info->sight.day) >> 8;
-        if (!G_SightRadius(actor, &radius)) continue;
-        /* Engine default for games whose sight stats have not yet been ported. */
+        /* Engine default for games whose sight stats have not yet been ported;
+         * the game's hook may still set its own. */
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
+        if (!G_SightRadius(actor, &radius)) continue;
 #ifdef RTS_MODULE_STARCRAFT
         if (unfinished_foundation) radius = 4;
 #endif
