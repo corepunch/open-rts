@@ -1169,6 +1169,7 @@ void G_InitGame(void) {
     dr_runtime_info.states = dr_runtime_states;
     dr_runtime_info.draw_fog = dr_draw_fog;
     dr_runtime_info.hit_damage = DR_HitDamage;
+    dr_runtime_info.attack = DR_Attack;
     gameinfo = &dr_runtime_info;
     initialized = true;
 }
@@ -1200,6 +1201,7 @@ void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
                       hudtext_t *hud, int dt_ms) {
     (void)map; (void)mobjs; (void)count;
     (void)hud; (void)dt_ms;
+    DR_TickEffects();
 }
 
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {

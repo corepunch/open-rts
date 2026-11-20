@@ -34,7 +34,7 @@ static const hudimage_t images[15] = {
 };
 
 typedef enum {
-    H_NONE, H_MOVE, H_ATTACK, H_STOP, H_OPTIONS, H_PAGE, H_WAYPOINT, H_CLEAR, H_DELETE,
+    H_NONE, H_MOVE, H_ATTACK, H_STOP, H_SELF_DESTRUCT, H_OPTIONS, H_PAGE, H_WAYPOINT, H_CLEAR, H_DELETE,
     H_GO, H_SAVE, H_DESELECT, H_MODE, H_ADVANCED
 } hudorder_t;
 
@@ -76,8 +76,10 @@ enum { NUMACTIONS = sizeof(actions) / sizeof(*actions),
 
 static const hudaction_t keys[] = {
     {.order = H_PAGE, .value = DR_PAGE_PATHS}, {.order = H_MOVE}, {.order = H_ATTACK}, {.order = H_STOP},
+    {.order = H_SELF_DESTRUCT},
 };
-static const SDL_Keycode hotkeys[] = {SDLK_p, SDLK_m, SDLK_a, SDLK_s};
+/* Retail's self-destruct key is not known; Delete stands in. */
+static const SDL_Keycode hotkeys[] = {SDLK_p, SDLK_m, SDLK_a, SDLK_s, SDLK_DELETE};
 
 /* Native menu sprites, separate from world sprite IDs. */
 const dr_menuproduct_t dr_menu_products[] = {
@@ -240,6 +242,19 @@ static void target(menu_t *menu, menuitem_t *item) {
     P_FreeMobjList(&units);
 }
 
+/* QSELFDESTRUCT for every selected unit of ours that carries the weapon. */
+static void self_destruct(void) {
+    ticcmd_t order = {.order = TC_SPELL, .product = DR_SPELL_SELF_DESTRUCT};
+    mobjlist_t units = P_ListMobjs();
+    for (int i = 0; i < units.count && order.count < MAXCOMMANDUNITS; ++i) {
+        mobj_t *unit = units.items[i];
+        if (P_MobjIsSelected(unit) && unit->owner == consoleplayer && DR_CanSelfDestruct(unit))
+            order.units[order.count++] = unit->id;
+    }
+    P_FreeMobjList(&units);
+    if (order.count) G_QueueTiccmd(&order);
+}
+
 static void action(menu_t *menu, menuitem_t *item, menuaction_t event) {
     const hudaction_t *a = item->userdata;
     if (event == MA_TARGET) { target(menu, item); return; }
@@ -253,6 +268,7 @@ static void action(menu_t *menu, menuitem_t *item, menuaction_t event) {
     /* MENU opens the native options screen instead of a HUD popup. */
     case H_OPTIONS: DR_OpenOptions(menu->app); break;
     case H_STOP: HU_SelectedOrder(TC_STOP, (fvec2_t){0}, 0); break;
+    case H_SELF_DESTRUCT: self_destruct(); break;
     case H_MOVE: case H_ATTACK: M_MenuTarget(menu, item); break;
     case H_WAYPOINT: M_MenuTarget(menu, menu->target == item ? NULL : item); break;
     case H_CLEAR: HU_PathClear(&drhud.paths); break;

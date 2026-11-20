@@ -278,10 +278,21 @@ bool DR_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out);
  * and defense are indices into the generated damage_table.h, -1 when none. */
 int DR_OffenseOf(const mobj_t *mobj);
 int DR_DefenseOf(const mobj_t *mobj);
-/* One hit before any random: crit_roll 0..99, variation_roll any non-negative. */
-int DR_VulnerableDamage(int offense, int defense, int strength, int damage, int crit_roll, int variation_roll,
-                        bool *critical);
+/* One hit before any random: falloff 0..100 (100 direct), crit_roll 0..99,
+ * variation_roll any non-negative. */
+int DR_VulnerableDamage(int offense, int defense, int strength, int damage, int falloff, int crit_roll,
+                        int variation_roll, bool *critical);
+/* Area falloff F of a blast of radius `area` at `distance`, both world units (24 a cell). */
+int DR_Falloff(int area, int distance);
 int DR_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
+/* gameinfo_t.attack: one impact with area falloff, then any PersistentDamage. */
+bool DR_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
+/* Lingering blasts strike again; once per simulation tic (one retail cycle). */
+void DR_TickEffects(void);
+/* TC_SPELL product for a SetMovement(SelfDestruct) weapon (QSELFDESTRUCT). */
+enum { DR_SPELL_SELF_DESTRUCT = 1 };
+bool DR_CanSelfDestruct(const mobj_t *unit);
+bool DR_SelfDestruct(mobj_t *unit);
 
 
 #endif

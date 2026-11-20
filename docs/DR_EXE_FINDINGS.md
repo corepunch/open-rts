@@ -529,14 +529,35 @@ outright. Otherwise `v = rand(2V) - V` and, with falloff
 truncating. A class with no rows takes the raw damage. The RNG is one global
 LCG (`seed*0x8e1+0x1f`, 0x4bc210).
 
+**Impacts, PersistentDamage and self-destruct (2026-11-20).** Confirmed: an
+impact (0x449e60) splashes every unit inside max(area, a global minimum x 24)
+around the impact point, the distance less the victim's SetHitSize, through
+0x449cf0/0x474b40. PersistentDamage(times cycles category strength area) is
+stored at weapon +0xa8..+0xb8 (parser 0x483ba0). There is no separate effect
+object: the projectile stays at its impact point with the persistent values
+in its offense slots and repeats the whole impact every `cycles` cycles,
+`times` times (c:108920-108945, c:109134-109157). SetMovement(SelfDestruct) is
+movement 5 and never fires on its own (c:147626); QSELFDESTRUCT (command
+0x2e, c:74020) reaches 0x4a9c90, which fires the weapon from the unit, sets
+its HP to 0 (0x44ad4a), and scales the offense by health through
+SetSelfDestruct's table (0 0 100 100 is linear). Inferred: the blast does not
+follow a moving victim; areas are world units of 24 a cell. Not decoded: the
+relationship filter on splash victims. The port lets a blast hit everything
+on its layer because a Martyr (SuicideNuke E3 180, area 100, linear, no
+self-kill in 0x44aa00) can only die in its own blast.
+
 Port: `tools/dr_damage_gen.py` generates `games/dark-reign/damage_table.h`
 from DAMAGE/UNITS/BUILD/WEAPON.TXT (turret buildings take their `ActivePart`
-unit's weapon); `games/dark-reign/p_damage.c` applies it through
-`gameinfo_t.hit_damage`. Its rolls hash shared state (tic, ids, hp) instead
-of the native global stream, so lockstep and saves need no new field. Not yet
-ported: quadratic area falloff (the engine's three-ring splash stands in),
-PersistentDamage (Chaff, SCARAB shell), SelfDestruct1, AmperAmp. Verified by
-`tests/dark-reign/test_damage.c` and `make test-info-gen`.
+unit's weapon). `games/dark-reign/p_damage.c` applies it as
+`gameinfo_t.attack` (one impact with falloff per hit, then any lingering
+blast) and `gameinfo_t.hit_damage`. Lingering blasts live in
+`level.dr_effects`, saved through `G_SaveExtra` and hashed through
+`G_ConsistencyExtra`. Self-destruct is `TC_SPELL` product
+`DR_SPELL_SELF_DESTRUCT`, bound to Delete (retail's key is unknown). Rolls
+hash shared state (tic, ids, hp) instead of the native global stream. The
+global minimum splash radius (0x5b2244) is not applied. Not ported: AmperAmp
+and the Rift's vortex. Verified by `tests/dark-reign/test_damage.c` and `make
+test-info-gen`.
 
 ## Imperium faction implementation (2026-09-19)
 
