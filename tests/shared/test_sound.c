@@ -4,7 +4,7 @@
 #include "t_local.h"
 
 #define CHECK(c) RTS_CHECK(c, "engine sound", #c)
-enum { TONE = 1, OTHER, LOOP, EMPTY, VOICE, PRIORITY_VOICE };
+enum { TONE = 1, OTHER, LOOP, EMPTY, VOICE, PRIORITY_VOICE, POOL_LOW, POOL_HIGH, POOL_GUARD, POOL_SPEECH };
 static bool fail_init;
 
 static void put32(uint8_t *p, unsigned value) {
@@ -19,6 +19,11 @@ static bool init_sounds(const char *root) {
                             .priority = 4, .norepeat = true}) != VOICE ||
         S_AddSfx(&(sfxinfo_t){.links = {OTHER, TONE}, .numlinks = 2,
                             .priority = 3, .norepeat = true}) != PRIORITY_VOICE) return false;
+    /* Pooled sounds share two channels (soundinfo_t.pool_channels). */
+    if (S_AddSfx(&(sfxinfo_t){.pooled = true, .pool_priority = 1}) != POOL_LOW ||
+        S_AddSfx(&(sfxinfo_t){.pooled = true, .pool_priority = 2}) != POOL_HIGH ||
+        S_AddSfx(&(sfxinfo_t){.pooled = true, .pool_priority = 0, .never_preempt = true}) != POOL_GUARD ||
+        S_AddSfx(&(sfxinfo_t){.pooled = true, .pool_priority = 1, .speech = true}) != POOL_SPEECH) return false;
     /* One second of unsigned 8-bit mono PCM at 8000 Hz. The engine must own
      * its converted copy after this stack buffer goes out of scope. */
     uint8_t wav[44 + 8000] = {0};
@@ -35,6 +40,8 @@ static bool init_sounds(const char *root) {
     memset(wav + 44, 144, sizeof(wav) - 44);
     for (int id = TONE; id <= LOOP; ++id)
         if (!S_LoadSound(id, wav, sizeof(wav))) return false;
+    for (int id = POOL_LOW; id <= POOL_SPEECH; ++id)
+        if (!S_LoadSound(id, wav, sizeof(wav))) return false;
     return !fail_init;
 }
 
@@ -46,6 +53,7 @@ static int actor_sound(const mobj_t *actor, soundevent_t event) {
 static const soundinfo_t sounds = {
     .init = init_sounds, .actor_sound = actor_sound,
     .ui = {[UI_SOUND_SCREEN] = LOOP}, .rolloff = 0.5f, .cutoff = 8000,
+    .pool_channels = 2,
 };
 
 static int test_loading(void) {
@@ -122,6 +130,33 @@ static int test_barks(void) {
     return 0;
 }
 
+/* OpenBW ui.h get_sound_channel: free channel, else the first playing sound
+ * of the lowest priority below the new one that is not never_preempt. */
+static int test_pool(void) {
+    S_StopAllSounds();
+    int a = S_StartLocalSound(POOL_LOW), b = S_StartLocalSound(POOL_LOW);
+    CHECK(a && b);
+    int c = S_StartLocalSound(POOL_HIGH);
+    CHECK(c && !S_IsPlaying(a) && S_IsPlaying(b) && S_IsPlaying(c));
+    CHECK(!S_StartLocalSound(POOL_LOW)); /* equal priority never replaces */
+    int free_tone = S_StartLocalSound(TONE); /* unpooled sounds are not counted */
+    CHECK(free_tone && S_IsPlaying(b) && S_IsPlaying(c));
+    S_StopAllSounds();
+    int guard = S_StartLocalSound(POOL_GUARD), low = S_StartLocalSound(POOL_LOW);
+    int high = S_StartLocalSound(POOL_HIGH);
+    CHECK(guard && low && high && S_IsPlaying(guard) && !S_IsPlaying(low));
+    CHECK(!S_StartLocalSound(POOL_HIGH)); /* the guard is never the victim */
+    S_StopAllSounds();
+    mobj_t marine = {.type_id = 5, .hp = 1}, other = {.type_id = 5, .hp = 1}, ghost = {.type_id = 6, .hp = 1};
+    int talk = S_StartSound(&marine, POOL_SPEECH);
+    CHECK(talk && !S_StartSound(&other, POOL_SPEECH)); /* same type is still talking */
+    CHECK(S_StartSound(&ghost, POOL_SPEECH));
+    S_StopChannel(talk);
+    CHECK(S_StartSound(&other, POOL_SPEECH));
+    S_StopAllSounds();
+    return 0;
+}
+
 static int test_spatial(void) {
     level.width = level.height = 256;
     app_t app = {.win = {640, 480}, .cell = {32, 32}};
@@ -152,6 +187,7 @@ int main(void) {
     RTS_RUN(test_loading());
     RTS_RUN(test_channels());
     RTS_RUN(test_barks());
+    RTS_RUN(test_pool());
     RTS_RUN(test_spatial());
     RTS_RUN(test_unload());
     S_Shutdown();

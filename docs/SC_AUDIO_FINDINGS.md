@@ -14,18 +14,15 @@ playing when StarCraft lacks free sound channels. PyMS defines the separate
 An initial change incorrectly copied this value into `sfxinfo_t.priority`.
 That field is used by shared `sound/s_sound.c::S_Bark` to pick the lowest
 numeric bark priority, a distinct Dark Colony rule. That change and its test
-were removed. The StarCraft loader currently reads the one-at-a-time flag but
-does not import SoundPriority or never-preempt behavior.
+were removed. SoundPriority now goes to its own field,
+`sfxinfo_t.pool_priority`.
 
-Confirmed from PyMS: the direction of override is toward the numerically
-higher SoundPriority. The documented source does not settle how StarCraft
-chooses among several eligible channels to interrupt, how ties are resolved,
-whether never-preempt sounds can themselves interrupt lower priorities, or
-what the exact behavior is when every channel is non-preemptible. The engine's
-32 mixer channels are an implementation detail, not evidence for retail's
-channel count. Therefore channel arbitration is not implemented from this
-evidence alone. It needs additional authoritative behavior evidence and a
-focused channel-exhaustion regression before a parity claim is appropriate.
+Confirmed from PyMS: a sound with a numerically higher SoundPriority replaces
+a lower one. PyMS does not say which of several lower channels is replaced,
+how ties resolve, or what a full set of never-preempt sounds does. OpenBW's
+UI settles all three, and the engine follows it. See "Channel priority and
+never_preempt" below. The engine's 32 mixer channels still exist; StarCraft's
+pooled sounds are limited to 8 of them.
 
 ## Mute Unit Speech trigger actions
 
@@ -91,29 +88,40 @@ fog rule of `S_ActorSound`, and goes through `sc_script_play` so tests can
 observe it. Attack and death sounds still use the first-sound lookup at the
 engine's attack and death events.
 
-## Channel priority and never_preempt (traced, not implemented)
-
-What is established:
+## Channel priority and never_preempt (OpenBW policy, implemented)
 
 - `sfxdata.dat` has 968 rows here: SoundPriority (the second column) is 0 for
   12 rows, 1 for 825, 2 for 130 and 3 for one; `never_preempt` (flag bit 5,
   PyMS `Sound.Flag.never_preempt`) is set on 753 rows, `unit_speech` on 697,
   `one_at_a_time` on 27 (counted from the installed file).
-- PyMS's `SoundPriority` hint: higher priority may override a lower one that is
-  playing when Brood War has no free sound channel.
-- OpenBW has no policy: its `state_functions::play_sound` is an empty virtual
-  hook and `sound_type_t` merely carries `priority`, `flags`, `race` and
-  `min_volume` (`openbw-data_types.h`); nothing in `bwgame.h` reads them.
-
-What is not established, so nothing is implemented: how many channels retail
-has, which sound is the victim when several are lower, how a tie between equal
-priorities resolves, whether `never_preempt` sounds can themselves preempt,
-and what a saturated set of non-preemptible sounds does to a new sound. The
-trace that would settle it is a `STARCRAFT.EXE` read of the sound-start routine
-that consumes the `sfxdata` priority and flag columns (the code that finds a
-free channel), plus a channel-saturation recording. `SoundPriority` is not
-routed through `sfxinfo_t.priority`. Independent trigger WAV playback and the
-speech mute are untouched (`tests/starcraft/test_sounds.c` passes unchanged).
+- An earlier note here said OpenBW has no policy. That was wrong: the game
+  core's `state_functions::play_sound` is an empty hook, but OpenBW's UI
+  overrides it. Pinned `ui/ui.h` (`4b046d5f`, `play_sound` and
+  `get_sound_channel`) runs sfxdata sounds on 8 channels:
+  1. A `one_at_a_time` (0x10) sound is dropped while the same row plays.
+     Otherwise a `unit_speech` (0x02) sound with a source unit is dropped
+     while a speech sound from a unit of the same type plays.
+  2. A free channel is taken if there is one.
+  3. Otherwise the victim is the first channel, in channel order, with the
+     lowest priority strictly below the new sound's. A playing
+     `never_preempt` (0x20) sound is never a victim; the new sound's own
+     flag does not matter. Equal priority never preempts.
+  4. With no victim the new sound is dropped.
+- Implemented as an opt-in pool in the shared sound layer (`sound/s_sound.c`
+  `make_room`; `sfxinfo_t.pooled`, `pool_priority`, `never_preempt`,
+  `speech`; `soundinfo_t.pool_channels`). StarCraft pools every sfxdata row
+  on 8 channels. The briefing and trigger WAVs, the glue click and music are
+  added outside the pool, so they stay independent, and so does the speech
+  mute. `sfxinfo_t.priority` (Dark Colony's bark priority, lower wins) is
+  untouched. Other games pool nothing. `tests/shared/test_sound.c::test_pool`
+  covers the free channel, the first lowest victim, equal priority,
+  `never_preempt`, same-type speech, and unpooled sounds not counting.
+- Not adopted from OpenBW's UI: its 80 ms wall-clock repeat throttle per row
+  and its `min_volume`/screen-distance volume, which this engine's own
+  attenuation replaces.
+- Caveat: OpenBW's UI is a reimplementation, not a STARCRAFT.EXE trace.
+  Retail's channel count and tie order are as OpenBW has them unless a trace
+  of the executable's sound-start routine says otherwise.
 
 ## Remaining gaps outside this package
 

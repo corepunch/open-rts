@@ -29,6 +29,9 @@ enum {
     SFX_TERRAN_BUILD_DONE = 136, /* TSCUpd00, the SCV's "job's finished" */
     SFX_UNIT_SPEECH = 0x02,      /* PyMS Sound.Flag.unit_speech */
     SFX_ONE_AT_A_TIME = 0x10,    /* PyMS Sound.Flag.one_at_a_time */
+    SFX_NEVER_PREEMPT = 0x20,    /* PyMS Sound.Flag.never_preempt */
+    /* OpenBW ui.h opens 8 channels for sfxdata sounds. */
+    SC_SOUND_CHANNELS = 8,
     /* This engine's choices: the click on one unit alone from which it is
      * annoyed, the most time between such clicks, and the least time
      * between two "under attack" warnings of the same kind. */
@@ -300,7 +303,10 @@ static bool sc_sound_init(const char *root) {
     for (int id = 1; id < rows; ++id) {
         uint8_t flags = t.dat.bytes[rows * 5 + id];
         unit_speech[id] = (flags & SFX_UNIT_SPEECH) != 0;
-        sfxinfo_t sfx = {.instances = flags & SFX_ONE_AT_A_TIME ? 1 : 0};
+        sfxinfo_t sfx = {.instances = flags & SFX_ONE_AT_A_TIME ? 1 : 0, .pooled = true,
+                         .pool_priority = t.dat.bytes[rows * 4 + id],
+                         .never_preempt = (flags & SFX_NEVER_PREEMPT) != 0,
+                         .speech = unit_speech[id]};
         if (S_AddSfx(&sfx) != id) goto done;
     }
     map_units(&t);
@@ -424,4 +430,5 @@ const soundinfo_t sc_soundinfo = {
     .actor_sound = sc_actor_sound,
     .ticker = sc_music_tick,
     .ui = {[UI_SOUND_CLICK] = SFX_BUTTON},
+    .pool_channels = SC_SOUND_CHANNELS,
 };

@@ -1785,6 +1785,15 @@ typedef struct sfxinfo_s {
     int numlinks;
     int next;           /* Group cursor: the member the next play uses. */
     bool norepeat;      /* Group re-rolls its cursor away from the last member. */
+    /* Channel pool (soundinfo_t.pool_channels), off for every sfx by default.
+     * A pooled sound takes a free pool channel or replaces the playing pooled
+     * sound with the lowest pool_priority below its own; never_preempt keeps
+     * a playing sound from being replaced; speech drops the new sound while a
+     * speech sound from the same object type still plays. */
+    bool pooled;
+    int pool_priority;  /* Higher replaces lower (StarCraft SoundPriority). */
+    bool never_preempt;
+    bool speech;
     struct sfxsample_s *data; /* Engine-owned sample; games use S_LoadSound. */
 } sfxinfo_t;
 
@@ -1830,6 +1839,8 @@ typedef struct soundinfo_s {
      * threshold. DC.EXE 0x42ec44: d^2/2 with -8000 as the cutoff. */
     float rolloff;
     int cutoff;
+    /* Channels shared by the pooled sfx; 0 leaves them unlimited. */
+    int pool_channels;
 } soundinfo_t;
 
 extern bool nosound;

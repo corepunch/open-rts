@@ -16,6 +16,7 @@ typedef struct {
     bool positional;
     fvec2_t position;   /* Last known origin position. */
     int volume;         /* The sfx's centibel attenuation. */
+    int source_type;    /* The origin's type when it started, for speech. */
 } schannel_t;
 
 bool nosound;
@@ -175,6 +176,39 @@ static void reap(void) {
             schannels[i] = (schannel_t){0};
 }
 
+static bool pooled(const schannel_t *channel) {
+    return channel->handle && sfxtable[channel->sfx].pooled;
+}
+
+/* The channel pool, as OpenBW's ui.h play_sound and get_sound_channel run
+ * StarCraft's sfxdata flags and SoundPriority: a one-at-a-time sound (here
+ * `instances`) or, failing that, a speech sound whose object type is already
+ * talking is dropped; a free pool channel is taken; else the first playing
+ * sound of the lowest priority strictly below the new one's, never one marked
+ * never_preempt, is stopped for it; else the new sound is dropped. Returns
+ * false to drop it. */
+static bool make_room(const sfxinfo_t *sfx, const mobj_t *origin) {
+    if (!sfx->pooled || !game->pool_channels) return true;
+    if (!sfx->instances && sfx->speech && origin)
+        for (int i = 0; i < NUMSCHANNELS; ++i)
+            if (pooled(&schannels[i]) && sfxtable[schannels[i].sfx].speech &&
+                schannels[i].source_type == origin->type_id) return false;
+    int used = 0, victim = -1, lowest = sfx->pool_priority;
+    for (int i = 0; i < NUMSCHANNELS; ++i) {
+        if (!pooled(&schannels[i])) continue;
+        ++used;
+        const sfxinfo_t *playing = &sfxtable[schannels[i].sfx];
+        if (!playing->never_preempt && playing->pool_priority < lowest) {
+            lowest = playing->pool_priority;
+            victim = i;
+        }
+    }
+    if (used < game->pool_channels) return true;
+    if (victim < 0) return false;
+    release(&schannels[victim]);
+    return true;
+}
+
 static int start(const mobj_t *origin, bool positional, fvec2_t position, int id) {
     if (!initialized) return 0;
     id = resolve(id);
@@ -190,6 +224,7 @@ static int start(const mobj_t *origin, bool positional, fvec2_t position, int id
     int left = 256, right = 256;
     if (positional && !spatialize(position, sfx->volume, channel_volume(id), &left, &right)) return 0;
     if (!positional) left = right = flat_volume(sfx->volume, channel_volume(id));
+    if (!make_room(sfx, origin)) return 0;
     int slot = -1;
     for (int i = 0; i < NUMSCHANNELS && slot < 0; ++i)
         if (!schannels[i].handle) slot = i;
@@ -198,7 +233,7 @@ static int start(const mobj_t *origin, bool positional, fvec2_t position, int id
     if (!handle) return 0;
     schannels[slot] = (schannel_t){
         .handle = handle, .sfx = id, .origin = origin, .positional = positional,
-        .position = position, .volume = sfx->volume,
+        .position = position, .volume = sfx->volume, .source_type = origin ? origin->type_id : 0,
     };
     return handle;
 }
