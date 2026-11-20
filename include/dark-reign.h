@@ -274,5 +274,14 @@ extern dr_hud_t drhud;
 irect_t DR_MinimapRect(const level_t *map);
 bool DR_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out);
 
+/* p_damage.c: retail DAMAGE.TXT vulnerability (dkreign.exe 0x474b40). Offense
+ * and defense are indices into the generated damage_table.h, -1 when none. */
+int DR_OffenseOf(const mobj_t *mobj);
+int DR_DefenseOf(const mobj_t *mobj);
+/* One hit before any random: crit_roll 0..99, variation_roll any non-negative. */
+int DR_VulnerableDamage(int offense, int defense, int strength, int damage, int crit_roll, int variation_roll,
+                        bool *critical);
+int DR_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
+
 
 #endif

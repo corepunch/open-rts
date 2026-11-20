@@ -33,7 +33,7 @@ int main(void) {
     mobjtype_t defender = *type;
     defender.damage_action = NULL;
     defender.attack.range = 2 * FIXED_ONE;
-    defender.attack.damage = 1;
+    defender.attack.damage = 10; /* survives armour that truncates small hits (Dark Reign) */
     defender.attack.projectile_type = 0;
     victim->info = &defender;
     victim->speed = 4 * FIXED_ONE;

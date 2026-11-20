@@ -511,6 +511,33 @@ x=453+(130-w)/2, y=348+(127-h)/2. M01F's rectangle is (488,381,60,60).
 The prior 128×126 stretch covered the native minimap housing. The HUD now keeps
 that housing and uses this native rectangle for markers and camera interaction.
 
+## Damage table and hit formula (2026-11-20)
+
+**Confirmed** in `dkreign.exe` (r2 on `data/REIGN/dkreign.exe`, decompile
+`reverse/dr-hud/dkreign.c`). `DefineVulnerability` (c:62209) fills every
+offense of a class with its defaults on the first row, then overwrites rows in
+file order; a bare letter (`F`, `Z`) covers F0..F9 (0x474ab6). Offense index is
+`(letter-'A')*10+digit` (0x474ca0). Weapons keep offense at +0x90, strength
++0x94, area +0x98; units keep SetVulnerability class at +0x13c, strength +0x13e.
+
+Hit function 0x474b40 (ECX offense, EDX class, damage, unit strength, area R,
+distance d): a nonzero crit byte rolls `rand(100) < crit`, and a critical
+returns with a flag that makes the callers (c:103678-103727) kill the target
+outright. Otherwise `v = rand(2V) - V` and, with falloff
+`F = (R^2-d^2)*100/R^2` (100 for a direct hit),
+`damage = (((vuln+v)*strength*F/100)/100*weapon)/100`, each division
+truncating. A class with no rows takes the raw damage. The RNG is one global
+LCG (`seed*0x8e1+0x1f`, 0x4bc210).
+
+Port: `tools/dr_damage_gen.py` generates `games/dark-reign/damage_table.h`
+from DAMAGE/UNITS/BUILD/WEAPON.TXT (turret buildings take their `ActivePart`
+unit's weapon); `games/dark-reign/p_damage.c` applies it through
+`gameinfo_t.hit_damage`. Its rolls hash shared state (tic, ids, hp) instead
+of the native global stream, so lockstep and saves need no new field. Not yet
+ported: quadratic area falloff (the engine's three-ring splash stands in),
+PersistentDamage (Chaff, SCARAB shell), SelfDestruct1, AmperAmp. Verified by
+`tests/dark-reign/test_damage.c` and `make test-info-gen`.
+
 ## Imperium faction implementation (2026-09-19)
 
 **Confirmed from retail `deftxt/UNITS.TXT`, `deftxt/BUILD.TXT`,

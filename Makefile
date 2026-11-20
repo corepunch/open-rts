@@ -253,6 +253,7 @@ kknd-info-gen: $(KKND_INFO_GEN_TARGET)
 dark-reign-info: $(DR_INFO_GEN_TARGET)
 	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) \
 	    games/dark-reign/info.h games/dark-reign/info.c
+	python3 tools/dr_damage_gen.py $(DARK_REIGN_ROOT) games/dark-reign/damage_table.h
 
 7legion-info: $(SL_INFO_GEN_TARGET)
 	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) \
@@ -273,6 +274,8 @@ test-info-gen: $(DR_INFO_GEN_TARGET) $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGE
 	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c
 	$(CMP) games/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.h
 	$(CMP) games/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/info.c
+	python3 tools/dr_damage_gen.py $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/damage_table.h
+	$(CMP) games/dark-reign/damage_table.h $(BUILD_DIR)/info-check/dark-reign/damage_table.h
 	$(CMP) games/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.h
 	$(CMP) games/7legion/info.c $(BUILD_DIR)/info-check/7legion/info.c
 	$(CMP) games/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.h
