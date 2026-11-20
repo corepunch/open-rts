@@ -506,7 +506,7 @@ test-starcraft: $(TEST_RUNNER) $(filter-out %/test_ai,$(SC_TEST_BINS)) starcraft
 QUICK_TEST_BINS := $(filter-out %/test_ai_skirmish %/test_ai_factions %/test_menu,$(dark-colony_TEST_BINS)) \
     $(dark-reign_TEST_BINS) $(7legion_TEST_BINS) $(kknd_TEST_BINS) \
     $(filter-out %/test_ai %/test_ai_game,$(warcraft-2_TEST_BINS)) $(filter-out %/test_ai,$(SC_TEST_BINS)) \
-    $(z_TEST_BINS) $(BIN_DIR)/tests/dark-colony/test_menu \
+    $(filter-out %/test_ai,$(z_TEST_BINS)) $(BIN_DIR)/tests/dark-colony/test_menu \
     $(BIN_DIR)/test_network $(BIN_DIR)/test_model_commands_dark-colony \
     $(BIN_DIR)/test_model_commands_dark-reign $(DC_LAYOUT_TEST_TARGET)
 QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network $(BIN_DIR)/tests/dark-colony/test_menu,$(QUICK_TEST_BINS)) \

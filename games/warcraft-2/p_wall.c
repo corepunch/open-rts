@@ -196,42 +196,39 @@ int W2_WallRace(ivec2_t cell) {
 
 uint32_t W2_WallHash(uint32_t hash) { return G_HashValue(hash, wall_digest); }
 
-/* Saved games carry one hit-point byte per cell. The engine restores only
- * `blocked`, so loading rebuilds each wall cell's tile and solidity. */
-size_t W2_WallSaveSize(void) { return (size_t)level.width * level.height; }
+/* Saved games carry the map planes that play changes: each cell's tile
+ * (u16), terrain, solidity and wall hit points, plane by plane. The engine
+ * restores only `blocked`, so without them a load into the running level
+ * kept trees, rocks and walls removed after the save. */
+enum { STATE_BYTES = 5 };
 
-void W2_WallSave(uint8_t *out) {
-    size_t cells = W2_WallSaveSize();
-    if (wall_hp && (size_t)wall_cells == cells) memcpy(out, wall_hp, cells);
-    else memset(out, 0, cells);
+size_t W2_MapStateSize(void) { return (size_t)level.width * level.height * STATE_BYTES; }
+
+void W2_MapStateSave(uint8_t *out) {
+    size_t cells = (size_t)level.width * level.height;
+    memcpy(out, level.tile_ids, cells * 2);
+    memcpy(out + cells * 2, level.cell_terrain, cells);
+    if (level.cell_solid) memcpy(out + cells * 3, level.cell_solid, cells);
+    else memset(out + cells * 3, 0, cells);
+    if (wall_hp && (size_t)wall_cells == cells) memcpy(out + cells * 4, wall_hp, cells);
+    else memset(out + cells * 4, 0, cells);
 }
 
-bool W2_WallLoad(const uint8_t *in, size_t size) {
-    if (size != W2_WallSaveSize()) return false;
-    bool table = wall_hp && (size_t)wall_cells == size;
-    for (size_t i = 0; i < size; ++i)
-        if (in[i] > wall_max_hp() || (!table && in[i])) return false;
-    if (!table) return true;
-    /* Cells whose hit points differ take the saved condition; they and
-     * their neighbors then re-join, as a hit would have fixed them. Cells
-     * the save agrees with keep their tiles. */
-    uint8_t *changed = calloc((size_t)wall_cells, 1);
-    if (!changed) return false;
-    for (int i = 0; i < wall_cells; ++i) {
-        int state, race = classify(level.tile_ids[i], &state);
-        if (in[i] == wall_hp[i] || race == NO_WALL) continue;
-        set_hp(i, in[i]);
-        level.tile_ids[i] = wall_tile_for(race, 0, wall_hp[i]);
-        if (level.cell_solid) level.cell_solid[i] = wall_hp[i] > 0;
-        changed[i] = 1;
-    }
-    for (int i = 0; i < wall_cells; ++i) {
-        if (!changed[i]) continue;
-        ivec2_t cell = {i % level.width, i / level.width};
-        int state, race = classify(level.tile_ids[i], &state);
-        level.tile_ids[i] = wall_tile_for(race, direction(cell, race), wall_hp[i]);
-        fix_neighbors(cell);
-    }
-    free(changed);
+bool W2_MapStateValid(const uint8_t *in, size_t size) {
+    size_t cells = (size_t)level.width * level.height;
+    if (size != W2_MapStateSize() || !level.tile_ids || !level.cell_terrain) return false;
+    bool table = wall_hp && (size_t)wall_cells == cells;
+    const uint8_t *hp = in + cells * 4;
+    for (size_t i = 0; i < cells; ++i)
+        if (hp[i] > wall_max_hp() || (!table && hp[i])) return false;
     return true;
+}
+
+void W2_MapStateLoad(const uint8_t *in) {
+    size_t cells = (size_t)level.width * level.height;
+    memcpy(level.tile_ids, in, cells * 2);
+    memcpy(level.cell_terrain, in + cells * 2, cells);
+    if (level.cell_solid) memcpy(level.cell_solid, in + cells * 3, cells);
+    if (wall_hp && (size_t)wall_cells == cells)
+        for (size_t i = 0; i < cells; ++i) set_hp((int)i, in[cells * 4 + i]);
 }

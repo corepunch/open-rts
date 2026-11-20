@@ -63,7 +63,17 @@ int main(void) {
     saveinfo_t info;
     CHECK(G_SaveInfo(path, &info) && !strcmp(info.name, "Test") && strstr(info.map, "ALAMO.PUD"));
 
+    /* A tree felled after the save stands again after the load. */
+    int tree = -1;
+    for (int i = 0; i < level.width * level.height && tree < 0; ++i)
+        if (level.cell_terrain[i] == 2) tree = i;
+    CHECK(tree >= 0);
+    ivec2_t tree_cell = {tree % level.width, tree / level.width};
+    uint16_t tree_tile = level.tile_ids[tree];
+
     /* Play on, then restore: the thinkers, links, stock and clock come back. */
+    w2_remove_tree(tree_cell);
+    CHECK(level.cell_terrain[tree] == 0 && level.tile_ids[tree] != tree_tile);
     first->hp = 1;
     first->target = NULL;
     first->core.position.x += 5 * FIXED_ONE;
@@ -75,6 +85,7 @@ int main(void) {
     W2_SeedCombat(1);
     app.cam = (fvec2_t){0, 0};
     CHECK(G_LoadGame(path, &app, &ai, &hud));
+    CHECK(level.cell_terrain[tree] == 2 && level.tile_ids[tree] == tree_tile);
     list = P_ListMobjs();
     CHECK(list.count == count);
     P_FreeMobjList(&list);

@@ -153,37 +153,43 @@ static int test_catapult_shot(void) {
     return 0;
 }
 
-/* Saved wall hit points restore tiles, solidity and the checksum share,
- * whatever happened to the walls after the save. */
+/* A load restores the map planes play changed after the save: wall hit
+ * points with their tiles and solidity, and removed rocks. */
 static int test_save_restore(void) {
     fixture();
     put_wall(3, 4, 0x090); put_wall(4, 4, 0x090); put_wall(5, 4, 0x090);
+    level.tile_ids[idx(7, 7)] = 0x080;
+    level.cell_terrain[idx(7, 7)] = W2_TERRAIN_ROCK;
+    level.blocked[idx(7, 7)] = 1;
     w2_walls_init(&level);
-    /* Join the pieces as a map would draw them. */
-    for (int x = 3; x <= 5; ++x) W2_HitWall((ivec2_t){x, 4}, 0);
     uint32_t fresh = W2_WallHash(0);
     W2_HitWall((ivec2_t){4, 4}, 25);
     CHECK(W2_WallHash(0) != fresh);
-    uint8_t saved[N * N];
-    CHECK(W2_WallSaveSize() == N * N);
-    W2_WallSave(saved);
+    CHECK(W2_MapStateSize() == N * N * 5);
+    uint8_t saved[N * N * 5];
+    W2_MapStateSave(saved);
     uint32_t hash = W2_WallHash(0);
     uint16_t tiles[N * N];
-    uint8_t solid[N * N];
+    uint8_t solid[N * N], terrain[N * N];
     memcpy(tiles, level.tile_ids, sizeof(tiles));
     memcpy(solid, level.cell_solid, sizeof(solid));
-    /* Destroy the damaged middle and damage an end after the save. */
+    memcpy(terrain, level.cell_terrain, sizeof(terrain));
+    /* After the save: destroy the middle, damage an end, remove the rock. */
     W2_HitWall((ivec2_t){4, 4}, 40);
     W2_HitWall((ivec2_t){5, 4}, 30);
+    w2_remove_rock((ivec2_t){7, 7});
     CHECK(!W2_WallAt((ivec2_t){4, 4}) && W2_WallHash(0) != hash);
-    CHECK(W2_WallLoad(saved, sizeof(saved)));
+    CHECK(level.cell_terrain[idx(7, 7)] != W2_TERRAIN_ROCK);
+    CHECK(W2_MapStateValid(saved, sizeof(saved)));
+    W2_MapStateLoad(saved);
     CHECK(W2_WallHp((ivec2_t){4, 4}) == 15 && W2_WallHp((ivec2_t){5, 4}) == 40);
     CHECK(W2_WallAt((ivec2_t){4, 4}) && W2_WallHash(0) == hash);
     CHECK(!memcmp(tiles, level.tile_ids, sizeof(tiles)) && !memcmp(solid, level.cell_solid, sizeof(solid)));
+    CHECK(!memcmp(terrain, level.cell_terrain, sizeof(terrain)));
     /* A record of the wrong size or over the wall's hit points is refused. */
-    CHECK(!W2_WallLoad(saved, sizeof(saved) - 1));
-    saved[idx(3, 4)] = 41;
-    CHECK(!W2_WallLoad(saved, sizeof(saved)));
+    CHECK(!W2_MapStateValid(saved, sizeof(saved) - 1));
+    saved[N * N * 4 + idx(3, 4)] = 41;
+    CHECK(!W2_MapStateValid(saved, sizeof(saved)));
     return 0;
 }
 

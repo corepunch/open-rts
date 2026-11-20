@@ -1318,8 +1318,8 @@ static void open_load(menu_t *menu, menuitem_t *item, menuaction_t action) {
 /* The campaign, the dice and the launch survive a save, so a loaded campaign level goes on. */
 typedef struct { uint32_t dice; int campaign_orc, campaign_level, launch_resources; uint64_t research[8]; w2_tally_t tally[8]; } extra_t;
 
-/* The wall hit points follow the fixed record. */
-size_t G_SaveExtraSize(void) { return sizeof(extra_t) + W2_WallSaveSize(); }
+/* The changed map planes follow the fixed record. */
+size_t G_SaveExtraSize(void) { return sizeof(extra_t) + W2_MapStateSize(); }
 
 void G_SaveExtra(void *out) {
     const w2_mission_t *mission = level.mission;
@@ -1328,7 +1328,7 @@ void G_SaveExtra(void *out) {
     memcpy(extra.research, level.w2_research, sizeof(extra.research));
     memcpy(extra.tally, level.w2_tally, sizeof(extra.tally));
     memcpy(out, &extra, sizeof(extra));
-    W2_WallSave((uint8_t *)out + sizeof(extra));
+    W2_MapStateSave((uint8_t *)out + sizeof(extra));
 }
 
 bool G_LoadExtra(const void *data, size_t size) {
@@ -1336,7 +1336,8 @@ bool G_LoadExtra(const void *data, size_t size) {
     if (size < sizeof(extra)) return false;
     memcpy(&extra, data, sizeof(extra));
     if (extra.campaign_level < 0 || extra.campaign_level > W2_CAMPAIGN_LEVELS) return false;
-    if (!W2_WallLoad((const uint8_t *)data + sizeof(extra), size - sizeof(extra))) return false;
+    const uint8_t *map = (const uint8_t *)data + sizeof(extra);
+    if (!W2_MapStateValid(map, size - sizeof(extra)) || !level.mission) return false;
     W2_SetCombatState(extra.dice);
     memcpy(level.w2_research, extra.research, sizeof(level.w2_research));
     memcpy(level.w2_tally, extra.tally, sizeof(level.w2_tally));
@@ -1345,6 +1346,7 @@ bool G_LoadExtra(const void *data, size_t size) {
     mission->campaign = (w2_campaign_t){extra.campaign_level, extra.campaign_orc != 0};
     W2_VictoryReset();
     launch_resources = extra.launch_resources;
+    W2_MapStateLoad(map);
     return true;
 }
 

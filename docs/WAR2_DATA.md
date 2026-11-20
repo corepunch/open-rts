@@ -135,12 +135,13 @@ game has no wall building; the command card shows the button and the note says
 so. Right-click on a wall (engine input) and AI wall attacks are not wired.
 
 Wall hit points are part of the lockstep checksum (a running sum of
-hp * (cell + 1), `W2_WallHash`) and of saved games: one byte per map cell
-follows the fixed W2 save record. The engine restores only `blocked`, so
-`W2_WallLoad` gives each cell whose hit points differ its saved condition and
-solidity, then re-joins it and its neighbours as a hit would. Removed trees
-and rocks are still not restored by a load (tiles and `cell_solid` come from
-the loaded map as it stands).
+hp * (cell + 1), `W2_WallHash`). A load (and a network resync) goes into the
+running level and the engine restores only `blocked`, so the W2 save record
+is followed by the map planes play changes, plane by plane: tiles (u16),
+`cell_terrain`, `cell_solid` and wall hit points (`W2_MapStateSave`). Before
+this a tree, rock or wall removed after the save stayed gone after the load
+while its vent and blocking came back. `tests/warcraft-2/test_save.c`
+checks a tree felled after the save; `test_walls.c` checks walls and rocks.
 
 **Units.** A `UNIT` record is `u16 x, y; u8 type, player; u16 data`. The
 spawned actor id is `type + 1` because `P_InitMobj` rejects type 0. Starts
