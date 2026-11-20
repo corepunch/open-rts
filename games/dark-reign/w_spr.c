@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#include "dark-reign.h"
 
 #include <ctype.h>
 #include <limits.h>
@@ -411,6 +412,15 @@ bool load_dark_reign_decoration_sprites(const char *data_root, const level_t *ma
                           shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                                           unit->core.sprite_name, sprite_palette, terrain_palette)) ok = false;
+        /* Upgrades turn a building in place: have its next tiers ready. */
+        for (uint16_t next = DR_UpgradeOf(unit->type_id); next; next = DR_UpgradeOf(next)) {
+            const mobjtype_t *tier = P_ActorType(next);
+            if (!tier) break;
+            if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name, tier->sprite_name,
+                                              sprite_palette, terrain_palette) ||
+                !sprite_cache_load_dark_reign(cache, data_root, map->tileset_name, tier->shadow_name,
+                                              sprite_palette, terrain_palette)) ok = false;
+        }
     }
     return ok;
 }

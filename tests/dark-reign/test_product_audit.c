@@ -57,6 +57,10 @@ int main(void) {
     int checked = 0, failures = 0;
     for (int i = 0; i < count; ++i) {
         const StaticProductDefinition *p = &products[i];
+        if (!G_ModelActorIdForProduct(p) || !P_ActorType(G_ModelActorIdForProduct(p))) {
+            fprintf(stderr, "%s (%d) has no actor\n", p->label, p->product_type);
+            ++failures;
+        }
         const retail_t *r = NULL;
         for (int k = 0; k < n; ++k)
             if (retail[k].type == p->product_type && !(retail[k].type >= 40000 && retail[k].type < 41000)) {

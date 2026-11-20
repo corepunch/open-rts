@@ -60,7 +60,10 @@ static int test_ai_goals(void) {
         CHECK(team->plan_loaded && team->plan.doctrine.roster_count > 0);
         memset(&team->plan.doctrine, 0, sizeof(team->plan.doctrine));
     }
-    ai_run(&ai, 600, 1000);
+#ifndef AI_GOAL_SECONDS
+#define AI_GOAL_SECONDS 600
+#endif
+    ai_run(&ai, AI_GOAL_SECONDS, 1000);
     CHECK(level.player_resources[0][0] == 50000);
     CHECK(G_CountPlannedActors(0, AI_ADVANCED_UNIT) == 0);
     CHECK(P_AiStats(&ai, 0)->purchases == 0);
@@ -70,7 +73,11 @@ static int test_ai_goals(void) {
         CHECK(P_AiStats(&ai, owner)->purchases > 0);
         advanced[owner] = G_CountPlannedActors(owner, AI_ADVANCED_UNIT);
         CHECK(advanced[owner] >= AI_ADVANCED_COUNT && advanced[owner] <= AI_ADVANCED_MAX);
+#ifdef AI_FIRST_COUNTED /* the game's tiers (an upgraded HQ is still the HQ) */
+        int first = AI_FIRST_COUNTED(owner);
+#else
         int first = G_CountPlannedActors(owner, AI_FIRST_UNIT);
+#endif
         CHECK(first >= AI_FIRST_COUNT && first <= AI_FIRST_MAX);
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *u = (mobj_t *)th;

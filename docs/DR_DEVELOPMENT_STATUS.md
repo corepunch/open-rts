@@ -17,6 +17,7 @@ topic reports; [DR_EXE_FINDINGS.md](DR_EXE_FINDINGS.md) retains the dated eviden
 | Support | Medic/Karoch heal damaged allied ground humans; Mechanic repairs allied ground nonhumans; amounts, cap and minimum cooldown | `test_unit_traits` |
 | Construction rigs | Move and build, with invented offensive weapons removed | `test_unit_traits`, `test_playable` |
 | Production | Authored faction products, makers, prerequisites, resources, queueing and AI production | `test_production`, `test_playable` |
+| Upgrades | IsUpgradeOf HQ, barracks, assembly and phasing tiers bought on the building and turned in place, keeping their health share; higher tiers satisfy lower prerequisites and AI counts | `test_upgrade`, `test_product_audit` |
 | Native HUD presentation | Retail chrome, fonts, unavailable-red icons, slot geometry and minimap rectangle | `test_mission_hud` |
 | PATHS | Native Basic/Advanced controls, draft editing, save/reload, Go, three traversal modes and radar routes | `test_mission_hud`, shared `test_waypoints` |
 | Engine routes | Shared DC/DR storage and thinker execution; atomic network orders and deterministic route checksums | Shared `test_waypoints`, `test_network` |

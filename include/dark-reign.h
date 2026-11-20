@@ -297,6 +297,10 @@ bool DR_SelfDestruct(mobj_t *unit);
 bool DR_Boost(mobj_t *unit, int hp, int cycles, int rate, bool deadly);
 void DR_MobjTicker(mobj_t *unit);
 bool DR_CanTarget(const mobj_t *attacker, const mobj_t *victim);
+/* p_prod.c: IsUpgradeOf buildings, bought on the tier they replace. */
+bool DR_IsUpgrade(const StaticProductDefinition *product);
+uint16_t DR_UpgradeOf(uint16_t type); /* MT_NULL: none. */
+bool DR_UpgradeBuilding(mobj_t *building, uint16_t type);
 
 
 #endif

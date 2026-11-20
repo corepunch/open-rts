@@ -19,16 +19,21 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
 #define UNIT3(ui_, label_, cost_, type_, p0_, p1_, p2_, m0_, m1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
       { (p0_), (p1_), (p2_) }, 3, { (m0_), (m1_) }, 2, {0}, false }
+/* An IsUpgradeOf building: bought on the building it replaces (SetMaker()
+ * is empty in BUILD.TXT; the old tier stands in as maker). */
+#define UPGRADE(ui_, label_, cost_, type_, p0_, p1_, from_) \
+    { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { (from_) }, 1, {0}, false }
 #define BUILD_IMP(ui_, label_, cost_, type_, p0_, p1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_IMP_CONSTRUCTION_CREW }, 1, {0}, false }
     BUILD(10001, "FG HQ 1", 750, 10001, 0, 0),
-    BUILD(10002, "FG HQ 2", 1000, 10002, 10004, 10006),
-    BUILD(10003, "FG HQ 3", 1250, 10003, 10005, 10007),
+    UPGRADE(10002, "FG HQ 2", 1000, 10002, 10004, 10006, MT_FG_HQ1),
+    UPGRADE(10003, "FG HQ 3", 1250, 10003, 10005, 10007, MT_FG_HQ2),
     BUILD(10004, "Barracks", 1500, 10004, 10001, 0),
-    BUILD(10005, "Advanced Barracks", 750, 10005, 10002, 0),
+    UPGRADE(10005, "Advanced Barracks", 750, 10005, 10002, 0, MT_FG_BARRACKS),
     BUILD(10006, "Vehicle Factory", 2200, 10006, 10001, 0),
-    BUILD(10007, "Advanced Vehicle Factory", 2500, 10007, 10002, 0),
+    UPGRADE(10007, "Advanced Vehicle Factory", 2500, 10007, 10002, 0, MT_FG_VEHICLE_FACTORY),
     BUILD(10008, "Field Hospital", 500, 10008, 10004, 0),
     BUILD(10009, "Repair Bay", 800, 10009, 10006, 0),
     BUILD(10010, "Camera Tower", 200, 10010, 10002, 0),
@@ -37,7 +42,7 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     BUILD(10013, "Guard Tower", 500, 10013, 10001, 0),
     BUILD(10014, "Advanced Guard Tower", 1700, 10014, 10002, 0),
     BUILD(10015, "Phase Factory 1", 1200, 10015, 10001, 0),
-    BUILD(10016, "Phase Factory 2", 1200, 10016, 10002, 0),
+    UPGRADE(10016, "Phase Factory 2", 1200, 10016, 10002, 0, MT_FG_PHASE_FACTORY_1),
     BUILD(10019, "Life Plant", 2500, 10019, 0, 0),
     BUILD(10020, "Power Plant", 2000, 10020, 0, 0),
     BUILD(10040, "Small Horizontal Bridge", 100, 10040, 0, 0),
@@ -70,12 +75,12 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     /* --- Imperium buildings (BUILD.TXT costs/prereqs, maker = Imp rig) --- */
     BUILD_IMP(11001, "Imp HQ 1", 750, 11001, 0, 0),
-    BUILD_IMP(11002, "Imp HQ 2", 1000, 11002, 11004, 11006),
-    BUILD_IMP(11003, "Imp HQ 3", 1250, 11003, 11005, 11007),
+    UPGRADE(11002, "Imp HQ 2", 1000, 11002, 11004, 11006, MT_IMP_HQ1),
+    UPGRADE(11003, "Imp HQ 3", 1250, 11003, 11005, 11007, MT_IMP_HQ2),
     BUILD_IMP(11004, "Imp Training Facility", 1500, 11004, 11001, 0),
-    BUILD_IMP(11005, "Imp Advanced Training", 750, 11005, 11002, 0),
+    UPGRADE(11005, "Imp Advanced Training", 750, 11005, 11002, 0, MT_IMP_BARRACKS),
     BUILD_IMP(11006, "Imp Assembly Plant", 2200, 11006, 11001, 0),
-    BUILD_IMP(11007, "Imp Advanced Assembly", 2500, 11007, 11002, 0),
+    UPGRADE(11007, "Imp Advanced Assembly", 2500, 11007, 11002, 0, MT_IMP_VEHICLE_FACTORY),
     BUILD_IMP(11009, "Imp Field Hospital", 500, 11009, 11004, 0),
     BUILD_IMP(11010, "Imp Repair Station", 800, 11010, 11006, 0),
     BUILD_IMP(11011, "Imp Camera Tower", 200, 11011, 11002, 0),
@@ -85,6 +90,9 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     BUILD_IMP(11015, "Imp Neutron Accelerator", 1700, 11015, 11002, 0),
     BUILD_IMP(11008, "Imp Temporal Gate", 1800, 11008, 11002, 0),
     BUILD_IMP(11021, "Imp Rift Creator", 8000, 11021, 11003, 11008),
+    BUILD_IMP(11040, "Imp Small Horizontal Bridge", 100, 11040, 0, 0),
+    BUILD_IMP(11041, "Imp Small Vertical Bridge", 100, 11041, 0, 0),
+    BUILD_IMP(11042, "Imp Small Centre Bridge", 150, 11042, 0, 0),
     BUILD_IMP(11019, "Imp Launch Pad", 2500, 11019, 0, 0),
     BUILD_IMP(11020, "Imp Power Generator", 2000, 11020, 0, 0),
     { 1005, 1005, "Imp Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 1005, 0,
@@ -110,6 +118,7 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     UNIT(1007, "Imp Hover Freighter", 1500, 1007, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
 #undef BUILD
 #undef BUILD_IMP
+#undef UPGRADE
 #undef UNIT
 #undef UNIT3
 };
@@ -170,7 +179,7 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
         {11001,22},{11002,30},{11003,37},{11004,45},{11005,23},
         {11006,66},{11007,75},{11009,15},{11010,24},{11011,6},
         {11012,30},{11013,30},{11014,22},{11015,51},{11008,54},{11021,240},
-        {11019,45},{11020,30},
+        {11019,45},{11020,30},{11040,3},{11041,3},{11042,5},
         {1005,9},{1002,5},{1003,11},{1004,15},{1001,30},
         {1010,15},{1009,18},{1011,21},{1008,15},{1013,24},
         {1019,12},{1015,21},{1014,18},{1012,45},{1017,39},
@@ -254,11 +263,46 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
     return false;
 }
 
+/* The product an IsUpgradeOf building becomes, bought on itself. */
+static bool is_upgrade(const StaticProductDefinition *product) {
+    return product && product->product_class == RTS_PRODUCT_BUILDING && product->maker_count == 1 &&
+           product->makers[0] != MT_FG_CONSTRUCTION_CREW && product->makers[0] != MT_IMP_CONSTRUCTION_CREW;
+}
+
+bool DR_IsUpgrade(const StaticProductDefinition *product) { return is_upgrade(product); }
+
+uint16_t DR_UpgradeOf(uint16_t type) {
+    for (int i = 0; i < product_count(); ++i)
+        if (is_upgrade(&DARK_REIGN_FG_PRODUCTS[i]) && DARK_REIGN_FG_PRODUCTS[i].makers[0] == type)
+            return G_ModelActorIdForProduct(&DARK_REIGN_FG_PRODUCTS[i]);
+    return MT_NULL;
+}
+
+/* The building turns into its next tier where it stands, keeping the
+ * share of hit points it had. */
+bool DR_UpgradeBuilding(mobj_t *building, uint16_t type) {
+    const mobjtype_t *to = P_ActorType(type);
+    if (!building || building->remove || building->hp <= 0 || !to) return false;
+    int old_max = building->max_hp > 0 ? building->max_hp : 1;
+    unsigned selected = building->traits & MF_SELECTED;
+    building->core.sprite_name[0] = '\0';
+    building->max_hp = to->max_hp;
+    P_ApplyActorTypeDefaults(building, to);
+    building->traits |= selected;
+    building->hp = (int)((int64_t)building->hp * building->max_hp / old_max);
+    if (building->hp < 1) building->hp = 1;
+    P_SetMobjState(building, gameinfo->mobjinfo[type].spawnstate);
+    return true;
+}
+
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product,
                                    uint16_t actor_id) {
-    (void)model; (void)producer; (void)product; (void)actor_id;
-    return false;
+    (void)model;
+    if (!is_upgrade(product) || (producer->traits & MF_MOBILE)) return false;
+    G_RemoveProductionAt(producer, 0);
+    if (DR_UpgradeBuilding(producer, actor_id)) G_UnitProduced(producer, producer);
+    return true;
 }
 
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
@@ -341,12 +385,30 @@ int G_ModelRadarLevel(int owner) {
     return 2;
 }
 
+/* A higher tier counts as the one it upgraded: an HQ 2 is still an HQ. */
+static int owned(int owner, int ui_id) {
+    int count = G_AiCatalogOwned(owner, ui_id);
+    const StaticProductDefinition *p = G_ModelProductByUIId(NULL, ui_id);
+    for (int depth = 0; p && depth < 4; ++depth) {
+        uint16_t next = DR_UpgradeOf(G_ModelActorIdForProduct(p));
+        p = NULL;
+        for (int i = 0; next && i < product_count(); ++i)
+            if (G_ModelActorIdForProduct(&DARK_REIGN_FG_PRODUCTS[i]) == next) {
+                p = &DARK_REIGN_FG_PRODUCTS[i];
+                count += G_AiCatalogOwned(owner, p->ui_id);
+                break;
+            }
+    }
+    return count;
+}
+
 static const AiGameInterface dr_ai_interface = {
     .name = "dark-reign",
     .features = AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION |
                 AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK | AI_FEATURE_DOCTRINE,
     .player_level = P_AiLevelNonHuman,
     .is_anchor = G_AiIsStructure,
+    .owned = owned,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &dr_ai_interface; }

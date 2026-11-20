@@ -113,6 +113,7 @@ const dr_menuproduct_t dr_menu_products[] = {
     {11012, "birrmmn0.spr"}, {11013, "biaarmn0.spr"},
     {11014, "bigdtmn0.spr"}, {11015, "biagtmn0.spr"},
     {11019, "bclncmn0.spr"}, {11020, "bcpowmn0.spr"}, {11021, "bitrcmn0.spr"},
+    {11040, "bcsbhmn0.spr"}, {11041, "bcsbvmn0.spr"}, {11042, "bcsbcmn0.spr"},
     {1005, "ucfcnmn0.spr"}, {1002, "uigrdmn0.spr"},
     {1003, "uibonmn0.spr"}, {1004, "uiextmn0.spr"}, {1001, "ucinfmn0.spr"},
     {1010, "uisttmn0.spr"}, {1009, "uiittmn0.spr"}, {1011, "uipltmn0.spr"},
@@ -203,8 +204,10 @@ static int product_list(int *list) {
     for (int j = 0; j < total; ++j) {
         int id = mission ? mission->products[j].type : dr_menu_products[j].id;
         const StaticProductDefinition *product = G_ModelProductByUIId(NULL, id);
+        /* A building offers its own upgrade alongside what it trains. */
+        bool upgrade = DR_IsUpgrade(product) && makes(u, product);
         if (!product || !DR_ProductInTech(product->ui_id) ||
-            (product->product_class == RTS_PRODUCT_BUILDING) != buildings) continue;
+            ((product->product_class == RTS_PRODUCT_BUILDING) != buildings && !upgrade)) continue;
         for (int i = 0; i < dr_menu_product_count; ++i)
             if (dr_menu_products[i].id == id) { list[count++] = i; break; }
     }
@@ -299,7 +302,9 @@ static void product(menu_t *menu, menuitem_t *item, menuaction_t event) {
     if (event != MA_ACTIVATE) return;
     const StaticProductDefinition *p = item->userdata;
     mobj_t *producer = p ? producer_for(p) : NULL;
-    if (enabled(p, producer)) HU_BuildProduct(menu, item, producer, p);
+    if (!enabled(p, producer)) return;
+    if (DR_IsUpgrade(p)) G_BuildOrder(producer, p->ui_id); /* in place, no placement */
+    else HU_BuildProduct(menu, item, producer, p);
 }
 
 static void select_path(menu_t *menu, menuitem_t *item, menuaction_t event) {
