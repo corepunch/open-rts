@@ -469,10 +469,13 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .name = "Amper",
         .sprite_name = "uiampst0.spr",
         .shadow_name = "uiampsh0.spr",
-        .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HEAL,
         .speed = DR_SPEED(8),
         .move_class = DR_MOVE_FOOT,
         .max_hp = 66,
+        /* AmperAmp: range 5, 10 cycles, H1 0; the boost is SetBooster. */
+        .attack = { .range = FIXED_FROM_INT(5), .damage = 0, .cooldown_ms = 333,
+                    .targets = MOBJ_TARGET_GROUND },
     },
     {   /* GroundToAirLaser: range 8, 667ms cd, 48 dmg — anti-air */
         .id = MT_IMP_MAD,
@@ -1170,6 +1173,8 @@ void G_InitGame(void) {
     dr_runtime_info.draw_fog = dr_draw_fog;
     dr_runtime_info.hit_damage = DR_HitDamage;
     dr_runtime_info.attack = DR_Attack;
+    dr_runtime_info.mobj_ticker = DR_MobjTicker;
+    dr_runtime_info.can_target = DR_CanTarget;
     gameinfo = &dr_runtime_info;
     initialized = true;
 }

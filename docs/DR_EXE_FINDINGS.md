@@ -559,6 +559,24 @@ global minimum splash radius (0x5b2244) is not applied. Not ported: AmperAmp
 and the Rift's vortex. Verified by `tests/dark-reign/test_damage.c` and `make
 test-info-gen`.
 
+## Amper boost (2026-11-20)
+
+**Confirmed** (r2 on `dkreign.exe`). `SetBooster(hp cycles fade deadly)`
+parser 0x482aa0 stores weapon +0xc4 hp, +0xbc cycles, +0xc0 `fade*256`
+(8.8), +0xc8 deadly, +0xc9 present; `CanCancelBoosting` sets +0xa3
+(c:62886). Units keep boost state at +0x104 (0 none, 1 holding, 2 fading),
++0x108 timer/accumulator, +0x10c rate, +0x110 floor. A boost hit (0x49d030)
+only lands on an unboosted unit (c:107915, c:147654): hit points are *set*
+to `hp`, clamped to the type maximum (SetHP 0x49b8be), and the floor is 0
+when deadly, else the old hit points. Each cycle (0x4a20b6) the timer runs
+out, then `acc += rate; loss = acc>>8; acc &= 255` until hit points would
+reach the floor, where the boost ends at the floor. A CanCancelBoosting hit
+on a boosted unit clears the state, keeps its hit points and discards the
+heal (c:107968). Port: `DR_Boost`, `DR_MobjTicker`, `DR_CanTarget` in
+`games/dark-reign/p_damage.c`; the Amper is an `MF_HEAL` unit, so it boosts
+wounded allied humans. Not decoded: the boost hit's side filter and the
+counter at unit +0xe4 that can transform a unit.
+
 ## Imperium faction implementation (2026-09-19)
 
 **Confirmed from retail `deftxt/UNITS.TXT`, `deftxt/BUILD.TXT`,

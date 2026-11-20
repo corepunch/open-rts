@@ -235,6 +235,55 @@ static int self_destruct(void) {
     return 0;
 }
 
+/* AmperAmp SetBooster(200 200 0.5 1): hit points jump to the cap, hold 200
+ * cycles, fade one point every two, and the deadly boost ends in death. A
+ * Medic's CanCancelBoosting hit ends the boost and keeps the hit points. */
+static int amper(void) {
+    RtsGameModel *model = fresh();
+    CHECK(model);
+    mobj_t *amper = spawn(MT_IMP_AMPER, 0, FIXED2_LIT(20, 20));
+    mobj_t *guard = spawn(MT_IMP_GUARDIAN, 0, FIXED2_LIT(22, 20));
+    mobj_t *tank = spawn(MT_IMP_TACHYON_TANK, 0, FIXED2_LIT(20, 22));
+    mobj_t *foe = spawn(MT_FG_RAIDER, 1, FIXED2_LIT(18, 20));
+    CHECK(amper && guard && tank && foe && (amper->traits & MF_HEAL));
+    guard->hp = guard->max_hp / 2;
+    tank->hp = tank->max_hp / 2;
+    foe->hp = foe->max_hp / 2;
+    /* Only wounded allied humans qualify. */
+    CHECK(P_CanTarget(amper, guard) && !P_CanTarget(amper, tank) && !P_CanTarget(amper, foe));
+    CHECK(DR_Attack(amper, &amper->info->attack, guard));
+    CHECK(guard->hp == guard->max_hp && guard->dr.boost == 1);
+    guard->hp -= 10;
+    CHECK(!P_CanTarget(amper, guard)); /* no second boost */
+    int hp = guard->hp;
+    for (int c = 0; c < 200; ++c) DR_MobjTicker(guard);
+    CHECK(guard->hp == hp && guard->dr.boost == 2);
+    for (int c = 0; c < 20; ++c) DR_MobjTicker(guard);
+    CHECK(guard->hp == hp - 10);
+    for (int c = 0; c < 4000 && guard->hp > 0; ++c) DR_MobjTicker(guard);
+    CHECK(guard->hp <= 0 && guard->dr.boost == 0);
+    /* Medic cancel. */
+    mobj_t *raider = spawn(MT_FG_RAIDER, 0, FIXED2_LIT(24, 24));
+    mobj_t *medic = spawn(MT_FG_MEDIC, 0, FIXED2_LIT(25, 24));
+    CHECK(raider && medic);
+    raider->hp = 40;
+    CHECK(DR_Boost(raider, 200, 200, 128, true) && raider->hp == raider->max_hp);
+    raider->hp -= 30;
+    hp = raider->hp;
+    CHECK(DR_Attack(medic, &medic->info->attack, raider));
+    CHECK(raider->dr.boost == 0 && raider->hp == hp);
+    /* Without a boost the Medic heals through the engine as before. */
+    CHECK(!DR_Attack(medic, &medic->info->attack, raider));
+    /* A non-deadly boost fades back to the old hit points. */
+    raider->hp = 50;
+    CHECK(DR_Boost(raider, 200, 2, 256, false));
+    for (int c = 0; c < 200; ++c) DR_MobjTicker(raider);
+    CHECK(raider->hp == 50 && raider->dr.boost == 0);
+    rts_game_model_destroy(model);
+    printf("PASS: Amper boost holds, fades, kills, and a Medic cancels it\n");
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(formula());
     RTS_RUN(falloff());
@@ -244,5 +293,6 @@ int main(void) {
     RTS_RUN(martyr());
     RTS_RUN(lingering());
     RTS_RUN(self_destruct());
+    RTS_RUN(amper());
     return 0;
 }

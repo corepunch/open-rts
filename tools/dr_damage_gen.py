@@ -63,11 +63,17 @@ def main():
 
     weapons = {}
     for header, body in blocks(read(root, 'WEAPON.TXT'), 'DefineWeapon'):
-        w = {'offense': None, 'strength': 0, 'area': 0.0, 'persist': None, 'self_destruct': False}
+        w = {'offense': None, 'strength': 0, 'area': 0.0, 'persist': None, 'self_destruct': False,
+             'booster': None, 'cancels': False}
         for line in body:
             m = re.search(r'SetOffense\(\s*(\w+)\s+(-?[\d.]+)\s+(-?[\d.]+)', line)
             if m:
                 w['offense'], w['strength'], w['area'] = m.group(1), int(float(m.group(2))), float(m.group(3))
+            m = re.search(r'SetBooster\(\s*(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)', line)
+            if m:  # fade is kept as 8.8 fixed point, as the parser does (0x482aa0)
+                w['booster'] = (int(m.group(1)), int(m.group(2)), int(float(m.group(3)) * 256), int(m.group(4)))
+            if re.search(r'CanCancelBoosting\(', line):
+                w['cancels'] = True
             if re.search(r'SetMovement\(\s*SelfDestruct', line, re.I):
                 w['self_destruct'] = True
             m = re.search(r'PersistentDamage\(\s*(\d+)\s+(\d+)\s+(\w+)\s+(-?\d+)\s+(-?[\d.]+)', line)
@@ -154,21 +160,25 @@ def main():
         f.write('};\n\n')
         f.write('/* Each armed native type: its first weapon\'s SetOffense area, SetHitSize,\n'
                 ' * PersistentDamage(times cycles offense strength area) and a\n'
-                ' * SetMovement(SelfDestruct) weapon (offense strength area). World units,\n'
-                ' * 24 a cell. */\n')
+                ' * SetMovement(SelfDestruct) weapon (offense strength area), SetBooster(hp\n'
+                ' * cycles fade-8.8 deadly) and CanCancelBoosting. World units, 24 a cell. */\n')
         f.write('static const dr_weapon_t dr_weapons[] = {\n')
         for t in sorted(types, key=lambda t: t['type']):
             first = next((weapons[w] for w in t['weapons'] if w in weapons and weapons[w]['offense']
                           and not weapons[w]['self_destruct']), None)
             sd = next((weapons[w] for w in t['weapons'] if w in weapons and weapons[w]['self_destruct']), None)
-            if not first and not sd and not t['hitsize']:
+            own = [weapons[w] for w in t['weapons'] if w in weapons]
+            boost = next((w['booster'] for w in own if w['booster']), None) or (0, 0, 0, 0)
+            cancels = int(any(w['cancels'] for w in own))
+            if not first and not sd and not t['hitsize'] and not boost[0]:
                 continue
             area = int(first['area']) if first else 0
             p = first['persist'] if first and first['persist'] else (0, 0, None, 0, 0)
             pc = cat(p[2]) if p[2] else -1
             sdv = (cat(sd['offense']), sd['strength'], int(sd['area'])) if sd else (-1, 0, 0)
             f.write(f'    {{ {t["type"]}, {area}, {t["hitsize"]}, {{ {p[0]}, {p[1]}, {pc}, {p[3]}, {int(p[4])} }}, '
-                    f'{{ {sdv[0]}, {sdv[1]}, {sdv[2]} }} }}, /* {t["name"]} */\n')
+                    f'{{ {sdv[0]}, {sdv[1]}, {sdv[2]} }}, {{ {boost[0]}, {boost[1]}, {boost[2]}, {boost[3]} }}, '
+                    f'{cancels} }}, /* {t["name"]} */\n')
         f.write('};\n\n#endif\n')
 
 

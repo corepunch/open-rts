@@ -293,6 +293,10 @@ void DR_TickEffects(void);
 enum { DR_SPELL_SELF_DESTRUCT = 1 };
 bool DR_CanSelfDestruct(const mobj_t *unit);
 bool DR_SelfDestruct(mobj_t *unit);
+/* Amper SetBooster: see p_damage.c. */
+bool DR_Boost(mobj_t *unit, int hp, int cycles, int rate, bool deadly);
+void DR_MobjTicker(mobj_t *unit);
+bool DR_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 
 
 #endif

@@ -603,7 +603,8 @@ bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
             victim->hp < victim->max_hp &&
             (victim->traits & MF_MOBILE) && !(victim->traits & MF_FLY) &&
             ((victim->traits & MF_HUMAN) ? (attacker->traits & MF_HEAL) :
-                                         (attacker->traits & MF_REPAIR));
+                                         (attacker->traits & MF_REPAIR)) &&
+            (!gameinfo || !gameinfo->can_target || gameinfo->can_target(attacker, victim));
     }
     bool hostile = !P_IsAlly(attacker, victim);
 #ifdef RTS_MODULE_STARCRAFT

@@ -37,8 +37,8 @@ for KKnD/networking; prior baseline failures are recorded in the findings.
 | Catalog | Six non-T internal unit types: 4100,4101,4102,1026,11103,3006 | [Unit coverage](DR_UNIT_BEHAVIORS.md#catalog-coverage) |
 | Transports | Passengers, boarding, release, destruction and Phase Runner boomerang | [Unit comparison](DR_UNIT_BEHAVIORS.md#comparison-by-unit-family) |
 | Special actions | Phasing, camouflage/morphing, spy entry/discovery, sabotage, Hostage Taker capture/conversion | Unit comparison; retail `Can*` definitions |
-| Boosting/shield/charge | Amper boost/fade/death, SCARAB alternate, Fortress/Rift charging | Unit comparison; relevant weapon/unit definitions |
-| Combat | Projectile flight, splash target filter, Amper boost and Rift vortex (DAMAGE.TXT armor, criticals, area falloff, PersistentDamage and self-destruct are ported) | [Unit report](DR_UNIT_BEHAVIORS.md) |
+| Boosting/shield/charge | SCARAB alternate, Fortress/Rift charging (Amper boost/fade/death and Medic cancel are ported) | Unit comparison; relevant weapon/unit definitions |
+| Combat | Projectile flight, splash target filter and Rift vortex (DAMAGE.TXT armor, criticals, area falloff, PersistentDamage and self-destruct are ported) | [Unit report](DR_UNIT_BEHAVIORS.md) |
 | Support fidelity | Native projectile, H1/R1 defense factors, search/orders, cadence and boost cancellation | [Support limits](DR_UNIT_BEHAVIORS.md#support-path-and-its-limits) |
 | Economy/pathing | Extractor stock/regeneration, receiver storage, launching and local traffic arbitration | [Transport report](DR_TRANSPORTER_ANIMATION.md#superseded-rules-and-remaining-unknowns) |
 | HUD | COMMS/ORDERS/SPECIAL, the HUD's own in-game menu (MENU opens the shell's options screen), upgrade/decoy, radar terrain and resource gauge inputs; PATHS target nodes, names/persistence, unbounded native routes and exact text states | [HUD report](DR_HUD_DISASSEMBLY.md) |

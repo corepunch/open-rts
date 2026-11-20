@@ -19,6 +19,8 @@ typedef struct {
     int16_t area, hitsize;
     struct { uint8_t times, cycles; int8_t offense; int16_t strength, area; } persist;
     struct { int8_t offense; int16_t strength, area; } self_destruct;
+    struct { int16_t hp, cycles; uint16_t rate; uint8_t deadly; } booster;
+    uint8_t cancels_boost;
 } dr_weapon_t;
 #include "damage_table.h"
 
@@ -191,9 +193,23 @@ static void linger(const mobj_t *source, fixed2_t at, bool flying, const dr_weap
 /* gameinfo_t.attack: Dark Reign's own impact for every damaging weapon.
  * Heals and repairs (negative strength) keep the engine's support path. */
 bool DR_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
-    if (!attacker || !weapon || !target || weapon->damage <= 0 || weapon->projectile_type) return false;
-    const dr_defense_t *a = defense_of(attacker);
+    if (!attacker || !weapon || !target || weapon->projectile_type) return false;
     const dr_weapon_t *w = weapon_of(attacker);
+    if (w && w->booster.hp) {
+        DR_Boost(target, w->booster.hp, w->booster.cycles, w->booster.rate, w->booster.deadly);
+        return true;
+    }
+    /* CanCancelBoosting (0x474b40 caller, c:107968): the hit only ends the
+     * boost; the unit keeps its hit points and the heal is lost. */
+    if (w && w->cancels_boost && target->dr.boost) {
+        target->dr.boost = 0;
+        target->dr.timer = 0;
+        target->dr.rate = 0;
+        target->dr.floor = 0;
+        return true;
+    }
+    if (weapon->damage <= 0) return false;
+    const dr_defense_t *a = defense_of(attacker);
     if (!a || a->offense < 0) return false;
     fixed2_t at = fixed3_xy(target->core.position);
     bool flying = (target->traits & MF_FLY) != 0;
@@ -249,4 +265,48 @@ bool G_SightRadius(const mobj_t *actor, int *radius) {
     const dr_defense_t *d = defense_of(actor);
     if (d && d->sight) *radius = d->sight;
     return true;
+}
+
+/* SetBooster (0x49d030): hit points become `hp` (capped at the type's
+ * maximum), held for `cycles`, then fade by `rate`/256 a cycle down to the
+ * old hit points, or to death when deadly. A boosted unit takes no other. */
+bool DR_Boost(mobj_t *unit, int hp, int cycles, int rate, bool deadly) {
+    if (!unit || unit->remove || unit->hp <= 0 || unit->dr.boost) return false;
+    unit->dr.boost = 1;
+    unit->dr.timer = (int16_t)cycles;
+    unit->dr.rate = (uint16_t)rate;
+    unit->dr.floor = (int16_t)(deadly ? 0 : unit->hp);
+    unit->hp = hp < unit->max_hp ? hp : unit->max_hp;
+    return true;
+}
+
+/* gameinfo_t.mobj_ticker: one retail cycle of the boost (0x4a20b6). */
+void DR_MobjTicker(mobj_t *unit) {
+    if (!unit->dr.boost) return;
+    if (unit->dr.boost == 1) {
+        if (--unit->dr.timer > 0) return;
+        unit->dr.boost = 2;
+        unit->dr.timer = 0;
+        return;
+    }
+    int acc = (uint16_t)unit->dr.timer + unit->dr.rate;
+    int loss = acc >> 8;
+    unit->dr.timer = (int16_t)(acc & 0xff);
+    if (unit->hp - loss > unit->dr.floor) {
+        unit->hp -= loss;
+        return;
+    }
+    int floor = unit->dr.floor;
+    unit->dr.boost = 0;
+    unit->dr.timer = 0;
+    unit->dr.rate = 0;
+    unit->dr.floor = 0;
+    if (floor > 0) unit->hp = floor;
+    else P_DamageMobj(unit, NULL, unit->hp); /* A deadly boost fades to death. */
+}
+
+/* gameinfo_t.can_target: a boosted unit takes no second boost. */
+bool DR_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
+    const dr_weapon_t *w = weapon_of(attacker);
+    return !(w && w->booster.hp && victim->dr.boost);
 }
