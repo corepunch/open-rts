@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Skimmer, a fast hover scout. Length 205 cm on X, width 140 cm on Z, origin at
+     the hull centre on the ground, nose faces +X. A white teardrop body floating 26 cm up on two
+     outrigger hover pods with cyan pads, a graphite canopy with a cyan visor line, team-colour
+     wing tops and tail fin, and a small beam gun with a crystal lens under the nose. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: move 0/1 bobs the craft 3 cm and
+       brightens its pads; fire 1 is the shot (a cyan beam flash from the lens), fire 2 the
+       afterglow. -->
+  <let name="move" value="0"/>
+  <let name="fire" value="0"/>
+
+  <!-- hover pads: glowing discs under the pods (they float, as hover craft do) -->
+  <group pos="0 {3*move} 0">
+    <ellipsoid radii="34 3 11" rings="4" slices="16" pos="-6 27 52" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="34 3 11" rings="4" slices="16" pos="-6 27 -52" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="38 4 14" rings="4" slices="16" pos="-6 27 52" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="38 4 14" rings="4" slices="16" pos="-6 27 -52" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="30 3 14" rings="4" slices="16" pos="-10 33 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- outrigger pods -->
+    <capsule radius="13" height="64" rings="4" slices="14" rot="0 0 -90" pos="-6 42 52" material="concord_ceramic"/>
+    <capsule radius="13" height="64" rings="4" slices="14" rot="0 0 -90" pos="-6 42 -52" material="concord_ceramic"/>
+    <cylinder radius="13.5" height="20" sides="14" rot="0 0 -90" pos="-30 42 52" material="paint_plain" tint="1"/>
+    <cylinder radius="13.5" height="20" sides="14" rot="0 0 -90" pos="-30 42 -52" material="paint_plain" tint="1"/>
+    <sphere radius="6" rings="6" slices="10" pos="38 42 52" material="glow" unlit="1" castShadow="0"/>
+    <sphere radius="6" rings="6" slices="10" pos="38 42 -52" material="glow" unlit="1" castShadow="0"/>
+    <!-- wings from the body to the pods, team colour on top -->
+    <shape closed="1" v="-40 0 20 0 6 8 -34 8" rot="90 0 0" pos="-6 50 0" material="concord_ceramic"><extrude amount="1"/></shape>
+    <box size="50 5 100" pos="-14 48 0" material="concord_ceramic"/>
+    <box size="40 2 30" pos="-14 51.5 46" rot="-8 0 0" material="paint_plain" tint="1"/>
+    <box size="40 2 30" pos="-14 51.5 -46" rot="8 0 0" material="paint_plain" tint="1"/>
+
+    <!-- body -->
+    <ellipsoid radii="96 20 32" taper="1" rings="12" slices="24" pos="6 56 0" material="concord_ceramic"/>
+    <ellipsoid radii="97 4 33" rings="4" slices="24" pos="6 52 0" material="concord_graphite"/>
+    <!-- canopy and visor line -->
+    <ellipsoid radii="30 11 15" rings="8" slices="16" pos="4 71 0" material="concord_graphite"/>
+    <ellipsoid radii="10 4 13" rings="4" slices="12" pos="26 72 0" rot="0 0 -25" material="glow" unlit="1" castShadow="0"/>
+    <!-- team stripe along the spine and over the nose -->
+    <ellipsoid radii="70 4 9" rings="4" slices="16" pos="-30 74 0" rot="0 0 2" material="paint_plain" tint="1"/>
+    <ellipsoid radii="44 3 22" rings="4" slices="16" pos="64 61 0" rot="0 0 -12" material="paint_plain" tint="1"/>
+    <!-- tail fin -->
+    <shape closed="1" v="-92 0 -48 0 -70 26 -96 30" pos="0 66 0" material="paint_plain" tint="1"><extrude amount="6"/><bevel amount="2" bevelSegments="2"/></shape>
+    <sphere radius="4" rings="4" slices="8" pos="-94 96 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- beam gun under the nose -->
+    <box size="40 10 14" pos="66 42 0" material="concord_graphite"/>
+    <cylinder radius="4" height="40" sides="10" rot="0 0 -90" pos="96 42 0" material="concord_ceramic"/>
+    <sphere radius="5" rings="6" slices="10" pos="117 42 0" material="concord_crystal"/>
+    <!-- the shot -->
+    <sphere radius="9" rings="6" slices="10" pos="118 42 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <sphere radius="15" rings="6" slices="10" scale="0.5 1 1" pos="121 42 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <cone radius="5" radiusTop="1.5" height="60" sides="8" rot="0 0 -90" pos="150 42 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <sphere radius="7" rings="6" slices="10" pos="118 42 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 2}"/>
+  </group>
+</prefab>

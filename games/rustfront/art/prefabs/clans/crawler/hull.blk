@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Crawler hull without its turret (see crawler/turret.blk and crawler.blk). Length 264
+     cm on X, width 160 cm on Z, origin at the hull centre on the ground, front +X. The Clans'
+     battle tank, welded from salvage: a tall track pod on the left and a lower, older one on the
+     right, a boxy rust hull with a spiked dozer plate, team-painted side plates, scrap tyres
+     hung as armour, twin exhaust pipes and a jerrycan rack. The turret ring is at (-14, 104). -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <include src="../clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- mismatched tracks: tall on the left (+Z), low and longer on the right (-Z) -->
+  <soft-box width="236" height="56" depth="40" radius="26" bevel="3" pos="-4 28 60" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <soft-box width="250" height="42" depth="36" radius="18" bevel="3" pos="0 21 -60" material="track"><map type="bricks" size="12 60 60" mortar="3" bond="0" offset="{6*move} 0 0" from="1.2 1.15 1.1" to="0.35 0.33 0.3"/></soft-box>
+  <cylinder radius="19" height="42" sides="10" rot="90 0 {18*move}" pos="-84 27 60" material="clans_rust"><array count="4" translation="54 0 0"/></cylinder>
+  <cylinder radius="12" height="38" sides="8" rot="90 0 {22.5*move}" pos="-96 19 -60" material="steel_dark"><array count="7" translation="32 0 0"/></cylinder>
+
+  <!-- hull: a boxy side profile, sides leaning in -->
+  <shape closed="1" v="-124 40 104 40 130 62 112 84 -114 88 -128 70" material="clans_rust">
+    <extrude amount="124"/><bevel amount="2" bevelSegments="1"/>
+    <taper center="0 40 0" amount="-0.12" axis="y" effect="z"/>
+  </shape>
+  <!-- team-painted side plates, bolted on crooked; a tin patch -->
+  <box size="120 30 4" rot="-12 0 3" pos="-20 64 66" material="clans_paint" tint="1"/>
+  <box size="100 26 4" rot="12 0 -4" pos="-30 62 -66" material="clans_paint" tint="1"/>
+  <box size="60 22 4" rot="12 0 2" pos="70 60 -64" material="clans_tin"/>
+  <box size="50 3 60" rot="0 0 -26" pos="114 74 20" material="clans_tin"/>
+  <!-- tyres hung as armour on the left skirt -->
+  <cylinder radius="20" height="10" tube="8" sides="12" rot="90 0 0" pos="40 54 84" material="rubber"/>
+  <cylinder radius="20" height="10" tube="8" sides="12" rot="90 0 0" pos="-64 54 86" material="rubber"/>
+
+  <!-- spiked dozer plate on the nose -->
+  <box size="10 46 170" rot="0 0 -14" pos="140 34 0" material="clans_sheet_rust"/>
+  <box size="12 8 172" pos="146 56 0" material="steel_dark"/>
+  <tube ax="110" ay="54" az="50" bx="138" by="40" bz="50" r0="4" material="steel_dark"/>
+  <tube ax="110" ay="54" az="-50" bx="138" by="40" bz="-50" r0="4" material="steel_dark"/>
+  <group pos="146 42 0" rot="0 0 -96">
+    <clans-spike radius="4" length="22" pos="0 0 -66"/><clans-spike radius="4" length="24" pos="0 0 -22"/>
+    <clans-spike radius="4" length="24" pos="0 0 22"/><clans-spike radius="4" length="22" pos="0 0 66"/>
+  </group>
+  <box size="4 5 4" pos="128 72 40" material="lamp" unlit="1" castShadow="0"/>
+  <box size="8 10 10" pos="125 72 40" material="steel_dark"/>
+
+  <!-- back deck: exhausts, jerrycans, a tow cable drum -->
+  <tube ax="-100" ay="80" az="40" bx="-112" by="132" bz="44" r0="5" material="clans_rust"/>
+  <tube ax="-100" ay="80" az="26" bx="-108" by="122" bz="28" r0="4" material="clans_rust"/>
+  <box size="14 22 20" pos="-118 96 -24" material="clans_paint" tint="1"/>
+  <box size="14 22 20" pos="-118 96 -46" material="clans_drum"/>
+  <box size="26 4 60" pos="-118 87 -34" material="steel_dark"/>
+  <cylinder radius="14" height="30" sides="10" rot="90 0 0" pos="72 98 -44" material="clans_wood"/>
+</prefab>

@@ -3,49 +3,85 @@
 
 #include <string.h>
 
-/* Rustfront's production catalog. The Command Center builds every structure, the Barracks
- * trains infantry and the War Factory builds vehicles. Prerequisites are structures the owner
- * must have: power before a barracks or refinery, a refinery before a factory, a barracks
- * before a turret. ui ids are the actor types; icon frames index rf_icons (sprites.inc).
- * Times are in milliseconds at normal speed. */
-enum { ICON_POWER, ICON_BARRACKS, ICON_REFINERY, ICON_FACTORY, ICON_TURRET, ICON_HQ,
-       ICON_RIFLEMAN, ICON_ROCKET, ICON_SCOUT, ICON_TANK, ICON_APC, ICON_ARTILLERY, ICON_HARVESTER };
+#include "rustfront.h"
+#include "sprites.inc"
 
-#define STRUCTURE(type, label, cost, icon, needs) \
-    {type, type, label, cost, icon, RTS_PRODUCT_BUILDING, type, 0, {needs}, (needs) ? 1 : 0, \
-     {MT_HQ}, 1, {0}, false}
+/* Rustfront's production catalog, one block per faction (factions.c). Each faction's
+ * headquarters builds its structures, its barracks trains its infantry and its factory builds
+ * its vehicles. Prerequisites are structures the owner must have: power before a barracks or
+ * refinery, a refinery before a factory, a barracks before a turret. ui ids are the actor
+ * types; icon frames are art/icons.py's (RF_ICON_* in sprites.inc). Times are milliseconds at
+ * normal speed. A side sees only its own faction's products. */
+#define STRUCTURE(type, label, cost, icon, hq, needs) \
+    {type, type, label, cost, RF_ICON_##icon, RTS_PRODUCT_BUILDING, type, 0, {needs}, (needs) ? 1 : 0, \
+     {hq}, 1, {0}, false}
 #define TRAINED(type, label, cost, icon, maker, needs) \
-    {type, type, label, cost, icon, RTS_PRODUCT_UNIT, type, 0, {needs}, (needs) ? 1 : 0, \
+    {type, type, label, cost, RF_ICON_##icon, RTS_PRODUCT_UNIT, type, 0, {needs}, (needs) ? 1 : 0, \
      {maker}, 1, {0}, false}
 
 static const StaticProductDefinition RF_PRODUCTS[] = {
-    STRUCTURE(MT_POWER, "POWER PLANT", 300, ICON_POWER, 0),
-    STRUCTURE(MT_BARRACKS, "BARRACKS", 400, ICON_BARRACKS, MT_POWER),
-    STRUCTURE(MT_REFINERY, "ORE REFINERY", 1500, ICON_REFINERY, MT_POWER),
-    STRUCTURE(MT_FACTORY, "WAR FACTORY", 2000, ICON_FACTORY, MT_REFINERY),
-    STRUCTURE(MT_GUN_TURRET, "GUN TURRET", 600, ICON_TURRET, MT_BARRACKS),
-    TRAINED(MT_RIFLEMAN, "RIFLEMAN", 100, ICON_RIFLEMAN, MT_BARRACKS, 0),
-    TRAINED(MT_ROCKET, "ROCKET SOLDIER", 300, ICON_ROCKET, MT_BARRACKS, 0),
-    TRAINED(MT_SCOUT, "SCOUT BUGGY", 300, ICON_SCOUT, MT_FACTORY, 0),
-    TRAINED(MT_TANK, "BATTLE TANK", 800, ICON_TANK, MT_FACTORY, 0),
-    TRAINED(MT_APC, "APC", 700, ICON_APC, MT_FACTORY, 0),
-    TRAINED(MT_ARTILLERY, "ARTILLERY", 900, ICON_ARTILLERY, MT_FACTORY, 0),
-    TRAINED(MT_HARVESTER, "ORE HARVESTER", 1400, ICON_HARVESTER, MT_FACTORY, MT_REFINERY),
+    /* Directorate: the reference army. */
+    STRUCTURE(MT_POWER, "POWER PLANT", 300, POWER, MT_HQ, 0),
+    STRUCTURE(MT_BARRACKS, "BARRACKS", 400, BARRACKS, MT_HQ, MT_POWER),
+    STRUCTURE(MT_REFINERY, "ORE REFINERY", 1500, REFINERY, MT_HQ, MT_POWER),
+    STRUCTURE(MT_FACTORY, "WAR FACTORY", 2000, FACTORY, MT_HQ, MT_REFINERY),
+    STRUCTURE(MT_GUN_TURRET, "GUN TURRET", 600, TURRET, MT_HQ, MT_BARRACKS),
+    TRAINED(MT_RIFLEMAN, "RIFLEMAN", 100, RIFLEMAN, MT_BARRACKS, 0),
+    TRAINED(MT_ROCKET, "ROCKET SOLDIER", 300, ROCKET, MT_BARRACKS, 0),
+    TRAINED(MT_SCOUT, "SCOUT BUGGY", 300, SCOUT, MT_FACTORY, 0),
+    TRAINED(MT_TANK, "BATTLE TANK", 800, TANK, MT_FACTORY, 0),
+    TRAINED(MT_APC, "APC", 700, APC, MT_FACTORY, 0),
+    TRAINED(MT_ARTILLERY, "ARTILLERY", 900, ARTILLERY, MT_FACTORY, 0),
+    TRAINED(MT_MASTODON, "MASTODON", 1800, MASTODON, MT_FACTORY, MT_BARRACKS),
+    TRAINED(MT_HARVESTER, "ORE HARVESTER", 1400, HARVESTER, MT_FACTORY, MT_REFINERY),
+    /* Scrap Clans: everything cheaper and quicker to make. */
+    STRUCTURE(MT_CL_GENERATOR, "GENERATOR", 200, CL_GENERATOR, MT_CL_HALL, 0),
+    STRUCTURE(MT_CL_CAMP, "WAR CAMP", 300, CL_CAMP, MT_CL_HALL, MT_CL_GENERATOR),
+    STRUCTURE(MT_CL_SMELTER, "SMELTER", 1200, CL_SMELTER, MT_CL_HALL, MT_CL_GENERATOR),
+    STRUCTURE(MT_CL_YARD, "SCRAP YARD", 1600, CL_YARD, MT_CL_HALL, MT_CL_SMELTER),
+    STRUCTURE(MT_CL_TOWER, "SPIKE TOWER", 400, CL_TOWER, MT_CL_HALL, MT_CL_CAMP),
+    TRAINED(MT_CL_RAIDER, "RAIDER", 70, CL_RAIDER, MT_CL_CAMP, 0),
+    TRAINED(MT_CL_TORCHER, "TORCHER", 200, CL_TORCHER, MT_CL_CAMP, 0),
+    TRAINED(MT_CL_TRIKE, "TRIKE", 200, CL_TRIKE, MT_CL_YARD, 0),
+    TRAINED(MT_CL_TRUCK, "GUN TRUCK", 450, CL_TRUCK, MT_CL_YARD, 0),
+    TRAINED(MT_CL_CRAWLER, "SCRAP CRAWLER", 650, CL_CRAWLER, MT_CL_YARD, 0),
+    TRAINED(MT_CL_RIG, "ROCKET RIG", 800, CL_RIG, MT_CL_YARD, MT_CL_CAMP),
+    TRAINED(MT_CL_HAULER, "SCRAP HAULER", 1100, CL_HAULER, MT_CL_YARD, MT_CL_SMELTER),
+    /* Lumen Concord: dear, slow to make, worth it. */
+    STRUCTURE(MT_LC_FUSION, "FUSION CORE", 400, LC_FUSION, MT_LC_SPIRE, 0),
+    STRUCTURE(MT_LC_ACADEMY, "ACADEMY", 500, LC_ACADEMY, MT_LC_SPIRE, MT_LC_FUSION),
+    STRUCTURE(MT_LC_EXTRACTOR, "EXTRACTOR", 1800, LC_EXTRACTOR, MT_LC_SPIRE, MT_LC_FUSION),
+    STRUCTURE(MT_LC_FOUNDRY, "FOUNDRY", 2400, LC_FOUNDRY, MT_LC_SPIRE, MT_LC_EXTRACTOR),
+    STRUCTURE(MT_LC_TOWER, "BEAM TOWER", 900, LC_TOWER, MT_LC_SPIRE, MT_LC_ACADEMY),
+    TRAINED(MT_LC_WARDEN, "WARDEN", 180, LC_WARDEN, MT_LC_ACADEMY, 0),
+    TRAINED(MT_LC_LANCER, "LANCER", 450, LC_LANCER, MT_LC_ACADEMY, 0),
+    TRAINED(MT_LC_SKIMMER, "SKIMMER", 450, LC_SKIMMER, MT_LC_FOUNDRY, 0),
+    TRAINED(MT_LC_GLAIVE, "GLAIVE", 1300, LC_GLAIVE, MT_LC_FOUNDRY, 0),
+    TRAINED(MT_LC_PRISM, "PRISM", 1500, LC_PRISM, MT_LC_FOUNDRY, MT_LC_ACADEMY),
+    TRAINED(MT_LC_HARVESTER, "HOVER HARVESTER", 1600, LC_HARVESTER, MT_LC_FOUNDRY, MT_LC_EXTRACTOR),
 };
 enum { PRODUCT_COUNT = (int)(sizeof(RF_PRODUCTS) / sizeof(*RF_PRODUCTS)) };
 
 static const struct { int type, ms; } BUILD_TIMES[] = {
     {MT_POWER, 9000}, {MT_BARRACKS, 10000}, {MT_REFINERY, 16000}, {MT_FACTORY, 20000},
     {MT_GUN_TURRET, 9000}, {MT_RIFLEMAN, 3500}, {MT_ROCKET, 6000}, {MT_SCOUT, 6000},
-    {MT_TANK, 12000}, {MT_APC, 10000}, {MT_ARTILLERY, 14000}, {MT_HARVESTER, 15000},
+    {MT_TANK, 12000}, {MT_APC, 10000}, {MT_ARTILLERY, 14000}, {MT_HARVESTER, 15000}, {MT_MASTODON, 22000},
+    {MT_CL_GENERATOR, 6000}, {MT_CL_CAMP, 7000}, {MT_CL_SMELTER, 12000}, {MT_CL_YARD, 15000},
+    {MT_CL_TOWER, 6000}, {MT_CL_RAIDER, 2200}, {MT_CL_TORCHER, 4000}, {MT_CL_TRIKE, 4000},
+    {MT_CL_TRUCK, 7000}, {MT_CL_CRAWLER, 9000}, {MT_CL_RIG, 11000}, {MT_CL_HAULER, 11000},
+    {MT_LC_FUSION, 12000}, {MT_LC_ACADEMY, 13000}, {MT_LC_EXTRACTOR, 20000}, {MT_LC_FOUNDRY, 25000},
+    {MT_LC_TOWER, 14000}, {MT_LC_WARDEN, 5000}, {MT_LC_LANCER, 9000}, {MT_LC_SKIMMER, 8000},
+    {MT_LC_GLAIVE, 18000}, {MT_LC_PRISM, 22000}, {MT_LC_HARVESTER, 18000},
 };
 
 int G_ModelGetProducts(const RtsGameModel *model, int owner,
                        StaticProductDefinition *out, int max_products) {
-    (void)model; (void)owner;
+    (void)model;
     if (!out || max_products <= 0) return 0;
-    int count = PRODUCT_COUNT < max_products ? PRODUCT_COUNT : max_products;
-    memcpy(out, RF_PRODUCTS, (size_t)count * sizeof(*out));
+    int faction = RF_OwnerFaction(owner), count = 0;
+    for (int i = 0; i < PRODUCT_COUNT && count < max_products; ++i)
+        if (faction < 0 || RF_FactionOfType((uint16_t)RF_PRODUCTS[i].product_type) == faction)
+            out[count++] = RF_PRODUCTS[i];
     return count;
 }
 

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Glaive turret. Origin on the turret ring axis at mount height; the lance faces
+     +X. A low smooth ceramic cupola with a team-colour crest and a cyan sight, carrying a very long
+     beam lance: a slim white barrel with graphite focusing rings and twin team-colour vanes,
+     ending in a crystal lens; a cyan beam flash on the shot. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (the lens blazes and a
+       cyan beam flash leaves it, the lance's rings slide back), fire 2 the afterglow. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 8 : (fire == 2 ? 3 : 0)"/>
+
+  <!-- cupola -->
+  <ellipsoid radii="62 24 50" rings="12" slices="24" pos="-6 24 0" material="concord_ceramic"/>
+  <cylinder radius="40" height="6" sides="24" pos="0 3 0" material="concord_graphite"/>
+  <ellipsoid radii="60 3 48" rings="4" slices="24" pos="-6 10 0" material="concord_graphite"/>
+  <ellipsoid radii="46 5 12" rings="4" slices="16" pos="-14 44 0" material="paint_plain" tint="1"/>
+  <ellipsoid radii="10 4 14" rings="4" slices="12" pos="34 36 0" rot="0 0 -35" material="glow" unlit="1" castShadow="0"/>
+  <!-- the lance -->
+  <box size="40 22 30" pos="44 20 0" material="concord_graphite"/>
+  <cone radius="11" radiusTop="6" height="150" sides="14" rot="0 0 -90" pos="134 20 0" material="concord_ceramic"/>
+  <cylinder radius="12" height="6" sides="14" rot="0 0 -90" pos="{82-kick} 20 0" material="concord_graphite"/>
+  <cylinder radius="10" height="6" sides="14" rot="0 0 -90" pos="{122-kick} 20 0" material="concord_graphite"/>
+  <cylinder radius="8.5" height="6" sides="14" rot="0 0 -90" pos="{162-kick} 20 0" material="concord_graphite"/>
+  <shape closed="1" v="60 0 150 0 150 3 70 10" pos="0 20 9" rot="90 0 0" material="paint_plain" tint="1"><extrude amount="3"/></shape>
+  <shape closed="1" v="60 0 150 0 150 3 70 10" pos="0 20 -9" rot="-90 0 0" material="paint_plain" tint="1"><extrude amount="3"/></shape>
+  <sphere radius="8" rings="8" slices="12" pos="212 20 0" material="concord_crystal"/>
+  <!-- the shot -->
+  <sphere radius="14" rings="8" slices="12" pos="214 20 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <sphere radius="24" rings="8" slices="12" scale="0.5 1 1" pos="218 20 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <cone radius="8" radiusTop="2.5" height="110" sides="10" rot="0 0 -90" pos="275 20 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <cone radius="3.5" radiusTop="1" height="120" sides="8" rot="0 0 -90" pos="280 20 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <sphere radius="10" rings="8" slices="12" pos="213 20 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 2}"/>
+</prefab>

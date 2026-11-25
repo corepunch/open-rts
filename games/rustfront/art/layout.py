@@ -32,6 +32,18 @@ BUILDINGS = [
     ("buildings/barracks", "Barracks",      448, 448,  80),
     ("buildings/factory",  "WarFactory",    640, 608, 140),
     ("buildings/turret",   "GunTurret",     256, 256,  60),
+    ("clans/hall",         "ClanHall",      640, 704, 170),
+    ("clans/generator",    "Generator",     448, 640, 150),
+    ("clans/smelter",      "Smelter",       640, 704, 170),
+    ("clans/camp",         "WarCamp",       448, 512, 110),
+    ("clans/yard",         "ScrapYard",     640, 704, 160),
+    ("clans/spike_tower",  "SpikeTower",    256, 320,  80),
+    ("concord/spire",      "Spire",         640, 768, 200),
+    ("concord/fusion",     "FusionCore",    448, 576, 140),
+    ("concord/extractor",  "Extractor",     640, 576, 110),
+    ("concord/academy",    "Academy",       448, 576, 130),
+    ("concord/foundry",    "Foundry",       640, 640, 150),
+    ("concord/beam_tower", "BeamTower",     256, 320,  80),
 ]
 VEHICLES = [
     ("vehicles/scout",     "ScoutBuggy", 384, 320, 50),
@@ -39,6 +51,16 @@ VEHICLES = [
     ("vehicles/artillery", "Artillery", 384, 320, 80),
     ("vehicles/harvester", "Harvester", 384, 320, 70),
     ("vehicles/apc",       "APC", 384, 320, 60),
+    ("vehicles/mastodon",  "Mastodon", 448, 384, 70),
+    ("clans/trike",        "Trike", 384, 320, 45),
+    ("clans/gun_truck",    "GunTruck", 448, 384, 60),
+    ("clans/crawler",      "Crawler", 448, 384, 60),
+    ("clans/rocket_rig",   "RocketRig", 448, 384, 70),
+    ("clans/hauler",       "Hauler", 448, 384, 70),
+    ("concord/skimmer",    "Skimmer", 384, 320, 55),
+    ("concord/glaive",     "Glaive", 384, 320, 60),
+    ("concord/prism",      "Prism", 448, 384, 90),
+    ("concord/harvester",  "HoverHarvester", 384, 320, 70),
 ]
 VEHICLE_YAW = -45    # prefabs face +X; -45 turns them toward the viewer's lower right
 
@@ -130,14 +152,14 @@ def main():
             p = [right[k] * t + near[k] * offset for k in range(3)]
             rot = ' rot="0 %d 0"' % yaw if yaw else ""
             insts.append('  <prefab source="%s" name="%s" pos="%.1f 0 %.1f"%s color="%s"/>'
-                         % (src, src.split("/")[1], p[0], p[2], rot, TEAM))
+                         % (src, src.replace("/", "_"), p[0], p[2], rot, TEAM))
             cams.append(camera(name, (p[0], ly, p[2]), w, h, "Sprite preview: %s, %g cm/px" % (name, CM_PER_PX)))
 
     mid = [near[k] * ROW_GAP / 2 for k in range(3)]
     mid[1] = 90.0
     width = (max(len(BUILDINGS), len(VEHICLES)) - 1) * SPACING + 1000
     height = ROW_GAP * math.sin(math.radians(ELEV)) + 800
-    lh = 720
+    lh = min(720, int(3600 * height / width))      # Scener caps a render at 8192 px supersampled
     lw = int(round(lh * width / height / 8)) * 8
     cams.insert(0, '  <camera name="Lineup" comment="Every unit at once" pos="%s" look="%s" ortho="%g" size="%d %d"/>'
                 % (" ".join("%.1f" % (mid[k] + dist * to_cam[k]) for k in range(3)),
@@ -156,7 +178,7 @@ def main():
 {chr(10).join(cams)}
 
   <!-- shadow-catching ground; drop it (or renderable="0") for transparent sprite passes -->
-  <box name="ground" size="10000 10 10000" pos="0 -5 0" material="sand"/>
+  <box name="ground" size="40000 10 10000" pos="0 -5 0" material="sand"/>
 
 {chr(10).join(insts)}
 </scene>

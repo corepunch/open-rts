@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Gun Truck, assembled: gun_truck/hull plus gun_truck/turret on its ring mount at (-62, 112, 0). Length 300 cm on X, origin at the chassis centre on the ground, nose and gun face +X. Sprites render hull and turret as separate layers (art/sprites.py). -->
+<prefab up="y" front="+x">
+  <prefab source="clans/gun_truck/hull"/>
+  <prefab source="clans/gun_truck/turret" pos="-62 112 0"/>
+</prefab>

@@ -13,6 +13,22 @@
      .turn_step = ANG45 / 6, .max_hp = hp, \
      .attack = {.range = FIXED_LIT(rng), .damage = dmg, .cooldown_ms = cool}, __VA_ARGS__}
 
+#define REFINERY(type, label, unit, hp) \
+    {.id = type, .name = label, .sprite_name = unit "_body", .shadow_name = unit "_shadow", \
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE, .max_hp = hp, .footprint = {3, 2}}
+#define EMPLACEMENT(type, label, unit, hp, rng, dmg, cool) \
+    {.id = type, .name = label, .sprite_name = unit "_base", .shadow_name = unit "_shadow", \
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET, .max_hp = hp, .footprint = {1, 1}, \
+     .turret = {.sprite_name = unit "_head", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = TURRET_SHOT}, \
+     .attack = {.range = FIXED_LIT(rng), .damage = dmg, .cooldown_ms = cool}}
+#define TURRET_ON(unit, turn) \
+    .turret = {.sprite_name = unit "_turret", .turn_step = ANG45 / (turn), .frame = 0, .fire_frame = TURRET_SHOT}
+/* 50 ore a second from a field cell (w_rustfront.c); a load is `load` ore. */
+#define HARVESTER(type, label, unit, hp, spd, load) \
+    {.id = type, .name = label, .sprite_name = unit "_body", .shadow_name = unit "_shadow", \
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER, .speed = FIXED_LIT(spd), \
+     .turn_step = ANG45 / 8, .max_hp = hp, .harvest = {.resources = {{.capacity = load}}}}
+
 /* The heavy shell's height per flight step, by remaining fraction: a parabola, so a longer
  * shot climbs higher (the engine multiplies by the flight's step count). */
 #define ARC(f) FIXED_LIT(0.2 * (f) * (1 - (f)))
@@ -43,6 +59,37 @@ static const mobjtype_t ACTOR_TYPES[] = {
             .turret = {.sprite_name = "apc_turret", .turn_step = ANG45 / 6, .frame = 0, .fire_frame = TURRET_SHOT}),
     VEHICLE(MT_RIFLEMAN, "Rifleman", "rifleman", "body", 50, 1.0, 3.5, 8, 900, .move_class = 0),
     VEHICLE(MT_ROCKET, "Rocket Soldier", "rocket", "body", 45, 0.9, 5, 40, 2500, .move_class = 0),
+    /* Two heavy guns: each shot is a pair of shells (g_combat.c). */
+    VEHICLE(MT_MASTODON, "Mastodon", "mastodon", "hull", 1400, 1.6, 5.5, 70, 2200, TURRET_ON("mastodon", 10)),
+
+    /* Scrap Clans: cheap, fast, fragile; a flamethrower and a rocket rig for punch. */
+    BUILDING(MT_CL_HALL, "Clan Hall", "cl_hall", 2600, 3, 3),
+    BUILDING(MT_CL_GENERATOR, "Generator", "cl_generator", 900, 2, 2),
+    REFINERY(MT_CL_SMELTER, "Smelter", "cl_smelter", 1500),
+    BUILDING(MT_CL_CAMP, "War Camp", "cl_camp", 900, 2, 2),
+    BUILDING(MT_CL_YARD, "Scrap Yard", "cl_yard", 2000, 3, 3),
+    EMPLACEMENT(MT_CL_TOWER, "Spike Tower", "cl_tower", 600, 5, 14, 350),
+    VEHICLE(MT_CL_TRIKE, "Trike", "cl_trike", "body", 160, 4.8, 3.5, 9, 400, .move_class = 0),
+    VEHICLE(MT_CL_TRUCK, "Gun Truck", "cl_truck", "hull", 320, 3.6, 4, 14, 400, TURRET_ON("cl_truck", 4)),
+    VEHICLE(MT_CL_CRAWLER, "Scrap Crawler", "cl_crawler", "hull", 520, 2.4, 4.5, 75, 2000, TURRET_ON("cl_crawler", 6)),
+    VEHICLE(MT_CL_RIG, "Rocket Rig", "cl_rig", "body", 260, 2.4, 8, 30, 4000, .move_class = 0),
+    HARVESTER(MT_CL_HAULER, "Scrap Hauler", "cl_hauler", 700, 2.0, 400),
+    VEHICLE(MT_CL_RAIDER, "Raider", "cl_raider", "body", 40, 1.3, 3.2, 6, 600, .move_class = 0),
+    VEHICLE(MT_CL_TORCHER, "Torcher", "cl_torcher", "body", 60, 1.1, 2.0, 30, 1200, .move_class = 0),
+
+    /* Lumen Concord: few and expensive, tough, long beams; hover craft are quick. */
+    BUILDING(MT_LC_SPIRE, "Spire", "lc_spire", 3600, 3, 3),
+    BUILDING(MT_LC_FUSION, "Fusion Core", "lc_fusion", 1500, 2, 2),
+    REFINERY(MT_LC_EXTRACTOR, "Extractor", "lc_extractor", 2200),
+    BUILDING(MT_LC_ACADEMY, "Academy", "lc_academy", 1500, 2, 2),
+    BUILDING(MT_LC_FOUNDRY, "Foundry", "lc_foundry", 2800, 3, 3),
+    EMPLACEMENT(MT_LC_TOWER, "Beam Tower", "lc_tower", 1000, 7, 70, 1800),
+    VEHICLE(MT_LC_SKIMMER, "Skimmer", "lc_skimmer", "body", 260, 5.0, 4, 18, 700, .move_class = 0),
+    VEHICLE(MT_LC_GLAIVE, "Glaive", "lc_glaive", "hull", 800, 3.0, 5.5, 90, 1900, TURRET_ON("lc_glaive", 6)),
+    VEHICLE(MT_LC_PRISM, "Prism", "lc_prism", "body", 380, 2.2, 10, 160, 4200, .move_class = 0),
+    HARVESTER(MT_LC_HARVESTER, "Hover Harvester", "lc_harvester", 1100, 2.6, 600),
+    VEHICLE(MT_LC_WARDEN, "Warden", "lc_warden", "body", 90, 1.0, 4, 16, 1100, .move_class = 0),
+    VEHICLE(MT_LC_LANCER, "Lancer", "lc_lancer", "body", 110, 0.8, 5.5, 70, 2600, .move_class = 0),
     {.id = MT_FX_HIT, .name = "Impact", .sprite_name = "fx_hit", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BOOM, .name = "Explosion", .sprite_name = "fx_boom", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BIGBOOM, .name = "Large explosion", .sprite_name = "fx_bigboom",
@@ -58,6 +105,13 @@ static const mobjtype_t ACTOR_TYPES[] = {
                               .arc = HEAVY_ARC, .arc_count = (int)(sizeof(HEAVY_ARC) / sizeof(*HEAVY_ARC))}},
     {.id = MT_MISSILE, .name = "Rocket", .sprite_name = "fx_rocket", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_LIT(0.3), .period_ms = RTS_TICK_MS, .timed = true}},
+    /* A bolt of light is quick; a heavy one splashes like a heavy shell. A flame gout is slow. */
+    {.id = MT_BOLT, .name = "Bolt", .sprite_name = "fx_bolt", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_LIT(0.9), .period_ms = RTS_TICK_MS, .timed = true}},
+    {.id = MT_HEAVY_BOLT, .name = "Heavy bolt", .sprite_name = "fx_bolt", .traits = MF_RENDERABLE | MF_MISSILE,
+     .max_hp = 1, .missile = {.step = FIXED_LIT(0.7), .period_ms = RTS_TICK_MS, .timed = true}},
+    {.id = MT_FLAME, .name = "Flame", .sprite_name = "fx_flame", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_LIT(0.25), .period_ms = RTS_TICK_MS, .timed = true}},
 };
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */

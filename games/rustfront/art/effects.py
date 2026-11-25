@@ -14,6 +14,9 @@ reproduces them. effects.json lists size, count and pivot for pack8.
     smoke    a puff a rocket leaves behind: 12 px, 5 frames
     plume    a damaged unit's smoke, rising and spreading: 32 x 52 px, 8 frames
     fire     a burning structure's flames, flickering then dying: 16 x 24 px, 6 frames
+    bolt     a Concord beam bolt in flight: a cyan streak with a white core, 16 facings
+    flame    a Torcher's gout of flame in flight, 16 facings
+    zap      a bolt landing: a cyan flash and sparks, 24 px, 6 frames
     hit      a bullet landing: 24 px, 5 frames
     blast    a shell or rocket landing: 40 px, 7 frames
     boom     a vehicle or soldier's weapon going up: 64 px, 10 frames
@@ -117,7 +120,19 @@ def projectile(kind, size):
         img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         px = img.load()
         at = lambda d: (c + ux * d, c + uy * d)
-        if kind == "shell":
+        if kind == "bolt":
+            line(px, size, *at(-11), *at(-5), (40, 150, 200, 255), 2)
+            line(px, size, *at(-6), *at(5), (90, 230, 255, 255), 3)
+            line(px, size, *at(-4), *at(6), (235, 255, 255, 255), 1)
+        elif kind == "flame":
+            for d, r, col in ((-7, 2.0, (170, 52, 16)), (-4, 3.0, (236, 110, 24)), (-1, 3.6, (255, 176, 48)),
+                            (2, 3.2, (255, 230, 120)), (4, 2.2, (255, 255, 235))):
+                cx, cy = at(d)
+                for yy in range(size):
+                    for xx in range(size):
+                        if math.hypot(xx - cx, (yy - cy) / SQUASH ** 0.5) <= r:
+                            px[xx, yy] = col + (255,)
+        elif kind == "shell":
             line(px, size, *at(-6), *at(-2), (236, 110, 24, 255))
             line(px, size, *at(-2), *at(2), (255, 230, 120, 255))
             line(px, size, *at(2), *at(4), (255, 255, 235, 255), 2)
@@ -127,6 +142,33 @@ def projectile(kind, size):
             line(px, size, *at(-4), *at(3), (54, 58, 60, 255), 2)           # body
             line(px, size, *at(-1), *at(1), (150, 154, 152, 255), 2)        # band
             line(px, size, *at(3), *at(5), (200, 60, 40, 255), 2)           # warhead
+        out.append(img)
+    return out
+
+
+def zap(size, frames):
+    """A bolt landing: a white-cyan flash that shrinks to a ring, sparks flying out."""
+    out = []
+    rnd = random.Random(91)
+    sparks = [(rnd.uniform(0, 2 * math.pi), rnd.uniform(0.5, 1.0)) for _ in range(10)]
+    for f in range(frames):
+        t = f / (frames - 1)
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        px = img.load()
+        c = size / 2 - 0.5
+        r = size * (0.18 + 0.28 * t)
+        for y in range(size):
+            for x in range(size):
+                d = math.hypot(x - c, (y - c) * 1.3)
+                if t < 0.4 and d < r * (1 - t):
+                    px[x, y] = (235, 255, 255, 255) if d < r * 0.5 else (90, 230, 255, 255)
+                elif abs(d - r) < 1.2 and hash01(x, y, f) > t * 0.9:
+                    px[x, y] = (40, 150, 200, 255) if t > 0.5 else (90, 230, 255, 255)
+        for a, s in sparks:
+            d = (0.1 + 0.4 * t * s) * size
+            sx, sy = int(c + math.cos(a) * d), int(c + math.sin(a) * d * 0.7)
+            if 0 <= sx < size and 0 <= sy < size and t < 0.8:
+                px[sx, sy] = (235, 255, 255, 255)
         out.append(img)
     return out
 
@@ -202,7 +244,7 @@ def fire(w, h, f, frames):
 def main():
     OUT.mkdir(exist_ok=True)
     meta = {}
-    for kind, size in (("shell", 16), ("rocket", 24)):
+    for kind, size in (("shell", 16), ("rocket", 24), ("bolt", 24), ("flame", 20)):
         imgs = projectile(kind, size)
         strip = Image.new("RGBA", (size * FACINGS, size), (0, 0, 0, 0))
         for i, img in enumerate(imgs):
@@ -210,6 +252,12 @@ def main():
         strip.save(OUT / ("fx_%s.png" % kind), optimize=True)
         meta[kind] = dict(file="fx_%s.png" % kind, frame=[size, size], count=FACINGS, columns=FACINGS,
                           pivot=[size // 2, size // 2], frames=1)
+    imgs = zap(24, 6)
+    strip = Image.new("RGBA", (24 * 6, 24), (0, 0, 0, 0))
+    for i, img in enumerate(imgs):
+        strip.paste(img, (i * 24, 0))
+    strip.save(OUT / "fx_zap.png", optimize=True)
+    meta["zap"] = dict(file="fx_zap.png", frame=[24, 24], count=6, columns=6, pivot=[12, 14])
     imgs = smoke_puff(12, 5)
     strip = Image.new("RGBA", (12 * 5, 12), (0, 0, 0, 0))
     for i, img in enumerate(imgs):

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Crawler turret. Origin on the turret ring axis at mount height; gun faces +X. A welded
+     box turret, irregular in plan and team-painted, patched with rust plates, a drum-hatch
+     cupola and a rear basket; a short big-bore cannon with a muzzle brake made from a cut
+     drum. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <include src="../clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, full recoil),
+       fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 14 : (fire == 2 ? 6 : 0)"/>
+  <!-- welded body: an irregular top-view outline swept up -->
+  <shape closed="1" v="54 -30 60 26 18 50 -46 44 -62 20 -58 -36 -20 -50" rot="90 0 0" pos="0 2 0" material="clans_paint" tint="1">
+    <extrude amount="40"/><bevel amount="2" bevelSegments="1"/>
+    <taper center="0 0 0" amount="0.18" axis="z"/>
+  </shape>
+  <box size="50 4 44" rot="0 8 3" pos="-20 23 -14" material="clans_rust"/>
+  <box size="4 30 50" rot="0 0 -14" pos="58 4 -2" material="clans_sheet_rust"/>
+  <box size="30 3 24" pos="16 22.5 28" material="clans_tin"/>
+  <!-- cupola: a cut drum with a hatch, and a rear basket -->
+  <cylinder radius="14" height="16" sides="12" pos="-24 30 20" material="clans_drum"/>
+  <cylinder radius="15" height="3" sides="12" rot="0 0 22" pos="-34 40 20" material="steel_dark"/>
+  <box size="24 18 74" pos="-68 8 0" material="steel_dark"/>
+  <box size="20 12 66" pos="-68 22 0" material="clans_canvas"/>
+  <cylinder radius="1" height="80" sides="5" pos="-54 60 -34" material="steel_dark"/>
+  <box size="2 18 14" pos="-54 92 -27" material="clans_cloth" tint="1"/>
+  <!-- the gun: mantlet, short fat barrel, drum muzzle brake -->
+  <box size="22 30 40" pos="60 4 0" material="gunmetal"/>
+  <cylinder radius="10" height="88" sides="10" rot="0 0 -90" pos="{108-kick} 4 0" material="steel_dark"/>
+  <cylinder radius="13" height="16" sides="10" rot="0 0 -90" pos="{78-kick} 4 0" material="clans_rust"/>
+  <cylinder radius="16" height="22" sides="10" rot="0 0 -90" pos="{160-kick} 4 0" material="clans_rust"/>
+  <cylinder radius="10.5" height="1" sides="10" rot="0 0 -90" pos="{171.5-kick} 4 0" material="rubber"/>
+  <muzzle-flash pos="{172-kick} 4 0" scale="1.6 1.6 1.6" on="{fire == 1}"/>
+</prefab>

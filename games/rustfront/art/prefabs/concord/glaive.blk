@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Glaive, the hover battle tank, assembled: glaive/hull plus glaive/turret on its
+     ring at (-14, 80, 0). Length 270 cm on X (the lance reaches to 220 cm ahead of the ring),
+     origin at the hull centre on the ground, lance faces +X. Sprites render hull and turret as
+     separate layers (art/sprites.py). -->
+<prefab up="y" front="+x">
+  <prefab source="concord/glaive/hull"/>
+  <prefab source="concord/glaive/turret" pos="-14 80 0"/>
+</prefab>

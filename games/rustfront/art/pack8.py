@@ -302,6 +302,7 @@ def main():
                  % tuple(icon_meta["size"]))
     lines.append("static const char *const rf_icons[] = {%s};" % ", ".join('"%s"' % k for k in icon_meta["order"]))
     lines.append("#endif")
+    lines += ["#define RF_ICON_%s %d" % (k.upper(), i) for i, k in enumerate(icon_meta["order"])]
     lines.append("#define RF_ICON_W %d" % icon_meta["size"][0])
     lines.append("#define RF_ICON_H %d" % icon_meta["size"][1])
     lines.append("#define RF_TEAM_BASE %d" % TEAM_BASE)

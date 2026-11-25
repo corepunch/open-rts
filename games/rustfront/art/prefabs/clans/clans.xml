@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Scrap Clans parts: the salvage the faction builds from. Include it beside utilities.xml and
+     kit.xml in a clans prefab (materials are not shared by a library, so each clans prefab
+     carries the clans_ material block itself). Every call takes pos/rot like a shape. -->
+<library>
+  <define name="clans-drum" doc="An upright oil drum with two rolled hoops and a dark lid. Base on pos.">
+    <param name="radius" default="26"/><param name="height" default="84"/>
+    <param name="material" default="clans_drum"/>
+    <param name="tint" default="0"/>
+    <group>
+      <cylinder radius="${radius}" height="${height}" sides="14" pos="0 {(${height})/2} 0" material="${material}" tint="${tint}"/>
+      <cylinder radius="{(${radius})+1.5}" height="4" sides="14" pos="0 {(${height})*0.33} 0" material="clans_rust"/>
+      <cylinder radius="{(${radius})+1.5}" height="4" sides="14" pos="0 {(${height})*0.67} 0" material="clans_rust"/>
+      <cylinder radius="{(${radius})-3}" height="1" sides="14" pos="0 {(${height})+0.5} 0" material="steel_dark"/>
+    </group>
+  </define>
+
+  <define name="clans-tyre" doc="A scrap tyre lying flat, centred on pos (its own height is width).">
+    <param name="radius" default="34"/><param name="width" default="20"/>
+    <group>
+      <cylinder radius="${radius}" height="${width}" tube="{(${radius})*0.42}" sides="14" material="rubber"/>
+    </group>
+  </define>
+
+  <define name="clans-spike" doc="A welded spike pointing up local Y from its base on pos.">
+    <param name="radius" default="6"/><param name="length" default="40"/>
+    <param name="material" default="steel_dark"/>
+    <group>
+      <cone radius="${radius}" radiusTop="0" height="${length}" sides="5" pos="0 {(${length})/2} 0" material="${material}"/>
+    </group>
+  </define>
+
+  <define name="clans-flag" doc="A pole with a ragged team-colour banner hanging off it toward +X. Base on pos.">
+    <param name="height" default="160"/><param name="size" default="60"/>
+    <group>
+      <cylinder radius="2.6" height="${height}" sides="6" pos="0 {(${height})/2} 0" material="steel_dark"/>
+      <shape closed="1" pos="0 {(${height})-(${size})*0.9} 0" material="clans_cloth" tint="1"
+             v="0 0 0 {(${size})*0.85} {(${size})*0.9} {(${size})*0.8} {(${size})*0.7} {(${size})*0.45} {(${size})*0.95} {(${size})*0.12}">
+        <extrude amount="2"/></shape>
+      <box size="8 4 4" pos="0 {(${height})+1} 0" material="clans_rust"/>
+    </group>
+  </define>
+
+  <define name="clans-fence" doc="A chain-link panel along local X between two scrap posts. Base on pos.">
+    <param name="length" default="100"/><param name="height" default="70"/>
+    <group>
+      <box size="${length} ${height} 1.5" pos="0 {(${height})/2} 0" material="clans_chain"/>
+      <cylinder radius="3" height="{(${height})+8}" sides="6" pos="{-(${length})/2} {((${height})+8)/2} 0" material="clans_rust"/>
+      <cylinder radius="3" height="{(${height})+8}" sides="6" pos="{(${length})/2} {((${height})+8)/2} 0" material="clans_rust"/>
+    </group>
+  </define>
+
+  <define name="clans-lamp" doc="A salvaged headlight on a crooked bracket, shining along +X. Base on pos.">
+    <param name="on" default="1"/>
+    <group>
+      <box size="4 14 4" pos="0 7 0" material="steel_dark"/>
+      <cylinder radius="8" height="10" sides="10" rot="0 0 -90" pos="3 18 0" material="steel_dark"/>
+      <cylinder radius="6" height="1.5" sides="10" rot="0 0 -90" pos="8.6 18 0" material="lamp" unlit="1" castShadow="0" renderable="${on}"/>
+    </group>
+  </define>
+
+  <define name="clans-fire" doc="A burning oil drum: a rusty drum with flames licking out of the top. Base on pos. flick 0/1 changes the flame.">
+    <param name="flick" default="0"/>
+    <group>
+      <cylinder radius="20" height="60" sides="12" pos="0 30 0" material="clans_rust"/>
+      <cylinder radius="21" height="3" sides="12" pos="0 40 0" material="steel_dark"/>
+      <cone radius="15" radiusTop="0" height="{30+14*(${flick})}" sides="7" pos="{-3+4*(${flick})} {60+(30+14*(${flick}))/2} 0" material="flame" unlit="1" castShadow="0"/>
+      <cone radius="9" radiusTop="0" height="{22-6*(${flick})}" sides="6" pos="6 {60.6+(22-6*(${flick}))/2} 5" material="flash" unlit="1" castShadow="0"/>
+    </group>
+  </define>
+
+  <define name="clans-mark" doc="The clans' war mark lying flat with its top toward -Z: three team-colour claw slashes on a round rusty plate. Base on pos; stand it on a wall with a group rot.">
+    <param name="radius" default="40"/>
+    <group>
+      <cylinder radius="${radius}" height="3" sides="9" pos="0 1.5 0" material="clans_rust"/>
+      <box size="{(${radius})*0.24} 2 {(${radius})*1.5}" rot="0 22 0" pos="{-(${radius})*0.42} 3.5 0" material="clans_paint" tint="1"/>
+      <box size="{(${radius})*0.24} 2 {(${radius})*1.6}" rot="0 22 0" pos="0 3.5 0" material="clans_paint" tint="1"/>
+      <box size="{(${radius})*0.24} 2 {(${radius})*1.5}" rot="0 22 0" pos="{(${radius})*0.42} 3.5 0" material="clans_paint" tint="1"/>
+    </group>
+  </define>
+</library>

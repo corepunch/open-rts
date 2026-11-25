@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Gun Truck hull without its gun (see gun_truck/turret.blk and gun_truck.blk). Length
+     300 cm on X, width 150 cm on Z, origin at the chassis centre on the ground, front +X. A
+     rusty pickup "technical": a stubby cab with a team-painted hood and one team door, a spiked
+     bull bar, a roof bar of salvaged lamps, and an open bed walled with mismatched plates around
+     a ring-mount pedestal (its top at y 112, x -62); a spare tyre and a drum in the bed. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <include src="../clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- wheels: knobbly, mismatched hubs -->
+  <group pos="0 30 0">
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="92 0 62" material="rubber"/>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="92 0 -62" material="rubber"/>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-92 0 62" material="rubber"/>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-92 0 -62" material="rubber"/>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="92 0 62" material="clans_drum"/>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="92 0 -62" material="gunmetal"/>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-92 0 62" material="gunmetal"/>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-92 0 -62" material="clans_rust"/>
+  </group>
+  <box size="270 16 96" pos="0 46 0" material="steel_dark"/>
+  <!-- fenders -->
+  <box size="70 5 30" rot="-8 0 0" pos="92 64 62" material="clans_rust"/>
+  <box size="70 5 30" rot="8 0 0" pos="92 64 -62" material="clans_tin"/>
+
+  <!-- cab and hood: a side profile, rusty, with sides leaning in -->
+  <shape closed="1" v="-8 54 140 54 146 84 76 92 60 98 44 132 -8 134" material="clans_rust">
+    <extrude amount="130"/><bevel amount="3" bevelSegments="1"/>
+    <taper center="0 54 0" amount="-0.12" axis="y" effect="z"/>
+  </shape>
+  <box size="70 3 104" rot="0 0 -6" pos="110 89.5 0" material="clans_paint" tint="1"/>
+  <box size="3 22 96" rot="0 0 -52" pos="52 115 0" material="glass"/>
+  <box size="48 32 3" pos="20 84 64.5" material="clans_paint" tint="1"/>
+  <box size="44 28 3" rot="0 0 4" pos="22 84 -64.5" material="clans_tin"/>
+  <box size="52 4 112" pos="18 136 0" material="clans_cloth" tint="1"/>
+  <!-- roof lamp bar -->
+  <box size="6 6 100" pos="34 142 0" material="steel_dark"/>
+  <cylinder radius="5" height="6" sides="8" rot="0 0 -90" pos="38 147 -34" material="steel_dark"><array count="3" translation="0 0 0"/></cylinder>
+  <cylinder radius="5" height="6" sides="8" rot="0 0 -90" pos="38 147 0" material="steel_dark"/>
+  <cylinder radius="5" height="6" sides="8" rot="0 0 -90" pos="38 147 34" material="steel_dark"/>
+  <box size="1 6 6" pos="41.2 147 -34" material="lamp" unlit="1" castShadow="0"/>
+  <box size="1 6 6" pos="41.2 147 0" material="lamp" unlit="1" castShadow="0"/>
+  <box size="1 6 6" pos="41.2 147 34" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 5 4" pos="146 74 44" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 5 4" pos="146 74 -44" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- spiked bull bar -->
+  <tube ax="150" ay="40" az="-56" bx="150" by="40" bz="56" r0="4" material="steel_dark"/>
+  <tube ax="152" ay="70" az="-50" bx="152" by="70" bz="50" r0="3.4" material="steel_dark"/>
+  <tube ax="150" ay="40" az="-36" bx="152" by="80" bz="-30" r0="3" material="steel_dark"/>
+  <tube ax="150" ay="40" az="36" bx="152" by="80" bz="30" r0="3" material="steel_dark"/>
+  <group pos="152 56 0" rot="0 0 -90">
+    <clans-spike radius="4" length="22" pos="0 0 -44"/><clans-spike radius="4" length="26" pos="0 0 -14"/>
+    <clans-spike radius="4" length="26" pos="0 0 14"/><clans-spike radius="4" length="22" pos="0 0 44"/>
+  </group>
+
+  <!-- bed: floor, walls of mismatched plates, tailgate, pedestal -->
+  <box size="140 8 128" pos="-80 58 0" material="clans_wood"/>
+  <box size="140 34 4" rot="4 0 0" pos="-80 79 64" material="clans_paint" tint="1"/>
+  <box size="130 30 4" rot="-4 0 0" pos="-86 77 -64" material="clans_sheet_rust"/>
+  <box size="4 30 128" rot="0 0 6" pos="-150 77 0" material="clans_tin"/>
+  <cylinder radius="11" height="48" sides="10" pos="-62 86 0" material="steel_dark"/>
+  <cylinder radius="20" height="4" sides="12" pos="-62 110 0" material="clans_rust"/>
+  <clans-drum radius="16" height="40" pos="-126 62 42" material="clans_drum"/>
+  <cylinder radius="26" height="18" tube="11" sides="12" rot="0 0 76" pos="-16 92 -30" material="rubber"/>
+  <box size="12 22 18" pos="-124 73 -40" material="clans_paint" tint="1"/>
+  <box size="12 22 18" pos="-110 73 -42" material="hazard"/>
+  <tube ax="-30" ay="62" az="56" bx="-30" by="150" bz="56" r0="1" material="steel_dark"/>
+</prefab>

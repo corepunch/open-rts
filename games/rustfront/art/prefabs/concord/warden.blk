@@ -1,0 +1,222 @@
+<!-- Lumen Concord Warden, line infantry, about 180 cm. The rifleman's CAT biped (copied from
+     Scener's biped preset, apps/scener/prefabs/characters/presets/biped.blk) in a sleek white
+     armoured suit over a graphite undersuit: a full helmet with a cyan visor band, a team-colour
+     waist, chest inlay and shoulder pads (tint), a slim power pack, and a white beam carbine with
+     a crystal emitter carried as a rigid bone on the ribcage so it is not mirrored onto both
+     hands. Same skeleton, joint names, poses and clips as the rifleman. Body frame Z up, facing
+     local -Y, the character's left at +X (the sprite scene turns the instance to Y up and +X).
+     Lengths in centimetres. -->
+<prefab up="z" front="-y">
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <material id="concord_armor"    color="0.90 0.92 0.95" shininess="50" specular="1"/>
+  <material id="concord_under"    color="0.22 0.24 0.29" shininess="20"/>
+  <!-- The beam flash shows on the firing frame only (art/sprites.py turns the option on). -->
+  <option name="flash" enabled="0" />
+
+  <hub name="pelvis" aim="0 90" length="14" radius="18 11.5" material="paint_plain" tint="1">
+    <ellipsoid on="120 -15" at="0.25" radii="9 8 10" sink="4.5" material="concord_armor" />
+    <ellipsoid on="-120 -15" at="0.25" radii="9 8 10" sink="4.5" material="concord_armor" />
+    <ellipsoid on="0 10" at="0.6" radii="17 11 4" sink="4" material="concord_graphite" />
+    <limb name="left_leg" type="leg" at="0.25" from="90 0" sink="3.8" mirror="1">
+      <bone name="left_thigh" aim="0 -90" length="44" radius="12 12.5" taper="0.8" overlap="6" material="concord_armor">
+        <bone name="left_calf" aim="0 -90" length="43" radius="9.5 10" taper="0.7" overlap="4" material="concord_armor">
+          <ellipsoid on="0 0" at="0" radii="7 6.5 7" sink="2" material="concord_under" />
+          <ellipsoid on="0 0" at="0.85" radii="9.5 10.5 10" sink="6" material="concord_armor" />
+          <ellipsoid on="0 0" at="0.62" radii="9.8 2 10" sink="6" material="glow" unlit="1" castShadow="0" />
+          <ankle name="left_foot" aim="0 -12" length="18" radius="6 5" overlap="3" material="concord_under">
+            <digit name="left_toe" at="1" from="0 -30" aim="0 -6" links="2" length="4" radius="5.5 3.8" taper="0.9" overlap="3" material="concord_under" />
+          </ankle>
+        </bone>
+      </bone>
+    </limb>
+    <spine name="spine" links="3" aim="0 90" aimEnd="0 86" length="24" radius="13 9.5" taper="1.1" volume="0" material="concord_under">
+      <ellipsoid on="0 0" at="0.5" radii="17 12 23" sink="9.8" material="concord_armor" />
+      <ellipsoid on="0 -4" at="0.62" radii="8 4 12" sink="1.5" material="paint_plain" tint="1" />
+      <hub name="ribcage" aim="0 90" length="20" radius="20 13" material="concord_armor">
+        <ellipsoid on="40 0" at="0.68" radii="10 3.5 8.5" sink="2.5" material="concord_armor" />
+        <ellipsoid on="-40 0" at="0.68" radii="10 3.5 8.5" sink="2.5" material="concord_armor" />
+        <ellipsoid on="0 10" at="0.55" radii="6 3 3" sink="1" material="glow" unlit="1" castShadow="0" />
+        <!-- a slim power pack with a cyan cell, and the beam carbine at port arms across the chest -->
+        <ellipsoid on="180 0" at="0.5" radii="13 8 15" sink="3" material="concord_armor" />
+        <ellipsoid on="180 10" at="0.6" radii="4 4 9" sink="7" material="glow" unlit="1" castShadow="0" />
+        <bone name="weapon" at="0.45" from="0 -10" aim="-35 5" length="82" radius="4.2 3.6" taper="0.7" material="concord_armor">
+          <ellipsoid on="0 90" at="1" sink="5" radii="10 10 10" material="glow" unlit="1" castShadow="0" if-feature="flash" />
+          <ellipsoid on="0 90" at="1" sink="4" radii="5.5 5.5 5.5" material="concord_core" unlit="1" castShadow="0" if-feature="flash" />
+          <ellipsoid on="0 -90" at="0.35" radii="2.2 5 7" sink="2" material="concord_graphite" />
+          <ellipsoid on="0 90" at="0.4" radii="2.6 3 9" sink="2.2" material="concord_graphite" />
+          <ellipsoid on="0 90" at="0.55" radii="1.2 1.5 8" sink="0.4" material="glow" unlit="1" castShadow="0" />
+          <ellipsoid on="0 90" at="0.96" radii="3 3 3" sink="1" material="concord_crystal" />
+        </bone>
+        <limb name="left_arm" type="arm" at="0.9" from="90 0" mirror="1">
+          <collarbone name="left_collarbone" aim="90 0" length="8" radius="4" material="concord_under">
+            <bone name="left_upperarm" aim="90 -82" length="29" radius="8 8.5" taper="0.8" overlap="4" material="concord_armor">
+              <ellipsoid on="90 20" at="0.08" radii="9 8.5 8.5" sink="6" material="paint_plain" tint="1" />
+              <bone name="left_forearm" aim="0 -86" length="26" radius="6 6.4" taper="0.8" material="paint_plain" tint="1">
+                <palm name="left_palm" aim="0 -90" length="12" radius="4 5" overlap="2" material="concord_under" />
+              </bone>
+            </bone>
+          </collarbone>
+        </limb>
+        <spine name="neck" aim="0 90" aimEnd="0 80" length="9" radius="5.5" material="concord_under">
+          <hub name="head" aim="0 90" length="21" radius="8.5 10" material="concord_armor">
+            <bone name="helmet" at="0.62" from="0 90" aim="0 90" length="13" radius="13.5 14.5" sink="9" material="concord_armor">
+              <ellipsoid on="0 -5" at="0.32" radii="12 5 6" sink="2.5" material="concord_graphite" />
+              <ellipsoid on="0 -5" at="0.32" radii="10 2.5 2.2" sink="0" material="glow" unlit="1" castShadow="0" />
+              <ellipsoid on="0 60" at="0.8" radii="3 10 3" sink="1" material="paint_plain" tint="1" />
+            </bone>
+          </hub>
+        </spine>
+      </hub>
+    </spine>
+  </hub>
+
+  <!-- Pose library, the rifleman's: the carbine keeps the rifle's bone (same root, aim and
+       length), so the hands stay on it. The right wrist behind the grip, the left under the
+       fore-end. Arm IK offsets are in the instance's frame, from the rest wrists
+       (25.5, -2.7, 91.7; rifle base 0, -10.8, 135.6; read with scener list-joints), so a pose that
+       moves the torso moves the hand offsets with it: -Y is forward, Z up. -->
+  <pose name="Ready">
+    <joint target="pelvis" pos="3 1 -3" rot="0 -4 6" />
+    <ik limb="left_leg" offset="3 -9 0" bend="10 0" />
+    <ik limb="right_leg" offset="-7 11 0" bend="-25 0" />
+    <joint target="right_foot" aim="-30 -12" />
+    <joint target="spine" aim="0 87" />
+    <joint target="ribcage" rot="0 3 -8" />
+    <joint target="head" rot="-6 0 14" />
+    <joint target="weapon" aim="-14 -37" />
+    <ik limb="right_arm" offset="19.7 -9.2 30.1" bend="-90 -50" />
+    <ik limb="left_arm" offset="-25.9 -29.5 15.4" bend="90 -60" />
+  </pose>
+  <!-- Running: the torso leans into it and the carbine is carried low across the body, the left
+       hand under its fore-end (moved from the rifleman's, whose left hand hangs free here). -->
+  <pose name="Run">
+    <joint target="spine" aim="0 74" />
+    <joint target="head" rot="-12 0 0" />
+    <joint target="weapon" aim="-25 -22" />
+    <ik limb="right_arm" offset="17 -24 28" bend="-90 -50" />
+    <ik limb="left_arm" offset="-36 -40 21" bend="90 -50" />
+  </pose>
+  <!-- Firing stance: feet apart, knees bent, weight forward. -->
+  <pose name="Aim">
+    <joint target="pelvis" pos="0 -2 -8" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="0 82" />
+    <joint target="weapon" aim="0 8" />
+    <ik limb="right_arm" offset="19.5 -22 27" bend="-90 -30" />
+    <ik limb="left_arm" offset="-21.5 -48 27" bend="90 -30" />
+    <joint target="head" rot="2 0 0" />
+  </pose>
+  <pose name="Recoil">
+    <joint target="pelvis" pos="0 3 -9" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="0 96" />
+    <joint target="weapon" aim="0 -4" />
+    <ik limb="right_arm" offset="19.5 -6 31" bend="-90 -30" />
+    <ik limb="left_arm" offset="-21.5 -32 36" bend="90 -30" />
+    <joint target="head" rot="-6 0 0" />
+  </pose>
+  <!-- Death: shot, the soldier jerks and lets go with the left hand, the knees give, he drops to
+       his knees, topples forward and ends face down, one arm under him, legs loose. Limbs are posed
+       by aim (relative to the parent), the pelvis by pos and aim; no arm ever goes out flat. -->
+  <pose name="Hit">
+    <joint target="pelvis" pos="0 7 -5" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="180 78" />
+    <joint target="ribcage" rot="-12 6 14" />
+    <joint target="head" rot="-28 0 -12" />
+    <joint target="weapon" aim="-30 -40" />
+    <ik limb="right_arm" offset="18 -10 24" bend="-90 -40" />
+    <ik limb="left_arm" offset="-20 -10 34" bend="90 -60" />
+  </pose>
+  <pose name="Buckle">
+    <joint target="pelvis" pos="0 2 -30" rot="0 0 -10" />
+    <ik limb="left_leg" offset="2 -16 0" bend="0 0" />
+    <ik limb="right_leg" offset="-2 12 0" bend="-10 0" />
+    <joint target="spine" aim="0 68" />
+    <joint target="ribcage" rot="12 -6 8" />
+    <joint target="head" rot="26 0 -8" />
+    <joint target="weapon" aim="-20 -72" />
+    <ik limb="right_arm" offset="14 -16 -6" bend="-90 -30" />
+    <ik limb="left_arm" offset="-22 -18 4" bend="90 -60" />
+  </pose>
+  <pose name="Kneel">
+    <joint target="pelvis" pos="0 4 -50" rot="0 0 -14" />
+    <ik limb="left_leg" offset="2 20 0" bend="0 0" />
+    <ik limb="right_leg" offset="-4 26 0" bend="0 0" />
+    <joint target="spine" aim="0 58" />
+    <joint target="ribcage" rot="14 -10 10" />
+    <joint target="head" rot="34 0 -14" />
+    <joint target="weapon" aim="-50 -80" />
+    <joint target="right_upperarm" aim="-80 -80" />
+    <joint target="right_forearm" aim="0 -70" />
+    <joint target="left_upperarm" aim="70 -70" />
+    <joint target="left_forearm" aim="0 -60" />
+  </pose>
+  <pose name="Topple">
+    <joint target="pelvis" pos="0 -12 -62" aim="0 38" rot="0 -12 0" />
+    <ik limb="left_leg" offset="2 24 0" bend="0 0" />
+    <ik limb="right_leg" offset="-4 30 0" bend="0 -20" />
+    <joint target="spine" aim="0 76" />
+    <joint target="ribcage" rot="4 -14 6" />
+    <joint target="head" rot="10 0 -24" />
+    <joint target="weapon" aim="-70 -60" />
+    <joint target="right_upperarm" aim="-40 -40" />
+    <joint target="right_forearm" aim="0 -30" />
+    <joint target="left_upperarm" aim="40 -60" />
+    <joint target="left_forearm" aim="10 -40" />
+  </pose>
+  <pose name="Dead">
+    <joint target="pelvis" pos="0 -60 -77" aim="0 2" rot="0 -16 0" />
+    <joint target="left_thigh" aim="50 -70" />
+    <joint target="left_calf" aim="-80 -40" />
+    <joint target="right_thigh" aim="-6 -86" />
+    <joint target="right_calf" aim="-30 -80" />
+    <joint target="spine" aim="0 88" />
+    <joint target="ribcage" rot="0 -6 4" />
+    <joint target="head" rot="0 0 -70" />
+    <joint target="weapon" aim="-80 40" />
+    <joint target="right_upperarm" aim="-60 20" />
+    <joint target="right_forearm" aim="40 30" />
+    <joint target="left_upperarm" aim="65 -70" />
+    <joint target="left_forearm" aim="10 -20" />
+  </pose>
+
+  <!-- Clips (seconds). The sprite renderer samples them at fixed times (art/sprites.py). -->
+  <!-- Standing guard: a slow look left and right with the weight shifting. -->
+  <clip name="Idle" length="2.4" loop="1">
+    <key t="0" pose="Ready" />
+    <key t="0.6" pose="Ready"><joint target="pelvis" pos="4 1 -3.5" rot="0 -4 7" /><joint target="ribcage" rot="0 3 -2" /><joint target="head" rot="-4 0 34" /></key>
+    <key t="1.2" pose="Ready"><joint target="pelvis" pos="3 1 -2.5" rot="0 -4 6" /><joint target="ribcage" rot="3 3 -8" /><joint target="head" rot="-12 0 8" /></key>
+    <key t="1.8" pose="Ready"><joint target="pelvis" pos="2 1 -3" rot="0 -3 4" /><joint target="ribcage" rot="0 2 -14" /><joint target="head" rot="-2 0 -18" /></key>
+  </clip>
+  <!-- Added over the running gait, two nods of the chest a stride (the gait's cycle is 0.5 s). -->
+  <clip name="RunBob" length="0.5" loop="1">
+    <key t="0"><joint target="ribcage" rot="4 0 0" /></key>
+    <key t="0.125"><joint target="ribcage" rot="-4 0 0" /></key>
+    <key t="0.25"><joint target="ribcage" rot="4 0 0" /></key>
+    <key t="0.375"><joint target="ribcage" rot="-4 0 0" /></key>
+  </clip>
+  <clip name="Fire" length="0.3" loop="1">
+    <key t="0" pose="Aim" ease="step" />
+    <key t="0.1" pose="Recoil" ease="step" />
+    <key t="0.2" pose="Aim" ease="step" />
+  </clip>
+  <clip name="Die" length="1.0">
+    <key t="0" pose="Aim" />
+    <key t="0.1" pose="Hit" />
+    <key t="0.3" pose="Buckle" />
+    <key t="0.5" pose="Kneel" />
+    <key t="0.7" pose="Topple" />
+    <key t="0.88" pose="Dead" />
+  </clip>
+</prefab>

@@ -33,7 +33,15 @@ static const struct { const char *name; uint16_t type; } unit_names[] = {
     {"hq", MT_HQ}, {"power", MT_POWER}, {"refinery", MT_REFINERY}, {"barracks", MT_BARRACKS},
     {"factory", MT_FACTORY}, {"turret", MT_GUN_TURRET}, {"scout", MT_SCOUT}, {"tank", MT_TANK},
     {"artillery", MT_ARTILLERY}, {"harvester", MT_HARVESTER}, {"apc", MT_APC},
-    {"rifleman", MT_RIFLEMAN}, {"rocket", MT_ROCKET},
+    {"rifleman", MT_RIFLEMAN}, {"rocket", MT_ROCKET}, {"mastodon", MT_MASTODON},
+    {"cl_hall", MT_CL_HALL}, {"cl_generator", MT_CL_GENERATOR}, {"cl_smelter", MT_CL_SMELTER},
+    {"cl_camp", MT_CL_CAMP}, {"cl_yard", MT_CL_YARD}, {"cl_tower", MT_CL_TOWER}, {"cl_trike", MT_CL_TRIKE},
+    {"cl_truck", MT_CL_TRUCK}, {"cl_crawler", MT_CL_CRAWLER}, {"cl_rig", MT_CL_RIG},
+    {"cl_hauler", MT_CL_HAULER}, {"cl_raider", MT_CL_RAIDER}, {"cl_torcher", MT_CL_TORCHER},
+    {"lc_spire", MT_LC_SPIRE}, {"lc_fusion", MT_LC_FUSION}, {"lc_extractor", MT_LC_EXTRACTOR},
+    {"lc_academy", MT_LC_ACADEMY}, {"lc_foundry", MT_LC_FOUNDRY}, {"lc_tower", MT_LC_TOWER},
+    {"lc_skimmer", MT_LC_SKIMMER}, {"lc_glaive", MT_LC_GLAIVE}, {"lc_prism", MT_LC_PRISM},
+    {"lc_harvester", MT_LC_HARVESTER}, {"lc_warden", MT_LC_WARDEN}, {"lc_lancer", MT_LC_LANCER},
 };
 
 static uint16_t unit_type(const char *name) {

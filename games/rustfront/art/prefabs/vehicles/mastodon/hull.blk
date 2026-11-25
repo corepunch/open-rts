@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mastodon heavy tank hull without its turret (see mastodon/turret.blk and mastodon.blk). Length 330 cm on X, width 216 cm on Z, origin at the hull centre on the ground, front +X. Two track units a side under a broad, low hull in team paint: a stepped glacis, side armour boxes, an engine deck with exhaust stacks at the back. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- running gear: an inner and an outer track a side, road wheels on the outer ones -->
+  <soft-box width="318" height="50" depth="34" radius="23" bevel="3" pos="0 25 88" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <soft-box width="318" height="50" depth="34" radius="23" bevel="3" pos="0 25 -88" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <soft-box width="300" height="46" depth="30" radius="21" bevel="3" pos="0 23 54" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <soft-box width="300" height="46" depth="30" radius="21" bevel="3" pos="0 23 -54" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <cylinder radius="15" height="36" sides="10" rot="90 0 {18*move}" pos="-116 22 88" material="steel_dark"><array count="6" translation="46.4 0 0"/></cylinder>
+  <cylinder radius="15" height="36" sides="10" rot="90 0 {18*move}" pos="-116 22 -88" material="steel_dark"><array count="6" translation="46.4 0 0"/></cylinder>
+
+  <!-- hull: a long side profile with a two-step glacis, sides leaning in -->
+  <shape closed="1" v="-160 44 118 44 156 58 150 70 122 92 -150 92 -166 74" material="paint_plain" tint="1">
+    <extrude amount="150"/><bevel amount="5" bevelSegments="2"/>
+    <taper center="0 44 0" amount="-0.14" axis="y" effect="z"/>
+  </shape>
+  <!-- side armour boxes over the tracks, team paint with a white edge -->
+  <chunk width="270" height="30" depth="44" radius="10" bevel="4" lean="0.1" pos="-6 64 86" material="paint" tint="1"/>
+  <chunk width="270" height="30" depth="44" radius="10" bevel="4" lean="0.1" pos="-6 64 -86" material="paint" tint="1"/>
+  <box size="262 4 46" pos="-6 50 86" material="trim_light"/>
+  <box size="262 4 46" pos="-6 50 -86" material="trim_light"/>
+  <box size="40 8 4" pos="-90 70 109" material="hazard"/>
+  <box size="40 8 4" pos="-90 70 -109" material="hazard"/>
+  <!-- engine deck: grilles and two stacks -->
+  <box size="70 4 110" pos="-118 93.5 0" material="grating"/>
+  <cylinder radius="8" height="26" sides="10" pos="-150 104 44" material="gunmetal"/>
+  <cylinder radius="8" height="26" sides="10" pos="-150 104 -44" material="gunmetal"/>
+  <cylinder radius="5" height="2" sides="10" pos="-150 118 44" material="rubber"/>
+  <cylinder radius="5" height="2" sides="10" pos="-150 118 -44" material="rubber"/>
+  <!-- front: tow hooks, lights, a dozer lip -->
+  <box size="10 14 196" pos="158 50 0" material="steel_dark"/>
+  <box size="4 5 4" pos="148 82 54" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 5 4" pos="148 82 -54" material="lamp" unlit="1" castShadow="0"/>
+  <box size="18 12 34" pos="-56 98 62" material="trim"/>
+</prefab>

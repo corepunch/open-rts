@@ -10,9 +10,35 @@
   "tank",
   "artillery",
   "harvester",
+  "mastodon",
+  "cl_hall",
+  "cl_generator",
+  "cl_smelter",
+  "cl_camp",
+  "cl_yard",
+  "cl_tower",
+  "cl_trike",
+  "cl_truck",
+  "cl_crawler",
+  "cl_rig",
+  "cl_hauler",
+  "lc_spire",
+  "lc_fusion",
+  "lc_extractor",
+  "lc_academy",
+  "lc_foundry",
+  "lc_tower",
+  "lc_skimmer",
+  "lc_glaive",
+  "lc_prism",
+  "lc_harvester",
   "apc",
   "rifleman",
-  "rocket"
+  "rocket",
+  "cl_raider",
+  "cl_torcher",
+  "lc_warden",
+  "lc_lancer"
  ],
  "_view": {
   "cm_per_px": 4.1667,
@@ -213,6 +239,719 @@
    ]
   }
  },
+ "cl_camp": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_camp_body.png",
+    "frame": [
+     98,
+     125
+    ],
+    "frames": 8,
+    "pivot": [
+     47.0,
+     93.0
+    ],
+    "team": "cl_camp_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_camp_shadow.png",
+   "frame": [
+    126,
+    72
+   ],
+   "pivot": [
+    47.0,
+    40.0
+   ]
+  }
+ },
+ "cl_crawler": {
+  "facings": 16,
+  "layers": {
+   "hull": {
+    "columns": 6,
+    "count": 32,
+    "facings": 16,
+    "file": "cl_crawler_hull.png",
+    "frame": [
+     88,
+     68
+    ],
+    "frames": 2,
+    "pivot": [
+     44.0,
+     44.0
+    ],
+    "team": "cl_crawler_hull_team.png"
+   },
+   "turret": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_crawler_turret.png",
+    "frame": [
+     122,
+     81
+    ],
+    "frames": 3,
+    "mount_px": [
+     [
+      -3.36,
+      -18.6
+     ],
+     [
+      -3.1,
+      -17.75
+     ],
+     [
+      -2.38,
+      -17.02
+     ],
+     [
+      -1.29,
+      -16.53
+     ],
+     [
+      -0.0,
+      -16.36
+     ],
+     [
+      1.29,
+      -16.53
+     ],
+     [
+      2.38,
+      -17.02
+     ],
+     [
+      3.1,
+      -17.75
+     ],
+     [
+      3.36,
+      -18.6
+     ],
+     [
+      3.1,
+      -19.46
+     ],
+     [
+      2.38,
+      -20.19
+     ],
+     [
+      1.29,
+      -20.67
+     ],
+     [
+      0.0,
+      -20.84
+     ],
+     [
+      -1.29,
+      -20.67
+     ],
+     [
+      -2.38,
+      -20.19
+     ],
+     [
+      -3.1,
+      -19.46
+     ]
+    ],
+    "pivot": [
+     61.0,
+     41.0
+    ],
+    "team": "cl_crawler_turret_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_crawler_shadow.png",
+   "frame": [
+    101,
+    60
+   ],
+   "pivot": [
+    37.0,
+    34.0
+   ]
+  }
+ },
+ "cl_generator": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_generator_body.png",
+    "frame": [
+     98,
+     145
+    ],
+    "frames": 8,
+    "pivot": [
+     47.0,
+     113.0
+    ],
+    "team": "cl_generator_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_generator_shadow.png",
+   "frame": [
+    142,
+    66
+   ],
+   "pivot": [
+    47.0,
+    34.0
+   ]
+  }
+ },
+ "cl_hall": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_hall_body.png",
+    "frame": [
+     147,
+     182
+    ],
+    "frames": 8,
+    "pivot": [
+     71.0,
+     134.0
+    ],
+    "team": "cl_hall_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_hall_shadow.png",
+   "frame": [
+    201,
+    103
+   ],
+   "pivot": [
+    71.0,
+    55.0
+   ]
+  }
+ },
+ "cl_hauler": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 6,
+    "count": 32,
+    "facings": 16,
+    "file": "cl_hauler_body.png",
+    "frame": [
+     100,
+     86
+    ],
+    "frames": 2,
+    "pivot": [
+     50.0,
+     56.0
+    ],
+    "team": "cl_hauler_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_hauler_shadow.png",
+   "frame": [
+    122,
+    72
+   ],
+   "pivot": [
+    46.0,
+    40.0
+   ]
+  }
+ },
+ "cl_raider": {
+  "anims": {
+   "die": {
+    "facings": 8,
+    "frames": 7,
+    "start": 96
+   },
+   "fire": {
+    "facings": 8,
+    "frames": 1,
+    "start": 80
+   },
+   "fire2": {
+    "facings": 8,
+    "frames": 1,
+    "start": 88
+   },
+   "idle": {
+    "facings": 8,
+    "frames": 4,
+    "start": 0
+   },
+   "walk": {
+    "facings": 8,
+    "frames": 6,
+    "start": 32
+   }
+  },
+  "facings": 8,
+  "layers": {
+   "body": {
+    "columns": 13,
+    "count": 152,
+    "file": "cl_raider_body.png",
+    "frame": [
+     72,
+     60
+    ],
+    "pivot": [
+     36.0,
+     37.0
+    ],
+    "team": "cl_raider_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 13,
+   "count": 152,
+   "file": "cl_raider_shadow.png",
+   "frame": [
+    73,
+    48
+   ],
+   "pivot": [
+    34,
+    25
+   ]
+  }
+ },
+ "cl_rig": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_rig_body.png",
+    "frame": [
+     95,
+     79
+    ],
+    "frames": 3,
+    "pivot": [
+     47.0,
+     55.0
+    ],
+    "team": "cl_rig_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_rig_shadow.png",
+   "frame": [
+    99,
+    61
+   ],
+   "pivot": [
+    36.0,
+    35.0
+   ]
+  }
+ },
+ "cl_smelter": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_smelter_body.png",
+    "frame": [
+     147,
+     154
+    ],
+    "frames": 8,
+    "pivot": [
+     71.0,
+     122.0
+    ],
+    "team": "cl_smelter_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_smelter_shadow.png",
+   "frame": [
+    165,
+    79
+   ],
+   "pivot": [
+    71.0,
+    47.0
+   ]
+  }
+ },
+ "cl_torcher": {
+  "anims": {
+   "die": {
+    "facings": 8,
+    "frames": 7,
+    "start": 96
+   },
+   "fire": {
+    "facings": 8,
+    "frames": 1,
+    "start": 80
+   },
+   "fire2": {
+    "facings": 8,
+    "frames": 1,
+    "start": 88
+   },
+   "idle": {
+    "facings": 8,
+    "frames": 4,
+    "start": 0
+   },
+   "walk": {
+    "facings": 8,
+    "frames": 6,
+    "start": 32
+   }
+  },
+  "facings": 8,
+  "layers": {
+   "body": {
+    "columns": 13,
+    "count": 152,
+    "file": "cl_torcher_body.png",
+    "frame": [
+     72,
+     72
+    ],
+    "pivot": [
+     36.0,
+     47.0
+    ],
+    "team": "cl_torcher_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 13,
+   "count": 152,
+   "file": "cl_torcher_shadow.png",
+   "frame": [
+    76,
+    49
+   ],
+   "pivot": [
+    35,
+    25
+   ]
+  }
+ },
+ "cl_tower": {
+  "facings": 1,
+  "layers": {
+   "base": {
+    "anim": 2,
+    "columns": 2,
+    "count": 2,
+    "damaged": 0,
+    "facings": 1,
+    "file": "cl_tower_base.png",
+    "frame": [
+     47,
+     65
+    ],
+    "frames": 2,
+    "pivot": [
+     23.0,
+     50.0
+    ],
+    "team": "cl_tower_base_team.png"
+   },
+   "build": {
+    "anim": 4,
+    "columns": 4,
+    "count": 4,
+    "damaged": 0,
+    "facings": 1,
+    "file": "cl_tower_build.png",
+    "frame": [
+     50,
+     84
+    ],
+    "frames": 4,
+    "pivot": [
+     23.0,
+     67.0
+    ],
+    "team": "cl_tower_build_team.png"
+   },
+   "head": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_tower_head.png",
+    "frame": [
+     76,
+     52
+    ],
+    "frames": 3,
+    "mount_px": [
+     [
+      0.0,
+      -19.68
+     ]
+    ],
+    "pivot": [
+     38.0,
+     33.0
+    ],
+    "team": "cl_tower_head_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_tower_shadow.png",
+   "frame": [
+    75,
+    43
+   ],
+   "pivot": [
+    23.0,
+    27.0
+   ]
+  }
+ },
+ "cl_trike": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_trike_body.png",
+    "frame": [
+     55,
+     50
+    ],
+    "frames": 3,
+    "pivot": [
+     27.0,
+     37.0
+    ],
+    "team": "cl_trike_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_trike_shadow.png",
+   "frame": [
+    66,
+    37
+   ],
+   "pivot": [
+    20.0,
+    23.0
+   ]
+  }
+ },
+ "cl_truck": {
+  "facings": 16,
+  "layers": {
+   "hull": {
+    "columns": 6,
+    "count": 32,
+    "facings": 16,
+    "file": "cl_truck_hull.png",
+    "frame": [
+     86,
+     64
+    ],
+    "frames": 2,
+    "pivot": [
+     43.0,
+     44.0
+    ],
+    "team": "cl_truck_hull_team.png"
+   },
+   "turret": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_truck_turret.png",
+    "frame": [
+     86,
+     56
+    ],
+    "frames": 3,
+    "mount_px": [
+     [
+      -14.88,
+      -20.04
+     ],
+     [
+      -13.75,
+      -16.24
+     ],
+     [
+      -10.52,
+      -13.02
+     ],
+     [
+      -5.69,
+      -10.87
+     ],
+     [
+      -0.0,
+      -10.12
+     ],
+     [
+      5.69,
+      -10.87
+     ],
+     [
+      10.52,
+      -13.02
+     ],
+     [
+      13.75,
+      -16.24
+     ],
+     [
+      14.88,
+      -20.04
+     ],
+     [
+      13.75,
+      -23.83
+     ],
+     [
+      10.52,
+      -27.05
+     ],
+     [
+      5.69,
+      -29.2
+     ],
+     [
+      0.0,
+      -29.96
+     ],
+     [
+      -5.69,
+      -29.2
+     ],
+     [
+      -10.52,
+      -27.05
+     ],
+     [
+      -13.75,
+      -23.83
+     ]
+    ],
+    "pivot": [
+     43.0,
+     35.0
+    ],
+    "team": "cl_truck_turret_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_truck_shadow.png",
+   "frame": [
+    91,
+    57
+   ],
+   "pivot": [
+    32.0,
+    33.0
+   ]
+  }
+ },
+ "cl_yard": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_yard_body.png",
+    "frame": [
+     147,
+     180
+    ],
+    "frames": 8,
+    "pivot": [
+     71.0,
+     132.0
+    ],
+    "team": "cl_yard_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_yard_shadow.png",
+   "frame": [
+    208,
+    98
+   ],
+   "pivot": [
+    71.0,
+    50.0
+   ]
+  }
+ },
  "factory": {
   "facings": 1,
   "layers": {
@@ -317,6 +1056,719 @@
    ],
    "pivot": [
     71.0,
+    58.0
+   ]
+  }
+ },
+ "lc_academy": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "lc_academy_body.png",
+    "frame": [
+     98,
+     133
+    ],
+    "frames": 20,
+    "pivot": [
+     47.0,
+     101.0
+    ],
+    "team": "lc_academy_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_academy_shadow.png",
+   "frame": [
+    128,
+    68
+   ],
+   "pivot": [
+    47.0,
+    36.0
+   ]
+  }
+ },
+ "lc_extractor": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "lc_extractor_body.png",
+    "frame": [
+     147,
+     125
+    ],
+    "frames": 8,
+    "pivot": [
+     71.0,
+     93.0
+    ],
+    "team": "lc_extractor_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_extractor_shadow.png",
+   "frame": [
+    160,
+    69
+   ],
+   "pivot": [
+    71.0,
+    37.0
+   ]
+  }
+ },
+ "lc_foundry": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "lc_foundry_body.png",
+    "frame": [
+     147,
+     170
+    ],
+    "frames": 20,
+    "pivot": [
+     71.0,
+     122.0
+    ],
+    "team": "lc_foundry_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_foundry_shadow.png",
+   "frame": [
+    178,
+    101
+   ],
+   "pivot": [
+    71.0,
+    53.0
+   ]
+  }
+ },
+ "lc_fusion": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "lc_fusion_body.png",
+    "frame": [
+     98,
+     137
+    ],
+    "frames": 20,
+    "pivot": [
+     47.0,
+     105.0
+    ],
+    "team": "lc_fusion_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_fusion_shadow.png",
+   "frame": [
+    113,
+    65
+   ],
+   "pivot": [
+    47.0,
+    33.0
+   ]
+  }
+ },
+ "lc_glaive": {
+  "facings": 16,
+  "layers": {
+   "hull": {
+    "columns": 6,
+    "count": 32,
+    "facings": 16,
+    "file": "lc_glaive_hull.png",
+    "frame": [
+     74,
+     54
+    ],
+    "frames": 2,
+    "pivot": [
+     37.0,
+     36.0
+    ],
+    "team": "lc_glaive_hull_team.png"
+   },
+   "turret": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "lc_glaive_turret.png",
+    "frame": [
+     164,
+     109
+    ],
+    "frames": 3,
+    "mount_px": [
+     [
+      -3.36,
+      -14.31
+     ],
+     [
+      -3.1,
+      -13.45
+     ],
+     [
+      -2.38,
+      -12.73
+     ],
+     [
+      -1.29,
+      -12.24
+     ],
+     [
+      -0.0,
+      -12.07
+     ],
+     [
+      1.29,
+      -12.24
+     ],
+     [
+      2.38,
+      -12.73
+     ],
+     [
+      3.1,
+      -13.45
+     ],
+     [
+      3.36,
+      -14.31
+     ],
+     [
+      3.1,
+      -15.17
+     ],
+     [
+      2.38,
+      -15.89
+     ],
+     [
+      1.29,
+      -16.38
+     ],
+     [
+      0.0,
+      -16.55
+     ],
+     [
+      -1.29,
+      -16.38
+     ],
+     [
+      -2.38,
+      -15.89
+     ],
+     [
+      -3.1,
+      -15.17
+     ]
+    ],
+    "pivot": [
+     82.0,
+     58.0
+    ],
+    "team": "lc_glaive_turret_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "lc_glaive_shadow.png",
+   "frame": [
+    101,
+    66
+   ],
+   "pivot": [
+    28.0,
+    40.0
+   ]
+  }
+ },
+ "lc_harvester": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 6,
+    "count": 32,
+    "facings": 16,
+    "file": "lc_harvester_body.png",
+    "frame": [
+     82,
+     74
+    ],
+    "frames": 2,
+    "pivot": [
+     41.0,
+     52.0
+    ],
+    "team": "lc_harvester_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "lc_harvester_shadow.png",
+   "frame": [
+    103,
+    58
+   ],
+   "pivot": [
+    33.0,
+    34.0
+   ]
+  }
+ },
+ "lc_lancer": {
+  "anims": {
+   "die": {
+    "facings": 8,
+    "frames": 7,
+    "start": 96
+   },
+   "fire": {
+    "facings": 8,
+    "frames": 1,
+    "start": 80
+   },
+   "fire2": {
+    "facings": 8,
+    "frames": 1,
+    "start": 88
+   },
+   "idle": {
+    "facings": 8,
+    "frames": 4,
+    "start": 0
+   },
+   "walk": {
+    "facings": 8,
+    "frames": 6,
+    "start": 32
+   }
+  },
+  "facings": 8,
+  "layers": {
+   "body": {
+    "columns": 13,
+    "count": 152,
+    "file": "lc_lancer_body.png",
+    "frame": [
+     82,
+     72
+    ],
+    "pivot": [
+     41.0,
+     43.0
+    ],
+    "team": "lc_lancer_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 13,
+   "count": 152,
+   "file": "lc_lancer_shadow.png",
+   "frame": [
+    87,
+    54
+   ],
+   "pivot": [
+    40,
+    27
+   ]
+  }
+ },
+ "lc_prism": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "lc_prism_body.png",
+    "frame": [
+     152,
+     129
+    ],
+    "frames": 3,
+    "pivot": [
+     76.0,
+     109.0
+    ],
+    "team": "lc_prism_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "lc_prism_shadow.png",
+   "frame": [
+    115,
+    62
+   ],
+   "pivot": [
+    31.0,
+    38.0
+   ]
+  }
+ },
+ "lc_skimmer": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "lc_skimmer_body.png",
+    "frame": [
+     88,
+     59
+    ],
+    "frames": 3,
+    "pivot": [
+     44.0,
+     37.0
+    ],
+    "team": "lc_skimmer_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "lc_skimmer_shadow.png",
+   "frame": [
+    66,
+    40
+   ],
+   "pivot": [
+    21.0,
+    23.0
+   ]
+  }
+ },
+ "lc_spire": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "lc_spire_body.png",
+    "frame": [
+     147,
+     193
+    ],
+    "frames": 20,
+    "pivot": [
+     71.0,
+     145.0
+    ],
+    "team": "lc_spire_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_spire_shadow.png",
+   "frame": [
+    153,
+    97
+   ],
+   "pivot": [
+    71.0,
+    49.0
+   ]
+  }
+ },
+ "lc_tower": {
+  "facings": 1,
+  "layers": {
+   "base": {
+    "anim": 2,
+    "columns": 2,
+    "count": 2,
+    "damaged": 0,
+    "facings": 1,
+    "file": "lc_tower_base.png",
+    "frame": [
+     46,
+     47
+    ],
+    "frames": 2,
+    "pivot": [
+     23.0,
+     32.0
+    ],
+    "team": "lc_tower_base_team.png"
+   },
+   "build": {
+    "anim": 4,
+    "columns": 4,
+    "count": 4,
+    "damaged": 0,
+    "facings": 1,
+    "file": "lc_tower_build.png",
+    "frame": [
+     50,
+     91
+    ],
+    "frames": 4,
+    "pivot": [
+     23.0,
+     69.0
+    ],
+    "team": "lc_tower_build_team.png"
+   },
+   "head": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "lc_tower_head.png",
+    "frame": [
+     116,
+     85
+    ],
+    "frames": 3,
+    "mount_px": [
+     [
+      0.0,
+      -25.04
+     ]
+    ],
+    "pivot": [
+     58.0,
+     47.0
+    ],
+    "team": "lc_tower_head_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_tower_shadow.png",
+   "frame": [
+    74,
+    38
+   ],
+   "pivot": [
+    23.0,
+    22.0
+   ]
+  }
+ },
+ "lc_warden": {
+  "anims": {
+   "die": {
+    "facings": 8,
+    "frames": 7,
+    "start": 96
+   },
+   "fire": {
+    "facings": 8,
+    "frames": 1,
+    "start": 80
+   },
+   "fire2": {
+    "facings": 8,
+    "frames": 1,
+    "start": 88
+   },
+   "idle": {
+    "facings": 8,
+    "frames": 4,
+    "start": 0
+   },
+   "walk": {
+    "facings": 8,
+    "frames": 6,
+    "start": 32
+   }
+  },
+  "facings": 8,
+  "layers": {
+   "body": {
+    "columns": 13,
+    "count": 152,
+    "file": "lc_warden_body.png",
+    "frame": [
+     74,
+     68
+    ],
+    "pivot": [
+     37.0,
+     40.0
+    ],
+    "team": "lc_warden_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 13,
+   "count": 152,
+   "file": "lc_warden_shadow.png",
+   "frame": [
+    80,
+    50
+   ],
+   "pivot": [
+    35,
+    26
+   ]
+  }
+ },
+ "mastodon": {
+  "facings": 16,
+  "layers": {
+   "hull": {
+    "columns": 6,
+    "count": 32,
+    "facings": 16,
+    "file": "mastodon_hull.png",
+    "frame": [
+     92,
+     75
+    ],
+    "frames": 2,
+    "pivot": [
+     46.0,
+     47.0
+    ],
+    "team": "mastodon_hull_team.png"
+   },
+   "turret": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "mastodon_turret.png",
+    "frame": [
+     198,
+     133
+    ],
+    "frames": 3,
+    "mount_px": [
+     [
+      -3.36,
+      -20.04
+     ],
+     [
+      -3.1,
+      -19.18
+     ],
+     [
+      -2.38,
+      -18.45
+     ],
+     [
+      -1.29,
+      -17.97
+     ],
+     [
+      -0.0,
+      -17.8
+     ],
+     [
+      1.29,
+      -17.97
+     ],
+     [
+      2.38,
+      -18.45
+     ],
+     [
+      3.1,
+      -19.18
+     ],
+     [
+      3.36,
+      -20.04
+     ],
+     [
+      3.1,
+      -20.89
+     ],
+     [
+      2.38,
+      -21.62
+     ],
+     [
+      1.29,
+      -22.1
+     ],
+     [
+      0.0,
+      -22.28
+     ],
+     [
+      -1.29,
+      -22.1
+     ],
+     [
+      -2.38,
+      -21.62
+     ],
+     [
+      -3.1,
+      -20.89
+     ]
+    ],
+    "pivot": [
+     99.0,
+     67.0
+    ],
+    "team": "mastodon_turret_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "mastodon_shadow.png",
+   "frame": [
+    152,
+    100
+   ],
+   "pivot": [
+    57.0,
     58.0
    ]
   }

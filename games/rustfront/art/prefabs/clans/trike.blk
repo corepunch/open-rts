@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Trike, the Scrap Clans' fast scout. Length 186 cm on X, width 110 cm on Z, origin at
+     the chassis centre on the ground, nose faces +X. A three-wheeled bike: one fat front wheel on
+     a long fork, two knobbly rear wheels on a swing axle, a team-painted fuel tank, a hunched
+     rider in goggles and a team scarf, a spiked bull bar, a machine gun clamped beside the tank,
+     a headlight and a drum lashed to the rear rack. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <material id="clans_skin"    color="0.66 0.46 0.32" shininess="8"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, the barrel
+       back), fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 4 : (fire == 2 ? 1.5 : 0)"/>
+
+  <!-- wheels -->
+  <cylinder radius="27" height="18" sides="12" rot="90 0 0" pos="64 27 0" material="rubber"/>
+  <cylinder radius="11" height="20" sides="6" rot="90 0 {30*move}" pos="64 27 0" material="gunmetal"/>
+  <cylinder radius="24" height="20" sides="12" rot="90 0 0" pos="-56 24 42" material="rubber"/>
+  <cylinder radius="24" height="20" sides="12" rot="90 0 0" pos="-56 24 -42" material="rubber"/>
+  <cylinder radius="10" height="22" sides="6" rot="90 0 {30*move}" pos="-56 24 42" material="gunmetal"/>
+  <cylinder radius="10" height="22" sides="6" rot="90 0 {30*move}" pos="-56 24 -42" material="gunmetal"/>
+  <cylinder radius="4" height="70" sides="8" rot="90 0 0" pos="-56 24 0" material="steel_dark"/>
+  <!-- rear mudguards: one rust, one team paint -->
+  <box size="46 4 24" rot="0 0 -8" pos="-56 52 44" material="clans_rust"/>
+  <box size="46 4 24" rot="0 0 8" pos="-56 52 -44" material="clans_paint" tint="1"/>
+
+  <!-- frame, fork and handlebars -->
+  <tube ax="-56" ay="26" az="0" bx="36" by="72" bz="0" r0="4" material="steel_dark"/>
+  <tube ax="64" ay="27" az="10" bx="38" by="80" bz="8" r0="3" material="steel"/>
+  <tube ax="64" ay="27" az="-10" bx="38" by="80" bz="-8" r0="3" material="steel"/>
+  <tube ax="36" ay="84" az="-26" bx="36" by="84" bz="26" r0="2.4" material="steel_dark"/>
+  <box size="22 6 34" rot="0 0 -10" pos="64 56 0" material="clans_tin"/>
+
+  <!-- engine block, team tank, seat, exhausts -->
+  <box size="46 28 30" pos="-6 40 0" material="gunmetal"/>
+  <box size="20 8 34" pos="-6 30 0" material="steel_dark"/>
+  <soft-box width="56" height="26" depth="34" radius="10" bevel="2" pos="12 66 0" material="clans_paint" tint="1"/>
+  <box size="44 8 30" pos="-30 64 0" material="rubber"/>
+  <tube ax="-14" ay="34" az="18" bx="-74" by="46" bz="22" r0="3.2" material="clans_rust"/>
+  <tube ax="-14" ay="34" az="-18" bx="-74" by="46" bz="-22" r0="3.2" material="clans_rust"/>
+
+  <!-- rear rack with a drum lying across it -->
+  <box size="34 4 54" pos="-70 56 0" material="steel_dark"/>
+  <cylinder radius="13" height="40" sides="10" rot="90 0 0" pos="-72 71 0" material="clans_paint" tint="1"/>
+  <clans-flag height="60" size="22" pos="-86 58 -20"/>
+
+  <!-- spiked bull bar and headlight -->
+  <tube ax="86" ay="30" az="-22" bx="92" by="56" bz="0" r0="2.6" material="steel_dark"/>
+  <tube ax="86" ay="30" az="22" bx="92" by="56" bz="0" r0="2.6" material="steel_dark"/>
+  <group pos="91 46 0" rot="0 0 -80">
+    <clans-spike radius="3" length="16" pos="0 0 -12"/><clans-spike radius="3" length="16" pos="0 0 12"/>
+  </group>
+  <cylinder radius="7" height="8" sides="10" rot="0 0 -90" pos="52 84 0" material="steel_dark"/>
+  <cylinder radius="5" height="1.5" sides="10" rot="0 0 -90" pos="56.6 84 0" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- machine gun clamped on the right of the tank -->
+  <box size="34 10 8" pos="{20-kick} 74 22" material="gunmetal"/>
+  <box size="10 12 8" pos="{10-kick} 66 22" material="clans_drum"/>
+  <cylinder radius="2.4" height="50" sides="6" rot="0 0 -90" pos="{60-kick} 75 22" material="steel_dark"/>
+  <muzzle-flash pos="{85-kick} 75 22" scale="0.55 0.55 0.55" on="{fire == 1}"/>
+
+  <!-- the rider, hunched over the bars -->
+  <tube ax="-28" ay="68" az="12" bx="4" by="40" bz="20" r0="5.5" material="clans_canvas"/>
+  <tube ax="-28" ay="68" az="-12" bx="4" by="40" bz="-20" r0="5.5" material="clans_canvas"/>
+  <capsule radius="13" height="44" rings="3" slices="8" rot="0 0 -50" pos="-14 96 0" material="clans_cloth" tint="1"/>
+  <box size="30 14 32" rot="0 0 -50" pos="-10 104 0" material="clans_rust"/>
+  <tube ax="-4" ay="110" az="15" bx="36" by="86" bz="22" r0="4" material="clans_canvas"/>
+  <tube ax="-4" ay="110" az="-15" bx="36" by="86" bz="-22" r0="4" material="clans_canvas"/>
+  <sphere radius="10" rings="6" slices="8" pos="8 120 0" material="clans_skin"/>
+  <sphere radius="10.6" rings="6" slices="8" scale="1 0.6 1" pos="6 126 0" material="rubber"/>
+  <box size="4 5 16" pos="16 121 0" material="glass"/>
+  <box size="22 6 22" pos="-4 112 0" material="clans_cloth" tint="1"/>
+</prefab>

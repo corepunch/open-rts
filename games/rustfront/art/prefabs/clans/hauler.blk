@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Hauler, the Scrap Clans' ore harvester. Length 330 cm on X, width 160 cm on Z, origin at
+     the chassis centre on the ground, cab and scoop face +X. A scrap dump truck on six fat
+     wheels: a high cab offset to the left with a team roof and a cage over the glass, a big
+     tipper bin of patched plates (one team-painted) heaped with ore, a toothed loader scoop on
+     two arms in front, a tall exhaust and amber lamps. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <group pos="0 33 0">
+    <cylinder radius="33" height="30" sides="12" rot="90 0 0" pos="84 0 64" material="rubber"/>
+    <cylinder radius="33" height="30" sides="12" rot="90 0 0" pos="84 0 -64" material="rubber"/>
+    <cylinder radius="33" height="30" sides="12" rot="90 0 0" pos="-46 0 64" material="rubber"><array count="2" translation="-72 0 0"/></cylinder>
+    <cylinder radius="33" height="30" sides="12" rot="90 0 0" pos="-46 0 -64" material="rubber"><array count="2" translation="-72 0 0"/></cylinder>
+    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="84 0 64" material="clans_drum"/>
+    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="84 0 -64" material="gunmetal"/>
+    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="-46 0 64" material="gunmetal"><array count="2" translation="-72 0 0"/></cylinder>
+    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="-46 0 -64" material="clans_rust"><array count="2" translation="-72 0 0"/></cylinder>
+  </group>
+  <box size="290 20 100" pos="-6 52 0" material="steel_dark"/>
+
+  <!-- engine deck and the offset cab, front left (+Z) -->
+  <box size="80 30 130" pos="84 77 0" material="clans_rust"/>
+  <box size="70 3 60" pos="84 93.5 -30" material="clans_paint" tint="1"/>
+  <group pos="84 92 30">
+    <box size="70 60 66" pos="0 30 0" material="clans_tin"/>
+    <box size="76 4 72" pos="0 62 0" material="clans_paint" tint="1"/>
+    <box size="3 34 56" pos="35.6 34 0" material="glass"/>
+    <box size="2 34 3" pos="38 34 -18" material="steel_dark"><array count="3" translation="0 0 18"/></box>
+    <warn-light pos="-20 64 24" material="flame"/>
+    <warn-light pos="20 64 24" material="flame"/>
+  </group>
+  <tube ax="64" ay="92" az="-50" bx="66" by="196" bz="-52" r0="5" material="clans_rust"/>
+  <cylinder radius="7" height="4" sides="8" pos="66 198 -52" material="steel_dark"/>
+
+  <!-- tipper bin: patched plates, one side team-painted, heaped with ore -->
+  <group pos="-64 62 0">
+    <box size="180 78 150" pos="0 39 0" material="clans_sheet_rust"><taper amount="-0.1"/></box>
+    <box size="140 50 4" rot="-6 0 0" pos="-6 44 79" material="clans_paint" tint="1"/>
+    <box size="90 40 4" rot="5 0 2" pos="20 40 -79" material="clans_tin"/>
+    <box size="190 2 156" pos="0 79 0" material="steel_dark"/>
+    <box size="200 8 8" pos="0 82 80" material="clans_rust"/>
+    <box size="200 8 8" pos="0 82 -80" material="clans_rust"/>
+    <box size="8 8 152" pos="-96 82 0" material="clans_rust"/>
+    <box size="8 8 152" pos="96 82 0" material="clans_rust"/>
+    <box size="20 10 140" rot="0 0 30" pos="104 86 0" material="clans_rust"/>
+    <sphere radius="34" rings="4" slices="6" scale="1.3 0.55 1" pos="-30 86 -30" material="ore"/>
+    <sphere radius="30" rings="4" slices="6" scale="1.2 0.6 1" rot="0 40 0" pos="30 86 26" material="ore"/>
+    <sphere radius="24" rings="3" slices="5" pos="-4 90 6" material="ore"/>
+    <box size="3 22 22" pos="-92 46 -50" material="hazard"/>
+    <box size="8 60 8" rot="0 0 20" pos="-80 20 66" material="steel_dark"/>
+  </group>
+
+  <!-- loader scoop on two arms -->
+  <beam ax="96" ay="84" az="60" bx="150" by="52" bz="60" width="10" depth="12" material="clans_rust"/>
+  <beam ax="96" ay="84" az="-60" bx="150" by="52" bz="-60" width="10" depth="12" material="clans_rust"/>
+  <group pos="160 40 0" rot="0 0 -10">
+    <box size="8 48 160" pos="-12 6 0" material="clans_paint" tint="1"/>
+    <box size="40 6 160" pos="6 -16 0" material="steel_dark"/>
+    <box size="40 26 6" pos="6 -4 -80" material="clans_rust"/>
+    <box size="40 26 6" pos="6 -4 80" material="clans_rust"/>
+    <group pos="26 -16 0" rot="0 0 -90">
+      <clans-spike radius="4" length="16" pos="0 0 -60"/><clans-spike radius="4" length="16" pos="0 0 -30"/>
+      <clans-spike radius="4" length="16" pos="0 0 0"/><clans-spike radius="4" length="16" pos="0 0 30"/>
+      <clans-spike radius="4" length="16" pos="0 0 60"/>
+    </group>
+  </group>
+</prefab>

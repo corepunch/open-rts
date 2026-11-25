@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Crawler, assembled: crawler/hull plus crawler/turret on its ring at (-14, 104, 0). Length 264 cm on X, origin at the hull centre on the ground, gun faces +X. Sprites render hull and turret as separate layers (art/sprites.py). -->
+<prefab up="y" front="+x">
+  <prefab source="clans/crawler/hull"/>
+  <prefab source="clans/crawler/turret" pos="-14 104 0"/>
+</prefab>

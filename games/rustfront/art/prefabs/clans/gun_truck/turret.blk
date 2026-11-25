@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Gun Truck turret. Origin on the ring-mount axis at mount height; gun faces +X. A heavy
+     machine gun on a swivel fork with a long finned barrel, a box magazine and spade grips,
+     behind a bent team-painted shield with spikes along its top. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <include src="../clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, full recoil),
+       fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 6 : (fire == 2 ? 2 : 0)"/>
+  <!-- swivel and fork -->
+  <cylinder radius="10" height="10" sides="10" pos="0 5 0" material="gunmetal"/>
+  <box size="16 26 30" pos="0 22 0" material="steel_dark"/>
+  <!-- shield -->
+  <box size="5 44 40" rot="0 -16 -8" pos="26 36 -20" material="clans_paint" tint="1"/>
+  <box size="5 40 40" rot="0 16 -6" pos="26 34 20" material="clans_paint" tint="1"/>
+  <box size="5 8 84" rot="0 0 -8" pos="23 58 0" material="clans_rust"/>
+  <group pos="22 62 0" rot="0 0 -12">
+    <clans-spike radius="3" length="16" pos="0 0 -30"/><clans-spike radius="3" length="20" pos="0 0 0"/>
+    <clans-spike radius="3" length="16" pos="0 0 30"/>
+  </group>
+  <!-- the gun -->
+  <group pos="0 38 0">
+    <box size="52 16 14" pos="{2-kick} 0 0" material="gunmetal"/>
+    <box size="18 20 12" pos="{-2-kick} -12 -14" material="clans_drum"/>
+    <cylinder radius="6" height="40" sides="8" rot="0 0 -90" pos="{46-kick} 0 0" material="steel_dark"/>
+    <cylinder radius="3.2" height="60" sides="8" rot="0 0 -90" pos="{94-kick} 0 0" material="steel_dark"/>
+    <cylinder radius="5" height="10" sides="8" rot="0 0 -90" pos="{126-kick} 0 0" material="steel_dark"/>
+    <tube ax="-24" ay="0" az="-8" bx="-34" by="-6" bz="-10" r0="2" material="steel_dark"/>
+    <tube ax="-24" ay="0" az="8" bx="-34" by="-6" bz="10" r0="2" material="steel_dark"/>
+    <muzzle-flash pos="{131-kick} 0 0" scale="0.9 0.9 0.9" on="{fire == 1}"/>
+  </group>
+</prefab>

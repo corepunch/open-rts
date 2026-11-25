@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Smelter, the Scrap Clans' refinery. Footprint 3x2 cells (600 x 400 cm), origin at pad
+     centre on the ground, front faces +Z; ore is tipped into the dump pit at the front right.
+     A squat clay-and-scrap furnace with a glowing mouth, a tall patched chimney with team bands,
+     a funnel hopper on stilts fed by a conveyor from the dump pit, a casting shed with a team
+     tarp, and stacked ingots. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knobs, set per frame by art/sprites.py: blink 1/0 the warn lights, flick 0/1 the
+       furnace glow and the chimney flare. -->
+  <let name="blink" value="1"/>
+  <let name="flick" value="0"/>
+  <shape id="clans_furnace" closed="0" v="0 0 112 0 112 20 100 70 74 120 46 150 40 160 0 160"/>
+  <shape id="clans_hopper" closed="0" v="10 0 14 0 56 54 60 96 0 96"/>
+  <chunk width="592" height="20" depth="392" radius="18" bevel="3" lean="0" pos="0 10 0" material="clans_dirt"/>
+
+  <!-- Turned -12 degrees on its pad; scaled and centred to stay inside the footprint. -->
+  <group rot="0 -12 0" scale="0.927 0.927 0.927" pos="-8.8 0 -37.7">
+    <!-- furnace, left: a clay dome banded with scrap, a glowing mouth to the front -->
+    <lathe shape="clans_furnace" segments="16" pos="-140 20 -20" material="clans_rust"/>
+    <cylinder radius="114" height="14" sides="16" pos="-140 38 -20" material="steel_dark"/>
+    <cylinder radius="97" height="22" sides="16" pos="-140 104 -20" material="clans_paint" tint="1"/>
+    <box size="70 50 30" pos="-140 56 82" material="steel_dark"/>
+    <box size="54 {34+6*flick} 4" pos="-140 {54+3*flick} 97.5" material="flame" unlit="1" castShadow="0"/>
+    <box size="40 {18-6*flick} 4" pos="-140 50 98" material="flash" unlit="1" castShadow="0"/>
+    <box size="80 8 24" pos="-140 85 86" material="clans_rust"/>
+    <!-- chimney rising from the furnace crown, patched, with team bands and a flare -->
+    <cylinder radius="30" height="240" sides="12" pos="-140 300 -20" material="clans_tin"/>
+    <cylinder radius="33" height="20" sides="12" pos="-140 230 -20" material="clans_paint" tint="1"/>
+    <cylinder radius="33" height="20" sides="12" pos="-140 350 -20" material="clans_paint" tint="1"/>
+    <box size="40 50 4" rot="0 0 6" pos="-140 290 12" material="clans_sheet_rust"/>
+    <cylinder radius="36" height="8" sides="12" pos="-140 424 -20" material="clans_rust"/>
+    <cylinder radius="24" height="2" sides="12" pos="-140 428.5 -20" material="rubber"/>
+    <cone radius="18" radiusTop="0" height="{30+18*flick}" sides="7" pos="-140 {429+(30+18*flick)/2} -20" material="flame" unlit="1" castShadow="0"/>
+    <tube ax="-172" ay="300" az="-20" bx="-230" by="20" bz="-60" r0="2" material="steel_dark"/>
+    <warn-light on="{blink}" pos="-104 428 -20"/>
+
+    <!-- hopper on stilts, centre back, feeding the furnace -->
+    <group pos="40 20 -90">
+      <box size="8 150 8" pos="-46 75 -46" material="clans_rust"/>
+      <box size="8 150 8" pos="46 75 -46" material="clans_rust"/>
+      <box size="8 150 8" pos="-46 75 46" material="clans_rust"/>
+      <box size="8 150 8" pos="46 75 46" material="clans_rust"/>
+      <lathe shape="clans_hopper" segments="8" pos="0 110 0" rot="0 22.5 0" material="clans_paint" tint="1"/>
+      <cylinder radius="58" height="6" sides="8" rot="0 22.5 0" pos="0 206 0" material="clans_rust"/>
+      <sphere radius="44" rings="4" slices="7" scale="1 0.45 1" pos="0 202 0" material="ore"/>
+      <tube ax="-14" ay="120" az="0" bx="-90" by="90" bz="40" r0="9" material="clans_tin"/>
+    </group>
+
+    <!-- conveyor from the dump pit up to the hopper -->
+    <beam ax="190" ay="34" az="90" bx="70" by="210" bz="-70" width="40" depth="10" material="clans_rust"/>
+    <beam ax="190" ay="40" az="90" bx="70" by="216" bz="-70" width="30" depth="4" material="track"/>
+    <box size="6 90 6" pos="130 65 10" material="steel_dark"/>
+
+    <!-- dump pit, front right: a dark grated pit with a curb of tyres, ore spilled in -->
+    <box size="150 4 120" pos="200 22 100" material="grating"/>
+    <box size="160 16 10" pos="200 28 165" material="clans_rust"/>
+    <box size="10 16 130" pos="125 28 100" material="clans_rust"/>
+    <box size="10 16 130" pos="275 28 100" material="clans_rust"/>
+    <sphere radius="26" rings="4" slices="6" scale="1.2 0.5 1" pos="220 26 90" material="ore"/>
+    <clans-tyre pos="280 30 170" radius="26" width="18"/>
+    <clans-tyre pos="120 30 170" radius="26" width="18"/>
+    <warn-light on="{blink}" pos="275 36 40"/>
+
+    <!-- casting shed, right back: corrugated walls with a team tarp roof and ingots -->
+    <box size="140 90 110" pos="210 65 -120" material="clans_sheet"/>
+    <box size="100 60 4" rot="0 0 -3" pos="200 70 -63" material="clans_paint" tint="1"/>
+    <shape closed="1" v="-80 0 80 0 70 36 -70 36" rot="0 90 0" pos="210 110 -120" material="clans_cloth" tint="1">
+      <extrude amount="160"/></shape>
+    <box size="30 14 14" pos="150 27 -40" material="emblem_gold"/>
+    <box size="30 14 14" pos="182 27 -40" material="emblem_gold"/>
+    <box size="30 14 14" pos="166 41 -40" material="emblem_gold"/>
+    <clans-drum pos="-260 20 120" material="clans_paint" tint="1"/>
+    <clans-drum pos="-230 20 150" radius="22" height="70"/>
+  </group>
+</prefab>

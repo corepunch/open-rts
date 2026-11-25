@@ -45,6 +45,23 @@ bool RF_IsSite(const mobj_t *unit);
 void RF_StructureDamage(mobj_t *unit);
 void RF_CompleteSite(mobj_t *unit);
 
+/* factions.c: three factions filling the same roles with their own types. */
+typedef enum { RF_DIRECTORATE, RF_CLANS, RF_CONCORD, RF_FACTION_COUNT } rf_faction_id_t;
+typedef enum { RF_ROLE_HQ, RF_ROLE_POWER, RF_ROLE_REFINERY, RF_ROLE_BARRACKS, RF_ROLE_FACTORY,
+               RF_ROLE_TURRET, RF_ROLE_HARVESTER, RF_ROLE_COUNT } rf_role_t;
+typedef struct {
+    const char *name;
+    uint16_t first, last;            /* its types are first..last (info.h) */
+    uint16_t role[RF_ROLE_COUNT];
+} rf_faction_t;
+extern const rf_faction_t rf_factions[RF_FACTION_COUNT];
+int RF_FactionOfType(uint16_t type);                 /* -1: no faction's (effects, shots) */
+int RF_OwnerFaction(int owner);                      /* its HQ's, else any unit's; -1 if none */
+uint16_t RF_Role(int faction, rf_role_t role);
+bool RF_IsRole(uint16_t type, rf_role_t role);
+bool RF_OwnerHasRole(int owner, rf_role_t role);     /* of any faction */
+bool RF_IsInfantry(uint16_t type);
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);

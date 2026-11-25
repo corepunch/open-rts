@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Camp, the Scrap Clans' barracks. Footprint 2x2 cells (400 x 400 cm), origin at pad
+     centre on the ground, front faces +Z. A team-painted shipping container with its doors
+     swung open and a tarp awning, two ridge tents of patched canvas, a burning fire barrel, a
+     sandbag wall, a banner pole and a salvaged floodlight. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knobs, set per frame by art/sprites.py: blink 1/0 the warn light, flick 0/1 the
+       fire barrel's flame. -->
+  <let name="blink" value="1"/>
+  <let name="flick" value="0"/>
+  <chunk width="392" height="20" depth="392" radius="18" bevel="3" lean="0" pos="0 10 0" material="clans_dirt"/>
+
+  <!-- Turned +18 degrees on its pad; scaled and centred to stay inside the footprint. -->
+  <group rot="0 18 0" scale="0.962 0.962 0.962" pos="5.5 0 6.0">
+    <!-- container across the back, doors open to the front right -->
+    <group pos="-20 20 -80">
+      <box size="300 120 120" pos="0 60 0" material="clans_paint" tint="1"/>
+      <box size="6 122 122" pos="-120 60 0" material="clans_rust"><array count="6" translation="48 0 0"/></box>
+      <box size="304 5 124" pos="0 122.5 0" material="clans_rust"/>
+      <box size="290 2 110" pos="0 126 0" material="clans_paint" tint="1"/>
+      <box size="4 112 112" pos="152 58 0" material="steel_dark"/>
+      <box size="4 108 56" rot="0 -70 0" pos="170 58 82" material="clans_paint" tint="1"/>
+      <box size="4 108 56" rot="0 70 0" pos="170 58 -82" material="clans_paint" tint="1"/>
+      <box size="80 70 4" pos="-30 60 62" material="steel_dark"/>
+      <clans-mark radius="36" pos="40 127 0"/>
+      <!-- a short rusty container dropped crosswise on the left end, a lookout nest -->
+      <group pos="-90 127 0" rot="0 78 0">
+        <box size="150 90 100" pos="0 45 0" material="clans_sheet_rust"/>
+        <box size="154 5 104" pos="0 92.5 0" material="clans_rust"/>
+        <box size="40 30 4" pos="20 55 51" material="steel_dark"/>
+      </group>
+      <ladder height="210" pos="-170 0 62" rot="0 0 0"/>
+      <!-- tarp awning on poles off the front side -->
+      <box size="5 110 5" pos="-110 55 130" material="clans_rust"/>
+      <box size="5 110 5" pos="50 55 130" material="clans_rust"/>
+      <box size="180 3 76" rot="-14 0 0" pos="-30 112 98" material="clans_cloth" tint="1"/>
+    </group>
+
+    <!-- two ridge tents, front left -->
+    <group pos="-110 20 90" rot="0 -10 0">
+      <shape closed="1" v="-50 0 50 0 6 70 -6 70" material="clans_canvas"><extrude amount="130"/></shape>
+      <box size="14 8 132" pos="0 68 0" material="clans_paint" tint="1"/>
+      <shape closed="1" v="-26 0 26 0 0 46" pos="0 0 65.6" material="steel_dark"><extrude amount="1"/></shape>
+    </group>
+    <group pos="40 20 130" rot="0 12 0">
+      <shape closed="1" v="-44 0 44 0 5 60 -5 60" material="clans_canvas"><extrude amount="110"/></shape>
+      <box size="12 7 112" pos="0 58 0" material="clans_cloth" tint="1"/>
+      <shape closed="1" v="-22 0 22 0 0 40" pos="0 0 55.6" material="steel_dark"><extrude amount="1"/></shape>
+    </group>
+
+    <!-- fire barrel with a seat ring of tyres and a drum -->
+    <clans-fire flick="{flick}" pos="120 20 20"/>
+    <clans-tyre pos="170 30 40" radius="22" width="18"/>
+    <clans-drum pos="80 20 60" radius="18" height="50" material="clans_drum"/>
+
+    <!-- sandbags and a banner, right side -->
+    <sandbags count="3" pos="170 20 -40" rot="0 90 0"/>
+    <clans-flag height="200" size="64" pos="160 20 -110"/>
+    <!-- floodlight pole with a warn lamp, left back -->
+    <box size="6 190 6" pos="-190 115 -30" material="clans_rust"/>
+    <clans-lamp pos="-187 196 -30" rot="0 -60 0"/>
+    <warn-light on="{blink}" pos="-190 210 -30"/>
+  </group>
+</prefab>

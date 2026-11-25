@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Glaive hull without its turret (see glaive/turret.blk and glaive.blk). Length
+     270 cm on X, width 176 cm on Z, origin at the hull centre on the ground, front +X. A broad
+     smooth ceramic hover hull floating 26 cm up on four pad housings with cyan pads; a graphite
+     seam round its waist, team-colour flank panels, a cyan prow line and a turret ring at
+     (-14, 76, 0). -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 bobs the hull 3 cm and brightens
+       its pads. -->
+  <let name="move" value="0"/>
+
+  <group pos="0 {3*move} 0">
+    <!-- hover pads at the four corners -->
+    <ellipsoid radii="34 13 22" rings="6" slices="16" pos="82 40 68" material="concord_pearl"/>
+    <ellipsoid radii="28 3 17" rings="4" slices="16" pos="82 27 68" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="32 4 21" rings="4" slices="16" pos="82 27 68" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="34 13 22" rings="6" slices="16" pos="82 40 -68" material="concord_pearl"/>
+    <ellipsoid radii="28 3 17" rings="4" slices="16" pos="82 27 -68" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="32 4 21" rings="4" slices="16" pos="82 27 -68" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="34 13 22" rings="6" slices="16" pos="-82 40 68" material="concord_pearl"/>
+    <ellipsoid radii="28 3 17" rings="4" slices="16" pos="-82 27 68" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="32 4 21" rings="4" slices="16" pos="-82 27 68" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="34 13 22" rings="6" slices="16" pos="-82 40 -68" material="concord_pearl"/>
+    <ellipsoid radii="28 3 17" rings="4" slices="16" pos="-82 27 -68" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="32 4 21" rings="4" slices="16" pos="-82 27 -68" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <!-- hull: a pointed top-view plan, swept up and tapered, smooth rims -->
+    <shape closed="1" v="140 0 104 64 -100 80 -132 62 -132 -62 -100 -80 104 -64" rot="90 0 0" pos="0 58 0" material="concord_ceramic">
+      <fillet radius="14" segments="3"/><extrude amount="36"/><bevel amount="9" bevelSegments="3"/>
+      <taper center="0 0 0" amount="0.22" axis="z"/>
+    </shape>
+    <shape closed="1" v="144 0 107 67 -102 83 -135 64 -135 -64 -102 -83 107 -67" rot="90 0 0" pos="0 46 0" material="concord_graphite">
+      <fillet radius="14" segments="3"/><extrude amount="5"/>
+    </shape>
+    <!-- raised rear deck -->
+    <shape closed="1" v="20 0 -10 46 -90 52 -110 36 -110 -36 -90 -52 -10 -46" rot="90 0 0" pos="0 78 0" material="concord_pearl">
+      <fillet radius="10" segments="2"/><extrude amount="4"/><bevel amount="1" bevelSegments="1"/>
+    </shape>
+    <!-- team panels on the flanks -->
+    <box size="140 14 4" rot="-40 -4 0" pos="-10 62 72" material="paint_plain" tint="1"/>
+    <box size="140 14 4" rot="40 4 0" pos="-10 62 -72" material="paint_plain" tint="1"/>
+    <box size="110 3 4" rot="-40 -4 0" pos="-10 55 77" material="glow" unlit="1" castShadow="0"/>
+    <box size="110 3 4" rot="40 4 0" pos="-10 55 -77" material="glow" unlit="1" castShadow="0"/>
+    <!-- prow: a cyan line and a sensor lens -->
+    <box size="40 3 6" pos="112 75.5 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- turret ring and rear vents -->
+    <cylinder radius="42" height="4" sides="24" pos="-14 78 0" material="concord_graphite"/>
+    <box size="8 1 30" pos="-96 80.5 20" material="glow" unlit="1" castShadow="0"/>
+    <box size="8 1 30" pos="-96 80.5 -20" material="glow" unlit="1" castShadow="0"/>
+  </group>
+</prefab>

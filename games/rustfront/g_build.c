@@ -10,6 +10,18 @@ static const struct { uint16_t type; int healthy, damaged, build; } STRUCTURES[]
     {MT_BARRACKS, S_BARRACKS, S_BARRACKS_DAMAGED, S_BARRACKS_BUILD},
     {MT_FACTORY, S_FACTORY, S_FACTORY_DAMAGED, S_FACTORY_BUILD},
     {MT_GUN_TURRET, S_GUN_TURRET, 0, S_GUN_TURRET_BUILD},
+    {MT_CL_HALL, S_CL_HALL, S_CL_HALL_DAMAGED, S_CL_HALL_BUILD},
+    {MT_CL_GENERATOR, S_CL_GENERATOR, S_CL_GENERATOR_DAMAGED, S_CL_GENERATOR_BUILD},
+    {MT_CL_SMELTER, S_CL_SMELTER, S_CL_SMELTER_DAMAGED, S_CL_SMELTER_BUILD},
+    {MT_CL_CAMP, S_CL_CAMP, S_CL_CAMP_DAMAGED, S_CL_CAMP_BUILD},
+    {MT_CL_YARD, S_CL_YARD, S_CL_YARD_DAMAGED, S_CL_YARD_BUILD},
+    {MT_CL_TOWER, S_CL_TOWER, 0, S_CL_TOWER_BUILD},
+    {MT_LC_SPIRE, S_LC_SPIRE, S_LC_SPIRE_DAMAGED, S_LC_SPIRE_BUILD},
+    {MT_LC_FUSION, S_LC_FUSION, S_LC_FUSION_DAMAGED, S_LC_FUSION_BUILD},
+    {MT_LC_EXTRACTOR, S_LC_EXTRACTOR, S_LC_EXTRACTOR_DAMAGED, S_LC_EXTRACTOR_BUILD},
+    {MT_LC_ACADEMY, S_LC_ACADEMY, S_LC_ACADEMY_DAMAGED, S_LC_ACADEMY_BUILD},
+    {MT_LC_FOUNDRY, S_LC_FOUNDRY, S_LC_FOUNDRY_DAMAGED, S_LC_FOUNDRY_BUILD},
+    {MT_LC_TOWER, S_LC_TOWER, 0, S_LC_TOWER_BUILD},
 };
 
 static int structure_index(uint16_t type) {
@@ -38,7 +50,7 @@ const mobj_t *RF_SiteInProgress(int owner) {
 bool G_ModelPlaceConstruction(RtsGameModel *model, mobj_t *builder, const StaticProductDefinition *p,
                               ivec2_t cell, bool *handled) {
     (void)model;
-    *handled = builder && p && p->product_class == RTS_PRODUCT_BUILDING && builder->type_id == MT_HQ;
+    *handled = builder && p && p->product_class == RTS_PRODUCT_BUILDING && RF_IsRole(builder->type_id, RF_ROLE_HQ);
     if (!*handled) return false;
     int s = structure_index((uint16_t)p->product_type);
     const mobjtype_t *type = P_ActorType((uint16_t)p->product_type);

@@ -5,6 +5,12 @@
 #ifdef RF_SPRITE_TABLES
 static const short rf_mount_turret_head[][2] = {{0, -18}};
 static const short rf_mount_tank_turret[][2] = {{-3, -18}, {-3, -18}, {-2, -17}, {-1, -16}, {0, -16}, {1, -16}, {2, -17}, {3, -18}, {3, -18}, {3, -19}, {2, -20}, {1, -20}, {0, -20}, {-1, -20}, {-2, -20}, {-3, -19}};
+static const short rf_mount_mastodon_turret[][2] = {{-3, -20}, {-3, -19}, {-2, -18}, {-1, -18}, {0, -18}, {1, -18}, {2, -18}, {3, -19}, {3, -20}, {3, -21}, {2, -22}, {1, -22}, {0, -22}, {-1, -22}, {-2, -22}, {-3, -21}};
+static const short rf_mount_cl_tower_head[][2] = {{0, -20}};
+static const short rf_mount_cl_truck_turret[][2] = {{-15, -20}, {-14, -16}, {-11, -13}, {-6, -11}, {0, -10}, {6, -11}, {11, -13}, {14, -16}, {15, -20}, {14, -24}, {11, -27}, {6, -29}, {0, -30}, {-6, -29}, {-11, -27}, {-14, -24}};
+static const short rf_mount_cl_crawler_turret[][2] = {{-3, -19}, {-3, -18}, {-2, -17}, {-1, -17}, {0, -16}, {1, -17}, {2, -17}, {3, -18}, {3, -19}, {3, -19}, {2, -20}, {1, -21}, {0, -21}, {-1, -21}, {-2, -20}, {-3, -19}};
+static const short rf_mount_lc_tower_head[][2] = {{0, -25}};
+static const short rf_mount_lc_glaive_turret[][2] = {{-3, -14}, {-3, -13}, {-2, -13}, {-1, -12}, {0, -12}, {1, -12}, {2, -13}, {3, -13}, {3, -14}, {3, -15}, {2, -16}, {1, -16}, {0, -17}, {-1, -16}, {-2, -16}, {-3, -15}};
 static const short rf_mount_apc_turret[][2] = {{5, -20}, {5, -21}, {4, -23}, {2, -23}, {0, -24}, {-2, -23}, {-4, -23}, {-5, -21}, {-5, -20}, {-5, -19}, {-4, -18}, {-2, -17}, {0, -17}, {2, -17}, {4, -18}, {5, -19}};
 
 static const rf_sheetdef_t rf_sheets[] = {
@@ -31,6 +37,58 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"artillery", "shadow", "artillery_shadow.pcx", 194, 129, 12, 48, 82, 103, 3, NULL},
     {"harvester", "body", "harvester_body.pcx", 126, 87, 6, 32, 53, 54, 2, NULL},
     {"harvester", "shadow", "harvester_shadow.pcx", 126, 87, 8, 32, 53, 54, 2, NULL},
+    {"mastodon", "hull", "mastodon_hull.pcx", 152, 100, 6, 32, 57, 58, 2, NULL},
+    {"mastodon", "turret", "mastodon_turret.pcx", 198, 133, 7, 48, 99, 67, 3, rf_mount_mastodon_turret},
+    {"mastodon", "shadow", "mastodon_shadow.pcx", 152, 100, 8, 32, 57, 58, 2, NULL},
+    {"cl_hall", "body", "cl_hall_body.pcx", 201, 182, 3, 8, 71, 134, 8, NULL},
+    {"cl_hall", "shadow", "cl_hall_shadow.pcx", 201, 182, 8, 8, 71, 134, 8, NULL},
+    {"cl_generator", "body", "cl_generator_body.pcx", 142, 145, 3, 8, 47, 113, 8, NULL},
+    {"cl_generator", "shadow", "cl_generator_shadow.pcx", 142, 145, 8, 8, 47, 113, 8, NULL},
+    {"cl_smelter", "body", "cl_smelter_body.pcx", 165, 154, 3, 8, 71, 122, 8, NULL},
+    {"cl_smelter", "shadow", "cl_smelter_shadow.pcx", 165, 154, 8, 8, 71, 122, 8, NULL},
+    {"cl_camp", "body", "cl_camp_body.pcx", 126, 125, 3, 8, 47, 93, 8, NULL},
+    {"cl_camp", "shadow", "cl_camp_shadow.pcx", 126, 125, 8, 8, 47, 93, 8, NULL},
+    {"cl_yard", "body", "cl_yard_body.pcx", 208, 180, 3, 8, 71, 132, 8, NULL},
+    {"cl_yard", "shadow", "cl_yard_shadow.pcx", 208, 180, 8, 8, 71, 132, 8, NULL},
+    {"cl_tower", "base", "cl_tower_base.pcx", 75, 66, 2, 2, 23, 50, 2, NULL},
+    {"cl_tower", "build", "cl_tower_build.pcx", 50, 84, 4, 4, 23, 67, 4, NULL},
+    {"cl_tower", "head", "cl_tower_head.pcx", 76, 52, 7, 48, 38, 33, 3, rf_mount_cl_tower_head},
+    {"cl_tower", "shadow", "cl_tower_shadow.pcx", 75, 66, 2, 2, 23, 50, 2, NULL},
+    {"cl_trike", "body", "cl_trike_body.pcx", 73, 51, 7, 48, 27, 37, 3, NULL},
+    {"cl_trike", "shadow", "cl_trike_shadow.pcx", 73, 51, 12, 48, 27, 37, 3, NULL},
+    {"cl_truck", "hull", "cl_truck_hull.pcx", 102, 68, 6, 32, 43, 44, 2, NULL},
+    {"cl_truck", "turret", "cl_truck_turret.pcx", 86, 56, 7, 48, 43, 35, 3, rf_mount_cl_truck_turret},
+    {"cl_truck", "shadow", "cl_truck_shadow.pcx", 102, 68, 8, 32, 43, 44, 2, NULL},
+    {"cl_crawler", "hull", "cl_crawler_hull.pcx", 108, 70, 6, 32, 44, 44, 2, NULL},
+    {"cl_crawler", "turret", "cl_crawler_turret.pcx", 122, 81, 7, 48, 61, 41, 3, rf_mount_cl_crawler_turret},
+    {"cl_crawler", "shadow", "cl_crawler_shadow.pcx", 108, 70, 8, 32, 44, 44, 2, NULL},
+    {"cl_rig", "body", "cl_rig_body.pcx", 110, 81, 7, 48, 47, 55, 3, NULL},
+    {"cl_rig", "shadow", "cl_rig_shadow.pcx", 110, 81, 12, 48, 47, 55, 3, NULL},
+    {"cl_hauler", "body", "cl_hauler_body.pcx", 126, 88, 6, 32, 50, 56, 2, NULL},
+    {"cl_hauler", "shadow", "cl_hauler_shadow.pcx", 126, 88, 8, 32, 50, 56, 2, NULL},
+    {"lc_spire", "body", "lc_spire_body.pcx", 153, 193, 5, 20, 71, 145, 20, NULL},
+    {"lc_spire", "shadow", "lc_spire_shadow.pcx", 153, 193, 20, 20, 71, 145, 20, NULL},
+    {"lc_fusion", "body", "lc_fusion_body.pcx", 113, 137, 5, 20, 47, 105, 20, NULL},
+    {"lc_fusion", "shadow", "lc_fusion_shadow.pcx", 113, 137, 20, 20, 47, 105, 20, NULL},
+    {"lc_extractor", "body", "lc_extractor_body.pcx", 160, 125, 3, 8, 71, 93, 8, NULL},
+    {"lc_extractor", "shadow", "lc_extractor_shadow.pcx", 160, 125, 8, 8, 71, 93, 8, NULL},
+    {"lc_academy", "body", "lc_academy_body.pcx", 128, 133, 5, 20, 47, 101, 20, NULL},
+    {"lc_academy", "shadow", "lc_academy_shadow.pcx", 128, 133, 20, 20, 47, 101, 20, NULL},
+    {"lc_foundry", "body", "lc_foundry_body.pcx", 178, 170, 5, 20, 71, 122, 20, NULL},
+    {"lc_foundry", "shadow", "lc_foundry_shadow.pcx", 178, 170, 20, 20, 71, 122, 20, NULL},
+    {"lc_tower", "base", "lc_tower_base.pcx", 74, 48, 2, 2, 23, 32, 2, NULL},
+    {"lc_tower", "build", "lc_tower_build.pcx", 50, 91, 4, 4, 23, 69, 4, NULL},
+    {"lc_tower", "head", "lc_tower_head.pcx", 116, 85, 7, 48, 58, 47, 3, rf_mount_lc_tower_head},
+    {"lc_tower", "shadow", "lc_tower_shadow.pcx", 74, 48, 2, 2, 23, 32, 2, NULL},
+    {"lc_skimmer", "body", "lc_skimmer_body.pcx", 89, 59, 7, 48, 44, 37, 3, NULL},
+    {"lc_skimmer", "shadow", "lc_skimmer_shadow.pcx", 89, 59, 12, 48, 44, 37, 3, NULL},
+    {"lc_glaive", "hull", "lc_glaive_hull.pcx", 110, 66, 6, 32, 37, 40, 2, NULL},
+    {"lc_glaive", "turret", "lc_glaive_turret.pcx", 164, 109, 7, 48, 82, 58, 3, rf_mount_lc_glaive_turret},
+    {"lc_glaive", "shadow", "lc_glaive_shadow.pcx", 110, 66, 8, 32, 37, 40, 2, NULL},
+    {"lc_prism", "body", "lc_prism_body.pcx", 160, 133, 7, 48, 76, 109, 3, NULL},
+    {"lc_prism", "shadow", "lc_prism_shadow.pcx", 160, 133, 12, 48, 76, 109, 3, NULL},
+    {"lc_harvester", "body", "lc_harvester_body.pcx", 111, 76, 6, 32, 41, 52, 2, NULL},
+    {"lc_harvester", "shadow", "lc_harvester_shadow.pcx", 111, 76, 8, 32, 41, 52, 2, NULL},
     {"apc", "hull", "apc_hull.pcx", 104, 79, 6, 32, 36, 51, 2, NULL},
     {"apc", "turret", "apc_turret.pcx", 72, 48, 7, 48, 36, 24, 3, rf_mount_apc_turret},
     {"apc", "shadow", "apc_shadow.pcx", 104, 79, 8, 32, 36, 51, 2, NULL},
@@ -38,8 +96,19 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"rifleman", "shadow", "rifleman_shadow.pcx", 82, 67, 13, 152, 37, 40, 1, NULL},
     {"rocket", "body", "rocket_body.pcx", 88, 71, 13, 152, 41, 42, 1, NULL},
     {"rocket", "shadow", "rocket_shadow.pcx", 88, 71, 13, 152, 41, 42, 1, NULL},
+    {"cl_raider", "body", "cl_raider_body.pcx", 75, 60, 13, 152, 36, 37, 1, NULL},
+    {"cl_raider", "shadow", "cl_raider_shadow.pcx", 75, 60, 13, 152, 36, 37, 1, NULL},
+    {"cl_torcher", "body", "cl_torcher_body.pcx", 77, 72, 13, 152, 36, 47, 1, NULL},
+    {"cl_torcher", "shadow", "cl_torcher_shadow.pcx", 77, 72, 13, 152, 36, 47, 1, NULL},
+    {"lc_warden", "body", "lc_warden_body.pcx", 82, 68, 13, 152, 37, 40, 1, NULL},
+    {"lc_warden", "shadow", "lc_warden_shadow.pcx", 82, 68, 13, 152, 37, 40, 1, NULL},
+    {"lc_lancer", "body", "lc_lancer_body.pcx", 88, 72, 13, 152, 41, 43, 1, NULL},
+    {"lc_lancer", "shadow", "lc_lancer_shadow.pcx", 88, 72, 13, 152, 41, 43, 1, NULL},
     {"fx", "shell", "fx_shell.pcx", 16, 16, 16, 16, 8, 8, 1, NULL},
     {"fx", "rocket", "fx_rocket.pcx", 24, 24, 16, 16, 12, 12, 1, NULL},
+    {"fx", "bolt", "fx_bolt.pcx", 24, 24, 16, 16, 12, 12, 1, NULL},
+    {"fx", "flame", "fx_flame.pcx", 20, 20, 16, 16, 10, 10, 1, NULL},
+    {"fx", "zap", "fx_zap.pcx", 24, 24, 6, 6, 12, 14, 6, NULL},
     {"fx", "smoke", "fx_smoke.pcx", 12, 12, 5, 5, 6, 6, 5, NULL},
     {"fx", "plume", "fx_plume.pcx", 32, 52, 8, 8, 16, 48, 8, NULL},
     {"fx", "fire", "fx_fire.pcx", 16, 24, 6, 6, 8, 20, 6, NULL},
@@ -61,11 +130,70 @@ static const rf_animdef_t rf_anims[] = {
     {"rocket", "fire", 80, 1, 8},
     {"rocket", "fire2", 88, 1, 8},
     {"rocket", "die", 96, 7, 8},
+    {"cl_raider", "idle", 0, 4, 8},
+    {"cl_raider", "walk", 32, 6, 8},
+    {"cl_raider", "fire", 80, 1, 8},
+    {"cl_raider", "fire2", 88, 1, 8},
+    {"cl_raider", "die", 96, 7, 8},
+    {"cl_torcher", "idle", 0, 4, 8},
+    {"cl_torcher", "walk", 32, 6, 8},
+    {"cl_torcher", "fire", 80, 1, 8},
+    {"cl_torcher", "fire2", 88, 1, 8},
+    {"cl_torcher", "die", 96, 7, 8},
+    {"lc_warden", "idle", 0, 4, 8},
+    {"lc_warden", "walk", 32, 6, 8},
+    {"lc_warden", "fire", 80, 1, 8},
+    {"lc_warden", "fire2", 88, 1, 8},
+    {"lc_warden", "die", 96, 7, 8},
+    {"lc_lancer", "idle", 0, 4, 8},
+    {"lc_lancer", "walk", 32, 6, 8},
+    {"lc_lancer", "fire", 80, 1, 8},
+    {"lc_lancer", "fire2", 88, 1, 8},
+    {"lc_lancer", "die", 96, 7, 8},
 };
 
 /* Build icons (art/icons.py): assets/icons.pcx, one 64x48 cell per name, left to right. */
-static const char *const rf_icons[] = {"power", "barracks", "refinery", "factory", "turret", "hq", "rifleman", "rocket", "scout", "tank", "apc", "artillery", "harvester"};
+static const char *const rf_icons[] = {"power", "barracks", "refinery", "factory", "turret", "hq", "rifleman", "rocket", "scout", "tank", "apc", "artillery", "harvester", "mastodon", "cl_generator", "cl_camp", "cl_smelter", "cl_yard", "cl_tower", "cl_hall", "cl_raider", "cl_torcher", "cl_trike", "cl_truck", "cl_crawler", "cl_rig", "cl_hauler", "lc_fusion", "lc_academy", "lc_extractor", "lc_foundry", "lc_tower", "lc_spire", "lc_warden", "lc_lancer", "lc_skimmer", "lc_glaive", "lc_prism", "lc_harvester"};
 #endif
+#define RF_ICON_POWER 0
+#define RF_ICON_BARRACKS 1
+#define RF_ICON_REFINERY 2
+#define RF_ICON_FACTORY 3
+#define RF_ICON_TURRET 4
+#define RF_ICON_HQ 5
+#define RF_ICON_RIFLEMAN 6
+#define RF_ICON_ROCKET 7
+#define RF_ICON_SCOUT 8
+#define RF_ICON_TANK 9
+#define RF_ICON_APC 10
+#define RF_ICON_ARTILLERY 11
+#define RF_ICON_HARVESTER 12
+#define RF_ICON_MASTODON 13
+#define RF_ICON_CL_GENERATOR 14
+#define RF_ICON_CL_CAMP 15
+#define RF_ICON_CL_SMELTER 16
+#define RF_ICON_CL_YARD 17
+#define RF_ICON_CL_TOWER 18
+#define RF_ICON_CL_HALL 19
+#define RF_ICON_CL_RAIDER 20
+#define RF_ICON_CL_TORCHER 21
+#define RF_ICON_CL_TRIKE 22
+#define RF_ICON_CL_TRUCK 23
+#define RF_ICON_CL_CRAWLER 24
+#define RF_ICON_CL_RIG 25
+#define RF_ICON_CL_HAULER 26
+#define RF_ICON_LC_FUSION 27
+#define RF_ICON_LC_ACADEMY 28
+#define RF_ICON_LC_EXTRACTOR 29
+#define RF_ICON_LC_FOUNDRY 30
+#define RF_ICON_LC_TOWER 31
+#define RF_ICON_LC_SPIRE 32
+#define RF_ICON_LC_WARDEN 33
+#define RF_ICON_LC_LANCER 34
+#define RF_ICON_LC_SKIMMER 35
+#define RF_ICON_LC_GLAIVE 36
+#define RF_ICON_LC_PRISM 37
+#define RF_ICON_LC_HARVESTER 38
 #define RF_ICON_W 64
 #define RF_ICON_H 48
 #define RF_TEAM_BASE 16

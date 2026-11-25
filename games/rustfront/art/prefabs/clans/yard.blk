@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Yard, the Scrap Clans' vehicle factory. Footprint 3x3 cells (600 x 600 cm), origin at
+     pad centre on the ground, the big door faces +Z. A corrugated gable-roofed garage with a
+     wide roll-up door half open on a dark bay, team-painted gable and door frame, a lean-to
+     workshop at the side, and a welded derrick crane at the front right swinging a car hulk on
+     its hook; a junk pile of tyres and drums behind. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knobs, set per frame by art/sprites.py: blink 1/0 the crane beacon and warn
+       lights, flick 0/1 the welding spark in the bay. -->
+  <let name="blink" value="1"/>
+  <let name="flick" value="0"/>
+  <chunk width="592" height="20" depth="592" radius="18" bevel="3" lean="0" pos="0 10 0" material="clans_dirt"/>
+
+  <!-- Turned +14 degrees on its pad; scaled and centred to stay inside the footprint. -->
+  <group rot="0 14 0" scale="1.050 1.050 1.050" pos="26.8 0 34.9">
+    <!-- garage: walls y 20..170, x -170..170, z -200..120; gable roof to y 250 -->
+    <box size="350 10 330" pos="-20 25 -40" material="steel_dark"/>
+    <box size="340 150 320" pos="-20 105 -40" material="clans_sheet"/>
+    <shape closed="1" v="-186 0 186 0 0 84" pos="-20 180 -40" material="clans_sheet_rust">
+      <extrude amount="340"/></shape>
+    <shape closed="1" v="-170 0 170 0 0 76" pos="-20 180 131" material="clans_paint" tint="1">
+      <extrude amount="2"/></shape>
+    <box size="372 10 344" pos="-20 180 -40" material="clans_rust"/>
+    <!-- mismatched team-painted sheets patched onto the roof -->
+    <box size="110 3 150" rot="0 0 24.3" pos="-100 229.5 -10" material="clans_paint" tint="1"/>
+    <box size="90 3 120" rot="0 0 -24.3" pos="50 234 -110" material="clans_paint" tint="1"/>
+    <clans-mark radius="30" pos="-20 214 132" rot="90 0 0"/>
+    <!-- the big door: frame in team paint, a dark bay, the roll-up shutter half raised -->
+    <box size="260 140 4" pos="-20 92 121" material="rubber"/>
+    <box size="280 16 10" pos="-20 168 124" material="clans_paint" tint="1"/>
+    <box size="16 150 10" pos="-156 95 124" material="clans_paint" tint="1"/>
+    <box size="16 150 10" pos="116 95 124" material="clans_paint" tint="1"/>
+    <box size="256 52 3" pos="-20 134 124.5" material="clans_tin"/>
+    <box size="256 2 2" pos="-20 112 126" material="steel_dark"><array count="6" translation="0 9 0"/></box>
+    <sphere radius="{6+4*flick}" rings="4" slices="6" pos="20 50 100" material="flash" unlit="1" castShadow="0"/>
+    <box size="90 30 50" pos="-40 40 90" material="clans_rust"/>
+    <box size="190 3 70" pos="-20 21.5 160" material="steel_dark"/>
+    <warn-light on="{blink}" pos="-156 176 124"/>
+    <warn-light on="{blink}" pos="116 176 124"/>
+
+    <!-- lean-to workshop on the left wall, team tarp roof -->
+    <box size="80 90 200" pos="-230 65 -60" material="clans_tin"/>
+    <box size="96 4 216" rot="0 0 14" pos="-226 118 -60" material="clans_cloth" tint="1"/>
+    <stack radius="12" height="70" pos="-240 120 -120"/>
+
+    <!-- derrick crane, front right: a three-leg mast, a boom raking out over the yard -->
+    <group pos="210 20 100">
+      <tube ax="-26" ay="0" az="-22" bx="0" by="330" bz="0" r0="6" material="clans_rust"/>
+      <tube ax="26" ay="0" az="-22" bx="0" by="330" bz="0" r0="6" material="clans_rust"/>
+      <tube ax="0" ay="0" az="28" bx="0" by="330" bz="0" r0="6" material="clans_rust"/>
+      <box size="44 14 44" pos="0 110 0" material="clans_paint" tint="1"/>
+      <box size="30 14 30" pos="0 220 0" material="clans_paint" tint="1"/>
+      <box size="40 40 40" pos="-10 20 10" material="steel_dark"/>
+      <cylinder radius="12" height="30" sides="10" rot="90 0 0" pos="-10 46 10" material="clans_drum"/>
+      <beam ax="0" ay="300" az="0" bx="-110" by="300" bz="100" width="14" depth="14" material="clans_paint"/>
+      <tube ax="0" ay="330" az="0" bx="-110" by="306" bz="100" r0="2" material="steel_dark"/>
+      <tube ax="-104" ay="293" az="96" bx="-104" by="190" bz="96" r0="1.6" material="steel_dark"/>
+      <box size="12 14 12" pos="-104 184 96" material="steel_dark"/>
+      <!-- the hulk on the hook: a stripped car body -->
+      <group pos="-104 142 96" rot="0 -20 6">
+        <box size="120 36 64" pos="0 0 0" material="clans_rust"/>
+        <box size="64 26 58" pos="-10 31 0" material="clans_sheet_rust"/>
+        <box size="4 20 50" rot="0 0 -30" pos="26 30 0" material="steel_dark"/>
+      </group>
+      <beacon on="{blink}" pos="0 330 0"/>
+    </group>
+
+    <!-- junk pile behind the garage -->
+    <clans-tyre pos="150 30 -200"/><clans-tyre pos="155 50 -205" radius="30"/><clans-tyre pos="110 30 -230"/>
+    <clans-drum pos="200 20 -120" material="clans_paint" tint="1"/>
+    <clans-drum pos="210 20 -60" material="clans_drum"/>
+    <group pos="200 20 -200" rot="0 0 -50"><clans-drum material="clans_rust"/></group>
+  </group>
+</prefab>

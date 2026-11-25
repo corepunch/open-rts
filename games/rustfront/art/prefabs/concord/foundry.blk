@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Foundry (vehicle factory). Footprint 3x3 cells (600 x 600 cm), origin at pad
+     centre on the ground, bay opens to +Z. A white vaulted hover bay whose open front is framed by
+     a team-colour arch, a glowing launch pad before it; two fabricator nacelles with cyan lines
+     along its flanks; a dorsal spine with team fins; an assembly spire with a crystal and a
+     floating ring at the back right. About 330 cm tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: pulse 0/1 brightens the bay floor and the
+       launch pad and lifts the spire's ring 6 cm; spin 0..0.875 in 8 steps turns the ring's
+       three pods 15 degrees a step (threefold, so the loop closes). -->
+  <let name="pulse" value="0"/>
+  <let name="spin" value="0"/>
+
+  <shape id="concord_fdy_pad" closed="0" v="92 0 92 6 86 12 70 14"/>
+  <shape id="concord_fdy_spire" closed="0" v="50 0 50 8 44 14 34 40 30 90 24 150 16 196 12 210"/>
+
+  <chunk width="592" height="20" depth="592" radius="40" bevel="3" lean="0" pos="0 10 0" material="concord_stone"/>
+
+  <group rot="0 -14 0" scale="0.96 0.96 0.96" pos="-30 0 -12">
+    <!-- floor of the bay and its plinth -->
+    <chunk width="380" height="16" depth="340" radius="50" bevel="4" lean="0" pos="0 28 -40" material="concord_pearl"/>
+    <!-- the vault: an arched shell open at the front -->
+    <shape closed="0" pos="0 36 -50" material="concord_ceramic" v="-160.0 0.0 -160.0 90.0 -158.6 110.9 -154.5 131.4 -147.8 151.2 -138.6 170.0 -126.9 187.4 -113.1 203.1 -97.4 216.9 -80.0 228.6 -61.2 237.8 -41.4 244.5 -20.9 248.6 0.0 250.0 20.9 248.6 41.4 244.5 61.2 237.8 80.0 228.6 97.4 216.9 113.1 203.1 126.9 187.4 138.6 170.0 147.8 151.2 154.5 131.4 158.6 110.9 160.0 90.0 160.0 0.0"><shell amount="-34"/><extrude amount="300"/><bevel amount="6" bevelSegments="2"/></shape>
+    <arch width="256" height="204" depth="16" segments="48" pos="0 138 -190" material="concord_graphite"/>
+    <box size="230 2 270" pos="0 37 -46" material="concord_graphite"/>
+    <box size="8 1 230" pos="-60 38.5 -40" material="glow" unlit="1" castShadow="0"/>
+    <box size="8 1 230" pos="60 38.5 -40" material="glow" unlit="1" castShadow="0"/>
+    <cylinder radius="46" height="2" sides="28" pos="0 39 -30" material="concord_pearl"/>
+    <torus majorRadius="38" minorRadius="3" majorSegments="28" minorSegments="6" pos="0 40 -30" material="glow" unlit="1" castShadow="0"/>
+    <cylinder radius="34" height="1" sides="28" pos="0 40.5 -30" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    <box size="10 1.2 230" pos="-60 39 -40" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    <box size="10 1.2 230" pos="60 39 -40" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    <!-- the team-colour front arch, with a glow line inside it -->
+    <shape closed="0" pos="0 36 110" material="paint_plain" tint="1" v="-175.0 0.0 -175.0 90.0 -173.5 112.8 -169.0 135.3 -161.7 157.0 -151.6 177.5 -138.8 196.5 -123.7 213.7 -106.5 228.8 -87.5 241.6 -67.0 251.7 -45.3 259.0 -22.8 263.5 0.0 265.0 22.8 263.5 45.3 259.0 67.0 251.7 87.5 241.6 106.5 228.8 123.7 213.7 138.8 196.5 151.6 177.5 161.7 157.0 169.0 135.3 173.5 112.8 175.0 90.0 175.0 0.0"><shell amount="-30"/><extrude amount="26"/><bevel amount="5" bevelSegments="2"/></shape>
+    <shape closed="0" pos="0 36 108" material="glow" unlit="1" castShadow="0" v="-145.0 0.0 -145.0 84.0 -143.8 102.9 -140.1 121.5 -134.0 139.5 -125.6 156.5 -115.0 172.3 -102.5 186.5 -88.3 199.0 -72.5 209.6 -55.5 218.0 -37.5 224.1 -18.9 227.8 0.0 229.0 18.9 227.8 37.5 224.1 55.5 218.0 72.5 209.6 88.3 199.0 102.5 186.5 115.0 172.3 125.6 156.5 134.0 139.5 140.1 121.5 143.8 102.9 145.0 84.0 145.0 0.0"><shell amount="-6"/><extrude amount="8"/></shape>
+    <!-- dorsal spine and fins -->
+    <box size="30 16 290" pos="0 278 -50" material="concord_pearl"/>
+    <shape closed="1" v="-46 0 40 0 18 54 -26 54" rot="0 90 0" pos="0 286 -150" material="paint_plain" tint="1"><extrude amount="10"/><bevel amount="3" bevelSegments="2"/></shape>
+    <shape closed="1" v="-46 0 40 0 18 54 -26 54" rot="0 90 0" pos="0 286 -50" material="paint_plain" tint="1"><extrude amount="10"/><bevel amount="3" bevelSegments="2"/></shape>
+    <shape closed="1" v="-46 0 40 0 18 54 -26 54" rot="0 90 0" pos="0 286 50" material="paint_plain" tint="1"><extrude amount="10"/><bevel amount="3" bevelSegments="2"/></shape>
+
+    <!-- fabricator nacelles along both flanks -->
+    <capsule radius="46" height="180" rings="6" slices="20" rot="90 0 0" pos="-196 82 -60" material="concord_ceramic"/>
+    <capsule radius="46" height="180" rings="6" slices="20" rot="90 0 0" pos="196 82 -60" material="concord_ceramic"/>
+    <cylinder radius="47" height="10" sides="20" rot="90 0 0" pos="-196 82 -60" material="paint_plain" tint="1"/>
+    <cylinder radius="47" height="10" sides="20" rot="90 0 0" pos="196 82 -60" material="paint_plain" tint="1"/>
+    <box size="4 8 170" pos="-241 92 -60" material="glow" unlit="1" castShadow="0"/>
+    <box size="4 8 170" pos="241 92 -60" material="glow" unlit="1" castShadow="0"/>
+    <box size="50 30 160" pos="-170 52 -60" material="concord_graphite"/>
+    <box size="50 30 160" pos="170 52 -60" material="concord_graphite"/>
+
+    <!-- launch pad before the bay -->
+    <group pos="0 20 200">
+      <lathe shape="concord_fdy_pad" segments="36" material="concord_pearl"/>
+      <cylinder radius="66" height="2" sides="36" pos="0 14 0" material="concord_graphite"/>
+      <torus majorRadius="77" minorRadius="3.5" majorSegments="36" minorSegments="6" pos="0 13.5 0" material="glow" unlit="1" castShadow="0"/>
+      <torus majorRadius="40" minorRadius="3" majorSegments="28" minorSegments="6" pos="0 15 0" material="glow" unlit="1" castShadow="0"/>
+      <cylinder radius="62" height="1" sides="36" pos="0 15.5 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    </group>
+
+    <!-- assembly spire, back right -->
+    <group pos="214 20 -210">
+      <lathe shape="concord_fdy_spire" segments="24" material="concord_ceramic"/>
+      <cylinder radius="25" height="8" sides="20" pos="0 100 0" material="paint_plain" tint="1"/>
+      <cone radius="12" radiusTop="0" height="40" sides="6" smooth="0" pos="0 230 0" material="concord_crystal"/>
+      <group pos="0 {176+pulse*6} 0" rot="0 {120*spin} 0">
+        <torus majorRadius="44" minorRadius="5" majorSegments="28" minorSegments="8" material="concord_ceramic"/>
+        <torus majorRadius="44" minorRadius="3" majorSegments="28" minorSegments="6" pos="0 -4 0" material="glow" unlit="1" castShadow="0"/>
+        <sphere radius="9" rings="6" slices="10" pos="48 0 0" material="paint_plain" tint="1"/>
+        <sphere radius="9" rings="6" slices="10" pos="-24 0 41.6" material="paint_plain" tint="1"/>
+        <sphere radius="9" rings="6" slices="10" pos="-24 0 -41.6" material="paint_plain" tint="1"/>
+      </group>
+    </group>
+  </group>
+</prefab>

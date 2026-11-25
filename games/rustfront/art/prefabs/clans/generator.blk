@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Generator, the Scrap Clans' power. Footprint 2x2 cells (400 x 400 cm), origin at pad
+     centre on the ground, front faces +Z. Two team-painted diesel sets with radiator grilles and
+     smoking exhausts on a timber skid, a long rusty fuel tank on cradles behind them, a scrap
+     wind turbine on a welded mast, cable drums and a warning lamp. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knobs, set per frame by art/sprites.py: blink 1/0 the warn lights, fan 0/1 turns
+       the turbine 60 degrees (three blades, so two frames loop), and puffs the exhausts. -->
+  <let name="blink" value="1"/>
+  <let name="fan" value="0"/>
+  <chunk width="392" height="20" depth="392" radius="18" bevel="3" lean="0" pos="0 10 0" material="clans_dirt"/>
+
+  <!-- Turned +16 degrees on its square pad; scaled and centred to stay inside the footprint. -->
+  <group rot="0 16 0" scale="0.854 0.854 0.854" pos="-25.0 0 -2.6">
+    <!-- timber skid -->
+    <box size="300 12 190" pos="-10 26 50" material="clans_wood"/>
+    <box size="310 10 12" pos="-10 25 -40" material="steel_dark"/>
+    <box size="310 10 12" pos="-10 25 140" material="steel_dark"/>
+
+    <!-- diesel set 1, left: engine housing in team paint, radiator grille to the front -->
+    <group pos="-80 32 60">
+      <box size="110 80 130" pos="0 40 0" material="clans_sheet_rust"/>
+      <box size="116 6 136" pos="0 83 0" material="clans_paint" tint="1"/>
+      <box size="80 56 4" pos="0 40 66" material="steel_dark"/>
+      <box size="76 3 2" pos="0 18 68.5" material="clans_tin"><array count="8" translation="0 6 0"/></box>
+      <box size="30 20 30" pos="-30 96 -20" material="gunmetal"/>
+      <cylinder radius="7" height="70" sides="8" pos="30 120 -30" material="clans_rust"/>
+      <cylinder radius="12" height="4" sides="8" pos="30 160 -30" material="steel_dark"/>
+    </group>
+    <!-- diesel set 2, right: a mismatched, rustier block with a tin hood -->
+    <group pos="60 32 70" rot="0 -6 0">
+      <box size="100 70 120" pos="0 35 0" material="clans_tin"/>
+      <box size="96 30 116" pos="0 85 0" material="clans_paint" tint="1"/>
+      <box size="70 50 4" pos="0 38 61" material="steel_dark"/>
+      <box size="66 3 2" pos="0 18 63.5" material="clans_rust"><array count="7" translation="0 6 0"/></box>
+      <tube ax="-30" ay="100" az="-40" bx="-30" by="160" bz="-50" r0="6" material="clans_rust"/>
+    </group>
+
+    <!-- fuel tank on cradles along the back, team band -->
+    <group pos="-10 20 -110">
+      <box size="20 50 90" pos="-110 25 0" material="steel_dark"/>
+      <box size="20 50 90" pos="110 25 0" material="steel_dark"/>
+      <cylinder radius="50" height="300" sides="16" rot="0 0 90" pos="0 92 0" material="clans_drum"/>
+      <cylinder radius="52" height="40" sides="16" rot="0 0 90" pos="-40 92 0" material="clans_paint" tint="1"/>
+      <cylinder radius="12" height="14" sides="8" pos="60 148 0" material="steel_dark"/>
+      <ladder height="90" pos="150 0 30" rot="0 90 0"/>
+    </group>
+    <tube ax="-80" ay="100" az="-60" bx="-80" by="100" bz="0" r0="5" material="steel_dark"/>
+    <tube ax="60" ay="80" az="-60" bx="60" by="80" bz="10" r0="5" material="steel_dark"/>
+
+    <!-- scrap wind turbine on a welded mast, front right -->
+    <group pos="150 20 30">
+      <tube ax="-22" ay="0" az="-22" bx="0" by="286" bz="0" r0="5" material="clans_rust"/>
+      <tube ax="22" ay="0" az="-22" bx="0" by="286" bz="0" r0="5" material="clans_rust"/>
+      <tube ax="0" ay="0" az="26" bx="0" by="286" bz="0" r0="5" material="clans_rust"/>
+      <box size="56 4 4" pos="0 90 -14" material="steel_dark"/>
+      <box size="40 4 4" pos="0 170 -8" material="steel_dark"/>
+      <group pos="0 300 0" rot="0 -75 0">
+        <box size="50 28 28" pos="-6 0 0" material="clans_paint" tint="1"/>
+        <box size="24 40 3" pos="-42 0 0" material="clans_tin"/>
+        <group pos="24 0 0" rot="{60*fan} 0 0">
+          <cylinder radius="9" height="14" sides="8" rot="0 0 -90" material="steel_dark"/>
+          <box size="3 110 30" pos="4 56 0" material="clans_tin"/>
+          <box size="3 110 30" rot="120 0 0" pos="4 -28 -48.5" material="clans_sheet_rust"/>
+          <box size="3 110 30" rot="-120 0 0" pos="4 -28 48.5" material="clans_paint" tint="1"/>
+        </group>
+      </group>
+      <warn-light on="{blink}" pos="0 314 0"/>
+    </group>
+
+    <!-- cable drum and a warn lamp on a post -->
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-160 50 140" material="clans_wood"/>
+    <cylinder radius="16" height="26" sides="12" rot="90 0 0" pos="-160 50 140" material="rubber"/>
+    <box size="6 90 6" pos="-170 65 -20" material="clans_rust"/>
+    <warn-light on="{blink}" pos="-170 110 -20"/>
+  </group>
+</prefab>

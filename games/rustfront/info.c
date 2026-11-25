@@ -8,6 +8,12 @@ const char *const sprnames[NUMSPRITES] = {
     "rifleman_body", "rocket_body",
     "fx_hit", "fx_boom", "fx_bigboom", "fx_shell", "fx_rocket", "fx_smoke", "fx_blast",
     "fx_plume", "fx_fire", "turret_build",
+    "mastodon_hull",
+    "cl_hall_body", "cl_generator_body", "cl_smelter_body", "cl_camp_body", "cl_yard_body", "cl_tower_base", "cl_tower_build",
+    "cl_trike_body", "cl_truck_hull", "cl_crawler_hull", "cl_rig_body", "cl_hauler_body", "cl_raider_body", "cl_torcher_body",
+    "lc_spire_body", "lc_fusion_body", "lc_extractor_body", "lc_academy_body", "lc_foundry_body", "lc_tower_base", "lc_tower_build",
+    "lc_skimmer_body", "lc_glaive_hull", "lc_prism_body", "lc_harvester_body", "lc_warden_body", "lc_lancer_body",
+    "fx_bolt", "fx_flame", "fx_zap",
 };
 
 /* {sprite, frame, count, tics, action, next, group}: group 2 plays while moving, 3 attacking.
@@ -32,6 +38,21 @@ const char *const sprnames[NUMSPRITES] = {
     [move]  = {spr, VEH_STAND, 2, 3, NULL, move, 2, NULL}, \
     [fire]  = {spr, VEH_SHOT, 1, 3, A_Attack, fire2, 3, NULL}, \
     [fire2] = {spr, VEH_STAND, 1, settle, NULL, stnd, 3, NULL}
+/* A defensive emplacement: it builds on its own sheet, then stands, fires and settles while its
+ * head (drawn on the base sheet) shows the frames. */
+#define EMPLACEMENT(spr, build_spr, stnd, fire, fire2, build, settle) \
+    [build] = {build_spr, 0, BUILD_STAGE_COUNT, -1, NULL, build, 0, NULL}, \
+    [stnd]  = {spr, VEH_STAND, 1, 1, A_Look, stnd, 0, NULL}, \
+    [fire]  = {spr, VEH_STAND, 1, 3, A_Attack, fire2, 3, NULL}, \
+    [fire2] = {spr, VEH_STEP, 1, settle, NULL, stnd, 3, NULL}
+#define HAULER(spr, stnd, move) \
+    [stnd] = {spr, VEH_STAND, 1, -1, NULL, stnd, 0, NULL}, \
+    [move] = {spr, VEH_STAND, 2, 3, NULL, move, 2, NULL}
+/* A projectile: flight, then the blast whose first frame does the damage. */
+#define PROJECTILE(spr, fly, hit, hit2, blast, n, tics) \
+    [fly]  = {spr, 0, 1, 1, NULL, fly, 0, NULL}, \
+    [hit]  = {blast, 0, 1, tics, A_RfImpact, hit2, 0, NULL}, \
+    [hit2] = {blast, 1, (n) - 1, tics, NULL, S_NULL, 0, NULL}
 /* Idle looks around slowly (RF_MobjTicker keeps the lookout every tic), the run cycle is one
  * stride, a shot is the firing frame then the recoil, and death is the fall then the body. */
 #define SOLDIER(spr, stnd, walk, fire, fire2, die, corpse) \
@@ -81,6 +102,42 @@ const state_t states[NUMSTATES] = {
     [S_MISSILE] = {SPR_FX_ROCKET, 0, 1, 1, NULL, S_MISSILE, 0, NULL},
     [S_MISSILE_HIT] = {SPR_FX_BLAST, 0, 1, 2, A_RfImpact, S_MISSILE_HIT2, 0, NULL},
     [S_MISSILE_HIT2] = {SPR_FX_BLAST, 1, 6, 2, NULL, S_NULL, 0, NULL},
+    TURRETED(SPR_MASTODON, S_MASTODON, S_MASTODON_MOVE, S_MASTODON_FIRE, S_MASTODON_FIRE2, 12),
+
+    /* Scrap Clans */
+    STRUCTURE(SPR_CL_HALL, S_CL_HALL, S_CL_HALL_DAMAGED, S_CL_HALL_BUILD, 2, 15),
+    STRUCTURE(SPR_CL_GENERATOR, S_CL_GENERATOR, S_CL_GENERATOR_DAMAGED, S_CL_GENERATOR_BUILD, 2, 15),
+    STRUCTURE(SPR_CL_SMELTER, S_CL_SMELTER, S_CL_SMELTER_DAMAGED, S_CL_SMELTER_BUILD, 2, 15),
+    STRUCTURE(SPR_CL_CAMP, S_CL_CAMP, S_CL_CAMP_DAMAGED, S_CL_CAMP_BUILD, 2, 15),
+    STRUCTURE(SPR_CL_YARD, S_CL_YARD, S_CL_YARD_DAMAGED, S_CL_YARD_BUILD, 2, 15),
+    EMPLACEMENT(SPR_CL_TOWER, SPR_CL_TOWER_BUILD, S_CL_TOWER, S_CL_TOWER_FIRE, S_CL_TOWER_FIRE2, S_CL_TOWER_BUILD, 4),
+    GUNNED(SPR_CL_TRIKE, S_CL_TRIKE, S_CL_TRIKE_MOVE, S_CL_TRIKE_FIRE, S_CL_TRIKE_FIRE2, 4),
+    TURRETED(SPR_CL_TRUCK, S_CL_TRUCK, S_CL_TRUCK_MOVE, S_CL_TRUCK_FIRE, S_CL_TRUCK_FIRE2, 4),
+    TURRETED(SPR_CL_CRAWLER, S_CL_CRAWLER, S_CL_CRAWLER_MOVE, S_CL_CRAWLER_FIRE, S_CL_CRAWLER_FIRE2, 10),
+    GUNNED(SPR_CL_RIG, S_CL_RIG, S_CL_RIG_MOVE, S_CL_RIG_FIRE, S_CL_RIG_FIRE2, 14),
+    HAULER(SPR_CL_HAULER, S_CL_HAULER, S_CL_HAULER_MOVE),
+    SOLDIER(SPR_CL_RAIDER, S_CL_RAIDER, S_CL_RAIDER_WALK, S_CL_RAIDER_FIRE, S_CL_RAIDER_FIRE2, S_CL_RAIDER_DIE, S_CL_RAIDER_CORPSE),
+    SOLDIER(SPR_CL_TORCHER, S_CL_TORCHER, S_CL_TORCHER_WALK, S_CL_TORCHER_FIRE, S_CL_TORCHER_FIRE2, S_CL_TORCHER_DIE, S_CL_TORCHER_CORPSE),
+
+    /* Lumen Concord: the structures' glow pulses */
+    STRUCTURE(SPR_LC_SPIRE, S_LC_SPIRE, S_LC_SPIRE_DAMAGED, S_LC_SPIRE_BUILD, 8, 6),
+    STRUCTURE(SPR_LC_FUSION, S_LC_FUSION, S_LC_FUSION_DAMAGED, S_LC_FUSION_BUILD, 8, 6),
+    STRUCTURE(SPR_LC_EXTRACTOR, S_LC_EXTRACTOR, S_LC_EXTRACTOR_DAMAGED, S_LC_EXTRACTOR_BUILD, 2, 10),
+    STRUCTURE(SPR_LC_ACADEMY, S_LC_ACADEMY, S_LC_ACADEMY_DAMAGED, S_LC_ACADEMY_BUILD, 8, 6),
+    STRUCTURE(SPR_LC_FOUNDRY, S_LC_FOUNDRY, S_LC_FOUNDRY_DAMAGED, S_LC_FOUNDRY_BUILD, 8, 6),
+    EMPLACEMENT(SPR_LC_TOWER, SPR_LC_TOWER_BUILD, S_LC_TOWER, S_LC_TOWER_FIRE, S_LC_TOWER_FIRE2, S_LC_TOWER_BUILD, 14),
+    GUNNED(SPR_LC_SKIMMER, S_LC_SKIMMER, S_LC_SKIMMER_MOVE, S_LC_SKIMMER_FIRE, S_LC_SKIMMER_FIRE2, 6),
+    TURRETED(SPR_LC_GLAIVE, S_LC_GLAIVE, S_LC_GLAIVE_MOVE, S_LC_GLAIVE_FIRE, S_LC_GLAIVE_FIRE2, 10),
+    GUNNED(SPR_LC_PRISM, S_LC_PRISM, S_LC_PRISM_MOVE, S_LC_PRISM_FIRE, S_LC_PRISM_FIRE2, 14),
+    HAULER(SPR_LC_HARVESTER, S_LC_HARVESTER, S_LC_HARVESTER_MOVE),
+    SOLDIER(SPR_LC_WARDEN, S_LC_WARDEN, S_LC_WARDEN_WALK, S_LC_WARDEN_FIRE, S_LC_WARDEN_FIRE2, S_LC_WARDEN_DIE, S_LC_WARDEN_CORPSE),
+    SOLDIER(SPR_LC_LANCER, S_LC_LANCER, S_LC_LANCER_WALK, S_LC_LANCER_FIRE, S_LC_LANCER_FIRE2, S_LC_LANCER_DIE, S_LC_LANCER_CORPSE),
+
+    /* A bolt is a streak of light ending in a cyan flash; the heavy one in a big one. A flame
+     * gout lands as a burst of fire. */
+    PROJECTILE(SPR_FX_BOLT, S_BOLT, S_BOLT_HIT, S_BOLT_HIT2, SPR_FX_ZAP, 6, 2),
+    PROJECTILE(SPR_FX_BOLT, S_HEAVY_BOLT, S_HEAVY_BOLT_HIT, S_HEAVY_BOLT_HIT2, SPR_FX_BLAST, 7, 2),
+    PROJECTILE(SPR_FX_FLAME, S_FLAME, S_FLAME_HIT, S_FLAME_HIT2, SPR_FX_FIRE, 6, 2),
 };
 
 #define BUILDING_INFO(n, st, hp) {.doomednum = n, .spawnstate = st, .spawnhealth = hp, .deathstate = S_NULL}
@@ -104,6 +161,34 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_APC] = MOVER_INFO(11, S_APC, S_APC_MOVE, S_APC_FIRE, 450, 6, 18, 18, S_NULL),
     [MT_RIFLEMAN] = MOVER_INFO(12, S_RIFLEMAN, S_RIFLEMAN_WALK, S_RIFLEMAN_FIRE, 50, 2, 8, 8, S_RIFLEMAN_DIE),
     [MT_ROCKET] = MOVER_INFO(13, S_ROCKET, S_ROCKET_WALK, S_ROCKET_FIRE, 45, 2, 8, 40, S_ROCKET_DIE),
+    [MT_MASTODON] = MOVER_INFO(14, S_MASTODON, S_MASTODON_MOVE, S_MASTODON_FIRE, 1400, 3, 22, 70, S_NULL),
+    [MT_CL_HALL] = BUILDING_INFO(20, S_CL_HALL, 2600),
+    [MT_CL_GENERATOR] = BUILDING_INFO(21, S_CL_GENERATOR, 900),
+    [MT_CL_SMELTER] = BUILDING_INFO(22, S_CL_SMELTER, 1500),
+    [MT_CL_CAMP] = BUILDING_INFO(23, S_CL_CAMP, 900),
+    [MT_CL_YARD] = BUILDING_INFO(24, S_CL_YARD, 2000),
+    [MT_CL_TOWER] = {.doomednum = 25, .spawnstate = S_CL_TOWER, .missilestate = S_CL_TOWER_FIRE,
+                     .spawnhealth = 600, .damage = 14, .deathstate = S_NULL},
+    [MT_CL_TRIKE] = MOVER_INFO(26, S_CL_TRIKE, S_CL_TRIKE_MOVE, S_CL_TRIKE_FIRE, 160, 8, 12, 9, S_NULL),
+    [MT_CL_TRUCK] = MOVER_INFO(27, S_CL_TRUCK, S_CL_TRUCK_MOVE, S_CL_TRUCK_FIRE, 320, 6, 16, 14, S_NULL),
+    [MT_CL_CRAWLER] = MOVER_INFO(28, S_CL_CRAWLER, S_CL_CRAWLER_MOVE, S_CL_CRAWLER_FIRE, 520, 4, 18, 75, S_NULL),
+    [MT_CL_RIG] = MOVER_INFO(29, S_CL_RIG, S_CL_RIG_MOVE, S_CL_RIG_FIRE, 260, 4, 18, 30, S_NULL),
+    [MT_CL_HAULER] = MOVER_INFO(30, S_CL_HAULER, S_CL_HAULER_MOVE, 0, 700, 4, 20, 0, S_NULL),
+    [MT_CL_RAIDER] = MOVER_INFO(31, S_CL_RAIDER, S_CL_RAIDER_WALK, S_CL_RAIDER_FIRE, 40, 2, 8, 6, S_CL_RAIDER_DIE),
+    [MT_CL_TORCHER] = MOVER_INFO(32, S_CL_TORCHER, S_CL_TORCHER_WALK, S_CL_TORCHER_FIRE, 60, 2, 8, 30, S_CL_TORCHER_DIE),
+    [MT_LC_SPIRE] = BUILDING_INFO(40, S_LC_SPIRE, 3600),
+    [MT_LC_FUSION] = BUILDING_INFO(41, S_LC_FUSION, 1500),
+    [MT_LC_EXTRACTOR] = BUILDING_INFO(42, S_LC_EXTRACTOR, 2200),
+    [MT_LC_ACADEMY] = BUILDING_INFO(43, S_LC_ACADEMY, 1500),
+    [MT_LC_FOUNDRY] = BUILDING_INFO(44, S_LC_FOUNDRY, 2800),
+    [MT_LC_TOWER] = {.doomednum = 45, .spawnstate = S_LC_TOWER, .missilestate = S_LC_TOWER_FIRE,
+                     .spawnhealth = 1000, .damage = 70, .deathstate = S_NULL},
+    [MT_LC_SKIMMER] = MOVER_INFO(46, S_LC_SKIMMER, S_LC_SKIMMER_MOVE, S_LC_SKIMMER_FIRE, 260, 8, 14, 18, S_NULL),
+    [MT_LC_GLAIVE] = MOVER_INFO(47, S_LC_GLAIVE, S_LC_GLAIVE_MOVE, S_LC_GLAIVE_FIRE, 800, 5, 18, 90, S_NULL),
+    [MT_LC_PRISM] = MOVER_INFO(48, S_LC_PRISM, S_LC_PRISM_MOVE, S_LC_PRISM_FIRE, 380, 4, 18, 160, S_NULL),
+    [MT_LC_HARVESTER] = MOVER_INFO(49, S_LC_HARVESTER, S_LC_HARVESTER_MOVE, 0, 1100, 4, 20, 0, S_NULL),
+    [MT_LC_WARDEN] = MOVER_INFO(50, S_LC_WARDEN, S_LC_WARDEN_WALK, S_LC_WARDEN_FIRE, 90, 2, 8, 16, S_LC_WARDEN_DIE),
+    [MT_LC_LANCER] = MOVER_INFO(51, S_LC_LANCER, S_LC_LANCER_WALK, S_LC_LANCER_FIRE, 110, 2, 9, 70, S_LC_LANCER_DIE),
     [MT_FX_HIT] = {.doomednum = -1, .spawnstate = S_FX_HIT, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BOOM] = {.doomednum = -1, .spawnstate = S_FX_BOOM, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BIGBOOM] = {.doomednum = -1, .spawnstate = S_FX_BIGBOOM, .spawnhealth = 1, .deathstate = S_NULL},
@@ -113,6 +198,9 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_SHELL] = {.doomednum = -1, .spawnstate = S_SHELL, .spawnhealth = 1, .deathstate = S_SHELL_HIT},
     [MT_HEAVY_SHELL] = {.doomednum = -1, .spawnstate = S_HEAVY_SHELL, .spawnhealth = 1, .deathstate = S_HEAVY_SHELL_HIT},
     [MT_MISSILE] = {.doomednum = -1, .spawnstate = S_MISSILE, .spawnhealth = 1, .deathstate = S_MISSILE_HIT},
+    [MT_BOLT] = {.doomednum = -1, .spawnstate = S_BOLT, .spawnhealth = 1, .deathstate = S_BOLT_HIT},
+    [MT_HEAVY_BOLT] = {.doomednum = -1, .spawnstate = S_HEAVY_BOLT, .spawnhealth = 1, .deathstate = S_HEAVY_BOLT_HIT},
+    [MT_FLAME] = {.doomednum = -1, .spawnstate = S_FLAME, .spawnhealth = 1, .deathstate = S_FLAME_HIT},
 };
 
 const gameinfo_t game_info = {

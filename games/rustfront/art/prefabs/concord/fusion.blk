@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Fusion Well (power). Footprint 2x2 cells (400 x 400 cm), origin at pad centre on
+     the ground, front faces +Z. A round ceramic plinth with a team-colour band; a glowing crystal
+     core floats inside two crossed white arcs that rise from team-colour feet and meet in a lens
+     above it; four short conduit posts stand on the corners. About 310 cm tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: pulse 0/1 swells the core to a white-hot
+       shell and lifts it 6 cm; spin 0..0.875 in 8 steps turns the core's three fins 15 degrees a
+       step (threefold, so the loop closes). -->
+  <let name="pulse" value="0"/>
+  <let name="spin" value="0"/>
+
+  <shape id="concord_fusion_plinth" closed="0" v="150 0 150 10 142 18 118 22 112 40 96 46 70 48"/>
+
+  <chunk width="392" height="20" depth="392" radius="36" bevel="3" lean="0" pos="0 10 0" material="concord_stone"/>
+
+  <group rot="0 15 0" scale="1 1 1" pos="0 0 0">
+    <lathe shape="concord_fusion_plinth" segments="36" pos="0 20 0" material="concord_ceramic"/>
+    <cylinder radius="151" height="4" sides="36" pos="0 26 0" material="concord_graphite"/>
+    <cylinder radius="117" height="3" tube="12" sides="36" pos="0 43.5 0" material="paint_plain" tint="1"/>
+    <torus majorRadius="80" minorRadius="4" majorSegments="36" minorSegments="6" pos="0 68 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- core cradle: a graphite cup with a glow lip -->
+    <cone radius="44" radiusTop="30" height="22" sides="24" rot="180 0 0" pos="0 79 0" material="concord_graphite"/>
+
+    <!-- two crossed arcs springing from team-colour feet, a glow line along each one's inner edge -->
+    <surface segments="28 8" closed="v" material="concord_ceramic" x="(116+10*cos(v*2*pi))*cos(u*pi)" y="70+(226+10*cos(v*2*pi))*sin(u*pi)" z="15*sin(v*2*pi)"/>
+    <surface segments="28 6" closed="v" material="glow" unlit="1" castShadow="0" x="(104+3.5*cos(v*2*pi))*cos(u*pi)" y="70+(214+3.5*cos(v*2*pi))*sin(u*pi)" z="3.5*sin(v*2*pi)"/>
+    <group rot="0 90 0">
+      <surface segments="28 8" closed="v" material="concord_ceramic" x="(116+10*cos(v*2*pi))*cos(u*pi)" y="70+(226+10*cos(v*2*pi))*sin(u*pi)" z="15*sin(v*2*pi)"/>
+      <surface segments="28 6" closed="v" material="glow" unlit="1" castShadow="0" x="(104+3.5*cos(v*2*pi))*cos(u*pi)" y="70+(214+3.5*cos(v*2*pi))*sin(u*pi)" z="3.5*sin(v*2*pi)"/>
+    </group>
+    <soft-box width="40" height="44" depth="36" radius="10" bevel="3" pos="116 80 0" material="paint_plain" tint="1"/>
+    <soft-box width="40" height="44" depth="36" radius="10" bevel="3" pos="-116 80 0" material="paint_plain" tint="1"/>
+    <group rot="0 90 0">
+      <soft-box width="40" height="44" depth="36" radius="10" bevel="3" pos="116 80 0" material="paint_plain" tint="1"/>
+      <soft-box width="40" height="44" depth="36" radius="10" bevel="3" pos="-116 80 0" material="paint_plain" tint="1"/>
+    </group>
+    <!-- the lens where the arcs cross, with a crystal drop pointing at the core -->
+    <cylinder radius="26" height="16" sides="20" pos="0 300 0" material="concord_ceramic"/>
+    <cone radius="20" radiusTop="0" height="14" sides="6" smooth="0" pos="0 315 0" material="concord_crystal"/>
+    <cone radius="14" radiusTop="0" height="34" sides="6" smooth="0" rot="180 0 0" pos="0 266 0" material="concord_crystal"/>
+
+    <!-- the core, floating, with three thin fins that turn with spin -->
+    <group pos="0 {164+pulse*6} 0">
+      <sphere radius="50" rings="12" slices="20" material="glow" unlit="1" castShadow="0"/>
+      <torus majorRadius="60" minorRadius="5" majorSegments="32" minorSegments="8" material="concord_crystal"/>
+      <sphere radius="60" rings="12" slices="20" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+      <group rot="0 {120*spin} 0">
+        <group rot="0 0 0"><box size="16 70 4" pos="62 0 0" material="concord_graphite"/></group>
+        <group rot="0 120 0"><box size="16 70 4" pos="62 0 0" material="concord_graphite"/></group>
+        <group rot="0 240 0"><box size="16 70 4" pos="62 0 0" material="concord_graphite"/></group>
+      </group>
+    </group>
+
+    <!-- conduit posts on the plinth's diagonals -->
+    <group rot="0 45 0">
+      <capsule radius="12" height="40" rings="4" slices="12" pos="136 74 0" material="concord_ceramic"></capsule>
+      <capsule radius="12" height="40" rings="4" slices="12" pos="-136 74 0" material="concord_ceramic"/>
+      <capsule radius="12" height="40" rings="4" slices="12" pos="0 74 136" material="concord_ceramic"/>
+      <capsule radius="12" height="40" rings="4" slices="12" pos="0 74 -136" material="concord_ceramic"/>
+      <sphere radius="7" rings="6" slices="10" pos="136 108 0" material="glow" unlit="1" castShadow="0"/>
+      <sphere radius="7" rings="6" slices="10" pos="-136 108 0" material="glow" unlit="1" castShadow="0"/>
+      <sphere radius="7" rings="6" slices="10" pos="0 108 136" material="glow" unlit="1" castShadow="0"/>
+      <sphere radius="7" rings="6" slices="10" pos="0 108 -136" material="glow" unlit="1" castShadow="0"/>
+    </group>
+  </group>
+</prefab>

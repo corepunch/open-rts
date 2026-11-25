@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Beam Tower head. Origin on the slewing axis at mount height; the emitter faces
+     +X (the assembled tower turns it to +Z). A smooth ceramic pod with team-colour cheek fins and
+     a graphite seam, a long tapered emitter barrel with three focusing rings, and a crystal lens at
+     the muzzle; a cyan beam flash on the shot. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (the lens blazes and a
+       cyan beam flash leaves it, the focusing rings slide forward), fire 2 the afterglow. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 6 : (fire == 2 ? 2 : 0)"/>
+
+  <cylinder radius="38" height="8" sides="28" pos="0 4 0" material="concord_graphite"/>
+  <ellipsoid radii="52 30 40" rings="12" slices="24" pos="-4 32 0" material="concord_ceramic"/>
+  <ellipsoid radii="53 6 41" rings="4" slices="24" pos="-4 30 0" material="concord_graphite"/>
+  <!-- cheek fins -->
+  <shape closed="1" v="-50 0 30 0 10 26 -40 22" rot="0 0 0" pos="-8 22 38" material="paint_plain" tint="1"><extrude amount="8"/><bevel amount="2" bevelSegments="2"/></shape>
+  <shape closed="1" v="-50 0 30 0 10 26 -40 22" rot="0 0 0" pos="-8 22 -38" material="paint_plain" tint="1"><extrude amount="8"/><bevel amount="2" bevelSegments="2"/></shape>
+  <box size="36 4 2" pos="-12 32 42.5" material="glow" unlit="1" castShadow="0"/>
+  <box size="36 4 2" pos="-12 32 -42.5" material="glow" unlit="1" castShadow="0"/>
+  <!-- emitter barrel -->
+  <cone radius="16" radiusTop="7" height="96" sides="16" rot="0 0 -90" pos="90 34 0" material="concord_ceramic"/>
+  <cylinder radius="15" height="6" sides="16" rot="0 0 -90" pos="{62+kick} 34 0" material="concord_graphite"/>
+  <cylinder radius="12" height="6" sides="16" rot="0 0 -90" pos="{88+kick} 34 0" material="concord_graphite"/>
+  <cylinder radius="10" height="6" sides="16" rot="0 0 -90" pos="{112+kick} 34 0" material="paint_plain" tint="1"/>
+  <sphere radius="9" rings="8" slices="12" pos="140 34 0" material="concord_crystal"/>
+  <!-- rear power cell -->
+  <cylinder radius="12" height="10" sides="16" pos="-30 62 0" material="concord_graphite"/>
+  <sphere radius="10" rings="8" slices="12" pos="-30 70 0" material="glow" unlit="1" castShadow="0"/>
+  <!-- the shot: a blazing lens and a cyan beam flash along +X -->
+  <sphere radius="16" rings="8" slices="12" pos="142 34 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <sphere radius="26" rings="8" slices="12" scale="0.5 1 1" pos="146 34 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <cone radius="9" radiusTop="3" height="110" sides="10" rot="0 0 -90" pos="205 34 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <cone radius="4" radiusTop="1.5" height="120" sides="8" rot="0 0 -90" pos="210 34 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  <sphere radius="12" rings="8" slices="12" pos="141 34 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 2}"/>
+</prefab>

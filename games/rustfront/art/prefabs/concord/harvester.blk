@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Harvester, the ore collector. Length 305 cm on X, width 180 cm on Z, origin at
+     the hull centre on the ground, intake faces +X. A broad ceramic hover hull floating 26 cm up
+     on four cyan pads; a wide round intake at the nose with a cyan rim; a pilot pod above it; a
+     big horizontal storage capsule with three team-colour bands and an open slot along its top
+     showing the ore. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 bobs the hull 3 cm, brightens
+       its pads and the intake's rim. -->
+  <let name="move" value="0"/>
+
+  <group pos="0 {3*move} 0">
+    <ellipsoid radii="38 13 22" rings="6" slices="16" pos="100 40 70" material="concord_pearl"/>
+    <ellipsoid radii="32 3 17" rings="4" slices="16" pos="100 27 70" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="36 4 21" rings="4" slices="16" pos="100 27 70" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="38 13 22" rings="6" slices="16" pos="100 40 -70" material="concord_pearl"/>
+    <ellipsoid radii="32 3 17" rings="4" slices="16" pos="100 27 -70" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="36 4 21" rings="4" slices="16" pos="100 27 -70" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="38 13 22" rings="6" slices="16" pos="-100 40 70" material="concord_pearl"/>
+    <ellipsoid radii="32 3 17" rings="4" slices="16" pos="-100 27 70" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="36 4 21" rings="4" slices="16" pos="-100 27 70" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="38 13 22" rings="6" slices="16" pos="-100 40 -70" material="concord_pearl"/>
+    <ellipsoid radii="32 3 17" rings="4" slices="16" pos="-100 27 -70" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="36 4 21" rings="4" slices="16" pos="-100 27 -70" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <!-- hull -->
+    <shape closed="1" v="130 70 112 84 -120 84 -150 64 -150 -64 -120 -84 112 -84 130 -70" rot="90 0 0" pos="0 60 0" material="concord_ceramic">
+      <fillet radius="18" segments="3"/><extrude amount="36"/><bevel amount="9" bevelSegments="3"/>
+      <taper center="0 0 0" amount="0.14" axis="z"/>
+    </shape>
+    <shape closed="1" v="134 72 115 87 -123 87 -153 66 -153 -66 -123 -87 115 -87 134 -72" rot="90 0 0" pos="0 46 0" material="concord_graphite">
+      <fillet radius="18" segments="3"/><extrude amount="5"/>
+    </shape>
+    <box size="180 12 4" rot="-40 0 0" pos="-20 64 80" material="paint_plain" tint="1"/>
+    <box size="180 12 4" rot="40 0 0" pos="-20 64 -80" material="paint_plain" tint="1"/>
+
+    <!-- intake: a wide round mouth at the nose -->
+    <cone radius="40" radiusTop="52" height="40" sides="28" rot="0 0 -90" pos="134 72 0" material="concord_ceramic"/>
+    <cylinder radius="45" height="2" sides="28" rot="0 0 -90" pos="155 72 0" material="concord_graphite"/>
+    <torus majorRadius="49" minorRadius="4" majorSegments="28" minorSegments="6" rot="0 0 90" pos="155 72 0" material="glow" unlit="1" castShadow="0"/>
+    <torus majorRadius="49" minorRadius="6" majorSegments="28" minorSegments="6" rot="0 0 90" pos="156 72 0" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <box size="2 6 72" pos="156.5 72 0" material="concord_pearl"/>
+    <box size="2 72 6" pos="156.5 72 0" material="concord_pearl"/>
+    <!-- pilot cowl over the intake -->
+    <ellipsoid radii="46 18 50" rings="10" slices="18" pos="96 92 0" material="concord_ceramic"/>
+    <ellipsoid radii="22 8 36" rings="6" slices="14" pos="120 98 0" rot="0 0 -24" material="concord_graphite"/>
+    <ellipsoid radii="5 3 28" rings="4" slices="10" pos="134 98 0" rot="0 0 -24" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="30 4 8" rings="4" slices="10" pos="84 109 0" material="paint_plain" tint="1"/>
+    <!-- storage capsule with team bands and an ore slot -->
+    <capsule radius="52" height="110" rings="8" slices="24" rot="0 0 -90" pos="-40 128 0" material="concord_ceramic"/>
+    <cylinder radius="53" height="12" sides="24" rot="0 0 -90" pos="-92 128 0" material="paint_plain" tint="1"/>
+    <cylinder radius="53" height="12" sides="24" rot="0 0 -90" pos="-40 128 0" material="paint_plain" tint="1"/>
+    <cylinder radius="53" height="12" sides="24" rot="0 0 -90" pos="12 128 0" material="paint_plain" tint="1"/>
+    <box size="140 8 40" pos="-40 179 0" material="concord_graphite"/>
+    <sphere radius="16" rings="3" slices="5" scale="1.2 0.6 1" pos="-80 183 4" material="ore"/>
+    <sphere radius="15" rings="3" slices="5" scale="1.3 0.6 1" rot="0 30 0" pos="-52 183 -6" material="ore"/>
+    <sphere radius="16" rings="3" slices="6" scale="1.2 0.7 1" rot="0 60 0" pos="-22 183 5" material="ore"/>
+    <sphere radius="13" rings="3" slices="5" scale="1.2 0.6 1" pos="4 182 -4" material="ore"/>
+    <box size="146 3 6" pos="-40 181 22" material="glow" unlit="1" castShadow="0"/>
+    <box size="146 3 6" pos="-40 181 -22" material="glow" unlit="1" castShadow="0"/>
+    <!-- saddle under the capsule -->
+    <box size="140 20 70" pos="-40 86 0" material="concord_pearl"/>
+  </group>
+</prefab>

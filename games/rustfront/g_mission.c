@@ -43,7 +43,7 @@ static void send_idle_harvesters(level_t *map, mobj_t *const *mobjs, int count) 
         mobj_t *unit = mobjs[i];
         if (!unit || unit->remove || unit->hp <= 0 || !(unit->traits & MF_HARVESTER)) continue;
         if (unit->harvest.phase != HARVEST_PHASE_NONE || unit->harvest.cargo > 0 ||
-            P_HasMoveOrder(unit) || !G_ModelHasActorType(NULL, unit->owner, MT_REFINERY)) continue;
+            P_HasMoveOrder(unit) || !RF_OwnerHasRole(unit->owner, RF_ROLE_REFINERY)) continue;
         const resourcevent_t *ore = nearest_ore(map, fixed3_xy(unit->core.position));
         if (ore) P_HarvestUnitTo(map, unit, ore->attachment);
     }
@@ -67,7 +67,7 @@ static void smoke_damaged(mobj_t *const *mobjs, int count) {
             if (u->hp * 4 < u->max_hp && (leveltime + u->id) % 4 == 0)
                 lift(spawn_effect(MT_FX_FIRE, u, rx, ry, 30), FIXED_LIT(1.0));
         } else if ((u->traits & MF_MOBILE) && u->hp * 5 < u->max_hp * 2 &&
-                   u->type_id != MT_RIFLEMAN && u->type_id != MT_ROCKET && (leveltime + u->id) % 12 == 0) {
+                   !RF_IsInfantry(u->type_id) && (leveltime + u->id) % 12 == 0) {
             lift(spawn_effect(MT_FX_PLUME, u, FIXED_ONE / 6, FIXED_ONE / 8, 40), FIXED_LIT(0.6));
         }
     }
@@ -88,9 +88,9 @@ void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     (void)producer;
     if (!unit) return;
     RF_CompleteSite(unit);
-    if (unit->type_id != MT_REFINERY) return;
+    if (!RF_IsRole(unit->type_id, RF_ROLE_REFINERY)) return;
     irect_t cells = P_MobjCells(unit);
-    mobj_t *harvester = P_SpawnMobj(fixed3_zero(), MT_HARVESTER);
+    mobj_t *harvester = P_SpawnMobj(fixed3_zero(), RF_Role(RF_FactionOfType(unit->type_id), RF_ROLE_HARVESTER));
     if (!harvester) return;
     harvester->core.position = fixed3_from_fixed2(
         fixed2_cell_center((ivec2_t){cells.x + 1, cells.y + cells.h}), 0);
@@ -153,7 +153,7 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
 void G_UnitKilled(mobj_t *victim, mobj_t *killer) {
     (void)killer;
     if (!victim || victim->type_id >= MT_FX_HIT) return;
-    if (victim->type_id == MT_RIFLEMAN || victim->type_id == MT_ROCKET) return;
+    if (RF_IsInfantry(victim->type_id)) return;
     if (!is_structure(victim)) {
         spawn_effect(MT_FX_BOOM, victim, 0, 0, 2);
         return;

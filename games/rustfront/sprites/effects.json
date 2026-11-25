@@ -27,6 +27,47 @@
   ],
   "frames": 1
  },
+ "bolt": {
+  "file": "fx_bolt.png",
+  "frame": [
+   24,
+   24
+  ],
+  "count": 16,
+  "columns": 16,
+  "pivot": [
+   12,
+   12
+  ],
+  "frames": 1
+ },
+ "flame": {
+  "file": "fx_flame.png",
+  "frame": [
+   20,
+   20
+  ],
+  "count": 16,
+  "columns": 16,
+  "pivot": [
+   10,
+   10
+  ],
+  "frames": 1
+ },
+ "zap": {
+  "file": "fx_zap.png",
+  "frame": [
+   24,
+   24
+  ],
+  "count": 6,
+  "columns": 6,
+  "pivot": [
+   12,
+   14
+  ]
+ },
  "smoke": {
   "file": "fx_smoke.png",
   "frame": [

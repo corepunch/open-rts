@@ -2,32 +2,53 @@
 #include "info.h"
 #include "rustfront.h"
 
-/* Who fires what: the projectile, how far in front of the shooter it appears (cells) and how
- * high it flies (cells; the heavy shell follows its arc instead). */
-static const struct { uint16_t shooter, projectile; fixed_t muzzle, height; } GUNS[] = {
-    {MT_TANK, MT_SHELL, FIXED_LIT(1.0), FIXED_LIT(0.55)},
-    {MT_GUN_TURRET, MT_SHELL, FIXED_LIT(0.7), FIXED_LIT(0.5)},
-    {MT_ARTILLERY, MT_HEAVY_SHELL, FIXED_LIT(1.0), 0},
-    {MT_ROCKET, MT_MISSILE, FIXED_LIT(0.4), FIXED_LIT(0.55)},
+/* Who fires what: the projectile, how far in front of the shooter it appears (cells), how high
+ * it flies (cells; arcing shells follow their arc instead), how many fly at once and how far
+ * apart side by side (cells). Shooters not listed hit at once (machine guns). */
+static const struct { uint16_t shooter, projectile; fixed_t muzzle, height; int count; fixed_t spread; } GUNS[] = {
+    {MT_TANK, MT_SHELL, FIXED_LIT(1.0), FIXED_LIT(0.55), 1, 0},
+    {MT_MASTODON, MT_SHELL, FIXED_LIT(1.4), FIXED_LIT(0.65), 2, FIXED_LIT(0.18)},
+    {MT_GUN_TURRET, MT_SHELL, FIXED_LIT(0.7), FIXED_LIT(0.5), 1, 0},
+    {MT_ARTILLERY, MT_HEAVY_SHELL, FIXED_LIT(1.0), 0, 1, 0},
+    {MT_ROCKET, MT_MISSILE, FIXED_LIT(0.4), FIXED_LIT(0.55), 1, 0},
+    {MT_CL_CRAWLER, MT_SHELL, FIXED_LIT(0.9), FIXED_LIT(0.5), 1, 0},
+    {MT_CL_RIG, MT_MISSILE, FIXED_LIT(0.6), FIXED_LIT(0.7), 3, FIXED_LIT(0.25)},
+    {MT_CL_TORCHER, MT_FLAME, FIXED_LIT(0.3), FIXED_LIT(0.35), 1, 0},
+    {MT_LC_WARDEN, MT_BOLT, FIXED_LIT(0.4), FIXED_LIT(0.5), 1, 0},
+    {MT_LC_LANCER, MT_BOLT, FIXED_LIT(0.4), FIXED_LIT(0.6), 1, 0},
+    {MT_LC_SKIMMER, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.4), 1, 0},
+    {MT_LC_GLAIVE, MT_BOLT, FIXED_LIT(1.2), FIXED_LIT(0.6), 1, 0},
+    {MT_LC_PRISM, MT_HEAVY_BOLT, FIXED_LIT(0.8), FIXED_LIT(0.9), 1, 0},
+    {MT_LC_TOWER, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.9), 1, 0},
 };
 
-/* gameinfo_t.attack: launch the shooter's projectile at the target. It flies to where the
- * target stands now; A_RfImpact hits the target if it is still near when it lands. */
+/* gameinfo_t.attack: launch the shooter's projectiles at the target. They fly to where the
+ * target stands now; A_RfImpact hits the target if it is still near when one lands. Each
+ * projectile carries the weapon's full damage. */
 bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
     for (size_t i = 0; i < sizeof(GUNS) / sizeof(*GUNS); ++i) {
         if (GUNS[i].shooter != attacker->type_id) continue;
-        mobj_t *shot = P_SpawnMissile(attacker, target, GUNS[i].projectile);
-        if (!shot) return false;
-        shot->rf_victim = target->id;
-        shot->missile.damage = weapon->damage;
-        /* Start at the muzzle: skip the steps the barrel covers. */
-        const missiledef_t *flight = &shot->info->missile;
-        int skip = (int)(GUNS[i].muzzle / flight->step);
-        if (skip >= shot->missile.duration) skip = shot->missile.duration - 1;
-        shot->core.position.x += shot->core.momentum.x * skip;
-        shot->core.position.y += shot->core.momentum.y * skip;
-        shot->missile.duration -= skip;
-        shot->core.position.z = GUNS[i].height;
+        for (int n = 0; n < GUNS[i].count; ++n) {
+            mobj_t *shot = P_SpawnMissile(attacker, target, GUNS[i].projectile);
+            if (!shot) return n > 0;
+            shot->rf_victim = target->id;
+            shot->missile.damage = weapon->damage;
+            /* Start at the muzzle: skip the steps the barrel covers. */
+            const missiledef_t *flight = &shot->info->missile;
+            int skip = (int)(GUNS[i].muzzle / flight->step);
+            if (skip >= shot->missile.duration) skip = shot->missile.duration - 1;
+            shot->core.position.x += shot->core.momentum.x * skip;
+            shot->core.position.y += shot->core.momentum.y * skip;
+            shot->missile.duration -= skip;
+            /* Side by side across the line of fire, centred on it. */
+            if (GUNS[i].count > 1) {
+                fixed_t side = GUNS[i].spread * (2 * n - (GUNS[i].count - 1)) / 2;
+                fixed_t k = fixed_div32(side, flight->step);
+                shot->core.position.x -= fixed_mul32(shot->core.momentum.y, k);
+                shot->core.position.y += fixed_mul32(shot->core.momentum.x, k);
+            }
+            shot->core.position.z = GUNS[i].height;
+        }
         return true;
     }
     return false;
@@ -59,7 +80,7 @@ void A_RfImpact(mobj_t *shot) {
         P_DamageMobj(victim, source, damage);
     else
         victim = NULL;
-    if (shot->type_id == MT_HEAVY_SHELL) {
+    if (shot->type_id == MT_HEAVY_SHELL || shot->type_id == MT_HEAVY_BOLT) {
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
             mobj_t *other = (mobj_t *)th;
             if (th->function != P_MobjThinker || other == victim || other == shot || other->remove ||
@@ -85,7 +106,7 @@ void RF_TrailRockets(mobj_t *const *mobjs, int count) {
 /* gameinfo_t.mobj_ticker: a standing soldier keeps looking for targets every tic, whatever
  * frame of its slow idle loop is showing. */
 void RF_MobjTicker(mobj_t *mobj) {
-    if ((mobj->type_id == MT_RIFLEMAN || mobj->type_id == MT_ROCKET) && mobj->hp > 0 &&
+    if (RF_IsInfantry(mobj->type_id) && mobj->hp > 0 &&
         mobj->core.state_id == mobjinfo[mobj->type_id].spawnstate)
         A_Look(mobj);
 }

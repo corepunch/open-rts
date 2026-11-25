@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Spire (headquarters). Footprint 3x3 cells (600 x 600 cm), origin at pad centre
+     on the ground, entrance faces +Z. A stepped round ceramic dais on a pale stone slab; a slender
+     white spire with three team-colour blades and a cyan crystal at its tip; a ceramic ring with
+     three lens pods floats round the spire. A glowing portal opens at the front; three obelisks
+     carry team banners round the dais. About 450 cm tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: pulse 0/1 lifts the ring and brightens
+       the glow; spin 0..0.875 in 8 steps turns the ring 15 degrees a step (it is threefold, so
+       the loop closes). -->
+  <let name="pulse" value="0"/>
+  <let name="spin" value="0"/>
+
+  <shape id="concord_hq_dais" closed="0" v="214 0 214 10 206 18 172 20 168 32 160 38 128 40"/>
+  <shape id="concord_hq_spire" closed="0" v="96 0 96 8 88 16 66 40 48 90 44 130 54 172 60 196 58 224 44 250 28 280 20 300 16 316"/>
+
+  <chunk width="592" height="20" depth="592" radius="40" bevel="3" lean="0" pos="0 10 0" material="concord_stone"/>
+
+  <group rot="0 15 0" scale="1 1 1" pos="0 0 0">
+    <!-- dais -->
+    <lathe shape="concord_hq_dais" segments="40" pos="0 20 0" material="concord_ceramic"/>
+    <cylinder radius="215" height="4" sides="40" pos="0 26 0" material="concord_graphite"/>
+    <torus majorRadius="170" minorRadius="4" majorSegments="40" minorSegments="6" pos="0 41 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- front stair and portal plinth -->
+    <box size="96 6 90" pos="0 23 240" material="concord_pearl"/>
+    <cylinder radius="150" height="3" tube="14" sides="40" pos="0 61.5 0" material="paint_plain" tint="1"/>
+
+    <!-- spire -->
+    <lathe shape="concord_hq_spire" segments="32" pos="0 60 0" material="concord_ceramic"/>
+    <cylinder radius="94" height="6" sides="32" pos="0 63 0" material="concord_graphite"/>
+    <cylinder radius="17" height="6" sides="12" pos="0 379 0" material="concord_graphite"/>
+    <cylinder radius="60.5" height="10" sides="32" pos="0 256 0" material="glow" unlit="1" castShadow="0"/>
+    <cylinder radius="60" height="5" sides="32" pos="0 264 0" material="concord_graphite"/>
+    <!-- crystal tip: a long octahedron -->
+    <cone radius="18" radiusTop="0" height="22" sides="6" smooth="0" rot="180 0 0" pos="0 393 0" material="concord_crystal"/>
+    <cone radius="18" radiusTop="0" height="56" sides="6" smooth="0" pos="0 432 0" material="concord_crystal"/>
+    <cone radius="24" radiusTop="0" height="70" sides="6" smooth="0" pos="0 437 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    <!-- portal: a glowing pointed doorway in a ceramic frame at the spire's foot, facing +Z -->
+    <group pos="0 60 74">
+      <shape closed="1" v="-34 0 34 0 34 70 0 104 -34 70" material="concord_pearl"><extrude amount="30"/><bevel amount="3" bevelSegments="2"/></shape>
+      <shape closed="1" v="-22 0 22 0 22 62 0 86 -22 62" pos="0 0 15.5" material="glow" unlit="1" castShadow="0"><extrude amount="2"/></shape>
+      <shape closed="1" v="-12 0 12 0 12 54 0 70 -12 54" pos="0 0 17" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"><extrude amount="2"/></shape>
+    </group>
+
+    <!-- three team-colour blades on the spire, glow along their edges -->
+    <group rot="0 90 0"><group pos="0 66 0">
+      <shape closed="1" v="40 0 118 0 104 60 64 170 38 250 30 250 40 120" material="paint_plain" tint="1"><extrude amount="10"/><bevel amount="3" bevelSegments="2"/></shape>
+      <beam ax="118" ay="0" az="0" bx="104" by="60" bz="0" width="12" depth="5" material="glow" unlit="1" castShadow="0"/>
+      <beam ax="104" ay="60" az="0" bx="64" by="170" bz="0" width="12" depth="5" material="glow" unlit="1" castShadow="0"/>
+    </group></group>
+    <group rot="0 210 0"><group pos="0 66 0">
+      <shape closed="1" v="40 0 118 0 104 60 64 170 38 250 30 250 40 120" material="paint_plain" tint="1"><extrude amount="10"/><bevel amount="3" bevelSegments="2"/></shape>
+      <beam ax="118" ay="0" az="0" bx="104" by="60" bz="0" width="12" depth="5" material="glow" unlit="1" castShadow="0"/>
+      <beam ax="104" ay="60" az="0" bx="64" by="170" bz="0" width="12" depth="5" material="glow" unlit="1" castShadow="0"/>
+    </group></group>
+    <group rot="0 330 0"><group pos="0 66 0">
+      <shape closed="1" v="40 0 118 0 104 60 64 170 38 250 30 250 40 120" material="paint_plain" tint="1"><extrude amount="10"/><bevel amount="3" bevelSegments="2"/></shape>
+      <beam ax="118" ay="0" az="0" bx="104" by="60" bz="0" width="12" depth="5" material="glow" unlit="1" castShadow="0"/>
+      <beam ax="104" ay="60" az="0" bx="64" by="170" bz="0" width="12" depth="5" material="glow" unlit="1" castShadow="0"/>
+    </group></group>
+
+    <!-- the floating ring with three lens pods; turns with spin, lifts with pulse -->
+    <group pos="0 {336+pulse*6} 0" rot="0 {120*spin+30} 0">
+      <torus majorRadius="84" minorRadius="9" majorSegments="40" minorSegments="10" scale="1 0.8 1" material="concord_ceramic"/>
+      <torus majorRadius="84" minorRadius="5" majorSegments="40" minorSegments="6" pos="0 -6 0" material="glow" unlit="1" castShadow="0"/>
+      <group rot="0 0 0"><capsule radius="13" height="16" rings="4" slices="12" rot="0 0 90" pos="88 0 0" material="paint_plain" tint="1"/><sphere radius="8" rings="6" slices="10" pos="106 0 0" material="glow" unlit="1" castShadow="0"/></group>
+      <group rot="0 120 0"><capsule radius="13" height="16" rings="4" slices="12" rot="0 0 90" pos="88 0 0" material="paint_plain" tint="1"/><sphere radius="8" rings="6" slices="10" pos="106 0 0" material="glow" unlit="1" castShadow="0"/></group>
+      <group rot="0 240 0"><capsule radius="13" height="16" rings="4" slices="12" rot="0 0 90" pos="88 0 0" material="paint_plain" tint="1"/><sphere radius="8" rings="6" slices="10" pos="106 0 0" material="glow" unlit="1" castShadow="0"/></group>
+      <torus majorRadius="84" minorRadius="7" majorSegments="40" minorSegments="6" pos="0 -5 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    </group>
+
+    <!-- three obelisks round the dais with team banners -->
+    <group rot="0 150 0"><group pos="176 40 0">
+      <cone radius="18" radiusTop="9" height="130" sides="6" smooth="0" pos="0 65 0" material="concord_ceramic"/>
+      <cone radius="9" radiusTop="0" height="24" sides="6" smooth="0" pos="0 142 0" material="concord_crystal"/>
+      <box size="4 80 34" pos="15 74 0" rot="0 0 4" material="paint_plain" tint="1"/>
+    </group></group>
+    <group rot="0 30 0"><group pos="176 40 0">
+      <cone radius="18" radiusTop="9" height="130" sides="6" smooth="0" pos="0 65 0" material="concord_ceramic"/>
+      <cone radius="9" radiusTop="0" height="24" sides="6" smooth="0" pos="0 142 0" material="concord_crystal"/>
+      <box size="4 80 34" pos="15 74 0" rot="0 0 4" material="paint_plain" tint="1"/>
+    </group></group>
+    <group rot="0 270 0"><group pos="176 40 0">
+      <cone radius="18" radiusTop="9" height="130" sides="6" smooth="0" pos="0 65 0" material="concord_ceramic"/>
+      <cone radius="9" radiusTop="0" height="24" sides="6" smooth="0" pos="0 142 0" material="concord_crystal"/>
+      <box size="4 80 34" pos="15 74 0" rot="0 0 4" material="paint_plain" tint="1"/>
+    </group></group>
+  </group>
+</prefab>

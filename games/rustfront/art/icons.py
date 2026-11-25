@@ -37,6 +37,18 @@ ICONS = [
     ("scout", "vehicles/scout", ' rot="0 -150 0"'), ("tank", "vehicles/tank", ' rot="0 -150 0"'),
     ("apc", "vehicles/apc", ' rot="0 -150 0"'), ("artillery", "vehicles/artillery", ' rot="0 -150 0"'),
     ("harvester", "vehicles/harvester", ' rot="0 -150 0"'),
+    ("mastodon", "vehicles/mastodon", ' rot="0 -150 0"'),
+    ("cl_generator", "clans/generator", ""), ("cl_camp", "clans/camp", ""), ("cl_smelter", "clans/smelter", ""),
+    ("cl_yard", "clans/yard", ""), ("cl_tower", "clans/spike_tower", ""), ("cl_hall", "clans/hall", ""),
+    ("cl_raider", "clans/raider", ' rot="-90 125 0" pose="Aim"'), ("cl_torcher", "clans/torcher", ' rot="-90 125 0" pose="Aim"'),
+    ("cl_trike", "clans/trike", ' rot="0 -150 0"'), ("cl_truck", "clans/gun_truck", ' rot="0 -150 0"'),
+    ("cl_crawler", "clans/crawler", ' rot="0 -150 0"'), ("cl_rig", "clans/rocket_rig", ' rot="0 -150 0"'),
+    ("cl_hauler", "clans/hauler", ' rot="0 -150 0"'),
+    ("lc_fusion", "concord/fusion", ""), ("lc_academy", "concord/academy", ""), ("lc_extractor", "concord/extractor", ""),
+    ("lc_foundry", "concord/foundry", ""), ("lc_tower", "concord/beam_tower", ""), ("lc_spire", "concord/spire", ""),
+    ("lc_warden", "concord/warden", ' rot="-90 125 0" pose="Aim"'), ("lc_lancer", "concord/lancer", ' rot="-90 125 0" pose="Aim"'),
+    ("lc_skimmer", "concord/skimmer", ' rot="0 -150 0"'), ("lc_glaive", "concord/glaive", ' rot="0 -150 0"'),
+    ("lc_prism", "concord/prism", ' rot="0 -150 0"'), ("lc_harvester", "concord/harvester", ' rot="0 -150 0"'),
 ]
 
 

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Extractor (refinery; ore is unloaded here). Footprint 3x2 cells (600 wide on X,
+     400 deep on Z), origin at pad centre on the ground, dock faces +Z. A long smooth ceramic
+     processing hall with a glowing window band and three team fins along the back; three crystal
+     condensers with floating rings, back right; a round dock pad at the front left under an
+     emitter arm that reaches out of the hall; a small control lens, front right. About 245 cm
+     tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knob, set per frame by art/sprites.py: pulse 0/1 lifts the condensers' rings
+       6 cm and brightens the glow: the hall's window strip, the condenser tips and a beam from the
+       dock emitter. -->
+  <let name="pulse" value="0"/>
+
+  <shape id="concord_ext_pad" closed="0" v="96 0 96 6 90 12 76 14"/>
+  <shape id="concord_ext_cradle" closed="0" v="40 0 40 8 34 14 30 34 24 40"/>
+
+  <chunk width="592" height="20" depth="392" radius="36" bevel="3" lean="0" pos="0 10 0" material="concord_stone"/>
+
+  <group rot="0 -12 0" scale="0.97 0.97 0.97" pos="-48 0 15">
+    <!-- processing hall along the back: a smooth ceramic hull on a graphite plinth -->
+    <chunk width="326" height="14" depth="138" radius="40" bevel="3" lean="0" pos="-60 27 -110" material="concord_graphite"/>
+    <chunk width="320" height="124" depth="130" radius="54" bevel="38" lean="0.16" pos="-60 96 -110" material="concord_ceramic"/>
+    <chunk width="250" height="16" depth="70" radius="30" bevel="6" lean="0" pos="-60 164 -112" material="paint_plain" tint="1"/>
+    <chunk width="302" height="12" depth="118" radius="50" bevel="3" lean="0" pos="-60 76 -110" material="concord_graphite"/>
+    <chunk width="303" height="7" depth="119" radius="50" bevel="2" lean="0" pos="-60 76 -110" material="glow" unlit="1" castShadow="0"/>
+    <chunk width="304" height="8" depth="120" radius="50" bevel="2" lean="0" pos="-60 76 -110" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+    <!-- three team fins on the roof -->
+    <shape closed="1" v="-40 0 30 0 12 46 -22 46" pos="-150 172 -112" material="paint_plain" tint="1"><extrude amount="8"/><bevel amount="2" bevelSegments="2"/></shape>
+    <shape closed="1" v="-40 0 30 0 12 46 -22 46" pos="-60 172 -112" material="paint_plain" tint="1"><extrude amount="8"/><bevel amount="2" bevelSegments="2"/></shape>
+    <shape closed="1" v="-40 0 30 0 12 46 -22 46" pos="30 172 -112" material="paint_plain" tint="1"><extrude amount="8"/><bevel amount="2" bevelSegments="2"/></shape>
+
+    <!-- crystal condensers, back right: crystal columns in ceramic cradles, floating glow rings -->
+    <group pos="160 20 -126">
+      <lathe shape="concord_ext_cradle" segments="20" material="concord_ceramic"/>
+      <cone radius="24" radiusTop="18" height="150" sides="6" smooth="0" pos="0 115 0" material="concord_crystal"/>
+      <cone radius="18" radiusTop="0" height="34" sides="6" smooth="0" pos="0 207 0" material="concord_crystal"/>
+      <cone radius="22" radiusTop="0" height="44" sides="6" smooth="0" pos="0 212 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+      <torus majorRadius="36" minorRadius="5" majorSegments="24" minorSegments="6" pos="0 {120+pulse*6} 0" material="concord_ceramic"/>
+      <torus majorRadius="36" minorRadius="3" majorSegments="24" minorSegments="6" pos="0 {114+pulse*6} 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+    <group pos="244 20 -112">
+      <lathe shape="concord_ext_cradle" segments="20" material="concord_ceramic"/>
+      <cone radius="22" radiusTop="17" height="120" sides="6" smooth="0" pos="0 100 0" material="concord_crystal"/>
+      <cone radius="17" radiusTop="0" height="30" sides="6" smooth="0" pos="0 175 0" material="concord_crystal"/>
+      <cone radius="21" radiusTop="0" height="40" sides="6" smooth="0" pos="0 180 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+      <torus majorRadius="34" minorRadius="5" majorSegments="24" minorSegments="6" pos="0 {100+pulse*6} 0" material="concord_ceramic"/>
+      <torus majorRadius="34" minorRadius="3" majorSegments="24" minorSegments="6" pos="0 {94+pulse*6} 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+    <group pos="206 20 -30">
+      <lathe shape="concord_ext_cradle" segments="20" material="concord_ceramic"/>
+      <cone radius="22" radiusTop="17" height="96" sides="6" smooth="0" pos="0 88 0" material="concord_crystal"/>
+      <cone radius="17" radiusTop="0" height="28" sides="6" smooth="0" pos="0 150 0" material="concord_crystal"/>
+      <cone radius="21" radiusTop="0" height="38" sides="6" smooth="0" pos="0 155 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+      <torus majorRadius="34" minorRadius="5" majorSegments="24" minorSegments="6" pos="0 {84+pulse*6} 0" material="concord_ceramic"/>
+      <torus majorRadius="34" minorRadius="3" majorSegments="24" minorSegments="6" pos="0 {78+pulse*6} 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+    <!-- conduits from the condensers into the hall -->
+    <tube ax="132" ay="70" az="-120" bx="96" by="70" bz="-112" r0="9" material="concord_ceramic"/>
+    <tube ax="186" ay="54" az="-40" bx="96" by="54" bz="-80" r0="9" material="concord_ceramic"/>
+
+    <!-- dock pad, front left: where the harvester settles and unloads -->
+    <group pos="-90 20 92">
+      <lathe shape="concord_ext_pad" segments="36" material="concord_pearl"/>
+      <cylinder radius="70" height="2" sides="36" pos="0 14 0" material="concord_graphite"/>
+      <torus majorRadius="83" minorRadius="3.5" majorSegments="36" minorSegments="6" pos="0 13.5 0" material="glow" unlit="1" castShadow="0"/>
+      <box size="50 1 6" pos="0 15.5 -16" material="glow" unlit="1" castShadow="0"><array count="3" translation="0 0 16"/></box>
+    </group>
+    <!-- a glow channel from the pad to the hall -->
+    <box size="16 3 40" pos="-90 21.5 -18" material="concord_graphite"/>
+    <box size="8 1 36" pos="-90 23.5 -18" material="glow" unlit="1" castShadow="0"/>
+    <!-- the emitter arm reaching over the pad from the hall -->
+    <beam ax="-90" ay="130" az="-60" bx="-90" by="172" bz="40" width="26" depth="20" radius="8" bevel="3" material="concord_ceramic"/>
+    <beam ax="-90" ay="172" az="40" bx="-90" by="160" bz="86" width="24" depth="18" radius="8" bevel="3" material="concord_ceramic"/>
+    <cylinder radius="20" height="18" sides="16" pos="-90 152 90" material="paint_plain" tint="1"/>
+    <cone radius="14" radiusTop="0" height="30" sides="6" smooth="0" rot="180 0 0" pos="-90 128 90" material="concord_crystal"/>
+    <cone radius="26" radiusTop="6" height="96" sides="12" pos="-90 82 92" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+
+    <!-- control lens, front right -->
+    <group pos="140 20 110">
+      <chunk width="110" height="40" depth="80" radius="30" bevel="14" lean="0.12" pos="0 20 0" material="concord_ceramic"/>
+      <cylinder radius="24" height="6" sides="20" pos="0 43 0" material="paint_plain" tint="1"/>
+      <sphere radius="14" rings="8" slices="12" pos="0 48 0" material="concord_crystal"/>
+      <box size="70 6 2" pos="0 22 37.5" material="glow" unlit="1" castShadow="0"/>
+    </group>
+  </group>
+</prefab>

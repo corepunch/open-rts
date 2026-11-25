@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spike Tower, assembled: spike_tower/base plus spike_tower/head at (0, 110, 0) turned to face +Z. Footprint 1x1 cell (200 x 200 cm), origin at pad centre on the ground, guns face +Z. -->
+<prefab up="y" front="+z">
+  <prefab source="clans/spike_tower/base"/>
+  <prefab source="clans/spike_tower/head" pos="0 110 0" rot="0 -90 0"/>
+</prefab>

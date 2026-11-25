@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mastodon turret. Origin on the turret ring axis at mount height; guns face +X. A broad faceted turret in team paint carrying two heavy guns side by side, with a missile pod on each cheek, a cupola and a bustle rack. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (both guns flash and
+       recoil), fire 2 the barrels running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 16 : (fire == 2 ? 7 : 0)"/>
+
+  <group scale="1.2 1.2 1.2">
+    <!-- the turret: a top-view wedge swept up and tapered -->
+    <shape closed="1" v="78 0 52 56 -48 62 -76 42 -76 -42 -48 -62 52 -56" rot="90 0 0" material="team" tint="1">
+      <extrude amount="44"/><bevel amount="5" bevelSegments="2"/>
+      <taper center="0 0 0" amount="0.3" axis="z"/>
+    </shape>
+    <shape closed="1" v="50 0 32 38 -34 42 -56 28 -56 -28 -34 -42 32 -38" rot="90 0 0" pos="0 22.5 0" material="trim">
+      <extrude amount="1.5"/>
+    </shape>
+    <!-- missile pods on the cheeks: four tubes each -->
+    <soft-box width="58" height="26" depth="22" radius="5" bevel="2" pos="-6 18 68" material="paint_plain" tint="1"/>
+    <soft-box width="58" height="26" depth="22" radius="5" bevel="2" pos="-6 18 -68" material="paint_plain" tint="1"/>
+    <cylinder radius="4" height="2" sides="8" rot="0 0 -90" pos="23.5 24 63" material="rubber"><array count="2" translation="0 -12 0"/></cylinder>
+    <cylinder radius="4" height="2" sides="8" rot="0 0 -90" pos="23.5 24 73" material="rubber"><array count="2" translation="0 -12 0"/></cylinder>
+    <cylinder radius="4" height="2" sides="8" rot="0 0 -90" pos="23.5 24 -63" material="rubber"><array count="2" translation="0 -12 0"/></cylinder>
+    <cylinder radius="4" height="2" sides="8" rot="0 0 -90" pos="23.5 24 -73" material="rubber"><array count="2" translation="0 -12 0"/></cylinder>
+    <!-- cupola, hatch, bustle rack, antenna -->
+    <cylinder radius="14" height="10" sides="8" pos="-30 28 26" material="gunmetal"/>
+    <cylinder radius="15" height="3" sides="8" pos="-30 24.5 26" material="trim_light"/>
+    <box size="18 6 18" pos="-14 24 -26" material="trim"/>
+    <box size="22 14 86" pos="-80 4 0" material="steel_dark"/>
+    <box size="18 10 78" pos="-80 15 0" material="sandbag"/>
+    <cylinder radius="1" height="100" sides="5" pos="-58 72 -36" material="steel_dark"/>
+    <!-- the twin guns in one mantlet -->
+    <box size="34 32 66" pos="72 2 0" material="gunmetal"/>
+    <group pos="0 2 15">
+      <cylinder radius="6.5" height="170" sides="10" rot="0 0 -90" pos="{170-kick} 0 0" material="steel_dark"/>
+      <cylinder radius="9" height="26" sides="10" rot="0 0 -90" pos="{100-kick} 0 0" material="gunmetal"/>
+      <box size="22 15 17" pos="{258-kick} 0 0" material="steel_dark"/>
+      <muzzle-flash pos="{270-kick} 0 0" scale="1.5 1.5 1.5" on="{fire == 1}"/>
+    </group>
+    <group pos="0 2 -15">
+      <cylinder radius="6.5" height="170" sides="10" rot="0 0 -90" pos="{170-kick} 0 0" material="steel_dark"/>
+      <cylinder radius="9" height="26" sides="10" rot="0 0 -90" pos="{100-kick} 0 0" material="gunmetal"/>
+      <box size="22 15 17" pos="{258-kick} 0 0" material="steel_dark"/>
+      <muzzle-flash pos="{270-kick} 0 0" scale="1.5 1.5 1.5" on="{fire == 1}"/>
+    </group>
+  </group>
+</prefab>

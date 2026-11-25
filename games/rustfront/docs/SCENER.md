@@ -58,6 +58,10 @@ art/kit.xml             Rustfront's kit. Detail parts: ladder, vent, warn-light,
 art/prefabs/buildings/  one .blk per building (turret/ holds the gun turret's base and head)
 art/prefabs/vehicles/   one .blk per vehicle (tank/ and apc/ hold hull and turret layers)
 art/prefabs/infantry/   Scener CAT characters: rifleman, rocket soldier
+art/prefabs/clans/      the Scrap Clans: buildings, vehicles, soldiers; clans.xml is their parts
+                        library (drum, tyre, spike, flag, fence, lamp, fire barrel, emblem)
+art/prefabs/concord/    the Lumen Concord: buildings, hover craft, soldiers
+art/preview.py          renders any prefabs in the game view, for checking work in progress
 art/build_all.sh        the whole pipeline in order (make rustfront-art)
 art/render.sh           check + render the previews
 art/pack8.py            converts sprites/ to 256-colour assets/ for the engine
@@ -88,6 +92,31 @@ relative to the scene's directory (`source="vehicles/tank"` loads
 | Team colour | Parts marked `tint="1"` take the instance's `color`: a building's painted hulls, and a vehicle's bands, canopies and turret tops. Everything else keeps its material |
 | Palette | The materials in `layout.py`'s `PALETTE`: `sand`, `pad_dark`, `concrete_dark`, `gunmetal`, `steel`, `steel_dark`, `grating`, `rust`, `armor`, `armor_dark`, `team`, `track`, `rubber`, `sandbag`, `glass`, `ore`, `hazard`, the emitters `glow`, `lamp`, `warn`, `flame`, and the buildings' `slab`, `paint`, `paint_plain`, `trim`, `trim_light`, `window`, `emblem_gold`, `emblem_white`, `emblem_dark`, `hazard_big`, `hazard_skirt`, `hazard_ring`, `hazard_ring_big`. Add a material there instead of inline colours |
 | Shape style | See [Art direction](#art-direction) |
+
+## Factions
+
+Three factions share the view, the lights and the palette but nothing else. Keep each one's
+language when adding to it; a unit should read as its faction at game size from the
+silhouette and the materials alone.
+
+| Faction | Language | Team colour on |
+|---|---|---|
+| Directorate (`buildings/`, `vehicles/`, `infantry/`) | chunky painted hulls, gloss paint, hazard stripes, the gold roundel | the hulls themselves |
+| Scrap Clans (`clans/`) | rust, corrugated sheet, drums, tyres, spikes, tarps; asymmetric and bolted together; matte weathered paint | painted panels, tarps, flags, war-paint (`clans_paint`, `clans_cloth`) |
+| Lumen Concord (`concord/`) | white ceramic, graphite seams, cyan light, floating rings and hover pads; symmetrical | inlaid panels, fins, blades, banners only; white dominates |
+
+Material ids are global to a scene (the first definition wins), so a faction's own materials
+carry its prefix (`clans_rust`, `concord_ceramic`) and every prefab that uses one repeats
+the same definition. Hover craft float 20–35 cm up; `scener --check` warns that they float.
+
+To look at work in progress without touching the generated files:
+
+```sh
+python3 games/rustfront/art/preview.py --out /tmp/look clans/yard concord/glaive vehicles/mastodon
+python3 games/rustfront/art/preview.py --out /tmp/look --scale 4.1667 clans/hall   # true game size
+python3 games/rustfront/art/preview.py --out /tmp/look --scale 0.8 --size 320 320 --look 80 \
+    concord/warden:-45:Ready concord/warden:-45:Dead                              # prefab:yaw:pose
+```
 
 ## Art direction
 

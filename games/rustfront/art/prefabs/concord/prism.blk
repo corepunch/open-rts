@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Prism, long-range artillery. Length 300 cm on X, width 170 cm on Z, origin at
+     the hull centre on the ground, the focus faces +X. A long low ceramic hover sled floating
+     26 cm up on four cyan pads; two white cradle pylons with team-colour crests hold a big cyan
+     crystal focus (about 190 cm long) tilted 28 degrees up, ringed by two focusing halos; on the shot the crystal
+     blazes and a beam flash leaves its tip. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: move 0/1 bobs the sled 3 cm and
+       brightens its pads; fire 1 is the shot (the crystal blazes white-cyan and a beam flash
+       leaves its tip, the halos slide forward), fire 2 the afterglow. -->
+  <let name="move" value="0"/>
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 8 : (fire == 2 ? 3 : 0)"/>
+
+  <group pos="0 {3*move} 0">
+    <ellipsoid radii="36 12 20" rings="6" slices="16" pos="96 39 64" material="concord_pearl"/>
+    <ellipsoid radii="30 3 15" rings="4" slices="16" pos="96 27 64" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="34 4 19" rings="4" slices="16" pos="96 27 64" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="36 12 20" rings="6" slices="16" pos="96 39 -64" material="concord_pearl"/>
+    <ellipsoid radii="30 3 15" rings="4" slices="16" pos="96 27 -64" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="34 4 19" rings="4" slices="16" pos="96 27 -64" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="36 12 20" rings="6" slices="16" pos="-96 39 64" material="concord_pearl"/>
+    <ellipsoid radii="30 3 15" rings="4" slices="16" pos="-96 27 64" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="34 4 19" rings="4" slices="16" pos="-96 27 64" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="36 12 20" rings="6" slices="16" pos="-96 39 -64" material="concord_pearl"/>
+    <ellipsoid radii="30 3 15" rings="4" slices="16" pos="-96 27 -64" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="34 4 19" rings="4" slices="16" pos="-96 27 -64" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+    <!-- sled -->
+    <shape closed="1" v="152 0 120 54 -120 74 -150 56 -150 -56 -120 -74 120 -54" rot="90 0 0" pos="0 56 0" material="concord_ceramic">
+      <fillet radius="14" segments="3"/><extrude amount="28"/><bevel amount="8" bevelSegments="3"/>
+      <taper center="0 0 0" amount="0.2" axis="z"/>
+    </shape>
+    <shape closed="1" v="156 0 123 57 -122 77 -153 58 -153 -58 -122 -77 123 -57" rot="90 0 0" pos="0 46 0" material="concord_graphite">
+      <fillet radius="14" segments="3"/><extrude amount="5"/>
+    </shape>
+    <box size="200 12 4" rot="-40 -3 0" pos="-10 58 66" material="paint_plain" tint="1"/>
+    <box size="200 12 4" rot="40 3 0" pos="-10 58 -66" material="paint_plain" tint="1"/>
+    <box size="40 3 6" pos="126 70.5 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- power cells on the rear deck -->
+    <capsule radius="11" height="40" rings="4" slices="12" rot="90 0 0" pos="-112 80 0" material="concord_pearl"/>
+    <box size="6 2 36" pos="-112 91 0" material="glow" unlit="1" castShadow="0"/>
+
+    <!-- cradle pylons -->
+    <group pos="-14 70 0" scale="1 1.25 1">
+      <shape closed="1" v="-44 0 40 0 16 74 -10 84 -30 60" pos="0 0 50" material="concord_ceramic"><extrude amount="16"/><bevel amount="4" bevelSegments="2"/></shape>
+      <shape closed="1" v="-44 0 40 0 16 74 -10 84 -30 60" pos="0 0 -50" material="concord_ceramic"><extrude amount="16"/><bevel amount="4" bevelSegments="2"/></shape>
+      <shape closed="1" v="-30 60 -10 84 -4 92 -34 70" pos="0 0 50" material="paint_plain" tint="1"><extrude amount="17"/></shape>
+      <shape closed="1" v="-30 60 -10 84 -4 92 -34 70" pos="0 0 -50" material="paint_plain" tint="1"><extrude amount="17"/></shape>
+      <cylinder radius="12" height="116" sides="16" rot="90 0 0" pos="0 64 0" material="concord_graphite"/>
+    </group>
+    <!-- the crystal focus, tilted up toward +X -->
+    <group pos="-14 150 0" rot="0 0 28" scale="1.4 1.4 1.4">
+      <cone radius="30" radiusTop="0" height="120" sides="6" smooth="0" rot="0 0 -90" pos="60 0 0" material="concord_crystal"/>
+      <cone radius="30" radiusTop="0" height="60" sides="6" smooth="0" rot="0 0 90" pos="-30 0 0" material="concord_crystal"/>
+      <cone radius="34" radiusTop="0" height="132" sides="6" smooth="0" rot="0 0 -90" pos="64 0 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <cone radius="34" radiusTop="0" height="68" sides="6" smooth="0" rot="0 0 90" pos="-32 0 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <torus majorRadius="30" minorRadius="5" majorSegments="24" minorSegments="8" rot="0 0 90" pos="{34+kick} 0 0" material="concord_ceramic"/>
+      <torus majorRadius="22" minorRadius="4" majorSegments="24" minorSegments="8" rot="0 0 90" pos="{66+kick} 0 0" material="paint_plain" tint="1"/>
+      <torus majorRadius="30" minorRadius="2.5" majorSegments="24" minorSegments="6" rot="0 0 90" pos="{38+kick} 0 0" material="glow" unlit="1" castShadow="0"/>
+      <!-- the shot -->
+      <sphere radius="16" rings="8" slices="12" pos="122 0 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <sphere radius="30" rings="8" slices="12" scale="0.5 1 1" pos="128 0 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <cone radius="10" radiusTop="3" height="130" sides="10" rot="0 0 -90" pos="190 0 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <cone radius="4.5" radiusTop="1.5" height="140" sides="8" rot="0 0 -90" pos="196 0 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <sphere radius="12" rings="8" slices="12" pos="121 0 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 2}"/>
+    </group>
+  </group>
+</prefab>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Rocket Rig, the Scrap Clans' artillery. Length 320 cm on X, width 150 cm on Z, origin
+     at the chassis centre on the ground, cab and rockets face +X. A six-wheeled flatbed: a
+     blunt rusty cab with a team hood and a grille guard, and on the bed a welded rack of eight
+     pipe launchers raised 28 degrees on a pivot, team-painted warheads poking out, stabiliser
+     jacks and a drum of spare motors. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the launch (a flash at the
+       muzzle and a backblast behind, the top-left rocket gone), fire 2 the tube empty and
+       smoking. -->
+  <let name="fire" value="0"/>
+
+  <!-- six wheels -->
+  <group pos="0 30 0">
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="108 0 64" material="rubber"/>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="108 0 -64" material="rubber"/>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-50 0 64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-50 0 -64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="108 0 64" material="gunmetal"/>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="108 0 -64" material="clans_drum"/>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-50 0 64" material="gunmetal"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-50 0 -64" material="gunmetal"><array count="2" translation="-64 0 0"/></cylinder>
+  </group>
+  <box size="300 16 100" pos="0 48 0" material="steel_dark"/>
+
+  <!-- cab, forward: a blunt profile, rusty, team hood -->
+  <shape closed="1" v="62 56 154 56 158 92 130 98 120 136 62 138" material="clans_rust">
+    <extrude amount="140"/><bevel amount="3" bevelSegments="1"/>
+    <taper center="0 56 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="30 3 118" rot="0 0 -12" pos="144 96 0" material="clans_paint" tint="1"/>
+  <box size="3 26 104" rot="0 0 -16" pos="126 118 0" material="glass"/>
+  <box size="56 4 128" pos="92 140 0" material="clans_paint" tint="1"/>
+  <box size="44 28 3" pos="92 92 70.5" material="clans_tin"/>
+  <!-- grille guard -->
+  <box size="6 40 120" pos="162 70 0" material="steel_dark"/>
+  <box size="4 3 116" pos="165 60 0" material="clans_rust"><array count="4" translation="0 8 0"/></box>
+  <box size="4 5 4" pos="160 86 46" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 5 4" pos="160 86 -46" material="lamp" unlit="1" castShadow="0"/>
+  <tube ax="66" ay="100" az="56" bx="64" by="164" bz="60" r0="4" material="clans_rust"/>
+
+  <!-- bed -->
+  <box size="210 8 140" pos="-46 60 0" material="clans_wood"/>
+  <box size="4 26 140" pos="-150 74 0" material="clans_sheet_rust"/>
+  <box size="150 20 4" rot="6 0 0" pos="-60 72 70" material="clans_paint" tint="1"/>
+  <box size="120 18 4" rot="-6 0 0" pos="-70 71 -70" material="clans_tin"/>
+  <!-- stabiliser jacks, folded -->
+  <box size="10 46 10" rot="0 0 -20" pos="-140 46 74" material="hazard"/>
+  <box size="10 46 10" rot="0 0 -20" pos="-140 46 -74" material="hazard"/>
+  <!-- pivot and the rack, raised 28 degrees -->
+  <box size="40 36 50" pos="-36 82 0" material="gunmetal"/>
+  <box size="20 22 8" pos="-74 78 46" material="clans_drum"/>
+  <group pos="-40 104 0" rot="0 0 28">
+    <box size="150 6 110" pos="0 -4 0" material="steel_dark"/>
+    <box size="8 60 116" pos="-50 26 0" material="clans_rust"/>
+    <box size="8 60 116" pos="50 26 0" material="clans_rust"/>
+    <!-- eight launch pipes, two rows of four -->
+    <cylinder radius="11" height="170" sides="10" rot="0 0 -90" pos="0 12 -39" material="clans_tin"><array count="4" translation="0 0 26"/></cylinder>
+    <cylinder radius="11" height="170" sides="10" rot="0 0 -90" pos="0 36 -39" material="clans_tin"><array count="3" translation="0 0 26"/></cylinder>
+    <cylinder radius="11" height="170" sides="10" rot="0 0 -90" pos="0 36 39" material="clans_tin"/>
+    <box size="12 52 120" pos="40 24 0" material="clans_paint" tint="1"/>
+    <!-- warheads poking out -->
+    <cone radius="9" radiusTop="0" height="22" sides="8" rot="0 0 -90" pos="96 12 -39" material="clans_paint" tint="1"><array count="4" translation="0 0 26"/></cone>
+    <cone radius="9" radiusTop="0" height="22" sides="8" rot="0 0 -90" pos="96 36 -39" material="clans_paint" tint="1"><array count="3" translation="0 0 26"/></cone>
+    <cone radius="9" radiusTop="0" height="22" sides="8" rot="0 0 -90" pos="96 36 39" material="clans_paint" tint="1" renderable="{fire == 0}"/>
+    <cylinder radius="9" height="1" sides="10" rot="0 0 -90" pos="85.6 36 39" material="rubber" renderable="{fire != 0}"/>
+    <!-- launch: muzzle flash and backblast on the fired pipe -->
+    <muzzle-flash pos="86 36 39" scale="1.4 1.4 1.4" on="{fire == 1}"/>
+    <muzzle-flash pos="-86 36 39" rot="0 180 0" scale="1.2 1.6 1.6" on="{fire == 1}"/>
+    <sphere radius="14" rings="4" slices="6" pos="{-96-12*fire} 36 39" material="clans_canvas" castShadow="0" renderable="{fire == 2}"/>
+  </group>
+</prefab>

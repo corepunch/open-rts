@@ -129,6 +129,9 @@ MOVE = [{}, {"move": 1}]
 FIRE = [{}, {"fire": 1}, {"fire": 2}]
 MOVE_FIRE = [{}, {"move": 1}, {"fire": 1}]
 BLINK = [{"blink": 1}, {"blink": 0}]
+PULSE = [{"pulse": 0}, {"pulse": 1}]
+BLINK_FLICK = [{"blink": 1, "flick": 0}, {"blink": 0, "flick": 1}]
+SPIN_PULSE = [{"spin": k / 8, "pulse": int(k % 4 >= 2)} for k in range(8)]
 
 
 # key: shadow (assembled prefab), facings of the unit, layers
@@ -154,6 +157,58 @@ UNITS = {
                      layer("turret", "vehicles/tank/turret", (512, 512), 0, mount=(-12, 102, 0), frames=FIRE)]),
     "artillery": dict(shadow="vehicles/artillery", facings=16, layers=[layer("body", "vehicles/artillery", (640, 576), 70, frames=MOVE_FIRE)]),
     "harvester": dict(shadow="vehicles/harvester", facings=16, layers=[layer("body", "vehicles/harvester", (448, 384), 70, frames=MOVE)]),
+    "mastodon":  dict(shadow="vehicles/mastodon",  facings=16, layers=[
+                     layer("hull", "vehicles/mastodon/hull", (512, 480), 50, frames=MOVE),
+                     layer("turret", "vehicles/mastodon/turret", (672, 640), 0, mount=(-14, 112, 0), frames=FIRE)]),
+    # Scrap Clans: warning lamps blink while barrels, furnaces and welders flicker; the turbine turns
+    "cl_hall":      dict(shadow="clans/hall", facings=1, layers=[layer("body", "clans/hall", (640, 704), 170,
+                         structure=((3, 3), 400), frames=BLINK_FLICK)]),
+    "cl_generator": dict(shadow="clans/generator", facings=1, layers=[layer("body", "clans/generator", (448, 640), 150,
+                         structure=((2, 2), 370), frames=[{"blink": 1, "fan": 0}, {"blink": 0, "fan": 1}])]),
+    "cl_smelter":   dict(shadow="clans/smelter", facings=1, layers=[layer("body", "clans/smelter", (640, 704), 170,
+                         structure=((3, 2), 425), frames=BLINK_FLICK)]),
+    "cl_camp":      dict(shadow="clans/camp", facings=1, layers=[layer("body", "clans/camp", (448, 512), 110,
+                         structure=((2, 2), 250), frames=BLINK_FLICK)]),
+    "cl_yard":      dict(shadow="clans/yard", facings=1, layers=[layer("body", "clans/yard", (640, 704), 160,
+                         structure=((3, 3), 390), frames=BLINK_FLICK)]),
+    "cl_tower":     dict(shadow="clans/spike_tower", facings=1, layers=[
+                        layer("base", "clans/spike_tower/base", (256, 288), 50, frames=[{"blink": 1}, {"blink": 0}],
+                              structure=((1, 1), 210), damaged=False, build_sheet=True),
+                        layer("build", "clans/spike_tower", (256, 320), 50, structure=((1, 1), 210),
+                              frames=[{"build": b} for b in BUILD_STAGES], damaged=False, build_sheet=True),
+                        layer("head", "clans/spike_tower/head", (320, 256), 0, mount=(0, 110, 0), facings=16, frames=FIRE)]),
+    "cl_trike":     dict(shadow="clans/trike", facings=16, layers=[layer("body", "clans/trike", (320, 288), 45, frames=MOVE_FIRE)]),
+    "cl_truck":     dict(shadow="clans/gun_truck", facings=16, layers=[
+                        layer("hull", "clans/gun_truck/hull", (480, 416), 55, frames=MOVE),
+                        layer("turret", "clans/gun_truck/turret", (320, 288), 0, mount=(-62, 112, 0), frames=FIRE)]),
+    "cl_crawler":   dict(shadow="clans/crawler", facings=16, layers=[
+                        layer("hull", "clans/crawler/hull", (448, 416), 50, frames=MOVE),
+                        layer("turret", "clans/crawler/turret", (512, 512), 0, mount=(-14, 104, 0), frames=FIRE)]),
+    "cl_rig":       dict(shadow="clans/rocket_rig", facings=16, layers=[layer("body", "clans/rocket_rig", (512, 480), 70, frames=MOVE_FIRE)]),
+    "cl_hauler":    dict(shadow="clans/hauler", facings=16, layers=[layer("body", "clans/hauler", (544, 480), 70, frames=MOVE)]),
+    # Lumen Concord: a ring turns 15 degrees a frame (threefold, so eight frames loop) as the glow pulses
+    "lc_spire":     dict(shadow="concord/spire", facings=1, layers=[layer("body", "concord/spire", (640, 768), 200,
+                         structure=((3, 3), 470), frames=SPIN_PULSE)]),
+    "lc_fusion":    dict(shadow="concord/fusion", facings=1, layers=[layer("body", "concord/fusion", (448, 576), 140,
+                         structure=((2, 2), 320), frames=SPIN_PULSE)]),
+    "lc_extractor": dict(shadow="concord/extractor", facings=1, layers=[layer("body", "concord/extractor", (640, 576), 110,
+                         structure=((3, 2), 245), frames=PULSE)]),
+    "lc_academy":   dict(shadow="concord/academy", facings=1, layers=[layer("body", "concord/academy", (448, 576), 130,
+                         structure=((2, 2), 300), frames=SPIN_PULSE)]),
+    "lc_foundry":   dict(shadow="concord/foundry", facings=1, layers=[layer("body", "concord/foundry", (640, 640), 150,
+                         structure=((3, 3), 330), frames=SPIN_PULSE)]),
+    "lc_tower":     dict(shadow="concord/beam_tower", facings=1, layers=[
+                        layer("base", "concord/beam_tower/base", (256, 320), 60, frames=[{"pulse": 0}, {"pulse": 1}],
+                              structure=((1, 1), 210), damaged=False, build_sheet=True),
+                        layer("build", "concord/beam_tower", (256, 320), 60, structure=((1, 1), 210),
+                              frames=[{"build": b} for b in BUILD_STAGES], damaged=False, build_sheet=True),
+                        layer("head", "concord/beam_tower/head", (320, 256), 0, mount=(0, 140, 0), facings=16, frames=FIRE)]),
+    "lc_skimmer":   dict(shadow="concord/skimmer", facings=16, layers=[layer("body", "concord/skimmer", (320, 320), 55, frames=MOVE_FIRE)]),
+    "lc_glaive":    dict(shadow="concord/glaive", facings=16, layers=[
+                        layer("hull", "concord/glaive/hull", (416, 384), 50, frames=MOVE),
+                        layer("turret", "concord/glaive/turret", (512, 512), 0, mount=(-14, 80, 0), frames=FIRE)]),
+    "lc_prism":     dict(shadow="concord/prism", facings=16, layers=[layer("body", "concord/prism", (640, 576), 90, frames=MOVE_FIRE)]),
+    "lc_harvester": dict(shadow="concord/harvester", facings=16, layers=[layer("body", "concord/harvester", (448, 416), 75, frames=MOVE)]),
     "apc":       dict(shadow="vehicles/apc",       facings=16, layers=[
                      layer("hull", "vehicles/apc/hull", (384, 352), 50, frames=MOVE),
                      layer("turret", "vehicles/apc/turret", (288, 256), 0, mount=(22, 112, 0), frames=FIRE)]),
@@ -178,6 +233,10 @@ ANIMS = [
 INFANTRY = {
     "rifleman": dict(prefab="infantry/rifleman", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
     "rocket":   dict(prefab="infantry/rocket", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "cl_raider": dict(prefab="clans/raider", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "cl_torcher": dict(prefab="clans/torcher", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "lc_warden": dict(prefab="concord/warden", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "lc_lancer": dict(prefab="concord/lancer", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
 }
 ALL_UNITS = list(UNITS) + list(INFANTRY)
 

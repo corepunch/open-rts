@@ -34,7 +34,7 @@ static bool find_site(const mobj_t *hq, uint16_t type, ivec2_t *out) {
 static mobj_t *command_center(int owner) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *unit = (mobj_t *)th;
-        if (th->function == P_MobjThinker && unit->owner == owner && unit->type_id == MT_HQ &&
+        if (th->function == P_MobjThinker && unit->owner == owner && RF_IsRole(unit->type_id, RF_ROLE_HQ) &&
             !unit->remove && unit->hp > 0) return unit;
     }
     return NULL;
