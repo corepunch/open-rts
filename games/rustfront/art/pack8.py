@@ -243,6 +243,11 @@ def main():
         body_frames = layers[0][1].get("frames", 1)
         if body_frames > 1:
             shadow[2] = [f for f in shadow[2] for _ in range(body_frames)]
+        # A structure under construction casts no full-height shadow: its build frames get none.
+        build_at = layers[0][1].get("build_at")
+        if build_at is not None:
+            blank = Image.new("L", shadow[2][0].size, TRANSPARENT)
+            shadow[2] = [blank if i % body_frames >= build_at else f for i, f in enumerate(shadow[2])]
         # The engine draws the shadow lump at the body's top-left with the body's lump index:
         # give the first layer and the shadow one canvas and one pivot.
         recanvas(layers[0], shadow)

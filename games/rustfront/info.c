@@ -7,12 +7,18 @@ const char *const sprnames[NUMSPRITES] = {
     "scout_body", "tank_hull", "artillery_body", "harvester_body", "apc_hull",
     "rifleman_body", "rocket_body",
     "fx_hit", "fx_boom", "fx_bigboom", "fx_shell", "fx_rocket", "fx_smoke", "fx_blast",
+    "fx_plume", "fx_fire", "turret_build",
 };
 
 /* {sprite, frame, count, tics, action, next, group}: group 2 plays while moving, 3 attacking.
  * An action runs on every frame of a run, so a shot is two states: the firing frame, then
  * the settle. */
-#define ANIMATED(spr, self, frames, tics) {spr, 0, frames, tics, NULL, self, 0, NULL}
+/* A structure's sheet holds its animation (n frames), the scorched copies (n more) and the
+ * construction stages; a site holds a stage (tics -1) and g_build.c steps it. */
+#define STRUCTURE(spr, self, damaged, build, n, tics) \
+    [self] = {spr, 0, n, tics, NULL, self, 0, NULL}, \
+    [damaged] = {spr, n, n, tics, NULL, damaged, 0, NULL}, \
+    [build] = {spr, 2 * (n), BUILD_STAGE_COUNT, -1, NULL, build, 0, NULL}
 /* A hull under a turret: its treads step while moving. The turret shows TURRET_SHOT plus the
  * body's frame offset into the firing run, so FIRE is body frame 0 and FIRE2 frame 1. */
 #define TURRETED(spr, stnd, move, fire, fire2, settle) \
@@ -39,11 +45,13 @@ const char *const sprnames[NUMSPRITES] = {
 const state_t states[NUMSTATES] = {
     [S_NULL] = {0, 0, 0, -1, NULL, S_NULL, 0, NULL},
     /* Buildings loop their sheet: the radar turns, lights blink, the reactor pulses, the flare flickers. */
-    [S_HQ] = ANIMATED(SPR_HQ, S_HQ, 8, 6),
-    [S_POWER] = ANIMATED(SPR_POWER, S_POWER, 4, 8),
-    [S_REFINERY] = ANIMATED(SPR_REFINERY, S_REFINERY, 4, 5),
-    [S_BARRACKS] = ANIMATED(SPR_BARRACKS, S_BARRACKS, 2, 15),
-    [S_FACTORY] = ANIMATED(SPR_FACTORY, S_FACTORY, 2, 15),
+    STRUCTURE(SPR_HQ, S_HQ, S_HQ_DAMAGED, S_HQ_BUILD, 8, 6),
+    STRUCTURE(SPR_POWER, S_POWER, S_POWER_DAMAGED, S_POWER_BUILD, 4, 8),
+    STRUCTURE(SPR_REFINERY, S_REFINERY, S_REFINERY_DAMAGED, S_REFINERY_BUILD, 4, 5),
+    STRUCTURE(SPR_BARRACKS, S_BARRACKS, S_BARRACKS_DAMAGED, S_BARRACKS_BUILD, 2, 15),
+    STRUCTURE(SPR_FACTORY, S_FACTORY, S_FACTORY_DAMAGED, S_FACTORY_BUILD, 2, 15),
+    /* The gun turret builds on its own sheet, so its head (drawn on the base sheet) waits. */
+    [S_GUN_TURRET_BUILD] = {SPR_GUN_TURRET_BUILD, 0, BUILD_STAGE_COUNT, -1, NULL, S_GUN_TURRET_BUILD, 0, NULL},
     /* The emplacement never moves: stand, the shot, the settle (its head shows the frames). */
     [S_GUN_TURRET] = {SPR_GUN_TURRET, VEH_STAND, 1, 1, A_Look, S_GUN_TURRET, 0, NULL},
     [S_GUN_TURRET_FIRE] = {SPR_GUN_TURRET, VEH_STAND, 1, 3, A_Attack, S_GUN_TURRET_FIRE2, 3, NULL},
@@ -60,6 +68,8 @@ const state_t states[NUMSTATES] = {
     [S_FX_BOOM] = {SPR_FX_BOOM, 0, 10, 3, NULL, S_NULL, 0, NULL},
     [S_FX_BIGBOOM] = {SPR_FX_BIGBOOM, 0, 12, 3, NULL, S_NULL, 0, NULL},
     [S_FX_SMOKE] = {SPR_FX_SMOKE, 0, 5, 3, NULL, S_NULL, 0, NULL},
+    [S_FX_PLUME] = {SPR_FX_PLUME, 0, 8, 4, NULL, S_NULL, 0, NULL},
+    [S_FX_FIRE] = {SPR_FX_FIRE, 0, 6, 3, NULL, S_NULL, 0, NULL},
     /* A projectile flies in its first state; arriving, its death run is the blast, whose
      * first frame does the damage. */
     [S_SHELL] = {SPR_FX_SHELL, 0, 1, 1, NULL, S_SHELL, 0, NULL},
@@ -98,6 +108,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_FX_BOOM] = {.doomednum = -1, .spawnstate = S_FX_BOOM, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BIGBOOM] = {.doomednum = -1, .spawnstate = S_FX_BIGBOOM, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_SMOKE] = {.doomednum = -1, .spawnstate = S_FX_SMOKE, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_FX_PLUME] = {.doomednum = -1, .spawnstate = S_FX_PLUME, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_FX_FIRE] = {.doomednum = -1, .spawnstate = S_FX_FIRE, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_SHELL] = {.doomednum = -1, .spawnstate = S_SHELL, .spawnhealth = 1, .deathstate = S_SHELL_HIT},
     [MT_HEAVY_SHELL] = {.doomednum = -1, .spawnstate = S_HEAVY_SHELL, .spawnhealth = 1, .deathstate = S_HEAVY_SHELL_HIT},
     [MT_MISSILE] = {.doomednum = -1, .spawnstate = S_MISSILE, .spawnhealth = 1, .deathstate = S_MISSILE_HIT},

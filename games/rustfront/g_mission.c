@@ -49,9 +49,34 @@ static void send_idle_harvesters(level_t *map, mobj_t *const *mobjs, int count) 
     }
 }
 
+static mobj_t *spawn_effect(uint16_t type, const mobj_t *victim, fixed_t reach_x, fixed_t reach_y, uint32_t salt);
+static void lift(mobj_t *fx, fixed_t height);
+static bool is_structure(const mobj_t *unit);
+
+/* Damaged things smoke: a structure under half its hit points sends up a plume every few tics
+ * from somewhere on its footprint and, under a quarter, burns; a vehicle under 40 % smokes. */
+static void smoke_damaged(mobj_t *const *mobjs, int count) {
+    for (int i = 0; i < count; ++i) {
+        mobj_t *u = mobjs[i];
+        if (!u || u->remove || u->hp <= 0 || u->type_id >= MT_FX_HIT || u->max_hp <= 0) continue;
+        if (is_structure(u)) {
+            RF_StructureDamage(u);
+            if (RF_IsSite(u) || u->hp * 2 >= u->max_hp) continue;
+            fixed_t rx = u->info->footprint.w * (FIXED_ONE * 2 / 5), ry = u->info->footprint.h * (FIXED_ONE * 2 / 5);
+            if ((leveltime + u->id) % 6 == 0) lift(spawn_effect(MT_FX_PLUME, u, rx, ry, 20), FIXED_LIT(1.6));
+            if (u->hp * 4 < u->max_hp && (leveltime + u->id) % 4 == 0)
+                lift(spawn_effect(MT_FX_FIRE, u, rx, ry, 30), FIXED_LIT(1.0));
+        } else if ((u->traits & MF_MOBILE) && u->hp * 5 < u->max_hp * 2 &&
+                   u->type_id != MT_RIFLEMAN && u->type_id != MT_ROCKET && (leveltime + u->id) % 12 == 0) {
+            lift(spawn_effect(MT_FX_PLUME, u, FIXED_ONE / 6, FIXED_ONE / 8, 40), FIXED_LIT(0.6));
+        }
+    }
+}
+
 void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
     if (leveltime % (RTS_TICRATE / 2) == 0) RF_SyncBlocking(map);
     if (leveltime % 2 == 0) RF_TrailRockets(mobjs, count);
+    smoke_damaged(mobjs, count);
     if (leveltime % RTS_TICRATE == 0) {
         send_idle_harvesters(map, mobjs, count);
         RF_ClearMinedOre(map);
@@ -61,7 +86,9 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
 /* Like C&C's, a refinery arrives with its first harvester, parked below its dock. */
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     (void)producer;
-    if (!unit || unit->type_id != MT_REFINERY) return;
+    if (!unit) return;
+    RF_CompleteSite(unit);
+    if (unit->type_id != MT_REFINERY) return;
     irect_t cells = P_MobjCells(unit);
     mobj_t *harvester = P_SpawnMobj(fixed3_zero(), MT_HARVESTER);
     if (!harvester) return;
@@ -85,8 +112,9 @@ static uint32_t scatter(const mobj_t *victim, uint32_t salt) {
     return h ^ (h >> 13);
 }
 
-/* An effect in the victim's box: within `reach` cells of its centre, drawn just in front. */
-static void spawn_effect(uint16_t type, const mobj_t *victim, fixed_t reach_x, fixed_t reach_y, uint32_t salt) {
+/* An effect in the victim's box: within `reach` cells of its centre, drawn just in front and
+ * `lift` cells up (smoke and flames come off a structure's roof, not its foundation). */
+static mobj_t *spawn_effect(uint16_t type, const mobj_t *victim, fixed_t reach_x, fixed_t reach_y, uint32_t salt) {
     uint32_t h = scatter(victim, salt);
     fixed_t dx = reach_x ? (fixed_t)(h % (uint32_t)(2 * reach_x)) - reach_x : 0;
     fixed_t dy = reach_y ? (fixed_t)((h >> 12) % (uint32_t)(2 * reach_y)) - reach_y : 0;
@@ -94,9 +122,14 @@ static void spawn_effect(uint16_t type, const mobj_t *victim, fixed_t reach_x, f
     at.x += dx;
     at.y += dy + FIXED_ONE / 16;
     mobj_t *fx = P_SpawnMobj(at, type);
-    if (!fx) return;
+    if (!fx) return NULL;
     fx->owner = fx->team = 0;
     fx->allegiance = ALLEGIANCE_NEUTRAL;
+    return fx;
+}
+
+static void lift(mobj_t *fx, fixed_t height) {
+    if (fx) fx->core.position.z = height;
 }
 
 static bool is_structure(const mobj_t *unit) {

@@ -78,7 +78,8 @@ static int test_firefight(void) {
     CHECK(R_CacheLookup(&cache, "fx_boom") && R_CacheLookup(&cache, "tank_turret"));
     CHECK(R_CacheLookup(&cache, "tank_turret")->spritedef.numframes == 3);      /* idle, shot, run-out */
     CHECK(R_CacheLookup(&cache, "tank_hull")->spritedef.numframes == 2);
-    CHECK(R_CacheLookup(&cache, "hq_body")->spritedef.numframes == 8);          /* the radar's turn */
+    /* the radar's eight-frame turn, its scorched copy and four construction stages */
+    CHECK(R_CacheLookup(&cache, "hq_body")->spritedef.numframes == 8 + 8 + BUILD_STAGE_COUNT);
 
     bool saw_shot = false, saw_hit = false, saw_boom = false, saw_fall = false;
     bool saw_shell = false, saw_rocket = false, saw_smoke = false, saw_arc = false, hit_late = false;

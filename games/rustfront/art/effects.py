@@ -12,6 +12,8 @@ reproduces them. effects.json lists size, count and pivot for pack8.
     shell    a tank or artillery round in flight: a bright tracer, 16 facings
     rocket   a rocket with its motor burning, 16 facings
     smoke    a puff a rocket leaves behind: 12 px, 5 frames
+    plume    a damaged unit's smoke, rising and spreading: 32 x 52 px, 8 frames
+    fire     a burning structure's flames, flickering then dying: 16 x 24 px, 6 frames
     hit      a bullet landing: 24 px, 5 frames
     blast    a shell or rocket landing: 40 px, 7 frames
     boom     a vehicle or soldier's weapon going up: 64 px, 10 frames
@@ -147,6 +149,56 @@ def smoke_puff(size, frames):
     return out
 
 
+def plume(w, h, f, frames):
+    """Dark smoke rising from the pivot (bottom centre): a column of puffs that grows, drifts
+    right with the wind, greys and thins."""
+    t = f / (frames - 1)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    px = img.load()
+    for p in range(4):
+        age = t + p * 0.25
+        if age > 1.15:
+            continue
+        cx = w / 2 + age * 5 + math.sin(p * 2.1) * 1.5
+        cy = h - 5 - age * (h - 12)
+        r = 4 + age * 9
+        for y in range(h):
+            for x in range(w):
+                d = math.hypot(x - cx, (y - cy) * 1.1)
+                # opaque grey, thinned by dithering toward the edge and as it ages: it reads
+                # at game scale where half-alpha dots vanish
+                if d < r and hash01(x, y, f * 7 + p) > 0.02 + 0.55 * (d / r) + 0.5 * max(0, age - 0.6):
+                    g = 58 + int(50 * age) + int(14 * (1 - d / r))
+                    px[x, y] = (g, g - 4, g - 9, 255)
+    return img
+
+
+def fire(w, h, f, frames):
+    """Flames licking up from the pivot: tongues that flicker frame to frame, the last frames
+    dying down. Opaque, in the fireball colours."""
+    rnd = random.Random(77 + f)
+    life = 1.0 if f < frames - 2 else (0.6 if f == frames - 2 else 0.3)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    px = img.load()
+    tongues = [(rnd.uniform(w * 0.25, w * 0.75), rnd.uniform(0.55, 1.0) * (h - 6) * life, rnd.uniform(2.2, 3.8))
+               for _ in range(4)]
+    for y in range(h):
+        for x in range(w):
+            heat = 0.0
+            for tx, th, tw in tongues:
+                up = (h - 4 - y) / max(th, 1)
+                if 0 <= up <= 1:
+                    width = tw * (1 - up) ** 0.6
+                    d = abs(x - tx - math.sin(up * 3 + f) * 1.2)
+                    if d < width:
+                        heat = max(heat, (1 - d / width) * (1 - up * 0.7))
+            heat += hash01(x, y, f + 50) * 0.18 - 0.09
+            colour = next((c for th, c in RAMP if heat >= th + 0.06), None)
+            if colour:
+                px[x, y] = colour + (255,)
+    return img
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     meta = {}
@@ -164,6 +216,13 @@ def main():
         strip.paste(img, (i * 12, 0))
     strip.save(OUT / "fx_smoke.png", optimize=True)
     meta["smoke"] = dict(file="fx_smoke.png", frame=[12, 12], count=5, columns=5, pivot=[6, 6])
+    for name, (w, h, frames, fn) in {"plume": (32, 52, 8, plume), "fire": (16, 24, 6, fire)}.items():
+        imgs = [fn(w, h, f, frames) for f in range(frames)]
+        strip = Image.new("RGBA", (w * frames, h), (0, 0, 0, 0))
+        for i, img in enumerate(imgs):
+            strip.paste(img, (i * w, 0))
+        strip.save(OUT / ("fx_%s.png" % name), optimize=True)
+        meta[name] = dict(file="fx_%s.png" % name, frame=[w, h], count=frames, columns=frames, pivot=[w // 2, h - 4])
     for name, size, frames, blobs, seed in EFFECTS:
         imgs = effect(size, frames, blobs, seed)
         strip = Image.new("RGBA", (size * frames, size), (0, 0, 0, 0))

@@ -48,6 +48,8 @@ static const mobjtype_t ACTOR_TYPES[] = {
     {.id = MT_FX_BIGBOOM, .name = "Large explosion", .sprite_name = "fx_bigboom",
      .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_SMOKE, .name = "Smoke", .sprite_name = "fx_smoke", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_FX_PLUME, .name = "Smoke plume", .sprite_name = "fx_plume", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_FX_FIRE, .name = "Fire", .sprite_name = "fx_fire", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     /* Timed flight: `step` cells a tic toward where the target stood. The heavy shell arcs. */
     {.id = MT_SHELL, .name = "Shell", .sprite_name = "fx_shell", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_LIT(0.6), .period_ms = RTS_TICK_MS, .timed = true}},

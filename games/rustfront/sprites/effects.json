@@ -40,6 +40,32 @@
    6
   ]
  },
+ "plume": {
+  "file": "fx_plume.png",
+  "frame": [
+   32,
+   52
+  ],
+  "count": 8,
+  "columns": 8,
+  "pivot": [
+   16,
+   48
+  ]
+ },
+ "fire": {
+  "file": "fx_fire.png",
+  "frame": [
+   16,
+   24
+  ],
+  "count": 6,
+  "columns": 6,
+  "pivot": [
+   8,
+   20
+  ]
+ },
  "hit": {
   "file": "fx_hit.png",
   "frame": [

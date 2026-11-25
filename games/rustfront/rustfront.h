@@ -38,6 +38,13 @@ void RF_MobjTicker(mobj_t *mobj);
 void RF_TrailRockets(mobj_t *const *mobjs, int count);
 bool RF_ImpactInProgress(void);
 
+/* g_build.c: construction sites and battle damage. The Command Center's structures stand on
+ * their site from placement and build themselves up; one site at a time per side. */
+const mobj_t *RF_SiteInProgress(int owner);
+bool RF_IsSite(const mobj_t *unit);
+void RF_StructureDamage(mobj_t *unit);
+void RF_CompleteSite(mobj_t *unit);
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);

@@ -40,8 +40,17 @@ static int products_of(const mobj_t *producer, StaticProductDefinition out[PRODU
     return n;
 }
 
+/* A structure is built on its own site, one at a time: the queue that shows its progress is
+ * the site's. */
+static const production_t *queue_for(const mobj_t *producer, const StaticProductDefinition *p) {
+    if (p->product_class != RTS_PRODUCT_BUILDING) return producer->production;
+    const mobj_t *site = RF_SiteInProgress(consoleplayer);
+    return site && site->type_id == p->product_type ? site->production : NULL;
+}
+
 static bool product_enabled(const mobj_t *producer, const StaticProductDefinition *p) {
     const production_t *queue = producer->production;
+    if (p->product_class == RTS_PRODUCT_BUILDING && RF_SiteInProgress(consoleplayer)) return false;
     return G_ModelProductAvailable(NULL, consoleplayer, p) && R_CanAfford(consoleplayer, p) &&
         (!queue || queue->queue_count == 0 ||
          (queue->product_type == p->product_type && queue->product_class == p->product_class &&
@@ -88,7 +97,7 @@ static void draw_products(const menu_t *menu, const menuitem_t *item, irect_t re
             V_DrawSpriteCellScaled(icon, &icons, 0, &src, remap, V_OPAQUE);
         }
         bool enabled = product_enabled(producer, p);
-        const production_t *queue = producer->production;
+        const production_t *queue = queue_for(producer, p);
         bool building = queue && queue->queue_count > 0 && queue->product_type == p->product_type &&
                         queue->product_class == p->product_class;
         if (!enabled && !building) V_FillRectTranslucent(icon, 0xa0000000u);
@@ -105,9 +114,7 @@ static void draw_products(const menu_t *menu, const menuitem_t *item, irect_t re
         snprintf(line, sizeof(line), "%d", p->cost);
         text((irect_t){tx, cell.y + 18 * s, tw, 7 * s}, line, 0xffe6d750u);
         if (building) {
-            if (p->product_class == RTS_PRODUCT_BUILDING && queue->time_left_ms <= 0)
-                snprintf(line, sizeof(line), "PLACING");
-            else if (queue->queue_count > 1)
+            if (queue->queue_count > 1)
                 snprintf(line, sizeof(line), "BUILDING +%d", queue->queue_count - 1);
             else
                 snprintf(line, sizeof(line), "BUILDING");
