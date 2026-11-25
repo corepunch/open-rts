@@ -1,41 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- War Factory. Footprint 3x3 cells (600 x 600 cm), origin at pad centre on the ground,
-     vehicle door faces +Z. A long concrete hall with a glazed sawtooth roof, a hazard-framed
-     garage door over an apron, and a rooftop gantry crane. Team colour on the eaves band. -->
+     vehicle door faces +Z. A battered concrete hall buttressed down its side, a glazed
+     sawtooth roof, a hazard-framed shutter door over an apron with warning beacons, a rooftop
+     jib crane, wall pipes and stacks. Team colour on the eaves band. -->
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
   <slab width="600" height="20" depth="600" pos="0 10 0" material="pad"/>
 
-  <!-- hall, y 20..200, z -260..180 -->
-  <soft-box width="480" height="180" depth="440" radius="12" bevel="4" pos="0 110 -40" material="concrete"/>
-  <soft-box width="486" height="14" depth="446" radius="14" bevel="3" pos="0 188 -40" material="team" tint="1"/>
+  <!-- hall: y 20..200, base x ±240 z -260..180, top 5 % smaller -->
+  <bunker width="480" height="180" depth="440" lean="-0.05" pos="0 110 -40" material="concrete"/>
+  <box size="462 12 422" pos="0 194 -40" material="team" tint="1"/>
+  <box size="458 3 418" pos="0 201.5 -40" material="gunmetal"/>
+  <!-- buttresses on the +X wall -->
+  <bunker width="22" height="170" depth="18" lean="-0.3" pos="243 105 -220" material="concrete_dark">
+  </bunker>
+  <bunker width="22" height="170" depth="18" lean="-0.3" pos="243 105 -130" material="concrete_dark"/>
+  <bunker width="22" height="170" depth="18" lean="-0.3" pos="243 105 -40" material="concrete_dark"/>
+  <bunker width="22" height="170" depth="18" lean="-0.3" pos="243 105 50" material="concrete_dark"/>
+  <bunker width="22" height="170" depth="18" lean="-0.3" pos="243 105 140" material="concrete_dark"/>
+  <box size="4 18 60" rot="0 0 1.5" pos="236 150 -85" material="glass"><array count="3" translation="0 0 90"/></box>
+  <tube ax="248" ay="20" az="-175" bx="248" by="190" bz="-175" r0="6" material="steel_dark"/>
 
   <!-- sawtooth roof: four teeth, glazed faces toward +Z -->
-  <group pos="0 200 170" rot="0 90 0">
-    <shape closed="1" v="0 0 100 0 0 58" material="steel"><extrude amount="460"/>
-      <array count="4" translation="105 0 0"/></shape>
+  <group pos="0 203 168" rot="0 90 0">
+    <shape closed="1" v="0 0 100 0 0 56" material="corrugated"><extrude amount="450"/>
+      <array count="4" translation="104 0 0"/></shape>
   </group>
-  <box size="460 46 3" pos="0 228 171.5" material="glass"><array count="4" translation="0 0 -105"/></box>
+  <box size="450 44 3" pos="0 229 169.6" material="glass"><array count="4" translation="0 0 -104"/></box>
+  <railing length="450" pos="0 203 172" material="steel_dark"/>
 
-  <!-- garage door -->
-  <box size="220 140 6" pos="70 90 183" material="steel_dark"/>
-  <box size="220 4 2" pos="70 50 186.5" material="steel"><array count="4" translation="0 30 0"/></box>
-  <box size="256 16 10" pos="70 168 185" material="hazard"/>
-  <box size="18 148 9" pos="-49 94 184.5" material="hazard"/>
-  <box size="18 148 9" pos="189 94 184.5" material="hazard"/>
-  <box size="240 3 100" pos="70 21.5 235" material="pad_dark"/>
-  <sphere radius="5" pos="-49 180 190" material="lamp" unlit="1" castShadow="0"/>
-  <sphere radius="5" pos="189 180 190" material="lamp" unlit="1" castShadow="0"/>
-  <!-- side office door and window -->
-  <box size="60 80 6" pos="-170 60 183" material="steel_dark"/>
-  <box size="4 20 300" pos="241 140 -40" material="glass"/>
+  <!-- shutter door -->
+  <box size="220 140 6" pos="70 90 182" material="steel_dark"/>
+  <box size="220 4 2" pos="70 38 185.5" material="gunmetal"><array count="9" translation="0 15 0"/></box>
+  <box size="256 16 10" pos="70 168 186" material="hazard"/>
+  <box size="18 148 9" pos="-49 94 185.5" material="hazard"/>
+  <box size="18 148 9" pos="189 94 185.5" material="hazard"/>
+  <box size="240 3 110" pos="70 21.5 240" material="pad_dark"/>
+  <box size="10 3.2 110" pos="-45 21.6 240" material="hazard"/>
+  <box size="10 3.2 110" pos="185 21.6 240" material="hazard"/>
+  <warn-light pos="-49 176 190"/>
+  <warn-light pos="189 176 190"/>
+  <!-- personnel door and office windows -->
+  <box size="56 76 6" pos="-170 58 182" material="gunmetal"/>
+  <box size="64 6 6" pos="-170 100 183" material="hazard"/>
+  <box size="90 16 3" pos="-150 140 182" material="glass"/>
 
-  <!-- gantry crane on the back roof -->
-  <box size="30 50 30" pos="-190 283 -230" material="steel_dark"/>
-  <beam ax="-190" ay="302" az="-230" bx="-70" by="306" bz="-120" width="14" depth="14" material="hazard"/>
-  <cylinder radius="1.5" height="30" pos="-76 288 -126" material="steel_dark"/>
-  <box size="16 8 16" pos="-76 270 -126" material="steel_dark"/>
+  <!-- roof plant along the ridge line -->
+  <vent width="50" depth="36" height="14" pos="-160 252 -150"/>
+  <vent width="50" depth="36" height="14" pos="-60 252 -150"/>
+  <warn-light pos="-215 259 160"/>
   <!-- stacks -->
-  <cylinder radius="18" height="130" pos="190 265 -220" material="steel"/>
-  <cylinder radius="19" height="12" pos="190 316 -220" material="hazard"/>
+  <cylinder radius="18" height="130" sides="12" pos="190 268 -222" material="steel"/>
+  <cylinder radius="19" height="12" sides="12" pos="190 320 -222" material="hazard"/>
+  <cylinder radius="12" height="100" sides="12" pos="140 253 -222" material="steel"/>
+  <floodlight pos="-275 20 275" rot="0 -45 0"/>
 </prefab>

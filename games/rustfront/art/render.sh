@@ -7,7 +7,8 @@ set -eu
 cd "$(dirname "$0")"
 SCENER=${SCENER:-scener}
 command -v "$SCENER" >/dev/null || { echo "scener is required (see docs/SCENER.md)" >&2; exit 1; }
-for f in units.blks prefabs/*/*.blk; do xmllint --noout "$f"; done
+python3 layout.py
+for f in units.blks kit.xml prefabs/*/*.blk; do xmllint --noout "$f"; done
 "$SCENER" --check units.blks
 if [ $# -gt 0 ]; then
   for cam in "$@"; do "$SCENER" --render units.blks --camera "$cam" --format png --output-dir previews; done

@@ -1,33 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Power Plant. Footprint 2x2 cells (400 x 400 cm), origin at pad centre on the ground,
-     generator hall faces +Z. Two hyperbolic cooling towers behind a steel generator hall
-     with a glowing core strip. Team colour on the hall band and tower rims. -->
+     turbine hall faces +Z. Two cooling towers behind a battered turbine hall with a gunmetal
+     gable roof and a glowing reactor strip, feed pipes, and a fenced transformer yard. -->
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
   <shape id="rf_cooling_tower" closed="0" v="84 0 74 50 62 110 58 150 62 190 64 200 56 200"/>
   <slab width="400" height="20" depth="400" pos="0 10 0" material="pad"/>
 
-  <lathe shape="rf_cooling_tower" segments="28" pos="-96 20 -86" material="concrete"/>
-  <lathe shape="rf_cooling_tower" segments="28" pos="92 20 -92" scale="0.9 0.86 0.9" material="concrete"/>
-  <cylinder radius="64" height="10" tube="5" sides="28" pos="-96 212 -86" material="team" tint="1"/>
-  <cylinder radius="58" height="9" tube="5" sides="28" pos="92 189 -92" material="team" tint="1"/>
-  <!-- dark throats -->
-  <cylinder radius="55" height="2" sides="28" pos="-96 220.5 -86" material="rubber"/>
-  <cylinder radius="49" height="2" sides="28" pos="92 192.5 -92" material="rubber"/>
+  <lathe shape="rf_cooling_tower" segments="24" pos="-96 20 -86" material="concrete"/>
+  <lathe shape="rf_cooling_tower" segments="24" pos="92 20 -96" scale="0.85 0.8 0.85" material="concrete"/>
+  <cylinder radius="64" height="10" tube="5" sides="24" pos="-96 212 -86" material="team" tint="1"/>
+  <cylinder radius="55" height="9" tube="5" sides="24" pos="92 177 -96" material="team" tint="1"/>
+  <cylinder radius="55" height="2" sides="24" pos="-96 220.5 -86" material="steel_dark"/>
+  <cylinder radius="47" height="2" sides="24" pos="92 181 -96" material="steel_dark"/>
+  <ladder height="150" pos="-96 20 -10"/>
 
-  <!-- generator hall, y 20..104 -->
-  <soft-box width="320" height="84" depth="116" radius="14" bevel="4" pos="0 62 118" material="steel"/>
-  <soft-box width="326" height="12" depth="122" radius="16" bevel="3" pos="0 92 118" material="team" tint="1"/>
-  <box size="220 14 3" pos="-20 56 177.5" material="glow" unlit="1" castShadow="0"/>
-  <box size="3 14 80" pos="161.5 56 118" material="glow" unlit="1" castShadow="0"/>
-  <box size="50 60 6" pos="120 50 178" material="steel_dark"/>
-  <!-- feed pipes from the towers into the hall -->
-  <tube ax="-96" ay="60" az="-14" bx="-96" by="60" bz="62" r0="11" material="steel_dark"/>
-  <tube ax="92" ay="56" az="-26" bx="92" by="56" bz="62" r0="11" material="steel_dark"/>
-  <!-- exhaust stack -->
-  <cylinder radius="14" height="110" pos="130 159 100" material="steel"/>
-  <cylinder radius="15" height="12" pos="130 200 100" material="hazard"/>
-  <!-- transformers in front corners -->
-  <box size="40 40 30" pos="-170 40 178" material="steel_dark"/>
-  <box size="40 40 30" pos="175 40 178" material="steel_dark"/>
+  <!-- turbine hall: y 20..90, x -150..110, z 58..178 -->
+  <bunker width="260" height="70" depth="120" lean="-0.1" pos="-20 55 118" material="concrete_dark"/>
+  <group pos="-20 90 118" rot="0 90 0">
+    <shape closed="0" v="-64 0 0 26 64 0" material="roofing"><extrude amount="270"/><shell amount="5"/></shape>
+  </group>
+  <box size="200 12 3" rot="-4.9 0 0" pos="-30 50 176.6" material="glow" unlit="1" castShadow="0"/>
+  <box size="3 12 80" rot="0 0 4.9" pos="109.6 50 118" material="glow" unlit="1" castShadow="0"/>
+  <box size="44 54 5" pos="-130 47 178" material="gunmetal"/>
+  <box size="50 5 6" pos="-130 77 179" material="hazard"/>
+  <warn-light pos="-150 118 118"/>
+  <warn-light pos="110 118 118"/>
+  <cylinder radius="12" height="70" sides="10" pos="60 135 100" material="steel"/>
+  <cylinder radius="13" height="10" sides="10" pos="60 165 100" material="hazard"/>
+
+  <!-- feed pipes -->
+  <tube ax="-96" ay="70" az="-16" bx="-96" by="70" bz="62" r0="10" material="steel_dark"/>
+  <tube ax="92" ay="62" az="-38" bx="92" by="62" bz="40" r0="9" material="steel_dark"/>
+  <tube ax="92" ay="62" az="40" bx="60" by="62" bz="62" r0="9" material="steel_dark"/>
+
+  <!-- transformer yard, front right -->
+  <group pos="158 20 120">
+    <box size="74 2 120" pos="0 1 0" material="pad_dark"/>
+    <box size="32 30 36" pos="0 17 -30" material="gunmetal"/>
+    <box size="32 30 36" pos="0 17 30" material="gunmetal"/>
+    <cylinder radius="3" height="16" sides="6" pos="-8 40 -30" material="steel"><array count="3" translation="8 0 0"/></cylinder>
+    <cylinder radius="3" height="16" sides="6" pos="-8 40 30" material="steel"><array count="3" translation="8 0 0"/></cylinder>
+    <railing length="120" height="20" pos="37 2 0" rot="0 90 0" material="steel_dark"/>
+    <railing length="74" height="20" pos="0 2 60" material="steel_dark"/>
+  </group>
 </prefab>

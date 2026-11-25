@@ -1,29 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Self-propelled Artillery. Length 260 cm on X, width 150 cm on Z, origin at the hull centre
-     on the ground, gun faces +X. Low tracked chassis, a boxy casemate and a long howitzer
-     raised 30 degrees, recoil spades folded at the back. -->
+<!-- Self-propelled Artillery. Length 270 cm on X, width 156 cm on Z, origin at the hull centre
+     on the ground, gun faces +X. Tracked chassis with skirts, a big faceted casemate at the
+     back (tapered top-view profile), and a very long howitzer raised 28 degrees on a
+     trunnion cradle; folded recoil spades and ammunition racks at the rear. -->
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
-  <soft-box width="250" height="44" depth="36" radius="20" bevel="4" pos="0 22 57" material="track"/>
-  <soft-box width="250" height="44" depth="36" radius="20" bevel="4" pos="0 22 -57" material="track"/>
-  <cylinder radius="12" height="40" rot="90 0 0" pos="-96 20 57" material="steel_dark"><array count="6" translation="38.4 0 0"/></cylinder>
-  <cylinder radius="12" height="40" rot="90 0 0" pos="-96 20 -57" material="steel_dark"><array count="6" translation="38.4 0 0"/></cylinder>
+  <include src="../../kit.xml"/>
+  <soft-box width="256" height="42" depth="38" radius="19" bevel="3" pos="0 21 58" material="track"/>
+  <soft-box width="256" height="42" depth="38" radius="19" bevel="3" pos="0 21 -58" material="track"/>
+  <cylinder radius="13" height="40" sides="10" rot="90 0 0" pos="-100 19 58" material="steel_dark"><array count="6" translation="40 0 0"/></cylinder>
+  <cylinder radius="13" height="40" sides="10" rot="90 0 0" pos="-100 19 -58" material="steel_dark"><array count="6" translation="40 0 0"/></cylinder>
+  <box size="230 20 5" rot="-14 0 0" pos="-4 42 79" material="armor"/>
+  <box size="230 20 5" rot="14 0 0" pos="-4 42 -79" material="armor"/>
 
-  <shape closed="1" v="-125 38 106 38 128 54 110 70 -125 70" material="armor">
-    <extrude amount="140"/><bevel amount="4" bevelSegments="2"/>
+  <!-- low hull -->
+  <shape closed="1" v="-130 36 110 36 134 52 116 70 -130 70" material="armor">
+    <extrude amount="144"/><bevel amount="2" bevelSegments="1"/>
+    <taper center="0 36 0" amount="-0.12" axis="y" effect="z"/>
   </shape>
-  <!-- casemate, y 70..126 -->
-  <soft-box width="130" height="56" depth="104" radius="12" bevel="4" pos="-44 98 0" material="armor"/>
-  <soft-box width="134" height="10" depth="108" radius="13" bevel="3" pos="-44 116 0" material="team" tint="1"/>
-  <cylinder radius="12" height="8" pos="-80 130 30" material="armor_dark"/>
-  <!-- howitzer: trunnion at (20, 108), 30 degrees up -->
-  <group pos="20 108 0" rot="0 0 30">
-    <soft-box width="40" height="34" depth="44" radius="8" bevel="3" material="armor_dark"/>
-    <cylinder radius="7" height="210" rot="0 0 -90" pos="120 0 0" material="steel_dark"/>
-    <cylinder radius="10" height="60" rot="0 0 -90" pos="50 -10 0" material="steel"/>
-    <cylinder radius="11" height="20" rot="0 0 -90" pos="224 0 0" material="steel"/>
+  <box size="6 8 120" pos="132 50 0" material="hazard"/>
+  <box size="5 5 3" pos="128 58 44" material="lamp" unlit="1" castShadow="0"/>
+  <box size="5 5 3" pos="128 58 -44" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- casemate -->
+  <group pos="-40 96 0">
+    <shape closed="1" v="70 0 52 52 -66 56 -78 40 -78 -40 -66 -56 52 -52" rot="90 0 0" material="armor">
+      <extrude amount="52"/><bevel amount="2" bevelSegments="1"/>
+      <taper center="0 0 0" amount="0.3" axis="z"/>
+    </shape>
+    <shape closed="1" v="50 0 36 38 -50 40 -60 28 -60 -28 -50 -40 36 -38" rot="90 0 0" pos="0 26.6 0" material="team" tint="1">
+      <extrude amount="1.2"/>
+    </shape>
+    <cylinder radius="11" height="8" sides="8" pos="-40 30 26" material="gunmetal"/>
+    <vent width="30" depth="24" height="6" pos="-46 26 -24"/>
+    <cylinder radius="1" height="90" sides="5" pos="-64 70 -36" material="steel_dark"/>
+  </group>
+  <!-- ammunition racks on the back -->
+  <box size="14 30 100" pos="-128 70 0" material="steel_dark"/>
+  <cylinder radius="4" height="26" sides="8" pos="-138 72 -36" material="ore"><array count="5" translation="0 0 18"/></cylinder>
+  <!-- howitzer -->
+  <group pos="22 112 0" rot="0 0 28">
+    <box size="50 36 46" material="gunmetal"/>
+    <box size="70 12 36" pos="40 -16 0" material="steel_dark"/>
+    <cylinder radius="7" height="230" sides="10" rot="0 0 -90" pos="135 0 0" material="steel_dark"/>
+    <cylinder radius="10" height="28" sides="10" rot="0 0 -90" pos="120 0 0" material="gunmetal"/>
+    <box size="26 18 22" pos="250 0 0" material="steel_dark"/>
+    <box size="6 22 26" pos="243 0 0" material="steel_dark"/>
   </group>
   <!-- folded spades -->
-  <box size="10 50 40" rot="0 0 -25" pos="-136 46 42" material="hazard"/>
-  <box size="10 50 40" rot="0 0 -25" pos="-136 46 -42" material="hazard"/>
+  <box size="8 46 40" rot="0 0 -28" pos="-140 46 46" material="hazard"/>
+  <box size="8 46 40" rot="0 0 -28" pos="-140 46 -46" material="hazard"/>
 </prefab>

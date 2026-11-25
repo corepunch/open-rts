@@ -1,37 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Ore Harvester. Length 300 cm on X, width 160 cm on Z, origin at the chassis centre on the
-     ground, cab and scoop face +X. Six-wheel truck with a forward cab, a tapered ore hopper
-     heaped with ore, and a toothed pickup drum. Team colour on the cab roof and hopper band. -->
+<!-- Ore Harvester. Length 310 cm on X, width 166 cm on Z, origin at the chassis centre on the
+     ground, cab and pickup face +X. A heavy six-wheel mining truck: forward armoured cab, a
+     ribbed rust hopper heaped with ore, twin exhaust stacks and a toothed pickup drum on arms.
+     Team colour on the cab roof and hopper stripe; amber beacons. -->
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
-  <group pos="0 30 0">
-    <cylinder radius="30" height="30" sides="16" rot="90 0 0" pos="90 0 66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="30" height="30" sides="16" rot="90 0 0" pos="90 0 -66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="14" height="32" rot="90 0 0" pos="90 0 66" material="steel"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="14" height="32" rot="90 0 0" pos="90 0 -66" material="steel"><array count="3" translation="-95 0 0"/></cylinder>
+  <include src="../../kit.xml"/>
+  <group pos="0 31 0">
+    <cylinder radius="31" height="32" sides="12" rot="90 0 0" pos="90 0 66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
+    <cylinder radius="31" height="32" sides="12" rot="90 0 0" pos="90 0 -66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
+    <cylinder radius="14" height="34" sides="8" rot="90 0 0" pos="90 0 66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
+    <cylinder radius="14" height="34" sides="8" rot="90 0 0" pos="90 0 -66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
   </group>
-  <soft-box width="290" height="26" depth="104" radius="8" bevel="3" pos="0 52 0" material="steel_dark"/>
-  <!-- cab, y 65..140 -->
-  <soft-box width="70" height="75" depth="140" radius="12" bevel="4" pos="110 102 0" material="armor"/>
-  <box size="3 26 120" pos="145.5 116 0" material="glass"/>
-  <soft-box width="74" height="8" depth="144" radius="12" bevel="3" pos="110 142 0" material="team" tint="1"/>
-  <sphere radius="7" pos="96 150 40" material="flame" unlit="1" castShadow="0"/>
-  <!-- hopper, wider at the top -->
-  <box size="190 80 150" pos="-40 105 0" material="rust">
-    <taper amount="0.14"/>
-  </box>
-  <box size="218 10 172" pos="-40 128 0" material="team" tint="1"/>
-  <!-- ore heap: a low dark bed and faceted lumps -->
-  <box size="196 6 154" pos="-40 140 0" material="rust"/>
-  <sphere radius="34" rings="4" slices="6" scale="1.3 0.55 1" pos="-70 146 -28" material="ore"/>
-  <sphere radius="30" rings="4" slices="6" scale="1.2 0.6 1" rot="0 40 0" pos="-10 146 26" material="ore"/>
-  <sphere radius="26" rings="4" slices="5" scale="1 0.7 1" pos="-90 148 34" material="ore"/>
-  <sphere radius="22" rings="4" slices="5" scale="1 0.7 1" rot="0 25 0" pos="10 147 -36" material="ore"/>
-  <sphere radius="20" rings="3" slices="5" pos="-40 152 0" material="ore"/>
-  <!-- pickup drum with teeth -->
-  <beam ax="120" ay="60" az="70" bx="166" by="38" bz="70" width="10" depth="12" material="steel_dark"/>
-  <beam ax="120" ay="60" az="-70" bx="166" by="38" bz="-70" width="10" depth="12" material="steel_dark"/>
-  <cylinder radius="26" height="150" sides="12" rot="90 0 0" pos="168 32 0" material="steel"/>
-  <box size="12 64 8" pos="168 32 -60" material="hazard"><array count="6" translation="0 0 24"/></box>
-  <box size="64 12 8" pos="168 32 -48" material="hazard"><array count="5" translation="0 0 24"/></box>
+  <box size="296 22 100" pos="0 52 0" material="steel_dark"/>
+  <box size="300 4 150" pos="0 64 0" material="grating"/>
+  <!-- cab -->
+  <group pos="112 66 0">
+    <shape closed="1" v="-36 0 36 0 40 30 28 62 -36 64" material="armor">
+      <extrude amount="140"/><bevel amount="2" bevelSegments="1"/>
+      <taper center="0 0 0" amount="-0.14" axis="y" effect="z"/>
+    </shape>
+    <box size="4 22 116" rot="0 0 21" pos="35 46 0" material="glass"/>
+    <box size="66 3 110" pos="-6 64 0" material="team" tint="1"/>
+    <box size="8 20 120" pos="42 12 0" material="steel_dark"/>
+    <warn-light pos="-20 65 46" material="flame"/>
+    <warn-light pos="-20 65 -46" material="flame"/>
+  </group>
+  <!-- hopper -->
+  <group pos="-42 66 0">
+    <box size="196 76 156" pos="0 38 0" material="rust"><taper amount="0.12"/></box>
+    <box size="8 80 172" pos="-60 40 0" material="steel_dark"><array count="4" translation="40 0 0"/></box>
+    <box size="224 8 178" pos="0 70 0" material="team" tint="1"/>
+    <box size="208 5 162" pos="0 76 0" material="steel_dark"/>
+    <sphere radius="34" rings="4" slices="6" scale="1.3 0.55 1" pos="-30 82 -30" material="ore"/>
+    <sphere radius="30" rings="4" slices="6" scale="1.2 0.6 1" rot="0 40 0" pos="30 82 26" material="ore"/>
+    <sphere radius="26" rings="4" slices="5" scale="1 0.7 1" pos="-50 84 34" material="ore"/>
+    <sphere radius="22" rings="4" slices="5" scale="1 0.7 1" rot="0 25 0" pos="50 83 -36" material="ore"/>
+    <sphere radius="24" rings="3" slices="5" pos="0 88 0" material="ore"/>
+    <ladder height="70" pos="-104 10 40" rot="0 90 0"/>
+  </group>
+  <!-- exhaust stacks behind the cab -->
+  <cylinder radius="5" height="80" sides="8" pos="72 120 62" material="steel_dark"/>
+  <cylinder radius="5" height="80" sides="8" pos="72 120 -62" material="steel_dark"/>
+  <!-- pickup drum -->
+  <beam ax="140" ay="58" az="72" bx="176" by="36" bz="72" width="10" depth="12" material="gunmetal"/>
+  <beam ax="140" ay="58" az="-72" bx="176" by="36" bz="-72" width="10" depth="12" material="gunmetal"/>
+  <cylinder radius="26" height="152" sides="10" rot="90 0 0" pos="178 30 0" material="steel"/>
+  <box size="12 64 8" pos="178 30 -60" material="hazard"><array count="6" translation="0 0 24"/></box>
+  <box size="64 12 8" pos="178 30 -48" material="hazard"><array count="5" translation="0 0 24"/></box>
 </prefab>

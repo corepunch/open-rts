@@ -1,49 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Ore Refinery. Footprint 3x2 cells (600 wide on X, 400 deep on Z), origin at pad centre
-     on the ground, unloading dock faces +Z. Three domed silos, an octagonal processing tower
-     fed by a conveyor from the dock, and a flare stack. Team colour on silo bands. -->
+     on the ground, unloading dock faces +Z. A raised dock with a hopper funnel feeding a
+     conveyor up into a stacked processing tower, two tall silos joined by a catwalk, a pipe
+     rack, a flare stack and a control booth. Team colour on silo bands and the tower ring. -->
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
   <slab width="600" height="20" depth="400" pos="0 10 0" material="pad"/>
 
-  <!-- silos, y 20..160 plus domes -->
+  <!-- silos with domes, ladders and a catwalk -->
   <group pos="-210 0 -100">
-    <cylinder radius="54" height="140" sides="24" pos="0 90 0" material="concrete"/>
-    <sphere radius="54" scale="1 0.4 1" pos="0 160 0" material="concrete"/>
-    <cylinder radius="55.5" height="14" sides="24" pos="0 128 0" material="team" tint="1"/>
+    <cylinder radius="54" height="150" sides="20" pos="0 95 0" material="concrete"/>
+    <sphere radius="54" rings="8" slices="20" scale="1 0.4 1" pos="0 170 0" material="concrete"/>
+    <cylinder radius="55.5" height="14" sides="20" pos="0 140 0" material="team" tint="1"/>
+    <ladder height="150" pos="0 20 55"/>
   </group>
   <group pos="-90 0 -100">
-    <cylinder radius="54" height="140" sides="24" pos="0 90 0" material="concrete"/>
-    <sphere radius="54" scale="1 0.4 1" pos="0 160 0" material="concrete"/>
-    <cylinder radius="55.5" height="14" sides="24" pos="0 128 0" material="team" tint="1"/>
+    <cylinder radius="54" height="150" sides="20" pos="0 95 0" material="concrete"/>
+    <sphere radius="54" rings="8" slices="20" scale="1 0.4 1" pos="0 170 0" material="concrete"/>
+    <cylinder radius="55.5" height="14" sides="20" pos="0 140 0" material="team" tint="1"/>
   </group>
-  <group pos="-150 0 40">
-    <cylinder radius="44" height="100" sides="24" pos="0 70 0" material="concrete_dark"/>
-    <sphere radius="44" scale="1 0.4 1" pos="0 120 0" material="concrete_dark"/>
-  </group>
-  <tube ax="-36" ay="110" az="-100" bx="38" by="110" bz="-90" r0="9" material="steel_dark"/>
-  <tube ax="-156" ay="140" az="-100" bx="-144" by="140" bz="-100" r0="9" material="steel_dark"/>
+  <box size="70 3 22" pos="-150 171.5 -100" material="grating"/>
+  <railing length="70" pos="-150 173 -89" material="steel"/>
+  <!-- pipe rack from silos to tower -->
+  <tube ax="-36" ay="110" az="-112" bx="30" by="110" bz="-112" r0="8" material="steel_dark"/>
+  <tube ax="-36" ay="94" az="-84" bx="30" by="94" bz="-84" r0="6" material="rust"/>
+  <box size="6 100 6" pos="-6 70 -98" material="steel_dark"/>
 
-  <!-- processing tower, y 20..280 -->
-  <prism radius="62" height="210" sides="8" pos="95 125 -90" material="concrete"/>
-  <prism radius="64" height="12" sides="8" pos="95 200 -90" material="hazard"/>
-  <cone radius="64" radiusTop="22" height="44" sides="8" smooth="0" pos="95 252 -90" material="steel_dark"/>
-  <cylinder radius="12" height="34" pos="95 291 -90" material="steel_dark"/>
+  <!-- processing tower -->
+  <prism radius="66" height="140" sides="8" rot="0 22.5 0" pos="95 90 -90" material="concrete_dark"/>
+  <cylinder radius="74" height="3" tube="12" sides="16" pos="95 161 -90" material="grating"/>
+  <cylinder radius="74" height="12" tube="1.5" sides="16" pos="95 168.5 -90" material="steel_dark"/>
+  <prism radius="50" height="70" sides="8" rot="0 22.5 0" pos="95 195 -90" material="gunmetal"/>
+  <prism radius="52" height="10" sides="8" rot="0 22.5 0" pos="95 205 -90" material="team" tint="1"/>
+  <cone radius="52" radiusTop="20" height="36" sides="8" smooth="0" rot="0 22.5 0" pos="95 248 -90" material="steel_dark"/>
+  <cylinder radius="10" height="40" sides="8" pos="95 286 -90" material="steel_dark"/>
+  <warn-light pos="95 306 -90"/>
+  <vent width="30" depth="24" height="10" pos="60 230 -60"/>
 
-  <!-- unloading dock and conveyor up into the tower -->
-  <box size="200 4 130" pos="10 22 115" material="steel_dark"/>
-  <box size="200 6 12" pos="10 23 44" material="hazard"/>
-  <box size="200 6 12" pos="10 23 186" material="hazard"/>
-  <beam ax="40" ay="28" az="90" bx="92" by="170" bz="-26" width="44" depth="12" material="rust"/>
-  <beam ax="40" ay="20" az="90" bx="40" by="40" bz="90" width="40" depth="12" material="steel_dark"/>
+  <!-- dock: raised platform, hopper funnel, conveyor -->
+  <bunker width="200" height="18" depth="136" lean="-0.04" pos="-20 29 110" material="concrete_dark"/>
+  <box size="196 4 8" pos="-20 40 174" material="hazard"/>
+  <pyramid radius="34" radiusTop="70" height="50" rot="0 45 0" pos="-20 63 105" material="rust"/>
+  <box size="94 1 94" pos="-20 88.5 105" material="steel_dark"/>
+  <beam ax="30" ay="60" az="80" bx="78" by="160" bz="-30" width="30" depth="10" material="rust"/>
+  <box size="26 4 4" pos="54 112 25" rot="-60 0 0" material="steel_dark"/>
+  <beam ax="54" ay="38" az="25" bx="54" by="104" bz="25" width="8" depth="8" material="steel_dark"/>
+  <warn-light pos="-115 38 172"/>
+  <warn-light pos="75 38 172"/>
 
   <!-- flare stack -->
-  <cylinder radius="10" height="260" pos="225 150 -150" material="steel"/>
-  <cylinder radius="11" height="14" pos="225 270 -150" material="hazard"/>
-  <cone radius="13" radiusTop="0" height="36" pos="225 298 -150" material="flame" unlit="1" castShadow="0"/>
-  <light pos="225 300 -150" color="1 0.6 0.25" intensity="0.6" radius="200" castShadows="0"/>
+  <cylinder radius="10" height="260" sides="10" pos="230 150 -155" material="steel"/>
+  <cylinder radius="11" height="14" sides="10" pos="230 270 -155" material="hazard"/>
+  <cone radius="12" radiusTop="0" height="34" sides="8" pos="230 297 -155" material="flame" unlit="1" castShadow="0"/>
+  <light pos="230 300 -155" color="1 0.6 0.25" intensity="0.6" radius="200" castShadows="0"/>
 
   <!-- control booth -->
-  <soft-box width="110" height="70" depth="80" radius="10" bevel="3" pos="215 55 115" material="concrete"/>
-  <box size="80 18 3" pos="210 70 156" material="glass"/>
+  <bunker width="110" height="64" depth="84" lean="-0.08" pos="215 52 110" material="concrete"/>
+  <box size="80 16 3" rot="-4 0 0" pos="212 66 151" material="glass"/>
+  <box size="90 3 72" pos="215 85.5 110" material="gunmetal"/>
+  <cylinder radius="1" height="60" sides="5" pos="250 117 90" material="steel_dark"/>
 </prefab>

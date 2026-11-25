@@ -1,26 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Armoured Personnel Carrier. Length 260 cm on X, width 150 cm on Z, origin at the hull
-     centre on the ground, nose faces +X. Eight-wheel boxy hull with a sloped glacis, a small
-     machine-gun turret and a rear troop door. -->
+<!-- Armoured Personnel Carrier. Length 270 cm on X, width 160 cm on Z, origin at the hull
+     centre on the ground, nose faces +X. Eight wheels under a faceted hull with a long sloped
+     glacis, sides leaning in, stowage bins, a small faceted gun turret and a roof hatch row.
+     Team colour on the turret roof and the side stripe. -->
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
-  <group pos="0 26 0">
-    <cylinder radius="26" height="24" sides="16" rot="90 0 0" pos="96 0 62" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="26" height="24" sides="16" rot="90 0 0" pos="96 0 -62" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="11" height="26" rot="90 0 0" pos="96 0 62" material="steel_dark"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="11" height="26" rot="90 0 0" pos="96 0 -62" material="steel_dark"><array count="4" translation="-62 0 0"/></cylinder>
+  <include src="../../kit.xml"/>
+  <group pos="0 27 0">
+    <cylinder radius="27" height="26" sides="12" rot="90 0 0" pos="96 0 64" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
+    <cylinder radius="27" height="26" sides="12" rot="90 0 0" pos="96 0 -64" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
+    <cylinder radius="12" height="28" sides="8" rot="90 0 0" pos="96 0 64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
+    <cylinder radius="12" height="28" sides="8" rot="90 0 0" pos="96 0 -64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
   </group>
-  <shape closed="1" v="-126 34 96 34 132 66 104 104 -120 104 -130 90" material="armor">
-    <extrude amount="128"/><bevel amount="5" bevelSegments="2"/>
+  <!-- hull -->
+  <shape closed="1" v="-130 32 92 32 136 62 104 100 -124 100 -134 84" material="armor">
+    <extrude amount="150"/><bevel amount="2" bevelSegments="1"/>
+    <taper center="0 32 0" amount="-0.2" axis="y" effect="z"/>
   </shape>
-  <box size="180 12 132" pos="-30 80 0" material="team" tint="1"/>
-  <box size="24 8 3" pos="96 96 50" material="glass"/>
-  <box size="24 8 3" pos="96 96 -50" material="glass"/>
-  <box size="4 44 60" pos="-131 66 0" material="armor_dark"/>
-  <sphere radius="4" pos="122 70 44" material="lamp" unlit="1" castShadow="0"/>
-  <sphere radius="4" pos="122 70 -44" material="lamp" unlit="1" castShadow="0"/>
+  <!-- wheel arches / fenders -->
+  <box size="240 4 22" pos="-4 56 70" rot="-12 0 0" material="armor_dark"/>
+  <box size="240 4 22" pos="-4 56 -70" rot="12 0 0" material="armor_dark"/>
+  <box size="150 7 3" pos="-40 80 69" rot="-12 0 0" material="team" tint="1"/>
+  <box size="150 7 3" pos="-40 80 -69" rot="12 0 0" material="team" tint="1"/>
+  <!-- stowage bins and roof detail -->
+  <box size="50 16 14" pos="-80 92 52" material="gunmetal"/>
+  <box size="50 16 14" pos="-80 92 -52" material="gunmetal"/>
+  <box size="24 4 24" pos="-40 101.5 30" material="armor_dark"><array count="2" translation="-40 0 0"/></box>
+  <box size="24 4 24" pos="-40 101.5 -30" material="armor_dark"><array count="2" translation="-40 0 0"/></box>
+  <box size="20 6 3" rot="0 0 35" pos="100 92 34" material="glass"/>
+  <box size="20 6 3" rot="0 0 35" pos="100 92 -34" material="glass"/>
+  <box size="5 5 3" pos="132 62 46" material="lamp" unlit="1" castShadow="0"/>
+  <box size="5 5 3" pos="132 62 -46" material="lamp" unlit="1" castShadow="0"/>
+  <box size="10 4 110" pos="128 46 0" material="steel_dark"/>
+  <cylinder radius="1" height="80" sides="5" pos="-110 140 -40" material="steel_dark"/>
   <!-- turret -->
-  <cylinder radius="28" height="24" sides="12" pos="10 116 0" material="armor_dark"/>
-  <cylinder radius="3.5" height="60" rot="0 0 -90" pos="66 118 0" material="steel_dark"/>
-  <box size="20 10 46" pos="-70 109 0" material="armor_dark"/>
+  <group pos="22 112 0">
+    <shape closed="1" v="34 0 18 24 -24 26 -32 14 -32 -14 -24 -26 18 -24" rot="90 0 0" material="armor">
+      <extrude amount="24"/><bevel amount="1.5" bevelSegments="1"/>
+      <taper center="0 0 0" amount="0.34" axis="z"/>
+    </shape>
+    <shape closed="1" v="22 0 12 16 -18 18 -24 10 -24 -10 -18 -18 12 -16" rot="90 0 0" pos="0 12.6 0" material="team" tint="1">
+      <extrude amount="1.2"/>
+    </shape>
+    <box size="16 12 14" pos="34 0 0" material="gunmetal"/>
+    <cylinder radius="3.2" height="70" sides="8" rot="0 0 -90" pos="76 0 0" material="steel_dark"/>
+    <cylinder radius="4.5" height="14" sides="8" rot="0 0 -90" pos="104 0 0" material="gunmetal"/>
+  </group>
 </prefab>

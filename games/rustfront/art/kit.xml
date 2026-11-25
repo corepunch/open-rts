@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rustfront detail kit: the small mechanical parts that give the units their industrial
+     density. Include it beside utilities.xml in a prefab; every call takes pos/rot like a shape. -->
+<library>
+  <define name="bunker" doc="A battered block: a box whose walls lean in toward the top (taper). Centred on pos.">
+    <param name="width"/><param name="height"/><param name="depth"/>
+    <param name="lean" default="-0.12" doc="taper amount: how much smaller the top is (-0.12 = 12 %)"/>
+    <box size="${width} ${height} ${depth}"><taper amount="${lean}"/></box>
+  </define>
+
+  <define name="railing" doc="A safety rail along local X, standing on pos: posts every ~30 cm and a top rail.">
+    <param name="length"/><param name="height" default="16"/>
+    <param name="material" default="hazard"/>
+    <group>
+      <box size="${length} 2 2" pos="0 ${height} 0" material="${material}"/>
+      <box size="${length} 1.5 1.5" pos="0 {${height}/2} 0" material="steel_dark"/>
+      <cylinder radius="1" height="${height}" sides="6" pos="{-(${length})/2} {${height}/2} 0" material="steel_dark">
+        <array count="{floor((${length})/30)+1}" translation="{(${length})/floor((${length})/30)} 0 0"/>
+      </cylinder>
+    </group>
+  </define>
+
+  <define name="ladder" doc="A wall ladder rising along Y from pos, rungs along X, standing proud of the wall by its pos.">
+    <param name="height"/>
+    <group>
+      <box size="2 ${height} 2" pos="-8 {${height}/2} 0" material="steel_dark"/>
+      <box size="2 ${height} 2" pos="8 {${height}/2} 0" material="steel_dark"/>
+      <box size="16 1.5 1.5" pos="0 6 0" material="steel"><array count="{floor((${height})/12)}" translation="0 12 0"/></box>
+    </group>
+  </define>
+
+  <define name="vent" doc="A rooftop air handler: a gunmetal box with a louvred top and a fan ring. Base on pos.">
+    <param name="width" default="40"/><param name="depth" default="40"/><param name="height" default="20"/>
+    <group>
+      <box size="${width} ${height} ${depth}" pos="0 {${height}/2} 0" material="gunmetal"/>
+      <box size="{${width}-6} 2 3" pos="0 {${height}+1} {-(${depth})/2+6}" material="steel_dark">
+        <array count="{floor(((${depth})-8)/7)}" translation="0 0 7"/>
+      </box>
+    </group>
+  </define>
+
+  <define name="warn-light" doc="A red warning lamp on a short stalk; base on pos.">
+    <param name="material" default="warn"/>
+    <group>
+      <cylinder radius="1.5" height="6" sides="6" pos="0 3 0" material="steel_dark"/>
+      <sphere radius="3.5" rings="6" slices="8" pos="0 8 0" material="${material}" unlit="1" castShadow="0"/>
+    </group>
+  </define>
+
+  <define name="floodlight" doc="A pole lamp: mast, head pointing along +X, lit face. Base on pos.">
+    <param name="height" default="110"/>
+    <group>
+      <cylinder radius="2.5" height="${height}" sides="8" pos="0 {${height}/2} 0" material="steel_dark"/>
+      <box size="14 10 18" pos="4 {${height}+2} 0" rot="0 0 -25" material="gunmetal"/>
+      <box size="1 7 14" pos="11 {${height}+0} 0" rot="0 0 -25" material="lamp" unlit="1" castShadow="0"/>
+    </group>
+  </define>
+
+  <define name="sandbags" doc="A short sandbag wall along local X, two courses. Base on pos.">
+    <param name="count" default="3"/>
+    <group>
+      <capsule radius="9" height="18" rings="3" slices="8" rot="0 0 90" pos="{-((${count})-1)*20} 9 0" material="sandbag">
+        <array count="${count}" translation="0 -40 0"/>
+      </capsule>
+      <capsule radius="9" height="18" rings="3" slices="8" rot="0 0 90" pos="{-((${count})-1)*20+20} 25 0" material="sandbag">
+        <array count="{(${count})-1}" translation="0 -40 0"/>
+      </capsule>
+    </group>
+  </define>
+</library>

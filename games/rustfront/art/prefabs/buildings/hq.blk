@@ -1,54 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Command Center. Footprint 3x3 cells (600 x 600 cm), origin at pad centre on the ground,
-     main entrance faces +Z. Stepped concrete blocks, a glazed control tower, roof radar and
-     helipad. Team colour (tint) on the roof band, canopy and helipad ring. -->
+     entrance faces +Z. A battered concrete bunker with a team-coloured parapet, a second
+     command level with raked windows, a radar dish, a lattice comms mast, a rooftop helipad,
+     an armoured entrance vestibule and floodlights on the pad. -->
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
   <slab width="600" height="20" depth="600" pos="0 10 0" material="pad"/>
 
-  <!-- lower block, y 20..150 -->
-  <soft-box width="500" height="130" depth="460" radius="24" bevel="4" pos="0 85 -10" material="concrete"/>
-  <soft-box width="506" height="14" depth="466" radius="26" bevel="3" pos="0 132 -10" material="team" tint="1"/>
-  <!-- entrance: door recess, canopy, two lamps -->
-  <box size="130 84 8" pos="-90 62 221" material="steel_dark"/>
-  <box size="4 70 4" pos="-90 55 227" material="steel"/>
-  <soft-box width="170" height="10" depth="56" radius="4" bevel="2" pos="-90 114 246" material="team" tint="1"/>
-  <sphere radius="5" pos="-160 96 226" material="lamp" unlit="1" castShadow="0"/>
-  <sphere radius="5" pos="-20 96 226" material="lamp" unlit="1" castShadow="0"/>
-  <!-- lit window strip along the right side -->
-  <box size="4 16 300" pos="252 92 -20" material="glass"/>
+  <!-- lower bunker: y 20..130, base x ±240 z -240..200, top 12 % smaller -->
+  <bunker width="480" height="110" depth="440" pos="0 75 -20" material="concrete"/>
+  <box size="418 4 383" pos="0 132 -20" material="roofing"/>
+  <box size="422 8 6" pos="0 138 170.5" material="team" tint="1"/>
+  <box size="422 8 6" pos="0 138 -210.5" material="team" tint="1"/>
+  <box size="6 8 375" pos="208 138 -20" material="team" tint="1"/>
+  <box size="6 8 375" pos="-208 138 -20" material="team" tint="1"/>
+  <!-- raked window bands on the two seen walls -->
+  <box size="320 14 4" rot="-13.5 0 0" pos="-60 90 183.5" material="glass"/>
+  <box size="4 14 320" rot="0 0 14.8" pos="222 90 -30" material="glass"/>
 
-  <!-- upper block, y 150..250 -->
-  <soft-box width="340" height="100" depth="300" radius="18" bevel="4" pos="-40 200 -50" material="concrete_dark"/>
-  <box size="280 18 4" pos="-40 215 102" material="glass"/>
-  <box size="4 18 240" pos="132 215 -50" material="glass"/>
+  <!-- command level: y 134..224 -->
+  <bunker width="250" height="90" depth="220" lean="-0.18" pos="-50 179 -70" material="concrete_dark"/>
+  <box size="170 14 4" rot="-12.4 0 0" pos="-50 205 25" material="glass"/>
+  <box size="4 14 150" rot="0 0 14.2" pos="61 205 -70" material="glass"/>
+  <box size="200 3 174" pos="-50 225.5 -70" material="roofing"/>
+  <vent width="44" depth="40" height="14" pos="0 227 -120"/>
+  <warn-light pos="20 227 0"/>
 
-  <!-- control tower, y 150..282 -->
-  <cylinder radius="62" height="120" sides="16" pos="160 210 120" material="concrete"/>
-  <cylinder radius="64" height="28" sides="16" pos="160 246 120" material="glass"/>
-  <cone radius="74" radiusTop="56" height="14" sides="16" pos="160 277 120" material="steel_dark"/>
-  <cylinder radius="2" height="60" pos="160 314 120" material="steel"/>
-  <sphere radius="4" pos="160 346 120" material="flame" unlit="1" castShadow="0"/>
-
-  <!-- radar on the upper roof -->
-  <cylinder radius="7" height="56" pos="-130 278 -110" material="steel"/>
-  <group pos="-130 316 -110" rot="0 30 -35">
-    <cone radius="10" radiusTop="54" height="18" sides="20" material="steel"/>
-    <cylinder radius="2" height="40" pos="0 28 0" material="steel_dark"/>
+  <!-- radar dish on a yoke -->
+  <cylinder radius="9" height="22" sides="8" pos="-110 238 -100" material="gunmetal"/>
+  <group pos="-110 252 -100" rot="38 30 0">
+    <surface segments="20 5" twoSided="1" material="steel" x="52*v*cos(u*2*pi)" y="16*v*v" z="-52*v*sin(u*2*pi)"/>
+    <cylinder radius="1.5" height="34" sides="6" pos="0 17 0" material="steel_dark"/>
+    <box size="8 8 8" pos="0 36 0" material="steel_dark"/>
   </group>
-  <!-- antennas and roof plant -->
-  <cylinder radius="3" height="110" pos="60 305 -170" material="steel_dark"/>
-  <cylinder radius="3" height="70" pos="90 285 -175" material="steel_dark"/>
-  <box size="60 22 60" pos="30 261 -60" material="steel"/>
-  <cylinder radius="20" height="6" pos="30 275 -60" material="steel_dark"/>
 
-  <!-- helipad on the lower roof, front left -->
-  <cylinder radius="58" height="4" sides="24" pos="-160 152 165" material="pad_dark"/>
-  <cylinder radius="61" height="5" tube="6" sides="24" pos="-160 153 165" material="team" tint="1"/>
-  <box size="8 1 50" pos="-176 154.5 165" material="lamp" unlit="1" castShadow="0"/>
-  <box size="8 1 50" pos="-144 154.5 165" material="lamp" unlit="1" castShadow="0"/>
-  <box size="24 1 8" pos="-160 154.5 165" material="lamp" unlit="1" castShadow="0"/>
+  <!-- comms mast on the lower deck, back right -->
+  <prism radius="17" height="190" sides="3" pos="160 229 -175" material="steel"><taper amount="-0.75"/></prism>
+  <torus majorRadius="11" minorRadius="1.5" majorSegments="8" minorSegments="4" pos="160 200 -175" material="steel"/>
+  <torus majorRadius="7" minorRadius="1.5" majorSegments="8" minorSegments="4" pos="160 260 -175" material="steel"/>
+  <warn-light pos="160 323 -175"/>
 
-  <!-- vents on the lower roof, back right -->
-  <box size="40 18 40" pos="200 159 -160" material="steel"><array count="3" translation="0 0 55"/></box>
+  <!-- helipad on the lower deck, front left -->
+  <cylinder radius="46" height="2" sides="20" pos="-130 135 110" material="pad_dark"/>
+  <cylinder radius="49" height="2.4" tube="4" sides="20" pos="-130 135.2 110" material="team" tint="1"/>
+  <box size="7 1 40" pos="-143 136.4 110" material="lamp" unlit="1" castShadow="0"/>
+  <box size="7 1 40" pos="-117 136.4 110" material="lamp" unlit="1" castShadow="0"/>
+  <box size="20 1 7" pos="-130 136.4 110" material="lamp" unlit="1" castShadow="0"/>
+  <!-- lower deck plant, right -->
+  <vent width="50" depth="50" height="18" pos="150 134 70"/>
+  <vent width="50" depth="40" height="18" pos="150 134 -20"/>
+  <tube ax="125" ay="146" az="70" bx="85" by="146" bz="70" r0="5" material="steel_dark"/>
+
+  <!-- armoured entrance vestibule, front right -->
+  <bunker width="150" height="84" depth="56" lean="-0.08" pos="90 62 214" material="concrete_dark"/>
+  <box size="96 60 4" pos="90 50 242" material="gunmetal"/>
+  <box size="2 56 2" pos="90 50 245" material="steel_dark"/>
+  <box size="116 8 6" pos="90 88 241" material="hazard"/>
+  <warn-light pos="30 104 225"/>
+  <warn-light pos="150 104 225"/>
+  <box size="110 3 50" pos="90 21.5 268" material="pad_dark"/>
+  <!-- floodlights on the pad -->
+  <floodlight pos="-270 20 270" rot="0 -45 0"/>
+  <floodlight pos="270 20 270" rot="0 -135 0"/>
 </prefab>
