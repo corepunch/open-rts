@@ -30,6 +30,13 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count);
 void RF_SyncBlocking(level_t *map);
 void RF_ClearMinedOre(level_t *map);
 
+/* g_combat.c: shells and rockets. Tanks, gun turrets, artillery and rocket soldiers fire a
+ * projectile that does its damage on arrival; everything else hits at once. */
+bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
+void A_RfImpact(mobj_t *projectile);
+void RF_TrailRockets(mobj_t *const *mobjs, int count);
+bool RF_ImpactInProgress(void);
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);

@@ -270,7 +270,7 @@ def main():
         save(idx, rgba.size, "fx_%s.pcx" % name)
         sheet_rows.append('    {"fx", "%s", "fx_%s.pcx", %d, %d, %d, %d, %d, %d, %d, NULL},' % (
             name, name, em["frame"][0], em["frame"][1], em["columns"], em["count"],
-            em["pivot"][0], em["pivot"][1], em["count"]))
+            em["pivot"][0], em["pivot"][1], em.get("frames", em["count"])))
 
     # Icons are flat pictures with no team mask: let them use the blue ramp as well, so the
     # sidebar can recolour them for the player's team like any sprite.

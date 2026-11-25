@@ -50,7 +50,8 @@ static void shot(const char *name) {
     P_FreeMobjList(&list);
 }
 
-/* A firefight on open sand: shots flash and land as puffs, turrets show their firing frames,
+/* A firefight on open sand: shells and rockets fly and land later than they are fired, the
+ * heavy shell arcs, rockets trail smoke; bullets flash and land as puffs, turrets show their firing frames,
  * vehicles die in an explosion and soldiers fall, and every effect removes itself. */
 static int test_firefight(void) {
     P_FreeLevel(&level);
@@ -68,7 +69,9 @@ static int test_firefight(void) {
     mobj_t *enemy = spawn(MT_TANK, 1, FIXED2_LIT(7.5, 16.5), ANG180);
     mobj_t *apc = spawn(MT_APC, 1, FIXED2_LIT(7.5, 19.5), ANG180);
     mobj_t *foe = spawn(MT_RIFLEMAN, 1, FIXED2_LIT(6.5, 18.5), ANG180);
-    CHECK(tank && gun && arty && rifle && enemy && apc && foe);
+    mobj_t *bazooka = spawn(MT_ROCKET, 1, FIXED2_LIT(6.5, 13.5), ANG180);
+    CHECK(tank && gun && arty && rifle && enemy && apc && foe && bazooka);
+    int enemy_hp = enemy->hp;
     mobjlist_t list = P_ListMobjs();
     CHECK(R_InitSprites(g_game_default_root, &level, list.items, list.count, &cache));
     P_FreeMobjList(&list);
@@ -78,9 +81,28 @@ static int test_firefight(void) {
     CHECK(R_CacheLookup(&cache, "hq_body")->spritedef.numframes == 8);          /* the radar's turn */
 
     bool saw_shot = false, saw_hit = false, saw_boom = false, saw_fall = false;
-    int shots_saved = 0;
+    bool saw_shell = false, saw_rocket = false, saw_smoke = false, saw_arc = false, hit_late = false;
+    int shots_saved = 0, flight_saved = 0;
     for (int tic = 0; tic < 40 * RTS_TICRATE; ++tic) {
         P_Ticker();
+        mobjlist_t all = P_ListMobjs();
+        int n = all.count;
+        G_MissionTicker(&level, all.items, &n, NULL, RTS_TICK_MS);
+        P_FreeMobjList(&all);
+        /* A shell is in the air before its damage lands. */
+        if (count_type(MT_SHELL) && !saw_shell) hit_late = enemy->hp == enemy_hp;
+        saw_shell |= count_type(MT_SHELL) > 0;
+        saw_rocket |= count_type(MT_MISSILE) > 0;
+        saw_smoke |= count_type(MT_FX_SMOKE) > 0;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            const mobj_t *u = (const mobj_t *)th;
+            if (th->function == P_MobjThinker && u->type_id == MT_HEAVY_SHELL && (u->traits & MF_MISSILE))
+                saw_arc |= u->core.position.z > FIXED_ONE / 2;
+        }
+        if (!flight_saved && count_type(MT_SHELL) && count_type(MT_MISSILE) && count_type(MT_FX_SMOKE) > 2) {
+            shot("flight");
+            flight_saved = 1;
+        }
         bool firing = false;
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             const mobj_t *u = (const mobj_t *)th;
@@ -100,9 +122,13 @@ static int test_firefight(void) {
         saw_boom |= boom;
     }
     CHECK(saw_shot && saw_hit && saw_boom && saw_fall);
+    if (getenv("RF_DEBUG")) printf("shell %d rocket %d smoke %d arc %d late %d\n", saw_shell, saw_rocket, saw_smoke, saw_arc, hit_late);
+    CHECK(saw_shell && saw_rocket && saw_smoke && saw_arc && hit_late);
+    CHECK(count_type(MT_SHELL) == 0 && count_type(MT_HEAVY_SHELL) == 0 && count_type(MT_MISSILE) == 0);
     /* The fight is over on one side, and no effect outlives its run. */
     for (int tic = 0; tic < 3 * RTS_TICRATE; ++tic) P_Ticker();
     CHECK(count_type(MT_FX_HIT) == 0 && count_type(MT_FX_BOOM) == 0 && count_type(MT_FX_BIGBOOM) == 0);
+    CHECK(count_type(MT_FX_SMOKE) == 0);
 
     /* A structure goes up in several blasts over its footprint. */
     mobj_t *plant = spawn(MT_POWER, 0, P_BuildingPosition(MT_POWER, (ivec2_t){8, 2}), 0);
@@ -117,7 +143,7 @@ static int test_firefight(void) {
     R_FreeTileset(&tiles);
     V_FreeScreen();
     P_FreeLevel(&level);
-    puts("PASS: shots flash and land, vehicles and structures explode, soldiers fall, effects expire");
+    puts("PASS: shells and rockets fly, arc, trail and land; things explode or fall; effects expire");
     return 0;
 }
 

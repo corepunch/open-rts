@@ -13,6 +13,12 @@
      .turn_step = ANG45 / 6, .max_hp = hp, \
      .attack = {.range = FIXED_LIT(rng), .damage = dmg, .cooldown_ms = cool}, __VA_ARGS__}
 
+/* The heavy shell's height per flight step, by remaining fraction: a parabola, so a longer
+ * shot climbs higher (the engine multiplies by the flight's step count). */
+#define ARC(f) FIXED_LIT(0.2 * (f) * (1 - (f)))
+static const fixed_t HEAVY_ARC[] = {ARC(0.0), ARC(0.125), ARC(0.25), ARC(0.375), ARC(0.5),
+                                    ARC(0.625), ARC(0.75), ARC(0.875), ARC(1.0)};
+
 static const mobjtype_t ACTOR_TYPES[] = {
     BUILDING(MT_HQ, "Command Center", "hq", 3000, 3, 3),
     BUILDING(MT_POWER, "Power Plant", "power", 1200, 2, 2),
@@ -41,6 +47,15 @@ static const mobjtype_t ACTOR_TYPES[] = {
     {.id = MT_FX_BOOM, .name = "Explosion", .sprite_name = "fx_boom", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BIGBOOM, .name = "Large explosion", .sprite_name = "fx_bigboom",
      .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_FX_SMOKE, .name = "Smoke", .sprite_name = "fx_smoke", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
+    /* Timed flight: `step` cells a tic toward where the target stood. The heavy shell arcs. */
+    {.id = MT_SHELL, .name = "Shell", .sprite_name = "fx_shell", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_LIT(0.6), .period_ms = RTS_TICK_MS, .timed = true}},
+    {.id = MT_HEAVY_SHELL, .name = "Heavy shell", .sprite_name = "fx_shell", .traits = MF_RENDERABLE | MF_MISSILE,
+     .max_hp = 1, .missile = {.step = FIXED_LIT(0.4), .period_ms = RTS_TICK_MS, .timed = true,
+                              .arc = HEAVY_ARC, .arc_count = (int)(sizeof(HEAVY_ARC) / sizeof(*HEAVY_ARC))}},
+    {.id = MT_MISSILE, .name = "Rocket", .sprite_name = "fx_rocket", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_LIT(0.3), .period_ms = RTS_TICK_MS, .timed = true}},
 };
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */

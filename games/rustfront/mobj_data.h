@@ -1,7 +1,7 @@
 #ifndef __MOBJ_DATA__
 #define __MOBJ_DATA__
 
-/* Rustfront needs no fields beyond the common mobj yet. */
-#define MOBJ_GAME_FIELDS
+/* A projectile remembers whom it was fired at (a mobj id), to hit it on arrival. */
+#define MOBJ_GAME_FIELDS uint32_t rf_victim;
 
 #endif

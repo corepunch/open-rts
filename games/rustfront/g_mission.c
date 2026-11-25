@@ -51,6 +51,7 @@ static void send_idle_harvesters(level_t *map, mobj_t *const *mobjs, int count) 
 
 void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
     if (leveltime % (RTS_TICRATE / 2) == 0) RF_SyncBlocking(map);
+    if (leveltime % 2 == 0) RF_TrailRockets(mobjs, count);
     if (leveltime % RTS_TICRATE == 0) {
         send_idle_harvesters(map, mobjs, count);
         RF_ClearMinedOre(map);
@@ -105,7 +106,8 @@ static bool is_structure(const mobj_t *unit) {
 /* A shot landing: a puff on the victim, anywhere on a structure's face. */
 void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
     (void)source;
-    if (!victim || victim->hp >= old_hp || victim->type_id >= MT_FX_HIT) return;
+    /* A shell or rocket brings its own blast; the puff is for bullets. */
+    if (!victim || victim->hp >= old_hp || victim->type_id >= MT_FX_HIT || RF_ImpactInProgress()) return;
     if (is_structure(victim))
         spawn_effect(MT_FX_HIT, victim, victim->info->footprint.w * (FIXED_ONE / 3),
                      victim->info->footprint.h * (FIXED_ONE / 3), 1);

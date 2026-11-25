@@ -1,11 +1,12 @@
 #include "engine.h"
 #include "info.h"
+#include "rustfront.h"
 
 const char *const sprnames[NUMSPRITES] = {
     "hq_body", "power_body", "refinery_body", "barracks_body", "factory_body", "turret_base",
     "scout_body", "tank_hull", "artillery_body", "harvester_body", "apc_hull",
     "rifleman_body", "rocket_body",
-    "fx_hit", "fx_boom", "fx_bigboom",
+    "fx_hit", "fx_boom", "fx_bigboom", "fx_shell", "fx_rocket", "fx_smoke", "fx_blast",
 };
 
 /* {sprite, frame, count, tics, action, next, group}: group 2 plays while moving, 3 attacking.
@@ -56,6 +57,18 @@ const state_t states[NUMSTATES] = {
     [S_FX_HIT] = {SPR_FX_HIT, 0, 5, 2, NULL, S_NULL, 0, NULL},
     [S_FX_BOOM] = {SPR_FX_BOOM, 0, 10, 3, NULL, S_NULL, 0, NULL},
     [S_FX_BIGBOOM] = {SPR_FX_BIGBOOM, 0, 12, 3, NULL, S_NULL, 0, NULL},
+    [S_FX_SMOKE] = {SPR_FX_SMOKE, 0, 5, 3, NULL, S_NULL, 0, NULL},
+    /* A projectile flies in its first state; arriving, its death run is the blast, whose
+     * first frame does the damage. */
+    [S_SHELL] = {SPR_FX_SHELL, 0, 1, 1, NULL, S_SHELL, 0, NULL},
+    [S_SHELL_HIT] = {SPR_FX_BLAST, 0, 1, 2, A_RfImpact, S_SHELL_HIT2, 0, NULL},
+    [S_SHELL_HIT2] = {SPR_FX_BLAST, 1, 6, 2, NULL, S_NULL, 0, NULL},
+    [S_HEAVY_SHELL] = {SPR_FX_SHELL, 0, 1, 1, NULL, S_HEAVY_SHELL, 0, NULL},
+    [S_HEAVY_SHELL_HIT] = {SPR_FX_BOOM, 0, 1, 3, A_RfImpact, S_HEAVY_SHELL_HIT2, 0, NULL},
+    [S_HEAVY_SHELL_HIT2] = {SPR_FX_BOOM, 1, 9, 3, NULL, S_NULL, 0, NULL},
+    [S_MISSILE] = {SPR_FX_ROCKET, 0, 1, 1, NULL, S_MISSILE, 0, NULL},
+    [S_MISSILE_HIT] = {SPR_FX_BLAST, 0, 1, 2, A_RfImpact, S_MISSILE_HIT2, 0, NULL},
+    [S_MISSILE_HIT2] = {SPR_FX_BLAST, 1, 6, 2, NULL, S_NULL, 0, NULL},
 };
 
 #define BUILDING_INFO(n, st, hp) {.doomednum = n, .spawnstate = st, .spawnhealth = hp, .deathstate = S_NULL}
@@ -82,6 +95,10 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_FX_HIT] = {.doomednum = -1, .spawnstate = S_FX_HIT, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BOOM] = {.doomednum = -1, .spawnstate = S_FX_BOOM, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BIGBOOM] = {.doomednum = -1, .spawnstate = S_FX_BIGBOOM, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_FX_SMOKE] = {.doomednum = -1, .spawnstate = S_FX_SMOKE, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_SHELL] = {.doomednum = -1, .spawnstate = S_SHELL, .spawnhealth = 1, .deathstate = S_SHELL_HIT},
+    [MT_HEAVY_SHELL] = {.doomednum = -1, .spawnstate = S_HEAVY_SHELL, .spawnhealth = 1, .deathstate = S_HEAVY_SHELL_HIT},
+    [MT_MISSILE] = {.doomednum = -1, .spawnstate = S_MISSILE, .spawnhealth = 1, .deathstate = S_MISSILE_HIT},
 };
 
 const gameinfo_t game_info = {
@@ -91,4 +108,5 @@ const gameinfo_t game_info = {
     .null_state = S_NULL,
     .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
     .team_palettes = true,
+    .attack = RF_Attack,
 };

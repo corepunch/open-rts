@@ -37,7 +37,11 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"rifleman", "shadow", "rifleman_shadow.pcx", 80, 63, 11, 120, 33, 42, 1, NULL},
     {"rocket", "body", "rocket_body.pcx", 80, 64, 11, 120, 33, 43, 1, NULL},
     {"rocket", "shadow", "rocket_shadow.pcx", 80, 64, 11, 120, 33, 43, 1, NULL},
+    {"fx", "shell", "fx_shell.pcx", 16, 16, 16, 16, 8, 8, 1, NULL},
+    {"fx", "rocket", "fx_rocket.pcx", 24, 24, 16, 16, 12, 12, 1, NULL},
+    {"fx", "smoke", "fx_smoke.pcx", 12, 12, 5, 5, 6, 6, 5, NULL},
     {"fx", "hit", "fx_hit.pcx", 24, 24, 5, 5, 12, 14, 5, NULL},
+    {"fx", "blast", "fx_blast.pcx", 40, 40, 7, 7, 20, 24, 7, NULL},
     {"fx", "boom", "fx_boom.pcx", 64, 64, 10, 10, 32, 38, 10, NULL},
     {"fx", "bigboom", "fx_bigboom.pcx", 96, 96, 12, 12, 48, 57, 12, NULL},
 };

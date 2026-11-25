@@ -1,4 +1,45 @@
 {
+ "shell": {
+  "file": "fx_shell.png",
+  "frame": [
+   16,
+   16
+  ],
+  "count": 16,
+  "columns": 16,
+  "pivot": [
+   8,
+   8
+  ],
+  "frames": 1
+ },
+ "rocket": {
+  "file": "fx_rocket.png",
+  "frame": [
+   24,
+   24
+  ],
+  "count": 16,
+  "columns": 16,
+  "pivot": [
+   12,
+   12
+  ],
+  "frames": 1
+ },
+ "smoke": {
+  "file": "fx_smoke.png",
+  "frame": [
+   12,
+   12
+  ],
+  "count": 5,
+  "columns": 5,
+  "pivot": [
+   6,
+   6
+  ]
+ },
  "hit": {
   "file": "fx_hit.png",
   "frame": [
@@ -10,6 +51,19 @@
   "pivot": [
    12,
    14
+  ]
+ },
+ "blast": {
+  "file": "fx_blast.png",
+  "frame": [
+   40,
+   40
+  ],
+  "count": 7,
+  "columns": 7,
+  "pivot": [
+   20,
+   24
   ]
  },
  "boom": {

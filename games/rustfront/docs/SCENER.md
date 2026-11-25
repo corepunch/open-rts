@@ -350,6 +350,11 @@ animation turns on.
 half transparent and becomes the shadow index. `g_mission.c` spawns them from
 the engine's damage and death hooks. They are pictures only.
 
+**Projectiles** are drawn by `effects.py` too: `shell` (a tracer) and `rocket`
+have one picture for each of 16 facings, and `smoke` is the puff a rocket leaves
+every other tic. `g_combat.c` launches them through the engine's timed missile
+flight and applies the damage when they land.
+
 ## Build icons
 
 `art/icons.py` renders the sidebar's 64×48 cameos into `sprites/icons.png`:
@@ -413,7 +418,6 @@ Not done yet:
 
 - **Terrain transitions:** gravel and other ground types need edge tiles before
   maps can mix them without hard squares.
-- **More animation:** construction, damaged states, harvesting, and visible
-  shells or rockets in flight (shots are instant; only flash and impact show).
+- **More animation:** construction, damaged states and harvesting.
 - **The turret shadow** follows the hull. Exact turret shadows would need a
   shadow per (hull, turret) pair, or a separate turret shadow layer.
