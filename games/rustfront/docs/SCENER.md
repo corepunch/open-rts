@@ -58,6 +58,7 @@ art/pack8.py            converts sprites/ to 256-colour assets/ for the engine
 art/previews/           committed one-angle previews (camera name = file name) and
                         sprites_contact.png
 art/sprites.py          renders the game sprites into ../sprites/ (see Game sprites)
+art/effects.py          draws the explosion and impact frames
 art/contact.py          composites those sprites as the game would, as a check
 art/.build/             sprites.py's scratch scenes and renders (ignored by git)
 sprites/                packed sprite sheets and sprites.json
@@ -313,6 +314,42 @@ only Scener's own gait and authored clips. Ecstatica's actors and actions come f
 the commercial game and are fine for reference and prototyping, but not for art
 this game ships. CMU captures are free to use.
 
+## Animation
+
+Hard-surface prefabs animate through **knobs**: `<let name="move" value="0"/>`
+declarations near the top of a prefab that its geometry reads in expressions.
+`sprites.py` renders one variant per frame, with the knob values substituted in
+a build-folder copy of the prefab. The layer's `frames` list in `UNITS` names
+them, for example `MOVE = [{}, {"move": 1}]`.
+
+| Knob | Used by | Effect |
+|---|---|---|
+| `move` | tracked and wheeled hulls | Shifts the tread-link texture by half a link, turns the wheel hubs, turns the harvester's drum teeth |
+| `fire` | turrets, the scout, the artillery | 1 is the shot: `<muzzle-flash>` shows and the barrel is at full recoil (`kick`). 2 is the barrel running back out |
+| `spin` | Command Center | Turns the radar dish 45° a frame, 8 frames |
+| `blink` | every `<warn-light on="{blink}">` | Lit lens or dark lens |
+| `pulse`, `flick` | power plant, refinery | Reactor strip height; flare flame size |
+
+Expressions work in any attribute, including `renderable="{fire == 1}"`.
+A sheet's picture index is `facing × frames + frame`. A unit's shadow sheet
+repeats each facing's shadow once per body frame, because the engine indexes
+body and shadow with one number.
+
+In the game (`info.c`):
+- Buildings loop their frames.
+- Hulls step two frames while moving.
+- A shot is two states, because an action runs on every frame of a run: the
+  firing frame, then the settle.
+- A turret shows `fire_frame` plus the body's offset into its firing run.
+
+Infantry flash through a prefab `<option name="flash">` that the `fire`
+animation turns on.
+
+**Effects** (`art/effects.py`) are drawn procedurally, not modelled: `hit`,
+`boom` and `bigboom` are seeded fireballs that cool to smoke. Smoke is written
+half transparent and becomes the shadow index. `g_mission.c` spawns them from
+the engine's damage and death hooks. They are pictures only.
+
 ## Build icons
 
 `art/icons.py` renders the sidebar's 64×48 cameos into `sprites/icons.png`:
@@ -334,15 +371,17 @@ The engine draws everything into one 8-bit indexed framebuffer, so the game
 ships 256-colour art:
 
 ```sh
-python3 games/rustfront/art/pack8.py    # sprites/ -> assets/*.bmp + sprites.inc, under a second
+python3 games/rustfront/art/pack8.py    # sprites/ -> assets/*.pcx + sprites.inc, a few seconds
 ```
 
-All BMPs share one palette (`art/previews/palette.png` shows it):
+The sheets are PCX: its run-length coding keeps the mostly transparent
+animation sheets small (1.5 MB in all, against 20 MB as BMP). All of them share
+one palette (`art/previews/palette.png` shows it):
 
 | Indices | Use |
 |---|---|
 | 0 | transparent |
-| 1 | shadow: shadow sheets are only 0 and 1, and the engine darkens what lies under 1 through a lookup table |
+| 1 | half-alpha black: ground shadows, the soft dark contact edge `pack8.py` puts around every sprite, and smoke |
 | 2–7 | fixed emitter colours (warning red, glow cyan, lamp, flame, white, black). Median cut loses small lights, so these stay exact |
 | 8–15 | reserved for the HUD |
 | 16–79 | four team ramps of 16 shades (blue, red, green, yellow). Art is drawn with the blue ramp; a team palette map moves 16–31 onto another ramp |
@@ -350,7 +389,7 @@ All BMPs share one palette (`art/previews/palette.png` shows it):
 
 A pixel is team-coloured where the team mask is at least 48, and its ramp
 shade is the mask level. A pixel under half coverage becomes transparent,
-because indexed art has no partial alpha. `assets/terrain.bmp` is a 48×32 tile
+because indexed art has no partial alpha. `assets/terrain.pcx` is a 48×32 tile
 atlas in the same palette: 8 sand tiles, 4 ore-field tiles and 4 gravel tiles.
 Its noise wraps at the tile edge, so the tiles join without seams.
 `sprites.inc` is the C table the game compiles in: per sheet, the frame size,
@@ -374,7 +413,7 @@ Not done yet:
 
 - **Terrain transitions:** gravel and other ground types need edge tiles before
   maps can mix them without hard squares.
-- **Animation** (firing, harvesting, construction) would be more `--frames` or
-  transform cameras in the same way.
+- **More animation:** construction, damaged states, harvesting, and visible
+  shells or rockets in flight (shots are instant; only flash and impact show).
 - **The turret shadow** follows the hull. Exact turret shadows would need a
   shadow per (hull, turret) pair, or a separate turret shadow layer.

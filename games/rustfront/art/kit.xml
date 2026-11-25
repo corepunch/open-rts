@@ -39,11 +39,23 @@
     </group>
   </define>
 
-  <define name="warn-light" doc="A red warning lamp on a short stalk; base on pos.">
+  <define name="warn-light" doc="A warning lamp on a short stalk; base on pos. on=&quot;{blink}&quot; makes it blink with a prefab's blink knob: lit while on is 1, a dark lens otherwise.">
     <param name="material" default="warn"/>
+    <param name="on" default="1"/>
     <group>
       <cylinder radius="1.5" height="6" sides="6" pos="0 3 0" material="steel_dark"/>
-      <sphere radius="3.5" rings="6" slices="8" pos="0 8 0" material="${material}" unlit="1" castShadow="0"/>
+      <sphere radius="3.2" rings="6" slices="8" pos="0 8 0" material="lens_off"/>
+      <sphere radius="6.5" rings="6" slices="8" pos="0 8 0" material="${material}" unlit="1" castShadow="0" renderable="${on}"/>
+    </group>
+  </define>
+
+  <define name="muzzle-flash" doc="A gun's flash, pointing along +X from pos (the muzzle); about 60 cm long at scale 1, so scale the call. on=&quot;{fire == 1}&quot; shows it only on a prefab's firing frame.">
+    <param name="on" default="1"/>
+    <group>
+      <cone radius="10" radiusTop="0" height="46" sides="8" rot="0 0 -90" pos="23 0 0" material="flash" unlit="1" castShadow="0" renderable="${on}"/>
+      <cone radius="5" radiusTop="0" height="62" sides="6" rot="0 0 -90" pos="31 0 0" material="flash_core" unlit="1" castShadow="0" renderable="${on}"/>
+      <sphere radius="10" rings="4" slices="8" scale="0.45 1.7 1.7" pos="3 0 0" material="flash" unlit="1" castShadow="0" renderable="${on}"/>
+      <sphere radius="6" rings="4" slices="6" pos="4 0 0" material="flash_core" unlit="1" castShadow="0" renderable="${on}"/>
     </group>
   </define>
 

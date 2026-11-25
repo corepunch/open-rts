@@ -1,0 +1,41 @@
+{
+ "hit": {
+  "file": "fx_hit.png",
+  "frame": [
+   24,
+   24
+  ],
+  "count": 5,
+  "columns": 5,
+  "pivot": [
+   12,
+   14
+  ]
+ },
+ "boom": {
+  "file": "fx_boom.png",
+  "frame": [
+   64,
+   64
+  ],
+  "count": 10,
+  "columns": 10,
+  "pivot": [
+   32,
+   38
+  ]
+ },
+ "bigboom": {
+  "file": "fx_bigboom.png",
+  "frame": [
+   96,
+   96
+  ],
+  "count": 12,
+  "columns": 12,
+  "pivot": [
+   48,
+   57
+  ]
+ }
+}

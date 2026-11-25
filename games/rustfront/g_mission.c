@@ -72,3 +72,60 @@ void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     harvester->allegiance = unit->allegiance;
     RF_SyncBlocking(&level);
 }
+
+/* ── effects ───────────────────────────────────────────────────────────────
+ * Pictures only: they block nothing, belong to nobody and remove themselves when their run
+ * ends. Their scatter comes from the tic and the victim, so every peer draws the same. */
+
+static uint32_t scatter(const mobj_t *victim, uint32_t salt) {
+    uint32_t h = victim->id * 2654435761u ^ (uint32_t)leveltime * 40503u ^ salt * 2246822519u;
+    h ^= h >> 15;
+    h *= 2246822519u;
+    return h ^ (h >> 13);
+}
+
+/* An effect in the victim's box: within `reach` cells of its centre, drawn just in front. */
+static void spawn_effect(uint16_t type, const mobj_t *victim, fixed_t reach_x, fixed_t reach_y, uint32_t salt) {
+    uint32_t h = scatter(victim, salt);
+    fixed_t dx = reach_x ? (fixed_t)(h % (uint32_t)(2 * reach_x)) - reach_x : 0;
+    fixed_t dy = reach_y ? (fixed_t)((h >> 12) % (uint32_t)(2 * reach_y)) - reach_y : 0;
+    fixed3_t at = victim->core.position;
+    at.x += dx;
+    at.y += dy + FIXED_ONE / 16;
+    mobj_t *fx = P_SpawnMobj(at, type);
+    if (!fx) return;
+    fx->owner = fx->team = 0;
+    fx->allegiance = ALLEGIANCE_NEUTRAL;
+}
+
+static bool is_structure(const mobj_t *unit) {
+    return unit->info && unit->info->footprint.w > 0 && !(unit->traits & MF_MOBILE);
+}
+
+/* A shot landing: a puff on the victim, anywhere on a structure's face. */
+void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
+    (void)source;
+    if (!victim || victim->hp >= old_hp || victim->type_id >= MT_FX_HIT) return;
+    if (is_structure(victim))
+        spawn_effect(MT_FX_HIT, victim, victim->info->footprint.w * (FIXED_ONE / 3),
+                     victim->info->footprint.h * (FIXED_ONE / 3), 1);
+    else
+        spawn_effect(MT_FX_HIT, victim, FIXED_ONE / 5, FIXED_ONE / 6, 1);
+}
+
+/* Vehicles go up in one explosion; a structure in several across its footprint. Soldiers
+ * fall instead (their death run). */
+void G_UnitKilled(mobj_t *victim, mobj_t *killer) {
+    (void)killer;
+    if (!victim || victim->type_id >= MT_FX_HIT) return;
+    if (victim->type_id == MT_RIFLEMAN || victim->type_id == MT_ROCKET) return;
+    if (!is_structure(victim)) {
+        spawn_effect(MT_FX_BOOM, victim, 0, 0, 2);
+        return;
+    }
+    int blasts = victim->info->footprint.w * victim->info->footprint.h;
+    if (blasts > 6) blasts = 6;
+    for (int i = 0; i < blasts; ++i)
+        spawn_effect(i % 2 ? MT_FX_BOOM : MT_FX_BIGBOOM, victim, victim->info->footprint.w * (FIXED_ONE * 2 / 5),
+                     victim->info->footprint.h * (FIXED_ONE * 2 / 5), 10 + (uint32_t)i);
+}

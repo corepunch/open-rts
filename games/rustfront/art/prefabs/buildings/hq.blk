@@ -6,6 +6,9 @@
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
+  <!-- Animation knobs, set per frame by art/sprites.py. -->
+  <let name="spin" value="0"/>
+  <let name="blink" value="1"/>
   <slab width="600" height="20" depth="600" pos="0 10 0" material="pad"/>
 
   <!-- lower bunker: y 20..130, base x ±240 z -240..200, top 12 % smaller -->
@@ -25,11 +28,11 @@
   <box size="4 14 150" rot="0 0 14.2" pos="61 205 -70" material="glass"/>
   <box size="200 3 174" pos="-50 225.5 -70" material="roofing"/>
   <vent width="44" depth="40" height="14" pos="0 227 -120"/>
-  <warn-light pos="20 227 0"/>
+  <warn-light on="{blink}" pos="20 227 0"/>
 
   <!-- radar dish on a yoke -->
   <cylinder radius="9" height="22" sides="8" pos="-110 238 -100" material="gunmetal"/>
-  <group pos="-110 252 -100" rot="38 30 0">
+  <group pos="-110 252 -100" rot="38 {30+45*spin} 0">
     <surface segments="20 5" twoSided="1" material="steel" x="52*v*cos(u*2*pi)" y="16*v*v" z="-52*v*sin(u*2*pi)"/>
     <cylinder radius="1.5" height="34" sides="6" pos="0 17 0" material="steel_dark"/>
     <box size="8 8 8" pos="0 36 0" material="steel_dark"/>
@@ -39,7 +42,7 @@
   <prism radius="17" height="190" sides="3" pos="160 229 -175" material="steel"><taper amount="-0.75"/></prism>
   <torus majorRadius="11" minorRadius="1.5" majorSegments="8" minorSegments="4" pos="160 200 -175" material="steel"/>
   <torus majorRadius="7" minorRadius="1.5" majorSegments="8" minorSegments="4" pos="160 260 -175" material="steel"/>
-  <warn-light pos="160 323 -175"/>
+  <warn-light on="{blink}" pos="160 323 -175"/>
 
   <!-- helipad on the lower deck, front left -->
   <cylinder radius="46" height="2" sides="20" pos="-130 135 110" material="pad_dark"/>
@@ -57,8 +60,8 @@
   <box size="96 60 4" pos="90 50 242" material="gunmetal"/>
   <box size="2 56 2" pos="90 50 245" material="steel_dark"/>
   <box size="116 8 6" pos="90 88 241" material="hazard"/>
-  <warn-light pos="30 104 225"/>
-  <warn-light pos="150 104 225"/>
+  <warn-light on="{blink}" pos="30 104 225"/>
+  <warn-light on="{blink}" pos="150 104 225"/>
   <box size="110 3 50" pos="90 21.5 268" material="pad_dark"/>
   <!-- floodlights on the pad -->
   <floodlight pos="-270 20 270" rot="0 -45 0"/>

@@ -6,6 +6,9 @@
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
+  <!-- Animation knobs, set per frame by art/sprites.py. -->
+  <let name="flick" value="0"/>
+  <let name="blink" value="1"/>
   <slab width="600" height="20" depth="400" pos="0 10 0" material="pad"/>
 
   <!-- silos with domes, ladders and a catwalk -->
@@ -35,7 +38,7 @@
   <prism radius="52" height="10" sides="8" rot="0 22.5 0" pos="95 205 -90" material="team" tint="1"/>
   <cone radius="52" radiusTop="20" height="36" sides="8" smooth="0" rot="0 22.5 0" pos="95 248 -90" material="steel_dark"/>
   <cylinder radius="10" height="40" sides="8" pos="95 286 -90" material="steel_dark"/>
-  <warn-light pos="95 306 -90"/>
+  <warn-light on="{blink}" pos="95 306 -90"/>
   <vent width="30" depth="24" height="10" pos="60 230 -60"/>
 
   <!-- dock: raised platform, hopper funnel, conveyor -->
@@ -46,13 +49,13 @@
   <beam ax="30" ay="60" az="80" bx="78" by="160" bz="-30" width="30" depth="10" material="rust"/>
   <box size="26 4 4" pos="54 112 25" rot="-60 0 0" material="steel_dark"/>
   <beam ax="54" ay="38" az="25" bx="54" by="104" bz="25" width="8" depth="8" material="steel_dark"/>
-  <warn-light pos="-115 38 172"/>
-  <warn-light pos="75 38 172"/>
+  <warn-light on="{blink}" pos="-115 38 172"/>
+  <warn-light on="{blink}" pos="75 38 172"/>
 
   <!-- flare stack -->
   <cylinder radius="10" height="260" sides="10" pos="230 150 -155" material="steel"/>
   <cylinder radius="11" height="14" sides="10" pos="230 270 -155" material="hazard"/>
-  <cone radius="12" radiusTop="0" height="34" sides="8" pos="230 297 -155" material="flame" unlit="1" castShadow="0"/>
+  <cone radius="{12-3*flick}" radiusTop="0" height="{34+14*flick}" sides="8" pos="{230+2*flick} {297+7*flick} -155" material="flame" unlit="1" castShadow="0"/>
   <light pos="230 300 -155" color="1 0.6 0.25" intensity="0.6" radius="200" castShadows="0"/>
 
   <!-- control booth -->

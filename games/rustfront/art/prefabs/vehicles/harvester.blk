@@ -6,11 +6,13 @@
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
   <group pos="0 31 0">
     <cylinder radius="31" height="32" sides="12" rot="90 0 0" pos="90 0 66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
     <cylinder radius="31" height="32" sides="12" rot="90 0 0" pos="90 0 -66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="14" height="34" sides="8" rot="90 0 0" pos="90 0 66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="14" height="34" sides="8" rot="90 0 0" pos="90 0 -66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
+    <cylinder radius="14" height="34" sides="8" rot="90 0 {22.5*move}" pos="90 0 66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
+    <cylinder radius="14" height="34" sides="8" rot="90 0 {22.5*move}" pos="90 0 -66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
   </group>
   <box size="296 22 100" pos="0 52 0" material="steel_dark"/>
   <box size="300 4 150" pos="0 64 0" material="grating"/>
@@ -46,6 +48,8 @@
   <beam ax="140" ay="58" az="72" bx="176" by="36" bz="72" width="10" depth="12" material="gunmetal"/>
   <beam ax="140" ay="58" az="-72" bx="176" by="36" bz="-72" width="10" depth="12" material="gunmetal"/>
   <cylinder radius="26" height="152" sides="10" rot="90 0 0" pos="178 30 0" material="steel"/>
-  <box size="12 64 8" pos="178 30 -60" material="hazard"><array count="6" translation="0 0 24"/></box>
-  <box size="64 12 8" pos="178 30 -48" material="hazard"><array count="5" translation="0 0 24"/></box>
+  <group pos="178 30 0" rot="0 0 {45*move}">
+    <box size="12 64 8" pos="0 0 -60" material="hazard"><array count="6" translation="0 0 24"/></box>
+    <box size="64 12 8" pos="0 0 -48" material="hazard"><array count="5" translation="0 0 24"/></box>
+  </group>
 </prefab>

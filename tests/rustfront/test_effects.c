@@ -1,0 +1,129 @@
+#include "t_local.h"
+#include "engine.h"
+#include "../../games/rustfront/info.h"
+#include "../../games/rustfront/rustfront.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+#define CHECK(c) RTS_CHECK(c, "rustfront effects", #c)
+
+static const char *const MAP = "games/rustfront/maps/skirmish.txt";
+
+static mobj_t *spawn(uint16_t type, int owner, fixed2_t at, angle_t angle) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fixed2(at, 0), type);
+    if (!unit) return NULL;
+    unit->owner = unit->team = owner;
+    unit->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER;
+    unit->core.angle = angle;
+    return unit;
+}
+
+static int count_type(uint16_t type) {
+    int n = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        n += th->function == P_MobjThinker && ((mobj_t *)th)->type_id == type && !((mobj_t *)th)->remove;
+    return n;
+}
+
+static app_t app = {.win = {640, 480}, .cell = {48, 32}, .running = true};
+static tileset_t tiles;
+static spritecache_t cache;
+static spritesheet_t fallback;
+
+/* Optional evidence: OPEN_RTS_RUSTFRONT_SHOTS=dir saves the world as the game draws it. */
+static void shot(const char *name) {
+    const char *dir = getenv("OPEN_RTS_RUSTFRONT_SHOTS");
+    if (!dir) return;
+    mobjlist_t list = P_ListMobjs();
+    V_BeginFrame(0xff000000u);
+    R_DrawLevel(&app, &level, &tiles);
+    R_RenderPlayerView(&app, &level, &tiles, list.items, list.count, &fallback, &cache, gameinfo, 0);
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (surface) {
+        V_ReadPixels(surface->pixels, surface->pitch);
+        char path[1024];
+        snprintf(path, sizeof(path), "%s/rustfront-%s.bmp", dir, name);
+        SDL_SaveBMP(surface, path);
+        SDL_FreeSurface(surface);
+    }
+    P_FreeMobjList(&list);
+}
+
+/* A firefight on open sand: shots flash and land as puffs, turrets show their firing frames,
+ * vehicles die in an explosion and soldiers fall, and every effect removes itself. */
+static int test_firefight(void) {
+    P_FreeLevel(&level);
+    P_InitThinkers();
+    CHECK(G_DoLoadLevel(MAP, &level) && P_InitSight());
+    CHECK(W_LoadAssets(g_game_default_root, &level, NULL, &tiles, &fallback));
+    R_SetLevelPalette(&tiles);
+    V_AllocScreen(640, 480);
+    app.cam.x = 0;
+    app.cam.y = -12 * 32; /* the camera is a screen offset: this shows rows 12 and down */
+    mobj_t *tank = spawn(MT_TANK, 0, FIXED2_LIT(3.5, 16.5), 0);
+    mobj_t *gun = spawn(MT_GUN_TURRET, 0, FIXED2_LIT(2.5, 19.5), 0);
+    mobj_t *arty = spawn(MT_ARTILLERY, 0, FIXED2_LIT(2.5, 14.5), 0);
+    mobj_t *rifle = spawn(MT_RIFLEMAN, 0, FIXED2_LIT(4.5, 18.5), 0);
+    mobj_t *enemy = spawn(MT_TANK, 1, FIXED2_LIT(7.5, 16.5), ANG180);
+    mobj_t *apc = spawn(MT_APC, 1, FIXED2_LIT(7.5, 19.5), ANG180);
+    mobj_t *foe = spawn(MT_RIFLEMAN, 1, FIXED2_LIT(6.5, 18.5), ANG180);
+    CHECK(tank && gun && arty && rifle && enemy && apc && foe);
+    mobjlist_t list = P_ListMobjs();
+    CHECK(R_InitSprites(g_game_default_root, &level, list.items, list.count, &cache));
+    P_FreeMobjList(&list);
+    CHECK(R_CacheLookup(&cache, "fx_boom") && R_CacheLookup(&cache, "tank_turret"));
+    CHECK(R_CacheLookup(&cache, "tank_turret")->spritedef.numframes == 3);      /* idle, shot, run-out */
+    CHECK(R_CacheLookup(&cache, "tank_hull")->spritedef.numframes == 2);
+    CHECK(R_CacheLookup(&cache, "hq_body")->spritedef.numframes == 8);          /* the radar's turn */
+
+    bool saw_shot = false, saw_hit = false, saw_boom = false, saw_fall = false;
+    int shots_saved = 0;
+    for (int tic = 0; tic < 40 * RTS_TICRATE; ++tic) {
+        P_Ticker();
+        bool firing = false;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            const mobj_t *u = (const mobj_t *)th;
+            if (th->function != P_MobjThinker || u->remove) continue;
+            firing |= u->core.state_id == S_TANK_FIRE || u->core.state_id == S_ARTILLERY_FIRE ||
+                      u->core.state_id == S_GUN_TURRET_FIRE;
+            saw_fall |= u->core.state_id == S_RIFLEMAN_DIE;
+        }
+        saw_shot |= firing;
+        saw_hit |= count_type(MT_FX_HIT) > 0;
+        bool boom = count_type(MT_FX_BOOM) > 0;
+        if (firing && count_type(MT_FX_HIT) && shots_saved == 0) { shot("firefight"); shots_saved = 1; }
+        if (boom && !saw_boom) {
+            for (int i = 0; i < 6; ++i) P_Ticker();
+            shot("explosion");
+        }
+        saw_boom |= boom;
+    }
+    CHECK(saw_shot && saw_hit && saw_boom && saw_fall);
+    /* The fight is over on one side, and no effect outlives its run. */
+    for (int tic = 0; tic < 3 * RTS_TICRATE; ++tic) P_Ticker();
+    CHECK(count_type(MT_FX_HIT) == 0 && count_type(MT_FX_BOOM) == 0 && count_type(MT_FX_BIGBOOM) == 0);
+
+    /* A structure goes up in several blasts over its footprint. */
+    mobj_t *plant = spawn(MT_POWER, 0, P_BuildingPosition(MT_POWER, (ivec2_t){8, 2}), 0);
+    CHECK(plant);
+    P_DamageMobj(plant, NULL, plant->hp);
+    CHECK(count_type(MT_FX_BOOM) + count_type(MT_FX_BIGBOOM) == 4);
+    app.cam.x = -4 * 48;
+    app.cam.y = 0;
+    for (int i = 0; i < 9; ++i) P_Ticker();
+    shot("building");
+    R_FreeSpriteCache(&cache);
+    R_FreeTileset(&tiles);
+    V_FreeScreen();
+    P_FreeLevel(&level);
+    puts("PASS: shots flash and land, vehicles and structures explode, soldiers fall, effects expire");
+    return 0;
+}
+
+int main(void) {
+    CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
+    RTS_RUN(test_firefight());
+    SDL_Quit();
+    return 0;
+}

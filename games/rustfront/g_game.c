@@ -22,11 +22,11 @@ static const mobjtype_t ACTOR_TYPES[] = {
     BUILDING(MT_FACTORY, "War Factory", "factory", 2400, 3, 3),
     {.id = MT_GUN_TURRET, .name = "Gun Turret", .sprite_name = "turret_base", .shadow_name = "turret_shadow",
      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET, .max_hp = 800, .footprint = {1, 1},
-     .turret = {.sprite_name = "turret_head", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = -1},
+     .turret = {.sprite_name = "turret_head", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = TURRET_SHOT},
      .attack = {.range = FIXED_LIT(6), .damage = 45, .cooldown_ms = 1200}},
     VEHICLE(MT_SCOUT, "Scout Buggy", "scout", "body", 220, 4.0, 4, 12, 500, .move_class = 0),
     VEHICLE(MT_TANK, "Battle Tank", "tank", "hull", 600, 2.5, 5, 60, 1600,
-            .turret = {.sprite_name = "tank_turret", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = -1}),
+            .turret = {.sprite_name = "tank_turret", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = TURRET_SHOT}),
     VEHICLE(MT_ARTILLERY, "Artillery", "artillery", "body", 300, 1.6, 9, 120, 3500, .move_class = 0),
     {.id = MT_HARVESTER, .name = "Ore Harvester", .sprite_name = "harvester_body", .shadow_name = "harvester_shadow",
      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER, .speed = FIXED_LIT(1.6),
@@ -34,9 +34,13 @@ static const mobjtype_t ACTOR_TYPES[] = {
      /* 50 ore a second from a field cell (w_rustfront.c), 500 to a load. */
      .harvest = {.resources = {{.capacity = 500}}}},
     VEHICLE(MT_APC, "APC", "apc", "hull", 450, 3.2, 4, 18, 700,
-            .turret = {.sprite_name = "apc_turret", .turn_step = ANG45 / 6, .frame = 0, .fire_frame = -1}),
+            .turret = {.sprite_name = "apc_turret", .turn_step = ANG45 / 6, .frame = 0, .fire_frame = TURRET_SHOT}),
     VEHICLE(MT_RIFLEMAN, "Rifleman", "rifleman", "body", 50, 1.0, 3.5, 8, 900, .move_class = 0),
     VEHICLE(MT_ROCKET, "Rocket Soldier", "rocket", "body", 45, 0.9, 5, 40, 2500, .move_class = 0),
+    {.id = MT_FX_HIT, .name = "Impact", .sprite_name = "fx_hit", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_FX_BOOM, .name = "Explosion", .sprite_name = "fx_boom", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
+    {.id = MT_FX_BIGBOOM, .name = "Large explosion", .sprite_name = "fx_bigboom",
+     .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
 };
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */

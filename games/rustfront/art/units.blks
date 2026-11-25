@@ -19,8 +19,8 @@
   <material id="steel_dark"    color="0.22 0.23 0.25" shininess="35" metallic="0.3"/>
   <material id="grating"       color="0.30 0.31 0.33" shininess="20"><map type="checker" size="4" from="0.7 0.7 0.7" to="1.1 1.1 1.1"/></material>
   <material id="rust"          color="0.55 0.32 0.19" shininess="6"><map type="noise" size="14" octaves="4" from="0.72 0.70 0.68" to="1.10 1.05 0.98"/></material>
-  <material id="armor"         color="0.66 0.59 0.43" shininess="16" gradientFrom="0.70 0.69 0.66" gradientTo="1.06 1.05 1.02"><map type="noise" size="25" from="0.90 0.90 0.90" to="1.04 1.04 1.04"/></material>
-  <material id="armor_dark"    color="0.44 0.40 0.30" shininess="14"/>
+  <material id="armor"         color="0.40 0.45 0.30" shininess="16" gradientFrom="0.70 0.69 0.66" gradientTo="1.06 1.05 1.02"><map type="noise" size="25" from="0.90 0.90 0.90" to="1.04 1.04 1.04"/></material>
+  <material id="armor_dark"    color="0.25 0.28 0.20" shininess="14"/>
   <material id="team"          color="0.20 0.42 0.88" shininess="22"/>
   <material id="track"         color="0.27 0.26 0.24" shininess="10"><map type="bricks" size="9 60 60" mortar="2.5" bond="0" from="1.25 1.22 1.2" to="0.45 0.45 0.45"/></material>
   <material id="rubber"        color="0.12 0.12 0.13" shininess="10"/>
@@ -31,6 +31,9 @@
   <material id="lamp"          color="1.00 0.90 0.62"/>
   <material id="warn"          color="1.00 0.18 0.10"/>
   <material id="flame"         color="1.00 0.55 0.15"/>
+  <material id="flash"         color="1.00 0.80 0.30"/>
+  <material id="flash_core"    color="1.00 1.00 0.90"/>
+  <material id="lens_off"      color="0.30 0.06 0.05" shininess="40"/>
   <material id="hazard"        color="1 1 1" shininess="8">
     <gradient type="line" start="0 0 0" end="7 7 0" repeat="1" edge="0.5" from="0.96 0.74 0.10" to="0.10 0.09 0.08"/>
   </material>

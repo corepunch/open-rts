@@ -3,11 +3,13 @@
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
   <!-- tracks and running gear -->
-  <soft-box width="246" height="46" depth="38" radius="21" bevel="3" pos="0 23 58" material="track"/>
-  <soft-box width="246" height="46" depth="38" radius="21" bevel="3" pos="0 23 -58" material="track"/>
-  <cylinder radius="14" height="40" sides="10" rot="90 0 0" pos="-84 20 58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
-  <cylinder radius="14" height="40" sides="10" rot="90 0 0" pos="-84 20 -58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
+  <soft-box width="246" height="46" depth="38" radius="21" bevel="3" pos="0 23 58" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <soft-box width="246" height="46" depth="38" radius="21" bevel="3" pos="0 23 -58" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <cylinder radius="14" height="40" sides="10" rot="90 0 {18*move}" pos="-84 20 58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
+  <cylinder radius="14" height="40" sides="10" rot="90 0 {18*move}" pos="-84 20 -58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
   <!-- side skirts: plates leaning out over the tracks -->
   <box size="210 24 5" rot="-14 0 0" pos="-6 46 79" material="armor"/>
   <box size="210 24 5" rot="14 0 0" pos="-6 46 -79" material="armor"/>

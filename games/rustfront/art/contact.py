@@ -80,21 +80,28 @@ def main():
         hmax = max(max(lm["frame"][1] for lm in layers.values()), u["shadow"]["frame"][1])
         wmax = max(lm["frame"][0] for lm in layers.values())
         cell = max(CELL, wmax + 16)
-        shown = list(range(n)) if n > 1 else [0]
+        # vehicles: every facing, stepping through the animation frames as they turn;
+        # buildings: every animation frame
+        first = next(iter(layers.values()))
+        shown = list(range(n)) if n > 1 else list(range(first.get("frames", 1)))
         row = Image.new("RGBA", (cell * len(shown) + 40, hmax + 40), SAND + (255,))
         for j, i in enumerate(shown):
             gx, gy = 20 + j * cell + cell // 2, 20 + int(hmax * 0.62)
             sm = u["shadow"]
-            sf = frame(shadow, sm, i)
+            sf = frame(shadow, sm, i if n > 1 else 0)
             row.alpha_composite(sf, (round(gx - sm["pivot"][0]), round(gy - sm["pivot"][1])))
             for name, lm in layers.items():
                 sheet, tsheet = sheets[name]
-                if "mount_px" in lm or lm["count"] != n:
+                frames = lm.get("frames", 1)
+                if "mount_px" in lm:
                     # turret layer: aim at map direction 4 of 16 whatever the hull does
-                    fi = (4 * lm["count"] // 16) % lm["count"]
-                    dx, dy = lm["mount_px"][i] if "mount_px" in lm else (0, 0)
+                    facings = lm["count"] // frames
+                    fi = (4 * facings // 16) % facings * frames + j % frames
+                    dx, dy = lm["mount_px"][i if n > 1 else 0]
+                elif n > 1:
+                    fi, dx, dy = i * frames + j % frames, 0, 0
                 else:
-                    fi, dx, dy = i, 0, 0
+                    fi, dx, dy = i % frames, 0, 0
                 img = tinted(frame(sheet, lm, fi), frame(tsheet, lm, fi), team)
                 row.alpha_composite(img, (round(gx + dx - lm["pivot"][0]), round(gy + dy - lm["pivot"][1])))
         rows.append(row)

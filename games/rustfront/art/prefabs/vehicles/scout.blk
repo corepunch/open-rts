@@ -5,15 +5,21 @@
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, full recoil),
+       fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 4 : (fire == 2 ? 1 : 0)"/>
   <group pos="0 27 0">
     <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="56 0 53" material="rubber"/>
     <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="-56 0 53" material="rubber"/>
     <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="56 0 -53" material="rubber"/>
     <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="-56 0 -53" material="rubber"/>
-    <cylinder radius="11" height="26" sides="6" rot="90 0 0" pos="56 0 53" material="gunmetal"/>
-    <cylinder radius="11" height="26" sides="6" rot="90 0 0" pos="-56 0 53" material="gunmetal"/>
-    <cylinder radius="11" height="26" sides="6" rot="90 0 0" pos="56 0 -53" material="gunmetal"/>
-    <cylinder radius="11" height="26" sides="6" rot="90 0 0" pos="-56 0 -53" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="56 0 53" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="-56 0 53" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="56 0 -53" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="-56 0 -53" material="gunmetal"/>
   </group>
   <box size="156 14 74" pos="0 40 0" material="steel_dark"/>
   <!-- fenders: angled plates over each wheel pair -->
@@ -41,7 +47,8 @@
   <cylinder radius="2" height="12" sides="6" pos="-30 130 0" material="steel_dark"/>
   <box size="36 8 8" pos="-22 138 0" material="gunmetal"/>
   <box size="10 10 6" pos="-26 132 6" material="ore"/>
-  <cylinder radius="2" height="44" sides="6" rot="0 0 -90" pos="18 138 0" material="steel_dark"/>
+  <cylinder radius="2" height="44" sides="6" rot="0 0 -90" pos="{18-kick} 138 0" material="steel_dark"/>
+  <muzzle-flash pos="{41-kick} 138 0" scale="0.6 0.6 0.6" on="{fire == 1}"/>
   <box size="10 8 10" pos="-38 130 24" material="gunmetal"/>
   <box size="1 6 8" pos="-32.5 130 24" material="lamp" unlit="1" castShadow="0"/>
   <!-- spare wheel and jerrycans -->

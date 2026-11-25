@@ -5,14 +5,26 @@ const char *const sprnames[NUMSPRITES] = {
     "hq_body", "power_body", "refinery_body", "barracks_body", "factory_body", "turret_base",
     "scout_body", "tank_hull", "artillery_body", "harvester_body", "apc_hull",
     "rifleman_body", "rocket_body",
+    "fx_hit", "fx_boom", "fx_bigboom",
 };
 
-/* {sprite, frame, count, tics, action, next, group}: group 2 plays while moving, 3 attacking. */
-#define STILL(spr, self) {spr, 0, 1, -1, NULL, self, 0, NULL}
-#define VEHICLE(spr, stnd, move, fire) \
-    [stnd] = {spr, 0, 1, 1, A_Look, stnd, 0, NULL}, \
-    [move] = {spr, 0, 1, 1, NULL, move, 2, NULL}, \
-    [fire] = {spr, 0, 1, 12, A_Attack, stnd, 3, NULL}
+/* {sprite, frame, count, tics, action, next, group}: group 2 plays while moving, 3 attacking.
+ * An action runs on every frame of a run, so a shot is two states: the firing frame, then
+ * the settle. */
+#define ANIMATED(spr, self, frames, tics) {spr, 0, frames, tics, NULL, self, 0, NULL}
+/* A hull under a turret: its treads step while moving. The turret shows TURRET_SHOT plus the
+ * body's frame offset into the firing run, so FIRE is body frame 0 and FIRE2 frame 1. */
+#define TURRETED(spr, stnd, move, fire, fire2, settle) \
+    [stnd]  = {spr, VEH_STAND, 1, 1, A_Look, stnd, 0, NULL}, \
+    [move]  = {spr, VEH_STAND, 2, 3, NULL, move, 2, NULL}, \
+    [fire]  = {spr, VEH_STAND, 1, 3, A_Attack, fire2, 3, NULL}, \
+    [fire2] = {spr, VEH_STEP, 1, settle, NULL, stnd, 3, NULL}
+/* A vehicle whose gun is part of its body. */
+#define GUNNED(spr, stnd, move, fire, fire2, settle) \
+    [stnd]  = {spr, VEH_STAND, 1, 1, A_Look, stnd, 0, NULL}, \
+    [move]  = {spr, VEH_STAND, 2, 3, NULL, move, 2, NULL}, \
+    [fire]  = {spr, VEH_SHOT, 1, 3, A_Attack, fire2, 3, NULL}, \
+    [fire2] = {spr, VEH_STAND, 1, settle, NULL, stnd, 3, NULL}
 #define SOLDIER(spr, stnd, walk, fire, fire2, die, corpse) \
     [stnd]   = {spr, INF_IDLE, 1, 1, A_Look, stnd, 0, NULL}, \
     [walk]   = {spr, INF_WALK, 6, 4, NULL, walk, 2, NULL}, \
@@ -23,21 +35,27 @@ const char *const sprnames[NUMSPRITES] = {
 
 const state_t states[NUMSTATES] = {
     [S_NULL] = {0, 0, 0, -1, NULL, S_NULL, 0, NULL},
-    [S_HQ] = STILL(SPR_HQ, S_HQ),
-    [S_POWER] = STILL(SPR_POWER, S_POWER),
-    [S_REFINERY] = STILL(SPR_REFINERY, S_REFINERY),
-    [S_BARRACKS] = STILL(SPR_BARRACKS, S_BARRACKS),
-    [S_FACTORY] = STILL(SPR_FACTORY, S_FACTORY),
-    [S_GUN_TURRET] = {SPR_GUN_TURRET, 0, 1, 1, A_Look, S_GUN_TURRET, 0, NULL},
-    [S_GUN_TURRET_FIRE] = {SPR_GUN_TURRET, 0, 1, 15, A_Attack, S_GUN_TURRET, 3, NULL},
-    VEHICLE(SPR_SCOUT, S_SCOUT, S_SCOUT_MOVE, S_SCOUT_FIRE),
-    VEHICLE(SPR_TANK, S_TANK, S_TANK_MOVE, S_TANK_FIRE),
-    VEHICLE(SPR_ARTILLERY, S_ARTILLERY, S_ARTILLERY_MOVE, S_ARTILLERY_FIRE),
-    [S_HARVESTER] = STILL(SPR_HARVESTER, S_HARVESTER),
-    [S_HARVESTER_MOVE] = {SPR_HARVESTER, 0, 1, 1, NULL, S_HARVESTER_MOVE, 2, NULL},
-    VEHICLE(SPR_APC, S_APC, S_APC_MOVE, S_APC_FIRE),
+    /* Buildings loop their sheet: the radar turns, lights blink, the reactor pulses, the flare flickers. */
+    [S_HQ] = ANIMATED(SPR_HQ, S_HQ, 8, 6),
+    [S_POWER] = ANIMATED(SPR_POWER, S_POWER, 4, 8),
+    [S_REFINERY] = ANIMATED(SPR_REFINERY, S_REFINERY, 4, 5),
+    [S_BARRACKS] = ANIMATED(SPR_BARRACKS, S_BARRACKS, 2, 15),
+    [S_FACTORY] = ANIMATED(SPR_FACTORY, S_FACTORY, 2, 15),
+    /* The emplacement never moves: stand, the shot, the settle (its head shows the frames). */
+    [S_GUN_TURRET] = {SPR_GUN_TURRET, VEH_STAND, 1, 1, A_Look, S_GUN_TURRET, 0, NULL},
+    [S_GUN_TURRET_FIRE] = {SPR_GUN_TURRET, VEH_STAND, 1, 3, A_Attack, S_GUN_TURRET_FIRE2, 3, NULL},
+    [S_GUN_TURRET_FIRE2] = {SPR_GUN_TURRET, VEH_STEP, 1, 12, NULL, S_GUN_TURRET, 3, NULL},
+    GUNNED(SPR_SCOUT, S_SCOUT, S_SCOUT_MOVE, S_SCOUT_FIRE, S_SCOUT_FIRE2, 6),
+    TURRETED(SPR_TANK, S_TANK, S_TANK_MOVE, S_TANK_FIRE, S_TANK_FIRE2, 9),
+    GUNNED(SPR_ARTILLERY, S_ARTILLERY, S_ARTILLERY_MOVE, S_ARTILLERY_FIRE, S_ARTILLERY_FIRE2, 12),
+    [S_HARVESTER] = {SPR_HARVESTER, VEH_STAND, 1, -1, NULL, S_HARVESTER, 0, NULL},
+    [S_HARVESTER_MOVE] = {SPR_HARVESTER, VEH_STAND, 2, 3, NULL, S_HARVESTER_MOVE, 2, NULL},
+    TURRETED(SPR_APC, S_APC, S_APC_MOVE, S_APC_FIRE, S_APC_FIRE2, 6),
     SOLDIER(SPR_RIFLEMAN, S_RIFLEMAN, S_RIFLEMAN_WALK, S_RIFLEMAN_FIRE, S_RIFLEMAN_FIRE2, S_RIFLEMAN_DIE, S_RIFLEMAN_CORPSE),
     SOLDIER(SPR_ROCKET, S_ROCKET, S_ROCKET_WALK, S_ROCKET_FIRE, S_ROCKET_FIRE2, S_ROCKET_DIE, S_ROCKET_CORPSE),
+    [S_FX_HIT] = {SPR_FX_HIT, 0, 5, 2, NULL, S_NULL, 0, NULL},
+    [S_FX_BOOM] = {SPR_FX_BOOM, 0, 10, 3, NULL, S_NULL, 0, NULL},
+    [S_FX_BIGBOOM] = {SPR_FX_BIGBOOM, 0, 12, 3, NULL, S_NULL, 0, NULL},
 };
 
 #define BUILDING_INFO(n, st, hp) {.doomednum = n, .spawnstate = st, .spawnhealth = hp, .deathstate = S_NULL}
@@ -61,6 +79,9 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_APC] = MOVER_INFO(11, S_APC, S_APC_MOVE, S_APC_FIRE, 450, 6, 18, 18, S_NULL),
     [MT_RIFLEMAN] = MOVER_INFO(12, S_RIFLEMAN, S_RIFLEMAN_WALK, S_RIFLEMAN_FIRE, 50, 2, 8, 8, S_RIFLEMAN_DIE),
     [MT_ROCKET] = MOVER_INFO(13, S_ROCKET, S_ROCKET_WALK, S_ROCKET_FIRE, 45, 2, 8, 40, S_ROCKET_DIE),
+    [MT_FX_HIT] = {.doomednum = -1, .spawnstate = S_FX_HIT, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_FX_BOOM] = {.doomednum = -1, .spawnstate = S_FX_BOOM, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_FX_BIGBOOM] = {.doomednum = -1, .spawnstate = S_FX_BIGBOOM, .spawnhealth = 1, .deathstate = S_NULL},
 };
 
 const gameinfo_t game_info = {

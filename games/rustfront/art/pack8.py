@@ -3,13 +3,14 @@
 
     python3 games/rustfront/art/pack8.py
 
-Reads games/rustfront/sprites/ and writes games/rustfront/assets/: indexed BMPs that all share
+Reads games/rustfront/sprites/ and writes games/rustfront/assets/: indexed PCX files that all share
 one 256-colour palette, a terrain tile atlas in the same palette, and sprites.inc, the C
 tables (frame grids, pivots, turret mounts) the game compiles in.
 
-Palette (every BMP carries it):
+Palette (every file carries it):
     0            transparent
-    1            shadow: a shadow sheet is 0 and 1; the game gives 1 half alpha so it blends.
+    1            shadow: half-alpha black in the game. Shadow sheets are only 0 and 1; colour
+                 sheets use it for their soft contact edge, effects for smoke.
                  A unit's shadow sheet shares its first layer's frame size and pivot,
                  because the engine draws the shadow lump at the body's top-left
     2..7         fixed emitter colours, kept exact because median cut loses small lights:
@@ -27,7 +28,7 @@ import math
 import random
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter
 
 ART = Path(__file__).resolve().parent
 SPRITES = ART.parent / "sprites"
@@ -120,6 +121,17 @@ def split(img, meta):
     return [img.crop(((n % c) * w, (n // c) * h, (n % c + 1) * w, (n // c + 1) * h)) for n in range(meta["count"])]
 
 
+def outline(img):
+    """A soft dark contact edge: transparent pixels touching the sprite take the shadow index,
+    which the game draws as half-alpha black. It lifts units off ground of their own colour."""
+    solid = img.point(lambda v: 255 if v > SHADOW else 0)
+    edge = ImageChops.subtract(solid.filter(ImageFilter.MaxFilter(3)), solid)
+    edge = ImageChops.multiply(edge, img.point(lambda v: 255 if v == TRANSPARENT else 0))
+    out = img.copy()
+    out.paste(SHADOW, mask=edge)
+    return out
+
+
 def recanvas(a, b):
     """Pads two layers' frames (lists [name, meta, frames, pivot]) to one size and pivot."""
     (aw, ah), (bw, bh) = a[2][0].size, b[2][0].size
@@ -150,6 +162,10 @@ def main():
             sheets[(key, name)] = (rgba, mask)
             a, t, rgb = rgba.getchannel("A").getdata(), mask.getdata(), rgba.convert("RGB").getdata()
             samples += [c for c, al, tv in zip(rgb, a, t) if al >= ALPHA_MIN and tv < TEAM_MIN_MASK]
+    effects = json.loads((SPRITES / "effects.json").read_text())
+    for em in effects.values():
+        fx = Image.open(SPRITES / em["file"]).convert("RGBA")
+        samples += [c for c, a in zip(fx.convert("RGB").getdata(), fx.getchannel("A").getdata()) if a >= 192]
     icons = Image.open(SPRITES / "icons.png").convert("RGB")
     icon_meta = json.loads((SPRITES / "icons.json").read_text())
     samples += list(icons.getdata()) * 2
@@ -216,17 +232,23 @@ def main():
                     out.append(f)
             img = Image.new("L", rgba.size)
             img.putdata(out)
-            layers.append([name, lm, split(img, lm), (round(lm["pivot"][0]), round(lm["pivot"][1]))])
+            layers.append([name, lm, [outline(f) for f in split(img, lm)],
+                           (round(lm["pivot"][0]), round(lm["pivot"][1]))])
         sm = u["shadow"]
         sh = Image.open(SPRITES / sm["file"]).convert("RGBA").getchannel("A").point(
             lambda a: SHADOW if a >= SHADOW_MIN else TRANSPARENT)
         shadow = ["shadow", sm, split(sh, sm), (round(sm["pivot"][0]), round(sm["pivot"][1]))]
+        # One shadow per facing, repeated for each animation frame of the first layer, so the
+        # shadow sheet has the body's lump order (the engine indexes both with one number).
+        body_frames = layers[0][1].get("frames", 1)
+        if body_frames > 1:
+            shadow[2] = [f for f in shadow[2] for _ in range(body_frames)]
         # The engine draws the shadow lump at the body's top-left with the body's lump index:
         # give the first layer and the shadow one canvas and one pivot.
         recanvas(layers[0], shadow)
         for name, lm, frames, pivot in layers + [shadow]:
-            fname = "%s_%s.bmp" % (key, name)
-            cols = lm["columns"]
+            fname = "%s_%s.pcx" % (key, name)
+            cols = lm["columns"] if len(frames) == lm["count"] else lm["columns"] * body_frames
             fw, fh = frames[0].size
             sheet = Image.new("L", (cols * fw, ((len(frames) + cols - 1) // cols) * fh), TRANSPARENT)
             for n, f in enumerate(frames):
@@ -236,8 +258,19 @@ def main():
             if "mount_px" in lm:
                 mount_rows.append("static const short %s[][2] = {%s};" % (
                     mount, ", ".join("{%d, %d}" % (round(dx), round(dy)) for dx, dy in lm["mount_px"])))
-            sheet_rows.append('    {"%s", "%s", "%s", %d, %d, %d, %d, %d, %d, %s},' % (
-                key, name, fname, fw, fh, cols, len(frames), pivot[0], pivot[1], mount))
+            nframes = body_frames if name == "shadow" else lm.get("frames", 1)
+            sheet_rows.append('    {"%s", "%s", "%s", %d, %d, %d, %d, %d, %d, %d, %s},' % (
+                key, name, fname, fw, fh, cols, len(frames), pivot[0], pivot[1], nframes, mount))
+
+    # Effects (art/effects.py): opaque fire in the free colours, half-transparent smoke as shadow.
+    for name, em in effects.items():
+        rgba = Image.open(SPRITES / em["file"]).convert("RGBA")
+        idx = [TRANSPARENT if a < 64 else SHADOW if a < 192 else f
+               for f, a in zip(to_free(rgba.convert("RGB")), rgba.getchannel("A").getdata())]
+        save(idx, rgba.size, "fx_%s.pcx" % name)
+        sheet_rows.append('    {"fx", "%s", "fx_%s.pcx", %d, %d, %d, %d, %d, %d, %d, NULL},' % (
+            name, name, em["frame"][0], em["frame"][1], em["columns"], em["count"],
+            em["pivot"][0], em["pivot"][1], em["count"]))
 
     # Icons are flat pictures with no team mask: let them use the blue ramp as well, so the
     # sidebar can recolour them for the player's team like any sprite.
@@ -248,19 +281,19 @@ def main():
     icon_pal.putpalette([v for c in icon_choices + [icon_choices[-1]] * icon_pad for v in c])
     icon_index += [icon_index[-1]] * icon_pad
     save([icon_index[i] for i in icons.quantize(palette=icon_pal, dither=Image.Dither.NONE).getdata()],
-         icons.size, "icons.bmp")
+         icons.size, "icons.pcx")
 
     atlas = Image.new("RGB", (TILE_W * 8, TILE_H * 2))
     for i, t in enumerate(tiles):
         atlas.paste(t, ((i % 8) * TILE_W, (i // 8) * TILE_H))
-    save(to_free(atlas), atlas.size, "terrain.bmp")
+    save(to_free(atlas), atlas.size, "terrain.pcx")
 
     lines += ["/* The tables belong to the sprite loader; other files include this for the constants. */",
               "#ifdef RF_SPRITE_TABLES"]
     lines += mount_rows + ["", "static const rf_sheetdef_t rf_sheets[] = {"] + sheet_rows + ["};", ""]
     lines += ["/* Infantry animations: frame = start + facing * frames + frame, facings counter-clockwise from +X. */",
               "static const rf_animdef_t rf_anims[] = {"] + anim_rows + ["};", ""]
-    lines.append("/* Build icons (art/icons.py): assets/icons.bmp, one %dx%d cell per name, left to right. */"
+    lines.append("/* Build icons (art/icons.py): assets/icons.pcx, one %dx%d cell per name, left to right. */"
                  % tuple(icon_meta["size"]))
     lines.append("static const char *const rf_icons[] = {%s};" % ", ".join('"%s"' % k for k in icon_meta["order"]))
     lines.append("#endif")
@@ -278,7 +311,7 @@ def main():
     preview.putpalette(flat)
     preview.putdata([(y // 12) * 16 + x // 12 for y in range(16 * 12) for x in range(16 * 12)])
     preview.convert("RGB").save(ART / "previews" / "palette.png")
-    print("wrote %d sheets, terrain.bmp and sprites.inc into %s" % (len(sheet_rows) + 0, DATA))
+    print("wrote %d sheets, terrain.pcx and sprites.inc into %s" % (len(sheet_rows) + 0, DATA))
 
 
 if __name__ == "__main__":

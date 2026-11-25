@@ -3,6 +3,10 @@
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, full recoil),
+       fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 6 : (fire == 2 ? 2 : 0)"/>
 
     <shape closed="1" v="34 0 18 24 -24 26 -32 14 -32 -14 -24 -26 18 -24" rot="90 0 0" material="armor">
       <extrude amount="24"/><bevel amount="1.5" bevelSegments="1"/>
@@ -12,6 +16,7 @@
       <extrude amount="1.2"/>
     </shape>
     <box size="16 12 14" pos="34 0 0" material="gunmetal"/>
-    <cylinder radius="3.2" height="70" sides="8" rot="0 0 -90" pos="76 0 0" material="steel_dark"/>
-    <cylinder radius="4.5" height="14" sides="8" rot="0 0 -90" pos="104 0 0" material="gunmetal"/>
+    <cylinder radius="3.2" height="70" sides="8" rot="0 0 -90" pos="{76-kick} 0 0" material="steel_dark"/>
+    <cylinder radius="4.5" height="14" sides="8" rot="0 0 -90" pos="{104-kick} 0 0" material="gunmetal"/>
+    <muzzle-flash pos="{112-kick} 0 0" scale="0.8 0.8 0.8" on="{fire == 1}"/>
   </prefab>

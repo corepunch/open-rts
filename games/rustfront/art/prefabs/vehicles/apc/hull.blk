@@ -3,11 +3,13 @@
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
   <group pos="0 27 0">
     <cylinder radius="27" height="26" sides="12" rot="90 0 0" pos="96 0 64" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
     <cylinder radius="27" height="26" sides="12" rot="90 0 0" pos="96 0 -64" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="12" height="28" sides="8" rot="90 0 0" pos="96 0 64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="12" height="28" sides="8" rot="90 0 0" pos="96 0 -64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
+    <cylinder radius="12" height="28" sides="8" rot="90 0 {22.5*move}" pos="96 0 64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
+    <cylinder radius="12" height="28" sides="8" rot="90 0 {22.5*move}" pos="96 0 -64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
   </group>
   <!-- hull -->
   <shape closed="1" v="-130 32 92 32 136 62 104 100 -124 100 -134 84" material="armor">

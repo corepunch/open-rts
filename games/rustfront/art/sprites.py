@@ -24,13 +24,16 @@ hull facing, the pixel offset of the turret's mount from the hull's pivot, so th
 draws the turret frame with its pivot at hull pivot + mount offset.
 
 Facing i of N is a turn of i * 360/N degrees about +Y, counter-clockwise seen from above,
-starting from the prefab's front (+X for vehicles and turret heads). Pivots are the
+starting from the prefab's front (+X for vehicles and turret heads). A layer may have
+animation frames: each is the prefab rendered with its <let> knobs set (see layer()), and a
+sheet's frame index is facing * frames + frame. Pivots are the
 screen position of the layer's anchor (a unit's ground origin, a turret's axis at mount
 height) in its cropped frame, on a pixel corner.
 """
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -51,31 +54,59 @@ SPACING = 2400.0          # cm between subjects along the camera's right vector
 SCENER = os.environ.get("SCENER", "scener")
 
 
-def layer(name, prefab, frame, centre, mount=None, facings=None):
-    """frame is authored in preview pixels (1.5 cm); it is converted to game pixels, even."""
+def layer(name, prefab, frame, centre, mount=None, facings=None, frames=None):
+    """frame is authored in preview pixels (1.5 cm); it is converted to game pixels, even.
+    frames lists the layer's animation frames as knob settings: each dict overrides the
+    prefab's <let name value> knobs (move, fire, spin, blink...) for one frame."""
     fw, fh = (int(math.ceil(v * 1.5 / SCALE / 2)) * 2 for v in frame)
-    return dict(name=name, prefab=prefab, frame=(fw, fh), centre=centre, mount=mount, facings=facings)
+    return dict(name=name, prefab=prefab, frame=(fw, fh), centre=centre, mount=mount, facings=facings,
+                frames=frames or [{}])
+
+
+def variant(prefab, knobs, index):
+    """A copy of the prefab in the build folder with its knobs set; returns its source name."""
+    if not knobs:
+        return prefab
+    text = (WORK / "prefabs" / (prefab + ".blk")).read_text()
+    for name, value in knobs.items():
+        text, hits = re.subn(r'(<let name="%s" value=")[^"]*(")' % re.escape(name), r"\g<1>%s\g<2>" % value, text)
+        if hits != 1:
+            sys.exit("sprites.py: %s.blk has no single <let name=\"%s\"> knob" % (prefab, name))
+    name = "%s@%d" % (prefab, index)
+    (WORK / "prefabs" / (name + ".blk")).write_text(text)
+    return name
+
+
+# Frame lists. Hulls: standing, then the running gear a step on. Guns: idle, the shot, run-out.
+MOVE = [{}, {"move": 1}]
+FIRE = [{}, {"fire": 1}, {"fire": 2}]
+MOVE_FIRE = [{}, {"move": 1}, {"fire": 1}]
+BLINK = [{"blink": 1}, {"blink": 0}]
 
 
 # key: shadow (assembled prefab), facings of the unit, layers
 UNITS = {
-    "hq":        dict(shadow="buildings/hq",       facings=1,  layers=[layer("body", "buildings/hq", (640, 608), 140)]),
-    "power":     dict(shadow="buildings/power",    facings=1,  layers=[layer("body", "buildings/power", (448, 448), 100)]),
-    "refinery":  dict(shadow="buildings/refinery", facings=1,  layers=[layer("body", "buildings/refinery", (640, 544), 110)]),
-    "barracks":  dict(shadow="buildings/barracks", facings=1,  layers=[layer("body", "buildings/barracks", (448, 448), 80)]),
-    "factory":   dict(shadow="buildings/factory",  facings=1,  layers=[layer("body", "buildings/factory", (640, 608), 140)]),
+    "hq":        dict(shadow="buildings/hq",       facings=1,  layers=[layer("body", "buildings/hq", (640, 608), 140,
+                     frames=[{"spin": k, "blink": int(k % 4 < 2)} for k in range(8)])]),
+    "power":     dict(shadow="buildings/power",    facings=1,  layers=[layer("body", "buildings/power", (448, 448), 100,
+                     frames=[{"pulse": 0, "blink": 1}, {"pulse": 1, "blink": 1}, {"pulse": 0, "blink": 0}, {"pulse": 1, "blink": 0}])]),
+    "refinery":  dict(shadow="buildings/refinery", facings=1,  layers=[layer("body", "buildings/refinery", (640, 544), 110,
+                     frames=[{"flick": 0, "blink": 1}, {"flick": 1, "blink": 1}, {"flick": 0, "blink": 0}, {"flick": 1, "blink": 0}])]),
+    "barracks":  dict(shadow="buildings/barracks", facings=1,  layers=[layer("body", "buildings/barracks", (448, 448), 80, frames=BLINK)]),
+    "factory":   dict(shadow="buildings/factory",  facings=1,  layers=[layer("body", "buildings/factory", (640, 608), 140, frames=BLINK)]),
     "turret":    dict(shadow="buildings/turret",   facings=1,  layers=[
-                     layer("base", "buildings/turret/base", (256, 256), 40),
-                     layer("head", "buildings/turret/head", (256, 224), 0, mount=(0, 98, 0), facings=16)]),
-    "scout":     dict(shadow="vehicles/scout",     facings=16, layers=[layer("body", "vehicles/scout", (320, 320), 50)]),
+                     # two base frames: the firing run steps the body's frame, and the head follows it
+                     layer("base", "buildings/turret/base", (256, 256), 40, frames=[{}, {}]),
+                     layer("head", "buildings/turret/head", (288, 240), 0, mount=(0, 98, 0), facings=16, frames=FIRE)]),
+    "scout":     dict(shadow="vehicles/scout",     facings=16, layers=[layer("body", "vehicles/scout", (320, 320), 50, frames=MOVE_FIRE)]),
     "tank":      dict(shadow="vehicles/tank",      facings=16, layers=[
-                     layer("hull", "vehicles/tank/hull", (384, 352), 45),
-                     layer("turret", "vehicles/tank/turret", (448, 448), 0, mount=(-12, 102, 0))]),
-    "artillery": dict(shadow="vehicles/artillery", facings=16, layers=[layer("body", "vehicles/artillery", (512, 448), 70)]),
-    "harvester": dict(shadow="vehicles/harvester", facings=16, layers=[layer("body", "vehicles/harvester", (448, 384), 70)]),
+                     layer("hull", "vehicles/tank/hull", (384, 352), 45, frames=MOVE),
+                     layer("turret", "vehicles/tank/turret", (512, 512), 0, mount=(-12, 102, 0), frames=FIRE)]),
+    "artillery": dict(shadow="vehicles/artillery", facings=16, layers=[layer("body", "vehicles/artillery", (640, 576), 70, frames=MOVE_FIRE)]),
+    "harvester": dict(shadow="vehicles/harvester", facings=16, layers=[layer("body", "vehicles/harvester", (448, 384), 70, frames=MOVE)]),
     "apc":       dict(shadow="vehicles/apc",       facings=16, layers=[
-                     layer("hull", "vehicles/apc/hull", (384, 352), 50),
-                     layer("turret", "vehicles/apc/turret", (256, 224), 0, mount=(22, 112, 0))]),
+                     layer("hull", "vehicles/apc/hull", (384, 352), 50, frames=MOVE),
+                     layer("turret", "vehicles/apc/turret", (288, 256), 0, mount=(22, 112, 0), frames=FIRE)]),
 }
 
 # Infantry: one animated layer, 8 facings. Each animation is the instance's children (a gait,
@@ -87,7 +118,8 @@ ANIMS = [
     ("idle", ' pose="Ready"', "", [0.0]),
     ("walk", "", '<gait mode="spot" start="0"/><layer pose="Ready" mask="left_collarbone right_collarbone weapon"/>',
      [round(WALK_FROM + i * WALK_CYCLE / WALK_FRAMES, 4) for i in range(WALK_FRAMES)]),
-    ("fire", "", '<layer clip="Fire"/>', [0.05, 0.15]),
+    ("fire", "", '<layer clip="Fire"/><option name="flash" enabled="1"/>', [0.05]),
+    ("fire2", "", '<layer clip="Fire"/>', [0.15]),
     ("die", "", '<layer clip="Die"/>', [0.1, 0.22, 0.34, 0.46, 0.6, 0.8]),
 ]
 INFANTRY = {
@@ -146,14 +178,19 @@ def plan(keys):
             slot += 1
             mount = ly["mount"] or (0, 0, 0)
             anchor = (base[0], mount[1], base[2])
-            inst = "%s_%s" % (key, ly["name"])
-            subjects.append((inst, ly["prefab"], anchor))
             k = round(ly["centre"] * math.cos(math.radians(L.ELEV)) / SCALE)
-            for i in range(n):
-                cam = "%s_%02d" % (inst, i)
-                shots.append(dict(unit=key, layer=ly["name"], facing=i, camera=cam,
-                                  xml=camera(cam, anchor, ly["frame"], k, inst, i * 360.0 / n),
-                                  pivot=(ly["frame"][0] / 2, ly["frame"][1] / 2 + k)))
+            for f, knobs in enumerate(ly["frames"]):
+                if f:
+                    base = [RIGHT[i] * slot * SPACING for i in range(3)]
+                    slot += 1
+                    anchor = (base[0], mount[1], base[2])
+                inst = "%s_%s_f%d" % (key, ly["name"], f)
+                subjects.append((inst, variant(ly["prefab"], knobs, f), anchor))
+                for i in range(n):
+                    cam = "%s_%02d" % (inst, i)
+                    shots.append(dict(unit=key, layer=ly["name"], facing=i, frame=f, camera=cam,
+                                      xml=camera(cam, anchor, ly["frame"], k, inst, i * 360.0 / n),
+                                      pivot=(ly["frame"][0] / 2, ly["frame"][1] / 2 + k)))
         # shadow of the assembled unit, one per unit facing, in a frame twice the first layer's
         n = u["facings"]
         base = [RIGHT[i] * slot * SPACING for i in range(3)]
@@ -305,6 +342,22 @@ def render_infantry(key):
     return entry
 
 
+def prepare_work():
+    """The build folder: a fresh copy of prefabs/ (frame variants are written into it) beside
+    links to the libraries."""
+    WORK.mkdir(exist_ok=True)
+    work_prefabs = WORK / "prefabs"
+    if work_prefabs.is_symlink():
+        work_prefabs.unlink()
+    elif work_prefabs.exists():
+        shutil.rmtree(work_prefabs)
+    shutil.copytree(ART / "prefabs", work_prefabs)
+    for name in ("kit.xml", "utilities.xml"):
+        link = WORK / name
+        if not link.exists():
+            link.symlink_to(Path("..") / name)
+
+
 def main(argv):
     keys = argv or ALL_UNITS
     unknown = [k for k in keys if k not in ALL_UNITS]
@@ -312,11 +365,7 @@ def main(argv):
         sys.exit("unknown units: %s (have %s)" % (" ".join(unknown), " ".join(ALL_UNITS)))
     infantry = [k for k in keys if k in INFANTRY]
     keys = [k for k in keys if k in UNITS]
-    WORK.mkdir(exist_ok=True)
-    for name in ("prefabs", "kit.xml", "utilities.xml"):
-        link = WORK / name
-        if not link.exists():
-            link.symlink_to(Path("..") / name)
+    prepare_work()
     OUT.mkdir(exist_ok=True)
 
     subjects, shots, shadow_subjects, shadow_shots = plan(keys)
@@ -339,10 +388,13 @@ def main(argv):
         u = UNITS[key]
         entry = dict(facings=u["facings"], layers={})
         for ly in u["layers"]:
-            ls = [s for s in shots if s["unit"] == key and s["layer"] == ly["name"]]
+            # lump order: facing-major, frame-minor (lump = facing * frames + frame)
+            ls = sorted((s for s in shots if s["unit"] == key and s["layer"] == ly["name"]),
+                        key=lambda s: (s["facing"], s["frame"]))
             black = [Image.open(WORK / "black" / (s["camera"] + ".png")).convert("RGBA") for s in ls]
             white = [Image.open(WORK / "white" / (s["camera"] + ".png")).convert("RGBA") for s in ls]
             meta = pack_layer("%s_%s" % (key, ly["name"]), black, white, [s["pivot"] for s in ls])
+            meta.update(frames=len(ly["frames"]), facings=len(ls) // len(ly["frames"]))
             if ly["mount"]:
                 n = u["facings"]
                 meta["mount_px"] = [[round(c, 2) for c in to_px(turn(ly["mount"], i * 360.0 / n))] for i in range(n)]

@@ -3,6 +3,10 @@
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, full recoil),
+       fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 14 : (fire == 2 ? 6 : 0)"/>
 
   <group scale="1.12 1.12 1.12">
     <shape closed="1" v="64 0 36 40 -38 46 -60 30 -60 -30 -38 -46 36 -40" rot="90 0 0" material="armor">
@@ -23,8 +27,9 @@
     <cylinder radius="1" height="90" sides="5" pos="-48 62 -30" material="steel_dark"/>
     <!-- gun -->
     <box size="30 26 34" pos="62 0 0" material="gunmetal"/>
-    <cylinder radius="5.5" height="150" sides="10" rot="0 0 -90" pos="150 0 0" material="steel_dark"/>
-    <cylinder radius="8" height="22" sides="10" rot="0 0 -90" pos="130 0 0" material="gunmetal"/>
-    <box size="18 13 15" pos="226 0 0" material="steel_dark"/>
+    <cylinder radius="5.5" height="150" sides="10" rot="0 0 -90" pos="{150-kick} 0 0" material="steel_dark"/>
+    <cylinder radius="8" height="22" sides="10" rot="0 0 -90" pos="{130-kick} 0 0" material="gunmetal"/>
+    <box size="18 13 15" pos="{226-kick} 0 0" material="steel_dark"/>
+    <muzzle-flash pos="{236-kick} 0 0" scale="1.4 1.4 1.4" on="{fire == 1}"/>
     </group>
 </prefab>

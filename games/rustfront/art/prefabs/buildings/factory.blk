@@ -6,6 +6,8 @@
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
+  <!-- Animation knobs, set per frame by art/sprites.py. -->
+  <let name="blink" value="1"/>
   <slab width="600" height="20" depth="600" pos="0 10 0" material="pad"/>
 
   <!-- hall: y 20..200, base x ±240 z -260..180, top 5 % smaller -->
@@ -39,8 +41,8 @@
   <box size="240 3 110" pos="70 21.5 240" material="pad_dark"/>
   <box size="10 3.2 110" pos="-45 21.6 240" material="hazard"/>
   <box size="10 3.2 110" pos="185 21.6 240" material="hazard"/>
-  <warn-light pos="-49 176 190"/>
-  <warn-light pos="189 176 190"/>
+  <warn-light on="{blink}" pos="-49 176 190"/>
+  <warn-light on="{blink}" pos="189 176 190"/>
   <!-- personnel door and office windows -->
   <box size="56 76 6" pos="-170 58 182" material="gunmetal"/>
   <box size="64 6 6" pos="-170 100 183" material="hazard"/>
@@ -49,7 +51,7 @@
   <!-- roof plant along the ridge line -->
   <vent width="50" depth="36" height="14" pos="-160 252 -150"/>
   <vent width="50" depth="36" height="14" pos="-60 252 -150"/>
-  <warn-light pos="-215 259 160"/>
+  <warn-light on="{blink}" pos="-215 259 160"/>
   <!-- stacks -->
   <cylinder radius="18" height="130" sides="12" pos="190 268 -222" material="steel"/>
   <cylinder radius="19" height="12" sides="12" pos="190 320 -222" material="hazard"/>

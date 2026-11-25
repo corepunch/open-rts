@@ -5,6 +5,9 @@
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
+  <!-- Animation knobs, set per frame by art/sprites.py. -->
+  <let name="pulse" value="0"/>
+  <let name="blink" value="1"/>
   <shape id="rf_cooling_tower" closed="0" v="84 0 74 50 62 110 58 150 62 190 64 200 56 200"/>
   <slab width="400" height="20" depth="400" pos="0 10 0" material="pad"/>
 
@@ -21,12 +24,12 @@
   <group pos="-20 90 118" rot="0 90 0">
     <shape closed="0" v="-64 0 0 26 64 0" material="roofing"><extrude amount="270"/><shell amount="5"/></shape>
   </group>
-  <box size="200 12 3" rot="-4.9 0 0" pos="-30 50 176.6" material="glow" unlit="1" castShadow="0"/>
-  <box size="3 12 80" rot="0 0 4.9" pos="109.6 50 118" material="glow" unlit="1" castShadow="0"/>
+  <box size="200 {12-6*pulse} 3" rot="-4.9 0 0" pos="-30 50 176.6" material="glow" unlit="1" castShadow="0"/>
+  <box size="3 {12-6*pulse} 80" rot="0 0 4.9" pos="109.6 50 118" material="glow" unlit="1" castShadow="0"/>
   <box size="44 54 5" pos="-130 47 178" material="gunmetal"/>
   <box size="50 5 6" pos="-130 77 179" material="hazard"/>
-  <warn-light pos="-150 118 118"/>
-  <warn-light pos="110 118 118"/>
+  <warn-light on="{blink}" pos="-150 118 118"/>
+  <warn-light on="{blink}" pos="110 118 118"/>
   <cylinder radius="12" height="70" sides="10" pos="60 135 100" material="steel"/>
   <cylinder radius="13" height="10" sides="10" pos="60 165 100" material="hazard"/>
 

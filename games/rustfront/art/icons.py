@@ -71,11 +71,7 @@ def panel():
 
 
 def main():
-    S.WORK.mkdir(exist_ok=True)
-    for name in ("prefabs", "kit.xml", "utilities.xml"):
-        link = S.WORK / name
-        if not link.exists():
-            link.symlink_to(Path("..") / name)
+    S.prepare_work()
     to_cam, right, up = basis(ICON_YAW, ICON_ELEV)
     dummy = ['  <camera name="Query" pos="0 3000 3000" look="0 0 0" ortho="1000" size="64 48"/>']
     path = S.WORK / "icons.blks"

@@ -5,10 +5,11 @@
 
 #include "engine.h"
 
-/* One packed sheet: frames of w x h in `columns` columns, every frame grounded at pivot. */
+/* One packed sheet: `count` pictures of w x h in `columns` columns, every one grounded at
+ * pivot. A picture's index is facing * frames + frame: `frames` animation frames per facing. */
 typedef struct {
     const char *unit, *layer, *file;
-    int w, h, columns, count, pivot_x, pivot_y;
+    int w, h, columns, count, pivot_x, pivot_y, frames;
     const short (*mount)[2]; /* Turret layers: offset of the mount from the hull pivot, per hull facing. */
 } rf_sheetdef_t;
 

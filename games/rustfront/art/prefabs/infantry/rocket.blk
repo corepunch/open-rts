@@ -5,12 +5,16 @@
      (the sprite scene turns the instance to Y up and +X). Lengths in centimetres. -->
 <prefab up="z" front="-y">
   <material id="skin" color="0.80 0.62 0.48" shininess="8" />
-  <material id="fatigues" color="0.62 0.55 0.40" shininess="5" />
+  <material id="fatigues" color="0.33 0.37 0.25" shininess="5" />
   <material id="vest" color="0.20 0.42 0.88" shininess="12" />
-  <material id="helmet" color="0.42 0.40 0.30" shininess="18" />
+  <material id="helmet" color="0.22 0.25 0.18" shininess="18" />
   <material id="boots" color="0.16 0.14 0.12" shininess="8" />
   <material id="gear" color="0.30 0.28 0.22" shininess="6" />
-  <material id="gun" color="0.18 0.19 0.21" shininess="30" />
+  <material id="gun" color="0.13 0.14 0.16" shininess="30" />
+  <material id="flash" color="1.00 0.80 0.30" />
+  <material id="flash_core" color="1.00 1.00 0.90" />
+  <!-- The muzzle flash shows on the firing frame only (art/sprites.py turns the option on). -->
+  <option name="flash" enabled="0" />
 
   <hub name="pelvis" aim="0 90" length="14" radius="18 11.5" material="fatigues">
     <ellipsoid on="120 -15" at="0.25" radii="9 8 10" sink="4.5" material="fatigues" />
@@ -37,6 +41,8 @@
         <ellipsoid on="160 10" at="0.75" radii="5 5 14" sink="1" material="helmet" />
         <ellipsoid on="-160 10" at="0.75" radii="5 5 14" sink="1" material="helmet" />
         <bone name="weapon" at="1" from="-62 25" aim="0 0" length="74" radius="7.5 7.5" taper="1.1" overlap="24" material="gun">
+          <ellipsoid on="0 90" at="1" sink="8" radii="12 12 12" material="flash" unlit="1" castShadow="0" if-feature="flash" />
+          <ellipsoid on="0 90" at="1" sink="7" radii="7 7 7" material="flash_core" unlit="1" castShadow="0" if-feature="flash" />
           <ellipsoid on="0 0" at="0.95" radii="7 7 9" sink="3" material="helmet" />
           <ellipsoid on="0 -90" at="0.55" radii="3 6 6" sink="2" material="gun" />
           <ellipsoid on="0 90" at="0.6" radii="3 7 4" sink="2" material="gear" />
@@ -63,7 +69,7 @@
 
   <!-- Pose library. The launcher sits on the right shoulder (weapon pos), the right hand on its
        grip and the left under the tube. Offsets are from the rest wrists (27.5, -2.7, 91.7),
-       read with scener --list-joints. -->
+       read with scener list-joints. -->
   <pose name="Ready">
     <joint target="weapon" pos="-12 0 4" aim="0 6" />
     <ik limb="right_arm" offset="10.5 -11.3 48.3" bend="-90 -40" />

@@ -188,7 +188,7 @@ static menu_t sidebar = {.items = items, .numitems = SB_COUNT, .itemOn = -1, .re
 
 menu_t *RF_InitHUD(app_t *app, const char *root) {
     char path[1024];
-    snprintf(path, sizeof(path), "%s/assets/icons.bmp", root ? root : g_game_default_root);
+    snprintf(path, sizeof(path), "%s/assets/icons.pcx", root ? root : g_game_default_root);
     if (!icons_loaded) {
         icons_loaded = W_LoadIndexedSheet(path, &icons);
         if (!icons_loaded) fprintf(stderr, "rustfront: cannot load %s; the build list has no icons\n", path);

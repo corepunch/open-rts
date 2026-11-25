@@ -187,12 +187,12 @@ int RF_LoadThings(const char *path) {
 }
 
 /* ── terrain ───────────────────────────────────────────────────────────────
- * assets/terrain.bmp is an 8 x 2 atlas of 48 x 32 tiles in the game palette, which becomes
+ * assets/terrain.pcx is an 8 x 2 atlas of 48 x 32 tiles in the game palette, which becomes
  * the screen palette. Index 0 is the sprites' transparent key: show it as black. */
 
 bool RF_LoadAssets(const char *root, tileset_t *tileset) {
     char path[1024];
-    snprintf(path, sizeof(path), "%s/assets/terrain.bmp", root);
+    snprintf(path, sizeof(path), "%s/assets/terrain.pcx", root);
     spritesheet_t atlas;
     if (!W_LoadIndexedSheet(path, &atlas)) {
         fprintf(stderr, "rustfront: cannot load %s\n", path);
@@ -244,7 +244,8 @@ static irect_t opaque_bounds(const uint8_t *px, int w, int h) {
 static bool install_palette(spritesheet_t *sheet, const uint32_t source[256], bool shadow) {
     memcpy(sheet->palette, source, sizeof(sheet->palette));
     sheet->palette[0] = 0;
-    if (shadow) sheet->palette[RF_SHADOW_INDEX] = 0x80000000u; /* Half-alpha black blends over the ground. */
+    /* Half-alpha black: ground shadows, the sprites' soft contact edge, and smoke. */
+    sheet->palette[RF_SHADOW_INDEX] = 0x80000000u;
     memcpy(sheet->source_palette, sheet->palette, sizeof(sheet->palette));
     sheet->indexed = true;
     if (shadow) return true;
@@ -279,10 +280,10 @@ static void lump_place(const rf_sheetdef_t *def, int lump, int *frame, int *slot
         *frames = first;
     }
     if (first) return;
-    *frames = 1;
-    *frame = 0;
-    *rotations = def->count;
-    *slot = slot_for(lump, def->count);
+    *frames = def->frames;
+    *frame = lump % def->frames;
+    *rotations = def->count / def->frames;
+    *slot = slot_for(lump / def->frames, *rotations);
 }
 
 static bool load_sheet(const char *root, const rf_sheetdef_t *def, spritesheet_t *sheet) {
@@ -326,7 +327,7 @@ static bool load_sheet(const char *root, const rf_sheetdef_t *def, spritesheet_t
 /* A hull's mount points: where its turret's ground point sits in each hull picture. */
 static void set_mounts(spritesheet_t *hull, const rf_sheetdef_t *hulldef, const rf_sheetdef_t *turret) {
     for (int lump = 0; lump < hull->numlumps; ++lump) {
-        const short *m = turret->mount[lump % hulldef->count];
+        const short *m = turret->mount[lump / hulldef->frames];
         hull->cells[lump].mount = (ivec2_t){hulldef->pivot_x + m[0], hulldef->pivot_y + m[1]};
     }
 }
