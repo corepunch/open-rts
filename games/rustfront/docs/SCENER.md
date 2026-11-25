@@ -48,8 +48,9 @@ terminal and takes about 3 seconds for the whole kit.
 art/layout.py           writes units.blks: palette, lights, one camera per unit, every instance
 art/units.blks          GENERATED scene; edit layout.py, never this file
 art/utilities.xml       copy of Scener's utilities (soft-box, slab, beam, tube, column)
-art/kit.xml             Rustfront's detail kit: bunker, railing, ladder, vent, warn-light,
-                        floodlight, sandbags
+art/kit.xml             Rustfront's kit. Detail parts: ladder, vent, warn-light, muzzle-flash,
+                        sandbags. Building forms: chunk, emblem,
+                        collar, stack, beacon
 art/prefabs/buildings/  one .blk per building (turret/ holds the gun turret's base and head)
 art/prefabs/vehicles/   one .blk per vehicle (tank/ and apc/ hold hull and turret layers)
 art/prefabs/infantry/   Scener CAT characters: rifleman, rocket soldier
@@ -76,37 +77,54 @@ relative to the scene's directory (`source="vehicles/tank"` loads
 |---|---|
 | Units | Centimetres, degrees, Y up (Scener's default; the kit does not use `up="z"`) |
 | Grid | One cell is 200 cm. Buildings fill whole cells: turret 1×1, power/barracks 2×2, refinery 3×2, HQ/factory 3×3 |
-| Origin | Footprint centre, on the ground (y = 0). Buildings stand on a 20 cm pad, so their geometry starts at y = 20 |
+| Origin | Footprint centre, on the ground (y = 0). Buildings stand on a 20 cm slab 8 cm smaller than the footprint, so their geometry starts at y = 20 |
 | Facing | Buildings face **+Z** (entrance, garage door). Vehicles face **+X** (gun, nose); the scene turns them `rot="0 -90 0"` so they face the viewer's lower left |
 | Leading comment | States footprint, origin and front. The root carries the same as data: `<prefab up="y" front="+z">` |
-| Team colour | Parts marked `tint="1"` (bands, canopies, turret tops, flags) take the instance's `color`. Everything else keeps its material |
-| Palette | The materials in `layout.py`'s `PALETTE`: `sand`, `pad`, `concrete`, `concrete_dark`, `gunmetal`, `roofing`, `corrugated`, `steel`, `steel_dark`, `grating`, `rust`, `armor`, `armor_dark`, `team`, `track`, `rubber`, `sandbag`, `glass`, `ore`, `hazard`, and the emitters `glow`, `lamp`, `warn`, `flame`. Add a material there instead of inline colours |
+| Team colour | Parts marked `tint="1"` take the instance's `color`: a building's painted hulls, and a vehicle's bands, canopies and turret tops. Everything else keeps its material |
+| Palette | The materials in `layout.py`'s `PALETTE`: `sand`, `pad_dark`, `concrete_dark`, `gunmetal`, `steel`, `steel_dark`, `grating`, `rust`, `armor`, `armor_dark`, `team`, `track`, `rubber`, `sandbag`, `glass`, `ore`, `hazard`, the emitters `glow`, `lamp`, `warn`, `flame`, and the buildings' `slab`, `paint`, `paint_plain`, `trim`, `trim_light`, `window`, `emblem_gold`, `emblem_white`, `emblem_dark`, `hazard_big`, `hazard_skirt`, `hazard_ring`, `hazard_ring_big`. Add a material there instead of inline colours |
 | Shape style | See [Art direction](#art-direction) |
 
 ## Art direction
 
-The reference is the late-90s pre-rendered RTS (Dark Reign, the original
-Command & Conquer). Take the general feel from them; never copy a design.
+The reference is the late-90s pre-rendered RTS. Take the general feel from those games;
+never copy a design. Buildings and vehicles follow different rules.
 
-- **Angular and heavy.** Concrete walls lean in: use `<bunker>`, a box with a
-  taper. Vehicle hulls are faceted side profiles with sides leaning in. Turrets
-  are top-view wedges, swept up and tapered (`<shape … rot="90 0 0">` with a
-  `<taper axis="z">`). Keep bevels small (1–2 cm). Soft, rounded boxes read as
-  toys.
-- **Gritty palette.** Dusty sand, battered concrete with noise and a dark base
-  gradient, gunmetal roofs with panel or corrugation lines, desert-tan armour.
-  The only saturated colours are team blue, hazard stripes, warning lights and
-  ore.
-- **Mechanical density.** Every building gets the kit's small parts: railings
-  on catwalks, ladders on tall things, vents on roofs, warning lights on
-  corners and doors, floodlights on the pad, pipes between buildings, and hazard
-  frames on doors and aprons. Vehicles get headlights, antennas, hatches,
-  stowage, smoke dischargers and exhausts.
-- **Team colour as paint.** Use parapets, roof panels, ribs, stripes and flags,
-  all `tint="1"`. Never colour a whole mass with the team colour.
-- **Readable at sprite size.** Each unit has one dominant silhouette (towers,
-  a long gun, a hopper of ore). Check it in the `Lineup` render, not only in
-  close-up.
+**Buildings** are chunky painted prefabs, in the manner of 7th Legion's bases:
+
+- **Painted hulls.** A building's main masses are `<chunk>`s: a rounded-rectangle
+  plan with chamfered rims and walls that lean in. They are `paint` or
+  `paint_plain` with `tint="1"`, so the whole building takes the team colour.
+  `paint` has panel seams and suits big flat hulls; `paint_plain` suits drums,
+  tanks and anything curved.
+- **Four more tones.** Use `trim` (navy) for bases, caps and plinths,
+  `trim_light` (off-white) for accent parts such as roof monitors, pipes and
+  cabins, `window` (cyan) for glazing, and hazard yellow. Avoid greys and
+  concrete on a building.
+- **Hazard stripes.** A hull stands in a `hazard_skirt` chunk a little wider than
+  its base. Pylons, stacks and tower rims wear a `<collar>`. Doors get a
+  `hazard_big` frame.
+- **The roundel.** Every building shows the faction `<emblem>` (a gold cog, a
+  dark field, a double chevron) on a roof plinth, or upright on a gable. The gun
+  turret is too small for one.
+- **A pale slab.** The pad is a `slab` chunk with rounded corners.
+- **Few, big details.** A part smaller than about 20 cm is under five pixels in
+  the game. Prefer one `<stack>`, `<beacon>` or fat pipe to a cluster of vents
+  and railings.
+
+**Vehicles and soldiers** keep the earlier gritty look:
+
+- **Angular and heavy.** Vehicle hulls are faceted side profiles with sides
+  leaning in. Turrets are top-view wedges, swept up and tapered
+  (`<shape … rot="90 0 0">` with a `<taper axis="z">`). Keep bevels small
+  (1–2 cm).
+- **Drab with team paint.** Desert-tan armour, gunmetal and rubber. Team colour
+  goes on bands, panels and turret tops, all `tint="1"`, never on a whole hull.
+- **Mechanical density.** Headlights, antennas, hatches, stowage, smoke
+  dischargers and exhausts.
+
+Both must be **readable at sprite size**: each unit has one dominant silhouette
+(towers, a long gun, a hopper of ore). Check it in the `Lineup` render, not only
+in close-up.
 
 ## Camera and scale
 
@@ -160,7 +178,7 @@ first.
   extruded along local Z, centred. Vehicle hulls are a side profile (X = length,
   Y = height) extruded across the width.
 - **`<arch>`** is **centred on its `pos`**, like a box, not based at it. A hut
-  of height 150 on the pad needs `pos` y = 20 + 75.
+  of height 170 on the slab needs `pos` y = 20 + 85.
 - **Cylinders, cones, prisms and capsules** run along local Y. Use
   `rot="90 0 0"` for an axle along Z (wheels) and `rot="0 0 -90"` for a barrel
   along +X.
@@ -172,22 +190,35 @@ first.
   first definition wins. Prefix them (`rf_cooling_tower`).
 - **Stripes** come from a gizmo, not from vertex colour. `hazard` is a material
   with `<gradient type="line" start="0 0 0" end="7 7 0" repeat="1" edge="0.5">`,
-  which draws crisp diagonal bands on anything that uses it. `corrugated` uses
-  the same gizmo along local Z with `mirror="1"` for roof ribs, so give it to
-  shapes extruded along Z. Panel joints (`pad`, `roofing`) and track links
-  (`track`) are `<map type="bricks">`.
+  which draws crisp diagonal bands on anything that uses it. Panel joints
+  (`slab`, `paint`) and track links (`track`) are `<map type="bricks">`.
 - **A `<taper>` on an extruded profile** with `axis="y" effect="z"` and
   `center="0 BASE 0"` leans a hull's sides in from its base line.
 - **Defines** take `${param}` only. Use a `<let>` or `{expr}` inside the body for
   arithmetic, as `kit.xml` does for array counts.
 - **Faceted lumps** (ore, rocks): use a `<sphere>` with low `rings` and
   `slices`, scaled flat. The `<noise>` modifier can roughen it further.
+- **`<chunk>`** (from the kit) is centred on its `pos`, like a box. `width` and
+  `depth` are the base's, and `lean` is how much smaller the top is. It is a
+  plan outline turned `rot="90 0 0"`, so its own Z is vertical. A caller's `rot`
+  replaces that one: wrap the call in a `<group>` to turn it.
+- **A tinted part keeps its material's gradient and maps.** `tint="1"` replaces
+  only the colour, so `paint` gives any team colour a darker foot and panel
+  seams.
+- **Stripes on a chunk** use `hazard_skirt`, whose gizmo runs across the chunk's
+  own X and Z, so the stripes slant on the front wall. `hazard` and `hazard_big`
+  run across X and Y, for boxes.
+- **Stripes round a drum** need u and v. A `<cylinder>` has none, so `<collar>`
+  is a `<surface>` strip (`hazard_ring`, 8 stripes; `hazard_ring_big`, 14) over a
+  plain yellow cylinder that closes its top.
+- **A profile `<shape id>` cannot sit inside a `<define>`.** Scener rejects its
+  `closed` and `v` there. Declare lathe profiles at the top of the prefab.
 
 ## Adding a unit
 
 1. Copy the closest prefab in `prefabs/buildings/` or `prefabs/vehicles/`.
    Keep the leading comment, the `<prefab up front>` root and the includes.
-2. Block out the silhouette first: pad, main masses, roof or turret. Details
+2. Block out the silhouette first: slab, main masses, roof or turret. Details
    come after. Mark team-colour parts `tint="1"`.
 3. Add a row to `BUILDINGS` or `VEHICLES` in `layout.py`: prefab, camera name,
    frame size and look height (about half the unit's height).
@@ -212,9 +243,9 @@ scener --check units.blks --json                 # every issue with file and lin
 `scener --check` must report **0 errors**. It also warns about the following:
 
 - **Coplanar faces:** two faces on one plane will z-fight. Fix any that are
-  visible. The kit has about forty that are hidden: parts whose bottoms rest
-  on the same deck or pad, paint panels laid on a face, and parts of one
-  material that meet, such as the factory's hazard door frame.
+  visible. The kit has about sixty that are hidden: parts whose bottoms rest
+  on the same deck or slab, the roundel's layers, and parts of one material
+  that meet, such as the factory's hazard door frame.
 - **Floating:** a part that does not touch its support.
 - **Penetration over 1 cm:** usually a mis-centred primitive. The barracks
   arch sank 55 cm into the ground before its `pos` was corrected.

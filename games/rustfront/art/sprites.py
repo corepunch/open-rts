@@ -133,14 +133,14 @@ BLINK = [{"blink": 1}, {"blink": 0}]
 
 # key: shadow (assembled prefab), facings of the unit, layers
 UNITS = {
-    "hq":        dict(shadow="buildings/hq",       facings=1,  layers=[layer("body", "buildings/hq", (640, 608), 140, structure=((3, 3), 330),
+    "hq":        dict(shadow="buildings/hq",       facings=1,  layers=[layer("body", "buildings/hq", (640, 608), 140, structure=((3, 3), 290),
                      frames=[{"spin": k, "blink": int(k % 4 < 2)} for k in range(8)])]),
     "power":     dict(shadow="buildings/power",    facings=1,  layers=[layer("body", "buildings/power", (448, 448), 100, structure=((2, 2), 220),
                      frames=[{"pulse": 0, "blink": 1}, {"pulse": 1, "blink": 1}, {"pulse": 0, "blink": 0}, {"pulse": 1, "blink": 0}])]),
     "refinery":  dict(shadow="buildings/refinery", facings=1,  layers=[layer("body", "buildings/refinery", (640, 544), 110, structure=((3, 2), 300),
                      frames=[{"flick": 0, "blink": 1}, {"flick": 1, "blink": 1}, {"flick": 0, "blink": 0}, {"flick": 1, "blink": 0}])]),
     "barracks":  dict(shadow="buildings/barracks", facings=1,  layers=[layer("body", "buildings/barracks", (448, 448), 80, structure=((2, 2), 220), frames=BLINK)]),
-    "factory":   dict(shadow="buildings/factory",  facings=1,  layers=[layer("body", "buildings/factory", (640, 608), 140, structure=((3, 3), 330), frames=BLINK)]),
+    "factory":   dict(shadow="buildings/factory",  facings=1,  layers=[layer("body", "buildings/factory", (640, 608), 140, structure=((3, 3), 300), frames=BLINK)]),
     "turret":    dict(shadow="buildings/turret",   facings=1,  layers=[
                      # two base frames: the firing run steps the body's frame, and the head follows it
                      layer("base", "buildings/turret/base", (256, 256), 40, frames=[{}, {}],

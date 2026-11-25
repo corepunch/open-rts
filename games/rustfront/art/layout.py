@@ -43,17 +43,11 @@ VEHICLES = [
 VEHICLE_YAW = -45    # prefabs face +X; -45 turns them toward the viewer's lower right
 
 PALETTE = """\
-  <!-- palette: dusty ground, battered concrete, gunmetal, desert-tan armour, one team colour -->
+  <!-- palette: dusty ground, gunmetal, steel, desert-tan armour, one team colour -->
   <material id="sand"          color="0.62 0.52 0.38" shininess="3"><map type="noise" size="90" octaves="4" from="0.84 0.84 0.86" to="1.08 1.06 1.02"/></material>
-  <material id="pad"           color="0.50 0.49 0.46" shininess="4"><map type="bricks" size="100 100 100" mortar="1.8" bond="0" vary="0.07" from="1 1 1" to="0.62 0.61 0.60"/></material>
   <material id="pad_dark"      color="0.33 0.33 0.33" shininess="4"/>
-  <material id="concrete"      color="0.68 0.65 0.58" shininess="5" gradientFrom="0.62 0.60 0.58" gradientTo="1.04 1.03 1.02"><map type="noise" size="30" octaves="4" from="0.88 0.88 0.88" to="1.05 1.05 1.05" bump="0.4"/></material>
   <material id="concrete_dark" color="0.50 0.49 0.46" shininess="5" gradientFrom="0.70 0.70 0.70" gradientTo="1.05 1.05 1.05"><map type="noise" size="30" octaves="4" from="0.88 0.88 0.88" to="1.05 1.05 1.05"/></material>
   <material id="gunmetal"      color="0.36 0.38 0.40" shininess="40" metallic="0.35" gradientFrom="0.72 0.72 0.74" gradientTo="1.05 1.05 1.05"/>
-  <material id="roofing"       color="0.30 0.31 0.32" shininess="8" metallic="0.1"><map type="bricks" size="60 60 60" mortar="1.2" bond="0" vary="0.06" from="1 1 1" to="0.6 0.6 0.6"/></material>
-  <material id="corrugated"    color="1 1 1" shininess="24" metallic="0.25">
-    <gradient type="line" start="0 0 0" end="0 0 12" repeat="1" mirror="1" from="0.30 0.31 0.33" to="0.48 0.49 0.51"/>
-  </material>
   <material id="steel"         color="0.60 0.62 0.64" shininess="45" metallic="0.35"/>
   <material id="steel_dark"    color="0.22 0.23 0.25" shininess="35" metallic="0.3"/>
   <material id="grating"       color="0.30 0.31 0.33" shininess="20"><map type="checker" size="4" from="0.7 0.7 0.7" to="1.1 1.1 1.1"/></material>
@@ -75,6 +69,29 @@ PALETTE = """\
   <material id="lens_off"      color="0.30 0.06 0.05" shininess="40"/>
   <material id="hazard"        color="1 1 1" shininess="8">
     <gradient type="line" start="0 0 0" end="7 7 0" repeat="1" edge="0.5" from="0.96 0.74 0.10" to="0.10 0.09 0.08"/>
+  </material>
+  <!-- buildings: team paint (a tint="1" part keeps its material's gradient and maps), pale slabs,
+       dark and light trim, glazing, the roundel's colours, and hazard stripes for big forms -->
+  <material id="slab"         color="0.80 0.79 0.74" shininess="6"><map type="bricks" size="100 100 100" mortar="2" bond="0" vary="0.05" from="1 1 1" to="0.70 0.69 0.68"/></material>
+  <material id="paint"        color="{TEAM}" shininess="46" specular="1" gradientFrom="0.60 0.60 0.64" gradientTo="1.10 1.10 1.10"><map type="bricks" size="96 64 96" mortar="1.6" bond="0" from="1 1 1" to="0.55 0.55 0.6"/></material>
+  <material id="paint_plain"  color="{TEAM}" shininess="46" specular="1" gradientFrom="0.66 0.66 0.70" gradientTo="1.10 1.10 1.10"/>
+  <material id="trim"         color="0.13 0.16 0.24" shininess="34" specular="1"/>
+  <material id="trim_light"   color="0.80 0.82 0.84" shininess="40" specular="1" gradientFrom="0.70 0.70 0.74" gradientTo="1.05 1.05 1.05"/>
+  <material id="window"       color="0.30 0.85 1.00" shininess="90" specular="1"/>
+  <material id="emblem_gold"  color="1.00 0.78 0.10" shininess="40"/>
+  <material id="emblem_white" color="0.96 0.96 0.92" shininess="30"/>
+  <material id="emblem_dark"  color="0.10 0.12 0.22" shininess="30"/>
+  <material id="hazard_big"   color="1 1 1" shininess="10">
+    <gradient type="line" start="0 0 0" end="13 13 0" repeat="1" edge="0.5" from="0.98 0.78 0.10" to="0.10 0.09 0.08"/>
+  </material>
+  <material id="hazard_skirt" color="1 1 1" shininess="10">
+    <gradient type="line" start="0 0 0" end="13 0 13" repeat="1" edge="0.5" from="0.98 0.78 0.10" to="0.10 0.09 0.08"/>
+  </material>
+  <material id="hazard_ring"  color="1 1 1" shininess="10">
+    <gradient type="uv" tile="8 1" repeat="1" edge="0.5" from="0.98 0.78 0.10" to="0.10 0.09 0.08"/>
+  </material>
+  <material id="hazard_ring_big" color="1 1 1" shininess="10">
+    <gradient type="uv" tile="14 1" repeat="1" edge="0.5" from="0.98 0.78 0.10" to="0.10 0.09 0.08"/>
   </material>"""
 
 

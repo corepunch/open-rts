@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Gun Turret, chunky concept, assembled: turret/base plus turret/head at (0, 98, 0) turned to face +Z. Footprint 1x1 cell (200 x 200 cm), origin at pad centre on the ground, barrels face +Z. -->
-<prefab up="y" front="+z">
-  <prefab source="buildings/turret/base"/>
-  <prefab source="buildings/turret/head" pos="0 98 0" rot="0 -90 0"/>
-</prefab>

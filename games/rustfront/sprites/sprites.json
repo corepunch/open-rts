@@ -188,12 +188,12 @@
     "facings": 1,
     "file": "barracks_body.png",
     "frame": [
-     99,
+     101,
      121
     ],
     "frames": 8,
     "pivot": [
-     48.0,
+     47.0,
      89.0
     ],
     "team": "barracks_body_team.png"
@@ -204,12 +204,12 @@
    "count": 1,
    "file": "barracks_shadow.png",
    "frame": [
-    148,
-    75
+    153,
+    79
    ],
    "pivot": [
-    48.0,
-    43.0
+    47.0,
+    47.0
    ]
   }
  },
@@ -225,13 +225,13 @@
     "facings": 1,
     "file": "factory_body.png",
     "frame": [
-     148,
-     170
+     147,
+     165
     ],
     "frames": 8,
     "pivot": [
-     72.0,
-     122.0
+     71.0,
+     117.0
     ],
     "team": "factory_body_team.png"
    }
@@ -241,12 +241,12 @@
    "count": 1,
    "file": "factory_shadow.png",
    "frame": [
-    187,
-    110
+    178,
+    109
    ],
    "pivot": [
-    72.0,
-    62.0
+    71.0,
+    61.0
    ]
   }
  },
@@ -296,13 +296,13 @@
     "facings": 1,
     "file": "hq_body.png",
     "frame": [
-     148,
-     170
+     147,
+     164
     ],
     "frames": 20,
     "pivot": [
-     72.0,
-     122.0
+     71.0,
+     116.0
     ],
     "team": "hq_body_team.png"
    }
@@ -312,12 +312,12 @@
    "count": 1,
    "file": "hq_shadow.png",
    "frame": [
-    169,
-    100
+    171,
+    103
    ],
    "pivot": [
-    72.0,
-    52.0
+    71.0,
+    55.0
    ]
   }
  },
@@ -333,12 +333,12 @@
     "facings": 1,
     "file": "power_body.png",
     "frame": [
-     99,
+     98,
      121
     ],
     "frames": 12,
     "pivot": [
-     48.0,
+     47.0,
      89.0
     ],
     "team": "power_body_team.png"
@@ -349,11 +349,11 @@
    "count": 1,
    "file": "power_shadow.png",
    "frame": [
-    116,
+    115,
     72
    ],
    "pivot": [
-    48.0,
+    47.0,
     40.0
    ]
   }
@@ -370,12 +370,12 @@
     "facings": 1,
     "file": "refinery_body.png",
     "frame": [
-     148,
+     147,
      133
     ],
     "frames": 12,
     "pivot": [
-     72.0,
+     71.0,
      101.0
     ],
     "team": "refinery_body_team.png"
@@ -386,12 +386,12 @@
    "count": 1,
    "file": "refinery_shadow.png",
    "frame": [
-    182,
-    78
+    183,
+    79
    ],
    "pivot": [
-    72.0,
-    46.0
+    71.0,
+    47.0
    ]
   }
  },
@@ -674,13 +674,13 @@
     "facings": 1,
     "file": "turret_base.png",
     "frame": [
-     44,
-     38
+     46,
+     39
     ],
     "frames": 2,
     "pivot": [
-     22.0,
-     23.0
+     23.0,
+     24.0
     ],
     "team": "turret_base_team.png"
    },
@@ -730,12 +730,12 @@
    "count": 1,
    "file": "turret_shadow.png",
    "frame": [
-    59,
-    35
+    56,
+    36
    ],
    "pivot": [
-    22.0,
-    16.0
+    23.0,
+    17.0
    ]
   }
  }

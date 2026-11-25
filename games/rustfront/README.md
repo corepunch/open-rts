@@ -1,7 +1,8 @@
 # Rustfront (working title)
 
-An original RTS for open-rts: a desert industrial faction with team-coloured
-buildings and vehicles, in the spirit of the late-90s pre-rendered RTS look.
+An original RTS for open-rts: a desert industrial faction with chunky buildings
+painted in the team colour and drab vehicles with team markings, in the spirit
+of the late-90s pre-rendered RTS look.
 Its units are modelled in Scener, rendered to sprites, packed to 256 colours,
 and loaded by its own open-rts binary.
 

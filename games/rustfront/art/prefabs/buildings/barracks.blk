@@ -1,53 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Barracks. Footprint 2x2 cells (400 x 400 cm), origin at pad centre on the ground, door
-     faces +Z. A corrugated quonset hut with team ribs and a concrete entrance vestibule, a
-     guard tower with a searchlight, sandbag emplacements and a flag. -->
+<!-- Barracks. Footprint 2x2 cells (400 x 400 cm), origin at pad centre on the
+     ground, door faces +Z. A painted barrel hut with dark ribs, the roundel on its gable over a
+     hazard-framed door, a watchtower with a glazed cabin and a flag, and sandbags. -->
 <prefab up="y" front="+z">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
   <!-- Animation knobs, set per frame by art/sprites.py. -->
   <let name="blink" value="1"/>
-  <slab width="400" height="20" depth="400" pos="0 10 0" material="pad"/>
+  <chunk width="392" height="20" depth="392" radius="26" bevel="3" lean="0" pos="0 10 0" material="slab"/>
 
-  <!-- hut: an <arch> is centred on its pos; height 150 spans y 20..170 -->
-  <arch width="250" height="150" depth="300" segments="16" pos="-40 95 -40" material="steel">
-  </arch>
-  <arch width="258" height="154" depth="12" tube="7" segments="16" pos="-40 97 -160" material="team" tint="1"><array count="3" translation="0 0 120"/></arch>
-  <cylinder radius="10" height="22" sides="8" pos="-40 177 -100" material="gunmetal"/>
-  <cylinder radius="10" height="22" sides="8" pos="-40 177 20" material="gunmetal"/>
-  <!-- entrance vestibule -->
-  <bunker width="110" height="96" depth="44" lean="-0.06" pos="-40 68 132" material="concrete_dark"/>
-  <box size="64 72 4" pos="-40 56 155" material="gunmetal"/>
-  <box size="80 7 6" pos="-40 98 155" material="hazard"/>
-  <warn-light on="{blink}" pos="-40 116 132"/>
-  <box size="70 3 40" pos="-40 21.5 175" material="pad_dark"/>
-  <!-- side windows -->
-  <box size="4 16 40" rot="0 0 30" pos="70 140 -40" material="glass"><array count="2" translation="0 0 -120"/></box>
+  <!-- hut: an <arch> is centred on its pos; height 170 spans y 20..190; x -180..90, z -185..115 -->
+  <arch width="270" height="170" depth="300" segments="20" pos="-45 105 -35" material="paint_plain" tint="1"/>
+  <arch width="282" height="176" depth="18" tube="9" segments="20" pos="-45 108 -160" material="trim_light"><array count="3" translation="0 0 125"/></arch>
+  <box size="286 22 18" pos="-45 31 -160" material="hazard_big"><array count="3" translation="0 0 125"/></box>
+  <stack radius="12" height="26" pos="-45 186 -98"/>
+  <!-- gable: door and roundel -->
+  <box size="76 70 6" pos="-45 55 117" material="steel_dark"/>
+  <box size="3 66 3" pos="-45 55 120" material="gunmetal"/>
+  <box size="96 12 8" pos="-45 96 117" material="hazard_big"/>
+  <group pos="-45 140 115" rot="90 0 0"><emblem radius="32"/></group>
+  <box size="80 3 50" pos="-45 21.5 144" material="pad_dark"/>
 
-  <!-- guard tower, back right -->
-  <group pos="145 20 -140">
-    <cylinder radius="3" height="150" sides="6" pos="-24 75 -24" material="steel_dark"/>
-    <cylinder radius="3" height="150" sides="6" pos="24 75 -24" material="steel_dark"/>
-    <cylinder radius="3" height="150" sides="6" pos="-24 75 24" material="steel_dark"/>
-    <cylinder radius="3" height="150" sides="6" pos="24 75 24" material="steel_dark"/>
-    <box size="64 4 64" pos="0 152 0" material="grating"/>
-    <railing length="60" pos="0 154 30"/>
-    <railing length="60" pos="30 154 0" rot="0 90 0"/>
-    <pyramid radius="48" height="22" rot="0 45 0" pos="0 197 0" material="armor_dark"/>
-    <cylinder radius="2" height="32" sides="6" pos="-24 170 -24" material="steel_dark"/>
-    <cylinder radius="2" height="32" sides="6" pos="24 170 -24" material="steel_dark"/>
-    <cylinder radius="2" height="32" sides="6" pos="-24 170 24" material="steel_dark"/>
-    <cylinder radius="2" height="32" sides="6" pos="24 170 24" material="steel_dark"/>
-    <box size="14 10 12" pos="10 162 20" rot="0 -30 -15" material="gunmetal"/>
-    <box size="1 8 10" pos="17 160 24" rot="0 -30 -15" material="lamp" unlit="1" castShadow="0"/>
-    <cylinder radius="1.5" height="60" sides="5" pos="0 238 0" material="steel"/>
-    <box size="40 24 1.5" pos="21 256 0" material="team" tint="1"/>
-    <ladder height="150" pos="0 0 26"/>
-  </group>
-  <!-- sandbag emplacements -->
+  <!-- watchtower, back right -->
+  <cylinder radius="30" height="130" sides="20" pos="140 85 -130" material="paint_plain" tint="1"/>
+  <cylinder radius="33" height="22" sides="20" pos="140 31 -130" material="trim"/>
+  <chunk width="92" height="50" depth="92" radius="26" bevel="8" lean="0" pos="140 175 -130" material="trim_light"/>
+  <chunk width="96" height="18" depth="96" radius="28" bevel="2" lean="0" pos="140 178 -130" material="window"/>
+  <chunk width="100" height="8" depth="100" radius="30" bevel="2" lean="0" pos="140 204 -130" material="trim"/>
+  <beacon on="{blink}" pos="140 208 -130"/>
+  <cylinder radius="2" height="70" sides="5" pos="176 243 -166" material="trim"/>
+  <box size="46 28 2" pos="200 262 -166" material="team" tint="1"/>
+
+  <!-- sandbags and stores -->
   <sandbags count="4" pos="120 20 165"/>
-  <sandbags count="3" pos="170 20 80" rot="0 90 0"/>
-  <box size="36 30 36" pos="110 35 30" material="armor_dark"/>
-  <box size="30 24 30" pos="114 62 28" rot="0 20 0" material="rust"/>
-  <floodlight pos="-180 20 180" rot="0 -45 0"/>
+  <sandbags count="3" pos="172 20 80" rot="0 90 0"/>
+  <chunk width="46" height="36" depth="46" radius="8" bevel="4" lean="0" pos="112 38 26" material="trim_light"/>
+  <chunk width="36" height="28" depth="36" radius="8" bevel="4" lean="0" pos="116 70 24" material="emblem_gold"/>
 </prefab>

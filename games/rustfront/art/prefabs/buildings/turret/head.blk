@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Gun Turret head. Origin on the slewing axis at mount height; barrels face +X (the assembled building turns it to +Z). A faceted gunmetal wedge with twin cannons. Team colour on the roof. -->
+<!-- Gun Turret head. Origin on the slewing axis at mount height; barrels face +X (the assembled building turns it to +Z). A painted wedge with a dark roof plate, white sleeves and twin cannons. -->
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
@@ -8,23 +8,21 @@
   <let name="fire" value="0"/>
   <let name="kick" value="fire == 1 ? 10 : (fire == 2 ? 4 : 0)"/>
 
-    <shape closed="1" v="54 0 30 40 -36 44 -52 26 -52 -26 -36 -44 30 -40" rot="90 0 0" material="gunmetal">
-      <extrude amount="32"/><bevel amount="2" bevelSegments="1"/>
-      <taper center="0 0 0" amount="0.36" axis="z"/>
-    </shape>
-    <shape closed="1" v="34 0 18 26 -26 30 -38 18 -38 -18 -26 -30 18 -26" rot="90 0 0" pos="0 16.6 0" material="team" tint="1">
-      <extrude amount="1.2"/>
-    </shape>
-    <box size="18 22 52" pos="52 0 0" material="steel_dark"/>
-    <cylinder radius="5" height="90" sides="10" rot="0 0 -90" pos="{104-kick} 0 14" material="steel_dark"/>
-    <cylinder radius="5" height="90" sides="10" rot="0 0 -90" pos="{104-kick} 0 -14" material="steel_dark"/>
-    <cylinder radius="8" height="22" sides="10" rot="0 0 -90" pos="70 0 14" material="gunmetal"/>
-    <cylinder radius="8" height="22" sides="10" rot="0 0 -90" pos="70 0 -14" material="gunmetal"/>
-    <box size="12 11 11" pos="{148-kick} 0 14" material="steel_dark"/>
-    <box size="12 11 11" pos="{148-kick} 0 -14" material="steel_dark"/>
-    <muzzle-flash pos="{155-kick} 0 14" on="{fire == 1}"/>
-    <muzzle-flash pos="{155-kick} 0 -14" on="{fire == 1}"/>
-    <box size="14 10 14" pos="-20 20 26" material="steel_dark"/>
-    <sphere radius="3" rings="4" slices="6" pos="-13 21 26" material="glow" unlit="1" castShadow="0"/>
-    <cylinder radius="1" height="40" sides="5" pos="-30 36 -24" material="steel_dark"/>
-  </prefab>
+  <shape closed="1" v="54 0 30 40 -36 44 -52 26 -52 -26 -36 -44 30 -40" rot="90 0 0" pos="0 2 0" material="paint_plain" tint="1">
+    <fillet radius="8" segments="2"/><extrude amount="36"/><bevel amount="6" bevelSegments="2"/>
+    <taper center="0 0 0" amount="0.3" axis="z"/>
+  </shape>
+  <shape closed="1" v="30 0 16 22 -24 26 -34 16 -34 -16 -24 -26 16 -22" rot="90 0 0" pos="0 20.6 0" material="trim">
+    <extrude amount="1.6"/>
+  </shape>
+  <box size="18 24 54" pos="52 0 0" material="trim"/>
+  <cylinder radius="5.5" height="90" sides="10" rot="0 0 -90" pos="{104-kick} 0 14" material="steel_dark"/>
+  <cylinder radius="5.5" height="90" sides="10" rot="0 0 -90" pos="{104-kick} 0 -14" material="steel_dark"/>
+  <cylinder radius="9" height="24" sides="10" rot="0 0 -90" pos="70 0 14" material="trim_light"/>
+  <cylinder radius="9" height="24" sides="10" rot="0 0 -90" pos="70 0 -14" material="trim_light"/>
+  <box size="12 12 12" pos="{148-kick} 0 14" material="steel_dark"/>
+  <box size="12 12 12" pos="{148-kick} 0 -14" material="steel_dark"/>
+  <muzzle-flash pos="{155-kick} 0 14" on="{fire == 1}"/>
+  <muzzle-flash pos="{155-kick} 0 -14" on="{fire == 1}"/>
+  <sphere radius="5" rings="4" slices="6" pos="-22 23 0" material="glow" unlit="1" castShadow="0"/>
+</prefab>

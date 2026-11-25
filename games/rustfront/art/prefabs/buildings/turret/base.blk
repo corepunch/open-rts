@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Gun Turret base without its head (see turret/head.blk). Footprint 1x1 cell, origin at pad centre on the ground. A battered octagonal bunker on a pad with a slewing ring and a sandbag lip. -->
+<!-- Gun Turret base without its head (see turret/head.blk). Footprint 1x1 cell, origin at pad centre on the ground. A painted drum on a round-cornered slab with a hazard collar and a slewing ring. -->
 <prefab up="y" front="+z">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
-  <prism radius="98" height="16" sides="8" rot="0 22.5 0" pos="0 8 0" material="pad_dark"/>
-  <prism radius="82" height="54" sides="8" rot="0 22.5 0" pos="0 43 0" material="concrete"><taper amount="-0.2"/></prism>
-  <prism radius="66" height="4" sides="8" rot="0 22.5 0" pos="0 72 0" material="steel_dark"/>
+  <chunk width="192" height="16" depth="192" radius="50" bevel="3" lean="0" pos="0 8 0" material="slab"/>
+  <cone radius="78" radiusTop="62" height="54" sides="24" pos="0 43 0" material="paint_plain" tint="1"/>
+  <collar radius="80" height="18" pos="0 25 0" material="hazard_ring_big"/>
+  <cylinder radius="65" height="4" sides="24" pos="0 72 0" material="trim"/>
   <cylinder radius="50" height="8" sides="16" pos="0 78 0" material="steel_dark"/>
-  <sandbags count="3" pos="0 20 92"/>
 </prefab>
