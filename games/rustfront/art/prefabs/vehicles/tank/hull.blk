@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Battle Tank hull without its turret (see tank/turret.blk and tank.blk). Length 250 cm on X, width 156 cm on Z, origin at the hull centre on the ground, front +X. Faceted hull with sloped side skirts over textured tracks; team stripe on the skirts. -->
+<!-- Battle Tank hull without its turret (see tank/turret.blk and tank.blk). Length 250 cm on X, width 156 cm on Z, origin at the hull centre on the ground, front +X. Faceted hull in team paint with sloped side skirts over textured tracks; a white stripe on the skirts. -->
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
@@ -11,20 +11,20 @@
   <cylinder radius="14" height="40" sides="10" rot="90 0 {18*move}" pos="-84 20 58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
   <cylinder radius="14" height="40" sides="10" rot="90 0 {18*move}" pos="-84 20 -58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
   <!-- side skirts: plates leaning out over the tracks -->
-  <box size="210 24 5" rot="-14 0 0" pos="-6 46 79" material="armor"/>
-  <box size="210 24 5" rot="14 0 0" pos="-6 46 -79" material="armor"/>
-  <box size="210 5 6" rot="-14 0 0" pos="-6 41 80.5" material="team" tint="1"/>
-  <box size="210 5 6" rot="14 0 0" pos="-6 41 -80.5" material="team" tint="1"/>
+  <box size="210 24 5" rot="-14 0 0" pos="-6 46 79" material="team" tint="1"/>
+  <box size="210 24 5" rot="14 0 0" pos="-6 46 -79" material="team" tint="1"/>
+  <box size="210 5 6" rot="-14 0 0" pos="-6 41 80.5" material="trim_light"/>
+  <box size="210 5 6" rot="14 0 0" pos="-6 41 -80.5" material="trim_light"/>
 
   <!-- hull: side profile with a sharp glacis, sides leaning in -->
-  <shape closed="1" v="-120 40 98 40 128 56 104 82 -112 82 -124 66" material="armor">
-    <extrude amount="140"/><bevel amount="2" bevelSegments="1"/>
+  <shape closed="1" v="-120 40 98 40 128 56 104 82 -112 82 -124 66" material="paint_plain" tint="1">
+    <extrude amount="140"/><bevel amount="4" bevelSegments="2"/>
     <taper center="0 40 0" amount="-0.16" axis="y" effect="z"/>
   </shape>
   <box size="40 4 116" pos="-90 83.5 0" material="grating"/>
   <box size="18 16 26" pos="-118 70 34" material="gunmetal"/>
   <box size="18 16 26" pos="-118 70 -34" material="gunmetal"/>
-  <box size="30 12 22" pos="-60 88 52" material="armor_dark"/>
+  <box size="30 12 22" pos="-60 88 52" material="trim"/>
   <box size="4 4 3" pos="124 62 44" material="lamp" unlit="1" castShadow="0"/>
   <box size="4 4 3" pos="124 62 -44" material="lamp" unlit="1" castShadow="0"/>
   <box size="6 10 10" pos="122 62 44" material="steel_dark"/>

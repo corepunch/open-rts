@@ -35,12 +35,12 @@
     "facings": 16,
     "file": "apc_hull.png",
     "frame": [
-     74,
+     72,
      79
     ],
     "frames": 2,
     "pivot": [
-     37.0,
+     36.0,
      51.0
     ],
     "team": "apc_hull_team.png"
@@ -193,7 +193,7 @@
     ],
     "frames": 8,
     "pivot": [
-     47.0,
+     50.0,
      89.0
     ],
     "team": "barracks_body_team.png"
@@ -204,7 +204,7 @@
    "count": 1,
    "file": "barracks_shadow.png",
    "frame": [
-    153,
+    127,
     79
    ],
    "pivot": [
@@ -241,12 +241,12 @@
    "count": 1,
    "file": "factory_shadow.png",
    "frame": [
-    178,
-    109
+    181,
+    101
    ],
    "pivot": [
     71.0,
-    61.0
+    53.0
    ]
   }
  },
@@ -312,12 +312,12 @@
    "count": 1,
    "file": "hq_shadow.png",
    "frame": [
-    171,
-    103
+    168,
+    106
    ],
    "pivot": [
     71.0,
-    55.0
+    58.0
    ]
   }
  },
@@ -350,11 +350,11 @@
    "file": "power_shadow.png",
    "frame": [
     115,
-    72
+    74
    ],
    "pivot": [
     47.0,
-    40.0
+    42.0
    ]
   }
  },
@@ -386,12 +386,12 @@
    "count": 1,
    "file": "refinery_shadow.png",
    "frame": [
-    183,
-    79
+    180,
+    73
    ],
    "pivot": [
     71.0,
-    47.0
+    41.0
    ]
   }
  },
@@ -430,12 +430,12 @@
     "count": 152,
     "file": "rifleman_body.png",
     "frame": [
-     72,
-     68
+     74,
+     67
     ],
     "pivot": [
-     36.0,
-     46.0
+     37.0,
+     40.0
     ],
     "team": "rifleman_body_team.png"
    }
@@ -445,12 +445,12 @@
    "count": 152,
    "file": "rifleman_shadow.png",
    "frame": [
-    89,
-    55
+    80,
+    50
    ],
    "pivot": [
-    34,
-    32
+    35,
+    26
    ]
   }
  },
@@ -489,12 +489,12 @@
     "count": 152,
     "file": "rocket_body.png",
     "frame": [
-     78,
+     82,
      71
     ],
     "pivot": [
-     39.0,
-     49.0
+     41.0,
+     42.0
     ],
     "team": "rocket_body_team.png"
    }
@@ -504,12 +504,12 @@
    "count": 152,
    "file": "rocket_shadow.png",
    "frame": [
-    91,
-    57
+    88,
+    54
    ],
    "pivot": [
-    34,
-    34
+    41,
+    27
    ]
   }
  },
@@ -556,12 +556,12 @@
     "facings": 16,
     "file": "tank_hull.png",
     "frame": [
-     70,
+     68,
      57
     ],
     "frames": 2,
     "pivot": [
-     35.0,
+     34.0,
      36.0
     ],
     "team": "tank_hull_team.png"

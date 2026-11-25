@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Scout Buggy. Length 176 cm on X, width 130 cm on Z, origin at the chassis centre on the
      ground, nose faces +X. Big knobbly wheels under angular fenders, a wedge body, a tube roll
-     cage with a pintle machine gun, a spotlight and a spare wheel. Team colour on the hood. -->
+     cage with a pintle machine gun, a spotlight and a spare wheel. Team paint, with white panels
+     on the hood and the deck. -->
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
@@ -23,18 +24,18 @@
   </group>
   <box size="156 14 74" pos="0 40 0" material="steel_dark"/>
   <!-- fenders: angled plates over each wheel pair -->
-  <box size="64 4 30" rot="-10 0 0" pos="56 58 52" material="armor_dark"/>
-  <box size="64 4 30" rot="10 0 0" pos="56 58 -52" material="armor_dark"/>
-  <box size="64 4 30" rot="-10 0 0" pos="-56 58 52" material="armor_dark"/>
-  <box size="64 4 30" rot="10 0 0" pos="-56 58 -52" material="armor_dark"/>
+  <box size="64 4 30" rot="-10 0 0" pos="56 58 52" material="trim"/>
+  <box size="64 4 30" rot="10 0 0" pos="56 58 -52" material="trim"/>
+  <box size="64 4 30" rot="-10 0 0" pos="-56 58 52" material="trim"/>
+  <box size="64 4 30" rot="10 0 0" pos="-56 58 -52" material="trim"/>
   <!-- wedge body -->
-  <shape closed="1" v="-82 44 62 44 90 56 64 66 30 68 6 84 -64 84 -82 70" material="armor">
-    <extrude amount="84"/><bevel amount="2" bevelSegments="1"/>
+  <shape closed="1" v="-82 44 62 44 90 56 64 66 30 68 6 84 -64 84 -82 70" material="paint_plain" tint="1">
+    <extrude amount="84"/><bevel amount="4" bevelSegments="2"/>
     <taper center="0 46 0" amount="-0.15" axis="y" effect="z"/>
   </shape>
-  <box size="30 2 56" rot="0 0 -21" pos="76 62 0" material="team" tint="1"/>
+  <box size="30 2 56" rot="0 0 -21" pos="76 62 0" material="trim_light"/>
   <box size="3 16 64" rot="0 0 -34" pos="18 77 0" material="glass"/>
-  <box size="56 2 60" pos="-30 85 0" material="team" tint="1"/>
+  <box size="56 2 60" pos="-30 85 0" material="trim_light"/>
   <box size="4 4 3" pos="88 56 30" material="lamp" unlit="1" castShadow="0"/>
   <box size="4 4 3" pos="88 56 -30" material="lamp" unlit="1" castShadow="0"/>
   <!-- roll cage -->
@@ -53,6 +54,6 @@
   <box size="1 6 8" pos="-32.5 130 24" material="lamp" unlit="1" castShadow="0"/>
   <!-- spare wheel and jerrycans -->
   <cylinder radius="18" height="12" sides="12" rot="0 0 90" pos="-86 64 0" material="rubber"/>
-  <box size="12 18 8" pos="-70 82 26" material="armor_dark"/>
+  <box size="12 18 8" pos="-70 82 26" material="trim"/>
   <box size="12 18 8" pos="-70 82 -26" material="hazard"/>
 </prefab>

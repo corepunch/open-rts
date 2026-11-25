@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Ore Harvester. Length 310 cm on X, width 166 cm on Z, origin at the chassis centre on the
-     ground, cab and pickup face +X. A heavy six-wheel mining truck: forward armoured cab, a
-     ribbed rust hopper heaped with ore, twin exhaust stacks and a toothed pickup drum on arms.
-     Team colour on the cab roof and hopper stripe; amber beacons. -->
+     ground, cab and pickup face +X. A heavy six-wheel mining truck: a white forward cab, a
+     ribbed hopper in team paint with a gold rim, heaped with ore, twin exhaust stacks and a
+     toothed pickup drum on arms; amber beacons. -->
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
@@ -18,21 +18,21 @@
   <box size="300 4 150" pos="0 64 0" material="grating"/>
   <!-- cab -->
   <group pos="112 66 0">
-    <shape closed="1" v="-36 0 36 0 40 30 28 62 -36 64" material="armor">
-      <extrude amount="140"/><bevel amount="2" bevelSegments="1"/>
+    <shape closed="1" v="-36 0 36 0 40 30 28 62 -36 64" material="trim_light">
+      <extrude amount="140"/><bevel amount="4" bevelSegments="2"/>
       <taper center="0 0 0" amount="-0.14" axis="y" effect="z"/>
     </shape>
     <box size="4 22 116" rot="0 0 21" pos="35 46 0" material="glass"/>
-    <box size="66 3 110" pos="-6 64 0" material="team" tint="1"/>
+    <box size="66 3 110" pos="-6 64 0" material="trim"/>
     <box size="8 20 120" pos="42 12 0" material="steel_dark"/>
     <warn-light pos="-20 65 46" material="flame"/>
     <warn-light pos="-20 65 -46" material="flame"/>
   </group>
   <!-- hopper -->
   <group pos="-42 66 0">
-    <box size="196 76 156" pos="0 38 0" material="rust"><taper amount="0.12"/></box>
-    <box size="8 80 172" pos="-60 40 0" material="steel_dark"><array count="4" translation="40 0 0"/></box>
-    <box size="224 8 178" pos="0 70 0" material="team" tint="1"/>
+    <box size="196 76 156" pos="0 38 0" material="paint_plain" tint="1"><taper amount="0.12"/></box>
+    <box size="8 80 172" pos="-60 40 0" material="trim"><array count="4" translation="40 0 0"/></box>
+    <box size="224 8 178" pos="0 70 0" material="emblem_gold"/>
     <box size="208 5 162" pos="0 76 0" material="steel_dark"/>
     <sphere radius="34" rings="4" slices="6" scale="1.3 0.55 1" pos="-30 82 -30" material="ore"/>
     <sphere radius="30" rings="4" slices="6" scale="1.2 0.6 1" rot="0 40 0" pos="30 82 26" material="ore"/>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Battle Tank turret. Origin on the turret ring axis at mount height; gun faces +X. The wedge is a top-view profile swept up and tapered. Team colour on the roof and cupola ring. -->
+<!-- Battle Tank turret. Origin on the turret ring axis at mount height; gun faces +X. The wedge is a top-view profile swept up and tapered. Team paint, with a navy roof plate and a white cupola ring. -->
 <prefab up="y" front="+x">
   <include src="../../../utilities.xml"/>
   <include src="../../../kit.xml"/>
@@ -9,17 +9,17 @@
   <let name="kick" value="fire == 1 ? 14 : (fire == 2 ? 6 : 0)"/>
 
   <group scale="1.12 1.12 1.12">
-    <shape closed="1" v="64 0 36 40 -38 46 -60 30 -60 -30 -38 -46 36 -40" rot="90 0 0" material="armor">
-      <extrude amount="38"/><bevel amount="2" bevelSegments="1"/>
+    <shape closed="1" v="64 0 36 40 -38 46 -60 30 -60 -30 -38 -46 36 -40" rot="90 0 0" material="team" tint="1">
+      <extrude amount="38"/><bevel amount="4" bevelSegments="2"/>
       <taper center="0 0 0" amount="0.34" axis="z"/>
     </shape>
-    <shape closed="1" v="40 0 24 28 -28 32 -44 20 -44 -20 -28 -32 24 -28" rot="90 0 0" pos="0 19.5 0" material="team" tint="1">
+    <shape closed="1" v="40 0 24 28 -28 32 -44 20 -44 -20 -28 -32 24 -28" rot="90 0 0" pos="0 19.5 0" material="trim">
       <extrude amount="1.5"/>
     </shape>
     <!-- commander's cupola, hatch, smoke dischargers, bustle rack, antenna -->
     <cylinder radius="13" height="10" sides="8" pos="-24 25 22" material="gunmetal"/>
-    <cylinder radius="14" height="3" sides="8" pos="-24 21.5 22" material="team" tint="1"/>
-    <box size="16 6 16" pos="-10 21 -22" material="armor_dark"/>
+    <cylinder radius="14" height="3" sides="8" pos="-24 21.5 22" material="trim_light"/>
+    <box size="16 6 16" pos="-10 21 -22" material="trim"/>
     <cylinder radius="3" height="12" sides="6" rot="0 0 -60" pos="28 10 30" material="steel_dark"><array count="3" translation="0 0 -5"/></cylinder>
     <cylinder radius="3" height="12" sides="6" rot="0 0 -60" pos="28 10 -20" material="steel_dark"><array count="3" translation="0 0 -5"/></cylinder>
     <box size="20 12 64" pos="-62 2 0" material="steel_dark"/>

@@ -8,7 +8,7 @@
   <let name="fire" value="0"/>
   <let name="kick" value="fire == 1 ? 10 : (fire == 2 ? 4 : 0)"/>
 
-  <shape closed="1" v="54 0 30 40 -36 44 -52 26 -52 -26 -36 -44 30 -40" rot="90 0 0" pos="0 2 0" material="paint_plain" tint="1">
+  <shape closed="1" v="54 0 30 40 -36 44 -52 26 -52 -26 -36 -44 30 -40" rot="90 0 0" pos="0 2 0" material="team" tint="1">
     <fillet radius="8" segments="2"/><extrude amount="36"/><bevel amount="6" bevelSegments="2"/>
     <taper center="0 0 0" amount="0.3" axis="z"/>
   </shape>

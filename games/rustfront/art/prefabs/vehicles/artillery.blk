@@ -2,7 +2,8 @@
 <!-- Self-propelled Artillery. Length 270 cm on X, width 156 cm on Z, origin at the hull centre
      on the ground, gun faces +X. Tracked chassis with skirts, a big faceted casemate at the
      back (tapered top-view profile), and a very long howitzer raised 28 degrees on a
-     trunnion cradle; folded recoil spades and ammunition racks at the rear. -->
+     trunnion cradle; folded recoil spades and ammunition racks at the rear. Team paint, with a
+     navy roof plate. -->
 <prefab up="y" front="+x">
   <include src="../../utilities.xml"/>
   <include src="../../kit.xml"/>
@@ -16,12 +17,12 @@
   <soft-box width="256" height="42" depth="38" radius="19" bevel="3" pos="0 21 -58" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
   <cylinder radius="13" height="40" sides="10" rot="90 0 {18*move}" pos="-100 19 58" material="steel_dark"><array count="6" translation="40 0 0"/></cylinder>
   <cylinder radius="13" height="40" sides="10" rot="90 0 {18*move}" pos="-100 19 -58" material="steel_dark"><array count="6" translation="40 0 0"/></cylinder>
-  <box size="230 20 5" rot="-14 0 0" pos="-4 42 79" material="armor"/>
-  <box size="230 20 5" rot="14 0 0" pos="-4 42 -79" material="armor"/>
+  <box size="230 20 5" rot="-14 0 0" pos="-4 42 79" material="team" tint="1"/>
+  <box size="230 20 5" rot="14 0 0" pos="-4 42 -79" material="team" tint="1"/>
 
   <!-- low hull -->
-  <shape closed="1" v="-130 36 110 36 134 52 116 70 -130 70" material="armor">
-    <extrude amount="144"/><bevel amount="2" bevelSegments="1"/>
+  <shape closed="1" v="-130 36 110 36 134 52 116 70 -130 70" material="paint_plain" tint="1">
+    <extrude amount="144"/><bevel amount="4" bevelSegments="2"/>
     <taper center="0 36 0" amount="-0.12" axis="y" effect="z"/>
   </shape>
   <box size="6 8 120" pos="132 50 0" material="hazard"/>
@@ -30,11 +31,11 @@
 
   <!-- casemate -->
   <group pos="-40 96 0">
-    <shape closed="1" v="70 0 52 52 -66 56 -78 40 -78 -40 -66 -56 52 -52" rot="90 0 0" material="armor">
-      <extrude amount="52"/><bevel amount="2" bevelSegments="1"/>
+    <shape closed="1" v="70 0 52 52 -66 56 -78 40 -78 -40 -66 -56 52 -52" rot="90 0 0" material="team" tint="1">
+      <extrude amount="52"/><bevel amount="4" bevelSegments="2"/>
       <taper center="0 0 0" amount="0.3" axis="z"/>
     </shape>
-    <shape closed="1" v="50 0 36 38 -50 40 -60 28 -60 -28 -50 -40 36 -38" rot="90 0 0" pos="0 26.6 0" material="team" tint="1">
+    <shape closed="1" v="50 0 36 38 -50 40 -60 28 -60 -28 -50 -40 36 -38" rot="90 0 0" pos="0 26.6 0" material="trim">
       <extrude amount="1.2"/>
     </shape>
     <cylinder radius="11" height="8" sides="8" pos="-40 30 26" material="gunmetal"/>
