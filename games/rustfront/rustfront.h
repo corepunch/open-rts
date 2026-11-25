@@ -34,6 +34,7 @@ void RF_ClearMinedOre(level_t *map);
  * projectile that does its damage on arrival; everything else hits at once. */
 bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 void A_RfImpact(mobj_t *projectile);
+void RF_MobjTicker(mobj_t *mobj);
 void RF_TrailRockets(mobj_t *const *mobjs, int count);
 bool RF_ImpactInProgress(void);
 

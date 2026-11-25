@@ -70,7 +70,8 @@ enum {
 };
 
 /* Infantry logical frames, in the order of their sheet's animations (art/sprites.py). */
-enum { INF_IDLE = 0, INF_WALK = 1, INF_FIRE = 7, INF_DIE = 9, INF_FRAMES = 15 };
+enum { INF_IDLE = 0, INF_IDLE_FRAMES = 4, INF_WALK = 4, INF_WALK_FRAMES = 6, INF_FIRE = 10,
+       INF_DIE = 12, INF_DIE_FRAMES = 7, INF_FRAMES = 19 };
 /* Vehicle frames (art/sprites.py MOVE and MOVE_FIRE): 0 standing, 1 the running gear a step
  * on, 2 the body's own gun firing. A turret sheet is 0 idle, 1 the shot, 2 run-out. */
 enum { VEH_STAND = 0, VEH_STEP = 1, VEH_SHOT = 2, TURRET_SHOT = 1 };

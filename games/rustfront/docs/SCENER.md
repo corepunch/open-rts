@@ -288,10 +288,16 @@ scene stands it up with `rot="-90 90 0"` (Y up, facing +X).
 
 | Animation | Source | Frames |
 |---|---|---|
-| idle | the `Ready` pose | 1 |
-| walk | `<gait mode="spot">` with `Ready` masked onto the arms and weapon; one measured stride of 1.10 s from t = 1.20 | 6 |
-| fire | the `Fire` clip: `Aim`, then `Recoil` (stepped) | 2 |
-| die | the `Die` clip: `Aim` → `Hit` → `Falling` → `Dead`, falling flat on the back | 6 |
+| idle | the `Idle` clip: `Ready` with a slow look left and right and a weight shift | 4 |
+| walk | a running `<gait mode="spot">` (stride 170 cm, 0.5 s a cycle, more lift, bounce, hip and spine twist) under the `Run` pose (torso leaning in, weapon carried low) plus the additive `RunBob` chest nod; one stride sampled after the ramp | 6 |
+| fire, fire2 | the `Fire` clip: `Aim` (feet apart, knees bent, weight forward) with the muzzle flash, then `Recoil` (the torso thrown back) | 1 + 1 |
+| die | the `Die` clip: `Hit` (the spine snaps into an arc, head and arms fly back), `Thrown` (off the ground), `Land`, `Dead` (sprawled) | 7 |
+
+The motion follows what makes Ecstatica's hero lively, studied from its imported
+run, hit and death actions (`apps/scener/imports/ecstatica`): long strides with
+the torso leaning in, weight shifts when standing, and arcs through the spine,
+head and arms on a hit, with the body leaving the ground. The clips are authored
+here from scratch. Ecstatica's motion data belongs to that game and is not used.
 
 Infantry have 8 facings. `sprites.py` renders each animation frame with
 `--time`, at every facing, through the colour, team and shadow passes. A sheet
@@ -302,11 +308,18 @@ row to `INFANTRY` in `sprites.py`.
 
 Pose rules learned here:
 
-- **Limb IK offsets are from the standing rest pose,** in the body frame. Once
-  the pelvis drops (in a fall), they point at thin air. Pose falling limbs with
-  joint `aim`s instead, which follow the parent.
-- **Measure the gait.** Sample foot heights with `--list-joints` over time, and
-  take frames from one steady stride, after the starting steps.
+- **Limb IK offsets are in the instance's frame, from the standing rest pose.**
+  When a pose leans or lowers the torso, move the hand offsets by the same
+  amount or the hands leave the weapon. Once the body falls they point at thin
+  air, so pose falling limbs with joint `aim`s, which follow the parent.
+- **Don't freeze the torso.** A gait under a pose that pins the whole upper body
+  reads as stiff. Lean the spine, let the gait twist the hips and spine, and add
+  a small additive clip in step with the stride.
+- **Sample one steady stride.** A gait's cycle is `stride / speed` seconds. Take
+  the frames after its ramp-up (one cycle by default).
+- **A slow idle must not slow reactions.** The game's idle run shows each frame
+  for 12 tics, so the per-tic lookout lives in `RF_MobjTicker`, not in the
+  state's action.
 
 Scener can also play Ecstatica II's decoded actions (`apps/scener/imports/ecstatica`)
 and CMU or Mixamo motion capture through `<layer mocap>`. The shipped soldiers use

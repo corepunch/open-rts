@@ -384,58 +384,58 @@
   "anims": {
    "die": {
     "facings": 8,
-    "frames": 6,
-    "start": 72
+    "frames": 7,
+    "start": 96
    },
    "fire": {
     "facings": 8,
     "frames": 1,
-    "start": 56
+    "start": 80
    },
    "fire2": {
     "facings": 8,
     "frames": 1,
-    "start": 64
+    "start": 88
    },
    "idle": {
     "facings": 8,
-    "frames": 1,
+    "frames": 4,
     "start": 0
    },
    "walk": {
     "facings": 8,
     "frames": 6,
-    "start": 8
+    "start": 32
    }
   },
   "facings": 8,
   "layers": {
    "body": {
-    "columns": 11,
-    "count": 120,
+    "columns": 13,
+    "count": 152,
     "file": "rifleman_body.png",
     "frame": [
-     66,
-     62
+     72,
+     68
     ],
     "pivot": [
-     33.0,
-     42.0
+     36.0,
+     46.0
     ],
     "team": "rifleman_body_team.png"
    }
   },
   "shadow": {
-   "columns": 11,
-   "count": 120,
+   "columns": 13,
+   "count": 152,
    "file": "rifleman_shadow.png",
    "frame": [
-    77,
-    46
+    89,
+    55
    ],
    "pivot": [
-    30,
-    25
+    34,
+    32
    ]
   }
  },
@@ -443,58 +443,58 @@
   "anims": {
    "die": {
     "facings": 8,
-    "frames": 6,
-    "start": 72
+    "frames": 7,
+    "start": 96
    },
    "fire": {
     "facings": 8,
     "frames": 1,
-    "start": 56
+    "start": 80
    },
    "fire2": {
     "facings": 8,
     "frames": 1,
-    "start": 64
+    "start": 88
    },
    "idle": {
     "facings": 8,
-    "frames": 1,
+    "frames": 4,
     "start": 0
    },
    "walk": {
     "facings": 8,
     "frames": 6,
-    "start": 8
+    "start": 32
    }
   },
   "facings": 8,
   "layers": {
    "body": {
-    "columns": 11,
-    "count": 120,
+    "columns": 13,
+    "count": 152,
     "file": "rocket_body.png",
     "frame": [
-     66,
-     63
+     78,
+     71
     ],
     "pivot": [
-     33.0,
-     43.0
+     39.0,
+     49.0
     ],
     "team": "rocket_body_team.png"
    }
   },
   "shadow": {
-   "columns": 11,
-   "count": 120,
+   "columns": 13,
+   "count": 152,
    "file": "rocket_shadow.png",
    "frame": [
-    77,
-    47
+    91,
+    57
    ],
    "pivot": [
-    30,
-    26
+    34,
+    34
    ]
   }
  },

@@ -26,13 +26,15 @@ const char *const sprnames[NUMSPRITES] = {
     [move]  = {spr, VEH_STAND, 2, 3, NULL, move, 2, NULL}, \
     [fire]  = {spr, VEH_SHOT, 1, 3, A_Attack, fire2, 3, NULL}, \
     [fire2] = {spr, VEH_STAND, 1, settle, NULL, stnd, 3, NULL}
+/* Idle looks around slowly (RF_MobjTicker keeps the lookout every tic), the run cycle is one
+ * stride, a shot is the firing frame then the recoil, and death is the fall then the body. */
 #define SOLDIER(spr, stnd, walk, fire, fire2, die, corpse) \
-    [stnd]   = {spr, INF_IDLE, 1, 1, A_Look, stnd, 0, NULL}, \
-    [walk]   = {spr, INF_WALK, 6, 4, NULL, walk, 2, NULL}, \
+    [stnd]   = {spr, INF_IDLE, INF_IDLE_FRAMES, 12, NULL, stnd, 0, NULL}, \
+    [walk]   = {spr, INF_WALK, INF_WALK_FRAMES, 3, NULL, walk, 2, NULL}, \
     [fire]   = {spr, INF_FIRE, 1, 3, A_Attack, fire2, 3, NULL}, \
-    [fire2]  = {spr, INF_FIRE + 1, 1, 4, NULL, stnd, 3, NULL}, \
-    [die]    = {spr, INF_DIE, 6, 4, NULL, corpse, 0, NULL}, \
-    [corpse] = {spr, INF_DIE + 5, 1, 300, NULL, S_NULL, 0, NULL}
+    [fire2]  = {spr, INF_FIRE + 1, 1, 5, NULL, stnd, 3, NULL}, \
+    [die]    = {spr, INF_DIE, INF_DIE_FRAMES, 3, NULL, corpse, 0, NULL}, \
+    [corpse] = {spr, INF_DIE + INF_DIE_FRAMES - 1, 1, 300, NULL, S_NULL, 0, NULL}
 
 const state_t states[NUMSTATES] = {
     [S_NULL] = {0, 0, 0, -1, NULL, S_NULL, 0, NULL},
@@ -109,4 +111,5 @@ const gameinfo_t game_info = {
     .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
     .team_palettes = true,
     .attack = RF_Attack,
+    .mobj_ticker = RF_MobjTicker,
 };

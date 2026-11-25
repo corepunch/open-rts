@@ -81,3 +81,11 @@ void RF_TrailRockets(mobj_t *const *mobjs, int count) {
         puff->allegiance = ALLEGIANCE_NEUTRAL;
     }
 }
+
+/* gameinfo_t.mobj_ticker: a standing soldier keeps looking for targets every tic, whatever
+ * frame of its slow idle loop is showing. */
+void RF_MobjTicker(mobj_t *mobj) {
+    if ((mobj->type_id == MT_RIFLEMAN || mobj->type_id == MT_ROCKET) && mobj->hp > 0 &&
+        mobj->core.state_id == mobjinfo[mobj->type_id].spawnstate)
+        A_Look(mobj);
+}

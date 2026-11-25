@@ -112,19 +112,22 @@ UNITS = {
 # Infantry: one animated layer, 8 facings. Each animation is the instance's children (a gait,
 # layers playing the soldier's own poses and clips) sampled at fixed --time values. The
 # soldier prefab is Z up facing -Y; rot="-90 90 0" stands it in this Y-up world facing +X.
-WALK_CYCLE, WALK_FROM, WALK_FRAMES = 1.10, 1.20, 6      # a steady spot-gait stride, measured
+RUN_CYCLE, RUN_FROM, RUN_FRAMES = 0.5, 1.5, 6        # stride / speed; sampled after the ramp
 INFANTRY_ROT = "-90 90 0"
+RUN = ('<gait mode="spot" start="0" stride="170" speed="340" lift="20" swing="0.5" bounce="5" crouch="5"'
+       ' hipTwist="12" spineTwist="8" footRoll="30"/>'
+       '<layer pose="Run" mask="spine left_collarbone right_collarbone weapon head"/>'
+       '<layer clip="RunBob" mode="additive"/>')
 ANIMS = [
-    ("idle", ' pose="Ready"', "", [0.0]),
-    ("walk", "", '<gait mode="spot" start="0"/><layer pose="Ready" mask="left_collarbone right_collarbone weapon"/>',
-     [round(WALK_FROM + i * WALK_CYCLE / WALK_FRAMES, 4) for i in range(WALK_FRAMES)]),
+    ("idle", "", '<layer clip="Idle"/>', [0.0, 0.6, 1.2, 1.8]),
+    ("walk", "", RUN, [round(RUN_FROM + i * RUN_CYCLE / RUN_FRAMES, 4) for i in range(RUN_FRAMES)]),
     ("fire", "", '<layer clip="Fire"/><option name="flash" enabled="1"/>', [0.05]),
     ("fire2", "", '<layer clip="Fire"/>', [0.15]),
-    ("die", "", '<layer clip="Die"/>', [0.1, 0.22, 0.34, 0.46, 0.6, 0.8]),
+    ("die", "", '<layer clip="Die"/>', [0.08, 0.2, 0.34, 0.48, 0.62, 0.76, 0.95]),
 ]
 INFANTRY = {
-    "rifleman": dict(prefab="infantry/rifleman", facings=8, frame=(112, 96), centre=60, anims=ANIMS),
-    "rocket":   dict(prefab="infantry/rocket", facings=8, frame=(120, 96), centre=60, anims=ANIMS),
+    "rifleman": dict(prefab="infantry/rifleman", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "rocket":   dict(prefab="infantry/rocket", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
 }
 ALL_UNITS = list(UNITS) + list(INFANTRY)
 

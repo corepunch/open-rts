@@ -33,10 +33,10 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"apc", "hull", "apc_hull.pcx", 177, 156, 6, 32, 140, 128, 2, NULL},
     {"apc", "turret", "apc_turret.pcx", 72, 48, 7, 48, 36, 24, 3, rf_mount_apc_turret},
     {"apc", "shadow", "apc_shadow.pcx", 177, 156, 8, 32, 140, 128, 2, NULL},
-    {"rifleman", "body", "rifleman_body.pcx", 80, 63, 11, 120, 33, 42, 1, NULL},
-    {"rifleman", "shadow", "rifleman_shadow.pcx", 80, 63, 11, 120, 33, 42, 1, NULL},
-    {"rocket", "body", "rocket_body.pcx", 80, 64, 11, 120, 33, 43, 1, NULL},
-    {"rocket", "shadow", "rocket_shadow.pcx", 80, 64, 11, 120, 33, 43, 1, NULL},
+    {"rifleman", "body", "rifleman_body.pcx", 91, 69, 13, 152, 36, 46, 1, NULL},
+    {"rifleman", "shadow", "rifleman_shadow.pcx", 91, 69, 13, 152, 36, 46, 1, NULL},
+    {"rocket", "body", "rocket_body.pcx", 96, 72, 13, 152, 39, 49, 1, NULL},
+    {"rocket", "shadow", "rocket_shadow.pcx", 96, 72, 13, 152, 39, 49, 1, NULL},
     {"fx", "shell", "fx_shell.pcx", 16, 16, 16, 16, 8, 8, 1, NULL},
     {"fx", "rocket", "fx_rocket.pcx", 24, 24, 16, 16, 12, 12, 1, NULL},
     {"fx", "smoke", "fx_smoke.pcx", 12, 12, 5, 5, 6, 6, 5, NULL},
@@ -48,16 +48,16 @@ static const rf_sheetdef_t rf_sheets[] = {
 
 /* Infantry animations: frame = start + facing * frames + frame, facings counter-clockwise from +X. */
 static const rf_animdef_t rf_anims[] = {
-    {"rifleman", "idle", 0, 1, 8},
-    {"rifleman", "walk", 8, 6, 8},
-    {"rifleman", "fire", 56, 1, 8},
-    {"rifleman", "fire2", 64, 1, 8},
-    {"rifleman", "die", 72, 6, 8},
-    {"rocket", "idle", 0, 1, 8},
-    {"rocket", "walk", 8, 6, 8},
-    {"rocket", "fire", 56, 1, 8},
-    {"rocket", "fire2", 64, 1, 8},
-    {"rocket", "die", 72, 6, 8},
+    {"rifleman", "idle", 0, 4, 8},
+    {"rifleman", "walk", 32, 6, 8},
+    {"rifleman", "fire", 80, 1, 8},
+    {"rifleman", "fire2", 88, 1, 8},
+    {"rifleman", "die", 96, 7, 8},
+    {"rocket", "idle", 0, 4, 8},
+    {"rocket", "walk", 32, 6, 8},
+    {"rocket", "fire", 80, 1, 8},
+    {"rocket", "fire2", 88, 1, 8},
+    {"rocket", "die", 96, 7, 8},
 };
 
 /* Build icons (art/icons.py): assets/icons.pcx, one 64x48 cell per name, left to right. */
