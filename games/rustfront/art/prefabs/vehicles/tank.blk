@@ -1,59 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Battle Tank. Length 250 cm on X, width 156 cm on Z, origin at the hull centre on the
-     ground, gun faces +X (front="+x"); rotate the instance to aim it. Faceted hull with
-     sloped side skirts over textured tracks, a wedge turret drawn as a tapered top-view
-     profile, a long gun with a fume extractor and muzzle brake. Team colour on the turret
-     roof, skirt stripe and the commander's cupola ring. -->
+<!-- Battle Tank, assembled: tank/hull plus tank/turret on its ring at (-12, 102, 0). Length 250 cm on X, origin at the hull centre on the ground, gun faces +X. Sprites render hull and turret as separate layers (art/sprites.py). -->
 <prefab up="y" front="+x">
-  <include src="../../utilities.xml"/>
-  <include src="../../kit.xml"/>
-  <!-- tracks and running gear -->
-  <soft-box width="246" height="46" depth="38" radius="21" bevel="3" pos="0 23 58" material="track"/>
-  <soft-box width="246" height="46" depth="38" radius="21" bevel="3" pos="0 23 -58" material="track"/>
-  <cylinder radius="14" height="40" sides="10" rot="90 0 0" pos="-84 20 58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
-  <cylinder radius="14" height="40" sides="10" rot="90 0 0" pos="-84 20 -58" material="steel_dark"><array count="5" translation="42 0 0"/></cylinder>
-  <!-- side skirts: plates leaning out over the tracks -->
-  <box size="210 24 5" rot="-14 0 0" pos="-6 46 79" material="armor"/>
-  <box size="210 24 5" rot="14 0 0" pos="-6 46 -79" material="armor"/>
-  <box size="210 5 6" rot="-14 0 0" pos="-6 41 80.5" material="team" tint="1"/>
-  <box size="210 5 6" rot="14 0 0" pos="-6 41 -80.5" material="team" tint="1"/>
-
-  <!-- hull: side profile with a sharp glacis, sides leaning in -->
-  <shape closed="1" v="-120 40 98 40 128 56 104 82 -112 82 -124 66" material="armor">
-    <extrude amount="140"/><bevel amount="2" bevelSegments="1"/>
-    <taper center="0 40 0" amount="-0.16" axis="y" effect="z"/>
-  </shape>
-  <box size="40 4 116" pos="-90 83.5 0" material="grating"/>
-  <box size="18 16 26" pos="-118 70 34" material="gunmetal"/>
-  <box size="18 16 26" pos="-118 70 -34" material="gunmetal"/>
-  <box size="30 12 22" pos="-60 88 52" material="armor_dark"/>
-  <box size="4 4 3" pos="124 62 44" material="lamp" unlit="1" castShadow="0"/>
-  <box size="4 4 3" pos="124 62 -44" material="lamp" unlit="1" castShadow="0"/>
-  <box size="6 10 10" pos="122 62 44" material="steel_dark"/>
-  <box size="6 10 10" pos="122 62 -44" material="steel_dark"/>
-
-  <!-- turret: a wedge, the top view swept up and tapered -->
-  <group pos="-12 102 0" scale="1.12 1.12 1.12">
-    <shape closed="1" v="64 0 36 40 -38 46 -60 30 -60 -30 -38 -46 36 -40" rot="90 0 0" material="armor">
-      <extrude amount="38"/><bevel amount="2" bevelSegments="1"/>
-      <taper center="0 0 0" amount="0.34" axis="z"/>
-    </shape>
-    <shape closed="1" v="40 0 24 28 -28 32 -44 20 -44 -20 -28 -32 24 -28" rot="90 0 0" pos="0 19.5 0" material="team" tint="1">
-      <extrude amount="1.5"/>
-    </shape>
-    <!-- commander's cupola, hatch, smoke dischargers, bustle rack, antenna -->
-    <cylinder radius="13" height="10" sides="8" pos="-24 25 22" material="gunmetal"/>
-    <cylinder radius="14" height="3" sides="8" pos="-24 21.5 22" material="team" tint="1"/>
-    <box size="16 6 16" pos="-10 21 -22" material="armor_dark"/>
-    <cylinder radius="3" height="12" sides="6" rot="0 0 -60" pos="28 10 30" material="steel_dark"><array count="3" translation="0 0 -5"/></cylinder>
-    <cylinder radius="3" height="12" sides="6" rot="0 0 -60" pos="28 10 -20" material="steel_dark"><array count="3" translation="0 0 -5"/></cylinder>
-    <box size="20 12 64" pos="-62 2 0" material="steel_dark"/>
-    <box size="16 9 58" pos="-62 11 0" material="sandbag"/>
-    <cylinder radius="1" height="90" sides="5" pos="-48 62 -30" material="steel_dark"/>
-    <!-- gun -->
-    <box size="30 26 34" pos="62 0 0" material="gunmetal"/>
-    <cylinder radius="5.5" height="150" sides="10" rot="0 0 -90" pos="150 0 0" material="steel_dark"/>
-    <cylinder radius="8" height="22" sides="10" rot="0 0 -90" pos="130 0 0" material="gunmetal"/>
-    <box size="18 13 15" pos="226 0 0" material="steel_dark"/>
-  </group>
+  <prefab source="vehicles/tank/hull"/>
+  <prefab source="vehicles/tank/turret" pos="-12 102 0"/>
 </prefab>

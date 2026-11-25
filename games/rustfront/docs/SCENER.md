@@ -50,10 +50,15 @@ art/units.blks          GENERATED scene; edit layout.py, never this file
 art/utilities.xml       copy of Scener's utilities (soft-box, slab, beam, tube, column)
 art/kit.xml             Rustfront's detail kit: bunker, railing, ladder, vent, warn-light,
                         floodlight, sandbags
-art/prefabs/buildings/  one .blk per building
-art/prefabs/vehicles/   one .blk per vehicle
-art/render.sh           check + render
-art/previews/           committed one-angle previews (camera name = file name)
+art/prefabs/buildings/  one .blk per building (turret/ holds the gun turret's base and head)
+art/prefabs/vehicles/   one .blk per vehicle (tank/ and apc/ hold hull and turret layers)
+art/render.sh           check + render the previews
+art/previews/           committed one-angle previews (camera name = file name) and
+                        sprites_contact.png
+art/sprites.py          renders the game sprites into ../sprites/ (see Game sprites)
+art/contact.py          composites those sprites as the game would, as a check
+art/.build/             sprites.py's scratch scenes and renders (ignored by git)
+sprites/                packed sprite sheets and sprites.json
 ```
 
 Each unit is one prefab, and the scene only places them. A prefab takes its
@@ -121,14 +126,17 @@ first.
 
 ## Lighting
 
-- **Key sun:** `dir="0.99 -1.25 -0.42"`, warm, intensity 1.2. Light comes from
+- **Key sun:** `dir="0.99 -1.25 -0.42"`, warm, intensity 1.25. Light comes from
   the screen's upper left, so fronts (+Z) are lit and hard shadows fall to the
   right.
-- **Fill sun:** a weak, cool, shadowless sun from the opposite side, so the +X
-  faces are dark but not black.
-- **Ambient:** 0.24, with `skyReflection="2"` for a sheen on metal. Scener's
-  skill says to keep ambient at or below about 0.35: higher ambient flattens
-  the cast shadows.
+- **Shade is dark and keeps its colour.** The fill is a weak *warm* shadowless
+  sun from the opposite side (intensity 0.14), and the ambient is a low warm
+  0.17 0.15 0.13, which multiplies each material's own hue. A cool blue fill
+  or strong sky reflection washes shaded faces out to grey-blue; don't use one.
+  `skyReflection` stays at 0.6. Scener's skill says to keep ambient at or below
+  about 0.35: higher ambient flattens the cast shadows.
+- All of this lives in `layout.py` (`SCENE_ATTRS`, `KEY_SUN`, `LIGHTS`), and
+  `sprites.py` uses the same constants.
 - **Emitters:** lamps, glow strips and flames are shapes with
   `unlit="1" castShadow="0"`. `unlit` is a shape attribute. On a `<material>`
   the checker reports it as ignored.
@@ -203,19 +211,62 @@ scener --check units.blks --json                 # every issue with file and lin
 
 Treat `--check` as a gate, not a reviewer: always look at the render.
 
-## Toward game sprites (not done yet)
+## Game sprites
 
-The previews are single-angle and are drawn on a sand ground. For game sprites,
-follow nile-archive's pipeline:
+```sh
+python3 games/rustfront/art/sprites.py          # every unit, about 25 s
+python3 games/rustfront/art/sprites.py tank hq  # just these
+python3 games/rustfront/art/contact.py          # composite check -> previews/sprites_contact.png
+```
 
-- **Sprites:** render each unit alone with `--transparent` and
-  `--supersample 3`, with the ground hidden or removed. Keep the per-camera
-  `size` and `ortho`, so the pivot stays on a whole pixel.
-- **Shadows:** a second pass draws the same groups with `renderable="0"` (they
-  still cast shadows) onto a white catcher, lit by the key sun only. The engine
-  draws that shadow layer under the sprite.
-- **Facings:** vehicles need 8 or 16 headings. Add one camera per heading, or
-  one camera with `<transform target="tank" rot="0 θ 0"/>` overrides. A
-  generator script should write these instead of hand-editing XML.
-- **Turrets:** the tank, APC and gun turret turrets should become their own
-  prefabs, so the turret can turn apart from the hull.
+`sprites.py` writes three scenes into `art/.build/` and renders each with
+`--supersample 3`. All of them use the preview's view, scale and lights.
+
+| Pass | Scene | Gives |
+|---|---|---|
+| colour | the unit with team colour black, `--transparent` | `<unit>_<layer>.png` |
+| team | the same with team colour white | `<unit>_<layer>_team.png` = white − black, a greyscale mask |
+| shadow | the assembled unit inside `<group renderable="0">` (hidden, still casting) over a white catcher, key sun only, no ambient | `<unit>_shadow.png`, black with alpha = darkness × 0.6 |
+
+The game draws a pixel as `base + team_colour × mask / 255` per sRGB channel.
+That is an approximation (lighting is linear), but it reads right; see the red
+and blue rows of the contact sheet.
+
+**Facings.** Vehicles and turret heads have 16 facings, and buildings have
+one. Facing *i* is a turn of *i* × 360/16 degrees about +Y, counter-clockwise
+seen from above, starting from the prefab's front (+X for vehicles and heads).
+Each facing is a camera with a `<transform target rot>` override on a single
+instance, so the light stays fixed while the unit turns.
+
+**Layers.** The tank, the APC and the gun turret have a separately rotating top.
+`prefabs/vehicles/tank.blk` assembles `tank/hull` with `tank/turret` at its
+mount. The sprites render each part alone: the hull about its ground origin,
+the turret about its axis at mount height. For every hull facing,
+`sprites.json` gives `mount_px`, the pixel offset of the turret axis from the
+hull pivot. Draw the turret frame with its pivot at `hull pivot + mount_px[hull
+facing]`. The shadow is of the assembled unit with the turret in line with the
+hull.
+
+**Sheets.** Each layer's frames are cropped to their common bounds and laid out
+in a grid (`columns`), so every frame of a sheet has one size and one `pivot`.
+The pivot is the anchor's screen position in the cropped frame. Each camera
+puts it on a pixel corner, at `(W/2, H/2 + k)`.
+
+```json
+"tank": {"facings": 16,
+  "layers": {"hull":   {"file": "tank_hull.png", "team": "tank_hull_team.png",
+                        "frame": [190, 154], "columns": 4, "count": 16, "pivot": [..]},
+             "turret": {"file": "tank_turret.png", ..., "mount_px": [[dx, dy], ... 16]}},
+  "shadow": {"file": "tank_shadow.png", "frame": [..], "pivot": [..], ...}}
+```
+
+Draw in this order: every unit's shadow (under all units), then each layer, in
+the order listed.
+
+Not done yet:
+
+- **Animation** (firing, harvesting, construction) would be more `--frames` or
+  transform cameras in the same way.
+- **The game engine side.** Nothing in open-rts loads `sprites.json` yet.
+- **The turret shadow** follows the hull. Exact turret shadows would need a
+  shadow per (hull, turret) pair, or a separate turret shadow layer.

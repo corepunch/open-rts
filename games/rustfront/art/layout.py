@@ -70,6 +70,15 @@ PALETTE = """\
   </material>"""
 
 
+# Shade stays dark and keeps its colour: a low warm ambient (it multiplies each material's own
+# hue) and a weak warm fill, never a cool blue one, which washes shaded faces out to grey-blue.
+SCENE_ATTRS = 'ambient="0.17 0.15 0.13" skyReflection="0.6"'
+KEY_SUN = '<sun dir="0.99 -1.25 -0.42" color="1.0 0.93 0.80" intensity="1.25" castShadows="1"/>'
+LIGHTS = """  <!-- hard key from the screen's upper left, shadows fall to the right; weak warm fill -->
+  """ + KEY_SUN + """
+  <sun dir="-1 -0.6 0.3" color="1.0 0.82 0.62" intensity="0.14" castShadows="0"/>"""
+
+
 def unit(az, el):
     a, e = math.radians(az), math.radians(el)
     return (math.sin(a) * math.cos(e), math.sin(e), math.cos(a) * math.cos(e))
@@ -114,12 +123,10 @@ def main():
      Rustfront unit kit: every building and vehicle with an orthographic sprite camera.
      View: yaw {YAW:g}, elevation {ELEV:g}, {CM_PER_PX:g} cm per pixel; a cell is 200 cm.
      Team-colour parts are tint="1": each instance's color recolours them. See ../docs/SCENER.md. -->
-<scene ambient="0.24 0.25 0.28" skyReflection="2" background="0.30 0.27 0.23">
+<scene {SCENE_ATTRS} background="0.30 0.27 0.23">
 {PALETTE.replace("{TEAM}", TEAM)}
 
-  <!-- hard key from the screen's upper left, shadows fall to the right; cool shadowless fill -->
-  <sun dir="0.99 -1.25 -0.42" color="1.0 0.93 0.80" intensity="1.2" castShadows="1"/>
-  <sun dir="-1 -0.6 0.3" color="0.62 0.72 0.95" intensity="0.25" castShadows="0"/>
+{LIGHTS}
 
 {chr(10).join(cams)}
 
