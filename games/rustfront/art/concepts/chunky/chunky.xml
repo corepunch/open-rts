@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Chunky concept kit: the big painted forms of the "chunky" building style (see concept.py).
+     Include it after utilities.xml and kit.xml. -->
+<library>
+  <define name="chunk" doc="A chunky hull: a rounded-rectangle plan raised along Y, with chamfered rims and walls that lean in. Centred on pos, like a box; width and depth are the base's.">
+    <param name="width"  doc="x size at the base, cm"/>
+    <param name="height" doc="y size, cm"/>
+    <param name="depth"  doc="z size at the base, cm"/>
+    <param name="radius" default="30" doc="plan corner radius, cm"/>
+    <param name="bevel"  default="10" doc="rim chamfer, cm; below radius and half the height"/>
+    <param name="lean"   default="0.08" doc="how much smaller the top is (0.08 = 8 %)"/>
+    <param name="segments" default="4" doc="segments of each plan corner"/>
+    <shape closed="0" rot="90 0 0" v="-{(${width})*(1-(${lean})/2)/2} -{(${depth})*(1-(${lean})/2)/2} {(${width})*(1-(${lean})/2)/2} -{(${depth})*(1-(${lean})/2)/2}">
+      <shell amount="{(${depth})*(1-(${lean})/2)}"/><fillet radius="${radius}" segments="${segments}"/>
+      <extrude amount="${height}"/><bevel amount="${bevel}" bevelSegments="2"/>
+      <taper center="0 0 0" amount="{2*(${lean})/(2-(${lean}))}" axis="z"/>
+    </shape>
+  </define>
+
+  <define name="emblem" doc="The faction roundel, lying flat with its top toward -Z: a gold cog, a dark field and a white double chevron. Base on pos; stand it on a wall with a group rot.">
+    <param name="radius" default="60"/>
+    <group>
+      <star outerRadius="${radius}" innerRadius="{(${radius})*0.86}" points="14" rot="-90 0 0" pos="0 1.5 0" material="emblem_gold"><extrude amount="3"/></star>
+      <cylinder radius="{(${radius})*0.76}" height="4" sides="28" pos="0 2 0" material="emblem_dark"/>
+      <shape closed="1" rot="-90 0 0" pos="0 4.5 0" material="emblem_white"
+             v="0 {(${radius})*0.60} {(${radius})*0.52} {(${radius})*0.12} {(${radius})*0.52} {-(${radius})*0.14} 0 {(${radius})*0.32} {-(${radius})*0.52} {-(${radius})*0.14} {-(${radius})*0.52} {(${radius})*0.12}">
+        <extrude amount="2"/></shape>
+      <shape closed="1" rot="-90 0 0" pos="0 4.5 0" material="emblem_gold"
+             v="0 {(${radius})*0.16} {(${radius})*0.42} {-(${radius})*0.24} {(${radius})*0.42} {-(${radius})*0.48} 0 {-(${radius})*0.10} {-(${radius})*0.42} {-(${radius})*0.48} {-(${radius})*0.42} {-(${radius})*0.24}">
+        <extrude amount="2"/></shape>
+    </group>
+  </define>
+
+  <define name="collar" doc="A hazard-striped ring round a drum of this radius, stripes running round it. Centred on pos.">
+    <param name="radius"/><param name="height" default="16"/>
+    <param name="material" default="hazard_ring"/>
+    <group>
+      <surface segments="24 1" closed="u" material="${material}" x="(${radius})*cos(u*2*pi)" y="(${height})*(v-0.5)" z="-(${radius})*sin(u*2*pi)"/>
+      <cylinder radius="{(${radius})-0.5}" height="{(${height})-0.5}" sides="24" material="emblem_gold"/>
+    </group>
+  </define>
+
+  <define name="stack" doc="A stubby exhaust stack with a hazard collar and a dark mouth. Base on pos.">
+    <param name="radius" default="22"/><param name="height" default="110"/>
+    <group>
+      <cylinder radius="${radius}" height="${height}" sides="16" pos="0 {(${height})/2} 0" material="trim_light"/>
+      <collar radius="{(${radius})+3}" height="16" pos="0 {(${height})-18} 0"/>
+      <cylinder radius="{(${radius})+2}" height="8" sides="16" pos="0 4 0" material="trim"/>
+      <cylinder radius="{(${radius})-5}" height="2" sides="16" pos="0 {(${height})+0.5} 0" material="rubber"/>
+    </group>
+  </define>
+
+  <define name="beacon" doc="A big warning beacon on a dark cap, for the tops of pylons. Base on pos. on=&quot;{blink}&quot; blinks it.">
+    <param name="on" default="1"/>
+    <group>
+      <cylinder radius="9" height="6" sides="10" pos="0 3 0" material="trim"/>
+      <sphere radius="7" rings="6" slices="10" pos="0 9 0" material="lens_off"/>
+      <sphere radius="10" rings="6" slices="10" pos="0 9 0" material="warn" unlit="1" castShadow="0" renderable="${on}"/>
+    </group>
+  </define>
+</library>

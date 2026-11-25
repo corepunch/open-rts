@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Command Center, chunky concept. Footprint 3x3 cells (600 x 600 cm), origin at pad centre on
+     the ground, entrance faces +Z. A painted two-tier hull: a broad lower deck with a helipad and
+     a gatehouse between two beacon pylons, and a command deck with a wraparound visor under the
+     roundel. A radar dish turns on its own tower; a comms mast stands behind. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="../../chunky.xml"/>
+  <!-- Animation knobs, set per frame by art/sprites.py. -->
+  <let name="spin" value="0"/>
+  <let name="blink" value="1"/>
+  <chunk width="592" height="20" depth="592" radius="26" bevel="3" lean="0" pos="0 10 0" material="slab"/>
+
+  <!-- lower hull: y 20..120, base x ±236 z -256..164; its deck is 425 x 378 -->
+  <chunk width="488" height="24" depth="436" radius="56" bevel="2" lean="0" pos="0 32 -46" material="hazard_skirt"/>
+  <chunk width="472" height="100" depth="420" radius="50" bevel="16" lean="0.1" pos="0 70 -46" material="paint" tint="1"/>
+
+  <!-- command deck: y 120..200, x -185..105, z -195..35, with a visor all round -->
+  <chunk width="290" height="80" depth="230" radius="60" bevel="14" lean="0" pos="-40 160 -80" material="paint_plain" tint="1"/>
+  <chunk width="298" height="44" depth="238" radius="64" bevel="3" lean="0" pos="-40 164 -80" material="trim"/>
+  <chunk width="300" height="30" depth="240" radius="65" bevel="2" lean="0" pos="-40 164 -80" material="window"/>
+  <cylinder radius="74" height="8" sides="28" pos="-40 204 -80" material="trim"/>
+  <emblem radius="66" pos="-40 208 -80"/>
+
+  <!-- radar tower on the deck, back right -->
+  <cylinder radius="32" height="120" sides="20" pos="158 180 -170" material="paint_plain" tint="1"/>
+  <collar radius="35" height="16" pos="158 224 -170"/>
+  <cylinder radius="26" height="8" sides="20" pos="158 244 -170" material="trim"/>
+  <cylinder radius="8" height="16" sides="8" pos="158 256 -170" material="gunmetal"/>
+  <group pos="158 268 -170" rot="38 {30+45*spin} 0">
+    <surface segments="20 5" twoSided="1" material="trim_light" x="56*v*cos(u*2*pi)" y="17*v*v" z="-56*v*sin(u*2*pi)"/>
+    <cylinder radius="2" height="36" sides="6" pos="0 18 0" material="trim"/>
+    <sphere radius="6" rings="6" slices="8" pos="0 38 0" material="emblem_gold"/>
+  </group>
+  <!-- comms mast behind the command deck -->
+  <cone radius="9" radiusTop="3" height="150" sides="8" pos="-170 195 -200" material="trim_light"/>
+  <cylinder radius="10" height="12" sides="8" pos="-170 126 -200" material="trim"/>
+  <beacon on="{blink}" pos="-170 270 -200"/>
+
+  <!-- helipad on the deck, front left -->
+  <cylinder radius="50" height="3" sides="24" pos="-110 121.5 90" material="trim"/>
+  <cylinder radius="50" height="3.6" tube="6" sides="24" pos="-110 121.8 90" material="trim_light"/>
+  <box size="8 1 40" pos="-124 123.5 90" material="lamp" unlit="1" castShadow="0"/>
+  <box size="8 1 40" pos="-96 123.5 90" material="lamp" unlit="1" castShadow="0"/>
+  <box size="22 1 8" pos="-110 123.5 90" material="lamp" unlit="1" castShadow="0"/>
+  <!-- generator on the deck, right -->
+  <chunk width="76" height="34" depth="100" radius="14" bevel="8" lean="0.08" pos="160 137 -20" material="trim_light"/>
+  <box size="50 3 12" pos="160 154.5 -44" material="window"><array count="3" translation="0 0 24"/></box>
+
+  <!-- gatehouse, front right, between the beacon pylons -->
+  <chunk width="170" height="96" depth="70" radius="14" bevel="10" lean="0.05" pos="60 68 176" material="paint_plain" tint="1"/>
+  <box size="100 62 6" pos="60 53 209" material="steel_dark"/>
+  <box size="3 58 3" pos="60 53 212" material="gunmetal"/>
+  <box size="124 14 8" pos="60 91 208" material="hazard_big"/>
+  <box size="100 3 56" pos="60 21.5 240" material="pad_dark"/>
+  <cylinder radius="38" height="140" sides="20" pos="-206 90 138" material="paint_plain" tint="1"/>
+  <cylinder radius="38" height="140" sides="20" pos="206 90 138" material="paint_plain" tint="1"/>
+  <collar radius="41" height="18" pos="-206 140 138"/>
+  <collar radius="41" height="18" pos="206 140 138"/>
+  <cylinder radius="41" height="22" sides="20" pos="-206 31 138" material="trim"/>
+  <cylinder radius="41" height="22" sides="20" pos="206 31 138" material="trim"/>
+  <cylinder radius="32" height="6" sides="20" pos="-206 163 138" material="trim"/>
+  <cylinder radius="32" height="6" sides="20" pos="206 163 138" material="trim"/>
+  <beacon on="{blink}" pos="-206 166 138"/>
+  <beacon on="{blink}" pos="206 166 138"/>
+</prefab>
