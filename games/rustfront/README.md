@@ -25,6 +25,8 @@ and loaded by its own open-rts binary.
 
 ![A firefight and a tank going up](art/previews/combat.png)
 
+![A War Factory going up, and one burning](art/previews/construction.png)
+
 ## Play
 
 ```sh
@@ -57,7 +59,8 @@ and a red patrol. There is no computer player yet: red only defends itself.
 | War Factory | Scout, Battle Tank, APC, Artillery | — |
 | War Factory | Ore Harvester | Ore Refinery |
 
-To build a structure, click its row, then click a clear site. Click a unit's row
+To build a structure, click its row, then click a clear site: it rises there on
+scaffolding over its build time, one structure at a time. Click a unit's row
 again to queue more, up to 9. A new refinery arrives with a free harvester.
 
 **Economy:**
@@ -80,6 +83,7 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `p_prod.c` | The production catalog: costs, build times, makers, prerequisites, icons |
 | `hu_rustfront.c` | The sidebar: credits, radar, cameo build rows (the engine's product list does clicks, queues and placement) |
 | `g_combat.c` | Shells and rockets: tanks, gun turrets, artillery and rocket soldiers launch a projectile that does its damage on arrival (the artillery's arcs and splashes; rockets trail smoke) |
+| `g_build.c` | Construction sites that rise through four stages while their hit points grow; scorched looks below half health |
 | `g_mission.c` | Footprints block movement, idle harvesters go to ore, mined cells clear, a refinery brings a harvester; impact puffs and explosions on damage and death |
 | `rules.c`, `m_menu.c` | No fog, and the engine's simple menu |
 

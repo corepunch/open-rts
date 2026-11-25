@@ -368,6 +368,34 @@ have one picture for each of 16 facings, and `smoke` is the puff a rocket leaves
 every other tic. `g_combat.c` launches them through the engine's timed missile
 flight and applies the damage when they land.
 
+## Construction and damage
+
+Every structure's sheet holds three runs. `sprites.py` adds the last two
+automatically for any layer given a `structure=(footprint, height)`:
+
+| Run | Frames | Made by |
+|---|---|---|
+| working loop | the layer's own frames | its knobs |
+| scorched loop | a copy of each | `scorch()`: soot where a smooth noise field runs high, darker toward its peaks, a few embers; the team mask gets the same soot |
+| construction | 4 (`BUILD_STAGES`) | `construction()`: a generated wrapper prefab with the structure squashed to 6, 35, 65 and 90 % of its height (`<group scale>`), on a foundation slab, inside steel scaffolding with hazard rails and, from the third stage, a jib crane |
+
+The gun turret builds on its own `turret_build` sheet, because the engine draws
+a turret's head on the base sheet. A unit's shadow sheet has no shadow for the
+construction frames.
+
+In the game (`g_build.c`):
+- **Sites:** placing a Command Center structure spawns it on its site at once,
+  through the engine's construction-site hooks. It starts with a tenth of its
+  hit points and without the traits it earns on completion: a turret does not
+  shoot, a refinery takes no ore.
+- **Building:** its own production queue counts down, the hit points grow with
+  the progress, and the stage follows it.
+- **One at a time:** a side builds one structure at a time, and the sidebar
+  shows the site's progress.
+- **Damage:** below half its hit points a structure switches to its scorched
+  loop, at the same point of the loop. The mission ticker sends up smoke plumes
+  from its roof and, below a quarter, flames. Vehicles below 40 % smoke.
+
 ## Build icons
 
 `art/icons.py` renders the sidebar's 64×48 cameos into `sprites/icons.png`:
@@ -431,6 +459,6 @@ Not done yet:
 
 - **Terrain transitions:** gravel and other ground types need edge tiles before
   maps can mix them without hard squares.
-- **More animation:** construction, damaged states and harvesting.
+- **More animation:** harvesting, and vehicle wrecks.
 - **The turret shadow** follows the hull. Exact turret shadows would need a
   shadow per (hull, turret) pair, or a separate turret shadow layer.
