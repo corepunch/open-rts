@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Scout Buggy. Length 170 cm on X, width 124 cm on Z, origin at the chassis centre on the
+     ground, nose faces +X. Four big off-road wheels, a low body, a tube roll cage and a
+     cage-mounted machine gun. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <!-- wheels -->
+  <group pos="0 26 0">
+    <cylinder radius="26" height="22" sides="16" rot="90 0 0" pos="55 0 51" material="rubber"/>
+    <cylinder radius="26" height="22" sides="16" rot="90 0 0" pos="-55 0 51" material="rubber"/>
+    <cylinder radius="26" height="22" sides="16" rot="90 0 0" pos="55 0 -51" material="rubber"/>
+    <cylinder radius="26" height="22" sides="16" rot="90 0 0" pos="-55 0 -51" material="rubber"/>
+    <cylinder radius="12" height="24" rot="90 0 0" pos="55 0 51" material="steel"/>
+    <cylinder radius="12" height="24" rot="90 0 0" pos="-55 0 51" material="steel"/>
+    <cylinder radius="12" height="24" rot="90 0 0" pos="55 0 -51" material="steel"/>
+    <cylinder radius="12" height="24" rot="90 0 0" pos="-55 0 -51" material="steel"/>
+  </group>
+  <soft-box width="150" height="18" depth="76" radius="6" bevel="2" pos="0 40 0" material="steel_dark"/>
+  <!-- body -->
+  <shape closed="1" v="-76 48 58 48 84 60 44 72 -70 72" material="armor">
+    <extrude amount="82"/><bevel amount="3" bevelSegments="2"/>
+  </shape>
+  <box size="70 10 84" pos="-25 60 0" material="team" tint="1"/>
+  <sphere radius="4" pos="80 60 28" material="lamp" unlit="1" castShadow="0"/>
+  <sphere radius="4" pos="80 60 -28" material="lamp" unlit="1" castShadow="0"/>
+  <!-- roll cage -->
+  <tube ax="-46" ay="72" az="34" bx="-36" by="122" bz="30" r0="3" material="steel_dark"/>
+  <tube ax="-46" ay="72" az="-34" bx="-36" by="122" bz="-30" r0="3" material="steel_dark"/>
+  <tube ax="-36" ay="122" az="30" bx="-36" by="122" bz="-30" r0="3" material="steel_dark"/>
+  <tube ax="30" ay="72" az="34" bx="-36" by="122" bz="30" r0="3" material="steel_dark"/>
+  <tube ax="30" ay="72" az="-34" bx="-36" by="122" bz="-30" r0="3" material="steel_dark"/>
+  <!-- gun on the cage top -->
+  <cylinder radius="8" height="8" pos="-36 128 0" material="steel_dark"/>
+  <box size="34 10 10" pos="-26 137 0" material="steel_dark"/>
+  <cylinder radius="2.5" height="46" rot="0 0 -90" pos="13 137 0" material="steel_dark"/>
+  <!-- spare wheel on the back -->
+  <cylinder radius="18" height="14" sides="16" rot="0 0 90" pos="-84 62 0" material="rubber"/>
+</prefab>

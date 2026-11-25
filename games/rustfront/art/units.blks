@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rustfront unit kit: every building and vehicle, each with an orthographic sprite camera.
+     One sprite view: yaw 45, elevation 35, 1.5 cm per pixel. A cell is 200 cm.
+     Buildings sit on a row along the camera's right vector, vehicles on a second row nearer
+     the camera, so no camera frames a neighbour. Team-colour parts are tint="1": the
+     instance color recolours them. See ../docs/SCENER.md. -->
+<scene ambient="0.30 0.31 0.34" background="0.36 0.33 0.29">
+  <!-- palette: sand ground, pale concrete, worn steel, olive armour, one team colour -->
+  <material id="sand"          color="0.71 0.62 0.47" shininess="3"><map type="noise" size="60" from="0.92 0.92 0.92" to="1.06 1.05 1.03"/></material>
+  <material id="pad"           color="0.58 0.57 0.54" shininess="4"/>
+  <material id="pad_dark"      color="0.40 0.40 0.39" shininess="4"/>
+  <material id="concrete"      color="0.74 0.71 0.65" shininess="5"/>
+  <material id="concrete_dark" color="0.56 0.54 0.50" shininess="5"/>
+  <material id="steel"         color="0.58 0.60 0.63" shininess="40" metallic="0.25"/>
+  <material id="steel_dark"    color="0.30 0.32 0.35" shininess="35" metallic="0.25"/>
+  <material id="rust"          color="0.58 0.34 0.21" shininess="6"/>
+  <material id="armor"         color="0.57 0.55 0.40" shininess="12"/>
+  <material id="armor_dark"    color="0.39 0.38 0.28" shininess="12"/>
+  <material id="team"          color="0.20 0.45 0.90" shininess="18"/>
+  <material id="track"         color="0.20 0.19 0.18" shininess="6"/>
+  <material id="rubber"        color="0.13 0.13 0.14" shininess="10"/>
+  <material id="glass"         color="0.28 0.52 0.70" shininess="80"/>
+  <material id="ore"           color="0.92 0.66 0.20" shininess="30"/>
+  <material id="glow"          color="0.55 0.95 1.00"/>
+  <material id="lamp"          color="1.00 0.86 0.55"/>
+  <material id="flame"         color="1.00 0.55 0.15"/>
+  <material id="hazard"        color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 9 0" repeat="1" edge="0.5" from="0.95 0.72 0.10" to="0.12 0.11 0.10"/>
+  </material>
+  <!-- key from screen upper-left, shadows fall to screen right -->
+  <sun dir="0.99 -1.4 -0.42" color="1.0 0.95 0.86" intensity="1.0" castShadows="1"/>
+  <sun dir="-1 -0.6 0.3" color="0.70 0.78 0.95" intensity="0.22" castShadows="0"/>
+
+  <camera name="Lineup" comment="Every building and vehicle at sprite scale" pos="2882.6 2384.3 2882.6" look="565.7 90.0 565.7" ortho="1700" size="2400 680"/>
+  <camera name="CommandCenter" comment="Sprite preview: CommandCenter, 1.5 cm/px" pos="549.1 2444.3 4084.7" look="-1767.8 150.0 1767.8" ortho="864" size="640 576"/>
+  <camera name="PowerPlant" comment="Sprite preview: PowerPlant, 1.5 cm/px" pos="1256.3 2404.3 3377.6" look="-1060.7 110.0 1060.7" ortho="672" size="448 448"/>
+  <camera name="Refinery" comment="Sprite preview: Refinery, 1.5 cm/px" pos="1963.4 2414.3 2670.5" look="-353.6 120.0 353.6" ortho="768" size="640 512"/>
+  <camera name="Barracks" comment="Sprite preview: Barracks, 1.5 cm/px" pos="2670.5 2374.3 1963.4" look="353.6 80.0 -353.6" ortho="672" size="448 448"/>
+  <camera name="WarFactory" comment="Sprite preview: WarFactory, 1.5 cm/px" pos="3377.6 2434.3 1256.3" look="1060.7 140.0 -1060.7" ortho="864" size="640 576"/>
+  <camera name="GunTurret" comment="Sprite preview: GunTurret, 1.5 cm/px" pos="4084.7 2354.3 549.1" look="1767.8 60.0 -1767.8" ortho="384" size="256 256"/>
+  <camera name="ScoutBuggy" comment="Sprite preview: ScoutBuggy, 1.5 cm/px" pos="2034.1 2344.3 4862.5" look="-282.8 50.0 2545.6" ortho="384" size="320 256"/>
+  <camera name="BattleTank" comment="Sprite preview: BattleTank, 1.5 cm/px" pos="2741.2 2354.3 4155.4" look="424.3 60.0 1838.5" ortho="384" size="320 256"/>
+  <camera name="Artillery" comment="Sprite preview: Artillery, 1.5 cm/px" pos="3448.3 2364.3 3448.3" look="1131.4 70.0 1131.4" ortho="384" size="320 256"/>
+  <camera name="Harvester" comment="Sprite preview: Harvester, 1.5 cm/px" pos="4155.4 2364.3 2741.2" look="1838.5 70.0 424.3" ortho="384" size="320 256"/>
+  <camera name="APC" comment="Sprite preview: APC, 1.5 cm/px" pos="4862.5 2354.3 2034.1" look="2545.6 60.0 -282.8" ortho="384" size="320 256"/>
+
+  <!-- shadow-catching ground; drop it (or renderable="0") for transparent sprite passes -->
+  <box name="ground" size="9000 10 9000" pos="0 -5 0" material="sand"/>
+
+  <prefab source="buildings/hq" name="hq" pos="-1767.8 0 1767.8" color="0.20 0.45 0.90"/>
+  <prefab source="buildings/power" name="power" pos="-1060.7 0 1060.7" color="0.20 0.45 0.90"/>
+  <prefab source="buildings/refinery" name="refinery" pos="-353.6 0 353.6" color="0.20 0.45 0.90"/>
+  <prefab source="buildings/barracks" name="barracks" pos="353.6 0 -353.6" color="0.20 0.45 0.90"/>
+  <prefab source="buildings/factory" name="factory" pos="1060.7 0 -1060.7" color="0.20 0.45 0.90"/>
+  <prefab source="buildings/turret" name="turret" pos="1767.8 0 -1767.8" color="0.20 0.45 0.90"/>
+  <prefab source="vehicles/scout" name="scout" pos="-282.8 0 2545.6" rot="0 -90 0" color="0.20 0.45 0.90"/>
+  <prefab source="vehicles/tank" name="tank" pos="424.3 0 1838.5" rot="0 -90 0" color="0.20 0.45 0.90"/>
+  <prefab source="vehicles/artillery" name="artillery" pos="1131.4 0 1131.4" rot="0 -90 0" color="0.20 0.45 0.90"/>
+  <prefab source="vehicles/harvester" name="harvester" pos="1838.5 0 424.3" rot="0 -90 0" color="0.20 0.45 0.90"/>
+  <prefab source="vehicles/apc" name="apc" pos="2545.6 0 -282.8" rot="0 -90 0" color="0.20 0.45 0.90"/>
+</scene>

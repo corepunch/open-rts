@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Command Center. Footprint 3x3 cells (600 x 600 cm), origin at pad centre on the ground,
+     main entrance faces +Z. Stepped concrete blocks, a glazed control tower, roof radar and
+     helipad. Team colour (tint) on the roof band, canopy and helipad ring. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <slab width="600" height="20" depth="600" pos="0 10 0" material="pad"/>
+
+  <!-- lower block, y 20..150 -->
+  <soft-box width="500" height="130" depth="460" radius="24" bevel="4" pos="0 85 -10" material="concrete"/>
+  <soft-box width="506" height="14" depth="466" radius="26" bevel="3" pos="0 132 -10" material="team" tint="1"/>
+  <!-- entrance: door recess, canopy, two lamps -->
+  <box size="130 84 8" pos="-90 62 221" material="steel_dark"/>
+  <box size="4 70 4" pos="-90 55 227" material="steel"/>
+  <soft-box width="170" height="10" depth="56" radius="4" bevel="2" pos="-90 114 246" material="team" tint="1"/>
+  <sphere radius="5" pos="-160 96 226" material="lamp" unlit="1" castShadow="0"/>
+  <sphere radius="5" pos="-20 96 226" material="lamp" unlit="1" castShadow="0"/>
+  <!-- lit window strip along the right side -->
+  <box size="4 16 300" pos="252 92 -20" material="glass"/>
+
+  <!-- upper block, y 150..250 -->
+  <soft-box width="340" height="100" depth="300" radius="18" bevel="4" pos="-40 200 -50" material="concrete_dark"/>
+  <box size="280 18 4" pos="-40 215 102" material="glass"/>
+  <box size="4 18 240" pos="132 215 -50" material="glass"/>
+
+  <!-- control tower, y 150..282 -->
+  <cylinder radius="62" height="120" sides="16" pos="160 210 120" material="concrete"/>
+  <cylinder radius="64" height="28" sides="16" pos="160 246 120" material="glass"/>
+  <cone radius="74" radiusTop="56" height="14" sides="16" pos="160 277 120" material="steel_dark"/>
+  <cylinder radius="2" height="60" pos="160 314 120" material="steel"/>
+  <sphere radius="4" pos="160 346 120" material="flame" unlit="1" castShadow="0"/>
+
+  <!-- radar on the upper roof -->
+  <cylinder radius="7" height="56" pos="-130 278 -110" material="steel"/>
+  <group pos="-130 316 -110" rot="0 30 -35">
+    <cone radius="10" radiusTop="54" height="18" sides="20" material="steel"/>
+    <cylinder radius="2" height="40" pos="0 28 0" material="steel_dark"/>
+  </group>
+  <!-- antennas and roof plant -->
+  <cylinder radius="3" height="110" pos="60 305 -170" material="steel_dark"/>
+  <cylinder radius="3" height="70" pos="90 285 -175" material="steel_dark"/>
+  <box size="60 22 60" pos="30 261 -60" material="steel"/>
+  <cylinder radius="20" height="6" pos="30 275 -60" material="steel_dark"/>
+
+  <!-- helipad on the lower roof, front left -->
+  <cylinder radius="58" height="4" sides="24" pos="-160 152 165" material="pad_dark"/>
+  <cylinder radius="61" height="5" tube="6" sides="24" pos="-160 153 165" material="team" tint="1"/>
+  <box size="8 1 50" pos="-176 154.5 165" material="lamp" unlit="1" castShadow="0"/>
+  <box size="8 1 50" pos="-144 154.5 165" material="lamp" unlit="1" castShadow="0"/>
+  <box size="24 1 8" pos="-160 154.5 165" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- vents on the lower roof, back right -->
+  <box size="40 18 40" pos="200 159 -160" material="steel"><array count="3" translation="0 0 55"/></box>
+</prefab>

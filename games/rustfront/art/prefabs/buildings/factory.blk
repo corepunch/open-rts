@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- War Factory. Footprint 3x3 cells (600 x 600 cm), origin at pad centre on the ground,
+     vehicle door faces +Z. A long concrete hall with a glazed sawtooth roof, a hazard-framed
+     garage door over an apron, and a rooftop gantry crane. Team colour on the eaves band. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <slab width="600" height="20" depth="600" pos="0 10 0" material="pad"/>
+
+  <!-- hall, y 20..200, z -260..180 -->
+  <soft-box width="480" height="180" depth="440" radius="12" bevel="4" pos="0 110 -40" material="concrete"/>
+  <soft-box width="486" height="14" depth="446" radius="14" bevel="3" pos="0 188 -40" material="team" tint="1"/>
+
+  <!-- sawtooth roof: four teeth, glazed faces toward +Z -->
+  <group pos="0 200 170" rot="0 90 0">
+    <shape closed="1" v="0 0 100 0 0 58" material="steel"><extrude amount="460"/>
+      <array count="4" translation="105 0 0"/></shape>
+  </group>
+  <box size="460 46 3" pos="0 228 171.5" material="glass"><array count="4" translation="0 0 -105"/></box>
+
+  <!-- garage door -->
+  <box size="220 140 6" pos="70 90 183" material="steel_dark"/>
+  <box size="220 4 2" pos="70 50 186.5" material="steel"><array count="4" translation="0 30 0"/></box>
+  <box size="256 16 10" pos="70 168 185" material="hazard"/>
+  <box size="18 148 9" pos="-49 94 184.5" material="hazard"/>
+  <box size="18 148 9" pos="189 94 184.5" material="hazard"/>
+  <box size="240 3 100" pos="70 21.5 235" material="pad_dark"/>
+  <sphere radius="5" pos="-49 180 190" material="lamp" unlit="1" castShadow="0"/>
+  <sphere radius="5" pos="189 180 190" material="lamp" unlit="1" castShadow="0"/>
+  <!-- side office door and window -->
+  <box size="60 80 6" pos="-170 60 183" material="steel_dark"/>
+  <box size="4 20 300" pos="241 140 -40" material="glass"/>
+
+  <!-- gantry crane on the back roof -->
+  <box size="30 50 30" pos="-190 283 -230" material="steel_dark"/>
+  <beam ax="-190" ay="302" az="-230" bx="-70" by="306" bz="-120" width="14" depth="14" material="hazard"/>
+  <cylinder radius="1.5" height="30" pos="-76 288 -126" material="steel_dark"/>
+  <box size="16 8 16" pos="-76 270 -126" material="steel_dark"/>
+  <!-- stacks -->
+  <cylinder radius="18" height="130" pos="190 265 -220" material="steel"/>
+  <cylinder radius="19" height="12" pos="190 316 -220" material="hazard"/>
+</prefab>

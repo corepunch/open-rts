@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Utilities for hand-written scenes: named compositions of the engine's atoms (line, shell,
+     fillet, extrude, bevel, taper). Pull them in with <include src="utilities.xml"/> at the top of a
+     scene, then call them like elements. A call's other attributes (pos, rot, color, material,
+     castShadow, ...) go onto the utility's body, and child elements of the call are appended to it. -->
+<library>
+  <define name="soft-box" doc="A box whose vertical edges are rounded and whose rims are bevelled. Centred on pos; width along x, height along y, depth along z.">
+    <param name="width"  doc="x size, cm"/>
+    <param name="height" doc="y size, cm"/>
+    <param name="depth"  doc="z size, cm"/>
+    <param name="radius" default="6" doc="corner radius of the front outline, cm; 0 for square corners"/>
+    <param name="bevel"  default="1.5" doc="rim bevel, cm; keep it below radius and half of depth"/>
+    <param name="segments" default="2" doc="segments of each rounded corner and of the rim bevel (Blender's bevel segments)"/>
+    <shape closed="0" v="-{${width}/2} -{${height}/2} {${width}/2} -{${height}/2}">
+      <shell amount="${height}"/><fillet radius="${radius}" segments="${segments}"/><extrude amount="${depth}"/><bevel amount="${bevel}" bevelSegments="${segments}"/>
+    </shape>
+  </define>
+
+  <define name="slab" doc="A flat-faced box with square corners and a small bevel. Same size arguments as soft-box.">
+    <param name="width"  doc="x size, cm"/>
+    <param name="height" doc="y size, cm"/>
+    <param name="depth"  doc="z size, cm"/>
+    <param name="bevel"  default="1" doc="rim bevel, cm"/>
+    <param name="segments" default="2" doc="rim bevel segments"/>
+    <shape closed="0" v="-{${width}/2} -{${height}/2} {${width}/2} -{${height}/2}">
+      <shell amount="${height}"/><extrude amount="${depth}"/><bevel amount="${bevel}" bevelSegments="${segments}"/>
+    </shape>
+  </define>
+
+  <define name="column" doc="A vertical round column, tapering from the base radius to the top radius. Centred on pos.">
+    <param name="radius"     doc="radius at the base, cm"/>
+    <param name="top"        default="${radius}" doc="radius at the top, cm"/>
+    <param name="height"     doc="cm"/>
+    <param name="segments"   default="12"/>
+    <param name="taper"      default="0" doc="taper amount = (top/base - 1) / (top/base + 1); 0 for a straight column"/>
+    <circle radius="${radius}" segments="${segments}" rot="-90 0 0">
+      <extrude amount="${height}"/><bevel amount="1" bevelSegments="2"/><taper center="0 0 0" amount="{2*(${taper})}" axis="z"/>
+    </circle>
+  </define>
+  <define name="beam" doc="A bar from point a to point b (scene cm, y up): section width (z before turning) by depth, with soft corners.">
+    <param name="ax" doc="a.x"/><param name="ay" doc="a.y"/><param name="az" doc="a.z"/>
+    <param name="bx" doc="b.x"/><param name="by" doc="b.y"/><param name="bz" doc="b.z"/>
+    <param name="width"  doc="section size across the bar's local z, cm"/>
+    <param name="depth"  doc="section size across the bar's local y, cm"/>
+    <param name="radius" default="0" doc="corner radius of the section, cm"/>
+    <param name="bevel"  default="1" doc="rim bevel, cm"/>
+    <param name="material" doc="material id for the bar"/>
+    <group>
+      <let name="dx" value="(${bx})-(${ax})"/><let name="dy" value="(${by})-(${ay})"/><let name="dz" value="(${bz})-(${az})"/>
+      <group pos="{((${ax})+(${bx}))/2} {((${ay})+(${by}))/2} {((${az})+(${bz}))/2}" rot="0 {deg(atan2(-dz, dx))} 0">
+        <group rot="0 0 {deg(atan2(dy, hypot(dx, dz)))}">
+          <soft-box width="{sqrt(dx*dx+dy*dy+dz*dz)}" height="${depth}" depth="${width}" radius="${radius}" bevel="${bevel}" material="${material}"/>
+        </group>
+      </group>
+    </group>
+  </define>
+
+  <define name="tube" doc="A round bar from point a (radius r0) to point b (radius r1), scene cm, y up.">
+    <param name="ax" doc="a.x"/><param name="ay" doc="a.y"/><param name="az" doc="a.z"/>
+    <param name="bx" doc="b.x"/><param name="by" doc="b.y"/><param name="bz" doc="b.z"/>
+    <param name="r0" doc="radius at a, cm"/>
+    <param name="r1" default="${r0}" doc="radius at b, cm"/>
+    <param name="segments" default="12"/>
+    <param name="material" doc="material id for the tube"/>
+    <group>
+      <let name="dx" value="(${bx})-(${ax})"/><let name="dy" value="(${by})-(${ay})"/><let name="dz" value="(${bz})-(${az})"/>
+      <let name="tp" value="((${r1})/(${r0})-1)/((${r1})/(${r0})+1)"/>
+      <group pos="{((${ax})+(${bx}))/2} {((${ay})+(${by}))/2} {((${az})+(${bz}))/2}" rot="0 {deg(atan2(-dz, dx))} 0">
+        <group rot="0 0 {deg(atan2(dy, hypot(dx, dz)))}">
+          <circle radius="{(${r0})/(1-tp)}" segments="${segments}" rot="0 90 0" material="${material}">
+            <extrude amount="{sqrt(dx*dx+dy*dy+dz*dz)}"/><taper center="0 0 0" amount="{2*(tp)}" axis="z"/>
+          </circle>
+        </group>
+      </group>
+    </group>
+  </define>
+</library>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Gun Turret. Footprint 1x1 cell (200 x 200 cm), origin at pad centre on the ground,
+     barrels face +Z. Octagonal bunker base with an armoured dome and twin cannons.
+     Team colour on the dome band. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <prism radius="98" height="16" sides="8" rot="0 22.5 0" pos="0 8 0" material="pad_dark"/>
+  <prism radius="80" height="50" sides="8" rot="0 22.5 0" pos="0 41 0" material="concrete">
+    <taper amount="-0.18"/>
+  </prism>
+  <cylinder radius="54" height="8" sides="24" pos="0 70 0" material="steel_dark"/>
+  <sphere radius="50" scale="1 0.7 1" pos="0 74 0" material="steel"/>
+  <cylinder radius="51" height="10" sides="24" pos="0 84 0" material="team" tint="1"/>
+  <!-- mantlet and twin barrels -->
+  <soft-box width="56" height="30" depth="30" radius="8" bevel="3" pos="0 100 38" material="steel_dark"/>
+  <cylinder radius="5" height="90" rot="90 0 0" pos="-14 100 95" material="steel_dark"/>
+  <cylinder radius="5" height="90" rot="90 0 0" pos="14 100 95" material="steel_dark"/>
+  <cylinder radius="7.5" height="14" rot="90 0 0" pos="-14 100 136" material="steel"/>
+  <cylinder radius="7.5" height="14" rot="90 0 0" pos="14 100 136" material="steel"/>
+  <!-- sensor -->
+  <box size="16 12 16" pos="-24 113 -10" material="steel_dark"/>
+  <sphere radius="3" pos="-24 115 -1" material="glow" unlit="1" castShadow="0"/>
+</prefab>

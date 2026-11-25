@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Battle Tank. Length 240 cm on X, width 150 cm on Z, origin at the hull centre on the
+     ground, gun faces +X (front="+x"); rotate the instance to aim it. Rounded track pods,
+     a sloped hull, a hexagonal turret and a long gun with a muzzle brake. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <!-- tracks: rounded side pods with road-wheel hubs -->
+  <soft-box width="240" height="50" depth="36" radius="23" bevel="4" pos="0 25 57" material="track"/>
+  <soft-box width="240" height="50" depth="36" radius="23" bevel="4" pos="0 25 -57" material="track"/>
+  <cylinder radius="13" height="40" rot="90 0 0" pos="-80 22 57" material="steel_dark"><array count="5" translation="40 0 0"/></cylinder>
+  <cylinder radius="13" height="40" rot="90 0 0" pos="-80 22 -57" material="steel_dark"><array count="5" translation="40 0 0"/></cylinder>
+  <box size="236 4 40" pos="0 52 57" material="armor_dark"/>
+  <box size="236 4 40" pos="0 52 -57" material="armor_dark"/>
+
+  <!-- hull side profile, extruded across the width -->
+  <shape closed="1" v="-118 42 100 42 126 60 96 84 -110 84 -122 70" material="armor">
+    <extrude amount="112"/><bevel amount="4" bevelSegments="2"/>
+  </shape>
+  <box size="120 10 114" pos="-20 70 0" material="team" tint="1"/>
+  <box size="20 14 30" pos="-112 70 32" material="steel_dark"/>
+  <box size="20 14 30" pos="-112 70 -32" material="steel_dark"/>
+  <sphere radius="4" pos="116 64 40" material="lamp" unlit="1" castShadow="0"/>
+  <sphere radius="4" pos="116 64 -40" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- turret, y 84..122 -->
+  <prism radius="52" height="38" sides="6" scale="1.25 1 1" pos="-14 103 0" material="armor">
+    <taper center="0 0 0" amount="-0.2"/>
+  </prism>
+  <prism radius="40" height="4" sides="6" scale="1.25 1 1" pos="-14 124 0" material="team" tint="1"/>
+  <cylinder radius="15" height="8" pos="-36 128 22" material="armor_dark"/>
+  <cylinder radius="1.5" height="80" pos="-60 162 -24" material="steel_dark"/>
+  <!-- gun -->
+  <soft-box width="26" height="26" depth="34" radius="6" bevel="2" pos="50 104 0" material="armor_dark"/>
+  <cylinder radius="6" height="150" rot="0 0 -90" pos="138 104 0" material="steel_dark"/>
+  <cylinder radius="9" height="16" rot="0 0 -90" pos="206 104 0" material="steel"/>
+</prefab>

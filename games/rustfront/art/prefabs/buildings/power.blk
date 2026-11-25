@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Power Plant. Footprint 2x2 cells (400 x 400 cm), origin at pad centre on the ground,
+     generator hall faces +Z. Two hyperbolic cooling towers behind a steel generator hall
+     with a glowing core strip. Team colour on the hall band and tower rims. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <shape id="rf_cooling_tower" closed="0" v="84 0 74 50 62 110 58 150 62 190 64 200 56 200"/>
+  <slab width="400" height="20" depth="400" pos="0 10 0" material="pad"/>
+
+  <lathe shape="rf_cooling_tower" segments="28" pos="-96 20 -86" material="concrete"/>
+  <lathe shape="rf_cooling_tower" segments="28" pos="92 20 -92" scale="0.9 0.86 0.9" material="concrete"/>
+  <cylinder radius="64" height="10" tube="5" sides="28" pos="-96 212 -86" material="team" tint="1"/>
+  <cylinder radius="58" height="9" tube="5" sides="28" pos="92 189 -92" material="team" tint="1"/>
+  <!-- dark throats -->
+  <cylinder radius="55" height="2" sides="28" pos="-96 220.5 -86" material="rubber"/>
+  <cylinder radius="49" height="2" sides="28" pos="92 192.5 -92" material="rubber"/>
+
+  <!-- generator hall, y 20..104 -->
+  <soft-box width="320" height="84" depth="116" radius="14" bevel="4" pos="0 62 118" material="steel"/>
+  <soft-box width="326" height="12" depth="122" radius="16" bevel="3" pos="0 92 118" material="team" tint="1"/>
+  <box size="220 14 3" pos="-20 56 177.5" material="glow" unlit="1" castShadow="0"/>
+  <box size="3 14 80" pos="161.5 56 118" material="glow" unlit="1" castShadow="0"/>
+  <box size="50 60 6" pos="120 50 178" material="steel_dark"/>
+  <!-- feed pipes from the towers into the hall -->
+  <tube ax="-96" ay="60" az="-14" bx="-96" by="60" bz="62" r0="11" material="steel_dark"/>
+  <tube ax="92" ay="56" az="-26" bx="92" by="56" bz="62" r0="11" material="steel_dark"/>
+  <!-- exhaust stack -->
+  <cylinder radius="14" height="110" pos="130 159 100" material="steel"/>
+  <cylinder radius="15" height="12" pos="130 200 100" material="hazard"/>
+  <!-- transformers in front corners -->
+  <box size="40 40 30" pos="-170 40 178" material="steel_dark"/>
+  <box size="40 40 30" pos="175 40 178" material="steel_dark"/>
+</prefab>
