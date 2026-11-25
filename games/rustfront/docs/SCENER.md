@@ -52,7 +52,9 @@ art/kit.xml             Rustfront's detail kit: bunker, railing, ladder, vent, w
                         floodlight, sandbags
 art/prefabs/buildings/  one .blk per building (turret/ holds the gun turret's base and head)
 art/prefabs/vehicles/   one .blk per vehicle (tank/ and apc/ hold hull and turret layers)
+art/prefabs/infantry/   Scener CAT characters: rifleman, rocket soldier
 art/render.sh           check + render the previews
+art/pack8.py            converts sprites/ to 256-colour assets/ for the engine
 art/previews/           committed one-angle previews (camera name = file name) and
                         sprites_contact.png
 art/sprites.py          renders the game sprites into ../sprites/ (see Game sprites)
@@ -109,13 +111,20 @@ Command & Conquer). Take the general feel from them; never copy a design.
 
 All sprites share one view, so the art is a registered set:
 
-- **Projection:** orthographic, yaw 45°, elevation 40° (`ELEV` in `layout.py`). The camera looks from
-  +X+Z, so a building shows its +Z front on the left face and its +X side on
-  the right face.
-- **Scale:** 1.5 cm per pixel. Each camera sets `size="W H"` and
-  `ortho="1.5 × H"`, so the scale is the same whatever the frame size.
-- **Frames:** 3×3 buildings use 640×608, 3×2 use 640×544, 2×2 use 448×448, the
-  turret 256×256, and vehicles 384×320.
+- **Projection:** orthographic, the classic C&C / Dark Reign view. The camera
+  looks due north (yaw 0, from +Z toward −Z) at elevation asin(2/3) ≈ 41.8°.
+  A building shows its +Z front and its roof. The open-rts engine only draws
+  axis-aligned rectangular tile grids (no isometric diamonds), and with this
+  view a 200 cm cell is exactly a 48×32 px rectangle at game scale, so the art
+  registers with the map. The constants are `TILE_W`, `TILE_H`, `ELEV` and
+  `YAW` in `layout.py`.
+- **Scale:** previews are 1.5 cm per pixel, for review. Game sprites are
+  `SPRITE_CM_PER_PX` = 200/48 ≈ 4.17 cm per pixel: the tank is about 60 px
+  long, and a 3×3 building is 144 px wide. Each camera sets `size="W H"` and
+  `ortho="scale × H"`, so the scale is the same whatever the frame size.
+- **Preview frames:** 3×3 buildings use 640×608, 3×2 use 640×544, 2×2 use
+  448×448, the turret 256×256, and vehicles 384×320. `sprites.py` scales the
+  same frames to game pixels.
 - **Placement:** units stand 1100 cm apart along the camera's right vector
   (buildings on one row, vehicles on a second row 1700 cm nearer the camera),
   so no camera frames a neighbour. The `Lineup` camera shows them all.
@@ -126,9 +135,9 @@ first.
 
 ## Lighting
 
-- **Key sun:** `dir="0.99 -1.25 -0.42"`, warm, intensity 1.25. Light comes from
-  the screen's upper left, so fronts (+Z) are lit and hard shadows fall to the
-  right.
+- **Key sun:** `dir="0.85 -1.25 -0.55"`, warm, intensity 1.25, high from the
+  west-south-west. Roofs are bright, fronts (+Z) get a little light, and hard
+  shadows fall to the screen's right.
 - **Shade is dark and keeps its colour.** The fill is a weak *warm* shadowless
   sun from the opposite side (intensity 0.14), and the ambient is a low warm
   0.17 0.15 0.13, which multiplies each material's own hue. A cool blue fill
@@ -214,13 +223,14 @@ Treat `--check` as a gate, not a reviewer: always look at the render.
 ## Game sprites
 
 ```sh
-python3 games/rustfront/art/sprites.py          # every unit, about 25 s
+python3 games/rustfront/art/sprites.py          # every unit, about 6 s
 python3 games/rustfront/art/sprites.py tank hq  # just these
 python3 games/rustfront/art/contact.py          # composite check -> previews/sprites_contact.png
 ```
 
 `sprites.py` writes three scenes into `art/.build/` and renders each with
-`--supersample 3`. All of them use the preview's view, scale and lights.
+`--supersample 4`, at game scale (`SPRITE_CM_PER_PX`). All of them use the
+preview's view and lights.
 
 | Pass | Scene | Gives |
 |---|---|---|
@@ -263,10 +273,77 @@ puts it on a pixel corner, at `(W/2, H/2 + k)`.
 Draw in this order: every unit's shadow (under all units), then each layer, in
 the order listed.
 
+## Infantry
+
+Soldiers are Scener characters, not hard-surface models. `prefabs/infantry/rifleman.blk`
+and `rocket.blk` are copies of Scener's CAT biped preset
+(`apps/scener/prefabs/characters/presets/biped.blk`). Each is costumed with desert
+fatigues, a team-colour vest and shoulder pads (`tint="1"`), a helmet, a pack and
+boots. The weapon is a rigid bone named `weapon` grown from the ribcage, so the
+mirrored arms don't each get one. The hands hold it through limb IK. The offsets
+come from `scener --list-joints`, measured from the rest wrists, and each prefab's
+pose comments record them. A character prefab is Z up and faces −Y, so the sprite
+scene stands it up with `rot="-90 90 0"` (Y up, facing +X).
+
+| Animation | Source | Frames |
+|---|---|---|
+| idle | the `Ready` pose | 1 |
+| walk | `<gait mode="spot">` with `Ready` masked onto the arms and weapon; one measured stride of 1.10 s from t = 1.20 | 6 |
+| fire | the `Fire` clip: `Aim`, then `Recoil` (stepped) | 2 |
+| die | the `Die` clip: `Aim` → `Hit` → `Falling` → `Dead`, falling flat on the back | 6 |
+
+Infantry have 8 facings. `sprites.py` renders each animation frame with
+`--time`, at every facing, through the colour, team and shadow passes. A sheet
+holds every animation, and `sprites.json` / `rf_anims` give each one's `start`
+and `frames`. The frame index is `start + facing × frames + frame`. To add a
+soldier, copy a prefab, change its costume, weapon and hand offsets, and add a
+row to `INFANTRY` in `sprites.py`.
+
+Pose rules learned here:
+
+- **Limb IK offsets are from the standing rest pose,** in the body frame. Once
+  the pelvis drops (in a fall), they point at thin air. Pose falling limbs with
+  joint `aim`s instead, which follow the parent.
+- **Measure the gait.** Sample foot heights with `--list-joints` over time, and
+  take frames from one steady stride, after the starting steps.
+
+Scener can also play Ecstatica II's decoded actions (`apps/scener/imports/ecstatica`)
+and CMU or Mixamo motion capture through `<layer mocap>`. The shipped soldiers use
+only Scener's own gait and authored clips. Ecstatica's actors and actions come from
+the commercial game and are fine for reference and prototyping, but not for art
+this game ships. CMU captures are free to use.
+
+## 8-bit data for the engine
+
+The engine draws everything into one 8-bit indexed framebuffer, so the game
+ships 256-colour art:
+
+```sh
+python3 games/rustfront/art/pack8.py    # sprites/ -> assets/*.bmp + sprites.inc, under a second
+```
+
+All BMPs share one palette (`art/previews/palette.png` shows it):
+
+| Indices | Use |
+|---|---|
+| 0 | transparent |
+| 1 | shadow: shadow sheets are only 0 and 1, and the engine darkens what lies under 1 through a lookup table |
+| 2–7 | fixed emitter colours (warning red, glow cyan, lamp, flame, white, black). Median cut loses small lights, so these stay exact |
+| 8–15 | reserved for the HUD |
+| 16–79 | four team ramps of 16 shades (blue, red, green, yellow). Art is drawn with the blue ramp; a team palette map moves 16–31 onto another ramp |
+| 80–255 | 176 colours, median cut over every non-team sprite pixel and the terrain |
+
+A pixel is team-coloured where the team mask is at least 48, and its ramp
+shade is the mask level. A pixel under half coverage becomes transparent,
+because indexed art has no partial alpha. `assets/terrain.bmp` is a 48×32 tile
+atlas in the same palette: 8 sand tiles, 4 ore-field tiles and 4 gravel tiles.
+Its noise wraps at the tile edge, so the tiles join without seams.
+`sprites.inc` is the C table the game compiles in: per sheet, the frame size,
+columns, count, pivot and turret mounts in whole pixels.
+
 Not done yet:
 
 - **Animation** (firing, harvesting, construction) would be more `--frames` or
   transform cameras in the same way.
-- **The game engine side.** Nothing in open-rts loads `sprites.json` yet.
 - **The turret shadow** follows the hull. Exact turret shadows would need a
   shadow per (hull, turret) pair, or a separate turret shadow layer.

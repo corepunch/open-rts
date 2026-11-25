@@ -1,0 +1,132 @@
+<!-- Rocket soldier, about 178 cm: the rifleman's body with a launcher tube on the right shoulder. Copied from Scener's CAT biped preset (apps/scener/prefabs/characters/
+     presets/biped.blk) and costumed: desert fatigues, a team-colour vest and shoulder pads (tint),
+     a helmet, a rocket pack, boots and gloves, and the launcher carried as a rigid bone on the
+     ribcage so it is not mirrored onto both hands. Body frame Z up, facing local -Y, the character's left at +X
+     (the sprite scene turns the instance to Y up and +X). Lengths in centimetres. -->
+<prefab up="z" front="-y">
+  <material id="skin" color="0.80 0.62 0.48" shininess="8" />
+  <material id="fatigues" color="0.62 0.55 0.40" shininess="5" />
+  <material id="vest" color="0.20 0.42 0.88" shininess="12" />
+  <material id="helmet" color="0.42 0.40 0.30" shininess="18" />
+  <material id="boots" color="0.16 0.14 0.12" shininess="8" />
+  <material id="gear" color="0.30 0.28 0.22" shininess="6" />
+  <material id="gun" color="0.18 0.19 0.21" shininess="30" />
+
+  <hub name="pelvis" aim="0 90" length="14" radius="18 11.5" material="fatigues">
+    <ellipsoid on="120 -15" at="0.25" radii="9 8 10" sink="4.5" material="fatigues" />
+    <ellipsoid on="-120 -15" at="0.25" radii="9 8 10" sink="4.5" material="fatigues" />
+    <ellipsoid on="0 10" at="0.6" radii="17 11 4" sink="4" material="gear" />
+    <limb name="left_leg" type="leg" at="0.25" from="90 0" sink="3.8" mirror="1">
+      <bone name="left_thigh" aim="0 -90" length="44" radius="12.5 13" taper="0.8" overlap="6" material="fatigues">
+        <bone name="left_calf" aim="0 -90" length="43" radius="9.5 10" taper="0.7" overlap="4" material="fatigues">
+          <ellipsoid on="0 0" at="0" radii="6.5 6 6.5" sink="2" material="fatigues" />
+          <ellipsoid on="0 0" at="0.85" radii="9 10 10" sink="6" material="boots" />
+          <ankle name="left_foot" aim="0 -12" length="18" radius="6 5" overlap="3" material="boots">
+            <digit name="left_toe" at="1" from="0 -30" aim="0 -6" links="2" length="4" radius="5.5 3.8" taper="0.9" overlap="3" material="boots" />
+          </ankle>
+        </bone>
+      </bone>
+    </limb>
+    <spine name="spine" links="3" aim="0 90" aimEnd="0 86" length="24" radius="13 9.5" taper="1.1" volume="0" material="fatigues">
+      <ellipsoid on="0 0" at="0.5" radii="17 12 23" sink="9.8" material="vest" tint="1" />
+      <hub name="ribcage" aim="0 90" length="20" radius="20 13" material="vest" tint="1">
+        <ellipsoid on="40 0" at="0.68" radii="11 5 9.5" sink="2.5" material="vest" tint="1" />
+        <ellipsoid on="-40 0" at="0.68" radii="11 5 9.5" sink="2.5" material="vest" tint="1" />
+        <!-- backpack and the rifle, carried at port arms across the chest -->
+        <ellipsoid on="180 0" at="0.45" radii="15 11 17" sink="3" material="gear" />
+        <ellipsoid on="160 10" at="0.75" radii="5 5 14" sink="1" material="helmet" />
+        <ellipsoid on="-160 10" at="0.75" radii="5 5 14" sink="1" material="helmet" />
+        <bone name="weapon" at="1" from="-62 25" aim="0 0" length="74" radius="7.5 7.5" taper="1.1" overlap="24" material="gun">
+          <ellipsoid on="0 0" at="0.95" radii="7 7 9" sink="3" material="helmet" />
+          <ellipsoid on="0 -90" at="0.55" radii="3 6 6" sink="2" material="gun" />
+          <ellipsoid on="0 90" at="0.6" radii="3 7 4" sink="2" material="gear" />
+        </bone>
+        <limb name="left_arm" type="arm" at="0.9" from="90 0" mirror="1">
+          <collarbone name="left_collarbone" aim="90 0" length="8" radius="4" material="fatigues">
+            <bone name="left_upperarm" aim="90 -82" length="29" radius="8 8.5" taper="0.8" overlap="4" material="fatigues">
+              <ellipsoid on="90 20" at="0.08" radii="8 8 8" sink="6" material="vest" tint="1" />
+              <bone name="left_forearm" aim="0 -86" length="26" radius="6 6.2" taper="0.8" material="fatigues">
+                <palm name="left_palm" aim="0 -90" length="12" radius="4 5" overlap="2" material="boots" />
+              </bone>
+            </bone>
+          </collarbone>
+        </limb>
+        <spine name="neck" aim="0 90" aimEnd="0 80" length="9" radius="5.5" material="skin">
+          <hub name="head" aim="0 90" length="21" radius="8 9.5" material="skin">
+            <bone name="helmet" at="0.62" from="0 90" aim="0 90" length="13" radius="14 15" sink="9" material="helmet" />
+            <ellipsoid on="0 -10" at="0.45" radii="7 2 2.2" sink="0.5" material="gear" />
+          </hub>
+        </spine>
+      </hub>
+    </spine>
+  </hub>
+
+  <!-- Pose library. The launcher sits on the right shoulder (weapon pos), the right hand on its
+       grip and the left under the tube. Offsets are from the rest wrists (27.5, -2.7, 91.7),
+       read with scener --list-joints. -->
+  <pose name="Ready">
+    <joint target="weapon" pos="-12 0 4" aim="0 6" />
+    <ik limb="right_arm" offset="10.5 -11.3 48.3" bend="-90 -40" />
+    <ik limb="left_arm" offset="-39.5 -33.3 50.3" bend="90 -30" />
+  </pose>
+  <pose name="Aim">
+    <joint target="weapon" pos="-12 0 4" aim="0 0" />
+    <ik limb="right_arm" offset="10.5 -11.3 48.3" bend="-90 -40" />
+    <ik limb="left_arm" offset="-39.5 -33.3 50.3" bend="90 -30" />
+    <joint target="head" rot="6 0 -10" />
+  </pose>
+  <pose name="Recoil">
+    <joint target="ribcage" rot="-6 0 0" />
+    <joint target="weapon" pos="-12 6 6" aim="0 8" />
+    <ik limb="right_arm" offset="10.5 -6.3 50.3" bend="-90 -40" />
+    <ik limb="left_arm" offset="-39.5 -28.3 54.3" bend="90 -30" />
+    <joint target="head" rot="0 0 -10" />
+  </pose>
+  <!-- Falling backward: knees go, then the body lands flat on its back (+Y). -->
+  <pose name="Hit">
+    <joint target="pelvis" pos="0 8 -14" aim="180 72" />
+    <joint target="ribcage" rot="-14 0 0" />
+    <joint target="head" rot="-20 0 0" />
+    <joint target="weapon" aim="0 30" />
+    <ik limb="left_leg" offset="0 -10 18" />
+    <ik limb="right_leg" offset="0 -6 10" />
+    <joint target="right_upperarm" aim="-60 30" />
+    <joint target="right_forearm" aim="0 40" />
+    <joint target="left_upperarm" aim="60 40" />
+    <joint target="left_forearm" aim="0 30" />
+  </pose>
+  <pose name="Falling">
+    <joint target="pelvis" pos="0 26 -52" aim="180 38" />
+    <joint target="ribcage" rot="-10 0 0" />
+    <joint target="head" rot="-25 0 10" />
+    <joint target="weapon" aim="40 40" />
+    <joint target="right_upperarm" aim="-80 40" />
+    <joint target="right_forearm" aim="0 20" />
+    <joint target="left_upperarm" aim="80 50" />
+    <joint target="left_forearm" aim="0 20" />
+  </pose>
+  <pose name="Dead">
+    <joint target="pelvis" pos="0 40 -74" aim="180 6" />
+    <joint target="ribcage" rot="-4 0 0" />
+    <joint target="head" rot="-10 0 25" />
+    <joint target="weapon" aim="60 -10" />
+    <joint target="right_upperarm" aim="-100 -10" />
+    <joint target="right_forearm" aim="20 -10" />
+    <joint target="left_upperarm" aim="110 0" />
+    <joint target="left_forearm" aim="-10 -5" />
+    <joint target="left_thigh" aim="10 -90" />
+  </pose>
+
+  <!-- Clips (seconds). The sprite renderer samples them at fixed times (sprites.py). -->
+  <clip name="Fire" length="0.3" loop="1">
+    <key t="0" pose="Aim" ease="step" />
+    <key t="0.1" pose="Recoil" ease="step" />
+    <key t="0.2" pose="Aim" ease="step" />
+  </clip>
+  <clip name="Die" length="0.8">
+    <key t="0" pose="Aim" />
+    <key t="0.25" pose="Hit" />
+    <key t="0.5" pose="Falling" />
+    <key t="0.75" pose="Dead" />
+  </clip>
+</prefab>

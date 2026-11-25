@@ -10,7 +10,8 @@ Output (games/rustfront/sprites/):
     <unit>_shadow.png         ground shadow, black with alpha
     sprites.json              frame size, sheet columns, pivots, facings, turret mounts
 
-Three passes share one sprite view (layout.py's yaw, elevation and cm per pixel):
+Three passes share one sprite view: layout.py's yaw and elevation at SPRITE_CM_PER_PX, so a
+200 cm cell is a 48 x 32 pixel rectangle that matches the engine's tile grid:
   colour  - transparent background, team parts black; supersampled 3x3
   team    - the same with team parts white; mask = white - black. In the game a pixel is
             base + team_colour * mask (in sRGB, an approximation that reads right)
@@ -43,14 +44,17 @@ import layout as L  # noqa: E402
 
 OUT = ART.parent / "sprites"
 WORK = ART / ".build"
-SUPERSAMPLE = 3
+SUPERSAMPLE = 4
+SCALE = L.SPRITE_CM_PER_PX   # cm per sprite pixel: one 200 cm cell is TILE_W x TILE_H
 SHADOW_OPACITY = 0.6     # darkest shadow alpha: the ground still gets ambient light
 SPACING = 2400.0          # cm between subjects along the camera's right vector
 SCENER = os.environ.get("SCENER", "scener")
 
 
 def layer(name, prefab, frame, centre, mount=None, facings=None):
-    return dict(name=name, prefab=prefab, frame=frame, centre=centre, mount=mount, facings=facings)
+    """frame is authored in preview pixels (1.5 cm); it is converted to game pixels, even."""
+    fw, fh = (int(math.ceil(v * 1.5 / SCALE / 2)) * 2 for v in frame)
+    return dict(name=name, prefab=prefab, frame=(fw, fh), centre=centre, mount=mount, facings=facings)
 
 
 # key: shadow (assembled prefab), facings of the unit, layers
@@ -74,6 +78,24 @@ UNITS = {
                      layer("turret", "vehicles/apc/turret", (256, 224), 0, mount=(22, 112, 0))]),
 }
 
+# Infantry: one animated layer, 8 facings. Each animation is the instance's children (a gait,
+# layers playing the soldier's own poses and clips) sampled at fixed --time values. The
+# soldier prefab is Z up facing -Y; rot="-90 90 0" stands it in this Y-up world facing +X.
+WALK_CYCLE, WALK_FROM, WALK_FRAMES = 1.10, 1.20, 6      # a steady spot-gait stride, measured
+INFANTRY_ROT = "-90 90 0"
+ANIMS = [
+    ("idle", ' pose="Ready"', "", [0.0]),
+    ("walk", "", '<gait mode="spot" start="0"/><layer pose="Ready" mask="left_collarbone right_collarbone weapon"/>',
+     [round(WALK_FROM + i * WALK_CYCLE / WALK_FRAMES, 4) for i in range(WALK_FRAMES)]),
+    ("fire", "", '<layer clip="Fire"/>', [0.05, 0.15]),
+    ("die", "", '<layer clip="Die"/>', [0.1, 0.22, 0.34, 0.46, 0.6, 0.8]),
+]
+INFANTRY = {
+    "rifleman": dict(prefab="infantry/rifleman", facings=8, frame=(112, 96), centre=60, anims=ANIMS),
+    "rocket":   dict(prefab="infantry/rocket", facings=8, frame=(120, 96), centre=60, anims=ANIMS),
+}
+ALL_UNITS = list(UNITS) + list(INFANTRY)
+
 
 def basis():
     a, e = math.radians(L.YAW), math.radians(L.ELEV)
@@ -96,17 +118,17 @@ def turn(p, deg):
 
 def to_px(p):
     """Screen offset in pixels (x right, y down) of a world displacement p."""
-    return (dot(p, RIGHT) / L.CM_PER_PX, -dot(p, UP) / L.CM_PER_PX)
+    return (dot(p, RIGHT) / SCALE, -dot(p, UP) / SCALE)
 
 
 def camera(name, anchor, frame, k, rot_target=None, deg=0.0):
     """An ortho camera whose image puts `anchor` at (W/2, H/2 + k) pixels."""
-    look = [anchor[i] + UP[i] * k * L.CM_PER_PX for i in range(3)]
+    look = [anchor[i] + UP[i] * k * SCALE for i in range(3)]
     pos = [look[i] + 4000 * TO_CAM[i] for i in range(3)]
     f = lambda v: " ".join("%.3f" % c for c in v)
     w, h = frame
     xml = '  <camera name="%s" pos="%s" look="%s" ortho="%g" size="%d %d"' % (
-        name, f(pos), f(look), h * L.CM_PER_PX, w, h)
+        name, f(pos), f(look), h * SCALE, w, h)
     if rot_target is None:
         return xml + "/>"
     return xml + '>\n    <transform target="%s" rot="0 %g 0"/>\n  </camera>' % (rot_target, deg)
@@ -126,7 +148,7 @@ def plan(keys):
             anchor = (base[0], mount[1], base[2])
             inst = "%s_%s" % (key, ly["name"])
             subjects.append((inst, ly["prefab"], anchor))
-            k = round(ly["centre"] * math.cos(math.radians(L.ELEV)) / L.CM_PER_PX)
+            k = round(ly["centre"] * math.cos(math.radians(L.ELEV)) / SCALE)
             for i in range(n):
                 cam = "%s_%02d" % (inst, i)
                 shots.append(dict(unit=key, layer=ly["name"], facing=i, camera=cam,
@@ -166,11 +188,13 @@ def write_scene(path, subjects, shots, team=None, shadow=False):
     path.write_text(xml)
 
 
-def render(scene, outdir):
+def render(scene, outdir, time=None):
     if outdir.exists():
         shutil.rmtree(outdir)
     cmd = [SCENER, "--render", str(scene), "--format", "png", "--output-dir", str(outdir),
            "--supersample", str(SUPERSAMPLE)]
+    if time is not None:
+        cmd += ["--time", "%g" % time]
     if "shadow" not in scene.name:
         cmd.append("--transparent")
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -210,11 +234,84 @@ def pack(frames, pivots):
     return sheet, dict(frame=[w, h], columns=cols, count=n, pivot=[px - box[0], py - box[1]]), box
 
 
+def pack_layer(base, black, white, pivots):
+    """Packs colour frames and their team masks (white - black) into sprites/<base>.png and
+    <base>_team.png; returns the sheet's manifest entry."""
+    sheet, meta, box = pack(black, pivots)
+    tsheet = Image.new("L", sheet.size, 0)
+    cols, (fw, fh) = meta["columns"], meta["frame"]
+    for i, (b, w) in enumerate(zip(black, white)):
+        d = ImageChops.subtract(w.convert("RGB"), b.convert("RGB")).convert("L")
+        tsheet.paste(d.crop(box), ((i % cols) * fw, (i // cols) * fh))
+    sheet.save(OUT / (base + ".png"), optimize=True)
+    tsheet.save(OUT / (base + "_team.png"), optimize=True)
+    meta.update(file=base + ".png", team=base + "_team.png")
+    return meta
+
+
+def infantry_scene(path, inst, prefab, anim, cams, team=None, shadow=False):
+    _, attrs, children, _ = anim
+    tag = '<prefab source="%s" name="%s" rot="%s"%s%s>%s</prefab>' % (
+        prefab, inst, INFANTRY_ROT, attrs, "" if shadow else ' color="%s"' % team, children)
+    if shadow:
+        head = ('<scene ambient="0 0 0" background="1 1 1">\n%s\n  <material id="catcher" color="1 1 1" shininess="1" specular="0"/>\n'
+                % L.PALETTE.replace("{TEAM}", L.TEAM))
+        body = ('  <box name="catcher" size="20000 10 20000" pos="0 -5 0" material="catcher"/>\n'
+                '  <group renderable="0">%s</group>\n' % tag)
+        lights = "  " + L.KEY_SUN
+    else:
+        head = '<scene %s background="0 0 0">\n%s\n' % (L.SCENE_ATTRS, L.PALETTE.replace("{TEAM}", team))
+        body = "  " + tag + "\n"
+        lights = L.LIGHTS
+    path.write_text('<?xml version="1.0" encoding="UTF-8"?>\n<!-- GENERATED by sprites.py -->\n'
+                    + head + lights + "\n\n" + "\n".join(cams) + "\n\n" + body + "</scene>\n")
+
+
+def render_infantry(key):
+    """Every animation frame at every facing, in three passes; returns the manifest entry."""
+    u = INFANTRY[key]
+    n = u["facings"]
+    inst = key
+    k = round(u["centre"] * math.cos(math.radians(L.ELEV)) / SCALE)
+    w, h = u["frame"]
+    cams = [camera("%s_%02d" % (inst, i), (0, 0, 0), (w, h), k, inst, i * 360.0 / n) for i in range(n)]
+    scams = [camera("%s_%02d" % (inst, i), (0, 0, 0), (w * 2, h * 2), 0, inst, i * 360.0 / n) for i in range(n)]
+    black, white, shadows, anims = [], [], [], {}
+    for anim in u["anims"]:
+        name, _, _, times = anim
+        anims[name] = dict(start=len(black), frames=len(times), facings=n)
+        for p, team in (("black", "0 0 0"), ("white", "1 1 1"), ("shadow", None)):
+            infantry_scene(WORK / ("%s_%s_%s.blks" % (key, name, p)), inst, u["prefab"], anim,
+                           scams if p == "shadow" else cams, team=team, shadow=p == "shadow")
+        # facing-major within an animation: index = start + facing * frames + frame
+        grid = {p: [[None] * len(times) for _ in range(n)] for p in ("black", "white", "shadow")}
+        for f, t in enumerate(times):
+            for p in ("black", "white", "shadow"):
+                out = WORK / ("%s_%s_%s_%d" % (key, name, p, f))
+                render(WORK / ("%s_%s_%s.blks" % (key, name, p)), out, t)
+                for i in range(n):
+                    img = Image.open(out / ("%s_%02d.png" % (inst, i)))
+                    grid[p][i][f] = shadow_alpha(img) if p == "shadow" else img.convert("RGBA")
+        for i in range(n):
+            black += grid["black"][i]
+            white += grid["white"][i]
+            shadows += grid["shadow"][i]
+    pivot = (w / 2, h / 2 + k)
+    entry = dict(facings=n, anims=anims, layers={"body": pack_layer("%s_body" % key, black, white, [pivot] * len(black))})
+    sheet, meta, _ = pack(shadows, [(w, h)] * len(shadows))
+    sheet.save(OUT / ("%s_shadow.png" % key), optimize=True)
+    meta.update(file="%s_shadow.png" % key)
+    entry["shadow"] = meta
+    return entry
+
+
 def main(argv):
-    keys = argv or list(UNITS)
-    unknown = [k for k in keys if k not in UNITS]
+    keys = argv or ALL_UNITS
+    unknown = [k for k in keys if k not in ALL_UNITS]
     if unknown:
-        sys.exit("unknown units: %s (have %s)" % (" ".join(unknown), " ".join(UNITS)))
+        sys.exit("unknown units: %s (have %s)" % (" ".join(unknown), " ".join(ALL_UNITS)))
+    infantry = [k for k in keys if k in INFANTRY]
+    keys = [k for k in keys if k in UNITS]
     WORK.mkdir(exist_ok=True)
     for name in ("prefabs", "kit.xml", "utilities.xml"):
         link = WORK / name
@@ -223,17 +320,19 @@ def main(argv):
     OUT.mkdir(exist_ok=True)
 
     subjects, shots, shadow_subjects, shadow_shots = plan(keys)
+    if not keys:
+        shots = shadow_shots = []
     write_scene(WORK / "black.blks", subjects, shots, team="0 0 0")
     write_scene(WORK / "white.blks", subjects, shots, team="1 1 1")
     write_scene(WORK / "shadow.blks", shadow_subjects, shadow_shots, shadow=True)
-    for p in ("black", "white", "shadow"):
+    for p in ("black", "white", "shadow") if keys else ():
         print("rendering %s pass (%d frames)" % (p, len(shadow_shots if p == "shadow" else shots)))
         render(WORK / ("%s.blks" % p), WORK / p)
 
     manifest_path = OUT / "sprites.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
-    manifest["_order"] = [k for k in UNITS if k in manifest or k in keys]
-    manifest["_view"] = dict(yaw=L.YAW, elevation=L.ELEV, cm_per_px=L.CM_PER_PX,
+    manifest["_order"] = [k for k in ALL_UNITS if k in manifest or k in keys or k in infantry]
+    manifest["_view"] = dict(yaw=L.YAW, elevation=round(L.ELEV, 4), cm_per_px=round(SCALE, 4), tile=[L.TILE_W, L.TILE_H],
                              facing0="+X of the prefab", facing_turn="counter-clockwise seen from above",
                              team="pixel = base + team_colour * mask / 255 (sRGB)")
     for key in keys:
@@ -243,22 +342,7 @@ def main(argv):
             ls = [s for s in shots if s["unit"] == key and s["layer"] == ly["name"]]
             black = [Image.open(WORK / "black" / (s["camera"] + ".png")).convert("RGBA") for s in ls]
             white = [Image.open(WORK / "white" / (s["camera"] + ".png")).convert("RGBA") for s in ls]
-            masks = []
-            for b, w in zip(black, white):
-                d = ImageChops.subtract(w.convert("RGB"), b.convert("RGB")).convert("L")
-                m = Image.new("LA", b.size)
-                m.putalpha(b.getchannel("A"))
-                m = Image.merge("LA", (d, b.getchannel("A")))
-                masks.append(m.convert("RGBA"))
-            sheet, meta, box = pack(black, [s["pivot"] for s in ls])
-            tsheet = Image.new("L", sheet.size, 0)
-            cols, (fw, fh) = meta["columns"], meta["frame"]
-            for i, m in enumerate(masks):
-                tsheet.paste(m.crop(box).getchannel("R"), ((i % cols) * fw, (i // cols) * fh))
-            base = "%s_%s" % (key, ly["name"])
-            sheet.save(OUT / (base + ".png"), optimize=True)
-            tsheet.save(OUT / (base + "_team.png"), optimize=True)
-            meta.update(file=base + ".png", team=base + "_team.png")
+            meta = pack_layer("%s_%s" % (key, ly["name"]), black, white, [s["pivot"] for s in ls])
             if ly["mount"]:
                 n = u["facings"]
                 meta["mount_px"] = [[round(c, 2) for c in to_px(turn(ly["mount"], i * 360.0 / n))] for i in range(n)]
@@ -271,6 +355,12 @@ def main(argv):
         entry["shadow"] = meta
         manifest[key] = entry
         print("%-10s %s" % (key, ", ".join("%s %dx%d x%d" % (n, *m["frame"], m["count"]) for n, m in entry["layers"].items())))
+    for key in infantry:
+        print("rendering %s (%d animations x %d facings)" % (key, len(INFANTRY[key]["anims"]), INFANTRY[key]["facings"]))
+        manifest[key] = render_infantry(key)
+        m = manifest[key]["layers"]["body"]
+        print("%-10s body %dx%d x%d (%s)" % (key, *m["frame"], m["count"],
+              ", ".join("%s %d" % (a, v["frames"]) for a, v in manifest[key]["anims"].items())))
     manifest_path.write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
 
 

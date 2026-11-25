@@ -36,12 +36,41 @@ def tinted(base, mask, colour):
     return out
 
 
+def infantry_rows(u, team):
+    """Idle at every facing, then each animation's frames at two facings (toward the viewer's
+    lower right, 7, and away, 3), on the same ground point as the game draws them."""
+    lm, sm = u["layers"]["body"], u["shadow"]
+    sheet = Image.open(SPRITES / lm["file"]).convert("RGBA")
+    tsheet = Image.open(SPRITES / lm["team"]).convert("L")
+    shadow = Image.open(SPRITES / sm["file"]).convert("RGBA")
+    cell = lm["frame"][0] + 8
+    h = max(lm["frame"][1], sm["frame"][1]) + 12
+    out = []
+    def draw(row, j, index):
+        gx, gy = 10 + j * cell + cell // 2, int(h * 0.7)
+        row.alpha_composite(frame(shadow, sm, index), (round(gx - sm["pivot"][0]), round(gy - sm["pivot"][1])))
+        img = tinted(frame(sheet, lm, index), frame(tsheet, lm, index), team)
+        row.alpha_composite(img, (round(gx - lm["pivot"][0]), round(gy - lm["pivot"][1])))
+    for name, a in u["anims"].items():
+        n = a["facings"]
+        picks = [(d, f) for d in range(n) for f in range(a["frames"])] if a["frames"] == 1 else \
+                [(d, f) for d in (7 % n, 3 % n) for f in range(a["frames"])]
+        row = Image.new("RGBA", (20 + cell * len(picks), h), SAND + (255,))
+        for j, (d, f) in enumerate(picks):
+            draw(row, j, a["start"] + d * a["frames"] + f)
+        out.append(row)
+    return out
+
+
 def main():
     m = json.loads((SPRITES / "sprites.json").read_text())
     units = [k for k in m.get("_order", []) if k in m] or [k for k in m if not k.startswith("_")]
     rows = []
     for r, key in enumerate(units):
         u = m[key]
+        if "anims" in u:
+            rows += infantry_rows(u, TEAMS[r % 2])
+            continue
         n = u["facings"]
         team = TEAMS[r % 2]
         layers = u["layers"]

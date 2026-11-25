@@ -4,7 +4,9 @@ sprite camera per unit. Edit the tables here, not the generated scene.
 
     python3 games/rustfront/art/layout.py
 
-The view is the sprite view of the game: yaw 45 degrees (camera at +X+Z), elevation ELEV,
+The view is the sprite view of the game, the classic C&C / Dark Reign one: the camera looks due
+north (yaw 0, from +Z toward -Z) at elevation asin(2/3), so a 200 cm cell is a TILE_W x TILE_H
+rectangle on screen and the engine's axis-aligned tile grid registers with the art. ELEV,
 CM_PER_PX centimetres per pixel. Units stand SPACING apart along the camera's right vector,
 buildings on one row and vehicles on a row ROW_GAP nearer the camera, so no camera frames a
 neighbour. The prefabs themselves live in prefabs/ and are hand-written.
@@ -12,8 +14,11 @@ neighbour. The prefabs themselves live in prefabs/ and are hand-written.
 import math
 from pathlib import Path
 
-ELEV = 40.0          # degrees above the horizon
-YAW = 45.0           # camera bearing from +Z toward +X
+CELL_CM = 200.0
+TILE_W, TILE_H = 48, 32                        # one cell on screen at game scale
+ELEV = math.degrees(math.asin(TILE_H / TILE_W))  # 41.81 degrees: ground depth shrinks by 2/3
+YAW = 0.0            # camera bearing from +Z toward +X
+SPRITE_CM_PER_PX = CELL_CM / TILE_W            # 4.1667: game sprites (sprites.py)
 CM_PER_PX = 1.5
 SPACING = 1100.0
 ROW_GAP = 1700.0
@@ -35,7 +40,7 @@ VEHICLES = [
     ("vehicles/harvester", "Harvester", 384, 320, 70),
     ("vehicles/apc",       "APC", 384, 320, 60),
 ]
-VEHICLE_YAW = -90    # prefabs face +X; -90 turns them to +Z, toward the viewer's lower left
+VEHICLE_YAW = -45    # prefabs face +X; -45 turns them toward the viewer's lower right
 
 PALETTE = """\
   <!-- palette: dusty ground, battered concrete, gunmetal, desert-tan armour, one team colour -->
@@ -73,10 +78,10 @@ PALETTE = """\
 # Shade stays dark and keeps its colour: a low warm ambient (it multiplies each material's own
 # hue) and a weak warm fill, never a cool blue one, which washes shaded faces out to grey-blue.
 SCENE_ATTRS = 'ambient="0.17 0.15 0.13" skyReflection="0.6"'
-KEY_SUN = '<sun dir="0.99 -1.25 -0.42" color="1.0 0.93 0.80" intensity="1.25" castShadows="1"/>'
-LIGHTS = """  <!-- hard key from the screen's upper left, shadows fall to the right; weak warm fill -->
+KEY_SUN = '<sun dir="0.85 -1.25 -0.55" color="1.0 0.93 0.80" intensity="1.25" castShadows="1"/>'
+LIGHTS = """  <!-- hard key from the west-south-west and high, shadows fall to the screen's right; weak warm fill -->
   """ + KEY_SUN + """
-  <sun dir="-1 -0.6 0.3" color="1.0 0.82 0.62" intensity="0.14" castShadows="0"/>"""
+  <sun dir="-0.7 -0.6 -0.4" color="1.0 0.82 0.62" intensity="0.14" castShadows="0"/>"""
 
 
 def unit(az, el):
