@@ -12,52 +12,57 @@
   <shape id="rf_tank" closed="0" v="58 0 58 118 53 138 40 154 20 164 0 167"/>
   <chunk width="592" height="20" depth="392" radius="26" bevel="3" lean="0" pos="0 10 0" material="slab"/>
 
-  <!-- storage tanks, back left -->
-  <lathe shape="rf_tank" segments="24" pos="-212 20 -104" material="paint_plain" tint="1"/>
-  <lathe shape="rf_tank" segments="24" pos="-88 20 -104" material="paint_plain" tint="1"/>
-  <collar radius="61" height="20" pos="-212 122 -104"/>
-  <collar radius="61" height="20" pos="-88 122 -104"/>
-  <cylinder radius="62" height="16" sides="24" pos="-212 28 -104" material="trim"/>
-  <cylinder radius="62" height="16" sides="24" pos="-88 28 -104" material="trim"/>
-  <cylinder radius="16" height="10" sides="12" pos="-212 188 -104" material="trim"/>
-  <cylinder radius="16" height="10" sides="12" pos="-88 188 -104" material="trim"/>
-  <tube ax="-212" ay="192" az="-104" bx="-88" by="192" bz="-104" r0="7" material="trim_light"/>
-  <!-- pipes from the tanks to the tower -->
-  <tube ax="-34" ay="104" az="-116" bx="34" by="104" bz="-116" r0="11" material="trim_light"/>
-  <tube ax="-34" ay="74" az="-90" bx="34" by="74" bz="-90" r0="8" material="trim_light"/>
+  <!-- The building stands turned -10 degrees on its square slab, so its sides show; scaled
+       and centred to stay inside the footprint (measured from its bounds in scener). -->
+  <group rot="0 -10 0" scale="0.96 0.96 0.96" pos="-16.9 0 -1">
 
-  <!-- processing tower, back right: y 20..170, x 24..196, z -182..-10 -->
-  <chunk width="184" height="24" depth="184" radius="64" bevel="2" lean="0" pos="110 32 -96" material="hazard_skirt"/>
-  <chunk width="172" height="150" depth="172" radius="58" bevel="14" lean="0.1" pos="110 95 -96" material="paint" tint="1"/>
-  <chunk width="124" height="46" depth="124" radius="46" bevel="10" lean="0" pos="110 193 -96" material="trim_light"/>
-  <chunk width="128" height="14" depth="128" radius="48" bevel="2" lean="0" pos="110 190 -96" material="window"/>
-  <cylinder radius="46" height="6" sides="24" pos="110 219 -96" material="trim"/>
-  <emblem radius="42" pos="110 222 -96"/>
+    <!-- storage tanks, back left -->
+    <lathe shape="rf_tank" segments="24" pos="-212 20 -104" material="paint_plain" tint="1"/>
+    <lathe shape="rf_tank" segments="24" pos="-88 20 -104" material="paint_plain" tint="1"/>
+    <collar radius="61" height="20" pos="-212 122 -104"/>
+    <collar radius="61" height="20" pos="-88 122 -104"/>
+    <cylinder radius="62" height="16" sides="24" pos="-212 28 -104" material="trim"/>
+    <cylinder radius="62" height="16" sides="24" pos="-88 28 -104" material="trim"/>
+    <cylinder radius="16" height="10" sides="12" pos="-212 188 -104" material="trim"/>
+    <cylinder radius="16" height="10" sides="12" pos="-88 188 -104" material="trim"/>
+    <tube ax="-212" ay="192" az="-104" bx="-88" by="192" bz="-104" r0="7" material="trim_light"/>
+    <!-- pipes from the tanks to the tower -->
+    <tube ax="-34" ay="104" az="-116" bx="34" by="104" bz="-116" r0="11" material="trim_light"/>
+    <tube ax="-34" ay="74" az="-90" bx="34" by="74" bz="-90" r0="8" material="trim_light"/>
 
-  <!-- dock: platform, ore hopper, conveyor up to the tower -->
-  <chunk width="214" height="20" depth="144" radius="12" bevel="3" lean="0" pos="-40 30 114" material="concrete_dark"/>
-  <box size="210 14 6" pos="-40 31 187" material="hazard_big"/>
-  <pyramid radius="38" radiusTop="76" height="56" rot="0 45 0" pos="-40 68 108" material="emblem_gold"/>
-  <pyramid radius="80" radiusTop="80" height="8" rot="0 45 0" pos="-40 99 108" material="emblem_gold"/>
-  <box size="104 2 104" pos="-40 104.5 108" material="rubber"/>
-  <sphere radius="30" rings="3" slices="5" scale="1 0.6 1" rot="0 20 0" pos="-58 104 96" material="ore"/>
-  <sphere radius="26" rings="3" slices="5" scale="1 0.7 1" rot="0 50 0" pos="-16 104 100" material="ore"/>
-  <sphere radius="28" rings="3" slices="6" scale="1 0.6 1" rot="0 80 0" pos="-40 106 132" material="ore"/>
-  <beam ax="14" ay="62" az="88" bx="84" by="176" bz="-30" width="36" depth="10" material="trim_light"/>
-  <beam ax="14" ay="67" az="88" bx="84" by="181" bz="-30" width="24" depth="4" material="rubber"/>
-  <beam ax="46" ay="40" az="35" bx="46" by="108" bz="35" width="10" depth="10" material="trim"/>
-  <warn-light on="{blink}" pos="-136 40 176"/>
-  <warn-light on="{blink}" pos="56 40 176"/>
+    <!-- processing tower, back right: y 20..170, x 24..196, z -182..-10 -->
+    <chunk width="184" height="24" depth="184" radius="64" bevel="2" lean="0" pos="110 32 -96" material="hazard_skirt"/>
+    <chunk width="172" height="150" depth="172" radius="58" bevel="14" lean="0.1" pos="110 95 -96" material="paint" tint="1"/>
+    <chunk width="124" height="46" depth="124" radius="46" bevel="10" lean="0" pos="110 193 -96" material="trim_light"/>
+    <chunk width="128" height="14" depth="128" radius="48" bevel="2" lean="0" pos="110 190 -96" material="window"/>
+    <cylinder radius="46" height="6" sides="24" pos="110 219 -96" material="trim"/>
+    <emblem radius="42" pos="110 222 -96"/>
 
-  <!-- flare stack -->
-  <cylinder radius="12" height="250" sides="12" pos="246 145 -160" material="trim_light"/>
-  <cylinder radius="18" height="16" sides="12" pos="246 28 -160" material="trim"/>
-  <collar radius="15" height="16" pos="246 258 -160"/>
-  <cone radius="{13-3*flick}" radiusTop="0" height="{36+14*flick}" sides="8" pos="{246+2*flick} {288+7*flick} -160" material="flame" unlit="1" castShadow="0"/>
-  <light pos="246 292 -160" color="1 0.6 0.25" intensity="0.6" radius="200" castShadows="0"/>
+    <!-- dock: platform, ore hopper, conveyor up to the tower -->
+    <chunk width="214" height="20" depth="144" radius="12" bevel="3" lean="0" pos="-40 30 114" material="concrete_dark"/>
+    <box size="210 14 6" pos="-40 31 187" material="hazard_big"/>
+    <pyramid radius="38" radiusTop="76" height="56" rot="0 45 0" pos="-40 68 108" material="emblem_gold"/>
+    <pyramid radius="80" radiusTop="80" height="8" rot="0 45 0" pos="-40 99 108" material="emblem_gold"/>
+    <box size="104 2 104" pos="-40 104.5 108" material="rubber"/>
+    <sphere radius="30" rings="3" slices="5" scale="1 0.6 1" rot="0 20 0" pos="-58 104 96" material="ore"/>
+    <sphere radius="26" rings="3" slices="5" scale="1 0.7 1" rot="0 50 0" pos="-16 104 100" material="ore"/>
+    <sphere radius="28" rings="3" slices="6" scale="1 0.6 1" rot="0 80 0" pos="-40 106 132" material="ore"/>
+    <beam ax="14" ay="62" az="88" bx="84" by="176" bz="-30" width="36" depth="10" material="trim_light"/>
+    <beam ax="14" ay="67" az="88" bx="84" by="181" bz="-30" width="24" depth="4" material="rubber"/>
+    <beam ax="46" ay="40" az="35" bx="46" by="108" bz="35" width="10" depth="10" material="trim"/>
+    <warn-light on="{blink}" pos="-136 40 176"/>
+    <warn-light on="{blink}" pos="56 40 176"/>
 
-  <!-- control booth, front right -->
-  <chunk width="124" height="66" depth="96" radius="22" bevel="10" lean="0.08" pos="214 53 112" material="paint_plain" tint="1"/>
-  <box size="84 18 4" pos="214 60 159" material="window"/>
-  <cylinder radius="2" height="60" sides="5" pos="250 116 90" material="trim"/>
+    <!-- flare stack -->
+    <cylinder radius="12" height="250" sides="12" pos="246 145 -160" material="trim_light"/>
+    <cylinder radius="18" height="16" sides="12" pos="246 28 -160" material="trim"/>
+    <collar radius="15" height="16" pos="246 258 -160"/>
+    <cone radius="{13-3*flick}" radiusTop="0" height="{36+14*flick}" sides="8" pos="{246+2*flick} {288+7*flick} -160" material="flame" unlit="1" castShadow="0"/>
+    <light pos="246 292 -160" color="1 0.6 0.25" intensity="0.6" radius="200" castShadows="0"/>
+
+    <!-- control booth, front right -->
+    <chunk width="124" height="66" depth="96" radius="22" bevel="10" lean="0.08" pos="214 53 112" material="paint_plain" tint="1"/>
+    <box size="84 18 4" pos="214 60 159" material="window"/>
+    <cylinder radius="2" height="60" sides="5" pos="250 116 90" material="trim"/>
+  </group>
 </prefab>

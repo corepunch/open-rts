@@ -13,36 +13,41 @@
   <shape id="rf_tower_band" closed="0" v="65 104 63.2 110 59.2 150"/>
   <chunk width="392" height="20" depth="392" radius="26" bevel="3" lean="0" pos="0 10 0" material="slab"/>
 
-  <lathe shape="rf_cooling_tower" segments="28" pos="-96 20 -86" material="paint_plain" tint="1"/>
-  <lathe shape="rf_tower_band" segments="28" pos="-96 20 -86" material="trim_light"/>
-  <collar radius="67" height="18" pos="-96 210 -86" material="hazard_ring_big"/>
-  <cylinder radius="57" height="2" sides="28" pos="-96 220.5 -86" material="rubber"/>
-  <cylinder radius="89" height="16" sides="28" pos="-96 28 -86" material="trim"/>
-  <lathe shape="rf_cooling_tower" segments="28" pos="92 20 -96" scale="0.85 0.8 0.85" material="paint_plain" tint="1"/>
-  <lathe shape="rf_tower_band" segments="28" pos="92 20 -96" scale="0.85 0.8 0.85" material="trim_light"/>
-  <collar radius="57" height="16" pos="92 171 -96" material="hazard_ring_big"/>
-  <cylinder radius="48" height="2" sides="28" pos="92 180.5 -96" material="rubber"/>
-  <cylinder radius="76" height="16" sides="28" pos="92 28 -96" material="trim"/>
+  <!-- The building stands turned -15 degrees on its square slab, so its sides show; scaled
+       and centred to stay inside the footprint (measured from its bounds in scener). -->
+  <group rot="0 -15 0" scale="0.922 0.922 0.922" pos="2.6 0 -12.4">
 
-  <!-- turbine hall: y 20..86, x -154..106, z 62..180 -->
-  <chunk width="272" height="22" depth="130" radius="32" bevel="2" lean="0" pos="-24 31 121" material="hazard_skirt"/>
-  <chunk width="260" height="66" depth="118" radius="28" bevel="12" lean="0.06" pos="-24 53 121" material="paint" tint="1"/>
-  <box size="190 {16-8*pulse} 4" pos="-24 58 179.4" material="glow" unlit="1" castShadow="0"/>
-  <box size="198 24 3" pos="-24 58 178.6" material="trim"/>
-  <cylinder radius="40" height="6" sides="24" pos="-50 88 121" material="trim"/>
-  <emblem radius="35" pos="-50 91 121"/>
-  <stack radius="15" height="60" pos="62 86 112"/>
-  <warn-light on="{blink}" pos="-140 86 160"/>
-  <warn-light on="{blink}" pos="92 86 160"/>
+    <lathe shape="rf_cooling_tower" segments="28" pos="-96 20 -86" material="paint_plain" tint="1"/>
+    <lathe shape="rf_tower_band" segments="28" pos="-96 20 -86" material="trim_light"/>
+    <collar radius="67" height="18" pos="-96 210 -86" material="hazard_ring_big"/>
+    <cylinder radius="57" height="2" sides="28" pos="-96 220.5 -86" material="rubber"/>
+    <cylinder radius="89" height="16" sides="28" pos="-96 28 -86" material="trim"/>
+    <lathe shape="rf_cooling_tower" segments="28" pos="92 20 -96" scale="0.85 0.8 0.85" material="paint_plain" tint="1"/>
+    <lathe shape="rf_tower_band" segments="28" pos="92 20 -96" scale="0.85 0.8 0.85" material="trim_light"/>
+    <collar radius="57" height="16" pos="92 171 -96" material="hazard_ring_big"/>
+    <cylinder radius="48" height="2" sides="28" pos="92 180.5 -96" material="rubber"/>
+    <cylinder radius="76" height="16" sides="28" pos="92 28 -96" material="trim"/>
 
-  <!-- feed pipes -->
-  <tube ax="-96" ay="62" az="-10" bx="-96" by="62" bz="66" r0="13" material="trim_light"/>
-  <tube ax="92" ay="58" az="-30" bx="62" by="58" bz="66" r0="11" material="trim_light"/>
+    <!-- turbine hall: y 20..86, x -154..106, z 62..180 -->
+    <chunk width="272" height="22" depth="130" radius="32" bevel="2" lean="0" pos="-24 31 121" material="hazard_skirt"/>
+    <chunk width="260" height="66" depth="118" radius="28" bevel="12" lean="0.06" pos="-24 53 121" material="paint" tint="1"/>
+    <box size="190 {16-8*pulse} 4" pos="-24 58 179.4" material="glow" unlit="1" castShadow="0"/>
+    <box size="198 24 3" pos="-24 58 178.6" material="trim"/>
+    <cylinder radius="40" height="6" sides="24" pos="-50 88 121" material="trim"/>
+    <emblem radius="35" pos="-50 91 121"/>
+    <stack radius="15" height="60" pos="62 86 112"/>
+    <warn-light on="{blink}" pos="-140 86 160"/>
+    <warn-light on="{blink}" pos="92 86 160"/>
 
-  <!-- transformers, front right -->
-  <box size="70 2 124" pos="158 21 118" material="pad_dark"/>
-  <chunk width="52" height="46" depth="46" radius="10" bevel="6" lean="0.06" pos="158 45 88" material="trim_light"/>
-  <chunk width="52" height="46" depth="46" radius="10" bevel="6" lean="0.06" pos="158 45 150" material="trim_light"/>
-  <cylinder radius="5" height="16" sides="8" pos="146 76 88" material="glow" unlit="1" castShadow="0"><array count="3" translation="12 0 0"/></cylinder>
-  <cylinder radius="5" height="16" sides="8" pos="146 76 150" material="glow" unlit="1" castShadow="0"><array count="3" translation="12 0 0"/></cylinder>
+    <!-- feed pipes -->
+    <tube ax="-96" ay="62" az="-10" bx="-96" by="62" bz="66" r0="13" material="trim_light"/>
+    <tube ax="92" ay="58" az="-30" bx="62" by="58" bz="66" r0="11" material="trim_light"/>
+
+    <!-- transformers, front right -->
+    <box size="70 2 124" pos="158 21 118" material="pad_dark"/>
+    <chunk width="52" height="46" depth="46" radius="10" bevel="6" lean="0.06" pos="158 45 88" material="trim_light"/>
+    <chunk width="52" height="46" depth="46" radius="10" bevel="6" lean="0.06" pos="158 45 150" material="trim_light"/>
+    <cylinder radius="5" height="16" sides="8" pos="146 76 88" material="glow" unlit="1" castShadow="0"><array count="3" translation="12 0 0"/></cylinder>
+    <cylinder radius="5" height="16" sides="8" pos="146 76 150" material="glow" unlit="1" castShadow="0"><array count="3" translation="12 0 0"/></cylinder>
+  </group>
 </prefab>

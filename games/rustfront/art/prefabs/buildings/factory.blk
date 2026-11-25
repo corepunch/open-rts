@@ -9,42 +9,47 @@
   <let name="blink" value="1"/>
   <chunk width="592" height="20" depth="592" radius="26" bevel="3" lean="0" pos="0 10 0" material="slab"/>
 
-  <!-- hall: y 20..180, base x ±236 z -264..176 -->
-  <chunk width="488" height="24" depth="456" radius="46" bevel="2" lean="0" pos="0 32 -44" material="hazard_skirt"/>
-  <chunk width="472" height="160" depth="440" radius="40" bevel="18" lean="0.1" pos="0 100 -44" material="paint" tint="1"/>
+  <!-- The building stands turned -16 degrees on its square slab, so its sides show; scaled
+       and centred to stay inside the footprint (measured from its bounds in scener). -->
+  <group rot="0 -16 0" scale="0.933 0.933 0.933" pos="-8.4 0 2.4">
 
-  <!-- roof: two glazed monitors and the roundel on a plinth -->
-  <chunk width="84" height="30" depth="290" radius="16" bevel="8" lean="0.1" pos="-142 193 -54" material="trim_light"/>
-  <chunk width="84" height="30" depth="290" radius="16" bevel="8" lean="0.1" pos="142 193 -54" material="trim_light"/>
-  <box size="46 3 52" pos="-142 208.5 -159" material="window"><array count="4" translation="0 0 70"/></box>
-  <box size="46 3 52" pos="142 208.5 -159" material="window"><array count="4" translation="0 0 70"/></box>
-  <cylinder radius="80" height="10" sides="28" pos="0 185 -40" material="trim"/>
-  <emblem radius="72" pos="0 190 -40"/>
+    <!-- hall: y 20..180, base x ±236 z -264..176 -->
+    <chunk width="488" height="24" depth="456" radius="46" bevel="2" lean="0" pos="0 32 -44" material="hazard_skirt"/>
+    <chunk width="472" height="160" depth="440" radius="40" bevel="18" lean="0.1" pos="0 100 -44" material="paint" tint="1"/>
 
-  <!-- gatehouse and shutter door -->
-  <chunk width="290" height="156" depth="76" radius="14" bevel="10" lean="0.05" pos="0 98 190" material="paint_plain" tint="1"/>
-  <box size="216 112 6" pos="0 78 226" material="steel_dark"/>
-  <box size="216 4 3" pos="0 34 229" material="gunmetal"><array count="8" translation="0 13 0"/></box>
-  <box size="256 22 8" pos="0 145 225" material="hazard_big"/>
-  <box size="20 124 8" pos="-118 84 226" material="hazard_big"/>
-  <box size="20 124 8" pos="118 84 226" material="hazard_big"/>
-  <box size="216 3 66" pos="0 21.5 261" material="pad_dark"/>
-  <box size="12 3.2 66" pos="-102 21.6 261" material="hazard_big"/>
-  <box size="12 3.2 66" pos="102 21.6 261" material="hazard_big"/>
+    <!-- roof: two glazed monitors and the roundel on a plinth -->
+    <chunk width="84" height="30" depth="290" radius="16" bevel="8" lean="0.1" pos="-142 193 -54" material="trim_light"/>
+    <chunk width="84" height="30" depth="290" radius="16" bevel="8" lean="0.1" pos="142 193 -54" material="trim_light"/>
+    <box size="46 3 52" pos="-142 208.5 -159" material="window"><array count="4" translation="0 0 70"/></box>
+    <box size="46 3 52" pos="142 208.5 -159" material="window"><array count="4" translation="0 0 70"/></box>
+    <cylinder radius="80" height="10" sides="28" pos="0 185 -40" material="trim"/>
+    <emblem radius="72" pos="0 190 -40"/>
 
-  <!-- beacon pylons at the front corners -->
-  <cylinder radius="36" height="186" sides="20" pos="-208 113 150" material="paint_plain" tint="1"/>
-  <cylinder radius="36" height="186" sides="20" pos="208 113 150" material="paint_plain" tint="1"/>
-  <collar radius="39" height="18" pos="-208 184 150"/>
-  <collar radius="39" height="18" pos="208 184 150"/>
-  <cylinder radius="39" height="22" sides="20" pos="-208 31 150" material="trim"/>
-  <cylinder radius="39" height="22" sides="20" pos="208 31 150" material="trim"/>
-  <cylinder radius="30" height="6" sides="20" pos="-208 209 150" material="trim"/>
-  <cylinder radius="30" height="6" sides="20" pos="208 209 150" material="trim"/>
-  <beacon on="{blink}" pos="-208 212 150"/>
-  <beacon on="{blink}" pos="208 212 150"/>
+    <!-- gatehouse and shutter door -->
+    <chunk width="290" height="156" depth="76" radius="14" bevel="10" lean="0.05" pos="0 98 190" material="paint_plain" tint="1"/>
+    <box size="216 112 6" pos="0 78 226" material="steel_dark"/>
+    <box size="216 4 3" pos="0 34 229" material="gunmetal"><array count="8" translation="0 13 0"/></box>
+    <box size="256 22 8" pos="0 145 225" material="hazard_big"/>
+    <box size="20 124 8" pos="-118 84 226" material="hazard_big"/>
+    <box size="20 124 8" pos="118 84 226" material="hazard_big"/>
+    <box size="216 3 66" pos="0 21.5 261" material="pad_dark"/>
+    <box size="12 3.2 66" pos="-102 21.6 261" material="hazard_big"/>
+    <box size="12 3.2 66" pos="102 21.6 261" material="hazard_big"/>
 
-  <!-- stacks at the back -->
-  <stack radius="24" height="120" pos="176 178 -226"/>
-  <stack radius="18" height="90" pos="116 178 -232"/>
+    <!-- beacon pylons at the front corners -->
+    <cylinder radius="36" height="186" sides="20" pos="-208 113 150" material="paint_plain" tint="1"/>
+    <cylinder radius="36" height="186" sides="20" pos="208 113 150" material="paint_plain" tint="1"/>
+    <collar radius="39" height="18" pos="-208 184 150"/>
+    <collar radius="39" height="18" pos="208 184 150"/>
+    <cylinder radius="39" height="22" sides="20" pos="-208 31 150" material="trim"/>
+    <cylinder radius="39" height="22" sides="20" pos="208 31 150" material="trim"/>
+    <cylinder radius="30" height="6" sides="20" pos="-208 209 150" material="trim"/>
+    <cylinder radius="30" height="6" sides="20" pos="208 209 150" material="trim"/>
+    <beacon on="{blink}" pos="-208 212 150"/>
+    <beacon on="{blink}" pos="208 212 150"/>
+
+    <!-- stacks at the back -->
+    <stack radius="24" height="120" pos="176 178 -226"/>
+    <stack radius="18" height="90" pos="116 178 -232"/>
+  </group>
 </prefab>

@@ -68,9 +68,16 @@
        (25.5, -2.7, 91.7; rifle base 0, -10.8, 135.6; read with scener list-joints), so a pose that
        moves the torso moves the hand offsets with it: -Y is forward, Z up. -->
   <pose name="Ready">
-    <joint target="weapon" aim="0 -15" />
-    <ik limb="right_arm" offset="19.5 -14.3 35.3" bend="-90 -40" />
-    <ik limb="left_arm" offset="-21.5 -36.3 29.3" bend="90 -40" />
+    <joint target="pelvis" pos="3 1 -3" rot="0 -4 6" />
+    <ik limb="left_leg" offset="3 -9 0" bend="10 0" />
+    <ik limb="right_leg" offset="-7 11 0" bend="-25 0" />
+    <joint target="right_foot" aim="-30 -12" />
+    <joint target="spine" aim="0 87" />
+    <joint target="ribcage" rot="0 3 -8" />
+    <joint target="head" rot="-6 0 14" />
+    <joint target="weapon" aim="-14 -37" />
+    <ik limb="right_arm" offset="19.7 -9.2 30.1" bend="-90 -50" />
+    <ik limb="left_arm" offset="-25.9 -29.5 15.4" bend="90 -60" />
   </pose>
   <!-- Running: the torso leans into it and the rifle is carried low across the body. -->
   <pose name="Run">
@@ -101,73 +108,80 @@
     <ik limb="left_arm" offset="-21.5 -32 36" bend="90 -30" />
     <joint target="head" rot="-6 0 0" />
   </pose>
-  <!-- Death, thrown backward (+Y): the spine snaps into an arc, head and arms fly back, the body
-       leaves the ground, lands on its back and settles sprawled. Limbs are posed by aim, which
-       follows the body; limb IK would stay where the soldier stood. -->
+  <!-- Death: shot, the soldier jerks and lets go with the left hand, the knees give, he drops to
+       his knees, topples forward and ends face down, one arm under him, legs loose. Limbs are posed
+       by aim (relative to the parent), the pelvis by pos and aim; no arm ever goes out flat. -->
   <pose name="Hit">
-    <joint target="pelvis" pos="0 6 -6" aim="180 80" />
-    <joint target="spine" aim="180 72" />
-    <joint target="ribcage" rot="-18 0 8" />
-    <joint target="head" rot="-34 0 0" />
-    <joint target="weapon" aim="20 60" />
-    <joint target="left_thigh" aim="0 -70" />
-    <joint target="left_calf" aim="180 -60" />
-    <joint target="right_thigh" aim="180 -80" />
-    <joint target="right_upperarm" aim="-70 55" />
-    <joint target="right_forearm" aim="0 70" />
-    <joint target="left_upperarm" aim="100 20" />
-    <joint target="left_forearm" aim="60 30" />
+    <joint target="pelvis" pos="0 7 -5" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="180 78" />
+    <joint target="ribcage" rot="-12 6 14" />
+    <joint target="head" rot="-28 0 -12" />
+    <joint target="weapon" aim="-30 -40" />
+    <ik limb="right_arm" offset="18 -10 24" bend="-90 -40" />
+    <ik limb="left_arm" offset="-20 -10 34" bend="90 -60" />
   </pose>
-  <pose name="Thrown">
-    <joint target="pelvis" pos="0 28 -8" aim="180 46" />
-    <joint target="spine" aim="180 60" />
-    <joint target="ribcage" rot="-20 0 -6" />
-    <joint target="head" rot="-38 0 12" />
-    <joint target="weapon" aim="70 80" />
-    <joint target="left_thigh" aim="0 -50" />
-    <joint target="left_calf" aim="180 -50" />
-    <joint target="right_thigh" aim="0 -75" />
-    <joint target="right_calf" aim="180 -75" />
-    <joint target="right_upperarm" aim="-90 75" />
-    <joint target="right_forearm" aim="0 80" />
-    <joint target="left_upperarm" aim="120 50" />
-    <joint target="left_forearm" aim="90 60" />
+  <pose name="Buckle">
+    <joint target="pelvis" pos="0 2 -30" rot="0 0 -10" />
+    <ik limb="left_leg" offset="2 -16 0" bend="0 0" />
+    <ik limb="right_leg" offset="-2 12 0" bend="-10 0" />
+    <joint target="spine" aim="0 68" />
+    <joint target="ribcage" rot="12 -6 8" />
+    <joint target="head" rot="26 0 -8" />
+    <joint target="weapon" aim="-20 -72" />
+    <ik limb="right_arm" offset="14 -16 -6" bend="-90 -30" />
+    <ik limb="left_arm" offset="-22 -18 4" bend="90 -60" />
   </pose>
-  <pose name="Land">
-    <joint target="pelvis" pos="0 48 -62" aim="180 14" />
-    <joint target="ribcage" rot="-10 0 0" />
-    <joint target="head" rot="-24 0 16" />
-    <joint target="weapon" aim="90 20" />
-    <joint target="left_thigh" aim="0 -40" />
-    <joint target="left_calf" aim="180 -40" />
-    <joint target="right_thigh" aim="-10 -65" />
-    <joint target="right_calf" aim="180 -70" />
-    <joint target="right_upperarm" aim="-100 40" />
-    <joint target="right_forearm" aim="-20 30" />
-    <joint target="left_upperarm" aim="120 25" />
-    <joint target="left_forearm" aim="60 20" />
+  <pose name="Kneel">
+    <joint target="pelvis" pos="0 4 -50" rot="0 0 -14" />
+    <ik limb="left_leg" offset="2 20 0" bend="0 0" />
+    <ik limb="right_leg" offset="-4 26 0" bend="0 0" />
+    <joint target="spine" aim="0 58" />
+    <joint target="ribcage" rot="14 -10 10" />
+    <joint target="head" rot="34 0 -14" />
+    <joint target="weapon" aim="-50 -80" />
+    <joint target="right_upperarm" aim="-80 -80" />
+    <joint target="right_forearm" aim="0 -70" />
+    <joint target="left_upperarm" aim="70 -70" />
+    <joint target="left_forearm" aim="0 -60" />
+  </pose>
+  <pose name="Topple">
+    <joint target="pelvis" pos="0 -12 -62" aim="0 38" rot="0 -12 0" />
+    <ik limb="left_leg" offset="2 24 0" bend="0 0" />
+    <ik limb="right_leg" offset="-4 30 0" bend="0 -20" />
+    <joint target="spine" aim="0 76" />
+    <joint target="ribcage" rot="4 -14 6" />
+    <joint target="head" rot="10 0 -24" />
+    <joint target="weapon" aim="-70 -60" />
+    <joint target="right_upperarm" aim="-40 -40" />
+    <joint target="right_forearm" aim="0 -30" />
+    <joint target="left_upperarm" aim="40 -60" />
+    <joint target="left_forearm" aim="10 -40" />
   </pose>
   <pose name="Dead">
-    <joint target="pelvis" pos="0 54 -76" aim="180 4" />
-    <joint target="ribcage" rot="-3 0 6" />
-    <joint target="head" rot="-8 0 30" />
-    <joint target="weapon" aim="100 -8" />
-    <joint target="left_thigh" aim="25 -78" />
-    <joint target="left_calf" aim="150 -84" />
-    <joint target="right_thigh" aim="-14 -88" />
-    <joint target="right_upperarm" aim="-115 -4" />
-    <joint target="right_forearm" aim="-60 -4" />
-    <joint target="left_upperarm" aim="125 2" />
-    <joint target="left_forearm" aim="40 -4" />
+    <joint target="pelvis" pos="0 -60 -77" aim="0 2" rot="0 -16 0" />
+    <joint target="left_thigh" aim="50 -70" />
+    <joint target="left_calf" aim="-80 -40" />
+    <joint target="right_thigh" aim="-6 -86" />
+    <joint target="right_calf" aim="-30 -80" />
+    <joint target="spine" aim="0 88" />
+    <joint target="ribcage" rot="0 -6 4" />
+    <joint target="head" rot="0 0 -70" />
+    <joint target="weapon" aim="-80 40" />
+    <joint target="right_upperarm" aim="-60 20" />
+    <joint target="right_forearm" aim="40 30" />
+    <joint target="left_upperarm" aim="65 -70" />
+    <joint target="left_forearm" aim="10 -20" />
   </pose>
 
   <!-- Clips (seconds). The sprite renderer samples them at fixed times (art/sprites.py). -->
   <!-- Standing guard: a slow look left and right with the weight shifting. -->
   <clip name="Idle" length="2.4" loop="1">
     <key t="0" pose="Ready" />
-    <key t="0.6" pose="Ready"><joint target="head" rot="0 0 28" /><joint target="ribcage" rot="0 0 8" /><joint target="pelvis" pos="2 0 -1" /></key>
-    <key t="1.2" pose="Ready"><joint target="ribcage" rot="3 0 0" /></key>
-    <key t="1.8" pose="Ready"><joint target="head" rot="0 0 -28" /><joint target="ribcage" rot="0 0 -8" /><joint target="pelvis" pos="-2 0 -1" /></key>
+    <key t="0.6" pose="Ready"><joint target="pelvis" pos="4 1 -3.5" rot="0 -4 7" /><joint target="ribcage" rot="0 3 -2" /><joint target="head" rot="-4 0 34" /></key>
+    <key t="1.2" pose="Ready"><joint target="pelvis" pos="3 1 -2.5" rot="0 -4 6" /><joint target="ribcage" rot="3 3 -8" /><joint target="head" rot="-12 0 8" /></key>
+    <key t="1.8" pose="Ready"><joint target="pelvis" pos="2 1 -3" rot="0 -3 4" /><joint target="ribcage" rot="0 2 -14" /><joint target="head" rot="-2 0 -18" /></key>
   </clip>
   <!-- Added over the running gait, two nods of the chest a stride (the gait's cycle is 0.5 s). -->
   <clip name="RunBob" length="0.5" loop="1">
@@ -183,9 +197,10 @@
   </clip>
   <clip name="Die" length="1.0">
     <key t="0" pose="Aim" />
-    <key t="0.15" pose="Hit" />
-    <key t="0.4" pose="Thrown" />
-    <key t="0.65" pose="Land" />
-    <key t="0.85" pose="Dead" />
+    <key t="0.1" pose="Hit" />
+    <key t="0.3" pose="Buckle" />
+    <key t="0.5" pose="Kneel" />
+    <key t="0.7" pose="Topple" />
+    <key t="0.88" pose="Dead" />
   </clip>
 </prefab>

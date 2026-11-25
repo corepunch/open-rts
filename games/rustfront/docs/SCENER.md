@@ -83,7 +83,7 @@ relative to the scene's directory (`source="vehicles/tank"` loads
 | Units | Centimetres, degrees, Y up (Scener's default; the kit does not use `up="z"`) |
 | Grid | One cell is 200 cm. Buildings fill whole cells: turret 1×1, power/barracks 2×2, refinery 3×2, HQ/factory 3×3 |
 | Origin | Footprint centre, on the ground (y = 0). Buildings stand on a 20 cm slab 8 cm smaller than the footprint, so their geometry starts at y = 20 |
-| Facing | Buildings face **+Z** (entrance, garage door). Vehicles face **+X** (gun, nose); the scene turns them `rot="0 -90 0"` so they face the viewer's lower left |
+| Facing | Buildings face **+Z** (entrance, garage door), but stand turned 10–20° on their square slab so their sides show: everything after the slab sits in a `<group rot="0 yaw 0" scale=… pos=…>` whose scale and offset keep the turned building inside the footprint (read from the group's bounds in `scener --query`). The slab stays square to the grid. Vehicles face **+X** (gun, nose); the scene turns them `rot="0 -90 0"` so they face the viewer's lower left |
 | Leading comment | States footprint, origin and front. The root carries the same as data: `<prefab up="y" front="+z">` |
 | Team colour | Parts marked `tint="1"` take the instance's `color`: a building's painted hulls, and a vehicle's bands, canopies and turret tops. Everything else keeps its material |
 | Palette | The materials in `layout.py`'s `PALETTE`: `sand`, `pad_dark`, `concrete_dark`, `gunmetal`, `steel`, `steel_dark`, `grating`, `rust`, `armor`, `armor_dark`, `team`, `track`, `rubber`, `sandbag`, `glass`, `ore`, `hazard`, the emitters `glow`, `lamp`, `warn`, `flame`, and the buildings' `slab`, `paint`, `paint_plain`, `trim`, `trim_light`, `window`, `emblem_gold`, `emblem_white`, `emblem_dark`, `hazard_big`, `hazard_skirt`, `hazard_ring`, `hazard_ring_big`. Add a material there instead of inline colours |
@@ -324,15 +324,15 @@ scene stands it up with `rot="-90 90 0"` (Y up, facing +X).
 
 | Animation | Source | Frames |
 |---|---|---|
-| idle | the `Idle` clip: `Ready` with a slow look left and right and a weight shift | 4 |
+| idle | the `Idle` clip: `Ready` (weight on the left leg, right foot back and turned out, soft knees, rifle at low ready) with a slow look left and right, a breath and a sway between the legs | 4 |
 | walk | a running `<gait mode="spot">` (stride 170 cm, 0.5 s a cycle, more lift, bounce, hip and spine twist) under the `Run` pose (torso leaning in, weapon carried low) plus the additive `RunBob` chest nod; one stride sampled after the ramp | 6 |
 | fire, fire2 | the `Fire` clip: `Aim` (feet apart, knees bent, weight forward) with the muzzle flash, then `Recoil` (the torso thrown back) | 1 + 1 |
-| die | the `Die` clip: `Hit` (the spine snaps into an arc, head and arms fly back), `Thrown` (off the ground), `Land`, `Dead` (sprawled) | 7 |
+| die | the `Die` clip, a crumple: `Hit` (a jolt back, the left hand lets go), `Buckle` (knees give, the torso folds), `Kneel`, `Topple` (pitching forward), `Dead` (face down, an arm under him, a knee bent). Arms stay bent or along the body; an upper arm aimed at elevation 0 sticks straight out and reads as a T | 7 |
 
 The motion follows what makes Ecstatica's hero lively, studied from its imported
 run, hit and death actions (`apps/scener/imports/ecstatica`): long strides with
-the torso leaning in, weight shifts when standing, and arcs through the spine,
-head and arms on a hit, with the body leaving the ground. The clips are authored
+the torso leaning in, weight shifts when standing, and arcs through the spine
+and head on a hit. The clips are authored
 here from scratch. Ecstatica's motion data belongs to that game and is not used.
 
 Infantry have 8 facings. `sprites.py` renders each animation frame with
