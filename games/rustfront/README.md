@@ -27,6 +27,8 @@ and loaded by its own open-rts binary.
 
 ![A War Factory going up, and one burning](art/previews/construction.png)
 
+![Red's base four minutes in, and a red wave at Blue's ore field](art/previews/ai.png)
+
 ## Play
 
 ```sh
@@ -36,8 +38,23 @@ build/bin/rustfront --map maps/skirmish.txt
 env SDL_VIDEODRIVER=dummy build/bin/rustfront --check
 ```
 
-One skirmish map (`maps/skirmish.txt`) holds a blue base and force, an ore field
-and a red patrol. There is no computer player yet: red only defends itself.
+One skirmish map (`maps/skirmish.txt`, 48 x 30 cells): Blue (you) top left, Red
+(the computer) bottom right, each with an ore field, and a contested field in the
+middle.
+
+**The computer** is the engine's AI (`play/p_ai.c`) playing Rustfront's faction
+(`rules.c`):
+
+- **Opening:** a C&C build order of power, barracks and riflemen, then the
+  refinery and a second harvester, the War Factory, gun turrets and a first
+  armoured group.
+- **After the opening:** it keeps two harvesters and two turrets per base, and
+  masses a mixed army of riflemen, rocket soldiers, tanks, artillery, APCs and
+  scouts, up to 28 units.
+- **Attack:** it attacks in waves of 6 to 16 once it matches what it has seen of
+  you, and falls back when a wave is outmatched.
+- **Building:** its structures rise on scaffolding like yours (`g_ai.c` picks
+  sites near its Command Center with a free cell all round).
 
 **Sidebar:**
 - **Credits:** the counter at the top.
@@ -85,7 +102,9 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `g_combat.c` | Shells and rockets: tanks, gun turrets, artillery and rocket soldiers launch a projectile that does its damage on arrival (the artillery's arcs and splashes; rockets trail smoke) |
 | `g_build.c` | Construction sites that rise through four stages while their hit points grow; scorched looks below half health |
 | `g_mission.c` | Footprints block movement, idle harvesters go to ore, mined cells clear, a refinery brings a harvester; impact puffs and explosions on damage and death |
-| `rules.c`, `m_menu.c` | No fog, and the engine's simple menu |
+| `rules.c` | The faction for the computer player: opening build, doctrine, army roster; no fog |
+| `g_ai.c` | The computer player's hooks: it places its own structures on roomy sites, and every structure anchors its defence and draws its waves |
+| `m_menu.c` | The engine's simple menu |
 
 **Map format:** rows of `.` (sand), `*` (ore) or `#` (gravel) cells, then
 `unit NAME OWNER X Y [FACING]` lines. Each `*` cell is an ore deposit. X and Y are the cell (a building's

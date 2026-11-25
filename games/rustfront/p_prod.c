@@ -126,6 +126,3 @@ bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinitio
     return true;
 }
 
-const AiGameInterface *G_AiInterface(void) {
-    return NULL;
-}

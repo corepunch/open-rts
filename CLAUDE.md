@@ -49,6 +49,6 @@ Each game has its own binary in `build/bin/`:
 - `build/bin/kknd`         — KKnD
 - `build/bin/warcraft-2`   — Warcraft II (`data/WAR2/ALAMO.PUD`)
 - `build/bin/z`            — Z (`data/Z/LEVEL01/LEVEL01.MAP`; formats in `docs/Z_FORMATS.md`)
-- `build/bin/rustfront`    — Rustfront (`games/rustfront/maps/skirmish.txt`; art pipeline in `games/rustfront/docs/SCENER.md`)
+- `build/bin/rustfront`    — Rustfront, an original game vs. the engine AI (`games/rustfront/maps/skirmish.txt`; art pipeline in `games/rustfront/docs/SCENER.md`)
 
 No `--game` flag needed. No dynamic plugin loading.
