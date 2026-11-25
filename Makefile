@@ -126,6 +126,14 @@ $(eval $(call GAME_TARGET,warcraft-2,$(W2_GAME_SOURCES),warcraft-2,-DRTS_WORLD_Y
 $(eval $(call GAME_TARGET,z,$(Z_GAME_SOURCES),z,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,rustfront,$(RF_GAME_SOURCES),rustfront,-DRTS_WORLD_Y_UP=0))
 
+# Rustfront's art is generated, not retail data: this rebuilds every sprite, icon, effect and
+# 8-bit sheet from the Scener prefabs (needs scener, python3 with Pillow and xmllint; see
+# games/rustfront/docs/SCENER.md), then relinks the game.
+.PHONY: rustfront-art
+rustfront-art:
+	games/rustfront/art/build_all.sh
+	$(MAKE) $(BIN_DIR)/rustfront
+
 $(eval $(call GAME_TARGET,starcraft,$(SC_GAME_SOURCES),starcraft,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT))
 
 all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2 $(BIN_DIR)/z $(BIN_DIR)/rustfront

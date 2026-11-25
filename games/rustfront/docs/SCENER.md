@@ -18,6 +18,10 @@ buildings with Scener (`docs/BUILDINGS.md`, `docs/BUILDING_ART.md`,
 
 ## Install and run
 
+To regenerate all of the game's art in one step, run `make rustfront-art` (see
+"Regenerating everything" in the README). The rest of this guide covers the
+individual steps.
+
 `scener` must be on `PATH`. It is deployed to `~/.local/bin/scener` with:
 
 ```sh
@@ -54,6 +58,7 @@ art/kit.xml             Rustfront's kit. Detail parts: ladder, vent, warn-light,
 art/prefabs/buildings/  one .blk per building (turret/ holds the gun turret's base and head)
 art/prefabs/vehicles/   one .blk per vehicle (tank/ and apc/ hold hull and turret layers)
 art/prefabs/infantry/   Scener CAT characters: rifleman, rocket soldier
+art/build_all.sh        the whole pipeline in order (make rustfront-art)
 art/render.sh           check + render the previews
 art/pack8.py            converts sprites/ to 256-colour assets/ for the engine
 art/previews/           committed one-angle previews (camera name = file name) and

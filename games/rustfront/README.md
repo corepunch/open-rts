@@ -113,18 +113,45 @@ top-left), and FACING is 0–15, counter-clockwise from east. Owner 0 is the
 player and the others are enemies, each in its team colour. An optional
 `camera X Y` sets the opening view.
 
-**Rebuilding the art:**
+## Regenerating everything
+
+All of Rustfront's art is generated from source in this directory: Scener
+prefabs (`art/prefabs/`), a detail kit (`art/kit.xml`), the palette and view
+(`art/layout.py`), and Python scripts. Nothing is hand-painted. The generated
+files are committed so the game builds without these tools; regenerate them
+after changing any of the sources.
+
+**Prerequisites:**
+- **Scener** on `PATH`, or set `SCENER=/path/to/scener`. It is in the Orion UI
+  repository: `cd ~/Developer/mapview/ui && make build/bin/scener && python3
+  apps/scener/deploy.py --prefix "$HOME/.local"` puts it in `~/.local/bin`.
+  Rendering needs a GL context; on macOS a terminal is enough.
+- **Python 3 with Pillow** (`pip install Pillow`).
+- **xmllint** (it ships with macOS).
+
+**One command**, from the repository root, takes about 2 minutes:
 
 ```sh
-python3 games/rustfront/art/sprites.py
-python3 games/rustfront/art/icons.py
-python3 games/rustfront/art/effects.py
-python3 games/rustfront/art/pack8.py
-make build/bin/rustfront test-rustfront
+make rustfront-art
+make test-rustfront
 ```
 
-`sprites.py` renders the sprites and their animation frames, `icons.py` the
-build icons, `effects.py` the explosions, and `pack8.py` converts them all to
-8-bit PCX files plus `sprites.inc`, and `make` relinks the game and
-runs its tests (`tests/rustfront/`). See
+`make rustfront-art` runs `art/build_all.sh`, then relinks the game. In order:
+
+| Step | Script | Makes |
+|---|---|---|
+| 1 | `art/layout.py`, `art/render.sh` | `art/units.blks` and the review previews in `art/previews/` |
+| 2 | `art/effects.py` | Explosions, shells, rockets, smoke, plumes and fire: `sprites/fx_*.png` |
+| 3 | `art/sprites.py` | Every unit's sprites: facings, animation frames, team masks, shadows, construction stages and scorched copies (`sprites/*.png`, `sprites/sprites.json`) |
+| 4 | `art/icons.py` | The sidebar's build icons: `sprites/icons.png` |
+| 5 | `art/pack8.py` | 256-colour PCX sheets in `assets/` and the C tables in `sprites.inc` |
+| 6 | `art/contact.py` | `art/previews/sprites_contact.png`, the sprites composited as the game draws them |
+
+Each script can also run alone. `python3 games/rustfront/art/sprites.py tank hq`
+re-renders just those units; follow it with `pack8.py`, which always repacks
+everything. Scratch scenes go to `art/.build/`, which git ignores.
+
+[docs/SCENER.md](docs/SCENER.md) explains how the art is made: conventions,
+camera and lighting, animation knobs, infantry, construction and damage, icons,
+the 8-bit palette, and how to add a unit. See
 [docs/SCENER.md](docs/SCENER.md) for the conventions and pipelines.
