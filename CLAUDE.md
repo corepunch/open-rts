@@ -17,6 +17,7 @@ env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/open-r
 env SDL_VIDEODRIVER=dummy build/bin/kknd --check
 env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
 env SDL_VIDEODRIVER=dummy build/bin/z --check
+env SDL_VIDEODRIVER=dummy build/bin/rustfront --check
 ```
 
 ## Renderer notes
@@ -35,6 +36,8 @@ data/REIGN/dark    — Dark Reign game files
 data/DCOLONY       — Dark Colony game files
 data/WAR2          — Warcraft II game files (MAINDAT.WAR, loose PUDs)
 data/Z             — Z game files (WARDATA.PAC, SPRITES.RSC, LEVELnn/)
+games/rustfront    — Rustfront, an original game: its own art and maps live in the repo
+                     (assets/, maps/), so it needs no data/ directory
 ```
 
 ## Per-game binaries
@@ -46,5 +49,6 @@ Each game has its own binary in `build/bin/`:
 - `build/bin/kknd`         — KKnD
 - `build/bin/warcraft-2`   — Warcraft II (`data/WAR2/ALAMO.PUD`)
 - `build/bin/z`            — Z (`data/Z/LEVEL01/LEVEL01.MAP`; formats in `docs/Z_FORMATS.md`)
+- `build/bin/rustfront`    — Rustfront (`games/rustfront/maps/skirmish.txt`; art pipeline in `games/rustfront/docs/SCENER.md`)
 
 No `--game` flag needed. No dynamic plugin loading.

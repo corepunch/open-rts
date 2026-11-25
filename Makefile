@@ -65,6 +65,7 @@ KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
 SC_GAME_SOURCES   := $(sort $(shell find games/starcraft third_party/libsmacker -name '*.c'))
 W2_GAME_SOURCES   := $(sort $(shell find games/warcraft-2   -name '*.c'))
 Z_GAME_SOURCES    := $(sort $(shell find games/z            -name '*.c'))
+RF_GAME_SOURCES   := $(sort $(shell find games/rustfront    -name '*.c'))
 
 # ── model engine sources (headless: no SDL display entry point or HUD) ───────
 MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render hud sound -name '*.c' ! -name 'd_main.c'))
@@ -123,10 +124,11 @@ $(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0 
 $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,warcraft-2,$(W2_GAME_SOURCES),warcraft-2,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2))
 $(eval $(call GAME_TARGET,z,$(Z_GAME_SOURCES),z,-DRTS_WORLD_Y_UP=0))
+$(eval $(call GAME_TARGET,rustfront,$(RF_GAME_SOURCES),rustfront,-DRTS_WORLD_Y_UP=0))
 
 $(eval $(call GAME_TARGET,starcraft,$(SC_GAME_SOURCES),starcraft,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT))
 
-all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2 $(BIN_DIR)/z
+all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2 $(BIN_DIR)/z $(BIN_DIR)/rustfront
 
 .SECONDARY:
 

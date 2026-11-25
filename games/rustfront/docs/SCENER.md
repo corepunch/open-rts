@@ -341,8 +341,24 @@ Its noise wraps at the tile edge, so the tiles join without seams.
 `sprites.inc` is the C table the game compiles in: per sheet, the frame size,
 columns, count, pivot and turret mounts in whole pixels.
 
+`w_rustfront.c` loads the result into the engine:
+
+- **Frames:** each sheet is cut into lumps of the `sprites.inc` grid, and the
+  pivot becomes every lump's `ground_point`.
+- **Facings:** a facing goes in rotation slot `facing − n/4`, because the
+  renderer's slots start at north and the art starts at east, both
+  counter-clockwise.
+- **Turrets:** a turret layer's `mount` offsets become the hull cells' mount
+  points.
+- **Team colour:** teams 1–3 get palette maps that move the blue ramp
+  (16–31) onto their own ramp.
+- **Shadows:** a shadow sheet gives index 1 half-alpha black, so the engine
+  blends it over the ground.
+
 Not done yet:
 
+- **Terrain transitions:** gravel and other ground types need edge tiles before
+  maps can mix them without hard squares.
 - **Animation** (firing, harvesting, construction) would be more `--frames` or
   transform cameras in the same way.
 - **The turret shadow** follows the hull. Exact turret shadows would need a

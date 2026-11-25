@@ -9,7 +9,9 @@ tables (frame grids, pivots, turret mounts) the game compiles in.
 
 Palette (every BMP carries it):
     0            transparent
-    1            shadow: a shadow sheet is 0 and 1; the engine darkens what is under 1
+    1            shadow: a shadow sheet is 0 and 1; the game gives 1 half alpha so it blends.
+                 A unit's shadow sheet shares its first layer's frame size and pivot,
+                 because the engine draws the shadow lump at the body's top-left
     2..7         fixed emitter colours, kept exact because median cut loses small lights:
                  warning red, glow cyan, lamp, flame, white, black
     8..15        reserved (HUD), black for now
@@ -111,6 +113,28 @@ def terrain_tiles():
     return tiles
 
 
+def split(img, meta):
+    """The frames of a packed sheet, in order."""
+    w, h = meta["frame"]
+    c = meta["columns"]
+    return [img.crop(((n % c) * w, (n // c) * h, (n % c + 1) * w, (n // c + 1) * h)) for n in range(meta["count"])]
+
+
+def recanvas(a, b):
+    """Pads two layers' frames (lists [name, meta, frames, pivot]) to one size and pivot."""
+    (aw, ah), (bw, bh) = a[2][0].size, b[2][0].size
+    (ax, ay), (bx, by) = a[3], b[3]
+    left, top = max(ax, bx), max(ay, by)
+    w, h = left + max(aw - ax, bw - bx), top + max(ah - ay, bh - by)
+    for layer, (px, py) in ((a, (ax, ay)), (b, (bx, by))):
+        padded = []
+        for f in layer[2]:
+            c = Image.new("L", (w, h), TRANSPARENT)
+            c.paste(f, (left - px, top - py))
+            padded.append(c)
+        layer[2], layer[3] = padded, (left, top)
+
+
 def main():
     m = json.loads((SPRITES / "sprites.json").read_text())
     order = m["_order"]
@@ -175,6 +199,7 @@ def main():
         u = m[key]
         for aname, a in sorted(u.get("anims", {}).items(), key=lambda kv: kv[1]["start"]):
             anim_rows.append('    {"%s", "%s", %d, %d, %d},' % (key, aname, a["start"], a["frames"], a["facings"]))
+        layers = []
         for name, lm in u["layers"].items():
             rgba, mask = sheets[(key, name)]
             free_idx = to_free(rgba.convert("RGB"))
@@ -186,21 +211,30 @@ def main():
                     out.append(TEAM_BASE + min(TEAM_SHADES - 1, tv * TEAM_SHADES // 256))
                 else:
                     out.append(f)
+            img = Image.new("L", rgba.size)
+            img.putdata(out)
+            layers.append([name, lm, split(img, lm), (round(lm["pivot"][0]), round(lm["pivot"][1]))])
+        sm = u["shadow"]
+        sh = Image.open(SPRITES / sm["file"]).convert("RGBA").getchannel("A").point(
+            lambda a: SHADOW if a >= SHADOW_MIN else TRANSPARENT)
+        shadow = ["shadow", sm, split(sh, sm), (round(sm["pivot"][0]), round(sm["pivot"][1]))]
+        # The engine draws the shadow lump at the body's top-left with the body's lump index:
+        # give the first layer and the shadow one canvas and one pivot.
+        recanvas(layers[0], shadow)
+        for name, lm, frames, pivot in layers + [shadow]:
             fname = "%s_%s.bmp" % (key, name)
-            save(out, rgba.size, fname)
+            cols = lm["columns"]
+            fw, fh = frames[0].size
+            sheet = Image.new("L", (cols * fw, ((len(frames) + cols - 1) // cols) * fh), TRANSPARENT)
+            for n, f in enumerate(frames):
+                sheet.paste(f, ((n % cols) * fw, (n // cols) * fh))
+            save(list(sheet.getdata()), sheet.size, fname)
             mount = "rf_mount_%s_%s" % (key, name) if "mount_px" in lm else "NULL"
             if "mount_px" in lm:
                 mount_rows.append("static const short %s[][2] = {%s};" % (
                     mount, ", ".join("{%d, %d}" % (round(dx), round(dy)) for dx, dy in lm["mount_px"])))
             sheet_rows.append('    {"%s", "%s", "%s", %d, %d, %d, %d, %d, %d, %s},' % (
-                key, name, fname, lm["frame"][0], lm["frame"][1], lm["columns"], lm["count"],
-                round(lm["pivot"][0]), round(lm["pivot"][1]), mount))
-        sm = u["shadow"]
-        sh = Image.open(SPRITES / sm["file"]).convert("RGBA").getchannel("A")
-        save([SHADOW if a >= SHADOW_MIN else TRANSPARENT for a in sh.getdata()], sh.size, "%s_shadow.bmp" % key)
-        sheet_rows.append('    {"%s", "shadow", "%s_shadow.bmp", %d, %d, %d, %d, %d, %d, NULL},' % (
-            key, key, sm["frame"][0], sm["frame"][1], sm["columns"], sm["count"],
-            round(sm["pivot"][0]), round(sm["pivot"][1])))
+                key, name, fname, fw, fh, cols, len(frames), pivot[0], pivot[1], mount))
 
     atlas = Image.new("RGB", (TILE_W * 8, TILE_H * 2))
     for i, t in enumerate(tiles):

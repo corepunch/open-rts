@@ -1,0 +1,8 @@
+#ifndef GAME_CONFIG_H
+#define GAME_CONFIG_H
+/* Compile-time shape of Rustfront's engine build. Shared code tests these
+ * capability macros and level fields; it never names the game. */
+#define RTS_MAX_PRODUCTION_QUEUE 9
+#define RTS_ORDER_MODIFIERS 1
+#define LEVEL_GAME_FIELDS
+#endif
