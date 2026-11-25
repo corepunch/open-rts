@@ -129,7 +129,7 @@ after changing any of the sources.
 - **Python 3 with Pillow** (`pip install Pillow`).
 - **xmllint** (it ships with macOS).
 
-**One command**, from the repository root, takes about 2 minutes:
+**One command**, from the repository root, takes about 4 minutes:
 
 ```sh
 make rustfront-art
@@ -146,6 +146,10 @@ make test-rustfront
 | 4 | `art/icons.py` | The sidebar's build icons: `sprites/icons.png` |
 | 5 | `art/pack8.py` | 256-colour PCX sheets in `assets/` and the C tables in `sprites.inc` |
 | 6 | `art/contact.py` | `art/previews/sprites_contact.png`, the sprites composited as the game draws them |
+
+A regeneration reproduces the committed game files exactly (every PCX sheet,
+`sprites.inc` and `sprites.json`). A few intermediate PNGs in `sprites/` can
+differ by a single pixel of GPU rounding.
 
 Each script can also run alone. `python3 games/rustfront/art/sprites.py tank hq`
 re-renders just those units; follow it with `pack8.py`, which always repacks

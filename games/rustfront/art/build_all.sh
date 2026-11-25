@@ -10,7 +10,7 @@
 #   6. contact.py              the composited check sheet               (art/previews/sprites_contact.png)
 #
 # Then `make build/bin/rustfront test-rustfront` relinks and tests the game. Needs scener on
-# PATH (or SCENER=...), python3 with Pillow, and xmllint; see docs/SCENER.md. About 2 minutes.
+# PATH (or SCENER=...), python3 with Pillow, and xmllint; see docs/SCENER.md. About 4 minutes.
 set -eu
 cd "$(dirname "$0")"
 SCENER=${SCENER:-scener}
