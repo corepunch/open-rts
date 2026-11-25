@@ -313,6 +313,21 @@ only Scener's own gait and authored clips. Ecstatica's actors and actions come f
 the commercial game and are fine for reference and prototyping, but not for art
 this game ships. CMU captures are free to use.
 
+## Build icons
+
+`art/icons.py` renders the sidebar's 64×48 cameos into `sprites/icons.png`:
+
+- **View:** every unit alone in a three-quarter hero view (yaw 35°, elevation
+  28°), lit like the game.
+- **Framing:** automatic, from the unit's bounds as `scener --query` reports
+  them, with a 10 % margin.
+- **Finish:** rendered at 4× the size and reduced onto a bevelled steel panel.
+  Soldiers take their `Aim` pose.
+
+The order of the `ICONS` table is the strip order. It must match the `ICON_*`
+enum in `p_prod.c`. `pack8.py` lets icons use the blue team ramp too, so the
+sidebar recolours them for the player's team.
+
 ## 8-bit data for the engine
 
 The engine draws everything into one 8-bit indexed framebuffer, so the game

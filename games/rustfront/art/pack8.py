@@ -150,6 +150,9 @@ def main():
             sheets[(key, name)] = (rgba, mask)
             a, t, rgb = rgba.getchannel("A").getdata(), mask.getdata(), rgba.convert("RGB").getdata()
             samples += [c for c, al, tv in zip(rgb, a, t) if al >= ALPHA_MIN and tv < TEAM_MIN_MASK]
+    icons = Image.open(SPRITES / "icons.png").convert("RGB")
+    icon_meta = json.loads((SPRITES / "icons.json").read_text())
+    samples += list(icons.getdata()) * 2
     tiles = terrain_tiles()
     for t in tiles:                 # terrain covers the screen: weight it
         samples += list(t.getdata()) * 6
@@ -236,14 +239,33 @@ def main():
             sheet_rows.append('    {"%s", "%s", "%s", %d, %d, %d, %d, %d, %d, %s},' % (
                 key, name, fname, fw, fh, cols, len(frames), pivot[0], pivot[1], mount))
 
+    # Icons are flat pictures with no team mask: let them use the blue ramp as well, so the
+    # sidebar can recolour them for the player's team like any sprite.
+    icon_choices = choices + ramps[0]
+    icon_index = index_of[:len(choices)] + [TEAM_BASE + i for i in range(TEAM_SHADES)]
+    icon_pal = Image.new("P", (1, 1))
+    icon_pad = 256 - len(icon_choices)
+    icon_pal.putpalette([v for c in icon_choices + [icon_choices[-1]] * icon_pad for v in c])
+    icon_index += [icon_index[-1]] * icon_pad
+    save([icon_index[i] for i in icons.quantize(palette=icon_pal, dither=Image.Dither.NONE).getdata()],
+         icons.size, "icons.bmp")
+
     atlas = Image.new("RGB", (TILE_W * 8, TILE_H * 2))
     for i, t in enumerate(tiles):
         atlas.paste(t, ((i % 8) * TILE_W, (i // 8) * TILE_H))
     save(to_free(atlas), atlas.size, "terrain.bmp")
 
+    lines += ["/* The tables belong to the sprite loader; other files include this for the constants. */",
+              "#ifdef RF_SPRITE_TABLES"]
     lines += mount_rows + ["", "static const rf_sheetdef_t rf_sheets[] = {"] + sheet_rows + ["};", ""]
     lines += ["/* Infantry animations: frame = start + facing * frames + frame, facings counter-clockwise from +X. */",
               "static const rf_animdef_t rf_anims[] = {"] + anim_rows + ["};", ""]
+    lines.append("/* Build icons (art/icons.py): assets/icons.bmp, one %dx%d cell per name, left to right. */"
+                 % tuple(icon_meta["size"]))
+    lines.append("static const char *const rf_icons[] = {%s};" % ", ".join('"%s"' % k for k in icon_meta["order"]))
+    lines.append("#endif")
+    lines.append("#define RF_ICON_W %d" % icon_meta["size"][0])
+    lines.append("#define RF_ICON_H %d" % icon_meta["size"][1])
     lines.append("#define RF_TEAM_BASE %d" % TEAM_BASE)
     lines.append("#define RF_TEAM_SHADES %d" % TEAM_SHADES)
     lines.append("#define RF_TEAM_COUNT %d" % len(TEAMS))

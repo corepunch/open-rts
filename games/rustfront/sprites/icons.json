@@ -1,0 +1,21 @@
+{
+ "size": [
+  64,
+  48
+ ],
+ "order": [
+  "power",
+  "barracks",
+  "refinery",
+  "factory",
+  "turret",
+  "hq",
+  "rifleman",
+  "rocket",
+  "scout",
+  "tank",
+  "apc",
+  "artillery",
+  "harvester"
+ ]
+}

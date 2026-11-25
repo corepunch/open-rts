@@ -141,6 +141,9 @@ W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -n
 # simulation hash.
 Z_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ruleset.c' ! -name 'test_ai_game.c' ! -name 'test_tech_rows.c' ! -name 'test_determinism_fixed.c' ! -name 'test_simple_menu.c'))
 
+# Rustfront has a catalog but no factions, computer player or recorded simulation hash yet.
+RF_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ruleset.c' ! -name 'test_ai_game.c' ! -name 'test_tech_rows.c' ! -name 'test_determinism_fixed.c'))
+
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))
 $(1)_SHARED_TEST_SOURCES := $(if $(4),$(4),$(SHARED_MODEL_TEST_SOURCES))
@@ -169,6 +172,7 @@ $(eval $(call MODEL_TESTS_FOR_GAME,7legion,$(SL_GAME_SOURCES),-DRTS_WORLD_Y_UP=0
 $(eval $(call MODEL_TESTS_FOR_GAME,kknd,$(KKND_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_KKND))
 $(eval $(call MODEL_TESTS_FOR_GAME,warcraft-2,$(W2_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_WARCRAFT_2,$(W2_SHARED_TEST_SOURCES)))
 $(eval $(call MODEL_TESTS_FOR_GAME,z,$(Z_GAME_SOURCES),-DRTS_WORLD_Y_UP=0,$(Z_SHARED_TEST_SOURCES)))
+$(eval $(call MODEL_TESTS_FOR_GAME,rustfront,$(RF_GAME_SOURCES),-DRTS_WORLD_Y_UP=0,$(RF_SHARED_TEST_SOURCES)))
 
 # The graphics lifecycle suite links the real SDL interface; model suites do not.
 VIDEO_TEST_SOURCES := $(sort $(shell find tests/video interface -name '*.c'))
@@ -511,7 +515,7 @@ test-starcraft: $(TEST_RUNNER) $(filter-out %/test_ai,$(SC_TEST_BINS)) starcraft
 QUICK_TEST_BINS := $(filter-out %/test_ai_skirmish %/test_ai_factions %/test_menu,$(dark-colony_TEST_BINS)) \
     $(dark-reign_TEST_BINS) $(7legion_TEST_BINS) $(kknd_TEST_BINS) \
     $(filter-out %/test_ai %/test_ai_game,$(warcraft-2_TEST_BINS)) $(filter-out %/test_ai,$(SC_TEST_BINS)) \
-    $(filter-out %/test_ai,$(z_TEST_BINS)) $(BIN_DIR)/tests/dark-colony/test_menu \
+    $(filter-out %/test_ai,$(z_TEST_BINS)) $(rustfront_TEST_BINS) $(BIN_DIR)/tests/dark-colony/test_menu \
     $(BIN_DIR)/test_network $(BIN_DIR)/test_model_commands_dark-colony \
     $(BIN_DIR)/test_model_commands_dark-reign $(DC_LAYOUT_TEST_TARGET)
 QUICK_TEST_CASES := $(filter-out $(BIN_DIR)/test_network $(BIN_DIR)/tests/dark-colony/test_menu,$(QUICK_TEST_BINS)) \

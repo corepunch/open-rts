@@ -16,7 +16,8 @@
 static const mobjtype_t ACTOR_TYPES[] = {
     BUILDING(MT_HQ, "Command Center", "hq", 3000, 3, 3),
     BUILDING(MT_POWER, "Power Plant", "power", 1200, 2, 2),
-    BUILDING(MT_REFINERY, "Ore Refinery", "refinery", 1800, 3, 2),
+    {.id = MT_REFINERY, .name = "Ore Refinery", .sprite_name = "refinery_body", .shadow_name = "refinery_shadow",
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE, .max_hp = 1800, .footprint = {3, 2}},
     BUILDING(MT_BARRACKS, "Barracks", "barracks", 1200, 2, 2),
     BUILDING(MT_FACTORY, "War Factory", "factory", 2400, 3, 3),
     {.id = MT_GUN_TURRET, .name = "Gun Turret", .sprite_name = "turret_base", .shadow_name = "turret_shadow",
@@ -28,8 +29,10 @@ static const mobjtype_t ACTOR_TYPES[] = {
             .turret = {.sprite_name = "tank_turret", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = -1}),
     VEHICLE(MT_ARTILLERY, "Artillery", "artillery", "body", 300, 1.6, 9, 120, 3500, .move_class = 0),
     {.id = MT_HARVESTER, .name = "Ore Harvester", .sprite_name = "harvester_body", .shadow_name = "harvester_shadow",
-     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE, .speed = FIXED_LIT(1.6), .turn_step = ANG45 / 8,
-     .max_hp = 900},
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER, .speed = FIXED_LIT(1.6),
+     .turn_step = ANG45 / 8, .max_hp = 900,
+     /* 50 ore a second from a field cell (w_rustfront.c), 500 to a load. */
+     .harvest = {.resources = {{.capacity = 500}}}},
     VEHICLE(MT_APC, "APC", "apc", "hull", 450, 3.2, 4, 18, 700,
             .turret = {.sprite_name = "apc_turret", .turn_step = ANG45 / 6, .frame = 0, .fire_frame = -1}),
     VEHICLE(MT_RIFLEMAN, "Rifleman", "rifleman", "body", 50, 1.0, 3.5, 8, 900, .move_class = 0),
@@ -77,15 +80,16 @@ bool R_InitSprites(const char *root, const level_t *map,
 
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
                      hudtext_t *hud, int dt_ms) {
-    (void)map; (void)mobjs; (void)count; (void)hud; (void)dt_ms;
+    (void)hud; (void)dt_ms;
+    RF_MissionTicker(map, mobjs, *count);
 }
 
 menu_t *G_InitHUD(app_t *app, const char *data_root) {
-    (void)app; (void)data_root;
-    return NULL;
+    return RF_InitHUD(app, data_root);
 }
 
 void G_ShutdownHUD(void) {
+    RF_ShutdownHUD();
 }
 
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int dt_ms) {
@@ -94,5 +98,6 @@ bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, int
 }
 
 irect_t G_WorldViewport(const app_t *app) {
-    return (irect_t){0, 0, app->win.w, app->win.h};
+    /* Everything left of the 160-pixel sidebar (hu_rustfront.c), in the 640 x 480 layout. */
+    return (irect_t){0, 0, RF_SIDEBAR_X * app->win.w / 640, app->win.h};
 }

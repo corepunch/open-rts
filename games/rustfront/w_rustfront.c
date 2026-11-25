@@ -8,13 +8,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define RF_SPRITE_TABLES
 #include "sprites.inc"
 
 /* ── maps ───────────────────────────────────────────────────────────────────
  * A map is text: rows of cells ('.' sand, '*' ore, '#' gravel), then one line per thing,
  * "unit NAME OWNER X Y [FACING]" with X, Y the cell (a building's top-left) and FACING
  * 0..15 counter-clockwise from east. Owner 0 is the player; others are enemies, drawn in
- * their team colour (team = owner). A "camera X Y" line centres the opening view. */
+ * their team colour (team = owner). A "camera X Y" line centres the opening view, and
+ * "credits OWNER N" sets a side's money (5000 by default). Every ore cell is a deposit of
+ * ORE_PER_CELL that a harvester draws ORE_RATE from a second. */
+
+#define ORE_PER_CELL 1000
+#define ORE_RATE 50
+#define START_CREDITS 5000
 
 #define RF_MAX_THINGS 256
 
@@ -49,6 +56,25 @@ static bool grid_line(const char *line, int len) {
     for (int i = 0; i < len; ++i)
         if (line[i] != '.' && line[i] != '*' && line[i] != '#') return false;
     return true;
+}
+
+static bool add_ore(level_t *map, ivec2_t cell) {
+    resourcevent_t *vents = realloc(map->resource_vents, (size_t)(map->resource_vent_count + 1) * sizeof(*vents));
+    if (!vents) return false;
+    map->resource_vents = vents;
+    vents[map->resource_vent_count++] = (resourcevent_t){
+        .cell = cell, .attachment = fixed2_cell_center(cell), .amount = ORE_PER_CELL,
+        .rate = ORE_RATE, .active = true, .resource_type = 0};
+    return true;
+}
+
+/* An ore cell that has been mined out turns back to sand. */
+void RF_ClearMinedOre(level_t *map) {
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        if (P_VentYields(vent) || !L_Contains(map, vent->cell.x, vent->cell.y)) continue;
+        map->tile_ids[L_Index(map, vent->cell.x, vent->cell.y)] = terrain_tile('.', vent->cell.x, vent->cell.y);
+    }
 }
 
 bool RF_LoadLevel(const char *path, level_t *out) {
@@ -93,6 +119,7 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     out->blocked = calloc((size_t)w * h, 1);
     if (!out->tile_ids || !out->blocked) { free(text); P_FreeLevel(out); return false; }
     snprintf(out->tileset_name, sizeof(out->tileset_name), "terrain");
+    for (int owner = 0; owner < MAXPLAYERS; ++owner) out->player_resources[owner][0] = START_CREDITS;
 
     /* Second pass: cells and things. */
     int y = 0;
@@ -101,8 +128,14 @@ bool RF_LoadLevel(const char *path, level_t *out) {
         int len = end ? (int)(end - line) : (int)strlen(line);
         if (len && line[len - 1] == '\r') len--;
         if (grid_line(line, len)) {
-            for (int x = 0; x < w; ++x)
+            for (int x = 0; x < w; ++x) {
                 out->tile_ids[L_Index(out, x, y)] = terrain_tile(line[x], x, y);
+                if (line[x] == '*' && !add_ore(out, (ivec2_t){x, y})) {
+                    free(text);
+                    P_FreeLevel(out);
+                    return false;
+                }
+            }
             y++;
         } else {
             char name[24];
@@ -114,6 +147,8 @@ bool RF_LoadLevel(const char *path, level_t *out) {
                 } else if (thing_count < RF_MAX_THINGS) {
                     things[thing_count++] = (rfthing_t){type, owner, facing & 15, {x, cy}};
                 }
+            } else if (sscanf(line, "credits %d %d", &owner, &x) == 2) {
+                if (owner >= 0 && owner < MAXPLAYERS) out->player_resources[owner][0] = x;
             } else if (sscanf(line, "camera %d %d", &x, &cy) == 2) {
                 out->has_camera = true;
                 out->camera = (fvec2_t){(float)x, (float)cy};
