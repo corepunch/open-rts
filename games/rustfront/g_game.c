@@ -91,7 +91,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
     VEHICLE(MT_CL_TRUCK, "Gun Truck", "cl_truck", "hull", 360, 3.6, 4.5, 14, 400, TURRET_ON("cl_truck", 4)),
     VEHICLE(MT_CL_CRAWLER, "Scrap Crawler", "cl_crawler", "hull", 600, 2.4, 4.5, 80, 2000, TURRET_ON("cl_crawler", 6)),
     VEHICLE(MT_CL_RIG, "Rocket Rig", "cl_rig", "body", 260, 2.4, 8, 30, 4000, .move_class = 0),
-    HARVESTER(MT_CL_HAULER, "Scrap Hauler", "cl_hauler", 700, 2.2, 450),
+    HARVESTER(MT_CL_HAULER, "Scrap Hauler", "cl_hauler", 700, 2.2, 500),
     VEHICLE(MT_CL_RAIDER, "Raider", "cl_raider", "body", 55, 1.3, 3.8, 6, 600, .move_class = 0),
     VEHICLE(MT_CL_TORCHER, "Torcher", "cl_torcher", "body", 80, 1.1, 2.6, 30, 1200, .move_class = 0),
     /* The Chop Shop's Wrecker drives its drums into the enemy and goes up with them. */
@@ -145,11 +145,11 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .traits = MF_RENDERABLE | MF_CLOAKED, .max_hp = 30},
     VEHICLE(MT_CL_CRUSHER, "Crusher", "cl_crusher", "body", 700, 3.4, 1.0, 40, 1000, .move_class = 0),
     AIRCRAFT(MT_CL_BUZZARD, "Buzzard", "cl_buzzard", 260, 3.8, 1.2, 120, 3200),
-    /* Lumen Concord, after 7th Legion: a spider mech whose arc leaps on to two more, a flying
+    /* Lumen Concord, after 7th Legion: a spider mech whose arc leaps on to one more, a flying
      * beam craft, a priest who mends soldiers. */
     {.id = MT_LC_STRIDER, .name = "Strider", .sprite_name = "lc_strider_body", .shadow_name = "lc_strider_shadow",
      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK, .speed = FIXED_LIT(2.4), .turn_step = ANG45 / 6,
-     .max_hp = 650, .attack = {.range = FIXED_LIT(4.5), .damage = 45, .cooldown_ms = 1600, .bounces = 2}},
+     .max_hp = 650, .attack = {.range = FIXED_LIT(4.5), .damage = 45, .cooldown_ms = 1600, .bounces = 1}},
     AIRCRAFT(MT_LC_SERAPH, "Seraph", "lc_seraph", 380, 4.6, 4.5, 40, 1200),
     {.id = MT_LC_CANTOR, .name = "Cantor", .sprite_name = "lc_cantor_body", .shadow_name = "lc_cantor_shadow",
      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_DETECTOR, .speed = FIXED_LIT(1.0),

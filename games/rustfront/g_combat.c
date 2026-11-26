@@ -73,7 +73,8 @@ bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
 #define AEGIS_FIELD FIXED_LIT(3.5)
 int RF_ShieldDamage(const mobj_t *victim, int damage) {
     if (!victim || victim->type_id >= MT_FX_HIT) return damage;
-    if (RF_Phased(victim) || victim->rf_ward > 0) return 0; /* g_units.c: phase, the Rite of Warding */
+    if (RF_Phased(victim)) return 0;                      /* g_units.c: a Phantom out of phase */
+    if (victim->rf_ward > 0) damage /= 2;                 /* the Rite of Warding */
     fixed2_t at = fixed3_xy(victim->core.position);
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         const mobj_t *aegis = (const mobj_t *)th;

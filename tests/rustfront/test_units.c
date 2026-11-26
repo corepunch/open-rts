@@ -299,7 +299,7 @@ static int test_crusher_and_mines(void) {
     return 0;
 }
 
-/* The Strider's arc leaps from its target to two more. */
+/* The Strider's arc leaps from its target to one more. */
 static int test_strider(void) {
     RtsGameModel *model = load();
     CHECK(model);
@@ -315,9 +315,9 @@ static int test_strider(void) {
     run(model, 3 * RTS_TICRATE);
     int hurt = 0;
     for (int i = 0; i < 3; ++i) hurt += men[i]->hp < 1000;
-    CHECK(hurt == 3);
+    CHECK(hurt == 2);
     rts_game_model_destroy(model);
-    puts("PASS: the Strider's arc chains to two more enemies");
+    puts("PASS: the Strider's arc chains to one more enemy");
     return 0;
 }
 
@@ -351,18 +351,18 @@ static int test_rites(void) {
         G_RunTiccmd(0, &cmd);
         CHECK(RF_HandCard(0, 0) == RF_RITE_NONE);
         switch (rite) {
-        case RF_RITE_WINDFALL: CHECK(level.player_resources[0][0] == credits + 750); break;
-        case RF_RITE_MENDING: CHECK(mine->hp == 100 + mine->max_hp / 2 && theirs->hp == theirs->max_hp); break;
+        case RF_RITE_WINDFALL: CHECK(level.player_resources[0][0] == credits + 200); break;
+        case RF_RITE_MENDING: CHECK(mine->hp == 100 + mine->max_hp / 3 && theirs->hp == theirs->max_hp); break;
         case RF_RITE_WARD:
             CHECK(mine->rf_ward > 0 && theirs->rf_ward == 0);
-            CHECK(RF_ShieldDamage(mine, 100) == 0);
+            CHECK(RF_ShieldDamage(mine, 100) == 50 && RF_ShieldDamage(theirs, 100) == 100);
             break;
         case RF_RITE_STRIKE: {
             int before = theirs->hp;
             run(model, RTS_TICRATE);
             CHECK(theirs->hp == before);                     /* not yet */
-            run(model, RTS_TICRATE);
-            CHECK(!live(theirs) || theirs->hp <= before - 350);
+            run(model, RTS_TICRATE + 1);
+            CHECK(!live(theirs) || theirs->hp <= before - 150);
             CHECK(live(mine) && mine->hp == 100);            /* its own side is spared */
             break;
         }
@@ -387,13 +387,17 @@ static int test_rites(void) {
     CHECK(RF_HandCard(0, 0) == RF_RITE_NONE);
     CHECK(G_LoadExtra(save, size) && RF_HandCard(0, 0) == card);
     free(save);
-    /* A tithe: a Concord Warden's kill of a rifleman pays a fifth of 100. */
-    mobj_t *warden = spawn(MT_LC_WARDEN, 0, field), *victim = spawn(MT_RIFLEMAN, 1, (ivec2_t){field.x + 1, field.y});
+    /* Salvage: a Concord Warden's kill of a Battle Tank pays a tenth of 800; of a rifleman, nothing. */
+    mobj_t *warden = spawn(MT_LC_WARDEN, 0, field), *victim = spawn(MT_TANK, 1, (ivec2_t){field.x + 1, field.y});
     int credits = level.player_resources[0][0];
     P_DamageMobj(victim, warden, victim->hp);
-    CHECK(level.player_resources[0][0] == credits + 20);
+    CHECK(level.player_resources[0][0] == credits + 80);
+    mobj_t *soldier = spawn(MT_RIFLEMAN, 1, (ivec2_t){field.x + 2, field.y});
+    credits = level.player_resources[0][0];
+    P_DamageMobj(soldier, warden, soldier->hp);
+    CHECK(level.player_resources[0][0] == credits);
     rts_game_model_destroy(model);
-    puts("PASS: the Spire deals the Rites; Strike, Mending, Windfall and Warding play; kills pay a tithe");
+    puts("PASS: the Spire deals the Rites; Strike, Mending, Windfall and Warding play; wrecks pay salvage");
     return 0;
 }
 

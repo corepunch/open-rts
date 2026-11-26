@@ -69,7 +69,7 @@ bool RF_ImpactInProgress(void);
  *     it stands; Sappers holding ground lay hidden mines; the Crusher rolls over soldiers; the
  *     Buzzard autogyro bombs.
  *   Lumen Concord (7th Legion): the Spire draws power cards, the Rites, played from the sidebar
- *     (TC_SPELL); a tithe on every kill; the Strider's arc leaps to two more; the Seraph flies;
+ *     (TC_SPELL); salvage from every machine it wrecks; the Strider's arc leaps to one more; the Seraph flies;
  *     the Cantor heals soldiers.
  * Aircraft are hit only by the weapons that can shoot up (RF_AntiAir). */
 #define RF_DERRICK_ORE 6000
@@ -91,10 +91,10 @@ int  RF_MineCount(int owner);
 void RF_UnitsTicker(level_t *map, mobj_t *const *mobjs, int count);
 void RF_UnitLost(mobj_t *victim);                    /* G_UnitKilled: an APC's passengers bail out */
 void RF_UnitHit(mobj_t *victim, const mobj_t *source); /* G_UnitDamaged: a Phantom phases */
-int  RF_Tithe(const mobj_t *victim, const mobj_t *killer); /* credits the Concord earns for the kill */
+int  RF_Tithe(const mobj_t *victim, const mobj_t *killer); /* the Concord's salvage for the kill */
 /* The Rites: a Concord side with a Spire draws a card every RF_RITE_DRAW_MS into a hand of three.
  * Strike, Mending and Ward are played on a point; Windfall at once. */
-#define RF_RITE_DRAW_MS 40000
+#define RF_RITE_DRAW_MS 105000
 rf_rite_t RF_HandCard(int owner, int slot);
 int  RF_NextDrawMs(int owner);                       /* until the next card; -1 with no Spire */
 bool RF_RiteTargeted(rf_rite_t rite);

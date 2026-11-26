@@ -48,10 +48,10 @@ in its mechanics rather than its looks (`g_units.c`):
 | | | **Sapper** (250) | A soldier with a shotgun who, holding ground for 6 s, lays a mine on his cell (16 a side, a cell and a half apart). Mines are hidden from the enemy unless a detector sees them, and the first enemy to drive or walk over one takes 180 and its neighbours 90 |
 | | | **Crusher** (750) | A monster truck that rolls over every enemy soldier under its wheels and rams the rest |
 | | | **Buzzard** (900, needs the Chop Shop) | A scrap autogyro that drops drums of explosive (120, splashing) on the ground; it cannot hit aircraft |
-| Lumen Concord | 7th Legion | **The Rites** | Power cards: a Spire deals one every 40 s into a hand of three, shown under the build list. **Strike**: a pillar of light lands 1.5 s after it is called, 350 to every enemy within 1.5 cells. **Mending**: its side's units within 3 cells get back half their hit points (structures a quarter). **Windfall**: 750 credits. **Warding**: its side's units within 3 cells take no damage for 8 s |
-| | | **Tithe** | Everything the Concord destroys pays it a fifth of its price |
-| | | **Strider** (1200) | A spider mech whose arc leaps from its target to two more enemies nearby |
-| | | **Seraph** (1300, needs the Sanctum) | A flying beam craft that hits aircraft and the ground alike |
+| Lumen Concord | 7th Legion | **The Rites** | Power cards: a Spire deals one every 105 s into a hand of three, shown under the build list. **Strike**: a pillar of light lands 2 s after it is called (the quick get out of it), 150 to every enemy within 1.25 cells. **Mending**: its side's units within 3 cells get back a third of their hit points (structures a fifth). **Windfall**: 200 credits. **Warding**: its side's units within 3 cells take half damage for 5 s |
+| | | **Salvage** | Every machine and structure the Concord destroys pays it a tenth of its price; soldiers pay nothing |
+| | | **Strider** (1200) | A spider mech whose arc leaps from its target to one more enemy nearby |
+| | | **Seraph** (1500, needs the Sanctum) | A flying beam craft that hits aircraft and the ground alike |
 | | | **Cantor** (350) | A priest: each second mends 10 hit points on each of the three most hurt soldiers of its side within 3 cells, and sees hidden things |
 
 Aircraft are reached only by anti-air weapons: rifles, rockets and machine guns (riflemen, rocket
@@ -298,7 +298,7 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 - Each side starts with 5000 credits; a map can set its own with
   `credits OWNER N`.
 - Every ore cell holds 1000 ore.
-- A harvester mines 50 a second up to a load (500; the Scrap Hauler 450), brings it to the
+- A harvester mines 50 a second up to a load (500, the Scrap Hauler's too), brings it to the
   nearest refinery, and goes back.
 - An idle harvester finds the nearest ore on its own.
 - A mined-out cell turns back to sand.
@@ -349,7 +349,7 @@ game; `OPEN_RTS_RF_UI_SHOTS=DIR` writes every page as a BMP.
 | `factions.c` | The three factions: each one's types for the roles (headquarters, power, refinery, barracks, factory, turret, harvester), and which faction a side plays (its headquarters') |
 | `g_combat.c` | Projectiles: shells, rockets, beam bolts and flame gouts do their damage on arrival; the Mastodon fires a pair of shells, the Rocket Rig a salvo of three and the Hammer a pair of heavy missiles; heavy shells, heavy bolts and heavy missiles splash; rockets trail smoke. Machine guns hit at once. The Wrecker's detonation and the Aegis's field |
 | `hu_skin.c` | The interface's metal skins (assets/ui.pcx, art/ui.py): menu items take a panel, a screen or a button's four states; `RF_DrawSkin` draws one as a nine-slice |
-| `g_units.c` | Each faction's special units and powers (Dark Reign, KKnD, 7th Legion): the APC's passengers (`TC_BOARD`, `TC_UNLOAD`), deploying (`TC_DEPLOY`), the Phantom's phase, the crane and the cantor, the Crusher, sappers and mines, anti-air, the Rites (`TC_SPELL` with no units) and the tithe, and the computer's use of them |
+| `g_units.c` | Each faction's special units and powers (Dark Reign, KKnD, 7th Legion): the APC's passengers (`TC_BOARD`, `TC_UNLOAD`), deploying (`TC_DEPLOY`), the Phantom's phase, the crane and the cantor, the Crusher, sappers and mines, anti-air, the Rites (`TC_SPELL` with no units) and salvage, and the computer's use of them |
 | `g_base.c` | Power, repair and sell, rally points and veterancy: the orders (`TC_REPAIR`, a move order to a producer) and their rules |
 | `g_sight.c` | Fog of war: each type's sight, the fog pass |
 | `r_marks.c` | Over each unit: selection, health, rank chevrons, the repair wrench and the rally flag |

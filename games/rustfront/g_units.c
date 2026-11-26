@@ -418,7 +418,8 @@ static void tick_mine(mobj_t *mine, mobj_t *const *mobjs, int count) {
 }
 
 /* ── tithe (7th Legion's war chest) ─────────────────────────────────────────
- * The Concord takes a fifth of the price of everything it destroys. */
+ * The Concord salvages a tenth of the price of every machine and structure it destroys
+ * (soldiers pay nothing: a swarm of them would feed it). */
 static int price_of(uint16_t type) {
     if (type == MT_SENTRY) type = MT_SENTRY_TRUCK;
     if (type == MT_CL_DERRICK) type = MT_CL_DRILL;
@@ -430,20 +431,20 @@ static int price_of(uint16_t type) {
 int RF_Tithe(const mobj_t *victim, const mobj_t *killer) {
     if (!victim || !killer || killer->owner == victim->owner || killer->team == victim->team ||
         killer->owner >= MAXPLAYERS || RF_FactionOfType(killer->type_id) != RF_CONCORD ||
-        victim->type_id >= MT_FX_HIT || victim->type_id == MT_CL_MINE) return 0;
-    return price_of(victim->type_id) / 5;
+        victim->type_id >= MT_FX_HIT || victim->type_id == MT_CL_MINE || RF_IsInfantry(victim->type_id)) return 0;
+    return price_of(victim->type_id) / 10;
 }
 
 /* ── the Rites (7th Legion's power cards) ───────────────────────────────────
- * A Concord side with a Spire draws a card every forty seconds while it holds fewer than three.
+ * A Concord side with a Spire draws a card every 105 seconds while it holds fewer than three.
  * Played from the sidebar:
- *   Lumen Strike  a pillar of light lands where it is called a second and a half later: 350 to
- *                 every enemy within a cell and a half (aircraft too).
- *   Mending       every unit of its side within three cells gets back half its hit points,
- *                 a structure a quarter.
- *   Windfall      750 credits.
- *   Warding       its side's units within three cells take no damage for eight seconds. */
-enum { STRIKE_TICS = 3 * RTS_TICRATE / 2, WARD_TICS = SECONDS(8), MAX_STRIKES = 8 };
+ *   Lumen Strike  a pillar of light lands where it is called two seconds later: 150 to every
+ *                 enemy within a cell and a quarter (aircraft too); the quick get out of it.
+ *   Mending       every unit of its side within three cells gets back a third of its hit
+ *                 points, a structure a fifth.
+ *   Windfall      200 credits.
+ *   Warding       its side's units within three cells take half damage for five seconds. */
+enum { STRIKE_TICS = 2 * RTS_TICRATE, WARD_TICS = SECONDS(5), MAX_STRIKES = 8, STRIKE_DAMAGE = 150, WINDFALL = 200 };
 typedef struct { uint8_t hand[RF_HAND]; uint16_t draws; int32_t timer_ms; } rites_t;
 typedef struct { uint8_t used, owner, team; int16_t tics; fixed2_t at; } strike_t;
 static rites_t rites[MAXPLAYERS];
@@ -482,7 +483,7 @@ const char *RF_RiteName(rf_rite_t rite) {
 }
 
 fixed_t RF_RiteRadius(rf_rite_t rite) {
-    return rite == RF_RITE_STRIKE ? FIXED_LIT(1.5) : RF_RiteTargeted(rite) ? FIXED_LIT(3.0) : 0;
+    return rite == RF_RITE_STRIKE ? FIXED_LIT(1.25) : RF_RiteTargeted(rite) ? FIXED_LIT(3.0) : 0;
 }
 
 /* The deck: the same cards, in the same order, on every peer. */
@@ -539,7 +540,7 @@ bool RF_PlayRite(int owner, int slot, fixed2_t at) {
             if (rite == RF_RITE_WARD) {
                 if (!RF_IsStructure(u)) u->rf_ward = WARD_TICS;
             } else {
-                int gain = RF_IsStructure(u) ? u->max_hp / 4 : u->max_hp / 2;
+                int gain = RF_IsStructure(u) ? u->max_hp / 5 : u->max_hp / 3;
                 u->hp = u->hp + gain < u->max_hp ? u->hp + gain : u->max_hp;
             }
             spawn_fx(MT_FX_ZAP, fixed3_xy(u->core.position), FIXED_LIT(0.3));
@@ -550,7 +551,7 @@ bool RF_PlayRite(int owner, int slot, fixed2_t at) {
         }
         break;
     case RF_RITE_WINDFALL:
-        level.player_resources[owner][0] += 750;
+        level.player_resources[owner][0] += WINDFALL;
         if (owner == consoleplayer) RF_PlaySound(RF_SND_UNIT_READY, NULL);
         break;
     default:
@@ -585,8 +586,8 @@ static void tick_strikes(void) {
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
             mobj_t *o = (mobj_t *)th;
             if (th->function != P_MobjThinker || !unit_of_world(o) || o->team == s->team || o->rf_boarded ||
-                o->allegiance == ALLEGIANCE_NEUTRAL || !near(o, s->at, reach_to(o, FIXED_LIT(1.5)))) continue;
-            P_DamageMobj(o, NULL, RF_ShieldDamage(o, 350));
+                o->allegiance == ALLEGIANCE_NEUTRAL || !near(o, s->at, reach_to(o, RF_RiteRadius(RF_RITE_STRIKE)))) continue;
+            P_DamageMobj(o, NULL, RF_ShieldDamage(o, STRIKE_DAMAGE));
         }
         mobj_t *boom = spawn_fx(MT_FX_BIGBOOM, s->at, 0);
         if (boom) RF_PlaySound(RF_SND_BOOM_LARGE, boom);
@@ -720,7 +721,7 @@ void RF_AiUnits(int owner, mobj_t *const *units, int count) {
                 /* within sight of its own army, as a player would see it */
                 if (crowd(units, count, at, FIXED_LIT(6), u->team) == 0) continue;
                 score = crowd(units, count, at, FIXED_LIT(1.5), team);
-                if (score < 4) continue;
+                if (score < 5) continue;
             } else {
                 if (u->owner != owner || RF_IsStructure(u)) continue;
                 int missing = 0, threatened = crowd(units, count, at, FIXED_LIT(5), team);

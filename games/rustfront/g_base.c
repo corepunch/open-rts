@@ -99,7 +99,7 @@ int RF_RankDamage(const mobj_t *attacker, int damage) {
  * fired and the shield where they land (g_combat.c). */
 int RF_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
     (void)weapon;
-    if (RF_Phased(target) || target->rf_ward > 0) return 0;
+    if (RF_Phased(target)) return 0;
     damage = RF_ShieldDamage(target, RF_RankDamage(attacker, damage) / (divisor > 0 ? divisor : 1));
     return damage > 0 ? damage : 1;
 }
