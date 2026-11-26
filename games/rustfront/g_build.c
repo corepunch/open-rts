@@ -72,6 +72,7 @@ bool G_ModelPlaceConstruction(RtsGameModel *model, mobj_t *builder, const Static
     P_SetMobjStateFrame(site, STRUCTURES[s].build, 0);
     level.player_resources[site->owner][0] -= p->cost;
     RF_SyncBlocking(&level);
+    RF_PlaySound(RF_SND_BUILD_PLACE, site);
     return true;
 }
 
@@ -106,6 +107,7 @@ static void complete_site(mobj_t *unit) {
     if (unit->info) unit->traits |= unit->info->traits & (MF_ATTACK | MF_TURRET | MF_RESOURCE_BASE);
     unit->rf_built = 0;
     P_SetMobjState(unit, STRUCTURES[s].healthy);
+    RF_PlaySound(RF_SND_BUILD_DONE, unit);
 }
 
 /* Below half its hit points a structure shows its scorched loop, at the same point of the

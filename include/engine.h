@@ -1812,6 +1812,8 @@ typedef enum {
     SE_WORK_COMPLETE,
     SE_RESEARCH_COMPLETE,
     SE_WORK,     /* A worker's tool strikes its resource. */
+    SE_ACK_ATTACK, /* Bark: ordered to attack; a game without its own answer gives SE_ACK's. */
+    SE_NO_FUNDS, /* Bark: the producer's owner clicked a product it cannot afford. */
     NUMSOUNDEVENTS
 } soundevent_t;
 

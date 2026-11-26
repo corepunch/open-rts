@@ -328,6 +328,7 @@ void S_Bark(mobj_t *const *units, int count, soundevent_t event, bool selected_o
         if (!unit || unit->remove || unit->hp <= 0 || unit->owner != consoleplayer) continue;
         if (selected_only && !P_MobjIsSelected(unit)) continue;
         int sfx = game->actor_sound(unit, event);
+        if (!sfx && event == SE_ACK_ATTACK) sfx = game->actor_sound(unit, SE_ACK);
         const sfxinfo_t *info = S_Sfx(sfx);
         /* DC.EXE 0x42ef5c keeps the lowest priority number per category. */
         if (info && info->priority < best_priority) {

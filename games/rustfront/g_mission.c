@@ -146,6 +146,7 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
                      victim->info->footprint.h * (FIXED_ONE / 3), 1);
     else
         spawn_effect(MT_FX_HIT, victim, FIXED_ONE / 5, FIXED_ONE / 6, 1);
+    RF_PlaySound(RF_SND_HIT_BULLET, victim);
 }
 
 /* Vehicles go up in one explosion; a structure in several across its footprint. Soldiers

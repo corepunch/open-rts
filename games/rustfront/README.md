@@ -160,6 +160,7 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `g_ai.c` | The computer player's hooks: it places its own structures on roomy sites, every structure anchors its defence and draws its waves, and a harvester waits while its side has no refinery |
 | `w_starts.c` | Multiplayer: start positions, the start plan, `RF_SpawnStart` and the map list |
 | `g_net.c` | Lockstep: Rustfront's share of the consistency hash (terrain, blocking, alliances) |
+| `s_rustfront.c` | Sound: registers the synthesised samples, maps fire, impacts, deaths, voices and announcements to them, rate-limits the under-attack warning, and plays the ambience and the player's faction's music |
 | `m_menu.c` | The engine's simple menu |
 
 **Map format:** rows of terrain letters (`art/terrain.txt`: `.` sand, `:` silt, `*` ore,
@@ -241,6 +242,27 @@ game played and thrown away before; none of it may change the world.
   (`build/bin/tests/rustfront/test_desync_four --long`: four).
 - `test_starts`: the map list, every start of every map, plans, teams and empty seats.
 
+## Sound and music
+
+Every sound is synthesised by `art/sfx.py`, in pure Python with no third-party samples.
+[docs/AUDIO.md](docs/AUDIO.md) describes the recipes and how the game uses them.
+- **Weapons:** rifles, machine guns, cannon, artillery, rockets, flame and beams, heard
+  from where they fire.
+- **Impacts:** bullet hits, blasts, explosions and collapsing structures, heard where they land.
+- **Construction:** a foundation's clunk, scaffold hammering while a site rises, and a
+  chime when it finishes.
+- **Announcements:** unit ready, structure ready, insufficient funds, low power, and an
+  under-attack klaxon at most every 20 seconds.
+- **Voices:** a wordless answer to every select, move and attack order, in each faction's
+  timbre: the Directorate's clipped military radio, the Clans' gritty loudhailer, the
+  Concord's crystalline chimes.
+- **Ambience:** wind, and the hum of your headquarters.
+- **Music:** looping tracker-style tracks: a menu theme, and in game the track of the
+  faction you lead.
+
+`make rustfront-audio` regenerates them in about a minute and relinks the game. The result
+is identical every time.
+
 ## Regenerating everything
 
 All of Rustfront's art is generated from source in this directory: Scener
@@ -274,6 +296,7 @@ make test-rustfront
 | 4 | `art/icons.py` | The sidebar's build icons: `sprites/icons.png` |
 | 5 | `art/pack8.py` | 256-colour PCX sheets in `assets/` and the C tables in `sprites.inc` |
 | 6 | `art/contact.py` | `art/previews/sprites_contact.png`, the sprites composited as the game draws them |
+| 7 | `art/sfx.py` | Every sound effect, voice, ambient loop and music track: `assets/sfx/`, `assets/music/` |
 
 A regeneration reproduces the committed game files exactly (every PCX sheet,
 `sprites.inc` and `sprites.json`). A few intermediate PNGs in `sprites/` can

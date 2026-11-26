@@ -199,8 +199,12 @@ void HU_ProductList(menu_t *menu, menuitem_t *item, menuaction_t action) {
     int count = production_list(producer, products);
     int index = item->value;
     item->value = -1;
-    if (index >= 0 && index < count && product_enabled(producer, &products[index]))
+    if (index < 0 || index >= count) return;
+    if (product_enabled(producer, &products[index]))
         HU_BuildProduct(menu, item, producer, &products[index]);
+    else if (G_ModelProductAvailable(NULL, consoleplayer, &products[index]) &&
+             !R_CanAfford(consoleplayer, &products[index]))
+        S_Bark(&producer, 1, SE_NO_FUNDS, false);
 }
 
 static void small_text(ivec2_t at, const char *text, int width, uint32_t argb) {
