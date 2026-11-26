@@ -27,17 +27,25 @@
 #   solid    model tiles that nothing is drawn over: higher layers do not spill onto it.
 #
 #   default NAME   the ground that mined-out ore becomes.
+#
+#   relief key=value...   the cliffs and ramps between height levels (art/relief.py):
+#     height=PX    how far a cliff's face hangs down the screen (40 px: about 2 m)
+#     variants=N   cliff tiles per shape; a cell picks one by a hash of its position
+#     wall=CELLS   the face's footprint on the ground; jag=F how far its lip wanders
+#     seed=N       the rock's noise
 
 default sand
+relief height=40 variants=3 wall=0.24 jag=0.30 seed=900
 
 terrain water    ~  layer=0  texture=water    variants=4  seed=10  blocked
-terrain sand     .  layer=1  texture=sand     variants=8  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
-terrain gravel   #  layer=2  texture=gravel   variants=4  seed=200 edge=0.26 jag=0.70 grain=8
-terrain grass    ,  layer=3  texture=grass    variants=6  seed=300 edge=0.32 jag=0.85 grain=12
-terrain stone    ^  layer=4  texture=stone    variants=4  seed=400 edge=0.24 jag=0.45 grain=5  rim=0.82
-terrain ore      *  layer=5  texture=ore      variants=4  seed=500 edge=0.30 jag=0.75 grain=7  ore
+terrain silt     :  layer=1  texture=silt     variants=6  seed=600 edge=0.34 jag=0.70 grain=7  rim=0.78
+terrain sand     .  layer=2  texture=sand     variants=8  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
+terrain gravel   #  layer=3  texture=gravel   variants=4  seed=200 edge=0.26 jag=0.70 grain=8
+terrain grass    ,  layer=4  texture=grass    variants=6  seed=300 edge=0.32 jag=0.85 grain=12
+terrain stone    ^  layer=5  texture=stone    variants=4  seed=400 edge=0.24 jag=0.45 grain=5  rim=0.82
+terrain ore      *  layer=6  texture=ore      variants=4  seed=500 edge=0.30 jag=0.75 grain=7  ore
 
 # Scener-modelled tiles (art/prefabs/terrain/).
-terrain rocks    R  layer=4  model=terrain/rocks     ground=stone variants=4 blocked solid
-terrain wreck    x  layer=1  model=terrain/wreck     ground=sand  variants=3 blocked solid
-terrain concrete =  layer=6  model=terrain/concrete  variants=8  solid
+terrain rocks    R  layer=5  model=terrain/rocks     ground=stone variants=4 blocked solid
+terrain wreck    x  layer=2  model=terrain/wreck     ground=sand  variants=3 blocked solid
+terrain concrete =  layer=7  model=terrain/concrete  variants=8  solid

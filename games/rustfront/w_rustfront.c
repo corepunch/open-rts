@@ -122,14 +122,18 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     out->tile_ids = calloc((size_t)w * h, sizeof(*out->tile_ids));
     out->blocked = calloc((size_t)w * h, 1);
     out->cell_terrain = calloc((size_t)w * h, 1);
-    if (!out->tile_ids || !out->blocked || !out->cell_terrain) { free(text); P_FreeLevel(out); return false; }
+    if (!out->tile_ids || !out->blocked || !out->cell_terrain || !RF_BeginRelief(out)) {
+        free(text);
+        P_FreeLevel(out);
+        return false;
+    }
     out->render_capabilities |= MAP_RENDER_CAP_TERRAIN_TRANSITIONS;
     out->render_transitions = RF_DrawTransitions;
     snprintf(out->tileset_name, sizeof(out->tileset_name), "terrain");
     for (int owner = 0; owner < MAXPLAYERS; ++owner) out->player_resources[owner][0] = START_CREDITS;
 
-    /* Second pass: cells and things. */
-    int y = 0;
+    /* Second pass: cells, levels and things. */
+    int y = 0, level_row = 0;
     for (char *line = text; *line;) {
         char *end = strchr(line, '\n');
         int len = end ? (int)(end - line) : (int)strlen(line);
@@ -146,6 +150,19 @@ bool RF_LoadLevel(const char *path, level_t *out) {
                 }
             }
             y++;
+        } else if (!strncmp(line, "level ", 6)) {
+            /* a row of levels: digits, '/' for a ramp */
+            if (len - 6 != w || level_row >= h) {
+                fprintf(stderr, "rustfront: %s level row %d is not %d cells\n", path, level_row + 1, w);
+                free(text);
+                P_FreeLevel(out);
+                return false;
+            }
+            for (int x = 0; x < w; ++x) {
+                char c = line[6 + x];
+                RF_SetCellLevel(out, x, level_row, c >= '0' && c <= '9' ? c - '0' : 0, c == '/');
+            }
+            level_row++;
         } else {
             char name[24];
             int owner, x, cy, facing = 0;
@@ -166,6 +183,8 @@ bool RF_LoadLevel(const char *path, level_t *out) {
         line = end ? end + 1 : line + strlen(line);
     }
     free(text);
+    RF_BuildRelief(out);
+    for (int i = 0; i < w * h; ++i) out->blocked[i] = RF_CellBlocks(out, i);
     return true;
 }
 

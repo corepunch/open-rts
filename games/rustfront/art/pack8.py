@@ -109,7 +109,18 @@ def write_terrain_table(meta):
             words.append("blend=%s" % t["blend"])
         if "edges" in t:
             words += ["edges=%d" % t["edges"], "corners=%d" % t["corners"]]
+        if "tops" in t:
+            words.append("tops=%d" % t["tops"])
         out.append(" ".join(words + t["flags"]))
+    rel = meta.get("relief")
+    if rel:
+        out += ["# relief: a cliff SHAPE (its high corners) VARIANT, a ramp DIR (high side N E S W)",
+                "# SIDES (rock flanks), then its pieces for the cell and the two below it (-1: none).",
+                "# A plateau terrain's tops= holds its ground through each shape's top mask: cliff",
+                "# shape m variant v at tops+(m-1)*variants+v, ramp d sides s after the 14 cliffs.",
+                "relief height=%d variants=%d" % (rel["height"], rel["variants"])]
+        out += ["cliff %d %d %d %d %d" % tuple(c) for c in rel["cliffs"]]
+        out += ["ramp %d %d %d %d %d" % tuple(r) for r in rel["ramps"]]
     (DATA / "terrain.txt").write_text("\n".join(out) + "\n")
 
 
@@ -144,6 +155,10 @@ def main():
     for i in range(ground):
         x, y = (i % cols) * TILE_W, (i // cols) * TILE_H
         samples += list(terrain.crop((x, y, x + TILE_W, y + TILE_H)).convert("RGB").getdata()) * 4
+    for i in terrain_meta.get("relief", {}).get("faces", []):     # cliff rock: opaque pixels
+        x, y = (i % cols) * TILE_W, (i // cols) * TILE_H
+        face = terrain.crop((x, y, x + TILE_W, y + TILE_H))
+        samples += [c for c, a in zip(face.convert("RGB").getdata(), face.getchannel("A").getdata()) if a >= 128] * 2
     side = int(math.ceil(math.sqrt(len(samples))))
     pool = Image.new("RGB", (side, side))
     pool.putdata(samples + [samples[-1]] * (side * side - len(samples)))

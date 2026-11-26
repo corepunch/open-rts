@@ -4,13 +4,13 @@
 
 #include <string.h>
 
-/* Footprints block movement: level.blocked is rebuilt from the terrain (water, rocks, wrecks)
- * and the living structures, so a new building blocks and a destroyed one frees its ground. */
+/* Footprints block movement: level.blocked is rebuilt from the terrain (water, rocks, wrecks,
+ * cliffs) and the living structures, so a new building blocks and a destroyed one frees its ground. */
 void RF_SyncBlocking(level_t *map) {
     size_t cells = (size_t)map->width * map->height;
     if (!map->blocked || !cells) return;
     for (size_t i = 0; i < cells; ++i)
-        map->blocked[i] = map->cell_terrain && RF_TerrainBlocks(map->cell_terrain[i]);
+        map->blocked[i] = RF_CellBlocks(map, (int)i);
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *unit = (const mobj_t *)th;

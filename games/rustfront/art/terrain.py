@@ -38,6 +38,7 @@ from PIL import Image, ImageChops
 ART = Path(__file__).resolve().parent
 sys.path.insert(0, str(ART))
 import layout as L  # noqa: E402
+import relief as RL  # noqa: E402
 import sprites as S  # noqa: E402
 
 CONFIG = ART / "terrain.txt"
@@ -48,6 +49,7 @@ ATLAS_COLS = 16
 EDGE_BITS = {"n": 1, "e": 2, "s": 4, "w": 8}
 CORNER_BITS = {"ne": 1, "se": 2, "sw": 4, "nw": 8}
 RIM_WIDTH = 0.05          # cells: how deep the rim shading reaches into a spill
+RELIEF = None             # the config's relief line: cliffs and ramps (relief.py)
 
 
 # ── config ─────────────────────────────────────────────────────────────────
@@ -55,6 +57,7 @@ RIM_WIDTH = 0.05          # cells: how deep the rim shading reaches into a spill
 def parse_config(path=CONFIG):
     """[terrain dicts in file order], default name."""
     terrains, default = [], None
+    global RELIEF
     for n, raw in enumerate(path.read_text().splitlines(), 1):
         line = raw.strip()       # comments are whole lines: '#' is also a map letter
         if not line or line.startswith("#"):
@@ -62,6 +65,9 @@ def parse_config(path=CONFIG):
         words = line.split()
         if words[0] == "default" and len(words) == 2:
             default = words[1]
+            continue
+        if words[0] == "relief":
+            RELIEF = {k: float(v) if "." in v else int(v) for k, v in (w.split("=", 1) for w in words[1:])}
             continue
         if words[0] != "terrain" or len(words) < 4 or len(words[2]) != 1:
             sys.exit("%s:%d: expected 'terrain NAME CHAR key=value...'" % (path, n))
@@ -237,6 +243,21 @@ def water(seed):
     return img
 
 
+def silt(seed):
+    """Damp silt of a canyon floor: darker than the sand above, with wet hollows and grit."""
+    img, n, rnd = ground((122, 100, 74), seed, 0.84, 1.02, 0.05, ((3, 1.0), (6, 0.6), (12, 0.3)))
+    px = img.load()
+    wet = periodic_noise(TILE_W, TILE_H, seed + 40, ((4, 1.0), (8, 0.5)))
+    for y in range(TILE_H):
+        for x in range(TILE_W):
+            if wet[y][x] > 0.62:
+                px[x, y] = shade(px[x, y], 0.86 if wet[y][x] < 0.7 else 0.78)
+    for _ in range(18):      # grit
+        x, y = rnd.randrange(TILE_W), rnd.randrange(TILE_H)
+        put(px, x, y, shade(px[x, y], rnd.choice((0.7, 1.18))))
+    return img
+
+
 def ore(seed):
     """Sand with faceted ore crystals: a lit top and a dark foot."""
     img = sand(seed)
@@ -256,7 +277,7 @@ def ore(seed):
     return img
 
 
-RECIPES = {"sand": sand, "gravel": gravel, "grass": grass, "stone": stone, "water": water, "ore": ore}
+RECIPES = {"silt": silt, "sand": sand, "gravel": gravel, "grass": grass, "stone": stone, "water": water, "ore": ore}
 
 
 # ── model tiles (Scener) ───────────────────────────────────────────────────
@@ -360,6 +381,47 @@ def spill_field(t):
     return periodic_noise(TILE_W, TILE_H, t["seed"] + 77, ((g, 1.0), (g * 2, 0.5), (g * 4, 0.25)))
 
 
+# ── relief ─────────────────────────────────────────────────────────────────
+
+def add_relief(terrains, textures, tiles, meta, by_name):
+    """Cliff and ramp pieces (relief.py) and, for every ground a plateau can be made of, its
+    texture through each shape's top mask. Empty pieces are -1."""
+    made = RL.make(RELIEF)
+    V = made["variants"]
+    rel = {"height": made["height"], "variants": V, "cliffs": [], "ramps": []}
+    faces = []
+
+    def place(pieces):
+        out = []
+        for p in pieces:
+            if p is None:
+                out.append(-1)
+            else:
+                out.append(len(tiles))
+                faces.append(len(tiles))
+                tiles.append(p)
+        return out
+
+    shapes = []
+    for m in RL.CLIFF_SHAPES:
+        for v in range(V):
+            pieces, top = made["cliffs"][(m, v)]
+            rel["cliffs"].append([m, v] + place(pieces))
+            shapes.append(top)
+    for d in range(4):
+        for sides in range(4):
+            pieces, top = made["ramps"][(d, sides)]
+            rel["ramps"].append([d, sides] + place(pieces))
+            shapes.append(top)
+    for t in terrains:
+        if "texture" not in t or "blocked" in t["flags"]:
+            continue
+        by_name[t["name"]]["tops"] = len(tiles)
+        tiles += [RL.top_tile(textures[t["name"]][0], mask) for mask in shapes]
+    rel["faces"] = faces
+    meta["relief"] = rel
+
+
 # ── main ───────────────────────────────────────────────────────────────────
 
 def main(argv):
@@ -390,6 +452,9 @@ def main(argv):
         tiles += [transition_tile(t, source, m, 0, field) for m in range(1, 16)]
         rec["corners"] = len(tiles)
         tiles += [transition_tile(t, source, 0, m, field) for m in range(1, 16)]
+
+    if RELIEF is not None:
+        add_relief(terrains, textures, tiles, meta, by_name)
 
     rows = (len(tiles) + ATLAS_COLS - 1) // ATLAS_COLS
     atlas = Image.new("RGBA", (ATLAS_COLS * TILE_W, rows * TILE_H), (0, 0, 0, 0))

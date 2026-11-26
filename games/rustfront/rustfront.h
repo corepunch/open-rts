@@ -34,6 +34,14 @@ bool RF_TerrainBlocks(int terrain);
 bool RF_TerrainHoldsOre(int terrain);
 uint16_t RF_TerrainTile(int terrain, int x, int y);
 void RF_SetCellTerrain(level_t *map, int x, int y, int terrain);
+/* Relief: height levels, cliffs and ramps (w_terrain.c, art/relief.py). */
+enum { RF_RELIEF_FLAT, RF_RELIEF_CLIFF, RF_RELIEF_RAMP };
+bool RF_BeginRelief(const level_t *map);           /* every cell flat at level 0 */
+void RF_SetCellLevel(const level_t *map, int x, int y, int level, bool ramp);
+void RF_BuildRelief(level_t *map);                 /* after the cells' terrain is set */
+int  RF_CellLevel(const level_t *map, int x, int y);
+int  RF_CellRelief(const level_t *map, int x, int y);
+bool RF_CellBlocks(const level_t *map, int cell);  /* blocking terrain, or a cliff */
 void RF_DrawTransitions(app_t *app, const level_t *map, const tileset_t *tileset, int x, int y, int dx, int dy);
 
 /* g_mission.c: building footprints block, idle harvesters find ore, a refinery comes with a

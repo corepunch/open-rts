@@ -6,7 +6,8 @@
 #   3. sprites.py              every unit's game sprites: facings, animation frames,
 #                              team masks, shadows, construction and damage (sprites/*.png, sprites.json)
 #   4. icons.py                the sidebar's build icons                (sprites/icons.png)
-#   5. terrain.py              ground tiles, model tiles, transitions   (sprites/terrain.png, terrain.json)
+#   5. terrain.py              ground tiles, model tiles, transitions, cliffs and ramps (relief.py)
+#                              (sprites/terrain.png, terrain.json)
 #   6. pack8.py                256-colour PCX sheets and the C tables   (assets/*.pcx, terrain.txt, sprites.inc)
 #   7. contact.py              the composited check sheet               (art/previews/sprites_contact.png)
 #
