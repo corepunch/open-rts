@@ -309,6 +309,43 @@ static int test_top_tier(void) {
     return 0;
 }
 
+/* Difficulty bends the computer's plan and income: easy keeps a smaller army, attacks later
+ * and collects less; hard the reverse. Normal is rules.c's plan as written. */
+static int plan_at(int level_, AiPlan *out, int *income) {
+    RF_SetAIDifficulty(1, level_);
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {.data_root = g_game_default_root};
+    if (!rts_game_model_load(model, &config)) return 0;
+    AiContext *ai = rts_game_model_ai(model);
+    run(model, 2 * RTS_TICRATE);
+    *out = ai->teams[1].plan;
+    *income = level.income_scale[1];
+    int loaded = ai->teams[1].plan_loaded;
+    rts_game_model_destroy(model);
+    return loaded;
+}
+
+static int test_difficulty(void) {
+    AiPlan easy, normal, hard;
+    int easy_income, normal_income, hard_income;
+    CHECK(plan_at(RF_AI_EASY, &easy, &easy_income));
+    CHECK(plan_at(RF_AI_HARD, &hard, &hard_income));
+    CHECK(plan_at(RF_AI_NORMAL, &normal, &normal_income));
+    CHECK(RF_AIDifficulty(1) == RF_AI_NORMAL);
+    CHECK(easy_income < normal_income && normal_income == 256 && hard_income > normal_income);
+    CHECK(easy.doctrine.army_cap < normal.doctrine.army_cap && normal.doctrine.army_cap < hard.doctrine.army_cap);
+    CHECK(easy.wave_interval_ms > normal.wave_interval_ms && normal.wave_interval_ms > hard.wave_interval_ms);
+    CHECK(easy.doctrine.attack_ratio > normal.doctrine.attack_ratio &&
+          normal.doctrine.attack_ratio > hard.doctrine.attack_ratio);
+    CHECK(hard.doctrine.defenses == normal.doctrine.defenses + 1);
+    /* Out of range levels clamp; the human's side is never scaled. */
+    RF_SetAIDifficulty(1, 99);
+    CHECK(RF_AIDifficulty(1) == RF_AI_HARD);
+    RF_SetAIDifficulty(1, RF_AI_NORMAL);
+    puts("PASS: easy, normal and hard bend the computer's army, waves and income");
+    return 0;
+}
+
 int main(void) {
     CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
     RTS_RUN(test_fog());
@@ -317,6 +354,7 @@ int main(void) {
     RTS_RUN(test_rally());
     RTS_RUN(test_veterancy());
     RTS_RUN(test_top_tier());
+    RTS_RUN(test_difficulty());
     SDL_Quit();
     return 0;
 }
