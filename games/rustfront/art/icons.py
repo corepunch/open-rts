@@ -52,6 +52,13 @@ ICONS = [
     ("uplink", "buildings/uplink", ""), ("hammer", "vehicles/hammer", ' rot="0 -150 0"'),
     ("cl_shop", "clans/chop_shop", ""), ("cl_wrecker", "clans/wrecker", ' rot="0 -150 0"'),
     ("lc_sanctum", "concord/sanctum", ""), ("lc_aegis", "concord/aegis", ' rot="0 -150 0"'),
+    ("crane", "vehicles/crane", ' rot="0 -150 0"'), ("phantom", "vehicles/phantom", ' rot="0 -150 0"'),
+    ("kestrel", "vehicles/kestrel", ' rot="0 -150 0"'),
+    ("sentry_truck", "vehicles/sentry_truck", ' rot="0 -150 0"'),
+    ("cl_sapper", "clans/sapper", ' rot="-90 125 0" pose="Aim"'), ("cl_drill", "clans/drill_rig", ' rot="0 -150 0"'),
+    ("cl_crusher", "clans/crusher", ' rot="0 -150 0"'), ("cl_buzzard", "clans/buzzard", ' rot="0 -150 0"'),
+    ("lc_cantor", "concord/cantor", ' rot="-90 125 0" pose="Aim"'), ("lc_strider", "concord/strider", ' rot="0 -150 0"'),
+    ("lc_seraph", "concord/seraph", ' rot="0 -150 0"'),
 ]
 
 

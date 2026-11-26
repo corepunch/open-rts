@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Derrick, the Scrap Clans' oil well: the Drill Rig deployed. Footprint 2x2 cells
+     (400 x 400 cm), origin at pad centre on the ground, front faces +Z. A tall rusty lattice
+     drill tower over the wellhead at the back left, its foot wrapped in a team tarp windbreak and
+     a team pennant on the crown; a pumpjack along the front, its team-painted walking beam
+     rocking on a Samson post over a second wellhead, driven by a crank and counterweights; two
+     storage tanks at the back right fed by ground pipes; a tarp-roofed doghouse and drums. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knobs, set per frame by art/sprites.py: pump 0..3 steps the pumpjack's crank a
+       quarter turn (the walking beam rocks with it) and turns the drill's kelly; blink 1/0 the
+       warn light. -->
+  <let name="pump" value="0"/>
+  <let name="blink" value="1"/>
+  <!-- the pumpjack's linkage: crank angle, beam tilt (front up positive), crank pin, beam ends -->
+  <let name="pj_phi" value="90*pump"/>
+  <let name="pj_th" value="deg(asin(-0.40*sin(pj_phi*pi/180)))"/>
+  <let name="pj_px" value="-24+36*cos(pj_phi*pi/180)"/>
+  <let name="pj_py" value="78+36*sin(pj_phi*pi/180)"/>
+  <let name="pj_rx" value="70-90*cos(pj_th*pi/180)"/>
+  <let name="pj_ry" value="176-90*sin(pj_th*pi/180)"/>
+  <let name="pj_hx" value="70+104*cos(pj_th*pi/180)"/>
+  <let name="pj_hy" value="176+104*sin(pj_th*pi/180)"/>
+  <chunk width="392" height="20" depth="392" radius="18" bevel="3" lean="0" pos="0 10 0" material="clans_dirt"/>
+
+  <!-- Turned 14 degrees on its pad; scaled and centred to stay inside the footprint. -->
+  <group rot="0 14 0" scale="0.9 0.9 0.9" pos="-17.3 2 -4.7">
+    <!-- drill tower: a timber floor, four tapering legs, girts and cross braces -->
+    <box size="190 12 190" pos="-66 26 -52" material="clans_wood"/>
+    <tube ax="-140" ay="32" az="-126" bx="-84" by="380" bz="-70" r0="5.5" material="clans_rust"/>
+    <box size="20 6 20" pos="-140 35 -126" material="steel_dark"/>
+    <tube ax="8" ay="32" az="-126" bx="-48" by="380" bz="-70" r0="5.5" material="clans_rust"/>
+    <box size="20 6 20" pos="8 35 -126" material="steel_dark"/>
+    <tube ax="8" ay="32" az="22" bx="-48" by="380" bz="-34" r0="5.5" material="clans_rust"/>
+    <box size="20 6 20" pos="8 35 22" material="steel_dark"/>
+    <tube ax="-140" ay="32" az="22" bx="-84" by="380" bz="-34" r0="5.5" material="clans_rust"/>
+    <box size="20 6 20" pos="-140 35 22" material="steel_dark"/>
+    <box size="124.2 4.5 4.5" pos="-66 120 -111.8" material="steel_dark"/>
+    <box size="4.5 4.5 115.2" pos="-125.8 120 -52" material="steel_dark"/>
+    <box size="124.2 4.5 4.5" pos="-66 120 7.8" material="steel_dark"/>
+    <box size="4.5 4.5 115.2" pos="-6.2 120 -52" material="steel_dark"/>
+    <box size="102.9 9 9" pos="-66 200 -99" material="clans_paint" tint="1"/>
+    <box size="9 9 84.9" pos="-113 200 -52" material="clans_paint" tint="1"/>
+    <box size="102.9 9 9" pos="-66 200 -5" material="clans_paint" tint="1"/>
+    <box size="9 9 84.9" pos="-19 200 -52" material="clans_paint" tint="1"/>
+    <box size="75.9 4.5 4.5" pos="-66 270 -87.7" material="steel_dark"/>
+    <box size="4.5 4.5 66.9" pos="-101.7 270 -52" material="steel_dark"/>
+    <box size="75.9 4.5 4.5" pos="-66 270 -16.3" material="steel_dark"/>
+    <box size="4.5 4.5 66.9" pos="-30.3 270 -52" material="steel_dark"/>
+    <box size="61.1 9 9" pos="-66 330 -78" material="clans_paint" tint="1"/>
+    <box size="9 9 43.1" pos="-92 330 -52" material="clans_paint" tint="1"/>
+    <box size="61.1 9 9" pos="-66 330 -26" material="clans_paint" tint="1"/>
+    <box size="9 9 43.1" pos="-40 330 -52" material="clans_paint" tint="1"/>
+    <box size="40.5 4.5 4.5" pos="-66 380 -70" material="steel_dark"/>
+    <box size="4.5 4.5 31.5" pos="-84 380 -52" material="steel_dark"/>
+    <box size="40.5 4.5 4.5" pos="-66 380 -34" material="steel_dark"/>
+    <box size="4.5 4.5 31.5" pos="-48 380 -52" material="steel_dark"/>
+    <beam ax="-139.4" ay="36" az="-125.4" bx="-5.5" by="116" bz="-112.5" width="3" depth="3" material="clans_rust"/>
+    <beam ax="7.4" ay="36" az="-125.4" bx="-126.5" by="116" bz="-112.5" width="3" depth="3" material="clans_rust"/>
+    <beam ax="7.4" ay="36" az="-125.4" bx="-5.5" by="116" bz="8.5" width="3" depth="3" material="clans_rust"/>
+    <beam ax="7.4" ay="36" az="21.4" bx="-5.5" by="116" bz="-112.5" width="3" depth="3" material="clans_rust"/>
+    <beam ax="7.4" ay="36" az="21.4" bx="-126.5" by="116" bz="8.5" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-139.4" ay="36" az="21.4" bx="-5.5" by="116" bz="8.5" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-125.2" ay="124" az="-111.2" bx="-18.4" by="196" bz="-99.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-6.8" ay="124" az="-111.2" bx="-113.6" by="196" bz="-99.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-6.8" ay="124" az="-111.2" bx="-18.4" by="196" bz="-4.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-6.8" ay="124" az="7.2" bx="-18.4" by="196" bz="-99.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-6.8" ay="124" az="7.2" bx="-113.6" by="196" bz="-4.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-125.2" ay="124" az="7.2" bx="-18.4" by="196" bz="-4.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-125.2" ay="124" az="7.2" bx="-113.6" by="196" bz="-99.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-125.2" ay="124" az="-111.2" bx="-113.6" by="196" bz="-4.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-112.3" ay="204" az="-98.3" bx="-29.7" by="266" bz="-88.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-19.7" ay="204" az="-98.3" bx="-102.3" by="266" bz="-88.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-19.7" ay="204" az="-98.3" bx="-29.7" by="266" bz="-15.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-19.7" ay="204" az="-5.7" bx="-29.7" by="266" bz="-88.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-19.7" ay="204" az="-5.7" bx="-102.3" by="266" bz="-15.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-112.3" ay="204" az="-5.7" bx="-29.7" by="266" bz="-15.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-112.3" ay="204" az="-5.7" bx="-102.3" by="266" bz="-88.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-112.3" ay="204" az="-98.3" bx="-102.3" by="266" bz="-15.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-101.1" ay="274" az="-87.1" bx="-39.3" by="326" bz="-78.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-30.9" ay="274" az="-87.1" bx="-92.7" by="326" bz="-78.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-30.9" ay="274" az="-87.1" bx="-39.3" by="326" bz="-25.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-30.9" ay="274" az="-16.9" bx="-39.3" by="326" bz="-78.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-30.9" ay="274" az="-16.9" bx="-92.7" by="326" bz="-25.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-101.1" ay="274" az="-16.9" bx="-39.3" by="326" bz="-25.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-101.1" ay="274" az="-16.9" bx="-92.7" by="326" bz="-78.7" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-101.1" ay="274" az="-87.1" bx="-92.7" by="326" bz="-25.3" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-91.4" ay="334" az="-77.4" bx="-47.4" by="376" bz="-70.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-40.6" ay="334" az="-77.4" bx="-84.6" by="376" bz="-70.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-40.6" ay="334" az="-77.4" bx="-47.4" by="376" bz="-33.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-40.6" ay="334" az="-26.6" bx="-47.4" by="376" bz="-70.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-40.6" ay="334" az="-26.6" bx="-84.6" by="376" bz="-33.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-91.4" ay="334" az="-26.6" bx="-47.4" by="376" bz="-33.4" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-91.4" ay="334" az="-26.6" bx="-84.6" by="376" bz="-70.6" width="3" depth="3" material="clans_rust"/>
+    <beam ax="-91.4" ay="334" az="-77.4" bx="-84.6" by="376" bz="-33.4" width="3" depth="3" material="clans_rust"/>
+    <!-- team tarp windbreak round the tower's foot, back and left faces -->
+    <group pos="-66 96 -128.7" rot="0 0 0"><box size="141.4 110 3" rot="-6 0 0" material="clans_cloth" tint="1"/></group>
+    <group pos="-142.7 96 -52" rot="0 90 0"><box size="141.4 110 3" rot="-6 0 0" material="clans_cloth" tint="1"/></group>
+    <!-- crown block, pennant, warn light -->
+    <box size="56 18 56" pos="-66 389 -52" material="clans_sheet_rust"/>
+    <cylinder radius="16" height="10" sides="12" rot="90 0 0" pos="-66 406 -52" material="clans_drum"/>
+    <clans-flag height="70" size="40" pos="-86 398 -72"/>
+    <warn-light on="{blink}" pos="-46 398 -32"/>
+    <!-- the drill line from the crown to the travelling block, the kelly turning in the rotary table -->
+    <cylinder radius="1.6" height="150" sides="5" pos="-66 305 -52" material="steel_dark"/>
+    <box size="22 34 22" pos="-66 213 -52" material="hazard"/>
+    <box size="12 150 12" rot="0 {22.5*pump} 0" pos="-66 121 -52" material="steel"/>
+    <cylinder radius="30" height="14" sides="10" rot="0 {18*pump} 0" pos="-66 39 -52" material="clans_rust"/>
+    <box size="64 4 10" rot="0 {18*pump} 0" pos="-66 47.5 -52" material="clans_drum"/>
+    <ladder height="300" pos="-36 32 16" rot="0 0 0"/>
+
+    <!-- pumpjack along the front: skid, Samson post, walking beam with horsehead, crank and
+         counterweights, pitman arms, polished rod down into the wellhead -->
+    <box size="250 14 70" pos="60 27 104" material="steel_dark"/>
+    <box size="70 40 50" pos="-58 54 104" material="gunmetal"/>
+    <box size="74 4 54" pos="-58 76 104" material="clans_paint" tint="1"/>
+    <beam ax="40" ay="34" az="74" bx="70" by="172" bz="98" width="10" depth="10" material="clans_rust"/>
+    <beam ax="40" ay="34" az="134" bx="70" by="172" bz="110" width="10" depth="10" material="clans_rust"/>
+    <beam ax="104" ay="34" az="74" bx="70" by="172" bz="98" width="10" depth="10" material="clans_rust"/>
+    <beam ax="104" ay="34" az="134" bx="70" by="172" bz="110" width="10" depth="10" material="clans_rust"/>
+    <cylinder radius="7" height="30" sides="8" rot="90 0 0" pos="70 176 104" material="steel_dark"/>
+    <group pos="70 176 104" rot="0 0 {pj_th}">
+      <box size="206 18 14" pos="7 8 0" material="clans_paint" tint="1"/>
+      <box size="210 4 18" pos="7 18.5 0" material="clans_paint" tint="1"/>
+      <shape closed="1" v="94 30 112 24 122 4 120 -30 112 -46 96 -40 104 -20 104 6" material="clans_sheet_rust">
+        <extrude amount="22"/><bevel amount="1.5" bevelSegments="1"/></shape>
+      <box size="16 10 30" pos="-86 -2 0" material="steel_dark"/>
+    </group>
+    <group pos="-24 78 104" rot="0 0 {pj_phi}">
+      <box size="86 16 6" pos="12 0 30" material="clans_rust"/>
+      <box size="86 16 6" pos="12 0 -30" material="clans_rust"/>
+      <box size="44 50 10" pos="-24 0 36" material="clans_sheet_rust"/>
+      <box size="44 50 10" pos="-24 0 -36" material="clans_sheet_rust"/>
+    </group>
+    <cylinder radius="8" height="84" sides="8" rot="90 0 0" pos="-24 78 104" material="gunmetal"/>
+    <tube ax="pj_px" ay="pj_py" az="73.2" bx="pj_rx" by="pj_ry" bz="95.2" r0="3.2" material="steel_dark"/>
+    <tube ax="pj_px" ay="pj_py" az="134.8" bx="pj_rx" by="pj_ry" bz="112.8" r0="3.2" material="steel_dark"/>
+    <tube ax="pj_hx+16" ay="pj_hy-42" az="104" bx="pj_hx+16" by="62" bz="104" r0="1.8" material="steel"/>
+    <!-- the pumpjack's wellhead -->
+    <cylinder radius="13" height="20" sides="10" pos="190 44 104" material="clans_rust"/>
+    <box size="40 10 10" pos="190 48 104" material="clans_drum"/>
+    <cylinder radius="8" height="12" sides="8" pos="190 58 104" material="steel_dark"/>
+
+    <!-- storage tanks, back right: a big team-banded drum tank and a rusty one, on skids -->
+    <box size="130 10 120" pos="104 25 -112" material="clans_wood"/>
+    <cylinder radius="50" height="160" sides="16" pos="84 110 -120" material="clans_drum"/>
+    <cylinder radius="52" height="30" sides="16" pos="84 150 -120" material="clans_paint" tint="1"/>
+    <cylinder radius="52" height="5" sides="16" pos="84 70 -120" material="clans_rust"/>
+    <cylinder radius="44" height="6" sides="16" pos="84 193 -120" material="clans_rust"/>
+    <box size="24 8 24" pos="74 200 -130" material="steel_dark"/>
+    <ladder height="160" pos="84 30 -68" rot="0 0 0"/>
+    <cylinder radius="34" height="110" sides="14" pos="150 85 -38" material="clans_sheet_rust"/>
+    <cylinder radius="35" height="4" sides="14" pos="150 140 -38" material="steel_dark"/>
+    <cylinder radius="36" height="16" sides="14" pos="150 112 -38" material="clans_rust"/>
+    <!-- ground pipes: from both wellheads to the tanks -->
+    <tube ax="190" ay="46" az="104" bx="190" by="40" bz="10" r0="6" material="clans_tin"/>
+    <tube ax="190" ay="40" az="10" bx="150" by="40" bz="-10" r0="6" material="clans_tin"/>
+    <tube ax="-36" ay="40" az="-52" bx="40" by="40" bz="-110" r0="7" material="clans_rust"/>
+    <cylinder radius="10" height="10" sides="8" rot="90 0 0" pos="10 40 -52" material="clans_drum"/>
+
+    <!-- doghouse, front left: a tin shed with a team tarp roof, drums beside it -->
+    <box size="80 70 64" pos="-140 66 128" material="clans_sheet"/>
+    <shape closed="1" v="-50 0 50 0 40 22 -40 22" rot="0 90 0" pos="-140 101 128" material="clans_cloth" tint="1">
+      <extrude amount="96"/></shape>
+    <box size="30 46 3" pos="-128 54 161.5" material="steel_dark"/>
+    <clans-drum pos="-70 20 164" radius="19" height="54" material="hazard"/>
+    <clans-drum pos="-40 20 154" radius="19" height="54" material="clans_paint" tint="1"/>
+    <clans-tyre pos="-180 30 40" radius="26" width="18"/>
+  </group>
+</prefab>

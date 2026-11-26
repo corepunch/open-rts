@@ -47,6 +47,9 @@ BUILDINGS = [
     ("concord/foundry",    "Foundry",       640, 640, 150),
     ("concord/beam_tower", "BeamTower",     256, 320,  80),
     ("concord/sanctum",    "Sanctum",       448, 576, 140),
+    ("buildings/sentry",   "SentryPost",    288, 288,  70),
+    ("clans/derrick",      "Derrick",       448, 704, 190),
+    ("clans/mine",         "Mine",          128, 128,  10),
 ]
 VEHICLES = [
     ("vehicles/scout",     "ScoutBuggy", 384, 320, 50),
@@ -67,6 +70,15 @@ VEHICLES = [
     ("concord/prism",      "Prism", 448, 384, 90),
     ("concord/harvester",  "HoverHarvester", 384, 320, 70),
     ("concord/aegis",      "Aegis", 448, 384, 70),
+    ("vehicles/crane",     "FieldCrane", 512, 448, 60),
+    ("vehicles/phantom",   "Phantom", 448, 384, 60),
+    ("vehicles/kestrel",   "Kestrel", 640, 640, 220),
+    ("vehicles/sentry_truck", "SentryTruck", 448, 384, 60),
+    ("clans/drill_rig",    "DrillRig", 576, 512, 70),
+    ("clans/crusher",      "Crusher", 576, 544, 90),
+    ("clans/buzzard",      "Buzzard", 640, 640, 220),
+    ("concord/strider",    "Strider", 512, 512, 100),
+    ("concord/seraph",     "Seraph", 576, 576, 200),
 ]
 VEHICLE_YAW = -45    # prefabs face +X; -45 turns them toward the viewer's lower right
 

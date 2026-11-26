@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Field Crane, the Directorate's repair truck. Length 304 cm on X, width 150 cm on Z, origin at
+     the chassis centre on the ground, cab faces +X. A six-wheeled truck: a blunt painted cab with a
+     slit windscreen and an amber beacon, a low painted bed with gunmetal tool lockers along both
+     sides, a slewing crane on a turntable at the rear whose team-painted boom is folded forward
+     over the bed onto a rest behind the cab, a hook block hanging from its hazard-striped tip, and
+     a folded welding arm on the left (+Z) side reaching past the cab. On a fire frame the torch
+     strikes a bright welding arc. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is a bright welding arc at the
+       torch (repairing), fire 2 a smaller spark. -->
+  <let name="fire" value="0"/>
+  <let name="arc" value="fire == 1 ? 1 : (fire == 2 ? 0.55 : 0)"/>
+
+  <!-- six wheels: a steering axle and a rear tandem -->
+  <group pos="0 28 0">
+    <cylinder radius="28" height="26" sides="12" rot="90 0 0" pos="100 0 62" material="rubber"/>
+    <cylinder radius="28" height="26" sides="12" rot="90 0 0" pos="100 0 -62" material="rubber"/>
+    <cylinder radius="28" height="26" sides="12" rot="90 0 0" pos="-50 0 62" material="rubber"><array count="2" translation="-62 0 0"/></cylinder>
+    <cylinder radius="28" height="26" sides="12" rot="90 0 0" pos="-50 0 -62" material="rubber"><array count="2" translation="-62 0 0"/></cylinder>
+    <cylinder radius="12" height="28" sides="6" rot="90 0 {30*move}" pos="100 0 62" material="gunmetal"/>
+    <cylinder radius="12" height="28" sides="6" rot="90 0 {30*move}" pos="100 0 -62" material="gunmetal"/>
+    <cylinder radius="12" height="28" sides="6" rot="90 0 {30*move}" pos="-50 0 62" material="gunmetal"><array count="2" translation="{-62*cos(30*move*pi/180)} 0 {-62*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="12" height="28" sides="6" rot="90 0 {30*move}" pos="-50 0 -62" material="gunmetal"><array count="2" translation="{-62*cos(30*move*pi/180)} 0 {-62*sin(30*move*pi/180)}"/></cylinder>
+  </group>
+  <box size="290 16 96" pos="0 46 0" material="steel_dark"/>
+  <!-- fenders -->
+  <box size="66 4 30" rot="-10 0 0" pos="100 62 62" material="trim"/>
+  <box size="66 4 30" rot="10 0 0" pos="100 62 -62" material="trim"/>
+  <box size="128 4 30" rot="-10 0 0" pos="-81 62 62" material="trim"/>
+  <box size="128 4 30" rot="10 0 0" pos="-81 62 -62" material="trim"/>
+
+  <!-- low bed: painted sides, a white stripe, a grating deck -->
+  <shape closed="1" v="-152 52 76 52 76 80 -146 80 -152 72" material="paint_plain" tint="1">
+    <extrude amount="140"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 52 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="210 6 4" pos="-36 70 68" material="trim_light"/>
+  <box size="210 6 4" pos="-36 70 -68" material="trim_light"/>
+  <box size="216 3 124" pos="-36 81.5 0" material="grating"/>
+  <box size="6 12 132" pos="-153 62 0" material="hazard"/>
+
+  <!-- tool lockers along both sides of the bed -->
+  <box size="100 24 24" pos="-22 95 54" material="gunmetal"/>
+  <box size="100 24 24" pos="-22 95 -54" material="gunmetal"/>
+  <box size="100 3 26" pos="-22 108.5 54" material="trim"/>
+  <box size="100 3 26" pos="-22 108.5 -54" material="trim"/>
+  <box size="2 14 24" pos="-12 95 66.5" material="trim_light"/>
+  <box size="2 14 24" pos="-52 95 66.5" material="trim_light"/>
+  <box size="2 14 24" pos="-12 95 -66.5" material="trim_light"/>
+  <box size="2 14 24" pos="-52 95 -66.5" material="trim_light"/>
+  <!-- gas bottles for the torch -->
+  <cylinder radius="7" height="34" sides="8" rot="0 0 90" pos="44 90 -52" material="emblem_gold"/>
+  <cylinder radius="7" height="34" sides="8" rot="0 0 90" pos="44 104 -52" material="trim_light"/>
+
+  <!-- armoured cab -->
+  <shape closed="1" v="78 54 150 54 152 76 138 88 122 124 78 126" material="paint_plain" tint="1">
+    <extrude amount="134"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 54 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="3 24 104" rot="0 0 -66" pos="131 107 0" material="glass"/>
+  <box size="40 3 104" pos="98 127 0" material="trim_light"/>
+  <box size="6 12 132" pos="153 62 0" material="hazard"/>
+  <box size="5 5 3" pos="152 74 46" material="lamp" unlit="1" castShadow="0"/>
+  <box size="5 5 3" pos="152 74 -46" material="lamp" unlit="1" castShadow="0"/>
+  <warn-light pos="96 128.5 0" material="flame"/>
+  <cylinder radius="1.2" height="60" sides="5" pos="84 158 -46" material="steel_dark"/>
+
+  <!-- boom rest behind the cab -->
+  <box size="10 44 40" pos="66 104 0" material="steel_dark"/>
+  <box size="14 6 44" pos="66 129 0" material="hazard"/>
+
+  <!-- slewing crane: turntable, king post, boom folded forward over the bed -->
+  <cylinder radius="34" height="8" sides="20" pos="-110 87 0" material="trim"/>
+  <soft-box width="50" height="36" depth="54" radius="6" bevel="2" pos="-112 109 0" material="gunmetal"/>
+  <box size="4 30 46" pos="-138 108 0" material="hazard"/>
+  <cylinder radius="11" height="62" sides="10" rot="90 0 0" pos="-104 124 0" material="steel_dark"/>
+  <group pos="-104 136 0" rot="0 0 -2">
+    <box size="186 20 26" pos="88 0 0" material="paint_plain" tint="1"/>
+    <box size="150 6 3" pos="74 2 13.5" material="trim_light"/>
+    <box size="150 6 3" pos="74 2 -13.5" material="trim_light"/>
+    <box size="20 22 28" pos="186 0 0" material="hazard"/>
+    <cylinder radius="7" height="34" sides="8" rot="90 0 0" pos="192 -4 0" material="steel_dark"/>
+  </group>
+  <!-- luffing ram -->
+  <tube ax="-86" ay="96" az="0" bx="-40" by="125" bz="0" r0="6" material="trim_light"/>
+  <!-- hook block hanging from the tip -->
+  <cylinder radius="1.2" height="24" sides="5" pos="88 117 0" material="steel_dark"/>
+  <box size="18 20 18" pos="88 96 0" material="hazard"/>
+  <torus majorRadius="6" minorRadius="2.2" majorSegments="10" minorSegments="6" rot="90 0 0" pos="88 80 0" material="steel"/>
+
+  <!-- folded welding arm on the left (+Z) side, the torch past the cab's corner -->
+  <cylinder radius="10" height="10" sides="10" pos="48 88 60" material="gunmetal"/>
+  <beam ax="48" ay="92" az="60" bx="78" by="140" bz="70" width="12" depth="12" material="hazard"/>
+  <sphere radius="9" rings="5" slices="8" pos="78 140 70" material="gunmetal"/>
+  <beam ax="78" ay="140" az="70" bx="160" by="98" bz="78" width="10" depth="10" material="trim_light"/>
+  <box size="16 8 8" rot="0 0 -28" pos="164 96 78" material="gunmetal"/>
+  <cylinder radius="2" height="12" sides="6" rot="0 0 -62" pos="174 91 78" material="steel_dark"/>
+  <!-- the welding arc: a white-hot core in a blue-white glow, sparks thrown out -->
+  <group pos="180 88 78" scale="{arc} {arc} {arc}" renderable="{fire != 0}">
+    <sphere radius="11" rings="5" slices="8" material="flash_core" unlit="1" castShadow="0"/>
+    <sphere radius="22" rings="5" slices="8" scale="1 0.8 1" material="glow" unlit="1" castShadow="0"/>
+    <cone radius="3" radiusTop="0" height="34" sides="5" rot="0 0 -60" pos="14 8 0" material="flash" unlit="1" castShadow="0"/>
+    <cone radius="3" radiusTop="0" height="30" sides="5" rot="0 0 -120" pos="13 -8 0" material="flash" unlit="1" castShadow="0"/>
+    <cone radius="3" radiusTop="0" height="30" sides="5" rot="60 0 -30" pos="6 8 12" material="flash" unlit="1" castShadow="0"/>
+    <cone radius="3" radiusTop="0" height="28" sides="5" rot="-70 0 -20" pos="6 6 -12" material="flash" unlit="1" castShadow="0"/>
+    <cone radius="3" radiusTop="0" height="26" sides="5" rot="0 0 20" pos="-6 14 0" material="flash_core" unlit="1" castShadow="0"/>
+  </group>
+</prefab>

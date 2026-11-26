@@ -60,6 +60,54 @@ void RF_Detonate(mobj_t *wrecker, mobj_t *target, int damage); /* the Wrecker */
 void RF_AegisMend(mobj_t *const *mobjs, int count);
 bool RF_ImpactInProgress(void);
 
+/* g_units.c: each faction's special units and powers, after three classic RTS games.
+ *   Directorate (Dark Reign): the APC carries five soldiers (TC_BOARD, TC_UNLOAD); the Field
+ *     Crane mends vehicles and structures beside it; the Phantom phases out of the world for a
+ *     moment when first hit; the Kestrel gunship flies; the Sentry Truck unfolds into a Sentry
+ *     Post and folds back up (TC_DEPLOY).
+ *   Scrap Clans (KKnD): the Drill Rig deploys into a Derrick, a private well of ore, wherever
+ *     it stands; Sappers holding ground lay hidden mines; the Crusher rolls over soldiers; the
+ *     Buzzard autogyro bombs.
+ *   Lumen Concord (7th Legion): the Spire draws power cards, the Rites, played from the sidebar
+ *     (TC_SPELL); a tithe on every kill; the Strider's arc leaps to two more; the Seraph flies;
+ *     the Cantor heals soldiers.
+ * Aircraft are hit only by the weapons that can shoot up (RF_AntiAir). */
+#define RF_DERRICK_ORE 6000
+enum { RF_APC_SEATS = 5, RF_MAX_MINES = 16, RF_HAND = 3 };
+typedef enum { RF_RITE_NONE, RF_RITE_STRIKE, RF_RITE_MENDING, RF_RITE_WINDFALL, RF_RITE_WARD, RF_RITE_COUNT } rf_rite_t;
+bool RF_IsTransport(const mobj_t *unit);
+int  RF_Passengers(const mobj_t *transport, uint32_t *ids, int max);  /* ids may be NULL */
+bool RF_BoardOrder(mobj_t *soldier, mobj_t *transport);
+bool RF_Unload(mobj_t *transport);
+bool RF_CanDeploy(const mobj_t *unit);               /* a type that deploys or packs up */
+bool RF_Deploy(mobj_t *unit);                        /* now, where it stands; false if it cannot */
+bool RF_AntiAir(uint16_t type);                      /* its weapon reaches aircraft */
+bool RF_CanTargetHook(const mobj_t *attacker, const mobj_t *victim);    /* gameinfo_t.can_target */
+bool RF_AttackBlockedHook(const mobj_t *attacker, const mobj_t *target); /* gameinfo_t.attack_blocked */
+bool RF_UnitCommand(const ticcmd_t *cmd, mobj_t *const *units, int count, mobj_t *target);
+void RF_AiUnits(int owner, mobj_t *const *units, int count);         /* g_ai.c's tactics */
+bool RF_Phased(const mobj_t *unit);
+int  RF_MineCount(int owner);
+void RF_UnitsTicker(level_t *map, mobj_t *const *mobjs, int count);
+void RF_UnitLost(mobj_t *victim);                    /* G_UnitKilled: an APC's passengers bail out */
+void RF_UnitHit(mobj_t *victim, const mobj_t *source); /* G_UnitDamaged: a Phantom phases */
+int  RF_Tithe(const mobj_t *victim, const mobj_t *killer); /* credits the Concord earns for the kill */
+/* The Rites: a Concord side with a Spire draws a card every RF_RITE_DRAW_MS into a hand of three.
+ * Strike, Mending and Ward are played on a point; Windfall at once. */
+#define RF_RITE_DRAW_MS 40000
+rf_rite_t RF_HandCard(int owner, int slot);
+int  RF_NextDrawMs(int owner);                       /* until the next card; -1 with no Spire */
+bool RF_RiteTargeted(rf_rite_t rite);
+const char *RF_RiteName(rf_rite_t rite);
+fixed_t RF_RiteRadius(rf_rite_t rite);
+bool RF_PlayRite(int owner, int slot, fixed2_t at);  /* the simulation's own call (ticcmd, AI) */
+bool RF_RiteOrder(int slot, fixed2_t at);            /* the local player: queues a TC_SPELL */
+size_t RF_UnitsSaveSize(void);
+void RF_UnitsSave(void *out);
+bool RF_UnitsLoad(const void *data, size_t size);
+uint32_t RF_UnitsHash(uint32_t hash);
+void RF_UnitsReset(void);                            /* a new level */
+
 /* g_build.c: construction sites and battle damage. The Command Center's structures stand on
  * their site from placement and build themselves up; one site at a time per side. */
 const mobj_t *RF_SiteInProgress(int owner);

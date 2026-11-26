@@ -15,6 +15,9 @@ const char *const sprnames[NUMSPRITES] = {
     "lc_skimmer_body", "lc_glaive_hull", "lc_prism_body", "lc_harvester_body", "lc_warden_body", "lc_lancer_body",
     "fx_bolt", "fx_flame", "fx_zap",
     "uplink_body", "hammer_body", "cl_shop_body", "cl_wrecker_body", "lc_sanctum_body", "lc_aegis_body",
+    "crane_body", "phantom_hull", "kestrel_body", "sentry_truck_body", "sentry_base",
+    "cl_drill_body", "cl_derrick_body", "cl_sapper_body", "cl_mine_body", "cl_crusher_body", "cl_buzzard_body",
+    "lc_strider_body", "lc_seraph_body", "lc_cantor_body",
 };
 
 /* {sprite, frame, count, tics, action, next, group}: group 2 plays while moving, 3 attacking.
@@ -54,6 +57,18 @@ const char *const sprnames[NUMSPRITES] = {
     [fly]  = {spr, 0, 1, 1, NULL, fly, 0, NULL}, \
     [hit]  = {blast, 0, 1, tics, A_RfImpact, hit2, 0, NULL}, \
     [hit2] = {blast, 1, (n) - 1, tics, NULL, S_NULL, 0, NULL}
+/* A flyer's rotor or engine never stops: it stands and moves on both frames. */
+#define FLYER(spr, stnd, move, fire, fire2, settle) \
+    [stnd]  = {spr, VEH_STAND, 2, 2, A_Look, stnd, 0, NULL}, \
+    [move]  = {spr, VEH_STAND, 2, 2, NULL, move, 2, NULL}, \
+    [fire]  = {spr, VEH_SHOT, 1, 3, A_Attack, fire2, 3, NULL}, \
+    [fire2] = {spr, VEH_STEP, 1, settle, NULL, stnd, 3, NULL}
+/* A vehicle with no gun of its own that rams: its running gear lurches into the blow. */
+#define RAMMER(spr, stnd, move, fire, fire2, settle) \
+    [stnd]  = {spr, VEH_STAND, 1, 1, A_Look, stnd, 0, NULL}, \
+    [move]  = {spr, VEH_STAND, 2, 3, NULL, move, 2, NULL}, \
+    [fire]  = {spr, VEH_STEP, 1, 3, A_Attack, fire2, 3, NULL}, \
+    [fire2] = {spr, VEH_STAND, 1, settle, NULL, stnd, 3, NULL}
 /* Idle looks around slowly (RF_MobjTicker keeps the lookout every tic), the run cycle is one
  * stride, a shot is the firing frame then the recoil, and death is the fall then the body. */
 #define SOLDIER(spr, stnd, walk, fire, fire2, die, corpse) \
@@ -149,6 +164,37 @@ const state_t states[NUMSTATES] = {
     STRUCTURE(SPR_LC_SANCTUM, S_LC_SANCTUM, S_LC_SANCTUM_DAMAGED, S_LC_SANCTUM_BUILD, 8, 6),
     GUNNED(SPR_LC_AEGIS, S_LC_AEGIS, S_LC_AEGIS_MOVE, S_LC_AEGIS_FIRE, S_LC_AEGIS_FIRE2, 8),
     PROJECTILE(SPR_FX_ROCKET, S_HEAVY_MISSILE, S_HEAVY_MISSILE_HIT, S_HEAVY_MISSILE_HIT2, SPR_FX_BIGBOOM, 12, 3),
+
+    /* The special units (g_units.c). The crane welds (its body's spark frame) while it mends;
+     * the sentry post fires its twin guns from the head on its base sheet; the derrick pumps. */
+    [S_CRANE] = {SPR_CRANE, VEH_STAND, 1, -1, NULL, S_CRANE, 0, NULL},
+    [S_CRANE_MOVE] = {SPR_CRANE, VEH_STAND, 2, 3, NULL, S_CRANE_MOVE, 2, NULL},
+    [S_CRANE_WORK] = {SPR_CRANE, VEH_SHOT, 1, 3, NULL, S_CRANE_WORK2, 0, NULL},
+    [S_CRANE_WORK2] = {SPR_CRANE, VEH_STAND, 1, 4, NULL, S_CRANE_WORK, 0, NULL},
+    TURRETED(SPR_PHANTOM, S_PHANTOM, S_PHANTOM_MOVE, S_PHANTOM_FIRE, S_PHANTOM_FIRE2, 9),
+    FLYER(SPR_KESTREL, S_KESTREL, S_KESTREL_MOVE, S_KESTREL_FIRE, S_KESTREL_FIRE2, 8),
+    HAULER(SPR_SENTRY_TRUCK, S_SENTRY_TRUCK, S_SENTRY_TRUCK_MOVE),
+    [S_SENTRY] = {SPR_SENTRY, VEH_STAND, 1, 1, A_Look, S_SENTRY, 0, NULL},
+    [S_SENTRY_FIRE] = {SPR_SENTRY, VEH_STAND, 1, 3, A_Attack, S_SENTRY_FIRE2, 3, NULL},
+    [S_SENTRY_FIRE2] = {SPR_SENTRY, VEH_STEP, 1, 4, NULL, S_SENTRY, 3, NULL},
+    HAULER(SPR_CL_DRILL, S_CL_DRILL, S_CL_DRILL_MOVE),
+    STRUCTURE(SPR_CL_DERRICK, S_CL_DERRICK, S_CL_DERRICK_DAMAGED, S_CL_DERRICK_BUILD, 4, 6),
+    SOLDIER(SPR_CL_SAPPER, S_CL_SAPPER, S_CL_SAPPER_WALK, S_CL_SAPPER_FIRE, S_CL_SAPPER_FIRE2, S_CL_SAPPER_DIE, S_CL_SAPPER_CORPSE),
+    [S_CL_MINE] = {SPR_CL_MINE, 0, 2, 20, NULL, S_CL_MINE, 0, NULL},
+    RAMMER(SPR_CL_CRUSHER, S_CL_CRUSHER, S_CL_CRUSHER_MOVE, S_CL_CRUSHER_FIRE, S_CL_CRUSHER_FIRE2, 6),
+    FLYER(SPR_CL_BUZZARD, S_CL_BUZZARD, S_CL_BUZZARD_MOVE, S_CL_BUZZARD_FIRE, S_CL_BUZZARD_FIRE2, 14),
+    GUNNED(SPR_LC_STRIDER, S_LC_STRIDER, S_LC_STRIDER_MOVE, S_LC_STRIDER_FIRE, S_LC_STRIDER_FIRE2, 10),
+    FLYER(SPR_LC_SERAPH, S_LC_SERAPH, S_LC_SERAPH_MOVE, S_LC_SERAPH_FIRE, S_LC_SERAPH_FIRE2, 8),
+    /* The cantor has no weapon: its "shot" is the staff's glow as it heals (g_units.c). */
+    [S_LC_CANTOR] = {SPR_LC_CANTOR, INF_IDLE, INF_IDLE_FRAMES, 12, NULL, S_LC_CANTOR, 0, NULL},
+    [S_LC_CANTOR_WALK] = {SPR_LC_CANTOR, INF_WALK, INF_WALK_FRAMES, 3, NULL, S_LC_CANTOR_WALK, 2, NULL},
+    [S_LC_CANTOR_FIRE] = {SPR_LC_CANTOR, INF_FIRE, 1, 6, NULL, S_LC_CANTOR_FIRE2, 0, NULL},
+    [S_LC_CANTOR_FIRE2] = {SPR_LC_CANTOR, INF_FIRE + 1, 1, 6, NULL, S_LC_CANTOR, 0, NULL},
+    [S_LC_CANTOR_DIE] = {SPR_LC_CANTOR, INF_DIE, INF_DIE_FRAMES, 3, NULL, S_LC_CANTOR_CORPSE, 0, NULL},
+    [S_LC_CANTOR_CORPSE] = {SPR_LC_CANTOR, INF_DIE + INF_DIE_FRAMES - 1, 1, 300, NULL, S_NULL, 0, NULL},
+    [S_FX_ZAP] = {SPR_FX_ZAP, 0, 6, 2, NULL, S_NULL, 0, NULL},
+    /* A Buzzard's bomb drum tumbles down and goes up in a big blast. */
+    PROJECTILE(SPR_FX_SHELL, S_BOMB, S_BOMB_HIT, S_BOMB_HIT2, SPR_FX_BIGBOOM, 12, 3),
 };
 
 #define BUILDING_INFO(n, st, hp) {.doomednum = n, .spawnstate = st, .spawnhealth = hp, .deathstate = S_NULL}
@@ -206,6 +252,23 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_CL_WRECKER] = MOVER_INFO(34, S_CL_WRECKER, S_CL_WRECKER_MOVE, S_CL_WRECKER_FIRE, 320, 8, 16, 500, S_NULL),
     [MT_LC_SANCTUM] = BUILDING_INFO(52, S_LC_SANCTUM, 1600),
     [MT_LC_AEGIS] = MOVER_INFO(53, S_LC_AEGIS, S_LC_AEGIS_MOVE, S_LC_AEGIS_FIRE, 750, 5, 16, 22, S_NULL),
+    [MT_CRANE] = MOVER_INFO(60, S_CRANE, S_CRANE_MOVE, 0, 420, 5, 18, 0, S_NULL),
+    [MT_PHANTOM] = MOVER_INFO(61, S_PHANTOM, S_PHANTOM_MOVE, S_PHANTOM_FIRE, 540, 5, 18, 55, S_NULL),
+    [MT_KESTREL] = MOVER_INFO(62, S_KESTREL, S_KESTREL_MOVE, S_KESTREL_FIRE, 300, 7, 18, 30, S_NULL),
+    [MT_SENTRY_TRUCK] = MOVER_INFO(63, S_SENTRY_TRUCK, S_SENTRY_TRUCK_MOVE, 0, 380, 5, 16, 0, S_NULL),
+    [MT_SENTRY] = {.doomednum = 64, .spawnstate = S_SENTRY, .missilestate = S_SENTRY_FIRE,
+                   .spawnhealth = 380, .damage = 14, .deathstate = S_NULL},
+    [MT_CL_DRILL] = MOVER_INFO(65, S_CL_DRILL, S_CL_DRILL_MOVE, 0, 600, 3, 20, 0, S_NULL),
+    [MT_CL_DERRICK] = BUILDING_INFO(66, S_CL_DERRICK, 1000),
+    [MT_CL_SAPPER] = MOVER_INFO(67, S_CL_SAPPER, S_CL_SAPPER_WALK, S_CL_SAPPER_FIRE, 60, 2, 8, 22, S_CL_SAPPER_DIE),
+    [MT_CL_MINE] = {.doomednum = 68, .spawnstate = S_CL_MINE, .spawnhealth = 30, .deathstate = S_NULL},
+    [MT_CL_CRUSHER] = MOVER_INFO(69, S_CL_CRUSHER, S_CL_CRUSHER_MOVE, S_CL_CRUSHER_FIRE, 700, 6, 20, 40, S_NULL),
+    [MT_CL_BUZZARD] = MOVER_INFO(70, S_CL_BUZZARD, S_CL_BUZZARD_MOVE, S_CL_BUZZARD_FIRE, 260, 7, 16, 120, S_NULL),
+    [MT_LC_STRIDER] = MOVER_INFO(71, S_LC_STRIDER, S_LC_STRIDER_MOVE, S_LC_STRIDER_FIRE, 650, 4, 18, 45, S_NULL),
+    [MT_LC_SERAPH] = MOVER_INFO(72, S_LC_SERAPH, S_LC_SERAPH_MOVE, S_LC_SERAPH_FIRE, 380, 8, 16, 40, S_NULL),
+    [MT_LC_CANTOR] = MOVER_INFO(73, S_LC_CANTOR, S_LC_CANTOR_WALK, 0, 90, 2, 8, 0, S_LC_CANTOR_DIE),
+    [MT_FX_ZAP] = {.doomednum = -1, .spawnstate = S_FX_ZAP, .spawnhealth = 1, .deathstate = S_NULL},
+    [MT_BOMB] = {.doomednum = -1, .spawnstate = S_BOMB, .spawnhealth = 1, .deathstate = S_BOMB_HIT},
     [MT_FX_HIT] = {.doomednum = -1, .spawnstate = S_FX_HIT, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BOOM] = {.doomednum = -1, .spawnstate = S_FX_BOOM, .spawnhealth = 1, .deathstate = S_NULL},
     [MT_FX_BIGBOOM] = {.doomednum = -1, .spawnstate = S_FX_BIGBOOM, .spawnhealth = 1, .deathstate = S_NULL},
@@ -234,4 +297,6 @@ const gameinfo_t game_info = {
     .draw_fog = RF_DrawFog,
     .hit_damage = RF_HitDamage,
     .draw_overlays = RF_DrawMarks,
+    .can_target = RF_CanTargetHook,
+    .attack_blocked = RF_AttackBlockedHook,
 };

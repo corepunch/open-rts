@@ -48,6 +48,10 @@ static const struct { const char *name; uint16_t type; } unit_names[] = {
     {"lc_harvester", MT_LC_HARVESTER}, {"lc_warden", MT_LC_WARDEN}, {"lc_lancer", MT_LC_LANCER},
     {"uplink", MT_UPLINK}, {"hammer", MT_HAMMER}, {"cl_shop", MT_CL_SHOP}, {"cl_wrecker", MT_CL_WRECKER},
     {"lc_sanctum", MT_LC_SANCTUM}, {"lc_aegis", MT_LC_AEGIS},
+    {"crane", MT_CRANE}, {"phantom", MT_PHANTOM}, {"kestrel", MT_KESTREL}, {"sentry_truck", MT_SENTRY_TRUCK},
+    {"sentry", MT_SENTRY}, {"cl_drill", MT_CL_DRILL}, {"cl_derrick", MT_CL_DERRICK}, {"cl_sapper", MT_CL_SAPPER},
+    {"cl_mine", MT_CL_MINE}, {"cl_crusher", MT_CL_CRUSHER}, {"cl_buzzard", MT_CL_BUZZARD},
+    {"lc_strider", MT_LC_STRIDER}, {"lc_seraph", MT_LC_SERAPH}, {"lc_cantor", MT_LC_CANTOR},
 };
 
 uint16_t RF_UnitType(const char *name) {
@@ -85,6 +89,7 @@ void RF_ClearMinedOre(level_t *map) {
 }
 
 bool RF_LoadLevel(const char *path, level_t *out) {
+    RF_UnitsReset();
     blob_t file;
     if (!W_ReadFile(path, &file)) {
         fprintf(stderr, "rustfront: cannot read map %s\n", path);

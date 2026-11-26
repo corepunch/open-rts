@@ -60,5 +60,15 @@ void RF_DrawMarks(const unitoverlaycontext_t *ctx) {
     for (int i = 0; i < rank; ++i)
         chevron(box.x + box.w - 8, box.y + 2 + i * 4, V_NearestIndex(0xffe6d750u), V_NearestIndex(0xff141412u));
     if (u->rf_repairing && (leveltime / (RTS_TICRATE / 2)) % 2 == 0) wrench(box);
+    /* An APC's seats under its health bar: lit for each soldier aboard (g_units.c). */
+    if (RF_IsTransport(u) && (selected || u->owner == consoleplayer)) {
+        int aboard = RF_Passengers(u, NULL, 0);
+        for (int i = 0; i < RF_APC_SEATS && (selected || aboard); ++i)
+            V_FillRect((irect_t){box.x + i * 5, by + 4, 4, 3},
+                       V_NearestIndex(i < aboard ? 0xff53f55cu : 0xff2d3438u));
+    }
+    /* A unit under the Rite of Warding shimmers in the Concord's cyan. */
+    if (u->rf_ward > 0 && (leveltime / 3) % 2 == 0)
+        V_DrawRectOutline((irect_t){box.x - 2, box.y - 2, box.w + 4, box.h + 4}, V_NearestIndex(0xff7ff0ffu));
     if (selected && u->owner == consoleplayer && RF_HasRally(u)) rally_flag(ctx->app, u);
 }

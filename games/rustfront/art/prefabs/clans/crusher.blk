@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Crusher, the Scrap Clans' monster truck. Length 340 cm on X, width 220 cm on Z,
+     origin at the chassis centre on the ground, nose faces +X. A rusty pickup lifted on coil
+     springs over four huge knobbly tyres (110 cm across) on solid axles: team-painted doors,
+     hood stripe and bed side, a roll cage and lamp bar over the cab, twin stacks, a spiked
+     plough ram low on the nose with a horned skull on the bumper. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 turns the tyres half a lug. -->
+  <let name="move" value="0"/>
+
+  <!-- four huge knobbly tyres, rolling forward (clockwise seen from +Z) -->
+  <group pos="92 55 84" rot="0 0 {-15*move}">
+    <cylinder radius="51" height="46" sides="16" rot="90 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 90" pos="49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 120" pos="42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 150" pos="24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 180" pos="0 49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 210" pos="-24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 240" pos="-42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 270" pos="-49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 300" pos="-42.4 -24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 330" pos="-24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 360" pos="0 -49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 390" pos="24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 420" pos="42.4 -24.5 0" material="rubber"/>
+    <cylinder radius="26" height="49" sides="8" rot="90 0 0" material="clans_paint" tint="1"/>
+    <box size="34 6 51" material="steel_dark"/>
+  </group>
+  <group pos="92 55 -84" rot="0 0 {-15*move}">
+    <cylinder radius="51" height="46" sides="16" rot="90 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 90" pos="49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 120" pos="42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 150" pos="24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 180" pos="0 49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 210" pos="-24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 240" pos="-42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 270" pos="-49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 300" pos="-42.4 -24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 330" pos="-24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 360" pos="0 -49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 390" pos="24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 420" pos="42.4 -24.5 0" material="rubber"/>
+    <cylinder radius="26" height="49" sides="8" rot="90 0 0" material="gunmetal"/>
+    <box size="34 6 51" material="steel_dark"/>
+  </group>
+  <group pos="-92 55 84" rot="0 0 {-15*move}">
+    <cylinder radius="51" height="46" sides="16" rot="90 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 90" pos="49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 120" pos="42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 150" pos="24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 180" pos="0 49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 210" pos="-24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 240" pos="-42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 270" pos="-49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 300" pos="-42.4 -24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 330" pos="-24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 360" pos="0 -49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 390" pos="24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 420" pos="42.4 -24.5 0" material="rubber"/>
+    <cylinder radius="26" height="49" sides="8" rot="90 0 0" material="gunmetal"/>
+    <box size="34 6 51" material="steel_dark"/>
+  </group>
+  <group pos="-92 55 -84" rot="0 0 {-15*move}">
+    <cylinder radius="51" height="46" sides="16" rot="90 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 90" pos="49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 120" pos="42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 150" pos="24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 180" pos="0 49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 210" pos="-24.5 42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 240" pos="-42.4 24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 270" pos="-49 0 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 300" pos="-42.4 -24.5 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 330" pos="-24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 360" pos="0 -49 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 390" pos="24.5 -42.4 0" material="rubber"/>
+    <box size="10 12 48" rot="0 0 420" pos="42.4 -24.5 0" material="rubber"/>
+    <cylinder radius="26" height="49" sides="8" rot="90 0 0" material="clans_drum"/>
+    <box size="34 6 51" material="steel_dark"/>
+  </group>
+
+  <!-- solid axles, diffs, coil springs and shocks up to the frame -->
+  <tube ax="92" ay="55" az="-70" bx="92" by="55" bz="70" r0="7" material="gunmetal"/>
+  <sphere radius="16" rings="5" slices="8" scale="1 0.9 1" pos="92 55 12" material="steel_dark"/>
+  <cylinder radius="10" height="6" sides="10" tube="2.6" pos="92 66 -42" material="hazard"><array count="6" translation="0 9 0"/></cylinder>
+  <tube ax="96" ay="61" az="-42" bx="96" by="112" bz="-42" r0="2.4" material="steel"/>
+  <tube ax="70" ay="55" az="-48" bx="52" by="114" bz="-42" r0="3.6" material="clans_rust"/>
+  <cylinder radius="10" height="6" sides="10" tube="2.6" pos="92 66 42" material="hazard"><array count="6" translation="0 9 0"/></cylinder>
+  <tube ax="96" ay="61" az="42" bx="96" by="112" bz="42" r0="2.4" material="steel"/>
+  <tube ax="70" ay="55" az="48" bx="52" by="114" bz="42" r0="3.6" material="clans_rust"/>
+  <tube ax="-92" ay="55" az="-70" bx="-92" by="55" bz="70" r0="7" material="gunmetal"/>
+  <sphere radius="16" rings="5" slices="8" scale="1 0.9 1" pos="-92 55 12" material="steel_dark"/>
+  <cylinder radius="10" height="6" sides="10" tube="2.6" pos="-92 66 -42" material="hazard"><array count="6" translation="0 9 0"/></cylinder>
+  <tube ax="-88" ay="61" az="-42" bx="-88" by="112" bz="-42" r0="2.4" material="steel"/>
+  <tube ax="-114" ay="55" az="-48" bx="-132" by="114" bz="-42" r0="3.6" material="clans_rust"/>
+  <cylinder radius="10" height="6" sides="10" tube="2.6" pos="-92 66 42" material="hazard"><array count="6" translation="0 9 0"/></cylinder>
+  <tube ax="-88" ay="61" az="42" bx="-88" by="112" bz="42" r0="2.4" material="steel"/>
+  <tube ax="-114" ay="55" az="48" bx="-132" by="114" bz="42" r0="3.6" material="clans_rust"/>
+  <box size="300 12 16" pos="0 120 42" material="steel_dark"/>
+  <box size="300 12 16" pos="0 120 -42" material="steel_dark"/>
+  <box size="12 12 100" pos="-92 120 0" material="steel_dark"/>
+  <box size="12 12 100" pos="92 120 0" material="steel_dark"/>
+
+  <!-- the pickup: rusty cab and hood -->
+  <shape closed="1" v="-20 126 152 126 158 156 96 168 66 170 40 214 -14 216 -20 172" material="clans_rust">
+    <extrude amount="150"/><bevel amount="3" bevelSegments="1"/>
+    <taper center="0 126 0" amount="-0.08" axis="y" effect="z"/>
+  </shape>
+  <!-- team paint: hood stripe, doors, roof -->
+  <box size="62 3 60" rot="0 0 -4" pos="114 166 0" material="clans_paint" tint="1"/>
+  <box size="58 36 3" pos="16 156 75.5" material="clans_paint" tint="1"/>
+  <box size="58 36 3" pos="16 156 -75.5" material="clans_paint" tint="1"/>
+  <box size="56 4 128" pos="14 216.5 0" material="clans_paint" tint="1"/>
+  <!-- windows -->
+  <box size="3 38 120" rot="0 0 -31" pos="54 193 0" material="glass"/>
+  <box size="40 28 3" pos="12 194 70" material="glass"/>
+  <box size="40 28 3" pos="12 194 -70" material="glass"/>
+  <box size="2 40 3" rot="0 0 -31" pos="57 193 -30" material="steel_dark"><array count="3" translation="0 0 30"/></box>
+  <!-- grille and lamps -->
+  <box size="4 22 90" pos="157 142 0" material="steel_dark"/>
+  <box size="3 2 86" pos="159 134 0" material="clans_tin"><array count="4" translation="0 5 0"/></box>
+  <box size="4 8 12" pos="157 146 62" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 8 12" pos="157 146 -62" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- the bed: floor, sides (one team-painted), tailgate, a spare tyre and a drum -->
+  <box size="134 6 148" pos="-87 131 0" material="clans_wood"/>
+  <box size="134 34 4" pos="-87 151 73" material="clans_paint" tint="1"/>
+  <box size="134 34 4" pos="-87 151 -73" material="clans_sheet_rust"/>
+  <box size="4 34 148" pos="-152 151 0" material="clans_tin"/>
+  <clans-tyre pos="-100 145 0" radius="30" width="18"/>
+  <clans-drum pos="-56 134 -42" radius="18" height="46" material="hazard"/>
+
+  <!-- roll cage over the cab and bed, lamp bar on top -->
+  <tube ax="-150" ay="134" az="66" bx="-60" by="246" bz="60" r0="3.4" material="steel_dark"/>
+  <tube ax="-150" ay="134" az="-66" bx="-60" by="246" bz="-60" r0="3.4" material="steel_dark"/>
+  <tube ax="-34" ay="134" az="70" bx="-60" by="246" bz="60" r0="3.4" material="steel_dark"/>
+  <tube ax="-34" ay="134" az="-70" bx="-60" by="246" bz="-60" r0="3.4" material="steel_dark"/>
+  <tube ax="-60" ay="246" az="60" bx="40" by="236" bz="58" r0="3.4" material="steel_dark"/>
+  <tube ax="-60" ay="246" az="-60" bx="40" by="236" bz="-58" r0="3.4" material="steel_dark"/>
+  <tube ax="40" ay="236" az="58" bx="60" by="170" bz="72" r0="3.4" material="steel_dark"/>
+  <tube ax="40" ay="236" az="-58" bx="60" by="170" bz="-72" r0="3.4" material="steel_dark"/>
+  <tube ax="-60" ay="246" az="-60" bx="-60" by="246" bz="60" r0="3.4" material="steel_dark"/>
+  <tube ax="40" ay="236" az="-58" bx="40" by="236" bz="58" r0="3.4" material="steel_dark"/>
+  <box size="10 10 100" pos="40 243 0" material="steel_dark"/>
+  <clans-lamp pos="40 248 -36"/><clans-lamp pos="40 248 -12"/><clans-lamp pos="40 248 12"/><clans-lamp pos="40 248 36"/>
+  <tube ax="-26" ay="172" az="56" bx="-28" by="262" bz="56" r0="5" material="clans_tin"/>
+  <tube ax="-26" ay="172" az="-56" bx="-28" by="262" bz="-56" r0="5" material="clans_tin"/>
+  <cylinder radius="7" height="4" sides="8" pos="-28 264 56" material="steel_dark"/>
+  <cylinder radius="7" height="4" sides="8" pos="-28 264 -56" material="steel_dark"/>
+  <clans-flag height="80" size="34" pos="-148 154 -60"/>
+
+  <!-- spiked plough ram low on the nose -->
+  <box size="30 12 40" pos="150 104 0" material="steel_dark"/>
+  <box size="10 70 116" rot="0 0 -20" pos="166 96 0" material="clans_sheet_rust"/>
+  <box size="10 10 120" rot="0 0 -20" pos="177 128 0" material="hazard"/>
+  <group pos="172 88 0" rot="0 0 -90">
+    <clans-spike radius="6" length="24" pos="0 0 -42"/>
+    <clans-spike radius="7" length="30" pos="0 0 0"/>
+    <clans-spike radius="6" length="24" pos="0 0 42"/>
+  </group>
+  <!-- horned skull on top of the ram -->
+  <group pos="172 146 0">
+    <sphere radius="14" rings="6" slices="8" scale="1 0.95 0.9" material="clans_bone"/>
+    <box size="14 10 18" pos="6 -12 0" material="clans_bone"/>
+    <sphere radius="4.2" rings="4" slices="6" pos="11 2 -5.5" material="rubber"/>
+    <sphere radius="4.2" rings="4" slices="6" pos="11 2 5.5" material="rubber"/>
+    <group pos="0 6 12" rot="60 0 0"><clans-spike radius="4.5" length="26" material="clans_bone"/></group>
+    <group pos="0 6 -12" rot="-60 0 0"><clans-spike radius="4.5" length="26" material="clans_bone"/></group>
+  </group>
+</prefab>

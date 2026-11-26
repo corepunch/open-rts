@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Phantom phase tank hull without its turret (see phantom/turret.blk; the turret sits on its
+     ring at (-14, 84, 0)). Length 232 cm on X, width 146 cm on Z, origin at the hull centre on the
+     ground, front +X. A low wedge hull in team paint with a long sharp glacis, dark skirts over the
+     tracks, and along each flank a phase-emitter coil (glowing violet rings) under three swept
+     emitter fins with violet edges; two tall fins at the tail. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <material id="phase_glow" color="0.78 0.42 1.00"/>
+  <material id="phase_dark" color="0.20 0.12 0.30" shininess="50" specular="1"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- tracks and running gear -->
+  <soft-box width="222" height="38" depth="32" radius="18" bevel="3" pos="0 19 54" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <soft-box width="222" height="38" depth="32" radius="18" bevel="3" pos="0 19 -54" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
+  <cylinder radius="12" height="34" sides="10" rot="90 0 {18*move}" pos="-76 17 54" material="steel_dark"><array count="5" translation="{38*cos(18*move*pi/180)} 0 {38*sin(18*move*pi/180)}"/></cylinder>
+  <cylinder radius="12" height="34" sides="10" rot="90 0 {18*move}" pos="-76 17 -54" material="steel_dark"><array count="5" translation="{38*cos(18*move*pi/180)} 0 {38*sin(18*move*pi/180)}"/></cylinder>
+
+  <!-- hull: a low wedge, long glacis, sides leaning in -->
+  <shape closed="1" v="-112 30 80 30 118 42 104 50 10 66 -100 66 -116 54" material="paint_plain" tint="1">
+    <extrude amount="124"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 30 0" amount="-0.18" axis="y" effect="z"/>
+  </shape>
+  <!-- dark skirts over the tracks, leaning out -->
+  <box size="200 18 4" rot="-18 0 0" pos="-4 40 70" material="phase_dark"/>
+  <box size="200 18 4" rot="18 0 0" pos="-4 40 -70" material="phase_dark"/>
+  <!-- glacis chevron and a navy engine deck -->
+  <box size="40 2 70" rot="0 0 -9.8" pos="56 59 0" material="trim_light"/>
+  <box size="34 3 84" pos="-91 67 0" material="trim"/>
+  <!-- turret ring -->
+  <cylinder radius="38" height="4" sides="20" pos="-14 68 0" material="phase_dark"/>
+  <box size="4 4 3" pos="116 44 40" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 4 3" pos="116 44 -40" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- phase-emitter coils along the flanks: a dark core wound with glowing rings -->
+  <cylinder radius="7" height="150" sides="10" rot="0 0 -90" pos="-14 54 60" material="phase_dark"/>
+  <cylinder radius="7" height="150" sides="10" rot="0 0 -90" pos="-14 54 -60" material="phase_dark"/>
+  <torus majorRadius="8.5" minorRadius="2.6" majorSegments="12" minorSegments="5" rot="0 0 90" pos="-74 54 60" material="phase_glow" unlit="1" castShadow="0"><array count="6" translation="0 -24 0"/></torus>
+  <torus majorRadius="8.5" minorRadius="2.6" majorSegments="12" minorSegments="5" rot="0 0 90" pos="-74 54 -60" material="phase_glow" unlit="1" castShadow="0"><array count="6" translation="0 -24 0"/></torus>
+  <!-- swept emitter fins over the coils, leaning out, violet leading edges -->
+  <shape closed="1" v="0 0 14 0 -10 26 -22 26" rot="20 0 0" pos="-60 60 56" material="phase_dark"><extrude amount="3"/><array count="3" translation="40 0 0"/></shape>
+  <shape closed="1" v="0 0 14 0 -10 26 -22 26" rot="-20 0 0" pos="-60 60 -56" material="phase_dark"><extrude amount="3"/><array count="3" translation="40 0 0"/></shape>
+  <shape closed="1" v="14 0 19 0 -5 26 -10 26" rot="20 0 0" pos="-60 60 56" material="phase_glow" unlit="1" castShadow="0"><extrude amount="4"/><array count="3" translation="40 0 0"/></shape>
+  <shape closed="1" v="14 0 19 0 -5 26 -10 26" rot="-20 0 0" pos="-60 60 -56" material="phase_glow" unlit="1" castShadow="0"><extrude amount="4"/><array count="3" translation="40 0 0"/></shape>
+  <!-- tail fins in team paint, violet leading edges -->
+  <shape closed="1" v="0 0 26 0 -6 40 -22 40" rot="-8 0 0" pos="-104 64 32" material="paint_plain" tint="1"><extrude amount="4"/></shape>
+  <shape closed="1" v="0 0 26 0 -6 40 -22 40" rot="8 0 0" pos="-104 64 -32" material="paint_plain" tint="1"><extrude amount="4"/></shape>
+  <shape closed="1" v="26 0 32 0 0 40 -6 40" rot="-8 0 0" pos="-104 64 32" material="phase_glow" unlit="1" castShadow="0"><extrude amount="5"/></shape>
+  <shape closed="1" v="26 0 32 0 0 40 -6 40" rot="8 0 0" pos="-104 64 -32" material="phase_glow" unlit="1" castShadow="0"><extrude amount="5"/></shape>
+</prefab>

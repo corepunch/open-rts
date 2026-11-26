@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Phantom, assembled: the hull with its turret on the mount (art/sprites.py renders the
+     layers apart; this is the shadow, the icon and the preview). -->
+<prefab up="y" front="+x">
+  <prefab source="vehicles/phantom/hull"/>
+  <prefab source="vehicles/phantom/turret" pos="-14 84 0"/>
+</prefab>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Seraph, a flying beam craft. Length 300 cm on X, span 320 cm on Z, origin on
+     the ground under the craft's centre, nose faces +X. It flies: the lowest point (the ventral
+     fin) is 150 cm above the origin and the body rides at about 180 cm. A slim white ceramic
+     fuselage with a graphite keel, a graphite canopy with a cyan visor, swept blade wings with
+     team-colour blade tips and wingtip fins, two engine nacelles with cyan exhausts, twin canted
+     team-colour tail fins and a crystal beam emitter at the nose. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: move 0/1 bobs the craft 4 cm, pulses
+       its exhausts and turns its wingtip fins; fire 1 is the shot (the nose emitter blazes and a
+       cyan beam flash leaves it), fire 2 the afterglow. -->
+  <let name="move" value="0"/>
+  <let name="fire" value="0"/>
+
+  <group pos="0 {4*move} 0">
+    <!-- swept blade wings, one plan through the fuselage; team-colour blade tips on top -->
+    <shape closed="1" v="40 0 -46 150 -100 162 -80 136 -60 30 -60 -30 -80 -136 -100 -162 -46 -150" rot="90 0 0" pos="0 176 0" material="concord_ceramic">
+      <extrude amount="6"/><bevel amount="2" bevelSegments="2"/>
+    </shape>
+    <shape closed="1" v="-22 100 -46 150 -100 162 -80 136 -66 100" rot="90 0 0" pos="0 180.5 0" material="paint_plain" tint="1"><extrude amount="2"/></shape>
+    <shape closed="1" v="-22 -100 -46 -150 -100 -162 -80 -136 -66 -100" rot="90 0 0" pos="0 180.5 0" material="paint_plain" tint="1"><extrude amount="2"/></shape>
+    <box size="170 3 5" rot="0 {deg(atan2(150, 86))} 0" pos="-3 176 75" material="glow" unlit="1" castShadow="0"/>
+    <box size="170 3 5" rot="0 {-deg(atan2(150, 86))} 0" pos="-3 176 -75" material="glow" unlit="1" castShadow="0"/>
+    <!-- wingtip fins, turning with move -->
+    <group pos="-84 180 152" rot="{-10 - 12*move} 0 0">
+      <shape closed="1" v="-20 0 22 0 -6 28 -24 30" material="paint_plain" tint="1"><extrude amount="4"/><bevel amount="1" bevelSegments="1"/></shape>
+    </group>
+    <group pos="-84 180 -152" rot="{10 + 12*move} 0 0">
+      <shape closed="1" v="-20 0 22 0 -6 28 -24 30" material="paint_plain" tint="1"><extrude amount="4"/><bevel amount="1" bevelSegments="1"/></shape>
+    </group>
+
+    <!-- fuselage, keel, canopy -->
+    <ellipsoid radii="124 4 25" rings="4" slices="24" pos="6 172 0" material="concord_graphite"/>
+    <ellipsoid radii="124 20 24" taper="1" rings="12" slices="24" pos="6 178 0" material="concord_ceramic"/>
+    <ellipsoid radii="80 21 8" taper="1" rings="12" slices="16" pos="-14 179 0" material="paint_plain" tint="1"/>
+    <ellipsoid radii="30 10 14" rings="8" slices="16" pos="52 194 0" material="concord_graphite"/>
+    <ellipsoid radii="10 4 12" rings="4" slices="12" pos="74 196 0" rot="0 0 -25" material="glow" unlit="1" castShadow="0"/>
+    <!-- ventral fin, the lowest point -->
+    <shape closed="1" v="-60 0 10 0 -30 -14 -64 -14" pos="-10 164 0" material="concord_graphite"><extrude amount="4"/></shape>
+    <!-- engine nacelles with cyan exhausts -->
+    <capsule radius="13" height="80" rings="4" slices="14" rot="0 0 -90" pos="-58 178 34" material="concord_ceramic"/>
+    <capsule radius="13" height="80" rings="4" slices="14" rot="0 0 -90" pos="-58 178 -34" material="concord_ceramic"/>
+    <cylinder radius="13.5" height="14" sides="14" rot="0 0 -90" pos="-30 178 34" material="concord_graphite"/>
+    <cylinder radius="13.5" height="14" sides="14" rot="0 0 -90" pos="-30 178 -34" material="concord_graphite"/>
+    <ellipsoid radii="6 10 10" rings="4" slices="12" pos="-98 178 34" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="6 10 10" rings="4" slices="12" pos="-98 178 -34" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="{16 + 8*move} 9 9" rings="4" slices="12" pos="{-106 - 6*move} 178 34" material="concord_core" unlit="1" castShadow="0"/>
+    <ellipsoid radii="{16 + 8*move} 9 9" rings="4" slices="12" pos="{-106 - 6*move} 178 -34" material="concord_core" unlit="1" castShadow="0"/>
+    <ellipsoid radii="{24 + 10*move} 12 12" rings="4" slices="12" pos="{-112 - 8*move} 178 34" material="glow" unlit="1" castShadow="0" renderable="{move}"/>
+    <ellipsoid radii="{24 + 10*move} 12 12" rings="4" slices="12" pos="{-112 - 8*move} 178 -34" material="glow" unlit="1" castShadow="0" renderable="{move}"/>
+    <!-- twin canted tail fins -->
+    <group pos="-96 188 16" rot="-22 0 0">
+      <shape closed="1" v="-26 0 30 0 -22 44 -40 46" material="paint_plain" tint="1"><extrude amount="5"/><bevel amount="1.5" bevelSegments="2"/></shape>
+    </group>
+    <group pos="-96 188 -16" rot="22 0 0">
+      <shape closed="1" v="-26 0 30 0 -22 44 -40 46" material="paint_plain" tint="1"><extrude amount="5"/><bevel amount="1.5" bevelSegments="2"/></shape>
+    </group>
+    <!-- nose emitter -->
+    <cylinder radius="9" height="12" sides="12" rot="0 0 -90" pos="124 176 0" material="concord_graphite"/>
+    <sphere radius="9" rings="8" slices="12" pos="134 176 0" material="concord_crystal"/>
+    <!-- the shot -->
+    <sphere radius="16" rings="8" slices="12" pos="136 176 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <sphere radius="28" rings="8" slices="12" scale="0.5 1 1" pos="142 176 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <cone radius="8" radiusTop="2.5" height="100" sides="10" rot="0 0 -90" pos="194 176 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <cone radius="3.5" radiusTop="1" height="110" sides="8" rot="0 0 -90" pos="198 176 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <sphere radius="12" rings="8" slices="12" pos="135 176 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 2}"/>
+  </group>
+</prefab>

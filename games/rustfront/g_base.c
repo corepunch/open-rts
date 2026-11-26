@@ -85,8 +85,9 @@ int RF_Rank(const mobj_t *unit) {
 
 void RF_CreditKill(mobj_t *victim, mobj_t *killer) {
     if (!victim || !killer || killer == victim || killer->remove || killer->owner == victim->owner ||
-        victim->type_id >= MT_FX_HIT || killer->type_id >= MT_FX_HIT || killer->rf_kills >= 60000) return;
-    killer->rf_kills++;
+        victim->type_id >= MT_FX_HIT || killer->type_id >= MT_FX_HIT) return;
+    if (killer->owner < MAXPLAYERS) level.player_resources[killer->owner][0] += RF_Tithe(victim, killer);
+    if (killer->rf_kills < 60000 && victim->type_id != MT_CL_MINE) killer->rf_kills++;
 }
 
 int RF_RankDamage(const mobj_t *attacker, int damage) {
@@ -98,6 +99,7 @@ int RF_RankDamage(const mobj_t *attacker, int damage) {
  * fired and the shield where they land (g_combat.c). */
 int RF_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor) {
     (void)weapon;
+    if (RF_Phased(target) || target->rf_ward > 0) return 0;
     damage = RF_ShieldDamage(target, RF_RankDamage(attacker, damage) / (divisor > 0 ? divisor : 1));
     return damage > 0 ? damage : 1;
 }
@@ -164,7 +166,8 @@ void RF_UnitReleased(mobj_t *unit, const mobj_t *producer) {
  * A move order given to structures sets the rally point of those that make units; TC_REPAIR
  * carries RF_ORDER_REPAIR (toggle) or RF_ORDER_SELL in its product. */
 bool G_GameUnitCommand(int player, const ticcmd_t *cmd, mobj_t *const *units, int count, mobj_t *target) {
-    (void)player; (void)target;
+    (void)player;
+    if (RF_UnitCommand(cmd, units, count, target)) return true; /* board, unload, deploy (g_units.c) */
     if (cmd->order == TC_REPAIR) {
         bool on = false;
         for (int i = 0; i < count; ++i) on |= RF_IsStructure(units[i]) && !units[i]->rf_repairing &&

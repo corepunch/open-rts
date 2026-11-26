@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Phantom phase tank turret. Origin on the turret ring axis at mount height; gun faces +X. It
+     sits on phantom/hull at (-14, 84, 0). A low, flat, sharply swept wedge in team paint with a dark
+     roof plate and a violet phase core behind the hatch; a long thin phase cannon wound with three
+     glowing violet rings. -->
+<prefab up="y" front="+x">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <material id="phase_glow" color="0.78 0.42 1.00"/>
+  <material id="phase_dark" color="0.20 0.12 0.30" shininess="50" specular="1"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the shot (flash, full recoil),
+       fire 2 the barrel running back out. -->
+  <let name="fire" value="0"/>
+  <let name="kick" value="fire == 1 ? 12 : (fire == 2 ? 5 : 0)"/>
+
+  <shape closed="1" v="62 0 30 32 -30 40 -54 26 -54 -26 -30 -40 30 -32" rot="90 0 0" material="team" tint="1">
+    <extrude amount="28"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 0 0" amount="0.42" axis="z"/>
+  </shape>
+  <shape closed="1" v="36 0 18 20 -22 26 -38 16 -38 -16 -22 -26 18 -20" rot="90 0 0" pos="0 14.3 0" material="trim">
+    <extrude amount="1.4"/>
+  </shape>
+  <!-- phase core: a violet lens in a dark collar, behind the hatch -->
+  <cylinder radius="11" height="6" sides="10" pos="-30 16 0" material="phase_dark"/>
+  <sphere radius="8" rings="5" slices="10" scale="1 0.6 1" pos="-30 19 0" material="phase_glow" unlit="1" castShadow="0"/>
+  <box size="16 4 16" pos="-4 16 -16" material="trim_light"/>
+  <cylinder radius="1" height="70" sides="5" pos="-40 48 22" material="steel_dark"/>
+  <!-- gun -->
+  <box size="24 18 26" pos="58 0 0" material="phase_dark"/>
+  <cylinder radius="4.5" height="140" sides="10" rot="0 0 -90" pos="{128-kick} 0 0" material="steel_dark"/>
+  <cylinder radius="7" height="20" sides="10" rot="0 0 -90" pos="{78-kick} 0 0" material="gunmetal"/>
+  <torus majorRadius="6.5" minorRadius="2.4" majorSegments="12" minorSegments="5" rot="0 0 90" pos="{106-kick} 0 0" material="phase_glow" unlit="1" castShadow="0"><array count="3" translation="0 -22 0"/></torus>
+  <box size="14 11 13" pos="{200-kick} 0 0" material="phase_dark"/>
+  <muzzle-flash pos="{207-kick} 0 0" scale="1.2 1.2 1.2" on="{fire == 1}"/>
+  <sphere radius="9" rings="5" slices="8" pos="{212-kick} 0 0" material="phase_glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+</prefab>

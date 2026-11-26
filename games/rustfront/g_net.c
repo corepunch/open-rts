@@ -20,5 +20,5 @@ uint32_t G_ConsistencyExtra(uint32_t hash) {
     }
     hash = G_HashValue(hash, level.player_teams);
     for (int team = 0; team < 8; ++team) hash = G_HashValue(hash, level.sight.allies[team]);
-    return hash;
+    return RF_UnitsHash(hash);
 }

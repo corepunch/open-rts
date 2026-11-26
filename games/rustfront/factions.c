@@ -13,11 +13,11 @@
  * A side plays the faction of its headquarters (or, before it has one, of any unit it owns). */
 
 const rf_faction_t rf_factions[RF_FACTION_COUNT] = {
-    [RF_DIRECTORATE] = {"Directorate", MT_HQ, MT_HAMMER,
+    [RF_DIRECTORATE] = {"Directorate", MT_HQ, MT_SENTRY,
                         {MT_HQ, MT_POWER, MT_REFINERY, MT_BARRACKS, MT_FACTORY, MT_GUN_TURRET, MT_HARVESTER}},
-    [RF_CLANS] = {"Scrap Clans", MT_CL_HALL, MT_CL_WRECKER,
+    [RF_CLANS] = {"Scrap Clans", MT_CL_HALL, MT_CL_BUZZARD,
                   {MT_CL_HALL, MT_CL_GENERATOR, MT_CL_SMELTER, MT_CL_CAMP, MT_CL_YARD, MT_CL_TOWER, MT_CL_HAULER}},
-    [RF_CONCORD] = {"Lumen Concord", MT_LC_SPIRE, MT_LC_AEGIS,
+    [RF_CONCORD] = {"Lumen Concord", MT_LC_SPIRE, MT_LC_CANTOR,
                     {MT_LC_SPIRE, MT_LC_FUSION, MT_LC_EXTRACTOR, MT_LC_ACADEMY, MT_LC_FOUNDRY, MT_LC_TOWER,
                      MT_LC_HARVESTER}},
 };
@@ -39,7 +39,7 @@ bool RF_IsRole(uint16_t type, rf_role_t role) {
 
 bool RF_IsInfantry(uint16_t type) {
     return type == MT_RIFLEMAN || type == MT_ROCKET || type == MT_CL_RAIDER || type == MT_CL_TORCHER ||
-           type == MT_LC_WARDEN || type == MT_LC_LANCER;
+           type == MT_LC_WARDEN || type == MT_LC_LANCER || type == MT_CL_SAPPER || type == MT_LC_CANTOR;
 }
 
 int RF_OwnerFaction(int owner) {

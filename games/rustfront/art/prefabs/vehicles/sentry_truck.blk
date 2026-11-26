@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sentry Truck. Length 262 cm on X, width 140 cm on Z, origin at the chassis centre on the
+     ground, cab faces +X. A four-wheeled flatbed: a blunt painted cab with a slit windscreen, and
+     on the painted bed (the same 150 x 116 cm bed the Sentry Post stands on when deployed) the
+     twin-MG sentry head folded down, guns trailed over the tail and shield laid flat, with the
+     four outrigger arms and their hazard-striped jacks stowed along the bed's sides and ammo boxes
+     against the cab. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+
+  <!-- four wheels -->
+  <group pos="0 27 0">
+    <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="84 0 56" material="rubber"/>
+    <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="84 0 -56" material="rubber"/>
+    <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="-66 0 56" material="rubber"/>
+    <cylinder radius="27" height="24" sides="12" rot="90 0 0" pos="-66 0 -56" material="rubber"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="84 0 56" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="84 0 -56" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="-66 0 56" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="-66 0 -56" material="gunmetal"/>
+  </group>
+  <box size="246 14 84" pos="0 44 0" material="steel_dark"/>
+  <!-- fenders -->
+  <box size="64 4 28" rot="-10 0 0" pos="84 60 56" material="trim"/>
+  <box size="64 4 28" rot="10 0 0" pos="84 60 -56" material="trim"/>
+  <box size="64 4 28" rot="-10 0 0" pos="-66 60 56" material="trim"/>
+  <box size="64 4 28" rot="10 0 0" pos="-66 60 -56" material="trim"/>
+
+  <!-- cab -->
+  <shape closed="1" v="34 52 128 52 131 70 118 82 102 118 34 120" material="paint_plain" tint="1">
+    <extrude amount="128"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 52 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="3 24 100" rot="0 0 -66" pos="111 101 0" material="glass"/>
+  <box size="50 3 100" pos="64 121 0" material="trim_light"/>
+  <box size="6 12 124" pos="132 60 0" material="hazard"/>
+  <box size="5 5 3" pos="131 72 44" material="lamp" unlit="1" castShadow="0"/>
+  <box size="5 5 3" pos="131 72 -44" material="lamp" unlit="1" castShadow="0"/>
+  <cylinder radius="1.2" height="60" sides="5" pos="40 150 -44" material="steel_dark"/>
+
+  <!-- the bed: painted sides with a white stripe, a grating deck -->
+  <group pos="-46 0 0">
+    <shape closed="1" v="-75 52 75 52 75 72 -75 72" material="paint_plain" tint="1">
+      <extrude amount="116"/><bevel amount="3" bevelSegments="2"/>
+      <taper center="0 52 0" amount="-0.08" axis="y" effect="z"/>
+    </shape>
+    <box size="150 5 3" pos="0 63 57" material="trim_light"/>
+    <box size="150 5 3" pos="0 63 -57" material="trim_light"/>
+    <box size="140 2 106" pos="0 73 0" material="grating"/>
+    <box size="5 12 118" pos="-76 60 0" material="hazard"/>
+
+    <!-- stowed outrigger arms and jacks along both sides -->
+    <box size="120 10 10" pos="0 79 50" material="steel_dark"/>
+    <box size="120 10 10" pos="0 79 -50" material="steel_dark"/>
+    <box size="34 12 12" pos="-42 90 50" material="hazard"/>
+    <box size="34 12 12" pos="42 90 50" material="hazard"/>
+    <box size="34 12 12" pos="-42 90 -50" material="hazard"/>
+    <box size="34 12 12" pos="42 90 -50" material="hazard"/>
+    <box size="4 24 24" pos="-70 86 50" material="steel_dark"/>
+    <box size="4 24 24" pos="70 86 50" material="steel_dark"/>
+    <box size="4 24 24" pos="-70 86 -50" material="steel_dark"/>
+    <box size="4 24 24" pos="70 86 -50" material="steel_dark"/>
+
+    <!-- folded sentry head: pedestal, gun box, guns trailed aft, shield laid flat -->
+    <cylinder radius="24" height="8" sides="14" pos="-6 78 0" material="trim"/>
+    <shape closed="1" v="30 0 16 20 -22 24 -32 14 -32 -14 -22 -24 16 -20" rot="90 0 0" pos="-6 91 0" material="team" tint="1">
+      <extrude amount="18"/><bevel amount="3" bevelSegments="2"/>
+      <taper center="0 0 0" amount="0.3" axis="z"/>
+    </shape>
+    <box size="70 3 40" pos="10 101.5 0" material="trim_light"/>
+    <box size="6 3.4 16" pos="22 101.6 0" material="trim"/>
+    <cylinder radius="3.2" height="60" sides="8" rot="0 0 90" pos="-56 94 10" material="steel_dark"/>
+    <cylinder radius="3.2" height="60" sides="8" rot="0 0 90" pos="-56 94 -10" material="steel_dark"/>
+    <box size="20 14 10" pos="-28 94 30" material="armor"/>
+    <box size="20 14 10" pos="-28 94 -30" material="armor"/>
+    <cylinder radius="14" height="4" sides="12" pos="-12 105 0" material="trim_light"/>
+    <!-- ammo boxes against the cab -->
+    <box size="26 18 30" pos="60 83 18" material="armor"/>
+    <box size="26 18 30" pos="60 83 -18" material="armor"/>
+    <box size="26 3 30" pos="60 93.5 18" material="hazard"/>
+  </group>
+</prefab>

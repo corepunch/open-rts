@@ -7,18 +7,30 @@
 #define BUILDING(type, label, unit, hp, w, h) \
     {.id = type, .name = label, .sprite_name = unit "_body", .shadow_name = unit "_shadow", \
      .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = hp, .footprint = {w, h}}
+/* A headquarters sees what is hidden near it: mines (g_units.c). */
+#define HEADQUARTERS(type, label, unit, hp) \
+    {.id = type, .name = label, .sprite_name = unit "_body", .shadow_name = unit "_shadow", \
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_DETECTOR, .max_hp = hp, .footprint = {3, 3}}
 #define VEHICLE(type, label, unit, sheet, hp, spd, rng, dmg, cool, ...) \
     {.id = type, .name = label, .sprite_name = unit "_" sheet, .shadow_name = unit "_shadow", \
      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK, .speed = FIXED_LIT(spd), \
      .turn_step = ANG45 / 6, .max_hp = hp, \
      .attack = {.range = FIXED_LIT(rng), .damage = dmg, .cooldown_ms = cool}, __VA_ARGS__}
 
+/* An aircraft: it flies over everything, seen from the air (g_units.c keeps it above the ground
+ * units in the draw order); only anti-air weapons reach it. */
+#define AIRCRAFT(type, label, unit, hp, spd, rng, dmg, cool) \
+    {.id = type, .name = label, .sprite_name = unit "_body", .shadow_name = unit "_shadow", \
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK | MF_FLY, .speed = FIXED_LIT(spd), \
+     .turn_step = ANG45 / 4, .max_hp = hp, .sight = {.airborne = true}, \
+     .attack = {.range = FIXED_LIT(rng), .damage = dmg, .cooldown_ms = cool}}
+
 #define REFINERY(type, label, unit, hp) \
     {.id = type, .name = label, .sprite_name = unit "_body", .shadow_name = unit "_shadow", \
      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE, .max_hp = hp, .footprint = {3, 2}}
 #define EMPLACEMENT(type, label, unit, hp, rng, dmg, cool) \
     {.id = type, .name = label, .sprite_name = unit "_base", .shadow_name = unit "_shadow", \
-     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET, .max_hp = hp, .footprint = {1, 1}, \
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET | MF_DETECTOR, .max_hp = hp, .footprint = {1, 1}, \
      .turret = {.sprite_name = unit "_head", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = TURRET_SHOT}, \
      .attack = {.range = FIXED_LIT(rng), .damage = dmg, .cooldown_ms = cool}}
 #define TURRET_ON(unit, turn) \
@@ -36,14 +48,14 @@ static const fixed_t HEAVY_ARC[] = {ARC(0.0), ARC(0.125), ARC(0.25), ARC(0.375),
                                     ARC(0.625), ARC(0.75), ARC(0.875), ARC(1.0)};
 
 static const mobjtype_t ACTOR_TYPES[] = {
-    BUILDING(MT_HQ, "Command Center", "hq", 3000, 3, 3),
+    HEADQUARTERS(MT_HQ, "Command Center", "hq", 3000),
     BUILDING(MT_POWER, "Power Plant", "power", 1200, 2, 2),
     {.id = MT_REFINERY, .name = "Ore Refinery", .sprite_name = "refinery_body", .shadow_name = "refinery_shadow",
      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE, .max_hp = 1800, .footprint = {3, 2}},
     BUILDING(MT_BARRACKS, "Barracks", "barracks", 1200, 2, 2),
     BUILDING(MT_FACTORY, "War Factory", "factory", 2400, 3, 3),
     {.id = MT_GUN_TURRET, .name = "Gun Turret", .sprite_name = "turret_base", .shadow_name = "turret_shadow",
-     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET, .max_hp = 800, .footprint = {1, 1},
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET | MF_DETECTOR, .max_hp = 800, .footprint = {1, 1},
      .turret = {.sprite_name = "turret_head", .turn_step = ANG45 / 8, .frame = 0, .fire_frame = TURRET_SHOT},
      .attack = {.range = FIXED_LIT(6), .damage = 40, .cooldown_ms = 1200}},
     VEHICLE(MT_SCOUT, "Scout Buggy", "scout", "body", 220, 4.0, 4, 12, 500, .move_class = 0),
@@ -69,7 +81,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .max_hp = 520, .attack = {.range = FIXED_LIT(11), .min_range = FIXED_LIT(2.5), .damage = 110, .cooldown_ms = 6500}},
 
     /* Scrap Clans: cheap, fast, fragile; a flamethrower and a rocket rig for punch. */
-    BUILDING(MT_CL_HALL, "Clan Hall", "cl_hall", 2600, 3, 3),
+    HEADQUARTERS(MT_CL_HALL, "Clan Hall", "cl_hall", 2600),
     BUILDING(MT_CL_GENERATOR, "Generator", "cl_generator", 900, 2, 2),
     REFINERY(MT_CL_SMELTER, "Smelter", "cl_smelter", 1500),
     BUILDING(MT_CL_CAMP, "War Camp", "cl_camp", 900, 2, 2),
@@ -87,7 +99,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
     VEHICLE(MT_CL_WRECKER, "Wrecker", "cl_wrecker", "body", 320, 4.2, 1.2, 500, 1000, .move_class = 0),
 
     /* Lumen Concord: few and expensive, tough, long beams; hover craft are quick. */
-    BUILDING(MT_LC_SPIRE, "Spire", "lc_spire", 3600, 3, 3),
+    HEADQUARTERS(MT_LC_SPIRE, "Spire", "lc_spire", 3600),
     BUILDING(MT_LC_FUSION, "Fusion Core", "lc_fusion", 1500, 2, 2),
     REFINERY(MT_LC_EXTRACTOR, "Extractor", "lc_extractor", 2200),
     BUILDING(MT_LC_ACADEMY, "Academy", "lc_academy", 1500, 2, 2),
@@ -103,6 +115,46 @@ static const mobjtype_t ACTOR_TYPES[] = {
      * and mends their vehicles; its own beam is light. */
     BUILDING(MT_LC_SANCTUM, "Sanctum", "lc_sanctum", 1600, 2, 2),
     VEHICLE(MT_LC_AEGIS, "Aegis", "lc_aegis", "body", 750, 2.6, 5, 22, 1000, .move_class = 0),
+
+    /* ── the special units (g_units.c) ──────────────────────────────────────
+     * Directorate, after Dark Reign: the crane mends what stands near it, the Phantom phases
+     * out of the world when first hit, the Kestrel flies, the Sentry Truck unfolds into a post. */
+    {.id = MT_CRANE, .name = "Field Crane", .sprite_name = "crane_body", .shadow_name = "crane_shadow",
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE, .speed = FIXED_LIT(2.6), .turn_step = ANG45 / 6,
+     .max_hp = 420},
+    VEHICLE(MT_PHANTOM, "Phantom", "phantom", "hull", 540, 3.0, 5, 55, 1500, TURRET_ON("phantom", 8)),
+    AIRCRAFT(MT_KESTREL, "Kestrel", "kestrel", 300, 4.2, 5, 30, 1400),
+    {.id = MT_SENTRY_TRUCK, .name = "Sentry Truck", .sprite_name = "sentry_truck_body",
+     .shadow_name = "sentry_truck_shadow", .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+     .speed = FIXED_LIT(2.8), .turn_step = ANG45 / 6, .max_hp = 380},
+    {.id = MT_SENTRY, .name = "Sentry Post", .sprite_name = "sentry_base", .shadow_name = "sentry_shadow",
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET | MF_DETECTOR, .max_hp = 380,
+     .footprint = {1, 1},
+     .turret = {.sprite_name = "sentry_head", .turn_step = ANG45 / 4, .frame = 0, .fire_frame = TURRET_SHOT},
+     .attack = {.range = FIXED_LIT(5.5), .damage = 14, .cooldown_ms = 450}},
+    /* Scrap Clans, after KKnD: a rig that deploys into a derrick wherever it stands, sappers that
+     * mine the ground they hold, a monster truck that rolls over soldiers, a bombing autogyro. */
+    {.id = MT_CL_DRILL, .name = "Drill Rig", .sprite_name = "cl_drill_body", .shadow_name = "cl_drill_shadow",
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE, .speed = FIXED_LIT(1.8), .turn_step = ANG45 / 8,
+     .max_hp = 600},
+    {.id = MT_CL_DERRICK, .name = "Derrick", .sprite_name = "cl_derrick_body", .shadow_name = "cl_derrick_shadow",
+     .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_SOURCE, .max_hp = 1000, .footprint = {2, 2},
+     .deposit = {.amount = RF_DERRICK_ORE, .rate = 50}},
+    VEHICLE(MT_CL_SAPPER, "Sapper", "cl_sapper", "body", 60, 1.2, 2.5, 22, 1300, .move_class = 0),
+    {.id = MT_CL_MINE, .name = "Mine", .sprite_name = "cl_mine_body", .shadow_name = NULL,
+     .traits = MF_RENDERABLE | MF_CLOAKED, .max_hp = 30},
+    VEHICLE(MT_CL_CRUSHER, "Crusher", "cl_crusher", "body", 700, 3.4, 1.0, 40, 1000, .move_class = 0),
+    AIRCRAFT(MT_CL_BUZZARD, "Buzzard", "cl_buzzard", 260, 3.8, 1.2, 120, 3200),
+    /* Lumen Concord, after 7th Legion: a spider mech whose arc leaps on to two more, a flying
+     * beam craft, a priest who mends soldiers. */
+    {.id = MT_LC_STRIDER, .name = "Strider", .sprite_name = "lc_strider_body", .shadow_name = "lc_strider_shadow",
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK, .speed = FIXED_LIT(2.4), .turn_step = ANG45 / 6,
+     .max_hp = 650, .attack = {.range = FIXED_LIT(4.5), .damage = 45, .cooldown_ms = 1600, .bounces = 2}},
+    AIRCRAFT(MT_LC_SERAPH, "Seraph", "lc_seraph", 380, 4.6, 4.5, 40, 1200),
+    {.id = MT_LC_CANTOR, .name = "Cantor", .sprite_name = "lc_cantor_body", .shadow_name = "lc_cantor_shadow",
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_DETECTOR, .speed = FIXED_LIT(1.0),
+     .turn_step = ANG45 / 6, .max_hp = 90},
+    {.id = MT_FX_ZAP, .name = "Arc", .sprite_name = "fx_zap", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_HIT, .name = "Impact", .sprite_name = "fx_hit", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BOOM, .name = "Explosion", .sprite_name = "fx_boom", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BIGBOOM, .name = "Large explosion", .sprite_name = "fx_bigboom",
@@ -126,6 +178,8 @@ static const mobjtype_t ACTOR_TYPES[] = {
     {.id = MT_HEAVY_MISSILE, .name = "Heavy missile", .sprite_name = "fx_rocket", .traits = MF_RENDERABLE | MF_MISSILE,
      .max_hp = 1, .missile = {.step = FIXED_LIT(0.35), .period_ms = RTS_TICK_MS, .timed = true,
                               .arc = HEAVY_ARC, .arc_count = (int)(sizeof(HEAVY_ARC) / sizeof(*HEAVY_ARC))}},
+    {.id = MT_BOMB, .name = "Bomb", .sprite_name = "fx_shell", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
+     .missile = {.step = FIXED_LIT(0.12), .period_ms = RTS_TICK_MS, .timed = true}},
     {.id = MT_FLAME, .name = "Flame", .sprite_name = "fx_flame", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_LIT(0.25), .period_ms = RTS_TICK_MS, .timed = true}},
 };

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Mine, the Sapper's scrap landmine. About 46 cm across, origin at its centre on the
+     ground. Half buried in a ring of dug-up dirt: a rusty pressure plate (a hubcap on a drum lid)
+     with a team-painted rim, six welded spikes round it and a fat signal lamp in the middle that
+     blinks red. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: blink 1/0 the lamp lit or dark. -->
+  <let name="blink" value="1"/>
+  <!-- the dug-up dirt round it -->
+  <sphere radius="23" rings="4" slices="9" scale="1 0.22 1" pos="0 0 0" material="clans_dirt"/>
+  <!-- drum lid casing, pressure plate, team rim -->
+  <cylinder radius="17" height="7" sides="12" pos="0 3.5 0" material="clans_rust"/>
+  <cylinder radius="17.6" height="2.4" sides="12" pos="0 7.6 0" material="clans_paint" tint="1"/>
+  <cylinder radius="12" height="2" sides="10" pos="0 9.6 0" material="clans_tin"/>
+  <box size="20 1 3" pos="0 10.8 0" material="steel_dark"/>
+  <box size="3 1.4 20" pos="0 11 0" material="steel_dark"/>
+  <group pos="15 7 -4" rot="0 15 0"><group rot="0 0 -30"><clans-spike radius="2.2" length="9"/></group></group>
+  <group pos="4 7 -15" rot="0 75 0"><group rot="0 0 -30"><clans-spike radius="2.2" length="9"/></group></group>
+  <group pos="-11 7 -11" rot="0 135 0"><group rot="0 0 -30"><clans-spike radius="2.2" length="9"/></group></group>
+  <group pos="-15 7 4" rot="0 195 0"><group rot="0 0 -30"><clans-spike radius="2.2" length="9"/></group></group>
+  <group pos="-4 7 15" rot="0 255 0"><group rot="0 0 -30"><clans-spike radius="2.2" length="9"/></group></group>
+  <group pos="11 7 11" rot="0 315 0"><group rot="0 0 -30"><clans-spike radius="2.2" length="9"/></group></group>
+  <!-- the signal lamp: a dark lens, lit red on the blink frame -->
+  <cylinder radius="3.6" height="3" sides="8" pos="0 12 0" material="steel_dark"/>
+  <sphere radius="3.6" rings="5" slices="8" pos="0 15 0" material="lens_off"/>
+  <sphere radius="5.2" rings="5" slices="8" pos="0 15 0" material="warn" unlit="1" castShadow="0" renderable="{blink}"/>
+</prefab>

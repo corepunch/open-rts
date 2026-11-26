@@ -139,6 +139,7 @@ static void tactics(level_t *map, int owner, mobj_t *const *units, int unit_coun
         const StaticProductDefinition *p = G_ModelProductByUIId(NULL, power);
         if (p && R_CanAfford(owner, p)) purchase(map, owner, power);
     }
+    RF_AiUnits(owner, units, unit_count);
     if (RF_AIDifficulty(owner) == RF_AI_EASY || map->player_resources[owner][0] < 600) return;
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *u = units[i];

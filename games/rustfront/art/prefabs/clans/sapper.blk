@@ -1,0 +1,245 @@
+<!-- Clan Sapper, about 176 cm: the Scrap Clans' mine layer. The rifleman's CAT biped
+     (infantry/rifleman.blk, from Scener's biped preset) as clans/raider.blk has it, with the same
+     skeleton, joint names, pose library and clips, recostumed: patched khaki trousers and a
+     canvas work shirt with a webbing strap, a team-colour bandana knotted over the head (the
+     helmet bone) with goggles on the brow, a canvas satchel of disc mines on the back under a
+     team flap, a shovel strapped upright beside it, wrapped boots; a sawn-off double-barrel
+     shotgun with a wooden stock, carried as the rigid weapon bone on the ribcage. Body frame Z
+     up, facing local -Y, the character's left at +X (the sprite scene turns the instance to Y up
+     and +X). Lengths in centimetres. -->
+<prefab up="z" front="-y">
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <material id="clans_skin"    color="0.66 0.46 0.32" shininess="8"/>
+  <material id="clans_trousers" color="0.40 0.35 0.27" shininess="6"/>
+  <material id="clans_boots"   color="0.20 0.15 0.11" shininess="10"/>
+  <material id="clans_goggle"  color="0.20 0.55 0.50" shininess="90" specular="1"/>
+  <material id="clans_gun"     color="0.16 0.15 0.14" shininess="30"/>
+  <material id="clans_stock"   color="0.42 0.26 0.14" shininess="14"/>
+  <material id="clans_satchel" color="0.30 0.29 0.18" shininess="4"/>
+  <!-- The muzzle flash shows on the firing frame only (art/sprites.py turns the option on). -->
+  <option name="flash" enabled="0" />
+
+  <hub name="pelvis" aim="0 90" length="14" radius="18 11.5" material="clans_trousers">
+    <ellipsoid on="120 -15" at="0.25" radii="9 8 10" sink="4.5" material="clans_trousers" />
+    <ellipsoid on="-120 -15" at="0.25" radii="9 8 10" sink="4.5" material="clans_trousers" />
+    <ellipsoid on="0 10" at="0.6" radii="17 11 4" sink="4" material="clans_boots" />
+    <limb name="left_leg" type="leg" at="0.25" from="90 0" sink="3.8" mirror="1">
+      <bone name="left_thigh" aim="0 -90" length="44" radius="12.5 13" taper="0.8" overlap="6" material="clans_trousers">
+        <bone name="left_calf" aim="0 -90" length="43" radius="9.5 10" taper="0.7" overlap="4" material="clans_trousers">
+          <ellipsoid on="0 0" at="0" radii="6.5 6 6.5" sink="2" material="clans_trousers" />
+          <ellipsoid on="0 0" at="0.85" radii="9 10 10" sink="6" material="clans_boots" />
+          <ankle name="left_foot" aim="0 -12" length="18" radius="6 5" overlap="3" material="clans_boots">
+            <digit name="left_toe" at="1" from="0 -30" aim="0 -6" links="2" length="4" radius="5.5 3.8" taper="0.9" overlap="3" material="clans_boots" />
+          </ankle>
+        </bone>
+      </bone>
+    </limb>
+    <spine name="spine" links="3" aim="0 90" aimEnd="0 86" length="24" radius="13 9.5" taper="1.1" volume="0" material="clans_trousers">
+      <ellipsoid on="0 0" at="0.5" radii="17 12 23" sink="9.8" material="clans_canvas" />
+      <ellipsoid on="0 0" at="0.2" radii="17 7 5" sink="3" material="clans_boots" />
+      <hub name="ribcage" aim="0 90" length="20" radius="20 13" material="clans_canvas">
+        <ellipsoid on="20 0" at="0.6" radii="4 4 16" sink="3" material="clans_boots" />
+        <ellipsoid on="-40 0" at="0.68" radii="9 4 8" sink="2.5" material="clans_canvas" />
+        <ellipsoid on="-70 20" at="0.95" radii="9 7 5" sink="3" material="clans_canvas" />
+        <!-- the satchel of disc mines on the back under a team flap, a shovel strapped upright
+             beside it (blade over the left shoulder), and the shotgun carried across the chest -->
+        <ellipsoid on="180 0" at="0.35" radii="19 16 19" sink="3" material="clans_satchel" />
+        <ellipsoid on="180 12" at="0.68" radii="20 15 8" sink="3" material="clans_cloth" tint="1" />
+        <ellipsoid on="155 0" at="0.3" radii="10 5 10" sink="-6" material="clans_rust" />
+        <ellipsoid on="-155 0" at="0.3" radii="10 5 10" sink="-6" material="clans_rust" />
+        <ellipsoid on="180 -20" at="-0.1" radii="11 5 10" sink="2" material="clans_tin" />
+        <ellipsoid on="145 0" at="0.6" radii="2.4 2.4 36" sink="-6" material="clans_stock" />
+        <ellipsoid on="145 0" at="2.5" radii="10 3 15" sink="-6" material="clans_tin" />
+        <bone name="weapon" at="0.45" from="0 -10" aim="-35 5" length="50" radius="4.6 4.8" taper="0.9" material="clans_gun">
+          <ellipsoid on="0 90" at="1" sink="4" radii="11 11 11" material="flash" unlit="1" castShadow="0" if-feature="flash" />
+          <ellipsoid on="0 90" at="1" sink="4" radii="6 6 6" material="flash_core" unlit="1" castShadow="0" if-feature="flash" />
+          <ellipsoid on="90 0" at="0.75" radii="2.8 2.8 14" sink="2.2" material="clans_gun" />
+          <ellipsoid on="-90 0" at="0.75" radii="2.8 2.8 14" sink="2.2" material="clans_gun" />
+          <ellipsoid on="0 -90" at="0.55" radii="3.4 4 9" sink="2" material="clans_stock" />
+          <ellipsoid on="0 -90" at="0.1" radii="3 7 7" sink="2" material="clans_stock" />
+          <ellipsoid on="0 0" at="0.3" radii="5 5 4" sink="4" material="clans_rust" />
+        </bone>
+        <limb name="left_arm" type="arm" at="0.9" from="90 0" mirror="1">
+          <collarbone name="left_collarbone" aim="90 0" length="8" radius="4" material="clans_trousers">
+            <bone name="left_upperarm" aim="90 -82" length="29" radius="8 8.5" taper="0.8" overlap="4" material="clans_cloth" tint="1">
+              <ellipsoid on="90 20" at="0.08" radii="8 8 8" sink="6" material="clans_canvas" />
+              <bone name="left_forearm" aim="0 -86" length="26" radius="6 6.2" taper="0.8" material="clans_trousers">
+                <palm name="left_palm" aim="0 -90" length="12" radius="4 5" overlap="2" material="clans_boots" />
+              </bone>
+            </bone>
+          </collarbone>
+        </limb>
+        <spine name="neck" aim="0 90" aimEnd="0 80" length="9" radius="5.5" material="clans_cloth" tint="1">
+          <hub name="head" aim="0 90" length="21" radius="8 9.5" material="clans_skin">
+            <bone name="helmet" at="0.62" from="0 90" aim="0 90" length="7" radius="10.6 11" sink="7" material="clans_cloth" tint="1" />
+            <ellipsoid on="180 10" at="0.6" radii="5 7 8" sink="3" material="clans_cloth" tint="1" />
+            <ellipsoid on="0 18" at="0.6" radii="10 4 4.4" sink="1.5" material="clans_goggle" />
+            <ellipsoid on="0 18" at="0.6" radii="12 2.5 2.5" sink="1.6" material="clans_boots" />
+          </hub>
+        </spine>
+      </hub>
+    </spine>
+  </hub>
+
+  <!-- Pose library, the rifleman's, with the hands on the shotgun: the right wrist behind the grip,
+       the left under the fore-end. Arm IK offsets are in the instance's frame, from the rest
+       wrists (25.5, -2.7, 91.7; weapon base 0, -10.8, 135.6; read with scener list-joints), so a
+       pose that moves the torso moves the hand offsets with it: -Y is forward, Z up. Only Run
+       differs from the rifleman: the left hand reaches across onto the shorter weapon
+       (left_arm offset -44 -45 8). Checked: each wrist within about 12 cm of the weapon line in
+       Ready, Run, Aim and Recoil. -->
+  <pose name="Ready">
+    <joint target="pelvis" pos="3 1 -3" rot="0 -4 6" />
+    <ik limb="left_leg" offset="3 -9 0" bend="10 0" />
+    <ik limb="right_leg" offset="-7 11 0" bend="-25 0" />
+    <joint target="right_foot" aim="-30 -12" />
+    <joint target="spine" aim="0 87" />
+    <joint target="ribcage" rot="0 3 -8" />
+    <joint target="head" rot="-6 0 14" />
+    <joint target="weapon" aim="-14 -37" />
+    <ik limb="right_arm" offset="19.7 -9.2 30.1" bend="-90 -50" />
+    <ik limb="left_arm" offset="-25.9 -29.5 15.4" bend="90 -60" />
+  </pose>
+  <!-- Running: the torso leans into it and the shotgun is carried low across the body, both hands on it. -->
+  <pose name="Run">
+    <joint target="spine" aim="0 74" />
+    <joint target="head" rot="-12 0 0" />
+    <joint target="weapon" aim="-25 -22" />
+    <ik limb="right_arm" offset="17 -24 28" bend="-90 -50" />
+    <ik limb="left_arm" offset="-44 -45 8" bend="90 -50" />
+  </pose>
+  <!-- Firing stance: feet apart, knees bent, weight forward. -->
+  <pose name="Aim">
+    <joint target="pelvis" pos="0 -2 -8" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="0 82" />
+    <joint target="weapon" aim="0 8" />
+    <ik limb="right_arm" offset="19.5 -22 27" bend="-90 -30" />
+    <ik limb="left_arm" offset="-21.5 -48 27" bend="90 -30" />
+    <joint target="head" rot="2 0 0" />
+  </pose>
+  <pose name="Recoil">
+    <joint target="pelvis" pos="0 3 -9" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="0 96" />
+    <joint target="weapon" aim="0 -4" />
+    <ik limb="right_arm" offset="19.5 -6 31" bend="-90 -30" />
+    <ik limb="left_arm" offset="-21.5 -32 36" bend="90 -30" />
+    <joint target="head" rot="-6 0 0" />
+  </pose>
+  <!-- Death: shot, the soldier jerks and lets go with the left hand, the knees give, he drops to
+       his knees, topples forward and ends face down, one arm under him, legs loose. Limbs are posed
+       by aim (relative to the parent), the pelvis by pos and aim; no arm ever goes out flat. -->
+  <pose name="Hit">
+    <joint target="pelvis" pos="0 7 -5" />
+    <ik limb="left_leg" offset="2 -16 0" />
+    <ik limb="right_leg" offset="-2 12 0" />
+    <joint target="spine" aim="180 78" />
+    <joint target="ribcage" rot="-12 6 14" />
+    <joint target="head" rot="-28 0 -12" />
+    <joint target="weapon" aim="-30 -40" />
+    <ik limb="right_arm" offset="18 -10 24" bend="-90 -40" />
+    <ik limb="left_arm" offset="-20 -10 34" bend="90 -60" />
+  </pose>
+  <pose name="Buckle">
+    <joint target="pelvis" pos="0 2 -30" rot="0 0 -10" />
+    <ik limb="left_leg" offset="2 -16 0" bend="0 0" />
+    <ik limb="right_leg" offset="-2 12 0" bend="-10 0" />
+    <joint target="spine" aim="0 68" />
+    <joint target="ribcage" rot="12 -6 8" />
+    <joint target="head" rot="26 0 -8" />
+    <joint target="weapon" aim="-20 -72" />
+    <ik limb="right_arm" offset="14 -16 -6" bend="-90 -30" />
+    <ik limb="left_arm" offset="-22 -18 4" bend="90 -60" />
+  </pose>
+  <pose name="Kneel">
+    <joint target="pelvis" pos="0 4 -50" rot="0 0 -14" />
+    <ik limb="left_leg" offset="2 20 0" bend="0 0" />
+    <ik limb="right_leg" offset="-4 26 0" bend="0 0" />
+    <joint target="spine" aim="0 58" />
+    <joint target="ribcage" rot="14 -10 10" />
+    <joint target="head" rot="34 0 -14" />
+    <joint target="weapon" aim="-50 -80" />
+    <joint target="right_upperarm" aim="-80 -80" />
+    <joint target="right_forearm" aim="0 -70" />
+    <joint target="left_upperarm" aim="70 -70" />
+    <joint target="left_forearm" aim="0 -60" />
+  </pose>
+  <pose name="Topple">
+    <joint target="pelvis" pos="0 -12 -62" aim="0 38" rot="0 -12 0" />
+    <ik limb="left_leg" offset="2 24 0" bend="0 0" />
+    <ik limb="right_leg" offset="-4 30 0" bend="0 -20" />
+    <joint target="spine" aim="0 76" />
+    <joint target="ribcage" rot="4 -14 6" />
+    <joint target="head" rot="10 0 -24" />
+    <joint target="weapon" aim="-70 -60" />
+    <joint target="right_upperarm" aim="-40 -40" />
+    <joint target="right_forearm" aim="0 -30" />
+    <joint target="left_upperarm" aim="40 -60" />
+    <joint target="left_forearm" aim="10 -40" />
+  </pose>
+  <pose name="Dead">
+    <joint target="pelvis" pos="0 -60 -77" aim="0 2" rot="0 -16 0" />
+    <joint target="left_thigh" aim="50 -70" />
+    <joint target="left_calf" aim="-80 -40" />
+    <joint target="right_thigh" aim="-6 -86" />
+    <joint target="right_calf" aim="-30 -80" />
+    <joint target="spine" aim="0 88" />
+    <joint target="ribcage" rot="0 -6 4" />
+    <joint target="head" rot="0 0 -70" />
+    <joint target="weapon" aim="-80 40" />
+    <joint target="right_upperarm" aim="-60 20" />
+    <joint target="right_forearm" aim="40 30" />
+    <joint target="left_upperarm" aim="65 -70" />
+    <joint target="left_forearm" aim="10 -20" />
+  </pose>
+
+  <!-- Clips (seconds). The sprite renderer samples them at fixed times (art/sprites.py). -->
+  <!-- Standing guard: a slow look left and right with the weight shifting. -->
+  <clip name="Idle" length="2.4" loop="1">
+    <key t="0" pose="Ready" />
+    <key t="0.6" pose="Ready"><joint target="pelvis" pos="4 1 -3.5" rot="0 -4 7" /><joint target="ribcage" rot="0 3 -2" /><joint target="head" rot="-4 0 34" /></key>
+    <key t="1.2" pose="Ready"><joint target="pelvis" pos="3 1 -2.5" rot="0 -4 6" /><joint target="ribcage" rot="3 3 -8" /><joint target="head" rot="-12 0 8" /></key>
+    <key t="1.8" pose="Ready"><joint target="pelvis" pos="2 1 -3" rot="0 -3 4" /><joint target="ribcage" rot="0 2 -14" /><joint target="head" rot="-2 0 -18" /></key>
+  </clip>
+  <!-- Added over the running gait, two nods of the chest a stride (the gait's cycle is 0.5 s). -->
+  <clip name="RunBob" length="0.5" loop="1">
+    <key t="0"><joint target="ribcage" rot="4 0 0" /></key>
+    <key t="0.125"><joint target="ribcage" rot="-4 0 0" /></key>
+    <key t="0.25"><joint target="ribcage" rot="4 0 0" /></key>
+    <key t="0.375"><joint target="ribcage" rot="-4 0 0" /></key>
+  </clip>
+  <clip name="Fire" length="0.3" loop="1">
+    <key t="0" pose="Aim" ease="step" />
+    <key t="0.1" pose="Recoil" ease="step" />
+    <key t="0.2" pose="Aim" ease="step" />
+  </clip>
+  <clip name="Die" length="1.0">
+    <key t="0" pose="Aim" />
+    <key t="0.1" pose="Hit" />
+    <key t="0.3" pose="Buckle" />
+    <key t="0.5" pose="Kneel" />
+    <key t="0.7" pose="Topple" />
+    <key t="0.88" pose="Dead" />
+  </clip>
+</prefab>

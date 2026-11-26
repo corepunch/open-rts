@@ -21,9 +21,9 @@ unlocks its top-tier unit.
 
 | Faction | Buildings | Vehicles | Infantry |
 |---|---|---|---|
-| Directorate | Command Center, Power Plant, Ore Refinery, Barracks, War Factory, Gun Turret, Uplink Centre | Scout Buggy, Battle Tank, Artillery, APC, Mastodon (two guns), Hammer (missiles), Ore Harvester | Rifleman, Rocket Soldier |
-| Scrap Clans | Clan Hall, Generator, Smelter, War Camp, Scrap Yard, Spike Tower (twin MG), Chop Shop | Trike, Gun Truck, Scrap Crawler, Rocket Rig (three-rocket salvo), Wrecker (demolition), Scrap Hauler | Raider, Torcher (flamethrower) |
-| Lumen Concord | Spire, Fusion Core, Extractor, Academy, Foundry, Beam Tower (splashing beam), Sanctum | Skimmer, Glaive, Prism (splashing heavy beam), Aegis (shield and repair), Hover Harvester | Warden, Lancer |
+| Directorate | Command Center, Power Plant, Ore Refinery, Barracks, War Factory, Gun Turret, Uplink Centre, (Sentry Post) | Scout Buggy, Battle Tank, Artillery, APC (transport), Mastodon (two guns), Hammer (missiles), Ore Harvester, Field Crane, Phantom, Kestrel (gunship), Sentry Truck | Rifleman, Rocket Soldier |
+| Scrap Clans | Clan Hall, Generator, Smelter, War Camp, Scrap Yard, Spike Tower (twin MG), Chop Shop, (Derrick) | Trike, Gun Truck, Scrap Crawler, Rocket Rig (three-rocket salvo), Wrecker (demolition), Scrap Hauler, Drill Rig, Crusher, Buzzard (autogyro) | Raider, Torcher (flamethrower), Sapper (mines) |
+| Lumen Concord | Spire, Fusion Core, Extractor, Academy, Foundry, Beam Tower (splashing beam), Sanctum | Skimmer, Glaive, Prism (splashing heavy beam), Aegis (shield and repair), Hover Harvester, Strider, Seraph (flyer) | Warden, Lancer, Cantor (priest) |
 
 **The top tier.** Each tech structure comes from the headquarters once the factory stands,
 draws a lot of power, and unlocks one unit at the factory:
@@ -33,6 +33,37 @@ draws a lot of power, and unlocks one unit at the factory:
 | **Uplink Centre** (Directorate, 1500): a team-painted blockhouse under a lattice mast with a big turning satellite dish; it sees 12 cells round the base | **Hammer** (1800): an eight-wheeled carrier with a twin launcher raised toward the front | Fires a pair of heavy missiles that arc and splash, from 11 cells, every 6.5 s; it cannot fire inside 2.5 cells, and sees only 6, so it needs spotters |
 | **Chop Shop** (Scrap Clans, 1000): a rusty corrugated garage under a team tarp, a derrick swinging a wrecked car, a fire barrel | **Wrecker** (600): a fast buggy with a spiked ram and a chained stack of explosive drums | Drives into its target and goes up: 500 to the target, half to every other enemy within two cells. Shot dead on the way it still goes up, for a third |
 | **Sanctum** (Lumen Concord, 1600): a white ceramic shrine of four leaning fins round a cyan obelisk, under a floating, turning halo | **Aegis** (1400): a broad hover hull with an emitter dish in a crown of fins | Its field (3.5 cells) takes a third off every hit on its side's units and mends their vehicles 12 hit points a second; its own beam is light |
+
+**Three classics.** Beyond the shared roles, each faction plays like a different late-90s RTS,
+in its mechanics rather than its looks (`g_units.c`):
+
+| Faction | After | Unit | What it does |
+|---|---|---|---|
+| Directorate | Dark Reign | **APC** (700) | Carries five soldiers: LOAD sends the selected soldiers into the nearest APC with a seat, UNLOAD lets them out round it. Aboard they cannot be seen or shot; if the APC is destroyed they bail out at half strength |
+| | | **Field Crane** (700) | Unarmed; each second welds 30 hit points onto the most damaged vehicle of its side within two cells (60 onto a structure) |
+| | | **Phantom** (1100) | A phase tank: the first hit it takes shifts it out of phase for 3 s (it flickers, nothing can target or hurt it, it cannot fire), then it needs 20 s to recharge |
+| | | **Kestrel** (1200, needs the Uplink) | A helicopter gunship: flies over everything, fires pairs of rockets at the ground, and only anti-air weapons reach it |
+| | | **Sentry Truck** (650) | DEPLOY unfolds it into a **Sentry Post** on its cell, a twin machine gun that shoots up too and sees hidden things; PACK UP folds it back |
+| Scrap Clans | KKnD | **Drill Rig** (1200) | DEPLOY sets a **Derrick** down on the 2 x 2 cells it stands over (not on ore): a private well of 6000 ore that only its side's haulers draw from |
+| | | **Sapper** (250) | A soldier with a shotgun who, holding ground for 6 s, lays a mine on his cell (16 a side, a cell and a half apart). Mines are hidden from the enemy unless a detector sees them, and the first enemy to drive or walk over one takes 180 and its neighbours 90 |
+| | | **Crusher** (750) | A monster truck that rolls over every enemy soldier under its wheels and rams the rest |
+| | | **Buzzard** (900, needs the Chop Shop) | A scrap autogyro that drops drums of explosive (120, splashing) on the ground; it cannot hit aircraft |
+| Lumen Concord | 7th Legion | **The Rites** | Power cards: a Spire deals one every 40 s into a hand of three, shown under the build list. **Strike**: a pillar of light lands 1.5 s after it is called, 350 to every enemy within 1.5 cells. **Mending**: its side's units within 3 cells get back half their hit points (structures a quarter). **Windfall**: 750 credits. **Warding**: its side's units within 3 cells take no damage for 8 s |
+| | | **Tithe** | Everything the Concord destroys pays it a fifth of its price |
+| | | **Strider** (1200) | A spider mech whose arc leaps from its target to two more enemies nearby |
+| | | **Seraph** (1300, needs the Sanctum) | A flying beam craft that hits aircraft and the ground alike |
+| | | **Cantor** (350) | A priest: each second mends 10 hit points on each of the three most hurt soldiers of its side within 3 cells, and sees hidden things |
+
+Aircraft are reached only by anti-air weapons: rifles, rockets and machine guns (riflemen, rocket
+soldiers, the Scout Buggy, the APC, the Sentry Post, raiders, trikes, gun trucks, the Spike Tower,
+the Rocket Rig) and the lighter beams (wardens, lancers, skimmers, the Beam Tower, the Aegis, the
+Seraph). Cannons, artillery, flames and rams cannot. Hidden mines show to detectors: every
+headquarters and defensive tower, the Sentry Post and the Cantor.
+
+The command bar under the build list holds what the selection can do, on Z, C and V: DEPLOY,
+PACK UP, LOAD, UNLOAD; with none of those selected, a Concord player sees the hand of Rites there.
+A Rite played on a point (Strike, Mending, Warding) waits for a click on the map and shows the
+ring it will cover. The computer deploys its trucks and rigs where they stop and plays its cards.
 
 ![The three factions' bases in game](art/previews/factions.png)
 
@@ -307,6 +338,7 @@ game; `OPEN_RTS_RF_UI_SHOTS=DIR` writes every page as a BMP.
 | `hu_rustfront.c` | The sidebar: credits, power meter, radar with fog, cameo build rows (the engine's product list does clicks, queues and placement), REPAIR and SELL |
 | `factions.c` | The three factions: each one's types for the roles (headquarters, power, refinery, barracks, factory, turret, harvester), and which faction a side plays (its headquarters') |
 | `g_combat.c` | Projectiles: shells, rockets, beam bolts and flame gouts do their damage on arrival; the Mastodon fires a pair of shells, the Rocket Rig a salvo of three and the Hammer a pair of heavy missiles; heavy shells, heavy bolts and heavy missiles splash; rockets trail smoke. Machine guns hit at once. The Wrecker's detonation and the Aegis's field |
+| `g_units.c` | Each faction's special units and powers (Dark Reign, KKnD, 7th Legion): the APC's passengers (`TC_BOARD`, `TC_UNLOAD`), deploying (`TC_DEPLOY`), the Phantom's phase, the crane and the cantor, the Crusher, sappers and mines, anti-air, the Rites (`TC_SPELL` with no units) and the tithe, and the computer's use of them |
 | `g_base.c` | Power, repair and sell, rally points and veterancy: the orders (`TC_REPAIR`, a move order to a producer) and their rules |
 | `g_sight.c` | Fog of war: each type's sight, the fog pass |
 | `r_marks.c` | Over each unit: selection, health, rank chevrons, the repair wrench and the rally flag |

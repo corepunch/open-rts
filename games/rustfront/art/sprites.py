@@ -221,6 +221,26 @@ UNITS = {
     "apc":       dict(shadow="vehicles/apc",       facings=16, layers=[
                      layer("hull", "vehicles/apc/hull", (384, 352), 50, frames=MOVE),
                      layer("turret", "vehicles/apc/turret", (288, 256), 0, mount=(22, 112, 0), frames=FIRE)]),
+    # The special units (g_units.c). Aircraft are modelled hovering 150 cm up, so their frames
+    # are tall and centred high; the ground shadow falls where the sun puts it.
+    "crane":     dict(shadow="vehicles/crane",     facings=16, layers=[layer("body", "vehicles/crane", (512, 448), 60, frames=MOVE_FIRE)]),
+    "phantom":   dict(shadow="vehicles/phantom",   facings=16, layers=[
+                     layer("hull", "vehicles/phantom/hull", (416, 384), 45, frames=MOVE),
+                     layer("turret", "vehicles/phantom/turret", (448, 384), 0, mount=(-14, 84, 0), frames=FIRE)]),
+    "kestrel":   dict(shadow="vehicles/kestrel",   facings=16, layers=[layer("body", "vehicles/kestrel", (640, 640), 200, frames=MOVE_FIRE)]),
+    "sentry_truck": dict(shadow="vehicles/sentry_truck", facings=16, layers=[layer("body", "vehicles/sentry_truck", (448, 384), 50, frames=MOVE)]),
+    "sentry":    dict(shadow="buildings/sentry",   facings=1,  layers=[
+                     layer("base", "buildings/sentry/base", (288, 256), 40, frames=BLINK,
+                           structure=((1, 1), 120), damaged=False, build_sheet=True),
+                     layer("head", "buildings/sentry/head", (320, 288), 0, mount=(0, 90, 0), facings=16, frames=FIRE)]),
+    "cl_drill":  dict(shadow="clans/drill_rig",    facings=16, layers=[layer("body", "clans/drill_rig", (576, 512), 70, frames=MOVE)]),
+    "cl_derrick": dict(shadow="clans/derrick",     facings=1,  layers=[layer("body", "clans/derrick", (448, 704), 190,
+                          structure=((2, 2), 426), frames=[{"pump": k, "blink": int(k < 2)} for k in range(4)])]),
+    "cl_mine":   dict(shadow="clans/mine",         facings=1,  layers=[layer("body", "clans/mine", (96, 80), 0, frames=BLINK)]),
+    "cl_crusher": dict(shadow="clans/crusher",     facings=16, layers=[layer("body", "clans/crusher", (576, 544), 80, frames=MOVE)]),
+    "cl_buzzard": dict(shadow="clans/buzzard",     facings=16, layers=[layer("body", "clans/buzzard", (640, 672), 210, frames=MOVE_FIRE)]),
+    "lc_strider": dict(shadow="concord/strider",   facings=16, layers=[layer("body", "concord/strider", (512, 512), 90, frames=MOVE_FIRE)]),
+    "lc_seraph": dict(shadow="concord/seraph",     facings=16, layers=[layer("body", "concord/seraph", (576, 576), 190, frames=MOVE_FIRE)]),
 }
 
 # Infantry: one animated layer, 8 facings. Each animation is the instance's children (a gait,
@@ -246,6 +266,8 @@ INFANTRY = {
     "cl_torcher": dict(prefab="clans/torcher", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
     "lc_warden": dict(prefab="concord/warden", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
     "lc_lancer": dict(prefab="concord/lancer", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "cl_sapper": dict(prefab="clans/sapper", facings=8, frame=(160, 128), centre=60, anims=ANIMS),
+    "lc_cantor": dict(prefab="concord/cantor", facings=8, frame=(160, 136), centre=64, anims=ANIMS),
 }
 ALL_UNITS = list(UNITS) + list(INFANTRY)
 

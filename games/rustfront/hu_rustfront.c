@@ -2,6 +2,7 @@
 #include "info.h"
 #include "rustfront.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -12,8 +13,10 @@
  * queueing, placing a structure and paging use the engine's product pieces (hud/hu_bar.c);
  * this file draws the rows and the radar. */
 
-enum { SB_PANEL, SB_CREDITS, SB_POWER, SB_RADAR, SB_PRODUCTS, SB_REPAIR, SB_SELL, SB_PAGE, SB_COUNT };
-enum { ROW_H = 52, SIDEBAR_W = 640 - RF_SIDEBAR_X, PRODUCT_MAX = 64 };
+enum { SB_PANEL, SB_CREDITS, SB_POWER, SB_RADAR, SB_PRODUCTS, SB_REPAIR, SB_SELL, SB_PAGE,
+       SB_CMD0, SB_CMD1, SB_CMD2, SB_COUNT };
+enum { ROW_H = 52, ROWS = 5, SIDEBAR_W = 640 - RF_SIDEBAR_X, PRODUCT_MAX = 64 };
+enum { BUTTONS_Y = 144 + ROWS * ROW_H + 4, COMMANDS_Y = BUTTONS_Y + 26, COMMAND_W = (SIDEBAR_W - 12) / 3 };
 
 static spritesheet_t icons;
 static bool icons_loaded;
@@ -246,6 +249,152 @@ static void draw_page(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     text((irect_t){rect.x + 3 * s, rect.y + (rect.h - 7 * s) / 2, rect.w - 6 * s, 7 * s}, line, 0xffc8d2b4u);
 }
 
+/* ── unit commands and the Rites ─────────────────────────────────────────────
+ * Three buttons under the build list (Z, C, V) hold what the selection can do (g_units.c):
+ * deploy a Sentry Truck or Drill Rig, pack a Sentry Post up, load soldiers into the nearest APC
+ * with room, unload an APC. With none of those selected, a Concord player sees its hand of
+ * Rites there; a card played on a point waits for a click on the map. */
+typedef enum { CMD_NONE, CMD_DEPLOY, CMD_PACK, CMD_LOAD, CMD_UNLOAD, CMD_RITE } cmdkind_t;
+typedef struct { cmdkind_t kind; int slot; } command_t;
+
+static bool own_selected(const mobj_t *u) {
+    return u->owner == consoleplayer && u->hp > 0 && !u->remove && P_MobjIsSelected(u);
+}
+
+/* What the buttons hold now, in a fixed order; their count. */
+static int commands(command_t out[3]) {
+    bool has[CMD_RITE] = {0};
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *u = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || !own_selected(u)) continue;
+        if (u->type_id == MT_SENTRY_TRUCK || u->type_id == MT_CL_DRILL) has[CMD_DEPLOY] = true;
+        if (u->type_id == MT_SENTRY) has[CMD_PACK] = true;
+        if (RF_IsInfantry(u->type_id) && !u->rf_boarded) has[CMD_LOAD] = true;
+        if (RF_IsTransport(u) && RF_Passengers(u, NULL, 0) > 0) has[CMD_UNLOAD] = true;
+    }
+    int n = 0;
+    for (int k = CMD_DEPLOY; k < CMD_RITE && n < 3; ++k)
+        if (has[k]) out[n++] = (command_t){(cmdkind_t)k, 0};
+    if (n == 0 && consoleplayer < MAXPLAYERS && RF_NextDrawMs(consoleplayer) >= 0)
+        for (int i = 0; i < RF_HAND; ++i) out[n++] = (command_t){CMD_RITE, i};
+    return n;
+}
+
+/* The nearest APC of the player's with a seat, to the soldiers selected. */
+static const mobj_t *nearest_transport(void) {
+    int64_t sx = 0, sy = 0, n = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *u = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || !own_selected(u) || !RF_IsInfantry(u->type_id)) continue;
+        sx += u->core.position.x; sy += u->core.position.y; ++n;
+    }
+    if (!n) return NULL;
+    fixed2_t at = {(fixed_t)(sx / n), (fixed_t)(sy / n)};
+    const mobj_t *best = NULL;
+    int64_t best_d = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *u = (const mobj_t *)th;
+        if (th->function != P_MobjThinker || u->owner != consoleplayer || u->hp <= 0 || u->remove ||
+            !RF_IsTransport(u) || RF_Passengers(u, NULL, 0) >= RF_APC_SEATS) continue;
+        int64_t d = fixed2_distance_squared64(fixed3_xy(u->core.position), at);
+        if (!best || d < best_d) { best = u; best_d = d; }
+    }
+    return best;
+}
+
+static fixed2_t cursor_ground(const menu_t *menu) {
+    ivec2_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
+    return fixed2_cell_center(cell);
+}
+
+static void command_button(menu_t *menu, menuitem_t *item, menuaction_t action) {
+    command_t list[3];
+    int n = commands(list);
+    static int pending_slot = -1;
+    if (action == MA_TARGET) {
+        if (pending_slot >= 0) RF_RiteOrder(pending_slot, cursor_ground(menu));
+        pending_slot = -1;
+        return;
+    }
+    if (action == MA_CANCEL) { pending_slot = -1; return; }
+    if (action != MA_ACTIVATE || item->value >= n) return;
+    command_t c = list[item->value];
+    switch (c.kind) {
+    case CMD_DEPLOY: case CMD_PACK: HU_SelectedOrder(TC_DEPLOY, (fvec2_t){0}, 0); break;
+    case CMD_UNLOAD: HU_SelectedOrder(TC_UNLOAD, (fvec2_t){0}, 0); break;
+    case CMD_LOAD: {
+        const mobj_t *apc = nearest_transport();
+        if (apc) HU_SelectedOrder(TC_BOARD, fixed3_xy_to_fvec2(apc->core.position), apc->id);
+        break;
+    }
+    case CMD_RITE: {
+        rf_rite_t rite = RF_HandCard(consoleplayer, c.slot);
+        if (!rite) break;
+        if (!RF_RiteTargeted(rite)) { RF_RiteOrder(c.slot, (fixed2_t){0}); break; }
+        pending_slot = c.slot;
+        M_MenuTarget(menu, item);
+        break;
+    }
+    default: break;
+    }
+}
+
+/* While a card waits for its point: the ring it will cover, under the cursor. */
+static void draw_rite_target(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    (void)rect;
+    command_t list[3];
+    int n = commands(list);
+    if (item->value >= n || list[item->value].kind != CMD_RITE) return;
+    fixed_t r = RF_RiteRadius(RF_HandCard(consoleplayer, list[item->value].slot));
+    if (!r) return;
+    fixed2_t at = cursor_ground(menu);
+    uint8_t ink = V_NearestIndex(0xff7ff0ffu);
+    ivec2_t prev = {0, 0};
+    for (int k = 0; k <= 32; ++k) {
+        float a = (float)k * 6.2831853f / 32.0f;
+        fixed2_t p = {at.x + (fixed_t)(r * cosf(a)), at.y + (fixed_t)(r * sinf(a))};
+        float sx, sy;
+        R_MapPositionToScreen(menu->app, &level, fixed3_from_fixed2(p, 0), &sx, &sy);
+        ivec2_t q = {(int)sx, (int)sy};
+        if (k) V_DrawLine(prev, q, ink);
+        prev = q;
+    }
+}
+
+static void draw_command(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    (void)menu;
+    static const char *const LABEL[] = {"", "DEPLOY", "PACK UP", "LOAD", "UNLOAD", ""};
+    static const char KEY[3] = {'Z', 'C', 'V'};
+    command_t list[3];
+    int n = commands(list);
+    int s = rect.w / COMMAND_W > 0 ? rect.w / COMMAND_W : 1;
+    if (item->value >= n) return;
+    command_t c = list[item->value];
+    const char *label = LABEL[c.kind];
+    char line[24];
+    uint32_t ink = 0xffdce6dcu;
+    if (c.kind == CMD_RITE) {
+        rf_rite_t rite = RF_HandCard(consoleplayer, c.slot);
+        if (rite) {
+            label = RF_RiteName(rite);
+            ink = 0xff7ff0ffu;
+            V_FillRectTranslucent((irect_t){rect.x + s, rect.y + s, rect.w - 2 * s, rect.h - 2 * s}, 0x5030a0c0u);
+        } else {
+            /* the first empty slot counts down to the next card */
+            bool first = true;
+            for (int i = 0; i < c.slot; ++i) first &= RF_HandCard(consoleplayer, i) != RF_RITE_NONE;
+            int ms = RF_NextDrawMs(consoleplayer);
+            if (first && ms >= 0) snprintf(line, sizeof(line), "%ds", (ms + 999) / 1000);
+            else line[0] = 0;
+            label = line;
+            ink = 0xff5a6064u;
+        }
+    }
+    char key[2] = {KEY[item->value], 0};
+    text((irect_t){rect.x + 3 * s, rect.y + 4 * s, rect.w - 6 * s, 7 * s}, key, 0xff8a9496u);
+    text((irect_t){rect.x + 3 * s, rect.y + (rect.h - 7 * s) / 2 + 4 * s, rect.w - 6 * s, 7 * s}, label, ink);
+}
+
 /* ── the sidebar ───────────────────────────────────────────────────────── */
 
 static menuitem_t items[SB_COUNT] = {
@@ -257,19 +406,26 @@ static menuitem_t items[SB_COUNT] = {
     [SB_RADAR] = {.kind = MI_MINIMAP, .visible = true, .enabled = true,
                   .rect = {RF_SIDEBAR_X + 6, 34, SIDEBAR_W - 12, 104}, .ownerdraw = draw_radar},
     [SB_PRODUCTS] = {.kind = MI_LIST, .visible = true, .enabled = true,
-                     .rect = {RF_SIDEBAR_X + 4, 144, SIDEBAR_W - 8, 6 * ROW_H}, .row_height = ROW_H, .value = -1,
+                     .rect = {RF_SIDEBAR_X + 4, 144, SIDEBAR_W - 8, ROWS * ROW_H}, .row_height = ROW_H, .value = -1,
                      .routine = HU_ProductList, .ownerdraw = draw_products, .drawtarget = HU_DrawProductPlacement},
     /* R repairs the selected structures (again: stops), X sells them. */
     [SB_REPAIR] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_r, .value = RF_ORDER_REPAIR,
-                   .rect = {RF_SIDEBAR_X + 4, 144 + 6 * ROW_H + 4, 54, 22}, .fill = 0xff20282bu, .border = 0xff4a5458u,
+                   .rect = {RF_SIDEBAR_X + 4, BUTTONS_Y, 54, 22}, .fill = 0xff20282bu, .border = 0xff4a5458u,
                    .routine = structure_button, .ownerdraw = draw_structure_button, .tooltip = "Repair (R)"},
     [SB_SELL] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = SDLK_x, .value = RF_ORDER_SELL,
-                 .rect = {RF_SIDEBAR_X + 60, 144 + 6 * ROW_H + 4, 44, 22}, .fill = 0xff20282bu, .border = 0xff4a5458u,
+                 .rect = {RF_SIDEBAR_X + 60, BUTTONS_Y, 44, 22}, .fill = 0xff20282bu, .border = 0xff4a5458u,
                  .routine = structure_button, .ownerdraw = draw_structure_button, .tooltip = "Sell (X)"},
     [SB_PAGE] = {.kind = MI_BUTTON, .visible = true, .enabled = true,
-                 .rect = {RF_SIDEBAR_X + 106, 144 + 6 * ROW_H + 4, SIDEBAR_W - 110, 22},
+                 .rect = {RF_SIDEBAR_X + 106, BUTTONS_Y, SIDEBAR_W - 110, 22},
                  .fill = 0xff20282bu, .border = 0xff4a5458u, .link = SB_PRODUCTS,
                  .routine = HU_ProductPage, .ownerdraw = draw_page},
+#define COMMAND(i, key) \
+    [SB_CMD0 + i] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .hotkey = key, .value = i, \
+                     .rect = {RF_SIDEBAR_X + 4 + i * (COMMAND_W + 2), COMMANDS_Y, COMMAND_W, 480 - COMMANDS_Y - 6}, \
+                     .fill = 0xff20282bu, .border = 0xff4a5458u, .routine = command_button, \
+                     .ownerdraw = draw_command, .drawtarget = draw_rite_target}
+    COMMAND(0, SDLK_z), COMMAND(1, SDLK_c), COMMAND(2, SDLK_v),
+#undef COMMAND
 };
 static menu_t sidebar = {.items = items, .numitems = SB_COUNT, .itemOn = -1, .refresh = HU_RefreshProducts};
 

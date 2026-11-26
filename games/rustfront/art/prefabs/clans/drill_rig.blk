@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Drill Rig, the Scrap Clans' mobile derrick. Length 340 cm on X, width 160 cm on Z,
+     origin at the chassis centre on the ground, cab faces +X. A six-wheeled salvage truck: a blunt
+     rusty cab with a team roof and a spiked grille guard, a pump engine under a team tarp behind
+     it with a tall exhaust and a belt flywheel, and on the bed a lattice drill mast folded down
+     along the back (team-painted top chords, crown block forward over the cab, drawworks drum at
+     the rear pivot), a raising ram, a rack of drill pipe sections and lashed drums. Deploys into
+     clans/derrick. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+
+  <!-- six wheels: one steering axle, a rear tandem -->
+  <group pos="0 32 0">
+    <cylinder radius="32" height="26" sides="12" rot="90 0 0" pos="112 0 66" material="rubber"/>
+    <cylinder radius="32" height="26" sides="12" rot="90 0 0" pos="112 0 -66" material="rubber"/>
+    <cylinder radius="32" height="26" sides="12" rot="90 0 0" pos="-50 0 66" material="rubber"><array count="2" translation="-70 0 0"/></cylinder>
+    <cylinder radius="32" height="26" sides="12" rot="90 0 0" pos="-50 0 -66" material="rubber"><array count="2" translation="-70 0 0"/></cylinder>
+    <cylinder radius="13" height="28" sides="6" rot="90 0 {30*move}" pos="112 0 66" material="clans_drum"/>
+    <cylinder radius="13" height="28" sides="6" rot="90 0 {30*move}" pos="112 0 -66" material="gunmetal"/>
+    <cylinder radius="13" height="28" sides="6" rot="90 0 {30*move}" pos="-50 0 66" material="gunmetal"><array count="2" translation="{-70*cos(30*move*pi/180)} 0 {-70*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="13" height="28" sides="6" rot="90 0 {30*move}" pos="-50 0 -66" material="clans_rust"><array count="2" translation="{-70*cos(30*move*pi/180)} 0 {-70*sin(30*move*pi/180)}"/></cylinder>
+  </group>
+  <box size="316 16 100" pos="-4 50 0" material="steel_dark"/>
+  <box size="50 4 32" rot="-8 0 0" pos="112 68 64" material="clans_rust"/>
+  <box size="50 4 32" rot="8 0 0" pos="112 68 -64" material="clans_paint" tint="1"/>
+  <box size="150 4 30" rot="-6 0 0" pos="-85 69 66" material="clans_tin"/>
+  <box size="150 4 30" rot="6 0 0" pos="-85 69 -66" material="clans_rust"/>
+
+  <!-- cab, forward: blunt and rusty, team roof, caged glass -->
+  <shape closed="1" v="102 58 166 58 170 94 148 100 140 138 102 140" material="clans_rust">
+    <extrude amount="136"/><bevel amount="3" bevelSegments="1"/>
+    <taper center="0 58 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="44 5 126" pos="121 142 0" material="clans_paint" tint="1"/>
+  <box size="26 3 114" rot="0 0 -12" pos="157 96 0" material="clans_paint" tint="1"/>
+  <box size="3 26 100" rot="0 0 -16" pos="145 120 0" material="glass"/>
+  <box size="2 30 3" rot="0 0 -16" pos="148 120 -30" material="steel_dark"><array count="4" translation="0 0 20"/></box>
+  <box size="40 30 3" pos="124 92 68.5" material="clans_tin"/>
+  <!-- grille guard and spikes -->
+  <box size="6 44 124" pos="173 74 0" material="steel_dark"/>
+  <box size="4 3 120" pos="176.5 62 0" material="clans_rust"><array count="4" translation="0 9 0"/></box>
+  <group pos="176 62 0" rot="0 0 -90">
+    <clans-spike radius="5" length="16" pos="0 0 -46"/>
+    <clans-spike radius="5" length="16" pos="0 0 46"/>
+  </group>
+  <box size="4 5 4" pos="171 90 48" material="lamp" unlit="1" castShadow="0"/>
+  <box size="4 5 4" pos="171 90 -48" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- pump engine behind the cab under a team tarp, flywheel on the left, tall exhaust -->
+  <box size="62 46 110" pos="68 81 0" material="gunmetal"/>
+  <box size="70 4 120" pos="68 106 0" material="steel_dark"/>
+  <soft-box width="58" height="30" depth="116" radius="12" bevel="2" pos="66 123 4" material="clans_cloth" tint="1"/>
+  <box size="3 22 118" rot="0 0 8" pos="38 118 4" material="clans_cloth" tint="1"/>
+  <cylinder radius="26" height="8" sides="12" rot="90 0 0" pos="72 86 -60" material="clans_drum"/>
+  <cylinder radius="9" height="10" sides="6" rot="90 0 {30*move}" pos="72 86 -60" material="steel_dark"/>
+  <box size="56 3 4" rot="0 0 {30*move}" pos="72 86 -64.5" material="clans_rust"/>
+  <tube ax="50" ay="104" az="48" bx="48" by="214" bz="50" r0="6" material="clans_rust"/>
+  <cylinder radius="10" height="5" sides="8" pos="48 216 50" material="steel_dark"/>
+  <cylinder radius="8" height="1" sides="8" pos="48 219 50" material="rubber"/>
+  <tube ax="40" ay="104" az="-40" bx="6" by="72" bz="-50" r0="4" material="clans_tin"/>
+
+  <!-- bed: timber deck and patched sides -->
+  <box size="214 8 150" pos="-65 62 0" material="clans_wood"/>
+  <box size="4 26 150" pos="-170 76 0" material="clans_sheet_rust"/>
+  <box size="120 22 4" rot="5 0 0" pos="-90 76 75" material="clans_paint" tint="1"/>
+  <box size="90 20 4" rot="-4 0 0" pos="-40 75 -75" material="clans_tin"/>
+  <!-- the lattice drill mast, folded down along the bed: pivot at the rear, crown block
+       forward over the cab on the rack -->
+  <tube ax="-165" ay="150" az="-25" bx="145" by="150" bz="-25" r0="3.6" material="clans_rust"/>
+  <box size="318 9 9" pos="-10 190 -25" material="clans_paint" tint="1"/>
+  <tube ax="-165" ay="150" az="25" bx="145" by="150" bz="25" r0="3.6" material="clans_rust"/>
+  <box size="318 9 9" pos="-10 190 25" material="clans_paint" tint="1"/>
+  <beam ax="-165" ay="150" az="-25" bx="-165" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-165" ay="150" az="25" bx="-165" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-165" ay="193.5" az="-22" bx="-165" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="-126.2" ay="150" az="-25" bx="-126.2" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-126.2" ay="150" az="25" bx="-126.2" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-126.2" ay="193.5" az="-22" bx="-126.2" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="-87.5" ay="150" az="-25" bx="-87.5" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-87.5" ay="150" az="25" bx="-87.5" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-87.5" ay="193.5" az="-22" bx="-87.5" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="-48.8" ay="150" az="-25" bx="-48.8" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-48.8" ay="150" az="25" bx="-48.8" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-48.8" ay="193.5" az="-22" bx="-48.8" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="-10" ay="150" az="-25" bx="-10" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-10" ay="150" az="25" bx="-10" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="-10" ay="193.5" az="-22" bx="-10" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="28.8" ay="150" az="-25" bx="28.8" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="28.8" ay="150" az="25" bx="28.8" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="28.8" ay="193.5" az="-22" bx="28.8" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="67.5" ay="150" az="-25" bx="67.5" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="67.5" ay="150" az="25" bx="67.5" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="67.5" ay="193.5" az="-22" bx="67.5" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="106.2" ay="150" az="-25" bx="106.2" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="106.2" ay="150" az="25" bx="106.2" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="106.2" ay="193.5" az="-22" bx="106.2" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="145" ay="150" az="-25" bx="145" by="187" bz="-25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="145" ay="150" az="25" bx="145" by="187" bz="25" width="3" depth="3" material="clans_rust"/>
+  <beam ax="145" ay="193.5" az="-22" bx="145" by="193.5" bz="22" width="3" depth="3" material="steel_dark"/>
+  <beam ax="-165" ay="152" az="-25" bx="-126.2" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-165" ay="152" az="25" bx="-126.2" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-165" ay="193.5" az="-22" bx="-126.2" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="-87.5" ay="152" az="-25" bx="-126.2" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-87.5" ay="152" az="25" bx="-126.2" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-87.5" ay="193.5" az="-22" bx="-126.2" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="-87.5" ay="152" az="-25" bx="-48.8" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-87.5" ay="152" az="25" bx="-48.8" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-87.5" ay="193.5" az="-22" bx="-48.8" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="-10" ay="152" az="-25" bx="-48.8" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-10" ay="152" az="25" bx="-48.8" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-10" ay="193.5" az="-22" bx="-48.8" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="-10" ay="152" az="-25" bx="28.8" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-10" ay="152" az="25" bx="28.8" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="-10" ay="193.5" az="-22" bx="28.8" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="67.5" ay="152" az="-25" bx="28.8" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="67.5" ay="152" az="25" bx="28.8" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="67.5" ay="193.5" az="-22" bx="28.8" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="67.5" ay="152" az="-25" bx="106.2" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="67.5" ay="152" az="25" bx="106.2" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="67.5" ay="193.5" az="-22" bx="106.2" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <beam ax="145" ay="152" az="-25" bx="106.2" by="187" bz="-25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="145" ay="152" az="25" bx="106.2" by="187" bz="25" width="2.6" depth="2.6" material="steel_dark"/>
+  <beam ax="145" ay="193.5" az="-22" bx="106.2" by="193.5" bz="22" width="2.4" depth="2.4" material="steel_dark"/>
+  <!-- crown block and sheave at the mast's head -->
+  <box size="30 50 60" pos="156 170 0" material="clans_sheet_rust"/>
+  <cylinder radius="20" height="12" sides="12" rot="90 0 0" pos="158 196 0" material="clans_drum"/>
+  <box size="34 4 64" pos="156 197 0" material="steel_dark"/>
+  <!-- the rack the mast head rests on -->
+  <box size="8 44 8" pos="102 126 30" material="steel_dark"/>
+  <box size="8 44 8" pos="102 126 -30" material="steel_dark"/>
+  <box size="12 6 76" pos="102 147 0" material="clans_rust"/>
+  <!-- rear pivot: A-frames, the drawworks drum  -->
+  <box size="14 82 10" rot="0 0 -10" pos="-150 106 34" material="clans_rust"/>
+  <box size="14 82 10" rot="0 0 -10" pos="-150 106 -34" material="clans_rust"/>
+  <cylinder radius="7" height="80" sides="8" rot="90 0 0" pos="-158 146 0" material="steel_dark"/>
+  <cylinder radius="22" height="44" sides="12" rot="90 0 0" pos="-138 92 0" material="clans_paint" tint="1"/>
+  <cylinder radius="24" height="4" sides="12" rot="90 0 0" pos="-138 92 20" material="clans_rust"/>
+  <cylinder radius="24" height="4" sides="12" rot="90 0 0" pos="-138 92 -20" material="clans_rust"/>
+  <!-- the raising ram, retracted -->
+  <tube ax="-60" ay="66" az="0" bx="8" by="148" bz="0" r0="9" material="hazard"/>
+  <tube ax="-30" ay="102" az="0" bx="30" by="148" bz="0" r0="4" material="steel"/>
+  <box size="30 20 30" pos="-60 76 0" material="gunmetal"/>
+
+  <!-- drill pipe sections racked on the right of the bed -->
+  <cylinder radius="8.5" height="150" sides="10" rot="0 0 90" pos="-86 74.5 -36" material="clans_tin"/>
+  <cylinder radius="8.5" height="150" sides="10" rot="0 0 90" pos="-86 74.5 -54" material="clans_tin"/>
+  <cylinder radius="8.5" height="150" sides="10" rot="0 0 90" pos="-86 74.5 -72" material="clans_tin"/>
+  <cylinder radius="8.5" height="150" sides="10" rot="0 0 90" pos="-82 89 -45" material="clans_sheet_rust"/>
+  <cylinder radius="8.5" height="150" sides="10" rot="0 0 90" pos="-82 89 -63" material="clans_sheet_rust"/>
+  <cylinder radius="9.5" height="10" sides="10" rot="0 0 90" pos="-158 74.5 -54" material="clans_rust"/>
+  <box size="6 30 64" pos="-120 80 -54" material="steel_dark"/>
+  <box size="6 30 64" pos="-50 80 -54" material="steel_dark"/>
+
+  <!-- drums and a flag on the left -->
+  <clans-drum pos="-40 66 50" radius="19" height="50" material="hazard"/>
+  <clans-drum pos="-82 66 50" radius="19" height="50" material="clans_paint" tint="1"/>
+  <box size="4 3 50" pos="-61 106 50" material="clans_chain"/>
+  <clans-flag height="110" size="40" pos="-162 66 60"/>
+</prefab>

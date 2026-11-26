@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sentry Post, assembled: the deployed bed with its twin-gun head on the 90 cm mount
+     (art/sprites.py renders the layers apart; this is the shadow and the preview). -->
+<prefab up="y" front="+z">
+  <prefab source="buildings/sentry/base"/>
+  <prefab source="buildings/sentry/head" pos="0 90 0" rot="0 -90 0"/>
+</prefab>

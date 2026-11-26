@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Kestrel gunship. Fuselage 382 cm on X (nose to tail fin), main rotor 380 cm across, width
+     160 cm on Z over the stub wings; origin on the ground under the rotor mast, nose faces +X.
+     It hovers: the skids, its lowest point, are 150 cm above the origin. A tandem-cockpit
+     helicopter: a faceted body in team paint with stepped glazing, a gunmetal engine house and
+     mast, a four-bladed main rotor with hazard tips, a tail boom with a painted fin and a tail
+     rotor on its left (+Z) side, stub wings carrying two rocket pods with hazard rings, a chin
+     gun and tubular skids. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 turns the main rotor and the tail
+       rotor 45 degrees, so the blades interleave between the two frames. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the salvo (flashes at both
+       rocket pods, back-blast behind them), fire 2 smaller flashes and drifting smoke. -->
+  <let name="fire" value="0"/>
+
+  <!-- skids and struts -->
+  <tube ax="-74" ay="153" az="46" bx="86" by="153" bz="46" r0="3" material="steel_dark"/>
+  <tube ax="-74" ay="153" az="-46" bx="86" by="153" bz="-46" r0="3" material="steel_dark"/>
+  <tube ax="86" ay="153" az="46" bx="104" by="164" bz="46" r0="3" material="steel_dark"/>
+  <tube ax="86" ay="153" az="-46" bx="104" by="164" bz="-46" r0="3" material="steel_dark"/>
+  <tube ax="58" ay="153" az="46" bx="58" by="180" bz="24" r0="2.5" material="steel_dark"/>
+  <tube ax="58" ay="153" az="-46" bx="58" by="180" bz="-24" r0="2.5" material="steel_dark"/>
+  <tube ax="-44" ay="153" az="46" bx="-44" by="180" bz="24" r0="2.5" material="steel_dark"/>
+  <tube ax="-44" ay="153" az="-46" bx="-44" by="180" bz="-24" r0="2.5" material="steel_dark"/>
+
+  <!-- body: a faceted side profile, sides leaning in -->
+  <shape closed="1" v="176 202 164 188 120 176 -50 176 -76 196 -68 230 30 236 96 226 150 214" material="paint_plain" tint="1">
+    <extrude amount="64"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 176 0" amount="-0.22" axis="y" effect="z"/>
+  </shape>
+  <box size="150 5 3" pos="20 196 31.5" material="trim_light"/>
+  <box size="150 5 3" pos="20 196 -31.5" material="trim_light"/>
+  <!-- stepped tandem glazing and its frame -->
+  <shape closed="1" v="152 211 96 223 28 233 28 248 70 252 100 240 132 226" material="glass">
+    <extrude amount="40"/><bevel amount="2" bevelSegments="1"/>
+    <taper center="0 220 0" amount="-0.25" axis="y" effect="z"/>
+  </shape>
+  <box size="4 26 42" rot="0 0 -20" pos="96 238 0" material="trim"/>
+  <!-- chin gun -->
+  <sphere radius="10" rings="5" slices="8" pos="150 180 0" material="gunmetal"/>
+  <cylinder radius="2.2" height="34" sides="6" rot="0 0 -90" pos="172 178 0" material="steel_dark"/>
+
+  <!-- engine house, exhausts, mast -->
+  <soft-box width="96" height="26" depth="52" radius="8" bevel="2" pos="-18 247 0" material="gunmetal"/>
+  <box size="70 3 40" pos="-14 261.5 0" material="trim"/>
+  <cylinder radius="7" height="20" sides="8" rot="0 0 90" pos="-72 244 22" material="steel_dark"/>
+  <cylinder radius="7" height="20" sides="8" rot="0 0 90" pos="-72 244 -22" material="steel_dark"/>
+  <cylinder radius="7" height="30" sides="10" pos="0 276 0" material="steel_dark"/>
+  <cylinder radius="14" height="8" sides="10" pos="0 293 0" material="gunmetal"/>
+
+  <!-- main rotor: four blades with hazard tips -->
+  <group pos="0 299 0" rot="0 {45*move} 0">
+    <box size="380 3 17" material="steel_dark"/>
+    <box size="17 2.6 380" material="steel_dark"/>
+    <box size="22 3.4 17.4" pos="180 0 0" material="emblem_gold"/>
+    <box size="22 3.4 17.4" pos="-180 0 0" material="emblem_gold"/>
+    <box size="17.4 3.4 22" pos="0 0 180" material="emblem_gold"/>
+    <box size="17.4 3.4 22" pos="0 0 -180" material="emblem_gold"/>
+  </group>
+  <cylinder radius="6" height="8" sides="8" pos="0 304 0" material="steel"/>
+
+  <!-- tail boom, stabiliser, fin and tail rotor -->
+  <tube ax="-66" ay="212" az="0" bx="-200" by="226" bz="0" r0="15" r1="7" material="gunmetal"/>
+  <box size="16 18 22" pos="-130 219 0" material="paint_plain" tint="1"/>
+  <box size="30 3 76" pos="-176 224 0" material="trim"/>
+  <shape closed="1" v="-10 0 18 0 4 48 -14 52" pos="-200 220 0" material="paint_plain" tint="1">
+    <extrude amount="5"/>
+  </shape>
+  <cylinder radius="4" height="10" sides="8" rot="90 0 0" pos="-202 248 7" material="steel_dark"/>
+  <group pos="-202 248 12" rot="0 0 {45*move}">
+    <box size="74 7 2" material="steel_dark"/>
+    <box size="7 74 1.6" material="steel_dark"/>
+  </group>
+
+  <!-- stub wings and rocket pods -->
+  <box size="44 5 156" pos="18 202 0" material="paint_plain" tint="1"/>
+  <cylinder radius="12" height="62" sides="10" rot="0 0 -90" pos="22 188 66" material="gunmetal"/>
+  <cylinder radius="12" height="62" sides="10" rot="0 0 -90" pos="22 188 -66" material="gunmetal"/>
+  <cylinder radius="12.5" height="8" sides="10" rot="0 0 -90" pos="50 188 66" material="hazard"/>
+  <cylinder radius="12.5" height="8" sides="10" rot="0 0 -90" pos="50 188 -66" material="hazard"/>
+  <cylinder radius="9" height="1" sides="10" rot="0 0 -90" pos="54.2 188 66" material="rubber"/>
+  <cylinder radius="9" height="1" sides="10" rot="0 0 -90" pos="54.2 188 -66" material="rubber"/>
+  <box size="10 10 6" pos="22 197 66" material="steel_dark"/>
+  <box size="10 10 6" pos="22 197 -66" material="steel_dark"/>
+  <box size="5 5 3" pos="174 196 22" material="lamp" unlit="1" castShadow="0"/>
+  <box size="5 5 3" pos="174 196 -22" material="lamp" unlit="1" castShadow="0"/>
+  <warn-light pos="-60 231 0" on="1"/>
+
+  <!-- the salvo: flashes at both pods and back-blast; then smaller flashes and smoke -->
+  <muzzle-flash pos="56 188 66" scale="1.1 1.1 1.1" on="{fire == 1}"/>
+  <muzzle-flash pos="56 188 -66" scale="1.1 1.1 1.1" on="{fire == 1}"/>
+  <muzzle-flash pos="-12 188 66" rot="0 180 0" scale="0.7 0.9 0.9" on="{fire == 1}"/>
+  <muzzle-flash pos="-12 188 -66" rot="0 180 0" scale="0.7 0.9 0.9" on="{fire == 1}"/>
+  <muzzle-flash pos="56 188 66" scale="0.5 0.6 0.6" on="{fire == 2}"/>
+  <muzzle-flash pos="56 188 -66" scale="0.5 0.6 0.6" on="{fire == 2}"/>
+  <sphere radius="14" rings="4" slices="6" pos="-30 190 70" material="steel" castShadow="0" renderable="{fire == 2}"/>
+  <sphere radius="10" rings="4" slices="6" pos="-52 196 76" material="steel" castShadow="0" renderable="{fire == 2}"/>
+  <sphere radius="14" rings="4" slices="6" pos="-30 190 -70" material="steel" castShadow="0" renderable="{fire == 2}"/>
+  <sphere radius="10" rings="4" slices="6" pos="-52 196 -76" material="steel" castShadow="0" renderable="{fire == 2}"/>
+</prefab>

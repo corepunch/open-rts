@@ -48,6 +48,17 @@
   "cl_shop",
   "cl_wrecker",
   "lc_sanctum",
-  "lc_aegis"
+  "lc_aegis",
+  "crane",
+  "phantom",
+  "kestrel",
+  "sentry_truck",
+  "cl_sapper",
+  "cl_drill",
+  "cl_crusher",
+  "cl_buzzard",
+  "lc_cantor",
+  "lc_strider",
+  "lc_seraph"
  ]
 }

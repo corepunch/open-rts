@@ -26,6 +26,10 @@ static const struct { uint16_t shooter, projectile; fixed_t muzzle, height; int 
     {MT_LC_TOWER, MT_HEAVY_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.9), 1, 0},
     {MT_HAMMER, MT_HEAVY_MISSILE, FIXED_LIT(1.2), FIXED_LIT(0.9), 2, FIXED_LIT(0.3)},
     {MT_LC_AEGIS, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.7), 1, 0},
+    {MT_PHANTOM, MT_SHELL, FIXED_LIT(1.0), FIXED_LIT(0.5), 1, 0},
+    {MT_KESTREL, MT_MISSILE, FIXED_LIT(0.5), FIXED_LIT(1.1), 2, FIXED_LIT(0.35)},
+    {MT_CL_BUZZARD, MT_BOMB, 0, FIXED_LIT(0.9), 1, 0},
+    {MT_LC_SERAPH, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(1.0), 1, 0},
 };
 
 /* gameinfo_t.attack: launch the shooter's projectiles at the target. They fly to where the
@@ -69,6 +73,7 @@ bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
 #define AEGIS_FIELD FIXED_LIT(3.5)
 int RF_ShieldDamage(const mobj_t *victim, int damage) {
     if (!victim || victim->type_id >= MT_FX_HIT) return damage;
+    if (RF_Phased(victim) || victim->rf_ward > 0) return 0; /* g_units.c: phase, the Rite of Warding */
     fixed2_t at = fixed3_xy(victim->core.position);
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         const mobj_t *aegis = (const mobj_t *)th;
@@ -99,7 +104,7 @@ static void blast(mobj_t *source, fixed2_t at, fixed_t radius, int damage, int t
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *other = (mobj_t *)th;
         if (th->function != P_MobjThinker || other == spare || other == source || other->remove || other->hp <= 0 ||
-            other->type_id >= MT_FX_HIT || other->team == team) continue;
+            other->type_id >= MT_FX_HIT || other->team == team || other->rf_boarded) continue;
         fixed_t reach = radius + (RF_IsStructure(other) ? other->info->footprint.w * (FIXED_ONE / 2) : 0);
         if (within(other, at, reach)) P_DamageMobj(other, source, RF_ShieldDamage(other, damage));
     }
@@ -147,11 +152,13 @@ void A_RfImpact(mobj_t *shot) {
         P_DamageMobj(victim, source, RF_ShieldDamage(victim, damage));
     else
         victim = NULL;
-    if (shot->type_id == MT_HEAVY_SHELL || shot->type_id == MT_HEAVY_BOLT || shot->type_id == MT_HEAVY_MISSILE) {
+    if (shot->type_id == MT_HEAVY_SHELL || shot->type_id == MT_HEAVY_BOLT || shot->type_id == MT_HEAVY_MISSILE ||
+        shot->type_id == MT_BOMB) {
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
             mobj_t *other = (mobj_t *)th;
             if (th->function != P_MobjThinker || other == victim || other == shot || other->remove ||
-                other->hp <= 0 || other->type_id >= MT_FX_HIT || other->team == shot->team) continue;
+                other->hp <= 0 || other->type_id >= MT_FX_HIT || other->team == shot->team || other->rf_boarded ||
+                ((other->traits & MF_FLY) && shot->type_id == MT_BOMB)) continue;
             if (within(other, at, FIXED_LIT(1.5))) P_DamageMobj(other, source, RF_ShieldDamage(other, damage / 2));
         }
     }
@@ -173,7 +180,7 @@ void RF_TrailRockets(mobj_t *const *mobjs, int count) {
 /* gameinfo_t.mobj_ticker: a standing soldier keeps looking for targets every tic, whatever
  * frame of its slow idle loop is showing. */
 void RF_MobjTicker(mobj_t *mobj) {
-    if (RF_IsInfantry(mobj->type_id) && mobj->hp > 0 &&
+    if (RF_IsInfantry(mobj->type_id) && mobj->hp > 0 && !mobj->rf_boarded && mobj->type_id != MT_LC_CANTOR &&
         mobj->core.state_id == mobjinfo[mobj->type_id].spawnstate)
         A_Look(mobj);
 }

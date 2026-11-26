@@ -19,6 +19,10 @@ static const struct { uint16_t type; int8_t cells; } SIGHT[] = {
     {MT_LC_WARDEN, 6}, {MT_LC_LANCER, 6},
     /* The Uplink watches far round the base; the Hammer needs eyes forward. */
     {MT_UPLINK, 12}, {MT_HAMMER, 6}, {MT_CL_SHOP, 5}, {MT_CL_WRECKER, 6}, {MT_LC_SANCTUM, 6}, {MT_LC_AEGIS, 7},
+    /* The special units: a gunship and the flyers see far; a mine sees nothing. */
+    {MT_CRANE, 5}, {MT_PHANTOM, 6}, {MT_KESTREL, 8}, {MT_SENTRY_TRUCK, 5}, {MT_SENTRY, 7},
+    {MT_CL_DRILL, 5}, {MT_CL_DERRICK, 4}, {MT_CL_SAPPER, 5}, {MT_CL_CRUSHER, 6}, {MT_CL_BUZZARD, 7},
+    {MT_LC_STRIDER, 6}, {MT_LC_SERAPH, 8}, {MT_LC_CANTOR, 6},
 };
 
 int RF_SightCells(uint16_t type) {
@@ -29,6 +33,7 @@ int RF_SightCells(uint16_t type) {
 
 /* A site sees only its own surroundings until it is finished. Effects and shots see nothing. */
 bool G_SightRadius(const mobj_t *actor, int *radius) {
+    if (actor->rf_boarded) { *radius = 0; return true; } /* a soldier inside an APC */
     int cells = RF_SightCells(actor->type_id);
     if (!cells) return *radius > 0;
     *radius = RF_IsSite(actor) ? 3 : cells;

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Strider, a spider walker mech. Footprint 280 cm on X by 240 cm on Z (feet at
+     the corners), about 215 cm tall to the emitter prongs, origin at the body centre on the
+     ground, the head faces +X. A white ceramic carapace with a graphite belly, team-colour flank
+     plates and a rear pod band slung between four long jointed legs (knees high above the body,
+     team-colour femur sleeves, cyan knee lights, graphite claws); a cyan-visored head at the
+     front, and on the back an arc emitter: a crystal orb ringed by four ceramic prongs with
+     crystal tips that throws chaining beams. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: move 0/1 are the two gait poses (move 0
+       lifts the front-left and rear-right legs and swings them forward, move 1 the other pair; the
+       body sways 3 cm); fire 1 is the shot (the orb blazes and arcs leap from it and its prongs),
+       fire 2 the afterglow. -->
+  <let name="move" value="0"/>
+  <let name="fire" value="0"/>
+  <let name="la" value="move == 0 ? 1 : 0"/>
+  <let name="lb" value="1 - la"/>
+
+    <!-- front left leg (lifted while la is 1) -->
+    <sphere radius="17" rings="8" slices="12" pos="62 112 48" material="concord_graphite"/>
+    <tube ax="62" ay="112" az="48" bx="110+12*la-4" by="172+16*la" bz="100" r0="13" r1="10" material="concord_ceramic"/>
+    <tube ax="(62)+(0.3)*((110+12*la-4)-(62))" ay="(112)+(0.3)*((172+16*la)-(112))" az="(48)+(0.3)*((100)-(48))" bx="(62)+(0.8)*((110+12*la-4)-(62))" by="(112)+(0.8)*((172+16*la)-(112))" bz="(48)+(0.8)*((100)-(48))" r0="14.5" r1="12" material="paint_plain" tint="1"/>
+    <sphere radius="13" rings="8" slices="12" pos="{110+12*la-4} {172+16*la} 100" material="concord_graphite"/>
+    <sphere radius="5" rings="4" slices="8" pos="{110+12*la-4} {172+16*la+11} 100" material="glow" unlit="1" castShadow="0"/>
+    <tube ax="110+12*la-4" ay="172+16*la" az="100" bx="132+26*la-8" by="30*la+14" bz="114" r0="10" r1="6" material="concord_ceramic"/>
+    <cone radius="7" radiusTop="0" height="16" sides="8" rot="180 0 0" pos="{132+26*la-8} {30*la+8} 114" material="concord_graphite"/>
+    <!-- rear right leg (lifted while la is 1) -->
+    <sphere radius="17" rings="8" slices="12" pos="-62 112 -48" material="concord_graphite"/>
+    <tube ax="-62" ay="112" az="-48" bx="-110+12*la-4" by="172+16*la" bz="-100" r0="13" r1="10" material="concord_ceramic"/>
+    <tube ax="(-62)+(0.3)*((-110+12*la-4)-(-62))" ay="(112)+(0.3)*((172+16*la)-(112))" az="(-48)+(0.3)*((-100)-(-48))" bx="(-62)+(0.8)*((-110+12*la-4)-(-62))" by="(112)+(0.8)*((172+16*la)-(112))" bz="(-48)+(0.8)*((-100)-(-48))" r0="14.5" r1="12" material="paint_plain" tint="1"/>
+    <sphere radius="13" rings="8" slices="12" pos="{-110+12*la-4} {172+16*la} -100" material="concord_graphite"/>
+    <sphere radius="5" rings="4" slices="8" pos="{-110+12*la-4} {172+16*la+11} -100" material="glow" unlit="1" castShadow="0"/>
+    <tube ax="-110+12*la-4" ay="172+16*la" az="-100" bx="-132+26*la-8" by="30*la+14" bz="-114" r0="10" r1="6" material="concord_ceramic"/>
+    <cone radius="7" radiusTop="0" height="16" sides="8" rot="180 0 0" pos="{-132+26*la-8} {30*la+8} -114" material="concord_graphite"/>
+    <!-- front right leg (lifted while lb is 1) -->
+    <sphere radius="17" rings="8" slices="12" pos="62 112 -48" material="concord_graphite"/>
+    <tube ax="62" ay="112" az="-48" bx="110+12*lb-4" by="172+16*lb" bz="-100" r0="13" r1="10" material="concord_ceramic"/>
+    <tube ax="(62)+(0.3)*((110+12*lb-4)-(62))" ay="(112)+(0.3)*((172+16*lb)-(112))" az="(-48)+(0.3)*((-100)-(-48))" bx="(62)+(0.8)*((110+12*lb-4)-(62))" by="(112)+(0.8)*((172+16*lb)-(112))" bz="(-48)+(0.8)*((-100)-(-48))" r0="14.5" r1="12" material="paint_plain" tint="1"/>
+    <sphere radius="13" rings="8" slices="12" pos="{110+12*lb-4} {172+16*lb} -100" material="concord_graphite"/>
+    <sphere radius="5" rings="4" slices="8" pos="{110+12*lb-4} {172+16*lb+11} -100" material="glow" unlit="1" castShadow="0"/>
+    <tube ax="110+12*lb-4" ay="172+16*lb" az="-100" bx="132+26*lb-8" by="30*lb+14" bz="-114" r0="10" r1="6" material="concord_ceramic"/>
+    <cone radius="7" radiusTop="0" height="16" sides="8" rot="180 0 0" pos="{132+26*lb-8} {30*lb+8} -114" material="concord_graphite"/>
+    <!-- rear left leg (lifted while lb is 1) -->
+    <sphere radius="17" rings="8" slices="12" pos="-62 112 48" material="concord_graphite"/>
+    <tube ax="-62" ay="112" az="48" bx="-110+12*lb-4" by="172+16*lb" bz="100" r0="13" r1="10" material="concord_ceramic"/>
+    <tube ax="(-62)+(0.3)*((-110+12*lb-4)-(-62))" ay="(112)+(0.3)*((172+16*lb)-(112))" az="(48)+(0.3)*((100)-(48))" bx="(-62)+(0.8)*((-110+12*lb-4)-(-62))" by="(112)+(0.8)*((172+16*lb)-(112))" bz="(48)+(0.8)*((100)-(48))" r0="14.5" r1="12" material="paint_plain" tint="1"/>
+    <sphere radius="13" rings="8" slices="12" pos="{-110+12*lb-4} {172+16*lb} 100" material="concord_graphite"/>
+    <sphere radius="5" rings="4" slices="8" pos="{-110+12*lb-4} {172+16*lb+11} 100" material="glow" unlit="1" castShadow="0"/>
+    <tube ax="-110+12*lb-4" ay="172+16*lb" az="100" bx="-132+26*lb-8" by="30*lb+14" bz="114" r0="10" r1="6" material="concord_ceramic"/>
+    <cone radius="7" radiusTop="0" height="16" sides="8" rot="180 0 0" pos="{-132+26*lb-8} {30*lb+8} 114" material="concord_graphite"/>
+
+  <group pos="0 {3*move} {4*move-2}">
+    <!-- carapace: graphite belly, white shell, team flank plates and spine stripe -->
+    <ellipsoid radii="84 12 64" rings="6" slices="24" pos="0 100 0" material="concord_graphite"/>
+    <ellipsoid radii="86 32 66" rings="12" slices="24" pos="0 116 0" material="concord_ceramic"/>
+    <ellipsoid radii="88 4 68" rings="4" slices="24" pos="0 108 0" material="concord_graphite"/>
+    <ellipsoid radii="12 33.5 67.5" rings="12" slices="24" pos="34 116 0" material="paint_plain" tint="1"/>
+    <ellipsoid radii="12 33.5 67.5" rings="12" slices="24" pos="-46 116 0" material="paint_plain" tint="1"/>
+    <ellipsoid radii="70 33.5 14" rings="12" slices="24" pos="-2 116 0" material="paint_plain" tint="1"/>
+    <!-- head with a cyan visor -->
+    <ellipsoid radii="36 22 40" rings="8" slices="16" pos="80 108 0" material="concord_ceramic"/>
+    <ellipsoid radii="22 12 34" rings="6" slices="16" pos="100 108 0" rot="0 0 -20" material="concord_graphite"/>
+    <ellipsoid radii="10 5 30" rings="4" slices="12" pos="112 112 0" rot="0 0 -30" material="glow" unlit="1" castShadow="0"/>
+    <ellipsoid radii="20 5 10" rings="4" slices="12" pos="86 128 0" rot="0 0 -18" material="paint_plain" tint="1"/>
+    <!-- rear pod with a team band -->
+    <ellipsoid radii="42 26 46" rings="8" slices="16" pos="-90 110 0" material="concord_pearl"/>
+    <ellipsoid radii="12 27 47" rings="4" slices="16" pos="-90 110 0" material="paint_plain" tint="1"/>
+    <!-- arc emitter: pedestal, crystal orb, four prongs with crystal tips -->
+    <cylinder radius="26" height="16" sides="20" pos="-6 152 0" material="concord_graphite"/>
+    <torus majorRadius="25" minorRadius="3" majorSegments="24" minorSegments="6" pos="-6 160 0" material="glow" unlit="1" castShadow="0"/>
+    <sphere radius="20" rings="10" slices="16" pos="-6 178 0" material="concord_crystal"/>
+    <tube ax="12" ay="156" az="18" bx="30" by="204" bz="36" r0="8" r1="4" material="concord_ceramic"/>
+    <tube ax="12" ay="156" az="-18" bx="30" by="204" bz="-36" r0="8" r1="4" material="concord_ceramic"/>
+    <tube ax="-24" ay="156" az="18" bx="-42" by="204" bz="36" r0="8" r1="4" material="concord_ceramic"/>
+    <tube ax="-24" ay="156" az="-18" bx="-42" by="204" bz="-36" r0="8" r1="4" material="concord_ceramic"/>
+    <sphere radius="8" rings="6" slices="10" pos="30 206 36" material="concord_crystal"/>
+    <sphere radius="8" rings="6" slices="10" pos="30 206 -36" material="concord_crystal"/>
+    <sphere radius="8" rings="6" slices="10" pos="-42 206 36" material="concord_crystal"/>
+    <sphere radius="8" rings="6" slices="10" pos="-42 206 -36" material="concord_crystal"/>
+    <!-- the shot: the orb blazes, arcs run between the prongs and leap forward -->
+    <sphere radius="24" rings="8" slices="12" pos="-6 176 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <sphere radius="40" rings="8" slices="12" pos="-6 178 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <group renderable="{fire == 1}">
+      <tube ax="30" ay="206" az="36" bx="-8" by="196" bz="4" r0="4" material="concord_core"/>
+      <tube ax="30" ay="206" az="-36" bx="-8" by="196" bz="-4" r0="4" material="concord_core"/>
+      <tube ax="-42" ay="206" az="36" bx="-6" by="210" bz="0" r0="4" material="concord_core"/>
+      <tube ax="-42" ay="206" az="-36" bx="-6" by="210" bz="0" r0="4" material="concord_core"/>
+      <tube ax="10" ay="180" az="0" bx="60" by="196" bz="18" r0="6" r1="5" material="glow"/>
+      <tube ax="60" ay="196" az="18" bx="104" by="172" bz="-14" r0="5" r1="4" material="glow"/>
+      <tube ax="104" ay="172" az="-14" bx="170" by="188" bz="8" r0="4" r1="2" material="glow"/>
+      <tube ax="10" ay="180" az="0" bx="60" by="196" bz="18" r0="2" material="concord_core"/>
+      <tube ax="60" ay="196" az="18" bx="104" by="172" bz="-14" r0="2" material="concord_core"/>
+    </group>
+    <sphere radius="22" rings="8" slices="12" pos="-6 176 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 2}"/>
+  </group>
+</prefab>

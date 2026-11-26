@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sentry Post base without its head (see sentry/head.blk; the head sits at (0, 90, 0)). The
+     Sentry Truck's bed, deployed: footprint 1x1 cell, everything inside 180 x 180 cm, origin at the
+     footprint centre on the ground, front +Z. The painted bed (150 x 116 cm) is lowered onto four
+     outrigger arms that swing out to the corners on hazard-striped jacks and stabiliser feet. It
+     carries the slewing pedestal; a sandbag parapet stands in front, ammo boxes at the back and a
+     warning light on a stalk. -->
+<prefab up="y" front="+z">
+  <include src="../../../utilities.xml"/>
+  <include src="../../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: blink 0/1 is the warning light dark/lit. -->
+  <let name="blink" value="1"/>
+
+  <!-- outrigger arms out to the corners, jacks and stabiliser feet -->
+  <beam ax="50" ay="30" az="40" bx="72" by="30" bz="72" width="10" depth="10" material="steel_dark"/>
+  <beam ax="-50" ay="30" az="40" bx="-72" by="30" bz="72" width="10" depth="10" material="steel_dark"/>
+  <beam ax="50" ay="30" az="-40" bx="72" by="30" bz="-72" width="10" depth="10" material="steel_dark"/>
+  <beam ax="-50" ay="30" az="-40" bx="-72" by="30" bz="-72" width="10" depth="10" material="steel_dark"/>
+  <box size="12 35 12" pos="74 22.5 74" material="hazard"/>
+  <box size="12 35 12" pos="-74 22.5 74" material="hazard"/>
+  <box size="12 35 12" pos="74 22.5 -74" material="hazard"/>
+  <box size="12 35 12" pos="-74 22.5 -74" material="hazard"/>
+  <cylinder radius="4" height="6" sides="8" pos="74 7 74" material="steel"/>
+  <cylinder radius="4" height="6" sides="8" pos="-74 7 74" material="steel"/>
+  <cylinder radius="4" height="6" sides="8" pos="74 7 -74" material="steel"/>
+  <cylinder radius="4" height="6" sides="8" pos="-74 7 -74" material="steel"/>
+  <box size="24 4 24" pos="74 2 74" material="steel_dark"/>
+  <box size="24 4 24" pos="-74 2 74" material="steel_dark"/>
+  <box size="24 4 24" pos="74 2 -74" material="steel_dark"/>
+  <box size="24 4 24" pos="-74 2 -74" material="steel_dark"/>
+
+  <!-- the bed: a dark frame under painted sides, a grating deck, a white stripe -->
+  <box size="140 16 100" pos="0 18 0" material="steel_dark"/>
+  <shape closed="1" v="-75 26 75 26 75 48 -75 48" material="paint_plain" tint="1">
+    <extrude amount="116"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 26 0" amount="-0.08" axis="y" effect="z"/>
+  </shape>
+  <box size="144 5 3" pos="0 38 57" material="trim_light"/>
+  <box size="3 5 116" pos="74.5 38 0" material="trim_light"/>
+  <box size="3 5 116" pos="-74.5 38 0" material="trim_light"/>
+  <box size="140 2 106" pos="0 49 0" material="grating"/>
+
+  <!-- slewing pedestal -->
+  <cylinder radius="32" height="6" sides="16" pos="0 53.3 0" material="trim"/>
+  <cylinder radius="22" height="16" sides="14" pos="0 64 0" material="gunmetal"/>
+  <collar radius="24" height="6" pos="0 62 0"/>
+
+  <!-- sandbag parapet on the ground in front of the bed -->
+  <sandbags count="3" pos="0 0 72"/>
+  <!-- ammo boxes at the back -->
+  <box size="30 18 20" pos="-42 59 -40" material="armor"/>
+  <box size="30 18 20" pos="-10 59 -40" material="armor"/>
+  <box size="62 3 20" pos="-26 69.5 -40" material="hazard"/>
+  <box size="24 22 22" pos="44 61 -38" material="trim"/>
+  <!-- warning light on a stalk -->
+  <cylinder radius="2" height="14" sides="6" pos="60 57 -44" material="steel_dark"/>
+  <warn-light pos="60 64 -44" on="{blink}"/>
+</prefab>

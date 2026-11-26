@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Buzzard, the Scrap Clans' autogyro bomber. Length 300 cm on X (rotor 380 cm across),
+     origin on the ground under its centre, nose faces +X. It flies: the lowest point (skids and
+     bomb drums) is 150 cm above the origin. An open tube frame with a team-painted nose
+     fairing, a pilot in a leather cap and goggles with a team scarf, a two-bladed top rotor on a
+     welded mast, an engine with a rear pusher propeller, a team tail fin, and a rack of four
+     small bomb drums under the seat. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <material id="clans_skin"    color="0.66 0.46 0.32" shininess="8"/>
+  <material id="clans_goggle"  color="0.20 0.55 0.50" shininess="90" specular="1"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: move 0/1 turns the rotor 90 degrees
+       and the propeller with it; fire 1 drops a bomb drum (it falls clear of the rack with a
+       small flash), fire 2 shows it lower and the rack slot empty. -->
+  <let name="move" value="0"/>
+  <let name="fire" value="0"/>
+  <let name="drop" value="fire == 1 ? 40 : (fire == 2 ? 100 : 0)"/>
+
+  <!-- skids and struts: the lowest point, 150 cm up -->
+  <box size="120 4 6" pos="20 152 -46" material="steel_dark"/>
+  <tube ax="80" ay="152" az="-46" bx="90" by="160" bz="-46" r0="3" material="steel_dark"/>
+  <tube ax="50" ay="154" az="-46" bx="54" by="186" bz="-18.4" r0="2.6" material="steel_dark"/>
+  <tube ax="-20" ay="154" az="-46" bx="-16" by="186" bz="-18.4" r0="2.6" material="steel_dark"/>
+  <box size="120 4 6" pos="20 152 46" material="steel_dark"/>
+  <tube ax="80" ay="152" az="46" bx="90" by="160" bz="46" r0="3" material="steel_dark"/>
+  <tube ax="50" ay="154" az="46" bx="54" by="186" bz="18.4" r0="2.6" material="steel_dark"/>
+  <tube ax="-20" ay="154" az="46" bx="-16" by="186" bz="18.4" r0="2.6" material="steel_dark"/>
+
+  <!-- the open tube frame: keel, seat rails, tail boom -->
+  <tube ax="130" ay="196" az="0" bx="-20" by="184" bz="0" r0="3.4" material="clans_rust"/>
+  <tube ax="-20" ay="184" az="0" bx="-170" by="214" bz="0" r0="3.4" material="clans_rust"/>
+  <tube ax="100" ay="196" az="22" bx="0" by="190" bz="22" r0="3.4" material="clans_rust"/>
+  <tube ax="100" ay="196" az="-22" bx="0" by="190" bz="-22" r0="3.4" material="clans_rust"/>
+  <tube ax="0" ay="190" az="22" bx="-20" by="260" bz="0" r0="3.4" material="clans_rust"/>
+  <tube ax="0" ay="190" az="-22" bx="-20" by="260" bz="0" r0="3.4" material="clans_rust"/>
+  <tube ax="-20" ay="184" az="0" bx="-170" by="260" bz="0" r0="3.4" material="clans_rust"/>
+  <box size="40 4 50" pos="30 190 0" material="steel_dark"/>
+
+  <!-- team-painted nose fairing and a little windscreen -->
+  <shape closed="1" v="70 186 128 188 150 202 134 222 92 230 70 226" material="clans_paint" tint="1">
+    <extrude amount="54"/><bevel amount="3" bevelSegments="1"/>
+    <taper center="0 186 0" amount="-0.12" axis="y" effect="z"/>
+  </shape>
+  <box size="3 18 44" rot="0 0 -30" pos="84 238 0" material="glass"/>
+  <box size="4 5 10" pos="151 204 0" material="lamp" unlit="1" castShadow="0"/>
+  <box size="30 3 56" pos="108 229 0" rot="0 0 -10" material="clans_tin"/>
+
+  <!-- the pilot: canvas coat, team scarf, leather cap, goggles -->
+  <box size="34 10 40" pos="40 197 0" material="rubber"/>
+  <box size="8 40 40" rot="0 0 14" pos="20 220 0" material="rubber"/>
+  <capsule radius="15" height="44" rings="3" slices="8" rot="0 0 -14" pos="42 234 0" material="clans_canvas"/>
+  <tube ax="44" ay="210" az="12" bx="86" by="204" bz="14" r0="6" material="clans_canvas"/>
+  <tube ax="44" ay="210" az="-12" bx="86" by="204" bz="-14" r0="6" material="clans_canvas"/>
+  <tube ax="46" ay="246" az="16" bx="78" by="226" bz="12" r0="4.5" material="clans_canvas"/>
+  <tube ax="46" ay="246" az="-16" bx="78" by="226" bz="-12" r0="4.5" material="clans_canvas"/>
+  <box size="10 26 4" pos="80 222 0" material="steel_dark"/>
+  <sphere radius="14" rings="5" slices="8" scale="1 0.55 1" pos="46 256 0" material="clans_cloth" tint="1"/>
+  <box size="30 8 8" rot="0 0 10" pos="24 254 8" material="clans_cloth" tint="1"/>
+  <sphere radius="10" rings="6" slices="8" pos="50 270 0" material="clans_skin"/>
+  <sphere radius="10.8" rings="6" slices="8" scale="1 0.7 1" pos="48 274 0" material="rubber"/>
+  <box size="4 5 18" pos="59 271 0" material="clans_goggle"/>
+  <box size="6 2 20" pos="58 274 0" material="rubber"/>
+
+  <!-- engine behind the pilot, team fuel drum, exhaust, the pusher propeller -->
+  <box size="44 40 46" pos="-6 214 0" material="gunmetal"/>
+  <cylinder radius="9" height="20" sides="8" rot="90 0 0" pos="-6 222 30" material="steel_dark"><array count="2" translation="0 0 -60"/></cylinder>
+  <cylinder radius="17" height="40" sides="12" rot="90 0 0" pos="4 250 0" material="clans_paint" tint="1"/>
+  <cylinder radius="18" height="4" sides="12" rot="90 0 0" pos="4 250 0" material="clans_rust"/>
+  <tube ax="-10" ay="228" az="-26" bx="-34" by="270" bz="-30" r0="3.4" material="clans_rust"/>
+  <cylinder radius="7" height="16" sides="8" rot="0 0 90" pos="-36 236 0" material="steel_dark"/>
+  <group pos="-46 236 0" rot="{30+90*move} 0 0">
+    <cylinder radius="8" height="10" sides="8" rot="0 0 90" material="clans_drum"/>
+    <box size="4 124 13" rot="0 10 0" pos="0 0 0" material="clans_wood"/>
+    <box size="4.4 18 14" pos="0 54 0" material="clans_paint" tint="1"/>
+    <box size="4.4 18 14" pos="0 -54 0" material="clans_paint" tint="1"/>
+  </group>
+
+  <!-- rotor mast and the two-bladed rotor, tipped back a little -->
+  <tube ax="-4" ay="234" az="18" bx="10" by="328" bz="0" r0="3.6" material="steel_dark"/>
+  <tube ax="-4" ay="234" az="-18" bx="10" by="328" bz="0" r0="3.6" material="steel_dark"/>
+  <tube ax="-22" ay="232" az="0" bx="10" by="328" bz="0" r0="3.6" material="steel_dark"/>
+  <group pos="10 332 0" rot="0 0 6">
+    <cylinder radius="10" height="12" sides="8" material="gunmetal"/>
+    <group rot="0 {25+90*move} 0">
+      <box size="380 3 24" pos="0 7 0" material="clans_tin"/>
+      <box size="40 3.4 25" pos="170 7 0" material="clans_paint" tint="1"/>
+      <box size="40 3.4 25" pos="-170 7 0" material="clans_paint" tint="1"/>
+      <box size="60 3.4 25" pos="0 7 0" material="clans_rust"/>
+    </group>
+    <cylinder radius="4" height="10" sides="6" pos="0 13 0" material="steel_dark"/>
+  </group>
+
+  <!-- tail: a team fin and rudder, a tin tailplane -->
+  <shape closed="1" v="-140 210 -186 200 -196 290 -170 292" material="clans_paint" tint="1">
+    <extrude amount="4"/></shape>
+  <box size="40 3 110" pos="-170 214 0" material="clans_tin"/>
+  <box size="6 30 4" pos="-196 250 0" rot="0 0 -6" material="clans_rust"/>
+
+  <!-- bomb rack under the seat: four small drums, one drops on the fire frames -->
+  <box size="90 6 56" pos="20 180 0" material="steel_dark"/>
+  <cylinder radius="10" height="24" sides="10" rot="90 0 0" pos="0 165 -16" material="hazard"/>
+  <cylinder radius="10" height="24" sides="10" rot="90 0 0" pos="0 165 16" material="clans_drum"/>
+  <cylinder radius="10" height="24" sides="10" rot="90 0 0" pos="40 165 -16" material="clans_paint" tint="1"/>
+  <group pos="40 {165-drop} 16" rot="{fire == 0 ? 0 : (fire == 1 ? 14 : 40)} 0 {fire == 0 ? 0 : -25*fire}">
+    <cylinder radius="10" height="24" sides="10" rot="90 0 0" material="hazard"/>
+    <cylinder radius="10.6" height="4" sides="10" rot="90 0 0" material="clans_rust"/>
+  </group>
+  <box size="4 6 60" pos="0 176 0" material="clans_rust"/>
+  <box size="4 6 60" pos="40 176 0" material="clans_rust"/>
+  <group pos="40 150 16" renderable="{fire == 1}">
+    <sphere radius="12" rings="4" slices="8" material="flash" unlit="1" castShadow="0"/>
+    <sphere radius="7" rings="4" slices="6" material="flash_core" unlit="1" castShadow="0"/>
+    <sphere radius="3" rings="3" slices="6" pos="12 -6 8" material="flash" unlit="1" castShadow="0"/>
+    <sphere radius="3" rings="3" slices="6" pos="-10 -4 -6" material="flash" unlit="1" castShadow="0"/>
+  </group>
+</prefab>

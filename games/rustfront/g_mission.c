@@ -23,13 +23,17 @@ void RF_SyncBlocking(level_t *map) {
     }
 }
 
-/* The nearest field cell that still holds ore, or NULL. */
-static const resourcevent_t *nearest_ore(const level_t *map, fixed2_t from) {
+/* The nearest field cell that still holds ore, or a derrick of its own side's (g_units.c), or NULL. */
+static const resourcevent_t *nearest_ore(const level_t *map, const mobj_t *harvester, fixed2_t from) {
     const resourcevent_t *best = NULL;
     int64_t best_d = 0;
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         if (!P_VentYields(vent)) continue;
+        if (vent->source_id) {
+            const mobj_t *derrick = P_MobjById(vent->source_id);
+            if (!derrick || derrick->team != harvester->team) continue;
+        }
         int64_t d = fixed2_length_squared64(fixed2_sub(vent->attachment, from));
         if (!best || d < best_d) { best = vent; best_d = d; }
     }
@@ -44,7 +48,7 @@ static void send_idle_harvesters(level_t *map, mobj_t *const *mobjs, int count) 
         if (!unit || unit->remove || unit->hp <= 0 || !(unit->traits & MF_HARVESTER)) continue;
         if (unit->harvest.phase != HARVEST_PHASE_NONE || unit->harvest.cargo > 0 ||
             P_HasMoveOrder(unit) || !RF_OwnerHasRole(unit->owner, RF_ROLE_REFINERY)) continue;
-        const resourcevent_t *ore = nearest_ore(map, fixed3_xy(unit->core.position));
+        const resourcevent_t *ore = nearest_ore(map, unit, fixed3_xy(unit->core.position));
         if (ore) P_HarvestUnitTo(map, unit, ore->attachment);
     }
 }
@@ -79,6 +83,7 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
     smoke_damaged(mobjs, count);
     RF_BaseTicker(mobjs, count);
     if (leveltime % RTS_TICRATE == 0) RF_AegisMend(mobjs, count);
+    RF_UnitsTicker(map, mobjs, count);
     if (leveltime % RTS_TICRATE == 0) {
         send_idle_harvesters(map, mobjs, count);
         RF_ClearMinedOre(map);
@@ -140,9 +145,15 @@ static bool is_structure(const mobj_t *unit) {
 
 /* A shot landing: a puff on the victim, anywhere on a structure's face. */
 void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
-    (void)source;
+    if (victim && victim->hp > 0 && victim->hp < old_hp) RF_UnitHit(victim, source);
     /* A shell or rocket brings its own blast; the puff is for bullets. */
     if (!victim || victim->hp >= old_hp || victim->type_id >= MT_FX_HIT || RF_ImpactInProgress()) return;
+    /* The Strider's arc crackles on everything it leaps to. */
+    if (source && source->type_id == MT_LC_STRIDER) {
+        spawn_effect(MT_FX_ZAP, victim, FIXED_ONE / 8, FIXED_ONE / 10, 1);
+        RF_PlaySound(RF_SND_ZAP, victim);
+        return;
+    }
     if (is_structure(victim))
         spawn_effect(MT_FX_HIT, victim, victim->info->footprint.w * (FIXED_ONE / 3),
                      victim->info->footprint.h * (FIXED_ONE / 3), 1);
@@ -156,6 +167,7 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
 void G_UnitKilled(mobj_t *victim, mobj_t *killer) {
     if (!victim || victim->type_id >= MT_FX_HIT) return;
     RF_CreditKill(victim, killer);
+    RF_UnitLost(victim);
     if (victim->type_id == MT_CL_WRECKER) RF_Detonate(victim, NULL, mobjinfo[MT_CL_WRECKER].damage);
     if (RF_IsInfantry(victim->type_id)) return;
     if (!is_structure(victim)) {

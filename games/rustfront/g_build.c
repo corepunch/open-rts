@@ -25,6 +25,8 @@ static const struct { uint16_t type; int healthy, damaged, build; } STRUCTURES[]
     {MT_UPLINK, S_UPLINK, S_UPLINK_DAMAGED, S_UPLINK_BUILD},
     {MT_CL_SHOP, S_CL_SHOP, S_CL_SHOP_DAMAGED, S_CL_SHOP_BUILD},
     {MT_LC_SANCTUM, S_LC_SANCTUM, S_LC_SANCTUM_DAMAGED, S_LC_SANCTUM_BUILD},
+    {MT_CL_DERRICK, S_CL_DERRICK, S_CL_DERRICK_DAMAGED, S_CL_DERRICK_BUILD},
+    {MT_SENTRY, S_SENTRY, 0, 0},
 };
 
 static int structure_index(uint16_t type) {
