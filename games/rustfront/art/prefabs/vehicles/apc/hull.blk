@@ -8,8 +8,8 @@
   <group pos="0 27 0">
     <cylinder radius="27" height="26" sides="12" rot="90 0 0" pos="96 0 64" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
     <cylinder radius="27" height="26" sides="12" rot="90 0 0" pos="96 0 -64" material="rubber"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="12" height="28" sides="8" rot="90 0 {22.5*move}" pos="96 0 64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
-    <cylinder radius="12" height="28" sides="8" rot="90 0 {22.5*move}" pos="96 0 -64" material="gunmetal"><array count="4" translation="-62 0 0"/></cylinder>
+    <cylinder radius="12" height="28" sides="8" rot="90 0 {22.5*move}" pos="96 0 64" material="gunmetal"><array count="4" translation="{-62*cos(22.5*move*pi/180)} 0 {-62*sin(22.5*move*pi/180)}"/></cylinder>
+    <cylinder radius="12" height="28" sides="8" rot="90 0 {22.5*move}" pos="96 0 -64" material="gunmetal"><array count="4" translation="{-62*cos(22.5*move*pi/180)} 0 {-62*sin(22.5*move*pi/180)}"/></cylinder>
   </group>
   <!-- hull -->
   <shape closed="1" v="-130 32 92 32 136 62 104 100 -124 100 -134 84" material="paint_plain" tint="1">

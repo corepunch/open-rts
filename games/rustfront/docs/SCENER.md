@@ -205,6 +205,12 @@ first.
 
 ## Primitive notes (learned the hard way)
 
+- **An `<array>` steps in its element's own rotated frame.** A row of road wheels
+  turned with `rot="90 0 {18*move}"` and `<array translation="42 0 0">` climbs 13 cm a
+  wheel on the move frame, so the rear wheels poke up through the hull and the
+  vehicle blinks as it drives. Turn the step back by the same angle:
+  `translation="{42*cos(18*move*pi/180)} 0 {42*sin(18*move*pi/180)}"` (for a
+  `rot="90 0 a"` wheel). A `<group>` cannot carry an array.
 - **`<soft-box>`** (from utilities) rounds the outline in **XY** and extrudes
   along Z. `radius` therefore rounds the *side profile*, which gives vehicle
   track pods their rounded ends.

@@ -11,8 +11,8 @@
   <group pos="0 31 0">
     <cylinder radius="31" height="32" sides="12" rot="90 0 0" pos="90 0 66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
     <cylinder radius="31" height="32" sides="12" rot="90 0 0" pos="90 0 -66" material="rubber"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="14" height="34" sides="8" rot="90 0 {22.5*move}" pos="90 0 66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
-    <cylinder radius="14" height="34" sides="8" rot="90 0 {22.5*move}" pos="90 0 -66" material="gunmetal"><array count="3" translation="-95 0 0"/></cylinder>
+    <cylinder radius="14" height="34" sides="8" rot="90 0 {22.5*move}" pos="90 0 66" material="gunmetal"><array count="3" translation="{-95*cos(22.5*move*pi/180)} 0 {-95*sin(22.5*move*pi/180)}"/></cylinder>
+    <cylinder radius="14" height="34" sides="8" rot="90 0 {22.5*move}" pos="90 0 -66" material="gunmetal"><array count="3" translation="{-95*cos(22.5*move*pi/180)} 0 {-95*sin(22.5*move*pi/180)}"/></cylinder>
   </group>
   <box size="296 22 100" pos="0 52 0" material="steel_dark"/>
   <box size="300 4 150" pos="0 64 0" material="grating"/>

@@ -42,8 +42,8 @@
     <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-50 0 -64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
     <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="108 0 64" material="gunmetal"/>
     <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="108 0 -64" material="clans_drum"/>
-    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-50 0 64" material="gunmetal"><array count="2" translation="-64 0 0"/></cylinder>
-    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-50 0 -64" material="gunmetal"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-50 0 64" material="gunmetal"><array count="2" translation="{-64*cos(30*move*pi/180)} 0 {-64*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-50 0 -64" material="gunmetal"><array count="2" translation="{-64*cos(30*move*pi/180)} 0 {-64*sin(30*move*pi/180)}"/></cylinder>
   </group>
   <box size="300 16 100" pos="0 48 0" material="steel_dark"/>
 

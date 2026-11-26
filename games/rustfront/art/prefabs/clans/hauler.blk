@@ -36,8 +36,8 @@
     <cylinder radius="33" height="30" sides="12" rot="90 0 0" pos="-46 0 -64" material="rubber"><array count="2" translation="-72 0 0"/></cylinder>
     <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="84 0 64" material="clans_drum"/>
     <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="84 0 -64" material="gunmetal"/>
-    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="-46 0 64" material="gunmetal"><array count="2" translation="-72 0 0"/></cylinder>
-    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="-46 0 -64" material="clans_rust"><array count="2" translation="-72 0 0"/></cylinder>
+    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="-46 0 64" material="gunmetal"><array count="2" translation="{-72*cos(30*move*pi/180)} 0 {-72*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="13" height="32" sides="6" rot="90 0 {30*move}" pos="-46 0 -64" material="clans_rust"><array count="2" translation="{-72*cos(30*move*pi/180)} 0 {-72*sin(30*move*pi/180)}"/></cylinder>
   </group>
   <box size="290 20 100" pos="-6 52 0" material="steel_dark"/>
 

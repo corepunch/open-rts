@@ -62,7 +62,7 @@
     "file": "apc_hull.png",
     "frame": [
      72,
-     79
+     72
     ],
     "frames": 2,
     "pivot": [
@@ -159,7 +159,7 @@
    "count": 16,
    "file": "apc_shadow.png",
    "frame": [
-    99,
+    91,
     54
    ],
    "pivot": [
@@ -193,11 +193,11 @@
    "count": 16,
    "file": "artillery_shadow.png",
    "frame": [
-    147,
+    138,
     84
    ],
    "pivot": [
-    35.0,
+    36.0,
     58.0
    ]
   }
@@ -383,7 +383,7 @@
    "count": 16,
    "file": "cl_crawler_shadow.png",
    "frame": [
-    101,
+    99,
     60
    ],
    "pivot": [
@@ -491,7 +491,7 @@
    "count": 16,
    "file": "cl_hauler_shadow.png",
    "frame": [
-    122,
+    118,
     72
    ],
    "pivot": [
@@ -569,7 +569,7 @@
     "file": "cl_rig_body.png",
     "frame": [
      95,
-     79
+     78
     ],
     "frames": 3,
     "pivot": [
@@ -584,7 +584,7 @@
    "count": 16,
    "file": "cl_rig_shadow.png",
    "frame": [
-    99,
+    95,
     61
    ],
    "pivot": [
@@ -1014,11 +1014,11 @@
    "count": 16,
    "file": "harvester_shadow.png",
    "frame": [
-    121,
+    116,
     71
    ],
    "pivot": [
-    48.0,
+    49.0,
     38.0
    ]
   }
@@ -1768,7 +1768,7 @@
     100
    ],
    "pivot": [
-    57.0,
+    55.0,
     58.0
    ]
   }
@@ -2106,11 +2106,11 @@
    "count": 16,
    "file": "tank_shadow.png",
    "frame": [
-    125,
+    124,
     82
    ],
    "pivot": [
-    41.0,
+    45.0,
     48.0
    ]
   }

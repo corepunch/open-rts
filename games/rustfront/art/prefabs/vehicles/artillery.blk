@@ -15,8 +15,8 @@
   <let name="kick" value="fire == 1 ? 22 : (fire == 2 ? 9 : 0)"/>
   <soft-box width="256" height="42" depth="38" radius="19" bevel="3" pos="0 21 58" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
   <soft-box width="256" height="42" depth="38" radius="19" bevel="3" pos="0 21 -58" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
-  <cylinder radius="13" height="40" sides="10" rot="90 0 {18*move}" pos="-100 19 58" material="steel_dark"><array count="6" translation="40 0 0"/></cylinder>
-  <cylinder radius="13" height="40" sides="10" rot="90 0 {18*move}" pos="-100 19 -58" material="steel_dark"><array count="6" translation="40 0 0"/></cylinder>
+  <cylinder radius="13" height="40" sides="10" rot="90 0 {18*move}" pos="-100 19 58" material="steel_dark"><array count="6" translation="{40*cos(18*move*pi/180)} 0 {40*sin(18*move*pi/180)}"/></cylinder>
+  <cylinder radius="13" height="40" sides="10" rot="90 0 {18*move}" pos="-100 19 -58" material="steel_dark"><array count="6" translation="{40*cos(18*move*pi/180)} 0 {40*sin(18*move*pi/180)}"/></cylinder>
   <box size="230 20 5" rot="-14 0 0" pos="-4 42 79" material="team" tint="1"/>
   <box size="230 20 5" rot="14 0 0" pos="-4 42 -79" material="team" tint="1"/>
 

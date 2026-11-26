@@ -10,8 +10,8 @@
   <soft-box width="318" height="50" depth="34" radius="23" bevel="3" pos="0 25 -88" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
   <soft-box width="300" height="46" depth="30" radius="21" bevel="3" pos="0 23 54" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
   <soft-box width="300" height="46" depth="30" radius="21" bevel="3" pos="0 23 -54" material="track"><map type="bricks" size="16 60 60" mortar="3.5" bond="0" offset="{8*move} 0 0" from="1.3 1.27 1.25" to="0.4 0.4 0.4"/></soft-box>
-  <cylinder radius="15" height="36" sides="10" rot="90 0 {18*move}" pos="-116 22 88" material="steel_dark"><array count="6" translation="46.4 0 0"/></cylinder>
-  <cylinder radius="15" height="36" sides="10" rot="90 0 {18*move}" pos="-116 22 -88" material="steel_dark"><array count="6" translation="46.4 0 0"/></cylinder>
+  <cylinder radius="15" height="36" sides="10" rot="90 0 {18*move}" pos="-116 22 88" material="steel_dark"><array count="6" translation="{46.4*cos(18*move*pi/180)} 0 {46.4*sin(18*move*pi/180)}"/></cylinder>
+  <cylinder radius="15" height="36" sides="10" rot="90 0 {18*move}" pos="-116 22 -88" material="steel_dark"><array count="6" translation="{46.4*cos(18*move*pi/180)} 0 {46.4*sin(18*move*pi/180)}"/></cylinder>
 
   <!-- hull: a long side profile with a two-step glacis, sides leaning in -->
   <shape closed="1" v="-160 44 118 44 156 58 150 70 122 92 -150 92 -166 74" material="paint_plain" tint="1">
