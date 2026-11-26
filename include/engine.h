@@ -2402,7 +2402,7 @@ bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_c
 
 #define AI_MAX_TEAMS 8
 #define AI_MAX_HARVEST_ASSIGNMENTS 32
-#define AI_MAX_VENT_TRIES 64 /* Vents considered per harvester order. */
+#define AI_MAX_VENT_TRIES 64 /* Unreachable vents skipped per harvester order. */
 #define AI_DEFENSE_RADIUS FIXED_LIT(15.0)
 #define AI_ATTACK_WAVE_INTERVAL_MS 30000
 #define AI_ATTACK_WAVE_MIN_SIZE 3

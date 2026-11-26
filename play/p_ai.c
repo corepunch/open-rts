@@ -120,17 +120,18 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
 
         fixed2_t position = fixed3_xy(u->core.position);
-        /* Nearest free vent first; a vent the unit cannot path to is skipped
-         * so one unreachable patch never idles the harvester for good. */
-        bool tried[AI_MAX_VENT_TRIES] = { false };
-        int vent_limit = map->resource_vent_count < AI_MAX_VENT_TRIES ?
-            map->resource_vent_count : AI_MAX_VENT_TRIES;
-        for (int attempt = 0; attempt < vent_limit; ++attempt) {
+        /* Nearest free vent first, over every vent on the map; a vent the
+         * unit cannot path to is skipped so one unreachable patch never idles
+         * the harvester for good. Only the retries are bounded. */
+        int tried[AI_MAX_VENT_TRIES], tried_count = 0;
+        for (int attempt = 0; attempt < AI_MAX_VENT_TRIES; ++attempt) {
             int best_vent = -1;
             int64_t best_dist2 = INT64_MAX;
-            for (int v = 0; v < vent_limit; ++v) {
+            for (int v = 0; v < map->resource_vent_count; ++v) {
                 const resourcevent_t *vent = &map->resource_vents[v];
-                if (tried[v] || !P_VentOpenTo(map, vent, u)) continue;
+                bool skip = false;
+                for (int k = 0; k < tried_count && !skip; ++k) skip = tried[k] == v;
+                if (skip || !P_VentOpenTo(map, vent, u)) continue;
                 if (vent_occupied_by_team(team, v)) continue;
                 int64_t dist2 = fixed2_distance_squared64(vent->attachment, position);
                 if (dist2 < best_dist2) {
@@ -139,7 +140,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
                 }
             }
             if (best_vent < 0) break;
-            tried[best_vent] = true;
+            tried[tried_count++] = best_vent;
             const resourcevent_t *vent = &map->resource_vents[best_vent];
             if (!P_HarvestUnitTo(map, u, vent->attachment)) continue;
             AiHarvestAssignment *a = &team->harvest_assignments[team->harvest_assignment_count++];

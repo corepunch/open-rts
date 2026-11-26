@@ -129,7 +129,11 @@ $(eval $(call GAME_TARGET,rustfront,$(RF_GAME_SOURCES),rustfront,-DRTS_WORLD_Y_U
 # Rustfront's art is generated, not retail data: this rebuilds every sprite, icon, effect and
 # 8-bit sheet from the Scener prefabs (needs scener, python3 with Pillow and xmllint; see
 # games/rustfront/docs/SCENER.md), then relinks the game.
-.PHONY: rustfront-art
+.PHONY: rustfront-art balance-rustfront
+# The AI-against-AI balance harness over every faction pairing (tests/rustfront/test_balance.c).
+balance-rustfront: $(BIN_DIR)/tests/rustfront/test_balance
+	$(BIN_DIR)/tests/rustfront/test_balance
+
 rustfront-art:
 	games/rustfront/art/build_all.sh
 	$(MAKE) $(BIN_DIR)/rustfront
@@ -170,7 +174,7 @@ $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/shared/%.o $$($(1)_T
 	@mkdir -p $$(dir $$@)
 	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
 test-$(1): $(TEST_RUNNER) $$(filter-out %/test_ai_skirmish %/test_ai $(if $(filter dark-colony,$(1)),%/test_ai_factions %/test_menu) $(if $(filter warcraft-2,$(1)),%/test_ai_game),$$($(1)_TEST_BINS)) $(if $(filter dark-colony,$(1)),$(BIN_DIR)/tests/dark-colony/test_menu)
-	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $$(filter-out %/test_ai_skirmish %/test_ai $(if $(filter dark-colony,$(1)),%/test_ai_factions %/test_menu) $(if $(filter warcraft-2,$(1)),%/test_ai_game),$$($(1)_TEST_BINS)) $(if $(filter dark-colony,$(1)),$(BIN_DIR)/tests/dark-colony/test_menu@--quick)
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(TEST_BUDGET) $$(filter-out %/test_ai_skirmish %/test_ai %/test_balance $(if $(filter dark-colony,$(1)),%/test_ai_factions %/test_menu) $(if $(filter warcraft-2,$(1)),%/test_ai_game),$$($(1)_TEST_BINS)) $(if $(filter dark-colony,$(1)),$(BIN_DIR)/tests/dark-colony/test_menu@--quick) $(if $(filter rustfront,$(1)),$(BIN_DIR)/tests/rustfront/test_balance@--quick)
 -include $$($(1)_TEST_OBJS:.o=.d) $$($(1)_TEST_ENGINE_OBJS:.o=.d)
 endef
 
