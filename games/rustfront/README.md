@@ -55,6 +55,7 @@ build/bin/rustfront --map maps/triad.txt           # you lead the Directorate ag
 build/bin/rustfront --map maps/triad-clans.txt     # you lead the Scrap Clans
 build/bin/rustfront --map maps/triad-concord.txt   # you lead the Lumen Concord
 build/bin/rustfront --map maps/badlands.txt        # every terrain, a canyon with ramps, a mesa
+build/bin/rustfront --map maps/crossroads.txt      # a multiplayer map: every start a side, you the first
 env SDL_VIDEODRIVER=dummy build/bin/rustfront --check
 ```
 
@@ -67,6 +68,21 @@ relief: a river at the bottom of a canyon, a level below the plain, with ramps d
 to two gravel fords; a stone mesa a level above, with one ramp up its south face; grass
 meadows, rock outcrops, scrap wrecks, and concrete pads under the Directorate's and the Clans'
 bases.
+
+**Multiplayer maps** have neutral starts instead of bases (see [Multiplayer](#multiplayer)):
+
+| Map | Players | Size | Symmetry | Layout |
+|---|---|---|---|---|
+| Ironbridge (`ironbridge.txt`) | 2 | 64 x 40 | mirrored | a canyon with a river down the middle, three fords with ramps, canyon ore by the outer fords, a mesa of ore in each base's south |
+| Mesa Duel (`mesa-duel.txt`) | 2 | 56 x 56 | turned 180° | a mesa of rich ore in the middle with a ramp up each face; silt basins with ponds in the empty corners |
+| Three Crowns (`three-crowns.txt`) | 3 | 71 x 64 | mirrored | two bases north, one south, about 52 cells apart each; a plateau with one ramp facing each base; ravines; an expansion between every two bases |
+| Crossroads (`crossroads.txt`) | 4 | 72 x 56 | mirrored both ways | a cross of canyons with rivers, fords and a plaza of ore where they meet; a mesa in every quarter; good for 2 v 2 |
+| Highland Ring (`highland-ring.txt`) | 4 | 64 x 64 | turned 90° | each base on a highland with two ramps down to a ring of plain; a basin with a lake and ore in the middle |
+
+Each is written by its own script (`maps/ironbridge.py` ...) on `maps/mp.py`, which draws the
+terrain and relief, makes the map symmetric and refuses to write it unless every start stands
+on flat open ground with room for its force, every start can drive to every other, and every
+start has the same ore at the same distance. Rerun a script after changing it.
 
 **Terrain** (`art/terrain.txt`, [docs/TERRAIN.md](docs/TERRAIN.md)): each map letter is a
 ground type. Silt, sand, gravel, grass, stone, ore and water are procedural textures; rocks,
@@ -141,7 +157,9 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `g_build.c` | Construction sites that rise through four stages while their hit points grow; scorched looks below half health |
 | `g_mission.c` | Footprints block movement, idle harvesters go to ore, mined cells clear, a refinery brings a harvester; impact puffs and explosions on damage and death |
 | `rules.c` | Each faction's computer player: the Directorate builds up and attacks at parity, the Clans rush with frequent large waves, the Concord fortifies and attacks late with an edge; no fog |
-| `g_ai.c` | The computer player's hooks: it places its own structures on roomy sites, and every structure anchors its defence and draws its waves |
+| `g_ai.c` | The computer player's hooks: it places its own structures on roomy sites, every structure anchors its defence and draws its waves, and a harvester waits while its side has no refinery |
+| `w_starts.c` | Multiplayer: start positions, the start plan, `RF_SpawnStart` and the map list |
+| `g_net.c` | Lockstep: Rustfront's share of the consistency hash (terrain, blocking, alliances) |
 | `m_menu.c` | The engine's simple menu |
 
 **Map format:** rows of terrain letters (`art/terrain.txt`: `.` sand, `:` silt, `*` ore,
@@ -152,7 +170,76 @@ top-left), and FACING is 0–15, counter-clockwise from east. Owner 0 is the
 player and the others are enemies, each in its team colour (blue, red, green,
 yellow). A side plays the faction of its headquarters. An optional
 `camera X Y` sets the opening view, and `credits OWNER N` a side's money.
+`title NAME` names the map for the map list, and `start N X Y [FACTION]` marks a neutral start
+(see [Multiplayer](#multiplayer)).
 `maps/triad.py` writes the three-way maps and `maps/badlands.py` the badlands.
+
+## Multiplayer
+
+Rustfront plays over the engine's Doom-style lockstep (`driver/d_net.c`): every peer runs the
+whole simulation from the same orders, and each tic they compare a hash of the world
+(`G_ConsistencyVector`). Rustfront's own state is in it: each projectile's victim and each
+site's progress (`MOBJ_GAME_CHECKSUM` in `mobj_data.h`), and every cell's terrain, the blocking
+grid and the alliances (`G_ConsistencyExtra` in `g_net.c`).
+
+### Starts and the lobby
+
+A multiplayer map has no bases, only starts:
+
+```
+title Crossroads
+start 0 7 7 directorate
+start 1 62 7 clans
+```
+
+`start N X Y [FACTION]` is start N (0-based, without gaps) with its headquarters' top-left cell
+at X, Y; FACTION (`directorate`, `clans` or `concord`) is only the default when nobody picks.
+The API, in `rustfront.h`:
+
+| Call | Does |
+|---|---|
+| `int RF_ListMaps(const char *root, rf_mapinfo_t *out, int max)` | Every map in `<root>/maps` (root NULL: the game's): `path` (relative to the root, e.g. `maps/crossroads.txt`), `title`, `players` (starts; 0 for a map with fixed bases), `sides` (owners with units of their own), `width`, `height`. Sorted by players, then title. Reads headers only. |
+| `void RF_SetStartPlan(const rf_startplan_t *plan)` | Before loading: `plan->seat[owner]` says which start (`start`, -1: this owner does not play), which faction (`faction`, -1: the start's default) and which team (`team`, 0: alone; owners with the same non-zero team are allies). Kept until changed; NULL brings back the defaults (owner N at start N as its default faction, everyone alone). |
+| `int RF_StartCount(void)`, `const rf_start_t *RF_Start(int slot)` | The loaded map's starts: `cell` and default `faction`. |
+| `bool RF_SpawnStart(int owner, int faction, int x, int y)` | Places a faction's start with its headquarters at X, Y: the HQ, a harvester (it waits for the refinery), a light vehicle and a squad, facing the middle of the map. Fails, placing nothing, unless the HQ's cells are flat open ground on one level. `RF_LoadThings` calls it for every seat of the plan. |
+| `int RF_FactionByName(const char *name)` | `directorate`, `clans`, `concord` to `rf_faction_id_t`; -1 otherwise. |
+
+A map with starts is free-for-all apart from the plan's teams (`level.player_teams`), for the
+computer players as well as for `P_IsAlly`. The local player's start sets the opening view.
+
+For a network game, the front end gives every peer the same plan before it loads the map
+(the spawned starts are part of the world whose hash `G_NetSignature` sends at the start, so a peer with another plan is refused before the first tic), and seats
+the people as owners `0 .. numplayers-1`: `D_PlayerIsHuman` counts seats, and the computer
+plays every other owner the plan names. Anything random in the lobby (a random faction or start)
+must be drawn once by the host and sent, never drawn by each peer.
+
+### Rules for lockstep-safe code
+
+- Simulation code uses `fixed_t` and integers. Floats only for the view and the HUD.
+- No `rand()`, wall-clock time or uninitialised memory in the simulation. Scatter comes from a
+  hash of the tic and a mobj id (`g_mission.c`).
+- Walk the thinker list, never a list ordered by pointer or by UI selection.
+- `consoleplayer` is the local view only: the sidebar, the camera, sounds, results. Never the
+  computer player, production or the map.
+- State that steers the simulation is hashed: a new mobj field goes in `MOBJ_GAME_CHECKSUM`,
+  new level state in `G_ConsistencyExtra`.
+- A static cache in simulation code must not outlive a game: a peer that played a game before
+  this one must compute the same.
+
+### Desync tests
+
+`tests/rustfront/desync_twins.h` forks two twins that play the same map from the same orders
+(given to `G_RunTiccmd` as the network delivers them) and compares their consistency vectors
+every tic. The second twin is another local player, has units selected, a different heap and a
+game played and thrown away before; none of it may change the world.
+
+- `test_desync`: four minutes of Ironbridge, two people mirrored: building, training,
+  harvesting until ore cells run dry, down the ramps into the canyon and up the mesa, and
+  fighting across the fords. Two canaries prove that a changed unit, or a changed cell of
+  ground, is caught on its tic and in its subsystem.
+- `test_desync_four`: Crossroads with two people and two computer players, two minutes
+  (`build/bin/tests/rustfront/test_desync_four --long`: four).
+- `test_starts`: the map list, every start of every map, plans, teams and empty seats.
 
 ## Regenerating everything
 
