@@ -6,8 +6,9 @@
 #   3. sprites.py              every unit's game sprites: facings, animation frames,
 #                              team masks, shadows, construction and damage (sprites/*.png, sprites.json)
 #   4. icons.py                the sidebar's build icons                (sprites/icons.png)
-#   5. pack8.py                256-colour PCX sheets and the C tables   (assets/*.pcx, sprites.inc)
-#   6. contact.py              the composited check sheet               (art/previews/sprites_contact.png)
+#   5. terrain.py              ground tiles, model tiles, transitions   (sprites/terrain.png, terrain.json)
+#   6. pack8.py                256-colour PCX sheets and the C tables   (assets/*.pcx, terrain.txt, sprites.inc)
+#   7. contact.py              the composited check sheet               (art/previews/sprites_contact.png)
 #
 # Then `make build/bin/rustfront test-rustfront` relinks and tests the game. Needs scener on
 # PATH (or SCENER=...), python3 with Pillow, and xmllint; see docs/SCENER.md. About 11 minutes for the three factions.
@@ -22,6 +23,7 @@ step "previews (layout.py, render.sh)";   ./render.sh >/dev/null
 step "effects (effects.py)";              python3 effects.py
 step "game sprites (sprites.py)";         python3 sprites.py
 step "build icons (icons.py)";            python3 icons.py
+step "terrain (terrain.py)";              python3 terrain.py
 step "8-bit sheets (pack8.py)";           python3 pack8.py
 step "contact sheet (contact.py)";        python3 contact.py
 printf '\nDone. Now: make build/bin/rustfront test-rustfront\n'

@@ -12,7 +12,9 @@
 #include "sprites.inc"
 
 /* ── maps ───────────────────────────────────────────────────────────────────
- * A map is text: rows of cells ('.' sand, '*' ore, '#' gravel), then one line per thing,
+ * A map is text: rows of cells, one terrain letter each (assets/terrain.txt: '.' sand, '*' ore,
+ * '#' gravel, ',' grass, '^' stone, '~' water, 'R' rocks, 'x' wreck, '=' concrete), then one
+ * line per thing,
  * "unit NAME OWNER X Y [FACING]" with X, Y the cell (a building's top-left) and FACING
  * 0..15 counter-clockwise from east. Owner 0 is the player; others are enemies, drawn in
  * their team colour (team = owner). A "camera X Y" line centres the opening view, and
@@ -50,19 +52,10 @@ static uint16_t unit_type(const char *name) {
     return 0;
 }
 
-/* Terrain atlas (art/pack8.py): 0..7 sand, 8..11 ore, 12..15 gravel; variants by cell hash. */
-static uint16_t terrain_tile(char c, int x, int y) {
-    uint32_t h = (uint32_t)x * 73856093u ^ (uint32_t)y * 19349663u;
-    h ^= h >> 13;
-    if (c == '*') return (uint16_t)(8 + h % 4);
-    if (c == '#') return (uint16_t)(12 + h % 4);
-    return (uint16_t)(h % 8);
-}
-
 static bool grid_line(const char *line, int len) {
     if (len <= 0) return false;
     for (int i = 0; i < len; ++i)
-        if (line[i] != '.' && line[i] != '*' && line[i] != '#') return false;
+        if (RF_TerrainOfLetter(line[i]) < 0) return false;
     return true;
 }
 
@@ -76,12 +69,14 @@ static bool add_ore(level_t *map, ivec2_t cell) {
     return true;
 }
 
-/* An ore cell that has been mined out turns back to sand. */
+/* An ore cell that has been mined out turns back to the default ground (sand). */
 void RF_ClearMinedOre(level_t *map) {
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         if (P_VentYields(vent) || !L_Contains(map, vent->cell.x, vent->cell.y)) continue;
-        map->tile_ids[L_Index(map, vent->cell.x, vent->cell.y)] = terrain_tile('.', vent->cell.x, vent->cell.y);
+        int cell = L_Index(map, vent->cell.x, vent->cell.y);
+        if (map->cell_terrain && RF_TerrainHoldsOre(map->cell_terrain[cell]))
+            RF_SetCellTerrain(map, vent->cell.x, vent->cell.y, RF_DefaultTerrain());
     }
 }
 
@@ -93,6 +88,7 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     }
     memset(out, 0, sizeof(*out));
     thing_count = 0;
+    if (!RF_LoadTerrain(path)) return false;
     char *text = malloc(file.size + 1);
     if (!text) { W_FreeFile(&file); return false; }
     memcpy(text, file.bytes, file.size);
@@ -125,7 +121,10 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     out->height = h;
     out->tile_ids = calloc((size_t)w * h, sizeof(*out->tile_ids));
     out->blocked = calloc((size_t)w * h, 1);
-    if (!out->tile_ids || !out->blocked) { free(text); P_FreeLevel(out); return false; }
+    out->cell_terrain = calloc((size_t)w * h, 1);
+    if (!out->tile_ids || !out->blocked || !out->cell_terrain) { free(text); P_FreeLevel(out); return false; }
+    out->render_capabilities |= MAP_RENDER_CAP_TERRAIN_TRANSITIONS;
+    out->render_transitions = RF_DrawTransitions;
     snprintf(out->tileset_name, sizeof(out->tileset_name), "terrain");
     for (int owner = 0; owner < MAXPLAYERS; ++owner) out->player_resources[owner][0] = START_CREDITS;
 
@@ -137,8 +136,10 @@ bool RF_LoadLevel(const char *path, level_t *out) {
         if (len && line[len - 1] == '\r') len--;
         if (grid_line(line, len)) {
             for (int x = 0; x < w; ++x) {
-                out->tile_ids[L_Index(out, x, y)] = terrain_tile(line[x], x, y);
-                if (line[x] == '*' && !add_ore(out, (ivec2_t){x, y})) {
+                int terrain = RF_TerrainOfLetter(line[x]);
+                RF_SetCellTerrain(out, x, y, terrain);
+                out->blocked[L_Index(out, x, y)] = RF_TerrainBlocks(terrain);
+                if (RF_TerrainHoldsOre(terrain) && !add_ore(out, (ivec2_t){x, y})) {
                     free(text);
                     P_FreeLevel(out);
                     return false;
@@ -194,9 +195,11 @@ int RF_LoadThings(const char *path) {
     return count;
 }
 
-/* ── terrain ───────────────────────────────────────────────────────────────
- * assets/terrain.pcx is an 8 x 2 atlas of 48 x 32 tiles in the game palette, which becomes
- * the screen palette. Index 0 is the sprites' transparent key: show it as black. */
+/* ── terrain tiles ─────────────────────────────────────────────────────────
+ * assets/terrain.pcx is an atlas of 48 x 32 tiles in the game palette (art/terrain.py,
+ * pack8.py), which becomes the screen palette; assets/terrain.txt says which tile is which.
+ * Index 0 is the sprites' transparent key: ground tiles never use it, and transition tiles
+ * leave the ground showing through it. */
 
 bool RF_LoadAssets(const char *root, tileset_t *tileset) {
     char path[1024];

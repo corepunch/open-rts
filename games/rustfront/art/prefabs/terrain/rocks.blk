@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A rock outcrop, one map cell: 200 x 200 cm centred on the origin, standing on y = 0, north
+     (the screen's top) is -Z. A cluster of weathered boulders, noise-displaced ellipsoids in the
+     stone ground's colour, scaled up to fill the cell; the knob v (0..3) turns and rearranges
+     the cluster. terrain.py renders it over the stone texture with its shadow. The boulders
+     keep to the south of the cell and under 80 cm, so the tile holds them at game scale. -->
+<prefab up="y" front="+z">
+  <let name="v" value="0"/>
+  <material id="terrain_rock"      color="0.52 0.47 0.40" shininess="4"><map type="noise" size="16" octaves="4" from="0.78 0.78 0.80" to="1.10 1.07 1.02" bump="0.5"/></material>
+  <material id="terrain_rock_dark" color="0.38 0.35 0.31" shininess="3"><map type="noise" size="12" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02" bump="0.5"/></material>
+
+  <group rot="0 {v * 83} 0" scale="1.25 1.2 1.25" pos="{v == 1 ? 8 : v == 3 ? -8 : 0} 0 {v == 2 ? 14 : 10}">
+    <!-- the big boulder -->
+    <ellipsoid radii="{58 + v * 4} {42 - v * 3} 46" rings="10" slices="14" pos="-6 22 -4" material="terrain_rock">
+      <noise strength="10" scale="40" seed="{11 + v}" fractal="1" roughness="0.5" iterations="3"/>
+    </ellipsoid>
+    <!-- a second, leaning against it -->
+    <ellipsoid radii="40 30 34" rings="9" slices="12" pos="48 14 22" rot="0 0 -14" material="terrain_rock_dark">
+      <noise strength="7" scale="28" seed="{23 + v}" fractal="1" roughness="0.5" iterations="3"/>
+    </ellipsoid>
+    <!-- scree -->
+    <ellipsoid radii="20 14 18" rings="7" slices="10" pos="-58 6 40" material="terrain_rock">
+      <noise strength="4" scale="16" seed="{31 + v}"/>
+    </ellipsoid>
+    <ellipsoid radii="14 10 12" rings="7" slices="9" pos="16 4 58" material="terrain_rock_dark">
+      <noise strength="3" scale="12" seed="{37 + v}"/>
+    </ellipsoid>
+    <ellipsoid radii="{v == 2 ? 26 : 11} {v == 2 ? 20 : 8} {v == 2 ? 22 : 10}" rings="7" slices="9"
+               pos="-30 {v == 2 ? 12 : 4} -52" material="terrain_rock">
+      <noise strength="3" scale="12" seed="{41 + v}"/>
+    </ellipsoid>
+  </group>
+</prefab>

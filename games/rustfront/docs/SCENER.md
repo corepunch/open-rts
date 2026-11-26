@@ -61,6 +61,8 @@ art/prefabs/infantry/   Scener CAT characters: rifleman, rocket soldier
 art/prefabs/clans/      the Scrap Clans: buildings, vehicles, soldiers; clans.xml is their parts
                         library (drum, tyre, spike, flag, fence, lamp, fire barrel, emblem)
 art/prefabs/concord/    the Lumen Concord: buildings, hover craft, soldiers
+art/prefabs/terrain/    map tiles: rocks, wreck, concrete (one cell each; see TERRAIN.md)
+art/terrain.txt         the terrain table; art/terrain.py makes the tiles (see TERRAIN.md)
 art/preview.py          renders any prefabs in the game view, for checking work in progress
 art/build_all.sh        the whole pipeline in order (make rustfront-art)
 art/render.sh           check + render the previews
@@ -506,9 +508,9 @@ one palette (`art/previews/palette.png` shows it):
 
 A pixel is team-coloured where the team mask is at least 48, and its ramp
 shade is the mask level. A pixel under half coverage becomes transparent,
-because indexed art has no partial alpha. `assets/terrain.pcx` is a 48×32 tile
-atlas in the same palette: 8 sand tiles, 4 ore-field tiles and 4 gravel tiles.
-Its noise wraps at the tile edge, so the tiles join without seams.
+because indexed art has no partial alpha. `assets/terrain.pcx` is the 48×32 tile
+atlas of `art/terrain.py` in the same palette, with its table `assets/terrain.txt`
+(see [TERRAIN.md](TERRAIN.md)); transition tiles use index 0 where the ground shows through.
 `sprites.inc` is the C table the game compiles in: per sheet, the frame size,
 columns, count, pivot and turret mounts in whole pixels.
 

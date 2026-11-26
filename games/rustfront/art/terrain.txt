@@ -1,0 +1,43 @@
+# Rustfront terrain: what each ground type is, how its tiles are made, and how it blends.
+# art/terrain.py reads this, makes the tiles into sprites/terrain.png, and pack8.py writes the
+# game's copy, assets/terrain.txt, with the atlas indices filled in.
+#
+#   terrain NAME CHAR key=value... [flags]
+#
+# NAME     the terrain's name; CHAR is its letter in a map's cell rows.
+# layer=N  draw order for transitions. A terrain spills over the edges of every neighbouring
+#          terrain on a lower layer (sand over water makes a beach; grass over sand a
+#          ragged fringe), the way Dark Reign and Tiberian Dawn layer their ground.
+# texture=RECIPE    tiles drawn procedurally by the named recipe in terrain.py.
+# model=PREFAB      tiles rendered by Scener from art/prefabs/PREFAB.blk in the game view.
+#                   The prefab's <let name="v"> knob picks the variant (0, 1, ...).
+# ground=NAME       a model's ground: its tiles are composited over NAME's texture, and it
+#                   blends with its neighbours as NAME does.
+# variants=N        how many tiles; a cell picks one by a hash of its position.
+# edge=DEPTH        how far the terrain spills into a lower neighbour, in cells (0..0.5).
+#                   With no edge the terrain never spills (a hard edge).
+# jag=F             how ragged the spill is: 0 is a straight line, 1 very broken.
+# grain=N           the size of the spill's raggedness: noise cells across a tile.
+# rim=F             shade the last pixels of the spill by F (a wet shore line, a kerb).
+# seed=N            the recipe's random seed.
+#
+# Flags:
+#   blocked  nothing moves on it or builds on it.
+#   ore      a deposit a harvester mines; it turns to the default ground when empty.
+#   solid    model tiles that nothing is drawn over: higher layers do not spill onto it.
+#
+#   default NAME   the ground that mined-out ore becomes.
+
+default sand
+
+terrain water    ~  layer=0  texture=water    variants=4  seed=10  blocked
+terrain sand     .  layer=1  texture=sand     variants=8  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
+terrain gravel   #  layer=2  texture=gravel   variants=4  seed=200 edge=0.26 jag=0.70 grain=8
+terrain grass    ,  layer=3  texture=grass    variants=6  seed=300 edge=0.32 jag=0.85 grain=12
+terrain stone    ^  layer=4  texture=stone    variants=4  seed=400 edge=0.24 jag=0.45 grain=5  rim=0.82
+terrain ore      *  layer=5  texture=ore      variants=4  seed=500 edge=0.30 jag=0.75 grain=7  ore
+
+# Scener-modelled tiles (art/prefabs/terrain/).
+terrain rocks    R  layer=4  model=terrain/rocks     ground=stone variants=4 blocked solid
+terrain wreck    x  layer=1  model=terrain/wreck     ground=sand  variants=3 blocked solid
+terrain concrete =  layer=6  model=terrain/concrete  variants=8  solid

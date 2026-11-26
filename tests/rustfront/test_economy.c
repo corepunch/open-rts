@@ -114,7 +114,7 @@ static int test_harvest(void) {
     vent->amount = 0;
     vent->active = false;
     run(RTS_TICRATE);
-    CHECK(level.tile_ids[L_Index(&level, vent->cell.x, vent->cell.y)] < 8);
+    CHECK(level.cell_terrain[L_Index(&level, vent->cell.x, vent->cell.y)] == RF_DefaultTerrain());
     P_FreeLevel(&level);
     puts("PASS: the harvester mines ore into credits; mined-out cells become sand");
     return 0;

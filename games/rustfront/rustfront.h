@@ -24,6 +24,18 @@ bool RF_LoadAssets(const char *root, tileset_t *tileset);
 int  RF_LoadThings(const char *path);
 bool RF_LoadSprites(const char *root, spritecache_t *cache);
 
+/* w_terrain.c: the ground types of assets/terrain.txt (art/terrain.txt, docs/TERRAIN.md):
+ * map letters, tiles, blocking, ore, and the transitions where one terrain meets another.
+ * level.cell_terrain holds each cell's terrain index. */
+bool RF_LoadTerrain(const char *map_path);
+int  RF_TerrainOfLetter(char letter);              /* -1: not a terrain letter */
+int  RF_DefaultTerrain(void);                      /* what mined-out ore becomes */
+bool RF_TerrainBlocks(int terrain);
+bool RF_TerrainHoldsOre(int terrain);
+uint16_t RF_TerrainTile(int terrain, int x, int y);
+void RF_SetCellTerrain(level_t *map, int x, int y, int terrain);
+void RF_DrawTransitions(app_t *app, const level_t *map, const tileset_t *tileset, int x, int y, int dx, int dy);
+
 /* g_mission.c: building footprints block, idle harvesters find ore, a refinery comes with a
  * harvester. */
 void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count);

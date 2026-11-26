@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Concrete pavement, one map cell: 200 x 200 cm centred on the origin, its top at y = 0,
+     north (the screen's top) is -Z. Four 100 cm plates in a grid; the knob v (0..7) picks the
+     variant: cracked (1), a drain grate (2), a painted hazard bar (3), else plain. The plates run 2 cm past the
+     cell so neighbouring tiles meet without a gap; terrain.py renders it at game scale. A variant's
+     details sink 4 m under the floor when another variant is chosen. -->
+<prefab up="y" front="+z">
+  <let name="v" value="0"/>
+  <material id="terrain_concrete" color="0.60 0.58 0.54" shininess="5"><map type="noise" size="26" octaves="4" from="0.86 0.86 0.86" to="1.06 1.05 1.04"/></material>
+  <material id="terrain_joint"    color="0.26 0.25 0.23" shininess="2"/>
+  <material id="terrain_stain"    color="0.36 0.34 0.31" shininess="2"/>
+  <material id="terrain_grate"    color="0.22 0.23 0.24" shininess="30" metallic="0.3"><map type="checker" size="5" from="0.5 0.5 0.5" to="1.2 1.2 1.2"/></material>
+
+  <floor pos="0 0 0" width="204" depth="204" thickness="12" tileDepth="3" style="squares"
+         tileWidth="102" gap="1.6" material="terrain_concrete" colorVariation="0.06"
+         seed="{3 + v * 7}" groutMaterial="terrain_joint"/>
+
+  <!-- v 1: cracks across one plate and an oil stain -->
+  <group pos="0 {v == 1 ? 0 : -400} 0">
+    <box size="46 0.6 1.4" pos="-28 0.3 -22" rot="0 28 0" material="terrain_joint"/>
+    <box size="30 0.6 1.2" pos="2 0.3 -38" rot="0 -35 0" material="terrain_joint"/>
+    <box size="22 0.6 1.2" pos="-50 0.3 -8" rot="0 64 0" material="terrain_joint"/>
+    <cylinder radius="24" height="0.5" sides="16" pos="44 0.25 40" scale="1 1 0.7" material="terrain_stain"/>
+  </group>
+
+  <!-- v 2: a drain grate on the middle joint -->
+  <group pos="0 {v == 2 ? 0 : -400} 0">
+    <box size="44 1.2 30" pos="0 0.2 0" material="steel_dark"/>
+    <box size="38 1.6 24" pos="0 0.4 0" material="terrain_grate"/>
+  </group>
+
+  <!-- v 3: a painted hazard bar along the south plates -->
+  <group pos="0 {v == 3 ? 0 : -400} 0">
+    <box size="170 0.6 22" pos="0 0.3 62" material="hazard_big"/>
+  </group>
+</prefab>
