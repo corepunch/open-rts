@@ -3105,6 +3105,10 @@ struct menuitem_s {
     menulook_t look[MS_STATES];
     bool opaque; /* the sheet has no colour key: write its index 0 */
     bool stretch; /* scale the source picture to the item's rectangle */
+    /* With stretch: a nine-slice picture. Its outer `slice` source pixels (corners, rims, rivets)
+     * keep their size, at `slice_scale` source pixels per menu pixel (0 is 1), and only the
+     * middle stretches, so one bevelled panel or button fits any rectangle. 0: plain stretch. */
+    int slice, slice_scale;
     bool disabled_look; /* use authored MS_DISABLED art; otherwise keep MS_NORMAL */
     bool layer;   /* a popup: it draws over every earlier item, text included */
     int light;   /* 1..15 darkens the picture, in sixteenths; 0 is full light */
@@ -3203,6 +3207,10 @@ void M_MenuAnimate(menuitem_t *item, menuanimmode_t mode);
 void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(menu_t *menu);
 /* The item's picture for that state, as the engine draws it. */
+/* A nine-slice of src into dst: the border of `border` source pixels drawn `edge` screen pixels
+ * wide, the sides stretched along, the middle both ways. */
+void M_DrawNineSlice(const spritesheet_t *sheet, int cell, int palette, irect_t src, irect_t dst,
+                     int border, int edge, uint32_t flags, int light);
 void M_MenuDrawPicture(const menuitem_t *item, menustate_t state, irect_t rect);
 /* The item with this id, or NULL. */
 menuitem_t *M_MenuFind(const menu_t *menu, int id);

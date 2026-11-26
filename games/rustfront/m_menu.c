@@ -156,6 +156,7 @@ static menuitem_t *panel(irect_t rect) {
     menuitem_t *item = add(MI_STATIC, NONE, rect);
     item->fill = PANEL;
     item->border = PANEL_RIM;
+    RF_SkinItem(item, RF_SKIN_PANEL); /* the interface's metal (hu_skin.c), when it loaded */
     return item;
 }
 
@@ -185,6 +186,7 @@ static menuitem_t *button(int id, irect_t rect, const char *text, SDL_Keycode ke
     item->look[MS_PUSHED].ink = INK_HOT;
     item->look[MS_PUSHED].shift = (ivec2_t){1, 1};
     item->look[MS_DISABLED].ink = INK_DIM;
+    RF_SkinItem(item, RF_SKIN_BUTTON);
     return item;
 }
 
@@ -198,6 +200,8 @@ static menuitem_t *list(int id, irect_t rect, int rows, const char *(*row)(const
     item->border = PANEL_RIM;
     item->color = ROW;
     item->inset = (ivec2_t){6, 2};
+    RF_SkinItem(item, RF_SKIN_WELL);
+    item->color = ROW; /* the selected row's bar */
     return item;
 }
 
@@ -543,6 +547,9 @@ static void net_style_button(menuitem_t *item) {
     if (item->kind == MI_BUTTON) {
         item->fill = BUTTON, item->border = BUTTON_RIM, item->color = FOCUS;
         item->look[MS_FOCUS].ink = INK_HOT;
+        item->look[MS_PUSHED].ink = INK_HOT;
+        item->look[MS_DISABLED].ink = INK_DIM;
+        RF_SkinItem(item, RF_SKIN_BUTTON);
     }
     if (have_fonts) item->font = &body;
 }
@@ -552,6 +559,8 @@ static void net_style_label(menuitem_t *item) {
 }
 static void net_style_list(menuitem_t *l, menuitem_t *bar) {
     l->fill = PANEL, l->border = PANEL_RIM, l->color = ROW;
+    RF_SkinItem(l, RF_SKIN_WELL);
+    l->color = ROW;
     if (have_fonts) l->font = &body, l->row_height = body.line_h + 3;
     if (bar) bar->color = PANEL_RIM;
 }
@@ -690,6 +699,7 @@ bool G_InitMenus(app_t *app, const char *root) {
         if (!have_backdrop) fprintf(stderr, "rustfront: cannot load %s; the menus have no backdrop\n", path);
         have_fonts = load_face(root_dir, "body", &body) && load_face(root_dir, "head", &head);
         if (!have_fonts) fprintf(stderr, "rustfront: cannot load the menu fonts in %s/assets\n", root_dir);
+        RF_LoadSkin(root_dir);
         default_seats();
         srand((unsigned)time(NULL));
         initialized = true;

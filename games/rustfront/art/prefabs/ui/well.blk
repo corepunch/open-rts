@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A recessed screen of the interface, w x h cm facing the camera (+Z), drawn by art/ui.py as a
+     nine-slice behind the radar, the credits and the build list: a steel rim round dark glass
+     set into it, its upper and left walls in shadow and its lower and right lips catching the
+     light, as a hole lit from the top left. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <let name="w" value="64"/>
+  <let name="h" value="64"/>
+  <let name="rim" value="6"/>
+
+  <slab width="{w}" height="{h}" depth="6" bevel="1.5" pos="0 0 3" material="ui_rim"/>
+  <box size="{w - 2*rim} {h - 2*rim} 1" pos="0 0 6.2" material="ui_screen"/>
+  <!-- the walls of the hole -->
+  <box size="{w - 2*rim} 1.6 1" pos="0 {h/2 - rim - 0.8} 6.4" material="ui_shade"/>
+  <box size="1.6 {h - 2*rim} 1" pos="{-(w/2 - rim - 0.8)} 0 6.4" material="ui_shade"/>
+  <box size="{w - 2*rim} 1 1" pos="0 {-(h/2 - rim - 0.5)} 6.4" material="ui_light"/>
+  <box size="1 {h - 2*rim} 1" pos="{w/2 - rim - 0.5} 0 6.4" material="ui_light"/>
+</prefab>

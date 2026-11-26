@@ -267,6 +267,21 @@ static const char *const rf_icons[] = {"power", "barracks", "refinery", "factory
 #define RF_ICON_LC_SERAPH 55
 #define RF_ICON_W 64
 #define RF_ICON_H 48
+/* Interface skins (art/ui.py): parts of assets/ui.pcx drawn as nine-slices, at 2 source
+ * pixels a layout pixel; SLICE is the border in source pixels that keeps its size. */
+#define RF_UI_PANEL ((irect_t){0, 0, 160, 160})
+#define RF_UI_PANEL_SLICE 14
+#define RF_UI_WELL ((irect_t){0, 160, 64, 64})
+#define RF_UI_WELL_SLICE 8
+#define RF_UI_BUTTON ((irect_t){0, 224, 96, 40})
+#define RF_UI_BUTTON_SLICE 9
+#define RF_UI_BUTTON_FOCUS ((irect_t){0, 264, 96, 40})
+#define RF_UI_BUTTON_FOCUS_SLICE 9
+#define RF_UI_BUTTON_PRESSED ((irect_t){0, 304, 96, 40})
+#define RF_UI_BUTTON_PRESSED_SLICE 9
+#define RF_UI_BUTTON_DISABLED ((irect_t){0, 344, 96, 40})
+#define RF_UI_BUTTON_DISABLED_SLICE 9
+#define RF_UI_SCALE 2
 #define RF_TEAM_BASE 16
 #define RF_TEAM_SHADES 16
 #define RF_TEAM_COUNT 4

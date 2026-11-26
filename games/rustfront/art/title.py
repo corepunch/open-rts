@@ -92,12 +92,25 @@ def main():
     mark = logo("RUSTFRONT", 6)
     canvas.alpha_composite(mark, ((W - mark.size[0]) // 2, 34))
     rgb = canvas.convert("RGB")
-    # One palette for the screen: 240 colours of the picture, and the menus' own inks kept exact.
+    # One palette for the screen: the picture's colours, the skin's, and the menus' own inks kept exact.
     inks = [(12, 18, 22), (24, 36, 45), (40, 56, 66), (220, 230, 220), (255, 196, 96), (150, 160, 150),
             (90, 40, 30), (200, 80, 50), (110, 200, 120), (16, 12, 10), (255, 255, 255), (0, 0, 0),
             (60, 70, 74), (120, 130, 128), (232, 150, 70), (28, 24, 22)]
-    q = rgb.quantize(colors=240, method=Image.MEDIANCUT, dither=Image.NONE)
-    pal = q.getpalette()[:240 * 3]
+    # The pages' buttons and panels are the interface's metal (art/ui.py, drawn through this
+    # palette): 48 of the colours are the skin's, so its steel stays steel over the sepia picture.
+    skin = os.path.join(GAME, "sprites", "ui.png")
+    picture = 240
+    skin_pal = []
+    if os.path.exists(skin):
+        ui = Image.open(skin).convert("RGBA")
+        opaque = [c[:3] for c in ui.getdata() if c[3] >= 128]
+        side = int(len(opaque) ** 0.5) + 1
+        pool = Image.new("RGB", (side, side))
+        pool.putdata(opaque + [opaque[-1]] * (side * side - len(opaque)))
+        skin_pal = pool.quantize(colors=48, method=Image.MEDIANCUT).getpalette()[:48 * 3]
+        picture = 240 - 48
+    q = rgb.quantize(colors=picture, method=Image.MEDIANCUT, dither=Image.NONE)
+    pal = q.getpalette()[:picture * 3] + skin_pal
     for c in inks:
         pal.extend(c)
     pal = pal[:768]

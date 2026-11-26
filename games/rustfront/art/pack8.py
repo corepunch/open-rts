@@ -151,6 +151,10 @@ def main():
     icons = Image.open(SPRITES / "icons.png").convert("RGB")
     icon_meta = json.loads((SPRITES / "icons.json").read_text())
     samples += list(icons.getdata()) * 2
+    # The interface's metal (art/ui.py) is on screen all the time: weigh it like the icons.
+    ui = Image.open(SPRITES / "ui.png").convert("RGBA")
+    ui_meta = json.loads((SPRITES / "ui.json").read_text())
+    samples += [c for c, a in zip(ui.convert("RGB").getdata(), ui.getchannel("A").getdata()) if a >= 128] * 3
     terrain = Image.open(SPRITES / "terrain.png").convert("RGBA")
     terrain_meta = json.loads((SPRITES / "terrain.json").read_text())
     # Terrain covers the screen, and a ground type whose hue the sprites seldom use (grass,
@@ -298,6 +302,8 @@ def main():
           for f, a in zip(to_free(terrain.convert("RGB")), terrain.getchannel("A").getdata())],
          terrain.size, "terrain.pcx")
     write_terrain_table(terrain_meta)
+    save([f if a >= ALPHA_MIN else TRANSPARENT
+          for f, a in zip(to_free(ui.convert("RGB")), ui.getchannel("A").getdata())], ui.size, "ui.pcx")
 
     lines += ["/* The tables belong to the sprite loader; other files include this for the constants. */",
               "#ifdef RF_SPRITE_TABLES"]
@@ -311,6 +317,12 @@ def main():
     lines += ["#define RF_ICON_%s %d" % (k.upper(), i) for i, k in enumerate(icon_meta["order"])]
     lines.append("#define RF_ICON_W %d" % icon_meta["size"][0])
     lines.append("#define RF_ICON_H %d" % icon_meta["size"][1])
+    lines.append("/* Interface skins (art/ui.py): parts of assets/ui.pcx drawn as nine-slices, at 2 source")
+    lines.append(" * pixels a layout pixel; SLICE is the border in source pixels that keeps its size. */")
+    for k, (x, y, w, h, sl) in ui_meta["parts"].items():
+        lines.append("#define RF_UI_%s ((irect_t){%d, %d, %d, %d})" % (k.upper(), x, y, w, h))
+        lines.append("#define RF_UI_%s_SLICE %d" % (k.upper(), sl))
+    lines.append("#define RF_UI_SCALE 2")
     lines.append("#define RF_TEAM_BASE %d" % TEAM_BASE)
     lines.append("#define RF_TEAM_SHADES %d" % TEAM_SHADES)
     lines.append("#define RF_TEAM_COUNT %d" % len(TEAMS))

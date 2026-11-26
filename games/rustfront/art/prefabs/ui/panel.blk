@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A heavy plate of the interface, w x h cm facing the camera (+Z), drawn by art/ui.py as a
+     nine-slice behind the sidebar and the front end's pages: a brushed gunmetal plate inside a
+     raised rim, a hex bolt in each corner, a strip of hazard paint at the top corners. Nothing
+     in the stretched middle or edges has a shape that would show the stretch. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <let name="w" value="160"/>
+  <let name="h" value="160"/>
+  <let name="rim" value="9"/>
+
+  <slab width="{w}" height="{h}" depth="6" bevel="1.5" pos="0 0 3" material="ui_plate"/>
+  <!-- the rim: four bars with mitred feel (overlapping corners), raised over the plate -->
+  <slab width="{w}" height="{rim}" depth="4" bevel="1.5" pos="0 {h/2 - rim/2} 8" material="ui_rim"/>
+  <slab width="{w}" height="{rim}" depth="4" bevel="1.5" pos="0 {-(h/2 - rim/2)} 8" material="ui_rim"/>
+  <slab width="{rim}" height="{h}" depth="4" bevel="1.5" pos="{-(w/2 - rim/2)} 0 8" material="ui_rim"/>
+  <slab width="{rim}" height="{h}" depth="4" bevel="1.5" pos="{w/2 - rim/2} 0 8" material="ui_rim"/>
+  <!-- a dark seam inside the rim -->
+  <slab width="{w - 2*rim}" height="1.2" depth="0.6" bevel="0.2" pos="0 {h/2 - rim - 0.6} 6.3" material="ui_shade"/>
+  <slab width="1.2" height="{h - 2*rim}" depth="0.6" bevel="0.2" pos="{-(w/2 - rim - 0.6)} 0 6.3" material="ui_shade"/>
+  <slab width="{w - 2*rim}" height="1" depth="0.6" bevel="0.2" pos="0 {-(h/2 - rim - 0.5)} 6.3" material="ui_light"/>
+  <slab width="1" height="{h - 2*rim}" depth="0.6" bevel="0.2" pos="{w/2 - rim - 0.5} 0 6.3" material="ui_light"/>
+  <!-- hex bolts in the corners -->
+  <cylinder radius="3.2" height="2" sides="6" rot="90 0 0" pos="{-(w/2 - 4.5)} {h/2 - 4.5} 10.8" material="ui_bolt"/>
+  <cylinder radius="3.2" height="2" sides="6" rot="90 0 0" pos="{w/2 - 4.5} {h/2 - 4.5} 10.8" material="ui_bolt"/>
+  <cylinder radius="3.2" height="2" sides="6" rot="90 0 0" pos="{-(w/2 - 4.5)} {-(h/2 - 4.5)} 10.8" material="ui_bolt"/>
+  <cylinder radius="3.2" height="2" sides="6" rot="90 0 0" pos="{w/2 - 4.5} {-(h/2 - 4.5)} 10.8" material="ui_bolt"/>
+</prefab>

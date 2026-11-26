@@ -228,6 +228,15 @@ void RF_DrawMarks(const unitoverlaycontext_t *ctx);
 int  RF_SightCells(uint16_t type);
 void RF_DrawFog(app_t *app, const level_t *map, const tileset_t *tileset);
 
+/* hu_skin.c: the interface's metal skins (art/ui.py): nine-slice panels, screens and buttons. */
+typedef enum { RF_SKIN_PANEL, RF_SKIN_WELL, RF_SKIN_BUTTON, RF_SKIN_BUTTON_FOCUS, RF_SKIN_BUTTON_PRESSED,
+               RF_SKIN_BUTTON_DISABLED } rf_skinpart_t;
+bool RF_LoadSkin(const char *root);
+void RF_FreeSkin(void);
+bool RF_HaveSkin(void);
+void RF_SkinItem(menuitem_t *item, rf_skinpart_t part);   /* RF_SKIN_BUTTON: all four states */
+void RF_DrawSkin(rf_skinpart_t part, irect_t dst, int scale); /* scale: framebuffer px a layout px */
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);

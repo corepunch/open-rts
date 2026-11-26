@@ -619,11 +619,48 @@ static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     return item == focused(menu) || menu->target == item ? MS_FOCUS : MS_NORMAL;
 }
 
+void M_DrawNineSlice(const spritesheet_t *sheet, int cell, int palette, irect_t src, irect_t dst,
+                     int border, int edge, uint32_t flags, int light) {
+    if (!sheet || dst.w <= 0 || dst.h <= 0) return;
+    int b = border, e = edge;
+    if (b * 2 > src.w) b = src.w / 2;
+    if (b * 2 > src.h) b = src.h / 2;
+    if (e * 2 > dst.w) e = dst.w / 2;
+    if (e * 2 > dst.h) e = dst.h / 2;
+    if (b <= 0 || e <= 0) {
+        R_DrawSprite(sheet, cell, palette, &src, &dst, flags, light);
+        return;
+    }
+    /* columns and rows: the border, the stretched middle, the border */
+    int sx[4] = {src.x, src.x + b, src.x + src.w - b, src.x + src.w};
+    int sy[4] = {src.y, src.y + b, src.y + src.h - b, src.y + src.h};
+    int dx[4] = {dst.x, dst.x + e, dst.x + dst.w - e, dst.x + dst.w};
+    int dy[4] = {dst.y, dst.y + e, dst.y + dst.h - e, dst.y + dst.h};
+    for (int r = 0; r < 3; ++r)
+        for (int c = 0; c < 3; ++c) {
+            irect_t s = {sx[c], sy[r], sx[c + 1] - sx[c], sy[r + 1] - sy[r]};
+            irect_t d = {dx[c], dy[r], dx[c + 1] - dx[c], dy[r + 1] - dy[r]};
+            if (s.w > 0 && s.h > 0 && d.w > 0 && d.h > 0) R_DrawSprite(sheet, cell, palette, &s, &d, flags, light);
+        }
+}
+
 void M_MenuDrawPicture(const menuitem_t *item, menustate_t state, irect_t rect) {
     const menulook_t *look = &item->look[state];
     if (!item->sheet || look->cell < 0 || look->cell >= item->sheet->numlumps) return;
     const spritecell_t *cell = &item->sheet->cells[look->cell];
     irect_t src = look->part.w > 0 ? look->part : cell->rect;
+    if (item->stretch && item->slice > 0) {
+        /* the rims keep their size: source pixels to screen pixels as the menu scales */
+        int scale = item->slice_scale > 0 ? item->slice_scale : 1;
+        int edge = item->rect.h > 0 ? item->slice * rect.h / (item->rect.h * scale) : item->slice / scale;
+        if (item->rect.w > 0) {
+            int ex = item->slice * rect.w / (item->rect.w * scale);
+            if (ex < edge) edge = ex;
+        }
+        M_DrawNineSlice(item->sheet, look->cell, look->palette, src, rect, item->slice, edge > 0 ? edge : 1,
+                        item->opaque ? V_OPAQUE : 0, item->light ? item->light : 16);
+        return;
+    }
     irect_t dst = {rect.x + cell->displacement.x, rect.y + cell->displacement.y, src.w, src.h};
     if (item->stretch && look->part.w <= 0 &&
         item->sheet->frame_size.w > 0 && item->sheet->frame_size.h > 0) {

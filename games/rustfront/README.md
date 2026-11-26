@@ -77,6 +77,16 @@ ring it will cover. The computer deploys its trucks and rigs where they stop and
   palette and team ramps, plus `sprites.inc` for the C side.
 - `art/contact.py` composites them as a check (`art/previews/sprites_contact.png`).
 
+**The interface** is metal too, modelled in Scener (`art/ui.py`, `art/prefabs/ui/`): a bolted
+gunmetal plate behind the sidebar and the front end's pages, recessed screens behind the
+credits, the radar and the lists, and steel buttons in four states: normal, focus (lighter,
+an amber lamp lit along the foot), pressed (sunk into the bezel, the lamp lit) and disabled
+(dull, unpolished). Each is drawn as a nine-slice (`M_DrawNineSlice` in hud/m_menu.c; a menu
+item's `slice`): its bezel, bevels and screws keep their size and only the brushed middle
+stretches, so one picture fits every button. The sidebar's build rows are buttons too, pressed
+while they build and dull when they cannot be bought. `hu_skin.c` hands the skins to the
+sidebar and the front end; the title screen's palette keeps 48 colours for them.
+
 ![In game](art/previews/ingame.png)
 
 ![Sidebar with the Command Center selected](art/previews/sidebar.png)
@@ -338,6 +348,7 @@ game; `OPEN_RTS_RF_UI_SHOTS=DIR` writes every page as a BMP.
 | `hu_rustfront.c` | The sidebar: credits, power meter, radar with fog, cameo build rows (the engine's product list does clicks, queues and placement), REPAIR and SELL |
 | `factions.c` | The three factions: each one's types for the roles (headquarters, power, refinery, barracks, factory, turret, harvester), and which faction a side plays (its headquarters') |
 | `g_combat.c` | Projectiles: shells, rockets, beam bolts and flame gouts do their damage on arrival; the Mastodon fires a pair of shells, the Rocket Rig a salvo of three and the Hammer a pair of heavy missiles; heavy shells, heavy bolts and heavy missiles splash; rockets trail smoke. Machine guns hit at once. The Wrecker's detonation and the Aegis's field |
+| `hu_skin.c` | The interface's metal skins (assets/ui.pcx, art/ui.py): menu items take a panel, a screen or a button's four states; `RF_DrawSkin` draws one as a nine-slice |
 | `g_units.c` | Each faction's special units and powers (Dark Reign, KKnD, 7th Legion): the APC's passengers (`TC_BOARD`, `TC_UNLOAD`), deploying (`TC_DEPLOY`), the Phantom's phase, the crane and the cantor, the Crusher, sappers and mines, anti-air, the Rites (`TC_SPELL` with no units) and the tithe, and the computer's use of them |
 | `g_base.c` | Power, repair and sell, rally points and veterancy: the orders (`TC_REPAIR`, a move order to a producer) and their rules |
 | `g_sight.c` | Fog of war: each type's sight, the fog pass |

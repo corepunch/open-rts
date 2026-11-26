@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A button of the interface, w x h cm on the XY plane facing the camera (+Z), drawn by
+     art/ui.py at 1 cm a pixel as a nine-slice: everything within `slice` of the edge (the bezel,
+     the face's bevel and the corner screws) keeps its size and only the middle stretches.
+     A dark bezel round a raised plate of brushed steel, screwed at its corners.
+     state 0 normal, 1 focus (the face lighter, an amber lamp strip lit along its foot),
+     2 pressed (the face sunk into the bezel, darker, nudged down and right, the lamp lit),
+     3 disabled (a dull unpolished face, no lamp). -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <let name="w" value="96"/>
+  <let name="h" value="40"/>
+  <let name="state" value="0"/>
+  <let name="down" value="state == 2 ? 1 : 0"/>
+  <let name="top" value="down ? 6.5 : 10"/>
+
+  <slab width="{w}" height="{h}" depth="4" bevel="1" pos="0 0 2" material="ui_bezel"/>
+  <!-- the face, raised or sunk -->
+  <soft-box width="{w-6}" height="{h-6}" depth="6" radius="2.5" bevel="2.6" pos="0 0 7" material="ui_face" renderable="{state == 0}" castShadow="{state == 0}"/>
+  <soft-box width="{w-6}" height="{h-6}" depth="6" radius="2.5" bevel="2.6" pos="0 0 7" material="ui_face_lit" renderable="{state == 1}" castShadow="{state == 1}"/>
+  <soft-box width="{w-6}" height="{h-6}" depth="6" radius="2.5" bevel="1.6" pos="0.8 -0.8 3.5" material="ui_face_down" renderable="{state == 2}" castShadow="{state == 2}"/>
+  <soft-box width="{w-6}" height="{h-6}" depth="6" radius="2.5" bevel="2.6" pos="0 0 7" material="ui_face_dull" renderable="{state == 3}" castShadow="{state == 3}"/>
+  <!-- pressed: the bezel's shadow falls on the sunk face at its top and left -->
+  <box size="{w-6} 1.6 0.6" pos="0 {(h-6)/2 - 0.8} 6.9" material="ui_shade" renderable="{state == 2}" castShadow="{state == 2}"/>
+  <box size="1.6 {h-6} 0.6" pos="{-(w-6)/2 + 0.8} 0 6.9" material="ui_shade" renderable="{state == 2}" castShadow="{state == 2}"/>
+  <!-- the lamp strip along the foot of the face -->
+  <box size="{w-22} 1.6 1" pos="{down * 0.8} {-(h-6)/2 + 3.2 - down * 0.8} {top + 0.3}" material="ui_amber" unlit="1" castShadow="0" renderable="{state == 1 || state == 2}"/>
+  <box size="{w-22} 1.6 1" pos="0 {-(h-6)/2 + 3.2} {top + 0.3}" material="ui_shade" renderable="{state == 0 || state == 3}" castShadow="{state == 0 || state == 3}"/>
+  <!-- corner screws, each with its slot at its own angle -->
+  <group pos="{down * 0.8} {-down * 0.8} {top}">
+    <cylinder radius="1.7" height="1" sides="10" rot="90 0 0" pos="{-(w/2 - 6.5)} {h/2 - 6.5} 0.3" material="ui_bolt"/>
+    <box size="2.8 0.6 0.6" rot="0 0 35" pos="{-(w/2 - 6.5)} {h/2 - 6.5} 0.9" material="ui_slot"/>
+    <cylinder radius="1.7" height="1" sides="10" rot="90 0 0" pos="{w/2 - 6.5} {h/2 - 6.5} 0.3" material="ui_bolt"/>
+    <box size="2.8 0.6 0.6" rot="0 0 -20" pos="{w/2 - 6.5} {h/2 - 6.5} 0.9" material="ui_slot"/>
+    <cylinder radius="1.7" height="1" sides="10" rot="90 0 0" pos="{-(w/2 - 6.5)} {-(h/2 - 6.5)} 0.3" material="ui_bolt"/>
+    <box size="2.8 0.6 0.6" rot="0 0 80" pos="{-(w/2 - 6.5)} {-(h/2 - 6.5)} 0.9" material="ui_slot"/>
+    <cylinder radius="1.7" height="1" sides="10" rot="90 0 0" pos="{w/2 - 6.5} {-(h/2 - 6.5)} 0.3" material="ui_bolt"/>
+    <box size="2.8 0.6 0.6" rot="0 0 10" pos="{w/2 - 6.5} {-(h/2 - 6.5)} 0.9" material="ui_slot"/>
+  </group>
+</prefab>

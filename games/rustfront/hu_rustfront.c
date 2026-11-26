@@ -13,7 +13,7 @@
  * queueing, placing a structure and paging use the engine's product pieces (hud/hu_bar.c);
  * this file draws the rows and the radar. */
 
-enum { SB_PANEL, SB_CREDITS, SB_POWER, SB_RADAR, SB_PRODUCTS, SB_REPAIR, SB_SELL, SB_PAGE,
+enum { SB_PANEL, SB_TOP, SB_RADAR_WELL, SB_CREDITS, SB_POWER, SB_RADAR, SB_PRODUCTS, SB_REPAIR, SB_SELL, SB_PAGE,
        SB_CMD0, SB_CMD1, SB_CMD2, SB_COUNT };
 enum { ROW_H = 52, ROWS = 5, SIDEBAR_W = 640 - RF_SIDEBAR_X, PRODUCT_MAX = 64 };
 enum { BUTTONS_Y = 144 + ROWS * ROW_H + 4, COMMANDS_Y = BUTTONS_Y + 26, COMMAND_W = (SIDEBAR_W - 12) / 3 };
@@ -75,7 +75,6 @@ static void text(irect_t box, const char *s, uint32_t argb) {
 }
 
 static void draw_products(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    (void)menu;
     StaticProductDefinition products[PRODUCT_MAX];
     mobj_t *producer = selected_producer();
     int count = products_of(producer, products);
@@ -94,15 +93,24 @@ static void draw_products(const menu_t *menu, const menuitem_t *item, irect_t re
         const StaticProductDefinition *p = &products[index];
         irect_t cell = {rect.x, rect.y + row * item->row_height * s, rect.w, (item->row_height - 2) * s};
         irect_t icon = {cell.x + 3 * s, cell.y + 1 * s, RF_ICON_W * s, RF_ICON_H * s};
-        V_DrawRectOutline(cell, border);
-        if (icons_loaded && p->icon_frame >= 0) {
-            irect_t src = {p->icon_frame * RF_ICON_W, 0, RF_ICON_W, RF_ICON_H};
-            V_DrawSpriteCellScaled(icon, &icons, 0, &src, remap, V_OPAQUE);
-        }
+        if (RF_HaveSkin()) icon.x += s, icon.h -= s; /* inside the bezel */
         bool enabled = product_enabled(producer, p);
         const production_t *queue = queue_for(producer, p);
         bool building = queue && queue->queue_count > 0 && queue->product_type == p->product_type &&
                         queue->product_class == p->product_class;
+        if (RF_HaveSkin()) {
+            /* the row is a button: lit under the pointer, pressed while it builds, dull when it cannot */
+            bool over = menu->cursor.x >= cell.x && menu->cursor.x < cell.x + cell.w &&
+                        menu->cursor.y >= cell.y && menu->cursor.y < cell.y + cell.h;
+            RF_DrawSkin(building ? RF_SKIN_BUTTON_PRESSED : !enabled ? RF_SKIN_BUTTON_DISABLED :
+                        over ? RF_SKIN_BUTTON_FOCUS : RF_SKIN_BUTTON, cell, s);
+        } else {
+            V_DrawRectOutline(cell, border);
+        }
+        if (icons_loaded && p->icon_frame >= 0) {
+            irect_t src = {p->icon_frame * RF_ICON_W, 0, RF_ICON_W, RF_ICON_H};
+            V_DrawSpriteCellScaled(icon, &icons, 0, &src, remap, V_OPAQUE);
+        }
         if (!enabled && !building) V_FillRectTranslucent(icon, 0xa0000000u);
         if (building && queue->time_ms > 0) {
             /* C&C's clock as a curtain: the part still to build stays dark. */
@@ -400,6 +408,9 @@ static void draw_command(const menu_t *menu, const menuitem_t *item, irect_t rec
 static menuitem_t items[SB_COUNT] = {
     [SB_PANEL] = {.visible = true, .rect = {RF_SIDEBAR_X, 0, SIDEBAR_W, 480},
                   .fill = 0xff161a1cu, .border = 0xff4a5458u},
+    /* recessed screens behind the credits and power, and behind the radar */
+    [SB_TOP] = {.visible = true, .rect = {RF_SIDEBAR_X + 4, 3, SIDEBAR_W - 8, 28}, .passthrough = true},
+    [SB_RADAR_WELL] = {.visible = true, .rect = {RF_SIDEBAR_X + 3, 31, SIDEBAR_W - 6, 110}, .passthrough = true},
     [SB_CREDITS] = {.visible = true, .rect = {RF_SIDEBAR_X + 8, 6, SIDEBAR_W - 16, 22}, .ink = 0xffe6d750u,
                     .align = MALIGN_RIGHT, .ownerdraw = HU_DrawCounter},
     [SB_POWER] = {.visible = true, .rect = {RF_SIDEBAR_X + 8, 8, 64, 18}, .ownerdraw = draw_power},
@@ -427,7 +438,22 @@ static menuitem_t items[SB_COUNT] = {
     COMMAND(0, SDLK_z), COMMAND(1, SDLK_c), COMMAND(2, SDLK_v),
 #undef COMMAND
 };
-static menu_t sidebar = {.items = items, .numitems = SB_COUNT, .itemOn = -1, .refresh = HU_RefreshProducts};
+static void refresh(menu_t *menu);
+static menu_t sidebar = {.items = items, .numitems = SB_COUNT, .itemOn = -1, .refresh = refresh};
+
+/* With the skin, a button with nothing to do shows its disabled art. */
+static void refresh(menu_t *menu) {
+    HU_RefreshProducts(menu);
+    if (!RF_HaveSkin()) return;
+    command_t list[3];
+    int n = commands(list);
+    items[SB_REPAIR].enabled = structure_selected(true);
+    items[SB_SELL].enabled = structure_selected(false);
+    const menuitem_t *products = &items[SB_PRODUCTS];
+    int rows = products->row_height > 0 ? products->rect.h / products->row_height : 1;
+    items[SB_PAGE].enabled = products->rows > rows;
+    for (int i = 0; i < 3; ++i) items[SB_CMD0 + i].enabled = i < n;
+}
 
 menu_t *RF_InitHUD(app_t *app, const char *root) {
     char path[1024];
@@ -438,6 +464,15 @@ menu_t *RF_InitHUD(app_t *app, const char *root) {
     }
     HU_InitProducts(&sidebar, root);
     sidebar.app = app;
+    if (RF_LoadSkin(root)) {
+        RF_SkinItem(&items[SB_PANEL], RF_SKIN_PANEL);
+        RF_SkinItem(&items[SB_TOP], RF_SKIN_WELL);
+        RF_SkinItem(&items[SB_RADAR_WELL], RF_SKIN_WELL);
+        RF_SkinItem(&items[SB_REPAIR], RF_SKIN_BUTTON);
+        RF_SkinItem(&items[SB_SELL], RF_SKIN_BUTTON);
+        RF_SkinItem(&items[SB_PAGE], RF_SKIN_BUTTON);
+        for (int i = 0; i < 3; ++i) RF_SkinItem(&items[SB_CMD0 + i], RF_SKIN_BUTTON);
+    }
     return &sidebar;
 }
 
