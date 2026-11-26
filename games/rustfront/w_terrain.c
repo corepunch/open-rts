@@ -178,16 +178,22 @@ static bool load_from(const char *path) {
 /* The table beside a map's game: <root>/assets/terrain.txt for a map in <root>/maps/, else
  * the default root's. */
 bool RF_LoadTerrain(const char *map_path) {
-    char path[1024];
+    /* The game root is the map's directory's parent (maps/x.txt), or one further up for a
+     * campaign mission (maps/campaign/x.txt). */
+    char path[1024], file[1100];
     snprintf(path, sizeof(path), "%s", map_path);
-    for (int up = 0; up < 2; ++up) {
+    for (int up = 0; up < 3; ++up) {
         char *slash = strrchr(path, '/');
-        if (slash) *slash = '\0';
-        else snprintf(path, sizeof(path), ".");
+        if (!slash) break;
+        *slash = '\0';
+        if (up == 0) continue;
+        snprintf(file, sizeof(file), "%s/assets/terrain.txt", path);
+        FILE *probe = fopen(file, "r");
+        if (probe) {
+            fclose(probe);
+            if (load_from(file)) return true;
+        }
     }
-    char file[1100];
-    snprintf(file, sizeof(file), "%s/assets/terrain.txt", path);
-    if (load_from(file)) return true;
     snprintf(file, sizeof(file), "%s/assets/terrain.txt", g_game_default_root);
     if (load_from(file)) return true;
     fprintf(stderr, "rustfront: cannot load the terrain table for %s\n", map_path);

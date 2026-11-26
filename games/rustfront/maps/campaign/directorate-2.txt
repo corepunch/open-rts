@@ -1,0 +1,136 @@
+# Rustfront campaign mission, written by maps/campaign/missions.py (docs/CAMPAIGN.md).
+mission directorate 2
+title Relay Station
+briefing The Mandate's long-range relay on Ridge Nine is our only link to the coast. The Scrap Clans want its copper and will throw everything they have at it.
+briefing Hold the relay's Power Plant for five minutes until the convoy arrives. Gun Turrets and Rocket Soldiers are cleared for this operation. The clans come from the north and the east.
+briefing If the relay falls, the mission fails.
+tech power refinery barracks turret rifleman rocket
+objective protect relay | Keep the relay standing
+objective survive 300 | Hold out for five minutes
+................................................
+................................................
+................................................
+................................................
+................................................
+......................................^^^^^.....
+.....................................^^^^^^^....
+....................................^^^^^R^^^...
+..................................Rx^^^^^^^^R...
+....................................R^^^^^^^^...
+.....................................^^^^^^^R...
+......................................^^^^^.R...
+..===============.........========..............
+..===============.........========..............
+..===============.........========..............
+..===============.........========..............
+..===============......x..========..............
+..===============.........========..............
+..===============.........========..............
+..===============...............................
+..===============x..............................
+..===============...............................
+........*****...................................
+......*********............,,,,,,,.x............
+......*********..........,,,,,,,,,,,............
+......*********.........,,,,,,,,,,,,,...........
+........*****...........,,,,,,,,,,,,,...........
+........................,,,,,,,,,,,,,...........
+.........................,,,,,,,,,,,............
+...........................,,,,,,,..............
+................................................
+................................................
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+unit hq 0 3 13 0
+unit power 0 7 13 0
+unit refinery 0 10 13 0
+unit barracks 0 3 17 0
+unit turret 0 11 17 0
+unit harvester 0 11 16 0
+unit power 0 28 14 0 @relay
+unit turret 0 27 13 0
+unit turret 0 31 13 0
+unit turret 0 31 16 0
+unit rifleman 0 24 19 4
+unit rifleman 0 26 19 4
+unit rifleman 0 28 19 4
+unit rifleman 0 30 19 4
+unit rocket 0 24 20 4
+unit rocket 0 26 20 4
+unit rocket 0 28 20 4
+unit rifleman 0 5 22 0
+unit rifleman 0 7 22 0
+unit rifleman 0 9 22 0
+credits 0 4000
+camera 22 15
+trigger w1 time 40
+spawn w1 cl_raider 1 26 1 12
+spawn w1 cl_raider 1 28 1 12
+spawn w1 cl_raider 1 30 1 12
+spawn w1 cl_raider 1 32 1 12
+trigger w2 time 90
+spawn w2 cl_raider 1 44 14 8
+spawn w2 cl_raider 1 42 14 8
+spawn w2 cl_raider 1 40 14 8
+spawn w2 cl_torcher 1 38 14 8
+spawn w2 cl_torcher 1 44 15 8
+trigger w3 time 140
+spawn w3 cl_raider 1 30 1 12
+spawn w3 cl_raider 1 28 1 12
+spawn w3 cl_raider 1 26 1 12
+spawn w3 cl_raider 1 24 1 12
+spawn w3 cl_trike 1 30 2 12
+spawn w3 cl_trike 1 28 2 12
+trigger w4 time 195
+spawn w4 cl_truck 1 44 18 8
+spawn w4 cl_trike 1 42 18 8
+spawn w4 cl_trike 1 40 18 8
+spawn w4 cl_raider 1 38 18 8
+spawn w4 cl_raider 1 44 19 8
+spawn w4 cl_raider 1 42 19 8
+trigger w5 time 250
+spawn w5 cl_crawler 1 22 1 12
+spawn w5 cl_raider 1 24 1 12
+spawn w5 cl_raider 1 26 1 12
+spawn w5 cl_raider 1 28 1 12
+spawn w5 cl_raider 1 22 2 12
+spawn w5 cl_torcher 1 24 2 12
+spawn w5 cl_torcher 1 26 2 12
+message w1 Clan raiders coming down from the ridge!
+message w3 Trikes! Rocket Soldiers stop vehicles best.
+message w5 Their war party is here. Hold the relay!
+trigger convoy time 290
+message convoy The convoy is in sight. Hang on, Commander.
+spawn convoy tank 0 4 28 0
+spawn convoy tank 0 6 28 0
+spawn convoy apc 0 8 28 0

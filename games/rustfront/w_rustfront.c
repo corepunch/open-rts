@@ -18,7 +18,9 @@
  * "unit NAME OWNER X Y [FACING]" with X, Y the cell (a building's top-left) and FACING
  * 0..15 counter-clockwise from east. Owner 0 is the player; others are enemies, drawn in
  * their team colour (team = owner). A "camera X Y" line centres the opening view, and
- * "credits OWNER N" sets a side's money (5000 by default). Every ore cell is a deposit of
+ * "credits OWNER N" sets a side's money (5000 by default). A unit line may end in "@TAG", and
+ * a campaign mission adds its own keys (g_campaign.c, docs/CAMPAIGN.md); the loader hands any
+ * other line to RF_CampaignParseLine. Every ore cell is a deposit of
  * ORE_PER_CELL that a harvester draws ORE_RATE from a second. */
 
 #define ORE_PER_CELL 1000
@@ -27,7 +29,7 @@
 
 #define RF_MAX_THINGS 256
 
-typedef struct { uint16_t type; int owner, facing; ivec2_t cell; } rfthing_t;
+typedef struct { uint16_t type; int owner, facing; ivec2_t cell; char tag[16]; } rfthing_t;
 static rfthing_t things[RF_MAX_THINGS];
 static int thing_count;
 
@@ -46,7 +48,7 @@ static const struct { const char *name; uint16_t type; } unit_names[] = {
     {"lc_harvester", MT_LC_HARVESTER}, {"lc_warden", MT_LC_WARDEN}, {"lc_lancer", MT_LC_LANCER},
 };
 
-static uint16_t unit_type(const char *name) {
+uint16_t RF_UnitType(const char *name) {
     for (size_t i = 0; i < sizeof(unit_names) / sizeof(*unit_names); ++i)
         if (!strcmp(unit_names[i].name, name)) return unit_names[i].type;
     return 0;
@@ -89,6 +91,7 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     memset(out, 0, sizeof(*out));
     thing_count = 0;
     RF_ClearStarts();
+    RF_CampaignBeginLoad();
     if (!RF_LoadTerrain(path)) return false;
     char *text = malloc(file.size + 1);
     if (!text) { W_FreeFile(&file); return false; }
@@ -171,22 +174,37 @@ bool RF_LoadLevel(const char *path, level_t *out) {
             if (!strncmp(line, "start ", 6)) {
                 RF_ParseStart(line, w, h);
             } else if (sscanf(line, "unit %23s %d %d %d %d", name, &owner, &x, &cy, &facing) >= 4) {
-                uint16_t type = unit_type(name);
+                uint16_t type = RF_UnitType(name);
                 if (!type || x < 0 || cy < 0 || x >= w || cy >= h || owner < 0 || owner >= MAXPLAYERS) {
                     fprintf(stderr, "rustfront: %s: bad unit line \"%.*s\"\n", path, len, line);
                 } else if (thing_count < RF_MAX_THINGS) {
-                    things[thing_count++] = (rfthing_t){type, owner, facing & 15, {x, cy}};
+                    /* "unit ... @TAG" names the thing for a mission's objectives (g_campaign.c). */
+                    rfthing_t *t = &things[thing_count++];
+                    *t = (rfthing_t){type, owner, facing & 15, {x, cy}, ""};
+                    const char *at = memchr(line, '@', (size_t)len);
+                    if (at) {
+                        int n = 0;
+                        while (n < (int)sizeof(t->tag) - 1 && at + 1 + n < line + len && !isspace((unsigned char)at[1 + n]))
+                            n++;
+                        memcpy(t->tag, at + 1, (size_t)n);
+                        t->tag[n] = '\0';
+                    }
                 }
             } else if (sscanf(line, "credits %d %d", &owner, &x) == 2) {
                 if (owner >= 0 && owner < MAXPLAYERS) out->player_resources[owner][0] = x;
             } else if (sscanf(line, "camera %d %d", &x, &cy) == 2) {
                 out->has_camera = true;
                 out->camera = (fvec2_t){(float)x, (float)cy};
+            } else {
+                char copy[512];
+                snprintf(copy, sizeof(copy), "%.*s", len, line);
+                RF_CampaignParseLine(copy, w, h);
             }
         }
         line = end ? end + 1 : line + strlen(line);
     }
     free(text);
+    RF_CampaignEndLoad(path);
     RF_BuildRelief(out);
     for (int i = 0; i < w * h; ++i) out->blocked[i] = RF_CellBlocks(out, i);
     /* In a network game every side is its own, for the computer players too (p_ai.c asks
@@ -212,7 +230,7 @@ mobj_t *RF_SpawnThing(uint16_t type_id, int owner, int facing, ivec2_t cell) {
         for (int dy = 0; dy < type->footprint.h; ++dy)
             for (int dx = 0; dx < type->footprint.w; ++dx) {
                 int x = cell.x + dx, y = cell.y + dy;
-                if (x < level.width && y < level.height) level.blocked[L_Index(&level, x, y)] = 1;
+                if (L_Contains(&level, x, y)) level.blocked[L_Index(&level, x, y)] = 1;
             }
     return mo;
 }
@@ -222,7 +240,10 @@ int RF_LoadThings(const char *path) {
     int count = 0;
     for (int i = 0; i < thing_count; ++i) {
         const rfthing_t *t = &things[i];
-        count += RF_SpawnThing(t->type, t->owner, t->facing, t->cell) != NULL;
+        mobj_t *mo = RF_SpawnThing(t->type, t->owner, t->facing, t->cell);
+        if (!mo) continue;
+        count++;
+        if (t->tag[0]) RF_CampaignTagged(t->tag, mo);
     }
     return count + RF_SpawnStarts();
 }

@@ -1,0 +1,131 @@
+# Rustfront campaign mission, written by maps/campaign/missions.py (docs/CAMPAIGN.md).
+mission concord 3
+title Vigil
+briefing The shard rests in the Beacon, a Beam Tower on the Ashfield, and it is singing the ore awake across the whole valley. The Directorate have heard it too.
+briefing Keep the Beacon lit for six minutes, until the Lens is tuned. Your Foundry can make Skimmers and Glaives; Beam Towers outrange anything the Mandate fields but artillery.
+briefing Their columns come from the north and the east, and they will come for the Beacon.
+tech lc_fusion lc_extractor lc_academy lc_foundry lc_tower lc_warden lc_lancer lc_skimmer lc_glaive lc_harvester
+objective protect beacon | Keep the Beacon lit
+objective survive 360 | Hold the vigil for six minutes
+................................................
+................................................
+................................................
+.................................,,,,,,,........
+...............................,,,,,,,,,,,x.....
+..............................,,,,,,,,,,,,,.....
+..............................,,,,,,,,,,,,,.....
+..............................,,,,,x,,,,,,,.....
+...............................,,,,,,,,,,,......
+.................................,,,,,,,........
+........................=======.................
+........................=======.................
+........................=======...x.............
+..===============.......=======.................
+..===============.......=======.................
+..===============.......=======.................
+..===============...............x...............
+..===============...............................
+..===============............................x..
+..===============..........................x....
+..===============...............................
+..===============..........................x....
+..===============...............................
+....................x...........................
+..........*****.................*****...........
+........*********..............*******..........
+........*********..............*******..........
+........*********..............*******..........
+..........*****.................*****...........
+................................................
+................................................
+................................................
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+unit lc_spire 0 3 14 0
+unit lc_fusion 0 7 14 0
+unit lc_extractor 0 10 14 0
+unit lc_academy 0 3 18 0
+unit lc_foundry 0 6 18 0
+unit lc_tower 0 11 18 0
+unit lc_harvester 0 11 17 0
+unit lc_tower 0 26 12 0 @beacon
+unit lc_tower 0 29 11 0
+unit lc_tower 0 29 14 0
+unit lc_glaive 0 20 17 4
+unit lc_glaive 0 22 17 4
+unit lc_skimmer 0 24 17 4
+unit lc_lancer 0 20 18 4
+unit lc_lancer 0 22 18 4
+unit lc_lancer 0 24 18 4
+unit lc_warden 0 20 19 4
+unit lc_warden 0 22 19 4
+unit lc_warden 0 24 19 4
+credits 0 5000
+camera 22 14
+trigger w1 time 50
+spawn w1 rifleman 1 26 1 12
+spawn w1 rifleman 1 28 1 12
+spawn w1 rifleman 1 30 1 12
+spawn w1 rifleman 1 32 1 12
+spawn w1 rifleman 1 26 2 12
+spawn w1 rocket 1 28 2 12
+trigger w2 time 110
+spawn w2 scout 1 44 12 8
+spawn w2 scout 1 42 12 8
+spawn w2 tank 1 40 12 8
+spawn w2 tank 1 38 12 8
+trigger w3 time 170
+spawn w3 rifleman 1 20 1 12
+spawn w3 rifleman 1 22 1 12
+spawn w3 rifleman 1 24 1 12
+spawn w3 rifleman 1 26 1 12
+spawn w3 rocket 1 20 2 12
+spawn w3 rocket 1 22 2 12
+spawn w3 rocket 1 24 2 12
+spawn w3 apc 1 26 2 12
+trigger w4 time 235
+spawn w4 tank 1 44 8 8
+spawn w4 tank 1 42 8 8
+spawn w4 artillery 1 40 8 8
+spawn w4 artillery 1 38 8 8
+trigger w5 time 300
+spawn w5 tank 1 30 1 12
+spawn w5 tank 1 28 1 12
+spawn w5 tank 1 26 1 12
+spawn w5 apc 1 24 1 12
+spawn w5 rocket 1 30 2 12
+spawn w5 rocket 1 28 2 12
+spawn w5 rocket 1 26 2 12
+message w1 Mandate infantry from the north.
+message w4 Artillery from the east: send the Skimmers.
+message w5 Their last column. Hold, Lightkeeper.
