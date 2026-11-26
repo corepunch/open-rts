@@ -23,7 +23,7 @@ static const struct { uint16_t shooter, projectile; fixed_t muzzle, height; int 
     {MT_LC_SKIMMER, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.4), 1, 0},
     {MT_LC_GLAIVE, MT_BOLT, FIXED_LIT(1.2), FIXED_LIT(0.6), 1, 0},
     {MT_LC_PRISM, MT_HEAVY_BOLT, FIXED_LIT(0.8), FIXED_LIT(0.9), 1, 0},
-    {MT_LC_TOWER, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.9), 1, 0},
+    {MT_LC_TOWER, MT_HEAVY_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.9), 1, 0},
     {MT_HAMMER, MT_HEAVY_MISSILE, FIXED_LIT(1.2), FIXED_LIT(0.9), 2, FIXED_LIT(0.3)},
     {MT_LC_AEGIS, MT_BOLT, FIXED_LIT(0.6), FIXED_LIT(0.7), 1, 0},
 };

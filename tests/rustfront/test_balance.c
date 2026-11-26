@@ -11,14 +11,17 @@
 
 /* The balance harness: the computer against the computer, every pairing of the three factions,
  * on the point-symmetric duel map (maps/duel.py), over many seeds. A seed puts the factions in
- * one corner or the other and shifts when each side thinks, so no two games run alike. A side
+ * one corner or the other, sets the starting credits (the same for both, 4500 to 5500) and
+ * shifts when each side thinks, so no two games run alike. A side
  * loses when its last structure falls; a game still open at the time limit goes to the side
  * whose army, base and credits are worth half as much again as the other's, else it is a draw.
  *
- *   build/bin/tests/rustfront/test_balance            every pairing, 12 seeds: asserts that no
+ *   build/bin/tests/rustfront/test_balance            every pairing, 48 seeds: asserts that no
  *                                                     faction wins more than 65 % against another
  *   build/bin/tests/rustfront/test_balance --quick    one short game per pairing (make test-rustfront)
  *   OPEN_RTS_BALANCE_SEEDS=n, OPEN_RTS_BALANCE_MINUTES=m  more seeds or longer games
+ *   OPEN_RTS_BALANCE_TRACE=1    each side every half minute, and what it owns every minute
+ *   OPEN_RTS_BALANCE_JOBS=n     games at once (default: one per CPU)
  *
  * Games run in forked processes, several at once. */
 
@@ -53,6 +56,17 @@ static int worth(int owner) {
             total += (int)((int64_t)price(u->type_id) * u->hp / (u->max_hp > 0 ? u->max_hp : 1));
     }
     return total;
+}
+
+/* Fighters: armed and mobile. */
+static int army(int owner) {
+    int n = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *u = (const mobj_t *)th;
+        n += th->function == P_MobjThinker && u->owner == owner && live(u) &&
+             (u->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE);
+    }
+    return n;
 }
 
 static int structures(int owner) {
@@ -101,9 +115,11 @@ static game_t play(int fa, int fb, int seed, int max_minutes) {
     RtsGameModelConfig config = {.data_root = g_game_default_root, .map_path = "maps/duel.txt"};
     if (!rts_game_model_load(model, &config)) return g;
     consoleplayer = 7; /* an observer: both sides are the computer's */
+    /* Both sides start with the same credits, 4500 to 5500 by seed. */
+    int credits = 4500 + (int)((uint32_t)(seed / 2) * 2654435761u % 1001u);
     for (int o = 0; o < 2; ++o) {
         convert(o, g.faction[o]);
-        level.player_resources[o][0] = 5000;
+        level.player_resources[o][0] = credits;
         RF_SetAIDifficulty(o, RF_AI_NORMAL);
     }
     AiContext *ai = rts_game_model_ai(model);
@@ -113,12 +129,24 @@ static game_t play(int fa, int fb, int seed, int max_minutes) {
         rts_game_model_tick(model, RTS_TICK_MS);
         if (getenv("OPEN_RTS_BALANCE_TRACE") && t % (30 * RTS_TICRATE) == 0) {
             const AiStats *s0 = P_AiStats(ai, 0), *s1 = P_AiStats(ai, 1);
-            printf("    %d:%02d  %s: %d structures, %d credits, worth %d, buys %d, waves %d | "
-                   "%s: %d structures, %d credits, worth %d, buys %d, waves %d\n",
-                   t / (60 * RTS_TICRATE), t / RTS_TICRATE % 60, NAME[g.faction[0]], structures(0),
+            printf("    %d:%02d  %s: %d structures, %d army, %d credits, worth %d, buys %d, waves %d | "
+                   "%s: %d structures, %d army, %d credits, worth %d, buys %d, waves %d\n",
+                   t / (60 * RTS_TICRATE), t / RTS_TICRATE % 60, NAME[g.faction[0]], structures(0), army(0),
                    level.player_resources[0][0], worth(0), s0->purchases, s0->waves, NAME[g.faction[1]],
-                   structures(1), level.player_resources[1][0], worth(1), s1->purchases, s1->waves);
+                   structures(1), army(1), level.player_resources[1][0], worth(1), s1->purchases, s1->waves);
         }
+        if (getenv("OPEN_RTS_BALANCE_TRACE") && t % (60 * RTS_TICRATE) == 0)
+            for (int o = 0; o < 2; ++o) {
+                int n[NUMMOBJTYPES] = {0};
+                for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                    const mobj_t *u = (const mobj_t *)th;
+                    if (th->function == P_MobjThinker && u->owner == o && live(u)) n[u->type_id]++;
+                }
+                printf("      %s:", NAME[g.faction[o]]);
+                for (int k = 1; k < MT_FX_HIT; ++k)
+                    if (n[k]) printf(" %s %d", P_ActorType((uint16_t)k)->name, n[k]);
+                printf("  power %s\n", RF_LowPower(o) ? "LOW" : "ok");
+            }
         if (t % (5 * RTS_TICRATE)) continue;
         int left[2] = {structures(0), structures(1)};
         if (left[0] && left[1]) continue;
@@ -193,7 +221,7 @@ static int env_int(const char *name, int fallback) {
 
 int main(int argc, char **argv) {
     bool quick = argc > 1 && !strcmp(argv[1], "--quick");
-    int seeds = quick ? 1 : env_int("OPEN_RTS_BALANCE_SEEDS", 12);
+    int seeds = quick ? 1 : env_int("OPEN_RTS_BALANCE_SEEDS", 48);
     int minutes = quick ? 6 : env_int("OPEN_RTS_BALANCE_MINUTES", 35);
     long cpus = sysconf(_SC_NPROCESSORS_ONLN);
     int workers = env_int("OPEN_RTS_BALANCE_JOBS", cpus > 1 ? (int)cpus : 1);
