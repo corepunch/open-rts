@@ -88,6 +88,7 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     }
     memset(out, 0, sizeof(*out));
     thing_count = 0;
+    RF_ClearStarts();
     if (!RF_LoadTerrain(path)) return false;
     char *text = malloc(file.size + 1);
     if (!text) { W_FreeFile(&file); return false; }
@@ -166,7 +167,10 @@ bool RF_LoadLevel(const char *path, level_t *out) {
         } else {
             char name[24];
             int owner, x, cy, facing = 0;
-            if (sscanf(line, "unit %23s %d %d %d %d", name, &owner, &x, &cy, &facing) >= 4) {
+            line[len] = '\0';
+            if (!strncmp(line, "start ", 6)) {
+                RF_ParseStart(line, w, h);
+            } else if (sscanf(line, "unit %23s %d %d %d %d", name, &owner, &x, &cy, &facing) >= 4) {
                 uint16_t type = unit_type(name);
                 if (!type || x < 0 || cy < 0 || x >= w || cy >= h || owner < 0 || owner >= MAXPLAYERS) {
                     fprintf(stderr, "rustfront: %s: bad unit line \"%.*s\"\n", path, len, line);
@@ -185,7 +189,32 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     free(text);
     RF_BuildRelief(out);
     for (int i = 0; i < w * h; ++i) out->blocked[i] = RF_CellBlocks(out, i);
+    /* In a network game every side is its own, for the computer players too (p_ai.c asks
+     * player_teams, where P_IsAlly asks netgame); a map with starts is always free-for-all. */
+    out->player_teams = netgame || RF_StartCount() > 0;
     return true;
+}
+
+/* A unit, or a structure with its top-left at `cell`, in its owner's team colour. */
+mobj_t *RF_SpawnThing(uint16_t type_id, int owner, int facing, ivec2_t cell) {
+    const mobjtype_t *type = P_ActorType(type_id);
+    if (!type || owner < 0 || owner >= MAXPLAYERS) return NULL;
+    mobj_t *mo = P_SpawnMobj(fixed3_zero(), type_id);
+    if (!mo) return NULL;
+    bool building = type->footprint.w > 0;
+    fixed2_t at = building ? P_BuildingPosition(type_id, cell) : fixed2_cell_center(cell);
+    mo->core.position = fixed3_from_fixed2(at, 0);
+    mo->core.angle = (angle_t)(facing & 15) * (ANG90 / 4);
+    mo->owner = (uint8_t)owner;
+    mo->team = (uint8_t)owner;
+    mo->allegiance = owner == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
+    if (building)
+        for (int dy = 0; dy < type->footprint.h; ++dy)
+            for (int dx = 0; dx < type->footprint.w; ++dx) {
+                int x = cell.x + dx, y = cell.y + dy;
+                if (x < level.width && y < level.height) level.blocked[L_Index(&level, x, y)] = 1;
+            }
+    return mo;
 }
 
 int RF_LoadThings(const char *path) {
@@ -193,25 +222,9 @@ int RF_LoadThings(const char *path) {
     int count = 0;
     for (int i = 0; i < thing_count; ++i) {
         const rfthing_t *t = &things[i];
-        const mobjtype_t *type = P_ActorType(t->type);
-        mobj_t *mo = P_SpawnMobj(fixed3_zero(), t->type);
-        if (!type || !mo) continue;
-        count++;
-        bool building = type->footprint.w > 0;
-        fixed2_t at = building ? P_BuildingPosition(t->type, t->cell) : fixed2_cell_center(t->cell);
-        mo->core.position = fixed3_from_fixed2(at, 0);
-        mo->core.angle = (angle_t)t->facing * (ANG90 / 4);
-        mo->owner = t->owner;
-        mo->team = t->owner;
-        mo->allegiance = t->owner == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
-        if (building)
-            for (int dy = 0; dy < type->footprint.h; ++dy)
-                for (int dx = 0; dx < type->footprint.w; ++dx) {
-                    int x = t->cell.x + dx, y = t->cell.y + dy;
-                    if (x < level.width && y < level.height) level.blocked[L_Index(&level, x, y)] = 1;
-                }
+        count += RF_SpawnThing(t->type, t->owner, t->facing, t->cell) != NULL;
     }
-    return count;
+    return count + RF_SpawnStarts();
 }
 
 /* ── terrain tiles ─────────────────────────────────────────────────────────

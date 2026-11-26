@@ -82,6 +82,40 @@ bool RF_IsRole(uint16_t type, rf_role_t role);
 bool RF_OwnerHasRole(int owner, rf_role_t role);     /* of any faction */
 bool RF_IsInfantry(uint16_t type);
 
+/* w_starts.c: multiplayer start positions and the map list (README, "Multiplayer").
+ * A map's "start N X Y [FACTION]" lines mark where a side may begin: X, Y is the top-left cell
+ * of its headquarters and FACTION (directorate, clans, concord) the default when nobody
+ * chooses. Before loading such a map, the front end may set a plan saying which owner begins
+ * at which start as which faction, and who is allied; RF_LoadThings then spawns each one with
+ * RF_SpawnStart. Without a plan, every start is a side of its default faction, owner N at
+ * start N. Starts make the map free-for-all (level.player_teams). */
+#define RF_MAX_STARTS 8
+typedef struct { bool used; ivec2_t cell; int faction; } rf_start_t;
+typedef struct {
+    int8_t start;    /* index of the start this owner begins at; -1: this owner does not play */
+    int8_t faction;  /* rf_faction_id_t; -1: the start's default */
+    uint8_t team;    /* 0: on its own; owners with the same non-zero team are allies */
+} rf_seat_t;
+typedef struct { int count; rf_seat_t seat[RF_MAX_STARTS]; } rf_startplan_t; /* seat[owner] */
+void RF_SetStartPlan(const rf_startplan_t *plan);   /* NULL: the defaults; kept until changed */
+int  RF_StartCount(void);                           /* of the loaded map; 0: a map with fixed bases */
+const rf_start_t *RF_Start(int slot);
+bool RF_SpawnStart(int owner, int faction, int x, int y); /* HQ at X, Y, a harvester and a squad */
+int  RF_FactionByName(const char *name);            /* "directorate", "clans", "concord"; -1 */
+typedef struct {
+    char path[256];   /* relative to the game root, e.g. "maps/twin-rivers.txt" */
+    char title[64];   /* its "title" line, else the file name */
+    int players;      /* start positions; 0 for a map with fixed bases */
+    int sides;        /* owners with units of their own on the map */
+    int width, height;
+} rf_mapinfo_t;
+int  RF_ListMaps(const char *root, rf_mapinfo_t *out, int max); /* root NULL: the game's; sorted */
+/* For the map loader (w_rustfront.c). */
+void RF_ClearStarts(void);
+bool RF_ParseStart(const char *line, int width, int height);
+int  RF_SpawnStarts(void);
+mobj_t *RF_SpawnThing(uint16_t type, int owner, int facing, ivec2_t cell);
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);
