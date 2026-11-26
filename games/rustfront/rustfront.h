@@ -82,6 +82,36 @@ bool RF_IsRole(uint16_t type, rf_role_t role);
 bool RF_OwnerHasRole(int owner, rf_role_t role);     /* of any faction */
 bool RF_IsInfantry(uint16_t type);
 
+/* s_rustfront.c: Rustfront's sounds, synthesised by art/sfx.py into assets/sfx/ and
+ * assets/music/ (docs/AUDIO.md). The engine plays weapon fire, impacts, deaths, voices and
+ * announcements through rf_soundinfo's event table; the calls below are for the rest. */
+typedef enum {
+    RF_SND_NONE,
+    RF_SND_CLICK,   /* first: soundinfo_t.ui refers to it as sfx 1 */
+    RF_SND_UNIT_READY, RF_SND_STRUCTURE_READY, RF_SND_LOW_POWER, RF_SND_NO_FUNDS, RF_SND_UNDER_ATTACK,
+    RF_SND_RIFLE, RF_SND_MG, RF_SND_CANNON, RF_SND_ARTILLERY, RF_SND_ROCKET, RF_SND_FLAME, RF_SND_BEAM,
+    RF_SND_BEAM_HEAVY,
+    RF_SND_HIT_BULLET, RF_SND_HIT_SHELL, RF_SND_BOOM_SMALL, RF_SND_BOOM_LARGE, RF_SND_COLLAPSE, RF_SND_ZAP,
+    RF_SND_ZAP_HEAVY, RF_SND_FLAME_HIT, RF_SND_DIE_SOLDIER,
+    RF_SND_BUILD_PLACE, RF_SND_BUILD_SCAFFOLD, RF_SND_BUILD_DONE,
+    RF_SND_DIR_SELECT, RF_SND_DIR_MOVE, RF_SND_DIR_ATTACK,
+    RF_SND_CL_SELECT, RF_SND_CL_MOVE, RF_SND_CL_ATTACK,
+    RF_SND_LC_SELECT, RF_SND_LC_MOVE, RF_SND_LC_ATTACK,
+    RF_SND_AMB_WIND, RF_SND_AMB_BASE,
+    RF_SND_MUS_MENU, RF_SND_MUS_DIRECTORATE, RF_SND_MUS_CLANS, RF_SND_MUS_CONCORD,
+    RF_SND_COUNT
+} rf_sound_t;
+extern const soundinfo_t rf_soundinfo;
+void RF_PlaySound(rf_sound_t sound, const mobj_t *origin);  /* at origin, following it; NULL: local */
+/* A local announcement (RF_SND_LOW_POWER, RF_SND_NO_FUNDS, ...): under attack and low power at
+ * most once every 20 seconds of game time, any other every 2. True when it was let through. */
+bool RF_Alert(rf_sound_t sound);
+int  RF_SoundId(rf_sound_t sound);                           /* the engine's sfx id; 0 before S_Init */
+int  RF_SoundFiles(rf_sound_t sound, const char *out[3]);    /* its variants, under assets/, no .wav */
+rf_sound_t RF_EventSound(const mobj_t *actor, soundevent_t event);
+rf_sound_t RF_MusicFor(const level_t *map, int faction);     /* NULL map: the menu theme */
+rf_sound_t RF_MusicPlaying(void);                            /* the track playing now, or RF_SND_NONE */
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);

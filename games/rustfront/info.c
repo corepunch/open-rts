@@ -210,6 +210,7 @@ const gameinfo_t game_info = {
     .null_state = S_NULL,
     .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
     .team_palettes = true,
+    .sound = &rf_soundinfo,
     .attack = RF_Attack,
     .mobj_ticker = RF_MobjTicker,
 };

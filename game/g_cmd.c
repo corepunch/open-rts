@@ -59,7 +59,7 @@ static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
     /* The units answer an order to go somewhere or do something. */
     if (cmd->order == TC_ORDER || cmd->order == TC_MOVE || cmd->order == TC_ATTACK ||
         cmd->order == TC_HARVEST || cmd->order == TC_PATH)
-        S_Bark(units, count, SE_ACK, true);
+        S_Bark(units, count, cmd->order == TC_ATTACK ? SE_ACK_ATTACK : SE_ACK, true);
     return true;
 }
 

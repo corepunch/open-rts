@@ -142,6 +142,7 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `g_mission.c` | Footprints block movement, idle harvesters go to ore, mined cells clear, a refinery brings a harvester; impact puffs and explosions on damage and death |
 | `rules.c` | Each faction's computer player: the Directorate builds up and attacks at parity, the Clans rush with frequent large waves, the Concord fortifies and attacks late with an edge; no fog |
 | `g_ai.c` | The computer player's hooks: it places its own structures on roomy sites, and every structure anchors its defence and draws its waves |
+| `s_rustfront.c` | Sound: registers the synthesised samples, maps fire, impacts, deaths, voices and announcements to them, rate-limits the under-attack warning, and plays the ambience and the player's faction's music |
 | `m_menu.c` | The engine's simple menu |
 
 **Map format:** rows of terrain letters (`art/terrain.txt`: `.` sand, `:` silt, `*` ore,
@@ -153,6 +154,27 @@ player and the others are enemies, each in its team colour (blue, red, green,
 yellow). A side plays the faction of its headquarters. An optional
 `camera X Y` sets the opening view, and `credits OWNER N` a side's money.
 `maps/triad.py` writes the three-way maps and `maps/badlands.py` the badlands.
+
+## Sound and music
+
+Every sound is synthesised by `art/sfx.py`, in pure Python with no third-party samples.
+[docs/AUDIO.md](docs/AUDIO.md) describes the recipes and how the game uses them.
+- **Weapons:** rifles, machine guns, cannon, artillery, rockets, flame and beams, heard
+  from where they fire.
+- **Impacts:** bullet hits, blasts, explosions and collapsing structures, heard where they land.
+- **Construction:** a foundation's clunk, scaffold hammering while a site rises, and a
+  chime when it finishes.
+- **Announcements:** unit ready, structure ready, insufficient funds, low power, and an
+  under-attack klaxon at most every 20 seconds.
+- **Voices:** a wordless answer to every select, move and attack order, in each faction's
+  timbre: the Directorate's clipped military radio, the Clans' gritty loudhailer, the
+  Concord's crystalline chimes.
+- **Ambience:** wind, and the hum of your headquarters.
+- **Music:** looping tracker-style tracks: a menu theme, and in game the track of the
+  faction you lead.
+
+`make rustfront-audio` regenerates them in about a minute and relinks the game. The result
+is identical every time.
 
 ## Regenerating everything
 
@@ -187,6 +209,7 @@ make test-rustfront
 | 4 | `art/icons.py` | The sidebar's build icons: `sprites/icons.png` |
 | 5 | `art/pack8.py` | 256-colour PCX sheets in `assets/` and the C tables in `sprites.inc` |
 | 6 | `art/contact.py` | `art/previews/sprites_contact.png`, the sprites composited as the game draws them |
+| 7 | `art/sfx.py` | Every sound effect, voice, ambient loop and music track: `assets/sfx/`, `assets/music/` |
 
 A regeneration reproduces the committed game files exactly (every PCX sheet,
 `sprites.inc` and `sprites.json`). A few intermediate PNGs in `sprites/` can

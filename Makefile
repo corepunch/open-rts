@@ -134,6 +134,12 @@ rustfront-art:
 	games/rustfront/art/build_all.sh
 	$(MAKE) $(BIN_DIR)/rustfront
 
+# Only the sounds and music (games/rustfront/docs/AUDIO.md): pure Python, about a minute.
+.PHONY: rustfront-audio
+rustfront-audio:
+	python3 games/rustfront/art/sfx.py
+	$(MAKE) $(BIN_DIR)/rustfront
+
 $(eval $(call GAME_TARGET,starcraft,$(SC_GAME_SOURCES),starcraft,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_STARCRAFT))
 
 all: $(BIN_DIR)/starcraft $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd $(BIN_DIR)/warcraft-2 $(BIN_DIR)/z $(BIN_DIR)/rustfront
