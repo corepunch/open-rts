@@ -13,7 +13,10 @@
 #                   The prefab's <let name="v"> knob picks the variant (0, 1, ...).
 # ground=NAME       a model's ground: its tiles are composited over NAME's texture, and it
 #                   blends with its neighbours as NAME does.
-# variants=N        how many tiles; a cell picks one by a hash of its position.
+# variants=N        how many tiles; a cell picks one by a hash of its position (model tiles).
+# period=N          a texture is one wrapping sheet of N x N cells and a cell shows its slice
+#                   (x mod N, y mod N), so a field shows broad patches, dunes and strata
+#                   rather than one tile repeated; its variants are the N * N slices.
 # edge=DEPTH        how far the terrain spills into a lower neighbour, in cells (0..0.5).
 #                   With no edge the terrain never spills (a hard edge).
 # jag=F             how ragged the spill is: 0 is a straight line, 1 very broken.
@@ -37,13 +40,13 @@
 default sand
 relief height=40 variants=3 wall=0.24 jag=0.30 seed=900
 
-terrain water    ~  layer=0  texture=water    variants=4  seed=10  blocked
-terrain silt     :  layer=1  texture=silt     variants=6  seed=600 edge=0.34 jag=0.70 grain=7  rim=0.78
-terrain sand     .  layer=2  texture=sand     variants=8  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
-terrain gravel   #  layer=3  texture=gravel   variants=4  seed=200 edge=0.26 jag=0.70 grain=8
-terrain grass    ,  layer=4  texture=grass    variants=6  seed=300 edge=0.32 jag=0.85 grain=12
-terrain stone    ^  layer=5  texture=stone    variants=4  seed=400 edge=0.24 jag=0.45 grain=5  rim=0.82
-terrain ore      *  layer=6  texture=ore      variants=4  seed=500 edge=0.30 jag=0.75 grain=7  ore
+terrain water    ~  layer=0  texture=water    period=3  seed=10  blocked
+terrain silt     :  layer=1  texture=silt     period=3  seed=600 edge=0.34 jag=0.70 grain=7  rim=0.78
+terrain sand     .  layer=2  texture=sand     period=4  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
+terrain gravel   #  layer=3  texture=gravel   period=2  seed=200 edge=0.26 jag=0.70 grain=8
+terrain grass    ,  layer=4  texture=grass    period=4  seed=300 edge=0.32 jag=0.85 grain=12
+terrain stone    ^  layer=5  texture=stone    period=3  seed=400 edge=0.24 jag=0.45 grain=5  rim=0.82
+terrain ore      *  layer=6  texture=ore      period=4  seed=500 edge=0.30 jag=0.75 grain=7  ore
 
 # Scener-modelled tiles (art/prefabs/terrain/).
 terrain rocks    R  layer=5  model=terrain/rocks     ground=stone variants=4 blocked solid

@@ -71,13 +71,13 @@ def parse_config(path=CONFIG):
             continue
         if words[0] != "terrain" or len(words) < 4 or len(words[2]) != 1:
             sys.exit("%s:%d: expected 'terrain NAME CHAR key=value...'" % (path, n))
-        t = dict(name=words[1], char=words[2], variants=1, seed=0, edge=0.0, jag=0.5, grain=6,
+        t = dict(name=words[1], char=words[2], variants=1, period=1, seed=0, edge=0.0, jag=0.5, grain=6,
                  rim=1.0, flags=set())
         for w in words[3:]:
             if "=" in w:
                 k, v = w.split("=", 1)
                 t[k] = float(v) if k in ("edge", "jag", "rim") else int(v) if k in (
-                    "layer", "variants", "seed", "grain") else v
+                    "layer", "variants", "period", "seed", "grain") else v
             else:
                 t["flags"].add(w)
         if "layer" not in t or ("texture" in t) == ("model" in t):
@@ -136,145 +136,262 @@ def put(px, x, y, c):
 
 # ── texture recipes: recipe(seed) -> RGB tile ──────────────────────────────
 
-SAND = (156, 130, 96)
-ORE = [(250, 190, 60), (232, 150, 34), (176, 98, 20), (255, 232, 140)]
+# Each recipe paints a SHEET of period x period cells that wraps at its edges, and the game
+# gives each cell its slice of the sheet (x mod period, y mod period), so a field of one terrain
+# shows broad patches, dunes and strata instead of one tile stamped over and over. Colours come
+# from ramps with hue shifts, as a painter would mix them: shadows lean red or cool, lights
+# warm, so the ground reads rich in the shared palette's few colours.
+
+def putw(px, w, h, x, y, c):
+    """put() on a sheet: wraps at the sheet's edges."""
+    px[x % w, y % h] = c
 
 
-def ground(base, seed, lo=0.86, hi=1.02, speckle=0.03, octaves=None):
-    """A base colour shaded by wrapping noise, with a sprinkle of darker and lighter grains."""
-    n = periodic_noise(TILE_W, TILE_H, seed, **({"octaves": octaves} if octaves else {}))
-    rnd = random.Random(seed * 7 + 1)
-    img = Image.new("RGB", (TILE_W, TILE_H))
-    px = img.load()
-    for y in range(TILE_H):
-        for x in range(TILE_W):
-            v = lo + (hi - lo) * n[y][x]
-            if rnd.random() < speckle:
-                v *= rnd.choice((0.82, 1.1))
-            px[x, y] = shade(base, v)
-    return img, n, rnd
+def ramp(stops, t):
+    """A colour from (position, rgb) stops at t in 0..1."""
+    t = max(0.0, min(1.0, t))
+    for (a, ca), (b, cb) in zip(stops, stops[1:]):
+        if t <= b:
+            return mix(ca, cb, (t - a) / (b - a) if b > a else 0.0)
+    return stops[-1][1]
 
 
-def sand(seed):
-    img, n, rnd = ground(SAND, seed)
-    px = img.load()
-    # faint wind ripples: light crests that wander with the noise
-    phase = rnd.random() * math.tau
-    for y in range(TILE_H):
-        for x in range(TILE_W):
-            r = math.sin((y * 2 + n[y][x] * 9) * math.tau / 8 + phase + 2 * math.sin(x * math.tau / TILE_W))
-            if r > 0.86:
-                px[x, y] = shade(px[x, y], 1.06)
+def smooth(a, b, x):
+    t = max(0.0, min(1.0, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+def sheet_noise(period, seed, octaves):
+    """Wrapping noise over a sheet of period x period cells; octaves are (features across one
+    cell, amplitude), and fractional ones (broad patches across the sheet) are allowed."""
+    w, h = TILE_W * period, TILE_H * period
+    return periodic_noise(w, h, seed, tuple((max(1, round(c * period)), a) for c, a in octaves))
+
+
+def stretch(v, k):
+    return max(0.0, min(1.0, 0.5 + (v - 0.5) * k))
+
+
+def slices(img, period):
+    """The sheet cut into its cells, row by row: the game's variant (y % p) * p + x % p."""
+    return [img.crop((x * TILE_W, y * TILE_H, (x + 1) * TILE_W, (y + 1) * TILE_H))
+            for y in range(period) for x in range(period)]
+
+
+def new_sheet(period):
+    img = Image.new("RGB", (TILE_W * period, TILE_H * period))
+    return img, img.load(), TILE_W * period, TILE_H * period
+
+
+SAND_RAMP = [(0.0, (128, 98, 74)), (0.30, (166, 132, 96)), (0.55, (192, 160, 118)),
+             (0.80, (212, 184, 140)), (1.0, (230, 208, 166))]
+ORE_SOIL = (132, 70, 44)
+ORE = [(70, 36, 18), (172, 104, 28), (238, 182, 58), (255, 246, 190)]   # edge, shaded face, lit face, glint
+
+
+def sand_sheet(seed, period):
+    """Warm desert sand: broad pale and dusky patches, wind ripples whose crests catch the
+    light and whose lee falls into shade, and a sprinkle of grains."""
+    img, px, w, h = new_sheet(period)
+    big = sheet_noise(period, seed, ((0.25, 1.0), (0.5, 0.8), (1, 0.5), (2, 0.3), (4, 0.15)))
+    warp = sheet_noise(period, seed + 3, ((0.75, 1.0), (1.5, 0.5)))
+    fine = sheet_noise(period, seed + 5, ((8, 1.0), (16, 0.5)))
+    rnd = random.Random(seed)
+    kx, ky = 2 * period, 5 * period            # ripples: whole waves across the sheet, so it wraps
+    for y in range(h):
+        for x in range(w):
+            v = stretch(big[y][x], 1.25)
+            r = math.sin(math.tau * (kx * x / w + ky * y / h) + 7 * warp[y][x])
+            ripple = 0.06 * smooth(0.55, 0.95, r) - 0.04 * smooth(0.2, -0.6, r)
+            t = 0.3 + 0.45 * v + ripple * (0.6 + 0.8 * v) + 0.08 * (fine[y][x] - 0.5)
+            if rnd.random() < 0.035:
+                t += rnd.choice((-0.16, 0.12))
+            px[x, y] = ramp(SAND_RAMP, t)
     return img
 
 
-def gravel(seed):
-    img, _, rnd = ground((128, 108, 82), seed, 0.84, 1.04, 0.05)
-    px = img.load()
-    for _ in range(46):      # pebbles: a lit top-left, a dark foot
-        x, y = rnd.randrange(TILE_W), rnd.randrange(TILE_H)
-        c = shade(rnd.choice([(150, 134, 110), (118, 102, 84), (162, 150, 130), (104, 90, 74)]), 1.0)
-        r = rnd.choice((1, 1, 1, 2))
-        for dy in range(-r + 1, r):
-            for dx in range(-r, r + 1):
-                put(px, x + dx, y + dy, c)
-        put(px, x - r + 1, y - r + 1, shade(c, 1.22))
-        for dx in range(-r, r + 1):
-            put(px, x + dx, y + r, shade(c, 0.6))
-    return img
+def sand(seed, period):
+    return slices(sand_sheet(seed, period), period)
 
 
-def grass(seed):
-    """Dry steppe grass: olive tufts over earth, with bare patches."""
-    earth, blade = (116, 104, 66), (94, 126, 46)
-    n = periodic_noise(TILE_W, TILE_H, seed)
-    m = periodic_noise(TILE_W, TILE_H, seed + 50, ((6, 1.0), (12, 0.6)))
-    rnd = random.Random(seed * 7 + 1)
-    img = Image.new("RGB", (TILE_W, TILE_H))
-    px = img.load()
-    for y in range(TILE_H):
-        for x in range(TILE_W):
-            t = max(0.0, min(1.0, (m[y][x] - 0.36) * 3.0))      # 0 bare earth .. 1 grass cover
-            px[x, y] = shade(mix(earth, blade, t), 0.82 + 0.2 * n[y][x])
-    for _ in range(150):     # blades: short strokes, lit tips, darker roots
-        x, y = rnd.randrange(TILE_W), rnd.randrange(TILE_H)
-        cover = m[y][x]
-        if cover < 0.34 and rnd.random() < 0.8:
-            continue
-        c = rnd.choice([(118, 142, 56), (92, 118, 42), (138, 146, 70), (78, 100, 38)])
-        lean = rnd.choice((-1, 0, 0, 1))
-        h = rnd.choice((2, 3, 3, 4))
-        for i in range(h):
-            put(px, x + (lean if i >= h - 1 else 0), y - i, shade(c, 0.8 + 0.3 * i / h))
-        put(px, x, y + 1, shade(px[x % TILE_W, (y + 1) % TILE_H], 0.78))
-    return img
-
-
-def stone(seed):
-    """Flat bedrock: grey-tan with broad mottling and a few cracks."""
-    img, n, rnd = ground((134, 126, 114), seed, 0.80, 1.04, 0.04, ((3, 1.0), (6, 0.6), (12, 0.3), (24, 0.15)))
-    px = img.load()
-    for _ in range(rnd.choice((1, 2, 2, 3))):   # cracks: a wandering walk, dark with a lit lip
-        x, y = rnd.randrange(TILE_W), rnd.randrange(TILE_H)
-        angle = rnd.uniform(0, math.tau)
-        fx, fy = float(x), float(y)
-        for _ in range(rnd.randrange(8, 20)):
-            put(px, round(fx), round(fy), shade(px[round(fx) % TILE_W, round(fy) % TILE_H], 0.6))
-            put(px, round(fx), round(fy) + 1, shade(px[round(fx) % TILE_W, (round(fy) + 1) % TILE_H], 1.1))
-            angle += rnd.uniform(-0.7, 0.7)
-            fx, fy = fx + math.cos(angle), fy + 0.66 * math.sin(angle)
-    return img
-
-
-def water(seed):
-    """Murky deep water: dark teal with long light ripples."""
-    deep, light = (40, 74, 88), (92, 136, 140)
-    n = periodic_noise(TILE_W, TILE_H, seed, ((3, 1.0), (6, 0.5), (12, 0.25)))
-    rnd = random.Random(seed * 7 + 1)
-    img = Image.new("RGB", (TILE_W, TILE_H))
-    px = img.load()
-    for y in range(TILE_H):
-        for x in range(TILE_W):
-            px[x, y] = shade(deep, 0.85 + 0.3 * n[y][x])
-    for _ in range(9):
-        x, y = rnd.randrange(TILE_W), rnd.randrange(TILE_H)
-        for i in range(rnd.randrange(4, 9)):
-            put(px, x + i, y, mix(px[(x + i) % TILE_W, y % TILE_H], light, 0.55 if 0 < i < 5 else 0.3))
-    return img
-
-
-def silt(seed):
-    """Damp silt of a canyon floor: darker than the sand above, with wet hollows and grit."""
-    img, n, rnd = ground((122, 100, 74), seed, 0.84, 1.02, 0.05, ((3, 1.0), (6, 0.6), (12, 0.3)))
-    px = img.load()
-    wet = periodic_noise(TILE_W, TILE_H, seed + 40, ((4, 1.0), (8, 0.5)))
-    for y in range(TILE_H):
-        for x in range(TILE_W):
-            if wet[y][x] > 0.62:
-                px[x, y] = shade(px[x, y], 0.86 if wet[y][x] < 0.7 else 0.78)
-    for _ in range(18):      # grit
-        x, y = rnd.randrange(TILE_W), rnd.randrange(TILE_H)
-        put(px, x, y, shade(px[x, y], rnd.choice((0.7, 1.18))))
-    return img
-
-
-def ore(seed):
-    """Sand with faceted ore crystals: a lit top and a dark foot."""
-    img = sand(seed)
-    px = img.load()
+def ore(seed, period, base=None):
+    """Ore on the sand it lies in: the ground stained rust-red round clusters of amber crystals,
+    each a faceted prism with a lit face, a shaded face, a dark outline and a glint. Painted over
+    the sand's own sheet, so a mined-out cell (which turns to sand) matches its neighbours."""
+    img = base.copy() if base is not None else sand_sheet(seed, period)
+    px, w, h = img.load(), img.size[0], img.size[1]
+    stain = sheet_noise(period, seed + 11, ((0.75, 1.0), (1.5, 0.6), (3, 0.3)))
+    for y in range(h):
+        for x in range(w):
+            k = 0.1 + 0.35 * smooth(0.4, 0.8, stain[y][x])
+            px[x, y] = mix(px[x, y], ORE_SOIL, k)
     rnd = random.Random(seed * 13 + 5)
-    for _ in range(7):
-        cx, cy = rnd.randrange(4, TILE_W - 4), rnd.randrange(4, TILE_H - 4)
-        r = rnd.choice((2, 3, 3, 4))
-        for dy in range(-r, r + 1):
-            for dx in range(-r - 1, r + 2):
-                if abs(dx) * 0.8 + abs(dy) <= r:
-                    c = ORE[0] if dy < 0 else ORE[1]
-                    if dy == r or abs(dx) * 0.8 + abs(dy) > r - 0.6:
-                        c = ORE[2]
-                    put(px, cx + dx, cy + dy, c)
-        put(px, cx, cy - r + 1, ORE[3])
-    return img
+    clusters = []
+    for cy in range(period):
+        for cx in range(period):
+            for _ in range(rnd.choice((2, 2, 3))):
+                clusters.append((cx * TILE_W + rnd.randrange(5, TILE_W - 5), cy * TILE_H + rnd.randrange(9, TILE_H - 3)))
+    clusters.sort(key=lambda c: c[1])          # back to front
+    for x0, y0 in clusters:
+        # rust-dark ground round the cluster's foot
+        for dy in range(-3, 4):
+            for dx in range(-7, 8):
+                if (dx / 7.5) ** 2 + (dy / 3.5) ** 2 <= 1:
+                    putw(px, w, h, x0 + dx + 1, y0 + dy, mix(px[(x0 + dx + 1) % w, (y0 + dy) % h], (74, 34, 20), 0.5))
+        shards = sorted(((rnd.uniform(-0.6, 0.6), rnd.uniform(7, 13), rnd.uniform(2.4, 3.6), rnd.randint(-4, 4))
+                         for _ in range(rnd.choice((3, 3, 4)))), key=lambda s: -s[1])
+        for angle, length, width, off in shards:
+            ax, ay = math.sin(angle), -math.cos(angle)           # along the shard, tip up
+            for yy in range(-13, 2):
+                for xx in range(-9, 10):
+                    rx, ry = xx - off + 0.5, yy + 0.5
+                    along = rx * ax + ry * ay
+                    across = rx * -ay + ry * ax
+                    if along < 0 or along > length:
+                        continue
+                    t = along / length
+                    # a hexagonal prism seen side on: straight flanks, then a pointed cap
+                    half = width if t < 0.62 else width * (1 - t) / 0.38
+                    if abs(across) > half + 0.3:
+                        continue
+                    lit = across < -0.2                           # the face toward the sun
+                    c = ORE[2] if lit else ORE[1]
+                    if t >= 0.62 and lit:
+                        c = mix(ORE[2], ORE[3], 0.55)             # the cap's lit facet
+                    if abs(across) > half - 0.7 or t < 0.08:
+                        c = ORE[0]                                # the dark edge that makes it a crystal
+                    if lit and abs(across + half * 0.45) < 0.6 and 0.2 < t < 0.6:
+                        c = ORE[3]                                # the glint down the lit face
+                    putw(px, w, h, x0 + xx, y0 + yy, c)
+    return slices(img, period)
+
+
+def silt(seed, period):
+    """Damp silt of a canyon floor: cooler and darker than the sand above, with wet hollows that
+    hold a sheen of sky at their far edge, and grit."""
+    img, px, w, h = new_sheet(period)
+    big = sheet_noise(period, seed, ((0.34, 1.0), (0.67, 0.7), (1.5, 0.4), (3, 0.2), (6, 0.1)))
+    wet = sheet_noise(period, seed + 40, ((1, 1.0), (2, 0.7), (4, 0.5), (8, 0.3)))
+    grit = sheet_noise(period, seed + 41, ((6, 1.0), (12, 0.6)))
+    rnd = random.Random(seed)
+    stops = [(0.0, (70, 62, 52)), (0.4, (104, 92, 72)), (0.75, (132, 116, 90)), (1.0, (152, 136, 106))]
+    for y in range(h):
+        for x in range(w):
+            t = 0.3 + 0.5 * stretch(big[y][x], 1.2) + 0.1 * (grit[y][x] - 0.5)
+            wv = wet[y][x]
+            c = ramp(stops, t)
+            if wv > 0.68:
+                c = mix(c, (74, 72, 66), 0.2 + 0.25 * smooth(0.68, 0.78, wv))
+                if wet[(y - 1) % h][x] <= 0.68:  # the far lip of a damp hollow catches the sky
+                    c = mix(c, (150, 150, 140), 0.35)
+            if rnd.random() < 0.04:
+                c = shade(c, rnd.choice((0.72, 1.16)))
+            px[x, y] = c
+    return slices(img, period)
+
+
+def gravel(seed, period):
+    """Gravel: grey-taupe grit packed with pebbles of many stones, each lit at its top left
+    and grounded by a dark foot."""
+    img, px, w, h = new_sheet(period)
+    big = sheet_noise(period, seed, ((1, 1.0), (2, 0.5), (8, 0.3)))
+    stops = [(0.0, (96, 84, 70)), (0.5, (138, 122, 100)), (1.0, (172, 156, 130))]
+    for y in range(h):
+        for x in range(w):
+            px[x, y] = ramp(stops, 0.2 + 0.65 * stretch(big[y][x], 1.4))
+    rnd = random.Random(seed * 7 + 1)
+    stones = [(176, 168, 156), (156, 116, 86), (196, 184, 158), (112, 104, 98), (150, 140, 136), (170, 142, 104)]
+    for _ in range(18 * period * period):
+        x, y = rnd.randrange(w), rnd.randrange(h)
+        c = rnd.choice(stones)
+        rx, ry = rnd.choice((1, 1, 2, 2, 3)), rnd.choice((1, 1, 2))
+        for dy in range(-ry, ry + 1):
+            for dx in range(-rx, rx + 1):
+                if (dx / (rx + 0.5)) ** 2 + (dy / (ry + 0.5)) ** 2 <= 1:
+                    k = 1.18 if dx + dy < -1 else (0.8 if dx + dy > 1 else 1.0)
+                    putw(px, w, h, x + dx, y + dy, shade(c, k))
+        for dx in range(-rx, rx + 1):
+            putw(px, w, h, x + dx + 1, y + ry + 1, shade(px[(x + dx + 1) % w, (y + ry + 1) % h], 0.62))
+    return slices(img, period)
+
+
+def grass(seed, period):
+    """Dry steppe: sage and olive tufts with sun-bleached gold patches over red-brown earth."""
+    img, px, w, h = new_sheet(period)
+    cover = sheet_noise(period, seed + 50, ((1.33, 1.0), (2.67, 0.7), (5.33, 0.5), (8, 0.3)))
+    dry = sheet_noise(period, seed + 60, ((0.67, 1.0), (1.33, 0.7), (2.67, 0.4)))
+    n = sheet_noise(period, seed, ((4, 1.0), (8, 0.5), (16, 0.3)))
+    earth = [(0.0, (112, 88, 60)), (1.0, (160, 132, 94))]
+    green = [(0.0, (64, 82, 38)), (0.45, (100, 122, 52)), (0.8, (138, 152, 70)), (1.0, (174, 176, 96))]
+    gold = [(0.0, (124, 106, 54)), (0.5, (170, 150, 80)), (1.0, (206, 188, 116))]
+    for y in range(h):
+        for x in range(w):
+            c = stretch(cover[y][x], 1.8)
+            t = 0.3 + 0.55 * n[y][x]
+            g = mix(ramp(green, t), ramp(gold, t), 0.65 * smooth(0.5, 0.75, dry[y][x]))
+            px[x, y] = mix(ramp(earth, t), g, 0.55 + 0.45 * smooth(0.1, 0.4, c))   # earth only peeks through
+    rnd = random.Random(seed * 7 + 1)
+    for _ in range(170 * period * period):     # blades: short strokes, lit tips, darker roots
+        x, y = rnd.randrange(w), rnd.randrange(h)
+        if cover[y][x] < 0.3 and rnd.random() < 0.85:
+            continue
+        base = px[x, y]
+        lean = rnd.choice((-1, 0, 0, 1))
+        tall = rnd.choice((2, 3, 3, 4))
+        for i in range(tall):
+            putw(px, w, h, x + (lean if i >= tall - 1 else 0), y - i, shade(base, 0.78 + 0.5 * i / tall))
+        putw(px, w, h, x + 1, y + 1, shade(px[(x + 1) % w, (y + 1) % h], 0.74))
+    return slices(img, period)
+
+
+def stone(seed, period):
+    """Flat bedrock: a cool grey slab with violet shadows and warm lights, faint strata, cracks
+    with a lit lip, and spots of orange and sage lichen."""
+    img, px, w, h = new_sheet(period)
+    big = sheet_noise(period, seed, ((0.5, 1.0), (1, 0.8), (2, 0.4), (4, 0.25), (8, 0.12)))
+    warp = sheet_noise(period, seed + 7, ((1, 1.0), (2, 0.5)))
+    stops = [(0.0, (82, 76, 82)), (0.35, (118, 110, 108)), (0.7, (154, 144, 130)), (1.0, (186, 174, 152))]
+    for y in range(h):
+        for x in range(w):
+            band = 0.05 * math.sin(math.tau * (3 * period * y / h) + 5 * warp[y][x])
+            px[x, y] = ramp(stops, 0.18 + 0.72 * stretch(big[y][x], 1.5) + band)
+    rnd = random.Random(seed * 7 + 1)
+    for _ in range(period * period + 2):       # cracks: a wandering walk
+        fx, fy = float(rnd.randrange(w)), float(rnd.randrange(h))
+        angle = rnd.uniform(0, math.tau)
+        for _ in range(rnd.randrange(10, 26)):
+            x, y = round(fx), round(fy)
+            putw(px, w, h, x, y, shade(px[x % w, y % h], 0.74))
+            putw(px, w, h, x, y + 1, shade(px[x % w, (y + 1) % h], 1.08))
+            angle += rnd.uniform(-0.6, 0.6)
+            fx, fy = fx + math.cos(angle), fy + 0.66 * math.sin(angle)
+    for _ in range(7 * period * period):       # lichen
+        x, y = rnd.randrange(w), rnd.randrange(h)
+        c = rnd.choice(((176, 118, 58), (124, 134, 90), (150, 150, 110)))
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (-1, 0), (1, 1)):
+            if rnd.random() < 0.8:
+                putw(px, w, h, x + dx, y + dy, mix(px[(x + dx) % w, (y + dy) % h], c, 0.7))
+    return slices(img, period)
+
+
+def water(seed, period):
+    """Deep water: blue-teal depths, swells that lighten toward their crests, and glints."""
+    img, px, w, h = new_sheet(period)
+    big = sheet_noise(period, seed, ((0.5, 1.0), (1, 0.7), (2, 0.4)))
+    warp = sheet_noise(period, seed + 9, ((1, 1.0), (2, 0.5)))
+    stops = [(0.0, (16, 38, 58)), (0.45, (28, 70, 92)), (0.8, (46, 104, 120)), (1.0, (72, 136, 146))]
+    for y in range(h):
+        for x in range(w):
+            swell = math.sin(math.tau * (period * x / w + 4 * period * y / h) + 6 * warp[y][x])
+            px[x, y] = ramp(stops, 0.15 + 0.6 * stretch(big[y][x], 1.4) + 0.1 * smooth(0.5, 1.0, swell))
+    rnd = random.Random(seed * 7 + 1)
+    for _ in range(5 * period * period):       # crests and glints
+        x, y = rnd.randrange(w), rnd.randrange(h)
+        for i in range(rnd.randrange(3, 8)):
+            putw(px, w, h, x + i, y, mix(px[(x + i) % w, y % h], (156, 200, 204), 0.6 if 0 < i < 4 else 0.3))
+        if rnd.random() < 0.12:
+            putw(px, w, h, x + 2, y - 1, (220, 236, 232))
+    return slices(img, period)
 
 
 RECIPES = {"silt": silt, "sand": sand, "gravel": gravel, "grass": grass, "stone": stone, "water": water, "ore": ore}
@@ -426,17 +543,33 @@ def add_relief(terrains, textures, tiles, meta, by_name):
 
 def main(argv):
     terrains, default = parse_config()
-    textures = {t["name"]: [RECIPES[t["texture"]](t["seed"] + v) for v in range(t["variants"])]
-                for t in terrains if "texture" in t}
     for t in terrains:
         if "texture" in t and t["texture"] not in RECIPES:
             sys.exit("terrain.py: %s uses unknown recipe %s" % (t["name"], t["texture"]))
+    # A textured terrain is one sheet of period x period cells, its variants the sheet's cells.
+    # Ore is painted over the default ground's sheet (same period), so mined-out cells match.
+    textures, sheets = {}, {}
+    for t in sorted((t for t in terrains if "texture" in t), key=lambda t: t["texture"] == "ore"):
+        p = t["period"]
+        t["variants"] = p * p
+        if t["texture"] == "sand":
+            sheets[t["name"]] = sand_sheet(t["seed"], p)
+            textures[t["name"]] = slices(sheets[t["name"]], p)
+        elif t["texture"] == "ore":
+            base = sheets.get(default)
+            if base is not None and base.size != (TILE_W * p, TILE_H * p):
+                sys.exit("terrain.py: ore's period must be the default ground's")
+            textures[t["name"]] = ore(t["seed"], p, base)
+        else:
+            textures[t["name"]] = RECIPES[t["texture"]](t["seed"], p)
     textures.update(model_tiles(terrains, textures, render="--no-models" not in argv))
 
     tiles, meta = [], {"tile": [TILE_W, TILE_H], "columns": ATLAS_COLS, "default": default, "terrains": []}
     for t in terrains:
         rec = {k: t[k] for k in ("name", "char", "layer")}
         rec["base"], rec["variants"] = len(tiles), t["variants"]
+        if "texture" in t and t["period"] > 1:
+            rec["period"] = t["period"]
         rec["flags"] = sorted(t["flags"])
         if "ground" in t:
             rec["blend"] = t["ground"]

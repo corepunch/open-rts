@@ -40,7 +40,7 @@ make build/bin/rustfront test-rustfront
 One line per terrain (`art/terrain.txt` documents every key):
 
 ```
-terrain sand     .  layer=2  texture=sand     variants=8  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
+terrain sand     .  layer=2  texture=sand     period=4  seed=100 edge=0.30 jag=0.55 grain=6  rim=0.80
 terrain rocks    R  layer=5  model=terrain/rocks     ground=stone variants=4 blocked solid
 ```
 
@@ -57,16 +57,35 @@ terrain rocks    R  layer=5  model=terrain/rocks     ground=stone variants=4 blo
 | wreck | `x` | Scener | (2) | burnt-out scrap on sand; blocks; blends as sand |
 | concrete | `=` | Scener | 7 | paved plates under bases; never spills and takes no spill |
 
-A cell picks one of its terrain's `variants` by a hash of its position.
+A textured terrain is painted as one **sheet** of `period` x `period` cells that wraps at its
+edges, and a cell shows its slice of it (x mod period, y mod period): a field shows broad
+patches, dunes and strata across several cells instead of one tile stamped over and over. A
+modelled terrain picks one of its `variants` by a hash of its position.
 
 ## Textures
 
-`terrain.py` draws a texture tile with a recipe (`RECIPES`): `silt`, `sand`, `gravel`, `grass`,
-`stone`, `water`, `ore`. Every recipe starts from value noise that wraps at the tile edge,
-so a field of one terrain has no seams, and adds its own detail: wind ripples, pebbles with a
-lit top, grass blades, cracks, ripples on water, ore crystals. A new texture is a new
-function in `RECIPES` and a `texture=` line in the config. Keep the colours few: the terrain
-shares pack8's 176 free palette colours with every sprite.
+`terrain.py` paints a texture sheet with a recipe (`RECIPES`): `silt`, `sand`, `gravel`,
+`grass`, `stone`, `water`, `ore`. Every recipe starts from value noise that wraps at the sheet's
+edge, so a field of one terrain has no seams, and adds its own detail: wind ripples whose crests
+catch the light, pebbles of several stones, sage and gold grass, strata, cracks and lichen,
+swells and glints on water, amber crystals. Colours come from ramps with hue shifts (`ramp`):
+shadows lean red or cool, lights warm, as a painter mixes them, so the ground stays rich in few
+colours.
+
+| Terrain | Look | Period |
+|---|---|---|
+| sand | warm desert sand, pale and dusky patches, wind ripples | 4 |
+| ore | the sand's own sheet, stained rust round clusters of amber crystals (so a mined-out cell matches its neighbours) | 4, the default ground's |
+| silt | cooler, darker canyon floor with damp hollows | 3 |
+| gravel | grey-taupe grit and pebbles | 2 |
+| grass | sage and olive steppe with sun-bleached gold patches | 4 |
+| stone | cool grey bedrock with violet shadows, strata, cracks, lichen | 3 |
+| water | blue-teal depths, swells and glints | 3 |
+
+A new texture is a new function in `RECIPES` and a `texture=` line in the config. The terrain
+shares the palette with every sprite, but pack8 gives each ground type a few colours of its
+own (8 for a texture, 4 more for ore's crystals, 4 for a modelled tile, 6 for the cliff rock)
+before the sprites' median cut, so a hue the sprites seldom use, like grass green, survives.
 
 ## Modelled tiles
 

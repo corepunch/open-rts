@@ -10,7 +10,8 @@
  * assets/terrain.txt (written by art/pack8.py from art/terrain.txt) names every ground type:
  * its map letter, its layer, its tiles in assets/terrain.pcx, and whether it blocks, holds
  * ore or is a solid model tile. A cell shows one of its terrain's variants, picked by a hash
- * of its position, and then the transitions: every higher-layer terrain among its eight
+ * of its position, or for a terrain painted as a sheet of period x period cells, its slice of
+ * the sheet (x mod period, y mod period); and then the transitions: every higher-layer terrain among its eight
  * neighbours spills over its edges, lowest layer first, as an edge tile (the sides that
  * terrain touches: N 1, E 2, S 4, W 8) and a corner tile (the diagonals it touches alone:
  * NE 1, SE 2, SW 4, NW 8). A model terrain with a blend= ground spills as that ground.
@@ -27,7 +28,7 @@
 typedef struct {
     char name[16];
     char letter;
-    int layer, base, variants, edges, corners, blend, tops;
+    int layer, base, variants, period, edges, corners, blend, tops;
     bool blocked, ore, solid;
 } rfterrain_t;
 
@@ -125,6 +126,7 @@ static bool parse(char *text, const char *path) {
             if (sscanf(word, "layer=%d", &v) == 1) t->layer = v;
             else if (sscanf(word, "base=%d", &v) == 1) { t->base = v; has_base = true; }
             else if (sscanf(word, "variants=%d", &v) == 1 && v > 0) t->variants = v;
+            else if (sscanf(word, "period=%d", &v) == 1 && v > 0) t->period = v;
             else if (sscanf(word, "edges=%d", &v) == 1) t->edges = v;
             else if (sscanf(word, "corners=%d", &v) == 1) t->corners = v;
             else if (sscanf(word, "tops=%d", &v) == 1) t->tops = v;
@@ -212,6 +214,10 @@ bool RF_TerrainHoldsOre(int terrain) { return terrain >= 0 && terrain < terrain_
 
 uint16_t RF_TerrainTile(int terrain, int x, int y) {
     if (terrain < 0 || terrain >= terrain_count) return 0;
+    /* A sheet of period x period cells: each cell shows its own slice, so the sheet wraps. */
+    int p = terrains[terrain].period;
+    if (p > 1 && p * p <= terrains[terrain].variants)
+        return (uint16_t)(terrains[terrain].base + (y % p) * p + x % p);
     uint32_t h = (uint32_t)x * 73856093u ^ (uint32_t)y * 19349663u;
     h ^= h >> 13;
     return (uint16_t)(terrains[terrain].base + (int)(h % (uint32_t)terrains[terrain].variants));
