@@ -236,6 +236,10 @@ const char *RF_LastMissionMessage(void);              /* the latest trigger or o
 int  RF_MissionLoadErrors(void);                      /* bad mission lines in the loaded map */
 bool RF_CampaignAllows(int owner, uint16_t type);     /* the mission's tech limit for the player */
 /* Called by the map loader and the mission ticker. */
+/* The running mission's state in a saved game (g_save.c puts it after Rustfront's own). */
+size_t RF_CampaignSaveSize(void);
+void RF_CampaignSave(void *out);
+bool RF_CampaignLoad(const void *data, size_t size);
 void RF_CampaignBeginLoad(void);
 bool RF_CampaignParseLine(const char *line, int width, int height);
 void RF_CampaignEndLoad(const char *path);

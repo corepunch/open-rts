@@ -11,6 +11,7 @@
 #   6. pack8.py                256-colour PCX sheets and the C tables   (assets/*.pcx, terrain.txt, sprites.inc)
 #   7. contact.py              the composited check sheet               (art/previews/sprites_contact.png)
 #   8. sfx.py                  every sound and music loop, synthesised  (assets/sfx/, assets/music/; docs/AUDIO.md)
+#   9. font.py, title.py       the menus' text faces and title backdrop (assets/font_*.pcx, font.txt, title.pcx)
 #
 # Then `make build/bin/rustfront test-rustfront` relinks and tests the game. Needs scener on
 # PATH (or SCENER=...), python3 with Pillow, and xmllint; see docs/SCENER.md. About 11 minutes for the three factions.
@@ -29,4 +30,5 @@ step "terrain (terrain.py)";              python3 terrain.py
 step "8-bit sheets (pack8.py)";           python3 pack8.py
 step "contact sheet (contact.py)";        python3 contact.py
 step "sound and music (sfx.py)";         python3 sfx.py >/dev/null
+step "menu faces and backdrop (font.py, title.py)"; python3 font.py && python3 title.py
 printf '\nDone. Now: make build/bin/rustfront test-rustfront\n'

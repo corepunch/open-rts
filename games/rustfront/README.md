@@ -60,7 +60,7 @@ draws a lot of power, and unlocks one unit at the factory:
 
 ```sh
 make build/bin/rustfront
-build/bin/rustfront                    # menu, then Start Game
+build/bin/rustfront                    # the front end: campaign, skirmish, multiplayer
 build/bin/rustfront --map maps/skirmish.txt        # Directorate against Directorate
 build/bin/rustfront --map maps/triad.txt           # you lead the Directorate against the Clans and the Concord
 build/bin/rustfront --map maps/triad-clans.txt     # you lead the Scrap Clans
@@ -262,6 +262,38 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 - An idle harvester finds the nearest ore on its own.
 - A mined-out cell turns back to sand.
 
+## Front end
+
+`build/bin/rustfront` with no map opens the title screen (`m_menu.c`), drawn over
+`assets/title.pcx` (a graded shot of the badlands with a stencilled logo, `art/title.py`) in the
+game's own faces (`assets/font_*.pcx`, rendered by `art/font.py` from Aileron, the CC0 sans that
+Pillow bundles).
+
+![Title screen](art/previews/menu-main.png)
+
+- **Campaign:** pick a faction; its five missions, locked until the one before is won, with the
+  chosen one's briefing and objectives. Start plays it; afterwards the page comes back with the
+  next mission open. Reset Progress clears `campaign.txt`.
+- **Skirmish:** every map with starts, and for each start who plays it (you, the computer at
+  easy, normal or hard, or closed), as which faction (or Random) and on which team. Start turns
+  the seats into a start plan (`RF_SetStartPlan`) and difficulties (`RF_SetAIDifficulty`): you
+  are owner 0, the computer players owners 1, 2, ...
+- **Multiplayer:** the engine's shared host, join and lobby screens (`hud/m_net.c`), with a
+  faction per seat. At launch every peer turns the published seats into the same start plan:
+  person N at start N, as the faction the seat picked, on the seat's team.
+- **Load Game** and, in a level, **Save Game:** eight slots, `rustfront-N.sav` under the user
+  directory. A save keeps Rustfront's own state too (`g_save.c`): mined-out ore, the computer's
+  difficulty and the running mission.
+- **Options:** effects and music volume and game speed, kept in `settings.cfg`.
+- **In a level**, Escape opens the pause panel: Resume, the mission's objectives, Save, Load,
+  Options, Abandon (Leave Game in a network game) and Quit.
+
+![Campaign](art/previews/menu-campaign.png) ![Skirmish setup](art/previews/menu-skirmish.png)
+
+`tests/rustfront/test_front.c` drives the pages with keys and clicks, starts a mission and a
+skirmish and checks the bases, alliances and difficulties the setup made, and saves and loads a
+game; `OPEN_RTS_RF_UI_SHOTS=DIR` writes every page as a BMP.
+
 ## Code
 
 | File | Role |
@@ -286,7 +318,8 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `g_net.c` | Lockstep: Rustfront's share of the consistency hash (terrain, blocking, alliances) |
 | `s_rustfront.c` | Sound: registers the synthesised samples, maps fire, impacts, deaths, voices and announcements to them, rate-limits the under-attack warning, and plays the ambience and the player's faction's music |
 | `g_campaign.c` | The campaign: mission keys, triggers, spawns that hunt the player, objectives, win and loss through `G_LevelObjectives`, progress, the front end's API |
-| `m_menu.c` | The engine's simple menu |
+| `m_menu.c` | The front end: title screen, campaign with briefings, skirmish setup, multiplayer lobby (the engine's), save and load, options, the in-game pause panel; the menus' faces |
+| `g_save.c` | Rustfront's block in a saved game and a network resync: each computer player's difficulty, every cell's terrain (mined-out ore), then the running mission |
 
 **Map format:** rows of terrain letters (`art/terrain.txt`: `.` sand, `:` silt, `*` ore,
 `#` gravel, `,` grass, `^` stone, `~` water, `R` rocks, `x` wreck, `=` concrete), optionally

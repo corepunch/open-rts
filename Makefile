@@ -159,8 +159,8 @@ W2_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -n
 # simulation hash.
 Z_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_ruleset.c' ! -name 'test_ai_game.c' ! -name 'test_tech_rows.c' ! -name 'test_determinism_fixed.c' ! -name 'test_simple_menu.c'))
 
-# Rustfront has no recorded simulation hash yet.
-RF_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_determinism_fixed.c'))
+# Rustfront has no recorded simulation hash yet, and has its own front end (no fallback menu).
+RF_SHARED_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c' ! -name 'test_determinism_fixed.c' ! -name 'test_simple_menu.c'))
 
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))

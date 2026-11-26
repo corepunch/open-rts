@@ -150,7 +150,10 @@ void G_InitGame(void) {
 }
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
-    return RF_LoadLevel(path, out);
+    if (!RF_LoadLevel(path, out)) return false;
+    /* A saved game names its map by this path, and a load checks it (game/g_save.c). */
+    snprintf(out->map_path, sizeof(out->map_path), "%s", path);
+    return true;
 }
 
 bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,

@@ -26,7 +26,7 @@
  *
  * and "unit ... @TAG" names a placed thing. Every objective but protect must be met to win;
  * a protected thing lost, or the player's last unit, loses. Enemy units a trigger spawns hunt
- * the player's nearest unit. The mission's progress is saved with the game (G_SaveExtra). */
+ * the player's nearest unit. The mission's progress is saved with the game (RF_CampaignSave, in g_save.c's block). */
 
 enum { MAX_TRIGGERS = 32, MAX_ACTIONS = 160, MAX_TAGS = 24, MAX_TECH = 48, MAX_HUNTERS = 192,
        MAX_PENDING = 8, MESSAGE_TEXT = 200, MESSAGE_MS = 9000 };
@@ -682,9 +682,9 @@ unsigned G_LevelObjectives(mobj_t *const *units, int count) {
 
 /* ── saved games ───────────────────────────────────────────────────────── */
 
-size_t G_SaveExtraSize(void) { return def.active ? sizeof(run) : 0; }
-void G_SaveExtra(void *out) { memcpy(out, &run, sizeof(run)); }
-bool G_LoadExtra(const void *data, size_t size) {
+size_t RF_CampaignSaveSize(void) { return def.active ? sizeof(run) : 0; }
+void RF_CampaignSave(void *out) { memcpy(out, &run, sizeof(run)); }
+bool RF_CampaignLoad(const void *data, size_t size) {
     if (!size) return true;
     if (size != sizeof(run) || !def.active) return false;
     memcpy(&run, data, sizeof(run));
