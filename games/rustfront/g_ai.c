@@ -50,6 +50,19 @@ static bool purchase(level_t *map, int owner, int ui_id) {
     return G_PlaceProduct(hq, product, cell);
 }
 
+/* A harvester waits while its side has no finished refinery to bring ore to (a start's
+ * harvester comes before the refinery, and a refinery can be burnt down): otherwise it fills
+ * up, finds nowhere to unload and goes idle, and the engine plans it a new trip every tic. */
+static bool busy(const mobj_t *unit) {
+    if (!(unit->traits & MF_HARVESTER)) return false;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *u = (const mobj_t *)th;
+        if (th->function == P_MobjThinker && u->owner == unit->owner && (u->traits & MF_RESOURCE_BASE) &&
+            !u->remove && u->hp > 0) return false;
+    }
+    return true;
+}
+
 static const AiGameInterface rf_ai = {
     .name = "rustfront",
     .features = AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_DEFENSE |
@@ -57,6 +70,7 @@ static const AiGameInterface rf_ai = {
     .player_level = P_AiLevelNonHuman,
     .purchase = purchase,
     .is_anchor = G_AiIsStructure,
+    .is_busy = busy,
 };
 
 const AiGameInterface *G_AiInterface(void) { return &rf_ai; }
