@@ -212,4 +212,7 @@ const gameinfo_t game_info = {
     .team_palettes = true,
     .attack = RF_Attack,
     .mobj_ticker = RF_MobjTicker,
+    .draw_fog = RF_DrawFog,
+    .hit_damage = RF_HitDamage,
+    .draw_overlays = RF_DrawMarks,
 };

@@ -77,6 +77,7 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
     if (leveltime % (RTS_TICRATE / 2) == 0) RF_SyncBlocking(map);
     if (leveltime % 2 == 0) RF_TrailRockets(mobjs, count);
     smoke_damaged(mobjs, count);
+    RF_BaseTicker(mobjs, count);
     if (leveltime % RTS_TICRATE == 0) {
         send_idle_harvesters(map, mobjs, count);
         RF_ClearMinedOre(map);
@@ -85,9 +86,9 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
 
 /* Like C&C's, a refinery arrives with its first harvester, parked below its dock. */
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
-    (void)producer;
     if (!unit) return;
     RF_CompleteSite(unit);
+    RF_UnitReleased(unit, producer);
     if (!RF_IsRole(unit->type_id, RF_ROLE_REFINERY)) return;
     irect_t cells = P_MobjCells(unit);
     mobj_t *harvester = P_SpawnMobj(fixed3_zero(), RF_Role(RF_FactionOfType(unit->type_id), RF_ROLE_HARVESTER));
@@ -151,8 +152,8 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
 /* Vehicles go up in one explosion; a structure in several across its footprint. Soldiers
  * fall instead (their death run). */
 void G_UnitKilled(mobj_t *victim, mobj_t *killer) {
-    (void)killer;
     if (!victim || victim->type_id >= MT_FX_HIT) return;
+    RF_CreditKill(victim, killer);
     if (RF_IsInfantry(victim->type_id)) return;
     if (!is_structure(victim)) {
         spawn_effect(MT_FX_BOOM, victim, 0, 0, 2);

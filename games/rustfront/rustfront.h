@@ -82,6 +82,38 @@ bool RF_IsRole(uint16_t type, rf_role_t role);
 bool RF_OwnerHasRole(int owner, rf_role_t role);     /* of any faction */
 bool RF_IsInfantry(uint16_t type);
 
+/* g_base.c: power, repair and sell, rally points, veterancy. */
+enum { RF_ORDER_REPAIR = 0, RF_ORDER_SELL = 1 };      /* TC_REPAIR's product */
+enum { RF_VETERAN_KILLS = 3, RF_ELITE_KILLS = 6 };
+int  RF_PowerOf(uint16_t type);                      /* + makes, - draws */
+void RF_OwnerPower(int owner, int *made, int *used);
+bool RF_LowPower(int owner);
+bool RF_IsStructure(const mobj_t *unit);
+int  RF_Rank(const mobj_t *unit);                    /* 0, 1 veteran, 2 elite */
+void RF_CreditKill(mobj_t *victim, mobj_t *killer);
+int  RF_RankDamage(const mobj_t *attacker, int damage);
+int  RF_ShieldDamage(const mobj_t *victim, int damage); /* g_combat.c: an Aegis field */
+int  RF_HitDamage(const mobj_t *attacker, const weapondef_t *weapon, mobj_t *target, int damage, int divisor);
+int  RF_SellValue(const mobj_t *unit);
+bool RF_HasRally(const mobj_t *producer);
+fixed2_t RF_Rally(const mobj_t *producer);
+void RF_UnitReleased(mobj_t *unit, const mobj_t *producer);
+bool RF_StructureOrder(int product);                 /* the local player's selected structures */
+void RF_BaseTicker(mobj_t *const *mobjs, int count);
+
+/* g_ai.c: the computer player's difficulty, per owner, set before the game starts (the front
+ * end, or a campaign mission). Normal is the default. */
+enum { RF_AI_EASY, RF_AI_NORMAL, RF_AI_HARD, RF_AI_LEVELS };
+void RF_SetAIDifficulty(int owner, int level);
+int  RF_AIDifficulty(int owner);
+
+/* r_marks.c: selection, health, rank chevrons, repair and rally marks (gameinfo draw_overlays). */
+void RF_DrawMarks(const unitoverlaycontext_t *ctx);
+
+/* g_sight.c: fog of war. Each type's sight in cells (0: sees nothing), and the fog pass. */
+int  RF_SightCells(uint16_t type);
+void RF_DrawFog(app_t *app, const level_t *map, const tileset_t *tileset);
+
 /* hu_rustfront.c: the sidebar. */
 #define RF_SIDEBAR_X 480
 menu_t *RF_InitHUD(app_t *app, const char *root);

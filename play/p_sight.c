@@ -2,7 +2,50 @@
 #include "p_sight_data.h"
 #include <stdlib.h>
 
+/* MEMORY_STRUCTURES: the local player's picture of fogged enemy structures. */
+enum { SIGHT_MEMORY_MAX = 1024 };
+static sightmemory_t memory[SIGHT_MEMORY_MAX];
+static int memory_count;
+
+int P_SightMemory(const sightmemory_t **out) {
+    if (out) *out = memory;
+    return memory_count;
+}
+
+static bool is_structure(const mobj_t *mobj) {
+    return mobj->info && mobj->info->footprint.w > 0 && !(mobj->traits & (MF_MOBILE | MF_MISSILE | MF_NOBLOCKMAP));
+}
+
+static bool cell_in_sight(fixed3_t position) {
+    ivec2_t cell = {position.x >> FIXED_FRAC_BITS, position.y >> FIXED_FRAC_BITS};
+    return L_Contains(&level, cell.x, cell.y) &&
+        (level.sight.cells[L_Index(&level, cell.x, cell.y)] & level.sight.allies[consoleplayer]) != 0;
+}
+
+/* Forget what is in sight again, then remember every other side's structure in sight now. */
+static void update_memory(void) {
+    if (R_Policy()->memory != MEMORY_STRUCTURES || consoleplayer < 0 || consoleplayer >= 8) {
+        memory_count = 0;
+        return;
+    }
+    int kept = 0;
+    for (int i = 0; i < memory_count; ++i)
+        if (!cell_in_sight(memory[i].core.position)) memory[kept++] = memory[i];
+    memory_count = kept;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *mobj = (const mobj_t *)th;
+        if (mobj->remove || mobj->hp <= 0 || !is_structure(mobj) || mobj->owner == consoleplayer ||
+            (mobj->team < 8 && (level.sight.allies[consoleplayer] & (UINT32_C(0x40000000) >> mobj->team))) ||
+            !P_VisibleToPlayer(mobj) || memory_count >= SIGHT_MEMORY_MAX) continue;
+        memory[memory_count++] = (sightmemory_t){
+            .id = mobj->id, .type_id = mobj->type_id, .owner = mobj->owner, .team = mobj->team,
+            .hp = mobj->hp, .max_hp = mobj->max_hp, .aim = mobj->attack.aim, .core = mobj->core};
+    }
+}
+
 bool P_InitSight(void) {
+    memory_count = 0;
     if (level.width <= 0 || level.height <= 0 ||
         (size_t)level.width > SIZE_MAX / sizeof(uint32_t) / (size_t)level.height)
         return false;
@@ -74,6 +117,7 @@ void P_UpdateSight(void) {
     size_t count = (size_t)level.width * level.height;
     if (R_Policy()->sight == SIGHT_OPEN) {
         for (size_t i = 0; i < count; ++i) level.sight.cells[i] = SIGHT_EXPLORED | UINT32_C(0x7f800000);
+        memory_count = 0;
         return;
     }
     for (size_t i = 0; i < count; ++i) level.sight.cells[i] &= SIGHT_EXPLORED;
@@ -118,6 +162,7 @@ void P_UpdateSight(void) {
         }
         reveal_sight(origin, radius, mask, airborne, detector);
     }
+    update_memory();
 }
 
 int P_SightBrightness(const level_t *map, ivec2_t cell) {

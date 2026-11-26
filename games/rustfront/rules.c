@@ -61,6 +61,6 @@ static int faction_of(const level_t *map, int owner) {
 
 const ruleset_t g_ruleset = {
     .game = "rustfront",
-    .policy = { .input = INPUT_LEFT_SELECT_ORDER, .sight = SIGHT_OPEN },
+    .policy = { .input = INPUT_LEFT_SELECT_ORDER, .sight = SIGHT_RADIAL, .memory = MEMORY_STRUCTURES },
     .factions = factions, .faction_count = RF_FACTION_COUNT, .faction_of = faction_of,
 };

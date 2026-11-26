@@ -32,7 +32,7 @@ bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
             mobj_t *shot = P_SpawnMissile(attacker, target, GUNS[i].projectile);
             if (!shot) return n > 0;
             shot->rf_victim = target->id;
-            shot->missile.damage = weapon->damage;
+            shot->missile.damage = RF_RankDamage(attacker, weapon->damage);
             /* Start at the muzzle: skip the steps the barrel covers. */
             const missiledef_t *flight = &shot->info->missile;
             int skip = (int)(GUNS[i].muzzle / flight->step);
@@ -52,6 +52,13 @@ bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target) {
         return true;
     }
     return false;
+}
+
+/* An Aegis (the Concord's shield craft) takes a third off every hit on its side's units
+ * within its field; fields do not stack. */
+int RF_ShieldDamage(const mobj_t *victim, int damage) {
+    (void)victim;
+    return damage;
 }
 
 static bool impact_in_progress;
@@ -77,7 +84,7 @@ void A_RfImpact(mobj_t *shot) {
     int damage = shot->missile.damage;
     impact_in_progress = true;
     if (victim && !victim->remove && victim->hp > 0 && within(victim, at, reach_of(victim)))
-        P_DamageMobj(victim, source, damage);
+        P_DamageMobj(victim, source, RF_ShieldDamage(victim, damage));
     else
         victim = NULL;
     if (shot->type_id == MT_HEAVY_SHELL || shot->type_id == MT_HEAVY_BOLT) {
@@ -85,7 +92,7 @@ void A_RfImpact(mobj_t *shot) {
             mobj_t *other = (mobj_t *)th;
             if (th->function != P_MobjThinker || other == victim || other == shot || other->remove ||
                 other->hp <= 0 || other->type_id >= MT_FX_HIT || other->team == shot->team) continue;
-            if (within(other, at, FIXED_LIT(1.5))) P_DamageMobj(other, source, damage / 2);
+            if (within(other, at, FIXED_LIT(1.5))) P_DamageMobj(other, source, RF_ShieldDamage(other, damage / 2));
         }
     }
     impact_in_progress = false;
