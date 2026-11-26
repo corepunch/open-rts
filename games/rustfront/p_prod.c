@@ -11,7 +11,8 @@
  * its vehicles. Prerequisites are structures the owner must have: power before a barracks or
  * refinery, a refinery before a factory, a barracks before a turret. ui ids are the actor
  * types; icon frames are art/icons.py's (RF_ICON_* in sprites.inc). Times are milliseconds at
- * normal speed. A side sees only its own faction's products. */
+ * normal speed. A side sees only its own faction's products, and in a campaign mission the player
+ * only what the mission allows (g_campaign.c). */
 #define STRUCTURE(type, label, cost, icon, hq, needs) \
     {type, type, label, cost, RF_ICON_##icon, RTS_PRODUCT_BUILDING, type, 0, {needs}, (needs) ? 1 : 0, \
      {hq}, 1, {0}, false}
@@ -80,7 +81,8 @@ int G_ModelGetProducts(const RtsGameModel *model, int owner,
     if (!out || max_products <= 0) return 0;
     int faction = RF_OwnerFaction(owner), count = 0;
     for (int i = 0; i < PRODUCT_COUNT && count < max_products; ++i)
-        if (faction < 0 || RF_FactionOfType((uint16_t)RF_PRODUCTS[i].product_type) == faction)
+        if ((faction < 0 || RF_FactionOfType((uint16_t)RF_PRODUCTS[i].product_type) == faction) &&
+            RF_CampaignAllows(owner, (uint16_t)RF_PRODUCTS[i].product_type))
             out[count++] = RF_PRODUCTS[i];
     return count;
 }
@@ -103,7 +105,7 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
 
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
-    if (!product) return false;
+    if (!product || !RF_CampaignAllows(owner, (uint16_t)product->product_type)) return false;
     bool maker = product->maker_count <= 0;
     for (int i = 0; i < product->maker_count && !maker; ++i)
         maker = G_ModelHasActorType(model, owner, (uint16_t)product->makers[i]);

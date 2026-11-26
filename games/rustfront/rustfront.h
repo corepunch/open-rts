@@ -87,4 +87,62 @@ bool RF_IsInfantry(uint16_t type);
 menu_t *RF_InitHUD(app_t *app, const char *root);
 void RF_ShutdownHUD(void);
 
+/* w_rustfront.c: map unit names ("tank", "cl_hall") and a thing spawned the way a map places it. */
+uint16_t RF_UnitType(const char *name);              /* 0: no such unit */
+mobj_t *RF_SpawnThing(uint16_t type, int owner, ivec2_t cell, int facing);
+
+/* ── g_campaign.c: the single-player campaign (docs/CAMPAIGN.md) ─────────────
+ * Three campaigns, one per faction, of RF_CAMPAIGN_MISSIONS missions each. A mission is a map
+ * (maps/campaign/<faction>-<n>.txt) with mission keys: a title, a briefing, objectives, tech
+ * limits, and triggers that spawn units or show messages. Indices here are 0-based. */
+#define RF_CAMPAIGN_MISSIONS 5
+#define RF_MAX_OBJECTIVES 8
+#define RF_OBJECTIVE_TEXT 96
+#define RF_BRIEFING_TEXT 1536
+typedef struct {
+    int faction, index;                                  /* rf_faction_id_t, 0..4 */
+    char map[96];                                        /* relative to the data root */
+    char title[64];
+    char briefing[RF_BRIEFING_TEXT];                     /* paragraphs joined with '\n' */
+    int objective_count;
+    char objectives[RF_MAX_OBJECTIVES][RF_OBJECTIVE_TEXT];
+} rf_missioninfo_t;
+
+/* The campaign list for the front end. */
+const char *RF_CampaignName(int faction);             /* "Directorate"; NULL out of range */
+const char *RF_CampaignSlug(int faction);             /* "directorate", "clans", "concord" */
+bool RF_MissionPath(int faction, int index, char *out, size_t size);  /* "maps/campaign/clans-2.txt" */
+bool RF_MissionInfo(const char *root, int faction, int index, rf_missioninfo_t *out);
+
+/* Progress, kept in campaign.txt under D_UserDirectory(): how many missions of each campaign
+ * are won. The first mission is always open; winning mission i opens mission i + 1. */
+int  RF_CampaignWon(int faction);                     /* 0..RF_CAMPAIGN_MISSIONS */
+bool RF_MissionUnlocked(int faction, int index);
+bool RF_CampaignRecordWin(int faction, int index);    /* false if it cannot be saved */
+bool RF_CampaignResetProgress(void);
+
+/* The running mission (none on a skirmish map). The level records its own win. */
+enum { RF_OBJECTIVE_PENDING, RF_OBJECTIVE_DONE, RF_OBJECTIVE_FAILED };
+bool RF_InMission(int *faction, int *index);
+const char *RF_MissionTitle(void);
+int  RF_ObjectiveCount(void);
+const char *RF_ObjectiveText(int i);
+int  RF_ObjectiveState(int i);
+int  RF_MissionElapsedMs(void);
+/* An objective's terms, for an objectives panel or a test: its kind, the cells to hold, the
+ * seconds to survive or hold, the credits or count, the unit type to build, the tagged id. */
+enum { RF_OBJ_DESTROY_ALL, RF_OBJ_DESTROY, RF_OBJ_PROTECT, RF_OBJ_SURVIVE, RF_OBJ_HOLD, RF_OBJ_CREDITS,
+       RF_OBJ_BUILD };
+typedef struct { int kind, seconds, amount, count, held_ms; irect_t area; uint16_t type; uint32_t tag_id; } rf_objective_t;
+bool RF_ObjectiveDetail(int i, rf_objective_t *out);
+const char *RF_LastMissionMessage(void);              /* the latest trigger or objective message */
+int  RF_MissionLoadErrors(void);                      /* bad mission lines in the loaded map */
+bool RF_CampaignAllows(int owner, uint16_t type);     /* the mission's tech limit for the player */
+/* Called by the map loader and the mission ticker. */
+void RF_CampaignBeginLoad(void);
+bool RF_CampaignParseLine(const char *line, int width, int height);
+void RF_CampaignEndLoad(const char *path);
+void RF_CampaignTagged(const char *tag, const mobj_t *thing);
+void RF_CampaignTicker(level_t *map, mobj_t *const *mobjs, int count, hudtext_t *hud, int dt_ms);
+
 #endif

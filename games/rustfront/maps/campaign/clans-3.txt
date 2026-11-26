@@ -1,0 +1,141 @@
+# Rustfront campaign mission, written by maps/campaign/missions.py (docs/CAMPAIGN.md).
+mission clans 3
+title Junkyard Siege
+briefing The Mandate wants revenge for Rook's Crossing. Their columns are rolling on the Grand Junkyard, the clans' oldest meeting ground.
+briefing Six minutes, Warboss. Hold the Junkyard for six minutes while the clans gather, and the Directorate will learn that scrap bites back. The Scrap Yard can build Trikes, Gun Trucks and Scrap Crawlers; Spike Towers chew up infantry.
+briefing Their tanks come from the east, their infantry from the south.
+tech cl_generator cl_smelter cl_camp cl_yard cl_tower cl_raider cl_torcher cl_trike cl_truck cl_crawler cl_hauler
+objective protect hall | Keep the Clan Hall standing
+objective survive 360 | Hold the Junkyard for six minutes
+................................................
+................................................
+.......x......................xx................
+................................................
+...===============..............................
+...===============..............................
+...===============..............................
+...===============..............x...............
+...===============..............................
+...===============..............................
+...===============..............................
+...===============..............................
+...===============..............................
+...===============...........x..................
+.............................x..................
+.................................x..............
+................................................
+................................................
+...x............................................
+................................................
+....x.................x..x......x...............
+.............x..x...............................
+..........*****.............*****...............
+........*********...x....x.*******..............
+........*********..........*******..............
+........*********..........*******........x.....
+..........*****.............*****...............
+................................................
+.......x........................................
+................................................
+................................................
+................................................
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+level 111111111111111111111111111111111111111111111111
+unit cl_hall 0 4 5 0 @hall
+unit cl_generator 0 8 5 0
+unit cl_smelter 0 11 5 0
+unit cl_camp 0 4 9 0
+unit cl_yard 0 7 9 0
+unit cl_tower 0 12 9 0
+unit cl_tower 0 15 6 0
+unit cl_tower 0 15 11 0
+unit cl_hauler 0 12 8 0
+unit cl_truck 0 20 9 0
+unit cl_truck 0 22 9 0
+unit cl_trike 0 24 9 0
+unit cl_trike 0 26 9 0
+unit cl_raider 0 20 10 0
+unit cl_raider 0 22 10 0
+unit cl_raider 0 24 10 0
+unit cl_raider 0 26 10 0
+unit cl_raider 0 20 11 0
+unit cl_raider 0 22 11 0
+unit cl_torcher 0 24 11 0
+unit cl_torcher 0 26 11 0
+credits 0 4500
+camera 14 12
+trigger w1 time 45
+spawn w1 rifleman 1 24 28 4
+spawn w1 rifleman 1 26 28 4
+spawn w1 rifleman 1 28 28 4
+spawn w1 rifleman 1 30 28 4
+spawn w1 rifleman 1 24 27 4
+trigger w2 time 100
+spawn w2 scout 1 42 10 8
+spawn w2 scout 1 40 10 8
+spawn w2 tank 1 38 10 8
+trigger w3 time 160
+spawn w3 rifleman 1 14 28 4
+spawn w3 rifleman 1 16 28 4
+spawn w3 rifleman 1 18 28 4
+spawn w3 rifleman 1 20 28 4
+spawn w3 rocket 1 14 27 4
+spawn w3 rocket 1 16 27 4
+spawn w3 rocket 1 18 27 4
+trigger w4 time 220
+spawn w4 tank 1 42 14 8
+spawn w4 tank 1 40 14 8
+spawn w4 apc 1 38 14 8
+spawn w4 rifleman 1 36 14 8
+spawn w4 rifleman 1 42 15 8
+spawn w4 rifleman 1 40 15 8
+trigger w5 time 290
+spawn w5 tank 1 42 8 8
+spawn w5 tank 1 40 8 8
+spawn w5 artillery 1 38 8 8
+spawn w5 rocket 1 36 8 8
+spawn w5 rocket 1 42 9 8
+spawn w5 rocket 1 40 9 8
+trigger w6 time 330
+spawn w6 rifleman 1 22 28 4
+spawn w6 rifleman 1 24 28 4
+spawn w6 rifleman 1 26 28 4
+spawn w6 rifleman 1 28 28 4
+spawn w6 rifleman 1 22 27 4
+spawn w6 rifleman 1 24 27 4
+spawn w6 scout 1 26 27 4
+spawn w6 scout 1 28 27 4
+message w1 Directorate riflemen from the south!
+message w2 Their armour comes from the east.
+message w5 Artillery! Get the trucks onto it before it shells the Hall.
+message w6 One more push, Warboss!

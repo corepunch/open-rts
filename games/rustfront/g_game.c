@@ -155,8 +155,8 @@ bool R_InitSprites(const char *root, const level_t *map,
 
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
                      hudtext_t *hud, int dt_ms) {
-    (void)hud; (void)dt_ms;
     RF_MissionTicker(map, mobjs, *count);
+    RF_CampaignTicker(map, mobjs, *count, hud, dt_ms);
 }
 
 menu_t *G_InitHUD(app_t *app, const char *data_root) {

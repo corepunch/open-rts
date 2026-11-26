@@ -27,7 +27,7 @@
 
 #define RF_MAX_THINGS 256
 
-typedef struct { uint16_t type; int owner, facing; ivec2_t cell; } rfthing_t;
+typedef struct { uint16_t type; int owner, facing; ivec2_t cell; char tag[16]; } rfthing_t;
 static rfthing_t things[RF_MAX_THINGS];
 static int thing_count;
 
@@ -46,7 +46,7 @@ static const struct { const char *name; uint16_t type; } unit_names[] = {
     {"lc_harvester", MT_LC_HARVESTER}, {"lc_warden", MT_LC_WARDEN}, {"lc_lancer", MT_LC_LANCER},
 };
 
-static uint16_t unit_type(const char *name) {
+uint16_t RF_UnitType(const char *name) {
     for (size_t i = 0; i < sizeof(unit_names) / sizeof(*unit_names); ++i)
         if (!strcmp(unit_names[i].name, name)) return unit_names[i].type;
     return 0;
@@ -88,6 +88,7 @@ bool RF_LoadLevel(const char *path, level_t *out) {
     }
     memset(out, 0, sizeof(*out));
     thing_count = 0;
+    RF_CampaignBeginLoad();
     if (!RF_LoadTerrain(path)) return false;
     char *text = malloc(file.size + 1);
     if (!text) { W_FreeFile(&file); return false; }
@@ -167,25 +168,63 @@ bool RF_LoadLevel(const char *path, level_t *out) {
             char name[24];
             int owner, x, cy, facing = 0;
             if (sscanf(line, "unit %23s %d %d %d %d", name, &owner, &x, &cy, &facing) >= 4) {
-                uint16_t type = unit_type(name);
+                uint16_t type = RF_UnitType(name);
                 if (!type || x < 0 || cy < 0 || x >= w || cy >= h || owner < 0 || owner >= MAXPLAYERS) {
                     fprintf(stderr, "rustfront: %s: bad unit line \"%.*s\"\n", path, len, line);
                 } else if (thing_count < RF_MAX_THINGS) {
-                    things[thing_count++] = (rfthing_t){type, owner, facing & 15, {x, cy}};
+                    /* "unit ... @TAG" names the thing for a mission's objectives (g_campaign.c). */
+                    rfthing_t *t = &things[thing_count++];
+                    *t = (rfthing_t){type, owner, facing & 15, {x, cy}, ""};
+                    const char *at = memchr(line, '@', (size_t)len);
+                    if (at) {
+                        int n = 0;
+                        while (n < (int)sizeof(t->tag) - 1 && at + 1 + n < line + len && !isspace((unsigned char)at[1 + n]))
+                            n++;
+                        memcpy(t->tag, at + 1, (size_t)n);
+                        t->tag[n] = '\0';
+                    }
                 }
             } else if (sscanf(line, "credits %d %d", &owner, &x) == 2) {
                 if (owner >= 0 && owner < MAXPLAYERS) out->player_resources[owner][0] = x;
             } else if (sscanf(line, "camera %d %d", &x, &cy) == 2) {
                 out->has_camera = true;
                 out->camera = (fvec2_t){(float)x, (float)cy};
+            } else {
+                char copy[512];
+                snprintf(copy, sizeof(copy), "%.*s", len, line);
+                RF_CampaignParseLine(copy, w, h);
             }
         }
         line = end ? end + 1 : line + strlen(line);
     }
     free(text);
+    RF_CampaignEndLoad(path);
     RF_BuildRelief(out);
     for (int i = 0; i < w * h; ++i) out->blocked[i] = RF_CellBlocks(out, i);
     return true;
+}
+
+/* A thing as a map places it: a building on its top-left cell, blocking its footprint; a unit
+ * centred on its cell. Owner 0 is the player, the others enemies in their team colour. */
+mobj_t *RF_SpawnThing(uint16_t type, int owner, ivec2_t cell, int facing) {
+    const mobjtype_t *info = P_ActorType(type);
+    if (!info) return NULL;
+    mobj_t *mo = P_SpawnMobj(fixed3_zero(), type);
+    if (!mo) return NULL;
+    bool building = info->footprint.w > 0;
+    fixed2_t at = building ? P_BuildingPosition(type, cell) : fixed2_cell_center(cell);
+    mo->core.position = fixed3_from_fixed2(at, 0);
+    mo->core.angle = (angle_t)(facing & 15) * (ANG90 / 4);
+    mo->owner = owner;
+    mo->team = owner;
+    mo->allegiance = owner == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
+    if (building)
+        for (int dy = 0; dy < info->footprint.h; ++dy)
+            for (int dx = 0; dx < info->footprint.w; ++dx) {
+                int x = cell.x + dx, y = cell.y + dy;
+                if (L_Contains(&level, x, y)) level.blocked[L_Index(&level, x, y)] = 1;
+            }
+    return mo;
 }
 
 int RF_LoadThings(const char *path) {
@@ -193,23 +232,10 @@ int RF_LoadThings(const char *path) {
     int count = 0;
     for (int i = 0; i < thing_count; ++i) {
         const rfthing_t *t = &things[i];
-        const mobjtype_t *type = P_ActorType(t->type);
-        mobj_t *mo = P_SpawnMobj(fixed3_zero(), t->type);
-        if (!type || !mo) continue;
+        mobj_t *mo = RF_SpawnThing(t->type, t->owner, t->cell, t->facing);
+        if (!mo) continue;
         count++;
-        bool building = type->footprint.w > 0;
-        fixed2_t at = building ? P_BuildingPosition(t->type, t->cell) : fixed2_cell_center(t->cell);
-        mo->core.position = fixed3_from_fixed2(at, 0);
-        mo->core.angle = (angle_t)t->facing * (ANG90 / 4);
-        mo->owner = t->owner;
-        mo->team = t->owner;
-        mo->allegiance = t->owner == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
-        if (building)
-            for (int dy = 0; dy < type->footprint.h; ++dy)
-                for (int dx = 0; dx < type->footprint.w; ++dx) {
-                    int x = t->cell.x + dx, y = t->cell.y + dy;
-                    if (x < level.width && y < level.height) level.blocked[L_Index(&level, x, y)] = 1;
-                }
+        if (t->tag[0]) RF_CampaignTagged(t->tag, mo);
     }
     return count;
 }
