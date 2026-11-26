@@ -46,6 +46,8 @@ static const struct { const char *name; uint16_t type; } unit_names[] = {
     {"lc_academy", MT_LC_ACADEMY}, {"lc_foundry", MT_LC_FOUNDRY}, {"lc_tower", MT_LC_TOWER},
     {"lc_skimmer", MT_LC_SKIMMER}, {"lc_glaive", MT_LC_GLAIVE}, {"lc_prism", MT_LC_PRISM},
     {"lc_harvester", MT_LC_HARVESTER}, {"lc_warden", MT_LC_WARDEN}, {"lc_lancer", MT_LC_LANCER},
+    {"uplink", MT_UPLINK}, {"hammer", MT_HAMMER}, {"cl_shop", MT_CL_SHOP}, {"cl_wrecker", MT_CL_WRECKER},
+    {"lc_sanctum", MT_LC_SANCTUM}, {"lc_aegis", MT_LC_AEGIS},
 };
 
 uint16_t RF_UnitType(const char *name) {

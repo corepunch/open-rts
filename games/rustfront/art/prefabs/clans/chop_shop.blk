@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Chop Shop, the Scrap Clans' tech structure. Footprint 2x2 cells (400 x 400 cm), origin at pad
+     centre on the ground, garage door faces +Z. A ramshackle garage of rusty corrugated sheet
+     under a patched tin roof, its roll door half up on a dark bay, bolted plates and the war mark
+     on the front; a team tarp lean-to over an engine on a stand; a rusty derrick at the front
+     right swinging a wrecked car body on a hook; tyres, drums, a fire barrel and a team flag.
+     About 260 cm tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knobs, set per frame by art/sprites.py: blink 1/0 the derrick's warn light,
+       flick 0/1 the fire barrel's flame. -->
+  <let name="blink" value="1"/>
+  <let name="flick" value="0"/>
+  <chunk width="392" height="20" depth="392" radius="18" bevel="3" lean="0" pos="0 10 0" material="clans_dirt"/>
+
+  <!-- Turned +16 degrees on its pad; scaled and centred to stay inside the footprint. -->
+  <group rot="0 16 0" scale="0.95 0.95 0.95" pos="0 0 0">
+    <!-- garage: corrugated walls y 20..150, x -170..70, z -150..40 -->
+    <box size="240 130 190" pos="-50 85 -55" material="clans_sheet_rust"/>
+    <box size="6 134 6" pos="-170 87 40" material="clans_rust"><array count="3" translation="120 0 0"/></box>
+    <box size="110 96 4" pos="-40 68 41" material="steel_dark"/>
+    <box size="116 34 6" pos="-40 124 42" material="clans_tin"/>
+    <box size="118 6 8" pos="-40 106 43" material="hazard"/>
+    <box size="4 60 70" pos="72 80 -40" material="clans_tin"/>
+    <box size="4 40 50" pos="72 116 -100" material="clans_paint" tint="1"/>
+    <group pos="-138 104 42" rot="90 0 0"><clans-mark radius="24"/></group>
+    <!-- patched tin roof, sloping to the back -->
+    <box size="262 6 214" rot="-7 0 0" pos="-50 157 -52" material="clans_sheet"/>
+    <box size="70 3 60" rot="-7 0 0" pos="-110 161 -20" material="clans_rust"/>
+    <box size="100 4 190" rot="-7 0 0" pos="16 162 -54" material="clans_cloth" tint="1"/>
+    <!-- a painted signboard on the roof's front edge, the war mark on it -->
+    <box size="5 40 5" pos="-110 178 26" material="clans_rust"/>
+    <box size="5 40 5" pos="-10 178 26" material="clans_rust"/>
+    <box size="150 46 5" rot="-6 0 0" pos="-60 206 28" material="clans_paint" tint="1"/>
+    <group pos="-60 206 31" rot="84 0 0"><clans-mark radius="19"/></group>
+    <tube ax="20" ay="150" az="-120" bx="20" by="210" bz="-120" r0="7" material="steel_dark"/>
+    <clans-flag height="110" size="50" pos="-150 154 -130"/>
+
+    <!-- team tarp lean-to on the right with an engine on a stand -->
+    <box size="5 110 5" pos="164 75 0" material="clans_rust"/>
+    <box size="5 110 5" pos="164 75 -120" material="clans_rust"/>
+    <box size="104 3 150" rot="0 0 -14" pos="120 136 -60" material="clans_cloth" tint="1"/>
+    <box size="40 30 40" pos="120 35 -60" material="steel_dark"/>
+    <box size="56 40 44" pos="120 70 -60" material="gunmetal"/>
+    <box size="40 10 30" pos="120 95 -60" material="clans_rust"/>
+
+    <!-- derrick at the front right: a rusty post with braces, a boom over the yard, a car on the hook -->
+    <box size="40 20 40" pos="130 30 110" material="steel_dark"/>
+    <box size="14 230 14" pos="130 135 110" material="clans_rust"/>
+    <tube ax="130" ay="40" az="70" bx="130" by="170" bz="108" r0="3.5" material="clans_rust"/>
+    <tube ax="170" ay="40" az="120" bx="132" by="170" bz="112" r0="3.5" material="clans_rust"/>
+    <tube ax="160" ay="246" az="96" bx="-50" by="214" bz="140" r0="9" r1="6" material="clans_rust"/>
+    <box size="34 30 30" rot="0 -12 0" pos="170 240 98" material="hazard"/>
+    <warn-light on="{blink}" pos="130 250 110"/>
+    <cylinder radius="1.2" height="70" sides="5" pos="-46 178 139" material="steel_dark"/>
+    <group pos="-46 120 139" rot="10 -20 -8">
+      <shape closed="1" v="-50 0 50 0 52 16 26 20 14 38 -30 38 -46 20" material="clans_rust"><extrude amount="56"/><bevel amount="2" bevelSegments="1"/></shape>
+      <box size="40 2 50" pos="-8 38.5 0" material="clans_paint" tint="1"/>
+      <box size="3 14 46" rot="0 0 -30" pos="21 30 0" material="steel_dark"/>
+    </group>
+
+    <!-- yard clutter -->
+    <clans-fire flick="{flick}" pos="40 20 150"/>
+    <clans-drum pos="-150 20 130" radius="18" height="50"/>
+    <clans-drum pos="-118 20 158" radius="18" height="50" material="clans_paint" tint="1"/>
+    <clans-tyre pos="172 29 30" radius="24" width="18"/>
+    <clans-tyre pos="172 47 30" radius="24" width="18"/>
+    <clans-tyre pos="174 65 32" radius="24" width="18"/>
+    <clans-tyre pos="80 29 160" radius="22" width="18"/>
+  </group>
+</prefab>

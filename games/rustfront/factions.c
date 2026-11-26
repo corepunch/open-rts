@@ -13,11 +13,11 @@
  * A side plays the faction of its headquarters (or, before it has one, of any unit it owns). */
 
 const rf_faction_t rf_factions[RF_FACTION_COUNT] = {
-    [RF_DIRECTORATE] = {"Directorate", MT_HQ, MT_MASTODON,
+    [RF_DIRECTORATE] = {"Directorate", MT_HQ, MT_HAMMER,
                         {MT_HQ, MT_POWER, MT_REFINERY, MT_BARRACKS, MT_FACTORY, MT_GUN_TURRET, MT_HARVESTER}},
-    [RF_CLANS] = {"Scrap Clans", MT_CL_HALL, MT_CL_TORCHER,
+    [RF_CLANS] = {"Scrap Clans", MT_CL_HALL, MT_CL_WRECKER,
                   {MT_CL_HALL, MT_CL_GENERATOR, MT_CL_SMELTER, MT_CL_CAMP, MT_CL_YARD, MT_CL_TOWER, MT_CL_HAULER}},
-    [RF_CONCORD] = {"Lumen Concord", MT_LC_SPIRE, MT_LC_LANCER,
+    [RF_CONCORD] = {"Lumen Concord", MT_LC_SPIRE, MT_LC_AEGIS,
                     {MT_LC_SPIRE, MT_LC_FUSION, MT_LC_EXTRACTOR, MT_LC_ACADEMY, MT_LC_FOUNDRY, MT_LC_TOWER,
                      MT_LC_HARVESTER}},
 };

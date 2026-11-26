@@ -49,6 +49,9 @@ ICONS = [
     ("lc_warden", "concord/warden", ' rot="-90 125 0" pose="Aim"'), ("lc_lancer", "concord/lancer", ' rot="-90 125 0" pose="Aim"'),
     ("lc_skimmer", "concord/skimmer", ' rot="0 -150 0"'), ("lc_glaive", "concord/glaive", ' rot="0 -150 0"'),
     ("lc_prism", "concord/prism", ' rot="0 -150 0"'), ("lc_harvester", "concord/harvester", ' rot="0 -150 0"'),
+    ("uplink", "buildings/uplink", ""), ("hammer", "vehicles/hammer", ' rot="0 -150 0"'),
+    ("cl_shop", "clans/chop_shop", ""), ("cl_wrecker", "clans/wrecker", ' rot="0 -150 0"'),
+    ("lc_sanctum", "concord/sanctum", ""), ("lc_aegis", "concord/aegis", ' rot="0 -150 0"'),
 ]
 
 

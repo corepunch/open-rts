@@ -6,32 +6,38 @@
   "barracks",
   "factory",
   "turret",
+  "uplink",
   "scout",
   "tank",
   "artillery",
   "harvester",
   "mastodon",
+  "hammer",
   "cl_hall",
   "cl_generator",
   "cl_smelter",
   "cl_camp",
   "cl_yard",
   "cl_tower",
+  "cl_shop",
   "cl_trike",
   "cl_truck",
   "cl_crawler",
   "cl_rig",
   "cl_hauler",
+  "cl_wrecker",
   "lc_spire",
   "lc_fusion",
   "lc_extractor",
   "lc_academy",
   "lc_foundry",
   "lc_tower",
+  "lc_sanctum",
   "lc_skimmer",
   "lc_glaive",
   "lc_prism",
   "lc_harvester",
+  "lc_aegis",
   "apc",
   "rifleman",
   "rocket",
@@ -159,11 +165,11 @@
    "count": 16,
    "file": "apc_shadow.png",
    "frame": [
-    91,
+    126,
     54
    ],
    "pivot": [
-    31.0,
+    30.0,
     32.0
    ]
   }
@@ -193,11 +199,11 @@
    "count": 16,
    "file": "artillery_shadow.png",
    "frame": [
-    138,
+    149,
     84
    ],
    "pivot": [
-    36.0,
+    34.0,
     58.0
    ]
   }
@@ -267,7 +273,7 @@
    "count": 1,
    "file": "cl_camp_shadow.png",
    "frame": [
-    126,
+    141,
     72
    ],
    "pivot": [
@@ -383,11 +389,11 @@
    "count": 16,
    "file": "cl_crawler_shadow.png",
    "frame": [
-    99,
+    113,
     60
    ],
    "pivot": [
-    37.0,
+    36.0,
     34.0
    ]
   }
@@ -420,7 +426,7 @@
    "count": 1,
    "file": "cl_generator_shadow.png",
    "frame": [
-    142,
+    168,
     66
    ],
    "pivot": [
@@ -457,7 +463,7 @@
    "count": 1,
    "file": "cl_hall_shadow.png",
    "frame": [
-    201,
+    228,
     103
    ],
    "pivot": [
@@ -491,11 +497,11 @@
    "count": 16,
    "file": "cl_hauler_shadow.png",
    "frame": [
-    118,
+    132,
     72
    ],
    "pivot": [
-    46.0,
+    45.0,
     40.0
    ]
   }
@@ -584,12 +590,49 @@
    "count": 16,
    "file": "cl_rig_shadow.png",
    "frame": [
-    95,
+    108,
     61
    ],
    "pivot": [
-    36.0,
+    35.0,
     35.0
+   ]
+  }
+ },
+ "cl_shop": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_shop_body.png",
+    "frame": [
+     101,
+     127
+    ],
+    "frames": 8,
+    "pivot": [
+     50.0,
+     95.0
+    ],
+    "team": "cl_shop_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_shop_shadow.png",
+   "frame": [
+    161,
+    69
+   ],
+   "pivot": [
+    47.0,
+    37.0
    ]
   }
  },
@@ -621,7 +664,7 @@
    "count": 1,
    "file": "cl_smelter_shadow.png",
    "frame": [
-    165,
+    175,
     79
    ],
    "pivot": [
@@ -756,7 +799,7 @@
    "count": 1,
    "file": "cl_tower_shadow.png",
    "frame": [
-    75,
+    89,
     43
    ],
    "pivot": [
@@ -790,7 +833,7 @@
    "count": 16,
    "file": "cl_trike_shadow.png",
    "frame": [
-    66,
+    75,
     37
    ],
    "pivot": [
@@ -906,12 +949,46 @@
    "count": 16,
    "file": "cl_truck_shadow.png",
    "frame": [
-    91,
-    57
+    96,
+    58
    ],
    "pivot": [
-    32.0,
+    30.0,
     33.0
+   ]
+  }
+ },
+ "cl_wrecker": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_wrecker_body.png",
+    "frame": [
+     84,
+     72
+    ],
+    "frames": 3,
+    "pivot": [
+     42.0,
+     52.0
+    ],
+    "team": "cl_wrecker_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_wrecker_shadow.png",
+   "frame": [
+    109,
+    59
+   ],
+   "pivot": [
+    28.0,
+    34.0
    ]
   }
  },
@@ -943,7 +1020,7 @@
    "count": 1,
    "file": "cl_yard_shadow.png",
    "frame": [
-    208,
+    235,
     98
    ],
    "pivot": [
@@ -989,6 +1066,40 @@
    ]
   }
  },
+ "hammer": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "hammer_body.png",
+    "frame": [
+     115,
+     117
+    ],
+    "frames": 3,
+    "pivot": [
+     58.0,
+     90.0
+    ],
+    "team": "hammer_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "hammer_shadow.png",
+   "frame": [
+    165,
+    89
+   ],
+   "pivot": [
+    41.0,
+    59.0
+   ]
+  }
+ },
  "harvester": {
   "facings": 16,
   "layers": {
@@ -1014,11 +1125,11 @@
    "count": 16,
    "file": "harvester_shadow.png",
    "frame": [
-    116,
+    122,
     71
    ],
    "pivot": [
-    49.0,
+    48.0,
     38.0
    ]
   }
@@ -1088,12 +1199,46 @@
    "count": 1,
    "file": "lc_academy_shadow.png",
    "frame": [
-    128,
+    161,
     68
    ],
    "pivot": [
     47.0,
     36.0
+   ]
+  }
+ },
+ "lc_aegis": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "lc_aegis_body.png",
+    "frame": [
+     67,
+     55
+    ],
+    "frames": 3,
+    "pivot": [
+     33.0,
+     39.0
+    ],
+    "team": "lc_aegis_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "lc_aegis_shadow.png",
+   "frame": [
+    89,
+    39
+   ],
+   "pivot": [
+    15.0,
+    23.0
    ]
   }
  },
@@ -1125,7 +1270,7 @@
    "count": 1,
    "file": "lc_extractor_shadow.png",
    "frame": [
-    160,
+    185,
     69
    ],
    "pivot": [
@@ -1162,7 +1307,7 @@
    "count": 1,
    "file": "lc_foundry_shadow.png",
    "frame": [
-    178,
+    210,
     101
    ],
    "pivot": [
@@ -1199,7 +1344,7 @@
    "count": 1,
    "file": "lc_fusion_shadow.png",
    "frame": [
-    113,
+    149,
     65
    ],
    "pivot": [
@@ -1315,11 +1460,11 @@
    "count": 16,
    "file": "lc_glaive_shadow.png",
    "frame": [
-    101,
+    109,
     66
    ],
    "pivot": [
-    28.0,
+    22.0,
     40.0
    ]
   }
@@ -1349,11 +1494,11 @@
    "count": 16,
    "file": "lc_harvester_shadow.png",
    "frame": [
-    103,
+    124,
     58
    ],
    "pivot": [
-    33.0,
+    30.0,
     34.0
    ]
   }
@@ -1442,12 +1587,49 @@
    "count": 16,
    "file": "lc_prism_shadow.png",
    "frame": [
-    115,
+    140,
     62
    ],
    "pivot": [
-    31.0,
+    25.0,
     38.0
+   ]
+  }
+ },
+ "lc_sanctum": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "lc_sanctum_body.png",
+    "frame": [
+     98,
+     132
+    ],
+    "frames": 20,
+    "pivot": [
+     47.0,
+     100.0
+    ],
+    "team": "lc_sanctum_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_sanctum_shadow.png",
+   "frame": [
+    164,
+    66
+   ],
+   "pivot": [
+    47.0,
+    34.0
    ]
   }
  },
@@ -1476,11 +1658,11 @@
    "count": 16,
    "file": "lc_skimmer_shadow.png",
    "frame": [
-    66,
+    73,
     40
    ],
    "pivot": [
-    21.0,
+    15.0,
     23.0
    ]
   }
@@ -1513,7 +1695,7 @@
    "count": 1,
    "file": "lc_spire_shadow.png",
    "frame": [
-    153,
+    209,
     97
    ],
    "pivot": [
@@ -1589,7 +1771,7 @@
    "count": 1,
    "file": "lc_tower_shadow.png",
    "frame": [
-    74,
+    97,
     38
    ],
    "pivot": [
@@ -1764,11 +1946,11 @@
    "count": 16,
    "file": "mastodon_shadow.png",
    "frame": [
-    152,
+    153,
     100
    ],
    "pivot": [
-    55.0,
+    50.0,
     58.0
    ]
   }
@@ -1990,7 +2172,7 @@
    "count": 16,
    "file": "scout_shadow.png",
    "frame": [
-    62,
+    63,
     38
    ],
    "pivot": [
@@ -2106,11 +2288,11 @@
    "count": 16,
    "file": "tank_shadow.png",
    "frame": [
-    124,
+    125,
     82
    ],
    "pivot": [
-    45.0,
+    40.0,
     48.0
    ]
   }
@@ -2188,6 +2370,43 @@
    "pivot": [
     23.0,
     17.0
+   ]
+  }
+ },
+ "uplink": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "uplink_body.png",
+    "frame": [
+     98,
+     132
+    ],
+    "frames": 20,
+    "pivot": [
+     47.0,
+     100.0
+    ],
+    "team": "uplink_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "uplink_shadow.png",
+   "frame": [
+    135,
+    65
+   ],
+   "pivot": [
+    47.0,
+    33.0
    ]
   }
  }

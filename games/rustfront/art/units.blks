@@ -59,75 +59,87 @@
   <sun dir="0.85 -1.25 -0.55" color="1.0 0.93 0.80" intensity="1.25" castShadows="1"/>
   <sun dir="-0.7 -0.6 -0.4" color="1.0 0.82 0.62" intensity="0.14" castShadows="0"/>
 
-  <camera name="Lineup" comment="Every unit at once" pos="0.0 2756.7 3831.4" look="0.0 90.0 850.0" ortho="1933.33" size="3600 353"/>
-  <camera name="CommandCenter" comment="Sprite preview: CommandCenter, 1.5 cm/px" pos="-9350.0 2806.7 2981.4" look="-9350.0 140.0 0.0" ortho="912" size="640 608"/>
-  <camera name="PowerPlant" comment="Sprite preview: PowerPlant, 1.5 cm/px" pos="-8250.0 2766.7 2981.4" look="-8250.0 100.0 0.0" ortho="672" size="448 448"/>
-  <camera name="Refinery" comment="Sprite preview: Refinery, 1.5 cm/px" pos="-7150.0 2776.7 2981.4" look="-7150.0 110.0 0.0" ortho="816" size="640 544"/>
-  <camera name="Barracks" comment="Sprite preview: Barracks, 1.5 cm/px" pos="-6050.0 2746.7 2981.4" look="-6050.0 80.0 0.0" ortho="672" size="448 448"/>
-  <camera name="WarFactory" comment="Sprite preview: WarFactory, 1.5 cm/px" pos="-4950.0 2806.7 2981.4" look="-4950.0 140.0 0.0" ortho="912" size="640 608"/>
-  <camera name="GunTurret" comment="Sprite preview: GunTurret, 1.5 cm/px" pos="-3850.0 2726.7 2981.4" look="-3850.0 60.0 0.0" ortho="384" size="256 256"/>
-  <camera name="ClanHall" comment="Sprite preview: ClanHall, 1.5 cm/px" pos="-2750.0 2836.7 2981.4" look="-2750.0 170.0 0.0" ortho="1056" size="640 704"/>
-  <camera name="Generator" comment="Sprite preview: Generator, 1.5 cm/px" pos="-1650.0 2816.7 2981.4" look="-1650.0 150.0 0.0" ortho="960" size="448 640"/>
-  <camera name="Smelter" comment="Sprite preview: Smelter, 1.5 cm/px" pos="-550.0 2836.7 2981.4" look="-550.0 170.0 0.0" ortho="1056" size="640 704"/>
-  <camera name="WarCamp" comment="Sprite preview: WarCamp, 1.5 cm/px" pos="550.0 2776.7 2981.4" look="550.0 110.0 0.0" ortho="768" size="448 512"/>
-  <camera name="ScrapYard" comment="Sprite preview: ScrapYard, 1.5 cm/px" pos="1650.0 2826.7 2981.4" look="1650.0 160.0 0.0" ortho="1056" size="640 704"/>
-  <camera name="SpikeTower" comment="Sprite preview: SpikeTower, 1.5 cm/px" pos="2750.0 2746.7 2981.4" look="2750.0 80.0 0.0" ortho="480" size="256 320"/>
-  <camera name="Spire" comment="Sprite preview: Spire, 1.5 cm/px" pos="3850.0 2866.7 2981.4" look="3850.0 200.0 0.0" ortho="1152" size="640 768"/>
-  <camera name="FusionCore" comment="Sprite preview: FusionCore, 1.5 cm/px" pos="4950.0 2806.7 2981.4" look="4950.0 140.0 0.0" ortho="864" size="448 576"/>
-  <camera name="Extractor" comment="Sprite preview: Extractor, 1.5 cm/px" pos="6050.0 2776.7 2981.4" look="6050.0 110.0 0.0" ortho="864" size="640 576"/>
-  <camera name="Academy" comment="Sprite preview: Academy, 1.5 cm/px" pos="7150.0 2796.7 2981.4" look="7150.0 130.0 0.0" ortho="864" size="448 576"/>
-  <camera name="Foundry" comment="Sprite preview: Foundry, 1.5 cm/px" pos="8250.0 2816.7 2981.4" look="8250.0 150.0 0.0" ortho="960" size="640 640"/>
-  <camera name="BeamTower" comment="Sprite preview: BeamTower, 1.5 cm/px" pos="9350.0 2746.7 2981.4" look="9350.0 80.0 0.0" ortho="480" size="256 320"/>
-  <camera name="ScoutBuggy" comment="Sprite preview: ScoutBuggy, 1.5 cm/px" pos="-7700.0 2716.7 4681.4" look="-7700.0 50.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="BattleTank" comment="Sprite preview: BattleTank, 1.5 cm/px" pos="-6600.0 2726.7 4681.4" look="-6600.0 60.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="Artillery" comment="Sprite preview: Artillery, 1.5 cm/px" pos="-5500.0 2746.7 4681.4" look="-5500.0 80.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="Harvester" comment="Sprite preview: Harvester, 1.5 cm/px" pos="-4400.0 2736.7 4681.4" look="-4400.0 70.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="APC" comment="Sprite preview: APC, 1.5 cm/px" pos="-3300.0 2726.7 4681.4" look="-3300.0 60.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="Mastodon" comment="Sprite preview: Mastodon, 1.5 cm/px" pos="-2200.0 2736.7 4681.4" look="-2200.0 70.0 1700.0" ortho="576" size="448 384"/>
-  <camera name="Trike" comment="Sprite preview: Trike, 1.5 cm/px" pos="-1100.0 2711.7 4681.4" look="-1100.0 45.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="GunTruck" comment="Sprite preview: GunTruck, 1.5 cm/px" pos="0.0 2726.7 4681.4" look="0.0 60.0 1700.0" ortho="576" size="448 384"/>
-  <camera name="Crawler" comment="Sprite preview: Crawler, 1.5 cm/px" pos="1100.0 2726.7 4681.4" look="1100.0 60.0 1700.0" ortho="576" size="448 384"/>
-  <camera name="RocketRig" comment="Sprite preview: RocketRig, 1.5 cm/px" pos="2200.0 2736.7 4681.4" look="2200.0 70.0 1700.0" ortho="576" size="448 384"/>
-  <camera name="Hauler" comment="Sprite preview: Hauler, 1.5 cm/px" pos="3300.0 2736.7 4681.4" look="3300.0 70.0 1700.0" ortho="576" size="448 384"/>
-  <camera name="Skimmer" comment="Sprite preview: Skimmer, 1.5 cm/px" pos="4400.0 2721.7 4681.4" look="4400.0 55.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="Glaive" comment="Sprite preview: Glaive, 1.5 cm/px" pos="5500.0 2726.7 4681.4" look="5500.0 60.0 1700.0" ortho="480" size="384 320"/>
-  <camera name="Prism" comment="Sprite preview: Prism, 1.5 cm/px" pos="6600.0 2756.7 4681.4" look="6600.0 90.0 1700.0" ortho="576" size="448 384"/>
-  <camera name="HoverHarvester" comment="Sprite preview: HoverHarvester, 1.5 cm/px" pos="7700.0 2736.7 4681.4" look="7700.0 70.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Lineup" comment="Every unit at once" pos="0.0 2756.7 3831.4" look="0.0 90.0 850.0" ortho="1933.33" size="3592 302"/>
+  <camera name="CommandCenter" comment="Sprite preview: CommandCenter, 1.5 cm/px" pos="-11000.0 2806.7 2981.4" look="-11000.0 140.0 0.0" ortho="912" size="640 608"/>
+  <camera name="PowerPlant" comment="Sprite preview: PowerPlant, 1.5 cm/px" pos="-9900.0 2766.7 2981.4" look="-9900.0 100.0 0.0" ortho="672" size="448 448"/>
+  <camera name="Refinery" comment="Sprite preview: Refinery, 1.5 cm/px" pos="-8800.0 2776.7 2981.4" look="-8800.0 110.0 0.0" ortho="816" size="640 544"/>
+  <camera name="Barracks" comment="Sprite preview: Barracks, 1.5 cm/px" pos="-7700.0 2746.7 2981.4" look="-7700.0 80.0 0.0" ortho="672" size="448 448"/>
+  <camera name="WarFactory" comment="Sprite preview: WarFactory, 1.5 cm/px" pos="-6600.0 2806.7 2981.4" look="-6600.0 140.0 0.0" ortho="912" size="640 608"/>
+  <camera name="GunTurret" comment="Sprite preview: GunTurret, 1.5 cm/px" pos="-5500.0 2726.7 2981.4" look="-5500.0 60.0 0.0" ortho="384" size="256 256"/>
+  <camera name="Uplink" comment="Sprite preview: Uplink, 1.5 cm/px" pos="-4400.0 2806.7 2981.4" look="-4400.0 140.0 0.0" ortho="864" size="448 576"/>
+  <camera name="ClanHall" comment="Sprite preview: ClanHall, 1.5 cm/px" pos="-3300.0 2836.7 2981.4" look="-3300.0 170.0 0.0" ortho="1056" size="640 704"/>
+  <camera name="Generator" comment="Sprite preview: Generator, 1.5 cm/px" pos="-2200.0 2816.7 2981.4" look="-2200.0 150.0 0.0" ortho="960" size="448 640"/>
+  <camera name="Smelter" comment="Sprite preview: Smelter, 1.5 cm/px" pos="-1100.0 2836.7 2981.4" look="-1100.0 170.0 0.0" ortho="1056" size="640 704"/>
+  <camera name="WarCamp" comment="Sprite preview: WarCamp, 1.5 cm/px" pos="0.0 2776.7 2981.4" look="0.0 110.0 0.0" ortho="768" size="448 512"/>
+  <camera name="ScrapYard" comment="Sprite preview: ScrapYard, 1.5 cm/px" pos="1100.0 2826.7 2981.4" look="1100.0 160.0 0.0" ortho="1056" size="640 704"/>
+  <camera name="SpikeTower" comment="Sprite preview: SpikeTower, 1.5 cm/px" pos="2200.0 2746.7 2981.4" look="2200.0 80.0 0.0" ortho="480" size="256 320"/>
+  <camera name="ChopShop" comment="Sprite preview: ChopShop, 1.5 cm/px" pos="3300.0 2796.7 2981.4" look="3300.0 130.0 0.0" ortho="864" size="448 576"/>
+  <camera name="Spire" comment="Sprite preview: Spire, 1.5 cm/px" pos="4400.0 2866.7 2981.4" look="4400.0 200.0 0.0" ortho="1152" size="640 768"/>
+  <camera name="FusionCore" comment="Sprite preview: FusionCore, 1.5 cm/px" pos="5500.0 2806.7 2981.4" look="5500.0 140.0 0.0" ortho="864" size="448 576"/>
+  <camera name="Extractor" comment="Sprite preview: Extractor, 1.5 cm/px" pos="6600.0 2776.7 2981.4" look="6600.0 110.0 0.0" ortho="864" size="640 576"/>
+  <camera name="Academy" comment="Sprite preview: Academy, 1.5 cm/px" pos="7700.0 2796.7 2981.4" look="7700.0 130.0 0.0" ortho="864" size="448 576"/>
+  <camera name="Foundry" comment="Sprite preview: Foundry, 1.5 cm/px" pos="8800.0 2816.7 2981.4" look="8800.0 150.0 0.0" ortho="960" size="640 640"/>
+  <camera name="BeamTower" comment="Sprite preview: BeamTower, 1.5 cm/px" pos="9900.0 2746.7 2981.4" look="9900.0 80.0 0.0" ortho="480" size="256 320"/>
+  <camera name="Sanctum" comment="Sprite preview: Sanctum, 1.5 cm/px" pos="11000.0 2806.7 2981.4" look="11000.0 140.0 0.0" ortho="864" size="448 576"/>
+  <camera name="ScoutBuggy" comment="Sprite preview: ScoutBuggy, 1.5 cm/px" pos="-9350.0 2716.7 4681.4" look="-9350.0 50.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="BattleTank" comment="Sprite preview: BattleTank, 1.5 cm/px" pos="-8250.0 2726.7 4681.4" look="-8250.0 60.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Artillery" comment="Sprite preview: Artillery, 1.5 cm/px" pos="-7150.0 2746.7 4681.4" look="-7150.0 80.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Harvester" comment="Sprite preview: Harvester, 1.5 cm/px" pos="-6050.0 2736.7 4681.4" look="-6050.0 70.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="APC" comment="Sprite preview: APC, 1.5 cm/px" pos="-4950.0 2726.7 4681.4" look="-4950.0 60.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Mastodon" comment="Sprite preview: Mastodon, 1.5 cm/px" pos="-3850.0 2736.7 4681.4" look="-3850.0 70.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="Hammer" comment="Sprite preview: Hammer, 1.5 cm/px" pos="-2750.0 2746.7 4681.4" look="-2750.0 80.0 1700.0" ortho="576" size="512 384"/>
+  <camera name="Trike" comment="Sprite preview: Trike, 1.5 cm/px" pos="-1650.0 2711.7 4681.4" look="-1650.0 45.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="GunTruck" comment="Sprite preview: GunTruck, 1.5 cm/px" pos="-550.0 2726.7 4681.4" look="-550.0 60.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="Crawler" comment="Sprite preview: Crawler, 1.5 cm/px" pos="550.0 2726.7 4681.4" look="550.0 60.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="RocketRig" comment="Sprite preview: RocketRig, 1.5 cm/px" pos="1650.0 2736.7 4681.4" look="1650.0 70.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="Hauler" comment="Sprite preview: Hauler, 1.5 cm/px" pos="2750.0 2736.7 4681.4" look="2750.0 70.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="Wrecker" comment="Sprite preview: Wrecker, 1.5 cm/px" pos="3850.0 2726.7 4681.4" look="3850.0 60.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="Skimmer" comment="Sprite preview: Skimmer, 1.5 cm/px" pos="4950.0 2721.7 4681.4" look="4950.0 55.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Glaive" comment="Sprite preview: Glaive, 1.5 cm/px" pos="6050.0 2726.7 4681.4" look="6050.0 60.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Prism" comment="Sprite preview: Prism, 1.5 cm/px" pos="7150.0 2756.7 4681.4" look="7150.0 90.0 1700.0" ortho="576" size="448 384"/>
+  <camera name="HoverHarvester" comment="Sprite preview: HoverHarvester, 1.5 cm/px" pos="8250.0 2736.7 4681.4" look="8250.0 70.0 1700.0" ortho="480" size="384 320"/>
+  <camera name="Aegis" comment="Sprite preview: Aegis, 1.5 cm/px" pos="9350.0 2736.7 4681.4" look="9350.0 70.0 1700.0" ortho="576" size="448 384"/>
 
   <!-- shadow-catching ground; drop it (or renderable="0") for transparent sprite passes -->
   <box name="ground" size="40000 10 10000" pos="0 -5 0" material="sand"/>
 
-  <prefab source="buildings/hq" name="buildings_hq" pos="-9350.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="buildings/power" name="buildings_power" pos="-8250.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="buildings/refinery" name="buildings_refinery" pos="-7150.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="buildings/barracks" name="buildings_barracks" pos="-6050.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="buildings/factory" name="buildings_factory" pos="-4950.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="buildings/turret" name="buildings_turret" pos="-3850.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/hall" name="clans_hall" pos="-2750.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/generator" name="clans_generator" pos="-1650.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/smelter" name="clans_smelter" pos="-550.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/camp" name="clans_camp" pos="550.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/yard" name="clans_yard" pos="1650.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/spike_tower" name="clans_spike_tower" pos="2750.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/spire" name="concord_spire" pos="3850.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/fusion" name="concord_fusion" pos="4950.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/extractor" name="concord_extractor" pos="6050.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/academy" name="concord_academy" pos="7150.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/foundry" name="concord_foundry" pos="8250.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/beam_tower" name="concord_beam_tower" pos="9350.0 0 0.0" color="0.20 0.42 0.88"/>
-  <prefab source="vehicles/scout" name="vehicles_scout" pos="-7700.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="vehicles/tank" name="vehicles_tank" pos="-6600.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="vehicles/artillery" name="vehicles_artillery" pos="-5500.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="vehicles/harvester" name="vehicles_harvester" pos="-4400.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="vehicles/apc" name="vehicles_apc" pos="-3300.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="vehicles/mastodon" name="vehicles_mastodon" pos="-2200.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/trike" name="clans_trike" pos="-1100.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/gun_truck" name="clans_gun_truck" pos="0.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/crawler" name="clans_crawler" pos="1100.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/rocket_rig" name="clans_rocket_rig" pos="2200.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="clans/hauler" name="clans_hauler" pos="3300.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/skimmer" name="concord_skimmer" pos="4400.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/glaive" name="concord_glaive" pos="5500.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/prism" name="concord_prism" pos="6600.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
-  <prefab source="concord/harvester" name="concord_harvester" pos="7700.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/hq" name="buildings_hq" pos="-11000.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/power" name="buildings_power" pos="-9900.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/refinery" name="buildings_refinery" pos="-8800.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/barracks" name="buildings_barracks" pos="-7700.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/factory" name="buildings_factory" pos="-6600.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/turret" name="buildings_turret" pos="-5500.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="buildings/uplink" name="buildings_uplink" pos="-4400.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/hall" name="clans_hall" pos="-3300.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/generator" name="clans_generator" pos="-2200.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/smelter" name="clans_smelter" pos="-1100.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/camp" name="clans_camp" pos="0.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/yard" name="clans_yard" pos="1100.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/spike_tower" name="clans_spike_tower" pos="2200.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/chop_shop" name="clans_chop_shop" pos="3300.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/spire" name="concord_spire" pos="4400.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/fusion" name="concord_fusion" pos="5500.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/extractor" name="concord_extractor" pos="6600.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/academy" name="concord_academy" pos="7700.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/foundry" name="concord_foundry" pos="8800.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/beam_tower" name="concord_beam_tower" pos="9900.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/sanctum" name="concord_sanctum" pos="11000.0 0 0.0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/scout" name="vehicles_scout" pos="-9350.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/tank" name="vehicles_tank" pos="-8250.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/artillery" name="vehicles_artillery" pos="-7150.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/harvester" name="vehicles_harvester" pos="-6050.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/apc" name="vehicles_apc" pos="-4950.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/mastodon" name="vehicles_mastodon" pos="-3850.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="vehicles/hammer" name="vehicles_hammer" pos="-2750.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/trike" name="clans_trike" pos="-1650.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/gun_truck" name="clans_gun_truck" pos="-550.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/crawler" name="clans_crawler" pos="550.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/rocket_rig" name="clans_rocket_rig" pos="1650.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/hauler" name="clans_hauler" pos="2750.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="clans/wrecker" name="clans_wrecker" pos="3850.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/skimmer" name="concord_skimmer" pos="4950.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/glaive" name="concord_glaive" pos="6050.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/prism" name="concord_prism" pos="7150.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/harvester" name="concord_harvester" pos="8250.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
+  <prefab source="concord/aegis" name="concord_aegis" pos="9350.0 0 1700.0" rot="0 -45 0" color="0.20 0.42 0.88"/>
 </scene>

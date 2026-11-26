@@ -799,6 +799,10 @@ typedef enum {
     SIGHT_OPEN        /* No fog of war: every team sees the whole map. */
 } sightpolicy_t;
 typedef enum {
+    MEMORY_NONE = 0,  /* Out of sight is out of mind: fogged ground shows nothing. */
+    MEMORY_STRUCTURES /* Fogged ground keeps the enemy structures last seen there (C&C, Dark Reign). */
+} memorypolicy_t;
+typedef enum {
     TURN_GRADUAL = 0, /* Units turn over time. */
     TURN_INSTANT      /* Units snap to a new facing. */
 } turnpolicy_t;
@@ -818,6 +822,7 @@ typedef struct {
     inputpolicy_t input;
     stancepolicy_t stance;
     sightpolicy_t sight;
+    memorypolicy_t memory;
     turnpolicy_t turning;
     selectpolicy_t select;
     f10policy_t f10;
@@ -1756,6 +1761,19 @@ bool P_VisibleTo(const mobj_t *observer, const mobj_t *target);
 /* Teams (sight bits 23..30) whose MF_DETECTOR sight covers the mobj's cell. */
 uint32_t P_Detectors(const mobj_t *mobj);
 int P_SightBrightness(const level_t *map, ivec2_t cell);
+/* MEMORY_STRUCTURES: what the local player last saw of other sides' structures. Presentation
+ * only (never simulation state, never hashed). P_UpdateSight refreshes the picture of each one
+ * in sight and keeps it once it is out of sight; a memory whose ground comes back into sight is
+ * dropped (the structure, if it still stands, is seen again). Drawn only on fogged ground. */
+typedef struct {
+    uint32_t id;
+    uint16_t type_id;
+    uint8_t owner, team;
+    int hp, max_hp;
+    angle_t aim;
+    mobjcore_t core;
+} sightmemory_t;
+int P_SightMemory(const sightmemory_t **out); /* count of remembered structures */
 int R_FogSample(const int corners[4], ivec2_t pixel);
 void R_DrawFog(app_t *app, const level_t *map);
 void R_DrawMinimapFog(const level_t *map, irect_t rect);
@@ -2386,7 +2404,7 @@ bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_c
 
 #define AI_MAX_TEAMS 8
 #define AI_MAX_HARVEST_ASSIGNMENTS 32
-#define AI_MAX_VENT_TRIES 64 /* Vents considered per harvester order. */
+#define AI_MAX_VENT_TRIES 64 /* Unreachable vents skipped per harvester order. */
 #define AI_DEFENSE_RADIUS FIXED_LIT(15.0)
 #define AI_ATTACK_WAVE_INTERVAL_MS 30000
 #define AI_ATTACK_WAVE_MIN_SIZE 3

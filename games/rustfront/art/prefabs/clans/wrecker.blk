@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Clan Wrecker, the Scrap Clans' suicide demolition truck. Length 270 cm on X, width 136 cm on Z,
+     origin at the chassis centre on the ground, ram faces +X. A fast four-wheeled rusty buggy: a
+     spiked plough ram on the nose, a team-painted hood, a roll cage over the driver's seat, and on
+     the bed a lashed stack of explosive drums in hazard and team paint with a fuse running to a
+     sputtering spark; a warning lamp on the cage and a team flag at the back. On the run-in the
+     fuse flares, sparks fly and the lamp lights. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <include src="clans.xml"/>
+  <!-- clans materials: the Scrap Clans' palette, repeated identically in every clans prefab
+       (material ids are global, the first definition wins) -->
+  <material id="clans_dirt"    color="0.50 0.40 0.28" shininess="3"><map type="noise" size="40" octaves="4" from="0.80 0.80 0.80" to="1.08 1.06 1.02"/></material>
+  <material id="clans_rust"    color="0.52 0.27 0.14" shininess="8"><map type="noise" size="18" octaves="4" from="0.62 0.60 0.58" to="1.15 1.08 1.00"/></material>
+  <material id="clans_tin"     color="0.58 0.58 0.55" shininess="20" metallic="0.2"><map type="noise" size="34" octaves="4" from="0.78 0.52 0.36" to="1.06 1.04 1.02"/></material>
+  <material id="clans_sheet"   color="1 1 1" shininess="14">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.60 0.56" to="0.40 0.37 0.34"/>
+  </material>
+  <material id="clans_sheet_rust" color="1 1 1" shininess="8">
+    <gradient type="line" start="0 0 0" end="9 0 0" repeat="1" edge="0.45" from="0.62 0.36 0.20" to="0.38 0.21 0.12"/>
+  </material>
+  <material id="clans_paint"   color="0.72 0.22 0.12" shininess="12"><map type="noise" size="16" octaves="4" from="0.58 0.56 0.54" to="1.08 1.06 1.04"/></material>
+  <material id="clans_cloth"   color="0.70 0.24 0.14" shininess="2"><map type="noise" size="30" octaves="3" from="0.80 0.80 0.80" to="1.05 1.05 1.05"/></material>
+  <material id="clans_canvas"  color="0.60 0.54 0.40" shininess="2"><map type="noise" size="30" octaves="3" from="0.82 0.82 0.82" to="1.05 1.05 1.05"/></material>
+  <material id="clans_wood"    color="0.44 0.32 0.20" shininess="4"><map type="bricks" size="200 14 200" mortar="1.2" bond="0" vary="0.15" from="1 1 1" to="0.55 0.55 0.55"/></material>
+  <material id="clans_drum"    color="0.74 0.56 0.16" shininess="18"><map type="noise" size="14" octaves="4" from="0.60 0.48 0.40" to="1.06 1.04 1.00"/></material>
+  <material id="clans_chain"   color="0.50 0.50 0.48" shininess="20"><map type="checker" size="3" from="0.55 0.55 0.55" to="1.15 1.15 1.15"/></material>
+  <material id="clans_bone"    color="0.86 0.82 0.70" shininess="10"/>
+  <!-- /clans materials -->
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the run-in (the fuse flares,
+       sparks fly, the warning lamp lights). -->
+  <let name="fire" value="0"/>
+
+  <!-- four big wheels -->
+  <group pos="0 29 0">
+    <cylinder radius="29" height="24" sides="12" rot="90 0 0" pos="72 0 56" material="rubber"/>
+    <cylinder radius="29" height="24" sides="12" rot="90 0 0" pos="72 0 -56" material="rubber"/>
+    <cylinder radius="29" height="24" sides="12" rot="90 0 0" pos="-70 0 56" material="rubber"/>
+    <cylinder radius="29" height="24" sides="12" rot="90 0 0" pos="-70 0 -56" material="rubber"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="72 0 56" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="72 0 -56" material="clans_drum"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="-70 0 56" material="gunmetal"/>
+    <cylinder radius="11" height="26" sides="6" rot="90 0 {30*move}" pos="-70 0 -56" material="gunmetal"/>
+  </group>
+  <box size="210 14 84" pos="0 44 0" material="steel_dark"/>
+  <box size="56 4 30" rot="-10 0 0" pos="72 62 54" material="clans_rust"/>
+  <box size="56 4 30" rot="10 0 0" pos="72 62 -54" material="clans_tin"/>
+
+  <!-- hood and cowl, rusty, with a team panel -->
+  <shape closed="1" v="20 50 112 50 118 70 76 82 20 88" material="clans_rust">
+    <extrude amount="96"/><bevel amount="3" bevelSegments="1"/>
+    <taper center="0 50 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="50 3 72" rot="0 0 -16" pos="96 77 0" material="clans_paint" tint="1"/>
+  <box size="3 18 80" rot="0 0 -30" pos="22 96 0" material="glass"/>
+  <box size="4 5 4" pos="116 64 34" material="lamp" unlit="1" castShadow="0"/>
+  <tube ax="40" ay="70" az="44" bx="-10" by="88" bz="52" r0="3.4" material="clans_rust"/>
+  <!-- roll cage over the seat -->
+  <box size="36 10 60" pos="-4 64 0" material="rubber"/>
+  <tube ax="26" ay="86" az="40" bx="-6" by="132" bz="34" r0="3" material="steel_dark"/>
+  <tube ax="26" ay="86" az="-40" bx="-6" by="132" bz="-34" r0="3" material="steel_dark"/>
+  <tube ax="-30" ay="60" az="40" bx="-6" by="132" bz="34" r0="3" material="steel_dark"/>
+  <tube ax="-30" ay="60" az="-40" bx="-6" by="132" bz="-34" r0="3" material="steel_dark"/>
+  <tube ax="-6" ay="132" az="34" bx="-6" by="132" bz="-34" r0="3" material="steel_dark"/>
+  <warn-light on="{fire == 1}" pos="-6 134 0"/>
+
+  <!-- spiked plough ram on the nose -->
+  <box size="8 46 130" rot="0 0 -22" pos="130 50 0" material="clans_sheet_rust"/>
+  <box size="8 8 132" rot="0 0 -22" pos="137 70 0" material="hazard"/>
+  <group pos="134 46 0" rot="0 0 -90">
+    <clans-spike radius="5" length="34" pos="0 0 -44"/>
+    <clans-spike radius="6" length="42" pos="0 0 0"/>
+    <clans-spike radius="5" length="34" pos="0 0 44"/>
+  </group>
+
+  <!-- the bed and its lashed load of explosive drums -->
+  <box size="126 6 100" pos="-74 54 0" material="clans_wood"/>
+  <box size="4 24 100" pos="-136 66 0" material="clans_sheet_rust"/>
+  <clans-drum pos="-50 57 24" radius="19" height="48" material="hazard"/>
+  <clans-drum pos="-50 57 -24" radius="19" height="48" material="clans_drum"/>
+  <clans-drum pos="-96 57 24" radius="19" height="48" material="clans_paint" tint="1"/>
+  <clans-drum pos="-96 57 -24" radius="19" height="48" material="hazard"/>
+  <cylinder radius="17" height="80" sides="14" rot="90 0 0" pos="-73 122 0" material="clans_drum"/>
+  <cylinder radius="18" height="5" sides="14" rot="90 0 0" pos="-73 122 0" material="hazard"><array count="2" translation="0 26 0"/></cylinder>
+  <box size="4 3 102" pos="-50 107 0" material="clans_chain"/>
+  <box size="4 3 102" pos="-96 107 0" material="clans_chain"/>
+  <box size="100 3 4" pos="-73 108 46" material="clans_chain"/>
+  <!-- the fuse and its spark -->
+  <tube ax="-73" ay="138" az="6" bx="-48" by="158" bz="10" r0="1.6" material="rubber"/>
+  <sphere radius="5" rings="4" slices="8" pos="-46 160 10" material="flame" unlit="1" castShadow="0"/>
+  <group pos="-46 160 10" renderable="{fire == 1}">
+    <sphere radius="12" rings="4" slices="8" material="flame" unlit="1" castShadow="0"/>
+    <sphere radius="7" rings="4" slices="8" material="flash_core" unlit="1" castShadow="0"/>
+    <cone radius="6" radiusTop="0" height="34" sides="6" pos="0 22 0" material="flash" unlit="1" castShadow="0"/>
+    <sphere radius="3.5" rings="3" slices="6" pos="16 14 8" material="flash" unlit="1" castShadow="0"/>
+    <sphere radius="3" rings="3" slices="6" pos="-14 18 -6" material="flash" unlit="1" castShadow="0"/>
+    <sphere radius="3" rings="3" slices="6" pos="6 26 -14" material="flash_core" unlit="1" castShadow="0"/>
+    <sphere radius="3" rings="3" slices="6" pos="-8 8 16" material="flash" unlit="1" castShadow="0"/>
+  </group>
+  <clans-flag height="90" size="36" pos="-128 70 -42"/>
+  <tube ax="-30" ay="48" az="-46" bx="-140" by="56" bz="-50" r0="3.2" material="clans_rust"/>
+</prefab>

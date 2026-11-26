@@ -1212,6 +1212,26 @@ void R_DrawBuildingPreview(app_t *app, uint16_t type, ivec2_t cell, int team,
     draw_unit_sprite(app, &level, &image, NULL, cache, gameinfo, 0);
 }
 
+/* MEMORY_STRUCTURES: other sides' structures as last seen, on fogged ground (the fog pass
+ * dims them with the ground). Drawn under every live sprite: they stand only where nothing of
+ * theirs is in sight. */
+static void draw_sight_memory(app_t *app, const level_t *map, const spritecache_t *cache,
+                              const gameinfo_t *game_info) {
+    const sightmemory_t *memory = NULL;
+    int count = P_SightMemory(&memory);
+    for (int i = 0; i < count; ++i) {
+        const sightmemory_t *m = &memory[i];
+        const mobjtype_t *info = P_ActorType(m->type_id);
+        if (!info) continue;
+        ivec2_t cell = {m->core.position.x >> FIXED_FRAC_BITS, m->core.position.y >> FIXED_FRAC_BITS};
+        if (!L_Contains(map, cell.x, cell.y) || P_SightBrightness(map, cell) >= 16) continue;
+        mobj_t image = {.type_id = m->type_id, .info = info, .traits = MF_RENDERABLE, .team = m->team,
+                        .owner = m->owner, .hp = 1, .max_hp = 1, .core = m->core};
+        image.attack.aim = m->aim;
+        draw_unit_sprite(app, map, &image, NULL, cache, game_info, 0);
+    }
+}
+
 static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *units,
                                  int unit_count, const spritecache_t *cache,
                                  const gameinfo_t *game_info, unitoverlaydrawf_t draw) {
@@ -1292,6 +1312,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     if (!app || !map) return;
     render_unit_overlays(app, map, units, unit_count, cache, game_info,
                          game_info ? game_info->draw_underlays : NULL);
+    draw_sight_memory(app, map, cache, game_info);
     int overlay_count = 0;
     if (map->render_capabilities & MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS) {
         for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {

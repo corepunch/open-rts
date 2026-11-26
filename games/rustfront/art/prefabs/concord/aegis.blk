@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Aegis, a shield and repair projector. Length 250 cm on X, width 180 cm on Z,
+     origin at the hull centre on the ground, nose faces +X. A broad white ceramic hover hull
+     floating 26 cm up on four cyan pads in ceramic housings, a graphite skirt and a team stripe
+     over the nose; on its back a graphite pedestal carries an upturned emitter dish with a crystal
+     spike, ringed by a crown of six team-colour fins, and a halo floats above the spike. On the
+     pulse the emitter blazes white and two shield rings spread round the craft. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: move 0/1 bobs the craft 3 cm and
+       brightens its pads; fire 1 is the pulse (the emitter blazes, shield rings spread). -->
+  <let name="move" value="0"/>
+  <let name="fire" value="0"/>
+
+  <group pos="0 {3*move} 0">
+    <!-- four hover pads in ceramic housings (they float, as hover craft do) -->
+    <group pos="66 0 50">
+      <ellipsoid radii="22 3 22" rings="4" slices="16" pos="0 27 0" material="glow" unlit="1" castShadow="0"/>
+      <ellipsoid radii="25 4 25" rings="4" slices="16" pos="0 27 0" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+      <cylinder radius="24" height="16" sides="20" pos="0 38 0" material="concord_ceramic"/>
+    </group>
+    <group pos="66 0 -50">
+      <ellipsoid radii="22 3 22" rings="4" slices="16" pos="0 27 0" material="glow" unlit="1" castShadow="0"/>
+      <ellipsoid radii="25 4 25" rings="4" slices="16" pos="0 27 0" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+      <cylinder radius="24" height="16" sides="20" pos="0 38 0" material="concord_ceramic"/>
+    </group>
+    <group pos="-66 0 50">
+      <ellipsoid radii="22 3 22" rings="4" slices="16" pos="0 27 0" material="glow" unlit="1" castShadow="0"/>
+      <ellipsoid radii="25 4 25" rings="4" slices="16" pos="0 27 0" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+      <cylinder radius="24" height="16" sides="20" pos="0 38 0" material="concord_ceramic"/>
+    </group>
+    <group pos="-66 0 -50">
+      <ellipsoid radii="22 3 22" rings="4" slices="16" pos="0 27 0" material="glow" unlit="1" castShadow="0"/>
+      <ellipsoid radii="25 4 25" rings="4" slices="16" pos="0 27 0" material="concord_core" unlit="1" castShadow="0" renderable="{move}"/>
+      <cylinder radius="24" height="16" sides="20" pos="0 38 0" material="concord_ceramic"/>
+    </group>
+
+    <!-- broad hull, graphite skirt, team stripe over the nose and two team side panels -->
+    <ellipsoid radii="114 4 78" rings="4" slices="28" pos="0 48 0" material="concord_graphite"/>
+    <ellipsoid radii="112 26 76" rings="12" slices="28" pos="0 56 0" material="concord_ceramic"/>
+    <ellipsoid radii="40 4 30" rings="4" slices="16" pos="86 66 0" rot="0 0 -24" material="paint_plain" tint="1"/>
+    <ellipsoid radii="44 4 12" rings="4" slices="12" pos="-30 64 66" rot="22 0 0" material="paint_plain" tint="1"/>
+    <ellipsoid radii="44 4 12" rings="4" slices="12" pos="-30 64 -66" rot="-22 0 0" material="paint_plain" tint="1"/>
+    <ellipsoid radii="14 4 34" rings="4" slices="12" pos="56 74 0" rot="0 0 -30" material="glow" unlit="1" castShadow="0"/>
+    <sphere radius="6" rings="6" slices="10" pos="-112 56 30" material="glow" unlit="1" castShadow="0"/>
+    <sphere radius="6" rings="6" slices="10" pos="-112 56 -30" material="glow" unlit="1" castShadow="0"/>
+
+    <!-- emitter: pedestal, upturned dish, crystal spike, crown of team fins -->
+    <cylinder radius="26" height="26" sides="20" pos="-10 87 0" material="concord_graphite"/>
+    <group pos="-10 0 0">
+      <surface segments="24 5" twoSided="1" material="concord_ceramic" x="50*v*cos(u*2*pi)" y="98+16*v*v" z="-50*v*sin(u*2*pi)"/>
+      <torus majorRadius="50" minorRadius="3" majorSegments="32" minorSegments="6" pos="0 114 0" material="concord_graphite"/>
+      <cylinder radius="16" height="6" sides="16" pos="0 101 0" material="glow" unlit="1" castShadow="0"/>
+      <cone radius="9" radiusTop="0" height="46" sides="6" smooth="0" pos="0 126 0" material="concord_crystal"/>
+      <group rot="0 30 0"><box size="16 38 5" rot="0 0 -20" pos="50 100 0" material="paint_plain" tint="1"/></group>
+      <group rot="0 90 0"><box size="16 38 5" rot="0 0 -20" pos="50 100 0" material="paint_plain" tint="1"/></group>
+      <group rot="0 150 0"><box size="16 38 5" rot="0 0 -20" pos="50 100 0" material="paint_plain" tint="1"/></group>
+      <group rot="0 210 0"><box size="16 38 5" rot="0 0 -20" pos="50 100 0" material="paint_plain" tint="1"/></group>
+      <group rot="0 270 0"><box size="16 38 5" rot="0 0 -20" pos="50 100 0" material="paint_plain" tint="1"/></group>
+      <group rot="0 330 0"><box size="16 38 5" rot="0 0 -20" pos="50 100 0" material="paint_plain" tint="1"/></group>
+      <!-- the halo above the spike -->
+      <torus majorRadius="38" minorRadius="5" majorSegments="28" minorSegments="6" pos="0 164 0" material="concord_ceramic"/>
+      <torus majorRadius="38" minorRadius="3" majorSegments="28" minorSegments="6" pos="0 159 0" material="glow" unlit="1" castShadow="0"/>
+      <!-- the pulse -->
+      <sphere radius="20" rings="8" slices="12" pos="0 120 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <sphere radius="32" rings="8" slices="12" scale="1 0.5 1" pos="0 106 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+      <cone radius="10" radiusTop="0" height="60" sides="8" pos="0 176 0" material="concord_core" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    </group>
+    <torus majorRadius="135" minorRadius="3" majorSegments="48" minorSegments="6" pos="0 40 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+    <torus majorRadius="110" minorRadius="2.5" majorSegments="48" minorSegments="6" pos="0 100 0" material="glow" unlit="1" castShadow="0" renderable="{fire == 1}"/>
+  </group>
+</prefab>

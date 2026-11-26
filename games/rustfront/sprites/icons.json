@@ -42,6 +42,12 @@
   "lc_skimmer",
   "lc_glaive",
   "lc_prism",
-  "lc_harvester"
+  "lc_harvester",
+  "uplink",
+  "hammer",
+  "cl_shop",
+  "cl_wrecker",
+  "lc_sanctum",
+  "lc_aegis"
  ]
 }

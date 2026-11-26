@@ -119,6 +119,10 @@ static int test_construction(void) {
         if (th->function == P_MobjThinker && RF_IsSite((mobj_t *)th)) gun = (mobj_t *)th;
     CHECK(gun && gun->type_id == MT_GUN_TURRET && gun->core.state_id == S_GUN_TURRET_BUILD);
     CHECK(!(gun->traits & MF_ATTACK));
+    /* The second War Factory has put Blue on low power: the turret builds at half speed. */
+    CHECK(RF_LowPower(0));
+    tick(G_ModelProductTrainingTimeMs(turret) / RTS_TICK_MS + 2);
+    CHECK(RF_IsSite(gun));
     tick(G_ModelProductTrainingTimeMs(turret) / RTS_TICK_MS + 2);
     CHECK((gun->traits & (MF_ATTACK | MF_TURRET)) == (MF_ATTACK | MF_TURRET));
     puts("PASS: a structure stands on its site, rises through four stages and earns its traits");

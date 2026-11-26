@@ -142,7 +142,7 @@ static int test_sidebar(void) {
     menuitem_t *products = NULL;
     for (int i = 0; i < bar->numitems; ++i)
         if (bar->items[i].routine == HU_ProductList) products = &bar->items[i];
-    CHECK(products && products->rows == 5);
+    CHECK(products && products->rows == 6); /* five structures and the Uplink Centre */
     V_BeginFrame(0xff000000u);
     M_MenuDrawer(bar);
     const char *dir = getenv("OPEN_RTS_RUSTFRONT_SHOTS");

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Uplink Centre, the Directorate's tech structure. Footprint 2x2 cells (400 x 400 cm), origin at
+     pad centre on the ground, door faces +Z. A chunky painted blockhouse in a hazard skirt with a
+     glazed band, a hazard-framed door, a white radio room and the roundel on a roof plinth; at
+     the back a painted drum carries a navy lattice mast and a big white satellite dish that turns
+     45 degrees a frame. About 280 cm tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: spin 0..7 turns the dish 45 degrees a
+       step; blink 1/0 the warning lights. -->
+  <let name="spin" value="0"/>
+  <let name="blink" value="1"/>
+  <chunk width="392" height="20" depth="392" radius="26" bevel="3" lean="0" pos="0 10 0" material="slab"/>
+
+  <!-- The building stands turned -15 degrees on its square slab, so its sides show; scaled
+       and centred to stay inside the footprint (measured from its bounds in scener). -->
+  <group rot="0 -15 0" scale="0.92 0.92 0.92" pos="0 0 0">
+
+    <!-- blockhouse: y 20..100, base x -164..124, z -104..144 -->
+    <chunk width="300" height="22" depth="260" radius="34" bevel="2" lean="0" pos="-20 31 20" material="hazard_skirt"/>
+    <chunk width="288" height="80" depth="248" radius="30" bevel="12" lean="0.08" pos="-20 60 20" material="paint" tint="1"/>
+    <chunk width="276" height="16" depth="238" radius="30" bevel="2" lean="0" pos="-20 76 20" material="window"/>
+    <!-- door -->
+    <box size="70 58 6" pos="10 49 141" material="steel_dark"/>
+    <box size="3 54 3" pos="10 49 144" material="gunmetal"/>
+    <box size="90 12 8" pos="10 82 140" material="hazard_big"/>
+    <box size="80 3 50" pos="10 21.5 170" material="pad_dark"/>
+
+    <!-- roof: the roundel on its plinth, front left; a radio room, back left -->
+    <cylinder radius="46" height="10" sides="24" pos="-84 105 70" material="trim"/>
+    <emblem radius="40" pos="-84 110 70"/>
+    <chunk width="96" height="44" depth="72" radius="14" bevel="6" lean="0.06" pos="-96 122 -40" material="trim_light"/>
+    <box size="70 3 4" pos="-96 128 -3" material="window"/>
+    <cylinder radius="2" height="70" sides="6" pos="-130 179 -60" material="trim"/>
+    <warn-light on="{blink}" pos="-130 214 -60"/>
+    <warn-light on="{blink}" pos="100 100 112"/>
+
+    <!-- mast: a painted drum with a hazard collar, a tapering navy lattice and a platform -->
+    <cylinder radius="48" height="8" sides="24" pos="60 104 -50" material="trim"/>
+    <cylinder radius="42" height="30" sides="24" pos="60 123 -50" material="paint_plain" tint="1"/>
+    <collar radius="45" height="14" pos="60 126 -50"/>
+    <tube ax="90" ay="138" az="-20" bx="72" by="230" bz="-38" r0="5" r1="3.75" material="trim"/>
+    <tube ax="90" ay="138" az="-80" bx="72" by="230" bz="-62" r0="5" r1="3.75" material="trim"/>
+    <tube ax="30" ay="138" az="-80" bx="48" by="230" bz="-62" r0="5" r1="3.75" material="trim"/>
+    <tube ax="30" ay="138" az="-20" bx="48" by="230" bz="-38" r0="5" r1="3.75" material="trim"/>
+    <tube ax="90.0" ay="138.0" az="-20.0" bx="84.0" by="168.7" bz="-74.0" r0="2.5" material="trim"/>
+    <tube ax="90.0" ay="138.0" az="-80.0" bx="84.0" by="168.7" bz="-26.0" r0="2.5" material="trim"/>
+    <tube ax="90.0" ay="138.0" az="-80.0" bx="36.0" by="168.7" bz="-74.0" r0="2.5" material="trim"/>
+    <tube ax="30.0" ay="138.0" az="-80.0" bx="84.0" by="168.7" bz="-74.0" r0="2.5" material="trim"/>
+    <tube ax="30.0" ay="138.0" az="-80.0" bx="36.0" by="168.7" bz="-26.0" r0="2.5" material="trim"/>
+    <tube ax="30.0" ay="138.0" az="-20.0" bx="36.0" by="168.7" bz="-74.0" r0="2.5" material="trim"/>
+    <tube ax="30.0" ay="138.0" az="-20.0" bx="84.0" by="168.7" bz="-26.0" r0="2.5" material="trim"/>
+    <tube ax="90.0" ay="138.0" az="-20.0" bx="36.0" by="168.7" bz="-26.0" r0="2.5" material="trim"/>
+    <tube ax="84.0" ay="168.7" az="-26.0" bx="78.0" by="199.3" bz="-68.0" r0="2.5" material="trim"/>
+    <tube ax="84.0" ay="168.7" az="-74.0" bx="78.0" by="199.3" bz="-32.0" r0="2.5" material="trim"/>
+    <tube ax="84.0" ay="168.7" az="-74.0" bx="42.0" by="199.3" bz="-68.0" r0="2.5" material="trim"/>
+    <tube ax="36.0" ay="168.7" az="-74.0" bx="78.0" by="199.3" bz="-68.0" r0="2.5" material="trim"/>
+    <tube ax="36.0" ay="168.7" az="-74.0" bx="42.0" by="199.3" bz="-32.0" r0="2.5" material="trim"/>
+    <tube ax="36.0" ay="168.7" az="-26.0" bx="42.0" by="199.3" bz="-68.0" r0="2.5" material="trim"/>
+    <tube ax="36.0" ay="168.7" az="-26.0" bx="78.0" by="199.3" bz="-32.0" r0="2.5" material="trim"/>
+    <tube ax="84.0" ay="168.7" az="-26.0" bx="42.0" by="199.3" bz="-32.0" r0="2.5" material="trim"/>
+    <tube ax="78.0" ay="199.3" az="-32.0" bx="72.0" by="230.0" bz="-62.0" r0="2.5" material="trim"/>
+    <tube ax="78.0" ay="199.3" az="-68.0" bx="72.0" by="230.0" bz="-38.0" r0="2.5" material="trim"/>
+    <tube ax="78.0" ay="199.3" az="-68.0" bx="48.0" by="230.0" bz="-62.0" r0="2.5" material="trim"/>
+    <tube ax="42.0" ay="199.3" az="-68.0" bx="72.0" by="230.0" bz="-62.0" r0="2.5" material="trim"/>
+    <tube ax="42.0" ay="199.3" az="-68.0" bx="48.0" by="230.0" bz="-38.0" r0="2.5" material="trim"/>
+    <tube ax="42.0" ay="199.3" az="-32.0" bx="48.0" by="230.0" bz="-62.0" r0="2.5" material="trim"/>
+    <tube ax="42.0" ay="199.3" az="-32.0" bx="72.0" by="230.0" bz="-38.0" r0="2.5" material="trim"/>
+    <tube ax="78.0" ay="199.3" az="-32.0" bx="48.0" by="230.0" bz="-38.0" r0="2.5" material="trim"/>
+    <cylinder radius="22" height="8" sides="16" pos="60 234 -50" material="trim"/>
+    <cylinder radius="9" height="14" sides="10" pos="60 245 -50" material="gunmetal"/>
+    <!-- the dish: tilted 38 degrees, turned by spin -->
+    <group pos="60 256 -50" rot="38 {30+45*spin} 0">
+      <surface segments="24 6" twoSided="1" material="trim_light" x="76*v*cos(u*2*pi)" y="22*v*v" z="-76*v*sin(u*2*pi)"/>
+      <torus majorRadius="76" minorRadius="3" majorSegments="32" minorSegments="6" pos="0 22 0" material="trim"/>
+      <cylinder radius="16" height="8" sides="12" pos="0 0 0" material="trim"/>
+      <tube ax="0" ay="2" az="0" bx="0" by="54" bz="0" r0="3" material="trim"/>
+      <tube ax="60" ay="16" az="0" bx="0" by="54" bz="0" r0="1.6" material="trim"/>
+      <tube ax="-60" ay="16" az="0" bx="0" by="54" bz="0" r0="1.6" material="trim"/>
+      <sphere radius="8" rings="6" slices="10" pos="0 58 0" material="emblem_gold"/>
+    </group>
+  </group>
+</prefab>
