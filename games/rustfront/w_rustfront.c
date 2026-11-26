@@ -18,7 +18,9 @@
  * "unit NAME OWNER X Y [FACING]" with X, Y the cell (a building's top-left) and FACING
  * 0..15 counter-clockwise from east. Owner 0 is the player; others are enemies, drawn in
  * their team colour (team = owner). A "camera X Y" line centres the opening view, and
- * "credits OWNER N" sets a side's money (5000 by default). Every ore cell is a deposit of
+ * "credits OWNER N" sets a side's money (5000 by default). A unit line may end in "@TAG", and
+ * a campaign mission adds its own keys (g_campaign.c, docs/CAMPAIGN.md); the loader hands any
+ * other line to RF_CampaignParseLine. Every ore cell is a deposit of
  * ORE_PER_CELL that a harvester draws ORE_RATE from a second. */
 
 #define ORE_PER_CELL 1000

@@ -182,6 +182,12 @@ $(eval $(call MODEL_TESTS_FOR_GAME,warcraft-2,$(W2_GAME_SOURCES),-DRTS_WORLD_Y_U
 $(eval $(call MODEL_TESTS_FOR_GAME,z,$(Z_GAME_SOURCES),-DRTS_WORLD_Y_UP=0,$(Z_SHARED_TEST_SOURCES)))
 $(eval $(call MODEL_TESTS_FOR_GAME,rustfront,$(RF_GAME_SOURCES),-DRTS_WORLD_Y_UP=0,$(RF_SHARED_TEST_SOURCES)))
 
+# Rustfront's campaign played for real by a bot, one mission a case (games/rustfront/docs/CAMPAIGN.md).
+RF_CAMPAIGN_MISSIONS := $(foreach f,directorate clans concord,$(foreach n,1 2 3 4 5,$(f)-$(n)))
+.PHONY: test-rustfront-campaign
+test-rustfront-campaign: $(TEST_RUNNER) $(BIN_DIR)/tests/rustfront/test_campaign_clans
+	$(TEST_RUNNER) -j $(TEST_JOBS) -t $(SOAK_BUDGET) $(foreach m,$(RF_CAMPAIGN_MISSIONS),$(BIN_DIR)/tests/rustfront/test_campaign_clans@--play=$(m))
+
 # The graphics lifecycle suite links the real SDL interface; model suites do not.
 VIDEO_TEST_SOURCES := $(sort $(shell find tests/video interface -name '*.c'))
 VIDEO_TEST_OBJS := $(patsubst %.c,$(BUILD_DIR)/model-test-dark-colony/%.o,$(VIDEO_TEST_SOURCES))

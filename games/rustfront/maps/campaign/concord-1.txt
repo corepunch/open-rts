@@ -76,7 +76,7 @@ unit lc_spire 0 4 5 0
 unit lc_warden 0 4 10 0
 unit lc_warden 0 6 10 0
 unit lc_warden 0 8 10 0
-credits 0 3500
+credits 0 2800
 camera 9 9
 trigger start time 3
 message start Select the Spire and raise a Fusion Core from the sidebar.

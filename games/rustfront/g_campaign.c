@@ -523,9 +523,10 @@ static void hunt(level_t *map, mobj_t *const *mobjs, int count) {
             if (!goal || d < best) { goal = mobjs[i]; best = d; }
         }
         if (!goal) continue;
+        /* Move only: a unit picks up whatever comes into range on the way. (Chasing a distant
+         * structure as its attack target can leave it with no route, for one on a mesa.) */
         mobj_t *one[1] = {u};
         P_MoveUnitsAt(map, one, 1, fixed3_xy(goal->core.position));
-        u->attack.target = goal;
     }
     run.hunter_count = kept;
 }

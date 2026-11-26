@@ -55,6 +55,7 @@ build/bin/rustfront --map maps/triad.txt           # you lead the Directorate ag
 build/bin/rustfront --map maps/triad-clans.txt     # you lead the Scrap Clans
 build/bin/rustfront --map maps/triad-concord.txt   # you lead the Lumen Concord
 build/bin/rustfront --map maps/badlands.txt        # every terrain, a canyon with ramps, a mesa
+build/bin/rustfront --map maps/campaign/clans-1.txt  # a campaign mission: the Scrap Clans' first
 env SDL_VIDEODRIVER=dummy build/bin/rustfront --check
 ```
 
@@ -67,6 +68,43 @@ relief: a river at the bottom of a canyon, a level below the plain, with ramps d
 to two gravel fords; a stone mesa a level above, with one ramp up its south face; grass
 meadows, rock outcrops, scrap wrecks, and concrete pads under the Directorate's and the Clans'
 bases.
+
+## Campaign
+
+Fifteen missions, five for each faction, from a tutorial (a headquarters and a squad: build
+power, a refinery and a barracks, bank some credits) through raids, sieges and a river
+crossing to an all-out assault ([docs/CAMPAIGN.md](docs/CAMPAIGN.md) has the format and the
+story). `maps/campaign/missions.py` writes them into `maps/campaign/`.
+
+| | Directorate: The Iron Mandate | Scrap Clans: Rust and Fury | Lumen Concord: The Lumen Path |
+|---|---|---|---|
+| 1 | Foothold: build up, bank 4000 | Scrap Rights: build up, hoard 3000 | First Light: build up, gather 3000 |
+| 2 | Relay Station: protect the relay 5 min | Smash and Grab: burn the depot, keep the Warboss | Shard Recovery: hold the stone ring 90 s |
+| 3 | The Ford: hold the ford, burn the War Camp | Junkyard Siege: keep the Hall 6 min | Vigil: keep the Beacon lit 6 min |
+| 4 | Glasswater: destroy the Spire on the mesa | Snuff the Light: the gate tower and the Fusion Core | Breaking the Mandate: the War Factory and the Command Center |
+| 5 | Iron Dawn: destroy the Clans and the Concord | Scrapfall: raze the Iron Hill | Clear Sky: destroy both, keep the Lens lit |
+
+A mission is a map with mission keys: `mission`, `title`, `briefing`, `objective` (destroy
+all, destroy a tagged thing, protect one, survive, hold cells, bank credits, build something),
+`tech` (what the player may build), and `trigger`s (timed, on entering cells, on a thing
+destroyed, on a build) that `spawn` units, which hunt the player, or show a `message`.
+`g_campaign.c` runs them and ends the level through the engine's outcome system
+(`G_LevelObjectives`, `G_EndLevel`).
+
+**The front end's API** (`rustfront.h`, 0-based indices):
+
+| Call | Gives |
+|---|---|
+| `RF_CampaignName(faction)` | "Directorate", "Scrap Clans", "Lumen Concord" |
+| `RF_MissionPath(faction, index, out, size)` | the map to load, `maps/campaign/clans-3.txt` |
+| `RF_MissionInfo(root, faction, index, &info)` | its title, briefing (paragraphs joined by `\n`) and objectives' text |
+| `RF_MissionUnlocked(faction, index)`, `RF_CampaignWon(faction)` | progress: the first mission is open, each win opens the next |
+| `RF_CampaignRecordWin(faction, index)`, `RF_CampaignResetProgress()` | write it; a won mission records itself |
+| `RF_InMission`, `RF_ObjectiveCount`, `RF_ObjectiveText`, `RF_ObjectiveState`, `RF_LastMissionMessage` | the running mission, for an objectives panel |
+
+Progress is kept in `campaign.txt` under the user directory (`OPEN_RTS_USER_DIR`, else SDL's
+pref path). `make test-rustfront` loads every mission and proves each is won by its objectives
+and lost by losing; `make test-rustfront-campaign` has a bot play them all for real.
 
 **Terrain** (`art/terrain.txt`, [docs/TERRAIN.md](docs/TERRAIN.md)): each map letter is a
 ground type. Silt, sand, gravel, grass, stone, ore and water are procedural textures; rocks,
@@ -142,6 +180,7 @@ again to queue more, up to 9. A new refinery arrives with a free harvester.
 | `g_mission.c` | Footprints block movement, idle harvesters go to ore, mined cells clear, a refinery brings a harvester; impact puffs and explosions on damage and death |
 | `rules.c` | Each faction's computer player: the Directorate builds up and attacks at parity, the Clans rush with frequent large waves, the Concord fortifies and attacks late with an edge; no fog |
 | `g_ai.c` | The computer player's hooks: it places its own structures on roomy sites, and every structure anchors its defence and draws its waves |
+| `g_campaign.c` | The campaign: mission keys, triggers, spawns that hunt the player, objectives, win and loss through `G_LevelObjectives`, progress, the front end's API |
 | `m_menu.c` | The engine's simple menu |
 
 **Map format:** rows of terrain letters (`art/terrain.txt`: `.` sand, `:` silt, `*` ore,
@@ -151,8 +190,11 @@ absent), then `unit NAME OWNER X Y [FACING]` lines. Each `*` cell is an ore depo
 top-left), and FACING is 0–15, counter-clockwise from east. Owner 0 is the
 player and the others are enemies, each in its team colour (blue, red, green,
 yellow). A side plays the faction of its headquarters. An optional
-`camera X Y` sets the opening view, and `credits OWNER N` a side's money.
-`maps/triad.py` writes the three-way maps and `maps/badlands.py` the badlands.
+`camera X Y` sets the opening view, and `credits OWNER N` a side's money. A `unit` line may
+end in `@TAG` to name the thing for a mission, and a campaign mission adds its mission keys
+([docs/CAMPAIGN.md](docs/CAMPAIGN.md)).
+`maps/triad.py` writes the three-way maps, `maps/badlands.py` the badlands and
+`maps/campaign/missions.py` the campaign.
 
 ## Regenerating everything
 

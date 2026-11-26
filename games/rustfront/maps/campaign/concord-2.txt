@@ -85,6 +85,7 @@ unit cl_raider 1 32 14 8
 unit cl_raider 1 28 15 8
 unit cl_torcher 1 30 15 8
 unit cl_tower 1 36 17 0
+credits 0 0
 credits 1 0
 camera 10 22
 trigger ring area 24 10 14 12

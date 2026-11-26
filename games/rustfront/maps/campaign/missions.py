@@ -406,8 +406,9 @@ def directorate_4():
     m.objective("destroy spire", "Destroy the Concord Spire")
     m.plateau(34, 3, 26, 17, 2, ground="^", ramps=(("S", 11, 3),))
     m.blob(12, 30, 7, 5, ",")
-    m.blob(18, 18, 3, 2, "*")
-    m.blob(30, 36, 4, 2, "*")
+    m.blob(18, 20, 4, 2, "*")
+    m.blob(26, 40, 4, 1, "*")
+    m.blob(30, 30, 3, 2, "*")
     m.blob(52, 32, 3, 2, "*")
     m.scatter("x", 10, (2, 22, 60, 42))
     m.scatter("R", 5, (36, 5, 58, 9), onto="^")
@@ -440,7 +441,8 @@ def directorate_5():
     m.objective("destroy_all", "Destroy every enemy unit and structure")
     m.canyon(32, (8, 33), wiggle=2.0, phase=1.3, low=0)
     m.blob(8, 38, 6, 3, ",")
-    m.blob(18, 30, 3, 2, "*")
+    m.blob(19, 30, 4, 2, "*")
+    m.blob(8, 24, 3, 1, "*")
     m.blob(46, 30, 3, 2, "*")
     m.blob(16, 14, 3, 2, "*")
     m.blob(50, 14, 3, 2, "*")
@@ -452,10 +454,10 @@ def directorate_5():
     m.camera = (12, 33)
     m.base("clans", 1, 3, 3, parts=("hq", "power", "refinery", "barracks", "factory", "turret", "turret2"))
     m.squad(["cl_crawler", "cl_truck", "cl_truck", "cl_trike"] + ["cl_raider"] * 6, 1, 4, 13, SOUTH, per_row=5)
-    m.credits[1] = 4000
+    m.credits[1] = 3500
     m.base("concord", 2, 47, 3, parts=("hq", "power", "refinery", "barracks", "factory", "turret", "turret2"))
     m.squad(["lc_glaive", "lc_glaive", "lc_skimmer", "lc_lancer", "lc_warden", "lc_warden"], 2, 47, 13, SOUTH)
-    m.credits[2] = 4000
+    m.credits[2] = 3500
     m.trigger("start", "time 4")
     m.message("start", "The Clans hold the north-west, the Concord the north-east. Choose your first target.")
     m.trigger("raid", "time 240 180 3")
@@ -519,15 +521,16 @@ def clans_2():
     m.scatter("x", 14, (2, 2, 46, 30))
     m.scatter("R", 8, (16, 2, 32, 12))
     m.squad(["cl_raider"] * 6 + ["cl_torcher"] * 3, 0, 3, 18, EAST, per_row=3)
-    m.squad(["cl_truck", "cl_truck"], 0, 3, 22, EAST)
+    m.squad(["cl_truck", "cl_truck", "cl_truck", "cl_crawler"], 0, 3, 22, EAST)
     m.unit("cl_truck", 0, 5, 24, EAST, tag="warboss")
+    m.credits[0] = 0
     m.camera = (8, 20)
     m.rect(34, 13, 13, 9, "=")
     m.unit("refinery", 1, 38, 15, tag="depot")
     m.unit("power", 1, 42, 15)
     m.unit("turret", 1, 36, 15)
     m.unit("turret", 1, 37, 19)
-    m.squad(["rifleman"] * 5 + ["rocket"], 1, 38, 19, WEST, per_row=3)
+    m.squad(["rifleman"] * 4 + ["rocket"] * 2, 1, 39, 18, WEST, per_row=3)
     m.credits[1] = 0
     m.trigger("gully", "area 18 20 8 8")
     m.message("gully", "The gully crew joins your band!")
@@ -598,6 +601,8 @@ def clans_4():
     m.scatter("x", 24, (2, 2, 34, 42))
     m.scatter("R", 6, (40, 10, 58, 14), onto="^")
     m.base("clans", 0, 3, 28)
+    m.unit("cl_tower", 0, 21, 24)
+    m.unit("cl_tower", 0, 17, 21)
     m.squad(["cl_crawler", "cl_crawler", "cl_rig", "cl_truck", "cl_truck"] + ["cl_raider"] * 6 + ["cl_torcher"] * 2,
             0, 18, 30, NORTH, per_row=5)
     m.credits[0] = 6000
@@ -608,14 +613,14 @@ def clans_4():
     m.unit("lc_tower", 1, 39, 18, tag="gate")
     m.unit("lc_tower", 1, 39, 24)
     m.squad(["lc_glaive", "lc_glaive", "lc_lancer", "lc_lancer", "lc_warden", "lc_warden"], 1, 42, 26, WEST)
-    m.credits[1] = 3500
+    m.credits[1] = 2000
     m.trigger("gate", "destroyed gate")
     m.message("gate", "The gate tower is down! Up the ramp, all of you!")
     m.trigger("core", "destroyed core")
     m.message("core", "The light is out. Hear that? The ore sings again.")
     m.trigger("hunters", "time 180 200 2")
     m.message("hunters", "Concord skimmers are hunting our haulers!")
-    m.spawn("hunters", ["lc_skimmer", "lc_skimmer", "lc_glaive"], 1, 30, 2, SOUTH)
+    m.spawn("hunters", ["lc_skimmer", "lc_skimmer"], 1, 30, 2, SOUTH)
     m.write()
 
 
@@ -680,7 +685,7 @@ def concord_1():
     m.rect(3, 4, 13, 4, "=")
     m.unit("lc_spire", 0, 4, 5)
     m.squad(["lc_warden"] * 3, 0, 4, 10, EAST)
-    m.credits[0] = 3500
+    m.credits[0] = 2800
     m.camera = (9, 9)
     m.trigger("start", "time 3")
     m.message("start", "Select the Spire and raise a Fusion Core from the sidebar.")
@@ -714,6 +719,7 @@ def concord_2():
     m.scatter("x", 12, (2, 2, 46, 30))
     m.squad(["lc_glaive", "lc_skimmer", "lc_skimmer"], 0, 3, 22, EAST)
     m.squad(["lc_warden"] * 4 + ["lc_lancer"] * 2, 0, 3, 24, EAST, per_row=3)
+    m.credits[0] = 0
     m.camera = (10, 22)
     m.squad(["cl_raider"] * 4 + ["cl_torcher"], 1, 28, 14, WEST, per_row=3, step=2)
     m.unit("cl_tower", 1, 36, 17)
@@ -835,10 +841,10 @@ def concord_5():
     m.base("clans", 1, 47, 3, parts=("hq", "power", "refinery", "barracks", "factory", "turret", "turret2"))
     m.squad(["cl_crawler", "cl_truck", "cl_truck"] + ["cl_raider"] * 6 + ["cl_torcher"] * 2, 1, 46, 13, WEST,
             per_row=4)
-    m.credits[1] = 4000
+    m.credits[1] = 3500
     m.base("directorate", 2, 47, 31, parts=("hq", "power", "refinery", "barracks", "factory", "turret", "turret2"))
     m.squad(["tank", "tank", "apc", "artillery"] + ["rifleman"] * 3 + ["rocket"] * 2, 2, 40, 28, WEST, per_row=5)
-    m.credits[2] = 4000
+    m.credits[2] = 3500
     m.trigger("start", "time 4")
     m.message("start", "The Clans are north-east, the Directorate south-east. Guard the Lens tower.")
     m.trigger("raid", "time 260 240 2")

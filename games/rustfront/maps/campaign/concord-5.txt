@@ -154,8 +154,8 @@ unit rifleman 2 42 29 8
 unit rocket 2 44 29 8
 unit rocket 2 46 29 8
 credits 0 8000
-credits 1 4000
-credits 2 4000
+credits 1 3500
+credits 2 3500
 camera 10 20
 trigger start time 4
 message start The Clans are north-east, the Directorate south-east. Guard the Lens tower.
