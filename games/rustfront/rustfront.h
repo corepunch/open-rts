@@ -56,6 +56,8 @@ bool RF_Attack(mobj_t *attacker, const weapondef_t *weapon, mobj_t *target);
 void A_RfImpact(mobj_t *projectile);
 void RF_MobjTicker(mobj_t *mobj);
 void RF_TrailRockets(mobj_t *const *mobjs, int count);
+void RF_Detonate(mobj_t *wrecker, mobj_t *target, int damage); /* the Wrecker */
+void RF_AegisMend(mobj_t *const *mobjs, int count);
 bool RF_ImpactInProgress(void);
 
 /* g_build.c: construction sites and battle damage. The Command Center's structures stand on

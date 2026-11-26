@@ -78,6 +78,7 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
     if (leveltime % 2 == 0) RF_TrailRockets(mobjs, count);
     smoke_damaged(mobjs, count);
     RF_BaseTicker(mobjs, count);
+    if (leveltime % RTS_TICRATE == 0) RF_AegisMend(mobjs, count);
     if (leveltime % RTS_TICRATE == 0) {
         send_idle_harvesters(map, mobjs, count);
         RF_ClearMinedOre(map);
@@ -154,6 +155,7 @@ void G_UnitDamaged(mobj_t *victim, const mobj_t *source, int old_hp) {
 void G_UnitKilled(mobj_t *victim, mobj_t *killer) {
     if (!victim || victim->type_id >= MT_FX_HIT) return;
     RF_CreditKill(victim, killer);
+    if (victim->type_id == MT_CL_WRECKER) RF_Detonate(victim, NULL, mobjinfo[MT_CL_WRECKER].damage);
     if (RF_IsInfantry(victim->type_id)) return;
     if (!is_structure(victim)) {
         spawn_effect(MT_FX_BOOM, victim, 0, 0, 2);

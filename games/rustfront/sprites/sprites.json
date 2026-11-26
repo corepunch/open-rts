@@ -6,32 +6,38 @@
   "barracks",
   "factory",
   "turret",
+  "uplink",
   "scout",
   "tank",
   "artillery",
   "harvester",
   "mastodon",
+  "hammer",
   "cl_hall",
   "cl_generator",
   "cl_smelter",
   "cl_camp",
   "cl_yard",
   "cl_tower",
+  "cl_shop",
   "cl_trike",
   "cl_truck",
   "cl_crawler",
   "cl_rig",
   "cl_hauler",
+  "cl_wrecker",
   "lc_spire",
   "lc_fusion",
   "lc_extractor",
   "lc_academy",
   "lc_foundry",
   "lc_tower",
+  "lc_sanctum",
   "lc_skimmer",
   "lc_glaive",
   "lc_prism",
   "lc_harvester",
+  "lc_aegis",
   "apc",
   "rifleman",
   "rocket",
@@ -593,6 +599,43 @@
    ]
   }
  },
+ "cl_shop": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 2,
+    "build_at": 4,
+    "columns": 3,
+    "count": 8,
+    "damaged": 2,
+    "facings": 1,
+    "file": "cl_shop_body.png",
+    "frame": [
+     101,
+     127
+    ],
+    "frames": 8,
+    "pivot": [
+     50.0,
+     95.0
+    ],
+    "team": "cl_shop_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "cl_shop_shadow.png",
+   "frame": [
+    139,
+    69
+   ],
+   "pivot": [
+    47.0,
+    37.0
+   ]
+  }
+ },
  "cl_smelter": {
   "facings": 1,
   "layers": {
@@ -915,6 +958,40 @@
    ]
   }
  },
+ "cl_wrecker": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "cl_wrecker_body.png",
+    "frame": [
+     84,
+     72
+    ],
+    "frames": 3,
+    "pivot": [
+     42.0,
+     52.0
+    ],
+    "team": "cl_wrecker_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "cl_wrecker_shadow.png",
+   "frame": [
+    96,
+    59
+   ],
+   "pivot": [
+    33.0,
+    34.0
+   ]
+  }
+ },
  "cl_yard": {
   "facings": 1,
   "layers": {
@@ -986,6 +1063,40 @@
    "pivot": [
     71.0,
     53.0
+   ]
+  }
+ },
+ "hammer": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "hammer_body.png",
+    "frame": [
+     115,
+     117
+    ],
+    "frames": 3,
+    "pivot": [
+     58.0,
+     90.0
+    ],
+    "team": "hammer_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "hammer_shadow.png",
+   "frame": [
+    149,
+    89
+   ],
+   "pivot": [
+    42.0,
+    59.0
    ]
   }
  },
@@ -1094,6 +1205,40 @@
    "pivot": [
     47.0,
     36.0
+   ]
+  }
+ },
+ "lc_aegis": {
+  "facings": 16,
+  "layers": {
+   "body": {
+    "columns": 7,
+    "count": 48,
+    "facings": 16,
+    "file": "lc_aegis_body.png",
+    "frame": [
+     66,
+     55
+    ],
+    "frames": 3,
+    "pivot": [
+     33.0,
+     39.0
+    ],
+    "team": "lc_aegis_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 4,
+   "count": 16,
+   "file": "lc_aegis_shadow.png",
+   "frame": [
+    65,
+    39
+   ],
+   "pivot": [
+    20.0,
+    23.0
    ]
   }
  },
@@ -1448,6 +1593,43 @@
    "pivot": [
     31.0,
     38.0
+   ]
+  }
+ },
+ "lc_sanctum": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "lc_sanctum_body.png",
+    "frame": [
+     98,
+     132
+    ],
+    "frames": 20,
+    "pivot": [
+     47.0,
+     100.0
+    ],
+    "team": "lc_sanctum_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "lc_sanctum_shadow.png",
+   "frame": [
+    120,
+    66
+   ],
+   "pivot": [
+    47.0,
+    34.0
    ]
   }
  },
@@ -2188,6 +2370,43 @@
    "pivot": [
     23.0,
     17.0
+   ]
+  }
+ },
+ "uplink": {
+  "facings": 1,
+  "layers": {
+   "body": {
+    "anim": 8,
+    "build_at": 16,
+    "columns": 5,
+    "count": 20,
+    "damaged": 8,
+    "facings": 1,
+    "file": "uplink_body.png",
+    "frame": [
+     98,
+     132
+    ],
+    "frames": 20,
+    "pivot": [
+     47.0,
+     100.0
+    ],
+    "team": "uplink_body_team.png"
+   }
+  },
+  "shadow": {
+   "columns": 1,
+   "count": 1,
+   "file": "uplink_shadow.png",
+   "frame": [
+    125,
+    65
+   ],
+   "pivot": [
+    47.0,
+    33.0
    ]
   }
  }

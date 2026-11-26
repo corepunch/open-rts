@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumen Concord Sanctum, the Concord's tech structure. Footprint 2x2 cells (400 x 400 cm), origin
+     at pad centre on the ground, stair faces +Z. A square white ceramic shrine with chamfered
+     corners, a graphite seam, a team-colour inlay band and glowing slits on every side; on its
+     deck a cyan crystal obelisk over a glowing well, four tall ceramic fins with team inlays
+     leaning in from the corners, and a floating halo with four team vanes above it all.
+     About 290 cm tall. -->
+<prefab up="y" front="+z">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Lumen Concord materials: identical in every concord prefab (ids are global, first wins). -->
+  <material id="concord_ceramic"  color="0.88 0.91 0.95" shininess="55" specular="1" gradientFrom="0.72 0.74 0.80" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_pearl"    color="0.68 0.71 0.75" shininess="45" specular="1" gradientFrom="0.80 0.80 0.84" gradientTo="1.04 1.04 1.04"/>
+  <material id="concord_graphite" color="0.14 0.15 0.18" shininess="40" specular="1"/>
+  <material id="concord_stone"    color="0.74 0.76 0.79" shininess="8"><map type="bricks" size="100 100 100" mortar="1.5" bond="0.5" vary="0.04" from="1 1 1" to="0.62 0.63 0.66"/></material>
+  <material id="concord_crystal"  color="0.50 0.88 1.00" shininess="90" specular="1.5" gradientFrom="0.55 0.70 0.80" gradientTo="1.15 1.10 1.05"/>
+  <material id="concord_core"     color="0.85 1.00 1.00"/>
+  <!-- Animation knobs, set per frame by art/sprites.py: pulse 0/1 lifts the halo 6 cm and wraps
+       the obelisk in white-hot light; spin 0..0.875 in 8 steps turns the halo's four vanes 11.25
+       degrees a step (fourfold, so the loop closes). -->
+  <let name="pulse" value="0"/>
+  <let name="spin" value="0"/>
+
+  <chunk width="392" height="20" depth="392" radius="36" bevel="3" lean="0" pos="0 10 0" material="concord_stone"/>
+
+  <group rot="0 14 0" scale="1 1 1" pos="0 0 0">
+    <!-- the shrine block: y 20..96 -->
+    <chunk width="300" height="16" depth="300" radius="60" bevel="3" lean="0" pos="0 28 0" material="concord_pearl"/>
+    <chunk width="260" height="60" depth="260" radius="50" bevel="10" lean="0.1" pos="0 66 0" material="concord_ceramic"/>
+    <chunk width="254" height="4" depth="254" radius="50" bevel="1" lean="0" pos="0 60 0" material="concord_graphite"/>
+    <chunk width="246" height="8" depth="246" radius="48" bevel="2" lean="0" pos="0 82 0" material="paint_plain" tint="1"/>
+    <group rot="0 0 0"><box size="70 22 6" pos="0 46 126" material="concord_graphite"/><box size="60 14 2" pos="0 46 129.5" material="glow" unlit="1" castShadow="0"/></group>
+    <group rot="0 90 0"><box size="70 22 6" pos="0 46 126" material="concord_graphite"/><box size="60 14 2" pos="0 46 129.5" material="glow" unlit="1" castShadow="0"/></group>
+    <group rot="0 180 0"><box size="70 22 6" pos="0 46 126" material="concord_graphite"/><box size="60 14 2" pos="0 46 129.5" material="glow" unlit="1" castShadow="0"/></group>
+    <group rot="0 270 0"><box size="70 22 6" pos="0 46 126" material="concord_graphite"/><box size="60 14 2" pos="0 46 129.5" material="glow" unlit="1" castShadow="0"/></group>
+    <torus majorRadius="160" minorRadius="3" majorSegments="40" minorSegments="6" pos="0 23 0" material="glow" unlit="1" castShadow="0"/>
+    <!-- stair at the front -->
+    <box size="90 10 34" pos="0 25 160" material="concord_pearl"/>
+    <box size="70 4 30" pos="0 22 178" material="concord_ceramic"/>
+
+    <!-- the well and the obelisk -->
+    <cylinder radius="62" height="6" sides="24" pos="0 99 0" material="concord_graphite"/>
+    <torus majorRadius="54" minorRadius="4" majorSegments="32" minorSegments="6" pos="0 103 0" material="glow" unlit="1" castShadow="0"/>
+    <cylinder radius="36" height="8" sides="6" pos="0 106 0" material="concord_ceramic"/>
+    <cone radius="26" radiusTop="5" height="130" sides="6" smooth="0" pos="0 175 0" material="concord_crystal"/>
+    <sphere radius="11" rings="6" slices="10" pos="0 244 0" material="glow" unlit="1" castShadow="0"/>
+    <sphere radius="30" rings="8" slices="12" scale="1 0.5 1" pos="0 110 0" material="glow" unlit="1" castShadow="0"/>
+    <cone radius="30" radiusTop="8" height="136" sides="6" smooth="0" pos="0 176 0" material="concord_core" unlit="1" castShadow="0" renderable="{pulse}"/>
+
+    <!-- four fins on the diagonals, leaning in, with team inlays and glowing tips -->
+    <group rot="0 45 0">
+      <shape closed="1" v="-18 0 22 0 0 150 -26 182" pos="118 96 0" material="concord_ceramic"><extrude amount="14"/><bevel amount="3" bevelSegments="2"/></shape>
+      <shape closed="1" v="-8 36 12 36 0 140 -12 154" pos="118 96 0" material="paint_plain" tint="1"><extrude amount="18"/></shape>
+      <sphere radius="6" rings="6" slices="10" pos="92 280 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+    <group rot="0 135 0">
+      <shape closed="1" v="-18 0 22 0 0 150 -26 182" pos="118 96 0" material="concord_ceramic"><extrude amount="14"/><bevel amount="3" bevelSegments="2"/></shape>
+      <shape closed="1" v="-8 36 12 36 0 140 -12 154" pos="118 96 0" material="paint_plain" tint="1"><extrude amount="18"/></shape>
+      <sphere radius="6" rings="6" slices="10" pos="92 280 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+    <group rot="0 225 0">
+      <shape closed="1" v="-18 0 22 0 0 150 -26 182" pos="118 96 0" material="concord_ceramic"><extrude amount="14"/><bevel amount="3" bevelSegments="2"/></shape>
+      <shape closed="1" v="-8 36 12 36 0 140 -12 154" pos="118 96 0" material="paint_plain" tint="1"><extrude amount="18"/></shape>
+      <sphere radius="6" rings="6" slices="10" pos="92 280 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+    <group rot="0 315 0">
+      <shape closed="1" v="-18 0 22 0 0 150 -26 182" pos="118 96 0" material="concord_ceramic"><extrude amount="14"/><bevel amount="3" bevelSegments="2"/></shape>
+      <shape closed="1" v="-8 36 12 36 0 140 -12 154" pos="118 96 0" material="paint_plain" tint="1"><extrude amount="18"/></shape>
+      <sphere radius="6" rings="6" slices="10" pos="92 280 0" material="glow" unlit="1" castShadow="0"/>
+    </group>
+
+    <!-- the floating halo -->
+    <group pos="0 {222+pulse*6} 0" rot="0 {90*spin} 0">
+      <torus majorRadius="66" minorRadius="7" majorSegments="32" minorSegments="8" material="concord_ceramic"/>
+      <torus majorRadius="66" minorRadius="4" majorSegments="32" minorSegments="6" pos="0 -6 0" material="glow" unlit="1" castShadow="0"/>
+      <box size="30 6 10" pos="78 0 0" material="paint_plain" tint="1"/>
+      <box size="30 6 10" pos="-78 0 0" material="paint_plain" tint="1"/>
+      <box size="10 6 30" pos="0 0 78" material="paint_plain" tint="1"/>
+      <box size="10 6 30" pos="0 0 -78" material="paint_plain" tint="1"/>
+    </group>
+  </group>
+</prefab>

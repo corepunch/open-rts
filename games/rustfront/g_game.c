@@ -61,6 +61,12 @@ static const mobjtype_t ACTOR_TYPES[] = {
     VEHICLE(MT_ROCKET, "Rocket Soldier", "rocket", "body", 45, 0.9, 5, 40, 2500, .move_class = 0),
     /* Two heavy guns: each shot is a pair of shells (g_combat.c). */
     VEHICLE(MT_MASTODON, "Mastodon", "mastodon", "hull", 1400, 1.6, 5.5, 70, 2200, TURRET_ON("mastodon", 10)),
+    /* The Uplink Centre's long arm: a pair of heavy missiles that splash, from well beyond
+     * anything's sight; it cannot fire on what is close. */
+    BUILDING(MT_UPLINK, "Uplink Centre", "uplink", 1400, 2, 2),
+    {.id = MT_HAMMER, .name = "Hammer", .sprite_name = "hammer_body", .shadow_name = "hammer_shadow",
+     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK, .speed = FIXED_LIT(1.5), .turn_step = ANG45 / 6,
+     .max_hp = 520, .attack = {.range = FIXED_LIT(11), .min_range = FIXED_LIT(2.5), .damage = 110, .cooldown_ms = 6500}},
 
     /* Scrap Clans: cheap, fast, fragile; a flamethrower and a rocket rig for punch. */
     BUILDING(MT_CL_HALL, "Clan Hall", "cl_hall", 2600, 3, 3),
@@ -76,6 +82,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
     HARVESTER(MT_CL_HAULER, "Scrap Hauler", "cl_hauler", 700, 2.0, 400),
     VEHICLE(MT_CL_RAIDER, "Raider", "cl_raider", "body", 40, 1.3, 3.2, 6, 600, .move_class = 0),
     VEHICLE(MT_CL_TORCHER, "Torcher", "cl_torcher", "body", 60, 1.1, 2.0, 30, 1200, .move_class = 0),
+    /* The Chop Shop's Wrecker drives its drums into the enemy and goes up with them. */
+    BUILDING(MT_CL_SHOP, "Chop Shop", "cl_shop", 1100, 2, 2),
+    VEHICLE(MT_CL_WRECKER, "Wrecker", "cl_wrecker", "body", 320, 4.2, 1.2, 500, 1000, .move_class = 0),
 
     /* Lumen Concord: few and expensive, tough, long beams; hover craft are quick. */
     BUILDING(MT_LC_SPIRE, "Spire", "lc_spire", 3600, 3, 3),
@@ -90,6 +99,10 @@ static const mobjtype_t ACTOR_TYPES[] = {
     HARVESTER(MT_LC_HARVESTER, "Hover Harvester", "lc_harvester", 1100, 2.6, 600),
     VEHICLE(MT_LC_WARDEN, "Warden", "lc_warden", "body", 90, 1.0, 4, 16, 1100, .move_class = 0),
     VEHICLE(MT_LC_LANCER, "Lancer", "lc_lancer", "body", 110, 0.8, 5.5, 70, 2600, .move_class = 0),
+    /* The Sanctum's Aegis: its field takes a third off every hit on the Concord's units near it
+     * and mends their vehicles; its own beam is light. */
+    BUILDING(MT_LC_SANCTUM, "Sanctum", "lc_sanctum", 1600, 2, 2),
+    VEHICLE(MT_LC_AEGIS, "Aegis", "lc_aegis", "body", 750, 2.6, 5, 22, 1000, .move_class = 0),
     {.id = MT_FX_HIT, .name = "Impact", .sprite_name = "fx_hit", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BOOM, .name = "Explosion", .sprite_name = "fx_boom", .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1},
     {.id = MT_FX_BIGBOOM, .name = "Large explosion", .sprite_name = "fx_bigboom",
@@ -110,6 +123,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
      .missile = {.step = FIXED_LIT(0.9), .period_ms = RTS_TICK_MS, .timed = true}},
     {.id = MT_HEAVY_BOLT, .name = "Heavy bolt", .sprite_name = "fx_bolt", .traits = MF_RENDERABLE | MF_MISSILE,
      .max_hp = 1, .missile = {.step = FIXED_LIT(0.7), .period_ms = RTS_TICK_MS, .timed = true}},
+    {.id = MT_HEAVY_MISSILE, .name = "Heavy missile", .sprite_name = "fx_rocket", .traits = MF_RENDERABLE | MF_MISSILE,
+     .max_hp = 1, .missile = {.step = FIXED_LIT(0.35), .period_ms = RTS_TICK_MS, .timed = true,
+                              .arc = HEAVY_ARC, .arc_count = (int)(sizeof(HEAVY_ARC) / sizeof(*HEAVY_ARC))}},
     {.id = MT_FLAME, .name = "Flame", .sprite_name = "fx_flame", .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
      .missile = {.step = FIXED_LIT(0.25), .period_ms = RTS_TICK_MS, .timed = true}},
 };

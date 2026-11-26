@@ -17,6 +17,8 @@ static const struct { uint16_t type; int8_t cells; } SIGHT[] = {
     {MT_LC_SPIRE, 9}, {MT_LC_FUSION, 5}, {MT_LC_EXTRACTOR, 5}, {MT_LC_ACADEMY, 5}, {MT_LC_FOUNDRY, 5},
     {MT_LC_TOWER, 8}, {MT_LC_SKIMMER, 10}, {MT_LC_GLAIVE, 7}, {MT_LC_PRISM, 7}, {MT_LC_HARVESTER, 4},
     {MT_LC_WARDEN, 6}, {MT_LC_LANCER, 6},
+    /* The Uplink watches far round the base; the Hammer needs eyes forward. */
+    {MT_UPLINK, 12}, {MT_HAMMER, 6}, {MT_CL_SHOP, 5}, {MT_CL_WRECKER, 6}, {MT_LC_SANCTUM, 6}, {MT_LC_AEGIS, 7},
 };
 
 int RF_SightCells(uint16_t type) {

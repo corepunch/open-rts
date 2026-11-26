@@ -28,6 +28,8 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"turret", "build", "turret_build.pcx", 50, 78, 4, 4, 23, 54, 4, NULL},
     {"turret", "head", "turret_head.pcx", 98, 66, 7, 48, 49, 33, 3, rf_mount_turret_head},
     {"turret", "shadow", "turret_shadow.pcx", 56, 43, 2, 2, 23, 24, 2, NULL},
+    {"uplink", "body", "uplink_body.pcx", 125, 132, 5, 20, 47, 100, 20, NULL},
+    {"uplink", "shadow", "uplink_shadow.pcx", 125, 132, 20, 20, 47, 100, 20, NULL},
     {"scout", "body", "scout_body.pcx", 67, 52, 7, 48, 27, 36, 3, NULL},
     {"scout", "shadow", "scout_shadow.pcx", 67, 52, 12, 48, 27, 36, 3, NULL},
     {"tank", "hull", "tank_hull.pcx", 124, 82, 6, 32, 45, 48, 2, NULL},
@@ -40,6 +42,8 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"mastodon", "hull", "mastodon_hull.pcx", 152, 100, 6, 32, 55, 58, 2, NULL},
     {"mastodon", "turret", "mastodon_turret.pcx", 198, 133, 7, 48, 99, 67, 3, rf_mount_mastodon_turret},
     {"mastodon", "shadow", "mastodon_shadow.pcx", 152, 100, 8, 32, 55, 58, 2, NULL},
+    {"hammer", "body", "hammer_body.pcx", 165, 120, 7, 48, 58, 90, 3, NULL},
+    {"hammer", "shadow", "hammer_shadow.pcx", 165, 120, 12, 48, 58, 90, 3, NULL},
     {"cl_hall", "body", "cl_hall_body.pcx", 201, 182, 3, 8, 71, 134, 8, NULL},
     {"cl_hall", "shadow", "cl_hall_shadow.pcx", 201, 182, 8, 8, 71, 134, 8, NULL},
     {"cl_generator", "body", "cl_generator_body.pcx", 142, 145, 3, 8, 47, 113, 8, NULL},
@@ -54,6 +58,8 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"cl_tower", "build", "cl_tower_build.pcx", 50, 84, 4, 4, 23, 67, 4, NULL},
     {"cl_tower", "head", "cl_tower_head.pcx", 76, 52, 7, 48, 38, 33, 3, rf_mount_cl_tower_head},
     {"cl_tower", "shadow", "cl_tower_shadow.pcx", 75, 66, 2, 2, 23, 50, 2, NULL},
+    {"cl_shop", "body", "cl_shop_body.pcx", 142, 127, 3, 8, 50, 95, 8, NULL},
+    {"cl_shop", "shadow", "cl_shop_shadow.pcx", 142, 127, 8, 8, 50, 95, 8, NULL},
     {"cl_trike", "body", "cl_trike_body.pcx", 73, 51, 7, 48, 27, 37, 3, NULL},
     {"cl_trike", "shadow", "cl_trike_shadow.pcx", 73, 51, 12, 48, 27, 37, 3, NULL},
     {"cl_truck", "hull", "cl_truck_hull.pcx", 102, 68, 6, 32, 43, 44, 2, NULL},
@@ -66,6 +72,8 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"cl_rig", "shadow", "cl_rig_shadow.pcx", 106, 81, 12, 48, 47, 55, 3, NULL},
     {"cl_hauler", "body", "cl_hauler_body.pcx", 122, 88, 6, 32, 50, 56, 2, NULL},
     {"cl_hauler", "shadow", "cl_hauler_shadow.pcx", 122, 88, 8, 32, 50, 56, 2, NULL},
+    {"cl_wrecker", "body", "cl_wrecker_body.pcx", 105, 77, 7, 48, 42, 52, 3, NULL},
+    {"cl_wrecker", "shadow", "cl_wrecker_shadow.pcx", 105, 77, 12, 48, 42, 52, 3, NULL},
     {"lc_spire", "body", "lc_spire_body.pcx", 153, 193, 5, 20, 71, 145, 20, NULL},
     {"lc_spire", "shadow", "lc_spire_shadow.pcx", 153, 193, 20, 20, 71, 145, 20, NULL},
     {"lc_fusion", "body", "lc_fusion_body.pcx", 113, 137, 5, 20, 47, 105, 20, NULL},
@@ -80,6 +88,8 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"lc_tower", "build", "lc_tower_build.pcx", 50, 91, 4, 4, 23, 69, 4, NULL},
     {"lc_tower", "head", "lc_tower_head.pcx", 116, 85, 7, 48, 58, 47, 3, rf_mount_lc_tower_head},
     {"lc_tower", "shadow", "lc_tower_shadow.pcx", 74, 48, 2, 2, 23, 32, 2, NULL},
+    {"lc_sanctum", "body", "lc_sanctum_body.pcx", 120, 132, 5, 20, 47, 100, 20, NULL},
+    {"lc_sanctum", "shadow", "lc_sanctum_shadow.pcx", 120, 132, 20, 20, 47, 100, 20, NULL},
     {"lc_skimmer", "body", "lc_skimmer_body.pcx", 89, 59, 7, 48, 44, 37, 3, NULL},
     {"lc_skimmer", "shadow", "lc_skimmer_shadow.pcx", 89, 59, 12, 48, 44, 37, 3, NULL},
     {"lc_glaive", "hull", "lc_glaive_hull.pcx", 110, 66, 6, 32, 37, 40, 2, NULL},
@@ -89,6 +99,8 @@ static const rf_sheetdef_t rf_sheets[] = {
     {"lc_prism", "shadow", "lc_prism_shadow.pcx", 160, 133, 12, 48, 76, 109, 3, NULL},
     {"lc_harvester", "body", "lc_harvester_body.pcx", 111, 76, 6, 32, 41, 52, 2, NULL},
     {"lc_harvester", "shadow", "lc_harvester_shadow.pcx", 111, 76, 8, 32, 41, 52, 2, NULL},
+    {"lc_aegis", "body", "lc_aegis_body.pcx", 78, 55, 7, 48, 33, 39, 3, NULL},
+    {"lc_aegis", "shadow", "lc_aegis_shadow.pcx", 78, 55, 12, 48, 33, 39, 3, NULL},
     {"apc", "hull", "apc_hull.pcx", 96, 73, 6, 32, 36, 51, 2, NULL},
     {"apc", "turret", "apc_turret.pcx", 72, 48, 7, 48, 36, 24, 3, rf_mount_apc_turret},
     {"apc", "shadow", "apc_shadow.pcx", 96, 73, 8, 32, 36, 51, 2, NULL},
@@ -153,7 +165,7 @@ static const rf_animdef_t rf_anims[] = {
 };
 
 /* Build icons (art/icons.py): assets/icons.pcx, one 64x48 cell per name, left to right. */
-static const char *const rf_icons[] = {"power", "barracks", "refinery", "factory", "turret", "hq", "rifleman", "rocket", "scout", "tank", "apc", "artillery", "harvester", "mastodon", "cl_generator", "cl_camp", "cl_smelter", "cl_yard", "cl_tower", "cl_hall", "cl_raider", "cl_torcher", "cl_trike", "cl_truck", "cl_crawler", "cl_rig", "cl_hauler", "lc_fusion", "lc_academy", "lc_extractor", "lc_foundry", "lc_tower", "lc_spire", "lc_warden", "lc_lancer", "lc_skimmer", "lc_glaive", "lc_prism", "lc_harvester"};
+static const char *const rf_icons[] = {"power", "barracks", "refinery", "factory", "turret", "hq", "rifleman", "rocket", "scout", "tank", "apc", "artillery", "harvester", "mastodon", "cl_generator", "cl_camp", "cl_smelter", "cl_yard", "cl_tower", "cl_hall", "cl_raider", "cl_torcher", "cl_trike", "cl_truck", "cl_crawler", "cl_rig", "cl_hauler", "lc_fusion", "lc_academy", "lc_extractor", "lc_foundry", "lc_tower", "lc_spire", "lc_warden", "lc_lancer", "lc_skimmer", "lc_glaive", "lc_prism", "lc_harvester", "uplink", "hammer", "cl_shop", "cl_wrecker", "lc_sanctum", "lc_aegis"};
 #endif
 #define RF_ICON_POWER 0
 #define RF_ICON_BARRACKS 1
@@ -194,6 +206,12 @@ static const char *const rf_icons[] = {"power", "barracks", "refinery", "factory
 #define RF_ICON_LC_GLAIVE 36
 #define RF_ICON_LC_PRISM 37
 #define RF_ICON_LC_HARVESTER 38
+#define RF_ICON_UPLINK 39
+#define RF_ICON_HAMMER 40
+#define RF_ICON_CL_SHOP 41
+#define RF_ICON_CL_WRECKER 42
+#define RF_ICON_LC_SANCTUM 43
+#define RF_ICON_LC_AEGIS 44
 #define RF_ICON_W 64
 #define RF_ICON_H 48
 #define RF_TEAM_BASE 16

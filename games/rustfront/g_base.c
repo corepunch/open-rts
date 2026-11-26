@@ -18,9 +18,7 @@ static const struct { uint16_t type; int16_t power; } POWER[] = {
     {MT_CL_TOWER, -10},
     {MT_LC_SPIRE, 30}, {MT_LC_FUSION, 150}, {MT_LC_EXTRACTOR, -30}, {MT_LC_ACADEMY, -25},
     {MT_LC_FOUNDRY, -50}, {MT_LC_TOWER, -30},
-#if 0 /* the tech structures (below) */
     {MT_UPLINK, -50}, {MT_CL_SHOP, -40}, {MT_LC_SANCTUM, -60},
-#endif
 };
 
 int RF_PowerOf(uint16_t type) {

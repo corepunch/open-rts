@@ -227,6 +227,88 @@ static int test_veterancy(void) {
     return 0;
 }
 
+static mobj_t *spawn(uint16_t type, int owner, fixed2_t at) {
+    const mobjtype_t *info = P_ActorType(type);
+    if (info && info->footprint.w > 0 && !(info->traits & MF_MOBILE))
+        at = P_BuildingPosition(type, fixed2_cell(at));
+    mobj_t *u = P_SpawnMobj(fixed3_from_fixed2(at, 0), type);
+    if (u) { u->owner = u->team = (uint8_t)owner; u->allegiance = owner ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER; }
+    return u;
+}
+
+static int count_type(uint16_t type) {
+    int n = 0;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+        n += th->function == P_MobjThinker && ((mobj_t *)th)->type_id == type && !((mobj_t *)th)->remove;
+    return n;
+}
+
+/* Each faction's top tier: a tech structure from the headquarters, after the factory, unlocks
+ * one unit. The Hammer fires a pair of splashing missiles and cannot fire point-blank; a
+ * Wrecker goes up with its target and the enemies round it, and also when shot; an Aegis's
+ * field takes a third off hits on its side and mends their vehicles. */
+static int test_top_tier(void) {
+    RtsGameModel *model = load();
+    CHECK(model);
+    struct { uint16_t tech, unit, maker, hq, factory; } tiers[] = {
+        {MT_UPLINK, MT_HAMMER, MT_FACTORY, MT_HQ, MT_FACTORY},
+        {MT_CL_SHOP, MT_CL_WRECKER, MT_CL_YARD, MT_CL_HALL, MT_CL_YARD},
+        {MT_LC_SANCTUM, MT_LC_AEGIS, MT_LC_FOUNDRY, MT_LC_SPIRE, MT_LC_FOUNDRY},
+    };
+    for (int f = 0; f < RF_FACTION_COUNT; ++f) {
+        const StaticProductDefinition *tech = G_ModelProductByUIId(NULL, tiers[f].tech);
+        const StaticProductDefinition *unit = G_ModelProductByUIId(NULL, tiers[f].unit);
+        CHECK(tech && unit && tech->icon_frame >= 0 && unit->icon_frame >= 0);
+        CHECK(tech->makers[0] == tiers[f].hq && tech->prerequisites[0] == tiers[f].factory);
+        CHECK(unit->makers[0] == tiers[f].maker && unit->prerequisites[0] == tiers[f].tech);
+        CHECK(RF_FactionOfType(tiers[f].tech) == f && RF_FactionOfType(tiers[f].unit) == f);
+        CHECK(RF_PowerOf(tiers[f].tech) < 0 && RF_SightCells(tiers[f].unit) > 0);
+    }
+    /* Blue has a War Factory; the Hammer waits for an Uplink. */
+    CHECK(!G_ModelProductAvailable(NULL, 0, G_ModelProductByUIId(NULL, MT_HAMMER)));
+    mobj_t *uplink = spawn(MT_UPLINK, 0, FIXED2_LIT(14.0, 12.0));
+    CHECK(uplink && G_ModelProductAvailable(NULL, 0, G_ModelProductByUIId(NULL, MT_HAMMER)));
+
+    /* Hammer: two heavy missiles; nothing inside its minimum range. */
+    mobj_t *hammer = spawn(MT_HAMMER, 0, FIXED2_LIT(20.5, 15.5));
+    mobj_t *mark = spawn(MT_MASTODON, 1, FIXED2_LIT(28.5, 15.5));
+    CHECK(hammer && mark && hammer->info->attack.min_range > 0);
+    int missiles = count_type(MT_HEAVY_MISSILE);
+    CHECK(RF_Attack(hammer, &hammer->info->attack, mark));
+    CHECK(count_type(MT_HEAVY_MISSILE) == missiles + 2);
+    P_RemoveMobj(mark);
+    P_RemoveMobj(hammer);
+
+    /* Wrecker: into a Red turret with a rifleman beside it. */
+    mobj_t *turret = spawn(MT_GUN_TURRET, 1, FIXED2_LIT(24.5, 20.5));
+    mobj_t *guard = spawn(MT_TANK, 1, FIXED2_LIT(25.5, 20.5));
+    mobj_t *wrecker = spawn(MT_CL_WRECKER, 0, FIXED2_LIT(23.5, 20.5));
+    CHECK(turret && guard && wrecker);
+    int turret_hp = turret->hp, guard_hp = guard->hp;
+    CHECK(RF_Attack(wrecker, &wrecker->info->attack, turret));
+    CHECK(wrecker->hp <= 0);
+    CHECK(turret_hp - turret->hp == wrecker->info->attack.damage || turret->hp <= 0);
+    CHECK(guard_hp - guard->hp == wrecker->info->attack.damage / 2);
+    /* Shot on the way, it still goes up. */
+    wrecker = spawn(MT_CL_WRECKER, 0, FIXED2_LIT(26.5, 20.5));
+    guard_hp = guard->hp;
+    P_DamageMobj(wrecker, guard, 100000);
+    CHECK(guard->hp < guard_hp);
+
+    /* Aegis: a third off, and mending. */
+    mobj_t *glaive = spawn(MT_LC_GLAIVE, 1, FIXED2_LIT(10.5, 25.5));
+    CHECK(glaive && RF_ShieldDamage(glaive, 90) == 90);
+    mobj_t *aegis = spawn(MT_LC_AEGIS, 1, FIXED2_LIT(12.5, 25.5));
+    CHECK(aegis && RF_ShieldDamage(glaive, 90) == 60 && RF_ShieldDamage(aegis, 90) == 60);
+    CHECK(RF_ShieldDamage(find(0, MT_TANK), 90) == 90); /* not Blue's */
+    glaive->hp = glaive->max_hp / 2;
+    run(model, 3 * RTS_TICRATE);
+    CHECK(glaive->hp >= glaive->max_hp / 2 + 24);
+    rts_game_model_destroy(model);
+    puts("PASS: the Uplink's Hammer, the Chop Shop's Wrecker and the Sanctum's Aegis");
+    return 0;
+}
+
 int main(void) {
     CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
     RTS_RUN(test_fog());
@@ -234,6 +316,7 @@ int main(void) {
     RTS_RUN(test_repair());
     RTS_RUN(test_rally());
     RTS_RUN(test_veterancy());
+    RTS_RUN(test_top_tier());
     SDL_Quit();
     return 0;
 }

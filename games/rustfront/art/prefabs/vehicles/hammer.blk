@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hammer, the Directorate's long-range missile carrier. Length 350 cm on X, width 150 cm on Z,
+     origin at the chassis centre on the ground, cab and missiles face +X. A heavy eight-wheeled
+     truck: a long low painted hull, a blunt armoured cab with a slit windscreen and a hazard
+     bumper, and on the back a raised twin launcher of two gunmetal missile boxes tilted 24
+     degrees up, each with a big white missile nose in a hazard ring; folded jacks at the rear.
+     On the shot one missile leaves its rail on a flame, with a back-blast behind the box. -->
+<prefab up="y" front="+x">
+  <include src="../../utilities.xml"/>
+  <include src="../../kit.xml"/>
+  <!-- Animation knob, set per frame by art/sprites.py: move 0/1 steps the running gear. -->
+  <let name="move" value="0"/>
+  <!-- Animation knob, set per frame by art/sprites.py: fire 1 is the launch (the near missile
+       leaving its rail on a flame, a back-blast behind the box), fire 2 the rail empty. -->
+  <let name="fire" value="0"/>
+
+  <!-- eight wheels -->
+  <group pos="0 30 0">
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="128 0 64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="128 0 -64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-54 0 64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="30" height="24" sides="12" rot="90 0 0" pos="-54 0 -64" material="rubber"><array count="2" translation="-64 0 0"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="128 0 64" material="gunmetal"><array count="2" translation="{-64*cos(30*move*pi/180)} 0 {-64*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="128 0 -64" material="gunmetal"><array count="2" translation="{-64*cos(30*move*pi/180)} 0 {-64*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-54 0 64" material="gunmetal"><array count="2" translation="{-64*cos(30*move*pi/180)} 0 {-64*sin(30*move*pi/180)}"/></cylinder>
+    <cylinder radius="12" height="26" sides="6" rot="90 0 {30*move}" pos="-54 0 -64" material="gunmetal"><array count="2" translation="{-64*cos(30*move*pi/180)} 0 {-64*sin(30*move*pi/180)}"/></cylinder>
+  </group>
+  <box size="330 16 104" pos="0 48 0" material="steel_dark"/>
+  <!-- fenders over each wheel pair -->
+  <box size="130 4 30" rot="-10 0 0" pos="96 64 64" material="trim"/>
+  <box size="130 4 30" rot="10 0 0" pos="96 64 -64" material="trim"/>
+  <box size="130 4 30" rot="-10 0 0" pos="-86 64 64" material="trim"/>
+  <box size="130 4 30" rot="10 0 0" pos="-86 64 -64" material="trim"/>
+
+  <!-- long low hull -->
+  <shape closed="1" v="-176 50 150 50 172 62 172 84 -176 84" material="paint_plain" tint="1">
+    <extrude amount="128"/><bevel amount="4" bevelSegments="2"/>
+    <taper center="0 50 0" amount="-0.12" axis="y" effect="z"/>
+  </shape>
+  <box size="300 6 4" pos="-10 74 62.5" material="trim"/>
+  <box size="300 6 4" pos="-10 74 -62.5" material="trim"/>
+  <box size="6 10 124" pos="174 58 0" material="hazard"/>
+  <box size="5 5 3" pos="172 74 46" material="lamp" unlit="1" castShadow="0"/>
+  <box size="5 5 3" pos="172 74 -46" material="lamp" unlit="1" castShadow="0"/>
+
+  <!-- armoured cab -->
+  <shape closed="1" v="96 84 168 84 166 100 138 136 96 138" material="paint_plain" tint="1">
+    <extrude amount="118"/><bevel amount="3" bevelSegments="2"/>
+    <taper center="0 84 0" amount="-0.1" axis="y" effect="z"/>
+  </shape>
+  <box size="3 14 96" rot="0 0 -52" pos="154 118 0" material="glass"/>
+  <box size="38 3 96" pos="116 139 0" material="trim_light"/>
+  <cylinder radius="1.4" height="70" sides="5" pos="104 175 -46" material="steel_dark"/>
+  <box size="12 22 10" pos="80 100 46" material="gunmetal"/>
+  <tube ax="84" ay="100" az="-50" bx="84" by="150" bz="-52" r0="5" material="gunmetal"/>
+
+  <!-- launcher: a turntable and a cradle, two missile boxes raised 24 degrees -->
+  <cylinder radius="44" height="10" sides="20" pos="-50 89 0" material="trim"/>
+  <box size="70 30 84" pos="-56 109 0" material="gunmetal"/>
+  <group pos="-56 126 0" rot="0 0 24">
+    <box size="210 6 116" pos="40 -2 0" material="steel_dark"/>
+    <soft-box width="236" height="52" depth="52" radius="6" bevel="2" pos="40 28 28" material="gunmetal"/>
+    <soft-box width="236" height="52" depth="52" radius="6" bevel="2" pos="40 28 -28" material="gunmetal"/>
+    <box size="20 54 110" pos="-10 28 0" material="paint_plain" tint="1"/>
+    <box size="20 54 110" pos="110 28 0" material="paint_plain" tint="1"/>
+    <box size="8 56 112" pos="-72 28 0" material="hazard"/>
+    <box size="100 3 18" pos="50 55 28" material="trim_light"/>
+    <box size="100 3 18" pos="50 55 -28" material="trim_light"/>
+    <!-- missile noses in hazard rings -->
+    <cylinder radius="20" height="6" sides="14" rot="0 0 -90" pos="161 28 28" material="hazard" renderable="{fire == 0}"/>
+    <cylinder radius="20" height="6" sides="14" rot="0 0 -90" pos="161 28 -28" material="hazard"/>
+    <cone radius="17" radiusTop="0" height="44" sides="12" rot="0 0 -90" pos="186 28 28" material="trim_light" renderable="{fire == 0}"/>
+    <cone radius="17" radiusTop="0" height="44" sides="12" rot="0 0 -90" pos="186 28 -28" material="trim_light"/>
+    <cylinder radius="18" height="1" sides="14" rot="0 0 -90" pos="158.6 28 28" material="rubber" renderable="{fire != 0}"/>
+    <!-- the launch: the missile clear of the rail on its flame, and a back-blast -->
+    <group pos="250 28 28" renderable="{fire == 1}">
+      <cylinder radius="15" height="90" sides="12" rot="0 0 -90" pos="0 0 0" material="trim_light"/>
+      <cylinder radius="15.5" height="12" sides="12" rot="0 0 -90" pos="-10 0 0" material="paint_plain" tint="1"/>
+      <cone radius="15" radiusTop="0" height="40" sides="12" rot="0 0 -90" pos="65 0 0" material="trim_light"/>
+      <box size="20 44 3" pos="-36 0 0" material="trim"/>
+      <box size="20 3 44" pos="-36 0 0" material="trim"/>
+      <muzzle-flash pos="-46 0 0" rot="0 180 0" scale="1.6 1.4 1.4" on="{fire == 1}"/>
+    </group>
+    <muzzle-flash pos="-78 28 28" rot="0 180 0" scale="1.4 1.8 1.8" on="{fire == 1}"/>
+    <sphere radius="20" rings="4" slices="6" pos="-104 28 28" material="steel" castShadow="0" renderable="{fire == 1}"/>
+  </group>
+  <!-- folded jacks -->
+  <box size="10 46 10" rot="0 0 -20" pos="-170 50 70" material="hazard"/>
+  <box size="10 46 10" rot="0 0 -20" pos="-170 50 -70" material="hazard"/>
+</prefab>
