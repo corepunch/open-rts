@@ -312,9 +312,20 @@ Pillow bundles).
 
 ![Title screen](art/previews/menu-main.png)
 
-- **Campaign:** pick a faction; its five missions, locked until the one before is won, with the
-  chosen one's briefing and objectives. Start plays it; afterwards the page comes back with the
-  next mission open. Reset Progress clears `campaign.txt`.
+![The campaign's world map, after Foothold is won](art/previews/menu-campaign.png)
+![The debrief](art/previews/menu-debrief.png)
+
+- **Campaign:** the world map of the Rustfront, as in Dune 2000 (`m_worldmap.c`,
+  `art/worldmap.py`). The map is cut into seventeen territories, each in its holder's colour as
+  the chosen campaign stands (the Directorate steel blue, the Clans rust, the Concord light),
+  and the campaign's five missions are marked where they are fought: won ones in the faction's
+  colour, the next pulsing amber, the rest locked. A click on a marker shows its briefing and
+  objectives in the panel; Start plays it. Winning a mission takes its territory; winning the
+  campaign takes the map. Reset clears `campaign.txt`.
+- **The debrief:** when a battle ends, Rustfront's own result screen (`G_ShowOutcome`): Mission
+  Accomplished or Failed and the territory taken, then the time, units and structures built,
+  credits earned, enemies destroyed and losses, a score and the rank it earns, Recruit to
+  General. Continue leaves the level (a campaign goes back to its map).
 - **Skirmish:** every map with starts, and for each start who plays it (you, the computer at
   easy, normal or hard, or closed), as which faction (or Random) and on which team. Start turns
   the seats into a start plan (`RF_SetStartPlan`) and difficulties (`RF_SetAIDifficulty`): you
@@ -361,7 +372,8 @@ game; `OPEN_RTS_RF_UI_SHOTS=DIR` writes every page as a BMP.
 | `g_net.c` | Lockstep: Rustfront's share of the consistency hash (terrain, blocking, alliances) |
 | `s_rustfront.c` | Sound: registers the synthesised samples, maps fire, impacts, deaths, voices and announcements to them, rate-limits the under-attack warning, and plays the ambience and the player's faction's music |
 | `g_campaign.c` | The campaign: mission keys, triggers, spawns that hunt the player, objectives, win and loss through `G_LevelObjectives`, progress, the front end's API |
-| `m_menu.c` | The front end: title screen, campaign with briefings, skirmish setup, multiplayer lobby (the engine's), save and load, options, the in-game pause panel; the menus' faces |
+| `m_menu.c` | The front end: title screen, the campaign's world map with briefings, skirmish setup, multiplayer lobby (the engine's), save and load, options, the in-game pause panel, the debrief; the menus' faces |
+| `m_worldmap.c` | The campaign's world map: territories, who holds each as a campaign stands, the missions' territories, the tinted map and its markers |
 | `g_save.c` | Rustfront's block in a saved game and a network resync: each computer player's difficulty, every cell's terrain (mined-out ore), then the running mission |
 
 **Map format:** rows of terrain letters (`art/terrain.txt`: `.` sand, `:` silt, `*` ore,

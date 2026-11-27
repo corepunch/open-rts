@@ -58,6 +58,38 @@ starts with, which is the main difficulty knob); a side with only structures def
 
 The mission's progress (its clock, triggers, objectives, hunters) is saved with the game.
 
+## The world map
+
+As in Dune 2000, the campaign is played on a map of the Rustfront (`art/worldmap.py` paints it
+and cuts it into territories; `m_worldmap.c` draws it). `assets/worldmap.txt` lists:
+
+```
+territory ID X Y HOLDER NAME     the territory's seat on the map and who holds it at the start
+mission FACTION N TERRITORY      mission N of that campaign is fought there
+tint HOLDER R G B AMOUNT%        the holder's colour over its ground
+```
+
+Who holds a territory in a campaign follows its progress: the holder at the start, then the
+campaign's faction wherever it has won a mission (`RF_TerritoryHolder`); a campaign won takes
+the whole map. The front end draws every territory in its holder's colour, lights the selected
+mission's borders, and marks the five missions (won, next, locked) with their territories'
+names. To place a mission elsewhere, change `MISSIONS` (or `TERRITORIES`) in
+`art/worldmap.py` and run it; `test_front` checks every mission has a territory of its own and
+that each marker stands in its territory.
+
+| | Directorate | Scrap Clans | Lumen Concord |
+|---|---|---|---|
+| 1 | Foundry Flats | Hook Wastes | Lumen Reach |
+| 2 | Ridge Nine | Rook's Crossing | Saltpan |
+| 3 | The Ford | Grand Junkyard | Ashfield |
+| 4 | Glasswater | Fallow Mesa | Cinder Bluff |
+| 5 | The Crucible | Iron Hill | The Lens |
+
+![The world map with its territories](../art/previews/worldmap.png)
+
+After a mission the debrief (m_menu.c's `G_ShowOutcome`) names the territory taken or held,
+and scores the battle (`RF_Score`, `RF_ScoreRank` in g_mission.c).
+
 ## The front end's API
 
 Declared in `rustfront.h`; indices are 0-based.

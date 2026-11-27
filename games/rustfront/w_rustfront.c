@@ -90,6 +90,7 @@ void RF_ClearMinedOre(level_t *map) {
 
 bool RF_LoadLevel(const char *path, level_t *out) {
     RF_UnitsReset();
+    RF_ResetStats();
     blob_t file;
     if (!W_ReadFile(path, &file)) {
         fprintf(stderr, "rustfront: cannot read map %s\n", path);

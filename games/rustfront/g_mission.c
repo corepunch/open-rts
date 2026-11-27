@@ -77,7 +77,50 @@ static void smoke_damaged(mobj_t *const *mobjs, int count) {
     }
 }
 
+/* ── the debrief's counts ────────────────────────────────────────────────── */
+static rf_stats_t stats[MAXPLAYERS];
+static int last_credits[MAXPLAYERS];
+
+void RF_ResetStats(void) {
+    memset(stats, 0, sizeof(stats));
+    for (int o = 0; o < MAXPLAYERS; ++o) last_credits[o] = -1;
+}
+
+const rf_stats_t *RF_Stats(int owner) {
+    static rf_stats_t none;
+    return owner >= 0 && owner < MAXPLAYERS ? &stats[owner] : &none;
+}
+
+/* Credits earned are every rise in a side's bank: ore delivered, sales, salvage, Windfalls. */
+static void count_income(void) {
+    for (int o = 0; o < MAXPLAYERS; ++o) {
+        int now = level.player_resources[o][0];
+        if (last_credits[o] >= 0 && now > last_credits[o]) stats[o].credits_earned += now - last_credits[o];
+        last_credits[o] = now;
+        stats[o].seconds = leveltime / RTS_TICRATE;
+    }
+}
+
+int RF_Score(int owner, bool won) {
+    const rf_stats_t *s = RF_Stats(owner);
+    const sidestats_t *side = G_SideStats(owner);
+    int kills = side ? side->kills : 0, losses = side ? side->losses : 0;
+    int score = kills * 40 + s->built_units * 10 + s->built_structures * 25 + s->credits_earned / 100 - losses * 15;
+    if (won) score += 1000 + (s->seconds < 1800 ? (1800 - s->seconds) / 2 : 0); /* and a bonus for speed */
+    return score > 0 ? score : 0;
+}
+
+const char *RF_ScoreRank(int score) {
+    static const struct { int at; const char *name; } RANKS[] = {
+        {3000, "General"}, {2200, "Colonel"}, {1600, "Major"}, {1100, "Captain"}, {600, "Lieutenant"},
+        {250, "Sergeant"}, {0, "Recruit"}};
+    for (size_t i = 0; i < sizeof(RANKS) / sizeof(*RANKS); ++i)
+        if (score >= RANKS[i].at) return RANKS[i].name;
+    return "Recruit";
+}
+
 void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
+    count_income();
     if (leveltime % (RTS_TICRATE / 2) == 0) RF_SyncBlocking(map);
     if (leveltime % 2 == 0) RF_TrailRockets(mobjs, count);
     smoke_damaged(mobjs, count);
@@ -93,6 +136,10 @@ void RF_MissionTicker(level_t *map, mobj_t *const *mobjs, int count) {
 /* Like C&C's, a refinery arrives with its first harvester, parked below its dock. */
 void G_UnitProduced(mobj_t *unit, const mobj_t *producer) {
     if (!unit) return;
+    if (unit->owner < MAXPLAYERS && unit->type_id < MT_FX_HIT) {
+        if (RF_IsStructure(unit)) stats[unit->owner].built_structures++;
+        else stats[unit->owner].built_units++;
+    }
     RF_CompleteSite(unit);
     RF_UnitReleased(unit, producer);
     if (!RF_IsRole(unit->type_id, RF_ROLE_REFINERY)) return;

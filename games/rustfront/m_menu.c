@@ -24,11 +24,11 @@
  * The campaign's progress, missions and briefings come from g_campaign.c; maps, starts and the
  * start plan from w_starts.c; the computer's difficulty from g_ai.c. */
 
-enum { MAIN, CAMPAIGN, SKIRMISH, LOAD, SAVE, OPTIONS, PAUSE };
+enum { MAIN, CAMPAIGN, SKIRMISH, LOAD, SAVE, OPTIONS, PAUSE, DEBRIEF };
 enum {
     NONE, GO_CAMPAIGN, GO_SKIRMISH, GO_MULTI, GO_LOAD, GO_SAVE, GO_OPTIONS, QUIT, BACK, RESUME, LEAVE,
     FACTION, MISSION, START, BRIEFING, OBJECTIVES, MAPS, MAPINFO, SEAT_WHO, SEAT_FACTION, SEAT_TEAM,
-    SLOTS, ACCEPT, SOUND, MUSIC, SPEED, LABEL, TITLE, NOTE, RESET,
+    SLOTS, ACCEPT, SOUND, MUSIC, SPEED, LABEL, TITLE, NOTE, RESET, WORLD, CONTINUE,
 };
 
 #define SAVE_SLOTS 8
@@ -300,7 +300,71 @@ static void build_main(void) {
     label(NOTE, (irect_t){0, 456, 632, 16}, "Rustfront - an open-rts game", MALIGN_RIGHT | MALIGN_VCENTER)->ink = INK_DIM;
 }
 
+/* ── the campaign's world map (m_worldmap.c) ────────────────────────────────
+ * As in Dune 2000: the Rustfront fills the left of the screen, its territories in their holders'
+ * colours, the campaign's missions marked where they are fought; a click on a marker picks the
+ * mission, and the panel on the right holds the campaign's tabs, the briefing and the orders. */
+static irect_t world_screen; /* where the map was last drawn, to read clicks */
+
+static void draw_world(const menu_t *m, const menuitem_t *item, irect_t rect) {
+    (void)m;
+    world_screen = rect;
+    RF_DrawWorldMap(item->rect, rect, campaign_faction, campaign_mission, have_fonts ? &body : NULL,
+                    SDL_GetTicks());
+}
+
+/* The mission whose marker is nearest the click, within reach, or one fought in the territory. */
+static int mission_at_click(ivec2_t cursor) {
+    if (world_screen.w <= 0) return -1;
+    int s = world_screen.w / RF_WORLDMAP_W > 0 ? world_screen.w / RF_WORLDMAP_W : 1;
+    ivec2_t page = {(cursor.x - world_screen.x) / s, (cursor.y - world_screen.y) / s};
+    int best = -1, best_d = 18 * 18;
+    for (int i = 0; i < RF_CAMPAIGN_MISSIONS; ++i) {
+        ivec2_t seat = RF_TerritorySeat(RF_MissionTerritory(campaign_faction, i));
+        int dx = seat.x - page.x, dy = seat.y - page.y;
+        if (dx * dx + dy * dy < best_d) best = i, best_d = dx * dx + dy * dy;
+    }
+    if (best >= 0) return best;
+    int t = RF_TerritoryAt(page);
+    for (int i = 0; t >= 0 && i < RF_CAMPAIGN_MISSIONS; ++i)
+        if (RF_MissionTerritory(campaign_faction, i) == t) return i;
+    return -1;
+}
+
+static void build_world(void) {
+    menuitem_t *map = add(MI_BUTTON, WORLD, (irect_t){0, 0, RF_WORLDMAP_W, 480});
+    map->ownerdraw = draw_world;
+    map->color = 0;
+    map->quiet = true;
+    menuitem_t *title = heading((irect_t){12, 6, 360, 28}, "The Rustfront");
+    title->ink = INK;
+    int x = 392, w = 240;
+    panel((irect_t){x, 6, w, 468});
+    static const char *const SHORT[3] = {"Directorate", "Clans", "Concord"};
+    for (int f = 0; f < 3; ++f) {
+        menuitem_t *b = button(FACTION, (irect_t){x + 8 + f * 76, 14, 72, 24}, SHORT[f], SDLK_1 + f);
+        b->value = f;
+        if (f == campaign_faction) b->ink = INK_HOT, b->look[MS_NORMAL].ink = INK_HOT;
+    }
+    label(LABEL, (irect_t){x + 10, 44, w - 20, 16}, RF_CampaignName(campaign_faction), MALIGN_LEFT)->ink = INK_DIM;
+    char line[96];
+    snprintf(line, sizeof(line), "%d. %s", campaign_mission + 1,
+             RF_MissionUnlocked(campaign_faction, campaign_mission) && mission.title[0] ? mission.title : "Locked");
+    label(TITLE, (irect_t){x + 10, 62, w - 20, 22}, line, MALIGN_LEFT)->ink = INK_HOT;
+    snprintf(line, sizeof(line), "%s", RF_TerritoryName(RF_MissionTerritory(campaign_faction, campaign_mission)));
+    label(LABEL, (irect_t){x + 10, 82, w - 20, 16}, line, MALIGN_LEFT)->ink = INK_DIM;
+    prose(BRIEFING, (irect_t){x + 10, 102, w - 20, 240}, mission.briefing);
+    label(LABEL, (irect_t){x + 10, 346, w - 20, 16}, "Objectives", MALIGN_LEFT)->ink = INK_HOT;
+    prose(OBJECTIVES, (irect_t){x + 10, 364, w - 20, 66}, objectives_text);
+    button(BACK, (irect_t){x + 8, 438, 64, 28}, "Back", SDLK_ESCAPE);
+    button(RESET, (irect_t){x + 78, 438, 72, 28}, "Reset", 0);
+    menuitem_t *start = button(START, (irect_t){x + 156, 438, 76, 28}, "Start", SDLK_RETURN);
+    start->enabled = RF_MissionUnlocked(campaign_faction, campaign_mission);
+    menu.itemOn = (int)(start - items);
+}
+
 static void build_campaign(void) {
+    if (RF_HaveWorldMap()) { build_world(); return; }
     panel((irect_t){24, 104, 592, 360});
     heading((irect_t){40, 110, 400, 28}, "Campaign");
     for (int f = 0; f < 3; ++f) {
@@ -383,6 +447,74 @@ static void build_options(void) {
     button(BACK, (irect_t){136, 336, 120, 28}, "Back", SDLK_ESCAPE);
 }
 
+/* ── the debrief, as Dune 2000's: what the battle cost and won ──────────────
+ * Rustfront's own result screen (G_ShowOutcome): the outcome, the mission and the territory it
+ * takes, then the time, what was built and earned, what was destroyed and lost, the score and the
+ * rank it earns. Continue (or Escape) leaves the level; a campaign goes back to its map. */
+static outcome_t debrief_outcome;
+
+static void stat_row(int y, const char *name, const char *value) {
+    label(LABEL, (irect_t){170, y, 180, 16}, name, MALIGN_LEFT)->ink = INK_DIM;
+    label(LABEL, (irect_t){350, y, 120, 16}, value, MALIGN_RIGHT);
+}
+
+static void build_debrief(void) {
+    bool won = debrief_outcome == OUTCOME_VICTORY;
+    int faction = -1, index = -1;
+    bool in_mission = RF_InMission(&faction, &index);
+    int owner = consoleplayer >= 0 && consoleplayer < MAXPLAYERS ? consoleplayer : 0;
+    const rf_stats_t *st = RF_Stats(owner);
+    const sidestats_t *side = G_SideStats(owner);
+    panel((irect_t){150, 50, 340, 380});
+    heading((irect_t){166, 58, 308, 30}, won ? (in_mission ? "Mission Accomplished" : "Victory")
+                                             : debrief_outcome == OUTCOME_DRAW ? "Draw"
+                                             : in_mission ? "Mission Failed" : "Defeat")->ink = won ? INK_HOT : INK;
+    char line[96];
+    int y = 94;
+    if (in_mission) {
+        label(TITLE, (irect_t){170, y, 300, 18}, RF_MissionTitle(), MALIGN_LEFT)->ink = INK;
+        y += 18;
+        int t = RF_MissionTerritory(faction, index);
+        if (t >= 0) {
+            snprintf(line, sizeof(line), won ? "%s is taken" : "%s holds out", RF_TerritoryName(t));
+            label(LABEL, (irect_t){170, y, 300, 16}, line, MALIGN_LEFT)->ink = INK_DIM;
+            y += 16;
+        }
+    }
+    y += 10;
+    snprintf(line, sizeof(line), "%d:%02d", st->seconds / 60, st->seconds % 60);
+    stat_row(y, "Time", line), y += 20;
+    snprintf(line, sizeof(line), "%d", st->built_units);
+    stat_row(y, "Units built", line), y += 20;
+    snprintf(line, sizeof(line), "%d", st->built_structures);
+    stat_row(y, "Structures built", line), y += 20;
+    snprintf(line, sizeof(line), "%d", st->credits_earned);
+    stat_row(y, "Credits earned", line), y += 20;
+    snprintf(line, sizeof(line), "%d", side ? side->kills : 0);
+    stat_row(y, "Enemies destroyed", line), y += 20;
+    snprintf(line, sizeof(line), "%d", side ? side->losses : 0);
+    stat_row(y, "Losses", line), y += 28;
+    int score = RF_Score(owner, won);
+    snprintf(line, sizeof(line), "%d", score);
+    stat_row(y, "Score", line), y += 22;
+    label(LABEL, (irect_t){170, y, 180, 18}, "Rank", MALIGN_LEFT)->ink = INK_DIM;
+    label(TITLE, (irect_t){300, y, 170, 18}, RF_ScoreRank(score), MALIGN_RIGHT)->ink = INK_HOT;
+    menuitem_t *go = button(CONTINUE, (irect_t){230, 388, 180, 30}, "Continue", SDLK_RETURN);
+    menu.itemOn = (int)(go - items);
+}
+
+/* The engine's hook: the level has ended for this player. */
+void G_ShowOutcome(outcome_t outcome) {
+    debrief_outcome = outcome;
+    if (menuactive) M_ClearMenus();
+    inlevel = true;
+    open_page(DEBRIEF);
+    menu_t *m = M_SimpleControlPanel(&menu);
+    m->escape = escape;
+    menuinlevel = true;
+    M_SetupNextMenu(m);
+}
+
 static void build_pause(void) {
     int in_mission = RF_InMission(NULL, NULL);
     panel((irect_t){180, 64, 280, in_mission ? 330 : 250});
@@ -418,6 +550,10 @@ static void open_page(int next) {
         menu.background = &backdrop;
         menu.palette = backdrop.source_palette;
     }
+    if (next == CAMPAIGN && RF_HaveWorldMap()) { /* the map is the page, in its own palette */
+        menu.background = RF_WorldMapSheet();
+        menu.palette = RF_WorldMapSheet()->source_palette;
+    }
     switch (page) {
     case MAIN: build_main(); break;
     case CAMPAIGN: read_mission(); build_campaign(); break;
@@ -426,6 +562,7 @@ static void open_page(int next) {
     case SAVE: build_slots(true); break;
     case OPTIONS: build_options(); break;
     case PAUSE: build_pause(); break;
+    case DEBRIEF: build_debrief(); break;
     }
     if (menu.itemOn < 0)
         for (int i = 0; i < menu.numitems; ++i)
@@ -459,6 +596,7 @@ static void refresh(menu_t *m) {
 
 static void escape(menu_t *m) {
     (void)m;
+    if (page == DEBRIEF) { menuleave = true; M_ClearMenus(); return; }
     if (inlevel) {
         if (page == PAUSE) M_ClearMenus();
         else open_page(PAUSE);
@@ -624,12 +762,18 @@ static void routine(menu_t *m, menuitem_t *item, menuaction_t action) {
         break;
     case RESUME: M_ClearMenus(); break;
     case LEAVE: menuleave = true; M_ClearMenus(); break;
+    case CONTINUE: menuleave = true; M_ClearMenus(); break;
     case FACTION:
         campaign_faction = item->value;
         campaign_mission = RF_CampaignWon(campaign_faction);
         if (campaign_mission >= RF_CAMPAIGN_MISSIONS) campaign_mission = RF_CAMPAIGN_MISSIONS - 1;
         open_page(CAMPAIGN);
         break;
+    case WORLD: {
+        int picked = mission_at_click(m->cursor);
+        if (picked >= 0 && picked != campaign_mission) { campaign_mission = picked; open_page(CAMPAIGN); }
+        break;
+    }
     case MISSION: /* Enter on the list starts the mission. */
     case START:
         if (page == CAMPAIGN) start_mission();
@@ -700,6 +844,7 @@ bool G_InitMenus(app_t *app, const char *root) {
         have_fonts = load_face(root_dir, "body", &body) && load_face(root_dir, "head", &head);
         if (!have_fonts) fprintf(stderr, "rustfront: cannot load the menu fonts in %s/assets\n", root_dir);
         RF_LoadSkin(root_dir);
+        RF_LoadWorldMap(root_dir);
         default_seats();
         srand((unsigned)time(NULL));
         initialized = true;

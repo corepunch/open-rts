@@ -7,6 +7,7 @@
 #                              team masks, shadows, construction and damage (sprites/*.png, sprites.json)
 #   4. icons.py                the sidebar's build icons                (sprites/icons.png)
 #      ui.py                   the interface's metal: panels, screens, buttons in four states (sprites/ui.png)
+#      worldmap.py             the campaign's world map and its territories (assets/worldmap*.pcx, worldmap.txt)
 #   5. terrain.py              ground tiles, model tiles, transitions, cliffs and ramps (relief.py)
 #                              (sprites/terrain.png, terrain.json)
 #   6. pack8.py                256-colour PCX sheets and the C tables   (assets/*.pcx, terrain.txt, sprites.inc)
@@ -28,6 +29,7 @@ step "effects (effects.py)";              python3 effects.py
 step "game sprites (sprites.py)";         python3 sprites.py
 step "build icons (icons.py)";            python3 icons.py
 step "interface skins (ui.py)";           python3 ui.py
+step "world map (worldmap.py)";           python3 worldmap.py
 step "terrain (terrain.py)";              python3 terrain.py
 step "8-bit sheets (pack8.py)";           python3 pack8.py
 step "contact sheet (contact.py)";        python3 contact.py

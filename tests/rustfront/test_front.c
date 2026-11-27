@@ -82,13 +82,42 @@ static int test_front(void) {
     CHECK(currentmenu->items[0].font && currentmenu->items[0].font->glyph_index['a'] >= 0);
     render("main");
 
-    /* Campaign: the first mission of each faction is open, the rest locked until won. */
+    /* Campaign: the world map of the Rustfront (m_worldmap.c), as in Dune 2000. Every mission
+     * of every campaign is fought in a territory of its own; the first of each is open, the
+     * rest locked until won, and a win takes the mission's territory for its faction. */
     key(SDLK_c);
-    menuitem_t *list = find(MI_LIST, NULL);
-    CHECK(list && list->rows == RF_CAMPAIGN_MISSIONS && list->value == 0);
-    CHECK(strstr(list->row(list, 0), "1. ") && strstr(list->row(list, 1), "Locked"));
-    CHECK(find(MI_BUTTON, "Start")->enabled);
+    CHECK(RF_HaveWorldMap() && currentmenu->background == RF_WorldMapSheet());
+    menuitem_t *world = NULL;
+    for (int i = 0; i < currentmenu->numitems; ++i)
+        if (currentmenu->items[i].kind == MI_BUTTON && currentmenu->items[i].ownerdraw &&
+            currentmenu->items[i].rect.w == RF_WORLDMAP_W) world = &currentmenu->items[i];
+    CHECK(world && find(MI_BUTTON, "Start")->enabled);
+    for (int f = 0; f < RF_FACTION_COUNT; ++f)
+        for (int i = 0; i < RF_CAMPAIGN_MISSIONS; ++i) {
+            int t = RF_MissionTerritory(f, i);
+            CHECK(t >= 0 && t < RF_TerritoryCount() && RF_TerritoryName(t)[0]);
+            CHECK(RF_TerritoryAt(RF_TerritorySeat(t)) == t);       /* its marker stands in it */
+            for (int j = 0; j < i; ++j) CHECK(RF_MissionTerritory(f, j) != t);
+        }
+    int foothold = RF_MissionTerritory(RF_DIRECTORATE, 0);
+    CHECK(RF_TerritoryHolder(RF_DIRECTORATE, foothold) == 0);
     render("campaign");
+    /* A click on the second marker picks the second mission, still locked; on the first, back. */
+    ivec2_t second = RF_TerritorySeat(RF_MissionTerritory(RF_DIRECTORATE, 1));
+    currentmenu->cursor = second;
+    press(world, MA_ACTIVATE);
+    CHECK(find(MI_BUTTON, "Start") && !find(MI_BUTTON, "Start")->enabled);
+    for (int i = 0; i < currentmenu->numitems; ++i)
+        if (currentmenu->items[i].kind == MI_BUTTON && currentmenu->items[i].rect.w == RF_WORLDMAP_W) world = &currentmenu->items[i];
+    currentmenu->cursor = RF_TerritorySeat(foothold);
+    press(world, MA_ACTIVATE);
+    CHECK(find(MI_BUTTON, "Start")->enabled);
+    /* Winning Foothold takes Foundry Flats for the Directorate; the Clans' map is untouched. */
+    CHECK(RF_CampaignRecordWin(RF_DIRECTORATE, 0));
+    CHECK(RF_TerritoryHolder(RF_DIRECTORATE, foothold) == 1 + RF_DIRECTORATE);
+    CHECK(RF_TerritoryHolder(RF_CLANS, foothold) == 0);
+    render("campaign-won");
+    CHECK(RF_CampaignResetProgress() && RF_TerritoryHolder(RF_DIRECTORATE, foothold) == 0);
     key(SDLK_2);                                     /* the Scrap Clans */
     render("campaign-clans");
     key(SDLK_RETURN);
@@ -96,13 +125,13 @@ static int test_front(void) {
     /* After the mission the front end comes back to the campaign. */
     menumap = NULL;
     M_StartControlPanel(&app);
-    CHECK(menuactive && find(MI_BUTTON, "Reset Progress"));
+    CHECK(menuactive && find(MI_BUTTON, "Reset"));
     key(SDLK_ESCAPE);
     CHECK(find(MI_BUTTON, "Skirmish"));
 
     /* Skirmish: maps with starts; you at the first, the computer at normal on the rest. */
     key(SDLK_s);
-    list = find(MI_LIST, NULL);
+    menuitem_t *list = find(MI_LIST, NULL);
     CHECK(list && list->rows >= 5);
     int four = -1;
     for (int i = 0; i < list->rows; ++i)
@@ -235,7 +264,49 @@ static int test_front(void) {
     return 0;
 }
 
+static menuitem_t *find_text(const char *text) {
+    for (int i = 0; i < currentmenu->numitems; ++i)
+        if (strstr(currentmenu->items[i].text, text)) return &currentmenu->items[i];
+    return NULL;
+}
+
+/* The debrief (Rustfront's G_ShowOutcome): a won mission names the territory it takes, counts
+ * the battle, scores it, ranks it; Continue leaves the level for the campaign's map. */
+static int test_debrief(void) {
+    const char *map = "maps/campaign/directorate-1.txt";
+    char path[256];
+    snprintf(path, sizeof(path), "%s/%s", g_game_default_root, map);
+    P_FreeLevel(&level);
+    P_InitThinkers();
+    CHECK(G_DoLoadLevel(path, &level) && P_LoadThings(path) > 0);
+    CHECK(RF_InMission(NULL, NULL));
+    leveltime = 754 * RTS_TICRATE;                         /* 12:34 into the mission */
+    G_MissionTicker(&level, NULL, &(int){0}, NULL, RTS_TICK_MS);
+    menuleave = false;
+    G_ShowOutcome(OUTCOME_VICTORY);
+    CHECK(menuactive && find_text("Mission Accomplished") && find_text("Foothold"));
+    CHECK(find_text("Foundry Flats is taken") && find_text("12:34"));
+    CHECK(find_text("Score") && find_text("Rank") && find(MI_BUTTON, "Continue"));
+    CHECK(RF_Score(consoleplayer, true) > RF_Score(consoleplayer, false));
+    CHECK(!strcmp(RF_ScoreRank(0), "Recruit") && !strcmp(RF_ScoreRank(5000), "General"));
+    render("debrief");
+    key(SDLK_RETURN);
+    CHECK(!menuactive && menuleave);
+    menuleave = false;
+    G_ShowOutcome(OUTCOME_DEFEAT);
+    CHECK(menuactive && find_text("Mission Failed") && find_text("Foundry Flats holds out"));
+    render("debrief-lost");
+    key(SDLK_ESCAPE);
+    CHECK(!menuactive && menuleave);
+    menuleave = false;
+    P_FreeLevel(&level);
+    leveltime = 0;
+    puts("PASS: the debrief counts, scores and ranks the battle, and leaves the level");
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(test_front());
+    RTS_RUN(test_debrief());
     return 0;
 }

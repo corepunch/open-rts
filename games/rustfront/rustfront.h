@@ -60,6 +60,14 @@ void RF_Detonate(mobj_t *wrecker, mobj_t *target, int damage); /* the Wrecker */
 void RF_AegisMend(mobj_t *const *mobjs, int count);
 bool RF_ImpactInProgress(void);
 
+/* g_mission.c: what each side did this level, for the debrief (m_menu.c). Presentation only:
+ * not hashed; a loaded game counts from the load. */
+typedef struct { int built_units, built_structures, credits_earned, seconds; } rf_stats_t;
+void RF_ResetStats(void);
+const rf_stats_t *RF_Stats(int owner);
+int  RF_Score(int owner, bool won);                  /* kills, building, mining and the win, less losses */
+const char *RF_ScoreRank(int score);                     /* "Recruit" .. "General" */
+
 /* g_units.c: each faction's special units and powers, after three classic RTS games.
  *   Directorate (Dark Reign): the APC carries five soldiers (TC_BOARD, TC_UNLOAD); the Field
  *     Crane mends vehicles and structures beside it; the Phantom phases out of the world for a
@@ -227,6 +235,24 @@ void RF_DrawMarks(const unitoverlaycontext_t *ctx);
 /* g_sight.c: fog of war. Each type's sight in cells (0: sees nothing), and the fog pass. */
 int  RF_SightCells(uint16_t type);
 void RF_DrawFog(app_t *app, const level_t *map, const tileset_t *tileset);
+
+/* m_worldmap.c: the campaign's world map (art/worldmap.py), as in Dune 2000: the Rustfront cut
+ * into territories tinted by their holders as a campaign stands, the missions marked where they
+ * are fought. Winning a mission takes its territory; winning the campaign, the map. Holders:
+ * 0 none, 1 + rf_faction_id_t. Coordinates are the page's (640 x 480). */
+#define RF_WORLDMAP_W 386                                 /* the map's part of the page */
+bool RF_LoadWorldMap(const char *root);
+void RF_FreeWorldMap(void);
+bool RF_HaveWorldMap(void);
+const spritesheet_t *RF_WorldMapSheet(void);
+int  RF_TerritoryCount(void);
+const char *RF_TerritoryName(int territory);
+ivec2_t RF_TerritorySeat(int territory);
+int  RF_MissionTerritory(int faction, int index);         /* -1 without one */
+int  RF_TerritoryHolder(int faction, int territory);     /* in that faction's campaign as it stands */
+int  RF_TerritoryAt(ivec2_t page);                        /* -1 off the map */
+void RF_DrawWorldMap(irect_t view, irect_t screen, int faction, int selected_mission, const bitmapfont_t *font,
+                     uint32_t ticks_ms);
 
 /* hu_skin.c: the interface's metal skins (art/ui.py): nine-slice panels, screens and buttons. */
 typedef enum { RF_SKIN_PANEL, RF_SKIN_WELL, RF_SKIN_BUTTON, RF_SKIN_BUTTON_FOCUS, RF_SKIN_BUTTON_PRESSED,
