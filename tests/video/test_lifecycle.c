@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "t_local.h"
 
 #define CHECK(c) RTS_CHECK(c, "video lifecycle", #c)
