@@ -11,7 +11,7 @@
 /* Rustfront's catalog: every unit and structure of every faction has an actor type, a state
  * table row and a sprite; every product a cost, a build time, makers and prerequisites of its own
  * faction. OPEN_RTS_RF_CATALOG=FILE also writes the catalog as JSON for the field manual
- * (site/_data/rustfront.json). */
+ * (docs/_data/rustfront.json). */
 
 static const char *const FACTION_KEY[RF_FACTION_COUNT] = {"directorate", "clans", "concord"};
 
@@ -32,8 +32,6 @@ static void json_string(FILE *f, const char *s) {
 }
 
 static const char *label_of(int type) {
-    const StaticProductDefinition *p = G_ModelProductByUIId(NULL, type);
-    if (p) return p->label;
     const mobjtype_t *t = P_ActorType((uint16_t)type);
     return t ? t->name : "?";
 }

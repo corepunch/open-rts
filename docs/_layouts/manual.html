@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ page.description | default: site.description | escape }}">
+  <title>{{ page.title | default: 'Documentation' | escape }} · {{ site.title | escape }}</title>
+  <link rel="stylesheet" href="{{ '/assets/manual.css' | relative_url }}">
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="masthead">
+    <div class="frame bar">
+      <a class="brand" href="{{ '/' | relative_url }}">open-rts</a>
+      <a href="https://github.com/corepunch/open-rts">GitHub</a>
+    </div>
+  </header>
+  <div class="frame shell">
+    <nav aria-label="Documentation">
+      {% for section in site.data.navigation %}
+        <a class="section-link" href="{{ section.url | relative_url }}"{% if page.url == section.url %} aria-current="page"{% endif %}>{{ section.title }}</a>
+        {% if section.pages %}
+          <ul>
+            {% for item in section.pages %}
+              <li><a href="{{ item.url | relative_url }}"{% if page.url == item.url %} aria-current="page"{% endif %}>{{ item.title }}</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endfor %}
+    </nav>
+    <main id="content">
+      {{ content }}
+    </main>
+  </div>
+</body>
+</html>

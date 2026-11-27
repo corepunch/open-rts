@@ -1,0 +1,20 @@
+- title: Home
+  url: /
+- title: Engine architecture
+  url: /engine/
+  pages:
+    - title: Adding a game
+      url: /engine/adding-a-game/
+    - title: Rustfront map authoring
+      url: /engine/rustfront-maps/
+- title: Rustfront field manual
+  url: /rustfront/
+  pages:
+    - title: Campaigns and maps
+      url: /rustfront/modes/
+    - title: Directorate
+      url: /rustfront/directorate/
+    - title: Scrap Clans
+      url: /rustfront/clans/
+    - title: Lumen Concord
+      url: /rustfront/concord/

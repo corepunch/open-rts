@@ -1,0 +1,10 @@
+title: open-rts
+description: Engine documentation and the Rustfront field manual
+url: https://corepunch.github.io
+baseurl: /open-rts
+markdown: kramdown
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: manual

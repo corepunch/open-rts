@@ -1,0 +1,59 @@
+hq: Place Directorate structures, supply starter power, and detect mines near the base.
+power: Expand your power supply before adding production or defenses.
+refinery: Turn ore into credits. Completing one provides an Ore Harvester.
+barracks: Train Riflemen and Rocket Soldiers and unlock Gun Turrets.
+factory: Build the Directorate's vehicles, support units, and aircraft.
+turret: Cover a ground approach and reveal nearby mines.
+scout: Reveal routes and ore fields, intercept light targets, and screen against aircraft.
+tank: Hold the ground line while your longer-range weapons fire from behind it.
+artillery: Shell defended positions from behind a spotter.
+harvester: Mine ore and return it to a friendly Ore Refinery.
+apc: Carry up to five infantry and use the mounted gun to engage ground or air targets.
+rifleman: Field affordable infantry to screen vehicles and pressure light targets.
+rocket: Bring ranged fire against armour and aircraft.
+mastodon: Lead an armoured push with a two-shell heavy volley.
+uplink: Unlock the Hammer siege launcher and Kestrel gunship.
+hammer: Use a spotter to fire paired missiles from long range. Keep threats outside its minimum range.
+crane: Follow an armoured column or stay behind base defenses to repair vehicles and structures.
+phantom: Lead a push when its phase is charged, then withdraw while it recharges.
+kestrel: Cross cliffs or water to strike ground targets with paired rockets.
+sentry_truck: Move a defensive emplacement into position and deploy it to engage.
+sentry: Detect mines and cover ground and air targets. Pack up to move again.
+cl_hall: Place Clan structures, supply starter power, and detect mines near the base.
+cl_generator: Supply power to the Clan economy and defenses.
+cl_smelter: Cash in ore. Completing one provides a Scrap Hauler.
+cl_camp: Train Raiders, Torchers, and Sappers and unlock Spike Towers.
+cl_yard: Build the Clan vehicle roster, including heavy armour and mobile siege.
+cl_tower: Cover approaches to the base and reveal nearby mines.
+cl_trike: Scout early and raid exposed light targets or harvesters.
+cl_truck: Bring rapid machine-gun fire to a mobile raiding force.
+cl_crawler: Back up lighter raiders with an armoured frontline vehicle.
+cl_rig: Launch three rockets at a time from behind the front line.
+cl_hauler: Gather ore from fields or friendly Derricks and return it to a Smelter.
+cl_raider: Use affordable infantry for early pressure and screening.
+cl_torcher: Close the distance to bring flame damage to bear.
+cl_shop: Unlock the Wrecker demolition vehicle and Buzzard bomber.
+cl_wrecker: Send it into a target to detonate. Keep it alive until impact for maximum damage.
+cl_drill: Deploy on a clear patch away from ore fields to create a friendly ore source.
+cl_derrick: Mine its private deposit with friendly Scrap Haulers.
+cl_sapper: Hold outside a likely enemy route to lay hidden mines.
+cl_mine: Ambush ground units that cross it. Enemy detectors can reveal it.
+cl_crusher: Run over infantry and ram ground targets.
+cl_buzzard: Fly over ground obstacles and drop explosive drums on groups below.
+lc_spire: Place Concord structures, detect mines near the base, and draw Rites over time.
+lc_fusion: Supply power for the Concord's economy and defenses.
+lc_extractor: Refine ore. Completing one provides a Hover Harvester.
+lc_academy: Train Wardens, Lancers, and Cantors and unlock Beam Towers.
+lc_foundry: Build the Concord's vehicles, support craft, and aircraft.
+lc_tower: Defend approaches with beam fire and reveal nearby mines.
+lc_skimmer: Scout ahead of the army and intercept aircraft.
+lc_glaive: Screen the Concord's support units and siege weapons with armour.
+lc_prism: Fire a heavy beam that splashes ground targets.
+lc_harvester: Gather ore and return it to a friendly Extractor.
+lc_warden: Hold the infantry line ahead of Lancers and Cantors.
+lc_lancer: Support the line with long-range infantry fire.
+lc_sanctum: Unlock the Aegis support vehicle and the Seraph aircraft.
+lc_aegis: Reduce incoming damage inside its aura and repair nearby friendly vehicles.
+lc_strider: Target a group so its arc can jump from the first target to a nearby enemy.
+lc_seraph: Attack ground or air targets from above ground obstacles.
+lc_cantor: Detect hidden enemies and heal injured friendly infantry.

@@ -21,7 +21,7 @@ rebuilding a period-correct machine or an abandoned network stack.
 
 The [documentation site](https://corepunch.github.io/open-rts/) covers the
 engine architecture, adding a game, and the complete Rustfront roster. Its
-Markdown source is in [site/](site/).
+Markdown source is in [docs/](docs/).
 
 Contributors are very welcome. If you'd like to playtest, report a bug, or
 help with the code or documentation, we'd love to hear from you.
