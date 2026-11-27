@@ -50,6 +50,25 @@ static int check_mission(int faction, int index) {
     return 0;
 }
 
+static int check_mission_save(void) {
+    RtsGameModel *model = load_mission(RF_CONCORD, 1);
+    if (!model) return 1;
+    CCHECK(ticks(model, RTS_TICRATE), "advance the mission");
+    int elapsed = RF_MissionElapsedMs();
+    app_t app = {0};
+    hudtext_t hud = {0};
+    AiContext *ai = rts_game_model_ai(model);
+    void *save = NULL;
+    size_t size = 0;
+    CCHECK(elapsed > 0 && G_SaveGameBlob(&save, &size, "Shard Recovery", &app, ai, &hud), "save the mission");
+    CCHECK(ticks(model, RTS_TICRATE) && RF_MissionElapsedMs() > elapsed, "advance beyond the save");
+    bool loaded = G_LoadGameBlob(save, size, &app, ai, &hud);
+    free(save);
+    CCHECK(loaded && RF_MissionElapsedMs() == elapsed, "restore the campaign clock");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 static int check_progress(void) {
     snprintf(mission_name, sizeof(mission_name), "progress");
     CCHECK(RF_CampaignResetProgress(), "cannot write campaign.txt");
@@ -93,6 +112,7 @@ int main(void) {
     campaign_user_dir();
     for (int f = 0; f < RF_FACTION_COUNT; ++f)
         for (int i = 0; i < RF_CAMPAIGN_MISSIONS; ++i) RTS_RUN(check_mission(f, i));
+    RTS_RUN(check_mission_save());
     RTS_RUN(check_progress());
     RTS_RUN(check_skirmish());
     puts("PASS: fifteen missions load with their objectives, tech limits and briefings; progress is kept");

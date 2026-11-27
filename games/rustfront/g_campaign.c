@@ -683,7 +683,10 @@ unsigned G_LevelObjectives(mobj_t *const *units, int count) {
 /* ── saved games ───────────────────────────────────────────────────────── */
 
 size_t RF_CampaignSaveSize(void) { return def.active ? sizeof(run) : 0; }
-void RF_CampaignSave(void *out) { memcpy(out, &run, sizeof(run)); }
+void RF_CampaignSave(void *out) {
+    size_t size = RF_CampaignSaveSize();
+    if (size) memcpy(out, &run, size);
+}
 bool RF_CampaignLoad(const void *data, size_t size) {
     if (!size) return true;
     if (size != sizeof(run) || !def.active) return false;
