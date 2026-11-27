@@ -55,7 +55,7 @@ static bool visible(const mobj_t *mo, int team) {
     return team == 0;
 }
 
-static bool cone(int dir, ivec2_t d) {
+bool Z_InScanSector(int dir, ivec2_t d) {
     switch (dir) {
     case 0: return abs(d.x) <= -d.y;
     case 1: return d.x >= 0 && d.y < 0;
@@ -168,7 +168,7 @@ static mobj_t *candidate(const zmap_t *map, const mobj_t *unit, mobj_t *const *s
                 (pos.x >> 7) + 16 * (pos.y >> 7) != s) continue;
             if (++count > 32) break;
             ivec2_t delta = ivec2_sub(pos, at);
-            if (!visible(mo, unit->team) || !cone(dir, delta)) continue;
+            if (!visible(mo, unit->team) || !Z_InScanSector(dir, delta)) continue;
             int dx = (int8_t)(delta.x >> 3), dy = (int8_t)(delta.y >> 3);
             int index = dx * dx + dy * dy;
             int rank = index < 1024 ? map->square_roots.bytes[index] : 48;

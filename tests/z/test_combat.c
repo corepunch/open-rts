@@ -523,6 +523,7 @@ static int test_apc_driver_cooldown(void) {
     mobj_t *apc = blast_unit(MT_UNIT_APC, 0, at, 500);
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC cooldown fixture");
+    scan_target(target);
     apc->attack.target = target;
     apc->z.body_tracked = true; apc->z.body_fire = 1;
     P_UpdateSight();
@@ -530,6 +531,7 @@ static int test_apc_driver_cooldown(void) {
         apc->z.driver = drivers[i].type - MT_UNITS + 1;
         apc->z.crew_count = 1;
         apc->z.crew[0] = (zcrew_t){.hp = 30, .type = drivers[i].type - MT_UNITS};
+        apc->attack.cooldown_left_ms = 0;
         if (!P_Attack(apc) || apc->attack.cooldown_left_ms != drivers[i].steps * 1000 / Z_NATIVE_HZ)
             return fail("APC reload uses driver rate plus half");
     }
@@ -1318,6 +1320,7 @@ static int test_flame_fire_truck(void) {
     mobj_t *control = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 16), 500);
     if (!control) return fail("spawn Fire Truck control");
     scan_target(control); /* the truck leaves the scan, so this is what the salvo aims at */
+    P_UpdateSight();
     if (!Z_Attack(apc, &apc->info->attack, control) || control->hp != 500)
         return fail("APC flame travels instead of hitting immediately");
     for (int t = 0; t < 400 && control->hp == 500; ++t)
@@ -1344,6 +1347,7 @@ static int test_apc_pyro_phase(void) {
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC Pyro fixture");
     scan_target(target);
+    P_UpdateSight();
     apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
     apc->z.crew_count = 3;
     uint32_t apc_id = apc->id, target_id = target->id;
@@ -1415,6 +1419,7 @@ static int test_apc_scanner_pyro(void) {
     mobj_t *target = blast_unit(MT_UNIT_GRUNT, 1, pixel_at(at, 16, 0), 5000);
     if (!apc || !target) return fail("spawn APC scanner fixture");
     scan_target(target);
+    P_UpdateSight();
     disarm_except(0, apc);
     apc->core.angle = P_PointToAngle(0, -FIXED_ONE);
     apc->z.driver = MT_UNIT_PYRO - MT_UNITS + 1;
@@ -1428,6 +1433,7 @@ static int test_apc_scanner_pyro(void) {
     for (int s = 0; s < 4; ++s) {
         clear_flames();
         target->core.position = fixed3_from_fixed2(pixel_at(at, sectors[s].x, sectors[s].y), 0);
+        P_UpdateSight();
         for (int i = 0; i < 3; ++i) apc->z.crew[i].flame_phase = 0;
         if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3)
             return fail("scanner salvo fires one flame per crew member from its group's ports");
@@ -1441,6 +1447,7 @@ static int test_apc_scanner_pyro(void) {
      * flames, and the fourth member's phase advances but not the fifth's. */
     clear_flames();
     target->core.position = fixed3_from_fixed2(pixel_at(at, 16, 0), 0);
+    P_UpdateSight();
     apc->z.crew_count = 5;
     for (int i = 0; i < 5; ++i) apc->z.crew[i].flame_phase = 0;
     if (!Z_Attack(apc, &apc->info->attack, target) || flames_at(starts, 16) != 3 ||
