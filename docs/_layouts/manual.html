@@ -30,6 +30,9 @@
     </nav>
     <main id="content">
       {{ content }}
+      {% if page.roster %}
+        {% include roster.html faction=page.roster %}
+      {% endif %}
     </main>
   </div>
 </body>

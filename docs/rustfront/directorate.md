@@ -1,6 +1,7 @@
 ---
 title: Directorate
 permalink: /rustfront/directorate/
+roster: directorate
 ---
 
 # Directorate
@@ -16,5 +17,3 @@ The Directorate combines conventional armour with transport, repair, and long-ra
 - The **Field Crane** is unarmed and repairs the most damaged friendly vehicle or structure within two cells, at 30 HP per second for vehicles or 60 for structures.
 - The **Phantom** phases for three seconds when hit with its ability ready. While phased it cannot be targeted, damaged, or fire. The phase ability has a 20-second recharge.
 - **Deploy** converts the **Sentry Truck** into a **Sentry Post**, an anti-air machine-gun emplacement and detector. **Pack Up** converts it back to a truck.
-
-{% include roster.html faction="directorate" %}

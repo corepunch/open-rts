@@ -1,6 +1,7 @@
 ---
 title: Lumen Concord
 permalink: /rustfront/concord/
+roster: concord
 ---
 
 # Lumen Concord
@@ -25,5 +26,3 @@ A Spire deals a card every 105 seconds into a hand that holds up to three. Play 
 | Mending | Friendly units within three cells recover one third of maximum HP. Structures recover one fifth. |
 | Windfall | Adds 200 credits |
 | Warding | Friendly units within three cells take half damage for five seconds |
-
-{% include roster.html faction="concord" %}

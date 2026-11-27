@@ -1,6 +1,7 @@
 ---
 title: Scrap Clans
 permalink: /rustfront/clans/
+roster: clans
 ---
 
 # Scrap Clans
@@ -14,5 +15,3 @@ The Clans field fast, low-cost raiders and scrap-built vehicles. Use early attac
 - The **Chop Shop** unlocks the **Wrecker** and **Buzzard**. A Wrecker drives into a target and detonates for 500 base damage, with half damage to other enemies within two cells. A Wrecker destroyed en route still explodes for reduced damage. The Buzzard drops splashing explosive drums on ground targets.
 - **Deploy** turns a **Drill Rig** into a **Derrick** on clear 2 × 2 ground away from ore fields. It holds 6,000 ore reserved for its own side's haulers.
 - A stationary **Sapper** holding ground lays a **Mine** after six seconds. The cap is 16 per side and mines need 1.5 cells of spacing. A ground enemy that crosses a mine takes 180 damage, with 90 splash damage to nearby enemies. A detector can reveal the mine.
-
-{% include roster.html faction="clans" %}
