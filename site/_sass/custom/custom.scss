@@ -1,0 +1,59 @@
+.site-title {
+  font-weight: 750;
+}
+
+.main-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.manual-hero {
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.catalog-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1rem;
+  margin-block: 1rem 2rem;
+}
+
+.catalog-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  background: $sidebar-color;
+
+  h3 {
+    margin: 0.6rem 0 0.8rem;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    object-fit: contain;
+    background: $body-background-color;
+    border-radius: 4px;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.7rem;
+    row-gap: 0.2rem;
+    margin: 0;
+  }
+
+  dt {
+    font-weight: 600;
+  }
+
+  dd {
+    min-width: 0;
+    margin: 0;
+  }
+}

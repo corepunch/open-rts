@@ -29,7 +29,7 @@ data/<game>/  original game assets and scenario files
 
 Each game is its own binary. The engine is statically linked with exactly one
 `games/<id>/` directory, and `make` builds `build/bin/dark-colony`, `dark-reign`,
-`7legion`, `kknd`, `warcraft-2` and `starcraft` from the same shared sources. There
+`7legion`, `kknd`, `warcraft-2`, `starcraft`, `z`, and `rustfront` from the same shared sources. There
 is no `--game` flag, no dynamic loading and no registry of games. A game is
 the set of functions and tables the engine links against: `G_DoLoadLevel`,
 `P_LoadThings`, `gameinfo_t`, `g_ruleset`, and the weak hooks declared in
@@ -54,8 +54,8 @@ State[]            animation/action graph
 
 ### `ActorType[]`: gameplay configuration
 
-Each game defines an `ActorType` table in its game implementation (the C
-type is `actortype_t`). A row is the authoritative runtime configuration for a
+Each game provides actor definitions in its game implementation (the C
+type is `mobjtype_t`). A row is the authoritative runtime configuration for a
 type: numeric ID, name, base sprite/shadow, traits, speed, hit points, attack
 range/damage/cooldowns, death timing, harvester state, and effect names.
 
@@ -239,23 +239,18 @@ Y-axis convention through `RTS_WORLD_Y_UP`.
 Source coordinates remain native; `L_ScreenY*`/`L_WorldYF` convert only at
 rendering and input boundaries.
 
-### `mobj_t` and `effect_t`: simulation objects
+### `mobj_t`: simulation objects
 
-`mobj_t` is a live actor and owns gameplay state, orders, timers, production
-state, and a fixed-capacity path. `effect_t` is a transient visual object: it
-shares the state/render core (fixed position, momentum, facing, state, frame,
-offsets, remap, and intensity) but adds active/lifetime policy instead of actor
-gameplay. `mobjcore_t.position` and `momentum` are `fixed3_t`: each axis is a
-signed 32-bit 16.16 value. Game-native formats such as Dark Colony's signed
-16-bit 8.8 object coordinates are converted at the loader boundary. Effects are
-stored in a bounded pool and may spawn a finishing decoration; they are not
-selectable, movable, attackable actors and should not be added to `mobj_t`.
+`mobj_t` stores live actors, projectiles, and transient effects on the
+`thinkercap` list. Combat units also own their orders, production state, and
+fixed-capacity paths. `mobjcore_t.position` and `momentum` are `fixed3_t`, with
+signed 32-bit 16.16 values per axis. The loader converts native coordinates
+such as Dark Colony's signed 16-bit 8.8 coordinates at the boundary.
 
-State transitions are the common bridge: `P_SetMobjState` and effect state entry
-apply the selected frame and action, while `P_Ticker` advances actors and
-`P_UpdateEffects` advances transient effects. Actor removal uses swap-compaction;
-effect slots are likewise reusable, so retain IDs or authored references rather
-than pointers or array positions across a tick.
+`P_Ticker` advances the thinkers and `P_SetMobjState` applies the selected
+frame and action. Short-lived effects end through their state chains. Each
+object has a stable address until deferred thinker removal reclaims it. Use
+object IDs in commands and snapshots.
 
 ### `RtsGameModel`, commands, events, and snapshots
 
